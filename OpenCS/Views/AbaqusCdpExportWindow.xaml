@@ -5,6 +5,9 @@
         Title="{DynamicResource AbaqusCdpExportTitle}"
         Width="1280" Height="780" MinWidth="980" MinHeight="600"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="390" />
@@ -59,11 +62,34 @@
                     <TextBox Text="{Binding CustomLengthUnitText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,4" />
                     <TextBlock Text="{DynamicResource AbaqusCdpCustomForceUnit}" />
                     <TextBox Text="{Binding CustomForceUnitText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,4" />
-                    <TextBlock Text="{DynamicResource AbaqusCdpCustomEnergyUnit}" />
-                    <TextBlock Text="{Binding CustomEnergyUnitText}" Margin="0,2,0,4" />
+                    <StackPanel Visibility="{Binding IsConcrete, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource AbaqusCdpCustomEnergyUnit}" />
+                        <TextBlock Text="{Binding CustomEnergyUnitText}" Margin="0,2,0,4" />
+                    </StackPanel>
                 </StackPanel>
 
                 <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="55" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource AbaqusCdpElasticModulus}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ElasticModulusText}" IsReadOnly="True" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding StressUnitText}" Margin="5,3,0,0" />
+                    <TextBlock Grid.Row="1" Text="{DynamicResource AbaqusCdpPoissonRatio}" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PoissonRatioText, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+
+                <CheckBox Content="{DynamicResource AbaqusSteelYieldPlateau}" IsChecked="{Binding HasYieldPlateau}"
+                          Margin="0,6,0,0"
+                          Visibility="{Binding IsStructuralSteel, Converter={StaticResource BoolToVisibility}}" />
+
+                <Grid Visibility="{Binding IsConcrete, Converter={StaticResource BoolToVisibility}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="110" />
@@ -79,36 +105,30 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="{DynamicResource AbaqusCdpElasticModulus}" />
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ElasticModulusText}" IsReadOnly="True" />
-                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding StressUnitText}" Margin="5,3,0,0" />
-                    <TextBlock Grid.Row="1" Text="{DynamicResource AbaqusCdpPoissonRatio}" />
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PoissonRatioText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="2" Text="{DynamicResource AbaqusCdpDilationAngle}" />
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DilationAngleText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="3" Text="{DynamicResource AbaqusCdpEccentricity}" />
-                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EccentricityText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="4" Text="{DynamicResource AbaqusCdpFb0Fc0}" />
-                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Fb0Fc0Text, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="5" Text="{DynamicResource AbaqusCdpK}" />
-                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding KcText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="6" Text="{DynamicResource AbaqusCdpViscosity}" />
-                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ViscosityText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="7" Text="{DynamicResource AbaqusCdpFractureEnergy}" />
-                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding FractureEnergyText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="7" Grid.Column="2" Text="{Binding EnergyUnitText}" Margin="5,3,0,0" />
-                    <TextBlock Grid.Row="8" Text="{DynamicResource AbaqusCdpElementLength}" />
-                    <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ElementLengthText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="8" Grid.Column="2" Text="{Binding LengthUnitText}" Margin="5,3,0,0" />
-                    <TextBlock Grid.Row="9" Text="{DynamicResource AbaqusCdpInitialCompressionRatio}" />
-                    <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding InitialCompressionStressRatioText, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Grid.Row="10" Text="{DynamicResource AbaqusCdpCompressionEtaMin}" />
-                    <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding CompressionEtaMinText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="0" Text="{DynamicResource AbaqusCdpDilationAngle}" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DilationAngleText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="1" Text="{DynamicResource AbaqusCdpEccentricity}" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EccentricityText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="2" Text="{DynamicResource AbaqusCdpFb0Fc0}" />
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Fb0Fc0Text, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="3" Text="{DynamicResource AbaqusCdpK}" />
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding KcText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="4" Text="{DynamicResource AbaqusCdpViscosity}" />
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ViscosityText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="5" Text="{DynamicResource AbaqusCdpFractureEnergy}" />
+                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding FractureEnergyText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding EnergyUnitText}" Margin="5,3,0,0" />
+                    <TextBlock Grid.Row="6" Text="{DynamicResource AbaqusCdpElementLength}" />
+                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ElementLengthText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="6" Grid.Column="2" Text="{Binding LengthUnitText}" Margin="5,3,0,0" />
+                    <TextBlock Grid.Row="7" Text="{DynamicResource AbaqusCdpInitialCompressionRatio}" />
+                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding InitialCompressionStressRatioText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Row="8" Text="{DynamicResource AbaqusCdpCompressionEtaMin}" />
+                    <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding CompressionEtaMinText, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
                 <TextBlock Text="{Binding SourceText}" Foreground="Gray" TextWrapping="Wrap" Margin="0,8,0,0" />
+                <TextBlock Text="{Binding WarningsText}" Foreground="DarkGoldenrod" TextWrapping="Wrap" Margin="0,8,0,0" />
             </StackPanel>
         </ScrollViewer>
 

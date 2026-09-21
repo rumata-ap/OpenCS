@@ -25,7 +25,8 @@ public sealed class AbaqusCdpExportResourcesTests
         "AbaqusCdpNotConcrete", "AbaqusCdpProfileMpaMmN", "AbaqusCdpProfileKpaMKN",
         "AbaqusCdpProfilePaMN", "AbaqusCdpProfileCustom", "AbaqusCdpCustomStressScale",
         "AbaqusCdpCustomStressUnit", "AbaqusCdpCustomLengthUnit",
-        "AbaqusCdpCustomForceUnit", "AbaqusCdpCustomEnergyUnit"
+        "AbaqusCdpCustomForceUnit", "AbaqusCdpCustomEnergyUnit",
+        "AbaqusSteelExportTitle", "AbaqusSteelYieldPlateau", "AbaqusSteelSource"
     ];
 
     [Fact]

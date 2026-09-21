@@ -86,7 +86,7 @@ namespace OpenCS
          if (sender is not MenuItem menuItem || menuItem.CommandParameter is not Material material)
             return;
 
-         if (material.Type != MatType.Concrete)
+         if (material.Type is not (MatType.Concrete or MatType.Steel or MatType.ReSteelF or MatType.ReSteelU))
          {
             MessageBox.Show(this, Loc.S("AbaqusCdpNotConcrete"),
                Loc.S("AbaqusCdpExportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);

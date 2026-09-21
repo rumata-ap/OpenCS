@@ -12,7 +12,10 @@ namespace OpenCS.ViewModels;
 /// <summary>Подпись элемента выбора в окне экспорта Abaqus CDP.</summary>
 public sealed record AbaqusCdpChoice<T>(T Value, string Label);
 
-/// <summary>ViewModel окна подготовки и копирования бетонного Abaqus CDP.</summary>
+/// <summary>
+/// ViewModel окна подготовки и копирования материала Abaqus: CDP для бетона,
+/// *Elastic + *Plastic для стали и арматуры (режим выбирается по типу материала).
+/// </summary>
 public sealed class AbaqusCdpExportVM : ViewModelBase
 {
     readonly ITextClipboardService clipboard;
@@ -39,13 +42,21 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
     string tsvText = "";
     string errorText = "";
     string elasticModulusText = "";
+    string warningsText = "";
+    bool hasYieldPlateau = true;
 
     /// <summary>Создаёт ViewModel для выбранного материала.</summary>
     public AbaqusCdpExportVM(Material material, ITextClipboardService clipboard)
     {
         Material = material ?? throw new ArgumentNullException(nameof(material));
         this.clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
-        materialName = string.IsNullOrWhiteSpace(material.Tag) ? "Concrete-CDP" : material.Tag;
+        IsSteel = material.Type is MatType.Steel or MatType.ReSteelF or MatType.ReSteelU;
+        materialName = string.IsNullOrWhiteSpace(material.Tag)
+            ? IsSteel ? "Steel-Plastic" : "Concrete-CDP"
+            : material.Tag;
+        if (IsSteel)
+            poissonRatioText = "0.3";
+        SourceText = Loc.S(IsSteel ? "AbaqusSteelSource" : "AbaqusCdpSourceEkb");
 
         CalcTypes = new ReadOnlyCollection<AbaqusCdpChoice<CalcType>>
         ([
@@ -73,6 +84,31 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
 
     /// <summary>Материал OpenCS, из которого строятся кривые.</summary>
     public Material Material { get; }
+
+    /// <summary>Режим стали/арматуры (*Plastic) вместо бетонного CDP.</summary>
+    public bool IsSteel { get; }
+
+    /// <summary>Режим бетонного CDP.</summary>
+    public bool IsConcrete => !IsSteel;
+
+    /// <summary>Конструкционная сталь: доступен выбор диаграммы СП 16 с площадкой или без.</summary>
+    public bool IsStructuralSteel => Material.Type == MatType.Steel;
+
+    /// <summary>Площадка текучести в диаграмме СП 16.</summary>
+    public bool HasYieldPlateau
+    {
+        get => hasYieldPlateau;
+        set
+        {
+            if (hasYieldPlateau == value) return;
+            hasYieldPlateau = value;
+            OnPropertyChanged();
+            Rebuild();
+        }
+    }
+
+    /// <summary>Предупреждения об упрощениях при переносе диаграммы стали.</summary>
+    public string WarningsText { get => warningsText; private set { warningsText = value; OnPropertyChanged(); } }
 
     /// <summary>Доступные виды расчёта.</summary>
     public IReadOnlyList<AbaqusCdpChoice<CalcType>> CalcTypes { get; }
@@ -228,8 +264,8 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
     /// <summary>Сообщение об ошибке входных данных или Clipboard.</summary>
     public string ErrorText { get => errorText; private set { errorText = value; OnPropertyChanged(); } }
 
-    /// <summary>Источник compression/tension-кривых.</summary>
-    public string SourceText { get; } = Loc.S("AbaqusCdpSourceEkb");
+    /// <summary>Источник кривых материала.</summary>
+    public string SourceText { get; }
 
     /// <summary>Начальный модуль в единицах выбранного профиля.</summary>
     public string ElasticModulusText { get => elasticModulusText; private set { elasticModulusText = value; OnPropertyChanged(); } }
@@ -260,35 +296,55 @@ public sealed class AbaqusCdpExportVM : ViewModelBase
 
         try
         {
-            var options = BuildOptions();
-            var data = AbaqusCdpCurveGenerator.Generate(Material, options);
-            KeywordText = AbaqusCdpKeywordSerializer.ToKeyword(data);
-            TsvText = AbaqusCdpKeywordSerializer.ToTsv(data);
-            ElasticModulusText = Format(data.ElasticModulus);
+            var unitSystem = BuildUnitSystem();
+            if (IsSteel)
+            {
+                var data = AbaqusSteelCurveGenerator.Generate(Material, BuildSteelOptions(unitSystem));
+                KeywordText = AbaqusSteelKeywordSerializer.ToKeyword(data);
+                TsvText = AbaqusSteelKeywordSerializer.ToTsv(data);
+                ElasticModulusText = Format(data.ElasticModulus);
+                WarningsText = string.Join(Environment.NewLine, data.Warnings);
+            }
+            else
+            {
+                var data = AbaqusCdpCurveGenerator.Generate(Material, BuildOptions(unitSystem));
+                KeywordText = AbaqusCdpKeywordSerializer.ToKeyword(data);
+                TsvText = AbaqusCdpKeywordSerializer.ToTsv(data);
+                ElasticModulusText = Format(data.ElasticModulus);
+            }
             ErrorText = "";
-            UpdateUnitLabels(options.UnitSystem);
+            UpdateUnitLabels(unitSystem);
         }
         catch (ArgumentException)
         {
             KeywordText = "";
             TsvText = "";
             ElasticModulusText = "";
+            WarningsText = "";
             ErrorText = Loc.S("AbaqusCdpInvalidInput");
         }
         CommandManager.InvalidateRequerySuggested();
     }
 
-    AbaqusCdpOptions BuildOptions()
-    {
-        var unitSystem = SelectedUnitProfile == AbaqusCdpUnitProfile.Custom
-            ? AbaqusCdpUnitSystem.Custom(
-                customStressUnitText,
-                customLengthUnitText,
-                customForceUnitText,
-                Parse(CustomStressScaleText, nameof(CustomStressScaleText)))
-            : AbaqusCdpOptions.ForProfile(
-                SelectedUnitProfile, canonicalFractureEnergyNPerMm, canonicalElementLengthMm).UnitSystem;
+    AbaqusCdpUnitSystem BuildUnitSystem() => SelectedUnitProfile == AbaqusCdpUnitProfile.Custom
+        ? AbaqusCdpUnitSystem.Custom(
+            customStressUnitText,
+            customLengthUnitText,
+            customForceUnitText,
+            Parse(CustomStressScaleText, nameof(CustomStressScaleText)))
+        : AbaqusCdpUnitSystem.ForProfile(SelectedUnitProfile);
 
+    AbaqusSteelOptions BuildSteelOptions(AbaqusCdpUnitSystem unitSystem) => new()
+    {
+        CalcType = SelectedCalcType,
+        UnitSystem = unitSystem,
+        PoissonRatio = Parse(PoissonRatioText, nameof(PoissonRatioText)),
+        MaterialName = MaterialName,
+        HasYieldPlateau = HasYieldPlateau
+    };
+
+    AbaqusCdpOptions BuildOptions(AbaqusCdpUnitSystem unitSystem)
+    {
         return new AbaqusCdpOptions
         {
             CalcType = SelectedCalcType,
