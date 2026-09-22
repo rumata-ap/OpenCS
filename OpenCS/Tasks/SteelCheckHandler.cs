@@ -133,7 +133,7 @@ public class SteelCheckHandler : ITaskHandler
                 Type = MatType.Steel,
                 E = E,
                 Tag = steelMat.Tag,
-                materialChars = [.. steelMat.materialChars]
+                MaterialChars = [.. steelMat.MaterialChars]
             }
         };
     }

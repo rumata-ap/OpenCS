@@ -11,11 +11,11 @@ public static class SteelCheckerTests
         // Двутавр 30Б1
         var section = SteelSection.FromIBeam(0.300, 0.126, 0.0064, 0.0108);
         // Сталь С245: fy = 245e6 Па
-        section.Steel.materialChars.Add(new MaterialChars(CalcType.C)
+        section.Steel.C = new MaterialChars(CalcType.C)
         {
             Ry = 245e6,
             Ru = 360e6
-        });
+        };
 
         // Усилие: N = -500 кН (сжатие)
         var forces = new InternalForces

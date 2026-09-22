@@ -88,8 +88,9 @@ namespace CScore
 
       /// <summary>
       /// Список характеристик материала по видам расчёта.
-      /// При установке значения с 4 элементами автоматически заполняет
-      /// словарь <see cref="chars"/> ключами C, CL, N, NL.
+      /// При установке заново заполняет словарь <see cref="chars"/> по <c>TypeCalc</c>
+      /// элементов — словарь всегда отражает переданный список, сколько бы в нём ни было
+      /// элементов.
       /// </summary>
       [JsonIgnore] public List<MaterialChars> MaterialChars
       {
@@ -97,16 +98,9 @@ namespace CScore
          set
          {
             materialChars = value;
-            if (value.Count == 4)
-            {
-               foreach (var item in value)
-               {
-                  if (item.TypeCalc == CalcType.C) chars[CalcType.C] = item;
-                  else if (item.TypeCalc == CalcType.CL) chars[CalcType.CL] = item;
-                  else if (item.TypeCalc == CalcType.N) chars[CalcType.N] = item;
-                  else chars[CalcType.NL] = item;
-               }
-            }
+            chars.Clear();
+            foreach (var item in value)
+               chars[item.TypeCalc] = item;
          }
       }
 
@@ -116,12 +110,7 @@ namespace CScore
       /// </summary>
       public MaterialChars? C
       {
-         get
-         {
-            foreach (var item in materialChars)
-               if (item.TypeCalc == CalcType.C) return item;
-            return null;
-         }
+         get => GetChars(CalcType.C);
          set
          {
             if (value == null) return;
@@ -140,12 +129,7 @@ namespace CScore
       /// </summary>
       public MaterialChars? CL
       {
-         get
-         {
-            foreach (var item in materialChars)
-               if (item.TypeCalc == CalcType.CL) return item;
-            return null;
-         }
+         get => GetChars(CalcType.CL);
          set
          {
             if (value == null) return;
@@ -164,14 +148,9 @@ namespace CScore
        /// </summary>
        public MaterialChars? N
       {
-         get
+         get => GetChars(CalcType.N);
+         set
          {
-            foreach (var item in materialChars)
-               if (item.TypeCalc == CalcType.N) return item;
-         return null;
-          }
-          set
-          {
             if (value == null) return;
             var clone = value.Clone();
             clone.TypeCalc = CalcType.N;
@@ -188,12 +167,7 @@ namespace CScore
       /// </summary>
       public MaterialChars? NL
       {
-         get
-         {
-            foreach (var item in materialChars)
-               if (item.TypeCalc == CalcType.NL) return item;
-            return null;
-         }
+         get => GetChars(CalcType.NL);
          set
          {
             if (value == null) return;
@@ -206,10 +180,11 @@ namespace CScore
          }
       }
 
-      /// <summary>Характеристики материала для заданного вида расчёта. Читает напрямую из
-      /// внутреннего словаря <see cref="chars"/> — так же, как <see cref="GetDiagramms"/> — а не
-      /// из свойств C/CL/N/NL, чьи сеттеры не всегда синхронизируют список materialChars
-      /// (обновляют существующий элемент по индексу, но не добавляют новый).</summary>
+      /// <summary>Характеристики материала для заданного вида расчёта из внутреннего словаря
+      /// <see cref="chars"/> — так же, как <see cref="GetDiagramms"/>; через него же читают
+      /// свойства C/CL/N/NL. Список materialChars их сеттеры синхронизируют не всегда
+      /// (обновляют существующий элемент, но не добавляют новый), поэтому источник истины —
+      /// словарь.</summary>
       public MaterialChars? GetChars(CalcType calc) => chars.TryGetValue(calc, out var value) ? value : null;
 
       /// <summary>
