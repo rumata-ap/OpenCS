@@ -16,6 +16,12 @@ public sealed class ShellCrackingResult
     /// продольной силы.</summary>
     public double MomentFactor { get; init; }
 
+    /// <summary>true — поиск остановлен тем, что бетон на грани дошёл до ε_bt,ult (трещина).
+    /// false — раньше исчерпалось равновесие сечения (сильно обжатая стена: бетон раздавливается
+    /// до того, как грань растянется до предела); тогда <see cref="MomentFactor"/> — множитель
+    /// потери равновесия, трещин до него нет.</summary>
+    public bool CrackingReached { get; init; } = true;
+
     public bool Converged { get; init; }
 
     /// <summary>НДС непосредственно ПЕРЕД образованием трещины: растянутый бетон ещё работает
@@ -69,14 +75,20 @@ public sealed class ShellCrackingSolver
     readonly double? _epsTensionLimitOverride;
     readonly double _bisectTol;
     readonly int _bisectMaxIter;
+    readonly double _solverTolRes;
 
+    /// <param name="solverTolRes">Допуск по невязке решений НДС внутри поиска (относительно
+    /// 1 + ‖S‖). Штатный 1e-3 для поиска порога слишком груб: у стены норму усилий задаёт
+    /// большое Ny, и допуск выходит в единицы процентов от момента — решение со старта в
+    /// соседней точке принимается без единой итерации, и порог «уплывает» на размер допуска.</param>
     public ShellCrackingSolver(
         PlateSection section,
         Diagramm cDiag,
         Diagramm rDiag,
         double? epsTensionLimit = null,
         double bisectTol = 1e-6,
-        int bisectMaxIter = 60)
+        int bisectMaxIter = 60,
+        double solverTolRes = 1e-7)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _cDiag = cDiag ?? throw new ArgumentNullException(nameof(cDiag));
@@ -84,6 +96,7 @@ public sealed class ShellCrackingSolver
         _epsTensionLimitOverride = epsTensionLimit;
         _bisectTol = bisectTol;
         _bisectMaxIter = bisectMaxIter;
+        _solverTolRes = solverTolRes;
     }
 
     /// <summary>Предельная растягивающая деформация бетона ε_bt,ult — из растянутой ветви
@@ -126,11 +139,13 @@ public sealed class ShellCrackingSolver
 
         // Растянутая ветвь бетона включается принудительно: при TensionConcrete = false
         // растянутый бетон не работает вовсе и трещинообразование обнаружить нечем.
-        var solver = new ShellStrainSolver(_section, _cDiag, _rDiag, tensionOverride: true);
+        var solver = new ShellStrainSolver(_section, _cDiag, _rDiag,
+            tolRes: _solverTolRes, tensionOverride: true);
 
         // Сечение С ТРЕЩИНОЙ (п. 8.2.16) — для σs,crc по п. 8.2.18: растянутый бетон выключен
         // независимо от TensionConcrete сечения.
-        var crackedSolver = new ShellStrainSolver(_section, _cDiag, _rDiag, tensionOverride: false);
+        var crackedSolver = new ShellStrainSolver(_section, _cDiag, _rDiag,
+            tolRes: _solverTolRes, tensionOverride: false);
 
         // Поиск идёт от k = 0 (одни продольные силы): если бетон уже за ε_bt,ult от них, это
         // ловит проверка ниже, а дальше по лучу отклик непрерывен до первой трещины. Поэтому
@@ -155,10 +170,14 @@ public sealed class ShellCrackingSolver
             return m;
         }
 
-        // Последнее сошедшееся состояние — начальное приближение для следующей точки поиска.
+        // Начальное приближение — последнее состояние НИЖЕ предела (нижняя граница поиска).
         // Отклик растянутого бетона у предела негладкий, и «холодный» упругий старт на нём
         // разваливается (двухосное сочетание с растягивающей N не решалось вовсе); шаг же от
-        // соседней точки продолжает решение по параметру и сходится.
+        // соседней точки продолжает решение по параметру и сходится. Старт именно от нижней
+        // границы, а не от последней сошедшейся точки: у предела растянутая ветвь диаграммы
+        // почти горизонтальна, и равновесий при одном k бывает несколько. Старт от точки за
+        // порогом уводил бисекцию на соседнюю ветвь (стена 177: порог k = 0,9992, найдено
+        // 0,999999); от нижней границы решение продолжается по k монотонно, как нагружение.
         double[]? warm = null;
 
         (bool ok, double eps, ShellStrainState? st) At(double k)
@@ -171,7 +190,6 @@ public sealed class ShellCrackingSolver
             if (!res.Converged) res = solver.SolveRobust(t);
             if (!res.Converged) return (false, double.NaN, null);
             var s = res.StrainState;
-            warm = s.ToArray();
             return (true, MaxPrincipalAtFaces(s, h), s);
         }
 
@@ -194,6 +212,13 @@ public sealed class ShellCrackingSolver
                 MaxTensileStrain = zero.eps, Iterations = iterations,
                 Description = "сечение трещит от продольной силы"
             };
+        ShellStrainState? best = zero.ok ? zero.st : null;
+        double bestEps = zero.ok ? zero.eps : 0.0;
+        void Accept(ShellStrainState s, double eps)
+        {
+            best = s; bestEps = eps; warm = s.ToArray();
+        }
+        if (zero.ok) Accept(zero.st!, zero.eps);
 
         // Расширяем верхнюю границу, пока деформация не дойдёт до предела ЛИБО пока решение
         // не перестанет сходиться. Несходимость здесь — не сбой, а признак: до трещины отклик
@@ -205,6 +230,7 @@ public sealed class ShellCrackingSolver
         int grow = 0;
         while (atHi.ok && atHi.eps < limit)
         {
+            Accept(atHi.st!, atHi.eps);
             lo = hi;
             hi *= 2.0;
             if (hi > 1e6 || grow++ > 40)
@@ -216,32 +242,54 @@ public sealed class ShellCrackingSolver
             atHi = At(hi);
         }
 
+        // Внутри вилки — проход шагами от нижней границы, каждый шаг продолжает предыдущий,
+        // как при пропорциональном нагружении: к пределу решение подходит монотонно, а
+        // бисекция ниже работает уже на одном малом шаге. Точность порога задаёт прежде всего
+        // допуск решения (solverTolRes): у предела растянутая ветвь почти горизонтальна,
+        // деформация грани меняется с k медленно, и грубый допуск сдвигал порог на проценты.
+        const int marchSteps = 20;
+        double step = (hi - lo) / marchSteps;
+        for (int j = 1; j < marchSteps; j++)
+        {
+            double k = lo + step;
+            var at = At(k);
+            if (!at.ok || at.eps >= limit) { hi = k; break; }
+            Accept(at.st!, at.eps);
+            lo = k;
+        }
+
         // Бисекция по множителю моментов. Отклик у трещинообразования РАЗРЫВНЫЙ: за пределом
         // растянутый бетон срывается, и деформация скачком уходит на порядок выше ε_bt,ult.
         // Поэтому искомое состояние — последнее ДО скачка: наибольший множитель, при котором
         // предел ещё не достигнут. Его и возвращаем вместе с его НДС, иначе σs,crc считалась
         // бы по уже раскрывшемуся сечению.
-        ShellStrainState? best = zero.ok ? zero.st : null;
-        double bestEps = zero.ok ? zero.eps : 0.0;
         for (int i = 0; i < _bisectMaxIter && hi - lo > _bisectTol * Math.Max(1.0, hi); i++)
         {
             double mid = 0.5 * (lo + hi);
             var at = At(mid);
             if (!at.ok) { hi = mid; continue; }   // нет сходимости — считаем, что скачок уже позади
             if (at.eps >= limit) hi = mid;
-            else { lo = mid; best = at.st; bestEps = at.eps; }
+            else { lo = mid; Accept(at.st!, at.eps); }
         }
+
+        // Чем остановлен поиск: трещиной или потерей равновесия. У трещины последнее состояние
+        // до порога лежит вплотную к ε_bt,ult (бисекция сжимает вилку, а деформация до скачка
+        // непрерывна). Если же равновесие исчезло, когда грань ещё далека от предела, сечение
+        // исчерпало прочность раньше, чем образовалась трещина.
+        bool reached = bestEps >= 0.99 * limit;
 
         return new ShellCrackingResult
         {
             Mcrc = lo * mDir,
             MomentFactor = lo,
+            CrackingReached = reached,
             Converged = best != null,
             StrainState = best,
             CrackedStrainState = best != null ? Cracked(lo) : null,
             MaxTensileStrain = bestEps,
             Iterations = iterations,
-            Description = best == null ? "не удалось найти состояние до образования трещины" : ""
+            Description = best == null ? "не удалось найти состояние до образования трещины"
+                : !reached ? $"равновесие исчерпано при k = {lo:G4} раньше образования трещины" : ""
         };
     }
 }

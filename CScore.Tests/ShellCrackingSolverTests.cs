@@ -180,6 +180,25 @@ public class ShellCrackingSolverTests
         Assert.Equal(Solver().TensionLimit(), e1Max, 6);
     }
 
+    // Сечение, обжатое почти до предела (N = −4800 при N_ult ≈ −4830 кН/м в обоих
+    // направлениях): при росте момента равновесие теряется раньше, чем растянутая грань
+    // доходит до ε_bt,ult. Поиск не должен выдавать потерю равновесия за трещину. Случай
+    // редкий: с площадкой сжатой ветви L3 сечение успевает повернуться, и даже при
+    // N = −4500 грань доходит до ε_bt,ult раньше (k ≈ 5,4 при M = 5).
+    [Fact]
+    public void HeavyCompression_StrengthGovernsBeforeCracking()
+    {
+        var res = Solver().Solve([-4800.0, -4800.0, 0, 1.0, 0, 0], alongX: true);
+
+        Assert.True(res.Converged, res.Description);
+        Assert.False(res.CrackingReached, $"k = {res.MomentFactor:F3}, ε = {res.MaxTensileStrain:E3}");
+        Assert.True(res.MaxTensileStrain < 0.0, $"грань растянута: ε = {res.MaxTensileStrain:E3}");
+        Assert.True(res.MomentFactor > 1.0, $"k = {res.MomentFactor:F4}");
+
+        var bending = Solver().Solve([0, 0, 0, 40.0, 0, 0], alongX: true);
+        Assert.True(bending.CrackingReached);
+    }
+
     // Чистое кручение трещит, хотя Mx = 0: M_crc направления тогда 0, а признак трещины несёт
     // множитель k_crc.
     [Fact]
