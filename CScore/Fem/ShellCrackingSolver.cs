@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace CScore.Fem;
@@ -97,6 +98,24 @@ public sealed class ShellCrackingSolver
         _bisectTol = bisectTol;
         _bisectMaxIter = bisectMaxIter;
         _solverTolRes = solverTolRes;
+    }
+
+    /// <summary>
+    /// Пробник с кэшем по вектору усилий: одинаковые усилия ищутся один раз. Нужен там, где
+    /// одно сочетание проверяется несколько раз с разными φ1 (п. 8.2.7: длительное — и для
+    /// acrc,1 при φ1 = 1,4, и для acrc,3 при φ1 = 1,0), — поиск от φ1 не зависит, а стоит
+    /// десятков решений 6×6. Кэш не потокобезопасен: один пробник — на один поток.
+    /// </summary>
+    public ShellCrackingProbe CachedProbe()
+    {
+        var cache = new Dictionary<(double, double, double, double, double, double, bool), ShellCrackingResult>();
+        return (target, alongX) =>
+        {
+            var key = (target[0], target[1], target[2], target[3], target[4], target[5], alongX);
+            if (!cache.TryGetValue(key, out var r))
+                cache[key] = r = Solve(target, alongX);
+            return r;
+        };
     }
 
     /// <summary>Предельная растягивающая деформация бетона ε_bt,ult — из растянутой ветви

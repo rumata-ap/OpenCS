@@ -377,11 +377,9 @@ public static class FemCheckRunner
         var rDiagCrc = rebarMat.GetDiagramms(
             DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N];
         ShellCrackingProbe? solveAtCrc = null;
+        // Кэш по усилиям: длительное сочетание ниже проверяется дважды (acrc1 и acrc3).
         if (cDiagCrc != null && rDiagCrc != null)
-        {
-            var crackingSolver = new ShellCrackingSolver(section, cDiagCrc, rDiagCrc);
-            solveAtCrc = (target, alongX) => crackingSolver.Solve(target, alongX);
-        }
+            solveAtCrc = new ShellCrackingSolver(section, cDiagCrc, rDiagCrc).CachedProbe();
 
         if (calcType == CalcType.NL)
         {
