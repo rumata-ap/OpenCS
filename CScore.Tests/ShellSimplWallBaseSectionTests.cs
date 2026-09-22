@@ -410,7 +410,7 @@ public class ShellSimplWallBaseSectionTests
     {
         var (aLong, aShort) = LayeredCrackWidths(softening);
         // 22.09.2026: трещинообразование — по лучу всех моментов; σs,crc берётся в том же
-        // состоянии, ψs = 0,533 (было ≈0,22 / 0,28). Ближе к Капра-Мори (0,247 / 0,303).
+        // состоянии, ψs = 0,540, acrc 0,261 / 0,336 мм (было ≈0,22 / 0,28). Ближе к Капра-Мори (0,247 / 0,303).
         Assert.InRange(aLong, 0.245, 0.27);
         Assert.InRange(aShort, 0.32, 0.35);
     }

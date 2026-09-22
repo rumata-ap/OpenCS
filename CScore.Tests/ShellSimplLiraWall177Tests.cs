@@ -413,6 +413,49 @@ public class ShellSimplLiraWall177Tests
         Assert.InRange(LayeredSlsKisp(), LAY_SLS_LO, LAY_SLS_HI);
     }
 
+    // Длительное сочетание стены 177 лежит у самого порога трещинообразования (k ≈ 0,997):
+    // у предела растянутая ветвь диаграммы почти горизонтальна, отклик по k пологий, и при
+    // грубом допуске решения старт с соседней точки принимается без итераций — порог
+    // "уплывает". Эталон — решения "с нуля" (без начального приближения) с тем же жёстким
+    // допуском: от пути нагружения они не зависят. Порог ищется по ним бисекцией.
+    [Fact]
+    public void CrackingFactor_IsPathIndependent_NearPlateau()
+    {
+        var concrete = Fixture.Concrete();
+        var rebar = Fixture.Rebar();
+        var cDiag = concrete.GetDiagramms(DiagrammType.L3)![CalcType.N];
+        var rDiag = rebar.GetDiagramms(DiagrammCompatibility.Coerce(rebar.Type, DiagrammType.L2))![CalcType.N];
+        var section = Fixture.Section();
+        var f = SlsLong;
+
+        var probe = new ShellCrackingSolver(section, cDiag, rDiag);
+        double limit = probe.TensionLimit();
+        var res = probe.Solve([f.Nx, f.Ny, f.Nxy, f.Mx, f.My, f.Mxy], alongX: true);
+        Assert.True(res.Converged, res.Description);
+
+        var solver = new ShellStrainSolver(section, cDiag, rDiag, tolRes: 1e-7, tensionOverride: true);
+        bool Below(double k)
+        {
+            var r = solver.Solve([f.Nx, f.Ny, f.Nxy, f.Mx * k, f.My * k, f.Mxy * k]);
+            if (!r.Converged) return false;
+            double m = double.NegativeInfinity;
+            foreach (double z in new[] { H / 2, -H / 2 })
+            {
+                PlateSection.PrincipalStrains2D(r.StrainState.EpsX(z), r.StrainState.EpsY(z),
+                    r.StrainState.GammaXY(z), out double e1, out _, out _);
+                m = Math.Max(m, e1);
+            }
+            return m < limit;
+        }
+
+        double lo = 0.9, hi = 1.1;
+        Assert.True(Below(lo) && !Below(hi));
+        for (int i = 0; i < 40; i++) { double mid = 0.5 * (lo + hi); if (Below(mid)) lo = mid; else hi = mid; }
+
+        Assert.InRange(res.MomentFactor, lo - 1e-4, lo + 1e-4);
+        Assert.True(res.MomentFactor < 1.0, $"k_crc = {res.MomentFactor:F6}: трещина при длительном сочетании пропущена");
+    }
+
     // ── Выгрузка чисел ──────────────────────────────────────────────────────────
 
     [Fact]
