@@ -36,6 +36,15 @@ public enum Sp63CrackWidthMessageKind
 /// <param name="AcrcLimMm">Предельно допустимая ширина раскрытия трещин, мм.</param>
 /// <param name="SigmaSCrc">Способ получения σs,crc в ψs, п. 8.2.18.</param>
 /// <param name="WplGamma">Источник коэффициента пластичности γ в Wpl = γ·Wred.</param>
+/// <param name="Mode">Режим проверки: одна составляющая с заданным φ1 или полная по п. 8.2.7.</param>
+/// <param name="LongTermShare">
+/// Доля постоянных и временных длительных нагрузок ψ = Ml/M (0…1); применяется к N и M.
+/// Используется только в режиме <see cref="Sp63CrackWidthMode.LongAndShort"/>.
+/// </param>
+/// <param name="AcrcLimShortMm">
+/// Предельная ширина непродолжительного раскрытия, мм (режим
+/// <see cref="Sp63CrackWidthMode.LongAndShort"/>; продолжительное — <paramref name="AcrcLimMm"/>).
+/// </param>
 public sealed record Sp63CrackWidthOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
@@ -43,4 +52,19 @@ public sealed record Sp63CrackWidthOptions(
     double Phi2,
     double AcrcLimMm,
     SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
-    WplGammaMethod WplGamma = WplGammaMethod.Sp63);
+    WplGammaMethod WplGamma = WplGammaMethod.Sp63,
+    Sp63CrackWidthMode Mode = Sp63CrackWidthMode.SingleTerm,
+    double LongTermShare = 1.0,
+    double AcrcLimShortMm = 0.4);
+
+/// <summary>Режим упрощённой проверки ширины раскрытия трещин.</summary>
+public enum Sp63CrackWidthMode
+{
+    /// <summary>Одна составляющая acrc,i по п. 8.2.15 с заданным пользователем φ1.</summary>
+    SingleTerm,
+    /// <summary>
+    /// Продолжительное acrc = acrc1 (8.119) и непродолжительное acrc = acrc1 + acrc2 − acrc3
+    /// (8.120) раскрытие по п. 8.2.7, каждое со своим предельным значением по п. 8.2.6.
+    /// </summary>
+    LongAndShort
+}

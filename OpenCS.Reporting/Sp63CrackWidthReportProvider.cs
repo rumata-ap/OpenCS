@@ -37,19 +37,37 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         SectionReportSections.Identification(document, context,
             "N — кН; M — кН·м; линейные размеры — м или мм по контексту показателя; acrc, acrc,lim — мм");
 
-        document
-            .Add(new ReportHeading(1, "Исходные данные"))
-            .Add(new ReportKeyValueTable(
+        bool longAndShort = Sp63CrackWidthTaskParams.TryParseMode(parameters.Mode, out var mode)
+            && mode == Sp63CrackWidthMode.LongAndShort;
+        var inputRows = new List<(string, string)>
+        {
+            ("Форма сечения", parameters.ShapeKind == "rectangular" ? "прямоугольник" : parameters.ShapeKind),
+            ("Ось изгиба", parameters.Axis)
+        };
+        if (longAndShort)
+            inputRows.AddRange(
             [
-                ("Форма сечения", parameters.ShapeKind == "rectangular" ? "прямоугольник" : parameters.ShapeKind),
-                ("Ось изгиба", parameters.Axis),
+                ("Режим проверки", "продолжительное и непродолжительное раскрытие, п. 8.2.7"),
+                ("ψ = Ml/M (доля постоянных и временных длительных нагрузок)", F(parameters.LongTermShare)),
+                ("φ2 (профиль арматуры), п. 8.2.15", F(parameters.Phi2)),
+                ("acrc,ult продолжительного раскрытия, мм", F(parameters.AcrcLimMm)),
+                ("acrc,ult непродолжительного раскрытия, мм", F(parameters.AcrcLimShortMm))
+            ]);
+        else
+            inputRows.AddRange(
+            [
+                ("Режим проверки", "одна составляющая acrc,i с заданным φ1"),
                 ("φ1 (длительность действия нагрузки), п. 8.2.10", F(parameters.Phi1)),
                 ("φ2 (профиль арматуры), п. 8.2.10", F(parameters.Phi2)),
-                ("acrc,lim, мм", F(parameters.AcrcLimMm)),
-                ("Ручные усилия", parameters.UseManualForces
-                    ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
-                    : "нет, используется набор усилий задачи")
-            ], "Параметр", "Значение"))
+                ("acrc,lim, мм", F(parameters.AcrcLimMm))
+            ]);
+        inputRows.Add(("Ручные усилия", parameters.UseManualForces
+            ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
+            : "нет, используется набор усилий задачи"));
+
+        document
+            .Add(new ReportHeading(1, "Исходные данные"))
+            .Add(new ReportKeyValueTable(inputRows, "Параметр", "Значение"))
             .Add(new ReportHeading(1, "Вердикт"))
             .Add(new ReportKeyValueTable(
             [
@@ -62,7 +80,7 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                 ("Вердикт", VerdictText(domain))
             ], "Параметр", "Значение"));
 
-        AddCheckTable(document, "Числовое условие acrc ≤ acrc,lim",
+        AddCheckTable(document, longAndShort ? "Числовые условия acrc ≤ acrc,ult (п. 8.2.6)" : "Числовое условие acrc ≤ acrc,lim",
             "Входит в итоговый вердикт LimitPassed.", domain.Details);
         AddMessageTable(document, "Причины неприменимости формульного режима", domain.ApplicabilityMessages);
         AddMessageTable(document, "Справочные сообщения", domain.InformationalMessages);
@@ -92,7 +110,7 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
             .Add(new ReportHeading(1, heading))
             .Add(new ReportParagraph(note))
             .Add(new ReportTable(
-                ["Формула", "Описание", "Пункт СП", "acrc, мм", "acrc,lim, мм", "Ratio", "Результат", "Переменные"],
+                ["Формула", "Описание", "Пункт СП", "acrc, мм", "acrc,ult, мм", "Ratio", "Результат", "Переменные"],
                 details.Select(detail => (IReadOnlyList<string>)
                 [
                     detail.Formula,
@@ -196,6 +214,11 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         ["Sp63CrackWidth_MissingConcreteChars"] = "Для бетона не заданы характеристики Eb, Rb,ser, Rbt,ser.",
         ["Sp63CrackWidth_MissingRebarChars"] = "Для арматуры не заданы модуль упругости Es и Rs,ser.",
         ["Sp63CrackWidth_AcrcCheck"] = "Ширина раскрытия трещин: acrc ≤ acrc,lim",
+        ["Sp63CrackWidth_AcrcLongCheck"] = "Продолжительное раскрытие трещин: acrc = acrc1 ≤ acrc,ult",
+        ["Sp63CrackWidth_AcrcShortCheck"] = "Непродолжительное раскрытие трещин: acrc = acrc1 + acrc2 − acrc3 ≤ acrc,ult",
+        ["Sp63CrackWidth_LongTermShareNote"] = "Длительная часть нагрузки принята как ψ·N и ψ·M; acrc1 — при φ1 = 1,4, acrc2 и acrc3 — при φ1 = 1,0.",
+        ["Sp63CrackWidth_LongTermNotCracked"] = "От длительной части нагрузки трещины не образуются (Ml ≤ Mcrc): acrc1 = acrc3 = 0.",
+        ["Sp63CrackWidth_InvalidLongTermShare"] = "Доля длительных нагрузок ψ должна быть в пределах от 0 до 1.",
         ["Sp63CrackWidth_NeutralAxisNote"] = "Высота сжатой зоны сечения с трещиной — по п. 8.2.28 с поправкой (8.154) на продольную силу; при xm ≤ 0 сечение растянуто насквозь и растяжение воспринимают оба ряда арматуры.",
         ["Sp63CrackWidth_ThroughTensionOppositeRow"] = "Сечение растянуто насквозь (xm ≤ 0); решает ряд арматуры у грани, которую момент не растягивает.",
         ["Sp63CrackWidth_NotCracked"] = "M ≤ Mcrc — трещины не образуются, acrc = 0.",

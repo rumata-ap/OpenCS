@@ -370,6 +370,9 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
@@ -380,24 +383,52 @@
                      <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi1}"
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthMode}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox Grid.Row="1" Grid.Column="1"
-                           Text="{Binding Sp63CrackWidthPhi1, UpdateSourceTrigger=PropertyChanged}"
-                           Margin="0,0,0,4"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63CrackWidthMode}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="long_and_short" Content="{DynamicResource Sp63CrackWidthModeLongAndShort}"/>
+                     <ComboBoxItem Tag="single_term" Content="{DynamicResource Sp63CrackWidthModeSingleTerm}"/>
+                  </ComboBox>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi2}"
-                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi1}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowSp63CrackWidthSingleTerm, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBox Grid.Row="2" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthPhi1, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowSp63CrackWidthSingleTerm, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthLongTermShare}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="3" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthLongTermShare, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4" ToolTip="{DynamicResource Sp63CrackWidthLongTermShareTooltip}"
+                           Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi2}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="4" Grid.Column="1"
                            Text="{Binding Sp63CrackWidthPhi2, UpdateSourceTrigger=PropertyChanged}"
                            Margin="0,0,0,4"/>
 
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthAcrcLim}"
-                             VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Grid.Row="3" Grid.Column="1"
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthAcrcLim}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowSp63CrackWidthSingleTerm, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthAcrcLimLong}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4"
                            Text="{Binding Sp63CrackWidthAcrcLimMm, UpdateSourceTrigger=PropertyChanged}"/>
-               </Grid>
 
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthAcrcLimShort}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"
+                             Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="6" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthAcrcLimShortMm, UpdateSourceTrigger=PropertyChanged}"
+                           Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+               </Grid>
                <TextBlock Text="{DynamicResource Sp63CrackWidthInputsHint}"
                           FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
 

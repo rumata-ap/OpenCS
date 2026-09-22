@@ -18,8 +18,24 @@ public sealed class Sp63CrackWidthTaskParams
     /// <summary>Коэффициент профиля арматуры φ2 (п. 8.2.10).</summary>
     public double Phi2 { get; set; } = 0.5;
 
-    /// <summary>Предельно допустимая ширина раскрытия трещин, мм.</summary>
+    /// <summary>
+    /// Предельно допустимая ширина раскрытия трещин, мм; в режиме long_and_short — предел
+    /// продолжительного раскрытия.
+    /// </summary>
     public double AcrcLimMm { get; set; } = 0.3;
+
+    /// <summary>
+    /// Режим: "single_term" — одна составляющая с заданным φ1 (по умолчанию, в том числе для
+    /// задач, сохранённых до появления поля); "long_and_short" — продолжительное и
+    /// непродолжительное раскрытие по п. 8.2.7.
+    /// </summary>
+    public string Mode { get; set; } = "single_term";
+
+    /// <summary>Доля длительных нагрузок ψ = Ml/M (0…1) для режима long_and_short.</summary>
+    public double LongTermShare { get; set; } = 1.0;
+
+    /// <summary>Предельная ширина непродолжительного раскрытия трещин, мм (режим long_and_short).</summary>
+    public double AcrcLimShortMm { get; set; } = 0.4;
 
     /// <summary>
     /// Способ получения σs,crc в формуле ψs (п. 8.2.18): "stress" — по напряжениям,
@@ -80,7 +96,8 @@ public sealed class Sp63CrackWidthTaskParams
             return Invalid("invalid_axis", out errorCode);
         if (!double.IsFinite(Phi1) || Phi1 <= 0 || !double.IsFinite(Phi2) || Phi2 <= 0)
             return Invalid("invalid_phi", out errorCode);
-        if (!double.IsFinite(AcrcLimMm) || AcrcLimMm <= 0)
+        if (!double.IsFinite(AcrcLimMm) || AcrcLimMm <= 0 ||
+            !double.IsFinite(AcrcLimShortMm) || AcrcLimShortMm <= 0)
             return Invalid("invalid_acrc_limit", out errorCode);
 
         if (!TryParseSigmaSCrcMethod(SigmaSCrcMethod, out var sigmaSCrc))
@@ -89,9 +106,27 @@ public sealed class Sp63CrackWidthTaskParams
         if (!TryParseWplGamma(WplGamma, out var wplGamma))
             return Invalid("invalid_wpl_gamma", out errorCode);
 
+        if (!TryParseMode(Mode, out var mode))
+            return Invalid("invalid_mode", out errorCode);
+        if (!double.IsFinite(LongTermShare) || LongTermShare < 0 || LongTermShare > 1)
+            return Invalid("invalid_long_term_share", out errorCode);
+
         options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2,
-            AcrcLimMm, sigmaSCrc, wplGamma);
+            AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm);
         return true;
+    }
+
+    /// <summary>Разбирает идентификатор режима проверки из JSON-контракта.</summary>
+    public static bool TryParseMode(string? value, out Sp63CrackWidthMode mode)
+    {
+        mode = Sp63CrackWidthMode.SingleTerm;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "single_term": return true;
+            case "long_and_short": mode = Sp63CrackWidthMode.LongAndShort; return true;
+            default: return false;
+        }
     }
 
     /// <summary>Разбирает идентификатор способа получения σs,crc из JSON-контракта.</summary>

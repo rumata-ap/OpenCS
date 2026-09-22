@@ -298,4 +298,98 @@ public class Sp63CrackWidthCheckerTests
         Assert.True(result.LimitPassed);
         Assert.Contains(result.InformationalMessages, message => message.Code == "not_cracked");
     }
+
+    // ---- Полный режим п. 8.2.7: продолжительное и непродолжительное раскрытие ----
+
+    static Sp63CrackWidthOptions LongShortOptions(double share, double limLong = 0.3,
+        double limShort = 0.4) =>
+        new(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx, 1.0, 0.5, limLong,
+            Mode: Sp63CrackWidthMode.LongAndShort, LongTermShare: share, AcrcLimShortMm: limShort);
+
+    static ShellSimplStripResult Direct(double m, double n, double phi1,
+        double b, double asT, double asC, double ds, Material concrete, Material rebar) =>
+        ShellSimplSolver.ComputeStripSls(m / b, n / b, 0.3, 0.26, 0.04, asT / b, asC / b, ds,
+            concrete.GetChars(CalcType.N)!, rebar.GetChars(CalcType.N)!, phi1, 0.5, 0.3);
+
+    [Fact]
+    public void LongAndShort_CombinesThreeTermsPerClause827()
+    {
+        const double b = 0.5, asT = 20.36e-4, asC = 1e-8, ds = 0.036, m = 80.0, share = 0.6;
+        var (section, concrete, rebar) = BuildSection(b, 0.3, asT, asC, ds);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = m },
+            CalcType.N, LongShortOptions(share));
+
+        double acrc1 = Direct(share * m, 0, 1.4, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        double acrc2 = Direct(m, 0, 1.0, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        double acrc3 = Direct(share * m, 0, 1.0, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        Assert.True(acrc1 > 0 && acrc3 > 0 && acrc2 > acrc3);
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+        Assert.Equal(2, result.Details.Count);
+        var longCheck = Assert.Single(result.Details, d => d.Formula == "(8.119)");
+        var shortCheck = Assert.Single(result.Details, d => d.Formula == "(8.120)");
+        Assert.Equal(acrc1, longCheck.Applied, 9);
+        Assert.Equal(0.3, longCheck.Allowable, 9);
+        Assert.Equal(acrc1 + acrc2 - acrc3, shortCheck.Applied, 9);
+        Assert.Equal(0.4, shortCheck.Allowable, 9);
+        Assert.Equal(acrc2, result.Variables["acrc2"], 9);
+        Assert.Equal(share * m, result.Variables["Ml"], 9);
+        Assert.Equal(longCheck.Passed && shortCheck.Passed, result.LimitPassed);
+    }
+
+    [Fact]
+    public void LongAndShort_FullShare_ShortEqualsLong()
+    {
+        // ψ = 1: acrc3 = acrc2, непродолжительное раскрытие совпадает с продолжительным.
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(1.0));
+
+        Assert.Equal(result.Details[0].Applied, result.Details[1].Applied, 9);
+        Assert.Equal(result.Variables["acrc2"], result.Variables["acrc3"], 9);
+    }
+
+    [Fact]
+    public void LongAndShort_ZeroShare_OnlyShortTermWidth()
+    {
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(0.0));
+
+        Assert.Equal(0.0, result.Details[0].Applied, 12);
+        Assert.Equal(result.Variables["acrc2"], result.Details[1].Applied, 9);
+        Assert.Contains(result.InformationalMessages, msg => msg.Code == "long_term_not_cracked");
+    }
+
+    [Fact]
+    public void LongAndShort_LongLimitGoverns_WhenShortPasses()
+    {
+        // ψ = 1 даёт acrc1 = acrc,short; строгий предел продолжительного раскрытия проваливает
+        // только (8.119).
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+        var probe = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(1.0));
+        double acrc = probe.Details[0].Applied;
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(1.0, limLong: acrc * 0.9, limShort: acrc * 1.1));
+
+        Assert.False(result.Details[0].Passed);
+        Assert.True(result.Details[1].Passed);
+        Assert.False(result.LimitPassed);
+    }
+
+    [Fact]
+    public void LongAndShort_InvalidShare_IsInvalidInput()
+    {
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(1.5));
+
+        Assert.Equal(Sp63CrackWidthStatus.InvalidInput, result.Status);
+    }
 }

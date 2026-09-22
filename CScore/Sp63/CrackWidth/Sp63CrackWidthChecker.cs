@@ -48,6 +48,12 @@ public static class Sp63CrackWidthChecker
             return InvalidInput("invalid_phi", "Sp63CrackWidth_InvalidPhi", "8.2.10");
         if (!IsFinitePositive(options.AcrcLimMm))
             return InvalidInput("invalid_acrc_limit", "Sp63CrackWidth_InvalidAcrcLimit", "8.2.1");
+        if (options.Mode == Sp63CrackWidthMode.LongAndShort &&
+            !IsFinitePositive(options.AcrcLimShortMm))
+            return InvalidInput("invalid_acrc_limit", "Sp63CrackWidth_InvalidAcrcLimit", "8.2.6");
+        if (options.Mode == Sp63CrackWidthMode.LongAndShort &&
+            (!double.IsFinite(options.LongTermShare) || options.LongTermShare is < 0 or > 1))
+            return InvalidInput("invalid_long_term_share", "Sp63CrackWidth_InvalidLongTermShare", "8.2.5");
 
         double moment = options.Axis == Sp63NormalAxis.Mx ? load.Mx : load.My;
         double otherMoment = options.Axis == Sp63NormalAxis.Mx ? load.My : load.Mx;
@@ -78,38 +84,57 @@ public static class Sp63CrackWidthChecker
             return NotApplicable("missing_rebar_chars", "Sp63CrackWidth_MissingRebarChars", "8.2.16");
 
         double b = profile.B;
-        double ds = EffectiveDiameter(profile.TensionLayer);
-
-        double mDes = Math.Abs(moment) / b;
-        double nDes = load.N / b;
+        double dsOwn = EffectiveDiameter(profile.TensionLayer);
+        double dsOpposite = EffectiveDiameter(profile.CompressionLayer);
         double asT = profile.TensionLayer.Area / b;
         double asC = profile.CompressionLayer.Area / b;
+        double absMoment = Math.Abs(moment);
+        bool full = options.Mode == Sp63CrackWidthMode.LongAndShort;
+        double share = full ? options.LongTermShare : 0.0;
 
-        var strip = ShellSimplSolver.ComputeStripSls(
-            mDes, nDes, profile.Height, profile.H0, profile.APrime,
-            asT, asC, ds, concreteChars, rebarChars, options.Phi1, options.Phi2, options.AcrcLimMm,
-            options.SigmaSCrc, options.WplGamma);
+        // Одна составляющая acrc,i (п. 8.2.15) от момента m и силы n с коэффициентом φ1
+        // для своего ряда арматуры или для ряда у грани, которую момент не растягивает.
+        ShellSimplStripResult Strip(double m, double n, double phi1, bool opposite) => opposite
+            ? ShellSimplSolver.ComputeOppositeRowSls(
+                m / b, n / b, profile.Height, profile.H0, profile.APrime,
+                asT, asC, dsOpposite, concreteChars, rebarChars, phi1, options.Phi2,
+                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma)
+            : ShellSimplSolver.ComputeStripSls(
+                m / b, n / b, profile.Height, profile.H0, profile.APrime,
+                asT, asC, dsOwn, concreteChars, rebarChars, phi1, options.Phi2,
+                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma);
+
+        // Полный режим (п. 8.2.7): acrc2 — полная нагрузка при φ1 = 1,0; acrc1/acrc3 —
+        // длительная часть ψ·(N, M) при φ1 = 1,4 и 1,0. Одиночный — одна составляющая с φ1.
+        CrackTerms Evaluate(bool opposite)
+        {
+            var main = Strip(absMoment, load.N, full ? 1.0 : options.Phi1, opposite);
+            if (!full || share <= 0.0) return new CrackTerms(main, null, null);
+            return new CrackTerms(main,
+                Strip(share * absMoment, share * load.N, 1.4, opposite),
+                Strip(share * absMoment, share * load.N, 1.0, opposite));
+        }
+
+        var terms = Evaluate(opposite: false);
+        double ds = dsOwn;
 
         // При x_m ≤ 0 сечение растянуто насквозь: растянут и ряд, который момент не растягивает,
         // и у его грани тоже есть трещина. При несимметричном армировании решает он — так же,
-        // как в плитной проверке Капра-Мори (ShellSimplSolver.DirectionStrip).
+        // как в плитной проверке Капра-Мори (ShellSimplSolver.DirectionStrip). Ряд выбирается
+        // по полной нагрузке и сохраняется для всех составляющих: x_m от доли ψ не зависит.
         bool oppositeGoverns = false;
-        if (strip.Xm <= 0.0)
+        if (terms.Main.Xm <= 0.0)
         {
-            double dsOpposite = EffectiveDiameter(profile.CompressionLayer);
-            var opposite = ShellSimplSolver.ComputeOppositeRowSls(
-                mDes, nDes, profile.Height, profile.H0, profile.APrime,
-                asT, asC, dsOpposite, concreteChars, rebarChars, options.Phi1, options.Phi2,
-                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma);
-            if (opposite.Acrc_mm > strip.Acrc_mm)
+            var opposite = Evaluate(opposite: true);
+            if (opposite.Governing(full) > terms.Governing(full))
             {
-                strip = opposite;
+                terms = opposite;
                 ds = dsOpposite;
                 oppositeGoverns = true;
             }
         }
 
-        bool limitPassed = strip.Acrc_mm <= options.AcrcLimMm + 1e-9;
+        var strip = terms.Main;
         var variables = new Dictionary<string, double>
         {
             ["N"] = load.N,
@@ -126,7 +151,7 @@ public static class Sp63CrackWidthChecker
             ["Rbtser"] = concreteChars.Ft,
             ["Rsser"] = Math.Abs(rebarChars.Ft),
             ["Es"] = rebarChars.E,
-            ["phi1"] = options.Phi1,
+            ["phi1"] = full ? 1.0 : options.Phi1,
             ["phi2"] = options.Phi2,
             ["Mcrc"] = strip.Mcrc,
             ["xm"] = strip.Xm,
@@ -137,27 +162,93 @@ public static class Sp63CrackWidthChecker
             ["acrcLimMm"] = options.AcrcLimMm
         };
 
-        var detail = new CheckDetail
+        List<CheckDetail> details;
+        bool limitPassed;
+        if (full)
         {
-            Formula = "(8.130)-(8.141)",
-            Description = "Sp63CrackWidth_AcrcCheck",
-            NormReference = "8.2.9-8.2.16",
-            Applied = strip.Acrc_mm,
-            Allowable = options.AcrcLimMm,
-            Variables = new Dictionary<string, double>(variables)
-        };
+            double acrc1 = terms.Acrc1;
+            double acrcShort = terms.ShortTotal;
+            variables["psiL"] = share;
+            variables["Ml"] = share * moment;
+            variables["Nl"] = share * load.N;
+            variables["sigma_s_l"] = terms.Long?.Sigma_s_MPa ?? 0.0;
+            variables["psi_s_l"] = terms.Long?.Psi_s ?? 1.0;
+            variables["acrc1"] = acrc1;
+            variables["acrc2"] = strip.Acrc_mm;
+            variables["acrc3"] = terms.Acrc3;
+            variables["acrcLimShortMm"] = options.AcrcLimShortMm;
+            details =
+            [
+                new CheckDetail
+                {
+                    Formula = "(8.119)",
+                    Description = "Sp63CrackWidth_AcrcLongCheck",
+                    NormReference = "8.2.6, 8.2.7",
+                    Applied = acrc1,
+                    Allowable = options.AcrcLimMm,
+                    Variables = new Dictionary<string, double>
+                    {
+                        ["acrc1"] = acrc1,
+                        ["Ml"] = share * moment,
+                        ["sigma_s_l"] = variables["sigma_s_l"],
+                        ["psi_s_l"] = variables["psi_s_l"],
+                        ["phi1"] = 1.4
+                    }
+                },
+                new CheckDetail
+                {
+                    Formula = "(8.120)",
+                    Description = "Sp63CrackWidth_AcrcShortCheck",
+                    NormReference = "8.2.6, 8.2.7",
+                    Applied = acrcShort,
+                    Allowable = options.AcrcLimShortMm,
+                    Variables = new Dictionary<string, double>
+                    {
+                        ["acrc1"] = acrc1,
+                        ["acrc2"] = strip.Acrc_mm,
+                        ["acrc3"] = terms.Acrc3,
+                        ["sigma_s"] = strip.Sigma_s_MPa,
+                        ["psi_s"] = strip.Psi_s
+                    }
+                }
+            ];
+            limitPassed = acrc1 <= options.AcrcLimMm + 1e-9 &&
+                acrcShort <= options.AcrcLimShortMm + 1e-9;
+        }
+        else
+        {
+            details =
+            [
+                new CheckDetail
+                {
+                    Formula = "(8.130)-(8.141)",
+                    Description = "Sp63CrackWidth_AcrcCheck",
+                    NormReference = "8.2.9-8.2.16",
+                    Applied = strip.Acrc_mm,
+                    Allowable = options.AcrcLimMm,
+                    Variables = new Dictionary<string, double>(variables)
+                }
+            ];
+            limitPassed = strip.Acrc_mm <= options.AcrcLimMm + 1e-9;
+        }
 
         var informational = new List<Sp63CrackWidthMessage>
         {
             new("compression_zone_neutral_axis", Sp63CrackWidthMessageKind.Information,
                 "8.2.28", "Sp63CrackWidth_NeutralAxisNote")
         };
+        if (full)
+            informational.Add(new Sp63CrackWidthMessage("long_term_share", Sp63CrackWidthMessageKind.Information,
+                "8.2.5", "Sp63CrackWidth_LongTermShareNote"));
         if (oppositeGoverns)
             informational.Add(new Sp63CrackWidthMessage("through_tension_opposite_row",
                 Sp63CrackWidthMessageKind.Information, "8.2.16", "Sp63CrackWidth_ThroughTensionOppositeRow"));
         if (!strip.Cracked)
             informational.Add(new Sp63CrackWidthMessage("not_cracked",
                 Sp63CrackWidthMessageKind.Information, "8.2.11", "Sp63CrackWidth_NotCracked"));
+        else if (full && terms.Long is not { Cracked: true })
+            informational.Add(new Sp63CrackWidthMessage("long_term_not_cracked",
+                Sp63CrackWidthMessageKind.Information, "8.2.4", "Sp63CrackWidth_LongTermNotCracked"));
 
         return new Sp63CrackWidthResult
         {
@@ -165,10 +256,29 @@ public static class Sp63CrackWidthChecker
             LimitPassed = limitPassed,
             Cracked = strip.Cracked,
             Branch = strip.Cracked ? "cracked" : "not_cracked",
-            Details = [detail],
+            Details = details,
             InformationalMessages = informational,
             Variables = variables
         };
+    }
+
+    /// <summary>
+    /// Составляющие ширины раскрытия одного ряда арматуры: <paramref name="Main"/> — от полной
+    /// нагрузки (acrc2 в полном режиме, единственная составляющая в одиночном);
+    /// <paramref name="Long"/>/<paramref name="LongShort"/> — от длительной части при φ1 = 1,4
+    /// (acrc1) и φ1 = 1,0 (acrc3), отсутствуют в одиночном режиме и при ψ = 0.
+    /// </summary>
+    sealed record CrackTerms(ShellSimplStripResult Main, ShellSimplStripResult? Long,
+        ShellSimplStripResult? LongShort)
+    {
+        public double Acrc1 => Long?.Acrc_mm ?? 0.0;
+        public double Acrc3 => LongShort?.Acrc_mm ?? 0.0;
+
+        /// <summary>Непродолжительное раскрытие acrc1 + acrc2 − acrc3, ф. (8.120).</summary>
+        public double ShortTotal => Acrc1 + Main.Acrc_mm - Acrc3;
+
+        /// <summary>Величина, по которой сравниваются ряды арматуры.</summary>
+        public double Governing(bool full) => full ? ShortTotal : Main.Acrc_mm;
     }
 
     static double EffectiveDiameter(Sp63NormalRebarLayer layer)

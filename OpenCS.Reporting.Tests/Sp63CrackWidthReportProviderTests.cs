@@ -59,6 +59,35 @@ public sealed class Sp63CrackWidthReportProviderTests
     }
 
     [Fact]
+    public void Provider_LongAndShortMode_ShowsShareLimitsAndLocalizedChecks()
+    {
+        const string longShortJson = """
+            {"Status":2,"LimitPassed":false,"Cracked":true,"Branch":"cracked",
+             "Details":[
+                {"Formula":"(8.119)","Description":"Sp63CrackWidth_AcrcLongCheck","NormReference":"8.2.6, 8.2.7",
+                 "Applied":0.25,"Allowable":0.2,"Variables":{"acrc1":0.25}},
+                {"Formula":"(8.120)","Description":"Sp63CrackWidth_AcrcShortCheck","NormReference":"8.2.6, 8.2.7",
+                 "Applied":0.28,"Allowable":0.3,"Variables":{"acrc2":0.2,"acrc3":0.17}}],
+             "ApplicabilityMessages":[],
+             "InformationalMessages":[
+                {"Code":"long_term_share","Kind":1,"NormReference":"8.2.5","Text":"Sp63CrackWidth_LongTermShareNote"}],
+             "Variables":{"N":0.0,"M":50.0}}
+            """;
+        var task = MakeTask("""{"mode":"long_and_short","longTermShare":0.7,"acrcLimMm":0.2,"acrcLimShortMm":0.3}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = longShortJson };
+
+        var document = new Sp63CrackWidthReportProvider().Build(new ReportContext(task, result));
+
+        var rows = document.Blocks.OfType<ReportKeyValueTable>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(rows, r => r.Key.StartsWith("ψ = Ml/M") && r.Value is "0,7" or "0.7");
+        Assert.Contains(rows, r => r.Key == "acrc,ult непродолжительного раскрытия, мм");
+        Assert.DoesNotContain(rows, r => r.Key.StartsWith("φ1"));
+        var cells = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.DoesNotContain(cells, c => c.Contains("Sp63CrackWidth_"));
+        Assert.Contains(cells, c => c.Contains("acrc1 + acrc2 − acrc3"));
+    }
+
+    [Fact]
     public void Provider_WarnsWhenNotApplicable()
     {
         var task = MakeTask();

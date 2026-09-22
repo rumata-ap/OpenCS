@@ -1872,7 +1872,7 @@
     <system:String x:Key="Sp63CrackWidthPhi1">φ1 (load duration)</system:String>
     <system:String x:Key="Sp63CrackWidthPhi2">φ2 (rebar profile)</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcLim">acrc,lim, mm</system:String>
-    <system:String x:Key="Sp63CrackWidthInputsHint">The check is uniaxial and requires a nonzero moment: a nonzero moment in the other plane, or a zero moment (central tension/compression), will be flagged as not applicable — use the deformation-model check (the "Crack width" task) instead. φ1 = 1.0 for short-term load action, φ1 = 1.4 for long-term; φ2 = 0.5 for ribbed rebar, φ2 = 0.8 for smooth.</system:String>
+    <system:String x:Key="Sp63CrackWidthInputsHint">The check is uniaxial and requires a non-zero moment: a non-zero moment in the other plane or a zero moment (axial tension/compression) is reported as not applicable — use the deformation-model check (task &quot;Crack width&quot;). Cl. 8.2.7 mode: acrc1 from the long-term part ψ·M with φ1 = 1.4, acrc2 and acrc3 from the full and long-term load with φ1 = 1.0; limits per cl. 8.2.6 — 0.3/0.4 mm for A240…A600, B500, 0.2/0.3 mm for permeability. In single-term mode φ1 = 1.0 for short-term and 1.4 for long-term action. φ2 = 0.5 for deformed bars, 0.8 for plain bars.</system:String>
     <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Check the numeric parameters: φ1, φ2 and acrc,lim must be positive finite numbers.</system:String>
     <system:String x:Key="Sp63CrackWidthStrengthTitle">Crack width check</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcColumn">acrc, mm</system:String>
@@ -1882,6 +1882,19 @@
     <system:String x:Key="Sp63CrackWidthBranchCracked">Cracks form</system:String>
     <system:String x:Key="Sp63CrackWidthBranchNotCracked">No cracks form</system:String>
     <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} mm</system:String>
+    <system:String x:Key="Sp63CrackWidthMode">Check mode</system:String>
+    <system:String x:Key="Sp63CrackWidthModeLongAndShort">Long-term and short-term crack opening (cl. 8.2.7)</system:String>
+    <system:String x:Key="Sp63CrackWidthModeSingleTerm">Single term with given φ1</system:String>
+    <system:String x:Key="Sp63CrackWidthLongTermShare">ψ = Ml/M (long-term share)</system:String>
+    <system:String x:Key="Sp63CrackWidthLongTermShareTooltip">Share of permanent and long-term variable loads in N and M (0…1), cl. 8.2.5</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimLong">acrc,ult long-term, mm</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimShort">acrc,ult short-term, mm</system:String>
+    <system:String x:Key="Sp63CrackWidthContextLongShortFormat">{0}; long-term and short-term opening (cl. 8.2.7); ψ = {1}; φ2 = {2}; acrc,ult = {3} / {4} mm</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcLongCheck">Long-term crack opening: acrc = acrc1 ≤ acrc,ult</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcShortCheck">Short-term crack opening: acrc = acrc1 + acrc2 − acrc3 ≤ acrc,ult</system:String>
+    <system:String x:Key="Sp63CrackWidth_LongTermShareNote">The long-term part of the load is taken as ψ·N and ψ·M; acrc1 uses φ1 = 1.4, acrc2 and acrc3 use φ1 = 1.0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_LongTermNotCracked">The long-term part of the load does not crack the section (Ml ≤ Mcrc): acrc1 = acrc3 = 0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidLongTermShare">The long-term load share ψ must be between 0 and 1.</system:String>
 
     <system:String x:Key="Sp63CrackWidth_InvalidInput">Task parameters do not match the supported contract.</system:String>
     <system:String x:Key="Sp63CrackWidth_HandlerError">Failed to run the simplified crack width check.</system:String>

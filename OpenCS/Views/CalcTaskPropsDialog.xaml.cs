@@ -93,6 +93,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63CrackWidthPhi1 = "1";
    string sp63CrackWidthPhi2 = "0.5";
    string sp63CrackWidthAcrcLimMm = "0.3";
+   string sp63CrackWidthMode = "long_and_short";
+   string sp63CrackWidthLongTermShare = "1";
+   string sp63CrackWidthAcrcLimShortMm = "0.4";
    bool sp63CrackWidthUseManualForces;
    string sp63CrackWidthManualN = "0";
    string sp63CrackWidthManualMx = "0";
@@ -350,6 +353,39 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63CrackWidthAxis;
       set { sp63CrackWidthAxis = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Режим проверки: long_and_short (п. 8.2.7) или single_term (одна составляющая с φ1).</summary>
+   public string Sp63CrackWidthMode
+   {
+      get => sp63CrackWidthMode;
+      set
+      {
+         sp63CrackWidthMode = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowSp63CrackWidthSingleTerm));
+         OnPropertyChanged(nameof(ShowSp63CrackWidthLongAndShort));
+      }
+   }
+
+   /// <summary>Показывать поля одиночного режима (φ1).</summary>
+   public bool ShowSp63CrackWidthSingleTerm => sp63CrackWidthMode != "long_and_short";
+
+   /// <summary>Показывать поля полного режима п. 8.2.7 (ψ, предел непродолжительного раскрытия).</summary>
+   public bool ShowSp63CrackWidthLongAndShort => sp63CrackWidthMode == "long_and_short";
+
+   /// <summary>Доля длительных нагрузок ψ = Ml/M.</summary>
+   public string Sp63CrackWidthLongTermShare
+   {
+      get => sp63CrackWidthLongTermShare;
+      set { sp63CrackWidthLongTermShare = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Предельная ширина непродолжительного раскрытия трещин, мм.</summary>
+   public string Sp63CrackWidthAcrcLimShortMm
+   {
+      get => sp63CrackWidthAcrcLimShortMm;
+      set { sp63CrackWidthAcrcLimShortMm = value; OnPropertyChanged(); }
    }
 
    /// <summary>Коэффициент длительности действия нагрузки φ1 (п. 8.2.10).</summary>
@@ -2151,6 +2187,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63CrackWidthPhi1 = scwp.Phi1.ToString("G6", inv);
              Sp63CrackWidthPhi2 = scwp.Phi2.ToString("G6", inv);
              Sp63CrackWidthAcrcLimMm = scwp.AcrcLimMm.ToString("G6", inv);
+             Sp63CrackWidthMode = Sp63CrackWidthTaskParams.TryParseMode(scwp.Mode, out var crackMode)
+                && crackMode == CScore.Sp63.CrackWidth.Sp63CrackWidthMode.LongAndShort
+                ? "long_and_short" : "single_term";
+             Sp63CrackWidthLongTermShare = scwp.LongTermShare.ToString("G6", inv);
+             Sp63CrackWidthAcrcLimShortMm = scwp.AcrcLimShortMm.ToString("G6", inv);
              Sp63CrackWidthUseManualForces = scwp.UseManualForces;
              if (scwp.UseManualForces)
              {
@@ -2467,7 +2508,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              || !TryParseSp63NormalNumber(Sp63CrackWidthPhi2, optional: false, positive: true,
                 out var phi2)
              || !TryParseSp63NormalNumber(Sp63CrackWidthAcrcLimMm, optional: false, positive: true,
-                out var acrcLimMm))
+                out var acrcLimMm)
+             || !TryParseSp63NormalNumber(Sp63CrackWidthAcrcLimShortMm, optional: false, positive: true,
+                out var acrcLimShortMm)
+             || !TryParseSp63NormalNumber(Sp63CrackWidthLongTermShare, optional: false, positive: false,
+                out var longTermShare)
+             || longTermShare is < 0 or > 1)
          {
             MessageBox.Show(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -2492,6 +2538,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Phi1 = phi1!.Value,
             Phi2 = phi2!.Value,
             AcrcLimMm = acrcLimMm!.Value,
+            Mode = Sp63CrackWidthMode,
+            LongTermShare = longTermShare!.Value,
+            AcrcLimShortMm = acrcLimShortMm!.Value,
             UseManualForces = Sp63CrackWidthUseManualForces,
             N = n,
             Mx = mx,

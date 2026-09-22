@@ -270,6 +270,12 @@ public sealed class Sp63CrackWidthResultVM
       string axis = p.Axis == "My"
          ? Loc.S("Sp63NormalAxisMy") : Loc.S("Sp63NormalAxisMx");
 
+      if (Sp63CrackWidthTaskParams.TryParseMode(p.Mode, out var mode)
+          && mode == Sp63CrackWidthMode.LongAndShort)
+         return string.Format(CultureInfo.CurrentCulture, Loc.S("Sp63CrackWidthContextLongShortFormat"),
+            axis, FormatNumber(p.LongTermShare), FormatNumber(p.Phi2),
+            FormatNumber(p.AcrcLimMm), FormatNumber(p.AcrcLimShortMm));
+
       return string.Format(CultureInfo.CurrentCulture, Loc.S("Sp63CrackWidthContextFormat"),
          axis, FormatNumber(p.Phi1), FormatNumber(p.Phi2), FormatNumber(p.AcrcLimMm));
    }

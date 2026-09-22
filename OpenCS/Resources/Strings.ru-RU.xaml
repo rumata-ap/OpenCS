@@ -1872,7 +1872,7 @@
     <system:String x:Key="Sp63CrackWidthPhi1">φ1 (длительность нагрузки)</system:String>
     <system:String x:Key="Sp63CrackWidthPhi2">φ2 (профиль арматуры)</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcLim">acrc,lim, мм</system:String>
-    <system:String x:Key="Sp63CrackWidthInputsHint">Проверка одноосная и требует ненулевого момента: ненулевой момент в другой плоскости или нулевой момент (центральное растяжение/сжатие) будут отмечены как неприменимые — используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»). φ1 = 1,0 для непродолжительного действия нагрузки, φ1 = 1,4 для продолжительного; φ2 = 0,5 для арматуры периодического профиля, φ2 = 0,8 для гладкой.</system:String>
+    <system:String x:Key="Sp63CrackWidthInputsHint">Проверка одноосная и требует ненулевого момента: ненулевой момент в другой плоскости или нулевой момент (центральное растяжение/сжатие) будут отмечены как неприменимые — используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»). Режим п. 8.2.7: acrc1 — от длительной части ψ·M при φ1 = 1,4, acrc2 и acrc3 — от полной и длительной нагрузки при φ1 = 1,0; пределы по п. 8.2.6 — 0,3/0,4 мм для A240…A600, B500, 0,2/0,3 мм из условия проницаемости. В режиме одной составляющей φ1 = 1,0 для непродолжительного действия, 1,4 — для продолжительного. φ2 = 0,5 для арматуры периодического профиля, 0,8 — для гладкой.</system:String>
     <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Проверьте числовые параметры: φ1, φ2 и acrc,lim должны быть положительными конечными числами.</system:String>
     <system:String x:Key="Sp63CrackWidthStrengthTitle">Проверка ширины раскрытия трещин</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcColumn">acrc, мм</system:String>
@@ -1882,6 +1882,19 @@
     <system:String x:Key="Sp63CrackWidthBranchCracked">Трещины образуются</system:String>
     <system:String x:Key="Sp63CrackWidthBranchNotCracked">Трещины не образуются</system:String>
     <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} мм</system:String>
+    <system:String x:Key="Sp63CrackWidthMode">Режим проверки</system:String>
+    <system:String x:Key="Sp63CrackWidthModeLongAndShort">Продолжительное и непродолжительное раскрытие (п. 8.2.7)</system:String>
+    <system:String x:Key="Sp63CrackWidthModeSingleTerm">Одна составляющая с заданным φ1</system:String>
+    <system:String x:Key="Sp63CrackWidthLongTermShare">ψ = Ml/M (доля длительных)</system:String>
+    <system:String x:Key="Sp63CrackWidthLongTermShareTooltip">Доля постоянных и временных длительных нагрузок в N и M (0…1), п. 8.2.5</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimLong">acrc,ult продолжит., мм</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimShort">acrc,ult непродолжит., мм</system:String>
+    <system:String x:Key="Sp63CrackWidthContextLongShortFormat">{0}; продолжительное и непродолжительное раскрытие (п. 8.2.7); ψ = {1}; φ2 = {2}; acrc,ult = {3} / {4} мм</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcLongCheck">Продолжительное раскрытие трещин: acrc = acrc1 ≤ acrc,ult</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcShortCheck">Непродолжительное раскрытие трещин: acrc = acrc1 + acrc2 − acrc3 ≤ acrc,ult</system:String>
+    <system:String x:Key="Sp63CrackWidth_LongTermShareNote">Длительная часть нагрузки принята как ψ·N и ψ·M; acrc1 — при φ1 = 1,4, acrc2 и acrc3 — при φ1 = 1,0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_LongTermNotCracked">От длительной части нагрузки трещины не образуются (Ml ≤ Mcrc): acrc1 = acrc3 = 0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidLongTermShare">Доля длительных нагрузок ψ должна быть в пределах от 0 до 1.</system:String>
 
     <system:String x:Key="Sp63CrackWidth_InvalidInput">Параметры задачи не соответствуют поддержанному контракту.</system:String>
     <system:String x:Key="Sp63CrackWidth_HandlerError">Не удалось выполнить упрощённую проверку ширины раскрытия трещин.</system:String>
