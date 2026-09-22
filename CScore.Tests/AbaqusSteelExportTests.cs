@@ -18,10 +18,10 @@ public sealed class AbaqusSteelExportTests
         Ec2 = -0.025, Et2 = 0.025,
     });
 
-    /// <summary>A400 (физический предел текучести), Rs = 348 МПа — из «Арматура стальная_C.csv».</summary>
-    static Material RebarA400(double rsc = 348_000) => Build(MatType.ReSteelF, calc => new MaterialChars(calc)
+    /// <summary>A400 (физический предел текучести), Rs = 340 МПа — табл. 6.14 СП 63.</summary>
+    static Material RebarA400(double rsc = 340_000) => Build(MatType.ReSteelF, calc => new MaterialChars(calc)
     {
-        Type = MatType.ReSteelF, Fc = -rsc, Ft = 348_000, E = RebarE, Ec2 = -0.0035, Et2 = 0.025,
+        Type = MatType.ReSteelF, Fc = -340_000, Rsc = rsc, Ft = 340_000, E = RebarE, Ec2 = -0.0035, Et2 = 0.025,
     });
 
     /// <summary>A600 (условный предел текучести), Rs = 522 МПа, εs2 = 0.015.</summary>
@@ -91,9 +91,9 @@ public sealed class AbaqusSteelExportTests
 
         double eMpa = RebarE / 1000.0;
         Assert.Equal(2, result.Plastic.Count);
-        Assert.Equal(348.0 * (1.0 + 348.0 / eMpa), result.Plastic[0].Stress, 9);
+        Assert.Equal(340.0 * (1.0 + 340.0 / eMpa), result.Plastic[0].Stress, 9);
         Assert.Equal(0.0, result.Plastic[0].PlasticStrain, 15);
-        var (stress, plastic) = Expected(0.025, 348.0, eMpa);
+        var (stress, plastic) = Expected(0.025, 340.0, eMpa);
         Assert.Equal(stress, result.Plastic[1].Stress, 9);
         Assert.Equal(plastic, result.Plastic[1].PlasticStrain, 12);
         Assert.Empty(result.Warnings);
@@ -129,12 +129,12 @@ public sealed class AbaqusSteelExportTests
     }
 
     [Fact]
-    public void AsymmetricRebar_WarnsAndExportsTension()
+    public void RebarDiagramIsSymmetricAndIgnoresFormulaRsc()
     {
         var result = AbaqusSteelCurveGenerator.Generate(RebarA400(rsc: 330_000), AbaqusSteelOptions.Default());
 
-        Assert.Contains(result.Warnings, w => w.Contains("сжатии"));
-        Assert.Equal(348.0, result.Plastic[0].NominalStress, 9);
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("сжатии"));
+        Assert.Equal(340.0, result.Plastic[0].NominalStress, 9);
     }
 
     [Fact]
@@ -143,8 +143,8 @@ public sealed class AbaqusSteelExportTests
         var material = Build(MatType.ReSteelF, calc => new MaterialChars(calc)
         {
             Type = MatType.ReSteelF, E = RebarE, Et2 = 0.025, Ec2 = -0.0035,
-            Fc = calc is CalcType.N or CalcType.NL ? -400_000 : -348_000,
-            Ft = calc is CalcType.N or CalcType.NL ? 400_000 : 348_000,
+            Fc = calc is CalcType.N or CalcType.NL ? -400_000 : -340_000,
+            Ft = calc is CalcType.N or CalcType.NL ? 400_000 : 340_000,
         });
         var options = AbaqusSteelOptions.Default() with { CalcType = CalcType.N };
 

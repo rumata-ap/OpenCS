@@ -687,7 +687,7 @@ namespace CScore
             // Все характеристики материала уже в кПа
             double Rb = Math.Abs(concrete.Fc);
             double Rs = Math.Abs(rebar.Ft);      // для арматуры Ft = Rs
-            double Rsc = Math.Abs(rebar.Fc);     // для арматуры Fc = Rsc
+            double Rsc = rebar.GetRscOrLegacyFc(); // табличное Rsc; Fc — диаграммное -Rs
             double Es = rebar.E;
             double b = 1.0;
             double xi_r = 0.8 / (1.0 + Rs / (Es * 0.0035));

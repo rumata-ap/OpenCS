@@ -31,9 +31,24 @@ namespace CScore
       public double Fc { get; set; }
 
       /// <summary>
+      /// Расчётное сопротивление арматуры сжатию Rsc, кПа.
+      /// Хранится как положительная величина и используется только в
+      /// формульных проверках первого предельного состояния. Для диаграмм
+      /// арматуры сжатие строится симметрично сопротивлению Rs из <see cref="Ft"/>.
+      /// </summary>
+      public double Rsc { get; set; }
+
+      /// <summary>
       /// Прочность на растяжение.
       /// </summary>
       public double Ft { get; set; }
+
+      /// <summary>
+      /// Возвращает положительное Rsc, сохраняя совместимость со старыми
+      /// материалами, в JSON которых отдельного поля Rsc ещё не было.
+      /// </summary>
+      public double GetRscOrLegacyFc() =>
+         double.IsFinite(Rsc) && Rsc > 0.0 ? Rsc : Math.Abs(Fc);
 
       /// <summary>
       /// Предел текучести.
@@ -130,6 +145,7 @@ namespace CScore
             Tag = Tag,
             Class = Class,
             Fc = Fc,
+            Rsc = Rsc,
             Ft = Ft,
             Ry = Ry,
             Ru = Ru,
@@ -185,8 +201,11 @@ namespace CScore
                tag = "Двухлинейная по СП63.13330 (бетон)";
                break;
             case MatType.ReSteelF:
-               xc[0] = Ec2; yc[0] = Fc;
-               xc[1] = Fc / E; yc[1] = Fc;
+               // Для НДМ арматура работает симметрично: сжатие -Rs, растяжение +Rs.
+               // Rsc — отдельная характеристика только для формульных проверок МПУ.
+               double rsF = Math.Abs(Ft);
+               xc[0] = Ec2; yc[0] = -rsF;
+               xc[1] = -rsF / E; yc[1] = -rsF;
                xc[2] = 0; yc[2] = 0;
                xt[0] = 0; yt[0] = 0;
                xt[1] = Ft / E; yt[1] = Ft;
@@ -312,9 +331,10 @@ namespace CScore
                double e0 = Ft / E + 0.002;
                double e1 = 0.9 * Ft / E;
                double e2 = e0 + (e0 - e1);
-               xc[0] = -Et2; yc[0] = 1.1 * Fc;
-               xc[1] = -e2; yc[1] = 1.1 * Fc;
-               xc[2] = -e1; yc[2] = 0.9 * Fc;
+               double rsU = Math.Abs(Ft);
+               xc[0] = -Et2; yc[0] = -1.1 * rsU;
+               xc[1] = -e2; yc[1] = -1.1 * rsU;
+               xc[2] = -e1; yc[2] = -0.9 * rsU;
                xc[3] = 0; yc[3] = 0;
                xt[0] = 0; yt[0] = 0;
                xt[1] = e1; yt[1] = 0.9 * Ft;

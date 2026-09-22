@@ -1,0 +1,3 @@
+[submodule "tools/structural-materials"]
+	path = tools/structural-materials
+	url = https://github.com/rumata-ap/structural-materials.git

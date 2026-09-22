@@ -44,7 +44,8 @@ internal static class Sp63NormalFixtures
         {
             Type = MatType.ReSteelU,
             Ft = rs,
-            Fc = -rsc,
+            Fc = -rs,
+            Rsc = rsc,
             E = 200_000_000.0,
             Et2 = 0.025,
             Ec2 = -0.0035

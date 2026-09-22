@@ -9,6 +9,9 @@ namespace OpenCS.Utilites
       public MaterialCharsMap()
       {
          AutoMap(CultureInfo.InvariantCulture);
+         // Rsc появился после старого CSV-контракта; Optional сохраняет чтение
+         // пользовательских архивов без этого столбца.
+         Map(m => m.Rsc).Name("Rsc").Optional();
          Map(m => m.Id).Ignore();
          Map(m => m.MaterialId).Ignore();
          Map(m => m.Material).Ignore();
