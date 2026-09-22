@@ -113,4 +113,28 @@ public sealed class Sp63CrackWidthTaskParamsTests
         Assert.False(parameters.TryToOptions(out _, out var errorCode));
         Assert.Equal(expectedCode, errorCode);
     }
+
+    [Theory]
+    [InlineData("{}", Sp63Humidity.From40To75)]
+    [InlineData("""{"humidity":"above_75"}""", Sp63Humidity.Above75)]
+    [InlineData("""{"humidity":"below_40"}""", Sp63Humidity.Below40)]
+    public void Humidity_Parses(string json, Sp63Humidity expected)
+    {
+        var parameters = Sp63CrackWidthTaskParams.Parse(json);
+
+        Assert.True(parameters.TryToOptions(out var options, out var errorCode), errorCode);
+        Assert.Equal(expected, options.Humidity);
+        Assert.True(Sp63CrackWidthTaskParams.Parse(parameters.ToJson())
+            .TryToOptions(out var again, out _));
+        Assert.Equal(expected, again.Humidity);
+    }
+
+    [Fact]
+    public void UnknownHumidity_IsInvalidInput()
+    {
+        var parameters = Sp63CrackWidthTaskParams.Parse("""{"humidity":"wet"}""");
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_humidity", errorCode);
+    }
 }

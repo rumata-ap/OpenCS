@@ -103,6 +103,61 @@
                </StackPanel>
             </GroupBox>
 
+            <GroupBox Header="{DynamicResource Sp63CurvatureTitle}" Margin="0,0,0,8"
+                      Visibility="{Binding CurvatureVisibility}">
+               <StackPanel Margin="4">
+                  <TextBlock Text="{Binding CurvatureSummary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="90"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource Sp63CurvatureTermColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="1" Text="{DynamicResource Sp63CurvatureDurationColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource Sp63CurvatureMColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="3" Text="{DynamicResource Sp63CurvatureEb1Column}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="4" Text="{DynamicResource Sp63CurvaturePsiSColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="5" Text="{DynamicResource Sp63CurvatureXmColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="6" Text="{DynamicResource Sp63CurvatureDColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="7" Text="{DynamicResource Sp63CurvatureValueColumn}" FontWeight="SemiBold"/>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding CurvatureRows}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                           <Grid Margin="0,0,0,2">
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="70"/>
+                                 <ColumnDefinition Width="*"/>
+                                 <ColumnDefinition Width="80"/>
+                                 <ColumnDefinition Width="80"/>
+                                 <ColumnDefinition Width="60"/>
+                                 <ColumnDefinition Width="70"/>
+                                 <ColumnDefinition Width="90"/>
+                                 <ColumnDefinition Width="90"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold"/>
+                              <TextBlock Grid.Column="1" Text="{Binding DurationText}" TextWrapping="Wrap"/>
+                              <TextBlock Grid.Column="2" Text="{Binding MText}"/>
+                              <TextBlock Grid.Column="3" Text="{Binding Eb1Text}"/>
+                              <TextBlock Grid.Column="4" Text="{Binding PsiSText}"/>
+                              <TextBlock Grid.Column="5" Text="{Binding XmText}"/>
+                              <TextBlock Grid.Column="6" Text="{Binding DText}"/>
+                              <TextBlock Grid.Column="7" Text="{Binding CurvatureText}"/>
+                           </Grid>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{DynamicResource Sp63CurvatureFootnote}" Foreground="Gray" FontSize="11"
+                             TextWrapping="Wrap" Margin="0,4,0,0"/>
+               </StackPanel>
+            </GroupBox>
+
             <GroupBox Header="{DynamicResource Sp63NormalApplicabilityTitle}" Margin="0,0,0,8"
                       Visibility="{Binding ApplicabilityVisibility}">
                <ItemsControl ItemsSource="{Binding ApplicabilityRows}" Margin="4">

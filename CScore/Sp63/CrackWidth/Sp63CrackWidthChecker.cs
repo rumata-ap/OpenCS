@@ -250,6 +250,30 @@ public static class Sp63CrackWidthChecker
             informational.Add(new Sp63CrackWidthMessage("long_term_not_cracked",
                 Sp63CrackWidthMessageKind.Information, "8.2.4", "Sp63CrackWidth_LongTermNotCracked"));
 
+        Sp63CurvatureResult? curvature = null;
+        if (full)
+        {
+            // Mcrc полосы вычислен на единицу ширины — переводится на полную ширину b.
+            double mcrcFull = strip.Mcrc * b;
+            double mcrcLong = (terms.Long?.Mcrc ?? strip.Mcrc) * b;
+            curvature = Sp63Curvature.Compute(
+                new Sp63CurvatureInput(b, profile.Height, profile.H0, profile.APrime,
+                    profile.TensionLayer.Area, profile.CompressionLayer.Area,
+                    concreteChars.E, Math.Abs(concreteChars.Fc), rebarChars.E,
+                    concreteChars.Class, options.Humidity),
+                absMoment, load.N, share, strip.Cracked, mcrcFull, mcrcLong);
+            if (curvature is null)
+                informational.Add(new Sp63CrackWidthMessage("curvature_not_computed",
+                    Sp63CrackWidthMessageKind.Information, "8.2.23",
+                    concreteChars.Class > 0
+                        ? "Sp63CrackWidth_CurvatureThroughTension"
+                        : "Sp63CrackWidth_CurvatureNoConcreteClass"));
+            else
+                informational.Add(new Sp63CrackWidthMessage("curvature_note",
+                    Sp63CrackWidthMessageKind.Information, "8.2.25",
+                    "Sp63CrackWidth_CurvatureNote"));
+        }
+
         return new Sp63CrackWidthResult
         {
             Status = Sp63CrackWidthStatus.Calculated,
@@ -258,7 +282,8 @@ public static class Sp63CrackWidthChecker
             Branch = strip.Cracked ? "cracked" : "not_cracked",
             Details = details,
             InformationalMessages = informational,
-            Variables = variables
+            Variables = variables,
+            Curvature = curvature
         };
     }
 

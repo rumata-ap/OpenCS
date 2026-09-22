@@ -96,6 +96,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63CrackWidthMode = "long_and_short";
    string sp63CrackWidthLongTermShare = "1";
    string sp63CrackWidthAcrcLimShortMm = "0.4";
+   string sp63CrackWidthHumidity = "40_75";
    bool sp63CrackWidthUseManualForces;
    string sp63CrackWidthManualN = "0";
    string sp63CrackWidthManualMx = "0";
@@ -386,6 +387,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63CrackWidthAcrcLimShortMm;
       set { sp63CrackWidthAcrcLimShortMm = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Влажность среды для кривизны: above_75, 40_75 или below_40 (таблицы 6.10, 6.12).</summary>
+   public string Sp63CrackWidthHumidity
+   {
+      get => sp63CrackWidthHumidity;
+      set { sp63CrackWidthHumidity = value; OnPropertyChanged(); }
    }
 
    /// <summary>Коэффициент длительности действия нагрузки φ1 (п. 8.2.10).</summary>
@@ -2192,6 +2200,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                 ? "long_and_short" : "single_term";
              Sp63CrackWidthLongTermShare = scwp.LongTermShare.ToString("G6", inv);
              Sp63CrackWidthAcrcLimShortMm = scwp.AcrcLimShortMm.ToString("G6", inv);
+             Sp63CrackWidthHumidity = string.IsNullOrWhiteSpace(scwp.Humidity) ? "40_75" : scwp.Humidity;
              Sp63CrackWidthUseManualForces = scwp.UseManualForces;
              if (scwp.UseManualForces)
              {
@@ -2541,6 +2550,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Mode = Sp63CrackWidthMode,
             LongTermShare = longTermShare!.Value,
             AcrcLimShortMm = acrcLimShortMm!.Value,
+            Humidity = Sp63CrackWidthHumidity,
             UseManualForces = Sp63CrackWidthUseManualForces,
             N = n,
             Mx = mx,

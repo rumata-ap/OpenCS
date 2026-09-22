@@ -38,6 +38,12 @@ public sealed class Sp63CrackWidthTaskParams
     public double AcrcLimShortMm { get; set; } = 0.4;
 
     /// <summary>
+    /// Влажность среды для кривизны (таблицы 6.10, 6.12): "above_75", "40_75" (по умолчанию)
+    /// или "below_40".
+    /// </summary>
+    public string Humidity { get; set; } = "40_75";
+
+    /// <summary>
     /// Способ получения σs,crc в формуле ψs (п. 8.2.18): "stress" — по напряжениям,
     /// ф. (8.137) (по умолчанию); "moment" — через Mcrc, ф. (8.138).
     /// </summary>
@@ -111,9 +117,26 @@ public sealed class Sp63CrackWidthTaskParams
         if (!double.IsFinite(LongTermShare) || LongTermShare < 0 || LongTermShare > 1)
             return Invalid("invalid_long_term_share", out errorCode);
 
+        if (!TryParseHumidity(Humidity, out var humidity))
+            return Invalid("invalid_humidity", out errorCode);
+
         options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2,
-            AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm);
+            AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm, humidity);
         return true;
+    }
+
+    /// <summary>Разбирает идентификатор влажности среды из JSON-контракта.</summary>
+    public static bool TryParseHumidity(string? value, out Sp63Humidity humidity)
+    {
+        humidity = Sp63Humidity.From40To75;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "40_75": return true;
+            case "above_75": humidity = Sp63Humidity.Above75; return true;
+            case "below_40": humidity = Sp63Humidity.Below40; return true;
+            default: return false;
+        }
     }
 
     /// <summary>Разбирает идентификатор режима проверки из JSON-контракта.</summary>

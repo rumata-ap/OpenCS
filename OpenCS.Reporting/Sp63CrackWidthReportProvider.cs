@@ -51,7 +51,13 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                 ("ψ = Ml/M (доля постоянных и временных длительных нагрузок)", F(parameters.LongTermShare)),
                 ("φ2 (профиль арматуры), п. 8.2.15", F(parameters.Phi2)),
                 ("acrc,ult продолжительного раскрытия, мм", F(parameters.AcrcLimMm)),
-                ("acrc,ult непродолжительного раскрытия, мм", F(parameters.AcrcLimShortMm))
+                ("acrc,ult непродолжительного раскрытия, мм", F(parameters.AcrcLimShortMm)),
+                ("Влажность среды (табл. 6.10, 6.12)", parameters.Humidity switch
+                {
+                    "above_75" => "выше 75 %",
+                    "below_40" => "ниже 40 %",
+                    _ => "40–75 %"
+                })
             ]);
         else
             inputRows.AddRange(
@@ -82,6 +88,7 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
 
         AddCheckTable(document, longAndShort ? "Числовые условия acrc ≤ acrc,ult (п. 8.2.6)" : "Числовое условие acrc ≤ acrc,lim",
             "Входит в итоговый вердикт LimitPassed.", domain.Details);
+        AddCurvatureTable(document, domain.Curvature);
         AddMessageTable(document, "Причины неприменимости формульного режима", domain.ApplicabilityMessages);
         AddMessageTable(document, "Справочные сообщения", domain.InformationalMessages);
 
@@ -121,6 +128,35 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                     F(detail.Ratio),
                     detail.Passed ? "выполнено" : "не выполнено",
                     FormatVariables(detail.Variables)
+                ]).ToList()));
+    }
+
+    static void AddCurvatureTable(ReportDocument document, Sp63CurvatureResult? curvature)
+    {
+        if (curvature is null || curvature.Terms.Count == 0) return;
+        document
+            .Add(new ReportHeading(1, "Кривизна по пп. 8.2.23–8.2.30 (справочно)"))
+            .Add(new ReportParagraph(curvature.Cracked
+                ? $"Участок с трещинами, (8.141): 1/r = (1/r)1 − (1/r)2 + (1/r)3 = {F(curvature.Total)} 1/м."
+                : $"Участок без трещин, (8.140): 1/r = (1/r)1 + (1/r)2 = {F(curvature.Total)} 1/м."))
+            .Add(new ReportParagraph(
+                $"φb,cr = {F(curvature.PhiBCr)} (табл. 6.12); εb1,red при продолжительном действии = {F(curvature.EpsB1RedLong)} (табл. 6.10). " +
+                "M — относительно середины высоты сечения; кривизна — от момента относительно центра тяжести приведённого сечения. " +
+                "Жёсткость с трещинами не более жёсткости без трещин (п. 8.2.27)."))
+            .Add(new ReportTable(
+                ["Составляющая", "Действие нагрузки", "M, кН·м", "N, кН", "Eb1, МПа", "ψs", "xm, мм", "Ired, м⁴", "D, кН·м²", "1/r, 1/м"],
+                curvature.Terms.Select(term => (IReadOnlyList<string>)
+                [
+                    $"(1/r){term.Index}",
+                    term.LongTerm ? "продолжительное" : "непродолжительное",
+                    F(term.M),
+                    F(term.N),
+                    F(term.Eb1 / 1000.0),
+                    double.IsNaN(term.PsiS) ? "—" : F(term.PsiS),
+                    double.IsNaN(term.Xm) ? "—" : F(term.Xm * 1000.0),
+                    F(term.IRed),
+                    F(term.D) + (term.LimitedByUncracked ? " (огр. п. 8.2.27)" : ""),
+                    F(term.Curvature)
                 ]).ToList()));
     }
 
@@ -219,6 +255,9 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         ["Sp63CrackWidth_LongTermShareNote"] = "Длительная часть нагрузки принята как ψ·N и ψ·M; acrc1 — при φ1 = 1,4, acrc2 и acrc3 — при φ1 = 1,0.",
         ["Sp63CrackWidth_LongTermNotCracked"] = "От длительной части нагрузки трещины не образуются (Ml ≤ Mcrc): acrc1 = acrc3 = 0.",
         ["Sp63CrackWidth_InvalidLongTermShare"] = "Доля длительных нагрузок ψ должна быть в пределах от 0 до 1.",
+        ["Sp63CrackWidth_CurvatureNote"] = "Кривизна по пп. 8.2.23–8.2.30: без трещин Eb1 = 0,85·Eb и Eb/(1 + φb,cr); с трещинами Eb1 = Eb,red = Rb,ser/εb1,red, xm по (8.151) с поправкой (8.154), ψs по (8.138).",
+        ["Sp63CrackWidth_CurvatureThroughTension"] = "Кривизна по формулам не вычислена: сечение растянуто насквозь (xm ≤ 0) — используйте деформационную модель.",
+        ["Sp63CrackWidth_CurvatureNoConcreteClass"] = "Кривизна по формулам не вычислена: у бетона не задан класс B, нужный для φb,cr по таблице 6.12.",
         ["Sp63CrackWidth_NeutralAxisNote"] = "Высота сжатой зоны сечения с трещиной — по п. 8.2.28 с поправкой (8.154) на продольную силу; при xm ≤ 0 сечение растянуто насквозь и растяжение воспринимают оба ряда арматуры.",
         ["Sp63CrackWidth_ThroughTensionOppositeRow"] = "Сечение растянуто насквозь (xm ≤ 0); решает ряд арматуры у грани, которую момент не растягивает.",
         ["Sp63CrackWidth_NotCracked"] = "M ≤ Mcrc — трещины не образуются, acrc = 0.",

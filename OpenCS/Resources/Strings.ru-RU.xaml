@@ -1882,6 +1882,28 @@
     <system:String x:Key="Sp63CrackWidthBranchCracked">Трещины образуются</system:String>
     <system:String x:Key="Sp63CrackWidthBranchNotCracked">Трещины не образуются</system:String>
     <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} мм</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidity">Влажность среды</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityTooltip">Средняя месячная относительная влажность наиболее тёплого месяца (СП 131.13330); определяет φb,cr (табл. 6.12) и εb1,red (табл. 6.10) для кривизны</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityAbove75">Выше 75 %</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidity40To75">40–75 %</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityBelow40">Ниже 40 %</system:String>
+    <system:String x:Key="Sp63CurvatureTitle">Кривизна по пп. 8.2.23–8.2.30 (справочно, в вердикт не входит)</system:String>
+    <system:String x:Key="Sp63CurvatureTermColumn">Составляющая</system:String>
+    <system:String x:Key="Sp63CurvatureDurationColumn">Действие нагрузки</system:String>
+    <system:String x:Key="Sp63CurvatureMColumn">M, кН·м</system:String>
+    <system:String x:Key="Sp63CurvatureEb1Column">Eb1, МПа</system:String>
+    <system:String x:Key="Sp63CurvaturePsiSColumn">ψs</system:String>
+    <system:String x:Key="Sp63CurvatureXmColumn">xm, мм</system:String>
+    <system:String x:Key="Sp63CurvatureDColumn">D, кН·м²</system:String>
+    <system:String x:Key="Sp63CurvatureValueColumn">1/r, 1/м</system:String>
+    <system:String x:Key="Sp63CurvatureFootnote">* — жёсткость с трещинами ограничена жёсткостью без трещин (п. 8.2.27). M — относительно середины высоты сечения; кривизна считается от момента относительно центра тяжести приведённого сечения.</system:String>
+    <system:String x:Key="Sp63CurvatureLongTerm">продолжительное</system:String>
+    <system:String x:Key="Sp63CurvatureShortTerm">непродолжительное</system:String>
+    <system:String x:Key="Sp63CurvatureSummaryCracked">С трещинами, (8.141): 1/r = (1/r)1 − (1/r)2 + (1/r)3 = {0} 1/м; φb,cr = {1}; εb1,red = {2}</system:String>
+    <system:String x:Key="Sp63CurvatureSummaryUncracked">Без трещин, (8.140): 1/r = (1/r)1 + (1/r)2 = {0} 1/м; φb,cr = {1}; εb1,red = {2}</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureNote">Кривизна по пп. 8.2.23–8.2.30: без трещин Eb1 = 0,85·Eb и Eb/(1 + φb,cr); с трещинами Eb1 = Eb,red = Rb,ser/εb1,red, xm по (8.151) с поправкой (8.154), ψs по (8.138).</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureThroughTension">Кривизна по формулам не вычислена: сечение растянуто насквозь (xm ≤ 0) — используйте деформационную модель.</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureNoConcreteClass">Кривизна по формулам не вычислена: у бетона не задан класс B, нужный для φb,cr по таблице 6.12.</system:String>
     <system:String x:Key="Sp63CrackWidthMode">Режим проверки</system:String>
     <system:String x:Key="Sp63CrackWidthModeLongAndShort">Продолжительное и непродолжительное раскрытие (п. 8.2.7)</system:String>
     <system:String x:Key="Sp63CrackWidthModeSingleTerm">Одна составляющая с заданным φ1</system:String>

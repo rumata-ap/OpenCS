@@ -45,6 +45,7 @@ public enum Sp63CrackWidthMessageKind
 /// Предельная ширина непродолжительного раскрытия, мм (режим
 /// <see cref="Sp63CrackWidthMode.LongAndShort"/>; продолжительное — <paramref name="AcrcLimMm"/>).
 /// </param>
+/// <param name="Humidity">Влажность среды для кривизны (таблицы 6.10, 6.12), режим LongAndShort.</param>
 public sealed record Sp63CrackWidthOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
@@ -55,7 +56,8 @@ public sealed record Sp63CrackWidthOptions(
     WplGammaMethod WplGamma = WplGammaMethod.Sp63,
     Sp63CrackWidthMode Mode = Sp63CrackWidthMode.SingleTerm,
     double LongTermShare = 1.0,
-    double AcrcLimShortMm = 0.4);
+    double AcrcLimShortMm = 0.4,
+    Sp63Humidity Humidity = Sp63Humidity.From40To75);
 
 /// <summary>Режим упрощённой проверки ширины раскрытия трещин.</summary>
 public enum Sp63CrackWidthMode

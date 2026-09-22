@@ -392,4 +392,44 @@ public class Sp63CrackWidthCheckerTests
 
         Assert.Equal(Sp63CrackWidthStatus.InvalidInput, result.Status);
     }
+
+    [Fact]
+    public void LongAndShort_ComputesCurvature_WhenConcreteClassKnown()
+    {
+        var (section, concrete, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+        concrete.GetChars(CalcType.N)!.Class = 25;
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(0.6));
+
+        Assert.NotNull(result.Curvature);
+        Assert.True(result.Curvature!.Cracked);
+        Assert.Equal(3, result.Curvature.Terms.Count);
+        Assert.True(result.Curvature.Total > 0);
+        Assert.Contains(result.InformationalMessages, m => m.Code == "curvature_note");
+    }
+
+    [Fact]
+    public void LongAndShort_NoConcreteClass_SkipsCurvatureWithNote()
+    {
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(0.6));
+
+        Assert.Null(result.Curvature);
+        Assert.Contains(result.InformationalMessages, m => m.Code == "curvature_not_computed");
+    }
+
+    [Fact]
+    public void SingleTerm_DoesNotComputeCurvature()
+    {
+        var (section, concrete, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+        concrete.GetChars(CalcType.N)!.Class = 25;
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, Options());
+
+        Assert.Null(result.Curvature);
+    }
 }

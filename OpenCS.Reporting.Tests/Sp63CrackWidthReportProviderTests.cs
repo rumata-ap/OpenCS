@@ -88,6 +88,32 @@ public sealed class Sp63CrackWidthReportProviderTests
     }
 
     [Fact]
+    public void Provider_ShowsCurvatureTable()
+    {
+        const string json = """
+            {"Status":2,"LimitPassed":true,"Cracked":true,"Branch":"cracked","Details":[],
+             "ApplicabilityMessages":[],"InformationalMessages":[],"Variables":{},
+             "Curvature":{"Cracked":true,"Total":0.0093,"PhiBCr":3.4,"EpsB1RedLong":0.0028,
+               "Terms":[
+                 {"Index":1,"LongTerm":false,"M":25.5,"N":0,"Eb1":7333333,"PsiS":0.58,"Xm":0.08,"IRed":0.0005,"D":3666,"Curvature":0.0070},
+                 {"Index":2,"LongTerm":false,"M":25.5,"N":0,"Eb1":7333333,"PsiS":0.58,"Xm":0.08,"IRed":0.0005,"D":3666,"Curvature":0.0070},
+                 {"Index":3,"LongTerm":true,"M":25.5,"N":0,"Eb1":3928571,"PsiS":0.58,"Xm":0.0998,"IRed":0.000695,"D":2732,"LimitedByUncracked":true,"Curvature":0.0093}]}}
+            """;
+        var task = MakeTask("""{"mode":"long_and_short","longTermShare":1,"humidity":"below_40"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = json };
+
+        var document = new Sp63CrackWidthReportProvider().Build(new ReportContext(task, result));
+
+        Assert.Contains(document.Blocks.OfType<ReportHeading>(), h => h.Text.StartsWith("Кривизна"));
+        var table = Assert.Single(document.Blocks.OfType<ReportTable>(),
+            t => t.Rows.Any(r => r[0] == "(1/r)3"));
+        Assert.Equal(3, table.Rows.Count);
+        Assert.Contains(table.Rows.SelectMany(r => r), c => c.Contains("огр. п. 8.2.27"));
+        Assert.Contains(document.Blocks.OfType<ReportKeyValueTable>().SelectMany(t => t.Rows),
+            r => r.Key.StartsWith("Влажность") && r.Value == "ниже 40 %");
+    }
+
+    [Fact]
     public void Provider_WarnsWhenNotApplicable()
     {
         var task = MakeTask();

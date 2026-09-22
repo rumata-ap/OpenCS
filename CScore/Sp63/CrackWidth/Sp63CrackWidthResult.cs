@@ -24,6 +24,12 @@ public sealed class Sp63CrackWidthResult
     /// <summary>Справочные сообщения, не изменяющие вердикт.</summary>
     public List<Sp63CrackWidthMessage> InformationalMessages { get; set; } = [];
 
+    /// <summary>
+    /// Полная кривизна по пп. 8.2.23–8.2.30 (режим LongAndShort); <see langword="null"/> —
+    /// не вычислялась. Справочно, в вердикт LimitPassed не входит.
+    /// </summary>
+    public Sp63CurvatureResult? Curvature { get; set; }
+
     /// <summary>Переменные расчёта для прозрачного результата.</summary>
     public Dictionary<string, double> Variables { get; set; } = [];
 }

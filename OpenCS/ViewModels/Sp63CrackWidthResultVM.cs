@@ -44,6 +44,27 @@ public sealed class Sp63CrackWidthMessageRow
    public string NormReference { get; init; } = "";
 }
 
+/// <summary>Одна составляющая кривизны (1/r)i по п. 8.2.24.</summary>
+public sealed class Sp63CurvatureRow
+{
+   /// <summary>Обозначение составляющей.</summary>
+   public string Name { get; init; } = "";
+   /// <summary>Продолжительность действия нагрузки.</summary>
+   public string DurationText { get; init; } = "";
+   /// <summary>Момент M, кН·м.</summary>
+   public string MText { get; init; } = "";
+   /// <summary>Модуль деформации Eb1, МПа.</summary>
+   public string Eb1Text { get; init; } = "";
+   /// <summary>ψs.</summary>
+   public string PsiSText { get; init; } = "";
+   /// <summary>Высота сжатой зоны xm, мм.</summary>
+   public string XmText { get; init; } = "";
+   /// <summary>Жёсткость D, кН·м².</summary>
+   public string DText { get; init; } = "";
+   /// <summary>Кривизна 1/r, 1/м.</summary>
+   public string CurvatureText { get; init; } = "";
+}
+
 /// <summary>Одна переменная, использованная в формульном расчёте.</summary>
 public sealed class Sp63CrackWidthVariableRow
 {
@@ -98,6 +119,12 @@ public sealed class Sp63CrackWidthResultVM
    public ObservableCollection<Sp63CrackWidthMessageRow> InformationRows { get; } = [];
    /// <summary>Переменные результата.</summary>
    public ObservableCollection<Sp63CrackWidthVariableRow> VariableRows { get; } = [];
+   /// <summary>Составляющие кривизны.</summary>
+   public ObservableCollection<Sp63CurvatureRow> CurvatureRows { get; } = [];
+   /// <summary>Итог по кривизне: формула, полная кривизна, φb,cr, εb1,red.</summary>
+   public string CurvatureSummary { get; } = "";
+   /// <summary>Показывать ли блок кривизны.</summary>
+   public Visibility CurvatureVisibility { get; }
 
    /// <summary>Создаёт VM только по JSON результата.</summary>
    public Sp63CrackWidthResultVM(string dataJson)
@@ -165,6 +192,27 @@ public sealed class Sp63CrackWidthResultVM
          ? Visibility.Visible : Visibility.Collapsed;
       VariablesVisibility = VariableRows.Count > 0
          ? Visibility.Visible : Visibility.Collapsed;
+
+      if (Model.Curvature is { } curvature)
+      {
+         foreach (var term in curvature.Terms)
+            CurvatureRows.Add(new Sp63CurvatureRow
+            {
+               Name = $"(1/r){term.Index}",
+               DurationText = Loc.S(term.LongTerm ? "Sp63CurvatureLongTerm" : "Sp63CurvatureShortTerm"),
+               MText = FormatNumber(term.M),
+               Eb1Text = FormatNumber(term.Eb1 / 1000.0),
+               PsiSText = double.IsNaN(term.PsiS) ? "—" : FormatNumber(term.PsiS),
+               XmText = double.IsNaN(term.Xm) ? "—" : FormatNumber(term.Xm * 1000.0),
+               DText = FormatNumber(term.D) + (term.LimitedByUncracked ? " *" : ""),
+               CurvatureText = FormatNumber(term.Curvature)
+            });
+         CurvatureSummary = string.Format(CultureInfo.CurrentCulture,
+            Loc.S(curvature.Cracked ? "Sp63CurvatureSummaryCracked" : "Sp63CurvatureSummaryUncracked"),
+            FormatNumber(curvature.Total), FormatNumber(curvature.PhiBCr),
+            FormatNumber(curvature.EpsB1RedLong));
+      }
+      CurvatureVisibility = CurvatureRows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
    }
 
    static Sp63CrackWidthResult Deserialize(string dataJson)

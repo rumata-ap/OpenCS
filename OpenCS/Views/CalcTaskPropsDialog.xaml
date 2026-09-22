@@ -373,6 +373,7 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
@@ -428,6 +429,17 @@
                   <TextBox Grid.Row="6" Grid.Column="1"
                            Text="{Binding Sp63CrackWidthAcrcLimShortMm, UpdateSourceTrigger=PropertyChanged}"
                            Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthHumidity}"
+                             VerticalAlignment="Center" Margin="0,4,4,0"
+                             Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}"/>
+                  <ComboBox Grid.Row="7" Grid.Column="1" SelectedValuePath="Tag" Margin="0,4,0,0"
+                            SelectedValue="{Binding Sp63CrackWidthHumidity}"
+                            ToolTip="{DynamicResource Sp63CrackWidthHumidityTooltip}"
+                            Visibility="{Binding ShowSp63CrackWidthLongAndShort, Converter={StaticResource BoolToVisibility}}">
+                     <ComboBoxItem Tag="above_75" Content="{DynamicResource Sp63CrackWidthHumidityAbove75}"/>
+                     <ComboBoxItem Tag="40_75" Content="{DynamicResource Sp63CrackWidthHumidity40To75}"/>
+                     <ComboBoxItem Tag="below_40" Content="{DynamicResource Sp63CrackWidthHumidityBelow40}"/>
+                  </ComboBox>
                </Grid>
                <TextBlock Text="{DynamicResource Sp63CrackWidthInputsHint}"
                           FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>

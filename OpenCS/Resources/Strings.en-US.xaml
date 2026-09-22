@@ -1882,6 +1882,28 @@
     <system:String x:Key="Sp63CrackWidthBranchCracked">Cracks form</system:String>
     <system:String x:Key="Sp63CrackWidthBranchNotCracked">No cracks form</system:String>
     <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} mm</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidity">Ambient humidity</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityTooltip">Mean monthly relative humidity of the warmest month (SP 131.13330); defines φb,cr (Table 6.12) and εb1,red (Table 6.10) for curvature</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityAbove75">Above 75 %</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidity40To75">40–75 %</system:String>
+    <system:String x:Key="Sp63CrackWidthHumidityBelow40">Below 40 %</system:String>
+    <system:String x:Key="Sp63CurvatureTitle">Curvature per cl. 8.2.23–8.2.30 (reference only, not part of the verdict)</system:String>
+    <system:String x:Key="Sp63CurvatureTermColumn">Term</system:String>
+    <system:String x:Key="Sp63CurvatureDurationColumn">Load action</system:String>
+    <system:String x:Key="Sp63CurvatureMColumn">M, kN·m</system:String>
+    <system:String x:Key="Sp63CurvatureEb1Column">Eb1, MPa</system:String>
+    <system:String x:Key="Sp63CurvaturePsiSColumn">ψs</system:String>
+    <system:String x:Key="Sp63CurvatureXmColumn">xm, mm</system:String>
+    <system:String x:Key="Sp63CurvatureDColumn">D, kN·m²</system:String>
+    <system:String x:Key="Sp63CurvatureValueColumn">1/r, 1/m</system:String>
+    <system:String x:Key="Sp63CurvatureFootnote">* — cracked stiffness limited by the uncracked stiffness (cl. 8.2.27). M is about the section mid-height; curvature uses the moment about the transformed-section centroid.</system:String>
+    <system:String x:Key="Sp63CurvatureLongTerm">long-term</system:String>
+    <system:String x:Key="Sp63CurvatureShortTerm">short-term</system:String>
+    <system:String x:Key="Sp63CurvatureSummaryCracked">Cracked, (8.141): 1/r = (1/r)1 − (1/r)2 + (1/r)3 = {0} 1/m; φb,cr = {1}; εb1,red = {2}</system:String>
+    <system:String x:Key="Sp63CurvatureSummaryUncracked">Uncracked, (8.140): 1/r = (1/r)1 + (1/r)2 = {0} 1/m; φb,cr = {1}; εb1,red = {2}</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureNote">Curvature per cl. 8.2.23–8.2.30: uncracked Eb1 = 0.85·Eb and Eb/(1 + φb,cr); cracked Eb1 = Eb,red = Rb,ser/εb1,red, xm by (8.151) with correction (8.154), ψs by (8.138).</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureThroughTension">Curvature not computed by formulas: the section is fully in tension (xm ≤ 0) — use the deformation model.</system:String>
+    <system:String x:Key="Sp63CrackWidth_CurvatureNoConcreteClass">Curvature not computed by formulas: the concrete class B required for φb,cr (Table 6.12) is not set.</system:String>
     <system:String x:Key="Sp63CrackWidthMode">Check mode</system:String>
     <system:String x:Key="Sp63CrackWidthModeLongAndShort">Long-term and short-term crack opening (cl. 8.2.7)</system:String>
     <system:String x:Key="Sp63CrackWidthModeSingleTerm">Single term with given φ1</system:String>
