@@ -168,6 +168,16 @@ namespace CScore
                         As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                     waStrips.Add(MakeStripSls("y, низ", My_bot, nyCands[0], h, h - cb, ct,
                         As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
+
+                    // Сквозное растяжение: растянут и ряд противоположной грани (см. DirectionStrip).
+                    var own = waStrips.ToArray();
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int opp = i ^ 1;   // пары (x верх, x низ), (y верх, y низ)
+                        double ds = i < 2 ? ds_x : ds_y;
+                        waStrips[i] = WaThroughTension(own[i], own[opp], h, ds,
+                            concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma);
+                    }
                 }
                 else
                 {
@@ -356,14 +366,15 @@ namespace CScore
         /// П. 8.2.16, ф. (8.134): напряжение в растянутой арматуре сечения с трещиной
         /// от совместного действия M и N (N со знаком: "+" — растяжение), с приведением
         /// к сечению с трещиной (aRedCrc/iRedCrc — площадь/момент инерции приведённого
-        /// сечения по сжатой зоне бетона и арматуре, см. вызывающий код).
+        /// сечения по сжатой зоне бетона и арматуре относительно его центра тяжести yc,
+        /// M — относительно того же центра тяжести, см. вызывающий код).
         /// </summary>
         internal static double ComputeSigmaSCrackedSection(
-            double M, double N, double h0, double xm,
+            double M, double N, double h0, double yc,
             double aRedCrc, double iRedCrc, double alpha, double rsSer)
         {
             if (iRedCrc < 1e-15 || aRedCrc < 1e-15) return 0.0;
-            double sigma = alpha * (M * (h0 - xm) / iRedCrc + N / aRedCrc);
+            double sigma = alpha * (M * (h0 - yc) / iRedCrc + N / aRedCrc);
             return Math.Clamp(sigma, 0.0, rsSer);
         }
 
@@ -449,15 +460,29 @@ namespace CScore
                 // Сжатая зона есть — второй ряд сжат и трещины у его грани нет.
                 if (oppositeRow) return 0.0;
 
-                // Приведённые площадь/момент инерции сечения С ТРЕЩИНОЙ (сжатая зона бетона
-                // + арматура, п. 8.2.16) — в отличие от тех же величин БЕЗ трещины, которые
-                // используются только для Mcrc (п. 8.2.11-8.2.12).
+                // Ф. (8.134): σs = [M·(h0−yc)/Ired ± N/Ared]·αs1. В отличие от (8.129) для
+                // изгиба, здесь yc — НЕ высота сжатой зоны, а расстояние от сжатой грани до
+                // центра тяжести приведённого сечения с трещиной (сжатая зона бетона + арматура
+                // с αs1), и Ired берётся относительно этого центра тяжести (п. 8.2.16: «по общим
+                // правилам расчёта геометрических характеристик сечений упругих элементов»).
+                // Момент по тем же общим правилам переносится к этому центру тяжести: внешние
+                // M и N заданы относительно середины высоты сечения (ц.т. бетона), и
+                // растягивающая N, приложенная ниже yc, добавляет момент N·(h/2 − yc).
+                //
+                // Прежняя реализация брала yc = x и I относительно нейтральной оси — это
+                // определения (8.129) для чистого изгиба. При N = 0 обе записи совпадают
+                // (ц.т. сечения с трещиной лежит на нейтральной оси, ф. (8.151)), но при
+                // растягивающей N σs занижалась до ~20% против точного упругого решения, а на
+                // переходе x_m → 0 к схеме сквозного растяжения был скачок ~13%. Буквальная
+                // (8.134) при x_m → 0 сама переходит в равновесие двух рядов арматуры.
                 double aCrc = x + alpha * (As_t + As_c);
-                double iCrc = x * x * x / 3.0
-                    + alpha * As_t * (h0 - x) * (h0 - x)
-                    + alpha * As_c * (x - a_prime) * (x - a_prime);
-                // Ф. (8.134): σs = [M·(h0−yc)/Ired ± N/Ared]·αs1, yc = x.
-                return ComputeSigmaSCrackedSection(m, N_des, h0, x, aCrc, iCrc, alpha, Rs_ser);
+                double sCrc = x * x / 2.0 + alpha * (As_t * h0 + As_c * a_prime);
+                double yc = sCrc / aCrc;
+                double iCrc = x * x * x / 12.0 + x * (yc - x / 2.0) * (yc - x / 2.0)
+                    + alpha * As_t * (h0 - yc) * (h0 - yc)
+                    + alpha * As_c * (yc - a_prime) * (yc - a_prime);
+                double mCrc = m + N_des * (h / 2.0 - yc);
+                return ComputeSigmaSCrackedSection(mCrc, N_des, h0, yc, aCrc, iCrc, alpha, Rs_ser);
             }
 
             // x_m ≤ 0: сжатой зоны нет, сечение растянуто насквозь. Предпосылка ф. (8.134)
@@ -511,6 +536,45 @@ namespace CScore
                 concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
             r.Name = name;
             return r;
+        }
+
+        /// <summary>
+        /// Второй ряд полосы при сквозном растяжении (x_m ≤ 0): тот, который момент НЕ
+        /// растягивает. Геометрия задаётся так же, как для <see cref="ComputeStripSls"/> по
+        /// ряду, растянутому моментом, и переставляется здесь: h0 ↔ h − a', As_t ↔ As_c.
+        /// Пока сжатая зона есть, второй ряд сжат и даёт acrc = 0.
+        /// </summary>
+        /// <param name="dsOpposite">Диаметр стержней второго ряда.</param>
+        internal static ShellSimplStripResult ComputeOppositeRowSls(
+            double M_des, double N_des, double h, double h0, double a_prime,
+            double As_t, double As_c, double dsOpposite,
+            MaterialChars concrete, MaterialChars rebar,
+            double phi1, double phi2, double acrcLimMm,
+            SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
+            WplGammaMethod wplGamma = WplGammaMethod.Sp63) =>
+            ComputeStripSls(M_des, N_des, h, h - a_prime, h - h0, As_c, As_t, dsOpposite,
+                concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma, oppositeRow: true);
+
+        /// <summary>
+        /// WA, ПС2: полоса грани, растянутой своим расчётным моментом, плюс учёт сквозного
+        /// растяжения от полосы противоположной грани того же направления. Если у полосы
+        /// противоположной грани x_m ≤ 0, её второй ряд — это ряд этой грани, и он растянут
+        /// даже при M_des этой грани = 0 (тогда собственная полоса трещины не видит вовсе).
+        /// Берётся худшая по acrc из двух оценок.
+        /// </summary>
+        static ShellSimplStripResult WaThroughTension(ShellSimplStripResult own,
+            ShellSimplStripResult opposite, double h,
+            double dsOwn, MaterialChars concrete, MaterialChars rebar,
+            double phi1, double phi2, double acrcLimMm,
+            SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
+        {
+            if (opposite.NoRebar || opposite.Xm > 0.0) return own;
+            var fromOpposite = ComputeOppositeRowSls(opposite.M_des, opposite.N_des, h,
+                opposite.H0, opposite.A_prime, opposite.As_t, opposite.As_c, dsOwn,
+                concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
+            if (fromOpposite.Acrc_mm <= own.Acrc_mm) return own;
+            fromOpposite.Name = own.Name;
+            return fromOpposite;
         }
 
         static ShellSimplStripResult MakeStripUls(string name,
@@ -687,7 +751,7 @@ namespace CScore
             // Все характеристики материала уже в кПа
             double Rb = Math.Abs(concrete.Fc);
             double Rs = Math.Abs(rebar.Ft);      // для арматуры Ft = Rs
-            double Rsc = rebar.GetRscOrLegacyFc(); // табличное Rsc; Fc — диаграммное -Rs
+            double Rsc = rebar.GetRscOrLegacyFc(); // табличное Rsc (табл. 6.14)
             double Es = rebar.E;
             double b = 1.0;
             double xi_r = 0.8 / (1.0 + Rs / (Es * 0.0035));
@@ -883,13 +947,9 @@ namespace CScore
                 // между прогонами), но берётся худшая из двух граней.
                 if (strip.Xm <= 0.0)
                 {
-                    var other = top
-                        ? ComputeStripSls(Math.Abs(M_n), N_n, h, h - cb, ct,
-                            As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm,
-                            sigmaSCrcMethod, wplGamma, oppositeRow: true)
-                        : ComputeStripSls(Math.Abs(M_n), N_n, h, h - ct, cb,
-                            As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm,
-                            sigmaSCrcMethod, wplGamma, oppositeRow: true);
+                    var other = ComputeOppositeRowSls(strip.M_des, strip.N_des, h,
+                        strip.H0, strip.A_prime, strip.As_t, strip.As_c, top ? ds_bot : ds_top,
+                        concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
                     if (other.Acrc_mm > strip.Acrc_mm)
                     {
                         strip = other;

@@ -631,10 +631,13 @@ public class ShellSimplLiraWall244Tests
     // Регрессионные диапазоны (±~3% от чисел сводки выше).
     const double WA_ULS_LO = 1.21, WA_ULS_HI = 1.29, CAPRI_ULS_LO = 0.87, CAPRI_ULS_HI = 0.93;
     const double LAY_ULS_LO = 0.82, LAY_ULS_HI = 0.88;
-    const double WA_SLS_LO = 0.96, WA_SLS_HI = 1.03, CAPRI_SLS_LO = 0.71, CAPRI_SLS_HI = 0.76;
+    // 22.09.2026: ф. (8.134) — yc и Ired по центру тяжести сечения с трещиной, момент перенесён
+    // к нему (было yc = x_m и I относительно нейтральной оси): Капра-Мори 0,677 (было ~0,735),
+    // упрощённый СП 63 0,399 (было ~0,41); WA не изменился.
+    const double WA_SLS_LO = 0.96, WA_SLS_HI = 1.03, CAPRI_SLS_LO = 0.66, CAPRI_SLS_HI = 0.70;
     // 22.09.2026: трещинообразование слоистой модели — по лучу всех моментов (ShellCrackingSolver):
     // было 0,259 — порог по одному Mx пропускал трещину от длительного сочетания (acrc,long = 0),
     // а σs,crc при Mx = M_crc и полном Mxy давала ψs = 0,32 вместо 0,57.
     const double LAY_SLS_LO = 0.50, LAY_SLS_HI = 0.55;
-    const double SP63_ULS_LO = 0.87, SP63_ULS_HI = 0.93, SP63_SLS_LO = 0.40, SP63_SLS_HI = 0.43;
+    const double SP63_ULS_LO = 0.87, SP63_ULS_HI = 0.93, SP63_SLS_LO = 0.385, SP63_SLS_HI = 0.415;
 }

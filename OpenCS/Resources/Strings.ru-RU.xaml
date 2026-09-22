@@ -1600,6 +1600,8 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, мм</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (длит.: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (профиль: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellLayeredSlsTabCracks">Трещины</system:String>
+    <system:String x:Key="ShellLayeredSlsNoProfiles">Эпюры недоступны: результат получен старой версией программы — пересчитайте задачу.</system:String>
     <system:String x:Key="ShellLayeredSlsTaskLabel">Задача</system:String>
     <system:String x:Key="ShellLayeredSlsSectionLabel">Сечение</system:String>
     <system:String x:Key="ShellLayeredSlsCreatedLabel">Дата</system:String>
@@ -1866,7 +1868,8 @@
     <system:String x:Key="Sp63CrackWidth_MissingConcreteChars">Для бетона не заданы характеристики Eb, Rb,ser, Rbt,ser.</system:String>
     <system:String x:Key="Sp63CrackWidth_MissingRebarChars">Для арматуры не заданы модуль упругости Es и Rs,ser.</system:String>
     <system:String x:Key="Sp63CrackWidth_AcrcCheck">Ширина раскрытия трещин: acrc ≤ acrc,lim</system:String>
-    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">Нейтральная ось приведённого сечения с трещиной (п. 8.2.28) не зависит от M/N — только от геометрии и модульного отношения.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">Высота сжатой зоны сечения с трещиной — по п. 8.2.28 с поправкой (8.154) на продольную силу; при xm ≤ 0 сечение растянуто насквозь и растяжение воспринимают оба ряда арматуры.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ThroughTensionOppositeRow">Сечение растянуто насквозь (xm ≤ 0); решает ряд арматуры у грани, которую момент не растягивает.</system:String>
     <system:String x:Key="Sp63CrackWidth_NotCracked">M ≤ Mcrc — трещины не образуются, acrc = 0.</system:String>
     <system:String x:Key="Sp63CrackWidth_SuggestFullModel">Для двуосного изгиба, центрального растяжения/сжатия и других случаев вне упрощённого пути используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»).</system:String>
 

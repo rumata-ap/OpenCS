@@ -1,8 +1,14 @@
 <UserControl x:Class="OpenCS.Views.ShellLayeredSlsResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
+   <TabControl>
+
+   <!-- ── Вкладка 1: Трещины ──────────────────────────────────────────── -->
+   <TabItem Header="{DynamicResource ShellLayeredSlsTabCracks}">
    <Grid Margin="16">
       <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
@@ -31,7 +37,10 @@
                     FontWeight="Bold" FontSize="14" Foreground="{Binding VerdictBrush}" TextWrapping="Wrap"/>
       </Border>
 
-      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+      <TextBlock x:Name="NoProfilesNote" Grid.Row="2" Margin="0,0,0,8" Visibility="Collapsed"
+                 Text="{DynamicResource ShellLayeredSlsNoProfiles}" Foreground="Gray" FontSize="11" TextWrapping="Wrap"/>
+
+      <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
          <StackPanel>
             <Grid Margin="0,0,0,4">
                <Grid.ColumnDefinitions>
@@ -78,4 +87,53 @@
          </StackPanel>
       </ScrollViewer>
    </Grid>
+   </TabItem>
+
+   <!-- ── Вкладка 2: Деформации ──────────────────────────────────────── -->
+   <TabItem x:Name="StrainsTab" Header="{DynamicResource ShellStrainTabStrains}">
+      <Grid Margin="4">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <helpers:ThroughThicknessCanvas x:Name="EpsXCanvas"     Grid.Column="0" Margin="0,0,2,0"/>
+         <helpers:ThroughThicknessCanvas x:Name="EpsYCanvas"     Grid.Column="1" Margin="2,0,2,0"/>
+         <helpers:ThroughThicknessCanvas x:Name="EpsGammaCanvas" Grid.Column="2" Margin="2,0,0,0"/>
+      </Grid>
+   </TabItem>
+
+   <!-- ── Вкладка 3: Напряжения ──────────────────────────────────────── -->
+   <TabItem x:Name="StressesTab" Header="{DynamicResource ShellStrainTabStresses}">
+      <Grid Margin="4">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <helpers:ThroughThicknessCanvas x:Name="SigXCanvas"  Grid.Column="0" Margin="0,0,2,0"/>
+         <helpers:ThroughThicknessCanvas x:Name="SigYCanvas"  Grid.Column="1" Margin="2,0,2,0"/>
+         <helpers:ThroughThicknessCanvas x:Name="TauXYCanvas" Grid.Column="2" Margin="2,0,0,0"/>
+      </Grid>
+   </TabItem>
+
+   <!-- ── Вкладка 4: Главные оси ─────────────────────────────────────── -->
+   <TabItem x:Name="PrincipalTab" Header="{DynamicResource ShellStrainTabPrincipal}">
+      <Grid Margin="4">
+         <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+         </Grid.RowDefinitions>
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <helpers:ThroughThicknessCanvas x:Name="PrEpsCanvas" Grid.Row="0" Grid.Column="0" Margin="0,0,3,3"/>
+         <helpers:ThroughThicknessCanvas x:Name="PrSigCanvas" Grid.Row="0" Grid.Column="1" Margin="3,0,0,3"/>
+         <helpers:ThroughThicknessCanvas x:Name="BetaCanvas"  Grid.Row="1" Grid.Column="0" Margin="0,3,3,0"/>
+         <helpers:ThroughThicknessCanvas x:Name="ThetaCanvas" Grid.Row="1" Grid.Column="1" Margin="3,3,0,0"/>
+      </Grid>
+   </TabItem>
+
+   </TabControl>
 </UserControl>

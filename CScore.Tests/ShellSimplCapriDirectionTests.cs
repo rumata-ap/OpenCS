@@ -154,7 +154,7 @@ public class ShellSimplCapriDirectionTests
         // продольная сила здесь сжимающая, поэтому x_m растёт, σs и acrc чуть падают.
         Assert.Equal(35.0, slsPlus.CriticalTop!.Alpha_deg);
         Assert.Equal(145.0, slsMinus.CriticalTop!.Alpha_deg);
-        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0525, 0.0535);
+        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0519, 0.0529);
         Assert.Equal(slsPlus.CriticalTop!.Strip.Acrc_mm, slsMinus.CriticalTop!.Strip.Acrc_mm, 9);
     }
 
@@ -163,7 +163,8 @@ public class ShellSimplCapriDirectionTests
     //
     // 18.09.2026: до перехода на нормативное определение σs,crc (п. 8.2.18 — та же σs при
     // M = Mcrc) эта полоса упиралась в границу и давала ψs = 0,2. Теперь σs,crc получается
-    // меньше σs (161,7 против 182,3), граница не срабатывает, и ψs считается по ф. (8.137)
+    // меньше σs (161,7 против 182,3; с 22.09.2026, после перевода ф. (8.134) на центр тяжести
+    // сечения с трещиной, σs,crc = 159,1), граница не срабатывает, и ψs считается по ф. (8.137)
     // обычным образом. Проверяется, что граница соблюдена и ψs физична.
     [Fact]
     public void PsiS_StaysWithinNormativeBounds_OnLightlyReinforcedStrip()
@@ -172,7 +173,7 @@ public class ShellSimplCapriDirectionTests
 
         Assert.True(crit.Cracked);
         Assert.True(crit.Sigma_s_crc_MPa <= crit.Sigma_s_MPa + 1e-9);
-        Assert.InRange(crit.Sigma_s_crc_MPa, 161.0, 162.5);
+        Assert.InRange(crit.Sigma_s_crc_MPa, 158.4, 159.8);
         Assert.InRange(crit.Psi_s, 0.2, 1.0);
         Assert.Equal(1.0 - 0.8 * crit.Sigma_s_crc_MPa / crit.Sigma_s_MPa, crit.Psi_s, 9);
     }
@@ -211,7 +212,7 @@ public class ShellSimplCapriDirectionTests
 
         var sls = Capri(MirrorShear(CaseB), Sls);
         Assert.True(sls.CriticalTop!.Strip.Cracked);
-        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0525, 0.0535);
+        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0519, 0.0529);
         Assert.Equal(0.0, MaxOverRange(sls, Sls, top: true, maxAlphaDeg: 90.0)); // трещина не найдена вовсе
     }
 
@@ -227,8 +228,8 @@ public class ShellSimplCapriDirectionTests
 
         double slsBoth = Capri(CaseB, Sls).CriticalTop!.Strip.Acrc_mm;
         double slsOnlyMxy = Capri(With(CaseB, 5, -CaseB[5]), Sls).CriticalTop!.Strip.Acrc_mm;
-        Assert.InRange(slsBoth, 0.0525, 0.0535);
-        Assert.InRange(slsOnlyMxy, 0.0462, 0.0472);
+        Assert.InRange(slsBoth, 0.0519, 0.0529);
+        Assert.InRange(slsOnlyMxy, 0.0449, 0.0459);
     }
 
     // ── Проверка 5: Mx и My разных знаков — перебор сам проверяет обе грани ─────────────────────

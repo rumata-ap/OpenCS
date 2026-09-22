@@ -623,7 +623,10 @@ public class ShellSimplLiraWall177Tests
     // Регрессионные диапазоны (±~3% от чисел сводки выше).
     const double WA_ULS_LO = 0.90, WA_ULS_HI = 0.96, CAPRI_ULS_LO = 0.90, CAPRI_ULS_HI = 0.96;
     const double LAY_ULS_LO = 0.78, LAY_ULS_HI = 0.84;
-    const double WA_SLS_LO = 0.64, WA_SLS_HI = 0.70, CAPRI_SLS_LO = 0.64, CAPRI_SLS_HI = 0.70;
+    // 22.09.2026: ф. (8.134) — yc и Ired по центру тяжести сечения с трещиной, момент перенесён
+    // к нему (было yc = x_m и I относительно нейтральной оси): WA 0,639, Капра-Мори 0,635,
+    // упрощённый СП 63 0,635 (было ~0,67 / ~0,67 / ~0,66).
+    const double WA_SLS_LO = 0.62, WA_SLS_HI = 0.66, CAPRI_SLS_LO = 0.62, CAPRI_SLS_HI = 0.66;
     const double LAY_SLS_LO = 0.41, LAY_SLS_HI = 0.46;
-    const double SP63_ULS_LO = 0.89, SP63_ULS_HI = 0.94, SP63_SLS_LO = 0.64, SP63_SLS_HI = 0.69;
+    const double SP63_ULS_LO = 0.89, SP63_ULS_HI = 0.94, SP63_SLS_LO = 0.62, SP63_SLS_HI = 0.66;
 }

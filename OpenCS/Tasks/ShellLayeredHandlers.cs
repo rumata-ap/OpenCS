@@ -210,6 +210,12 @@ public sealed class ShellLayeredSlsResultData
     public bool Converged { get; set; } = true;
     /// <summary>Общие числовые переменные результата для отчёта.</summary>
     public Dictionary<string, double> Variables { get; set; } = [];
+    /// <summary>Сошедшееся НДС (ε₀x, ε₀y, γ₀xy, κx, κy, κxy) — для эпюр по толщине;
+    /// null у результатов, сохранённых до появления эпюр.</summary>
+    public double[]? StrainState { get; set; }
+    /// <summary>Центры тяжести по секущим жёсткостям (мм от срединной плоскости).</summary>
+    public double ZcxSecMm { get; set; }
+    public double ZcySecMm { get; set; }
 }
 
 /// <summary>
@@ -220,6 +226,23 @@ public sealed class ShellLayeredSlsResultData
 public sealed class ShellLayeredSlsHandler : ITaskHandler
 {
     public string Kind => "shell_layered_sls";
+
+    /// <summary>
+    /// Диаграммы бетона и арматуры SLS-расчёта. П. 6.1.26: всегда CalcType.N,
+    /// независимо от task.CalcType. Используется и вью результата для эпюр —
+    /// они должны строиться на тех же диаграммах, что и НДС.
+    /// </summary>
+    public static (Diagramm cDiag, Diagramm rDiag) ResolveDiagrams(
+        PlateSection plate, Material concreteMat, Material rebarMat)
+    {
+        var cDiag = concreteMat.GetDiagramms(plate.ConcreteDiagramType)?[CalcType.N]
+            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+            ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
+        var rDiag = rebarMat.GetDiagramms(
+                DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
+            ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
+        return (cDiag, rDiag);
+    }
 
     public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
         CalcSettings settings, TaskRunContext? ctx = null)
@@ -244,13 +267,7 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
                 Mx = p.Mx, My = p.My, Mxy = p.Mxy,
             };
 
-            // П. 6.1.26: диаграмма всегда CalcType.N, независимо от task.CalcType.
-            var cDiag = concreteMat.GetDiagramms(plate.ConcreteDiagramType)?[CalcType.N]
-                ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
-                ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
-            var rDiag = rebarMat.GetDiagramms(
-                    DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
-                ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
+            var (cDiag, rDiag) = ResolveDiagrams(plate, concreteMat, rebarMat);
 
             var solver = new ShellStrainSolver(plate, cDiag, rDiag);
             double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
@@ -288,8 +305,14 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
             double utilization = p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0.0;
             bool passed = utilization <= 1.0;
 
+            var st = solveResult.StrainState;
+            var sec = plate.ComputeSecant(st, cDiag, rDiag);
+
             var data = new ShellLayeredSlsResultData
             {
+                StrainState = [st.Eps0x, st.Eps0y, st.Gamma0xy, st.Kx, st.Ky, st.Kxy],
+                ZcxSecMm = sec.ZcxMm,
+                ZcySecMm = sec.ZcyMm,
                 Strips = strips,
                 GoverningIndex = governingIndex,
                 AcrcMaxMm = acrcMax,
@@ -357,12 +380,7 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                 ?? throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены.");
             var rCh = rebarMat.GetChars(CalcType.N)
                 ?? throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены.");
-            var cDiag = concreteMat.GetDiagramms(plate.ConcreteDiagramType)?[CalcType.N]
-                ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
-                ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
-            var rDiag = rebarMat.GetDiagramms(
-                    DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
-                ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
+            var (cDiag, rDiag) = ShellLayeredSlsHandler.ResolveDiagrams(plate, concreteMat, rebarMat);
 
             // Один поиск состояния трещинообразования на сечение (см. одиночную задачу);
             // сам решатель кэша не держит, но и не зависит от набора усилий.

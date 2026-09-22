@@ -90,18 +90,37 @@ public static class Sp63CrackWidthChecker
             asT, asC, ds, concreteChars, rebarChars, options.Phi1, options.Phi2, options.AcrcLimMm,
             options.SigmaSCrc, options.WplGamma);
 
+        // При x_m ≤ 0 сечение растянуто насквозь: растянут и ряд, который момент не растягивает,
+        // и у его грани тоже есть трещина. При несимметричном армировании решает он — так же,
+        // как в плитной проверке Капра-Мори (ShellSimplSolver.DirectionStrip).
+        bool oppositeGoverns = false;
+        if (strip.Xm <= 0.0)
+        {
+            double dsOpposite = EffectiveDiameter(profile.CompressionLayer);
+            var opposite = ShellSimplSolver.ComputeOppositeRowSls(
+                mDes, nDes, profile.Height, profile.H0, profile.APrime,
+                asT, asC, dsOpposite, concreteChars, rebarChars, options.Phi1, options.Phi2,
+                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma);
+            if (opposite.Acrc_mm > strip.Acrc_mm)
+            {
+                strip = opposite;
+                ds = dsOpposite;
+                oppositeGoverns = true;
+            }
+        }
+
         bool limitPassed = strip.Acrc_mm <= options.AcrcLimMm + 1e-9;
         var variables = new Dictionary<string, double>
         {
             ["N"] = load.N,
             ["M"] = moment,
-            ["tensionDirection"] = tensionDirection,
+            ["tensionDirection"] = oppositeGoverns ? -tensionDirection : tensionDirection,
             ["b"] = b,
             ["h"] = profile.Height,
-            ["h0"] = profile.H0,
-            ["aPrime"] = profile.APrime,
-            ["As"] = profile.TensionLayer.Area,
-            ["AsPrime"] = profile.CompressionLayer.Area,
+            ["h0"] = strip.H0,
+            ["aPrime"] = strip.A_prime,
+            ["As"] = strip.As_t * b,
+            ["AsPrime"] = strip.As_c * b,
             ["ds"] = ds,
             ["Rbser"] = Math.Abs(concreteChars.Fc),
             ["Rbtser"] = concreteChars.Ft,
@@ -133,6 +152,9 @@ public static class Sp63CrackWidthChecker
             new("compression_zone_neutral_axis", Sp63CrackWidthMessageKind.Information,
                 "8.2.28", "Sp63CrackWidth_NeutralAxisNote")
         };
+        if (oppositeGoverns)
+            informational.Add(new Sp63CrackWidthMessage("through_tension_opposite_row",
+                Sp63CrackWidthMessageKind.Information, "8.2.16", "Sp63CrackWidth_ThroughTensionOppositeRow"));
         if (!strip.Cracked)
             informational.Add(new Sp63CrackWidthMessage("not_cracked",
                 Sp63CrackWidthMessageKind.Information, "8.2.11", "Sp63CrackWidth_NotCracked"));

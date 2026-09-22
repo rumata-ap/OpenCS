@@ -19,7 +19,9 @@ namespace CScore.Tests;
 //        x_m = x_M ± I_red·N/(A_red·M)     (8.154), знак «−» при растягивающей N,
 //        где x_M — высота сжатой зоны ИЗГИБАЕМОГО элемента по (8.149)–(8.152),
 //        а I_red, A_red — характеристики полного сечения (без учёта трещин).
-//        σs = [M·(h0−y_c)/I_red ± N/A_red]·αs1  (8.134), y_c = x_m.
+//        σs = [M·(h0−y_c)/I_red ± N/A_red]·αs1  (8.134), где y_c — центр тяжести
+//        приведённого сечения С ТРЕЩИНОЙ (сжатая зона x_m + арматура), I_red — относительно
+//        него, M перенесён к нему с середины высоты сечения.
 //
 // Сечение всюду: h = 200 мм, B25, A500 (Rs = 435, Rsc = 400, Rs,ser = 500), привязка 35 мм.
 public class ShellSimplEccentricTensionTests
@@ -240,6 +242,69 @@ public class ShellSimplEccentricTensionTests
 
         Assert.True(along.Top, "при чистом изгибе с M > 0 решать обязана верхняя грань");
         Assert.True(along.Strip.Xm > 0.0, $"сжатая зона обязана быть: x_m = {along.Strip.Xm:F4}");
+    }
+
+    // ── Ф. (8.134): центр тяжести сечения с трещиной ──────────────────────────
+    //
+    // П. 8.2.16 для (8.134): A_red, y_c — «площадь приведённого поперечного сечения элемента и
+    // расстояние от наиболее сжатого волокна бетона до центра тяжести приведённого сечения,
+    // определяемые по общим правилам расчёта геометрических характеристик сечений упругих
+    // элементов с учётом площади сечения только сжатой зоны бетона». То есть y_c ≠ x_m, в
+    // отличие от (8.129) для изгиба, и момент по тем же правилам отнесён к этому центру тяжести.
+    //
+    // Эталон — точный расчёт упругого сечения с трещиной (бетон не работает на растяжение,
+    // σb = Eb,red·ε, арматура с αs1 = 16,216), найденный независимо подбором нейтральной оси
+    // по эксцентриситету M/N (скрипт сверки, 22.09.2026). При x_m по приближённой (8.154) точная
+    // запись (8.134) воспроизводит его до 0,1%; прежняя запись (y_c = x_m, I относительно
+    // нейтральной оси) давала 152,7 и 176,8 МПа — занижение на 10% и 18%.
+    [Theory]
+    [InlineData(100.0, 169.15)]
+    [InlineData(200.0, 216.08)]
+    [InlineData(-100.0, 81.21)]
+    public void Sls_SigmaS_Formula8134_MatchesExactElasticCrackedSection(double n, double exactMPa)
+    {
+        var r = ShellSimplSolver.ComputeStripSls(20.0, n, H, H0, Cover, As12s100, As12s100, 0.012,
+            Concrete().GetChars(CalcType.N)!, Rebar().GetChars(CalcType.N)!, 1.0, 0.5, 0.3);
+
+        Assert.True(r.Xm > 0.0, $"сжатая зона обязана быть: x_m = {r.Xm:F4}");
+        Assert.InRange(r.Sigma_s_MPa, exactMPa * 0.995, exactMPa * 1.005);
+    }
+
+    // При x_m → 0 точная (8.134) сама переходит в равновесие двух рядов арматуры (бетона в
+    // приведённом сечении не остаётся), поэтому переход к схеме сквозного растяжения — без
+    // скачка. Прежняя запись давала на этой границе скачок ~13%. Для M = 20 граница x_m = 0 —
+    // при N = 325,47 кН/м.
+    [Fact]
+    public void Sls_SigmaS_ContinuousAcrossZeroCompressionZone()
+    {
+        const double n0 = 325.47;
+        var before = ShellSimplSolver.ComputeStripSls(20.0, n0 - 0.5, H, H0, Cover, As12s100, As12s100, 0.012,
+            Concrete().GetChars(CalcType.N)!, Rebar().GetChars(CalcType.N)!, 1.0, 0.5, 0.3);
+        var after = ShellSimplSolver.ComputeStripSls(20.0, n0 + 0.5, H, H0, Cover, As12s100, As12s100, 0.012,
+            Concrete().GetChars(CalcType.N)!, Rebar().GetChars(CalcType.N)!, 1.0, 0.5, 0.3);
+
+        Assert.True(before.Xm > 0.0 && after.Xm <= 0.0, $"x_m: {before.Xm:F5} / {after.Xm:F5}");
+        Assert.InRange(after.Sigma_s_MPa / before.Sigma_s_MPa, 0.995, 1.01);
+    }
+
+    // Вуд-Армер: при сквозном растяжении полосы одной грани растянут и ряд противоположной, даже
+    // если её собственный расчётный момент нулевой (тогда её полоса трещины не видит). Те же
+    // данные, что у Капра-Мори выше: M = 5, N = +350, верх 11,31 см²/м, низ 4,0 см²/м →
+    // σs нижнего ряда = 341,3 МПа.
+    [Fact]
+    public void Sls_WoodArmer_ThroughTension_OppositeFaceRowChecked()
+    {
+        var wa = ShellSimplSolver.Solve(
+            new ShellSimplSolver.SolveParams(350.0, 0, 0, 5.0, 0, 0,
+                "shell_simpl_wa_sls", 10.0, 0.3, 1.0, 0.5),
+            Section(asTop: As12s100, asBot: 4.0e-4), Concrete(), Rebar(), CalcType.N);
+
+        var bottom = wa.WaStrips!.Single(s => s.Name == "x, низ");
+        var top = wa.WaStrips!.Single(s => s.Name == "x, верх");
+
+        Assert.True(bottom.Cracked);
+        Assert.InRange(bottom.Sigma_s_MPa, 330.0, 350.0);
+        Assert.True(bottom.Acrc_mm > top.Acrc_mm);
     }
 
     // Нижняя граница, не зависящая от модели сечения: при центральном растяжении всю силу

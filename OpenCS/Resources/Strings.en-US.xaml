@@ -1600,6 +1600,8 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, mm</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (long-term: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (profile: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellLayeredSlsTabCracks">Cracks</system:String>
+    <system:String x:Key="ShellLayeredSlsNoProfiles">Diagrams unavailable: result was produced by an older version — recalculate the task.</system:String>
     <system:String x:Key="ShellLayeredSlsTaskLabel">Task</system:String>
     <system:String x:Key="ShellLayeredSlsSectionLabel">Section</system:String>
     <system:String x:Key="ShellLayeredSlsCreatedLabel">Created</system:String>
@@ -1866,7 +1868,8 @@
     <system:String x:Key="Sp63CrackWidth_MissingConcreteChars">Concrete is missing Eb, Rb,ser, Rbt,ser characteristics.</system:String>
     <system:String x:Key="Sp63CrackWidth_MissingRebarChars">Rebar is missing the elastic modulus Es and Rs,ser.</system:String>
     <system:String x:Key="Sp63CrackWidth_AcrcCheck">Crack width: acrc ≤ acrc,lim</system:String>
-    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">The neutral axis of the cracked transformed section (8.2.28) does not depend on M/N — only on geometry and the modular ratio.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">Compression zone depth of the cracked section per 8.2.28 with the axial-force correction (8.154); for xm ≤ 0 the section is in through tension and both reinforcement rows carry it.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ThroughTensionOppositeRow">The section is in through tension (xm ≤ 0); the reinforcement row at the face not tensioned by the moment governs.</system:String>
     <system:String x:Key="Sp63CrackWidth_NotCracked">M ≤ Mcrc — no cracks form, acrc = 0.</system:String>
     <system:String x:Key="Sp63CrackWidth_SuggestFullModel">For biaxial bending, central tension/compression, and other cases outside the simplified path, use the deformation-model check (the "Crack width" task).</system:String>
 

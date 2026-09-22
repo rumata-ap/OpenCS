@@ -144,6 +144,36 @@ public class Sp63CrackWidthCheckerTests
         Assert.True(detail.Applied > 0.0);
     }
 
+    // Сквозное растяжение (x_m ≤ 0): растянуты оба ряда, трещина есть и у грани, которую момент
+    // не растягивает. Если этот ряд слабее, решает он — как в плитной проверке Капра-Мори.
+    // N = 400 кН, M = 10 кН·м, h0 − a' = 0,22 м:
+    //   F (ряд у растянутой моментом грани) = (10 + 400·0,11)/0,22 = 245,5 кН → 120,6 МПа
+    //   F (второй ряд) = 400 − 245,5 = 154,5 кН → 154,5/4,0 см² = 386,4 МПа  ← решает
+    [Fact]
+    public void Check_ThroughTension_WeakerOppositeRowGoverns()
+    {
+        const double b = 0.5, h = 0.3, h0 = 0.26, aPrime = 0.04;
+        const double asT = 20.36e-4, asC = 4.0e-4, ds = 0.036;
+        const double m = 10.0, n = 400.0;
+        var (section, concrete, rebar) = BuildSection(b, h, asT, asC, ds);
+        var options = Options(phi1: 1.0, phi2: 0.5, acrcLimMm: 0.4);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { N = n, Mx = m, My = 0 },
+            CalcType.N, options);
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+        Assert.Contains(result.InformationalMessages, message => message.Code == "through_tension_opposite_row");
+        Assert.InRange(result.Variables["sigma_s"], 380.0, 392.0);
+        Assert.Equal(asC, result.Variables["As"], 9);
+        Assert.Equal(h - aPrime, result.Variables["h0"], 9);
+
+        var expected = ShellSimplSolver.ComputeOppositeRowSls(
+            m / b, n / b, h, h0, aPrime, asT / b, asC / b, ds,
+            concrete.GetChars(CalcType.N)!, rebar.GetChars(CalcType.N)!,
+            options.Phi1, options.Phi2, options.AcrcLimMm);
+        Assert.Equal(expected.Acrc_mm, Assert.Single(result.Details).Applied, 6);
+    }
+
     [Fact]
     public void Check_ZeroMoment_ReturnsNotApplicable()
     {

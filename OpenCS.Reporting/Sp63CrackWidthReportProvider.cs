@@ -196,7 +196,8 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         ["Sp63CrackWidth_MissingConcreteChars"] = "Для бетона не заданы характеристики Eb, Rb,ser, Rbt,ser.",
         ["Sp63CrackWidth_MissingRebarChars"] = "Для арматуры не заданы модуль упругости Es и Rs,ser.",
         ["Sp63CrackWidth_AcrcCheck"] = "Ширина раскрытия трещин: acrc ≤ acrc,lim",
-        ["Sp63CrackWidth_NeutralAxisNote"] = "Нейтральная ось приведённого сечения с трещиной (п. 8.2.28) не зависит от M/N — только от геометрии и модульного отношения.",
+        ["Sp63CrackWidth_NeutralAxisNote"] = "Высота сжатой зоны сечения с трещиной — по п. 8.2.28 с поправкой (8.154) на продольную силу; при xm ≤ 0 сечение растянуто насквозь и растяжение воспринимают оба ряда арматуры.",
+        ["Sp63CrackWidth_ThroughTensionOppositeRow"] = "Сечение растянуто насквозь (xm ≤ 0); решает ряд арматуры у грани, которую момент не растягивает.",
         ["Sp63CrackWidth_NotCracked"] = "M ≤ Mcrc — трещины не образуются, acrc = 0.",
         ["Sp63CrackWidth_SuggestFullModel"] = "Для двуосного изгиба, центрального растяжения/сжатия и других случаев вне упрощённого пути используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»).",
         // Общие с Sp63NormalReportProvider причины неприменимости геометрии и раскладки арматуры
