@@ -153,4 +153,42 @@ public class ShellCrackingSolverTests
         // что закреплён для стержневых сечений в CrackingMomentGammaTests (0,70…0,75).
         Assert.InRange(free.Mcrc, 20.0, 20.1);
     }
+
+    // Поиск идёт по лучу всех трёх моментов, критерий — главная деформация грани: кручение
+    // растягивает грань наравне с изгибом. Порог по одному Mx пропускал трещину на стене с
+    // заметным Mxy (элемент 244, ShellSimplLiraWall244Tests), где длительное сочетание имеет
+    // Mx ниже одноосного M_crc, но с кручением сечение уже с трещиной.
+    [Fact]
+    public void Twisting_LowersCrackingFactor_AlongMomentRay()
+    {
+        var bending = Solver().Solve([0, 0, 0, 17.0, 0, 0], alongX: true);
+        var twisted = Solver().Solve([0, 0, 0, 17.0, 0, 9.0], alongX: true);
+
+        Assert.True(bending.Converged && twisted.Converged);
+        Assert.True(bending.MomentFactor > 1.0, $"без кручения k_crc = {bending.MomentFactor:F3}");
+        Assert.True(twisted.MomentFactor < 1.0, $"с кручением k_crc = {twisted.MomentFactor:F3}");
+        Assert.Equal(twisted.MomentFactor * 17.0, twisted.Mcrc, 9);
+
+        // Найденное состояние — на пороге по главной деформации, а не по εx.
+        var s = twisted.StrainState!;
+        double e1Max = double.NegativeInfinity;
+        foreach (double z in new[] { H / 2, -H / 2 })
+        {
+            PlateSection.PrincipalStrains2D(s.EpsX(z), s.EpsY(z), s.GammaXY(z), out double e1, out _, out _);
+            e1Max = Math.Max(e1Max, e1);
+        }
+        Assert.Equal(Solver().TensionLimit(), e1Max, 6);
+    }
+
+    // Чистое кручение трещит, хотя Mx = 0: M_crc направления тогда 0, а признак трещины несёт
+    // множитель k_crc.
+    [Fact]
+    public void PureTwisting_Cracks_WithZeroDirectionMoment()
+    {
+        var res = Solver().Solve([0, 0, 0, 0, 0, 40.0], alongX: true);
+
+        Assert.True(res.Converged, res.Description);
+        Assert.InRange(res.MomentFactor, 1e-3, 1.0);
+        Assert.Equal(0.0, res.Mcrc);
+    }
 }

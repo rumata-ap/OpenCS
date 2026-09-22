@@ -274,7 +274,7 @@ public class ShellSimplLiraWall244Tests
     //                 Лира Вуд  Лира Карпенко  Вуд-Армер  Капра-Мори  Слоистая  СП 63 упрощ.
     //                  (1/К.З)     (1/К.З)
     //   прочность       0,947       1,190        1,252       0,901      0,850       0,898
-    //   трещины         0,917       0,863        0,993       0,735      0,259       0,417
+    //   трещины         0,917       0,863        0,993       0,735      0,523       0,417
     //
     // Вуд-Армер здесь самый строгий: к Mx добавляется весь |Mxy| (k = 1: 29,3 → 45,1), а
     // обжатие полосы x уменьшается на |Nxy| (−76 → −37 кН/м). Условие (8.100) допускает любое
@@ -632,6 +632,9 @@ public class ShellSimplLiraWall244Tests
     const double WA_ULS_LO = 1.21, WA_ULS_HI = 1.29, CAPRI_ULS_LO = 0.87, CAPRI_ULS_HI = 0.93;
     const double LAY_ULS_LO = 0.82, LAY_ULS_HI = 0.88;
     const double WA_SLS_LO = 0.96, WA_SLS_HI = 1.03, CAPRI_SLS_LO = 0.71, CAPRI_SLS_HI = 0.76;
-    const double LAY_SLS_LO = 0.24, LAY_SLS_HI = 0.28;
+    // 22.09.2026: трещинообразование слоистой модели — по лучу всех моментов (ShellCrackingSolver):
+    // было 0,259 — порог по одному Mx пропускал трещину от длительного сочетания (acrc,long = 0),
+    // а σs,crc при Mx = M_crc и полном Mxy давала ψs = 0,32 вместо 0,57.
+    const double LAY_SLS_LO = 0.50, LAY_SLS_HI = 0.55;
     const double SP63_ULS_LO = 0.87, SP63_ULS_HI = 0.93, SP63_SLS_LO = 0.40, SP63_SLS_HI = 0.43;
 }

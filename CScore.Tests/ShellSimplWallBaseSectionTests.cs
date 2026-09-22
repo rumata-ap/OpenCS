@@ -409,30 +409,32 @@ public class ShellSimplWallBaseSectionTests
     public void Layered_CrackWidths_Regression(bool softening)
     {
         var (aLong, aShort) = LayeredCrackWidths(softening);
-        Assert.InRange(aLong, 0.20, 0.24);
-        Assert.InRange(aShort, 0.25, 0.30);
+        // 22.09.2026: трещинообразование — по лучу всех моментов; σs,crc берётся в том же
+        // состоянии, ψs = 0,533 (было ≈0,22 / 0,28). Ближе к Капра-Мори (0,247 / 0,303).
+        Assert.InRange(aLong, 0.245, 0.27);
+        Assert.InRange(aShort, 0.32, 0.35);
     }
 
-    // Вертикальное направление не трещит ни по одному методу, который честно учитывает
-    // знак N: обжатие Ny = −900 кН/м (длительное) поднимает Mcrc до ≈45 кН·м/м против
-    // My = 40,1. Физическая опора для вывода выше: если эталонные 0,048 мм получены для
-    // направления около вертикали, то это направление у OpenCS вообще без трещин, а
-    // решает горизонтальное — с растяжением.
+    // Нормальное сечение вертикального направления не трещит: обжатие Ny = −900 кН/м
+    // (длительное) держит его против My = 40,1 — так у Капра-Мори на площадке α = 90°.
+    // У слоистой модели трещина одна на сечение (луч всех моментов, ShellCrackingSolver):
+    // она крутая (−68,5°), вызвана горизонтальным растяжением и пересекает вертикальную
+    // арматуру под острым углом. Поэтому вертикальные полосы формально "с трещиной", но их
+    // раскрытие — лишь от малой деформации вертикальной арматуры поперёк этой трещины и
+    // намного меньше, чем у горизонтальной; решает горизонтальное направление.
     [Fact]
-    public void VerticalDirection_NotCracked_UnderCompression()
+    public void VerticalDirection_NotGoverning_UnderCompression()
     {
         var st = LayeredState(SlsLong, CalcType.N, softening: false).StrainState;
         var strips = LayeredCrackStrips(SlsLong, st, 1.4, softening: false);
 
         var vertical = strips.Where(s => s.Direction == "y").ToList();
         Assert.NotEmpty(vertical);
-        Assert.All(vertical, s =>
-        {
-            Assert.False(s.Cracked, $"{s.LayerName}/y: Mcrc={s.Mcrc:F2} vs M={s.MDes:F2}");
-            Assert.True(s.Mcrc > Math.Abs(SlsLong.My), $"Mcrc={s.Mcrc:F2} ≤ My={SlsLong.My:F2}");
-        });
+        double horizontal = strips.Where(s => s.Direction == "x").Max(s => s.AcrcMm);
+        Assert.All(vertical, s => Assert.True(s.AcrcMm < 0.25 * horizontal,
+            $"{s.LayerName}/y: acrc={s.AcrcMm:F4} сопоставимо с горизонтальным {horizontal:F4}"));
 
-        // Капра-Мори — то же самое по площадке α = 90° (вдоль вертикали).
+        // Капра-Мори: нормальное сечение по площадке α = 90° (вдоль вертикали) без трещины.
         var dir90 = Simpl(SlsLong, CapriSls, 1.4).CapriDirs!
             .First(d => Math.Abs(d.Alpha_deg - 90.0) < 1e-9);
         Assert.False(dir90.Strip.Cracked);
@@ -467,7 +469,8 @@ public class ShellSimplWallBaseSectionTests
 
     // П. 8.2.18: σs,crc — напряжение в арматуре сразу после образования трещин, «определяемое
     // по 8.2.16, принимая M = M_crc». Для слоистой модели это не формула, а то же решение НДМ
-    // 6×6 при моменте рассматриваемого направления, заменённом на M_crc. Эталон в тесте
+    // 6×6 сечения с трещиной при моментах, умноженных на k_crc = M_crc/|M| (трещинообразование
+    // ищется по лучу всех моментов при неизменных N, см. ShellCrackingSolver). Эталон в тесте
     // считается независимо — прямым вызовом решателя, поэтому тест задаёт смысл «как есть из
     // НДМ», а не закрепляет подогнанное число.
     [Fact]
@@ -502,8 +505,9 @@ public class ShellSimplWallBaseSectionTests
         var outer = strips.First(s => s.Direction == "x" && s.Z > 0);
         Assert.True(outer.Cracked);
 
-        // Эталон: то же решение, но Mx = Mcrc этой полосы.
-        var stCrc = SolveAt([SlsLong.Nx, SlsLong.Ny, SlsLong.Nxy, outer.Mcrc, SlsLong.My, SlsLong.Mxy]);
+        // Эталон: то же решение, но все моменты × k_crc = Mcrc/|Mx| этой полосы.
+        double k = outer.Mcrc / Math.Abs(SlsLong.Mx);
+        var stCrc = SolveAt([SlsLong.Nx, SlsLong.Ny, SlsLong.Nxy, SlsLong.Mx * k, SlsLong.My * k, SlsLong.Mxy * k]);
         Assert.NotNull(stCrc);
         double epsS = stCrc!.EpsX(outer.Z);
         double expected = Math.Min(rebarMat.chars[CalcType.N].E * epsS,
