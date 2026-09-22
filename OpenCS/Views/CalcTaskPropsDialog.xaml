@@ -224,6 +224,7 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalShape}"
@@ -291,6 +292,16 @@
                   <TextBox Grid.Row="8" Grid.Column="1"
                            Text="{Binding Sp63NormalSpanLength, UpdateSourceTrigger=PropertyChanged}"
                            Visibility="{Binding ShowSp63NormalSpanLength, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource Sp63NormalElementKind}"
+                             VerticalAlignment="Center" Margin="0,4,4,0"/>
+                  <ComboBox Grid.Row="9" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalElementKind}" Margin="0,4,0,0"
+                            ToolTip="{DynamicResource Sp63NormalElementKindTooltip}">
+                     <ComboBoxItem Tag="unspecified" Content="{DynamicResource Sp63NormalElementKindUnspecified}"/>
+                     <ComboBoxItem Tag="beam_or_slab" Content="{DynamicResource Sp63NormalElementKindBeamOrSlab}"/>
+                     <ComboBoxItem Tag="column" Content="{DynamicResource Sp63NormalElementKindColumn}"/>
+                  </ComboBox>
                </Grid>
 
                <TextBlock Text="{DynamicResource Sp63NormalInputsHint}"

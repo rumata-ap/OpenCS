@@ -36,6 +36,9 @@ public sealed class Sp63NormalTaskParams
     /// <summary>Порог гибкости l0/i (п. 8.1.2).</summary>
     public double SlendernessThreshold { get; set; } = 14.0;
 
+    /// <summary>Тип элемента: unspecified, beam_or_slab или column (пп. 10.3.5, 10.3.8).</summary>
+    public string ElementKind { get; set; } = "unspecified";
+
     /// <summary>Использовать ручные значения N, Mx и My.</summary>
     public bool UseManualForces { get; set; }
 
@@ -113,10 +116,33 @@ public sealed class Sp63NormalTaskParams
             SlendernessThreshold <= 0)
             return Invalid("invalid_stability_parameters", out errorCode);
 
+        if (!TryParseElementKind(ElementKind, out var elementKind))
+            return Invalid("invalid_element_kind", out errorCode);
+
         options = new Sp63NormalOptions(shapeKind, axis, new Sp63MemberContext(
             ElementLengthOrRestraintDistance, scheme, EffectiveLengthL0,
-            stabilityMode, Psi, SlendernessThreshold));
+            stabilityMode, Psi, SlendernessThreshold, elementKind));
         return true;
+    }
+
+    // Пустое значение (проекты, сохранённые до появления поля) — «не задан».
+    static bool TryParseElementKind(string? value, out Sp63ElementKind kind)
+    {
+        kind = Sp63ElementKind.Unspecified;
+        if (string.IsNullOrWhiteSpace(value) ||
+            string.Equals(value, "unspecified", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(value, "beam_or_slab", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = Sp63ElementKind.BeamOrSlab;
+            return true;
+        }
+        if (string.Equals(value, "column", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = Sp63ElementKind.Column;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>Создаёт строку нагрузки из ручных полей задачи.</summary>

@@ -1819,6 +1819,17 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Bar diameter for the layer is not set — the cl. 10.3.2 cover check was not performed.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Number of longitudinal tension bars when section width exceeds 150 mm, cl. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">For holes, multiple concrete regions, biaxial bending, and complex reinforcement, use the deformation-model (NDM) check.</system:String>
+    <system:String x:Key="Sp63NormalElementKind">Element type</system:String>
+    <system:String x:Key="Sp63NormalElementKindTooltip">Required to check bar spacing per SP 63 cl. 10.3.5 and 10.3.8</system:String>
+    <system:String x:Key="Sp63NormalElementKindUnspecified">Not specified</system:String>
+    <system:String x:Key="Sp63NormalElementKindBeamOrSlab">Beam / slab</system:String>
+    <system:String x:Key="Sp63NormalElementKindColumn">Column</system:String>
+    <system:String x:Key="Sp63Normal_MinClearSpacingTension">Clear spacing between bars, tension reinforcement: s,min ≤ s</system:String>
+    <system:String x:Key="Sp63Normal_MinClearSpacingCompression">Clear spacing between bars, compression reinforcement: s,min ≤ s</system:String>
+    <system:String x:Key="Sp63Normal_MaxBarSpacingTension">Bar centre spacing, tension reinforcement: s ≤ s,max</system:String>
+    <system:String x:Key="Sp63Normal_MaxBarSpacingCompression">Bar centre spacing, compression reinforcement: s ≤ s,max</system:String>
+    <system:String x:Key="Sp63Normal_MaxLevelSpacingColumn">Column reinforcement level spacing in the bending plane: s ≤ 500 mm</system:String>
+    <system:String x:Key="Sp63Normal_SpacingElementKindUnspecified">Bar spacing per cl. 10.3.5 and 10.3.8 not checked: element type is not specified.</system:String>
     <system:String x:Key="Sp63NormalAlternativeTitle">Alternative method, cl. 8.1.16 (reference only, not part of the verdict)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionCheck">Eccentric compression with e0 ≤ h/30 and l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Alternative method of cl. 8.1.16 not applied: e0 &gt; h/30.</system:String>

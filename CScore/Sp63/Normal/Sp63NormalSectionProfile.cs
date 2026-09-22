@@ -38,7 +38,14 @@ public sealed record Sp63NormalSectionProfile(
     double TotalRebarArea,
     bool IsSymmetric,
     double SymmetryRelativeDifference,
-    double PrecomputedXWithoutCompressionRebar);
+    double PrecomputedXWithoutCompressionRebar)
+{
+    /// <summary>
+    /// Координаты всех уровней точечной арматуры по оси высоты (по возрастанию), м —
+    /// включая промежуточные, не вошедшие в эффективные слои. Пусто — неизвестно.
+    /// </summary>
+    public IReadOnlyList<double> LayerCoordinates { get; init; } = [];
+}
 
 /// <summary>Результат классификации профиля нормального сечения.</summary>
 /// <param name="IsApplicable">Доступна ли базовая геометрия.</param>

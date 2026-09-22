@@ -34,6 +34,20 @@ public enum Sp63StructuralScheme
     StaticallyIndeterminate
 }
 
+/// <summary>
+/// Тип элемента для конструктивных требований раздела 10 (пп. 10.3.5, 10.3.8):
+/// определяет положение стержней при бетонировании и предельный шаг стержней.
+/// </summary>
+public enum Sp63ElementKind
+{
+    /// <summary>Не задан — проверки, зависящие от типа элемента, не выполняются.</summary>
+    Unspecified,
+    /// <summary>Балка или плита: стержни горизонтальны при бетонировании.</summary>
+    BeamOrSlab,
+    /// <summary>Колонна: стержни вертикальны при бетонировании.</summary>
+    Column
+}
+
 /// <summary>Режим учёта устойчивости элемента.</summary>
 public enum Sp63NormalStabilityMode
 {

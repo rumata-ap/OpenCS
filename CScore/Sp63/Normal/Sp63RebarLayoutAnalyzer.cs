@@ -99,7 +99,10 @@ public static class Sp63RebarLayoutAnalyzer
             totalArea,
             relativeDifference <= LayerTolerance,
             relativeDifference,
-            xWithoutCompression);
+            xWithoutCompression)
+        {
+            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList()
+        };
         return new Sp63NormalProfileAnalysis(profile, []);
     }
 

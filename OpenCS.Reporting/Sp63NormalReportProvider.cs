@@ -57,6 +57,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0, ReportUnit.Meter)),
             ("ψ (доля длительного момента)", F(parameters.Psi, ReportUnit.Unitless)),
             ("Порог гибкости l0/i", F(parameters.SlendernessThreshold, ReportUnit.Unitless)),
+            ("Тип элемента (пп. 10.3.5, 10.3.8)", LocalizeElementKind(parameters.ElementKind)),
             ("Ручные усилия", parameters.UseManualForces
                 ? $"да: N = {F(parameters.N, ReportUnit.Kilonewton)} кН, Mx = {F(parameters.Mx, ReportUnit.KilonewtonMeter)} кН·м, My = {F(parameters.My, ReportUnit.KilonewtonMeter)} кН·м"
                 : "нет, используется набор усилий задачи")
@@ -396,6 +397,13 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         _ => scheme
     };
 
+    static string LocalizeElementKind(string? kind) => kind switch
+    {
+        "beam_or_slab" => "балка / плита",
+        "column" => "колонна",
+        _ => "не задан"
+    };
+
     static string LocalizeStabilityMode(string mode) => mode switch
     {
         "member" => "с учётом гибкости элемента (η)",
@@ -512,6 +520,12 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_AltCompressionNoL0"] = "Альтернативный метод п. 8.1.16 не применён: не задана расчётная длина l0.",
         ["Sp63Normal_AltCompressionSlenderness"] = "Альтернативный метод п. 8.1.16 не применён: l0/h > 20.",
         ["Sp63Normal_AltCompressionConcreteClass"] = "Альтернативный метод п. 8.1.16 не применён: класс бетона не распознан по метке материала или отсутствует в таблице 8.1 (B20–B55, B60, B80).",
+        ["Sp63Normal_MinClearSpacingTension"] = "Зазор в свету между стержнями, растянутая арматура: s,min ≤ s",
+        ["Sp63Normal_MinClearSpacingCompression"] = "Зазор в свету между стержнями, сжатая арматура: s,min ≤ s",
+        ["Sp63Normal_MaxBarSpacingTension"] = "Шаг осей стержней, растянутая арматура: s ≤ s,max",
+        ["Sp63Normal_MaxBarSpacingCompression"] = "Шаг осей стержней, сжатая арматура: s ≤ s,max",
+        ["Sp63Normal_MaxLevelSpacingColumn"] = "Шаг уровней арматуры колонны в плоскости изгиба: s ≤ 500 мм",
+        ["Sp63Normal_SpacingElementKindUnspecified"] = "Расстояния между стержнями по пп. 10.3.5 и 10.3.8 не проверены: не задан тип элемента.",
         ["Sp63Normal_SuggestNdm"] = "Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).",
         ["Sp63Normal_CircularCheck"] = "Круглое сечение: M ≤ Mult",
         ["Sp63Normal_AnnularCheck"] = "Кольцевое сечение: M ≤ Mult",

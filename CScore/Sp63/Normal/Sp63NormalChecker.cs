@@ -152,7 +152,7 @@ public static class Sp63NormalChecker
             symmetricBranch ? "8.1.9" : "8.1.8",
             Math.Abs(moment), allowable, variables);
         return Calculated("bending", [detail], variables, informational,
-            profile!, options.MemberContext);
+            profile!, options);
     }
 
     static Sp63NormalResult CheckCentralTension(CrossSection section, double n,
@@ -181,7 +181,7 @@ public static class Sp63NormalChecker
         var detail = Detail("(8.19)", "Sp63Normal_CentralTensionCheck", "8.1.18",
             n, allowable, variables);
         return Calculated("central_tension", [detail], variables, [],
-            profile!, options.MemberContext);
+            profile!, options);
     }
 
     static Sp63NormalResult CheckEccentricTension(CrossSection section, double n,
@@ -221,7 +221,7 @@ public static class Sp63NormalChecker
             var second = Detail("(8.21)", "Sp63Normal_EccentricTensionPrimeCheck", "8.1.19",
                 n * ePrime, mPrimeUlt, variables);
             return Calculated("eccentric_tension_between", [first, second], variables,
-                XiMessage(0.0, xiR), profile!, options.MemberContext);
+                XiMessage(0.0, xiR), profile!, options);
         }
 
         double rawX = Sp63NormalFormulas.TensionOutsideX(
@@ -252,7 +252,7 @@ public static class Sp63NormalChecker
         var detailOutside = Detail("(8.20)", "Sp63Normal_EccentricTensionCheck", "8.1.19",
             n * Math.Abs(lever), allowable, variables);
         return Calculated("eccentric_tension_outside", [detailOutside], variables,
-            XiMessage(limited.UsedX / profile.H0, xiR), profile!, options.MemberContext);
+            XiMessage(limited.UsedX / profile.H0, xiR), profile!, options);
     }
 
     static Sp63NormalResult CheckCompression(CrossSection section, double signedN,
@@ -373,7 +373,7 @@ public static class Sp63NormalChecker
                         "unstable_element",
                         Sp63NormalMessageKind.Warning,
                         "8.1.15",
-                        "Sp63Normal_UnstableElement")], profile!, context);
+                        "Sp63Normal_UnstableElement")], profile!, options);
                 unstable.StrengthPassed = false;
                 unstable.Eta = etaResult;
                 return unstable;
@@ -420,7 +420,7 @@ public static class Sp63NormalChecker
         var detail = Detail("(8.10)", "Sp63Normal_CompressionCheck", "8.1.10",
             n * e, allowable, variables);
         var result = Calculated("compression", [detail], variables, informational,
-            profile!, context);
+            profile!, options);
         result.Eta = etaResult;
         AddAlternativeCompressionCheck(result, section, n, e0, calc, profile!,
             material, context);
@@ -556,12 +556,13 @@ public static class Sp63NormalChecker
     /// <summary>Собирает конструктивные проверки прямоугольного профиля и вызывает основную сборку.</summary>
     static Sp63NormalResult Calculated(string branch, List<CheckDetail> details,
         Dictionary<string, double> variables, List<Sp63NormalMessage> informational,
-        Sp63NormalSectionProfile profile, Sp63MemberContext memberContext)
+        Sp63NormalSectionProfile profile, Sp63NormalOptions options)
     {
         var (constructiveChecks, constructiveNotes) =
-            Sp63NormalConstructiveReinforcement.Check(branch, profile, memberContext);
+            Sp63NormalConstructiveReinforcement.Check(branch, profile, options.MemberContext);
         var (coverChecks, coverNotes) =
-            Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile);
+            Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile,
+                options.Axis, options.MemberContext.ElementKind);
         var allConstructiveChecks = new List<CheckDetail>(constructiveChecks);
         allConstructiveChecks.AddRange(coverChecks);
         var allNotes = new List<Sp63NormalMessage>(constructiveNotes);

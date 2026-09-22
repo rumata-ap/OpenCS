@@ -83,8 +83,16 @@ public static class Sp63NormalConstructiveReinforcement
     /// и минимальное число растянутых стержней при широком сечении (п. 10.3.9).
     /// Не входит в <see cref="Sp63NormalResult.StrengthPassed"/>.
     /// </summary>
+    /// <param name="profile">Профиль прямоугольного сечения.</param>
+    /// <param name="axis">Ось изгиба (Mx — слой с большей Y считается верхним).</param>
+    /// <param name="elementKind">
+    /// Тип элемента для пп. 10.3.5 и 10.3.8; <see langword="null"/> — проверки расстояний
+    /// между стержнями не выполняются и не упоминаются.
+    /// </param>
     public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckCoverAndSpacing(
-        Sp63NormalSectionProfile profile)
+        Sp63NormalSectionProfile profile,
+        Sp63NormalAxis axis = Sp63NormalAxis.Mx,
+        Sp63ElementKind? elementKind = null)
     {
         var details = new List<CheckDetail>();
         var notes = new List<Sp63NormalMessage>();
@@ -111,8 +119,147 @@ public static class Sp63NormalConstructiveReinforcement
         if (!profile.TensionLayer.IsIdealized)
             AddTensionBarCountCheck(details, profile);
 
+        if (elementKind is { } kind)
+            AddBarSpacingChecks(details, notes, profile, axis, kind);
+
         return (details, notes);
     }
+
+    /// <summary>
+    /// Расстояния между стержнями: минимальный зазор в свету по п. 10.3.5 и наибольший
+    /// шаг осей по п. 10.3.8. Внутри слоя расстояния считаются между соседними стержнями
+    /// вдоль слоя (поперёк плоскости изгиба); для колонн дополнительно — наибольший шаг
+    /// уровней арматуры в плоскости изгиба (включая промежуточные уровни).
+    /// </summary>
+    static void AddBarSpacingChecks(List<CheckDetail> details, List<Sp63NormalMessage> notes,
+        Sp63NormalSectionProfile profile, Sp63NormalAxis axis, Sp63ElementKind kind)
+    {
+        if (kind == Sp63ElementKind.Unspecified)
+        {
+            notes.Add(new Sp63NormalMessage(
+                "spacing_element_kind_unspecified",
+                Sp63NormalMessageKind.Information,
+                "10.3.5/10.3.8",
+                "Sp63Normal_SpacingElementKindUnspecified"));
+            return;
+        }
+
+        var tension = profile.TensionLayer;
+        var compression = profile.CompressionLayer;
+        bool tensionIsTop = tension.Coordinate > compression.Coordinate;
+        AddLayerSpacingChecks(details, profile, axis, kind, tension, isTop: tensionIsTop,
+            "Sp63Normal_MinClearSpacingTension", "Sp63Normal_MaxBarSpacingTension");
+        if (compression.Area > AreaTolerance)
+            AddLayerSpacingChecks(details, profile, axis, kind, compression, isTop: !tensionIsTop,
+                "Sp63Normal_MinClearSpacingCompression", "Sp63Normal_MaxBarSpacingCompression");
+
+        if (kind == Sp63ElementKind.Column && profile.LayerCoordinates.Count >= 2 &&
+            !tension.IsIdealized && !compression.IsIdealized)
+        {
+            var levels = profile.LayerCoordinates;
+            double maxGap = 0.0;
+            for (int i = 1; i < levels.Count; i++)
+                maxGap = Math.Max(maxGap, levels[i] - levels[i - 1]);
+            details.Add(new CheckDetail
+            {
+                Formula = "10.3.8",
+                Description = "Sp63Normal_MaxLevelSpacingColumn",
+                NormReference = "10.3.8",
+                Applied = maxGap,
+                Allowable = ColumnMaxSpacingInPlane,
+                Variables = new Dictionary<string, double>
+                {
+                    ["maxLevelSpacing"] = maxGap,
+                    ["limit"] = ColumnMaxSpacingInPlane,
+                    ["levelCount"] = levels.Count
+                }
+            });
+        }
+    }
+
+    static void AddLayerSpacingChecks(List<CheckDetail> details,
+        Sp63NormalSectionProfile profile, Sp63NormalAxis axis, Sp63ElementKind kind,
+        Sp63NormalRebarLayer layer, bool isTop, string minKey, string maxKey)
+    {
+        if (layer.IsIdealized || layer.Bars.Count < 2) return;
+
+        // Координата вдоль слоя — перпендикулярна оси высоты сечения.
+        var bars = layer.Bars
+            .Select(bar => (Along: axis == Sp63NormalAxis.Mx ? bar.X : bar.Y, bar.Diameter))
+            .OrderBy(bar => bar.Along)
+            .ToList();
+        double maxCenterSpacing = 0.0;
+        double minClear = double.PositiveInfinity;
+        bool diametersKnown = bars.All(bar => bar.Diameter > 0);
+        for (int i = 1; i < bars.Count; i++)
+        {
+            double centers = bars[i].Along - bars[i - 1].Along;
+            maxCenterSpacing = Math.Max(maxCenterSpacing, centers);
+            if (diametersKnown)
+                minClear = Math.Min(minClear,
+                    centers - (bars[i].Diameter + bars[i - 1].Diameter) / 2.0);
+        }
+
+        if (diametersKnown)
+        {
+            double maxDiameter = bars.Max(bar => bar.Diameter);
+            double absolute = MinClearSpacingAbsolute(kind, axis, isTop);
+            double required = Math.Max(maxDiameter, absolute);
+            details.Add(new CheckDetail
+            {
+                Formula = "10.3.5",
+                Description = minKey,
+                NormReference = "10.3.5",
+                Applied = required,
+                Allowable = minClear,
+                Variables = new Dictionary<string, double>
+                {
+                    ["requiredClearSpacing"] = required,
+                    ["actualMinClearSpacing"] = minClear,
+                    ["maxDiameter"] = maxDiameter,
+                    ["absoluteMinimum"] = absolute
+                }
+            });
+        }
+
+        double limit = kind == Sp63ElementKind.Column
+            ? ColumnMaxSpacingAcrossPlane
+            : BeamMaxSpacing(profile.Height);
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.8",
+            Description = maxKey,
+            NormReference = "10.3.8",
+            Applied = maxCenterSpacing,
+            Allowable = limit,
+            Variables = new Dictionary<string, double>
+            {
+                ["maxCenterSpacing"] = maxCenterSpacing,
+                ["limit"] = limit,
+                ["h"] = profile.Height
+            }
+        });
+    }
+
+    /// <summary>
+    /// Абсолютный минимум зазора в свету по п. 10.3.5: колонна (вертикальные стержни
+    /// при бетонировании) — 50 мм; балка/плита — 25 мм для нижней и 30 мм для верхней
+    /// арматуры. При изгибе My верх/низ по чертежу не определяется — принимается 30 мм.
+    /// Случай «более двух нижних рядов» (50 мм) не распознаётся: профиль содержит два
+    /// крайних уровня.
+    /// </summary>
+    static double MinClearSpacingAbsolute(Sp63ElementKind kind, Sp63NormalAxis axis, bool isTop) =>
+        kind == Sp63ElementKind.Column
+            ? 0.050
+            : axis == Sp63NormalAxis.Mx && !isTop ? 0.025 : 0.030;
+
+    /// <summary>Наибольший шаг стержней балок и плит по п. 10.3.8, м.</summary>
+    static double BeamMaxSpacing(double h) =>
+        h <= 0.150 ? 0.200 : Math.Min(1.5 * h, 0.400);
+
+    // п. 10.3.8, колонны: 400 мм поперёк плоскости изгиба, 500 мм в плоскости изгиба.
+    const double ColumnMaxSpacingAcrossPlane = 0.400;
+    const double ColumnMaxSpacingInPlane = 0.500;
 
     static void AddCoverCheck(List<CheckDetail> details, List<Sp63NormalMessage> notes,
         string descriptionKey, Sp63NormalRebarLayer layer, double edgeToCenterDistance)

@@ -75,6 +75,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63NormalSpanLength = "";
    string sp63NormalAxis = "Mx";
    string sp63NormalStructuralScheme = "statically_indeterminate";
+   string sp63NormalElementKind = "unspecified";
    string sp63NormalElementLength = "6";
    string sp63NormalEffectiveLengthL0 = "6";
    string sp63NormalStabilityMode = "member";
@@ -207,6 +208,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63NormalAxis;
       set { sp63NormalAxis = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Тип элемента для пп. 10.3.5 и 10.3.8 (расстояния между стержнями).</summary>
+   public string Sp63NormalElementKind
+   {
+      get => sp63NormalElementKind;
+      set { sp63NormalElementKind = value; OnPropertyChanged(); }
    }
 
    /// <summary>Схема элемента для выбора сочетания эксцентриситетов.</summary>
@@ -2096,6 +2104,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63NormalShapeKind = snp.ShapeKind;
              Sp63NormalAxis = snp.Axis;
              Sp63NormalStructuralScheme = snp.StructuralScheme;
+             Sp63NormalElementKind = string.IsNullOrWhiteSpace(snp.ElementKind)
+                ? "unspecified" : snp.ElementKind;
              Sp63NormalElementLength = snp.ElementLengthOrRestraintDistance?.ToString("G6", inv) ?? "";
              Sp63NormalEffectiveLengthL0 = snp.EffectiveLengthL0?.ToString("G6", inv) ?? "";
              Sp63NormalSpanLength = snp.SpanLength?.ToString("G6", inv) ?? "";
@@ -2387,6 +2397,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ShapeKind = Sp63NormalShapeKind,
             Axis = Sp63NormalAxis,
             StructuralScheme = Sp63NormalStructuralScheme,
+            ElementKind = Sp63NormalElementKind,
             ElementLengthOrRestraintDistance = elementLength,
             EffectiveLengthL0 = effectiveLengthL0,
             SpanLength = spanLength,

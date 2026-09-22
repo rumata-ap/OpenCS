@@ -127,6 +127,21 @@ public sealed class Sp63NormalReportProviderTests
             table.KeyHeader == "Переменная" && table.ValueHeader == "Значение");
     }
 
+    [Theory]
+    [InlineData("""{"elementKind":"column"}""", "колонна")]
+    [InlineData("""{"elementKind":"beam_or_slab"}""", "балка / плита")]
+    [InlineData("{}", "не задан")]
+    public void Provider_InputRows_ShowElementKind(string paramsJson, string expected)
+    {
+        var task = MakeTask(paramsJson);
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = CalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        Assert.Contains(document.Blocks.OfType<ReportKeyValueTable>(), table => table.Rows.Any(row =>
+            row.Key == "Тип элемента (пп. 10.3.5, 10.3.8)" && row.Value == expected));
+    }
+
     [Fact]
     public void Provider_WarnsWhenNotApplicable()
     {
