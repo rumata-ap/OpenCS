@@ -55,7 +55,44 @@ public class ShellLayeredCraveiroTests
         }
     }
 
-    static PlateSection Element1() => new()
+    // Бетон в характеристиках OpenCS: вершина диаграммы Rb = 0,85·fcd (как у NBR 6118),
+    // модуль Eci = 5600·√fck = 25 043 МПа (NBR 6118, п. 8.2.8), εb0 = 2‰, εb2 = 3,5‰.
+    const double Rb = 0.85 * Fcd;             // кПа
+    const double Eb = 25_043_000.0;           // кПа
+
+    internal static Material ConcreteMaterial()
+    {
+        MaterialChars Ch(CalcType ct) => new(ct)
+        {
+            Type = MatType.Concrete, E = Eb, Fc = -Rb, Ft = 1_000.0,
+            Ec0 = -0.002, Ec1 = -0.6 * Rb / Eb, Ec2 = -0.0035, Ec1Red = -0.0015,
+            Et0 = 0.0001, Et1 = 0.6 * 1_000.0 / Eb, Et2 = 0.00015, Et1Red = 0.00008,
+        };
+        var m = new Material { Id = 1, Tag = "fck20", Type = MatType.Concrete, E = Eb };
+        m.C = Ch(CalcType.C); m.CL = Ch(CalcType.CL); m.N = Ch(CalcType.N); m.NL = Ch(CalcType.NL);
+        return m;
+    }
+
+    internal static Diagramm OpenCsConcrete(DiagrammType type)
+        => ConcreteMaterial().GetDiagramms(type)![CalcType.C];
+
+    internal static Material RebarMaterial()
+    {
+        MaterialChars Ch(CalcType ct) => new(ct)
+        {
+            Type = MatType.ReSteelF, E = Es, Fc = -Fyd, Ft = Fyd, Ec2 = -0.025, Et2 = 0.025,
+        };
+        var m = new Material { Id = 2, Tag = "fyk500", Type = MatType.ReSteelF, E = Es };
+        m.C = Ch(CalcType.C); m.CL = Ch(CalcType.CL); m.N = Ch(CalcType.N); m.NL = Ch(CalcType.NL);
+        return m;
+    }
+
+    internal static Diagramm OpenCsSteel() => RebarMaterial().GetDiagramms(DiagrammType.L2)![CalcType.C];
+
+    internal static Diagramm PaperConcrete() => new NbrConcrete();
+    internal static Diagramm PaperSteel() => new PrandtlSteel();
+
+    internal static PlateSection Element1() => new()
     {
         H = 1.5, NLayers = 10, PlateModel = "layered", TensionConcrete = false,
         SofteningModel = "vecchio_collins", SofteningEpsC2 = 0.002,
@@ -67,11 +104,11 @@ public class ShellLayeredCraveiroTests
     };
 
     // Нагрузки элемента 1 (табл. 1), кН/м и кН·м/м.
-    static readonly double[] Loads =
+    internal static readonly double[] Loads =
         [202.46 * Tf, -9.31 * Tf, 27.26 * Tf, -28.79 * Tf, -36.28 * Tf, -16.66 * Tf];
 
     // НДС равновесия элемента 1 (табл. 16): ‰ и ‰/м.
-    static readonly ShellStrainState PaperState =
+    internal static readonly ShellStrainState PaperState =
         new(3.1494e-3, 1.0386e-3, 2.4179e-3, 2.2759e-3, -1.9826e-3, -3.3593e-3);
 
     [Theory]
@@ -115,5 +152,57 @@ public class ShellLayeredCraveiroTests
         for (int i = 0; i < 6; i++)
             Assert.True(Math.Abs(got[i] - exp[i]) <= 0.02 * Math.Abs(exp[i]) + 2e-5,
                 $"компонента {i}: OpenCS {got[i] * 1e3:F4}‰, статья {exp[i] * 1e3:F4}‰");
+    }
+
+    // Те же нагрузки со штатными диаграммами бетона OpenCS (Rb = 0,85·fcd, Eb = 25 043 МПа)
+    // и L2 арматуры. Бетон сжат слабо (|ε₂| < 1‰), где диаграммы сильно различаются по
+    // начальной жёсткости, поэтому деформации расходятся со статьёй в разы (κx: L3 0,53,
+    // ЕКБ 0,95, L2 2,96 против 2,28 ‰/м). Но арматура x у обеих граней течёт, и разложение
+    // усилий между бетоном и арматурой почти не зависит от диаграммы — оно и сверяется
+    // с табл. 15 статьи, вместе с поворотом главных осей у граней (табл. 14).
+    [Theory]
+    [InlineData(DiagrammType.L2)]
+    [InlineData(DiagrammType.L3)]
+    [InlineData(DiagrammType.EKB)]
+    public void Element1_OpenCsDiagrams_MatchPaperForceSplit(DiagrammType type)
+    {
+        var sec = Element1();
+        var res = new ShellStrainSolver(sec, OpenCsConcrete(type), OpenCsSteel()).Solve(Loads);
+        Assert.True(res.Converged, $"{type}: нет сходимости, невязка {res.Residual:G3}");
+
+        var f = res.Forces;
+        double[] got = [f.Nx, f.Ny, f.Nxy, f.Mx, f.My, f.Mxy];
+        for (int i = 0; i < 6; i++)
+            Assert.True(Math.Abs(got[i] - Loads[i]) <= (i < 3 ? 0.005 * 2024.6 : 0.005 * 362.8),
+                $"{type}, равновесие, компонента {i}: {got[i]:F2} против {Loads[i]:F2}");
+
+        // Табл. 15: ΣNsx = 232,93, ΣNsy = 52,92, ΣMsx = −48,59, ΣMsy = −25,24 тс(·м)/м.
+        (string, double, double)[] rebar =
+        [
+            ("Nsx", f.NxRebar, 232.93 * Tf), ("Nsy", f.NyRebar, 52.92 * Tf),
+            ("Msx", f.MxRebar, -48.59 * Tf), ("Msy", f.MyRebar, -25.24 * Tf),
+        ];
+        foreach (var (name, v, exp) in rebar)
+            Assert.True(Math.Abs(v - exp) <= 0.025 * Math.Abs(exp),
+                $"{type}, {name}: OpenCS {v:F1}, статья {exp:F1}");
+
+        // Табл. 14: θ в крайних слоях 0,86° (z = +0,675) и 49,63° (z = −0,675).
+        var st = res.StrainState;
+        foreach (var (z, exp) in new[] { (0.675, 0.8639), (-0.675, 49.6282) })
+        {
+            PlateSection.PrincipalStrains2D(st.EpsX(z), st.EpsY(z), st.GammaXY(z),
+                out _, out _, out double theta);
+            double deg = theta * 180.0 / Math.PI;
+            Assert.True(Math.Abs(deg - exp) <= 2.5, $"{type}, θ(z={z}): {deg:F2}°, статья {exp:F2}°");
+        }
+
+        // Предельные деформации (п. 8.1.30 СП 63): бетон не дальше εb2, арматура не дальше εs,ult.
+        foreach (double z in new[] { 0.75, -0.75 })
+        {
+            PlateSection.PrincipalStrains2D(st.EpsX(z), st.EpsY(z), st.GammaXY(z),
+                out _, out double e2, out _);
+            Assert.True(e2 > -0.0035, $"{type}: ε2 на грани z={z} = {e2 * 1e3:F3}‰");
+        }
+        Assert.True(st.EpsX(0.55) < 0.025, $"{type}: εs верхней арматуры x = {st.EpsX(0.55) * 1e3:F2}‰");
     }
 }
