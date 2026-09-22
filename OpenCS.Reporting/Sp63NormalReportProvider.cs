@@ -88,6 +88,9 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         AddCheckTable(document, "Конструктивные требования раздела 10 (справочно)",
             "Справочные проверки минимального армирования, защитного слоя и расстановки стержней; в вердикт прочности не входят.",
             domain.ConstructiveChecks);
+        AddCheckTable(document, "Альтернативный метод п. 8.1.16 (справочно)",
+            "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20 по формуле (8.17); в вердикт прочности не входит.",
+            domain.AlternativeChecks);
         AddMessageTable(document, "Причины неприменимости формульного режима", domain.ApplicabilityMessages);
         AddMessageTable(document, "Справочные сообщения", domain.InformationalMessages);
 
@@ -363,6 +366,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ?? throw new JsonException("Пустой результат sp63_normal.");
         model.StrengthDetails ??= [];
         model.ConstructiveChecks ??= [];
+        model.AlternativeChecks ??= [];
         model.ApplicabilityMessages ??= [];
         model.InformationalMessages ??= [];
         model.Variables ??= [];
@@ -503,6 +507,11 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)",
         ["Sp63Normal_CoverBarDiameterUnknown"] = "Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.",
         ["Sp63Normal_MinTensionBarCount"] = "Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9",
+        ["Sp63Normal_AltCompressionCheck"] = "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)",
+        ["Sp63Normal_AltCompressionEccentricity"] = "Альтернативный метод п. 8.1.16 не применён: e0 > h/30.",
+        ["Sp63Normal_AltCompressionNoL0"] = "Альтернативный метод п. 8.1.16 не применён: не задана расчётная длина l0.",
+        ["Sp63Normal_AltCompressionSlenderness"] = "Альтернативный метод п. 8.1.16 не применён: l0/h > 20.",
+        ["Sp63Normal_AltCompressionConcreteClass"] = "Альтернативный метод п. 8.1.16 не применён: класс бетона не распознан по метке материала или отсутствует в таблице 8.1 (B20–B55, B60, B80).",
         ["Sp63Normal_SuggestNdm"] = "Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).",
         ["Sp63Normal_CircularCheck"] = "Круглое сечение: M ≤ Mult",
         ["Sp63Normal_AnnularCheck"] = "Кольцевое сечение: M ≤ Mult",

@@ -29,6 +29,12 @@ public sealed class Sp63NormalResult
     /// </summary>
     public List<CheckDetail> ConstructiveChecks { get; set; } = [];
 
+    /// <summary>
+    /// Справочные проверки альтернативным методом (п. 8.1.16, формула (8.17)) для
+    /// внецентренно сжатого прямоугольного сечения. Не входят в <see cref="StrengthPassed"/>.
+    /// </summary>
+    public List<CheckDetail> AlternativeChecks { get; set; } = [];
+
     /// <summary>Причины неприменимости формульного режима.</summary>
     public List<Sp63NormalMessage> ApplicabilityMessages { get; set; } = [];
 

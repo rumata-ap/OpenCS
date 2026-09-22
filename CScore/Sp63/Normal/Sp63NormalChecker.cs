@@ -422,7 +422,93 @@ public static class Sp63NormalChecker
         var result = Calculated("compression", [detail], variables, informational,
             profile!, context);
         result.Eta = etaResult;
+        AddAlternativeCompressionCheck(result, section, n, e0, calc, profile!,
+            material, context);
         return result;
+    }
+
+    /// <summary>
+    /// Справочная проверка альтернативным методом п. 8.1.16: N ≤ φ·(Rb·A + Rsc·As,tot).
+    /// При невыполнении условий применимости (e0 ≤ h/30, l0/h ≤ 20, класс бетона
+    /// в таблице 8.1) добавляет только информационное сообщение.
+    /// </summary>
+    static void AddAlternativeCompressionCheck(Sp63NormalResult result, CrossSection section,
+        double n, double e0, CalcType calc, Sp63NormalSectionProfile profile,
+        Sp63NormalMaterialResolver.MaterialValues material, Sp63MemberContext context)
+    {
+        const string reference = "8.1.16";
+        double h = profile.Height;
+        // Относительный допуск: при e0 = ea = h/30 условие выполняется точно.
+        if (e0 > h / 30.0 * (1.0 + 1e-9))
+        {
+            result.InformationalMessages.Add(Message("alt_compression_eccentricity",
+                Sp63NormalMessageKind.Information, reference,
+                "Sp63Normal_AltCompressionEccentricity"));
+            return;
+        }
+        if (context.EffectiveLengthL0 is not > 0)
+        {
+            result.InformationalMessages.Add(Message("alt_compression_no_l0",
+                Sp63NormalMessageKind.Information, reference,
+                "Sp63Normal_AltCompressionNoL0"));
+            return;
+        }
+
+        double l0OverH = context.EffectiveLengthL0.Value / h;
+        if (l0OverH > Sp63AlternativeCompression.MaxSlenderness)
+        {
+            result.InformationalMessages.Add(Message("alt_compression_slenderness",
+                Sp63NormalMessageKind.Information, reference,
+                "Sp63Normal_AltCompressionSlenderness"));
+            return;
+        }
+
+        bool longTerm = calc is CalcType.CL or CalcType.NL;
+        double? phi;
+        int? concreteClass = null;
+        if (longTerm)
+        {
+            string? tag = section.Areas.FirstOrDefault(area =>
+                area.Category == AreaCategory.Region &&
+                area.Material?.Type == MatType.Concrete)?.Material?.Tag;
+            concreteClass = Sp63AlternativeCompression.ParseConcreteClass(tag);
+            phi = concreteClass is { } cls
+                ? Sp63AlternativeCompression.PhiLongTerm(cls, l0OverH)
+                : null;
+        }
+        else
+        {
+            phi = Sp63AlternativeCompression.PhiShortTerm(l0OverH);
+        }
+        if (phi is not { } phiValue)
+        {
+            result.InformationalMessages.Add(Message("alt_compression_concrete_class",
+                Sp63NormalMessageKind.Information, "8.1.16, табл. 8.1",
+                "Sp63Normal_AltCompressionConcreteClass"));
+            return;
+        }
+
+        double concreteArea = profile.B * h;
+        double nUlt = Sp63AlternativeCompression.UltimateForce(phiValue, material.Rb,
+            concreteArea, profile.CompressionLayer.Rsc, profile.TotalRebarArea);
+        var variables = new Dictionary<string, double>
+        {
+            ["N"] = n,
+            ["e0"] = e0,
+            ["h"] = h,
+            ["l0OverH"] = l0OverH,
+            ["phi"] = phiValue,
+            ["phiLongTerm"] = longTerm ? 1.0 : 0.0,
+            ["Rb"] = material.Rb,
+            ["A"] = concreteArea,
+            ["Rsc"] = profile.CompressionLayer.Rsc,
+            ["AsTot"] = profile.TotalRebarArea,
+            ["Nult"] = nUlt
+        };
+        if (concreteClass is { } classValue)
+            variables["concreteClass"] = classValue;
+        result.AlternativeChecks.Add(Detail("(8.17)", "Sp63Normal_AltCompressionCheck",
+            reference, n, nUlt, variables));
     }
 
     static bool TryBuildProfile(CrossSection section, Sp63NormalAxis axis,

@@ -17,6 +17,9 @@ public sealed class Sp63NormalReportProviderTests
          "ConstructiveChecks":[
             {"Formula":"10.3.6","Description":"Sp63Normal_MinReinforcementCompression","NormReference":"10.3.6",
              "Applied":0.001,"Allowable":0.0015,"Variables":{}}],
+         "AlternativeChecks":[
+            {"Formula":"(8.17)","Description":"Sp63Normal_AltCompressionCheck","NormReference":"8.1.16",
+             "Applied":120.5,"Allowable":4806.0,"Variables":{"phi":0.9}}],
          "ApplicabilityMessages":[],
          "InformationalMessages":[
             {"Code":"suggest_ndm","Kind":1,"NormReference":"справочно","Text":"Sp63Normal_SuggestNdm"}],
@@ -102,7 +105,8 @@ public sealed class Sp63NormalReportProviderTests
         string[] headings =
         [
             "Числовые условия прочности",
-            "Конструктивные требования раздела 10 (справочно)"
+            "Конструктивные требования раздела 10 (справочно)",
+            "Альтернативный метод п. 8.1.16 (справочно)"
         ];
 
         foreach (string heading in headings)

@@ -86,6 +86,8 @@ public sealed class Sp63NormalResultVM
    public Visibility StrengthVisibility { get; }
    /// <summary>Показывать ли блок конструктивных требований раздела 10.</summary>
    public Visibility ConstructiveVisibility { get; }
+   /// <summary>Показывать ли блок альтернативного метода п. 8.1.16.</summary>
+   public Visibility AlternativeVisibility { get; }
    /// <summary>Показывать ли причины неприменимости.</summary>
    public Visibility ApplicabilityVisibility { get; }
    /// <summary>Показывать ли справочные сообщения.</summary>
@@ -96,6 +98,8 @@ public sealed class Sp63NormalResultVM
    public ObservableCollection<Sp63NormalCheckRow> StrengthRows { get; } = [];
    /// <summary>Строки справочных проверок минимального армирования (п. 10.3.6).</summary>
    public ObservableCollection<Sp63NormalCheckRow> ConstructiveRows { get; } = [];
+   /// <summary>Строки справочной проверки альтернативным методом (п. 8.1.16).</summary>
+   public ObservableCollection<Sp63NormalCheckRow> AlternativeRows { get; } = [];
    /// <summary>Причины неприменимости.</summary>
    public ObservableCollection<Sp63NormalMessageRow> ApplicabilityRows { get; } = [];
    /// <summary>Справочные сообщения.</summary>
@@ -153,6 +157,8 @@ public sealed class Sp63NormalResultVM
          StrengthRows.Add(ToCheckRow(detail));
       foreach (var detail in Model.ConstructiveChecks)
          ConstructiveRows.Add(ToCheckRow(detail));
+      foreach (var detail in Model.AlternativeChecks)
+         AlternativeRows.Add(ToCheckRow(detail));
       foreach (var message in Model.ApplicabilityMessages)
          ApplicabilityRows.Add(ToMessageRow(message));
       foreach (var message in Model.InformationalMessages)
@@ -167,6 +173,8 @@ public sealed class Sp63NormalResultVM
       StrengthVisibility = Model.Status == Sp63NormalStatus.Calculated
          ? Visibility.Visible : Visibility.Collapsed;
       ConstructiveVisibility = ConstructiveRows.Count > 0
+         ? Visibility.Visible : Visibility.Collapsed;
+      AlternativeVisibility = AlternativeRows.Count > 0
          ? Visibility.Visible : Visibility.Collapsed;
       ApplicabilityVisibility = ApplicabilityRows.Count > 0
          ? Visibility.Visible : Visibility.Collapsed;

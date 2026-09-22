@@ -1819,6 +1819,12 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).</system:String>
+    <system:String x:Key="Sp63NormalAlternativeTitle">Альтернативный метод п. 8.1.16 (справочно, в вердикт не входит)</system:String>
+    <system:String x:Key="Sp63Normal_AltCompressionCheck">Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
+    <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Альтернативный метод п. 8.1.16 не применён: e0 &gt; h/30.</system:String>
+    <system:String x:Key="Sp63Normal_AltCompressionNoL0">Альтернативный метод п. 8.1.16 не применён: не задана расчётная длина l0.</system:String>
+    <system:String x:Key="Sp63Normal_AltCompressionSlenderness">Альтернативный метод п. 8.1.16 не применён: l0/h &gt; 20.</system:String>
+    <system:String x:Key="Sp63Normal_AltCompressionConcreteClass">Альтернативный метод п. 8.1.16 не применён: класс бетона не распознан по метке материала или отсутствует в таблице 8.1 (B20–B55, B60, B80).</system:String>
     <system:String x:Key="Sp63Normal_CircularCheck">Круглое сечение: M ≤ Mᵤₗₜ</system:String>
     <system:String x:Key="Sp63Normal_AnnularCheck">Кольцевое сечение: M ≤ Mᵤₗₜ</system:String>
     <system:String x:Key="Sp63Normal_CircularSingleConcreteRegion">Для круглого и кольцевого сечений по приложению Д нужна ровно одна бетонная область.</system:String>
