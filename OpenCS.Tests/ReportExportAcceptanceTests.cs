@@ -13,7 +13,6 @@ namespace OpenCS.Tests;
 
 /// <summary>Сквозная проверка: реальный документ strain_state с настоящей SVG-картой НДС
 /// проходит HTML- и Markdown-ветки экспорта.</summary>
-[Collection("WebView2")]
 public sealed class ReportExportAcceptanceTests : IDisposable
 {
     readonly string _dir = Directory.CreateTempSubdirectory("opencs-acceptance-").FullName;
