@@ -199,6 +199,23 @@ public class ShellCrackingSolverTests
         Assert.True(bending.CrackingReached);
     }
 
+    // Кэширующий пробник: те же усилия — тот же результат без повторного поиска, другие
+    // усилия — новый поиск с тем же результатом, что у прямого Solve.
+    [Fact]
+    public void CachedProbe_ReusesResultForSameForces()
+    {
+        var probe = Solver().CachedProbe();
+        double[] a = [0, 0, 0, 17.0, 0, 9.0];
+
+        var first = probe(a, true);
+        var again = probe((double[])a.Clone(), true);
+        var other = probe([0, 0, 0, 17.0, 0, 0], true);
+
+        Assert.Same(first, again);
+        Assert.NotSame(first, other);
+        Assert.Equal(Solver().Solve(a, true).MomentFactor, first!.MomentFactor, 12);
+    }
+
     // Чистое кручение трещит, хотя Mx = 0: M_crc направления тогда 0, а признак трещины несёт
     // множитель k_crc.
     [Fact]
