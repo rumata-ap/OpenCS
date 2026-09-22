@@ -18,9 +18,12 @@ public sealed class Sp63RebarCatalogTests
 
         Assert.Equal(340_000d, a400.Ft);
         Assert.Equal(-340_000d, a400.Fc);
+        Assert.Equal(340_000d, a400.Rsc);
         Assert.Equal(695_000d, a800Short.Ft);
-        Assert.Equal(-400_000d, a800Short.Fc);
-        Assert.Equal(-500_000d, a800Long.Fc);
+        Assert.Equal(-695_000d, a800Short.Fc);
+        Assert.Equal(400_000d, a800Short.Rsc);
+        Assert.Equal(-695_000d, a800Long.Fc);
+        Assert.Equal(500_000d, a800Long.Rsc);
     }
 
     [Fact]
@@ -30,6 +33,7 @@ public sealed class Sp63RebarCatalogTests
 
         Assert.Equal(390_000d, a400.Ft);
         Assert.Equal(-390_000d, a400.Fc);
+        Assert.Equal(390_000d, a400.Rsc);
     }
 
     [Fact]
@@ -54,7 +58,8 @@ public sealed class Sp63RebarCatalogTests
         var k1450 = Read("Арматура стальная_C.csv", "К1450");
 
         Assert.Equal(1_200_000d, k1450.Ft);
-        Assert.Equal(-400_000d, k1450.Fc);
+        Assert.Equal(-1_200_000d, k1450.Fc);
+        Assert.Equal(400_000d, k1450.Rsc);
         Assert.Equal(195_000_000d, k1450.E);
         Assert.Equal(3d, k1450.Type);
         Assert.Equal(0.015d, k1450.Et2);
@@ -88,6 +93,7 @@ public sealed class Sp63RebarCatalogTests
                 return new CsvRow(
                     fields[index["Tag"]],
                     Parse(fields[index["Fc"]]),
+                    Parse(fields[index["Rsc"]]),
                     Parse(fields[index["Ft"]]),
                     Parse(fields[index["E"]]),
                     Parse(fields[index["Ec0"]]),
@@ -103,6 +109,7 @@ public sealed class Sp63RebarCatalogTests
     sealed record CsvRow(
         string Tag,
         double Fc,
+        double Rsc,
         double Ft,
         double E,
         double Ec0,

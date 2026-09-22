@@ -15,6 +15,7 @@
 
 # Локальные временные файлы
 tmp/
+tools/.venv/
 
 # SQLite database (рабочий файл, не коммитится)
 dbapp.db

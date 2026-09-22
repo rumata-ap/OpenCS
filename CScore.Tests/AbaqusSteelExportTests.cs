@@ -21,7 +21,7 @@ public sealed class AbaqusSteelExportTests
     /// <summary>A400 (физический предел текучести), Rs = 340 МПа — табл. 6.14 СП 63.</summary>
     static Material RebarA400(double rsc = 340_000) => Build(MatType.ReSteelF, calc => new MaterialChars(calc)
     {
-        Type = MatType.ReSteelF, Fc = -rsc, Ft = 340_000, E = RebarE, Ec2 = -0.0035, Et2 = 0.025,
+        Type = MatType.ReSteelF, Fc = -340_000, Rsc = rsc, Ft = 340_000, E = RebarE, Ec2 = -0.0035, Et2 = 0.025,
     });
 
     /// <summary>A600 (условный предел текучести), Rs = 522 МПа, εs2 = 0.015.</summary>
@@ -129,11 +129,11 @@ public sealed class AbaqusSteelExportTests
     }
 
     [Fact]
-    public void AsymmetricRebar_WarnsAndExportsTension()
+    public void RebarDiagramIsSymmetricAndIgnoresFormulaRsc()
     {
         var result = AbaqusSteelCurveGenerator.Generate(RebarA400(rsc: 330_000), AbaqusSteelOptions.Default());
 
-        Assert.Contains(result.Warnings, w => w.Contains("сжатии"));
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("сжатии"));
         Assert.Equal(340.0, result.Plastic[0].NominalStress, 9);
     }
 

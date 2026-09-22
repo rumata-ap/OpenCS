@@ -81,6 +81,20 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
+      /// Расчётное сопротивление арматуры сжатию Rsc, кПа, положительная
+      /// величина для формульных проверок МПУ.
+      /// </summary>
+      public double Rsc
+      {
+         get => chars.Rsc;
+         set
+         {
+            chars.Rsc = value;
+            OnPropertyChanged(nameof(Rsc));
+         }
+      }
+
+      /// <summary>
       /// Прочность на растяжение.
       /// </summary>
       public double Ft

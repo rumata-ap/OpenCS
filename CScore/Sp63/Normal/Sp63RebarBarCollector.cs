@@ -62,13 +62,13 @@ internal static class Sp63RebarBarCollector
                     out message);
 
             var chars = area.Material.GetChars(calc);
+            double rsc = chars?.GetRscOrLegacyFc() ?? 0.0;
             if (chars is null || !IsPositiveFinite(Math.Abs(chars.Ft)) ||
-                !IsPositiveFinite(Math.Abs(chars.Fc)))
+                !IsPositiveFinite(rsc))
                 return Failure("missing_rebar_resistance",
                     "Sp63Normal_MissingRebarResistance", "8.1.8", out message);
 
             double rs = Math.Abs(chars.Ft);
-            double rsc = Math.Abs(chars.Fc);
             foreach (var fiber in area.Fibers)
             {
                 if (!IsPositiveFinite(fiber.Area))

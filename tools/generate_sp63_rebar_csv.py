@@ -34,7 +34,7 @@ except ImportError as error:  # pragma: no cover - exercised by developer setup
 
 
 CSV_HEADER = (
-    "Tag;Class;Fc;Ft;Ry;Ru;E;Ec0;Ec1;Ec2;Ec1Red;Et1Red;"
+    "Tag;Class;Fc;Rsc;Ft;Ry;Ru;E;Ec0;Ec1;Ec2;Ec1Red;Et1Red;"
     "Et0;Et1;Et2;Type;TypeCalc;Dampness;\r\n"
 )
 
@@ -97,17 +97,26 @@ TARGETS = {
 def validate_catalog() -> None:
     """Reject stale or incomplete adapter mappings before writing anything."""
 
-    assert TABLE_6_13_RSN["A400"] == 390.0
-    assert TABLE_6_14_REBAR["A800"] == {
-        "Rs": 695.0,
-        "Rsc_short": 400.0,
-        "Rsc_long": 500.0,
-    }
-    assert TABLE_6_14_REBAR["B500"] == {
-        "Rs": 415.0,
-        "Rsc_short": 380.0,
-        "Rsc_long": 415.0,
-    }
+    expected_a400_rsn = 390.0
+    if TABLE_6_13_RSN.get("A400") != expected_a400_rsn:
+        raise RuntimeError(
+            f"Таблица 6.13: A400, Rsn={TABLE_6_13_RSN.get('A400')!r}, "
+            f"ожидалось {expected_a400_rsn!r}."
+        )
+
+    expected_a800 = {"Rs": 695.0, "Rsc_short": 400.0, "Rsc_long": 500.0}
+    if TABLE_6_14_REBAR.get("A800") != expected_a800:
+        raise RuntimeError(
+            f"Таблица 6.14: A800={TABLE_6_14_REBAR.get('A800')!r}, "
+            f"ожидалось {expected_a800!r}."
+        )
+
+    expected_b500 = {"Rs": 415.0, "Rsc_short": 380.0, "Rsc_long": 415.0}
+    if TABLE_6_14_REBAR.get("B500") != expected_b500:
+        raise RuntimeError(
+            f"Таблица 6.14: B500={TABLE_6_14_REBAR.get('B500')!r}, "
+            f"ожидалось {expected_b500!r}."
+        )
 
     source_grades = tuple(TABLE_6_14_REBAR)
     profile_grades = tuple(profile.source_grade for profile in PROFILES)
@@ -143,17 +152,24 @@ def row(
     *,
     calc_type: int,
     strength_tension_mpa: float,
-    strength_compression_mpa: float,
+    diagram_compression_mpa: float,
+    rsc_mpa: float,
     include_first_group_tail: bool,
 ) -> str:
-    """Build one row, keeping the legacy OpenCS column order."""
+    """Build one row in the OpenCS schema.
+
+    Fc is the signed compression branch of the NDM diagram and therefore is
+    always -Rs for rebar.  Rsc is a separate positive, tabular resistance for
+    formula-based ULS checks.
+    """
 
     e_kpa = profile.elastic_modulus_mpa * 1000.0
     ft_kpa = strength_tension_mpa * 1000.0
-    fc_kpa = -strength_compression_mpa * 1000.0
+    fc_kpa = -diagram_compression_mpa * 1000.0
+    rsc_kpa = rsc_mpa * 1000.0
 
     if profile.material_type == 2:
-        ec0 = -strength_compression_mpa * 1000.0 / e_kpa
+        ec0 = -diagram_compression_mpa * 1000.0 / e_kpa
         ec1 = 0.0
         et0 = strength_tension_mpa * 1000.0 / e_kpa
         et1 = 0.0
@@ -174,6 +190,7 @@ def row(
         f"{profile.tag} ({profile.diameter_text})",
         number(profile.class_value),
         number(fc_kpa),
+        number(rsc_kpa),
         number(ft_kpa),
         "0",
         number(ru_kpa),
@@ -209,17 +226,22 @@ def generate() -> dict[str, str]:
                         profile,
                         calc_type=calc_type,
                         strength_tension_mpa=rebar.Rs,
-                        strength_compression_mpa=rebar.Rsc,
+                        diagram_compression_mpa=rebar.Rs,
+                        rsc_mpa=rebar.Rsc,
                         include_first_group_tail=True,
                     )
                 )
             else:
+                # Таблица 6.13 задаёт для второй группы только Rsn; отдельного
+                # Rsc там нет. Для сервисного профиля сохраняем Rsn в Rsc,
+                # чтобы поле оставалось явным и положительным, а не пустым.
                 lines.append(
                     row(
                         profile,
                         calc_type=calc_type,
                         strength_tension_mpa=rebar.Rs_ser,
-                        strength_compression_mpa=rebar.Rs_ser,
+                        diagram_compression_mpa=rebar.Rs_ser,
+                        rsc_mpa=rebar.Rs_ser,
                         include_first_group_tail=False,
                     )
                 )
