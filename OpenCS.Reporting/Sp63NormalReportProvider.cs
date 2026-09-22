@@ -58,6 +58,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ("ψ (доля длительного момента)", F(parameters.Psi, ReportUnit.Unitless)),
             ("Порог гибкости l0/i", F(parameters.SlendernessThreshold, ReportUnit.Unitless)),
             ("Тип элемента (пп. 10.3.5, 10.3.8)", LocalizeElementKind(parameters.ElementKind)),
+            ("Условия эксплуатации (табл. 10.1)", LocalizeExposureCondition(parameters.ExposureCondition)),
+            ("Сборный элемент", parameters.IsPrecast ? "да" : "нет"),
             ("Ручные усилия", parameters.UseManualForces
                 ? $"да: N = {F(parameters.N, ReportUnit.Kilonewton)} кН, Mx = {F(parameters.Mx, ReportUnit.KilonewtonMeter)} кН·м, My = {F(parameters.My, ReportUnit.KilonewtonMeter)} кН·м"
                 : "нет, используется набор усилий задачи")
@@ -397,6 +399,16 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         _ => scheme
     };
 
+    static string LocalizeExposureCondition(string? exposure) => exposure switch
+    {
+        "indoor_normal" => "в закрытых помещениях при нормальной и пониженной влажности",
+        "indoor_humid" => "в закрытых помещениях при повышенной влажности",
+        "outdoor" => "на открытом воздухе",
+        "ground" => "в грунте; в монолитных фундаментах при наличии бетонной подготовки",
+        "foundation_no_preparation" => "в монолитных фундаментах при отсутствии бетонной подготовки",
+        _ => "не заданы"
+    };
+
     static string LocalizeElementKind(string? kind) => kind switch
     {
         "beam_or_slab" => "балка / плита",
@@ -511,8 +523,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MinReinforcementCompression"] = "Минимальный процент армирования, сжатая арматура: μs,min ≤ μs",
         ["Sp63Normal_MinReinforcementCentralTension"] = "Минимальный процент армирования при центральном растяжении (вся арматура к полному сечению бетона): μs,min ≤ μs",
         ["Sp63Normal_MinReinforcementSlendernessUnknown"] = "Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l0.",
-        ["Sp63Normal_MinCoverTension"] = "Защитный слой растянутой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)",
-        ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)",
+        ["Sp63Normal_MinCoverTension"] = "Защитный слой растянутой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
+        ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
         ["Sp63Normal_CoverBarDiameterUnknown"] = "Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.",
         ["Sp63Normal_MinTensionBarCount"] = "Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9",
         ["Sp63Normal_AltCompressionCheck"] = "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)",
@@ -526,6 +538,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MaxBarSpacingCompression"] = "Шаг осей стержней, сжатая арматура: s ≤ s,max",
         ["Sp63Normal_MaxLevelSpacingColumn"] = "Шаг уровней арматуры колонны в плоскости изгиба: s ≤ 500 мм",
         ["Sp63Normal_SpacingElementKindUnspecified"] = "Расстояния между стержнями по пп. 10.3.5 и 10.3.8 не проверены: не задан тип элемента.",
+        ["Sp63Normal_CoverExposureUnspecified"] = "Защитный слой проверен только на диаметр стержня и 10 мм: не заданы условия эксплуатации (таблица 10.1).",
+        ["Sp63Normal_CoverFoundationBottomUndetermined"] = "При изгибе My нижняя арматура фундамента не определяется: для обоих слоёв принят защитный слой «в грунте» (40 мм), а не 70 мм.",
         ["Sp63Normal_SuggestNdm"] = "Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).",
         ["Sp63Normal_CircularCheck"] = "Круглое сечение: M ≤ Mult",
         ["Sp63Normal_AnnularCheck"] = "Кольцевое сечение: M ≤ Mult",

@@ -39,6 +39,15 @@ public sealed class Sp63NormalTaskParams
     /// <summary>Тип элемента: unspecified, beam_or_slab или column (пп. 10.3.5, 10.3.8).</summary>
     public string ElementKind { get; set; } = "unspecified";
 
+    /// <summary>
+    /// Условия эксплуатации по таблице 10.1: unspecified, indoor_normal, indoor_humid,
+    /// outdoor, ground или foundation_no_preparation.
+    /// </summary>
+    public string ExposureCondition { get; set; } = "unspecified";
+
+    /// <summary>Сборный элемент (поправка к таблице 10.1).</summary>
+    public bool IsPrecast { get; set; }
+
     /// <summary>Использовать ручные значения N, Mx и My.</summary>
     public bool UseManualForces { get; set; }
 
@@ -118,11 +127,32 @@ public sealed class Sp63NormalTaskParams
 
         if (!TryParseElementKind(ElementKind, out var elementKind))
             return Invalid("invalid_element_kind", out errorCode);
+        if (!TryParseExposureCondition(ExposureCondition, out var exposure))
+            return Invalid("invalid_exposure_condition", out errorCode);
 
         options = new Sp63NormalOptions(shapeKind, axis, new Sp63MemberContext(
             ElementLengthOrRestraintDistance, scheme, EffectiveLengthL0,
-            stabilityMode, Psi, SlendernessThreshold, elementKind));
+            stabilityMode, Psi, SlendernessThreshold, elementKind, exposure, IsPrecast));
         return true;
+    }
+
+    static readonly Dictionary<string, Sp63ExposureCondition> ExposureConditions =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["unspecified"] = Sp63ExposureCondition.Unspecified,
+            ["indoor_normal"] = Sp63ExposureCondition.IndoorNormal,
+            ["indoor_humid"] = Sp63ExposureCondition.IndoorHumid,
+            ["outdoor"] = Sp63ExposureCondition.Outdoor,
+            ["ground"] = Sp63ExposureCondition.Ground,
+            ["foundation_no_preparation"] = Sp63ExposureCondition.FoundationWithoutPreparation
+        };
+
+    // Пустое значение (проекты, сохранённые до появления поля) — «не заданы».
+    static bool TryParseExposureCondition(string? value, out Sp63ExposureCondition exposure)
+    {
+        exposure = Sp63ExposureCondition.Unspecified;
+        return string.IsNullOrWhiteSpace(value) ||
+            ExposureConditions.TryGetValue(value, out exposure);
     }
 
     // Пустое значение (проекты, сохранённые до появления поля) — «не задан».

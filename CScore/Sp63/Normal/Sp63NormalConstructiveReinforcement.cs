@@ -78,9 +78,9 @@ public static class Sp63NormalConstructiveReinforcement
 
     /// <summary>
     /// Вычисляет справочные геометрические проверки раздела 10.3 для прямоугольного
-    /// профиля: частичная проверка защитного слоя по диаметру стержня (п. 10.3.2 —
-    /// без учёта таблицы условий эксплуатации, которая в OpenCS пока не выбирается)
-    /// и минимальное число растянутых стержней при широком сечении (п. 10.3.9).
+    /// профиля: защитный слой по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения
+    /// таблицы 10.1 для заданных условий эксплуатации) и минимальное число растянутых
+    /// стержней при широком сечении (п. 10.3.9).
     /// Не входит в <see cref="Sp63NormalResult.StrengthPassed"/>.
     /// </summary>
     /// <param name="profile">Профиль прямоугольного сечения.</param>
@@ -89,10 +89,17 @@ public static class Sp63NormalConstructiveReinforcement
     /// Тип элемента для пп. 10.3.5 и 10.3.8; <see langword="null"/> — проверки расстояний
     /// между стержнями не выполняются и не упоминаются.
     /// </param>
+    /// <param name="exposure">
+    /// Условия эксплуатации для таблицы 10.1; <see langword="null"/> — таблица не проверяется
+    /// и не упоминается. Вся продольная арматура считается рабочей.
+    /// </param>
+    /// <param name="isPrecast">Сборный элемент — поправка к таблице 10.1.</param>
     public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckCoverAndSpacing(
         Sp63NormalSectionProfile profile,
         Sp63NormalAxis axis = Sp63NormalAxis.Mx,
-        Sp63ElementKind? elementKind = null)
+        Sp63ElementKind? elementKind = null,
+        Sp63ExposureCondition? exposure = null,
+        bool isPrecast = false)
     {
         var details = new List<CheckDetail>();
         var notes = new List<Sp63NormalMessage>();
@@ -108,13 +115,39 @@ public static class Sp63NormalConstructiveReinforcement
                 "Sp63Normal_IdealizedRebarLayer"));
         }
 
+        if (exposure == Sp63ExposureCondition.Unspecified)
+        {
+            notes.Add(new Sp63NormalMessage(
+                "cover_exposure_unspecified",
+                Sp63NormalMessageKind.Information,
+                "10.3.2",
+                "Sp63Normal_CoverExposureUnspecified"));
+        }
+        else if (exposure == Sp63ExposureCondition.FoundationWithoutPreparation &&
+                 axis == Sp63NormalAxis.My)
+        {
+            notes.Add(new Sp63NormalMessage(
+                "cover_foundation_bottom_undetermined",
+                Sp63NormalMessageKind.Information,
+                "10.3.2",
+                "Sp63Normal_CoverFoundationBottomUndetermined"));
+        }
+
+        // Нижний слой определяется только при изгибе Mx (меньшая Y — ближе к подошве).
+        bool tensionIsBottom = axis == Sp63NormalAxis.Mx &&
+            profile.TensionLayer.Coordinate < profile.CompressionLayer.Coordinate;
+        bool compressionIsBottom = axis == Sp63NormalAxis.Mx &&
+            profile.CompressionLayer.Coordinate < profile.TensionLayer.Coordinate;
+
         if (!profile.TensionLayer.IsIdealized)
             AddCoverCheck(details, notes, "Sp63Normal_MinCoverTension",
-                profile.TensionLayer, profile.Height - profile.H0);
+                profile.TensionLayer, profile.Height - profile.H0,
+                TableCover(exposure, isPrecast, tensionIsBottom));
         if (profile.CompressionLayer.Area > AreaTolerance &&
             !profile.CompressionLayer.IsIdealized)
             AddCoverCheck(details, notes, "Sp63Normal_MinCoverCompression",
-                profile.CompressionLayer, profile.APrime);
+                profile.CompressionLayer, profile.APrime,
+                TableCover(exposure, isPrecast, compressionIsBottom));
 
         if (!profile.TensionLayer.IsIdealized)
             AddTensionBarCountCheck(details, profile);
@@ -261,8 +294,33 @@ public static class Sp63NormalConstructiveReinforcement
     const double ColumnMaxSpacingAcrossPlane = 0.400;
     const double ColumnMaxSpacingInPlane = 0.500;
 
+    /// <summary>
+    /// Минимальный защитный слой рабочей арматуры по таблице 10.1, м, с поправкой для
+    /// сборных элементов (−5 мм; сборный фундамент без подготовки — 35 мм). Значение 70 мм
+    /// «фундамент без подготовки» относится только к нижней арматуре, остальная арматура
+    /// такого фундамента — «в грунте» (40 мм). <see langword="null"/> — условия не заданы.
+    /// </summary>
+    static double? TableCover(Sp63ExposureCondition? exposure, bool isPrecast, bool isBottom)
+    {
+        if (exposure is null or Sp63ExposureCondition.Unspecified) return null;
+        if (exposure == Sp63ExposureCondition.FoundationWithoutPreparation && isBottom)
+            return isPrecast ? 0.035 : 0.070;
+
+        double cover = exposure switch
+        {
+            Sp63ExposureCondition.IndoorNormal => 0.020,
+            Sp63ExposureCondition.IndoorHumid => 0.025,
+            Sp63ExposureCondition.Outdoor => 0.030,
+            _ => 0.040
+        };
+        return isPrecast ? cover - PrecastCoverReduction : cover;
+    }
+
+    const double PrecastCoverReduction = 0.005;
+
     static void AddCoverCheck(List<CheckDetail> details, List<Sp63NormalMessage> notes,
-        string descriptionKey, Sp63NormalRebarLayer layer, double edgeToCenterDistance)
+        string descriptionKey, Sp63NormalRebarLayer layer, double edgeToCenterDistance,
+        double? tableCover)
     {
         if (layer.Area <= AreaTolerance) return;
 
@@ -279,8 +337,17 @@ public static class Sp63NormalConstructiveReinforcement
             return;
         }
 
-        double requiredCover = Math.Max(maxDiameter, MinCoverAbsolute);
+        double requiredCover = Math.Max(Math.Max(maxDiameter, MinCoverAbsolute),
+            tableCover ?? 0.0);
         double actualCover = edgeToCenterDistance - maxDiameter / 2.0;
+        var variables = new Dictionary<string, double>
+        {
+            ["requiredCover"] = requiredCover,
+            ["actualCover"] = actualCover,
+            ["maxDiameter"] = maxDiameter
+        };
+        if (tableCover is { } table)
+            variables["tableCover"] = table;
         details.Add(new CheckDetail
         {
             Formula = "10.3.2",
@@ -288,12 +355,7 @@ public static class Sp63NormalConstructiveReinforcement
             NormReference = "10.3.2",
             Applied = requiredCover,
             Allowable = actualCover,
-            Variables = new Dictionary<string, double>
-            {
-                ["requiredCover"] = requiredCover,
-                ["actualCover"] = actualCover,
-                ["maxDiameter"] = maxDiameter
-            }
+            Variables = variables
         });
     }
 

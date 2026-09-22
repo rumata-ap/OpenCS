@@ -142,6 +142,22 @@ public sealed class Sp63NormalReportProviderTests
             row.Key == "Тип элемента (пп. 10.3.5, 10.3.8)" && row.Value == expected));
     }
 
+    [Theory]
+    [InlineData("""{"exposureCondition":"outdoor","isPrecast":true}""", "на открытом воздухе", "да")]
+    [InlineData("{}", "не заданы", "нет")]
+    public void Provider_InputRows_ShowExposureCondition(string paramsJson, string expected,
+        string expectedPrecast)
+    {
+        var task = MakeTask(paramsJson);
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = CalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var rows = document.Blocks.OfType<ReportKeyValueTable>().SelectMany(table => table.Rows).ToList();
+        Assert.Contains(rows, row => row.Key == "Условия эксплуатации (табл. 10.1)" && row.Value == expected);
+        Assert.Contains(rows, row => row.Key == "Сборный элемент" && row.Value == expectedPrecast);
+    }
+
     [Fact]
     public void Provider_WarnsWhenNotApplicable()
     {

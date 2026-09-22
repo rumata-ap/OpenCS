@@ -122,6 +122,157 @@ public sealed class Sp63NormalCoverAndSpacingTests
         Assert.Contains(percentage, detail => detail.Description == "Sp63Normal_MinReinforcementTension");
     }
 
+    [Theory]
+    [InlineData(Sp63ExposureCondition.IndoorNormal, false, 0.020)]
+    [InlineData(Sp63ExposureCondition.IndoorHumid, false, 0.025)]
+    [InlineData(Sp63ExposureCondition.Outdoor, false, 0.030)]
+    [InlineData(Sp63ExposureCondition.Ground, false, 0.040)]
+    [InlineData(Sp63ExposureCondition.Outdoor, true, 0.025)]
+    [InlineData(Sp63ExposureCondition.Ground, true, 0.035)]
+    public void Cover_Table101_RaisesRequiredCover(Sp63ExposureCondition exposure,
+        bool isPrecast, double expectedTable)
+    {
+        // Диаметр 12 мм < любого значения таблицы — требование задаёт таблица 10.1.
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.012, compressionDiameter: 0.012);
+
+        var (details, notes) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(
+            profile, Sp63NormalAxis.Mx, exposure: exposure, isPrecast: isPrecast);
+
+        foreach (string key in new[] { "Sp63Normal_MinCoverTension", "Sp63Normal_MinCoverCompression" })
+        {
+            var detail = Assert.Single(details, d => d.Description == key);
+            Assert.Equal(expectedTable, detail.Variables["tableCover"], 9);
+            Assert.Equal(expectedTable, detail.Applied, 9);
+            Assert.Equal(0.044, detail.Allowable, 9);
+            Assert.True(detail.Passed);
+        }
+        Assert.Empty(notes);
+    }
+
+    [Fact]
+    public void Cover_Table101_BarDiameterStillGoverns_WhenLarger()
+    {
+        // Сборный элемент в помещении: 20 − 5 = 15 мм < d = 16 мм.
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.016, compressionDiameter: 0.016);
+
+        var (details, _) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(
+            profile, exposure: Sp63ExposureCondition.IndoorNormal, isPrecast: true);
+
+        var detail = Assert.Single(details, d => d.Description == "Sp63Normal_MinCoverTension");
+        Assert.Equal(0.015, detail.Variables["tableCover"], 9);
+        Assert.Equal(0.016, detail.Applied, 9);
+    }
+
+    [Theory]
+    [InlineData(false, 0.070, 0.040)]
+    [InlineData(true, 0.035, 0.035)]
+    public void Cover_FoundationWithoutPreparation_AppliesOnlyToBottomLayer(bool isPrecast,
+        double expectedBottom, double expectedTop)
+    {
+        // Растянутый слой профиля — нижний (меньшая Y), факт. слой 44 мм.
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.012, compressionDiameter: 0.012);
+
+        var (details, _) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(
+            profile, Sp63NormalAxis.Mx,
+            exposure: Sp63ExposureCondition.FoundationWithoutPreparation, isPrecast: isPrecast);
+
+        var bottom = Assert.Single(details, d => d.Description == "Sp63Normal_MinCoverTension");
+        var top = Assert.Single(details, d => d.Description == "Sp63Normal_MinCoverCompression");
+        Assert.Equal(expectedBottom, bottom.Applied, 9);
+        Assert.Equal(expectedTop, top.Applied, 9);
+        Assert.Equal(isPrecast, bottom.Passed);   // факт. 44 мм: < 70, но ≥ 35
+    }
+
+    [Fact]
+    public void Cover_FoundationWithoutPreparation_UnderMy_UsesGroundValueAndAddsNote()
+    {
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.012, compressionDiameter: 0.012);
+
+        var (details, notes) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(
+            profile, Sp63NormalAxis.My,
+            exposure: Sp63ExposureCondition.FoundationWithoutPreparation);
+
+        Assert.All(details.Where(d => d.NormReference == "10.3.2"),
+            d => Assert.Equal(0.040, d.Applied, 9));
+        Assert.Contains(notes, n => n.Code == "cover_foundation_bottom_undetermined");
+    }
+
+    [Fact]
+    public void Cover_ExposureUnspecified_AddsNote_AndKeepsDiameterRequirement()
+    {
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.016, compressionDiameter: 0.016);
+
+        var (details, notes) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(
+            profile, exposure: Sp63ExposureCondition.Unspecified);
+
+        var detail = Assert.Single(details, d => d.Description == "Sp63Normal_MinCoverTension");
+        Assert.Equal(0.016, detail.Applied, 9);
+        Assert.False(detail.Variables.ContainsKey("tableCover"));
+        Assert.Contains(notes, n => n.Code == "cover_exposure_unspecified");
+    }
+
+    [Fact]
+    public void Checker_PassesExposureFromMemberContext()
+    {
+        var section = Sp63NormalFixtures.Rectangle(0.30, 0.60);
+        var rebar = Sp63NormalFixtures.Rebar(2);
+        double area = Math.PI * 0.020 * 0.020 / 4.0;
+        foreach (double x in new[] { -0.10, 0.10 })
+        {
+            Sp63NormalFixtures.AddBar(section, x, -0.25, area, rebar, diameter: 0.020);
+            Sp63NormalFixtures.AddBar(section, x, 0.25, area, rebar, diameter: 0.020);
+        }
+        var baseOptions = Sp63NormalFixtures.MemberOptions();
+        var options = baseOptions with
+        {
+            MemberContext = baseOptions.MemberContext with
+            {
+                ExposureCondition = Sp63ExposureCondition.Outdoor,
+                IsPrecast = true
+            }
+        };
+
+        var result = Sp63NormalChecker.Check(section, new LoadItem { Mx = -50.0 },
+            CalcType.C, options);
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        Assert.Contains(result.ConstructiveChecks, d => d.NormReference == "10.3.2" &&
+            Math.Abs(d.Variables["tableCover"] - 0.025) < 1e-9);
+    }
+
+    [Theory]
+    [InlineData("""{"exposureCondition":"outdoor","isPrecast":true}""",
+        Sp63ExposureCondition.Outdoor, true)]
+    [InlineData("""{"exposureCondition":"foundation_no_preparation"}""",
+        Sp63ExposureCondition.FoundationWithoutPreparation, false)]
+    [InlineData("{}", Sp63ExposureCondition.Unspecified, false)]
+    public void TaskParams_Exposure_RoundTrips(string json, Sp63ExposureCondition expected,
+        bool expectedPrecast)
+    {
+        var parameters = Sp63NormalTaskParams.Parse(json);
+        Assert.True(parameters.TryToOptions(out var options, out var error), error);
+        Assert.Equal(expected, options.MemberContext.ExposureCondition);
+        Assert.Equal(expectedPrecast, options.MemberContext.IsPrecast);
+
+        var reparsed = Sp63NormalTaskParams.Parse(parameters.ToJson());
+        Assert.True(reparsed.TryToOptions(out var again, out _));
+        Assert.Equal(expected, again.MemberContext.ExposureCondition);
+        Assert.Equal(expectedPrecast, again.MemberContext.IsPrecast);
+    }
+
+    [Fact]
+    public void TaskParams_UnknownExposure_IsInvalid()
+    {
+        var parameters = Sp63NormalTaskParams.Parse("""{"exposureCondition":"sea"}""");
+        Assert.False(parameters.TryToOptions(out _, out var error));
+        Assert.Equal("invalid_exposure_condition", error);
+    }
+
     static Sp63NormalSectionProfile Profile(double h, double h0, double aPrime,
         double tensionDiameter, double compressionDiameter,
         double b = 0.30, double tensionArea = 0.0020, double compressionArea = 0.0020,

@@ -76,6 +76,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63NormalAxis = "Mx";
    string sp63NormalStructuralScheme = "statically_indeterminate";
    string sp63NormalElementKind = "unspecified";
+   string sp63NormalExposureCondition = "unspecified";
+   bool sp63NormalIsPrecast;
    string sp63NormalElementLength = "6";
    string sp63NormalEffectiveLengthL0 = "6";
    string sp63NormalStabilityMode = "member";
@@ -215,6 +217,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63NormalElementKind;
       set { sp63NormalElementKind = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Условия эксплуатации по таблице 10.1 (защитный слой, п. 10.3.2).</summary>
+   public string Sp63NormalExposureCondition
+   {
+      get => sp63NormalExposureCondition;
+      set { sp63NormalExposureCondition = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Сборный элемент: защитный слой по таблице 10.1 уменьшается на 5 мм.</summary>
+   public bool Sp63NormalIsPrecast
+   {
+      get => sp63NormalIsPrecast;
+      set { sp63NormalIsPrecast = value; OnPropertyChanged(); }
    }
 
    /// <summary>Схема элемента для выбора сочетания эксцентриситетов.</summary>
@@ -2106,6 +2122,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63NormalStructuralScheme = snp.StructuralScheme;
              Sp63NormalElementKind = string.IsNullOrWhiteSpace(snp.ElementKind)
                 ? "unspecified" : snp.ElementKind;
+             Sp63NormalExposureCondition = string.IsNullOrWhiteSpace(snp.ExposureCondition)
+                ? "unspecified" : snp.ExposureCondition;
+             Sp63NormalIsPrecast = snp.IsPrecast;
              Sp63NormalElementLength = snp.ElementLengthOrRestraintDistance?.ToString("G6", inv) ?? "";
              Sp63NormalEffectiveLengthL0 = snp.EffectiveLengthL0?.ToString("G6", inv) ?? "";
              Sp63NormalSpanLength = snp.SpanLength?.ToString("G6", inv) ?? "";
@@ -2398,6 +2417,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Axis = Sp63NormalAxis,
             StructuralScheme = Sp63NormalStructuralScheme,
             ElementKind = Sp63NormalElementKind,
+            ExposureCondition = Sp63NormalExposureCondition,
+            IsPrecast = Sp63NormalIsPrecast,
             ElementLengthOrRestraintDistance = elementLength,
             EffectiveLengthL0 = effectiveLengthL0,
             SpanLength = spanLength,

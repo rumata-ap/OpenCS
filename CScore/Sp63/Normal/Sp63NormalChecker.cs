@@ -562,7 +562,8 @@ public static class Sp63NormalChecker
             Sp63NormalConstructiveReinforcement.Check(branch, profile, options.MemberContext);
         var (coverChecks, coverNotes) =
             Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile,
-                options.Axis, options.MemberContext.ElementKind);
+                options.Axis, options.MemberContext.ElementKind,
+                options.MemberContext.ExposureCondition, options.MemberContext.IsPrecast);
         var allConstructiveChecks = new List<CheckDetail>(constructiveChecks);
         allConstructiveChecks.AddRange(coverChecks);
         var allNotes = new List<Sp63NormalMessage>(constructiveNotes);

@@ -48,6 +48,26 @@ public enum Sp63ElementKind
     Column
 }
 
+/// <summary>
+/// Условия эксплуатации конструкций по таблице 10.1 — определяют минимальную толщину
+/// защитного слоя бетона рабочей арматуры (п. 10.3.2).
+/// </summary>
+public enum Sp63ExposureCondition
+{
+    /// <summary>Не заданы — таблица 10.1 не проверяется.</summary>
+    Unspecified,
+    /// <summary>В закрытых помещениях при нормальной и пониженной влажности — 20 мм.</summary>
+    IndoorNormal,
+    /// <summary>В закрытых помещениях при повышенной влажности — 25 мм.</summary>
+    IndoorHumid,
+    /// <summary>На открытом воздухе — 30 мм.</summary>
+    Outdoor,
+    /// <summary>В грунте; в монолитных фундаментах при наличии бетонной подготовки — 40 мм.</summary>
+    Ground,
+    /// <summary>В монолитных фундаментах без бетонной подготовки — 70 мм (только нижняя рабочая арматура).</summary>
+    FoundationWithoutPreparation
+}
+
 /// <summary>Режим учёта устойчивости элемента.</summary>
 public enum Sp63NormalStabilityMode
 {

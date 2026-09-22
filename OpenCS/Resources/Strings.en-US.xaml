@@ -1814,8 +1814,8 @@
     <system:String x:Key="Sp63Normal_MinReinforcementCompression">Minimum reinforcement ratio, compression reinforcement: μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Minimum reinforcement ratio for central tension (all reinforcement over full concrete section): μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Minimum reinforcement ratio per cl. 10.3.6 was not checked: effective length l₀ is not specified.</system:String>
-    <system:String x:Key="Sp63Normal_MinCoverTension">Concrete cover of tension reinforcement, partial cl. 10.3.2 (at least the bar diameter and at least 10 mm; Table 10.1 exposure-condition values are not checked)</system:String>
-    <system:String x:Key="Sp63Normal_MinCoverCompression">Concrete cover of compression reinforcement, partial cl. 10.3.2 (at least the bar diameter and at least 10 mm; Table 10.1 exposure-condition values are not checked)</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverTension">Concrete cover of tension reinforcement, cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverCompression">Concrete cover of compression reinforcement, cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Bar diameter for the layer is not set — the cl. 10.3.2 cover check was not performed.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Number of longitudinal tension bars when section width exceeds 150 mm, cl. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">For holes, multiple concrete regions, biaxial bending, and complex reinforcement, use the deformation-model (NDM) check.</system:String>
@@ -1830,6 +1830,17 @@
     <system:String x:Key="Sp63Normal_MaxBarSpacingCompression">Bar centre spacing, compression reinforcement: s ≤ s,max</system:String>
     <system:String x:Key="Sp63Normal_MaxLevelSpacingColumn">Column reinforcement level spacing in the bending plane: s ≤ 500 mm</system:String>
     <system:String x:Key="Sp63Normal_SpacingElementKindUnspecified">Bar spacing per cl. 10.3.5 and 10.3.8 not checked: element type is not specified.</system:String>
+    <system:String x:Key="Sp63NormalExposureCondition">Exposure conditions</system:String>
+    <system:String x:Key="Sp63NormalExposureConditionTooltip">Minimum concrete cover of working reinforcement per SP 63 Table 10.1 (cl. 10.3.2)</system:String>
+    <system:String x:Key="Sp63NormalExposureUnspecified">Not specified</system:String>
+    <system:String x:Key="Sp63NormalExposureIndoorNormal">Indoors, normal or low humidity (20 mm)</system:String>
+    <system:String x:Key="Sp63NormalExposureIndoorHumid">Indoors, high humidity (25 mm)</system:String>
+    <system:String x:Key="Sp63NormalExposureOutdoor">Outdoors (30 mm)</system:String>
+    <system:String x:Key="Sp63NormalExposureGround">In ground; cast-in-place foundation with blinding (40 mm)</system:String>
+    <system:String x:Key="Sp63NormalExposureFoundationNoPreparation">Cast-in-place foundation without blinding (70 mm, bottom reinforcement)</system:String>
+    <system:String x:Key="Sp63NormalIsPrecast">Precast element (Table 10.1 cover reduced by 5 mm)</system:String>
+    <system:String x:Key="Sp63Normal_CoverExposureUnspecified">Cover checked only against bar diameter and 10 mm: exposure conditions are not specified (Table 10.1).</system:String>
+    <system:String x:Key="Sp63Normal_CoverFoundationBottomUndetermined">Under My bending the bottom reinforcement of a foundation cannot be identified: the &quot;in ground&quot; cover (40 mm) is used for both layers instead of 70 mm.</system:String>
     <system:String x:Key="Sp63NormalAlternativeTitle">Alternative method, cl. 8.1.16 (reference only, not part of the verdict)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionCheck">Eccentric compression with e0 ≤ h/30 and l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Alternative method of cl. 8.1.16 not applied: e0 &gt; h/30.</system:String>

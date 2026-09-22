@@ -225,6 +225,8 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalShape}"
@@ -302,6 +304,23 @@
                      <ComboBoxItem Tag="beam_or_slab" Content="{DynamicResource Sp63NormalElementKindBeamOrSlab}"/>
                      <ComboBoxItem Tag="column" Content="{DynamicResource Sp63NormalElementKindColumn}"/>
                   </ComboBox>
+
+                  <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource Sp63NormalExposureCondition}"
+                             VerticalAlignment="Center" Margin="0,4,4,0"/>
+                  <ComboBox Grid.Row="10" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalExposureCondition}" Margin="0,4,0,0"
+                            ToolTip="{DynamicResource Sp63NormalExposureConditionTooltip}">
+                     <ComboBoxItem Tag="unspecified" Content="{DynamicResource Sp63NormalExposureUnspecified}"/>
+                     <ComboBoxItem Tag="indoor_normal" Content="{DynamicResource Sp63NormalExposureIndoorNormal}"/>
+                     <ComboBoxItem Tag="indoor_humid" Content="{DynamicResource Sp63NormalExposureIndoorHumid}"/>
+                     <ComboBoxItem Tag="outdoor" Content="{DynamicResource Sp63NormalExposureOutdoor}"/>
+                     <ComboBoxItem Tag="ground" Content="{DynamicResource Sp63NormalExposureGround}"/>
+                     <ComboBoxItem Tag="foundation_no_preparation" Content="{DynamicResource Sp63NormalExposureFoundationNoPreparation}"/>
+                  </ComboBox>
+
+                  <CheckBox Grid.Row="11" Grid.Column="1" Margin="0,4,0,0"
+                            Content="{DynamicResource Sp63NormalIsPrecast}"
+                            IsChecked="{Binding Sp63NormalIsPrecast}"/>
                </Grid>
 
                <TextBlock Text="{DynamicResource Sp63NormalInputsHint}"
