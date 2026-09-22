@@ -158,15 +158,18 @@ def row(
 ) -> str:
     """Build one row in the OpenCS schema.
 
-    Fc is the signed compression branch of the NDM diagram and therefore is
-    always -Rs for rebar.  Rsc is a separate positive, tabular resistance for
-    formula-based ULS checks.
+    Rsc is the positive tabular compression resistance (СП 63, table 6.14) for
+    formula-based ULS checks.  Fc stores the same value with a minus sign, so
+    the material table shows the reduced compression resistance instead of Rs.
+    The NDM rebar diagram does not read Fc: it is symmetric and built from Ft
+    (MaterialChars.D2L/D3L), therefore Ec0 keeps the diagram yield strain
+    -Rs/E taken from diagram_compression_mpa.
     """
 
     e_kpa = profile.elastic_modulus_mpa * 1000.0
     ft_kpa = strength_tension_mpa * 1000.0
-    fc_kpa = -diagram_compression_mpa * 1000.0
     rsc_kpa = rsc_mpa * 1000.0
+    fc_kpa = -rsc_kpa
 
     if profile.material_type == 2:
         ec0 = -diagram_compression_mpa * 1000.0 / e_kpa

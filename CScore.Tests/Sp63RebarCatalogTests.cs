@@ -19,10 +19,12 @@ public sealed class Sp63RebarCatalogTests
         Assert.Equal(340_000d, a400.Ft);
         Assert.Equal(-340_000d, a400.Fc);
         Assert.Equal(340_000d, a400.Rsc);
+        // Fc (Rc в таблице характеристик) показывает сниженное табличное Rsc, а не Rs:
+        // диаграмма НДМ его не читает, она симметрична и строится от Ft.
         Assert.Equal(695_000d, a800Short.Ft);
-        Assert.Equal(-695_000d, a800Short.Fc);
+        Assert.Equal(-400_000d, a800Short.Fc);
         Assert.Equal(400_000d, a800Short.Rsc);
-        Assert.Equal(-695_000d, a800Long.Fc);
+        Assert.Equal(-500_000d, a800Long.Fc);
         Assert.Equal(500_000d, a800Long.Rsc);
     }
 
@@ -58,7 +60,7 @@ public sealed class Sp63RebarCatalogTests
         var k1450 = Read("Арматура стальная_C.csv", "К1450");
 
         Assert.Equal(1_200_000d, k1450.Ft);
-        Assert.Equal(-1_200_000d, k1450.Fc);
+        Assert.Equal(-400_000d, k1450.Fc);
         Assert.Equal(400_000d, k1450.Rsc);
         Assert.Equal(195_000_000d, k1450.E);
         Assert.Equal(3d, k1450.Type);
