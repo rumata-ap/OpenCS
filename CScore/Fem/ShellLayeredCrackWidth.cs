@@ -27,7 +27,8 @@ public sealed class ShellCrackStripResult
     public double NDes { get; init; }
     /// <summary>Момент трещинообразования (п. 8.2.11), кН·м/м. Считается всегда, не зависит от eps_s.</summary>
     public double Mcrc { get; init; }
-    /// <summary>|M_des| &gt; Mcrc.</summary>
+    /// <summary>Сечение с трещиной: по деформационной модели — k_crc &lt; 1 (луч всех моментов,
+    /// см. ShellCrackingSolver.Solve), по формулам — |M_des| &gt; Mcrc.</summary>
     public bool Cracked { get; init; }
     /// <summary>Напряжение в арматуре, кПа (единицы MaterialChars.E/Ft). 0, если не растрескалась
     /// или деформация арматуры не растягивающая.</summary>
@@ -81,22 +82,21 @@ public static class ShellLayeredCrackWidth
         double alpha = Es / ebRed;
         double h = section.H;
 
-        // Состояние трещинообразования ищется РАЗ НА НАПРАВЛЕНИЕ: M_crc и НДС при M = M_crc
-        // от слоя не зависят (усилия одни и те же), а поиск стоит десятков решений 6×6.
-        // От слоя зависит лишь σs,crc — координатой z выбирается ряд арматуры в найденном НДС.
-        ShellCrackingResult?[] probed = new ShellCrackingResult?[2];
-        bool[] probeDone = new bool[2];
-        ShellCrackingResult? Probe(bool alongX)
+        // Состояние трещинообразования ищется РАЗ НА СЕЧЕНИЕ: поиск идёт по лучу всех трёх
+        // моментов (см. ShellCrackingSolver.Solve), поэтому k_crc и НДС при нём от направления
+        // и слоя не зависят, а поиск стоит десятков решений 6×6. От направления зависит лишь
+        // пересчёт в M_crc = k_crc·|M|, от слоя — σs,crc: координатой z выбирается ряд арматуры.
+        ShellCrackingResult? probed = null;
+        bool probeDone = false;
+        ShellCrackingResult? Probe()
         {
-            int i = alongX ? 0 : 1;
-            if (!probeDone[i])
+            if (!probeDone)
             {
-                probeDone[i] = true;
-                probed[i] = crackingProbe?.Invoke(
-                    [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy], alongX);
+                probeDone = true;
+                probed = crackingProbe?.Invoke(
+                    [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy], true);
             }
-            var r = probed[i];
-            return r is { Converged: true } ? r : null;
+            return probed is { Converged: true } ? probed : null;
         }
 
         // П. 8.2.14 — M_crc; п. 8.2.18 — σs,crc в ТОМ ЖЕ сечении при M = M_crc, но уже с
@@ -105,10 +105,12 @@ public static class ShellLayeredCrackWidth
         // остановился поиск. Null возвращается, когда пробника нет или он не сошёлся — тогда
         // ComputeStrip считает обе величины формульно; если не сошлось только решение сечения
         // с трещиной, M_crc остаётся деформационным, а σs,crc уходит на запасной путь.
-        Func<(double Mcrc, double? SigmaSCrc, double? TensionZone)?> NdmCracking(bool alongX, double z) => () =>
+        Func<(double Mcrc, double K, double? SigmaSCrc, double? TensionZone)?> NdmCracking(bool alongX, double z) => () =>
         {
-            var r = Probe(alongX);
+            var r = Probe();
             if (r == null) return null;
+            double k = r.MomentFactor;
+            double mcrc = k * Math.Abs(alongX ? shell.Mx : shell.My);
 
             // П. 8.2.17: высоту растянутой зоны для A_bt берут ПО РАСЧЁТУ МОМЕНТА ОБРАЗОВАНИЯ
             // ТРЕЩИН. Это ровно то состояние, на котором остановился поиск M_crc, — а не
@@ -118,9 +120,9 @@ public static class ShellLayeredCrackWidth
                 : null;
 
             var cracked = r.CrackedStrainState;
-            if (cracked == null) return (r.Mcrc, (double?)null, tensionZone);
+            if (cracked == null) return (mcrc, k, (double?)null, tensionZone);
             double eps = alongX ? cracked.EpsX(z) : cracked.EpsY(z);
-            return (r.Mcrc, eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0, tensionZone);
+            return (mcrc, k, eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0, tensionZone);
         };
 
         var results = new List<ShellCrackStripResult>();
@@ -213,7 +215,7 @@ public static class ShellLayeredCrackWidth
         double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
         double crackAngleDeg,
-        Func<(double Mcrc, double? SigmaSCrc, double? TensionZone)?>? ndmCracking = null)
+        Func<(double Mcrc, double K, double? SigmaSCrc, double? TensionZone)?>? ndmCracking = null)
     {
         ShellSimplSolver.FullSectionProps(h, h0, aPrime, asT, 0.0, alphaFull,
             out double aRed, out double iRed);
@@ -230,10 +232,11 @@ public static class ShellLayeredCrackWidth
         // Тот же поиск даёт и σs,crc по п. 8.2.18 — напряжение в этой арматуре при M = M_crc.
         var ndm = ndmCracking?.Invoke();
         double mcrc = ndm?.Mcrc ?? Math.Max(0.0, rbt * wPl - nDes * ex);
-        // mcrc — не имеющий знака порог (Math.Max(0.0, ...)); mDes может быть отрицательным
-        // (момент, растягивающий нижнюю грань). Сравнение без Abs пропускало трещины при
-        // любом отрицательном mDes независимо от его модуля.
-        bool cracked = Math.Abs(mDes) > mcrc;
+        // По деформационной модели трещина определяется лучом всех моментов (k_crc < 1), а не
+        // сравнением одного момента направления: кручение растягивает грань наравне с Mx/My.
+        // Формульный путь — по-прежнему |M| > M_crc: mcrc там не имеет знака, а mDes может быть
+        // отрицательным (момент, растягивающий нижнюю грань).
+        bool cracked = ndm is { } n ? n.K < 1.0 : Math.Abs(mDes) > mcrc;
 
         double sigmaS = 0.0;
         double sigmaSCrc = 0.0;
@@ -261,8 +264,9 @@ public static class ShellLayeredCrackWidth
                 if (sigmaSCrcMethod == SigmaSCrcMethod.CrackingMoment8138)
                 {
                     // Ф. (8.138): ψs = 1 − 0,8·Mcrc/M, допускается для изгибаемых элементов.
-                    double ratio = Math.Abs(mDes) > 1e-9
-                        ? Math.Clamp(mcrc / Math.Abs(mDes), 0.0, 1.0) : 0.0;
+                    // По деформационной модели Mcrc/M = k_crc — отношение по тому же лучу.
+                    double ratio = ndm is { } nk ? Math.Clamp(nk.K, 0.0, 1.0)
+                        : Math.Abs(mDes) > 1e-9 ? Math.Clamp(mcrc / Math.Abs(mDes), 0.0, 1.0) : 0.0;
                     sigmaSCrc = sigmaS * ratio;
                 }
                 else

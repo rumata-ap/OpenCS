@@ -6,9 +6,15 @@ namespace CScore.Fem;
 /// <summary>Результат поиска момента трещинообразования плитного сечения.</summary>
 public sealed class ShellCrackingResult
 {
-    /// <summary>Момент трещинообразования по модулю, кН·м/м. 0 — сечение трещит от одной
-    /// продольной силы, без момента.</summary>
+    /// <summary>Момент трещинообразования по модулю, кН·м/м, в запрошенном направлении:
+    /// M_crc = k_crc·|M|, где M — момент этого направления в заданных усилиях. 0 — сечение
+    /// трещит от одной продольной силы либо момента этого направления нет.</summary>
     public double Mcrc { get; init; }
+
+    /// <summary>Множитель моментов k_crc: при усилиях (N, k·M) бетон на грани доходит до
+    /// ε_bt,ult. k_crc &lt; 1 — при заданных усилиях сечение с трещиной; 0 — трещит от одной
+    /// продольной силы.</summary>
+    public double MomentFactor { get; init; }
 
     public bool Converged { get; init; }
 
@@ -92,22 +98,29 @@ public sealed class ShellCrackingSolver
     }
 
     /// <summary>
-    /// Ищет момент трещинообразования по направлению (x или y) при неизменных остальных пяти
-    /// компонентах вектора усилий. Масштабируется только момент своего направления: п. 8.2.18
-    /// требует «принимая в соответствующих формулах значения M = M_crc», то есть продольная
-    /// сила остаётся той, что действует.
+    /// Ищет состояние трещинообразования по лучу моментов: все три момента (Mx, My, Mxy)
+    /// масштабируются общим множителем k, продольные силы (Nx, Ny, Nxy) остаются заданными —
+    /// п. 8.2.18 требует «принимая в соответствующих формулах значения M = M_crc», то есть
+    /// продольная сила та, что действует. Трещина — когда главная растягивающая деформация
+    /// бетона на любой из граней доходит до ε_bt,ult.
+    ///
+    /// Масштабировать только момент своего направления нельзя: кручение Mxy растягивает грань
+    /// наравне с Mx и My (на стене с заметным Mxy главная деформация у арматуры идёт под
+    /// 20–30° к оси), и тогда порог по одному Mx пропускает трещину, а σs,crc, взятая при
+    /// Mx = M_crc, но полном Mxy, выходит почти равной σs — ψs занижается вдвое. Луч моментов
+    /// даёт M_crc и σs,crc в одном и том же состоянии и совпадает со схемой Кисп слоистой
+    /// модели по прочности (M/M_пред при неизменных N).
     /// </summary>
     /// <param name="target">Усилия (Nx, Ny, Nxy, Mx, My, Mxy).</param>
-    /// <param name="alongX">true — момент Mx (деформации ε_x), false — My (ε_y).</param>
+    /// <param name="alongX">Только для <see cref="ShellCrackingResult.Mcrc"/>: true — пересчёт
+    /// в Mx, false — в My. Сам поиск от направления не зависит.</param>
     public ShellCrackingResult Solve(double[] target, bool alongX)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.Length != 6) throw new ArgumentException("Ожидается 6 компонент усилий", nameof(target));
 
         double limit = TensionLimit();
-        int idx = alongX ? 3 : 4;
-        double m0 = target[idx];
-        double sign = m0 < 0.0 ? -1.0 : 1.0;
+        double mDir = Math.Abs(target[alongX ? 3 : 4]);
         double h = _section.H;
         int iterations = 0;
 
@@ -119,21 +132,27 @@ public sealed class ShellCrackingSolver
         // независимо от TensionConcrete сечения.
         var crackedSolver = new ShellStrainSolver(_section, _cDiag, _rDiag, tensionOverride: false);
 
-        // Поиск ведётся ОДНООСНО: усилия рассматриваемого направления (N и масштабируемый M),
-        // остальные четыре компоненты — нули. Причина не в удобстве, а в модели: растянутый
-        // бетон включается сразу на всё сечение, по обоим направлениям, и если по соседнему
-        // направлению бетон уже за ε_bt,ult (на реальных сочетаниях стен и плит это обычное
-        // дело), равновесия с целым растянутым бетоном не существует ни при каком M — поиск
-        // не сходился вовсе. Норма и определяет трещинообразование по направлению: п. 8.2.10
-        // и 8.2.14 говорят о моменте M рассматриваемого направления при своей N. Двухосность
-        // остаётся там, где она нужна и где решение устойчиво: в рабочем НДС и в сечении с
-        // трещиной при M = M_crc, откуда берётся σs,crc.
-        double[] Uniaxial(double magnitude)
+        // Поиск идёт от k = 0 (одни продольные силы): если бетон уже за ε_bt,ult от них, это
+        // ловит проверка ниже, а дальше по лучу отклик непрерывен до первой трещины. Поэтому
+        // двухосный поиск здесь устойчив — несходимость на нём бывает лишь за скачком, где её
+        // и трактует бисекция.
+        double[] Scaled(double k)
         {
-            var t = new double[6];
-            t[alongX ? 0 : 1] = target[alongX ? 0 : 1];
-            t[idx] = sign * magnitude;
+            var t = (double[])target.Clone();
+            t[3] *= k; t[4] *= k; t[5] *= k;
             return t;
+        }
+
+        // Наибольшая главная растягивающая деформация бетона на гранях.
+        static double MaxPrincipalAtFaces(ShellStrainState s, double h)
+        {
+            double m = double.NegativeInfinity;
+            foreach (double z in new[] { h / 2.0, -h / 2.0 })
+            {
+                PlateSection.PrincipalStrains2D(s.EpsX(z), s.EpsY(z), s.GammaXY(z), out double e1, out _, out _);
+                m = Math.Max(m, e1);
+            }
+            return m;
         }
 
         // Последнее сошедшееся состояние — начальное приближение для следующей точки поиска.
@@ -142,10 +161,10 @@ public sealed class ShellCrackingSolver
         // соседней точки продолжает решение по параметру и сходится.
         double[]? warm = null;
 
-        (bool ok, double eps, ShellStrainState? st) At(double magnitude)
+        (bool ok, double eps, ShellStrainState? st) At(double k)
         {
             iterations++;
-            var t = Uniaxial(magnitude);
+            var t = Scaled(k);
             var res = solver.Solve(t, warm);
             // Запасная стратегия — каскад с продолжением по λ (SolveRobust): им же пользуются
             // вызывающие для рабочего НДС.
@@ -153,17 +172,13 @@ public sealed class ShellCrackingSolver
             if (!res.Converged) return (false, double.NaN, null);
             var s = res.StrainState;
             warm = s.ToArray();
-            double e = alongX
-                ? Math.Max(s.EpsX(h / 2.0), s.EpsX(-h / 2.0))
-                : Math.Max(s.EpsY(h / 2.0), s.EpsY(-h / 2.0));
-            return (true, e, s);
+            return (true, MaxPrincipalAtFaces(s, h), s);
         }
 
-        /// <summary>НДС сечения с трещиной при найденном M_crc — источник σs,crc.</summary>
-        ShellStrainState? Cracked(double magnitude)
+        /// <summary>НДС сечения с трещиной при найденном k_crc — источник σs,crc.</summary>
+        ShellStrainState? Cracked(double k)
         {
-            var t = (double[])target.Clone();
-            t[idx] = sign * magnitude;
+            var t = Scaled(k);
             var res = crackedSolver.Solve(t);
             if (!res.Converged) res = crackedSolver.SolveRobust(t);
             return res.Converged ? res.StrainState : null;
@@ -174,7 +189,7 @@ public sealed class ShellCrackingSolver
         if (zero.ok && zero.eps >= limit)
             return new ShellCrackingResult
             {
-                Mcrc = 0.0, Converged = true, StrainState = zero.st,
+                Mcrc = 0.0, MomentFactor = 0.0, Converged = true, StrainState = zero.st,
                 CrackedStrainState = Cracked(0.0),
                 MaxTensileStrain = zero.eps, Iterations = iterations,
                 Description = "сечение трещит от продольной силы"
@@ -185,7 +200,7 @@ public sealed class ShellCrackingSolver
         // гладкий и решается устойчиво, а за скачком (растянутый бетон сорвался) равновесие
         // при растягивающей N найти не удаётся. Значит предел уже позади, и верхняя граница
         // найдена. Ту же трактовку применяет бисекция ниже.
-        double lo = 0.0, hi = Math.Max(Math.Abs(m0), 1.0);
+        double lo = 0.0, hi = 1.0;
         var atHi = At(hi);
         int grow = 0;
         while (atHi.ok && atHi.eps < limit)
@@ -201,9 +216,9 @@ public sealed class ShellCrackingSolver
             atHi = At(hi);
         }
 
-        // Бисекция по модулю момента. Отклик у трещинообразования РАЗРЫВНЫЙ: за пределом
+        // Бисекция по множителю моментов. Отклик у трещинообразования РАЗРЫВНЫЙ: за пределом
         // растянутый бетон срывается, и деформация скачком уходит на порядок выше ε_bt,ult.
-        // Поэтому искомое состояние — последнее ДО скачка: наибольший момент, при котором
+        // Поэтому искомое состояние — последнее ДО скачка: наибольший множитель, при котором
         // предел ещё не достигнут. Его и возвращаем вместе с его НДС, иначе σs,crc считалась
         // бы по уже раскрывшемуся сечению.
         ShellStrainState? best = zero.ok ? zero.st : null;
@@ -219,7 +234,8 @@ public sealed class ShellCrackingSolver
 
         return new ShellCrackingResult
         {
-            Mcrc = lo,
+            Mcrc = lo * mDir,
+            MomentFactor = lo,
             Converged = best != null,
             StrainState = best,
             CrackedStrainState = best != null ? Cracked(lo) : null,
