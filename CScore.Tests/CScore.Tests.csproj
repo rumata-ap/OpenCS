@@ -18,4 +18,10 @@
     <ProjectReference Include="..\CScore\CScore.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\OpenCS\DataSource\Арматура стальная_*.csv"
+          Link="DataSource\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
