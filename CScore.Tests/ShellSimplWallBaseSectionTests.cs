@@ -30,10 +30,8 @@ namespace CScore.Tests;
 // конвенцией ShellSimplSolver/ShellStrainSolver (Mx и Nx дают σx).
 //
 // Слоистая модель прогоняется в двух вариантах: без β-снижения и с критерием двухосного
-// НДС по Vecchio-Collins (PlateSection.SofteningModel = "vecchio_collins", β = 1/(0,8+170·ε₁)).
-// ВНИМАНИЕ: PlateSection.SofteningEpsC2 в формулу β не входит (VecchioCollinsBeta принимает
-// параметр и игнорирует его, множитель 170 = 0,34/0,002 зашит), поэтому значение εc2 здесь
-// ни на что не влияет.
+// НДС по Vecchio-Collins (PlateSection.SofteningModel = "vecchio_collins",
+// β = 1/(0,8 + 0,34·ε₁/εc2), 0,60/0,85 ≤ β ≤ 1; при εc2 = 0,002 — 1/(0,8 + 170·ε₁)).
 //
 // Из-за полной изотропии армирования перестановка X↔Y или общая смена знака
 // моментов только переставляет подписи "верх/низ" у одного и того же физического
@@ -85,7 +83,7 @@ public class ShellSimplWallBaseSectionTests
         }
 
         /// <param name="softening">Учитывать снижение прочности сжатого бетона при поперечном
-        /// растяжении по Vecchio-Collins (β = 1/(0,8 + 170·ε₁), п. 1986 г. / МКПТ). В диалоге
+        /// растяжении по Vecchio-Collins (β = 1/(0,8 + 0,34·ε₁/εc2) ≥ 0,60/0,85, МКПТ 1986 г.). В диалоге
         /// плитного сечения OpenCS это выбор "Модель β-снижения"; по умолчанию β = 1.</param>
         public static PlateSection Section(bool softening = false) => new()
         {
@@ -327,7 +325,7 @@ public class ShellSimplWallBaseSectionTests
     // в ShellSimplExternalPlateTests и ShellSimplLiraSupportSectionTests.
     //
     // softening=true — критерий двухосного НДС по Vecchio-Collins: прочность сжатого бетона
-    // снижается поперечным растяжением, β = 1/(0,8 + 170·ε₁). Для этого сечения он включается
+    // снижается поперечным растяжением, β = 1/(0,8 + 0,34·ε₁/εc2) ≥ 0,60/0,85. Для этого сечения он включается
     // в полную силу: растяжение по горизонтали (Nx = +500 кН/м) и есть то самое поперечное
     // растяжение для вертикального обжатия Ny = −1200.
     [Theory]
@@ -576,7 +574,7 @@ public class ShellSimplWallBaseSectionTests
                 double z = -section.H / 2.0 + dz * (i + 0.5);
                 PlateSection.PrincipalStrains2D(st.EpsX(z), st.EpsY(z), st.GammaXY(z),
                     out double e1, out _, out _);
-                double b = e1 > 0.0 ? Math.Min(1.0, 1.0 / (0.8 + 170.0 * e1)) : 1.0;
+                double b = PlateSection.VecchioCollinsBeta(e1, section.SofteningEpsC2);
                 if (b < betaMin) { betaMin = b; zAtMin = z; eps1AtMin = e1; }
             }
             sb.AppendLine($"  {tag}: beta_min={(soft ? betaMin : 1.0):F4} при z={zAtMin:F4} " +

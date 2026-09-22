@@ -112,7 +112,8 @@ namespace CScore
       public bool TensionConcrete { get; set; }
       /// <summary>Модель снижения прочности β: "" | "vecchio_collins".</summary>
       public string SofteningModel { get; set; } = "";
-      /// <summary>Параметр εc2 для модели Vecchio–Collins.</summary>
+      /// <summary>Параметр εc2 для модели Vecchio–Collins — деформация бетона на пике
+      /// диаграммы (по СП 63 εb0 = 0,002), положительная величина.</summary>
       public double SofteningEpsC2 { get; set; } = 0.002;
 
       /// <summary>
@@ -660,16 +661,23 @@ namespace CScore
 
       // ── Vecchio–Collins β-фактор ───────────────────────────────────────────
 
+      /// <summary>Нижняя граница β = f<sub>cd2</sub>/f<sub>cd1</sub> = 0,60/0,85 (Model Code 1990):
+      /// прочность растрескавшегося бетона не ниже, чем при сжатии поперёк трещин.</summary>
+      internal const double VecchioCollinsBetaMin = 0.6 / 0.85;
+
       /// <summary>
       /// β-фактор снижения прочности бетона на сжатие при поперечном растяжении
-      /// (Vecchio &amp; Collins, 1986).
-      /// β = 1 / (0.8 + 170·ε₁) ≤ 1, ε₁ — максимальная (растягивающая) главная деформация.
+      /// (Vecchio &amp; Collins, 1986) в редакции Craveiro et al., IBRACON 2021, ур. (50):
+      /// β = 1 / (0,8 + 0,34·ε₁/|εc2|), 0,60/0,85 ≤ β ≤ 1; ε₁ — максимальная (растягивающая)
+      /// главная деформация, εc2 — деформация бетона на пике диаграммы. При εc2 = 0,002
+      /// совпадает с исходной формой 1/(0,8 + 170·ε₁) до нижней границы.
       /// </summary>
-      static double VecchioCollinsBeta(double eps1, double epsC2)
+      internal static double VecchioCollinsBeta(double eps1, double epsC2)
       {
          if (eps1 <= 0.0) return 1.0;
-         double beta = 1.0 / (0.8 + 170.0 * eps1);
-         return beta < 0.0 ? 0.0 : beta > 1.0 ? 1.0 : beta;
+         double ec2 = Math.Abs(epsC2) > 1e-9 ? Math.Abs(epsC2) : 0.002;
+         double beta = 1.0 / (0.8 + 0.34 * eps1 / ec2);
+         return beta < VecchioCollinsBetaMin ? VecchioCollinsBetaMin : beta > 1.0 ? 1.0 : beta;
       }
 
       // ── Секущие жёсткости ────────────────────────────────────────────────────
