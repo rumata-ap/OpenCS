@@ -221,6 +221,44 @@ public class FemNonlinearModelResolverTests
         Assert.False(r.Ok);
     }
 
+    [Theory]
+    [InlineData("Corotational", true)]
+    [InlineData("Linear", false)]
+    [InlineData("PDelta", false)]
+    public void Resolve_MemberLoads_LumpedOnlyForCorotational(string geomTransf, bool lumped)
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        List<FemMemberLoad> memberLoads =
+        [
+            new() { Id = 1, LoadCaseId = 1, MemberId = 1, DistributionType = "uniform", CoordinateSystem = "global", QzStart = -2000, QzEnd = -2000 },
+            new() { Id = 2, LoadCaseId = 1, MemberId = 1, DistributionType = "point", CoordinateSystem = "global", StartOffsetM = 1, QzStart = -500 },
+        ];
+
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0) { MemberLoads = memberLoads }],
+            Sections(section), CrossSectionFixtures.Materials(concrete, steel),
+            customDiagramPool: null, CalcType.C, Options() with { GeomTransfKind = geomTransf });
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        var stage = Assert.Single(r.Model!.Stages);
+        if (lumped)
+        {
+            Assert.Empty(stage.DistributedLoads);
+            Assert.Empty(stage.PointLoads);
+            Assert.Equal(3, stage.Loads.Count);                        // узловая + эквиваленты в узлах 1 и 2
+            Assert.Equal(-1000 - 2000 * 3 - 500, stage.Loads.Sum(l => l.Fz), 6);
+            Assert.Single(r.LoadEquivalents);
+        }
+        else
+        {
+            Assert.Single(stage.DistributedLoads);
+            Assert.Single(stage.PointLoads);
+            Assert.Empty(r.LoadEquivalents);
+        }
+    }
+
     [Fact]
     public void Resolve_TwoStages_BuildsModelWithTwoStagesInOrder()
     {

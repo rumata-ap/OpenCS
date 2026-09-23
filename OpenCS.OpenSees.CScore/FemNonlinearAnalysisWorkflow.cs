@@ -44,6 +44,8 @@ public sealed class FemNonlinearAnalysisWorkflow
         }
 
         var result = await _service.RunAsync(resolve.Model!, processRequest, ct);
+        if (resolve.LoadEquivalents.Count > 0)
+            result = FemElementForceCorrection.Apply(result, resolve.LoadEquivalents, FemElementForceCorrection.LumpedLoadsDiagnostic);
         string dataJson = JsonSerializer.Serialize(result);
         return new FemNonlinearWorkflowOutput(result.Status, result, [], dataJson);
     }

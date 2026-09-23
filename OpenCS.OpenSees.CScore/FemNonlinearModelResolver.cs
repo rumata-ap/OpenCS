@@ -229,9 +229,14 @@ public sealed class FemNonlinearModelResolver
             RecordFiberStates = options.RecordFiberStates,
             FiberStatesIntegrationPoints = options.FiberStatesIntegrationPoints
         };
+        // 3D forceBeamColumn с Corotational не принимает eleLoad — приближённо переводим нагрузки
+        // пролёта в эквивалентные узловые (см. FemMemberLoadNodalEquivalent, FemElementForceCorrection).
+        IReadOnlyList<FemElementLoadEquivalent> equivalents = [];
+        if (model.GeomTransfKind == "Corotational")
+            (model, equivalents) = FemMemberLoadNodalEquivalent.Convert(model);
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemNonlinearResolveResult(null, [ex.Message]); }
-        return new FemNonlinearResolveResult(model, []);
+        return new FemNonlinearResolveResult(model, []) { LoadEquivalents = equivalents };
     }
 
     static FemPathControlSettings ResolvePathControl(
