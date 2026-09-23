@@ -268,9 +268,23 @@ public sealed class StraightBeamSubmodelPersistenceTests
 
     internal static string TempDatabasePath() => Path.Combine(Path.GetTempPath(), $"opencs-submodel-{Guid.NewGuid():N}.db");
 
+    /// <summary>Удаляет временную БД. Свежий .db-файл на Windows кратко держат сторонние процессы
+    /// (антивирус, индексатор) — отсюда плавающий IOException; несколько повторов его снимают.</summary>
     internal static void DeleteDatabase(string path)
     {
-        if (File.Exists(path)) File.Delete(path);
+        SqliteConnection.ClearAllPools();
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+                return;
+            }
+            catch (IOException) when (attempt < 20)
+            {
+                Thread.Sleep(50);
+            }
+        }
     }
 
     internal sealed record Seed(FemSchema Schema, FemAnalysis Analysis, CalcResult Result, StraightBeamSubmodelRequest Request);
