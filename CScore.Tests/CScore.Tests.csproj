@@ -22,6 +22,7 @@
     <None Include="..\OpenCS\DataSource\Арматура стальная_*.csv"
           Link="DataSource\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Submodel\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

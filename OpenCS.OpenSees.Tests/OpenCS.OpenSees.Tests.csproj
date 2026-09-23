@@ -19,6 +19,12 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- Эталон рамы для граничного сценария субмодели: модель и проверки общие с CScore.Tests. -->
+  <ItemGroup>
+    <Compile Include="..\CScore.Tests\Submodel\BoundaryTestModels.cs" Link="Submodel\BoundaryTestModels.cs" />
+    <Compile Include="..\CScore.Tests\Submodel\PortalFrameReference.cs" Link="Submodel\PortalFrameReference.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />
