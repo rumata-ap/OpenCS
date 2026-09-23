@@ -182,11 +182,18 @@ internal static class Sp63SlsTestSections
     /// <summary>
     /// Тонкий helper над <see cref="Sp63SlsSectionGeometryFactory.TryCreate"/> для TopTee;
     /// при ошибке выбрасывает <see cref="InvalidOperationException"/> с кодами сообщений.
+    /// По умолчанию сечение ориентировано полкой в сжатой зоне (tensionDirection = −1) —
+    /// основной сценарий этой фикстуры.
     /// </summary>
     public static Sp63SlsSectionGeometry GeometryTopTee(double width = 0.6, double height = 0.6,
-        double webWidth = 0.2, double flangeHeight = 0.15, int tensionDirection = 1) =>
+        double webWidth = 0.2, double flangeHeight = 0.15, int tensionDirection = -1) =>
         CreateOrFail(TopTee(width, height, webWidth, flangeHeight), Sp63NormalShapeKind.Tee,
             Sp63NormalAxis.Mx, tensionDirection);
+
+    /// <summary>Helper над фабрикой профиля для произвольного сечения и направления.</summary>
+    public static Sp63SlsSectionGeometry GeometryOrFail(CrossSection section,
+        Sp63NormalShapeKind shapeKind, Sp63NormalAxis axis, int tensionDirection) =>
+        CreateOrFail(section, shapeKind, axis, tensionDirection);
 
     static Sp63SlsSectionGeometry CreateOrFail(CrossSection section,
         Sp63NormalShapeKind shapeKind, Sp63NormalAxis axis, int tensionDirection)
