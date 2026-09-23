@@ -185,7 +185,7 @@ public sealed class PlanarMeshPersistenceTests
                 command.Open();
                 using var schema = command.CreateCommand();
                 schema.CommandText = "SELECT value_json FROM settings WHERE key='schema_version'";
-                 Assert.Equal("49", schema.ExecuteScalar()?.ToString());
+                 Assert.Equal(DatabaseService.SchemaVersion.ToString(), schema.ExecuteScalar()?.ToString());
             }
         }
         finally

@@ -47,6 +47,28 @@ public static class GmshProcessRunner
             CreateNoWindow = true
         };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        // Gmsh при старте читает личные настройки пользователя (gmsh-options/gmshrc из GMSH_HOME,
+        // иначе из APPDATA/HOME), и они перекрывают умолчания, на которые рассчитан .geo OpenCS
+        // (например, Mesh.RecombineAll = 1 превращает треугольную сетку в смешанную). Пустой
+        // GMSH_HOME на каждый запуск делает сетку независимой от машины.
+        var isolatedHome = Path.Combine(Path.GetTempPath(), "opencs-gmsh-home", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(isolatedHome);
+        info.Environment["GMSH_HOME"] = isolatedHome;
+        try
+        {
+            return await RunProcessAsync(info, timeout, cancellationToken);
+        }
+        finally
+        {
+            try { Directory.Delete(isolatedHome, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    static async Task<(int ExitCode, string Output, string Error)> RunProcessAsync(
+        ProcessStartInfo info,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
         using var process = Process.Start(info) ?? throw new IOException("Не удалось запустить Gmsh.");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();

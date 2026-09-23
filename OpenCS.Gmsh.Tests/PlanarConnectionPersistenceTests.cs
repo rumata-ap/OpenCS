@@ -117,7 +117,7 @@ public sealed class PlanarConnectionPersistenceTests
                 connection.Open();
                 using var version = connection.CreateCommand();
                 version.CommandText = "SELECT value_json FROM settings WHERE key='schema_version'";
-                Assert.Equal("49", version.ExecuteScalar()?.ToString());
+                Assert.Equal(DatabaseService.SchemaVersion.ToString(), version.ExecuteScalar()?.ToString());
                 using var tables = connection.CreateCommand();
                 tables.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('planar_connections','planar_connection_mappings')";
                 Assert.Equal(2L, (long)tables.ExecuteScalar()!);
