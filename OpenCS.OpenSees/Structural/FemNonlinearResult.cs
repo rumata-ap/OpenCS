@@ -61,6 +61,11 @@ public sealed class FemNonlinearResult
     /// <summary>Типизированная причина завершения каждой стадии — ровно по одной записи
     /// на каждый индекс стадии модели при штатном завершении расчёта.</summary>
     public IReadOnlyList<FemStageCompletion> StageCompletions { get; init; } = [];
+
+    /// <summary>Нагрузки в пролёте стержней были переведены в эквивалентные узловые
+    /// (geomTransf Corotational, см. FemMemberLoadNodalEquivalent): концевые усилия исправлены в
+    /// начальных местных осях, результат приближённый. false для старых JSON без этого поля.</summary>
+    public bool MemberLoadsLumped { get; init; }
 }
 
 /// <summary>Момент фактического переключения LoadControl → continuation-режим внутри
