@@ -6,7 +6,7 @@ namespace CScore.Sp63.CrackWidth;
 /// <summary>JSON-контракт параметров задачи упрощённой проверки ширины раскрытия трещин.</summary>
 public sealed class Sp63CrackWidthTaskParams
 {
-    /// <summary>Идентификатор формы: rectangular.</summary>
+    /// <summary>Идентификатор формы: rectangular (по умолчанию) или tee (тавр/двутавр).</summary>
     public string ShapeKind { get; set; } = "rectangular";
 
     /// <summary>Идентификатор оси: Mx или My.</summary>
@@ -96,7 +96,7 @@ public sealed class Sp63CrackWidthTaskParams
         options = null!;
         errorCode = "";
 
-        if (!string.Equals(ShapeKind, "rectangular", StringComparison.OrdinalIgnoreCase))
+        if (!TryParseShapeKind(ShapeKind, out var shapeKind))
             return Invalid("invalid_shape_kind", out errorCode);
         if (!Enum.TryParse<Sp63NormalAxis>(Axis, true, out var axis))
             return Invalid("invalid_axis", out errorCode);
@@ -120,9 +120,30 @@ public sealed class Sp63CrackWidthTaskParams
         if (!TryParseHumidity(Humidity, out var humidity))
             return Invalid("invalid_humidity", out errorCode);
 
-        options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2,
+        options = new Sp63CrackWidthOptions(shapeKind, axis, Phi1, Phi2,
             AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm, humidity);
         return true;
+    }
+
+    /// <summary>Разбирает идентификатор формы из JSON-контракта: rectangular или tee.</summary>
+    /// <remarks>
+    /// Только явные строковые идентификаторы: числовые значения enum ("0", "1") не принимаются,
+    /// чтобы JSON оставался самодокументируемым.
+    /// </remarks>
+    public static bool TryParseShapeKind(string? value, out Sp63NormalShapeKind shapeKind)
+    {
+        switch ((value ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "rectangular":
+                shapeKind = Sp63NormalShapeKind.Rectangular;
+                return true;
+            case "tee":
+                shapeKind = Sp63NormalShapeKind.Tee;
+                return true;
+            default:
+                shapeKind = (Sp63NormalShapeKind)(-1);
+                return false;
+        }
     }
 
     /// <summary>Разбирает идентификатор влажности среды из JSON-контракта.</summary>

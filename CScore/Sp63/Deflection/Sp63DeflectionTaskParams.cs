@@ -8,7 +8,10 @@ namespace CScore.Sp63.Deflection;
 /// <summary>JSON-контракт параметров отдельной формульной задачи прогиба.</summary>
 public sealed class Sp63DeflectionTaskParams
 {
-    /// <summary>Тип сечения; поддерживается rectangular.</summary>
+    /// <summary>
+    /// Тип сечения: rectangular (по умолчанию, в том числе для задач, сохранённых до появления
+    /// поля) или tee (тавр/двутавр).
+    /// </summary>
     public string ShapeKind { get; set; } = "rectangular";
     /// <summary>Ось изгиба Mx или My.</summary>
     public string Axis { get; set; } = "Mx";
@@ -72,7 +75,7 @@ public sealed class Sp63DeflectionTaskParams
         options = null!;
         errorCode = ParseError ?? "";
         if (ParseError is not null) return false;
-        if (!string.Equals(ShapeKind, "rectangular", StringComparison.OrdinalIgnoreCase))
+        if (!Sp63CrackWidthTaskParams.TryParseShapeKind(ShapeKind, out var shapeKind))
             return Invalid("invalid_shape_kind", out errorCode);
         if (!Enum.TryParse<Sp63NormalAxis>(Axis, true, out var axis) || !Enum.IsDefined(axis))
             return Invalid("invalid_axis", out errorCode);
@@ -95,7 +98,7 @@ public sealed class Sp63DeflectionTaskParams
             (!Finite(NLongManual) || !Finite(MxLongManual) || !Finite(MyLongManual)))
             return Invalid("missing_long_manual_load", out errorCode);
 
-        options = new Sp63DeflectionOptions(Sp63NormalShapeKind.Rectangular, axis, scheme,
+        options = new Sp63DeflectionOptions(shapeKind, axis, scheme,
             SpanM, DeflectionLimitMm, humidity, forcesMode, LongTermShare,
             N, Mx, My, NLongManual, MxLongManual, MyLongManual);
         return true;

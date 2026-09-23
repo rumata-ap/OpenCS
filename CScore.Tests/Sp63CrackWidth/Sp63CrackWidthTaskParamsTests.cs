@@ -137,4 +137,36 @@ public sealed class Sp63CrackWidthTaskParamsTests
         Assert.False(parameters.TryToOptions(out _, out var errorCode));
         Assert.Equal("invalid_humidity", errorCode);
     }
+
+    [Fact]
+    public void CrackWidth_Tee_RoundTripsAndCreatesTeeOptions()
+    {
+        var parameters = new Sp63CrackWidthTaskParams { ShapeKind = "tee" };
+
+        var parsed = Sp63CrackWidthTaskParams.Parse(parameters.ToJson());
+
+        Assert.True(parsed.TryToOptions(out var options, out var error), error);
+        Assert.Equal(Sp63NormalShapeKind.Tee, options.ShapeKind);
+    }
+
+    [Theory]
+    [InlineData("round")]
+    [InlineData("0")]
+    [InlineData("1")]
+    public void UnknownShapeKind_IsInvalidInput(string shapeKind)
+    {
+        var parameters = new Sp63CrackWidthTaskParams { ShapeKind = shapeKind };
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_shape_kind", errorCode);
+    }
+
+    [Fact]
+    public void MissingShapeKind_KeepsRectangular()
+    {
+        var parameters = Sp63CrackWidthTaskParams.Parse("""{"phi1":1.4}""");
+
+        Assert.True(parameters.TryToOptions(out var options, out var errorCode), errorCode);
+        Assert.Equal(Sp63NormalShapeKind.Rectangular, options.ShapeKind);
+    }
 }
