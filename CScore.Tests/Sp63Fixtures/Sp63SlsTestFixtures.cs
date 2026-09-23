@@ -216,6 +216,20 @@ internal static class Sp63SlsTestSections
         return section;
     }
 
+    /// <summary>
+    /// Прямоугольник для оси My: уровни арматуры лежат вдоль X (координата высоты для My),
+    /// крайний по положительной оси уровень несёт As = 20.36e-4 м².
+    /// </summary>
+    public static CrossSection RectangleMy(double width = 0.3, double height = 0.5)
+    {
+        var section = Build(B25(),
+            [[0.0, -height / 2], [width, -height / 2], [width, height / 2],
+             [0.0, height / 2], [0.0, -height / 2]]);
+        AddBarAt(section, Cover, 0.0, BottomLayerArea, A400());
+        AddBarAt(section, width - Cover, 0.0, TopLayerArea, A400());
+        return section;
+    }
+
     /// <summary>Замкнутый осевой контур прямоугольника: x = [−width/2; width/2], y = [0; height].</summary>
     static double[][] RectContour(double width, double height) =>
         [[-width / 2, 0.0], [width / 2, 0.0], [width / 2, height],
@@ -239,7 +253,10 @@ internal static class Sp63SlsTestSections
         return section;
     }
 
-    static void AddBar(CrossSection section, double y, double area, Material rebar)
+    static void AddBar(CrossSection section, double y, double area, Material rebar) =>
+        AddBarAt(section, 0.0, y, area, rebar);
+
+    static void AddBarAt(CrossSection section, double x, double y, double area, Material rebar)
     {
         var group = new MaterialArea
         {
@@ -249,7 +266,7 @@ internal static class Sp63SlsTestSections
         };
         group.Fibers.Add(new Fiber
         {
-            TypeFiber = FiberType.point, X = 0.0, Y = y, Area = area, Diameter = BarDiameter
+            TypeFiber = FiberType.point, X = x, Y = y, Area = area, Diameter = BarDiameter
         });
         section.Areas.Add(group);
     }

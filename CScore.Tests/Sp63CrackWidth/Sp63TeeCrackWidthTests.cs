@@ -130,3 +130,151 @@ public sealed class Sp63TeeCurvatureTests
             cracked: true, mcrcFull: 30.0, mcrcLong: 10.0));
     }
 }
+
+/// <summary>
+/// Тесты упрощённой проверки ширины раскрытия трещин для тавра/двутавра и границ применимости
+/// формульного режима (фабрика полосового профиля).
+/// </summary>
+public sealed class Sp63TeeCrackWidthTests
+{
+    [Fact]
+    public void Tee_CompressionFlange_CalculatesCrackWidthAndCurvature()
+    {
+        var section = Sp63SlsTestSections.TopTee();
+        var options = Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Tee,
+            Sp63NormalAxis.Mx, mode: Sp63CrackWidthMode.LongAndShort);
+
+        var result = Sp63CrackWidthChecker.Check(
+            section, new LoadItem { Mx = -80 }, CalcType.N, options);
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+        Assert.NotNull(result.Curvature);
+        Assert.True(result.Curvature!.Total > 0);
+    }
+
+    [Theory]
+    [InlineData(80.0)]
+    [InlineData(-80.0)]
+    public void ISection_TensionFlange_ProducesPositiveMcrc(double mx)
+    {
+        var section = Sp63SlsTestSections.ISection();
+        var result = Sp63CrackWidthChecker.Check(
+            section, new LoadItem { Mx = mx }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Tee, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+        Assert.True(result.Variables["Mcrc"] > 0);
+        Assert.True(result.Variables["acrcLimMm"] > 0);
+    }
+
+    [Fact]
+    public void Rectangle_MyAxis_Calculates()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleMy(), new LoadItem { My = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.My));
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+    }
+
+    [Fact]
+    public void BiaxialLoad_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.TopTee(), new LoadItem { Mx = -80, My = 10 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Tee, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "biaxial_load");
+    }
+
+    [Fact]
+    public void Hole_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleWithHole(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Tee, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "unsupported_geometry");
+    }
+
+    [Fact]
+    public void RectangularContour_AsTee_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.Rectangle(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Tee, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "not_a_tee_shape");
+    }
+
+    [Fact]
+    public void OneLayer_InsufficientRebarLayers()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleOneLayer(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "insufficient_rebar_layers");
+    }
+
+    [Fact]
+    public void ThreeLayers_ExtraRebarLayers()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleThreeLayers(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "extra_rebar_layers");
+    }
+
+    [Fact]
+    public void Prestressed_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectanglePrestressed(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "prestressed_rebar");
+    }
+
+    [Fact]
+    public void MissingConcreteChars_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleMissingConcreteChars(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "missing_concrete_chars");
+    }
+
+    [Fact]
+    public void MissingRebarChars_NotApplicable()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleMissingRebarChars(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx));
+
+        Assert.Equal(Sp63CrackWidthStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages, m => m.Code == "missing_rebar_chars");
+    }
+
+    [Fact]
+    public void MissingConcreteClass_WidthCalculatedWithCurvatureMessage()
+    {
+        var result = Sp63CrackWidthChecker.Check(
+            Sp63SlsTestSections.RectangleNoConcreteClass(), new LoadItem { Mx = 80 }, CalcType.N,
+            Sp63SlsTestOptions.CrackWidth(Sp63NormalShapeKind.Rectangular, Sp63NormalAxis.Mx,
+                mode: Sp63CrackWidthMode.LongAndShort));
+
+        Assert.Equal(Sp63CrackWidthStatus.Calculated, result.Status);
+        Assert.Null(result.Curvature);
+        Assert.Contains(result.InformationalMessages, m => m.Code == "curvature_not_computed");
+    }
+}

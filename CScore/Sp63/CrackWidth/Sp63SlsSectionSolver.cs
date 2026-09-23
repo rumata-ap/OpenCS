@@ -200,7 +200,8 @@ public static class Sp63SlsSectionSolver
         double phi2,
         double acrcLimMm,
         SigmaSCrcMethod sigmaSCrcMethod,
-        WplGammaMethod wplGamma)
+        WplGammaMethod wplGamma,
+        bool oppositeRow = false)
     {
         ArgumentNullException.ThrowIfNull(geometry);
         ArgumentNullException.ThrowIfNull(concrete);
@@ -250,6 +251,8 @@ public static class Sp63SlsSectionSolver
             props = null;
             if (x > 1e-9)
             {
+                // Сжатая зона есть: при oppositeRow второй ряд сжат и трещины у его грани нет.
+                if (oppositeRow) return 0.0;
                 // Ф. (8.134): σs = α·[M·(h0 − yc)/Ired + N/Ared], момент относительно центра
                 // тяжести сечения с трещиной — как в ShellSimplSolver.ComputeStripSls.
                 var cracked1 = ComputeCrackedProperties(geometry, x, alpha, alpha);
@@ -260,10 +263,16 @@ public static class Sp63SlsSectionSolver
                 return Math.Clamp(sigma, 0.0, rsSer);
             }
 
-            // Сквозное растяжение: бетон выключен, оба ряда арматуры делят N и M
-            // (схема основного ряда из ShellSimplSolver.ComputeStripSls).
+            // Сквозное растяжение: бетон выключен, оба ряда арматуры делят N и M (§8.1.19а).
+            // Сила ряда, растянутого моментом, F1 = (m + N·(h/2 − a'))/(h0 − a') для основной
+            // геометрии и F1 = (m + N·(h0 − h/2))/(h0 − a') для переориентированной (oppositeRow,
+            // привязка первого ряда — h − h0 этого вызова); противоположный ряд получает
+            // остаток равновесия N − F1.
             double arm = h0 - aPrime;
-            double force = arm > 1e-12 ? (m + axialForce * (h / 2.0 - aPrime)) / arm : 0.0;
+            double force = arm > 1e-12
+                ? (m + axialForce * (oppositeRow ? h0 - h / 2.0 : h / 2.0 - aPrime)) / arm
+                : 0.0;
+            if (oppositeRow) force = axialForce - force;
             double s = asT > 1e-14 ? force / asT : 0.0;
             return Math.Clamp(s, 0.0, rsSer);
         }

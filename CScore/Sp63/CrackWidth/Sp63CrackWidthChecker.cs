@@ -3,20 +3,13 @@ using CScore.Sp63.Normal;
 namespace CScore.Sp63.CrackWidth;
 
 /// <summary>
-/// Проверяет ширину раскрытия трещин прямоугольного нормального сечения упрощённым
-/// (не деформационно-модельным) путём по п. 8.2.9-8.2.16 СП 63: Mcrc через Wpl = 1.3·Wred,
-/// σs через приведённое сечение с трещиной (ф. 8.134/8.135), ls по (8.136), ψs по (8.137).
-/// Геометрия сечения и раскладка арматуры распознаются тем же
-/// <see cref="Sp63RebarLayoutAnalyzer"/>, что и упрощённая проверка нормального сечения
-/// (<see cref="Sp63NormalChecker"/>) — совпадающая архитектура: применимость (прямоугольник,
-/// два эффективных слоя точечной арматуры, без преднапряжения) → расчёт → явный
-/// <see cref="Sp63CrackWidthStatus.NotApplicable"/>, а не подмена строгого решателя
-/// (<see cref="CScore.CrackWidthSolver"/>).
-/// Сама формула σs/Mcrc/ls/ψs/acrc не дублируется: используется общая
-/// <see cref="ShellSimplSolver.ComputeStripSls"/>, уже проверенная для плит — стержень
-/// сводится к той же полосе, но с реальной шириной b вместо расчётной полосы 1 м
-/// (усилия и площадь арматуры делятся на b, что для интенсивных результатов σs/ψs/ls/acrc
-/// эквивалентно расчёту на полную ширину).
+/// Проверяет ширину раскрытия трещин нормального сечения упрощённым (не деформационно-модельным)
+/// путём по п. 8.2.9–8.2.16 СП 63 для прямоугольных, тавровых и двутавровых сечений. Геометрия
+/// распознаётся общей фабрикой <see cref="Sp63SlsSectionGeometryFactory"/>, все формульные
+/// величины (Mcrc, σs, ψs, ls, acrc) считает общий <see cref="Sp63SlsSectionSolver"/>, кривизна
+/// (режим LongAndShort) — тот же профиль через <see cref="Sp63Curvature"/>. Checker остаётся
+/// оркестратором: применимость → составляющие (8.119)/(8.120) → выбор противоположного ряда
+/// арматуры при сквозном растяжении → вердикт и <see cref="CheckDetail"/>.
 /// </summary>
 public static class Sp63CrackWidthChecker
 {
@@ -38,7 +31,7 @@ public static class Sp63CrackWidthChecker
         ArgumentNullException.ThrowIfNull(load);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (options.ShapeKind != Sp63NormalShapeKind.Rectangular)
+        if (options.ShapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee))
             return NotApplicable("unsupported_shape", "Sp63CrackWidth_ShapeNotSupported", "8.2");
         if (!Enum.IsDefined(options.Axis))
             return InvalidInput("invalid_axis", "Sp63CrackWidth_InvalidAxis", "8.2");
@@ -58,65 +51,46 @@ public static class Sp63CrackWidthChecker
         double moment = options.Axis == Sp63NormalAxis.Mx ? load.Mx : load.My;
         double otherMoment = options.Axis == Sp63NormalAxis.Mx ? load.My : load.Mx;
         if (Math.Abs(otherMoment) > MomentTolerance)
-            return NotApplicable("biaxial_load", "Sp63CrackWidth_BiaxialLoad", "8.2");
+            return NotApplicable("biaxial_load", "Sp63CrackWidth_BiaxialLoad", "8.2.15");
         if (Math.Abs(moment) <= MomentTolerance)
             return NotApplicable("zero_moment", "Sp63CrackWidth_ZeroMoment", "8.2");
 
         int tensionDirection = Math.Sign(moment);
-        var analysis = Sp63RebarLayoutAnalyzer.Analyze(section, options.Axis, calc,
-            tensionDirection, requireAtLeastTwoLayers: true);
-        if (analysis.Profile is null)
-            return NotApplicable(analysis.Messages);
-        var profile = analysis.Profile;
+        if (!Sp63SlsSectionGeometryFactory.TryCreate(section, options.ShapeKind, options.Axis,
+                calc, tensionDirection, out var geometry, out var geometryMessages))
+            return NotApplicable(geometryMessages);
 
-        var concreteArea = section.Areas.FirstOrDefault(area =>
-            area.Category == AreaCategory.Region &&
-            area.Material?.Type == MatType.Concrete);
-        var concreteChars = concreteArea?.Material?.GetChars(calc);
-        if (concreteChars is null || !IsFinitePositive(concreteChars.E) ||
-            !IsFinitePositive(Math.Abs(concreteChars.Fc)) || !IsFinitePositive(concreteChars.Ft))
-            return NotApplicable("missing_concrete_chars", "Sp63CrackWidth_MissingConcreteChars", "8.2.11");
-
-        var rebarArea = section.Areas.FirstOrDefault(area =>
+        var concreteArea = section.Areas.First(area =>
+            area.Category == AreaCategory.Region && area.Material?.Type == MatType.Concrete);
+        var concreteChars = concreteArea.Material!.GetChars(calc)!;
+        var rebarArea = section.Areas.First(area =>
             area.Category == AreaCategory.RebarGroup && area.Material != null);
-        var rebarChars = rebarArea?.Material?.GetChars(calc);
-        if (rebarChars is null || !IsFinitePositive(rebarChars.E) || !IsFinitePositive(Math.Abs(rebarChars.Ft)))
-            return NotApplicable("missing_rebar_chars", "Sp63CrackWidth_MissingRebarChars", "8.2.16");
+        var rebarChars = rebarArea.Material!.GetChars(calc)!;
 
-        double b = profile.B;
-        double dsOwn = EffectiveDiameter(profile.TensionLayer);
-        double dsOpposite = EffectiveDiameter(profile.CompressionLayer);
-        double asT = profile.TensionLayer.Area / b;
-        double asC = profile.CompressionLayer.Area / b;
         double absMoment = Math.Abs(moment);
         bool full = options.Mode == Sp63CrackWidthMode.LongAndShort;
         double share = full ? options.LongTermShare : 0.0;
 
         // Одна составляющая acrc,i (п. 8.2.15) от момента m и силы n с коэффициентом φ1
-        // для своего ряда арматуры или для ряда у грани, которую момент не растягивает.
-        ShellSimplStripResult Strip(double m, double n, double phi1, bool opposite) => opposite
-            ? ShellSimplSolver.ComputeOppositeRowSls(
-                m / b, n / b, profile.Height, profile.H0, profile.APrime,
-                asT, asC, dsOpposite, concreteChars, rebarChars, phi1, options.Phi2,
-                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma)
-            : ShellSimplSolver.ComputeStripSls(
-                m / b, n / b, profile.Height, profile.H0, profile.APrime,
-                asT, asC, dsOwn, concreteChars, rebarChars, phi1, options.Phi2,
-                options.AcrcLimMm, options.SigmaSCrc, options.WplGamma);
+        // общим solver'ом по ориентированному профилю.
+        Sp63SlsCrackTermResult Term(Sp63SlsSectionGeometry g, double m, double n, double phi1Term,
+                bool opposite = false) =>
+            Sp63SlsSectionSolver.ComputeCrackTerm(g, concreteChars, rebarChars, m, n,
+                phi1Term, options.Phi2, options.AcrcLimMm, options.SigmaSCrc, options.WplGamma,
+                opposite);
 
         // Полный режим (п. 8.2.7): acrc2 — полная нагрузка при φ1 = 1,0; acrc1/acrc3 —
         // длительная часть ψ·(N, M) при φ1 = 1,4 и 1,0. Одиночный — одна составляющая с φ1.
-        CrackTerms Evaluate(bool opposite)
+        CrackTerms Evaluate(Sp63SlsSectionGeometry g, bool opposite = false)
         {
-            var main = Strip(absMoment, load.N, full ? 1.0 : options.Phi1, opposite);
-            if (!full || share <= 0.0) return new CrackTerms(main, null, null);
+            var main = Term(g, absMoment, load.N, full ? 1.0 : options.Phi1, opposite);
+            if (!full || share <= 0.0) return new CrackTerms(main, null, null, g);
             return new CrackTerms(main,
-                Strip(share * absMoment, share * load.N, 1.4, opposite),
-                Strip(share * absMoment, share * load.N, 1.0, opposite));
+                Term(g, share * absMoment, share * load.N, 1.4, opposite),
+                Term(g, share * absMoment, share * load.N, 1.0, opposite), g);
         }
 
-        var terms = Evaluate(opposite: false);
-        double ds = dsOwn;
+        var terms = Evaluate(geometry!);
 
         // При x_m ≤ 0 сечение растянуто насквозь: растянут и ряд, который момент не растягивает,
         // и у его грани тоже есть трещина. При несимметричном армировании решает он — так же,
@@ -125,27 +99,33 @@ public static class Sp63CrackWidthChecker
         bool oppositeGoverns = false;
         if (terms.Main.Xm <= 0.0)
         {
-            var opposite = Evaluate(opposite: true);
-            if (opposite.Governing(full) > terms.Governing(full))
+            if (Sp63SlsSectionGeometryFactory.TryCreate(section, options.ShapeKind, options.Axis,
+                    calc, -tensionDirection, out var oppositeGeometry, out _))
             {
-                terms = opposite;
-                ds = dsOpposite;
-                oppositeGoverns = true;
+                var opposite = Evaluate(oppositeGeometry!, opposite: true);
+                if (opposite.Governing(full) > terms.Governing(full))
+                {
+                    terms = opposite;
+                    oppositeGoverns = true;
+                }
             }
         }
 
         var strip = terms.Main;
+        double ds = terms.Geometry.TensionLayer.Diameter;
+        double b = geometry!.Area(0.0, geometry.Height) / geometry.Height;
+
         var variables = new Dictionary<string, double>
         {
             ["N"] = load.N,
             ["M"] = moment,
             ["tensionDirection"] = oppositeGoverns ? -tensionDirection : tensionDirection,
             ["b"] = b,
-            ["h"] = profile.Height,
-            ["h0"] = strip.H0,
-            ["aPrime"] = strip.A_prime,
-            ["As"] = strip.As_t * b,
-            ["AsPrime"] = strip.As_c * b,
+            ["h"] = geometry.Height,
+            ["h0"] = terms.Geometry.TensionLayer.Coordinate,
+            ["aPrime"] = terms.Geometry.CompressionLayer.Coordinate,
+            ["As"] = terms.Geometry.TensionLayer.Area,
+            ["AsPrime"] = terms.Geometry.CompressionLayer.Area,
             ["ds"] = ds,
             ["Rbser"] = Math.Abs(concreteChars.Fc),
             ["Rbtser"] = concreteChars.Ft,
@@ -156,9 +136,9 @@ public static class Sp63CrackWidthChecker
             ["Mcrc"] = strip.Mcrc,
             ["xm"] = strip.Xm,
             ["zs"] = strip.Zs,
-            ["sigma_s"] = strip.Sigma_s_MPa,
-            ["psi_s"] = strip.Psi_s,
-            ["ls"] = strip.Ls_m,
+            ["sigma_s"] = strip.SigmaS / 1000.0,
+            ["psi_s"] = strip.PsiS,
+            ["ls"] = strip.Ls,
             ["acrcLimMm"] = options.AcrcLimMm
         };
 
@@ -171,10 +151,10 @@ public static class Sp63CrackWidthChecker
             variables["psiL"] = share;
             variables["Ml"] = share * moment;
             variables["Nl"] = share * load.N;
-            variables["sigma_s_l"] = terms.Long?.Sigma_s_MPa ?? 0.0;
-            variables["psi_s_l"] = terms.Long?.Psi_s ?? 1.0;
+            variables["sigma_s_l"] = (terms.Long?.SigmaS ?? 0.0) / 1000.0;
+            variables["psi_s_l"] = terms.Long?.PsiS ?? 1.0;
             variables["acrc1"] = acrc1;
-            variables["acrc2"] = strip.Acrc_mm;
+            variables["acrc2"] = strip.Acrc;
             variables["acrc3"] = terms.Acrc3;
             variables["acrcLimShortMm"] = options.AcrcLimShortMm;
             details =
@@ -205,10 +185,10 @@ public static class Sp63CrackWidthChecker
                     Variables = new Dictionary<string, double>
                     {
                         ["acrc1"] = acrc1,
-                        ["acrc2"] = strip.Acrc_mm,
+                        ["acrc2"] = strip.Acrc,
                         ["acrc3"] = terms.Acrc3,
-                        ["sigma_s"] = strip.Sigma_s_MPa,
-                        ["psi_s"] = strip.Psi_s
+                        ["sigma_s"] = variables["sigma_s"],
+                        ["psi_s"] = strip.PsiS
                     }
                 }
             ];
@@ -224,12 +204,12 @@ public static class Sp63CrackWidthChecker
                     Formula = "(8.130)-(8.141)",
                     Description = "Sp63CrackWidth_AcrcCheck",
                     NormReference = "8.2.9-8.2.16",
-                    Applied = strip.Acrc_mm,
+                    Applied = strip.Acrc,
                     Allowable = options.AcrcLimMm,
                     Variables = new Dictionary<string, double>(variables)
                 }
             ];
-            limitPassed = strip.Acrc_mm <= options.AcrcLimMm + 1e-9;
+            limitPassed = strip.Acrc <= options.AcrcLimMm + 1e-9;
         }
 
         var informational = new List<Sp63CrackWidthMessage>
@@ -253,15 +233,16 @@ public static class Sp63CrackWidthChecker
         Sp63CurvatureResult? curvature = null;
         if (full)
         {
-            // Mcrc полосы вычислен на единицу ширины — переводится на полную ширину b.
-            double mcrcFull = strip.Mcrc * b;
-            double mcrcLong = (terms.Long?.Mcrc ?? strip.Mcrc) * b;
+            // Mcrc общего solver'а уже по полной геометрии — кривизна считается тем же профилем.
+            double mcrcFull = strip.Mcrc;
+            double mcrcLong = terms.Long?.Mcrc ?? strip.Mcrc;
             curvature = Sp63Curvature.Compute(
-                new Sp63CurvatureInput(b, profile.Height, profile.H0, profile.APrime,
-                    profile.TensionLayer.Area, profile.CompressionLayer.Area,
-                    concreteChars.E, Math.Abs(concreteChars.Fc), rebarChars.E,
+                new Sp63CurvatureSectionInput(geometry, concreteChars.E,
+                    Math.Abs(concreteChars.Fc), rebarChars.E,
                     concreteChars.Class, options.Humidity),
-                absMoment, load.N, share, strip.Cracked, mcrcFull, mcrcLong);
+                new Sp63CurvatureLoad(absMoment, load.N),
+                new Sp63CurvatureLoad(share * absMoment, share * load.N),
+                strip.Cracked, mcrcFull, mcrcLong);
             if (curvature is null)
                 informational.Add(new Sp63CrackWidthMessage("curvature_not_computed",
                     Sp63CrackWidthMessageKind.Information, "8.2.23",
@@ -288,31 +269,40 @@ public static class Sp63CrackWidthChecker
     }
 
     /// <summary>
-    /// Составляющие ширины раскрытия одного ряда арматуры: <paramref name="Main"/> — от полной
+    /// Составляющие ширины раскрытия одного ряда арматуры: <see cref="Main"/> — от полной
     /// нагрузки (acrc2 в полном режиме, единственная составляющая в одиночном);
-    /// <paramref name="Long"/>/<paramref name="LongShort"/> — от длительной части при φ1 = 1,4
-    /// (acrc1) и φ1 = 1,0 (acrc3), отсутствуют в одиночном режиме и при ψ = 0.
+    /// <see cref="Long"/>/<see cref="LongShort"/> — от длительной части при φ1 = 1,4 (acrc1)
+    /// и φ1 = 1,0 (acrc3), отсутствуют в одиночном режиме и при ψ = 0.
     /// </summary>
-    sealed record CrackTerms(ShellSimplStripResult Main, ShellSimplStripResult? Long,
-        ShellSimplStripResult? LongShort)
+    sealed record CrackTerms(Sp63SlsCrackTermResult Main, Sp63SlsCrackTermResult? Long,
+        Sp63SlsCrackTermResult? LongShort, Sp63SlsSectionGeometry Geometry)
     {
-        public double Acrc1 => Long?.Acrc_mm ?? 0.0;
-        public double Acrc3 => LongShort?.Acrc_mm ?? 0.0;
+        public double Acrc1 => Long?.Acrc ?? 0.0;
+        public double Acrc3 => LongShort?.Acrc ?? 0.0;
 
         /// <summary>Непродолжительное раскрытие acrc1 + acrc2 − acrc3, ф. (8.120).</summary>
-        public double ShortTotal => Acrc1 + Main.Acrc_mm - Acrc3;
+        public double ShortTotal => Acrc1 + Main.Acrc - Acrc3;
 
         /// <summary>Величина, по которой сравниваются ряды арматуры.</summary>
-        public double Governing(bool full) => full ? ShortTotal : Main.Acrc_mm;
+        public double Governing(bool full) => full ? ShortTotal : Main.Acrc;
     }
 
-    static double EffectiveDiameter(Sp63NormalRebarLayer layer)
-    {
-        double totalArea = layer.Bars.Sum(bar => bar.Area);
-        if (totalArea <= 1e-14)
-            return 0.012;
-        return layer.Bars.Sum(bar => bar.Diameter * bar.Area) / totalArea;
-    }
+    /// <summary>
+    /// Причины неприменимости геометрии и раскладки арматуры распознаёт общий
+    /// <see cref="Sp63SlsSectionGeometryFactory"/>, поэтому коды сохраняются, а ключи локализации
+    /// приводятся к задачным: «прямоугольный контур, выбранный как tee», недостаток характеристик.
+    /// </summary>
+    static Sp63CrackWidthMessage MapGeometryMessage(Sp63NormalMessage message) => new(
+        message.Code,
+        Sp63CrackWidthMessageKind.Applicability,
+        message.NormReference,
+        message.Code switch
+        {
+            "not_a_tee_shape" => "Sp63CrackWidth_TeeGeometryNotSupported",
+            "missing_concrete_chars" => "Sp63CrackWidth_MissingConcreteChars",
+            "missing_rebar_chars" => "Sp63CrackWidth_MissingRebarChars",
+            _ => message.Text
+        });
 
     static Sp63CrackWidthResult InvalidInput(string code, string text, string reference) => new()
     {
@@ -321,41 +311,29 @@ public static class Sp63CrackWidthChecker
         ApplicabilityMessages = [Message(code, Sp63CrackWidthMessageKind.Applicability, reference, text)]
     };
 
-    static Sp63CrackWidthResult NotApplicable(string code, string text, string reference)
+    static Sp63CrackWidthResult NotApplicable(string code, string text, string reference) =>
+        NotApplicable([Message(code, Sp63CrackWidthMessageKind.Applicability, reference, text)]);
+
+    static Sp63CrackWidthResult NotApplicable(IEnumerable<Sp63NormalMessage> messages)
     {
-        var messages = new List<Sp63CrackWidthMessage>
-            { Message(code, Sp63CrackWidthMessageKind.Applicability, reference, text) };
-        return new Sp63CrackWidthResult
-        {
-            Status = Sp63CrackWidthStatus.NotApplicable,
-            Branch = "not_applicable",
-            ApplicabilityMessages = messages,
-            InformationalMessages = SuggestFullModelIfNeeded(messages)
-        };
+        // Причины геометрии и раскладки арматуры приходят из общей фабрики профиля; коды
+        // сохраняются, ключи локализации приводятся к задачным (см. MapGeometryMessage).
+        return NotApplicable(messages.Select(MapGeometryMessage).ToList());
     }
 
-    static Sp63CrackWidthResult NotApplicable(IReadOnlyList<Sp63NormalMessage> messages)
+    static Sp63CrackWidthResult NotApplicable(List<Sp63CrackWidthMessage> messages) => new()
     {
-        // Геометрия и раскладка арматуры распознаются общим Sp63RebarLayoutAnalyzer — причины
-        // неприменимости дословно совпадают с Sp63NormalChecker, поэтому переиспользуются те же
-        // ключи локализации "Sp63Normal_*" вместо дублирующих "Sp63CrackWidth_*" строк.
-        var mapped = messages
-            .Select(message => new Sp63CrackWidthMessage(message.Code,
-                Sp63CrackWidthMessageKind.Applicability, message.NormReference, message.Text))
-            .ToList();
-        return new Sp63CrackWidthResult
-        {
-            Status = Sp63CrackWidthStatus.NotApplicable,
-            Branch = "not_applicable",
-            ApplicabilityMessages = mapped,
-            InformationalMessages = SuggestFullModelIfNeeded(mapped)
-        };
-    }
+        Status = Sp63CrackWidthStatus.NotApplicable,
+        Branch = "not_applicable",
+        ApplicabilityMessages = messages,
+        InformationalMessages = SuggestFullModelIfNeeded(messages)
+    };
 
     static readonly HashSet<string> FullModelSuggestionCodes =
     [
         "unsupported_geometry", "biaxial_load", "mixed_rebar_resistance",
-        "insufficient_rebar_layers", "non_point_rebar", "prestressed_rebar", "zero_moment"
+        "insufficient_rebar_layers", "extra_rebar_layers", "non_point_rebar",
+        "prestressed_rebar", "zero_moment", "not_a_tee_shape"
     ];
 
     static List<Sp63CrackWidthMessage> SuggestFullModelIfNeeded(List<Sp63CrackWidthMessage> messages) =>
