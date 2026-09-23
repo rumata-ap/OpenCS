@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Reporting", "OpenCS.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Reporting.Tests", "OpenCS.Reporting.Tests\OpenCS.Reporting.Tests.csproj", "{1917C739-9483-4902-AED3-AC85FE276A4B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Render3D", "OpenCS.Render3D\OpenCS.Render3D.csproj", "{D3EEF037-D538-4571-B293-C5599EBD6D0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -295,6 +297,18 @@ Global
 		{1917C739-9483-4902-AED3-AC85FE276A4B}.Release|x64.Build.0 = Release|Any CPU
 		{1917C739-9483-4902-AED3-AC85FE276A4B}.Release|x86.ActiveCfg = Release|Any CPU
 		{1917C739-9483-4902-AED3-AC85FE276A4B}.Release|x86.Build.0 = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|x64.Build.0 = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Debug|x86.Build.0 = Debug|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|x64.ActiveCfg = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|x64.Build.0 = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|x86.ActiveCfg = Release|Any CPU
+		{D3EEF037-D538-4571-B293-C5599EBD6D0C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -437,14 +437,14 @@
     <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
-    <PackageReference Include="netDxf" Version="2023.11.10" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="netDxf" Version="2023.11.10" />    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
     <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+    <ProjectReference Include="..\OpenCS.Render3D\OpenCS.Render3D.csproj" />
     <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />

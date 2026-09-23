@@ -2352,6 +2352,14 @@
 U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
 R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
+    <system:String x:Key="Fem3DSkiaProbeLabel">Skia</system:String>
+    <system:String x:Key="Fem3DSkiaProbe">Проба: показать схему программным Skia-рендером вместо HelixToolkit (только просмотр, без знаков нагрузок и закреплений)</system:String>
+    <system:String x:Key="Fem3DBenchmarkLabel">FPS</system:String>
+    <system:String x:Key="Fem3DBenchmark">Замер скорости: полный оборот камеры за 240 кадров в текущем режиме (Helix или Skia)</system:String>
+    <system:String x:Key="Fem3DBenchmarkRunning">Замер скорости…</system:String>
+    <system:String x:Key="Fem3DSkiaFrameStats">Skia: {0:N0} примитивов → {1:N0} треуг. · подготовка {2:0.0} мс · растеризация {3:0.0} мс · кадр целиком {5:0.0} мс · сборка сцены {4:0} мс</system:String>
+    <system:String x:Key="Fem3DBenchmarkResultSkia">Skia: {0} кадров, {1:0.0} кадр/с, отрисовка {2:0.0} мс/кадр, {3:N0} примитивов</system:String>
+    <system:String x:Key="Fem3DBenchmarkResultHelix">HelixToolkit: {0} кадров, {1:0.0} кадр/с, {2:N0} объектов Visual3D</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
     <system:String x:Key="FemMergeNodes">Сшить совпадающие узлы</system:String>

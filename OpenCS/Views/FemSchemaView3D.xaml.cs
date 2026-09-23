@@ -360,6 +360,7 @@ public partial class FemSchemaView3D : UserControl
         BuildSectionGlyphs();
         ApplyGridVisuals();
         UpdateGroundPlane();
+        if (IsSkiaProbe) RebuildSkiaScene(fit: true);
     }
 
     /// <summary>Рисует условные знаки закреплений, сил и моментов отдельными 3D-линиями.</summary>
@@ -877,6 +878,7 @@ public partial class FemSchemaView3D : UserControl
         // OnDataContextChanged (см. выше).
         if (!IsLoaded) return;
         ApplyGridVisuals();
+        if (IsSkiaProbe) RebuildSkiaScene(fit: false);
     }
 
     void ApplyGridVisuals()
@@ -893,6 +895,7 @@ public partial class FemSchemaView3D : UserControl
 
     void NodesToggle(object sender, RoutedEventArgs e)
     {
+        if (IsSkiaProbe) RebuildSkiaScene(fit: false);
         if (VM?.EditMode == true)
         {
             // Прокси редактирования добавляются заново; полная пересборка возвращает mesh-слой поверх них.
@@ -911,7 +914,120 @@ public partial class FemSchemaView3D : UserControl
     public void ShowMeshOverlay() => showGridCheck.IsChecked = true;
 
     void ZoomExtents_Click(object sender, RoutedEventArgs e)
-        => viewport.ZoomExtents(500);
+    {
+        if (IsSkiaProbe) skiaView.ZoomExtents();
+        else viewport.ZoomExtents(500);
+    }
+
+    // ---- Проба Skia-рендера вместо HelixToolkit (разведка: только просмотр) ----
+
+    const int BenchmarkFrames = 240;
+
+    bool IsSkiaProbe => skiaProbeCheck.IsChecked == true;
+
+    void SkiaProbeToggle(object sender, RoutedEventArgs e)
+    {
+        bool on = IsSkiaProbe;
+        viewport.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        skiaView.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        renderStatsText.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        skiaView.FrameRendered -= SkiaView_FrameRendered;
+        if (on)
+        {
+            skiaView.FrameRendered += SkiaView_FrameRendered;
+            RebuildSkiaScene(fit: true);
+        }
+        else
+        {
+            skiaView.SetScene(null, fit: false);
+        }
+    }
+
+    void RebuildSkiaScene(bool fit)
+    {
+        if (VM is not { IsLoading: false } vm) return;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var scene = Fem3DSkiaSceneBuilder.Build(vm, showNodesCheck.IsChecked == true, showGridCheck.IsChecked == true);
+        _skiaBuildMs = sw.Elapsed.TotalMilliseconds;
+        _skiaPrimitives = scene.Count;
+        skiaView.SetScene(scene, fit);
+    }
+
+    double _skiaBuildMs;
+    int _skiaPrimitives;
+    bool _benchmarkRunning;
+
+    void SkiaView_FrameRendered(object? sender, EventArgs e)
+    {
+        if (_benchmarkRunning) return;
+        var s = skiaView.LastStats;
+        renderStatsText.Text = string.Format(Loc.S("Fem3DSkiaFrameStats"),
+            _skiaPrimitives, s.Triangles, s.PrepareMs, s.DrawMs, _skiaBuildMs, skiaView.LastFrameMs);
+    }
+
+    async void Benchmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_benchmarkRunning) return;
+        _benchmarkRunning = true;
+        benchmarkButton.IsEnabled = false;
+        renderStatsText.Visibility = Visibility.Visible;
+        renderStatsText.Text = Loc.S("Fem3DBenchmarkRunning");
+        try
+        {
+            if (IsSkiaProbe)
+            {
+                var r = await skiaView.RunBenchmarkAsync(BenchmarkFrames);
+                renderStatsText.Text = string.Format(Loc.S("Fem3DBenchmarkResultSkia"),
+                    r.Frames, r.Fps, r.AvgFrameMs, _skiaPrimitives);
+            }
+            else
+            {
+                var r = await RunHelixBenchmarkAsync(BenchmarkFrames);
+                renderStatsText.Text = string.Format(Loc.S("Fem3DBenchmarkResultHelix"),
+                    r.Frames, r.Fps, viewport.Children.Count);
+            }
+        }
+        finally
+        {
+            _benchmarkRunning = false;
+            benchmarkButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// Полный оборот камеры Helix вокруг точки взгляда за <paramref name="frames"/> кадров.
+    /// Частота считается по событиям <see cref="CompositionTarget.Rendering"/> — это кадры
+    /// UI-потока; собственно 3D-растеризация WPF идёт на потоке рендера и отдельно не видна.
+    /// </summary>
+    Task<ViewBenchmarkResult> RunHelixBenchmarkAsync(int frames)
+    {
+        if (viewport.Camera is not ProjectionCamera cam)
+            return Task.FromResult(default(ViewBenchmarkResult));
+
+        var tcs = new TaskCompletionSource<ViewBenchmarkResult>();
+        var rot = new RotateTransform3D(
+            new AxisAngleRotation3D(viewport.ModelUpDirection, 360.0 / frames),
+            cam.Position + cam.LookDirection);
+        int done = 0;
+        var wall = System.Diagnostics.Stopwatch.StartNew();
+
+        void OnTick(object? s, EventArgs e)
+        {
+            if (done == frames)
+            {
+                CompositionTarget.Rendering -= OnTick;
+                tcs.SetResult(new ViewBenchmarkResult(frames, frames / wall.Elapsed.TotalSeconds, 0));
+                return;
+            }
+            cam.Position = rot.Transform(cam.Position);
+            cam.LookDirection = rot.Transform(cam.LookDirection);
+            cam.UpDirection = rot.Transform(cam.UpDirection);
+            done++;
+        }
+
+        CompositionTarget.Rendering += OnTick;
+        return tcs.Task;
+    }
 
     void CreateNodeFromPanel_Click(object sender, RoutedEventArgs e)
     {

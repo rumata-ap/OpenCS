@@ -2352,6 +2352,14 @@
 U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
 R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
+    <system:String x:Key="Fem3DSkiaProbeLabel">Skia</system:String>
+    <system:String x:Key="Fem3DSkiaProbe">Probe: show the model with the software Skia renderer instead of HelixToolkit (view only, no load or support glyphs)</system:String>
+    <system:String x:Key="Fem3DBenchmarkLabel">FPS</system:String>
+    <system:String x:Key="Fem3DBenchmark">Speed test: full camera turn over 240 frames in the current mode (Helix or Skia)</system:String>
+    <system:String x:Key="Fem3DBenchmarkRunning">Measuring…</system:String>
+    <system:String x:Key="Fem3DSkiaFrameStats">Skia: {0:N0} primitives → {1:N0} triangles · prepare {2:0.0} ms · raster {3:0.0} ms · whole frame {5:0.0} ms · scene build {4:0} ms</system:String>
+    <system:String x:Key="Fem3DBenchmarkResultSkia">Skia: {0} frames, {1:0.0} fps, drawing {2:0.0} ms/frame, {3:N0} primitives</system:String>
+    <system:String x:Key="Fem3DBenchmarkResultHelix">HelixToolkit: {0} frames, {1:0.0} fps, {2:N0} Visual3D objects</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
     <system:String x:Key="FemMergeNodes">Merge coincident nodes</system:String>

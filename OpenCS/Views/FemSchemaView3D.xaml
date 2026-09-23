@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:conv="clr-namespace:OpenCS.Converters"
-             xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
+             xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
     <UserControl.Resources>
         <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
         <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
@@ -141,6 +142,15 @@
                 <Path Data="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,11H13V5H19V11M11,5V11H5V5H11M5,19V13H11V19H5M13,19V13H19V19H13Z" Fill="Black" Stretch="Uniform" Margin="2"/>
             </ToggleButton>
             <Separator/>
+            <ToggleButton x:Name="skiaProbeCheck" IsChecked="False" Padding="4,0"
+                          Content="{DynamicResource Fem3DSkiaProbeLabel}"
+                          ToolTip="{DynamicResource Fem3DSkiaProbe}"
+                          Checked="SkiaProbeToggle" Unchecked="SkiaProbeToggle"/>
+            <Button x:Name="benchmarkButton" Padding="4,0"
+                    Content="{DynamicResource Fem3DBenchmarkLabel}"
+                    ToolTip="{DynamicResource Fem3DBenchmark}"
+                    Click="Benchmark_Click"/>
+            <Separator/>
             <Menu>
                 <MenuItem ToolTip="{DynamicResource Fem3DDrawingFlags}">
                     <MenuItem.Header>
@@ -183,6 +193,13 @@
                            ShowCoordinateSystem="True"
                            ShowViewCube="True"
                            ZoomAroundMouseDownPoint="True"/>
+
+        <!-- Проба: программный Skia-рендер вместо HelixToolkit (только просмотр) -->
+        <helpers:SkiaSceneView x:Name="skiaView" Grid.Row="1" Visibility="Collapsed"/>
+        <TextBlock x:Name="renderStatsText" Grid.Row="1"
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8"
+                   Padding="6,2" Background="#E0FFFFFF" Panel.ZIndex="10"
+                   Visibility="Collapsed"/>
 
         <!-- Немодальная панель «Добавить узел» -->
         <Border x:Name="createNodePanel" Grid.Row="1"
