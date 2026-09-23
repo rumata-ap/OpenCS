@@ -1,10 +1,16 @@
+using CScore.ParametricRc;
 using CScore.Sp63.CrackWidth;
 using CScore.Sp63.Normal;
-using CScore.ParametricRc;
 
 namespace CScore.Sp63.Deflection;
 
-/// <summary>Вычисляет кривизну и прогиб прямоугольного сечения по формульному пути СП 63.</summary>
+/// <summary>
+/// Вычисляет кривизну и прогиб прямоугольного, таврового и двутаврового сечений по формульному
+/// пути СП 63: общий ориентированный профиль (<see cref="Sp63SlsSectionGeometryFactory"/>) и общий
+/// <see cref="Sp63SlsSectionSolver"/> дают Mcrc полной и длительной нагрузок, кривизна считается
+/// тем же профилем (<see cref="Sp63Curvature"/>); формула прогиба, коэффициенты статических схем,
+/// режимы нагрузок и проверки знака длительного момента не меняются.
+/// </summary>
 public static class Sp63DeflectionChecker
 {
     const double ForceTolerance = 1e-9;
@@ -19,7 +25,7 @@ public static class Sp63DeflectionChecker
         ArgumentNullException.ThrowIfNull(longLoad);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (options.ShapeKind != Sp63NormalShapeKind.Rectangular)
+        if (options.ShapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee))
             return NotApplicable("unsupported_shape", "Sp63Deflection_ShapeNotSupported", "8.2.21");
         if (!Enum.IsDefined(options.Axis) || !Enum.IsDefined(options.Scheme) ||
             !Enum.IsDefined(options.Humidity))
@@ -51,54 +57,37 @@ public static class Sp63DeflectionChecker
             return NotApplicable(parametric.ReasonCode ?? "idealized_rebar_not_applicable",
                 ParametricText(parametric.Reason), "8.1.8");
 
-        var analysis = Sp63RebarLayoutAnalyzer.Analyze(section, options.Axis, calc,
-            Math.Sign(moment), requireAtLeastTwoLayers: true);
-        if (analysis.Profile is null)
-            return NotApplicable(analysis.Messages.Select(m => new Sp63DeflectionMessage(
-                m.Code, Sp63DeflectionMessageKind.Applicability, m.NormReference, m.Text)).ToList());
-        var profile = analysis.Profile;
+        int tensionDirection = Math.Sign(moment);
+        if (!Sp63SlsSectionGeometryFactory.TryCreate(section, options.ShapeKind, options.Axis,
+                calc, tensionDirection, out var geometry, out var geometryMessages))
+            return NotApplicable(geometryMessages.Select(MapGeometryMessage));
 
-        var concreteArea = section.Areas.FirstOrDefault(area =>
+        var concreteArea = section.Areas.First(area =>
             area.Category == AreaCategory.Region && area.Material?.Type == MatType.Concrete);
-        var concreteChars = concreteArea?.Material?.GetChars(calc);
-        if (concreteChars is null || !Positive(concreteChars.E) ||
-            !Positive(Math.Abs(concreteChars.Fc)) || !Positive(concreteChars.Ft))
-            return NotApplicable("missing_concrete_chars", "Sp63Deflection_MissingConcreteChars", "8.2.23");
-
-        var rebarArea = section.Areas.FirstOrDefault(area =>
+        var concreteChars = concreteArea.Material!.GetChars(calc)!;
+        var rebarArea = section.Areas.First(area =>
             area.Category == AreaCategory.RebarGroup && area.Material != null);
-        var rebarChars = rebarArea?.Material?.GetChars(calc);
-        if (rebarChars is null || !Positive(rebarChars.E) || !Positive(Math.Abs(rebarChars.Ft)))
-            return NotApplicable("missing_rebar_chars", "Sp63Deflection_MissingRebarChars", "8.2.23");
+        var rebarChars = rebarArea.Material!.GetChars(calc)!;
 
-        double b = profile.B;
-        if (!Positive(b))
-            return InvalidInput("invalid_section_width", "Sp63Deflection_InvalidGeometry", "8.2.23");
-        double asT = profile.TensionLayer.Area / b;
-        double asC = profile.CompressionLayer.Area / b;
+        // Служебные параметры определения Mcrc: acrc при прогибе не ограничивается.
         const double phi1 = 1.0;
         const double phi2 = 0.5;
         const double acrcLimMm = 0.3;
-        const double effectiveDiameterM = 0.012;
-        ShellSimplStripResult Strip(double m, double n) => ShellSimplSolver.ComputeStripSls(
-            m / b, n / b, profile.Height, profile.H0, profile.APrime, asT, asC,
-            effectiveDiameterM, concreteChars, rebarChars, phi1, phi2, acrcLimMm,
+        var fullTerm = Sp63SlsSectionSolver.ComputeCrackTerm(geometry!, concreteChars, rebarChars,
+            Math.Abs(moment), totalLoad.N, phi1, phi2, acrcLimMm,
             SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63);
-
-        var fullStrip = Strip(Math.Abs(moment), totalLoad.N);
-        var longStrip = Strip(Math.Abs(longMoment), longLoad.N);
-        if (!Finite(fullStrip.Mcrc, longStrip.Mcrc))
+        var longTerm = Sp63SlsSectionSolver.ComputeCrackTerm(geometry!, concreteChars, rebarChars,
+            Math.Abs(longMoment), longLoad.N, phi1, phi2, acrcLimMm,
+            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63);
+        if (!Finite(fullTerm.Mcrc, longTerm.Mcrc))
             return InvalidInput("non_finite_result", "Sp63Deflection_NonFiniteResult", "8.2.23");
-        double mcrcFull = fullStrip.Mcrc * b;
-        double mcrcLong = longStrip.Mcrc * b;
+
         var curvature = Sp63Curvature.Compute(
-            new Sp63CurvatureInput(b, profile.Height, profile.H0, profile.APrime,
-                profile.TensionLayer.Area, profile.CompressionLayer.Area,
-                concreteChars.E, Math.Abs(concreteChars.Fc), rebarChars.E,
-                concreteChars.Class, options.Humidity),
+            new Sp63CurvatureSectionInput(geometry!, concreteChars.E, Math.Abs(concreteChars.Fc),
+                rebarChars.E, concreteChars.Class, options.Humidity),
             new Sp63CurvatureLoad(Math.Abs(moment), totalLoad.N),
             new Sp63CurvatureLoad(Math.Abs(longMoment), longLoad.N),
-            fullStrip.Cracked, mcrcFull, mcrcLong);
+            fullTerm.Cracked, fullTerm.Mcrc, longTerm.Mcrc);
         if (curvature is null)
         {
             string code = concreteChars.Class > 0 ? "curvature_through_tension" : "missing_concrete_class";
@@ -115,11 +104,15 @@ public static class Sp63DeflectionChecker
         bool passed = deflection <= options.DeflectionLimitMm + 1e-9;
         var variables = new Dictionary<string, double>
         {
-            ["N"] = totalLoad.N, ["M"] = moment, ["Nl"] = longLoad.N, ["Ml"] = longMoment,
+            ["N"] = totalLoad.N, ["M"] = moment,
+            ["Nl"] = longLoad.N, ["Ml"] = longMoment,
             ["axis"] = options.Axis == Sp63NormalAxis.Mx ? 0.0 : 1.0,
-            ["S"] = coefficient, ["l"] = options.SpanM, ["f"] = deflection,
-            ["fult"] = options.DeflectionLimitMm, ["utilization"] = deflection / options.DeflectionLimitMm,
-            ["McrcFull"] = mcrcFull, ["McrcLong"] = mcrcLong, ["b"] = b
+            ["S"] = coefficient, ["l"] = options.SpanM,
+            ["f"] = deflection,
+            ["fult"] = options.DeflectionLimitMm,
+            ["utilization"] = deflection / options.DeflectionLimitMm,
+            ["McrcFull"] = fullTerm.Mcrc, ["McrcLong"] = longTerm.Mcrc,
+            ["b"] = geometry!.Area(0.0, geometry.Height) / geometry.Height
         };
         return new Sp63DeflectionResult
         {
@@ -132,8 +125,8 @@ public static class Sp63DeflectionChecker
             DeflectionLimitMm = options.DeflectionLimitMm,
             Utilization = deflection / options.DeflectionLimitMm,
             DeflectionPassed = passed,
-            Cracked = fullStrip.Cracked,
-            Branch = fullStrip.Cracked ? "cracked" : "not_cracked",
+            Cracked = fullTerm.Cracked,
+            Branch = fullTerm.Cracked ? "cracked" : "not_cracked",
             Variables = variables,
             InformationalMessages = [new("constant_stiffness_scheme", Sp63DeflectionMessageKind.Information,
                 "8.2.21", "Sp63Deflection_ConstantStiffnessNote")]
@@ -148,6 +141,22 @@ public static class Sp63DeflectionChecker
         _ => "Sp63Deflection_IdealizedRebarNotSupported"
     };
 
+    /// <summary>
+    /// Причины неприменимости геометрии и раскладки арматуры приходят из общей фабрики профиля;
+    /// коды сохраняются, ключи локализации приводятся к задачным.
+    /// </summary>
+    static Sp63DeflectionMessage MapGeometryMessage(Sp63NormalMessage message) => new(
+        message.Code,
+        Sp63DeflectionMessageKind.Applicability,
+        message.NormReference,
+        message.Code switch
+        {
+            "not_a_tee_shape" => "Sp63Deflection_TeeGeometryNotSupported",
+            "missing_concrete_chars" => "Sp63Deflection_MissingConcreteChars",
+            "missing_rebar_chars" => "Sp63Deflection_MissingRebarChars",
+            _ => message.Text
+        });
+
     static Sp63DeflectionResult InvalidInput(string code, string text, string reference) => new()
     {
         Status = Sp63DeflectionStatus.InvalidInput,
@@ -158,11 +167,11 @@ public static class Sp63DeflectionChecker
     static Sp63DeflectionResult NotApplicable(string code, string text, string reference) =>
         NotApplicable([Message(code, text, reference)]);
 
-    static Sp63DeflectionResult NotApplicable(List<Sp63DeflectionMessage> messages) => new()
+    static Sp63DeflectionResult NotApplicable(IEnumerable<Sp63DeflectionMessage> messages) => new()
     {
         Status = Sp63DeflectionStatus.NotApplicable,
         Branch = "not_applicable",
-        ApplicabilityMessages = messages
+        ApplicabilityMessages = messages.ToList()
     };
 
     static Sp63DeflectionMessage Message(string code, string text, string reference) =>
