@@ -69,7 +69,7 @@ internal static class CrossSectionFixtures
         ]
     };
 
-    private static Material CreateMaterial(
+    internal static Material CreateMaterial(
         int id,
         MatType type,
         string tag,

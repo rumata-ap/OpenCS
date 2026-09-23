@@ -115,7 +115,7 @@ public sealed class StraightBeamSubmodelMaterializationIntegrationTests(ITestOut
         return new Verified(report, plan.Summary);
     }
 
-    static Task<FemLinearResult> RunParent(string executable, ParentModel parent) =>
+    internal static Task<FemLinearResult> RunParent(string executable, ParentModel parent) =>
         RunLinear(executable, new FemLinearWorkflowInput(parent.MeshNodes, parent.MeshElements, parent.Nodes, parent.Members,
             [.. PortalFrameReference.NodeLoads()], SubmodelMaterializationResolverTests.SectionProps())
         {
