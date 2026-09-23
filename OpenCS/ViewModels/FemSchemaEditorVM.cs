@@ -322,7 +322,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members)
     {
         var adapted = MeshBeamSegmentAdapter.Build(Selection.SelectedElemTags.ToList(), elements, nodes, members);
-        ChainAnalysis = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default, adapted.PreferredDirection, new FemLocalAxisFrameProvider(), adapted.Diagnostics);
+        ChainAnalysis = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default, adapted.PreferredDirection, new BeamLocalAxisFrameProvider(), adapted.Diagnostics);
     }
 
     double? _defaultTargetMeshLengthM;
