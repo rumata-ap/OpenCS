@@ -1,4 +1,4 @@
-﻿<ResourceDictionary
+<ResourceDictionary
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:system="clr-namespace:System;assembly=mscorlib">
@@ -3288,4 +3288,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp63Deflection_ReportInvalid">Calculation failed because input data are invalid</system:String>
     <system:String x:Key="Sp63Deflection_ReportNoCurvature">Total curvature was not calculated</system:String>
     <system:String x:Key="Sp63Deflection_ReportMessage">Calculation message</system:String>
+    <system:String x:Key="Sp63ShapeRectangular">Rectangular</system:String>
+    <system:String x:Key="Sp63ShapeTee">Tee or I-section</system:String>
+    <system:String x:Key="Sp63CrackWidth_TeeGeometryNotSupported">The contour is rectangular: select the Rectangular shape.</system:String>
+    <system:String x:Key="Sp63Deflection_TeeGeometryNotSupported">The contour is rectangular: select the Rectangular shape.</system:String>
+    <system:String x:Key="Sp63Normal_ExtraRebarLayers">The formula mode supports exactly two longitudinal rebar levels: tension and compression.</system:String>
   </ResourceDictionary>

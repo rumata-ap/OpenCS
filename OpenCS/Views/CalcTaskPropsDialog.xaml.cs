@@ -102,6 +102,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63CrackWidthManualN = "0";
    string sp63CrackWidthManualMx = "0";
    string sp63CrackWidthManualMy = "0";
+   string sp63DeflectionShapeKind = "rectangular";
    string sp63DeflectionAxis = "Mx";
    string sp63DeflectionScheme = "simply_supported_uniform";
    string sp63DeflectionForcesMode = "total_only";
@@ -356,6 +357,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowSp63DeflectionFields => IsSp63Deflection;
    /// <summary>Ось изгиба.</summary>
    public string Sp63DeflectionAxis { get => sp63DeflectionAxis; set { sp63DeflectionAxis = value; OnPropertyChanged(); } }
+
+   /// <summary>Идентификатор формы сечения: rectangular или tee (тавр/двутавр).</summary>
+   public string Sp63DeflectionShapeKind
+   {
+      get => sp63DeflectionShapeKind;
+      set { sp63DeflectionShapeKind = value; OnPropertyChanged(); }
+   }
    /// <summary>Идентификатор схемы.</summary>
    public string Sp63DeflectionScheme
    {
@@ -409,7 +417,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    /// <summary>Показывать параметры упрощённой проверки ширины раскрытия трещин.</summary>
    public bool ShowSp63CrackWidthFields => IsSp63CrackWidth;
 
-   /// <summary>Идентификатор единственной поддержанной формы сечения.</summary>
+   /// <summary>Идентификатор формы сечения: rectangular или tee (тавр/двутавр).</summary>
    public string Sp63CrackWidthShapeKind
    {
       get => sp63CrackWidthShapeKind;
@@ -2292,7 +2300,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           {
              var dfp = Sp63DeflectionTaskParams.Parse(existing.ParamsJson);
              var inv = System.Globalization.CultureInfo.InvariantCulture;
-             Sp63DeflectionAxis = dfp.Axis;
+             Sp63DeflectionShapeKind = string.IsNullOrWhiteSpace(dfp.ShapeKind) ? "rectangular" : dfp.ShapeKind;
+            Sp63DeflectionAxis = dfp.Axis;
              Sp63DeflectionScheme = dfp.Scheme ?? "";
              Sp63DeflectionForcesMode = dfp.ForcesMode;
              Sp63DeflectionSpan = dfp.SpanM.ToString("G6", inv);
@@ -2562,6 +2571,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          var deflectionParams = new Sp63DeflectionTaskParams
          {
+            ShapeKind = Sp63DeflectionShapeKind,
             Axis = Sp63DeflectionAxis,
             Scheme = Sp63DeflectionScheme,
             SpanM = span!.Value,
