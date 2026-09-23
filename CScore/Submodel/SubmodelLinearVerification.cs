@@ -29,6 +29,8 @@ public sealed record SubmodelVerificationReport(
 
 /// <summary>
 /// Сверка линейного результата материализованной субмодели с линейным результатом родителя.
+/// Необязательный <c>lambda</c> масштабирует эталон (перемещения, усилия родителя, <c>p_control</c> и
+/// приложенные силы) — для сверки состояния нелинейного расчёта при λ ≠ 1 (срез 4b).
 /// Теги mesh-узлов и КЭ ребёнка совпадают с родительскими, поэтому сопоставление прямое.
 /// Реакции ребёнка во всех DOF с <c>sp</c>: <c>R_child = p_control − p_applied</c>, где
 /// <c>p_applied</c> — сила, приложенная в этом DOF (для gauge — граничная, иначе 0); для gauge-DOF это
@@ -38,8 +40,10 @@ public static class SubmodelLinearVerification
 {
     public static SubmodelVerificationReport Compare(SubmodelExtraction extraction, BoundaryScenario scenario,
         SubmodelMaterializationSummary summary, IParentLinearResult parent, IParentLinearResult child,
-        VerificationTolerances? tolerances = null)
+        VerificationTolerances? tolerances = null, double lambda = 1)
     {
+        if (!double.IsFinite(lambda) || lambda <= 0)
+            throw new ArgumentOutOfRangeException(nameof(lambda), lambda, "Коэффициент λ должен быть конечным и положительным.");
         var tol = tolerances ?? new VerificationTolerances();
         var diagnostics = new List<FemValidationDiagnostic>();
         void Info(string message) => diagnostics.Add(new(SubmodelMaterializationDiagnostics.Info, message, false, []));
@@ -56,7 +60,10 @@ public static class SubmodelLinearVerification
                 continue;
             }
             for (int dof = 0; dof < 6; dof++)
-                (dof < 3 ? translation : rotation).Add(Math.Abs(uc[dof] - up[dof]), Math.Abs(up[dof]), tag, dof);
+            {
+                double reference = lambda * up[dof];
+                (dof < 3 ? translation : rotation).Add(Math.Abs(uc[dof] - reference), Math.Abs(reference), tag, dof);
+            }
         }
 
         // Концевые усилия выбранных КЭ.
@@ -72,7 +79,10 @@ public static class SubmodelLinearVerification
             }
             foreach (var (p, c) in new[] { (fp.I, fc.I), (fp.J, fc.J) })
                 for (int dof = 0; dof < 6; dof++)
-                    (dof < 3 ? endForce : endMoment).Add(Math.Abs(c[dof] - p[dof]), Math.Abs(p[dof]), tag, dof);
+                {
+                    double reference = lambda * p[dof];
+                    (dof < 3 ? endForce : endMoment).Add(Math.Abs(c[dof] - reference), Math.Abs(reference), tag, dof);
+                }
         }
 
         // Реакции во всех DOF с sp.
@@ -97,8 +107,8 @@ public static class SubmodelLinearVerification
             foreach (int dof in constrained)
             {
                 double applied = gaugeDofs.Contains(dof) ? end.Dofs[dof].Value ?? 0 : 0;
-                double expected = control[dof] - applied;
-                (dof < 3 ? reactionForce : reactionMoment).Add(Math.Abs(reaction[dof] - expected), Math.Abs(control[dof]), end.ChildNodeTag, dof);
+                double expected = lambda * (control[dof] - applied);
+                (dof < 3 ? reactionForce : reactionMoment).Add(Math.Abs(reaction[dof] - expected), Math.Abs(lambda * control[dof]), end.ChildNodeTag, dof);
             }
         }
 

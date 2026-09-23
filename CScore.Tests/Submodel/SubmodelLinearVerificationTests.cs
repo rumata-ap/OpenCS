@@ -116,6 +116,54 @@ public sealed class SubmodelLinearVerificationTests
         Assert.Contains(report.Diagnostics, d => d.Code == SubmodelMaterializationDiagnostics.Info && d.Message.Contains("Узел 4"));
     }
 
+    /// <summary>Идеальный ребёнок, масштабированный на λ (перемещения, усилия, реакции).</summary>
+    internal static IParentLinearResult ScaledChild(IParentLinearResult parent, SubmodelExtraction extraction,
+        IReadOnlyDictionary<string, Dof6> idealReactions, double lambda) =>
+        new DictionaryParentLinearResult(false,
+            extraction.Nodes.ToDictionary(n => n.SubmodelNodeTag,
+                n => { parent.TryGetDisplacement(n.SubmodelNodeTag, out var u); return u.Scale(lambda); }),
+            idealReactions.ToDictionary(p => p.Key, p => p.Value.Scale(lambda)),
+            extraction.Segments.ToDictionary(s => s.SubmodelElementTag,
+                s => { parent.TryGetEndForces(s.SubmodelElementTag, out var f); return new BeamEndForces(f.I.Scale(lambda), f.J.Scale(lambda)); }));
+
+    [Fact]
+    public void ScaledChild_MatchesParentScaledByLambda()
+    {
+        var c = Portal();
+        var child = ScaledChild(c.Parent, c.Extraction, Reactions(c), 0.5);
+
+        var report = SubmodelLinearVerification.Compare(c.Extraction, c.Scenario, c.Summary, c.Parent, child, lambda: 0.5);
+
+        Assert.True(report.Passed, string.Join(" | ", report.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(0, report.Translation.Value);
+        Assert.Equal(0, report.EndMoment.Value);
+        Assert.True(report.ReactionForce.Value <= 1e-9);
+    }
+
+    [Fact]
+    public void ScaledChild_FailsAgainstUnscaledParent()
+    {
+        var c = Portal();
+        var child = ScaledChild(c.Parent, c.Extraction, Reactions(c), 0.5);
+
+        var report = SubmodelLinearVerification.Compare(c.Extraction, c.Scenario, c.Summary, c.Parent, child);
+
+        Assert.False(report.Passed);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-1.0)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void InvalidLambda_Throws(double lambda)
+    {
+        var c = Portal();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SubmodelLinearVerification.Compare(c.Extraction, c.Scenario, c.Summary, c.Parent, Child(c), lambda: lambda));
+    }
+
     [Fact]
     public void EndForceMismatch_FailsOnMoments()
     {
