@@ -51,7 +51,7 @@ public sealed class SubmodelBoundaryScenarioPersistenceTests
             using var _ = new DatabaseService(path);
 
             Assert.True(TableExists(path, "submodel_boundary_scenarios"));
-            Assert.Equal("59", SchemaVersion(path));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), SchemaVersion(path));
         }
         finally { DeleteDatabase(path); }
     }

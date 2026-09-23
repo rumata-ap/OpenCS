@@ -13,7 +13,7 @@ namespace OpenCS.OpenSees.Tests;
 /// <summary>Сервис на SQLite: рама из эталона записана в БД, результат — из фикстуры реального OpenSees.</summary>
 public sealed class StraightBeamBoundaryScenarioServiceTests
 {
-    static PortalFrameReference.ResultFixture Fixture() => PortalFrameReference.Deserialize(File.ReadAllText(
+    internal static PortalFrameReference.ResultFixture Fixture() => PortalFrameReference.Deserialize(File.ReadAllText(
         Path.Combine(FixtureDirectory(), PortalFrameReference.FixtureRelativePath.Replace('/', Path.DirectorySeparatorChar))));
 
     static string FixtureDirectory()
@@ -23,7 +23,7 @@ public sealed class StraightBeamBoundaryScenarioServiceTests
         throw new DirectoryNotFoundException("Не найден каталог CScore.Tests.");
     }
 
-    static FemLinearResult ToLinearResult(PortalFrameReference.ResultFixture fixture) => new()
+    internal static FemLinearResult ToLinearResult(PortalFrameReference.ResultFixture fixture) => new()
     {
         Status = "ok",
         Displacements = fixture.Displacements.Select(r => new FemNodeDisplacement(int.Parse(r.Node),
@@ -35,7 +35,7 @@ public sealed class StraightBeamBoundaryScenarioServiceTests
     };
 
     /// <summary>Записывает раму, её нагрузки, анализ с результатом и извлечение ригеля.</summary>
-    static (SubmodelExtraction Extraction, ParentModel Parent) Seed(DatabaseService db, CalcResult result)
+    internal static (SubmodelExtraction Extraction, ParentModel Parent) Seed(DatabaseService db, CalcResult result)
     {
         var model = PortalFrameReference.Model();
         var schema = new FemSchema { Tag = "portal", SourceType = "opensees" };
