@@ -217,6 +217,11 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesExecutablePath")]
       public string? OpenSeesExecutablePath { get; set; }
 
+      /// <summary>Выполнять ли линейную сверку субмодели с родителем (срез 4a) перед её нелинейным
+      /// расчётом. Провал проверки — предупреждение, нелинейный расчёт всё равно выполняется.</summary>
+      [JsonPropertyName("submodelLinearPrecheck")]
+      public bool SubmodelLinearPrecheck { get; set; } = true;
+
       /// <summary>Таймаут запуска OpenSees.exe, с.</summary>
       [JsonPropertyName("openSeesTimeoutSeconds")]
       public int OpenSeesTimeoutSeconds { get; set; } = 120;

@@ -58,20 +58,8 @@ public sealed class StraightBeamSubmodelMaterializationService
     public SubmodelVerificationOutcome Verify(int submodelSchemaId)
     {
         var diagnostics = new List<FemValidationDiagnostic>();
-        if (!TryLoad(submodelSchemaId, diagnostics, out var extraction, out var scenario))
+        if (!TryLoadMaterialized(submodelSchemaId, diagnostics, out var extraction, out var scenario, out var materialization))
             return new(null, diagnostics);
-
-        diagnostics.AddRange(SubmodelMeshIntegrity.Check(extraction,
-            _database.GetFemMeshNodes(submodelSchemaId), _database.GetFemMeshElements(submodelSchemaId), checkIds: true));
-        if (diagnostics.Any(d => d.IsError)) return new(null, diagnostics);
-
-        var materialization = _database.GetSubmodelMaterialization(scenario.Id);
-        if (materialization is null)
-        {
-            diagnostics.Add(new(SubmodelMaterializationDiagnostics.Stale,
-                "Текущий граничный сценарий не материализован — выполните материализацию.", true, []));
-            return new(null, diagnostics);
-        }
 
         var analysis = _database.GetFemAnalyses(submodelSchemaId)
             .FirstOrDefault(a => a.Tag == SubmodelMaterializationPlanner.AnalysisTag);
@@ -82,24 +70,55 @@ public sealed class StraightBeamSubmodelMaterializationService
                 $"Нет результата постановки «{SubmodelMaterializationPlanner.AnalysisTag}» — выполните её расчёт.", false, []));
             return new(null, diagnostics);
         }
+        if (LoadParentResult(extraction, diagnostics) is not { } parent) return new(null, diagnostics);
+
+        var child = FemLinearResultParentAdapter.FromCalcResult(childCalc);
+        if (child.Error is not null) diagnostics.Add(child.Error);
+        if (child.Result is null) return new(null, diagnostics);
+
+        var report = SubmodelLinearVerification.Compare(extraction, scenario.Scenario, materialization.Summary,
+            parent, child.Result);
+        diagnostics.AddRange(report.Diagnostics);
+        return new(report, diagnostics);
+    }
+
+    /// <summary>
+    /// Общие проверки перед сверкой (4a и 4b): схема — извлечённая субмодель со сценарием, mesh-снимок
+    /// целостен (включая <c>id</c> строк), текущий сценарий материализован.
+    /// </summary>
+    internal bool TryLoadMaterialized(int submodelSchemaId, List<FemValidationDiagnostic> diagnostics,
+        out SubmodelExtraction extraction, out SubmodelBoundaryScenario scenario, out SubmodelMaterialization materialization)
+    {
+        materialization = null!;
+        if (!TryLoad(submodelSchemaId, diagnostics, out extraction, out scenario)) return false;
+
+        diagnostics.AddRange(SubmodelMeshIntegrity.Check(extraction,
+            _database.GetFemMeshNodes(submodelSchemaId), _database.GetFemMeshElements(submodelSchemaId), checkIds: true));
+        if (diagnostics.Any(d => d.IsError)) return false;
+
+        if (_database.GetSubmodelMaterialization(scenario.Id) is not { } stored)
+        {
+            diagnostics.Add(new(SubmodelMaterializationDiagnostics.Stale,
+                "Текущий граничный сценарий не материализован — выполните материализацию.", true, []));
+            return false;
+        }
+        materialization = stored;
+        return true;
+    }
+
+    /// <summary>Линейный результат родителя извлечения; null — с блокирующей диагностикой.</summary>
+    internal IParentLinearResult? LoadParentResult(SubmodelExtraction extraction, List<FemValidationDiagnostic> diagnostics)
+    {
         var parentCalc = _database.GetCalcResultById(extraction.ParentResultId);
         if (parentCalc is null)
         {
             diagnostics.Add(new(BoundaryScenarioDiagnostics.ParentResultInvalid,
                 $"Результат родителя #{extraction.ParentResultId} не найден.", true, []));
-            return new(null, diagnostics);
+            return null;
         }
-
         var parent = FemLinearResultParentAdapter.FromCalcResult(parentCalc);
-        var child = FemLinearResultParentAdapter.FromCalcResult(childCalc);
-        foreach (var error in new[] { parent.Error, child.Error })
-            if (error is not null) diagnostics.Add(error);
-        if (parent.Result is null || child.Result is null) return new(null, diagnostics);
-
-        var report = SubmodelLinearVerification.Compare(extraction, scenario.Scenario, materialization.Summary,
-            parent.Result, child.Result);
-        diagnostics.AddRange(report.Diagnostics);
-        return new(report, diagnostics);
+        if (parent.Error is not null) diagnostics.Add(parent.Error);
+        return parent.Result;
     }
 
     bool TryLoad(int submodelSchemaId, List<FemValidationDiagnostic> diagnostics,
