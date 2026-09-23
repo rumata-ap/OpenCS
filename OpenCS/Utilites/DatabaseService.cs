@@ -3458,13 +3458,22 @@ namespace OpenCS.Utilites
                schemas[s.Id] = s;
             }
          }
+         LoadFemSchemaCollections(schemas, null);
+         foreach (var s in schemas.Values) FemSchemas.Add(s);
+      }
+
+      /// <summary>Читает группы стержней, загружения, определения нагрузок и постановки в объекты схем.
+      /// <paramref name="onlySchemaId"/> — только для одной схемы (иначе для всех).</summary>
+      void LoadFemSchemaCollections(Dictionary<int, CScore.Fem.FemSchema> schemas, int? onlySchemaId)
+      {
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, member_type, member_tags_json,
                       plate_section_id, force_set_id, design_params_json
-               FROM fem_member_groups ORDER BY schema_id, id
+               FROM fem_member_groups WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3488,8 +3497,9 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                SELECT id, schema_id, tag, load_type, sp20_type, sp20_group,
                       gamma_f_unfav, gamma_f_fav, psi1, psi2
-               FROM fem_load_cases ORDER BY schema_id, id
+               FROM fem_load_cases WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3514,9 +3524,10 @@ namespace OpenCS.Utilites
           {
              cmd.CommandText = """
                 SELECT id, schema_id, tag, description, expression_json, source_kind, combination_type
-                FROM fem_load_definitions ORDER BY schema_id, id
+                FROM fem_load_definitions WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
              """;
-             using var r = cmd.ExecuteReader();
+             cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
+            using var r = cmd.ExecuteReader();
              while (r.Read())
              {
                 int sid = r.GetInt32(1);
@@ -3535,8 +3546,9 @@ namespace OpenCS.Utilites
              cmd.CommandText = """
                 SELECT id, schema_id, tag, kind, load_expression_json, params_json,
                       status, result_id, created
-               FROM fem_analyses ORDER BY schema_id, id
+               FROM fem_analyses WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3556,7 +3568,51 @@ namespace OpenCS.Utilites
                });
             }
          }
-         foreach (var s in schemas.Values) FemSchemas.Add(s);
+      }
+
+      /// <summary>Перечитывает из БД кэшированные коллекции схемы (группы, загружения, определения,
+      /// постановки) после прямой замены её слоя SQL-командами.</summary>
+      void ReloadFemSchemaCollections(CScore.Fem.FemSchema schema)
+      {
+         schema.MemberGroups.Clear();
+         schema.LoadCases.Clear();
+         schema.LoadDefinitions.Clear();
+         schema.Analyses.Clear();
+         LoadFemSchemaCollections(new Dictionary<int, CScore.Fem.FemSchema> { [schema.Id] = schema }, schema.Id);
+      }
+
+      /// <summary>Id всех calc_results постановок и проверок схемы (включая исторические результаты
+      /// проверок по fem_check_id). Выполняется внутри текущей транзакции.</summary>
+      List<int> CollectFemSchemaResultIds(int schemaId)
+      {
+         var ids = new List<int>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT result_id FROM fem_analyses WHERE schema_id=@sid AND result_id IS NOT NULL
+            UNION SELECT result_id FROM fem_checks WHERE schema_id=@sid AND result_id IS NOT NULL
+            UNION SELECT id FROM calc_results WHERE fem_check_id IN (SELECT id FROM fem_checks WHERE schema_id=@sid)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read()) ids.Add(r.GetInt32(0));
+         return ids;
+      }
+
+      /// <summary>Удаляет calc_results по списку Id (внутри текущей транзакции).</summary>
+      void DeleteCalcResultsByIds(IReadOnlyCollection<int> ids)
+      {
+         if (ids.Count == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = $"DELETE FROM calc_results WHERE id IN ({string.Join(",", ids)})";
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>После commit убирает из кэшей процесса удалённые результаты и проверки схемы.</summary>
+      void ForgetFemSchemaResults(int schemaId, IReadOnlyCollection<int> resultIds)
+      {
+         var removed = resultIds.ToHashSet();
+         foreach (var r in CalcResults.Where(r => removed.Contains(r.Id)).ToList()) CalcResults.Remove(r);
+         foreach (var c in FemChecks.Where(c => c.SchemaId == schemaId).ToList()) FemChecks.Remove(c);
       }
 
       void LoadFemChecks()
@@ -3636,6 +3692,7 @@ namespace OpenCS.Utilites
       public void DeleteFemSchema(CScore.Fem.FemSchema schema)
       {
          if (schema.Id == 0) return;
+         List<int> resultIds;
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -3646,6 +3703,8 @@ namespace OpenCS.Utilites
                if (Convert.ToInt64(guard.ExecuteScalar()) != 0)
                   throw new InvalidOperationException("Нельзя удалить родительскую FEM-схему, пока существуют извлечённые субмодели.");
             }
+            resultIds = CollectFemSchemaResultIds(schema.Id);
+            DeleteCalcResultsByIds(resultIds);
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
                DELETE FROM fem_checks            WHERE schema_id=@id;
@@ -3653,6 +3712,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_load_definitions   WHERE schema_id=@id;
                DELETE FROM fem_node_loads         WHERE schema_id=@id;
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
+               DELETE FROM fem_kinematic_loads    WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
                DELETE FROM submodel_boundary_scenarios
@@ -3674,6 +3734,7 @@ namespace OpenCS.Utilites
          }
          catch { tx.Rollback(); throw; }
          FemSchemas.Remove(schema);
+         ForgetFemSchemaResults(schema.Id, resultIds);
       }
 
       public List<CScore.Fem.FemLoadCase> GetFemLoadCases(int schemaId)
