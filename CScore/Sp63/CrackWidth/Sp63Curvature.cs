@@ -1,3 +1,5 @@
+using CScore.Sp63.Normal;
+
 namespace CScore.Sp63.CrackWidth;
 
 /// <summary>Относительная влажность воздуха окружающей среды для таблиц 6.10 и 6.12 СП 63.</summary>
@@ -93,6 +95,25 @@ public sealed record Sp63CurvatureInput(
 public sealed record Sp63CurvatureLoad(double M, double N);
 
 /// <summary>
+/// Исходные данные формульного расчёта кривизны для ориентированного полосового профиля.
+/// Продольные силы в этот вход не входят: они задаются отдельно для полной и длительной
+/// составляющих в <see cref="Sp63CurvatureLoad"/>.
+/// </summary>
+/// <param name="Geometry">Ориентированный полосовой профиль (сжатая грань — координата 0).</param>
+/// <param name="Eb">Начальный модуль упругости бетона, кПа.</param>
+/// <param name="RbSer">Rb,ser, кПа.</param>
+/// <param name="Es">Модуль упругости арматуры, кПа.</param>
+/// <param name="ConcreteClass">Класс бетона B (число).</param>
+/// <param name="Humidity">Влажность среды.</param>
+public sealed record Sp63CurvatureSectionInput(
+    Sp63SlsSectionGeometry Geometry,
+    double Eb,
+    double RbSer,
+    double Es,
+    double ConcreteClass,
+    Sp63Humidity Humidity);
+
+/// <summary>
 /// Кривизна железобетонного элемента прямоугольного сечения без предварительного напряжения
 /// по формулам пп. 8.2.23–8.2.30 СП 63.13330.2018 (не по деформационной модели п. 8.2.32).
 /// </summary>
@@ -171,6 +192,23 @@ public static class Sp63Curvature
     /// </summary>
     public static Sp63CurvatureResult? Compute(Sp63CurvatureInput input,
         Sp63CurvatureLoad full, Sp63CurvatureLoad longitudinal,
+        bool cracked, double mcrcFull, double mcrcLong) =>
+        Compute(ToSectionInput(input), full, longitudinal, cracked, mcrcFull, mcrcLong);
+
+    /// <summary>Прямоугольный вход сводится к одному полосовому сечению ширины B.</summary>
+    static Sp63CurvatureSectionInput ToSectionInput(Sp63CurvatureInput s) => new(
+        new Sp63SlsSectionGeometry(Sp63NormalShapeKind.Rectangular, s.H,
+            [new Sp63SlsSectionBand(0.0, s.H, s.B)],
+            new Sp63SlsRebarLayer(s.H0, s.As, 0.012),
+            new Sp63SlsRebarLayer(s.APrime, s.AsPrime, 0.012),
+            hasCompressionFlange: false, hasTensionFlange: false),
+        s.Eb, s.RbSer, s.Es, s.ConcreteClass, s.Humidity);
+
+    /// <summary>
+    /// Вычисляет кривизну полосового профиля по явным полной и длительной составляющим нагрузки.
+    /// </summary>
+    public static Sp63CurvatureResult? Compute(Sp63CurvatureSectionInput input,
+        Sp63CurvatureLoad full, Sp63CurvatureLoad longitudinal,
         bool cracked, double mcrcFull, double mcrcLong)
     {
         if (PhiBCr(input.ConcreteClass, input.Humidity) is not { } phi) return null;
@@ -205,14 +243,13 @@ public static class Sp63Curvature
     }
 
     /// <summary>Составляющая без трещин: (8.142)–(8.145), приведённое сечение с α = Es/Eb1.</summary>
-    static Sp63CurvatureTerm Uncracked(Sp63CurvatureInput s, int index, bool longTerm,
+    static Sp63CurvatureTerm Uncracked(Sp63CurvatureSectionInput s, int index, bool longTerm,
         double m, double n, double eb1)
     {
         double alpha = s.Es / eb1;
-        double area = s.B * s.H + alpha * (s.As + s.AsPrime);
-        double yc = (s.B * s.H * s.H / 2.0 + alpha * s.As * s.H0 + alpha * s.AsPrime * s.APrime) / area;
-        double iRed = s.B * Math.Pow(s.H, 3) / 12.0 + s.B * s.H * Math.Pow(s.H / 2.0 - yc, 2)
-            + alpha * s.As * Math.Pow(s.H0 - yc, 2) + alpha * s.AsPrime * Math.Pow(yc - s.APrime, 2);
+        var full = Sp63SlsSectionSolver.ComputeFullProperties(s.Geometry, alpha);
+        double yc = full.Centroid;
+        double iRed = full.Inertia;
         double mRed = MomentAboutCentroid(s, m, n, yc);
         double d = eb1 * iRed;
         return new Sp63CurvatureTerm
@@ -227,7 +264,7 @@ public static class Sp63Curvature
     /// Ired по (8.148) с αs1 = Es/Eb,red и αs2 = Es/(ψs·Eb,red), ψs по (8.138);
     /// жёсткость не более жёсткости без трещин при той же продолжительности (п. 8.2.27).
     /// </summary>
-    static Sp63CurvatureTerm? Cracked(Sp63CurvatureInput s, int index, bool longTerm,
+    static Sp63CurvatureTerm? Cracked(Sp63CurvatureSectionInput s, int index, bool longTerm,
         double m, double n, double ebRed, double eb1Uncracked, double mcrc)
     {
         var uncracked = Uncracked(s, index, longTerm, m, n, eb1Uncracked);
@@ -237,26 +274,20 @@ public static class Sp63Curvature
         double psiS = Math.Clamp(1.0 - 0.8 * mcrc / m, 0.1, 1.0);
         double as1 = s.Es / ebRed;                     // (8.157)
         double as2 = s.Es / psiS / ebRed;              // (8.158), (8.159)
-        double bh0 = s.B * s.H0;
-        double sum = s.As / bh0 * as2 + s.AsPrime / bh0 * as1;
-        double xM = s.H0 * (Math.Sqrt(sum * sum + 2.0 * (s.As / bh0 * as2
-            + s.AsPrime / bh0 * as1 * s.APrime / s.H0)) - sum);   // (8.151)
+        var geometry = s.Geometry;
+        double xM = Sp63SlsSectionSolver.ComputeCrackedNeutralAxis(geometry, as2, as1);   // (8.149)-(8.151)
 
         // (8.154): Ired, Ared полного сечения — с тем же αs1, что и xM (как в ShellSimplSolver).
-        double aFull = s.B * s.H + as1 * (s.As + s.AsPrime);
-        double ycFull = (s.B * s.H * s.H / 2.0 + as1 * s.As * s.H0 + as1 * s.AsPrime * s.APrime) / aFull;
-        double iFull = s.B * Math.Pow(s.H, 3) / 12.0 + s.B * s.H * Math.Pow(s.H / 2.0 - ycFull, 2)
-            + as1 * s.As * Math.Pow(s.H0 - ycFull, 2) + as1 * s.AsPrime * Math.Pow(ycFull - s.APrime, 2);
-        double xm = xM - iFull * n / (aFull * m);      // "+" растяжение → знак «минус»
+        var fullS1 = Sp63SlsSectionSolver.ComputeFullProperties(geometry, as1);
+        double xm = xM - fullS1.Inertia * n / (fullS1.Area * m);   // "+" растяжение → знак «минус»
         if (xm <= 0.0) return null;                     // сквозное растяжение — вне формульного пути
-        xm = Math.Min(xm, s.H0);
+        xm = Math.Min(xm, geometry.TensionLayer.Coordinate);
 
-        // (8.148): приведённое сечение без растянутого бетона, моменты инерции — относительно
-        // его центра тяжести (для изгиба совпадает с xm).
-        double area = s.B * xm + as2 * s.As + as1 * s.AsPrime;
-        double yc = (s.B * xm * xm / 2.0 + as2 * s.As * s.H0 + as1 * s.AsPrime * s.APrime) / area;
-        double iRed = s.B * Math.Pow(xm, 3) / 12.0 + s.B * xm * Math.Pow(yc - xm / 2.0, 2)
-            + as2 * s.As * Math.Pow(s.H0 - yc, 2) + as1 * s.AsPrime * Math.Pow(yc - s.APrime, 2);
+        // (8.148): приведённое сечение без растянутого бетона — общий solver по фактическим
+        // полосам с αs2 (растянутая арматура) и αs1 (сжатая).
+        var crackedProps = Sp63SlsSectionSolver.ComputeCrackedProperties(geometry, xm, as2, as1);
+        double yc = crackedProps.Centroid;
+        double iRed = crackedProps.Inertia;
         double d = ebRed * iRed;
         bool limited = d > uncracked.D;
         if (limited) d = uncracked.D;
@@ -273,6 +304,6 @@ public static class Sp63Curvature
     /// Момент относительно центра тяжести приведённого сечения (п. 8.2.25): сила N приложена
     /// в середине высоты; растягивающая сила ниже центра тяжести увеличивает момент.
     /// </summary>
-    static double MomentAboutCentroid(Sp63CurvatureInput s, double m, double n, double yc) =>
-        m + n * (s.H / 2.0 - yc);
+    static double MomentAboutCentroid(Sp63CurvatureSectionInput s, double m, double n, double yc) =>
+        m + n * (s.Geometry.Height / 2.0 - yc);
 }
