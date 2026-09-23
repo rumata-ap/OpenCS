@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 59;
+      const int CurrentSchemaVersion = 60;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -79,6 +79,7 @@ namespace OpenCS.Utilites
          [56] = MigrateV57,
          [57] = MigrateV58,
          [58] = MigrateV59,
+         [59] = MigrateV60,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -636,6 +637,7 @@ namespace OpenCS.Utilites
 
          EnsureSubmodelExtractionTables();
          EnsureSubmodelBoundaryScenarioTable();
+         EnsureSubmodelMaterializationTable();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1518,6 +1520,19 @@ namespace OpenCS.Utilites
              diagnostics_json TEXT NOT NULL DEFAULT '[]',
              created TEXT NOT NULL DEFAULT '',
              UNIQUE(extraction_id, ordinal)
+         );
+         """);
+
+      /// <summary>Миграция v60: материализации граничных сценариев субмоделей.</summary>
+      void MigrateV60() => EnsureSubmodelMaterializationTable();
+
+      /// <summary>Создаёт таблицу материализаций: что построено в дочерней схеме из граничного сценария.</summary>
+      void EnsureSubmodelMaterializationTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS submodel_materializations (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             scenario_id INTEGER NOT NULL UNIQUE REFERENCES submodel_boundary_scenarios(id),
+             plan_json TEXT NOT NULL,
+             created TEXT NOT NULL DEFAULT ''
          );
          """);
 
@@ -3458,13 +3473,22 @@ namespace OpenCS.Utilites
                schemas[s.Id] = s;
             }
          }
+         LoadFemSchemaCollections(schemas, null);
+         foreach (var s in schemas.Values) FemSchemas.Add(s);
+      }
+
+      /// <summary>Читает группы стержней, загружения, определения нагрузок и постановки в объекты схем.
+      /// <paramref name="onlySchemaId"/> — только для одной схемы (иначе для всех).</summary>
+      void LoadFemSchemaCollections(Dictionary<int, CScore.Fem.FemSchema> schemas, int? onlySchemaId)
+      {
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, member_type, member_tags_json,
                       plate_section_id, force_set_id, design_params_json
-               FROM fem_member_groups ORDER BY schema_id, id
+               FROM fem_member_groups WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3488,8 +3512,9 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                SELECT id, schema_id, tag, load_type, sp20_type, sp20_group,
                       gamma_f_unfav, gamma_f_fav, psi1, psi2
-               FROM fem_load_cases ORDER BY schema_id, id
+               FROM fem_load_cases WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3514,9 +3539,10 @@ namespace OpenCS.Utilites
           {
              cmd.CommandText = """
                 SELECT id, schema_id, tag, description, expression_json, source_kind, combination_type
-                FROM fem_load_definitions ORDER BY schema_id, id
+                FROM fem_load_definitions WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
              """;
-             using var r = cmd.ExecuteReader();
+             cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
+            using var r = cmd.ExecuteReader();
              while (r.Read())
              {
                 int sid = r.GetInt32(1);
@@ -3535,8 +3561,9 @@ namespace OpenCS.Utilites
              cmd.CommandText = """
                 SELECT id, schema_id, tag, kind, load_expression_json, params_json,
                       status, result_id, created
-               FROM fem_analyses ORDER BY schema_id, id
+               FROM fem_analyses WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
+            cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3556,7 +3583,51 @@ namespace OpenCS.Utilites
                });
             }
          }
-         foreach (var s in schemas.Values) FemSchemas.Add(s);
+      }
+
+      /// <summary>Перечитывает из БД кэшированные коллекции схемы (группы, загружения, определения,
+      /// постановки) после прямой замены её слоя SQL-командами.</summary>
+      void ReloadFemSchemaCollections(CScore.Fem.FemSchema schema)
+      {
+         schema.MemberGroups.Clear();
+         schema.LoadCases.Clear();
+         schema.LoadDefinitions.Clear();
+         schema.Analyses.Clear();
+         LoadFemSchemaCollections(new Dictionary<int, CScore.Fem.FemSchema> { [schema.Id] = schema }, schema.Id);
+      }
+
+      /// <summary>Id всех calc_results постановок и проверок схемы (включая исторические результаты
+      /// проверок по fem_check_id). Выполняется внутри текущей транзакции.</summary>
+      List<int> CollectFemSchemaResultIds(int schemaId)
+      {
+         var ids = new List<int>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT result_id FROM fem_analyses WHERE schema_id=@sid AND result_id IS NOT NULL
+            UNION SELECT result_id FROM fem_checks WHERE schema_id=@sid AND result_id IS NOT NULL
+            UNION SELECT id FROM calc_results WHERE fem_check_id IN (SELECT id FROM fem_checks WHERE schema_id=@sid)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read()) ids.Add(r.GetInt32(0));
+         return ids;
+      }
+
+      /// <summary>Удаляет calc_results по списку Id (внутри текущей транзакции).</summary>
+      void DeleteCalcResultsByIds(IReadOnlyCollection<int> ids)
+      {
+         if (ids.Count == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = $"DELETE FROM calc_results WHERE id IN ({string.Join(",", ids)})";
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>После commit убирает из кэшей процесса удалённые результаты и проверки схемы.</summary>
+      void ForgetFemSchemaResults(int schemaId, IReadOnlyCollection<int> resultIds)
+      {
+         var removed = resultIds.ToHashSet();
+         foreach (var r in CalcResults.Where(r => removed.Contains(r.Id)).ToList()) CalcResults.Remove(r);
+         foreach (var c in FemChecks.Where(c => c.SchemaId == schemaId).ToList()) FemChecks.Remove(c);
       }
 
       void LoadFemChecks()
@@ -3636,6 +3707,7 @@ namespace OpenCS.Utilites
       public void DeleteFemSchema(CScore.Fem.FemSchema schema)
       {
          if (schema.Id == 0) return;
+         List<int> resultIds;
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -3646,6 +3718,8 @@ namespace OpenCS.Utilites
                if (Convert.ToInt64(guard.ExecuteScalar()) != 0)
                   throw new InvalidOperationException("Нельзя удалить родительскую FEM-схему, пока существуют извлечённые субмодели.");
             }
+            resultIds = CollectFemSchemaResultIds(schema.Id);
+            DeleteCalcResultsByIds(resultIds);
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
                DELETE FROM fem_checks            WHERE schema_id=@id;
@@ -3653,8 +3727,12 @@ namespace OpenCS.Utilites
                DELETE FROM fem_load_definitions   WHERE schema_id=@id;
                DELETE FROM fem_node_loads         WHERE schema_id=@id;
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
+               DELETE FROM fem_kinematic_loads    WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
+               DELETE FROM submodel_materializations
+                 WHERE scenario_id IN (SELECT id FROM submodel_boundary_scenarios
+                   WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id));
                DELETE FROM submodel_boundary_scenarios
                  WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
                DELETE FROM submodel_extraction_nodes
@@ -3674,6 +3752,7 @@ namespace OpenCS.Utilites
          }
          catch { tx.Rollback(); throw; }
          FemSchemas.Remove(schema);
+         ForgetFemSchemaResults(schema.Id, resultIds);
       }
 
       public List<CScore.Fem.FemLoadCase> GetFemLoadCases(int schemaId)
@@ -5576,6 +5655,8 @@ namespace OpenCS.Utilites
             using (var command = _connection.CreateCommand())
             {
                command.CommandText = """
+                  DELETE FROM submodel_materializations
+                    WHERE scenario_id IN (SELECT id FROM submodel_boundary_scenarios WHERE extraction_id=@e AND ordinal=@o);
                   DELETE FROM submodel_boundary_scenarios WHERE extraction_id=@e AND ordinal=@o;
                   INSERT INTO submodel_boundary_scenarios (extraction_id,ordinal,status,load_completeness,scenario_json,diagnostics_json,created)
                   VALUES (@e,@o,@status,@completeness,@scenario,@diagnostics,@created);
@@ -5612,6 +5693,274 @@ namespace OpenCS.Utilites
                Enum.Parse<ScenarioStatus>(reader.GetString(2)), Enum.Parse<LoadCompleteness>(reader.GetString(3)),
                JsonSerializer.Deserialize<BoundaryScenario>(reader.GetString(4), _jsonSettings)!, reader.GetString(5)));
          return result;
+      }
+
+      /// <summary>
+      /// Заменяет конструктивный слой дочерней схемы материализованным граничным сценарием и
+      /// записывает сводку. Одна транзакция: результаты и проверки, постановки, нагрузки, загружения,
+      /// группы, стержни и узлы ребёнка удаляются, план вставляется с перенумерацией временных Id,
+      /// у mesh-снимка переписываются только Source*-теги. Кэши процесса синхронизируются после commit.
+      /// </summary>
+      public SubmodelMaterialization ApplySubmodelMaterialization(int submodelSchemaId, int scenarioId,
+         SubmodelMaterializationPlan plan)
+      {
+         ArgumentNullException.ThrowIfNull(plan);
+         var extraction = GetSubmodelExtractionBySubmodelSchema(submodelSchemaId)
+            ?? throw new InvalidOperationException("submodel_materialization_extraction_missing");
+         if (plan.Summary.ExtractionId != extraction.Id)
+            throw new InvalidOperationException("submodel_materialization_plan_mismatch");
+         if (GetSubmodelBoundaryScenarios(extraction.Id).All(s => s.Id != scenarioId))
+            throw new InvalidOperationException("submodel_materialization_scenario_mismatch");
+         if (GetFemAnalysis(extraction.ParentAnalysisId)?.ResultId != extraction.ParentResultId)
+            throw new InvalidOperationException(SubmodelMaterializationDiagnostics.Stale);
+         if (IsSubmodelParent(submodelSchemaId))
+            throw new InvalidOperationException("submodel_materialization_child_is_parent");
+         var meshNodes = GetFemMeshNodes(submodelSchemaId);
+         var meshElements = GetFemMeshElements(submodelSchemaId);
+         if (SubmodelMeshIntegrity.Check(extraction, meshNodes, meshElements, checkIds: true).Count > 0
+             || !meshNodes.Select(n => n.Id).ToHashSet().SetEquals(plan.MeshNodes.Select(n => n.Id))
+             || !meshElements.Select(e => e.Id).ToHashSet().SetEquals(plan.MeshElements.Select(e => e.Id)))
+            throw new InvalidOperationException(SubmodelMaterializationDiagnostics.MeshStale);
+
+         List<int> resultIds;
+         SubmodelMaterialization stored;
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            resultIds = CollectFemSchemaResultIds(submodelSchemaId);
+            DeleteCalcResultsByIds(resultIds);
+            using (var delete = _connection.CreateCommand())
+            {
+               delete.CommandText = """
+                  DELETE FROM fem_checks           WHERE schema_id=@sid;
+                  DELETE FROM fem_analyses         WHERE schema_id=@sid;
+                  DELETE FROM fem_load_definitions WHERE schema_id=@sid;
+                  DELETE FROM fem_node_loads       WHERE schema_id=@sid;
+                  DELETE FROM fem_member_loads     WHERE schema_id=@sid;
+                  DELETE FROM fem_kinematic_loads  WHERE schema_id=@sid;
+                  DELETE FROM fem_load_cases       WHERE schema_id=@sid;
+                  DELETE FROM fem_member_groups    WHERE schema_id=@sid;
+                  DELETE FROM fem_members          WHERE schema_id=@sid;
+                  DELETE FROM fem_nodes            WHERE schema_id=@sid;
+               """;
+               delete.Parameters.AddWithValue("@sid", submodelSchemaId);
+               delete.ExecuteNonQuery();
+            }
+
+            var nodeIds = new Dictionary<int, int>();
+            foreach (var node in plan.Nodes)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = """
+                  INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask) VALUES (@sid, @tag, @x, @y, @z, @dm);
+                  SELECT last_insert_rowid();
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@tag", node.NodeTag);
+               command.Parameters.AddWithValue("@x", node.X);
+               command.Parameters.AddWithValue("@y", node.Y);
+               command.Parameters.AddWithValue("@z", node.Z);
+               command.Parameters.AddWithValue("@dm", node.DofMask);
+               nodeIds[node.Id] = (int)(long)command.ExecuteScalar()!;
+            }
+
+            var memberIds = new Dictionary<int, int>();
+            foreach (var member in plan.Members)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = """
+                  INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
+                                           cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, rotation_deg)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @rot);
+                  SELECT last_insert_rowid();
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@tag", member.ElemTag);
+               command.Parameters.AddWithValue("@etype", member.ElemType);
+               command.Parameters.AddWithValue("@nids", member.NodeIdsJson);
+               command.Parameters.AddWithValue("@stag", (object?)member.SectionTag ?? DBNull.Value);
+               command.Parameters.AddWithValue("@mtag", (object?)member.MaterialTag ?? DBNull.Value);
+               command.Parameters.AddWithValue("@thk", (object?)member.ThicknessM ?? DBNull.Value);
+               command.Parameters.AddWithValue("@csid", (object?)member.CrossSectionId ?? DBNull.Value);
+               command.Parameters.AddWithValue("@gjs", member.GjStrategy);
+               command.Parameters.AddWithValue("@gjv", (object?)member.GjManualValue ?? DBNull.Value);
+               command.Parameters.AddWithValue("@gjt", (object?)member.GjTorsionTaskId ?? DBNull.Value);
+               command.Parameters.AddWithValue("@rot", member.RotationDeg);
+               memberIds[member.Id] = (int)(long)command.ExecuteScalar()!;
+            }
+
+            int loadCaseId;
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = """
+                  INSERT INTO fem_load_cases (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                  SELECT last_insert_rowid();
+               """;
+               var lc = plan.LoadCase;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@tag", lc.Tag);
+               command.Parameters.AddWithValue("@lt", (object?)lc.LoadType ?? DBNull.Value);
+               command.Parameters.AddWithValue("@st", lc.Sp20Type);
+               command.Parameters.AddWithValue("@sg", (object?)lc.Sp20Group ?? DBNull.Value);
+               command.Parameters.AddWithValue("@gu", (object?)lc.GammaFUnfav ?? DBNull.Value);
+               command.Parameters.AddWithValue("@gf", (object?)lc.GammaFFav ?? DBNull.Value);
+               command.Parameters.AddWithValue("@p1", (object?)lc.Psi1 ?? DBNull.Value);
+               command.Parameters.AddWithValue("@p2", (object?)lc.Psi2 ?? DBNull.Value);
+               loadCaseId = (int)(long)command.ExecuteScalar()!;
+            }
+            int LoadCase(int temporary) => temporary == plan.LoadCase.Id
+               ? loadCaseId
+               : throw new InvalidOperationException($"submodel_materialization_plan_invalid: загружение {temporary}");
+
+            foreach (var load in plan.NodeLoads)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = """
+                  INSERT INTO fem_node_loads (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+                  VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@lc", LoadCase(load.LoadCaseId));
+               command.Parameters.AddWithValue("@nid", nodeIds[load.NodeId]);
+               command.Parameters.AddWithValue("@fx", load.Fx);
+               command.Parameters.AddWithValue("@fy", load.Fy);
+               command.Parameters.AddWithValue("@fz", load.Fz);
+               command.Parameters.AddWithValue("@mx", load.Mx);
+               command.Parameters.AddWithValue("@my", load.My);
+               command.Parameters.AddWithValue("@mz", load.Mz);
+               command.ExecuteNonQuery();
+            }
+            foreach (var load in plan.KinematicLoads)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = """
+                  INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+                  VALUES (@sid, @lc, @nid, @dof, @value)
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@lc", LoadCase(load.LoadCaseId));
+               command.Parameters.AddWithValue("@nid", nodeIds[load.NodeId]);
+               command.Parameters.AddWithValue("@dof", load.Dof);
+               command.Parameters.AddWithValue("@value", load.Value);
+               command.ExecuteNonQuery();
+            }
+            foreach (var load in plan.MemberLoads)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = """
+                  INSERT INTO fem_member_loads
+                     (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                      start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end, mx, my, mz)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz)
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@lc", LoadCase(load.LoadCaseId));
+               command.Parameters.AddWithValue("@mid", memberIds[load.MemberId]);
+               command.Parameters.AddWithValue("@cs", load.CoordinateSystem);
+               command.Parameters.AddWithValue("@dt", load.DistributionType);
+               command.Parameters.AddWithValue("@so", load.StartOffsetM);
+               command.Parameters.AddWithValue("@eo", load.EndOffsetM);
+               command.Parameters.AddWithValue("@qxs", load.QxStart);
+               command.Parameters.AddWithValue("@qys", load.QyStart);
+               command.Parameters.AddWithValue("@qzs", load.QzStart);
+               command.Parameters.AddWithValue("@qxe", load.QxEnd);
+               command.Parameters.AddWithValue("@qye", load.QyEnd);
+               command.Parameters.AddWithValue("@qze", load.QzEnd);
+               command.Parameters.AddWithValue("@mx", load.Mx);
+               command.Parameters.AddWithValue("@my", load.My);
+               command.Parameters.AddWithValue("@mz", load.Mz);
+               command.ExecuteNonQuery();
+            }
+
+            var expression = plan.LinearAnalysis.GetLoadExpression();
+            var remapped = new CScore.Fem.FemLoadExpression
+            {
+               Mode = expression.Mode, CombinationType = expression.CombinationType,
+               LoadCaseIds = expression.LoadCaseIds.Select(LoadCase).ToList(),
+               Terms = expression.Terms.Select(t => new CScore.Fem.FemLoadTerm { LoadCaseId = LoadCase(t.LoadCaseId), Coefficient = t.Coefficient }).ToList()
+            };
+            string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = """
+                  INSERT INTO fem_analyses (schema_id, tag, kind, load_expression_json, params_json, status, result_id, created)
+                  VALUES (@sid, @tag, @kind, @expr, @params, 'created', NULL, @created)
+               """;
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.Parameters.AddWithValue("@tag", plan.LinearAnalysis.Tag);
+               command.Parameters.AddWithValue("@kind", plan.LinearAnalysis.Kind);
+               command.Parameters.AddWithValue("@expr", remapped.ToJson());
+               command.Parameters.AddWithValue("@params", plan.LinearAnalysis.ParamsJson);
+               command.Parameters.AddWithValue("@created", created);
+               command.ExecuteNonQuery();
+            }
+
+            foreach (var node in plan.MeshNodes)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = "UPDATE fem_mesh_nodes SET source_node_tag=@snt, source_member_tag=@smt WHERE id=@id AND schema_id=@sid";
+               command.Parameters.AddWithValue("@snt", (object?)node.SourceNodeTag ?? DBNull.Value);
+               command.Parameters.AddWithValue("@smt", (object?)node.SourceMemberTag ?? DBNull.Value);
+               command.Parameters.AddWithValue("@id", node.Id);
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.ExecuteNonQuery();
+            }
+            foreach (var element in plan.MeshElements)
+            {
+               using var command = _connection.CreateCommand();
+               command.CommandText = "UPDATE fem_elements SET source_member_tag=@smt WHERE id=@id AND schema_id=@sid";
+               command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value);
+               command.Parameters.AddWithValue("@id", element.Id);
+               command.Parameters.AddWithValue("@sid", submodelSchemaId);
+               command.ExecuteNonQuery();
+            }
+
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = """
+                  DELETE FROM submodel_materializations WHERE scenario_id=@s;
+                  INSERT INTO submodel_materializations (scenario_id, plan_json, created) VALUES (@s, @plan, @created);
+                  SELECT last_insert_rowid();
+               """;
+               command.Parameters.AddWithValue("@s", scenarioId);
+               command.Parameters.AddWithValue("@plan", JsonSerializer.Serialize(plan.Summary, _jsonSettings));
+               command.Parameters.AddWithValue("@created", created);
+               stored = new SubmodelMaterialization((int)(long)command.ExecuteScalar()!, scenarioId, plan.Summary, created);
+            }
+            tx.Commit();
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+
+         if (FemSchemas.FirstOrDefault(s => s.Id == submodelSchemaId) is { } schema)
+            ReloadFemSchemaCollections(schema);
+         ForgetFemSchemaResults(submodelSchemaId, resultIds);
+         return stored;
+      }
+
+      /// <summary>Материализация граничного сценария; null — сценарий не материализован.</summary>
+      public SubmodelMaterialization? GetSubmodelMaterialization(int scenarioId)
+      {
+         using var command = _connection.CreateCommand();
+         command.CommandText = "SELECT id, plan_json, created FROM submodel_materializations WHERE scenario_id=@s";
+         command.Parameters.AddWithValue("@s", scenarioId);
+         using var reader = command.ExecuteReader();
+         if (!reader.Read()) return null;
+         return new SubmodelMaterialization(reader.GetInt32(0), scenarioId,
+            JsonSerializer.Deserialize<SubmodelMaterializationSummary>(reader.GetString(1), _jsonSettings)!, reader.GetString(2));
+      }
+
+      /// <summary>Является ли схема родителем какого-либо извлечения субмодели.</summary>
+      bool IsSubmodelParent(int schemaId)
+      {
+         using var command = _connection.CreateCommand();
+         command.CommandText = "SELECT EXISTS(SELECT 1 FROM submodel_extractions WHERE parent_schema_id=@id)";
+         command.Parameters.AddWithValue("@id", schemaId);
+         return Convert.ToInt64(command.ExecuteScalar()) != 0;
       }
 
       /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>

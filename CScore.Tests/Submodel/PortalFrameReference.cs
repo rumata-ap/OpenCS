@@ -76,14 +76,19 @@ public static class PortalFrameReference
     };
 
     /// <summary>Извлечение через реальные Срезы 1–2: адаптер сетки → анализатор → сборщик draft.</summary>
-    public static SubmodelExtraction Extract(ParentModel parent, IReadOnlyCollection<string> selectedElements)
+    public static SubmodelExtraction Extract(ParentModel parent, IReadOnlyCollection<string> selectedElements) =>
+        ExtractWithMesh(parent, selectedElements).Extraction;
+
+    /// <summary>Извлечение вместе с дочерним mesh-снимком draft (как его сохранил бы Срез 2).</summary>
+    public static (SubmodelExtraction Extraction, IReadOnlyList<FemMeshNode> MeshNodes, IReadOnlyList<FemElement> MeshElements)
+        ExtractWithMesh(ParentModel parent, IReadOnlyCollection<string> selectedElements)
     {
         var adapted = MeshBeamSegmentAdapter.Build(selectedElements, parent.MeshElements, parent.MeshNodes, parent.Members);
         var analysis = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default,
             adapted.PreferredDirection, new BeamLocalAxisFrameProvider(), adapted.Diagnostics);
         var draft = StraightBeamSubmodelBuilder.Build(1, analysis, parent.MeshElements, parent.MeshNodes);
         Assert.True(draft.IsSuccess, string.Join(" | ", draft.Diagnostics.Select(d => d.Message)));
-        return FromDraft(draft.Draft!, "{}");
+        return (FromDraft(draft.Draft!, "{}"), draft.Draft!.MeshNodes, draft.Draft!.MeshElements);
     }
 
     /// <summary>Та же доменная модель, что вернул бы DatabaseService после сохранения draft (без БД).</summary>
@@ -100,10 +105,24 @@ public static class PortalFrameReference
             s.StartStationM, s.EndStationM, s.LengthM, s.AngleToAxisDeg, s.BetaDeg, s.BetaSource)).ToList()
     };
 
-    public static BoundaryScenario Build(ParentModel parent, SubmodelExtraction extraction, IParentLinearResult result) =>
+    public static BoundaryScenario Build(ParentModel parent, SubmodelExtraction extraction, IParentLinearResult result,
+        IReadOnlyList<DofOverride>? overrides = null) =>
         StraightBeamBoundaryScenarioBuilder.Build(new BoundaryScenarioInput(extraction, "opensees",
             parent.Nodes, parent.Members, parent.MeshNodes, parent.MeshElements, LoadCases(), NodeLoads(),
-            MemberLoads(), [], result, [])).Scenario;
+            MemberLoads(), [], result, overrides ?? [])).Scenario;
+
+    /// <summary>Результат родителя из записанной фикстуры (всегда доступен, без OpenSees).</summary>
+    public static IParentLinearResult FixtureResult()
+    {
+        string copied = Path.Combine(AppContext.BaseDirectory, FixtureRelativePath);
+        if (File.Exists(copied)) return ToParentResult(Deserialize(File.ReadAllText(copied)));
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            string candidate = Path.Combine(dir.FullName, "CScore.Tests", FixtureRelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(candidate)) return ToParentResult(Deserialize(File.ReadAllText(candidate)));
+        }
+        throw new FileNotFoundException("Не найдена фикстура рамы.", FixtureRelativePath);
+    }
 
     /// <summary>
     /// Общие проверки эталона. Главная — совпадение граничного вектора с контрольным остатком
