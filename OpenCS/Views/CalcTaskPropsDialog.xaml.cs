@@ -10,6 +10,7 @@ using CScore;
 using CScore.Fire.Entities;
 using CScore.Sp63.Normal;
 using CScore.Sp63.CrackWidth;
+using CScore.Sp63.Deflection;
 using CSfea.Torsion;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -101,6 +102,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63CrackWidthManualN = "0";
    string sp63CrackWidthManualMx = "0";
    string sp63CrackWidthManualMy = "0";
+   string sp63DeflectionAxis = "Mx";
+   string sp63DeflectionScheme = "simply_supported_uniform";
+   string sp63DeflectionForcesMode = "total_only";
+   string sp63DeflectionSpan = "6";
+   string sp63DeflectionLimit = "20";
+   string sp63DeflectionShare = "1";
+   string sp63DeflectionHumidity = "40_75";
+   bool sp63DeflectionUseManualForces;
+   string sp63DeflectionN = "0", sp63DeflectionMx = "0", sp63DeflectionMy = "0";
+   string sp63DeflectionNLong = "0", sp63DeflectionMxLong = "0", sp63DeflectionMyLong = "0";
     string openSeesSpatialAngleStep = "45";
     string openSeesSpatialAdditionalSlices = "2";
      string openSeesCurvatureStep = "0.0005";
@@ -338,6 +349,62 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    /// <summary>Задача упрощённой проверки ширины раскрытия трещин по СП 63.</summary>
    public bool IsSp63CrackWidth => Kind == "sp63_crack_width";
+
+   /// <summary>Отдельная формульная задача прогиба по СП 63.</summary>
+   public bool IsSp63Deflection => Kind == "sp63_deflection";
+   /// <summary>Показывать параметры формульного прогиба.</summary>
+   public bool ShowSp63DeflectionFields => IsSp63Deflection;
+   /// <summary>Ось изгиба.</summary>
+   public string Sp63DeflectionAxis { get => sp63DeflectionAxis; set { sp63DeflectionAxis = value; OnPropertyChanged(); } }
+   /// <summary>Идентификатор схемы.</summary>
+   public string Sp63DeflectionScheme
+   {
+      get => sp63DeflectionScheme;
+      set { sp63DeflectionScheme = value; OnPropertyChanged(); OnPropertyChanged(nameof(Sp63DeflectionCoefficient)); }
+   }
+   /// <summary>Коэффициент S выбранной схемы.</summary>
+   public string Sp63DeflectionCoefficient =>
+      CScore.Sp63.Deflection.Sp63DeflectionScheme.TryParse(Sp63DeflectionScheme, out var scheme)
+         ? CScore.Sp63.Deflection.Sp63DeflectionScheme.Coefficient(scheme).ToString("G6", System.Globalization.CultureInfo.InvariantCulture)
+         : "";
+   /// <summary>Режим получения длительной нагрузки.</summary>
+   public string Sp63DeflectionForcesMode
+   {
+      get => sp63DeflectionForcesMode;
+      set { sp63DeflectionForcesMode = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowSp63DeflectionShare)); OnPropertyChanged(nameof(ShowSp63DeflectionManualLong)); }
+   }
+   public string Sp63DeflectionSpan { get => sp63DeflectionSpan; set { sp63DeflectionSpan = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionLimit { get => sp63DeflectionLimit; set { sp63DeflectionLimit = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionShare { get => sp63DeflectionShare; set { sp63DeflectionShare = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionHumidity { get => sp63DeflectionHumidity; set { sp63DeflectionHumidity = value; OnPropertyChanged(); } }
+   public bool Sp63DeflectionUseManualForces
+   {
+      get => sp63DeflectionUseManualForces;
+      set
+      {
+         if (value && !sp63DeflectionUseManualForces && SelectedForceItem is { } item)
+         {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Sp63DeflectionN = item.N.ToString("G6", inv);
+            Sp63DeflectionMx = item.Mx.ToString("G6", inv);
+            Sp63DeflectionMy = item.My.ToString("G6", inv);
+         }
+         sp63DeflectionUseManualForces = value;
+         OnPropertyChanged(); OnPropertyChanged(nameof(ShowSp63DeflectionManualForces));
+         OnPropertyChanged(nameof(ShowSp63DeflectionForceSet)); OnPropertyChanged(nameof(ShowForceItem));
+         OnPropertyChanged(nameof(ShowStandardForce));
+      }
+   }
+   public bool ShowSp63DeflectionForceSet => IsSp63Deflection && !Sp63DeflectionUseManualForces;
+   public bool ShowSp63DeflectionManualForces => IsSp63Deflection && Sp63DeflectionUseManualForces;
+   public bool ShowSp63DeflectionShare => IsSp63Deflection && Sp63DeflectionForcesMode == "share";
+   public bool ShowSp63DeflectionManualLong => IsSp63Deflection && Sp63DeflectionForcesMode == "manual";
+   public string Sp63DeflectionN { get => sp63DeflectionN; set { sp63DeflectionN = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionMx { get => sp63DeflectionMx; set { sp63DeflectionMx = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionMy { get => sp63DeflectionMy; set { sp63DeflectionMy = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionNLong { get => sp63DeflectionNLong; set { sp63DeflectionNLong = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionMxLong { get => sp63DeflectionMxLong; set { sp63DeflectionMxLong = value; OnPropertyChanged(); } }
+   public string Sp63DeflectionMyLong { get => sp63DeflectionMyLong; set { sp63DeflectionMyLong = value; OnPropertyChanged(); } }
 
    /// <summary>Показывать параметры упрощённой проверки ширины раскрытия трещин.</summary>
    public bool ShowSp63CrackWidthFields => IsSp63CrackWidth;
@@ -580,6 +647,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(IsSp63CrackWidth));
            OnPropertyChanged(nameof(ShowSp63CrackWidthFields));
+           OnPropertyChanged(nameof(IsSp63Deflection));
+           OnPropertyChanged(nameof(ShowSp63DeflectionFields));
+           OnPropertyChanged(nameof(ShowSp63DeflectionForceSet));
+           OnPropertyChanged(nameof(ShowSp63DeflectionManualForces));
+           OnPropertyChanged(nameof(ShowSp63DeflectionShare));
+           OnPropertyChanged(nameof(ShowSp63DeflectionManualLong));
            OnPropertyChanged(nameof(ShowSp63CrackWidthForceSet));
            OnPropertyChanged(nameof(ShowSp63CrackWidthManualForces));
            OnPropertyChanged(nameof(ShowForceItem));
@@ -918,14 +991,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
-      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces);
+      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
+      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces);
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
    public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
-      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces);
+      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
+      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces);
 
    void FilterSections()
    {
@@ -1760,6 +1835,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "sp63_crack_width",   Label = Loc.S("CalcTaskKind_sp63_crack_width"),   GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "sp63_deflection",    Label = Loc.S("CalcTaskKind_sp63_deflection"),    GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature_batch", Label = Loc.S("CalcTaskKind_total_curvature_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
@@ -1806,7 +1882,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                return IsShellLayeredSls
                    ? [CalcType.N, CalcType.NL]
                    : [CalcType.C, CalcType.CL];
-           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny)
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny || IsSp63Deflection)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }
@@ -2210,6 +2286,28 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              }
           }
 
+          if (existing.Kind == "sp63_deflection"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson)
+              && existing.ParamsJson != "{}")
+          {
+             var dfp = Sp63DeflectionTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             Sp63DeflectionAxis = dfp.Axis;
+             Sp63DeflectionScheme = dfp.Scheme ?? "";
+             Sp63DeflectionForcesMode = dfp.ForcesMode;
+             Sp63DeflectionSpan = dfp.SpanM.ToString("G6", inv);
+             Sp63DeflectionLimit = dfp.DeflectionLimitMm.ToString("G6", inv);
+             Sp63DeflectionShare = dfp.LongTermShare.ToString("G6", inv);
+             Sp63DeflectionHumidity = dfp.Humidity;
+             Sp63DeflectionUseManualForces = dfp.UseManualForces;
+             if (dfp.N.HasValue) Sp63DeflectionN = dfp.N.Value.ToString("G6", inv);
+             if (dfp.Mx.HasValue) Sp63DeflectionMx = dfp.Mx.Value.ToString("G6", inv);
+             if (dfp.My.HasValue) Sp63DeflectionMy = dfp.My.Value.ToString("G6", inv);
+             if (dfp.NLongManual.HasValue) Sp63DeflectionNLong = dfp.NLongManual.Value.ToString("G6", inv);
+             if (dfp.MxLongManual.HasValue) Sp63DeflectionMxLong = dfp.MxLongManual.Value.ToString("G6", inv);
+             if (dfp.MyLongManual.HasValue) Sp63DeflectionMyLong = dfp.MyLongManual.Value.ToString("G6", inv);
+          }
+
           NotifyTorsionForceProps();
           RefreshTorsionLmin();
        }
@@ -2414,6 +2512,85 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
          }
+         return;
+      }
+
+      if (IsSp63Deflection)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (!Sp63DeflectionUseManualForces && (SelectedForceSet == null || SelectedForceItem == null))
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (!TryParseSp63NormalNumber(Sp63DeflectionSpan, false, true, out var span)
+             || !TryParseSp63NormalNumber(Sp63DeflectionLimit, false, true, out var limit)
+             || !TryParseSp63NormalNumber(Sp63DeflectionShare, false, false, out var share)
+             || share is < 0 or > 1)
+         {
+            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         double? n = null, mx = null, my = null;
+         if (Sp63DeflectionUseManualForces
+             && (!TryParseSp63NormalNumber(Sp63DeflectionN, false, false, out n)
+                 || !TryParseSp63NormalNumber(Sp63DeflectionMx, false, false, out mx)
+                 || !TryParseSp63NormalNumber(Sp63DeflectionMy, false, false, out my)))
+         {
+            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         double? nl = null, mxl = null, myl = null;
+         if (Sp63DeflectionForcesMode == "manual"
+             && (!TryParseSp63NormalNumber(Sp63DeflectionNLong, false, false, out nl)
+                 || !TryParseSp63NormalNumber(Sp63DeflectionMxLong, false, false, out mxl)
+                 || !TryParseSp63NormalNumber(Sp63DeflectionMyLong, false, false, out myl)))
+         {
+            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var deflectionParams = new Sp63DeflectionTaskParams
+         {
+            Axis = Sp63DeflectionAxis,
+            Scheme = Sp63DeflectionScheme,
+            SpanM = span!.Value,
+            DeflectionLimitMm = limit!.Value,
+            Humidity = Sp63DeflectionHumidity,
+            ForcesMode = Sp63DeflectionForcesMode,
+            LongTermShare = share!.Value,
+            UseManualForces = Sp63DeflectionUseManualForces,
+            N = n, Mx = mx, My = my,
+            NLongManual = nl, MxLongManual = mxl, MyLongManual = myl
+         };
+         if (!deflectionParams.TryToOptions(out _, out _))
+         {
+            MessageBox.Show(Loc.S("Sp63Deflection_InvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = Sp63DeflectionUseManualForces ? 0 : SelectedForceSet!.Id,
+            ForceItemId = Sp63DeflectionUseManualForces ? 0 : SelectedForceItem!.Id,
+            CalcType = SelectedCalcType,
+            ParamsJson = deflectionParams.ToJson()
+         };
+         _window.DialogResult = true;
          return;
       }
 

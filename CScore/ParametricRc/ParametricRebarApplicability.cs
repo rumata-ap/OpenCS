@@ -36,7 +36,7 @@ public sealed record ParametricRebarApplicabilityResult(
 public static class ParametricRebarApplicability
 {
     static readonly HashSet<string> AllowedKinds =
-        ["strain_state", "strain_state_batch", "sp63_normal"];
+        ["strain_state", "strain_state_batch", "sp63_normal", "sp63_deflection"];
 
     /// <summary>Проверяет только уровень вида задачи, без анализа нагрузки.</summary>
     public static bool IsSupportedTaskKind(string kind) => AllowedKinds.Contains(kind);

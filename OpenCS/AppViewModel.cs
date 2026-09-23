@@ -56,6 +56,7 @@ namespace OpenCS
             new OpenCS.Reporting.Sp63NormalReportProvider(),
             new OpenCS.Reporting.ShearInclinedReportProvider(),
             new OpenCS.Reporting.Sp63CrackWidthReportProvider(),
+            new OpenCS.Reporting.Sp63DeflectionReportProvider(),
             new OpenCS.Reporting.ShellLayeredCrackWidthReportProvider()
          ]);
 

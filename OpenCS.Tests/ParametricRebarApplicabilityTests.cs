@@ -1,5 +1,6 @@
 using CScore;
 using CScore.ParametricRc;
+using CScore.Sp63.Normal;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using Xunit;
@@ -23,6 +24,25 @@ public sealed class ParametricRebarApplicabilityTests
 
         Assert.False(result.IsApplicable);
         Assert.Equal(ParametricRebarApplicabilityReason.UnsupportedTaskKind, result.Reason);
+    }
+
+    [Fact]
+    public void IdealizedLayerAllowsSp63DeflectionOnlyOnItsAxis()
+    {
+        var section = ParametricRcSectionGenerator.Generate(
+            ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+            {
+                LowerRebar = ParametricLongitudinalLayer.Idealized(
+                    0.0012, 0.020, -0.21, IdealizedRebarAxis.Mx)
+            }).Section;
+
+        var supported = ParametricRebarApplicability.Evaluate(
+            section, "sp63_deflection", new LoadItem { Mx = 10 }, Sp63NormalAxis.Mx);
+        var wrongAxis = ParametricRebarApplicability.Evaluate(
+            section, "sp63_deflection", new LoadItem { My = 10 }, Sp63NormalAxis.My);
+
+        Assert.True(supported.IsApplicable);
+        Assert.Equal(ParametricRebarApplicabilityReason.AxisMismatch, wrongAxis.Reason);
     }
 
     [Fact]

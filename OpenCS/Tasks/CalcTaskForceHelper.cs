@@ -15,6 +15,7 @@ public static class CalcTaskForceHelper
          || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
          || task.Kind == "shear_inclined"
          || task.Kind == "sp63_normal" || task.Kind == "sp63_crack_width"
+         || task.Kind == "sp63_deflection"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
@@ -85,6 +86,17 @@ public static class CalcTaskForceHelper
       {
          var crackWidth = Sp63CrackWidthTaskParams.Parse(task.ParamsJson);
          return crackWidth.UseManualForces ? crackWidth.ToLoadItem() : null;
+      }
+
+      if (task.Kind == "sp63_deflection")
+      {
+         var deflection = CScore.Sp63.Deflection.Sp63DeflectionTaskParams.Parse(task.ParamsJson);
+         return deflection.UseManualForces ? new LoadItem
+         {
+            N = deflection.N ?? 0.0,
+            Mx = deflection.Mx ?? 0.0,
+            My = deflection.My ?? 0.0
+         } : null;
       }
 
       try

@@ -63,6 +63,7 @@
          <RowDefinition Height="Auto"/> <!-- 20 Fire thermal curvature -->
          <RowDefinition Height="Auto"/> <!-- 21 SP63 normal section -->
          <RowDefinition Height="Auto"/> <!-- 22 SP63 crack width -->
+         <RowDefinition Height="Auto"/> <!-- 23 SP63 deflection -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -136,6 +137,75 @@
                     Foreground="Gray" Margin="8,4,0,0"
                     Text="{DynamicResource CalcTaskFireForcesHint}"
                     Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
+
+      <StackPanel Grid.Row="23" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding ShowSp63DeflectionFields, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource Sp63Deflection_GroupTitle}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <TextBlock Text="{DynamicResource Sp63Deflection_Axis}"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Sp63DeflectionAxis}" Margin="0,0,0,4">
+                  <ComboBoxItem Tag="Mx" Content="{DynamicResource Sp63NormalAxisMx}"/>
+                  <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
+               </ComboBox>
+               <TextBlock Text="{DynamicResource Sp63Deflection_Scheme}"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Sp63DeflectionScheme}" Margin="0,0,0,4">
+                  <ComboBoxItem Tag="simply_supported_uniform" Content="{DynamicResource Sp63Deflection_SchemeUniform}"/>
+                  <ComboBoxItem Tag="simply_supported_midpoint" Content="{DynamicResource Sp63Deflection_SchemeMidpoint}"/>
+                  <ComboBoxItem Tag="cantilever_tip" Content="{DynamicResource Sp63Deflection_SchemeCantilever}"/>
+               </ComboBox>
+               <TextBlock Text="{DynamicResource Sp63Deflection_Coefficient}"/>
+               <TextBlock Text="{Binding Sp63DeflectionCoefficient}" FontFamily="Consolas" Margin="0,0,0,4"/>
+               <TextBlock Text="{DynamicResource Sp63Deflection_Span}"/>
+               <TextBox Text="{Binding Sp63DeflectionSpan, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               <TextBlock Text="{DynamicResource Sp63Deflection_Limit}"/>
+               <TextBox Text="{Binding Sp63DeflectionLimit, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               <TextBlock Text="{DynamicResource Sp63Deflection_Humidity}"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Sp63DeflectionHumidity}" Margin="0,0,0,4">
+                  <ComboBoxItem Tag="above_75" Content="{DynamicResource Sp63CrackWidthHumidityAbove75}"/>
+                  <ComboBoxItem Tag="40_75" Content="{DynamicResource Sp63CrackWidthHumidity40To75}"/>
+                  <ComboBoxItem Tag="below_40" Content="{DynamicResource Sp63CrackWidthHumidityBelow40}"/>
+               </ComboBox>
+               <TextBlock Text="{DynamicResource Sp63Deflection_ForcesMode}"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Sp63DeflectionForcesMode}" Margin="0,0,0,4">
+                  <ComboBoxItem Tag="total_only" Content="{DynamicResource Sp63Deflection_ForcesTotalOnly}"/>
+                  <ComboBoxItem Tag="share" Content="{DynamicResource Sp63Deflection_ForcesShare}"/>
+                  <ComboBoxItem Tag="manual" Content="{DynamicResource Sp63Deflection_ForcesManual}"/>
+               </ComboBox>
+               <StackPanel Visibility="{Binding ShowSp63DeflectionShare, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource Sp63Deflection_LongShare}"/>
+                  <TextBox Text="{Binding Sp63DeflectionShare, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               </StackPanel>
+               <TextBlock Text="{DynamicResource Sp63Deflection_ConstantStiffnessNote}"
+                          Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,2,0,4"/>
+               <CheckBox Content="{DynamicResource Sp63Deflection_UseManualForces}"
+                         IsChecked="{Binding Sp63DeflectionUseManualForces}" Margin="0,4,0,4"/>
+               <Grid Visibility="{Binding ShowSp63DeflectionManualForces, Converter={StaticResource BoolToVisibility}}">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/><ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/><ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/><ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"/>
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Sp63DeflectionN, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,2"/>
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource CalcTaskForceMx}"/>
+                  <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Sp63DeflectionMx, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,2"/>
+                  <TextBlock Grid.Row="0" Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"/>
+                  <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding Sp63DeflectionMy, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>
+               </Grid>
+               <StackPanel Visibility="{Binding ShowSp63DeflectionManualLong, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource Sp63Deflection_NLongManual}"/>
+                  <TextBox Text="{Binding Sp63DeflectionNLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>
+                  <TextBlock Text="{DynamicResource Sp63Deflection_MxLongManual}"/>
+                  <TextBox Text="{Binding Sp63DeflectionMxLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>
+                  <TextBlock Text="{DynamicResource Sp63Deflection_MyLongManual}"/>
+                  <TextBox Text="{Binding Sp63DeflectionMyLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               </StackPanel>
+               <TextBlock Text="{DynamicResource Sp63Deflection_InputsHint}" Foreground="Gray"
+                          FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+         </GroupBox>
       </StackPanel>
 
       <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"

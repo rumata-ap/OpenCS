@@ -89,6 +89,9 @@ public sealed record Sp63CurvatureInput(
     double B, double H, double H0, double APrime, double As, double AsPrime,
     double Eb, double RbSer, double Es, double ConcreteClass, Sp63Humidity Humidity);
 
+/// <summary>Усилия одной составляющей нагрузки для формульной кривизны.</summary>
+public sealed record Sp63CurvatureLoad(double M, double N);
+
 /// <summary>
 /// Кривизна железобетонного элемента прямоугольного сечения без предварительного напряжения
 /// по формулам пп. 8.2.23–8.2.30 СП 63.13330.2018 (не по деформационной модели п. 8.2.32).
@@ -156,6 +159,20 @@ public static class Sp63Curvature
     public static Sp63CurvatureResult? Compute(Sp63CurvatureInput input, double m, double n,
         double longTermShare, bool cracked, double mcrcFull, double mcrcLong)
     {
+        var full = new Sp63CurvatureLoad(m, n);
+        var longitudinal = new Sp63CurvatureLoad(longTermShare * m, longTermShare * n);
+        return Compute(input, full, longitudinal, cracked, mcrcFull, mcrcLong);
+    }
+
+    /// <summary>
+    /// Вычисляет кривизну по явным полной и длительной составляющим нагрузки. Без трещин
+    /// непродолжительная составляющая равна разности полной и длительной; с трещинами первая
+    /// составляющая относится к полной нагрузке, а вторая и третья — к длительной.
+    /// </summary>
+    public static Sp63CurvatureResult? Compute(Sp63CurvatureInput input,
+        Sp63CurvatureLoad full, Sp63CurvatureLoad longitudinal,
+        bool cracked, double mcrcFull, double mcrcLong)
+    {
         if (PhiBCr(input.ConcreteClass, input.Humidity) is not { } phi) return null;
 
         double ebShort = 0.85 * input.Eb;                          // (8.146)
@@ -164,21 +181,23 @@ public static class Sp63Curvature
         double epsLong = EpsB1RedLong(input.ConcreteClass, input.Humidity);
         double ebRedLong = input.RbSer / epsLong;
 
-        double mLong = longTermShare * m, nLong = longTermShare * n;
         var result = new Sp63CurvatureResult { Cracked = cracked, PhiBCr = phi, EpsB1RedLong = epsLong };
 
         if (!cracked)
         {
-            var t1 = Uncracked(input, 1, false, m - mLong, n - nLong, ebShort);
-            var t2 = Uncracked(input, 2, true, mLong, nLong, ebLong);
+            var t1 = Uncracked(input, 1, false,
+                full.M - longitudinal.M, full.N - longitudinal.N, ebShort);
+            var t2 = Uncracked(input, 2, true, longitudinal.M, longitudinal.N, ebLong);
             result.Terms = [t1, t2];
             result.Total = t1.Curvature + t2.Curvature;                   // (8.140)
             return result;
         }
 
-        var c1 = Cracked(input, 1, false, m, n, ebRedShort, ebShort, mcrcFull);
-        var c2 = Cracked(input, 2, false, mLong, nLong, ebRedShort, ebShort, mcrcLong);
-        var c3 = Cracked(input, 3, true, mLong, nLong, ebRedLong, ebLong, mcrcLong);
+        var c1 = Cracked(input, 1, false, full.M, full.N, ebRedShort, ebShort, mcrcFull);
+        var c2 = Cracked(input, 2, false, longitudinal.M, longitudinal.N,
+            ebRedShort, ebShort, mcrcLong);
+        var c3 = Cracked(input, 3, true, longitudinal.M, longitudinal.N,
+            ebRedLong, ebLong, mcrcLong);
         if (c1 is null || c2 is null || c3 is null) return null;
         result.Terms = [c1, c2, c3];
         result.Total = c1.Curvature - c2.Curvature + c3.Curvature;        // (8.141)

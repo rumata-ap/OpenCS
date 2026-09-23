@@ -57,6 +57,7 @@ public static class CalcTaskGroups
             or "cracking" or "cracking_batch"
             or "crack_width" or "crack_width_batch"
             or "sp63_crack_width"
+            or "sp63_deflection"
             or "total_curvature" or "total_curvature_batch"           => Sls,
 
         _ when kind.StartsWith("fire_", System.StringComparison.Ordinal) => Fire,

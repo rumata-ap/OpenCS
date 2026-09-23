@@ -1,0 +1,128 @@
+<UserControl x:Class="OpenCS.Views.Sp63DeflectionResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <Grid Grid.Row="0" Margin="0,0,0,8">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+         <TextBlock Grid.Row="0" Text="{DynamicResource Sp63NormalTaskLabel}" FontWeight="SemiBold" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TaskTag}" FontSize="16" FontWeight="Bold"/>
+         <TextBlock Grid.Row="1" Text="{DynamicResource Sp63NormalSectionLabel}" Foreground="Gray" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SectionTag}" Foreground="Gray"/>
+         <TextBlock Grid.Row="2" Text="{DynamicResource Sp63NormalCreatedLabel}" Foreground="Gray" Margin="0,0,8,0"/>
+         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CreatedText}" Foreground="Gray"/>
+      </Grid>
+      <Border Grid.Row="1" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+              Background="#F0F4F8" BorderBrush="#D5DDE5" BorderThickness="1">
+         <StackPanel>
+            <TextBlock Text="{Binding ForcesSummary}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding ContextSummary}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+            <TextBlock Text="{DynamicResource Sp63Deflection_ForceUnits}" Foreground="Gray" FontSize="11" Margin="0,2,0,0"/>
+         </StackPanel>
+      </Border>
+      <Border Grid.Row="2" Padding="12,8" Margin="0,0,0,8" CornerRadius="4"
+              Background="{Binding VerdictBackground}">
+         <StackPanel>
+            <TextBlock Text="{Binding VerdictText}" HorizontalAlignment="Center" FontWeight="Bold"
+                       FontSize="14" Foreground="{Binding VerdictBrush}"/>
+         </StackPanel>
+      </Border>
+      <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+         <StackPanel>
+            <GroupBox Header="{DynamicResource Sp63Deflection_CurvatureTitle}"
+                      Visibility="{Binding CurvatureVisibility}" Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="55"/><ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="75"/><ColumnDefinition Width="75"/>
+                        <ColumnDefinition Width="85"/><ColumnDefinition Width="95"/><ColumnDefinition Width="90"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource Sp63Deflection_CurvatureIndexColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="1" Text="{DynamicResource Sp63CurvatureDurationColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource Sp63CurvatureMColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="3" Text="{DynamicResource Sp63Deflection_AxialForceColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="4" Text="{DynamicResource Sp63Deflection_ModulusColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="5" Text="{DynamicResource Sp63CurvatureDColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="6" Text="{DynamicResource Sp63CurvatureValueColumn}" FontWeight="SemiBold"/>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding CurvatureRows}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                           <Grid Margin="0,0,0,2">
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="55"/><ColumnDefinition Width="*"/>
+                                 <ColumnDefinition Width="75"/><ColumnDefinition Width="75"/>
+                                 <ColumnDefinition Width="85"/><ColumnDefinition Width="95"/><ColumnDefinition Width="90"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold"/>
+                              <TextBlock Grid.Column="1" Text="{Binding Duration}" TextWrapping="Wrap"/>
+                              <TextBlock Grid.Column="2" Text="{Binding Moment}"/>
+                              <TextBlock Grid.Column="3" Text="{Binding AxialForce}"/>
+                              <TextBlock Grid.Column="4" Text="{Binding Modulus}"/>
+                              <TextBlock Grid.Column="5" Text="{Binding Stiffness}"/>
+                              <TextBlock Grid.Column="6" Text="{Binding Curvature}"/>
+                           </Grid>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding CurvatureText}" Margin="0,4,0,0" FontWeight="SemiBold"/>
+               </StackPanel>
+            </GroupBox>
+            <GroupBox Header="{DynamicResource Sp63Deflection_CheckTitle}"
+                      Visibility="{Binding HasDeflection, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8">
+               <Grid Margin="6">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource Sp63Deflection_SchemeLabel}"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SchemeText}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource Sp63Deflection_Coefficient}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CoefficientText}"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource Sp63Deflection_Span}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SpanText}"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource Sp63Deflection_CurvatureLabel}"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CurvatureText}"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource Sp63Deflection_DeflectionLabel}"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DeflectionText}"/>
+                  <TextBlock Grid.Row="5" Text="{DynamicResource Sp63Deflection_LimitLabel}"/>
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LimitText}"/>
+                  <TextBlock Grid.Row="6" Text="{DynamicResource Sp63Deflection_UtilizationLabel}"/>
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding UtilizationText}"/>
+               </Grid>
+            </GroupBox>
+            <GroupBox Header="{DynamicResource Sp63NormalApplicabilityTitle}"
+                      Visibility="{Binding ApplicabilityVisibility}" Margin="0,0,0,8">
+               <ItemsControl ItemsSource="{Binding ApplicabilityRows}" Margin="4">
+                  <ItemsControl.ItemTemplate><DataTemplate>
+                     <StackPanel Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11"/>
+                     </StackPanel>
+                  </DataTemplate></ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+            <GroupBox Header="{DynamicResource Sp63NormalInformationTitle}"
+                      Visibility="{Binding InformationVisibility}">
+               <ItemsControl ItemsSource="{Binding InformationRows}" Margin="4">
+                  <ItemsControl.ItemTemplate><DataTemplate>
+                     <StackPanel Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11"/>
+                     </StackPanel>
+                  </DataTemplate></ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+         </StackPanel>
+      </ScrollViewer>
+   </Grid>
+</UserControl>

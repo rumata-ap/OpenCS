@@ -106,4 +106,43 @@ public sealed class Sp63CurvatureTests
 
         Assert.Null(Sp63Curvature.Compute(input, 100.0, 0.0, 0.5, true, 30, 30));
     }
+
+    [Fact]
+    public void Compute_ExplicitLongLoad_UsesItsOwnNAndMoment()
+    {
+        var input = new Sp63CurvatureInput(0.3, 0.6, 0.55, 0.05, 40e-4, 5e-4,
+            30_000_000, 18_500, 200_000_000, 25, Sp63Humidity.From40To75);
+
+        var result = Sp63Curvature.Compute(input,
+            new Sp63CurvatureLoad(100.0, 0.0),
+            new Sp63CurvatureLoad(25.0, 40.0),
+            cracked: true, mcrcFull: 30.0, mcrcLong: 30.0);
+
+        Assert.NotNull(result);
+        Assert.Equal(100.0, result!.Terms.Single(t => t.Index == 1).M, 12);
+        Assert.Equal(25.0, result.Terms.Single(t => t.Index == 2).M, 12);
+        Assert.Equal(40.0, result.Terms.Single(t => t.Index == 2).N, 12);
+    }
+
+    [Fact]
+    public void Compute_ExplicitLongLoad_UncrackedMatchesLegacyShareWithNonzeroN()
+    {
+        var input = new Sp63CurvatureInput(0.3, 0.6, 0.55, 0.05, 40e-4, 5e-4,
+            30_000_000, 18_500, 200_000_000, 25, Sp63Humidity.From40To75);
+        const double m = 100.0;
+        const double n = 120.0;
+        const double share = 0.35;
+
+        var legacy = Sp63Curvature.Compute(input, m, n, share, cracked: false, 30.0, 30.0);
+        var explicitLoads = Sp63Curvature.Compute(input,
+            new Sp63CurvatureLoad(m, n),
+            new Sp63CurvatureLoad(m * share, n * share),
+            cracked: false, mcrcFull: 30.0, mcrcLong: 30.0);
+
+        Assert.NotNull(legacy);
+        Assert.NotNull(explicitLoads);
+        Assert.Equal(legacy!.Total, explicitLoads!.Total, 12);
+        Assert.Equal(legacy.Terms[0].N, explicitLoads.Terms[0].N, 12);
+        Assert.Equal(legacy.Terms[1].N, explicitLoads.Terms[1].N, 12);
+    }
 }
