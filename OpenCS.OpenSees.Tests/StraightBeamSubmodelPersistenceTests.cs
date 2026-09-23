@@ -50,7 +50,7 @@ public sealed class StraightBeamSubmodelPersistenceTests
             Assert.True(TableExists(path, "submodel_extractions"));
             Assert.True(TableExists(path, "submodel_extraction_nodes"));
             Assert.True(TableExists(path, "submodel_extraction_segments"));
-            Assert.Equal("57", SchemaVersion(path));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), SchemaVersion(path));
         }
         finally { DeleteDatabase(path); }
     }
@@ -238,7 +238,7 @@ public sealed class StraightBeamSubmodelPersistenceTests
         return new StraightBeamChainAnalysis(ChainVerdict.Extractable, chain, [], [], ChainTolerances.Default.Resolve(2), new ChainMetrics(null, null, null, null, null, 2, 1));
     }
 
-    static bool TableExists(string path, string table)
+    internal static bool TableExists(string path, string table)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
         connection.Open();
@@ -248,7 +248,7 @@ public sealed class StraightBeamSubmodelPersistenceTests
         return (long)command.ExecuteScalar()! == 1;
     }
 
-    static int CountRows(string path, string table)
+    internal static int CountRows(string path, string table)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
         connection.Open();
@@ -257,7 +257,7 @@ public sealed class StraightBeamSubmodelPersistenceTests
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
-    static string? SchemaVersion(string path)
+    internal static string? SchemaVersion(string path)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
         connection.Open();
@@ -266,9 +266,9 @@ public sealed class StraightBeamSubmodelPersistenceTests
         return command.ExecuteScalar() as string;
     }
 
-    static string TempDatabasePath() => Path.Combine(Path.GetTempPath(), $"opencs-submodel-{Guid.NewGuid():N}.db");
+    internal static string TempDatabasePath() => Path.Combine(Path.GetTempPath(), $"opencs-submodel-{Guid.NewGuid():N}.db");
 
-    static void DeleteDatabase(string path)
+    internal static void DeleteDatabase(string path)
     {
         if (File.Exists(path)) File.Delete(path);
     }

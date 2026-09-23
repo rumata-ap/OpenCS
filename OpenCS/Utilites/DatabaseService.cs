@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 58;
+      const int CurrentSchemaVersion = 59;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -78,6 +78,7 @@ namespace OpenCS.Utilites
          [55] = MigrateV56,
          [56] = MigrateV57,
          [57] = MigrateV58,
+         [58] = MigrateV59,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -634,6 +635,7 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
 
          EnsureSubmodelExtractionTables();
+         EnsureSubmodelBoundaryScenarioTable();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1499,6 +1501,24 @@ namespace OpenCS.Utilites
          );
          CREATE INDEX IF NOT EXISTS idx_submodel_extractions_parent
              ON submodel_extractions(parent_schema_id);
+         """);
+
+      /// <summary>Миграция v59: граничные сценарии извлечённых субмоделей.</summary>
+      void MigrateV59() => EnsureSubmodelBoundaryScenarioTable();
+
+      /// <summary>Создаёт таблицу граничных сценариев субмодели (нагрузки и концевые действия при λ = 1).</summary>
+      void EnsureSubmodelBoundaryScenarioTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS submodel_boundary_scenarios (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             extraction_id INTEGER NOT NULL REFERENCES submodel_extractions(id),
+             ordinal INTEGER NOT NULL DEFAULT 0,
+             status TEXT NOT NULL,
+             load_completeness TEXT NOT NULL,
+             scenario_json TEXT NOT NULL,
+             diagnostics_json TEXT NOT NULL DEFAULT '[]',
+             created TEXT NOT NULL DEFAULT '',
+             UNIQUE(extraction_id, ordinal)
+         );
          """);
 
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
@@ -3635,6 +3655,8 @@ namespace OpenCS.Utilites
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
+               DELETE FROM submodel_boundary_scenarios
+                 WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
                DELETE FROM submodel_extraction_nodes
                  WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
                DELETE FROM submodel_extraction_segments
@@ -5522,6 +5544,74 @@ namespace OpenCS.Utilites
             while (r.Read()) segments.Add(new(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetString(3), r.GetInt32(4), r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6), r.GetInt32(7) != 0, r.GetDouble(8), r.GetDouble(9), r.GetDouble(10), r.GetDouble(11), r.GetDouble(12), Enum.Parse<BetaSource>(r.GetString(13))));
          }
          return new SubmodelExtraction { Id=id, ParentSchemaId=parentSchemaId, SubmodelSchemaId=submodelSchemaId, ParentAnalysisId=parentAnalysisId, ParentResultId=parentResultId, LoadExpressionJson=loadExpressionJson, ReferenceScale=referenceScale, Tolerances=JsonSerializer.Deserialize<ResolvedTolerances>(tolerancesJson,_jsonSettings)!, Metrics=JsonSerializer.Deserialize<ChainMetrics>(metricsJson,_jsonSettings)!, Diagnostics=JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(diagnosticsJson,_jsonSettings)??[], Nodes=nodes, Segments=segments };
+      }
+
+      /// <summary>
+      /// Сохраняет граничный сценарий извлечения (ordinal 0, замена существующего). Проверяет, что
+      /// извлечение существует и родительский анализ всё ещё указывает на тот же результат.
+      /// </summary>
+      public SubmodelBoundaryScenario SaveSubmodelBoundaryScenario(int extractionId, BoundaryScenario scenario)
+      {
+         ArgumentNullException.ThrowIfNull(scenario);
+         if (scenario.ExtractionId != extractionId)
+            throw new InvalidOperationException("submodel_boundary_extraction_mismatch");
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            int analysisId, resultId;
+            using (var extraction = _connection.CreateCommand())
+            {
+               extraction.CommandText = "SELECT parent_analysis_id, parent_result_id FROM submodel_extractions WHERE id=@id";
+               extraction.Parameters.AddWithValue("@id", extractionId);
+               using var reader = extraction.ExecuteReader();
+               if (!reader.Read()) throw new InvalidOperationException("submodel_boundary_extraction_missing");
+               analysisId = reader.GetInt32(0); resultId = reader.GetInt32(1);
+            }
+            if (GetFemAnalysis(analysisId)?.ResultId != resultId)
+               throw new InvalidOperationException(BoundaryScenarioDiagnostics.ExtractionStale);
+
+            const int ordinal = 0;
+            string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            int id;
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = """
+                  DELETE FROM submodel_boundary_scenarios WHERE extraction_id=@e AND ordinal=@o;
+                  INSERT INTO submodel_boundary_scenarios (extraction_id,ordinal,status,load_completeness,scenario_json,diagnostics_json,created)
+                  VALUES (@e,@o,@status,@completeness,@scenario,@diagnostics,@created);
+                  SELECT last_insert_rowid();
+                  """;
+               command.Parameters.AddWithValue("@e", extractionId); command.Parameters.AddWithValue("@o", ordinal);
+               command.Parameters.AddWithValue("@status", scenario.Status.ToString());
+               command.Parameters.AddWithValue("@completeness", scenario.LoadCompleteness.ToString());
+               command.Parameters.AddWithValue("@scenario", JsonSerializer.Serialize(scenario, _jsonSettings));
+               command.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(scenario.Diagnostics, _jsonSettings));
+               command.Parameters.AddWithValue("@created", created);
+               id = (int)(long)command.ExecuteScalar()!;
+            }
+            tx.Commit();
+            return new SubmodelBoundaryScenario(id, extractionId, ordinal, scenario.Status, scenario.LoadCompleteness, scenario, created);
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+      }
+
+      /// <summary>Сохранённые граничные сценарии извлечения по возрастанию ordinal.</summary>
+      public List<SubmodelBoundaryScenario> GetSubmodelBoundaryScenarios(int extractionId)
+      {
+         var result = new List<SubmodelBoundaryScenario>();
+         using var command = _connection.CreateCommand();
+         command.CommandText = "SELECT id,ordinal,status,load_completeness,scenario_json,created FROM submodel_boundary_scenarios WHERE extraction_id=@e ORDER BY ordinal";
+         command.Parameters.AddWithValue("@e", extractionId);
+         using var reader = command.ExecuteReader();
+         while (reader.Read())
+            result.Add(new SubmodelBoundaryScenario(reader.GetInt32(0), extractionId, reader.GetInt32(1),
+               Enum.Parse<ScenarioStatus>(reader.GetString(2)), Enum.Parse<LoadCompleteness>(reader.GetString(3)),
+               JsonSerializer.Deserialize<BoundaryScenario>(reader.GetString(4), _jsonSettings)!, reader.GetString(5)));
+         return result;
       }
 
       /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>

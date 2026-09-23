@@ -112,6 +112,10 @@ public sealed record BoundaryScenario(
     IReadOnlyList<ScenarioEnd> Ends,
     IReadOnlyList<FemValidationDiagnostic> Diagnostics);
 
+/// <summary>Сохранённый граничный сценарий извлечения.</summary>
+public sealed record SubmodelBoundaryScenario(int Id, int ExtractionId, int Ordinal, ScenarioStatus Status,
+    LoadCompleteness LoadCompleteness, BoundaryScenario Scenario, string Created);
+
 /// <summary>Коды диагностик граничного сценария.</summary>
 public static class BoundaryScenarioDiagnostics
 {
