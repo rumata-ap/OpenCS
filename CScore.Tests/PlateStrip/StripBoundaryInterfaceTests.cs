@@ -77,12 +77,72 @@ public sealed class StripBoundaryInterfaceTests
     [Fact]
     public void PreserveSupportWithoutExplicitSupport_IsNotDiagnosed()
     {
-        // Сознательное решение Среза 7: проверка нереализуема (SupportLocus никогда не null,
-        // BeamJunctionMode.Support — значение по умолчанию) и вводила бы автовывод опорной
-        // схемы, оставленный за границей объёма.
+        // Перегрузка без кандидатов проверку реальной опоры не выполняет (обратная
+        // совместимость); с кандидатами — см. PreserveSupport_* ниже (Срез 8a).
         var boundary = Interface(modes: PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport));
 
         Assert.Empty(boundary.Validate(Analogy()));
+    }
+
+    [Fact]
+    public void KinematicDofWithoutKinematicAction_IsRejected()
+    {
+        var boundary = Interface(modes: PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.Kinematic));
+
+        Assert.Contains(boundary.Validate(Analogy()), d => d.Code == "plate_strip_boundary_kinematic_action_missing");
+    }
+
+    [Fact]
+    public void InvalidKinematicAction_ReportsItsDiagnostics()
+    {
+        var boundary = Interface(
+            modes: PlanarBoundaryModeByDof.None.With(PlanarDofMask.UZ, PlanarBoundaryDofMode.Kinematic),
+            kinematicAction: new PlanarBoundaryKinematicAction { InterfaceId = "b1", DofMask = PlanarDofMask.UZ });
+
+        var diagnostics = boundary.Validate(Analogy());
+
+        Assert.DoesNotContain(diagnostics, d => d.Code == "plate_strip_boundary_kinematic_action_missing");
+        Assert.Contains(diagnostics, d => d.Code == "planar_boundary_samples_missing");
+    }
+
+    [Fact]
+    public void PreserveSupport_WithWallAlongBoundary_IsAccepted()
+    {
+        var boundary = Interface(modes: PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport));
+
+        Assert.Empty(boundary.Validate(Analogy(), [Wall(3.0)]));
+    }
+
+    [Fact]
+    public void PreserveSupport_WithoutCandidate_IsRejected()
+    {
+        var boundary = Interface(modes: PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport));
+
+        Assert.Contains(boundary.Validate(Analogy(), []),
+            d => d.Code == "plate_strip_boundary_preserve_support_without_support" && d.IsError);
+    }
+
+    [Fact]
+    public void PreserveSupport_WithCandidateAside_IsRejected()
+    {
+        var boundary = Interface(modes: PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport));
+
+        Assert.Contains(boundary.Validate(Analogy(), [Wall(3.5)]),
+            d => d.Code == "plate_strip_boundary_preserve_support_without_support");
+    }
+
+    [Fact]
+    public void CandidatesOverload_WithoutPreserveSupport_AddsNothing()
+    {
+        Assert.Empty(Interface().Validate(Analogy(), []));
+    }
+
+    static StripSupportCandidate Wall(double u)
+    {
+        var source = new PlanarBoundarySourceReference("planar_region", "W");
+        return new(StripSupportCandidate.BuildId(StripSupportKind.Wall, source, 0), StripSupportKind.Wall,
+            new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve, [new(u, -1.0), new(u, 1.0)]),
+            new bool[6], source);
     }
 
     [Fact]
@@ -144,7 +204,8 @@ public sealed class StripBoundaryInterfaceTests
         IReadOnlyList<PlanarPoint2D>? points = null,
         PlanarVector3? normal = null,
         PlanarBoundaryModeByDof? modes = null,
-        PlanarBoundaryForceAction? forceAction = null) => new()
+        PlanarBoundaryForceAction? forceAction = null,
+        PlanarBoundaryKinematicAction? kinematicAction = null) => new()
     {
         Id = "b1",
         StripId = "strip-1",
@@ -154,6 +215,7 @@ public sealed class StripBoundaryInterfaceTests
         NormalFromReplacedToRetained = normal ?? new PlanarVector3(1, 0, 0),
         ModeByDof = modes ?? PlanarBoundaryModeByDof.None,
         ForceAction = forceAction,
+        KinematicAction = kinematicAction,
     };
 
     static PlanarBoundaryForceAction ForceAction() => new()

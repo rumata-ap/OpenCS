@@ -16,11 +16,13 @@ namespace CScore.PlateStrip;
 /// интенсивность вдоль границы (<c>Samples(S, ForcePerLength, MomentPerLength)</c>).
 /// PlanarLoad такого выразить не может — у него один константный вектор.
 ///
-/// <b>Проверка «PreserveSupport только при реальной опоре» сознательно не реализуется.</b> На
-/// текущем домене она нереализуема: PlateStripBeamAnalogy.StartSupportLocus/EndSupportLocus
-/// инициализированы new() и никогда не null, а BeamJunctionMode.Support — значение по умолчанию,
-/// так что «опора есть» истинно всегда. Кроме того, такая проверка вводила бы автовывод опорной
-/// схемы из SupportLocus, который Срезы 6 и 7 явно оставляют за границей объёма.
+/// <see cref="KinematicAction"/> обязателен, когда хотя бы один DOF в режиме Kinematic; на балку
+/// его переносит <c>StripKinematicMapper</c> (Срез 8a).
+///
+/// <b>Проверка «PreserveSupport только при реальной опоре»</b> выполняется перегрузкой
+/// <see cref="Validate(PlateStripBeamAnalogy, IReadOnlyList{StripSupportCandidate}, double)"/> по
+/// кандидатам родительской схемы (Срез 8a). Перегрузка без кандидатов её не выполняет —
+/// обратная совместимость для вызовов, у которых родительской схемы нет.
 /// </summary>
 public sealed class StripBoundaryInterface
 {
@@ -46,6 +48,37 @@ public sealed class StripBoundaryInterface
 
     /// <summary>Силовое действие на границе — единственный источник интенсивности вдоль неё.</summary>
     public PlanarBoundaryForceAction? ForceAction { get; init; }
+
+    /// <summary>Кинематическое действие на границе — заданные перемещения и повороты вдоль неё.</summary>
+    public PlanarBoundaryKinematicAction? KinematicAction { get; init; }
+
+    /// <summary>Проверить форму интерфейса и то, что каждый DOF в режиме PreserveSupport опирается
+    /// на реальную опору: у кандидата каждая точка следа не дальше matchToleranceM от геометрии
+    /// интерфейса.</summary>
+    public IReadOnlyList<FemValidationDiagnostic> Validate(
+        PlateStripBeamAnalogy analogy,
+        IReadOnlyList<StripSupportCandidate> candidates,
+        double matchToleranceM = StripSupportDerivation.DefaultMatchToleranceM)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        var diagnostics = Validate(analogy).ToList();
+
+        var modes = ModeByDof ?? PlanarBoundaryModeByDof.None;
+        PlanarBoundaryDofMode[] values = [modes.UX, modes.UY, modes.UZ, modes.RX, modes.RY, modes.RZ];
+        if (!values.Any(m => m == PlanarBoundaryDofMode.PreserveSupport)) return diagnostics;
+
+        var points = Geometry?.Points;
+        if (points == null || points.Count == 0 || points.Any(p => !p.IsFinite)) return diagnostics;
+        var geometry = new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve, points);
+
+        bool supported = candidates.Any(c => c.Footprint.Points.Count > 0 &&
+            c.Footprint.Points.All(p => StripSupportGeometry.DistanceToFootprint(p, geometry) <= matchToleranceM));
+        if (!supported)
+            diagnostics.Add(new("plate_strip_boundary_preserve_support_without_support",
+                $"Граница «{Id}»: режим PreserveSupport задан, но в родительской схеме вдоль неё нет " +
+                "ни узлового закрепления, ни колонны, ни стены."));
+        return diagnostics;
+    }
 
     /// <summary>Проверить форму интерфейса. Диагностики, не исключения: интерфейс приходит из
     /// пользовательских данных.</summary>
@@ -99,6 +132,14 @@ public sealed class StripBoundaryInterface
                 "интенсивность краевого действия взять неоткуда."));
         if (ForceAction != null)
             diagnostics.AddRange(ForceAction.Validate());
+
+        bool hasKinematicDof = values.Any(m => m == PlanarBoundaryDofMode.Kinematic);
+        if (hasKinematicDof && KinematicAction == null)
+            diagnostics.Add(new("plate_strip_boundary_kinematic_action_missing",
+                $"Граница «{Id}»: есть DOF в режиме Kinematic, но KinematicAction не задан — " +
+                "заданные перемещения взять неоткуда."));
+        if (KinematicAction != null)
+            diagnostics.AddRange(KinematicAction.Validate());
 
         return diagnostics;
     }
