@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CScore.Fem;
+using CScore.PlateStrip;
 
 namespace OpenCS.OpenSees.CScore.Fragments
 {
@@ -44,5 +45,14 @@ namespace OpenCS.OpenSees.CScore.Fragments
 
         /// <summary>Относительное расхождение по прогибу.</summary>
         public double RelativeDeflectionMismatch { get; set; } = double.NaN;
+
+        /// <summary>Автовывод опор из родителя (режим DerivedFromParent), иначе null.</summary>
+        public StripSupportDerivationResult? Derivation { get; set; }
+
+        /// <summary>Концевые действия, взятые из shell-прогона в роли родителя, иначе null.</summary>
+        public KnownEndActions? EndActions { get; set; }
+
+        /// <summary>Заданные перемещения узлов балки из кинематических интерфейсов.</summary>
+        public IReadOnlyList<StripPrescribedDisplacement> Prescribed { get; set; } = [];
     }
 }
