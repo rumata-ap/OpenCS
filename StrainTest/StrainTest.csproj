@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>$(OpenCSTargetFramework)</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -13,7 +13,7 @@
   <ItemGroup>
     <!-- Требуется в каждом exe-проекте отдельно: raw HintPath-ссылки, объявленные
          только в CSTriangulation.csproj, физически копируются в bin/ транзитивно,
-         но не попадают в .deps.json потребителя (нужно для рантайм-резолва в net9.0). -->
+         но не попадают в .deps.json потребителя (нужно для рантайм-резолва в .NET). -->
     <Reference Include="Triangle">
       <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
       <Private>True</Private>

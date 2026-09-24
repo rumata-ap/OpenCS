@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>$(OpenCSTargetFramework)</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -12,10 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Нужен для Encoding.GetEncoding(1251) — .NET Core/5+ не регистрирует легаси-кодовые
-         страницы по умолчанию (ScadTextParser читает текстовый экспорт SCAD в Windows-1251). -->
+    <!-- Encoding.GetEncoding(1251) для ScadTextParser даёт CodePagesEncodingProvider, он входит
+         в сам .NET (отдельный пакет System.Text.Encoding.CodePages не нужен), но регистрировать
+         провайдер всё равно надо явно. -->
     <PackageReference Include="ExcelDataReader" Version="3.9.0" />
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

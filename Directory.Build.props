@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
     <NuGetAudit>false</NuGetAudit>
+    <!-- Единая версия .NET для всех проектов решения. WPF-проекты добавляют суффикс -windows. -->
+    <OpenCSTargetFramework>net10.0</OpenCSTargetFramework>
   </PropertyGroup>
 </Project>

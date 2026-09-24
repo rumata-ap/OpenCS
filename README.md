@@ -110,7 +110,7 @@
 
 | Компонент | Технология |
 |-----------|------------|
-| Платформа | .NET 9.0, WPF (`net9.0-windows`) |
+| Платформа | .NET 10.0, WPF (`net10.0-windows`) |
 | Архитектура | MVVM (ViewModelBase, RelayCommand), Microsoft.Xaml.Behaviors |
 | 3D-визуализация | HelixToolkit.Wpf |
 | База данных | Microsoft.Data.Sqlite |
@@ -177,7 +177,7 @@ OpenCS.sln
 
 ## Сборка и запуск
 
-Требования: [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
+Требования: [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Версия .NET для всех проектов задаётся одним свойством `OpenCSTargetFramework` в `Directory.Build.props`.
 
 ```bash
 dotnet build OpenCS.sln
@@ -205,7 +205,7 @@ WebView2, пропускаются, если среда недоступна.
 ## Системные требования
 
 - ОС: Windows 10/11
-- .NET 9.0 Runtime
+- .NET 10.0 Desktop Runtime
 - Для импорта DXF: не требуется дополнительного ПО
 - Для импорта из AutoCAD или ЛираСАПР через COM API: установленное соответствующее ПО
 - Для нелинейных расчётов через OpenSees: внешний `OpenSees.exe` (путь задаётся переменной `OPENSEES_EXE`, параметром задачи или берётся из `C:\Tools\OpenSees\bin\OpenSees.exe`)
