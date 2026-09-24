@@ -34,7 +34,8 @@ public static class StripBeamModel
         IReadOnlyList<double> stationFractions,
         StripBeamSupportScheme scheme,
         StripLoadSet loads,
-        KnownEndActions? endActions = null)
+        KnownEndActions? endActions = null,
+        IReadOnlyList<StripPrescribedDisplacement>? prescribed = null)
     {
         ArgumentNullException.ThrowIfNull(sectionTangent);
         ArgumentNullException.ThrowIfNull(stationFractions);
@@ -100,21 +101,26 @@ public static class StripBeamModel
         }
 
         var isFixed = BuildConstraintMask(scheme, nodeCount);
+        var displacements = new double[dofCount];
+        var prescribedDofs = ApplyPrescribedMask(prescribed, nodeCount, isFixed, displacements);
         var freeDofs = new List<int>(dofCount);
         for (int i = 0; i < dofCount; i++)
             if (!isFixed[i])
                 freeDofs.Add(i);
 
+        // Заданные перемещения переносятся в правую часть: K_ff·u_f = f_f − K_fp·u_p.
         var reduced = new double[freeDofs.Count, freeDofs.Count];
         var rhs = new double[freeDofs.Count];
         for (int i = 0; i < freeDofs.Count; i++)
         {
-            rhs[i] = f[freeDofs[i]];
+            double sum = f[freeDofs[i]];
+            foreach (int p in prescribedDofs)
+                sum -= k[freeDofs[i], p] * displacements[p];
+            rhs[i] = sum;
             for (int j = 0; j < freeDofs.Count; j++)
                 reduced[i, j] = k[freeDofs[i], freeDofs[j]];
         }
 
-        var displacements = new double[dofCount];
         if (freeDofs.Count > 0)
         {
             if (!DensePivotSolver.Solve(reduced, rhs, out double[] solution))
@@ -131,6 +137,38 @@ public static class StripBeamModel
             elementStiffness, projection.Elements, displacements, elementCount);
 
         return new(true, diagnostics, displacements, stationResultants);
+    }
+
+    /// <summary>Проверить заданные перемещения, пометить их DOF закреплёнными и записать значения
+    /// в вектор перемещений. DOF, уже закреплённый схемой, получает заданное значение вместо нуля
+    /// (осадка опоры). Внутренний примитив: некорректный вход — исключение. Возвращает индексы
+    /// заданных DOF.</summary>
+    internal static List<int> ApplyPrescribedMask(
+        IReadOnlyList<StripPrescribedDisplacement>? prescribed, int nodeCount,
+        bool[] isFixed, double[] displacements, double loadFactor = 1.0)
+    {
+        var dofs = new List<int>();
+        if (prescribed == null) return dofs;
+        var seen = new HashSet<int>();
+        foreach (var item in prescribed)
+        {
+            ArgumentNullException.ThrowIfNull(item, nameof(prescribed));
+            if (item.NodeIndex < 0 || item.NodeIndex >= nodeCount)
+                throw new ArgumentException($"Заданное перемещение: узел {item.NodeIndex} вне диапазона.", nameof(prescribed));
+            if (item.Dof < 0 || item.Dof >= StripBeamElement.DofPerNode)
+                throw new ArgumentException($"Заданное перемещение: DOF {item.Dof} вне диапазона.", nameof(prescribed));
+            if (!double.IsFinite(item.Value))
+                throw new ArgumentException("Заданное перемещение должно быть конечным.", nameof(prescribed));
+
+            int dof = item.NodeIndex * StripBeamElement.DofPerNode + item.Dof;
+            if (!seen.Add(dof))
+                throw new ArgumentException(
+                    $"Заданное перемещение: DOF {item.Dof} узла {item.NodeIndex} задан дважды.", nameof(prescribed));
+            isFixed[dof] = true;
+            displacements[dof] = loadFactor * item.Value;
+            dofs.Add(dof);
+        }
+        return dofs;
     }
 
     /// <summary>Маска закреплённых DOF по опорной схеме (см. таблицу в StripBeamSupportScheme).</summary>

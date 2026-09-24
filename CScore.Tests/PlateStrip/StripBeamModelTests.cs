@@ -31,6 +31,69 @@ public sealed class StripBeamModelTests
             QzKnM = qz
         }]);
 
+    static readonly StripLoadSet NoLoads = new([]);
+
+    static readonly StripBeamSupportScheme FixedFixed = new(
+        StripBeamEndCondition.Fixed, StripBeamEndCondition.Fixed, StripAxialRestraint.StartOnly);
+
+    [Fact]
+    public void Prescribed_SettlementOfPinnedEnd_GivesRigidBodyMotionWithoutMoments()
+    {
+        const double delta = -0.01;
+        var result = StripBeamModel.Solve(Diagonal(), LengthM, Stations,
+            StripBeamSupportScheme.SimplySupported, NoLoads, prescribed: [new(4, 2, delta)]);
+
+        Assert.True(result.IsCalculable);
+        for (int node = 0; node < Stations.Length; node++)
+            Assert.Equal(delta * Stations[node], result.Displacements[node * 5 + 2], 12);
+        Assert.All(result.StationResultants, r => Assert.Equal(0.0, r[1], 6));
+    }
+
+    [Fact]
+    public void Prescribed_SettlementOfFixedEnd_GivesSixEiDeltaOverLSquared()
+    {
+        const double delta = -0.01;
+        var result = StripBeamModel.Solve(Diagonal(), LengthM, Stations, FixedFixed, NoLoads,
+            prescribed: [new(4, 2, delta)]);
+
+        double expected = 6.0 * Eiy * Math.Abs(delta) / (LengthM * LengthM);
+        Assert.True(result.IsCalculable);
+        Assert.Equal(expected, Math.Abs(result.StationResultants[0][1]), 6);
+        Assert.Equal(expected, Math.Abs(result.StationResultants[^1][1]), 6);
+        Assert.True(result.StationResultants[0][1] * result.StationResultants[^1][1] < 0.0,
+            "Концевые моменты от осадки защемлённой балки обязаны иметь разные знаки.");
+    }
+
+    [Fact]
+    public void Prescribed_RotationOfFixedEnd_GivesFourAndTwoEiThetaOverL()
+    {
+        const double theta = 0.002;
+        var result = StripBeamModel.Solve(Diagonal(), LengthM, Stations, FixedFixed, NoLoads,
+            prescribed: [new(0, 3, theta)]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(theta, result.Displacements[3], 15);
+        Assert.Equal(4.0 * Eiy * theta / LengthM, Math.Abs(result.StationResultants[0][1]), 6);
+        Assert.Equal(2.0 * Eiy * theta / LengthM, Math.Abs(result.StationResultants[^1][1]), 6);
+    }
+
+    [Theory]
+    [InlineData(5, 2, 0.0)]
+    [InlineData(0, 5, 0.0)]
+    [InlineData(0, 2, double.NaN)]
+    public void Prescribed_InvalidEntry_Throws(int node, int dof, double value)
+    {
+        Assert.Throws<ArgumentException>(() => StripBeamModel.Solve(Diagonal(), LengthM, Stations,
+            StripBeamSupportScheme.SimplySupported, NoLoads, prescribed: [new(node, dof, value)]));
+    }
+
+    [Fact]
+    public void Prescribed_DuplicateDof_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => StripBeamModel.Solve(Diagonal(), LengthM, Stations,
+            StripBeamSupportScheme.SimplySupported, NoLoads, prescribed: [new(4, 2, 0.0), new(4, 2, 0.1)]));
+    }
+
     [Fact]
     public void BuildConstraintMask_PinnedPinnedStartOnly_FixesTransverseAtBothEndsAndAxialAtStart()
     {
