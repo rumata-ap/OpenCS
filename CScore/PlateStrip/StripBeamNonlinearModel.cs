@@ -44,7 +44,8 @@ public static class StripBeamNonlinearModel
         StripBeamSupportScheme scheme,
         StripLoadSet loads,
         KnownEndActions? endActions = null,
-        StripNewtonOptions? options = null)
+        StripNewtonOptions? options = null,
+        IReadOnlyList<StripPrescribedDisplacement>? prescribed = null)
     {
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(stationFractions);
@@ -88,6 +89,10 @@ public static class StripBeamNonlinearModel
 
         var fullExternal = BuildExternalVector(elementLoads, endActions, nodeCount, dofCount);
         var isFixed = StripBeamModel.BuildConstraintMask(scheme, nodeCount);
+        // Значения заданных DOF здесь только проверяются (доля 0): на каждой попытке Ньютона они
+        // выставляются заново от её целевой доли (ApplyPrescribed).
+        var prescribedDofs = StripBeamModel.ApplyPrescribedMask(
+            prescribed, nodeCount, isFixed, new double[dofCount], loadFactor: 0.0);
         var freeDofs = new List<int>(dofCount);
         for (int i = 0; i < dofCount; i++)
             if (!isFixed[i]) freeDofs.Add(i);
@@ -121,7 +126,8 @@ public static class StripBeamNonlinearModel
         {
             double target = Math.Min(1.0, achieved + step);
             var attempt = RunNewton(
-                assembly, fullExternal, freeDofs, displacements, target, options, lengthM);
+                assembly, fullExternal, freeDofs, prescribedDofs, prescribed, displacements, target,
+                options, lengthM);
             totalIterations += attempt.Iterations;
 
             if (attempt.Converged)
@@ -155,11 +161,16 @@ public static class StripBeamNonlinearModel
         IReadOnlyList<FemValidationDiagnostic> Diagnostics);
 
     static NewtonAttempt RunNewton(
-        Assembly assembly, double[] fullExternal, List<int> freeDofs, double[] start,
-        double loadFactor, StripNewtonOptions options, double lengthM)
+        Assembly assembly, double[] fullExternal, List<int> freeDofs,
+        List<int> prescribedDofs, IReadOnlyList<StripPrescribedDisplacement>? prescribed,
+        double[] start, double loadFactor, StripNewtonOptions options, double lengthM)
     {
         var diagnostics = new List<FemValidationDiagnostic>();
         var u = (double[])start.Clone();
+        // Заданные DOF выставляются от доли этой попытки (в том числе после деления шага);
+        // Ньютон ниже меняет только свободные DOF, поэтому u_p = λ·value держится при каждом
+        // Evaluate попытки.
+        ApplyPrescribed(u, prescribed, loadFactor);
         double previousResidual = double.PositiveInfinity;
         int growthStreak = 0;
         double[,]? frozenTangent = null;
@@ -185,7 +196,8 @@ public static class StripBeamNonlinearModel
             for (int i = 0; i < residual.Length; i++)
                 residual[i] = loadFactor * fullExternal[i] - state.InternalForces[i];
 
-            double scale = ReferenceScale(fullExternal, state.InternalForces, freeDofs, lengthM, loadFactor);
+            double scale = ReferenceScale(
+                fullExternal, state.InternalForces, freeDofs, prescribedDofs, lengthM, loadFactor);
             double residualNorm = ScaledNorm(residual, freeDofs, lengthM) / scale;
             if (residualNorm < options.ResidualTolerance)
                 return new(true, false, u, iteration, diagnostics);
@@ -251,8 +263,13 @@ public static class StripBeamNonlinearModel
     /// моментные компоненты делятся на длину — иначе при L ≫ 1 м они доминируют в норме и
     /// маскируют несходимость осевой задачи (вторая половина ловушки Среза 6). Пол берётся по
     /// масштабу самой задачи, а не абсолютной константой (первая половина).</summary>
+    ///
+    /// Реакции в заданных DOF (|f_int| там) входят в масштаб: при чисто кинематическом нагружении
+    /// внешняя нагрузка нулевая, а f_int свободных DOF на сошедшемся решении стремится к нулю —
+    /// без реакций критерий стал бы абсолютным.
     static double ReferenceScale(
-        double[] external, double[] internalForces, List<int> freeDofs, double lengthM, double loadFactor)
+        double[] external, double[] internalForces, List<int> freeDofs, List<int> prescribedDofs,
+        double lengthM, double loadFactor)
     {
         double scale = 0.0;
         foreach (int dof in freeDofs)
@@ -261,7 +278,18 @@ public static class StripBeamNonlinearModel
             scale = Math.Max(scale, Math.Abs(loadFactor * external[dof]) / divisor);
             scale = Math.Max(scale, Math.Abs(internalForces[dof]) / divisor);
         }
+        foreach (int dof in prescribedDofs)
+            scale = Math.Max(scale, Math.Abs(internalForces[dof]) / (IsMoment(dof) ? lengthM : 1.0));
         return scale > 0.0 ? scale : 1.0;
+    }
+
+    /// <summary>Выставить заданные DOF равными loadFactor·value — присваиванием, не накоплением.</summary>
+    internal static void ApplyPrescribed(
+        double[] u, IReadOnlyList<StripPrescribedDisplacement>? prescribed, double loadFactor)
+    {
+        if (prescribed == null) return;
+        foreach (var item in prescribed)
+            u[item.NodeIndex * StripBeamElement.DofPerNode + item.Dof] = loadFactor * item.Value;
     }
 
     static double ScaledNorm(double[] vector, List<int> freeDofs, double lengthM)

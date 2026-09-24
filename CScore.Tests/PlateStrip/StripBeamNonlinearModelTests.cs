@@ -46,6 +46,61 @@ public sealed class StripBeamNonlinearModelTests
     }
 
     [Fact]
+    public void ApplyPrescribed_AssignsScaledValueWithoutAccumulating()
+    {
+        var u = new double[10];
+        StripPrescribedDisplacement[] prescribed = [new(1, 2, -0.01)];
+
+        StripBeamNonlinearModel.ApplyPrescribed(u, prescribed, 0.5);
+        Assert.Equal(-0.005, u[7], 15);
+
+        StripBeamNonlinearModel.ApplyPrescribed(u, prescribed, 0.25);
+        Assert.Equal(-0.0025, u[7], 15);
+    }
+
+    public static TheoryData<int, int, double, string> PrescribedCases => new()
+    {
+        { 4, 2, -0.01, "FixedFixed" },     // осадка защемлённого конца
+        { 0, 3, 0.002, "FixedFixed" },     // поворот защемлённого конца
+        { 4, 2, -0.01, "Pinned" },         // осадка шарнирного конца
+    };
+
+    [Theory]
+    [MemberData(nameof(PrescribedCases))]
+    public void LinearSource_PrescribedMatchesLinearModel(int node, int dof, double value, string schemeName)
+    {
+        var scheme = schemeName == "Pinned"
+            ? StripBeamSupportScheme.SimplySupported
+            : new StripBeamSupportScheme(StripBeamEndCondition.Fixed, StripBeamEndCondition.Fixed, StripAxialRestraint.StartOnly);
+        var stations = Stations(4);
+        var noLoads = new StripLoadSet([]);
+        var source = Linear();
+        var tangent = NonlinearStripSection.Evaluate(Width, [source, source], BeamStrainState.Zero).K;
+        StripPrescribedDisplacement[] prescribed = [new(node, dof, value)];
+
+        var linear = StripBeamModel.Solve(tangent, Length, stations, scheme, noLoads, prescribed: prescribed);
+        foreach (int steps in new[] { 1, 4 })
+        {
+            var nonlinear = StripBeamNonlinearModel.Solve(
+                Grid(source, stations.Count - 1), Width, Length, stations, scheme, noLoads,
+                options: StripNewtonOptions.Default with { LoadSteps = steps }, prescribed: prescribed);
+
+            Assert.True(nonlinear.IsCalculable, string.Join("; ", nonlinear.Diagnostics.Select(d => d.Message)));
+            Assert.Equal(1.0, nonlinear.AchievedLoadFactor, 12);
+            // Линейный источник: чисто кинематическое нагружение сходится за одно решение на шаг —
+            // значит, масштаб невязки не выродился в абсолютный.
+            Assert.True(nonlinear.TotalIterations <= steps * 2,
+                $"Итераций {nonlinear.TotalIterations} при {steps} шагах.");
+            for (int i = 0; i < linear.Displacements.Length; i++)
+                Assert.Equal(linear.Displacements[i], nonlinear.Displacements[i], 9);
+            double scale = linear.StationResultants.Max(r => Math.Abs(r[1]));
+            for (int st = 0; st < linear.StationResultants.Length; st++)
+                Assert.True(Math.Abs(linear.StationResultants[st][1] - nonlinear.StationResultants[st][1]) <= 1e-8 * Math.Max(scale, 1.0),
+                    $"Станция {st}: {linear.StationResultants[st][1]:G10} против {nonlinear.StationResultants[st][1]:G10}.");
+        }
+    }
+
+    [Fact]
     public void LinearSource_ConvergesInOneSolve()
     {
         var stations = Stations(4);
