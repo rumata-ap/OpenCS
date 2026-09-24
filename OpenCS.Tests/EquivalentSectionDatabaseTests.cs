@@ -66,6 +66,38 @@ public sealed class EquivalentSectionDatabaseTests
         }
     }
 
+    [Fact]
+    public void EquivalentSection_RoundTripsSupportProvenance()
+    {
+        string path = TempPath();
+        try
+        {
+            var source = new DatabaseService(path);
+            var original = Section();
+            original.Strip.StartSupportLocus.Kind = StripSupportKind.Column;
+            original.Strip.StartSupportLocus.SourceReferences =
+                [new CScore.Planar.PlanarBoundarySourceReference("fem_member", "C1", MemberId: 5)];
+            source.SaveEquivalentSection(original);
+
+            var loaded = new DatabaseService(path);
+            loaded.LoadAll();
+
+            var actual = Assert.Single(loaded.EquivalentSections);
+            Assert.Equal(StripSupportKind.Column, actual.Strip.StartSupportLocus.Kind);
+            var reference = Assert.Single(actual.Strip.StartSupportLocus.SourceReferences);
+            Assert.Equal("C1", reference.SourceId);
+            Assert.Equal(5, reference.MemberId);
+            Assert.Equal(StripSupportKind.Manual, actual.Strip.EndSupportLocus.Kind);
+
+            loaded.Dispose();
+            source.Dispose();
+        }
+        finally
+        {
+            TryDelete(path);
+        }
+    }
+
     static EquivalentSection Section() => new()
     {
         Num = 2,
