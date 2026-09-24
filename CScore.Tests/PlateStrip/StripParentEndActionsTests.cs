@@ -89,6 +89,66 @@ public sealed class StripParentEndActionsTests
         AssertSameDiagram(fixedBeam.StationResultants, nonlinear.StationResultants);
     }
 
+    /// <summary>Концевые станции эпюры родителя смещены сэмплингом (усреднение по элементу у линии
+    /// опоры): подгонка по внутренним станциям обязана восстановить точные концевые моменты.</summary>
+    [Fact]
+    public void TryFit_IgnoresBiasedEndStationsAndRecoversEndMoments()
+    {
+        var stations = Stations(8);
+        var loads = UniformLoad();
+        var tangent = NonlinearStripSection.Evaluate(Width, [Linear(), Linear()], BeamStrainState.Zero).K;
+        var fixedScheme = new StripBeamSupportScheme(
+            StripBeamEndCondition.Fixed, StripBeamEndCondition.Fixed, StripAxialRestraint.StartOnly);
+        var parent = StripBeamModel.Solve(tangent, Length, stations, fixedScheme, loads).StationResultants
+            .Select(r => (double[])r.Clone()).ToArray();
+        parent[0][1] *= 0.8;
+        parent[^1][1] *= 0.8;
+
+        bool ok = StripParentEndActions.TryFit(stations, parent, loads, Length, Derivation(All, All),
+            out var actions, out var diagnostics);
+
+        Assert.True(ok, string.Join("; ", diagnostics.Select(d => d.Message)));
+        double qL2 = Q * Length * Length;
+        Assert.Equal(qL2 / 12.0, Math.Abs(actions!.StartMy), 6);
+        Assert.Equal(qL2 / 12.0, Math.Abs(actions.EndMy), 6);
+        Assert.Equal(Math.Sign(parent[1][1]), Math.Sign(actions.StartMy));
+        Assert.Contains(diagnostics, d => d.Code == "plate_strip_parent_end_actions_fitted" && !d.IsError);
+    }
+
+    [Fact]
+    public void TryFit_AppliesTransferMask()
+    {
+        var stations = Stations(4);
+        var parent = stations.Select(_ => new[] { 1.0, 5.0, 2.0 }).ToArray();
+
+        StripParentEndActions.TryFit(stations, parent, new StripLoadSet([]), Length,
+            Derivation(StripEndActionComponents.None, StripEndActionComponents.N), out var actions, out _);
+
+        Assert.Equal(new KnownEndActions(EndN: 1.0), actions);
+    }
+
+    [Theory]
+    [InlineData(2)] // одна внутренняя станция
+    [InlineData(1)] // ни одной
+    public void TryFit_TooFewInteriorStations_ReturnsDiagnostic(int elements)
+    {
+        var stations = Stations(elements);
+        var parent = stations.Select(_ => new double[3]).ToArray();
+
+        Assert.False(StripParentEndActions.TryFit(stations, parent, new StripLoadSet([]), Length,
+            Derivation(All, All), out var actions, out var diagnostics));
+        Assert.Null(actions);
+        Assert.Contains(diagnostics, d => d.Code == "plate_strip_parent_end_actions_invalid");
+    }
+
+    [Fact]
+    public void TryFit_DiagramCountMismatch_ReturnsDiagnostic()
+    {
+        Assert.False(StripParentEndActions.TryFit(Stations(4), [new double[3]], new StripLoadSet([]), Length,
+            Derivation(All, All), out _, out var diagnostics));
+        Assert.Contains(diagnostics, d => d.Code == "plate_strip_parent_end_actions_invalid");
+    }
+
     static void AssertSameDiagram(double[][] expected, double[][] actual)
     {
         double scale = expected.Max(s => Math.Abs(s[1]));

@@ -133,10 +133,12 @@ public static class StripSupportGeometry
         return best;
     }
 
-    internal static double Distance(PlanarPoint2D a, PlanarPoint2D b) =>
+    /// <summary>Расстояние между точками.</summary>
+    public static double Distance(PlanarPoint2D a, PlanarPoint2D b) =>
         Math.Sqrt((a.U - b.U) * (a.U - b.U) + (a.V - b.V) * (a.V - b.V));
 
-    internal static double DistanceToSegment(PlanarPoint2D p, PlanarPoint2D a, PlanarPoint2D b)
+    /// <summary>Расстояние от точки до отрезка AB.</summary>
+    public static double DistanceToSegment(PlanarPoint2D p, PlanarPoint2D a, PlanarPoint2D b)
     {
         double du = b.U - a.U, dv = b.V - a.V;
         double lengthSquared = du * du + dv * dv;
