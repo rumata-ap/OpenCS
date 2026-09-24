@@ -200,10 +200,7 @@ public static class StripLoadMapper
 
         if (!values.Any(m => m == PlanarBoundaryDofMode.Force))
         {
-            if (values.Any(m => m == PlanarBoundaryDofMode.Kinematic))
-                diagnostics.Add(new("plate_strip_boundary_kinematic_not_transferred",
-                    $"Граница «{boundary.Id}»: кинематические DOF не переносятся на полосу — " +
-                    "предписанные перемещения балочной задачи вне объёма среза.", false));
+            // Kinematic переносит StripKinematicMapper как заданные перемещения узлов балки (Срез 8a);
             // PreserveSupport/None/Free: действие остаётся у сохранённой части, это не ошибка.
             return new(true, diagnostics, null);
         }

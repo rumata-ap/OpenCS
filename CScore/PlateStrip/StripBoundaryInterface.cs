@@ -155,6 +155,49 @@ public sealed class StripBoundaryInterface
     {
         ArgumentNullException.ThrowIfNull(analogy);
         stationFraction = double.NaN;
+        if (!TryIntersectAxis(regionFrame, analogy, out double station, out _, out _)) return false;
+        stationFraction = station;
+        return true;
+    }
+
+    /// <summary>То же, что <see cref="TryProjectToStation(Frame3D, PlateStripBeamAnalogy, out double)"/>,
+    /// плюс s — нормированная (0..1) длина дуги точки пересечения вдоль <see cref="Geometry"/> от
+    /// первой точки, в той же конвенции, что <see cref="PlanarCutInterfaceMeshNode.S"/>. По s
+    /// интерполируются сэмплы краевых действий.</summary>
+    public bool TryProjectToStation(
+        Frame3D regionFrame, PlateStripBeamAnalogy analogy, out double stationFraction, out double s)
+    {
+        ArgumentNullException.ThrowIfNull(analogy);
+        stationFraction = double.NaN;
+        s = double.NaN;
+        if (!TryIntersectAxis(regionFrame, analogy, out double station, out int segment, out double t))
+            return false;
+
+        var points = Geometry.Points;
+        double total = 0.0, before = 0.0;
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            double length = StripSupportGeometry.Distance(points[i], points[i + 1]);
+            if (i < segment) before += length;
+            if (i == segment) before += t * length;
+            total += length;
+        }
+        if (!(total > 0.0)) return false;
+
+        stationFraction = station;
+        s = Math.Clamp(before / total, 0.0, 1.0);
+        return true;
+    }
+
+    /// <summary>Первое пересечение ломаной границы с осью полосы в пределах пролёта: станция,
+    /// номер отрезка ломаной и параметр t на нём.</summary>
+    bool TryIntersectAxis(
+        Frame3D regionFrame, PlateStripBeamAnalogy analogy,
+        out double stationFraction, out int segment, out double t)
+    {
+        stationFraction = double.NaN;
+        segment = -1;
+        t = double.NaN;
 
         var points = Geometry?.Points;
         if (points == null || points.Count < 2) return false;
@@ -178,13 +221,15 @@ public sealed class StripBoundaryInterface
             if (y1 == 0.0 && y2 == 0.0) continue;      // отрезок лежит на оси — это не пересечение
             if (y1 * y2 > 0.0) continue;                // одна сторона от оси
 
-            double t = Math.Abs(y2 - y1) < 1e-15 ? 0.0 : y1 / (y1 - y2);
-            double x = x1 + t * (x2 - x1);
+            double ti = Math.Abs(y2 - y1) < 1e-15 ? 0.0 : y1 / (y1 - y2);
+            double x = x1 + ti * (x2 - x1);
             // Точка пересечения лежит на оси полосы (y = 0), то есть заведомо внутри
             // коридора; остаётся проверить только попадание в пролёт.
             if (x < -1e-9 || x > length + 1e-9) continue;
 
             stationFraction = Math.Clamp(x / length, 0.0, 1.0);
+            segment = i;
+            t = ti;
             return true;
         }
         return false;

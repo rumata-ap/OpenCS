@@ -104,7 +104,7 @@ public sealed class StripLoadMapperBoundaryTests
     }
 
     [Fact]
-    public void KinematicMode_IsReportedAndNotTransferred()
+    public void KinematicMode_IsNotALoadAndLeftToKinematicMapper()
     {
         var boundary = Boundary(
             points: [new(1.5, -1.0), new(1.5, 1.0)],
@@ -114,7 +114,7 @@ public sealed class StripLoadMapperBoundaryTests
 
         Assert.True(result.IsCalculable);
         Assert.Null(result.Load);
-        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_boundary_kinematic_not_transferred");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "plate_strip_boundary_kinematic_not_transferred");
     }
 
     [Theory]
