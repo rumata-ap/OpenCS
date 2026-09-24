@@ -5,7 +5,13 @@ using CScore.Planar;
 
 namespace OpenCS.Gmsh.Generation;
 
-/// <summary>Детерминированно строит локальную Gmsh-геометрию host-региона и его loci.</summary>
+/// <summary>Детерминированно строит локальную Gmsh-геометрию host-региона и его loci.
+///
+/// Точка constraint, совпадающая по координатам с уже записанной точкой (вершиной контура или
+/// точкой другого constraint), не создаётся заново, а переиспользуется: для OpenCASCADE две
+/// точки с одинаковыми координатами — разные сущности, и кривая, «касающаяся» вершины контура
+/// своей копией, даёт вырожденную сетку. Точечный constraint в вершине контура в поверхность
+/// повторно не встраивается — вершина уже принадлежит её границе.</summary>
 public static class GmshPlanarGeoBuilder
 {
     const int OuterPhysicalGroup = 1001;
@@ -31,6 +37,8 @@ public static class GmshPlanarGeoBuilder
             result.AppendLine("Mesh.RecombineAll = 1;");
 
         var contours = new List<LoopInfo>();
+        var emitted = new List<(double U, double V, int Id)>();
+        var hostPoints = new HashSet<int>();
         var point = 1;
         var line = 1;
         var loop = 1;
@@ -40,7 +48,11 @@ public static class GmshPlanarGeoBuilder
             var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
             var points = Enumerable.Range(point, x.Length).ToArray();
             for (var i = 0; i < points.Length; i++)
+            {
                 result.AppendLine($"Point({points[i]}) = {{{Fmt(x[i])}, {Fmt(y[i])}, 0, {Fmt(settings.MaxElementSizeM)}}};");
+                emitted.Add((x[i], y[i], points[i]));
+                hostPoints.Add(points[i]);
+            }
 
             var lines = Enumerable.Range(line, x.Length).ToArray();
             for (var i = 0; i < lines.Length; i++)
@@ -71,40 +83,34 @@ public static class GmshPlanarGeoBuilder
                 case PlanarConstraintGeometryKind.Point:
                 {
                     var p = constraint.Geometry.Points[0];
-                    result.AppendLine($"Point({nextPoint}) = {{{Fmt(p.U)}, {Fmt(p.V)}, 0, {Fmt(settings.MaxElementSizeM)}}};");
-                    result.AppendLine($"Point {{{nextPoint}}} In Surface {{1}};");
-                    result.AppendLine($"Physical Point(\"constraint:{name}:point\", {group}) = {{{nextPoint}}};");
-                    nextPoint++;
+                    int id = PointId(p, ref nextPoint);
+                    if (!hostPoints.Contains(id))
+                        result.AppendLine($"Point {{{id}}} In Surface {{1}};");
+                    result.AppendLine($"Physical Point(\"constraint:{name}:point\", {group}) = {{{id}}};");
                     break;
                 }
                 case PlanarConstraintGeometryKind.Curve:
                 {
                     var points = constraint.Geometry.Points;
-                    var pointIds = Enumerable.Range(nextPoint, points.Count).ToArray();
-                    for (var i = 0; i < points.Count; i++)
-                        result.AppendLine($"Point({pointIds[i]}) = {{{Fmt(points[i].U)}, {Fmt(points[i].V)}, 0, {Fmt(settings.MaxElementSizeM)}}};");
+                    var pointIds = points.Select(p => PointId(p, ref nextPoint)).ToArray();
                     var lineIds = Enumerable.Range(nextLine, points.Count - 1).ToArray();
                     for (var i = 0; i < lineIds.Length; i++)
                         result.AppendLine($"Line({lineIds[i]}) = {{{pointIds[i]}, {pointIds[i + 1]}}};");
                     result.AppendLine($"Line {{{string.Join(", ", lineIds)}}} In Surface {{1}};");
                     result.AppendLine($"Physical Curve(\"constraint:{name}:curve\", {group}) = {{{string.Join(", ", lineIds)}}};");
-                    nextPoint += pointIds.Length;
                     nextLine += lineIds.Length;
                     break;
                 }
                 case PlanarConstraintGeometryKind.Region:
                 {
                     var points = constraint.Geometry.Points;
-                    var pointIds = Enumerable.Range(nextPoint, points.Count).ToArray();
-                    for (var i = 0; i < points.Count; i++)
-                        result.AppendLine($"Point({pointIds[i]}) = {{{Fmt(points[i].U)}, {Fmt(points[i].V)}, 0, {Fmt(settings.MaxElementSizeM)}}};");
+                    var pointIds = points.Select(p => PointId(p, ref nextPoint)).ToArray();
                     var lineIds = Enumerable.Range(nextLine, points.Count).ToArray();
                     for (var i = 0; i < lineIds.Length; i++)
                         result.AppendLine($"Line({lineIds[i]}) = {{{pointIds[i]}, {pointIds[(i + 1) % pointIds.Length]}}};");
                     result.AppendLine($"Curve Loop({nextLoop}) = {{{string.Join(", ", lineIds)}}};");
                     result.AppendLine($"Line {{{string.Join(", ", lineIds)}}} In Surface {{1}};");
                     result.AppendLine($"Physical Curve(\"constraint:{name}:region\", {group}) = {{{string.Join(", ", lineIds)}}};");
-                    nextPoint += pointIds.Length;
                     nextLine += lineIds.Length;
                     nextLoop++;
                     break;
@@ -113,7 +119,22 @@ public static class GmshPlanarGeoBuilder
         }
 
         return result.ToString();
+
+        // Id точки: существующий при совпадении координат, иначе новая точка.
+        int PointId(PlanarPoint2D p, ref int next)
+        {
+            foreach (var (u, v, id) in emitted)
+                if (Math.Abs(u - p.U) <= PointMergeToleranceM && Math.Abs(v - p.V) <= PointMergeToleranceM)
+                    return id;
+            int created = next++;
+            result.AppendLine($"Point({created}) = {{{Fmt(p.U)}, {Fmt(p.V)}, 0, {Fmt(settings.MaxElementSizeM)}}};");
+            emitted.Add((p.U, p.V, created));
+            return created;
+        }
     }
+
+    /// <summary>Допуск совпадения точек при переиспользовании, м.</summary>
+    const double PointMergeToleranceM = 1e-9;
 
     static string SafeName(string value) => value.Replace("\"", "_");
     static string Fmt(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
