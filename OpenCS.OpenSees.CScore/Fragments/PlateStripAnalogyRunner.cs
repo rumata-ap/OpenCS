@@ -142,16 +142,20 @@ namespace OpenCS.OpenSees.CScore.Fragments
 
             // 4. Constraints мешинга. Explicit без интерфейсов — прежний контракт: [].
             IReadOnlyList<PlanarConstraintObject> constraints = [];
+            var meshRegion = request.Region;
             if (derived || kinematicInterfaces.Count > 0)
             {
                 var built = BuildConstraintObjects(request, derived, kinematicInterfaces, out var conflict);
                 if (conflict != null)
                     return Fail(result, domainDiagnostics, conflict);
                 constraints = built;
+                // Встроенная кривая, конец которой лежит на ребре контура не в вершине, валидатор
+                // constraints считает пересечением границы; стена поперёк плиты — ровно такой случай.
+                meshRegion = PrepareMeshRegion(request.Region, constraints, request.NodeOnFootprintToleranceM);
             }
 
             var snapshot = await mesher.BuildAsync(
-                new PlanarMeshingRequest(request.Region, request.MeshSettings, constraints), cancellationToken);
+                new PlanarMeshingRequest(meshRegion, request.MeshSettings, constraints), cancellationToken);
             if (!snapshot.IsCalculable)
             {
                 result.MeshDiagnostics = snapshot.Diagnostics.Select(d => d.Message).ToList();
@@ -272,14 +276,19 @@ namespace OpenCS.OpenSees.CScore.Fragments
             domainDiagnostics.AddRange(samplerDiagnostics);
             result.ShellMaxDeflectionM = MaxCorridorDeflection(lastStep.Displacements, nodes, request);
 
-            // 9. Концевые действия из shell-прогона в роли родителя.
+            var stripLoads = MapStripLoads(request, domainDiagnostics);
+
+            // 9. Концевые действия из shell-прогона в роли родителя — подгонкой статики по
+            // внутренним станциям: концевая станция лежит на линии опоры (ребре элементов), и
+            // усреднённые по элементу усилия там занижены на V·h/2.
             KnownEndActions? endActions = null;
             if (derived)
             {
-                double[]? start = result.ShellResultants.Count > 0 ? result.ShellResultants[0] : null;
-                double[]? end = result.ShellResultants.Count > 0 ? result.ShellResultants[^1] : null;
-                if (!StripParentEndActions.TryFrom(start, end, derivation!, out endActions, out var endDiagnostics))
+                if (!StripParentEndActions.TryFit(
+                        request.StationFractions, result.ShellResultants, new StripLoadSet(stripLoads),
+                        request.Analogy.Geometry.LengthM, derivation!, out endActions, out var endDiagnostics))
                     return Fail(result, domainDiagnostics, endDiagnostics.ToArray());
+                domainDiagnostics.AddRange(endDiagnostics);
                 result.EndActions = endActions;
                 if (endActions!.StartMy != 0.0 || endActions.StartMz != 0.0 ||
                     endActions.EndMy != 0.0 || endActions.EndMz != 0.0)
@@ -289,7 +298,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
             }
 
             var scheme = derivation?.Scheme ?? request.SupportScheme;
-            var beam = RunBeam(request, scheme, endActions, kinematic.Values, domainDiagnostics);
+            var beam = RunBeam(request, scheme, stripLoads, endActions, kinematic.Values, domainDiagnostics);
             // Диагностики самого решателя обязаны дойти до результата: без них «не сошлось»
             // возвращалось бы без единого объяснения.
             if (beam is not null) domainDiagnostics.AddRange(beam.Diagnostics);
@@ -300,7 +309,10 @@ namespace OpenCS.OpenSees.CScore.Fragments
 
             result.BeamResultants = beam.StationResultants;
             result.BeamMaxDeflectionM = MaxTransverse(beam.Displacements);
-            result.MaxRelativeMomentMismatch = MomentMismatch(result.ShellResultants, beam.StationResultants);
+            // В режиме опор из родителя концевые станции оболочки смещены сэмплингом (см. выше),
+            // поэтому расхождение эпюр оценивается по внутренним станциям.
+            result.MaxRelativeMomentMismatch = MomentMismatch(
+                result.ShellResultants, beam.StationResultants, interiorOnly: derived);
             result.RelativeDeflectionMismatch = Relative(result.ShellMaxDeflectionM, result.BeamMaxDeflectionM);
             return result;
         }
@@ -314,17 +326,9 @@ namespace OpenCS.OpenSees.CScore.Fragments
             return result;
         }
 
-        static StripBeamNonlinearSolveResult? RunBeam(
-            PlateStripAnalogyRequest request, StripBeamSupportScheme scheme, KnownEndActions? endActions,
-            IReadOnlyList<StripPrescribedDisplacement> prescribed, List<FemValidationDiagnostic> diagnostics)
+        static List<StripLoad> MapStripLoads(
+            PlateStripAnalogyRequest request, List<FemValidationDiagnostic> diagnostics)
         {
-            if (request.WidthSources.Count == 0)
-            {
-                diagnostics.Add(new("plate_strip_source_grid_shape_mismatch",
-                    "Не заданы источники плитного отклика по ширине полосы."));
-                return null;
-            }
-
             var stripLoads = new List<StripLoad>();
             foreach (var load in request.Loads)
             {
@@ -333,6 +337,20 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 diagnostics.AddRange(mapped.Diagnostics);
                 if (mapped.IsCalculable && mapped.Load is not null)
                     stripLoads.Add(mapped.Load);
+            }
+            return stripLoads;
+        }
+
+        static StripBeamNonlinearSolveResult? RunBeam(
+            PlateStripAnalogyRequest request, StripBeamSupportScheme scheme, List<StripLoad> stripLoads,
+            KnownEndActions? endActions, IReadOnlyList<StripPrescribedDisplacement> prescribed,
+            List<FemValidationDiagnostic> diagnostics)
+        {
+            if (request.WidthSources.Count == 0)
+            {
+                diagnostics.Add(new("plate_strip_source_grid_shape_mismatch",
+                    "Не заданы источники плитного отклика по ширине полосы."));
+                return null;
             }
             // Чисто кинематическое нагружение или нагружение одними концевыми действиями законно:
             // досрочный выход — только когда воздействий нет вовсе.
@@ -401,6 +419,125 @@ namespace OpenCS.OpenSees.CScore.Fragments
             }
             return result;
         }
+
+        /// <summary>Копия региона для мешинга, в контуры которого вставлены вершины в концах
+        /// встроенных кривых, лежащих на рёбрах контура (не в вершинах). Разметка рёбер переносится:
+        /// сегмент разрезанного ребра дублируется на обе половины, индексы остальных сдвигаются.
+        /// Исходный регион не меняется; если вставлять нечего, возвращается он сам.</summary>
+        internal static PlanarRegion PrepareMeshRegion(
+            PlanarRegion region, IReadOnlyList<PlanarConstraintObject> constraints, double tol)
+        {
+            var endpoints = constraints
+                .Where(c => c.Geometry.Kind == PlanarConstraintGeometryKind.Curve && c.Geometry.Points.Count >= 2)
+                .SelectMany(c => new[] { c.Geometry.Points[0], c.Geometry.Points[^1] })
+                .ToList();
+            if (endpoints.Count == 0) return region;
+
+            var contours = new List<Contour>();
+            var segments = new List<BoundarySegment>();
+            bool changed = false;
+            int holeIndex = -1;
+            foreach (var contour in region.Contours)
+            {
+                var loop = BoundaryLoop.Outer;
+                int currentHole = 0;
+                if (contour.Type == ContourType.Hole)
+                {
+                    loop = BoundaryLoop.Hole;
+                    currentHole = ++holeIndex;
+                }
+                else if (contour.Type != ContourType.Hull)
+                {
+                    contours.Add(contour);
+                    continue;
+                }
+
+                var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
+                var newX = new List<double>();
+                var newY = new List<double>();
+                var oldToNew = new int[x.Length];
+                var splitEdges = new Dictionary<int, List<int>>(); // ребро -> индексы вставленных вершин
+                for (int i = 0; i < x.Length; i++)
+                {
+                    oldToNew[i] = newX.Count;
+                    newX.Add(x[i]);
+                    newY.Add(y[i]);
+                    var a = new PlanarPoint2D(x[i], y[i]);
+                    var b = new PlanarPoint2D(x[(i + 1) % x.Length], y[(i + 1) % x.Length]);
+                    // Совпадающие концы (две кривые в одной точке ребра) вставляются один раз;
+                    // несколько точек на ребре — по порядку от его начала.
+                    var unique = new List<PlanarPoint2D>();
+                    foreach (var p in endpoints)
+                        if (StripSupportGeometry.DistanceToSegment(p, a, b) <= tol &&
+                            StripSupportGeometry.Distance(p, a) > tol &&
+                            StripSupportGeometry.Distance(p, b) > tol &&
+                            unique.All(u => StripSupportGeometry.Distance(u, p) > tol))
+                            unique.Add(p);
+                    if (unique.Count == 0) continue;
+
+                    var indices = new List<int>();
+                    foreach (var p in unique.OrderBy(p => StripSupportGeometry.Distance(p, a)))
+                    {
+                        indices.Add(newX.Count);
+                        newX.Add(p.U);
+                        newY.Add(p.V);
+                    }
+                    splitEdges[i] = indices;
+                    changed = true;
+                }
+
+                int count = newX.Count;
+                newX.Add(newX[0]);
+                newY.Add(newY[0]);
+                contours.Add(new Contour { X = newX, Y = newY, Type = contour.Type, Tag = contour.Tag });
+
+                foreach (var segment in region.BoundarySegments.Where(sg =>
+                             sg.Loop == loop && (loop == BoundaryLoop.Outer || sg.HoleIndex == currentHole)))
+                {
+                    int start = oldToNew[segment.StartVertex];
+                    if (splitEdges.TryGetValue(segment.StartVertex, out var middles))
+                    {
+                        int previous = start;
+                        foreach (int middle in middles)
+                        {
+                            segments.Add(CopySegment(segment, previous, middle));
+                            previous = middle;
+                        }
+                        segments.Add(CopySegment(segment, previous, (previous + 1) % count));
+                    }
+                    else
+                        segments.Add(CopySegment(segment, start, oldToNew[segment.EndVertex]));
+                }
+            }
+            if (!changed) return region;
+
+            var copy = new PlanarRegion
+            {
+                Id = region.Id,
+                Tag = region.Tag,
+                Contours = contours,
+                Frame = region.Frame,
+                FrameIsRecovered = region.FrameIsRecovered,
+                BoundarySegments = segments,
+                ConstraintObjects = region.ConstraintObjects,
+                SourceContourId = region.SourceContourId,
+                RebarZones = region.RebarZones,
+                RebarSectionGridStep = region.RebarSectionGridStep,
+                MeshMaxElementSizeM = region.MeshMaxElementSizeM
+            };
+            copy.RecalcFingerprint();
+            return copy;
+        }
+
+        static BoundarySegment CopySegment(BoundarySegment source, int start, int end) => new()
+        {
+            Loop = source.Loop,
+            HoleIndex = source.HoleIndex,
+            StartVertex = start,
+            EndVertex = end,
+            Role = source.Role,
+            Provenance = source.Provenance
+        };
 
         /// <summary>Все точки и середины отрезков geometry лежат на существующем следе.</summary>
         static bool Covers(PlanarConstraintGeometry existing, PlanarConstraintGeometry geometry, double tol)
@@ -668,15 +805,19 @@ namespace OpenCS.OpenSees.CScore.Fragments
             return max;
         }
 
-        static double MomentMismatch(IReadOnlyList<double[]> shell, IReadOnlyList<double[]> beam)
+        static double MomentMismatch(
+            IReadOnlyList<double[]> shell, IReadOnlyList<double[]> beam, bool interiorOnly = false)
         {
             if (shell.Count == 0 || shell.Count != beam.Count) return double.NaN;
-            double scale = Math.Max(
-                shell.Max(s => Math.Abs(s[1])), beam.Max(b => Math.Abs(b[1])));
+            int from = interiorOnly && shell.Count > 2 ? 1 : 0;
+            int to = interiorOnly && shell.Count > 2 ? shell.Count - 1 : shell.Count;
+            double scale = 0.0;
+            for (int i = from; i < to; i++)
+                scale = Math.Max(scale, Math.Max(Math.Abs(shell[i][1]), Math.Abs(beam[i][1])));
             if (scale <= 0.0) return 0.0;
 
             double worst = 0.0;
-            for (int i = 0; i < shell.Count; i++)
+            for (int i = from; i < to; i++)
                 worst = Math.Max(worst, Math.Abs(shell[i][1] - beam[i][1]) / scale);
             return worst;
         }
