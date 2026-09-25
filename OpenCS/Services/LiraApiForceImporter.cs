@@ -83,7 +83,11 @@ static class LiraApiForceImporter
         var req = (LiraDesignCombinationForcesRequest)result.CreateNewRequest(
             LiraRequestEnum.kLiraRequest_DesignCombinationForces);
         req.DocumentName = documentName;
-        req.Elements.AddFromString(BuildRange(elementIds));
+        // Обход бага COM ЛИРА (проверено на ЛИРА-САПР 2024): в ответе РСУ у элемента с наибольшим
+        // номером в запросе остаётся только сечение 1 (GetDCLCount = 0 для сечений 2..n).
+        // Несуществующий «сторожевой» номер после всех КЭ ЛИРА молча отбрасывает, а реальные КЭ
+        // приходят со всеми сечениями. ЗН и РСН этой ошибкой не затронуты.
+        req.Elements.AddFromString($"{BuildRange(elementIds)}, {elementIds.Max() + RsuSentinelOffset}");
         req.DesignCombinationTable = combinationTable;
 
         var resp = result.DesignCombinationForces((LiraDesignCombinationForcesRequest)req);
@@ -92,6 +96,35 @@ static class LiraApiForceImporter
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /// <summary>Смещение «сторожевого» номера КЭ в запросе РСУ (см. ReadDesignCombinationForces).
+    /// Большое, чтобы не попасть в реальный КЭ схемы.</summary>
+    const int RsuSentinelOffset = 10_000_000;
+
+    /// <summary>Метка строки РСУ в терминах таблицы РСУ ЛИРА: элемент, сечение, критерий, категория
+    /// (например «э.1 с2 к2 Б2»).</summary>
+    static string DesignRowLabel(LiraDesignCombinationForcesResponse resp, int elemId, int sec, int ls, int dcf)
+    {
+        int crit;
+        try { crit = resp.GetCriterionNumber(elemId, sec, ls, dcf); }
+        catch { crit = dcf; }
+        string group;
+        try { group = InternalGroupName(resp.GetInternalGroup(elemId, sec, ls, dcf)); }
+        catch { group = ""; }
+        return string.IsNullOrEmpty(group)
+            ? $"э.{elemId} с{sec} к{crit}"
+            : $"э.{elemId} с{sec} к{crit} {group}";
+    }
+
+    /// <summary>kLiraInternalGroup_A2 → «A2» (столбец «Г» таблицы РСУ ЛИРА); Undefined → пусто.</summary>
+    static string InternalGroupName(LiraInternalGroupsEnum group)
+    {
+        const string prefix = "kLiraInternalGroup_";
+        string name = group.ToString();
+        return name.StartsWith(prefix, StringComparison.Ordinal) && group != LiraInternalGroupsEnum.kLiraInternalGroup_Undefined
+            ? name[prefix.Length..]
+            : "";
+    }
 
     /// <summary>
     /// Получает имя активного документа, коэффициент пересчёта усилий в кН (кН/м) и коэффициент
@@ -219,7 +252,7 @@ static class LiraApiForceImporter
                             double shellSign = invertShellMoments ? -1.0 : 1.0;
                             fs.ShellItems.Add(new ShellLoadItem
                             {
-                                Num = itemNum++, Label = $"э.{elemId}",
+                                Num = itemNum++, Label = $"э.{elemId} с{sec}",
                                 SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                 Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                 Qx = qx, Qy = qy,
@@ -238,7 +271,7 @@ static class LiraApiForceImporter
                             if (invertBarMoments) { my = -my; mx = -mx; }
                             fs.Items.Add(new LoadItem
                             {
-                                Num = itemNum++, Label = $"э.{elemId}",
+                                Num = itemNum++, Label = $"э.{elemId} с{sec}",
                                 N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                             });
                         }
@@ -325,7 +358,7 @@ static class LiraApiForceImporter
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
-                                    Num = itemNum++, Label = $"э.{elemId}",
+                                    Num = itemNum++, Label = $"э.{elemId} с{sec}",
                                     SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
@@ -344,7 +377,7 @@ static class LiraApiForceImporter
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 fs.Items.Add(new LoadItem
                                 {
-                                    Num = itemNum++, Label = $"э.{elemId}",
+                                    Num = itemNum++, Label = $"э.{elemId} с{sec}",
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
                             }
@@ -432,7 +465,7 @@ static class LiraApiForceImporter
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
-                                    Num = itemNum++, Label = $"э.{elemId} к{dcf}",
+                                    Num = itemNum++, Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
                                     SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
@@ -451,7 +484,7 @@ static class LiraApiForceImporter
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 fs.Items.Add(new LoadItem
                                 {
-                                    Num = itemNum++, Label = $"э.{elemId} к{dcf}",
+                                    Num = itemNum++, Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
                             }
