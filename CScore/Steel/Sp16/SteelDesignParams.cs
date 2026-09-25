@@ -168,6 +168,12 @@ public sealed record SteelDesignParams
     /// <summary>Ширина опирания верхнего элемента b для lef = b + 2h (48), м.</summary>
     public double BearingLength { get; init; }
 
+    /// <summary>Катет поясного шва kf сварной балки для h в (48), м (h = tf + kf).</summary>
+    public double FlangeWeldLeg { get; init; }
+
+    /// <summary>Проверяемое сечение в зоне чистого изгиба (8.2.3: β = 1, cxm = 0,5(1 + cx)).</summary>
+    public bool PureBendingZone { get; init; }
+
     /// <summary>Пояса прикреплены односторонними швами (8.5.1: λ̄uw = 3,2).</summary>
     public bool OneSidedFlangeWelds { get; init; }
 
