@@ -57,6 +57,7 @@ public class FemMemberEditorVM : ViewModelBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsPlateType));
             OnPropertyChanged(nameof(AllSections));
+            OnPropertyChanged(nameof(ShowSteelParams));
         }
     }
 
@@ -87,7 +88,7 @@ public class FemMemberEditorVM : ViewModelBase
     public CrossSection? SelectedBarSection
     {
         get => _selectedBarSection;
-        set { _selectedBarSection = value; OnPropertyChanged(); OnPropertyChanged(nameof(SelectedSection)); }
+        set { _selectedBarSection = value; OnPropertyChanged(); OnPropertyChanged(nameof(SelectedSection)); OnPropertyChanged(nameof(ShowSteelParams)); }
     }
 
     /// <summary>Выбранное пластинчатое сечение (когда тип — плита/стена).</summary>
@@ -107,6 +108,7 @@ public class FemMemberEditorVM : ViewModelBase
             else if (value is CrossSection cs) { _selectedBarSection = cs; OnPropertyChanged(nameof(SelectedBarSection)); }
             else { _selectedBarSection = null; _selectedPlateSection = null; }
             OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowSteelParams));
         }
     }
 
@@ -123,6 +125,14 @@ public class FemMemberEditorVM : ViewModelBase
     public double MuY           { get => _params.MuY;           set { _params = _params with { MuY = value };           OnPropertyChanged(); } }
     public double BetaM         { get => _params.BetaM;         set { _params = _params with { BetaM = value };         OnPropertyChanged(); } }
     public double GammaM        { get => _params.GammaM;        set { _params = _params with { GammaM = value };        OnPropertyChanged(); } }
+    public double DesignLengthBit { get => _params.DesignLengthBit; set { _params = _params with { DesignLengthBit = value }; OnPropertyChanged(); } }
+
+    /// <summary>Параметры СП 16 нужны только стальным стержням: скрыты для пластин, ЖБ-сечений
+    /// (есть бетонная область) и пока сечение не выбрано.</summary>
+    public bool ShowSteelParams =>
+        !IsPlateType && _selectedBarSection != null
+        && !_selectedBarSection.Areas.Any(a =>
+            (a.Material ?? _app.Materials.FirstOrDefault(m => m.Id == a.MaterialId))?.Type == MatType.Concrete);
 
     public ICommand SaveCommand { get; }
 

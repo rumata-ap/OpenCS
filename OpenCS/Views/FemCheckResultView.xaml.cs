@@ -29,7 +29,15 @@ public class FemCheckResultVM
             using var doc  = JsonDocument.Parse(dataJson);
             var root = doc.RootElement;
 
-            int total  = root.TryGetProperty("totalRows",  out var t) ? t.GetInt32() : 0;
+            // Проверка не выполнялась (нет наборов усилий / сечения): показываем причину, а не «0 из 0».
+            if (root.TryGetProperty("error", out var err))
+            {
+                SummaryText  = string.Format(Utilites.Loc.S("FemCheckResultError"), err.GetString());
+                SummaryBrush = new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
+                return;
+            }
+
+            int total = root.TryGetProperty("totalRows",  out var t) ? t.GetInt32() : 0;
             int passed = root.TryGetProperty("passedRows", out var p) ? p.GetInt32() : 0;
             int failed = root.TryGetProperty("failedRows", out var f) ? f.GetInt32() : 0;
 

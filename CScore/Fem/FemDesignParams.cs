@@ -15,6 +15,8 @@ public record FemDesignParams
     public double MuY           { get; init; } = 1.0;
     public double BetaM         { get; init; } = 1.0;
     public double GammaM        { get; init; } = 1.025;
+    /// <summary>Расстояние между точками закрепления сжатого пояса от бокового смещения, м (0 — не задано).</summary>
+    public double DesignLengthBit { get; init; }
 
     public string ToJson() => JsonSerializer.Serialize(this);
 

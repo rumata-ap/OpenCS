@@ -1417,9 +1417,21 @@
                               Fill="SteelBlue"
                               Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                         <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
-                        <TextBlock Text=" (" Foreground="Gray"/>
-                        <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
-                        <TextBlock Text=" эл.)" Foreground="Gray"/>
+                        <!-- Число строк набора: стержневые — Items, пластинчатые — ShellItems -->
+                        <TextBlock Foreground="Gray" VerticalAlignment="Center">
+                           <Run Text=" ("/><Run>
+                              <Run.Style>
+                                 <Style TargetType="Run">
+                                    <Setter Property="Text" Value="{Binding Items.Count, Mode=OneWay}"/>
+                                    <Style.Triggers>
+                                       <DataTrigger Binding="{Binding Kind}" Value="shell">
+                                          <Setter Property="Text" Value="{Binding ShellItems.Count, Mode=OneWay}"/>
+                                       </DataTrigger>
+                                    </Style.Triggers>
+                                 </Style>
+                              </Run.Style>
+                           </Run><Run Text=" "/><Run Text="{DynamicResource ForceSetRowsUnit}"/><Run Text=")"/>
+                        </TextBlock>
                      </StackPanel>
                   </DataTemplate>
 
@@ -1465,13 +1477,19 @@
                               <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
                                  <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraForcesFromApiCommand,
-                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraRsnFromApiCommand,
-                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraRsuFromApiCommand,
-                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <Separator/>
                               <MenuItem Header="{DynamicResource FemMemberDelete}"

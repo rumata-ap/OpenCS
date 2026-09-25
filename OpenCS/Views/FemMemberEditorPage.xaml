@@ -63,7 +63,8 @@
                            Margin="0,0,0,8" FontSize="11" Foreground="Gray"/>
 
                 <GroupBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
-                          Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,4,0,0">
+                          Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,4,0,0"
+                          Visibility="{Binding ShowSteelParams, Converter={StaticResource BoolToVisibility}}">
                     <Grid Margin="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="130"/>

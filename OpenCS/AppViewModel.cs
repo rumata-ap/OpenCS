@@ -1420,9 +1420,9 @@ namespace OpenCS
          ImportScadForcesCombinationsCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Combinations));
          ImportScadRsu2Command            = new RelayCommand(_ => ImportScadRsu2());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
-         ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
-         ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
-         ImportLiraRsuFromApiCommand     = new RelayCommand(_ => ImportLiraRsuFromApi());
+         ImportLiraForcesFromApiCommand  = new RelayCommand(p => ImportLiraForcesFromApi(p as CScore.Fem.FemMemberGroup));
+         ImportLiraRsnFromApiCommand     = new RelayCommand(p => ImportLiraRsnFromApi(p as CScore.Fem.FemMemberGroup));
+         ImportLiraRsuFromApiCommand     = new RelayCommand(p => ImportLiraRsuFromApi(p as CScore.Fem.FemMemberGroup));
       }
 
       void SetLanguage(object? param)
@@ -3187,9 +3187,11 @@ namespace OpenCS
          }
       }
 
-      async void ImportLiraForcesFromApi()
+      async void ImportLiraForcesFromApi(CScore.Fem.FemMemberGroup? target = null)
       {
-         if (currentFemMember == null)
+         // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
+         var member = target ?? currentFemMember;
+         if (member == null)
          {
             System.Windows.MessageBox.Show(
                Loc.S("ImportLiraForcesNoMember"),
@@ -3200,7 +3202,7 @@ namespace OpenCS
          }
 
          var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            currentFemMember.MemberTagsJson) ?? [];
+            member.MemberTagsJson) ?? [];
 
          if (elemIds.Length == 0)
          {
@@ -3212,14 +3214,12 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
          if (schema == null)
          {
             LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
             return;
          }
-
-         var member = currentFemMember;
          BeginBusy(string.Format(Loc.S("ImportLiraForcesStarted"), elemIds.Length, member.Tag));
 
          try
@@ -3244,9 +3244,11 @@ namespace OpenCS
          }
       }
 
-      async void ImportLiraRsnFromApi()
+      async void ImportLiraRsnFromApi(CScore.Fem.FemMemberGroup? target = null)
       {
-         if (currentFemMember == null)
+         // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
+         var member = target ?? currentFemMember;
+         if (member == null)
          {
             System.Windows.MessageBox.Show(
                Loc.S("ImportLiraForcesNoMember"),
@@ -3257,7 +3259,7 @@ namespace OpenCS
          }
 
          var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            currentFemMember.MemberTagsJson) ?? [];
+            member.MemberTagsJson) ?? [];
 
          if (elemIds.Length == 0)
          {
@@ -3269,14 +3271,12 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
          if (schema == null)
          {
             LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
             return;
          }
-
-         var member = currentFemMember;
          BeginBusy(string.Format(Loc.S("ImportLiraRsnStarted"), elemIds.Length, member.Tag));
 
          try
@@ -3301,16 +3301,18 @@ namespace OpenCS
          }
       }
 
-      async void ImportLiraRsuFromApi()
+      async void ImportLiraRsuFromApi(CScore.Fem.FemMemberGroup? target = null)
       {
-         if (currentFemMember == null)
+         // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
+         var member = target ?? currentFemMember;
+         if (member == null)
          {
             System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             return;
          }
 
-         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.MemberTagsJson) ?? [];
+         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
          if (elemIds.Length == 0)
          {
             System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"),
@@ -3318,10 +3320,8 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
          if (schema == null) { LogService.Warning(Loc.S("ImportLiraForcesNoSchema")); return; }
-
-         var member = currentFemMember;
          BeginBusy(string.Format(Loc.S("ImportLiraRsuStarted"), elemIds.Length, member.Tag));
 
          try
@@ -3651,7 +3651,17 @@ namespace OpenCS
 
          CurrentFemCheck = check;
          CurrentPage = new Views.FemCheckResultView(result);
-         LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
+         string? checkError = null;
+         try
+         {
+            using var resDoc = JsonDocument.Parse(result.DataJson);
+            if (resDoc.RootElement.TryGetProperty("error", out var errEl)) checkError = errEl.GetString();
+         }
+         catch (JsonException) { }
+         if (checkError != null)
+            LogService.Warning($"FemCheck «{check.DisplayTag}»: {checkError}");
+         else
+            LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
       void CreateFemAnalysis(CScore.Fem.FemSchema? schema)

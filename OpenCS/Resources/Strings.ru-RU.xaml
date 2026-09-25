@@ -658,6 +658,7 @@
    <system:String x:Key="ForceSetSelectHint">Выберите набор усилий для редактирования</system:String>
    <system:String x:Key="RenameForceSet">Переименовать / вид загружения...</system:String>
    <system:String x:Key="DuplicateForceSet">Дублировать набор</system:String>
+   <system:String x:Key="ForceSetRowsUnit">стр.</system:String>
    <system:String x:Key="DeleteForceSetItem">Удалить набор</system:String>
    <system:String x:Key="ForceSetPropsTitle">Комбинаторика по СП20</system:String>
    <system:String x:Key="ForceLoadCurrentName">Набор:</system:String>
@@ -2104,6 +2105,7 @@
     <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
     <!-- FemCheck результат -->
     <system:String x:Key="FemCheckResultSummary">{0} прошло / {1} не прошло из {2}</system:String>
+    <system:String x:Key="FemCheckResultError">Проверка не выполнена: {0}</system:String>
     <system:String x:Key="FemCheckResultLabel">Метка</system:String>
     <system:String x:Key="FemCheckResultForceSet">Набор усилий</system:String>
     <system:String x:Key="FemCheckResultCalcType">Тип</system:String>
