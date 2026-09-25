@@ -75,6 +75,8 @@ public enum LtbLoadKind
     EndMomentOneSide = 5,
     /// <summary>Равные концевые моменты разных знаков (M – −M).</summary>
     EndMomentsOpposite = 6,
+    /// <summary>Сосредоточенная сила на конце консоли (табл. Ж.2).</summary>
+    ConcentratedEnd = 7,
 }
 
 /// <summary>Закрепление сжатого пояса балки в пролёте (табл. Ж.1).</summary>

@@ -34,7 +34,7 @@ public static class Sp16Section8Strength
         var res = new List<Sp16CheckResult>();
         bool mx = Math.Abs(f.Mx) > 1e-9, my = Math.Abs(f.My) > 1e-9;
         var s = m.S;
-        var plasticReason = PlasticNotApplicableReason(m, f);
+        var plasticReason = PlasticNotApplicableReason(m);
         if (m.P.AllowPlastic && plasticReason == null)
             res.AddRange(Plastic(m, f));
         else
@@ -52,7 +52,7 @@ public static class Sp16Section8Strength
     }
 
     /// <summary>Причина неприменимости 8.2.3; null — применимо.</summary>
-    static string? PlasticNotApplicableReason(Sp16Member m, SteelForces f)
+    internal static string? PlasticNotApplicableReason(Sp16Member m)
     {
         var s = m.S;
         if (s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Box)) return "8.2.3 распространяется только на двутавровое и коробчатое сечения";
@@ -132,15 +132,12 @@ public static class Sp16Section8Strength
             res.AddRange(Elastic(m, f, mx, my));
             return res;
         }
-        double afRatio = af / s.Aw;
-        double beta = m.P.PureBendingZone || tauX <= 0.5 * rs ? 1.0 : 1 - 0.20 / (afRatio + 0.25) * Math.Pow(tauX / rs, 4);
-        double cx = e1.Cx, cy = e1.Cy;
-        if (m.P.PureBendingZone) { cx = 0.5 * (1 + cx); cy = 0.5 * (1 + cy); }
-        double cxEff = Sp16Tables.CapPlastic(cx, m.P.GammaFEq), cyEff = Sp16Tables.CapPlastic(cy, m.P.GammaFEq);
+        double beta = Beta52(m, f);
+        var (cxEff, cyEff, capped) = PlasticC(m, e1);
         var notes = new List<string?>
         {
             $"табл. Е.1: {e1.Note}",
-            cxEff < cx || cyEff < cy ? $"прим. 2 табл. Е.1: c ≤ 1,15γf = {1.15 * m.P.GammaFEq:0.###}" : null,
+            capped ? $"прим. 2 табл. Е.1: c ≤ 1,15γf = {1.15 * m.P.GammaFEq:0.###}" : null,
             m.P.PureBendingZone ? "зона чистого изгиба: β = 1, cxm = 0,5(1 + cx)" : null,
             "требуется соблюдение 8.4.6, 8.5.8, 8.5.9 и 8.5.18",
         };
@@ -158,6 +155,24 @@ public static class Sp16Section8Strength
                 notes: notes));
         }
         return res;
+    }
+
+    /// <summary>β по (52): 1 при τx ≤ 0,5Rs и в зоне чистого изгиба, иначе 1 − 0,2/(Af/Aw + 0,25)·(τx/Rs)⁴.</summary>
+    internal static double Beta52(Sp16Member m, SteelForces f)
+    {
+        var s = m.S;
+        double rs = s.Mat.Rs, tauX = Math.Abs(f.Qy) / s.Aw;
+        double afRatio = Math.Min(s.AfTop, s.AfBottom) / s.Aw;
+        return m.P.PureBendingZone || tauX <= 0.5 * rs ? 1.0 : 1 - 0.20 / (afRatio + 0.25) * Math.Pow(tauX / rs, 4);
+    }
+
+    /// <summary>cx, cy по табл. Е.1 с учётом зоны чистого изгиба (cxm = 0,5(1 + cx)) и прим. 2 (c ≤ 1,15γf).</summary>
+    internal static (double Cx, double Cy, bool Capped) PlasticC(Sp16Member m, PlasticCoefficients e1)
+    {
+        double cx = e1.Cx, cy = e1.Cy;
+        if (m.P.PureBendingZone) { cx = 0.5 * (1 + cx); cy = 0.5 * (1 + cy); }
+        double cxEff = Sp16Tables.CapPlastic(cx, m.P.GammaFEq), cyEff = Sp16Tables.CapPlastic(cy, m.P.GammaFEq);
+        return (cxEff, cyEff, cxEff < cx || cyEff < cy);
     }
 
     /// <summary>8.2.1, формула (42): QS/(I·tw·Rs·γc) ≤ 1 для каждой поперечной силы.</summary>
