@@ -40,18 +40,18 @@ public sealed class Sp16CheckResult
     /// <summary>Условие «коэффициент использования ≤ 1».</summary>
     public static Sp16CheckResult Of(string clause, string formula, string description, double utilization,
         IEnumerable<(string Name, double Value)>? vars = null, double applied = double.NaN, double allowable = double.NaN,
-        IEnumerable<string>? notes = null) => new()
+        IEnumerable<string?>? notes = null) => new()
         {
             Clause = clause, Formula = formula, Description = description,
             Utilization = utilization, Applied = applied, Allowable = allowable,
             Status = utilization <= 1.0 + 1e-12 ? CheckStatus.Ok : CheckStatus.Fail,
             Variables = (vars ?? []).Select(v => new KeyValuePair<string, double>(v.Name, v.Value)).ToList(),
-            Notes = (notes ?? []).Where(n => !string.IsNullOrEmpty(n)).ToList(),
+            Notes = (notes ?? []).Where(n => !string.IsNullOrEmpty(n)).Select(n => n!).ToList(),
         };
 
     /// <summary>Условие «действующее ≤ предельное».</summary>
     public static Sp16CheckResult Limit(string clause, string formula, string description, double applied, double allowable,
-        IEnumerable<(string Name, double Value)>? vars = null, IEnumerable<string>? notes = null) =>
+        IEnumerable<(string Name, double Value)>? vars = null, IEnumerable<string?>? notes = null) =>
         Of(clause, formula, description, allowable > 0 ? applied / allowable : (applied > 0 ? double.PositiveInfinity : 0),
             vars, applied, allowable, notes);
 
