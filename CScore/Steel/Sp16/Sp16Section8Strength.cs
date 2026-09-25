@@ -231,9 +231,16 @@ public static class Sp16Section8Strength
     {
         var s = m.S;
         if (m.P.LocalForce <= 0 || s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Channel or SteelProfileKind.Box)) return null;
-        double h = s.Profile.Fabrication == SteelFabrication.Rolled ? s.TfTop + s.Profile.R : s.TfTop + m.P.FlangeWeldLeg;
-        double lef = m.P.BearingLength + 2 * h;
+        double lef = LocalLef(m);
         return lef > 0 ? m.P.LocalForce / (lef * s.Tw * s.WebCount) : null;
+    }
+
+    /// <summary>Условная длина распределения нагрузки lef = b + 2h по (48), м.</summary>
+    internal static double LocalLef(Sp16Member m)
+    {
+        var s = m.S;
+        double h = s.Profile.Fabrication == SteelFabrication.Rolled ? s.TfTop + s.Profile.R : s.TfTop + m.P.FlangeWeldLeg;
+        return m.P.BearingLength + 2 * h;
     }
 
     /// <summary>8.2.2, формула (46): σloc/(Ry·γc) ≤ 1.</summary>
