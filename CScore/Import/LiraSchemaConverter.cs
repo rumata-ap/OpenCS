@@ -192,9 +192,11 @@ public static class LiraSchemaConverter
         return data.ConstructiveBlocks
             .Select(b =>
             {
+                // Номер блока ЛИРА («Блок N» в карточке КЭ) — без него группы одного типа неразличимы
+                // (все безымянные блоки импортируются как «Блок»).
                 var tag = string.IsNullOrWhiteSpace(b.Floor)
-                    ? b.Type
-                    : $"{b.Type} [{b.Floor}]";
+                    ? $"{b.Type} №{b.Id}"
+                    : $"{b.Type} №{b.Id} [{b.Floor}]";
                 if (!string.IsNullOrWhiteSpace(b.Mark))
                     tag += $" {b.Mark}";
                 return new FemMemberGroup
