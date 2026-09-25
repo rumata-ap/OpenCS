@@ -6077,6 +6077,72 @@ namespace OpenCS.Utilites
          schema?.MemberGroups.Remove(g);
       }
 
+      /// <summary>
+      /// true, если у схемы нет конструктивного слоя (fem_nodes/fem_members пусты) — так выглядят схемы,
+      /// импортированные из ЛИРА/SCAD: топология записана сразу в слой сетки (fem_mesh_nodes/fem_elements).
+      /// </summary>
+      public bool IsFemConstructiveLayerEmpty(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT NOT EXISTS (SELECT 1 FROM fem_nodes   WHERE schema_id=@sid)
+               AND NOT EXISTS (SELECT 1 FROM fem_members WHERE schema_id=@sid)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
+      }
+
+      /// <summary>
+      /// Сечение группы — первое назначенное у её элементов. Элементы группы — конструктивные FemMember;
+      /// у схем без конструктивного слоя (импорт ЛИРА/SCAD) — КЭ сетки с теми же номерами.
+      /// </summary>
+      public int? GetFemMemberGroupCrossSectionId(CScore.Fem.FemMemberGroup group)
+      {
+         var tags = GroupElemTags(group);
+         return IsFemConstructiveLayerEmpty(group.SchemaId)
+            ? GetFemMeshElements(group.SchemaId).Where(e => tags.Contains(e.ElemTag)).Select(e => e.CrossSectionId).FirstOrDefault(id => id != null)
+            : GetFemMembers(group.SchemaId).Where(e => tags.Contains(e.ElemTag)).Select(e => e.CrossSectionId).FirstOrDefault(id => id != null);
+      }
+
+      /// <summary>
+      /// Массово назначает сечение всем элементам группы (без хранения связи «группа → сечение»).
+      /// У схем без конструктивного слоя пишет в КЭ сетки: создавать там FemMember нельзя — 3D-вид,
+      /// расчёт и «Дискретизировать» переключились бы на неполный конструктивный слой.
+      /// </summary>
+      public void SetFemMemberGroupCrossSection(CScore.Fem.FemMemberGroup group, int? crossSectionId)
+      {
+         var tags = GroupElemTags(group);
+         if (!IsFemConstructiveLayerEmpty(group.SchemaId))
+         {
+            foreach (var e in GetFemMembers(group.SchemaId).Where(e => tags.Contains(e.ElemTag)))
+            {
+               e.CrossSectionId = crossSectionId;
+               SaveFemMember(e);
+            }
+            return;
+         }
+
+         using var tx = _connection.BeginTransaction();
+         using var cmd = _connection.CreateCommand();
+         cmd.Transaction = tx;
+         cmd.CommandText = "UPDATE fem_elements SET cross_section_id=@cs WHERE schema_id=@sid AND elem_tag=@tag";
+         cmd.Parameters.AddWithValue("@cs", (object?)crossSectionId ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@sid", group.SchemaId);
+         var tagParam = cmd.Parameters.Add("@tag", SqliteType.Text);
+         foreach (var tag in tags)
+         {
+            tagParam.Value = tag;
+            cmd.ExecuteNonQuery();
+         }
+         tx.Commit();
+      }
+
+      /// <summary>Номера элементов группы (MemberTagsJson — JSON-массив чисел) как ElemTag-строки.</summary>
+      static HashSet<string> GroupElemTags(CScore.Fem.FemMemberGroup group) =>
+         (System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [])
+            .Select(t => t.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToHashSet();
+
       /// <summary>Сохраняет один конструктивный элемент (INSERT/UPDATE по m.Id). Используется точечными
       /// операциями вне полной пересборки топологии — например, массовым назначением сечения всем
       /// элементам группы из FemMemberEditorPage.</summary>

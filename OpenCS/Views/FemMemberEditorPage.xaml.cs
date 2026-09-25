@@ -143,14 +143,10 @@ public class FemMemberEditorVM : ViewModelBase
         _db     = app.db;
         _params = FemDesignParams.Parse(member.DesignParamsJson);
 
-        // CrossSectionId теперь собственное поле каждого конструктивного FemMember, а не группы
+        // CrossSectionId — собственное поле каждого элемента, а не группы
         // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — начальный
         // выбор в комбобоксе берём с первого элемента группы, у которого сечение назначено.
-        var memberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
-        var groupElements = app.db.GetFemMembers(member.SchemaId)
-            .Where(e => int.TryParse(e.ElemTag, out var t) && memberTags.Contains(t))
-            .ToList();
-        var primaryCrossSectionId = groupElements.Select(e => e.CrossSectionId).FirstOrDefault(id => id != null);
+        var primaryCrossSectionId = app.db.GetFemMemberGroupCrossSectionId(member);
 
         _selectedBarSection   = app.CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
         _selectedPlateSection = app.PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
@@ -165,20 +161,9 @@ public class FemMemberEditorVM : ViewModelBase
         _member.DesignParamsJson = _params.ToJson();
         _db.SaveFemMemberGroup(_member);
 
+        // Сечение назначается напрямую каждому элементу группы — эта страница проставляет выбранное
+        // сечение всем элементам группы разом (массовое действие, без хранения связи «группа → сечение»).
         if (!IsPlateType)
-        {
-            // Сечение назначается напрямую каждому конструктивному элементу группы — эта страница
-            // проставляет выбранное сечение всем элементам группы разом (массовое действие, без
-            // хранения связи «группа → сечение» после этого).
-            var memberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(_member.MemberTagsJson) ?? [];
-            var groupElements = _db.GetFemMembers(_member.SchemaId)
-                .Where(e => int.TryParse(e.ElemTag, out var t) && memberTags.Contains(t))
-                .ToList();
-            foreach (var e in groupElements)
-            {
-                e.CrossSectionId = _selectedBarSection?.Id;
-                _db.SaveFemMember(e);
-            }
-        }
+            _db.SetFemMemberGroupCrossSection(_member, _selectedBarSection?.Id);
     }
 }

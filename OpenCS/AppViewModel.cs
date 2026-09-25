@@ -3626,14 +3626,10 @@ namespace OpenCS
             }
             else
             {
-               // CrossSectionId — собственное поле каждого конструктивного FemMember, а не группы
+               // CrossSectionId — собственное поле каждого элемента, а не группы
                // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — берём
-               // сечение первого элемента группы, у которого оно назначено.
-               var groupMemberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
-               var primaryCrossSectionId = db.GetFemMembers(group.SchemaId)
-                  .Where(e => int.TryParse(e.ElemTag, out var t) && groupMemberTags.Contains(t))
-                  .Select(e => e.CrossSectionId)
-                  .FirstOrDefault(id => id != null);
+               // сечение первого элемента группы, у которого оно назначено (у схем ЛИРА/SCAD — КЭ сетки).
+               var primaryCrossSectionId = db.GetFemMemberGroupCrossSectionId(group);
                barSection = CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
             }
 
