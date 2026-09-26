@@ -82,8 +82,8 @@ public sealed class ParametricRcSectionSvgRenderer
 
     void AppendRebar(StringBuilder svg, ParametricRcSectionDefinition definition, double scale)
     {
-        AppendLayer(svg, definition.LowerRebar, definition.WidthM, scale);
-        AppendLayer(svg, definition.UpperRebar, definition.WidthM, scale);
+        AppendLayer(svg, definition, definition.LowerRebar, scale);
+        AppendLayer(svg, definition, definition.UpperRebar, scale);
         if (definition.PolarRebar is not { } polar || polar.Count <= 0)
             return;
         for (int i = 0; i < polar.Count; i++)
@@ -95,18 +95,23 @@ public sealed class ParametricRcSectionSvgRenderer
         }
     }
 
-    void AppendLayer(StringBuilder svg, ParametricLongitudinalLayer? layer,
-        double width, double scale)
+    void AppendLayer(StringBuilder svg, ParametricRcSectionDefinition definition,
+        ParametricLongitudinalLayer? layer, double scale)
     {
         if (layer is not { Enabled: true }) return;
-        int count = layer.IsIdealized ? 1 : Math.Max(1, layer.Count);
-        for (int i = 0; i < count; i++)
+        string r = N(Math.Max(2, layer.DiameterM * scale / 2));
+        if (layer.IsIdealized)
         {
-            double fraction = count == 1 ? 0.0 : (double)i / (count - 1) - 0.5;
-            double cx = fraction * Math.Min(width * 0.75, width - layer.DiameterM * 2);
-            double cy = layer.CoordinateM;
-            svg.Append($"<circle class=\"rebar\" cx=\"{N(X(cx))}\" cy=\"{N(Y(cy))}\" r=\"{N(Math.Max(2, layer.DiameterM * scale / 2))}\"/>");
+            // Расчётный слой — одна точка на оси симметрии; для оси My координата — абсцисса.
+            bool normalToX = layer.Axis == CScore.IdealizedRebarAxis.My;
+            double cx = normalToX ? layer.CoordinateM : 0.0;
+            double cy = normalToX ? 0.0 : layer.CoordinateM;
+            svg.Append($"<circle class=\"rebar\" cx=\"{N(X(cx))}\" cy=\"{N(Y(cy))}\" r=\"{r}\"/>");
+            return;
         }
+        // Те же абсциссы, что у генератора сечения, — схема отчёта совпадает с расчётным сечением.
+        foreach (double cx in ParametricRcSectionGenerator.GetPhysicalBarPositionsX(definition, layer))
+            svg.Append($"<circle class=\"rebar\" cx=\"{N(X(cx))}\" cy=\"{N(Y(layer.CoordinateM))}\" r=\"{r}\"/>");
     }
 
     void AppendStirrupCuts(StringBuilder svg, ParametricRcSectionDefinition definition, double scale)

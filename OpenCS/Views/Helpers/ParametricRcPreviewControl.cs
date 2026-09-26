@@ -128,16 +128,18 @@ public sealed class ParametricRcPreviewControl : FrameworkElement
             return;
         }
 
-        DrawLayer(dc, boundary, vm.LowerRebarEnabled, vm.LowerRebarIdealized, vm.LowerRebarCount,
+        var definition = vm.BuildDefinition();
+        DrawLayer(dc, boundary, definition, definition.LowerRebar, vm.LowerRebarEnabled, vm.LowerRebarIdealized,
             vm.LowerRebarDiameterMm, vm.LowerRebarAreaMm2, vm.GetRebarCentroidCoordinateMm(true),
             vm.LowerRebarAxis, Math.Max(0, vm.StirrupCoverMm) / 1000.0, toScreen, scale);
-        DrawLayer(dc, boundary, vm.UpperRebarEnabled, vm.UpperRebarIdealized, vm.UpperRebarCount,
+        DrawLayer(dc, boundary, definition, definition.UpperRebar, vm.UpperRebarEnabled, vm.UpperRebarIdealized,
             vm.UpperRebarDiameterMm, vm.UpperRebarAreaMm2, vm.GetRebarCentroidCoordinateMm(false),
             vm.UpperRebarAxis, Math.Max(0, vm.StirrupCoverMm) / 1000.0, toScreen, scale);
     }
 
     void DrawLayer(DrawingContext dc, IReadOnlyList<(double X, double Y)> boundary,
-        bool enabled, bool idealized, int count, double diameterMm, double areaMm2,
+        ParametricRcSectionDefinition definition, ParametricLongitudinalLayer? layer,
+        bool enabled, bool idealized, double diameterMm, double areaMm2,
         double coordinateMm, IdealizedRebarAxis axis,
         double sideCoverM,
         Func<(double X, double Y), Point> toScreen, double scale)
@@ -158,14 +160,10 @@ public sealed class ParametricRcPreviewControl : FrameworkElement
             return;
         }
 
-        count = Math.Max(0, count);
-        var physicalSpan = GetIdealizedLineSpan(boundary, coordinate, IdealizedRebarAxis.Mx, sideCoverM);
-        for (int i = 0; i < count; i++)
-        {
-            double x = count == 1 ? (physicalSpan.Min + physicalSpan.Max) / 2
-                : physicalSpan.Min + i * (physicalSpan.Max - physicalSpan.Min) / (count - 1);
+        // Те же абсциссы, что у генератора сечения, — схема совпадает с расчётным сечением.
+        if (layer is null) return;
+        foreach (double x in ParametricRcSectionGenerator.GetPhysicalBarPositionsX(definition, layer))
             DrawBar(dc, toScreen((x, coordinate)), diameter * scale);
-        }
     }
 
     /// <summary>Находит отрезок фактического контура, доступный для условного слоя.</summary>

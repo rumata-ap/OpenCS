@@ -18,7 +18,9 @@ public sealed record ParametricRcSectionState(ParametricRcDefinitionLoadStatus L
 public sealed class ParametricRcSectionProjectService(DatabaseService database)
 {
     public const int DefinitionVersion = ParametricRcSectionDefinition.CurrentVersion;
-    public const int GeneratorVersion = 1;
+    // 2 — физические стержни ряда раскладываются по фактической ширине контура с отступом a
+    // (раньше — на ±0,35·b без учёта защитного слоя, не совпадая с предпросмотром).
+    public const int GeneratorVersion = 2;
 
     static readonly JsonSerializerOptions JsonOptions = new()
     {

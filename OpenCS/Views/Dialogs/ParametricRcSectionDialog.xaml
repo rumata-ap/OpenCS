@@ -101,7 +101,7 @@
                            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcLowerRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LowerRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
                            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding LowerRebarAxis}" SelectedValuePath="Tag" Margin="0,1">
+                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding LowerRebarAxis}" SelectedValuePath="Tag" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized}">
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
                            </ComboBox>
@@ -125,7 +125,7 @@
                            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcUpperRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UpperRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
                            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
-                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding UpperRebarAxis}" SelectedValuePath="Tag" Margin="0,1">
+                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding UpperRebarAxis}" SelectedValuePath="Tag" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized}">
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
                               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
                            </ComboBox>

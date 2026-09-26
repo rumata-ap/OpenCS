@@ -51,9 +51,9 @@ public static class ParametricRcSectionGenerator
             AddPolarRebar(section, concrete, definition.PolarRebar!, definition.LongitudinalMaterialId);
         else
         {
-            AddLayer(section, concrete, definition.LowerRebar, definition.WidthM,
+            AddLayer(section, concrete, definition, definition.LowerRebar,
                 "Нижняя арматура", definition.LongitudinalMaterialId);
-            AddLayer(section, concrete, definition.UpperRebar, definition.WidthM,
+            AddLayer(section, concrete, definition, definition.UpperRebar,
                 "Верхняя арматура", definition.LongitudinalMaterialId);
             AddStirrupCuts(section, definition);
         }
@@ -98,6 +98,12 @@ public static class ParametricRcSectionGenerator
                 double limit = layer.Axis == IdealizedRebarAxis.My ? d.WidthM / 2 : d.HeightM / 2;
                 if (Math.Abs(layer.CoordinateM) + half > limit)
                     errors.Add("Продольный слой выходит за габариты бетонного сечения.");
+                else if (!layer.IsIdealized && layer.Count > 1)
+                {
+                    var xs = GetPhysicalBarPositionsX(d, layer);
+                    if (xs[^1] - xs[0] < (layer.Count - 1) * layer.DiameterM)
+                        errors.Add("Стержни продольного ряда не помещаются по ширине сечения на уровне ряда.");
+                }
             }
         }
         foreach (var cut in d.StirrupCuts)
@@ -144,8 +150,8 @@ public static class ParametricRcSectionGenerator
         return new Contour(points.Select(p => p.X), points.Select(p => p.Y), tag) { Type = type };
     }
 
-    static void AddLayer(CrossSection section, MaterialArea concrete, ParametricLongitudinalLayer? layer,
-        double width, string tag, int materialId)
+    static void AddLayer(CrossSection section, MaterialArea concrete, ParametricRcSectionDefinition definition,
+        ParametricLongitudinalLayer? layer, string tag, int materialId)
     {
         if (layer?.Enabled != true) return;
         var area = new MaterialArea
@@ -162,11 +168,47 @@ public static class ParametricRcSectionGenerator
                 : Bar(0, layer.CoordinateM, layer.AreaM2, layer.DiameterM));
         else
         {
-            double start = -width * 0.35, step = layer.Count == 1 ? 0 : width * 0.70 / (layer.Count - 1);
             double a = Math.PI * layer.DiameterM * layer.DiameterM / 4.0;
-            for (int i = 0; i < layer.Count; i++) area.Fibers.Add(Bar(start + i * step, layer.CoordinateM, a, layer.DiameterM));
+            foreach (double x in GetPhysicalBarPositionsX(definition, layer))
+                area.Fibers.Add(Bar(x, layer.CoordinateM, a, layer.DiameterM));
         }
         section.Areas.Add(area);
+    }
+
+    /// <summary>
+    /// Абсциссы физических стержней горизонтального ряда на уровне <c>layer.CoordinateM</c>.
+    /// Стержни раскладываются равномерно по фактической ширине контура на этом уровне
+    /// (у тавра и двутавра — по стенке или полке), крайние отстоят от боковых граней на то же
+    /// расстояние, что и ряд от ближайшей горизонтальной грани (центр углового стержня — в (a, a)).
+    /// Общая точка для генератора и предпросмотра диалога, чтобы схема совпадала с сечением.
+    /// </summary>
+    public static IReadOnlyList<double> GetPhysicalBarPositionsX(
+        ParametricRcSectionDefinition definition, ParametricLongitudinalLayer layer)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(layer);
+        if (layer.Count < 1) return [];
+
+        var outer = OuterPoints(definition);
+        double y = layer.CoordinateM;
+        var hits = new List<double>();
+        for (int i = 0; i < outer.Count; i++)
+        {
+            var p = outer[i];
+            var q = outer[(i + 1) % outer.Count];
+            if (!((p.Y <= y && q.Y > y) || (q.Y <= y && p.Y > y))) continue;
+            hits.Add(p.X + (y - p.Y) / (q.Y - p.Y) * (q.X - p.X));
+        }
+        double left = hits.Count >= 2 ? hits.Min() : outer.Min(p => p.X);
+        double right = hits.Count >= 2 ? hits.Max() : outer.Max(p => p.X);
+
+        double inset = Math.Max(0, Math.Min(y - outer.Min(p => p.Y), outer.Max(p => p.Y) - y));
+        double min = left + inset, max = right - inset;
+        if (layer.Count == 1 || min >= max)
+            return [.. Enumerable.Repeat((left + right) / 2, layer.Count)];
+
+        double step = (max - min) / (layer.Count - 1);
+        return [.. Enumerable.Range(0, layer.Count).Select(i => min + i * step)];
     }
 
     static void AddPolarRebar(CrossSection section, MaterialArea concrete,
