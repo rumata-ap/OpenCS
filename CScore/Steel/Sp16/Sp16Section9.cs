@@ -165,6 +165,7 @@ public static partial class Sp16Section9
     /// <summary>
     /// 9.2.2, формула (109): N/(φe·A·Ry·γc) ≤ 1 при сжатии с изгибом в одной из главных плоскостей,
     /// совпадающей с плоскостью симметрии (в т. ч. 9.2.8 — изгиб в плоскости наименьшей жёсткости).
+    /// При изгибе в двух главных плоскостях — <see cref="BiaxialStability"/> (9.2.9, 9.2.10).
     /// </summary>
     public static List<Sp16CheckResult> InPlaneStability(Sp16Member m, SteelForces f)
     {
@@ -172,12 +173,7 @@ public static partial class Sp16Section9
         bool mx = Math.Abs(f.Mx) > Eps, my = Math.Abs(f.My) > Eps;
         if (f.N >= 0 || !mx && !my) return res;
         const string title = "Устойчивость в плоскости действия момента";
-        if (mx && my)
-        {
-            res.Add(Sp16CheckResult.NotApplicableFor("9.2.2", "(109)", title,
-                "сжатие с изгибом в двух главных плоскостях — расчёт по 9.2.9 (коробчатое сечение — 9.2.10)"));
-            return res;
-        }
+        if (mx && my) return BiaxialStability(m, f);
         bool aboutX = mx;
         string desc = $"{title} (изгиб относительно оси {m.Axis(aboutX)})";
         double nAbs = -f.N;
@@ -206,18 +202,21 @@ public static partial class Sp16Section9
     /// φe по 9.2.2 для сжатия силой nAbs (кН, &gt; 0) с моментом moment (кН·м, со знаком) относительно
     /// канонической оси x (aboutX) или y. Расчётный момент — по 9.2.3: табл. Д.5 (двоякосимметричное
     /// сечение, эпюра от концевых моментов), табл. 20 (одна ось симметрии в плоскости изгиба, шарнирные
-    /// концы), иначе — заданный момент.
+    /// концы), иначе — заданный момент. unequalFlangesType8 — 9.2.9: для двутавра с неодинаковыми полками
+    /// при изгибе относительно оси y η определяется как для типа 8 табл. Д.2.
     /// </summary>
-    public static PhiEResult PhiE(Sp16Member m, double nAbs, double moment, bool aboutX)
+    public static PhiEResult PhiE(Sp16Member m, double nAbs, double moment, bool aboutX, bool unequalFlangesType8 = false)
     {
         var s = m.S; var p = m.P;
         var notes = new List<string?>();
         bool symPlane = aboutX ? s.SymmetricAboutY : s.SymmetricAboutX;
-        if (!symPlane && p.EtaOverride == null)
+        bool type8 = unequalFlangesType8 && !symPlane && !aboutX && s.Kind == SteelProfileKind.IBeam;
+        if (!symPlane && p.EtaOverride == null && !type8)
             return new() { NotApplicable = s.Kind == SteelProfileKind.Generic
                 ? "профиль не распознан — задайте профиль или коэффициент η вручную"
                 : "плоскость действия момента не совпадает с плоскостью симметрии сечения — 9.2.2 не распространяется" };
-        if (!symPlane) notes.Add("совпадение плоскости момента с плоскостью симметрии не проверено: η задан вручную");
+        if (type8 && p.EtaOverride == null) notes.Add("9.2.9: двутавр с неодинаковыми полками — η как для сечения типа 8 табл. Д.2");
+        else if (!symPlane) notes.Add("совпадение плоскости момента с плоскостью симметрии не проверено: η задан вручную");
 
         bool compPos = moment < 0;                       // M > 0 растягивает сторону y > 0 (x > 0)
         double wc = aboutX ? s.Wx(compPos) : s.Wy(compPos);
@@ -249,7 +248,7 @@ public static partial class Sp16Section9
         }
         else
         {
-            if (!doubly && pinned)
+            if (!doubly && symPlane && pinned)
             {
                 double ratio1 = p.MomentShape == MomentShape.LinearEndMoments ? (2 + p.EndMomentRatio) / 3 : p.MiddleThirdMomentRatio;
                 double m1 = Math.Max(ratio1, 0.5) * mAbs, mMaxRel = Rel(mAbs);
@@ -260,6 +259,8 @@ public static partial class Sp16Section9
             }
             else if (doubly && p.MomentShape == MomentShape.PinnedTransverse)
                 notes.Add("табл. Д.5 — только для эпюры от концевых моментов: M принят равным расчётному");
+            else if (!doubly && pinned)
+                notes.Add("табл. 20 — для сечений с осью симметрии в плоскости изгиба: M принят равным расчётному");
             mRel = Rel(mDesign);
             eta = EtaAt(mRel);
             if (eta.Eta == null) return new() { Vars = vars, NotApplicable = eta.Reason };

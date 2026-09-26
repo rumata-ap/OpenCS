@@ -180,10 +180,10 @@ public class Sp16Section9Tests
     }
 
     [Fact]
-    public void Formula109_TwoMoments_DeferredTo929()
+    public void Formula109_TwoMoments_DelegatesTo929()
     {
-        var r = Sp16Section9.InPlaneStability(Beam(), new SteelForces(-100, 10, 2, 0, 0)).Single();
-        Assert.Equal(CheckStatus.NotApplicable, r.Status);
+        var res = Sp16Section9.InPlaneStability(Beam(), new SteelForces(-100, 10, 2, 0, 0));
+        Assert.Equal("(116)", res[0].Formula);
     }
 
     // ── 9.1 прочность ──

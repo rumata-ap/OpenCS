@@ -210,6 +210,9 @@ public sealed record SteelDesignParams
     /// <summary>Элемент с одним защемлённым и другим свободным концом (9.2.3, 9.2.6).</summary>
     public bool CantileverColumn { get; init; }
 
+    /// <summary>9.2.10: для двухсимметричного коробчатого сечения проверять по одному условию (121а) вместо (120), (121).</summary>
+    public bool UseFormula121a { get; init; }
+
     // ── Предельная гибкость (10.4) ──
 
     /// <summary>Позиция табл. 32.</summary>

@@ -10,6 +10,14 @@ public static partial class Sp16Tables
     /// <summary>ccr по табл. 12: сварные поясные соединения — по δ (84), фрикционные — 35,2.</summary>
     public static double Table12Ccr(double delta, bool friction) => friction ? 35.2 : Interp(delta, T12Delta, T12Ccr);
 
+    // ── Табл. 17: ccr для (85) и табл. 22 (127) ──
+
+    static readonly double[] T17Alpha = [1.0, 1.2, 1.4, 1.6, 1.8, 2.0];
+    static readonly double[] T17Ccr = [10.2, 12.7, 15.5, 20.0, 25.0, 30.0];
+
+    /// <summary>ccr по табл. 17 в зависимости от α = (σ1 − σ2)/σ1 (1 ≤ α ≤ 2, вне — по краю).</summary>
+    public static double Table17Ccr(double alpha) => Interp(alpha, T17Alpha, T17Ccr);
+
     // ── Табл. 14: c1 для σloc,cr по (82) ──
 
     static readonly double[] T14Rho = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40];

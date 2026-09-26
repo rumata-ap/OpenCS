@@ -219,8 +219,8 @@ public class Sp16Section9OutOfPlaneTests
     // ── Неприменимость ──
 
     [Fact]
-    public void TwoMoments_DeferredTo929() =>
-        Assert.Equal(CheckStatus.NotApplicable, Check(Beam(new SteelDesignParams()), new SteelForces(-100, 10, 2, 0, 0)).Status);
+    public void TwoMoments_CoveredBy929() =>
+        Assert.Empty(Sp16Section9.OutOfPlaneStability(Beam(new SteelDesignParams()), new SteelForces(-100, 10, 2, 0, 0)));
 
     [Fact]
     public void TensionOrNoMoment_NoChecks()

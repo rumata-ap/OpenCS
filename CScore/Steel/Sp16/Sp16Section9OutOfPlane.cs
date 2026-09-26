@@ -34,20 +34,17 @@ public static partial class Sp16Section9
     /// <summary>
     /// Устойчивость из плоскости действия момента при сжатии с изгибом в одной главной плоскости:
     /// изгиб в плоскости наибольшей жёсткости — 9.2.4, формула (111) (двутавры, тавры с плоскостью
-    /// симметрии в плоскости момента, швеллеры); изгиб в плоскости наименьшей жёсткости — 9.2.8, формула (115).
+    /// симметрии в плоскости момента, швеллеры); изгиб в плоскости наименьшей жёсткости — 9.2.8, формула (115);
+    /// коробчатое сечение при изгибе в плоскости наибольшей жёсткости — 9.2.10, формула (120) с φy вместо φey.
+    /// При изгибе в двух главных плоскостях проверки (116)–(121) и дополнительные (109), (111) выполняет
+    /// <see cref="InPlaneStability"/> (<see cref="BiaxialStability"/>) — здесь список пуст.
     /// </summary>
     public static List<Sp16CheckResult> OutOfPlaneStability(Sp16Member m, SteelForces f)
     {
         var res = new List<Sp16CheckResult>();
         bool mx = Math.Abs(f.Mx) > Eps, my = Math.Abs(f.My) > Eps;
-        if (f.N >= 0 || !mx && !my) return res;
+        if (f.N >= 0 || !mx && !my || mx && my) return res;
         const string title = "Устойчивость из плоскости действия момента";
-        if (mx && my)
-        {
-            res.Add(Sp16CheckResult.NotApplicableFor("9.2.4", "(111)", title,
-                "сжатие с изгибом в двух главных плоскостях — расчёт по 9.2.9 (коробчатое сечение — 9.2.10)"));
-            return res;
-        }
         bool aboutX = mx;
         var s = m.S;
         string desc = $"{title} (изгиб относительно оси {m.Axis(aboutX)})";
@@ -64,9 +61,13 @@ public static partial class Sp16Section9
             res.Add(Formula115(m, nAbs, aboutX, desc, iIn >= iOut * (1 - 1e-9)));
             return res;
         }
+        if (s.Kind == SteelProfileKind.Box)
+        {
+            res.Add(BoxSingleMoment120(m, nAbs, moment, aboutX, desc));
+            return res;
+        }
         string? reason = s.Kind switch
         {
-            SteelProfileKind.Box => "коробчатое сечение: 9.2.4 не распространяется (сжатие с изгибом коробчатых стержней — 9.2.10)",
             SteelProfileKind.Generic => "профиль не распознан — тип сечения по табл. 21 не определён; задайте профиль вручную",
             SteelProfileKind.IBeam or SteelProfileKind.Tee or SteelProfileKind.Channel when !aboutX =>
                 "плоскость наибольшей жёсткости не совпадает с плоскостью симметрии сечения — 9.2.4 не распространяется",
@@ -118,8 +119,9 @@ public static partial class Sp16Section9
     /// Коэффициент c по 9.2.5 для сжатия силой nAbs (кН, &gt; 0) с моментом moment (кН·м, со знаком)
     /// относительно канонической оси x (плоскость наибольшей жёсткости): mx — по 9.2.6, α и β — по табл. 21,
     /// φb для (113) — по прил. Ж как для балки с двумя и более закреплениями сжатого пояса.
+    /// mxFactor — множитель к mx (9.2.9: 1,25, если плоскость наибольшей жёсткости не совпадает с плоскостью симметрии).
     /// </summary>
-    public static CoefficientCResult CoefficientC(Sp16Member m, double nAbs, double moment)
+    public static CoefficientCResult CoefficientC(Sp16Member m, double nAbs, double moment, double mxFactor = 1.0)
     {
         var s = m.S; var p = m.P;
         if (s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Tee or SteelProfileKind.Channel))
@@ -146,7 +148,9 @@ public static partial class Sp16Section9
         }
         bool topComp = moment < 0;                       // Mx > 0 растягивает сторону y > 0
         double wc = s.Wx(topComp), a = s.A;
-        double mx = mDesign * a / (nAbs * wc);
+        double mx = mxFactor * mDesign * a / (nAbs * wc);
+        if (mxFactor != 1.0)
+            notes.Add($"9.2.9: плоскость наибольшей жёсткости не совпадает с плоскостью симметрии — mx увеличен в {mxFactor:0.##} раза");
 
         // Табл. 21: тип сечения, I1, I2 — большей и меньшей полок относительно оси y.
         int type;

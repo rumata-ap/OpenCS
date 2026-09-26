@@ -42,21 +42,7 @@ public static class Sp16Section8Local
         }
 
         double lw = LambdaW(s);
-        bool welded = s.Profile.Fabrication == SteelFabrication.Welded;
-        double luw;
-        string? luwNote;
-        if (sloc > 0)
-        {
-            luw = 2.5;
-            luwNote = "σloc ≠ 0: λ̄uw = 2,5" + (welded && p.OneSidedFlangeWelds
-                ? "; для односторонних поясных швов при σloc ≠ 0 предел в 8.5.1 не установлен — принято 2,5" : "");
-        }
-        else if (welded && p.OneSidedFlangeWelds) { luw = 3.2; luwNote = "σloc = 0, односторонние поясные швы: λ̄uw = 3,2"; }
-        else
-        {
-            luw = 3.5;
-            luwNote = welded ? "σloc = 0, двусторонние поясные швы: λ̄uw = 3,5" : "σloc = 0, прокатный (гнутый) профиль: λ̄uw = 3,5 (как при двусторонних поясных швах)";
-        }
+        var (luw, luwNote) = WebLimit851(m, sloc);
 
         var notes = new List<string?> { luwNote, RibNote(s, p, lw) };
         var vars = new List<(string, double)> { ("hef", s.Hef), ("tw", s.Tw), ("λ̄w", lw), ("λ̄uw", luw) };
@@ -80,6 +66,17 @@ public static class Sp16Section8Local
         }
         res.AddRange(Check853(m, f, lw, sloc, [$"λ̄w = {lw:0.###} > λ̄uw = {luw:0.#} (8.5.1) — проверка по 8.5.3", luwNote, RibNote(s, p, lw)]));
         return res;
+    }
+
+    /// <summary>Предельная условная гибкость стенки λ̄uw по 8.5.1 (3,5; 3,2 — односторонние поясные швы; 2,5 — при σloc ≠ 0).</summary>
+    internal static (double Luw, string Note) WebLimit851(Sp16Member m, double sloc)
+    {
+        bool welded = m.S.Profile.Fabrication == SteelFabrication.Welded;
+        if (sloc > 0)
+            return (2.5, "σloc ≠ 0: λ̄uw = 2,5" + (welded && m.P.OneSidedFlangeWelds
+                ? "; для односторонних поясных швов при σloc ≠ 0 предел в 8.5.1 не установлен — принято 2,5" : ""));
+        if (welded && m.P.OneSidedFlangeWelds) return (3.2, "σloc = 0, односторонние поясные швы: λ̄uw = 3,2");
+        return (3.5, welded ? "σloc = 0, двусторонние поясные швы: λ̄uw = 3,5" : "σloc = 0, прокатный (гнутый) профиль: λ̄uw = 3,5 (как при двусторонних поясных швах)");
     }
 
     /// <summary>Конструктивные требования 8.5.9 к постановке и шагу поперечных рёбер (примечание).</summary>
