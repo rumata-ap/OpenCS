@@ -39,6 +39,9 @@ public sealed class Sp16Member
         return m;
     }
 
+    /// <summary>Тот же элемент с другими параметрами (в канонических осях) — для вспомогательных расчётов.</summary>
+    internal Sp16Member WithParams(SteelDesignParams canonicalParams) => new(S, canonicalParams, Rotated);
+
     /// <summary>Усилия из осей контура в канонические.</summary>
     public SteelForces ToCanonical(SteelForces f) => Rotated ? f.SwapAxes() : f;
 

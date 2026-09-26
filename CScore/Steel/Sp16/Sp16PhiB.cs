@@ -164,6 +164,13 @@ public static class Sp16PhiB
 
     // ── Двутавр с одной осью симметрии и тавр (Ж.4–Ж.6) ──
 
+    /// <summary>(Ж.12): β = (2n − 1)(0,47 − 0,035(b1/h)(1 + b1/h − 0,072(b1/h)²)); используется также в табл. Д.6.</summary>
+    public static double BetaZh12(double n, double b1OverH)
+    {
+        double r = b1OverH;
+        return (2 * n - 1) * (0.47 - 0.035 * r * (1 + r - 0.072 * r * r));
+    }
+
     static PhiBResult SinglySymmetric(Sp16Member m, bool topCompressed)
     {
         var s = m.S; var p = m.P;
@@ -201,8 +208,7 @@ public static class Sp16PhiB
 
         double PsiA(double nn, bool teeColumn)
         {
-            double r = b1 / h;
-            double beta = (2 * nn - 1) * (0.47 - 0.035 * r * (1 + r - 0.072 * r * r));      // (Ж.12)
+            double beta = BetaZh12(nn, b1 / h);
             double delta = nn + 0.734 * beta, mu = nn + 1.145 * beta;                        // (Ж.10), (Ж.11)
             double bConc, bUni, bPure;
             if (moreCompressed)
