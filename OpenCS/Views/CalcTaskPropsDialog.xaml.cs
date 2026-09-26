@@ -49,6 +49,7 @@ public class CalcTaskSolverItem
 
 public class CalcTaskPropsDlgVM : ViewModelBase
 {
+    string _steelOriginalParamsJson = "{}";
    readonly AppViewModel _app;
    readonly Window _window;
 
@@ -163,7 +164,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    // Steel check
    string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
    string steelMuX = "1.0", steelMuY = "1.0";
-   string steelBetaM = "1.0", steelGammaM = "1.025";
+   string steelGammaM = "1.0";
     string torsionElementSize = "0.05", torsionMk = "";
     string torsionVx = "", torsionVy = "";
     string torsionN = "", torsionMx = "", torsionMy = "";
@@ -884,7 +885,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         "steel_central_compression" or "steel_central_tension" or
         "steel_bending" or "steel_compression_bending" or
         "steel_tension_bending" or "steel_shear" or
-        "steel_torsion" or "steel_constructive";
+        "steel_constructive";
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
 
    /// <summary>Задача расчёта наклонных сечений по СП 63 (одиночная или пакетная).</summary>
@@ -1641,7 +1642,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public string SteelDesignLengthY { get => steelDesignLengthY; set { steelDesignLengthY = value; OnPropertyChanged(); } }
     public string SteelMuX { get => steelMuX; set { steelMuX = value; OnPropertyChanged(); } }
     public string SteelMuY { get => steelMuY; set { steelMuY = value; OnPropertyChanged(); } }
-    public string SteelBetaM { get => steelBetaM; set { steelBetaM = value; OnPropertyChanged(); } }
     public string SteelGammaM { get => steelGammaM; set { steelGammaM = value; OnPropertyChanged(); } }
 
    public string TorsionElementSize
@@ -1828,7 +1828,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        new() { Id = "steel_compression_bending",Label = Loc.S("CalcTaskKind_steel_compression_bending"),GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_tension_bending",    Label = Loc.S("CalcTaskKind_steel_tension_bending"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_shear",              Label = Loc.S("CalcTaskKind_steel_shear"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
-       new() { Id = "steel_torsion",            Label = Loc.S("CalcTaskKind_steel_torsion"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
@@ -2101,14 +2100,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           // Загрузка параметров стальных задач при редактировании
           if (IsSteelCheck && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
           {
-              var sp = SteelCheckParams.Parse(existing.ParamsJson);
+              _steelOriginalParamsJson = existing.ParamsJson;
+              var sp = CScore.Sp16.SteelDesignParams.Parse(existing.ParamsJson);
               var inv = System.Globalization.CultureInfo.InvariantCulture;
-              SteelDesignLengthX = sp.DesignLengthX.ToString("G6", inv);
-              SteelDesignLengthY = sp.DesignLengthY.ToString("G6", inv);
-              SteelMuX = sp.MuX.ToString("G6", inv);
-              SteelMuY = sp.MuY.ToString("G6", inv);
-              SteelBetaM = sp.BetaM.ToString("G6", inv);
-              SteelGammaM = sp.GammaM.ToString("G6", inv);
+              SteelDesignLengthX = sp.LefX.ToString("G6", inv);
+              SteelDesignLengthY = sp.LefY.ToString("G6", inv);
+              SteelMuX = "1";
+              SteelMuY = "1";
+              SteelGammaM = sp.GammaC.ToString("G6", inv);
 
               if (sp.ManualForces != null)
               {
@@ -3374,16 +3373,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           double.TryParse(SteelDesignLengthY, System.Globalization.NumberStyles.Float, inv, out var dly);
           double.TryParse(SteelMuX, System.Globalization.NumberStyles.Float, inv, out var mux);
           double.TryParse(SteelMuY, System.Globalization.NumberStyles.Float, inv, out var muy);
-          double.TryParse(SteelBetaM, System.Globalization.NumberStyles.Float, inv, out var bm);
           double.TryParse(SteelGammaM, System.Globalization.NumberStyles.Float, inv, out var gm);
 
-          SteelManualForces? mf = null;
+          CScore.Sp16.SteelManualForces? mf = null;
           if (ShowManualForces)
           {
               double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var n);
               double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mx);
               double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var my);
-              mf = new SteelManualForces { N = n, Mx = mx, My = my };
+              mf = (CScore.Sp16.SteelDesignParams.Parse(_steelOriginalParamsJson).ManualForces
+                  ?? new CScore.Sp16.SteelManualForces()) with { N = n, Mx = mx, My = my };
           }
 
           Result = new CalcTask
@@ -3394,16 +3393,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               ForceSetId = ShowManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
               ForceItemId = ShowManualForces ? 0 : (ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0),
               CalcType = SelectedCalcType,
-              ParamsJson = new SteelCheckParams
+              ParamsJson = (CScore.Sp16.SteelDesignParams.Parse(_steelOriginalParamsJson) with
               {
-                  DesignLengthX = dlx,
-                  DesignLengthY = dly,
-                  MuX = mux,
-                  MuY = muy,
-                  BetaM = bm,
-                  GammaM = gm,
+                  LefX = dlx * mux,
+                  LefY = dly * muy,
+                  GammaC = gm,
                   ManualForces = mf
-              }.ToJson()
+              }).ToJson()
           };
           _window.DialogResult = true;
           return;

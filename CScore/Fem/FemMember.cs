@@ -35,7 +35,7 @@ public class FemMember : IFemCheckable
     public int?    PlateSectionId   { get; set; }
     /// <summary>FK → force_sets.id. Набор усилий, назначенный этому элементу напрямую.</summary>
     public int?    ForceSetId       { get; set; }
-    /// <summary>JSON-сериализация FemDesignParams для проверки этого элемента напрямую (без группы).</summary>
+    /// <summary>JSON-сериализация SteelDesignParams для проверки этого элемента напрямую (без группы).</summary>
     public string? DesignParamsJson { get; set; }
 
     /// <summary>Угол поворота локальных осей Y/Z стержня вокруг его продольной оси (β-угол),

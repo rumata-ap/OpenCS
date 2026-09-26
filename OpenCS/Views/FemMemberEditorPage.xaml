@@ -78,41 +78,23 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthX}"
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp16LefX}"
                                    VerticalAlignment="Center" Margin="0,0,4,4"/>
                         <TextBox   Grid.Row="0" Grid.Column="1"
                                    Text="{Binding DesignLengthX, UpdateSourceTrigger=PropertyChanged}"
                                    Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource SteelCheckDesignLengthY}"
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Sp16LefY}"
                                    VerticalAlignment="Center" Margin="0,0,4,4"/>
                         <TextBox   Grid.Row="0" Grid.Column="3"
                                    Text="{Binding DesignLengthY, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,0,4"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource SteelCheckMuX}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="1" Grid.Column="1"
-                                   Text="{Binding MuX, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource SteelCheckMuY}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="1" Grid.Column="3"
-                                   Text="{Binding MuY, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,0,4"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource SteelCheckBetaM}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="2" Grid.Column="1"
-                                   Text="{Binding BetaM, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource SteelCheckGammaM}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="2" Grid.Column="3"
-                                   Text="{Binding GammaM, UpdateSourceTrigger=PropertyChanged}"
                                    Margin="0,0,0,4"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthBit}"
                                    VerticalAlignment="Center" Margin="0,0,4,4"/>
                         <TextBox   Grid.Row="3" Grid.Column="1"
                                    Text="{Binding DesignLengthBit, UpdateSourceTrigger=PropertyChanged}"
                                    Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp16GammaC}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding GammaC, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
                 </GroupBox>
 

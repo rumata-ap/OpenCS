@@ -3298,4 +3298,19 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp63CrackWidth_TeeGeometryNotSupported">The contour is rectangular: select the Rectangular shape.</system:String>
     <system:String x:Key="Sp63Deflection_TeeGeometryNotSupported">The contour is rectangular: select the Rectangular shape.</system:String>
     <system:String x:Key="Sp63Normal_ExtraRebarLayers">The formula mode supports exactly two longitudinal rebar levels: tension and compression.</system:String>
-  </ResourceDictionary>
+    <system:String x:Key="Sp16GammaC">Working conditions factor γc</system:String>
+    <system:String x:Key="Sp16LefX">Effective length lef,x, m</system:String>
+    <system:String x:Key="Sp16LefY">Effective length lef,y, m</system:String>
+    <system:String x:Key="Sp16SingleSteelAreaRequired">A single structural steel region is required. Composite and multi-material sections are not supported.</system:String>
+    <system:String x:Key="Sp16ContourRequired">A valid steel section contour is required.</system:String>
+    <system:String x:Key="Sp16InvalidParameters">Invalid steel properties or SP 16 design parameters.</system:String>
+    <system:String x:Key="Sp16InvalidForces">Forces must be finite numbers.</system:String>
+    <system:String x:Key="Sp16TorsionRemoved">This task kind was removed: SP 16 has no free torsion check.</system:String>
+    <system:String x:Key="Sp16TorsionIgnored">Torsion was not checked: free torsion is outside the scope of SP 16.</system:String>
+    <system:String x:Key="Sp16NotApplicable">Not applicable</system:String>
+    <system:String x:Key="Sp16Strength">Strength — SP 16</system:String>
+    <system:String x:Key="Sp16Stability">Stability — SP 16</system:String>
+    <system:String x:Key="Sp16Constructive">Slenderness limits — SP 16</system:String>
+    <system:String x:Key="Sp16Context">lef,x={0:G6} m; lef,y={1:G6} m; lef,b={2:G6} m; γc={3:G6}</system:String>
+    <system:String x:Key="Sp16Forces">N={0:G6} kN; Mx={1:G6} kN·m; My={2:G6} kN·m; Qx={3:G6} kN; Qy={4:G6} kN; T={5:G6} kN·m</system:String>
+</ResourceDictionary>

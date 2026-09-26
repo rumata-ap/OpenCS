@@ -3298,4 +3298,19 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp63CrackWidth_TeeGeometryNotSupported">Форма «тавр или двутавр» выбрана для прямоугольного контура: используйте форму «Прямоугольное».</system:String>
     <system:String x:Key="Sp63Deflection_TeeGeometryNotSupported">Форма «тавр или двутавр» выбрана для прямоугольного контура: используйте форму «Прямоугольное».</system:String>
     <system:String x:Key="Sp63Normal_ExtraRebarLayers">Формульный режим поддерживает ровно два уровня продольной арматуры: растянутый и сжатый.</system:String>
-  </ResourceDictionary>
+    <system:String x:Key="Sp16GammaC">Коэффициент условий работы γc</system:String>
+    <system:String x:Key="Sp16LefX">Расчётная длина lef,x, м</system:String>
+    <system:String x:Key="Sp16LefY">Расчётная длина lef,y, м</system:String>
+    <system:String x:Key="Sp16SingleSteelAreaRequired">Нужна одна область конструкционной стали. Составные и многоматериальные сечения не поддерживаются.</system:String>
+    <system:String x:Key="Sp16ContourRequired">Не задан корректный контур стального сечения.</system:String>
+    <system:String x:Key="Sp16InvalidParameters">Некорректные характеристики стали или параметры расчёта СП 16.</system:String>
+    <system:String x:Key="Sp16InvalidForces">Усилия должны быть конечными числами.</system:String>
+    <system:String x:Key="Sp16TorsionRemoved">Вид задачи удалён: в СП 16 нет проверки на свободное кручение.</system:String>
+    <system:String x:Key="Sp16TorsionIgnored">Крутящий момент не проверен: свободное кручение вне объёма СП 16.</system:String>
+    <system:String x:Key="Sp16NotApplicable">Не применимо</system:String>
+    <system:String x:Key="Sp16Strength">Прочность — СП 16</system:String>
+    <system:String x:Key="Sp16Stability">Устойчивость — СП 16</system:String>
+    <system:String x:Key="Sp16Constructive">Предельная гибкость — СП 16</system:String>
+    <system:String x:Key="Sp16Context">lef,x={0:G6} м; lef,y={1:G6} м; lef,b={2:G6} м; γc={3:G6}</system:String>
+    <system:String x:Key="Sp16Forces">N={0:G6} кН; Mx={1:G6} кН·м; My={2:G6} кН·м; Qx={3:G6} кН; Qy={4:G6} кН; T={5:G6} кН·м</system:String>
+</ResourceDictionary>

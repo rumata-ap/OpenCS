@@ -116,6 +116,8 @@ public static class CalcTaskExecutor
     {
         section = null!;
         fi = null;
+        // Удалённая задача должна дать пояснение даже без сохранившегося сечения/нагрузки.
+        if (ct.Kind == "steel_torsion") return true;
 
         // Оболочечные задачи используют PlateSection и не должны проходить
         // через реестр стержневых CrossSection.

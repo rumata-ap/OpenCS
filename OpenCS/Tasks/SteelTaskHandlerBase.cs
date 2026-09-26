@@ -1,173 +1,78 @@
-using System;
-using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Sp16;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
 
-/// <summary>
-/// Базовый класс для всех steel-задач. Содержит общую логику построения
-/// SteelSection, DesignContext и формирования результата.
-/// </summary>
+/// <summary>Адаптер задач СП 16 к ядру с сохранением отверстий, осей и единиц кН/кПа.</summary>
 public abstract class SteelTaskHandlerBase : ITaskHandler
 {
     public abstract string Kind { get; }
 
     public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
-                          CalcSettings settings, TaskRunContext? ctx = null)
+        CalcSettings settings, TaskRunContext? ctx = null)
     {
         var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        CalcResult Error(string error) => new()
+        {
+            TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created,
+            Status = "error", DataJson = JsonSerializer.Serialize(new { error })
+        };
         try
         {
-            var p = SteelCheckParams.Parse(task.ParamsJson);
-            var steelSection = BuildSteelSection(section);
-            if (steelSection == null)
-                return Error(task, created, "Сечение не содержит подходящего стального материала");
-
-            var forces = ResolveForces(p, item);
-            if (forces == null)
-                return Error(task, created, "Не заданы усилия");
-
-            var context = BuildContext(p);
-            return Execute(task, created, section, steelSection, forces, context);
-        }
-        catch (Exception ex)
-        {
-            return Error(task, created, ex.Message);
-        }
-    }
-
-    protected abstract CalcResult Execute(
-        CalcTask task, string created, CrossSection section,
-        SteelSection steelSection, InternalForces forces, DesignContext context);
-
-    protected static DesignContext BuildContext(SteelCheckParams p) => new()
-    {
-        DesignLengthX = p.DesignLengthX,
-        DesignLengthY = p.DesignLengthY,
-        MuX = p.MuX,
-        MuY = p.MuY,
-        BetaM = p.BetaM,
-        GammaM = p.GammaM,
-        DesignLengthBit = p.DesignLengthBit
-    };
-
-    protected static SteelSection? BuildSteelSection(CrossSection section)
-    {
-        var steelMat = section.Areas
-            .Select(a => a.Material)
-            .FirstOrDefault(m => m != null && m.Type is MatType.Steel or MatType.Custom);
-        if (steelMat == null) return null;
-
-        var steelArea = section.Areas.FirstOrDefault(a => a.Material == steelMat);
-        if (steelArea?.Hull?.Points == null || steelArea.Hull.Points.Count < 4)
-            return null;
-
-        var outer = steelArea.Hull.Points.Select(pt => (pt.X, pt.Y)).ToList();
-        var E = steelMat.E > 0 ? steelMat.E : 210e9;
-
-        return new SteelSection
-        {
-            OuterContour = outer,
-            Steel = new Material
+            var p = SteelDesignParams.Parse(task.ParamsJson);
+            // Составные сечения вне объёма: нельзя молча считать только первую область.
+            if (section.Areas.Count != 1 || section.Areas[0].Material?.Type != MatType.Steel)
+                return Error(Loc.S("Sp16SingleSteelAreaRequired"));
+            var area = section.Areas[0];
+            if (area.Hull?.Points is not { Count: >= 3 }) return Error(Loc.S("Sp16ContourRequired"));
+            var mat = SteelMaterialProps.FromMaterial(area.Material!);
+            if (!double.IsFinite(mat.Ry) || mat.Ry <= 0 || !double.IsFinite(mat.E) || mat.E <= 0
+                || !double.IsFinite(p.GammaC) || p.GammaC <= 0
+                || !double.IsFinite(p.LefX) || p.LefX < 0 || !double.IsFinite(p.LefY) || p.LefY < 0)
+                return Error(Loc.S("Sp16InvalidParameters"));
+            var polygon = new PolygonSection(area.Hull.Points.Select(pt => (pt.X, pt.Y)),
+                area.Holes.Select(h => h.Points.Select(pt => (pt.X, pt.Y))));
+            var member = Sp16Member.Create(polygon, mat, p);
+            var f = p.ManualForces?.ToForces() ?? (item == null ? null
+                : new SteelForces(item.N, item.Mx, item.My, item.Vx, item.Vy));
+            if (f == null) return Error(Loc.S("CalcTaskForceItemNotFound"));
+            var report = Sp16Checker.Run(member, f, Sp16Checker.ParseKind(Kind)!.Value);
+            if (report.Error != null) return Error(Loc.S(report.Error));
+            double torsion = p.ManualForces?.Mz ?? item?.T ?? 0;
+            if (!double.IsFinite(torsion)) return Error(Loc.S("Sp16InvalidForces"));
+            if (torsion != 0) report.Notes.Add(Loc.S("Sp16TorsionIgnored"));
+            bool any = report.Results.Any(r => r.Status != CheckStatus.NotApplicable);
+            var accepted = report.Forces;
+            var data = new
             {
-                Type = MatType.Steel,
-                E = E,
-                Tag = steelMat.Tag,
-                MaterialChars = [.. steelMat.MaterialChars]
-            }
-        };
-    }
-
-    protected static InternalForces? ResolveForces(SteelCheckParams p, LoadItem item)
-    {
-        if (p.ManualForces != null)
-        {
-            return new InternalForces
+                schemaVersion = 2, utilization = Finite(report.Utilization), passed = report.Passed,
+                sectionTag = section.Tag, steelTag = area.Material!.Tag,
+                requestedKind = Kind, effectiveKind = Sp16Checker.KindCode(report.Kind), notes = report.Notes,
+                context = new { lefX = p.LefX, lefY = p.LefY, lefB = p.LefBOrY, gammaC = p.GammaC },
+                forces = new { name = item?.Label ?? "", n = accepted.N, mx = accepted.Mx, my = accepted.My,
+                    qx = accepted.Qx, qy = accepted.Qy, t = torsion },
+                details = report.Results.Select(r => new
+                {
+                    clause = r.Clause, formula = r.Formula, description = r.Description,
+                    normRef = $"СП 16.13330.2017, {r.Clause}", category = Category(r.Clause),
+                    applied = Finite(r.Applied), allowable = Finite(r.Allowable), ratio = Finite(r.Utilization),
+                    passed = r.Status == CheckStatus.Ok, status = r.Status.ToString(), notes = r.Notes,
+                    variables = r.Variables.GroupBy(v => v.Key).ToDictionary(g => g.Key, g => Finite(g.Last().Value))
+                }).ToArray()
+            };
+            return new CalcResult
             {
-                LoadCaseName = "Ручной ввод",
-                N  = p.ManualForces.N,
-                Mx = p.ManualForces.Mx,
-                My = p.ManualForces.My,
-                Mz = p.ManualForces.Mz,
-                Qy = p.ManualForces.Qy,
-                Qz = p.ManualForces.Qz
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created,
+                Status = !any ? "not_applicable" : report.Passed ? "ok" : "not_passed",
+                DataJson = JsonSerializer.Serialize(data)
             };
         }
-        if (item != null)
-        {
-            return new InternalForces
-            {
-                LoadCaseName = item.Label ?? "",
-                N  = item.N,
-                Mx = item.Mx,
-                My = item.My,
-                Mz = item.T,
-                Qy = item.Vx,
-                Qz = item.Vy
-            };
-        }
-        return null;
+        catch (Exception ex) { return Error(ex.Message); }
     }
 
-    protected static CalcResult Ok(CalcTask task, string created, string sectionTag, string steelTag,
-                                    CheckDetail[] details, InternalForces forces, DesignContext context)
-    {
-        double maxUtil = details.Length > 0 ? details.Max(d => d.Ratio) : 0;
-        var data = new
-        {
-            utilization = Math.Round(maxUtil, 6),
-            passed = maxUtil <= 1.0,
-            sectionTag,
-            steelTag,
-            context = new
-            {
-                l0x = context.DesignLengthX,
-                l0y = context.DesignLengthY,
-                muX = context.MuX,
-                muY = context.MuY,
-                betaM = context.BetaM,
-                gammaM = context.GammaM,
-                lbit = context.DesignLengthBit
-            },
-            forces = new
-            {
-                name = forces.LoadCaseName,
-                n = Math.Round(forces.N, 1),
-                mx = Math.Round(forces.Mx, 1),
-                my = Math.Round(forces.My, 1),
-                mz = Math.Round(forces.Mz, 1),
-                qy = Math.Round(forces.Qy, 1),
-                qz = Math.Round(forces.Qz, 1)
-            },
-            details = details.Select(d => new
-            {
-                formula = d.Formula,
-                description = d.Description,
-                normRef = d.NormReference,
-                applied = Math.Round(d.Applied, 2),
-                allowable = Math.Round(d.Allowable, 2),
-                ratio = Math.Round(d.Ratio, 6),
-                passed = d.Passed,
-                variables = d.Variables.ToDictionary(kv => kv.Key, kv => Math.Round(kv.Value, 6))
-            }).ToArray()
-        };
-        return new CalcResult
-        {
-            TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-            Created = created, Status = "ok",
-            DataJson = JsonSerializer.Serialize(data)
-        };
-    }
-
-    protected static CalcResult Error(CalcTask task, string created, string message)
-    {
-        return new CalcResult
-        {
-            TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-            Created = created, Status = "error",
-            DataJson = JsonSerializer.Serialize(new { error = message })
-        };
-    }
+    static double? Finite(double v) => double.IsFinite(v) ? v : null;
+    static string Category(string clause) => clause.StartsWith("10.") ? "constructive"
+        : clause.StartsWith("7.1.1") || clause.StartsWith("8.2") || clause.StartsWith("9.1") ? "strength" : "stability";
 }

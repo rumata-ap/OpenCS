@@ -7,6 +7,6 @@ public interface IFemCheckable
     /// <summary>Отображаемое имя цели (используется в сообщениях об ошибках, CalcTask.Tag).</summary>
     string Tag { get; }
 
-    /// <summary>JSON-параметры проекта (FemDesignParams) для этой цели, если заданы напрямую.</summary>
+    /// <summary>JSON-параметры проекта (SteelDesignParams) для этой цели, если заданы напрямую.</summary>
     string? DesignParamsJson { get; }
 }

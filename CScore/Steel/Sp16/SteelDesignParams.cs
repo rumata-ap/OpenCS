@@ -114,6 +114,8 @@ public enum MomentShape
 /// </summary>
 public sealed record SteelDesignParams
 {
+    /// <summary>Ручные усилия задачи; прежние Qy/Qz соответствуют Vx/Vy.</summary>
+    public SteelManualForces? ManualForces { get; init; }
     /// <summary>Профиль; null — распознаётся по контуру.</summary>
     public SteelProfile? Profile { get; init; }
 
@@ -283,7 +285,7 @@ public sealed record SteelDesignParams
         if (string.IsNullOrWhiteSpace(json) || json.Trim() == "{}") return new SteelDesignParams();
         var p = JsonSerializer.Deserialize<SteelDesignParams>(json, Opts) ?? new SteelDesignParams();
         bool legacy = p.LegacyDesignLengthX.HasValue || p.LegacyDesignLengthY.HasValue || p.LegacyGammaM.HasValue
-                      || p.LegacyBetaM.HasValue || p.LegacyMuX.HasValue || p.LegacyDesignLengthBit.HasValue;
+                      || p.LegacyBetaM.HasValue || p.LegacyMuX.HasValue || p.LegacyMuY.HasValue || p.LegacyDesignLengthBit.HasValue;
         if (!legacy) return p;
         using var doc = JsonDocument.Parse(json);
         bool hasNewLefX = doc.RootElement.TryGetProperty(nameof(LefX), out _);
@@ -303,4 +305,17 @@ public sealed record SteelForces(double N, double Mx, double My, double Qx, doub
 {
     /// <summary>Перестановка осей (контур повёрнут на 90° относительно канонического положения профиля).</summary>
     public SteelForces SwapAxes() => new(N, My, Mx, Qy, Qx);
+}
+
+/// <summary>Совместимый с сохранёнными задачами ручной ввод: Qy = Vx, Qz = Vy, Mz = T.</summary>
+public sealed record SteelManualForces
+{
+    public double N { get; init; }
+    public double Mx { get; init; }
+    public double My { get; init; }
+    public double Mz { get; init; }
+    public double Qy { get; init; }
+    public double Qz { get; init; }
+    /// <summary>Усилия в осях контура для нового ядра.</summary>
+    public SteelForces ToForces() => new(N, Mx, My, Qy, Qz);
 }

@@ -1112,12 +1112,7 @@
                         Text="{Binding SteelMuY, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4"/>
 
-               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource SteelCheckBetaM}"
-                          VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="2" Grid.Column="1"
-                        Text="{Binding SteelBetaM, UpdateSourceTrigger=PropertyChanged}"
-                        Margin="0,0,8,4"/>
-               <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource SteelCheckGammaM}"
+               <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource Sp16GammaC}"
                           VerticalAlignment="Center" Margin="0,0,4,4"/>
                <TextBox Grid.Row="2" Grid.Column="3"
                         Text="{Binding SteelGammaM, UpdateSourceTrigger=PropertyChanged}"

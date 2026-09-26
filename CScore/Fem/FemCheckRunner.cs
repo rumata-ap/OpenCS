@@ -580,7 +580,8 @@ public static class FemCheckRunner
             double bestRatio = -1;
             foreach (var d in details.EnumerateArray())
             {
-                double ratio = d.TryGetProperty("ratio", out var r) ? r.GetDouble() : 0;
+                if (d.TryGetProperty("status", out var status) && status.GetString() == "NotApplicable") continue;
+                double ratio = d.TryGetProperty("ratio", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetDouble() : 0;
                 if (ratio > bestRatio)
                 {
                     bestRatio   = ratio;
@@ -603,8 +604,8 @@ public static class FemCheckRunner
     /// <summary>Подготавливает CalcTask из параметров FemCheck и FemMember.</summary>
     public static CalcTask BuildCalcTask(FemCheck check, IFemCheckable member, CalcType? calcType = null)
     {
-        var paramsJson = check.ParamsJson
-            ?? FemDesignParams.Parse(member.DesignParamsJson).ToJson();
+        // Исходный JSON сохраняет предупреждение о миграции до обработчика СП 16.
+        var paramsJson = check.ParamsJson ?? member.DesignParamsJson ?? "{}";
         return new CalcTask
         {
             Kind       = check.NormCode,

@@ -35,7 +35,7 @@ public static class CalcTaskForceHelper
           or "steel_central_compression" or "steel_central_tension"
           or "steel_bending" or "steel_compression_bending"
           or "steel_tension_bending" or "steel_shear"
-          or "steel_torsion" or "steel_constructive"
+          or "steel_constructive"
           or "torsion_bem" or "torsion_fem"
          or "cracking_batch" or "crack_width_batch" or "total_curvature_batch"
          or "fire_r_check_batch" or "fire_thermal_curvature" => true,

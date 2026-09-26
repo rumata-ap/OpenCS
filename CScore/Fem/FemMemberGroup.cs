@@ -32,7 +32,7 @@ public class FemMemberGroup : IFemCheckable, INotifyPropertyChanged
     public int?    PlateSectionId   { get; set; }
     /// <summary>FK → force_sets.id. Набор усилий (source_type='fea').</summary>
     public int?    ForceSetId       { get; set; }
-    /// <summary>JSON-сериализация FemDesignParams (l₀, μ, βm, γM).</summary>
+    /// <summary>JSON-сериализация SteelDesignParams (lef, γc, профиль и условия проверки).</summary>
     public string? DesignParamsJson { get; set; }
     /// <summary>Проверки, привязанные к этой группе (eager-loaded).</summary>
     public ObservableCollection<FemCheck> Checks { get; } = [];

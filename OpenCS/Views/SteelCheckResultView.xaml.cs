@@ -86,9 +86,10 @@ public partial class SteelCheckResultView : UserControl
 /// </summary>
 public class SteelCheckResultVM
 {
-    public string SectionTag { get; }
-    public string SteelTag { get; }
+    public string SectionTag { get; } = "";
+    public string SteelTag { get; } = "";
     public double Utilization { get; }
+    public bool Passed { get; }
     public string UtilizationValue => $"{Loc.S("SteelCheckUtilizationLabel")}{Utilization:P1}";
     public Brush UtilizationBrush => Utilization switch
     {
@@ -96,10 +97,10 @@ public class SteelCheckResultVM
         < 1.0 => Brushes.DarkOrange,
         _ => Brushes.Red
     };
-    public string StatusValue => Utilization <= 1.0
+    public string StatusValue => Passed
         ? Loc.S("SteelCheckStatusPassed")
         : Loc.S("SteelCheckStatusFailed");
-    public Brush StatusBrush => Utilization <= 1.0
+    public Brush StatusBrush => Passed
         ? new SolidColorBrush(Color.FromArgb(40, 0, 128, 0))
         : new SolidColorBrush(Color.FromArgb(40, 255, 0, 0));
 
@@ -109,7 +110,7 @@ public class SteelCheckResultVM
     public string ForcesSummary { get; private set; } = "";
     // Итоговый вердикт
     public string VerdictText { get; private set; } = "";
-    public Brush VerdictBrush => Utilization <= 1.0 ? Brushes.Green : Brushes.Red;
+    public Brush VerdictBrush => Passed ? Brushes.Green : Brushes.Red;
 
     // Все детали
     public List<SteelCheckDetailVM> Details { get; } = [];
@@ -118,15 +119,24 @@ public class SteelCheckResultVM
 
     public SteelCheckResultVM(string dataJson)
     {
-        var doc = JsonDocument.Parse(dataJson);
+        using var doc = JsonDocument.Parse(dataJson);
         var root = doc.RootElement;
+        if (root.TryGetProperty("error", out var error))
+        {
+            Utilization = double.NaN;
+            VerdictText = error.GetString() ?? "";
+            ContextSummary = VerdictText;
+            return;
+        }
+        bool v2 = root.TryGetProperty("schemaVersion", out var version) && version.GetInt32() >= 2;
 
         SectionTag = root.GetProperty("sectionTag").GetString() ?? "";
         SteelTag = root.GetProperty("steelTag").GetString() ?? "";
-        Utilization = root.GetProperty("utilization").GetDouble();
+        Utilization = Number(root.GetProperty("utilization"));
+        Passed = root.TryGetProperty("passed", out var passed) ? passed.GetBoolean() : Utilization <= 1;
 
         // Контекст
-        if (root.TryGetProperty("context", out var ctx))
+        if (!v2 && root.TryGetProperty("context", out var ctx))
         {
             var sb = new StringBuilder();
             sb.Append($"l₀x={ctx.GetProperty("l0x").GetDouble():F2} м");
@@ -146,7 +156,7 @@ public class SteelCheckResultVM
         }
 
         // Усилия (в кН, как в InternalForces)
-        if (root.TryGetProperty("forces", out var f))
+        if (!v2 && root.TryGetProperty("forces", out var f))
         {
             var sb = new StringBuilder();
             var name = f.GetProperty("name").GetString();
@@ -182,9 +192,10 @@ public class SteelCheckResultVM
                              : formula.StartsWith("8.") ? "strength"
                              : formula.StartsWith("9.") ? "stability"
                              : formula.StartsWith("10.") ? "constructive" : "",
-                    Applied = d.GetProperty("applied").GetDouble(),
-                    Allowable = d.GetProperty("allowable").GetDouble(),
-                    Ratio = d.GetProperty("ratio").GetDouble(),
+                    Applied = Number(d.GetProperty("applied")),
+                    Allowable = Number(d.GetProperty("allowable")),
+                    Ratio = Number(d.GetProperty("ratio")),
+                    NotApplicable = d.TryGetProperty("status", out var status) && status.GetString() == "NotApplicable",
                     Passed = d.GetProperty("passed").GetBoolean()
                 };
 
@@ -193,9 +204,12 @@ public class SteelCheckResultVM
                 {
                     detail.Variables = [];
                     foreach (var kv in vars.EnumerateObject())
-                        detail.Variables[kv.Name] = kv.Value.GetDouble();
-                    detail.Trace = FormatTrace(detail.Variables, formula);
+                        detail.Variables[kv.Name] = Number(kv.Value);
+                    detail.Trace = v2 ? string.Join("; ", detail.Variables.Select(v => $"{v.Key}={v.Value:G6}"))
+                        : FormatTrace(detail.Variables, formula);
                 }
+                if (d.TryGetProperty("notes", out var notes))
+                    detail.Trace += "\n" + string.Join("\n", notes.EnumerateArray().Select(n => n.GetString()));
 
                 Details.Add(detail);
             }
@@ -209,7 +223,7 @@ public class SteelCheckResultVM
         if (strengthItems.Count > 0)
             Groups.Add(new SteelCheckGroupVM
             {
-                Name = "Прочность (раздел 8 СП 16)",
+                Name = Loc.S("Sp16Strength"),
                 HeaderBrush = new SolidColorBrush(Color.FromRgb(41, 128, 185)),
                 Items = strengthItems,
                 MaxRatio = strengthItems.Max(d => d.Ratio)
@@ -217,7 +231,7 @@ public class SteelCheckResultVM
         if (stabilityItems.Count > 0)
             Groups.Add(new SteelCheckGroupVM
             {
-                Name = "Устойчивость (раздел 9 СП 16)",
+                Name = Loc.S("Sp16Stability"),
                 HeaderBrush = new SolidColorBrush(Color.FromRgb(142, 68, 173)),
                 Items = stabilityItems,
                 MaxRatio = stabilityItems.Max(d => d.Ratio)
@@ -225,7 +239,7 @@ public class SteelCheckResultVM
         if (constructiveItems.Count > 0)
             Groups.Add(new SteelCheckGroupVM
             {
-                Name = "Конструктивные (раздел 10 СП 16)",
+                Name = Loc.S("Sp16Constructive"),
                 HeaderBrush = new SolidColorBrush(Color.FromRgb(39, 174, 96)),
                 Items = constructiveItems,
                 MaxRatio = constructiveItems.Max(d => d.Ratio)
@@ -234,8 +248,8 @@ public class SteelCheckResultVM
         // Applied/Allowable с единицами
         foreach (var det in Details)
         {
-            det.AppliedDisplay = FormatWithUnit(det.Applied, det.Formula);
-            det.AllowableDisplay = FormatWithUnit(det.Allowable, det.Formula);
+            det.AppliedDisplay = v2 ? Display(det.Applied) : FormatWithUnit(det.Applied, det.Formula);
+            det.AllowableDisplay = v2 ? Display(det.Allowable) : FormatWithUnit(det.Allowable, det.Formula);
         }
 
         // Вердикт
@@ -246,7 +260,23 @@ public class SteelCheckResultVM
                 ? $"ПРОЙДЕНО  —  коэфф. использования {Utilization:P1}"
                 : $"НЕ ПРОЙДЕНО  —  коэфф. использования {Utilization:P1}  (наихудшая: {worst.Formula} {worst.Description})";
         }
+        if (v2)
+        {
+            var c = root.GetProperty("context");
+            ContextSummary = string.Format(Loc.S("Sp16Context"), Number(c.GetProperty("lefX")),
+                Number(c.GetProperty("lefY")), Number(c.GetProperty("lefB")), Number(c.GetProperty("gammaC")));
+            if (root.TryGetProperty("notes", out var notes))
+                ContextSummary += "\n" + string.Join("\n", notes.EnumerateArray().Select(n => n.GetString()));
+            var force = root.GetProperty("forces");
+            ForcesSummary = string.Format(Loc.S("Sp16Forces"), Number(force.GetProperty("n")),
+                Number(force.GetProperty("mx")), Number(force.GetProperty("my")), Number(force.GetProperty("qx")),
+                Number(force.GetProperty("qy")), Number(force.GetProperty("t")));
+            VerdictText = StatusValue + " — " + Utilization.ToString("P1");
+        }
     }
+
+    static double Number(JsonElement element) => element.ValueKind == JsonValueKind.Number ? element.GetDouble() : double.NaN;
+    static string Display(double value) => double.IsFinite(value) ? value.ToString("G6") : "—";
 
     /// <summary>Applied/Allowable с единицами по типу проверки.</summary>
     static string FormatWithUnit(double v, string formula)
@@ -321,6 +351,7 @@ public class SteelCheckGroupVM
 /// </summary>
 public class SteelCheckDetailVM
 {
+    public bool NotApplicable { get; set; }
     public string Formula { get; set; } = "";
     public string Description { get; set; } = "";
     public string NormRef { get; set; } = "";
@@ -333,8 +364,8 @@ public class SteelCheckDetailVM
     public Dictionary<string, double> Variables { get; set; } = [];
     public string AppliedDisplay { get; set; } = "";
     public string AllowableDisplay { get; set; } = "";
-    public string RatioText => Ratio.ToString("F3");
-    public string PassedText => Passed
+    public string RatioText => NotApplicable || !double.IsFinite(Ratio) ? "—" : Ratio.ToString("F3");
+    public string PassedText => NotApplicable ? Loc.S("Sp16NotApplicable") : Passed
         ? Loc.S("SteelCheckOK")
         : Loc.S("SteelCheckFail");
     public Brush RatioBrush => Ratio switch
@@ -343,8 +374,8 @@ public class SteelCheckDetailVM
         < 1.0 => Brushes.DarkOrange,
         _ => Brushes.Red
     };
-    public Brush PassedBrush => Passed ? Brushes.Green : Brushes.Red;
-    public Brush RowBackground => Passed
+    public Brush PassedBrush => NotApplicable ? Brushes.Gray : Passed ? Brushes.Green : Brushes.Red;
+    public Brush RowBackground => NotApplicable ? Brushes.Transparent : Passed
         ? new SolidColorBrush(Color.FromArgb(0x1A, 0x2D, 0x7A, 0x3E))
         : new SolidColorBrush(Color.FromArgb(0x1A, 0xC0, 0x39, 0x2B));
 }

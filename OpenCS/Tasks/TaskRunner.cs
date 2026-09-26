@@ -50,7 +50,6 @@ namespace OpenCS.Tasks
           ["steel_compression_bending"]   = new SteelCompressionBendingHandler(),
           ["steel_tension_bending"]       = new SteelTensionBendingHandler(),
           ["steel_shear"]                 = new SteelShearHandler(),
-          ["steel_torsion"]               = new SteelTorsionHandler(),
           ["steel_constructive"]          = new SteelConstructiveHandler(),
           ["torsion_bem"]                 = new TorsionBemHandler(),
           ["torsion_fem"]                 = new TorsionFemHandler(),
@@ -76,6 +75,13 @@ namespace OpenCS.Tasks
                                    CalcSettings? settings = null, TaskRunContext? ctx = null)
       {
          settings ??= CalcSettings.Default;
+         if (task.Kind == "steel_torsion")
+             return new CalcResult
+             {
+                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                 Created = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), Status = "error",
+                 DataJson = System.Text.Json.JsonSerializer.Serialize(new { error = OpenCS.Utilites.Loc.S("Sp16TorsionRemoved") })
+             };
          var parametricRebarError = section is not null &&
             ParametricRebarApplicability.HasIdealizedLayer(section) &&
             !ParametricRebarApplicability.IsSupportedTaskKind(task.Kind)

@@ -4,18 +4,6 @@ using System.Linq;
 namespace CScore;
 
 /// <summary>
-/// Результат проверки стального сечения по СП 16.
-/// </summary>
-public class SteelCheckResult
-{
-    public string LoadCaseName { get; set; } = "";
-    public double Utilization { get; set; }
-    public bool IsPassed => Utilization <= 1.0;
-    public List<CheckDetail> Details { get; set; } = [];
-    public CheckDetail? WorstCase => Details.OrderByDescending(d => d.Ratio).FirstOrDefault();
-}
-
-/// <summary>
 /// Детали одной проверки.
 /// </summary>
 public class CheckDetail

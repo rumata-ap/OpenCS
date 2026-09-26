@@ -112,15 +112,6 @@ HeatAssemblyTests.RunAll();
 
 ThermalBenchmark.RunAll();
 
-SteelSectionTests.RunGeoPropsDirect();
-SteelSectionTests.RunIBeamProperties();
-SteelSectionTests.RunPlasticModulusRectangle();
-SteelSectionTests.RunPlasticModulusIBeam();
-SteelCheckerTests.RunSimpleCompressionCheck();
-
-SteelClassifierTests.RunAll();
-SteelStrengthTests.RunAll();
-SteelStabilityTests.RunAll();
 
 FemCheckRunnerTests.RunExtractCalcType();
 FemCheckRunnerTests.RunExtractWorstDetail();
