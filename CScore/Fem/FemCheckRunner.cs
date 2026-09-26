@@ -101,7 +101,7 @@ public static class FemCheckRunner
                             Label            = shell.Label,
                             ForceSetTag      = fs.Tag,
                             CalcType         = calcType.ToString(),
-                            Utilization      = 0,
+                            Utilization      = double.NaN,
                             Passed           = false,
                             WorstFormula     = "error",
                             WorstDescription = ex.Message
@@ -115,19 +115,39 @@ public static class FemCheckRunner
                 {
                     try
                     {
-                        var r    = barExecutor(task, barSection!, item);
-                        double util = ExtractUtilization(r.DataJson);
-                        var (wf, wd) = ExtractWorstDetail(r.DataJson);
-                        rows.Add(new CheckRow
+                        var r = barExecutor(task, barSection!, item);
+                        // Ошибка, неприменимость или отсутствие коэффициента — строка не пройдена:
+                        // «нет utilization» нельзя читать как 0 (так «проходили» строки rc_check
+                        // без обработчика).
+                        double? util = r.Status is "error" or "not_applicable"
+                            ? null : ExtractUtilization(r.DataJson);
+                        if (util is double u)
                         {
-                            Label            = item.Label,
-                            ForceSetTag      = fs.Tag,
-                            CalcType         = calcType.ToString(),
-                            Utilization      = util,
-                            Passed           = util <= 1.0,
-                            WorstFormula     = wf,
-                            WorstDescription = wd
-                        });
+                            var (wf, wd) = ExtractWorstDetail(r.DataJson);
+                            rows.Add(new CheckRow
+                            {
+                                Label            = item.Label,
+                                ForceSetTag      = fs.Tag,
+                                CalcType         = calcType.ToString(),
+                                Utilization      = u,
+                                Passed           = u <= 1.0 && r.Status != "not_passed",
+                                WorstFormula     = wf,
+                                WorstDescription = wd
+                            });
+                        }
+                        else
+                        {
+                            rows.Add(new CheckRow
+                            {
+                                Label            = item.Label,
+                                ForceSetTag      = fs.Tag,
+                                CalcType         = calcType.ToString(),
+                                Utilization      = double.NaN,
+                                Passed           = false,
+                                WorstFormula     = r.Status,
+                                WorstDescription = ExtractFailureReason(r.DataJson)
+                            });
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -136,7 +156,7 @@ public static class FemCheckRunner
                             Label            = item.Label,
                             ForceSetTag      = fs.Tag,
                             CalcType         = calcType.ToString(),
-                            Utilization      = 0,
+                            Utilization      = double.NaN,
                             Passed           = false,
                             WorstFormula     = "error",
                             WorstDescription = ex.Message
@@ -159,7 +179,7 @@ public static class FemCheckRunner
                 label            = r.Label,
                 forceSetTag      = r.ForceSetTag,
                 calcType         = r.CalcType,
-                utilization      = Math.Round(r.Utilization, 6),
+                utilization      = double.IsFinite(r.Utilization) ? Math.Round(r.Utilization, 6) : (double?)null,
                 passed           = r.Passed,
                 worstFormula     = r.WorstFormula,
                 worstDescription = r.WorstDescription
@@ -172,7 +192,7 @@ public static class FemCheckRunner
             TaskKind = check.NormCode,
             TaskTag  = check.DisplayTag,
             Created  = created,
-            Status   = "ok",
+            Status   = passed == rows.Count ? "ok" : "not_passed",
             DataJson = dataJson
         };
     }
@@ -577,7 +597,7 @@ public static class FemCheckRunner
     public static CalcResult PickWorst(CalcResult? a, CalcResult b)
     {
         if (a == null) return b;
-        return ExtractUtilization(b.DataJson) > ExtractUtilization(a.DataJson) ? b : a;
+        return (ExtractUtilization(b.DataJson) ?? 0) > (ExtractUtilization(a.DataJson) ?? 0) ? b : a;
     }
 
     /// <summary>Подготавливает CalcTask из параметров FemCheck и FemMember.</summary>
@@ -589,18 +609,36 @@ public static class FemCheckRunner
         {
             Kind       = check.NormCode,
             Tag        = $"{member.Tag}/{check.NormCode}",
+            CalcType   = calcType ?? CalcType.C,
             ParamsJson = paramsJson
         };
     }
 
-    static double ExtractUtilization(string dataJson)
+    /// <summary>Коэффициент использования из DataJson; null, если его нет или он не число.</summary>
+    internal static double? ExtractUtilization(string dataJson)
     {
         try
         {
             using var doc = JsonDocument.Parse(dataJson);
-            return doc.RootElement.TryGetProperty("utilization", out var u) ? u.GetDouble() : 0;
+            return doc.RootElement.TryGetProperty("utilization", out var u)
+                   && u.ValueKind == JsonValueKind.Number
+                ? u.GetDouble() : null;
         }
-        catch { return 0; }
+        catch { return null; }
+    }
+
+    /// <summary>Причина, по которой строка не проверена: error / reason / reason_code из DataJson.</summary>
+    internal static string ExtractFailureReason(string dataJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(dataJson);
+            foreach (var key in new[] { "error", "reason", "reason_code" })
+                if (doc.RootElement.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String)
+                    return v.GetString() ?? "";
+            return "Результат не содержит коэффициента использования";
+        }
+        catch { return "Результат не удалось прочитать"; }
     }
 
     static CalcResult MakeError(FemCheck check, string created, string memberTag, string message) => new()

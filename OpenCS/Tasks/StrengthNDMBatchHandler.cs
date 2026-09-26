@@ -50,41 +50,10 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
             {
                 var fi = items[i];
                 var clone = settings.BatchParallel ? section.CloneForCalc() : section;
-                var solver = new StrainSolver(clone, task.CalcType, ten: ten,
-                    tol: settings.NewtonTolerance,
-                    maxIter: settings.NewtonMaxIter,
-                    h: settings.NewtonDeltaH);
-                var k = solver.Solve(fi.N, fi.Mx, fi.My);
-                convergedArr[i] = solver.Converged;
-
-                if (!solver.Converged)
-                {
-                    passedArr[i] = false;
-                    rowResults[i] = BuildRow(fi, k, solver,
-                        epsConcreteCompression: 0, epsConcreteUlt: 0,
-                        epsRebarTension: 0, epsRebarUlt: 0,
-                        concreteOk: false, rebarOk: false, strengthOk: false);
-                    BatchProgress.Report(ctx, ref done, total);
-                    return;
-                }
-
-                clone.SetEps(k, task.CalcType, ten);
-
-                var (epsConcreteMin, epsConcreteMax) = ComputeExtremeConcreteStrains(clone, k);
-                var (epsRebarMin, epsRebarMax) = ComputeExtremeRebarStrains(clone, k);
-
-                double epsConcreteUlt = ResolveConcreteEpsUlt(clone, task.CalcType, epsConcreteMin, epsConcreteMax);
-                double epsRebarUlt = ResolveRebarEpsUlt(clone, task.CalcType);
-
-                bool concreteOk = Math.Abs(epsConcreteMin) <= Math.Abs(epsConcreteUlt) + 1e-10;
-                bool rebarOk = epsRebarMax <= epsRebarUlt + 1e-10;
-                bool strengthOk = concreteOk && rebarOk;
-
-                passedArr[i] = strengthOk;
-                rowResults[i] = BuildRow(fi, k, solver,
-                    epsConcreteMin, epsConcreteUlt,
-                    epsRebarMax, epsRebarUlt,
-                    concreteOk, rebarOk, strengthOk);
+                var r = Evaluate(clone, fi, task.CalcType, ten, settings);
+                convergedArr[i] = r.Converged;
+                passedArr[i] = r.StrengthOk;
+                rowResults[i] = BuildRow(fi, r);
                 BatchProgress.Report(ctx, ref done, total);
             }
 
@@ -139,29 +108,78 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
         }
     }
 
-    static object BuildRow(LoadItem fi, Kurvature k, StrainSolver solver,
-        double epsConcreteCompression, double epsConcreteUlt,
-        double epsRebarTension, double epsRebarUlt,
-        bool concreteOk, bool rebarOk, bool strengthOk) => new
+    /// <summary>Результат проверки прочности по НДМ одной строки усилий.</summary>
+    internal sealed record StrengthNdmItemResult(
+        Kurvature Strain, bool Converged, int Iterations, double Residual,
+        double EpsConcreteCompression, double EpsConcreteUlt,
+        double EpsRebarTension, double EpsRebarUlt,
+        bool ConcreteOk, bool RebarOk)
+    {
+        /// <summary>Условие прочности выполнено (бетон и арматура).</summary>
+        public bool StrengthOk => Converged && ConcreteOk && RebarOk;
+
+        /// <summary>Отношение ε_b/ε_b,ult (по модулю); 0 при несошедшемся НДС.</summary>
+        public double ConcreteRatio => Converged && Math.Abs(EpsConcreteUlt) > 1e-12
+            ? Math.Abs(EpsConcreteCompression) / Math.Abs(EpsConcreteUlt) : 0;
+
+        /// <summary>Отношение ε_s/ε_s,ult (только растяжение); 0 при несошедшемся НДС.</summary>
+        public double RebarRatio => Converged && EpsRebarUlt > 1e-12
+            ? Math.Max(EpsRebarTension, 0) / EpsRebarUlt : 0;
+    }
+
+    /// <summary>
+    /// Проверяет прочность сечения по НДМ для одной строки усилий (п. 8.1.24, 8.1.30 СП 63).
+    /// Диаграммы сечения должны быть построены заранее; <paramref name="section"/> меняет
+    /// деформации волокон, поэтому при параллельном расчёте передаётся клон.
+    /// </summary>
+    internal static StrengthNdmItemResult Evaluate(CrossSection section, LoadItem fi,
+        CalcType calcType, bool ten, CalcSettings settings)
+    {
+        var solver = new StrainSolver(section, calcType, ten: ten,
+            tol: settings.NewtonTolerance,
+            maxIter: settings.NewtonMaxIter,
+            h: settings.NewtonDeltaH);
+        var k = solver.Solve(fi.N, fi.Mx, fi.My);
+
+        if (!solver.Converged)
+            return new StrengthNdmItemResult(k, false, solver.Iterations, solver.Residual,
+                0, 0, 0, 0, false, false);
+
+        section.SetEps(k, calcType, ten);
+
+        var (epsConcreteMin, epsConcreteMax) = ComputeExtremeConcreteStrains(section, k);
+        var (_, epsRebarMax) = ComputeExtremeRebarStrains(section, k);
+
+        double epsConcreteUlt = ResolveConcreteEpsUlt(section, calcType, epsConcreteMin, epsConcreteMax);
+        double epsRebarUlt = ResolveRebarEpsUlt(section, calcType);
+
+        bool concreteOk = Math.Abs(epsConcreteMin) <= Math.Abs(epsConcreteUlt) + 1e-10;
+        bool rebarOk = epsRebarMax <= epsRebarUlt + 1e-10;
+
+        return new StrengthNdmItemResult(k, true, solver.Iterations, solver.Residual,
+            epsConcreteMin, epsConcreteUlt, epsRebarMax, epsRebarUlt, concreteOk, rebarOk);
+    }
+
+    static object BuildRow(LoadItem fi, StrengthNdmItemResult r) => new
     {
         label = fi.Label,
         num = fi.Num,
         N = fi.N,
         Mx = fi.Mx,
         My = fi.My,
-        e0 = Math.Round(k.e0, 8),
-        ky = Math.Round(k.ky, 8),
-        kz = Math.Round(k.kz, 8),
-        eps_concrete_compression = Math.Round(epsConcreteCompression, 8),
-        eps_concrete_ult = Math.Round(epsConcreteUlt, 8),
-        eps_rebar_tension = Math.Round(epsRebarTension, 8),
-        eps_rebar_ult = Math.Round(epsRebarUlt, 8),
-        concrete_ok = concreteOk,
-        rebar_ok = rebarOk,
-        strength_ok = strengthOk,
-        iterations = solver.Iterations,
-        residual = Math.Round(solver.Residual, 6),
-        status = solver.Converged ? "ok" : "not_converged"
+        e0 = Math.Round(r.Strain.e0, 8),
+        ky = Math.Round(r.Strain.ky, 8),
+        kz = Math.Round(r.Strain.kz, 8),
+        eps_concrete_compression = Math.Round(r.EpsConcreteCompression, 8),
+        eps_concrete_ult = Math.Round(r.EpsConcreteUlt, 8),
+        eps_rebar_tension = Math.Round(r.EpsRebarTension, 8),
+        eps_rebar_ult = Math.Round(r.EpsRebarUlt, 8),
+        concrete_ok = r.ConcreteOk,
+        rebar_ok = r.RebarOk,
+        strength_ok = r.StrengthOk,
+        iterations = r.Iterations,
+        residual = Math.Round(r.Residual, 6),
+        status = r.Converged ? "ok" : "not_converged"
     };
 
     /// <summary>

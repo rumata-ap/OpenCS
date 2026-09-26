@@ -81,6 +81,70 @@ public static class FemCheckRunnerTests
     }
 
     /// <summary>
+    /// Регрессия 26.09.2026: у rc_check не было обработчика, исполнитель возвращал
+    /// Status="error" без utilization, а RunMulti читал это как Кисп = 0 и «проходил» строку.
+    /// Ошибка, неприменимость и отсутствие коэффициента должны давать непройденную строку.
+    /// </summary>
+    public static void RunMultiFailsRowsWithoutUtilization()
+    {
+        TestHarness.Section("FemCheckRunner: строки без коэффициента использования не проходят");
+
+        var check  = new FemCheck { SchemaId = 1, ElementId = 7, NormCode = "rc_check", Tag = "rc" };
+        var member = new FemMember { Id = 7, SchemaId = 1, ElemTag = "7", ElemType = "beam" };
+        var fs = new ForceSet
+        {
+            Id = 1, Tag = "Балка — РСУ (CL)",
+            Items =
+            [
+                new LoadItem { Label = "err" },
+                new LoadItem { Label = "na" },
+                new LoadItem { Label = "noutil" },
+                new LoadItem { Label = "ok" },
+                new LoadItem { Label = "over" },
+            ]
+        };
+
+        var seenCalcTypes = new List<CalcType>();
+        CalcResult Exec(CalcTask task, CrossSection s, LoadItem item)
+        {
+            seenCalcTypes.Add(task.CalcType);
+            return item.Label switch
+            {
+                "err"    => new CalcResult { Status = "error", DataJson = """{"error":"Unknown task kind: rc_check"}""" },
+                "na"     => new CalcResult { Status = "not_applicable", DataJson = """{"reason_code":"idealized_rebar_task_not_supported","utilization":0}""" },
+                "noutil" => new CalcResult { Status = "not_converged", DataJson = """{"passed":false,"reason":"НДС не найден"}""" },
+                "ok"     => new CalcResult { Status = "ok", DataJson = """{"utilization":0.6}""" },
+                _        => new CalcResult { Status = "not_passed", DataJson = """{"utilization":1.3}""" },
+            };
+        }
+
+        var result = FemCheckRunner.RunMulti(check, member, new CrossSection(), null, [fs], Exec);
+        using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+        var root = doc.RootElement;
+
+        TestHarness.Check("passedRows == 1", root.GetProperty("passedRows").GetInt32() == 1);
+        TestHarness.Check("failedRows == 4", root.GetProperty("failedRows").GetInt32() == 4);
+        CheckStr("статус результата", result.Status, "not_passed");
+
+        var rows = root.GetProperty("rows").EnumerateArray()
+            .ToDictionary(r => r.GetProperty("label").GetString()!, r => r);
+        foreach (var label in new[] { "err", "na", "noutil" })
+        {
+            TestHarness.Check($"{label}: passed == false", !rows[label].GetProperty("passed").GetBoolean());
+            TestHarness.Check($"{label}: utilization == null",
+                rows[label].GetProperty("utilization").ValueKind == System.Text.Json.JsonValueKind.Null);
+        }
+        CheckStr("err: причина из error", rows["err"].GetProperty("worstDescription").GetString()!,
+            "Unknown task kind: rc_check");
+        CheckStr("noutil: причина из reason", rows["noutil"].GetProperty("worstDescription").GetString()!,
+            "НДС не найден");
+        TestHarness.Check("ok: passed", rows["ok"].GetProperty("passed").GetBoolean());
+        TestHarness.Check("over: не пройдено", !rows["over"].GetProperty("passed").GetBoolean());
+        TestHarness.Check("CalcType набора (CL) передан в задачу",
+            seenCalcTypes.Count == 5 && seenCalcTypes.All(c => c == CalcType.CL));
+    }
+
+    /// <summary>
     /// Ручная проверка ComputeAcrcStrip для полосы B30/A500, Mx=50 кН·м/м.
     /// Эталон считаем вручную и сравниваем с допуском 0.1%.
     /// </summary>

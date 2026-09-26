@@ -129,6 +129,7 @@ FemCheckRunnerTests.RunLayeredSlsAcrc();
 FemCheckRunnerTests.RunLayeredSlsThreeComponent();
 FemCheckRunnerTests.RunLayeredSlsLtFraction();
 FemCheckRunnerTests.RunMultiAcceptsSingleElementTarget();
+FemCheckRunnerTests.RunMultiFailsRowsWithoutUtilization();
 
 ShellLayeredCrackWidthTests.RunAngleBendingX();
 ShellLayeredCrackWidthTests.RunAngleBendingY();

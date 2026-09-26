@@ -27,6 +27,7 @@ namespace OpenCS.Tasks
          ["limit_moment_batch"]   = new LimitMomentBatchHandler(),
          ["limit_axial_batch"]    = new LimitAxialBatchHandler(),
           ["strength_ndm_batch"]   = new StrengthNDMBatchHandler(),
+          ["rc_check"]             = new RcCheckHandler(),
           ["shell_simpl_wa_sls"]    = new ShellSimplWaSlsHandler(),
           ["shell_simpl_wa_uls"]    = new ShellSimplWaUlsHandler(),
           ["shell_simpl_capri_sls"] = new ShellSimplCapriSlsHandler(),

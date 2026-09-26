@@ -55,13 +55,16 @@ public class FemCheckResultVM
                         Label        = r.TryGetProperty("label",            out var l)  ? l.GetString()  ?? "" : "",
                         ForceSetTag  = r.TryGetProperty("forceSetTag",      out var fs) ? fs.GetString() ?? "" : "",
                         CalcType     = r.TryGetProperty("calcType",         out var ct) ? ct.GetString() ?? "" : "",
-                        Utilization  = r.TryGetProperty("utilization",      out var u)  ? u.GetDouble()  : 0,
+                        Utilization  = r.TryGetProperty("utilization",      out var u) && u.ValueKind == JsonValueKind.Number
+                                       ? u.GetDouble() : double.NaN,
                         Passed       = r.TryGetProperty("passed",           out var ps) && ps.GetBoolean(),
                         WorstFormula = r.TryGetProperty("worstFormula",     out var wf) ? wf.GetString() ?? "" : "",
                         WorstDesc    = r.TryGetProperty("worstDescription", out var wd) ? wd.GetString() ?? "" : "",
                     });
                 }
-                Rows = [.. Rows.OrderByDescending(r => r.Utilization)];
+                // Сначала непроверенные строки (нет коэффициента), затем по убыванию Кисп.
+                Rows = [.. Rows.OrderBy(r => double.IsNaN(r.Utilization) ? 0 : 1)
+                               .ThenByDescending(r => r.Utilization)];
             }
         }
         catch
@@ -82,7 +85,7 @@ public class FemCheckRowVM
     public string WorstFormula { get; init; } = "";
     public string WorstDesc    { get; init; } = "";
 
-    public string UtilText       => Utilization.ToString("F3");
+    public string UtilText       => double.IsNaN(Utilization) ? "—" : Utilization.ToString("F3");
     public string WorstCheckText => string.IsNullOrEmpty(WorstFormula) ? WorstDesc : $"{WorstFormula} {WorstDesc}";
     public string StatusText     => Passed ? "✓" : "✗";
 }
