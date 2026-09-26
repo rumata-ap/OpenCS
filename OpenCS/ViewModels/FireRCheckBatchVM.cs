@@ -16,6 +16,10 @@ public sealed class FireRCheckBatchVM : ViewModelBase
     public bool HasError { get; }
     public string ErrorText { get; } = "";
 
+    /// <summary>Предупреждение об устаревшем тепловом расчёте (пусто — предупреждения нет).</summary>
+    public string ThermalWarningText { get; } = "";
+    public bool HasThermalWarning => ThermalWarningText.Length > 0;
+
     public ObservableCollection<BatchRow> AllRows { get; } = [];
     public ObservableCollection<BatchRow> FailedRows { get; } = [];
     public bool HasFailedRows => FailedRows.Count > 0;
@@ -44,6 +48,7 @@ public sealed class FireRCheckBatchVM : ViewModelBase
 
         JsonElement root = FireResultJson.Root(result.DataJson);
         bool passed = FireResultJson.Bool(root, "passed");
+        ThermalWarningText = FireResultJson.Str(root, "thermal_warning", "");
         double worst = FireResultJson.Dbl(root, "worst_margin");
         StatusBrush = passed
             ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))

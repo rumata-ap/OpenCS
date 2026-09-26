@@ -21,6 +21,9 @@
                <TextBlock Text="{Binding VerdictText}" FontSize="13" FontWeight="Bold"
                           Foreground="{Binding VerdictBrush}" Margin="0,0,0,4"/>
                <TextBlock Text="{Binding ConvergenceText}" Foreground="{Binding ConvergenceBrush}" Margin="0,0,0,10"/>
+               <TextBlock Text="{Binding ThermalWarningText}" Foreground="DarkOrange" FontWeight="Bold" TextWrapping="Wrap"
+                          Margin="0,0,0,8"
+                          Visibility="{Binding HasThermalWarning, Converter={StaticResource BoolToVisibility}}"/>
 
                <GroupBox Header="{DynamicResource FireRCheck_LimitLoading}" Margin="0,0,0,6" Padding="8,4"
                          Visibility="{Binding ShowLimitSection, Converter={StaticResource BoolToVisibility}}">

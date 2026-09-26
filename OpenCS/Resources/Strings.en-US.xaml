@@ -1403,7 +1403,9 @@
    <system:String x:Key="FireRCheck_MyLimit">My limit, kN·m</system:String>
    <system:String x:Key="FireRCheck_EpsLimits">ε_contour_min / ε_cu</system:String>
    <system:String x:Key="FireRCheck_FireSection">Fire resistance</system:String>
-   <system:String x:Key="FireRCheck_CriticalTime">Critical time, min</system:String>
+   <system:String x:Key="FireRCheck_CriticalTime">Check time (temperature field instant), min</system:String>
+   <system:String x:Key="FireRCheck_ThermalStale">Thermal analysis #{0} was run before the fire section was changed ({1}). Rerun the thermal analysis and select it in the task parameters.</system:String>
+   <system:String x:Key="FireRCheck_ThermalNewer">The check used thermal analysis #{0}, but a newer one #{1} exists — select it in the task parameters and rerun the task to use it.</system:String>
    <system:String x:Key="FireRCheck_Method">Method</system:String>
    <system:String x:Key="FireRCheck_GammaStats">γ coefficients</system:String>
    <system:String x:Key="FireRCheck_GammaBtStats">γ_bt min / avg / max</system:String>

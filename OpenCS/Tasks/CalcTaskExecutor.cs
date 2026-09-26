@@ -75,6 +75,8 @@ public static class CalcTaskExecutor
             {
                 app.LogService.Info(done);
             }
+            if (TryGetThermalWarning(result, out string thermalWarning))
+                app.LogService.Warning($"{task.Tag}: {thermalWarning}");
             onResultsChanged?.Invoke();
             if (navigateToResult)
                 app.CurrentPage = new CalcResultView(result, app);
@@ -91,6 +93,22 @@ public static class CalcTaskExecutor
             MessageBox.Show(ex.Message, Loc.S("Error"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    /// <summary>Предупреждение огневой задачи об устаревшем тепловом расчёте (поле thermal_warning).</summary>
+    static bool TryGetThermalWarning(CalcResult result, out string warning)
+    {
+        warning = "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("thermal_warning", out var w)
+                && w.ValueKind == System.Text.Json.JsonValueKind.String)
+                warning = w.GetString() ?? "";
+        }
+        catch (System.Text.Json.JsonException) { }
+        return warning.Length > 0;
     }
 
     static bool TryResolve(AppViewModel app, CalcTask ct,

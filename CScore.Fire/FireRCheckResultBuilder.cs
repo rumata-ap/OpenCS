@@ -41,8 +41,12 @@ internal static class FireRCheckResultBuilder
             ["thermal_result_id"] = thermalResultId,
             ["aggregate_type"] = thermal.AggregateType,
             ["snapshot_index"] = snapshotIndex,
-            ["fire_duration_min"] = fireDef?.FireDurationMin ?? thermal.FireDurationMin,
-            ["fire_curve"] = fireDef?.FireCurve ?? thermal.FireCurve,
+            // Длительность и кривая — того теплового расчёта, по которому выполнена проверка:
+            // огневое сечение могли изменить после него (было «120 мин» при поле на 90 мин).
+            ["fire_duration_min"] = thermal.FireDurationMin > 0
+                ? thermal.FireDurationMin : fireDef?.FireDurationMin ?? 0.0,
+            ["fire_curve"] = string.IsNullOrEmpty(thermal.FireCurve)
+                ? fireDef?.FireCurve : thermal.FireCurve,
             ["converged"] = res.Converged,
             ["iterations"] = res.Iterations,
             ["newton_iterations"] = res.NewtonIterations,

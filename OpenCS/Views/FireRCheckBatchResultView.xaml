@@ -10,11 +10,16 @@
       </Grid.RowDefinitions>
 
       <!-- Шапка: вердикт -->
-      <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
-              Background="{Binding StatusBrush}">
-         <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
-                    HorizontalAlignment="Center"/>
-      </Border>
+      <StackPanel Grid.Row="0">
+         <Border Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+                 Background="{Binding StatusBrush}">
+            <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
+         </Border>
+         <TextBlock Text="{Binding ThermalWarningText}" Foreground="DarkOrange" FontWeight="Bold" TextWrapping="Wrap"
+                    Margin="0,0,0,8"
+                    Visibility="{Binding HasThermalWarning, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
 
       <!-- Таблица строк -->
       <TabControl Grid.Row="1">

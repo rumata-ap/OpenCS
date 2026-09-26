@@ -62,6 +62,9 @@ public sealed class FireRCheckHandler : ITaskHandler
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
+            var freshness = section.Id == fireDef.SectionId
+               ? FireThermalFreshness.Check(ctx.Database, fireDef, section, reference.ResultId)
+               : new FireThermalFreshness(reference.ResultId, null, null);
             FireCheckResult check = FireRCheck.Run(
                 thermal,
                 section,
@@ -85,6 +88,7 @@ public sealed class FireRCheckHandler : ITaskHandler
                 critical_time_min = check.CriticalTimeMin,
                 thermal_result_id = reference.ResultId,
                 legacy_thermal_reference = reference.IsLegacyFallback,
+                thermal_warning = freshness.WarningText,
                 details = check.Details
             };
 

@@ -1403,7 +1403,9 @@
    <system:String x:Key="FireRCheck_MyLimit">My предельное, кН·м</system:String>
    <system:String x:Key="FireRCheck_EpsLimits">ε_contour_min / ε_cu</system:String>
    <system:String x:Key="FireRCheck_FireSection">Огнестойкость</system:String>
-   <system:String x:Key="FireRCheck_CriticalTime">Критическое время, мин</system:String>
+   <system:String x:Key="FireRCheck_CriticalTime">Время проверки (момент температурного поля), мин</system:String>
+   <system:String x:Key="FireRCheck_ThermalStale">Тепловой расчёт #{0} выполнен до изменения огневого сечения ({1}). Выполните тепловой расчёт заново и выберите его в параметрах задачи.</system:String>
+   <system:String x:Key="FireRCheck_ThermalNewer">Проверка выполнена по тепловому расчёту #{0}, а есть более новый #{1} — чтобы учесть его, выберите его в параметрах задачи и выполните её заново.</system:String>
    <system:String x:Key="FireRCheck_Method">Метод</system:String>
    <system:String x:Key="FireRCheck_GammaStats">Коэффициенты γ</system:String>
    <system:String x:Key="FireRCheck_GammaBtStats">γ_bt min / avg / max</system:String>

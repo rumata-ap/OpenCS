@@ -17,6 +17,10 @@ public sealed class FireRCheckSummaryVM : ViewModelBase
     public bool HasError { get; }
     public string ErrorText { get; } = "";
 
+    /// <summary>Предупреждение об устаревшем тепловом расчёте (пусто — предупреждения нет).</summary>
+    public string ThermalWarningText { get; } = "";
+    public bool HasThermalWarning => ThermalWarningText.Length > 0;
+
     public string FactorText { get; }
     public string UtilizationText { get; }
     public string GoverningText { get; }
@@ -78,6 +82,7 @@ public sealed class FireRCheckSummaryVM : ViewModelBase
 
         JsonElement root = FireResultJson.Root(result.DataJson);
         JsonElement d = FireResultJson.Details(root);
+        ThermalWarningText = FireResultJson.Str(root, "thermal_warning", "");
 
         bool passed = FireResultJson.Bool(root, "passed");
         string method = FireResultJson.Str(d, "method", "fiber");
