@@ -1027,7 +1027,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       if (SelectedSection != null && !Sections.Contains(SelectedSection))
          SelectedSection = Sections.FirstOrDefault();
+      OnPropertyChanged(nameof(ShowNoSteelSectionsHint));
    }
+
+   /// <summary>Стальная проверка выбрана, а стальных сечений в проекте нет — пустой список сечений надо объяснить.</summary>
+   public bool ShowNoSteelSectionsHint => IsSteelCheck && Sections.Count == 0;
 
    public CalcTaskSolverItem? SelectedSolver
    {

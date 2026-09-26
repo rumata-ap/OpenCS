@@ -1674,14 +1674,15 @@
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
     <!-- Steel check tasks -->
-    <system:String x:Key="CalcTaskKind_steel_central_compression">Central compression</system:String>
-    <system:String x:Key="CalcTaskKind_steel_central_tension">Central tension</system:String>
-    <system:String x:Key="CalcTaskKind_steel_bending">Bending</system:String>
-    <system:String x:Key="CalcTaskKind_steel_compression_bending">Compression with bending</system:String>
-    <system:String x:Key="CalcTaskKind_steel_tension_bending">Tension with bending</system:String>
-    <system:String x:Key="CalcTaskKind_steel_shear">Shear</system:String>
-    <system:String x:Key="CalcTaskKind_steel_torsion">Torsion</system:String>
-    <system:String x:Key="CalcTaskKind_steel_constructive">Constructive</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_compression">Central compression (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_tension">Central tension (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_bending">Bending (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_compression_bending">Compression with bending (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_tension_bending">Tension with bending (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_shear">Shear (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_torsion">Torsion (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_constructive">Detailing requirements (steel, SP 16)</system:String>
+    <system:String x:Key="CalcTaskNoSteelSections">No steel sections: SP 16 checks apply only to structural steel sections. For reinforced concrete choose SP 63 checks.</system:String>
 
     <!-- Inclined sections per SP 63.13330 -->
     <system:String x:Key="CalcTaskKind_shear_inclined">Inclined sections</system:String>

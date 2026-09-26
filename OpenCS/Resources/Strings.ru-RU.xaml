@@ -1674,14 +1674,15 @@
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
     <!-- Отдельные задачи проверки стали -->
-    <system:String x:Key="CalcTaskKind_steel_central_compression">Центральное сжатие</system:String>
-    <system:String x:Key="CalcTaskKind_steel_central_tension">Центральное растяжение</system:String>
-    <system:String x:Key="CalcTaskKind_steel_bending">Изгиб</system:String>
-    <system:String x:Key="CalcTaskKind_steel_compression_bending">Сжатие с изгибом</system:String>
-    <system:String x:Key="CalcTaskKind_steel_tension_bending">Растяжение с изгибом</system:String>
-    <system:String x:Key="CalcTaskKind_steel_shear">Срез</system:String>
-    <system:String x:Key="CalcTaskKind_steel_torsion">Кручение</system:String>
-    <system:String x:Key="CalcTaskKind_steel_constructive">Конструктивные</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_compression">Центральное сжатие (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_tension">Центральное растяжение (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_bending">Изгиб (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_compression_bending">Сжатие с изгибом (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_tension_bending">Растяжение с изгибом (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_shear">Срез (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_torsion">Кручение (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_constructive">Конструктивные требования (сталь, СП 16)</system:String>
+    <system:String x:Key="CalcTaskNoSteelSections">Нет сечений из стали: проверки по СП 16 выполняются только для сечений из конструкционной стали. Для железобетона выберите проверки СП 63.</system:String>
 
     <!-- Наклонные сечения по СП 63.13330 -->
     <system:String x:Key="CalcTaskKind_shear_inclined">Наклонные сечения</system:String>

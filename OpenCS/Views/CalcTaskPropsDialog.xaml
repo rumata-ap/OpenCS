@@ -108,12 +108,15 @@
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
                   VerticalAlignment="Center" Margin="0,0,8,8"
                   Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
-      <ComboBox  Grid.Row="3" Grid.Column="1"
-                  ItemsSource="{Binding Sections}"
-                  SelectedItem="{Binding SelectedSection}"
-                  DisplayMemberPath="Tag"
-                  Margin="0,0,0,8"
-                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
+      <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,8"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}">
+         <ComboBox ItemsSource="{Binding Sections}"
+                   SelectedItem="{Binding SelectedSection}"
+                   DisplayMemberPath="Tag"/>
+         <TextBlock Text="{DynamicResource CalcTaskNoSteelSections}" Foreground="DarkOrange"
+                    TextWrapping="Wrap" Margin="0,2,0,0"
+                    Visibility="{Binding ShowNoSteelSectionsHint, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
 
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ShellSimplSection}"
                   VerticalAlignment="Center" Margin="0,0,8,8"
