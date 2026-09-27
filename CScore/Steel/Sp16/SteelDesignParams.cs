@@ -195,6 +195,17 @@ public sealed record SteelDesignParams
     /// <summary>Шаг поперечных рёбер жёсткости a, м; 0 — рёбер нет.</summary>
     public double RibSpacing { get; init; }
 
+    /// <summary>Шаг отверстий для болтов в одном вертикальном ряду стенки s (8.2.1, формула (45)), м; 0 — стенка не ослаблена.</summary>
+    public double WebHoleSpacing { get; init; }
+
+    /// <summary>Диаметр отверстий для болтов в стенке d (8.2.1, формула (45)), м; 0 — стенка не ослаблена.</summary>
+    public double WebHoleDiameter { get; init; }
+
+    /// <summary>Коэффициент ослабления стенки отверстиями α = s/(s − d) по (45); 1 — отверстий нет.</summary>
+    [JsonIgnore]
+    public double WebHoleAlpha => WebHoleSpacing > 0 && WebHoleDiameter > 0 && WebHoleDiameter < WebHoleSpacing
+        ? WebHoleSpacing / (WebHoleSpacing - WebHoleDiameter) : 1.0;
+
     // ── Сжатие с изгибом (9.2) ──
 
     /// <summary>Вид эпюры моментов (9.2.3, табл. Д.5).</summary>

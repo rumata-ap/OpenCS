@@ -10,8 +10,13 @@ public sealed record SteelCatalogSubtype(int Id, string Group, string Name)
     public override string ToString() => Name;
 }
 
-/// <summary>Строка сортамента в списке выбора.</summary>
-public sealed record SteelCatalogProfileItem(int Id, string Name)
+/// <summary>
+/// Строка сортамента в списке выбора со справочными характеристиками для сортировки (оси сортамента:
+/// x — ось наибольшей жёсткости): h (мм), A (см²), Ix, Iy (см⁴), Wx, Wy (см³); null — нет в таблице.
+/// </summary>
+public sealed record SteelCatalogProfileItem(int Id, string Name,
+    double? HMm = null, double? ACm2 = null, double? IxCm4 = null, double? IyCm4 = null,
+    double? WxCm3 = null, double? WyCm3 = null)
 {
     /// <inheritdoc/>
     public override string ToString() => Name;
@@ -110,8 +115,31 @@ public partial class ProfileDB : ISteelSortament
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SteelCatalogProfileItem> GetSteelCatalogProfiles(int subtypeId) =>
-        [.. GetProfiles(subtypeId).Select(p => new SteelCatalogProfileItem(p.Id, p.Name))];
+    public IReadOnlyList<SteelCatalogProfileItem> GetSteelCatalogProfiles(int subtypeId)
+    {
+        string table = TableMap[TypeForSubtype(subtypeId)];
+        using var conn = Connect();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"SELECT * FROM ""{table}"" WHERE SubTypeID = @sid";
+        cmd.Parameters.AddWithValue("@sid", subtypeId);
+        using var reader = cmd.ExecuteReader();
+        var result = new List<SteelCatalogProfileItem>();
+        // У труб один момент инерции I и сопротивления W на обе оси.
+        while (reader.Read())
+            result.Add(new(reader.GetInt32(reader.GetOrdinal("ID")), reader.GetString(reader.GetOrdinal("Name")),
+                Optional(reader, "H"), Optional(reader, "A"),
+                Optional(reader, "Ix") ?? Optional(reader, "I"), Optional(reader, "Iy") ?? Optional(reader, "I"),
+                Optional(reader, "Wx") ?? Optional(reader, "W"), Optional(reader, "Wy") ?? Optional(reader, "W")));
+        return result;
+    }
+
+    /// <summary>Число из колонки; null — колонки нет в таблице группы или значение пусто.</summary>
+    static double? Optional(Microsoft.Data.Sqlite.SqliteDataReader reader, string column)
+    {
+        int i = Enumerable.Range(0, reader.FieldCount).FirstOrDefault(k => reader.GetName(k) == column, -1);
+        if (i < 0 || reader.IsDBNull(i)) return null;
+        return reader.GetDouble(i);
+    }
 
     /// <inheritdoc/>
     public SteelCatalogEntry? GetSteelCatalogEntry(int subtypeId, int profileId)
@@ -133,12 +161,7 @@ public partial class ProfileDB : ISteelSortament
             int i = reader.GetOrdinal(column);
             return reader.IsDBNull(i) ? 0 : reader.GetDouble(i);
         }
-        double? Opt(string column)
-        {
-            int i = Enumerable.Range(0, reader.FieldCount).FirstOrDefault(k => reader.GetName(k) == column, -1);
-            if (i < 0) return null;                                 // колонки нет в таблице группы
-            return reader.IsDBNull(i) ? null : reader.GetDouble(i);
-        }
+        double? Opt(string column) => Optional(reader, column);
         string name = reader.GetString(reader.GetOrdinal("Name"));
         SteelCatalogEntry Entry(double h, double b, double tw, double tf, double r1, double r2,
             double? a, double? ix, double? iy) =>

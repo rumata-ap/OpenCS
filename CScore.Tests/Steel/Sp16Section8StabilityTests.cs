@@ -135,6 +135,22 @@ public class Sp16Section8StabilityTests
     }
 
     [Fact]
+    public void SinglySymmetric_Phi2NearBoundary_WarnsAboutTableZh3Jump()
+    {
+        bool warned = false, quiet = false;
+        for (double lef = 1; lef <= 12; lef += 0.1)
+        {
+            var r = Sp16PhiB.Compute(Mono(new SteelDesignParams { LefB = lef, LtbLoad = LtbLoadKind.Uniform }), topCompressed: true);
+            if (r.NotApplicable != null) continue;
+            double phi2 = r.Vars.Single(v => v.Name == "φ2").Value;
+            bool note = r.Notes.Any(n => n.StartsWith("ВНИМАНИЕ") && n.Contains("0,85"));
+            Assert.Equal(phi2 is >= 0.7 and <= 1.0, note);
+            warned |= note; quiet |= !note;
+        }
+        Assert.True(warned && quiet);
+    }
+
+    [Fact]
     public void SinglySymmetric_LessDevelopedCompressed_UsesPhi2()
     {
         var up = Sp16PhiB.Compute(Mono(new SteelDesignParams { LefB = 2.5 }), topCompressed: true);

@@ -111,6 +111,14 @@
                     <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16RibSpacing}"/>
                     <TextBox Text="{Binding RibSpacing, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16WebHoleSpacing}"/>
+                    <TextBox Text="{Binding WebHoleSpacing, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16WebHoleDiameter}"/>
+                    <TextBox Text="{Binding WebHoleDiameter, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
                 <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16OneSidedFlangeWelds}"
                           IsChecked="{Binding OneSidedFlangeWelds}"/>
                 <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16FrictionFlangeJoints}"

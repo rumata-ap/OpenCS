@@ -80,7 +80,7 @@
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelStandard}" Style="{StaticResource FieldLabel}"/>
                   <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding CatalogSubtypes}"
@@ -91,9 +91,35 @@
                         </DataTemplate>
                      </ComboBox.ItemTemplate>
                   </ComboBox>
-                  <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelCatalogProfile}" Style="{StaticResource FieldLabel}"/>
-                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CatalogProfiles}"
-                            DisplayMemberPath="Name" SelectedItem="{Binding SelectedCatalogProfile}" Margin="0,2"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelCatalogSort}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CatalogSortOptions}"
+                            DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding CatalogSort}" Margin="0,2"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource ParametricSteelCatalogProfile}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding CatalogProfiles}"
+                            SelectedItem="{Binding SelectedCatalogProfile}" Margin="0,2">
+                     <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem">
+                           <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        </Style>
+                     </ComboBox.ItemContainerStyle>
+                     <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                           <Grid>
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Text="{Binding Name}"/>
+                              <!-- Подсказка — только в раскрытом списке: в поле выбора нет предка ComboBoxItem. -->
+                              <TextBlock x:Name="SortHint" Grid.Column="1" Text="{Binding Hint}" Foreground="#6A7A82" Margin="16,0,0,0"/>
+                           </Grid>
+                           <DataTemplate.Triggers>
+                              <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}}" Value="{x:Null}">
+                                 <Setter TargetName="SortHint" Property="Visibility" Value="Collapsed"/>
+                              </DataTrigger>
+                           </DataTemplate.Triggers>
+                        </DataTemplate>
+                     </ComboBox.ItemTemplate>
+                  </ComboBox>
                </Grid>
             </GroupBox>
 

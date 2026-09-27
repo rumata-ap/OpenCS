@@ -30,6 +30,41 @@ public class Sp16Section8StrengthTests
     }
 
     [Fact]
+    public void Formula42_WebHoles_MultipliedByAlpha45()
+    {
+        // Отверстия d = 23 мм с шагом s = 80 мм: α = s/(s − d) = 80/57.
+        var p = new SteelDesignParams { WebHoleSpacing = 0.080, WebHoleDiameter = 0.023 };
+        double alpha = 0.080 / (0.080 - 0.023);
+        var plain = Sp16Section8Strength.Check(Beam(), new SteelForces(0, 0, 0, 0, 200)).Single(x => x.Formula == "(42)");
+        var holed = Sp16Section8Strength.Check(Beam(p), new SteelForces(0, 0, 0, 0, 200)).Single(x => x.Formula == "(42)");
+        Assert.Equal(alpha * plain.Utilization, holed.Utilization, 12);
+        Assert.Equal(alpha, holed.Variables.Single(v => v.Key == "α (45)").Value, 12);
+        Assert.Contains(holed.Notes, n => n.Contains("(45)"));
+        // Сила из плоскости стенки воспринимается поясами — α не применяется.
+        var qx = Sp16Section8Strength.Check(Beam(p), new SteelForces(0, 0, 0, 200, 0)).Single(x => x.Formula == "(42)");
+        var qxPlain = Sp16Section8Strength.Check(Beam(), new SteelForces(0, 0, 0, 200, 0)).Single(x => x.Formula == "(42)");
+        Assert.Equal(qxPlain.Utilization, qx.Utilization, 12);
+    }
+
+    [Fact]
+    public void Formula44_WebHoles_TauMultipliedByAlpha45()
+    {
+        var p = new SteelDesignParams { WebHoleSpacing = 0.080, WebHoleDiameter = 0.023 };
+        double alpha = 0.080 / (0.080 - 0.023);
+        var r = Sp16Section8Strength.Check(Beam(p), new SteelForces(0, 100, 0, 0, 200)).Single(x => x.Formula == "(44)");
+        double sx = 100 * 0.138 / Ix, tau = alpha * 200 * (0.150 * 0.012 * 0.144) / (Ix * 0.008);
+        Assert.Equal(0.87 * Math.Sqrt(sx * sx + 3 * tau * tau) / 240000, r.Utilization, 4);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1.0)]
+    [InlineData(0.08, 0, 1.0)]
+    [InlineData(0.08, 0.08, 1.0)]
+    [InlineData(0.10, 0.025, 0.10 / 0.075)]
+    public void WebHoleAlpha_OnlyForValidHoles(double s, double d, double expected) =>
+        Assert.Equal(expected, new SteelDesignParams { WebHoleSpacing = s, WebHoleDiameter = d }.WebHoleAlpha, 12);
+
+    [Fact]
     public void Formula44_WebCombined()
     {
         var res = Sp16Section8Strength.Check(Beam(), new SteelForces(0, 100, 0, 0, 200));

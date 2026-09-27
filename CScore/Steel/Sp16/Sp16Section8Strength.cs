@@ -175,7 +175,10 @@ public static class Sp16Section8Strength
         return (cxEff, cyEff, cxEff < cx || cyEff < cy);
     }
 
-    /// <summary>8.2.1, формула (42): QS/(I·tw·Rs·γc) ≤ 1 для каждой поперечной силы.</summary>
+    /// <summary>
+    /// 8.2.1, формула (42): QS/(I·tw·Rs·γc) ≤ 1 для каждой поперечной силы; при ослаблении стенки
+    /// отверстиями для болтов левая часть для силы в плоскости стенки умножается на α по (45).
+    /// </summary>
     public static List<Sp16CheckResult> Shear(Sp16Member m, SteelForces f)
     {
         var res = new List<Sp16CheckResult>();
@@ -187,13 +190,22 @@ public static class Sp16Section8Strength
             var (sStat, t) = s.ShearAtCentroid(aboutX);
             double inertia = aboutX ? s.Ix : s.Iy;
             double tau = Math.Abs(q) * sStat / (inertia * t);
+            double alpha = aboutX ? WebHoleAlpha(m) : 1.0;
+            var vars = new List<(string, double)> { ("Q", q), ("S", sStat), ("I", inertia), ("t", t), ("τ", tau) };
+            if (alpha > 1) vars.AddRange([("s", m.P.WebHoleSpacing), ("d", m.P.WebHoleDiameter), ("α (45)", alpha), ("α·τ", alpha * tau)]);
+            vars.AddRange([("Rs", s.Mat.Rs), ("γc", m.P.GammaC)]);
             res.Add(Sp16CheckResult.Of("8.2.1", "(42)", $"Прочность на сдвиг (сила вдоль оси {m.Axis(!aboutX)})",
-                tau / (s.Mat.Rs * m.P.GammaC), [("Q", q), ("S", sStat), ("I", inertia), ("t", t), ("τ", tau), ("Rs", s.Mat.Rs), ("γc", m.P.GammaC)],
-                tau, s.Mat.Rs * m.P.GammaC,
-                [aboutX ? "для разрезных балок на опоре формулу (42) следует применять без учёта работы поясов" : null]));
+                alpha * tau / (s.Mat.Rs * m.P.GammaC), vars, alpha * tau, s.Mat.Rs * m.P.GammaC,
+                [aboutX ? "для разрезных балок на опоре формулу (42) следует применять без учёта работы поясов" : null,
+                 alpha > 1 ? "стенка ослаблена отверстиями для болтов: левая часть (42) умножена на α = s/(s − d) по (45)" : null]));
         }
         return res;
     }
+
+    /// <summary>α = s/(s − d) по (45) для сечений со стенкой; 1 — отверстий нет или у сечения нет стенки.</summary>
+    static double WebHoleAlpha(Sp16Member m) =>
+        m.S.Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel or SteelProfileKind.Tee or SteelProfileKind.Box
+            ? m.P.WebHoleAlpha : 1.0;
 
     /// <summary>
     /// 8.2.1, формула (44): 0,87/(Ry·γc)·√(σx² − σxσy + σy² + 3τxy²) ≤ 1 в стенке у пояса
@@ -205,6 +217,7 @@ public static class Sp16Section8Strength
         if (s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Channel or SteelProfileKind.Box or SteelProfileKind.Tee)) return null;
         if (Math.Abs(f.Mx) <= 1e-9 || Math.Abs(f.Qy) <= 1e-9) return null;
         double sigmaLoc = LocalSigma(m) ?? 0;
+        double alpha = WebHoleAlpha(m);
         double worst = 0, sxW = 0, tW = 0, yW = 0;
         foreach (bool top in new[] { true, false })
         {
@@ -213,7 +226,7 @@ public static class Sp16Section8Strength
             if (tf <= 0) continue;
             double sx = f.Mx * yEdge / s.Ix;
             double sStat = Math.Abs(s.Poly.PartAbove(s.Poly.Yc + yEdge, true).S);
-            double tau = Math.Abs(f.Qy) * sStat / (s.Ix * s.Tw * s.WebCount);
+            double tau = alpha * Math.Abs(f.Qy) * sStat / (s.Ix * s.Tw * s.WebCount);   // τxy × α по (45)
             // Местное напряжение действует у нагруженного (верхнего) пояса.
             double sy = top ? -sigmaLoc : 0;
             double eq = Math.Sqrt(sx * sx - sx * sy + sy * sy + 3 * tau * tau);
@@ -221,9 +234,13 @@ public static class Sp16Section8Strength
         }
         if (worst <= 0) return null;
         double rg = s.Mat.Ry * m.P.GammaC;
+        var vars = new List<(string, double)> { ("y", yW), ("σx", sxW), ("σy", -(sigmaLoc)), ("τxy", tW) };
+        if (alpha > 1) vars.Add(("α (45)", alpha));
+        vars.AddRange([("Ry", s.Mat.Ry), ("γc", m.P.GammaC)]);
         return Sp16CheckResult.Of("8.2.1", "(44)", "Прочность стенки при совместном действии M и Q (у пояса)",
-            0.87 * worst / rg, [("y", yW), ("σx", sxW), ("σy", -(sigmaLoc)), ("τxy", tW), ("Ry", s.Mat.Ry), ("γc", m.P.GammaC)],
-            notes: [sigmaLoc > 0 ? "σy = σloc по (47) у нагруженного пояса" : null]);
+            0.87 * worst / rg, vars,
+            notes: [sigmaLoc > 0 ? "σy = σloc по (47) у нагруженного пояса" : null,
+                    alpha > 1 ? "стенка ослаблена отверстиями для болтов: τxy умножено на α = s/(s − d) по (45)" : null]);
     }
 
     /// <summary>σloc = F/(lef·tw) по (47), lef = b + 2h (48); null — нет местной нагрузки или сечение без стенки.</summary>

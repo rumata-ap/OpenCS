@@ -201,6 +201,20 @@
    <system:String x:Key="ParametricSteelPropIt">It, см⁴</system:String>
    <system:String x:Key="ParametricSteelItCatalogFormat">по сортаменту; по прил. Д СП 16 — {0} см⁴ ({1} %)</system:String>
    <system:String x:Key="ParametricSteelItFormula">по прил. Д, п. 1 СП 16: (k/3)·Σbi·ti³</system:String>
+   <system:String x:Key="ParametricSteelCatalogSort">Сортировать по</system:String>
+   <system:String x:Key="ParametricSteelSortStandard">порядку стандарта</system:String>
+   <system:String x:Key="ParametricSteelSortH">высоте h</system:String>
+   <system:String x:Key="ParametricSteelSortA">площади A (массе)</system:String>
+   <system:String x:Key="ParametricSteelSortIx">Ix</system:String>
+   <system:String x:Key="ParametricSteelSortIy">Iy</system:String>
+   <system:String x:Key="ParametricSteelSortWx">Wx</system:String>
+   <system:String x:Key="ParametricSteelSortWy">Wy</system:String>
+   <system:String x:Key="ParametricSteelSortHintH">h = {0} мм</system:String>
+   <system:String x:Key="ParametricSteelSortHintA">A = {0} см², {1} кг/м</system:String>
+   <system:String x:Key="ParametricSteelSortHintIx">Ix = {0} см⁴</system:String>
+   <system:String x:Key="ParametricSteelSortHintIy">Iy = {0} см⁴</system:String>
+   <system:String x:Key="ParametricSteelSortHintWx">Wx = {0} см³</system:String>
+   <system:String x:Key="ParametricSteelSortHintWy">Wy = {0} см³</system:String>
    <system:String x:Key="ParametricSteelApplicability">Применимость СП 16</system:String>
    <system:String x:Key="ParametricSteelCurveX">Тип по табл. 7, ось x</system:String>
    <system:String x:Key="ParametricSteelCurveY">Тип по табл. 7, ось y</system:String>
@@ -3410,6 +3424,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16BearingLength">Ширина опирания b, м</system:String>
     <system:String x:Key="Sp16FlangeWeldLeg">Катет поясного шва kf, м</system:String>
     <system:String x:Key="Sp16RibSpacing">Шаг поперечных рёбер a, м (0 — рёбер нет)</system:String>
+    <system:String x:Key="Sp16WebHoleSpacing">Шаг отверстий для болтов в вертикальном ряду стенки s, м (0 — нет)</system:String>
+    <system:String x:Key="Sp16WebHoleDiameter">Диаметр отверстий в стенке d, м (0 — нет)</system:String>
+    <system:String x:Key="Sp16WebHolesInvalid">отверстия в стенке: задайте s и d, 0 &lt; d &lt; s</system:String>
     <system:String x:Key="Sp16OneSidedFlangeWelds">Пояса прикреплены односторонними швами</system:String>
     <system:String x:Key="Sp16FrictionFlangeJoints">Фрикционные поясные соединения</system:String>
     <system:String x:Key="Sp16MomentShape">Эпюра моментов по длине (9.2.3, табл. Д.5)</system:String>

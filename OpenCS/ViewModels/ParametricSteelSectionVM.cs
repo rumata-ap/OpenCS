@@ -14,6 +14,45 @@ public sealed record ParametricSteelOption<T>(T Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>Порядок профилей в списке сортамента.</summary>
+public enum SteelCatalogSort
+{
+    /// <summary>Порядок стандарта (как в базе сортаментов).</summary>
+    Standard,
+    /// <summary>По высоте h.</summary>
+    H,
+    /// <summary>По площади A (масса пропорциональна площади).</summary>
+    A,
+    /// <summary>По Ix.</summary>
+    Ix,
+    /// <summary>По Iy.</summary>
+    Iy,
+    /// <summary>По Wx.</summary>
+    Wx,
+    /// <summary>По Wy.</summary>
+    Wy,
+}
+
+/// <summary>Профиль сортамента в выпадающем списке: имя и подсказка со значением параметра сортировки.</summary>
+public sealed class SteelCatalogProfileOption(SteelCatalogProfileItem item, int index) : ViewModelBase
+{
+    string _hint = "";
+
+    /// <summary>Строка сортамента.</summary>
+    public SteelCatalogProfileItem Item { get; } = item;
+    /// <summary>Позиция в порядке стандарта.</summary>
+    public int Index { get; } = index;
+    /// <summary>Id строки.</summary>
+    public int Id => Item.Id;
+    /// <summary>Обозначение профиля.</summary>
+    public string Name => Item.Name;
+    /// <summary>Значение параметра сортировки с единицами; пусто — порядок стандарта.</summary>
+    public string Hint { get => _hint; set { if (_hint == value) return; _hint = value; OnPropertyChanged(); } }
+
+    /// <inheritdoc/>
+    public override string ToString() => Name;
+}
+
 /// <summary>
 /// Модель диалога параметрического МК-сечения: вид, изготовление, сортамент, размеры (мм), ориентация,
 /// материал, предпросмотр, геометрические характеристики и применимость таблиц СП 16.
@@ -32,7 +71,10 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
     bool _applyingCatalog;
     bool _loading;
     SteelCatalogSubtype? _selectedSubtype;
-    SteelCatalogProfileItem? _selectedCatalogProfile;
+    SteelCatalogProfileOption? _selectedCatalogProfile;
+    SteelCatalogSort _catalogSort = s_lastCatalogSort;
+    /// <summary>Сортировка, выбранная при последнем открытии диалога (в пределах сеанса).</summary>
+    static SteelCatalogSort s_lastCatalogSort = SteelCatalogSort.Standard;
     ParametricSteelCatalogRef? _catalog;
     SteelCatalogEntry? _catalogEntry;
 
@@ -42,8 +84,11 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
     public ObservableCollection<ParametricSteelOption<SteelFabrication>> FabricationOptions { get; } = [];
     /// <summary>Подтипы сортамента для вида и изготовления.</summary>
     public ObservableCollection<SteelCatalogSubtype> CatalogSubtypes { get; } = [];
-    /// <summary>Профили выбранного подтипа.</summary>
-    public ObservableCollection<SteelCatalogProfileItem> CatalogProfiles { get; } = [];
+    /// <summary>Профили выбранного подтипа в порядке <see cref="CatalogSort"/>.</summary>
+    public ObservableCollection<SteelCatalogProfileOption> CatalogProfiles { get; } = [];
+    /// <summary>Варианты сортировки сортамента.</summary>
+    public IReadOnlyList<ParametricSteelOption<SteelCatalogSort>> CatalogSortOptions { get; } =
+        [.. Enum.GetValues<SteelCatalogSort>().Select(s => new ParametricSteelOption<SteelCatalogSort>(s, Loc.S("ParametricSteelSort" + s)))];
 
     /// <summary>Создаёт модель диалога.</summary>
     /// <param name="steelMaterials">Материалы Steel/Custom; по умолчанию выбирается первый Steel.</param>
@@ -110,14 +155,29 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
             CatalogProfiles.Clear();
             if (value is not null)
                 foreach (var p in Safe(() => _sortament?.GetSteelCatalogProfiles(value.Id)) ?? [])
-                    CatalogProfiles.Add(p);
+                    CatalogProfiles.Add(new(p, CatalogProfiles.Count));
+            ApplyCatalogSort();
             _selectedCatalogProfile = null;
             OnPropertyChanged(nameof(SelectedCatalogProfile));
         }
     }
 
+    /// <summary>Порядок профилей сортамента; запоминается до конца сеанса.</summary>
+    public SteelCatalogSort CatalogSort
+    {
+        get => _catalogSort;
+        set
+        {
+            if (_catalogSort == value) return;
+            _catalogSort = value;
+            s_lastCatalogSort = value;
+            OnPropertyChanged();
+            ApplyCatalogSort();
+        }
+    }
+
     /// <summary>Выбранный профиль сортамента; выбор заполняет размеры.</summary>
-    public SteelCatalogProfileItem? SelectedCatalogProfile
+    public SteelCatalogProfileOption? SelectedCatalogProfile
     {
         get => _selectedCatalogProfile;
         set
@@ -492,6 +552,45 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
         }
         OnPropertyChanged(nameof(Catalog));
         OnPropertyChanged(nameof(CatalogStatusText));
+    }
+
+    /// <summary>
+    /// Переставляет профили по <see cref="CatalogSort"/> перемещением элементов (выбор в списке сохраняется)
+    /// и обновляет подсказки; профили без значения параметра — в конце, в порядке стандарта.
+    /// </summary>
+    void ApplyCatalogSort()
+    {
+        var ordered = CatalogProfiles
+            .OrderBy(o => CatalogSort == SteelCatalogSort.Standard ? 0 : SortValue(o.Item) ?? double.MaxValue)
+            .ThenBy(o => o.Index).ToList();
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            int current = CatalogProfiles.IndexOf(ordered[i]);
+            if (current != i) CatalogProfiles.Move(current, i);
+        }
+        foreach (var option in CatalogProfiles)
+            option.Hint = SortHint(option.Item);
+    }
+
+    double? SortValue(SteelCatalogProfileItem p) => CatalogSort switch
+    {
+        SteelCatalogSort.H => p.HMm,
+        SteelCatalogSort.A => p.ACm2,
+        SteelCatalogSort.Ix => p.IxCm4,
+        SteelCatalogSort.Iy => p.IyCm4,
+        SteelCatalogSort.Wx => p.WxCm3,
+        SteelCatalogSort.Wy => p.WyCm3,
+        _ => null,
+    };
+
+    string SortHint(SteelCatalogProfileItem p)
+    {
+        if (CatalogSort == SteelCatalogSort.Standard || SortValue(p) is not double v) return "";
+        static string N(double x, string format) => x.ToString(format, CultureInfo.CurrentCulture);
+        // Масса 1 м профиля: A (см²) · 10⁻⁴ м² · 7850 кг/м³ = 0,785·A кг/м.
+        return CatalogSort == SteelCatalogSort.A
+            ? Format("ParametricSteelSortHintA", N(v, "0.##"), N(0.785 * v, "0.#"))
+            : Format("ParametricSteelSortHint" + CatalogSort, N(v, "0.#"));
     }
 
     void DetachCatalog()

@@ -85,13 +85,17 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
 
     // ── Местная нагрузка и стенка (8.2.2, 8.5) ──
 
-    string _localForce = "", _bearingLength = "", _flangeWeldLeg = "", _ribSpacing = "";
+    string _localForce = "", _bearingLength = "", _flangeWeldLeg = "", _ribSpacing = "", _webHoleSpacing = "", _webHoleDiameter = "";
     bool _oneSidedFlangeWelds, _frictionFlangeJoints;
 
     public string LocalForce { get => _localForce; set { _localForce = value; OnPropertyChanged(); } }
     public string BearingLength { get => _bearingLength; set { _bearingLength = value; OnPropertyChanged(); } }
     public string FlangeWeldLeg { get => _flangeWeldLeg; set { _flangeWeldLeg = value; OnPropertyChanged(); } }
     public string RibSpacing { get => _ribSpacing; set { _ribSpacing = value; OnPropertyChanged(); } }
+    /// <summary>Шаг отверстий в вертикальном ряду стенки s по (45), м; 0 — стенка не ослаблена.</summary>
+    public string WebHoleSpacing { get => _webHoleSpacing; set { _webHoleSpacing = value; OnPropertyChanged(); } }
+    /// <summary>Диаметр отверстий в стенке d по (45), м; 0 — стенка не ослаблена.</summary>
+    public string WebHoleDiameter { get => _webHoleDiameter; set { _webHoleDiameter = value; OnPropertyChanged(); } }
     public bool OneSidedFlangeWelds { get => _oneSidedFlangeWelds; set { _oneSidedFlangeWelds = value; OnPropertyChanged(); } }
     public bool FrictionFlangeJoints { get => _frictionFlangeJoints; set { _frictionFlangeJoints = value; OnPropertyChanged(); } }
 
@@ -152,6 +156,7 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
         AllowPlastic = p.AllowPlastic; GammaFEq = F(p.GammaFEq); PureBendingZone = p.PureBendingZone;
         LocalForce = F(p.LocalForce); BearingLength = F(p.BearingLength); FlangeWeldLeg = F(p.FlangeWeldLeg);
         RibSpacing = F(p.RibSpacing); OneSidedFlangeWelds = p.OneSidedFlangeWelds; FrictionFlangeJoints = p.FrictionFlangeJoints;
+        WebHoleSpacing = F(p.WebHoleSpacing); WebHoleDiameter = F(p.WebHoleDiameter);
         MomentShape = Pick(MomentShapeOptions, p.MomentShape); EndMomentRatio = F(p.EndMomentRatio);
         MiddleThirdMomentRatio = F(p.MiddleThirdMomentRatio); CantileverColumn = p.CantileverColumn; UseFormula121a = p.UseFormula121a;
         CompressionCategory = Pick(CompressionCategoryOptions, p.CompressionCategory);
@@ -191,6 +196,11 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
         double bearing = Num(BearingLength, "Sp16BearingLength", NonNeg);
         double weld = Num(FlangeWeldLeg, "Sp16FlangeWeldLeg", NonNeg);
         double ribs = Num(RibSpacing, "Sp16RibSpacing", NonNeg);
+        double holeS = Num(WebHoleSpacing, "Sp16WebHoleSpacing", NonNeg);
+        double holeD = Num(WebHoleDiameter, "Sp16WebHoleDiameter", NonNeg);
+        // (45): задаются оба размера (0 < d < s) либо ни одного.
+        if ((holeS > 0 || holeD > 0) && !(holeS > 0 && holeD > 0 && holeD < holeS))
+            errors.Add(Loc.S("Sp16WebHolesInvalid"));
         double delta = Num(EndMomentRatio, "Sp16EndMomentRatio", v => v >= -1 && v <= 1);
         double m1 = Num(MiddleThirdMomentRatio, "Sp16MiddleThirdMomentRatio", v => v > 0 && v <= 1);
         double? eta = null;
@@ -212,6 +222,7 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
             AllowPlastic = AllowPlastic, GammaFEq = gammaF, PureBendingZone = PureBendingZone,
             LocalForce = force, BearingLength = bearing, FlangeWeldLeg = weld, RibSpacing = ribs,
             OneSidedFlangeWelds = OneSidedFlangeWelds, FrictionFlangeJoints = FrictionFlangeJoints,
+            WebHoleSpacing = holeS, WebHoleDiameter = holeD,
             MomentShape = MomentShape.Value, EndMomentRatio = delta, MiddleThirdMomentRatio = m1,
             CantileverColumn = CantileverColumn, UseFormula121a = UseFormula121a,
             CompressionCategory = CompressionCategory.Value, TensionCategory = TensionCategory.Value,

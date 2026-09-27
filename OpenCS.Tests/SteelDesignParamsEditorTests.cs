@@ -18,6 +18,7 @@ public class SteelDesignParamsEditorTests
             LtbLoadOnTensionFlange = true, LtbFixedEnds = true, Cantilever = true, ContinuousRigidDeck = true,
             AllowPlastic = true, GammaFEq = 1.2, PureBendingZone = true, LocalForce = 30, BearingLength = .1,
             FlangeWeldLeg = .006, RibSpacing = 1.2, OneSidedFlangeWelds = true, FrictionFlangeJoints = true,
+            WebHoleSpacing = .08, WebHoleDiameter = .023,
             MomentShape = MomentShape.LinearEndMoments, EndMomentRatio = -.5, MiddleThirdMomentRatio = .7,
             CantileverColumn = true, UseFormula121a = true, CompressionCategory = CompressionMemberCategory.Bracing,
             TensionCategory = TensionMemberCategory.OtherBracing, TensionLoad = TensionLoadKind.Dynamic, Group4 = true,
@@ -49,6 +50,17 @@ public class SteelDesignParamsEditorTests
     {
         var vm = new SteelDesignParamsEditorVM();
         typeof(SteelDesignParamsEditorVM).GetProperty(property)!.SetValue(vm, value);
+        Assert.False(vm.TryBuild(out _, out var error));
+        Assert.NotEmpty(error);
+    }
+
+    [Theory]
+    [InlineData("0.08", "0")]
+    [InlineData("0", "0.023")]
+    [InlineData("0.02", "0.023")]
+    public void InvalidWebHolesAreRejected(string spacing, string diameter)
+    {
+        var vm = new SteelDesignParamsEditorVM { WebHoleSpacing = spacing, WebHoleDiameter = diameter };
         Assert.False(vm.TryBuild(out _, out var error));
         Assert.NotEmpty(error);
     }

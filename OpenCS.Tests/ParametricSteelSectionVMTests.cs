@@ -136,10 +136,11 @@ public sealed class ParametricSteelSectionVMTests
     [Fact]
     public void DimensionsInMillimetresHaveNoBinaryTails()
     {
-        // 0,009 · 1000 = 9,000000000000002 в двоичной арифметике.
-        Assert.NotEqual(9.0, 0.009 * 1000);
+        // Сортамент хранит мм и переводит в м: 9 · 0,001 · 1000 = 9,000000000000002 в двоичной арифметике.
+        const double mm = 0.001;
+        Assert.NotEqual(9.0, 9 * mm * 1000);
         var vm = WithCatalog();
-        vm.LoadDefinition(ParametricSteelSectionDefinition.RolledIBeam(0.3, 0.201, 0.009, 0.015, 0.018) with { MaterialId = 1 });
+        vm.LoadDefinition(ParametricSteelSectionDefinition.RolledIBeam(300 * mm, 201 * mm, 9 * mm, 15 * mm, 18 * mm) with { MaterialId = 1 });
         Assert.Equal(9.0, vm.TwMm);
         Assert.Equal(18.0, vm.R1Mm);
         Assert.Equal(201.0, vm.BMm);
@@ -249,6 +250,44 @@ public sealed class ProfileDbSteelCatalogTests
         Assert.Equal(SteelProfileKind.Box, tube.Kind);
         Assert.Equal(SteelFabrication.Bent, tube.Fabrication);
         Assert.Equal(0.006, tube.R1, 12);
+    }
+
+    [Fact]
+    public void CatalogSortReordersProfilesAndKeepsSelection()
+    {
+        var vm = new ParametricSteelSectionVM([new Material { Id = 1, Type = MatType.Steel, Tag = "С245" }], Db());
+        try
+        {
+            vm.CatalogSort = SteelCatalogSort.Standard;
+            vm.SelectedSubtype = vm.CatalogSubtypes.Single(s => s.Id == 18);
+            var standard = vm.CatalogProfiles.Select(p => p.Name).ToList();
+            Assert.All(vm.CatalogProfiles, p => Assert.Equal("", p.Hint));
+            vm.SelectedCatalogProfile = vm.CatalogProfiles.Single(p => p.Name == "30Б1");
+            var definition = vm.BuildDefinition();
+
+            vm.CatalogSort = SteelCatalogSort.Wx;
+            var wx = vm.CatalogProfiles.Select(p => p.Item.WxCm3 ?? double.MaxValue).ToList();
+            Assert.Equal(wx.OrderBy(v => v), wx);
+            Assert.All(vm.CatalogProfiles, p => Assert.NotEqual("", p.Hint));
+            Assert.Equal("30Б1", vm.SelectedCatalogProfile?.Name);
+            Assert.Equal(definition, vm.BuildDefinition());                                     // сортировка не снимает ссылку
+
+            vm.CatalogSort = SteelCatalogSort.Standard;
+            Assert.Equal(standard, vm.CatalogProfiles.Select(p => p.Name));
+        }
+        finally { vm.CatalogSort = SteelCatalogSort.Standard; }
+    }
+
+    [Fact]
+    public void CatalogProfilesCarrySortValues()
+    {
+        var p = Db().GetSteelCatalogProfiles(18).Single(x => x.Name == "30Б1");
+        Assert.Equal(298, p.HMm!.Value, 6);
+        Assert.Equal(6318, p.IxCm4!.Value, 0);
+        Assert.True(p.ACm2 > 0 && p.WxCm3 > 0 && p.WyCm3 > 0 && p.IyCm4 > 0);
+        var pipe = Db().GetSteelCatalogProfiles(46).First();
+        Assert.Equal(pipe.IxCm4, pipe.IyCm4);                                                   // у труб I и W на обе оси
+        Assert.NotNull(pipe.WxCm3);
     }
 
     [Fact]

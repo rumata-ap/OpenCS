@@ -201,6 +201,20 @@
    <system:String x:Key="ParametricSteelPropIt">It, cm⁴</system:String>
    <system:String x:Key="ParametricSteelItCatalogFormat">from catalog; SP 16 App. D gives {0} cm⁴ ({1} %)</system:String>
    <system:String x:Key="ParametricSteelItFormula">SP 16 App. D, cl. 1: (k/3)·Σbi·ti³</system:String>
+   <system:String x:Key="ParametricSteelCatalogSort">Sort by</system:String>
+   <system:String x:Key="ParametricSteelSortStandard">standard order</system:String>
+   <system:String x:Key="ParametricSteelSortH">height h</system:String>
+   <system:String x:Key="ParametricSteelSortA">area A (mass)</system:String>
+   <system:String x:Key="ParametricSteelSortIx">Ix</system:String>
+   <system:String x:Key="ParametricSteelSortIy">Iy</system:String>
+   <system:String x:Key="ParametricSteelSortWx">Wx</system:String>
+   <system:String x:Key="ParametricSteelSortWy">Wy</system:String>
+   <system:String x:Key="ParametricSteelSortHintH">h = {0} mm</system:String>
+   <system:String x:Key="ParametricSteelSortHintA">A = {0} cm², {1} kg/m</system:String>
+   <system:String x:Key="ParametricSteelSortHintIx">Ix = {0} cm⁴</system:String>
+   <system:String x:Key="ParametricSteelSortHintIy">Iy = {0} cm⁴</system:String>
+   <system:String x:Key="ParametricSteelSortHintWx">Wx = {0} cm³</system:String>
+   <system:String x:Key="ParametricSteelSortHintWy">Wy = {0} cm³</system:String>
    <system:String x:Key="ParametricSteelApplicability">SP 16 applicability</system:String>
    <system:String x:Key="ParametricSteelCurveX">Table 7 type, x axis</system:String>
    <system:String x:Key="ParametricSteelCurveY">Table 7 type, y axis</system:String>
@@ -3410,6 +3424,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16BearingLength">Bearing length b, m</system:String>
     <system:String x:Key="Sp16FlangeWeldLeg">Flange weld leg kf, m</system:String>
     <system:String x:Key="Sp16RibSpacing">Transverse stiffener spacing a, m (0 — none)</system:String>
+    <system:String x:Key="Sp16WebHoleSpacing">Bolt hole pitch in a vertical row of the web s, m (0 — none)</system:String>
+    <system:String x:Key="Sp16WebHoleDiameter">Web hole diameter d, m (0 — none)</system:String>
+    <system:String x:Key="Sp16WebHolesInvalid">web holes: set both s and d, 0 &lt; d &lt; s</system:String>
     <system:String x:Key="Sp16OneSidedFlangeWelds">Flanges attached by one-sided welds</system:String>
     <system:String x:Key="Sp16FrictionFlangeJoints">Friction flange joints</system:String>
     <system:String x:Key="Sp16MomentShape">Moment diagram along the length (9.2.3, table D.5)</system:String>
