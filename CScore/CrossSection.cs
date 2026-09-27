@@ -19,6 +19,13 @@ namespace CScore
 
        public List<MaterialArea> Areas { get; set; } = [];
 
+       /// <summary>
+       /// Привязка к параметрическому стальному источнику (runtime, не сохраняется); профиль берётся
+       /// через <see cref="global::CScore.ParametricSteel.ParametricSteelSectionExtensions.TryGetParametricSteelProfile"/>.
+       /// </summary>
+       [JsonIgnore]
+       public global::CScore.ParametricSteel.ParametricSteelBinding? ParametricSteel { get; set; }
+
        public CrossSection() { }
 
        public override string ToString() => $"{Num:D3}#CrossSection : {Tag}";
