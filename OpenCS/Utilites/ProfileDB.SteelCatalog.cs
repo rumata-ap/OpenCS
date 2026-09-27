@@ -19,16 +19,17 @@ public sealed record SteelCatalogProfileItem(int Id, string Name)
 
 /// <summary>
 /// Размеры профиля из сортамента в едином виде (м), без привязки к классам <c>*Profile</c>.
-/// Справочные A (см²), Ix, Iy (см⁴) — для сравнения со сформированным контуром.
+/// Справочные A (см²), Ix, Iy (см⁴) — для сравнения со сформированным контуром; It (см⁴) — момент
+/// инерции при свободном кручении, передаётся в расчёт по СП 16.
 /// </summary>
 public sealed record SteelCatalogEntry(
     string Group, string Standard, int SubTypeId, int Id, string Name,
     SteelProfileKind Kind, SteelFabrication Fabrication,
     double H, double B, double Tw, double Tf, double R1, double R2, double FlangeSlope,
-    double? ACm2, double? IxCm4, double? IyCm4)
+    double? ACm2, double? IxCm4, double? IyCm4, double? ItCm4 = null)
 {
-    /// <summary>Ссылка на строку сортамента для исходного описания.</summary>
-    public ParametricSteelCatalogRef ToCatalogRef() => new(Group, Standard, Name);
+    /// <summary>Ссылка на строку сортамента для исходного описания (It — в м⁴).</summary>
+    public ParametricSteelCatalogRef ToCatalogRef() => new(Group, Standard, Name, ItCm4 is > 0 ? ItCm4.Value * 1e-8 : 0);
 
     /// <summary>Исходное описание сечения с размерами строки сортамента (материал и метка — по умолчанию).</summary>
     public ParametricSteelSectionDefinition ToDefinition() => new()
@@ -134,14 +135,15 @@ public partial class ProfileDB : ISteelSortament
         }
         double? Opt(string column)
         {
-            int i = reader.GetOrdinal(column);
+            int i = Enumerable.Range(0, reader.FieldCount).FirstOrDefault(k => reader.GetName(k) == column, -1);
+            if (i < 0) return null;                                 // колонки нет в таблице группы
             return reader.IsDBNull(i) ? null : reader.GetDouble(i);
         }
         string name = reader.GetString(reader.GetOrdinal("Name"));
         SteelCatalogEntry Entry(double h, double b, double tw, double tf, double r1, double r2,
             double? a, double? ix, double? iy) =>
             new(group, standard, subtypeId, profileId, name, map.Kind, map.Fabrication,
-                h * mm, b * mm, tw * mm, tf * mm, r1 * mm, r2 * mm, map.Slope, a, ix, iy);
+                h * mm, b * mm, tw * mm, tf * mm, r1 * mm, r2 * mm, map.Slope, a, ix, iy, Opt("J") ?? Opt("It"));
 
         return map.Kind switch
         {

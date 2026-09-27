@@ -15,7 +15,7 @@ public sealed class ParametricSteelSectionVMTests
     {
         public static readonly SteelCatalogSubtype Subtype = new(18, "Двутавры", "Двутавр по ГОСТ Р 57837-2017");
         public static readonly SteelCatalogEntry Entry = new("Двутавры", Subtype.Name, 18, 7, "60Б1",
-            SteelProfileKind.IBeam, SteelFabrication.Rolled, 0.596, 0.199, 0.010, 0.015, 0.022, 0, 0, 120.5, 68720, 1980);
+            SteelProfileKind.IBeam, SteelFabrication.Rolled, 0.596, 0.199, 0.010, 0.015, 0.022, 0, 0, 120.5, 68720, 1980, 82.37);
 
         public IReadOnlyList<SteelCatalogSubtype> GetSteelCatalogSubtypes(SteelProfileKind kind, SteelFabrication fabrication) =>
             kind == SteelProfileKind.IBeam && fabrication == SteelFabrication.Rolled ? [Subtype] : [];
@@ -83,7 +83,10 @@ public sealed class ParametricSteelSectionVMTests
 
         Assert.Equal(596, vm.HMm, 9);
         Assert.Equal(22, vm.R1Mm, 9);
-        Assert.Equal(new ParametricSteelCatalogRef("Двутавры", FakeSortament.Subtype.Name, "60Б1"), vm.Catalog);
+        Assert.Equal(new ParametricSteelCatalogRef("Двутавры", FakeSortament.Subtype.Name, "60Б1", 82.37e-8), vm.Catalog);
+        Assert.True(vm.ShowIt);
+        Assert.Equal(82.37, vm.ItCm4!.Value, 9);
+        Assert.True(vm.Sp16!.ItFromCatalog);
         Assert.Contains("60Б1", vm.Tag);
         Assert.StartsWith("120", vm.CatalogAreaText);
         Assert.Equal(vm.Catalog, vm.BuildDefinition().Catalog);
@@ -115,6 +118,41 @@ public sealed class ParametricSteelSectionVMTests
         Assert.Equal(definition.Tf1, rebuilt.Tf1, 12);
         Assert.Equal(definition.R1, rebuilt.R1, 12);
         Assert.True(rebuilt.Rotated90);
+    }
+
+    [Fact]
+    public void LoadDefinitionAddsCatalogTorsionConstantToLegacyReference()
+    {
+        var legacy = FakeSortament.Entry.ToDefinition() with
+        {
+            MaterialId = 1, Catalog = new ParametricSteelCatalogRef("Двутавры", FakeSortament.Subtype.Name, "60Б1"),
+        };
+        var vm = WithCatalog();
+        vm.LoadDefinition(legacy);
+        Assert.Equal(82.37e-8, vm.BuildDefinition().Catalog!.It, 15);
+        Assert.Equal(82.37e-8, ParametricSteelSectionGenerator.ToSteelProfile(vm.BuildDefinition()).ItReference, 15);
+    }
+
+    [Fact]
+    public void DimensionsInMillimetresHaveNoBinaryTails()
+    {
+        // 0,009 · 1000 = 9,000000000000002 в двоичной арифметике.
+        Assert.NotEqual(9.0, 0.009 * 1000);
+        var vm = WithCatalog();
+        vm.LoadDefinition(ParametricSteelSectionDefinition.RolledIBeam(0.3, 0.201, 0.009, 0.015, 0.018) with { MaterialId = 1 });
+        Assert.Equal(9.0, vm.TwMm);
+        Assert.Equal(18.0, vm.R1Mm);
+        Assert.Equal(201.0, vm.BMm);
+    }
+
+    [Fact]
+    public void DimensionEditDropsCatalogTorsionConstant()
+    {
+        var vm = WithCatalog();
+        vm.SelectedCatalogProfile = vm.CatalogProfiles.Single();
+        vm.TfMm = 16;
+        Assert.False(vm.Sp16!.ItFromCatalog);
+        Assert.Equal(vm.Sp16.ItFormula * 1e8, vm.ItCm4!.Value, 9);
     }
 
     [Fact]
@@ -211,6 +249,15 @@ public sealed class ProfileDbSteelCatalogTests
         Assert.Equal(SteelProfileKind.Box, tube.Kind);
         Assert.Equal(SteelFabrication.Bent, tube.Fabrication);
         Assert.Equal(0.006, tube.R1, 12);
+    }
+
+    [Fact]
+    public void TorsionConstantIsReadFromCatalog()
+    {
+        var db = Db();
+        Assert.Equal(8.597, Find(db, 18, "30Б1").ItCm4!.Value, 3);
+        Assert.Equal(8.597e-8, Find(db, 18, "30Б1").ToCatalogRef().It, 15);
+        Assert.True(Find(db, 1, "100 x 100 x 8").ItCm4 is null or > 0);                       // у уголков колонка It, а не J
     }
 
     [Theory]

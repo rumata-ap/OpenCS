@@ -85,6 +85,12 @@ public sealed record SteelProfile
     /// <summary>Зеркальное положение: швеллер стенкой справа, тавр полкой снизу, уголок пером вниз.</summary>
     public bool Flipped { get; init; }
 
+    /// <summary>
+    /// Момент инерции при свободном кручении по сортаменту, м⁴; 0 — It вычисляется по прил. Д, п. 1.
+    /// Учитывается для двутавра и швеллера.
+    /// </summary>
+    public double ItReference { get; init; }
+
     /// <summary>Ширина нижнего пояса с учётом умолчания.</summary>
     public double BfBottom => Bf2 > 0 ? Bf2 : Bf1;
 

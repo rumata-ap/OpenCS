@@ -184,10 +184,31 @@ public sealed class Sp16Section
     public double Aw => Hw * Tw * WebCount;
 
     /// <summary>
+    /// Момент инерции при свободном кручении, м⁴: для двутавра и швеллера из сортамента — справочное
+    /// значение <see cref="SteelProfile.ItReference"/>, иначе <see cref="ItFormula"/>.
+    /// </summary>
+    public double It => ItFromCatalog ? Profile.ItReference : ItFormula;
+
+    /// <summary>It взят из сортамента, а не вычислен по прил. Д.</summary>
+    public bool ItFromCatalog => Profile.ItReference > 0 && Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel;
+
+    /// <summary>Примечание об источнике It для отчёта: сортамент (со сравнением с прил. Д) или формула прил. Д.</summary>
+    public string ItSourceNote
+    {
+        get
+        {
+            static string Cm4(double v) => (v * 1e8).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            return ItFromCatalog
+                ? $"It = {Cm4(It)} см⁴ — по сортаменту; по прил. Д, п. 1: {Cm4(ItFormula)} см⁴ ({(ItFormula / It - 1) * 100:+0.0;-0.0;0.0} %)"
+                : $"It = {Cm4(It)} см⁴ — по прил. Д, п. 1: (k/3)·Σbi·ti³";
+        }
+    }
+
+    /// <summary>
     /// Момент инерции при свободном кручении It = (k/3)·Σbi·ti³ (прил. Д, п. 1): k = 1,29 — двутавр с
     /// двумя осями симметрии; 1,25 — с одной осью; 1,20 — тавр; 1,12 — швеллер. Для прочих — 0.
     /// </summary>
-    public double It => Kind switch
+    public double ItFormula => Kind switch
     {
         SteelProfileKind.IBeam => (Profile.IsDoublySymmetricIBeam ? 1.29 : 1.25) / 3
             * (BfTop * Math.Pow(TfTop, 3) + BfBottom * Math.Pow(TfBottom, 3) + Hw * Math.Pow(Tw, 3)),

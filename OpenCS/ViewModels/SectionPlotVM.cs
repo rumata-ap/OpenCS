@@ -51,7 +51,22 @@ namespace OpenCS.ViewModels
         string Group);     // тег области-группы (для сопоставления с таблицей арматуры отчёта)
 
     /// <summary>Полоса дискретной цветовой шкалы для колорбара.</summary>
-    public record ColorBand(System.Windows.Media.Brush Brush, string Label);
+    public record ColorBand(System.Windows.Media.Brush Brush, string Label)
+    {
+        /// <summary>Цвет подписи, контрастный к заливке полосы: белый на тёмном, чёрный на светлом.</summary>
+        public System.Windows.Media.Brush LabelBrush =>
+            Brush is System.Windows.Media.SolidColorBrush { Color: var c }
+            && 0.2126 * Linear(c.R) + 0.7152 * Linear(c.G) + 0.0722 * Linear(c.B) < 0.18
+                ? System.Windows.Media.Brushes.White
+                : System.Windows.Media.Brushes.Black;
+
+        /// <summary>Канал sRGB в линейную яркость (относительная яркость по WCAG).</summary>
+        static double Linear(byte channel)
+        {
+            double v = channel / 255.0;
+            return v <= 0.04045 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+        }
+    }
 
     /// <summary>ViewModel вкладок «Напряжения σ» / «Деформации ε».</summary>
     public class SectionPlotVM : ViewModelBase

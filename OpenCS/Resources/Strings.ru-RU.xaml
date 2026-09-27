@@ -198,6 +198,9 @@
    <system:String x:Key="ParametricSteelPropIxRadius">ix, см</system:String>
    <system:String x:Key="ParametricSteelPropIyRadius">iy, см</system:String>
    <system:String x:Key="ParametricSteelCatalogAreaFormat">по сортаменту {0} см² (отклонение {1} %)</system:String>
+   <system:String x:Key="ParametricSteelPropIt">It, см⁴</system:String>
+   <system:String x:Key="ParametricSteelItCatalogFormat">по сортаменту; по прил. Д СП 16 — {0} см⁴ ({1} %)</system:String>
+   <system:String x:Key="ParametricSteelItFormula">по прил. Д, п. 1 СП 16: (k/3)·Σbi·ti³</system:String>
    <system:String x:Key="ParametricSteelApplicability">Применимость СП 16</system:String>
    <system:String x:Key="ParametricSteelCurveX">Тип по табл. 7, ось x</system:String>
    <system:String x:Key="ParametricSteelCurveY">Тип по табл. 7, ось y</system:String>

@@ -2,8 +2,12 @@ using CScore.Sp16;
 
 namespace CScore.ParametricSteel;
 
-/// <summary>Ссылка на строку сортамента: только для отображения и повторного выбора, генерация от неё не зависит.</summary>
-public sealed record ParametricSteelCatalogRef(string Group, string Standard, string Name);
+/// <summary>
+/// Ссылка на строку сортамента: для отображения и повторного выбора, контур от неё не зависит.
+/// It — справочный момент инерции при свободном кручении по сортаменту, м⁴ (0 — нет); передаётся в
+/// расчёт по СП 16 вместо приближённой формулы прил. Д, пока размеры совпадают со строкой сортамента.
+/// </summary>
+public sealed record ParametricSteelCatalogRef(string Group, string Standard, string Name, double It = 0);
 
 /// <summary>
 /// Параметрический источник стального сечения в единицах СИ (м). Каноническое положение — как у

@@ -51,8 +51,9 @@ public static class Sp16PhiB
             alpha = AlphaRolled(s, lef, k);
             vars.AddRange([("k", k), ("It", s.It), ("Iy", s.Iy), ("h", h), ("α", alpha)]);
             notes.Add("α по (Ж.4)" + (channel ? " с Ix, Iy, It швеллера (Ж.7)" : ""));
+            notes.Add(s.ItSourceNote);
             if (channel && s.Profile.Fabrication != SteelFabrication.Rolled)
-                notes.Add("гнутый швеллер: φb по Ж.7 с It по прил. Д как для прокатного");
+                notes.Add("гнутый швеллер: φb по Ж.7 как для прокатного");
         }
         else
         {
@@ -205,6 +206,7 @@ public static class Sp16PhiB
         double alpha = AlphaRolled(s, lef, 1.54);
         notes.Add("α по (Ж.4) с k = 1,54 — согласовано с (Ж.13) и столбцом «тавр» табл. Ж.5");
         notes.Add("(Ж.13): отношение I1/I2 в опубликованном тексте принято как It/I2 (экспликация и предельный переход n → 1 к столбцу «тавр» табл. Ж.5)");
+        notes.Add(s.ItSourceNote);
 
         double PsiA(double nn, bool teeColumn)
         {

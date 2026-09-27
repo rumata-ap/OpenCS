@@ -202,6 +202,47 @@ public class Sp16Section8StabilityTests
     }
 
     [Fact]
+    public void Table11_ShortBeam_Exempt_ReportsReferencePhiB()
+    {
+        var m = Rolled(new SteelDesignParams { LefB = 1.0 });
+        var r = Assert.Single(Sp16Section8Stability.Check(m, new SteelForces(0, -60, 0, 0, 0)));
+        double phiB = Sp16PhiB.Compute(m, true).PhiB;
+        Assert.Equal(phiB, r.Variables.Single(v => v.Key == "φb").Value, 12);
+        // Одноимённые величины прил. Ж не затирают величины табл. 11.
+        Assert.Equal(0.296 - 0.0085, r.Variables.Single(v => v.Key == "h").Value, 12);
+        Assert.Equal(0.296, r.Variables.Single(v => v.Key == "h (прил. Ж)").Value, 12);
+        double u69 = 60 / (phiB * m.S.Wx(true) * Ry);
+        Assert.Contains(r.Notes, x => x.StartsWith("справочно: φb") && x.Contains(u69.ToString("0.###")));
+    }
+
+    [Fact]
+    public void ItReference_UsedInPhiB_InsteadOfAppendixD()
+    {
+        var formula = Rolled(new SteelDesignParams { LefB = 6 });
+        Assert.False(formula.S.ItFromCatalog);
+        double itCatalog = 0.9 * formula.S.ItFormula;
+        var catalog = Sp16Member.Create(formula.S.Poly, C245,
+            new SteelDesignParams { LefB = 6, Profile = Rolled30B1 with { ItReference = itCatalog } });
+        Assert.True(catalog.S.ItFromCatalog);
+        Assert.Equal(itCatalog, catalog.S.It, 15);
+        Assert.Equal(formula.S.ItFormula, catalog.S.ItFormula, 15);
+
+        var r = Sp16PhiB.Compute(catalog, false);
+        Assert.Equal(itCatalog, r.Vars.Single(v => v.Name == "It").Value, 15);
+        Assert.True(r.PhiB < Sp16PhiB.Compute(formula, false).PhiB);                           // меньше It — меньше α, ψ, φb
+        Assert.Contains(r.Notes, x => x.Contains("по сортаменту"));
+    }
+
+    [Fact]
+    public void ItReference_IgnoredForTee()
+    {
+        var p = new SteelDesignParams { Profile = new SteelProfile { Kind = SteelProfileKind.Tee, Fabrication = SteelFabrication.Welded, H = 0.2, Bf1 = 0.2, Tf1 = 0.012, Tw = 0.010, ItReference = 1e-5 } };
+        var m = Sp16Member.Create(new PolygonSection(TemplatePoints.TeePoints(0.2, 0.2, 0.010, 0.012)), C245, p);
+        Assert.False(m.S.ItFromCatalog);
+        Assert.Equal(m.S.ItFormula, m.S.It, 15);
+    }
+
+    [Fact]
     public void RigidDeck_NotRequired()
     {
         var res = Sp16Section8Stability.Check(Rolled(new SteelDesignParams { LefB = 6, ContinuousRigidDeck = true }), new SteelForces(0, -60, 0, 0, 0));

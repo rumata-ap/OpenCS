@@ -292,6 +292,17 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
     /// <summary>Радиус инерции относительно оси y, см.</summary>
     public double? IyRadiusCm => Polygon is { } p ? Math.Sqrt(p.Iy / p.A) * 100 : null;
 
+    /// <summary>Есть ли It для вида (двутавр, швеллер, тавр — прил. Д, прил. Ж).</summary>
+    public bool ShowIt => Sp16 is { It: > 0 };
+    /// <summary>Момент инерции при свободном кручении, передаваемый в расчёт, см⁴.</summary>
+    public double? ItCm4 => Sp16 is { It: > 0 } s ? s.It * 1e8 : null;
+    /// <summary>Источник It: сортамент (со значением по прил. Д и отклонением) или формула прил. Д.</summary>
+    public string ItSourceText => Sp16 is not { It: > 0 } s ? ""
+        : s.ItFromCatalog
+            ? Format("ParametricSteelItCatalogFormat", (s.ItFormula * 1e8).ToString("0.##", CultureInfo.CurrentCulture),
+                ((s.ItFormula / s.It - 1) * 100).ToString("+0.0;-0.0;0.0", CultureInfo.CurrentCulture))
+            : Loc.S("ParametricSteelItFormula");
+
     /// <summary>Тип сечения по табл. 7 при потере устойчивости относительно оси x сечения.</summary>
     public string CurveXText => CurveText(aboutSectionX: true);
     /// <summary>Тип сечения по табл. 7 относительно оси y сечения.</summary>
@@ -359,11 +370,10 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
             _fabrication = d.Fabrication;
             OnPropertyChanged(nameof(Fabrication));
             RefreshCatalogSubtypes();
-            const double k = 1000;
             _applyingCatalog = true;
-            HMm = d.H * k; BMm = d.Bf1 * k; TfMm = d.Tf1 * k; TwMm = d.Tw * k;
-            B2Mm = (d.Bf2 > 0 ? d.Bf2 : d.Bf1) * k; Tf2Mm = (d.Tf2 > 0 ? d.Tf2 : d.Tf1) * k;
-            R1Mm = d.R1 * k; R2Mm = d.R2 * k; SlopePercent = d.FlangeSlope * 100;
+            HMm = Mm(d.H); BMm = Mm(d.Bf1); TfMm = Mm(d.Tf1); TwMm = Mm(d.Tw);
+            B2Mm = Mm(d.BfBottom); Tf2Mm = Mm(d.TfBottom);
+            R1Mm = Mm(d.R1); R2Mm = Mm(d.R2); SlopePercent = Percent(d.FlangeSlope);
             _applyingCatalog = false;
             _rotated90 = d.Rotated90; _flipped = d.Flipped;
             OnPropertyChanged(nameof(Rotated90));
@@ -415,9 +425,9 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
         };
         bool wasApplying = _applyingCatalog;
         _applyingCatalog = true;
-        HMm = d.H * 1000; BMm = d.Bf1 * 1000; TfMm = d.Tf1 * 1000; TwMm = d.Tw * 1000;
-        B2Mm = d.Bf1 * 1000; Tf2Mm = d.Tf1 * 1000;
-        R1Mm = d.R1 * 1000; R2Mm = d.R2 * 1000; SlopePercent = 0;
+        HMm = Mm(d.H); BMm = Mm(d.Bf1); TfMm = Mm(d.Tf1); TwMm = Mm(d.Tw);
+        B2Mm = Mm(d.Bf1); Tf2Mm = Mm(d.Tf1);
+        R1Mm = Mm(d.R1); R2Mm = Mm(d.R2); SlopePercent = 0;
         _applyingCatalog = wasApplying;
         if (!CanRotate && _rotated90) { _rotated90 = false; OnPropertyChanged(nameof(Rotated90)); }
         if (!CanFlip && _flipped) { _flipped = false; OnPropertyChanged(nameof(Flipped)); }
@@ -447,9 +457,9 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
         _applyingCatalog = true;
         try
         {
-            HMm = entry.H * 1000; BMm = entry.B * 1000; TwMm = entry.Tw * 1000; TfMm = entry.Tf * 1000;
-            B2Mm = entry.B * 1000; Tf2Mm = entry.Tf * 1000;
-            R1Mm = entry.R1 * 1000; R2Mm = entry.R2 * 1000; SlopePercent = entry.FlangeSlope * 100;
+            HMm = Mm(entry.H); BMm = Mm(entry.B); TwMm = Mm(entry.Tw); TfMm = Mm(entry.Tf);
+            B2Mm = Mm(entry.B); Tf2Mm = Mm(entry.Tf);
+            R1Mm = Mm(entry.R1); R2Mm = Mm(entry.R2); SlopePercent = Percent(entry.FlangeSlope);
         }
         finally { _applyingCatalog = false; }
         _catalog = entry.ToCatalogRef();
@@ -474,6 +484,8 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
                 {
                     _selectedCatalogProfile = item;
                     _catalogEntry = Safe(() => _sortament?.GetSteelCatalogEntry(subtype.Id, item.Id));
+                    // Сохранения до появления It в ссылке — дополняем справочными данными строки.
+                    if (_catalogEntry is not null) _catalog = _catalogEntry.ToCatalogRef();
                     OnPropertyChanged(nameof(SelectedCatalogProfile));
                 }
             }
@@ -526,6 +538,7 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
     [
         nameof(Preview), nameof(Polygon), nameof(Sp16), nameof(AreaCm2), nameof(CatalogAreaText),
         nameof(IxCm4), nameof(IyCm4), nameof(WxCm3), nameof(WyCm3), nameof(IxRadiusCm), nameof(IyRadiusCm),
+        nameof(ShowIt), nameof(ItCm4), nameof(ItSourceText),
         nameof(CurveXText), nameof(CurveYText), nameof(TableE1Text), nameof(LocalStabilityText), nameof(ProfileText),
         nameof(Diagnostics), nameof(DiagnosticsText), nameof(CanSave),
         nameof(ShowB), nameof(ShowTf), nameof(ShowBottomFlange), nameof(ShowTw), nameof(ShowR1), nameof(ShowR2),
@@ -556,6 +569,15 @@ public sealed class ParametricSteelSectionVM : ViewModelBase
         bool canonicalX = aboutSectionX != Sp16.Profile.Rotated90;
         return Sp16.CurveFor(canonicalX) is { } c ? c.ToString() : Loc.S("ParametricSteelNotInTable");
     }
+
+    /// <summary>
+    /// Метры в миллиметры для полей ввода с округлением до 10⁻⁶ мм: убирает хвосты двоичного
+    /// представления (0,009 м → 9,000000000000002 мм), не меняя значимых цифр размера.
+    /// </summary>
+    static double Mm(double meters) => Math.Round(meters * 1000, 6);
+
+    /// <summary>Доля в проценты для поля уклона с тем же округлением.</summary>
+    static double Percent(double fraction) => Math.Round(fraction * 100, 6);
 
     static string Format(string key, params object[] args)
     {

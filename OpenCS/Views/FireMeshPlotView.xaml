@@ -83,7 +83,7 @@
                      <DataTemplate>
                         <Grid>
                            <Rectangle Fill="{Binding Brush}"/>
-                           <TextBlock Text="{Binding Label}" FontSize="9"
+                           <TextBlock Text="{Binding Label}" Foreground="{Binding LabelBrush}" FontSize="9"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                      </DataTemplate>

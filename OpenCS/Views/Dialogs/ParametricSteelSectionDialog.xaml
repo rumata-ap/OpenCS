@@ -177,7 +177,8 @@
                      <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                      </Grid.RowDefinitions>
                      <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelPropA}" Style="{StaticResource PropName}"/>
                      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AreaCm2, StringFormat={}{0:0.###}}" Style="{StaticResource PropValue}"/>
@@ -194,6 +195,12 @@
                      <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding IxRadiusCm, StringFormat={}{0:0.##}}" Style="{StaticResource PropValue}"/>
                      <TextBlock Grid.Row="7" Text="{DynamicResource ParametricSteelPropIyRadius}" Style="{StaticResource PropName}"/>
                      <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding IyRadiusCm, StringFormat={}{0:0.##}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="8" Text="{DynamicResource ParametricSteelPropIt}" Style="{StaticResource PropName}"
+                                Visibility="{Binding ShowIt, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ItCm4, StringFormat={}{0:0.##}}" Style="{StaticResource PropValue}"
+                                Visibility="{Binding ShowIt, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="9" Grid.ColumnSpan="2" Text="{Binding ItSourceText}" Foreground="#4A5A62" TextWrapping="Wrap" Margin="0,0,0,2"
+                                Visibility="{Binding ShowIt, Converter={StaticResource BoolToVisibility}}"/>
                   </Grid>
                </StackPanel>
                <StackPanel Grid.Column="2">

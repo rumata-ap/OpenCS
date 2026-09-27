@@ -49,6 +49,7 @@ public static class ParametricSteelSectionGenerator
             Kind = d.Kind, Fabrication = d.Fabrication,
             Rotated90 = d.Rotated90 && ParametricSteelSectionDefinition.CanRotate(d.Kind),
             Flipped = d.Flipped && ParametricSteelSectionDefinition.CanFlip(d.Kind),
+            ItReference = d.Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel && d.Catalog is { It: > 0 } c ? c.It : 0,
         };
         return d.Kind switch
         {

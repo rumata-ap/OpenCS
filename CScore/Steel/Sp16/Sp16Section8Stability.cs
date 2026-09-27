@@ -65,13 +65,13 @@ public static class Sp16Section8Stability
             return res;
         }
 
+        var phi = Sp16PhiB.Compute(m, topCompressed);
         if (b.Result is { Status: CheckStatus.Ok } ok)
         {
-            res.Add(ok);
+            res.Add(WithReferencePhiB(ok, phi, m, f, topCompressed));
             return res;
         }
 
-        var phi = Sp16PhiB.Compute(m, topCompressed);
         if (phi.NotApplicable != null)
         {
             res.Add(new Sp16CheckResult
@@ -116,6 +116,38 @@ public static class Sp16Section8Stability
         notes.Add("бимомент B не учитывается (вне объёма)");
         res.Add(Sp16CheckResult.Of("8.4.1", "(70)", title + " (изгиб в двух плоскостях)", worst, vars, notes: notes));
         return res;
+    }
+
+    /// <summary>
+    /// Дополняет результат 8.4.4 б) справочным φb по прил. Ж и значением левой части (69): проверка
+    /// по (69) не требуется, но φb нужен для сопоставления с ручным расчётом и другими программами.
+    /// </summary>
+    static Sp16CheckResult WithReferencePhiB(Sp16CheckResult ok, PhiBResult phi, Sp16Member m, SteelForces f, bool topCompressed)
+    {
+        var notes = new List<string>(ok.Notes);
+        var vars = new List<KeyValuePair<string, double>>(ok.Variables);
+        if (phi.NotApplicable != null)
+            notes.Add("справочно: φb по прил. Ж не определён — " + phi.NotApplicable);
+        else
+        {
+            var s = m.S;
+            double wcx = s.Wx(topCompressed);
+            double u69 = Math.Abs(f.Mx) / (phi.PhiB * wcx * s.Mat.Ry * m.P.GammaC);
+            // Одноимённые величины табл. 11 и прил. Ж могут различаться (h — между осями поясов / полная).
+            var names = vars.Select(v => v.Key).ToHashSet();
+            vars.AddRange(phi.Vars.Select(v => new KeyValuePair<string, double>(
+                names.Contains(v.Name) ? v.Name + " (прил. Ж)" : v.Name, v.Value)));
+            vars.Add(new("φb", phi.PhiB));
+            vars.Add(new("Wcx", wcx));
+            notes.Add($"справочно: φb = {phi.PhiB:0.###} по прил. Ж; по (69) Mx/(φb·Wcx·Ry·γc) = {u69:0.###} — проверка по 8.4.4 б) не требуется");
+            notes.AddRange(phi.Notes);
+        }
+        return new Sp16CheckResult
+        {
+            Clause = ok.Clause, Formula = ok.Formula, Description = ok.Description,
+            Utilization = ok.Utilization, Applied = ok.Applied, Allowable = ok.Allowable, Status = ok.Status,
+            Variables = vars, Notes = notes,
+        };
     }
 
     /// <summary>Абсциссы (от ц.т.) крайних точек сжатого пояса.</summary>

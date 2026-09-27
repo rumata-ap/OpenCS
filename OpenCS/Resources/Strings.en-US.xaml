@@ -198,6 +198,9 @@
    <system:String x:Key="ParametricSteelPropIxRadius">ix, cm</system:String>
    <system:String x:Key="ParametricSteelPropIyRadius">iy, cm</system:String>
    <system:String x:Key="ParametricSteelCatalogAreaFormat">catalog {0} cm² (deviation {1} %)</system:String>
+   <system:String x:Key="ParametricSteelPropIt">It, cm⁴</system:String>
+   <system:String x:Key="ParametricSteelItCatalogFormat">from catalog; SP 16 App. D gives {0} cm⁴ ({1} %)</system:String>
+   <system:String x:Key="ParametricSteelItFormula">SP 16 App. D, cl. 1: (k/3)·Σbi·ti³</system:String>
    <system:String x:Key="ParametricSteelApplicability">SP 16 applicability</system:String>
    <system:String x:Key="ParametricSteelCurveX">Table 7 type, x axis</system:String>
    <system:String x:Key="ParametricSteelCurveY">Table 7 type, y axis</system:String>
