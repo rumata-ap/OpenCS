@@ -102,6 +102,9 @@ public static partial class Sp16Section9
             ]);
     }
 
+    /// <summary>Коэффициент использования упругой проверки (106) при фактических усилиях (при N = 0 — 8.2.1, (41)/(43)).</summary>
+    internal static double ElasticUtilization(Sp16Member m, SteelForces f) => Formula106(m, f).Utilization;
+
     /// <summary>9.1.1, формула (106): наибольшее |N/An ± Mx·y/Ixn ± My·x/Iyn| в вершинах контура.</summary>
     static Sp16CheckResult Formula106(Sp16Member m, SteelForces f)
     {

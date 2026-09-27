@@ -160,8 +160,42 @@ public class Sp16Section9LocalTests
         Assert.InRange(mx, 5, 20);
         double lufc = 0.36 + 0.10 * Math.Clamp(m.GoverningPhi()!.Value.LambdaBar, 0.8, 4);
         double l5 = lufc - 0.01 * (1.5 + 0.7 * Math.Clamp(m.LambdaBar(true), 0.8, 4)) * 5;
-        double sc = Math.Min(60 / A + 60 / Wx, Ry), l20 = 0.5 * Math.Sqrt(Ry / sc);
+        // Конец интерполяции — состояние m = 20 при том же M: σc = (M/(20Wc) + M/Wc)/γc = 1,05M/Wc.
+        double sc = Math.Min(1.05 * 60 / Wx, Ry), l20 = 0.5 * Math.Sqrt(Ry / sc);
         Assert.Equal(l5 + (l20 - l5) * (mx - 5) / 15, r.Allowable, 9);
+        Assert.Equal(sc, Var(r, "σc (m = 20)"), 9);
+    }
+
+    [Fact]
+    public void Flange_Type1_Interpolation_PlasticClass_Formula99()
+    {
+        // Пластика разрешена, σ = N/A + M/Wx ≈ 262 МПа > Ry — 2-й класс: конец интерполяции по (99).
+        var m = Beam(new SteelDesignParams { LefX = 6, LefY = 1.0, AllowPlastic = true });
+        var r = FlangesOf(Sp16Section9Local.Check(m, new SteelForces(-150, 140, 0, 0, 0))).Single();
+        double mx = 140.0 / 150 * A / Wx;
+        Assert.InRange(mx, 5, 20);
+        double l5 = 0.36 + 0.10 * Math.Clamp(m.GoverningPhi()!.Value.LambdaBar, 0.8, 4) - 0.01 * (1.5 + 0.7 * Math.Clamp(m.LambdaBar(true), 0.8, 4)) * 5;
+        double l20 = 0.17 + 0.06 * 2.2;                                                              // λ̄w = 0,276/0,008·√(Ry/E) ≈ 1,18 → 2,2
+        Assert.Equal(l5 + (l20 - l5) * (mx - 5) / 15, r.Allowable, 9);
+        Assert.Contains(r.Notes, n => n.Contains("8.5.19 (99)"));
+    }
+
+    [Fact]
+    public void Flange_Type1_LargeM_AsBendingElement()
+    {
+        var m = Beam(new SteelDesignParams());
+        var r = FlangesOf(Sp16Section9Local.Check(m, new SteelForces(-10, 60, 0, 0, 0))).Single();
+        Assert.True(60.0 / 10 * A / Wx > 20);
+        Assert.Equal("8.5.18", r.Clause);
+        Assert.Equal("(97)", r.Formula);
+        Assert.Equal(0.5 * Math.Sqrt(Ry / (10 / A + 60 / Wx)), r.Allowable, 9);
+
+        var mp = Beam(new SteelDesignParams { AllowPlastic = true });
+        var rp = FlangesOf(Sp16Section9Local.Check(mp, new SteelForces(-10, 60, 0, 0, 0))).Single();
+        Assert.Equal("8.5.18", rp.Clause);                                                             // упругая работа — 8.5.18
+        var rp2 = FlangesOf(Sp16Section9Local.Check(mp, new SteelForces(-10, 150, 0, 0, 0))).Single(); // σ > Ry — 2-й класс
+        Assert.Equal("8.5.19", rp2.Clause);
+        Assert.Equal(0.17 + 0.06 * 2.2, rp2.Allowable, 9);
     }
 
     [Fact]

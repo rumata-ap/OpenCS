@@ -159,18 +159,34 @@ public class Sp16Section8LocalTests
     [Fact]
     public void Plastic_Web86_And_Flange99()
     {
+        // Mx = 620 кН·м > Wx·Ry ≈ 581 кН·м — упругая проверка не выполняется: 2-й класс, пояс по 8.5.19.
         var m = Welded(0.600, 0.250, 0.008, 0.014, new SteelDesignParams { AllowPlastic = true });
-        var res = Sp16Section8Local.Check(m, new SteelForces(0, -400, 0, 0, 200));
+        var res = Sp16Section8Local.Check(m, new SteelForces(0, -620, 0, 0, 200));
         double hw = 0.600 - 2 * 0.014, lw = hw / 0.008 * Sq;
         double aw = hw * 0.008, tauR = 200 / aw / Rs;
         double alpha = Sp16Tables.Table18Alpha(tauR, lw);
         double cap = Ry * hw * hw * 0.008 * (0.250 * 0.014 / aw + alpha);
         var w = Only(res, "8.5.8");
         Assert.Equal("(86)", w.Formula);
-        Assert.Equal(400 / cap, w.Utilization, 9);
+        Assert.Equal(620 / cap, w.Utilization, 9);
         var fl = Only(res, "8.5.19");
         Assert.Equal("(99)", fl.Formula);
         Assert.Equal(0.17 + 0.06 * lw, fl.Allowable, 9);
+        Assert.Contains(fl.Notes, n => n.Contains("2-го класса"));
+    }
+
+    [Fact]
+    public void Plastic_Allowed_ElasticWork_Flange97()
+    {
+        // Пластика разрешена, но σmax = 400/Wx < Ry — сечение работает упруго: пояс по 8.5.18 (97), а не (99).
+        var m = Welded(0.600, 0.250, 0.008, 0.014, new SteelDesignParams { AllowPlastic = true });
+        var res = Sp16Section8Local.Check(m, new SteelForces(0, -400, 0, 0, 200));
+        Assert.DoesNotContain(res, r => r.Clause == "8.5.19");
+        var fl = Only(res, "8.5.18");
+        Assert.Equal("(97)", fl.Formula);
+        Assert.Equal(0.5 * Math.Sqrt(Ry / (400 / m.S.Wx(true))), fl.Allowable, 9);
+        Assert.Contains(fl.Notes, n => n.Contains("работает упруго"));
+        Assert.Equal("(86)", Only(res, "8.5.8").Formula);                                            // стенка — по 8.5.8, как прежде
     }
 
     [Fact]

@@ -274,7 +274,8 @@ public static class Sp16Section9Local
             bool swapped = !c.AboutX;
             double b = swapped ? s.Hef : s.BefBoxFlange, t = swapped ? s.Tw : s.Profile.Tf1;
             double lufc = Sp16Tables.WebLimitCentral(s, m.LambdaBar(swapped), out _)!.Value;
-            var r = ByM(c, "(133)", lufc - 0.01 * (5.3 + 1.3 * lbc) * Math.Min(mRel, 5), lufc, b, t, 1.5, true,
+            double lwBox = (swapped ? s.BefBoxFlange / s.Profile.Tf1 : s.Hef / s.Tw) * c.Sq;
+            var r = ByM(c, "(133)", lufc - 0.01 * (5.3 + 1.3 * lbc) * Math.Min(mRel, 5), lufc, b, t, true, lwBox,
                 swapped ? "поясной лист — стенка короба (изгиб в плоскости поясных листов)" : "поясной лист", clampNote);
             if (r != null) res.Add(r);
             return res;
@@ -305,7 +306,7 @@ public static class Sp16Section9Local
         double bef1 = top ? s.BefTop : s.BefBottom, tf1 = top ? s.TfTop : s.TfBottom;
         if (tf1 > 0)
         {
-            var r = ByM(c, "(132)", lufc0 - 0.01 * (1.5 + 0.7 * lbc) * Math.Min(mRel, 5), lufc0, bef1, tf1, 0.5, false,
+            var r = ByM(c, "(132)", lufc0 - 0.01 * (1.5 + 0.7 * lbc) * Math.Min(mRel, 5), lufc0, bef1, tf1, false, s.Hef / s.Tw * c.Sq,
                 s.SymmetricAboutX ? "свес пояса" : (top ? "верхний пояс" : "нижний пояс"), clampNote);
             if (r != null) res.Add(r);
         }
@@ -337,32 +338,54 @@ public static class Sp16Section9Local
     }
 
     /// <summary>
-    /// Типы 1 и 2 табл. 23: при m ≤ 5 — формула; при 5 &lt; m ≤ 20 — интерполяция с 8.5.18 ((97) — k = 0,5,
-    /// (98) — k = 1,5) при m = 20 (прим. 1); при m &gt; 20 — как изгибаемый элемент.
+    /// Типы 1 и 2 табл. 23: при m ≤ 5 — формула; при 5 &lt; m ≤ 20 — интерполяция с пределом изгибаемого
+    /// элемента при m = 20 (прим. 1); при m &gt; 20 — как изгибаемый элемент. Предел изгибаемого элемента — по
+    /// <see cref="Sp16Section8Local.FlangeClass"/>: 8.5.19 ((99), (100) при λ̄uw = λ̄w стенки lwWeb) либо
+    /// 8.5.18 ((97) — k = 0,5, (98) — k = 1,5); для 8.5.18 на конце интерполяции σc — в состоянии m = 20 при
+    /// том же M (N/A = M/(20Wc) ⇒ σc = 1,05M/(Wc·γc)), при m &gt; 20 — по фактическим N и M.
     /// </summary>
-    static Sp16CheckResult? ByM(Ctx c, string formula, double lu5, double lufc, double b, double t, double k851, bool box, string name, string? clampNote)
+    static Sp16CheckResult? ByM(Ctx c, string formula, double lu5, double lufc, double b, double t, bool box, double lwWeb, string name, string? clampNote)
     {
         var s = c.S; var m = c.M;
         double mRel = c.Rel, lf = b / t * c.Sq;
         string desc = $"{FlangeTitle} ({name})";
         string lfName = box ? "λ̄f1" : "λ̄f", luName = box ? "λ̄uf,1" : "λ̄uf";
-        if (mRel > 20)
-            return Sp16CheckResult.NotApplicableFor("9.4.7", "табл. 23 " + formula, desc,
-                $"m = {mRel:0.##} > 20 — устойчивость пояса проверяется как у изгибаемого элемента (8.5.18)");
         var vars = new List<(string, double)> { (box ? "bef,1" : "bef", b), ("tf", t), (lfName, lf), ($"m{m.Axis(c.AboutX)}", mRel),
-            ($"λ̄{m.Axis(c.AboutX)}", c.LambdaBar), (box ? "λ̄uf,1c" : "λ̄ufc", lufc) };
-        var notes = new List<string?> { $"тип {(box ? 2 : 1)} табл. 23", clampNote };
-        double lu = lu5;
-        if (mRel > 5)
+            ($"λ̄{m.Axis(c.AboutX)}", c.LambdaBar) };
+        var notes = new List<string?> { clampNote };
+        if (mRel <= 5)
         {
-            double wc = c.AboutX ? s.Wx(c.CompPos) : s.Wy(c.CompPos);
-            double sc = Math.Min((c.NAbs / s.A + Math.Abs(c.Moment) / wc) / m.P.GammaC, s.Mat.Ry);
-            double l20 = k851 * Math.Sqrt(s.Mat.Ry / sc);
-            lu = lu5 + (l20 - lu5) * (mRel - 5) / 15;
-            vars.AddRange([($"{luName} (m = 5)", lu5), ("σc", sc), ($"{luName} (8.5.18)", l20)]);
-            notes.Add($"прим. 1 табл. 23: 5 < m ≤ 20 — интерполяция между {formula} (m = 5) и 8.5.18 {(box ? "(98)" : "(97)")} (m = 20); σc = (N/A + M/Wc)/γc ≤ Ry");
+            notes.Insert(0, $"тип {(box ? 2 : 1)} табл. 23");
+            vars.AddRange([(box ? "λ̄uf,1c" : "λ̄ufc", lufc), (luName, lu5)]);
+            return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, lu5, vars, notes);
         }
-        vars.Add((luName, lu));
-        return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, lu, vars, notes);
+
+        var (plastic, classNote) = Sp16Section8Local.FlangeClass(m, c.F, m.P.AllowPlastic && Sp16Section9.Reason105(m, c.F) == null);
+        string bClause = plastic ? "8.5.19" : "8.5.18", bFormula = plastic ? (box ? "(100)" : "(99)") : (box ? "(98)" : "(97)");
+        double wc = c.AboutX ? s.Wx(c.CompPos) : s.Wy(c.CompPos), mAbs = Math.Abs(c.Moment), gc = m.P.GammaC, ry = s.Mat.Ry;
+        double BendLimit(double sc) => plastic ? Sp16Section8Local.Limit8519(lwWeb, box) : (box ? 1.5 : 0.5) * Math.Sqrt(ry / sc);
+        string plasticNote = $"λ̄uw принята равной условной гибкости стенки λ̄w = {lwWeb:0.###}" + (lwWeb < 2.2 || lwWeb > 5.5 ? " (ограничена диапазоном 2,2…5,5)" : "");
+
+        if (mRel > 20)
+        {
+            double sc = Math.Min((c.NAbs / s.A + mAbs / wc) / gc, ry);
+            double lu = BendLimit(sc);
+            vars.AddRange(plastic ? [("λ̄w", lwWeb)] : [("σc", sc), ("Ry", ry), ("γc", gc)]);
+            vars.Add((luName, lu));
+            notes.InsertRange(0, [$"прим. 1 табл. 23: m = {mRel:0.##} > 20 — пояс проверен как у изгибаемого элемента", classNote,
+                plastic ? plasticNote : "σc = (N/A + M/Wc)/γc ≤ Ry — по фактическим усилиям"]);
+            return Sp16CheckResult.Limit(bClause, bFormula, desc, lf, lu, vars, notes);
+        }
+
+        double sc20 = Math.Min(1.05 * mAbs / (wc * gc), ry);
+        double l20 = BendLimit(sc20);
+        double luI = lu5 + (l20 - lu5) * (mRel - 5) / 15;
+        vars.AddRange([(box ? "λ̄uf,1c" : "λ̄ufc", lufc), ($"{luName} (m = 5)", lu5)]);
+        vars.AddRange(plastic ? [("λ̄w", lwWeb)] : [("σc (m = 20)", sc20)]);
+        vars.AddRange([($"{luName} ({bClause})", l20), (luName, luI)]);
+        notes.InsertRange(0, [$"тип {(box ? 2 : 1)} табл. 23",
+            $"прим. 1 табл. 23: 5 < m ≤ 20 — интерполяция между {formula} (m = 5) и {bClause} {bFormula} (m = 20)", classNote,
+            plastic ? plasticNote : "σc — в состоянии m = 20 при том же M: N/A = M/(20Wc), σc = 1,05M/(Wc·γc) ≤ Ry"]);
+        return Sp16CheckResult.Limit("9.4.7", "табл. 23 " + formula, desc, lf, luI, vars, notes);
     }
 }

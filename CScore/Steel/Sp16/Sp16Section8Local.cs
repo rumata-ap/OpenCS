@@ -17,8 +17,29 @@ public static class Sp16Section8Local
     {
         bool plastic = m.P.AllowPlastic && Sp16Section8Strength.PlasticNotApplicableReason(m) == null;
         var res = plastic ? Web2ndClass(m, f) : Web1stClass(m, f);
-        res.AddRange(Flanges(m, f, plastic));
+        res.AddRange(Flanges(m, f, FlangeClass(m, f, plastic)));
         return res;
+    }
+
+    /// <summary>
+    /// Выбор 8.5.18 / 8.5.19 (трактовка OpenCS, единая для разделов 8 и 9): 8.5.19 — если учёт пластических
+    /// деформаций разрешён и применим, а упругая проверка (8.2.1; при N ≠ 0 — (106)) при фактических усилиях
+    /// не выполняется (сечение 2-го класса); иначе 8.5.18. Note — пояснение выбора (null — пластика не разрешена).
+    /// </summary>
+    internal static (bool Plastic, string? Note) FlangeClass(Sp16Member m, SteelForces f, bool plasticApplicable)
+    {
+        if (!plasticApplicable) return (false, null);
+        double u = Sp16Section9.ElasticUtilization(m, f);
+        return u > 1
+            ? (true, $"упругая проверка при фактических усилиях не выполняется (σmax/(Ry·γc) = {u:0.###} > 1) — сечение 2-го класса, пояс по 8.5.19")
+            : (false, $"упругая проверка при фактических усилиях выполняется (σmax/(Ry·γc) = {u:0.###} ≤ 1) — сечение работает упруго, пояс по 8.5.18");
+    }
+
+    /// <summary>λ̄uf (λ̄uf,1) по 8.5.19, (99) / (100): λ̄uw = λ̄w, ограниченная диапазоном 2,2…5,5.</summary>
+    internal static double Limit8519(double lw, bool box)
+    {
+        double l = Math.Clamp(lw, 2.2, 5.5);
+        return box ? 0.675 + 0.15 * l : 0.17 + 0.06 * l;
     }
 
     /// <summary>Условная гибкость стенки λ̄w = (hef/tw)·√(Ry/E).</summary>
@@ -277,12 +298,13 @@ public static class Sp16Section8Local
 
     // ── Сжатые пояса (8.5.18, 8.5.19) ────────────────────────────────────
 
-    static List<Sp16CheckResult> Flanges(Sp16Member m, SteelForces f, bool plastic)
+    static List<Sp16CheckResult> Flanges(Sp16Member m, SteelForces f, (bool Plastic, string? Note) cls)
     {
         var res = new List<Sp16CheckResult>();
         var s = m.S; var p = m.P;
         bool mx = Math.Abs(f.Mx) > Eps, my = Math.Abs(f.My) > Eps;
         if (!mx && !my) return res;
+        bool plastic = cls.Plastic;
         string clause = plastic ? "8.5.19" : "8.5.18";
         const string title = "Устойчивость сжатого пояса балки";
         if (s.Kind is not (SteelProfileKind.IBeam or SteelProfileKind.Box))
@@ -314,14 +336,14 @@ public static class Sp16Section8Local
             double lf = b / tf * sq;
             string desc = title + (name != "" ? $" ({name})" : "") + (box ? ": поясной лист" : ": свес полки");
             var vars = new List<(string, double)> { (box ? "bef,1" : "bef", b), ("tf", tf), (box ? "λ̄f1" : "λ̄f", lf) };
-            var notes = new List<string?> { "окаймление и отгиб полки (8.5.20) не учитываются" };
+            var notes = new List<string?> { cls.Note, "окаймление и отгиб полки (8.5.20) не учитываются" };
             double lu;
             string formula;
             if (plastic)
             {
                 double lw = LambdaW(s), luw = Math.Clamp(lw, 2.2, 5.5);
                 formula = box ? "(100)" : "(99)";
-                lu = box ? 0.675 + 0.15 * luw : 0.17 + 0.06 * luw;
+                lu = Limit8519(lw, box);
                 vars.AddRange([("λ̄w", lw), ("λ̄uw", luw)]);
                 notes.Add("λ̄uw принята равной условной гибкости стенки λ̄w" + (lw < 2.2 || lw > 5.5 ? " (ограничена диапазоном 2,2…5,5)" : ""));
                 notes.Add("при выполнении требований 7.3.7, 8.2.3 и 8.5.8");
