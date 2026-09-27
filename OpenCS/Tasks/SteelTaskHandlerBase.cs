@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CScore;
+using CScore.ParametricSteel;
 using CScore.Sp16;
 using OpenCS.Utilites;
 
@@ -35,13 +36,19 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
                 || !double.IsFinite(p.LefX) || p.LefX <= 0 || !double.IsFinite(p.LefY) || p.LefY <= 0
                 || !double.IsFinite(p.LefB) || p.LefB < 0)
                 return Error(Loc.S("Sp16InvalidParameters"));
-            var member = GetMember(task.ParamsJson, area, mat, p);
+            // Явный профиль параметрического МК-сечения (только пока геометрия совпадает с привязкой);
+            // профиль, заданный в параметрах задачи, приоритетнее.
+            var parametricProfile = p.Profile == null ? section.TryGetParametricSteelProfile() : null;
+            if (parametricProfile != null) p = p with { Profile = parametricProfile };
+            var member = GetMember(area, mat, p);
             var f = p.ManualForces?.ToForces() ?? new SteelForces(item.N, item.Mx, item.My, item.Vx, item.Vy);
             var report = Sp16Checker.Run(member, f, Sp16Checker.ParseKind(Kind)!.Value);
             if (report.Error == "Sp16KindMismatch")
                 return Error(string.Format(Loc.S("Sp16KindMismatch"), Loc.S("CalcTaskKind_" + Sp16Checker.KindCode(report.Kind)),
                     Loc.S("Sp16Mismatch_" + report.ErrorReason), Loc.S("CalcTaskKind_steel_check")));
             if (report.Error != null) return Error(Loc.S(report.Error));
+            if (parametricProfile != null)
+                report.Notes.Insert(0, string.Format(Loc.S("Sp16ProfileFromParametric"), parametricProfile.Describe()));
             double torsion = p.ManualForces?.Mz ?? item?.T ?? 0;
             if (!double.IsFinite(torsion)) return Error(Loc.S("Sp16InvalidForces"));
             if (torsion != 0) report.Notes.Add(Loc.S("Sp16TorsionIgnored"));
@@ -78,12 +85,13 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
     [ThreadStatic] static (string Key, Sp16Member Member)? _lastMember;
 
     /// <summary>
-    /// Элемент СП 16 (распознавание профиля и геометрия) — с кэшем по параметрам, контуру и материалу:
+    /// Элемент СП 16 (распознавание профиля и геометрия) — с кэшем по эффективным параметрам (включая
+    /// профиль параметрического сечения), контуру и материалу:
     /// для одной задачи и сечения он не зависит от строки усилий.
     /// </summary>
-    static Sp16Member GetMember(string? paramsJson, MaterialArea area, SteelMaterialProps mat, SteelDesignParams p)
+    static Sp16Member GetMember(MaterialArea area, SteelMaterialProps mat, SteelDesignParams p)
     {
-        var key = new System.Text.StringBuilder(paramsJson ?? "").Append('|').Append(mat);
+        var key = new System.Text.StringBuilder(p.ToJson()).Append('|').Append(p.MigratedFromLegacy).Append('|').Append(mat);
         foreach (var pt in area.Hull!.Points) key.Append('|').Append(pt.X.ToString("R")).Append(',').Append(pt.Y.ToString("R"));
         foreach (var h in area.Holes)
         {

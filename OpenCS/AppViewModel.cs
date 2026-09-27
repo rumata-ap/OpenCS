@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Globalization;
 using System.Text.Json;
@@ -2498,6 +2498,8 @@ namespace OpenCS
          FiberSectionsLive.Clear();
          OrdinaryFiberSectionsLive.Clear();
          parametricFiberSectionsLive.Clear();
+         // Явный профиль СП 16 параметрических МК-сечений (снимается у устаревших и отсоединённых).
+         new ParametricSteelSectionProjectService(db).ApplyBindings(CrossSections);
          var parametricService = new ParametricRcSectionProjectService(db);
          foreach (var s in CrossSections.Where(s => s is not TwoStageSection))
          {

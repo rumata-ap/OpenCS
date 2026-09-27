@@ -3307,6 +3307,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16InvalidForces">Forces must be finite numbers.</system:String>
     <system:String x:Key="Sp16TorsionRemoved">This task kind was removed: SP 16 has no free torsion check.</system:String>
     <system:String x:Key="Sp16TorsionIgnored">Torsion was not checked: free torsion is outside the scope of SP 16.</system:String>
+    <system:String x:Key="Sp16ProfileFromParametric">Profile is defined by the parametric steel section: {0}</system:String>
     <system:String x:Key="Sp16EditorGeneral">General</system:String>
     <system:String x:Key="Sp16EditorLtb">Beam lateral-torsional stability (8.4, App. Zh)</system:String>
     <system:String x:Key="Sp16EditorPlastic">Plastic deformations (8.2.3, 9.1.1)</system:String>

@@ -3307,6 +3307,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16InvalidForces">Усилия должны быть конечными числами.</system:String>
     <system:String x:Key="Sp16TorsionRemoved">Вид задачи удалён: в СП 16 нет проверки на свободное кручение.</system:String>
     <system:String x:Key="Sp16TorsionIgnored">Крутящий момент не проверен: свободное кручение вне объёма СП 16.</system:String>
+    <system:String x:Key="Sp16ProfileFromParametric">Профиль задан параметрическим МК-сечением: {0}</system:String>
     <system:String x:Key="Sp16EditorGeneral">Общие</system:String>
     <system:String x:Key="Sp16EditorLtb">Устойчивость балки (8.4, прил. Ж)</system:String>
     <system:String x:Key="Sp16EditorPlastic">Пластические деформации (8.2.3, 9.1.1)</system:String>
