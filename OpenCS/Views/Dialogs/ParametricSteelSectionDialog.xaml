@@ -1,0 +1,235 @@
+<Window x:Class="OpenCS.Views.Dialogs.ParametricSteelSectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sp16="clr-namespace:CScore.Sp16;assembly=CScore"
+        xmlns:preview="clr-namespace:OpenCS.Views.Helpers"
+        Title="{DynamicResource ParametricSteelDialogTitle}"
+        Width="1100" Height="780" MinWidth="920" MinHeight="640"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
+   <Window.Resources>
+      <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+      <Style x:Key="FieldLabel" TargetType="TextBlock">
+         <Setter Property="VerticalAlignment" Value="Center"/>
+         <Setter Property="Margin" Value="0,3,8,3"/>
+         <Setter Property="TextWrapping" Value="Wrap"/>
+      </Style>
+      <Style x:Key="PropName" TargetType="TextBlock">
+         <Setter Property="Margin" Value="0,2,10,2"/>
+         <Setter Property="Foreground" Value="#4A5A62"/>
+      </Style>
+      <Style x:Key="PropValue" TargetType="TextBlock">
+         <Setter Property="Margin" Value="0,2"/>
+      </Style>
+   </Window.Resources>
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="420"/>
+         <ColumnDefinition Width="12"/>
+         <ColumnDefinition Width="*" MinWidth="420"/>
+      </Grid.ColumnDefinitions>
+
+      <ScrollViewer Grid.Row="0" Grid.Column="0"
+                    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+         <StackPanel>
+            <GroupBox Header="{DynamicResource ParametricSteelSection}" Margin="0,0,0,8">
+               <Grid Margin="8">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="150"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelKind}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" SelectedValue="{Binding Kind}" SelectedValuePath="Tag" Margin="0,2">
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.IBeam}" Content="{DynamicResource ParametricSteelKindIBeam}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Channel}" Content="{DynamicResource ParametricSteelKindChannel}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Tee}" Content="{DynamicResource ParametricSteelKindTee}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Angle}" Content="{DynamicResource ParametricSteelKindAngle}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Box}" Content="{DynamicResource ParametricSteelKindBox}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Pipe}" Content="{DynamicResource ParametricSteelKindPipe}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Rect}" Content="{DynamicResource ParametricSteelKindRect}"/>
+                     <ComboBoxItem Tag="{x:Static sp16:SteelProfileKind.Round}" Content="{DynamicResource ParametricSteelKindRound}"/>
+                  </ComboBox>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelFabrication}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding FabricationOptions}"
+                            DisplayMemberPath="Label" SelectedValuePath="Value"
+                            SelectedValue="{Binding Fabrication}" Margin="0,2"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource ParametricSteelMaterial}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding SteelMaterials}"
+                            DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding MaterialId}" Margin="0,2"/>
+                  <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{DynamicResource ParametricSteelNoMaterialsHint}"
+                             Foreground="DarkOrange" TextWrapping="Wrap" Margin="0,2"
+                             Visibility="{Binding NoSteelMaterials, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource ParametricSteelTag}" Style="{StaticResource FieldLabel}"/>
+                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource ParametricSteelCatalog}" Margin="0,0,0,8"
+                      Visibility="{Binding HasCatalog, Converter={StaticResource BoolToVisibility}}">
+               <Grid Margin="8">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="150"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelStandard}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding CatalogSubtypes}"
+                            SelectedItem="{Binding SelectedSubtype}" Margin="0,2">
+                     <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="230"/>
+                        </DataTemplate>
+                     </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelCatalogProfile}" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CatalogProfiles}"
+                            DisplayMemberPath="Name" SelectedItem="{Binding SelectedCatalogProfile}" Margin="0,2"/>
+               </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource ParametricSteelDimensions}" Margin="0,0,0,8">
+               <StackPanel Margin="8">
+                  <TextBlock Text="{Binding CatalogStatusText}" Foreground="#4A5A62" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                  <Grid>
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{Binding HLabel}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding HMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowB, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{Binding BLabel}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding BMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowTf, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{Binding TfLabel}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding TfMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowBottomFlange, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricSteelBf2Mm}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding B2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                     <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelTf2Mm}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Tf2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowTw, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{Binding TwLabel}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding TwMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowR1, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{Binding R1Label}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding R1Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowR2, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricSteelR2Mm}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding R2Mm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Visibility="{Binding ShowSlope, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricSteelSlopePercent}" Style="{StaticResource FieldLabel}"/>
+                     <TextBox Grid.Column="1" Text="{Binding SlopePercent, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+               </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource ParametricSteelOrientation}" Margin="0,0,0,8">
+               <StackPanel Margin="8">
+                  <CheckBox Content="{DynamicResource ParametricSteelRotate90}" IsChecked="{Binding Rotated90}"
+                            IsEnabled="{Binding CanRotate}" Margin="0,0,0,5"/>
+                  <CheckBox Content="{Binding FlipLabel}" IsChecked="{Binding Flipped}" IsEnabled="{Binding CanFlip}"/>
+               </StackPanel>
+            </GroupBox>
+         </StackPanel>
+      </ScrollViewer>
+
+      <Border Grid.Row="0" Grid.Column="2" BorderBrush="#C8D3D8" BorderThickness="1"
+              CornerRadius="4" Padding="10" Background="#FAFCFD">
+         <Grid>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{DynamicResource ParametricRcPreview}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <Border Grid.Row="1" Background="White" BorderBrush="#DDE5E8" BorderThickness="1" Padding="4">
+               <preview:ParametricSteelPreviewControl/>
+            </Border>
+            <Grid Grid.Row="2" Margin="0,10,0,0">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <StackPanel Grid.Column="0">
+                  <TextBlock Text="{DynamicResource ParametricSteelProperties}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                  <Grid>
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelPropA}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AreaCm2, StringFormat={}{0:0.###}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding CatalogAreaText}" Foreground="#4A5A62" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                     <TextBlock Grid.Row="2" Text="{DynamicResource ParametricSteelPropIx}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding IxCm4, StringFormat={}{0:0.#}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="3" Text="{DynamicResource ParametricSteelPropIy}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IyCm4, StringFormat={}{0:0.#}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="4" Text="{DynamicResource ParametricSteelPropWx}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding WxCm3, StringFormat={}{0:0.#}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="5" Text="{DynamicResource ParametricSteelPropWy}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding WyCm3, StringFormat={}{0:0.#}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="6" Text="{DynamicResource ParametricSteelPropIxRadius}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding IxRadiusCm, StringFormat={}{0:0.##}}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="7" Text="{DynamicResource ParametricSteelPropIyRadius}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding IyRadiusCm, StringFormat={}{0:0.##}}" Style="{StaticResource PropValue}"/>
+                  </Grid>
+               </StackPanel>
+               <StackPanel Grid.Column="2">
+                  <TextBlock Text="{DynamicResource ParametricSteelApplicability}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                  <Grid>
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Text="{DynamicResource ParametricSteelCurveX}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurveXText}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="1" Text="{DynamicResource ParametricSteelCurveY}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurveYText}" Style="{StaticResource PropValue}"/>
+                     <TextBlock Grid.Row="2" Text="{DynamicResource ParametricSteelTableE1}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TableE1Text}" Style="{StaticResource PropValue}" TextWrapping="Wrap"/>
+                     <TextBlock Grid.Row="3" Text="{DynamicResource ParametricSteelLocalStability}" Style="{StaticResource PropName}"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LocalStabilityText}" Style="{StaticResource PropValue}" TextWrapping="Wrap"/>
+                  </Grid>
+               </StackPanel>
+            </Grid>
+         </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#D4DDE1" BorderThickness="0,1,0,0"
+              Padding="0,10,0,0" Margin="0,10,0,0">
+         <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding DiagnosticsText}" Foreground="Firebrick" TextWrapping="Wrap"
+                       VerticalAlignment="Center" Margin="0,0,12,0" MaxHeight="52"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+               <Button Content="{DynamicResource Cancel}" IsCancel="True" Margin="4,0,0,0" Padding="18,6" MinWidth="92"/>
+               <Button Content="{DynamicResource Save}" IsDefault="True" Margin="8,0,0,0" Padding="18,6" MinWidth="92"
+                       IsEnabled="{Binding CanSave}" Click="Save_Click"/>
+            </StackPanel>
+         </Grid>
+      </Border>
+   </Grid>
+</Window>

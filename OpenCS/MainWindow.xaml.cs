@@ -130,6 +130,11 @@ namespace OpenCS
              vm.CurrentCrossSection = parametricItem.Section;
           }
 
+          if (e.NewValue is ParametricSteelSectionTreeItem parametricSteelItem)
+          {
+             vm.CurrentCrossSection = parametricSteelItem.Section;
+          }
+
           if (e.NewValue is MaterialArea areaItem)
           {
              vm.CurrentMaterialArea = areaItem;

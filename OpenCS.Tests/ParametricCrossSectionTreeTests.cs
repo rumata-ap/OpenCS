@@ -44,7 +44,44 @@ public sealed class ParametricCrossSectionTreeTests
         {
             Assert.Single(app.SectionTreeItems.Cast<object>()
                 .OfType<ParametricCrossSectionTreeGroup>());
-            Assert.Equal(5, app.SectionTreeItems.Count);
+            Assert.Single(app.SectionTreeItems.Cast<object>()
+                .OfType<ParametricSteelSectionTreeGroup>());
+            Assert.Equal(6, app.SectionTreeItems.Count);
+        }
+        finally
+        {
+            app.db.Dispose();
+            foreach (var suffix in new[] { "", "-wal", "-shm" })
+            {
+                try { File.Delete(path + suffix); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+    }
+
+    [Fact]
+    public void SteelParametricSectionGoesToSteelGroupUntilDetached()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-tree-steel-{Guid.NewGuid():N}.db");
+        var app = new AppViewModel(new LogService(), new NullFileDialogService(), path);
+        try
+        {
+            var section = new CrossSection { Num = 1, Tag = "МК-1" };
+            var service = new ParametricSteelSectionProjectService(app.db);
+            service.GenerateAndSave(section, CScore.ParametricSteel.ParametricSteelSectionDefinition.Pipe(0.159, 0.006)
+                with { Tag = "МК-1" });
+            if (!app.CrossSections.Contains(section)) app.CrossSections.Add(section);
+
+            app.RefreshSectionLiveCollections();
+            Assert.Same(section, Assert.Single(app.ParametricSteelSectionsLive).Section);
+            Assert.DoesNotContain(section, app.OrdinaryFiberSectionsLive);
+            Assert.Empty(app.ParametricFiberSectionsLive);
+
+            service.Detach(section);
+            app.RefreshSectionLiveCollections();
+            Assert.Empty(app.ParametricSteelSectionsLive);
+            Assert.Contains(section, app.OrdinaryFiberSectionsLive);
         }
         finally
         {

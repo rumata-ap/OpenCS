@@ -131,6 +131,7 @@ namespace OpenCS
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
       readonly ObservableCollection<ParametricCrossSectionTreeItem> parametricFiberSectionsLive = [];
+      readonly ObservableCollection<ParametricSteelSectionTreeItem> parametricSteelSectionsLive = [];
       MaterialArea? currentMaterialArea;
        ForceSet? currentBarForceSet;
        ForceSet? currentShellForceSet;
@@ -345,6 +346,9 @@ namespace OpenCS
 
       /// <summary>Поддержанные параметрические сечения; фактический CrossSection остаётся общим.</summary>
       public ObservableCollection<ParametricCrossSectionTreeItem> ParametricFiberSectionsLive => parametricFiberSectionsLive;
+
+      /// <summary>Поддержанные неустаревшие параметрические МК-сечения; CrossSection остаётся общим.</summary>
+      public ObservableCollection<ParametricSteelSectionTreeItem> ParametricSteelSectionsLive => parametricSteelSectionsLive;
 
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
       public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
@@ -685,6 +689,15 @@ namespace OpenCS
       public ICommand EditParametricCrossSectionCommand { get; set; } = null!;
       /// <summary>Команда открытия сформированного сечения без изменения параметров.</summary>
       public ICommand OpenParametricCrossSectionCommand { get; set; } = null!;
+
+      /// <summary>Команда создания параметрического МК-сечения.</summary>
+      public ICommand NewParametricSteelSectionCommand { get; set; } = null!;
+      /// <summary>Команда пересборки параметрического МК-сечения.</summary>
+      public ICommand RebuildParametricSteelSectionCommand { get; set; } = null!;
+      /// <summary>Команда редактирования параметров МК-сечения.</summary>
+      public ICommand EditParametricSteelSectionCommand { get; set; } = null!;
+      /// <summary>Команда открытия сформированного МК-сечения.</summary>
+      public ICommand OpenParametricSteelSectionCommand { get; set; } = null!;
 
       /// <summary>Команда редактирования выбранного поперечного сечения.</summary>
       public ICommand EditCrossSectionCommand { get; set; } = null!;
@@ -1057,6 +1070,7 @@ namespace OpenCS
           {
               new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
               new ParametricCrossSectionTreeGroup(parametricFiberSectionsLive),
+              new ParametricSteelSectionTreeGroup(parametricSteelSectionsLive),
               new SectionTreeGroup(TwoStageSectionsLive),
               new PlateSectionTreeGroup(PlateSectionsLive),
               new EquivalentSectionTreeGroup(EquivalentSectionsLive),
@@ -1326,6 +1340,13 @@ namespace OpenCS
          RebuildParametricCrossSectionCommand = new RelayCommand(p => RebuildParametricCrossSection(p as ParametricCrossSectionTreeItem));
          EditParametricCrossSectionCommand = new RelayCommand(p => EditParametricCrossSection(p as ParametricCrossSectionTreeItem));
          OpenParametricCrossSectionCommand = new RelayCommand(p => OpenParametricCrossSection(p as ParametricCrossSectionTreeItem));
+         NewParametricSteelSectionCommand = new RelayCommand(_ => NewParametricSteelSection());
+         RebuildParametricSteelSectionCommand = new RelayCommand(p => RebuildParametricSteelSection(p as ParametricSteelSectionTreeItem));
+         EditParametricSteelSectionCommand = new RelayCommand(p => EditParametricSteelSection(p as ParametricSteelSectionTreeItem));
+         OpenParametricSteelSectionCommand = new RelayCommand(p =>
+         {
+            if (p is ParametricSteelSectionTreeItem item) CurrentCrossSection = item.Section;
+         });
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
          NewTwoStageSectionCommand = new RelayCommand(_ => NewTwoStageSection());
@@ -2370,6 +2391,73 @@ namespace OpenCS
          MarkDirty(SaveCategory.CrossSections);
       }
 
+      ParametricSteelSectionVM CreateParametricSteelVM()
+      {
+         // По умолчанию выбирается первый материал Steel (VM), Custom допускается как у задачи СП 16.
+         var materials = Materials.Where(m => m.Type is MatType.Steel or MatType.Custom)
+            .OrderBy(m => m.Type == MatType.Steel ? 0 : 1);
+         return new ParametricSteelSectionVM(materials, new ProfileDB());
+      }
+
+      bool ShowParametricSteelDialog(ParametricSteelSectionVM vm) =>
+         new Views.Dialogs.ParametricSteelSectionDialog(vm) { Owner = Application.Current?.MainWindow }
+            .ShowDialog() == true;
+
+      void NewParametricSteelSection()
+      {
+         var vm = CreateParametricSteelVM();
+         if (!ShowParametricSteelDialog(vm)) return;
+         var definition = vm.BuildDefinition();
+         var section = new CrossSection
+         {
+            Num = CrossSections.Count > 0 ? CrossSections.Max(s => s.Num) + 1 : 1,
+            Tag = definition.Tag
+         };
+         var result = new ParametricSteelSectionProjectService(db).GenerateAndSave(section, definition);
+         if (result.Diagnostics.Count != 0)
+         {
+            LogService.Error(string.Join("; ", result.Diagnostics));
+            return;
+         }
+         RefreshSectionLiveCollections();
+         CurrentCrossSection = section;
+         MarkDirty(SaveCategory.CrossSections);
+      }
+
+      void RebuildParametricSteelSection(ParametricSteelSectionTreeItem? item)
+      {
+         if (item is null) return;
+         if (MessageBox.Show(Loc.S("ParametricRcConfirmRebuild"),
+               Loc.S("ParametricSteelDialogTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+         var state = new ParametricSteelSectionProjectService(db).Restore(item.Section);
+         if (state.LoadStatus == ParametricSteelDefinitionLoadStatus.Supported)
+         {
+            RefreshSectionLiveCollections();
+            CurrentCrossSection = item.Section;
+            MarkDirty(SaveCategory.CrossSections);
+         }
+      }
+
+      void EditParametricSteelSection(ParametricSteelSectionTreeItem? item)
+      {
+         if (item is null) return;
+         var service = new ParametricSteelSectionProjectService(db);
+         if (!service.TryGetDefinition(item.Section, out var definition)) return;
+         var vm = CreateParametricSteelVM();
+         vm.LoadDefinition(definition);
+         if (!ShowParametricSteelDialog(vm)) return;
+         var result = service.GenerateAndSave(item.Section, vm.BuildDefinition());
+         if (result.Diagnostics.Count != 0)
+         {
+            LogService.Error(string.Join("; ", result.Diagnostics));
+            return;
+         }
+         RefreshSectionLiveCollections();
+         CurrentCrossSection = item.Section;
+         MarkDirty(SaveCategory.CrossSections);
+      }
+
       void NewTwoStageSection()
       {
          currentCrossSection = null;
@@ -2498,15 +2586,23 @@ namespace OpenCS
          FiberSectionsLive.Clear();
          OrdinaryFiberSectionsLive.Clear();
          parametricFiberSectionsLive.Clear();
+         parametricSteelSectionsLive.Clear();
          // Явный профиль СП 16 параметрических МК-сечений (снимается у устаревших и отсоединённых).
-         new ParametricSteelSectionProjectService(db).ApplyBindings(CrossSections);
+         var steelService = new ParametricSteelSectionProjectService(db);
+         steelService.ApplyBindings(CrossSections);
          var parametricService = new ParametricRcSectionProjectService(db);
+         // Три списка: параметрические ЖБ, параметрические МК (поддержанные и неустаревшие), обычные.
          foreach (var s in CrossSections.Where(s => s is not TwoStageSection))
          {
             var state = parametricService.GetState(s);
-            var item = new ParametricCrossSectionTreeItem(s, state);
             if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported && !state.IsStale)
-               parametricFiberSectionsLive.Add(item);
+            {
+               parametricFiberSectionsLive.Add(new ParametricCrossSectionTreeItem(s, state));
+               continue;
+            }
+            var steelState = steelService.GetState(s);
+            if (steelState.LoadStatus == ParametricSteelDefinitionLoadStatus.Supported && !steelState.IsStale)
+               parametricSteelSectionsLive.Add(new ParametricSteelSectionTreeItem(s, steelState));
             else
                OrdinaryFiberSectionsLive.Add(s);
          }

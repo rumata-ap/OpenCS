@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 
 namespace OpenCS.Utilites;
 
-public class ProfileDB
+public partial class ProfileDB
 {
     static readonly Dictionary<string, string> TableMap = new()
     {
