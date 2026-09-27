@@ -83,13 +83,12 @@ public sealed class ParametricSteelPreviewControl : FrameworkElement
         DrawText(dc, Loc.S("ParametricRcPreviewAxisX"), new Point(right.X + ext + 3, origin.Y - 9), 12, true);
         DrawText(dc, Loc.S("ParametricRcPreviewAxisY"), new Point(origin.X + 4, top.Y - ext - 16), 12, true);
 
-        // Габариты, мм.
-        double dimY = S((0, minY)).Y + 18;
-        dc.DrawLine(DimPen, new Point(S((minX, 0)).X, dimY), new Point(S((maxX, 0)).X, dimY));
-        DrawCentered(dc, Mm(w), new Point(cx, dimY + 2));
-        double dimX = S((minX, 0)).X - 18;
-        dc.DrawLine(DimPen, new Point(dimX, S((0, minY)).Y), new Point(dimX, S((0, maxY)).Y));
-        DrawText(dc, Mm(h), new Point(Math.Max(2, dimX - 44), cy - 8), 11, false);
+        // Габариты, мм: выносные линии, размерная линия со стрелками, подпись над линией.
+        var bottomLeft = S((minX, minY));
+        var bottomRight = S((maxX, minY));
+        var topLeft = S((minX, maxY));
+        DrawDimension(dc, bottomLeft, bottomRight, new Vector(0, 28), Mm(w), vertical: false);
+        DrawDimension(dc, bottomLeft, topLeft, new Vector(-30, 0), Mm(h), vertical: true);
 
         if (!string.IsNullOrEmpty(vm.ProfileText))
             DrawText(dc, vm.ProfileText, new Point(8, ActualHeight - 22), 12, false);
@@ -111,11 +110,48 @@ public sealed class ParametricSteelPreviewControl : FrameworkElement
         dc.DrawText(ft, at);
     }
 
-    void DrawCentered(DrawingContext dc, string text, Point top)
+    void DrawDimension(DrawingContext dc, Point first, Point second, Vector offset, string text, bool vertical)
     {
+        var a = first + offset;
+        var b = second + offset;
+        // Выносные линии с небольшим зазором от контура и выпуском за размерную линию.
+        var dir = offset;
+        dir.Normalize();
+        dc.DrawLine(DimPen, first + dir * 3, a + dir * 4);
+        dc.DrawLine(DimPen, second + dir * 3, b + dir * 4);
+        dc.DrawLine(DimPen, a, b);
+        DrawArrow(dc, a, b);
+        DrawArrow(dc, b, a);
+
         var ft = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface("Segoe UI"), 11, TextBrush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        dc.DrawText(ft, new Point(top.X - ft.Width / 2, top.Y));
+        var mid = new Point((a.X + b.X) / 2, (a.Y + b.Y) / 2);
+        if (!vertical)
+        {
+            dc.DrawText(ft, new Point(mid.X - ft.Width / 2, mid.Y - ft.Height - 1));
+            return;
+        }
+        // Вертикальный размер: подпись вдоль линии, читается снизу вверх.
+        dc.PushTransform(new RotateTransform(-90, mid.X, mid.Y));
+        dc.DrawText(ft, new Point(mid.X - ft.Width / 2, mid.Y - ft.Height - 1));
+        dc.Pop();
+    }
+
+    static void DrawArrow(DrawingContext dc, Point tip, Point back)
+    {
+        var direction = back - tip;
+        if (direction.Length < 1e-9) return;
+        direction.Normalize();
+        var side = new Vector(-direction.Y, direction.X);
+        var arrow = new StreamGeometry();
+        using (var ctx = arrow.Open())
+        {
+            ctx.BeginFigure(tip, true, true);
+            ctx.LineTo(tip + direction * 8 + side * 2.5, true, false);
+            ctx.LineTo(tip + direction * 8 - side * 2.5, true, false);
+        }
+        arrow.Freeze();
+        dc.DrawGeometry(AxisBrush, null, arrow);
     }
 
     static T Freeze<T>(T freezable) where T : Freezable
