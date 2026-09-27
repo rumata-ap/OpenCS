@@ -137,6 +137,9 @@ public static class FemCheckRunner
                         }
                         else
                         {
+                            // Не пройдено без конечного коэффициента (напр. бесконечный у одной из проверок) —
+                            // показываем определяющую проверку, а не только статус.
+                            var (wf, wd) = r.Status == "not_passed" ? ExtractWorstDetail(r.DataJson) : ("", "");
                             rows.Add(new CheckRow
                             {
                                 Label            = item.Label,
@@ -144,8 +147,8 @@ public static class FemCheckRunner
                                 CalcType         = calcType.ToString(),
                                 Utilization      = double.NaN,
                                 Passed           = false,
-                                WorstFormula     = r.Status,
-                                WorstDescription = ExtractFailureReason(r.DataJson)
+                                WorstFormula     = wf != "" ? wf : r.Status,
+                                WorstDescription = wf != "" ? wd : ExtractFailureReason(r.DataJson)
                             });
                         }
                     }
@@ -581,7 +584,11 @@ public static class FemCheckRunner
             foreach (var d in details.EnumerateArray())
             {
                 if (d.TryGetProperty("status", out var status) && status.GetString() == "NotApplicable") continue;
-                double ratio = d.TryGetProperty("ratio", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetDouble() : 0;
+                bool failed = d.TryGetProperty("status", out var st) ? st.GetString() == "Fail"
+                    : d.TryGetProperty("passed", out var ps) && ps.ValueKind == JsonValueKind.False;
+                // Неопределённый (бесконечный) коэффициент не пройденной проверки — наихудший, а не 0.
+                double ratio = d.TryGetProperty("ratio", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetDouble()
+                    : failed ? double.PositiveInfinity : 0;
                 if (ratio > bestRatio)
                 {
                     bestRatio   = ratio;

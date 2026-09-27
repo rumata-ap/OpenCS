@@ -39,7 +39,9 @@ namespace OpenCS.Views
             "steel_central_compression" or "steel_central_tension" or
             "steel_bending" or "steel_compression_bending" or
             "steel_tension_bending" or "steel_shear" or
-            "steel_constructive")
+            "steel_constructive" or
+            // Удалённый вид: сохранённые ранее результаты (схема v1) остаются доступны для просмотра.
+            "steel_torsion")
         {
             Content = new SteelCheckResultView(result.DataJson);
             return;

@@ -3307,7 +3307,17 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16InvalidForces">Усилия должны быть конечными числами.</system:String>
     <system:String x:Key="Sp16TorsionRemoved">Вид задачи удалён: в СП 16 нет проверки на свободное кручение.</system:String>
     <system:String x:Key="Sp16TorsionIgnored">Крутящий момент не проверен: свободное кручение вне объёма СП 16.</system:String>
-    <system:String x:Key="Sp16NotApplicable">Не применимо</system:String>
+    <system:String x:Key="Sp16KindMismatch">Усилия не соответствуют виду задачи «{0}»: {1}. Выберите другой вид задачи или «{2}» (вид проверки по усилиям).</system:String>
+    <system:String x:Key="Sp16Mismatch_NeedTension">требуется растягивающая сила N &gt; 0</system:String>
+    <system:String x:Key="Sp16Mismatch_NeedCompression">требуется сжимающая сила N &lt; 0</system:String>
+    <system:String x:Key="Sp16Mismatch_MomentsInTension">заданы изгибающие моменты — это растяжение с изгибом</system:String>
+    <system:String x:Key="Sp16Mismatch_MomentsInCompression">заданы изгибающие моменты — это сжатие с изгибом</system:String>
+    <system:String x:Key="Sp16Mismatch_AxialInBending">задана продольная сила — это сжатие (растяжение) с изгибом</system:String>
+    <system:String x:Key="Sp16Mismatch_NoBendingOrShear">не заданы изгибающие моменты и поперечные силы</system:String>
+    <system:String x:Key="Sp16Mismatch_NoShear">не заданы поперечные силы</system:String>
+    <system:String x:Key="Sp16Mismatch_NoMomentsCompression">не заданы изгибающие моменты — это центральное сжатие</system:String>
+    <system:String x:Key="Sp16Mismatch_NoMomentsTension">не заданы изгибающие моменты — это центральное растяжение</system:String>
+    <system:String x:Key="Sp16NormRef">СП 16.13330.2017, {0}</system:String>    <system:String x:Key="Sp16NotApplicable">Не применимо</system:String>
     <system:String x:Key="Sp16Strength">Прочность — СП 16</system:String>
     <system:String x:Key="Sp16Stability">Устойчивость — СП 16</system:String>
     <system:String x:Key="Sp16Constructive">Предельная гибкость — СП 16</system:String>

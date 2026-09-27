@@ -28,7 +28,8 @@ public class Sp16CheckerTests
     public void ExplicitCompressionRejectsTension()
     {
         var r = Sp16Checker.Run(Member(), new(100, 0, 0, 0, 0), Sp16TaskKind.CentralCompression);
-        Assert.NotNull(r.Error);
+        Assert.Equal("Sp16KindMismatch", r.Error);
+        Assert.Equal("NeedCompression", r.ErrorReason);
         Assert.False(r.Passed);
         Assert.Empty(r.Results);
     }
@@ -44,7 +45,7 @@ public class Sp16CheckerTests
     public void NonFiniteForcesAreRejected()
     {
         var r = Sp16Checker.Run(Member(), new(double.NaN, 0, 0, 0, 0), Sp16TaskKind.Auto);
-        Assert.NotNull(r.Error);
+        Assert.Equal("Sp16InvalidForces", r.Error);
         Assert.False(r.Passed);
     }
 
@@ -56,5 +57,16 @@ public class Sp16CheckerTests
             {"formula":"(5)","status":"Ok","ratio":0}]}
             """);
         Assert.Equal("(5)", result.formula);
+    }
+
+    [Fact]
+    public void FemWorstDetailTreatsFailedUndefinedRatioAsWorst()
+    {
+        // Бесконечный коэффициент сериализуется как null — не пройденная проверка с null не должна считаться нулём.
+        var result = CScore.Fem.FemCheckRunner.ExtractWorstDetail("""
+            {"details":[{"formula":"(5)","status":"Ok","passed":true,"ratio":0.9},
+            {"formula":"(69)","status":"Fail","passed":false,"ratio":null}]}
+            """);
+        Assert.Equal("(69)", result.formula);
     }
 }

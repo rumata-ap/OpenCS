@@ -104,6 +104,41 @@ public class SteelTaskHandlerTests
     }
 
     [Fact]
+    public void CustomMaterialWithRyIsAccepted()
+    {
+        var section = Box();
+        section.Areas[0].Material!.Type = MatType.Custom;
+        var r = TaskRunner.Run(new CalcTask { Kind = "steel_central_tension" }, section, new LoadItem { N = 100 });
+        Assert.Equal("ok", r.Status);
+    }
+
+    [Theory]
+    [InlineData("{\"LefX\":0}")]
+    [InlineData("{\"LefY\":0}")]
+    [InlineData("{\"LefB\":-1}")]
+    public void ZeroEffectiveLengthIsRejected(string json)
+    {
+        var r = TaskRunner.Run(new CalcTask { Kind = "steel_central_compression", ParamsJson = json }, Box(),
+            new LoadItem { N = -100 });
+        Assert.Equal("error", r.Status);
+    }
+
+    [Fact]
+    public void MemberCacheFollowsContourChanges()
+    {
+        var task = new CalcTask { Kind = "steel_central_tension" };
+        var small = Box();
+        var r1 = TaskRunner.Run(task, small, new LoadItem { N = 100 });
+        var big = Box();
+        big.Areas[0].Contours[1] = new Contour([-.08,.08,.08,-.08,-.08], [-.18,-.18,.18,.18,-.18], "hole") { Type = ContourType.Hole };
+        var r2 = TaskRunner.Run(task, big, new LoadItem { N = 100 });
+        var r3 = TaskRunner.Run(task, small, new LoadItem { N = 100 });
+        double U(CalcResult r) { using var d = JsonDocument.Parse(r.DataJson); return d.RootElement.GetProperty("utilization").GetDouble(); }
+        Assert.True(U(r2) > U(r1));   // большее отверстие — меньше площадь нетто
+        Assert.Equal(U(r1), U(r3), 12);
+    }
+
+    [Fact]
     public void ResultViewShowsSetupErrorWithoutThrowing()
     {
         var result = TaskRunner.Run(new CalcTask { Kind = "steel_central_compression" }, Box(), new LoadItem { N = 100 });

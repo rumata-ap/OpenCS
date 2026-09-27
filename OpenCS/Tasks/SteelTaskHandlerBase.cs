@@ -23,22 +23,24 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
         {
             var p = SteelDesignParams.Parse(task.ParamsJson);
             // Составные сечения вне объёма: нельзя молча считать только первую область.
-            if (section.Areas.Count != 1 || section.Areas[0].Material?.Type != MatType.Steel)
+            // Custom — пользовательский материал с Ry/Ru (как и в диалоге задачи); Ry проверяется ниже.
+            if (section.Areas.Count != 1 || section.Areas[0].Material?.Type is not (MatType.Steel or MatType.Custom))
                 return Error(Loc.S("Sp16SingleSteelAreaRequired"));
             var area = section.Areas[0];
             if (area.Hull?.Points is not { Count: >= 3 }) return Error(Loc.S("Sp16ContourRequired"));
             var mat = SteelMaterialProps.FromMaterial(area.Material!);
             if (!double.IsFinite(mat.Ry) || mat.Ry <= 0 || !double.IsFinite(mat.E) || mat.E <= 0
                 || !double.IsFinite(p.GammaC) || p.GammaC <= 0
-                || !double.IsFinite(p.LefX) || p.LefX < 0 || !double.IsFinite(p.LefY) || p.LefY < 0)
+                // lef = 0 даёт λ = 0, φ = 1 — устойчивость и гибкость «проходили» бы при любой нагрузке.
+                || !double.IsFinite(p.LefX) || p.LefX <= 0 || !double.IsFinite(p.LefY) || p.LefY <= 0
+                || !double.IsFinite(p.LefB) || p.LefB < 0)
                 return Error(Loc.S("Sp16InvalidParameters"));
-            var polygon = new PolygonSection(area.Hull.Points.Select(pt => (pt.X, pt.Y)),
-                area.Holes.Select(h => h.Points.Select(pt => (pt.X, pt.Y))));
-            var member = Sp16Member.Create(polygon, mat, p);
-            var f = p.ManualForces?.ToForces() ?? (item == null ? null
-                : new SteelForces(item.N, item.Mx, item.My, item.Vx, item.Vy));
-            if (f == null) return Error(Loc.S("CalcTaskForceItemNotFound"));
+            var member = GetMember(task.ParamsJson, area, mat, p);
+            var f = p.ManualForces?.ToForces() ?? new SteelForces(item.N, item.Mx, item.My, item.Vx, item.Vy);
             var report = Sp16Checker.Run(member, f, Sp16Checker.ParseKind(Kind)!.Value);
+            if (report.Error == "Sp16KindMismatch")
+                return Error(string.Format(Loc.S("Sp16KindMismatch"), Loc.S("CalcTaskKind_" + Sp16Checker.KindCode(report.Kind)),
+                    Loc.S("Sp16Mismatch_" + report.ErrorReason), Loc.S("CalcTaskKind_steel_check")));
             if (report.Error != null) return Error(Loc.S(report.Error));
             double torsion = p.ManualForces?.Mz ?? item?.T ?? 0;
             if (!double.IsFinite(torsion)) return Error(Loc.S("Sp16InvalidForces"));
@@ -56,7 +58,7 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
                 details = report.Results.Select(r => new
                 {
                     clause = r.Clause, formula = r.Formula, description = r.Description,
-                    normRef = $"СП 16.13330.2017, {r.Clause}", category = Category(r.Clause),
+                    normRef = string.Format(Loc.S("Sp16NormRef"), r.Clause), category = Category(r.Clause),
                     applied = Finite(r.Applied), allowable = Finite(r.Allowable), ratio = Finite(r.Utilization),
                     passed = r.Status == CheckStatus.Ok, status = r.Status.ToString(), notes = r.Notes,
                     variables = r.Variables.GroupBy(v => v.Key).ToDictionary(g => g.Key, g => Finite(g.Last().Value))
@@ -70,6 +72,31 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
             };
         }
         catch (Exception ex) { return Error(ex.Message); }
+    }
+
+    /// <summary>Последний построенный элемент потока: FEM вызывает хендлер на каждую строку усилий одной задачи.</summary>
+    [ThreadStatic] static (string Key, Sp16Member Member)? _lastMember;
+
+    /// <summary>
+    /// Элемент СП 16 (распознавание профиля и геометрия) — с кэшем по параметрам, контуру и материалу:
+    /// для одной задачи и сечения он не зависит от строки усилий.
+    /// </summary>
+    static Sp16Member GetMember(string? paramsJson, MaterialArea area, SteelMaterialProps mat, SteelDesignParams p)
+    {
+        var key = new System.Text.StringBuilder(paramsJson ?? "").Append('|').Append(mat);
+        foreach (var pt in area.Hull!.Points) key.Append('|').Append(pt.X.ToString("R")).Append(',').Append(pt.Y.ToString("R"));
+        foreach (var h in area.Holes)
+        {
+            key.Append("|h");
+            foreach (var pt in h.Points) key.Append('|').Append(pt.X.ToString("R")).Append(',').Append(pt.Y.ToString("R"));
+        }
+        string k = key.ToString();
+        if (_lastMember is { } last && last.Key == k) return last.Member;
+        var polygon = new PolygonSection(area.Hull.Points.Select(pt => (pt.X, pt.Y)),
+            area.Holes.Select(h => h.Points.Select(pt => (pt.X, pt.Y))));
+        var member = Sp16Member.Create(polygon, mat, p);
+        _lastMember = (k, member);
+        return member;
     }
 
     static double? Finite(double v) => double.IsFinite(v) ? v : null;

@@ -34,8 +34,15 @@ public sealed class Sp16Report
     public List<Sp16CheckResult> Results { get; init; } = [];
     /// <summary>Общие примечания (распознавание профиля, миграция параметров, отброшенные усилия).</summary>
     public List<string> Notes { get; init; } = [];
-    /// <summary>Ошибка постановки (усилия не соответствуют виду задачи); проверки не выполнялись.</summary>
+    /// <summary>
+    /// Ошибка постановки — ключ ресурса OpenCS («Sp16InvalidForces», «Sp16KindMismatch»); проверки не выполнялись.
+    /// </summary>
     public string? Error { get; init; }
+    /// <summary>
+    /// Для «Sp16KindMismatch» — код причины несоответствия (NeedTension, NeedCompression, MomentsInTension,
+    /// MomentsInCompression, AxialInBending, NoBendingOrShear, NoShear, NoMomentsCompression, NoMomentsTension).
+    /// </summary>
+    public string? ErrorReason { get; init; }
 
     /// <summary>Наибольший коэффициент использования среди выполненных проверок (0 — нет ни одной).</summary>
     public double Utilization => Results.Where(r => r.Status != CheckStatus.NotApplicable)
@@ -132,27 +139,25 @@ public static class Sp16Checker
         return hasQ ? Sp16TaskKind.Shear : Sp16TaskKind.Constructive;
     }
 
-    /// <summary>Причина несоответствия усилий виду задачи; null — соответствуют.</summary>
+    /// <summary>Код причины несоответствия усилий виду задачи (см. <see cref="Sp16Report.ErrorReason"/>); null — соответствуют.</summary>
     static string? Mismatch(Sp16TaskKind kind, SteelForces f)
     {
         bool hasM = f.Mx != 0 || f.My != 0, hasQ = f.Qx != 0 || f.Qy != 0;
-        string? why = kind switch
+        return kind switch
         {
-            Sp16TaskKind.CentralTension when f.N <= 0 => "требуется растягивающая сила N > 0",
-            Sp16TaskKind.CentralTension when hasM => "заданы изгибающие моменты — это растяжение с изгибом",
-            Sp16TaskKind.CentralCompression when f.N >= 0 => "требуется сжимающая сила N < 0",
-            Sp16TaskKind.CentralCompression when hasM => "заданы изгибающие моменты — это сжатие с изгибом",
-            Sp16TaskKind.Bending when f.N != 0 => "задана продольная сила — это сжатие (растяжение) с изгибом",
-            Sp16TaskKind.Bending when !hasM && !hasQ => "не заданы изгибающие моменты и поперечные силы",
-            Sp16TaskKind.Shear when !hasQ => "не заданы поперечные силы",
-            Sp16TaskKind.CompressionBending when f.N >= 0 => "требуется сжимающая сила N < 0",
-            Sp16TaskKind.CompressionBending when !hasM => "не заданы изгибающие моменты — это центральное сжатие",
-            Sp16TaskKind.TensionBending when f.N <= 0 => "требуется растягивающая сила N > 0",
-            Sp16TaskKind.TensionBending when !hasM => "не заданы изгибающие моменты — это центральное растяжение",
+            Sp16TaskKind.CentralTension when f.N <= 0 => "NeedTension",
+            Sp16TaskKind.CentralTension when hasM => "MomentsInTension",
+            Sp16TaskKind.CentralCompression when f.N >= 0 => "NeedCompression",
+            Sp16TaskKind.CentralCompression when hasM => "MomentsInCompression",
+            Sp16TaskKind.Bending when f.N != 0 => "AxialInBending",
+            Sp16TaskKind.Bending when !hasM && !hasQ => "NoBendingOrShear",
+            Sp16TaskKind.Shear when !hasQ => "NoShear",
+            Sp16TaskKind.CompressionBending when f.N >= 0 => "NeedCompression",
+            Sp16TaskKind.CompressionBending when !hasM => "NoMomentsCompression",
+            Sp16TaskKind.TensionBending when f.N <= 0 => "NeedTension",
+            Sp16TaskKind.TensionBending when !hasM => "NoMomentsTension",
             _ => null,
         };
-        return why == null ? null
-            : $"Усилия не соответствуют виду задачи {KindName(kind)}: {why}. Выберите другой вид задачи или «Проверка по СП 16» (вид проверки по усилиям)";
     }
 
     /// <summary>
@@ -173,8 +178,9 @@ public static class Sp16Checker
             if (effective == Sp16TaskKind.Constructive)
                 notes.Add("Усилия не заданы (нулевые) — выполнена только проверка предельной гибкости");
         }
-        else if (Mismatch(kind, f) is { } error)
-            return new Sp16Report { RequestedKind = kind, Kind = kind, Forces = accepted, Notes = notes, Error = error };
+        else if (Mismatch(kind, f) is { } reason)
+            return new Sp16Report { RequestedKind = kind, Kind = kind, Forces = accepted, Notes = notes,
+                Error = "Sp16KindMismatch", ErrorReason = reason };
 
         var res = new List<Sp16CheckResult>();
         switch (effective)

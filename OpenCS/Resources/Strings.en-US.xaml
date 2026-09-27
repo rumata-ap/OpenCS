@@ -3307,7 +3307,17 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16InvalidForces">Forces must be finite numbers.</system:String>
     <system:String x:Key="Sp16TorsionRemoved">This task kind was removed: SP 16 has no free torsion check.</system:String>
     <system:String x:Key="Sp16TorsionIgnored">Torsion was not checked: free torsion is outside the scope of SP 16.</system:String>
-    <system:String x:Key="Sp16NotApplicable">Not applicable</system:String>
+    <system:String x:Key="Sp16KindMismatch">The forces do not match the task kind "{0}": {1}. Choose another task kind or "{2}" (check kind by forces).</system:String>
+    <system:String x:Key="Sp16Mismatch_NeedTension">a tensile force N &gt; 0 is required</system:String>
+    <system:String x:Key="Sp16Mismatch_NeedCompression">a compressive force N &lt; 0 is required</system:String>
+    <system:String x:Key="Sp16Mismatch_MomentsInTension">bending moments are given — this is tension with bending</system:String>
+    <system:String x:Key="Sp16Mismatch_MomentsInCompression">bending moments are given — this is compression with bending</system:String>
+    <system:String x:Key="Sp16Mismatch_AxialInBending">an axial force is given — this is compression (tension) with bending</system:String>
+    <system:String x:Key="Sp16Mismatch_NoBendingOrShear">no bending moments or shear forces are given</system:String>
+    <system:String x:Key="Sp16Mismatch_NoShear">no shear forces are given</system:String>
+    <system:String x:Key="Sp16Mismatch_NoMomentsCompression">no bending moments are given — this is central compression</system:String>
+    <system:String x:Key="Sp16Mismatch_NoMomentsTension">no bending moments are given — this is central tension</system:String>
+    <system:String x:Key="Sp16NormRef">SP 16.13330.2017, {0}</system:String>    <system:String x:Key="Sp16NotApplicable">Not applicable</system:String>
     <system:String x:Key="Sp16Strength">Strength — SP 16</system:String>
     <system:String x:Key="Sp16Stability">Stability — SP 16</system:String>
     <system:String x:Key="Sp16Constructive">Slenderness limits — SP 16</system:String>

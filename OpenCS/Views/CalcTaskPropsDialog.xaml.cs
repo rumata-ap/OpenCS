@@ -3369,11 +3369,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           }
 
           var inv = System.Globalization.CultureInfo.InvariantCulture;
-          double.TryParse(SteelDesignLengthX, System.Globalization.NumberStyles.Float, inv, out var dlx);
-          double.TryParse(SteelDesignLengthY, System.Globalization.NumberStyles.Float, inv, out var dly);
-          double.TryParse(SteelMuX, System.Globalization.NumberStyles.Float, inv, out var mux);
-          double.TryParse(SteelMuY, System.Globalization.NumberStyles.Float, inv, out var muy);
-          double.TryParse(SteelGammaM, System.Globalization.NumberStyles.Float, inv, out var gm);
+          // Нераспознанное число не должно молча становиться 0: lef = 0 даёт φ = 1 и «проходящую» устойчивость.
+          bool Positive(string s, out double v) =>
+              double.TryParse(s, System.Globalization.NumberStyles.Float, inv, out v) && double.IsFinite(v) && v > 0;
+          if (!Positive(SteelDesignLengthX, out var dlx) || !Positive(SteelDesignLengthY, out var dly)
+              || !Positive(SteelMuX, out var mux) || !Positive(SteelMuY, out var muy) || !Positive(SteelGammaM, out var gm))
+          {
+              MessageBox.Show(Loc.S("Sp16InvalidParameters"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              return;
+          }
 
           CScore.Sp16.SteelManualForces? mf = null;
           if (ShowManualForces)

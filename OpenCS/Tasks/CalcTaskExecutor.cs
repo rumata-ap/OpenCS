@@ -166,6 +166,17 @@ public static class CalcTaskExecutor
             return true;
         }
 
+        // Стальной задаче без ручных усилий строка набора обязательна: пустой LoadItem превратил бы
+        // удалённую строку в нулевые усилия и «пройденную» проверку одной гибкости.
+        if (CScore.Sp16.Sp16Checker.ParseKind(ct.Kind) is { } steelKind
+            && steelKind != CScore.Sp16.Sp16TaskKind.Constructive
+            && CScore.Sp16.SteelDesignParams.Parse(ct.ParamsJson).ManualForces == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+
         if (CalcTaskForceHelper.UsesDummyForceItem(ct))
         {
             fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, app.BarForceSets);
