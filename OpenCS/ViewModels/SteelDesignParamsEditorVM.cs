@@ -28,6 +28,7 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
 
     public IReadOnlyList<EnumOption<LtbLoadKind>> LtbLoadOptions { get; } = Options<LtbLoadKind>();
     public IReadOnlyList<EnumOption<LtbRestraints>> LtbRestraintsOptions { get; } = Options<LtbRestraints>();
+    public IReadOnlyList<EnumOption<TorsionConstantSource>> ItSourceOptions { get; } = Options<TorsionConstantSource>();
     public IReadOnlyList<EnumOption<MomentShape>> MomentShapeOptions { get; } = Options<MomentShape>();
     public IReadOnlyList<EnumOption<CompressionMemberCategory>> CompressionCategoryOptions { get; } = Options<CompressionMemberCategory>();
     public IReadOnlyList<EnumOption<TensionMemberCategory>> TensionCategoryOptions { get; } = Options<TensionMemberCategory>();
@@ -64,11 +65,13 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
     string _lefB = "";
     EnumOption<LtbLoadKind> _ltbLoad = null!;
     EnumOption<LtbRestraints> _ltbRestraints = null!;
+    EnumOption<TorsionConstantSource> _itSource = null!;
     bool _ltbLoadOnTensionFlange, _ltbFixedEnds, _cantilever, _continuousRigidDeck;
 
     public string LefB { get => _lefB; set { _lefB = value; OnPropertyChanged(); } }
     public EnumOption<LtbLoadKind> LtbLoad { get => _ltbLoad; set { _ltbLoad = value; OnPropertyChanged(); } }
     public EnumOption<LtbRestraints> LtbRestraints { get => _ltbRestraints; set { _ltbRestraints = value; OnPropertyChanged(); } }
+    public EnumOption<TorsionConstantSource> ItSource { get => _itSource; set { _itSource = value; OnPropertyChanged(); } }
     public bool LtbLoadOnTensionFlange { get => _ltbLoadOnTensionFlange; set { _ltbLoadOnTensionFlange = value; OnPropertyChanged(); } }
     public bool LtbFixedEnds { get => _ltbFixedEnds; set { _ltbFixedEnds = value; OnPropertyChanged(); } }
     public bool Cantilever { get => _cantilever; set { _cantilever = value; OnPropertyChanged(); } }
@@ -152,7 +155,7 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
         TensionYieldAllowed = p.TensionYieldAllowed; UseGammaRes = p.UseGammaRes; DynamicLoad = p.DynamicLoad;
         LefB = F(p.LefB); LtbLoad = Pick(LtbLoadOptions, p.LtbLoad); LtbRestraints = Pick(LtbRestraintsOptions, p.LtbRestraints);
         LtbLoadOnTensionFlange = p.LtbLoadOnTensionFlange; LtbFixedEnds = p.LtbFixedEnds;
-        Cantilever = p.Cantilever; ContinuousRigidDeck = p.ContinuousRigidDeck;
+        Cantilever = p.Cantilever; ContinuousRigidDeck = p.ContinuousRigidDeck; ItSource = Pick(ItSourceOptions, p.ItSource);
         AllowPlastic = p.AllowPlastic; GammaFEq = F(p.GammaFEq); PureBendingZone = p.PureBendingZone;
         LocalForce = F(p.LocalForce); BearingLength = F(p.BearingLength); FlangeWeldLeg = F(p.FlangeWeldLeg);
         RibSpacing = F(p.RibSpacing); OneSidedFlangeWelds = p.OneSidedFlangeWelds; FrictionFlangeJoints = p.FrictionFlangeJoints;
@@ -218,7 +221,7 @@ public sealed class SteelDesignParamsEditorVM : ViewModelBase
             TensionYieldAllowed = TensionYieldAllowed, UseGammaRes = UseGammaRes, DynamicLoad = DynamicLoad,
             LefB = lefB, LtbLoad = LtbLoad.Value, LtbRestraints = LtbRestraints.Value,
             LtbLoadOnTensionFlange = LtbLoadOnTensionFlange, LtbFixedEnds = LtbFixedEnds,
-            Cantilever = Cantilever, ContinuousRigidDeck = ContinuousRigidDeck,
+            Cantilever = Cantilever, ContinuousRigidDeck = ContinuousRigidDeck, ItSource = ItSource.Value,
             AllowPlastic = AllowPlastic, GammaFEq = gammaF, PureBendingZone = PureBendingZone,
             LocalForce = force, BearingLength = bearing, FlangeWeldLeg = weld, RibSpacing = ribs,
             OneSidedFlangeWelds = OneSidedFlangeWelds, FrictionFlangeJoints = FrictionFlangeJoints,

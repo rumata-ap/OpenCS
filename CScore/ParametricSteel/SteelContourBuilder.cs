@@ -23,7 +23,7 @@ internal static class SteelContourBuilder
     /// Скругляет вершины с R &gt; 0. Возвращает null, если скругление не помещается на ребре
     /// (сумма касательных отрезков соседних вершин больше длины ребра).
     /// </summary>
-    public static List<(double X, double Y)>? RoundCorners(IReadOnlyList<Vertex> v)
+    public static List<(double X, double Y)>? RoundCorners(IReadOnlyList<Vertex> v, int segmentsPerQuarter = SegmentsPerQuarter)
     {
         int n = v.Count;
         var tangent = new double[n];
@@ -61,7 +61,7 @@ internal static class SteelContourBuilder
             double sweep = a1 - a0;
             while (sweep > Math.PI) sweep -= 2 * Math.PI;
             while (sweep < -Math.PI) sweep += 2 * Math.PI;
-            int segs = Math.Max(2, (int)Math.Ceiling(Math.Abs(sweep) / (Math.PI / 2) * SegmentsPerQuarter));
+            int segs = Math.Max(2, (int)Math.Ceiling(Math.Abs(sweep) / (Math.PI / 2) * segmentsPerQuarter));
             for (int k = 0; k <= segs; k++)
             {
                 double ang = a0 + sweep * k / segs;
@@ -91,9 +91,13 @@ internal static class SteelContourBuilder
         return pts;
     }
 
-    /// <summary>Строит канонический контур; null — радиусы не помещаются в геометрию.</summary>
-    public static Shape? Build(ParametricSteelSectionDefinition d)
+    /// <summary>
+    /// Строит канонический контур; null — радиусы не помещаются в геометрию. <paramref name="segmentsPerQuarter"/> —
+    /// число сегментов дуги скругления на четверть окружности (больше — точнее, например для задачи кручения).
+    /// </summary>
+    public static Shape? Build(ParametricSteelSectionDefinition d, int segmentsPerQuarter = SegmentsPerQuarter)
     {
+        List<(double X, double Y)>? RoundCorners(IReadOnlyList<Vertex> v) => SteelContourBuilder.RoundCorners(v, segmentsPerQuarter);
         List<(double X, double Y)>? outer;
         var holes = new List<List<(double X, double Y)>>();
         switch (d.Kind)

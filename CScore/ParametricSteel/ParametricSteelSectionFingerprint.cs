@@ -33,7 +33,9 @@ public static class ParametricSteelSectionFingerprint
 /// <param name="Profile">Явный профиль СП 16.</param>
 /// <param name="Fingerprint">Отпечаток геометрии, для которой профиль действителен.</param>
 /// <param name="GeneratorVersion">Версия генератора, которой вычислен отпечаток.</param>
-public sealed record ParametricSteelBinding(SteelProfile Profile, string Fingerprint, int GeneratorVersion);
+/// <param name="Definition">Исходное описание (для построения контура с мелкими дугами); null — неизвестно.</param>
+public sealed record ParametricSteelBinding(SteelProfile Profile, string Fingerprint, int GeneratorVersion,
+    ParametricSteelSectionDefinition? Definition = null);
 
 /// <summary>Доступ к профилю параметрического стального сечения.</summary>
 public static class ParametricSteelSectionExtensions
@@ -42,12 +44,19 @@ public static class ParametricSteelSectionExtensions
     /// Профиль параметрического сечения, если текущая геометрия совпадает с привязкой; иначе null
     /// (сечение правили вручную — профиль распознаётся по контуру).
     /// </summary>
-    public static SteelProfile? TryGetParametricSteelProfile(this CrossSection section)
+    public static SteelProfile? TryGetParametricSteelProfile(this CrossSection section) =>
+        TryGetValidBinding(section)?.Profile;
+
+    /// <summary>Исходное описание параметрического сечения, если геометрия совпадает с привязкой; иначе null.</summary>
+    public static ParametricSteelSectionDefinition? TryGetParametricSteelDefinition(this CrossSection section) =>
+        TryGetValidBinding(section)?.Definition;
+
+    static ParametricSteelBinding? TryGetValidBinding(CrossSection section)
     {
         ArgumentNullException.ThrowIfNull(section);
         var binding = section.ParametricSteel;
         if (binding is null) return null;
         string actual = ParametricSteelSectionFingerprint.Compute(section, binding.GeneratorVersion);
-        return string.Equals(actual, binding.Fingerprint, StringComparison.Ordinal) ? binding.Profile : null;
+        return string.Equals(actual, binding.Fingerprint, StringComparison.Ordinal) ? binding : null;
     }
 }

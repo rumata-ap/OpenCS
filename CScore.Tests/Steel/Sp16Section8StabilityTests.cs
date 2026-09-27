@@ -258,6 +258,73 @@ public class Sp16Section8StabilityTests
         Assert.Equal(m.S.ItFormula, m.S.It, 15);
     }
 
+    static Sp16Member WithItSource(TorsionConstantSource source, double itCatalog, TorsionConstantFem? fem)
+    {
+        var formula = Rolled(new SteelDesignParams { LefB = 6 });
+        return Sp16Member.Create(formula.S.Poly, C245, new SteelDesignParams
+        {
+            LefB = 6, Profile = Rolled30B1 with { ItReference = itCatalog }, ItSource = source, ItFem = fem,
+        });
+    }
+
+    [Fact]
+    public void ItSource_AppendixD_IgnoresCatalog()
+    {
+        var m = WithItSource(TorsionConstantSource.AppendixD, 1e-8, null);
+        Assert.False(m.S.ItFromCatalog);
+        Assert.Equal(m.S.ItFormula, m.S.It, 15);
+        Assert.Contains("по сортаменту: 1 см⁴", m.S.ItSourceNote);
+    }
+
+    [Fact]
+    public void ItSource_Fem_UsesFemValueAndComparesOthers()
+    {
+        var m = WithItSource(TorsionConstantSource.Fem, 9e-8, new TorsionConstantFem(8.5e-8, "T6"));
+        Assert.Equal(8.5e-8, m.S.It, 15);
+        Assert.False(m.S.ItFromCatalog);
+        Assert.StartsWith("It = 8.5 см⁴ — по МКЭ (T6)", m.S.ItSourceNote);
+        Assert.Contains("по прил. Д, п. 1:", m.S.ItSourceNote);
+        Assert.Contains("по сортаменту: 9 см⁴ (+5.9 %)", m.S.ItSourceNote);
+        var r = Sp16PhiB.Compute(m, false);
+        Assert.Equal(8.5e-8, r.Vars.Single(v => v.Name == "It").Value, 15);
+    }
+
+    [Fact]
+    public void ItSource_FemFailed_FallsBackToCatalogWithNote()
+    {
+        var m = WithItSource(TorsionConstantSource.Fem, 9e-8, new TorsionConstantFem(0, "сетка не построена"));
+        Assert.True(m.S.ItFromCatalog);
+        Assert.Equal(9e-8, m.S.It, 15);
+        Assert.Contains("МКЭ не выполнен: сетка не построена", m.S.ItSourceNote);
+    }
+
+    [Fact]
+    public void ItSource_Min_TakesLesserOfAppendixDAndFem()
+    {
+        double formula = Rolled(new SteelDesignParams { LefB = 6 }).S.ItFormula;
+        var femSmaller = WithItSource(TorsionConstantSource.MinAppendixDFem, 0, new TorsionConstantFem(0.9 * formula, "T6"));
+        Assert.Equal(0.9 * formula, femSmaller.S.It, 15);
+        Assert.Contains("принято меньшее", femSmaller.S.ItSourceNote);
+        var femLarger = WithItSource(TorsionConstantSource.MinAppendixDFem, 0, new TorsionConstantFem(1.1 * formula, "T6"));
+        Assert.Equal(formula, femLarger.S.It, 15);
+        Assert.StartsWith("It = ", femLarger.S.ItSourceNote);
+        Assert.Contains("по МКЭ:", femLarger.S.ItSourceNote);
+        var noFem = WithItSource(TorsionConstantSource.MinAppendixDFem, 9e-8, null);
+        Assert.Equal(formula, noFem.S.It, 15);                                                  // без МКЭ — прил. Д, не сортамент
+    }
+
+    [Fact]
+    public void ItSource_PersistedButFemValueIsNot()
+    {
+        var p = new SteelDesignParams { ItSource = TorsionConstantSource.Fem, ItFem = new TorsionConstantFem(1e-8, "x") };
+        string json = p.ToJson();
+        Assert.DoesNotContain("ItFem", json);
+        var back = SteelDesignParams.Parse(json);
+        Assert.Equal(TorsionConstantSource.Fem, back.ItSource);
+        Assert.Null(back.ItFem);
+        Assert.Equal(TorsionConstantSource.Catalog, SteelDesignParams.Parse("{}").ItSource);
+    }
+
     [Fact]
     public void RigidDeck_NotRequired()
     {

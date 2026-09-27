@@ -51,7 +51,7 @@ public sealed class ParametricSteelSectionProjectService(DatabaseService databas
         var record = new ParametricSteelSectionRecord(
             section.Id, DefinitionVersion, GeneratorVersion, Serialize(definition), fingerprint);
         database.SaveParametricSteelCrossSection(section, record, result.GeneratedAreas);
-        section.ParametricSteel = new ParametricSteelBinding(result.Profile!, fingerprint, GeneratorVersion);
+        section.ParametricSteel = new ParametricSteelBinding(result.Profile!, fingerprint, GeneratorVersion, definition);
         return result with { Section = section };
     }
 
@@ -118,7 +118,7 @@ public sealed class ParametricSteelSectionProjectService(DatabaseService databas
             if (definition is null) continue;
             section.ParametricSteel = new ParametricSteelBinding(
                 ParametricSteelSectionGenerator.ToSteelProfile(definition),
-                state.Record.GeneratedFingerprint, state.Record.GeneratorVersion);
+                state.Record.GeneratedFingerprint, state.Record.GeneratorVersion, definition);
         }
     }
 

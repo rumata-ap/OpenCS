@@ -16,7 +16,7 @@ public class SteelDesignParamsEditorTests
             GammaC = .9, LefX = 4.5, LefY = 1.5, NetAreaRatio = .85, TensionYieldAllowed = true, UseGammaRes = true,
             DynamicLoad = true, LefB = 2, LtbLoad = LtbLoadKind.PureBending, LtbRestraints = LtbRestraints.OneAtMid,
             LtbLoadOnTensionFlange = true, LtbFixedEnds = true, Cantilever = true, ContinuousRigidDeck = true,
-            AllowPlastic = true, GammaFEq = 1.2, PureBendingZone = true, LocalForce = 30, BearingLength = .1,
+            ItSource = TorsionConstantSource.MinAppendixDFem, AllowPlastic = true, GammaFEq = 1.2, PureBendingZone = true, LocalForce = 30, BearingLength = .1,
             FlangeWeldLeg = .006, RibSpacing = 1.2, OneSidedFlangeWelds = true, FrictionFlangeJoints = true,
             WebHoleSpacing = .08, WebHoleDiameter = .023,
             MomentShape = MomentShape.LinearEndMoments, EndMomentRatio = -.5, MiddleThirdMomentRatio = .7,

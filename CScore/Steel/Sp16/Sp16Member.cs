@@ -26,7 +26,7 @@ public sealed class Sp16Member
     public static Sp16Member Create(PolygonSection contour, SteelMaterialProps mat, SteelDesignParams p)
     {
         bool recognized = p.Profile == null;
-        var s = Sp16Section.FromContour(contour, p.Profile, mat);
+        var s = Sp16Section.FromContour(contour, p.Profile, mat, p.ItSource, p.ItFem);
         bool rot = s.Profile.Rotated90;
         var pc = rot ? p with { LefX = p.LefY, LefY = p.LefX, CurveX = p.CurveY, CurveY = p.CurveX } : p;
         var m = new Sp16Member(s, pc, rot);

@@ -3456,6 +3456,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_EndMomentOneSide">moment at one end (M – 0)</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_EndMomentsOpposite">end moments of opposite sign (M – −M)</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_ConcentratedEnd">force at the cantilever tip (table Zh.2)</system:String>
+    <system:String x:Key="Sp16ItSource">St. Venant torsion constant It</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_Catalog">from section tables (otherwise App. D)</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_AppendixD">App. D, cl. 1: (k/3)·Σbi·ti³</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_Fem">FEM (St. Venant problem)</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_MinAppendixDFem">lesser of App. D and FEM</system:String>
+    <system:String x:Key="Sp16ItFemDetails">St. Venant problem, T6 elements, meshes h = {0} mm, {1}</system:String>
+    <system:String x:Key="Sp16ItFemExtrapolated">Richardson extrapolation, convergence order {0}</system:String>
+    <system:String x:Key="Sp16ItFemNotExtrapolated">no extrapolation — finest mesh value</system:String>
+    <system:String x:Key="Sp16ItFemFailed">calculation error: {0}</system:String>
+    <system:String x:Key="Sp16ItFemNonPositive">non-positive It obtained</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_None">no restraints</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_OneAtMid">one at midspan</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_TwoOrMore">two or more, equal parts</system:String>

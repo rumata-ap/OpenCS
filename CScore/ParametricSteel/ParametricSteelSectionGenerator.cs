@@ -40,6 +40,20 @@ public static class ParametricSteelSectionGenerator
         return new(section, ToSteelProfile(definition), []) { GeneratedAreas = [area] };
     }
 
+    /// <summary>
+    /// Канонический контур (наружный CCW и отверстия CW) с заданным числом сегментов дуги скругления на
+    /// четверть окружности — для расчётов, чувствительных к аппроксимации дуг (задача кручения).
+    /// null — ошибочный ввод или радиусы не помещаются.
+    /// </summary>
+    public static (IReadOnlyList<(double X, double Y)> Outer, IReadOnlyList<IReadOnlyList<(double X, double Y)>> Holes)?
+        BuildCanonicalContour(ParametricSteelSectionDefinition definition, int segmentsPerQuarter)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (Validate(definition).Count != 0) return null;
+        var shape = SteelContourBuilder.Build(definition, Math.Max(2, segmentsPerQuarter));
+        return shape == null ? null : (shape.Outer, shape.Holes);
+    }
+
     /// <summary>Дескриптор профиля СП 16 для определения (радиусы — в трактовке <see cref="Sp16Section"/>).</summary>
     public static SteelProfile ToSteelProfile(ParametricSteelSectionDefinition d)
     {

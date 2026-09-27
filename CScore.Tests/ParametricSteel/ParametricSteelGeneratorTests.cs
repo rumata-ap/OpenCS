@@ -23,6 +23,23 @@ public class ParametricSteelGeneratorTests
         Assert.Equal(0, poly.Yc, 9);
     }
 
+    [Fact]
+    public void CanonicalContourRefinesFilletArcs()
+    {
+        var d = D.RolledIBeam(0.3, 0.201, 0.009, 0.015, 0.018);
+        var coarse = ParametricSteelSectionGenerator.BuildCanonicalContour(d, 8)!.Value;
+        var fine = ParametricSteelSectionGenerator.BuildCanonicalContour(d, 32)!.Value;
+        Assert.Equal(Generate(d).Section.Areas[0].Hull!.Points.Count - 1, coarse.Outer.Count);  // как контур сечения
+        Assert.Equal(coarse.Outer.Count + 4 * 24, fine.Outer.Count);                           // 4 скругления по 8 → 32
+        // Вписанная ломаная на вогнутом скруглении добавляет металл: площадь убывает к точной.
+        double exact = 0.201 * 0.3 - (0.201 - 0.009) * (0.3 - 2 * 0.015) + 4 * (1 - Math.PI / 4) * 0.018 * 0.018;
+        double Area(IReadOnlyList<(double X, double Y)> p) =>
+            0.5 * Math.Abs(p.Select((a, i) => a.X * p[(i + 1) % p.Count].Y - p[(i + 1) % p.Count].X * a.Y).Sum());
+        Assert.True(Area(coarse.Outer) > Area(fine.Outer));
+        Assert.Equal(exact, Area(fine.Outer), 1e-6);                                            // ~4·10⁻⁷ м² на 4 дуги
+        Assert.Null(ParametricSteelSectionGenerator.BuildCanonicalContour(d with { Tw = -1 }, 32));
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]

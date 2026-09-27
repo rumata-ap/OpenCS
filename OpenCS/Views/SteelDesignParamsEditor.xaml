@@ -67,6 +67,11 @@
                     <ComboBox ItemsSource="{Binding LtbRestraintsOptions}" SelectedItem="{Binding LtbRestraints}"
                               DisplayMemberPath="Label"/>
                 </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16ItSource}"/>
+                    <ComboBox ItemsSource="{Binding ItSourceOptions}" SelectedItem="{Binding ItSource}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
                 <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16LtbLoadOnTensionFlange}"
                           IsChecked="{Binding LtbLoadOnTensionFlange}"/>
                 <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16LtbFixedEnds}"

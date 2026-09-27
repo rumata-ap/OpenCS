@@ -2,6 +2,7 @@ using System.Text.Json;
 using CScore;
 using CScore.ParametricSteel;
 using CScore.Sp16;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -40,7 +41,10 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
             // профиль, заданный в параметрах задачи, приоритетнее.
             var parametricProfile = p.Profile == null ? section.TryGetParametricSteelProfile() : null;
             if (parametricProfile != null) p = p with { Profile = parametricProfile };
-            var member = GetMember(area, mat, p);
+            string contourKey = ContourKey(area);
+            if (p.ItSourceNeedsFem)
+                p = p with { ItFem = SteelTorsionConstantService.Get(section, area, contourKey, p.Profile) };
+            var member = GetMember(area, mat, p, contourKey);
             var f = p.ManualForces?.ToForces() ?? new SteelForces(item.N, item.Mx, item.My, item.Vx, item.Vy);
             var report = Sp16Checker.Run(member, f, Sp16Checker.ParseKind(Kind)!.Value);
             if (report.Error == "Sp16KindMismatch")
@@ -89,22 +93,29 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
     /// профиль параметрического сечения), контуру и материалу:
     /// для одной задачи и сечения он не зависит от строки усилий.
     /// </summary>
-    static Sp16Member GetMember(MaterialArea area, SteelMaterialProps mat, SteelDesignParams p)
+    static Sp16Member GetMember(MaterialArea area, SteelMaterialProps mat, SteelDesignParams p, string contourKey)
     {
-        var key = new System.Text.StringBuilder(p.ToJson()).Append('|').Append(p.MigratedFromLegacy).Append('|').Append(mat);
+        string k = new System.Text.StringBuilder(p.ToJson()).Append('|').Append(p.MigratedFromLegacy).Append('|').Append(mat)
+            .Append("|it:").Append(p.ItFem?.Value.ToString("R")).Append('|').Append(contourKey).ToString();
+        if (_lastMember is { } last && last.Key == k) return last.Member;
+        var polygon = new PolygonSection(area.Hull!.Points.Select(pt => (pt.X, pt.Y)),
+            area.Holes.Select(h => h.Points.Select(pt => (pt.X, pt.Y))));
+        var member = Sp16Member.Create(polygon, mat, p);
+        _lastMember = (k, member);
+        return member;
+    }
+
+    /// <summary>Ключ геометрии области: точки контура и отверстий.</summary>
+    static string ContourKey(MaterialArea area)
+    {
+        var key = new System.Text.StringBuilder();
         foreach (var pt in area.Hull!.Points) key.Append('|').Append(pt.X.ToString("R")).Append(',').Append(pt.Y.ToString("R"));
         foreach (var h in area.Holes)
         {
             key.Append("|h");
             foreach (var pt in h.Points) key.Append('|').Append(pt.X.ToString("R")).Append(',').Append(pt.Y.ToString("R"));
         }
-        string k = key.ToString();
-        if (_lastMember is { } last && last.Key == k) return last.Member;
-        var polygon = new PolygonSection(area.Hull.Points.Select(pt => (pt.X, pt.Y)),
-            area.Holes.Select(h => h.Points.Select(pt => (pt.X, pt.Y))));
-        var member = Sp16Member.Create(polygon, mat, p);
-        _lastMember = (k, member);
-        return member;
+        return key.ToString();
     }
 
     static double? Finite(double v) => double.IsFinite(v) ? v : null;

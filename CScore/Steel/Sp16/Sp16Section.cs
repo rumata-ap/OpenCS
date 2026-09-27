@@ -44,19 +44,25 @@ public sealed class Sp16Section
     /// <summary>Материал.</summary>
     public SteelMaterialProps Mat { get; }
 
-    public Sp16Section(PolygonSection canonicalPoly, SteelProfile profile, SteelMaterialProps mat)
+    /// <param name="itSource">Источник It.</param>
+    /// <param name="itFem">It по МКЭ для контура сечения (при источниках Fem, MinAppendixDFem).</param>
+    public Sp16Section(PolygonSection canonicalPoly, SteelProfile profile, SteelMaterialProps mat,
+        TorsionConstantSource itSource = TorsionConstantSource.Catalog, TorsionConstantFem? itFem = null)
     {
         Poly = canonicalPoly;
         Profile = profile;
         Mat = mat;
+        ItSource = itSource;
+        ItFem = itFem;
     }
 
     /// <summary>Строит сечение по контуру (в осях контура) с распознаванием профиля, если он не задан.</summary>
-    public static Sp16Section FromContour(PolygonSection contourPoly, SteelProfile? profile, SteelMaterialProps mat)
+    public static Sp16Section FromContour(PolygonSection contourPoly, SteelProfile? profile, SteelMaterialProps mat,
+        TorsionConstantSource itSource = TorsionConstantSource.Catalog, TorsionConstantFem? itFem = null)
     {
         var p = profile ?? SteelProfileRecognizer.Recognize(contourPoly);
         var poly = p.Rotated90 ? contourPoly.SwapAxes() : contourPoly;
-        return new Sp16Section(poly, p, mat);
+        return new Sp16Section(poly, p, mat, itSource, itFem);
     }
 
     public SteelProfileKind Kind => Profile.Kind;
@@ -184,23 +190,65 @@ public sealed class Sp16Section
     public double Aw => Hw * Tw * WebCount;
 
     /// <summary>
-    /// Момент инерции при свободном кручении, м⁴: для двутавра и швеллера из сортамента — справочное
-    /// значение <see cref="SteelProfile.ItReference"/>, иначе <see cref="ItFormula"/>.
+    /// Момент инерции при свободном кручении, м⁴, по <see cref="ItSource"/>: сортамент (для двутавра и
+    /// швеллера из сортамента, иначе <see cref="ItFormula"/>), прил. Д, МКЭ или меньшее из прил. Д и МКЭ.
+    /// Если МКЭ не выполнен, принимается значение по сортаменту или прил. Д.
     /// </summary>
-    public double It => ItFromCatalog ? Profile.ItReference : ItFormula;
+    public double It => ResolveIt().Value;
 
-    /// <summary>It взят из сортамента, а не вычислен по прил. Д.</summary>
-    public bool ItFromCatalog => Profile.ItReference > 0 && Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel;
+    /// <summary>Выбранный источник It.</summary>
+    public TorsionConstantSource ItSource { get; }
 
-    /// <summary>Примечание об источнике It для отчёта: сортамент (со сравнением с прил. Д) или формула прил. Д.</summary>
+    /// <summary>It по МКЭ, вычисленный для контура сечения; null — не вычислялся.</summary>
+    public TorsionConstantFem? ItFem { get; }
+
+    /// <summary>It взят из сортамента, а не вычислен по прил. Д или МКЭ.</summary>
+    public bool ItFromCatalog => ResolveIt().Origin == ItOrigin.Catalog;
+
+    enum ItOrigin { Catalog, Formula, Fem }
+
+    bool HasCatalogIt => Profile.ItReference > 0 && Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel;
+    bool HasFemIt => ItFem is { Value: > 0 } f && double.IsFinite(f.Value);
+
+    (double Value, ItOrigin Origin) CatalogOrFormula() =>
+        HasCatalogIt ? (Profile.ItReference, ItOrigin.Catalog) : (ItFormula, ItOrigin.Formula);
+
+    (double Value, ItOrigin Origin) ResolveIt() => ItSource switch
+    {
+        TorsionConstantSource.AppendixD => (ItFormula, ItOrigin.Formula),
+        TorsionConstantSource.Fem => HasFemIt ? (ItFem!.Value, ItOrigin.Fem) : CatalogOrFormula(),
+        TorsionConstantSource.MinAppendixDFem => !HasFemIt ? (ItFormula > 0 ? (ItFormula, ItOrigin.Formula) : CatalogOrFormula())
+            : ItFormula > 0 && ItFormula <= ItFem!.Value ? (ItFormula, ItOrigin.Formula) : (ItFem!.Value, ItOrigin.Fem),
+        _ => CatalogOrFormula(),
+    };
+
+    /// <summary>
+    /// Примечание об источнике It для отчёта: принятое значение и его источник, остальные доступные
+    /// значения (прил. Д, сортамент, МКЭ) — для сравнения.
+    /// </summary>
     public string ItSourceNote
     {
         get
         {
-            static string Cm4(double v) => (v * 1e8).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-            return ItFromCatalog
-                ? $"It = {Cm4(It)} см⁴ — по сортаменту; по прил. Д, п. 1: {Cm4(ItFormula)} см⁴ ({(ItFormula / It - 1) * 100:+0.0;-0.0;0.0} %)"
-                : $"It = {Cm4(It)} см⁴ — по прил. Д, п. 1: (k/3)·Σbi·ti³";
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            string Cm4(double v) => (v * 1e8).ToString("0.###", inv);
+            var (it, origin) = ResolveIt();
+            string Cmp(double v) => it > 0 ? $" ({((v / it - 1) * 100).ToString("+0.0;-0.0;0.0", inv)} %)" : "";
+            string main = origin switch
+            {
+                ItOrigin.Catalog => $"It = {Cm4(it)} см⁴ — по сортаменту",
+                ItOrigin.Fem => $"It = {Cm4(it)} см⁴ — по МКЭ ({ItFem!.Details})",
+                _ => $"It = {Cm4(it)} см⁴ — по прил. Д, п. 1: (k/3)·Σbi·ti³",
+            };
+            var parts = new List<string> { main };
+            if (ItSource == TorsionConstantSource.MinAppendixDFem && HasFemIt && ItFormula > 0)
+                parts.Add("принято меньшее из значений по прил. Д и по МКЭ");
+            if (ItSource is TorsionConstantSource.Fem or TorsionConstantSource.MinAppendixDFem && !HasFemIt)
+                parts.Add($"МКЭ не выполнен{(ItFem is { Details: { Length: > 0 } d } ? ": " + d : "")}");
+            if (origin != ItOrigin.Formula && ItFormula > 0) parts.Add($"по прил. Д, п. 1: {Cm4(ItFormula)} см⁴{Cmp(ItFormula)}");
+            if (origin != ItOrigin.Catalog && HasCatalogIt) parts.Add($"по сортаменту: {Cm4(Profile.ItReference)} см⁴{Cmp(Profile.ItReference)}");
+            if (origin != ItOrigin.Fem && HasFemIt) parts.Add($"по МКЭ: {Cm4(ItFem!.Value)} см⁴{Cmp(ItFem.Value)}");
+            return string.Join("; ", parts);
         }
     }
 

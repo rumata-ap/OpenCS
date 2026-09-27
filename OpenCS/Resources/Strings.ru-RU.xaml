@@ -3456,6 +3456,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_EndMomentOneSide">момент на одном конце (M – 0)</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_EndMomentsOpposite">концевые моменты разных знаков (M – −M)</system:String>
     <system:String x:Key="Sp16Enum_LtbLoadKind_ConcentratedEnd">сила на конце консоли (табл. Ж.2)</system:String>
+    <system:String x:Key="Sp16ItSource">Момент инерции при свободном кручении It</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_Catalog">по сортаменту (иначе по прил. Д)</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_AppendixD">по прил. Д, п. 1: (k/3)·Σbi·ti³</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_Fem">по МКЭ (задача Сен-Венана)</system:String>
+    <system:String x:Key="Sp16Enum_TorsionConstantSource_MinAppendixDFem">меньшее из прил. Д и МКЭ</system:String>
+    <system:String x:Key="Sp16ItFemDetails">задача Сен-Венана, элементы T6, сетки h = {0} мм, {1}</system:String>
+    <system:String x:Key="Sp16ItFemExtrapolated">экстраполяция Ричардсона, порядок сходимости {0}</system:String>
+    <system:String x:Key="Sp16ItFemNotExtrapolated">без экстраполяции — значение с самой мелкой сетки</system:String>
+    <system:String x:Key="Sp16ItFemFailed">ошибка расчёта: {0}</system:String>
+    <system:String x:Key="Sp16ItFemNonPositive">получено неположительное It</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_None">без закреплений</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_OneAtMid">одно в середине</system:String>
     <system:String x:Key="Sp16Enum_LtbRestraints_TwoOrMore">два и более, равные части</system:String>

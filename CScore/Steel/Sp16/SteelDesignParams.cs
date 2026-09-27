@@ -107,6 +107,22 @@ public enum MomentShape
     PinnedTransverse = 2,
 }
 
+/// <summary>Источник момента инерции при свободном кручении It (прил. Ж, прил. Д).</summary>
+public enum TorsionConstantSource
+{
+    /// <summary>По сортаменту (двутавр, швеллер из сортамента); иначе — по прил. Д, п. 1.</summary>
+    Catalog = 0,
+    /// <summary>По прил. Д, п. 1: It = (k/3)·Σbi·ti³.</summary>
+    AppendixD = 1,
+    /// <summary>Задача Сен-Венана по МКЭ для контура сечения (экстраполяция Ричардсона).</summary>
+    Fem = 2,
+    /// <summary>Меньшее из значений по прил. Д и по МКЭ.</summary>
+    MinAppendixDFem = 3,
+}
+
+/// <summary>It по МКЭ, м⁴, и описание расчёта для примечаний; Value ≤ 0 — расчёт не выполнен (Details — причина).</summary>
+public sealed record TorsionConstantFem(double Value, string Details);
+
 /// <summary>
 /// Параметры проверки стального элемента по СП 16.13330.2017 (изм. № 1–6). Общие для
 /// расчётных задач и конструктивных элементов расчётных схем (ParamsJson / DesignParamsJson).
@@ -171,6 +187,18 @@ public sealed record SteelDesignParams
 
     /// <summary>Нагрузка передаётся через сплошной жёсткий настил, связанный со сжатым поясом (8.4.4 а).</summary>
     public bool ContinuousRigidDeck { get; init; }
+
+    /// <summary>Источник момента инерции при свободном кручении It.</summary>
+    public TorsionConstantSource ItSource { get; init; } = TorsionConstantSource.Catalog;
+
+    /// <summary>
+    /// It по МКЭ, вычисленный вызывающим кодом для контура сечения (не сохраняется); null — не вычислялся.
+    /// Используется при <see cref="ItSource"/> = Fem / MinAppendixDFem.
+    /// </summary>
+    [JsonIgnore] public TorsionConstantFem? ItFem { get; init; }
+
+    /// <summary>Источник It требует расчёта по МКЭ.</summary>
+    [JsonIgnore] public bool ItSourceNeedsFem => ItSource is TorsionConstantSource.Fem or TorsionConstantSource.MinAppendixDFem;
 
     // ── Местная нагрузка и стенка (8.2.2, 8.5) ──
 
