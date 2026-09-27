@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -21,6 +21,16 @@ public partial class SteelCheckResultView : UserControl
         DataContext = new SteelCheckResultVM(dataJson);
     }
 
+    /// <summary>Таблицы групп не перехватывают прокрутку колесом — прокручивается вся страница.</summary>
+    void Grid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled || sender is not DependencyObject d) return;
+        e.Handled = true;
+        var parent = VisualTreeHelper.GetParent(d) as UIElement;
+        parent?.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+            { RoutedEvent = MouseWheelEvent, Source = sender });
+    }
+
     private void ExportCsv_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not SteelCheckResultVM vm || vm.Details.Count == 0) return;
@@ -34,88 +44,64 @@ public partial class SteelCheckResultView : UserControl
         if (dlg.ShowDialog() != true) return;
 
         using var writer = new StreamWriter(dlg.FileName, false, System.Text.Encoding.UTF8);
-        var cfg = new CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            HasHeaderRecord = true,
-            Delimiter = ";"
-        };
-        using var csv = new CsvWriter(writer, cfg);
+        using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" });
 
-        // Заголовок
-        csv.WriteField("Формула");
-        csv.WriteField("Проверка");
-        csv.WriteField("Норма");
-        csv.WriteField("Трассировка");
-        csv.WriteField("Приложенное");
-        csv.WriteField("Допустимое");
-        csv.WriteField("Коэфф.");
-        csv.WriteField("Результат");
+        foreach (var key in new[] { "Sp16ColClause", "Sp16ColFormula", "Sp16ColDescription", "Sp16ColApplied",
+                     "Sp16ColAllowable", "Sp16ColRatio", "Sp16ColStatus", "Sp16ColVariables", "Sp16ColNotes" })
+            csv.WriteField(Loc.S(key));
         csv.NextRecord();
 
-        // Группы
         foreach (var group in vm.Groups)
         {
-            csv.NextRecord();
             csv.WriteField(group.Name);
             csv.NextRecord();
-
             foreach (var d in group.Items)
             {
+                csv.WriteField(d.Clause);
                 csv.WriteField(d.Formula);
                 csv.WriteField(d.Description);
-                csv.WriteField(d.NormRef);
-                csv.WriteField(d.Trace);
                 csv.WriteField(d.AppliedDisplay);
                 csv.WriteField(d.AllowableDisplay);
                 csv.WriteField(d.RatioText);
                 csv.WriteField(d.PassedText);
+                csv.WriteField(d.Trace);
+                csv.WriteField(d.NotesText);
                 csv.NextRecord();
             }
         }
 
-        // Итог
         csv.NextRecord();
-        csv.WriteField("");
         csv.WriteField(vm.VerdictText);
         csv.NextRecord();
     }
 }
 
 /// <summary>
-/// ViewModel для развёрнутого отчёта проверки стального сечения.
+/// ViewModel отчёта проверки стального сечения по СП 16. Читает результат схемы v2 (пункт, формула,
+/// статус, переменные, примечания; неопределённые числа — null) и прежнюю схему v1 (только просмотр).
 /// </summary>
 public class SteelCheckResultVM
 {
     public string SectionTag { get; } = "";
     public string SteelTag { get; } = "";
+    /// <summary>Наибольший коэффициент использования; NaN — не определён (ошибка или бесконечный).</summary>
     public double Utilization { get; }
     public bool Passed { get; }
-    public string UtilizationValue => $"{Loc.S("SteelCheckUtilizationLabel")}{Utilization:P1}";
-    public Brush UtilizationBrush => Utilization switch
-    {
-        < 0.8 => Brushes.Green,
-        < 1.0 => Brushes.DarkOrange,
-        _ => Brushes.Red
-    };
-    public string StatusValue => Passed
-        ? Loc.S("SteelCheckStatusPassed")
-        : Loc.S("SteelCheckStatusFailed");
+    public string StatusValue => Passed ? Loc.S("SteelCheckStatusPassed") : Loc.S("SteelCheckStatusFailed");
     public Brush StatusBrush => Passed
         ? new SolidColorBrush(Color.FromArgb(40, 0, 128, 0))
         : new SolidColorBrush(Color.FromArgb(40, 255, 0, 0));
 
-    // Контекст расчёта
-    public string ContextSummary { get; private set; } = "";
-    // Усилия
-    public string ForcesSummary { get; private set; } = "";
-    // Итоговый вердикт
-    public string VerdictText { get; private set; } = "";
+    /// <summary>Параметры расчёта и общие примечания.</summary>
+    public string ContextSummary { get; } = "";
+    public string ForcesSummary { get; } = "";
+    public string VerdictText { get; } = "";
     public Brush VerdictBrush => Passed ? Brushes.Green : Brushes.Red;
 
-    // Все детали
     public List<SteelCheckDetailVM> Details { get; } = [];
-    // Группы
     public List<SteelCheckGroupVM> Groups { get; } = [];
+    /// <summary>Определяющая проверка (наибольший коэффициент среди выполненных); null — нет выполненных.</summary>
+    public SteelCheckDetailVM? Worst { get; }
 
     public SteelCheckResultVM(string dataJson)
     {
@@ -130,250 +116,137 @@ public class SteelCheckResultVM
         }
         bool v2 = root.TryGetProperty("schemaVersion", out var version) && version.GetInt32() >= 2;
 
-        SectionTag = root.GetProperty("sectionTag").GetString() ?? "";
-        SteelTag = root.GetProperty("steelTag").GetString() ?? "";
-        Utilization = Number(root.GetProperty("utilization"));
+        SectionTag = Str(root, "sectionTag");
+        SteelTag = Str(root, "steelTag");
+        Utilization = Number(root, "utilization");
         Passed = root.TryGetProperty("passed", out var passed) ? passed.GetBoolean() : Utilization <= 1;
 
-        // Контекст
-        if (!v2 && root.TryGetProperty("context", out var ctx))
-        {
-            var sb = new StringBuilder();
-            sb.Append($"l₀x={ctx.GetProperty("l0x").GetDouble():F2} м");
-            sb.Append($"  l₀y={ctx.GetProperty("l0y").GetDouble():F2} м");
-            var muX = ctx.GetProperty("muX").GetDouble();
-            var muY = ctx.GetProperty("muY").GetDouble();
-            if (Math.Abs(muX - 1.0) > 0.001 || Math.Abs(muY - 1.0) > 0.001)
-                sb.Append($"  μx={muX:F2}  μy={muY:F2}");
-            var betaM = ctx.GetProperty("betaM").GetDouble();
-            if (Math.Abs(betaM - 1.0) > 0.001)
-                sb.Append($"  βm={betaM:F2}");
-            sb.Append($"  γM={ctx.GetProperty("gammaM").GetDouble():F3}");
-            var lbit = ctx.GetProperty("lbit").GetDouble();
-            if (lbit > 0.001)
-                sb.Append($"  lbit={lbit:F2} м");
-            ContextSummary = sb.ToString();
-        }
-
-        // Усилия (в кН, как в InternalForces)
-        if (!v2 && root.TryGetProperty("forces", out var f))
-        {
-            var sb = new StringBuilder();
-            var name = f.GetProperty("name").GetString();
-            if (!string.IsNullOrEmpty(name))
-                sb.Append($"{name}:  ");
-            sb.Append($"N = {f.GetProperty("n").GetDouble():F1} кН");
-            sb.Append($"  Mx = {f.GetProperty("mx").GetDouble():F1} кН·м");
-            sb.Append($"  My = {f.GetProperty("my").GetDouble():F1} кН·м");
-            var mz = f.GetProperty("mz").GetDouble();
-            var qy = f.GetProperty("qy").GetDouble();
-            var qz = f.GetProperty("qz").GetDouble();
-            if (Math.Abs(mz) > 0.01)
-                sb.Append($"  Mz = {mz:F1} кН·м");
-            if (Math.Abs(qy) > 0.01)
-                sb.Append($"  Qy = {qy:F1} кН");
-            if (Math.Abs(qz) > 0.01)
-                sb.Append($"  Qz = {qz:F1} кН");
-            ForcesSummary = sb.ToString();
-        }
-
-        // Детали
         if (root.TryGetProperty("details", out var arr))
-        {
             foreach (var d in arr.EnumerateArray())
             {
-                var formula = d.GetProperty("formula").GetString() ?? "";
+                var formula = Str(d, "formula");
                 var detail = new SteelCheckDetailVM
                 {
+                    Clause = Str(d, "clause"),
                     Formula = formula,
-                    Description = d.GetProperty("description").GetString() ?? "",
-                    NormRef = d.TryGetProperty("normRef", out var nr) ? (nr.GetString() ?? "") : "",
+                    Description = Str(d, "description"),
                     Category = d.TryGetProperty("category", out var cat) ? (cat.GetString() ?? "")
-                             : formula.StartsWith("8.") ? "strength"
-                             : formula.StartsWith("9.") ? "stability"
-                             : formula.StartsWith("10.") ? "constructive" : "",
-                    Applied = Number(d.GetProperty("applied")),
-                    Allowable = Number(d.GetProperty("allowable")),
-                    Ratio = Number(d.GetProperty("ratio")),
-                    NotApplicable = d.TryGetProperty("status", out var status) && status.GetString() == "NotApplicable",
-                    Passed = d.GetProperty("passed").GetBoolean()
+                        : formula.StartsWith("10.") ? "constructive"
+                        : formula.StartsWith("9.") ? "stability" : "strength",
+                    Applied = Number(d, "applied"),
+                    Allowable = Number(d, "allowable"),
+                    Ratio = Number(d, "ratio"),
+                    NotApplicable = Str(d, "status") == "NotApplicable",
+                    Passed = d.TryGetProperty("passed", out var p) && p.ValueKind == JsonValueKind.True,
                 };
-
-                // Переменные трассировки — показываем все с единицами
-                if (d.TryGetProperty("variables", out var vars))
-                {
-                    detail.Variables = [];
-                    foreach (var kv in vars.EnumerateObject())
-                        detail.Variables[kv.Name] = Number(kv.Value);
-                    detail.Trace = v2 ? string.Join("; ", detail.Variables.Select(v => $"{v.Key}={v.Value:G6}"))
-                        : FormatTrace(detail.Variables, formula);
-                }
-                if (d.TryGetProperty("notes", out var notes))
-                    detail.Trace += "\n" + string.Join("\n", notes.EnumerateArray().Select(n => n.GetString()));
-
+                if (detail.Clause.Length == 0 && d.TryGetProperty("normRef", out var nr)) detail.Clause = nr.GetString() ?? "";
+                if (d.TryGetProperty("variables", out var vars) && vars.ValueKind == JsonValueKind.Object)
+                    detail.Trace = string.Join(";  ", vars.EnumerateObject().Select(v => $"{v.Name} = {Display(Num(v.Value))}"));
+                if (d.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array)
+                    detail.NotesText = string.Join("\n", notes.EnumerateArray().Select(n => n.GetString()));
+                detail.AppliedDisplay = Display(detail.Applied);
+                detail.AllowableDisplay = Display(detail.Allowable);
                 Details.Add(detail);
             }
-        }
 
-        // Группировка
-        var strengthItems = Details.Where(d => d.Category == "strength").ToList();
-        var stabilityItems = Details.Where(d => d.Category == "stability").ToList();
-        var constructiveItems = Details.Where(d => d.Category == "constructive").ToList();
+        AddGroup("strength", "Sp16Strength", Color.FromRgb(41, 128, 185));
+        AddGroup("stability", "Sp16Stability", Color.FromRgb(142, 68, 173));
+        AddGroup("constructive", "Sp16Constructive", Color.FromRgb(39, 174, 96));
 
-        if (strengthItems.Count > 0)
-            Groups.Add(new SteelCheckGroupVM
-            {
-                Name = Loc.S("Sp16Strength"),
-                HeaderBrush = new SolidColorBrush(Color.FromRgb(41, 128, 185)),
-                Items = strengthItems,
-                MaxRatio = strengthItems.Max(d => d.Ratio)
-            });
-        if (stabilityItems.Count > 0)
-            Groups.Add(new SteelCheckGroupVM
-            {
-                Name = Loc.S("Sp16Stability"),
-                HeaderBrush = new SolidColorBrush(Color.FromRgb(142, 68, 173)),
-                Items = stabilityItems,
-                MaxRatio = stabilityItems.Max(d => d.Ratio)
-            });
-        if (constructiveItems.Count > 0)
-            Groups.Add(new SteelCheckGroupVM
-            {
-                Name = Loc.S("Sp16Constructive"),
-                HeaderBrush = new SolidColorBrush(Color.FromRgb(39, 174, 96)),
-                Items = constructiveItems,
-                MaxRatio = constructiveItems.Max(d => d.Ratio)
-            });
-
-        // Applied/Allowable с единицами
-        foreach (var det in Details)
-        {
-            det.AppliedDisplay = v2 ? Display(det.Applied) : FormatWithUnit(det.Applied, det.Formula);
-            det.AllowableDisplay = v2 ? Display(det.Allowable) : FormatWithUnit(det.Allowable, det.Formula);
-        }
-
-        // Вердикт
-        var worst = Details.OrderByDescending(d => d.Ratio).FirstOrDefault();
-        if (worst != null)
-        {
-            VerdictText = Utilization <= 1.0
-                ? $"ПРОЙДЕНО  —  коэфф. использования {Utilization:P1}"
-                : $"НЕ ПРОЙДЕНО  —  коэфф. использования {Utilization:P1}  (наихудшая: {worst.Formula} {worst.Description})";
-        }
+        var notesTop = root.TryGetProperty("notes", out var topNotes) && topNotes.ValueKind == JsonValueKind.Array
+            ? string.Join("\n", topNotes.EnumerateArray().Select(n => n.GetString())) : "";
         if (v2)
         {
             var c = root.GetProperty("context");
-            ContextSummary = string.Format(Loc.S("Sp16Context"), Number(c.GetProperty("lefX")),
-                Number(c.GetProperty("lefY")), Number(c.GetProperty("lefB")), Number(c.GetProperty("gammaC")));
-            if (root.TryGetProperty("notes", out var notes))
-                ContextSummary += "\n" + string.Join("\n", notes.EnumerateArray().Select(n => n.GetString()));
-            var force = root.GetProperty("forces");
-            ForcesSummary = string.Format(Loc.S("Sp16Forces"), Number(force.GetProperty("n")),
-                Number(force.GetProperty("mx")), Number(force.GetProperty("my")), Number(force.GetProperty("qx")),
-                Number(force.GetProperty("qy")), Number(force.GetProperty("t")));
-            VerdictText = StatusValue + " — " + Utilization.ToString("P1");
+            ContextSummary = string.Format(Loc.S("Sp16Context"), Number(c, "lefX"), Number(c, "lefY"),
+                Number(c, "lefB"), Number(c, "gammaC"));
+            var f = root.GetProperty("forces");
+            ForcesSummary = string.Format(Loc.S("Sp16Forces"), Number(f, "n"), Number(f, "mx"), Number(f, "my"),
+                Number(f, "qx"), Number(f, "qy"), Number(f, "t"));
+            var name = Str(f, "name");
+            if (name.Length > 0) ForcesSummary = name + ":  " + ForcesSummary;
         }
-    }
-
-    static double Number(JsonElement element) => element.ValueKind == JsonValueKind.Number ? element.GetDouble() : double.NaN;
-    static string Display(double value) => double.IsFinite(value) ? value.ToString("G6") : "—";
-
-    /// <summary>Applied/Allowable с единицами по типу проверки.</summary>
-    static string FormatWithUnit(double v, string formula)
-    {
-        // 10.x — гибкость (безразмерная)
-        if (formula.StartsWith("10."))
-            return v.ToString("F1");
-        // 8.4, 9.5 — гибкость (безразмерная)
-        if (formula is "8.4" or "9.5")
-            return v.ToString("F3");
-        // Силовые: всё в кН (кПа × м² = кН)
-        return $"{v:F1} кН";
-    }
-
-    /// <summary>Формат трассировки: кПа+м+кН, единицы для отображения.</summary>
-    static string FormatTrace(Dictionary<string, double> vars, string formula)
-    {
-        var parts = new List<string>();
-        foreach (var (key, val) in vars)
+        else
         {
-            string unit = key switch
-            {
-                // Силы и моменты — уже в кН / кН·м
-                "N" or "M" or "Mx" or "My" or "Mz" or "Q" or "Qy" or "Qz"
-                    => $"{val:F1} кН",
-                "Ncr" => $"{val:F1} кН",
-                // Площади — м² → см²
-                "Aeff" or "An" or "Aw" => $"{val * 1e4:F1} см²",
-                // Моменты сопротивления — м³ → см³
-                "Weff" or "Wx" or "Wy" or "Wt" => $"{val * 1e6:F1} см³",
-                // Моменты инерции — м⁴ → см⁴
-                "Ix" or "Iy" => $"{val * 1e8:F0} см⁴",
-                // Напряжения — кПа → МПа
-                "Ry" => $"{val / 1e3:F1} МПа",
-                "E" => $"{val / 1e6:F0} ГПа",
-                "τ" or "τcr" or "σ" => $"{val / 1e3:F1} МПа",
-                // Безразмерные коэффициенты
-                "φ" or "φb" or "φt" or "ρ" => val.ToString("F3"),
-                "λ̄" or "λ̄local" => val.ToString("F3"),
-                "η" or "βm" or "γM" or "ν" => val.ToString("F3"),
-                "k" => val.ToString("F1"),
-                // Размеры — м → мм
-                "a+5h0" or "a" or "h0" or "h" or "tw" => $"{val * 1e3:F1} мм",
-                _ => val.ToString("G4")
-            };
-            parts.Add($"{key} = {unit}");
+            // Схема v1 (старый модуль) — только просмотр сохранённых результатов.
+            ContextSummary = Loc.S("Sp16LegacyResult");
+            if (root.TryGetProperty("forces", out var f))
+                ForcesSummary = string.Format(Loc.S("Sp16Forces"), Number(f, "n"), Number(f, "mx"), Number(f, "my"),
+                    Number(f, "qy"), Number(f, "qz"), Number(f, "mz"));
         }
-        return string.Join(";  ", parts);
+        if (notesTop.Length > 0) ContextSummary += "\n" + notesTop;
+
+        // Определяющая проверка: не пройденная с неопределённым коэффициентом — наихудшая.
+        var worst = Worst = Details.Where(d => !d.NotApplicable).OrderByDescending(d => d.SortRatio).FirstOrDefault();
+        string util = double.IsFinite(Utilization) ? Utilization.ToString("P1") : "—";
+        VerdictText = worst == null ? StatusValue
+            : Passed ? string.Format(Loc.S("Sp16VerdictPassed"), util)
+            : string.Format(Loc.S("Sp16VerdictFailed"), util,
+                $"{worst.Clause} {worst.Formula} — {worst.Description}".Trim());
     }
+
+    void AddGroup(string category, string nameKey, Color color)
+    {
+        var items = Details.Where(d => d.Category == category).ToList();
+        if (items.Count == 0) return;
+        var applicable = items.Where(d => !d.NotApplicable).ToList();
+        Groups.Add(new SteelCheckGroupVM
+        {
+            Name = Loc.S(nameKey),
+            HeaderBrush = new SolidColorBrush(color),
+            Items = items,
+            MaxRatio = applicable.Count == 0 ? double.NaN : applicable.Max(d => d.SortRatio),
+            AnyFailed = applicable.Any(d => !d.Passed),
+        });
+    }
+
+    static string Str(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    static double Number(JsonElement e, string name) => e.TryGetProperty(name, out var v) ? Num(v) : double.NaN;
+    static double Num(JsonElement v) => v.ValueKind == JsonValueKind.Number ? v.GetDouble() : double.NaN;
+    internal static string Display(double value) => double.IsFinite(value) ? value.ToString("G4") : "—";
 }
 
-/// <summary>
-/// Группа проверок (Прочность / Устойчивость / Конструктивные).
-/// </summary>
+/// <summary>Группа проверок (прочность / устойчивость / предельная гибкость).</summary>
 public class SteelCheckGroupVM
 {
     public string Name { get; set; } = "";
     public Brush HeaderBrush { get; set; } = Brushes.Gray;
     public List<SteelCheckDetailVM> Items { get; set; } = [];
+    /// <summary>Наибольший коэффициент выполненных проверок (+∞ — не пройдена с неопределённым; NaN — нет выполненных).</summary>
     public double MaxRatio { get; set; }
-    public string MaxRatioText => $"max {MaxRatio:F3}";
-    public Brush MaxRatioBrush => MaxRatio switch
-    {
-        < 0.8 => Brushes.Green,
-        < 1.0 => Brushes.DarkOrange,
-        _ => Brushes.Red
-    };
+    public bool AnyFailed { get; set; }
+    public string MaxRatioText => double.IsNaN(MaxRatio) ? ""
+        : double.IsPositiveInfinity(MaxRatio) ? "max ∞" : $"max {MaxRatio:F3}";
+    public Brush MaxRatioBrush => AnyFailed || MaxRatio >= 1.0 ? Brushes.Red
+        : MaxRatio >= 0.8 ? Brushes.DarkOrange : Brushes.Green;
 }
 
-/// <summary>
-/// Детали одной проверки с трассировкой.
-/// </summary>
+/// <summary>Одна проверка: пункт, формула, значения, статус, переменные и примечания.</summary>
 public class SteelCheckDetailVM
 {
     public bool NotApplicable { get; set; }
+    public string Clause { get; set; } = "";
     public string Formula { get; set; } = "";
     public string Description { get; set; } = "";
-    public string NormRef { get; set; } = "";
     public string Category { get; set; } = "";
     public double Applied { get; set; }
     public double Allowable { get; set; }
     public double Ratio { get; set; }
     public bool Passed { get; set; }
+    /// <summary>Переменные расчёта «имя = значение».</summary>
     public string Trace { get; set; } = "";
-    public Dictionary<string, double> Variables { get; set; } = [];
+    /// <summary>Примечания и причина неприменимости.</summary>
+    public string NotesText { get; set; } = "";
     public string AppliedDisplay { get; set; } = "";
     public string AllowableDisplay { get; set; } = "";
-    public string RatioText => NotApplicable || !double.IsFinite(Ratio) ? "—" : Ratio.ToString("F3");
-    public string PassedText => NotApplicable ? Loc.S("Sp16NotApplicable") : Passed
-        ? Loc.S("SteelCheckOK")
-        : Loc.S("SteelCheckFail");
-    public Brush RatioBrush => Ratio switch
-    {
-        < 0.8 => Brushes.Green,
-        < 1.0 => Brushes.DarkOrange,
-        _ => Brushes.Red
-    };
+    /// <summary>Коэффициент для сравнения: не пройденная проверка без коэффициента — +∞.</summary>
+    public double SortRatio => double.IsFinite(Ratio) ? Ratio : Passed ? 0 : double.PositiveInfinity;
+    public string RatioText => NotApplicable ? "—" : double.IsFinite(Ratio) ? Ratio.ToString("F3") : Passed ? "—" : "∞";
+    public string PassedText => NotApplicable ? Loc.S("Sp16NotApplicable")
+        : Passed ? Loc.S("SteelCheckOK") : Loc.S("SteelCheckFail");
+    public Brush RatioBrush => NotApplicable ? Brushes.Gray : !Passed || SortRatio >= 1.0 ? Brushes.Red
+        : SortRatio >= 0.8 ? Brushes.DarkOrange : Brushes.Green;
     public Brush PassedBrush => NotApplicable ? Brushes.Gray : Passed ? Brushes.Green : Brushes.Red;
     public Brush RowBackground => NotApplicable ? Brushes.Transparent : Passed
         ? new SolidColorBrush(Color.FromArgb(0x1A, 0x2D, 0x7A, 0x3E))

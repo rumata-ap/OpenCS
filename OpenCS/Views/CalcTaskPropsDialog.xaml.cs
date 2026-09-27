@@ -49,7 +49,6 @@ public class CalcTaskSolverItem
 
 public class CalcTaskPropsDlgVM : ViewModelBase
 {
-    string _steelOriginalParamsJson = "{}";
    readonly AppViewModel _app;
    readonly Window _window;
 
@@ -162,9 +161,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string stage1ManualN = "0", stage1ManualMx = "0", stage1ManualMy = "0";
    string stage2ManualN = "0", stage2ManualMx = "0", stage2ManualMy = "0";
    // Steel check
-   string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
-   string steelMuX = "1.0", steelMuY = "1.0";
-   string steelGammaM = "1.0";
+   bool steelUseManualForces;
+   string steelManualVx = "0", steelManualVy = "0", steelManualT = "0";
     string torsionElementSize = "0.05", torsionMk = "";
     string torsionVx = "", torsionVy = "";
     string torsionN = "", torsionMx = "", torsionMy = "";
@@ -621,7 +619,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowEtaAutoPsiHint => SupportsEta && IsCrackWidthAny;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
-   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck
+   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || (IsSteelCheck && SteelUseManualForces)
       || IsCracking || IsCrackWidth || IsTotalCurvature || IsMomentCurvatureBiaxial;
 
    static bool IsLimitSingleKind(string kind)
@@ -693,6 +691,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
          OnPropertyChanged(nameof(IsPrestressLoss));
          OnPropertyChanged(nameof(IsSteelCheck));
+         OnPropertyChanged(nameof(ShowSteelManualForces));
          OnPropertyChanged(nameof(IsCracking));
          OnPropertyChanged(nameof(IsCrackingBatch));
          OnPropertyChanged(nameof(IsCrackWidth));
@@ -805,6 +804,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
             OnPropertyChanged(nameof(IsPrestressLoss));
             OnPropertyChanged(nameof(IsSteelCheck));
+            OnPropertyChanged(nameof(ShowSteelManualForces));
             OnPropertyChanged(nameof(IsCracking));
             OnPropertyChanged(nameof(IsCrackingBatch));
             OnPropertyChanged(nameof(IsCrackWidth));
@@ -1001,7 +1001,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       && !IsShearInclinedBatch
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
-      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces);
+      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces)
+      && (!IsSteelCheck || !SteelUseManualForces);
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
@@ -1009,7 +1010,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
-      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces);
+      && (!IsSp63Deflection || !Sp63DeflectionUseManualForces)
+      && (!IsSteelCheck || !SteelUseManualForces);
 
    void FilterSections()
    {
@@ -1638,11 +1640,42 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public string Stage2ManualMy { get => stage2ManualMy; set { stage2ManualMy = value; OnPropertyChanged(); } }
 
     // Steel check parameters
-    public string SteelDesignLengthX { get => steelDesignLengthX; set { steelDesignLengthX = value; OnPropertyChanged(); } }
-    public string SteelDesignLengthY { get => steelDesignLengthY; set { steelDesignLengthY = value; OnPropertyChanged(); } }
-    public string SteelMuX { get => steelMuX; set { steelMuX = value; OnPropertyChanged(); } }
-    public string SteelMuY { get => steelMuY; set { steelMuY = value; OnPropertyChanged(); } }
-    public string SteelGammaM { get => steelGammaM; set { steelGammaM = value; OnPropertyChanged(); } }
+    /// <summary>Редактор параметров СП 16.</summary>
+    public SteelDesignParamsEditorVM SteelEditor { get; } = new();
+
+    /// <summary>Стальная задача: ручные усилия вместо строки набора (при включении — начальные значения из строки).</summary>
+    public bool SteelUseManualForces
+    {
+       get => steelUseManualForces;
+       set
+       {
+          if (value && !steelUseManualForces && SelectedForceItem is { } item)
+          {
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             ManualN = item.N.ToString("G6", inv);
+             ManualMx = item.Mx.ToString("G6", inv);
+             ManualMy = item.My.ToString("G6", inv);
+             SteelManualVx = item.Vx.ToString("G6", inv);
+             SteelManualVy = item.Vy.ToString("G6", inv);
+             SteelManualT = item.T.ToString("G6", inv);
+          }
+          steelUseManualForces = value;
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(ShowManualForces));
+          OnPropertyChanged(nameof(ShowSteelManualForces));
+          OnPropertyChanged(nameof(ShowStandardForce));
+          OnPropertyChanged(nameof(ShowForceItem));
+       }
+    }
+
+    /// <summary>Показывать ручные поперечные силы и крутящий момент стальной задачи.</summary>
+    public bool ShowSteelManualForces => IsSteelCheck && SteelUseManualForces;
+    /// <summary>Ручная поперечная сила Vx (сопутствует My), кН.</summary>
+    public string SteelManualVx { get => steelManualVx; set { steelManualVx = value; OnPropertyChanged(); } }
+    /// <summary>Ручная поперечная сила Vy (сопутствует Mx), кН.</summary>
+    public string SteelManualVy { get => steelManualVy; set { steelManualVy = value; OnPropertyChanged(); } }
+    /// <summary>Ручной крутящий момент, кН·м (не проверяется — примечание в результате).</summary>
+    public string SteelManualT { get => steelManualT; set { steelManualT = value; OnPropertyChanged(); } }
 
    public string TorsionElementSize
    {
@@ -2100,20 +2133,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           // Загрузка параметров стальных задач при редактировании
           if (IsSteelCheck && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
           {
-              _steelOriginalParamsJson = existing.ParamsJson;
               var sp = CScore.Sp16.SteelDesignParams.Parse(existing.ParamsJson);
               var inv = System.Globalization.CultureInfo.InvariantCulture;
-              SteelDesignLengthX = sp.LefX.ToString("G6", inv);
-              SteelDesignLengthY = sp.LefY.ToString("G6", inv);
-              SteelMuX = "1";
-              SteelMuY = "1";
-              SteelGammaM = sp.GammaC.ToString("G6", inv);
+              SteelEditor.Load(sp);
 
               if (sp.ManualForces != null)
               {
+                  // Сначала режим (он подставляет значения из строки набора), затем сохранённые значения.
+                  SteelUseManualForces = true;
                   ManualN  = sp.ManualForces.N .ToString("G6", inv);
                   ManualMx = sp.ManualForces.Mx.ToString("G6", inv);
                   ManualMy = sp.ManualForces.My.ToString("G6", inv);
+                  SteelManualVx = sp.ManualForces.Qy.ToString("G6", inv);
+                  SteelManualVy = sp.ManualForces.Qz.ToString("G6", inv);
+                  SteelManualT  = sp.ManualForces.Mz.ToString("G6", inv);
               }
           }
 
@@ -3368,26 +3401,36 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               return;
           }
 
-          var inv = System.Globalization.CultureInfo.InvariantCulture;
           // Нераспознанное число не должно молча становиться 0: lef = 0 даёт φ = 1 и «проходящую» устойчивость.
-          bool Positive(string s, out double v) =>
-              double.TryParse(s, System.Globalization.NumberStyles.Float, inv, out v) && double.IsFinite(v) && v > 0;
-          if (!Positive(SteelDesignLengthX, out var dlx) || !Positive(SteelDesignLengthY, out var dly)
-              || !Positive(SteelMuX, out var mux) || !Positive(SteelMuY, out var muy) || !Positive(SteelGammaM, out var gm))
+          if (!SteelEditor.TryBuild(out var steelParams, out var steelError))
           {
-              MessageBox.Show(Loc.S("Sp16InvalidParameters"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              MessageBox.Show(steelError, Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
               return;
           }
 
           CScore.Sp16.SteelManualForces? mf = null;
-          if (ShowManualForces)
+          if (SteelUseManualForces)
           {
-              double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var n);
-              double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mx);
-              double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var my);
-              mf = (CScore.Sp16.SteelDesignParams.Parse(_steelOriginalParamsJson).ManualForces
-                  ?? new CScore.Sp16.SteelManualForces()) with { N = n, Mx = mx, My = my };
+              double?[] values = [SteelDesignParamsEditorVM.ParseNumber(ManualN), SteelDesignParamsEditorVM.ParseNumber(ManualMx),
+                  SteelDesignParamsEditorVM.ParseNumber(ManualMy), SteelDesignParamsEditorVM.ParseNumber(SteelManualVx),
+                  SteelDesignParamsEditorVM.ParseNumber(SteelManualVy), SteelDesignParamsEditorVM.ParseNumber(SteelManualT)];
+              if (values.Any(v => v == null))
+              {
+                  MessageBox.Show(Loc.S("Sp16InvalidForces"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              // Совместимый формат: Qy = Vx, Qz = Vy, Mz = T.
+              mf = new CScore.Sp16.SteelManualForces
+              {
+                  N = values[0]!.Value, Mx = values[1]!.Value, My = values[2]!.Value,
+                  Qy = values[3]!.Value, Qz = values[4]!.Value, Mz = values[5]!.Value,
+              };
+          }
+          else if (Kind != "steel_constructive" && (SelectedForceSet == null || SelectedForceItem == null))
+          {
+              // Предельной гибкости усилия не обязательны; остальным видам нужна строка набора.
+              MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+              return;
           }
 
           Result = new CalcTask
@@ -3395,16 +3438,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
               Kind = Kind,
               SectionId = SelectedSection.Id,
-              ForceSetId = ShowManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
-              ForceItemId = ShowManualForces ? 0 : (ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0),
+              ForceSetId = SteelUseManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
+              ForceItemId = SteelUseManualForces ? 0 : (SelectedForceItem?.Id ?? 0),
               CalcType = SelectedCalcType,
-              ParamsJson = (CScore.Sp16.SteelDesignParams.Parse(_steelOriginalParamsJson) with
-              {
-                  LefX = dlx * mux,
-                  LefY = dly * muy,
-                  GammaC = gm,
-                  ManualForces = mf
-              }).ToJson()
+              ParamsJson = (steelParams with { ManualForces = mf }).ToJson()
           };
           _window.DialogResult = true;
           return;

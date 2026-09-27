@@ -1,0 +1,191 @@
+<UserControl x:Class="OpenCS.Views.SteelDesignParamsEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Редактор параметров СП 16 (DataContext — SteelDesignParamsEditorVM) -->
+    <UserControl.Resources>
+        <Style x:Key="Lbl" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="Width" Value="{Binding LabelWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="Row" TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="Chk" TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,2,0,4"/>
+        </Style>
+        <Style x:Key="Exp" TargetType="Expander">
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <BooleanToVisibilityConverter x:Key="B2V"/>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- Общие -->
+        <Expander Header="{DynamicResource Sp16EditorGeneral}" IsExpanded="True" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16GammaC}"/>
+                    <TextBox Text="{Binding GammaC, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LefX}"/>
+                    <TextBox Text="{Binding LefX, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LefY}"/>
+                    <TextBox Text="{Binding LefY, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16NetAreaRatio}"/>
+                    <TextBox Text="{Binding NetAreaRatio, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16TensionYieldAllowed}"
+                          IsChecked="{Binding TensionYieldAllowed}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16UseGammaRes}"
+                          IsChecked="{Binding UseGammaRes}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16DynamicLoad}"
+                          IsChecked="{Binding DynamicLoad}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Устойчивость плоской формы изгиба -->
+        <Expander Header="{DynamicResource Sp16EditorLtb}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LefB}"/>
+                    <TextBox Text="{Binding LefB, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LtbLoad}"/>
+                    <ComboBox ItemsSource="{Binding LtbLoadOptions}" SelectedItem="{Binding LtbLoad}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LtbRestraints}"/>
+                    <ComboBox ItemsSource="{Binding LtbRestraintsOptions}" SelectedItem="{Binding LtbRestraints}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16LtbLoadOnTensionFlange}"
+                          IsChecked="{Binding LtbLoadOnTensionFlange}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16LtbFixedEnds}"
+                          IsChecked="{Binding LtbFixedEnds}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16Cantilever}"
+                          IsChecked="{Binding Cantilever}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16ContinuousRigidDeck}"
+                          IsChecked="{Binding ContinuousRigidDeck}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Пластические деформации -->
+        <Expander Header="{DynamicResource Sp16EditorPlastic}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16AllowPlastic}"
+                          IsChecked="{Binding AllowPlastic}"/>
+                <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding AllowPlastic}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16GammaFEq}"/>
+                    <TextBox Text="{Binding GammaFEq, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16PureBendingZone}"
+                          IsChecked="{Binding PureBendingZone}" IsEnabled="{Binding AllowPlastic}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Местная нагрузка и стенка -->
+        <Expander Header="{DynamicResource Sp16EditorWeb}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16LocalForce}"/>
+                    <TextBox Text="{Binding LocalForce, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16BearingLength}"/>
+                    <TextBox Text="{Binding BearingLength, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16FlangeWeldLeg}"/>
+                    <TextBox Text="{Binding FlangeWeldLeg, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16RibSpacing}"/>
+                    <TextBox Text="{Binding RibSpacing, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16OneSidedFlangeWelds}"
+                          IsChecked="{Binding OneSidedFlangeWelds}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16FrictionFlangeJoints}"
+                          IsChecked="{Binding FrictionFlangeJoints}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Сжатие с изгибом -->
+        <Expander Header="{DynamicResource Sp16EditorCompressionBending}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16MomentShape}"/>
+                    <ComboBox ItemsSource="{Binding MomentShapeOptions}" SelectedItem="{Binding MomentShape}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}"
+                           Visibility="{Binding ShowEndMomentRatio, Converter={StaticResource B2V}}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16EndMomentRatio}"/>
+                    <TextBox Text="{Binding EndMomentRatio, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}"
+                           Visibility="{Binding ShowMiddleThirdRatio, Converter={StaticResource B2V}}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16MiddleThirdMomentRatio}"/>
+                    <TextBox Text="{Binding MiddleThirdMomentRatio, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16CantileverColumn}"
+                          IsChecked="{Binding CantileverColumn}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16UseFormula121a}"
+                          IsChecked="{Binding UseFormula121a}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Предельная гибкость -->
+        <Expander Header="{DynamicResource Sp16EditorSlenderness}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16CompressionCategory}"/>
+                    <ComboBox ItemsSource="{Binding CompressionCategoryOptions}" SelectedItem="{Binding CompressionCategory}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16TensionCategory}"/>
+                    <ComboBox ItemsSource="{Binding TensionCategoryOptions}" SelectedItem="{Binding TensionCategory}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16TensionLoad}"/>
+                    <ComboBox ItemsSource="{Binding TensionLoadOptions}" SelectedItem="{Binding TensionLoad}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16Group4}"
+                          IsChecked="{Binding Group4}"/>
+                <CheckBox Style="{StaticResource Chk}" Content="{DynamicResource Sp16SlendernessGovernsSection}"
+                          IsChecked="{Binding SlendernessGovernsSection}"/>
+            </StackPanel>
+        </Expander>
+
+        <!-- Переопределения -->
+        <Expander Header="{DynamicResource Sp16EditorOverrides}" Style="{StaticResource Exp}">
+            <StackPanel Margin="16,4,0,0">
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16CurveX}"/>
+                    <ComboBox ItemsSource="{Binding CurveOptions}" SelectedItem="{Binding CurveX}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16CurveY}"/>
+                    <ComboBox ItemsSource="{Binding CurveOptions}" SelectedItem="{Binding CurveY}"
+                              DisplayMemberPath="Label"/>
+                </DockPanel>
+                <DockPanel Style="{StaticResource Row}">
+                    <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource Sp16EtaOverride}"/>
+                    <TextBox Text="{Binding EtaOverride, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+            </StackPanel>
+        </Expander>
+    </StackPanel>
+</UserControl>

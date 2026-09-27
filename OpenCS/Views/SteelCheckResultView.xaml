@@ -17,12 +17,12 @@
             <TextBlock Text="{Binding SteelTag}" Margin="0,2,0,0" Foreground="Gray"/>
         </StackPanel>
 
-        <!-- Контекст расчёта -->
+        <!-- Контекст расчёта и примечания -->
         <Border Grid.Row="1" Padding="8,6" Margin="0,0,0,4" CornerRadius="4"
                 Background="#F0F4F8" BorderBrush="#D5DDE5" BorderThickness="1">
             <StackPanel>
-                <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#555" Text="Параметры расчёта:"/>
-                <TextBlock FontSize="12" Text="{Binding ContextSummary}" Margin="0,2,0,0"/>
+                <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#555" Text="{DynamicResource Sp16ResultContext}"/>
+                <TextBlock FontSize="12" Text="{Binding ContextSummary}" Margin="0,2,0,0" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
@@ -30,15 +30,15 @@
         <Border Grid.Row="2" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
                 Background="#FFF8F0" BorderBrush="#E8D5C0" BorderThickness="1">
             <StackPanel>
-                <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#555" Text="Усилия:"/>
-                <TextBlock FontSize="12" Text="{Binding ForcesSummary}" Margin="0,2,0,0"/>
+                <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#555" Text="{DynamicResource Sp16ResultForces}"/>
+                <TextBlock FontSize="12" Text="{Binding ForcesSummary}" Margin="0,2,0,0" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
         <!-- Вердикт -->
         <Border Grid.Row="3" Padding="12,8" Margin="0,0,0,8" CornerRadius="4"
                 Background="{Binding StatusBrush}">
-            <TextBlock Text="{Binding VerdictText}" HorizontalAlignment="Center"
+            <TextBlock Text="{Binding VerdictText}" HorizontalAlignment="Center" TextWrapping="Wrap"
                        FontWeight="Bold" FontSize="14" Foreground="{Binding VerdictBrush}"/>
         </Border>
 
@@ -47,7 +47,7 @@
                 HorizontalAlignment="Left" Padding="12,4"
                 Click="ExportCsv_Click"/>
 
-        <!-- Группы проверок — текстовый вывод -->
+        <!-- Группы проверок -->
         <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
@@ -62,46 +62,52 @@
                                                FontWeight="SemiBold" Foreground="{Binding MaxRatioBrush}"/>
                                 </StackPanel>
                             </Expander.Header>
-                            <ItemsControl ItemsSource="{Binding Items}" Margin="4,4,0,0">
-                                <ItemsControl.ItemTemplate>
+                            <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      CanUserSortColumns="False" CanUserReorderColumns="False"
+                                      RowDetailsVisibilityMode="Visible" Margin="4,4,0,0"
+                                      PreviewMouseWheel="Grid_PreviewMouseWheel">
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Setter Property="Background" Value="{Binding RowBackground}"/>
+                                    </Style>
+                                </DataGrid.RowStyle>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{DynamicResource Sp16ColClause}" Binding="{Binding Clause}"/>
+                                    <DataGridTextColumn Header="{DynamicResource Sp16ColFormula}" Binding="{Binding Formula}"/>
+                                    <DataGridTemplateColumn Header="{DynamicResource Sp16ColDescription}" Width="*" MinWidth="200">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="{DynamicResource Sp16ColApplied}" Binding="{Binding AppliedDisplay}"/>
+                                    <DataGridTextColumn Header="{DynamicResource Sp16ColAllowable}" Binding="{Binding AllowableDisplay}"/>
+                                    <DataGridTemplateColumn Header="{DynamicResource Sp16ColRatio}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding RatioText}" FontWeight="Bold" Foreground="{Binding RatioBrush}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="{DynamicResource Sp16ColStatus}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding PassedText}" FontWeight="Bold" Foreground="{Binding PassedBrush}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                                <DataGrid.RowDetailsTemplate>
                                     <DataTemplate>
-                                        <Border Margin="0,0,0,6" Padding="8,6" CornerRadius="4"
-                                                Background="{Binding RowBackground}"
-                                                BorderBrush="#E0E0E0" BorderThickness="1">
-                                            <StackPanel>
-                                                <!-- Строка: формула + описание + коэфф. -->
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock FontWeight="Bold" Foreground="#2C3E50">
-                                                        <Run Text="{Binding Formula, Mode=OneWay}"/>
-                                                        <Run Text="  "/>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding Description}" FontWeight="SemiBold"/>
-                                                    <TextBlock Margin="12,0,0,0" Foreground="#555">
-                                                        <Run Text="{Binding AppliedDisplay, Mode=OneWay}"/>
-                                                        <Run Text=" ≤ "/>
-                                                        <Run Text="{Binding AllowableDisplay, Mode=OneWay}"/>
-                                                        <Run Text="  →  "/>
-                                                    </TextBlock>
-                                                    <TextBlock FontWeight="Bold" Foreground="{Binding RatioBrush}">
-                                                        <Run Text="{Binding RatioText, Mode=OneWay}"/>
-                                                    </TextBlock>
-                                                    <TextBlock Margin="8,0,0,0" FontWeight="Bold"
-                                                               Foreground="{Binding PassedBrush}">
-                                                        <Run Text="{Binding PassedText, Mode=OneWay}"/>
-                                                    </TextBlock>
-                                                </StackPanel>
-                                                <!-- Норма -->
-                                                <TextBlock FontSize="11" Foreground="#888" Margin="0,2,0,0"
-                                                           Text="{Binding NormRef}"/>
-                                                <!-- Трассировка -->
-                                                <TextBlock FontSize="11" Foreground="#6A5ACD" Margin="0,2,0,0"
-                                                           Text="{Binding Trace}"
-                                                           TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                        </Border>
+                                        <StackPanel Margin="8,0,8,4">
+                                            <TextBlock FontSize="11" Foreground="#6A5ACD" Text="{Binding Trace}" TextWrapping="Wrap"/>
+                                            <TextBlock FontSize="11" Foreground="#8A6D3B" Text="{Binding NotesText}" TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                </DataGrid.RowDetailsTemplate>
+                            </DataGrid>
                         </Expander>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

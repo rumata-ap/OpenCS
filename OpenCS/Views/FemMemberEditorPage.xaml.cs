@@ -37,7 +37,8 @@ public class FemMemberEditorVM : ViewModelBase
     readonly DatabaseService _db;
     readonly AppViewModel    _app;
     readonly FemMemberGroup  _member;
-    CScore.Sp16.SteelDesignParams _params;
+    /// <summary>Редактор параметров СП 16 (стальные стержни).</summary>
+    public SteelDesignParamsEditorVM SteelEditor { get; } = new();
 
     public string Tag
     {
@@ -119,10 +120,6 @@ public class FemMemberEditorVM : ViewModelBase
         set { _selectedForceSet = value; OnPropertyChanged(); }
     }
 
-    public double DesignLengthX { get => _params.LefX; set { _params = _params with { LefX = value }; OnPropertyChanged(); } }
-    public double DesignLengthY { get => _params.LefY; set { _params = _params with { LefY = value }; OnPropertyChanged(); } }
-    public double GammaC { get => _params.GammaC; set { _params = _params with { GammaC = value }; OnPropertyChanged(); } }
-    public double DesignLengthBit { get => _params.LefB; set { _params = _params with { LefB = value }; OnPropertyChanged(); } }
 
     /// <summary>Параметры СП 16 нужны только стальным стержням: скрыты для пластин, ЖБ-сечений
     /// (есть бетонная область) и пока сечение не выбрано.</summary>
@@ -138,7 +135,7 @@ public class FemMemberEditorVM : ViewModelBase
         _member = member;
         _app    = app;
         _db     = app.db;
-        _params = CScore.Sp16.SteelDesignParams.Parse(member.DesignParamsJson);
+        SteelEditor.Load(CScore.Sp16.SteelDesignParams.Parse(member.DesignParamsJson));
 
         // CrossSectionId — собственное поле каждого элемента, а не группы
         // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — начальный
@@ -153,9 +150,20 @@ public class FemMemberEditorVM : ViewModelBase
 
     void Save()
     {
+        // Параметры СП 16 проверяются только когда они видны (стальной стержень); иначе сохраняются как были.
+        CScore.Sp16.SteelDesignParams? steel = null;
+        if (ShowSteelParams)
+        {
+            if (!SteelEditor.TryBuild(out var built, out var error))
+            {
+                MessageBox.Show(error, Loc.S("Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            steel = built;
+        }
         _member.PlateSectionId   = IsPlateType ? _selectedPlateSection?.Id : null;
         _member.ForceSetId       = _selectedForceSet?.Id;
-        _member.DesignParamsJson = _params.ToJson();
+        if (steel != null) _member.DesignParamsJson = steel.ToJson();
         _db.SaveFemMemberGroup(_member);
 
         // Сечение назначается напрямую каждому элементу группы — эта страница проставляет выбранное

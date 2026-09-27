@@ -65,37 +65,7 @@
                 <GroupBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                           Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,4,0,0"
                           Visibility="{Binding ShowSteelParams, Converter={StaticResource BoolToVisibility}}">
-                    <Grid Margin="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp16LefX}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="0" Grid.Column="1"
-                                   Text="{Binding DesignLengthX, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Sp16LefY}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="0" Grid.Column="3"
-                                   Text="{Binding DesignLengthY, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,0,4"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthBit}"
-                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
-                        <TextBox   Grid.Row="3" Grid.Column="1"
-                                   Text="{Binding DesignLengthBit, UpdateSourceTrigger=PropertyChanged}"
-                                   Margin="0,0,8,4"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp16GammaC}"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding GammaC, UpdateSourceTrigger=PropertyChanged}"/>
-                    </Grid>
+                    <local:SteelDesignParamsEditor DataContext="{Binding SteelEditor}" LabelWidth="180" Margin="4"/>
                 </GroupBox>
 
                 <Button Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
