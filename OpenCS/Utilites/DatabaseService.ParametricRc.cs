@@ -16,9 +16,22 @@ public partial class DatabaseService
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(record);
+        SaveParametricSectionCore(section, "parametric_rc_sections", "parametric_rc_generated_areas",
+            record.DefinitionVersion, record.GeneratorVersion, record.DefinitionJson,
+            record.GeneratedFingerprint, generatedAreas);
+    }
 
+    /// <summary>
+    /// Общая атомарная запись параметрического сечения: области, сечение, junction
+    /// <paramref name="junctionTable"/> и source <paramref name="sourceTable"/>; прежние
+    /// сгенерированные области, на которые больше нет ссылок, удаляются.
+    /// </summary>
+    void SaveParametricSectionCore(CrossSection section, string sourceTable, string junctionTable,
+        int definitionVersion, int generatorVersion, string definitionJson, string fingerprint,
+        IEnumerable<MaterialArea>? generatedAreas)
+    {
         var generated = (generatedAreas ?? section.Areas).Distinct().ToList();
-        var oldGeneratedIds = ReadGeneratedAreaIds(section.Id);
+        var oldGeneratedIds = ReadGeneratedAreaIds(junctionTable, section.Id);
         var originalSectionId = section.Id;
         var originalAreaIds = section.Areas.ToDictionary(a => a, a => a.Id);
         var originalGroupIds = section.Areas.SelectMany(a => a.Stirrups)
@@ -45,7 +58,7 @@ public partial class DatabaseService
 
             using (var deleteMap = _connection.CreateCommand())
             {
-                deleteMap.CommandText = "DELETE FROM parametric_rc_generated_areas WHERE section_id=@sid";
+                deleteMap.CommandText = $"DELETE FROM {junctionTable} WHERE section_id=@sid";
                 deleteMap.Parameters.AddWithValue("@sid", section.Id);
                 deleteMap.ExecuteNonQuery();
             }
@@ -54,7 +67,7 @@ public partial class DatabaseService
                 if (area.Id == 0)
                     throw new InvalidOperationException($"Сгенерированная область «{area.Tag}» не получила Id.");
                 using var insertMap = _connection.CreateCommand();
-                insertMap.CommandText = "INSERT INTO parametric_rc_generated_areas(section_id,area_id) VALUES(@sid,@aid)";
+                insertMap.CommandText = $"INSERT INTO {junctionTable}(section_id,area_id) VALUES(@sid,@aid)";
                 insertMap.Parameters.AddWithValue("@sid", section.Id);
                 insertMap.Parameters.AddWithValue("@aid", area.Id);
                 insertMap.ExecuteNonQuery();
@@ -62,18 +75,18 @@ public partial class DatabaseService
 
             using (var source = _connection.CreateCommand())
             {
-                source.CommandText = """
-                    INSERT INTO parametric_rc_sections(section_id,definition_version,generator_version,definition_json,generated_fingerprint)
+                source.CommandText = $"""
+                    INSERT INTO {sourceTable}(section_id,definition_version,generator_version,definition_json,generated_fingerprint)
                     VALUES(@sectionId,@definitionVersion,@generatorVersion,@definitionJson,@fingerprint)
                     ON CONFLICT(section_id) DO UPDATE SET definition_version=excluded.definition_version,
                       generator_version=excluded.generator_version, definition_json=excluded.definition_json,
                       generated_fingerprint=excluded.generated_fingerprint
                     """;
                 source.Parameters.AddWithValue("@sectionId", section.Id);
-                source.Parameters.AddWithValue("@definitionVersion", record.DefinitionVersion);
-                source.Parameters.AddWithValue("@generatorVersion", record.GeneratorVersion);
-                source.Parameters.AddWithValue("@definitionJson", record.DefinitionJson);
-                source.Parameters.AddWithValue("@fingerprint", record.GeneratedFingerprint);
+                source.Parameters.AddWithValue("@definitionVersion", definitionVersion);
+                source.Parameters.AddWithValue("@generatorVersion", generatorVersion);
+                source.Parameters.AddWithValue("@definitionJson", definitionJson);
+                source.Parameters.AddWithValue("@fingerprint", fingerprint);
                 source.ExecuteNonQuery();
             }
 
@@ -114,7 +127,7 @@ public partial class DatabaseService
 
     /// <summary>Возвращает Id областей, ранее созданных для source-записи.</summary>
     public IReadOnlyList<int> GetParametricGeneratedAreaIds(int sectionId) =>
-        ReadGeneratedAreaIds(sectionId);
+        ReadGeneratedAreaIds("parametric_rc_generated_areas", sectionId);
 
     /// <summary>Удаляет только параметрический source и junction.</summary>
     public void DetachParametricRcSection(int sectionId)
@@ -135,11 +148,11 @@ public partial class DatabaseService
         }
     }
 
-    List<int> ReadGeneratedAreaIds(int sectionId)
+    List<int> ReadGeneratedAreaIds(string junctionTable, int sectionId)
     {
         if (sectionId == 0) return [];
         using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT area_id FROM parametric_rc_generated_areas WHERE section_id=@sid";
+        cmd.CommandText = $"SELECT area_id FROM {junctionTable} WHERE section_id=@sid";
         cmd.Parameters.AddWithValue("@sid", sectionId);
         using var reader = cmd.ExecuteReader();
         var ids = new List<int>();

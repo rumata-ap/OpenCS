@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 60;
+      const int CurrentSchemaVersion = 61;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -80,6 +80,7 @@ namespace OpenCS.Utilites
          [57] = MigrateV58,
          [58] = MigrateV59,
          [59] = MigrateV60,
+         [60] = MigrateV61,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -349,6 +350,18 @@ namespace OpenCS.Utilites
                 generated_fingerprint TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS parametric_rc_generated_areas (
+                section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                area_id INTEGER NOT NULL REFERENCES material_areas(id),
+                PRIMARY KEY(section_id, area_id)
+            );
+            CREATE TABLE IF NOT EXISTS parametric_steel_sections (
+                section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
+                definition_version INTEGER NOT NULL,
+                generator_version INTEGER NOT NULL,
+                definition_json TEXT NOT NULL,
+                generated_fingerprint TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS parametric_steel_generated_areas (
                 section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
                 area_id INTEGER NOT NULL REFERENCES material_areas(id),
                 PRIMARY KEY(section_id, area_id)
@@ -1536,6 +1549,22 @@ namespace OpenCS.Utilites
          );
          """);
 
+      /// <summary>Миграция v61: источник параметрического стального сечения («Параметрические МК»).</summary>
+      void MigrateV61() => MigExec("""
+         CREATE TABLE IF NOT EXISTS parametric_steel_sections (
+             section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
+             definition_version INTEGER NOT NULL,
+             generator_version INTEGER NOT NULL,
+             definition_json TEXT NOT NULL,
+             generated_fingerprint TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS parametric_steel_generated_areas (
+             section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+             area_id INTEGER NOT NULL REFERENCES material_areas(id),
+             PRIMARY KEY(section_id, area_id)
+         );
+         """);
+
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
       void MigrateV24()
       {
@@ -2232,6 +2261,10 @@ namespace OpenCS.Utilites
                DELETE FROM cross_section_stages           WHERE section_id=@id;
                DELETE FROM cross_section_stage_kurvature   WHERE section_id=@id;
                DELETE FROM cross_section_areas             WHERE section_id=@id;
+               DELETE FROM parametric_rc_generated_areas    WHERE section_id=@id;
+               DELETE FROM parametric_rc_sections           WHERE section_id=@id;
+               DELETE FROM parametric_steel_generated_areas WHERE section_id=@id;
+               DELETE FROM parametric_steel_sections        WHERE section_id=@id;
                DELETE FROM cross_sections                  WHERE id=@id;
             """;
             cmd.Parameters.AddWithValue("@id", section.Id);
