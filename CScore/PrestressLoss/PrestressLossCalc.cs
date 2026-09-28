@@ -1,28 +1,25 @@
 using System;
 using System.Linq;
+using CScore.Sp63.CrackWidth;
 
 namespace CScore.PrestressLoss
 {
     public static class PrestressLossCalc
     {
-        // Таблица 6.12 СП 63 — φ_b,cr [ряд: влажность 0=>75%, 1=>40-75%, 2=><40%; столбец: класс B20..B60]
-        static readonly double[,] PhiBCrTable =
+        /// <summary>
+        /// Коэффициент ползучести φb,cr по таблице 6.12 СП 63 (B10…B55, B60–B100) — единый
+        /// источник <see cref="Sp63Curvature.PhiBCr"/>. Промежуточный класс — по ближайшему
+        /// меньшему табличному, ниже B10 — как B10.
+        /// </summary>
+        public static double PhiBCr(HumidityClass h, double concrClass)
         {
-            // B20   B25   B30   B35   B40   B45   B50   B55   B60
-            { 2.1,  1.9,  1.7,  1.6,  1.5,  1.4,  1.3,  1.2,  1.1 },
-            { 2.7,  2.4,  2.2,  2.0,  1.9,  1.8,  1.6,  1.5,  1.4 },
-            { 3.1,  2.8,  2.5,  2.3,  2.2,  2.0,  1.9,  1.8,  1.7 },
-        };
-
-        static readonly double[] PhiBCrClasses = { 20, 25, 30, 35, 40, 45, 50, 55, 60 };
-
-        static double GetPhiBCr(HumidityClass h, double concrClass)
-        {
-            int row = h switch { HumidityClass.Above75 => 0, HumidityClass.Below40 => 2, _ => 1 };
-            int col = 0;
-            for (int i = 0; i < PhiBCrClasses.Length; i++)
-                if (concrClass >= PhiBCrClasses[i]) col = i;
-            return PhiBCrTable[row, col];
+            var humidity = h switch
+            {
+                HumidityClass.Above75 => Sp63Humidity.Above75,
+                HumidityClass.Below40 => Sp63Humidity.Below40,
+                _ => Sp63Humidity.From40To75
+            };
+            return Sp63Curvature.PhiBCr(Math.Max(concrClass, 10), humidity)!.Value;
         }
 
         static double GetConcreteClass(CrossSection section)
@@ -81,13 +78,13 @@ namespace CScore.PrestressLoss
             double concrClass = p.ConcreteClassAuto
                 ? GetConcreteClass(section!)
                 : p.ConcreteClassOverride;
-            if (concrClass < 20 || concrClass > 60)
+            if (concrClass < 10 || concrClass > 100)
             {
                 result.Warnings.Add(
-                    $"Класс бетона B{concrClass} вне диапазона таблицы 6.12 (B20–B60); принято граничное значение");
-                concrClass = Math.Clamp(concrClass, 20, 60);
+                    $"Класс бетона B{concrClass} вне диапазона таблицы 6.12 (B10–B100); принято граничное значение");
+                concrClass = Math.Clamp(concrClass, 10, 100);
             }
-            double phiBCr = GetPhiBCr(p.Humidity, concrClass);
+            double phiBCr = PhiBCr(p.Humidity, concrClass);
 
             // E_b — модуль упругости бетона из первой бетонной области [кПа]
             double E_b = section?.Areas

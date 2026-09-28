@@ -120,16 +120,8 @@ public class PrestressLossDlgVM : ViewModelBase
             double cc = _concrClassAuto
                 ? GetConcreteClassFromSection()
                 : (double.TryParse(_concrClassText, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 30);
-            cc = Math.Clamp(cc, 20, 60);
-            double[,] t = {
-                {2.1,1.9,1.7,1.6,1.5,1.4,1.3,1.2,1.1},
-                {2.7,2.4,2.2,2.0,1.9,1.8,1.6,1.5,1.4},
-                {3.1,2.8,2.5,2.3,2.2,2.0,1.9,1.8,1.7}
-            };
-            double[] cl = {20,25,30,35,40,45,50,55,60};
-            int row = (int)h; int col = 0;
-            for (int i = 0; i < cl.Length; i++) if (cc >= cl[i]) col = i;
-            return $"{t[row, col]:F1}";
+            cc = Math.Clamp(cc, 10, 100);
+            return $"{PrestressLossCalc.PhiBCr(h, cc):F1}";
         }
     }
 
