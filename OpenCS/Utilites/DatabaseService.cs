@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 62;
+      const int CurrentSchemaVersion = 63;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -82,6 +82,7 @@ namespace OpenCS.Utilites
          [59] = MigrateV60,
          [60] = MigrateV61,
          [61] = MigrateV62,
+         [62] = MigrateV63,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -1657,6 +1658,36 @@ namespace OpenCS.Utilites
             upd.CommandText = "UPDATE calc_tasks SET params_json=@p WHERE id=@id";
             upd.Parameters.AddWithValue("@p", obj.ToJsonString());
             upd.Parameters.AddWithValue("@id", id);
+            upd.ExecuteNonQuery();
+         }
+      }
+
+      /// <summary>
+      /// Миграция v63: исправление модуля Eb,τ (и εb1, εbt1) в характеристиках NL бетонов,
+      /// созданных из ошибочного справочника (см. <see cref="ConcreteLongTermModulusRepair"/>).
+      /// </summary>
+      void MigrateV63()
+      {
+         var fixes = new List<(int Id, string Json)>();
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, chars_json FROM materials WHERE type = $type";
+         cmd.Parameters.AddWithValue("$type", (int)MatType.Concrete);
+         using (var reader = cmd.ExecuteReader())
+         {
+            while (reader.Read())
+            {
+               var chars = JsonSerializer.Deserialize<List<MaterialChars>>(reader.GetString(1), _jsonSettings);
+               if (chars != null && ConcreteLongTermModulusRepair.TryRepair(chars))
+                  fixes.Add((reader.GetInt32(0), JsonSerializer.Serialize(chars, _jsonSettings)));
+            }
+         }
+
+         foreach (var (id, json) in fixes)
+         {
+            var upd = _connection.CreateCommand();
+            upd.CommandText = "UPDATE materials SET chars_json = $chars WHERE id = $id";
+            upd.Parameters.AddWithValue("$chars", json);
+            upd.Parameters.AddWithValue("$id", id);
             upd.ExecuteNonQuery();
          }
       }
