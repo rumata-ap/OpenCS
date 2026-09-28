@@ -86,6 +86,7 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                 ("Вердикт", VerdictText(domain))
             ], "Параметр", "Значение"));
 
+        AddFormationTable(document, domain.FormationChecks);
         AddCheckTable(document, longAndShort ? "Числовые условия acrc ≤ acrc,ult (п. 8.2.6)" : "Числовое условие acrc ≤ acrc,lim",
             "Входит в итоговый вердикт LimitPassed.", domain.Details);
         AddCurvatureTable(document, domain.Curvature);
@@ -128,6 +129,29 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                     F(detail.Ratio),
                     detail.Passed ? "выполнено" : "не выполнено",
                     FormatVariables(detail.Variables)
+                ]).ToList()));
+    }
+
+    static void AddFormationTable(ReportDocument document, List<CheckDetail> checks)
+    {
+        if (checks.Count == 0) return;
+        document
+            .Add(new ReportHeading(1, "Образование трещин (п. 8.2.4, справочно)"))
+            .Add(new ReportParagraph(
+                "Трещины образуются при M > Mcrc (8.116); Mcrc — по (8.121) с учётом продольной силы. " +
+                "В итоговый вердикт LimitPassed не входит: образование трещин определяет ветвь расчёта раскрытия."))
+            .Add(new ReportTable(
+                ["Формула", "Описание", "Пункт СП", "M, кН·м", "Mcrc, кН·м", "M/Mcrc", "Трещины", "Переменные"],
+                checks.Select(check => (IReadOnlyList<string>)
+                [
+                    check.Formula,
+                    LocalizeKey(check.Description),
+                    check.NormReference,
+                    F(check.Applied),
+                    F(check.Allowable),
+                    F(check.Ratio),
+                    check.Passed ? "не образуются" : "образуются",
+                    FormatVariables(check.Variables)
                 ]).ToList()));
     }
 
@@ -182,6 +206,7 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         var model = JsonSerializer.Deserialize<Sp63CrackWidthResult>(json, JsonOptions)
             ?? throw new JsonException("Пустой результат sp63_crack_width.");
         model.Details ??= [];
+        model.FormationChecks ??= [];
         model.ApplicabilityMessages ??= [];
         model.InformationalMessages ??= [];
         model.Variables ??= [];
@@ -250,6 +275,8 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         ["Sp63CrackWidth_MissingConcreteChars"] = "Для бетона не заданы характеристики Eb, Rb,ser, Rbt,ser.",
         ["Sp63CrackWidth_MissingRebarChars"] = "Для арматуры не заданы модуль упругости Es и Rs,ser.",
         ["Sp63CrackWidth_AcrcCheck"] = "Ширина раскрытия трещин: acrc ≤ acrc,lim",
+        ["Sp63CrackWidth_FormationTotal"] = "Образование трещин от полной нагрузки: M ≤ Mcrc",
+        ["Sp63CrackWidth_FormationLong"] = "Образование трещин от длительной части нагрузки: Ml ≤ Mcrc",
         ["Sp63CrackWidth_AcrcLongCheck"] = "Продолжительное раскрытие трещин: acrc = acrc1 ≤ acrc,ult",
         ["Sp63CrackWidth_AcrcShortCheck"] = "Непродолжительное раскрытие трещин: acrc = acrc1 + acrc2 − acrc3 ≤ acrc,ult",
         ["Sp63CrackWidth_LongTermShareNote"] = "Длительная часть нагрузки принята как ψ·N и ψ·M; acrc1 — при φ1 = 1,4, acrc2 и acrc3 — при φ1 = 1,0.",

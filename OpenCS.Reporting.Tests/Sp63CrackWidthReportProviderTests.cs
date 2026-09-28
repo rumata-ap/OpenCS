@@ -13,6 +13,9 @@ public sealed class Sp63CrackWidthReportProviderTests
          "Details":[
             {"Formula":"(8.130)-(8.141)","Description":"Sp63CrackWidth_AcrcCheck","NormReference":"8.2.9-8.2.16",
              "Applied":0.167,"Allowable":0.3,"Variables":{"sigma_s":236.4,"ls":0.4}}],
+         "FormationChecks":[
+            {"Formula":"(8.116)","Description":"Sp63CrackWidth_FormationTotal","NormReference":"8.2.4, 8.2.11",
+             "Applied":50.0,"Allowable":21.3,"Variables":{"M":50.0,"N":0.0,"Mcrc":21.3}}],
          "ApplicabilityMessages":[],
          "InformationalMessages":[
             {"Code":"compression_zone_neutral_axis","Kind":1,"NormReference":"8.2.28","Text":"Sp63CrackWidth_NeutralAxisNote"}],
@@ -55,6 +58,8 @@ public sealed class Sp63CrackWidthReportProviderTests
         Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Вердикт" && r.Value.Contains("в пределах")));
         Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Трещины образуются" && r.Value == "да"));
         Assert.DoesNotContain(document.Blocks.OfType<ReportWarning>(), w => w.Text.Contains("неприменима"));
+        Assert.Contains(document.Blocks.OfType<ReportHeading>(), h => h.Text.StartsWith("Образование трещин"));
+        Assert.Contains(tables, t => t.Rows.Any(r => r.Contains("(8.116)") && r.Contains("образуются")));
         _ = new HtmlReportRenderer().Render(document);
     }
 

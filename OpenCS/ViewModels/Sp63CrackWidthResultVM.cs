@@ -113,6 +113,10 @@ public sealed class Sp63CrackWidthResultVM
    public Visibility VariablesVisibility { get; }
    /// <summary>Строки численных проверок.</summary>
    public ObservableCollection<Sp63CrackWidthCheckRow> StrengthRows { get; } = [];
+   /// <summary>Условия образования трещин (8.116), справочно.</summary>
+   public ObservableCollection<Sp63CrackWidthCheckRow> FormationRows { get; } = [];
+   /// <summary>Показывать ли блок образования трещин.</summary>
+   public Visibility FormationVisibility { get; }
    /// <summary>Причины неприменимости.</summary>
    public ObservableCollection<Sp63CrackWidthMessageRow> ApplicabilityRows { get; } = [];
    /// <summary>Справочные сообщения.</summary>
@@ -138,6 +142,7 @@ public sealed class Sp63CrackWidthResultVM
    {
       Model = Deserialize(dataJson);
       Model.Details ??= [];
+      Model.FormationChecks ??= [];
       Model.ApplicabilityMessages ??= [];
       Model.InformationalMessages ??= [];
       Model.Variables ??= [];
@@ -173,6 +178,8 @@ public sealed class Sp63CrackWidthResultVM
 
       foreach (var detail in Model.Details)
          StrengthRows.Add(ToCheckRow(detail));
+      foreach (var detail in Model.FormationChecks)
+         FormationRows.Add(ToFormationRow(detail));
       foreach (var message in Model.ApplicabilityMessages)
          ApplicabilityRows.Add(ToMessageRow(message));
       foreach (var message in Model.InformationalMessages)
@@ -185,6 +192,8 @@ public sealed class Sp63CrackWidthResultVM
          });
 
       StrengthVisibility = Model.Status == Sp63CrackWidthStatus.Calculated
+         ? Visibility.Visible : Visibility.Collapsed;
+      FormationVisibility = StrengthVisibility == Visibility.Visible && FormationRows.Count > 0
          ? Visibility.Visible : Visibility.Collapsed;
       ApplicabilityVisibility = ApplicabilityRows.Count > 0
          ? Visibility.Visible : Visibility.Collapsed;
@@ -256,6 +265,27 @@ public sealed class Sp63CrackWidthResultVM
          RatioText = FormatNumber(detail.Ratio),
          PassedText = Loc.S(passed ? "Sp63NormalCheckPassed" : "Sp63NormalCheckNotPassed"),
          PassedBrush = passed ? Brushes.Green : Brushes.Red,
+         VariablesText = FormatVariables(detail.Variables)
+      };
+   }
+
+   /// <summary>
+   /// Строка условия (8.116): «выполнено» значит M ≤ Mcrc — трещины не образуются. Образование
+   /// трещин — не нарушение, поэтому без красного цвета.
+   /// </summary>
+   static Sp63CrackWidthCheckRow ToFormationRow(CheckDetail detail)
+   {
+      bool noCracks = detail.Passed;
+      return new Sp63CrackWidthCheckRow
+      {
+         Formula = detail.Formula,
+         Description = Loc.S(detail.Description),
+         NormReference = detail.NormReference,
+         AppliedText = FormatNumber(detail.Applied),
+         AllowableText = FormatNumber(detail.Allowable),
+         RatioText = FormatNumber(detail.Ratio),
+         PassedText = Loc.S(noCracks ? "Sp63CrackWidthFormationNone" : "Sp63CrackWidthFormationOccurs"),
+         PassedBrush = noCracks ? Brushes.Green : Brushes.DarkOrange,
          VariablesText = FormatVariables(detail.Variables)
       };
    }

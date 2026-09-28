@@ -1970,6 +1970,13 @@
     <system:String x:Key="Sp63CrackWidthInputsHint">The check is uniaxial and requires a non-zero moment: a non-zero moment in the other plane or a zero moment (axial tension/compression) is reported as not applicable — use the deformation-model check (task &quot;Crack width&quot;). Cl. 8.2.7 mode: acrc1 from the long-term part ψ·M with φ1 = 1.4, acrc2 and acrc3 from the full and long-term load with φ1 = 1.0; limits per cl. 8.2.6 — 0.3/0.4 mm for A240…A600, B500, 0.2/0.3 mm for permeability. In single-term mode φ1 = 1.0 for short-term and 1.4 for long-term action. φ2 = 0.5 for deformed bars, 0.8 for plain bars.</system:String>
     <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Check the numeric parameters: φ1, φ2 and acrc,lim must be positive finite numbers.</system:String>
     <system:String x:Key="Sp63CrackWidthStrengthTitle">Crack width check</system:String>
+    <system:String x:Key="Sp63CrackWidthFormationTitle">Crack formation, cl. 8.2.4 (for reference, not part of the verdict)</system:String>
+    <system:String x:Key="Sp63CrackWidthFormationMColumn">M, kN·m</system:String>
+    <system:String x:Key="Sp63CrackWidthFormationMcrcColumn">Mcrc, kN·m</system:String>
+    <system:String x:Key="Sp63CrackWidthFormationNone">no cracks</system:String>
+    <system:String x:Key="Sp63CrackWidthFormationOccurs">cracks form</system:String>
+    <system:String x:Key="Sp63CrackWidth_FormationTotal">Crack formation under the total load: M ≤ Mcrc</system:String>
+    <system:String x:Key="Sp63CrackWidth_FormationLong">Crack formation under the long-term part of the load: Ml ≤ Mcrc</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcColumn">acrc, mm</system:String>
     <system:String x:Key="Sp63CrackWidthAcrcLimColumn">acrc,lim, mm</system:String>
     <system:String x:Key="Sp63CrackWidthVerdictPassed">PASSED</system:String>

@@ -297,6 +297,49 @@ public class Sp63CrackWidthCheckerTests
         Assert.Equal(0.0, Assert.Single(result.Details).Applied);
         Assert.True(result.LimitPassed);
         Assert.Contains(result.InformationalMessages, message => message.Code == "not_cracked");
+
+        // (8.116) п. 8.2.4: M ≤ Mcrc — строка «выполнено», трещины не образуются.
+        var formation = Assert.Single(result.FormationChecks);
+        Assert.Equal("(8.116)", formation.Formula);
+        Assert.Equal(1.0, formation.Applied, 12);
+        Assert.Equal(result.Variables["Mcrc"], formation.Allowable, 12);
+        Assert.True(formation.Passed);
+    }
+
+    [Fact]
+    public void LongAndShort_FormationChecks_TotalCracksLongDoesNot_VerdictUnaffected()
+    {
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+        double mcrc = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 1.0 },
+            CalcType.N, Options()).Variables["Mcrc"];
+
+        // M = 2·Mcrc растрескивает сечение, длительная часть 0,3·M = 0,6·Mcrc — нет.
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 2.0 * mcrc },
+            CalcType.N, LongShortOptions(0.3, limLong: 10.0, limShort: 10.0));
+
+        Assert.Equal(2, result.FormationChecks.Count);
+        var total = result.FormationChecks[0];
+        var longTerm = result.FormationChecks[1];
+        Assert.Equal("Sp63CrackWidth_FormationTotal", total.Description);
+        Assert.False(total.Passed);
+        Assert.Equal(mcrc, total.Allowable, 9);
+        Assert.Equal("Sp63CrackWidth_FormationLong", longTerm.Description);
+        Assert.True(longTerm.Passed);
+        Assert.Equal(0.6 * mcrc, longTerm.Applied, 9);
+        Assert.True(result.Cracked);
+        // Образование трещин — не нарушение: вердикт определяют только (8.119)/(8.120).
+        Assert.True(result.LimitPassed);
+    }
+
+    [Fact]
+    public void LongAndShort_ZeroShare_OnlyTotalFormationCheck()
+    {
+        var (section, _, _) = BuildSection(0.5, 0.3, 20.36e-4, 1e-8, 0.036);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = 80.0 },
+            CalcType.N, LongShortOptions(0.0));
+
+        Assert.False(Assert.Single(result.FormationChecks).Passed);
     }
 
     // ---- Полный режим п. 8.2.7: продолжительное и непродолжительное раскрытие ----

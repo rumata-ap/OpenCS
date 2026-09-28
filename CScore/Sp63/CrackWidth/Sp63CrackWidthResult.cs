@@ -18,6 +18,13 @@ public sealed class Sp63CrackWidthResult
     /// <summary>Числовое условие acrc ≤ acrc,lim, определяющее вердикт.</summary>
     public List<CheckDetail> Details { get; set; } = [];
 
+    /// <summary>
+    /// Условия образования трещин (8.116) п. 8.2.4: M ≤ Mcrc — трещины не образуются.
+    /// Справочно, в <see cref="LimitPassed"/> не входят: образование трещин лишь выбирает
+    /// ветвь расчёта раскрытия. Пусто в старых результатах и при неприменимости.
+    /// </summary>
+    public List<CheckDetail> FormationChecks { get; set; } = [];
+
     /// <summary>Причины неприменимости формульного режима.</summary>
     public List<Sp63CrackWidthMessage> ApplicabilityMessages { get; set; } = [];
 

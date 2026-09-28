@@ -212,6 +212,16 @@ public static class Sp63CrackWidthChecker
             limitPassed = strip.Acrc <= options.AcrcLimMm + 1e-9;
         }
 
+        // П. 8.2.4, (8.116): трещины образуются при M > Mcrc; Mcrc по (8.121) уже учитывает N.
+        // От полной нагрузки и, в полном режиме, от её длительной части (acrc1/acrc3 п. 8.2.7).
+        var formation = new List<CheckDetail>
+        {
+            FormationCheck("Sp63CrackWidth_FormationTotal", absMoment, load.N, strip.Mcrc)
+        };
+        if (terms.Long is { } longTerm)
+            formation.Add(FormationCheck("Sp63CrackWidth_FormationLong",
+                share * absMoment, share * load.N, longTerm.Mcrc));
+
         var informational = new List<Sp63CrackWidthMessage>
         {
             new("compression_zone_neutral_axis", Sp63CrackWidthMessageKind.Information,
@@ -262,11 +272,31 @@ public static class Sp63CrackWidthChecker
             Cracked = strip.Cracked,
             Branch = strip.Cracked ? "cracked" : "not_cracked",
             Details = details,
+            FormationChecks = formation,
             InformationalMessages = informational,
             Variables = variables,
             Curvature = curvature
         };
     }
+
+    /// <summary>
+    /// Строка условия (8.116): Applied = |M|, Allowable = Mcrc, т.е. «выполнено» означает
+    /// M ≤ Mcrc — трещины не образуются.
+    /// </summary>
+    static CheckDetail FormationCheck(string description, double moment, double axialForce, double mcrc) => new()
+    {
+        Formula = "(8.116)",
+        Description = description,
+        NormReference = "8.2.4, 8.2.11",
+        Applied = moment,
+        Allowable = mcrc,
+        Variables = new Dictionary<string, double>
+        {
+            ["M"] = moment,
+            ["N"] = axialForce,
+            ["Mcrc"] = mcrc
+        }
+    };
 
     /// <summary>
     /// Составляющие ширины раскрытия одного ряда арматуры: <see cref="Main"/> — от полной
