@@ -39,6 +39,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             "N — кН; M — кН·м; линейные размеры — м или мм по контексту показателя; безразмерные величины — как есть");
 
         bool roundShape = parameters.ShapeKind is "circular" or "annular";
+        bool concreteElement = string.Equals(parameters.ElementType, "concrete",
+            StringComparison.OrdinalIgnoreCase);
         string shapeText = parameters.ShapeKind switch
         {
             "rectangular" => "прямоугольник",
@@ -50,6 +52,9 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         var inputRows = new List<(string, string)>
         {
             ("Форма сечения", shapeText),
+            ("Вид конструкции", concreteElement
+                ? "бетонный, без рабочей арматуры (раздел 7)"
+                : "железобетонный (раздел 8)"),
             ("Ось изгиба", roundShape ? "не используется (результирующий момент)" : parameters.Axis),
             ("Схема статической определимости", LocalizeScheme(parameters.StructuralScheme)),
             ("Режим устойчивости", LocalizeStabilityMode(parameters.StabilityMode)),
@@ -91,8 +96,12 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         AddCheckTable(document, "Конструктивные требования раздела 10 (справочно)",
             "Справочные проверки минимального армирования, защитного слоя и расстановки стержней; в вердикт прочности не входят.",
             domain.ConstructiveChecks);
-        AddCheckTable(document, "Альтернативный метод п. 8.1.16 (справочно)",
-            "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20 по формуле (8.17); в вердикт прочности не входит.",
+        AddCheckTable(document, concreteElement
+                ? "Упрощённое условие (7.3) п. 7.1.9 (справочно)"
+                : "Альтернативный метод п. 8.1.16 (справочно)",
+            concreteElement
+                ? "Внецентренное сжатие при e0 ≤ h/30 и l0 ≤ 20h по формуле (7.3); в вердикт прочности не входит."
+                : "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20 по формуле (8.17); в вердикт прочности не входит.",
             domain.AlternativeChecks);
         AddMessageTable(document, "Причины неприменимости формульного режима", domain.ApplicabilityMessages);
         AddMessageTable(document, "Справочные сообщения", domain.InformationalMessages);
@@ -434,6 +443,9 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         "circular_compression" => "круглое сечение, внецентренное сжатие",
         "annular_bending" => "кольцевое сечение, изгиб",
         "annular_compression" => "кольцевое сечение, внецентренное сжатие",
+        "concrete_compression" => "бетонный элемент, внецентренное сжатие (сила в пределах сечения)",
+        "concrete_compression_outside" => "бетонный элемент, внецентренное сжатие (сила за пределами сечения)",
+        "concrete_bending" => "бетонный элемент, изгиб",
         "not_applicable" => "формульная проверка неприменима",
         "invalid_input" => "исходные данные не прошли валидацию",
         _ when !string.IsNullOrWhiteSpace(branch) => branch,
@@ -534,6 +546,16 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_AltCompressionNoL0"] = "Альтернативный метод п. 8.1.16 не применён: не задана расчётная длина l0.",
         ["Sp63Normal_AltCompressionSlenderness"] = "Альтернативный метод п. 8.1.16 не применён: l0/h > 20.",
         ["Sp63Normal_AltCompressionConcreteClass"] = "Альтернативный метод п. 8.1.16 не применён: класс бетона не распознан по метке материала или отсутствует в таблице 8.1 (B20–B55, B60, B80).",
+        ["Sp63Concrete_ShapeNotSupported"] = "Бетонные элементы по разделу 7 пока проверяются только для прямоугольного сечения.",
+        ["Sp63Concrete_TensionNotSupported"] = "Раздел 7 не предусматривает расчёт бетонных элементов на растяжение: растягивающую силу должна воспринимать арматура.",
+        ["Sp63Concrete_MissingTensileResistance"] = "Не задано расчётное сопротивление бетона растяжению Rbt.",
+        ["Sp63Concrete_GammaB3"] = "Rb принято с коэффициентом γb3 = 0,9 для бетонных конструкций (п. 6.1.12).",
+        ["Sp63Concrete_RebarIgnored"] = "Арматура сечения считается конструктивной и в расчёте бетонного элемента не учитывается (п. 7.1.6).",
+        ["Sp63Concrete_CompressionCheck"] = "Внецентренное сжатие, сила в пределах сечения: N ≤ Rb·Ab, Ab = b·h·(1 − 2e0·η/h)",
+        ["Sp63Concrete_CompressionOutsideCheck"] = "Внецентренное сжатие, сила за пределами сечения: N ≤ Rbt·b·h / (6e0·η/h − 1)",
+        ["Sp63Concrete_BendingCheck"] = "Изгиб: M ≤ Mult = Rbt·W, W = b·h²/6",
+        ["Sp63Concrete_AltCompressionCheck"] = "Внецентренное сжатие при e0 ≤ h/30 и l0 ≤ 20h: N ≤ φ·Rb·A (φ по табл. 7.1)",
+        ["Sp63Concrete_AltNotApplied"] = "Условие (7.3) п. 7.1.9 не применено: требуется e0 ≤ h/30 и 0 < l0 ≤ 20h.",
         ["Sp63Normal_MinClearSpacingTension"] = "Зазор в свету между стержнями, растянутая арматура: s,min ≤ s",
         ["Sp63Normal_MinClearSpacingCompression"] = "Зазор в свету между стержнями, сжатая арматура: s,min ≤ s",
         ["Sp63Normal_MaxBarSpacingTension"] = "Шаг осей стержней, растянутая арматура: s ≤ s,max",

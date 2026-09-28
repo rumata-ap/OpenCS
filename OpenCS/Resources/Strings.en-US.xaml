@@ -1943,12 +1943,29 @@
     <system:String x:Key="Sp63Normal_MinClearSpacingContour">Clear spacing between adjacent bars along the circle: s,min ≤ s</system:String>
     <system:String x:Key="Sp63Normal_MaxBarSpacingContour">Centre spacing of adjacent bars along the circle (chord): s ≤ s,max</system:String>
     <system:String x:Key="Sp63Normal_CoverFoundationBottomUndeterminedCircular">For circular and annular sections the bottom reinforcement of a foundation is not identified: the &quot;in ground&quot; cover (40 mm) is used instead of 70 mm.</system:String>
-    <system:String x:Key="Sp63NormalAlternativeTitle">Alternative method, cl. 8.1.16 (reference only, not part of the verdict)</system:String>
+    <system:String x:Key="Sp63NormalAlternativeTitle">Alternative method (cl. 8.1.16 or 7.1.9, reference only, not part of the verdict)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionCheck">Eccentric compression with e0 ≤ h/30 and l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Alternative method of cl. 8.1.16 not applied: e0 &gt; h/30.</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionNoL0">Alternative method of cl. 8.1.16 not applied: effective length l0 is not set.</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionSlenderness">Alternative method of cl. 8.1.16 not applied: l0/h &gt; 20.</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionConcreteClass">Alternative method of cl. 8.1.16 not applied: concrete class not recognized from the material tag or absent from Table 8.1 (B20–B55, B60, B80).</system:String>
+    <system:String x:Key="Sp63NormalElementType">Structure type</system:String>
+    <system:String x:Key="Sp63NormalElementTypeTooltip">A plain concrete element is checked per SP 63 Section 7 ignoring reinforcement; a reinforced one per Section 8</system:String>
+    <system:String x:Key="Sp63NormalElementTypeReinforced">Reinforced concrete (Section 8)</system:String>
+    <system:String x:Key="Sp63NormalElementTypeConcrete">Plain concrete, no working reinforcement (Section 7)</system:String>
+    <system:String x:Key="Sp63NormalBranchConcreteCompression">Plain concrete, eccentric compression (force within the section)</system:String>
+    <system:String x:Key="Sp63NormalBranchConcreteCompressionOutside">Plain concrete, eccentric compression (force outside the section)</system:String>
+    <system:String x:Key="Sp63NormalBranchConcreteBending">Plain concrete, bending</system:String>
+    <system:String x:Key="Sp63Concrete_ShapeNotSupported">Plain concrete elements per Section 7 are currently checked for rectangular sections only.</system:String>
+    <system:String x:Key="Sp63Concrete_TensionNotSupported">Section 7 does not cover plain concrete elements in tension: tensile force must be resisted by reinforcement.</system:String>
+    <system:String x:Key="Sp63Concrete_MissingTensileResistance">Design tensile strength of concrete Rbt is not set.</system:String>
+    <system:String x:Key="Sp63Concrete_GammaB3">Rb is multiplied by γb3 = 0.9 for plain concrete structures (cl. 6.1.12).</system:String>
+    <system:String x:Key="Sp63Concrete_RebarIgnored">Section reinforcement is treated as structural (detailing) and ignored in the plain concrete check (cl. 7.1.6).</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionCheck">Eccentric compression, force within the section: N ≤ Rb·Ab, Ab = b·h·(1 − 2e0·η/h)</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionOutsideCheck">Eccentric compression, force outside the section: N ≤ Rbt·b·h / (6e0·η/h − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_BendingCheck">Bending: M ≤ Mult = Rbt·W, W = b·h²/6</system:String>
+    <system:String x:Key="Sp63Concrete_AltCompressionCheck">Eccentric compression with e0 ≤ h/30 and l0 ≤ 20h: N ≤ φ·Rb·A (φ per Table 7.1)</system:String>
+    <system:String x:Key="Sp63Concrete_AltNotApplied">Condition (7.3) of cl. 7.1.9 not applied: requires e0 ≤ h/30 and 0 &lt; l0 ≤ 20h.</system:String>
     <system:String x:Key="Sp63Normal_CircularCheck">Circular section: M ≤ Mult</system:String>
     <system:String x:Key="Sp63Normal_AnnularCheck">Annular section: M ≤ Mult</system:String>
     <system:String x:Key="Sp63Normal_CircularSingleConcreteRegion">Circular and annular Appendix D checks require exactly one concrete region.</system:String>

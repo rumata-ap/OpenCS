@@ -78,6 +78,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63NormalAxis = "Mx";
    string sp63NormalStructuralScheme = "statically_indeterminate";
    string sp63NormalElementKind = "unspecified";
+   string sp63NormalElementType = "reinforced";
    string sp63NormalExposureCondition = "unspecified";
    bool sp63NormalIsPrecast;
    string sp63NormalElementLength = "6";
@@ -228,6 +229,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63NormalAxis;
       set { sp63NormalAxis = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Вид конструкции: reinforced (раздел 8) или concrete (бетонный, раздел 7).</summary>
+   public string Sp63NormalElementType
+   {
+      get => sp63NormalElementType;
+      set { sp63NormalElementType = value; OnPropertyChanged(); }
    }
 
    /// <summary>Тип элемента для пп. 10.3.5 и 10.3.8 (расстояния между стержнями).</summary>
@@ -2317,6 +2325,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63NormalShapeKind = snp.ShapeKind;
              Sp63NormalAxis = snp.Axis;
              Sp63NormalStructuralScheme = snp.StructuralScheme;
+             Sp63NormalElementType = string.IsNullOrWhiteSpace(snp.ElementType)
+                ? "reinforced" : snp.ElementType;
              Sp63NormalElementKind = string.IsNullOrWhiteSpace(snp.ElementKind)
                 ? "unspecified" : snp.ElementKind;
              Sp63NormalExposureCondition = string.IsNullOrWhiteSpace(snp.ExposureCondition)
@@ -2725,6 +2735,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ShapeKind = Sp63NormalShapeKind,
             Axis = Sp63NormalAxis,
             StructuralScheme = Sp63NormalStructuralScheme,
+            ElementType = Sp63NormalElementType,
             ElementKind = Sp63NormalElementKind,
             ExposureCondition = Sp63NormalExposureCondition,
             IsPrecast = Sp63NormalIsPrecast,

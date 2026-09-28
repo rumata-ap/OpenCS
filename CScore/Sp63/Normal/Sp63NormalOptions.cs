@@ -99,11 +99,25 @@ public enum Sp63NormalMessageKind
     Warning
 }
 
+/// <summary>
+/// Вид элемента: железобетонный (раздел 8) или бетонный без рабочей арматуры (раздел 7).
+/// Выбирается явно — бетонная проверка не подменяется железобетонной с нулевой арматурой.
+/// </summary>
+public enum Sp63NormalElementType
+{
+    /// <summary>Железобетонный элемент — проверка по разделу 8.</summary>
+    Reinforced,
+    /// <summary>Бетонный элемент — проверка по разделу 7, арматура не учитывается (п. 7.1.6).</summary>
+    Concrete
+}
+
 /// <summary>Типизированные настройки формульной проверки нормального сечения.</summary>
 /// <param name="ShapeKind">Тип поддерживаемой формы.</param>
 /// <param name="Axis">Ось изгиба.</param>
 /// <param name="MemberContext">Данные элемента для п. 8.1.7 и 8.1.15.</param>
+/// <param name="ElementType">Железобетонный или бетонный элемент.</param>
 public sealed record Sp63NormalOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
-    Sp63MemberContext MemberContext);
+    Sp63MemberContext MemberContext,
+    Sp63NormalElementType ElementType = Sp63NormalElementType.Reinforced);

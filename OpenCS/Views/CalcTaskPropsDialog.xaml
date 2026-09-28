@@ -321,6 +321,7 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalShape}"
@@ -333,65 +334,74 @@
                      <ComboBoxItem Tag="annular" Content="{DynamicResource Sp63NormalShapeAnnular}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalElementType}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalElementType}" Margin="0,0,0,4"
+                            ToolTip="{DynamicResource Sp63NormalElementTypeTooltip}">
+                     <ComboBoxItem Tag="reinforced" Content="{DynamicResource Sp63NormalElementTypeReinforced}"/>
+                     <ComboBoxItem Tag="concrete" Content="{DynamicResource Sp63NormalElementTypeConcrete}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
                              VerticalAlignment="Center" Margin="0,0,4,4"
                              Visibility="{Binding ShowSp63NormalAxis, Converter={StaticResource BoolToVisibility}}"/>
-                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
+                  <ComboBox Grid.Row="2" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalAxis}" Margin="0,0,0,4"
                             Visibility="{Binding ShowSp63NormalAxis, Converter={StaticResource BoolToVisibility}}">
                      <ComboBoxItem Tag="Mx" Content="{DynamicResource Sp63NormalAxisMx}"/>
                      <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63NormalStructuralScheme}"
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63NormalStructuralScheme}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <ComboBox Grid.Row="2" Grid.Column="1" SelectedValuePath="Tag"
+                  <ComboBox Grid.Row="3" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalStructuralScheme}" Margin="0,0,0,4">
                      <ComboBoxItem Tag="statically_determinate" Content="{DynamicResource Sp63NormalStaticallyDeterminate}"/>
                      <ComboBoxItem Tag="statically_indeterminate" Content="{DynamicResource Sp63NormalStaticallyIndeterminate}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63NormalElementLength}"
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Sp63NormalElementLength}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox Grid.Row="3" Grid.Column="1"
+                  <TextBox Grid.Row="4" Grid.Column="1"
                            Text="{Binding Sp63NormalElementLength, UpdateSourceTrigger=PropertyChanged}"
                            Margin="0,0,0,4"/>
 
-                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Sp63NormalEffectiveLength}"
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Sp63NormalEffectiveLength}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox Grid.Row="4" Grid.Column="1"
+                  <TextBox Grid.Row="5" Grid.Column="1"
                            Text="{Binding Sp63NormalEffectiveLengthL0, UpdateSourceTrigger=PropertyChanged}"
                            Margin="0,0,0,4"/>
 
-                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Sp63NormalStabilityMode}"
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Sp63NormalStabilityMode}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <ComboBox Grid.Row="5" Grid.Column="1" SelectedValuePath="Tag"
+                  <ComboBox Grid.Row="6" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalStabilityMode}" Margin="0,0,0,4">
                      <ComboBoxItem Tag="member" Content="{DynamicResource Sp63NormalMemberMode}"/>
                      <ComboBoxItem Tag="section_only_explicit" Content="{DynamicResource Sp63NormalSectionOnlyExplicit}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Sp63NormalPsi}"
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Sp63NormalPsi}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox Grid.Row="6" Grid.Column="1"
+                  <TextBox Grid.Row="7" Grid.Column="1"
                            Text="{Binding Sp63NormalPsi, UpdateSourceTrigger=PropertyChanged}"
                            Margin="0,0,0,4"/>
 
-                  <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Sp63NormalSlendernessThreshold}"
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource Sp63NormalSlendernessThreshold}"
                              VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Grid.Row="7" Grid.Column="1"
+                  <TextBox Grid.Row="8" Grid.Column="1"
                            Text="{Binding Sp63NormalSlendernessThreshold, UpdateSourceTrigger=PropertyChanged}"/>
 
-                  <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource Sp63NormalSpanLength}"
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource Sp63NormalSpanLength}"
                              VerticalAlignment="Center" Margin="0,0,4,0"
                              Visibility="{Binding ShowSp63NormalSpanLength, Converter={StaticResource BoolToVisibility}}"/>
-                  <TextBox Grid.Row="8" Grid.Column="1"
+                  <TextBox Grid.Row="9" Grid.Column="1"
                            Text="{Binding Sp63NormalSpanLength, UpdateSourceTrigger=PropertyChanged}"
                            Visibility="{Binding ShowSp63NormalSpanLength, Converter={StaticResource BoolToVisibility}}"/>
 
-                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource Sp63NormalElementKind}"
+                  <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource Sp63NormalElementKind}"
                              VerticalAlignment="Center" Margin="0,4,4,0"/>
-                  <ComboBox Grid.Row="9" Grid.Column="1" SelectedValuePath="Tag"
+                  <ComboBox Grid.Row="10" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalElementKind}" Margin="0,4,0,0"
                             ToolTip="{DynamicResource Sp63NormalElementKindTooltip}">
                      <ComboBoxItem Tag="unspecified" Content="{DynamicResource Sp63NormalElementKindUnspecified}"/>
@@ -399,9 +409,9 @@
                      <ComboBoxItem Tag="column" Content="{DynamicResource Sp63NormalElementKindColumn}"/>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource Sp63NormalExposureCondition}"
+                  <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource Sp63NormalExposureCondition}"
                              VerticalAlignment="Center" Margin="0,4,4,0"/>
-                  <ComboBox Grid.Row="10" Grid.Column="1" SelectedValuePath="Tag"
+                  <ComboBox Grid.Row="11" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalExposureCondition}" Margin="0,4,0,0"
                             ToolTip="{DynamicResource Sp63NormalExposureConditionTooltip}">
                      <ComboBoxItem Tag="unspecified" Content="{DynamicResource Sp63NormalExposureUnspecified}"/>
@@ -412,7 +422,7 @@
                      <ComboBoxItem Tag="foundation_no_preparation" Content="{DynamicResource Sp63NormalExposureFoundationNoPreparation}"/>
                   </ComboBox>
 
-                  <CheckBox Grid.Row="11" Grid.Column="1" Margin="0,4,0,0"
+                  <CheckBox Grid.Row="12" Grid.Column="1" Margin="0,4,0,0"
                             Content="{DynamicResource Sp63NormalIsPrecast}"
                             IsChecked="{Binding Sp63NormalIsPrecast}"/>
                </Grid>

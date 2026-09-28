@@ -12,6 +12,12 @@ public sealed class Sp63NormalTaskParams
     /// <summary>Идентификатор формы: rectangular, tee, circular или annular.</summary>
     public string ShapeKind { get; set; } = "rectangular";
 
+    /// <summary>
+    /// Вид элемента: reinforced (железобетонный, раздел 8) или concrete (бетонный, раздел 7).
+    /// Пустое значение (задачи, сохранённые до появления поля) — reinforced.
+    /// </summary>
+    public string ElementType { get; set; } = "reinforced";
+
     /// <summary>Идентификатор оси: Mx или My.</summary>
     public string Axis { get; set; } = "Mx";
 
@@ -129,11 +135,29 @@ public sealed class Sp63NormalTaskParams
             return Invalid("invalid_element_kind", out errorCode);
         if (!TryParseExposureCondition(ExposureCondition, out var exposure))
             return Invalid("invalid_exposure_condition", out errorCode);
+        if (!TryParseElementType(ElementType, out var elementType))
+            return Invalid("invalid_element_type", out errorCode);
 
         options = new Sp63NormalOptions(shapeKind, axis, new Sp63MemberContext(
             ElementLengthOrRestraintDistance, scheme, EffectiveLengthL0,
-            stabilityMode, Psi, SlendernessThreshold, elementKind, exposure, IsPrecast));
+            stabilityMode, Psi, SlendernessThreshold, elementKind, exposure, IsPrecast),
+            elementType);
         return true;
+    }
+
+    // Пустое значение (проекты, сохранённые до появления поля) — железобетонный элемент.
+    static bool TryParseElementType(string? value, out Sp63NormalElementType type)
+    {
+        type = Sp63NormalElementType.Reinforced;
+        if (string.IsNullOrWhiteSpace(value) ||
+            string.Equals(value, "reinforced", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(value, "concrete", StringComparison.OrdinalIgnoreCase))
+        {
+            type = Sp63NormalElementType.Concrete;
+            return true;
+        }
+        return false;
     }
 
     static readonly Dictionary<string, Sp63ExposureCondition> ExposureConditions =

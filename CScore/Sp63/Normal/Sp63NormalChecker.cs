@@ -46,6 +46,10 @@ public static class Sp63NormalChecker
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.MemberContext);
 
+        // Бетонный элемент — отдельная ветвь раздела 7, до любой диспетчеризации по форме.
+        if (options.ElementType == Sp63NormalElementType.Concrete)
+            return Sp63ConcreteNormalChecker.Check(section, load, calc, options);
+
         // Круг и кольцо осесимметричны: диспетчеризация до общей проверки biaxial_load.
         if (options.ShapeKind is Sp63NormalShapeKind.Circular or Sp63NormalShapeKind.Annular)
             return Sp63CircularNormalChecker.Check(section, load, calc, options);

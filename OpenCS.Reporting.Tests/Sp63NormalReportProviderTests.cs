@@ -95,6 +95,39 @@ public sealed class Sp63NormalReportProviderTests
         _ = new HtmlReportRenderer().Render(document);
     }
 
+    const string ConcreteCalculatedJson = """
+        {"Status":2,"StrengthPassed":true,"Branch":"concrete_compression",
+         "StrengthDetails":[
+            {"Formula":"(7.1)","Description":"Sp63Concrete_CompressionCheck","NormReference":"7.1.9",
+             "Applied":700.0,"Allowable":872.6,"Variables":{"Ab":0.114}}],
+         "ConstructiveChecks":[],
+         "AlternativeChecks":[
+            {"Formula":"(7.3)","Description":"Sp63Concrete_AltCompressionCheck","NormReference":"7.1.9",
+             "Applied":700.0,"Allowable":950.0,"Variables":{"phi":0.9}}],
+         "ApplicabilityMessages":[],
+         "InformationalMessages":[
+            {"Code":"concrete_gamma_b3","Kind":1,"NormReference":"6.1.12","Text":"Sp63Concrete_GammaB3"}],
+         "Variables":{"N":-700.0,"Rb":7650.0}}
+        """;
+
+    [Fact]
+    public void Provider_ConcreteElement_LocalizesSection7()
+    {
+        var task = MakeTask("""{"ShapeKind":"rectangular","ElementType":"concrete","Axis":"Mx"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = ConcreteCalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var kvRows = document.Blocks.OfType<ReportKeyValueTable>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(kvRows, r => r.Key == "Вид конструкции" && r.Value.Contains("бетонный"));
+        Assert.Contains(kvRows, r => r.Key == "Нормативная ветвь" && r.Value.Contains("бетонный элемент"));
+        Assert.Contains(document.Blocks.OfType<ReportHeading>(),
+            h => h.Text == "Упрощённое условие (7.3) п. 7.1.9 (справочно)");
+        var allCells = document.Blocks.OfType<ReportTable>()
+            .SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.DoesNotContain(allCells, c => c.Contains("Sp63Concrete_"));
+    }
+
     [Fact]
     public void Provider_CheckTables_DoNotDuplicateVariablesColumn()
     {
