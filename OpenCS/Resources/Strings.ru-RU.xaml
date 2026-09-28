@@ -1937,6 +1937,11 @@
     <system:String x:Key="Sp63NormalIsPrecast">Сборный элемент (защитный слой по таблице 10.1 на 5 мм меньше)</system:String>
     <system:String x:Key="Sp63Normal_CoverExposureUnspecified">Защитный слой проверен только на диаметр стержня и 10 мм: не заданы условия эксплуатации (таблица 10.1).</system:String>
     <system:String x:Key="Sp63Normal_CoverFoundationBottomUndetermined">При изгибе My нижняя арматура фундамента не определяется: для обоих слоёв принят защитный слой «в грунте» (40 мм), а не 70 мм.</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverOuter">Защитный слой арматуры до внешнего контура по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverInner">Защитный слой арматуры до внутреннего контура (отверстия) по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinClearSpacingContour">Зазор в свету между соседними стержнями по окружности: s,min ≤ s</system:String>
+    <system:String x:Key="Sp63Normal_MaxBarSpacingContour">Шаг осей соседних стержней по окружности (по хорде): s ≤ s,max</system:String>
+    <system:String x:Key="Sp63Normal_CoverFoundationBottomUndeterminedCircular">У круглого и кольцевого сечений нижняя арматура фундамента не выделяется: принят защитный слой «в грунте» (40 мм), а не 70 мм.</system:String>
     <system:String x:Key="Sp63NormalAlternativeTitle">Альтернативный метод п. 8.1.16 (справочно, в вердикт не входит)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionCheck">Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Альтернативный метод п. 8.1.16 не применён: e0 &gt; h/30.</system:String>

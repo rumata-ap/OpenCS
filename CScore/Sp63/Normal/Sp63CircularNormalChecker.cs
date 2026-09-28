@@ -207,8 +207,13 @@ public static class Sp63CircularNormalChecker
         var (constructiveChecks, constructiveNotes) =
             Sp63NormalConstructiveReinforcement.CheckUniformContour(compression,
                 rebar.TotalArea, geometry.Area, RadiusOfGyration(geometry), context);
+        var (coverChecks, coverNotes) =
+            Sp63NormalConstructiveReinforcement.CheckCircularCoverAndSpacing(geometry, rebar,
+                context.ElementKind, context.ExposureCondition, context.IsPrecast);
+        constructiveChecks.AddRange(coverChecks);
         result.ConstructiveChecks = constructiveChecks;
         result.InformationalMessages.AddRange(constructiveNotes);
+        result.InformationalMessages.AddRange(coverNotes);
         return result;
     }
 

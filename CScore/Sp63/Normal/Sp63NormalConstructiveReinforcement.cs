@@ -120,6 +120,155 @@ public static class Sp63NormalConstructiveReinforcement
     }
 
     /// <summary>
+    /// Справочные геометрические проверки раздела 10.3 для круглого/кольцевого сечения
+    /// с арматурой по окружности: защитный слой по п. 10.3.2 (наименьший по стержням —
+    /// до внешнего контура, у кольца также до отверстия), зазор в свету по п. 10.3.5 и
+    /// наибольший шаг по п. 10.3.8 между соседними по углу стержнями (по хорде).
+    /// Верх и низ сечения не выделяются: для балок принимается зазор 30 мм, для колонн —
+    /// предельный шаг 400 мм, для фундамента без подготовки — слой «в грунте».
+    /// </summary>
+    /// <param name="geometry">Распознанная геометрия (центр, r₁, r₂).</param>
+    /// <param name="rebar">Профиль полярной раскладки.</param>
+    /// <param name="elementKind">Тип элемента для пп. 10.3.5 и 10.3.8; <see langword="null"/> — не проверяются.</param>
+    /// <param name="exposure">Условия эксплуатации для таблицы 10.1; <see langword="null"/> — не проверяется.</param>
+    /// <param name="isPrecast">Сборный элемент — поправка к таблице 10.1.</param>
+    public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckCircularCoverAndSpacing(
+        Sp63CircularGeometry geometry,
+        Sp63CircularRebarProfile rebar,
+        Sp63ElementKind? elementKind = null,
+        Sp63ExposureCondition? exposure = null,
+        bool isPrecast = false)
+    {
+        var details = new List<CheckDetail>();
+        var notes = new List<Sp63NormalMessage>();
+        if (rebar.Bars.Count == 0) return (details, notes);
+
+        if (exposure == Sp63ExposureCondition.Unspecified)
+            notes.Add(new Sp63NormalMessage("cover_exposure_unspecified",
+                Sp63NormalMessageKind.Information, "10.3.2",
+                "Sp63Normal_CoverExposureUnspecified"));
+        else if (exposure == Sp63ExposureCondition.FoundationWithoutPreparation)
+            notes.Add(new Sp63NormalMessage("cover_foundation_bottom_undetermined",
+                Sp63NormalMessageKind.Information, "10.3.2",
+                "Sp63Normal_CoverFoundationBottomUndeterminedCircular"));
+
+        bool diametersKnown = rebar.Bars.All(bar => bar.Diameter > 0);
+        var bars = rebar.Bars
+            .Select(bar =>
+            {
+                double dx = bar.X - geometry.CenterX, dy = bar.Y - geometry.CenterY;
+                return (Radius: Math.Sqrt(dx * dx + dy * dy), Angle: Math.Atan2(dy, dx),
+                    bar.X, bar.Y, bar.Diameter);
+            })
+            .OrderBy(bar => bar.Angle)
+            .ToList();
+
+        if (!diametersKnown)
+        {
+            notes.Add(new Sp63NormalMessage("cover_bar_diameter_unknown",
+                Sp63NormalMessageKind.Information, "10.3.2",
+                "Sp63Normal_CoverBarDiameterUnknown"));
+        }
+        else
+        {
+            double maxDiameter = bars.Max(bar => bar.Diameter);
+            double? table = TableCover(exposure, isPrecast, isBottom: false);
+            double required = Math.Max(Math.Max(maxDiameter, MinCoverAbsolute), table ?? 0.0);
+            AddContourCoverCheck(details, "Sp63Normal_MinCoverOuter", required, maxDiameter,
+                table, bars.Min(bar => geometry.OuterRadius - bar.Radius - bar.Diameter / 2.0));
+            if (geometry.InnerRadius > 0)
+                AddContourCoverCheck(details, "Sp63Normal_MinCoverInner", required,
+                    maxDiameter, table,
+                    bars.Min(bar => bar.Radius - geometry.InnerRadius - bar.Diameter / 2.0));
+        }
+
+        if (elementKind is not { } kind) return (details, notes);
+        if (kind == Sp63ElementKind.Unspecified)
+        {
+            notes.Add(new Sp63NormalMessage("spacing_element_kind_unspecified",
+                Sp63NormalMessageKind.Information, "10.3.5/10.3.8",
+                "Sp63Normal_SpacingElementKindUnspecified"));
+            return (details, notes);
+        }
+        if (bars.Count < 2) return (details, notes);
+
+        double maxCenterSpacing = 0.0;
+        double minClear = double.PositiveInfinity;
+        for (int i = 0; i < bars.Count; i++)
+        {
+            var a = bars[i];
+            var b = bars[(i + 1) % bars.Count];
+            double centers = Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y));
+            maxCenterSpacing = Math.Max(maxCenterSpacing, centers);
+            minClear = Math.Min(minClear, centers - (a.Diameter + b.Diameter) / 2.0);
+        }
+
+        if (diametersKnown)
+        {
+            double maxDiameter = bars.Max(bar => bar.Diameter);
+            double absolute = MinClearSpacingAbsolute(kind, Sp63NormalAxis.My, isTop: true);
+            double required = Math.Max(maxDiameter, absolute);
+            details.Add(new CheckDetail
+            {
+                Formula = "10.3.5",
+                Description = "Sp63Normal_MinClearSpacingContour",
+                NormReference = "10.3.5",
+                Applied = required,
+                Allowable = minClear,
+                Variables = new Dictionary<string, double>
+                {
+                    ["requiredClearSpacing"] = required,
+                    ["actualMinClearSpacing"] = minClear,
+                    ["maxDiameter"] = maxDiameter,
+                    ["absoluteMinimum"] = absolute
+                }
+            });
+        }
+
+        double diameter = 2.0 * geometry.OuterRadius;
+        double limit = kind == Sp63ElementKind.Column
+            ? ColumnMaxSpacingAcrossPlane
+            : BeamMaxSpacing(diameter);
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.8",
+            Description = "Sp63Normal_MaxBarSpacingContour",
+            NormReference = "10.3.8",
+            Applied = maxCenterSpacing,
+            Allowable = limit,
+            Variables = new Dictionary<string, double>
+            {
+                ["maxCenterSpacing"] = maxCenterSpacing,
+                ["limit"] = limit,
+                ["h"] = diameter
+            }
+        });
+        return (details, notes);
+    }
+
+    static void AddContourCoverCheck(List<CheckDetail> details, string descriptionKey,
+        double requiredCover, double maxDiameter, double? tableCover, double actualCover)
+    {
+        var variables = new Dictionary<string, double>
+        {
+            ["requiredCover"] = requiredCover,
+            ["actualCover"] = actualCover,
+            ["maxDiameter"] = maxDiameter
+        };
+        if (tableCover is { } table)
+            variables["tableCover"] = table;
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.2",
+            Description = descriptionKey,
+            NormReference = "10.3.2",
+            Applied = requiredCover,
+            Allowable = actualCover,
+            Variables = variables
+        });
+    }
+
+    /// <summary>
     /// Минимальный процент армирования по п. 10.3.6 для круглого/кольцевого сечения
     /// с арматурой, равномерной по контуру: вся продольная арматура относится к полной
     /// площади бетона, требуемое значение удваивается. При сжатии μs,min интерполируется

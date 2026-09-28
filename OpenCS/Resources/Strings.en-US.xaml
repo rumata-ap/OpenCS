@@ -1937,6 +1937,11 @@
     <system:String x:Key="Sp63NormalIsPrecast">Precast element (Table 10.1 cover reduced by 5 mm)</system:String>
     <system:String x:Key="Sp63Normal_CoverExposureUnspecified">Cover checked only against bar diameter and 10 mm: exposure conditions are not specified (Table 10.1).</system:String>
     <system:String x:Key="Sp63Normal_CoverFoundationBottomUndetermined">Under My bending the bottom reinforcement of a foundation cannot be identified: the &quot;in ground&quot; cover (40 mm) is used for both layers instead of 70 mm.</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverOuter">Concrete cover to the outer contour, cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverInner">Concrete cover to the inner contour (hole), cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinClearSpacingContour">Clear spacing between adjacent bars along the circle: s,min ≤ s</system:String>
+    <system:String x:Key="Sp63Normal_MaxBarSpacingContour">Centre spacing of adjacent bars along the circle (chord): s ≤ s,max</system:String>
+    <system:String x:Key="Sp63Normal_CoverFoundationBottomUndeterminedCircular">For circular and annular sections the bottom reinforcement of a foundation is not identified: the &quot;in ground&quot; cover (40 mm) is used instead of 70 mm.</system:String>
     <system:String x:Key="Sp63NormalAlternativeTitle">Alternative method, cl. 8.1.16 (reference only, not part of the verdict)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionCheck">Eccentric compression with e0 ≤ h/30 and l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)</system:String>
     <system:String x:Key="Sp63Normal_AltCompressionEccentricity">Alternative method of cl. 8.1.16 not applied: e0 &gt; h/30.</system:String>

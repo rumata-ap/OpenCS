@@ -40,6 +40,8 @@ public sealed class Sp63CircularNormalCheckerTests
         Sp63NormalChecker.Check(section ?? Ring(), load, CalcType.C,
             Options(Sp63NormalShapeKind.Annular));
 
+    static bool IsMinReinforcement(CheckDetail check) => check.NormReference == "10.3.6";
+
     static bool HasMessage(Sp63NormalResult result, string code) =>
         result.InformationalMessages.Any(m => m.Code == code);
 
@@ -59,7 +61,7 @@ public sealed class Sp63CircularNormalCheckerTests
         double expected = Sp63CircularFormulas.Circular(0.0, 14_500.0, 340_000.0,
             v["A"], v["AsTot"], v["r2"], v["rs"]).Mult;
         Assert.Equal(expected, detail.Allowable, 9);
-        Assert.Single(result.ConstructiveChecks);
+        Assert.Single(result.ConstructiveChecks, IsMinReinforcement);
         Assert.True(HasMessage(result, "appendix_d_recommended"));
         Assert.True(HasMessage(result, "appendix_d_pure_bending_extension"));
         Assert.True(HasMessage(result, "circular_rebar_class_by_rs"));
@@ -252,7 +254,7 @@ public sealed class Sp63CircularNormalCheckerTests
     {
         var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 });
 
-        var detail = Assert.Single(result.ConstructiveChecks);
+        var detail = Assert.Single(result.ConstructiveChecks, IsMinReinforcement);
         Assert.Equal("Sp63Normal_MinReinforcementUniformContour", detail.Description);
         Assert.Equal("10.3.6", detail.NormReference);
         Assert.Equal(0.2, detail.Applied, 12);
@@ -268,7 +270,7 @@ public sealed class Sp63CircularNormalCheckerTests
         // i = r/2 = 0,125 м; l0/i = 4,2/0,125 = 33,6 → μmin = 0,1 + (33,6−17)/70·0,15.
         var result = CheckCircle(new LoadItem { N = -800.0, Mx = 20.0 });
 
-        var detail = Assert.Single(result.ConstructiveChecks);
+        var detail = Assert.Single(result.ConstructiveChecks, IsMinReinforcement);
         double i = result.Variables["r2"] / 2.0;
         double t = (4.2 / i - 17.0) / 70.0;
         Assert.Equal(2.0 * (0.1 + t * 0.15), detail.Applied, 9);
@@ -282,7 +284,7 @@ public sealed class Sp63CircularNormalCheckerTests
         var result = CheckCircle(new LoadItem { N = -800.0, Mx = 20.0 },
             Options(Sp63NormalShapeKind.Circular, l0: l0));
 
-        Assert.Equal(expected, Assert.Single(result.ConstructiveChecks).Applied, 9);
+        Assert.Equal(expected, Assert.Single(result.ConstructiveChecks, IsMinReinforcement).Applied, 9);
     }
 
     [Fact]
@@ -292,7 +294,7 @@ public sealed class Sp63CircularNormalCheckerTests
             Options(Sp63NormalShapeKind.Circular, l0: null));
 
         Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
-        Assert.Empty(result.ConstructiveChecks);
+        Assert.DoesNotContain(result.ConstructiveChecks, IsMinReinforcement);
         Assert.True(HasMessage(result, "min_reinforcement_slenderness_unknown"));
     }
 
@@ -301,9 +303,99 @@ public sealed class Sp63CircularNormalCheckerTests
     {
         var result = CheckRing(new LoadItem { N = 0.0, Mx = 50.0 });
 
-        var detail = Assert.Single(result.ConstructiveChecks);
+        var detail = Assert.Single(result.ConstructiveChecks, IsMinReinforcement);
         Assert.Equal(0.2, detail.Applied, 12);
         Assert.Equal(result.Variables["A"], detail.Variables["baseArea"], 12);
+    }
+
+    static Sp63NormalOptions WithMember(Sp63NormalShapeKind kind,
+        Sp63ElementKind elementKind = Sp63ElementKind.Unspecified,
+        Sp63ExposureCondition exposure = Sp63ExposureCondition.Unspecified)
+    {
+        var options = Options(kind);
+        return options with
+        {
+            MemberContext = options.MemberContext with
+            {
+                ElementKind = elementKind,
+                ExposureCondition = exposure
+            }
+        };
+    }
+
+    static double BarDiameter(double area) => Math.Sqrt(4.0 * area / Math.PI);
+
+    static CheckDetail Check(Sp63NormalResult result, string description) =>
+        Assert.Single(result.ConstructiveChecks, check => check.Description == description);
+
+    [Fact]
+    public void Circle_Cover_MeasuredToOuterContour()
+    {
+        var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 });
+
+        var cover = Check(result, "Sp63Normal_MinCoverOuter");
+        Assert.Equal("10.3.2", cover.NormReference);
+        // r₂ — эквивалентный радиус 32-угольника; стержни на r = 0,20, диаметр по площади.
+        double d = BarDiameter(3.0e-4);
+        Assert.Equal(d, cover.Applied, 12);
+        Assert.Equal(result.Variables["r2"] - 0.20 - d / 2.0, cover.Allowable, 9);
+        Assert.True(cover.Passed);
+        Assert.DoesNotContain(result.ConstructiveChecks,
+            check => check.Description == "Sp63Normal_MinCoverInner");
+    }
+
+    [Fact]
+    public void Circle_Cover_UsesTable101_AndFoundationFallsBackToGround()
+    {
+        var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 },
+            WithMember(Sp63NormalShapeKind.Circular,
+                exposure: Sp63ExposureCondition.FoundationWithoutPreparation));
+
+        var cover = Check(result, "Sp63Normal_MinCoverOuter");
+        Assert.Equal(0.040, cover.Applied, 12);
+        Assert.False(cover.Passed); // ≈ 0,0395 м < 0,040 м
+        Assert.True(HasMessage(result, "cover_foundation_bottom_undetermined"));
+    }
+
+    [Fact]
+    public void Ring_Cover_ChecksOuterAndInnerContours()
+    {
+        var result = CheckRing(new LoadItem { N = 0.0, Mx = 50.0 });
+
+        var v = result.Variables;
+        double d = BarDiameter(2.0e-4);
+        Assert.Equal(v["r2"] - 0.25 - d / 2.0, Check(result, "Sp63Normal_MinCoverOuter").Allowable, 9);
+        Assert.Equal(0.25 - v["r1"] - d / 2.0, Check(result, "Sp63Normal_MinCoverInner").Allowable, 9);
+    }
+
+    [Theory]
+    [InlineData(Sp63ElementKind.BeamOrSlab, 0.030, 0.4)]
+    [InlineData(Sp63ElementKind.Column, 0.050, 0.4)]
+    public void Circle_BarSpacing_UsesChordBetweenAdjacentBars(Sp63ElementKind kind,
+        double absoluteClear, double maxSpacing)
+    {
+        var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 },
+            WithMember(Sp63NormalShapeKind.Circular, elementKind: kind));
+
+        // 8 стержней на r = 0,20: хорда 2·0,2·sin(π/8), зазор — хорда минус диаметр.
+        double chord = 2.0 * 0.20 * Math.Sin(Math.PI / 8.0);
+        var clear = Check(result, "Sp63Normal_MinClearSpacingContour");
+        Assert.Equal(absoluteClear, clear.Applied, 12);
+        Assert.Equal(chord - BarDiameter(3.0e-4), clear.Allowable, 9);
+        var spacing = Check(result, "Sp63Normal_MaxBarSpacingContour");
+        Assert.Equal(chord, spacing.Applied, 9);
+        Assert.Equal(maxSpacing, spacing.Allowable, 12);
+        Assert.True(spacing.Passed);
+    }
+
+    [Fact]
+    public void Circle_BarSpacing_UnspecifiedKind_AddsNote()
+    {
+        var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 },
+            WithMember(Sp63NormalShapeKind.Circular, elementKind: Sp63ElementKind.Unspecified));
+
+        Assert.DoesNotContain(result.ConstructiveChecks, check => check.NormReference == "10.3.8");
+        Assert.True(HasMessage(result, "spacing_element_kind_unspecified"));
     }
 
     [Fact]
