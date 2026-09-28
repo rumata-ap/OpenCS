@@ -16,6 +16,10 @@ public sealed class FireRCheckPlotsVM
     public FireMeshPlotVM? StrainPlot { get; }
     public bool HasPlots => TemperaturePlot != null;
 
+    /// <summary>Почему графиков нет, если тепловой расчёт после проверки пересчитан.</summary>
+    public string UnavailableText { get; } = "";
+    public bool HasUnavailableText => UnavailableText.Length > 0;
+
     public FireRCheckPlotsVM(CalcResult result, CalcTask? task, AppViewModel app)
     {
         if (FireResultJson.TryGetError(result.DataJson, out _))
@@ -27,6 +31,14 @@ public sealed class FireRCheckPlotsVM
         int thermalId = (int)FireResultJson.Dbl(d, "thermal_result_id");
         if (thermalId <= 0)
             return;
+
+        // Пересчёт теплового расчёта заменяет строку с новым id, поэтому по старому id
+        // чужое поле загрузиться не может — его просто нет.
+        if (!app.db.FireThermalResultExists(thermalId))
+        {
+            UnavailableText = Loc.S("FireRCheck_ThermalReplaced");
+            return;
+        }
 
         FireThermalResult thermal;
         try

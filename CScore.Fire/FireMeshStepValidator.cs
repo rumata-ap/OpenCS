@@ -3,20 +3,30 @@ using CScore;
 namespace CScore.Fire;
 
 /// <summary>Результат проверки шага тепловой сетки.</summary>
-/// <param name="BlocksRun">Нарушено обязательное условие: шаг не больше максимального диаметра.</param>
+/// <param name="BelowRebarDiameter">Нарушено обязательное условие: шаг не больше максимального диаметра.</param>
 /// <param name="OutOfRecommendedRange">Шаг вне рекомендуемого диапазона 0,01–0,03 м.</param>
 /// <param name="MaxRebarDiameterM">Максимальный диаметр рабочей арматуры, м.</param>
 /// <param name="UnknownDiameterCount">Число стержней, у которых диаметр определить не удалось.</param>
+/// <param name="MinSideM">Меньшая сторона габарита сечения, м; 0, если контуров нет.</param>
+/// <param name="TooCoarse">Меньше <see cref="FireMeshStepValidator.MinElementsAcross"/> элементов по меньшей стороне.</param>
 public readonly record struct FireMeshStepCheck(
-   bool BlocksRun,
+   bool BelowRebarDiameter,
    bool OutOfRecommendedRange,
    double MaxRebarDiameterM,
-   int UnknownDiameterCount);
+   int UnknownDiameterCount,
+   double MinSideM = 0.0,
+   bool TooCoarse = false)
+{
+   /// <summary>Тепловой расчёт запускать нельзя.</summary>
+   public bool BlocksRun => BelowRebarDiameter || TooCoarse;
+}
 
 /// <summary>
 /// Проверка шага тепловой сетки по п. 6.2 СП 468: рекомендуемый диапазон
 /// 0,01–0,03 м, обязательное условие — шаг больше максимального диаметра
-/// рабочей арматуры.
+/// рабочей арматуры. Дополнительно запуск блокируется при явно грубой сетке — меньше
+/// <see cref="MinElementsAcross"/> элементов по меньшей стороне габарита сечения:
+/// распределение температуры по толщине при этом не определяется.
 /// </summary>
 /// <remarks>
 /// Проверяются те же точечные волокна, которые попадут в тепловую сетку через
@@ -28,6 +38,9 @@ public static class FireMeshStepValidator
    const double MinRecommendedM = 0.01;
    const double MaxRecommendedM = 0.03;
    const double RelTolerance = 1e-9;
+
+   /// <summary>Минимальное число элементов по меньшей стороне сечения.</summary>
+   public const int MinElementsAcross = 10;
 
    /// <summary>Проверить шаг сетки для сечения.</summary>
    public static FireMeshStepCheck Check(CrossSection section, double meshStepM)
@@ -52,11 +65,34 @@ public static class FireMeshStepValidator
          }
       }
 
-      bool blocks = maxDiameter > 0.0
+      bool belowDiameter = maxDiameter > 0.0
                  && meshStepM <= maxDiameter * (1.0 + RelTolerance);
       bool outOfRange = meshStepM < MinRecommendedM * (1.0 - RelTolerance)
                      || meshStepM > MaxRecommendedM * (1.0 + RelTolerance);
+      double minSide = MinSide(section);
+      bool tooCoarse = minSide > 0.0
+                    && meshStepM * MinElementsAcross > minSide * (1.0 + RelTolerance);
 
-      return new FireMeshStepCheck(blocks, outOfRange, maxDiameter, unknown);
+      return new FireMeshStepCheck(belowDiameter, outOfRange, maxDiameter, unknown, minSide, tooCoarse);
+   }
+
+   /// <summary>Меньшая сторона габарита всех площадных областей сечения, м.</summary>
+   static double MinSide(CrossSection section)
+   {
+      double xMin = double.PositiveInfinity, xMax = double.NegativeInfinity;
+      double yMin = double.PositiveInfinity, yMax = double.NegativeInfinity;
+      foreach (var area in section.Areas)
+      {
+         var hull = area.Hull;
+         if (hull is null) continue;
+         int n = Math.Min(hull.X.Count, hull.Y.Count);
+         for (int i = 0; i < n; i++)
+         {
+            xMin = Math.Min(xMin, hull.X[i]); xMax = Math.Max(xMax, hull.X[i]);
+            yMin = Math.Min(yMin, hull.Y[i]); yMax = Math.Max(yMax, hull.Y[i]);
+         }
+      }
+      if (!double.IsFinite(xMin) || !double.IsFinite(yMin)) return 0.0;
+      return Math.Min(xMax - xMin, yMax - yMin);
    }
 }

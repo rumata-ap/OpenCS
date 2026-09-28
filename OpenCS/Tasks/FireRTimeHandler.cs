@@ -31,13 +31,10 @@ public sealed class FireRTimeHandler : ITaskHandler
          if (fireDef is null)
             throw new InvalidOperationException($"Огневое сечение id={p.FireSectionId} не найдено.");
 
-         var reference = FireThermalReference.Resolve(ctx.Database, p.FireSectionId, p.ThermalResultId);
-         if (reference.ErrorKey is not null)
-            throw new InvalidOperationException(Loc.S(reference.ErrorKey));
-
-         FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
-         if (thermal.MeshInfo.Mesh.Elements.Any(e => e.Length != 3))
-            throw new FireCalculationException("FireThermal_T6MechanicalUnsupported");
+         section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
+         var reference = FireThermalReference.Resolve(ctx.Database, fireDef, section);
+         FireThermalResult thermal = reference.Thermal;
 
          FireRTimeResult r = FireRTime.Run(
             thermal, section, item.N, item.Mx, item.My, task.CalcType,
@@ -50,7 +47,8 @@ public sealed class FireRTimeHandler : ITaskHandler
             criterion = "R",
             norm_edition = "SP468-2019/izm1",
             thermal_result_id = reference.ResultId,
-            legacy_thermal_reference = reference.IsLegacyFallback,
+            thermal_input_hash = reference.InputHash,
+            mesh_warning = FireMeshWarning.Text(section, fireDef),
             fire_section_id = fireDef.Id,
             fire_section_name = fireDef.Tag,
             fire_curve = fireDef.FireCurve,

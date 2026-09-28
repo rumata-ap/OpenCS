@@ -30,20 +30,16 @@ public sealed class FireThermalCurvatureHandler : ITaskHandler
          if (fireDef is null)
             return Error(task, created, "FireThermal_FireSectionNotFound");
 
-         var reference = FireThermalReference.Resolve(ctx.Database, p.FireSectionId, p.ThermalResultId);
-         if (reference.ErrorKey is not null)
-            return Error(task, created, reference.ErrorKey);
-
-         FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
-         if (thermal.MeshInfo.Mesh.Elements.Any(e => e.Length != 3))
-            return Error(task, created, "FireThermal_T6MechanicalUnsupported");
-
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
             pool: ctx.Database.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram,
             ekbEtaMin: settings.EkbDescEtaMin);
 
-         var fiber = FireFiberSection.FromThermalResult(thermal, section, p.SnapshotIndex);
+         var reference = FireThermalReference.Resolve(ctx.Database, fireDef, section);
+         FireThermalResult thermal = reference.Thermal;
+         int snapshotIndex = FireThermalReference.ResolveSnapshotIndex(thermal, p.SnapshotTimeMin, p.SnapshotIndex);
+
+         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex);
 
          string method = string.IsNullOrWhiteSpace(p.CompressionZoneMethod)
             || p.CompressionZoneMethod.Equals("auto", StringComparison.OrdinalIgnoreCase)
@@ -64,7 +60,8 @@ public sealed class FireThermalCurvatureHandler : ITaskHandler
             criterion = "curvature",
             norm_edition = "SP468-2019/izm1",
             thermal_result_id = reference.ResultId,
-            legacy_thermal_reference = reference.IsLegacyFallback,
+            thermal_input_hash = reference.InputHash,
+            mesh_warning = FireMeshWarning.Text(section, fireDef),
             fire_section_id = fireDef.Id,
             fire_section_name = fireDef.Tag,
             snapshot_index = fiber.SnapshotIndex,
@@ -128,6 +125,10 @@ public sealed class FireThermalCurvatureHandler : ITaskHandler
             DataJson = JsonSerializer.Serialize(data)
          };
       }
+      catch (FireThermalUnavailableException ex)
+      {
+         return Error(task, created, ex.ErrorKey, ex.Message);
+      }
       catch (FireCalculationException ex)
       {
          return Error(task, created, ex.ErrorKey);
@@ -138,7 +139,7 @@ public sealed class FireThermalCurvatureHandler : ITaskHandler
       }
    }
 
-   static CalcResult Error(CalcTask task, string created, string errorKey)
+   static CalcResult Error(CalcTask task, string created, string errorKey, string? message = null)
       => new()
       {
          TaskId = task.Id,
@@ -146,6 +147,6 @@ public sealed class FireThermalCurvatureHandler : ITaskHandler
          TaskTag = task.Tag,
          Created = created,
          Status = "error",
-         DataJson = JsonSerializer.Serialize(new { error = Loc.S(errorKey), error_key = errorKey })
+         DataJson = JsonSerializer.Serialize(new { error = message ?? Loc.S(errorKey), error_key = errorKey })
       };
 }

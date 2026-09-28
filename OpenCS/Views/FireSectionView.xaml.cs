@@ -1,6 +1,7 @@
 using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System;
@@ -92,13 +93,15 @@ namespace OpenCS.Views
       string lastRunInfo = "";
       int _thermalLoadToken;
       bool _thermalRunning;
-      FireThermalHistoryRow? _selectedHistoryRow;
+      string thermalStatusText = "";
+      bool thermalStatusIsProblem;
+      string meshWarningText = "";
+      bool hasThermalResult;
 
       public ICommand SaveCommand { get; }
       public ICommand RunThermalCommand { get; }
       public ICommand DeleteThermalCommand { get; }
       public FirePreviewVM Preview { get; }
-      public FireThermalHistoryVM History { get; }
 
       public FireSectionDef Model => _model;
       public AppViewModel App => _app;
@@ -188,18 +191,33 @@ namespace OpenCS.Views
          }
       }
 
-      /// <summary>Выбранная в списке строка истории.</summary>
-      public FireThermalHistoryRow? SelectedHistoryRow
+      /// <summary>Состояние теплового расчёта: дата, длительность, актуальность.</summary>
+      public string ThermalStatusText
       {
-         get => _selectedHistoryRow;
-         set
+         get => thermalStatusText;
+         private set { thermalStatusText = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Расчёт не выполнен или устарел.</summary>
+      public bool ThermalStatusIsProblem
+      {
+         get => thermalStatusIsProblem;
+         private set { thermalStatusIsProblem = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Предупреждение о шаге сетки вне рекомендуемого диапазона п. 6.2 СП 468.</summary>
+      public string MeshWarningText
+      {
+         get => meshWarningText;
+         private set
          {
-            _selectedHistoryRow = value;
+            meshWarningText = value;
             OnPropertyChanged();
-            if (value != null)
-               StartLoadThermalResultAsync(value.Id);
+            OnPropertyChanged(nameof(HasMeshWarning));
          }
       }
+
+      public bool HasMeshWarning => MeshWarningText.Length > 0;
 
       public FireThermalResultVM ThermalResult { get; private set; }
 
@@ -218,17 +236,16 @@ namespace OpenCS.Views
             : model.AggregateType;
          meshElementType = "linear";
          Preview = new FirePreviewVM();
-         History = new FireThermalHistoryVM(app.db);
          ThermalResult = FireThermalResultVM.CreateLoading(_model);
          SaveCommand = new RelayCommand(_ => Save());
          RunThermalCommand = new RelayCommand(_ => RunThermalAsync(), _ => !ThermalRunning);
-         DeleteThermalCommand = new RelayCommand(_ => DeleteSelectedThermal(),
-            _ => SelectedHistoryRow != null && !ThermalRunning);
-         ReloadHistory();
+         DeleteThermalCommand = new RelayCommand(_ => DeleteThermal(),
+            _ => hasThermalResult && !ThermalRunning);
+         ReloadThermalState();
          StartLoadThermalResultAsync();
       }
 
-      void StartLoadThermalResultAsync(int? resultId = null)
+      void StartLoadThermalResultAsync()
       {
          if (_model.Id <= 0)
          {
@@ -242,7 +259,7 @@ namespace OpenCS.Views
          {
             try
             {
-               int? rid = resultId ?? History.PreferredId;
+               int? rid = _app.db.GetFireThermalResultInfo(_model.Id)?.Id;
                if (rid is null)
                   return (null, null);
                return (_app.db.LoadFireThermalResult(rid.Value), rid);
@@ -311,6 +328,7 @@ namespace OpenCS.Views
       {
          ApplyFormToModel();
          _app.db.SaveFireSection(_model);
+         ReloadThermalState();
          LastRunInfo = Loc.S("FireSection_Saved");
          _app.LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), _model.Tag));
       }
@@ -333,8 +351,11 @@ namespace OpenCS.Views
 
          if (meshCheck.BlocksRun)
          {
-            string msg = string.Format(Loc.S("FireSection_MeshStepBelowRebarDiameter"),
-               _model.MeshStepM, meshCheck.MaxRebarDiameterM);
+            string msg = meshCheck.TooCoarse
+               ? string.Format(Loc.S("FireSection_MeshStepTooCoarse"),
+                  _model.MeshStepM, meshCheck.MinSideM, FireMeshStepValidator.MinElementsAcross)
+               : string.Format(Loc.S("FireSection_MeshStepBelowRebarDiameter"),
+                  _model.MeshStepM, meshCheck.MaxRebarDiameterM);
             LastRunInfo = msg;
             _app.LogService.Error(msg);
             return;
@@ -344,8 +365,9 @@ namespace OpenCS.Views
             _app.LogService.Warning(string.Format(
                Loc.S("FireSection_MeshStepOutOfRange"), _model.MeshStepM));
 
-         if (_model.Id == 0)
-            _app.db.SaveFireSection(_model);
+         // Сохраняем всегда: хеш результата считается по форме, и если оставить в базе
+         // старые параметры, после перезапуска расчёт окажется «устаревшим».
+         _app.db.SaveFireSection(_model);
 
          string aggregate = ResolveAggregateType(section);
          ThermalRunning = true;
@@ -356,11 +378,11 @@ namespace OpenCS.Views
             var input = FireThermalInputSnapshot.Build(_model, section, aggregate);
             var result = await Task.Run(
                () => FireThermalService.Run(_model, section, aggregate)).ConfigureAwait(true);
-            int resultId = _app.db.SaveFireThermalResult(_model.Id, result, input.Json, input.Hash);
-            ReloadHistory();
-            SelectedHistoryRow = History.Rows.FirstOrDefault(r => r.Id == resultId);
-            LastRunInfo = string.Format(Loc.S("FireSection_RunOk"), resultId);
-            _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag, resultId));
+            _app.db.SaveFireThermalResult(_model.Id, result, input.Json, input.Hash);
+            ReloadThermalState();
+            RefreshThermalResult();
+            LastRunInfo = Loc.S("FireSection_RunOk");
+            _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag));
          }
          catch (Exception ex)
          {
@@ -373,20 +395,47 @@ namespace OpenCS.Views
          }
       }
 
-      /// <summary>Перечитать историю тепловых расчётов текущего огневого сечения.</summary>
-      internal void ReloadHistory()
+      /// <summary>Перечитать состояние теплового расчёта и предупреждение о сетке.</summary>
+      internal void ReloadThermalState()
       {
+         var inv = CultureInfo.InvariantCulture;
          var section = _app.CrossSections.FirstOrDefault(s => s.Id == _model.SectionId);
-         History.Reload(_model.Id, _model, section,
-            section is null ? "silicate" : ResolveAggregateType(section));
+         var info = _model.Id > 0 ? _app.db.GetFireThermalResultInfo(_model.Id) : null;
+         hasThermalResult = info is not null;
+         CommandManager.InvalidateRequerySuggested();
+
+         if (info is null)
+         {
+            ThermalStatusText = Loc.S("FireThermal_StatusNone");
+            ThermalStatusIsProblem = true;
+         }
+         else
+         {
+            string? stale = null;
+            if (section is not null)
+            {
+               try { stale = FireThermalReference.StaleReason(_app.db, _model, section, info); }
+               catch (Exception) { stale = null; }
+            }
+            string duration = info.DurationMin?.ToString("F0", inv) ?? "—";
+            string snapshots = info.SnapshotCount?.ToString(inv) ?? "—";
+            ThermalStatusText = stale is null
+               ? string.Format(Loc.S("FireThermal_StatusCurrent"), info.Created, duration, snapshots)
+               : string.Format(Loc.S("FireThermal_StatusStale"), info.Created, duration, snapshots, stale);
+            ThermalStatusIsProblem = stale is not null;
+         }
+
+         MeshWarningText = section is not null
+            && FireMeshStepValidator.Check(section, _model.MeshStepM).OutOfRecommendedRange
+            ? string.Format(Loc.S("FireSection_MeshStepOutOfRange"), _model.MeshStepM)
+            : "";
       }
 
-      void DeleteSelectedThermal()
+      void DeleteThermal()
       {
-         if (SelectedHistoryRow is not { } row) return;
-         _app.db.DeleteFireThermalResult(row.Id);
-         ReloadHistory();
-         SelectedHistoryRow = History.Rows.FirstOrDefault();
+         _app.db.DeleteFireThermalResultForSection(_model.Id);
+         ReloadThermalState();
+         RefreshThermalResult();
       }
 
       void ApplyFormToModel()

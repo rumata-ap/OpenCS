@@ -150,24 +150,28 @@
                <RowDefinition Height="Auto"/>
                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <GroupBox Grid.Row="0" Header="{DynamicResource FireThermal_History}" Margin="0,0,0,8">
-               <DockPanel>
-                  <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,4,0,0"
-                          Content="{DynamicResource FireThermal_Delete}"
-                          Command="{Binding DeleteThermalCommand}"/>
-                  <DataGrid ItemsSource="{Binding History.Rows}"
-                            SelectedItem="{Binding SelectedHistoryRow}"
-                            AutoGenerateColumns="False" IsReadOnly="True"
-                            CanUserAddRows="False" MaxHeight="160">
-                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryCreated}" Binding="{Binding CreatedText}"/>
-                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistorySnapshots}" Binding="{Binding SnapshotsText}"/>
-                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryDuration}" Binding="{Binding DurationText}"/>
-                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryState}" Binding="{Binding StateText}" Width="*"/>
-                     </DataGrid.Columns>
-                  </DataGrid>
-               </DockPanel>
-            </GroupBox>
+            <DockPanel Grid.Row="0" Margin="0,0,0,8">
+               <Button DockPanel.Dock="Right" VerticalAlignment="Top" Margin="8,0,0,0"
+                       Content="{DynamicResource FireThermal_Delete}"
+                       Command="{Binding DeleteThermalCommand}"/>
+               <StackPanel>
+                  <TextBlock Text="{Binding ThermalStatusText}" TextWrapping="Wrap">
+                     <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                           <Style.Triggers>
+                              <DataTrigger Binding="{Binding ThermalStatusIsProblem}" Value="True">
+                                 <Setter Property="Foreground" Value="DarkOrange"/>
+                                 <Setter Property="FontWeight" Value="Bold"/>
+                              </DataTrigger>
+                           </Style.Triggers>
+                        </Style>
+                     </TextBlock.Style>
+                  </TextBlock>
+                  <TextBlock Text="{Binding MeshWarningText}" TextWrapping="Wrap"
+                             Foreground="DarkOrange" FontWeight="Bold" Margin="0,4,0,0"
+                             Visibility="{Binding HasMeshWarning, Converter={StaticResource BoolToVisibility}}"/>
+               </StackPanel>
+            </DockPanel>
             <ContentControl x:Name="thermalResultHost" Grid.Row="1"/>
          </Grid>
       </TabItem>

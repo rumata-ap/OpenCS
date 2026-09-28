@@ -14,6 +14,8 @@ public static class FireMeshStepValidatorTests
         StepOutOfRecommendedRange_WarnsOnly();
         ZeroDiameter_RestoredFromArea();
         NoDiameterNoArea_Counted();
+        TooCoarseForSection_Blocks();
+        FineStep_NotCoarse();
     }
 
     static CrossSection SectionWithRebar(double diameterM, double areaM2)
@@ -36,7 +38,8 @@ public static class FireMeshStepValidatorTests
     {
         var check = FireMeshStepValidator.Check(SectionWithRebar(0.012, 1.13e-4), meshStepM: 0.010);
         TestHarness.Check("FireMeshStep_BlocksWhenBelowDiameter",
-            check.BlocksRun && Math.Abs(check.MaxRebarDiameterM - 0.012) < 1e-12,
+            check.BlocksRun && check.BelowRebarDiameter && !check.TooCoarse
+            && Math.Abs(check.MaxRebarDiameterM - 0.012) < 1e-12,
             $"blocks={check.BlocksRun}, maxD={check.MaxRebarDiameterM:F4}");
     }
 
@@ -68,5 +71,21 @@ public static class FireMeshStepValidatorTests
         TestHarness.Check("FireMeshStep_UnknownDiameterCounted",
             check.UnknownDiameterCount >= 1 && !check.BlocksRun,
             $"unknown={check.UnknownDiameterCount}");
+    }
+
+    // Сечение 1×1 м: шаг 0,2 м — 5 элементов по стороне (случай 26.09: 0,4 м на 500×500).
+    static void TooCoarseForSection_Blocks()
+    {
+        var check = FireMeshStepValidator.Check(SectionWithRebar(0.012, 1.13e-4), meshStepM: 0.2);
+        TestHarness.Check("FireMeshStep_TooCoarseBlocks",
+            check.TooCoarse && check.BlocksRun && !check.BelowRebarDiameter
+            && Math.Abs(check.MinSideM - 1.0) < 1e-9,
+            $"coarse={check.TooCoarse}, minSide={check.MinSideM:F3}");
+    }
+
+    static void FineStep_NotCoarse()
+    {
+        var check = FireMeshStepValidator.Check(SectionWithRebar(0.012, 1.13e-4), meshStepM: 0.02);
+        TestHarness.Check("FireMeshStep_FineNotCoarse", !check.TooCoarse && !check.BlocksRun);
     }
 }

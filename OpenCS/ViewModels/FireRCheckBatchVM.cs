@@ -48,7 +48,12 @@ public sealed class FireRCheckBatchVM : ViewModelBase
 
         JsonElement root = FireResultJson.Root(result.DataJson);
         bool passed = FireResultJson.Bool(root, "passed");
-        ThermalWarningText = FireResultJson.Str(root, "thermal_warning", "");
+        // thermal_warning пишут только результаты до v62 (история тепловых расчётов).
+        ThermalWarningText = string.Join(" ", new[]
+        {
+            FireResultJson.Str(root, "thermal_warning", ""),
+            FireResultJson.Str(root, "mesh_warning", "")
+        }.Where(t => t.Length > 0));
         double worst = FireResultJson.Dbl(root, "worst_margin");
         StatusBrush = passed
             ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))

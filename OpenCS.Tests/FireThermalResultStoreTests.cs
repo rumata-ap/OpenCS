@@ -8,7 +8,7 @@ namespace OpenCS.Tests;
 public sealed class FireThermalResultStoreTests
 {
     [Fact]
-    public void SaveAndList_ReturnsNewestFirstWithMetadata()
+    public void Save_ReplacesPreviousResult_WithNewId()
     {
         string path = TempDbPath();
         try
@@ -17,58 +17,46 @@ public sealed class FireThermalResultStoreTests
             db.LoadAll();
 
             int first = db.SaveFireThermalResult(1, Result(durationMin: 30), "{\"schema\":1}", "aaaaaaaaaaaaaaaa");
+            int other = db.SaveFireThermalResult(2, Result(durationMin: 45), "{}", "cccccccccccccccc");
             int second = db.SaveFireThermalResult(1, Result(durationMin: 60), "{\"schema\":1}", "bbbbbbbbbbbbbbbb");
 
-            var list = db.ListFireThermalResults(1);
+            Assert.NotEqual(first, second);
+            Assert.False(db.FireThermalResultExists(first));
+            Assert.True(db.FireThermalResultExists(second));
+            Assert.True(db.FireThermalResultExists(other));
 
-            Assert.Equal(2, list.Count);
-            Assert.Equal(second, list[0].Id);
-            Assert.Equal(first, list[1].Id);
-            Assert.Equal("bbbbbbbbbbbbbbbb", list[0].InputHash);
-            Assert.Equal(2, list[0].SnapshotCount);
-            Assert.Equal(60.0, list[0].DurationMin!.Value, 6);
+            var info = db.GetFireThermalResultInfo(1);
+            Assert.NotNull(info);
+            Assert.Equal(second, info!.Id);
+            Assert.Equal("bbbbbbbbbbbbbbbb", info.InputHash);
+            Assert.Equal(2, info.SnapshotCount);
+            Assert.Equal(60.0, info.DurationMin!.Value, 6);
+            Assert.Equal(1, CountRows(path, 1));
         }
         finally { Delete(path); }
     }
 
     [Fact]
-    public void GetOwner_ReturnsFireSectionId_AndNullForMissing()
+    public void DeleteForSection_RemovesOnlyThatSection()
     {
         string path = TempDbPath();
         try
         {
             using var db = new DatabaseService(path);
             db.LoadAll();
-            int id = db.SaveFireThermalResult(7, Result(60), "{}", "aaaaaaaaaaaaaaaa");
+            db.SaveFireThermalResult(1, Result(30), "{}", "1111111111111111");
+            int b = db.SaveFireThermalResult(2, Result(60), "{}", "2222222222222222");
 
-            Assert.Equal(7, db.GetFireThermalResultOwner(id));
-            Assert.Null(db.GetFireThermalResultOwner(id + 1000));
+            db.DeleteFireThermalResultForSection(1);
+
+            Assert.Null(db.GetFireThermalResultInfo(1));
+            Assert.Equal(b, db.GetFireThermalResultInfo(2)!.Id);
         }
         finally { Delete(path); }
     }
 
     [Fact]
-    public void Delete_RemovesOnlyTargetRow()
-    {
-        string path = TempDbPath();
-        try
-        {
-            using var db = new DatabaseService(path);
-            db.LoadAll();
-            int a = db.SaveFireThermalResult(1, Result(30), "{}", "1111111111111111");
-            int b = db.SaveFireThermalResult(1, Result(60), "{}", "2222222222222222");
-
-            db.DeleteFireThermalResult(a);
-            var list = db.ListFireThermalResults(1);
-
-            Assert.Single(list);
-            Assert.Equal(b, list[0].Id);
-        }
-        finally { Delete(path); }
-    }
-
-    [Fact]
-    public void LegacyRowWithoutMetadata_ListsWithNulls()
+    public void LegacyRowWithoutMetadata_ReadsWithNulls()
     {
         string path = TempDbPath();
         try
@@ -84,7 +72,7 @@ public sealed class FireThermalResultStoreTests
             using (var db = new DatabaseService(path))
             {
                 db.LoadAll();
-                var info = Assert.Single(db.ListFireThermalResults(1));
+                var info = db.GetFireThermalResultInfo(1)!;
                 Assert.Null(info.InputHash);
                 Assert.Null(info.SnapshotCount);
                 Assert.Null(info.DurationMin);
@@ -129,6 +117,16 @@ public sealed class FireThermalResultStoreTests
     static void Delete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+
+    static long CountRows(string path, int fireSectionId)
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+        connection.Open();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM fire_thermal_results WHERE fire_section_id=@s";
+        cmd.Parameters.AddWithValue("@s", fireSectionId);
+        return (long)cmd.ExecuteScalar()!;
     }
 
     static void ClearMetadata(string path)

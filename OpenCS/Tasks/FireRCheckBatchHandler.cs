@@ -31,20 +31,12 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
             if (forceSet is null)
                 throw new InvalidOperationException("Набор усилий задачи не найден.");
 
-            var reference = FireThermalReference.Resolve(ctx.Database, p.FireSectionId, p.ThermalResultId);
-            if (reference.ErrorKey is not null)
-               throw new InvalidOperationException(Loc.S(reference.ErrorKey));
-
-            FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
-            if (thermal.MeshInfo.Mesh.Elements.Any(e => e.Length != 3))
-                throw new FireCalculationException("FireThermal_T6MechanicalUnsupported");
-            int? thermalId = reference.ResultId;
-
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
-            var freshness = section.Id == fireDef.SectionId
-               ? FireThermalFreshness.Check(ctx.Database, fireDef, section, reference.ResultId)
-               : new FireThermalFreshness(reference.ResultId, null, null);
+            var reference = FireThermalReference.Resolve(ctx!.Database!, fireDef, section);
+            FireThermalResult thermal = reference.Thermal;
+            int? thermalId = reference.ResultId;
+            int snapshotIndex = FireThermalReference.ResolveSnapshotIndex(thermal, p.SnapshotTimeMin, p.SnapshotIndex);
 
             var rows = new List<object>();
             bool allPassed = true;
@@ -60,7 +52,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     fi.My,
                     task.CalcType,
                     p.Method,
-                    p.SnapshotIndex,
+                    snapshotIndex,
                     fireDef,
                     thermalId,
                     settings.Sp63DescEtaMin,
@@ -90,8 +82,8 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 passed = allPassed,
                 worst_margin = worstMargin,
                 thermal_result_id = reference.ResultId,
-                legacy_thermal_reference = reference.IsLegacyFallback,
-                thermal_warning = freshness.WarningText,
+                thermal_input_hash = reference.InputHash,
+                mesh_warning = FireMeshWarning.Text(section, fireDef),
                 rows
             };
 

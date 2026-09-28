@@ -36,6 +36,9 @@ public sealed class FireRTimeResultVM
       RMinText = rMin?.ToString("F1", CultureInfo.InvariantCulture) ?? "—";
 
       var notes = new List<string>();
+      string meshWarning = FireResultJson.Str(root, "mesh_warning", "");
+      if (meshWarning.Length > 0)
+         notes.Add(meshWarning);
       if (FireResultJson.Bool(root, "failed_at_start"))
          notes.Add(Loc.S("FireRTime_FailedAtStart"));
       if (FireResultJson.Bool(root, "limit_not_reached"))

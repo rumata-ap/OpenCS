@@ -10,13 +10,14 @@ public sealed class FireThermalCurvatureParams
    [JsonPropertyName("fire_section_id")]
    public int FireSectionId { get; set; }
 
-   /// <summary>Идентификатор сохранённого теплового результата.</summary>
-   [JsonPropertyName("thermal_result_id")]
-   public int ThermalResultId { get; set; }
-
-   /// <summary>Индекс снимка температурного поля; -1 означает последний снимок.</summary>
+   /// <summary>Устаревший индекс снимка: читается только у задач, не прошедших миграцию v62.</summary>
    [JsonPropertyName("snapshot_index")]
    public int SnapshotIndex { get; set; } = -1;
+
+   /// <summary>Момент температурного поля, мин; null — конец теплового расчёта.</summary>
+   [JsonPropertyName("snapshot_time_min")]
+   [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+   public double? SnapshotTimeMin { get; set; }
 
    /// <summary>Нормируемый предел огнестойкости R, мин.</summary>
    [JsonPropertyName("normalized_limit_min")]

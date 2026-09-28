@@ -24,6 +24,10 @@
                <TextBlock Text="{Binding ThermalWarningText}" Foreground="DarkOrange" FontWeight="Bold" TextWrapping="Wrap"
                           Margin="0,0,0,8"
                           Visibility="{Binding HasThermalWarning, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock DataContext="{Binding DataContext.Plots, RelativeSource={RelativeSource AncestorType=TabControl}}"
+                          Text="{Binding UnavailableText}" Foreground="DarkOrange" TextWrapping="Wrap"
+                          Margin="0,0,0,8"
+                          Visibility="{Binding HasUnavailableText, Converter={StaticResource BoolToVisibility}}"/>
 
                <GroupBox Header="{DynamicResource FireRCheck_LimitLoading}" Margin="0,0,0,6" Padding="8,4"
                          Visibility="{Binding ShowLimitSection, Converter={StaticResource BoolToVisibility}}">

@@ -13,14 +13,17 @@ public sealed class FireRCheckParams
     [JsonPropertyName("fire_section_id")]
     public int FireSectionId { get; set; }
 
-    [JsonPropertyName("thermal_result_id")]
-    public int ThermalResultId { get; set; }
-
     [JsonPropertyName("method")]
     public string Method { get; set; } = "fiber";
 
+    /// <summary>Устаревший индекс снимка: читается только у задач, не прошедших миграцию v62.</summary>
     [JsonPropertyName("snapshot_index")]
     public int SnapshotIndex { get; set; } = -1;
+
+    /// <summary>Момент проверки, мин; null — конец теплового расчёта (длительность пожара).</summary>
+    [JsonPropertyName("snapshot_time_min")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? SnapshotTimeMin { get; set; }
 
     public static FireRCheckParams Parse(string? json)
     {
@@ -51,20 +54,12 @@ public sealed class FireRCheckHandler : ITaskHandler
             if (fireDef is null)
                 throw new InvalidOperationException($"Огневое сечение id={p.FireSectionId} не найдено.");
 
-            var reference = FireThermalReference.Resolve(ctx.Database, p.FireSectionId, p.ThermalResultId);
-            if (reference.ErrorKey is not null)
-               throw new InvalidOperationException(Loc.S(reference.ErrorKey));
-
-            FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
-            if (thermal.MeshInfo.Mesh.Elements.Any(e => e.Length != 3))
-                throw new FireCalculationException("FireThermal_T6MechanicalUnsupported");
-            int? thermalId = reference.ResultId;
-
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
-            var freshness = section.Id == fireDef.SectionId
-               ? FireThermalFreshness.Check(ctx.Database, fireDef, section, reference.ResultId)
-               : new FireThermalFreshness(reference.ResultId, null, null);
+            var reference = FireThermalReference.Resolve(ctx!.Database!, fireDef, section);
+            FireThermalResult thermal = reference.Thermal;
+            int? thermalId = reference.ResultId;
+            int snapshotIndex = FireThermalReference.ResolveSnapshotIndex(thermal, p.SnapshotTimeMin, p.SnapshotIndex);
             FireCheckResult check = FireRCheck.Run(
                 thermal,
                 section,
@@ -73,7 +68,7 @@ public sealed class FireRCheckHandler : ITaskHandler
                 item.My,
                 task.CalcType,
                 p.Method,
-                p.SnapshotIndex,
+                snapshotIndex,
                 fireDef,
                 thermalId,
                 settings.Sp63DescEtaMin,
@@ -87,8 +82,8 @@ public sealed class FireRCheckHandler : ITaskHandler
                 margin = Math.Round(check.Margin, 6),
                 critical_time_min = check.CriticalTimeMin,
                 thermal_result_id = reference.ResultId,
-                legacy_thermal_reference = reference.IsLegacyFallback,
-                thermal_warning = freshness.WarningText,
+                thermal_input_hash = reference.InputHash,
+                mesh_warning = FireMeshWarning.Text(section, fireDef),
                 details = check.Details
             };
 

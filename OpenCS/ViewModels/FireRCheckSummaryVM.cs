@@ -82,7 +82,12 @@ public sealed class FireRCheckSummaryVM : ViewModelBase
 
         JsonElement root = FireResultJson.Root(result.DataJson);
         JsonElement d = FireResultJson.Details(root);
-        ThermalWarningText = FireResultJson.Str(root, "thermal_warning", "");
+        // thermal_warning пишут только результаты до v62 (история тепловых расчётов).
+        ThermalWarningText = string.Join(" ", new[]
+        {
+            FireResultJson.Str(root, "thermal_warning", ""),
+            FireResultJson.Str(root, "mesh_warning", "")
+        }.Where(t => t.Length > 0));
 
         bool passed = FireResultJson.Bool(root, "passed");
         string method = FireResultJson.Str(d, "method", "fiber");

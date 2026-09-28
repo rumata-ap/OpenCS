@@ -115,6 +115,10 @@ public sealed class FireThermalCurvatureResultVM
       string reasonKey = FireResultJson.Str(root, "d_unsupported", "");
       if (reasonKey.Length > 0)
          Warnings.Add(Loc.S(reasonKey));
+
+      string meshWarning = FireResultJson.Str(root, "mesh_warning", "");
+      if (meshWarning.Length > 0)
+         Warnings.Add(meshWarning);
    }
 
    void ReadRebarDetails(JsonElement root)

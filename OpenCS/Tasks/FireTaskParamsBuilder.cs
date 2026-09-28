@@ -23,21 +23,20 @@ public static class FireTaskParamsBuilder
       => kind is "fire_r_check" or "fire_r_time";
 
    /// <summary>
-   /// Собрать <c>params_json</c>. Для <c>fire_r_time</c> индекс снапшота
-   /// принудительно сбрасывается: задача перебирает все снапшоты сама.
+   /// Собрать <c>params_json</c>. Момент проверки задаётся временем, мин
+   /// (null — конец теплового расчёта). Для <c>fire_r_time</c> момент не задаётся:
+   /// задача перебирает все снимки сама.
    /// </summary>
    public static string Build(
       string kind,
       int fireSectionId,
-      int thermalResultId,
-      int snapshotIndex,
+      double? snapshotTimeMin,
       string method)
    {
       var p = new FireRCheckParams
       {
          FireSectionId = fireSectionId,
-         ThermalResultId = thermalResultId,
-         SnapshotIndex = kind == "fire_r_time" ? -1 : snapshotIndex,
+         SnapshotTimeMin = kind == "fire_r_time" ? null : snapshotTimeMin,
          Method = string.IsNullOrWhiteSpace(method) ? "fiber" : method
       };
       return JsonSerializer.Serialize(p);
@@ -48,7 +47,10 @@ public static class FireTaskParamsBuilder
    {
       var p = FireRCheckParams.Parse(json);
       if (kind == "fire_r_time")
+      {
          p.SnapshotIndex = -1;
+         p.SnapshotTimeMin = null;
+      }
       return p;
    }
 }

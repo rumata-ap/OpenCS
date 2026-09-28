@@ -29,7 +29,7 @@ public sealed class ParametricSteelSectionMigrationTests
 
             using var verify = new SqliteConnection($"Data Source={path};Pooling=False");
             verify.Open();
-            Assert.Equal(61, DatabaseService.SchemaVersion);
+            Assert.True(DatabaseService.SchemaVersion >= 61);
             Assert.Equal(DatabaseService.SchemaVersion, ReadVersion(verify));
             var tables = ReadTableNames(verify);
             Assert.Contains("parametric_steel_sections", tables);

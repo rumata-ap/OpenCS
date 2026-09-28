@@ -33,16 +33,36 @@ public sealed class FireTaskParamsBuilderTests
         string json = FireTaskParamsBuilder.Build(
             kind: "fire_r_check",
             fireSectionId: 12,
-            thermalResultId: 47,
-            snapshotIndex: 5,
+            snapshotTimeMin: 60.0,
             method: "fiber");
 
         var parsed = FireTaskParamsBuilder.Parse("fire_r_check", json);
 
         Assert.Equal(12, parsed.FireSectionId);
-        Assert.Equal(47, parsed.ThermalResultId);
-        Assert.Equal(5, parsed.SnapshotIndex);
+        Assert.Equal(60.0, parsed.SnapshotTimeMin);
+        Assert.Equal(-1, parsed.SnapshotIndex);
         Assert.Equal("fiber", parsed.Method);
+        Assert.DoesNotContain("thermal_result_id", json);
+    }
+
+    [Fact]
+    public void Build_EndOfFire_OmitsTime()
+    {
+        string json = FireTaskParamsBuilder.Build("fire_r_check", 12, null, "fiber");
+
+        Assert.DoesNotContain("snapshot_time_min", json);
+        Assert.Null(FireTaskParamsBuilder.Parse("fire_r_check", json).SnapshotTimeMin);
+    }
+
+    [Fact]
+    public void Parse_LegacyJsonWithThermalResultId_IsAccepted()
+    {
+        var parsed = FireTaskParamsBuilder.Parse("fire_r_check",
+            "{\"fire_section_id\":4,\"thermal_result_id\":47,\"method\":\"fiber\",\"snapshot_index\":3}");
+
+        Assert.Equal(4, parsed.FireSectionId);
+        Assert.Equal(3, parsed.SnapshotIndex);
+        Assert.Null(parsed.SnapshotTimeMin);
     }
 
     [Fact]
@@ -51,23 +71,23 @@ public sealed class FireTaskParamsBuilderTests
         var parsed = FireTaskParamsBuilder.Parse("fire_r_check", "{}");
 
         Assert.Equal(0, parsed.FireSectionId);
-        Assert.Equal(0, parsed.ThermalResultId);
+        Assert.Null(parsed.SnapshotTimeMin);
         Assert.Equal(-1, parsed.SnapshotIndex);
         Assert.Equal("fiber", parsed.Method);
     }
 
     [Fact]
-    public void Build_ForRTime_ForcesEndOfFireSnapshot()
+    public void Build_ForRTime_ForcesEndOfFire()
     {
         string json = FireTaskParamsBuilder.Build(
             kind: "fire_r_time",
             fireSectionId: 3,
-            thermalResultId: 9,
-            snapshotIndex: 4,
+            snapshotTimeMin: 30.0,
             method: "fiber");
 
         var parsed = FireTaskParamsBuilder.Parse("fire_r_time", json);
 
+        Assert.Null(parsed.SnapshotTimeMin);
         Assert.Equal(-1, parsed.SnapshotIndex);
     }
 }

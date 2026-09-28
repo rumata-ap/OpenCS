@@ -250,11 +250,20 @@
       <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskFireThermalResult}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
-      <ComboBox  Grid.Row="6" Grid.Column="1" Margin="0,0,0,8"
-                 ItemsSource="{Binding FireThermalResults}"
-                 SelectedItem="{Binding SelectedFireThermalResult}"
-                 DisplayMemberPath="Created"
-                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBlock Grid.Row="6" Grid.Column="1" Margin="0,0,0,8" TextWrapping="Wrap"
+                 VerticalAlignment="Center"
+                 Text="{Binding FireThermalStatusText}"
+                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}">
+         <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding FireThermalStatusIsProblem}" Value="True">
+                     <Setter Property="Foreground" Value="DarkOrange"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </TextBlock.Style>
+      </TextBlock>
 
       <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource CalcTaskFireSnapshot}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
