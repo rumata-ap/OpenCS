@@ -59,7 +59,7 @@ public sealed class Sp63CircularNormalCheckerTests
         double expected = Sp63CircularFormulas.Circular(0.0, 14_500.0, 340_000.0,
             v["A"], v["AsTot"], v["r2"], v["rs"]).Mult;
         Assert.Equal(expected, detail.Allowable, 9);
-        Assert.Empty(result.ConstructiveChecks);
+        Assert.Single(result.ConstructiveChecks);
         Assert.True(HasMessage(result, "appendix_d_recommended"));
         Assert.True(HasMessage(result, "appendix_d_pure_bending_extension"));
         Assert.True(HasMessage(result, "circular_rebar_class_by_rs"));
@@ -245,6 +245,65 @@ public sealed class Sp63CircularNormalCheckerTests
         Assert.Equal("annular_bending", result.Branch);
         Assert.Equal("(Д.3)", result.StrengthDetails[0].Formula);
         Assert.Equal(2.0, result.Variables["annularBranch"]);
+    }
+
+    [Fact]
+    public void Circle_Bending_MinReinforcement_IsDoubledOverFullArea()
+    {
+        var result = CheckCircle(new LoadItem { N = 0.0, Mx = 50.0 });
+
+        var detail = Assert.Single(result.ConstructiveChecks);
+        Assert.Equal("Sp63Normal_MinReinforcementUniformContour", detail.Description);
+        Assert.Equal("10.3.6", detail.NormReference);
+        Assert.Equal(0.2, detail.Applied, 12);
+        var v = result.Variables;
+        Assert.Equal(v["A"], detail.Variables["baseArea"], 12);
+        Assert.Equal(v["AsTot"] / v["A"] * 100.0, detail.Allowable, 9);
+        Assert.True(detail.Passed);
+    }
+
+    [Fact]
+    public void Circle_Compression_MinReinforcement_InterpolatesByL0OverI()
+    {
+        // i = r/2 = 0,125 м; l0/i = 4,2/0,125 = 33,6 → μmin = 0,1 + (33,6−17)/70·0,15.
+        var result = CheckCircle(new LoadItem { N = -800.0, Mx = 20.0 });
+
+        var detail = Assert.Single(result.ConstructiveChecks);
+        double i = result.Variables["r2"] / 2.0;
+        double t = (4.2 / i - 17.0) / 70.0;
+        Assert.Equal(2.0 * (0.1 + t * 0.15), detail.Applied, 9);
+    }
+
+    [Theory]
+    [InlineData(1.0, 0.2)]   // l0/i = 8 ≤ 17
+    [InlineData(20.0, 0.5)]  // l0/i = 160 ≥ 87
+    public void Circle_Compression_MinReinforcement_ClampsAtBounds(double l0, double expected)
+    {
+        var result = CheckCircle(new LoadItem { N = -800.0, Mx = 20.0 },
+            Options(Sp63NormalShapeKind.Circular, l0: l0));
+
+        Assert.Equal(expected, Assert.Single(result.ConstructiveChecks).Applied, 9);
+    }
+
+    [Fact]
+    public void Circle_Compression_WithoutL0_AddsSlendernessUnknownNote()
+    {
+        var result = CheckCircle(new LoadItem { N = -800.0, Mx = 20.0 },
+            Options(Sp63NormalShapeKind.Circular, l0: null));
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        Assert.Empty(result.ConstructiveChecks);
+        Assert.True(HasMessage(result, "min_reinforcement_slenderness_unknown"));
+    }
+
+    [Fact]
+    public void Ring_Bending_MinReinforcement_UsesRingArea()
+    {
+        var result = CheckRing(new LoadItem { N = 0.0, Mx = 50.0 });
+
+        var detail = Assert.Single(result.ConstructiveChecks);
+        Assert.Equal(0.2, detail.Applied, 12);
+        Assert.Equal(result.Variables["A"], detail.Variables["baseArea"], 12);
     }
 
     [Fact]

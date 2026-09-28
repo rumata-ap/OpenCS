@@ -168,7 +168,7 @@ public static class Sp63TeeNormalChecker
             StrengthPassed = detail.Passed,
             Branch = "bending",
             StrengthDetails = [detail],
-            ConstructiveChecks = [],
+            ConstructiveChecks = Sp63NormalConstructiveReinforcement.CheckTee(profile),
             Variables = variables,
             TraceSteps = Sp63NormalTraceBuilder.Build("bending", [detail], variables),
             InformationalMessages = informational

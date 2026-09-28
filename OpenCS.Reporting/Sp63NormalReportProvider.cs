@@ -522,6 +522,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MinReinforcementTension"] = "Минимальный процент армирования, растянутая арматура: μs,min ≤ μs",
         ["Sp63Normal_MinReinforcementCompression"] = "Минимальный процент армирования, сжатая арматура: μs,min ≤ μs",
         ["Sp63Normal_MinReinforcementCentralTension"] = "Минимальный процент армирования при центральном растяжении (вся арматура к полному сечению бетона): μs,min ≤ μs",
+        ["Sp63Normal_MinReinforcementUniformContour"] = "Минимальный процент армирования при арматуре, равномерной по контуру (вся арматура к полному сечению бетона, удвоенное значение): μs,min ≤ μs",
         ["Sp63Normal_MinReinforcementSlendernessUnknown"] = "Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l0.",
         ["Sp63Normal_MinCoverTension"] = "Защитный слой растянутой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
         ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",

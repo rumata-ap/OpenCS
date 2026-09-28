@@ -1908,6 +1908,7 @@
     <system:String x:Key="Sp63Normal_MinReinforcementTension">Minimum reinforcement ratio, tension reinforcement: μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementCompression">Minimum reinforcement ratio, compression reinforcement: μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Minimum reinforcement ratio for central tension (all reinforcement over full concrete section): μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementUniformContour">Minimum reinforcement ratio for reinforcement uniform along the perimeter (all reinforcement over full concrete section, doubled value): μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Minimum reinforcement ratio per cl. 10.3.6 was not checked: effective length l₀ is not specified.</system:String>
     <system:String x:Key="Sp63Normal_MinCoverTension">Concrete cover of tension reinforcement, cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>
     <system:String x:Key="Sp63Normal_MinCoverCompression">Concrete cover of compression reinforcement, cl. 10.3.2 (at least the bar diameter, 10 mm and the Table 10.1 value): c,min ≤ c</system:String>

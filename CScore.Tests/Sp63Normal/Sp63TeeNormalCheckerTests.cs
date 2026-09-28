@@ -139,13 +139,36 @@ public sealed class Sp63TeeNormalCheckerTests
     }
 
     [Fact]
-    public void NoConstructiveChecks_ForTee()
+    public void MinReinforcement_ForTee_UsesWebWidthTimesH0()
     {
         var result = Check(load: new LoadItem { N = 0.0, Mx = 1000.0 },
             tensionArea: 0.012, compressionArea: 1e-12);
 
         Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
-        Assert.Empty(result.ConstructiveChecks);
+        // Сжатая арматура 1e-12 м² — ниже допуска, отдельной проверки нет.
+        var detail = Assert.Single(result.ConstructiveChecks);
+        Assert.Equal("Sp63Normal_MinReinforcementTension", detail.Description);
+        Assert.Equal("10.3.6", detail.NormReference);
+        Assert.Equal(0.1, detail.Applied, precision: 12);
+        double baseArea = result.Variables["bw"] * result.Variables["h0"];
+        Assert.Equal(baseArea, detail.Variables["baseArea"], precision: 12);
+        Assert.Equal(0.012 / baseArea * 100.0, detail.Allowable, precision: 9);
+        Assert.True(detail.Passed);
+    }
+
+    [Fact]
+    public void MinReinforcement_ForTee_ChecksCompressionRebarWhenPresent()
+    {
+        var result = Check(load: new LoadItem { N = 0.0, Mx = 100.0 },
+            tensionArea: 0.012, compressionArea: 0.0002);
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        Assert.Equal(2, result.ConstructiveChecks.Count);
+        var compression = Assert.Single(result.ConstructiveChecks,
+            detail => detail.Description == "Sp63Normal_MinReinforcementCompression");
+        // 0,0002 / (0,4·h0) < 0,1 % — справочная проверка не выполнена, прочность не затронута.
+        Assert.False(compression.Passed);
+        Assert.True(result.StrengthPassed);
     }
 
     [Fact]

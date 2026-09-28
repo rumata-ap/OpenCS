@@ -2,7 +2,7 @@ namespace CScore.Sp63.Normal;
 
 /// <summary>
 /// Справочная проверка минимального процента продольного армирования по п. 10.3.6
-/// СП 63.13330.2018 для прямоугольного профиля. Не влияет на вердикт прочности:
+/// СП 63.13330.2018 для прямоугольного, таврового и круглого/кольцевого профилей. Не влияет на вердикт прочности:
 /// элемент, не удовлетворяющий этому требованию, норма относит к бетонным, а не
 /// к разрушившимся железобетонным.
 /// </summary>
@@ -63,11 +63,7 @@ public static class Sp63NormalConstructiveReinforcement
                 }
                 else
                 {
-                    notes.Add(new Sp63NormalMessage(
-                        "min_reinforcement_slenderness_unknown",
-                        Sp63NormalMessageKind.Information,
-                        "10.3.6",
-                        "Sp63Normal_MinReinforcementSlendernessUnknown"));
+                    notes.Add(SlendernessUnknownNote());
                 }
 
                 break;
@@ -75,6 +71,62 @@ public static class Sp63NormalConstructiveReinforcement
 
         return (details, notes);
     }
+
+    /// <summary>
+    /// Минимальный процент армирования по п. 10.3.6 для таврового/двутаврового сечения
+    /// при изгибе: площадь бетона — ширина ребра bw на рабочую высоту h0.
+    /// </summary>
+    /// <param name="profile">Профиль таврового сечения.</param>
+    public static List<CheckDetail> CheckTee(Sp63TeeSectionProfile profile)
+    {
+        var details = new List<CheckDetail>();
+        double baseArea = profile.Bw * profile.H0;
+        AddCheck(details, "Sp63Normal_MinReinforcementTension",
+            profile.TensionLayer.Area, baseArea, MuMinLowPercent);
+        if (profile.CompressionLayer.Area > AreaTolerance)
+            AddCheck(details, "Sp63Normal_MinReinforcementCompression",
+                profile.CompressionLayer.Area, baseArea, MuMinLowPercent);
+        return details;
+    }
+
+    /// <summary>
+    /// Минимальный процент армирования по п. 10.3.6 для круглого/кольцевого сечения
+    /// с арматурой, равномерной по контуру: вся продольная арматура относится к полной
+    /// площади бетона, требуемое значение удваивается. При сжатии μs,min интерполируется
+    /// по гибкости l0/i между 17 и 87.
+    /// </summary>
+    /// <param name="compression">Внецентренное сжатие (иначе — изгиб).</param>
+    /// <param name="totalRebarArea">Площадь всей продольной арматуры, м².</param>
+    /// <param name="concreteArea">Полная площадь сечения бетона, м².</param>
+    /// <param name="radiusOfGyration">Радиус инерции сечения i, м.</param>
+    /// <param name="memberContext">Контекст элемента (нужен l0 для сжатия).</param>
+    public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckUniformContour(
+        bool compression, double totalRebarArea, double concreteArea,
+        double radiusOfGyration, Sp63MemberContext memberContext)
+    {
+        var details = new List<CheckDetail>();
+        var notes = new List<Sp63NormalMessage>();
+        double? muMin = compression
+            ? SlendernessMuMinPercent(memberContext.EffectiveLengthL0, radiusOfGyration,
+                RadiusSlendernessLow, RadiusSlendernessHigh)
+            : MuMinLowPercent;
+        if (muMin is { } value)
+            AddCheck(details, "Sp63Normal_MinReinforcementUniformContour",
+                totalRebarArea, concreteArea, 2.0 * value);
+        else
+            notes.Add(SlendernessUnknownNote());
+        return (details, notes);
+    }
+
+    // Пороги гибкости l0/i по п. 10.3.6 для сечения произвольной формы.
+    const double RadiusSlendernessLow = 17.0;
+    const double RadiusSlendernessHigh = 87.0;
+
+    static Sp63NormalMessage SlendernessUnknownNote() => new(
+        "min_reinforcement_slenderness_unknown",
+        Sp63NormalMessageKind.Information,
+        "10.3.6",
+        "Sp63Normal_MinReinforcementSlendernessUnknown");
 
     /// <summary>
     /// Вычисляет справочные геометрические проверки раздела 10.3 для прямоугольного
@@ -383,16 +435,24 @@ public static class Sp63NormalConstructiveReinforcement
         });
     }
 
-    static double? CompressionMuMinPercent(Sp63MemberContext memberContext, double height)
+    static double? CompressionMuMinPercent(Sp63MemberContext memberContext, double height) =>
+        SlendernessMuMinPercent(memberContext.EffectiveLengthL0, height,
+            SlendernessLow, SlendernessHigh);
+
+    /// <summary>
+    /// μs,min при сжатии: 0,1 % при l0/size ≤ low, 0,25 % при l0/size ≥ high,
+    /// между ними — линейная интерполяция. <see langword="null"/> — l0 не задана.
+    /// </summary>
+    static double? SlendernessMuMinPercent(double? l0, double size, double low, double high)
     {
-        if (memberContext.EffectiveLengthL0 is not > 0 || height <= 0)
+        if (l0 is not > 0 || size <= 0)
             return null;
 
-        double slenderness = memberContext.EffectiveLengthL0.Value / height;
-        if (slenderness <= SlendernessLow) return MuMinLowPercent;
-        if (slenderness >= SlendernessHigh) return MuMinHighPercent;
+        double slenderness = l0.Value / size;
+        if (slenderness <= low) return MuMinLowPercent;
+        if (slenderness >= high) return MuMinHighPercent;
 
-        double t = (slenderness - SlendernessLow) / (SlendernessHigh - SlendernessLow);
+        double t = (slenderness - low) / (high - low);
         return MuMinLowPercent + t * (MuMinHighPercent - MuMinLowPercent);
     }
 

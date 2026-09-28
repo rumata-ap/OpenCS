@@ -203,7 +203,13 @@ public static class Sp63CircularNormalChecker
                 reference);
 
         var detail = Detail(formula, description, reference, moment, mult, variables);
-        return Calculated(branch, detail, variables, informational, etaResult);
+        var result = Calculated(branch, detail, variables, informational, etaResult);
+        var (constructiveChecks, constructiveNotes) =
+            Sp63NormalConstructiveReinforcement.CheckUniformContour(compression,
+                rebar.TotalArea, geometry.Area, RadiusOfGyration(geometry), context);
+        result.ConstructiveChecks = constructiveChecks;
+        result.InformationalMessages.AddRange(constructiveNotes);
+        return result;
     }
 
     /// <summary>Радиус инерции круга (r₁ = 0) или кольца по эквивалентным радиусам, м.</summary>
