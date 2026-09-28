@@ -42,7 +42,8 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
         var inputRows = new List<(string, string)>
         {
             ("Форма сечения", parameters.ShapeKind == "rectangular" ? "прямоугольник" : parameters.ShapeKind),
-            ("Ось изгиба", parameters.Axis)
+            ("Ось изгиба", parameters.Axis),
+            ("Wpl для Mcrc (8.121)", WplMethodText(parameters.WplMethod))
         };
         if (longAndShort)
             inputRows.AddRange(
@@ -131,6 +132,13 @@ public sealed class Sp63CrackWidthReportProvider : IReportProvider
                     FormatVariables(detail.Variables)
                 ]).ToList()));
     }
+
+    /// <summary>Текст выбранного способа Wpl; общий для отчётов трещин и прогиба.</summary>
+    internal static string WplMethodText(string? wplMethod) =>
+        Sp63CrackWidthTaskParams.TryParseWplMethod(wplMethod, out var method) &&
+        method == Sp63WplMethod.StressDiagram
+            ? "по эпюре напряжений п. 8.2.10 (рисунок 8.17)"
+            : "Wpl = 1,3·Wred по (8.122); двутавр и тавр с полкой в растянутой зоне — по эпюре п. 8.2.10";
 
     static void AddFormationTable(ReportDocument document, List<CheckDetail> checks)
     {

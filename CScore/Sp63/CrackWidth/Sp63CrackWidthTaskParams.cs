@@ -55,6 +55,12 @@ public sealed class Sp63CrackWidthTaskParams
     /// </summary>
     public string WplGamma { get; set; } = "sp63";
 
+    /// <summary>
+    /// Способ определения Wpl: "gamma" — γ·Wred по (8.122) (по умолчанию, в том числе для задач,
+    /// сохранённых до появления поля); "stress_diagram" — по эпюре напряжений п. 8.2.10.
+    /// </summary>
+    public string WplMethod { get; set; } = "gamma";
+
     /// <summary>Использовать ручные значения N, Mx и My.</summary>
     public bool UseManualForces { get; set; }
 
@@ -119,9 +125,12 @@ public sealed class Sp63CrackWidthTaskParams
 
         if (!TryParseHumidity(Humidity, out var humidity))
             return Invalid("invalid_humidity", out errorCode);
+        if (!TryParseWplMethod(WplMethod, out var wplMethod))
+            return Invalid("invalid_wpl_method", out errorCode);
 
         options = new Sp63CrackWidthOptions(shapeKind, axis, Phi1, Phi2,
-            AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm, humidity);
+            AcrcLimMm, sigmaSCrc, wplGamma, mode, LongTermShare, AcrcLimShortMm, humidity,
+            wplMethod);
         return true;
     }
 
@@ -156,6 +165,19 @@ public sealed class Sp63CrackWidthTaskParams
             case "40_75": return true;
             case "above_75": humidity = Sp63Humidity.Above75; return true;
             case "below_40": humidity = Sp63Humidity.Below40; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>Разбирает способ определения Wpl из JSON-контракта; пусто — "gamma".</summary>
+    public static bool TryParseWplMethod(string? value, out Sp63WplMethod method)
+    {
+        method = Sp63WplMethod.Gamma;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "gamma": return true;
+            case "stress_diagram": method = Sp63WplMethod.StressDiagram; return true;
             default: return false;
         }
     }

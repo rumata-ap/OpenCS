@@ -18,7 +18,8 @@ public sealed record Sp63DeflectionOptions(
     double? ManualMy = null,
     double? ManualLongN = null,
     double? ManualLongMx = null,
-    double? ManualLongMy = null);
+    double? ManualLongMy = null,
+    Sp63WplMethod WplMethod = Sp63WplMethod.Gamma);
 
 /// <summary>Способ задания длительной части усилий.</summary>
 public enum Sp63DeflectionForcesMode

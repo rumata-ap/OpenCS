@@ -77,7 +77,7 @@ public static class Sp63CrackWidthChecker
                 bool opposite = false) =>
             Sp63SlsSectionSolver.ComputeCrackTerm(g, concreteChars, rebarChars, m, n,
                 phi1Term, options.Phi2, options.AcrcLimMm, options.SigmaSCrc, options.WplGamma,
-                opposite);
+                opposite, options.WplMethod);
 
         // Полный режим (п. 8.2.7): acrc2 — полная нагрузка при φ1 = 1,0; acrc1/acrc3 —
         // длительная часть ψ·(N, M) при φ1 = 1,4 и 1,0. Одиночный — одна составляющая с φ1.

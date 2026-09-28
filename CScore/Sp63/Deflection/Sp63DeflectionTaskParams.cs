@@ -23,6 +23,10 @@ public sealed class Sp63DeflectionTaskParams
     public double DeflectionLimitMm { get; set; }
     /// <summary>Влажность: above_75, 40_75 или below_40.</summary>
     public string Humidity { get; set; } = "40_75";
+    /// <summary>
+    /// Способ определения Wpl: "gamma" (по умолчанию, (8.122)) или "stress_diagram" (п. 8.2.10).
+    /// </summary>
+    public string WplMethod { get; set; } = "gamma";
     /// <summary>Режим длительных усилий: total_only, share или manual.</summary>
     public string ForcesMode { get; set; } = "total_only";
     /// <summary>Доля длительной части полной нагрузки в режиме share.</summary>
@@ -87,6 +91,8 @@ public sealed class Sp63DeflectionTaskParams
             return Invalid("invalid_deflection_limit", out errorCode);
         if (!Sp63CrackWidthTaskParams.TryParseHumidity(Humidity, out var humidity))
             return Invalid("invalid_humidity", out errorCode);
+        if (!Sp63CrackWidthTaskParams.TryParseWplMethod(WplMethod, out var wplMethod))
+            return Invalid("invalid_wpl_method", out errorCode);
         if (!TryParseForcesMode(ForcesMode, out var forcesMode))
             return Invalid("invalid_forces_mode", out errorCode);
         if (!double.IsFinite(LongTermShare) || LongTermShare is < 0 or > 1)
@@ -100,7 +106,7 @@ public sealed class Sp63DeflectionTaskParams
 
         options = new Sp63DeflectionOptions(shapeKind, axis, scheme,
             SpanM, DeflectionLimitMm, humidity, forcesMode, LongTermShare,
-            N, Mx, My, NLongManual, MxLongManual, MyLongManual);
+            N, Mx, My, NLongManual, MxLongManual, MyLongManual, wplMethod);
         return true;
     }
 

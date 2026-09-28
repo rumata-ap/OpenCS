@@ -137,5 +137,19 @@ public sealed class Sp63DeflectionHandbookTests(ITestOutputHelper output)
         // Формулы консервативнее деформационной модели, но в разумных пределах.
         Assert.InRange(fNdm / f, 0.72, 0.85);
         Assert.InRange(ndm.Mcrc, 13.5, 15.5);
+
+        // Опция «эпюра п. 8.2.10» (рисунок 8.17) вместо Wpl = 1,3·Wred.
+        var byDiagram = Sp63DeflectionChecker.Check(section, load, load, CalcType.N,
+            options with { WplMethod = Sp63WplMethod.StressDiagram });
+        double fDiagram = byDiagram.DeflectionMm;
+        double mcrcDiagram = byDiagram.Variables["McrcFull"];
+        output.WriteLine($"эпюра 8.2.10: Mcrc = {mcrcDiagram:F2} кН·м, f = {fDiagram:F2} мм, " +
+            $"f/fНДМ = {fDiagram / fNdm:F3}");
+        // 29.09.2026: Mcrc = 15,39 кН·м (НДМ 14,68), f = 28,83 мм — запас к НДМ снижается
+        // с ~29 % до ~12 %, прогиб всё ещё не меньше НДМ.
+        Assert.Equal(Sp63DeflectionStatus.Calculated, byDiagram.Status);
+        Assert.InRange(mcrcDiagram / ndm.Mcrc, 1.0, 1.1);
+        Assert.InRange(fDiagram / fNdm, 1.05, 1.2);
+        Assert.True(fDiagram < f);
     }
 }

@@ -115,6 +115,29 @@ public sealed class Sp63CrackWidthTaskParamsTests
     }
 
     [Theory]
+    [InlineData("{}", Sp63WplMethod.Gamma)]
+    [InlineData("""{"wplMethod":"gamma"}""", Sp63WplMethod.Gamma)]
+    [InlineData("""{"wplMethod":"stress_diagram"}""", Sp63WplMethod.StressDiagram)]
+    public void WplMethod_Parses_AndRoundTrips(string json, Sp63WplMethod expected)
+    {
+        var parameters = Sp63CrackWidthTaskParams.Parse(json);
+
+        Assert.True(parameters.TryToOptions(out var options, out var errorCode), errorCode);
+        Assert.Equal(expected, options.WplMethod);
+        Assert.True(Sp63CrackWidthTaskParams.Parse(parameters.ToJson())
+            .TryToOptions(out var again, out _));
+        Assert.Equal(expected, again.WplMethod);
+    }
+
+    [Fact]
+    public void WplMethod_Unknown_IsInvalid()
+    {
+        Assert.False(Sp63CrackWidthTaskParams.Parse("""{"wplMethod":"plastic"}""")
+            .TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_wpl_method", errorCode);
+    }
+
+    [Theory]
     [InlineData("{}", Sp63Humidity.From40To75)]
     [InlineData("""{"humidity":"above_75"}""", Sp63Humidity.Above75)]
     [InlineData("""{"humidity":"below_40"}""", Sp63Humidity.Below40)]

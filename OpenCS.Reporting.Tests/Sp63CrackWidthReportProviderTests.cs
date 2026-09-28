@@ -57,6 +57,8 @@ public sealed class Sp63CrackWidthReportProviderTests
         var kvTables = document.Blocks.OfType<ReportKeyValueTable>().ToList();
         Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Вердикт" && r.Value.Contains("в пределах")));
         Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Трещины образуются" && r.Value == "да"));
+        // Старые задачи без поля wplMethod — упрощение (8.122).
+        Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key.StartsWith("Wpl") && r.Value.Contains("(8.122)")));
         Assert.DoesNotContain(document.Blocks.OfType<ReportWarning>(), w => w.Text.Contains("неприменима"));
         Assert.Contains(document.Blocks.OfType<ReportHeading>(), h => h.Text.StartsWith("Образование трещин"));
         Assert.Contains(tables, t => t.Rows.Any(r => r.Contains("(8.116)") && r.Contains("образуются")));

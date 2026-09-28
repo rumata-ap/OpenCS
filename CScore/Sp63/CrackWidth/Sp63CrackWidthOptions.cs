@@ -46,6 +46,7 @@ public enum Sp63CrackWidthMessageKind
 /// <see cref="Sp63CrackWidthMode.LongAndShort"/>; продолжительное — <paramref name="AcrcLimMm"/>).
 /// </param>
 /// <param name="Humidity">Влажность среды для кривизны (таблицы 6.10, 6.12), режим LongAndShort.</param>
+/// <param name="WplMethod">Wpl = γ·Wred (8.122) или по эпюре напряжений п. 8.2.10.</param>
 public sealed record Sp63CrackWidthOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
@@ -57,7 +58,8 @@ public sealed record Sp63CrackWidthOptions(
     Sp63CrackWidthMode Mode = Sp63CrackWidthMode.SingleTerm,
     double LongTermShare = 1.0,
     double AcrcLimShortMm = 0.4,
-    Sp63Humidity Humidity = Sp63Humidity.From40To75);
+    Sp63Humidity Humidity = Sp63Humidity.From40To75,
+    Sp63WplMethod WplMethod = Sp63WplMethod.Gamma);
 
 /// <summary>Режим упрощённой проверки ширины раскрытия трещин.</summary>
 public enum Sp63CrackWidthMode

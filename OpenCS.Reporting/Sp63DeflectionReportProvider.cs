@@ -42,6 +42,7 @@ public sealed class Sp63DeflectionReportProvider : IReportProvider
                 ("Пролёт l, м", F(result.SpanM)),
                 ("Предельный прогиб fult, мм", F(result.DeflectionLimitMm)),
                 ("Влажность среды", HumidityText(parameters.Humidity)),
+                ("Wpl для Mcrc (8.121)", Sp63CrackWidthReportProvider.WplMethodText(parameters.WplMethod)),
                 ("Режим длительных усилий", ForcesModeText(parameters.ForcesMode)),
                 ("N — кН; Mx/My — кН·м", ForceText(result, "N", "M")),
                 ("Nl — кН; Mxl/Myl — кН·м", ForceText(result, "Nl", "Ml"))

@@ -1970,6 +1970,10 @@
     <system:String x:Key="Sp63CrackWidthInputsHint">The check is uniaxial and requires a non-zero moment: a non-zero moment in the other plane or a zero moment (axial tension/compression) is reported as not applicable — use the deformation-model check (task &quot;Crack width&quot;). Cl. 8.2.7 mode: acrc1 from the long-term part ψ·M with φ1 = 1.4, acrc2 and acrc3 from the full and long-term load with φ1 = 1.0; limits per cl. 8.2.6 — 0.3/0.4 mm for A240…A600, B500, 0.2/0.3 mm for permeability. In single-term mode φ1 = 1.0 for short-term and 1.4 for long-term action. φ2 = 0.5 for deformed bars, 0.8 for plain bars.</system:String>
     <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Check the numeric parameters: φ1, φ2 and acrc,lim must be positive finite numbers.</system:String>
     <system:String x:Key="Sp63CrackWidthStrengthTitle">Crack width check</system:String>
+    <system:String x:Key="Sp63WplMethod">Moment Mcrc, Wpl:</system:String>
+    <system:String x:Key="Sp63WplMethodGamma">Wpl = 1.3·Wred, eq. (8.122)</system:String>
+    <system:String x:Key="Sp63WplMethodStressDiagram">By stress diagram, cl. 8.2.10</system:String>
+    <system:String x:Key="Sp63WplMethodTooltip">Elastic-plastic section modulus for the cracking moment Mcrc (8.121). The simplification (8.122) is allowed for rectangles and tees with the flange in compression and is conservative; the stress diagram of cl. 8.2.10 (Figure 8.17: concrete with modulus Eb, Rbt,ser plateau up to εbt2 = 0.00015) is more accurate. I-sections and tees with the flange in tension always use the diagram.</system:String>
     <system:String x:Key="Sp63CrackWidthFormationTitle">Crack formation, cl. 8.2.4 (for reference, not part of the verdict)</system:String>
     <system:String x:Key="Sp63CrackWidthFormationMColumn">M, kN·m</system:String>
     <system:String x:Key="Sp63CrackWidthFormationMcrcColumn">Mcrc, kN·m</system:String>

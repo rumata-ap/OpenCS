@@ -75,6 +75,18 @@ public sealed class Sp63SlsCrackTermResult
     public Sp63SlsCrackedProperties? CrackedProperties { get; init; }
 }
 
+/// <summary>Способ определения упругопластического момента сопротивления Wpl (п. 8.2.11).</summary>
+public enum Sp63WplMethod
+{
+    /// <summary>
+    /// Wpl = γ·Wred (8.122) там, где норма это допускает (прямоугольник, тавр с полкой в сжатой
+    /// зоне); двутавр и тавр с полкой в растянутой зоне — эпюра п. 8.2.10. По умолчанию.
+    /// </summary>
+    Gamma,
+    /// <summary>Всегда по эпюре напряжений п. 8.2.10 (рисунок 8.17).</summary>
+    StressDiagram
+}
+
 /// <summary>
 /// Общий SLS solver приведённого полосового профиля: полные/треснувшие приведённые характеристики,
 /// Mcrc (п. 8.2.11 — для прямоугольника и тавра с полкой в сжатой зоне через Wpl = γ·Wred;
@@ -201,7 +213,8 @@ public static class Sp63SlsSectionSolver
         double acrcLimMm,
         SigmaSCrcMethod sigmaSCrcMethod,
         WplGammaMethod wplGamma,
-        bool oppositeRow = false)
+        bool oppositeRow = false,
+        Sp63WplMethod wplMethod = Sp63WplMethod.Gamma)
     {
         ArgumentNullException.ThrowIfNull(geometry);
         ArgumentNullException.ThrowIfNull(concrete);
@@ -230,9 +243,9 @@ public static class Sp63SlsSectionSolver
 
         // Полное приведённое сечение для Mcrc — с начальным модулем Eb (п. 8.2.12).
         var full = ComputeFullProperties(geometry, alphaFull);
-        double gamma;
+        double gamma = double.NaN;
         double wpl;
-        if (TryResolveGamma(geometry, wplGamma, asT, out gamma))
+        if (wplMethod == Sp63WplMethod.Gamma && TryResolveGamma(geometry, wplGamma, asT, out gamma))
             wpl = gamma * full.Wred;
         else
             wpl = ComputeStressBlockWpl(geometry, concrete, rebar);
@@ -363,19 +376,21 @@ public static class Sp63SlsSectionSolver
     }
 
     /// <summary>
-    /// Упругопластический момент сопротивления Wpl по стрессовой эпюре п. 8.2.10 для двутавра и
-    /// тавра с полкой в растянутой зоне: плоские сечения, деформация крайнего растянутого бетона
-    /// <see cref="EpsB1T0"/>, треугольная эпюра сжатого бетона с модулем Rb,ser/0,0015 (6.9),
-    /// трапециевидная эпюра растянутого бетона с ограничением Rbt,ser, упругая арматура.
-    /// Положение нейтральной оси определяется равновесием чистого изгиба, Wpl = M/Rbt,ser.
+    /// Упругопластический момент сопротивления Wpl по стрессовой эпюре п. 8.2.10 (двутавр и
+    /// тавр с полкой в растянутой зоне; любой профиль при <see cref="Sp63WplMethod.StressDiagram"/>):
+    /// плоские сечения, деформация крайнего растянутого бетона <see cref="EpsB1T0"/>, бетон
+    /// «как упругое тело» с начальным модулем Eb — треугольная эпюра сжатия и упругий участок
+    /// растяжения до εel = Rbt,ser/Eb, далее площадка Rbt,ser (трапеция рисунка 8.17), упругая
+    /// арматура. Положение нейтральной оси — из равновесия чистого изгиба, Wpl = M/Rbt,ser.
     /// </summary>
     static double ComputeStressBlockWpl(Sp63SlsSectionGeometry geometry,
         MaterialChars concrete, MaterialChars rebar)
     {
         double h = geometry.Height;
-        double rbSer = Math.Abs(concrete.Fc);
         double rbt = concrete.Ft;
-        double ec = rbSer / Sp63Curvature.EpsB1RedShort;
+        // Одна прямая для сжатия и упругого растяжения (рисунок 8.17) — начальный модуль Eb.
+        // Rb,ser/0,0015 (п. 6.1.21) — модуль сечения с трещиной; с ним у B15 площадка исчезает.
+        double ec = concrete.E;
         double es = rebar.E;
         double asT = geometry.TensionLayer.Area, ysT = geometry.TensionLayer.Coordinate;
         double asC = geometry.CompressionLayer.Area, ysC = geometry.CompressionLayer.Coordinate;

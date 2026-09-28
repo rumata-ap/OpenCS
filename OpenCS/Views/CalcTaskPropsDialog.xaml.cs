@@ -99,6 +99,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63CrackWidthLongTermShare = "1";
    string sp63CrackWidthAcrcLimShortMm = "0.4";
    string sp63CrackWidthHumidity = "40_75";
+   string sp63CrackWidthWplMethod = "gamma";
    bool sp63CrackWidthUseManualForces;
    string sp63CrackWidthManualN = "0";
    string sp63CrackWidthManualMx = "0";
@@ -111,6 +112,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63DeflectionLimit = "20";
    string sp63DeflectionShare = "1";
    string sp63DeflectionHumidity = "40_75";
+   string sp63DeflectionWplMethod = "gamma";
    bool sp63DeflectionUseManualForces;
    string sp63DeflectionN = "0", sp63DeflectionMx = "0", sp63DeflectionMy = "0";
    string sp63DeflectionNLong = "0", sp63DeflectionMxLong = "0", sp63DeflectionMyLong = "0";
@@ -385,6 +387,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string Sp63DeflectionLimit { get => sp63DeflectionLimit; set { sp63DeflectionLimit = value; OnPropertyChanged(); } }
    public string Sp63DeflectionShare { get => sp63DeflectionShare; set { sp63DeflectionShare = value; OnPropertyChanged(); } }
    public string Sp63DeflectionHumidity { get => sp63DeflectionHumidity; set { sp63DeflectionHumidity = value; OnPropertyChanged(); } }
+   /// <summary>Способ определения Wpl задачи прогиба: gamma (8.122) или stress_diagram (п. 8.2.10).</summary>
+   public string Sp63DeflectionWplMethod { get => sp63DeflectionWplMethod; set { sp63DeflectionWplMethod = value; OnPropertyChanged(); } }
    public bool Sp63DeflectionUseManualForces
    {
       get => sp63DeflectionUseManualForces;
@@ -469,6 +473,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       get => sp63CrackWidthHumidity;
       set { sp63CrackWidthHumidity = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Способ определения Wpl задачи ширины трещин: gamma (8.122) или stress_diagram (п. 8.2.10).</summary>
+   public string Sp63CrackWidthWplMethod
+   {
+      get => sp63CrackWidthWplMethod;
+      set { sp63CrackWidthWplMethod = value; OnPropertyChanged(); }
    }
 
    /// <summary>Коэффициент длительности действия нагрузки φ1 (п. 8.2.10).</summary>
@@ -2343,6 +2354,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63CrackWidthLongTermShare = scwp.LongTermShare.ToString("G6", inv);
              Sp63CrackWidthAcrcLimShortMm = scwp.AcrcLimShortMm.ToString("G6", inv);
              Sp63CrackWidthHumidity = string.IsNullOrWhiteSpace(scwp.Humidity) ? "40_75" : scwp.Humidity;
+             Sp63CrackWidthWplMethod = string.IsNullOrWhiteSpace(scwp.WplMethod) ? "gamma" : scwp.WplMethod;
              Sp63CrackWidthUseManualForces = scwp.UseManualForces;
              if (scwp.UseManualForces)
              {
@@ -2366,6 +2378,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63DeflectionLimit = dfp.DeflectionLimitMm.ToString("G6", inv);
              Sp63DeflectionShare = dfp.LongTermShare.ToString("G6", inv);
              Sp63DeflectionHumidity = dfp.Humidity;
+             Sp63DeflectionWplMethod = string.IsNullOrWhiteSpace(dfp.WplMethod) ? "gamma" : dfp.WplMethod;
              Sp63DeflectionUseManualForces = dfp.UseManualForces;
              if (dfp.N.HasValue) Sp63DeflectionN = dfp.N.Value.ToString("G6", inv);
              if (dfp.Mx.HasValue) Sp63DeflectionMx = dfp.Mx.Value.ToString("G6", inv);
@@ -2635,6 +2648,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SpanM = span!.Value,
             DeflectionLimitMm = limit!.Value,
             Humidity = Sp63DeflectionHumidity,
+            WplMethod = Sp63DeflectionWplMethod,
             ForcesMode = Sp63DeflectionForcesMode,
             LongTermShare = share!.Value,
             UseManualForces = Sp63DeflectionUseManualForces,
@@ -2796,6 +2810,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             LongTermShare = longTermShare!.Value,
             AcrcLimShortMm = acrcLimShortMm!.Value,
             Humidity = Sp63CrackWidthHumidity,
+            WplMethod = Sp63CrackWidthWplMethod,
             UseManualForces = Sp63CrackWidthUseManualForces,
             N = n,
             Mx = mx,

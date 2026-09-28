@@ -75,10 +75,10 @@ public static class Sp63DeflectionChecker
         const double acrcLimMm = 0.3;
         var fullTerm = Sp63SlsSectionSolver.ComputeCrackTerm(geometry!, concreteChars, rebarChars,
             Math.Abs(moment), totalLoad.N, phi1, phi2, acrcLimMm,
-            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63);
+            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63, wplMethod: options.WplMethod);
         var longTerm = Sp63SlsSectionSolver.ComputeCrackTerm(geometry!, concreteChars, rebarChars,
             Math.Abs(longMoment), longLoad.N, phi1, phi2, acrcLimMm,
-            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63);
+            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63, wplMethod: options.WplMethod);
         if (!Finite(fullTerm.Mcrc, longTerm.Mcrc))
             return InvalidInput("non_finite_result", "Sp63Deflection_NonFiniteResult", "8.2.23");
 

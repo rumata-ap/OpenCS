@@ -1970,6 +1970,10 @@
     <system:String x:Key="Sp63CrackWidthInputsHint">Проверка одноосная и требует ненулевого момента: ненулевой момент в другой плоскости или нулевой момент (центральное растяжение/сжатие) будут отмечены как неприменимые — используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»). Режим п. 8.2.7: acrc1 — от длительной части ψ·M при φ1 = 1,4, acrc2 и acrc3 — от полной и длительной нагрузки при φ1 = 1,0; пределы по п. 8.2.6 — 0,3/0,4 мм для A240…A600, B500, 0,2/0,3 мм из условия проницаемости. В режиме одной составляющей φ1 = 1,0 для непродолжительного действия, 1,4 — для продолжительного. φ2 = 0,5 для арматуры периодического профиля, 0,8 — для гладкой.</system:String>
     <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Проверьте числовые параметры: φ1, φ2 и acrc,lim должны быть положительными конечными числами.</system:String>
     <system:String x:Key="Sp63CrackWidthStrengthTitle">Проверка ширины раскрытия трещин</system:String>
+    <system:String x:Key="Sp63WplMethod">Момент Mcrc, Wpl:</system:String>
+    <system:String x:Key="Sp63WplMethodGamma">Wpl = 1,3·Wred, ф. (8.122)</system:String>
+    <system:String x:Key="Sp63WplMethodStressDiagram">По эпюре напряжений, п. 8.2.10</system:String>
+    <system:String x:Key="Sp63WplMethodTooltip">Упругопластический момент сопротивления для момента образования трещин Mcrc (8.121). Упрощение (8.122) допускается для прямоугольника и тавра с полкой в сжатой зоне и идёт в запас; эпюра п. 8.2.10 (рисунок 8.17: бетон с модулем Eb, площадка Rbt,ser до εbt2 = 0,00015) точнее. Двутавр и тавр с полкой в растянутой зоне всегда считаются по эпюре.</system:String>
     <system:String x:Key="Sp63CrackWidthFormationTitle">Образование трещин, п. 8.2.4 (справочно, в вердикт не входит)</system:String>
     <system:String x:Key="Sp63CrackWidthFormationMColumn">M, кН·м</system:String>
     <system:String x:Key="Sp63CrackWidthFormationMcrcColumn">Mcrc, кН·м</system:String>
