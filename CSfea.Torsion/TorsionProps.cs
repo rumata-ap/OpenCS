@@ -3,7 +3,7 @@ namespace CSfea.Torsion;
 /// <summary>
 /// Результат решения задачи кручения Сен-Венана. Единицы нейтральны
 /// (соответствуют единицам входного контура): It — единицы длины⁴,
-/// координаты и τ/(GΘ) — единицы длины².
+/// координаты и τ/(GΘ) — единицы длины.
 /// </summary>
 public sealed class TorsionProps
 {
@@ -22,7 +22,7 @@ public sealed class TorsionProps
     /// <summary>Координата Y центра кручения по подходу Трефтца (только МКЭ; МГЭ — NaN).</summary>
     public double ShearCenterTrefftzY { get; init; } = double.NaN;
 
-    /// <summary>Максимальное безразмерное касательное напряжение max|τ/(GΘ)|, единицы длины².</summary>
+    /// <summary>Максимальное геометрическое касательное напряжение max|τ/(GΘ)|, единицы длины.</summary>
     public double TauUnitMax { get; init; }
 
     /// <summary>Координаты X узлов поля (МГЭ — центры элементов; МКЭ — узлы сетки).</summary>

@@ -18,7 +18,7 @@ public sealed class TorsionResultData
     public double ShearCenterTrefftzXmm { get; }
     public double ShearCenterTrefftzYmm { get; }
     public bool HasShearCenterTrefftz { get; }
-    public double TauUnitMaxMm2 { get; }
+    public double TauUnitMaxMm { get; }
     public double TauMaxMpa { get; }
     public bool HasPhysicalTau { get; }
     public double TwistRate { get; }
@@ -73,7 +73,7 @@ public sealed class TorsionResultData
         string method, string status,
         double itMm4, double scXmm, double scYmm, bool hasSc,
         double scTrefftzXmm, double scTrefftzYmm, bool hasScTrefftz,
-        double tauUnitMaxMm2, double tauMaxMpa, bool hasPhysicalTau,
+        double tauUnitMaxMm, double tauMaxMpa, bool hasPhysicalTau,
         double twistRate, double gMpa, double eMpa, double mkKNm,
         int nElements, double elementSizeM, bool singular, string? error,
         IReadOnlyList<Point> outer, IReadOnlyList<IReadOnlyList<Point>> holes,
@@ -98,7 +98,7 @@ public sealed class TorsionResultData
         ShearCenterTrefftzXmm = scTrefftzXmm;
         ShearCenterTrefftzYmm = scTrefftzYmm;
         HasShearCenterTrefftz = hasScTrefftz;
-        TauUnitMaxMm2 = tauUnitMaxMm2;
+        TauUnitMaxMm = tauUnitMaxMm;
         TauMaxMpa = tauMaxMpa;
         HasPhysicalTau = hasPhysicalTau;
         TwistRate = twistRate;
@@ -163,9 +163,11 @@ public sealed class TorsionResultData
             double scTx = root.TryGetProperty("shear_center_trefftz_x_m", out var stx) ? stx.GetDouble() * 1000.0 : double.NaN;
             double scTy = root.TryGetProperty("shear_center_trefftz_y_m", out var sty) ? sty.GetDouble() * 1000.0 : double.NaN;
             bool hasScT = double.IsFinite(scTx) && double.IsFinite(scTy);
-            double tauUnitMax = root.TryGetProperty("tau_unit_max_mm2", out var tum)
-                ? tum.GetDouble()
-                : (root.TryGetProperty("tau_unit_max", out var tu) ? tu.GetDouble() * 1e6 : double.NaN);
+            // τ/(GΘ) имеет размерность длины: tau_unit_max — в м, показываем в мм.
+            // Старые результаты хранили ещё tau_unit_max_mm2 = tau_unit_max·10⁶ (ошибочная единица).
+            double tauUnitMax = root.TryGetProperty("tau_unit_max", out var tu)
+                ? tu.GetDouble() * 1e3
+                : (root.TryGetProperty("tau_unit_max_mm2", out var tum) ? tum.GetDouble() / 1e3 : double.NaN);
             double tauMaxMpa = root.TryGetProperty("tau_max_Pa", out var tp) && double.IsFinite(tp.GetDouble())
                 ? tp.GetDouble() / 1e6 : double.NaN;
             double gMpa = root.TryGetProperty("g_mpa", out var g) ? g.GetDouble() : 0;
@@ -345,7 +347,7 @@ public sealed class TorsionResultData
         double tu = TauUnit?[i] ?? double.NaN;
         return mode switch
         {
-            TorsionFieldMode.TauUnit => tu * 1e6,
+            TorsionFieldMode.TauUnit => tu * 1e3,
             TorsionFieldMode.TauMpa when HasPhysicalTau => GMpa * TwistRate * tu,
             _ => double.NaN
         };

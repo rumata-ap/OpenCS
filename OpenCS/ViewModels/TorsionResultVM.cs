@@ -123,8 +123,8 @@ public sealed class TorsionResultVM : ViewModelBase
         if (HasShearCenterTrefftz)
             ShearCenterTrefftzText = $"({data.ShearCenterTrefftzXmm:F1}; {data.ShearCenterTrefftzYmm:F1})";
 
-        TauUnitMaxText = double.IsFinite(data.TauUnitMaxMm2)
-            ? $"{data.TauUnitMaxMm2.ToString("G4", inv)} мм²"
+        TauUnitMaxText = double.IsFinite(data.TauUnitMaxMm)
+            ? $"{data.TauUnitMaxMm.ToString("G4", inv)} мм"
             : "—";
 
         TauMaxText = data.HasPhysicalTau

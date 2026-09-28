@@ -163,7 +163,7 @@ public abstract class TorsionHandlerBase : ITaskHandler
                 shear_center_trefftz_x_m = TorsionJsonHelper.Finite(props.ShearCenterTrefftzX),
                 shear_center_trefftz_y_m = TorsionJsonHelper.Finite(props.ShearCenterTrefftzY),
                 tau_unit_max = props.TauUnitMax,
-                tau_unit_max_mm2 = props.TauUnitMax * 1e6,
+                tau_unit_max_mm = props.TauUnitMax * 1e3,
                 n_elements = props.NElements,
                 singular = props.Singular,
                 element_size_m = elemSizeM,

@@ -124,7 +124,7 @@ public sealed class TorsionPlotVM : ViewModelBase
         TorsionFieldMode.CombinedSigmaZz => "МПа",
         TorsionFieldMode.CombinedSigmaVm => "МПа",
         TorsionFieldMode.CombinedSigma11 => "МПа",
-        _ => "мм²"
+        _ => "мм"
     };
 
     static List<ColorBand> BuildBands(double vmin, double vmax)
