@@ -45,6 +45,12 @@ public sealed record Sp63NormalSectionProfile(
     /// включая промежуточные, не вошедшие в эффективные слои. Пусто — неизвестно.
     /// </summary>
     public IReadOnlyList<double> LayerCoordinates { get; init; } = [];
+
+    /// <summary>Вершины внешнего контура бетона (X, Y) без замыкающей точки, м. Пусто — неизвестно.</summary>
+    public IReadOnlyList<(double X, double Y)> ConcreteContour { get; init; } = [];
+
+    /// <summary>Все физические стержни сечения, включая промежуточные уровни.</summary>
+    public IReadOnlyList<(double X, double Y, double Area, double Diameter)> AllBars { get; init; } = [];
 }
 
 /// <summary>Результат классификации профиля нормального сечения.</summary>
@@ -99,6 +105,12 @@ public sealed record Sp63TeeSectionProfile(
     /// Пусто — неизвестно.
     /// </summary>
     public IReadOnlyList<double> LayerCoordinates { get; init; } = [];
+
+    /// <summary>Вершины внешнего контура бетона (X, Y) без замыкающей точки, м. Пусто — неизвестно.</summary>
+    public IReadOnlyList<(double X, double Y)> ConcreteContour { get; init; } = [];
+
+    /// <summary>Все физические стержни сечения, включая промежуточные уровни.</summary>
+    public IReadOnlyList<(double X, double Y, double Area, double Diameter)> AllBars { get; init; } = [];
 }
 
 /// <summary>Результат извлечения профиля арматуры таврового сечения.</summary>

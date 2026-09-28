@@ -262,6 +262,37 @@ public sealed class Sp63TeeNormalCheckerTests
     }
 
     [Fact]
+    public void SideCover_ForTee_MeasuredToWebFaces()
+    {
+        // bw = 0,4; стержни ∅16 на x = ±0,1 → до грани ребра 0,1 − 0,008 = 0,092 м.
+        var result = Check(load: new LoadItem { N = 0.0, Mx = 1000.0 },
+            tensionArea: 0.012, compressionArea: 0.002);
+
+        var side = Assert.Single(result.ConstructiveChecks,
+            check => check.Description == "Sp63Normal_MinCoverSide");
+        Assert.Equal(0.092, side.Allowable, precision: 9);
+        Assert.True(side.Passed);
+    }
+
+    [Fact]
+    public void SideCover_ForTee_BarInFlangeOverhang_MeasuredToOverhangSurface()
+    {
+        // Нижняя полка y ∈ [−0,4; −0,2]; стержень в свесе на (0,8; −0,23) —
+        // до верхней поверхности свеса 0,03 м, слой 0,03 − 0,008 = 0,022 м.
+        var section = Sp63NormalFixtures.Tee(0.4, 0.8, 2.5, 0.2, flangeOnTop: false,
+            tensionY: 0.25, compressionY: -0.35, tensionArea: 0.012, compressionArea: 0.002);
+        Sp63NormalFixtures.AddBar(section, 0.8, -0.23, 0.0002, Sp63NormalFixtures.Rebar(2));
+
+        var result = Sp63NormalCheckerFor(section, new LoadItem { N = 0.0, Mx = 1000.0 },
+            SpanLength);
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        var side = Assert.Single(result.ConstructiveChecks,
+            check => check.Description == "Sp63Normal_MinCoverSide");
+        Assert.Equal(0.022, side.Allowable, precision: 9);
+    }
+
+    [Fact]
     public void RectangleSection_IsNotATeeShape()
     {
         var section = Sp63NormalFixtures.TwoLayerRectangle(0.3, 0.6, 0.001, 0.001);

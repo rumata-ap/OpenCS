@@ -273,6 +273,78 @@ public sealed class Sp63NormalCoverAndSpacingTests
         Assert.Equal("invalid_exposure_condition", error);
     }
 
+    static CheckDetail SideCover(Sp63NormalResult result) =>
+        Assert.Single(result.ConstructiveChecks,
+            check => check.Description == "Sp63Normal_MinCoverSide");
+
+    [Fact]
+    public void SideCover_Rectangle_MeasuredToSideFaces()
+    {
+        // b = 0,30; стержни ∅16 на x = ±0,075 → до боковой грани 0,075 − 0,008 = 0,067 м.
+        var result = Sp63NormalChecker.Check(
+            Sp63NormalFixtures.TwoLayerRectangle(0.30, 0.60, 0.0010, 0.0010),
+            new LoadItem { N = 0.0, Mx = -20.0 }, CalcType.C,
+            Sp63NormalFixtures.MemberOptions());
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        var side = SideCover(result);
+        Assert.Equal("10.3.2", side.NormReference);
+        Assert.Equal(0.016, side.Applied, precision: 12);
+        Assert.Equal(0.067, side.Allowable, precision: 9);
+        Assert.True(side.Passed);
+    }
+
+    [Fact]
+    public void SideCover_Rectangle_MyAxis_UsesFacesAlongX()
+    {
+        // При My высота — по X, боковые грани y = ±0,30; стержни на y = ±0,25.
+        var options = Sp63NormalFixtures.MemberOptions() with { Axis = Sp63NormalAxis.My };
+        var result = Sp63NormalChecker.Check(
+            Sp63NormalFixtures.TwoLayerRectangle(0.30, 0.60, 0.0010, 0.0010),
+            new LoadItem { N = 0.0, My = 20.0 }, CalcType.C, options);
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        Assert.Equal(0.042, SideCover(result).Allowable, precision: 9);
+    }
+
+    [Fact]
+    public void SideCover_Rectangle_BarNearSideFace_Fails_AndUsesTable101()
+    {
+        var section = Sp63NormalFixtures.Rectangle(0.30, 0.60);
+        var steel = Sp63NormalFixtures.Rebar(2);
+        Sp63NormalFixtures.AddBar(section, -0.075, -0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, 0.130, -0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, -0.075, 0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, 0.075, 0.25, 0.0010, steel);
+        var options = Sp63NormalFixtures.MemberOptions();
+        options = options with
+        {
+            MemberContext = options.MemberContext with
+            {
+                ExposureCondition = Sp63ExposureCondition.Outdoor
+            }
+        };
+
+        var result = Sp63NormalChecker.Check(section, new LoadItem { N = 0.0, Mx = -20.0 },
+            CalcType.C, options);
+
+        var side = SideCover(result);
+        Assert.Equal(0.030, side.Applied, precision: 12);
+        Assert.Equal(0.150 - 0.130 - 0.008, side.Allowable, precision: 9);
+        Assert.False(side.Passed);
+    }
+
+    [Fact]
+    public void SideCover_ProfileWithoutContour_IsSkipped()
+    {
+        var profile = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.016, compressionDiameter: 0.016);
+
+        var (details, _) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile);
+
+        Assert.DoesNotContain(details, detail => detail.Description == "Sp63Normal_MinCoverSide");
+    }
+
     static Sp63NormalSectionProfile Profile(double h, double h0, double aPrime,
         double tensionDiameter, double compressionDiameter,
         double b = 0.30, double tensionArea = 0.0020, double compressionArea = 0.0020,

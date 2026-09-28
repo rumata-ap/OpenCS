@@ -114,7 +114,9 @@ public static class Sp63NormalConstructiveReinforcement
             SymmetryRelativeDifference: profile.SymmetryRelativeDifference,
             PrecomputedXWithoutCompressionRebar: 0.0)
         {
-            LayerCoordinates = profile.LayerCoordinates
+            LayerCoordinates = profile.LayerCoordinates,
+            ConcreteContour = profile.ConcreteContour,
+            AllBars = profile.AllBars
         };
         return CheckCoverAndSpacing(adapter, axis, elementKind, exposure, isPrecast);
     }
@@ -380,6 +382,8 @@ public static class Sp63NormalConstructiveReinforcement
                 profile.CompressionLayer, profile.APrime,
                 TableCover(exposure, isPrecast, compressionIsBottom));
 
+        AddSideCoverCheck(details, profile, axis, TableCover(exposure, isPrecast, isBottom: false));
+
         if (!profile.TensionLayer.IsIdealized)
             AddTensionBarCountCheck(details, profile);
 
@@ -588,6 +592,81 @@ public static class Sp63NormalConstructiveReinforcement
             Allowable = actualCover,
             Variables = variables
         });
+    }
+
+    /// <summary>
+    /// Боковой защитный слой по п. 10.3.2: наименьшее по всем физическим стержням
+    /// расстояние от центра до граней контура минус d/2. Учитываются все грани, кроме
+    /// двух крайних по высоте (их проверяют слои растянутой и сжатой арматуры): боковые
+    /// грани ребра и полок и поверхности свесов полок тавра. Для условий «фундамент без
+    /// подготовки» боковые грани считаются «в грунте».
+    /// </summary>
+    static void AddSideCoverCheck(List<CheckDetail> details,
+        Sp63NormalSectionProfile profile, Sp63NormalAxis axis, double? tableCover)
+    {
+        var contour = profile.ConcreteContour;
+        var bars = profile.AllBars.Where(bar => bar.Diameter > 0).ToList();
+        if (contour.Count < 3 || bars.Count == 0) return;
+
+        double Height((double X, double Y) point) =>
+            axis == Sp63NormalAxis.Mx ? point.Y : point.X;
+        double heightMin = contour.Min(Height);
+        double heightMax = contour.Max(Height);
+        bool OnFace(double h, double face) =>
+            Math.Abs(h - face) <= Sp63RectangularGeometryPolicy.GeometryTolerance;
+
+        var edges = new List<((double X, double Y) A, (double X, double Y) B)>();
+        for (int i = 0; i < contour.Count; i++)
+        {
+            var a = contour[i];
+            var b = contour[(i + 1) % contour.Count];
+            double ha = Height(a), hb = Height(b);
+            bool extremeFace = OnFace(ha, heightMin) && OnFace(hb, heightMin) ||
+                               OnFace(ha, heightMax) && OnFace(hb, heightMax);
+            if (!extremeFace) edges.Add((a, b));
+        }
+        if (edges.Count == 0) return;
+
+        double actualCover = double.PositiveInfinity;
+        foreach (var bar in bars)
+        {
+            double distance = edges.Min(edge => SegmentDistance(bar.X, bar.Y, edge.A, edge.B));
+            actualCover = Math.Min(actualCover, distance - bar.Diameter / 2.0);
+        }
+
+        double maxDiameter = bars.Max(bar => bar.Diameter);
+        double requiredCover = Math.Max(Math.Max(maxDiameter, MinCoverAbsolute),
+            tableCover ?? 0.0);
+        var variables = new Dictionary<string, double>
+        {
+            ["requiredCover"] = requiredCover,
+            ["actualCover"] = actualCover,
+            ["maxDiameter"] = maxDiameter,
+            ["barCount"] = bars.Count
+        };
+        if (tableCover is { } table)
+            variables["tableCover"] = table;
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.2",
+            Description = "Sp63Normal_MinCoverSide",
+            NormReference = "10.3.2",
+            Applied = requiredCover,
+            Allowable = actualCover,
+            Variables = variables
+        });
+    }
+
+    /// <summary>Расстояние от точки до отрезка AB, м.</summary>
+    static double SegmentDistance(double x, double y, (double X, double Y) a, (double X, double Y) b)
+    {
+        double dx = b.X - a.X, dy = b.Y - a.Y;
+        double lengthSquared = dx * dx + dy * dy;
+        double t = lengthSquared > 0
+            ? Math.Clamp(((x - a.X) * dx + (y - a.Y) * dy) / lengthSquared, 0.0, 1.0)
+            : 0.0;
+        double px = a.X + t * dx - x, py = a.Y + t * dy - y;
+        return Math.Sqrt(px * px + py * py);
     }
 
     static void AddTensionBarCountCheck(List<CheckDetail> details,

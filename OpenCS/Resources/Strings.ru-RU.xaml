@@ -1912,6 +1912,7 @@
     <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l₀.</system:String>
     <system:String x:Key="Sp63Normal_MinCoverTension">Защитный слой растянутой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c</system:String>
     <system:String x:Key="Sp63Normal_MinCoverCompression">Защитный слой сжатой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverSide">Боковой защитный слой по п. 10.3.2 — до боковых граней и свесов полок, по всем стержням (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c</system:String>
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).</system:String>

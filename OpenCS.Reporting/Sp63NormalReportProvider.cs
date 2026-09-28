@@ -526,6 +526,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MinReinforcementSlendernessUnknown"] = "Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l0.",
         ["Sp63Normal_MinCoverTension"] = "Защитный слой растянутой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
         ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры по п. 10.3.2 (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
+        ["Sp63Normal_MinCoverSide"] = "Боковой защитный слой по п. 10.3.2 — до боковых граней и свесов полок, по всем стержням (не менее диаметра стержня, 10 мм и значения таблицы 10.1): c,min ≤ c",
         ["Sp63Normal_CoverBarDiameterUnknown"] = "Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.",
         ["Sp63Normal_MinTensionBarCount"] = "Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9",
         ["Sp63Normal_AltCompressionCheck"] = "Внецентренное сжатие при e0 ≤ h/30 и l0/h ≤ 20: N ≤ Nult = φ·(Rb·A + Rsc·As,tot)",

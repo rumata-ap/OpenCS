@@ -98,7 +98,9 @@ public static class Sp63TeeRebarLayoutAnalyzer
             relativeDifference)
         {
             TensionLayerWidth = tensionInFlange ? tensionFlangeWidth : tee.Bw,
-            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList()
+            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList(),
+            ConcreteContour = Sp63RebarBarCollector.ConcreteContour(concreteArea),
+            AllBars = Sp63RebarBarCollector.PhysicalBars(layers)
         };
         return new(profile, []);
     }

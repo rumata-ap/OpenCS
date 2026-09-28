@@ -17,6 +17,25 @@ internal static class Sp63RebarBarCollector
     /// <summary>Допуск объединения стержней в один уровень, м.</summary>
     public const double LayerTolerance = 1e-6;
 
+    /// <summary>Вершины внешнего контура бетонной области без замыкающей точки.</summary>
+    public static IReadOnlyList<(double X, double Y)> ConcreteContour(MaterialArea area)
+    {
+        var hull = area.Hull;
+        if (hull is null) return [];
+        int count = Math.Min(hull.X.Count, hull.Y.Count);
+        var vertices = new List<(double X, double Y)>(count);
+        for (int i = 0; i < count; i++)
+            vertices.Add((hull.X[i], hull.Y[i]));
+        if (vertices.Count > 1 && vertices[0] == vertices[^1])
+            vertices.RemoveAt(vertices.Count - 1);
+        return vertices;
+    }
+
+    /// <summary>Физические стержни всех уровней (без идеализированных расчётных волокон).</summary>
+    public static IReadOnlyList<(double X, double Y, double Area, double Diameter)> PhysicalBars(
+        IEnumerable<Sp63CollectedLayer> layers) =>
+        layers.Where(layer => !layer.IsIdealized).SelectMany(layer => layer.Bars).ToList();
+
     /// <summary>Собирает и группирует точечные стержни по уровням.</summary>
     public static bool TryCollect(CrossSection section, Sp63NormalAxis axis,
         CalcType calc, out List<Sp63CollectedLayer> layers,

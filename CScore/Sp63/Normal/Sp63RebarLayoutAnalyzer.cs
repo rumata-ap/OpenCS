@@ -101,7 +101,9 @@ public static class Sp63RebarLayoutAnalyzer
             relativeDifference,
             xWithoutCompression)
         {
-            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList()
+            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList(),
+            ConcreteContour = Sp63RebarBarCollector.ConcreteContour(concreteArea),
+            AllBars = Sp63RebarBarCollector.PhysicalBars(layers)
         };
         return new Sp63NormalProfileAnalysis(profile, []);
     }
