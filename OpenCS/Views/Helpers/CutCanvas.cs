@@ -331,11 +331,16 @@ namespace OpenCS.Views.Helpers
         /// <summary>
         /// Наибольший ScaleV, при котором эпюра [vMin,vMax] и вылеты арматуры (±px от базы) влезают в vUsable.
         /// </summary>
-        static double MaxScaleVForRebarAndCurve(double vUsable, double vMin, double vMax,
+        internal static double MaxScaleVForRebarAndCurve(double vUsable, double vMin, double vMax,
             double rebarNegPx, double rebarPosPx)
         {
             double lo = 0;
-            double hi = vUsable / Math.Max(Math.Abs(vMax - vMin), 1e-12);
+            // Эпюра откладывается от базы v=0, поэтому верхняя граница поиска — по охвату [min(0,vMin), max(0,vMax)],
+            // а не по vMax−vMin: при постоянной эпюре (вся линия на площадке диаграммы) vMax−vMin≈0,
+            // hi≈vUsable/1e-12 и 40 шагов бисекции не выходят из lo=0 — эпюра схлопывается в линию.
+            double span = Math.Max(0, vMax) - Math.Min(0, vMin);
+            if (span < 1e-12) span = Math.Max(Math.Abs(vMax), 1.0);
+            double hi = vUsable / span;
             for (int i = 0; i < 40; i++)
             {
                 double mid = (lo + hi) * 0.5;
@@ -897,10 +902,13 @@ namespace OpenCS.Views.Helpers
                 var faint = new SolidColorBrush(Color.FromArgb(140, 0x66, 0x66, 0x66));
                 faint.Freeze();
                 dc.DrawEllipse(faint, new Pen(faint, 1.2), basePt, RebarHandleRadius, RebarHandleRadius);
-                var labelPt = horizontal
-                    ? new Point(basePt.X + 4, basePt.Y + RebarHandleRadius + 4)
-                    : new Point(basePt.X + RebarHandleRadius + 4, basePt.Y + 8);
-                DrawTickLabel(dc, $"№{r.Num}", labelPt, TickLabelAlign.LeftTop);
+                if (r.Num is int num)
+                {
+                    var labelPt = horizontal
+                        ? new Point(basePt.X + 4, basePt.Y + RebarHandleRadius + 4)
+                        : new Point(basePt.X + RebarHandleRadius + 4, basePt.Y + 8);
+                    DrawTickLabel(dc, $"№{num}", labelPt, TickLabelAlign.LeftTop);
+                }
             }
         }
 

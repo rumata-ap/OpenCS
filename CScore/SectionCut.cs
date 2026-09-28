@@ -110,7 +110,8 @@ public static class SectionCutBuilder
                 if (t < tMin - nearbyMax || t > tMax + nearbyMax) continue;
                 double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
                 double sig = dgr.SigValue(eps, tenB, comprA) / 1000.0;
-                var marker = new CutRebarMarker(t - tMin, f.X, f.Y, eps, sig, f.Diameter, f.Num);
+                // Num = 0 — стержень без номера (напр. сгенерированный параметрическим сечением).
+                var marker = new CutRebarMarker(t - tMin, f.X, f.Y, eps, sig, f.Diameter, f.Num > 0 ? f.Num : null);
                 if (dist <= rebarThresholdM)
                     rebars.Add(marker);
                 else if (dist <= nearbyMax)

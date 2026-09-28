@@ -43,6 +43,25 @@ public class SectionCutTests
     }
 
     [Fact]
+    public void Build_UnnumberedRebar_HasNullNum()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.4, 0.6);
+        var bars = section.Areas[1].Fibers;
+        bars[2].Num = 0; // без номера (как у стержней параметрического сечения)
+        bars[3].Num = 7;
+        double ry = 0.3 - 0.05;
+
+        var result = SectionCutBuilder.Build(
+            section, new Kurvature { e0 = -0.0005 }, CalcType.C, CutMode.Free,
+            p1: (-0.3, ry), p2: (0.3, ry),
+            rebarThresholdM: 0.001);
+
+        Assert.NotNull(result);
+        Assert.Contains(result!.Rebars, r => r.Num == null);
+        Assert.Contains(result.Rebars, r => r.Num == 7);
+    }
+
+    [Fact]
     public void Build_CutThroughHollowRectangle_ReturnsGapSegmentInsideHole()
     {
         var section = SectionCutFixtures.BuildHollowRectangle(0.6, 0.2);

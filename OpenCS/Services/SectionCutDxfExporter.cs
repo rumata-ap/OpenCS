@@ -426,7 +426,9 @@ namespace OpenCS.Services
             double sAxis = horizontal ? plotW : plotH;
             double vAxis = horizontal ? plotH : plotW;
             double scaleS = sAxis * 0.9 / lengthMm;
-            double vRange = Math.Max(vMax - vMin, 1e-9);
+            // Охват от базы v=0: при постоянной эпюре vMax−vMin≈0 дал бы бесконечный масштаб.
+            double vRange = Math.Max(0, vMax) - Math.Min(0, vMin);
+            if (vRange < 1e-9) vRange = 1;
             double scaleV = vAxis * 0.9 / vRange;
             return new SectionCutViewTransform
             {
