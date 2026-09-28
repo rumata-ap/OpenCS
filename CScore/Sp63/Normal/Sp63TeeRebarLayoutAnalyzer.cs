@@ -82,11 +82,24 @@ public static class Sp63TeeRebarLayoutAnalyzer
             { IsIdealized = compression.IsIdealized }
             : new Sp63NormalRebarLayer(compressionFace, 0.0,
                 tension.Rs, tension.Rsc, []);
+        // Растянутая полка — на противоположной сжатой грани стороне.
+        double tensionFlangeThickness = tensionDirection > 0
+            ? tee.TopFlangeThickness : tee.BottomFlangeThickness;
+        double tensionFlangeWidth = tensionDirection > 0
+            ? tee.TopFlangeWidth : tee.BottomFlangeWidth;
+        double tensionFace = tensionDirection > 0 ? tee.HeightCoordMax : tee.HeightCoordMin;
+        bool tensionInFlange = tensionFlangeThickness > 0 &&
+            Math.Abs(tensionFace - tension.Coordinate) <= tensionFlangeThickness;
+
         var profile = new Sp63TeeSectionProfile(tee.Bw, tee.H, h0, aPrime,
             tensionLayer, compressionLayer, totalArea,
             compressionFlangeWidth, compressionFlangeThickness,
             relativeDifference <= Sp63RebarBarCollector.LayerTolerance,
-            relativeDifference);
+            relativeDifference)
+        {
+            TensionLayerWidth = tensionInFlange ? tensionFlangeWidth : tee.Bw,
+            LayerCoordinates = layers.Select(layer => layer.Coordinate).OrderBy(c => c).ToList()
+        };
         return new(profile, []);
     }
 

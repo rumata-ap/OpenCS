@@ -162,13 +162,21 @@ public static class Sp63TeeNormalChecker
             Allowable = allowable,
             Variables = new Dictionary<string, double>(variables)
         };
+        var constructiveChecks = Sp63NormalConstructiveReinforcement.CheckTee(profile);
+        var context = options.MemberContext;
+        var (coverChecks, coverNotes) =
+            Sp63NormalConstructiveReinforcement.CheckTeeCoverAndSpacing(profile,
+                options.Axis, context.ElementKind, context.ExposureCondition,
+                context.IsPrecast);
+        constructiveChecks.AddRange(coverChecks);
+        informational.AddRange(coverNotes);
         return new Sp63NormalResult
         {
             Status = Sp63NormalStatus.Calculated,
             StrengthPassed = detail.Passed,
             Branch = "bending",
             StrengthDetails = [detail],
-            ConstructiveChecks = Sp63NormalConstructiveReinforcement.CheckTee(profile),
+            ConstructiveChecks = constructiveChecks,
             Variables = variables,
             TraceSteps = Sp63NormalTraceBuilder.Build("bending", [detail], variables),
             InformationalMessages = informational

@@ -86,7 +86,20 @@ public sealed record Sp63TeeSectionProfile(
     double CompressionFlangeActualWidth,
     double CompressionFlangeThickness,
     bool IsSymmetric,
-    double SymmetryRelativeDifference);
+    double SymmetryRelativeDifference)
+{
+    /// <summary>
+    /// Ширина бетона на уровне растянутой арматуры, м: ширина растянутой полки, если
+    /// слой лежит в её пределах, иначе ширина стенки. 0 — неизвестно (берётся Bw).
+    /// </summary>
+    public double TensionLayerWidth { get; init; }
+
+    /// <summary>
+    /// Координаты всех уровней точечной арматуры по оси высоты (по возрастанию), м.
+    /// Пусто — неизвестно.
+    /// </summary>
+    public IReadOnlyList<double> LayerCoordinates { get; init; } = [];
+}
 
 /// <summary>Результат извлечения профиля арматуры таврового сечения.</summary>
 /// <param name="Profile">Профиль или <see langword="null"/>.</param>

@@ -90,6 +90,36 @@ public static class Sp63NormalConstructiveReinforcement
     }
 
     /// <summary>
+    /// Справочные геометрические проверки раздела 10.3 для таврового/двутаврового
+    /// профиля — те же, что у прямоугольника (<see cref="CheckCoverAndSpacing"/>):
+    /// защитный слой от граней по высоте сечения, расстояния между стержнями и число
+    /// растянутых стержней при ширине бетона на уровне растянутой арматуры более 150 мм.
+    /// </summary>
+    public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckTeeCoverAndSpacing(
+        Sp63TeeSectionProfile profile,
+        Sp63NormalAxis axis = Sp63NormalAxis.Mx,
+        Sp63ElementKind? elementKind = null,
+        Sp63ExposureCondition? exposure = null,
+        bool isPrecast = false)
+    {
+        var adapter = new Sp63NormalSectionProfile(
+            B: profile.TensionLayerWidth > 0 ? profile.TensionLayerWidth : profile.Bw,
+            Height: profile.H,
+            H0: profile.H0,
+            APrime: profile.APrime,
+            TensionLayer: profile.TensionLayer,
+            CompressionLayer: profile.CompressionLayer,
+            TotalRebarArea: profile.TotalRebarArea,
+            IsSymmetric: profile.IsSymmetric,
+            SymmetryRelativeDifference: profile.SymmetryRelativeDifference,
+            PrecomputedXWithoutCompressionRebar: 0.0)
+        {
+            LayerCoordinates = profile.LayerCoordinates
+        };
+        return CheckCoverAndSpacing(adapter, axis, elementKind, exposure, isPrecast);
+    }
+
+    /// <summary>
     /// Минимальный процент армирования по п. 10.3.6 для круглого/кольцевого сечения
     /// с арматурой, равномерной по контуру: вся продольная арматура относится к полной
     /// площади бетона, требуемое значение удваивается. При сжатии μs,min интерполируется
