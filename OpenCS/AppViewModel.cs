@@ -3274,7 +3274,9 @@ namespace OpenCS
          BeginBusy(Loc.S("StatusImportingSchema"));
          try
          {
-            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read());
+            int? liraVersion = null;
+            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion));
+            var rbt = AskLiraReinforcementFile(raw, liraVersion);
             var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
@@ -3284,9 +3286,12 @@ namespace OpenCS
             var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
                 .ToArray();
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
+            if (rbt is { } file)
+               db.SaveFemSchemaReinforcementFile(schema.Id, file.FileName, file.Data);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3311,6 +3316,53 @@ namespace OpenCS
                Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>
+      /// Если схема прочитана из ЛИРА-САПФИР 2025+ и у КЭ есть ТЗА — запросить файл описаний ТЗА (.RBT).
+      /// Отмена диалога — импорт без файла (номера ТЗА у КЭ всё равно сохраняются).
+      /// </summary>
+      (string FileName, byte[] Data)? AskLiraReinforcementFile(CScore.Import.LiraSchemaData raw, int? liraVersion)
+      {
+         if (liraVersion < Services.LiraApiSchemaReader.FirstVersionWithReinforcementTypes
+             || liraVersion == null || raw.ElementReinforcementTypes.Count == 0)
+            return null;
+
+         string? path = FileDialogService.OpenFile(
+            Loc.S("LiraRbtFilter"),
+            string.Format(Loc.S("LiraRbtOpenTitle"), raw.ElementReinforcementTypes.Count));
+         if (path == null)
+         {
+            LogService.Info(Loc.S("LiraRbtNotSelected"));
+            return null;
+         }
+
+         string name = System.IO.Path.GetFileName(path);
+         try
+         {
+            byte[] data = System.IO.File.ReadAllBytes(path);
+            var parsed = CScore.Import.LiraRbtReader.Read(data);
+            foreach (var w in parsed.Warnings)
+               LogService.Warning(w);
+            if (parsed.PlateTypes.Count == 0 && parsed.Skipped.Count == 0)
+            {
+               LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, Loc.S("LiraRbtNoTypes")));
+               return null;
+            }
+            LogService.Info(string.Format(Loc.S("LiraRbtLoaded"), name, parsed.PlateTypes.Count, parsed.Skipped.Count));
+
+            var known = parsed.PlateTypes.Keys.Concat(parsed.Skipped.Select(t => t.Id)).ToHashSet();
+            var missing = raw.ElementReinforcementTypes.Values.SelectMany(ids => ids)
+               .Where(id => !known.Contains(id)).Distinct().Order().ToList();
+            if (missing.Count > 0)
+               LogService.Warning(string.Format(Loc.S("LiraRbtMissingTypes"), string.Join(", ", missing)));
+            return (name, data);
+         }
+         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+         {
+            LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, ex.Message));
+            return null;
          }
       }
 

@@ -69,4 +69,10 @@ public class LiraSchemaData
     public List<LiraBarStiffnessRecord>       BarStiffnesses     { get; } = [];
     public List<LiraPlateStiffnessRecord>     PlateStiffnesses   { get; } = [];
     public List<LiraConstructiveBlockRecord>  ConstructiveBlocks { get; } = [];
+
+    /// <summary>
+    /// ТЗА (типы заданного армирования) КЭ из таблицы 33 «Элементы - ТЗА» (только ЛИРА-САПФИР 2025+):
+    /// номер КЭ → номера ТЗА (фон и усиления). КЭ без ТЗА не попадают.
+    /// </summary>
+    public Dictionary<int, int[]>             ElementReinforcementTypes { get; } = [];
 }

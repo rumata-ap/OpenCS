@@ -29,11 +29,25 @@ static class LiraComConnector
     /// Возвращает COM-объект приложения запущенной ЛИРЫ. Не запускает новый экземпляр:
     /// без открытой схемы он бесполезен.
     /// </summary>
-    public static dynamic ConnectApplication()
+    public static dynamic ConnectApplication() => ConnectApplication(out _);
+
+    /// <summary>
+    /// То же, что <see cref="ConnectApplication()"/>, плюс год версии из ProgID
+    /// (<c>LiraSapphire.Application.2025</c> → 2025; null — ProgID без версии).
+    /// </summary>
+    public static dynamic ConnectApplication(out int? version)
     {
         var server = FindRunningServer();
+        version = ProgIdVersion(server.ProgId);
         var appType = Type.GetTypeFromCLSID(server.Clsid, throwOnError: true)!;
         return Activator.CreateInstance(appType)!;
+    }
+
+    static int? ProgIdVersion(string progId)
+    {
+        var m = AppProgIdPattern.Match(progId);
+        return m.Success && m.Groups[1].Success && int.TryParse(m.Groups[1].Value.TrimStart('.'), out int v)
+            ? v : null;
     }
 
     /// <summary>

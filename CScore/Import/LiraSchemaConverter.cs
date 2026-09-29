@@ -118,6 +118,7 @@ public static class LiraSchemaConverter
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                     SectionTag  = tag,
                     ThicknessM  = stiff?.H_mm is { } h ? h / 1000.0 : null,
+                    ReinforcementTypeIds = ReinforcementKey(data, e.Id),
                 };
             })
             .ToArray();
@@ -208,5 +209,52 @@ public static class LiraSchemaConverter
                 };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Создаёт FemMemberGroup пластин для каждой пары «набор ТЗА × жёсткость пластины»:
+    /// у КЭ группы одинаковые армирование и толщина, поэтому группу можно проверять одним сечением.
+    /// Tag = "ТЗА {номера} · {жёсткость}". КЭ без ТЗА в группы не попадают.
+    /// </summary>
+    public static FemMemberGroup[] ToFemMemberGroupsByReinforcementTypes(LiraSchemaData data, int schemaId)
+    {
+        if (data.ElementReinforcementTypes.Count == 0) return [];
+        var stiffNames = data.PlateStiffnesses.ToDictionary(s => s.Id, s => s.Name);
+
+        return data.Elements
+            .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
+            .Select(e => (Elem: e, Key: ReinforcementKey(data, e.Id)))
+            .Where(x => x.Key != null)
+            .GroupBy(x => (x.Key!, x.Elem.StiffnessId))
+            .OrderBy(g => g.Key.StiffnessId)
+            .ThenBy(g => g.Key.Item1, Comparer<string>.Create(CompareKeys))
+            .Select(g =>
+            {
+                var stiff = stiffNames.TryGetValue(g.Key.StiffnessId, out var name) ? name : $"Жёсткость пластины {g.Key.StiffnessId}";
+                return new FemMemberGroup
+                {
+                    SchemaId       = schemaId,
+                    Tag            = $"ТЗА {g.Key.Item1} · {stiff}",
+                    MemberType     = "shell",
+                    MemberTagsJson = JsonSerializer.Serialize(g.Select(x => x.Elem.Id).ToArray()),
+                };
+            })
+            .ToArray();
+    }
+
+    /// <summary>Номера ТЗА КЭ без повторов по возрастанию, через пробел; null — ТЗА нет.</summary>
+    static string? ReinforcementKey(LiraSchemaData data, int elemId)
+        => data.ElementReinforcementTypes.TryGetValue(elemId, out var ids) && ids.Length > 0
+            ? string.Join(" ", ids.Distinct().Order())
+            : null;
+
+    /// <summary>Сравнение ключей «1 2 4» как последовательностей чисел.</summary>
+    static int CompareKeys(string a, string b)
+    {
+        var x = a.Split(' ').Select(int.Parse).ToArray();
+        var y = b.Split(' ').Select(int.Parse).ToArray();
+        for (int i = 0; i < Math.Min(x.Length, y.Length); i++)
+            if (x[i] != y[i]) return x[i].CompareTo(y[i]);
+        return x.Length.CompareTo(y.Length);
     }
 }

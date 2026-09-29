@@ -833,6 +833,13 @@
    <system:String x:Key="ImportLiraRsnTitle">Импорт усилий LIRA — РСН</system:String>
    <system:String x:Key="ImportLiraRsuTitle">Импорт усилий LIRA — РСУ</system:String>
    <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
+   <system:String x:Key="LiraRbtFilter">Типы заданного армирования ЛИРЫ (*.RBT)|*.RBT|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="LiraRbtOpenTitle">Файл ТЗА ЛИРЫ (.RBT) для {0} КЭ с армированием — «Отмена», чтобы пропустить</system:String>
+   <system:String x:Key="LiraRbtNotSelected">Файл ТЗА не указан: сохранены только номера ТЗА у КЭ</system:String>
+   <system:String x:Key="LiraRbtLoaded">Файл ТЗА {0}: пластинчатых типов {1}, прочих (брус и др.) {2}</system:String>
+   <system:String x:Key="LiraRbtMissingTypes">В файле ТЗА нет типов, назначенных КЭ схемы: {0}</system:String>
+   <system:String x:Key="LiraRbtReadError">Не удалось прочитать файл ТЗА {0}: {1}</system:String>
+   <system:String x:Key="LiraRbtNoTypes">записи ТЗА не найдены</system:String>
    <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
    <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>
    <system:String x:Key="ImportLiraSchemaFromCsv">Импорт схемы ЛираСАПР (CSV)…</system:String>

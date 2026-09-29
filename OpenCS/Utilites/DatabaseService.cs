@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 63;
+      const int CurrentSchemaVersion = 64;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -83,6 +83,7 @@ namespace OpenCS.Utilites
          [60] = MigrateV61,
          [61] = MigrateV62,
          [62] = MigrateV63,
+         [63] = MigrateV64,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -550,7 +551,8 @@ namespace OpenCS.Utilites
                 gj_torsion_task_id  INTEGER REFERENCES calc_tasks(id),
                 section_tag         TEXT,
                 material_tag        TEXT,
-                thickness_m         REAL
+                thickness_m         REAL,
+                reinforcement_type_ids TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -653,6 +655,7 @@ namespace OpenCS.Utilites
          EnsureSubmodelExtractionTables();
          EnsureSubmodelBoundaryScenarioTable();
          EnsureSubmodelMaterializationTable();
+         EnsureFemSchemaReinforcementFileTable();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1560,6 +1563,24 @@ namespace OpenCS.Utilites
              created TEXT NOT NULL DEFAULT ''
          );
          """);
+
+      /// <summary>Файл ТЗА ЛИРЫ (.RBT), приложенный к импортированной FEM-схеме: хранится как есть,
+      /// разбирается при использовании (LiraRbtReader).</summary>
+      void EnsureFemSchemaReinforcementFileTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS fem_schema_reinforcement_files (
+             schema_id INTEGER PRIMARY KEY REFERENCES fem_schemas(id) ON DELETE CASCADE,
+             file_name TEXT NOT NULL DEFAULT '',
+             data BLOB NOT NULL
+         );
+         """);
+
+      /// <summary>Миграция v64: ТЗА ЛИРЫ у КЭ сетки и файл описаний ТЗА при схеме.</summary>
+      void MigrateV64()
+      {
+         if (!ColumnExists("fem_elements", "reinforcement_type_ids"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN reinforcement_type_ids TEXT");
+         EnsureFemSchemaReinforcementFileTable();
+      }
 
       /// <summary>Миграция v61: источник параметрического стального сечения («Параметрические МК»).</summary>
       void MigrateV61() => MigExec("""
@@ -3879,6 +3900,7 @@ namespace OpenCS.Utilites
                  WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
                DELETE FROM submodel_extractions   WHERE submodel_schema_id=@id;
                DELETE FROM fem_elements           WHERE schema_id=@id;
+               DELETE FROM fem_schema_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
                DELETE FROM fem_nodes              WHERE schema_id=@id;
@@ -5477,8 +5499,8 @@ namespace OpenCS.Utilites
                meshElemCmd.CommandText = """
                   INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
                                              cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                             section_tag, material_tag, thickness_m)
-                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk)
+                                             section_tag, material_tag, thickness_m, reinforcement_type_ids)
+                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti)
                """;
                foreach (var el in meshElements)
                {
@@ -5495,6 +5517,7 @@ namespace OpenCS.Utilites
                   meshElemCmd.Parameters.AddWithValue("@stag", (object?)el.SectionTag ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@mtag", (object?)el.MaterialTag ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@thk", el.ThicknessM.HasValue ? el.ThicknessM.Value : DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@rti", (object?)el.ReinforcementTypeIds ?? DBNull.Value);
                   meshElemCmd.ExecuteNonQuery();
                }
             }
@@ -5710,8 +5733,8 @@ namespace OpenCS.Utilites
          }
          foreach (var element in elements)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness); SELECT last_insert_rowid();";
-            command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti); SELECT last_insert_rowid();";
+            command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); command.Parameters.AddWithValue("@rti", (object?)element.ReinforcementTypeIds ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
          }
       }
 
@@ -6137,7 +6160,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
-                   material_tag, thickness_m
+                   material_tag, thickness_m, reinforcement_type_ids
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -6160,8 +6183,34 @@ namespace OpenCS.Utilites
                SectionTag = rdr.IsDBNull(9) ? null : rdr.GetString(9),
                MaterialTag = rdr.IsDBNull(10) ? null : rdr.GetString(10),
                ThicknessM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
+               ReinforcementTypeIds = rdr.IsDBNull(12) ? null : rdr.GetString(12),
             });
          return result;
+      }
+
+      /// <summary>Сохранить (заменить) файл ТЗА ЛИРЫ (.RBT) FEM-схемы.</summary>
+      public void SaveFemSchemaReinforcementFile(int schemaId, string fileName, byte[] data)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT OR REPLACE INTO fem_schema_reinforcement_files (schema_id, file_name, data)
+            VALUES (@sid, @name, @data)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@name", fileName);
+         cmd.Parameters.AddWithValue("@data", data);
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Файл ТЗА ЛИРЫ FEM-схемы; null — не приложен.</summary>
+      public (string FileName, byte[] Data)? GetFemSchemaReinforcementFile(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT file_name, data FROM fem_schema_reinforcement_files WHERE schema_id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         if (!rdr.Read()) return null;
+         return (rdr.GetString(0), (byte[])rdr.GetValue(1));
       }
 
       /// <summary>Возвращает (nodeCount, barCount, shellCount) для быстрого отображения в дереве.</summary>

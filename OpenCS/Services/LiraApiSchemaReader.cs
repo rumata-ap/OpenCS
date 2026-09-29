@@ -14,6 +14,10 @@ static class LiraApiSchemaReader
     const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
     const int kLoadCasesTable          = 25;  // номер загружения + имя + тип
+    const int kElementsPRTypesTable    = 33;  // kLiraTable_Elements_PRTypes: КЭ → ТЗА (только 2025+)
+
+    /// <summary>Первая версия ЛИРЫ с таблицей «Элементы - ТЗА».</summary>
+    public const int FirstVersionWithReinforcementTypes = 2025;
 
     /// <summary>
     /// Читает имена загружений из таблицы 25.
@@ -36,9 +40,11 @@ static class LiraApiSchemaReader
         return result;
     }
 
-    public static LiraSchemaData Read()
+    /// <summary>Прочитать схему из запущенной ЛИРЫ.</summary>
+    /// <param name="liraVersion">Год версии ЛИРЫ из ProgID (null — не определена).</param>
+    public static LiraSchemaData Read(out int? liraVersion)
     {
-        dynamic lira = LiraComConnector.ConnectApplication();
+        dynamic lira = LiraComConnector.ConnectApplication(out liraVersion);
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
@@ -73,6 +79,13 @@ static class LiraApiSchemaReader
         {
             blocksRaw = TryReadTable(GetItem(doc.AllTables, kConstructiveBlocksTable, diag, "S2-Blocks"), diag, "S2-Blocks");
             if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
+        }
+
+        // ТЗА КЭ — только в 2025+; в старых версиях таблицы нет, не запрашиваем
+        if (liraVersion >= FirstVersionWithReinforcementTypes)
+        {
+            var prRaw = TryReadTable(doc.AllTables.CreateNewItem(kElementsPRTypesTable), diag, "S1-PRTypes");
+            if (prRaw != null) ParseElementReinforcementTypes(prRaw, data);
         }
 
         if (data.Nodes.Count == 0 && data.Elements.Count == 0)
@@ -258,6 +271,22 @@ static class LiraApiSchemaReader
             if (nodeIds.Length == 0) continue;
 
             data.Elements.Add(new LiraElementRecord(id, feType, secCount, stiffId, nodeIds));
+        }
+    }
+
+    /// <summary>
+    /// Парсит таблицу 33 «Элементы - ТЗА»: [0] = номер КЭ, [1] = номера ТЗА через пробел («1 2 4»).
+    /// </summary>
+    static void ParseElementReinforcementTypes(object[,] rows, LiraSchemaData data)
+    {
+        if (rows.GetLength(1) < 2) return;
+        for (int i = 0; i < rows.GetLength(0); i++)
+        {
+            if (!TryInt(rows[i, 0], out int id)) continue;
+            IReadOnlyList<int> ids;
+            try { ids = CScore.Import.LiraPlateReinforcementAssembler.ParseTypeIds(rows[i, 1]?.ToString()); }
+            catch (FormatException) { continue; }
+            if (ids.Count > 0) data.ElementReinforcementTypes[id] = [.. ids];
         }
     }
 

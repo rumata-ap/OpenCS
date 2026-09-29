@@ -833,6 +833,13 @@
    <system:String x:Key="ImportLiraRsnTitle">Import LIRA forces — RSN</system:String>
    <system:String x:Key="ImportLiraRsuTitle">Import LIRA forces — RSU</system:String>
    <system:String x:Key="ImportLiraErrorTitle">LIRA import</system:String>
+   <system:String x:Key="LiraRbtFilter">LIRA reinforcement types (*.RBT)|*.RBT|All files (*.*)|*.*</system:String>
+   <system:String x:Key="LiraRbtOpenTitle">LIRA reinforcement types file (.RBT) for {0} elements — Cancel to skip</system:String>
+   <system:String x:Key="LiraRbtNotSelected">No reinforcement types file selected: only element type numbers were saved</system:String>
+   <system:String x:Key="LiraRbtLoaded">Reinforcement types file {0}: {1} plate types, {2} other (bar etc.)</system:String>
+   <system:String x:Key="LiraRbtMissingTypes">Reinforcement types assigned to elements but missing in the file: {0}</system:String>
+   <system:String x:Key="LiraRbtReadError">Could not read reinforcement types file {0}: {1}</system:String>
+   <system:String x:Key="LiraRbtNoTypes">no reinforcement type records found</system:String>
    <system:String x:Key="ImportLiraFailed">Failed to import the file.</system:String>
    <system:String x:Key="ImportLiraSuccess">Imported force sets: {0} ({1})</system:String>
    <system:String x:Key="ImportLiraSchemaFromCsv">Import LIRA SAPR schema (CSV)…</system:String>

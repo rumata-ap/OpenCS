@@ -31,6 +31,9 @@ public class FemElement
     public string? MaterialTag { get; set; }
     /// <summary>Толщина оболочки, м (для ElemType="shell", из источника импорта).</summary>
     public double? ThicknessM  { get; set; }
+    /// <summary>Номера ТЗА ЛИРЫ через пробел («1 2 4»: фон + усиления) из таблицы «Элементы - ТЗА».
+    /// Null — ТЗА не назначены или источник их не передаёт.</summary>
+    public string? ReinforcementTypeIds { get; set; }
 
     /// <summary>Идентификатор назначенного сечения.</summary>
     public int? CrossSectionId { get; set; }
