@@ -38,12 +38,7 @@ static class LiraApiSchemaReader
 
     public static LiraSchemaData Read()
     {
-        var appType = Type.GetTypeFromProgID("LiraSapr.Application")
-            ?? throw new InvalidOperationException(
-                "ProgID 'LiraSapr.Application' не зарегистрирован. " +
-                "Убедитесь, что ЛираСАПР установлена и зарегистрирована (/register).");
-
-        dynamic lira = Activator.CreateInstance(appType)!;
+        dynamic lira = LiraComConnector.ConnectApplication();
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(

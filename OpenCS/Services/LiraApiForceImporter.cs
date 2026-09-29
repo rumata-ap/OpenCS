@@ -25,14 +25,13 @@ static class LiraApiForceImporter
         if (elementIds.Count == 0) return [];
 
         var (documentName, toKn, lengthToM, lcNames) = GetDocumentInfo(settings);
-        var result = CreateResultsAccessObject();
+        var api = CreateResultsAccessObject();
 
-        var req = (LiraLoadCaseForcesRequest)result.CreateNewRequest(
-            LiraRequestEnum.kLiraRequest_LoadCaseForces);
+        dynamic req = api.CreateRequest("kLiraRequest_LoadCaseForces");
         req.DocumentName = documentName;
         req.Elements.AddFromString(BuildRange(elementIds));
 
-        var resp = result.LoadCaseForces((LiraLoadCaseForcesRequest)req);
+        object resp = api.Access.LoadCaseForces(req);
         return ParseForcesResponse(resp, schema, elementIds, toKn, lengthToM, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
     }
 
@@ -47,10 +46,9 @@ static class LiraApiForceImporter
         if (elementIds.Count == 0) return [];
 
         var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
-        var result = CreateResultsAccessObject();
+        var api = CreateResultsAccessObject();
 
-        var req = (LiraLoadCombinationForcesRequest)result.CreateNewRequest(
-            LiraRequestEnum.kLiraRequest_LoadCombinationForces);
+        dynamic req = api.CreateRequest("kLiraRequest_LoadCombinationForces");
         req.DocumentName = documentName;
         req.Elements.AddFromString(BuildRange(elementIds));
         req.LoadCombinationTable = combinationTable;
@@ -62,7 +60,7 @@ static class LiraApiForceImporter
         req.LoadCombinationLimitState.Item[2] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityFull;
         req.LoadCombinationLimitState.Item[3] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityLongTerm;
 
-        var resp = result.LoadCombinationForces((LiraLoadCombinationForcesRequest)req);
+        object resp = api.Access.LoadCombinationForces(req);
         return ParseCombinationForcesResponse(resp, schema, elementIds, toKn, lengthToM,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
@@ -78,10 +76,9 @@ static class LiraApiForceImporter
         if (elementIds.Count == 0) return [];
 
         var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
-        var result = CreateResultsAccessObject();
+        var api = CreateResultsAccessObject();
 
-        var req = (LiraDesignCombinationForcesRequest)result.CreateNewRequest(
-            LiraRequestEnum.kLiraRequest_DesignCombinationForces);
+        dynamic req = api.CreateRequest("kLiraRequest_DesignCombinationForces");
         req.DocumentName = documentName;
         // Обход бага COM ЛИРА (проверено на ЛИРА-САПР 2024): в ответе РСУ у элемента с наибольшим
         // номером в запросе остаётся только сечение 1 (GetDCLCount = 0 для сечений 2..n).
@@ -90,7 +87,7 @@ static class LiraApiForceImporter
         req.Elements.AddFromString($"{BuildRange(elementIds)}, {elementIds.Max() + RsuSentinelOffset}");
         req.DesignCombinationTable = combinationTable;
 
-        var resp = result.DesignCombinationForces((LiraDesignCombinationForcesRequest)req);
+        object resp = api.Access.DesignCombinationForces(req);
         return ParseDesignForcesResponse(resp, schema, elementIds, toKn, lengthToM,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
@@ -103,13 +100,13 @@ static class LiraApiForceImporter
 
     /// <summary>Метка строки РСУ в терминах таблицы РСУ ЛИРА: элемент, сечение, критерий, категория
     /// (например «э.1 с2 к2 Б2»).</summary>
-    static string DesignRowLabel(LiraDesignCombinationForcesResponse resp, int elemId, int sec, int ls, int dcf)
+    static string DesignRowLabel(dynamic resp, int elemId, int sec, int ls, int dcf)
     {
         int crit;
         try { crit = resp.GetCriterionNumber(elemId, sec, ls, dcf); }
         catch { crit = dcf; }
         string group;
-        try { group = InternalGroupName(resp.GetInternalGroup(elemId, sec, ls, dcf)); }
+        try { group = InternalGroupName((LiraInternalGroupsEnum)(int)resp.GetInternalGroup(elemId, sec, ls, dcf)); }
         catch { group = ""; }
         return string.IsNullOrEmpty(group)
             ? $"э.{elemId} с{sec} к{crit}"
@@ -135,11 +132,7 @@ static class LiraApiForceImporter
     /// </summary>
     static (string docName, double toKn, double lengthToM, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
     {
-        var appType = Type.GetTypeFromProgID("LiraSapr.Application")
-            ?? throw new InvalidOperationException(
-                "ЛираСАПР не запущена. Откройте расчётную схему в ЛираСАПР и повторите.");
-
-        dynamic lira = Activator.CreateInstance(appType)!;
+        dynamic lira = LiraComConnector.ConnectApplication();
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
@@ -184,10 +177,10 @@ static class LiraApiForceImporter
         return (docName, forceToKn, lengthToM, lcNames);
     }
 
-    static LiraResultsAccess CreateResultsAccessObject() => new LiraResultsAccessClass();
+    static LiraResultsApi CreateResultsAccessObject() => LiraComConnector.CreateResultsAccess();
 
     static List<ForceSet> ParseForcesResponse(
-        LiraLoadCaseForcesResponse resp,
+        dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
@@ -226,7 +219,7 @@ static class LiraApiForceImporter
                 catch { sectionCount = 1; }
 
                 LiraElementFamilyEnum family;
-                try { family = resp.GetFamily(elemId); }
+                try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                 catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
                 for (int sec = 1; sec <= sectionCount; sec++)
@@ -289,7 +282,7 @@ static class LiraApiForceImporter
     }
 
     static List<ForceSet> ParseCombinationForcesResponse(
-        LiraLoadCombinationForcesResponse resp,
+        dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
@@ -336,7 +329,7 @@ static class LiraApiForceImporter
                     catch { sectionCount = 1; }
 
                     LiraElementFamilyEnum family;
-                    try { family = resp.GetFamily(elemId); }
+                    try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                     catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
                     for (int sec = 1; sec <= sectionCount; sec++)
@@ -396,7 +389,7 @@ static class LiraApiForceImporter
     }
 
     static List<ForceSet> ParseDesignForcesResponse(
-        LiraDesignCombinationForcesResponse resp,
+        dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
@@ -437,7 +430,7 @@ static class LiraApiForceImporter
                 catch { sectionCount = 1; }
 
                 LiraElementFamilyEnum family;
-                try { family = resp.GetFamily(elemId); }
+                try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                 catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
                 for (int sec = 1; sec <= sectionCount; sec++)
