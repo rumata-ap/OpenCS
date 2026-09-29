@@ -46,6 +46,7 @@ public partial class FemSchemaPage : UserControl
             }
         };
         _editorVm.NodeLoadsApplied += _fem3d.SelectDiagramLoadCase;
+        _editorVm.OpenSchemaRequested += child => app.CurrentFemSchema = child;
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);

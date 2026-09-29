@@ -313,14 +313,125 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get => _diagnostics; private set { _diagnostics = value; OnPropertyChanged(); } }
 
     StraightBeamChainAnalysis? _chainAnalysis;
-    /// <summary>Результат проверки выделенной прямой цепочки, отдельно от диагностики схемы.</summary>
-    public StraightBeamChainAnalysis? ChainAnalysis { get => _chainAnalysis; private set { _chainAnalysis = value; OnPropertyChanged(); OnPropertyChanged(nameof(ChainVerdictText)); } }
-    public string ChainVerdictText => ChainAnalysis?.Verdict.ToString() ?? "";
+    /// <summary>Выделение, с которым выполнена проверка цепочки: извлекается только оно.</summary>
+    IReadOnlyList<string>? _chainSelection;
+    IReadOnlyList<FemValidationDiagnostic> _extractDiagnostics = [];
 
-    /// <summary>Загружает снимок сетки и анализирует выбранные стержневые элементы.</summary>
-    public void AnalyzeStraightChain() => AnalyzeStraightChain(_db.GetFemMeshElements(Session.Schema.Id), _db.GetFemMeshNodes(Session.Schema.Id), Session.Members.ToList());
-    public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members) =>
-        ChainAnalysis = StraightBeamSubmodelExtractionService.Analyze(Selection.SelectedElemTags.ToList(), elements, nodes, members);
+    /// <summary>Результат проверки выделенной прямой цепочки, отдельно от диагностики схемы.
+    /// Сбрасывается при любом изменении выделения стержней.</summary>
+    public StraightBeamChainAnalysis? ChainAnalysis
+    {
+        get => _chainAnalysis;
+        private set
+        {
+            _chainAnalysis = value;
+            _extractDiagnostics = [];
+            if (value is null) _chainSelection = null;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ChainVerdictText));
+            OnPropertyChanged(nameof(ChainDiagnostics));
+            OnPropertyChanged(nameof(ExtractBlockReason));
+        }
+    }
+
+    public string ChainVerdictText
+    {
+        get
+        {
+            if (ChainAnalysis is not { } analysis) return "";
+            string verdict = Loc.S(analysis.Verdict switch
+            {
+                ChainVerdict.Extractable => "SubmodelVerdictExtractable",
+                ChainVerdict.ExtractableWithWarnings => "SubmodelVerdictExtractableWithWarnings",
+                _ => "SubmodelVerdictNotExtractable"
+            });
+            return analysis.Chain is { } chain
+                ? string.Format(Loc.S("SubmodelVerdictSummary"), verdict, chain.Segments.Count, chain.LengthM)
+                : verdict;
+        }
+    }
+
+    /// <summary>Диагностика проверки цепочки и попытки извлечения, ошибки первыми.</summary>
+    public IReadOnlyList<FemValidationDiagnostic> ChainDiagnostics =>
+        (ChainAnalysis?.Diagnostics ?? []).Concat(_extractDiagnostics).OrderByDescending(d => d.IsError).ToList();
+
+    /// <summary>Линейные постановки схемы с результатом — родители извлечения; обновляются при проверке цепочки.</summary>
+    public ObservableCollection<FemAnalysis> ParentAnalyses { get; } = [];
+
+    FemAnalysis? _selectedParentAnalysis;
+    public FemAnalysis? SelectedParentAnalysis
+    {
+        get => _selectedParentAnalysis;
+        set { _selectedParentAnalysis = value; OnPropertyChanged(); OnPropertyChanged(nameof(ExtractBlockReason)); }
+    }
+
+    bool ChainSelectionMatches => _chainSelection is { } snapshot
+        && snapshot.ToHashSet(StringComparer.Ordinal).SetEquals(Selection.SelectedElemTags);
+
+    /// <summary>Причина недоступности «Извлечь субмодель» (текст из ресурсов); null — можно извлекать.</summary>
+    public string? ExtractBlockReason =>
+        SubmodelExtractGate.Reason(ChainAnalysis?.Verdict, ChainSelectionMatches, SelectedParentAnalysis is not null, Session.IsDirty)
+            is { } key ? Loc.S(key) : null;
+
+    public ICommand ExtractSubmodelCommand { get; }
+
+    /// <summary>Просьба открыть схему (дочернюю после извлечения) — выполняет страница через AppViewModel.</summary>
+    public event Action<FemSchema>? OpenSchemaRequested;
+
+    /// <summary>Загружает снимок сетки, анализирует выбранные стержневые элементы и обновляет список
+    /// родительских постановок.</summary>
+    public void AnalyzeStraightChain()
+    {
+        RefreshParentAnalyses();
+        AnalyzeStraightChain(_db.GetFemMeshElements(Session.Schema.Id), _db.GetFemMeshNodes(Session.Schema.Id), Session.Members.ToList());
+    }
+
+    public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members)
+    {
+        var selection = Selection.SelectedElemTags.ToList();
+        ChainAnalysis = StraightBeamSubmodelExtractionService.Analyze(selection, elements, nodes, members);
+        _chainSelection = selection;
+        OnPropertyChanged(nameof(ExtractBlockReason));
+    }
+
+    void RefreshParentAnalyses()
+    {
+        var selectedId = SelectedParentAnalysis?.Id;
+        ParentAnalyses.Clear();
+        foreach (var analysis in new StraightBeamSubmodelExtractionService(_db).EligibleParentAnalyses(Session.Schema.Id))
+            ParentAnalyses.Add(analysis);
+        SelectedParentAnalysis = ParentAnalyses.FirstOrDefault(a => a.Id == selectedId)
+                                 ?? (ParentAnalyses.Count == 1 ? ParentAnalyses[0] : null);
+    }
+
+    void ExtractSubmodel()
+    {
+        if (ExtractBlockReason is not null || SelectedParentAnalysis is not { } analysis
+            || ChainAnalysis?.Chain is not { } chain || _chainSelection is not { } selection) return;
+
+        string tag = SubmodelExtractGate.DefaultTag(Loc.S("SubmodelDefaultTag"), Loc.S("SubmodelDefaultTagSingle"),
+            Session.Schema.Tag, chain);
+        var outcome = new StraightBeamSubmodelExtractionService(_db)
+            .Extract(Session.Schema.Id, analysis.Id, selection, Session.Members.ToList(), tag);
+        if (outcome.Extraction is { } extraction
+            && _db.FemSchemas.FirstOrDefault(s => s.Id == extraction.SubmodelSchemaId) is { } child)
+        {
+            _logService.Info(string.Format(Loc.S("SubmodelExtractedLog"), child.Tag, extraction.Segments.Count));
+            OpenSchemaRequested?.Invoke(child);
+            return;
+        }
+
+        if (outcome.Chain is { } reanalyzed)
+        {
+            ChainAnalysis = reanalyzed;
+            _chainSelection = selection;
+        }
+        _extractDiagnostics = outcome.Diagnostics
+            .Where(d => ChainAnalysis?.Diagnostics.Contains(d) != true).ToList();
+        OnPropertyChanged(nameof(ChainDiagnostics));
+        OnPropertyChanged(nameof(ExtractBlockReason));
+        foreach (var error in _extractDiagnostics.Where(d => d.IsError)) _logService.Error(error.Message);
+    }
 
     double? _defaultTargetMeshLengthM;
     public double? DefaultTargetMeshLengthM
@@ -367,6 +478,11 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
         DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
         MergeNodesCommand = new RelayCommand(_ => _logService.Info(MergeCoincidentNodes()));
+        ExtractSubmodelCommand = new RelayCommand(_ => ExtractSubmodel(), _ => ExtractBlockReason is null);
+        Selection.SelectedElemTags.CollectionChanged += (_, _) =>
+        {
+            if (ChainAnalysis is not null) ChainAnalysis = null;
+        };
     }
 
     void UndoHistoryStep()
@@ -832,6 +948,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CollectionViewSource.GetDefaultView(KinematicLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
         OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
+        OnPropertyChanged(nameof(ExtractBlockReason));
     }
 
     static void SyncList<T>(ObservableCollection<T> target, List<T> source)

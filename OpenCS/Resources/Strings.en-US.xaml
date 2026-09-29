@@ -3573,4 +3573,19 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16Constructive">Slenderness limits — SP 16</system:String>
     <system:String x:Key="Sp16Context">lef,x={0:G6} m; lef,y={1:G6} m; lef,b={2:G6} m; γc={3:G6}</system:String>
     <system:String x:Key="Sp16Forces">N={0:G6} kN; Mx={1:G6} kN·m; My={2:G6} kN·m; Qx={3:G6} kN; Qy={4:G6} kN; T={5:G6} kN·m</system:String>
+    <!-- Субмодель прямой стержневой цепочки — извлечение -->
+    <system:String x:Key="SubmodelVerdictExtractable">Chain can be extracted</system:String>
+    <system:String x:Key="SubmodelVerdictExtractableWithWarnings">Chain can be extracted, with warnings</system:String>
+    <system:String x:Key="SubmodelVerdictNotExtractable">Chain cannot be extracted</system:String>
+    <system:String x:Key="SubmodelVerdictSummary">{0}: {1} segm., {2:0.###} m</system:String>
+    <system:String x:Key="SubmodelParentAnalysisLabel">Parent analysis:</system:String>
+    <system:String x:Key="SubmodelExtract">Extract submodel</system:String>
+    <system:String x:Key="SubmodelExtractTip">Create a child schema from the checked chain using the selected linear analysis result</system:String>
+    <system:String x:Key="SubmodelExtractBlockDirty">Save the schema</system:String>
+    <system:String x:Key="SubmodelExtractBlockCheckChain">Check the chain (selection changed or not checked yet)</system:String>
+    <system:String x:Key="SubmodelExtractBlockNotExtractable">The chain cannot be extracted</system:String>
+    <system:String x:Key="SubmodelExtractBlockNoParentAnalysis">No linear analysis with a result</system:String>
+    <system:String x:Key="SubmodelDefaultTag">{0} — submodel {1}…{2}</system:String>
+    <system:String x:Key="SubmodelDefaultTagSingle">{0} — submodel {1}</system:String>
+    <system:String x:Key="SubmodelExtractedLog">Submodel “{0}” extracted ({1} segm.)</system:String>
 </ResourceDictionary>

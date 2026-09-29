@@ -3573,4 +3573,19 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16Constructive">Предельная гибкость — СП 16</system:String>
     <system:String x:Key="Sp16Context">lef,x={0:G6} м; lef,y={1:G6} м; lef,b={2:G6} м; γc={3:G6}</system:String>
     <system:String x:Key="Sp16Forces">N={0:G6} кН; Mx={1:G6} кН·м; My={2:G6} кН·м; Qx={3:G6} кН; Qy={4:G6} кН; T={5:G6} кН·м</system:String>
+    <!-- Субмодель прямой стержневой цепочки — извлечение -->
+    <system:String x:Key="SubmodelVerdictExtractable">Цепочка пригодна для извлечения</system:String>
+    <system:String x:Key="SubmodelVerdictExtractableWithWarnings">Цепочка пригодна, есть предупреждения</system:String>
+    <system:String x:Key="SubmodelVerdictNotExtractable">Цепочка не пригодна для извлечения</system:String>
+    <system:String x:Key="SubmodelVerdictSummary">{0}: {1} сегм., {2:0.###} м</system:String>
+    <system:String x:Key="SubmodelParentAnalysisLabel">Расчёт родителя:</system:String>
+    <system:String x:Key="SubmodelExtract">Извлечь субмодель</system:String>
+    <system:String x:Key="SubmodelExtractTip">Создать дочернюю схему из проверенной цепочки по результату выбранного линейного расчёта</system:String>
+    <system:String x:Key="SubmodelExtractBlockDirty">Сохраните схему</system:String>
+    <system:String x:Key="SubmodelExtractBlockCheckChain">Проверьте цепочку (выделение изменилось или проверки не было)</system:String>
+    <system:String x:Key="SubmodelExtractBlockNotExtractable">Цепочка не пригодна для извлечения</system:String>
+    <system:String x:Key="SubmodelExtractBlockNoParentAnalysis">Нет линейного расчёта с результатом</system:String>
+    <system:String x:Key="SubmodelDefaultTag">{0} — субмодель {1}…{2}</system:String>
+    <system:String x:Key="SubmodelDefaultTagSingle">{0} — субмодель {1}</system:String>
+    <system:String x:Key="SubmodelExtractedLog">Извлечена субмодель «{0}» ({1} сегм.)</system:String>
 </ResourceDictionary>
