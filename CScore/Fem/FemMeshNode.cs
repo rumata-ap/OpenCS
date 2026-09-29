@@ -26,4 +26,8 @@ public class FemMeshNode
 
     /// <summary>Тег исходного конструктивного элемента до дискретизации.</summary>
     public string? SourceMemberTag { get; set; }
+
+    /// <summary>Происхождение: <see cref="FemMember.MeshSourceGenerated"/> — построен дискретизацией,
+    /// <see cref="FemMember.MeshSourceImported"/> — импортирован (ЛИРА), дискретизация его не трогает.</summary>
+    public string Origin { get; set; } = FemMember.MeshSourceGenerated;
 }

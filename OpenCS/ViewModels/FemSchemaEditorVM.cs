@@ -567,6 +567,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     {
         var nodes = ResolveNodes(nodeTags);
         if (nodes.Count == 0) return false;
+        if (RejectLockedNodes(nodes.Select(n => n.NodeTag))) return false;
 
         Session.Execute(nodes.Count == 1
             ? new DeleteNodeCommand(nodes[0])
@@ -671,12 +672,26 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
-    public void MoveNodeByTag(string nodeTag, double dx, double dy, double dz)
+    /// <summary>Сдвигает узел. False — узел не найден или на него опирается элемент с сеткой ЛИРЫ.</summary>
+    public bool MoveNodeByTag(string nodeTag, double dx, double dy, double dz)
     {
         var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
-        if (node == null) return;
+        if (node == null) return false;
+        if (RejectLockedNodes([nodeTag])) return false;
         Session.Execute(new MoveNodeCommand(node, node.X + dx, node.Y + dy, node.Z + dz));
         RefreshCollections();
+        return true;
+    }
+
+    /// <summary>Сообщает (<see cref="GeometryLocked"/>) и возвращает true, если среди узлов есть узлы
+    /// элементов с импортированной сеткой — их геометрию менять нельзя.</summary>
+    bool RejectLockedNodes(IEnumerable<string> nodeTags)
+    {
+        var locked = FemMeshLock.LockedMembersOf(Session.Members, nodeTags);
+        if (locked.Count == 0) return false;
+        GeometryLocked?.Invoke(string.Format(Loc.S("FemMemberMeshLockedNodes"),
+            string.Join(", ", locked.Take(5).Select(m => $"«{m.ElemTag}»")) + (locked.Count > 5 ? ", …" : "")));
+        return true;
     }
 
     public void CopyNodeByTag(string nodeTag, double dx, double dy, double dz)
@@ -968,6 +983,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// список ошибок, чтобы «Сохранить» не выглядело молча неработающим.
     /// </summary>
     public event Action<IReadOnlyList<FemValidationDiagnostic>>? SaveBlocked;
+    /// <summary>Правка отклонена: затронута геометрия элемента с импортированной сеткой (текст — причина).</summary>
+    public event Action<string>? GeometryLocked;
     public event EventHandler? MeshDiscretized;
     public event Action<FemLoadCase>? NodeLoadsApplied;
 
@@ -990,12 +1007,22 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         IsDiscretizing = true;
         try
         {
-            var mesh = FemMeshDiscretizer.Discretize(
-                Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
+            // Сетка, импортированная из ЛИРЫ (и элементы на ней), сохраняется как есть — перестраивается
+            // только сетка собственных элементов схемы.
+            bool keepImported = _db.HasImportedMesh(Session.Schema.Id);
+            var mesh = keepImported
+                ? FemMeshDiscretizer.DiscretizeKeepingImported(
+                    Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM,
+                    _db.GetFemMeshNodes(Session.Schema.Id), _db.GetFemMeshElements(Session.Schema.Id))
+                : FemMeshDiscretizer.Discretize(
+                    Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
             LastMeshDiagnostics = FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements);
             if (LastMeshDiagnostics.Any(diagnostic => diagnostic.IsError)) return;
 
-            _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
+            if (keepImported)
+                _db.SaveFemMeshSnapshotKeepingImported(Session.Schema.Id, mesh.Nodes, mesh.Elements);
+            else
+                _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
             MeshDiscretized?.Invoke(this, EventArgs.Empty);
         }
         finally
@@ -1007,7 +1034,18 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public bool Save()
     {
-        Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
+        // Схема с импортированной сеткой (ЛИРА): группы ссылаются на номера КЭ сетки, а узлы элементов
+        // с заблокированной сеткой сверяются с узлами сетки.
+        bool imported = _db.HasImportedMesh(Session.Schema.Id);
+        var importedNodes = imported
+            ? _db.GetFemMeshNodes(Session.Schema.Id).Where(n => n.Origin == FemMember.MeshSourceImported).ToList()
+            : null;
+        var importedElementTags = imported
+            ? _db.GetFemMeshElements(Session.Schema.Id).Where(e => e.Origin == FemMember.MeshSourceImported)
+                .Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal)
+            : null;
+        Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups,
+                importedNodes, importedElementTags)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes,
                 Session.NodeLoads, Session.Members, Session.MemberLoads, Session.KinematicLoads))
             .Concat(FemLoadDefinitionValidator.Validate(Session.Schema, Session.LoadDefinitions, Session.LoadCases))

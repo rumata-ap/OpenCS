@@ -52,6 +52,15 @@ public class FemMember : IFemCheckable
     /// Импортёр как источник — за рамками этого среза.</summary>
     public string  KindSource    { get; set; } = "auto";
 
+    public const string MeshSourceGenerated = "generated";
+    public const string MeshSourceImported  = "imported";
+    /// <summary>Откуда сетка элемента: "generated" — строится дискретизацией; "imported" — взята из
+    /// импортированной схемы (кБ ЛИРЫ), дискретизация её не трогает, геометрия элемента заблокирована.</summary>
+    public string  MeshSource    { get; set; } = MeshSourceGenerated;
+
+    /// <summary>Сетка элемента импортирована — геометрию менять и пересеткивать нельзя.</summary>
+    public bool IsMeshLocked => MeshSource == MeshSourceImported;
+
     string IFemCheckable.Tag => ElemTag;
 
     int[]? _nodeIds;

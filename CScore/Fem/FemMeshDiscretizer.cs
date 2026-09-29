@@ -123,6 +123,99 @@ public static class FemMeshDiscretizer
         return (meshNodes, meshElements);
     }
 
+    /// <summary>
+    /// Дискретизация схемы с импортированной сеткой: строки <c>Origin="imported"</c> из
+    /// <paramref name="existingNodes"/>/<paramref name="existingElements"/> сохраняются без изменений
+    /// (Id, теги, связи), сетка строится заново только для элементов с незаблокированной сеткой.
+    /// Новый узел, совпадающий с импортированным (по тегу исходного узла или по координатам в пределах
+    /// <see cref="CollinearToleranceM"/>), заменяется им; остальные новые теги — выше импортированных.
+    /// </summary>
+    public static (List<FemMeshNode> Nodes, List<FemElement> Elements) DiscretizeKeepingImported(
+        int schemaId,
+        IReadOnlyList<FemNode> nodes,
+        IReadOnlyList<FemMember> members,
+        double? defaultTargetLengthM,
+        IReadOnlyList<FemMeshNode> existingNodes,
+        IReadOnlyList<FemElement> existingElements)
+    {
+        var importedNodes = existingNodes.Where(n => n.Origin == FemMember.MeshSourceImported).ToList();
+        var importedElements = existingElements.Where(e => e.Origin == FemMember.MeshSourceImported).ToList();
+        var (generatedNodes, generatedElements) = Discretize(
+            schemaId, nodes, members.Where(m => !m.IsMeshLocked).ToList(), defaultTargetLengthM);
+        if (importedNodes.Count == 0 && importedElements.Count == 0)
+            return (generatedNodes, generatedElements);
+
+        var importedByTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var node in importedNodes) importedByTag.TryAdd(node.NodeTag, node);
+        var grid = new Dictionary<(long, long, long), List<FemMeshNode>>();
+        foreach (var node in importedNodes)
+        {
+            var cell = Cell(node);
+            if (!grid.TryGetValue(cell, out var list)) grid[cell] = list = [];
+            list.Add(node);
+        }
+
+        FemMeshNode? Coincident(FemMeshNode node)
+        {
+            var (cx, cy, cz) = Cell(node);
+            for (long dx = -1; dx <= 1; dx++)
+                for (long dy = -1; dy <= 1; dy++)
+                    for (long dz = -1; dz <= 1; dz++)
+                        if (grid.TryGetValue((cx + dx, cy + dy, cz + dz), out var list))
+                            foreach (var candidate in list)
+                                if (Distance(candidate, node) <= CollinearToleranceM)
+                                    return candidate;
+            return null;
+        }
+
+        int nextNodeTag = importedNodes.Select(n => int.TryParse(n.NodeTag, out var t) ? t : 0).DefaultIfEmpty(0).Max() + 1;
+        int nextElementTag = importedElements.Select(e => int.TryParse(e.ElemTag, out var t) ? t : 0).DefaultIfEmpty(0).Max() + 1;
+        var tagMap = new Dictionary<string, string>(StringComparer.Ordinal);
+        var resultNodes = new List<FemMeshNode>(importedNodes);
+        foreach (var node in generatedNodes)
+        {
+            var match = node.SourceNodeTag is { } source && importedByTag.TryGetValue(source, out var byTag)
+                        && Distance(byTag, node) <= CollinearToleranceM
+                ? byTag
+                : Coincident(node);
+            if (match is not null)
+            {
+                tagMap[node.NodeTag] = match.NodeTag;
+                continue;
+            }
+            // Синтетические узлы (отрицательные теги) с номерами ЛИРЫ не пересекаются.
+            if (int.TryParse(node.NodeTag, out var tag) && tag > 0)
+            {
+                var renumbered = (nextNodeTag++).ToString();
+                tagMap[node.NodeTag] = renumbered;
+                node.NodeTag = renumbered;
+            }
+            else tagMap[node.NodeTag] = node.NodeTag;
+            resultNodes.Add(node);
+        }
+
+        var resultElements = new List<FemElement>(importedElements);
+        foreach (var element in generatedElements)
+        {
+            var ids = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            element.NodeIdsJson = JsonSerializer.Serialize(ids.Select(id => int.Parse(tagMap[id.ToString()])).ToArray());
+            element.ElemTag = (nextElementTag++).ToString();
+            resultElements.Add(element);
+        }
+        return (resultNodes, resultElements);
+    }
+
+    static (long, long, long) Cell(FemMeshNode n) => (
+        (long)Math.Floor(n.X / CollinearToleranceM),
+        (long)Math.Floor(n.Y / CollinearToleranceM),
+        (long)Math.Floor(n.Z / CollinearToleranceM));
+
+    static double Distance(FemMeshNode a, FemMeshNode b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y, dz = a.Z - b.Z;
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     static PointOnMember[] RemoveShortSpans(
         PointOnMember[] points, double memberLength, string firstEndpointTag, string secondEndpointTag)
     {

@@ -56,6 +56,37 @@ public sealed class FemTopologyValidatorTests
     }
 
     [Fact]
+    public void Validate_AcceptsGroupOfImportedMeshElements()
+    {
+        var schema = new FemSchema { Id = 1 };
+        var groups = new[] { new FemMemberGroup { Id = 1, SchemaId = 1, Tag = "СТЕНА №5", MemberTagsJson = "[11,12]" } };
+
+        var errors = FemTopologyValidator.Validate(schema, [], [], groups, [], ["11", "12"]);
+
+        Assert.DoesNotContain(errors, e => e.Code == "member_element_missing");
+    }
+
+    [Fact]
+    public void Validate_RejectsMovedNodeOfLockedMember()
+    {
+        var schema = new FemSchema { Id = 1 };
+        var nodes = new[]
+        {
+            new FemNode { Id = 1, SchemaId = 1, NodeTag = "1" },
+            new FemNode { Id = 2, SchemaId = 1, NodeTag = "2", Z = 3.5 },
+        };
+        var members = new[]
+        {
+            new FemMember { Id = 1, SchemaId = 1, ElemTag = "КОЛОННА №1", NodeIdsJson = "[1,2]", MeshSource = FemMember.MeshSourceImported }
+        };
+        var mesh = new[] { new FemMeshNode { NodeTag = "1" }, new FemMeshNode { NodeTag = "2", Z = 3 } };
+
+        var errors = FemTopologyValidator.Validate(schema, nodes, members, [], mesh, []);
+
+        Assert.Contains(errors, e => e.Code == "locked_member_node_moved" && e.IsError);
+    }
+
+    [Fact]
     public void Validate_FlagsIncompleteGjConfigurationAsWarningNotError()
     {
         var schema = new FemSchema { Id = 1 };

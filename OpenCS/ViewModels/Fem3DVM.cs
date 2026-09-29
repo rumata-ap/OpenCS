@@ -17,7 +17,8 @@ public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, F
 
 /// <summary>Один плоский конструктивный элемент (плита/стена) для 3D-отображения — заливка,
 /// видимый контур (Hull+Holes) и тег для pick/выделения/контекстного меню.</summary>
-public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Point3DCollection EdgePoints);
+/// <param name="IsMeshLocked">Элемент из кБ ЛИРЫ поверх её сетки: рисуется утолщённым контуром без заливки.</param>
+public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Point3DCollection EdgePoints, bool IsMeshLocked = false);
 
 /// <summary>ViewModel 3D-вида расчётной схемы или конструктивного элемента МКЭ.</summary>
 public class Fem3DVM : ViewModelBase
@@ -118,6 +119,8 @@ public class Fem3DVM : ViewModelBase
     public static Color ShellBgColor => Color.FromArgb(100, 180, 180, 190);
     public static Color ShellHiColor => Color.FromArgb(210, 255, 100,  50);
     public static Color PlanarRegionMeshColor => Color.FromArgb(150, 100, 149, 237);
+    /// <summary>Цвет элементов из кБ ЛИРЫ, нарисованных поверх её сетки.</summary>
+    public static Color LockedMemberColor => Colors.DarkOrange;
 
     /// <summary>Режим схемы — показывает все КЭ, раскрашенные по жёсткости.</summary>
     public Fem3DVM(FemSchema schema, DatabaseService db)
@@ -161,6 +164,11 @@ public class Fem3DVM : ViewModelBase
             // (сплошная заливка пластин, полные рёбра, группировка стержней по сечению) служит
             // именно mesh-слой, а не одна лишь тонкая оверлейная сетка.
             bool constructiveEmpty = allNodes.Count == 0 && allElements.Count == 0;
+            bool importedBackground = false;
+            // Глифы нагрузок и опор строятся только по конструктивному слою: у подложки из сетки ЛИРЫ
+            // свои Id (другая таблица), они пересекаются с Id элементов и узлов слоя.
+            var ownNodes = allNodes;
+            var ownElements = allElements;
             if (constructiveEmpty)
             {
                 var meshNodes    = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
@@ -168,16 +176,24 @@ public class Fem3DVM : ViewModelBase
                 allNodes    = meshNodes.Select(ToFemNode).ToList();
                 allElements = meshElements.Select(ToFemMember).ToList();
             }
+            else if (await Task.Run(LoadImportedBackground))
+            {
+                // Схема ЛИРЫ с элементами из кБ: сетка ЛИРЫ — подложка, поверх неё элементы
+                // утолщённым контуром (см. ApplyTopology/BuildPlanarRegionVisuals).
+                importedBackground = true;
+                allNodes    = MergeNodes(_bgNodes!, allNodes);
+                allElements = [.. _bgElements!, .. allElements];
+            }
 
             ApplyTopology(allNodes, allElements);
-            _diagramNodes = allNodes;
-            _diagramMembers = allElements;
+            _diagramNodes = importedBackground ? ownNodes : allNodes;
+            _diagramMembers = importedBackground ? ownElements : allElements;
             _diagramLoadCases = _db.GetFemLoadCases(_schemaId);
             _diagramNodeLoads = _db.GetFemNodeLoads(_schemaId);
             _diagramMemberLoads = _db.GetFemMemberLoads(_schemaId);
             _diagramKinematicLoads = _db.GetFemKinematicLoads(_schemaId);
             RefreshDiagramSources(_diagramLoadCases, []);
-            if (_memberOnly == null && _highlightMember == null && !constructiveEmpty)
+            if (_memberOnly == null && _highlightMember == null && !constructiveEmpty && !importedBackground)
                 await LoadMeshOverlayAsync();
         }
         finally
@@ -185,6 +201,39 @@ public class Fem3DVM : ViewModelBase
             IsLoading = false;
             Status    = "";
         }
+    }
+
+    List<FemNode>? _bgNodes;
+    List<FemMember>? _bgElements;
+    HashSet<FemMember> _bgSet = new(ReferenceEqualityComparer.Instance);
+    HashSet<string> _bgOnlyNodeTags = new(StringComparer.Ordinal);
+
+    /// <summary>Загружает (один раз) импортированную сетку схемы как подложку вида. False — сетки ЛИРЫ нет.</summary>
+    bool LoadImportedBackground()
+    {
+        if (_bgElements == null)
+        {
+            if (_db.HasImportedMesh(_schemaId))
+            {
+                _bgNodes = _db.GetFemMeshNodes(_schemaId).Where(n => n.Origin == FemMember.MeshSourceImported).Select(ToFemNode).ToList();
+                _bgElements = _db.GetFemMeshElements(_schemaId).Where(e => e.Origin == FemMember.MeshSourceImported).Select(ToFemMember).ToList();
+            }
+            else
+            {
+                _bgNodes = [];
+                _bgElements = [];
+            }
+            _bgSet = new HashSet<FemMember>(_bgElements, ReferenceEqualityComparer.Instance);
+        }
+        return _bgElements.Count > 0;
+    }
+
+    /// <summary>Узлы подложки и конструктивного слоя без повторов тегов (узел слоя важнее: он редактируется).</summary>
+    List<FemNode> MergeNodes(List<FemNode> background, List<FemNode> own)
+    {
+        var ownTags = own.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+        _bgOnlyNodeTags = background.Select(n => n.NodeTag).Where(t => !ownTags.Contains(t)).ToHashSet(StringComparer.Ordinal);
+        return [.. background.Where(n => !ownTags.Contains(n.NodeTag)), .. own];
     }
 
     static FemNode ToFemNode(FemMeshNode n) => new()
@@ -257,7 +306,10 @@ public class Fem3DVM : ViewModelBase
     /// сразу отражались в 3D без ожидания сохранения.</summary>
     public void LoadFromSession(CScore.Fem.Editing.FemSchemaEditSession session)
     {
-        ApplyTopology(session.Nodes, session.Members);
+        if (LoadImportedBackground())
+            ApplyTopology(MergeNodes(_bgNodes!, session.Nodes), [.. _bgElements!, .. session.Members]);
+        else
+            ApplyTopology(session.Nodes, session.Members);
         _diagramNodes = session.Nodes;
         _diagramMembers = session.Members;
         _diagramLoadCases = session.LoadCases;
@@ -416,8 +468,12 @@ public class Fem3DVM : ViewModelBase
         }
         else
         {
-            var allBars = elements.Where(e => e.ElemType == "beam").ToList();
+            var allBars = elements.Where(e => e.ElemType == "beam" && !e.IsMeshLocked).ToList();
             BarGroups   = BuildSectionColoredBars(nodeMap, allBars);
+            // Стержни из кБ ЛИРЫ — утолщённой линией поверх своих КЭ.
+            var lockedBars = elements.Where(e => e.ElemType == "beam" && e.IsMeshLocked).ToList();
+            if (lockedBars.Count > 0 && BuildLinePoints(nodeMap, lockedBars) is { Count: > 0 } lockedPoints)
+                BarGroups = [.. BarGroups, new BarGroup(Loc.S("FemLockedMembersLegend"), LockedMemberColor, lockedPoints, 3.5)];
             ShellMesh   = BuildShellMesh(nodeMap, elements);
             HiShellMesh = null;
         }
@@ -437,11 +493,13 @@ public class Fem3DVM : ViewModelBase
 
         if (EditMode)
         {
+            // Подложка из сетки ЛИРЫ только рисуется: выбирать и править можно лишь конструктивный слой.
             NodeProxies = visibleNodes
+                .Where(n => !_bgOnlyNodeTags.Contains(n.NodeTag))
                 .Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z)))
                 .ToList();
             BarProxies = elements
-                .Where(e => e.ElemType == "beam")
+                .Where(e => e.ElemType == "beam" && !_bgSet.Contains(e))
                 .Select(e => (Tag: e.ElemTag, Pair: GetBarPoints(nodeMap, e)))
                 .Where(x => x.Pair.HasValue)
                 .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
@@ -522,7 +580,7 @@ public class Fem3DVM : ViewModelBase
             AddLoop(region.RequireHull());
             foreach (var hole in region.Holes) AddLoop(hole);
 
-            result.Add(new PlanarRegionVisual(member.ElemTag, mesh, edgePoints));
+            result.Add(new PlanarRegionVisual(member.ElemTag, mesh, edgePoints, member.IsMeshLocked));
         }
 
         return result;

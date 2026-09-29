@@ -1,0 +1,65 @@
+<Window x:Class="OpenCS.Views.LiraBlocksToMembersDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource LiraBlocksDialogTitle}"
+        Width="720" Height="560" MinWidth="520" MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0" Text="{DynamicResource LiraBlocksDialogPrompt}"
+                 TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+         <TextBlock Text="{DynamicResource LiraBlocksFilterType}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+         <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeFilter}" MinWidth="140"/>
+         <TextBlock Text="{DynamicResource LiraBlocksFilterFloor}" VerticalAlignment="Center" Margin="16,0,6,0"/>
+         <ComboBox ItemsSource="{Binding Floors}" SelectedItem="{Binding FloorFilter}" MinWidth="140"/>
+         <Button Content="{DynamicResource LiraBlocksSelectVisible}" Command="{Binding SelectVisibleCommand}"
+                 Padding="10,2" Margin="16,0,6,0"/>
+         <Button Content="{DynamicResource LiraBlocksClearVisible}" Command="{Binding ClearVisibleCommand}"
+                 Padding="10,2"/>
+      </StackPanel>
+
+      <DataGrid Grid.Row="2" ItemsSource="{Binding View}" AutoGenerateColumns="False"
+                CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column"
+                SelectionMode="Extended" Margin="0,0,0,8">
+         <DataGrid.Columns>
+            <DataGridTemplateColumn Width="Auto">
+               <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                     <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                               HorizontalAlignment="Center"/>
+                  </DataTemplate>
+               </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColId}" Binding="{Binding Id}" IsReadOnly="True"/>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColType}" Binding="{Binding Type}" IsReadOnly="True" Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColFloor}" Binding="{Binding Floor}" IsReadOnly="True" Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColMark}" Binding="{Binding Mark}" IsReadOnly="True" Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColBars}" Binding="{Binding BarCount}" IsReadOnly="True"/>
+            <DataGridTextColumn Header="{DynamicResource LiraBlocksColPlates}" Binding="{Binding PlateCount}" IsReadOnly="True"/>
+            <DataGridCheckBoxColumn Header="{DynamicResource LiraBlocksColConverted}" Binding="{Binding IsConverted, Mode=OneWay}" IsReadOnly="True"/>
+         </DataGrid.Columns>
+      </DataGrid>
+
+      <DockPanel Grid.Row="3">
+         <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="Gray">
+            <Run Text="{DynamicResource LiraBlocksSelectedCount}"/>
+            <Run Text="{Binding SelectedCount, Mode=OneWay}"/>
+         </TextBlock>
+         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{DynamicResource LiraBlocksConvert}" Click="Convert_Click"
+                    Padding="20,4" Margin="0,0,8,0" IsDefault="True"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+         </StackPanel>
+      </DockPanel>
+   </Grid>
+</Window>

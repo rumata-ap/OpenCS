@@ -302,6 +302,13 @@ public partial class FemSchemaView3D : UserControl
 
         foreach (var pv in VM.PlanarRegionVisuals)
         {
+            if (pv.IsMeshLocked)
+            {
+                // Плита/стена из кБ ЛИРЫ: под ней уже залита сетка ЛИРЫ — только утолщённый контур
+                // (своя заливка ложится в ту же плоскость и накладывается некрасиво).
+                viewport.Children.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Fem3DVM.LockedMemberColor, Thickness = 3.5 });
+                continue;
+            }
             var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.PlanarRegionMeshColor));
             var model = new GeometryModel3D(pv.Mesh, mat) { BackMaterial = mat };
             viewport.Children.Add(new ModelVisual3D { Content = model });

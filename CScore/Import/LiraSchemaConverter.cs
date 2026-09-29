@@ -80,6 +80,7 @@ public static class LiraSchemaConverter
                 X        = n.X,
                 Y        = n.Y,
                 Z        = n.Z,
+                Origin   = FemMember.MeshSourceImported,
             })
             .ToArray();
 
@@ -98,6 +99,7 @@ public static class LiraSchemaConverter
                     ElemType    = "beam",
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                     SectionTag  = tag,
+                    Origin      = FemMember.MeshSourceImported,
                 };
             })
             .ToArray();
@@ -119,6 +121,7 @@ public static class LiraSchemaConverter
                     SectionTag  = tag,
                     ThicknessM  = stiff?.H_mm is { } h ? h / 1000.0 : null,
                     ReinforcementTypeIds = ReinforcementKey(data, e.Id),
+                    Origin      = FemMember.MeshSourceImported,
                 };
             })
             .ToArray();
@@ -195,11 +198,7 @@ public static class LiraSchemaConverter
             {
                 // Номер блока ЛИРА («Блок N» в карточке КЭ) — без него группы одного типа неразличимы
                 // (все безымянные блоки импортируются как «Блок»).
-                var tag = string.IsNullOrWhiteSpace(b.Floor)
-                    ? $"{b.Type} №{b.Id}"
-                    : $"{b.Type} №{b.Id} [{b.Floor}]";
-                if (!string.IsNullOrWhiteSpace(b.Mark))
-                    tag += $" {b.Mark}";
+                var tag = LiraBlockTags.Format(b.Id, b.Type, b.Floor, b.Mark);
                 return new FemMemberGroup
                 {
                     SchemaId       = schemaId,

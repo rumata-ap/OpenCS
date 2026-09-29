@@ -541,6 +541,7 @@ namespace OpenCS
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
       public ICommand LoadLiraAspCommand { get; set; } = null!;
+      public ICommand ConvertLiraBlocksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT).</summary>
       public ICommand LoadLiraRbtCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
@@ -1441,6 +1442,7 @@ namespace OpenCS
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
+         ConvertLiraBlocksCommand  = new RelayCommand(p => ConvertLiraBlocksToMembers(p as CScore.Fem.FemSchema));
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
@@ -3296,6 +3298,7 @@ namespace OpenCS
                 .ToArray();
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
+            db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3416,6 +3419,91 @@ namespace OpenCS
          {
             LogService.Warning(string.Format(Loc.S("LiraAspReadError"), name, ex.Message));
          }
+      }
+
+      /// <summary>
+      /// Преобразует выбранные в диалоге кБ ЛИРЫ в конструктивные элементы схемы (стержни — по прямым цепочкам,
+      /// пластины — плоскими элементами с контуром). Сетка ЛИРЫ не меняется, элементы получают замок сетки.
+      /// КЭ, уже принадлежащие элементу, не входящему в выбранные кБ, пропускаются с предупреждением.
+      /// </summary>
+      void ConvertLiraBlocksToMembers(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         var blocks = db.GetLiraBlocks(schema.Id);
+         if (blocks.Count == 0)
+         {
+            MessageBox.Show(Loc.S("LiraBlocksNone"), Loc.S("LiraBlocksDialogTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+         // Открытый редактор этой схемы держит конструктивный слой в памяти и при сохранении перезапишет его.
+         bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return;
+
+         var meshNodes = db.GetFemMeshNodes(schema.Id);
+         var meshElements = db.GetFemMeshElements(schema.Id);
+         var members = db.GetFemMembers(schema.Id);
+         var vm = new ViewModels.LiraBlocksToMembersVM(blocks, meshElements, members);
+         if (new Views.LiraBlocksToMembersDialog(vm).ShowDialog() != true) return;
+         var selected = vm.SelectedBlocks;
+
+         var replacedTags = members
+            .Where(m => selected.Any(b => m.ElemTag == b.Tag || m.ElemTag.StartsWith(b.Tag + " · ", StringComparison.Ordinal)))
+            .Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
+         var ownerByElement = meshElements
+            .Where(e => e.SourceMemberTag != null && !replacedTags.Contains(e.SourceMemberTag))
+            .ToDictionary(e => e.ElemTag, e => e.SourceMemberTag!, StringComparer.Ordinal);
+         var claimed = new HashSet<string>(StringComparer.Ordinal);
+         var builds = new List<CScore.Import.LiraBlockMemberBuild>();
+         var converted = new List<CScore.Import.LiraBlockInfo>();
+         foreach (var block in selected)
+         {
+            var free = new List<string>();
+            var busy = new List<string>();
+            foreach (var tag in block.ElementTags)
+               (ownerByElement.ContainsKey(tag) || !claimed.Add(tag) ? busy : free).Add(tag);
+            if (busy.Count > 0)
+               LogService.Warning(string.Format(Loc.S("LiraBlocksElementsBusy"), block.Tag, busy.Count,
+                  string.Join(", ", busy.Take(20))));
+            CScore.Import.LiraBlockMemberBuild build;
+            try
+            {
+               build = CScore.Import.LiraBlockMemberBuilder.Build(block with { ElementTags = free }, meshNodes, meshElements);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+            {
+               // Непредвиденная геометрия одного кБ не должна срывать остальные; его прежние элементы не трогаем.
+               LogService.Error(string.Format(Loc.S("LiraBlocksBuildFailed"), block.Tag, ex.Message));
+               continue;
+            }
+            foreach (var d in build.Diagnostics)
+               LogService.Warning(d.Message);
+            builds.Add(build);
+            converted.Add(block);
+         }
+         if (converted.Count == 0) return;
+         selected = converted;
+
+         try
+         {
+            db.ApplyLiraBlockMembers(schema.Id, selected, builds);
+         }
+         catch (InvalidOperationException ex)
+         {
+            MessageBox.Show(ex.Message, Loc.S("LiraBlocksDialogTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var parts = builds.SelectMany(b => b.Parts).ToList();
+         string done = string.Format(Loc.S("LiraBlocksConverted"), selected.Count,
+            parts.Count(p => p.Member.ElemType == "beam"), parts.Count(p => p.Member.ElemType == "shell"),
+            builds.Sum(b => b.Diagnostics.Count));
+         LogService.Info(done);
+         StatusMessage = done;
+         if (editorOpen) ReloadFemSchemaPage();
+         else RefreshFemSchemaTreeCounts(schema);
       }
 
       async void ImportLiraForcesFromApi(CScore.Fem.FemMemberGroup? target = null)

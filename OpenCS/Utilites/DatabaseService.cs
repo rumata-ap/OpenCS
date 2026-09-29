@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 65;
+      const int CurrentSchemaVersion = 66;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -85,6 +85,7 @@ namespace OpenCS.Utilites
          [62] = MigrateV63,
          [63] = MigrateV64,
          [64] = MigrateV65,
+         [65] = MigrateV66,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -527,7 +528,8 @@ namespace OpenCS.Utilites
                 rotation_deg       REAL NOT NULL DEFAULT 0,
                 planar_region_id   INTEGER REFERENCES planar_regions(id),
                 kind                TEXT,
-                kind_source         TEXT NOT NULL DEFAULT 'auto'
+                kind_source         TEXT NOT NULL DEFAULT 'auto',
+                mesh_source         TEXT NOT NULL DEFAULT 'generated'
             );
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -537,7 +539,8 @@ namespace OpenCS.Utilites
                 y                REAL NOT NULL DEFAULT 0,
                 z                REAL NOT NULL DEFAULT 0,
                 source_node_tag  TEXT,
-                source_member_tag TEXT
+                source_member_tag TEXT,
+                origin           TEXT NOT NULL DEFAULT 'generated'
             );
             CREATE TABLE IF NOT EXISTS fem_elements (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -553,7 +556,8 @@ namespace OpenCS.Utilites
                 section_tag         TEXT,
                 material_tag        TEXT,
                 thickness_m         REAL,
-                reinforcement_type_ids TEXT
+                reinforcement_type_ids TEXT,
+                origin              TEXT NOT NULL DEFAULT 'generated'
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -658,6 +662,7 @@ namespace OpenCS.Utilites
          EnsureSubmodelMaterializationTable();
          EnsureFemSchemaReinforcementFileTable();
          EnsureFemSchemaSelectedReinforcementFileTable();
+         EnsureFemSchemaConstructiveBlockTable();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1583,6 +1588,38 @@ namespace OpenCS.Utilites
              schema_id INTEGER PRIMARY KEY REFERENCES fem_schemas(id) ON DELETE CASCADE,
              file_name TEXT NOT NULL DEFAULT '',
              data BLOB NOT NULL
+         );
+         """);
+
+      /// <summary>Миграция v66: элементы с импортированной сеткой (mesh_source), происхождение строк сетки
+      /// (origin: сетка схем ЛИРЫ — imported) и таблица кБ ЛИРЫ при схеме.</summary>
+      void MigrateV66()
+      {
+         if (!ColumnExists("fem_members", "mesh_source"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN mesh_source TEXT NOT NULL DEFAULT 'generated'");
+         if (!ColumnExists("fem_elements", "origin"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN origin TEXT NOT NULL DEFAULT 'generated'");
+         if (!ColumnExists("fem_mesh_nodes", "origin"))
+            MigExec("ALTER TABLE fem_mesh_nodes ADD COLUMN origin TEXT NOT NULL DEFAULT 'generated'");
+         MigExec("""
+            UPDATE fem_elements   SET origin='imported' WHERE schema_id IN (SELECT id FROM fem_schemas WHERE source_type='lira');
+            UPDATE fem_mesh_nodes SET origin='imported' WHERE schema_id IN (SELECT id FROM fem_schemas WHERE source_type='lira');
+            """);
+         EnsureFemSchemaConstructiveBlockTable();
+      }
+
+      /// <summary>Конструктивные блоки ЛИРЫ (таблица 31) импортированной схемы — для преобразования в
+      /// конструктивные элементы по выбору пользователя.</summary>
+      void EnsureFemSchemaConstructiveBlockTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS fem_schema_constructive_blocks (
+             schema_id        INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+             block_id         INTEGER NOT NULL,
+             type             TEXT NOT NULL DEFAULT '',
+             floor            TEXT NOT NULL DEFAULT '',
+             mark             TEXT NOT NULL DEFAULT '',
+             comment          TEXT NOT NULL DEFAULT '',
+             element_ids_json TEXT NOT NULL DEFAULT '[]',
+             PRIMARY KEY (schema_id, block_id)
          );
          """);
 
@@ -4869,8 +4906,10 @@ namespace OpenCS.Utilites
                elemCmd.CommandText = """
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                            target_mesh_length_m, rotation_deg)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @rot);
+                                            target_mesh_length_m, rotation_deg, plate_section_id, force_set_id,
+                                            design_params_json, planar_region_id, kind, kind_source, mesh_source)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @rot,
+                          @psid, @fsid, @dp, @prid, @kind, @ksrc, @msrc);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -4886,6 +4925,13 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
                elemCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
                elemCmd.Parameters.Add("@rot",  Microsoft.Data.Sqlite.SqliteType.Real);
+               elemCmd.Parameters.Add("@psid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@fsid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@dp",   Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@prid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@kind", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@ksrc", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@msrc", Microsoft.Data.Sqlite.SqliteType.Text);
                foreach (var e in members)
                {
                   elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -4901,6 +4947,13 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
                   elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
                   elemCmd.Parameters["@rot"].Value   = e.RotationDeg;
+                  elemCmd.Parameters["@psid"].Value  = (object?)e.PlateSectionId ?? DBNull.Value;
+                  elemCmd.Parameters["@fsid"].Value  = (object?)e.ForceSetId ?? DBNull.Value;
+                  elemCmd.Parameters["@dp"].Value    = (object?)e.DesignParamsJson ?? DBNull.Value;
+                  elemCmd.Parameters["@prid"].Value  = (object?)e.PlanarRegionId ?? DBNull.Value;
+                  elemCmd.Parameters["@kind"].Value  = (object?)e.Kind ?? DBNull.Value;
+                  elemCmd.Parameters["@ksrc"].Value  = e.KindSource;
+                  elemCmd.Parameters["@msrc"].Value  = e.MeshSource;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
                   newMemberIdByOld[e.Id] = newId;
                   e.Id = newId;
@@ -4915,6 +4968,18 @@ namespace OpenCS.Utilites
                // SaveFemMemberGroupCore молча выполнил бы UPDATE по несуществующему id.
                g.Id = 0;
                SaveFemMemberGroupCore(g, schemaId);
+            }
+
+            // Удалённый элемент с импортированной сеткой: его КЭ остаются в сетке, но больше ему не принадлежат.
+            using (var unlink = _connection.CreateCommand())
+            {
+               unlink.CommandText = """
+                  UPDATE fem_elements SET source_member_tag=NULL
+                  WHERE schema_id=@sid AND origin='imported' AND source_member_tag IS NOT NULL
+                    AND source_member_tag NOT IN (SELECT elem_tag FROM fem_members WHERE schema_id=@sid)
+               """;
+               unlink.Parameters.AddWithValue("@sid", schemaId);
+               unlink.ExecuteNonQuery();
             }
 
             var newLoadCaseIdByOld = new Dictionary<int, int>();
@@ -5281,8 +5346,10 @@ namespace OpenCS.Utilites
                memberCmd.CommandText = """
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                            target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot);
+                                            target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
+                                            kind, kind_source, mesh_source)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
+                          @kind, @ksrc, @msrc);
                   SELECT last_insert_rowid();
                """;
                memberCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -5301,6 +5368,9 @@ namespace OpenCS.Utilites
                memberCmd.Parameters.Add("@fsid", Microsoft.Data.Sqlite.SqliteType.Integer);
                memberCmd.Parameters.Add("@dp",   Microsoft.Data.Sqlite.SqliteType.Text);
                memberCmd.Parameters.Add("@rot",  Microsoft.Data.Sqlite.SqliteType.Real);
+               memberCmd.Parameters.Add("@kind", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@ksrc", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@msrc", Microsoft.Data.Sqlite.SqliteType.Text);
                foreach (var m in members)
                {
                   memberCmd.Parameters["@sid"].Value   = newSchemaId;
@@ -5319,6 +5389,9 @@ namespace OpenCS.Utilites
                   memberCmd.Parameters["@fsid"].Value  = (object?)m.ForceSetId ?? DBNull.Value;
                   memberCmd.Parameters["@dp"].Value    = (object?)m.DesignParamsJson ?? DBNull.Value;
                   memberCmd.Parameters["@rot"].Value   = m.RotationDeg;
+                  memberCmd.Parameters["@kind"].Value  = (object?)m.Kind ?? DBNull.Value;
+                  memberCmd.Parameters["@ksrc"].Value  = m.KindSource;
+                  memberCmd.Parameters["@msrc"].Value  = m.MeshSource;
                   int newId = (int)(long)memberCmd.ExecuteScalar()!;
                   newMemberIdByOld[m.Id] = newId;
                }
@@ -5493,8 +5566,8 @@ namespace OpenCS.Utilites
             using (var meshNodeCmd = _connection.CreateCommand())
             {
                meshNodeCmd.CommandText = """
-                  INSERT INTO fem_mesh_nodes (schema_id, node_tag, x, y, z, source_node_tag, source_member_tag)
-                  VALUES (@sid, @tag, @x, @y, @z, @snt, @smt)
+                  INSERT INTO fem_mesh_nodes (schema_id, node_tag, x, y, z, source_node_tag, source_member_tag, origin)
+                  VALUES (@sid, @tag, @x, @y, @z, @snt, @smt, @origin)
                """;
                foreach (var mn in meshNodes)
                {
@@ -5506,6 +5579,7 @@ namespace OpenCS.Utilites
                   meshNodeCmd.Parameters.AddWithValue("@z", mn.Z);
                   meshNodeCmd.Parameters.AddWithValue("@snt", (object?)mn.SourceNodeTag ?? DBNull.Value);
                   meshNodeCmd.Parameters.AddWithValue("@smt", (object?)mn.SourceMemberTag ?? DBNull.Value);
+                  meshNodeCmd.Parameters.AddWithValue("@origin", mn.Origin);
                   meshNodeCmd.ExecuteNonQuery();
                }
             }
@@ -5515,8 +5589,8 @@ namespace OpenCS.Utilites
                meshElemCmd.CommandText = """
                   INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
                                              cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                             section_tag, material_tag, thickness_m, reinforcement_type_ids)
-                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti)
+                                             section_tag, material_tag, thickness_m, reinforcement_type_ids, origin)
+                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @origin)
                """;
                foreach (var el in meshElements)
                {
@@ -5534,6 +5608,7 @@ namespace OpenCS.Utilites
                   meshElemCmd.Parameters.AddWithValue("@mtag", (object?)el.MaterialTag ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@thk", el.ThicknessM.HasValue ? el.ThicknessM.Value : DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@rti", (object?)el.ReinforcementTypeIds ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@origin", el.Origin);
                   meshElemCmd.ExecuteNonQuery();
                }
             }
@@ -5607,7 +5682,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg, planar_region_id, kind, kind_source FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg, planar_region_id, kind, kind_source, mesh_source FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -5633,6 +5708,7 @@ namespace OpenCS.Utilites
                PlanarRegionId    = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
                Kind              = rdr.IsDBNull(17) ? null : rdr.GetString(17),
                KindSource        = rdr.GetString(18),
+               MeshSource        = rdr.GetString(19),
             });
          return result;
       }
@@ -5744,12 +5820,12 @@ namespace OpenCS.Utilites
       {
          foreach (var node in nodes)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_mesh_nodes (schema_id,node_tag,x,y,z,source_node_tag,source_member_tag) VALUES (@sid,@tag,@x,@y,@z,@snt,@smt); SELECT last_insert_rowid();";
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_mesh_nodes (schema_id,node_tag,x,y,z,source_node_tag,source_member_tag,origin) VALUES (@sid,@tag,@x,@y,@z,@snt,@smt,@origin); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", node.Origin);
             command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", node.NodeTag); command.Parameters.AddWithValue("@x", node.X); command.Parameters.AddWithValue("@y", node.Y); command.Parameters.AddWithValue("@z", node.Z); command.Parameters.AddWithValue("@snt", (object?)node.SourceNodeTag ?? DBNull.Value); command.Parameters.AddWithValue("@smt", (object?)node.SourceMemberTag ?? DBNull.Value); node.Id = (int)(long)command.ExecuteScalar()!; node.SchemaId = schemaId;
          }
          foreach (var element in elements)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti); SELECT last_insert_rowid();";
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,origin) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@origin); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin);
             command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); command.Parameters.AddWithValue("@rti", (object?)element.ReinforcementTypeIds ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
          }
       }
@@ -6146,7 +6222,7 @@ namespace OpenCS.Utilites
          var result = new List<CScore.Fem.FemMeshNode>();
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
-            SELECT id, node_tag, x, y, z, source_node_tag, source_member_tag
+            SELECT id, node_tag, x, y, z, source_node_tag, source_member_tag, origin
             FROM fem_mesh_nodes
             WHERE schema_id=@sid
             ORDER BY id
@@ -6164,6 +6240,7 @@ namespace OpenCS.Utilites
                Z = rdr.GetDouble(4),
                SourceNodeTag = rdr.IsDBNull(5) ? null : rdr.GetString(5),
                SourceMemberTag = rdr.IsDBNull(6) ? null : rdr.GetString(6),
+               Origin = rdr.GetString(7),
             });
          return result;
       }
@@ -6176,7 +6253,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
-                   material_tag, thickness_m, reinforcement_type_ids
+                   material_tag, thickness_m, reinforcement_type_ids, origin
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -6200,6 +6277,7 @@ namespace OpenCS.Utilites
                MaterialTag = rdr.IsDBNull(10) ? null : rdr.GetString(10),
                ThicknessM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
                ReinforcementTypeIds = rdr.IsDBNull(12) ? null : rdr.GetString(12),
+               Origin = rdr.GetString(13),
             });
          return result;
       }
@@ -6383,9 +6461,9 @@ namespace OpenCS.Utilites
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                          target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
-                                         planar_region_id, kind, kind_source)
+                                         planar_region_id, kind, kind_source, mesh_source)
                VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
-                       @prid, @kind, @ksrc);
+                       @prid, @kind, @ksrc, @msrc);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -6407,6 +6485,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@prid",  (object?)m.PlanarRegionId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
+            cmd.Parameters.AddWithValue("@msrc",  m.MeshSource);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
@@ -6415,7 +6494,8 @@ namespace OpenCS.Utilites
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
                material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
                gj_torsion_task_id=@gjt, target_mesh_length_m=@tml, plate_section_id=@psid, force_set_id=@fsid,
-               design_params_json=@dp, rotation_deg=@rot, planar_region_id=@prid, kind=@kind, kind_source=@ksrc
+               design_params_json=@dp, rotation_deg=@rot, planar_region_id=@prid, kind=@kind, kind_source=@ksrc,
+               mesh_source=@msrc
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -6436,6 +6516,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@prid",  (object?)m.PlanarRegionId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
+            cmd.Parameters.AddWithValue("@msrc",  m.MeshSource);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }

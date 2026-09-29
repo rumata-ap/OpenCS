@@ -12,11 +12,16 @@ public static class FemTopologyValidator
         "manual", "saint_venant"
     };
 
+    /// <param name="importedMeshNodes">Импортированные узлы сетки (схема ЛИРЫ): группы могут ссылаться на номера
+    /// импортированных КЭ (<paramref name="importedElementTags"/>), а узлы элементов с заблокированной сеткой не должны
+    /// расходиться с одноимёнными узлами сетки.</param>
     public static IReadOnlyList<FemValidationDiagnostic> Validate(
         FemSchema schema,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemMember> members,
-        IReadOnlyList<FemMemberGroup> memberGroups)
+        IReadOnlyList<FemMemberGroup> memberGroups,
+        IReadOnlyList<FemMeshNode>? importedMeshNodes = null,
+        IReadOnlyCollection<string>? importedElementTags = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(nodes);
@@ -87,6 +92,7 @@ public static class FemTopologyValidator
             errors.Add(new("element_tag_duplicate", $"Тег элемента '{group.Key}' используется несколько раз."));
 
         var elemTagSet = members.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        if (importedElementTags != null) elemTagSet.UnionWith(importedElementTags);
         foreach (var group in memberGroups)
         {
             var elemTags = (JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [])
@@ -95,6 +101,24 @@ public static class FemTopologyValidator
                 if (!elemTagSet.Contains(tag))
                     errors.Add(new("member_element_missing",
                         $"Группа '{group.Tag}' ссылается на отсутствующий конструктивный элемент {tag}."));
+        }
+
+        if (importedMeshNodes != null)
+        {
+            var meshByTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+            foreach (var n in importedMeshNodes) meshByTag.TryAdd(n.NodeTag, n);
+            var nodeByTag = new Dictionary<string, FemNode>(StringComparer.Ordinal);
+            foreach (var n in nodes) nodeByTag.TryAdd(n.NodeTag, n);
+            foreach (var member in members.Where(m => m.IsMeshLocked))
+                foreach (var id in JsonSerializer.Deserialize<int[]>(member.NodeIdsJson) ?? [])
+                {
+                    var tag = id.ToString();
+                    if (!nodeByTag.TryGetValue(tag, out var node) || !meshByTag.TryGetValue(tag, out var mesh)) continue;
+                    double dx = node.X - mesh.X, dy = node.Y - mesh.Y, dz = node.Z - mesh.Z;
+                    if (Math.Sqrt(dx * dx + dy * dy + dz * dz) > CollinearToleranceM)
+                        errors.Add(new("locked_member_node_moved",
+                            $"Узел {tag} элемента '{member.ElemTag}' с сеткой из ЛИРЫ сдвинут относительно узла сетки."));
+                }
         }
 
         return errors;

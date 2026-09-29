@@ -107,7 +107,11 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberSectionEditRequested += OpenMemberProperties;
         view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
-        view3D.NodeMoveRequested += (tag, dx, dy, dz) => _editorVm.MoveNodeByTag(tag, dx, dy, dz);
+        view3D.NodeMoveRequested += (tag, dx, dy, dz) =>
+        {
+            if (!_editorVm.MoveNodeByTag(tag, dx, dy, dz))
+                _fem3d.LoadFromSession(_editorVm.Session);
+        };
         view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
         view3D.NodePropertiesRequested += tag =>
@@ -133,6 +137,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             else if (args.PropertyName == nameof(FemSchemaEditorVM.Session) && !_fem3d.IsLoading)
                 _fem3d.LoadFromSession(_editorVm.Session);
         };
+        _editorVm.GeometryLocked += message => MessageBox.Show(Window.GetWindow(this), message,
+            Loc.S("FemMemberMeshLockedTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         _editorVm.SaveBlocked += errors => MessageBox.Show(
             string.Join("\n", errors.Select(d => d.Message)),
             Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -182,6 +188,11 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 
     void ConfirmAndDeleteNodes(IReadOnlyList<string> nodeTags)
     {
+        if (CScore.Fem.Editing.FemMeshLock.LockedMembersOf(_editorVm.Session.Members, nodeTags).Count > 0)
+        {
+            _editorVm.DeleteNodesByTags(nodeTags); // откажет и покажет причину
+            return;
+        }
         var impact = _editorVm.GetNodeDeletionImpact(nodeTags);
         if (impact.NodeCount == 0) return;
 

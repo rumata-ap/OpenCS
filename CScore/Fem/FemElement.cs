@@ -24,6 +24,10 @@ public class FemElement
     /// <summary>Тег исходного конструктивного элемента до дискретизации.</summary>
     public string? SourceMemberTag { get; set; }
 
+    /// <summary>Происхождение: <see cref="FemMember.MeshSourceGenerated"/> — построен дискретизацией,
+    /// <see cref="FemMember.MeshSourceImported"/> — импортирован (ЛИРА), дискретизация его не трогает.</summary>
+    public string Origin { get; set; } = FemMember.MeshSourceGenerated;
+
     /// <summary>Тег сечения/жёсткости из источника импорта (SCAD/Lira). Null для стержней,
     /// дискретизированных из конструктивной модели редактора (у них CrossSectionId).</summary>
     public string? SectionTag  { get; set; }

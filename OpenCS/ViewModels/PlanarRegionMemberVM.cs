@@ -754,6 +754,20 @@ public class PlanarRegionMemberVM : ViewModelBase
         Diagnostics = diagnostics;
         if (region == null) return false;
 
+        // Сетка элемента импортирована из ЛИРЫ: контур и имя (по нему КЭ сетки ссылаются на элемент)
+        // менять нельзя — только армирование, сечение и тип.
+        if (_existingMember is { IsMeshLocked: true } && _existingRegion != null)
+        {
+            region.BoundarySegments = _existingRegion.BoundarySegments;
+            region.ConstraintObjects = _existingRegion.ConstraintObjects;
+            region.RecalcFingerprint();
+            if (region.GeometryFingerprint != _existingRegion.GeometryFingerprint || Tag != _existingMember.ElemTag)
+            {
+                Diagnostics = [new FemValidationDiagnostic("planar_member_mesh_locked", Loc.S("FemMemberMeshLockedGeometry"))];
+                return false;
+            }
+        }
+
         region.RebarZones = [.. RebarZones.Select(vm => vm.Model)];
         region.RebarSectionGridStep = RebarSectionGridStep;
         region.MeshMaxElementSizeM = MeshMaxElementSizeM;
