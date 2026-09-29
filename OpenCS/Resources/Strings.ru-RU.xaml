@@ -1966,6 +1966,11 @@
     <system:String x:Key="Sp63Concrete_CrackFreeCheckTee">Трещины не допускаются: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
     <system:String x:Key="Sp63Concrete_BendingCheckTee">Изгиб: M ≤ Mult = Rbt·W, W = I/yt</system:String>
     <system:String x:Key="Sp63Concrete_TeeShearStressNotChecked">Для тавра и двутавра по Пособию требуется также τ ≤ Rbt на уровне центра тяжести; касательные напряжения (п. 7.1.4) не проверяются.</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressCheck">Поперечная сила (п. 7.1.4), главные напряжения на уровне центра тяжести: σmt/Rbt + σmc/Rb ≤ 1</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressCheckTee">Поперечная сила (п. 7.1.4), главные напряжения на уровне примыкания сжатой полки к стенке: σmt/Rbt + σmc/Rb ≤ 1</system:String>
+    <system:String x:Key="Sp63Concrete_ShearStressCheckTee">Касательные напряжения на уровне центра тяжести: τ = Q·S/(I·b) ≤ Rbt</system:String>
+    <system:String x:Key="Sp63Concrete_ElasticStresses">Напряжения для п. 7.1.4 определены как для упругого материала (Пособие к СП 63, п. 3.1.13): σx = N/A + M·(yc − y)/I (при сжатии M = N·e0·η), τ = Q·S/(I·b), σmt,mc = ∓σx/2 + √((σx/2)² + τ²).</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressAtCentroid">У сжатой грани нет полки: главные напряжения проверены на уровне центра тяжести сечения.</system:String>
     <system:String x:Key="Sp63NormalCracksNotAllowed">Трещины не допускаются (п. 7.1.9)</system:String>
     <system:String x:Key="Sp63NormalCracksNotAllowedTooltip">Бетонный элемент, в котором трещины не допускаются по условиям эксплуатации (напорные, карнизы, парапеты): при силе в пределах сечения дополнительно проверяется условие (7.4)/(7.5)</system:String>
     <system:String x:Key="Sp63Concrete_TensionNotSupported">Раздел 7 не предусматривает расчёт бетонных элементов на растяжение: растягивающую силу должна воспринимать арматура.</system:String>

@@ -462,9 +462,13 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         return Texts.TryGetValue(key, out var text) ? text : key;
     }
 
-    static ReportUnit DetailUnit(CheckDetail detail)
-        => detail.Formula.Contains("M", StringComparison.OrdinalIgnoreCase)
-            ? ReportUnit.KilonewtonMeter : ReportUnit.Kilonewton;
+    static ReportUnit DetailUnit(CheckDetail detail) => detail.Formula switch
+    {
+        "(3.12)" => ReportUnit.Unitless,
+        "(3.14)" => ReportUnit.Kilopascal,
+        _ => detail.Formula.Contains("M", StringComparison.OrdinalIgnoreCase)
+            ? ReportUnit.KilonewtonMeter : ReportUnit.Kilonewton
+    };
 
     static string F(double value, ReportUnit unit = ReportUnit.Unitless)
         => ReportNumberFormatter.Format(value, unit);
@@ -558,6 +562,11 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Concrete_CrackFreeCheckTee"] = "Трещины не допускаются: N ≤ Rbt·A / (A/I·e0·η·yt − 1)",
         ["Sp63Concrete_BendingCheckTee"] = "Изгиб: M ≤ Mult = Rbt·W, W = I/yt",
         ["Sp63Concrete_TeeShearStressNotChecked"] = "Для тавра и двутавра по Пособию требуется также τ ≤ Rbt на уровне центра тяжести; касательные напряжения (п. 7.1.4) не проверяются.",
+        ["Sp63Concrete_PrincipalStressCheck"] = "Поперечная сила (п. 7.1.4), главные напряжения на уровне центра тяжести: σmt/Rbt + σmc/Rb ≤ 1",
+        ["Sp63Concrete_PrincipalStressCheckTee"] = "Поперечная сила (п. 7.1.4), главные напряжения на уровне примыкания сжатой полки к стенке: σmt/Rbt + σmc/Rb ≤ 1",
+        ["Sp63Concrete_ShearStressCheckTee"] = "Касательные напряжения на уровне центра тяжести: τ = Q·S/(I·b) ≤ Rbt",
+        ["Sp63Concrete_ElasticStresses"] = "Напряжения для п. 7.1.4 определены как для упругого материала (Пособие к СП 63, п. 3.1.13): σx = N/A + M·(yc − y)/I (при сжатии M = N·e0·η), τ = Q·S/(I·b), σmt,mc = ∓σx/2 + √((σx/2)² + τ²).",
+        ["Sp63Concrete_PrincipalStressAtCentroid"] = "У сжатой грани нет полки: главные напряжения проверены на уровне центра тяжести сечения.",
         ["Sp63Concrete_TensionNotSupported"] = "Раздел 7 не предусматривает расчёт бетонных элементов на растяжение: растягивающую силу должна воспринимать арматура.",
         ["Sp63Concrete_MissingTensileResistance"] = "Не задано расчётное сопротивление бетона растяжению Rbt.",
         ["Sp63Concrete_GammaB3"] = "Rb принято с коэффициентом γb3 = 0,9 для бетонных конструкций (п. 6.1.12).",

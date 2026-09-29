@@ -157,6 +157,37 @@ public sealed class Sp63NormalReportProviderTests
     }
 
     [Fact]
+    public void Provider_ConcreteShearChecks_LocalizedWithUnits()
+    {
+        var task = MakeTask("""{"ShapeKind":"tee","ElementType":"concrete","Axis":"Mx"}""");
+        const string json = """
+            {"Status":2,"StrengthPassed":true,"Branch":"concrete_bending",
+             "StrengthDetails":[
+                {"Formula":"(7.8)","Description":"Sp63Concrete_BendingCheckTee","NormReference":"7.1.12",
+                 "Applied":5.0,"Allowable":12.0,"Variables":{}},
+                {"Formula":"(3.12)","Description":"Sp63Concrete_PrincipalStressCheckTee","NormReference":"7.1.4",
+                 "Applied":0.4567,"Allowable":1.0,"Variables":{}},
+                {"Formula":"(3.14)","Description":"Sp63Concrete_ShearStressCheckTee","NormReference":"7.1.4",
+                 "Applied":500.25,"Allowable":1000.0,"Variables":{}}],
+             "ConstructiveChecks":[],"AlternativeChecks":[],"ApplicabilityMessages":[],
+             "InformationalMessages":[
+                {"Code":"concrete_elastic_stresses","Kind":1,"NormReference":"7.1.4","Text":"Sp63Concrete_ElasticStresses"}],
+             "Variables":{"Q":80.0}}
+            """;
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = json };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var rows = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).ToList();
+        var principal = rows.Single(r => r[0] == "(3.12)");
+        Assert.StartsWith("Поперечная сила (п. 7.1.4)", principal[1]);
+        Assert.Equal("0.457", principal[3]);   // безразмерно, 3 знака (у кН было бы 2)
+        var shear = rows.Single(r => r[0] == "(3.14)");
+        Assert.Equal("500.3", shear[3]);       // кПа, 1 знак
+        Assert.DoesNotContain(rows.SelectMany(r => r), c => c.Contains("Sp63Concrete_"));
+    }
+
+    [Fact]
     public void Provider_CheckTables_DoNotDuplicateVariablesColumn()
     {
         var task = MakeTask();

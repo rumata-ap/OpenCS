@@ -1966,6 +1966,11 @@
     <system:String x:Key="Sp63Concrete_CrackFreeCheckTee">Cracks not allowed: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
     <system:String x:Key="Sp63Concrete_BendingCheckTee">Bending: M ≤ Mult = Rbt·W, W = I/yt</system:String>
     <system:String x:Key="Sp63Concrete_TeeShearStressNotChecked">For T and I sections the Manual also requires τ ≤ Rbt at the centroid level; shear stresses (cl. 7.1.4) are not checked.</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressCheck">Shear force (cl. 7.1.4), principal stresses at the centroid level: σmt/Rbt + σmc/Rb ≤ 1</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressCheckTee">Shear force (cl. 7.1.4), principal stresses at the junction of the compressed flange with the web: σmt/Rbt + σmc/Rb ≤ 1</system:String>
+    <system:String x:Key="Sp63Concrete_ShearStressCheckTee">Shear stress at the centroid level: τ = Q·S/(I·b) ≤ Rbt</system:String>
+    <system:String x:Key="Sp63Concrete_ElasticStresses">Stresses for cl. 7.1.4 are determined as for an elastic material (Manual to SP 63, cl. 3.1.13): σx = N/A + M·(yc − y)/I (in compression M = N·e0·η), τ = Q·S/(I·b), σmt,mc = ∓σx/2 + √((σx/2)² + τ²).</system:String>
+    <system:String x:Key="Sp63Concrete_PrincipalStressAtCentroid">There is no flange at the compressed face: principal stresses are checked at the centroid level.</system:String>
     <system:String x:Key="Sp63NormalCracksNotAllowed">Cracks not allowed (cl. 7.1.9)</system:String>
     <system:String x:Key="Sp63NormalCracksNotAllowedTooltip">Plain concrete element where cracking is not allowed by service conditions (pressure structures, cornices, parapets): with the force within the section, condition (7.4)/(7.5) is checked additionally</system:String>
     <system:String x:Key="Sp63Concrete_TensionNotSupported">Section 7 does not cover plain concrete elements in tension: tensile force must be resisted by reinforcement.</system:String>

@@ -46,6 +46,45 @@ public sealed class Sp63ConcreteBandProfile
     /// <summary>Радиус инерции √(I/A), м.</summary>
     public double RadiusOfGyration => Math.Sqrt(Inertia / Area);
 
+    /// <summary>
+    /// Уровень проверки главных напряжений по Пособию к СП 63, п. 3.1.13: у сжатой грани
+    /// с полкой (тавр/двутавр) — примыкание полки к стенке, иначе — центр тяжести. Расстояние
+    /// от сжатой грани, м.
+    /// </summary>
+    public double PrincipalStressLevel =>
+        _bands.Length > 1 && _bands[0].Width > _bands[1].Width ? _bands[0].End : Centroid;
+
+    /// <summary>
+    /// Статический момент S относительно центра тяжести части сечения между сжатой гранью
+    /// и уровнем <paramref name="depth"/>, м³ (для τ = Q·S/(I·b)).
+    /// </summary>
+    /// <param name="depth">Расстояние от сжатой грани, м.</param>
+    public double StaticMoment(double depth)
+    {
+        double moment = 0.0;
+        foreach (var band in _bands)
+        {
+            double end = Math.Min(band.End, depth);
+            if (end <= band.Start)
+                break;
+            moment += band.Width * (end - band.Start) * (Centroid - (band.Start + end) / 2.0);
+        }
+        return moment;
+    }
+
+    /// <summary>
+    /// Ширина сечения на уровне <paramref name="depth"/>, м. На границе полос — меньшая из
+    /// смежных ширин (у примыкания полки — ширина стенки).
+    /// </summary>
+    /// <param name="depth">Расстояние от сжатой грани, м.</param>
+    public double WidthAt(double depth)
+    {
+        double tolerance = Height * 1e-12;
+        return _bands
+            .Where(band => depth >= band.Start - tolerance && depth <= band.End + tolerance)
+            .Min(band => band.Width);
+    }
+
     /// <summary>Прямоугольник b×h (одна полоса).</summary>
     public static Sp63ConcreteBandProfile Rectangle(double b, double h) =>
         new([new Band(0.0, h, b)]);

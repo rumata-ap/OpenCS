@@ -4,8 +4,10 @@ namespace CScore.Sp63.Normal;
 /// Проверяет прочность бетонного (без рабочей арматуры) прямоугольного, таврового или
 /// двутаврового сечения по разделу 7 СП 63.13330.2018 (п. 7.1.2 — действие усилий в плоскости
 /// симметрии): внецентренное сжатие (пп. 7.1.7–7.1.11), в том числе условие (7.4) для
-/// элементов, где трещины не допускаются, и изгиб (п. 7.1.12). Арматура сечения, если она
-/// есть, считается конструктивной и не учитывается (п. 7.1.6).
+/// элементов, где трещины не допускаются, и изгиб (п. 7.1.12). При поперечной силе —
+/// условие п. 7.1.4 по главным напряжениям (Пособие к СП 63, (3.12)/(3.12а)), для изгибаемого
+/// тавра/двутавра также τ ≤ Rbt (3.14). Арматура сечения, если она есть, считается
+/// конструктивной и не учитывается (п. 7.1.6).
 /// </summary>
 public static class Sp63ConcreteNormalChecker
 {
@@ -35,11 +37,14 @@ public static class Sp63ConcreteNormalChecker
                 "Sp63Concrete_ShapeNotSupported", "7.1.2");
         if (!Enum.IsDefined(options.Axis))
             return InvalidInput("invalid_axis", "Sp63Normal_InvalidAxis", "7.1");
-        if (!double.IsFinite(load.N) || !double.IsFinite(load.Mx) || !double.IsFinite(load.My))
+        if (!double.IsFinite(load.N) || !double.IsFinite(load.Mx) || !double.IsFinite(load.My) ||
+            !double.IsFinite(load.Vx) || !double.IsFinite(load.Vy))
             return InvalidInput("non_finite_load", "Sp63Normal_NonFiniteLoad", "7.1");
 
         double moment = options.Axis == Sp63NormalAxis.Mx ? load.Mx : load.My;
         double otherMoment = options.Axis == Sp63NormalAxis.Mx ? load.My : load.Mx;
+        // Поперечная сила в плоскости изгиба: Mx (высота вдоль Y) — Vy, My — Vx.
+        double shear = Math.Abs(options.Axis == Sp63NormalAxis.Mx ? load.Vy : load.Vx);
         if (Math.Abs(otherMoment) > Sp63NormalTolerances.Moment)
             return NotApplicable("biaxial_load", "Sp63Normal_BiaxialLoad", "7.1");
 
@@ -111,7 +116,14 @@ public static class Sp63ConcreteNormalChecker
             notes.Add(Message("concrete_tee_full_flanges", Sp63NormalMessageKind.Information,
                 "7.1.9", "Sp63Concrete_TeeFullFlanges"));
 
-        var shape = new Shape(isTee, profileFor);
+        var shape = new Shape(isTee, profileFor,
+            shear > Sp63NormalTolerances.Force ? shear : 0.0);
+        if (shape.Shear > 0.0)
+        {
+            common["Q"] = shape.Shear;
+            notes.Add(Message("concrete_elastic_stresses", Sp63NormalMessageKind.Information,
+                "7.1.4", "Sp63Concrete_ElasticStresses"));
+        }
         if (load.N < -Sp63NormalTolerances.Force)
             return CheckCompression(section, Math.Abs(load.N), moment, calc, options,
                 shape, rbt, common, notes);
@@ -123,8 +135,11 @@ public static class Sp63ConcreteNormalChecker
         return NotApplicable("zero_load", "Sp63Normal_ZeroLoad", "7.1");
     }
 
-    /// <summary>Форма сечения: признак тавра и профиль для заданной сжатой грани.</summary>
-    sealed record Shape(bool IsTee, Func<bool, Sp63ConcreteBandProfile> ProfileFor);
+    /// <summary>
+    /// Форма сечения: признак тавра, профиль для заданной сжатой грани и модуль поперечной
+    /// силы в плоскости изгиба (0 — проверки п. 7.1.4 не выполняются).
+    /// </summary>
+    sealed record Shape(bool IsTee, Func<bool, Sp63ConcreteBandProfile> ProfileFor, double Shear);
 
     /// <summary>
     /// Коэффициент φ условия (7.3): при длительном действии нагрузки — по таблице 7.1
@@ -236,7 +251,7 @@ public static class Sp63ConcreteNormalChecker
         foreach (bool compressedAtMin in orientations)
         {
             var evaluation = EvaluateCompression(shape.ProfileFor(compressedAtMin), shape.IsTee,
-                n, eEta, rb, rbt, options.CracksNotAllowed, variables);
+                n, eEta, shape.Shear, rb, rbt, options.CracksNotAllowed, variables);
             if (evaluation.Failure is not null)
                 return evaluation.Failure;
             if (governing is null || evaluation.MaxRatio > governing.MaxRatio)
@@ -265,9 +280,30 @@ public static class Sp63ConcreteNormalChecker
     /// <summary>
     /// Внецентренное сжатие при заданной сжатой грани: в пределах сечения — (7.1) и, если
     /// трещины не допускаются, (7.4)/(7.5); за пределами сечения — (7.4)/(7.5) (п. 7.1.10).
-    /// Для прямоугольника (7.4) принимает вид (7.5), Ab — вид (7.2).
+    /// Для прямоугольника (7.4) принимает вид (7.5), Ab — вид (7.2). При поперечной силе —
+    /// дополнительно (3.12) по п. 7.1.4.
     /// </summary>
     static Evaluation EvaluateCompression(Sp63ConcreteBandProfile profile, bool isTee,
+        double n, double eEta, double shear, double rb, double rbt, bool cracksNotAllowed,
+        Dictionary<string, double> baseVariables)
+    {
+        var evaluation = EvaluateCompressionNormal(profile, isTee, n, eEta, rb, rbt,
+            cracksNotAllowed, baseVariables);
+        if (evaluation.Failure is not null || !(shear > 0.0))
+            return evaluation;
+        if (!IsFinitePositive(rbt))
+            return evaluation with
+            {
+                Failure = NotApplicable("missing_concrete_tensile_resistance",
+                    "Sp63Concrete_MissingTensileResistance", "7.1.4")
+            };
+        evaluation.Details.Add(PrincipalStressCheck(profile, isTee, shear, n, n * eEta, rb, rbt,
+            evaluation.Variables, evaluation.Notes));
+        return evaluation;
+    }
+
+    /// <summary>Условия по нормальной силе для одной ориентации профиля (без п. 7.1.4).</summary>
+    static Evaluation EvaluateCompressionNormal(Sp63ConcreteBandProfile profile, bool isTee,
         double n, double eEta, double rb, double rbt, bool cracksNotAllowed,
         Dictionary<string, double> baseVariables)
     {
@@ -396,8 +432,6 @@ public static class Sp63ConcreteNormalChecker
             // (7.9): W — для крайнего растянутого волокна, W = I/yt.
             w = profile.Inertia / profile.TensionFiberDistance;
             variables["yt"] = profile.TensionFiberDistance;
-            notes.Add(Message("concrete_tee_shear_stress_not_checked",
-                Sp63NormalMessageKind.Warning, "7.1.4", "Sp63Concrete_TeeShearStressNotChecked"));
         }
         else
         {
@@ -407,10 +441,67 @@ public static class Sp63ConcreteNormalChecker
         double mUlt = rbt * w;
         variables["W"] = w;
         variables["Mult"] = mUlt;
-        var detail = Detail("(7.8)",
-            shape.IsTee ? "Sp63Concrete_BendingCheckTee" : "Sp63Concrete_BendingCheck",
-            "7.1.12", Math.Abs(moment), mUlt, variables);
-        return Calculated("concrete_bending", [detail], variables, notes);
+        var details = new List<CheckDetail>
+        {
+            Detail("(7.8)",
+                shape.IsTee ? "Sp63Concrete_BendingCheckTee" : "Sp63Concrete_BendingCheck",
+                "7.1.12", Math.Abs(moment), mUlt, variables)
+        };
+        if (shape.Shear > 0.0)
+        {
+            details.Add(PrincipalStressCheck(profile, shape.IsTee, shape.Shear, 0.0,
+                Math.Abs(moment), variables["Rb"], rbt, variables, notes));
+            if (shape.IsTee)
+            {
+                // (3.14) Пособия: τ ≤ Rbt на уровне центра тяжести.
+                double yc = profile.Centroid;
+                double staticMoment = profile.StaticMoment(yc);
+                double width = profile.WidthAt(yc);
+                double tauCentroid = shape.Shear * staticMoment / (profile.Inertia * width);
+                variables["SCentroid"] = staticMoment;
+                variables["bCentroid"] = width;
+                variables["tauCentroid"] = tauCentroid;
+                details.Add(Detail("(3.14)", "Sp63Concrete_ShearStressCheckTee", "7.1.4",
+                    tauCentroid, rbt, variables));
+            }
+        }
+        return Calculated("concrete_bending", details, variables, notes);
+    }
+
+    /// <summary>
+    /// Условие п. 7.1.4 в форме (3.12) Пособия: σmt/Rbt + σmc/Rb ≤ 1, главные напряжения по
+    /// (3.12а) σmt,mc = ∓σx/2 + √((σx/2)² + τ²) как для упругого материала. Уровень — центр
+    /// тяжести прямоугольника или примыкание сжатой полки тавра/двутавра к стенке (при
+    /// растянутой полке — центр тяжести). σx = N/A + M·(yc − y)/I, сжатие положительно.
+    /// </summary>
+    /// <param name="n">Сжимающая сила, ≥ 0, кН.</param>
+    /// <param name="moment">Момент, сжимающий грань профиля с координатой 0, ≥ 0, кН·м.</param>
+    static CheckDetail PrincipalStressCheck(Sp63ConcreteBandProfile profile, bool isTee,
+        double shear, double n, double moment, double rb, double rbt,
+        Dictionary<string, double> variables, List<Sp63NormalMessage> notes)
+    {
+        double level = isTee ? profile.PrincipalStressLevel : profile.Centroid;
+        if (isTee && level == profile.Centroid)
+            notes.Add(Message("concrete_principal_stress_at_centroid",
+                Sp63NormalMessageKind.Information, "7.1.4",
+                "Sp63Concrete_PrincipalStressAtCentroid"));
+        double staticMoment = profile.StaticMoment(level);
+        double width = profile.WidthAt(level);
+        double sigmaX = n / profile.Area + moment * (profile.Centroid - level) / profile.Inertia;
+        double tau = shear * staticMoment / (profile.Inertia * width);
+        double root = Math.Sqrt(sigmaX * sigmaX / 4.0 + tau * tau);
+        double sigmaMt = -sigmaX / 2.0 + root;
+        double sigmaMc = sigmaX / 2.0 + root;
+        variables["yTau"] = level;
+        variables["S"] = staticMoment;
+        variables["bTau"] = width;
+        variables["sigmaX"] = sigmaX;
+        variables["tau"] = tau;
+        variables["sigmaMt"] = sigmaMt;
+        variables["sigmaMc"] = sigmaMc;
+        return Detail("(3.12)",
+            isTee ? "Sp63Concrete_PrincipalStressCheckTee" : "Sp63Concrete_PrincipalStressCheck",
+            "7.1.4", sigmaMt / rbt + sigmaMc / rb, 1.0, variables);
     }
 
     static CheckDetail Detail(string formula, string description, string reference,

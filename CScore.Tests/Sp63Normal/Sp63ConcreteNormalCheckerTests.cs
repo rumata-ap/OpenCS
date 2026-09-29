@@ -193,8 +193,9 @@ public sealed class Sp63ConcreteNormalCheckerTests
         var detail = Assert.Single(result.StrengthDetails);
         Assert.Equal(1_000.0 * TeeI / yt, detail.Allowable, 9);
         Assert.Equal(yt, result.Variables["yt"], 12);
-        Assert.Contains(result.InformationalMessages,
-            m => m.Code == "concrete_tee_shear_stress_not_checked");
+        // Без поперечной силы условия п. 7.1.4 не выводятся.
+        Assert.DoesNotContain(result.InformationalMessages,
+            m => m.Code == "concrete_elastic_stresses");
     }
 
     [Fact]
@@ -375,6 +376,161 @@ public sealed class Sp63ConcreteNormalCheckerTests
 
         Assert.Equal(expectedX, x, 4);
         Assert.Equal(Integrate(expectedX).Area, ab, 4);
+    }
+
+    // --- Поперечная сила, п. 7.1.4 (Пособие (3.12)/(3.12а), (3.14)). Rb·γb3 = 18 МПа, Rbt = 1 МПа.
+
+    /// <summary>(3.12): σmt/Rbt + σmc/Rb, σmt,mc = ∓σx/2 + √((σx/2)² + τ²), σx — сжатие.</summary>
+    static double PrincipalRatio(double sigmaX, double tau)
+    {
+        double root = Math.Sqrt(sigmaX * sigmaX / 4.0 + tau * tau);
+        return (root - sigmaX / 2.0) / 1_000.0 + (root + sigmaX / 2.0) / 18_000.0;
+    }
+
+    [Fact]
+    public void RectangleBending_WithShear_ChecksPrincipalStressesAtCentroid()
+    {
+        // 0,3×0,5, Vy = 60 кН: τ = 1,5·Q/(b·h) = 600 кПа, σx = 0 на уровне ц.т.
+        // → 600/1000 + 600/18000. Vx при изгибе Mx не учитывается.
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
+            new LoadItem { Mx = -5.0, Vy = 60.0, Vx = 1_000.0 }, CalcType.C,
+            ConcreteOptions(3.0, 3.0));
+
+        Assert.Equal(2, result.StrengthDetails.Count);
+        var shear = result.StrengthDetails[1];
+        Assert.Equal("(3.12)", shear.Formula);
+        Assert.Equal("7.1.4", shear.NormReference);
+        Assert.Equal(600.0, result.Variables["tau"], 9);
+        Assert.Equal(0.0, result.Variables["sigmaX"], 9);
+        Assert.Equal(0.6 + 600.0 / 18_000.0, shear.Applied, 12);
+        Assert.Equal(1.0, shear.Allowable);
+        Assert.True(result.StrengthPassed);
+        Assert.Contains(result.InformationalMessages, m => m.Code == "concrete_elastic_stresses");
+    }
+
+    [Fact]
+    public void RectangleBending_LargeShear_FailsVerdict()
+    {
+        // τ = 1,5·100/0,15 = 1000 кПа: 1 + 1000/18000 > 1 при выполненном (7.8).
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
+            new LoadItem { Mx = -5.0, Vy = 100.0 }, CalcType.C, ConcreteOptions(3.0, 3.0));
+
+        Assert.True(result.StrengthDetails[0].Passed);
+        Assert.False(result.StrengthDetails[1].Passed);
+        Assert.False(result.StrengthPassed);
+    }
+
+    [Fact]
+    public void RectangleCompression_WithShear_UsesAxialStressAtCentroid()
+    {
+        // σx = N/A = 1000/0,15, τ = 600 кПа; момент на уровне ц.т. прямоугольника не влияет.
+        var options = ConcreteOptions(3.0, null, Sp63NormalStabilityMode.SectionOnlyExplicit);
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
+            new LoadItem { N = -1000.0, Mx = 40.0, Vy = -60.0 }, CalcType.C, options);
+
+        Assert.Equal("concrete_compression", result.Branch);
+        var shear = Assert.Single(result.StrengthDetails, d => d.Formula == "(3.12)");
+        Assert.Equal(1000.0 / 0.15, result.Variables["sigmaX"], 9);
+        Assert.Equal(PrincipalRatio(1000.0 / 0.15, 600.0), shear.Applied, 12);
+    }
+
+    [Fact]
+    public void RectangleCompressionOutside_WithShear_AddsPrincipalCheck()
+    {
+        var options = ConcreteOptions(3.0, null, Sp63NormalStabilityMode.SectionOnlyExplicit);
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
+            new LoadItem { N = -100.0, Mx = 40.0, Vy = 30.0 }, CalcType.C, options);
+
+        Assert.Equal("concrete_compression_outside", result.Branch);
+        Assert.Equal(new[] { "(7.5)", "(3.12)" }, result.StrengthDetails.Select(d => d.Formula));
+        Assert.Equal(PrincipalRatio(100.0 / 0.15, 300.0), result.StrengthDetails[1].Applied, 12);
+    }
+
+    [Fact]
+    public void TeeBending_FlangeCompressed_ChecksJunctionAndCentroid()
+    {
+        // Mx < 0 сжимает верх (полку). От сжатой грани yc = h − yb; уровень (3.12) — низ
+        // полки (0,1 м), S = 0,06·(yc − 0,05), b = 0,2; σx = M·(yc − 0,1)/I.
+        // (3.14): S(yc) = S + 0,2·(yc − 0,1)²/2.
+        const double q = 80.0, m = 5.0;
+        double yc = 0.5 - TeeYb;
+        double sJunction = 0.06 * (yc - 0.05);
+        double tau = q * sJunction / (TeeI * 0.2);
+        double sigmaX = m * (yc - 0.1) / TeeI;
+        double sCentroid = sJunction + 0.2 * Math.Pow(yc - 0.1, 2) / 2.0;
+
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { Mx = -m, Vy = q },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal(new[] { "(7.8)", "(3.12)", "(3.14)" }, result.StrengthDetails.Select(d => d.Formula));
+        Assert.Equal(0.1, result.Variables["yTau"], 12);
+        Assert.Equal(tau, result.Variables["tau"], 9);
+        Assert.Equal(PrincipalRatio(sigmaX, tau), result.StrengthDetails[1].Applied, 12);
+        Assert.Equal(q * sCentroid / (TeeI * 0.2), result.StrengthDetails[2].Applied, 9);
+        Assert.Equal(1_000.0, result.StrengthDetails[2].Allowable, 12);
+        Assert.DoesNotContain(result.InformationalMessages,
+            msg => msg.Code == "concrete_principal_stress_at_centroid");
+    }
+
+    [Fact]
+    public void TeeBending_WebCompressed_ChecksPrincipalStressesAtCentroid()
+    {
+        // Mx > 0 сжимает низ (стенку), полки у сжатой грани нет → (3.12) на уровне ц.т.:
+        // σx = 0, S = 0,2·yb²/2, τ совпадает с (3.14).
+        const double q = 80.0;
+        double tau = q * (0.2 * TeeYb * TeeYb / 2.0) / (TeeI * 0.2);
+
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { Mx = 5.0, Vy = q },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal(PrincipalRatio(0.0, tau), result.StrengthDetails[1].Applied, 12);
+        Assert.Equal(tau, result.StrengthDetails[2].Applied, 9);
+        Assert.Contains(result.InformationalMessages,
+            msg => msg.Code == "concrete_principal_stress_at_centroid");
+    }
+
+    [Fact]
+    public void TeeBending_RotatedForMy_UsesVx()
+    {
+        var mx = Sp63NormalChecker.Check(HandTee(), new LoadItem { Mx = -5.0, Vy = 80.0 },
+            CalcType.C, TeeOptions());
+        var my = Sp63NormalChecker.Check(HandTee(rotateForMy: true),
+            new LoadItem { My = -5.0, Vx = 80.0, Vy = 500.0 }, CalcType.C,
+            TeeOptions(axis: Sp63NormalAxis.My));
+
+        Assert.Equal(mx.StrengthDetails.Count, my.StrengthDetails.Count);
+        for (int i = 0; i < mx.StrengthDetails.Count; i++)
+            Assert.Equal(mx.StrengthDetails[i].Applied, my.StrengthDetails[i].Applied, 9);
+    }
+
+    [Fact]
+    public void TeeCompression_WithShear_UsesAmplifiedMomentAtJunction()
+    {
+        // Mx < 0 сжимает полку, e0 = 0,05 м (сечение, η = 1): σx = N/A + N·e0·(yc − 0,1)/I.
+        const double n = 1000.0, q = 150.0;
+        double yc = 0.5 - TeeYb;
+        double sigmaX = n / TeeA + n * 0.05 * (yc - 0.1) / TeeI;
+        double tau = q * 0.06 * (yc - 0.05) / (TeeI * 0.2);
+
+        var result = Sp63NormalChecker.Check(HandTee(),
+            new LoadItem { N = -n, Mx = -50.0, Vy = q }, CalcType.C, TeeOptions());
+
+        Assert.Equal(new[] { "(7.1)", "(3.12)" }, result.StrengthDetails.Select(d => d.Formula));
+        Assert.Equal(sigmaX, result.Variables["sigmaX"], 9);
+        Assert.Equal(PrincipalRatio(sigmaX, tau), result.StrengthDetails[1].Applied, 12);
+    }
+
+    [Fact]
+    public void BandProfile_StaticMoment_IsZeroOverFullHeightAndMaxAtCentroid()
+    {
+        var geometry = new Sp63TeeGeometry(0.15, 0.7, 0.0, 0.7, 0.5, 0.12, 0.4, 0.1);
+        var profile = Sp63ConcreteBandProfile.Tee(geometry, compressedAtMin: false);
+
+        Assert.Equal(0.0, profile.StaticMoment(profile.Height), 12);
+        double atCentroid = profile.StaticMoment(profile.Centroid);
+        Assert.True(atCentroid > profile.StaticMoment(profile.Centroid - 0.01));
+        Assert.True(atCentroid > profile.StaticMoment(profile.Centroid + 0.01));
+        Assert.Equal(0.15, profile.WidthAt(profile.PrincipalStressLevel), 12);
     }
 
     [Fact]
