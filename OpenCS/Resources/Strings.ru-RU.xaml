@@ -3588,4 +3588,29 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SubmodelDefaultTag">{0} — субмодель {1}…{2}</system:String>
     <system:String x:Key="SubmodelDefaultTagSingle">{0} — субмодель {1}</system:String>
     <system:String x:Key="SubmodelExtractedLog">Извлечена субмодель «{0}» ({1} сегм.)</system:String>
+    <system:String x:Key="SubmodelKindTranslation">Перемещения</system:String>
+    <system:String x:Key="SubmodelKindRotation">Повороты</system:String>
+    <system:String x:Key="SubmodelKindEndForce">Концевые силы</system:String>
+    <system:String x:Key="SubmodelKindEndMoment">Концевые моменты</system:String>
+    <system:String x:Key="SubmodelKindReactionForce">Реакции — силы</system:String>
+    <system:String x:Key="SubmodelKindReactionMoment">Реакции — моменты</system:String>
+    <system:String x:Key="SubmodelUnitMm">мм</system:String>
+    <system:String x:Key="SubmodelUnitRad">рад</system:String>
+    <system:String x:Key="SubmodelUnitKn">кН</system:String>
+    <system:String x:Key="SubmodelUnitKnm">кН·м</system:String>
+    <system:String x:Key="SubmodelNoData">нет данных</system:String>
+    <system:String x:Key="SubmodelEndStart">начало</system:String>
+    <system:String x:Key="SubmodelEndEnd">конец</system:String>
+    <system:String x:Key="SubmodelDofModeFixed">Закрепление</system:String>
+    <system:String x:Key="SubmodelDofModeForce">Сила</system:String>
+    <system:String x:Key="SubmodelDofModeKinematic">Перемещение</system:String>
+    <system:String x:Key="SubmodelDofChoiceAuto">Авто</system:String>
+    <system:String x:Key="SubmodelDofSourceAuto">авто</system:String>
+    <system:String x:Key="SubmodelDofSourceOverride">задано вручную</system:String>
+    <system:String x:Key="SubmodelControlUnavailable">Контроль недоступен</system:String>
+    <system:String x:Key="SubmodelControlPassed">Контроль пройден: ΔF = {0} кН, ΔM = {1} кН·м</system:String>
+    <system:String x:Key="SubmodelControlFailed">Контроль не пройден: ΔF = {0} кН, ΔM = {1} кН·м</system:String>
+    <system:String x:Key="SubmodelGaugeDofItem">{0}, {1} (узел {2})</system:String>
+    <system:String x:Key="SubmodelGaugeMaxForce">{0} кН при λ = {1}</system:String>
+    <system:String x:Key="SubmodelGaugeMaxMoment">{0} кН·м при λ = {1}</system:String>
 </ResourceDictionary>

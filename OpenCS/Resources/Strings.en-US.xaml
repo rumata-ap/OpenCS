@@ -3588,4 +3588,29 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SubmodelDefaultTag">{0} — submodel {1}…{2}</system:String>
     <system:String x:Key="SubmodelDefaultTagSingle">{0} — submodel {1}</system:String>
     <system:String x:Key="SubmodelExtractedLog">Submodel “{0}” extracted ({1} segm.)</system:String>
+    <system:String x:Key="SubmodelKindTranslation">Translations</system:String>
+    <system:String x:Key="SubmodelKindRotation">Rotations</system:String>
+    <system:String x:Key="SubmodelKindEndForce">End forces</system:String>
+    <system:String x:Key="SubmodelKindEndMoment">End moments</system:String>
+    <system:String x:Key="SubmodelKindReactionForce">Reactions — forces</system:String>
+    <system:String x:Key="SubmodelKindReactionMoment">Reactions — moments</system:String>
+    <system:String x:Key="SubmodelUnitMm">mm</system:String>
+    <system:String x:Key="SubmodelUnitRad">rad</system:String>
+    <system:String x:Key="SubmodelUnitKn">kN</system:String>
+    <system:String x:Key="SubmodelUnitKnm">kN·m</system:String>
+    <system:String x:Key="SubmodelNoData">no data</system:String>
+    <system:String x:Key="SubmodelEndStart">start</system:String>
+    <system:String x:Key="SubmodelEndEnd">end</system:String>
+    <system:String x:Key="SubmodelDofModeFixed">Fixed</system:String>
+    <system:String x:Key="SubmodelDofModeForce">Force</system:String>
+    <system:String x:Key="SubmodelDofModeKinematic">Displacement</system:String>
+    <system:String x:Key="SubmodelDofChoiceAuto">Auto</system:String>
+    <system:String x:Key="SubmodelDofSourceAuto">auto</system:String>
+    <system:String x:Key="SubmodelDofSourceOverride">override</system:String>
+    <system:String x:Key="SubmodelControlUnavailable">Control check unavailable</system:String>
+    <system:String x:Key="SubmodelControlPassed">Control check passed: ΔF = {0} kN, ΔM = {1} kN·m</system:String>
+    <system:String x:Key="SubmodelControlFailed">Control check failed: ΔF = {0} kN, ΔM = {1} kN·m</system:String>
+    <system:String x:Key="SubmodelGaugeDofItem">{0}, {1} (node {2})</system:String>
+    <system:String x:Key="SubmodelGaugeMaxForce">{0} kN at λ = {1}</system:String>
+    <system:String x:Key="SubmodelGaugeMaxMoment">{0} kN·m at λ = {1}</system:String>
 </ResourceDictionary>
