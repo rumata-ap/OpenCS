@@ -1956,7 +1956,18 @@
     <system:String x:Key="Sp63NormalBranchConcreteCompression">Бетонный элемент, внецентренное сжатие (сила в пределах сечения)</system:String>
     <system:String x:Key="Sp63NormalBranchConcreteCompressionOutside">Бетонный элемент, внецентренное сжатие (сила за пределами сечения)</system:String>
     <system:String x:Key="Sp63NormalBranchConcreteBending">Бетонный элемент, изгиб</system:String>
-    <system:String x:Key="Sp63Concrete_ShapeNotSupported">Бетонные элементы по разделу 7 пока проверяются только для прямоугольного сечения.</system:String>
+    <system:String x:Key="Sp63Concrete_ShapeNotSupported">Бетонные элементы по разделу 7 проверяются по предельным усилиям только для прямоугольного, таврового и двутаврового сечений (п. 7.1.2).</system:String>
+    <system:String x:Key="Sp63Concrete_TeeFullFlanges">Полки тавра/двутавра учитываются полной шириной; площадь сжатой зоны Ab определена из условия совпадения её центра тяжести с точкой приложения силы (п. 7.1.9).</system:String>
+    <system:String x:Key="Sp63Concrete_TeeBothFaces">Момент равен нулю: случайный эксцентриситет приложен в сторону каждой грани, выведен худший случай (п. 7.1.7).</system:String>
+    <system:String x:Key="Sp63Concrete_NoTensionZone">Сила в пределах ядра сечения: растянутой зоны нет, условие (7.4)/(7.5) выполняется.</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionCheckTee">Внецентренное сжатие, сила в пределах сечения: N ≤ Rb·Ab, центр тяжести Ab — в точке приложения силы</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionOutsideCheckTee">Внецентренное сжатие, сила за пределами сечения: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_CrackFreeCheck">Трещины не допускаются: N ≤ Rbt·b·h / (6e0·η/h − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_CrackFreeCheckTee">Трещины не допускаются: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_BendingCheckTee">Изгиб: M ≤ Mult = Rbt·W, W = I/yt</system:String>
+    <system:String x:Key="Sp63Concrete_TeeShearStressNotChecked">Для тавра и двутавра по Пособию требуется также τ ≤ Rbt на уровне центра тяжести; касательные напряжения (п. 7.1.4) не проверяются.</system:String>
+    <system:String x:Key="Sp63NormalCracksNotAllowed">Трещины не допускаются (п. 7.1.9)</system:String>
+    <system:String x:Key="Sp63NormalCracksNotAllowedTooltip">Бетонный элемент, в котором трещины не допускаются по условиям эксплуатации (напорные, карнизы, парапеты): при силе в пределах сечения дополнительно проверяется условие (7.4)/(7.5)</system:String>
     <system:String x:Key="Sp63Concrete_TensionNotSupported">Раздел 7 не предусматривает расчёт бетонных элементов на растяжение: растягивающую силу должна воспринимать арматура.</system:String>
     <system:String x:Key="Sp63Concrete_MissingTensileResistance">Не задано расчётное сопротивление бетона растяжению Rbt.</system:String>
     <system:String x:Key="Sp63Concrete_GammaB3">Rb принято с коэффициентом γb3 = 0,9 для бетонных конструкций (п. 6.1.12).</system:String>

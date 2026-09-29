@@ -79,6 +79,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63NormalStructuralScheme = "statically_indeterminate";
    string sp63NormalElementKind = "unspecified";
    string sp63NormalElementType = "reinforced";
+   bool sp63NormalCracksNotAllowed;
    string sp63NormalExposureCondition = "unspecified";
    bool sp63NormalIsPrecast;
    string sp63NormalElementLength = "6";
@@ -235,8 +236,24 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string Sp63NormalElementType
    {
       get => sp63NormalElementType;
-      set { sp63NormalElementType = value; OnPropertyChanged(); }
+      set
+      {
+         sp63NormalElementType = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowSp63NormalCracksNotAllowed));
+      }
    }
+
+   /// <summary>Бетонный элемент, в котором трещины не допускаются (п. 7.1.9, условие (7.4)).</summary>
+   public bool Sp63NormalCracksNotAllowed
+   {
+      get => sp63NormalCracksNotAllowed;
+      set { sp63NormalCracksNotAllowed = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Флаг «трещины не допускаются» имеет смысл только для бетонного элемента.</summary>
+   public bool ShowSp63NormalCracksNotAllowed =>
+      string.Equals(Sp63NormalElementType, "concrete", StringComparison.OrdinalIgnoreCase);
 
    /// <summary>Тип элемента для пп. 10.3.5 и 10.3.8 (расстояния между стержнями).</summary>
    public string Sp63NormalElementKind
@@ -2327,6 +2344,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63NormalStructuralScheme = snp.StructuralScheme;
              Sp63NormalElementType = string.IsNullOrWhiteSpace(snp.ElementType)
                 ? "reinforced" : snp.ElementType;
+             Sp63NormalCracksNotAllowed = snp.CracksNotAllowed;
              Sp63NormalElementKind = string.IsNullOrWhiteSpace(snp.ElementKind)
                 ? "unspecified" : snp.ElementKind;
              Sp63NormalExposureCondition = string.IsNullOrWhiteSpace(snp.ExposureCondition)
@@ -2736,6 +2754,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Axis = Sp63NormalAxis,
             StructuralScheme = Sp63NormalStructuralScheme,
             ElementType = Sp63NormalElementType,
+            // Флаг относится только к бетонному элементу; для железобетонного не сохраняется.
+            CracksNotAllowed = ShowSp63NormalCracksNotAllowed && Sp63NormalCracksNotAllowed,
             ElementKind = Sp63NormalElementKind,
             ExposureCondition = Sp63NormalExposureCondition,
             IsPrecast = Sp63NormalIsPrecast,

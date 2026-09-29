@@ -151,6 +151,16 @@ internal static class Sp63NormalFixtures
         return section;
     }
 
+    /// <summary>Тавровое сечение без арматуры (бетон по умолчанию, Rb = 20 МПа, Rbt = 1 МПа).</summary>
+    public static CrossSection PlainTee(double webWidth, double height, double flangeWidth,
+        double flangeThickness, bool flangeOnTop, bool rotateForMy = false)
+    {
+        var section = new CrossSection { Tag = "tee" };
+        section.Areas.Add(ConcreteRegion(Concrete(), TeeVertices(webWidth, height,
+            flangeWidth, flangeThickness, flangeOnTop, rotateForMy)));
+        return section;
+    }
+
     static (double X, double Y)[] TeeVertices(double webWidth, double height,
         double flangeWidth, double flangeThickness, bool flangeOnTop, bool rotateForMy)
     {

@@ -129,6 +129,34 @@ public sealed class Sp63NormalReportProviderTests
     }
 
     [Fact]
+    public void Provider_ConcreteCracksNotAllowedTee_ShowsFlagAndLocalizesFormula74()
+    {
+        var task = MakeTask("""{"ShapeKind":"tee","ElementType":"concrete","CracksNotAllowed":true,"Axis":"Mx"}""");
+        const string json = """
+            {"Status":2,"StrengthPassed":false,"Branch":"concrete_compression",
+             "StrengthDetails":[
+                {"Formula":"(7.1)","Description":"Sp63Concrete_CompressionCheckTee","NormReference":"7.1.9",
+                 "Applied":1000.0,"Allowable":1415.0,"Variables":{"Ab":0.0786}},
+                {"Formula":"(7.4)","Description":"Sp63Concrete_CrackFreeCheckTee","NormReference":"7.1.9",
+                 "Applied":1000.0,"Allowable":240.1,"Variables":{"yt":0.307}}],
+             "ConstructiveChecks":[],"AlternativeChecks":[],"ApplicabilityMessages":[],
+             "InformationalMessages":[
+                {"Code":"concrete_tee_full_flanges","Kind":1,"NormReference":"7.1.9","Text":"Sp63Concrete_TeeFullFlanges"}],
+             "Variables":{"N":-1000.0}}
+            """;
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = json };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var kvRows = document.Blocks.OfType<ReportKeyValueTable>().SelectMany(t => t.Rows).ToList();
+        Assert.Contains(kvRows, r => r.Key == "Вид конструкции" && r.Value.Contains("трещины не допускаются"));
+        var allCells = document.Blocks.OfType<ReportTable>()
+            .SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.StartsWith("Трещины не допускаются"));
+        Assert.DoesNotContain(allCells, c => c.Contains("Sp63Concrete_"));
+    }
+
+    [Fact]
     public void Provider_CheckTables_DoNotDuplicateVariablesColumn()
     {
         var task = MakeTask();

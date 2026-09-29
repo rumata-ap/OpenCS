@@ -140,13 +140,254 @@ public sealed class Sp63ConcreteNormalCheckerTests
     }
 
     [Fact]
-    public void NonRectangularShape_IsNotApplicable()
+    public void CircularShape_IsNotApplicable()
+    {
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.CircleSection(0.3),
+            new LoadItem { N = -10.0 }, CalcType.C,
+            ConcreteOptions(3.0, 3.0, shape: Sp63NormalShapeKind.Circular));
+
+        Assert.Equal("concrete_shape_not_supported", result.ApplicabilityMessages[0].Code);
+    }
+
+    [Fact]
+    public void TeeShapeOnRectangle_IsNotATee()
     {
         var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
             new LoadItem { N = -10.0 }, CalcType.C,
             ConcreteOptions(3.0, 3.0, shape: Sp63NormalShapeKind.Tee));
 
-        Assert.Equal("concrete_shape_not_supported", result.ApplicabilityMessages[0].Code);
+        Assert.Equal("not_a_tee_shape", result.ApplicabilityMessages[0].Code);
+    }
+
+    // Тавр для ручного счёта: стенка 0,2×0,4, полка 0,6×0,1 сверху, h = 0,5 м.
+    // От нижней грани: A = 0,08 + 0,06 = 0,14; S = 0,08·0,2 + 0,06·0,45 = 0,043;
+    // yb = 0,043/0,14; I = Σ(b·t³/12 + A·(c − yb)²).
+    const double TeeA = 0.14;
+    static readonly double TeeYb = 0.043 / 0.14;
+    static readonly double TeeI =
+        0.2 * Math.Pow(0.4, 3) / 12.0 + 0.08 * Math.Pow(0.2 - TeeYb, 2) +
+        0.6 * Math.Pow(0.1, 3) / 12.0 + 0.06 * Math.Pow(0.45 - TeeYb, 2);
+
+    static CrossSection HandTee(bool rotateForMy = false) =>
+        Sp63NormalFixtures.PlainTee(0.2, 0.5, 0.6, 0.1, flangeOnTop: true, rotateForMy);
+
+    static Sp63NormalOptions TeeOptions(bool cracksNotAllowed = false,
+        Sp63NormalAxis axis = Sp63NormalAxis.Mx) => new(
+        Sp63NormalShapeKind.Tee,
+        axis,
+        new Sp63MemberContext(3.0, Sp63StructuralScheme.StaticallyIndeterminate, null,
+            Sp63NormalStabilityMode.SectionOnlyExplicit, 0.0),
+        Sp63NormalElementType.Concrete,
+        cracksNotAllowed);
+
+    [Theory]
+    [InlineData(5.0, false)]   // Mx > 0 растягивает верх (полку): yt = h − yb.
+    [InlineData(-5.0, true)]   // Mx < 0 растягивает низ (стенку): yt = yb.
+    public void TeeBending_UsesElasticModulusToTensionFiber(double mx, bool tensionAtBottom)
+    {
+        double yt = tensionAtBottom ? TeeYb : 0.5 - TeeYb;
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { Mx = mx },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal("concrete_bending", result.Branch);
+        var detail = Assert.Single(result.StrengthDetails);
+        Assert.Equal(1_000.0 * TeeI / yt, detail.Allowable, 9);
+        Assert.Equal(yt, result.Variables["yt"], 12);
+        Assert.Contains(result.InformationalMessages,
+            m => m.Code == "concrete_tee_shear_stress_not_checked");
+    }
+
+    [Fact]
+    public void TeeBending_RotatedForMy_MatchesMx()
+    {
+        var mx = Sp63NormalChecker.Check(HandTee(), new LoadItem { Mx = 5.0 },
+            CalcType.C, TeeOptions());
+        var my = Sp63NormalChecker.Check(HandTee(rotateForMy: true), new LoadItem { My = 5.0 },
+            CalcType.C, TeeOptions(axis: Sp63NormalAxis.My));
+
+        Assert.Equal(mx.StrengthDetails[0].Allowable, my.StrengthDetails[0].Allowable, 9);
+    }
+
+    [Fact]
+    public void TeeCompression_FlangeCompressed_AbCentroidAtForce()
+    {
+        // Mx < 0 сжимает верх (полку). e0 = 50/1000 = 0,05 м; yc от сжатой грани = h − yb;
+        // d = yc − e0. Зона заходит в стенку: A(x) = 0,06 + 0,2·(x − 0,1),
+        // S(x) = 0,003 + 0,1·(x² − 0,01); S = d·A сводится к x² − 2d·x + 0,02 − 0,4d = 0
+        // → x = d + √(d² − 0,02 + 0,4d); Ab = A(x).
+        double d = 0.5 - TeeYb - 0.05;
+        double x = d + Math.Sqrt(d * d - 0.02 + 0.4 * d);
+        double ab = 0.06 + 0.2 * (x - 0.1);
+
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { N = -1000.0, Mx = -50.0 },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal("concrete_compression", result.Branch);
+        var detail = Assert.Single(result.StrengthDetails);
+        Assert.Equal("(7.1)", detail.Formula);
+        Assert.Equal(x, result.Variables["xZone"], 9);
+        Assert.Equal(18_000.0 * ab, detail.Allowable, 6);
+        Assert.True(result.StrengthPassed);
+        Assert.Empty(result.AlternativeChecks);
+    }
+
+    [Fact]
+    public void TeeCompression_ZoneWithinFlange_IsFlangeRectangle()
+    {
+        // Mx < 0, e0 = 0,17 м: d = yc − e0 < 0,05 — зона внутри полки, Ab = 0,6·2d.
+        double d = 0.5 - TeeYb - 0.17;
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { N = -100.0, Mx = -17.0 },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal(18_000.0 * 0.6 * 2.0 * d, result.StrengthDetails[0].Allowable, 6);
+    }
+
+    [Fact]
+    public void TeeCompression_ForceOutsideSection_UsesFormula74()
+    {
+        // Mx > 0 сжимает низ (стенку): yc = yb, e0 = 0,5 м > yc; растянут верх, yt = h − yb.
+        double yt = 0.5 - TeeYb;
+        double expected = 1_000.0 * TeeA / (TeeA / TeeI * 0.5 * yt - 1.0);
+
+        var result = Sp63NormalChecker.Check(HandTee(), new LoadItem { N = -200.0, Mx = 100.0 },
+            CalcType.C, TeeOptions());
+
+        Assert.Equal("concrete_compression_outside", result.Branch);
+        var detail = Assert.Single(result.StrengthDetails);
+        Assert.Equal("(7.4)", detail.Formula);
+        Assert.Equal(expected, detail.Allowable, 9);
+    }
+
+    [Fact]
+    public void TeeCompression_CracksNotAllowed_AddsFormula74ToVerdict()
+    {
+        // Mx < 0, e0 = 0,12 м — сила в пределах сечения, (7.1) выполняется; растянут низ,
+        // yt = yb: Nult,crc = Rbt·A/(A/I·e0·yt − 1) ≈ 240 кН < 1000 кН.
+        double expected = 1_000.0 * TeeA / (TeeA / TeeI * 0.12 * TeeYb - 1.0);
+        var load = new LoadItem { N = -1000.0, Mx = -120.0 };
+
+        var plain = Sp63NormalChecker.Check(HandTee(), load, CalcType.C, TeeOptions());
+        var crackFree = Sp63NormalChecker.Check(HandTee(), load, CalcType.C,
+            TeeOptions(cracksNotAllowed: true));
+
+        Assert.True(plain.StrengthPassed);
+        Assert.Single(plain.StrengthDetails);
+        Assert.Equal(2, crackFree.StrengthDetails.Count);
+        Assert.Equal("(7.4)", crackFree.StrengthDetails[1].Formula);
+        Assert.Equal(expected, crackFree.StrengthDetails[1].Allowable, 9);
+        Assert.False(crackFree.StrengthPassed);
+    }
+
+    [Fact]
+    public void TeeCompression_ZeroMoment_ChecksBothFacesAndTakesWorst()
+    {
+        // e0 = ea = max(3/600; 0,5/30; 0,01) = 0,5/30. Худшая грань — сжатая стенка
+        // (меньшая сжатая зона), результат не хуже ни одного из явных направлений.
+        var zero = Sp63NormalChecker.Check(HandTee(), new LoadItem { N = -1000.0 },
+            CalcType.C, TeeOptions());
+        double ea = 0.5 / 30.0;
+        var towardWeb = Sp63NormalChecker.Check(HandTee(),
+            new LoadItem { N = -1000.0, Mx = 1000.0 * ea }, CalcType.C, TeeOptions());
+        var towardFlange = Sp63NormalChecker.Check(HandTee(),
+            new LoadItem { N = -1000.0, Mx = -1000.0 * ea }, CalcType.C, TeeOptions());
+
+        double worst = Math.Min(towardWeb.StrengthDetails[0].Allowable,
+            towardFlange.StrengthDetails[0].Allowable);
+        Assert.Equal(worst, zero.StrengthDetails[0].Allowable, 6);
+        Assert.Contains(zero.InformationalMessages, m => m.Code == "concrete_tee_both_faces");
+    }
+
+    [Fact]
+    public void RectangleCompression_CracksNotAllowed_UsesFormula75()
+    {
+        // 0,3×0,5, e0 = 0,1 м: (7.1) Ab = 0,15·(1 − 0,4) → 1620 кН; (7.5) Rbt·b·h/(6e0/h − 1) = 750 кН.
+        var load = new LoadItem { N = -1000.0, Mx = 100.0 };
+        var options = ConcreteOptions(3.0, null, Sp63NormalStabilityMode.SectionOnlyExplicit)
+            with { CracksNotAllowed = true };
+
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5), load,
+            CalcType.C, options);
+
+        Assert.Equal(2, result.StrengthDetails.Count);
+        Assert.Equal(1_620.0, result.StrengthDetails[0].Allowable, 6);
+        Assert.Equal("(7.5)", result.StrengthDetails[1].Formula);
+        Assert.Equal(750.0, result.StrengthDetails[1].Allowable, 6);
+        Assert.False(result.StrengthPassed);
+    }
+
+    [Fact]
+    public void RectangleCompression_CracksNotAllowed_ForceInKernel_NoTensionNote()
+    {
+        // e0 = 0,04 м < h/6: растянутой зоны нет, (7.5) не требуется.
+        var options = ConcreteOptions(3.0, null, Sp63NormalStabilityMode.SectionOnlyExplicit)
+            with { CracksNotAllowed = true };
+        var result = Sp63NormalChecker.Check(Sp63NormalFixtures.Rectangle(0.3, 0.5),
+            new LoadItem { N = -1000.0, Mx = 40.0 }, CalcType.C, options);
+
+        Assert.Single(result.StrengthDetails);
+        Assert.Contains(result.InformationalMessages, m => m.Code == "concrete_no_tension_zone");
+    }
+
+    [Fact]
+    public void BandProfile_RectangleZone_IsTwiceDepth()
+    {
+        var profile = Sp63ConcreteBandProfile.Rectangle(0.3, 0.5);
+        double ab = profile.CompressedZoneArea(0.1, out double x);
+
+        Assert.Equal(0.2, x, 12);
+        Assert.Equal(0.06, ab, 12);
+        Assert.Equal(0.3 * Math.Pow(0.5, 3) / 12.0, profile.Inertia, 12);
+    }
+
+    [Theory]
+    [InlineData(0.02)]   // зона в сжатой полке
+    [InlineData(0.15)]   // зона заходит в стенку
+    [InlineData(0.31)]   // зона захватывает часть растянутой полки (yc ≈ 0,323)
+    public void BandProfile_IBeamZone_MatchesSlicedIntegration(double depth)
+    {
+        // Двутавр: полки 0,5×0,12 и 0,4×0,1, стенка 0,15×0,48; h = 0,7 м.
+        var geometry = new Sp63TeeGeometry(0.15, 0.7, 0.0, 0.7, 0.5, 0.12, 0.4, 0.1);
+        var profile = Sp63ConcreteBandProfile.Tee(geometry, compressedAtMin: false);
+        double ab = profile.CompressedZoneArea(depth, out double x);
+
+        // Независимо: центр тяжести участка [0; x] тонкими слоями, x — бисекцией.
+        double Width(double s) => s < 0.12 ? 0.5 : s < 0.6 ? 0.15 : 0.4;
+        (double Area, double Moment) Integrate(double top)
+        {
+            const int slices = 200_000;
+            double step = top / slices, area = 0, moment = 0;
+            for (int k = 0; k < slices; k++)
+            {
+                double s = (k + 0.5) * step;
+                area += Width(s) * step;
+                moment += Width(s) * step * s;
+            }
+            return (area, moment);
+        }
+        double low = 1e-6, high = 0.7;
+        for (int iteration = 0; iteration < 60; iteration++)
+        {
+            double mid = (low + high) / 2;
+            var (a, m) = Integrate(mid);
+            if (m / a < depth) low = mid; else high = mid;
+        }
+        double expectedX = (low + high) / 2;
+
+        Assert.Equal(expectedX, x, 4);
+        Assert.Equal(Integrate(expectedX).Area, ab, 4);
+    }
+
+    [Fact]
+    public void TaskParams_CracksNotAllowed_RoundTripsAndDefaultsToFalse()
+    {
+        var legacy = Sp63NormalTaskParams.Parse("{\"shapeKind\":\"tee\",\"elementType\":\"concrete\"}");
+        Assert.True(legacy.TryToOptions(out var legacyOptions, out _));
+        Assert.False(legacyOptions.CracksNotAllowed);
+
+        var parameters = new Sp63NormalTaskParams { ElementType = "concrete", CracksNotAllowed = true };
+        var restored = Sp63NormalTaskParams.Parse(parameters.ToJson());
+        Assert.True(restored.TryToOptions(out var options, out _));
+        Assert.True(options.CracksNotAllowed);
     }
 
     [Fact]

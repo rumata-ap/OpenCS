@@ -336,12 +336,18 @@
 
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalElementType}"
                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
-                            SelectedValue="{Binding Sp63NormalElementType}" Margin="0,0,0,4"
-                            ToolTip="{DynamicResource Sp63NormalElementTypeTooltip}">
-                     <ComboBoxItem Tag="reinforced" Content="{DynamicResource Sp63NormalElementTypeReinforced}"/>
-                     <ComboBoxItem Tag="concrete" Content="{DynamicResource Sp63NormalElementTypeConcrete}"/>
-                  </ComboBox>
+                  <StackPanel Grid.Row="1" Grid.Column="1">
+                     <ComboBox SelectedValuePath="Tag"
+                               SelectedValue="{Binding Sp63NormalElementType}" Margin="0,0,0,4"
+                               ToolTip="{DynamicResource Sp63NormalElementTypeTooltip}">
+                        <ComboBoxItem Tag="reinforced" Content="{DynamicResource Sp63NormalElementTypeReinforced}"/>
+                        <ComboBoxItem Tag="concrete" Content="{DynamicResource Sp63NormalElementTypeConcrete}"/>
+                     </ComboBox>
+                     <CheckBox Content="{DynamicResource Sp63NormalCracksNotAllowed}"
+                               IsChecked="{Binding Sp63NormalCracksNotAllowed}" Margin="0,0,0,4"
+                               ToolTip="{DynamicResource Sp63NormalCracksNotAllowedTooltip}"
+                               Visibility="{Binding ShowSp63NormalCracksNotAllowed, Converter={StaticResource BoolToVisibility}}"/>
+                  </StackPanel>
 
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
                              VerticalAlignment="Center" Margin="0,0,4,4"

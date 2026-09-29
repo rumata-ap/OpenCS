@@ -1956,7 +1956,18 @@
     <system:String x:Key="Sp63NormalBranchConcreteCompression">Plain concrete, eccentric compression (force within the section)</system:String>
     <system:String x:Key="Sp63NormalBranchConcreteCompressionOutside">Plain concrete, eccentric compression (force outside the section)</system:String>
     <system:String x:Key="Sp63NormalBranchConcreteBending">Plain concrete, bending</system:String>
-    <system:String x:Key="Sp63Concrete_ShapeNotSupported">Plain concrete elements per Section 7 are currently checked for rectangular sections only.</system:String>
+    <system:String x:Key="Sp63Concrete_ShapeNotSupported">Plain concrete elements per Section 7 are checked by limit forces for rectangular, T and I sections only (cl. 7.1.2).</system:String>
+    <system:String x:Key="Sp63Concrete_TeeFullFlanges">T/I-section flanges are taken at full width; the compressed area Ab is found so that its centroid coincides with the point of force application (cl. 7.1.9).</system:String>
+    <system:String x:Key="Sp63Concrete_TeeBothFaces">Moment is zero: the accidental eccentricity is applied towards each face, the governing case is shown (cl. 7.1.7).</system:String>
+    <system:String x:Key="Sp63Concrete_NoTensionZone">Force lies within the section kern: there is no tension zone, condition (7.4)/(7.5) is satisfied.</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionCheckTee">Eccentric compression, force within the section: N ≤ Rb·Ab, centroid of Ab at the point of force application</system:String>
+    <system:String x:Key="Sp63Concrete_CompressionOutsideCheckTee">Eccentric compression, force outside the section: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_CrackFreeCheck">Cracks not allowed: N ≤ Rbt·b·h / (6e0·η/h − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_CrackFreeCheckTee">Cracks not allowed: N ≤ Rbt·A / (A/I·e0·η·yt − 1)</system:String>
+    <system:String x:Key="Sp63Concrete_BendingCheckTee">Bending: M ≤ Mult = Rbt·W, W = I/yt</system:String>
+    <system:String x:Key="Sp63Concrete_TeeShearStressNotChecked">For T and I sections the Manual also requires τ ≤ Rbt at the centroid level; shear stresses (cl. 7.1.4) are not checked.</system:String>
+    <system:String x:Key="Sp63NormalCracksNotAllowed">Cracks not allowed (cl. 7.1.9)</system:String>
+    <system:String x:Key="Sp63NormalCracksNotAllowedTooltip">Plain concrete element where cracking is not allowed by service conditions (pressure structures, cornices, parapets): with the force within the section, condition (7.4)/(7.5) is checked additionally</system:String>
     <system:String x:Key="Sp63Concrete_TensionNotSupported">Section 7 does not cover plain concrete elements in tension: tensile force must be resisted by reinforcement.</system:String>
     <system:String x:Key="Sp63Concrete_MissingTensileResistance">Design tensile strength of concrete Rbt is not set.</system:String>
     <system:String x:Key="Sp63Concrete_GammaB3">Rb is multiplied by γb3 = 0.9 for plain concrete structures (cl. 6.1.12).</system:String>

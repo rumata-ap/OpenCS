@@ -18,6 +18,12 @@ public sealed class Sp63NormalTaskParams
     /// </summary>
     public string ElementType { get; set; } = "reinforced";
 
+    /// <summary>
+    /// Бетонный элемент, в котором трещины не допускаются по условиям эксплуатации
+    /// (п. 7.1.9, условие (7.4)). Для железобетонного элемента не используется.
+    /// </summary>
+    public bool CracksNotAllowed { get; set; }
+
     /// <summary>Идентификатор оси: Mx или My.</summary>
     public string Axis { get; set; } = "Mx";
 
@@ -141,7 +147,7 @@ public sealed class Sp63NormalTaskParams
         options = new Sp63NormalOptions(shapeKind, axis, new Sp63MemberContext(
             ElementLengthOrRestraintDistance, scheme, EffectiveLengthL0,
             stabilityMode, Psi, SlendernessThreshold, elementKind, exposure, IsPrecast),
-            elementType);
+            elementType, CracksNotAllowed);
         return true;
     }
 

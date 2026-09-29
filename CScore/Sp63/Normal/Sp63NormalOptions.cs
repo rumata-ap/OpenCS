@@ -116,8 +116,13 @@ public enum Sp63NormalElementType
 /// <param name="Axis">Ось изгиба.</param>
 /// <param name="MemberContext">Данные элемента для п. 8.1.7 и 8.1.15.</param>
 /// <param name="ElementType">Железобетонный или бетонный элемент.</param>
+/// <param name="CracksNotAllowed">
+/// Появление трещин не допускается по условиям эксплуатации: бетонный элемент при силе в
+/// пределах сечения дополнительно проверяется по (7.4)/(7.5) п. 7.1.9.
+/// </param>
 public sealed record Sp63NormalOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
     Sp63MemberContext MemberContext,
-    Sp63NormalElementType ElementType = Sp63NormalElementType.Reinforced);
+    Sp63NormalElementType ElementType = Sp63NormalElementType.Reinforced,
+    bool CracksNotAllowed = false);
