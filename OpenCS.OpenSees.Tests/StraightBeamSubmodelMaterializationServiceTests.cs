@@ -7,6 +7,7 @@ using OpenCS.Utilites;
 using static OpenCS.OpenSees.Tests.StraightBeamBoundaryScenarioServiceTests;
 using static OpenCS.OpenSees.Tests.StraightBeamSubmodelPersistenceTests;
 using static OpenCS.OpenSees.Tests.SubmodelMaterializationPersistenceTests;
+using static OpenCS.OpenSees.Tests.SubmodelTestRunners;
 
 namespace OpenCS.OpenSees.Tests;
 
@@ -117,6 +118,54 @@ public sealed class StraightBeamSubmodelMaterializationServiceTests
         }
         finally { DeleteDatabase(path); }
     }
+
+    [Fact]
+    public async Task RunAndVerifyAsync_RunsLinearAnalysisAndPasses() => await InDatabaseAsync(async db =>
+    {
+        int child = Materialized(db);
+        var runner = Runner();
+
+        var outcome = await new StraightBeamSubmodelMaterializationService(db).RunAndVerifyAsync(child, runner, CancellationToken.None);
+
+        Assert.Equal([SubmodelMaterializationPlanner.AnalysisTag], runner.Calls);
+        Assert.True(outcome.Report!.Passed, string.Join(" | ", outcome.Diagnostics.Select(d => d.Message)));
+        var analysis = db.FemSchemas.Single(s => s.Id == child).Analyses.Single(a => a.Tag == SubmodelMaterializationPlanner.AnalysisTag);
+        Assert.NotNull(analysis.ResultId);
+        Assert.Equal("ok", analysis.Status);
+        Assert.Equal(analysis.ResultId, db.GetFemAnalyses(child).Single(a => a.Tag == SubmodelMaterializationPlanner.AnalysisTag).ResultId);
+    });
+
+    [Fact]
+    public async Task RunAndVerifyAsync_Repeated_ReplacesResult() => await InDatabaseAsync(async db =>
+    {
+        int child = Materialized(db);
+        var service = new StraightBeamSubmodelMaterializationService(db);
+        await service.RunAndVerifyAsync(child, Runner(), CancellationToken.None);
+        var analysis = db.GetFemAnalyses(child).Single(a => a.Tag == SubmodelMaterializationPlanner.AnalysisTag);
+        int firstResult = analysis.ResultId!.Value;
+        int count = db.CalcResults.Count;
+
+        var outcome = await service.RunAndVerifyAsync(child, Runner(), CancellationToken.None);
+
+        Assert.True(outcome.Report!.Passed);
+        Assert.Null(db.GetCalcResultById(firstResult));
+        Assert.Equal(count, db.CalcResults.Count);
+        Assert.NotEqual(firstResult, db.GetFemAnalyses(child).Single(a => a.Tag == SubmodelMaterializationPlanner.AnalysisTag).ResultId);
+    });
+
+    [Fact]
+    public async Task RunAndVerifyAsync_WithoutMaterialization_IsStaleAndDoesNotRun() => await InDatabaseAsync(async db =>
+    {
+        var seeded = SeedScenario(db);
+        var runner = Runner();
+
+        var outcome = await new StraightBeamSubmodelMaterializationService(db)
+            .RunAndVerifyAsync(seeded.Extraction.SubmodelSchemaId, runner, CancellationToken.None);
+
+        Assert.Null(outcome.Report);
+        Assert.Contains(outcome.Diagnostics, d => d.Code == SubmodelMaterializationDiagnostics.Stale && d.IsError);
+        Assert.Empty(runner.Calls);
+    });
 
     /// <summary>Результат ребёнка, совпадающий с родителем на цепочке; реакции gauge = p_control − p_boundary.</summary>
     static FemLinearResult IdealChildResult(BoundaryScenario scenario, SubmodelMaterializationSummary summary)

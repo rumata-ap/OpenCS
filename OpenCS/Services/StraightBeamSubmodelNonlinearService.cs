@@ -33,11 +33,13 @@ public sealed class StraightBeamSubmodelNonlinearService
 
     readonly DatabaseService _database;
     readonly StraightBeamSubmodelMaterializationService _materialization;
+    readonly SubmodelAnalysisResultStore _results;
 
     public StraightBeamSubmodelNonlinearService(DatabaseService database)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
         _materialization = new StraightBeamSubmodelMaterializationService(database);
+        _results = new SubmodelAnalysisResultStore(database);
     }
 
     /// <summary>
@@ -82,12 +84,12 @@ public sealed class StraightBeamSubmodelNonlinearService
         stored.MaxLoadFactor = 1.0;
         string paramsJson = stored.ToJson();
 
-        var analysis = FindAnalysis(submodelSchemaId, AnalysisTag)
+        var analysis = _results.FindAnalysis(submodelSchemaId, AnalysisTag)
                        ?? new FemAnalysis { SchemaId = submodelSchemaId, Tag = AnalysisTag };
         bool changed = analysis.Kind != "nonlinear" || analysis.ParamsJson != paramsJson || analysis.LoadExpressionJson != expression;
         if (changed)
         {
-            DeleteResult(analysis);
+            _results.DeleteResult(analysis);
             analysis.Kind = "nonlinear";
             analysis.ParamsJson = paramsJson;
             analysis.LoadExpressionJson = expression;
@@ -124,7 +126,7 @@ public sealed class StraightBeamSubmodelNonlinearService
             precheck = await RunPrecheckAsync(schema, runner, diagnostics, ct);
 
         var result = await runner.RunAsync(schema, nonlinear, ct);
-        SaveRunResult(nonlinear, result);
+        _results.SaveRunResult(nonlinear, result);
 
         var verification = VerifyNonlinear(submodelSchemaId);
         diagnostics.AddRange(verification.Diagnostics);
@@ -139,7 +141,7 @@ public sealed class StraightBeamSubmodelNonlinearService
                 out var extraction, out var scenario, out var materialization))
             return new(null, diagnostics);
 
-        var analysis = FindAnalysis(submodelSchemaId, AnalysisTag);
+        var analysis = _results.FindAnalysis(submodelSchemaId, AnalysisTag);
         var childCalc = analysis?.ResultId is { } resultId ? _database.GetCalcResultById(resultId) : null;
         if (childCalc is null)
         {
@@ -165,53 +167,14 @@ public sealed class StraightBeamSubmodelNonlinearService
     async Task<SubmodelVerificationReport?> RunPrecheckAsync(FemSchema schema, ISubmodelAnalysisRunner runner,
         List<FemValidationDiagnostic> diagnostics, CancellationToken ct)
     {
-        var linear = FindAnalysis(schema.Id, SubmodelMaterializationPlanner.AnalysisTag);
-        if (linear is null)
-        {
-            diagnostics.Add(new(SubmodelNonlinearDiagnostics.PrecheckFailed,
-                $"Линейная проверка не выполнена: нет постановки «{SubmodelMaterializationPlanner.AnalysisTag}».", false, []));
-            return null;
-        }
-
-        SaveRunResult(linear, await runner.RunAsync(schema, linear, ct));
-        var verification = _materialization.Verify(schema.Id);
+        var verification = await _materialization.RunAndVerifyAsync(schema.Id, runner, ct);
         if (verification.Report is { Passed: true } report) return report;
 
         string reason = verification.Diagnostics.FirstOrDefault(d => d.IsError || d.Code == SubmodelMaterializationDiagnostics.VerificationMismatch)?.Message
-                        ?? $"статус расчёта «{linear.Status}»";
+                        ?? $"статус расчёта «{_results.FindAnalysis(schema.Id, SubmodelMaterializationPlanner.AnalysisTag)?.Status}»";
         diagnostics.Add(new(SubmodelNonlinearDiagnostics.PrecheckFailed,
             $"Линейная сверка субмодели с родителем не прошла ({reason}); нелинейный расчёт выполняется, но постановку стоит проверить.",
             false, []));
         return verification.Report;
-    }
-
-    /// <summary>Сохраняет результат расчёта постановки, удаляя прежний, и привязывает его к постановке.</summary>
-    void SaveRunResult(FemAnalysis analysis, CalcResult result)
-    {
-        DeleteResult(analysis);
-        _database.SaveCalcResult(result);
-        analysis.ResultId = result.Id;
-        analysis.Status = result.Status;
-        _database.SaveFemAnalysis(analysis);
-    }
-
-    void DeleteResult(FemAnalysis analysis)
-    {
-        if (analysis.ResultId is not { } id) return;
-        var stored = _database.CalcResults.FirstOrDefault(r => r.Id == id) ?? _database.GetCalcResultById(id);
-        if (stored is not null) _database.DeleteCalcResult(stored);
-    }
-
-    /// <summary>
-    /// Постановка по тегу. Объект берётся из кэша <c>FemSchemas[..].Analyses</c>: <c>SaveFemAnalysis</c>
-    /// добавляет в кэш по ссылке, и свежий экземпляр из БД задвоил бы постановку в дереве. Схемы нет в
-    /// кэше (тестовая БД без загрузки схем) — читается из БД.
-    /// </summary>
-    FemAnalysis? FindAnalysis(int schemaId, string tag)
-    {
-        var schema = _database.FemSchemas.FirstOrDefault(s => s.Id == schemaId);
-        return schema is not null
-            ? schema.Analyses.FirstOrDefault(a => a.Tag == tag)
-            : _database.GetFemAnalyses(schemaId).FirstOrDefault(a => a.Tag == tag);
     }
 }

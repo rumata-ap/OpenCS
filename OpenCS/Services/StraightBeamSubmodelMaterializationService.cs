@@ -25,8 +25,13 @@ public sealed class StraightBeamSubmodelMaterializationService
 {
     readonly DatabaseService _database;
 
-    public StraightBeamSubmodelMaterializationService(DatabaseService database) =>
+    readonly SubmodelAnalysisResultStore _results;
+
+    public StraightBeamSubmodelMaterializationService(DatabaseService database)
+    {
         _database = database ?? throw new ArgumentNullException(nameof(database));
+        _results = new SubmodelAnalysisResultStore(database);
+    }
 
     public SubmodelMaterializationOutcome Materialize(int submodelSchemaId)
     {
@@ -80,6 +85,38 @@ public sealed class StraightBeamSubmodelMaterializationService
             parent, child.Result);
         diagnostics.AddRange(report.Diagnostics);
         return new(report, diagnostics);
+    }
+
+    /// <summary>
+    /// Расчёт линейной постановки сверки (<see cref="SubmodelMaterializationPlanner.AnalysisTag"/>) внедряемым
+    /// раннером, сохранение результата (прежний удаляется) и <see cref="Verify"/>. Без материализации или
+    /// постановки раннер не вызывается. Отмена (<see cref="OperationCanceledException"/>) не перехватывается.
+    /// </summary>
+    public async Task<SubmodelVerificationOutcome> RunAndVerifyAsync(int submodelSchemaId,
+        ISubmodelAnalysisRunner runner, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(runner);
+        var diagnostics = new List<FemValidationDiagnostic>();
+        if (!TryLoadMaterialized(submodelSchemaId, diagnostics, out _, out _, out _))
+            return new(null, diagnostics);
+
+        var analysis = _results.FindAnalysis(submodelSchemaId, SubmodelMaterializationPlanner.AnalysisTag);
+        if (analysis is null)
+        {
+            diagnostics.Add(new(SubmodelMaterializationDiagnostics.Stale,
+                $"В субмодели нет постановки «{SubmodelMaterializationPlanner.AnalysisTag}» — выполните материализацию.", true, []));
+            return new(null, diagnostics);
+        }
+        var schema = _database.FemSchemas.FirstOrDefault(s => s.Id == submodelSchemaId);
+        if (schema is null)
+        {
+            diagnostics.Add(new(SubmodelMaterializationDiagnostics.ScenarioBlocked,
+                $"Схема #{submodelSchemaId} не загружена в проект.", true, []));
+            return new(null, diagnostics);
+        }
+
+        _results.SaveRunResult(analysis, await runner.RunAsync(schema, analysis, ct));
+        return Verify(submodelSchemaId);
     }
 
     /// <summary>
