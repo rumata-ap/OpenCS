@@ -30,6 +30,13 @@ public sealed class CalcSettingsGjSettingsTests
     }
 
     [Fact]
+    public void CloneCopiesSubmodelLinearPrecheck()
+    {
+        Assert.True(new CalcSettings().Clone().SubmodelLinearPrecheck);
+        Assert.False(new CalcSettings { SubmodelLinearPrecheck = false }.Clone().SubmodelLinearPrecheck);
+    }
+
+    [Fact]
     public void MissingGjPropertiesInOldJsonUseDefaults()
     {
         var settings = JsonSerializer.Deserialize<CalcSettings>("{}")!;

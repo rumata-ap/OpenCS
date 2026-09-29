@@ -1,0 +1,200 @@
+<UserControl x:Class="OpenCS.Views.SubmodelPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <UserControl.Resources>
+        <helpers:DiagnosticColorConverter x:Key="DiagnosticColorConverter"/>
+        <DataTemplate x:Key="DiagnosticTemplate">
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                       Foreground="{Binding IsError, Converter={StaticResource DiagnosticColorConverter}}"/>
+        </DataTemplate>
+        <Style x:Key="DiagnosticsList" TargetType="ListBox">
+            <Setter Property="ItemTemplate" Value="{StaticResource DiagnosticTemplate}"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="MaxHeight" Value="160"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Style.Triggers>
+                <Trigger Property="HasItems" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="StepHeader" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="StepButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style x:Key="ReadOnlyGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <!-- Статус шага: Tag = true — ошибка (красный) / предупреждение (для StatusWarning) -->
+        <Style x:Key="StatusError" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Style.Triggers>
+                <Trigger Property="Tag">
+                    <Trigger.Value><sys:Boolean>True</sys:Boolean></Trigger.Value>
+                    <Setter Property="Foreground" Value="Crimson"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="StatusWarning" TargetType="TextBlock" BasedOn="{StaticResource StatusError}">
+            <Style.Triggers>
+                <Trigger Property="Tag">
+                    <Trigger.Value><sys:Boolean>True</sys:Boolean></Trigger.Value>
+                    <Setter Property="Foreground" Value="DarkGoldenrod"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16">
+            <!-- Происхождение -->
+            <GroupBox Header="{DynamicResource SubmodelOrigin}" Margin="0,0,0,8">
+                <StackPanel Margin="4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="{DynamicResource SubmodelParentSchemaLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ParentSchemaTag}"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource SubmodelParentAnalysisValueLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ParentAnalysisText}"/>
+                        <TextBlock Grid.Row="2" Text="{DynamicResource SubmodelSegmentsLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SegmentCount}"/>
+                        <TextBlock Grid.Row="3" Text="{DynamicResource SubmodelChainLengthLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ChainLengthText}"/>
+                        <TextBlock Grid.Row="4" Text="{DynamicResource SubmodelMaxOffsetLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding MaxOffsetText}"/>
+                        <TextBlock Grid.Row="5" Text="{DynamicResource SubmodelMaxAngleLabel}" Margin="0,0,16,2"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MaxAngleText}"/>
+                    </Grid>
+                    <ListBox ItemsSource="{Binding ExtractionDiagnostics}" Style="{StaticResource DiagnosticsList}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Шаг 1. Граничный сценарий -->
+            <GroupBox Header="{DynamicResource SubmodelStep1}" Margin="0,0,0,8">
+                <StackPanel Margin="4">
+                    <StackPanel Style="{StaticResource StepHeader}">
+                        <Button Content="{DynamicResource SubmodelBuildScenario}" ToolTip="{DynamicResource SubmodelBuildScenarioTip}"
+                                Command="{Binding BuildScenarioCommand}" Style="{StaticResource StepButton}"/>
+                        <TextBlock Text="{Binding ScenarioStatusText}" Style="{StaticResource StatusError}" Tag="{Binding ScenarioHasError}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding LoadAccountingText}" TextWrapping="Wrap"/>
+                    <Expander Header="{DynamicResource SubmodelEndsHeader}" Margin="0,4,0,0">
+                        <DataGrid ItemsSource="{Binding EndRows}" Style="{StaticResource ReadOnlyGrid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColEnd}" Binding="{Binding End}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColChildNode}" Binding="{Binding ChildNodeTag}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColParentNode}" Binding="{Binding ParentNodeTag}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColControl}" Binding="{Binding Control}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Expander>
+                    <Expander Header="{DynamicResource SubmodelDofsHeader}" Margin="0,4,0,0">
+                        <DataGrid ItemsSource="{Binding ScenarioRows}" Style="{StaticResource ReadOnlyGrid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColEnd}" Binding="{Binding End}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColDof}" Binding="{Binding Dof}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColMode}" Binding="{Binding ModeText}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColSource}" Binding="{Binding SourceText}"/>
+                                <DataGridTextColumn Header="{DynamicResource SubmodelColValue}" Binding="{Binding Value}"/>
+                                <DataGridTemplateColumn Header="{DynamicResource SubmodelColChoice}" MinWidth="140">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding DataContext.ChoiceOptions, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding Choice, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Expander>
+                    <ListBox ItemsSource="{Binding ScenarioDiagnostics}" Style="{StaticResource DiagnosticsList}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Шаг 2. Материализация -->
+            <GroupBox Header="{DynamicResource SubmodelStep2}" Margin="0,0,0,8">
+                <StackPanel Margin="4">
+                    <StackPanel Style="{StaticResource StepHeader}">
+                        <Button Content="{DynamicResource SubmodelMaterialize}" ToolTip="{DynamicResource SubmodelMaterializeTip}"
+                                Command="{Binding MaterializeCommand}" Style="{StaticResource StepButton}"/>
+                        <TextBlock Text="{Binding MaterializationStatusText}" Style="{StaticResource StatusError}" Tag="{Binding MaterializationHasError}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding MaterializationDetails}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ListBox ItemsSource="{Binding MaterializationDiagnostics}" Style="{StaticResource DiagnosticsList}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Шаг 3. Линейная сверка -->
+            <GroupBox Header="{DynamicResource SubmodelStep3}" Margin="0,0,0,8">
+                <StackPanel Margin="4">
+                    <StackPanel Style="{StaticResource StepHeader}">
+                        <Button Content="{DynamicResource SubmodelRunLinear}" Command="{Binding RunLinearCommand}" Style="{StaticResource StepButton}"/>
+                        <TextBlock Text="{Binding LinearStatusText}" Style="{StaticResource StatusError}" Tag="{Binding LinearHasError}"/>
+                    </StackPanel>
+                    <DataGrid ItemsSource="{Binding LinearRows}" Style="{StaticResource ReadOnlyGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColKind}" Binding="{Binding Kind}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColMaxDeviation}" Binding="{Binding Value}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColUnit}" Binding="{Binding Unit}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColScale}" Binding="{Binding Scale}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColRelative}" Binding="{Binding Relative}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColLocation}" Binding="{Binding Location}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColDof}" Binding="{Binding Dof}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <ListBox ItemsSource="{Binding LinearDiagnostics}" Style="{StaticResource DiagnosticsList}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Шаг 4. Нелинейный расчёт и сверка -->
+            <GroupBox Header="{DynamicResource SubmodelStep4}" Margin="0,0,0,8">
+                <StackPanel Margin="4">
+                    <StackPanel Style="{StaticResource StepHeader}">
+                        <Button Content="{DynamicResource SubmodelNonlinearParams}" Command="{Binding EditNonlinearParamsCommand}" Style="{StaticResource StepButton}"/>
+                        <Button Content="{DynamicResource SubmodelRunNonlinear}" Command="{Binding RunNonlinearCommand}" Style="{StaticResource StepButton}"/>
+                        <TextBlock Text="{Binding NonlinearStatusText}" Style="{StaticResource StatusWarning}" Tag="{Binding NonlinearHasWarning}"/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding NonlinearNotes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2"/></DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <DataGrid ItemsSource="{Binding NonlinearRows}" Style="{StaticResource ReadOnlyGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColKind}" Binding="{Binding Kind}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColMaxDeviation}" Binding="{Binding Value}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColUnit}" Binding="{Binding Unit}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColScale}" Binding="{Binding Scale}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColRelative}" Binding="{Binding Relative}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColLocation}" Binding="{Binding Location}"/>
+                            <DataGridTextColumn Header="{DynamicResource SubmodelColDof}" Binding="{Binding Dof}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <ListBox ItemsSource="{Binding NonlinearDiagnostics}" Style="{StaticResource DiagnosticsList}"/>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

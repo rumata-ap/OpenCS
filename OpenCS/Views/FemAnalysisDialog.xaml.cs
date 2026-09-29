@@ -23,6 +23,37 @@ public partial class FemAnalysisDialog : Window
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
 
+    /// <summary>Режим параметров нелинейного расчёта субмодели: тег, вид, источник нагрузки и стадии скрыты
+    /// (стадию до λ = 1 строит сервис), задаётся только шаг λ.</summary>
+    public bool IsSubmodelMode { get; private set; }
+
+    /// <summary>Параметры нелинейного расчёта субмодели (валидны после DialogResult == true в режиме субмодели).</summary>
+    public FemAnalysisParams? ResultParams { get; private set; }
+
+    /// <summary>
+    /// Диалог параметров нелинейного расчёта субмодели. Начальные значения — из <paramref name="current"/>
+    /// (параметры, заданные ранее в этом сеансе), иначе из существующей постановки <paramref name="existing"/>.
+    /// </summary>
+    public static FemAnalysisDialog ForSubmodelNonlinear(FemSchema schema, IReadOnlyList<FemNode> nodes,
+        FemAnalysis? existing, FemAnalysisParams? current)
+    {
+        var source = current is not null
+            ? new FemAnalysis { Kind = "nonlinear", Tag = existing?.Tag ?? "", ParamsJson = current.ToJson(), LoadExpressionJson = "{}" }
+            : existing is { Kind: "nonlinear" } ? existing : null;
+        var dialog = new FemAnalysisDialog(schema, nodes, source) { IsSubmodelMode = true };
+        dialog.KindNonlinearRadio.IsChecked = true;
+        var pars = source is null ? null : FemAnalysisParams.Parse(source.ParamsJson);
+        double step = pars?.Stages.FirstOrDefault()?.LoadFactorStep ?? pars?.LoadFactorStep ?? 0.1;
+        dialog.LoadFactorStepBox.Text = step.ToString(CultureInfo.CurrentCulture);
+        dialog.Title = Loc.S("SubmodelNonlinearParamsTitle");
+        dialog.TagRow.Visibility = Visibility.Collapsed;
+        dialog.KindRow.Visibility = Visibility.Collapsed;
+        dialog.NonlinearSeparator.Visibility = Visibility.Collapsed;
+        dialog.LoadFactorStepRow.Visibility = Visibility.Visible;
+        dialog.UpdateNonlinearPanelVisibility();
+        return dialog;
+    }
+
     public FemAnalysisDialog(FemSchema schema, IReadOnlyList<FemNode> nodes, FemAnalysis? existing = null)
     {
         _schema = schema;
@@ -247,8 +278,8 @@ public partial class FemAnalysisDialog : Window
         if (NonlinearPanel == null) return;
         bool nonlinear = KindNonlinearRadio.IsChecked == true;
         NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
-        LoadSourceRow.Visibility = nonlinear ? Visibility.Collapsed : Visibility.Visible;
-        StagesGroup.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
+        LoadSourceRow.Visibility = nonlinear || IsSubmodelMode ? Visibility.Collapsed : Visibility.Visible;
+        StagesGroup.Visibility = nonlinear && !IsSubmodelMode ? Visibility.Visible : Visibility.Collapsed;
         if (nonlinear && _stages.Count == 0)
             _stages.Add(new StageRow { Tag = Loc.S("FemAnalysisStageDefaultTag"), Source = LoadSourceBox.SelectedItem as LoadSource ?? _loadSources.FirstOrDefault() });
     }
@@ -302,6 +333,20 @@ public partial class FemAnalysisDialog : Window
         StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
         StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
 
+        if (IsSubmodelMode)
+        {
+            if (!Pars.ParseAny(LoadFactorStepBox.Text, out var step) || !double.IsFinite(step) || step <= 0 || step > 1)
+            {
+                MessageBox.Show(Loc.S("SubmodelLoadFactorStepInvalid"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            var submodelParams = ReadNonlinearParams();
+            submodelParams.LoadFactorStep = step;
+            ResultParams = submodelParams;
+            DialogResult = true;
+            return;
+        }
+
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
 
         if (isNonlinear && _stages.Count == 0)
@@ -323,18 +368,7 @@ public partial class FemAnalysisDialog : Window
         string loadExpressionJson;
         if (isNonlinear)
         {
-            pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
-            pars.ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true;
-            pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
-            pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
-            pars.MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
-            pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
-            pars.SteelHardeningModulusMpa =
-                Pars.ParseAny(SteelHardeningModulusBox.Text, out var hardening) &&
-                double.IsFinite(hardening) && hardening >= 0
-                    ? hardening
-                    : 0;
-            pars.ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn";
+            pars = ReadNonlinearParams();
             pars.Stages = _stages.Select(r =>
             {
                 double step = r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
@@ -367,6 +401,23 @@ public partial class FemAnalysisDialog : Window
         };
         DialogResult = true;
     }
+
+    /// <summary>Параметры нелинейной панели (тип расчёта, формулировка элемента, материалы) без стадий.</summary>
+    FemAnalysisParams ReadNonlinearParams() => new()
+    {
+        CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C,
+        ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true,
+        ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true,
+        MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated",
+        MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04",
+        SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02",
+        SteelHardeningModulusMpa =
+            Pars.ParseAny(SteelHardeningModulusBox.Text, out var hardening) &&
+            double.IsFinite(hardening) && hardening >= 0
+                ? hardening
+                : 0,
+        ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn"
+    };
 
     void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

@@ -470,6 +470,7 @@ namespace OpenCS.Views
             _calcSettings.OpenSeesDefaultGjKnm2 = CalcSettings.DefaultOpenSeesGjKnm2;
          OpenSeesDefaultGjBox.Text = _calcSettings.OpenSeesDefaultGjKnm2.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
          OpenSeesAutoGjFromSectionCb.IsChecked = _calcSettings.OpenSeesAutoGjFromSection;
+         SubmodelLinearPrecheckCb.IsChecked = _calcSettings.SubmodelLinearPrecheck;
          OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
          OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
          OpenSeesArtifactsPathBox.Text = _calcSettings.OpenSeesArtifactsPath ?? "";
@@ -502,6 +503,8 @@ namespace OpenCS.Views
          };
          OpenSeesAutoGjFromSectionCb.Checked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = true;
          OpenSeesAutoGjFromSectionCb.Unchecked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = false;
+         SubmodelLinearPrecheckCb.Checked += (_, _) => _calcSettings.SubmodelLinearPrecheck = true;
+         SubmodelLinearPrecheckCb.Unchecked += (_, _) => _calcSettings.SubmodelLinearPrecheck = false;
          OpenSeesExeBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExeBox.Text) ? null : OpenSeesExeBox.Text.Trim();
          OpenSeesTimeoutBox.TextChanged += (_, _) =>

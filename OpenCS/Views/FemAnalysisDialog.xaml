@@ -9,7 +9,7 @@
     </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="780">
     <StackPanel Margin="12">
-        <Grid Margin="0,0,0,4">
+        <Grid x:Name="TagRow" Margin="0,0,0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
@@ -18,7 +18,7 @@
             <TextBox Grid.Column="1" x:Name="TagBox" Text="" Height="22" VerticalContentAlignment="Center"/>
         </Grid>
 
-        <Grid Margin="0,4">
+        <Grid x:Name="KindRow" Margin="0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
@@ -114,7 +114,16 @@
         </GroupBox>
 
         <StackPanel x:Name="NonlinearPanel" Visibility="Collapsed" Margin="0,4,0,0">
-            <Separator Margin="0,4"/>
+            <Separator x:Name="NonlinearSeparator" Margin="0,4"/>
+            <!-- Только в режиме субмодели: единственная стадия до λ = 1 строится сервисом, задаётся лишь шаг -->
+            <Grid x:Name="LoadFactorStepRow" Margin="0,2" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource SubmodelLoadFactorStepLabel}" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="1" x:Name="LoadFactorStepBox" Text="0.1" Height="22" VerticalContentAlignment="Center"/>
+            </Grid>
             <Grid Margin="0,2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="190"/>

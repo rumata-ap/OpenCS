@@ -685,6 +685,7 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="32"/>
+                                    <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FemAnalysisRefinementDivisionsLabel}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="OpenSeesRefinementDivisionsBox" VerticalContentAlignment="Center" Margin="0,2"/>
@@ -717,6 +718,11 @@
                                     <ComboBoxItem Tag="Newton" Content="{DynamicResource FemAlgorithmNewton}"/>
                                     <ComboBoxItem Tag="NewtonLineSearch" Content="{DynamicResource FemAlgorithmNewtonLineSearch}"/>
                                 </ComboBox>
+                                <CheckBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                                          x:Name="SubmodelLinearPrecheckCb"
+                                          Content="{DynamicResource SubmodelLinearPrecheckLabel}"
+                                          ToolTip="{DynamicResource SubmodelLinearPrecheckTip}"
+                                          VerticalAlignment="Center"/>
                             </Grid>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource OpenSeesFiberStatesGroup}" Margin="0,0,0,10">

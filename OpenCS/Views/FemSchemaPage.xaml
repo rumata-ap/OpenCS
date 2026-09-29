@@ -5,8 +5,9 @@
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
     <UserControl.Resources>
         <helpers:DiagnosticColorConverter x:Key="DiagnosticColorConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
-    <TabControl>
+    <TabControl x:Name="tabs">
         <!-- Вкладка 3D-схема -->
         <TabItem Header="{DynamicResource FemSchema3DTab}">
             <local:FemSchemaView3D x:Name="view3D"/>
@@ -156,6 +157,12 @@
                 </ListBox.ItemTemplate>
             </ListBox>
             </StackPanel>
+        </TabItem>
+
+        <!-- Вкладка субмодели: только у извлечённой субмодели -->
+        <TabItem x:Name="submodelTab" Header="{DynamicResource SubmodelTab}"
+                 Visibility="{Binding IsSubmodel, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <local:SubmodelPanel x:Name="submodelPanel"/>
         </TabItem>
     </TabControl>
 </UserControl>

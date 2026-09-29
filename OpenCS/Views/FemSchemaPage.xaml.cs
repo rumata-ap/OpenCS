@@ -8,12 +8,37 @@ using OpenCS.ViewModels;
 using System.Windows.Controls;
 using CScore.Fem.Editing;
 using OpenCS.Services;
+using OpenCS.Tasks;
 
 namespace OpenCS.Views;
 
-public partial class FemSchemaPage : UserControl
+public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 {
     void OnAnalyzeStraightChain(object sender, RoutedEventArgs e) => _editorVm.AnalyzeStraightChain();
+
+    CancellationTokenSource ISubmodelUiHost.BeginBusy(string message) => _app.BeginBusyWithCancellation(message);
+
+    void ISubmodelUiHost.EndBusy(string? message) => _app.EndBusy(message);
+
+    bool ISubmodelUiHost.ConfirmDiscardUnsavedEdits() =>
+        !_editorVm.Session.IsDirty
+        || MessageBox.Show(Loc.S("SubmodelConfirmDiscard"), Loc.S("Confirmation"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+
+    void ISubmodelUiHost.ReloadSchemaPage() => _app.ReloadFemSchemaPage(openSubmodelTab: true);
+
+    FemAnalysisParams? ISubmodelUiHost.EditNonlinearParameters(FemAnalysis? existing, FemAnalysisParams? current)
+    {
+        var dialog = FemAnalysisDialog.ForSubmodelNonlinear(_schema, _app.db.GetFemNodes(_schema.Id), existing, current);
+        dialog.Owner = Window.GetWindow(this);
+        return dialog.ShowDialog() == true ? dialog.ResultParams : null;
+    }
+
+    void ISubmodelUiHost.Log(FemValidationDiagnostic diagnostic)
+    {
+        if (diagnostic.IsError) _app.LogService.Error(diagnostic.Message);
+        else _app.LogService.Warning(diagnostic.Message);
+    }
     readonly FemSchemaEditorVM _editorVm;
     readonly Fem3DVM _fem3d;
     readonly AppViewModel _app;
@@ -46,7 +71,13 @@ public partial class FemSchemaPage : UserControl
             }
         };
         _editorVm.NodeLoadsApplied += _fem3d.SelectDiagramLoadCase;
-        _editorVm.OpenSchemaRequested += child => app.CurrentFemSchema = child;
+        _editorVm.OpenSchemaRequested += child => app.OpenFemSchema(child, openSubmodelTab: true);
+        if (_editorVm.IsSubmodel)
+        {
+            submodelPanel.DataContext = new SubmodelPanelVM(schema.Id, app.db, new FemAnalysisExecutorSubmodelRunner(app),
+                () => app.CalcSettings, this);
+            if (app.OpenSubmodelTabRequested) tabs.SelectedItem = submodelTab;
+        }
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);

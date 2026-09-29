@@ -375,6 +375,9 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public ICommand ExtractSubmodelCommand { get; }
 
+    /// <summary>Схема — извлечённая субмодель: показывается вкладка «Субмодель».</summary>
+    public bool IsSubmodel { get; }
+
     /// <summary>Просьба открыть схему (дочернюю после извлечения) — выполняет страница через AppViewModel.</summary>
     public event Action<FemSchema>? OpenSchemaRequested;
 
@@ -479,6 +482,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
         MergeNodesCommand = new RelayCommand(_ => _logService.Info(MergeCoincidentNodes()));
         ExtractSubmodelCommand = new RelayCommand(_ => ExtractSubmodel(), _ => ExtractBlockReason is null);
+        IsSubmodel = schema.SourceType == "submodel" && _db.GetSubmodelExtractionBySubmodelSchema(schema.Id) is not null;
         Selection.SelectedElemTags.CollectionChanged += (_, _) =>
         {
             if (ChainAnalysis is not null) ChainAnalysis = null;

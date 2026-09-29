@@ -446,6 +446,35 @@ namespace OpenCS
       /// <summary>Регистрирует редактор FEM, пока его сессия существует в памяти.</summary>
       public void RegisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor) => activeFemSchemaEditor = editor;
 
+      bool openSubmodelTabRequested;
+
+      /// <summary>Открывает схему; у субмодели — сразу на вкладке «Субмодель» (после извлечения).</summary>
+      public void OpenFemSchema(CScore.Fem.FemSchema schema, bool openSubmodelTab)
+      {
+         openSubmodelTabRequested = openSubmodelTab;
+         CurrentFemSchema = schema;
+         openSubmodelTabRequested = false;
+      }
+
+      /// <summary>
+      /// Пересоздаёт страницу текущей схемы в обход проверки <see cref="CurrentFemSchema"/> на ту же схему:
+      /// после замены конструктивного слоя (материализация субмодели) новая сессия редактора читает его из БД.
+      /// Прежний редактор снимается с регистрации без вопроса о несохранённых правках — их потерю подтверждает
+      /// вызывающий. Счётчики дерева обновляются.
+      /// </summary>
+      public void ReloadFemSchemaPage(bool openSubmodelTab = false)
+      {
+         if (currentFemSchema is not { } schema) return;
+         activeFemSchemaEditor = null;
+         openSubmodelTabRequested = openSubmodelTab;
+         CurrentPage = new Views.FemSchemaPage(schema, this);
+         openSubmodelTabRequested = false;
+         RefreshFemSchemaTreeCounts(schema);
+      }
+
+      /// <summary>Страница схемы спрашивает при создании, открыть ли вкладку «Субмодель».</summary>
+      public bool OpenSubmodelTabRequested => openSubmodelTabRequested;
+
       /// <summary>Снимает регистрацию редактора FEM при закрытии его страницы.</summary>
       public void UnregisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor)
       {

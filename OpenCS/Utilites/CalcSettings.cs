@@ -347,6 +347,7 @@ namespace OpenCS.Utilites
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
          OpenSeesDefaultGjKnm2    = OpenSeesDefaultGjKnm2,
          OpenSeesAutoGjFromSection = OpenSeesAutoGjFromSection,
+         SubmodelLinearPrecheck   = SubmodelLinearPrecheck,
          OpenSeesExecutablePath   = OpenSeesExecutablePath,
          OpenSeesTimeoutSeconds   = OpenSeesTimeoutSeconds,
          OpenSeesArtifactsPath    = OpenSeesArtifactsPath,
