@@ -3281,8 +3281,9 @@ namespace OpenCS
          try
          {
             int? liraVersion = null;
-            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion));
-            var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
+            string? liraTitle = null;
+            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion, out liraTitle));
+            var schema = new CScore.Fem.FemSchema { Tag = liraTitle ?? "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
             var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)

@@ -19,6 +19,24 @@ static class LiraApiSchemaReader
     /// <summary>Первая версия ЛИРЫ с таблицей «Элементы - ТЗА».</summary>
     public const int FirstVersionWithReinforcementTypes = 2025;
 
+    /// <summary>Имя открытой схемы: Title документа, иначе имя файла без расширения из PathName.</summary>
+    static string? ReadDocumentTitle(dynamic doc)
+    {
+        try
+        {
+            string? title = doc.Title as string;
+            if (!string.IsNullOrWhiteSpace(title)) return title.Trim();
+        }
+        catch (Exception) { }
+        try
+        {
+            string? path = doc.PathName as string;
+            if (!string.IsNullOrWhiteSpace(path)) return System.IO.Path.GetFileNameWithoutExtension(path);
+        }
+        catch (Exception) { }
+        return null;
+    }
+
     /// <summary>
     /// Читает имена загружений из таблицы 25.
     /// Возвращает словарь: номер загружения → имя.
@@ -42,13 +60,16 @@ static class LiraApiSchemaReader
 
     /// <summary>Прочитать схему из запущенной ЛИРЫ.</summary>
     /// <param name="liraVersion">Год версии ЛИРЫ из ProgID (null — не определена).</param>
-    public static LiraSchemaData Read(out int? liraVersion)
+    /// <param name="documentTitle">Имя открытой схемы (Title документа, иначе имя файла из PathName);
+    /// null — ЛИРА его не отдала.</param>
+    public static LiraSchemaData Read(out int? liraVersion, out string? documentTitle)
     {
         dynamic lira = LiraComConnector.ConnectApplication(out liraVersion);
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
                 "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+        documentTitle = ReadDocumentTitle(doc);
 
         var data = new LiraSchemaData();
         var diag = new List<string>();
