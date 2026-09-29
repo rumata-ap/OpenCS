@@ -37,6 +37,20 @@ public sealed class StraightBeamBoundaryScenarioServiceTests
     /// <summary>Записывает раму, её нагрузки, анализ с результатом и извлечение ригеля.</summary>
     internal static (SubmodelExtraction Extraction, ParentModel Parent) Seed(DatabaseService db, CalcResult result)
     {
+        var (schema, analysis, parent) = SeedParent(db, result);
+        var adapted = MeshBeamSegmentAdapter.Build(["12", "13", "14"], parent.MeshElements, parent.MeshNodes, parent.Members);
+        var chain = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default,
+            adapted.PreferredDirection, new BeamLocalAxisFrameProvider(), adapted.Diagnostics);
+        var draft = StraightBeamSubmodelBuilder.Build(schema.Id, chain, parent.MeshElements, parent.MeshNodes);
+        Assert.True(draft.IsSuccess);
+        var extraction = db.CreateStraightBeamSubmodel(
+            new StraightBeamSubmodelRequest("ригель", schema.Id, analysis.Id, result.Id, draft.Draft!));
+        return (extraction, parent);
+    }
+
+    /// <summary>Записывает раму (схема, топология, сетка, нагрузки) и линейную постановку с результатом.</summary>
+    internal static (FemSchema Schema, FemAnalysis Analysis, ParentModel Parent) SeedParent(DatabaseService db, CalcResult result)
+    {
         var model = PortalFrameReference.Model();
         var schema = new FemSchema { Tag = "portal", SourceType = "opensees" };
         db.SaveFemSchema(schema);
@@ -65,14 +79,7 @@ public sealed class StraightBeamBoundaryScenarioServiceTests
 
         var parent = new ParentModel(db.GetFemNodes(schema.Id), db.GetFemMembers(schema.Id),
             db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
-        var adapted = MeshBeamSegmentAdapter.Build(["12", "13", "14"], parent.MeshElements, parent.MeshNodes, parent.Members);
-        var chain = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default,
-            adapted.PreferredDirection, new BeamLocalAxisFrameProvider(), adapted.Diagnostics);
-        var draft = StraightBeamSubmodelBuilder.Build(schema.Id, chain, parent.MeshElements, parent.MeshNodes);
-        Assert.True(draft.IsSuccess);
-        var extraction = db.CreateStraightBeamSubmodel(
-            new StraightBeamSubmodelRequest("ригель", schema.Id, analysis.Id, result.Id, draft.Draft!));
-        return (extraction, parent);
+        return (schema, analysis, parent);
     }
 
     [Fact]

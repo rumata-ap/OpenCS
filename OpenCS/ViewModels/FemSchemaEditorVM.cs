@@ -319,11 +319,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     /// <summary>Загружает снимок сетки и анализирует выбранные стержневые элементы.</summary>
     public void AnalyzeStraightChain() => AnalyzeStraightChain(_db.GetFemMeshElements(Session.Schema.Id), _db.GetFemMeshNodes(Session.Schema.Id), Session.Members.ToList());
-    public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members)
-    {
-        var adapted = MeshBeamSegmentAdapter.Build(Selection.SelectedElemTags.ToList(), elements, nodes, members);
-        ChainAnalysis = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default, adapted.PreferredDirection, new BeamLocalAxisFrameProvider(), adapted.Diagnostics);
-    }
+    public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members) =>
+        ChainAnalysis = StraightBeamSubmodelExtractionService.Analyze(Selection.SelectedElemTags.ToList(), elements, nodes, members);
 
     double? _defaultTargetMeshLengthM;
     public double? DefaultTargetMeshLengthM
