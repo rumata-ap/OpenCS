@@ -258,6 +258,41 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
+        else if (e.PropertyName == nameof(Fem3DVM.MosaicShellMeshes) && VM is { IsLoading: false })
+            ReplaceShellVisuals();
+    }
+
+    List<ModelVisual3D> _shellVisuals = [];
+
+    /// <summary>Заливка пластин: мозаика армирования (по цветам) и остальные КЭ — обычным цветом
+    /// (при включённой мозаике — полупрозрачной подложкой).</summary>
+    List<ModelVisual3D> CreateShellVisuals(bool isHighlight)
+    {
+        var result = new List<ModelVisual3D>();
+        if (VM == null) return result;
+        static ModelVisual3D Visual(MeshGeometry3D mesh, Color color)
+        {
+            var mat = new DiffuseMaterial(new SolidColorBrush(color));
+            return new ModelVisual3D { Content = new GeometryModel3D(mesh, mat) { BackMaterial = mat } };
+        }
+        // Непрозрачные — раньше полупрозрачной подложки, иначе она перекроет их в z-буфере.
+        foreach (var m in VM.MosaicShellMeshes)
+            result.Add(Visual(m.Mesh, m.Color));
+        if (VM.ShellMesh is { } bgMesh)
+            result.Add(Visual(bgMesh, isHighlight || VM.MosaicShellMeshes.Count > 0 ? Fem3DVM.ShellBgColor : Fem3DVM.ShellColor));
+        return result;
+    }
+
+    /// <summary>Заменить только заливку пластин (смена мозаики) — без перестройки сцены и сброса камеры.</summary>
+    void ReplaceShellVisuals()
+    {
+        if (VM == null) return;
+        int index = _shellVisuals.Count > 0 ? viewport.Children.IndexOf(_shellVisuals[0]) : -1;
+        foreach (var v in _shellVisuals) viewport.Children.Remove(v);
+        _shellVisuals = CreateShellVisuals(VM.HiShellMesh != null);
+        if (index < 0 || index > viewport.Children.Count) index = Math.Min(1, viewport.Children.Count);
+        for (int i = 0; i < _shellVisuals.Count; i++)
+            viewport.Children.Insert(index + i, _shellVisuals[i]);
     }
 
     void BuildVisuals()
@@ -285,13 +320,8 @@ public partial class FemSchemaView3D : UserControl
 
         bool isHighlight = VM.HiShellMesh != null;
 
-        if (VM.ShellMesh is { } bgMesh)
-        {
-            var color = isHighlight ? Fem3DVM.ShellBgColor : Fem3DVM.ShellColor;
-            var mat   = new DiffuseMaterial(new SolidColorBrush(color));
-            var model = new GeometryModel3D(bgMesh, mat) { BackMaterial = mat };
-            viewport.Children.Add(new ModelVisual3D { Content = model });
-        }
+        _shellVisuals = CreateShellVisuals(isHighlight);
+        foreach (var v in _shellVisuals) viewport.Children.Add(v);
 
         if (VM.HiShellMesh is { } hiMesh)
         {

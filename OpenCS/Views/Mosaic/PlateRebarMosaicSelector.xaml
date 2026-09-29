@@ -1,0 +1,14 @@
+<UserControl x:Class="OpenCS.Views.Mosaic.PlateRebarMosaicSelector"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext — PlateRebarMosaicVM -->
+    <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource PlateRebarMosaicTip}">
+        <TextBlock Text="{DynamicResource PlateRebarMosaicLabel}" VerticalAlignment="Center" Margin="4,0,4,0"/>
+        <ComboBox Width="170" ItemsSource="{Binding SourceOptions}" DisplayMemberPath="Label"
+                  SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
+                  DropDownOpened="Source_DropDownOpened"/>
+        <ComboBox Width="150" Margin="4,0,0,0" ItemsSource="{Binding ComponentOptions}" DisplayMemberPath="Label"
+                  SelectedItem="{Binding SelectedComponent, Mode=TwoWay}"
+                  IsEnabled="{Binding IsActive}"/>
+    </StackPanel>
+</UserControl>

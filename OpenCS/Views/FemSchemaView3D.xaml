@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:mosaic="clr-namespace:OpenCS.Views.Mosaic"
              xmlns:conv="clr-namespace:OpenCS.Converters"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
     <UserControl.Resources>
@@ -160,6 +161,8 @@
             <ComboBox Width="180" ItemsSource="{Binding DiagramLoadSources}" DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedDiagramLoadSource, Mode=TwoWay}"/>
             <Separator/>
+            <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}"/>
+            <Separator/>
             <TextBlock Text="{DynamicResource FemDiscretizeTargetLength}" VerticalAlignment="Center" Margin="4,0,4,0"/>
             <TextBox Width="72" VerticalContentAlignment="Center"
                      Text="{Binding Editor.DefaultTargetMeshLengthM, ElementName=root,
@@ -183,6 +186,11 @@
                            ShowCoordinateSystem="True"
                            ShowViewCube="True"
                            ZoomAroundMouseDownPoint="True"/>
+
+        <!-- Легенда мозаики армирования пластин -->
+        <mosaic:PlateRebarMosaicLegend Grid.Row="1" DataContext="{Binding Mosaic}"
+                                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                                       Margin="8" Panel.ZIndex="10"/>
 
         <!-- Немодальная панель «Добавить узел» -->
         <Border x:Name="createNodePanel" Grid.Row="1"

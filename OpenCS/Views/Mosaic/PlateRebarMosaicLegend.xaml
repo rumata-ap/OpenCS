@@ -1,0 +1,34 @@
+<UserControl x:Class="OpenCS.Views.Mosaic.PlateRebarMosaicLegend"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext — PlateRebarMosaicVM; видна, только когда мозаика включена -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <Border Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"
+            Background="#E6FFFFFF" BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Padding="8">
+        <StackPanel Width="190">
+            <TextBlock Text="{Binding LegendTitle}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+            <ItemsControl ItemsSource="{Binding Legend}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="16" Height="12" Background="{Binding Brush}" BorderBrush="DimGray" BorderThickness="0.5"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Count}" Foreground="Gray" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{DynamicResource PlateRebarMosaicThresholds}" Margin="0,8,0,2"/>
+            <TextBox Text="{Binding ThresholdsText, UpdateSourceTrigger=LostFocus}"
+                     ToolTip="{DynamicResource PlateRebarMosaicThresholdsTip}" KeyDown="Thresholds_KeyDown"/>
+        </StackPanel>
+    </Border>
+</UserControl>

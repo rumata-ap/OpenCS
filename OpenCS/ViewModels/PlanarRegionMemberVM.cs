@@ -45,6 +45,8 @@ public class PlanarRegionMemberVM : ViewModelBase
             foreach (var h in existingRegion.Holes) Holes.Add(h);
         }
 
+        LoadMosaicCells();
+
         _plateSectionOwned = RebarZones.Count > 0;
         _rebarSectionGridStep = existingRegion?.RebarSectionGridStep ?? 0.3;
         _meshMaxElementSizeM = existingRegion?.MeshMaxElementSizeM ?? 0.2;
@@ -643,9 +645,76 @@ public class PlanarRegionMemberVM : ViewModelBase
         return new LineSegmentsElement { Xs = xs, Ys = ys, Stroke = Brushes.Gray, StrokeThickness = 0.6 };
     }
 
+    /// <summary>Мозаика армирования КЭ импортированной сетки этого элемента (ASP/RBT ЛИРЫ).</summary>
+    public PlateRebarMosaicVM Mosaic { get; } = new();
+
+    /// <summary>У элемента есть КЭ импортированной сетки — мозаика доступна.</summary>
+    public bool HasMosaicCells => _mosaicCells.Count > 0;
+
+    List<(string Tag, double[] Xs, double[] Ys)> _mosaicCells = [];
+
+    /// <summary>КЭ импортированной сетки, связанные с элементом (<c>SourceMemberTag</c>), — в локальной
+    /// системе пластины. Пока это элементы из кБ ЛИРЫ поверх её сетки.</summary>
+    void LoadMosaicCells()
+    {
+        if (_existingMember is not { IsMeshLocked: true } member) return;
+        var db = _app.db;
+        var shells = db.GetFemMeshElements(_schema.Id)
+            .Where(e => e.ElemType == "shell" && e.SourceMemberTag == member.ElemTag)
+            .ToList();
+        if (shells.Count == 0) return;
+        // Теги узлов импортированной сетки могут совпасть с тегами сгенерированных — импортированный важнее.
+        var nodes = db.GetFemMeshNodes(_schema.Id)
+            .OrderBy(n => n.Origin == FemMember.MeshSourceImported ? 0 : 1)
+            .GroupBy(n => n.NodeTag, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var o = _frame.Origin; var lx = _frame.LocalX; var ly = _frame.LocalY;
+        foreach (var e in shells)
+        {
+            var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
+            var pts = ids.Select(id => nodes.TryGetValue(id.ToString(), out var n) ? n : null).ToList();
+            if (pts.Count < 3 || pts.Any(n => n == null)) continue;
+            // 4-узловой КЭ ЛИРЫ/SCAD: обход n1→n2→n4→n3.
+            if (pts.Count >= 4) pts = [pts[0], pts[1], pts[3], pts[2]];
+            var xs = new double[pts.Count]; var ys = new double[pts.Count];
+            for (int i = 0; i < pts.Count; i++)
+            {
+                double dx = pts[i]!.X - o.X, dy = pts[i]!.Y - o.Y, dz = pts[i]!.Z - o.Z;
+                xs[i] = dx * lx.X + dy * lx.Y + dz * lx.Z;
+                ys[i] = dx * ly.X + dy * ly.Y + dz * ly.Z;
+            }
+            _mosaicCells.Add((e.ElemTag.Trim(), xs, ys));
+        }
+        if (_mosaicCells.Count == 0) return;
+        Mosaic.Reader = () => PlateRebarMosaicVM.Read(db, _schema.Id);
+        Mosaic.Reload();
+        Mosaic.Changed += (_, _) => RefreshRebarPlotElements();
+    }
+
+    void AddMosaicElements(List<PlotElement> elements)
+    {
+        if (_mosaicCells.Count == 0) return;
+        var coloring = Mosaic.Compute(_mosaicCells.Select(c => c.Tag));
+        if (coloring == null) return;
+        var brushes = new Dictionary<Color, Brush>();
+        foreach (var (tag, xs, ys) in _mosaicCells)
+        {
+            if (!coloring.ColorByTag.TryGetValue(tag, out var c)) continue;
+            if (!brushes.TryGetValue(c, out var brush))
+            {
+                brush = new SolidColorBrush(c);
+                brush.Freeze();
+                brushes[c] = brush;
+            }
+            elements.Add(new PolygonElement { Xs = xs, Ys = ys, Fill = brush, Stroke = Brushes.DimGray, StrokeThickness = 0.3 });
+        }
+    }
+
     void RefreshRebarPlotElements()
     {
         var elements = new List<PlotElement>();
+        // Мозаика — самым нижним слоем, контур и зоны армирования поверх.
+        AddMosaicElements(elements);
         if (Hull != null && Hull.X.Count >= 3)
             elements.Add(new PolygonElement { Xs = [.. Hull.X], Ys = [.. Hull.Y], Fill = null, Stroke = Brushes.Gray, StrokeDashArray = [4, 2] });
         foreach (var hole in Holes)

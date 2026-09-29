@@ -3727,4 +3727,22 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SubmodelLoadFactorStepLabel">λ step</system:String>
     <system:String x:Key="SubmodelLoadFactorStepInvalid">The λ step must be within (0; 1].</system:String>
     <system:String x:Key="SubmodelNonlinearParamsTitle">Submodel nonlinear analysis</system:String>
+    <system:String x:Key="PlateRebarMosaicLabel">Mosaic</system:String>
+    <system:String x:Key="PlateRebarMosaicTip">Plate reinforcement mosaic: designed (ASP), assigned (RBT) or their difference. Files are loaded from the schema menu.</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceNone">None</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceSelected">Designed (ASP)</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceAssigned">Assigned (RBT)</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceDifference">Assigned − designed</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs1">As1 — bottom along X1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs2">As2 — top along X1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs3">As3 — bottom along Y1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs4">As4 — top along Y1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAsw">Asw — transverse</system:String>
+    <system:String x:Key="PlateRebarMosaicUnit">, cm²/m</system:String>
+    <system:String x:Key="PlateRebarMosaicFailure">Design failed</system:String>
+    <system:String x:Key="PlateRebarMosaicNoData">No data</system:String>
+    <system:String x:Key="PlateRebarMosaicThresholds">Bounds (empty — auto)</system:String>
+    <system:String x:Key="PlateRebarMosaicThresholdsTip">Thresholds separated by ';', e.g. 3.93; 5.65; 7.85; 10.05</system:String>
+    <system:String x:Key="PlateRebarMosaicReadError">Reinforcement mosaic: cannot read {0}: {1}</system:String>
+    <system:String x:Key="PlateRebarMosaicNoFiles">No reinforcement files: load ASP or RBT from the schema menu.</system:String>
 </ResourceDictionary>

@@ -3727,4 +3727,22 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SubmodelLoadFactorStepLabel">Шаг λ</system:String>
     <system:String x:Key="SubmodelLoadFactorStepInvalid">Шаг λ должен быть в интервале (0; 1].</system:String>
     <system:String x:Key="SubmodelNonlinearParamsTitle">Нелинейный расчёт субмодели</system:String>
+    <system:String x:Key="PlateRebarMosaicLabel">Мозаика</system:String>
+    <system:String x:Key="PlateRebarMosaicTip">Мозаика армирования пластин: подобранная (ASP), заданная (RBT) или их разность. Файлы загружаются из меню схемы.</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceNone">Нет</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceSelected">Подобранная (ASP)</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceAssigned">Заданная (RBT)</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceDifference">Заданная − подобранная</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs1">As1 — низ по X1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs2">As2 — верх по X1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs3">As3 — низ по Y1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAs4">As4 — верх по Y1</system:String>
+    <system:String x:Key="PlateRebarMosaicCompAsw">Asw — поперечная</system:String>
+    <system:String x:Key="PlateRebarMosaicUnit">, см²/м</system:String>
+    <system:String x:Key="PlateRebarMosaicFailure">Подбор не выполнен</system:String>
+    <system:String x:Key="PlateRebarMosaicNoData">Нет данных</system:String>
+    <system:String x:Key="PlateRebarMosaicThresholds">Границы (пусто — авто)</system:String>
+    <system:String x:Key="PlateRebarMosaicThresholdsTip">Пороги через «;», например: 3,93; 5,65; 7,85; 10,05</system:String>
+    <system:String x:Key="PlateRebarMosaicReadError">Мозаика армирования: не удалось прочитать {0}: {1}</system:String>
+    <system:String x:Key="PlateRebarMosaicNoFiles">Нет файлов армирования: загрузите ASP или RBT из меню схемы.</system:String>
 </ResourceDictionary>

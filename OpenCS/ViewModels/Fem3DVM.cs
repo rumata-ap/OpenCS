@@ -20,6 +20,9 @@ public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, F
 /// <param name="IsMeshLocked">Элемент из кБ ЛИРЫ поверх её сетки: рисуется утолщённым контуром без заливки.</param>
 public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Point3DCollection EdgePoints, bool IsMeshLocked = false);
 
+/// <summary>Пластины мозаики армирования одного цвета.</summary>
+public sealed record MosaicShellMesh(Color Color, MeshGeometry3D Mesh);
+
 /// <summary>ViewModel 3D-вида расчётной схемы или конструктивного элемента МКЭ.</summary>
 public class Fem3DVM : ViewModelBase
 {
@@ -53,6 +56,12 @@ public class Fem3DVM : ViewModelBase
     public List<BarGroup>      BarGroups       { get; private set; } = [];
     public MeshGeometry3D?     ShellMesh       { get; private set; }
     public MeshGeometry3D?     HiShellMesh     { get; private set; }
+    /// <summary>Мозаика армирования: пластины по цветам полос шкалы (пусто — мозаика выключена).
+    /// КЭ без данных остаются в <see cref="ShellMesh"/>.</summary>
+    public IReadOnlyList<MosaicShellMesh> MosaicShellMeshes { get; private set; } = [];
+    /// <summary>Настройки и легенда мозаики армирования пластин.</summary>
+    public PlateRebarMosaicVM Mosaic { get; } = new();
+
     public IReadOnlyList<PlanarRegionVisual> PlanarRegionVisuals { get; private set; } = [];
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
@@ -128,6 +137,8 @@ public class Fem3DVM : ViewModelBase
         _schemaId = schema.Id;
         _db       = db;
         Status    = Loc.S("Fem3DLoading");
+        Mosaic.Changed += (_, _) => RefreshMosaic();
+        Mosaic.Reader = () => PlateRebarMosaicVM.Read(_db, _schemaId);
     }
 
     /// <summary>Режим конструктивного элемента — показывает только КЭ этой группы.</summary>
@@ -137,6 +148,8 @@ public class Fem3DVM : ViewModelBase
         _db         = db;
         _memberOnly = member;
         Status      = Loc.S("Fem3DLoading");
+        Mosaic.Changed += (_, _) => RefreshMosaic();
+        Mosaic.Reader = () => PlateRebarMosaicVM.Read(_db, _schemaId);
     }
 
     /// <summary>Режим схемы с подсветкой — все КЭ схемы, КЭ группы выделены красным.</summary>
@@ -146,6 +159,8 @@ public class Fem3DVM : ViewModelBase
         _db              = db;
         _highlightMember = highlightOnSchema ? member : null;
         Status           = Loc.S("Fem3DLoading");
+        Mosaic.Changed += (_, _) => RefreshMosaic();
+        Mosaic.Reader = () => PlateRebarMosaicVM.Read(_db, _schemaId);
     }
 
     public async Task LoadAsync()
@@ -185,6 +200,7 @@ public class Fem3DVM : ViewModelBase
                 allElements = [.. _bgElements!, .. allElements];
             }
 
+            Mosaic.Apply(await Task.Run(() => PlateRebarMosaicVM.Read(_db, _schemaId)));
             ApplyTopology(allNodes, allElements);
             _diagramNodes = importedBackground ? ownNodes : allNodes;
             _diagramMembers = importedBackground ? ownElements : allElements;
@@ -465,6 +481,8 @@ public class Fem3DVM : ViewModelBase
             BarGroups   = bars;
             HiShellMesh = BuildShellMesh(nodeMap, hiElems);
             ShellMesh   = BuildShellMesh(nodeMap, bgElems);
+            _mosaicShells = [];
+            MosaicShellMeshes = [];
         }
         else
         {
@@ -474,7 +492,9 @@ public class Fem3DVM : ViewModelBase
             var lockedBars = elements.Where(e => e.ElemType == "beam" && e.IsMeshLocked).ToList();
             if (lockedBars.Count > 0 && BuildLinePoints(nodeMap, lockedBars) is { Count: > 0 } lockedPoints)
                 BarGroups = [.. BarGroups, new BarGroup(Loc.S("FemLockedMembersLegend"), LockedMemberColor, lockedPoints, 3.5)];
-            ShellMesh   = BuildShellMesh(nodeMap, elements);
+            _mosaicNodeMap = nodeMap;
+            _mosaicShells  = elements.Where(e => e.ElemType == "shell").ToList();
+            (ShellMesh, MosaicShellMeshes) = BuildMosaicShells();
             HiShellMesh = null;
         }
         ShellEdgePoints  = BuildShellEdges(nodeMap, elements);
@@ -509,6 +529,7 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(BarGroups));
         OnPropertyChanged(nameof(ShellMesh));
         OnPropertyChanged(nameof(HiShellMesh));
+        OnPropertyChanged(nameof(MosaicShellMeshes));
         OnPropertyChanged(nameof(PlanarRegionVisuals));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
@@ -518,6 +539,40 @@ public class Fem3DVM : ViewModelBase
     }
 
     // -------------------------------------------------------------------------
+
+    Dictionary<string, Point3D> _mosaicNodeMap = [];
+    List<FemMember> _mosaicShells = [];
+
+    /// <summary>Пересчитать мозаику при смене настроек: меняются только заливки пластин
+    /// (<see cref="ShellMesh"/> и <see cref="MosaicShellMeshes"/>), камера не сбрасывается.</summary>
+    void RefreshMosaic()
+    {
+        if (_mosaicShells.Count == 0) { Mosaic.Compute([]); return; }
+        (ShellMesh, MosaicShellMeshes) = BuildMosaicShells();
+        OnPropertyChanged(nameof(MosaicShellMeshes));
+    }
+
+    (MeshGeometry3D? Uncolored, IReadOnlyList<MosaicShellMesh> Colored) BuildMosaicShells()
+    {
+        var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()));
+        if (coloring == null || coloring.ColorByTag.Count == 0)
+            return (BuildShellMesh(_mosaicNodeMap, _mosaicShells), []);
+
+        var rest = new List<FemMember>();
+        var byColor = new Dictionary<Color, List<FemMember>>();
+        foreach (var e in _mosaicShells)
+        {
+            if (!coloring.ColorByTag.TryGetValue(e.ElemTag.Trim(), out var c)) { rest.Add(e); continue; }
+            if (!byColor.TryGetValue(c, out var list)) byColor[c] = list = [];
+            list.Add(e);
+        }
+        var colored = byColor
+            .Select(kv => (kv.Key, Mesh: BuildShellMesh(_mosaicNodeMap, kv.Value)))
+            .Where(x => x.Mesh != null)
+            .Select(x => new MosaicShellMesh(x.Key, x.Mesh!))
+            .ToList();
+        return (rest.Count > 0 ? BuildShellMesh(_mosaicNodeMap, rest) : null, colored);
+    }
 
     List<BarGroup> BuildSectionColoredBars(Dictionary<string, Point3D> nodeMap, List<FemMember> bars)
     {

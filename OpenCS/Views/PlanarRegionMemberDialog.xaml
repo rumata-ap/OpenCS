@@ -1,6 +1,7 @@
 <Window x:Class="OpenCS.Views.PlanarRegionMemberDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mosaic="clr-namespace:OpenCS.Views.Mosaic"
         xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
         xmlns:conv="clr-namespace:OpenCS.Converters"
         xmlns:util="clr-namespace:OpenCS.Utilites"
@@ -296,10 +297,17 @@
                                   IsChecked="{Binding ShowBackgroundRebarGlyphs, Mode=TwoWay}"/>
                      </MenuItem>
                   </Menu>
+                  <Separator Visibility="{Binding HasMosaicCells, Converter={StaticResource BoolToVisibility}}"/>
+                  <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}"
+                                                   Visibility="{Binding DataContext.HasMosaicCells, RelativeSource={RelativeSource AncestorType=ToolBar}, Converter={StaticResource BoolToVisibility}}"/>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
-                  <helpers:PlanarRegionPreviewCanvas x:Name="rebarPreview"/>
+                  <Grid>
+                     <helpers:PlanarRegionPreviewCanvas x:Name="rebarPreview"/>
+                     <mosaic:PlateRebarMosaicLegend DataContext="{Binding Mosaic}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8"/>
+                  </Grid>
                </Border>
                <Border Grid.Row="2" BorderThickness="0,1,1,0"
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
