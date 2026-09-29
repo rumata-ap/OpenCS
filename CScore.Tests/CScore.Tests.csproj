@@ -24,6 +24,7 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="Submodel\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Import\Fixtures\*.RBT" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Import\Fixtures\*.asp" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

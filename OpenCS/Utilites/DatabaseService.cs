@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 64;
+      const int CurrentSchemaVersion = 65;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -84,6 +84,7 @@ namespace OpenCS.Utilites
          [61] = MigrateV62,
          [62] = MigrateV63,
          [63] = MigrateV64,
+         [64] = MigrateV65,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -656,6 +657,7 @@ namespace OpenCS.Utilites
          EnsureSubmodelBoundaryScenarioTable();
          EnsureSubmodelMaterializationTable();
          EnsureFemSchemaReinforcementFileTable();
+         EnsureFemSchemaSelectedReinforcementFileTable();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1573,6 +1575,19 @@ namespace OpenCS.Utilites
              data BLOB NOT NULL
          );
          """);
+
+      /// <summary>Файл подобранной ЛИРОЙ арматуры (*.asp), приложенный к импортированной FEM-схеме:
+      /// хранится как есть, разбирается при использовании (LiraAspReader).</summary>
+      void EnsureFemSchemaSelectedReinforcementFileTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS fem_schema_selected_reinforcement_files (
+             schema_id INTEGER PRIMARY KEY REFERENCES fem_schemas(id) ON DELETE CASCADE,
+             file_name TEXT NOT NULL DEFAULT '',
+             data BLOB NOT NULL
+         );
+         """);
+
+      /// <summary>Миграция v65: файл подобранной арматуры ЛИРЫ (*.asp) при схеме.</summary>
+      void MigrateV65() => EnsureFemSchemaSelectedReinforcementFileTable();
 
       /// <summary>Миграция v64: ТЗА ЛИРЫ у КЭ сетки и файл описаний ТЗА при схеме.</summary>
       void MigrateV64()
@@ -3901,6 +3916,7 @@ namespace OpenCS.Utilites
                DELETE FROM submodel_extractions   WHERE submodel_schema_id=@id;
                DELETE FROM fem_elements           WHERE schema_id=@id;
                DELETE FROM fem_schema_reinforcement_files WHERE schema_id=@id;
+               DELETE FROM fem_schema_selected_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
                DELETE FROM fem_nodes              WHERE schema_id=@id;
@@ -6207,6 +6223,31 @@ namespace OpenCS.Utilites
       {
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT file_name, data FROM fem_schema_reinforcement_files WHERE schema_id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         if (!rdr.Read()) return null;
+         return (rdr.GetString(0), (byte[])rdr.GetValue(1));
+      }
+
+      /// <summary>Сохранить (заменить) файл подобранной арматуры ЛИРЫ (*.asp) FEM-схемы.</summary>
+      public void SaveFemSchemaSelectedReinforcementFile(int schemaId, string fileName, byte[] data)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT OR REPLACE INTO fem_schema_selected_reinforcement_files (schema_id, file_name, data)
+            VALUES (@sid, @name, @data)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@name", fileName);
+         cmd.Parameters.AddWithValue("@data", data);
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Файл подобранной арматуры ЛИРЫ (*.asp) FEM-схемы; null — не приложен.</summary>
+      public (string FileName, byte[] Data)? GetFemSchemaSelectedReinforcementFile(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT file_name, data FROM fem_schema_selected_reinforcement_files WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          if (!rdr.Read()) return null;

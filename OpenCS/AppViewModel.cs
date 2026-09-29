@@ -539,6 +539,10 @@ namespace OpenCS
       public ICommand DuplicateFemSchemaCommand { get; set; } = null!;
       /// <summary>Команда переименования МКЭ-схемы.</summary>
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
+      /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
+      public ICommand LoadLiraAspCommand { get; set; } = null!;
+      /// <summary>Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT).</summary>
+      public ICommand LoadLiraRbtCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
@@ -1436,6 +1440,8 @@ namespace OpenCS
          DeleteFemSchemaCommand = new RelayCommand(p => DeleteFemSchema(p as CScore.Fem.FemSchema));
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
+         LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
+         LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
@@ -3276,7 +3282,6 @@ namespace OpenCS
          {
             int? liraVersion = null;
             var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion));
-            var rbt = AskLiraReinforcementFile(raw, liraVersion);
             var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
@@ -3290,8 +3295,6 @@ namespace OpenCS
                 .ToArray();
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
-            if (rbt is { } file)
-               db.SaveFemSchemaReinforcementFile(schema.Id, file.FileName, file.Data);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3320,23 +3323,17 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Если схема прочитана из ЛИРА-САПФИР 2025+ и у КЭ есть ТЗА — запросить файл описаний ТЗА (.RBT).
-      /// Отмена диалога — импорт без файла (номера ТЗА у КЭ всё равно сохраняются).
+      /// Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT): разобрать, сверить с номерами ТЗА у КЭ
+      /// (таблица «Элементы - ТЗА», сохранена при импорте) и сохранить файл при схеме (заменяет прежний).
       /// </summary>
-      (string FileName, byte[] Data)? AskLiraReinforcementFile(CScore.Import.LiraSchemaData raw, int? liraVersion)
+      void LoadLiraRbt(CScore.Fem.FemSchema? schema)
       {
-         if (liraVersion < Services.LiraApiSchemaReader.FirstVersionWithReinforcementTypes
-             || liraVersion == null || raw.ElementReinforcementTypes.Count == 0)
-            return null;
+         schema ??= currentFemSchema;
+         if (schema == null) return;
 
-         string? path = FileDialogService.OpenFile(
-            Loc.S("LiraRbtFilter"),
-            string.Format(Loc.S("LiraRbtOpenTitle"), raw.ElementReinforcementTypes.Count));
-         if (path == null)
-         {
-            LogService.Info(Loc.S("LiraRbtNotSelected"));
-            return null;
-         }
+         string? path = FileDialogService.OpenFile(Loc.S("LiraRbtFilter"),
+            string.Format(Loc.S("LiraRbtOpenTitle"), schema.Tag));
+         if (path == null) return;
 
          string name = System.IO.Path.GetFileName(path);
          try
@@ -3348,21 +3345,75 @@ namespace OpenCS
             if (parsed.PlateTypes.Count == 0 && parsed.Skipped.Count == 0)
             {
                LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, Loc.S("LiraRbtNoTypes")));
-               return null;
+               return;
             }
-            LogService.Info(string.Format(Loc.S("LiraRbtLoaded"), name, parsed.PlateTypes.Count, parsed.Skipped.Count));
 
+            var assigned = db.GetFemMeshElements(schema.Id)
+               .Where(e => !string.IsNullOrWhiteSpace(e.ReinforcementTypeIds))
+               .SelectMany(e => e.ReinforcementTypeIds!.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+               .Select(t => int.TryParse(t, out int id) ? id : (int?)null)
+               .OfType<int>()
+               .ToHashSet();
+            if (assigned.Count == 0)
+               LogService.Warning(Loc.S("LiraRbtSchemaHasNoTypes"));
             var known = parsed.PlateTypes.Keys.Concat(parsed.Skipped.Select(t => t.Id)).ToHashSet();
-            var missing = raw.ElementReinforcementTypes.Values.SelectMany(ids => ids)
-               .Where(id => !known.Contains(id)).Distinct().Order().ToList();
+            var missing = assigned.Where(id => !known.Contains(id)).Order().ToList();
             if (missing.Count > 0)
                LogService.Warning(string.Format(Loc.S("LiraRbtMissingTypes"), string.Join(", ", missing)));
-            return (name, data);
+
+            db.SaveFemSchemaReinforcementFile(schema.Id, name, data);
+            LogService.Info(string.Format(Loc.S("LiraRbtLoaded"), name, parsed.PlateTypes.Count, parsed.Skipped.Count));
          }
-         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
+                                        or System.IO.InvalidDataException)
          {
             LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, ex.Message));
-            return null;
+         }
+      }
+
+      /// <summary>
+      /// Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp: Файл → Экспорт в режиме
+      /// «Конструирование»): разобрать, сверить номера КЭ с сеткой схемы и сохранить файл при схеме
+      /// (заменяет ранее загруженный).
+      /// </summary>
+      void LoadLiraAsp(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         string? path = FileDialogService.OpenFile(Loc.S("LiraAspFilter"),
+            string.Format(Loc.S("LiraAspOpenTitle"), schema.Tag));
+         if (path == null) return;
+
+         string name = System.IO.Path.GetFileName(path);
+         try
+         {
+            byte[] data = System.IO.File.ReadAllBytes(path);
+            var parsed = CScore.Import.LiraAspReader.Read(data);
+            foreach (var w in parsed.Warnings)
+               LogService.Warning(w);
+
+            var elements = db.GetFemMeshElements(schema.Id)
+               .Select(e => (Ok: int.TryParse(e.ElemTag, out int id), Id: id, IsPlate: e.ElemType == "shell"))
+               .Where(e => e.Ok)
+               .Select(e => (e.Id, e.IsPlate));
+            var match = CScore.Import.LiraAspSchemaMatch.Check(parsed, elements);
+            if (match.Missing.Count > 0 || match.KindMismatch.Count > 0)
+               LogService.Warning(string.Format(Loc.S("LiraAspSchemaMismatch"),
+                  match.Missing.Count, match.KindMismatch.Count,
+                  string.Join(", ", match.Missing.Concat(match.KindMismatch).Order().Take(20))));
+            if (match.PlatesMatched + match.BarsMatched == 0)
+               return;
+
+            db.SaveFemSchemaSelectedReinforcementFile(schema.Id, name, data);
+            string done = string.Format(Loc.S("LiraAspLoaded"), name, parsed.Variant,
+               match.PlatesMatched, match.BarsMatched);
+            LogService.Info(done);
+         }
+         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
+                                        or System.IO.InvalidDataException)
+         {
+            LogService.Warning(string.Format(Loc.S("LiraAspReadError"), name, ex.Message));
          }
       }
 

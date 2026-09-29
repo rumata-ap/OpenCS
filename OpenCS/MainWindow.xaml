@@ -1302,6 +1302,16 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaLoadLiraRbt}"
+                                        Command="{Binding PlacementTarget.Tag.LoadLiraRbtCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaLoadLiraAsp}"
+                                        Command="{Binding PlacementTarget.Tag.LoadLiraAspCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem Header="{DynamicResource FemSchemaDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaCommand,
