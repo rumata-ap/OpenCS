@@ -2320,6 +2320,8 @@
     <system:String x:Key="FemCheckElemNotChecked">не проверено</system:String>
     <system:String x:Key="FemCheckDlgRebarSources">Армирование КЭ</system:String>
     <system:String x:Key="FemCheckDlgSetRows">{0} — строк для цели: {1}</system:String>
+    <system:String x:Key="FemCheckDlgTargetGroup">[Группа] {0}</system:String>
+    <system:String x:Key="FemCheckDlgTargetElement">[Элемент] {0}</system:String>
     <system:String x:Key="FemCheckSourceSection">Сечение цели</system:String>
     <system:String x:Key="FemCheckSourceAssigned">Заданное (ТЗА)</system:String>
     <system:String x:Key="FemCheckSourceSelected">Подобранное (ASP)</system:String>

@@ -217,9 +217,9 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         Members.Clear();
         if (_selectedSchema == null) return;
         foreach (var g in _selectedSchema.MemberGroups)
-            Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = $"[Группа] {g.Tag}", Group = g });
+            Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetGroup"), g.Tag), Group = g });
         foreach (var e in App.GetFemMembers(_selectedSchema))
-            Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = $"[Элемент] {e.ElemTag}", Element = e });
+            Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetElement"), e.ElemTag), Element = e });
         SelectedMember = Members.FirstOrDefault();
     }
 

@@ -38,7 +38,8 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
-    public ObservableCollection<FemMemberGroup> Members { get; } = [];
+    /// <summary>Цели проверки: группы схемы и её пластинчатые конструктивные элементы.</summary>
+    public ObservableCollection<FemCheckTarget> Members { get; } = [];
     public ObservableCollection<ForceSet>  NlForceSets { get; } = [];
 
     FemSchema? _selectedSchema;
@@ -48,14 +49,14 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
         set { _selectedSchema = value; OnPropertyChanged(); ReloadSchema(); RefreshMembers(); }
     }
 
-    FemMemberGroup? _selectedMember;
-    public FemMemberGroup? SelectedMember
+    FemCheckTarget? _selectedMember;
+    public FemCheckTarget? SelectedMember
     {
         get => _selectedMember;
         set { _selectedMember = value; OnPropertyChanged(); RefreshTarget(); AutoFillTag(); }
     }
 
-    protected override IFemCheckable? Target => _selectedMember;
+    protected override IFemCheckable? Target => (IFemCheckable?)_selectedMember?.Group ?? _selectedMember?.Element;
     protected override int? SchemaId => _selectedSchema?.Id;
     protected override bool IsPlateCheck => true;
     protected override FemCheck DraftCheck() => FillCheck(new FemCheck());
@@ -170,7 +171,9 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     void LoadFromExisting(FemCheck check)
     {
         SelectedSchema         = Schemas.FirstOrDefault(s => s.Id == check.SchemaId);
-        SelectedMember         = Members.FirstOrDefault(m => m.Id == check.MemberId);
+        SelectedMember         = check.TargetsElement
+            ? Members.FirstOrDefault(t => t.Kind == "element" && t.Id == check.ElementId)
+            : Members.FirstOrDefault(t => t.Kind == "group"   && t.Id == check.MemberId);
         SelectedCalcTypeOption = CalcTypeOptions.FirstOrDefault(o => o.Code == check.CalcTypeOverride)
                                  ?? CalcTypeOptions[0];
         Tag     = check.Tag;
@@ -198,7 +201,10 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     {
         Members.Clear();
         if (_selectedSchema == null) return;
-        foreach (var m in _selectedSchema.MemberGroups) Members.Add(m);
+        foreach (var g in _selectedSchema.MemberGroups)
+            Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetGroup"), g.Tag), Group = g });
+        foreach (var e in App.GetFemMembers(_selectedSchema).Where(e => e.ElemType == "shell"))
+            Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetElement"), e.ElemTag), Element = e });
         SelectedMember = Members.FirstOrDefault();
     }
 
@@ -256,7 +262,8 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
         }.ToJson();
 
         check.SchemaId         = _selectedSchema!.Id;
-        check.MemberId         = _selectedMember!.Id;
+        check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;
+        check.ElementId        = _selectedMember!.Kind == "element" ? _selectedMember.Id : null;
         check.NormCode         = "rc_plate_check";
         check.Tag              = string.IsNullOrWhiteSpace(Tag) ? $"{_selectedMember.Tag}/sls" : Tag;
         check.ForceSetIdsJson  = forceSetIdsJson;

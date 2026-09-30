@@ -2320,6 +2320,8 @@
     <system:String x:Key="FemCheckElemNotChecked">not checked</system:String>
     <system:String x:Key="FemCheckDlgRebarSources">Element reinforcement</system:String>
     <system:String x:Key="FemCheckDlgSetRows">{0} — rows for the target: {1}</system:String>
+    <system:String x:Key="FemCheckDlgTargetGroup">[Group] {0}</system:String>
+    <system:String x:Key="FemCheckDlgTargetElement">[Element] {0}</system:String>
     <system:String x:Key="FemCheckSourceSection">Target section</system:String>
     <system:String x:Key="FemCheckSourceAssigned">Assigned (RBT)</system:String>
     <system:String x:Key="FemCheckSourceSelected">Selected (ASP)</system:String>
