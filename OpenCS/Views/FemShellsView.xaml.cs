@@ -46,6 +46,13 @@ public partial class FemShellsView : UserControl
         shellsGrid.ItemsSource = elems;
     }
 
+    /// <summary>Импорт усилий ЛИРЫ на выбранный конструктивный элемент (по КЭ сетки, привязанным к нему).</summary>
+    void ImportLiraForces_Click(object sender, RoutedEventArgs e)
+    {
+        if (shellsGrid.SelectedItem is FemMember member && sender is MenuItem item)
+            _app.ImportLiraForcesCommand(item.Tag as string).Execute(member);
+    }
+
     async void DeleteShell_Click(object sender, RoutedEventArgs e)
     {
         if (shellsGrid.SelectedItem is not FemMember member || member.PlanarRegionId is not int regionId) return;

@@ -246,6 +246,7 @@ static class LiraApiForceImporter
                             fs.ShellItems.Add(new ShellLoadItem
                             {
                                 Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                SourceElementNum = elemId, SourceSectionNum = sec,
                                 SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                 Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                 Qx = qx, Qy = qy,
@@ -265,6 +266,7 @@ static class LiraApiForceImporter
                             fs.Items.Add(new LoadItem
                             {
                                 Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                SourceElementNum = elemId, SourceSectionNum = sec,
                                 N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                             });
                         }
@@ -352,6 +354,7 @@ static class LiraApiForceImporter
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                SourceElementNum = elemId, SourceSectionNum = sec,
                                     SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
@@ -371,6 +374,7 @@ static class LiraApiForceImporter
                                 fs.Items.Add(new LoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                SourceElementNum = elemId, SourceSectionNum = sec,
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
                             }
@@ -459,6 +463,7 @@ static class LiraApiForceImporter
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
+                                    SourceElementNum = elemId, SourceSectionNum = sec,
                                     SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
@@ -478,6 +483,7 @@ static class LiraApiForceImporter
                                 fs.Items.Add(new LoadItem
                                 {
                                     Num = itemNum++, Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
+                                    SourceElementNum = elemId, SourceSectionNum = sec,
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
                             }

@@ -172,9 +172,12 @@ public class ScadXlsForceImporterTests
         Assert.Equal(2, c.Items.Count);
         Assert.Contains(c.Items, i => i.Label == "10_С1_К1" && i.N == 1.5);
         Assert.Contains(c.Items, i => i.Label == "10_С1_К2" && i.N == 2.5);
+        Assert.All(c.Items, i => { Assert.Equal(10, i.SourceElementNum); Assert.Equal(1, i.SourceSectionNum); });
         var cl = Assert.Single(result.ForceSets, fs => fs.Tag == "РСУ_CL");
         Assert.Single(cl.Items);
         Assert.Equal("10_С2_К1", cl.Items[0].Label);
+        Assert.Equal(10, cl.Items[0].SourceElementNum);
+        Assert.Equal(2, cl.Items[0].SourceSectionNum);
     }
 
     [Fact]
@@ -198,6 +201,9 @@ public class ScadXlsForceImporterTests
         var shell = Assert.Single(result.ForceSets, fs => fs.Tag == "DEAD" && fs.Kind == "shell");
         Assert.Single(shell.ShellItems);
         Assert.Equal("15_Центр", shell.ShellItems[0].Label);
+        Assert.Equal(15, shell.ShellItems[0].SourceElementNum);
+        Assert.Null(shell.ShellItems[0].SourceSectionNum); // точка «Центр» — не номер сечения
+        Assert.All(bar.Items, i => Assert.Equal(1, i.SourceElementNum));
         Assert.Equal(0.0, shell.ShellItems[0].Nx);
         Assert.Equal(1.0, shell.ShellItems[0].SigmaX!.Value); // sX=1, no thickness applied at import
         Assert.Equal(0.0, shell.ShellItems[0].Qx);
@@ -234,6 +240,7 @@ public class ScadXlsForceImporterTests
         Assert.Equal(2, fs.ShellItems.Count);
         Assert.Contains(fs.ShellItems, i => i.Label == "20_Центр_К1" && i.Nx == 0 && i.SigmaX == 1.1 && i.Qx == 0.7 && i.Qy == 0.8);
         Assert.Contains(fs.ShellItems, i => i.Label == "20_Центр_К2");
+        Assert.All(fs.ShellItems, i => Assert.Equal(20, i.SourceElementNum));
     }
 
     static ScadXlsSheetData BarCombinationSheet() => new()

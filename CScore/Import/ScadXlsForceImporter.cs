@@ -430,6 +430,8 @@ public static class ScadXlsForceImporter
             var item = ScadXlsForceMapper.MapBar(
                 forces.n, forces.mk, forces.my, forces.qz, forces.mz, forces.qy, options);
             item.Label = FormatBarLabel(elem, sec.ToString(CultureInfo.InvariantCulture), form, crit: null);
+            item.SourceElementNum = elem;
+            item.SourceSectionNum = sec;
             fs.Items.Add(item);
             result.RowsMatched++;
         }
@@ -470,6 +472,8 @@ public static class ScadXlsForceImporter
                 forces.sx, forces.sy, forces.txy, forces.mx, forces.my, forces.mxy,
                 forces.qx, forces.qy, options);
             item.Label = FormatShellLabel(elem, secText, form, crit: null);
+            item.SourceElementNum = elem;
+            item.SourceSectionNum = TryParseInt(secText, out int shellSec) ? shellSec : null;
             fs.ShellItems.Add(item);
             result.RowsMatched++;
         }
@@ -512,6 +516,8 @@ public static class ScadXlsForceImporter
             var item = ScadXlsForceMapper.MapBar(
                 forces.n, forces.mk, forces.my, forces.qz, forces.mz, forces.qy, options);
             item.Label = FormatBarLabel(lastElem, lastSec.ToString(CultureInfo.InvariantCulture), form: null, crit);
+            item.SourceElementNum = lastElem;
+            item.SourceSectionNum = lastSec;
             fs.Items.Add(item);
             result.RowsMatched++;
         }
@@ -556,6 +562,8 @@ public static class ScadXlsForceImporter
                 forces.sx, forces.sy, forces.txy, forces.mx, forces.my, forces.mxy,
                 forces.qx, forces.qy, options);
             item.Label = FormatShellLabel(lastElem, lastSec, form: null, crit);
+            item.SourceElementNum = lastElem;
+            item.SourceSectionNum = TryParseInt(lastSec, out int shellSec) ? shellSec : null;
             fs.ShellItems.Add(item);
             result.RowsMatched++;
         }

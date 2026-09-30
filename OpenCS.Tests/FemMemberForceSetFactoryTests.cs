@@ -25,7 +25,8 @@ public class FemMemberForceSetFactoryTests
         Assert.Equal("bar", forceSet.Kind);
         Assert.Equal("fea", forceSet.SourceType);
         Assert.Equal(3, forceSet.SourceSchemaId);
-        Assert.Equal(11, forceSet.SourceMemberId);
+        Assert.Equal(11, forceSet.SourceElementId);
+        Assert.Null(forceSet.SourceMemberId);
         Assert.Equal("M1", forceSet.SourceElementTag);
         Assert.Equal(["node 10", "node 20", "node 30"], forceSet.Items.Select(i => i.Label));
         Assert.Equal([1, 2, 3], forceSet.Items.Select(i => i.Num));

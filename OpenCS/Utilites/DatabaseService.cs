@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 66;
+      const int CurrentSchemaVersion = 67;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -86,6 +86,7 @@ namespace OpenCS.Utilites
          [63] = MigrateV64,
          [64] = MigrateV65,
          [65] = MigrateV66,
+         [66] = MigrateV67,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -263,7 +264,9 @@ namespace OpenCS.Utilites
                 my      REAL NOT NULL DEFAULT 0,
                 vx      REAL NOT NULL DEFAULT 0,
                 vy      REAL NOT NULL DEFAULT 0,
-                t       REAL NOT NULL DEFAULT 0
+                t       REAL NOT NULL DEFAULT 0,
+                source_elem_num    INTEGER,
+                source_section_num INTEGER
             );
             CREATE TABLE IF NOT EXISTS force_shell_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -280,7 +283,9 @@ namespace OpenCS.Utilites
                 qy      REAL NOT NULL DEFAULT 0,
                 sigma_x REAL,
                 sigma_y REAL,
-                tau_xy  REAL
+                tau_xy  REAL,
+                source_elem_num    INTEGER,
+                source_section_num INTEGER
             );
              CREATE TABLE IF NOT EXISTS plate_sections (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1591,6 +1596,65 @@ namespace OpenCS.Utilites
          );
          """);
 
+      /// <summary>Миграция v67: явный номер КЭ и сечения внешней схемы у строк наборов усилий
+      /// (source_elem_num, source_section_num). У строк импортированных наборов заполняется разбором
+      /// метки («э.12 с1 к3», «12_С1_К3», «127-1»). Наборы усилий стержней OpenSees переводятся
+      /// с source_member_id (группа) на source_element_id (конструктивный элемент).</summary>
+      void MigrateV67()
+      {
+         foreach (string table in (string[])["force_items", "force_shell_items"])
+         {
+            if (!ColumnExists(table, "source_elem_num"))
+               MigExec($"ALTER TABLE {table} ADD COLUMN source_elem_num INTEGER");
+            if (!ColumnExists(table, "source_section_num"))
+               MigExec($"ALTER TABLE {table} ADD COLUMN source_section_num INTEGER");
+
+            var rows = new List<(int Id, int Elem, int? Section)>();
+            var cmd = _connection.CreateCommand();
+            cmd.CommandText = $"""
+               SELECT i.id, i.label, s.source_type FROM {table} i
+               JOIN force_sets s ON s.id = i.set_id
+               WHERE s.source_type IS NOT NULL AND i.source_elem_num IS NULL
+               """;
+            using (var reader = cmd.ExecuteReader())
+            {
+               while (reader.Read())
+               {
+                  bool liraHtml = reader.GetString(2) == "lira";
+                  if (CScore.Import.ForceRowSourceParser.TryParse(reader.GetString(1), out int elem, out int? sec, liraHtml))
+                     rows.Add((reader.GetInt32(0), elem, sec));
+               }
+            }
+
+            var upd = _connection.CreateCommand();
+            upd.CommandText = $"UPDATE {table} SET source_elem_num=$e, source_section_num=$s WHERE id=$id";
+            var pe  = upd.Parameters.Add("$e", SqliteType.Integer);
+            var ps  = upd.Parameters.Add("$s", SqliteType.Integer);
+            var pid = upd.Parameters.Add("$id", SqliteType.Integer);
+            foreach (var (id, elem, sec) in rows)
+            {
+               pe.Value  = elem;
+               ps.Value  = (object?)sec ?? DBNull.Value;
+               pid.Value = id;
+               upd.ExecuteNonQuery();
+            }
+         }
+
+         // Наборы усилий стержня из расчёта OpenSees хранили id конструктивного элемента в
+         // source_member_id — колонке группы. Переносим в source_element_id; признак такого набора —
+         // source_element_tag совпадает с тегом элемента с этим id в той же схеме.
+         MigExec("""
+            UPDATE force_sets
+               SET source_element_id = source_member_id, source_member_id = NULL
+             WHERE source_element_id IS NULL AND source_member_id IS NOT NULL
+               AND source_element_tag IS NOT NULL
+               AND EXISTS (SELECT 1 FROM fem_members m
+                            WHERE m.id = force_sets.source_member_id
+                              AND m.schema_id = force_sets.source_schema_id
+                              AND m.elem_tag = force_sets.source_element_tag)
+            """);
+      }
+
       /// <summary>Миграция v66: элементы с импортированной сеткой (mesh_source), происхождение строк сетки
       /// (origin: сетка схем ЛИРЫ — imported) и таблица кБ ЛИРЫ при схеме.</summary>
       void MigrateV66()
@@ -2507,7 +2571,7 @@ namespace OpenCS.Utilites
           }
           using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, set_id, num, label, n, mx, my, vx, vy, t FROM force_items ORDER BY set_id, num";
+            cmd.CommandText = "SELECT id, set_id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num FROM force_items ORDER BY set_id, num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2523,13 +2587,15 @@ namespace OpenCS.Utilites
                   My    = r.GetDouble(6),
                   Vx    = r.GetDouble(7),
                   Vy    = r.GetDouble(8),
-                  T     = r.GetDouble(9)
+                  T     = r.GetDouble(9),
+                  SourceElementNum = r.IsDBNull(10) ? null : r.GetInt32(10),
+                  SourceSectionNum = r.IsDBNull(11) ? null : r.GetInt32(11)
                });
             }
          }
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy FROM force_shell_items ORDER BY set_id, num";
+            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num FROM force_shell_items ORDER BY set_id, num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2551,6 +2617,8 @@ namespace OpenCS.Utilites
                   SigmaX  = r.IsDBNull(12) ? null : r.GetDouble(12),
                   SigmaY  = r.IsDBNull(13) ? null : r.GetDouble(13),
                   TauXY   = r.IsDBNull(14) ? null : r.GetDouble(14),
+                  SourceElementNum = r.IsDBNull(15) ? null : r.GetInt32(15),
+                  SourceSectionNum = r.IsDBNull(16) ? null : r.GetInt32(16),
                });
             }
          }
@@ -2619,8 +2687,8 @@ namespace OpenCS.Utilites
             if (item.Id != 0)
             {
                ins.CommandText = """
-                  INSERT INTO force_items (id, set_id, num, label, n, mx, my, vx, vy, t)
-                  VALUES (@id, @sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
+                  INSERT INTO force_items (id, set_id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num)
+                  VALUES (@id, @sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t, @sen, @ssn);
                   SELECT last_insert_rowid();
                """;
                ins.Parameters.AddWithValue("@id", item.Id);
@@ -2628,8 +2696,8 @@ namespace OpenCS.Utilites
             else
             {
                ins.CommandText = """
-                  INSERT INTO force_items (set_id, num, label, n, mx, my, vx, vy, t)
-                  VALUES (@sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
+                  INSERT INTO force_items (set_id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num)
+                  VALUES (@sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t, @sen, @ssn);
                   SELECT last_insert_rowid();
                """;
             }
@@ -2642,6 +2710,8 @@ namespace OpenCS.Utilites
             ins.Parameters.AddWithValue("@vx",  item.Vx);
             ins.Parameters.AddWithValue("@vy",  item.Vy);
             ins.Parameters.AddWithValue("@t",   item.T);
+            ins.Parameters.AddWithValue("@sen", (object?)item.SourceElementNum ?? DBNull.Value);
+            ins.Parameters.AddWithValue("@ssn", (object?)item.SourceSectionNum ?? DBNull.Value);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
 
@@ -2658,8 +2728,8 @@ namespace OpenCS.Utilites
             if (item.Id != 0)
             {
                ins.CommandText = """
-                  INSERT INTO force_shell_items (id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy)
-                  VALUES (@id, @sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy);
+                  INSERT INTO force_shell_items (id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num)
+                  VALUES (@id, @sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy, @sen, @ssn);
                   SELECT last_insert_rowid();
                """;
                ins.Parameters.AddWithValue("@id", item.Id);
@@ -2667,8 +2737,8 @@ namespace OpenCS.Utilites
             else
             {
                ins.CommandText = """
-                  INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy)
-                  VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy);
+                  INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num)
+                  VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy, @sen, @ssn);
                   SELECT last_insert_rowid();
                """;
             }
@@ -2686,6 +2756,8 @@ namespace OpenCS.Utilites
             ins.Parameters.AddWithValue("@sx",  (object?)item.SigmaX ?? DBNull.Value);
             ins.Parameters.AddWithValue("@sy",  (object?)item.SigmaY ?? DBNull.Value);
             ins.Parameters.AddWithValue("@txy", (object?)item.TauXY  ?? DBNull.Value);
+            ins.Parameters.AddWithValue("@sen", (object?)item.SourceElementNum ?? DBNull.Value);
+            ins.Parameters.AddWithValue("@ssn", (object?)item.SourceSectionNum ?? DBNull.Value);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
          fs.IsModified = false;
@@ -6398,29 +6470,39 @@ namespace OpenCS.Utilites
          return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
       }
 
+      /// <summary>Состав группы как цели проверки: её конструктивные элементы и КЭ сетки
+      /// (см. <see cref="CScore.Fem.FemCheckScope.ForGroup"/>).</summary>
+      public CScore.Fem.FemCheckScope GetFemCheckScope(CScore.Fem.FemMemberGroup group) =>
+         CScore.Fem.FemCheckScope.ForGroup(group, GetFemMembers(group.SchemaId), GetFemMeshElements(group.SchemaId));
+
+      /// <summary>Состав конструктивного элемента как цели проверки: КЭ сетки, построенные из него
+      /// или привязанные к нему (кБ ЛИРЫ).</summary>
+      public CScore.Fem.FemCheckScope GetFemCheckScope(CScore.Fem.FemMember member) =>
+         CScore.Fem.FemCheckScope.ForMember(member, GetFemMeshElements(member.SchemaId));
+
       /// <summary>
       /// Сечение группы — первое назначенное у её элементов. Элементы группы — конструктивные FemMember;
-      /// у схем без конструктивного слоя (импорт ЛИРА/SCAD) — КЭ сетки с теми же номерами.
+      /// у групп импортированных схем (ЛИРА/SCAD, в т.ч. кБ) — КЭ сетки с теми же номерами.
       /// </summary>
       public int? GetFemMemberGroupCrossSectionId(CScore.Fem.FemMemberGroup group)
       {
-         var tags = GroupElemTags(group);
-         return IsFemConstructiveLayerEmpty(group.SchemaId)
-            ? GetFemMeshElements(group.SchemaId).Where(e => tags.Contains(e.ElemTag)).Select(e => e.CrossSectionId).FirstOrDefault(id => id != null)
-            : GetFemMembers(group.SchemaId).Where(e => tags.Contains(e.ElemTag)).Select(e => e.CrossSectionId).FirstOrDefault(id => id != null);
+         var scope = GetFemCheckScope(group);
+         return scope.RefersToMeshElements
+            ? scope.Elements.Select(e => e.Element.CrossSectionId).FirstOrDefault(id => id != null)
+            : scope.Members.Select(e => e.CrossSectionId).FirstOrDefault(id => id != null);
       }
 
       /// <summary>
       /// Массово назначает сечение всем элементам группы (без хранения связи «группа → сечение»).
-      /// У схем без конструктивного слоя пишет в КЭ сетки: создавать там FemMember нельзя — 3D-вид,
+      /// У групп, ссылающихся на номера КЭ сетки, пишет в КЭ сетки: создавать там FemMember нельзя — 3D-вид,
       /// расчёт и «Дискретизировать» переключились бы на неполный конструктивный слой.
       /// </summary>
       public void SetFemMemberGroupCrossSection(CScore.Fem.FemMemberGroup group, int? crossSectionId)
       {
-         var tags = GroupElemTags(group);
-         if (!IsFemConstructiveLayerEmpty(group.SchemaId))
+         var scope = GetFemCheckScope(group);
+         if (!scope.RefersToMeshElements)
          {
-            foreach (var e in GetFemMembers(group.SchemaId).Where(e => tags.Contains(e.ElemTag)))
+            foreach (var e in scope.Members)
             {
                e.CrossSectionId = crossSectionId;
                SaveFemMember(e);
@@ -6431,23 +6513,16 @@ namespace OpenCS.Utilites
          using var tx = _connection.BeginTransaction();
          using var cmd = _connection.CreateCommand();
          cmd.Transaction = tx;
-         cmd.CommandText = "UPDATE fem_elements SET cross_section_id=@cs WHERE schema_id=@sid AND elem_tag=@tag";
+         cmd.CommandText = "UPDATE fem_elements SET cross_section_id=@cs WHERE id=@id";
          cmd.Parameters.AddWithValue("@cs", (object?)crossSectionId ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("@sid", group.SchemaId);
-         var tagParam = cmd.Parameters.Add("@tag", SqliteType.Text);
-         foreach (var tag in tags)
+         var idParam = cmd.Parameters.Add("@id", SqliteType.Integer);
+         foreach (var e in scope.Elements)
          {
-            tagParam.Value = tag;
+            idParam.Value = e.Element.Id;
             cmd.ExecuteNonQuery();
          }
          tx.Commit();
       }
-
-      /// <summary>Номера элементов группы (MemberTagsJson — JSON-массив чисел) как ElemTag-строки.</summary>
-      static HashSet<string> GroupElemTags(CScore.Fem.FemMemberGroup group) =>
-         (System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [])
-            .Select(t => t.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .ToHashSet();
 
       /// <summary>Сохраняет один конструктивный элемент (INSERT/UPDATE по m.Id). Используется точечными
       /// операциями вне полной пересборки топологии — например, массовым назначением сечения всем

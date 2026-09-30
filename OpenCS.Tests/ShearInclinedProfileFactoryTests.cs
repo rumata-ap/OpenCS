@@ -108,7 +108,7 @@ public sealed class ShearInclinedProfileFactoryTests
         var parameters = new ShearInclinedParams { ForceSource = "fem_profile" };
         var femSet = new ForceSet
         {
-            Id = 3, Kind = "bar", SourceType = "fea", SourceSchemaId = 1, SourceMemberId = 2
+            Id = 3, Kind = "bar", SourceType = "fea", SourceSchemaId = 1, SourceElementId = 2
         };
 
         var result = ShearInclinedProfileFactory.Build(

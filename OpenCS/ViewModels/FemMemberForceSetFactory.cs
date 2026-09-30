@@ -45,7 +45,7 @@ public static class FemMemberForceSetFactory
             Kind = "bar",
             SourceType = "fea",
             SourceSchemaId = schema.Id,
-            SourceMemberId = member.Id,
+            SourceElementId = member.Id,
             SourceElementTag = member.ElemTag,
             Items = orderedRows
                 .Select((row, index) => row.ToLoadItem(index + 1))

@@ -146,7 +146,8 @@ namespace OpenCS.ViewModels
          {
             Label = newLabel,
             N = src.N, Mx = src.Mx, My = src.My,
-            Vx = src.Vx, Vy = src.Vy, T = src.T
+            Vx = src.Vx, Vy = src.Vy, T = src.T,
+            SourceElementNum = src.SourceElementNum, SourceSectionNum = src.SourceSectionNum
          };
          int idx = _model.Items.IndexOf(src);
          if (idx >= 0) _model.Items.Insert(idx + 1, item);

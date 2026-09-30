@@ -24,7 +24,7 @@ public class FemMemberForceSetPersistenceTests
         {
             Num = 18, Tag = "OS M1", Description = "step",
             Kind = "bar", SourceType = "fea",
-            SourceSchemaId = schema.Id, SourceMemberId = member.Id,
+            SourceSchemaId = schema.Id, SourceElementId = member.Id,
             SourceElementTag = member.ElemTag,
             Items = [
                 new LoadItem { Num = 1, Label = "node 10" },
@@ -38,7 +38,7 @@ public class FemMemberForceSetPersistenceTests
         Assert.Contains(forceSet, db.ForceSets);
         Assert.Equal("fea", forceSet.SourceType);
         Assert.Equal(schema.Id, forceSet.SourceSchemaId);
-        Assert.Equal(member.Id, forceSet.SourceMemberId);
+        Assert.Equal(member.Id, forceSet.SourceElementId);
         Assert.Equal(3, forceSet.Items.Count);
     }
 

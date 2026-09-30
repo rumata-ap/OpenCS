@@ -56,6 +56,7 @@ namespace CScore.Import
                   var item = LiraForceMapper.MapShell(forceDict, units, options);
                   item.Label = label;
                   item.Num   = num++;
+                  (item.SourceElementNum, item.SourceSectionNum) = ParseSource(label);
                   fs.ShellItems.Add(item);
                }
                else
@@ -63,6 +64,7 @@ namespace CScore.Import
                   var item = LiraForceMapper.MapBar(forceDict, units, options);
                   item.Label = label;
                   item.Num   = num++;
+                  (item.SourceElementNum, item.SourceSectionNum) = ParseSource(label);
                   fs.Items.Add(item);
                }
             }
@@ -97,6 +99,7 @@ namespace CScore.Import
                var item = LiraForceMapper.MapShell(forceDict, units, options);
                item.Label = label;
                item.Num   = num++;
+               (item.SourceElementNum, item.SourceSectionNum) = ParseSource(label);
                fs.ShellItems.Add(item);
             }
             else
@@ -104,11 +107,18 @@ namespace CScore.Import
                var item = LiraForceMapper.MapBar(forceDict, units, options);
                item.Label = label;
                item.Num   = num++;
+               (item.SourceElementNum, item.SourceSectionNum) = ParseSource(label);
                fs.Items.Add(item);
             }
          }
          result.ForceSets.Add(fs);
          return result;
       }
+
+      /// <summary>Номер КЭ и сечения из метки HTML-отчёта («127-1», «10825-C»).</summary>
+      static (int? Element, int? Section) ParseSource(string label) =>
+         ForceRowSourceParser.TryParse(label, out int elem, out int? sec, liraHtml: true)
+            ? (elem, sec)
+            : (null, null);
    }
 }

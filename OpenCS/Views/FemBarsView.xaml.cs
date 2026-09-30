@@ -44,4 +44,11 @@ public partial class FemBarsView : UserControl
 
     void AutoGroup_Click(object sender, RoutedEventArgs e)
         => _app.AutoGroupFemMembersBySection(_node.Owner.Schema);
+
+    /// <summary>Импорт усилий ЛИРЫ на выбранный конструктивный элемент (по КЭ сетки, привязанным к нему).</summary>
+    void ImportLiraForces_Click(object sender, RoutedEventArgs e)
+    {
+        if (barsGrid.SelectedItem is FemMember member && sender is MenuItem item)
+            _app.ImportLiraForcesCommand(item.Tag as string).Execute(member);
+    }
 }

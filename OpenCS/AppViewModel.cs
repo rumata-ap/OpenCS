@@ -1478,9 +1478,9 @@ namespace OpenCS
          ImportScadForcesCombinationsCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Combinations));
          ImportScadRsu2Command            = new RelayCommand(_ => ImportScadRsu2());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
-         ImportLiraForcesFromApiCommand  = new RelayCommand(p => ImportLiraForcesFromApi(p as CScore.Fem.FemMemberGroup));
-         ImportLiraRsnFromApiCommand     = new RelayCommand(p => ImportLiraRsnFromApi(p as CScore.Fem.FemMemberGroup));
-         ImportLiraRsuFromApiCommand     = new RelayCommand(p => ImportLiraRsuFromApi(p as CScore.Fem.FemMemberGroup));
+         ImportLiraForcesFromApiCommand  = new RelayCommand(p => ImportLiraForcesFromApi(p as CScore.Fem.IFemCheckable));
+         ImportLiraRsnFromApiCommand     = new RelayCommand(p => ImportLiraRsnFromApi(p as CScore.Fem.IFemCheckable));
+         ImportLiraRsuFromApiCommand     = new RelayCommand(p => ImportLiraRsuFromApi(p as CScore.Fem.IFemCheckable));
       }
 
       void SetLanguage(object? param)
@@ -3506,10 +3506,10 @@ namespace OpenCS
          else RefreshFemSchemaTreeCounts(schema);
       }
 
-      async void ImportLiraForcesFromApi(CScore.Fem.FemMemberGroup? target = null)
+      async void ImportLiraForcesFromApi(CScore.Fem.IFemCheckable? target = null)
       {
          // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
-         var member = target ?? currentFemMember;
+         CScore.Fem.IFemCheckable? member = target ?? currentFemMember;
          if (member == null)
          {
             System.Windows.MessageBox.Show(
@@ -3520,8 +3520,7 @@ namespace OpenCS
             return;
          }
 
-         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            member.MemberTagsJson) ?? [];
+         var elemIds = FemTargetElementNumbers(member);
 
          if (elemIds.Length == 0)
          {
@@ -3533,7 +3532,7 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(member));
          if (schema == null)
          {
             LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
@@ -3548,7 +3547,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadLoadCaseForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            SaveImportedForceSets(forceSets, member.Id);
+            SaveImportedForceSets(forceSets, member);
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
@@ -3563,10 +3562,10 @@ namespace OpenCS
          }
       }
 
-      async void ImportLiraRsnFromApi(CScore.Fem.FemMemberGroup? target = null)
+      async void ImportLiraRsnFromApi(CScore.Fem.IFemCheckable? target = null)
       {
          // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
-         var member = target ?? currentFemMember;
+         CScore.Fem.IFemCheckable? member = target ?? currentFemMember;
          if (member == null)
          {
             System.Windows.MessageBox.Show(
@@ -3577,8 +3576,7 @@ namespace OpenCS
             return;
          }
 
-         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            member.MemberTagsJson) ?? [];
+         var elemIds = FemTargetElementNumbers(member);
 
          if (elemIds.Length == 0)
          {
@@ -3590,7 +3588,7 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(member));
          if (schema == null)
          {
             LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
@@ -3605,7 +3603,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadLoadCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            SaveImportedForceSets(forceSets, member.Id);
+            SaveImportedForceSets(forceSets, member);
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
@@ -3620,10 +3618,10 @@ namespace OpenCS
          }
       }
 
-      async void ImportLiraRsuFromApi(CScore.Fem.FemMemberGroup? target = null)
+      async void ImportLiraRsuFromApi(CScore.Fem.IFemCheckable? target = null)
       {
          // Цель — узел, по которому вызвано контекстное меню; из главного меню — текущий выбор.
-         var member = target ?? currentFemMember;
+         CScore.Fem.IFemCheckable? member = target ?? currentFemMember;
          if (member == null)
          {
             System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"),
@@ -3631,7 +3629,7 @@ namespace OpenCS
             return;
          }
 
-         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
+         var elemIds = FemTargetElementNumbers(member);
          if (elemIds.Length == 0)
          {
             System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"),
@@ -3639,7 +3637,7 @@ namespace OpenCS
             return;
          }
 
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == member.SchemaId);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(member));
          if (schema == null) { LogService.Warning(Loc.S("ImportLiraForcesNoSchema")); return; }
          BeginBusy(string.Format(Loc.S("ImportLiraRsuStarted"), elemIds.Length, member.Tag));
 
@@ -3650,7 +3648,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadDesignCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            SaveImportedForceSets(forceSets, member.Id);
+            SaveImportedForceSets(forceSets, member);
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
@@ -3663,11 +3661,43 @@ namespace OpenCS
          }
       }
 
-      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, int memberId)
+      /// <summary>Команда импорта усилий ЛИРЫ через API по виду: "lc" — загружения, "rsn" — РСН,
+      /// иначе — РСУ. Параметр команды — цель (группа или конструктивный элемент).</summary>
+      public ICommand ImportLiraForcesCommand(string? kind) => kind switch
+      {
+         "lc"  => ImportLiraForcesFromApiCommand,
+         "rsn" => ImportLiraRsnFromApiCommand,
+         _     => ImportLiraRsuFromApiCommand,
+      };
+
+      /// <summary>Номера КЭ внешней схемы, по которым запрашиваются усилия цели: у группы — её теги
+      /// (номера КЭ импортированной схемы), у конструктивного элемента — КЭ сетки, привязанные к нему.</summary>
+      int[] FemTargetElementNumbers(CScore.Fem.IFemCheckable target) => target switch
+      {
+         CScore.Fem.FemMemberGroup group => System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [],
+         CScore.Fem.FemMember element    => [.. db.GetFemCheckScope(element).ElementNumbers],
+         _ => [],
+      };
+
+      static int FemTargetSchemaId(CScore.Fem.IFemCheckable target) => target switch
+      {
+         CScore.Fem.FemMemberGroup group => group.SchemaId,
+         CScore.Fem.FemMember element    => element.SchemaId,
+         _ => 0,
+      };
+
+      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable target)
       {
          foreach (var fs in forceSets)
          {
-            fs.SourceMemberId = memberId;
+            // Группа и конструктивный элемент — разные таблицы: id могут совпадать, поэтому колонки разные.
+            if (target is CScore.Fem.FemMember element)
+            {
+               fs.SourceElementId  = element.Id;
+               fs.SourceElementTag = element.ElemTag;
+            }
+            else if (target is CScore.Fem.FemMemberGroup group)
+               fs.SourceMemberId = group.Id;
             db.SaveForceSet(fs);
             if (!ForceSets.Contains(fs))
                ForceSets.Add(fs);

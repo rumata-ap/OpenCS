@@ -69,7 +69,7 @@ public static class ShearInclinedProfileFactory
         ShearInclinedParams parameters, ShearPlane plane,
         ForceSet? forceSet, DatabaseService? database)
     {
-        if (forceSet?.SourceSchemaId is not int schemaId || forceSet.SourceMemberId is not int memberId)
+        if (forceSet?.SourceSchemaId is not int schemaId || forceSet.SourceElementId is not int memberId)
             return new ProfileBuildResult(null,
                 "Режим эпюры FEM требует набор усилий, созданный из расчётной схемы OpenSees.", []);
 

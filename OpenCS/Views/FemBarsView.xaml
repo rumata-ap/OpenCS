@@ -19,6 +19,15 @@
                 SelectionMode="Extended"
                 EnableRowVirtualization="True"
                 VirtualizingPanel.IsVirtualizing="True">
+         <DataGrid.ContextMenu>
+            <ContextMenu>
+               <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
+                  <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Tag="lc"  Click="ImportLiraForces_Click"/>
+                  <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"    Tag="rsn" Click="ImportLiraForces_Click"/>
+                  <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"    Tag="rsu" Click="ImportLiraForces_Click"/>
+               </MenuItem>
+            </ContextMenu>
+         </DataGrid.ContextMenu>
          <DataGrid.Columns>
             <DataGridTextColumn Header="{DynamicResource FemElemTag}"  Binding="{Binding ElemTag}"    Width="80"/>
             <DataGridTextColumn Header="{DynamicResource FemSection}"  Binding="{Binding SectionTag}" Width="120"/>

@@ -38,6 +38,38 @@ public class FemMemberGroupCrossSectionTests
     }
 
     [Fact]
+    public void ImportedSchemaWithMembersFromBlocks_GroupStillRefersToMeshElements()
+    {
+        // После «Конструктивные элементы из кБ ЛИРЫ» у схемы появляется конструктивный слой,
+        // но группы ЛИРЫ по-прежнему ссылаются на номера КЭ сетки.
+        using var db = NewDb();
+        var schema = new FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
+        db.SaveFemSchema(schema);
+        db.SaveFemTopology(schema.Id,
+            [new FemNode { SchemaId = schema.Id, NodeTag = "1", X = 0 },
+             new FemNode { SchemaId = schema.Id, NodeTag = "3", X = 2 }],
+            [new FemMember { SchemaId = schema.Id, ElemTag = "кБ7", NodeIdsJson = "[1,3]",
+                             MeshSource = FemMember.MeshSourceImported }], []);
+        db.SaveFemMeshSnapshot(schema.Id,
+            [new FemMeshNode { NodeTag = "1", X = 0 }, new FemMeshNode { NodeTag = "2", X = 1 },
+             new FemMeshNode { NodeTag = "3", X = 2 }],
+            [new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]", SourceMemberTag = "кБ7" },
+             new FemElement { ElemTag = "2", NodeIdsJson = "[2,3]", SourceMemberTag = "кБ7" }]);
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "КОЛОННА №7", MemberTagsJson = "[1,2]" };
+
+        Assert.False(db.IsFemConstructiveLayerEmpty(schema.Id));
+
+        db.SetFemMemberGroupCrossSection(group, 42);
+
+        Assert.Equal(42, db.GetFemMemberGroupCrossSectionId(group));
+        Assert.All(db.GetFemMeshElements(schema.Id), e => Assert.Equal(42, e.CrossSectionId));
+        Assert.Null(db.GetFemMembers(schema.Id).Single().CrossSectionId);
+
+        var memberScope = db.GetFemCheckScope(db.GetFemMembers(schema.Id).Single());
+        Assert.Equal([1, 2], memberScope.ElementNumbers);
+    }
+
+    [Fact]
     public void ConstructiveSchema_SectionIsStoredOnFemMembersOfGroup()
     {
         using var db = NewDb();

@@ -21,6 +21,12 @@ namespace CScore
       public double Vy { get; set; }   // поперечная сила Vy, кН
       public double T  { get; set; }   // крутящий момент T, кН·м
 
+      /// <summary>Номер КЭ во внешней расчётной схеме (ЛИРА, SCAD), к которому относится строка.
+      /// Null — строка не привязана к КЭ (ручной ввод, источник без номеров КЭ).</summary>
+      public int? SourceElementNum { get; set; }
+      /// <summary>Номер сечения КЭ во внешней схеме. Null — неизвестен.</summary>
+      public int? SourceSectionNum { get; set; }
+
       /// <summary>Преобразует строку в структуру Load для расчёта CrossSection.</summary>
       public Load ToLoad() => new Load { N = N, Mx = Mx, My = My };
 
@@ -53,6 +59,13 @@ namespace CScore
       public double? SigmaY { get; set; }
       /// <summary>Импортированное касательное напряжение τxy, кПа.</summary>
       public double? TauXY  { get; set; }
+
+      /// <summary>Номер КЭ во внешней расчётной схеме (ЛИРА, SCAD), к которому относится строка.
+      /// Null — строка не привязана к КЭ (ручной ввод, источник без номеров КЭ).</summary>
+      public int? SourceElementNum { get; set; }
+      /// <summary>Номер сечения (точки выдачи) КЭ во внешней схеме. Null — неизвестен или задан
+      /// не числом (например, «Центр» у SCAD).</summary>
+      public int? SourceSectionNum { get; set; }
 
       /// <summary>
       /// Возвращает погонные Nx/Ny/Nxy: если задан хотя бы один из SigmaX/SigmaY/TauXY — считает
@@ -95,12 +108,13 @@ namespace CScore
       /// <summary>Tag конструктивного элемента в расчётной схеме.</summary>
       public string? SourceElementTag { get; set; }
 
-      /// <summary>FK → fem_members.id; для OpenSees FEA указывает на исходный конструктивный
-      /// стержень, для ручного набора равен null.</summary>
+      /// <summary>FK → fem_member_groups.id. Набор усилий группы конструктивных элементов
+      /// (импорт ЛИРА/SCAD на группу). Для ручного набора равен null.</summary>
       public int?    SourceMemberId   { get; set; }
 
-      /// <summary>FK → fem_members.id. Набор усилий одного конструктивного элемента (в отличие
-      /// от SourceMemberId, который указывает на группу). Ровно одно из двух заполнено.</summary>
+      /// <summary>FK → fem_members.id. Набор усилий одного конструктивного элемента: усилия стержня
+      /// из расчёта OpenSees или импорт на элемент (в отличие от SourceMemberId, который указывает
+      /// на группу). Заполнено не более одного из двух.</summary>
       public int?    SourceElementId  { get; set; }
 
       public List<LoadItem>      Items      { get; set; } = [];
