@@ -2281,6 +2281,7 @@
     <system:String x:Key="PlateKindLayeredSls">Слоистая модель — трещины (ПС2)</system:String>
     <!-- FemSlsCheckDialog -->
     <system:String x:Key="FemSlsDlgTitle">Проверка 2-й ГПС (раскрытие трещин)</system:String>
+    <system:String x:Key="FemCheckSlsNoShells">В группе «{0}» нет пластинчатых КЭ. Проверка 2-й ГПС выполняется только для пластин.</system:String>
     <system:String x:Key="FemSlsDlgPlateKind">Метод проверки</system:String>
     <system:String x:Key="FemSlsDlgNlForceSet">Набор усилий NL</system:String>
     <system:String x:Key="FemSlsDlgNlNone">(не выбран — использовать долю)</system:String>

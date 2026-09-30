@@ -1549,6 +1549,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCheckAddSls}"
+                                        Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
                                  <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}"

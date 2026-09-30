@@ -2281,6 +2281,7 @@
     <system:String x:Key="PlateKindLayeredSls">Layered model — cracking (SLS)</system:String>
     <!-- FemSlsCheckDialog -->
     <system:String x:Key="FemSlsDlgTitle">2nd Limit State Check (Crack Width)</system:String>
+    <system:String x:Key="FemCheckSlsNoShells">Group "{0}" has no shell elements. The 2nd limit state check is available for plates only.</system:String>
     <system:String x:Key="FemSlsDlgPlateKind">Check method</system:String>
     <system:String x:Key="FemSlsDlgNlForceSet">NL force set</system:String>
     <system:String x:Key="FemSlsDlgNlNone">(none — use fraction)</system:String>

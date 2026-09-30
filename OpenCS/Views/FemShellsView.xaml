@@ -9,6 +9,8 @@
          <Separator/>
          <Button Content="{DynamicResource FemCheckAdd}"
                  Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+         <Button Content="{DynamicResource FemCheckAddSls}"
+                 Command="{Binding DataContext.AddSlsFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
       </ToolBar>
       <DataGrid x:Name="shellsGrid"
                 AutoGenerateColumns="False"

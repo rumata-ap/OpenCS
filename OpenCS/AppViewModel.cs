@@ -1465,7 +1465,7 @@ namespace OpenCS
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
-         AddSlsFemCheckCommand     = new RelayCommand(_ => AddSlsFemCheck());
+         AddSlsFemCheckCommand     = new RelayCommand(p => AddSlsFemCheck(p as CScore.Fem.FemMemberGroup));
          AddFemCheckByGroupCommand = new RelayCommand(p =>
          {
              if (p is string g && g == "sls") AddSlsFemCheck();
@@ -3981,9 +3981,17 @@ namespace OpenCS
          db.SaveFemCheck(check);
       }
 
-      void AddSlsFemCheck()
+      /// <param name="group">Группа, из меню которой вызвана команда: становится целью проверки.</param>
+      void AddSlsFemCheck(CScore.Fem.FemMemberGroup? group = null)
       {
-         var dlg = new Views.FemSlsCheckDialog(this);
+         var dlg = new Views.FemSlsCheckDialog(this, target: group);
+         if (group != null && !dlg.HasTarget(group))
+         {
+            dlg.Close();
+            System.Windows.MessageBox.Show(string.Format(Loc.S("FemCheckSlsNoShells"), group.Tag),
+               Loc.S("FemSlsDlgTitle"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+         }
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          db.SaveFemCheck(dlg.ResultCheck);
       }

@@ -16,13 +16,19 @@ public partial class FemSlsCheckDialog : Window
     readonly AppViewModel _app;
     public FemCheck? ResultCheck { get; private set; }
 
-    public FemSlsCheckDialog(AppViewModel app, FemCheck? existing = null)
+    /// <param name="target">Группа, которую выбрать целью новой проверки.</param>
+    public FemSlsCheckDialog(AppViewModel app, FemCheck? existing = null, FemMemberGroup? target = null)
     {
         _app = app;
         InitializeComponent();
-        DataContext = new FemSlsCheckDialogVM(app, existing, ForceSetsBox);
+        var vm = new FemSlsCheckDialogVM(app, existing, ForceSetsBox);
+        DataContext = vm;
+        if (existing == null && target != null) vm.SelectGroup(target);
         Owner = Application.Current.MainWindow;
     }
+
+    /// <summary>Выбрана ли целью заданная группа (в списке целей только группы с пластинчатыми КЭ).</summary>
+    public bool HasTarget(FemMemberGroup group) => ((FemSlsCheckDialogVM)DataContext).SelectedMember?.Group == group;
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
@@ -166,6 +172,14 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
 
         if (existing != null) LoadFromExisting(existing);
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
+    }
+
+    /// <summary>Выбрать целью группу; если её нет среди целей, выбор не меняется.</summary>
+    public void SelectGroup(FemMemberGroup group)
+    {
+        if (Schemas.FirstOrDefault(s => s.Id == group.SchemaId) is not { } schema) return;
+        if (schema != SelectedSchema) SelectedSchema = schema;
+        if (Members.FirstOrDefault(t => t.Group == group) is { } item) SelectedMember = item;
     }
 
     void LoadFromExisting(FemCheck check)
