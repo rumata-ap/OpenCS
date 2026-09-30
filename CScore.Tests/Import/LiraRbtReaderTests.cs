@@ -1,3 +1,4 @@
+using CScore.Fem;
 using CScore.Import;
 using CScore.PlateRebar;
 using Xunit;
@@ -123,7 +124,8 @@ public class LiraRbtReaderTests
       var f = Load("tza-scheme-1lin.RBT");
       Assert.Empty(f.Warnings);
       Assert.Equal(15, f.PlateTypes.Count);
-      Assert.Equal(6, f.Skipped.Count);
+      Assert.Equal(6, f.BarTypes.Count);
+      Assert.Empty(f.Skipped);
       Assert.Equal("Фоновое", f.PlateTypes[1].Comment);
 
       // Ячейка таблицы «Элементы - ТЗА»: фон 1 + BX-d10s300 (2) + BY-d10s300 (4)
@@ -159,6 +161,57 @@ public class LiraRbtReaderTests
       Assert.True(r.IsEmpty);
       Assert.Equal([16, 20], r.MissingTypeIds);
       Assert.Empty(r.ToPlateRebarLayers(0.2));
+   }
+
+   [Fact]
+   public void Scheme1Lin_BeamTypes_RowsAtBottomAndTopFace()
+   {
+      var f = Load("tza-scheme-1lin.RBT");
+
+      // Площадь стержня в файле — по сортаменту (Ø16 — 2,011, Ø20 — 3,142 см²).
+      // Поля записи сверяются с автоименем ТЗА: «AUAS.B 3d16 c4.0/4.0», «AUAS.T 3d20 a6.0/6.0» …
+      void AssertBar(int id, LiraBarRebarFace face, int count, double d, double a, LiraRebarBinding binding, string name)
+      {
+         var t = f.BarTypes[id];
+         Assert.Equal(name, t.Name);
+         Assert.Equal((face, count, d, a, a, binding), (t.Face, t.Count, t.DiameterMm, t.A, t.ASide, t.Binding));
+         Assert.Equal(count * Bar(d), t.AreaCm2, 1);
+      }
+      AssertBar(16, LiraBarRebarFace.Bottom, 3, 16, 4, LiraRebarBinding.Cover, "AUAS.B 3d16 c4.0/4.0");
+      AssertBar(17, LiraBarRebarFace.Bottom, 2, 20, 4, LiraRebarBinding.Centroid, "AUAS.B 2d20 a4.0/4.0");
+      AssertBar(18, LiraBarRebarFace.Bottom, 2, 16, 4, LiraRebarBinding.Centroid, "AUAS.B 2d16 a4.0/4.0");
+      AssertBar(19, LiraBarRebarFace.Top, 3, 20, 6, LiraRebarBinding.Centroid, "AUAS.T 3d20 a6.0/6.0");
+      AssertBar(20, LiraBarRebarFace.Top, 2, 20, 6, LiraRebarBinding.Centroid, "AUAS.T 2d20 a6.0/6.0");
+      AssertBar(21, LiraBarRebarFace.Top, 2, 16, 6, LiraRebarBinding.Centroid, "AUAS.T 2d16 a6.0/6.0");
+   }
+
+   [Fact]
+   public void BarRebarSource_SumsRowsOfElementTypes()
+   {
+      var f = Load("tza-scheme-1lin.RBT");
+      var source = new LiraRbtBarRebarSource(f, new Dictionary<string, string?>
+      {
+         ["24"] = "16 20",     // низ 3d16, верх 2d20
+         ["25"] = "17 18",     // два ряда у нижней грани
+         ["26"] = null,        // ТЗА не назначены
+         ["27"] = "1 16",      // пластинчатый ТЗА у стержня — армирование не собрать
+      });
+
+      Assert.True(source.HasBars);
+      Assert.Equal(3 * Bar(16), source.Get("24", BarRebarComponent.Bottom).Value!.Value, 1);
+      Assert.Equal(2 * Bar(20), source.Get("24", BarRebarComponent.Top).Value!.Value, 1);
+      Assert.Equal(3 * Bar(16) + 2 * Bar(20), source.Get("24", BarRebarComponent.LongitudinalSum).Value!.Value, 1);
+      Assert.Equal(2 * Bar(20) + 2 * Bar(16), source.Get("25", BarRebarComponent.Bottom).Value!.Value, 1);
+      Assert.Equal(0, source.Get("25", BarRebarComponent.Top).Value);
+      Assert.True(source.Get("26", BarRebarComponent.Bottom).IsMissing);
+      Assert.True(source.Get("27", BarRebarComponent.Bottom).IsMissing);
+      Assert.True(source.Get("99", BarRebarComponent.Bottom).IsMissing);
+
+      // Заданное армирование постоянно по длине КЭ; величин подбора (AU, AS, ASW) в нём нет.
+      Assert.Single(source.GetSections("24", BarRebarComponent.Top));
+      Assert.Empty(source.GetSections("26", BarRebarComponent.Top));
+      Assert.False(source.Supports(BarRebarComponent.As1));
+      Assert.True(source.Get("24", BarRebarComponent.As1).IsMissing);
    }
 
    [Fact]

@@ -99,6 +99,7 @@ public static class LiraSchemaConverter
                     ElemType    = "beam",
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                     SectionTag  = tag,
+                    ReinforcementTypeIds = ReinforcementKey(data, e.Id),
                     Origin      = FemMember.MeshSourceImported,
                 };
             })
@@ -242,7 +243,7 @@ public static class LiraSchemaConverter
     }
 
     /// <summary>Номера ТЗА КЭ без повторов по возрастанию, через пробел; null — ТЗА нет.</summary>
-    static string? ReinforcementKey(LiraSchemaData data, int elemId)
+    public static string? ReinforcementKey(LiraSchemaData data, int elemId)
         => data.ElementReinforcementTypes.TryGetValue(elemId, out var ids) && ids.Length > 0
             ? string.Join(" ", ids.Distinct().Order())
             : null;

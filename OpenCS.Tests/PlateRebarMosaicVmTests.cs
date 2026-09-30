@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows.Media;
 using CScore;
 using CScore.Fem;
+using CScore.PlateRebar;
 using OpenCS.ViewModels;
 using Xunit;
 
@@ -93,6 +94,150 @@ public class PlateRebarMosaicVmTests
 
         Assert.True(coloring.Bars);
         Assert.Equal(["10", "11"], coloring.ColorByTag.Keys.Order());
+    }
+
+    sealed class BarRebar : IBarRebarFieldSource
+    {
+        public bool Supports(BarRebarComponent component) =>
+            component is not (BarRebarComponent.Bottom or BarRebarComponent.Top);
+
+        public PlateRebarValue Get(string elemTag, BarRebarComponent component) => elemTag switch
+        {
+            "10" => PlateRebarValue.Of(component == BarRebarComponent.As1 ? 6.4 : 25.6),
+            "11" => PlateRebarValue.Failure(274),
+            _ => PlateRebarValue.Missing,
+        };
+
+        public IReadOnlyList<PlateRebarValue> GetSections(string elemTag, BarRebarComponent component) => [];
+    }
+
+    [Fact]
+    public void SelectedBars_ColorsBarsByDesignedReinforcement()
+    {
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data() with { SelectedBars = new BarRebar(), SelectedFile = "1-lin.asp" });
+        Select(vm, PlateRebarMosaicSourceKind.SelectedBars);
+
+        Assert.False(vm.HasSubject);
+        Assert.Equal(BarRebarComponent.LongitudinalSum, vm.SelectedComponent!.Component);
+        Assert.Equal(12, vm.ComponentOptions.Count);
+
+        var coloring = vm.Compute(["1"], ["10", "11", "12"])!;
+
+        Assert.True(coloring.Bars);
+        Assert.Equal(["10", "11"], coloring.ColorByTag.Keys.Order());   // КЭ 12 — нет данных
+        Assert.Equal(PlateRebarMosaicVM.FailureColor, coloring.ColorByTag["11"]);
+        Assert.Contains("1-lin.asp", vm.LegendTitle);
+        vm.SetHover("10");
+        Assert.Contains("25", vm.HoverText);
+
+        SelectComponent(vm, BarRebarComponent.As1);
+        vm.Compute([], ["10"]);
+        vm.SetHover("10");
+        Assert.Contains("6", vm.HoverText);
+    }
+
+    [Fact]
+    public void BarProfiles_ForcesBySections_PlaneFollowsComponent()
+    {
+        var set = new ForceSet
+        {
+            Tag = "ЗН 1", Kind = "bar", SourceSchemaId = 1,
+            Items =
+            [
+                new LoadItem { SourceElementNum = 10, SourceSectionNum = 1, Mx = 5, My = -20 },
+                new LoadItem { SourceElementNum = 10, SourceSectionNum = 2, Mx = 7, My = 40 },
+            ],
+        };
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data([set]));
+        Assert.False(vm.HasBarDiagrams);
+        Select(vm, PlateRebarMosaicSourceKind.Forces);
+        SelectComponent(vm, BarForceComponent.My);
+
+        Assert.True(vm.HasBarDiagrams);
+        var profiles = vm.BarProfiles(["10", "11"], out var plane)!;
+        Assert.Equal(BarDiagramPlane.Z1, plane);
+        Assert.Equal([(0.0, -20.0), (1.0, 40.0)], Assert.Single(profiles).Value);
+
+        SelectComponent(vm, BarForceComponent.Mx);
+        vm.BarProfiles(["10"], out plane);
+        Assert.Equal(BarDiagramPlane.Y1, plane);
+
+        int changes = 0;
+        vm.Changed += (_, _) => changes++;
+        vm.ShowBarDiagrams = false;
+        Assert.Equal(1, changes);
+        Assert.Null(vm.BarProfiles(["10"], out _));
+    }
+
+    [Fact]
+    public void BarProfiles_ShellMosaic_None()
+    {
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data([ShellSet("плита", Shell(1, mx: 40))]));
+        Select(vm, PlateRebarMosaicSourceKind.Forces);
+
+        Assert.False(vm.HasBarDiagrams);
+        Assert.Null(vm.BarProfiles(["10"], out _));
+    }
+
+    /// <summary>Заданная арматура стержней: на КЭ 10 низ 12, верх 8 см².</summary>
+    sealed class AssignedBarRebar : IBarRebarFieldSource
+    {
+        public bool Supports(BarRebarComponent component) =>
+            component is BarRebarComponent.LongitudinalSum or BarRebarComponent.Bottom or BarRebarComponent.Top;
+
+        public PlateRebarValue Get(string elemTag, BarRebarComponent component) => elemTag != "10"
+            ? PlateRebarValue.Missing
+            : PlateRebarValue.Of(component switch { BarRebarComponent.Bottom => 12, BarRebarComponent.Top => 8, _ => 20 });
+
+        public IReadOnlyList<PlateRebarValue> GetSections(string elemTag, BarRebarComponent component) =>
+            Get(elemTag, component) is { IsMissing: false } v ? [v] : [];
+    }
+
+    [Fact]
+    public void AssignedBars_AndDifferenceWithSelected()
+    {
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data() with
+        {
+            SelectedBars = new BarRebar(), SelectedFile = "1-lin.asp",
+            AssignedBars = new AssignedBarRebar(), AssignedFile = "1-lin.RBT",
+        });
+
+        Select(vm, PlateRebarMosaicSourceKind.AssignedBars);
+        Assert.Equal(
+            [BarRebarComponent.LongitudinalSum, BarRebarComponent.Bottom, BarRebarComponent.Top],
+            vm.ComponentOptions.Select(o => o.Component));
+        SelectComponent(vm, BarRebarComponent.Bottom);
+        var coloring = vm.Compute([], ["10", "11"])!;
+        Assert.True(coloring.Bars);
+        Assert.Equal(["10"], coloring.ColorByTag.Keys);
+        vm.SetHover("10");
+        Assert.Contains("12", vm.HoverText);
+        // Заданное армирование постоянно по длине КЭ.
+        Assert.Equal([(0.0, 12.0), (1.0, 12.0)], vm.BarProfiles(["10"], out _)!["10"]);
+
+        // Разность — только по величине, которая есть и в ТЗА, и в подборе: заданная 20 − подобранная 25,6.
+        Select(vm, PlateRebarMosaicSourceKind.DifferenceBars);
+        Assert.Equal([BarRebarComponent.LongitudinalSum], vm.ComponentOptions.Select(o => o.Component));
+        coloring = vm.Compute([], ["10", "11"])!;
+        vm.SetHover("10");
+        Assert.Contains("-5", vm.HoverText);
+        var deficit = coloring.ColorByTag["10"];
+        Assert.True(deficit.R > deficit.G);
+        // У КЭ 11 подбор не выполнен — отдельным цветом, как в мозаике подобранной.
+        Assert.Equal(PlateRebarMosaicVM.FailureColor, coloring.ColorByTag["11"]);
+    }
+
+    [Fact]
+    public void SelectedBars_NotOfferedInPlateEditor()
+    {
+        var vm = new PlateRebarMosaicVM { ShellOnly = true };
+        vm.Apply(Data() with { SelectedBars = new BarRebar() });
+
+        Assert.DoesNotContain(vm.SourceOptions, o => o.Kind == PlateRebarMosaicSourceKind.SelectedBars);
     }
 
     [Fact]

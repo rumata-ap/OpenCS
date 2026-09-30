@@ -546,6 +546,8 @@ namespace OpenCS
       public ICommand ConvertLiraBlocksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT).</summary>
       public ICommand LoadLiraRbtCommand { get; set; } = null!;
+      /// <summary>Обновить номера ТЗА у КЭ схемы из открытой в ЛИРЕ схемы (таблица «Элементы - ТЗА»).</summary>
+      public ICommand RefreshLiraReinforcementTypesCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
@@ -580,6 +582,8 @@ namespace OpenCS
       public ICommand AddSlsFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда добавления проверки по ключу группы (диспетчер uls/sls).</summary>
       public ICommand AddFemCheckByGroupCommand { get; set; } = null!;
+      /// <summary>Команда показа эпюр вдоль стержней группы или конструктивного элемента.</summary>
+      public ICommand ShowBarDiagramsCommand    { get; set; } = null!;
 
       /// <summary>Команда удаления всех наборов усилий схемы МКЭ.</summary>
        public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
@@ -1447,6 +1451,7 @@ namespace OpenCS
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          ConvertLiraBlocksCommand  = new RelayCommand(p => ConvertLiraBlocksToMembers(p as CScore.Fem.FemSchema));
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
+         RefreshLiraReinforcementTypesCommand = new RelayCommand(p => RefreshLiraReinforcementTypes(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
@@ -1466,6 +1471,7 @@ namespace OpenCS
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
          AddSlsFemCheckCommand     = new RelayCommand(p => AddSlsFemCheck(p as CScore.Fem.FemMemberGroup));
+         ShowBarDiagramsCommand    = new RelayCommand(p => ShowBarDiagrams(p as CScore.Fem.IFemCheckable));
          AddFemCheckByGroupCommand = new RelayCommand(p =>
          {
              if (p is string g && g == "sls") AddSlsFemCheck();
@@ -3349,13 +3355,14 @@ namespace OpenCS
             var parsed = CScore.Import.LiraRbtReader.Read(data);
             foreach (var w in parsed.Warnings)
                LogService.Warning(w);
-            if (parsed.PlateTypes.Count == 0 && parsed.Skipped.Count == 0)
+            if (parsed.PlateTypes.Count == 0 && parsed.BarTypes.Count == 0 && parsed.Skipped.Count == 0)
             {
                LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, Loc.S("LiraRbtNoTypes")));
                return;
             }
 
-            var assigned = db.GetFemMeshElements(schema.Id)
+            var meshElements = db.GetFemMeshElements(schema.Id);
+            var assigned = meshElements
                .Where(e => !string.IsNullOrWhiteSpace(e.ReinforcementTypeIds))
                .SelectMany(e => e.ReinforcementTypeIds!.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                .Select(t => int.TryParse(t, out int id) ? id : (int?)null)
@@ -3363,18 +3370,71 @@ namespace OpenCS
                .ToHashSet();
             if (assigned.Count == 0)
                LogService.Warning(Loc.S("LiraRbtSchemaHasNoTypes"));
-            var known = parsed.PlateTypes.Keys.Concat(parsed.Skipped.Select(t => t.Id)).ToHashSet();
+            var known = parsed.PlateTypes.Keys.Concat(parsed.BarTypes.Keys).Concat(parsed.Skipped.Select(t => t.Id)).ToHashSet();
             var missing = assigned.Where(id => !known.Contains(id)).Order().ToList();
             if (missing.Count > 0)
                LogService.Warning(string.Format(Loc.S("LiraRbtMissingTypes"), string.Join(", ", missing)));
+            // Схемы, импортированные раньше, номеров ТЗА у стержней не хранят.
+            if (parsed.BarTypes.Count > 0
+                && !meshElements.Any(e => e.ElemType == "beam" && !string.IsNullOrWhiteSpace(e.ReinforcementTypeIds)))
+               LogService.Warning(Loc.S("LiraRbtBarsHaveNoTypes"));
 
             db.SaveFemSchemaReinforcementFile(schema.Id, name, data);
-            LogService.Info(string.Format(Loc.S("LiraRbtLoaded"), name, parsed.PlateTypes.Count, parsed.Skipped.Count));
+            LogService.Info(string.Format(Loc.S("LiraRbtLoaded"), name, parsed.PlateTypes.Count, parsed.BarTypes.Count, parsed.Skipped.Count));
          }
          catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
                                         or System.IO.InvalidDataException)
          {
             LogService.Warning(string.Format(Loc.S("LiraRbtReadError"), name, ex.Message));
+         }
+      }
+
+      /// <summary>
+      /// Обновить номера ТЗА у КЭ схемы по таблице «Элементы - ТЗА» открытой в ЛИРЕ схемы. Нужна схемам,
+      /// импортированным до того, как номера ТЗА стали сохраняться у стержней, и после правки ТЗА в ЛИРЕ.
+      /// </summary>
+      async void RefreshLiraReinforcementTypes(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         BeginBusy(Loc.S("LiraTzaRefreshBusy"));
+         try
+         {
+            int? liraVersion = null;
+            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.ReadElementReinforcementTypes(out liraVersion));
+            var byTag = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (elemId, ids) in raw)
+               if (ids.Length > 0)
+                  byTag[elemId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = string.Join(" ", ids.Distinct().Order());
+
+            // В ЛИРЕ может быть открыта другая схема: номера КЭ таблицы должны быть номерами КЭ этой схемы.
+            var mesh = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var e in db.GetFemMeshElements(schema.Id))
+               if (e.Origin == CScore.Fem.FemMember.MeshSourceImported)
+                  mesh.TryAdd(e.ElemTag.Trim(), e.ElemType);
+            int foreign = byTag.Keys.Count(tag => !mesh.ContainsKey(tag));
+            if (byTag.Count == 0 || foreign > 0)
+            {
+               EndBusy();
+               System.Windows.MessageBox.Show(
+                  byTag.Count == 0 ? Loc.S("LiraTzaRefreshEmpty") : string.Format(Loc.S("LiraTzaRefreshForeign"), foreign, byTag.Count, schema.Tag),
+                  Loc.S("FemSchemaRefreshLiraTza"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+               return;
+            }
+
+            db.ReplaceFemElementReinforcementTypes(schema.Id, byTag);
+            string done = string.Format(Loc.S("LiraTzaRefreshDone"),
+               byTag.Count(kv => mesh[kv.Key] == "shell"), byTag.Count(kv => mesh[kv.Key] == "beam"));
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            System.Windows.MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("FemSchemaRefreshLiraTza"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
          }
       }
 
@@ -3994,6 +4054,22 @@ namespace OpenCS
          }
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          db.SaveFemCheck(dlg.ResultCheck);
+      }
+
+      /// <summary>Открывает окно эпюр вдоль стержней цели: импортированные усилия и подобранная арматура.</summary>
+      /// <param name="target">Группа или конструктивный элемент.</param>
+      public void ShowBarDiagrams(CScore.Fem.IFemCheckable? target)
+      {
+         if (target == null) return;
+         var vm = ViewModels.FemBarDiagramVM.Load(db, target, LogService.Warning);
+         if (vm == null || vm.NoData)
+         {
+            System.Windows.MessageBox.Show(
+               string.Format(Loc.S(vm == null ? "FemBarDiagramNoBars" : "FemBarDiagramNoData"), target.Tag),
+               Loc.S("FemBarDiagramMenu"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+         }
+         new Views.FemBarDiagramDialog(vm) { Owner = System.Windows.Application.Current.MainWindow }.Show();
       }
 
       void EditFemCheck(CScore.Fem.FemCheck? check)

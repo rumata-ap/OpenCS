@@ -121,6 +121,31 @@ static class LiraApiSchemaReader
         return data;
     }
 
+    /// <summary>
+    /// Прочитать из запущенной ЛИРЫ только таблицу «Элементы - ТЗА»: номер КЭ → номера ТЗА.
+    /// Нужна схемам, импортированным до того, как номера ТЗА стали сохраняться у стержней.
+    /// </summary>
+    /// <param name="liraVersion">Год версии ЛИРЫ из ProgID (null — не определена).</param>
+    /// <exception cref="InvalidOperationException">Нет открытого документа, версия старше 2025 или таблица не читается.</exception>
+    public static Dictionary<int, int[]> ReadElementReinforcementTypes(out int? liraVersion)
+    {
+        dynamic lira = LiraComConnector.ConnectApplication(out liraVersion);
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException(
+                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+        if (!(liraVersion >= FirstVersionWithReinforcementTypes))
+            throw new InvalidOperationException(
+                $"Таблица «Элементы - ТЗА» есть только в ЛИРА-САПФИР {FirstVersionWithReinforcementTypes} и новее.");
+
+        var diag = new List<string>();
+        var raw = TryReadTable(doc.AllTables.CreateNewItem(kElementsPRTypesTable), diag, "PRTypes");
+        if (raw == null)
+            throw new InvalidOperationException("Не удалось прочитать таблицу «Элементы - ТЗА».\n" + string.Join("\n", diag));
+        var data = new LiraSchemaData();
+        ParseElementReinforcementTypes(raw, data);
+        return data.ElementReinforcementTypes;
+    }
+
     // ------------------------------------------------------------------ доступ к таблице
 
     static object? GetItem(dynamic collection, int key, List<string> diag, string tag)

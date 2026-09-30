@@ -45,6 +45,13 @@ public partial class FemBarsView : UserControl
     void AutoGroup_Click(object sender, RoutedEventArgs e)
         => _app.AutoGroupFemMembersBySection(_node.Owner.Schema);
 
+    /// <summary>Эпюры усилий и подобранной арматуры выбранного конструктивного элемента.</summary>
+    void ShowDiagrams_Click(object sender, RoutedEventArgs e)
+    {
+        if (barsGrid.SelectedItem is FemMember member)
+            _app.ShowBarDiagrams(member);
+    }
+
     /// <summary>Импорт усилий ЛИРЫ на выбранный конструктивный элемент (по КЭ сетки, привязанным к нему).</summary>
     void ImportLiraForces_Click(object sender, RoutedEventArgs e)
     {

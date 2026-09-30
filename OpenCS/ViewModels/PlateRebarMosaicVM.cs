@@ -11,7 +11,10 @@ using OpenCS.Utilites;
 namespace OpenCS.ViewModels;
 
 /// <summary>Что показывает мозаика.</summary>
-public enum PlateRebarMosaicSourceKind { None, Selected, Assigned, Difference, Forces, Utilization }
+public enum PlateRebarMosaicSourceKind
+{
+   None, Selected, Assigned, Difference, SelectedBars, AssignedBars, DifferenceBars, Forces, Utilization,
+}
 
 /// <summary>Пункт списка источников мозаики.</summary>
 public sealed record PlateRebarMosaicSourceOption(PlateRebarMosaicSourceKind Kind, string Label);
@@ -21,7 +24,8 @@ public sealed record PlateRebarMosaicSourceOption(PlateRebarMosaicSourceKind Kin
 public sealed record PlateRebarMosaicSubjectOption(object Subject, string Label);
 
 /// <summary>Пункт списка компонент мозаики. <paramref name="Component"/> — <see cref="PlateRebarMosaicComponent"/>,
-/// <see cref="ShellForceComponent"/>, <see cref="BarForceComponent"/> или ключ источника армирования проверки.</summary>
+/// <see cref="BarRebarComponent"/>, <see cref="ShellForceComponent"/>, <see cref="BarForceComponent"/> или ключ
+/// источника армирования проверки.</summary>
 public sealed record PlateRebarMosaicComponentOption(object Component, string Label);
 
 /// <summary>Пункт списка «какую строку КЭ показывать».</summary>
@@ -36,7 +40,7 @@ public sealed record PlateRebarMosaicColoring(IReadOnlyDictionary<string, Color>
 
 /// <summary>
 /// Настройки и легенда мозаики по КЭ (общие для 3D-вида схемы и редактора пластинчатого КонЭ):
-/// армирование пластин (ASP и RBT ЛИРЫ), импортированные усилия наборов схемы, коэффициент
+/// армирование пластин (ASP и RBT ЛИРЫ) и стержней (ASP), импортированные усилия наборов схемы, коэффициент
 /// использования из результата проверки по КЭ. Вид, компонента, пороги шкалы.
 /// </summary>
 public sealed class PlateRebarMosaicVM : ViewModelBase
@@ -82,6 +86,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    readonly Action<string>? _warn;
    IPlateRebarFieldSource? _selected, _assigned;
+   IBarRebarFieldSource? _selectedBars, _assignedBars;
    string? _selectedFile, _assignedFile;
    IReadOnlyDictionary<string, double> _thicknessByTag = new Dictionary<string, double>();
    IReadOnlyList<ForceSet> _forceSets = [];
@@ -133,6 +138,55 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Нужен выбор строки КЭ (усилия: у КЭ в наборе может быть несколько строк).</summary>
    public bool HasAggregate => Kind == PlateRebarMosaicSourceKind.Forces;
 
+   /// <summary>У мозаики есть значения по сечениям стержней — можно рисовать эпюры на схеме
+   /// (усилия стержней, подобранная арматура стержней).</summary>
+   public bool HasBarDiagrams => !ShellOnly && SelectedComponent?.Component is BarForceComponent or BarRebarComponent;
+
+   bool _showBarDiagrams = true;
+   /// <summary>Рисовать эпюры на стержнях схемы.</summary>
+   public bool ShowBarDiagrams
+   {
+      get => _showBarDiagrams;
+      set
+      {
+         if (_showBarDiagrams == value) return;
+         _showBarDiagrams = value;
+         OnPropertyChanged();
+         RaiseChanged();
+      }
+   }
+
+   /// <summary>
+   /// Значения текущей мозаики по сечениям стержней: точки (доля длины КЭ от начального узла, значение)
+   /// по тегу КЭ. Null — эпюры выключены или у мозаики нет значений по сечениям.
+   /// </summary>
+   /// <param name="plane">Плоскость ординат: у изгиба и поперечной силы — плоскость их действия.</param>
+   public Dictionary<string, IReadOnlyList<(double T, double V)>>? BarProfiles(IEnumerable<string> barTags, out BarDiagramPlane plane)
+   {
+      plane = BarDiagramPlane.Z1;
+      if (!ShowBarDiagrams || !HasBarDiagrams) return null;
+      var result = new Dictionary<string, IReadOnlyList<(double T, double V)>>(StringComparer.Ordinal);
+      switch (SelectedComponent!.Component)
+      {
+         case BarForceComponent force when SelectedSubject?.Subject is ForceSet set:
+            // Mx и Vy действуют в плоскости X1Y1 стержня (Mz и Qy ЛИРЫ), остальное — в X1Z1.
+            if (force is BarForceComponent.Mx or BarForceComponent.Vy) plane = BarDiagramPlane.Y1;
+            var byNum = BarDiagram.ForceProfiles(set, force, SelectedAggregate.Aggregate);
+            foreach (string tag in barTags)
+               if (int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+                   && byNum.TryGetValue(n, out var profile))
+                  result[tag] = profile;
+            break;
+
+         case BarRebarComponent rebar when BarRebarSource() is { } source:
+            foreach (string tag in barTags)
+               if (BarDiagram.RebarProfile(source.GetSections(tag, rebar)) is { Count: > 0 } profile)
+                  result[tag] = profile;
+            break;
+      }
+      return result;
+   }
+
    PlateRebarMosaicSourceOption? _selectedSource;
    public PlateRebarMosaicSourceOption? SelectedSource
    {
@@ -172,6 +226,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          _selectedComponent = value;
          OnPropertyChanged();
          OnPropertyChanged(nameof(IsActive));
+         OnPropertyChanged(nameof(HasBarDiagrams));
          OnPropertyChanged(nameof(ThresholdsText));
          RaiseChanged();
       }
@@ -208,6 +263,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    string ThresholdsKey() => Kind switch
    {
       PlateRebarMosaicSourceKind.Forces => "F:" + SelectedComponent?.Component,
+      PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars =>
+         "B:" + SelectedComponent?.Component,
+      PlateRebarMosaicSourceKind.DifferenceBars => "BD:" + SelectedComponent?.Component,
       PlateRebarMosaicSourceKind.Utilization => "U",
       PlateRebarMosaicSourceKind.Difference => "D",
       _ => "R",
@@ -231,6 +289,11 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       IReadOnlyList<(string File, string Error)> Errors,
       string Key = "")
    {
+      /// <summary>Подобранное армирование стержней (ASP); null — файла нет или в нём нет стержней.</summary>
+      public IBarRebarFieldSource? SelectedBars { get; init; }
+      /// <summary>Заданное армирование стержней (ТЗА из RBT); null — файла нет либо стержням не назначены
+      /// разобранные брусовые ТЗА.</summary>
+      public IBarRebarFieldSource? AssignedBars { get; init; }
       /// <summary>Толщина пластинчатого КЭ по тегу, м (из схемы, иначе из подбора ASP).</summary>
       public IReadOnlyDictionary<string, double> ThicknessByTag { get; init; } = new Dictionary<string, double>();
       /// <summary>Наборы усилий схемы со строками по КЭ.</summary>
@@ -275,10 +338,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    public static Data Read(DatabaseService db, int schemaId)
    {
       IPlateRebarFieldSource? selected = null, assigned = null;
+      IBarRebarFieldSource? selectedBars = null, assignedBars = null;
       string? selectedFile = null, assignedFile = null;
       var errors = new List<(string, string)>();
       var key = new System.Text.StringBuilder();
-      var shells = db.GetFemMeshElements(schemaId).Where(e => e.ElemType == "shell").ToList();
+      var elements = db.GetFemMeshElements(schemaId);
+      var shells = elements.Where(e => e.ElemType == "shell").ToList();
+      // Номера ТЗА КЭ обновляются отдельной командой — файл при этом тот же.
+      var typeHash = new HashCode();
+      foreach (var e in elements) { typeHash.Add(e.ElemTag); typeHash.Add(e.ReinforcementTypeIds); }
+      key.Append(typeHash.ToHashCode()).Append('|');
       var thickness = new Dictionary<string, double>(StringComparer.Ordinal);
       foreach (var e in shells)
          if (e.ThicknessM is double h && h > 0) thickness[e.ElemTag.Trim()] = h;
@@ -290,6 +359,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          {
             var file = LiraAspReader.Read(asp.Data);
             selected = new LiraAspPlateRebarSource(file);
+            if (file.Bars.Count > 0) selectedBars = new LiraAspBarRebarSource(file);
             selectedFile = asp.FileName;
             foreach (var (num, plate) in file.Plates)
                if (plate.ThicknessM > 0)
@@ -306,8 +376,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          key.Append(rbt.FileName).Append(':').Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(rbt.Data)));
          try
          {
+            var file = LiraRbtReader.Read(rbt.Data);
             var typeIds = shells.Select(e => new KeyValuePair<string, string?>(e.ElemTag, e.ReinforcementTypeIds));
-            assigned = new LiraRbtPlateRebarSource(LiraRbtReader.Read(rbt.Data), typeIds);
+            assigned = new LiraRbtPlateRebarSource(file, typeIds);
+            var barSource = new LiraRbtBarRebarSource(file, elements
+               .Where(e => e.ElemType == "beam")
+               .Select(e => new KeyValuePair<string, string?>(e.ElemTag, e.ReinforcementTypeIds)));
+            if (barSource.HasBars) assignedBars = barSource;
             assignedFile = rbt.FileName;
          }
          catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
@@ -315,7 +390,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             errors.Add((rbt.FileName, ex.Message));
          }
       }
-      return new Data(selected, selectedFile, assigned, assignedFile, errors, key.ToString()) { ThicknessByTag = thickness };
+      return new Data(selected, selectedFile, assigned, assignedFile, errors, key.ToString())
+      {
+         SelectedBars = selectedBars, AssignedBars = assignedBars, ThicknessByTag = thickness,
+      };
    }
 
    /// <summary>Прочитать все данные мозаики схемы. Только в UI-потоке.</summary>
@@ -348,6 +426,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _dataKey = data.Key;
       _selected = data.Selected; _selectedFile = data.SelectedFile;
       _assigned = data.Assigned; _assignedFile = data.AssignedFile;
+      _selectedBars = data.SelectedBars;
+      _assignedBars = data.AssignedBars;
       _thicknessByTag = data.ThicknessByTag;
       _checkResults.Clear();
       foreach (var (file, error) in data.Errors)
@@ -374,6 +454,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_assigned != null) options.Add(new(PlateRebarMosaicSourceKind.Assigned, Loc.S("PlateRebarMosaicSourceAssigned")));
       if (_selected != null && _assigned != null)
          options.Add(new(PlateRebarMosaicSourceKind.Difference, Loc.S("PlateRebarMosaicSourceDifference")));
+      if (!ShellOnly)
+      {
+         if (_selectedBars != null) options.Add(new(PlateRebarMosaicSourceKind.SelectedBars, Loc.S("MosaicSourceSelectedBars")));
+         if (_assignedBars != null) options.Add(new(PlateRebarMosaicSourceKind.AssignedBars, Loc.S("MosaicSourceAssignedBars")));
+         if (_selectedBars != null && _assignedBars != null)
+            options.Add(new(PlateRebarMosaicSourceKind.DifferenceBars, Loc.S("MosaicSourceDifferenceBars")));
+      }
       if (_forceSets.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Forces, Loc.S("MosaicSourceForces")));
       if (_checks.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Utilization, Loc.S("MosaicSourceUtilization")));
       SourceOptions = options;
@@ -392,6 +479,15 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.Assigned => _assigned,
       PlateRebarMosaicSourceKind.Difference when _selected != null && _assigned != null =>
          new PlateRebarDifferenceSource(_assigned, _selected),
+      _ => null,
+   };
+
+   IBarRebarFieldSource? BarRebarSource() => Kind switch
+   {
+      PlateRebarMosaicSourceKind.SelectedBars => _selectedBars,
+      PlateRebarMosaicSourceKind.AssignedBars => _assignedBars,
+      PlateRebarMosaicSourceKind.DifferenceBars when _selectedBars != null && _assignedBars != null =>
+         new BarRebarDifferenceSource(_assignedBars, _selectedBars),
       _ => null,
    };
 
@@ -429,6 +525,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _selectedComponent = ComponentOptions.FirstOrDefault(o => Equals(o.Component, previous)) ?? ComponentOptions.FirstOrDefault();
       OnPropertyChanged(nameof(SelectedComponent));
       OnPropertyChanged(nameof(IsActive));
+      OnPropertyChanged(nameof(HasBarDiagrams));
       OnPropertyChanged(nameof(ThresholdsText));
    }
 
@@ -453,6 +550,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return CheckResults(check).Select(r => r.RebarSource).Distinct()
                .Select(key => new PlateRebarMosaicComponentOption(key,
                   key == "" ? Loc.S("MosaicUtilization") : FemCheckContext.SourceName(key)))
+               .ToList();
+
+         case PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars
+            or PlateRebarMosaicSourceKind.DifferenceBars when BarRebarSource() is { } bars:
+            return Enum.GetValues<BarRebarComponent>()
+               .Where(bars.Supports)
+               .Select(c => new PlateRebarMosaicComponentOption(c, Loc.S("MosaicBarRebar" + c)))
                .ToList();
 
          default:
@@ -522,6 +626,17 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             foreach (string tag in bars ? barTags : shellTags)
                values[tag] = byTag.GetValueOrDefault(tag);
             return new Field(values, bars, Diverging: false, Palette.Utilization, UtilizationThresholds);
+         }
+
+         case PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars
+            or PlateRebarMosaicSourceKind.DifferenceBars
+            when BarRebarSource() is { } barSource && comp.Component is BarRebarComponent c:
+         {
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in barTags)
+               values[tag] = barSource.Get(tag, c);
+            bool barDifference = Kind == PlateRebarMosaicSourceKind.DifferenceBars;
+            return new Field(values, Bars: true, barDifference, barDifference ? Palette.Difference : Palette.Rebar);
          }
 
          default:
@@ -600,6 +715,12 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          case PlateRebarMosaicSourceKind.Utilization:
             return $"{Loc.S("MosaicUtilization")}\n{SelectedSubject?.Label}"
                    + (Equals(SelectedComponent.Component, "") ? "" : $"\n{comp}");
+         case PlateRebarMosaicSourceKind.SelectedBars:
+            return $"{comp}\n{SelectedSource!.Label}\n{_selectedFile}";
+         case PlateRebarMosaicSourceKind.AssignedBars:
+            return $"{comp}\n{SelectedSource!.Label}\n{_assignedFile}";
+         case PlateRebarMosaicSourceKind.DifferenceBars:
+            return $"{comp}\n{SelectedSource!.Label}\n{_assignedFile} − {_selectedFile}";
          default:
             string unit = Equals(SelectedComponent.Component, PlateRebarMosaicComponent.Transverse) ? "" : Loc.S("PlateRebarMosaicUnit");
             string file = Kind switch

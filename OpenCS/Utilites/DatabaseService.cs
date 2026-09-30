@@ -6379,6 +6379,46 @@ namespace OpenCS.Utilites
          return (rdr.GetString(0), (byte[])rdr.GetValue(1));
       }
 
+      /// <summary>
+      /// Заменить номера ТЗА у импортированных КЭ схемы (таблица «Элементы - ТЗА» ЛИРЫ): КЭ из словаря
+      /// получают свои номера, остальные импортированные КЭ — «ТЗА нет».
+      /// </summary>
+      /// <param name="typeIdsByElemTag">Номера ТЗА через пробел по тегу КЭ.</param>
+      /// <returns>Число КЭ схемы, получивших номера ТЗА.</returns>
+      public int ReplaceFemElementReinforcementTypes(int schemaId, IReadOnlyDictionary<string, string> typeIdsByElemTag)
+      {
+         using var tx = _connection.BeginTransaction();
+         using (var clear = _connection.CreateCommand())
+         {
+            clear.Transaction = tx;
+            clear.CommandText = "UPDATE fem_elements SET reinforcement_type_ids=NULL WHERE schema_id=@sid AND origin=@origin";
+            clear.Parameters.AddWithValue("@sid", schemaId);
+            clear.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+            clear.ExecuteNonQuery();
+         }
+         int updated = 0;
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+               UPDATE fem_elements SET reinforcement_type_ids=@ids
+               WHERE schema_id=@sid AND origin=@origin AND elem_tag=@tag
+            """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            cmd.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+            var ids = cmd.Parameters.Add("@ids", Microsoft.Data.Sqlite.SqliteType.Text);
+            var tag = cmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+            foreach (var (elemTag, typeIds) in typeIdsByElemTag)
+            {
+               ids.Value = typeIds;
+               tag.Value = elemTag;
+               updated += cmd.ExecuteNonQuery();
+            }
+         }
+         tx.Commit();
+         return updated;
+      }
+
       /// <summary>Сохранить (заменить) файл подобранной арматуры ЛИРЫ (*.asp) FEM-схемы.</summary>
       public void SaveFemSchemaSelectedReinforcementFile(int schemaId, string fileName, byte[] data)
       {

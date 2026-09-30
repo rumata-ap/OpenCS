@@ -1,0 +1,67 @@
+<Window x:Class="OpenCS.Views.FemBarDiagramDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
+        MinWidth="760" MinHeight="460"
+        Width="1100" Height="620"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <!-- DataContext — FemBarDiagramVM -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="6">
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4"
+                        Visibility="{Binding HasSeveralChains, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{DynamicResource FemBarDiagramChain}" VerticalAlignment="Center"/>
+                <ComboBox Width="230" Margin="6,0,0,0" ItemsSource="{Binding Chains}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedChain, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                <TextBlock Text="{DynamicResource FemBarDiagramKind}" VerticalAlignment="Center"/>
+                <ComboBox Width="170" Margin="6,0,0,0" ItemsSource="{Binding Kinds}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedKind, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4"
+                        Visibility="{Binding IsForces, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{DynamicResource CalcTaskForceSet}" VerticalAlignment="Center"/>
+                <ComboBox Width="260" Margin="6,0,0,0" ItemsSource="{Binding ForceSets}" DisplayMemberPath="Tag"
+                          SelectedItem="{Binding SelectedForceSet, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                <TextBlock Text="{DynamicResource FemMemberForceComponent}" VerticalAlignment="Center"/>
+                <ComboBox Width="190" Margin="6,0,0,0" ItemsSource="{Binding Components}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedComponent, Mode=TwoWay}"/>
+            </StackPanel>
+        </WrapPanel>
+
+        <Border Grid.Row="1" Grid.Column="0" BorderBrush="#DDD" BorderThickness="1" Margin="6,0,6,6">
+            <helpers:FemMemberForceCanvas x:Name="canvas" FitAxis="True"/>
+        </Border>
+
+        <DataGrid x:Name="rowsGrid" Grid.Row="1" Grid.Column="1" Width="330" Margin="0,0,6,6"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" SelectionMode="Extended"
+                  EnableRowVirtualization="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource MosaicElement}" Binding="{Binding ElemNum}" Width="60"/>
+                <DataGridTextColumn Header="{DynamicResource FemBarDiagramColSection}" Binding="{Binding Section}" Width="50"/>
+                <DataGridTextColumn Header="{DynamicResource FemBarDiagramColS}" Binding="{Binding S}" Width="60"/>
+                <DataGridTextColumn x:Name="valueColumn" Header="{DynamicResource FemBarDiagramColValue}" Binding="{Binding Value}" Width="*"/>
+                <DataGridTextColumn x:Name="minColumn" Header="{DynamicResource FemBarDiagramColMin}" Binding="{Binding Min}" Width="90"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>

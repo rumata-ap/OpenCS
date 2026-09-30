@@ -1307,6 +1307,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaRefreshLiraTza}"
+                                        Command="{Binding PlacementTarget.Tag.RefreshLiraReinforcementTypesCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource FemSchemaLoadLiraAsp}"
                                         Command="{Binding PlacementTarget.Tag.LoadLiraAspCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -1555,6 +1560,11 @@
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
+                              <MenuItem Header="{DynamicResource FemBarDiagramMenu}"
+                                        Command="{Binding PlacementTarget.Tag.ShowBarDiagramsCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
                                  <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraForcesFromApiCommand,

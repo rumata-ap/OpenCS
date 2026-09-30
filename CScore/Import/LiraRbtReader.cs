@@ -93,6 +93,48 @@ public sealed class LiraPlateReinforcementType
    public bool IsComposite => Kind == LiraRbtReader.KindPlateMultiple;
 }
 
+/// <summary>Грань сечения, у которой стоит арматура простого брусового ТЗА.</summary>
+public enum LiraBarRebarFace
+{
+   /// <summary>Нижняя грань (шаблон <c>AUAS.B</c>).</summary>
+   Bottom,
+   /// <summary>Верхняя грань (шаблон <c>AUAS.T</c>).</summary>
+   Top,
+}
+
+/// <summary>
+/// Простой брусовый ТЗА <c>AUAS.B</c> / <c>AUAS.T</c>: ряд из n одинаковых стержней у нижней или верхней
+/// грани сечения, включая угловые (автоимя <c>AUAS.B 3d16 c4.0/4.0</c>).
+/// </summary>
+public sealed class LiraBarReinforcementType
+{
+   /// <summary>Номер ТЗА (совпадает с номерами в таблице «Элементы - ТЗА»).</summary>
+   public int Id { get; init; }
+   /// <summary>Код шаблона записи: 21 — AUAS.B, 22 — AUAS.T.</summary>
+   public int Kind { get; init; }
+   /// <summary>Имя ТЗА.</summary>
+   public string Name { get; init; } = "";
+   /// <summary>Комментарий пользователя.</summary>
+   public string Comment { get; init; } = "";
+   /// <summary>Грань, у которой стоит ряд.</summary>
+   public LiraBarRebarFace Face { get; init; }
+   /// <summary>Число стержней в ряду.</summary>
+   public int Count { get; init; }
+   /// <summary>Диаметр стержня, мм.</summary>
+   public double DiameterMm { get; init; }
+   /// <summary>Площадь одного стержня, см².</summary>
+   public double BarAreaCm2 { get; init; }
+   /// <summary>Привязка a от грани ряда, см (смысл — по <see cref="Binding"/>).</summary>
+   public double A { get; init; }
+   /// <summary>Привязка a_s от боковой грани, см.</summary>
+   public double ASide { get; init; }
+   /// <summary>Привязка арматуры.</summary>
+   public LiraRebarBinding Binding { get; init; }
+
+   /// <summary>Площадь ряда, см².</summary>
+   public double AreaCm2 => Count * BarAreaCm2;
+}
+
 /// <summary>ТЗА, который читатель опознал по заголовку, но не разбирает (брус, кольцо, полка…).</summary>
 public sealed record LiraRbtSkippedType(int Id, int Kind, string Name, string Comment);
 
@@ -102,6 +144,9 @@ public sealed class LiraRbtFile
    /// <summary>Пластинчатые ТЗА по номеру.</summary>
    public IReadOnlyDictionary<int, LiraPlateReinforcementType> PlateTypes { get; init; } =
       new Dictionary<int, LiraPlateReinforcementType>();
+   /// <summary>Простые брусовые ТЗА (AUAS.B / AUAS.T) по номеру.</summary>
+   public IReadOnlyDictionary<int, LiraBarReinforcementType> BarTypes { get; init; } =
+      new Dictionary<int, LiraBarReinforcementType>();
    /// <summary>Прочие ТЗА (не разобраны).</summary>
    public IReadOnlyList<LiraRbtSkippedType> Skipped { get; init; } = [];
    /// <summary>Предупреждения чтения.</summary>
@@ -114,8 +159,14 @@ public sealed class LiraRbtFile
 /// Файл — MFC CArchive, в котором один и тот же список ТЗА записан в нескольких версиях формата
 /// подряд (записи версий 2, 3, 3, 4). Читаются только записи версии 4: у них есть признак привязки.
 /// Заголовок записи: <c>int kind, int 4, int ID, CString имя, CString комментарий, COLORREF, int NL</c>.
-/// Разбираются пластинчатые шаблоны (kind 54 — AS/AS_S_*, 52 — AS_mult); брусовые и прочие
-/// шаблоны только опознаются по заголовку и попадают в <see cref="LiraRbtFile.Skipped"/>.
+/// Разбираются пластинчатые шаблоны (kind 54 — AS/AS_S_*, 52 — AS_mult) и простые брусовые
+/// (21 — AUAS.B, 22 — AUAS.T); прочие шаблоны только опознаются по заголовку и попадают в
+/// <see cref="LiraRbtFile.Skipped"/>.
+/// </para>
+/// <para>
+/// Тело записи AUAS.B / AUAS.T после заголовка (смещения от конца заголовка): +103 <c>float Ø, мм</c>,
+/// +107 <c>float As стержня, см²</c>, +111 <c>float a</c>, +115 <c>float a_s</c>, +119 <c>short n</c>,
+/// +124 <c>byte привязка</c> (как у пластин). Сверено с автоименами шести ТЗА балок схемы 1-lin.
 /// </para>
 /// </summary>
 public static class LiraRbtReader
@@ -124,6 +175,10 @@ public static class LiraRbtReader
    public const int KindPlateSimple = 54;
    /// <summary>Код шаблона составного пластинчатого ТЗА AS_mult.</summary>
    public const int KindPlateMultiple = 52;
+   /// <summary>Код шаблона брусового ТЗА AUAS.B (ряд у нижней грани).</summary>
+   public const int KindBarBottom = 21;
+   /// <summary>Код шаблона брусового ТЗА AUAS.T (ряд у верхней грани).</summary>
+   public const int KindBarTop = 22;
 
    const int RecordVersion = 4;
    static readonly LiraPlateRebarSlot[] SlotOrder =
@@ -136,6 +191,7 @@ public static class LiraRbtReader
    public static LiraRbtFile Read(byte[] data)
    {
       var plates = new Dictionary<int, LiraPlateReinforcementType>();
+      var bars = new Dictionary<int, LiraBarReinforcementType>();
       var skipped = new List<LiraRbtSkippedType>();
       var warnings = new List<string>();
 
@@ -150,6 +206,18 @@ public static class LiraRbtReader
          r.Int32(); // COLORREF
          r.Int32(); // закон нелинейного деформирования (−1 — нет)
 
+         if (kind is KindBarBottom or KindBarTop)
+         {
+            try
+            {
+               bars[id] = ReadBarBody(r, kind, id, name, comment, warnings);
+            }
+            catch (FormatException ex)
+            {
+               warnings.Add($"ТЗА {id} «{name}»: запись не разобрана ({ex.Message}).");
+            }
+            continue;
+         }
          if (kind != KindPlateSimple && kind != KindPlateMultiple)
          {
             skipped.RemoveAll(s => s.Id == id);
@@ -167,9 +235,38 @@ public static class LiraRbtReader
          }
       }
 
-      if (plates.Count == 0 && skipped.Count == 0)
+      if (plates.Count == 0 && bars.Count == 0 && skipped.Count == 0)
          warnings.Add("В файле не найдено ни одной записи ТЗА версии 4.");
-      return new LiraRbtFile { PlateTypes = plates, Skipped = skipped, Warnings = warnings };
+      return new LiraRbtFile { PlateTypes = plates, BarTypes = bars, Skipped = skipped, Warnings = warnings };
+   }
+
+   static LiraBarReinforcementType ReadBarBody(Cursor r, int kind, int id, string name, string comment,
+      List<string> warnings)
+   {
+      // Размеры и рамка рисунка сечения-образца (B, H, ±H/2, ±B/2 …) — к армированию не относятся.
+      r.Skip(103);
+      double diameter = r.Single();
+      double barArea = r.Single();
+      double a = r.Single();
+      double aSide = r.Single();
+      int count = r.Int16();
+      r.Skip(3);
+      byte binding = r.Byte();
+
+      if (count is <= 0 or > 1000 || !(diameter is > 0 and < 1000) || !(barArea is > 0 and < 1000))
+         throw new FormatException($"n = {count}, Ø = {diameter}, As = {barArea}");
+      var bindingValue = Enum.IsDefined(typeof(LiraRebarBinding), (int)binding)
+         ? (LiraRebarBinding)binding : LiraRebarBinding.Unknown;
+      if (bindingValue == LiraRebarBinding.Unknown)
+         warnings.Add($"ТЗА {id} «{name}»: неизвестный код привязки {binding}, a трактуется как расстояние до ц. т.");
+
+      return new LiraBarReinforcementType
+      {
+         Id = id, Kind = kind, Name = name, Comment = comment,
+         Face = kind == KindBarBottom ? LiraBarRebarFace.Bottom : LiraBarRebarFace.Top,
+         Count = count, DiameterMm = diameter, BarAreaCm2 = barArea, A = a, ASide = aSide,
+         Binding = bindingValue,
+      };
    }
 
    static LiraPlateReinforcementType ReadPlateBody(Cursor r, int kind, int id, string name, string comment,

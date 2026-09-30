@@ -26,6 +26,7 @@ public sealed class FemMemberForceCanvas : Canvas
     public event Action<object>? MarkerContextMenuRequested;
 
     IReadOnlyList<Segment> _segments = [];
+    IReadOnlyList<Segment> _secondary = [];
     IReadOnlyList<Marker> _markers = [];
     object? _selectedMarkerKey;
     string _title = "";
@@ -34,7 +35,13 @@ public sealed class FemMemberForceCanvas : Canvas
     private readonly TextBlock _hoverZLabel;
     private readonly TextBlock _hoverVLabel;
 
-    double _x0, _x1, _axisY, _sMin, _sMax, _sSpan, _vMax;
+    double _x0, _x1, _axisY, _sMin, _sMax, _sSpan, _vMax, _vTop, _vBottom;
+
+    const double PlotMargin = 40;
+
+    /// <summary>Ось эпюры ставится по диапазону значений (у эпюры одного знака — у края холста);
+    /// иначе — всегда посередине.</summary>
+    public bool FitAxis { get; set; }
 
     public FemMemberForceCanvas()
     {
@@ -57,9 +64,11 @@ public sealed class FemMemberForceCanvas : Canvas
     }
 
     /// <summary>Задаёт данные эпюры и перерисовывает.</summary>
-    public void SetData(IReadOnlyList<Segment> segments, string title)
+    /// <param name="secondary">Вторая эпюра на той же оси (наименьшие значения огибающей); null — её нет.</param>
+    public void SetData(IReadOnlyList<Segment> segments, string title, IReadOnlyList<Segment>? secondary = null)
     {
         _segments = segments ?? [];
+        _secondary = secondary ?? [];
         _title = title ?? "";
         Redraw();
     }
@@ -89,17 +98,19 @@ public sealed class FemMemberForceCanvas : Canvas
         HideHover();
         if (ActualWidth < 20 || ActualHeight < 20) return;
 
-        const double margin = 40;
+        const double margin = PlotMargin;
         double w = ActualWidth, h = ActualHeight;
         _x0 = margin; _x1 = w - margin;
-        _axisY = h / 2;
 
-        _sMax = _segments.Count > 0 ? _segments.Max(s => System.Math.Max(s.S0, s.S1)) : 0;
-        _sMin = _segments.Count > 0 ? _segments.Min(s => System.Math.Min(s.S0, s.S1)) : 0;
+        var all = _segments.Concat(_secondary).ToList();
+        _sMax = all.Count > 0 ? all.Max(s => System.Math.Max(s.S0, s.S1)) : 0;
+        _sMin = all.Count > 0 ? all.Min(s => System.Math.Min(s.S0, s.S1)) : 0;
         _sSpan = _sMax - _sMin;
-        _vMax = _segments.Count > 0
-            ? _segments.SelectMany(s => new[] { System.Math.Abs(s.V0), System.Math.Abs(s.V1) }).DefaultIfEmpty(0).Max()
-            : 0;
+        var values = all.SelectMany(s => new[] { s.V0, s.V1 }).ToList();
+        _vMax = values.Count > 0 ? values.Max(System.Math.Abs) : 0;
+        _vTop = FitAxis && values.Count > 0 ? System.Math.Max(0, values.Max()) : _vMax;
+        _vBottom = FitAxis && values.Count > 0 ? System.Math.Min(0, values.Min()) : -_vMax;
+        _axisY = _vMax > 1e-12 ? MapY(0) : h / 2;
 
         AddText(_title, _x0, 6, Brushes.Black, 13, true);
 
@@ -113,36 +124,59 @@ public sealed class FemMemberForceCanvas : Canvas
         }
 
         double MapX(double s) => _x0 + (s - _sMin) / _sSpan * (_x1 - _x0);
-        double MapY(double v) => _axisY - v / _vMax * (h / 2 - margin);
 
-        var fill = new SolidColorBrush(Color.FromArgb(90, 0x2b, 0x6c, 0xb0));
-        var stroke = new SolidColorBrush(Color.FromRgb(0x2b, 0x6c, 0xb0));
-
-        foreach (var seg in _segments)
+        void DrawSeries(IReadOnlyList<Segment> segments, Color color)
         {
-            var poly = new Polygon
+            var fill = new SolidColorBrush(Color.FromArgb(90, color.R, color.G, color.B));
+            var stroke = new SolidColorBrush(color);
+            foreach (var seg in segments)
             {
-                Fill = fill,
-                Stroke = stroke,
-                StrokeThickness = 1,
-                Points =
-                [
-                    new Point(MapX(seg.S0), _axisY),
-                    new Point(MapX(seg.S0), MapY(seg.V0)),
-                    new Point(MapX(seg.S1), MapY(seg.V1)),
-                    new Point(MapX(seg.S1), _axisY),
-                ]
-            };
-            Children.Add(poly);
+                var poly = new Polygon
+                {
+                    Fill = fill,
+                    Stroke = stroke,
+                    StrokeThickness = 1,
+                    Points =
+                    [
+                        new Point(MapX(seg.S0), _axisY),
+                        new Point(MapX(seg.S0), MapY(seg.V0)),
+                        new Point(MapX(seg.S1), MapY(seg.V1)),
+                        new Point(MapX(seg.S1), _axisY),
+                    ]
+                };
+                Children.Add(poly);
+            }
         }
+
+        DrawSeries(_segments, Color.FromRgb(0x2b, 0x6c, 0xb0));
+        DrawSeries(_secondary, Color.FromRgb(0xd9, 0x7a, 0x1e));
 
         DrawAxis(_x0, _x1, _axisY);
         DrawMarkers();
 
-        AddText(_vMax.ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(_vMax) - 16, Brushes.Black, 11, false);
-        AddText((-_vMax).ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(-_vMax) + 2, Brushes.Black, 11, false);
+        if (_vTop > 1e-12)
+            AddText(_vTop.ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(_vTop) - 16, Brushes.Black, 11, false);
+        if (_vBottom < -1e-12)
+            AddText(_vBottom.ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(_vBottom) + 2, Brushes.Black, 11, false);
 
         EnsureHoverOverlays();
+    }
+
+    /// <summary>Экранная ордината значения: наибольшее — у верхнего поля, наименьшее — у нижнего.</summary>
+    double MapY(double v) =>
+        PlotMargin + (_vTop - v) / (_vTop - _vBottom) * (ActualHeight - 2 * PlotMargin);
+
+    static bool TryValueAt(IReadOnlyList<Segment> segments, double s, out double value)
+    {
+        foreach (var seg in segments)
+        {
+            if (s < System.Math.Min(seg.S0, seg.S1) || s > System.Math.Max(seg.S0, seg.S1)) continue;
+            double span = seg.S1 - seg.S0;
+            value = System.Math.Abs(span) > 1e-9 ? seg.V0 + (s - seg.S0) / span * (seg.V1 - seg.V0) : seg.V0;
+            return true;
+        }
+        value = 0;
+        return false;
     }
 
     void DrawMarkers()
@@ -228,20 +262,7 @@ public sealed class FemMemberForceCanvas : Canvas
         double s = _sMin + (pos.X - _x0) / (_x1 - _x0) * _sSpan;
         s = System.Math.Max(_sMin, System.Math.Min(_sMax, s));
 
-        double v = 0;
-        bool found = false;
-        foreach (var seg in _segments)
-        {
-            double segMin = System.Math.Min(seg.S0, seg.S1);
-            double segMax = System.Math.Max(seg.S0, seg.S1);
-            if (s >= segMin && s <= segMax)
-            {
-                double span = seg.S1 - seg.S0;
-                v = span > 1e-9 ? seg.V0 + (s - seg.S0) / span * (seg.V1 - seg.V0) : seg.V0;
-                found = true;
-                break;
-            }
-        }
+        bool found = TryValueAt(_segments, s, out double v);
         if (!found)
         {
             var closest = _segments.OrderBy(seg => System.Math.Min(System.Math.Abs(s - seg.S0), System.Math.Abs(s - seg.S1))).First();
@@ -250,7 +271,7 @@ public sealed class FemMemberForceCanvas : Canvas
         }
 
         double xLine = _x0 + (s - _sMin) / _sSpan * (_x1 - _x0);
-        double yLine = _axisY - v / _vMax * (ActualHeight / 2 - 40);
+        double yLine = MapY(v);
 
         _hoverLine.X1 = xLine; _hoverLine.X2 = xLine;
         _hoverLine.Y1 = 0; _hoverLine.Y2 = ActualHeight;
@@ -261,7 +282,8 @@ public sealed class FemMemberForceCanvas : Canvas
         SetTop(_hoverZLabel, ActualHeight - 16);
         _hoverZLabel.Visibility = Visibility.Visible;
 
-        _hoverVLabel.Text = v.ToString("G4", CultureInfo.InvariantCulture);
+        _hoverVLabel.Text = v.ToString("G4", CultureInfo.InvariantCulture)
+            + (TryValueAt(_secondary, s, out double v2) ? " / " + v2.ToString("G4", CultureInfo.InvariantCulture) : "");
         SetLeft(_hoverVLabel, xLine + 6);
         SetTop(_hoverVLabel, yLine - 16);
         _hoverVLabel.Visibility = Visibility.Visible;

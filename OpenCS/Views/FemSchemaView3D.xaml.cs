@@ -886,11 +886,23 @@ public partial class FemSchemaView3D : UserControl
     void UpdateMosaicHover(MouseEventArgs e)
     {
         if (VM is not { } vm) return;
-        if (vm.MosaicShellMeshes.Count == 0) { vm.Mosaic.SetHover(null); PlaceMosaicHoverTip(vm, e); return; }
+        if (vm.MosaicShellMeshes.Count == 0 && vm.MosaicBarSegments.Count == 0)
+        {
+            vm.Mosaic.SetHover(null);
+            PlaceMosaicHoverTip(vm, e);
+            return;
+        }
         // Перебор треугольников сцены на каждое движение мыши заметен на больших схемах.
         var now = DateTime.UtcNow;
         if ((now - _lastMosaicHover).TotalMilliseconds < 40) { PlaceMosaicHoverTip(vm, e); return; }
         _lastMosaicHover = now;
+
+        if (vm.MosaicBarSegments.Count > 0)
+        {
+            vm.Mosaic.SetHover(BarTagNear(vm, e.GetPosition(viewport)));
+            PlaceMosaicHoverTip(vm, e);
+            return;
+        }
 
         string? tag = null;
         HitTestResultBehavior Callback(HitTestResult result)
@@ -906,6 +918,33 @@ public partial class FemSchemaView3D : UserControl
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(e.GetPosition(viewport)));
         vm.Mosaic.SetHover(tag);
         PlaceMosaicHoverTip(vm, e);
+    }
+
+    /// <summary>Стержень мозаики, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.
+    /// У линий нет заливки, поэтому вместо луча по сцене — расстояние до проекции стержня.</summary>
+    string? BarTagNear(Fem3DVM vm, Point cursor)
+    {
+        const double tolerance = 6;
+        var transform = Viewport3DHelper.GetTotalTransform(viewport.Viewport);
+        bool Project(Point3D p, out Point screen)
+        {
+            var q = transform.Transform(new Point4D(p.X, p.Y, p.Z, 1));
+            screen = q.W > 1e-9 ? new Point(q.X / q.W, q.Y / q.W) : default;
+            return q.W > 1e-9; // точка за камерой
+        }
+
+        string? best = null;
+        double bestDistance = tolerance;
+        foreach (var (tag, p1, p2) in vm.MosaicBarSegments)
+        {
+            if (!Project(p1, out var a) || !Project(p2, out var b)) continue;
+            var ab = b - a;
+            double length2 = ab.LengthSquared;
+            double t = length2 > 1e-9 ? Math.Clamp(Vector.Multiply(cursor - a, ab) / length2, 0, 1) : 0;
+            double distance = (cursor - (a + ab * t)).Length;
+            if (distance <= bestDistance) { bestDistance = distance; best = tag; }
+        }
+        return best;
     }
 
     /// <summary>Подсказка со значением КЭ следует за курсором; у правого и нижнего края — по другую сторону от него.</summary>

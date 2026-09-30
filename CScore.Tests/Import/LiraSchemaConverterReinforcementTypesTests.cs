@@ -38,6 +38,15 @@ public class LiraSchemaConverterReinforcementTypesTests
    }
 
    [Fact]
+   public void BarElements_CarryTypeIds()
+   {
+      var bar = Assert.Single(LiraSchemaConverter.ToFemMeshBarElements(Schema(), 1));
+
+      Assert.Equal("6", bar.ElemTag);
+      Assert.Equal("16 20", bar.ReinforcementTypeIds);
+   }
+
+   [Fact]
    public void Groups_ByTypeSetAndPlateStiffness()
    {
       var groups = LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(Schema(), 1);

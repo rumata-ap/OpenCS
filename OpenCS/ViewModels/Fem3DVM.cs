@@ -59,6 +59,9 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Мозаика пластин: пластины по цветам полос шкалы (пусто — мозаика пластин выключена).
     /// КЭ без данных остаются в <see cref="ShellMesh"/>. Мозаика стержней идёт через <see cref="BarGroups"/>.</summary>
     public IReadOnlyList<MosaicShellMesh> MosaicShellMeshes { get; private set; } = [];
+    /// <summary>Стержни, раскрашенные мозаикой: тег КЭ и концы — для поиска стержня под курсором
+    /// (пусто — мозаика стержней выключена).</summary>
+    public IReadOnlyList<(string Tag, Point3D P1, Point3D P2)> MosaicBarSegments { get; private set; } = [];
     /// <summary>Настройки и легенда мозаики по КЭ: армирование, импортированные усилия, коэффициент использования.</summary>
     public PlateRebarMosaicVM Mosaic { get; } = new();
 
@@ -567,6 +570,15 @@ public class Fem3DVM : ViewModelBase
     {
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
         BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring) : _baseBarGroups;
+        MosaicBarSegments = coloring is { Bars: true }
+            ? _mosaicBars
+                .Select(e => (Tag: e.ElemTag.Trim(), Pair: GetBarPoints(_mosaicNodeMap, e)))
+                .Where(x => x.Pair.HasValue)
+                .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
+                .ToList()
+            : [];
+        if (MosaicBarSegments.Count > 0)
+            BarGroups = [.. BarGroups, .. BuildBarDiagrams()];
         var shellColoring = coloring is { Bars: false, ColorByTag.Count: > 0 } ? coloring : null;
         if (_highlightMember != null && shellColoring == null)
         {
@@ -579,6 +591,50 @@ public class Fem3DVM : ViewModelBase
             HiShellMesh = null;
             (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(shellColoring);
         }
+    }
+
+    /// <summary>Цвет положительной части эпюр на стержнях.</summary>
+    public static Color BarDiagramPositiveColor => Color.FromRgb(190, 40, 40);
+    /// <summary>Цвет отрицательной части эпюр на стержнях.</summary>
+    public static Color BarDiagramNegativeColor => Color.FromRgb(40, 70, 170);
+
+    /// <summary>Наибольшая ордината эпюры на стержнях — доля диагонали габарита стержней вида.</summary>
+    const double BarDiagramSizeRatio = 0.05;
+
+    /// <summary>Эпюры текущей мозаики на стержнях: ординаты по сечениям КЭ в местных осях, общий масштаб
+    /// на вид. Пусто — эпюры выключены или у мозаики нет значений по сечениям.</summary>
+    List<BarGroup> BuildBarDiagrams()
+    {
+        var profiles = Mosaic.BarProfiles(MosaicBarSegments.Select(s => s.Tag), out var plane);
+        if (profiles == null || profiles.Count == 0) return [];
+        double max = profiles.Values.SelectMany(p => p).Max(p => Math.Abs(p.V));
+        if (!(max > 0)) return [];
+
+        var bounds = new Rect3D(MosaicBarSegments[0].P1, new Size3D());
+        foreach (var (_, p1, p2) in MosaicBarSegments) { bounds.Union(p1); bounds.Union(p2); }
+        double diagonal = Math.Sqrt(bounds.SizeX * bounds.SizeX + bounds.SizeY * bounds.SizeY + bounds.SizeZ * bounds.SizeZ);
+        double scale = diagonal * BarDiagramSizeRatio / max;
+
+        var positive = new List<BarDiagramLine>();
+        var negative = new List<BarDiagramLine>();
+        foreach (var (tag, p1, p2) in MosaicBarSegments)
+            if (profiles.TryGetValue(tag, out var profile))
+                BarDiagramGeometry.AddBar(positive, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile, plane, scale);
+
+        static Point3DCollection Points(List<BarDiagramLine> lines)
+        {
+            var points = new Point3DCollection(lines.Count * 2);
+            foreach (var l in lines)
+            {
+                points.Add(new Point3D(l.A.X, l.A.Y, l.A.Z));
+                points.Add(new Point3D(l.B.X, l.B.Y, l.B.Z));
+            }
+            return points;
+        }
+        var result = new List<BarGroup>();
+        if (positive.Count > 0) result.Add(new BarGroup("", BarDiagramPositiveColor, Points(positive), 1.0));
+        if (negative.Count > 0) result.Add(new BarGroup("", BarDiagramNegativeColor, Points(negative), 1.0));
+        return result;
     }
 
     /// <summary>Стержни по цветам полос шкалы; стержни без данных — тонкой серой линией.</summary>

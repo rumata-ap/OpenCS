@@ -196,7 +196,8 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
                 if (AcceptsForceSet(fs))
                     FilteredForceSets.Add(new FemCheckForceSetItem(fs, string.Format(Loc.S("FemCheckDlgSetRows"), fs.Tag, rows)));
 
-            bool anyTza = _scope.Elements.Any(e => !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
+            bool anyTza = _scope.Elements.Any(e =>
+                e.Element.ElemType == "shell" && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
             AssignedSourceEnabled = data.Rbt != null && anyTza;
             AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
             SelectedSourceEnabled = data.Asp != null;

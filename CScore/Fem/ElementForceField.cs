@@ -98,19 +98,21 @@ public static class ElementForceField
         foreach (var row in set.Items)
         {
             if (row.SourceElementNum is not int num) continue;
-            double v = component switch
-            {
-                BarForceComponent.N => row.N,
-                BarForceComponent.Mx => row.Mx,
-                BarForceComponent.My => row.My,
-                BarForceComponent.Vx => row.Vx,
-                BarForceComponent.Vy => row.Vy,
-                _ => row.T,
-            };
-            Put(result, num, v, aggregate);
+            Put(result, num, BarValue(row, component), aggregate);
         }
         return result;
     }
+
+    /// <summary>Значение компоненты в строке усилий стержня.</summary>
+    public static double BarValue(LoadItem row, BarForceComponent component) => component switch
+    {
+        BarForceComponent.N => row.N,
+        BarForceComponent.Mx => row.Mx,
+        BarForceComponent.My => row.My,
+        BarForceComponent.Vx => row.Vx,
+        BarForceComponent.Vy => row.Vy,
+        _ => row.T,
+    };
 
     static double? ShellValue(ShellLoadItem row, ShellForceComponent component, int num, Func<int, double?> thicknessM)
     {

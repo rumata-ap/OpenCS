@@ -21,6 +21,7 @@
                 VirtualizingPanel.IsVirtualizing="True">
          <DataGrid.ContextMenu>
             <ContextMenu>
+               <MenuItem Header="{DynamicResource FemBarDiagramMenu}" Click="ShowDiagrams_Click"/>
                <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
                   <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Tag="lc"  Click="ImportLiraForces_Click"/>
                   <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"    Tag="rsn" Click="ImportLiraForces_Click"/>
