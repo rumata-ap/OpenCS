@@ -47,10 +47,11 @@ public static class ShellLayeredCheck
                 DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
-        var solver = new ShellStrainSolver(section, cDiag, rDiag, tensionOverride: tensionOverride);
-
         double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
-        var res = solver.Solve(target);
+        var (res, solved) = SolveWithFallback(section, cDiag, rDiag, target, concreteMat, rebarMat, calcType,
+            tensionOverride);
+        string refinedNote = RefinedNote(section, solved);
+        section = solved;
 
         strainState  = res.StrainState;
         resultForces = res.Forces;
@@ -111,13 +112,51 @@ public static class ShellLayeredCheck
 
         if (utilC >= utilS)
             return new Result(passed, util, "п.8.1.30 бетон",
-                epsBDesc + $", ε={Math.Abs(eps2):G3}",
+                epsBDesc + $", ε={Math.Abs(eps2):G3}" + refinedNote,
                 true, res.Iterations, res.Residual);
         else
             return new Result(passed, util, "п.8.1.30 арм.",
-                $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}",
+                $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}" + refinedNote,
                 true, res.Iterations, res.Residual);
     }
+
+    /// <summary>Число слоёв, на которое измельчается сечение, когда на заданном разбиении НДС не находится.</summary>
+    public const int RefinedLayers = 40;
+
+    /// <summary>
+    /// Поиск НДС с запасными путями: обычный Ньютон → каскад <see cref="ShellStrainSolver.SolveRobust"/>
+    /// → то же на сечении, измельчённом до <see cref="RefinedLayers"/> слоёв.
+    /// Измельчение нужно слоистой модели при тонкой сжатой зоне: бетон слоя работает по деформации
+    /// его середины, и пока сжатая зона тоньше половины слоя (10 слоёв при h = 200 мм — 10 мм, а
+    /// у слабоармированной плиты x ≈ 8 мм), сжатого бетона в модели нет вовсе — равновесия
+    /// с моментом больше Rsc·A's·(h0 − a') не существует, и итерации расходятся.
+    /// </summary>
+    /// <returns>Результат и сечение, на котором он получен (исходное или измельчённый клон).</returns>
+    public static (ShellStrainSolverResult Result, PlateSection Section) SolveWithFallback(
+        PlateSection section, Diagramm cDiag, Diagramm rDiag, double[] target,
+        Material concreteMat, Material rebarMat, CalcType calcType, bool? tensionOverride = null)
+    {
+        var solver = new ShellStrainSolver(section, cDiag, rDiag, tensionOverride: tensionOverride);
+        var res = solver.Solve(target);
+        if (res.Converged) return (res, section);
+
+        var robust = solver.SolveRobust(target, concreteMat, rebarMat, calcType);
+        if (robust.Converged) return (robust, section);
+
+        bool layered = section.PlateModel is not ("char1d_principal" or "char1d_axial");
+        if (!layered || section.NLayers >= RefinedLayers) return (res, section);
+
+        var refined = section.CloneForCalc();
+        refined.NLayers = RefinedLayers;
+        var refinedSolver = new ShellStrainSolver(refined, cDiag, rDiag, tensionOverride: tensionOverride);
+        var fine = refinedSolver.Solve(target);
+        if (!fine.Converged) fine = refinedSolver.SolveRobust(target, concreteMat, rebarMat, calcType);
+        return fine.Converged ? (fine, refined) : (res, section);
+    }
+
+    /// <summary>Пометка к описанию результата, полученного на измельчённом сечении.</summary>
+    public static string RefinedNote(PlateSection given, PlateSection solved) =>
+        ReferenceEquals(given, solved) ? "" : $"; слоёв по толщине {solved.NLayers} (при {given.NLayers} решения нет)";
 
     static double MinPrincipalStrain(double ex, double ey, double gxy)
     {

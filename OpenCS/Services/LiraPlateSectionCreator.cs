@@ -156,6 +156,9 @@ public static class LiraPlateSectionCreator
             Num = db.PlateSections.Count > 0 ? db.PlateSections.Max(s => s.Num) + 1 : 1,
             Tag = tag,
             H = template.Combo.ThicknessM,
+            // Подбор ЛИРЫ близок к минимальному армированию: сжатая зона — несколько миллиметров,
+            // и десяти слоёв по толщине слоистой модели на неё не хватает.
+            NLayers = ShellLayeredCheck.RefinedLayers,
             ConcreteMaterialId = concrete.Id,
             RebarMaterialId = rebar.Id,
             RebarLayers = [.. template.Layers.Select(l => l.Clone())],

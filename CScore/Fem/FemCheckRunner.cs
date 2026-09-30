@@ -358,32 +358,36 @@ public static partial class FemCheckRunner
                 DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
-        var solver = new ShellStrainSolver(section, cDiag, rDiag);
+        // ── ULS: деформационная проверка п. 8.1.30 — в ShellLayeredCheck (НДС ищется там же) ──
+        if (!isSls)
+        {
+            var r = ShellLayeredCheck.CheckUls(section, shell, concreteMat, rebarMat, calcType,
+                concreteDiagType, out _, out _, out _);
+            return (r.Utilization, r.Formula, r.Description);
+        }
 
         double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
-        var result = solver.Solve(target);
+        var (result, solved) = ShellLayeredCheck.SolveWithFallback(section, cDiag, rDiag, target,
+            concreteMat, rebarMat, diagCalcType);
 
         if (!result.Converged)
             return (2.0, "НДС", $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}");
 
         // ── SLS: ширина раскрытия трещин (п. 8.2.15) ────────────────────────────
-        if (isSls)
         {
+            string refinedNote = ShellLayeredCheck.RefinedNote(section, solved);
+            section = solved;
             if (!concreteMat.chars.TryGetValue(CalcType.N, out var cChSls) || cChSls == null)
                 throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены");
             if (!rebarMat.chars.TryGetValue(CalcType.N, out var rChSls) || rChSls == null)
                 throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены");
 
-            return RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
-                                      calcType, pParams.Phi2, pParams.AcrcLimMm,
-                                      concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
-                                      pParams.SigmaSCrc, pParams.WplGamma);
+            var sls = RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
+                                         calcType, pParams.Phi2, pParams.AcrcLimMm,
+                                         concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
+                                         pParams.SigmaSCrc, pParams.WplGamma);
+            return (sls.util, sls.formula, sls.desc + refinedNote);
         }
-
-        // ── ULS: деформационная проверка п. 8.1.30 делегирует в ShellLayeredCheck ──
-        var r = ShellLayeredCheck.CheckUls(section, shell, concreteMat, rebarMat, calcType,
-            concreteDiagType, out _, out _, out _);
-        return (r.Utilization, r.Formula, r.Description);
     }
 
     /// <summary>
