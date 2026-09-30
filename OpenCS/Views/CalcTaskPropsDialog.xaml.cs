@@ -676,6 +676,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               Kind = value.Id;
            OnPropertyChanged();
            OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(ShowRegularSection));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
            OnPropertyChanged(nameof(ShowFireCurvatureFields));
@@ -794,6 +795,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedKind));
            OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(ShowRegularSection));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
            OnPropertyChanged(nameof(ShowFireCurvatureFields));
@@ -887,6 +889,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
      }
 
     public bool IsFireKind         => FireTaskParamsBuilder.IsFireKind(Kind);
+    /// <summary>Обычное сечение выбирают вручную только вне огневых и плитных задач.</summary>
+    public bool ShowRegularSection => !IsFireKind && !IsPlatePanel;
     public bool IsFireBatchKind    => Kind == "fire_r_check_batch";
    public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
    /// <summary>Показывать параметры задачи температурной кривизны.</summary>

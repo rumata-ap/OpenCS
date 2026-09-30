@@ -108,9 +108,9 @@
 
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
                   VerticalAlignment="Center" Margin="0,0,8,8"
-                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
+                  Visibility="{Binding ShowRegularSection, Converter={StaticResource BoolToVisibility}}"/>
       <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,8"
-                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}">
+                  Visibility="{Binding ShowRegularSection, Converter={StaticResource BoolToVisibility}}">
          <ComboBox ItemsSource="{Binding Sections}"
                    SelectedItem="{Binding SelectedSection}"
                    DisplayMemberPath="Tag"/>
