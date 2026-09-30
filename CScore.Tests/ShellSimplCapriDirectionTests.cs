@@ -143,9 +143,12 @@ public class ShellSimplCapriDirectionTests
     {
         var plus = Capri(CaseA, Uls);
         var minus = Capri(MirrorShear(CaseA), Uls);
-        Assert.Equal(35.0, plus.CriticalTop!.Alpha_deg);
-        Assert.Equal(145.0, minus.CriticalTop!.Alpha_deg);
-        Assert.InRange(plus.EtaMax!.Value, 0.6636, 0.6646);
+        // 30.09.2026: при x ≤ 2a' сжатая арматура в (8.10) исключается, если это даёт большую
+        // M_ult (ShellSimplCompressionRebarExclusionTests): η 0,6641 → 0,5920, а максимум сместился
+        // с 35° на соседние 30° (на 35° η меньше в пятом знаке).
+        Assert.Equal(30.0, plus.CriticalTop!.Alpha_deg);
+        Assert.Equal(150.0, minus.CriticalTop!.Alpha_deg);
+        Assert.InRange(plus.EtaMax!.Value, 0.5915, 0.5925);
         Assert.Equal(plus.EtaMax!.Value, minus.EtaMax!.Value, 9);
 
         var slsPlus = Capri(CaseB, Sls);
@@ -207,8 +210,8 @@ public class ShellSimplCapriDirectionTests
         var uls = Capri(MirrorShear(CaseA), Uls);
         double full = uls.EtaMax!.Value;
         double quarter = MaxOverRange(uls, Uls, top: true, maxAlphaDeg: 90.0);
-        Assert.InRange(full, 0.6636, 0.6646);
-        Assert.InRange(quarter, 0.5012, 0.5022);   // критерий занижен на четверть
+        Assert.InRange(full, 0.5915, 0.5925);
+        Assert.InRange(quarter, 0.4541, 0.4551);   // критерий занижен на четверть
 
         var sls = Capri(MirrorShear(CaseB), Sls);
         Assert.True(sls.CriticalTop!.Strip.Cracked);
@@ -223,8 +226,8 @@ public class ShellSimplCapriDirectionTests
     {
         double both = Capri(CaseA, Uls).EtaMax!.Value;
         double onlyMxy = Capri(With(CaseA, 5, -CaseA[5]), Uls).EtaMax!.Value;
-        Assert.InRange(both, 0.6636, 0.6646);
-        Assert.InRange(onlyMxy, 0.6382, 0.6392);
+        Assert.InRange(both, 0.5915, 0.5925);
+        Assert.InRange(onlyMxy, 0.5815, 0.5825);
 
         double slsBoth = Capri(CaseB, Sls).CriticalTop!.Strip.Acrc_mm;
         double slsOnlyMxy = Capri(With(CaseB, 5, -CaseB[5]), Sls).CriticalTop!.Strip.Acrc_mm;

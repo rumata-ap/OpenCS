@@ -181,14 +181,47 @@ namespace CScore
                 }
                 else
                 {
-                    waStrips.Add(MakeStripUlsWorst("x, верх", Mx_top, nxCands, h, h - ct, cb,
-                        As_x_top, As_x_bot, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUlsWorst("x, низ", Mx_bot, nxCands, h, h - cb, ct,
-                        As_x_bot, As_x_top, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUlsWorst("y, верх", My_top, nyCands, h, h - ct, cb,
-                        As_y_top, As_y_bot, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUlsWorst("y, низ", My_bot, nyCands, h, h - cb, ct,
-                        As_y_bot, As_y_top, concreteChars, rebarChars));
+                    // Полоса грани: момент со знаком относительно этой грани ("+" — растягивает её).
+                    ShellSimplStripResult Strip(bool x, bool top, double m, double[] nCands) =>
+                        MakeStripUlsSigned(
+                            (x ? "x, " : "y, ") + (top ? "верх" : "низ"), m, nCands, h,
+                            top ? ct : cb, top ? cb : ct,
+                            x ? (top ? As_x_top : As_x_bot) : (top ? As_y_top : As_y_bot),
+                            x ? (top ? As_x_bot : As_x_top) : (top ? As_y_bot : As_y_top),
+                            concreteChars, rebarChars);
+
+                    // Пара полос x и y одной грани. Расчётные моменты Вуда — частный выбор в
+                    // условии (8.100) (Mx,ult − Mx)·(My,ult − My) ≥ Mxy²: Mx* = Mx + k·|Mxy|,
+                    // My* = My + |Mxy|/k при любом k > 0. Когда Mx + |Mxy| < 0, правило Вуда берёт
+                    // k = |Mx/Mxy| и обнуляет Mx*: моменту арматура этой грани не нужна. Но при
+                    // растягивающей N (п. 8.1.54: с продольной силой Mx,ult — по 8.1.57, с её
+                    // учётом) полоса с M* = 0 считается как центрально растянутая и отдаёт
+                    // половину N арматуре этой грани, хотя фактический момент уводит N к другой
+                    // грани. Поэтому при растяжении и обнулённом моменте проверяется и пара k = 1
+                    // без обнуления, с моментом, сжимающим грань; берётся пара с меньшим η —
+                    // условие (8.100) достаточно выполнить при одном k.
+                    (ShellSimplStripResult X, ShellSimplStripResult Y) FacePair(bool top, double mxWood, double myWood)
+                    {
+                        var sx = Strip(true, top, mxWood, nxCands);
+                        var sy = Strip(false, top, myWood, nyCands);
+                        double sign = top ? 1.0 : -1.0;
+                        double mxRaw = sign * p.Mx + Math.Abs(p.Mxy);
+                        double myRaw = sign * p.My + Math.Abs(p.Mxy);
+                        bool relief = (mxRaw < 0.0 && nxCands[0] > 0.0) || (myRaw < 0.0 && nyCands[0] > 0.0);
+                        if (!relief || sx.NoRebar || sy.NoRebar) return (sx, sy);
+
+                        var ax = Strip(true, top, mxRaw, nxCands);
+                        var ay = Strip(false, top, myRaw, nyCands);
+                        if (ax.NoRebar || ay.NoRebar) return (sx, sy);
+                        return Math.Max(ax.Eta, ay.Eta) < Math.Max(sx.Eta, sy.Eta) ? (ax, ay) : (sx, sy);
+                    }
+
+                    var topPair = FacePair(true, Mx_top, My_top);
+                    var botPair = FacePair(false, Mx_bot, My_bot);
+                    waStrips.Add(topPair.X);
+                    waStrips.Add(botPair.X);
+                    waStrips.Add(topPair.Y);
+                    waStrips.Add(botPair.Y);
                     etaMax = waStrips.Max(s => s.Eta);
                 }
             }
@@ -349,6 +382,32 @@ namespace CScore
                 if (worst == null || r.Eta > worst.Eta) worst = r;
             }
             return worst!;
+        }
+
+        /// <summary>
+        /// Полоса ПС1 грани при моменте со знаком: "+" растягивает эту грань, "−" сжимает её.
+        /// При отрицательном моменте то же сечение считается с растянутой противоположной
+        /// гранью — проверяются оба ряда арматуры при фактическом положении продольной силы;
+        /// в результате <see cref="ShellSimplStripResult.M_des"/> остаётся со знаком.
+        /// </summary>
+        /// <param name="cover">Привязка арматуры этой грани, м.</param>
+        /// <param name="coverOpposite">Привязка арматуры противоположной грани, м.</param>
+        /// <param name="As_face">Арматура этой грани, м²/м.</param>
+        /// <param name="As_opposite">Арматура противоположной грани, м²/м.</param>
+        static ShellSimplStripResult MakeStripUlsSigned(string name,
+            double m, double[] nCands, double h, double cover, double coverOpposite,
+            double As_face, double As_opposite,
+            MaterialChars concrete, MaterialChars rebar)
+        {
+            if (m >= 0.0)
+                return MakeStripUlsWorst(name, m, nCands, h, h - cover, coverOpposite,
+                    As_face, As_opposite, concrete, rebar);
+
+            var r = MakeStripUlsWorst(name, -m, nCands, h, h - coverOpposite, cover,
+                As_opposite, As_face, concrete, rebar);
+            r.M_des = m;
+            r.Case = "Момент сжимает грань (k = 1, ф. 8.100). " + r.Case;
+            return r;
         }
 
         internal static double NeutralAxis(double h0, double aPrime,
@@ -765,26 +824,54 @@ namespace CScore
             if (N_des < -N_THRESHOLD)
             {
                 double N_c = -N_des;
-                x = (N_c + Rs * As_t - Rsc * As_c) / (Rb * b);
-                if (x / h0 > xi_r)
+
+                // Высота сжатой зоны по (8.12)/(8.13) при заданной площади сжатой арматуры.
+                double CompressionX(double asC)
                 {
-                    double num = N_c + Rs * As_t * (1.0 + xi_r) / (1.0 - xi_r) - Rsc * As_c;
-                    double den = Rb * b + 2.0 * Rs * As_t / (h0 * (1.0 - xi_r));
-                    x = num / den;
+                    double xc = (N_c + Rs * As_t - Rsc * asC) / (Rb * b);
+                    if (xc / h0 > xi_r)
+                    {
+                        double num = N_c + Rs * As_t * (1.0 + xi_r) / (1.0 - xi_r) - Rsc * asC;
+                        double den = Rb * b + 2.0 * Rs * As_t / (h0 * (1.0 - xi_r));
+                        xc = num / den;
+                    }
+                    return Math.Max(0.0, Math.Min(xc, h0));
                 }
-                x = Math.Max(0.0, Math.Min(x, h0));
+
+                x = CompressionX(As_c);
                 m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;
+
+                // x ≤ 2a': сжатая арматура не дорабатывает до Rsc, и (8.10) с Rsc·A's занижает
+                // несущую способность — в плите при малой N до ~20 % против той же полосы при
+                // N = 0, где сжатая арматура исключается по п. 8.1.13. В п. 8.1.14 такой
+                // оговорки нет, поэтому второй раз считаем то же условие (8.10) при A's = 0 и
+                // берём большую M_ult: обе схемы статически допустимы (напряжение в сжатой
+                // арматуре от 0 до Rsc), а из нижних оценок законна наибольшая.
+                bool compressionRebarExcluded = false;
+                if (As_c > 1e-12 && x <= 2.0 * a_prime)
+                {
+                    double xNoCompression = CompressionX(0.0);
+                    double mNoCompression = Rb * b * xNoCompression * (h0 - 0.5 * xNoCompression);
+                    if (mNoCompression > m_ult)
+                    {
+                        m_ult = mNoCompression;
+                        x = xNoCompression;
+                        compressionRebarExcluded = true;
+                    }
+                }
+
+                string excludedNote = compressionRebarExcluded ? ", x ≤ 2a′, без A′s" : "";
                 if (M_des < N_THRESHOLD)
                 {
                     demand = N_c * arm / 2.0;
-                    caseStr = "Центр. сжатие, N·e ≤ M_ult (§8.1.14)";
+                    caseStr = $"Центр. сжатие{excludedNote}, N·e ≤ M_ult (§8.1.14)";
                 }
                 else
                 {
                     double e0 = M_des / N_c;
                     double e = e0 + arm / 2.0;
                     demand = N_c * e;
-                    caseStr = "Внецентр. сжатие, N·e ≤ M_ult (§8.1.14)";
+                    caseStr = $"Внецентр. сжатие{excludedNote}, N·e ≤ M_ult (§8.1.14)";
                 }
             }
             else if (Math.Abs(N_des) <= N_THRESHOLD)
@@ -792,7 +879,7 @@ namespace CScore
                 x = (Rs * As_t - Rsc * As_c) / (Rb * b);
                 x = Math.Max(0.0, Math.Min(x, xi_r * h0));
 
-                // П. 8.1.9: при x ≤ 2a' сжатая арматура не дорабатывает до Rsc, и ф. (8.5)
+                // П. 8.1.13: при x ≤ 2a' сжатая арматура не дорабатывает до Rsc, и ф. (8.4)
                 // занижает плечо внутренней пары (равнодействующая сжатия уезжает к грани).
                 // В этом случае норма переходит на ф. (8.9) — момент относительно
                 // равнодействующей сжатой зоны бетона при исключённой сжатой арматуре.
@@ -805,7 +892,7 @@ namespace CScore
                         Rs, As_t, h0, a_prime, xNoCompression, compressionRebarWasExcluded: true);
                     // Отчётная высота сжатой зоны — та, что отвечает принятому равновесию.
                     x = Math.Min(xNoCompression, h0);
-                    caseStr = "Изгиб, x ≤ 2a′, M ≤ M_ult (§8.1.9)";
+                    caseStr = "Изгиб, x ≤ 2a′, M ≤ M_ult (§8.1.13, ф. 8.9)";
                 }
                 else
                 {
@@ -867,12 +954,44 @@ namespace CScore
                         m_ult = Rs * As_t * arm;
                         demand = N_des * (e0 + half);
                         caseStr = "Внецентр. растяж., нет сжатой зоны, N·e' ≤ M'_ult (§8.1.19, ф. 8.21)";
+
+                        // (8.21) — момент относительно второго ряда, бетон в ней не участвует.
+                        // Но x ≤ 0 получена при Rsc·A's. Тот же приём, что норма даёт для изгиба
+                        // в п. 8.1.13: если высота сжатой зоны, вычисленная без учёта сжатой
+                        // арматуры (A's = 0 в (8.25)), меньше 2a', вместо a' подставляют x/2 —
+                        // момент берётся относительно равнодействующей сжатого бетона, которая
+                        // лежит ближе к грани, чем A's. Запись N·e″ ≤ Rs·As·(h0 − x/2), где e″ —
+                        // расстояние от N до центра сжатой зоны, тождественна условию (8.20) с
+                        // M_ult по (8.24) при A's = 0; на границе e0 = (h0−a')/2 она, как и (8.21),
+                        // даёт N ≤ Rs·As. Для внецентренного растяжения норма этого не оговаривает.
+                        double xNoCompression = (Rs * As_t - N_des) / (Rb * b);
+                        if (xNoCompression > 0.0 && xNoCompression < 2.0 * a_prime)
+                        {
+                            x = xNoCompression;
+                            m_ult = Rs * As_t * (h0 - 0.5 * x);
+                            demand = N_des * (e0 + half + a_prime - 0.5 * x);
+                            caseStr = "Внецентр. растяж., x < 2a′, без A′s, N·e″ ≤ Rs·As·(h0−x/2) (§8.1.19, §8.1.13)";
+                        }
                     }
                     else
                     {
                         m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;   // (8.24)
                         demand = N_des * (e0 - half);                             // (8.20)
                         caseStr = "Внецентр. растяж., N·e ≤ M_ult (§8.1.19б)";
+
+                        // x ≤ 2a': то же, что при внецентренном сжатии — условие (8.20) второй
+                        // раз при A's = 0, берётся большая M_ult.
+                        if (As_c > 1e-12 && x <= 2.0 * a_prime)
+                        {
+                            double xNoCompression = Math.Min((Rs * As_t - N_des) / (Rb * b), xi_r * h0);
+                            double mNoCompression = Rb * b * xNoCompression * (h0 - 0.5 * xNoCompression);
+                            if (mNoCompression > m_ult)
+                            {
+                                m_ult = mNoCompression;
+                                x = xNoCompression;
+                                caseStr = "Внецентр. растяж., x ≤ 2a′, без A′s, N·e ≤ M_ult (§8.1.19б)";
+                            }
+                        }
                     }
                 }
             }

@@ -100,12 +100,17 @@ public class ShellSimplEccentricTensionTests
     // x по (8.25) = (435·1131e-6·10³ − 400·1131e-6·10³ − 436,1)/14500 = −0,0273 < 0.
     // Равновесие: F_t + F_c = 436,1, (F_t − F_c)·0,065 = 33,93 → F_t = 479 ≤ Rs·As = 492 кН/м.
     // Условие (8.21): N·(e0 + arm/2) = 436,1·0,1428 = 62,28 ≤ Rs·As·arm = 63,96 → η = 0,974.
+    //
+    // 30.09.2026: x ≤ 0 получена с Rsc·A's. Без сжатой арматуры (приём п. 8.1.13) сжатая зона
+    // бетона есть, x = (492,0 − 436,1)/14500 = 3,9 мм < 2a', и момент берётся относительно её
+    // равнодействующей: 436,1·(0,1428 + 0,035 − 0,0019)/(492,0·(0,165 − 0,0019)) → η = 0,956.
+    // Подробно — ShellSimplCompressionRebarExclusionTests.
     [Fact]
     public void Uls_8119b_NoCompressionZone_FallsBackToCondition821()
     {
         var s = XTopStrip(m: 33.93, n: 436.1, kind: "shell_simpl_wa_uls");
 
-        Assert.InRange(s.Eta, 0.96, 0.99);
+        Assert.InRange(s.Eta, 0.95, 0.96);
     }
 
     // На границе e0 = arm/2 ветви «а» и «б» обязаны сходиться: при e0 → arm/2 условие (8.21)

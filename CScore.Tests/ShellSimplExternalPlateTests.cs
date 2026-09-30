@@ -205,8 +205,8 @@ public class ShellSimplExternalPlateTests
 
         double rs = 435e3, rsc = 400e3, rb = 14.5e3, h0 = 0.165, aPrime = 0.035;
 
-        // По ф. (8.4) высота сжатой зоны с учётом сжатой арматуры меньше 2a', поэтому
-        // работает ветвь п. 8.1.9: момент относительно равнодействующей сжатой зоны при
+        // По ф. (8.5) высота сжатой зоны с учётом сжатой арматуры меньше 2a', поэтому
+        // работает ветвь п. 8.1.13: момент относительно равнодействующей сжатой зоны при
         // исключённой сжатой арматуре — ровно то же, что считает присланная таблица.
         double xFormula84 = (rs * Fixture.AsBot - rsc * Fixture.AsTop) / rb;
         Assert.True(xFormula84 <= 2.0 * aPrime);
@@ -217,7 +217,7 @@ public class ShellSimplExternalPlateTests
         Assert.Equal(xNoCompression, crit.Strip.Xm, 6);
         Assert.Equal(mUlt, crit.Strip.M_ult, 3);
         Assert.Equal(0.862, crit.Strip.Eta, 3);
-        Assert.Contains("8.1.9", crit.Strip.Case);
+        Assert.Contains("8.1.13", crit.Strip.Case);
     }
 
     // Ветвь (8.5) с учётом сжатой арматуры занижает предельный момент при x ≤ 2a′:
