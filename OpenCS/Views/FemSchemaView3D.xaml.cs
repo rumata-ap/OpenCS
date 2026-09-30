@@ -158,6 +158,7 @@ public partial class FemSchemaView3D : UserControl
         DataContextChanged += OnDataContextChanged;
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
         viewport.MouseMove           += Viewport_MouseMove;
+        viewport.MouseLeave          += Viewport_MouseLeave;
         PreviewMouseRightButtonDown += FemSchemaView3D_PreviewMouseRightButtonDown;
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
@@ -881,14 +882,14 @@ public partial class FemSchemaView3D : UserControl
 
     DateTime _lastMosaicHover;
 
-    /// <summary>Значение КЭ под курсором — в легенду мозаики (только пластины).</summary>
+    /// <summary>Значение КЭ под курсором — в подсказку у курсора и в легенду мозаики (только пластины).</summary>
     void UpdateMosaicHover(MouseEventArgs e)
     {
         if (VM is not { } vm) return;
-        if (vm.MosaicShellMeshes.Count == 0) { vm.Mosaic.SetHover(null); return; }
+        if (vm.MosaicShellMeshes.Count == 0) { vm.Mosaic.SetHover(null); PlaceMosaicHoverTip(vm, e); return; }
         // Перебор треугольников сцены на каждое движение мыши заметен на больших схемах.
         var now = DateTime.UtcNow;
-        if ((now - _lastMosaicHover).TotalMilliseconds < 40) return;
+        if ((now - _lastMosaicHover).TotalMilliseconds < 40) { PlaceMosaicHoverTip(vm, e); return; }
         _lastMosaicHover = now;
 
         string? tag = null;
@@ -904,6 +905,26 @@ public partial class FemSchemaView3D : UserControl
         }
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(e.GetPosition(viewport)));
         vm.Mosaic.SetHover(tag);
+        PlaceMosaicHoverTip(vm, e);
+    }
+
+    /// <summary>Подсказка со значением КЭ следует за курсором; у правого и нижнего края — по другую сторону от него.</summary>
+    void PlaceMosaicHoverTip(Fem3DVM vm, MouseEventArgs e)
+    {
+        if (vm.Mosaic.HoverText.Length == 0) { mosaicHoverTip.Visibility = Visibility.Collapsed; return; }
+        mosaicHoverTip.Visibility = Visibility.Visible;
+        mosaicHoverTip.UpdateLayout();
+        var p = e.GetPosition(viewport);
+        double x = p.X + 14, y = p.Y + 18;
+        if (x + mosaicHoverTip.ActualWidth > viewport.ActualWidth) x = p.X - 6 - mosaicHoverTip.ActualWidth;
+        if (y + mosaicHoverTip.ActualHeight > viewport.ActualHeight) y = p.Y - 6 - mosaicHoverTip.ActualHeight;
+        mosaicHoverTip.Margin = new Thickness(Math.Max(0, x), Math.Max(0, y), 0, 0);
+    }
+
+    void Viewport_MouseLeave(object sender, MouseEventArgs e)
+    {
+        VM?.Mosaic.SetHover(null);
+        mosaicHoverTip.Visibility = Visibility.Collapsed;
     }
 
     void Viewport_MouseMove(object sender, MouseEventArgs e)
