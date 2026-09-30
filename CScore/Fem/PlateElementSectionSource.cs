@@ -23,6 +23,13 @@ public static class FemCheckRebarSource
 /// <param name="Reason">Почему сечения нет (при <paramref name="Section"/> == null).</param>
 public sealed record PlateElementSection(PlateSection? Section, string Label, string RebarKey, string? Reason)
 {
+    /// <summary>
+    /// Угол, град, на который ось x выдачи усилий КЭ повёрнута относительно оси x армирования сечения
+    /// (против часовой стрелки, если смотреть с конца нормали КЭ). Не ноль — усилия КЭ перед проверкой
+    /// поворачиваются в оси армирования (<see cref="ShellForceTransform.Rotate"/>).
+    /// </summary>
+    public double ForceAngleDeg { get; init; }
+
     /// <summary>У КЭ нет армирования из этого источника.</summary>
     public static PlateElementSection Missing(string reason, string label = "") => new(null, label, "", reason);
 }

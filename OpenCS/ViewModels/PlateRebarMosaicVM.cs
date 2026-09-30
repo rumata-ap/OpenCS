@@ -14,6 +14,10 @@ namespace OpenCS.ViewModels;
 public enum PlateRebarMosaicSourceKind
 {
    None, Selected, Assigned, Difference, SelectedBars, AssignedBars, DifferenceBars, Forces, Utilization,
+   /// <summary>Раскладка армирования OpenCS (фон + зоны конструктивных элементов).</summary>
+   Layout,
+   /// <summary>Раскладка OpenCS минус подобранная арматура.</summary>
+   LayoutDifference,
 }
 
 /// <summary>Пункт списка источников мозаики.</summary>
@@ -40,7 +44,7 @@ public sealed record PlateRebarMosaicColoring(IReadOnlyDictionary<string, Color>
 
 /// <summary>
 /// Настройки и легенда мозаики по КЭ (общие для 3D-вида схемы и редактора пластинчатого КонЭ):
-/// армирование пластин (ASP и RBT ЛИРЫ) и стержней (ASP), импортированные усилия наборов схемы, коэффициент
+/// армирование пластин (ASP и RBT ЛИРЫ, раскладка OpenCS) и стержней (ASP), импортированные усилия наборов схемы, коэффициент
 /// использования из результата проверки по КЭ. Вид, компонента, пороги шкалы.
 /// </summary>
 public sealed class PlateRebarMosaicVM : ViewModelBase
@@ -85,7 +89,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       IReadOnlyList<double>? DefaultThresholds = null);
 
    readonly Action<string>? _warn;
-   IPlateRebarFieldSource? _selected, _assigned;
+   IPlateRebarFieldSource? _selected, _assigned, _layout;
    IBarRebarFieldSource? _selectedBars, _assignedBars;
    string? _selectedFile, _assignedFile;
    IReadOnlyDictionary<string, double> _thicknessByTag = new Dictionary<string, double>();
@@ -268,6 +272,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.DifferenceBars => "BD:" + SelectedComponent?.Component,
       PlateRebarMosaicSourceKind.Utilization => "U",
       PlateRebarMosaicSourceKind.Difference => "D",
+      PlateRebarMosaicSourceKind.LayoutDifference => "LD",
       _ => "R",
    };
 
@@ -294,6 +299,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       /// <summary>Заданное армирование стержней (ТЗА из RBT); null — файла нет либо стержням не назначены
       /// разобранные брусовые ТЗА.</summary>
       public IBarRebarFieldSource? AssignedBars { get; init; }
+      /// <summary>Раскладка армирования OpenCS на КЭ плоских конструктивных элементов; null — таких КЭ нет.</summary>
+      public IPlateRebarFieldSource? Layout { get; init; }
+      /// <summary>КЭ сетки схемы (для наложения раскладки OpenCS).</summary>
+      public IReadOnlyList<FemElement> MeshElements { get; init; } = [];
       /// <summary>Толщина пластинчатого КЭ по тегу, м (из схемы, иначе из подбора ASP).</summary>
       public IReadOnlyDictionary<string, double> ThicknessByTag { get; init; } = new Dictionary<string, double>();
       /// <summary>Наборы усилий схемы со строками по КЭ.</summary>
@@ -310,12 +319,14 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             .OrderBy(fs => fs.Tag, StringComparer.CurrentCulture)
             .ToList();
 
+         IReadOnlyList<FemMember>? members = null;
+         var (layout, layoutKey) = ReadLayout(db, schemaId, members ??= db.GetFemMembers(schemaId));
+
          var checks = new List<CheckInfo>();
          var withResult = db.FemChecks.Where(c => c.SchemaId == schemaId && c.ResultId != null).ToList();
          if (withResult.Count > 0)
          {
             var groups = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId)?.MemberGroups;
-            IReadOnlyList<FemMember>? members = null;
             foreach (var c in withResult)
             {
                string? target = c.TargetsElement
@@ -329,8 +340,36 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
          string key = Key
             + "|" + string.Join(',', sets.Select(s => $"{s.Id}:{s.ShellItems.Count}:{s.Items.Count}"))
-            + "|" + string.Join(',', checks.Select(c => $"{c.Check.Id}:{c.Check.ResultId}"));
-         return this with { ForceSets = sets, Checks = checks, Key = key };
+            + "|" + string.Join(',', checks.Select(c => $"{c.Check.Id}:{c.Check.ResultId}"))
+            + "|" + layoutKey;
+         return this with { ForceSets = sets, Checks = checks, Layout = layout, Key = key };
+      }
+
+      /// <summary>Раскладка OpenCS схемы и её отпечаток (зоны регионов, слои и толщины сечений элементов).</summary>
+      (IPlateRebarFieldSource? Source, string Key) ReadLayout(DatabaseService db, int schemaId, IReadOnlyList<FemMember> members)
+      {
+         var planar = members.Where(m => m.ElemType == "shell" && m.PlanarRegionId != null).ToList();
+         if (planar.Count == 0) return (null, "");
+
+         var regions = db.GetPlanarRegions(schemaId);
+         var sections = new Dictionary<int, PlateSection>();
+         foreach (var s in db.PlateSections) sections.TryAdd(s.Id, s);
+         var resolver = new PlateLayoutResolver(members, regions, sections.GetValueOrDefault, MeshElements, db.GetFemMeshNodes(schemaId));
+         if (!resolver.HasElements) return (null, "");
+
+         var key = new System.Text.StringBuilder();
+         foreach (var r in regions)
+            key.Append(r.Id).Append(':').Append(System.Text.Json.JsonSerializer.Serialize(r.RebarZones)).Append(';');
+         foreach (var m in planar)
+         {
+            key.Append(m.ElemTag).Append(':').Append(m.PlateSectionId);
+            if (m.PlateSectionId is int id && sections.TryGetValue(id, out var section))
+               key.Append(':').Append(section.H.ToString("R", CultureInfo.InvariantCulture))
+                  .Append(':').Append(PlateRebarLayoutFingerprint.Compute(section.RebarLayers));
+            key.Append(';');
+         }
+         string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key.ToString())));
+         return (new PlateLayoutRebarSource(resolver), hash);
       }
    }
 
@@ -346,7 +385,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       var shells = elements.Where(e => e.ElemType == "shell").ToList();
       // Номера ТЗА КЭ обновляются отдельной командой — файл при этом тот же.
       var typeHash = new HashCode();
-      foreach (var e in elements) { typeHash.Add(e.ElemTag); typeHash.Add(e.ReinforcementTypeIds); }
+      foreach (var e in elements) { typeHash.Add(e.ElemTag); typeHash.Add(e.ReinforcementTypeIds); typeHash.Add(e.LocalAxisAngleDeg); }
       key.Append(typeHash.ToHashCode()).Append('|');
       var thickness = new Dictionary<string, double>(StringComparer.Ordinal);
       foreach (var e in shells)
@@ -392,7 +431,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       }
       return new Data(selected, selectedFile, assigned, assignedFile, errors, key.ToString())
       {
-         SelectedBars = selectedBars, AssignedBars = assignedBars, ThicknessByTag = thickness,
+         SelectedBars = selectedBars, AssignedBars = assignedBars, ThicknessByTag = thickness, MeshElements = elements,
       };
    }
 
@@ -426,6 +465,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _dataKey = data.Key;
       _selected = data.Selected; _selectedFile = data.SelectedFile;
       _assigned = data.Assigned; _assignedFile = data.AssignedFile;
+      _layout = data.Layout;
       _selectedBars = data.SelectedBars;
       _assignedBars = data.AssignedBars;
       _thicknessByTag = data.ThicknessByTag;
@@ -454,6 +494,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_assigned != null) options.Add(new(PlateRebarMosaicSourceKind.Assigned, Loc.S("PlateRebarMosaicSourceAssigned")));
       if (_selected != null && _assigned != null)
          options.Add(new(PlateRebarMosaicSourceKind.Difference, Loc.S("PlateRebarMosaicSourceDifference")));
+      if (_layout != null) options.Add(new(PlateRebarMosaicSourceKind.Layout, Loc.S("PlateRebarMosaicSourceLayout")));
+      if (_layout != null && _selected != null)
+         options.Add(new(PlateRebarMosaicSourceKind.LayoutDifference, Loc.S("PlateRebarMosaicSourceLayoutDifference")));
       if (!ShellOnly)
       {
          if (_selectedBars != null) options.Add(new(PlateRebarMosaicSourceKind.SelectedBars, Loc.S("MosaicSourceSelectedBars")));
@@ -479,6 +522,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.Assigned => _assigned,
       PlateRebarMosaicSourceKind.Difference when _selected != null && _assigned != null =>
          new PlateRebarDifferenceSource(_assigned, _selected),
+      PlateRebarMosaicSourceKind.Layout => _layout,
+      PlateRebarMosaicSourceKind.LayoutDifference when _selected != null && _layout != null =>
+         new PlateRebarDifferenceSource(_layout, _selected),
       _ => null,
    };
 
@@ -641,7 +687,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
          default:
             if (RebarSource() is not { } source || comp.Component is not PlateRebarMosaicComponent rebar) return null;
-            bool difference = Kind == PlateRebarMosaicSourceKind.Difference;
+            bool difference = Kind is PlateRebarMosaicSourceKind.Difference or PlateRebarMosaicSourceKind.LayoutDifference;
             return new Field(PlateRebarMosaic.Evaluate(source, rebar, shellTags), Bars: false, difference,
                difference ? Palette.Difference : Palette.Rebar);
       }
@@ -727,6 +773,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             {
                PlateRebarMosaicSourceKind.Selected => _selectedFile ?? "",
                PlateRebarMosaicSourceKind.Assigned => _assignedFile ?? "",
+               PlateRebarMosaicSourceKind.Layout => Loc.S("PlateRebarMosaicLayoutFile"),
+               PlateRebarMosaicSourceKind.LayoutDifference => $"{Loc.S("PlateRebarMosaicLayoutFile")} − {_selectedFile}",
                _ => $"{_assignedFile} − {_selectedFile}",
             };
             return $"{comp}{unit}\n{SelectedSource!.Label}\n{file}";

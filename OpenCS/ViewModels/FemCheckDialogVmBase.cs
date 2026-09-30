@@ -67,7 +67,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
 
     // ── Источники армирования КЭ ─────────────────────────────────────────────────────────────
 
-    bool _useSectionSource = true, _useAssignedSource, _useSelectedSource;
+    bool _useSectionSource = true, _useAssignedSource, _useSelectedSource, _useLayoutSource;
     public bool UseSectionSource
     {
         get => _useSectionSource;
@@ -84,22 +84,33 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         set { _useSelectedSource = value; OnPropertyChanged(); RefreshReadiness(); }
     }
 
+    public bool UseLayoutSource
+    {
+        get => _useLayoutSource;
+        set { _useLayoutSource = value; OnPropertyChanged(); RefreshReadiness(); }
+    }
+
     public bool AssignedSourceEnabled { get; private set; }
     public bool SelectedSourceEnabled { get; private set; }
     /// <summary>Чего не хватает источнику ТЗА (подсказка отключённого флажка).</summary>
     public string? AssignedSourceHint { get; private set; }
     /// <summary>Чего не хватает источнику ASP.</summary>
     public string? SelectedSourceHint { get; private set; }
+    /// <summary>У цели есть КЭ плоских конструктивных элементов — раскладку OpenCS есть куда наложить.</summary>
+    public bool LayoutSourceEnabled { get; private set; }
+    /// <summary>Чего не хватает источнику «раскладка OpenCS».</summary>
+    public string? LayoutSourceHint { get; private set; }
 
     public Visibility RebarSourcesVisibility => IsPlateCheck ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Отмеченные источники в порядке расчёта; ничего не отмечено — сечение цели.</summary>
     protected string[] SelectedRebarSources()
     {
-        var keys = new List<string>(3);
+        var keys = new List<string>(4);
         if (UseSectionSource) keys.Add(FemCheckRebarSource.Section);
         if (UseAssignedSource && AssignedSourceEnabled) keys.Add(FemCheckRebarSource.Assigned);
         if (UseSelectedSource && SelectedSourceEnabled) keys.Add(FemCheckRebarSource.Selected);
+        if (UseLayoutSource && LayoutSourceEnabled) keys.Add(FemCheckRebarSource.Layout);
         return keys.Count > 0 ? [.. keys] : [FemCheckRebarSource.Section];
     }
 
@@ -111,6 +122,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         UseSectionSource  = keys.Contains(FemCheckRebarSource.Section);
         UseAssignedSource = keys.Contains(FemCheckRebarSource.Assigned) && AssignedSourceEnabled;
         UseSelectedSource = keys.Contains(FemCheckRebarSource.Selected) && SelectedSourceEnabled;
+        UseLayoutSource   = keys.Contains(FemCheckRebarSource.Layout) && LayoutSourceEnabled;
         _suspendReadiness = false;
         RefreshReadiness();
     }
@@ -202,18 +214,24 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
             SelectedSourceEnabled = data.Asp != null;
             SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+            LayoutSourceEnabled = _scope.Elements.Any(e =>
+                e.Element.ElemType == "shell" && e.Member?.PlanarRegionId != null);
+            LayoutSourceHint = LayoutSourceEnabled ? null : Loc.S("FemCheckNoLayout");
         }
         else
         {
-            AssignedSourceEnabled = SelectedSourceEnabled = false;
-            AssignedSourceHint = SelectedSourceHint = null;
+            AssignedSourceEnabled = SelectedSourceEnabled = LayoutSourceEnabled = false;
+            AssignedSourceHint = SelectedSourceHint = LayoutSourceHint = null;
         }
         if (!AssignedSourceEnabled) UseAssignedSource = false;
         if (!SelectedSourceEnabled) UseSelectedSource = false;
+        if (!LayoutSourceEnabled) UseLayoutSource = false;
         OnPropertyChanged(nameof(AssignedSourceEnabled));
         OnPropertyChanged(nameof(SelectedSourceEnabled));
         OnPropertyChanged(nameof(AssignedSourceHint));
         OnPropertyChanged(nameof(SelectedSourceHint));
+        OnPropertyChanged(nameof(LayoutSourceEnabled));
+        OnPropertyChanged(nameof(LayoutSourceHint));
         OnPropertyChanged(nameof(RebarSourcesVisibility));
 
         OnForceSetsRefreshed();

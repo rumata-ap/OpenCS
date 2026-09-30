@@ -75,4 +75,10 @@ public class LiraSchemaData
     /// номер КЭ → номера ТЗА (фон и усиления). КЭ без ТЗА не попадают.
     /// </summary>
     public Dictionary<int, int[]>             ElementReinforcementTypes { get; } = [];
+
+    /// <summary>
+    /// Углы согласования местных осей пластин из таблицы 18 «местные оси пластин»: номер КЭ → угол поворота
+    /// оси X1 от направления «узел 1 → узел 2» вокруг Z1, град. Пусто — таблица не прочитана.
+    /// </summary>
+    public Dictionary<int, double>            PlateAxisAngles { get; } = [];
 }

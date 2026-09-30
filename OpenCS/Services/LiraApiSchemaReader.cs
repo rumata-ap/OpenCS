@@ -14,6 +14,7 @@ static class LiraApiSchemaReader
     const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
     const int kLoadCasesTable          = 25;  // номер загружения + имя + тип
+    const int kPlateLocalAxesTable     = 18;  // kLiraTable_Plates_LocalAxes: КЭ → угол согласования осей
     const int kElementsPRTypesTable    = 33;  // kLiraTable_Elements_PRTypes: КЭ → ТЗА (только 2025+)
 
     /// <summary>Первая версия ЛИРЫ с таблицей «Элементы - ТЗА».</summary>
@@ -102,6 +103,10 @@ static class LiraApiSchemaReader
             if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
         }
 
+        // Согласованные местные оси пластин — оси выдачи усилий (не критично: без таблицы оси считаются неизвестными)
+        var axesRaw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "S1-PlateAxes");
+        if (axesRaw != null) ParsePlateAxisAngles(axesRaw, data);
+
         // ТЗА КЭ — только в 2025+; в старых версиях таблицы нет, не запрашиваем
         if (liraVersion >= FirstVersionWithReinforcementTypes)
         {
@@ -144,6 +149,27 @@ static class LiraApiSchemaReader
         var data = new LiraSchemaData();
         ParseElementReinforcementTypes(raw, data);
         return data.ElementReinforcementTypes;
+    }
+
+    /// <summary>
+    /// Прочитать из запущенной ЛИРЫ только таблицу «местные оси пластин»: номер КЭ → угол согласования
+    /// местных осей, град. Нужна схемам, импортированным до того, как угол стал сохраняться у КЭ.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Нет открытого документа или таблица не читается.</exception>
+    public static Dictionary<int, double> ReadPlateAxisAngles()
+    {
+        dynamic lira = LiraComConnector.ConnectApplication();
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException(
+                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+
+        var diag = new List<string>();
+        var raw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "PlateAxes");
+        if (raw == null)
+            throw new InvalidOperationException("Не удалось прочитать таблицу местных осей пластин.\n" + string.Join("\n", diag));
+        var data = new LiraSchemaData();
+        ParsePlateAxisAngles(raw, data);
+        return data.PlateAxisAngles;
     }
 
     // ------------------------------------------------------------------ доступ к таблице
@@ -317,6 +343,20 @@ static class LiraApiSchemaReader
             if (nodeIds.Length == 0) continue;
 
             data.Elements.Add(new LiraElementRecord(id, feType, secCount, stiffId, nodeIds));
+        }
+    }
+
+    /// <summary>
+    /// Парсит таблицу 18 «местные оси пластин»: [0] = номер КЭ, [1] = угол согласования осей, град.
+    /// </summary>
+    static void ParsePlateAxisAngles(object[,] rows, LiraSchemaData data)
+    {
+        if (rows.GetLength(1) < 2) return;
+        for (int i = 0; i < rows.GetLength(0); i++)
+        {
+            if (!TryInt(rows[i, 0], out int id)) continue;
+            double angle = ToDouble(rows[i, 1]);
+            if (double.IsFinite(angle)) data.PlateAxisAngles[id] = angle;
         }
     }
 

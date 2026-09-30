@@ -548,6 +548,7 @@ namespace OpenCS
       public ICommand LoadLiraRbtCommand { get; set; } = null!;
       /// <summary>Обновить номера ТЗА у КЭ схемы из открытой в ЛИРЕ схемы (таблица «Элементы - ТЗА»).</summary>
       public ICommand RefreshLiraReinforcementTypesCommand { get; set; } = null!;
+      public ICommand RefreshLiraPlateAxesCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
@@ -1452,6 +1453,7 @@ namespace OpenCS
          ConvertLiraBlocksCommand  = new RelayCommand(p => ConvertLiraBlocksToMembers(p as CScore.Fem.FemSchema));
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          RefreshLiraReinforcementTypesCommand = new RelayCommand(p => RefreshLiraReinforcementTypes(p as CScore.Fem.FemSchema));
+         RefreshLiraPlateAxesCommand = new RelayCommand(p => RefreshLiraPlateAxes(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
@@ -3434,6 +3436,52 @@ namespace OpenCS
             EndBusy();
             LogService.Error(ex.Message);
             System.Windows.MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("FemSchemaRefreshLiraTza"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>
+      /// Обновить углы согласования местных осей пластин (оси выдачи усилий) у КЭ схемы по таблице
+      /// «местные оси пластин» открытой в ЛИРЕ схемы. Нужна схемам, импортированным до того, как угол
+      /// стал сохраняться у КЭ, и после пересогласования осей в ЛИРЕ.
+      /// </summary>
+      async void RefreshLiraPlateAxes(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         BeginBusy(Loc.S("LiraAxesRefreshBusy"));
+         try
+         {
+            var raw = await RunOnStaThread(Services.LiraApiSchemaReader.ReadPlateAxisAngles);
+            var byTag = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (var (elemId, angle) in raw)
+               byTag[elemId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = angle;
+
+            // В ЛИРЕ может быть открыта другая схема: номера КЭ таблицы должны быть номерами пластин этой схемы.
+            var shells = db.GetFemMeshElements(schema.Id)
+               .Where(e => e.Origin == CScore.Fem.FemMember.MeshSourceImported && e.ElemType == "shell")
+               .Select(e => e.ElemTag.Trim()).ToHashSet(StringComparer.Ordinal);
+            int foreign = byTag.Keys.Count(tag => !shells.Contains(tag));
+            if (byTag.Count == 0 || foreign > 0)
+            {
+               EndBusy();
+               System.Windows.MessageBox.Show(
+                  byTag.Count == 0 ? Loc.S("LiraAxesRefreshEmpty") : string.Format(Loc.S("LiraAxesRefreshForeign"), foreign, byTag.Count, schema.Tag),
+                  Loc.S("FemSchemaRefreshLiraAxes"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+               return;
+            }
+
+            db.ReplaceFemElementLocalAxisAngles(schema.Id, byTag);
+            string done = string.Format(Loc.S("LiraAxesRefreshDone"), byTag.Count, byTag.Values.Count(a => Math.Abs(a) > 1e-6));
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            System.Windows.MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("FemSchemaRefreshLiraAxes"),
                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
          }
       }

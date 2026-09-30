@@ -842,6 +842,11 @@
    <system:String x:Key="LiraTzaRefreshEmpty">No element of the schema open in LIRA has reinforcement types assigned. The numbers in the schema are unchanged.</system:String>
    <system:String x:Key="LiraTzaRefreshForeign">{0} of {1} elements with reinforcement types in the LIRA table are missing in schema "{2}": another schema seems to be open in LIRA. The numbers are unchanged.</system:String>
    <system:String x:Key="LiraTzaRefreshDone">Reinforcement type numbers refreshed: {0} plates, {1} bars</system:String>
+   <system:String x:Key="FemSchemaRefreshLiraAxes">Refresh plate force output axes from LIRA (API)</system:String>
+   <system:String x:Key="LiraAxesRefreshBusy">Reading the plate local axes table from LIRA…</system:String>
+   <system:String x:Key="LiraAxesRefreshEmpty">The plate local axes table of the schema open in LIRA is empty. The axes in the schema are unchanged.</system:String>
+   <system:String x:Key="LiraAxesRefreshForeign">{0} of {1} plates in the LIRA table are missing in schema &quot;{2}&quot;: another schema seems to be open in LIRA. The axes are unchanged.</system:String>
+   <system:String x:Key="LiraAxesRefreshDone">Plate force output axes refreshed: {0} elements, {1} of them with aligned axes (non-zero angle)</system:String>
    <system:String x:Key="LiraRbtMissingTypes">Reinforcement types assigned to elements but missing in the file: {0}</system:String>
    <system:String x:Key="LiraRbtReadError">Could not read reinforcement types file {0}: {1}</system:String>
    <system:String x:Key="LiraRbtNoTypes">no reinforcement type records found</system:String>
@@ -2332,9 +2337,11 @@
     <system:String x:Key="FemCheckSourceSection">Target section</system:String>
     <system:String x:Key="FemCheckSourceAssigned">Assigned (RBT)</system:String>
     <system:String x:Key="FemCheckSourceSelected">Selected (ASP)</system:String>
+    <system:String x:Key="FemCheckSourceLayout">OpenCS layout (base + zones)</system:String>
     <system:String x:Key="FemCheckNoRbt">The model has no assigned reinforcement file (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">The model has no selected reinforcement file (ASP)</system:String>
     <system:String x:Key="FemCheckNoTza">No reinforcement types are assigned to the target elements</system:String>
+    <system:String x:Key="FemCheckNoLayout">The target has no elements of planar structural members (the layout is defined in the plate editor)</system:String>
     <system:String x:Key="FemCheckReadyForces">Forces: {0} of {1} elements</system:String>
     <system:String x:Key="FemCheckReadySections">sections: {0} of {1}</system:String>
     <system:String x:Key="FemCheckReadyRebar">reinforcement ({0}): {1} of {2}</system:String>
@@ -3801,6 +3808,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlateRebarMosaicSourceSelected">Designed (ASP)</system:String>
     <system:String x:Key="PlateRebarMosaicSourceAssigned">Assigned (RBT)</system:String>
     <system:String x:Key="PlateRebarMosaicSourceDifference">Assigned − designed</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceLayout">OpenCS layout</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceLayoutDifference">OpenCS layout − designed</system:String>
+    <system:String x:Key="PlateRebarMosaicLayoutFile">base + member zones</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs1">As1 — bottom along X1</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs2">As2 — top along X1</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs3">As3 — bottom along Y1</system:String>

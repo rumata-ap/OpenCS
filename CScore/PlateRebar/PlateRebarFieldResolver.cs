@@ -4,7 +4,12 @@ namespace CScore.PlateRebar;
 
 /// <summary>Результат разрешения PlateRebarField для одного центроида КЭ: эффективный список
 /// слоёв армирования по обеим граням + диагностика конфликтов приоритетов.</summary>
-public sealed record ResolvedRebarLayout(IReadOnlyList<PlateRebarLayer> Layers, IReadOnlyList<FemValidationDiagnostic> Diagnostics);
+public sealed record ResolvedRebarLayout(IReadOnlyList<PlateRebarLayer> Layers, IReadOnlyList<FemValidationDiagnostic> Diagnostics)
+{
+    /// <summary>Зоны, применённые в точке (по граням, в порядке приоритета); зоны, пропущенные из-за
+    /// конфликта приоритетов, сюда не входят.</summary>
+    public IReadOnlyList<RebarZone> AppliedZones { get; init; } = [];
+}
 
 /// <summary>Результат разрешения PlateRebarField для одного элемента сетки: центроид,
 /// эффективный layout и его канонический fingerprint (ключ дедупликации секций/откликов
@@ -20,10 +25,12 @@ public static class PlateRebarFieldResolver
     {
         var diagnostics = new List<FemValidationDiagnostic>();
         var layers = new List<PlateRebarLayer>();
+        var applied = new List<RebarZone>();
 
         foreach (var face in new[] { RebarFace.PlusN, RebarFace.MinusN })
         {
             var accumulated = field.BaseLayout.Where(l => l.Face == face).ToList();
+            int faceStart = applied.Count;
 
             var candidateGroups = field.Zones
                 .Where(z => z.Face == face && IsCentroidInside(z, centroidU, centroidV))
@@ -45,12 +52,15 @@ public static class PlateRebarFieldResolver
                 accumulated = zone.Operation == RebarZoneOperation.Replace
                     ? [zone.Layout]
                     : [.. accumulated, zone.Layout];
+                if (zone.Operation == RebarZoneOperation.Replace)
+                    applied.RemoveRange(faceStart, applied.Count - faceStart);
+                applied.Add(zone);
             }
 
             layers.AddRange(accumulated);
         }
 
-        return new ResolvedRebarLayout(layers, diagnostics);
+        return new ResolvedRebarLayout(layers, diagnostics) { AppliedZones = applied };
     }
 
     /// <summary>Разрешает PlateRebarField для явного списка центроидов КЭ. Генерация сетки

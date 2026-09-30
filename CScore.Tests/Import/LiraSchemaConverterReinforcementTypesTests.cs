@@ -37,6 +37,21 @@ public class LiraSchemaConverterReinforcementTypesTests
       Assert.Null(els["5"].ReinforcementTypeIds);
    }
 
+   /// <summary>Угол согласования местных осей (таблица 18 ЛИРЫ) сохраняется у пластин; без строки таблицы — неизвестен.</summary>
+   [Fact]
+   public void ShellElements_CarryLocalAxisAngle()
+   {
+      var d = Schema();
+      d.PlateAxisAngles[1] = 0;
+      d.PlateAxisAngles[2] = -72.5;
+
+      var els = LiraSchemaConverter.ToFemMeshShellElements(d, 1).ToDictionary(e => e.ElemTag);
+
+      Assert.Equal(0, els["1"].LocalAxisAngleDeg);
+      Assert.Equal(-72.5, els["2"].LocalAxisAngleDeg);
+      Assert.Null(els["3"].LocalAxisAngleDeg);
+   }
+
    [Fact]
    public void BarElements_CarryTypeIds()
    {

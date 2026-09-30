@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 67;
+      const int CurrentSchemaVersion = 68;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -87,6 +87,7 @@ namespace OpenCS.Utilites
          [64] = MigrateV65,
          [65] = MigrateV66,
          [66] = MigrateV67,
+         [67] = MigrateV68,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -562,6 +563,7 @@ namespace OpenCS.Utilites
                 material_tag        TEXT,
                 thickness_m         REAL,
                 reinforcement_type_ids TEXT,
+                local_axis_angle_deg REAL,
                 origin              TEXT NOT NULL DEFAULT 'generated'
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
@@ -1595,6 +1597,13 @@ namespace OpenCS.Utilites
              data BLOB NOT NULL
          );
          """);
+
+      /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
+      void MigrateV68()
+      {
+         if (!ColumnExists("fem_elements", "local_axis_angle_deg"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN local_axis_angle_deg REAL");
+      }
 
       /// <summary>Миграция v67: явный номер КЭ и сечения внешней схемы у строк наборов усилий
       /// (source_elem_num, source_section_num). У строк импортированных наборов заполняется разбором
@@ -5661,8 +5670,9 @@ namespace OpenCS.Utilites
                meshElemCmd.CommandText = """
                   INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
                                              cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                             section_tag, material_tag, thickness_m, reinforcement_type_ids, origin)
-                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @origin)
+                                             section_tag, material_tag, thickness_m, reinforcement_type_ids,
+                                             local_axis_angle_deg, origin)
+                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @laa, @origin)
                """;
                foreach (var el in meshElements)
                {
@@ -5680,6 +5690,7 @@ namespace OpenCS.Utilites
                   meshElemCmd.Parameters.AddWithValue("@mtag", (object?)el.MaterialTag ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@thk", el.ThicknessM.HasValue ? el.ThicknessM.Value : DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@rti", (object?)el.ReinforcementTypeIds ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@laa", (object?)el.LocalAxisAngleDeg ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@origin", el.Origin);
                   meshElemCmd.ExecuteNonQuery();
                }
@@ -5897,7 +5908,7 @@ namespace OpenCS.Utilites
          }
          foreach (var element in elements)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,origin) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@origin); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin);
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,local_axis_angle_deg,origin) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@laa,@origin); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin); command.Parameters.AddWithValue("@laa", (object?)element.LocalAxisAngleDeg ?? DBNull.Value);
             command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); command.Parameters.AddWithValue("@rti", (object?)element.ReinforcementTypeIds ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
          }
       }
@@ -6325,7 +6336,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
-                   material_tag, thickness_m, reinforcement_type_ids, origin
+                   material_tag, thickness_m, reinforcement_type_ids, origin, local_axis_angle_deg
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -6350,8 +6361,49 @@ namespace OpenCS.Utilites
                ThicknessM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
                ReinforcementTypeIds = rdr.IsDBNull(12) ? null : rdr.GetString(12),
                Origin = rdr.GetString(13),
+               LocalAxisAngleDeg = rdr.IsDBNull(14) ? null : rdr.GetDouble(14),
             });
          return result;
+      }
+
+      /// <summary>
+      /// Заменить углы согласования местных осей у импортированных пластинчатых КЭ схемы (таблица
+      /// «местные оси пластин» ЛИРЫ): КЭ из словаря получают свой угол, остальные — «угол неизвестен».
+      /// </summary>
+      /// <param name="angleByElemTag">Угол, град, по тегу КЭ.</param>
+      /// <returns>Число КЭ схемы, получивших угол.</returns>
+      public int ReplaceFemElementLocalAxisAngles(int schemaId, IReadOnlyDictionary<string, double> angleByElemTag)
+      {
+         using var tx = _connection.BeginTransaction();
+         using (var clear = _connection.CreateCommand())
+         {
+            clear.Transaction = tx;
+            clear.CommandText = "UPDATE fem_elements SET local_axis_angle_deg=NULL WHERE schema_id=@sid AND origin=@origin";
+            clear.Parameters.AddWithValue("@sid", schemaId);
+            clear.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+            clear.ExecuteNonQuery();
+         }
+         int updated = 0;
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.Transaction = tx;
+            cmd.CommandText = """
+               UPDATE fem_elements SET local_axis_angle_deg=@angle
+               WHERE schema_id=@sid AND origin=@origin AND elem_type='shell' AND elem_tag=@tag
+            """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            cmd.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+            var angle = cmd.Parameters.Add("@angle", Microsoft.Data.Sqlite.SqliteType.Real);
+            var tag = cmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+            foreach (var (elemTag, value) in angleByElemTag)
+            {
+               angle.Value = value;
+               tag.Value = elemTag;
+               updated += cmd.ExecuteNonQuery();
+            }
+         }
+         tx.Commit();
+         return updated;
       }
 
       /// <summary>Сохранить (заменить) файл ТЗА ЛИРЫ (.RBT) FEM-схемы.</summary>

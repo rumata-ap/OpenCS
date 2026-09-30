@@ -16,6 +16,10 @@ public sealed class FemCheckSchemaData
     public IReadOnlyList<FemMember> Members { get; init; } = [];
     /// <summary>КЭ сетки схемы.</summary>
     public IReadOnlyList<FemElement> Mesh { get; init; } = [];
+    /// <summary>Узлы сетки схемы.</summary>
+    public IReadOnlyList<FemMeshNode> MeshNodes { get; init; } = [];
+    /// <summary>Плоские регионы конструктивных элементов схемы (зоны армирования, локальные оси).</summary>
+    public IReadOnlyList<CScore.Planar.PlanarRegion> Regions { get; init; } = [];
     /// <summary>Типы заданного армирования (RBT); null — файл не приложен или не читается.</summary>
     public LiraRbtFile? Rbt { get; init; }
     /// <summary>Подобранная арматура (ASP); null — файл не приложен или не читается.</summary>
@@ -38,11 +42,16 @@ public sealed class FemCheckSchemaData
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             { errors.Add($"{aspFile.FileName}: {ex.Message}"); }
 
+        var members = db.GetFemMembers(schemaId);
+        // Узлы и регионы нужны только раскладке OpenCS — у схемы без плоских элементов их не читаем.
+        bool planar = members.Any(m => m.PlanarRegionId != null);
         return new FemCheckSchemaData
         {
             SchemaId = schemaId,
-            Members = db.GetFemMembers(schemaId),
+            Members = members,
             Mesh = db.GetFemMeshElements(schemaId),
+            MeshNodes = planar ? db.GetFemMeshNodes(schemaId) : [],
+            Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
             Errors = errors,
@@ -56,6 +65,16 @@ public sealed class FemCheckSchemaData
         FemMember member     => FemCheckScope.ForMember(member, Mesh),
         _                    => new FemCheckScope([], [], RefersToMeshElements: false),
     };
+
+    /// <summary>Раскладка армирования OpenCS на КЭ схемы (фон + зоны регионов).</summary>
+    /// <param name="sections">Пластинчатые сечения проекта.</param>
+    /// <param name="fallbackSection">Сечение-фон для элементов без своего сечения.</param>
+    public PlateLayoutResolver LayoutResolver(IEnumerable<PlateSection> sections, PlateSection? fallbackSection = null)
+    {
+        var byId = new Dictionary<int, PlateSection>();
+        foreach (var s in sections) byId.TryAdd(s.Id, s);
+        return new PlateLayoutResolver(Members, Regions, byId.GetValueOrDefault, Mesh, MeshNodes, fallbackSection);
+    }
 }
 
 /// <summary>Подготовка проверки по КЭ: наборы усилий цели, сечения, источники армирования, готовность.</summary>
@@ -127,6 +146,9 @@ public static class FemCheckContext
                             sources.Add(data.Asp != null
                                 ? new LiraSelectedPlateSectionSource(template, data.Asp)
                                 : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoAsp")));
+                            break;
+                        case FemCheckRebarSource.Layout:
+                            sources.Add(new LayoutPlateSectionSource(template, data.LayoutResolver(app.PlateSections, template)));
                             break;
                     }
 
@@ -214,6 +236,7 @@ public static class FemCheckContext
         FemCheckRebarSource.Section  => Loc.S("FemCheckSourceSection"),
         FemCheckRebarSource.Assigned => Loc.S("FemCheckSourceAssigned"),
         FemCheckRebarSource.Selected => Loc.S("FemCheckSourceSelected"),
+        FemCheckRebarSource.Layout   => Loc.S("FemCheckSourceLayout"),
         _ => key,
     };
 

@@ -122,6 +122,7 @@ public static class LiraSchemaConverter
                     SectionTag  = tag,
                     ThicknessM  = stiff?.H_mm is { } h ? h / 1000.0 : null,
                     ReinforcementTypeIds = ReinforcementKey(data, e.Id),
+                    LocalAxisAngleDeg = data.PlateAxisAngles.TryGetValue(e.Id, out double angle) ? angle : null,
                     Origin      = FemMember.MeshSourceImported,
                 };
             })

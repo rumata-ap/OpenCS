@@ -158,6 +158,10 @@
                       IsChecked="{Binding UseSelectedSource}"
                       IsEnabled="{Binding SelectedSourceEnabled}"
                       ToolTip="{Binding SelectedSourceHint}" ToolTipService.ShowOnDisabled="True"/>
+            <CheckBox Content="{DynamicResource FemCheckSourceLayout}" Margin="0,2,0,0"
+                      IsChecked="{Binding UseLayoutSource}"
+                      IsEnabled="{Binding LayoutSourceEnabled}"
+                      ToolTip="{Binding LayoutSourceHint}" ToolTipService.ShowOnDisabled="True"/>
         </StackPanel>
 
         <!-- Готовность цели к проверке -->

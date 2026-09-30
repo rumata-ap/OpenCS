@@ -200,10 +200,16 @@ public static partial class FemCheckRunner
                 if (ct.IsCancellationRequested) return;
                 CheckRow row;
                 if (isPlate)
-                    row = g.Plate!.Section is { } plate
-                        ? CheckPlateRow(check, plate, job.Shell!, job.ForceSet.Tag, job.CalcType,
-                                        inputs.ConcreteMat, inputs.RebarMat, job.Nl)
+                {
+                    // Оси армирования КЭ могут не совпадать с осями выдачи его усилий (раскладка OpenCS).
+                    double angle = g.Plate!.ForceAngleDeg;
+                    var shell = angle == 0 ? job.Shell! : ShellForceTransform.Rotate(job.Shell!, angle);
+                    var nl = angle == 0 || job.Nl == null ? job.Nl : ShellForceTransform.Rotate(job.Nl, angle);
+                    row = g.Plate.Section is { } plate
+                        ? CheckPlateRow(check, plate, shell, job.ForceSet.Tag, job.CalcType,
+                                        inputs.ConcreteMat, inputs.RebarMat, nl)
                         : NotCheckedRow(job, "Нет армирования: " + (g.Plate.Reason ?? ""));
+                }
                 else
                     row = bar != null
                         ? CheckBarRow(barExecutor, job.Task, bar, job.Bar!, job.ForceSet.Tag, job.CalcType)

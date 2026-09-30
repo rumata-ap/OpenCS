@@ -842,6 +842,11 @@
    <system:String x:Key="LiraTzaRefreshEmpty">В открытой в ЛИРЕ схеме ни одному элементу не назначены ТЗА. Номера ТЗА в схеме не изменены.</system:String>
    <system:String x:Key="LiraTzaRefreshForeign">В таблице ЛИРЫ {0} из {1} элементов с ТЗА нет в схеме «{2}»: похоже, в ЛИРЕ открыта другая схема. Номера ТЗА не изменены.</system:String>
    <system:String x:Key="LiraTzaRefreshDone">Номера ТЗА обновлены: пластин {0}, стержней {1}</system:String>
+   <system:String x:Key="FemSchemaRefreshLiraAxes">Обновить оси выдачи усилий пластин из ЛИРЫ (API)</system:String>
+   <system:String x:Key="LiraAxesRefreshBusy">Чтение таблицы местных осей пластин из ЛИРЫ…</system:String>
+   <system:String x:Key="LiraAxesRefreshEmpty">В открытой в ЛИРЕ схеме таблица местных осей пластин пуста. Оси в схеме не изменены.</system:String>
+   <system:String x:Key="LiraAxesRefreshForeign">В таблице ЛИРЫ {0} из {1} пластин нет в схеме «{2}»: похоже, в ЛИРЕ открыта другая схема. Оси не изменены.</system:String>
+   <system:String x:Key="LiraAxesRefreshDone">Оси выдачи усилий пластин обновлены: {0} КЭ, из них с согласованием осей (угол не 0) — {1}</system:String>
    <system:String x:Key="LiraRbtMissingTypes">В файле ТЗА нет типов, назначенных КЭ схемы: {0}</system:String>
    <system:String x:Key="LiraRbtReadError">Не удалось прочитать файл ТЗА {0}: {1}</system:String>
    <system:String x:Key="LiraRbtNoTypes">записи ТЗА не найдены</system:String>
@@ -2332,9 +2337,11 @@
     <system:String x:Key="FemCheckSourceSection">Сечение цели</system:String>
     <system:String x:Key="FemCheckSourceAssigned">Заданное (ТЗА)</system:String>
     <system:String x:Key="FemCheckSourceSelected">Подобранное (ASP)</system:String>
+    <system:String x:Key="FemCheckSourceLayout">Раскладка OpenCS (фон + зоны)</system:String>
     <system:String x:Key="FemCheckNoRbt">У схемы нет файла типов заданного армирования (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">У схемы нет файла подобранной арматуры (ASP)</system:String>
     <system:String x:Key="FemCheckNoTza">КЭ цели не назначены ТЗА</system:String>
+    <system:String x:Key="FemCheckNoLayout">У цели нет КЭ плоских конструктивных элементов (раскладка задаётся в редакторе пластины; элементы по схеме ЛИРЫ создаёт команда «Конструктивные элементы из кБ ЛИРЫ…»)</system:String>
     <system:String x:Key="FemCheckReadyForces">Усилия: {0} из {1} КЭ</system:String>
     <system:String x:Key="FemCheckReadySections">сечения: {0} из {1}</system:String>
     <system:String x:Key="FemCheckReadyRebar">армирование ({0}): {1} из {2}</system:String>
@@ -3801,6 +3808,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlateRebarMosaicSourceSelected">Подобранная (ASP)</system:String>
     <system:String x:Key="PlateRebarMosaicSourceAssigned">Заданная (RBT)</system:String>
     <system:String x:Key="PlateRebarMosaicSourceDifference">Заданная − подобранная</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceLayout">Раскладка OpenCS</system:String>
+    <system:String x:Key="PlateRebarMosaicSourceLayoutDifference">Раскладка OpenCS − подобранная</system:String>
+    <system:String x:Key="PlateRebarMosaicLayoutFile">фон + зоны элементов</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs1">As1 — низ по X1</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs2">As2 — верх по X1</system:String>
     <system:String x:Key="PlateRebarMosaicCompAs3">As3 — низ по Y1</system:String>
