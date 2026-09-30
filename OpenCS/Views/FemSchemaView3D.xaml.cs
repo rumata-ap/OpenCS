@@ -879,8 +879,37 @@ public partial class FemSchemaView3D : UserControl
         else selection.ToggleElement(pick.Tag, additive);
     }
 
+    DateTime _lastMosaicHover;
+
+    /// <summary>Значение КЭ под курсором — в легенду мозаики (только пластины).</summary>
+    void UpdateMosaicHover(MouseEventArgs e)
+    {
+        if (VM is not { } vm) return;
+        if (vm.MosaicShellMeshes.Count == 0) { vm.Mosaic.SetHover(null); return; }
+        // Перебор треугольников сцены на каждое движение мыши заметен на больших схемах.
+        var now = DateTime.UtcNow;
+        if ((now - _lastMosaicHover).TotalMilliseconds < 40) return;
+        _lastMosaicHover = now;
+
+        string? tag = null;
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult hit &&
+                vm.ShellTagAt(hit.MeshHit, hit.VertexIndex1) is { } found)
+            {
+                tag = found;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(e.GetPosition(viewport)));
+        vm.Mosaic.SetHover(tag);
+    }
+
     void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
+        UpdateMosaicHover(e);
+
         if (VM is not { EditMode: true } vm || !_createBarMode || _pendingBarFirstNode == null)
         {
             ClearRubberBand();

@@ -732,6 +732,7 @@ public class Fem3DVM : ViewModelBase
 
         var positions = new Point3DCollection(shells.Count * 4);
         var indices   = new Int32Collection(shells.Count * 6);
+        var tags      = new List<string>(shells.Count * 4);
         int idx       = 0;
 
         foreach (var e in shells)
@@ -745,22 +746,33 @@ public class Fem3DVM : ViewModelBase
 
             if (pts.Length == 3)
             {
-                foreach (var p in pts) positions.Add(p);
+                foreach (var p in pts) { positions.Add(p); tags.Add(e.ElemTag.Trim()); }
                 indices.Add(idx); indices.Add(idx + 1); indices.Add(idx + 2);
                 idx += 3;
             }
             else if (pts.Length >= 4)
             {
                 // ЛИРА хранит узлы как [n1,n2,n3,n4], геометрический обход: n1→n2→n4→n3
-                for (int k = 0; k < 4; k++) positions.Add(pts[k]);
+                for (int k = 0; k < 4; k++) { positions.Add(pts[k]); tags.Add(e.ElemTag.Trim()); }
                 indices.Add(idx); indices.Add(idx + 1); indices.Add(idx + 3);
                 indices.Add(idx); indices.Add(idx + 3); indices.Add(idx + 2);
                 idx += 4;
             }
         }
 
-        return new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        _shellMeshTags.AddOrUpdate(mesh, [.. tags]);
+        return mesh;
     }
+
+    // Вершины у каждого КЭ свои, поэтому вершина однозначно называет КЭ. Слабая таблица —
+    // сетки пересоздаются при каждой смене мозаики.
+    readonly System.Runtime.CompilerServices.ConditionalWeakTable<MeshGeometry3D, string[]> _shellMeshTags = new();
+
+    /// <summary>Тег пластинчатого КЭ по вершине его заливки; null — сетка не из заливок пластин.</summary>
+    public string? ShellTagAt(MeshGeometry3D mesh, int vertexIndex) =>
+        _shellMeshTags.TryGetValue(mesh, out var tags) && vertexIndex >= 0 && vertexIndex < tags.Length
+            ? tags[vertexIndex] : null;
 
     Point3DCollection? BuildShellEdges(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
     {
