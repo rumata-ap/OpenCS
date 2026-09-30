@@ -38,7 +38,7 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
-    /// <summary>Цели проверки: группы схемы и её пластинчатые конструктивные элементы.</summary>
+    /// <summary>Цели проверки: группы схемы с пластинчатыми КЭ и её пластинчатые конструктивные элементы.</summary>
     public ObservableCollection<FemCheckTarget> Members { get; } = [];
     public ObservableCollection<ForceSet>  NlForceSets { get; } = [];
 
@@ -201,7 +201,8 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     {
         Members.Clear();
         if (_selectedSchema == null) return;
-        foreach (var g in _selectedSchema.MemberGroups)
+        // Проверка только для пластин: группы стержней (балки, колонны) целью быть не могут.
+        foreach (var g in _selectedSchema.MemberGroups.Where(HasShellElements))
             Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetGroup"), g.Tag), Group = g });
         foreach (var e in App.GetFemMembers(_selectedSchema).Where(e => e.ElemType == "shell"))
             Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = string.Format(Loc.S("FemCheckDlgTargetElement"), e.ElemTag), Element = e });

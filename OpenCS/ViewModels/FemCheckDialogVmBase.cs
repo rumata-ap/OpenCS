@@ -179,6 +179,10 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         _schemaData = SchemaId is int id ? FemCheckSchemaData.Load(App.db, id) : null;
     }
 
+    /// <summary>Есть ли в составе цели пластинчатые КЭ (по данным выбранной схемы).</summary>
+    protected bool HasShellElements(IFemCheckable target) =>
+        _schemaData is { } data && data.Scope(target).Elements.Any(e => e.Element.ElemType == "shell");
+
     /// <summary>Пересобрать наборы усилий, доступность источников и готовность после смены цели или вида проверки.</summary>
     protected void RefreshTarget()
     {
