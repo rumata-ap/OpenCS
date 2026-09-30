@@ -5,7 +5,9 @@ namespace CScore.Import;
 /// <summary>Суммарное армирование одного направления у одной грани КЭ.</summary>
 /// <param name="AreaPerMeterCm2">Площадь на 1 п. м, см²/м.</param>
 /// <param name="CentroidDistanceCm">Расстояние от грани до ц. т. арматуры, см (среднее по площади).</param>
-public sealed record LiraPlateSlotReinforcement(double AreaPerMeterCm2, double CentroidDistanceCm);
+/// <param name="DiameterMm">Эквивалентный диаметр стержней Σn·d²/Σn·d (п. 8.2.17 СП 63), мм;
+/// 0 — слой задан суммарной площадью, диаметр неизвестен.</param>
+public sealed record LiraPlateSlotReinforcement(double AreaPerMeterCm2, double CentroidDistanceCm, double DiameterMm = 0);
 
 /// <summary>Армирование пластинчатого КЭ, собранное из назначенных ему ТЗА.</summary>
 public sealed class LiraPlateElementReinforcement
@@ -53,6 +55,8 @@ public sealed class LiraPlateElementReinforcement
          // Отсутствующее направление ставим на ту же отметку, что и имеющееся: площадь всё равно 0
          Zsx = sign * (half - (x ?? y)!.CentroidDistanceCm / 100.0),
          Zsy = sign * (half - (y ?? x)!.CentroidDistanceCm / 100.0),
+         DiameterX = (x?.DiameterMm ?? 0) / 1000.0,
+         DiameterY = (y?.DiameterMm ?? 0) / 1000.0,
          Face = face,
       };
    }
@@ -88,27 +92,31 @@ public static class LiraPlateReinforcementAssembler
       var area = new Dictionary<LiraPlateRebarSlot, double>();
       var moment = new Dictionary<LiraPlateRebarSlot, double>();
       var missing = new List<int>();
+      var bars = new Dictionary<LiraPlateRebarSlot, (double Nd2, double Nd)>();
 
       foreach (int id in typeIds)
-         Accumulate(id, types, area, moment, missing, []);
+         Accumulate(id, types, area, moment, bars, missing, []);
 
       var slots = new Dictionary<LiraPlateRebarSlot, LiraPlateSlotReinforcement>();
       foreach (var (slot, a) in area)
          if (a > 0)
-            slots[slot] = new LiraPlateSlotReinforcement(a, moment[slot] / a);
+         {
+            var b = bars.GetValueOrDefault(slot);
+            slots[slot] = new LiraPlateSlotReinforcement(a, moment[slot] / a, b.Nd > 0 ? b.Nd2 / b.Nd : 0);
+         }
       return new LiraPlateElementReinforcement { Slots = slots, MissingTypeIds = missing.Distinct().ToList() };
    }
 
    static void Accumulate(int id, IReadOnlyDictionary<int, LiraPlateReinforcementType> types,
       Dictionary<LiraPlateRebarSlot, double> area, Dictionary<LiraPlateRebarSlot, double> moment,
-      List<int> missing, HashSet<int> path)
+      Dictionary<LiraPlateRebarSlot, (double Nd2, double Nd)> bars, List<int> missing, HashSet<int> path)
    {
       if (!types.TryGetValue(id, out var type)) { missing.Add(id); return; }
       if (!path.Add(id)) throw new InvalidOperationException($"Циклическая ссылка в составном ТЗА {id}.");
 
       if (type.IsComposite)
          foreach (int c in type.ComponentIds)
-            Accumulate(c, types, area, moment, missing, path);
+            Accumulate(c, types, area, moment, bars, missing, path);
 
       foreach (var layer in type.Layers)
       {
@@ -116,6 +124,15 @@ public static class LiraPlateReinforcementAssembler
          if (a <= 0) continue;
          area[layer.Slot] = area.GetValueOrDefault(layer.Slot) + a;
          moment[layer.Slot] = moment.GetValueOrDefault(layer.Slot) + a * layer.CentroidDistanceCm(type.Binding);
+         if (layer.IsTotalArea) continue;
+         var b = bars.GetValueOrDefault(layer.Slot);
+         foreach (var t in layer.Terms)
+         {
+            // число стержней слагаемого на 1 п. м
+            double n = t.SpacingMm > 0 ? t.Count * 1000.0 / t.SpacingMm : t.Count;
+            b = (b.Nd2 + n * t.DiameterMm * t.DiameterMm, b.Nd + n * t.DiameterMm);
+         }
+         bars[layer.Slot] = b;
       }
       path.Remove(id);
    }

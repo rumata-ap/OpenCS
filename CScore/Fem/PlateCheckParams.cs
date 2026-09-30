@@ -47,6 +47,16 @@ public record PlateCheckParams
     /// <summary>Доля длительности (0..1): виртуальный NL = N * LtFraction. Активен при NlForceSetId==0.</summary>
     public double LtFraction    { get; init; } = 0.0;
 
+    /// <summary>
+    /// Источники армирования КЭ при проверке по КЭ (ключи <see cref="FemCheckRebarSource"/>), в порядке
+    /// расчёта. Пусто — одно сечение цели (<see cref="FemCheckRebarSource.Section"/>).
+    /// </summary>
+    public string[] RebarSources { get; init; } = [];
+
+    /// <summary>Источники армирования с учётом значения по умолчанию.</summary>
+    public IReadOnlyList<string> GetRebarSources() =>
+        RebarSources is { Length: > 0 } ? RebarSources : [FemCheckRebarSource.Section];
+
     public string ToJson() => JsonSerializer.Serialize(this);
 
     public static PlateCheckParams Parse(string? json)

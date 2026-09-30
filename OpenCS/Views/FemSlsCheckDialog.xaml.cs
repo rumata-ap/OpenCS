@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
@@ -32,39 +33,33 @@ public partial class FemSlsCheckDialog : Window
     }
 }
 
-public class FemSlsCheckDialogVM : ViewModelBase
+public class FemSlsCheckDialogVM : FemCheckDialogVmBase
 {
-    readonly AppViewModel _app;
-    readonly ListBox      _setsBox;
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
     public ObservableCollection<FemMemberGroup> Members { get; } = [];
-    public ObservableCollection<ForceSet>  FilteredForceSets { get; } = [];
     public ObservableCollection<ForceSet>  NlForceSets { get; } = [];
 
     FemSchema? _selectedSchema;
     public FemSchema? SelectedSchema
     {
         get => _selectedSchema;
-        set { _selectedSchema = value; OnPropertyChanged(); RefreshMembers(); }
+        set { _selectedSchema = value; OnPropertyChanged(); ReloadSchema(); RefreshMembers(); }
     }
 
     FemMemberGroup? _selectedMember;
     public FemMemberGroup? SelectedMember
     {
         get => _selectedMember;
-        set { _selectedMember = value; OnPropertyChanged(); RefreshForceSets(); AutoFillTag(); }
+        set { _selectedMember = value; OnPropertyChanged(); RefreshTarget(); AutoFillTag(); }
     }
 
-    bool _allSets = true;
-    public bool AllSets
-    {
-        get => _allSets;
-        set { _allSets = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanSelectSets));
-              if (value) _setsBox.SelectAll(); }
-    }
-    public bool CanSelectSets => !_allSets;
+    protected override IFemCheckable? Target => _selectedMember;
+    protected override int? SchemaId => _selectedSchema?.Id;
+    protected override bool IsPlateCheck => true;
+    protected override FemCheck DraftCheck() => FillCheck(new FemCheck());
+    protected override bool AcceptsForceSet(ForceSet fs) => fs.Kind == "shell";
 
     // ── SLS kind ─────────────────────────────────────────────────────────────
     public record SlsKindItem(string Kind, string Label);
@@ -159,11 +154,9 @@ public class FemSlsCheckDialogVM : ViewModelBase
     public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
 
     // ── Constructor ──────────────────────────────────────────────────────────
-    public FemSlsCheckDialogVM(AppViewModel app, FemCheck? existing, ListBox setsBox)
+    public FemSlsCheckDialogVM(AppViewModel app, FemCheck? existing, ListBox setsBox) : base(app, setsBox)
     {
-        _app      = app;
         _existing = existing;
-        _setsBox  = setsBox;
         Schemas   = app.FemSchemas;
 
         _selectedSlsKind        = SlsKinds[0];
@@ -194,14 +187,11 @@ public class FemSlsCheckDialogVM : ViewModelBase
             Phi1             = p.Phi1.ToString("G");
             if (p.NlForceSetId > 0)
                 SelectedNlForceSet = NlForceSets.FirstOrDefault(f => f.Id == p.NlForceSetId);
+            LoadRebarSources(p);
         }
 
         if (!AllSets)
-        {
-            var ids = check.GetForceSetIds().ToHashSet();
-            foreach (var fs in FilteredForceSets.Where(f => ids.Contains(f.Id)))
-                _setsBox.SelectedItems.Add(fs);
-        }
+            SelectForceSets(check.GetForceSetIds());
     }
 
     void RefreshMembers()
@@ -212,20 +202,14 @@ public class FemSlsCheckDialogVM : ViewModelBase
         SelectedMember = Members.FirstOrDefault();
     }
 
-    void RefreshForceSets()
+    /// <summary>NL-набор выбирается из тех же наборов цели.</summary>
+    protected override void OnForceSetsRefreshed()
     {
-        FilteredForceSets.Clear();
         NlForceSets.Clear();
         NlForceSets.Add(new ForceSet { Id = 0, Tag = Loc.S("FemSlsDlgNlNone") });
+        foreach (var item in FilteredForceSets)
+            NlForceSets.Add(item.ForceSet);
         SelectedNlForceSet = NlForceSets[0];
-
-        if (_selectedMember == null) return;
-        foreach (var fs in _app.ForceSets.Where(f => f.SourceMemberId == _selectedMember.Id && f.Kind == "shell"))
-        {
-            FilteredForceSets.Add(fs);
-            NlForceSets.Add(fs);
-        }
-        if (AllSets) _setsBox.SelectAll();
     }
 
     void AutoFillTag()
@@ -234,12 +218,15 @@ public class FemSlsCheckDialogVM : ViewModelBase
         Tag = $"{_selectedMember.Tag} / {_selectedSlsKind.Kind}";
     }
 
-    public FemCheck BuildCheck()
+    public FemCheck BuildCheck() => FillCheck(_existing ?? new FemCheck());
+
+    /// <summary>Записывает состояние диалога в проверку.</summary>
+    FemCheck FillCheck(FemCheck check)
     {
         string forceSetIdsJson = "[]";
         if (!AllSets)
         {
-            var ids = _setsBox.SelectedItems.OfType<ForceSet>().Select(f => f.Id).ToArray();
+            var ids = SelectedForceSets().Select(f => f.Id).ToArray();
             forceSetIdsJson = ids.Length > 0 ? JsonSerializer.Serialize(ids) : "[]";
         }
 
@@ -265,9 +252,9 @@ public class FemSlsCheckDialogVM : ViewModelBase
             CheckGroup   = "sls",
             NlForceSetId = nlId,
             LtFraction   = nlId == 0 ? ltFrac : 0.0,
+            RebarSources = SelectedRebarSources(),
         }.ToJson();
 
-        var check = _existing ?? new FemCheck();
         check.SchemaId         = _selectedSchema!.Id;
         check.MemberId         = _selectedMember!.Id;
         check.NormCode         = "rc_plate_check";

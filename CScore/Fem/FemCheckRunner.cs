@@ -11,7 +11,7 @@ namespace CScore.Fem;
 /// <summary>
 /// Запускает нормативные проверки конструктивного элемента по нескольким наборам усилий.
 /// </summary>
-public static class FemCheckRunner
+public static partial class FemCheckRunner
 {
     // ------------------------------------------------------------------ public API
 
@@ -79,92 +79,15 @@ public static class FemCheckRunner
                     // Явный NL-набор имеет приоритет над auto-lookup:
                     if (explicitNlLookup != null)
                         explicitNlLookup.TryGetValue(shell.Label, out nlItem);
-                    try
-                    {
-                        var (util, wf, wd) = RunPlateShellCheck(
-                            check, plateSection!, shell, concreteMat, rebarMat, calcType, nlItem);
-                        rows.Add(new CheckRow
-                        {
-                            Label            = shell.Label,
-                            ForceSetTag      = fs.Tag,
-                            CalcType         = calcType.ToString(),
-                            Utilization      = util,
-                            Passed           = util <= 1.0,
-                            WorstFormula     = wf,
-                            WorstDescription = wd
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        rows.Add(new CheckRow
-                        {
-                            Label            = shell.Label,
-                            ForceSetTag      = fs.Tag,
-                            CalcType         = calcType.ToString(),
-                            Utilization      = double.NaN,
-                            Passed           = false,
-                            WorstFormula     = "error",
-                            WorstDescription = ex.Message
-                        });
-                    }
+                    rows.Add(CheckPlateRow(check, plateSection!, shell, fs.Tag, calcType,
+                                           concreteMat, rebarMat, nlItem));
                 }
             }
             else
             {
                 foreach (var item in fs.Items)
                 {
-                    try
-                    {
-                        var r = barExecutor(task, barSection!, item);
-                        // Ошибка, неприменимость или отсутствие коэффициента — строка не пройдена:
-                        // «нет utilization» нельзя читать как 0 (так «проходили» строки rc_check
-                        // без обработчика).
-                        double? util = r.Status is "error" or "not_applicable"
-                            ? null : ExtractUtilization(r.DataJson);
-                        if (util is double u)
-                        {
-                            var (wf, wd) = ExtractWorstDetail(r.DataJson);
-                            rows.Add(new CheckRow
-                            {
-                                Label            = item.Label,
-                                ForceSetTag      = fs.Tag,
-                                CalcType         = calcType.ToString(),
-                                Utilization      = u,
-                                Passed           = u <= 1.0 && r.Status != "not_passed",
-                                WorstFormula     = wf,
-                                WorstDescription = wd
-                            });
-                        }
-                        else
-                        {
-                            // Не пройдено без конечного коэффициента (напр. бесконечный у одной из проверок) —
-                            // показываем определяющую проверку, а не только статус.
-                            var (wf, wd) = r.Status == "not_passed" ? ExtractWorstDetail(r.DataJson) : ("", "");
-                            rows.Add(new CheckRow
-                            {
-                                Label            = item.Label,
-                                ForceSetTag      = fs.Tag,
-                                CalcType         = calcType.ToString(),
-                                Utilization      = double.NaN,
-                                Passed           = false,
-                                WorstFormula     = wf != "" ? wf : r.Status,
-                                WorstDescription = wf != "" ? wd : ExtractFailureReason(r.DataJson)
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        rows.Add(new CheckRow
-                        {
-                            Label            = item.Label,
-                            ForceSetTag      = fs.Tag,
-                            CalcType         = calcType.ToString(),
-                            Utilization      = double.NaN,
-                            Passed           = false,
-                            WorstFormula     = "error",
-                            WorstDescription = ex.Message
-                        });
-                    }
+                    rows.Add(CheckBarRow(barExecutor, task, barSection!, item, fs.Tag, calcType));
                 }
             }
         }
@@ -198,6 +121,104 @@ public static class FemCheckRunner
             Status   = passed == rows.Count ? "ok" : "not_passed",
             DataJson = dataJson
         };
+    }
+
+    // ------------------------------------------------------------------ row checks
+
+    /// <summary>Проверка одной строки усилий пластины; исключение — строка «не проверено».</summary>
+    static CheckRow CheckPlateRow(
+        FemCheck check, PlateSection section, ShellLoadItem shell, string forceSetTag, CalcType calcType,
+        Material? concreteMat, Material? rebarMat, ShellLoadItem? nlItem)
+    {
+        try
+        {
+            var (util, wf, wd) = RunPlateShellCheck(check, section, shell, concreteMat, rebarMat, calcType, nlItem);
+            return new CheckRow
+            {
+                Label            = shell.Label,
+                ForceSetTag      = forceSetTag,
+                CalcType         = calcType.ToString(),
+                Utilization      = util,
+                Passed           = util <= 1.0,
+                WorstFormula     = wf,
+                WorstDescription = wd
+            };
+        }
+        catch (Exception ex)
+        {
+            return new CheckRow
+            {
+                Label            = shell.Label,
+                ForceSetTag      = forceSetTag,
+                CalcType         = calcType.ToString(),
+                Utilization      = double.NaN,
+                Passed           = false,
+                NotChecked       = true,
+                WorstFormula     = "error",
+                WorstDescription = ex.Message
+            };
+        }
+    }
+
+    /// <summary>Проверка одной строки усилий стержня через исполнитель расчётных задач.</summary>
+    static CheckRow CheckBarRow(
+        Func<CalcTask, CrossSection, LoadItem, CalcResult> barExecutor,
+        CalcTask task, CrossSection section, LoadItem item, string forceSetTag, CalcType calcType)
+    {
+        try
+        {
+            var r = barExecutor(task, section, item);
+            // Ошибка, неприменимость или отсутствие коэффициента — строка не пройдена:
+            // «нет utilization» нельзя читать как 0 (так «проходили» строки rc_check
+            // без обработчика).
+            bool notChecked = r.Status is "error" or "not_applicable";
+            double? util = notChecked ? null : ExtractUtilization(r.DataJson);
+            if (util is double u)
+            {
+                var (wf, wd) = ExtractWorstDetail(r.DataJson);
+                return new CheckRow
+                {
+                    Label            = item.Label,
+                    ForceSetTag      = forceSetTag,
+                    CalcType         = calcType.ToString(),
+                    Utilization      = u,
+                    Passed           = u <= 1.0 && r.Status != "not_passed",
+                    WorstFormula     = wf,
+                    WorstDescription = wd
+                };
+            }
+            else
+            {
+                // Не пройдено без конечного коэффициента (напр. бесконечный у одной из проверок) —
+                // показываем определяющую проверку, а не только статус.
+                var (wf, wd) = r.Status == "not_passed" ? ExtractWorstDetail(r.DataJson) : ("", "");
+                return new CheckRow
+                {
+                    Label            = item.Label,
+                    ForceSetTag      = forceSetTag,
+                    CalcType         = calcType.ToString(),
+                    Utilization      = double.NaN,
+                    Passed           = false,
+                    NotChecked       = notChecked,
+                    WorstFormula     = wf != "" ? wf : r.Status,
+                    WorstDescription = wf != "" ? wd : ExtractFailureReason(r.DataJson)
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new CheckRow
+            {
+                Label            = item.Label,
+                ForceSetTag      = forceSetTag,
+                CalcType         = calcType.ToString(),
+                Utilization      = double.NaN,
+                Passed           = false,
+                NotChecked       = true,
+                WorstFormula     = "error",
+                WorstDescription = ex.Message
+            };
+        }
     }
 
     // ------------------------------------------------------------------ plate check
@@ -528,7 +549,8 @@ public static class FemCheckRunner
         var nlSet = allSets.FirstOrDefault(f => f.Tag == nlTag);
         if (nlSet == null) return null;
 
-        return nlSet.ShellItems.ToDictionary(s => s.Label, s => s);
+        // Метки строк могут повторяться (ручные наборы) — берём первую.
+        return nlSet.ShellItems.GroupBy(s => s.Label).ToDictionary(g => g.Key, g => g.First());
     }
 
     // ------------------------------------------------------------------ bar check helpers
@@ -668,5 +690,17 @@ public static class FemCheckRunner
         public bool   Passed           { get; init; }
         public string WorstFormula     { get; init; } = "";
         public string WorstDescription { get; init; } = "";
+        /// <summary>Строка не проверена (ошибка расчёта, нет сечения), а не «не прошла».</summary>
+        public bool   NotChecked       { get; init; }
+        /// <summary>Номер КЭ во внешней схеме (проверка по КЭ).</summary>
+        public int?   ElemNum          { get; init; }
+        /// <summary>Номер сечения КЭ во внешней схеме.</summary>
+        public int?   SectionNum       { get; init; }
+        /// <summary>Подпись сечения, с которым проверена строка.</summary>
+        public string SectionLabel     { get; init; } = "";
+        /// <summary>Ключ армирования сечения пластины.</summary>
+        public string RebarKey         { get; init; } = "";
+        /// <summary>Источник армирования пластины (<see cref="FemCheckRebarSource"/>).</summary>
+        public string RebarSource      { get; init; } = "";
     }
 }

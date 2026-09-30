@@ -541,6 +541,8 @@ namespace OpenCS
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
       public ICommand LoadLiraAspCommand { get; set; } = null!;
+      /// <summary>Создать сечения пластинчатых целей схемы по данным ЛИРЫ (ASP + ТЗА).</summary>
+      public ICommand CreateLiraPlateSectionsCommand { get; set; } = null!;
       public ICommand ConvertLiraBlocksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT).</summary>
       public ICommand LoadLiraRbtCommand { get; set; } = null!;
@@ -1442,6 +1444,7 @@ namespace OpenCS
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
+         CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          ConvertLiraBlocksCommand  = new RelayCommand(p => ConvertLiraBlocksToMembers(p as CScore.Fem.FemSchema));
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
@@ -1458,7 +1461,7 @@ namespace OpenCS
             p => p is CScore.Fem.FemAnalysis a && a.ResultId is > 0);
          RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
          DeleteFemAnalysisCommand = new RelayCommand(p => DeleteFemAnalysis(p as CScore.Fem.FemAnalysis));
-         RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
+         RunFemCheckCommand     = new RelayCommand(p => _ = RunFemCheck(p as CScore.Fem.FemCheck));
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
@@ -3422,6 +3425,91 @@ namespace OpenCS
       }
 
       /// <summary>
+      /// Создаёт сечения пластинчатых целей по данным ЛИРЫ: материалы по классам из подбора (*.asp), толщина —
+      /// из подбора, арматура — фоновые ТЗА (*.RBT). Сечение получают цели без пластинчатого сечения.
+      /// </summary>
+      /// <param name="targets">Цели; null — все группы и пластинчатые конструктивные элементы схемы
+      /// (вызов из меню схемы, итог показывается окном).</param>
+      /// <returns>Хотя бы одной цели назначено сечение.</returns>
+      internal bool CreateLiraPlateSections(
+         CScore.Fem.FemSchema? schema, IReadOnlyList<CScore.Fem.IFemCheckable>? targets = null)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return false;
+         bool fromMenu = targets == null;
+         string title = Loc.S("LiraSectionsTitle");
+
+         // Открытый редактор этой схемы держит конструктивные элементы в памяти и при сохранении перезапишет их.
+         bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return false;
+
+         var data = Services.FemCheckSchemaData.Load(db, schema.Id);
+         foreach (string error in data.Errors)
+            LogService.Warning(error);
+         if (targets == null)
+         {
+            // Автогруппы по жёсткостям и наборам ТЗА повторяют КЭ конструктивных блоков и дали бы по сечению
+            // на каждый набор ТЗА — им сечение создаётся по запросу из диалога проверки.
+            var blockTags = db.GetLiraBlocks(schema.Id).Select(b => b.Tag).ToHashSet(StringComparer.Ordinal);
+            var groups = blockTags.Count > 0
+               ? schema.MemberGroups.Where(g => blockTags.Contains(g.Tag))
+               : schema.MemberGroups;
+            targets = [.. groups, .. data.Members.Where(m => m.ElemType == "shell")];
+         }
+
+         var report = Services.LiraPlateSectionCreator.Create(db, data, targets, suggested =>
+         {
+            var dlg = new Views.Dialogs.DoubleInputDialog(Loc.S("LiraSectionsNominalTitle"),
+               Loc.S("LiraSectionsNominalCover"), Loc.S("LiraSectionsNominalDiameter"),
+               suggested.CoverM * 1000, suggested.DiameterM * 1000);
+            return dlg.ShowDialog() == true
+               ? new CScore.Import.LiraPlateNominalRebar(dlg.Value1 / 1000, dlg.Value2 / 1000)
+               : null;
+         });
+         if (report.Cancelled) return false;
+         if (report.NoAsp)
+         {
+            MessageBox.Show(Loc.S("LiraSectionsNoAsp"), title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+         }
+
+         foreach (string tag in report.Materials)
+            LogService.Info(string.Format(Loc.S("LiraSectionsMaterialCreated"), tag));
+         foreach (string tag in report.Sections)
+            LogService.Info(string.Format(Loc.S("LiraSectionsSectionCreated"), tag));
+         static string Names(IEnumerable<string> tags)
+         {
+            var list = tags.Distinct().ToList();
+            return string.Join("; ", list.Take(20)) + (list.Count > 20 ? "; …" : "");
+         }
+         foreach (var g in report.Assigned.GroupBy(a => a.Section))
+            LogService.Info(string.Format(Loc.S("LiraSectionsAssigned"), g.Key, g.Count(), Names(g.Select(a => a.Target))));
+         foreach (var g in report.Nominal.GroupBy(n => n.Faces))
+            LogService.Warning(string.Format(Loc.S("LiraSectionsNominalNote"), Names(g.Select(n => n.Target)), g.Key,
+               report.NominalRebar!.DiameterM * 1000, report.NominalRebar.CoverM * 1000));
+         foreach (var (target, combos) in report.OtherCombos)
+            LogService.Warning(string.Format(Loc.S("LiraSectionsOtherCombos"), target, combos));
+         foreach (var (target, reason) in report.Skipped)
+            LogService.Warning(string.Format(Loc.S("LiraSectionsSkipped"), target, reason));
+
+         bool nothingToDo = report.Assigned.Count == 0 && report.Skipped.Count == 0;
+         string done = nothingToDo
+            ? Loc.S("LiraSectionsNothing")
+            : string.Format(Loc.S("LiraSectionsSummary"), report.Materials.Count, report.Sections.Count,
+               report.Assigned.Count, report.Skipped.Count);
+         LogService.Info(done);
+         StatusMessage = done;
+         if (fromMenu || report.Assigned.Count == 0)
+         {
+            string details = string.Join("\n", report.Skipped.Take(10).Select(s => $"«{s.Target}»: {s.Reason}"));
+            MessageBox.Show(details.Length > 0 ? done + "\n\n" + details : done, title, MessageBoxButton.OK,
+               report.Skipped.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+         }
+         if (editorOpen && report.Assigned.Count > 0) ReloadFemSchemaPage();
+         return report.Assigned.Count > 0;
+      }
+
+      /// <summary>
       /// Преобразует выбранные в диалоге кБ ЛИРЫ в конструктивные элементы схемы (стержни — по прямым цепочкам,
       /// пластины — плоскими элементами с контуром). Сетка ЛИРЫ не меняется, элементы получают замок сетки.
       /// КЭ, уже принадлежащие элементу, не входящему в выбранные кБ, пропускаются с предупреждением.
@@ -3924,71 +4012,91 @@ namespace OpenCS
       /// <summary>Возвращает конструктивные элементы схемы синхронно (для диалогов выбора цели проверки).</summary>
       public List<CScore.Fem.FemMember> GetFemMembers(CScore.Fem.FemSchema schema) => db.GetFemMembers(schema.Id);
 
-      void RunFemCheck(CScore.Fem.FemCheck? check)
+      /// <summary>
+      /// Выполняет нормативную проверку цели. Если в строках усилий есть номера КЭ — проверка идёт по КЭ
+      /// (каждая строка с сечением и армированием своего КЭ) в фоне, с прогрессом и отменой; иначе —
+      /// по-старому, с одним сечением цели.
+      /// </summary>
+      async Task RunFemCheck(CScore.Fem.FemCheck? check)
       {
          check ??= currentFemCheck;
-         if (check == null) return;
+         if (check == null || IsBusy) return;
 
-         CScore.Fem.IFemCheckable? target = null;
-         CrossSection? barSection = null;
-         PlateSection? plateSection = null;
-         CScore.Material? concreteMat = null;
-         CScore.Material? rebarMat    = null;
-         List<CScore.ForceSet> targetForceSets;
+         var data = Services.FemCheckSchemaData.Load(db, check.SchemaId);
+         CScore.Fem.IFemCheckable? target = check.TargetsElement
+            ? data.Members.FirstOrDefault(e => e.Id == check.ElementId)
+            : FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
+         if (target == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
+         foreach (string error in data.Errors) LogService.Warning(error);
 
-         if (check.TargetsElement)
+         bool isPlate = Services.FemCheckContext.IsPlate(check);
+         var scope = data.Scope(target);
+
+         // Наборы цели: привязанные к ней и наборы схемы со строками по её КЭ; явный выбор — по id.
+         var candidates = Services.FemCheckContext.TargetForceSets(ForceSets, target, check.SchemaId, scope, isPlate)
+            .Select(t => t.Set).ToList();
+         List<CScore.ForceSet> selected = candidates;
+         if (!check.IsAllSets)
          {
-            var element = db.GetFemMembers(check.SchemaId).FirstOrDefault(e => e.Id == check.ElementId);
-            if (element == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
-            target = element;
+            var ids = check.GetForceSetIds().ToHashSet();
+            selected = ForceSets.Where(f => ids.Contains(f.Id)).ToList();
+         }
+         var lookup = candidates.Union(selected).ToList();
+         var inputs = Services.FemCheckContext.BuildInputs(this, check, target, data, scope, lookup);
+         if (isPlate)
+         {
+            var schemaGroups = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId)?.MemberGroups;
+            Services.FemCheckContext.TargetPlateSectionId(target, scope, schemaGroups ?? [], out string? inheritedFrom);
+            if (inheritedFrom != null && inputs.PlateTemplate != null)
+               LogService.Info(string.Format(Loc.S("FemCheckPlateSectionInherited"), check.DisplayTag,
+                  inputs.PlateTemplate.Tag, inheritedFrom));
+         }
 
-            if (check.NormCode == "rc_plate_check")
-            {
-               plateSection = PlateSections.FirstOrDefault(s => s.Id == element.PlateSectionId);
-               if (plateSection != null)
-               {
-                  concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
-                  rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
-               }
-            }
-            else
-            {
-               barSection = CrossSections.FirstOrDefault(s => s.Id == element.CrossSectionId);
-            }
-
-            targetForceSets = ForceSets.Where(f => f.SourceElementId == element.Id).ToList();
+         CalcResult result;
+         if (!CScore.Fem.FemCheckRunner.HasElementNumbers(check, selected)
+             || CScore.Fem.FemCheckRunner.ScopeElements(check, scope).Count == 0)
+         {
+            result = CScore.Fem.FemCheckRunner.RunMulti(
+               check, target, inputs.TargetBarSection, inputs.PlateTemplate, check.IsAllSets ? candidates : lookup,
+               (task, sect, item) => TaskRunner.Run(task, sect, item),
+               inputs.ConcreteMat, inputs.RebarMat);
          }
          else
          {
-            var group = FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
-            if (group == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
-            target = group;
-
-            if (check.NormCode == "rc_plate_check")
+            var readiness = CScore.Fem.FemCheckRunner.EvaluateReadiness(check, scope, selected, inputs);
+            if (readiness.CanRun && !readiness.IsComplete)
             {
-               plateSection = PlateSections.FirstOrDefault(s => s.Id == group.PlateSectionId);
-               if (plateSection != null)
-               {
-                  concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
-                  rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
-               }
-            }
-            else
-            {
-               // CrossSectionId — собственное поле каждого элемента, а не группы
-               // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — берём
-               // сечение первого элемента группы, у которого оно назначено (у схем ЛИРА/SCAD — КЭ сетки).
-               var primaryCrossSectionId = db.GetFemMemberGroupCrossSectionId(group);
-               barSection = CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
+               string message = Loc.S("FemCheckIncompleteTitle") + "\n\n"
+                  + Services.FemCheckContext.ReadinessDetails(readiness, isPlate) + "\n\n"
+                  + Loc.S("FemCheckIncompleteQuestion");
+               if (System.Windows.MessageBox.Show(message, check.DisplayTag, System.Windows.MessageBoxButton.YesNo,
+                      System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
+                  return;
             }
 
-            targetForceSets = ForceSets.Where(f => f.SourceMemberId == group.Id).ToList();
+            var cts = BeginBusyWithCancellation(string.Format(Loc.S("FemCheckRunning"), check.DisplayTag), indeterminate: false);
+            var progress = new Progress<double>(f => { if (IsBusy) ReportBusyProgress(f); });
+            var token = cts.Token;
+            try
+            {
+               result = await Task.Run(() => CScore.Fem.FemCheckRunner.RunPerElement(
+                  check, target, scope, selected, inputs,
+                  (task, sect, item) => TaskRunner.Run(task, sect, item), progress, token));
+               EndBusy();
+            }
+            catch (OperationCanceledException)
+            {
+               // Отменённая проверка результат не сохраняет.
+               EndBusy(Loc.S("CalcTaskCancelled"));
+               return;
+            }
+            catch (Exception ex)
+            {
+               EndBusy();
+               LogService.Error($"FemCheck «{check.DisplayTag}»: {ex.Message}");
+               return;
+            }
          }
-
-         var result = CScore.Fem.FemCheckRunner.RunMulti(
-            check, target, barSection, plateSection, targetForceSets,
-            (task, sect, item) => TaskRunner.Run(task, sect, item),
-            concreteMat, rebarMat);
 
          db.SaveCalcResultRaw(result, check.Id);
          check.ResultId = result.Id;

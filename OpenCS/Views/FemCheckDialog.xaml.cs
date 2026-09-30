@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
@@ -44,44 +45,31 @@ public sealed class FemCheckTarget
     public FemMember?      Element { get; init; }
 }
 
-public class FemCheckDialogVM : ViewModelBase
+public class FemCheckDialogVM : FemCheckDialogVmBase
 {
-    readonly AppViewModel _app;
-    readonly ListBox      _setsBox;
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
     public ObservableCollection<FemCheckTarget> Members { get; } = [];
-    public ObservableCollection<ForceSet>  FilteredForceSets { get; } = [];
 
     FemSchema? _selectedSchema;
     public FemSchema? SelectedSchema
     {
         get => _selectedSchema;
-        set { _selectedSchema = value; OnPropertyChanged(); RefreshMembers(); }
+        set { _selectedSchema = value; OnPropertyChanged(); ReloadSchema(); RefreshMembers(); }
     }
 
     FemCheckTarget? _selectedMember;
     public FemCheckTarget? SelectedMember
     {
         get => _selectedMember;
-        set { _selectedMember = value; OnPropertyChanged(); RefreshForceSets(); AutoFillTag(); }
+        set { _selectedMember = value; OnPropertyChanged(); RefreshTarget(); AutoFillTag(); }
     }
 
-    bool _allSets = true;
-    public bool AllSets
-    {
-        get => _allSets;
-        set
-        {
-            _allSets = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(CanSelectSets));
-            if (value) _setsBox.SelectAll();
-        }
-    }
-
-    public bool CanSelectSets => !_allSets;
+    protected override IFemCheckable? Target => (IFemCheckable?)_selectedMember?.Group ?? _selectedMember?.Element;
+    protected override int? SchemaId => _selectedSchema?.Id;
+    protected override bool IsPlateCheck => IsPlate;
+    protected override FemCheck DraftCheck() => FillCheck(new FemCheck());
 
     // ── NormCode ──────────────────────────────────────────────────────────────
     public record NormCodeItem(string Code, string Label);
@@ -102,6 +90,8 @@ public class FemCheckDialogVM : ViewModelBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(PlateRowVisibility));
             OnPropertyChanged(nameof(AcrcRowVisibility));
+            // Вид проверки меняет вид КЭ цели (пластины / стержни) — наборы и готовность другие.
+            RefreshTarget();
             AutoFillTag();
         }
     }
@@ -182,11 +172,9 @@ public class FemCheckDialogVM : ViewModelBase
     public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
 
     // ── Constructor ───────────────────────────────────────────────────────────
-    public FemCheckDialogVM(AppViewModel app, FemCheck? existing, ListBox setsBox)
+    public FemCheckDialogVM(AppViewModel app, FemCheck? existing, ListBox setsBox) : base(app, setsBox)
     {
-        _app      = app;
         _existing = existing;
-        _setsBox  = setsBox;
         Schemas   = app.FemSchemas;
 
         _selectedNormCode       = NormCodes[0];
@@ -217,14 +205,11 @@ public class FemCheckDialogVM : ViewModelBase
             AcrcLimMm          = p.AcrcLimMm.ToString("G");
             SelectedPhi1Mode   = Phi1Modes.FirstOrDefault(m => m.Mode == p.Phi1Mode) ?? Phi1Modes[0];
             Phi1               = p.Phi1.ToString("G");
+            LoadRebarSources(p);
         }
 
         if (!AllSets)
-        {
-            var ids = check.GetForceSetIds().ToHashSet();
-            foreach (var fs in FilteredForceSets.Where(f => ids.Contains(f.Id)))
-                _setsBox.SelectedItems.Add(fs);
-        }
+            SelectForceSets(check.GetForceSetIds());
     }
 
     void RefreshMembers()
@@ -233,21 +218,9 @@ public class FemCheckDialogVM : ViewModelBase
         if (_selectedSchema == null) return;
         foreach (var g in _selectedSchema.MemberGroups)
             Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = $"[Группа] {g.Tag}", Group = g });
-        foreach (var e in _app.GetFemMembers(_selectedSchema))
+        foreach (var e in App.GetFemMembers(_selectedSchema))
             Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = $"[Элемент] {e.ElemTag}", Element = e });
         SelectedMember = Members.FirstOrDefault();
-    }
-
-    void RefreshForceSets()
-    {
-        FilteredForceSets.Clear();
-        if (_selectedMember == null) return;
-        var matching = _selectedMember.Kind == "element"
-            ? _app.ForceSets.Where(f => f.SourceElementId == _selectedMember.Id)
-            : _app.ForceSets.Where(f => f.SourceMemberId == _selectedMember.Id);
-        foreach (var fs in matching)
-            FilteredForceSets.Add(fs);
-        if (AllSets) _setsBox.SelectAll();
     }
 
     void AutoFillTag()
@@ -256,12 +229,15 @@ public class FemCheckDialogVM : ViewModelBase
         Tag = $"{_selectedMember.Tag} / {_selectedNormCode.Code}";
     }
 
-    public FemCheck BuildCheck()
+    public FemCheck BuildCheck() => FillCheck(_existing ?? new FemCheck());
+
+    /// <summary>Записывает состояние диалога в проверку.</summary>
+    FemCheck FillCheck(FemCheck check)
     {
         string forceSetIdsJson = "[]";
         if (!AllSets)
         {
-            var ids = _setsBox.SelectedItems.OfType<ForceSet>().Select(f => f.Id).ToArray();
+            var ids = SelectedForceSets().Select(f => f.Id).ToArray();
             forceSetIdsJson = ids.Length > 0 ? JsonSerializer.Serialize(ids) : "[]";
         }
 
@@ -281,10 +257,10 @@ public class FemCheckDialogVM : ViewModelBase
                 Phi1Mode   = _selectedPhi1Mode?.Mode ?? "auto",
                 Phi1       = phi1,
                 CheckGroup = "uls",
+                RebarSources = SelectedRebarSources(),
             }.ToJson();
         }
 
-        var check = _existing ?? new FemCheck();
         check.SchemaId         = _selectedSchema!.Id;
         check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;
         check.ElementId        = _selectedMember!.Kind == "element" ? _selectedMember.Id : null;
