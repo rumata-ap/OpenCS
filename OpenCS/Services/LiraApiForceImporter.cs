@@ -222,6 +222,7 @@ static class LiraApiForceImporter
                 try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                 catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
+                var barRows = new List<LoadItem>();
                 for (int sec = 1; sec <= sectionCount; sec++)
                 {
                     try
@@ -260,12 +261,10 @@ static class LiraApiForceImporter
                             double mx = resp.GetBarMz(elemId, sec, lcNum) * toKn;
                             double vx = resp.GetBarQz(elemId, sec, lcNum) * toKn;
                             double vy = resp.GetBarQy(elemId, sec, lcNum) * toKn;
-                            if (n == 0 && t == 0 && my == 0 && mx == 0 && vx == 0 && vy == 0)
-                                continue;
                             if (invertBarMoments) { my = -my; mx = -mx; }
-                            fs.Items.Add(new LoadItem
+                            barRows.Add(new LoadItem
                             {
-                                Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                Label = $"э.{elemId} с{sec}",
                                 SourceElementNum = elemId, SourceSectionNum = sec,
                                 N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                             });
@@ -273,6 +272,7 @@ static class LiraApiForceImporter
                     }
                     catch { }
                 }
+                itemNum = AddBarRows(fs, barRows, itemNum);
             }
 
             fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
@@ -334,6 +334,7 @@ static class LiraApiForceImporter
                     try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                     catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
+                    var barRows = new List<LoadItem>();
                     for (int sec = 1; sec <= sectionCount; sec++)
                     {
                         try
@@ -368,12 +369,10 @@ static class LiraApiForceImporter
                                 double mx = resp.GetBarMz(elemId, sec, lcNum, ls) * toKn;
                                 double vx = resp.GetBarQz(elemId, sec, lcNum, ls) * toKn;
                                 double vy = resp.GetBarQy(elemId, sec, lcNum, ls) * toKn;
-                                if (n == 0 && t == 0 && my == 0 && mx == 0 && vx == 0 && vy == 0)
-                                    continue;
                                 if (invertBarMoments) { my = -my; mx = -mx; }
-                                fs.Items.Add(new LoadItem
+                                barRows.Add(new LoadItem
                                 {
-                                    Num = itemNum++, Label = $"э.{elemId} с{sec}",
+                                    Label = $"э.{elemId} с{sec}",
                                 SourceElementNum = elemId, SourceSectionNum = sec,
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
@@ -381,6 +380,7 @@ static class LiraApiForceImporter
                         }
                         catch { }
                     }
+                    itemNum = AddBarRows(fs, barRows, itemNum);
                 }
 
                 fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
@@ -437,6 +437,7 @@ static class LiraApiForceImporter
                 try { family = (LiraElementFamilyEnum)(int)resp.GetFamily(elemId); }
                 catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
 
+                var barRows = new List<LoadItem>();
                 for (int sec = 1; sec <= sectionCount; sec++)
                 {
                     int dcfCount;
@@ -477,12 +478,10 @@ static class LiraApiForceImporter
                                 double mx = resp.GetBarMz(elemId, sec, ls, dcf) * toKn;
                                 double vx = resp.GetBarQz(elemId, sec, ls, dcf) * toKn;
                                 double vy = resp.GetBarQy(elemId, sec, ls, dcf) * toKn;
-                                if (n == 0 && t == 0 && my == 0 && mx == 0 && vx == 0 && vy == 0)
-                                    continue;
                                 if (invertBarMoments) { my = -my; mx = -mx; }
-                                fs.Items.Add(new LoadItem
+                                barRows.Add(new LoadItem
                                 {
-                                    Num = itemNum++, Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
+                                    Label = DesignRowLabel(resp, elemId, sec, ls, dcf),
                                     SourceElementNum = elemId, SourceSectionNum = sec,
                                     N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
                                 });
@@ -491,6 +490,7 @@ static class LiraApiForceImporter
                         catch { }
                     }
                 }
+                itemNum = AddBarRows(fs, barRows, itemNum);
             }
 
             fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
@@ -499,6 +499,21 @@ static class LiraApiForceImporter
         }
 
         return result;
+    }
+
+    /// <summary>Добавить строки стержневого КЭ в набор. КЭ без результатов ЛИРА возвращает точными нулями —
+    /// такой КЭ пропускается целиком; нулевое сечение нагруженного КЭ (свободный конец консоли) остаётся:
+    /// без него сбивается счёт сечений в эпюрах.</summary>
+    static int AddBarRows(ForceSet fs, List<LoadItem> rows, int itemNum)
+    {
+        if (rows.All(r => r.N == 0 && r.T == 0 && r.My == 0 && r.Mx == 0 && r.Vx == 0 && r.Vy == 0))
+            return itemNum;
+        foreach (var row in rows)
+        {
+            row.Num = itemNum++;
+            fs.Items.Add(row);
+        }
+        return itemNum;
     }
 
     static string BuildRange(IReadOnlyList<int> ids)
