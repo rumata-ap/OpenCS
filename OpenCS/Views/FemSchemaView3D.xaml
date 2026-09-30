@@ -47,6 +47,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -161,8 +162,6 @@
             <ComboBox Width="180" ItemsSource="{Binding DiagramLoadSources}" DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedDiagramLoadSource, Mode=TwoWay}"/>
             <Separator/>
-            <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}"/>
-            <Separator/>
             <TextBlock Text="{DynamicResource FemDiscretizeTargetLength}" VerticalAlignment="Center" Margin="4,0,4,0"/>
             <TextBox Width="72" VerticalContentAlignment="Center"
                      Text="{Binding Editor.DefaultTargetMeshLengthM, ElementName=root,
@@ -180,20 +179,27 @@
             </Button>
         </ToolBar>
 
+        <!-- Мозаика по КЭ — отдельной строкой: в общей панели её списки уходили в скрытую часть (overflow) -->
+        <Border Grid.Row="1" BorderThickness="0,0,0,1" Padding="2"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}" HorizontalAlignment="Left"/>
+        </Border>
+
         <!-- 3D viewport -->
-        <h:HelixViewport3D x:Name="viewport" Grid.Row="1"
+        <h:HelixViewport3D x:Name="viewport" Grid.Row="2"
                            Background="White"
                            ShowCoordinateSystem="True"
                            ShowViewCube="True"
                            ZoomAroundMouseDownPoint="True"/>
 
         <!-- Легенда мозаики армирования пластин -->
-        <mosaic:PlateRebarMosaicLegend Grid.Row="1" DataContext="{Binding Mosaic}"
+        <mosaic:PlateRebarMosaicLegend Grid.Row="2" DataContext="{Binding Mosaic}"
                                        HorizontalAlignment="Right" VerticalAlignment="Top"
                                        Margin="8" Panel.ZIndex="10"/>
 
         <!-- Немодальная панель «Добавить узел» -->
-        <Border x:Name="createNodePanel" Grid.Row="1"
+        <Border x:Name="createNodePanel" Grid.Row="2"
                 Visibility="Collapsed"
                 HorizontalAlignment="Left" VerticalAlignment="Top"
                 Margin="8" Padding="10" Background="#F0FFFFFF"
@@ -238,7 +244,7 @@
         </Border>
 
         <!-- Немодальная панель «Добавить элемент» -->
-        <Border x:Name="createBarPanel" Grid.Row="1"
+        <Border x:Name="createBarPanel" Grid.Row="2"
                 Visibility="Collapsed"
                 HorizontalAlignment="Left" VerticalAlignment="Top"
                 Margin="8" Padding="10" Background="#F0FFFFFF"
@@ -261,7 +267,7 @@
         </Border>
 
         <!-- Оверлей загрузки -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"
                 Background="#80000000" Panel.ZIndex="10">
             <TextBlock Text="{Binding Status}"
@@ -270,7 +276,7 @@
         </Border>
 
         <!-- Оверлей «нет данных» -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Visibility="{Binding NoData, Converter={StaticResource BoolToVisibility}}"
                 Background="#80000000" Panel.ZIndex="10">
             <TextBlock Text="{DynamicResource Fem3DNoData}"

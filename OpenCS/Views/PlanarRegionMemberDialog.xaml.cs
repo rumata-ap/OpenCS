@@ -33,6 +33,7 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         _vm.DeleteCompleted += m => { DeletedMember = m; DialogResult = true; Close(); };
 
         rebarPreview.ModelClicked += (x, y) => _vm.SelectZoneAtPoint(x, y);
+        rebarPreview.ModelHover += (x, y) => _vm.HoverMosaicAt(x, y);
 
         UpdateGeometryPlot();
         UpdateRebarPlot();

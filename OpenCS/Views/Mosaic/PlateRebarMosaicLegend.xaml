@@ -9,6 +9,7 @@
             Background="#E6FFFFFF" BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Padding="8">
         <StackPanel Width="190">
             <TextBlock Text="{Binding LegendTitle}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6"/>
+            <TextBlock Text="{Binding HoverText}" TextWrapping="Wrap" Margin="0,0,0,6"/>
             <ItemsControl ItemsSource="{Binding Legend}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

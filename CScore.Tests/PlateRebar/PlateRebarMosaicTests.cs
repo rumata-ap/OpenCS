@@ -108,11 +108,17 @@ public class PlateRebarMosaicTests
    }
 
    [Fact]
-   public void DivergingScale_IsSymmetric_NegativeBandsBelowZero()
+   public void DivergingScale_CommonStep_NegativeBandsBelowZero_NoEmptyOuterBands()
    {
       var scale = PlateRebarMosaicScale.Auto([-3, 1, 7], diverging: true);
-      Assert.Equal(8, scale.Bands.Count);                  // 7 / 4 → шаг 2, 4 полосы в каждую сторону
-      Assert.Equal(-scale.Thresholds[0], scale.Thresholds[^1], 9);
+      // 7 / 4 → шаг 2: четыре полосы вверх (до 7) и две вниз (до −3) — пустых крайних полос нет.
+      Assert.Equal([-2.0, 0.0, 2.0, 4.0, 6.0], scale.Thresholds);
+      Assert.Equal(0, scale.BandOf(-3));
+      Assert.Equal(scale.Bands.Count - 1, scale.BandOf(7));
+
+      var symmetric = PlateRebarMosaicScale.Auto([-7, 7], diverging: true);
+      Assert.Equal(8, symmetric.Bands.Count);
+      Assert.Equal(-symmetric.Thresholds[0], symmetric.Thresholds[^1], 9);
       Assert.Contains(0.0, scale.Thresholds);
       Assert.True(scale.Bands[scale.BandOf(-0.1)].IsNegative);
       Assert.True(scale.Bands[scale.BandOf(0)].IsPositive);

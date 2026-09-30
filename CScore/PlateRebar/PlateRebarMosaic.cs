@@ -122,8 +122,8 @@ public sealed class PlateRebarMosaicScale
 
    /// <summary>
    /// Автошкала по значениям: обычная — до 8 полос шагом «круглого» числа от 0 до максимума;
-   /// знакопеременная — до 4 полос в каждую сторону от нуля симметрично по max|v|.
-   /// Полос ровно столько, чтобы максимум попал в последнюю.
+   /// знакопеременная — до 4 полос в каждую сторону от нуля с общим шагом по max|v|.
+   /// Полос ровно столько, чтобы максимум попал в последнюю, а минимум — в первую.
    /// </summary>
    public static PlateRebarMosaicScale Auto(IEnumerable<double> values, bool diverging, int bands = 8)
    {
@@ -134,9 +134,10 @@ public sealed class PlateRebarMosaicScale
          int half = Math.Max(1, bands / 2);
          double amax = finite.Count > 0 ? finite.Max(Math.Abs) : 0;
          double step = NiceStep(amax / half);
-         half = Math.Clamp(BandsToReach(amax, step), 1, half);
+         double min = finite.Count > 0 ? Math.Min(0, finite.Min()) : 0, top = finite.Count > 0 ? Math.Max(0, finite.Max()) : 0;
+         int neg = Math.Clamp(BandsToReach(-min, step), 1, half), pos = Math.Clamp(BandsToReach(top, step), 1, half);
          var t = new List<double>();
-         for (int i = -(half - 1); i <= half - 1; i++) t.Add(i * step);
+         for (int i = -(neg - 1); i <= pos - 1; i++) t.Add(i * step);
          return new PlateRebarMosaicScale(t, true);
       }
       else

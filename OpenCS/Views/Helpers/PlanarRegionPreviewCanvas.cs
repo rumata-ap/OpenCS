@@ -213,6 +213,9 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
 
     public event Action<double, double>? ModelClicked;
 
+    /// <summary>Курсор над точкой модели (не во время панорамирования).</summary>
+    public event Action<double, double>? ModelHover;
+
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
@@ -237,8 +240,16 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!_isPanning || !IsMouseCaptured) return;
         var pos = e.GetPosition(this);
+        if (!_isPanning || !IsMouseCaptured)
+        {
+            if (ModelHover != null && ActualWidth >= 2 && ActualHeight >= 2)
+            {
+                var (x, y) = ToModel(pos);
+                ModelHover(x, y);
+            }
+            return;
+        }
         _originX -= (pos.X - _panDragStart.X) / _scale;
         _originY += (pos.Y - _panDragStart.Y) / _scale;
         _panDragStart = pos;

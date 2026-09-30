@@ -645,8 +645,9 @@ public class PlanarRegionMemberVM : ViewModelBase
         return new LineSegmentsElement { Xs = xs, Ys = ys, Stroke = Brushes.Gray, StrokeThickness = 0.6 };
     }
 
-    /// <summary>Мозаика армирования КЭ импортированной сетки этого элемента (ASP/RBT ЛИРЫ).</summary>
-    public PlateRebarMosaicVM Mosaic { get; } = new();
+    /// <summary>Мозаика по КЭ импортированной сетки этого элемента: армирование (ASP/RBT ЛИРЫ),
+    /// импортированные усилия, коэффициент использования из проверок.</summary>
+    public PlateRebarMosaicVM Mosaic { get; } = new() { ShellOnly = true };
 
     /// <summary>У элемента есть КЭ импортированной сетки — мозаика доступна.</summary>
     public bool HasMosaicCells => _mosaicCells.Count > 0;
@@ -686,9 +687,30 @@ public class PlanarRegionMemberVM : ViewModelBase
             _mosaicCells.Add((e.ElemTag.Trim(), xs, ys));
         }
         if (_mosaicCells.Count == 0) return;
-        Mosaic.Reader = () => PlateRebarMosaicVM.Read(db, _schema.Id);
+        var tags = _mosaicCells.Select(c => c.Tag).ToHashSet(StringComparer.Ordinal);
+        Mosaic.ScopeTags = tags;
+        // Проверки самого элемента и групп, в которые входят его КЭ (усилия обычно импортированы на группу кБ).
+        Mosaic.CheckFilter = check => check.TargetsElement
+            ? check.ElementId == member.Id
+            : _schema.MemberGroups.FirstOrDefault(g => g.Id == check.MemberId) is { } group
+              && FemCheckScope.GroupTags(group).Overlaps(tags);
+        Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(db, _schema.Id);
         Mosaic.Reload();
         Mosaic.Changed += (_, _) => RefreshRebarPlotElements();
+    }
+
+    /// <summary>Показать в легенде мозаики значение КЭ под точкой (локальные координаты пластины).</summary>
+    public void HoverMosaicAt(double x, double y)
+    {
+        if (!Mosaic.IsActive) return;
+        foreach (var (tag, xs, ys) in _mosaicCells)
+        {
+            if (x < xs.Min() || x > xs.Max() || y < ys.Min() || y > ys.Max()) continue;
+            var pts = new List<(double, double)>(xs.Length);
+            for (int i = 0; i < xs.Length; i++) pts.Add((xs[i], ys[i]));
+            if (CSTriangulation.GeometryUtils.PointInPolygon(x, y, pts)) { Mosaic.SetHover(tag); return; }
+        }
+        Mosaic.SetHover(null);
     }
 
     void AddMosaicElements(List<PlotElement> elements)
