@@ -598,6 +598,7 @@ namespace OpenCS
       public ICommand ImportLiraSchemaFromFileCommand { get; set; } = null!;
 
       /// <summary>Команда импорта топологии расчётной схемы из текстового формата SCAD.</summary>
+      public ICommand ImportScadSchemaFromApiCommand { get; set; } = null!;
       public ICommand ImportScadTopologyFromTxtCommand { get; set; } = null!;
 
       /// <summary>Команда импорта стержневых усилий (загружения) из XLS-отчёта SCAD.</summary>
@@ -1485,6 +1486,7 @@ namespace OpenCS
           DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromFileCommand = new RelayCommand(_ => ImportLiraSchemaFromFile());
+         ImportScadSchemaFromApiCommand   = new RelayCommand(_ => ImportScadSchemaFromApi(), _ => !IsBusy);
          ImportScadTopologyFromTxtCommand = new RelayCommand(_ => ImportScadTopologyFromTxt());
          ImportScadForcesLoadCasesCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.LoadCases));
          ImportScadForcesRsuCommand       = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Rsu));
@@ -3112,6 +3114,101 @@ namespace OpenCS
          int shellCount = meshElements.Count(e => e.ElemType == "shell");
          LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
             meshNodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
+      }
+
+      /// <summary>
+      /// Импорт схемы из проекта SCAD (.SPR) через SCADAPIX.dll: диалог → чтение в фоне (вся сессия
+      /// SCAD API в одном потоке) → новая схема с сеткой, группами КЭ и жёсткостями.
+      /// </summary>
+      async void ImportScadSchemaFromApi()
+      {
+         if (IsBusy) return;
+         var settings = db.LoadScadApiSettings();
+         var vm = new ViewModels.ScadApiImportVM(settings, FileDialogService);
+         var dialog = new Views.ScadApiImportDialog(vm) { Owner = System.Windows.Application.Current?.MainWindow };
+         if (dialog.ShowDialog() != true) return;
+         vm.ApplyTo(settings);
+         db.SaveScadApiSettings(settings);
+
+         string spr = vm.SprPath, dllDir = vm.DllDirectory;
+         var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, vm.ConcreteGroupsAsMemberGroups);
+         var cts = BeginBusyWithCancellation(Loc.S("ScadApiImporting"), indeterminate: false);
+         var progress = new Progress<double>(f => ReportBusyProgress(f));
+         try
+         {
+            var read = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiReader.Read(session, options, progress, cts.Token);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+
+            var data = read.Data;
+            var schema = new CScore.Fem.FemSchema
+            {
+               Tag        = Path.GetFileNameWithoutExtension(spr),
+               SourceType = "scad",
+            };
+            db.SaveFemSchema(schema);
+
+            var meshNodes    = ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
+            var meshElements = ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
+            var blockGroups  = ScadSchemaConverter.ToFemMemberGroupsByBlocks(data, schema.Id);
+            var concreteGroups = options.ConcreteGroups
+               ? ScadSchemaConverter.ToFemMemberGroupsByConcreteGroups(data, schema.Id)
+               : [];
+            var memberGroups = ScadSchemaConverter.ToFemMemberGroups(data, schema.Id)
+               .Concat(blockGroups).Concat(concreteGroups).ToArray();
+            var stiffnesses  = ScadSchemaConverter.ToSchemaStiffnesses(data);
+
+            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
+            RefreshFemSchemaTreeCounts(schema);
+
+            foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
+               LogService.Warning(string.Format(Loc.S("ScadApiSkippedType"), type, count));
+            if (read.DeletedElements > 0)
+               LogService.Info(string.Format(Loc.S("ScadApiDeletedElements"), read.DeletedElements));
+            if (read.BarStiffnessesWithoutShape.Count > 0)
+               LogService.Warning(string.Format(Loc.S("ScadApiBarsWithoutShape"),
+                  string.Join(", ", read.BarStiffnessesWithoutShape)));
+            if (read.DegenerateAxisElements > 0)
+               LogService.Warning(string.Format(Loc.S("ScadApiDegenerateAxes"), read.DegenerateAxisElements));
+
+            int barCount   = meshElements.Count(e => e.ElemType == "beam");
+            int shellCount = meshElements.Count(e => e.ElemType == "shell");
+            string done = string.Format(Loc.S("ScadApiImportSuccess"), schema.Tag, meshNodes.Length, barCount,
+               shellCount, memberGroups.Length, blockGroups.Length, concreteGroups.Length, stiffnesses.Length);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy(Loc.S("ScadApiImportCancelled"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            string msg = ex.Format(Loc.S);
+            LogService.Error(msg);
+            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            LogService.Error(msg + Environment.NewLine + ex);
+            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
       }
 
       async void ImportScadRsu2()

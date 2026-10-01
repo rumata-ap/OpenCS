@@ -171,6 +171,8 @@
                 <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuScad}">
+                <MenuItem Header="{DynamicResource ImportScadSchemaFromApi}" Command="{Binding ImportScadSchemaFromApiCommand}"/>
+                <Separator/>
                 <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesRsu}" Command="{Binding ImportScadForcesRsuCommand}"/>

@@ -1,0 +1,52 @@
+<Window x:Class="OpenCS.Views.ScadApiImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource ScadApiDialogTitle}" Width="620" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <StackPanel Margin="12">
+        <TextBlock Text="{DynamicResource ScadApiSprLabel}"/>
+        <DockPanel Margin="0,2,0,0">
+            <Button DockPanel.Dock="Right" Content="…" Width="28" Margin="4,0,0,0"
+                    Command="{Binding BrowseSprCommand}" ToolTip="{DynamicResource ScadApiBrowseTip}"/>
+            <TextBox Text="{Binding SprPath, UpdateSourceTrigger=LostFocus}"/>
+        </DockPanel>
+
+        <TextBlock Text="{DynamicResource ScadApiDllLabel}" Margin="0,8,0,0"/>
+        <DockPanel Margin="0,2,0,0">
+            <Button DockPanel.Dock="Right" Content="…" Width="28" Margin="4,0,0,0"
+                    Command="{Binding BrowseDllCommand}" ToolTip="{DynamicResource ScadApiBrowseTip}"/>
+            <TextBox Text="{Binding DllDirectory, UpdateSourceTrigger=LostFocus}"
+                     ToolTip="{DynamicResource ScadApiDllTip}"/>
+        </DockPanel>
+
+        <TextBlock Text="{DynamicResource ScadApiWorkLabel}" Margin="0,8,0,0"/>
+        <DockPanel Margin="0,2,0,0">
+            <Button DockPanel.Dock="Right" Content="…" Width="28" Margin="4,0,0,0"
+                    Command="{Binding BrowseWorkCommand}" ToolTip="{DynamicResource ScadApiBrowseTip}"/>
+            <TextBox Text="{Binding WorkDirectory, UpdateSourceTrigger=LostFocus}"
+                     ToolTip="{DynamicResource ScadApiWorkTip}"/>
+        </DockPanel>
+
+        <GroupBox Header="{DynamicResource ScadApiReadGroup}" Margin="0,10,0,0">
+            <StackPanel Margin="4">
+                <CheckBox Content="{DynamicResource ScadApiReadSchema}" IsChecked="True" IsEnabled="False"/>
+                <CheckBox Content="{DynamicResource ScadApiReadOutputAxes}" IsChecked="{Binding ReadOutputAxes}"
+                          Margin="0,4,0,0" ToolTip="{DynamicResource ScadApiReadOutputAxesTip}"/>
+                <CheckBox Content="{DynamicResource ScadApiReadConcreteGroups}"
+                          IsChecked="{Binding ConcreteGroupsAsMemberGroups}" Margin="0,4,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <TextBlock Text="{DynamicResource ScadApiTargetNewSchema}" Margin="0,8,0,0" Foreground="Gray"/>
+
+        <Border BorderBrush="LightGray" BorderThickness="1" Padding="6" Margin="0,8,0,0" MinHeight="52">
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap"/>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="{DynamicResource ScadApiImportButton}" IsDefault="True" Padding="16,4"
+                    IsEnabled="{Binding CanImport}" Click="Import_Click"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" Margin="8,0,0,0"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

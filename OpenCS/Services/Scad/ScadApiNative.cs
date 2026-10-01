@@ -16,6 +16,12 @@ internal sealed unsafe class ScadApiNative
     static readonly object Sync = new();
     static ScadApiNative? _loaded;
 
+    /// <summary>
+    /// Одна сессия SCAD API в процессе одновременно (потокобезопасность DLL не заявлена): пробу в
+    /// диалоге и импорт выполнять под этим семафором.
+    /// </summary>
+    public static SemaphoreSlim Gate { get; } = new(1, 1);
+
     /// <summary>Полный путь загруженной библиотеки.</summary>
     public string DllPath { get; }
 

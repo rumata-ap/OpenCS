@@ -3659,6 +3659,26 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      public ScadApiSettings LoadScadApiSettings()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='scad_api'";
+         var json = cmd.ExecuteScalar() as string;
+         if (json == null) return ScadApiSettings.Default;
+         try { return JsonSerializer.Deserialize<ScadApiSettings>(json) ?? ScadApiSettings.Default; }
+         catch (JsonException) { return ScadApiSettings.Default; }
+      }
+
+      public void SaveScadApiSettings(ScadApiSettings s)
+      {
+         var json = JsonSerializer.Serialize(s);
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
+                             VALUES ('scad_api', $json)";
+         cmd.Parameters.AddWithValue("$json", json);
+         cmd.ExecuteNonQuery();
+      }
+
       public AcadImportSettings LoadAcadImportSettings()
       {
          var cmd = _connection.CreateCommand();
