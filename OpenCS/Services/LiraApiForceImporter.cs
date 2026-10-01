@@ -1,5 +1,6 @@
 using CScore;
 using CScore.Fem;
+using CScore.Import;
 using LiraSaprRes;
 using OpenCS.Utilites;
 
@@ -24,7 +25,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, lengthToM, lcNames) = GetDocumentInfo(settings);
+        var (documentName, units, lcNames) = GetDocumentInfo(settings);
         var api = CreateResultsAccessObject();
 
         dynamic req = api.CreateRequest("kLiraRequest_LoadCaseForces");
@@ -32,7 +33,7 @@ static class LiraApiForceImporter
         req.Elements.AddFromString(BuildRange(elementIds));
 
         object resp = api.Access.LoadCaseForces(req);
-        return ParseForcesResponse(resp, schema, elementIds, toKn, lengthToM, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
+        return ParseForcesResponse(resp, schema, elementIds, units, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
     }
 
     /// <summary>Читает усилия от РСН (расчётные сочетания нагрузок) — НС и ПС.</summary>
@@ -45,7 +46,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
+        var (documentName, units, _) = GetDocumentInfo(settings);
         var api = CreateResultsAccessObject();
 
         dynamic req = api.CreateRequest("kLiraRequest_LoadCombinationForces");
@@ -61,7 +62,7 @@ static class LiraApiForceImporter
         req.LoadCombinationLimitState.Item[3] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityLongTerm;
 
         object resp = api.Access.LoadCombinationForces(req);
-        return ParseCombinationForcesResponse(resp, schema, elementIds, toKn, lengthToM,
+        return ParseCombinationForcesResponse(resp, schema, elementIds, units,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
@@ -75,7 +76,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
+        var (documentName, units, _) = GetDocumentInfo(settings);
         var api = CreateResultsAccessObject();
 
         dynamic req = api.CreateRequest("kLiraRequest_DesignCombinationForces");
@@ -88,7 +89,7 @@ static class LiraApiForceImporter
         req.DesignCombinationTable = combinationTable;
 
         object resp = api.Access.DesignCombinationForces(req);
-        return ParseDesignForcesResponse(resp, schema, elementIds, toKn, lengthToM,
+        return ParseDesignForcesResponse(resp, schema, elementIds, units,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
@@ -124,13 +125,12 @@ static class LiraApiForceImporter
     }
 
     /// <summary>
-    /// Получает имя активного документа, коэффициент пересчёта усилий в кН (кН/м) и коэффициент
-    /// длины в метры (для домножения/деления погонных величин по правилам ниже).
-    /// LiraUnitsForceEnum (справочное имя из комментариев ЛИРА COM API, не типизированный C#-enum в этом
-    /// проекте): 0=г, 1=кг, 2=тс, 3=Н, 4=кН, 5=МН, 6=фунт, 7=kips.
-    /// LiraUnitsGeometryEnum: 0=м, 1=см, 2=мм (эмпирически подтверждено по реальным координатам узлов).
+    /// Получает имя активного документа и единицы его усилий (LiraMeasurementUnits): сила — Forces1,
+    /// длина в моментах и погонных усилиях — Forces2; напряжения пластин API отдаёт в тех же единицах (сила/длина²).
+    /// Единица координат (Geometry) к усилиям отношения не имеет. Если единицы не читаются —
+    /// считаются кН, м и кПа.
     /// </summary>
-    static (string docName, double toKn, double lengthToM, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
+    static (string docName, LiraApiUnits units, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
     {
         dynamic lira = LiraComConnector.ConnectApplication();
 
@@ -141,40 +141,19 @@ static class LiraApiForceImporter
         string path = (string)doc.PathName;
         string docName = System.IO.Path.GetFileNameWithoutExtension(path);
 
-        // Коэффициент: ЛИРА → кН
-        double forceToKn;
+        LiraApiUnits units;
         try
         {
-            int f1 = (int)lira.MeasurementUnits.Forces1;
-            forceToKn = f1 switch
-            {
-                0 => settings.TonToKnFactor / 1e6,  // г → кН (через g; не показывается как выбор ни в одном UI, но COM-документ теоретически может быть так настроен)
-                1 => settings.TonToKnFactor / 1e3,  // кг → кН (через g, как тс)
-                2 => settings.TonToKnFactor,         // тс → кН
-                3 => 1e-3,                            // Н → кН
-                4 => 1.0,                             // кН → кН
-                5 => 1000.0,                          // МН → кН
-                6 => 0.0044482216,                    // фунт → кН
-                7 => 4.4482216,                       // kips → кН
-                _ => 1.0
-            };
+            dynamic u = lira.MeasurementUnits;
+            units = LiraApiUnits.FromCodes((int)u.Forces1, (int)u.Forces2, settings.TonToKnFactor);
         }
-        catch { forceToKn = 1.0; }
-
-        // Коэффициент: единица длины ЛИРА → метры
-        double lengthToM;
-        try
-        {
-            int g = (int)lira.MeasurementUnits.Geometry;
-            lengthToM = g switch { 0 => 1.0, 1 => 0.01, 2 => 0.001, _ => 1.0 };
-        }
-        catch { lengthToM = 1.0; }
+        catch { units = LiraApiUnits.Identity; }
 
         Dictionary<int, string> lcNames;
         try { lcNames = LiraApiSchemaReader.ReadLoadCaseNames(lira.ActiveDocument); }
         catch { lcNames = []; }
 
-        return (docName, forceToKn, lengthToM, lcNames);
+        return (docName, units, lcNames);
     }
 
     static LiraResultsApi CreateResultsAccessObject() => LiraComConnector.CreateResultsAccess();
@@ -183,8 +162,7 @@ static class LiraApiForceImporter
         dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
-        double toKn,
-        double lengthToM,
+        LiraApiUnits units,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag,
@@ -229,17 +207,17 @@ static class LiraApiForceImporter
                     {
                         if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                         {
-                            // σx/σy/τxy — «сила/длина²»: делим на lengthToM в квадрате.
-                            // Qx/Qy — «сила/длина»: делим на lengthToM в первой степени.
+                            // σx/σy/τxy — напряжения (сила/длина² единиц усилий), Mx/My/Mxy — погонные моменты
+                            // (длины сокращаются), Qx/Qy — погонные силы (единицы Forces1/Forces2).
                             // Mx/My/Mxy — «сила·длина/длина», длина сокращается — без коррекции.
-                            double sigmaX = resp.GetPlateNx (elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
-                            double sigmaY = resp.GetPlateNy (elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
-                            double tauXy  = resp.GetPlateTxy(elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
-                            double mx  = resp.GetPlateMx (elemId, sec, lcNum) * toKn;
-                            double my  = resp.GetPlateMy (elemId, sec, lcNum) * toKn;
-                            double mxy = resp.GetPlateMxy(elemId, sec, lcNum) * toKn;
-                            double qx  = resp.GetPlateQx (elemId, sec, lcNum) * toKn / lengthToM;
-                            double qy  = resp.GetPlateQy (elemId, sec, lcNum) * toKn / lengthToM;
+                            double sigmaX = units.Stress(resp.GetPlateNx (elemId, sec, lcNum));
+                            double sigmaY = units.Stress(resp.GetPlateNy (elemId, sec, lcNum));
+                            double tauXy  = units.Stress(resp.GetPlateTxy(elemId, sec, lcNum));
+                            double mx  = units.MomentPerLength(resp.GetPlateMx (elemId, sec, lcNum));
+                            double my  = units.MomentPerLength(resp.GetPlateMy (elemId, sec, lcNum));
+                            double mxy = units.MomentPerLength(resp.GetPlateMxy(elemId, sec, lcNum));
+                            double qx  = units.PerLength(resp.GetPlateQx (elemId, sec, lcNum));
+                            double qy  = units.PerLength(resp.GetPlateQy (elemId, sec, lcNum));
                             // Фильтр: элементы без результатов ЛИРА возвращает как точные нули
                             if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                 continue;
@@ -255,12 +233,12 @@ static class LiraApiForceImporter
                         }
                         else
                         {
-                            double n  = resp.GetBarN (elemId, sec, lcNum) * toKn;
-                            double t  = resp.GetBarMx(elemId, sec, lcNum) * toKn;
-                            double mx = resp.GetBarMy(elemId, sec, lcNum) * toKn;
-                            double my = resp.GetBarMz(elemId, sec, lcNum) * toKn;
-                            double vy = resp.GetBarQz(elemId, sec, lcNum) * toKn;
-                            double vx = resp.GetBarQy(elemId, sec, lcNum) * toKn;
+                            double n  = units.Force(resp.GetBarN (elemId, sec, lcNum));
+                            double t  = units.Moment(resp.GetBarMx(elemId, sec, lcNum));
+                            double mx = units.Moment(resp.GetBarMy(elemId, sec, lcNum));
+                            double my = units.Moment(resp.GetBarMz(elemId, sec, lcNum));
+                            double vy = units.Force(resp.GetBarQz(elemId, sec, lcNum));
+                            double vx = units.Force(resp.GetBarQy(elemId, sec, lcNum));
                             if (invertBarMoments) { my = -my; mx = -mx; }
                             barRows.Add(new LoadItem
                             {
@@ -287,8 +265,7 @@ static class LiraApiForceImporter
         dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
-        double toKn,
-        double lengthToM,
+        LiraApiUnits units,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag)
@@ -341,14 +318,14 @@ static class LiraApiForceImporter
                         {
                             if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                             {
-                                double sigmaX = resp.GetPlateNx (elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
-                                double sigmaY = resp.GetPlateNy (elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
-                                double tauXy  = resp.GetPlateTxy(elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
-                                double mx  = resp.GetPlateMx (elemId, sec, lcNum, ls) * toKn;
-                                double my  = resp.GetPlateMy (elemId, sec, lcNum, ls) * toKn;
-                                double mxy = resp.GetPlateMxy(elemId, sec, lcNum, ls) * toKn;
-                                double qx  = resp.GetPlateQx (elemId, sec, lcNum, ls) * toKn / lengthToM;
-                                double qy  = resp.GetPlateQy (elemId, sec, lcNum, ls) * toKn / lengthToM;
+                                double sigmaX = units.Stress(resp.GetPlateNx (elemId, sec, lcNum, ls));
+                                double sigmaY = units.Stress(resp.GetPlateNy (elemId, sec, lcNum, ls));
+                                double tauXy  = units.Stress(resp.GetPlateTxy(elemId, sec, lcNum, ls));
+                                double mx  = units.MomentPerLength(resp.GetPlateMx (elemId, sec, lcNum, ls));
+                                double my  = units.MomentPerLength(resp.GetPlateMy (elemId, sec, lcNum, ls));
+                                double mxy = units.MomentPerLength(resp.GetPlateMxy(elemId, sec, lcNum, ls));
+                                double qx  = units.PerLength(resp.GetPlateQx (elemId, sec, lcNum, ls));
+                                double qy  = units.PerLength(resp.GetPlateQy (elemId, sec, lcNum, ls));
                                 if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
@@ -363,12 +340,12 @@ static class LiraApiForceImporter
                             }
                             else
                             {
-                                double n  = resp.GetBarN (elemId, sec, lcNum, ls) * toKn;
-                                double t  = resp.GetBarMx(elemId, sec, lcNum, ls) * toKn;
-                                double mx = resp.GetBarMy(elemId, sec, lcNum, ls) * toKn;
-                                double my = resp.GetBarMz(elemId, sec, lcNum, ls) * toKn;
-                                double vy = resp.GetBarQz(elemId, sec, lcNum, ls) * toKn;
-                                double vx = resp.GetBarQy(elemId, sec, lcNum, ls) * toKn;
+                                double n  = units.Force(resp.GetBarN (elemId, sec, lcNum, ls));
+                                double t  = units.Moment(resp.GetBarMx(elemId, sec, lcNum, ls));
+                                double mx = units.Moment(resp.GetBarMy(elemId, sec, lcNum, ls));
+                                double my = units.Moment(resp.GetBarMz(elemId, sec, lcNum, ls));
+                                double vy = units.Force(resp.GetBarQz(elemId, sec, lcNum, ls));
+                                double vx = units.Force(resp.GetBarQy(elemId, sec, lcNum, ls));
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 barRows.Add(new LoadItem
                                 {
@@ -396,8 +373,7 @@ static class LiraApiForceImporter
         dynamic resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
-        double toKn,
-        double lengthToM,
+        LiraApiUnits units,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag)
@@ -450,14 +426,14 @@ static class LiraApiForceImporter
                         {
                             if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                             {
-                                double sigmaX = resp.GetPlateNx (elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
-                                double sigmaY = resp.GetPlateNy (elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
-                                double tauXy  = resp.GetPlateTxy(elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
-                                double mx  = resp.GetPlateMx (elemId, sec, ls, dcf) * toKn;
-                                double my  = resp.GetPlateMy (elemId, sec, ls, dcf) * toKn;
-                                double mxy = resp.GetPlateMxy(elemId, sec, ls, dcf) * toKn;
-                                double qx  = resp.GetPlateQx (elemId, sec, ls, dcf) * toKn / lengthToM;
-                                double qy  = resp.GetPlateQy (elemId, sec, ls, dcf) * toKn / lengthToM;
+                                double sigmaX = units.Stress(resp.GetPlateNx (elemId, sec, ls, dcf));
+                                double sigmaY = units.Stress(resp.GetPlateNy (elemId, sec, ls, dcf));
+                                double tauXy  = units.Stress(resp.GetPlateTxy(elemId, sec, ls, dcf));
+                                double mx  = units.MomentPerLength(resp.GetPlateMx (elemId, sec, ls, dcf));
+                                double my  = units.MomentPerLength(resp.GetPlateMy (elemId, sec, ls, dcf));
+                                double mxy = units.MomentPerLength(resp.GetPlateMxy(elemId, sec, ls, dcf));
+                                double qx  = units.PerLength(resp.GetPlateQx (elemId, sec, ls, dcf));
+                                double qy  = units.PerLength(resp.GetPlateQy (elemId, sec, ls, dcf));
                                 if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
@@ -472,12 +448,12 @@ static class LiraApiForceImporter
                             }
                             else
                             {
-                                double n  = resp.GetBarN (elemId, sec, ls, dcf) * toKn;
-                                double t  = resp.GetBarMx(elemId, sec, ls, dcf) * toKn;
-                                double mx = resp.GetBarMy(elemId, sec, ls, dcf) * toKn;
-                                double my = resp.GetBarMz(elemId, sec, ls, dcf) * toKn;
-                                double vy = resp.GetBarQz(elemId, sec, ls, dcf) * toKn;
-                                double vx = resp.GetBarQy(elemId, sec, ls, dcf) * toKn;
+                                double n  = units.Force(resp.GetBarN (elemId, sec, ls, dcf));
+                                double t  = units.Moment(resp.GetBarMx(elemId, sec, ls, dcf));
+                                double mx = units.Moment(resp.GetBarMy(elemId, sec, ls, dcf));
+                                double my = units.Moment(resp.GetBarMz(elemId, sec, ls, dcf));
+                                double vy = units.Force(resp.GetBarQz(elemId, sec, ls, dcf));
+                                double vx = units.Force(resp.GetBarQy(elemId, sec, ls, dcf));
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 barRows.Add(new LoadItem
                                 {

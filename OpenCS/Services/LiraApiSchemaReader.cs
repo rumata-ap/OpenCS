@@ -76,10 +76,12 @@ static class LiraApiSchemaReader
 
         var data = new LiraSchemaData();
         var diag = new List<string>();
+        // Таблица узлов отдаёт координаты в единицах геометрии документа (м, см или мм), схема OpenCS — в метрах.
+        double geometryUnitM = GeometryUnitM((object)lira);
 
         // Стратегия 1: CreateNewItem + GetContents(ref data)
         var nodesRaw = TryReadTable(doc.AllTables.CreateNewItem(kNodesTable), diag, "S1-Nodes");
-        if (nodesRaw != null) ParseNodes(nodesRaw, data);
+        if (nodesRaw != null) ParseNodes(nodesRaw, geometryUnitM, data);
 
         var elemsRaw = TryReadTable(doc.AllTables.CreateNewItem(kElementsTable), diag, "S1-Elems");
         if (elemsRaw != null) ParseElements(elemsRaw, data);
@@ -92,7 +94,7 @@ static class LiraApiSchemaReader
         if (data.Nodes.Count == 0)
         {
             nodesRaw = TryReadTable(GetItem(doc.AllTables, kNodesTable, diag, "S2-Nodes"), diag, "S2-Nodes");
-            if (nodesRaw != null) ParseNodes(nodesRaw, data);
+            if (nodesRaw != null) ParseNodes(nodesRaw, geometryUnitM, data);
         }
         if (data.Elements.Count == 0)
         {
@@ -202,12 +204,21 @@ static class LiraApiSchemaReader
         return byElement;
     }
 
-    /// <summary>Единица размеров сечений документа в метрах (LiraUnitsGeometryEnum: 0 = м, 1 = см, 2 = мм);
+    /// <summary>Единица координат узлов документа в метрах (LiraUnitsGeometryEnum);
+    /// не читается — метры, как по умолчанию в ЛИРЕ.</summary>
+    internal static double GeometryUnitM(object liraApp)
+    {
+        dynamic lira = liraApp;
+        try { return LiraApiUnits.LengthToM((int)lira.MeasurementUnits.Geometry, 1.0); }
+        catch (Exception) { return 1.0; }
+    }
+
+    /// <summary>Единица размеров сечений документа в метрах (LiraUnitsGeometryEnum);
     /// не читается — сантиметры, как по умолчанию в ЛИРЕ.</summary>
     static double SectionUnitM(object liraApp)
     {
         dynamic lira = liraApp;
-        try { return (int)lira.MeasurementUnits.Sections switch { 0 => 1.0, 2 => 0.001, _ => 0.01 }; }
+        try { return LiraApiUnits.LengthToM((int)lira.MeasurementUnits.Sections, 0.01); }
         catch (Exception) { return 0.01; }
     }
 
@@ -362,15 +373,17 @@ static class LiraApiSchemaReader
 
     // ------------------------------------------------------------------ парсинг
 
-    static void ParseNodes(object[,] rows, LiraSchemaData data)
+    /// <summary>Таблица узлов: номер, x, y, z (в единицах геометрии документа) и закрепления.</summary>
+    /// <param name="unitM">Единица координат документа в метрах.</param>
+    internal static void ParseNodes(object[,] rows, double unitM, LiraSchemaData data)
     {
         int count = rows.GetLength(0);
         for (int i = 0; i < count; i++)
         {
             if (!TryInt(rows[i, 0], out int id)) continue;
-            double x = ToDouble(rows[i, 1]);
-            double y = ToDouble(rows[i, 2]);
-            double z = ToDouble(rows[i, 3]);
+            double x = ToDouble(rows[i, 1]) * unitM;
+            double y = ToDouble(rows[i, 2]) * unitM;
+            double z = ToDouble(rows[i, 3]) * unitM;
             int dofMask = ParseDofMask(rows, i, 4);
             data.Nodes.Add(new LiraNodeRecord(id, x, y, z, dofMask));
         }
