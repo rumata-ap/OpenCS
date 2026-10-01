@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 69;
+      const int CurrentSchemaVersion = 70;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -89,6 +89,7 @@ namespace OpenCS.Utilites
          [66] = MigrateV67,
          [67] = MigrateV68,
          [68] = MigrateV69,
+         [69] = MigrateV70,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -641,6 +642,8 @@ namespace OpenCS.Utilites
             );
             CREATE INDEX IF NOT EXISTS idx_fem_load_definitions_schema_tag
                 ON fem_load_definitions(schema_id, tag);
+            CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag
+                ON fem_elements(schema_id, elem_tag);
             CREATE TABLE IF NOT EXISTS fem_analyses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -1600,6 +1603,12 @@ namespace OpenCS.Utilites
              data BLOB NOT NULL
          );
          """);
+
+      /// <summary>Миграция v70: индекс КЭ схемы по номеру. Без него обновления по номеру КЭ (жёсткости,
+      /// номера ТЗА, оси выдачи, привязка к элементам из кБ) просматривали всю таблицу на каждый КЭ —
+      /// на схеме из 33 тыс. КЭ это минуты в потоке интерфейса.</summary>
+      void MigrateV70() =>
+         MigExec("CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag ON fem_elements(schema_id, elem_tag)");
 
       /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
       void MigrateV68()
