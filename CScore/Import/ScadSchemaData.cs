@@ -14,9 +14,13 @@ public record ScadElementRecord(int Id, int TypeCode, int StiffnessId, int[] Nod
 /// <summary>Категория жёсткости SCAD по ключевому слову записи блока "(3/...)".</summary>
 public enum ScadStiffnessKind { Bar, Shell, Other }
 
-/// <summary>Жёсткость/материал SCAD (блок "(3/...)"). Name — из "Name &quot;...&quot;", может быть null.
-/// ThicknessM — толщина оболочки из записи GE/GEI (м), null если не распознана.</summary>
-public record ScadStiffnessRecord(int Id, string? Name, ScadStiffnessKind Kind, double? ThicknessM = null);
+/// <summary>Жёсткость/материал SCAD (блок "(3/...)" txt или ApiGetRigid). Name — из "Name &quot;...&quot;"
+/// (txt) или ApiGetRigidName, может быть null.
+/// ThicknessM — толщина оболочки из записи GE/GEI (м), null если не распознана.
+/// Text — исходная строка жёсткости SCAD без номера (null — запись создана не разбором).
+/// BarRect — брус S0 «E B H», м (B ‖ Y1, H ‖ Z1); null — не стержень или сечение не «брус».</summary>
+public record ScadStiffnessRecord(int Id, string? Name, ScadStiffnessKind Kind, double? ThicknessM = null,
+    string? Text = null, LiraBarRect? BarRect = null);
 
 /// <summary>Именованная группа элементов SCAD (блок "(47/...)", код выборки "2" — элементы).</summary>
 public record ScadGroupRecord(string Name, int[] ElementIds);
