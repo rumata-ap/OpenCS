@@ -38,6 +38,15 @@ public sealed class LiraStiffnessesTests
     }
 
     [Fact]
+    public void IsImported_SkipsSingleNodeLinks()
+    {
+        // 1-lin: КЭ 5530 типа 251 на одном узле в схему OpenCS не переносится.
+        Assert.False(LiraSchemaData.IsImported(new LiraElementRecord(5530, 251, 0, 0, [5333])));
+        Assert.True(LiraSchemaData.IsImported(new LiraElementRecord(1, 10, 2, 1, [46, 497])));
+        Assert.True(LiraSchemaData.IsImported(new LiraElementRecord(2, 44, 1, 2, [1, 2, 3, 4])));
+    }
+
+    [Fact]
     public void ReplaceStiffnesses_RoundTripsAndSetsElementNumbers()
     {
         string path = TempDb();

@@ -174,6 +174,16 @@ static class LiraApiSchemaReader
         Dictionary<int, int> byElement = ReadStiffnessTables((object)lira, (object)doc, data, diag);
         if (data.Stiffnesses.Count == 0 || byElement.Count == 0)
             throw new InvalidOperationException("Не удалось прочитать таблицы жёсткостей.\n" + string.Join("\n", diag));
+
+        // КЭ, которые импорт в схему не переносит (одноузловые связи и т. п.), в схеме OpenCS искать бессмысленно.
+        object[,]? elemsRaw = TryReadTable((object)doc.AllTables.CreateNewItem(kElementsTable), diag, "Elems");
+        if (elemsRaw != null)
+        {
+            var elements = new LiraSchemaData();
+            ParseElements(elemsRaw, elements);
+            foreach (var e in elements.Elements.Where(e => !LiraSchemaData.IsImported(e)))
+                byElement.Remove(e.Id);
+        }
         return (data.Stiffnesses, byElement);
     }
 

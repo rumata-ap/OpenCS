@@ -82,6 +82,12 @@ public class LiraSchemaData
     public List<LiraPlateStiffnessRecord>     PlateStiffnesses   { get; } = [];
     public List<LiraConstructiveBlockRecord>  ConstructiveBlocks { get; } = [];
 
+    /// <summary>
+    /// КЭ переносится в схему OpenCS: стержень (2 узла) или пластина (3–4 узла). Одноузловые связи
+    /// (например, КЭ 251) и прочие типы импорт пропускает.
+    /// </summary>
+    public static bool IsImported(LiraElementRecord e) => e.NodeIds.Length is 2 or 3 or 4;
+
     /// <summary>Жёсткости схемы из таблицы 9 «Жёсткости» (API). Пусто — таблица не прочитана.</summary>
     public List<LiraStiffnessRecord>          Stiffnesses        { get; } = [];
 
