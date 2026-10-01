@@ -837,19 +837,17 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
           || SelectedSubject?.Subject is not CheckInfo check || SelectedComponent?.Component is not string source
           || !int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int num))
          return "";
-      var sections = CheckRows(check)
-         .Where(r => r.ElemNum == num && r.RebarSource == source && r.SectionNum != null)
-         .GroupBy(r => r.SectionNum!.Value)
-         .OrderBy(g => g.Key)
-         .ToList();
-      if (sections.Count < 2) return "";
+      // Правило значения сечения — общее с эпюрой (BarDiagram.UtilizationSections): отказ без коэффициента
+      // в любой строке сечения — «не проходит», а не наибольший Кисп остальных строк.
+      var sections = BarDiagram.UtilizationSections(
+         CheckRows(check).Where(r => r.ElemNum == num && r.RebarSource == source));
+      if (sections.Count < 2 || sections.Any(s => s.Num == null)) return "";
       var sb = new System.Text.StringBuilder();
-      foreach (var g in sections)
+      foreach (var (sectionNum, _, _, value, failed) in sections)
       {
-         var values = g.Where(r => !r.NotChecked && r.Utilization is double u && double.IsFinite(u))
-            .Select(r => r.Utilization!.Value).ToList();
-         string value = values.Count > 0 ? values.Max().ToString("0.###", CultureInfo.CurrentCulture) : Loc.S("MosaicNotChecked");
-         sb.Append('\n').Append(string.Format(Loc.S("MosaicHoverSection"), g.Key, value));
+         string text = failed ? Loc.S("MosaicFailedNoUtilization")
+            : value is double v ? v.ToString("0.###", CultureInfo.CurrentCulture) : Loc.S("MosaicNotChecked");
+         sb.Append('\n').Append(string.Format(Loc.S("MosaicHoverSection"), sectionNum, text));
       }
       return sb.ToString();
    }

@@ -229,6 +229,7 @@ public sealed class FemBarDiagramVM : ViewModelBase
                 p.SectionNum?.ToString(CultureInfo.CurrentCulture) ?? "",
                 p.S.ToString("0.###", CultureInfo.CurrentCulture),
                 failure != null && !ComparesWithSelected ? failure
+                    : utilization && p.Failed ? Loc.S("MosaicFailedNoUtilization")
                     : utilization && p.Max == null ? Loc.S("MosaicNotChecked") : Format(p.Max),
                 failure != null && ComparesWithSelected ? failure : HasEnvelope ? Format(p.Min) : "");
         }).ToList();

@@ -12,7 +12,8 @@ public readonly record struct BarDiagramSegment(double S0, double S1, double V0,
 /// <param name="Max">Наибольшее значение в сечении; null — значения нет.</param>
 /// <param name="Min">Наименьшее значение в сечении (при одной строке усилий равно <paramref name="Max"/>).</param>
 /// <param name="FailureCode">Код отказа подбора арматуры программы-источника; null — отказа нет.</param>
-public sealed record BarDiagramPoint(int ElemNum, int? SectionNum, double S, double? Max, double? Min, int? FailureCode = null);
+public sealed record BarDiagramPoint(int ElemNum, int? SectionNum, double S, double? Max, double? Min, int? FailureCode = null,
+    bool Failed = false);
 
 /// <summary>Эпюра вдоль цепочки стержневых КЭ.</summary>
 /// <param name="Upper">Эпюра наибольших значений (при одной строке на сечение — сама эпюра).</param>
@@ -149,7 +150,8 @@ public static class BarDiagram
     /// Эпюра коэффициента использования по сечениям КЭ из строк результата проверки по КЭ: ступенчатая,
     /// как у арматуры (каждое сечение проверено отдельно), значение сечения — наибольший Кисп его строк.
     /// Сечение без проверенных строк в эпюру не входит, но остаётся в <see cref="BarDiagramSeries.Points"/>
-    /// с пустым значением.
+    /// с пустым значением. Так же — сечение со строкой, не прошедшей без коэффициента (НДС не найден):
+    /// наибольший Кисп остальных строк его не характеризует; у точки <see cref="BarDiagramPoint.Failed"/>.
     /// </summary>
     /// <param name="rebarSource">Источник армирования, строки которого берутся.</param>
     public static BarDiagramSeries Utilization(BarChain chain, IEnumerable<FemCheckRowResult> rows, string rebarSource)
@@ -162,10 +164,10 @@ public static class BarDiagram
         foreach (var e in chain.Elements)
         {
             var sections = UtilizationSections(byElem[e.ElemNum]);
-            foreach (var (num, k, n, value) in sections)
+            foreach (var (num, k, n, value, failed) in sections)
             {
                 double t = n > 1 ? k / (double)(n - 1) : 0.5;
-                points.Add(new BarDiagramPoint(e.ElemNum, num, e.At(t), value, value));
+                points.Add(new BarDiagramPoint(e.ElemNum, num, e.At(t), value, value, Failed: failed));
                 if (value is not double v) continue;
                 var (t0, t1) = StepBounds(k, n);
                 upper.Add(Ordered(e.At(t0), e.At(t1), v, v));
@@ -185,7 +187,7 @@ public static class BarDiagram
         foreach (var g in rows.Where(r => r.RebarSource == rebarSource).GroupBy(r => r.ElemNum))
         {
             var profile = new List<(double, double)>();
-            foreach (var (_, k, n, value) in UtilizationSections(g))
+            foreach (var (_, k, n, value, _) in UtilizationSections(g))
             {
                 if (value is not double v) continue;
                 var (t0, t1) = StepBounds(k, n);
@@ -198,10 +200,12 @@ public static class BarDiagram
     }
 
     /// <summary>
-    /// Сечения КЭ по строкам результата: номер, индекс с нуля, число сечений и наибольший Кисп проверенных
-    /// строк (null — проверенных нет). Строки без номера сечения — одно сечение на весь КЭ.
+    /// Сечения КЭ по строкам результата: номер, индекс с нуля, число сечений, наибольший Кисп проверенных
+    /// строк (null — проверенных нет или сечение не прошло без коэффициента) и признак такого отказа.
+    /// Строки без номера сечения — одно сечение на весь КЭ.
     /// </summary>
-    static List<(int? Num, int K, int N, double? Value)> UtilizationSections(IEnumerable<FemCheckRowResult> elementRows)
+    public static List<(int? Num, int K, int N, double? Value, bool Failed)> UtilizationSections(
+        IEnumerable<FemCheckRowResult> elementRows)
     {
         var rows = elementRows.ToList();
         if (rows.Count == 0) return [];
@@ -214,7 +218,10 @@ public static class BarDiagram
             {
                 var values = g.Where(r => !r.NotChecked && r.Utilization is double u && double.IsFinite(u))
                     .Select(r => r.Utilization!.Value).ToList();
-                return (numbered ? g.Key : (int?)null, g.Key - 1, count, values.Count > 0 ? values.Max() : (double?)null);
+                // Строка не прошла, а коэффициента нет (НДС не найден) — сечение не проходит при любом Кисп остальных.
+                bool failed = g.Any(r => !r.NotChecked && !r.Passed && !(r.Utilization is double u && double.IsFinite(u)));
+                return (numbered ? g.Key : (int?)null, g.Key - 1, count,
+                    failed || values.Count == 0 ? (double?)null : values.Max(), failed);
             })
             .ToList();
     }

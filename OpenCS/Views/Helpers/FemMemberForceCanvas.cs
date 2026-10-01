@@ -18,7 +18,8 @@ public sealed class FemMemberForceCanvas : Canvas
     public readonly record struct Segment(double S0, double S1, double V0, double V1);
 
     /// <summary>Маркер точки интегрирования на эпюре.</summary>
-    public readonly record struct Marker(double S, bool Available, object Key, string Label);
+    /// <param name="Failed">Точка не прошла проверку — маркер красный.</param>
+    public readonly record struct Marker(double S, bool Available, object Key, string Label, bool Failed = false);
 
     /// <summary>Клик ЛКМ по маркеру ТИ.</summary>
     public event Action<object>? MarkerClicked;
@@ -27,6 +28,7 @@ public sealed class FemMemberForceCanvas : Canvas
 
     IReadOnlyList<Segment> _segments = [];
     IReadOnlyList<Segment> _secondary = [];
+    IReadOnlyList<Segment> _reference = [];
     IReadOnlyList<Marker> _markers = [];
     object? _selectedMarkerKey;
     string _title = "";
@@ -65,10 +67,13 @@ public sealed class FemMemberForceCanvas : Canvas
 
     /// <summary>Задаёт данные эпюры и перерисовывает.</summary>
     /// <param name="secondary">Вторая эпюра на той же оси (наименьшие значения огибающей); null — её нет.</param>
-    public void SetData(IReadOnlyList<Segment> segments, string title, IReadOnlyList<Segment>? secondary = null)
+    /// <param name="reference">Опорная линия без заливки (предел Кисп = 1); null — её нет.</param>
+    public void SetData(IReadOnlyList<Segment> segments, string title, IReadOnlyList<Segment>? secondary = null,
+                        IReadOnlyList<Segment>? reference = null)
     {
         _segments = segments ?? [];
         _secondary = secondary ?? [];
+        _reference = reference ?? [];
         _title = title ?? "";
         Redraw();
     }
@@ -102,7 +107,7 @@ public sealed class FemMemberForceCanvas : Canvas
         double w = ActualWidth, h = ActualHeight;
         _x0 = margin; _x1 = w - margin;
 
-        var all = _segments.Concat(_secondary).ToList();
+        var all = _segments.Concat(_secondary).Concat(_reference).ToList();
         _sMax = all.Count > 0 ? all.Max(s => System.Math.Max(s.S0, s.S1)) : 0;
         _sMin = all.Count > 0 ? all.Min(s => System.Math.Min(s.S0, s.S1)) : 0;
         _sSpan = _sMax - _sMin;
@@ -150,6 +155,13 @@ public sealed class FemMemberForceCanvas : Canvas
 
         DrawSeries(_segments, Color.FromRgb(0x2b, 0x6c, 0xb0));
         DrawSeries(_secondary, Color.FromRgb(0xd9, 0x7a, 0x1e));
+        foreach (var seg in _reference)
+            Children.Add(new Line
+            {
+                X1 = MapX(seg.S0), Y1 = MapY(seg.V0), X2 = MapX(seg.S1), Y2 = MapY(seg.V1),
+                Stroke = new SolidColorBrush(Color.FromRgb(0xc6, 0x28, 0x28)), StrokeThickness = 1.5,
+                StrokeDashArray = [6, 4],
+            });
 
         DrawAxis(_x0, _x1, _axisY);
         DrawMarkers();
@@ -185,7 +197,7 @@ public sealed class FemMemberForceCanvas : Canvas
         foreach (var m in _markers)
         {
             bool selected = Equals(_selectedMarkerKey, m.Key);
-            var brush = selected ? Brushes.OrangeRed : m.Available ? Brushes.SeaGreen : Brushes.Gray;
+            var brush = selected ? Brushes.OrangeRed : m.Failed ? Brushes.Firebrick : m.Available ? Brushes.SeaGreen : Brushes.Gray;
             double size = selected ? 12 : 9;
             double mx = _x0 + (m.S - _sMin) / _sSpan * (_x1 - _x0);
             var ellipse = new Ellipse { Width = size, Height = size, Fill = brush };

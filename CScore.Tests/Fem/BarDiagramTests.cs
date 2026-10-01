@@ -323,6 +323,26 @@ public class BarDiagramTests
         Assert.False(BarDiagram.UtilizationProfiles(rows, "selected").ContainsKey(9));
     }
 
+    /// <summary>
+    /// Строка без коэффициента, не прошедшая проверку (НДС не найден), делает сечение не прошедшим: наибольший
+    /// Кисп остальных строк сечения его не характеризует. Ступени нет, точка помечена отказом.
+    /// </summary>
+    [Fact]
+    public void Utilization_FailedRowWithoutCoefficient_FailsWholeSection()
+    {
+        var chain = Assert.Single(BarChains.Build([Bar(7, 1, 2, (0, 0, 0), (4, 0, 0))]));
+        FemCheckRowResult[] rows = [Util(7, 1, 0.18), Util(7, 1, null), Util(7, 2, 0.3)];
+
+        var series = BarDiagram.Utilization(chain, rows, "selected");
+
+        Assert.Equal([new BarDiagramSegment(2, 4, 0.3, 0.3)], series.Upper);
+        var first = series.Points.Single(p => p.SectionNum == 1);
+        Assert.True(first.Failed);
+        Assert.Null(first.Max);
+        Assert.False(series.Points.Single(p => p.SectionNum == 2).Failed);
+        Assert.Equal([(0.5, 0.3), (1.0, 0.3)], BarDiagram.UtilizationProfiles(rows, "selected")[7]);
+    }
+
     [Fact]
     public void ParseRows_ReadsElementSectionSourceAndUtilization()
     {
