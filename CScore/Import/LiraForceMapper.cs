@@ -2,21 +2,27 @@ namespace CScore.Import
 {
    internal static class LiraForceMapper
    {
+      /// <summary>
+      /// Усилия стержня ЛИРЫ → строка набора OpenCS. Оси сечения OpenCS: x — вдоль местной оси Y1
+      /// (ширина), y — вдоль Z1 (высота), поэтому <c>Mx ← My</c> ЛИРЫ (изгиб в плоскости X1Z1),
+      /// <c>My ← Mz</c>, <c>Vy ← Qz</c>, <c>Vx ← Qy</c>. Положительный My ЛИРЫ растягивает нижнее волокно,
+      /// положительный Mx OpenCS — верхнее, отсюда инверсия (<see cref="LiraImportOptions.InvertBarBendingMoments"/>).
+      /// Сверено 30.09.2026 с подбором арматуры ЛИРЫ на схеме 1-lin (438 сечений балок).
+      /// </summary>
       public static LoadItem MapBar(IReadOnlyDictionary<string, double> src, LiraUnitScales units, LiraImportOptions opt)
       {
          double f = units.Force;
          double m = units.Moment;
-         double SignMx = opt.InvertBarBendingMoments ? -1 : 1;
-         double SignMy = opt.InvertBarBendingMoments ? -1 : 1;
+         double sign = opt.InvertBarBendingMoments ? -1 : 1;
 
          return new LoadItem
          {
             N  = Get(src, "N") * f,
             T  = Get(src, "MX") * m,
-            My = Get(src, "MY") * m * SignMy,
-            Mx = Get(src, "MZ") * m * SignMx,
-            Vx = Get(src, "QZ") * f,
-            Vy = Get(src, "QY") * f,
+            Mx = Get(src, "MY") * m * sign,
+            My = Get(src, "MZ") * m * sign,
+            Vy = Get(src, "QZ") * f,
+            Vx = Get(src, "QY") * f,
          };
       }
 

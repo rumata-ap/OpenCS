@@ -153,8 +153,8 @@ public sealed class FemBarDiagramVM : ViewModelBase
             _ => [],
         };
         OnPropertyChanged(nameof(Components));
-        // Усилия открываются на изгибающем моменте My, арматура — на суммарной продольной.
-        _selectedComponent = Components.FirstOrDefault(c => Equals(c.Component, BarForceComponent.My)) ?? Components.FirstOrDefault();
+        // Усилия открываются на изгибающем моменте Mx (плоскость X1Z1 стержня), арматура — на суммарной продольной.
+        _selectedComponent = Components.FirstOrDefault(c => Equals(c.Component, BarForceComponent.Mx)) ?? Components.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedComponent));
     }
 

@@ -9,6 +9,11 @@ public static class ScadXlsForceMapper
         return form.Trim().Equals("LS+SD", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Усилия стержня SCAD → строка набора OpenCS. Оси сечения OpenCS: x — вдоль местной оси Y1 (ширина),
+    /// y — вдоль Z1 (высота): <c>Mx ← My</c>, <c>My ← Mz</c>, <c>Vy ← Qz</c>, <c>Vx ← Qy</c> — как у ЛИРЫ
+    /// (<see cref="LiraForceMapper.MapBar"/>; на данных SCAD независимо не сверено).
+    /// </summary>
     public static LoadItem MapBar(
         double n, double mk, double my, double qz, double mz, double qy,
         ScadXlsImportOptions opt)
@@ -19,10 +24,10 @@ public static class ScadXlsForceMapper
         {
             N  = n * f,
             T  = mk * f,
-            My = my * f * sign,
-            Mx = mz * f * sign,
-            Vx = qz * f,
-            Vy = qy * f,
+            Mx = my * f * sign,
+            My = mz * f * sign,
+            Vy = qz * f,
+            Vx = qy * f,
         };
     }
 

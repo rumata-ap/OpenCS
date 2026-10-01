@@ -12,6 +12,8 @@ static class LiraApiSchemaReader
 {
     const int kNodesTable              = 2;   // kLiraTable_Nodes_Coordinates
     const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
+    const int kStiffnessesTable        = 9;   // kLiraTable_Stiffnesses: жёсткости схемы
+    const int kElementsStiffnessTable  = 10;  // kLiraTable_Elements_Stiffnesses: КЭ → номер жёсткости
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
     const int kLoadCasesTable          = 25;  // номер загружения + имя + тип
     const int kPlateLocalAxesTable     = 18;  // kLiraTable_Plates_LocalAxes: КЭ → угол согласования осей
@@ -103,6 +105,9 @@ static class LiraApiSchemaReader
             if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
         }
 
+        // Жёсткости: размеры сечений стержней и толщины пластин (не критично: без таблиц группы остаются «Жёсткость 0»)
+        ReadStiffnessTables((object)lira, (object)doc, data, diag);
+
         // Согласованные местные оси пластин — оси выдачи усилий (не критично: без таблицы оси считаются неизвестными)
         var axesRaw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "S1-PlateAxes");
         if (axesRaw != null) ParsePlateAxisAngles(axesRaw, data);
@@ -149,6 +154,51 @@ static class LiraApiSchemaReader
         var data = new LiraSchemaData();
         ParseElementReinforcementTypes(raw, data);
         return data.ElementReinforcementTypes;
+    }
+
+    /// <summary>
+    /// Прочитать из запущенной ЛИРЫ только жёсткости схемы (таблицы «Жёсткости» и «Элементы - жёсткости»).
+    /// Нужна схемам, импортированным до того, как жёсткости стали сохраняться при схеме.
+    /// </summary>
+    /// <returns>Жёсткости и номер жёсткости по номеру КЭ.</returns>
+    /// <exception cref="InvalidOperationException">Нет открытого документа или таблицы не читаются.</exception>
+    public static (List<LiraStiffnessRecord> Stiffnesses, Dictionary<int, int> ElementStiffness) ReadStiffnesses()
+    {
+        dynamic lira = LiraComConnector.ConnectApplication();
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException(
+                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+
+        var diag = new List<string>();
+        var data = new LiraSchemaData();
+        Dictionary<int, int> byElement = ReadStiffnessTables((object)lira, (object)doc, data, diag);
+        if (data.Stiffnesses.Count == 0 || byElement.Count == 0)
+            throw new InvalidOperationException("Не удалось прочитать таблицы жёсткостей.\n" + string.Join("\n", diag));
+        return (data.Stiffnesses, byElement);
+    }
+
+    /// <summary>Таблицы 9 и 10: жёсткости схемы и жёсткость каждого КЭ; результат применяется к <paramref name="data"/>.</summary>
+    static Dictionary<int, int> ReadStiffnessTables(object liraApp, object document, LiraSchemaData data, List<string> diag)
+    {
+        dynamic doc = document;
+        var byElement = new Dictionary<int, int>();
+        object[,]? stiffRaw = TryReadTable((object)doc.AllTables.CreateNewItem(kStiffnessesTable), diag, "Stiffnesses");
+        if (stiffRaw == null) return byElement;
+        ParseStiffnesses(stiffRaw, SectionUnitM(liraApp), data);
+
+        object[,]? elemRaw = TryReadTable((object)doc.AllTables.CreateNewItem(kElementsStiffnessTable), diag, "ElemStiffness");
+        if (elemRaw != null) ParseElementStiffnesses(elemRaw, byElement);
+        data.ApplyStiffnesses(byElement);
+        return byElement;
+    }
+
+    /// <summary>Единица размеров сечений документа в метрах (LiraUnitsGeometryEnum: 0 = м, 1 = см, 2 = мм);
+    /// не читается — сантиметры, как по умолчанию в ЛИРЕ.</summary>
+    static double SectionUnitM(object liraApp)
+    {
+        dynamic lira = liraApp;
+        try { return (int)lira.MeasurementUnits.Sections switch { 0 => 1.0, 2 => 0.001, _ => 0.01 }; }
+        catch (Exception) { return 0.01; }
     }
 
     /// <summary>
@@ -344,6 +394,30 @@ static class LiraApiSchemaReader
 
             data.Elements.Add(new LiraElementRecord(id, feType, secCount, stiffId, nodeIds));
         }
+    }
+
+    /// <summary>
+    /// Парсит таблицу 9 «Жёсткости»: [0] = номер, [1] = код вида, [2] = цвет, [3] = имя, [4] = параметры.
+    /// </summary>
+    internal static void ParseStiffnesses(object[,] rows, double sectionUnitM, LiraSchemaData data)
+    {
+        if (rows.GetLength(1) < 5) return;
+        for (int i = 0; i < rows.GetLength(0); i++)
+        {
+            if (!TryInt(rows[i, 0], out int id)) continue;
+            TryInt(rows[i, 1], out int kind);
+            data.Stiffnesses.Add(new LiraStiffnessRecord(id, kind,
+                rows[i, 3]?.ToString()?.Trim() ?? "", rows[i, 4]?.ToString()?.Trim() ?? "", sectionUnitM));
+        }
+    }
+
+    /// <summary>Парсит таблицу 10 «Элементы - жёсткости»: [0] = номер КЭ, [1] = номер жёсткости.</summary>
+    internal static void ParseElementStiffnesses(object[,] rows, Dictionary<int, int> byElement)
+    {
+        if (rows.GetLength(1) < 2) return;
+        for (int i = 0; i < rows.GetLength(0); i++)
+            if (TryInt(rows[i, 0], out int id) && TryInt(rows[i, 1], out int num) && num > 0)
+                byElement[id] = num;
     }
 
     /// <summary>

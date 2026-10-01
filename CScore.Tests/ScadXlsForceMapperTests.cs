@@ -29,10 +29,11 @@ public class ScadXlsForceMapperTests
 
         Assert.Equal(10, item.N);
         Assert.Equal(20, item.T);
-        Assert.Equal(30, item.My);
-        Assert.Equal(40, item.Vx);
-        Assert.Equal(50, item.Mx);
-        Assert.Equal(60, item.Vy);
+        // Оси сечения OpenCS: x — вдоль Y1, y — вдоль Z1: Mx ← My, My ← Mz, Vy ← Qz, Vx ← Qy.
+        Assert.Equal(30, item.Mx);
+        Assert.Equal(40, item.Vy);
+        Assert.Equal(50, item.My);
+        Assert.Equal(60, item.Vx);
     }
 
     [Fact]
@@ -44,8 +45,8 @@ public class ScadXlsForceMapperTests
             InvertBarBendingMoments = true,
         };
         var item = ScadXlsForceMapper.MapBar(0, 0, my: 3, qz: 0, mz: 5, qy: 0, opt);
-        Assert.Equal(-3, item.My);
-        Assert.Equal(-5, item.Mx);
+        Assert.Equal(-3, item.Mx);
+        Assert.Equal(-5, item.My);
     }
 
     [Fact]

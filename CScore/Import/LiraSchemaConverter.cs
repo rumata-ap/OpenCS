@@ -99,6 +99,7 @@ public static class LiraSchemaConverter
                     ElemType    = "beam",
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                     SectionTag  = tag,
+                    StiffnessNum = e.StiffnessId > 0 ? e.StiffnessId : null,
                     ReinforcementTypeIds = ReinforcementKey(data, e.Id),
                     Origin      = FemMember.MeshSourceImported,
                 };
@@ -120,7 +121,8 @@ public static class LiraSchemaConverter
                     ElemType    = "shell",
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                     SectionTag  = tag,
-                    ThicknessM  = stiff?.H_mm is { } h ? h / 1000.0 : null,
+                    StiffnessNum = e.StiffnessId > 0 ? e.StiffnessId : null,
+                    ThicknessM  = stiff?.H_mm is > 0 and var h ? h / 1000.0 : null,
                     ReinforcementTypeIds = ReinforcementKey(data, e.Id),
                     LocalAxisAngleDeg = data.PlateAxisAngles.TryGetValue(e.Id, out double angle) ? angle : null,
                     Origin      = FemMember.MeshSourceImported,

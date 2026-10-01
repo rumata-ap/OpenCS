@@ -173,8 +173,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       switch (SelectedComponent!.Component)
       {
          case BarForceComponent force when SelectedSubject?.Subject is ForceSet set:
-            // Mx и Vy действуют в плоскости X1Y1 стержня (Mz и Qy ЛИРЫ), остальное — в X1Z1.
-            if (force is BarForceComponent.Mx or BarForceComponent.Vy) plane = BarDiagramPlane.Y1;
+            // My и Vx действуют в плоскости X1Y1 стержня (Mz и Qy ЛИРЫ), остальное — в X1Z1.
+            if (force is BarForceComponent.My or BarForceComponent.Vx) plane = BarDiagramPlane.Y1;
             var byNum = BarDiagram.ForceProfiles(set, force, SelectedAggregate.Aggregate);
             foreach (string tag in barTags)
                if (int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)

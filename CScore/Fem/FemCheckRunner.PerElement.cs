@@ -21,6 +21,9 @@ public sealed class FemPerElementInputs
     public bool ParallelBars { get; init; }
     /// <summary>Подобранная продольная арматура стержней по номеру КЭ, см² (справочно).</summary>
     public IReadOnlyDictionary<int, double> BarSelectedAsCm2 { get; init; } = new Dictionary<int, double>();
+    /// <summary>Источники сечения стержневых КЭ в порядке расчёта; пусто — сечение проекта
+    /// (<see cref="BarSectionById"/>, <see cref="TargetBarSection"/>).</summary>
+    public IReadOnlyList<IBarElementSectionSource> BarSources { get; init; } = [];
 
     /// <summary>Сечение-шаблон пластины цели: бетон, материалы, модель; у строк без номера КЭ — само сечение.</summary>
     public PlateSection? PlateTemplate { get; init; }
@@ -61,7 +64,7 @@ public static partial class FemCheckRunner
         var elements = ScopeElements(check, scope);
         if (!isPlate)
             return FemCheckReadiness.Evaluate(false, elements, forceSets,
-                [new FemCheckSectionProbe("", e => ResolveBarSection(e, inputs).Section == null ? "нет расчётного сечения" : null)]);
+                [.. BarSources(inputs).Select(s => new FemCheckSectionProbe(s.Key, s.MissingReason))]);
 
         var sources = PlateSources(inputs);
         return FemCheckReadiness.Evaluate(true, elements, forceSets,
@@ -108,17 +111,20 @@ public static partial class FemCheckRunner
             if (e.ElemNum is int n) byNum.TryAdd(n, e);
 
         var plateSources = isPlate ? PlateSources(inputs) : [];
-        string[] sourceKeys = isPlate ? [.. plateSources.Select(s => s.Key)] : [""];
+        var barSources = isPlate ? [] : BarSources(inputs);
+        string[] sourceKeys = isPlate ? [.. plateSources.Select(s => s.Key)] : [.. barSources.Select(s => s.Key)];
         var pParams = isPlate ? PlateCheckParams.Parse(check.ParamsJson) : null;
         var lookupSets = inputs.LookupForceSets.Count > 0 ? inputs.LookupForceSets : forceSets;
 
         // ── Задания: строка усилий × источник армирования, сгруппированные по КЭ ──────────────
         var groups = new List<ElementGroup>();
-        var groupByKey = new Dictionary<(string Source, int ElemNum), ElementGroup>();
+        // Группа — строки с одним сечением: у источника с армированием по сечениям КЭ — своя на каждое сечение.
+        var groupByKey = new Dictionary<(string Source, int ElemNum, int Section), ElementGroup>();
+        var groupsByElem = new Dictionary<(string Source, int ElemNum), List<ElementGroup>>();
         ElementGroup? targetGroup = null;   // строки без номера КЭ — сечение цели
         int total = 0, skipped = 0;
 
-        ElementGroup GroupFor(int sourceIndex, int? elemNum)
+        ElementGroup GroupFor(int sourceIndex, int? elemNum, int? sectionNum)
         {
             if (elemNum is not int n)
             {
@@ -126,25 +132,28 @@ public static partial class FemCheckRunner
                 {
                     targetGroup = isPlate
                         ? new ElementGroup(FemCheckRebarSource.Section, null, null,
-                            new PlateElementSection(inputs.PlateTemplate, inputs.PlateTemplate!.Tag, "", null), null, "")
-                        : new ElementGroup("", null, null, null, inputs.TargetBarSection, inputs.TargetBarSection?.Tag ?? "");
+                            new PlateElementSection(inputs.PlateTemplate, inputs.PlateTemplate!.Tag, "", null), null)
+                        : new ElementGroup(sourceKeys[0], null, null, null,
+                            new BarElementSection(inputs.TargetBarSection, inputs.TargetBarSection?.Tag ?? "",
+                                inputs.TargetBarSection == null ? "нет расчётного сечения" : null));
                     groups.Add(targetGroup);
                 }
                 return targetGroup;
             }
 
             string source = sourceKeys[sourceIndex];
-            if (!groupByKey.TryGetValue((source, n), out var g))
+            int sectionKey = !isPlate && barSources[sourceIndex].PerSection ? sectionNum ?? 0 : 0;
+            if (!groupByKey.TryGetValue((source, n, sectionKey), out var g))
             {
                 var e = byNum[n];
-                if (isPlate)
-                    g = new ElementGroup(source, n, e, plateSources[sourceIndex].Resolve(e), null, "");
-                else
-                {
-                    var (section, label) = ResolveBarSection(e, inputs);
-                    g = new ElementGroup(source, n, e, null, section, label);
-                }
-                groupByKey[(source, n)] = g;
+                g = isPlate
+                    ? new ElementGroup(source, n, e, plateSources[sourceIndex].Resolve(e), null)
+                    : new ElementGroup(source, n, e, null,
+                        barSources[sourceIndex].Resolve(e, sectionKey > 0 ? sectionKey : null));
+                groupByKey[(source, n, sectionKey)] = g;
+                if (!groupsByElem.TryGetValue((source, n), out var list))
+                    groupsByElem[(source, n)] = list = [];
+                list.Add(g);
                 groups.Add(g);
             }
             return g;
@@ -172,15 +181,16 @@ public static partial class FemCheckRunner
                         if (shell.SourceElementNum == null && si > 0) continue;
                         ShellLoadItem? nlItem = null;
                         nlLookup?.TryGetValue(shell.Label, out nlItem);
-                        GroupFor(si, shell.SourceElementNum).Jobs.Add(new Job(total++, fs, calcType, task, null, shell, nlItem));
+                        GroupFor(si, shell.SourceElementNum, null).Jobs.Add(new Job(total++, fs, calcType, task, null, shell, nlItem));
                     }
                 }
                 else
                 {
                     foreach (var item in fs.Items)
                     {
-                        if (item.SourceElementNum is int n && !byNum.ContainsKey(n)) { skipped++; continue; }
-                        GroupFor(si, item.SourceElementNum).Jobs.Add(new Job(total++, fs, calcType, task, item, null, null));
+                        if (item.SourceElementNum is int n && !byNum.ContainsKey(n)) { if (si == 0) skipped++; continue; }
+                        if (item.SourceElementNum == null && si > 0) continue;
+                        GroupFor(si, item.SourceElementNum, item.SourceSectionNum).Jobs.Add(new Job(total++, fs, calcType, task, item, null, null));
                     }
                 }
             }
@@ -194,7 +204,7 @@ public static partial class FemCheckRunner
         void RunGroup(ElementGroup g)
         {
             // rc_check меняет состояние сечения (диаграммы, фибры) — в параллели у каждого КЭ свой клон.
-            var bar = inputs.ParallelBars ? g.BarSection?.CloneForCalc() : g.BarSection;
+            var bar = inputs.ParallelBars ? g.Bar?.Section?.CloneForCalc() : g.Bar?.Section;
             foreach (var job in g.Jobs)
             {
                 if (ct.IsCancellationRequested) return;
@@ -213,13 +223,13 @@ public static partial class FemCheckRunner
                 else
                     row = bar != null
                         ? CheckBarRow(barExecutor, job.Task, bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
-                        : NotCheckedRow(job, "Нет расчётного сечения");
+                        : NotCheckedRow(job, "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : ""));
 
                 results[job.Index] = row with
                 {
                     ElemNum      = g.ElemNum,
                     SectionNum   = job.Bar?.SourceSectionNum ?? job.Shell?.SourceSectionNum,
-                    SectionLabel = isPlate ? g.Plate!.Label : g.BarLabel,
+                    SectionLabel = isPlate ? g.Plate!.Label : g.Bar!.Label,
                     RebarKey     = g.Plate?.RebarKey ?? "",
                     RebarSource  = g.Source,
                 };
@@ -241,32 +251,38 @@ public static partial class FemCheckRunner
         bool anyUnchecked = results.Any(r => r.NotChecked);
         int lessThanSelected = 0;
 
-        foreach (string source in sourceKeys)
+        for (int si = 0; si < sourceKeys.Length; si++)
         {
+            string source = sourceKeys[si];
             int ok = 0, failed = 0, notChecked = 0;
             foreach (var e in elements.OrderBy(e => e.ElemNum ?? int.MaxValue).ThenBy(e => e.Element.ElemTag, StringComparer.Ordinal))
             {
-                ElementGroup? g = e.ElemNum is int n ? groupByKey.GetValueOrDefault((source, n)) : null;
-                var rows = g == null ? [] : g.Jobs.Select(j => results[j.Index]).ToList();
+                var elemGroups = e.ElemNum is int n ? groupsByElem.GetValueOrDefault((source, n)) : null;
+                var rows = elemGroups == null ? [] : elemGroups.SelectMany(g => g.Jobs).Select(j => results[j.Index]).ToList();
 
                 string label, status;
                 string? reason = null;
                 double? asProvided = null, asSelected = null;
                 if (isPlate)
                 {
-                    var section = g?.Plate ?? plateSources[Array.IndexOf(sourceKeys, source)].Resolve(e);
+                    var section = elemGroups?[0].Plate ?? plateSources[si].Resolve(e);
                     label = section.Label;
                     status = section.Section == null ? "no_rebar" : "";
                     reason = section.Section == null ? section.Reason : null;
                 }
                 else
                 {
-                    var (section, barLabel) = g != null ? (g.BarSection, g.BarLabel) : ResolveBarSection(e, inputs);
-                    label = barLabel;
-                    status = section == null ? "no_section" : "";
-                    if (section != null) asProvided = RebarAreaCm2(section);
+                    // У источника с армированием по сечениям КЭ сечений несколько: КЭ без сечения — когда нет ни одного.
+                    var sections = elemGroups?.Select(g => g.Bar!).ToList() ?? [barSources[si].Resolve(e, null)];
+                    var withSection = sections.Where(s => s.Section != null).ToList();
+                    label = (withSection.Count > 0 ? withSection[0] : sections[0]).Label;
+                    status = withSection.Count == 0 ? "no_section" : "";
+                    reason = withSection.Count == 0 ? sections[0].Reason : null;
+                    if (withSection.Count > 0) asProvided = withSection.Max(s => RebarAreaCm2(s.Section!));
                     if (e.ElemNum is int num && inputs.BarSelectedAsCm2.TryGetValue(num, out double sel)) asSelected = sel;
-                    if (asProvided is double ap && asSelected is double asl && ap < asl - 1e-6) lessThanSelected++;
+                    // Сравнение с подбором имеет смысл для принятого и заданного армирования, не для самого подбора.
+                    if (source != FemCheckRebarSource.Selected
+                        && asProvided is double ap && asSelected is double asl && ap < asl - 1e-6) lessThanSelected++;
                 }
 
                 int rowsNotChecked = rows.Count(r => r.NotChecked);
@@ -333,7 +349,7 @@ public static partial class FemCheckRunner
             failedRows     = results.Length - passedRows - notCheckedRows,
             notCheckedRows,
             skippedRows    = skipped,
-            rebarSources   = isPlate ? sourceKeys : [],
+            rebarSources   = isPlate || inputs.BarSources.Count > 0 ? sourceKeys : [],
             summary = new
             {
                 elementsTotal         = elements.Count,
@@ -380,15 +396,10 @@ public static partial class FemCheckRunner
         : inputs.PlateTemplate != null ? [new TemplatePlateSectionSource(inputs.PlateTemplate)]
         : [];
 
-    /// <summary>Сечение стержневого КЭ: своё → конструктивного элемента → цели.</summary>
-    static (CrossSection? Section, string Label) ResolveBarSection(FemCheckScopeElement e, FemPerElementInputs inputs)
-    {
-        if (e.Element.CrossSectionId is int own && inputs.BarSectionById(own) is { } ownSection)
-            return (ownSection, ownSection.Tag);
-        if (e.Member?.CrossSectionId is int mid && inputs.BarSectionById(mid) is { } memberSection)
-            return (memberSection, memberSection.Tag);
-        return inputs.TargetBarSection is { } t ? (t, t.Tag) : (null, "");
-    }
+    /// <summary>Источники сечения стержней; пусто — сечение проекта (своё → конструктивного элемента → цели).</summary>
+    static IReadOnlyList<IBarElementSectionSource> BarSources(FemPerElementInputs inputs) =>
+        inputs.BarSources.Count > 0 ? inputs.BarSources
+        : [new ProjectBarSectionSource("", inputs.BarSectionById, inputs.TargetBarSection)];
 
     /// <summary>Суммарная площадь точечной (стержневой) арматуры сечения, см².</summary>
     static double RebarAreaCm2(CrossSection section) =>
@@ -411,14 +422,13 @@ public static partial class FemCheckRunner
 
     /// <summary>Строки одного КЭ для одного источника армирования: у всех одно сечение.</summary>
     sealed class ElementGroup(string source, int? elemNum, FemCheckScopeElement? element,
-                              PlateElementSection? plate, CrossSection? barSection, string barLabel)
+                              PlateElementSection? plate, BarElementSection? bar)
     {
         public string Source => source;
         public int? ElemNum => elemNum;
         public FemCheckScopeElement? Element => element;
         public PlateElementSection? Plate => plate;
-        public CrossSection? BarSection => barSection;
-        public string BarLabel => barLabel;
+        public BarElementSection? Bar => bar;
         public List<Job> Jobs { get; } = [];
     }
 }

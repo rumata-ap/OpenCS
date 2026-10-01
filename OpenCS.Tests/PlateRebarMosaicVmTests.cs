@@ -145,22 +145,22 @@ public class PlateRebarMosaicVmTests
             Tag = "ЗН 1", Kind = "bar", SourceSchemaId = 1,
             Items =
             [
-                new LoadItem { SourceElementNum = 10, SourceSectionNum = 1, Mx = 5, My = -20 },
-                new LoadItem { SourceElementNum = 10, SourceSectionNum = 2, Mx = 7, My = 40 },
+                new LoadItem { SourceElementNum = 10, SourceSectionNum = 1, Mx = -20, My = 5 },
+                new LoadItem { SourceElementNum = 10, SourceSectionNum = 2, Mx = 40, My = 7 },
             ],
         };
         var vm = new PlateRebarMosaicVM();
         vm.Apply(Data([set]));
         Assert.False(vm.HasBarDiagrams);
         Select(vm, PlateRebarMosaicSourceKind.Forces);
-        SelectComponent(vm, BarForceComponent.My);
+        SelectComponent(vm, BarForceComponent.Mx);
 
         Assert.True(vm.HasBarDiagrams);
         var profiles = vm.BarProfiles(["10", "11"], out var plane)!;
         Assert.Equal(BarDiagramPlane.Z1, plane);
         Assert.Equal([(0.0, -20.0), (1.0, 40.0)], Assert.Single(profiles).Value);
 
-        SelectComponent(vm, BarForceComponent.Mx);
+        SelectComponent(vm, BarForceComponent.My);
         vm.BarProfiles(["10"], out plane);
         Assert.Equal(BarDiagramPlane.Y1, plane);
 

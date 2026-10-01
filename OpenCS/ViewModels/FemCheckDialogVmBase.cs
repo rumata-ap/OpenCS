@@ -35,6 +35,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         SetsBox = setsBox;
         SetsBox.SelectionChanged += (_, _) => RefreshReadiness();
         CreateLiraSectionCommand = new RelayCommand(_ => CreateLiraSection());
+        CreateLiraMaterialsCommand = new RelayCommand(_ => CreateLiraMaterials());
     }
 
     /// <summary>Наборы усилий, доступные цели.</summary>
@@ -46,6 +47,8 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     protected abstract int? SchemaId { get; }
     /// <summary>Проверка пластин (иначе — стержней).</summary>
     protected abstract bool IsPlateCheck { get; }
+    /// <summary>Проверка железобетонных стержней: сечение КЭ можно собрать по данным ЛИРЫ.</summary>
+    protected virtual bool IsBarRcCheck => false;
     /// <summary>Проверка по текущему состоянию диалога; редактируемую проверку не меняет.</summary>
     protected abstract FemCheck DraftCheck();
 
@@ -101,7 +104,9 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     /// <summary>Чего не хватает источнику «раскладка OpenCS».</summary>
     public string? LayoutSourceHint { get; private set; }
 
-    public Visibility RebarSourcesVisibility => IsPlateCheck ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility RebarSourcesVisibility => IsPlateCheck || IsBarRcCheck ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>Раскладка OpenCS — источник только для пластин.</summary>
+    public Visibility LayoutSourceVisibility => IsPlateCheck ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Отмеченные источники в порядке расчёта; ничего не отмечено — сечение цели.</summary>
     protected string[] SelectedRebarSources()
@@ -115,9 +120,12 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     }
 
     /// <summary>Отметить источники сохранённой проверки.</summary>
-    protected void LoadRebarSources(PlateCheckParams p)
+    protected void LoadRebarSources(PlateCheckParams p) => LoadRebarSources(p.GetRebarSources());
+
+    /// <summary>Отметить источники сохранённой проверки; пусто — сечение проекта.</summary>
+    protected void LoadRebarSources(IReadOnlyCollection<string> keys)
     {
-        var keys = p.GetRebarSources();
+        if (keys.Count == 0) keys = [FemCheckRebarSource.Section];
         _suspendReadiness = true;
         UseSectionSource  = keys.Contains(FemCheckRebarSource.Section);
         UseAssignedSource = keys.Contains(FemCheckRebarSource.Assigned) && AssignedSourceEnabled;
@@ -156,6 +164,37 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             && scope.Elements.Any(e => e.Element.ElemType == "shell")
             && FemCheckContext.TargetPlateSectionId(target, scope, SchemaGroups(data.SchemaId), out _) == null;
         CreateLiraSectionVisibility = offer ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Создать недостающие материалы стержней по классам подбора ЛИРЫ.</summary>
+    public ICommand CreateLiraMaterialsCommand { get; }
+
+    Visibility _createLiraMaterialsVisibility = Visibility.Collapsed;
+    /// <summary>Кнопка видна, когда у проверки железобетонных стержней в проекте нет материалов классов из подбора ЛИРЫ.</summary>
+    public Visibility CreateLiraMaterialsVisibility
+    {
+        get => _createLiraMaterialsVisibility;
+        private set { _createLiraMaterialsVisibility = value; OnPropertyChanged(); }
+    }
+
+    List<(string Class, bool Concrete)> MissingBarMaterials() =>
+        IsBarRcCheck && _schemaData is { Asp: not null } data && _scope is { } scope
+            ? LiraBarMaterialCreator.MissingClasses(App.Materials, data, scope.Elements)
+            : [];
+
+    void CreateLiraMaterials()
+    {
+        var missing = MissingBarMaterials();
+        if (missing.Count == 0) return;
+        var report = LiraBarMaterialCreator.Create(App.db, missing);
+        foreach (string tag in report.Created)
+            App.LogService.Info(string.Format(Loc.S("LiraSectionsMaterialCreated"), tag));
+        foreach (string cls in report.NotInCatalog)
+            App.LogService.Warning(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), cls));
+        if (report.NotInCatalog.Count > 0)
+            MessageBox.Show(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), string.Join(", ", report.NotInCatalog)),
+                Loc.S("FemCheckCreateLiraMaterials"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        RefreshReadiness();
     }
 
     IEnumerable<FemMemberGroup> SchemaGroups(int schemaId) =>
@@ -208,13 +247,15 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
                 if (AcceptsForceSet(fs))
                     FilteredForceSets.Add(new FemCheckForceSetItem(fs, string.Format(Loc.S("FemCheckDlgSetRows"), fs.Tag, rows)));
 
+            // У стержней ТЗА разбираются только простые брусовые (ряды у нижней и верхней грани).
+            string elemType = IsPlateCheck ? "shell" : "beam";
             bool anyTza = _scope.Elements.Any(e =>
-                e.Element.ElemType == "shell" && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
-            AssignedSourceEnabled = data.Rbt != null && anyTza;
+                e.Element.ElemType == elemType && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
+            AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
             AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
             SelectedSourceEnabled = data.Asp != null;
             SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
-            LayoutSourceEnabled = _scope.Elements.Any(e =>
+            LayoutSourceEnabled = IsPlateCheck && _scope.Elements.Any(e =>
                 e.Element.ElemType == "shell" && e.Member?.PlanarRegionId != null);
             LayoutSourceHint = LayoutSourceEnabled ? null : Loc.S("FemCheckNoLayout");
         }
@@ -233,6 +274,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         OnPropertyChanged(nameof(LayoutSourceEnabled));
         OnPropertyChanged(nameof(LayoutSourceHint));
         OnPropertyChanged(nameof(RebarSourcesVisibility));
+        OnPropertyChanged(nameof(LayoutSourceVisibility));
 
         OnForceSetsRefreshed();
         if (AllSets) SetsBox.SelectAll();
@@ -251,6 +293,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     {
         if (_suspendReadiness) return;
         RefreshCreateLiraSection();
+        CreateLiraMaterialsVisibility = MissingBarMaterials().Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (Target is not { } target || _schemaData is not { } data || _scope is not { } scope)
         {
             ReadinessText = "";

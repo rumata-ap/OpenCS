@@ -118,12 +118,8 @@ public static class LiraPlateSectionCreator
     static Material? FindOrCreate(
         DatabaseService db, LiraPlateSectionsReport report, string materialClass, bool isConcrete, string? directory)
     {
-        string key = MaterialCatalog.ClassKey(materialClass);
-        if (key.Length == 0) return null;
-        var existing = db.Materials.FirstOrDefault(m =>
-            (isConcrete ? m.Type == MatType.Concrete : m.Type is MatType.ReSteelF or MatType.ReSteelU)
-            && MaterialCatalog.ClassKey(m.Tag) == key);
-        if (existing != null) return existing;
+        if (MaterialCatalog.ClassKey(materialClass).Length == 0) return null;
+        if (MaterialCatalog.FindByClass(db.Materials, materialClass, isConcrete) is { } existing) return existing;
 
         var created = isConcrete ? MaterialCatalog.CreateHeavyConcrete(materialClass, directory)
                                  : MaterialCatalog.CreateRebar(materialClass, directory);

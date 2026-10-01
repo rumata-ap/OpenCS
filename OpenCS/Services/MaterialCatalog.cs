@@ -33,6 +33,15 @@ public static partial class MaterialCatalog
         return new string([.. letters]) + m.Groups[2].Value.Replace(',', '.');
     }
 
+    /// <summary>Материал проекта по классу: бетон либо арматура; null — класс не распознан или такого нет.</summary>
+    public static Material? FindByClass(IEnumerable<Material> materials, string? materialClass, bool concrete)
+    {
+        string key = ClassKey(materialClass);
+        return key.Length == 0 ? null : materials.FirstOrDefault(m =>
+            (concrete ? m.Type == MatType.Concrete : m.Type is MatType.ReSteelF or MatType.ReSteelU)
+            && ClassKey(m.Tag) == key);
+    }
+
     /// <summary>Тяжёлый бетон заданного класса; null — класса нет в справочнике.</summary>
     public static Material? CreateHeavyConcrete(string concreteClass, string? directory = null)
     {

@@ -127,7 +127,7 @@
                  Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
                  Margin="0,0,0,8"/>
 
-        <!-- Источники армирования КЭ (только для пластин) -->
+        <!-- Источники армирования КЭ (пластины и железобетонные стержни) -->
         <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource FemCheckDlgRebarSources}"
                    VerticalAlignment="Top" Margin="0,0,8,8"
                    Visibility="{Binding RebarSourcesVisibility}"/>
@@ -144,6 +144,7 @@
                       IsEnabled="{Binding SelectedSourceEnabled}"
                       ToolTip="{Binding SelectedSourceHint}" ToolTipService.ShowOnDisabled="True"/>
             <CheckBox Content="{DynamicResource FemCheckSourceLayout}" Margin="0,2,0,0"
+                      Visibility="{Binding LayoutSourceVisibility}"
                       IsChecked="{Binding UseLayoutSource}"
                       IsEnabled="{Binding LayoutSourceEnabled}"
                       ToolTip="{Binding LayoutSourceHint}" ToolTipService.ShowOnDisabled="True"/>
@@ -155,6 +156,11 @@
             <Button Content="{DynamicResource FemCheckCreateLiraSection}"
                     Command="{Binding CreateLiraSectionCommand}"
                     Visibility="{Binding CreateLiraSectionVisibility}"
+                    HorizontalAlignment="Left" Padding="12,3" Margin="0,6,0,0"/>
+            <Button Content="{DynamicResource FemCheckCreateLiraMaterials}"
+                    Command="{Binding CreateLiraMaterialsCommand}"
+                    Visibility="{Binding CreateLiraMaterialsVisibility}"
+                    ToolTip="{DynamicResource FemCheckCreateLiraMaterialsHint}"
                     HorizontalAlignment="Left" Padding="12,3" Margin="0,6,0,0"/>
         </StackPanel>
 

@@ -69,6 +69,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
     protected override IFemCheckable? Target => (IFemCheckable?)_selectedMember?.Group ?? _selectedMember?.Element;
     protected override int? SchemaId => _selectedSchema?.Id;
     protected override bool IsPlateCheck => IsPlate;
+    protected override bool IsBarRcCheck => _selectedNormCode?.Code == "rc_check";
     protected override FemCheck DraftCheck() => FillCheck(new FemCheck());
 
     // ── NormCode ──────────────────────────────────────────────────────────────
@@ -207,6 +208,8 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             Phi1               = p.Phi1.ToString("G");
             LoadRebarSources(p);
         }
+        else if (check.NormCode == "rc_check")
+            LoadRebarSources(BarCheckParams.Parse(check.ParamsJson).RebarSources);
 
         if (!AllSets)
             SelectForceSets(check.GetForceSetIds());
@@ -260,6 +263,8 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
                 RebarSources = SelectedRebarSources(),
             }.ToJson();
         }
+        else if (IsBarRcCheck)
+            paramsJson = new BarCheckParams { RebarSources = SelectedRebarSources() }.ToJson();
 
         check.SchemaId         = _selectedSchema!.Id;
         check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;

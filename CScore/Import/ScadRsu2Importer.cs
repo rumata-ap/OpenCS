@@ -113,10 +113,11 @@ public static class ScadRsu2Importer
             Label = $"{idxInSet + 1}-{idxInFile + 1}",
             N     = BitConverter.ToDouble(data, baseOff + BarN)  / G,
             T     = BitConverter.ToDouble(data, baseOff + BarMk) / G,
-            My    = BitConverter.ToDouble(data, baseOff + BarMy) / G * sign,
-            Mx    = BitConverter.ToDouble(data, baseOff + BarMz) / G * sign,
-            Vx    = BitConverter.ToDouble(data, baseOff + BarQz) / G,
-            Vy    = BitConverter.ToDouble(data, baseOff + BarQy) / G,
+            // Оси сечения OpenCS: x — вдоль Y1, y — вдоль Z1 (см. ScadXlsForceMapper.MapBar).
+            Mx    = BitConverter.ToDouble(data, baseOff + BarMy) / G * sign,
+            My    = BitConverter.ToDouble(data, baseOff + BarMz) / G * sign,
+            Vy    = BitConverter.ToDouble(data, baseOff + BarQz) / G,
+            Vx    = BitConverter.ToDouble(data, baseOff + BarQy) / G,
         };
     }
 

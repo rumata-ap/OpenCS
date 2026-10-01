@@ -10,8 +10,8 @@ namespace OpenCS.Services;
 /// Паттерн: CreateNewRequest → заполнить поля → вызвать метод → обойти Response.
 /// </summary>
 /// <remarks>
-/// Маппинг LIRA → OpenCS LoadItem: BarN→N, BarMx→T, BarMy→My, BarMz→Mx, BarQz→Vx, BarQy→Vy
-/// (уточнить при тестировании в зависимости от ориентации осей).
+/// Маппинг LIRA → OpenCS LoadItem: BarN→N, BarMx→T, BarMy→Mx, BarMz→My, BarQz→Vy, BarQy→Vx
+/// (оси сечения OpenCS: x — вдоль Y1, y — вдоль Z1; см. CScore.Import.LiraForceMapper.MapBar).
 /// </remarks>
 static class LiraApiForceImporter
 {
@@ -257,10 +257,10 @@ static class LiraApiForceImporter
                         {
                             double n  = resp.GetBarN (elemId, sec, lcNum) * toKn;
                             double t  = resp.GetBarMx(elemId, sec, lcNum) * toKn;
-                            double my = resp.GetBarMy(elemId, sec, lcNum) * toKn;
-                            double mx = resp.GetBarMz(elemId, sec, lcNum) * toKn;
-                            double vx = resp.GetBarQz(elemId, sec, lcNum) * toKn;
-                            double vy = resp.GetBarQy(elemId, sec, lcNum) * toKn;
+                            double mx = resp.GetBarMy(elemId, sec, lcNum) * toKn;
+                            double my = resp.GetBarMz(elemId, sec, lcNum) * toKn;
+                            double vy = resp.GetBarQz(elemId, sec, lcNum) * toKn;
+                            double vx = resp.GetBarQy(elemId, sec, lcNum) * toKn;
                             if (invertBarMoments) { my = -my; mx = -mx; }
                             barRows.Add(new LoadItem
                             {
@@ -365,10 +365,10 @@ static class LiraApiForceImporter
                             {
                                 double n  = resp.GetBarN (elemId, sec, lcNum, ls) * toKn;
                                 double t  = resp.GetBarMx(elemId, sec, lcNum, ls) * toKn;
-                                double my = resp.GetBarMy(elemId, sec, lcNum, ls) * toKn;
-                                double mx = resp.GetBarMz(elemId, sec, lcNum, ls) * toKn;
-                                double vx = resp.GetBarQz(elemId, sec, lcNum, ls) * toKn;
-                                double vy = resp.GetBarQy(elemId, sec, lcNum, ls) * toKn;
+                                double mx = resp.GetBarMy(elemId, sec, lcNum, ls) * toKn;
+                                double my = resp.GetBarMz(elemId, sec, lcNum, ls) * toKn;
+                                double vy = resp.GetBarQz(elemId, sec, lcNum, ls) * toKn;
+                                double vx = resp.GetBarQy(elemId, sec, lcNum, ls) * toKn;
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 barRows.Add(new LoadItem
                                 {
@@ -474,10 +474,10 @@ static class LiraApiForceImporter
                             {
                                 double n  = resp.GetBarN (elemId, sec, ls, dcf) * toKn;
                                 double t  = resp.GetBarMx(elemId, sec, ls, dcf) * toKn;
-                                double my = resp.GetBarMy(elemId, sec, ls, dcf) * toKn;
-                                double mx = resp.GetBarMz(elemId, sec, ls, dcf) * toKn;
-                                double vx = resp.GetBarQz(elemId, sec, ls, dcf) * toKn;
-                                double vy = resp.GetBarQy(elemId, sec, ls, dcf) * toKn;
+                                double mx = resp.GetBarMy(elemId, sec, ls, dcf) * toKn;
+                                double my = resp.GetBarMz(elemId, sec, ls, dcf) * toKn;
+                                double vy = resp.GetBarQz(elemId, sec, ls, dcf) * toKn;
+                                double vx = resp.GetBarQy(elemId, sec, ls, dcf) * toKn;
                                 if (invertBarMoments) { my = -my; mx = -mx; }
                                 barRows.Add(new LoadItem
                                 {

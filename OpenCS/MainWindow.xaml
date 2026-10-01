@@ -1317,6 +1317,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaRefreshLiraStiffness}"
+                                        Command="{Binding PlacementTarget.Tag.RefreshLiraStiffnessesCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource FemSchemaLoadLiraAsp}"
                                         Command="{Binding PlacementTarget.Tag.LoadLiraAspCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

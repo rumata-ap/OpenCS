@@ -549,6 +549,7 @@ namespace OpenCS
       /// <summary>Обновить номера ТЗА у КЭ схемы из открытой в ЛИРЕ схемы (таблица «Элементы - ТЗА»).</summary>
       public ICommand RefreshLiraReinforcementTypesCommand { get; set; } = null!;
       public ICommand RefreshLiraPlateAxesCommand { get; set; } = null!;
+      public ICommand RefreshLiraStiffnessesCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
@@ -1454,6 +1455,7 @@ namespace OpenCS
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          RefreshLiraReinforcementTypesCommand = new RelayCommand(p => RefreshLiraReinforcementTypes(p as CScore.Fem.FemSchema));
          RefreshLiraPlateAxesCommand = new RelayCommand(p => RefreshLiraPlateAxes(p as CScore.Fem.FemSchema));
+         RefreshLiraStiffnessesCommand = new RelayCommand(p => RefreshLiraStiffnesses(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
@@ -3310,6 +3312,7 @@ namespace OpenCS
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
+            db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3482,6 +3485,57 @@ namespace OpenCS
             EndBusy();
             LogService.Error(ex.Message);
             System.Windows.MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("FemSchemaRefreshLiraAxes"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>
+      /// Обновить жёсткости схемы (размеры сечений стержней, толщины пластин) и номера жёсткостей у КЭ
+      /// по таблицам «Жёсткости» и «Элементы - жёсткости» открытой в ЛИРЕ схемы. Нужна схемам,
+      /// импортированным до того, как жёсткости стали сохраняться при схеме, и после их правки в ЛИРЕ.
+      /// Группы схемы не меняются.
+      /// </summary>
+      async void RefreshLiraStiffnesses(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         BeginBusy(Loc.S("LiraStiffRefreshBusy"));
+         try
+         {
+            var (stiffnesses, byElement) = await RunOnStaThread(Services.LiraApiSchemaReader.ReadStiffnesses);
+            var byTag = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var (elemId, num) in byElement)
+               byTag[elemId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = num;
+
+            // В ЛИРЕ может быть открыта другая схема: номера КЭ таблицы должны быть номерами КЭ этой схемы.
+            var mesh = db.GetFemMeshElements(schema.Id)
+               .Where(e => e.Origin == CScore.Fem.FemMember.MeshSourceImported)
+               .Select(e => e.ElemTag.Trim()).ToHashSet(StringComparer.Ordinal);
+            int foreign = byTag.Keys.Count(tag => !mesh.Contains(tag));
+            if (foreign > 0)
+            {
+               EndBusy();
+               System.Windows.MessageBox.Show(
+                  string.Format(Loc.S("LiraStiffRefreshForeign"), foreign, byTag.Count, schema.Tag),
+                  Loc.S("FemSchemaRefreshLiraStiffness"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+               return;
+            }
+
+            int updated = db.ReplaceFemSchemaStiffnesses(schema.Id, stiffnesses, byTag);
+            string done = string.Format(Loc.S("LiraStiffRefreshDone"), stiffnesses.Count,
+               stiffnesses.Count(s => CScore.Import.LiraStiffnessParams.BarRect(s) != null), updated);
+            LogService.Info(done);
+            foreach (var s in stiffnesses.Where(s => CScore.Import.LiraStiffnessParams.IsBar(s)
+                                                     && CScore.Import.LiraStiffnessParams.BarRect(s) == null))
+               LogService.Warning(string.Format(Loc.S("LiraStiffShapeUnsupported"), s.Id, s.Name));
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            System.Windows.MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("FemSchemaRefreshLiraStiffness"),
                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
          }
       }

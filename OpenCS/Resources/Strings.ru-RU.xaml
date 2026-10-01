@@ -847,6 +847,11 @@
    <system:String x:Key="LiraAxesRefreshEmpty">В открытой в ЛИРЕ схеме таблица местных осей пластин пуста. Оси в схеме не изменены.</system:String>
    <system:String x:Key="LiraAxesRefreshForeign">В таблице ЛИРЫ {0} из {1} пластин нет в схеме «{2}»: похоже, в ЛИРЕ открыта другая схема. Оси не изменены.</system:String>
    <system:String x:Key="LiraAxesRefreshDone">Оси выдачи усилий пластин обновлены: {0} КЭ, из них с согласованием осей (угол не 0) — {1}</system:String>
+   <system:String x:Key="FemSchemaRefreshLiraStiffness">Обновить жёсткости элементов из ЛИРЫ (API)</system:String>
+   <system:String x:Key="LiraStiffRefreshBusy">Чтение таблиц жёсткостей из ЛИРЫ…</system:String>
+   <system:String x:Key="LiraStiffRefreshForeign">В таблице ЛИРЫ {0} из {1} КЭ нет в схеме «{2}»: похоже, в ЛИРЕ открыта другая схема. Жёсткости не изменены.</system:String>
+   <system:String x:Key="LiraStiffRefreshDone">Жёсткости обновлены: {0}, из них с размерами сечения стержня — {1}; номер жёсткости получили {2} КЭ</system:String>
+   <system:String x:Key="LiraStiffShapeUnsupported">Жёсткость {0} «{1}»: форма сечения стержня не поддерживается (пока только «Брус») — сечение по данным ЛИРЫ для её КЭ не собирается</system:String>
    <system:String x:Key="LiraRbtMissingTypes">В файле ТЗА нет типов, назначенных КЭ схемы: {0}</system:String>
    <system:String x:Key="LiraRbtReadError">Не удалось прочитать файл ТЗА {0}: {1}</system:String>
    <system:String x:Key="LiraRbtNoTypes">записи ТЗА не найдены</system:String>
@@ -2344,6 +2349,7 @@
     <system:String x:Key="FemCheckNoLayout">У цели нет КЭ плоских конструктивных элементов (раскладка задаётся в редакторе пластины; элементы по схеме ЛИРЫ создаёт команда «Конструктивные элементы из кБ ЛИРЫ…»)</system:String>
     <system:String x:Key="FemCheckReadyForces">Усилия: {0} из {1} КЭ</system:String>
     <system:String x:Key="FemCheckReadySections">сечения: {0} из {1}</system:String>
+    <system:String x:Key="FemCheckReadySectionsSource">сечения ({0}): {1} из {2}</system:String>
     <system:String x:Key="FemCheckReadyRebar">армирование ({0}): {1} из {2}</system:String>
     <system:String x:Key="FemCheckReadyBlocked">Проверка невозможна: {0}</system:String>
     <system:String x:Key="FemCheckReadyNoSets">Нет наборов усилий для цели</system:String>
@@ -2351,12 +2357,16 @@
     <system:String x:Key="FemCheckIncompleteTitle">Цель покрыта данными не полностью.</system:String>
     <system:String x:Key="FemCheckIncompleteNoForces">Без усилий — {0} КЭ: {1}</system:String>
     <system:String x:Key="FemCheckIncompleteNoSection">Без сечения — {0} КЭ: {1}</system:String>
+    <system:String x:Key="FemCheckIncompleteNoSectionSource">Без сечения ({0}) — {1} КЭ: {2}</system:String>
     <system:String x:Key="FemCheckIncompleteNoRebar">Без армирования ({0}) — {1} КЭ: {2}</system:String>
     <system:String x:Key="FemCheckIncompleteReason" xml:space="preserve">    {0} — {1} КЭ</system:String>
     <system:String x:Key="FemCheckIncompleteOutside">Строк усилий по КЭ вне цели (будут пропущены): {0}</system:String>
     <system:String x:Key="FemCheckIncompleteQuestion">Проверить то, что есть?</system:String>
     <system:String x:Key="FemCheckPlateSectionInherited">FemCheck «{0}»: у цели нет своего пластинчатого сечения — взято «{1}» от «{2}» (те же КЭ)</system:String>
     <system:String x:Key="FemCheckCreateLiraSection">Создать сечение по данным ЛИРЫ</system:String>
+    <system:String x:Key="FemCheckCreateLiraMaterials">Создать материалы по данным ЛИРЫ</system:String>
+    <system:String x:Key="FemCheckCreateLiraMaterialsHint">Сечение стержня собирается из размеров жёсткости ЛИРЫ и подобранной арматуры; бетон и арматура берутся из материалов проекта по классам подбора (ASP). Недостающие классы создаются из справочника.</system:String>
+    <system:String x:Key="LiraBarMaterialNotInCatalog">Классов нет в справочнике материалов: {0}</system:String>
     <system:String x:Key="LiraSectionsTitle">Сечения пластин по данным ЛИРЫ</system:String>
     <system:String x:Key="LiraSectionsNoAsp">У схемы нет файла подобранной арматуры (ASP): толщину и классы материалов взять неоткуда. Приложите файл через меню схемы «Дозагрузить подобранную арматуру ЛИРЫ (ASP)…».</system:String>
     <system:String x:Key="LiraSectionsNominalTitle">Арматура граней без фонового ТЗА</system:String>

@@ -847,6 +847,11 @@
    <system:String x:Key="LiraAxesRefreshEmpty">The plate local axes table of the schema open in LIRA is empty. The axes in the schema are unchanged.</system:String>
    <system:String x:Key="LiraAxesRefreshForeign">{0} of {1} plates in the LIRA table are missing in schema &quot;{2}&quot;: another schema seems to be open in LIRA. The axes are unchanged.</system:String>
    <system:String x:Key="LiraAxesRefreshDone">Plate force output axes refreshed: {0} elements, {1} of them with aligned axes (non-zero angle)</system:String>
+   <system:String x:Key="FemSchemaRefreshLiraStiffness">Update element stiffnesses from LIRA (API)</system:String>
+   <system:String x:Key="LiraStiffRefreshBusy">Reading stiffness tables from LIRA…</system:String>
+   <system:String x:Key="LiraStiffRefreshForeign">{0} of {1} elements in the LIRA table are missing in schema "{2}": another schema seems to be open in LIRA. Stiffnesses were not changed.</system:String>
+   <system:String x:Key="LiraStiffRefreshDone">Stiffnesses updated: {0}, of them with bar section dimensions — {1}; {2} elements got a stiffness number</system:String>
+   <system:String x:Key="LiraStiffShapeUnsupported">Stiffness {0} "{1}": bar section shape is not supported (rectangular only so far) — no section is built from LIRA data for its elements</system:String>
    <system:String x:Key="LiraRbtMissingTypes">Reinforcement types assigned to elements but missing in the file: {0}</system:String>
    <system:String x:Key="LiraRbtReadError">Could not read reinforcement types file {0}: {1}</system:String>
    <system:String x:Key="LiraRbtNoTypes">no reinforcement type records found</system:String>
@@ -2344,6 +2349,7 @@
     <system:String x:Key="FemCheckNoLayout">The target has no elements of planar structural members (the layout is defined in the plate editor)</system:String>
     <system:String x:Key="FemCheckReadyForces">Forces: {0} of {1} elements</system:String>
     <system:String x:Key="FemCheckReadySections">sections: {0} of {1}</system:String>
+    <system:String x:Key="FemCheckReadySectionsSource">sections ({0}): {1} of {2}</system:String>
     <system:String x:Key="FemCheckReadyRebar">reinforcement ({0}): {1} of {2}</system:String>
     <system:String x:Key="FemCheckReadyBlocked">The check cannot run: {0}</system:String>
     <system:String x:Key="FemCheckReadyNoSets">No force sets for the target</system:String>
@@ -2351,12 +2357,16 @@
     <system:String x:Key="FemCheckIncompleteTitle">The target is not fully covered with data.</system:String>
     <system:String x:Key="FemCheckIncompleteNoForces">Without forces — {0} elements: {1}</system:String>
     <system:String x:Key="FemCheckIncompleteNoSection">Without a section — {0} elements: {1}</system:String>
+    <system:String x:Key="FemCheckIncompleteNoSectionSource">No section ({0}) — {1} elements: {2}</system:String>
     <system:String x:Key="FemCheckIncompleteNoRebar">Without reinforcement ({0}) — {1} elements: {2}</system:String>
     <system:String x:Key="FemCheckIncompleteReason" xml:space="preserve">    {0} — {1} elements</system:String>
     <system:String x:Key="FemCheckIncompleteOutside">Force rows of elements outside the target (will be skipped): {0}</system:String>
     <system:String x:Key="FemCheckIncompleteQuestion">Check what is available?</system:String>
     <system:String x:Key="FemCheckPlateSectionInherited">FemCheck “{0}”: the target has no plate section of its own — “{1}” is taken from “{2}” (same elements)</system:String>
     <system:String x:Key="FemCheckCreateLiraSection">Create section from LIRA data</system:String>
+    <system:String x:Key="FemCheckCreateLiraMaterials">Create materials from LIRA data</system:String>
+    <system:String x:Key="FemCheckCreateLiraMaterialsHint">The bar section is built from the LIRA stiffness dimensions and the selected reinforcement; concrete and rebar are taken from project materials by the classes in the selection file (ASP). Missing classes are created from the catalog.</system:String>
+    <system:String x:Key="LiraBarMaterialNotInCatalog">Classes not found in the material catalog: {0}</system:String>
     <system:String x:Key="LiraSectionsTitle">Plate sections from LIRA data</system:String>
     <system:String x:Key="LiraSectionsNoAsp">The model has no selected reinforcement file (ASP): thickness and material classes are unknown. Attach the file via the model menu “Load LIRA selected reinforcement (ASP)…”.</system:String>
     <system:String x:Key="LiraSectionsNominalTitle">Rebar for faces without background type</system:String>

@@ -31,6 +31,9 @@ public class FemElement
     /// <summary>Тег сечения/жёсткости из источника импорта (SCAD/Lira). Null для стержней,
     /// дискретизированных из конструктивной модели редактора (у них CrossSectionId).</summary>
     public string? SectionTag  { get; set; }
+    /// <summary>Номер жёсткости в схеме-источнике (ЛИРА: таблица «Элементы - жёсткости»); по нему
+    /// берутся размеры сечения из жёсткостей схемы. Null — источник номер не передал.</summary>
+    public int? StiffnessNum { get; set; }
     /// <summary>Тег материала из источника импорта. Null, если не распознан.</summary>
     public string? MaterialTag { get; set; }
     /// <summary>Толщина оболочки, м (для ElemType="shell", из источника импорта).</summary>

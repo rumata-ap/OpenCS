@@ -13,8 +13,8 @@ public class FemBarDiagramVmTests
     static DatabaseService NewDb() => new(Path.Combine(Path.GetTempPath(),
         "opencs_bar_diagram_" + Guid.NewGuid().ToString("N") + ".db"));
 
-    static LoadItem Row(int elem, int section, double my) =>
-        new() { Label = $"э.{elem} с{section}", SourceElementNum = elem, SourceSectionNum = section, My = my };
+    static LoadItem Row(int elem, int section, double mx) =>
+        new() { Label = $"э.{elem} с{section}", SourceElementNum = elem, SourceSectionNum = section, Mx = mx };
 
     /// <summary>Схема «только сетка»: балка из КЭ 1–2 вдоль X, отдельно стоящая колонна КЭ 3 и пластина КЭ 4.</summary>
     static FemSchema MeshOnlySchema(DatabaseService db)
@@ -62,7 +62,7 @@ public class FemBarDiagramVmTests
         Assert.Equal([FemBarDiagramKind.Forces], vm.Kinds.Select(k => k.Kind));
         Assert.False(vm.NoData);
 
-        Assert.Equal(BarForceComponent.My, vm.SelectedComponent!.Component);
+        Assert.Equal(BarForceComponent.Mx, vm.SelectedComponent!.Component);
         Assert.Equal(
             [new BarDiagramSegment(0, 2, 0, 20), new BarDiagramSegment(2, 5, 20, -10)], vm.Series.Upper);
         Assert.False(vm.HasEnvelope);

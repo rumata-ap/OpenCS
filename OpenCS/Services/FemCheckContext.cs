@@ -24,6 +24,8 @@ public sealed class FemCheckSchemaData
     public LiraRbtFile? Rbt { get; init; }
     /// <summary>Подобранная арматура (ASP); null — файл не приложен или не читается.</summary>
     public LiraAspFile? Asp { get; init; }
+    /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
+    public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
     public IReadOnlyList<string> Errors { get; init; } = [];
 
@@ -54,6 +56,7 @@ public sealed class FemCheckSchemaData
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
+            Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,
         };
     }
@@ -173,16 +176,58 @@ public static class FemCheckContext
         };
         var sections = new Dictionary<int, CrossSection>();
         foreach (var s in app.CrossSections) sections.TryAdd(s.Id, s);
+        var targetSection = targetSectionId is int id ? sections.GetValueOrDefault(id) : null;
         return new FemPerElementInputs
         {
-            TargetBarSection = targetSectionId is int id ? sections.GetValueOrDefault(id) : null,
+            TargetBarSection = targetSection,
             BarSectionById = sid => sections.GetValueOrDefault(sid),
+            BarSources = check.NormCode == "rc_check"
+                ? BarSources(app.Materials, BarCheckParams.Parse(check.ParamsJson).RebarSources, data,
+                    sections.GetValueOrDefault, targetSection)
+                : [],
             // rc_check меняет состояние сечения — считаем на клонах; стальная проверка опирается
             // на привязку параметрического профиля, которую клон не несёт.
             ParallelBars = check.NormCode == "rc_check",
             BarSelectedAsCm2 = data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
                                ?? new Dictionary<int, double>(),
         };
+    }
+
+    /// <summary>
+    /// Источники сечения стержневых КЭ по ключам проверки; пустой список ключей — источники не выбирались
+    /// (сечение проекта, как до появления источников у стержней).
+    /// </summary>
+    public static List<IBarElementSectionSource> BarSources(
+        IEnumerable<Material> materials, IReadOnlyList<string> keys, FemCheckSchemaData data,
+        Func<int, CrossSection?> sectionById, CrossSection? targetSection)
+    {
+        var sources = new List<IBarElementSectionSource>(keys.Count);
+        if (keys.Count == 0) return sources;
+
+        var project = new ProjectBarSectionSource(FemCheckRebarSource.Section, sectionById, targetSection);
+        var byClass = materials.ToList();
+        var context = new LiraBarSectionContext(data.Stiffnesses, data.Asp,
+            c => MaterialCatalog.FindByClass(byClass, c, concrete: true),
+            c => MaterialCatalog.FindByClass(byClass, c, concrete: false), project.Find);
+
+        foreach (string key in keys)
+            switch (key)
+            {
+                case FemCheckRebarSource.Section:
+                    sources.Add(project);
+                    break;
+                case FemCheckRebarSource.Assigned:
+                    sources.Add(data.Rbt != null
+                        ? new LiraAssignedBarSectionSource(context, data.Rbt)
+                        : new UnavailableBarSectionSource(key, Loc.S("FemCheckNoRbt")));
+                    break;
+                case FemCheckRebarSource.Selected:
+                    sources.Add(data.Asp != null
+                        ? new LiraSelectedBarSectionSource(context)
+                        : new UnavailableBarSectionSource(key, Loc.S("FemCheckNoAsp")));
+                    break;
+            }
+        return sources;
     }
 
     /// <summary>
@@ -247,7 +292,9 @@ public static class FemCheckContext
         foreach (var s in r.Sources)
             parts.Add(isPlate
                 ? string.Format(Loc.S("FemCheckReadyRebar"), SourceName(s.Source), s.Ready, r.ElementsTotal)
-                : string.Format(Loc.S("FemCheckReadySections"), s.Ready, r.ElementsTotal));
+                : s.Source.Length > 0
+                    ? string.Format(Loc.S("FemCheckReadySectionsSource"), SourceName(s.Source), s.Ready, r.ElementsTotal)
+                    : string.Format(Loc.S("FemCheckReadySections"), s.Ready, r.ElementsTotal));
         string line = string.Join(" · ", parts);
         return r.BlockingReason == null ? line : line + "\n" + string.Format(Loc.S("FemCheckReadyBlocked"), r.BlockingReason);
     }
@@ -264,7 +311,9 @@ public static class FemCheckContext
             string ranges = FemCheckReadiness.FormatRanges(s.NotReady);
             sb.AppendLine(isPlate
                 ? string.Format(Loc.S("FemCheckIncompleteNoRebar"), SourceName(s.Source), r.ElementsTotal - s.Ready, ranges)
-                : string.Format(Loc.S("FemCheckIncompleteNoSection"), r.ElementsTotal - s.Ready, ranges));
+                : s.Source.Length > 0
+                    ? string.Format(Loc.S("FemCheckIncompleteNoSectionSource"), SourceName(s.Source), r.ElementsTotal - s.Ready, ranges)
+                    : string.Format(Loc.S("FemCheckIncompleteNoSection"), r.ElementsTotal - s.Ready, ranges));
             foreach (var (reason, count) in s.Reasons)
                 sb.AppendLine(string.Format(Loc.S("FemCheckIncompleteReason"), reason, count));
         }
