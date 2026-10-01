@@ -888,6 +888,8 @@
    <system:String x:Key="FemMemberMeshLockedGeometry">Сетка элемента импортирована из ЛИРЫ: контур и имя менять нельзя. Верните контур и имя, чтобы сохранить армирование, сечение и тип.</system:String>
    <system:String x:Key="LiraAspLoaded">Подобранная арматура {0} ({1}): пластин {2}, стержней {3}</system:String>
    <system:String x:Key="LiraAspSchemaMismatch">Файл подобранной арматуры не совпадает со схемой: нет в схеме КЭ — {0}, другой вид КЭ — {1} (первые: {2})</system:String>
+   <system:String x:Key="LiraAspEmpty">В файле {0} нет подобранной арматуры пластин и стержней (записей продавливания: {1}). Проверьте, что в ЛИРЕ выполнен подбор арматуры элементов в текущем варианте конструирования, и выгрузите файл заново. Файл не загружен.</system:String>
+   <system:String x:Key="LiraAspNoMatch">Ни один КЭ файла {0} не найден в схеме «{1}» (пластин в файле {2}, стержней {3}): похоже, файл выгружен из другой схемы. Файл не загружен.</system:String>
    <system:String x:Key="LiraAspReadError">Не удалось прочитать файл подобранной арматуры {0}: {1}</system:String>
    <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
    <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>

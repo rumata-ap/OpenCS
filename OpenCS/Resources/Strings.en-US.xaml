@@ -888,6 +888,8 @@
    <system:String x:Key="FemMemberMeshLockedGeometry">The member mesh is imported from LIRA: its contour and name cannot be changed. Restore them to save reinforcement, section and kind.</system:String>
    <system:String x:Key="LiraAspLoaded">Selected reinforcement {0} ({1}): plates {2}, bars {3}</system:String>
    <system:String x:Key="LiraAspSchemaMismatch">Selected reinforcement file does not match the schema: elements not in schema — {0}, different element kind — {1} (first: {2})</system:String>
+   <system:String x:Key="LiraAspEmpty">File {0} contains no selected reinforcement of plates or bars (punching records: {1}). Make sure LIRA has designed the reinforcement of elements in the current design variant and export the file again. The file was not loaded.</system:String>
+   <system:String x:Key="LiraAspNoMatch">No element of file {0} was found in schema "{1}" (plates in file: {2}, bars: {3}); the file seems to come from another schema. The file was not loaded.</system:String>
    <system:String x:Key="LiraAspReadError">Failed to read selected reinforcement file {0}: {1}</system:String>
    <system:String x:Key="ImportLiraFailed">Failed to import the file.</system:String>
    <system:String x:Key="ImportLiraSuccess">Imported force sets: {0} ({1})</system:String>

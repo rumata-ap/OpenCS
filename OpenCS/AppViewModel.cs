@@ -3561,6 +3561,11 @@ namespace OpenCS
             var parsed = CScore.Import.LiraAspReader.Read(data);
             foreach (var w in parsed.Warnings)
                LogService.Warning(w);
+            if (parsed.Plates.Count + parsed.Bars.Count == 0)
+            {
+               ShowAspRejected(string.Format(Loc.S("LiraAspEmpty"), name, parsed.PunchingCount));
+               return;
+            }
 
             var elements = db.GetFemMeshElements(schema.Id)
                .Select(e => (Ok: int.TryParse(e.ElemTag, out int id), Id: id, IsPlate: e.ElemType == "shell"))
@@ -3572,7 +3577,11 @@ namespace OpenCS
                   match.Missing.Count, match.KindMismatch.Count,
                   string.Join(", ", match.Missing.Concat(match.KindMismatch).Order().Take(20))));
             if (match.PlatesMatched + match.BarsMatched == 0)
+            {
+               ShowAspRejected(string.Format(Loc.S("LiraAspNoMatch"), name, schema.Tag,
+                  parsed.Plates.Count, parsed.Bars.Count));
                return;
+            }
 
             db.SaveFemSchemaSelectedReinforcementFile(schema.Id, name, data);
             string done = string.Format(Loc.S("LiraAspLoaded"), name, parsed.Variant,
@@ -3582,7 +3591,15 @@ namespace OpenCS
          catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
                                         or System.IO.InvalidDataException)
          {
-            LogService.Warning(string.Format(Loc.S("LiraAspReadError"), name, ex.Message));
+            ShowAspRejected(string.Format(Loc.S("LiraAspReadError"), name, ex.Message));
+         }
+
+         // Отказ в загрузке — в журнал и окном: иначе команда выглядит так, будто ничего не произошло.
+         void ShowAspRejected(string message)
+         {
+            LogService.Warning(message);
+            System.Windows.MessageBox.Show(message, Loc.S("FemSchemaLoadLiraAsp"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
          }
       }
 
