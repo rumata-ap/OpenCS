@@ -29,7 +29,7 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
                 <TextBlock Text="{DynamicResource FemBarDiagramKind}" VerticalAlignment="Center"/>
-                <ComboBox Width="170" Margin="6,0,0,0" ItemsSource="{Binding Kinds}" DisplayMemberPath="Label"
+                <ComboBox Width="220" Margin="6,0,0,0" ItemsSource="{Binding Kinds}" DisplayMemberPath="Label"
                           SelectedItem="{Binding SelectedKind, Mode=TwoWay}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,8,4"
@@ -55,7 +55,7 @@
             <helpers:FemMemberForceCanvas x:Name="canvas" FitAxis="True"/>
         </Border>
 
-        <DataGrid x:Name="rowsGrid" Grid.Row="1" Grid.Column="1" Width="330" Margin="0,0,6,6"
+        <DataGrid x:Name="rowsGrid" Grid.Row="1" Grid.Column="1" Width="420" Margin="0,0,6,6"
                   ItemsSource="{Binding Rows}"
                   AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False"
