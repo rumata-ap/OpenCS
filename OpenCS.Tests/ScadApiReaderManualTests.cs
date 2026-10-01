@@ -62,16 +62,18 @@ public class ScadApiReaderManualTests(ITestOutputHelper output)
         Assert.Equal(35.882, node1.Y, 3);
         Assert.Equal(22.59, node1.Z, 3);
 
-        // КЭ 55459: в SCAD (0;0) (0,46;0) (0;0,44) (0,46;0,44) — после перестановки контур.
+        // КЭ 55459: узлы SCAD (0;0) (0,46;0) (0;0,44) (0,46;0,44) сохраняются как есть; контур — n1→n2→n4→n3,
+        // как его обходит 3D-вид (Fem3DVM.BuildShellEdges).
         var e = data.Elements.Single(x => x.Id == 55459);
-        var pts = e.NodeIds.Select(id => data.Nodes.Single(nd => nd.Id == id)).ToArray();
+        Assert.Equal([66373, 66958, 66385, 47706], e.NodeIds);
+        var pts = new[] { 0, 1, 3, 2 }.Select(k => data.Nodes.Single(nd => nd.Id == e.NodeIds[k])).ToArray();
         double area = 0;
         for (int i = 0; i < 4; i++)
         {
             var p = pts[i]; var q = pts[(i + 1) % 4];
             area += (p.X - pts[0].X) * (q.Y - pts[0].Y) - (q.X - pts[0].X) * (p.Y - pts[0].Y);
         }
-        // У «бабочки» (зигзаг без перестановки) площадь по Гауссу ≈ 0, у контура ≈ 0,46 × 0,44.
+        // У «бабочки» площадь по Гауссу ≈ 0, у контура ≈ 0,46 × 0,44.
         Assert.InRange(Math.Abs(area / 2), 0.46 * 0.44 * 0.9, 0.46 * 0.44 * 1.1);
 
         Assert.Equal(new LiraBarRect(0.6, 0.6), data.Stiffnesses.Single(x => x.Id == 6).BarRect);

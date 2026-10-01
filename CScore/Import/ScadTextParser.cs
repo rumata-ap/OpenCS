@@ -212,9 +212,7 @@ public static class ScadTextParser
                 continue;
             }
 
-            // Четырёхугольник в SCAD записан «зигзагом» — в сетку OpenCS идёт контур.
-            elements.Add(new ScadElementRecord(currentId, typeCode, stiffId,
-                ScadElementKinds.ToPerimeterOrder(nodeIds)));
+            elements.Add(new ScadElementRecord(currentId, typeCode, stiffId, nodeIds));
         }
 
         return (elements, skipped);

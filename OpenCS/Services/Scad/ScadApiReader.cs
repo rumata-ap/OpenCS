@@ -78,8 +78,8 @@ internal static unsafe class ScadApiReader
             }
             var nodes = new int[qn];
             for (int k = 0; k < qn; k++) nodes[k] = (int)list[k];
-            data.Elements.Add(new ScadElementRecord((int)i, (int)type, (int)rigid,
-                ScadElementKinds.ToPerimeterOrder(nodes)));
+            // Порядок узлов SCAD («1 2 4 3» по контуру) совпадает с хранением сетки OpenCS.
+            data.Elements.Add(new ScadElementRecord((int)i, (int)type, (int)rigid, nodes));
         }
         ct.ThrowIfCancellationRequested();
 

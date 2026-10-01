@@ -7,7 +7,7 @@ static class ScadTextParserTests
     // Синтетическая фикстура: 6 узлов, 6 записей в блоке элементов (2 из них — не топология
     // и должны быть пропущены, но обязаны "съесть" номер элемента), 2 жёсткости, 1 группа
     // с диапазоном "3-4", покрывающая часть элементов. Четырёхугольник записан, как в SCAD,
-    // «зигзагом» (1 2 4 3) — разбор обязан вернуть контур 1 2 3 4.
+    // «зигзагом» (1 2 4 3) — разбор сохраняет порядок SCAD (так его хранит и сетка OpenCS).
     const string Fixture =
         "(0;Version=21;SubVersion=1/1;\"Test\";/)" +
         "(1/10 1 1 2 /51 9 3 /44 2 1 2 4 3 /42 2 4 5 6 /100 99 1 2 3 /10 1 5 6 /)" +
@@ -108,7 +108,7 @@ static class ScadTextParserTests
         var bar = d.Elements.First(e => e.Id == 1);
         TestHarness.Check("Элемент 1 — стержень (2 узла)", bar.NodeIds.SequenceEqual([1, 2]));
         var quad = d.Elements.First(e => e.Id == 3);
-        TestHarness.Check("Элемент 3 — четырёхугольник, зигзаг SCAD → контур 1-2-3-4", quad.NodeIds.SequenceEqual([1, 2, 3, 4]));
+        TestHarness.Check("Элемент 3 — четырёхугольник, порядок SCAD 1-2-4-3 сохранён", quad.NodeIds.SequenceEqual([1, 2, 4, 3]));
         var tri = d.Elements.First(e => e.Id == 4);
         TestHarness.Check("Элемент 4 — треугольник (3 узла)", tri.NodeIds.SequenceEqual([4, 5, 6]));
 
@@ -190,9 +190,9 @@ static class ScadTextParserTests
         TestHarness.Check("Converter: элемент 1 — beam, SectionTag=Стойка",
             barEl.ElemType == "beam" && barEl.SectionTag == "Стойка");
         var quadEl = members.First(e => e.ElemTag == "3");
-        TestHarness.Check("Converter: элемент 3 — shell, SectionTag=Плита, NodeIdsJson=[1,2,3,4]",
+        TestHarness.Check("Converter: элемент 3 — shell, SectionTag=Плита, NodeIdsJson=[1,2,4,3]",
             quadEl.ElemType == "shell" && quadEl.SectionTag == "Плита" &&
-            quadEl.NodeIdsJson == "[1,2,3,4]");
+            quadEl.NodeIdsJson == "[1,2,4,3]");
 
         var groups = ScadSchemaConverter.ToFemMemberGroups(data, schemaId: 42);
         TestHarness.Check("Converter: ToFemMemberGroups.Length == 2", groups.Length == 2, $"{groups.Length}");

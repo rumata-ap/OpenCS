@@ -4,8 +4,10 @@ namespace CScore.Import;
 public enum ScadElementKind { Beam, Shell, Skip }
 
 /// <summary>
-/// Общие правила для типов КЭ SCAD (txt-экспорт и SCADAPIX.dll): классификация типа и
-/// перевод порядка узлов четырёхугольника в контурный.
+/// Общие правила для типов КЭ SCAD (txt-экспорт и SCADAPIX.dll): классификация типа.
+/// Узлы четырёхугольника SCAD (как и ЛИРЫ) идут «1 2 4 3» по обходу контура — в этом же порядке их
+/// хранит сетка OpenCS (обход n1→n2→n4→n3 делают потребители, см. Fem3DVM.BuildShellEdges),
+/// поэтому при импорте порядок не меняется.
 /// </summary>
 public static class ScadElementKinds
 {
@@ -22,13 +24,4 @@ public static class ScadElementKinds
             return ScadElementKind.Shell;
         return ScadElementKind.Skip;
     }
-
-    /// <summary>
-    /// SCAD хранит узлы четырёхугольника «зигзагом» (1-2 по нижней стороне, 3-4 по верхней,
-    /// обход по контуру — 1-2-4-3), а сетка OpenCS — по контуру. Переставляет
-    /// [a,b,c,d] → [a,b,d,c]; для другого числа узлов возвращает массив как есть.
-    /// Первые два узла и нормаль (p2−p1)×(p3−p1) от перестановки не меняются.
-    /// </summary>
-    public static int[] ToPerimeterOrder(int[] nodes) =>
-        nodes.Length == 4 ? [nodes[0], nodes[1], nodes[3], nodes[2]] : nodes;
 }
