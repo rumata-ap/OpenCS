@@ -317,6 +317,42 @@ public class PlateRebarMosaicVmTests
     }
 
     [Fact]
+    public void Utilization_BarCheck_ProfilesBySectionAndStepColors()
+    {
+        string json = JsonSerializer.Serialize(new
+        {
+            perElement = true,
+            elements = new[] { new { elemTag = "10", rebarSource = "selected", status = "failed", utilMax = 1.4 } },
+            rows = new[]
+            {
+                new { elemNum = 10, sectionNum = 1, rebarSource = "selected", utilization = 0.5, passed = true, notChecked = false },
+                new { elemNum = 10, sectionNum = 2, rebarSource = "selected", utilization = 1.4, passed = false, notChecked = false },
+            },
+        });
+        var check = new PlateRebarMosaicVM.CheckInfo(
+            new FemCheck { Id = 4, SchemaId = 1, NormCode = "rc_check", ResultId = 9, Tag = "проверка" }, "Балки — проверка", () => json);
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data(checks: [check]));
+        Select(vm, PlateRebarMosaicSourceKind.Utilization);
+        vm.Compute([], ["10"]);
+
+        Assert.True(vm.HasBarDiagrams);
+        var profiles = vm.BarProfiles(["10", "11"], out _)!;
+        Assert.Equal([(0.0, 0.5), (0.5, 0.5), (0.5, 1.4), (1.0, 1.4)], Assert.Single(profiles).Value);
+        // Ступени эпюры — цветами шкалы мозаики: проходящее сечение зелёное, непроходящее красное.
+        var low = vm.UtilizationColor(0.5)!.Value;
+        var high = vm.UtilizationColor(1.4)!.Value;
+        Assert.True(low.G > low.R);
+        Assert.True(high.R > high.G);
+
+        // Подсказка над стержнем: Кисп КЭ и по сечениям.
+        vm.SetHover("10");
+        var lines = vm.HoverText.Split('\n');
+        Assert.Equal(3, lines.Length);
+        Assert.Contains(string.Format(Utilites.Loc.S("MosaicHoverSection"), 2, 1.4.ToString("0.###")), lines[2]);
+    }
+
+    [Fact]
     public void Thresholds_AreKeptPerComponent()
     {
         var vm = new PlateRebarMosaicVM();

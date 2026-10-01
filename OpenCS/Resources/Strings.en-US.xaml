@@ -3836,6 +3836,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicSourceForces">Forces</system:String>
     <system:String x:Key="MosaicSourceUtilization">Utilization</system:String>
     <system:String x:Key="MosaicUtilization">Utilization</system:String>
+    <system:String x:Key="MosaicHoverSection" xml:space="preserve">    section {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Not checked</system:String>
     <system:String x:Key="MosaicFailedNoUtilization">Fails (no utilization value)</system:String>
     <system:String x:Key="MosaicElement">FE</system:String>
@@ -3884,6 +3885,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicBarDiagramsTip">Diagrams on the bars of the schema by element sections. Ordinates are in the bar local axes (LIRA rule, without the rotation angle): positive values go towards +Z1 (+Y1 for Mx and Vy). One scale for the whole view.</system:String>
     <system:String x:Key="FemBarDiagramMenu">Bar diagrams...</system:String>
     <system:String x:Key="FemBarDiagramTitle">Bar diagrams — {0}</system:String>
+    <system:String x:Key="FemBarDiagramCheck">Check</system:String>
     <system:String x:Key="FemBarDiagramChain">Span</system:String>
     <system:String x:Key="FemBarDiagramChainOne">FE {0} · {1} m</system:String>
     <system:String x:Key="FemBarDiagramChainMany">FE {0} … {1} ({2} pcs) · {3} m</system:String>

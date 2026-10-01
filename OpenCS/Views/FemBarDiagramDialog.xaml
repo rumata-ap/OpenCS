@@ -38,6 +38,12 @@
                 <ComboBox Width="260" Margin="6,0,0,0" ItemsSource="{Binding ForceSets}" DisplayMemberPath="Tag"
                           SelectedItem="{Binding SelectedForceSet, Mode=TwoWay}"/>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4"
+                        Visibility="{Binding IsUtilization, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{DynamicResource FemBarDiagramCheck}" VerticalAlignment="Center"/>
+                <ComboBox Width="260" Margin="6,0,0,0" ItemsSource="{Binding Checks}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedCheck, Mode=TwoWay}"/>
+            </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
                 <TextBlock Text="{DynamicResource FemMemberForceComponent}" VerticalAlignment="Center"/>
                 <ComboBox Width="190" Margin="6,0,0,0" ItemsSource="{Binding Components}" DisplayMemberPath="Label"

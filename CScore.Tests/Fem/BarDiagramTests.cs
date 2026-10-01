@@ -285,4 +285,59 @@ public class BarDiagramTests
         Assert.True(source.Get("100500", BarRebarComponent.As1).IsMissing);
         Assert.Empty(source.GetSections("100500", BarRebarComponent.As1));
     }
+
+    static FemCheckRowResult Util(int elem, int? section, double? u, string source = "selected", bool notChecked = false) =>
+        new(elem, section, source, u, u <= 1, notChecked);
+
+    [Fact]
+    public void Utilization_StepsBySection_MaxOfRows_OnlyChosenSource()
+    {
+        var chain = Assert.Single(BarChains.Build([Bar(7, 1, 2, (0, 0, 0), (4, 0, 0))]));
+        FemCheckRowResult[] rows =
+        [
+            Util(7, 1, 0.4), Util(7, 1, 0.9), Util(7, 2, 1.3),
+            Util(7, 1, 5, source: "section"),
+        ];
+
+        var series = BarDiagram.Utilization(chain, rows, "selected");
+
+        Assert.Equal([new BarDiagramSegment(0, 2, 0.9, 0.9), new BarDiagramSegment(2, 4, 1.3, 1.3)], series.Upper);
+        Assert.Empty(series.Lower);
+        Assert.Equal([(1, 0.0, 0.9), (2, 4.0, 1.3)], series.Points.Select(p => (p.SectionNum!.Value, p.S, p.Max!.Value)));
+
+        var profiles = BarDiagram.UtilizationProfiles(rows, "selected");
+        Assert.Equal([(0.0, 0.9), (0.5, 0.9), (0.5, 1.3), (1.0, 1.3)], profiles[7]);
+    }
+
+    [Fact]
+    public void Utilization_NotCheckedSection_HasEmptyPoint_RowsWithoutSection_WholeElement()
+    {
+        var chain = Assert.Single(BarChains.Build([Bar(7, 1, 2, (0, 0, 0), (4, 0, 0)), Bar(8, 2, 3, (4, 0, 0), (6, 0, 0))]));
+        FemCheckRowResult[] rows = [Util(7, 1, 0.5), Util(7, 2, null, notChecked: true), Util(8, null, 0.7)];
+
+        var series = BarDiagram.Utilization(chain, rows, "selected");
+
+        Assert.Equal([new BarDiagramSegment(0, 2, 0.5, 0.5), new BarDiagramSegment(4, 6, 0.7, 0.7)], series.Upper);
+        Assert.Null(series.Points.Single(p => p.ElemNum == 7 && p.SectionNum == 2).Max);
+        Assert.Equal(5, series.Points.Single(p => p.ElemNum == 8).S, 9);
+        Assert.False(BarDiagram.UtilizationProfiles(rows, "selected").ContainsKey(9));
+    }
+
+    [Fact]
+    public void ParseRows_ReadsElementSectionSourceAndUtilization()
+    {
+        const string json = """
+            { "rows": [
+              { "elemNum": 7, "sectionNum": 2, "rebarSource": "selected", "utilization": 1.25, "passed": false, "notChecked": false },
+              { "elemNum": 8, "sectionNum": null, "rebarSource": "", "utilization": null, "passed": false, "notChecked": true },
+              { "elemNum": null, "label": "ручная", "utilization": 0.3 } ] }
+            """;
+
+        var rows = FemCheckElementResults.ParseRows(json);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(new FemCheckRowResult(7, 2, "selected", 1.25, false, false), rows[0]);
+        Assert.Equal(new FemCheckRowResult(8, null, "", null, false, true), rows[1]);
+        Assert.Empty(FemCheckElementResults.ParseRows("не json"));
+    }
 }

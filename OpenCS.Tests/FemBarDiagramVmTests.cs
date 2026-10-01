@@ -218,4 +218,31 @@ public class FemBarDiagramVmTests
         Assert.Equal(274, vm.Series.Points[0].FailureCode);
         Assert.Equal(["1", "2"], vm.Rows.Select(r => r.Section));
     }
+
+    [Fact]
+    public void UtilizationKind_CheckAndSourceChoice_ReferenceLineAndNotChecked()
+    {
+        var chain = BarChains.Build([new BarChainBar(7, 1, 2, (0, 0, 0), (4, 0, 0))]);
+        var check = new FemBarDiagramCheck(new FemCheck { Tag = "rc", NormCode = "rc_check" }, "Балки / rc_check",
+        [
+            new FemCheckRowResult(7, 1, "section", 0.6, true, false),
+            new FemCheckRowResult(7, 2, "section", null, false, true),
+            new FemCheckRowResult(7, 1, "selected", 1.2, false, false),
+            new FemCheckRowResult(7, 2, "selected", 0.8, true, false),
+        ]);
+        var vm = new FemBarDiagramVM("Балка Б1", chain, [], null, null, checks: [check]);
+
+        Assert.Equal([FemBarDiagramKind.Utilization], vm.Kinds.Select(k => k.Kind));
+        Assert.True(vm.IsUtilization);
+        Assert.Same(check, vm.SelectedCheck);
+        Assert.Equal(["section", "selected"], vm.Components.Select(c => (string)c.Component));
+        Assert.Equal([new BarDiagramSegment(0, 2, 0.6, 0.6)], vm.Series.Upper);
+        Assert.Equal([new BarDiagramSegment(0, 4, 1, 1)], vm.ReferenceLine);
+        Assert.False(vm.HasEnvelope);
+        Assert.Equal(Utilites.Loc.S("MosaicNotChecked"), vm.Rows[1].Value);
+        Assert.Contains("Балки / rc_check", vm.Title);
+
+        vm.SelectedComponent = vm.Components[1];
+        Assert.Equal([new BarDiagramSegment(0, 2, 1.2, 1.2), new BarDiagramSegment(2, 4, 0.8, 0.8)], vm.Series.Upper);
+    }
 }

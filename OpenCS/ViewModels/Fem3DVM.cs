@@ -617,6 +617,25 @@ public class Fem3DVM : ViewModelBase
 
         var positive = new List<BarDiagramLine>();
         var negative = new List<BarDiagramLine>();
+
+        // Коэффициент использования: ступени эпюры (сечения КЭ) окрашены шкалой мозаики — видно, какое сечение не прошло.
+        if (Mosaic.UtilizationColor(0) != null)
+        {
+            var byColor = new Dictionary<Color, List<BarDiagramLine>>();
+            foreach (var (tag, p1, p2) in MosaicBarSegments)
+            {
+                if (!profiles.TryGetValue(tag, out var profile)) continue;
+                for (int i = 0; i + 1 < profile.Count; i += 2)
+                {
+                    var color = Mosaic.UtilizationColor(profile[i].V) ?? BarDiagramPositiveColor;
+                    if (!byColor.TryGetValue(color, out var lines)) byColor[color] = lines = [];
+                    BarDiagramGeometry.AddBar(lines, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z),
+                        [profile[i], profile[i + 1]], plane, scale);
+                }
+            }
+            return byColor.Select(kv => new BarGroup("", kv.Key, Points(kv.Value), 2.0)).ToList();
+        }
+
         foreach (var (tag, p1, p2) in MosaicBarSegments)
             if (profiles.TryGetValue(tag, out var profile))
                 BarDiagramGeometry.AddBar(positive, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile, plane, scale);

@@ -145,6 +145,80 @@ public static class BarDiagram
         return result;
     }
 
+    /// <summary>
+    /// Эпюра коэффициента использования по сечениям КЭ из строк результата проверки по КЭ: ступенчатая,
+    /// как у арматуры (каждое сечение проверено отдельно), значение сечения — наибольший Кисп его строк.
+    /// Сечение без проверенных строк в эпюру не входит, но остаётся в <see cref="BarDiagramSeries.Points"/>
+    /// с пустым значением.
+    /// </summary>
+    /// <param name="rebarSource">Источник армирования, строки которого берутся.</param>
+    public static BarDiagramSeries Utilization(BarChain chain, IEnumerable<FemCheckRowResult> rows, string rebarSource)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+        ArgumentNullException.ThrowIfNull(rows);
+        var byElem = rows.Where(r => r.RebarSource == rebarSource).ToLookup(r => r.ElemNum);
+        var upper = new List<BarDiagramSegment>();
+        var points = new List<BarDiagramPoint>();
+        foreach (var e in chain.Elements)
+        {
+            var sections = UtilizationSections(byElem[e.ElemNum]);
+            foreach (var (num, k, n, value) in sections)
+            {
+                double t = n > 1 ? k / (double)(n - 1) : 0.5;
+                points.Add(new BarDiagramPoint(e.ElemNum, num, e.At(t), value, value));
+                if (value is not double v) continue;
+                var (t0, t1) = StepBounds(k, n);
+                upper.Add(Ordered(e.At(t0), e.At(t1), v, v));
+            }
+        }
+        return new BarDiagramSeries(Sort(upper), [], points.OrderBy(p => p.S).ToList());
+    }
+
+    /// <summary>
+    /// Профили коэффициента использования по КЭ для эпюр на схеме: ступени, как в <see cref="Utilization"/>.
+    /// </summary>
+    public static Dictionary<int, IReadOnlyList<(double T, double V)>> UtilizationProfiles(
+        IEnumerable<FemCheckRowResult> rows, string rebarSource)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        var result = new Dictionary<int, IReadOnlyList<(double T, double V)>>();
+        foreach (var g in rows.Where(r => r.RebarSource == rebarSource).GroupBy(r => r.ElemNum))
+        {
+            var profile = new List<(double, double)>();
+            foreach (var (_, k, n, value) in UtilizationSections(g))
+            {
+                if (value is not double v) continue;
+                var (t0, t1) = StepBounds(k, n);
+                profile.Add((t0, v));
+                profile.Add((t1, v));
+            }
+            if (profile.Count > 0) result[g.Key] = profile;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Сечения КЭ по строкам результата: номер, индекс с нуля, число сечений и наибольший Кисп проверенных
+    /// строк (null — проверенных нет). Строки без номера сечения — одно сечение на весь КЭ.
+    /// </summary>
+    static List<(int? Num, int K, int N, double? Value)> UtilizationSections(IEnumerable<FemCheckRowResult> elementRows)
+    {
+        var rows = elementRows.ToList();
+        if (rows.Count == 0) return [];
+        bool numbered = rows.All(r => r.SectionNum is >= 1);
+        int count = numbered ? rows.Max(r => r.SectionNum!.Value) : 1;
+        return rows
+            .GroupBy(r => numbered ? r.SectionNum!.Value : 1)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var values = g.Where(r => !r.NotChecked && r.Utilization is double u && double.IsFinite(u))
+                    .Select(r => r.Utilization!.Value).ToList();
+                return (numbered ? g.Key : (int?)null, g.Key - 1, count, values.Count > 0 ? values.Max() : (double?)null);
+            })
+            .ToList();
+    }
+
     /// <summary>Границы ступени сечения <paramref name="k"/> (с нуля) из <paramref name="n"/> в долях длины КЭ.</summary>
     static (double T0, double T1) StepBounds(int k, int n) =>
         n > 1 ? (Math.Max(0, (k - 0.5) / (n - 1)), Math.Min(1, (k + 0.5) / (n - 1))) : (0, 1);

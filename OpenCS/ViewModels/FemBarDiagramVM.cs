@@ -4,12 +4,17 @@ using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using CScore.Import;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
 /// <summary>Что показывает эпюра стержня.</summary>
-public enum FemBarDiagramKind { Forces, Rebar, Assigned }
+public enum FemBarDiagramKind { Forces, Rebar, Assigned, Utilization }
+
+/// <summary>Проверка с результатом по КЭ — источник эпюры коэффициента использования.</summary>
+/// <param name="Rows">Строки результата по стержням цели.</param>
+public sealed record FemBarDiagramCheck(FemCheck Check, string Label, IReadOnlyList<FemCheckRowResult> Rows);
 
 /// <summary>Пункт списка участков: цепочка стержневых КЭ цели.</summary>
 public sealed record FemBarDiagramChainOption(BarChain Chain, string Label);
@@ -46,11 +51,14 @@ public sealed class FemBarDiagramVM : ViewModelBase
     /// <param name="rebarFile">Имя файла подбора.</param>
     /// <param name="assigned">Заданная арматура стержней (ТЗА); null — нет.</param>
     /// <param name="assignedFile">Имя файла ТЗА.</param>
+    /// <param name="checks">Проверки с результатом по КЭ стержней цели.</param>
     public FemBarDiagramVM(
         string targetTag, IReadOnlyList<BarChain> chains, IReadOnlyList<ForceSet> forceSets,
         IBarRebarFieldSource? rebar, string? rebarFile,
-        IBarRebarFieldSource? assigned = null, string? assignedFile = null)
+        IBarRebarFieldSource? assigned = null, string? assignedFile = null,
+        IReadOnlyList<FemBarDiagramCheck>? checks = null)
     {
+        Checks = checks ?? [];
         TargetTag = targetTag;
         _rebar = rebar;
         _rebarFile = rebarFile;
@@ -63,8 +71,10 @@ public sealed class FemBarDiagramVM : ViewModelBase
         if (forceSets.Count > 0) kinds.Add(new(FemBarDiagramKind.Forces, Loc.S("FemBarDiagramKindForces")));
         if (rebar != null) kinds.Add(new(FemBarDiagramKind.Rebar, Loc.S("FemBarDiagramKindRebar")));
         if (assigned != null) kinds.Add(new(FemBarDiagramKind.Assigned, Loc.S("FemBarDiagramKindAssigned")));
+        if (Checks.Count > 0) kinds.Add(new(FemBarDiagramKind.Utilization, Loc.S("MosaicSourceUtilization")));
         Kinds = kinds;
 
+        _selectedCheck = Checks.FirstOrDefault();
         _selectedForceSet = forceSets.FirstOrDefault();
         // Наборы бывают уже цели (усилия импортированы на один элемент группы) — открыться на участке с усилиями.
         var loaded = _selectedForceSet?.Items.Select(i => i.SourceElementNum).OfType<int>().ToHashSet();
@@ -80,12 +90,15 @@ public sealed class FemBarDiagramVM : ViewModelBase
     public IReadOnlyList<FemBarDiagramChainOption> Chains { get; }
     public IReadOnlyList<FemBarDiagramKindOption> Kinds { get; }
     public IReadOnlyList<ForceSet> ForceSets { get; }
+    public IReadOnlyList<FemBarDiagramCheck> Checks { get; }
     public IReadOnlyList<FemBarDiagramComponentOption> Components { get; private set; } = [];
 
     /// <summary>У цели несколько участков — нужен их список.</summary>
     public bool HasSeveralChains => Chains.Count > 1;
     /// <summary>Показываются усилия — нужен выбор набора.</summary>
     public bool IsForces => SelectedKind?.Kind == FemBarDiagramKind.Forces;
+    /// <summary>Показывается коэффициент использования — нужен выбор проверки.</summary>
+    public bool IsUtilization => SelectedKind?.Kind == FemBarDiagramKind.Utilization;
     /// <summary>Нет ни наборов усилий, ни подобранной арматуры.</summary>
     public bool NoData => Kinds.Count == 0;
 
@@ -106,6 +119,7 @@ public sealed class FemBarDiagramVM : ViewModelBase
             _selectedKind = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsForces));
+            OnPropertyChanged(nameof(IsUtilization));
             RefreshComponents();
             Rebuild();
         }
@@ -116,6 +130,20 @@ public sealed class FemBarDiagramVM : ViewModelBase
     {
         get => _selectedForceSet;
         set { if (ReferenceEquals(_selectedForceSet, value)) return; _selectedForceSet = value; OnPropertyChanged(); Rebuild(); }
+    }
+
+    FemBarDiagramCheck? _selectedCheck;
+    public FemBarDiagramCheck? SelectedCheck
+    {
+        get => _selectedCheck;
+        set
+        {
+            if (ReferenceEquals(_selectedCheck, value)) return;
+            _selectedCheck = value;
+            OnPropertyChanged();
+            RefreshComponents();
+            Rebuild();
+        }
     }
 
     FemBarDiagramComponentOption? _selectedComponent;
@@ -136,6 +164,8 @@ public sealed class FemBarDiagramVM : ViewModelBase
     public bool HasEnvelope { get; private set; }
     /// <summary>Вторая величина эпюры — подобранная арматура рядом с заданной (иначе — наименьшие значения).</summary>
     public bool ComparesWithSelected { get; private set; }
+    /// <summary>Опорная линия (Кисп = 1 на эпюре коэффициента использования); пусто — её нет.</summary>
+    public IReadOnlyList<BarDiagramSegment> ReferenceLine { get; private set; } = [];
 
     void RefreshComponents()
     {
@@ -150,6 +180,11 @@ public sealed class FemBarDiagramVM : ViewModelBase
                 .Select(c => new FemBarDiagramComponentOption(c, Loc.S("MosaicBarForce" + c))).ToList(),
             FemBarDiagramKind.Rebar => Rebar(_rebar),
             FemBarDiagramKind.Assigned => Rebar(_assigned),
+            FemBarDiagramKind.Utilization when SelectedCheck != null => SelectedCheck.Rows
+                .Select(r => r.RebarSource).Distinct()
+                .Select(key => new FemBarDiagramComponentOption(key,
+                    key == "" ? Loc.S("MosaicUtilization") : FemCheckContext.SourceName(key)))
+                .ToList(),
             _ => [],
         };
         OnPropertyChanged(nameof(Components));
@@ -169,13 +204,19 @@ public sealed class FemBarDiagramVM : ViewModelBase
                 BarDiagram.Rebar(c, _rebar, comp),
             ({ } c, FemBarDiagramKind.Assigned, BarRebarComponent comp) when _assigned != null =>
                 AssignedSeries(c, comp),
+            ({ } c, FemBarDiagramKind.Utilization, string source) when SelectedCheck != null =>
+                BarDiagram.Utilization(c, SelectedCheck.Rows, source),
             _ => BarDiagramSeries.Empty,
         };
+        bool utilization = SelectedKind?.Kind == FemBarDiagramKind.Utilization;
+        ReferenceLine = utilization && chain != null && Series.Points.Count > 0
+            ? [new BarDiagramSegment(0, chain.Length, 1, 1)] : [];
         ComparesWithSelected = SelectedKind?.Kind == FemBarDiagramKind.Assigned && Series.Lower.Count > 0;
         HasEnvelope = Series.Lower.Count > 0;
         Title = SelectedComponent == null ? "" : $"{SelectedComponent.Label} — " + SelectedKind?.Kind switch
         {
             FemBarDiagramKind.Forces => SelectedForceSet?.Tag,
+            FemBarDiagramKind.Utilization => SelectedCheck?.Label,
             FemBarDiagramKind.Assigned when ComparesWithSelected => $"{_assignedFile} / {_rebarFile}",
             FemBarDiagramKind.Assigned => _assignedFile,
             _ => _rebarFile,
@@ -187,7 +228,8 @@ public sealed class FemBarDiagramVM : ViewModelBase
                 p.ElemNum,
                 p.SectionNum?.ToString(CultureInfo.CurrentCulture) ?? "",
                 p.S.ToString("0.###", CultureInfo.CurrentCulture),
-                failure != null && !ComparesWithSelected ? failure : Format(p.Max),
+                failure != null && !ComparesWithSelected ? failure
+                    : utilization && p.Max == null ? Loc.S("MosaicNotChecked") : Format(p.Max),
                 failure != null && ComparesWithSelected ? failure : HasEnvelope ? Format(p.Min) : "");
         }).ToList();
         OnPropertyChanged(nameof(Series));
@@ -195,6 +237,7 @@ public sealed class FemBarDiagramVM : ViewModelBase
         OnPropertyChanged(nameof(Rows));
         OnPropertyChanged(nameof(HasEnvelope));
         OnPropertyChanged(nameof(ComparesWithSelected));
+        OnPropertyChanged(nameof(ReferenceLine));
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -305,6 +348,16 @@ public sealed class FemBarDiagramVM : ViewModelBase
                 warn?.Invoke(string.Format(Loc.S("PlateRebarMosaicReadError"), rbt.FileName, ex.Message));
             }
 
-        return new FemBarDiagramVM(target.Tag, chains, sets, rebar, rebarFile, assigned, assignedFile);
+        // Проверки стержней с результатом по КЭ: строки по КЭ цели.
+        var checks = new List<FemBarDiagramCheck>();
+        foreach (var c in db.FemChecks.Where(c => c.SchemaId == schemaId && c.ResultId != null && !FemCheckContext.IsPlate(c))
+                                      .OrderBy(c => c.DisplayTag, StringComparer.CurrentCulture))
+        {
+            var rows = FemCheckElementResults.ParseRows(db.GetCalcResultByFemCheck(c.Id)?.DataJson)
+                .Where(r => numbers.Contains(r.ElemNum)).ToList();
+            if (rows.Count > 0) checks.Add(new FemBarDiagramCheck(c, c.DisplayTag, rows));
+        }
+
+        return new FemBarDiagramVM(target.Tag, chains, sets, rebar, rebarFile, assigned, assignedFile, checks);
     }
 }

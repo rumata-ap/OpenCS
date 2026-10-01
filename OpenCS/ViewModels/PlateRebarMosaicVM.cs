@@ -96,6 +96,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    IReadOnlyList<ForceSet> _forceSets = [];
    IReadOnlyList<CheckInfo> _checks = [];
    readonly Dictionary<int, IReadOnlyList<FemCheckElementResult>> _checkResults = [];
+   readonly Dictionary<int, IReadOnlyList<FemCheckRowResult>> _checkRows = [];
+   PlateRebarMosaicScale? _scale;
+   Color[] _bandColors = [];
    readonly Dictionary<string, string> _thresholdsByKey = [];
    Field? _field;
 
@@ -144,7 +147,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    /// <summary>У мозаики есть значения по сечениям стержней — можно рисовать эпюры на схеме
    /// (усилия стержней, подобранная арматура стержней).</summary>
-   public bool HasBarDiagrams => !ShellOnly && SelectedComponent?.Component is BarForceComponent or BarRebarComponent;
+   public bool HasBarDiagrams => !ShellOnly && (SelectedComponent?.Component is BarForceComponent or BarRebarComponent
+      || Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c && !FemCheckContext.IsPlate(c.Check));
 
    bool _showBarDiagrams = true;
    /// <summary>Рисовать эпюры на стержнях схемы.</summary>
@@ -185,6 +189,15 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          case BarRebarComponent rebar when BarRebarSource() is { } source:
             foreach (string tag in barTags)
                if (BarDiagram.RebarProfile(source.GetSections(tag, rebar)) is { Count: > 0 } profile)
+                  result[tag] = profile;
+            break;
+
+         case string rebarSource when Kind == PlateRebarMosaicSourceKind.Utilization
+                                      && SelectedSubject?.Subject is CheckInfo check:
+            var util = BarDiagram.UtilizationProfiles(CheckRows(check), rebarSource);
+            foreach (string tag in barTags)
+               if (int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+                   && util.TryGetValue(n, out var profile))
                   result[tag] = profile;
             break;
       }
@@ -470,6 +483,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _assignedBars = data.AssignedBars;
       _thicknessByTag = data.ThicknessByTag;
       _checkResults.Clear();
+      _checkRows.Clear();
       foreach (var (file, error) in data.Errors)
          _warn?.Invoke(string.Format(Loc.S("PlateRebarMosaicReadError"), file, error));
 
@@ -615,6 +629,21 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       }
    }
 
+   IReadOnlyList<FemCheckRowResult> CheckRows(CheckInfo check)
+   {
+      if (!_checkRows.TryGetValue(check.Check.Id, out var rows))
+         _checkRows[check.Check.Id] = rows = FemCheckElementResults.ParseRows(check.LoadJson());
+      return rows;
+   }
+
+   /// <summary>
+   /// Цвет значения по шкале текущей мозаики — для окраски ступеней эпюры коэффициента использования
+   /// на стержнях; null — мозаика не коэффициента использования или шкала не построена.
+   /// </summary>
+   public Color? UtilizationColor(double value) =>
+      Kind == PlateRebarMosaicSourceKind.Utilization && _scale is { } scale && _bandColors.Length == scale.Bands.Count
+         ? _bandColors[scale.BandOf(value)] : null;
+
    IReadOnlyList<FemCheckElementResult> CheckResults(CheckInfo check)
    {
       if (!_checkResults.TryGetValue(check.Check.Id, out var rows))
@@ -720,6 +749,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             ? PlateRebarMosaicScale.Manual(field.DefaultThresholds.Where(t => t <= 1 || t < max), field.Diverging)
          : PlateRebarMosaicScale.Auto(numbers, field.Diverging);
       var colors = BandColors(scale, field.Palette);
+      _scale = scale;
+      _bandColors = colors;
 
       var counts = new int[scale.Bands.Count];
       // Особые состояния (отказ подбора, не проверено) — по подписи: у ASP кодов отказа много, категория одна.
@@ -796,7 +827,31 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (!_field.Values.TryGetValue(elemTag, out var v) || v.IsMissing) text = Loc.S("PlateRebarMosaicNoData");
       else if (v.FailureCode is int code) text = FailureStyle(_field.Palette, code).Label;
       else text = v.Value!.Value.ToString("0.###", CultureInfo.CurrentCulture);
-      HoverText = $"{Loc.S("MosaicElement")} {elemTag}: {text}";
+      HoverText = $"{Loc.S("MosaicElement")} {elemTag}: {text}" + UtilizationBySections(elemTag);
+   }
+
+   /// <summary>Кисп стержня по его сечениям — строками подсказки; пусто — мозаика не Кисп стержней или сечение одно.</summary>
+   string UtilizationBySections(string elemTag)
+   {
+      if (_field is not { Bars: true } || Kind != PlateRebarMosaicSourceKind.Utilization
+          || SelectedSubject?.Subject is not CheckInfo check || SelectedComponent?.Component is not string source
+          || !int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int num))
+         return "";
+      var sections = CheckRows(check)
+         .Where(r => r.ElemNum == num && r.RebarSource == source && r.SectionNum != null)
+         .GroupBy(r => r.SectionNum!.Value)
+         .OrderBy(g => g.Key)
+         .ToList();
+      if (sections.Count < 2) return "";
+      var sb = new System.Text.StringBuilder();
+      foreach (var g in sections)
+      {
+         var values = g.Where(r => !r.NotChecked && r.Utilization is double u && double.IsFinite(u))
+            .Select(r => r.Utilization!.Value).ToList();
+         string value = values.Count > 0 ? values.Max().ToString("0.###", CultureInfo.CurrentCulture) : Loc.S("MosaicNotChecked");
+         sb.Append('\n').Append(string.Format(Loc.S("MosaicHoverSection"), g.Key, value));
+      }
+      return sb.ToString();
    }
 
    static SolidColorBrush Freeze(Color c)

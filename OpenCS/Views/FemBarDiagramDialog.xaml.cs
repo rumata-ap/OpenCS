@@ -26,12 +26,15 @@ public partial class FemBarDiagramDialog : Window
         static List<FemMemberForceCanvas.Segment> Convert(IReadOnlyList<CScore.Fem.BarDiagramSegment> segments) =>
             segments.Select(s => new FemMemberForceCanvas.Segment(s.S0, s.S1, s.V0, s.V1)).ToList();
 
-        canvas.SetData(Convert(_vm.Series.Upper), _vm.Title, Convert(_vm.Series.Lower));
-        // Сечения с отказом подбора арматуры — маркерами на оси.
+        // Вторая линия — огибающая наименьших (подобранная арматура) либо опорная Кисп = 1.
+        var secondary = _vm.ReferenceLine.Count > 0 ? _vm.ReferenceLine : _vm.Series.Lower;
+        canvas.SetData(Convert(_vm.Series.Upper), _vm.Title, Convert(secondary));
+        // Сечения с отказом подбора арматуры и непроверенные сечения — маркерами на оси.
         canvas.SetMarkers(_vm.Series.Points
-            .Where(p => p.FailureCode != null)
+            .Where(p => p.FailureCode != null || _vm.IsUtilization && p.Max == null)
             .Select(p => new FemMemberForceCanvas.Marker(p.S, false, p,
-                string.Format(Loc.S("FemBarDiagramFailure"), p.FailureCode)))
+                p.FailureCode != null ? string.Format(Loc.S("FemBarDiagramFailure"), p.FailureCode)
+                    : Loc.S("MosaicNotChecked")))
             .ToList());
         minColumn.Visibility = _vm.HasEnvelope ? Visibility.Visible : Visibility.Collapsed;
         valueColumn.Header = Loc.S(_vm.ComparesWithSelected ? "FemBarDiagramColAssigned"

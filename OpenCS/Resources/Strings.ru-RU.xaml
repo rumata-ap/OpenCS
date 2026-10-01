@@ -3836,6 +3836,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicSourceForces">Усилия</system:String>
     <system:String x:Key="MosaicSourceUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicUtilization">Коэффициент использования</system:String>
+    <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Не проверено</system:String>
     <system:String x:Key="MosaicFailedNoUtilization">Не проходит (без коэффициента)</system:String>
     <system:String x:Key="MosaicElement">КЭ</system:String>
@@ -3884,6 +3885,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicBarDiagramsTip">Эпюры на стержнях схемы по сечениям КЭ. Ординаты — в местных осях стержня (по правилу ЛИРЫ, без угла чистого вращения): положительные — в сторону +Z1 (у Mx и Vy — +Y1). Масштаб общий на вид.</system:String>
     <system:String x:Key="FemBarDiagramMenu">Эпюры стержней...</system:String>
     <system:String x:Key="FemBarDiagramTitle">Эпюры стержней — {0}</system:String>
+    <system:String x:Key="FemBarDiagramCheck">Проверка</system:String>
     <system:String x:Key="FemBarDiagramChain">Участок</system:String>
     <system:String x:Key="FemBarDiagramChainOne">КЭ {0} · {1} м</system:String>
     <system:String x:Key="FemBarDiagramChainMany">КЭ {0} … {1} ({2} шт.) · {3} м</system:String>
