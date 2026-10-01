@@ -254,8 +254,10 @@ public static class LiraAspReader
    }
 
    /// <summary>
-   /// Начало доп. записей пластин: первое смещение ≥ <paramref name="from"/> с шагом 4, где у всех
-   /// <paramref name="nPlates"/> записей по 24 Б стоит маркер −777 (+16).
+   /// Начало доп. записей пластин: первое смещение ≥ <paramref name="from"/> с шагом 4, где у каждой из
+   /// <paramref name="nPlates"/> записей по 24 Б стоит маркер −777 (+16) либо вся запись нулевая, а записей
+   /// с маркером больше половины. Нулевые записи пишет ЛИРА-САПР 2024 у части пластин с подобранной
+   /// продольной арматурой (поперечная для них, видимо, не считалась) — для них ASW = 0.
    /// </summary>
    static long? FindPlateExtras(byte[] data, long from, int nPlates)
    {
@@ -263,12 +265,24 @@ public static class LiraAspReader
       for (long s = from; s <= maxStart; s += 4)
       {
          if (F32(data, (int)(s + 16)) != PlateExtraMarker) continue;
+         int marked = 0;
          bool ok = true;
-         for (int i = 1; i < nPlates && ok; i++)
-            ok = F32(data, (int)(s + (long)i * PlateExtraSize + 16)) == PlateExtraMarker;
-         if (ok) return s;
+         for (int i = 0; i < nPlates && ok; i++)
+         {
+            int r = (int)(s + (long)i * PlateExtraSize);
+            if (F32(data, r + 16) == PlateExtraMarker) marked++;
+            else ok = IsZero(data, r, PlateExtraSize);
+         }
+         if (ok && 2 * marked > nPlates) return s;
       }
       return null;
+   }
+
+   static bool IsZero(byte[] data, int p, int length)
+   {
+      for (int i = 0; i < length; i++)
+         if (data[p + i] != 0) return false;
+      return true;
    }
 
    /// <summary>
@@ -307,11 +321,11 @@ public static class LiraAspReader
       return true;
    }
 
-   /// <summary>Заголовок стержня: u32 0 и ненулевой идентификатор в начале, непустые классы арматуры и бетона,
-   /// привязки 0…100 см.</summary>
+   /// <summary>Заголовок стержня: u32 0 в начале, непустые классы арматуры и бетона, привязки 0…100 см.
+   /// Следующее u32 (+4) — не номер КЭ: в выгрузке ЛИРА-САПР 2024 у первых стержней оно нулевое.</summary>
    static bool LooksLikeBarHeader(byte[] data, int p)
    {
-      if (I32(data, p) != 0 || I32(data, p + 4) == 0) return false;
+      if (I32(data, p) != 0) return false;
       if (!IsClassName(data, p + 8, 32) || !IsClassName(data, p + 40, 32)) return false;
       for (int k = 0; k < 3; k++)
       {

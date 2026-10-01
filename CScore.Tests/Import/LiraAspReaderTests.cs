@@ -159,4 +159,41 @@ public class LiraAspSchemaMatchTests
       Assert.Equal([9], m.Missing);
       Assert.Equal([2], m.KindMismatch);
    }
+
+   /// <summary>
+   /// Особенности выгрузки ЛИРА-САПР 2024: у части пластин доп. запись (поперечная арматура) целиком нулевая,
+   /// без маркера −777, а u32 после нулевого начала записи стержня бывает нулевым. Обе — на образце 2025,
+   /// изменённом побайтно.
+   /// </summary>
+   [Fact]
+   public void Lira2024_ZeroPlateExtrasAndZeroBarWord_AreAccepted()
+   {
+      byte[] data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Import", "Fixtures", "asp-scheme-1lin.asp"));
+      int nPlates = BitConverter.ToInt32(data, 96), plateSize = BitConverter.ToInt32(data, 100);
+      int nPunch = BitConverter.ToInt32(data, 240), punchSize = BitConverter.ToInt32(data, 244);
+      int barsStart = 272 + nPlates * plateSize + nPunch * punchSize;
+      int extras = FindMarker(data, barsStart) - 16;
+
+      Array.Clear(data, barsStart + 4, 4);         // первый стержень: u32 +4 = 0
+      Array.Clear(data, extras + 2 * 24, 24);      // третья пластина: нулевая доп. запись
+      Array.Clear(data, barsStart + 2 * (160 + 2 * 88) + 4, 4); // и третий стержень
+
+      var f = LiraAspReader.Read(data);
+      var reference = LiraAspReader.Read(Path.Combine(AppContext.BaseDirectory, "Import", "Fixtures", "asp-scheme-1lin.asp"));
+
+      Assert.Empty(f.Warnings);
+      Assert.Equal(reference.Bars.Count, f.Bars.Count);
+      Assert.Equal(reference.Plates.Count, f.Plates.Count);
+      Assert.Equal(0, f.Plates[279 + 2].Asw);
+      Assert.Equal(reference.Plates[472].Asw, f.Plates[472].Asw, 6);
+      Assert.Equal(reference.Bars[1].Envelope.LongitudinalSum, f.Bars[1].Envelope.LongitudinalSum, 6);
+      Assert.Equal(reference.Bars[278].Sections.Count, f.Bars[278].Sections.Count);
+
+      static int FindMarker(byte[] d, int from)
+      {
+         for (int p = from; p + 4 <= d.Length; p += 4)
+            if (BitConverter.ToSingle(d, p) == -777f) return p;
+         throw new InvalidOperationException("маркер −777 не найден");
+      }
+   }
 }
