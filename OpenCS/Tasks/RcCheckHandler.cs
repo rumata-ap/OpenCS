@@ -10,6 +10,11 @@ namespace OpenCS.Tasks;
 /// (п. 8.1.24, 8.1.30 СП 63.13330) для одной строки усилий. Коэффициент использования —
 /// наибольшее из отношений ε_b/ε_b,ult и ε_s/ε_s,ult. Несошедшийся НДС — проверка
 /// не пройдена (сечение не воспринимает усилия), коэффициент не определён.
+/// Работа бетона на растяжение — по настройке режима (<see cref="CalcSettings.ResolveConcreteTension"/>),
+/// но только до образования трещин: если с растянутым бетоном НДС не найден (после трещин касательная
+/// жёсткость скачком падает, и метод Ньютона срывается), строка перерешивается без растяжения —
+/// трещины образовались, растянутый бетон выключен. Отказ — только если НДС не найден и так.
+/// Без этого нормативные наборы (N, NL) давали ложные «НДС не найден» у сечений с запасом (01.10.2026).
 /// </summary>
 public sealed class RcCheckHandler : ITaskHandler
 {
@@ -25,8 +30,13 @@ public sealed class RcCheckHandler : ITaskHandler
                 pool: ctx?.Database?.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
             bool ten = settings.ResolveConcreteTension(task.CalcType);
-
             var r = StrengthNDMBatchHandler.Evaluate(section, item, task.CalcType, ten, settings);
+            if (!r.Converged && ten)
+            {
+                // Растянутый бетон работает до образования трещин: после них — без растяжения.
+                ten = false;
+                r = StrengthNDMBatchHandler.Evaluate(section, item, task.CalcType, ten, settings);
+            }
 
             string dataJson;
             string status;
@@ -57,6 +67,7 @@ public sealed class RcCheckHandler : ITaskHandler
                     eps_concrete_ult = Math.Round(r.EpsConcreteUlt, 8),
                     eps_rebar_tension = Math.Round(r.EpsRebarTension, 8),
                     eps_rebar_ult = Math.Round(r.EpsRebarUlt, 8),
+                    concrete_tension = ten,
                     iterations = r.Iterations,
                     details = new[]
                     {

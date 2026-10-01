@@ -42,6 +42,63 @@ public sealed class RcCheckHandlerTests
         Assert.False(doc.RootElement.GetProperty("passed").GetBoolean());
     }
 
+    /// <summary>
+    /// Нормативный набор (N, NL): растянутый бетон учитывается только до образования трещин. Колонна 25×60 см,
+    /// 4 угловых стержня по 1,5 см² (B20, A400, нормативные характеристики), строка РСУ (N) косого
+    /// внецентренного сжатия: с растянутым бетоном Ньютон срывается (невязка ≈ 41 кН), без него НДС находится.
+    /// Проверка перерешивает без растяжения — без ложного «НДС не найден» (колонны по РСУ (N)/(NL), 01.10.2026).
+    /// </summary>
+    [Theory]
+    [InlineData(CalcType.N)]
+    [InlineData(CalcType.NL)]
+    public void NormativeSet_CrackedSection_PassesWithoutConcreteTension(CalcType calcType)
+    {
+        var r = TaskRunner.Run(new CalcTask { Kind = "rc_check", Tag = "rc", CalcType = calcType },
+            Column25x60(), new LoadItem { Label = "э.57 с1 к4 A2", N = -67.0, Mx = 27.2, My = -16.6 });
+
+        Assert.Equal("ok", r.Status);
+        using var doc = JsonDocument.Parse(r.DataJson);
+        Assert.True(doc.RootElement.GetProperty("passed").GetBoolean());
+        Assert.False(doc.RootElement.GetProperty("concrete_tension").GetBoolean());
+    }
+
+    static CrossSection Column25x60()
+    {
+        static MaterialChars Concrete(CalcType ct) => new(ct)
+        {
+            Type = MatType.Concrete, E = 27_500_000.0, Fc = -15_000.0, Ft = 1_350.0,
+            Ec0 = -0.002, Ec1 = -0.6 * 15_000.0 / 27_500_000.0, Ec2 = -0.0035, Ec1Red = -0.0015,
+            Et0 = 0.0001, Et1 = 0.6 * 1_350.0 / 27_500_000.0, Et2 = 0.00015, Et1Red = 0.00008,
+        };
+        static MaterialChars Rebar(CalcType ct) => new(ct)
+        {
+            Type = MatType.ReSteelF, E = 200_000_000.0, Fc = -390_000.0, Ft = 390_000.0,
+            Ec0 = -0.00195, Et0 = 0.00195, Ec2 = -0.0035, Et2 = 0.025,
+        };
+        static Material Make(Material m, Func<CalcType, MaterialChars> chars)
+        {
+            m.C = chars(CalcType.C); m.CL = chars(CalcType.CL); m.N = chars(CalcType.N); m.NL = chars(CalcType.NL);
+            return m;
+        }
+        var concrete = Make(new Material { Id = 1, Tag = "B20", Type = MatType.Concrete, E = 27_500_000.0 }, Concrete);
+        var rebar = Make(new Material { Id = 2, Tag = "A400", Type = MatType.ReSteelF, E = 200_000_000.0 }, Rebar);
+        var profile = new CScore.Import.LiraBarProfile(3, 0.25, 0.60, concrete, rebar);
+        var (bars, _) = CScore.Import.LiraBarSectionBuilder.SelectedLayout(
+            new CScore.Import.LiraAspBarAreas(1.5, 1.5, 1.5, 1.5, 0.01, 0.01, 0.01, 0.01, 0, 0, 0), profile, (4, 4, 4));
+        return CScore.Import.LiraBarSectionBuilder.Build("колонна 25×60", profile, bars!);
+    }
+
+    /// <summary>До образования трещин растянутый бетон в нормативном наборе учитывается.</summary>
+    [Fact]
+    public void NormativeSet_UncrackedSection_KeepsConcreteTension()
+    {
+        var r = Run(mx: -5.0, CalcType.N);
+
+        Assert.Equal("ok", r.Status);
+        using var doc = JsonDocument.Parse(r.DataJson);
+        Assert.True(doc.RootElement.GetProperty("concrete_tension").GetBoolean());
+    }
+
     [Fact]
     public void FemCheckRunnerCountsRealRcCheckRows()
     {
@@ -62,8 +119,8 @@ public sealed class RcCheckHandlerTests
         Assert.Equal("not_passed", result.Status);
     }
 
-    static CalcResult Run(double mx) => TaskRunner.Run(
-        new CalcTask { Kind = "rc_check", Tag = "rc", CalcType = CalcType.C },
+    static CalcResult Run(double mx, CalcType calcType = CalcType.C) => TaskRunner.Run(
+        new CalcTask { Kind = "rc_check", Tag = "rc", CalcType = calcType },
         ReportFixtures.BuildBeam(),
         new LoadItem { Label = "1", Mx = mx });
 }
