@@ -6590,6 +6590,15 @@ namespace OpenCS.Utilites
          return (rdr.GetString(0), (byte[])rdr.GetValue(1));
       }
 
+      /// <summary>Программа-источник FEM-схемы (lira, scad, internal …); null — схемы нет.</summary>
+      public string? GetFemSchemaSourceType(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT source_type FROM fem_schemas WHERE id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return cmd.ExecuteScalar() as string;
+      }
+
       /// <summary>Сохранить (заменить) вложение FEM-схемы вида <paramref name="kind"/>.</summary>
       public void SaveFemSchemaSourceFile(int schemaId, string kind, string fileName, byte[] data)
       {

@@ -315,7 +315,25 @@ public sealed class FemBarDiagramVM : ViewModelBase
 
         IBarRebarFieldSource? rebar = null;
         string? rebarFile = null;
-        if (db.GetFemSchemaSelectedReinforcementFile(schemaId) is { } asp)
+        // У схем SCAD подобранная арматура — из выгрузки плагина, а не из ASP.
+        if (db.GetFemSchemaSourceType(schemaId) == "scad")
+        {
+            if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scad)
+                try
+                {
+                    var file = ScadRebarExportReader.Read(scad.Data);
+                    if (numbers.Any(file.Bars.ContainsKey))
+                    {
+                        rebar = new ScadSelectedBarRebarSource(file);
+                        rebarFile = scad.FileName;
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
+                {
+                    warn?.Invoke(string.Format(Loc.S("PlateRebarMosaicReadError"), scad.FileName, ex.Message));
+                }
+        }
+        else if (db.GetFemSchemaSelectedReinforcementFile(schemaId) is { } asp)
             try
             {
                 var file = LiraAspReader.Read(asp.Data);

@@ -251,10 +251,21 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             string elemType = IsPlateCheck ? "shell" : "beam";
             bool anyTza = _scope.Elements.Any(e =>
                 e.Element.ElemType == elemType && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
-            AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
-            AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
-            SelectedSourceEnabled = data.Asp != null;
-            SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+            if (data.IsScad)
+            {
+                // Заданное армирование SCAD — срез 4; подобранное — выгрузка плагина.
+                AssignedSourceEnabled = false;
+                AssignedSourceHint = Loc.S("FemCheckScadAssignedNotYet");
+                SelectedSourceEnabled = data.ScadSelected != null;
+                SelectedSourceHint = data.ScadSelected == null ? Loc.S("FemCheckNoScadSelected") : null;
+            }
+            else
+            {
+                AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
+                AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
+                SelectedSourceEnabled = data.Asp != null;
+                SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+            }
             LayoutSourceEnabled = IsPlateCheck && _scope.Elements.Any(e =>
                 e.Element.ElemType == "shell" && e.Member?.PlanarRegionId != null);
             LayoutSourceHint = LayoutSourceEnabled ? null : Loc.S("FemCheckNoLayout");
