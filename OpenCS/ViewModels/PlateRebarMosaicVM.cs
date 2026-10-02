@@ -404,7 +404,26 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       foreach (var e in shells)
          if (e.ThicknessM is double h && h > 0) thickness[e.ElemTag.Trim()] = h;
 
-      if (db.GetFemSchemaSelectedReinforcementFile(schemaId) is { } asp)
+      // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
+      if (db.GetFemSchemaSourceType(schemaId) == "scad")
+      {
+         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scad)
+         {
+            key.Append(scad.FileName).Append(':').Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(scad.Data))).Append('|');
+            try
+            {
+               var file = ScadRebarExportReader.Read(scad.Data);
+               selected = new ScadSelectedPlateRebarSource(file);
+               if (file.Bars.Count > 0) selectedBars = new ScadSelectedBarRebarSource(file);
+               selectedFile = scad.FileName;
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
+            {
+               errors.Add((scad.FileName, ex.Message));
+            }
+         }
+      }
+      else if (db.GetFemSchemaSelectedReinforcementFile(schemaId) is { } asp)
       {
          key.Append(asp.FileName).Append(':').Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(asp.Data))).Append('|');
          try

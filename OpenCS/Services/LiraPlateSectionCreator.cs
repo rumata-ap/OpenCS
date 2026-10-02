@@ -8,7 +8,7 @@ namespace OpenCS.Services;
 /// <summary>Что сделано при создании сечений пластин по данным ЛИРЫ.</summary>
 public sealed class LiraPlateSectionsReport
 {
-    /// <summary>У схемы нет файла подбора (ASP) — взять толщину и классы неоткуда.</summary>
+    /// <summary>У схемы нет данных для шаблона: у ЛИРЫ — файла подбора (ASP), у SCAD — ЖБ-групп.</summary>
     public bool NoAsp { get; init; }
     /// <summary>Пользователь отказался вводить привязку — ничего не создано.</summary>
     public bool Cancelled { get; init; }
@@ -29,22 +29,28 @@ public sealed class LiraPlateSectionsReport
 }
 
 /// <summary>
-/// Создание сечений-шаблонов пластинчатых целей по данным ЛИРЫ: материалы — по классам из подбора (*.asp)
-/// и справочника СП 63, толщина — из подбора, арматура — фоновые ТЗА. Одинаковые шаблоны разных целей
-/// дают одно сечение; существующие материалы и сечения проекта используются повторно.
+/// Создание сечений-шаблонов пластинчатых целей по данным схемы. ЛИРА: материалы — по классам из подбора (*.asp)
+/// и справочника СП 63, толщина — из подбора, арматура — фоновые ТЗА. SCAD: классы — из ЖБ-групп, толщина —
+/// своя толщина КЭ, арматура — условная на привязках ЖБ-группы (<see cref="ScadPlateSectionTemplates"/>).
+/// Одинаковые шаблоны разных целей дают одно сечение; существующие материалы и сечения проекта используются повторно.
 /// </summary>
 public static class LiraPlateSectionCreator
 {
     /// <summary>Создать и назначить сечения целям без пластинчатого сечения.</summary>
     /// <param name="targets">Группы и конструктивные элементы; цели с сечением и без пластин пропускаются.</param>
     /// <param name="askNominal">Запрос привязки и диаметра для граней без фонового ТЗА (аргумент — предлагаемые
-    /// значения); null — отказ, ничего не создаётся.</param>
+    /// значения; у SCAD нужен только диаметр); null — отказ, ничего не создаётся.</param>
     /// <param name="catalogDirectory">Каталог справочника материалов; null — рядом с приложением.</param>
     public static LiraPlateSectionsReport Create(
         DatabaseService db, FemCheckSchemaData data, IEnumerable<IFemCheckable> targets,
         Func<LiraPlateNominalRebar, LiraPlateNominalRebar?> askNominal, string? catalogDirectory = null)
     {
-        if (data.Asp == null) return new LiraPlateSectionsReport { NoAsp = true };
+        if (data.IsScad ? data.ScadConcreteGroups == null : data.Asp == null)
+            return new LiraPlateSectionsReport { NoAsp = true };
+        LiraPlateTemplateResult BuildTemplate(IReadOnlyList<FemCheckScopeElement> plates, LiraPlateNominalRebar? n) =>
+            data.IsScad
+                ? ScadPlateSectionTemplates.Build(plates, data.ScadConcreteGroups!, n?.DiameterM)
+                : LiraPlateSectionTemplates.Build(plates, data.Asp!, data.Rbt, n);
 
         // ── План: сначала все шаблоны, потом запись — отказ от ввода не оставляет половину работы ──
         var report = new LiraPlateSectionsReport();
@@ -56,13 +62,13 @@ public static class LiraPlateSectionCreator
             var plates = data.Scope(target).Elements.Where(e => e.Element.ElemType == "shell").ToList();
             if (plates.Count == 0) continue;
 
-            var result = LiraPlateSectionTemplates.Build(plates, data.Asp, data.Rbt, nominal);
+            var result = BuildTemplate(plates, nominal);
             while (result.NeedsNominal)
             {
                 // Значение неприемлемо для этой цели (привязка больше половины толщины) — спрашиваем заново.
                 nominal = askNominal(result.Suggested);
                 if (nominal == null) return new LiraPlateSectionsReport { Cancelled = true };
-                result = LiraPlateSectionTemplates.Build(plates, data.Asp, data.Rbt, nominal);
+                result = BuildTemplate(plates, nominal);
             }
             if (result.Template == null) { report.Skipped.Add((target.Tag, result.Problem ?? "")); continue; }
             plans.Add((target, result.Template));

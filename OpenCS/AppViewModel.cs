@@ -598,6 +598,7 @@ namespace OpenCS
       public ICommand ImportLiraSchemaFromFileCommand { get; set; } = null!;
 
       /// <summary>Команда импорта топологии расчётной схемы из текстового формата SCAD.</summary>
+      public ICommand ImportScadSchemaFromApiCommand { get; set; } = null!;
       public ICommand ImportScadTopologyFromTxtCommand { get; set; } = null!;
 
       /// <summary>Команда импорта стержневых усилий (загружения) из XLS-отчёта SCAD.</summary>
@@ -623,6 +624,22 @@ namespace OpenCS
 
       /// <summary>Команда импорта усилий РСУ из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraRsuFromApiCommand { get; set; } = null!;
+
+      /// <summary>Усилия загружений из проекта SCAD (.SPR) через SCADAPIX.dll (параметр — группа, элемент или схема).</summary>
+      public ICommand ImportScadLoadCasesFromApiCommand { get; set; } = null!;
+
+      /// <summary>Усилия комбинаций загружений (РСН) из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
+      public ICommand ImportScadCombinationsFromApiCommand { get; set; } = null!;
+
+      /// <summary>РСУ из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
+      public ICommand ImportScadRsuFromApiCommand { get; set; } = null!;
+
+      /// <summary>Указать файл проекта SCAD (.SPR) для схемы (параметр FemSchema).</summary>
+      public ICommand SetScadProjectPathCommand { get; set; } = null!;
+      /// <summary>Загрузить подбор арматуры SCAD (выгрузка плагина) к схеме SCAD; параметр — схема или null (текущая).</summary>
+      public ICommand LoadScadSelectedRebarCommand { get; set; } = null!;
+      /// <summary>Установить плагин «Экспорт для OpenCS» в SCAD.</summary>
+      public ICommand InstallScadPluginCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1485,6 +1502,7 @@ namespace OpenCS
           DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromFileCommand = new RelayCommand(_ => ImportLiraSchemaFromFile());
+         ImportScadSchemaFromApiCommand   = new RelayCommand(_ => ImportScadSchemaFromApi(), _ => !IsBusy);
          ImportScadTopologyFromTxtCommand = new RelayCommand(_ => ImportScadTopologyFromTxt());
          ImportScadForcesLoadCasesCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.LoadCases));
          ImportScadForcesRsuCommand       = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Rsu));
@@ -1494,6 +1512,19 @@ namespace OpenCS
          ImportLiraForcesFromApiCommand  = new RelayCommand(p => ImportLiraForcesFromApi(p as CScore.Fem.IFemCheckable));
          ImportLiraRsnFromApiCommand     = new RelayCommand(p => ImportLiraRsnFromApi(p as CScore.Fem.IFemCheckable));
          ImportLiraRsuFromApiCommand     = new RelayCommand(p => ImportLiraRsuFromApi(p as CScore.Fem.IFemCheckable));
+         ImportScadLoadCasesFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.LoadCases), _ => !IsBusy);
+         ImportScadCombinationsFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Combinations), _ => !IsBusy);
+         ImportScadRsuFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Rsu), _ => !IsBusy);
+         LoadScadSelectedRebarCommand = new RelayCommand(p => LoadScadSelectedRebar(p as CScore.Fem.FemSchema), _ => !IsBusy);
+         InstallScadPluginCommand = new RelayCommand(_ => InstallScadPlugin());
+         SetScadProjectPathCommand = new RelayCommand(p =>
+         {
+            if (p is CScore.Fem.FemSchema s && ChooseScadProjectPath(s) is { } path)
+               LogService.Info(string.Format(Loc.S("ScadForcesProjectSet"), s.Tag, path));
+         });
       }
 
       void SetLanguage(object? param)
@@ -3114,6 +3145,294 @@ namespace OpenCS
             meshNodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
       }
 
+      /// <summary>
+      /// Импорт схемы из проекта SCAD (.SPR) через SCADAPIX.dll: диалог → чтение в фоне (вся сессия
+      /// SCAD API в одном потоке) → новая схема с сеткой, группами КЭ и жёсткостями.
+      /// </summary>
+      async void ImportScadSchemaFromApi()
+      {
+         if (IsBusy) return;
+         var settings = db.LoadScadApiSettings();
+         var vm = new ViewModels.ScadApiImportVM(settings, FileDialogService);
+         var dialog = new Views.ScadApiImportDialog(vm) { Owner = System.Windows.Application.Current?.MainWindow };
+         if (dialog.ShowDialog() != true) return;
+         vm.ApplyTo(settings);
+         db.SaveScadApiSettings(settings);
+
+         string spr = vm.SprPath, dllDir = vm.DllDirectory;
+         // ЖБ-группы читаются всегда (привязки и классы для подбора SCAD); флажок — только группы КЭ «ЖБ: …».
+         var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, ConcreteGroups: true);
+         bool concreteAsMemberGroups = vm.ConcreteGroupsAsMemberGroups;
+         var cts = BeginBusyWithCancellation(Loc.S("ScadApiImporting"), indeterminate: false);
+         var progress = new Progress<double>(f => ReportBusyProgress(f));
+         try
+         {
+            var read = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiReader.Read(session, options, progress, cts.Token);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+
+            var data = read.Data;
+            var schema = new CScore.Fem.FemSchema
+            {
+               Tag        = Path.GetFileNameWithoutExtension(spr),
+               SourceType = "scad",
+               SourcePath = Path.GetFullPath(spr),
+            };
+            db.SaveFemSchema(schema);
+
+            var meshNodes    = ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
+            var meshElements = ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
+            var blockGroups  = ScadSchemaConverter.ToFemMemberGroupsByBlocks(data, schema.Id);
+            var concreteGroups = concreteAsMemberGroups
+               ? ScadSchemaConverter.ToFemMemberGroupsByConcreteGroups(data, schema.Id)
+               : [];
+            var memberGroups = ScadSchemaConverter.ToFemMemberGroups(data, schema.Id)
+               .Concat(blockGroups).Concat(concreteGroups).ToArray();
+            var stiffnesses  = ScadSchemaConverter.ToSchemaStiffnesses(data);
+
+            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
+            SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
+            RefreshFemSchemaTreeCounts(schema);
+
+            foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
+               LogService.Warning(string.Format(Loc.S("ScadApiSkippedType"), type, count));
+            if (read.DeletedElements > 0)
+               LogService.Info(string.Format(Loc.S("ScadApiDeletedElements"), read.DeletedElements));
+            if (read.BarStiffnessesWithoutShape.Count > 0)
+               LogService.Warning(string.Format(Loc.S("ScadApiBarsWithoutShape"),
+                  string.Join(", ", read.BarStiffnessesWithoutShape)));
+            if (read.DegenerateAxisElements > 0)
+               LogService.Warning(string.Format(Loc.S("ScadApiDegenerateAxes"), read.DegenerateAxisElements));
+
+            int barCount   = meshElements.Count(e => e.ElemType == "beam");
+            int shellCount = meshElements.Count(e => e.ElemType == "shell");
+            string done = string.Format(Loc.S("ScadApiImportSuccess"), schema.Tag, meshNodes.Length, barCount,
+               shellCount, memberGroups.Length, blockGroups.Length, concreteGroups.Length, stiffnesses.Length);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy(Loc.S("ScadApiImportCancelled"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            string msg = ex.Format(Loc.S);
+            LogService.Error(msg);
+            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            LogService.Error(msg + Environment.NewLine + ex);
+            System.Windows.MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>Порог строк РСУ SCAD, выше которого импорт подтверждается пользователем.</summary>
+      const long ScadRsuRowsConfirmThreshold = 1_000_000;
+
+      /// <summary>
+      /// Усилия из проекта SCAD (.SPR) через SCADAPIX.dll на цель: группу КЭ, конструктивный элемент или всю
+      /// схему (из главного меню — текущая группа). Файл — <see cref="CScore.Fem.FemSchema.SourcePath"/>; не
+      /// задан или не найден — выбор файла, путь запоминается в схеме. Для РСУ — выбор групп (C/CL/N/NL).
+      /// </summary>
+      async void ImportScadForcesFromApi(object? target, Services.Scad.ScadForceReadKind kind)
+      {
+         if (IsBusy) return;
+         target ??= currentFemMember;
+         var schema = target switch
+         {
+            CScore.Fem.FemSchema s => s,
+            CScore.Fem.IFemCheckable c => FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(c)),
+            _ => null,
+         };
+         if (schema == null)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoTarget"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (schema.SourceType != "scad")
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         // Вид КЭ — по сетке схемы (номер КЭ SCAD = тег КЭ сетки).
+         var kindById = new Dictionary<int, CScore.Import.ScadElementKind>();
+         foreach (var e in db.GetFemMeshElements(schema.Id))
+            if (int.TryParse(e.ElemTag, out int id))
+               kindById[id] = e.ElemType == "shell" ? CScore.Import.ScadElementKind.Shell : CScore.Import.ScadElementKind.Beam;
+         int[] ids = target is CScore.Fem.IFemCheckable member
+            ? FemTargetElementNumbers(member).Distinct().ToArray()
+            : [.. kindById.Keys];
+         var targets = ids.Where(kindById.ContainsKey).ToDictionary(id => id, id => kindById[id]);
+         int notInMesh = ids.Length - targets.Count;
+         if (targets.Count == 0)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoElements"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         string? spr = ResolveScadProjectPath(schema);
+         if (spr == null) return;
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (dllDir == null)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoDll"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         string? work = !string.IsNullOrWhiteSpace(settings.WorkDirectory) && Directory.Exists(settings.WorkDirectory)
+            ? settings.WorkDirectory
+            : Services.Scad.ScadInstallLocator.FindWorkDirectory();
+
+         HashSet<int>? rsuGroups = null;
+         if (kind == Services.Scad.ScadForceReadKind.Rsu)
+         {
+            var dlg = new Views.ScadRsuGroupsDialog(settings.RsuGroups);
+            if (dlg.ShowDialog() != true) return;
+            settings.RsuGroups = dlg.SelectedGroups;
+            db.SaveScadApiSettings(settings);
+            rsuGroups = [.. settings.RsuGroups];
+         }
+
+         string targetTag = target is CScore.Fem.IFemCheckable t ? t.Tag : schema.Tag;
+         var options = new CScore.Import.ScadXlsImportOptions
+         {
+            TonToKnFactor = LiraImportSettings.TonToKnFactor,
+            InvertBarBendingMoments = LiraImportSettings.InvertBarBendingMoments,
+            InvertShellBendingMoments = LiraImportSettings.InvertShellBendingMoments,
+         };
+         var cts = BeginBusyWithCancellation(string.Format(Loc.S("ScadForcesImporting"), targets.Count, targetTag),
+            indeterminate: false);
+         var progress = new Progress<double>(f => ReportBusyProgress(f));
+         try
+         {
+            var read = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiForceReader.Read(session, work, targets, kind, progress, cts.Token, rsuGroups);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+
+            if (kind == Services.Scad.ScadForceReadKind.Rsu)
+            {
+               long rows = read.Rsu.Sum(r => (long)r.Rows.Count);
+               if (rows > ScadRsuRowsConfirmThreshold && MessageBox.Show(
+                     string.Format(Loc.S("ScadRsuManyRowsConfirm"), rows, targets.Count), Loc.S("ImportScadErrorTitle"),
+                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+               {
+                  EndBusy(Loc.S("ScadForcesCancelled"));
+                  return;
+               }
+            }
+
+            var sets = await Task.Run(() => kind switch
+            {
+               Services.Scad.ScadForceReadKind.LoadCases =>
+                  CScore.Import.ScadForceSetBuilder.LoadCases(read.Forces, read.Catalog, schema.Id, targetTag, options),
+               Services.Scad.ScadForceReadKind.Combinations =>
+                  CScore.Import.ScadForceSetBuilder.Combinations(read.Forces, read.Catalog, schema.Id, targetTag, options),
+               _ => CScore.Import.ScadForceSetBuilder.Rsu(read.Rsu, schema.Id, targetTag, options),
+            }, cts.Token);
+
+            SaveImportedForceSets(sets, target as CScore.Fem.IFemCheckable);
+
+            if (notInMesh > 0) LogService.Warning(string.Format(Loc.S("ScadForcesNotInMesh"), notInMesh));
+            if (read.MissingElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesMissing"), read.MissingElements));
+            if (read.WrongKindElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesWrongKind"), read.WrongKindElements));
+            if (read.NoResultElements > 0) LogService.Info(string.Format(Loc.S("ScadForcesNoResult"), read.NoResultElements));
+            string done = string.Format(Loc.S("ScadForcesSuccess"), sets.Count, targetTag,
+               sets.Sum(s => s.Items.Count + s.ShellItems.Count));
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy(Loc.S("ScadForcesCancelled"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            string msg = ex.Format(Loc.S);
+            LogService.Error(msg);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            LogService.Error(msg + Environment.NewLine + ex);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>Файл .SPR схемы: сохранённый путь, если файл на месте, иначе выбор файла.</summary>
+      string? ResolveScadProjectPath(CScore.Fem.FemSchema schema)
+      {
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath) && File.Exists(schema.SourcePath))
+            return schema.SourcePath;
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath))
+            LogService.Warning(string.Format(Loc.S("ScadForcesProjectMoved"), schema.SourcePath));
+         return ChooseScadProjectPath(schema);
+      }
+
+      /// <summary>Выбрать файл .SPR для схемы и запомнить его; null — отказ.</summary>
+      string? ChooseScadProjectPath(CScore.Fem.FemSchema schema)
+      {
+         string? path = FileDialogService.OpenFile(Loc.S("ScadApiSprFilter"),
+            string.Format(Loc.S("ScadForcesSprBrowseTitle"), schema.Tag));
+         if (string.IsNullOrEmpty(path)) return null;
+         db.UpdateFemSchemaSourcePath(schema, Path.GetFullPath(path));
+         return schema.SourcePath;
+      }
+
+      /// <summary>Источник схемы цели (lira, scad, internal …): у схемы — свой, у группы и конструктивного
+      /// элемента — их схемы. Управляет видимостью пунктов меню, привязанных к программе-источнику.</summary>
+      public string? FemSourceTypeOf(object? target) => target switch
+      {
+         CScore.Fem.FemSchema s => s.SourceType,
+         CScore.Fem.IFemCheckable c => FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(c))?.SourceType,
+         _ => null,
+      };
+
+      /// <summary>Команда импорта усилий SCAD через DLL по виду: "lc" — загружения, "rsn" — комбинации,
+      /// иначе — РСУ. Параметр команды — цель (группа, конструктивный элемент или схема).</summary>
+      public ICommand ImportScadForcesCommand(string? kind) => kind switch
+      {
+         "lc"  => ImportScadLoadCasesFromApiCommand,
+         "rsn" => ImportScadCombinationsFromApiCommand,
+         _     => ImportScadRsuFromApiCommand,
+      };
+
       async void ImportScadRsu2()
       {
          string? fileName = FileDialogService.OpenFile(
@@ -3540,6 +3859,209 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Сохранить ЖБ-группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadConcreteGroups"/>).</summary>
+      void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
+
+      /// <summary>
+      /// Загрузить к схеме SCAD выгрузку плагина «Экспорт для OpenCS» (*.opencs-scad.json — подобранная арматура):
+      /// разобрать, сверить номера КЭ с сеткой и сохранить при схеме (заменяет ранее загруженную). Если у схемы
+      /// нет ЖБ-групп (привязки и классы арматуры) — дочитать их из .SPR через SCADAPIX.dll.
+      /// </summary>
+      async void LoadScadSelectedRebar(CScore.Fem.FemSchema? schema)
+      {
+         if (IsBusy) return;
+         schema ??= currentFemSchema;
+         string title = Loc.S("ScadRebarLoad");
+         if (schema == null || schema.SourceType != "scad")
+         {
+            MessageBox.Show(schema == null ? Loc.S("ScadForcesNoTarget") : string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag),
+               title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         // Плагин пишет выгрузку рядом с .SPR: «<проект>.opencs-scad.json».
+         string? initial = null;
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath))
+         {
+            string candidate = Path.Combine(Path.GetDirectoryName(schema.SourcePath) ?? "",
+               Path.GetFileNameWithoutExtension(schema.SourcePath) + CScore.Import.ScadRebarExportReader.FileSuffix);
+            initial = File.Exists(candidate) ? candidate : Path.GetDirectoryName(schema.SourcePath);
+         }
+         string? path = FileDialogService.OpenFile(Loc.S("ScadRebarFilter"),
+            string.Format(Loc.S("ScadRebarOpenTitle"), schema.Tag), initial);
+         if (path == null) return;
+
+         string name = Path.GetFileName(path);
+         CScore.Import.ScadSelectedRebarFile parsed;
+         byte[] data;
+         try
+         {
+            data = File.ReadAllBytes(path);
+            parsed = CScore.Import.ScadRebarExportReader.Read(data);
+         }
+         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarReadError"), name, ex.Message));
+            return;
+         }
+
+         foreach (var w in parsed.Warnings)
+            LogService.Warning(w);
+         if (parsed.Plates.Count + parsed.Bars.Count == 0)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarEmpty"), name));
+            return;
+         }
+
+         var elements = db.GetFemMeshElements(schema.Id)
+            .Select(e => (Ok: int.TryParse(e.ElemTag, out int id), Id: id, IsPlate: e.ElemType == "shell"))
+            .Where(e => e.Ok)
+            .Select(e => (e.Id, e.IsPlate));
+         var match = parsed.MatchSchema(elements);
+         if (match.Missing.Count > 0 || match.KindMismatch.Count > 0)
+            LogService.Warning(string.Format(Loc.S("LiraAspSchemaMismatch"),
+               match.Missing.Count, match.KindMismatch.Count,
+               string.Join(", ", match.Missing.Concat(match.KindMismatch).Order().Take(20))));
+         if (match.PlatesMatched + match.BarsMatched == 0)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarNoMatch"), name, schema.Tag, parsed.Plates.Count, parsed.Bars.Count));
+            return;
+         }
+
+         // Выгрузка не из проекта схемы или сделана до последнего сохранения проекта — предупреждение, не отказ.
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath) && parsed.Project.Length > 0
+             && !string.Equals(Path.GetFileName(parsed.Project), Path.GetFileName(schema.SourcePath), StringComparison.OrdinalIgnoreCase))
+            LogService.Warning(string.Format(Loc.S("ScadRebarOtherProject"), name, parsed.Project, schema.SourcePath));
+         string? spr = !string.IsNullOrWhiteSpace(schema.SourcePath) && File.Exists(schema.SourcePath) ? schema.SourcePath
+                     : File.Exists(parsed.Project) ? parsed.Project : null;
+         if (spr != null)
+         {
+            DateTime exported = parsed.Exported?.UtcDateTime ?? File.GetLastWriteTimeUtc(path);
+            if (exported < File.GetLastWriteTimeUtc(spr))
+               LogService.Warning(string.Format(Loc.S("ScadRebarStale"), name, Path.GetFileName(spr)));
+         }
+
+         db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadSelectedRebar, name, data);
+         string done = string.Format(Loc.S("ScadRebarLoaded"), name, match.PlatesMatched, match.BarsMatched);
+         LogService.Info(done);
+
+         if (db.GetFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadConcreteGroups) == null)
+            await LoadMissingScadConcreteGroups(schema);
+
+         void Rejected(string message)
+         {
+            LogService.Warning(message);
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+         }
+      }
+
+      /// <summary>
+      /// Дочитать ЖБ-группы схемы SCAD из .SPR через SCADAPIX.dll (схема импортирована до v73 или из txt).
+      /// Отказ или ошибка — в журнал: подбор работает и без групп, привязки берутся из сечения цели.
+      /// </summary>
+      async Task LoadMissingScadConcreteGroups(CScore.Fem.FemSchema schema)
+      {
+         string? spr = ResolveScadProjectPath(schema);
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (spr == null || dllDir == null)
+         {
+            LogService.Warning(Loc.S("ScadRebarNoGroups"));
+            return;
+         }
+
+         var cts = BeginBusyWithCancellation(Loc.S("ScadRebarReadingGroups"));
+         try
+         {
+            var groups = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiReader.ReadConcreteGroups(session);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+            SaveScadConcreteGroups(schema.Id, groups);
+            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy();
+            LogService.Warning(Loc.S("ScadRebarNoGroups"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Format(Loc.S) + " " + Loc.S("ScadRebarNoGroups"));
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Message + " " + Loc.S("ScadRebarNoGroups"));
+         }
+      }
+
+      /// <summary>
+      /// Скопировать плагин «Экспорт для OpenCS» (поставляется в bin\ScadPlugin\OpenCSExport) в каталог плагинов
+      /// постпроцессора SCAD (%ALLUSERSPROFILE%\SCAD Soft\Plugins\PostProcessor). Прав не повышает: при отказе
+      /// доступа — путь назначения и предложение открыть папку плагина для ручного копирования.
+      /// </summary>
+      void InstallScadPlugin()
+      {
+         string title = Loc.S("ScadPluginInstall");
+         string source = Path.Combine(AppContext.BaseDirectory, "ScadPlugin", "OpenCSExport");
+         if (!File.Exists(Path.Combine(source, "Plugin.js")))
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadPluginNoSource"), source), title, MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         string scadSoft = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "SCAD Soft");
+         if (!Directory.Exists(scadSoft))
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadPluginNoScad"), scadSoft), title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         string target = Path.Combine(scadSoft, "Plugins", "PostProcessor", "OpenCSExport");
+         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()
+             && MessageBox.Show(string.Format(Loc.S("ScadPluginReplace"), target), title,
+                   MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+         try
+         {
+            foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+            {
+               string dest = Path.Combine(target, Path.GetRelativePath(source, file));
+               Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+               File.Copy(file, dest, overwrite: true);
+            }
+         }
+         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+         {
+            LogService.Warning(ex.Message);
+            if (MessageBox.Show(string.Format(Loc.S("ScadPluginAccessDenied"), target, source, ex.Message), title,
+                   MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+               System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "\"" + source + "\"")
+                  { UseShellExecute = true });
+            return;
+         }
+
+         string done = string.Format(Loc.S("ScadPluginInstalled"), target);
+         LogService.Info(done);
+         MessageBox.Show(done, title, MessageBoxButton.OK, MessageBoxImage.Information);
+      }
+
       /// <summary>
       /// Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp: Файл → Экспорт в режиме
       /// «Конструирование»): разобрать, сверить номера КЭ с сеткой схемы и сохранить файл при схеме
@@ -3616,7 +4138,8 @@ namespace OpenCS
          schema ??= currentFemSchema;
          if (schema == null) return false;
          bool fromMenu = targets == null;
-         string title = Loc.S("LiraSectionsTitle");
+         bool scad = schema.SourceType == "scad";
+         string title = Loc.S(scad ? "ScadSectionsTitle" : "LiraSectionsTitle");
 
          // Открытый редактор этой схемы держит конструктивные элементы в памяти и при сохранении перезапишет их.
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
@@ -3638,6 +4161,16 @@ namespace OpenCS
 
          var report = Services.LiraPlateSectionCreator.Create(db, data, targets, suggested =>
          {
+            if (scad)
+            {
+               // У SCAD привязки — из ЖБ-группы; диаметр нужен для ширины раскрытия трещин.
+               var input = new Views.Dialogs.TextInputDialog(Loc.S("ScadSectionsDiameterTitle"), Loc.S("ScadSectionsDiameter"),
+                  (suggested.DiameterM * 1000).ToString("0.#", CultureInfo.CurrentCulture));
+               if (input.ShowDialog() != true) return null;
+               return double.TryParse(input.Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double mm)
+                  ? new CScore.Import.LiraPlateNominalRebar(0, mm / 1000)
+                  : new CScore.Import.LiraPlateNominalRebar(0, 0);
+            }
             var dlg = new Views.Dialogs.DoubleInputDialog(Loc.S("LiraSectionsNominalTitle"),
                Loc.S("LiraSectionsNominalCover"), Loc.S("LiraSectionsNominalDiameter"),
                suggested.CoverM * 1000, suggested.DiameterM * 1000);
@@ -3648,7 +4181,7 @@ namespace OpenCS
          if (report.Cancelled) return false;
          if (report.NoAsp)
          {
-            MessageBox.Show(Loc.S("LiraSectionsNoAsp"), title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Loc.S(scad ? "ScadSectionsNoGroups" : "LiraSectionsNoAsp"), title, MessageBoxButton.OK, MessageBoxImage.Information);
             return false;
          }
 
@@ -3953,7 +4486,7 @@ namespace OpenCS
          _ => 0,
       };
 
-      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable target)
+      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable? target)
       {
          foreach (var fs in forceSets)
          {
@@ -4152,9 +4685,10 @@ namespace OpenCS
             LogService.Info(string.Format(Loc.S("FemGroupAutoResult"), added));
       }
 
+      /// <param name="member">Группа, из меню которой вызвана команда: становится целью проверки.</param>
       void AddFemCheck(CScore.Fem.FemMemberGroup? member)
       {
-         var dlg = new Views.FemCheckDialog(this);
+         var dlg = new Views.FemCheckDialog(this, target: member);
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          var check = dlg.ResultCheck;
          db.SaveFemCheck(check);

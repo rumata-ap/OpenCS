@@ -151,19 +151,25 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     public ICommand CreateLiraSectionCommand { get; }
 
     Visibility _createLiraSectionVisibility = Visibility.Collapsed;
-    /// <summary>Кнопка видна, когда у пластинчатой цели нет сечения, а у схемы есть подбор ЛИРЫ.</summary>
+    /// <summary>Кнопка видна, когда у пластинчатой цели нет сечения, а у схемы есть подбор ЛИРЫ или ЖБ-группы SCAD.</summary>
     public Visibility CreateLiraSectionVisibility
     {
         get => _createLiraSectionVisibility;
         private set { _createLiraSectionVisibility = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Подпись кнопки создания сечения цели (по программе схемы).</summary>
+    public string CreateSectionLabel { get; private set; } = Loc.S("FemCheckCreateLiraSection");
+
     void RefreshCreateLiraSection()
     {
-        bool offer = IsPlateCheck && Target is { } target && _schemaData is { Asp: not null } data && _scope is { } scope
+        bool offer = IsPlateCheck && Target is { } target && _schemaData is { } data
+            && (data.IsScad ? data.ScadConcreteGroups != null : data.Asp != null) && _scope is { } scope
             && scope.Elements.Any(e => e.Element.ElemType == "shell")
             && FemCheckContext.TargetPlateSectionId(target, scope, SchemaGroups(data.SchemaId), out _) == null;
         CreateLiraSectionVisibility = offer ? Visibility.Visible : Visibility.Collapsed;
+        CreateSectionLabel = Loc.S(_schemaData?.IsScad == true ? "FemCheckCreateScadSection" : "FemCheckCreateLiraSection");
+        OnPropertyChanged(nameof(CreateSectionLabel));
     }
 
     /// <summary>Создать недостающие материалы стержней по классам подбора ЛИРЫ.</summary>
@@ -177,8 +183,13 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         private set { _createLiraMaterialsVisibility = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Подпись кнопки создания материалов (по программе схемы).</summary>
+    public string CreateMaterialsLabel { get; private set; } = Loc.S("FemCheckCreateLiraMaterials");
+    /// <summary>Подсказка кнопки создания материалов.</summary>
+    public string CreateMaterialsHint { get; private set; } = Loc.S("FemCheckCreateLiraMaterialsHint");
+
     List<(string Class, bool Concrete)> MissingBarMaterials() =>
-        IsBarRcCheck && _schemaData is { Asp: not null } data && _scope is { } scope
+        IsBarRcCheck && _schemaData is { } data && _scope is { } scope
             ? LiraBarMaterialCreator.MissingClasses(App.Materials, data, scope.Elements)
             : [];
 
@@ -193,7 +204,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             App.LogService.Warning(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), cls));
         if (report.NotInCatalog.Count > 0)
             MessageBox.Show(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), string.Join(", ", report.NotInCatalog)),
-                Loc.S("FemCheckCreateLiraMaterials"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                CreateMaterialsLabel, MessageBoxButton.OK, MessageBoxImage.Warning);
         RefreshReadiness();
     }
 
@@ -251,10 +262,21 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             string elemType = IsPlateCheck ? "shell" : "beam";
             bool anyTza = _scope.Elements.Any(e =>
                 e.Element.ElemType == elemType && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
-            AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
-            AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
-            SelectedSourceEnabled = data.Asp != null;
-            SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+            if (data.IsScad)
+            {
+                // Заданное армирование SCAD — срез 4; подобранное — выгрузка плагина.
+                AssignedSourceEnabled = false;
+                AssignedSourceHint = Loc.S("FemCheckScadAssignedNotYet");
+                SelectedSourceEnabled = data.ScadSelected != null;
+                SelectedSourceHint = data.ScadSelected == null ? Loc.S("FemCheckNoScadSelected") : null;
+            }
+            else
+            {
+                AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
+                AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
+                SelectedSourceEnabled = data.Asp != null;
+                SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+            }
             LayoutSourceEnabled = IsPlateCheck && _scope.Elements.Any(e =>
                 e.Element.ElemType == "shell" && e.Member?.PlanarRegionId != null);
             LayoutSourceHint = LayoutSourceEnabled ? null : Loc.S("FemCheckNoLayout");
@@ -294,6 +316,11 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         if (_suspendReadiness) return;
         RefreshCreateLiraSection();
         CreateLiraMaterialsVisibility = MissingBarMaterials().Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        bool scad = _schemaData?.IsScad == true;
+        CreateMaterialsLabel = Loc.S(scad ? "FemCheckCreateScadMaterials" : "FemCheckCreateLiraMaterials");
+        CreateMaterialsHint = Loc.S(scad ? "FemCheckCreateScadMaterialsHint" : "FemCheckCreateLiraMaterialsHint");
+        OnPropertyChanged(nameof(CreateMaterialsLabel));
+        OnPropertyChanged(nameof(CreateMaterialsHint));
         if (Target is not { } target || _schemaData is not { } data || _scope is not { } scope)
         {
             ReadinessText = "";

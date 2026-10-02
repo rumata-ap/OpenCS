@@ -16,11 +16,14 @@ public partial class FemCheckDialog : Window
     readonly AppViewModel _app;
     public FemCheck? ResultCheck { get; private set; }
 
-    public FemCheckDialog(AppViewModel app, FemCheck? existing = null)
+    /// <param name="target">Группа, из меню которой вызвана команда: выбирается целью новой проверки.</param>
+    public FemCheckDialog(AppViewModel app, FemCheck? existing = null, FemMemberGroup? target = null)
     {
         _app = app;
         InitializeComponent();
-        DataContext = new FemCheckDialogVM(app, existing, ForceSetsBox);
+        var vm = new FemCheckDialogVM(app, existing, ForceSetsBox);
+        DataContext = vm;
+        if (existing == null && target != null) vm.SelectGroup(target);
         Owner = Application.Current.MainWindow;
     }
 
@@ -185,6 +188,14 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
 
         if (existing != null) LoadFromExisting(existing);
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
+    }
+
+    /// <summary>Выбрать целью группу (схема — её схема).</summary>
+    public void SelectGroup(FemMemberGroup group)
+    {
+        if (Schemas.FirstOrDefault(s => s.Id == group.SchemaId) is not { } schema) return;
+        if (schema != SelectedSchema) SelectedSchema = schema;
+        if (Members.FirstOrDefault(t => t.Group == group) is { } item) SelectedMember = item;
     }
 
     void LoadFromExisting(FemCheck check)

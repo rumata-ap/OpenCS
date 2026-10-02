@@ -7,7 +7,7 @@ using OpenCS.Utilites;
 
 namespace OpenCS.Services;
 
-/// <summary>Данные FEM-схемы для проверки по КЭ: конструктивные элементы, сетка, файлы армирования ЛИРЫ.</summary>
+/// <summary>Данные FEM-схемы для проверки по КЭ: конструктивные элементы, сетка, файлы армирования ЛИРЫ и SCAD.</summary>
 public sealed class FemCheckSchemaData
 {
     /// <summary>Идентификатор схемы.</summary>
@@ -24,6 +24,14 @@ public sealed class FemCheckSchemaData
     public LiraRbtFile? Rbt { get; init; }
     /// <summary>Подобранная арматура (ASP); null — файл не приложен или не читается.</summary>
     public LiraAspFile? Asp { get; init; }
+    /// <summary>Программа-источник схемы (lira, scad, internal …).</summary>
+    public string? SourceType { get; init; }
+    /// <summary>Схема импортирована из SCAD.</summary>
+    public bool IsScad => SourceType == "scad";
+    /// <summary>Подобранная арматура SCAD (выгрузка плагина); null — не загружена или не читается.</summary>
+    public ScadSelectedRebarFile? ScadSelected { get; init; }
+    /// <summary>ЖБ-группы SCAD схемы; null — не прочитаны.</summary>
+    public ScadConcreteGroupIndex? ScadConcreteGroups { get; init; }
     /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
     public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
@@ -44,6 +52,16 @@ public sealed class FemCheckSchemaData
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             { errors.Add($"{aspFile.FileName}: {ex.Message}"); }
 
+        ScadSelectedRebarFile? scadSelected = null;
+        ScadConcreteGroupIndex? scadGroups = null;
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scadFile)
+            try { scadSelected = ScadRebarExportReader.Read(scadFile.Data); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
+            { errors.Add($"{scadFile.FileName}: {ex.Message}"); }
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups) is { } groupsFile)
+            try { scadGroups = ScadConcreteGroupIndex.FromJson(Encoding.UTF8.GetString(groupsFile.Data)); }
+            catch (InvalidDataException ex) { errors.Add(ex.Message); }
+
         var members = db.GetFemMembers(schemaId);
         // Узлы и регионы нужны только раскладке OpenCS — у схемы без плоских элементов их не читаем.
         bool planar = members.Any(m => m.PlanarRegionId != null);
@@ -56,6 +74,9 @@ public sealed class FemCheckSchemaData
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
+            SourceType = db.GetFemSchemaSourceType(schemaId),
+            ScadSelected = scadSelected,
+            ScadConcreteGroups = scadGroups,
             Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,
         };
@@ -140,6 +161,14 @@ public static class FemCheckContext
                         case FemCheckRebarSource.Section:
                             sources.Add(new TemplatePlateSectionSource(template));
                             break;
+                        case FemCheckRebarSource.Assigned when data.IsScad:
+                            sources.Add(new UnavailablePlateSectionSource(key, Loc.S("FemCheckScadAssignedNotYet")));
+                            break;
+                        case FemCheckRebarSource.Selected when data.IsScad:
+                            sources.Add(data.ScadSelected != null
+                                ? new ScadSelectedPlateSectionSource(template, data.ScadSelected, data.ScadConcreteGroups)
+                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadSelected")));
+                            break;
                         case FemCheckRebarSource.Assigned:
                             sources.Add(data.Rbt != null
                                 ? new LiraAssignedPlateSectionSource(template, data.Rbt, data.Asp)
@@ -188,8 +217,12 @@ public static class FemCheckContext
             // rc_check меняет состояние сечения — считаем на клонах; стальная проверка опирается
             // на привязку параметрического профиля, которую клон не несёт.
             ParallelBars = check.NormCode == "rc_check",
-            BarSelectedAsCm2 = data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
-                               ?? new Dictionary<int, double>(),
+            BarSelectedAsCm2 = data.IsScad
+                ? data.ScadSelected?.Bars.Where(b => b.Value.Envelope?.LongitudinalSum != null)
+                      .ToDictionary(b => b.Key, b => b.Value.Envelope!.LongitudinalSum!.Value)
+                  ?? new Dictionary<int, double>()
+                : data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
+                  ?? new Dictionary<int, double>(),
         };
     }
 
@@ -210,11 +243,25 @@ public static class FemCheckContext
             c => MaterialCatalog.FindByClass(byClass, c, concrete: true),
             c => MaterialCatalog.FindByClass(byClass, c, concrete: false), project.Find);
 
+        var scadContext = data.IsScad
+            ? new ScadBarSectionContext(data.Stiffnesses, data.ScadSelected, data.ScadConcreteGroups,
+                c => MaterialCatalog.FindByClass(byClass, c, concrete: true),
+                c => MaterialCatalog.FindByClass(byClass, c, concrete: false), project.Find)
+            : null;
+
         foreach (string key in keys)
             switch (key)
             {
                 case FemCheckRebarSource.Section:
                     sources.Add(project);
+                    break;
+                case FemCheckRebarSource.Assigned when scadContext != null:
+                    sources.Add(new UnavailableBarSectionSource(key, Loc.S("FemCheckScadAssignedNotYet")));
+                    break;
+                case FemCheckRebarSource.Selected when scadContext != null:
+                    sources.Add(data.ScadSelected != null
+                        ? new ScadSelectedBarSectionSource(scadContext)
+                        : new UnavailableBarSectionSource(key, Loc.S("FemCheckNoScadSelected")));
                     break;
                 case FemCheckRebarSource.Assigned:
                     sources.Add(data.Rbt != null

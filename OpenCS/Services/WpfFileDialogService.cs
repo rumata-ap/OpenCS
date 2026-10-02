@@ -17,6 +17,27 @@ namespace OpenCS.Services
          return dialog.ShowDialog() == true ? dialog.FileName : null;
       }
 
+      public string? OpenFile(string? filter, string? title, string? initialPath)
+      {
+         var dialog = new OpenFileDialog
+         {
+            Filter = filter ?? string.Empty,
+            Title = title ?? string.Empty
+         };
+         if (!string.IsNullOrWhiteSpace(initialPath))
+         {
+            if (System.IO.Directory.Exists(initialPath))
+               dialog.InitialDirectory = initialPath;
+            else
+            {
+               dialog.InitialDirectory = System.IO.Path.GetDirectoryName(initialPath) ?? string.Empty;
+               if (System.IO.File.Exists(initialPath))
+                  dialog.FileName = System.IO.Path.GetFileName(initialPath);
+            }
+         }
+         return dialog.ShowDialog() == true ? dialog.FileName : null;
+      }
+
       public string? SaveFile(string? filter = null, string? defaultExt = null, string? title = null)
       {
          var dialog = new SaveFileDialog

@@ -167,7 +167,7 @@
         <!-- Готовность цели к проверке -->
         <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2">
             <TextBlock Text="{Binding ReadinessText}" TextWrapping="Wrap" Foreground="Gray"/>
-            <Button Content="{DynamicResource FemCheckCreateLiraSection}"
+            <Button Content="{Binding CreateSectionLabel}"
                     Command="{Binding CreateLiraSectionCommand}"
                     Visibility="{Binding CreateLiraSectionVisibility}"
                     HorizontalAlignment="Left" Padding="12,3" Margin="0,6,0,0"/>

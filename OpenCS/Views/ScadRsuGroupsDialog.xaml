@@ -1,0 +1,21 @@
+<Window x:Class="OpenCS.Views.ScadRsuGroupsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource ScadRsuGroupsTitle}"
+        Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+   <StackPanel Margin="12">
+      <TextBlock Text="{DynamicResource ScadRsuGroupsHint}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <CheckBox x:Name="GroupC"  Content="{DynamicResource ScadRsuGroupC}"  Margin="0,0,0,4"/>
+      <CheckBox x:Name="GroupCL" Content="{DynamicResource ScadRsuGroupCL}" Margin="0,0,0,4"/>
+      <CheckBox x:Name="GroupN"  Content="{DynamicResource ScadRsuGroupN}"  Margin="0,0,0,4"/>
+      <CheckBox x:Name="GroupNL" Content="{DynamicResource ScadRsuGroupNL}" Margin="0,0,0,12"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button x:Name="OkButton" Content="{DynamicResource OK}" IsDefault="True"
+                 Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+      </StackPanel>
+   </StackPanel>
+</Window>

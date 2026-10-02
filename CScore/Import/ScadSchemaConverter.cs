@@ -3,7 +3,7 @@ using CScore.Fem;
 
 namespace CScore.Import;
 
-/// <summary>Конвертирует сырые данные SCAD (текстовый формат) в доменные объекты FEM-схемы OpenCS.</summary>
+/// <summary>Конвертирует сырые данные SCAD (txt-экспорт или SCADAPIX.dll) в доменные объекты FEM-схемы OpenCS.</summary>
 public static class ScadSchemaConverter
 {
     public static FemNode[] ToFemNodes(ScadSchemaData data, int schemaId) =>
@@ -45,28 +45,44 @@ public static class ScadSchemaConverter
             SchemaId = schemaId,
             NodeTag  = n.Id.ToString(),
             X = n.X, Y = n.Y, Z = n.Z,
+            Origin   = FemMember.MeshSourceImported,
         }).ToArray();
 
-    /// <summary>Создаёт элементы КЭ-сетки (стержни и оболочки вперемешку, по числу узлов) напрямую из данных SCAD.</summary>
+    /// <summary>
+    /// Создаёт элементы КЭ-сетки (стержни и оболочки вперемешку) напрямую из данных SCAD.
+    /// Угол оси выдачи усилий (<see cref="ScadSchemaData.PlateAxisAngles"/>) — только у оболочек.
+    /// </summary>
     public static FemElement[] ToFemMeshElements(ScadSchemaData data, int schemaId)
     {
-        var stiffNames = data.Stiffnesses.ToDictionary(s => s.Id, s => s.Name);
-        var stiffThk   = data.Stiffnesses.ToDictionary(s => s.Id, s => s.ThicknessM);
+        var stiffById = data.Stiffnesses.ToDictionary(s => s.Id);
         return data.Elements.Select(e =>
         {
-            stiffNames.TryGetValue(e.StiffnessId, out var name);
-            stiffThk.TryGetValue(e.StiffnessId, out var thk);
+            stiffById.TryGetValue(e.StiffnessId, out var stiff);
+            string type = ElemType(e);
             return new FemElement
             {
-                SchemaId    = schemaId,
-                ElemTag     = e.Id.ToString(),
-                ElemType    = e.NodeIds.Length == 2 ? "beam" : "shell",
-                NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
-                SectionTag  = name,
-                ThicknessM  = thk,
+                SchemaId     = schemaId,
+                ElemTag      = e.Id.ToString(),
+                ElemType     = type,
+                NodeIdsJson  = JsonSerializer.Serialize(e.NodeIds),
+                SectionTag   = stiff?.Name,
+                ThicknessM   = stiff?.ThicknessM,
+                StiffnessNum = e.StiffnessId > 0 ? e.StiffnessId : null,
+                LocalAxisAngleDeg = type == "shell" && data.PlateAxisAngles.TryGetValue(e.Id, out double a)
+                    ? a : null,
+                Origin       = FemMember.MeshSourceImported,
             };
         }).ToArray();
     }
+
+    /// <summary>Тип КЭ OpenCS: по коду типа SCAD, для неизвестного типа — по числу узлов.</summary>
+    static string ElemType(ScadElementRecord e) =>
+        ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) switch
+        {
+            ScadElementKind.Beam  => "beam",
+            ScadElementKind.Shell => "shell",
+            _                     => e.NodeIds.Length == 2 ? "beam" : "shell",
+        };
 
     /// <summary>
     /// Строит FemMemberGroup: элементы, входящие хотя бы в одну именованную группу SCAD,
@@ -117,4 +133,50 @@ public static class ScadSchemaConverter
 
         return groups.ToArray();
     }
+
+    /// <summary>
+    /// Группы по блокам SCAD: Tag = «Блок: имя» (безымянный — «Блок N» по порядку). Пересекаются
+    /// с остальными группами, как кБ ЛИРЫ.
+    /// </summary>
+    public static FemMemberGroup[] ToFemMemberGroupsByBlocks(ScadSchemaData data, int schemaId) =>
+        OverlappingGroups(data, schemaId, data.Blocks.Select((b, i) =>
+            (string.IsNullOrWhiteSpace(b.Name) ? $"Блок {i + 1}" : $"Блок: {b.Name.Trim()}", b.ElementIds)));
+
+    /// <summary>Группы по ЖБ-группам SCAD: Tag = «ЖБ: имя» (безымянная — «ЖБ: номер»).</summary>
+    public static FemMemberGroup[] ToFemMemberGroupsByConcreteGroups(ScadSchemaData data, int schemaId) =>
+        OverlappingGroups(data, schemaId, data.ConcreteGroups.Select(g =>
+            ($"ЖБ: {(string.IsNullOrWhiteSpace(g.Name) ? g.Num.ToString() : g.Name.Trim())}", g.ElementIds)));
+
+    static FemMemberGroup[] OverlappingGroups(ScadSchemaData data, int schemaId,
+        IEnumerable<(string Tag, int[] ElementIds)> source)
+    {
+        var elementById = data.Elements.ToDictionary(e => e.Id);
+        var groups = new List<FemMemberGroup>();
+        foreach (var (tag, elementIds) in source)
+        {
+            var ids = elementIds.Where(elementById.ContainsKey).Distinct().ToArray();
+            if (ids.Length == 0) continue;
+            var types = ids.Select(id => ElemType(elementById[id])).Distinct().ToArray();
+            groups.Add(new FemMemberGroup
+            {
+                SchemaId       = schemaId,
+                Tag            = tag,
+                MemberType     = types.Length == 1 ? types[0] : null, // смешанная — по составу КЭ
+                MemberTagsJson = JsonSerializer.Serialize(ids),
+            });
+        }
+        return groups.ToArray();
+    }
+
+    /// <summary>
+    /// Жёсткости SCAD для fem_schema_stiffnesses: KindCode = <see cref="ScadStiffnessParams.ScadKindCode"/>,
+    /// Params — исходная строка SCAD, SectionUnitM — единица сечений проекта. Записи без исходной
+    /// строки пропускаются.
+    /// </summary>
+    public static LiraStiffnessRecord[] ToSchemaStiffnesses(ScadSchemaData data) =>
+        data.Stiffnesses
+            .Where(s => s.Text != null)
+            .Select(s => new LiraStiffnessRecord(s.Id, ScadStiffnessParams.ScadKindCode, s.Name ?? "",
+                s.Text!, data.SectionUnitM))
+            .ToArray();
 }

@@ -7,7 +7,7 @@
          <Separator/>
          <Button Content="{DynamicResource FemShellDelete}" Click="DeleteShell_Click"/>
          <Separator/>
-         <Button Content="{DynamicResource FemCheckAdd}"
+         <Button Content="{DynamicResource FemCheckAddUls}"
                  Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
          <Button Content="{DynamicResource FemCheckAddSls}"
                  Command="{Binding DataContext.AddSlsFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
@@ -23,10 +23,15 @@
                 MouseDoubleClick="ShellsGrid_MouseDoubleClick">
          <DataGrid.ContextMenu>
             <ContextMenu>
-               <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
+               <MenuItem x:Name="liraForcesMenu" Header="{DynamicResource ImportSubMenuLiraForces}">
                   <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Tag="lc"  Click="ImportLiraForces_Click"/>
                   <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"    Tag="rsn" Click="ImportLiraForces_Click"/>
                   <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"    Tag="rsu" Click="ImportLiraForces_Click"/>
+               </MenuItem>
+               <MenuItem x:Name="scadForcesMenu" Header="{DynamicResource ImportSubMenuScadForces}">
+                  <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}"    Tag="lc"  Click="ImportScadForces_Click"/>
+                  <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}" Tag="rsn" Click="ImportScadForces_Click"/>
+                  <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}"          Tag="rsu" Click="ImportScadForces_Click"/>
                </MenuItem>
             </ContextMenu>
          </DataGrid.ContextMenu>

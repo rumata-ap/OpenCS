@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 70;
+      const int CurrentSchemaVersion = 73;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -90,6 +90,9 @@ namespace OpenCS.Utilites
          [67] = MigrateV68,
          [68] = MigrateV69,
          [69] = MigrateV70,
+         [70] = MigrateV71,
+         [71] = MigrateV72,
+         [72] = MigrateV73,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -479,7 +482,8 @@ namespace OpenCS.Utilites
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 tag         TEXT NOT NULL DEFAULT '',
                 source_type TEXT NOT NULL DEFAULT 'internal',
-                created     TEXT NOT NULL DEFAULT ''
+                created     TEXT NOT NULL DEFAULT '',
+                source_path TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_nodes (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -644,6 +648,10 @@ namespace OpenCS.Utilites
                 ON fem_load_definitions(schema_id, tag);
             CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag
                 ON fem_elements(schema_id, elem_tag);
+            CREATE INDEX IF NOT EXISTS idx_force_items_set_num
+                ON force_items(set_id, num);
+            CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_num
+                ON force_shell_items(set_id, num);
             CREATE TABLE IF NOT EXISTS fem_analyses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -674,6 +682,7 @@ namespace OpenCS.Utilites
          EnsureSubmodelMaterializationTable();
          EnsureFemSchemaReinforcementFileTable();
          EnsureFemSchemaSelectedReinforcementFileTable();
+         EnsureFemSchemaSourceFileTable();
          EnsureFemSchemaConstructiveBlockTable();
          EnsureFemSchemaStiffnessTable();
          MigrateV50();
@@ -1609,6 +1618,39 @@ namespace OpenCS.Utilites
       /// на схеме из 33 тыс. КЭ это минуты в потоке интерфейса.</summary>
       void MigrateV70() =>
          MigExec("CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag ON fem_elements(schema_id, elem_tag)");
+
+      /// <summary>Миграция v71: путь к файлу проекта-источника схемы (.SPR SCAD) — для дозагрузки усилий
+      /// без повторного выбора файла.</summary>
+      void MigrateV71()
+      {
+         if (!ColumnExists("fem_schemas", "source_path"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN source_path TEXT");
+      }
+
+      /// <summary>Миграция v72: индексы строк наборов усилий по набору (set_id, num). Без них удаление
+      /// и перезапись набора (DELETE … WHERE set_id) просматривали всю таблицу, а загрузка
+      /// (ORDER BY set_id, num) сортировала её целиком — заметно на РСУ SCAD в миллионы строк.</summary>
+      void MigrateV72() => MigExec("""
+         CREATE INDEX IF NOT EXISTS idx_force_items_set_num ON force_items(set_id, num);
+         CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_num ON force_shell_items(set_id, num);
+         """);
+
+      /// <summary>Миграция v73: вложения схемы по видам (fem_schema_source_files) — подбор арматуры SCAD
+      /// из плагина, ЖБ-группы SCAD.</summary>
+      void MigrateV73() => EnsureFemSchemaSourceFileTable();
+
+      /// <summary>Вложения FEM-схемы по видам (<see cref="FemSchemaSourceFileKind"/>): файлы и данные
+      /// программы-источника, хранятся как есть и разбираются при использовании.</summary>
+      void EnsureFemSchemaSourceFileTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS fem_schema_source_files (
+             schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+             kind TEXT NOT NULL,
+             file_name TEXT NOT NULL DEFAULT '',
+             data BLOB NOT NULL,
+             imported_at TEXT NOT NULL DEFAULT '',
+             PRIMARY KEY (schema_id, kind)
+         );
+         """);
 
       /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
       void MigrateV68()
@@ -3659,6 +3701,26 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      public ScadApiSettings LoadScadApiSettings()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='scad_api'";
+         var json = cmd.ExecuteScalar() as string;
+         if (json == null) return ScadApiSettings.Default;
+         try { return JsonSerializer.Deserialize<ScadApiSettings>(json) ?? ScadApiSettings.Default; }
+         catch (JsonException) { return ScadApiSettings.Default; }
+      }
+
+      public void SaveScadApiSettings(ScadApiSettings s)
+      {
+         var json = JsonSerializer.Serialize(s);
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
+                             VALUES ('scad_api', $json)";
+         cmd.Parameters.AddWithValue("$json", json);
+         cmd.ExecuteNonQuery();
+      }
+
       public AcadImportSettings LoadAcadImportSettings()
       {
          var cmd = _connection.CreateCommand();
@@ -3763,7 +3825,7 @@ namespace OpenCS.Utilites
          var schemas = new Dictionary<int, CScore.Fem.FemSchema>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, tag, source_type, created FROM fem_schemas ORDER BY id";
+            cmd.CommandText = "SELECT id, tag, source_type, created, source_path FROM fem_schemas ORDER BY id";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3772,7 +3834,8 @@ namespace OpenCS.Utilites
                   Id         = r.GetInt32(0),
                   Tag        = r.GetString(1),
                   SourceType = r.GetString(2),
-                  Created    = r.GetString(3)
+                  Created    = r.GetString(3),
+                  SourcePath = r.IsDBNull(4) ? null : r.GetString(4),
                };
                schemas[s.Id] = s;
             }
@@ -3967,6 +4030,17 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>Записать только путь к файлу проекта-источника (без пересохранения групп схемы).</summary>
+      public void UpdateFemSchemaSourcePath(CScore.Fem.FemSchema schema, string? path)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "UPDATE fem_schemas SET source_path=@path WHERE id=@id";
+         cmd.Parameters.AddWithValue("@path", (object?)path ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
+         schema.SourcePath = path;
+      }
+
       public void SaveFemSchema(CScore.Fem.FemSchema schema)
       {
          using var tx = _connection.BeginTransaction();
@@ -3976,21 +4050,23 @@ namespace OpenCS.Utilites
             if (schema.Id == 0)
             {
                cmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created)
-                  VALUES (@tag, @src, @created);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
+                  VALUES (@tag, @src, @created, @path);
                   SELECT last_insert_rowid();
                """;
                cmd.Parameters.AddWithValue("@tag",     schema.Tag);
                cmd.Parameters.AddWithValue("@src",     schema.SourceType);
                cmd.Parameters.AddWithValue("@created", schema.Created);
+               cmd.Parameters.AddWithValue("@path",    (object?)schema.SourcePath ?? DBNull.Value);
                schema.Id = (int)(long)cmd.ExecuteScalar()!;
                FemSchemas.Add(schema);
             }
             else
             {
-               cmd.CommandText = "UPDATE fem_schemas SET tag=@tag, source_type=@src WHERE id=@id";
+               cmd.CommandText = "UPDATE fem_schemas SET tag=@tag, source_type=@src, source_path=@path WHERE id=@id";
                cmd.Parameters.AddWithValue("@tag", schema.Tag);
                cmd.Parameters.AddWithValue("@src", schema.SourceType);
+               cmd.Parameters.AddWithValue("@path", (object?)schema.SourcePath ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@id",  schema.Id);
                cmd.ExecuteNonQuery();
             }
@@ -4047,6 +4123,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_elements           WHERE schema_id=@id;
                DELETE FROM fem_schema_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_schema_selected_reinforcement_files WHERE schema_id=@id;
+               DELETE FROM fem_schema_source_files WHERE schema_id=@id;
                DELETE FROM fem_schema_stiffnesses WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
@@ -5391,18 +5468,20 @@ namespace OpenCS.Utilites
             {
                Tag = newTag,
                SourceType = sourceSchema.SourceType,
+               SourcePath = sourceSchema.SourcePath,
                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created)
-                  VALUES (@tag, @src, @created);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
+                  VALUES (@tag, @src, @created, @path);
                   SELECT last_insert_rowid();
                """;
                schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
                schemaCmd.Parameters.AddWithValue("@src", newSchema.SourceType);
                schemaCmd.Parameters.AddWithValue("@created", newSchema.Created);
+               schemaCmd.Parameters.AddWithValue("@path", (object?)newSchema.SourcePath ?? DBNull.Value);
                newSchema.Id = (int)(long)schemaCmd.ExecuteScalar()!;
             }
             int newSchemaId = newSchema.Id;
@@ -6509,6 +6588,43 @@ namespace OpenCS.Utilites
          using var rdr = cmd.ExecuteReader();
          if (!rdr.Read()) return null;
          return (rdr.GetString(0), (byte[])rdr.GetValue(1));
+      }
+
+      /// <summary>Программа-источник FEM-схемы (lira, scad, internal …); null — схемы нет.</summary>
+      public string? GetFemSchemaSourceType(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT source_type FROM fem_schemas WHERE id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return cmd.ExecuteScalar() as string;
+      }
+
+      /// <summary>Сохранить (заменить) вложение FEM-схемы вида <paramref name="kind"/>.</summary>
+      public void SaveFemSchemaSourceFile(int schemaId, string kind, string fileName, byte[] data)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT OR REPLACE INTO fem_schema_source_files (schema_id, kind, file_name, data, imported_at)
+            VALUES (@sid, @kind, @name, @data, @at)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         cmd.Parameters.AddWithValue("@name", fileName);
+         cmd.Parameters.AddWithValue("@data", data);
+         cmd.Parameters.AddWithValue("@at", DateTime.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Вложение FEM-схемы вида <paramref name="kind"/>; null — нет.</summary>
+      public (string FileName, byte[] Data, string ImportedAt)? GetFemSchemaSourceFile(int schemaId, string kind)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT file_name, data, imported_at FROM fem_schema_source_files WHERE schema_id=@sid AND kind=@kind";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         using var rdr = cmd.ExecuteReader();
+         if (!rdr.Read()) return null;
+         return (rdr.GetString(0), (byte[])rdr.GetValue(1), rdr.GetString(2));
       }
 
       /// <summary>Возвращает (nodeCount, barCount, shellCount) для быстрого отображения в дереве.</summary>
