@@ -3154,6 +3154,7 @@ namespace OpenCS
             {
                Tag        = Path.GetFileNameWithoutExtension(spr),
                SourceType = "scad",
+               SourcePath = Path.GetFullPath(spr),
             };
             db.SaveFemSchema(schema);
 

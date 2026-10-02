@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 70;
+      const int CurrentSchemaVersion = 71;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -90,6 +90,7 @@ namespace OpenCS.Utilites
          [67] = MigrateV68,
          [68] = MigrateV69,
          [69] = MigrateV70,
+         [70] = MigrateV71,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -479,7 +480,8 @@ namespace OpenCS.Utilites
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 tag         TEXT NOT NULL DEFAULT '',
                 source_type TEXT NOT NULL DEFAULT 'internal',
-                created     TEXT NOT NULL DEFAULT ''
+                created     TEXT NOT NULL DEFAULT '',
+                source_path TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_nodes (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1609,6 +1611,14 @@ namespace OpenCS.Utilites
       /// на схеме из 33 тыс. КЭ это минуты в потоке интерфейса.</summary>
       void MigrateV70() =>
          MigExec("CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag ON fem_elements(schema_id, elem_tag)");
+
+      /// <summary>Миграция v71: путь к файлу проекта-источника схемы (.SPR SCAD) — для дозагрузки усилий
+      /// без повторного выбора файла.</summary>
+      void MigrateV71()
+      {
+         if (!ColumnExists("fem_schemas", "source_path"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN source_path TEXT");
+      }
 
       /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
       void MigrateV68()
@@ -3783,7 +3793,7 @@ namespace OpenCS.Utilites
          var schemas = new Dictionary<int, CScore.Fem.FemSchema>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, tag, source_type, created FROM fem_schemas ORDER BY id";
+            cmd.CommandText = "SELECT id, tag, source_type, created, source_path FROM fem_schemas ORDER BY id";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3792,7 +3802,8 @@ namespace OpenCS.Utilites
                   Id         = r.GetInt32(0),
                   Tag        = r.GetString(1),
                   SourceType = r.GetString(2),
-                  Created    = r.GetString(3)
+                  Created    = r.GetString(3),
+                  SourcePath = r.IsDBNull(4) ? null : r.GetString(4),
                };
                schemas[s.Id] = s;
             }
@@ -3996,21 +4007,23 @@ namespace OpenCS.Utilites
             if (schema.Id == 0)
             {
                cmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created)
-                  VALUES (@tag, @src, @created);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
+                  VALUES (@tag, @src, @created, @path);
                   SELECT last_insert_rowid();
                """;
                cmd.Parameters.AddWithValue("@tag",     schema.Tag);
                cmd.Parameters.AddWithValue("@src",     schema.SourceType);
                cmd.Parameters.AddWithValue("@created", schema.Created);
+               cmd.Parameters.AddWithValue("@path",    (object?)schema.SourcePath ?? DBNull.Value);
                schema.Id = (int)(long)cmd.ExecuteScalar()!;
                FemSchemas.Add(schema);
             }
             else
             {
-               cmd.CommandText = "UPDATE fem_schemas SET tag=@tag, source_type=@src WHERE id=@id";
+               cmd.CommandText = "UPDATE fem_schemas SET tag=@tag, source_type=@src, source_path=@path WHERE id=@id";
                cmd.Parameters.AddWithValue("@tag", schema.Tag);
                cmd.Parameters.AddWithValue("@src", schema.SourceType);
+               cmd.Parameters.AddWithValue("@path", (object?)schema.SourcePath ?? DBNull.Value);
                cmd.Parameters.AddWithValue("@id",  schema.Id);
                cmd.ExecuteNonQuery();
             }
@@ -5411,18 +5424,20 @@ namespace OpenCS.Utilites
             {
                Tag = newTag,
                SourceType = sourceSchema.SourceType,
+               SourcePath = sourceSchema.SourcePath,
                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created)
-                  VALUES (@tag, @src, @created);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
+                  VALUES (@tag, @src, @created, @path);
                   SELECT last_insert_rowid();
                """;
                schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
                schemaCmd.Parameters.AddWithValue("@src", newSchema.SourceType);
                schemaCmd.Parameters.AddWithValue("@created", newSchema.Created);
+               schemaCmd.Parameters.AddWithValue("@path", (object?)newSchema.SourcePath ?? DBNull.Value);
                newSchema.Id = (int)(long)schemaCmd.ExecuteScalar()!;
             }
             int newSchemaId = newSchema.Id;

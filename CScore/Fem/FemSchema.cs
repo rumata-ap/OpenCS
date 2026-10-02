@@ -8,8 +8,14 @@ public class FemSchema
 {
     public int    Id         { get; set; }
     public string Tag        { get; set; } = "";
-    /// <summary>Источник схемы: "lira" | "robot" | "rfem" | "opensees" | "internal" | "submodel"</summary>
+    /// <summary>Источник схемы: "lira" | "scad" | "robot" | "rfem" | "opensees" | "internal" | "submodel"</summary>
     public string SourceType { get; set; } = "internal";
+
+    /// <summary>
+    /// Файл проекта-источника (для SCAD — .SPR), из которого дозагружаются результаты; null — не задан
+    /// (схема импортирована до v71 или не из файла проекта).
+    /// </summary>
+    public string? SourcePath { get; set; }
     public string Created    { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
     /// <summary>Группы конструктивных элементов схемы. Заполняются при загрузке из БД.</summary>
