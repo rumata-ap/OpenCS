@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 71;
+      const int CurrentSchemaVersion = 72;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -91,6 +91,7 @@ namespace OpenCS.Utilites
          [68] = MigrateV69,
          [69] = MigrateV70,
          [70] = MigrateV71,
+         [71] = MigrateV72,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -646,6 +647,10 @@ namespace OpenCS.Utilites
                 ON fem_load_definitions(schema_id, tag);
             CREATE INDEX IF NOT EXISTS idx_fem_elements_schema_tag
                 ON fem_elements(schema_id, elem_tag);
+            CREATE INDEX IF NOT EXISTS idx_force_items_set_num
+                ON force_items(set_id, num);
+            CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_num
+                ON force_shell_items(set_id, num);
             CREATE TABLE IF NOT EXISTS fem_analyses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -1619,6 +1624,14 @@ namespace OpenCS.Utilites
          if (!ColumnExists("fem_schemas", "source_path"))
             MigExec("ALTER TABLE fem_schemas ADD COLUMN source_path TEXT");
       }
+
+      /// <summary>Миграция v72: индексы строк наборов усилий по набору (set_id, num). Без них удаление
+      /// и перезапись набора (DELETE … WHERE set_id) просматривали всю таблицу, а загрузка
+      /// (ORDER BY set_id, num) сортировала её целиком — заметно на РСУ SCAD в миллионы строк.</summary>
+      void MigrateV72() => MigExec("""
+         CREATE INDEX IF NOT EXISTS idx_force_items_set_num ON force_items(set_id, num);
+         CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_num ON force_shell_items(set_id, num);
+         """);
 
       /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
       void MigrateV68()
