@@ -16,6 +16,11 @@ public partial class FemShellsView : UserControl
         _node = node;
         _app  = app;
         InitializeComponent();
+        // Меню — только импорт усилий из программы-источника схемы; у прочих схем его нет вовсе.
+        string source = node.Owner.Schema.SourceType;
+        liraForcesMenu.Visibility = source == "lira" ? Visibility.Visible : Visibility.Collapsed;
+        scadForcesMenu.Visibility = source == "scad" ? Visibility.Visible : Visibility.Collapsed;
+        if (source is not ("lira" or "scad")) shellsGrid.ContextMenu = null;
         Loaded += async (_, _) =>
         {
             var elems = await node.Owner.LoadShellsAsync();
@@ -51,6 +56,13 @@ public partial class FemShellsView : UserControl
     {
         if (shellsGrid.SelectedItem is FemMember member && sender is MenuItem item)
             _app.ImportLiraForcesCommand(item.Tag as string).Execute(member);
+    }
+
+    /// <summary>Импорт усилий SCAD (.SPR) на выбранный конструктивный элемент.</summary>
+    void ImportScadForces_Click(object sender, RoutedEventArgs e)
+    {
+        if (shellsGrid.SelectedItem is FemMember member && sender is MenuItem item)
+            _app.ImportScadForcesCommand(item.Tag as string).Execute(member);
     }
 
     async void DeleteShell_Click(object sender, RoutedEventArgs e)

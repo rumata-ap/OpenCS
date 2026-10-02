@@ -15,6 +15,8 @@ public partial class FemBarsView : UserControl
         _node = node;
         _app  = app;
         InitializeComponent();
+        liraForcesMenu.Visibility = node.Owner.Schema.SourceType == "lira" ? Visibility.Visible : Visibility.Collapsed;
+        scadForcesMenu.Visibility = node.Owner.Schema.SourceType == "scad" ? Visibility.Visible : Visibility.Collapsed;
         Loaded += async (_, _) =>
         {
             var elems = await node.Owner.LoadBarsAsync();
@@ -57,5 +59,12 @@ public partial class FemBarsView : UserControl
     {
         if (barsGrid.SelectedItem is FemMember member && sender is MenuItem item)
             _app.ImportLiraForcesCommand(item.Tag as string).Execute(member);
+    }
+
+    /// <summary>Импорт усилий SCAD (.SPR) на выбранный конструктивный элемент.</summary>
+    void ImportScadForces_Click(object sender, RoutedEventArgs e)
+    {
+        if (barsGrid.SelectedItem is FemMember member && sender is MenuItem item)
+            _app.ImportScadForcesCommand(item.Tag as string).Execute(member);
     }
 }

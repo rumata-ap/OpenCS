@@ -3998,6 +3998,17 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>Записать только путь к файлу проекта-источника (без пересохранения групп схемы).</summary>
+      public void UpdateFemSchemaSourcePath(CScore.Fem.FemSchema schema, string? path)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "UPDATE fem_schemas SET source_path=@path WHERE id=@id";
+         cmd.Parameters.AddWithValue("@path", (object?)path ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
+         schema.SourcePath = path;
+      }
+
       public void SaveFemSchema(CScore.Fem.FemSchema schema)
       {
          using var tx = _connection.BeginTransaction();

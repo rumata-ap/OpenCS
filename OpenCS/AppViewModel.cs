@@ -625,6 +625,18 @@ namespace OpenCS
       /// <summary>Команда импорта усилий РСУ из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraRsuFromApiCommand { get; set; } = null!;
 
+      /// <summary>Усилия загружений из проекта SCAD (.SPR) через SCADAPIX.dll (параметр — группа, элемент или схема).</summary>
+      public ICommand ImportScadLoadCasesFromApiCommand { get; set; } = null!;
+
+      /// <summary>Усилия комбинаций загружений (РСН) из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
+      public ICommand ImportScadCombinationsFromApiCommand { get; set; } = null!;
+
+      /// <summary>РСУ из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
+      public ICommand ImportScadRsuFromApiCommand { get; set; } = null!;
+
+      /// <summary>Указать файл проекта SCAD (.SPR) для схемы (параметр FemSchema).</summary>
+      public ICommand SetScadProjectPathCommand { get; set; } = null!;
+
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
       /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
@@ -1496,6 +1508,17 @@ namespace OpenCS
          ImportLiraForcesFromApiCommand  = new RelayCommand(p => ImportLiraForcesFromApi(p as CScore.Fem.IFemCheckable));
          ImportLiraRsnFromApiCommand     = new RelayCommand(p => ImportLiraRsnFromApi(p as CScore.Fem.IFemCheckable));
          ImportLiraRsuFromApiCommand     = new RelayCommand(p => ImportLiraRsuFromApi(p as CScore.Fem.IFemCheckable));
+         ImportScadLoadCasesFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.LoadCases), _ => !IsBusy);
+         ImportScadCombinationsFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Combinations), _ => !IsBusy);
+         ImportScadRsuFromApiCommand = new RelayCommand(
+            p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Rsu), _ => !IsBusy);
+         SetScadProjectPathCommand = new RelayCommand(p =>
+         {
+            if (p is CScore.Fem.FemSchema s && ChooseScadProjectPath(s) is { } path)
+               LogService.Info(string.Format(Loc.S("ScadForcesProjectSet"), s.Tag, path));
+         });
       }
 
       void SetLanguage(object? param)
@@ -3212,6 +3235,195 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Порог строк РСУ SCAD, выше которого импорт подтверждается пользователем.</summary>
+      const long ScadRsuRowsConfirmThreshold = 1_000_000;
+
+      /// <summary>
+      /// Усилия из проекта SCAD (.SPR) через SCADAPIX.dll на цель: группу КЭ, конструктивный элемент или всю
+      /// схему (из главного меню — текущая группа). Файл — <see cref="CScore.Fem.FemSchema.SourcePath"/>; не
+      /// задан или не найден — выбор файла, путь запоминается в схеме. Для РСУ — выбор групп (C/CL/N/NL).
+      /// </summary>
+      async void ImportScadForcesFromApi(object? target, Services.Scad.ScadForceReadKind kind)
+      {
+         if (IsBusy) return;
+         target ??= currentFemMember;
+         var schema = target switch
+         {
+            CScore.Fem.FemSchema s => s,
+            CScore.Fem.IFemCheckable c => FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(c)),
+            _ => null,
+         };
+         if (schema == null)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoTarget"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (schema.SourceType != "scad")
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         // Вид КЭ — по сетке схемы (номер КЭ SCAD = тег КЭ сетки).
+         var kindById = new Dictionary<int, CScore.Import.ScadElementKind>();
+         foreach (var e in db.GetFemMeshElements(schema.Id))
+            if (int.TryParse(e.ElemTag, out int id))
+               kindById[id] = e.ElemType == "shell" ? CScore.Import.ScadElementKind.Shell : CScore.Import.ScadElementKind.Beam;
+         int[] ids = target is CScore.Fem.IFemCheckable member
+            ? FemTargetElementNumbers(member).Distinct().ToArray()
+            : [.. kindById.Keys];
+         var targets = ids.Where(kindById.ContainsKey).ToDictionary(id => id, id => kindById[id]);
+         int notInMesh = ids.Length - targets.Count;
+         if (targets.Count == 0)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoElements"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         string? spr = ResolveScadProjectPath(schema);
+         if (spr == null) return;
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (dllDir == null)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoDll"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         string? work = !string.IsNullOrWhiteSpace(settings.WorkDirectory) && Directory.Exists(settings.WorkDirectory)
+            ? settings.WorkDirectory
+            : Services.Scad.ScadInstallLocator.FindWorkDirectory();
+
+         HashSet<int>? rsuGroups = null;
+         if (kind == Services.Scad.ScadForceReadKind.Rsu)
+         {
+            var dlg = new Views.ScadRsuGroupsDialog(settings.RsuGroups);
+            if (dlg.ShowDialog() != true) return;
+            settings.RsuGroups = dlg.SelectedGroups;
+            db.SaveScadApiSettings(settings);
+            rsuGroups = [.. settings.RsuGroups];
+         }
+
+         string targetTag = target is CScore.Fem.IFemCheckable t ? t.Tag : schema.Tag;
+         var options = new CScore.Import.ScadXlsImportOptions
+         {
+            TonToKnFactor = LiraImportSettings.TonToKnFactor,
+            InvertBarBendingMoments = LiraImportSettings.InvertBarBendingMoments,
+            InvertShellBendingMoments = LiraImportSettings.InvertShellBendingMoments,
+         };
+         var cts = BeginBusyWithCancellation(string.Format(Loc.S("ScadForcesImporting"), targets.Count, targetTag),
+            indeterminate: false);
+         var progress = new Progress<double>(f => ReportBusyProgress(f));
+         try
+         {
+            var read = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiForceReader.Read(session, work, targets, kind, progress, cts.Token, rsuGroups);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+
+            if (kind == Services.Scad.ScadForceReadKind.Rsu)
+            {
+               long rows = read.Rsu.Sum(r => (long)r.Rows.Count);
+               if (rows > ScadRsuRowsConfirmThreshold && MessageBox.Show(
+                     string.Format(Loc.S("ScadRsuManyRowsConfirm"), rows, targets.Count), Loc.S("ImportScadErrorTitle"),
+                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+               {
+                  EndBusy(Loc.S("ScadForcesCancelled"));
+                  return;
+               }
+            }
+
+            var sets = await Task.Run(() => kind switch
+            {
+               Services.Scad.ScadForceReadKind.LoadCases =>
+                  CScore.Import.ScadForceSetBuilder.LoadCases(read.Forces, read.Catalog, schema.Id, targetTag, options),
+               Services.Scad.ScadForceReadKind.Combinations =>
+                  CScore.Import.ScadForceSetBuilder.Combinations(read.Forces, read.Catalog, schema.Id, targetTag, options),
+               _ => CScore.Import.ScadForceSetBuilder.Rsu(read.Rsu, schema.Id, targetTag, options),
+            }, cts.Token);
+
+            SaveImportedForceSets(sets, target as CScore.Fem.IFemCheckable);
+
+            if (notInMesh > 0) LogService.Warning(string.Format(Loc.S("ScadForcesNotInMesh"), notInMesh));
+            if (read.MissingElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesMissing"), read.MissingElements));
+            if (read.WrongKindElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesWrongKind"), read.WrongKindElements));
+            if (read.NoResultElements > 0) LogService.Info(string.Format(Loc.S("ScadForcesNoResult"), read.NoResultElements));
+            string done = string.Format(Loc.S("ScadForcesSuccess"), sets.Count, targetTag,
+               sets.Sum(s => s.Items.Count + s.ShellItems.Count));
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy(Loc.S("ScadForcesCancelled"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            string msg = ex.Format(Loc.S);
+            LogService.Error(msg);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            LogService.Error(msg + Environment.NewLine + ex);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>Файл .SPR схемы: сохранённый путь, если файл на месте, иначе выбор файла.</summary>
+      string? ResolveScadProjectPath(CScore.Fem.FemSchema schema)
+      {
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath) && File.Exists(schema.SourcePath))
+            return schema.SourcePath;
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath))
+            LogService.Warning(string.Format(Loc.S("ScadForcesProjectMoved"), schema.SourcePath));
+         return ChooseScadProjectPath(schema);
+      }
+
+      /// <summary>Выбрать файл .SPR для схемы и запомнить его; null — отказ.</summary>
+      string? ChooseScadProjectPath(CScore.Fem.FemSchema schema)
+      {
+         string? path = FileDialogService.OpenFile(Loc.S("ScadApiSprFilter"),
+            string.Format(Loc.S("ScadForcesSprBrowseTitle"), schema.Tag));
+         if (string.IsNullOrEmpty(path)) return null;
+         db.UpdateFemSchemaSourcePath(schema, Path.GetFullPath(path));
+         return schema.SourcePath;
+      }
+
+      /// <summary>Источник схемы цели (lira, scad, internal …): у схемы — свой, у группы и конструктивного
+      /// элемента — их схемы. Управляет видимостью пунктов меню, привязанных к программе-источнику.</summary>
+      public string? FemSourceTypeOf(object? target) => target switch
+      {
+         CScore.Fem.FemSchema s => s.SourceType,
+         CScore.Fem.IFemCheckable c => FemSchemas.FirstOrDefault(s => s.Id == FemTargetSchemaId(c))?.SourceType,
+         _ => null,
+      };
+
+      /// <summary>Команда импорта усилий SCAD через DLL по виду: "lc" — загружения, "rsn" — комбинации,
+      /// иначе — РСУ. Параметр команды — цель (группа, конструктивный элемент или схема).</summary>
+      public ICommand ImportScadForcesCommand(string? kind) => kind switch
+      {
+         "lc"  => ImportScadLoadCasesFromApiCommand,
+         "rsn" => ImportScadCombinationsFromApiCommand,
+         _     => ImportScadRsuFromApiCommand,
+      };
+
       async void ImportScadRsu2()
       {
          string? fileName = FileDialogService.OpenFile(
@@ -4051,7 +4263,7 @@ namespace OpenCS
          _ => 0,
       };
 
-      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable target)
+      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, CScore.Fem.IFemCheckable? target)
       {
          foreach (var fs in forceSets)
          {

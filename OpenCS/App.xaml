@@ -16,6 +16,7 @@
          </ResourceDictionary.MergedDictionaries>
 
          <conv:ReportSupportedConverter x:Key="ReportSupportedConverter"/>
+         <conv:FemSourceVisibilityConverter x:Key="FemSourceVisibilityConverter"/>
 
          <DataTemplate DataType="{x:Type core:Fiber}">
             <StackPanel Orientation="Horizontal" Margin="0,2,0,2">

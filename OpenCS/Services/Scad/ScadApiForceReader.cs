@@ -34,10 +34,11 @@ internal static unsafe class ScadApiForceReader
     /// Прочитать результаты КЭ <paramref name="targets"/> (номер КЭ SCAD → вид КЭ в OpenCS).
     /// Результатов в <paramref name="workDirectory"/> нет → <see cref="ScadApiException"/> «ScadApiNoResults»;
     /// больше половины КЭ цели нет в проекте или они другого вида → «ScadApiForcesOtherProject».
+    /// <paramref name="rsuGroups"/> — какие группы РСУ (0–3) читать; null — все.
     /// </summary>
     public static ScadApiForceReadResult Read(ScadApiSession s, string? workDirectory,
         IReadOnlyDictionary<int, ScadElementKind> targets, ScadForceReadKind kind,
-        IProgress<double>? progress, CancellationToken ct)
+        IProgress<double>? progress, CancellationToken ct, IReadOnlySet<int>? rsuGroups = null)
     {
         var n = s.Native;
         nint h = s.Handle;
@@ -62,7 +63,7 @@ internal static unsafe class ScadApiForceReader
 
             if (kind == ScadForceReadKind.Rsu)
             {
-                if (ReadRsu(s, id, actual.Value) is { } r) rsu.Add(r);
+                if (ReadRsu(s, id, actual.Value, rsuGroups) is { } r) rsu.Add(r);
                 else noResult++;
             }
             else if (ReadForces(s, id, actual.Value, kind) is { } f) forces.Add(f);
@@ -122,7 +123,7 @@ internal static unsafe class ScadApiForceReader
         rows > 0 && ptr != 0 && data >= (long)points * rows * layers * q && data <= int.MaxValue;
 
     /// <summary>РСУ КЭ; коды усилий — из ApiGetEffors того же КЭ (сверено 01.10). null — РСУ нет.</summary>
-    static ScadRsuElement? ReadRsu(ScadApiSession s, int id, ScadElementKind kind)
+    static ScadRsuElement? ReadRsu(ScadApiSession s, int id, ScadElementKind kind, IReadOnlySet<int>? groups)
     {
         var n = s.Native;
         nint h = s.Handle;
@@ -145,7 +146,7 @@ internal static unsafe class ScadApiForceReader
         {
             var row = ScadApiLayouts.ParseRsuRow(new ReadOnlySpan<byte>((byte*)r.Str + i * ScadApiLayouts.RsuRowSize,
                 ScadApiLayouts.RsuRowSize));
-            if (row.Us == 0) continue;
+            if (row.Us == 0 || groups != null && !groups.Contains(row.Group)) continue;
             var src = new ReadOnlySpan<float>((void*)row.Us, q);
             var us = new double[q];
             for (int k = 0; k < q; k++) us[k] = src[k];
