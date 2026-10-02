@@ -298,4 +298,41 @@ public class ScadSelectedRebarSourcesTests
         var src = new ScadSelectedBarSectionSource(Context(null));
         Assert.Contains("ЖБ-групп", src.Resolve(Bar(814), 1).Reason);
     }
+
+    // ── Шаблон пластины по ЖБ-группам ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void PlateTemplate_FromGroup_CoversThicknessAndDiameter()
+    {
+        var groups = new ScadConcreteGroupIndex([Group(1, [0.03, 0.04, 0, 0.05], 23, 24), Group(2, [0.03, 0.03, 0, 0], 25)]);
+        var plates = new[] { Plate(23, 0.18), Plate(24, 0.18), Plate(25, 0.2), Plate(26, 0.18) };
+
+        var ask = ScadPlateSectionTemplates.Build(plates, groups, null);
+        Assert.True(ask.NeedsNominal);
+        Assert.Null(ask.Template);
+
+        var r = ScadPlateSectionTemplates.Build(plates, groups, 0.012);
+        var t = r.Template!;
+        Assert.Equal(new LiraPlateCombo(0.18, "B25", "A500"), t.Combo);
+        Assert.Equal(2, t.Elements);
+        Assert.Single(t.OtherCombos);
+        var top = t.Layers.Single(l => l.Zsx > 0);
+        var bottom = t.Layers.Single(l => l.Zsx < 0);
+        Assert.Equal(0.09 - 0.04, top.Zsx, 9);
+        Assert.Equal(0.09 - 0.05, top.Zsy, 9);
+        Assert.Equal(-(0.09 - 0.03), bottom.Zsx, 9);
+        Assert.Equal(-(0.09 - 0.03), bottom.Zsy, 9);
+        Assert.Equal(0.012, bottom.DiameterX, 9);
+        Assert.Equal(Math.PI * 0.012 * 0.012 / 4 / 0.2, bottom.Asx, 12);
+        Assert.Contains("SCAD", t.Tag);
+    }
+
+    [Fact]
+    public void PlateTemplate_Reasons()
+    {
+        var groups = new ScadConcreteGroupIndex([Group(1, [0.1, 0.1, 0, 0], 23)]);
+        Assert.Contains("не помещаются", ScadPlateSectionTemplates.Build([Plate(23, 0.18)], groups, 0.01).Problem);
+        Assert.Contains("ЖБ-группы", ScadPlateSectionTemplates.Build([Plate(5, 0.18)], groups, 0.01).Problem);
+        Assert.True(ScadPlateSectionTemplates.Build([Plate(23, 0.25)], groups, 0).NeedsNominal);
+    }
 }

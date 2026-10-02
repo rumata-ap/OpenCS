@@ -960,6 +960,12 @@
    <system:String x:Key="ScadForcesNotScadSchema">Схема «{0}» импортирована не из SCAD — усилия SCAD к ней не применимы.</system:String>
    <system:String x:Key="ScadForcesNoElements">В цели нет КЭ сетки схемы — импортировать нечего.</system:String>
    <system:String x:Key="ScadForcesNoDll">Не найдена SCADAPIX.dll. Укажите каталог SCAD в диалоге «Импорт → SCAD → Схема из проекта SCAD (.SPR)…».</system:String>
+   <system:String x:Key="FemCheckCreateScadSection">Создать сечение по данным SCAD</system:String>
+   <system:String x:Key="ScadSectionsTitle">Сечения пластин по данным SCAD</system:String>
+   <system:String x:Key="ScadSectionsNoGroups">У схемы нет ЖБ-групп SCAD: классы материалов и привязки взять неоткуда. Загрузите подобранную арматуру SCAD (меню схемы «SCAD → Подобранная арматура SCAD (плагин)…») — ЖБ-группы дочитаются из проекта.</system:String>
+   <system:String x:Key="ScadSectionsDiameterTitle">Арматура сечения по данным SCAD</system:String>
+   <system:String x:Key="ScadSectionsDiameter">Диаметр арматуры, мм (привязки — из ЖБ-группы; диаметр нужен для ширины раскрытия трещин)</system:String>
+   <system:String x:Key="FemSchemaCreateScadPlateSections">Создать сечения пластин по данным SCAD…</system:String>
    <system:String x:Key="ScadRebarLoad">Подобранная арматура SCAD (плагин)…</system:String>
    <system:String x:Key="ScadRebarFilter">Выгрузка плагина SCAD для OpenCS (*.opencs-scad.json)|*.opencs-scad.json|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ScadRebarOpenTitle">Подобранная арматура SCAD (выгрузка плагина «Export to OpenCS») для схемы «{0}»</system:String>

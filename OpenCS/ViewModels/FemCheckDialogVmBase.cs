@@ -151,19 +151,25 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     public ICommand CreateLiraSectionCommand { get; }
 
     Visibility _createLiraSectionVisibility = Visibility.Collapsed;
-    /// <summary>Кнопка видна, когда у пластинчатой цели нет сечения, а у схемы есть подбор ЛИРЫ.</summary>
+    /// <summary>Кнопка видна, когда у пластинчатой цели нет сечения, а у схемы есть подбор ЛИРЫ или ЖБ-группы SCAD.</summary>
     public Visibility CreateLiraSectionVisibility
     {
         get => _createLiraSectionVisibility;
         private set { _createLiraSectionVisibility = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Подпись кнопки создания сечения цели (по программе схемы).</summary>
+    public string CreateSectionLabel { get; private set; } = Loc.S("FemCheckCreateLiraSection");
+
     void RefreshCreateLiraSection()
     {
-        bool offer = IsPlateCheck && Target is { } target && _schemaData is { Asp: not null } data && _scope is { } scope
+        bool offer = IsPlateCheck && Target is { } target && _schemaData is { } data
+            && (data.IsScad ? data.ScadConcreteGroups != null : data.Asp != null) && _scope is { } scope
             && scope.Elements.Any(e => e.Element.ElemType == "shell")
             && FemCheckContext.TargetPlateSectionId(target, scope, SchemaGroups(data.SchemaId), out _) == null;
         CreateLiraSectionVisibility = offer ? Visibility.Visible : Visibility.Collapsed;
+        CreateSectionLabel = Loc.S(_schemaData?.IsScad == true ? "FemCheckCreateScadSection" : "FemCheckCreateLiraSection");
+        OnPropertyChanged(nameof(CreateSectionLabel));
     }
 
     /// <summary>Создать недостающие материалы стержней по классам подбора ЛИРЫ.</summary>

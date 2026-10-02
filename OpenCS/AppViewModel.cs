@@ -4138,7 +4138,8 @@ namespace OpenCS
          schema ??= currentFemSchema;
          if (schema == null) return false;
          bool fromMenu = targets == null;
-         string title = Loc.S("LiraSectionsTitle");
+         bool scad = schema.SourceType == "scad";
+         string title = Loc.S(scad ? "ScadSectionsTitle" : "LiraSectionsTitle");
 
          // Открытый редактор этой схемы держит конструктивные элементы в памяти и при сохранении перезапишет их.
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
@@ -4160,6 +4161,16 @@ namespace OpenCS
 
          var report = Services.LiraPlateSectionCreator.Create(db, data, targets, suggested =>
          {
+            if (scad)
+            {
+               // У SCAD привязки — из ЖБ-группы; диаметр нужен для ширины раскрытия трещин.
+               var input = new Views.Dialogs.TextInputDialog(Loc.S("ScadSectionsDiameterTitle"), Loc.S("ScadSectionsDiameter"),
+                  (suggested.DiameterM * 1000).ToString("0.#", CultureInfo.CurrentCulture));
+               if (input.ShowDialog() != true) return null;
+               return double.TryParse(input.Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double mm)
+                  ? new CScore.Import.LiraPlateNominalRebar(0, mm / 1000)
+                  : new CScore.Import.LiraPlateNominalRebar(0, 0);
+            }
             var dlg = new Views.Dialogs.DoubleInputDialog(Loc.S("LiraSectionsNominalTitle"),
                Loc.S("LiraSectionsNominalCover"), Loc.S("LiraSectionsNominalDiameter"),
                suggested.CoverM * 1000, suggested.DiameterM * 1000);
@@ -4170,7 +4181,7 @@ namespace OpenCS
          if (report.Cancelled) return false;
          if (report.NoAsp)
          {
-            MessageBox.Show(Loc.S("LiraSectionsNoAsp"), title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Loc.S(scad ? "ScadSectionsNoGroups" : "LiraSectionsNoAsp"), title, MessageBoxButton.OK, MessageBoxImage.Information);
             return false;
          }
 

@@ -1383,6 +1383,11 @@
                                  <MenuItem Header="{DynamicResource ScadPluginInstall}"
                                            Command="{Binding PlacementTarget.Tag.InstallScadPluginCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource FemSchemaCreateScadPlateSections}"
+                                           Command="{Binding PlacementTarget.Tag.CreateLiraPlateSectionsCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
                                  <MenuItem Header="{DynamicResource ScadForcesSetProject}"
                                            Command="{Binding PlacementTarget.Tag.SetScadProjectPathCommand,
