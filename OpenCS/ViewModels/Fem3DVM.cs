@@ -67,6 +67,29 @@ public class Fem3DVM : ViewModelBase
 
     public IReadOnlyList<PlanarRegionVisual> PlanarRegionVisuals { get; private set; } = [];
     public Point3DCollection?  ShellEdgePoints { get; private set; }
+
+    bool _showShellEdges;
+    Dictionary<string, Point3D>? _edgeNodeMap;
+    List<FemMember>? _edgeElements;
+
+    /// <summary>
+    /// Рёбра пластин нужны (кнопка «Сетка»). Строятся по требованию: на сетке в сотню тысяч КЭ это ~0,4 с
+    /// и ~460 тыс. точек, а линия такого размера пересчитывается при каждом движении камеры (~50 мс).
+    /// </summary>
+    public bool ShowShellEdges
+    {
+        get => _showShellEdges;
+        set
+        {
+            if (_showShellEdges == value) return;
+            _showShellEdges = value;
+            if (value && ShellEdgePoints == null && _edgeNodeMap != null && _edgeElements != null)
+            {
+                ShellEdgePoints = BuildShellEdges(_edgeNodeMap, _edgeElements);
+                OnPropertyChanged(nameof(ShellEdgePoints));
+            }
+        }
+    }
     public Point3DCollection?  NodePoints      { get; private set; }
     public Point3DCollection?  MeshLinePoints  { get; private set; }
     public Point3DCollection?  MeshNodePoints  { get; private set; }
@@ -122,6 +145,14 @@ public class Fem3DVM : ViewModelBase
     public FemSchemaSelectionVM? Selection { get; set; }
     public bool EditMode { get; set; }
 
+    /// <summary>
+    /// Сессия редактирования схемы (страница схемы): вид строится по ней, а не по БД. <see cref="LoadAsync"/>
+    /// читает сетку-подложку в фоне и строит вид один раз (раньше страница строила его синхронно, а
+    /// LoadAsync — ещё раз по БД: на сетке в 120 тыс. КЭ это 2,3 с замирания и ещё ~5 с). Схема без
+    /// конструктивного слоя строится по сетке, как в режиме просмотра.
+    /// </summary>
+    public Func<CScore.Fem.Editing.FemSchemaEditSession>? SessionSource { get; init; }
+
     /// <summary>Тег узла и его позиция — для построения кликабельных прокси в режиме редактирования.</summary>
     public List<(string Tag, Point3D Position)> NodeProxies { get; private set; } = [];
     /// <summary>Тег элемента и его концы — для построения кликабельных прокси в режиме редактирования.</summary>
@@ -174,6 +205,14 @@ public class Fem3DVM : ViewModelBase
         NoData    = false;
         Status    = Loc.S("Fem3DLoading");
 
+        // Схема без конструктивного слоя (импорт ЛИРЫ/SCAD) — обычным путём: сетка и есть схема, её КЭ
+        // выбираются кликом. По сессии сетка импорта была бы лишь подложкой.
+        if (SessionSource?.Invoke() is { } session && (session.Nodes.Count > 0 || session.Members.Count > 0))
+        {
+            await LoadSessionAsync(SessionSource);
+            return;
+        }
+
         try
         {
             var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
@@ -189,10 +228,11 @@ public class Fem3DVM : ViewModelBase
             // свои Id (другая таблица), они пересекаются с Id элементов и узлов слоя.
             var ownNodes = allNodes;
             var ownElements = allElements;
+            List<FemElement>? meshElements = null;
             if (constructiveEmpty)
             {
                 var meshNodes    = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
-                var meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
+                meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
                 allNodes    = meshNodes.Select(ToFemNode).ToList();
                 allElements = meshElements.Select(ToFemMember).ToList();
             }
@@ -205,7 +245,7 @@ public class Fem3DVM : ViewModelBase
                 allElements = [.. _bgElements!, .. allElements];
             }
 
-            Mosaic.Apply((await Task.Run(() => PlateRebarMosaicVM.Read(_db, _schemaId))).WithProject(_db, _schemaId));
+            Mosaic.Apply((await Task.Run(() => PlateRebarMosaicVM.Read(_db, _schemaId, meshElements ?? Interlocked.Exchange(ref _meshElementsForMosaic, null)))).WithProject(_db, _schemaId));
             ApplyTopology(allNodes, allElements);
             _diagramNodes = importedBackground ? ownNodes : allNodes;
             _diagramMembers = importedBackground ? ownElements : allElements;
@@ -224,6 +264,28 @@ public class Fem3DVM : ViewModelBase
         }
     }
 
+    async Task LoadSessionAsync(Func<CScore.Fem.Editing.FemSchemaEditSession> source)
+    {
+        try
+        {
+            bool importedBackground = await Task.Run(LoadImportedBackground);
+            var session = source();
+            ApplySession(session);
+            var meshElements = Interlocked.Exchange(ref _meshElementsForMosaic, null);
+            Mosaic.Apply((await Task.Run(() => PlateRebarMosaicVM.Read(_db, _schemaId, meshElements))).WithProject(_db, _schemaId));
+            if (!importedBackground)
+                await LoadMeshOverlayAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+            Status    = "";
+        }
+    }
+
+    readonly object _bgLock = new();
+    // Все КЭ сетки, прочитанные для подложки, — чтобы мозаика не читала их второй раз (один раз).
+    List<FemElement>? _meshElementsForMosaic;
     List<FemNode>? _bgNodes;
     List<FemMember>? _bgElements;
     HashSet<FemMember> _bgSet = new(ReferenceEqualityComparer.Instance);
@@ -232,21 +294,27 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Загружает (один раз) импортированную сетку схемы как подложку вида. False — сетки ЛИРЫ нет.</summary>
     bool LoadImportedBackground()
     {
-        if (_bgElements == null)
+        // Вызывается и из фонового потока (LoadSessionAsync), и из UI-потока (LoadFromSession после правок).
+        lock (_bgLock)
         {
-            if (_db.HasImportedMesh(_schemaId))
+            if (_bgElements == null)
             {
-                _bgNodes = _db.GetFemMeshNodes(_schemaId).Where(n => n.Origin == FemMember.MeshSourceImported).Select(ToFemNode).ToList();
-                _bgElements = _db.GetFemMeshElements(_schemaId).Where(e => e.Origin == FemMember.MeshSourceImported).Select(ToFemMember).ToList();
+                if (_db.HasImportedMesh(_schemaId))
+                {
+                    _bgNodes = _db.GetFemMeshNodes(_schemaId).Where(n => n.Origin == FemMember.MeshSourceImported).Select(ToFemNode).ToList();
+                    var meshElements = _db.GetFemMeshElements(_schemaId);
+                    _meshElementsForMosaic = meshElements;
+                    _bgElements = meshElements.Where(e => e.Origin == FemMember.MeshSourceImported).Select(ToFemMember).ToList();
+                }
+                else
+                {
+                    _bgNodes = [];
+                    _bgElements = [];
+                }
+                _bgSet = new HashSet<FemMember>(_bgElements, ReferenceEqualityComparer.Instance);
             }
-            else
-            {
-                _bgNodes = [];
-                _bgElements = [];
-            }
-            _bgSet = new HashSet<FemMember>(_bgElements, ReferenceEqualityComparer.Instance);
+            return _bgElements.Count > 0;
         }
-        return _bgElements.Count > 0;
     }
 
     /// <summary>Узлы подложки и конструктивного слоя без повторов тегов (узел слоя важнее: он редактируется).</summary>
@@ -295,7 +363,7 @@ public class Fem3DVM : ViewModelBase
             int[] nodeIds;
             try
             {
-                nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson ?? "[]") ?? [];
+                nodeIds = NodeIds(element.NodeIdsJson);
             }
             catch (JsonException)
             {
@@ -327,7 +395,15 @@ public class Fem3DVM : ViewModelBase
     /// сразу отражались в 3D без ожидания сохранения.</summary>
     public void LoadFromSession(CScore.Fem.Editing.FemSchemaEditSession session)
     {
-        if (LoadImportedBackground())
+        LoadImportedBackground();
+        ApplySession(session);
+        IsLoading = false;
+        Status    = "";
+    }
+
+    void ApplySession(CScore.Fem.Editing.FemSchemaEditSession session)
+    {
+        if (_bgElements!.Count > 0)
             ApplyTopology(MergeNodes(_bgNodes!, session.Nodes), [.. _bgElements!, .. session.Members]);
         else
             ApplyTopology(session.Nodes, session.Members);
@@ -340,8 +416,6 @@ public class Fem3DVM : ViewModelBase
         DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
-        IsLoading = false;
-        Status    = "";
     }
 
     void RefreshDiagramSources(
@@ -420,6 +494,7 @@ public class Fem3DVM : ViewModelBase
             HiShellMesh      = null;
             PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
+            _edgeElements    = null;
             NodePoints       = null;
             PlanarRegionMeshEdgePoints = null;
             PlanarRegionMeshNodePoints = null;
@@ -447,6 +522,7 @@ public class Fem3DVM : ViewModelBase
             HiShellMesh      = null;
             PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
+            _edgeElements    = null;
             NodePoints       = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
             PlanarRegionMeshEdgePoints = null;
             PlanarRegionMeshNodePoints = null;
@@ -505,7 +581,9 @@ public class Fem3DVM : ViewModelBase
             _mosaicBars    = allBars;
             ApplyMosaic();
         }
-        ShellEdgePoints  = BuildShellEdges(nodeMap, elements);
+        _edgeNodeMap = nodeMap;
+        _edgeElements = elements;
+        ShellEdgePoints  = _showShellEdges ? BuildShellEdges(nodeMap, elements) : null;
         PlanarRegionVisuals = BuildPlanarRegionVisuals(elements);
         (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(elements);
         SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
@@ -513,7 +591,7 @@ public class Fem3DVM : ViewModelBase
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
         // для импортированных схем); в режиме редактирования — все, включая ещё не связанные стержнем.
         var usedNodeKeys = elements
-            .SelectMany(e => JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [])
+            .SelectMany(e => NodeIds(e.NodeIdsJson))
             .Select(id => id.ToString())
             .ToHashSet();
         var visibleNodes = EditMode ? allNodes : allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag)).ToList();
@@ -812,7 +890,7 @@ public class Fem3DVM : ViewModelBase
 
         foreach (var e in shells)
         {
-            var ids = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
+            var ids = NodeIds(e.NodeIdsJson);
             var pts = ids.Select(id =>
                           nodeMap.TryGetValue(id.ToString(), out var p) ? p : (Point3D?)null)
                          .Where(p => p.HasValue)
@@ -866,7 +944,7 @@ public class Fem3DVM : ViewModelBase
 
         foreach (var e in shells)
         {
-            var ids = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
+            var ids = NodeIds(e.NodeIdsJson);
             var corners = ids
                 .Select(id => nodeMap.TryGetValue(id.ToString(), out var p)
                     ? (nodeId: id, pos: p)
@@ -906,9 +984,32 @@ public class Fem3DVM : ViewModelBase
         return pts;
     }
 
+    /// <summary>
+    /// Номера узлов КЭ из <c>NodeIdsJson</c> (<c>[1,2,3,4]</c>). Разбор вручную: JsonSerializer на сетках
+    /// в сотни тысяч КЭ занимал заметную долю загрузки вида. Нестандартная запись — через JsonSerializer.
+    /// </summary>
+    public static int[] NodeIds(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        var s = json.AsSpan().Trim();
+        if (s.Length < 2 || s[0] != '[' || s[^1] != ']') return JsonSerializer.Deserialize<int[]>(json) ?? [];
+        s = s[1..^1];
+        if (s.IsWhiteSpace()) return [];
+        int count = s.Count(',') + 1;
+        var ids = new int[count];
+        int k = 0;
+        foreach (var range in s.Split(','))
+        {
+            if (!int.TryParse(s[range].Trim(), System.Globalization.NumberStyles.AllowLeadingSign,
+                    System.Globalization.CultureInfo.InvariantCulture, out ids[k++]))
+                return JsonSerializer.Deserialize<int[]>(json) ?? [];
+        }
+        return ids;
+    }
+
     static (Point3D p1, Point3D p2)? GetBarPoints(Dictionary<string, Point3D> nodeMap, FemMember e)
     {
-        var ids = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
+        var ids = NodeIds(e.NodeIdsJson);
         if (ids.Length < 2) return null;
         if (!nodeMap.TryGetValue(ids[0].ToString(), out var p1)) return null;
         if (!nodeMap.TryGetValue(ids[1].ToString(), out var p2)) return null;

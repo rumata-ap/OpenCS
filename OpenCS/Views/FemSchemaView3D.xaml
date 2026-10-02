@@ -138,10 +138,18 @@
                 <Path Data="M12,4A2.5,2.5 0 0,1 14.5,6.5A2.5,2.5 0 0,1 12,9A2.5,2.5 0 0,1 9.5,6.5A2.5,2.5 0 0,1 12,4M5.5,14A2.5,2.5 0 0,1 8,16.5A2.5,2.5 0 0,1 5.5,19A2.5,2.5 0 0,1 3,16.5A2.5,2.5 0 0,1 5.5,14M18.5,14A2.5,2.5 0 0,1 21,16.5A2.5,2.5 0 0,1 18.5,19A2.5,2.5 0 0,1 16,16.5A2.5,2.5 0 0,1 18.5,14Z" Fill="Black" Stretch="Uniform" Margin="2"/>
             </ToggleButton>
             <ToggleButton x:Name="showGridCheck" Style="{StaticResource IconToggleButton25}"
-                          IsChecked="True" ToolTip="{DynamicResource Fem3DShowGrid}"
+                          IsChecked="False" ToolTip="{DynamicResource Fem3DShowGrid}"
                           Checked="GridToggle" Unchecked="GridToggle">
                 <Path Data="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,11H13V5H19V11M11,5V11H5V5H11M5,19V13H11V19H5M13,19V13H19V19H13Z" Fill="Black" Stretch="Uniform" Margin="2"/>
             </ToggleButton>
+            <!-- Камера: ортогональная проекция или перспектива с углом обзора -->
+            <ToggleButton x:Name="orthographicCheck" Style="{StaticResource IconToggleButton25}"
+                          ToolTip="{DynamicResource Fem3DOrthographic}">
+                <Path Data="M4,8 L12,4 L20,8 L20,16 L12,20 L4,16 Z M4,8 L12,12 L20,8 M12,12 L12,20" Stroke="Black" StrokeThickness="1.5"
+                      Fill="Transparent" Stretch="Uniform" Margin="3"/>
+            </ToggleButton>
+            <Slider x:Name="fieldOfViewSlider" Width="80" Minimum="10" Maximum="90" VerticalAlignment="Center" Margin="4,0"
+                    IsEnabled="{Binding IsChecked, ElementName=orthographicCheck, Converter={StaticResource InverseBool}}"/>
             <Separator/>
             <Menu>
                 <MenuItem ToolTip="{DynamicResource Fem3DDrawingFlags}">

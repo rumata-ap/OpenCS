@@ -390,14 +390,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    }
 
    /// <summary>Прочитать файлы армирования схемы (ASP/RBT ЛИРЫ), ТЗА и толщины КЭ. Без обращения к UI.</summary>
-   public static Data Read(DatabaseService db, int schemaId)
+   /// <param name="meshElements">КЭ сетки схемы, если уже прочитаны (на сетках в сотни тысяч КЭ повторное
+   /// чтение заметно); null — прочитать.</param>
+   public static Data Read(DatabaseService db, int schemaId, IReadOnlyList<FemElement>? meshElements = null)
    {
       IPlateRebarFieldSource? selected = null, assigned = null;
       IBarRebarFieldSource? selectedBars = null, assignedBars = null;
       string? selectedFile = null, assignedFile = null;
       var errors = new List<(string, string)>();
       var key = new System.Text.StringBuilder();
-      var elements = db.GetFemMeshElements(schemaId);
+      var elements = meshElements ?? db.GetFemMeshElements(schemaId);
       var shells = elements.Where(e => e.ElemType == "shell").ToList();
       // Номера ТЗА КЭ обновляются отдельной командой — файл при этом тот же.
       var typeHash = new HashCode();

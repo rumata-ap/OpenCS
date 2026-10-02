@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -162,7 +163,51 @@ public partial class FemSchemaView3D : UserControl
         PreviewMouseRightButtonDown += FemSchemaView3D_PreviewMouseRightButtonDown;
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
+        InitCamera();
     }
+
+    // ── Камера: проекция и угол обзора общие для всех 3D-видов сеанса ───────────────────────
+
+    static bool s_orthographic;
+    static double s_fieldOfView = 45;
+
+    void InitCamera()
+    {
+        viewport.Orthographic = s_orthographic;
+        orthographicCheck.IsChecked = s_orthographic;
+        showGridCheck.IsChecked = s_showGrid;
+        fieldOfViewSlider.Value = s_fieldOfView;
+        if (viewport.Camera is PerspectiveCamera camera) camera.FieldOfView = s_fieldOfView;
+        // Обработчики — после начальных значений: иначе они сработали бы ещё до настройки вида.
+        orthographicCheck.Click += (_, _) =>
+        {
+            s_orthographic = orthographicCheck.IsChecked == true;
+            viewport.Orthographic = s_orthographic;
+        };
+        fieldOfViewSlider.ValueChanged += (_, e) => SetFieldOfView(e.NewValue);
+        fieldOfViewSlider.ToolTip = FieldOfViewTip();
+    }
+
+    /// <summary>
+    /// Меняет угол обзора перспективы, сохраняя видимый размер схемы у точки, на которую смотрит
+    /// камера: камера отъезжает или приближается вдоль направления взгляда (иначе при уменьшении угла
+    /// схема бы «наезжала»).
+    /// </summary>
+    void SetFieldOfView(double degrees)
+    {
+        s_fieldOfView = degrees;
+        fieldOfViewSlider.ToolTip = FieldOfViewTip();
+        if (viewport.Camera is not PerspectiveCamera camera || camera.FieldOfView == degrees) return;
+        double scale = Math.Tan(camera.FieldOfView * Math.PI / 360) / Math.Tan(degrees * Math.PI / 360);
+        var target = camera.Position + camera.LookDirection;
+        var look = camera.LookDirection * scale;
+        camera.FieldOfView = degrees;
+        camera.Position = target - look;
+        camera.LookDirection = look;
+    }
+
+    string FieldOfViewTip() =>
+        string.Format(CultureInfo.CurrentCulture, (string)FindResource("Fem3DFieldOfViewValue"), s_fieldOfView);
 
     /// <summary>Перехватывает ПКМ до контроллера камеры Helix: только попадание в редактируемый объект
     /// открывает меню, а клик по пустому месту остаётся жестом вращения модели.</summary>
@@ -241,6 +286,7 @@ public partial class FemSchemaView3D : UserControl
 
         vm.PropertyChanged += OnVMPropertyChanged;
         if (vm.Selection != null) vm.Selection.Changed += OnSelectionChanged;
+        vm.ShowShellEdges = s_showGrid;
         await vm.LoadAsync();
     }
 
@@ -361,9 +407,7 @@ public partial class FemSchemaView3D : UserControl
                 Thickness = 1.5
             };
         }
-        _shellEdgesVisual = VM.ShellEdgePoints is { Count: > 0 } edgePts
-            ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
-            : null;
+        _shellEdgesVisual = CreateShellEdgesVisual();
         _planarMeshEdgesVisual = VM.PlanarRegionMeshEdgePoints is { Count: > 0 } prMeshEdges
             ? new LinesVisual3D { Points = prMeshEdges, Color = Colors.DimGray, Thickness = 0.5 }
             : null;
@@ -687,10 +731,24 @@ public partial class FemSchemaView3D : UserControl
         return tip + (tail - tip) * 0.5;
     }
 
-    /// <summary>Рисует контуры сечений и положительные направления локальных Y/Z.</summary>
+    /// <summary>
+    /// Рисует контуры сечений и положительные направления локальных Y/Z. Все знаки — тремя линиями по
+    /// цвету: по линии на знак давало тысячи LinesVisual3D (каждая пересчитывается на каждом кадре) —
+    /// на схемах с тысячами стержней вид открывался секундами и тормозил при вращении.
+    /// </summary>
     void BuildSectionGlyphs()
     {
         if (VM is not { ShowSectionGlyphs: true }) return;
+
+        // LinesVisual3D рисует отрезки парами точек: ломаную раскладываем на отрезки.
+        var contours = new Point3DCollection();
+        var axesY = new Point3DCollection();
+        var axesZ = new Point3DCollection();
+        void AddPolyline(IReadOnlyList<Point3D> points, bool close)
+        {
+            for (int i = 0; i + 1 < points.Count; i++) { contours.Add(points[i]); contours.Add(points[i + 1]); }
+            if (close && points.Count > 2 && points[0] != points[^1]) { contours.Add(points[^1]); contours.Add(points[0]); }
+        }
 
         foreach (var glyph in VM.SectionGlyphs)
         {
@@ -705,32 +763,84 @@ public partial class FemSchemaView3D : UserControl
             {
                 var y = glyph.LocalY * halfSize;
                 var z = glyph.LocalZ * halfSize;
-                AddGlyphLine(Colors.Gold, 1.5,
-                [glyph.Center + y + z, glyph.Center - y + z,
-                 glyph.Center - y - z, glyph.Center + y - z,
-                 glyph.Center + y + z]);
+                AddPolyline([glyph.Center + y + z, glyph.Center - y + z, glyph.Center - y - z, glyph.Center + y - z], close: true);
             }
             else
             {
                 foreach (var contour in glyph.Contours)
-                {
-                    var points = new Point3DCollection(contour.Select(point =>
-                        glyph.Center + glyph.LocalY * point.Y + glyph.LocalZ * point.Z));
-                    AddGlyphLine(Colors.Gold, 1.5, points);
-                }
+                    AddPolyline(contour.Select(point => glyph.Center + glyph.LocalY * point.Y + glyph.LocalZ * point.Z).ToList(),
+                        close: true);
             }
 
             double axisLength = Math.Max(halfSize * 1.35, 0.08);
-            AddGlyphLine(Colors.LimeGreen, 1.2,
-                [glyph.Center, glyph.Center + glyph.LocalY * axisLength]);
-            AddGlyphLine(Colors.DeepSkyBlue, 1.2,
-                [glyph.Center, glyph.Center + glyph.LocalZ * axisLength]);
+            axesY.Add(glyph.Center); axesY.Add(glyph.Center + glyph.LocalY * axisLength);
+            axesZ.Add(glyph.Center); axesZ.Add(glyph.Center + glyph.LocalZ * axisLength);
         }
+
+        AddGlyphLine(Colors.Gold, 1.5, contours);
+        AddGlyphLine(Colors.LimeGreen, 1.2, axesY);
+        AddGlyphLine(Colors.DeepSkyBlue, 1.2, axesZ);
     }
 
     /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
     /// Сферы дают per-node клик, но O(N) Visual3D — на импортированных моделях (>500 узлов) вешают UI.</summary>
     const int SphereNodeThreshold = 500;
+
+    ModelVisual3D? _barPickVisual;
+    string[] _barPickVertexTags = [];
+    object? _barPickSource;
+
+    void BuildBarPickMesh(List<(string Tag, Point3D P1, Point3D P2)> bars)
+    {
+        _barPickSource = bars;
+        _barPickVisual = null;
+        _barPickVertexTags = [];
+        if (bars.Count == 0) return;
+        // Каждый стержень — четырёхгранная призма толщиной 0,04 вдоль оси (для попадания кликом этого хватает).
+        var positions = new Point3DCollection(bars.Count * 8);
+        var indices = new Int32Collection(bars.Count * 24);
+        var tags = new List<string>(bars.Count * 8);
+        const double half = 0.02;
+        foreach (var (tag, p1, p2) in bars)
+        {
+            var axis = p2 - p1;
+            if (axis.Length < 1e-12) continue;
+            axis.Normalize();
+            var u = Vector3D.CrossProduct(axis, Math.Abs(axis.Z) < 0.9 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0));
+            u.Normalize();
+            var v = Vector3D.CrossProduct(axis, u);
+            u *= half; v *= half;
+            int b = positions.Count;
+            foreach (var p in (Point3D[])[p1, p2])
+            {
+                positions.Add(p + u + v); positions.Add(p - u + v); positions.Add(p - u - v); positions.Add(p + u - v);
+            }
+            for (int k = 0; k < 4; k++)
+            {
+                int a0 = b + k, a1 = b + (k + 1) % 4, c0 = b + 4 + k, c1 = b + 4 + (k + 1) % 4;
+                indices.Add(a0); indices.Add(a1); indices.Add(c1);
+                indices.Add(a0); indices.Add(c1); indices.Add(c0);
+            }
+            for (int i = 0; i < 8; i++) tags.Add(tag);
+        }
+        var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        mesh.Freeze();
+        var material = new DiffuseMaterial(new SolidColorBrush(Colors.Transparent));
+        _barPickVisual = new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } };
+        _barPickVertexTags = [.. tags];
+    }
+
+    /// <summary>Узел или стержень под попаданием луча: отдельные прокси или общая сетка стержней.</summary>
+    bool TryGetPickTarget(RayMeshGeometry3DHitTestResult hit, out (bool IsNode, string Tag) target)
+    {
+        if (_pickTargets.TryGetValue(hit.VisualHit, out target)) return true;
+        if (hit.VisualHit == _barPickVisual && hit.VertexIndex1 >= 0 && hit.VertexIndex1 < _barPickVertexTags.Length)
+        {
+            target = (false, _barPickVertexTags[hit.VertexIndex1]);
+            return true;
+        }
+        return false;
+    }
 
     void BuildEditProxies()
     {
@@ -773,14 +883,21 @@ public partial class FemSchemaView3D : UserControl
                 viewport.Children.Add(_editNodesVisual);
             }
         }
-        foreach (var (tag, p1, p2) in vm.BarProxies)
-        {
-            bool selected = vm.Selection?.SelectedElemTags.Contains(tag) == true;
-            var color = selected ? Colors.OrangeRed : Colors.Transparent;
-            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.04, Fill = new SolidColorBrush(color) };
-            _pickTargets[pipe] = (false, tag);
-            viewport.Children.Add(pipe);
-        }
+        // Стержни для выбора кликом — одной прозрачной сеткой (по трубе на стержень — тысячи Visual3D на
+        // импортированных схемах: секунды при открытии и при каждой смене выделения). Сетка строится заново
+        // только при смене стержней; выделенные — отдельными видимыми трубами.
+        if (_barPickVisual != null) viewport.Children.Remove(_barPickVisual);
+        if (!ReferenceEquals(_barPickSource, vm.BarProxies)) BuildBarPickMesh(vm.BarProxies);
+        if (_barPickVisual != null) viewport.Children.Add(_barPickVisual);
+        var selectedElems = vm.Selection?.SelectedElemTags;
+        if (selectedElems is { Count: > 0 })
+            foreach (var (tag, p1, p2) in vm.BarProxies)
+            {
+                if (!selectedElems.Contains(tag)) continue;
+                var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.04, Fill = new SolidColorBrush(Colors.OrangeRed) };
+                _pickTargets[pipe] = (false, tag);
+                viewport.Children.Add(pipe);
+            }
 
         foreach (var pv in vm.PlanarRegionVisuals)
         {
@@ -817,7 +934,7 @@ public partial class FemSchemaView3D : UserControl
         HitTestResultBehavior Callback(HitTestResult result)
         {
             if (result is RayMeshGeometry3DHitTestResult meshHit &&
-                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+                TryGetPickTarget(meshHit, out var target))
                 hits.Add(target);
             return HitTestResultBehavior.Continue;
         }
@@ -997,13 +1114,20 @@ public partial class FemSchemaView3D : UserControl
         _rubberBandVisual.Points = new Point3DCollection([firstNode.Position, endPoint]);
     }
 
+    // Сетка КЭ по умолчанию выключена: рёбра пластин большой импортированной схемы (сотни тысяч
+    // отрезков) пересчитываются при каждом движении камеры и тормозят вращение. Выбор — на сеанс.
+    static bool s_showGrid;
+
+    LinesVisual3D? CreateShellEdgesVisual() => VM?.ShellEdgePoints is { Count: > 0 } edgePts
+        ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
+        : null;
+
     void GridToggle(object sender, RoutedEventArgs e)
     {
-        // showGridCheck.IsChecked="True" в XAML отличается от значения по умолчанию (False),
-        // поэтому WPF поднимает Checked синхронно во время InitializeComponent(), до того как
-        // viewport (объявлен ниже в XAML) будет подключён — тот же паттерн, что и в
-        // OnDataContextChanged (см. выше).
+        s_showGrid = showGridCheck.IsChecked == true;
+        if (VM != null) VM.ShowShellEdges = s_showGrid;   // рёбра строятся при первом включении
         if (!IsLoaded) return;
+        _shellEdgesVisual ??= CreateShellEdgesVisual();
         ApplyGridVisuals();
     }
 
@@ -1132,7 +1256,7 @@ public partial class FemSchemaView3D : UserControl
         HitTestResultBehavior Callback(HitTestResult result)
         {
             if (result is RayMeshGeometry3DHitTestResult meshHit &&
-                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+                TryGetPickTarget(meshHit, out var target))
             {
                 hit = target;
                 return HitTestResultBehavior.Stop;

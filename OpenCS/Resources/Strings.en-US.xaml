@@ -2735,6 +2735,8 @@
 U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
 R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
+    <system:String x:Key="Fem3DOrthographic">Orthographic projection (no perspective)</system:String>
+    <system:String x:Key="Fem3DFieldOfViewValue">Perspective field of view: {0:0}°. Smaller is closer to orthographic</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
     <system:String x:Key="FemMergeNodes">Merge coincident nodes</system:String>

@@ -53,8 +53,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         app.RegisterFemSchemaEditor(_editorVm);
         DataContext = _editorVm;
 
-        _fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };
-        _fem3d.LoadFromSession(_editorVm.Session);
+        // Вид строится по сессии при показе (LoadAsync): сетка-подложка читается в фоне, без замирания.
+        _fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true, SessionSource = () => _editorVm.Session };
         view3D.Editor = _editorVm;
         view3D.DataContext = _fem3d;
         _editorVm.MeshDiscretized += async (_, _) =>
