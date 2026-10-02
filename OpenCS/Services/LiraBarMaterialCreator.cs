@@ -14,25 +14,35 @@ public sealed class LiraBarMaterialsReport
 }
 
 /// <summary>
-/// Материалы сечений стержней по данным ЛИРЫ: сечение КЭ собирается при проверке (размеры — из жёсткости,
-/// арматура — из подбора), а бетон и арматура берутся из материалов проекта по классам подбора (*.asp).
-/// Здесь недостающие классы создаются из справочника.
+/// Материалы сечений стержней по данным схемы: сечение КЭ собирается при проверке (размеры — из жёсткости,
+/// арматура — из подбора), а бетон и арматура берутся из материалов проекта по классам — у ЛИРЫ из подбора
+/// (*.asp), у SCAD из ЖБ-групп. Здесь недостающие классы создаются из справочника.
 /// </summary>
 public static class LiraBarMaterialCreator
 {
-    /// <summary>Классы бетона и арматуры из подбора стержневых КЭ, которых нет среди материалов проекта.</summary>
+    /// <summary>Классы бетона и арматуры стержневых КЭ (подбор ЛИРЫ или ЖБ-группы SCAD), которых нет среди материалов проекта.</summary>
     public static List<(string Class, bool Concrete)> MissingClasses(
         IEnumerable<Material> materials, FemCheckSchemaData data, IEnumerable<FemCheckScopeElement> elements)
     {
         var result = new List<(string, bool)>();
-        if (data.Asp == null) return result;
+        if (data.IsScad ? data.ScadConcreteGroups == null : data.Asp == null) return result;
         var list = materials.ToList();
         var seen = new HashSet<(string, bool)>();
         foreach (var e in elements)
         {
-            if (e.Element.ElemType == "shell" || e.ElemNum is not int num || !data.Asp.Bars.TryGetValue(num, out var bar))
-                continue;
-            foreach (var (cls, concrete) in (ReadOnlySpan<(string, bool)>)[(bar.ConcreteClass, true), (bar.RebarClass, false)])
+            if (e.Element.ElemType == "shell" || e.ElemNum is not int num) continue;
+            (string Concrete, string Rebar) classes;
+            if (data.IsScad)
+            {
+                if (data.ScadConcreteGroups!.Find(num) is not { } g) continue;
+                classes = (g.ConcreteClass, g.LongitudinalRebarClass);
+            }
+            else
+            {
+                if (!data.Asp!.Bars.TryGetValue(num, out var bar)) continue;
+                classes = (bar.ConcreteClass, bar.RebarClass);
+            }
+            foreach (var (cls, concrete) in (ReadOnlySpan<(string, bool)>)[(classes.Concrete, true), (classes.Rebar, false)])
             {
                 string key = MaterialCatalog.ClassKey(cls);
                 if (key.Length == 0 || !seen.Add((key, concrete))) continue;

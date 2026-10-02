@@ -183,8 +183,13 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         private set { _createLiraMaterialsVisibility = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Подпись кнопки создания материалов (по программе схемы).</summary>
+    public string CreateMaterialsLabel { get; private set; } = Loc.S("FemCheckCreateLiraMaterials");
+    /// <summary>Подсказка кнопки создания материалов.</summary>
+    public string CreateMaterialsHint { get; private set; } = Loc.S("FemCheckCreateLiraMaterialsHint");
+
     List<(string Class, bool Concrete)> MissingBarMaterials() =>
-        IsBarRcCheck && _schemaData is { Asp: not null } data && _scope is { } scope
+        IsBarRcCheck && _schemaData is { } data && _scope is { } scope
             ? LiraBarMaterialCreator.MissingClasses(App.Materials, data, scope.Elements)
             : [];
 
@@ -199,7 +204,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
             App.LogService.Warning(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), cls));
         if (report.NotInCatalog.Count > 0)
             MessageBox.Show(string.Format(Loc.S("LiraBarMaterialNotInCatalog"), string.Join(", ", report.NotInCatalog)),
-                Loc.S("FemCheckCreateLiraMaterials"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                CreateMaterialsLabel, MessageBoxButton.OK, MessageBoxImage.Warning);
         RefreshReadiness();
     }
 
@@ -311,6 +316,11 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
         if (_suspendReadiness) return;
         RefreshCreateLiraSection();
         CreateLiraMaterialsVisibility = MissingBarMaterials().Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        bool scad = _schemaData?.IsScad == true;
+        CreateMaterialsLabel = Loc.S(scad ? "FemCheckCreateScadMaterials" : "FemCheckCreateLiraMaterials");
+        CreateMaterialsHint = Loc.S(scad ? "FemCheckCreateScadMaterialsHint" : "FemCheckCreateLiraMaterialsHint");
+        OnPropertyChanged(nameof(CreateMaterialsLabel));
+        OnPropertyChanged(nameof(CreateMaterialsHint));
         if (Target is not { } target || _schemaData is not { } data || _scope is not { } scope)
         {
             ReadinessText = "";

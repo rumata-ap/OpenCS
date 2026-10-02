@@ -960,6 +960,8 @@
    <system:String x:Key="ScadForcesNotScadSchema">Schema “{0}” was not imported from SCAD — SCAD forces do not apply to it.</system:String>
    <system:String x:Key="ScadForcesNoElements">The target has no elements of the schema mesh — nothing to import.</system:String>
    <system:String x:Key="ScadForcesNoDll">SCADAPIX.dll was not found. Specify the SCAD directory in “Import → SCAD → Schema from SCAD project (.SPR)…”.</system:String>
+   <system:String x:Key="FemCheckCreateScadMaterials">Create materials from SCAD data</system:String>
+   <system:String x:Key="FemCheckCreateScadMaterialsHint">The bar section is built from SCAD stiffness dimensions and the selected reinforcement; concrete and rebar are taken from project materials by SCAD RC group classes. Missing classes are created from the catalog.</system:String>
    <system:String x:Key="FemCheckCreateScadSection">Create section from SCAD data</system:String>
    <system:String x:Key="ScadSectionsTitle">Plate sections from SCAD data</system:String>
    <system:String x:Key="ScadSectionsNoGroups">The schema has no SCAD RC groups: material classes and covers are unavailable. Load the SCAD selected reinforcement (schema menu “SCAD → SCAD selected reinforcement (plugin)…”) — RC groups will be read from the project.</system:String>

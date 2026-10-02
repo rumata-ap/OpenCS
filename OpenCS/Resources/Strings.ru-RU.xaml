@@ -960,6 +960,8 @@
    <system:String x:Key="ScadForcesNotScadSchema">Схема «{0}» импортирована не из SCAD — усилия SCAD к ней не применимы.</system:String>
    <system:String x:Key="ScadForcesNoElements">В цели нет КЭ сетки схемы — импортировать нечего.</system:String>
    <system:String x:Key="ScadForcesNoDll">Не найдена SCADAPIX.dll. Укажите каталог SCAD в диалоге «Импорт → SCAD → Схема из проекта SCAD (.SPR)…».</system:String>
+   <system:String x:Key="FemCheckCreateScadMaterials">Создать материалы по данным SCAD</system:String>
+   <system:String x:Key="FemCheckCreateScadMaterialsHint">Сечение стержня собирается из размеров жёсткости SCAD и подобранной арматуры; бетон и арматура берутся из материалов проекта по классам ЖБ-групп SCAD. Недостающие классы создаются из справочника.</system:String>
    <system:String x:Key="FemCheckCreateScadSection">Создать сечение по данным SCAD</system:String>
    <system:String x:Key="ScadSectionsTitle">Сечения пластин по данным SCAD</system:String>
    <system:String x:Key="ScadSectionsNoGroups">У схемы нет ЖБ-групп SCAD: классы материалов и привязки взять неоткуда. Загрузите подобранную арматуру SCAD (меню схемы «SCAD → Подобранная арматура SCAD (плагин)…») — ЖБ-группы дочитаются из проекта.</system:String>
