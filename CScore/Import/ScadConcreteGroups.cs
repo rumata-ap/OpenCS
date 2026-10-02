@@ -63,6 +63,15 @@ public sealed class ScadConcreteGroupIndex
         return (a1, a2, a3 == 0 ? a1 : a3, a4 == 0 ? a2 : a4);
     }
 
+    /// <summary>
+    /// Причина «подбора нет» для КЭ, которого нет в выгрузке плагина: КЭ из ЖБ-группы SCAD должен был получить
+    /// подбор — значит, SCAD его не выдал (ошибка подбора или КЭ исключён); КЭ вне групп в подбор не входит.
+    /// </summary>
+    public static string NoSelectionReason(ScadConcreteGroupIndex? groups, int? elementId) =>
+        groups != null && elementId is int id && groups.Find(id) is { } g
+            ? $"SCAD не выдал подбор для КЭ (ЖБ-группа {g.Num} «{g.Name}») — проверьте результаты подбора в SCAD"
+            : "КЭ нет в подборе SCAD";
+
     /// <summary>Привязки арматуры стержня a1 (низ, −Z1) и a2 (верх, +Z1) группы, м.</summary>
     public static (double A1, double A2) BarCovers(ScadConcreteGroup g) => (At(g, 0), At(g, 1));
 

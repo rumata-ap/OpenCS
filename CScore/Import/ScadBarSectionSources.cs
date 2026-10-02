@@ -31,6 +31,9 @@ public sealed class ScadBarSectionContext(
     public ScadSelectedBar? SelectedBar(FemCheckScopeElement element) =>
         selected != null && element.ElemNum is int num && selected.Bars.TryGetValue(num, out var bar) ? bar : null;
 
+    /// <summary>ЖБ-группы схемы; null — не прочитаны.</summary>
+    public ScadConcreteGroupIndex? Groups => groups;
+
     /// <summary>ЖБ-группа КЭ; null — групп нет или КЭ ни в одной.</summary>
     public ScadConcreteGroup? Group(FemCheckScopeElement element) =>
         element.ElemNum is int num ? groups?.Find(num) : null;
@@ -152,7 +155,6 @@ public static class ScadBarSectionBuilder
 public sealed class ScadSelectedBarSectionSource(ScadBarSectionContext context) : IBarElementSectionSource
 {
     const string Label = "SCAD";
-    const string NotInFile = "КЭ нет в подборе SCAD";
 
     readonly Dictionary<(int Elem, int Section), BarElementSection> _cache = [];
 
@@ -164,19 +166,22 @@ public sealed class ScadSelectedBarSectionSource(ScadBarSectionContext context) 
 
     /// <inheritdoc/>
     public string? MissingReason(FemCheckScopeElement element) =>
-        context.SelectedBar(element) == null ? NotInFile
+        context.SelectedBar(element) == null ? NotInFile(element)
             : context.Profile(element).Reason ?? context.Covers(element).Reason;
 
     /// <inheritdoc/>
     public BarElementSection Resolve(FemCheckScopeElement element, int? sectionNum)
     {
         if (context.SelectedBar(element) is not { } bar)
-            return BarElementSection.Missing(NotInFile, Label);
+            return BarElementSection.Missing(NotInFile(element), Label);
         var key = (bar.ElementId, sectionNum ?? 0);
         if (!_cache.TryGetValue(key, out var result))
             _cache[key] = result = Build(element, bar, sectionNum);
         return result;
     }
+
+    string NotInFile(FemCheckScopeElement element) =>
+        ScadConcreteGroupIndex.NoSelectionReason(context.Groups, element.ElemNum);
 
     BarElementSection Build(FemCheckScopeElement element, ScadSelectedBar bar, int? sectionNum)
     {

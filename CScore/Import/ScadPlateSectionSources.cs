@@ -35,7 +35,7 @@ public sealed class ScadSelectedPlateSectionSource : IPlateElementSectionSource
     public PlateElementSection Resolve(FemCheckScopeElement element)
     {
         if (element.ElemNum is not int num || !_file.Plates.TryGetValue(num, out var p))
-            return PlateElementSection.Missing("КЭ нет в подборе SCAD", Label);
+            return PlateElementSection.Missing(ScadConcreteGroupIndex.NoSelectionReason(_groups, element.ElemNum), Label);
         if (p.As1 is not double as1 || p.As2 is not double as2 || p.As3 is not double as3 || p.As4 is not double as4)
             return PlateElementSection.Missing("подбор SCAD для КЭ не выполнен", Label);
 

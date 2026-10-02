@@ -191,6 +191,8 @@ public class ScadSelectedRebarSourcesTests
 
         Assert.Contains("не помещаются", src.Resolve(Plate(23, 0.18)).Reason);
         Assert.Contains("нет в подборе", src.Resolve(Plate(5)).Reason);
+        Assert.Contains("SCAD не выдал подбор", new ScadSelectedPlateSectionSource(Template(), File(),
+            new ScadConcreteGroupIndex([Group(1, [0.03, 0.03, 0, 0], 5)])).Resolve(Plate(5)).Reason);
         Assert.Contains("не выполнен", src.Resolve(Plate(77)).Reason);
     }
 
@@ -288,7 +290,8 @@ public class ScadSelectedRebarSourcesTests
         Assert.Contains("сечении 2 не выполнен", src.Resolve(Bar(818), null).Reason);
         Assert.Contains("нет сечения 3", src.Resolve(Bar(818), 3).Reason);
         Assert.Contains("не выполнен", src.Resolve(Bar(900), null).Reason);
-        Assert.Contains("нет в подборе", src.Resolve(Bar(5), 1).Reason);
+        Assert.Contains("SCAD не выдал подбор", src.Resolve(Bar(5), 1).Reason);
+        Assert.Contains("нет в подборе", src.Resolve(Bar(6), 1).Reason);
         Assert.Contains("форма сечения", new ScadSelectedBarSectionSource(Context(groups)).Resolve(Bar(814, stiffness: 4), 1).Reason);
     }
 
