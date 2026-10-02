@@ -1617,7 +1617,7 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                              <MenuItem Header="{DynamicResource FemCheckAddUls}"
                                         Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,

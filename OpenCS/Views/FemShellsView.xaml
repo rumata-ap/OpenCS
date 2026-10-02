@@ -7,7 +7,7 @@
          <Separator/>
          <Button Content="{DynamicResource FemShellDelete}" Click="DeleteShell_Click"/>
          <Separator/>
-         <Button Content="{DynamicResource FemCheckAdd}"
+         <Button Content="{DynamicResource FemCheckAddUls}"
                  Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
          <Button Content="{DynamicResource FemCheckAddSls}"
                  Command="{Binding DataContext.AddSlsFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
