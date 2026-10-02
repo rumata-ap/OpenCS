@@ -77,8 +77,8 @@ public sealed class FemBarDiagramVM : ViewModelBase
         _selectedCheck = Checks.FirstOrDefault();
         _selectedForceSet = forceSets.FirstOrDefault();
         // Наборы бывают уже цели (усилия импортированы на один элемент группы) — открыться на участке с усилиями.
-        var loaded = _selectedForceSet?.Items.Select(i => i.SourceElementNum).OfType<int>().ToHashSet();
-        _selectedChain = Chains.FirstOrDefault(c => loaded != null && c.Chain.Elements.Any(e => loaded.Contains(e.ElemNum)))
+        var loaded = _selectedForceSet?.ElementStats(shell: false).ByElement;
+        _selectedChain = Chains.FirstOrDefault(c => loaded != null && c.Chain.Elements.Any(e => loaded.ContainsKey(e.ElemNum)))
                          ?? Chains.FirstOrDefault();
         _selectedKind = kinds.FirstOrDefault();
         RefreshComponents();

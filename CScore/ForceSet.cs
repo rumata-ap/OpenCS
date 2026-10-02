@@ -102,6 +102,9 @@ namespace CScore
       /// <summary>Строки пластин набора по КЭ с номерами от <paramref name="fromElem"/> до <paramref name="toElem"/>
       /// в порядке номеров строк; оба null — строки без номера КЭ.</summary>
       List<ShellLoadItem> LoadShellRows(int setId, int? fromElem, int? toElem);
+
+      /// <summary>Огибающая строк пластин (<paramref name="shell"/>) или стержней набора по сечениям КЭ.</summary>
+      ForceSetEnvelope Envelope(int setId, bool shell);
    }
 
    /// <summary>Число строк набора по номерам КЭ.</summary>
@@ -172,6 +175,8 @@ namespace CScore
       List<ShellLoadItem>? _shellItems = [];
       int _storedRowCount;
       ForceSetElementStats? _barStats, _shellStats;
+      ForceSetEnvelope? _barEnvelope, _shellEnvelope;
+      int _envelopeVersion;   // растёт при сбросе кеша огибающих — посчитанная до сброса не запоминается
 
       /// <summary>Строки стержней (при первом обращении читаются из БД).</summary>
       public List<LoadItem> Items
@@ -219,6 +224,8 @@ namespace CScore
             _items = null;
             _shellItems = null;
             _barStats = _shellStats = null;
+            _barEnvelope = _shellEnvelope = null;
+            _envelopeVersion++;
          }
       }
 
@@ -230,6 +237,8 @@ namespace CScore
          {
             RowSource = source;
             _barStats = _shellStats = null;
+            _barEnvelope = _shellEnvelope = null;
+            _envelopeVersion++;
          }
       }
 
@@ -270,6 +279,8 @@ namespace CScore
             if (RowSource == null || IsModified || RowsPinned || Id == 0 || _items == null) return false;
             _storedRowCount = _items.Count + _shellItems!.Count;
             _barStats = _shellStats = null;
+            _barEnvelope = _shellEnvelope = null;
+            _envelopeVersion++;
             _items = null;
             _shellItems = null;
             return true;
@@ -290,6 +301,44 @@ namespace CScore
             return shell ? _shellStats ??= RowSource!.ElementStats(Id, shell: true)
                          : _barStats  ??= RowSource!.ElementStats(Id, shell: false);
          }
+      }
+
+      /// <summary>
+      /// Огибающая строк по сечениям КЭ (пластин или стержней) — для мозаик и эпюр усилий. У выгруженного
+      /// набора считается в БД без загрузки строк и запоминается; у набора в памяти — по строкам при каждом
+      /// вызове (строки могут меняться в редакторе). На РСУ в миллионы строк первый вызов идёт секунды —
+      /// его можно делать в фоновом потоке (см. <see cref="EnvelopeReady"/>): запрос к БД идёт вне блокировки
+      /// набора и не задерживает остальные обращения к нему.
+      /// </summary>
+      public ForceSetEnvelope Envelope(bool shell)
+      {
+         IForceSetRowSource source;
+         int version;
+         lock (_rowsLock)
+         {
+            if (_items != null)
+               return shell ? ForceSetEnvelope.OfShell(_shellItems!) : ForceSetEnvelope.OfBar(_items);
+            if ((shell ? _shellEnvelope : _barEnvelope) is { } cached) return cached;
+            source = RowSource!;
+            version = _envelopeVersion;
+         }
+         var envelope = source.Envelope(Id, shell);
+         lock (_rowsLock)
+         {
+            if (_items == null && version == _envelopeVersion)
+            {
+               if (shell) _shellEnvelope = envelope;
+               else _barEnvelope = envelope;
+            }
+         }
+         return envelope;
+      }
+
+      /// <summary>Огибающая получается сразу: строки в памяти или огибающая уже посчитана.</summary>
+      public bool EnvelopeReady(bool shell)
+      {
+         lock (_rowsLock)
+            return _items != null || (shell ? _shellEnvelope : _barEnvelope) != null;
       }
 
       /// <summary>

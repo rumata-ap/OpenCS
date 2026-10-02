@@ -218,8 +218,12 @@ namespace OpenCS
       public bool IsBusy
       {
          get => _isBusy;
-         set { _isBusy = value; OnPropertyChanged(); }
+         set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanCancelBusy)); }
       }
+
+      /// <summary>Текущую длительную операцию можно отменить (запущена через <see cref="BeginBusyWithCancellation"/>):
+      /// только тогда в строке состояния видна кнопка «Отмена».</summary>
+      public bool CanCancelBusy => _isBusy && _busyCts != null;
 
       double _busyProgress;
       /// <summary>Прогресс длительной операции (0…1) для StatusBar.</summary>
@@ -4535,6 +4539,7 @@ namespace OpenCS
          _busyCts?.Dispose();
          _busyCts = new CancellationTokenSource();
          BeginBusy(message, indeterminate);
+         OnPropertyChanged(nameof(CanCancelBusy));
          return _busyCts;
       }
 

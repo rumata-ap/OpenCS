@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Windows;
 using System.Windows.Media;
 using CScore;
 using CScore.Fem;
@@ -619,8 +620,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    void RefreshComponents()
    {
-      object? previous = SelectedComponent?.Component;
+      object? previous = SelectedComponent?.Component ?? _componentWhilePreparing;
+      // Выбрали другое, не дождавшись: подготовка доработает в фоне, огибающая запомнится в наборе.
+      if (_preparingSet != null && !(Kind == PlateRebarMosaicSourceKind.Forces && SelectedSubject?.Subject == _preparingSet))
+         _preparingSet = null;
       ComponentOptions = BuildComponentOptions();
+      // Пока набор готовится, компонент нет — после подготовки вернуть ту, что была выбрана.
+      _componentWhilePreparing = _preparingSet != null ? previous : null;
       OnPropertyChanged(nameof(ComponentOptions));
       _selectedComponent = ComponentOptions.FirstOrDefault(o => Equals(o.Component, previous)) ?? ComponentOptions.FirstOrDefault();
       OnPropertyChanged(nameof(SelectedComponent));
@@ -634,6 +640,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       switch (Kind)
       {
          case PlateRebarMosaicSourceKind.Forces when SelectedSubject?.Subject is ForceSet set:
+            if (!PrepareEnvelope(set)) return [];
             if (ElementForceField.HasShellRows(set))
             {
                bool stresses = ElementForceField.HasStresses(set);
@@ -669,6 +676,49 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                   .ToList()
                : [];
       }
+   }
+
+   ForceSet? _preparingSet;
+   readonly Dictionary<ForceSet, Task> _envelopeTasks = [];
+   object? _componentWhilePreparing;
+
+   /// <summary>
+   /// Огибающая набора для мозаики готова (true) или запущена её подготовка в фоне (false): на РСУ в
+   /// миллионы строк первый расчёт идёт секунды — интерфейс не замирает, а показывает сообщение в строке
+   /// состояния главного окна; по готовности список компонент и раскраска обновляются сами.
+   /// </summary>
+   bool PrepareEnvelope(ForceSet set)
+   {
+      bool shell = ElementForceField.HasShellRows(set);
+      if (set.EnvelopeReady(shell)) return true;
+      // Без контекста синхронизации (тесты) вернуть результат в этот поток некуда — считаем сразу.
+      if (SynchronizationContext.Current == null) { set.Envelope(shell); return true; }
+      if (_preparingSet == set) return false;
+
+      _preparingSet = set;
+      if (!_envelopeTasks.TryGetValue(set, out var task) || task.IsCompleted)
+      {
+         _envelopeTasks[set] = task = Task.Run(() => set.Envelope(shell));
+         // Строка состояния — на время самой подготовки, а не выбора набора; занятую другой операцией не трогаем.
+         var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
+         bool status = app is { IsBusy: false };
+         if (status) app!.BeginBusy(string.Format(Loc.S("MosaicForcesPreparing"), set.Tag, set.RowCount));
+         task.ContinueWith(_ =>
+         {
+            _envelopeTasks.Remove(set);
+            if (status) app!.EndBusy();
+         }, TaskScheduler.FromCurrentSynchronizationContext());
+      }
+      task.ContinueWith(t =>
+      {
+         if (_preparingSet != set) return;   // за время подготовки выбрали другое
+         _preparingSet = null;
+         if (t.Exception is { } ex)
+            _warn?.Invoke(string.Format(Loc.S("MosaicForcesPrepareError"), set.Tag, ex.GetBaseException().Message));
+         RefreshComponents();
+         RaiseChanged();
+      }, TaskScheduler.FromCurrentSynchronizationContext());
+      return false;
    }
 
    IReadOnlyList<FemCheckRowResult> CheckRows(CheckInfo check)

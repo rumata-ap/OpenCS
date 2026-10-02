@@ -81,52 +81,62 @@ namespace OpenCS.Utilites
       static int? NullableInt(sqlite3_stmt s, int i) => IsNull(s, i) ? null : raw.sqlite3_column_int(s, i);
       static double? NullableDouble(sqlite3_stmt s, int i) => IsNull(s, i) ? null : raw.sqlite3_column_double(s, i);
 
+      const string BarColumns = "id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num";
+      const string ShellColumns =
+         "id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num";
+
+      /// <summary>Заполняет строку стержня столбцами <see cref="BarColumns"/>.</summary>
+      static LoadItem FillBar(sqlite3_stmt r, LoadItem item)
+      {
+         item.Id    = raw.sqlite3_column_int(r, 0);
+         item.Num   = raw.sqlite3_column_int(r, 1);
+         item.Label = Text(r, 2);
+         item.N     = raw.sqlite3_column_double(r, 3);
+         item.Mx    = raw.sqlite3_column_double(r, 4);
+         item.My    = raw.sqlite3_column_double(r, 5);
+         item.Vx    = raw.sqlite3_column_double(r, 6);
+         item.Vy    = raw.sqlite3_column_double(r, 7);
+         item.T     = raw.sqlite3_column_double(r, 8);
+         item.SourceElementNum = NullableInt(r, 9);
+         item.SourceSectionNum = NullableInt(r, 10);
+         return item;
+      }
+
+      /// <summary>Заполняет строку пластины столбцами <see cref="ShellColumns"/>.</summary>
+      static ShellLoadItem FillShell(sqlite3_stmt r, ShellLoadItem item)
+      {
+         item.Id      = raw.sqlite3_column_int(r, 0);
+         item.Num     = raw.sqlite3_column_int(r, 1);
+         item.Label   = Text(r, 2);
+         item.Nx      = raw.sqlite3_column_double(r, 3);
+         item.Ny      = raw.sqlite3_column_double(r, 4);
+         item.Nxy     = raw.sqlite3_column_double(r, 5);
+         item.Mx      = raw.sqlite3_column_double(r, 6);
+         item.My      = raw.sqlite3_column_double(r, 7);
+         item.Mxy     = raw.sqlite3_column_double(r, 8);
+         item.Qx      = raw.sqlite3_column_double(r, 9);
+         item.Qy      = raw.sqlite3_column_double(r, 10);
+         item.SigmaX  = NullableDouble(r, 11);
+         item.SigmaY  = NullableDouble(r, 12);
+         item.TauXY   = NullableDouble(r, 13);
+         item.SourceElementNum = NullableInt(r, 14);
+         item.SourceSectionNum = NullableInt(r, 15);
+         return item;
+      }
+
       static List<LoadItem> ReadBarRows(SqliteConnection conn, int setId, string filter, int? fromElem = null, int? toElem = null)
       {
          var items = new List<LoadItem>();
-         ReadRows(conn,
-            $"SELECT id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num FROM force_items WHERE set_id=@sid{filter} ORDER BY num",
-            setId, fromElem, toElem, r => items.Add(new LoadItem
-            {
-               Id    = raw.sqlite3_column_int(r, 0),
-               Num   = raw.sqlite3_column_int(r, 1),
-               Label = Text(r, 2),
-               N     = raw.sqlite3_column_double(r, 3),
-               Mx    = raw.sqlite3_column_double(r, 4),
-               My    = raw.sqlite3_column_double(r, 5),
-               Vx    = raw.sqlite3_column_double(r, 6),
-               Vy    = raw.sqlite3_column_double(r, 7),
-               T     = raw.sqlite3_column_double(r, 8),
-               SourceElementNum = NullableInt(r, 9),
-               SourceSectionNum = NullableInt(r, 10),
-            }));
+         ReadRows(conn, $"SELECT {BarColumns} FROM force_items WHERE set_id=@sid{filter} ORDER BY num",
+            setId, fromElem, toElem, r => items.Add(FillBar(r, new LoadItem())));
          return items;
       }
 
       static List<ShellLoadItem> ReadShellRows(SqliteConnection conn, int setId, string filter, int? fromElem = null, int? toElem = null)
       {
          var shellItems = new List<ShellLoadItem>();
-         ReadRows(conn,
-            $"SELECT id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num FROM force_shell_items WHERE set_id=@sid{filter} ORDER BY num",
-            setId, fromElem, toElem, r => shellItems.Add(new ShellLoadItem
-            {
-               Id      = raw.sqlite3_column_int(r, 0),
-               Num     = raw.sqlite3_column_int(r, 1),
-               Label   = Text(r, 2),
-               Nx      = raw.sqlite3_column_double(r, 3),
-               Ny      = raw.sqlite3_column_double(r, 4),
-               Nxy     = raw.sqlite3_column_double(r, 5),
-               Mx      = raw.sqlite3_column_double(r, 6),
-               My      = raw.sqlite3_column_double(r, 7),
-               Mxy     = raw.sqlite3_column_double(r, 8),
-               Qx      = raw.sqlite3_column_double(r, 9),
-               Qy      = raw.sqlite3_column_double(r, 10),
-               SigmaX  = NullableDouble(r, 11),
-               SigmaY  = NullableDouble(r, 12),
-               TauXY   = NullableDouble(r, 13),
-               SourceElementNum = NullableInt(r, 14),
-               SourceSectionNum = NullableInt(r, 15),
-            }));
+         ReadRows(conn, $"SELECT {ShellColumns} FROM force_shell_items WHERE set_id=@sid{filter} ORDER BY num",
+            setId, fromElem, toElem, r => shellItems.Add(FillShell(r, new ShellLoadItem())));
          return shellItems;
       }
 
@@ -146,6 +156,32 @@ namespace OpenCS.Utilites
             else byElement[r.GetInt32(0)] = r.GetInt32(1);
          }
          return new ForceSetElementStats(byElement, without);
+      }
+
+      // Метки огибающей не нужны — без них не создаётся строка на каждую запись.
+      static string NoLabel(string columns) => columns.Replace("label", "NULL");
+
+      /// <inheritdoc/>
+      public ForceSetEnvelope Envelope(int setId, bool shell)
+      {
+         // Один проход по строкам набора в порядке хранения, один переиспользуемый объект строки: на РСУ в
+         // миллионы строк ни одна строка не остаётся в памяти. (GROUP BY в SQLite медленнее: группировка по
+         // КЭ и сечению сортирует все строки во временном B-дереве — 6 с против ~1 с на 1,7 млн строк.)
+         var builder = new ForceSetEnvelope.Builder(shell);
+         using var conn = OpenReadConnection();
+         if (shell)
+         {
+            var row = new ShellLoadItem();
+            ReadRows(conn, $"SELECT {NoLabel(ShellColumns)} FROM force_shell_items WHERE set_id=@sid AND source_elem_num IS NOT NULL",
+               setId, null, null, r => builder.Add(FillShell(r, row)));
+         }
+         else
+         {
+            var row = new LoadItem();
+            ReadRows(conn, $"SELECT {NoLabel(BarColumns)} FROM force_items WHERE set_id=@sid AND source_elem_num IS NOT NULL",
+               setId, null, null, r => builder.Add(FillBar(r, row)));
+         }
+         return builder.Build();
       }
    }
 }

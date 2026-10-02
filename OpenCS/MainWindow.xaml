@@ -1825,7 +1825,7 @@
                     Padding="8,1" Margin="4,0"
                     VerticalAlignment="Center">
                <Button.Visibility>
-                  <Binding Path="IsBusy">
+                  <Binding Path="CanCancelBusy">
                      <Binding.Converter>
                         <BooleanToVisibilityConverter/>
                      </Binding.Converter>

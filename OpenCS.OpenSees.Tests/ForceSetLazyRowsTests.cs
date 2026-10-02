@@ -171,6 +171,77 @@ public sealed class ForceSetLazyRowsTests
         }
     }
 
+    /// <summary>Огибающая для мозаик и эпюр считается в БД, не загружая набор, и совпадает с огибающей строк в памяти.</summary>
+    [Fact]
+    public void Envelope_FromDatabase_MatchesRows_WithoutLoadingSet()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-lazy-rows-envelope-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+                db.SaveForceSet(new ForceSet
+                {
+                    Tag = "Плита", Kind = "shell",
+                    ShellItems =
+                    [
+                        new ShellLoadItem { Mx = 5, Nx = 40, SourceElementNum = 1 },
+                        new ShellLoadItem { Mx = -12, Nx = -3, Qy = 2, SourceElementNum = 1 },
+                        new ShellLoadItem { Mx = 1, SigmaX = 1500, TauXY = -7, SourceElementNum = 2, SourceSectionNum = 1 },
+                        new ShellLoadItem { Mx = 99 },
+                    ],
+                });
+                db.SaveForceSet(new ForceSet
+                {
+                    Tag = "Стержни",
+                    Items =
+                    [
+                        new LoadItem { N = -100, Mx = 10, SourceElementNum = 4, SourceSectionNum = 1 },
+                        new LoadItem { N = -90, Mx = -30, SourceElementNum = 4, SourceSectionNum = 1 },
+                        new LoadItem { N = 7, T = 2, SourceElementNum = 4, SourceSectionNum = 2 },
+                        new LoadItem { N = 999 },
+                    ],
+                });
+            }
+
+            using (var db = new DatabaseService(path))
+            {
+                db.LoadAll();
+                var shell = db.ForceSets.Single(f => f.Tag == "Плита");
+                var bar = db.ForceSets.Single(f => f.Tag == "Стержни");
+
+                var shellDb = shell.Envelope(shell: true);
+                var barDb = bar.Envelope(shell: false);
+                Assert.False(shell.RowsLoaded);
+                Assert.False(bar.RowsLoaded);
+                Assert.True(shellDb.HasStresses);
+
+                shell.EnsureRows();
+                bar.EnsureRows();
+                AssertSame(ForceSetEnvelope.OfShell(shell.ShellItems), shellDb);
+                AssertSame(ForceSetEnvelope.OfBar(bar.Items), barDb);
+                Assert.Equal(2, shellDb.Entries.Count);   // строка без номера КЭ не входит
+                Assert.Equal(2, barDb.Entries.Count);
+            }
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+
+        static void AssertSame(ForceSetEnvelope expected, ForceSetEnvelope actual)
+        {
+            Assert.Equal(expected.HasStresses, actual.HasStresses);
+            Assert.Equal(expected.Entries.Select(e => (e.Elem, e.Section)), actual.Entries.Select(e => (e.Elem, e.Section)));
+            for (int i = 0; i < expected.Entries.Count; i++)
+            {
+                Assert.Equal(expected.Entries[i].Min, actual.Entries[i].Min);
+                Assert.Equal(expected.Entries[i].Max, actual.Entries[i].Max);
+            }
+        }
+    }
+
     static int Count(string path, string sql)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");

@@ -38,7 +38,8 @@ public static class BarDiagram
     {
         ArgumentNullException.ThrowIfNull(chain);
         ArgumentNullException.ThrowIfNull(set);
-        var rowsByElem = set.Items.Where(i => i.SourceElementNum != null).ToLookup(i => i.SourceElementNum!.Value);
+        int c = (int)component;
+        var byElem = set.Envelope(shell: false).ByElement();
 
         var upper = new List<BarDiagramSegment>();
         var lower = new List<BarDiagramSegment>();
@@ -46,9 +47,7 @@ public static class BarDiagram
         bool envelope = false;
         foreach (var e in chain.Elements)
         {
-            var sections = Sections(rowsByElem[e.ElemNum], component)
-                .Select(x => (x.Num, x.T, Max: x.Values.Max(), Min: x.Values.Min()))
-                .ToList();
+            var sections = Sections(byElem[e.ElemNum], c);
             if (sections.Count == 0) continue;
 
             foreach (var s in sections)
@@ -110,19 +109,15 @@ public static class BarDiagram
         ForceSet set, BarForceComponent component, ForceRowAggregate aggregate)
     {
         ArgumentNullException.ThrowIfNull(set);
+        int c = (int)component;
         var result = new Dictionary<int, IReadOnlyList<(double T, double V)>>();
-        foreach (var rows in set.Items.Where(i => i.SourceElementNum != null).GroupBy(i => i.SourceElementNum!.Value))
+        foreach (var entries in set.Envelope(shell: false).ByElement())
         {
-            var sections = Sections(rows, component)
-                .Select(s => (s.T, V: aggregate switch
-                {
-                    ForceRowAggregate.Max => s.Values.Max(),
-                    ForceRowAggregate.Min => s.Values.Min(),
-                    _ => s.Values.MaxBy(Math.Abs),
-                }))
+            var sections = Sections(entries, c)
+                .Select(s => (s.T, V: ForceSetEnvelope.Entry.Pick(s.Min, s.Max, aggregate)!.Value))
                 .ToList();
-            if (sections.Count == 1) result[rows.Key] = [(0, sections[0].V), (1, sections[0].V)];
-            else if (sections.Count > 1) result[rows.Key] = sections;
+            if (sections.Count == 1) result[entries.Key] = [(0, sections[0].V), (1, sections[0].V)];
+            else if (sections.Count > 1) result[entries.Key] = sections;
         }
         return result;
     }
@@ -231,23 +226,25 @@ public static class BarDiagram
         n > 1 ? (Math.Max(0, (k - 0.5) / (n - 1)), Math.Min(1, (k + 0.5) / (n - 1))) : (0, 1);
 
     /// <summary>
-    /// Сечения КЭ по его строкам усилий: номер, положение в долях длины и значения компоненты всех строк
-    /// сечения. Строки без номера сечения — одно «сечение» посередине КЭ (номер null).
+    /// Сечения КЭ по огибающей его строк усилий: номер, положение в долях длины, наибольшее и наименьшее
+    /// значение канала <paramref name="channel"/>. Если хоть у одной строки КЭ нет номера сечения — одно
+    /// «сечение» посередине КЭ (номер null) по всем строкам.
     /// </summary>
-    static List<(int? Num, double T, List<double> Values)> Sections(IEnumerable<LoadItem> elementRows, BarForceComponent component)
+    static List<(int? Num, double T, double Max, double Min)> Sections(IEnumerable<ForceSetEnvelope.Entry> elementEntries, int channel)
     {
-        var rows = elementRows.ToList();
-        if (rows.Count == 0) return [];
-        bool numbered = rows.All(r => r.SourceSectionNum is >= 1);
-        int count = numbered ? rows.Max(r => r.SourceSectionNum!.Value) : 1;
-        return rows
-            .GroupBy(r => numbered ? r.SourceSectionNum!.Value : 1)
+        var entries = elementEntries.ToList();
+        if (entries.Count == 0) return [];
+        bool numbered = entries.All(e => e.Section is >= 1);
+        int count = numbered ? entries.Max(e => e.Section!.Value) : 1;
+        return entries
+            .GroupBy(e => numbered ? e.Section!.Value : 1)
             .OrderBy(g => g.Key)
             .Select(g => (
                 Num: numbered ? g.Key : (int?)null,
                 T: count > 1 ? (g.Key - 1) / (double)(count - 1) : 0.5,
-                Values: g.Select(r => ElementForceField.BarValue(r, component)).Where(double.IsFinite).ToList()))
-            .Where(x => x.Values.Count > 0)
+                Max: g.Select(e => e.Max[channel]).Where(v => !double.IsNaN(v)).DefaultIfEmpty(double.NaN).Max(),
+                Min: g.Select(e => e.Min[channel]).Where(v => !double.IsNaN(v)).DefaultIfEmpty(double.NaN).Min()))
+            .Where(x => !double.IsNaN(x.Max))
             .ToList();
     }
 

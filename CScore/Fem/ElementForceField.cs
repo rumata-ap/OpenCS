@@ -68,11 +68,9 @@ public static class ElementForceField
     public static bool HasBarRows(ForceSet set) => set.ElementStats(shell: false).HasElementRows;
 
     /// <summary>Мембранные усилия строк набора заданы напряжениями (σ·h считается по толщине КЭ).</summary>
-    public static bool HasStresses(ForceSet set) => set.ShellItems.Any(IsStressRow);
+    public static bool HasStresses(ForceSet set) => set.Envelope(shell: true).HasStresses;
 
-    static bool IsStressRow(ShellLoadItem i) => i.SigmaX != null || i.SigmaY != null || i.TauXY != null;
-
-    /// <summary>Значения компоненты пластин по номеру КЭ.</summary>
+    /// <summary>Значения компоненты пластин по номеру КЭ (по огибающей набора — строки в память не грузятся).</summary>
     /// <param name="set">Набор усилий.</param>
     /// <param name="component">Компонента.</param>
     /// <param name="aggregate">Выбор значения при нескольких строках КЭ.</param>
@@ -81,26 +79,48 @@ public static class ElementForceField
     public static Dictionary<int, double> Shell(
         ForceSet set, ShellForceComponent component, ForceRowAggregate aggregate, Func<int, double?> thicknessM)
     {
+        int c = (int)component;
+        // Nx/Ny/Nxy строк с напряжениями — σ·h, где σ — канал σx/σy/τxy (порядок каналов тот же, сдвиг на 8).
+        int? stress = component <= ShellForceComponent.Nxy ? c + (int)ShellForceComponent.SigmaX : null;
         var result = new Dictionary<int, double>();
-        foreach (var row in set.ShellItems)
+        foreach (var sections in set.Envelope(shell: true).ByElement())
         {
-            if (row.SourceElementNum is not int num) continue;
-            if (ShellValue(row, component, num, thicknessM) is double v)
-                Put(result, num, v, aggregate);
+            double min = double.NaN, max = double.NaN;
+            double? h = null;
+            foreach (var e in sections)
+            {
+                Merge(ref min, ref max, e.Min[c], e.Max[c]);
+                if (stress is not int s || double.IsNaN(e.Min[s])) continue;
+                h ??= thicknessM(e.Elem) is double t && t > 0 ? t : double.NaN;
+                if (h > 0) Merge(ref min, ref max, e.Min[s] * h.Value, e.Max[s] * h.Value);
+            }
+            if (ForceSetEnvelope.Entry.Pick(min, max, aggregate) is double v)
+                result[sections.Key] = v;
         }
         return result;
     }
 
-    /// <summary>Значения компоненты стержней по номеру КЭ.</summary>
+    /// <summary>Значения компоненты стержней по номеру КЭ (по огибающей набора — строки в память не грузятся).</summary>
     public static Dictionary<int, double> Bar(ForceSet set, BarForceComponent component, ForceRowAggregate aggregate)
     {
+        int c = (int)component;
         var result = new Dictionary<int, double>();
-        foreach (var row in set.Items)
+        foreach (var sections in set.Envelope(shell: false).ByElement())
         {
-            if (row.SourceElementNum is not int num) continue;
-            Put(result, num, BarValue(row, component), aggregate);
+            double min = double.NaN, max = double.NaN;
+            foreach (var e in sections) Merge(ref min, ref max, e.Min[c], e.Max[c]);
+            if (ForceSetEnvelope.Entry.Pick(min, max, aggregate) is double v)
+                result[sections.Key] = v;
         }
         return result;
+    }
+
+    /// <summary>Расширяет диапазон [<paramref name="min"/>, <paramref name="max"/>] (NaN — пустой) другим.</summary>
+    static void Merge(ref double min, ref double max, double otherMin, double otherMax)
+    {
+        if (double.IsNaN(otherMin)) return;
+        if (double.IsNaN(min) || otherMin < min) min = otherMin;
+        if (double.IsNaN(max) || otherMax > max) max = otherMax;
     }
 
     /// <summary>Значение компоненты в строке усилий стержня.</summary>
@@ -113,46 +133,4 @@ public static class ElementForceField
         BarForceComponent.Vy => row.Vy,
         _ => row.T,
     };
-
-    static double? ShellValue(ShellLoadItem row, ShellForceComponent component, int num, Func<int, double?> thicknessM)
-    {
-        switch (component)
-        {
-            case ShellForceComponent.Mx: return row.Mx;
-            case ShellForceComponent.My: return row.My;
-            case ShellForceComponent.Mxy: return row.Mxy;
-            case ShellForceComponent.Qx: return row.Qx;
-            case ShellForceComponent.Qy: return row.Qy;
-            case ShellForceComponent.SigmaX: return IsStressRow(row) ? row.SigmaX ?? 0 : null;
-            case ShellForceComponent.SigmaY: return IsStressRow(row) ? row.SigmaY ?? 0 : null;
-            case ShellForceComponent.TauXY: return IsStressRow(row) ? row.TauXY ?? 0 : null;
-        }
-
-        double nx, ny, nxy;
-        if (IsStressRow(row))
-        {
-            if (thicknessM(num) is not double h || !(h > 0)) return null;
-            (nx, ny, nxy) = row.ResolveN(h);
-        }
-        else
-            (nx, ny, nxy) = (row.Nx, row.Ny, row.Nxy);
-        return component switch
-        {
-            ShellForceComponent.Nx => nx,
-            ShellForceComponent.Ny => ny,
-            _ => nxy,
-        };
-    }
-
-    static void Put(Dictionary<int, double> result, int num, double value, ForceRowAggregate aggregate)
-    {
-        if (!double.IsFinite(value)) return;
-        if (!result.TryGetValue(num, out double current)) { result[num] = value; return; }
-        result[num] = aggregate switch
-        {
-            ForceRowAggregate.Max => Math.Max(current, value),
-            ForceRowAggregate.Min => Math.Min(current, value),
-            _ => Math.Abs(value) > Math.Abs(current) ? value : current,
-        };
-    }
 }

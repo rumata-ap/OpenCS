@@ -3961,6 +3961,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicAggregateMax">Maximum</system:String>
     <system:String x:Key="MosaicAggregateMin">Minimum</system:String>
     <system:String x:Key="MosaicAggregateTip">Which value to show when an element has several rows in the set (sections, design combinations).</system:String>
+    <system:String x:Key="MosaicForcesPreparing">Preparing force set "{0}" ({1:N0} rows) for the mosaic — once per session, please wait a few seconds…</system:String>
+    <system:String x:Key="MosaicForcesPrepareError">Failed to prepare force set "{0}" for the mosaic: {1}</system:String>
     <system:String x:Key="MosaicShellForceNx">Nx, kN/m</system:String>
     <system:String x:Key="MosaicShellForceNy">Ny, kN/m</system:String>
     <system:String x:Key="MosaicShellForceNxy">Nxy, kN/m</system:String>

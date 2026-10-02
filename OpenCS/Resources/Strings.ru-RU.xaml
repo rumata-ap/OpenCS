@@ -3961,6 +3961,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicAggregateMax">Наибольшее</system:String>
     <system:String x:Key="MosaicAggregateMin">Наименьшее</system:String>
     <system:String x:Key="MosaicAggregateTip">Какое значение показывать, если у КЭ в наборе несколько строк (сечения, сочетания РСУ).</system:String>
+    <system:String x:Key="MosaicForcesPreparing">Подготовка усилий набора «{0}» ({1:N0} строк) для мозаики — один раз за сеанс, подождите несколько секунд…</system:String>
+    <system:String x:Key="MosaicForcesPrepareError">Не удалось подготовить усилия набора «{0}» для мозаики: {1}</system:String>
     <system:String x:Key="MosaicShellForceNx">Nx, кН/м</system:String>
     <system:String x:Key="MosaicShellForceNy">Ny, кН/м</system:String>
     <system:String x:Key="MosaicShellForceNxy">Nxy, кН/м</system:String>
