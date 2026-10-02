@@ -114,9 +114,17 @@ public class FemCheckContextTests
                 DataJson = System.Text.Json.JsonSerializer.Serialize(new { utilization = item.N }),
             });
 
+        // Строки результата — не в DataJson: окно читает их через загрузчик (в приложении — из БД).
+        var stored = result.FemCheckRows!;
+        FemCheckRowsLoader loader = (elemNum, onlyFailed, limit) =>
+        {
+            var rows = stored.Where(r => (elemNum == null || r.ElemNum == elemNum) && (!onlyFailed || !r.Passed)).ToList();
+            return (rows.Take(limit).ToList(), rows.Count);
+        };
+
         RunSta(() =>
         {
-            var vm = new FemCheckResultVM(result.DataJson);
+            var vm = new FemCheckResultVM(result.DataJson, loader);
 
             Assert.True(vm.IsPerElement);
             Assert.Equal(["bar"], vm.SourceKeys);

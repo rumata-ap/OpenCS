@@ -81,7 +81,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <param name="Check">Проверка.</param>
    /// <param name="Label">Имя в списке.</param>
    /// <param name="LoadJson">Чтение <c>DataJson</c> результата (по требованию: он может быть большим).</param>
-   public sealed record CheckInfo(FemCheck Check, string Label, Func<string?> LoadJson);
+   /// <param name="LoadRows">Чтение строк результата с номерами КЭ (по требованию).</param>
+   public sealed record CheckInfo(FemCheck Check, string Label, Func<string?> LoadJson,
+      Func<IReadOnlyList<FemCheckRowResult>> LoadRows);
 
    /// <summary>Значения мозаики на КЭ и то, как их красить.</summary>
    sealed record Field(
@@ -347,12 +349,12 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                   : groups?.FirstOrDefault(g => g.Id == c.MemberId)?.Tag;
                int id = c.Id;
                checks.Add(new CheckInfo(c, target == null ? c.DisplayTag : $"{target} — {c.DisplayTag}",
-                  () => db.GetCalcResultByFemCheck(id)?.DataJson));
+                  () => db.GetCalcResultByFemCheck(id)?.DataJson, () => db.GetFemCheckRowResults(id)));
             }
          }
 
          string key = Key
-            + "|" + string.Join(',', sets.Select(s => $"{s.Id}:{s.ShellItems.Count}:{s.Items.Count}"))
+            + "|" + string.Join(',', sets.Select(s => $"{s.Id}:{s.RowCount}"))
             + "|" + string.Join(',', checks.Select(c => $"{c.Check.Id}:{c.Check.ResultId}"))
             + "|" + layoutKey;
          return this with { ForceSets = sets, Checks = checks, Layout = layout, Key = key };
@@ -529,8 +531,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _forceSets = data.ForceSets
          .Where(fs => !ShellOnly || ElementForceField.HasShellRows(fs))
          .Where(fs => scope == null
-                      || fs.ShellItems.Any(i => i.SourceElementNum is int n && scope.Contains(n))
-                      || (!ShellOnly && fs.Items.Any(i => i.SourceElementNum is int n && scope.Contains(n))))
+                      || fs.ElementStats(shell: true).ByElement.Keys.Any(scope.Contains)
+                      || (!ShellOnly && fs.ElementStats(shell: false).ByElement.Keys.Any(scope.Contains)))
          .ToList();
       _checks = data.Checks
          .Where(c => !ShellOnly || FemCheckContext.IsPlate(c.Check))
@@ -672,7 +674,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    IReadOnlyList<FemCheckRowResult> CheckRows(CheckInfo check)
    {
       if (!_checkRows.TryGetValue(check.Check.Id, out var rows))
-         _checkRows[check.Check.Id] = rows = FemCheckElementResults.ParseRows(check.LoadJson());
+         _checkRows[check.Check.Id] = rows = check.LoadRows();
       return rows;
    }
 

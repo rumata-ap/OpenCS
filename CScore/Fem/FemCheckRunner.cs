@@ -17,7 +17,7 @@ public static partial class FemCheckRunner
 
     /// <summary>
     /// Главный метод: перебирает все выбранные наборы усилий, для каждой строки запускает
-    /// проверку, собирает таблицу строк и возвращает один CalcResult с DataJson.
+    /// проверку, собирает таблицу строк и возвращает один CalcResult: сводка — в DataJson, строки — в FemCheckRows.
     /// </summary>
     public static CalcResult RunMulti(
         FemCheck      check,
@@ -45,7 +45,7 @@ public static partial class FemCheckRunner
         if (!isPlate && barSection == null)
             return MakeError(check, created, member.Tag, "Не задано расчётное сечение");
 
-        var rows = new List<CheckRow>();
+        var rows = new List<FemCheckRow>();
 
         foreach (var fs in forceSets)
         {
@@ -100,16 +100,7 @@ public static partial class FemCheckRunner
             totalRows  = rows.Count,
             passedRows = passed,
             failedRows = rows.Count - passed,
-            rows       = rows.Select(r => new
-            {
-                label            = r.Label,
-                forceSetTag      = r.ForceSetTag,
-                calcType         = r.CalcType,
-                utilization      = double.IsFinite(r.Utilization) ? Math.Round(r.Utilization, 6) : (double?)null,
-                passed           = r.Passed,
-                worstFormula     = r.WorstFormula,
-                worstDescription = r.WorstDescription
-            }).ToArray()
+            rowsStored = true,
         });
 
         return new CalcResult
@@ -119,21 +110,22 @@ public static partial class FemCheckRunner
             TaskTag  = check.DisplayTag,
             Created  = created,
             Status   = passed == rows.Count ? "ok" : "not_passed",
-            DataJson = dataJson
+            DataJson = dataJson,
+            FemCheckRows = rows,
         };
     }
 
     // ------------------------------------------------------------------ row checks
 
     /// <summary>Проверка одной строки усилий пластины; исключение — строка «не проверено».</summary>
-    static CheckRow CheckPlateRow(
+    static FemCheckRow CheckPlateRow(
         FemCheck check, PlateSection section, ShellLoadItem shell, string forceSetTag, CalcType calcType,
         Material? concreteMat, Material? rebarMat, ShellLoadItem? nlItem)
     {
         try
         {
             var (util, wf, wd) = RunPlateShellCheck(check, section, shell, concreteMat, rebarMat, calcType, nlItem);
-            return new CheckRow
+            return new FemCheckRow
             {
                 Label            = shell.Label,
                 ForceSetTag      = forceSetTag,
@@ -146,7 +138,7 @@ public static partial class FemCheckRunner
         }
         catch (Exception ex)
         {
-            return new CheckRow
+            return new FemCheckRow
             {
                 Label            = shell.Label,
                 ForceSetTag      = forceSetTag,
@@ -161,7 +153,7 @@ public static partial class FemCheckRunner
     }
 
     /// <summary>Проверка одной строки усилий стержня через исполнитель расчётных задач.</summary>
-    static CheckRow CheckBarRow(
+    static FemCheckRow CheckBarRow(
         Func<CalcTask, CrossSection, LoadItem, CalcResult> barExecutor,
         CalcTask task, CrossSection section, LoadItem item, string forceSetTag, CalcType calcType)
     {
@@ -176,7 +168,7 @@ public static partial class FemCheckRunner
             if (util is double u)
             {
                 var (wf, wd) = ExtractWorstDetail(r.DataJson);
-                return new CheckRow
+                return new FemCheckRow
                 {
                     Label            = item.Label,
                     ForceSetTag      = forceSetTag,
@@ -192,7 +184,7 @@ public static partial class FemCheckRunner
                 // Не пройдено без конечного коэффициента (напр. бесконечный у одной из проверок) —
                 // показываем определяющую проверку, а не только статус.
                 var (wf, wd) = r.Status == "not_passed" ? ExtractWorstDetail(r.DataJson) : ("", "");
-                return new CheckRow
+                return new FemCheckRow
                 {
                     Label            = item.Label,
                     ForceSetTag      = forceSetTag,
@@ -207,7 +199,7 @@ public static partial class FemCheckRunner
         }
         catch (Exception ex)
         {
-            return new CheckRow
+            return new FemCheckRow
             {
                 Label            = item.Label,
                 ForceSetTag      = forceSetTag,
@@ -684,27 +676,4 @@ public static partial class FemCheckRunner
         Status   = "error",
         DataJson = JsonSerializer.Serialize(new { error = message, memberTag })
     };
-
-    record CheckRow
-    {
-        public string Label            { get; init; } = "";
-        public string ForceSetTag      { get; init; } = "";
-        public string CalcType         { get; init; } = "";
-        public double Utilization      { get; init; }
-        public bool   Passed           { get; init; }
-        public string WorstFormula     { get; init; } = "";
-        public string WorstDescription { get; init; } = "";
-        /// <summary>Строка не проверена (ошибка расчёта, нет сечения), а не «не прошла».</summary>
-        public bool   NotChecked       { get; init; }
-        /// <summary>Номер КЭ во внешней схеме (проверка по КЭ).</summary>
-        public int?   ElemNum          { get; init; }
-        /// <summary>Номер сечения КЭ во внешней схеме.</summary>
-        public int?   SectionNum       { get; init; }
-        /// <summary>Подпись сечения, с которым проверена строка.</summary>
-        public string SectionLabel     { get; init; } = "";
-        /// <summary>Ключ армирования сечения пластины.</summary>
-        public string RebarKey         { get; init; } = "";
-        /// <summary>Источник армирования пластины (<see cref="FemCheckRebarSource"/>).</summary>
-        public string RebarSource      { get; init; } = "";
-    }
 }

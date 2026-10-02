@@ -86,6 +86,10 @@
 
             <!-- Все строки -->
             <TabItem Header="{DynamicResource FemCheckResultTabRows}">
+                <DockPanel>
+                <!-- Строк больше предела: показаны худшие -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding RowsLimitText}" TextWrapping="Wrap"
+                           Foreground="Gray" Margin="0,2,0,4" Visibility="{Binding RowsLimitVisibility}"/>
                 <DataGrid ItemsSource="{Binding Rows}" IsReadOnly="True"
                           AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
                           CanUserSortColumns="True" RowStyle="{StaticResource StateRowStyle}">
@@ -113,6 +117,7 @@
                                             Binding="{Binding StatusText}" Width="70"/>
                     </DataGrid.Columns>
                 </DataGrid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </Grid>

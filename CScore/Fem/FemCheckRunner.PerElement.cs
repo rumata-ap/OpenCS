@@ -53,7 +53,7 @@ public static partial class FemCheckRunner
     public static bool HasElementNumbers(FemCheck check, IEnumerable<ForceSet> forceSets)
     {
         bool isPlate = check.NormCode == PlateCheckCode;
-        return forceSets.Any(fs => FemCheckReadiness.RowElementNumbers(fs, isPlate).Any(n => n.HasValue));
+        return forceSets.Any(fs => fs.ElementStats(isPlate).HasElementRows);
     }
 
     /// <summary>Готовность цели к проверке по КЭ (спека §6.6) — без решателей.</summary>
@@ -197,7 +197,7 @@ public static partial class FemCheckRunner
         }
 
         // ── Расчёт ────────────────────────────────────────────────────────────────────────────
-        var results = new CheckRow[total];
+        var results = new FemCheckRow[total];
         int done = 0;
         int step = Math.Max(1, total / 200);
 
@@ -208,7 +208,7 @@ public static partial class FemCheckRunner
             foreach (var job in g.Jobs)
             {
                 if (ct.IsCancellationRequested) return;
-                CheckRow row;
+                FemCheckRow row;
                 if (isPlate)
                 {
                     // Оси армирования КЭ могут не совпадать с осями выдачи его усилий (раскладка OpenCS).
@@ -360,22 +360,7 @@ public static partial class FemCheckRunner
                 warnings,
             },
             elements = elementRows,
-            rows = results.Select(r => new
-            {
-                label            = r.Label,
-                forceSetTag      = r.ForceSetTag,
-                calcType         = r.CalcType,
-                utilization      = double.IsFinite(r.Utilization) ? Math.Round(r.Utilization, 6) : (double?)null,
-                passed           = r.Passed,
-                notChecked       = r.NotChecked,
-                worstFormula     = r.WorstFormula,
-                worstDescription = r.WorstDescription,
-                elemNum          = r.ElemNum,
-                sectionNum       = r.SectionNum,
-                sectionLabel     = r.SectionLabel,
-                rebarKey         = r.RebarKey,
-                rebarSource      = r.RebarSource,
-            }).ToArray()
+            rowsStored     = true,
         });
 
         return new CalcResult
@@ -386,7 +371,8 @@ public static partial class FemCheckRunner
             Created  = created,
             // «ok» — только когда все КЭ цели проверены и прошли; непроверенные без не прошедших — «incomplete».
             Status   = anyFailed ? "not_passed" : anyUnchecked ? "incomplete" : "ok",
-            DataJson = dataJson
+            DataJson = dataJson,
+            FemCheckRows = results,
         };
     }
 
@@ -405,7 +391,7 @@ public static partial class FemCheckRunner
     static double RebarAreaCm2(CrossSection section) =>
         section.Areas.Sum(a => a.Fibers.Where(f => f.TypeFiber == FiberType.point).Sum(f => f.Area)) * 1e4;
 
-    static CheckRow NotCheckedRow(Job job, string reason) => new()
+    static FemCheckRow NotCheckedRow(Job job, string reason) => new()
     {
         Label            = job.Bar?.Label ?? job.Shell?.Label ?? "",
         ForceSetTag      = job.ForceSet.Tag,

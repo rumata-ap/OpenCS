@@ -91,9 +91,12 @@ public class FemCheckPerElementTests
         Assert.Equal("КЭ", e1.GetProperty("sectionLabel").GetString());
         Assert.Equal(12.5, e1.GetProperty("asSelected").GetDouble(), 6);
 
-        var row = root.GetProperty("rows").EnumerateArray().First(r => r.GetProperty("label").GetString() == "э.1 с2");
-        Assert.Equal(1, row.GetProperty("elemNum").GetInt32());
-        Assert.Equal(2, row.GetProperty("sectionNum").GetInt32());
+        // Строки — не в DataJson, а в FemCheckRows (в БД пишутся отдельной таблицей).
+        Assert.True(root.GetProperty("rowsStored").GetBoolean());
+        Assert.False(root.TryGetProperty("rows", out _));
+        var row = result.FemCheckRows!.First(r => r.Label == "э.1 с2");
+        Assert.Equal(1, row.ElemNum);
+        Assert.Equal(2, row.SectionNum);
     }
 
     [Fact]

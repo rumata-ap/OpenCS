@@ -137,12 +137,10 @@ public static class FemCheckContext
             };
             if (!bound && fs.SourceSchemaId != schemaId) continue;
 
-            int rows = 0, withoutNumber = 0;
-            foreach (int? num in isPlate ? fs.ShellItems.Select(s => s.SourceElementNum) : fs.Items.Select(i => i.SourceElementNum))
-            {
-                if (num is not int n) withoutNumber++;
-                else if (numbers.Contains(n)) rows++;
-            }
+            // Статистика по номерам КЭ — без загрузки строк набора.
+            var stats = fs.ElementStats(isPlate);
+            int rows = stats.ByElement.Where(p => numbers.Contains(p.Key)).Sum(p => p.Value);
+            int withoutNumber = stats.WithoutElement;
             // Строки без номера КЭ относятся к цели, только если набор привязан к ней самой.
             if (bound) result.Add((fs, rows + withoutNumber));
             else if (rows > 0) result.Add((fs, rows));

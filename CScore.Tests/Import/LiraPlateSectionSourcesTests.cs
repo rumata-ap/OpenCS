@@ -249,10 +249,10 @@ public class LiraPlateSectionSourcesTests
         var result = Run([source], [Elem(7, "3")], fs);
 
         using var doc = JsonDocument.Parse(result.DataJson);
-        var rows = doc.RootElement.GetProperty("rows").EnumerateArray().ToDictionary(r => r.GetProperty("label").GetString()!);
-        Assert.True(rows["низ растянут"].GetProperty("passed").GetBoolean(), result.DataJson);
-        Assert.False(rows["верх растянут"].GetProperty("passed").GetBoolean(), result.DataJson);
-        Assert.Equal(sourceKey, rows["низ растянут"].GetProperty("rebarSource").GetString());
+        var rows = result.FemCheckRows!.ToDictionary(r => r.Label);
+        Assert.True(rows["низ растянут"].Passed, result.DataJson);
+        Assert.False(rows["верх растянут"].Passed, result.DataJson);
+        Assert.Equal(sourceKey, rows["низ растянут"].RebarSource);
         Assert.Equal("not_passed", result.Status);
     }
 

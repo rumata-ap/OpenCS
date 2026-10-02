@@ -62,10 +62,10 @@ public enum ForceRowAggregate
 public static class ElementForceField
 {
     /// <summary>В наборе есть строки пластин с номером КЭ.</summary>
-    public static bool HasShellRows(ForceSet set) => set.ShellItems.Any(i => i.SourceElementNum != null);
+    public static bool HasShellRows(ForceSet set) => set.ElementStats(shell: true).HasElementRows;
 
     /// <summary>В наборе есть строки стержней с номером КЭ.</summary>
-    public static bool HasBarRows(ForceSet set) => set.Items.Any(i => i.SourceElementNum != null);
+    public static bool HasBarRows(ForceSet set) => set.ElementStats(shell: false).HasElementRows;
 
     /// <summary>Мембранные усилия строк набора заданы напряжениями (σ·h считается по толщине КЭ).</summary>
     public static bool HasStresses(ForceSet set) => set.ShellItems.Any(IsStressRow);

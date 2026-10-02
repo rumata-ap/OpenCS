@@ -17,6 +17,12 @@ namespace CScore
       /// <summary>JSON-словарь с результатами конкретного вида задачи.</summary>
       public string DataJson { get; set; } = "{}";
 
+      /// <summary>
+      /// Строки результата проверки по КЭ — только между расчётом и сохранением: в БД пишутся отдельной
+      /// таблицей (их бывают миллионы), в <see cref="DataJson"/> не входят. После загрузки из БД — null.
+      /// </summary>
+      public IReadOnlyList<Fem.FemCheckRow>? FemCheckRows { get; set; }
+
       public override string ToString() => $"{Id}#{TaskKind} [{Status}] {Created}";
    }
 }

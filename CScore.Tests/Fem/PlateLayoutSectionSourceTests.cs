@@ -400,6 +400,9 @@ public class PlateLayoutSectionSourceTests
         ParamsJson = new PlateCheckParams { Kind = "shell_layered", CheckGroup = "uls", RebarSources = [FemCheckRebarSource.Layout] }.ToJson(),
     };
 
+    /// <summary>Строки результата последнего <see cref="Run"/>.</summary>
+    static IReadOnlyList<FemCheckRow> _lastRows = [];
+
     static JsonDocument Run(Model m, params ShellLoadItem[] rows)
     {
         var scope = new FemCheckScope([m.Member], m.Elements.Select(m.Scope).ToList(), RefersToMeshElements: false);
@@ -411,6 +414,7 @@ public class PlateLayoutSectionSourceTests
                 PlateSources = [new LayoutPlateSectionSource(m.Section, m.Resolver())],
             },
             (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
+        _lastRows = result.FemCheckRows ?? [];
         return JsonDocument.Parse(result.DataJson);
     }
 
@@ -456,9 +460,9 @@ public class PlateLayoutSectionSourceTests
 
         Assert.Equal("ok", Element(doc, 1).GetProperty("status").GetString());
         Assert.Equal("ok", Element(doc, 3).GetProperty("status").GetString());
-        var rows = doc.RootElement.GetProperty("rows").EnumerateArray().Where(r => r.GetProperty("elemNum").GetInt32() == 2).ToList();
-        Assert.False(rows[0].GetProperty("passed").GetBoolean());   // Mx выдачи → My раскладки: усиления нет
-        Assert.True(rows[1].GetProperty("passed").GetBoolean());    // My выдачи → Mx раскладки: усиление есть
+        var rows = _lastRows.Where(r => r.ElemNum == 2).ToList();
+        Assert.False(rows[0].Passed);   // Mx выдачи → My раскладки: усиления нет
+        Assert.True(rows[1].Passed);    // My выдачи → Mx раскладки: усиление есть
         Assert.Contains(doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray(),
             w => w.GetString()!.Contains("У 1 КЭ оси выдачи усилий не совпадают"));
     }

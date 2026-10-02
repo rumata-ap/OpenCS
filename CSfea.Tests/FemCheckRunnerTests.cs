@@ -126,20 +126,16 @@ public static class FemCheckRunnerTests
         TestHarness.Check("failedRows == 4", root.GetProperty("failedRows").GetInt32() == 4);
         CheckStr("статус результата", result.Status, "not_passed");
 
-        var rows = root.GetProperty("rows").EnumerateArray()
-            .ToDictionary(r => r.GetProperty("label").GetString()!, r => r);
+        var rows = result.FemCheckRows!.ToDictionary(r => r.Label);
         foreach (var label in new[] { "err", "na", "noutil" })
         {
-            TestHarness.Check($"{label}: passed == false", !rows[label].GetProperty("passed").GetBoolean());
-            TestHarness.Check($"{label}: utilization == null",
-                rows[label].GetProperty("utilization").ValueKind == System.Text.Json.JsonValueKind.Null);
+            TestHarness.Check($"{label}: passed == false", !rows[label].Passed);
+            TestHarness.Check($"{label}: utilization не задан", !double.IsFinite(rows[label].Utilization));
         }
-        CheckStr("err: причина из error", rows["err"].GetProperty("worstDescription").GetString()!,
-            "Unknown task kind: rc_check");
-        CheckStr("noutil: причина из reason", rows["noutil"].GetProperty("worstDescription").GetString()!,
-            "НДС не найден");
-        TestHarness.Check("ok: passed", rows["ok"].GetProperty("passed").GetBoolean());
-        TestHarness.Check("over: не пройдено", !rows["over"].GetProperty("passed").GetBoolean());
+        CheckStr("err: причина из error", rows["err"].WorstDescription, "Unknown task kind: rc_check");
+        CheckStr("noutil: причина из reason", rows["noutil"].WorstDescription, "НДС не найден");
+        TestHarness.Check("ok: passed", rows["ok"].Passed);
+        TestHarness.Check("over: не пройдено", !rows["over"].Passed);
         TestHarness.Check("CalcType набора (CL) передан в задачу",
             seenCalcTypes.Count == 5 && seenCalcTypes.All(c => c == CalcType.CL));
     }

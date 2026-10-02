@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 73;
+      const int CurrentSchemaVersion = 74;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -93,6 +93,7 @@ namespace OpenCS.Utilites
          [70] = MigrateV71,
          [71] = MigrateV72,
          [72] = MigrateV73,
+         [73] = MigrateV74,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -683,6 +684,7 @@ namespace OpenCS.Utilites
          EnsureFemSchemaReinforcementFileTable();
          EnsureFemSchemaSelectedReinforcementFileTable();
          EnsureFemSchemaSourceFileTable();
+         EnsureFemCheckRowTables();
          EnsureFemSchemaConstructiveBlockTable();
          EnsureFemSchemaStiffnessTable();
          MigrateV50();
@@ -1638,6 +1640,10 @@ namespace OpenCS.Utilites
       /// <summary>Миграция v73: вложения схемы по видам (fem_schema_source_files) — подбор арматуры SCAD
       /// из плагина, ЖБ-группы SCAD.</summary>
       void MigrateV73() => EnsureFemSchemaSourceFileTable();
+
+      /// <summary>Миграция v74: строки результатов проверок по КЭ — отдельной таблицей, а не в data_json
+      /// (на РСУ SCAD результат одной проверки занимал около 1 ГБ JSON).</summary>
+      void MigrateV74() => EnsureFemCheckRowTables();
 
       /// <summary>Вложения FEM-схемы по видам (<see cref="FemSchemaSourceFileKind"/>): файлы и данные
       /// программы-источника, хранятся как есть и разбираются при использовании.</summary>
@@ -2632,59 +2638,22 @@ namespace OpenCS.Utilites
                sets[fs.Id] = fs;
             }
           }
-          using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = "SELECT id, set_id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num FROM force_items ORDER BY set_id, num";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-               int setId = r.GetInt32(1);
-               if (!sets.TryGetValue(setId, out var fs)) continue;
-               fs.Items.Add(new LoadItem
-               {
-                  Id    = r.GetInt32(0),
-                  Num   = r.GetInt32(2),
-                  Label = r.GetString(3),
-                  N     = r.GetDouble(4),
-                  Mx    = r.GetDouble(5),
-                  My    = r.GetDouble(6),
-                  Vx    = r.GetDouble(7),
-                  Vy    = r.GetDouble(8),
-                  T     = r.GetDouble(9),
-                  SourceElementNum = r.IsDBNull(10) ? null : r.GetInt32(10),
-                  SourceSectionNum = r.IsDBNull(11) ? null : r.GetInt32(11)
-               });
-            }
-         }
+         // Строки не читаются: только их число (наборы РСУ бывают в миллионы строк). Строки набора
+         // читаются из БД при первом обращении — см. LoadRows.
+         var counts = new Dictionary<int, int>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num FROM force_shell_items ORDER BY set_id, num";
+            cmd.CommandText = """
+               SELECT set_id, COUNT(*) FROM force_items GROUP BY set_id
+               UNION ALL
+               SELECT set_id, COUNT(*) FROM force_shell_items GROUP BY set_id
+               """;
             using var r = cmd.ExecuteReader();
             while (r.Read())
-            {
-               int setId = r.GetInt32(1);
-               if (!sets.TryGetValue(setId, out var fs)) continue;
-               fs.ShellItems.Add(new ShellLoadItem
-               {
-                  Id      = r.GetInt32(0),
-                  Num     = r.GetInt32(2),
-                  Label   = r.GetString(3),
-                  Nx      = r.GetDouble(4),
-                  Ny      = r.GetDouble(5),
-                  Nxy     = r.GetDouble(6),
-                  Mx      = r.GetDouble(7),
-                  My      = r.GetDouble(8),
-                  Mxy     = r.GetDouble(9),
-                  Qx      = r.GetDouble(10),
-                  Qy      = r.GetDouble(11),
-                  SigmaX  = r.IsDBNull(12) ? null : r.GetDouble(12),
-                  SigmaY  = r.IsDBNull(13) ? null : r.GetDouble(13),
-                  TauXY   = r.IsDBNull(14) ? null : r.GetDouble(14),
-                  SourceElementNum = r.IsDBNull(15) ? null : r.GetInt32(15),
-                  SourceSectionNum = r.IsDBNull(16) ? null : r.GetInt32(16),
-               });
-            }
+               counts[r.GetInt32(0)] = counts.GetValueOrDefault(r.GetInt32(0)) + r.GetInt32(1);
          }
+         foreach (var fs in sets.Values)
+            fs.AttachRowSource(this, counts.GetValueOrDefault(fs.Id));
          foreach (var fs in sets.Values)
          {
             fs.IsModified = false;
@@ -2735,6 +2704,9 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@seid",  (object?)fs.SourceElementId  ?? DBNull.Value);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
+
+         // Строки не загружались — в БД они те же: переписывать нечего (изменён только заголовок).
+         if (!fs.RowsLoaded) { fs.IsModified = false; return; }
 
          using var delCmd = _connection.CreateCommand();
          delCmd.CommandText = "DELETE FROM force_items WHERE set_id = @sid";
@@ -2824,6 +2796,7 @@ namespace OpenCS.Utilites
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
          fs.IsModified = false;
+         fs.BindRowSource(this);
       }
 
       /// <summary>
@@ -3481,7 +3454,9 @@ namespace OpenCS.Utilites
       void LoadCalcResults()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status, data_json FROM calc_results ORDER BY id";
+         // Только результаты расчётных задач дерева. Результаты проверок по КЭ и расчётов схем (task_id = 0)
+         // читаются из БД по требованию: они бывают огромными, а в коллекции не нужны.
+         cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status, data_json FROM calc_results WHERE task_id <> 0 ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
             CalcResults.Add(ReadCalcResult(reader));
@@ -7469,23 +7444,47 @@ namespace OpenCS.Utilites
          };
       }
 
-      /// <summary>Сохраняет CalcResult, связанный с FemCheck (task_id = 0, sentinel).</summary>
+      /// <summary>
+      /// Сохраняет CalcResult, связанный с FemCheck (task_id = 0, sentinel), вместе с его строками
+      /// (<see cref="CalcResult.FemCheckRows"/> — отдельной таблицей). Прежние результаты этой проверки
+      /// удаляются: показывается всегда последний, а копии на больших РСУ занимают сотни мегабайт.
+      /// В <see cref="CalcResults"/> результат не попадает — его читают по требованию.
+      /// </summary>
       public void SaveCalcResultRaw(CalcResult r, int femCheckId)
       {
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
-            INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id)
-            VALUES (0, @kind, @tag, @created, @status, @data, @fid);
-            SELECT last_insert_rowid();
-         """;
-         cmd.Parameters.AddWithValue("@kind",    r.TaskKind);
-         cmd.Parameters.AddWithValue("@tag",     r.TaskTag);
-         cmd.Parameters.AddWithValue("@created", r.Created);
-         cmd.Parameters.AddWithValue("@status",  r.Status);
-         cmd.Parameters.AddWithValue("@data",    r.DataJson);
-         cmd.Parameters.AddWithValue("@fid",     femCheckId);
-         r.Id = (int)(long)cmd.ExecuteScalar()!;
-         CalcResults.Add(r);
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var del = _connection.CreateCommand())
+            {
+               del.CommandText = """
+                  DELETE FROM calc_results WHERE fem_check_id = @fid
+                     OR id = (SELECT result_id FROM fem_checks WHERE id = @fid);
+               """;
+               del.Parameters.AddWithValue("@fid", femCheckId);
+               del.ExecuteNonQuery();
+            }
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = """
+                  INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id)
+                  VALUES (0, @kind, @tag, @created, @status, @data, @fid);
+                  SELECT last_insert_rowid();
+               """;
+               cmd.Parameters.AddWithValue("@kind",    r.TaskKind);
+               cmd.Parameters.AddWithValue("@tag",     r.TaskTag);
+               cmd.Parameters.AddWithValue("@created", r.Created);
+               cmd.Parameters.AddWithValue("@status",  r.Status);
+               cmd.Parameters.AddWithValue("@data",    r.DataJson);
+               cmd.Parameters.AddWithValue("@fid",     femCheckId);
+               r.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            if (r.FemCheckRows is { Count: > 0 } rows)
+               InsertFemCheckRows(r.Id, rows);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+         r.FemCheckRows = null;
       }
 
       /// <summary>Миграция v50: таблицы для хранения агрегатов фрагментов стен и их результатов.</summary>

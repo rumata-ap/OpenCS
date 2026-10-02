@@ -1040,7 +1040,7 @@
                                     Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                               <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                               <TextBlock Text=" (" Foreground="Gray"/>
-                              <TextBlock Text="{Binding Items.Count}" Foreground="Gray"/>
+                              <TextBlock Text="{Binding RowCount, Mode=OneWay}" Foreground="Gray"/>
                               <TextBlock Text=")" Foreground="Gray"/>
                            </StackPanel>
                         </DataTemplate>
@@ -1089,7 +1089,7 @@
                                     Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                               <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                               <TextBlock Text=" (" Foreground="Gray"/>
-                              <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
+                              <TextBlock Text="{Binding RowCount, Mode=OneWay}" Foreground="Gray"/>
                               <TextBlock Text=")" Foreground="Gray"/>
                            </StackPanel>
                         </DataTemplate>
@@ -1571,20 +1571,9 @@
                               Fill="SteelBlue"
                               Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                         <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
-                        <!-- Число строк набора: стержневые — Items, пластинчатые — ShellItems -->
+                        <!-- Число строк набора (без загрузки строк из БД) -->
                         <TextBlock Foreground="Gray" VerticalAlignment="Center">
-                           <Run Text=" ("/><Run>
-                              <Run.Style>
-                                 <Style TargetType="Run">
-                                    <Setter Property="Text" Value="{Binding Items.Count, Mode=OneWay}"/>
-                                    <Style.Triggers>
-                                       <DataTrigger Binding="{Binding Kind}" Value="shell">
-                                          <Setter Property="Text" Value="{Binding ShellItems.Count, Mode=OneWay}"/>
-                                       </DataTrigger>
-                                    </Style.Triggers>
-                                 </Style>
-                              </Run.Style>
-                           </Run><Run Text=" "/><Run Text="{DynamicResource ForceSetRowsUnit}"/><Run Text=")"/>
+                           <Run Text=" ("/><Run Text="{Binding RowCount, Mode=OneWay}"/><Run Text=" "/><Run Text="{DynamicResource ForceSetRowsUnit}"/><Run Text=")"/>
                         </TextBlock>
                      </StackPanel>
                   </DataTemplate>

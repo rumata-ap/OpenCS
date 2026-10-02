@@ -213,12 +213,13 @@ public sealed class FemCheckDeleteCascadeTests
                 db.SaveFemCheck(check);
                 checkId = check.Id;
 
-                // Две исторические записи через обратную ссылку fem_check_id — только последняя
-                // становится check.ResultId, но обе должны удалиться вместе с проверкой.
-                var r1 = new global::CScore.CalcResult { TaskKind = "steel_check", TaskTag = "run1", Created = "now", Status = "ok", DataJson = "{}" };
-                db.SaveCalcResultRaw(r1, checkId);
+                // Две записи через обратную ссылку fem_check_id — только последняя становится
+                // check.ResultId, но обе должны удалиться вместе с проверкой. Сохранение заменяет прежний
+                // результат, поэтому историческая запись (из старых БД) вставляется напрямую.
                 var r2 = new global::CScore.CalcResult { TaskKind = "steel_check", TaskTag = "run2", Created = "now", Status = "ok", DataJson = "{}" };
                 db.SaveCalcResultRaw(r2, checkId);
+                Exec(path, "INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id) "
+                         + $"VALUES (0, 'steel_check', 'run1', 'now', 'ok', '{{}}', {checkId})");
                 check.ResultId = r2.Id;
                 db.SaveFemCheck(check);
 
@@ -233,6 +234,94 @@ public sealed class FemCheckDeleteCascadeTests
         {
             if (File.Exists(path)) File.Delete(path);
         }
+    }
+
+    [Fact]
+    public void SaveCalcResultRaw_StoresRowsSeparately_AndReplacesPreviousResult()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-check-rows-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+                var schema = new FemSchema { Tag = "Схема", SourceType = "internal" };
+                db.SaveFemSchema(schema);
+                var check = new FemCheck { SchemaId = schema.Id, MemberId = 0, NormCode = "rc_plate_check", Tag = "Проверка" };
+                db.SaveFemCheck(check);
+
+                global::CScore.CalcResult Result(params FemCheckRow[] rows) => new()
+                {
+                    TaskKind = "rc_plate_check", TaskTag = "run", Created = "now", Status = "not_passed",
+                    DataJson = "{\"perElement\":true,\"rowsStored\":true}", FemCheckRows = rows,
+                };
+                FemCheckRow Row(string label, int elem, double util, bool passed, bool notChecked = false) => new()
+                {
+                    Label = label, ElemNum = elem, SectionNum = 1, Utilization = util, Passed = passed, NotChecked = notChecked,
+                    ForceSetTag = "РСУ (C)", CalcType = "C", WorstFormula = "(8.1)", WorstDescription = "Прочность",
+                    SectionLabel = "ТЗА 1", RebarKey = "k", RebarSource = "selected",
+                };
+
+                var first = Result(Row("a", 1, 0.5, true), Row("b", 1, 1.2, false));
+                db.SaveCalcResultRaw(first, check.Id);
+                Assert.Null(first.FemCheckRows);
+                Assert.DoesNotContain(db.CalcResults, r => r.Id == first.Id);
+
+                var second = Result(Row("c", 1, 0.4, true), Row("d", 2, 1.5, false),
+                                    Row("e", 2, double.NaN, false, notChecked: true), Row("f", 3, 0.9, true));
+                db.SaveCalcResultRaw(second, check.Id);
+                check.ResultId = second.Id;
+                db.SaveFemCheck(check);
+
+                Assert.Equal(1, CountResultsByFemCheck(path, check.Id));
+                Assert.Equal(0, Scalar(path, $"SELECT COUNT(*) FROM fem_check_rows WHERE result_id = {first.Id}"));
+
+                // Сначала худшие, непроверенные — в конце; строки восстанавливаются полностью.
+                var rows = db.GetFemCheckRows(second.Id);
+                Assert.Equal(["d", "f", "c", "e"], rows.Select(r => r.Label));
+                Assert.Equal("РСУ (C)", rows[0].ForceSetTag);
+                Assert.Equal("(8.1)", rows[0].WorstFormula);
+                Assert.Equal("selected", rows[0].RebarSource);
+                Assert.True(double.IsNaN(rows[3].Utilization));
+                Assert.True(rows[3].NotChecked);
+
+                Assert.Equal(["d", "e"], db.GetFemCheckRows(second.Id, elemNum: 2).Select(r => r.Label));
+                Assert.Equal(["d", "e"], db.GetFemCheckRows(second.Id, onlyFailed: true).Select(r => r.Label));
+                Assert.Equal(["d"], db.GetFemCheckRows(second.Id, limit: 1).Select(r => r.Label));
+                Assert.Equal(4, db.CountFemCheckRows(second.Id));
+                Assert.Equal(2, db.CountFemCheckRows(second.Id, onlyFailed: true));
+
+                var light = db.GetFemCheckRowResults(check.Id);
+                Assert.Equal(4, light.Count);
+                Assert.Equal(new FemCheckRowResult(2, 1, "selected", 1.5, false, false), light[1]);
+
+                db.DeleteFemCheck(check);
+            }
+            Assert.Equal(0, Scalar(path, "SELECT COUNT(*) FROM fem_check_rows"));
+            Assert.Equal(0, Scalar(path, "SELECT COUNT(*) FROM fem_check_row_strings"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static void Exec(string path, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    static int Scalar(string path, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return (int)(long)command.ExecuteScalar()!;
     }
 
     static int CountResultsByFemCheck(string path, int checkId)

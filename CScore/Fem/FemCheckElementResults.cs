@@ -22,6 +22,39 @@ public sealed record FemCheckElementResult(string ElemTag, string RebarSource, s
 /// <param name="NotChecked">Строка не проверена (нет сечения, ошибка расчёта).</param>
 public sealed record FemCheckRowResult(int ElemNum, int? SectionNum, string RebarSource, double? Utilization, bool Passed, bool NotChecked);
 
+/// <summary>
+/// Строка усилий результата проверки по КЭ со всеми полями. Строки хранятся не в <c>DataJson</c>
+/// (на РСУ SCAD их миллионы), а отдельной таблицей БД; в <c>DataJson</c> такого результата —
+/// признак <c>rowsStored</c>.
+/// </summary>
+public sealed record FemCheckRow
+{
+    public string Label            { get; init; } = "";
+    public string ForceSetTag      { get; init; } = "";
+    public string CalcType         { get; init; } = "";
+    public double Utilization      { get; init; }
+    public bool   Passed           { get; init; }
+    public string WorstFormula     { get; init; } = "";
+    public string WorstDescription { get; init; } = "";
+    /// <summary>Строка не проверена (ошибка расчёта, нет сечения), а не «не прошла».</summary>
+    public bool   NotChecked       { get; init; }
+    /// <summary>Номер КЭ во внешней схеме (проверка по КЭ).</summary>
+    public int?   ElemNum          { get; init; }
+    /// <summary>Номер сечения КЭ во внешней схеме.</summary>
+    public int?   SectionNum       { get; init; }
+    /// <summary>Подпись сечения, с которым проверена строка.</summary>
+    public string SectionLabel     { get; init; } = "";
+    /// <summary>Ключ армирования сечения пластины.</summary>
+    public string RebarKey         { get; init; } = "";
+    /// <summary>Источник армирования пластины (<see cref="FemCheckRebarSource"/>).</summary>
+    public string RebarSource      { get; init; } = "";
+
+    /// <summary>Сокращённая строка для эпюр и мозаик; null — строка без номера КЭ.</summary>
+    public FemCheckRowResult? ToRowResult() => ElemNum is int n
+        ? new FemCheckRowResult(n, SectionNum, RebarSource, double.IsFinite(Utilization) ? Utilization : null, Passed, NotChecked)
+        : null;
+}
+
 /// <summary>Чтение агрегата по КЭ из <c>DataJson</c> результата проверки по КЭ.</summary>
 public static class FemCheckElementResults
 {
@@ -54,7 +87,24 @@ public static class FemCheckElementResults
         }
     }
 
-    /// <summary>Строки раздела <c>rows</c> с номером КЭ; пусто — результат не поэлементный или не читается.</summary>
+    /// <summary>Строки результата хранятся отдельно от <c>DataJson</c> (признак <c>rowsStored</c>).</summary>
+    public static bool RowsStored(string? dataJson)
+    {
+        if (string.IsNullOrWhiteSpace(dataJson)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(dataJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("rowsStored", out var v) && v.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Строки раздела <c>rows</c> с номером КЭ (результаты, где строки лежат в самом <c>DataJson</c>);
+    /// пусто — результат не поэлементный или не читается.</summary>
     public static IReadOnlyList<FemCheckRowResult> ParseRows(string? dataJson)
     {
         if (string.IsNullOrWhiteSpace(dataJson)) return [];

@@ -310,7 +310,7 @@ public sealed class FemBarDiagramVM : ViewModelBase
         var numbers = bars.Select(b => b.ElemNum).ToHashSet();
         var sets = db.ForceSets
             .Where(fs => fs.SourceSchemaId == schemaId
-                         && fs.Items.Any(i => i.SourceElementNum is int n && numbers.Contains(n)))
+                         && fs.ElementStats(shell: false).ByElement.Keys.Any(numbers.Contains))
             .OrderBy(fs => fs.Tag, StringComparer.CurrentCulture)
             .ToList();
 
@@ -393,7 +393,7 @@ public sealed class FemBarDiagramVM : ViewModelBase
         foreach (var c in db.FemChecks.Where(c => c.SchemaId == schemaId && c.ResultId != null && !FemCheckContext.IsPlate(c))
                                       .OrderBy(c => c.DisplayTag, StringComparer.CurrentCulture))
         {
-            var rows = FemCheckElementResults.ParseRows(db.GetCalcResultByFemCheck(c.Id)?.DataJson)
+            var rows = db.GetFemCheckRowResults(c.Id)
                 .Where(r => numbers.Contains(r.ElemNum)).ToList();
             if (rows.Count > 0) checks.Add(new FemBarDiagramCheck(c, c.DisplayTag, rows));
         }

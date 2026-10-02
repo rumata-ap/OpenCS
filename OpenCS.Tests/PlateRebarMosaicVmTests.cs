@@ -263,7 +263,8 @@ public class PlateRebarMosaicVmTests
     static PlateRebarMosaicVM.CheckInfo Check(string normCode, params object[] elements)
     {
         string json = JsonSerializer.Serialize(new { perElement = true, elements });
-        return new(new FemCheck { Id = 3, SchemaId = 1, NormCode = normCode, ResultId = 8, Tag = "проверка" }, "ПЛИТА №56 — проверка", () => json);
+        return new(new FemCheck { Id = 3, SchemaId = 1, NormCode = normCode, ResultId = 8, Tag = "проверка" }, "ПЛИТА №56 — проверка", () => json,
+            () => FemCheckElementResults.ParseRows(json));
     }
 
     [Fact]
@@ -330,7 +331,8 @@ public class PlateRebarMosaicVmTests
             },
         });
         var check = new PlateRebarMosaicVM.CheckInfo(
-            new FemCheck { Id = 4, SchemaId = 1, NormCode = "rc_check", ResultId = 9, Tag = "проверка" }, "Балки — проверка", () => json);
+            new FemCheck { Id = 4, SchemaId = 1, NormCode = "rc_check", ResultId = 9, Tag = "проверка" }, "Балки — проверка", () => json,
+            () => FemCheckElementResults.ParseRows(json));
         var vm = new PlateRebarMosaicVM();
         vm.Apply(Data(checks: [check]));
         Select(vm, PlateRebarMosaicSourceKind.Utilization);

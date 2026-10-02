@@ -66,17 +66,15 @@ public sealed record FemCheckReadiness(
         int rowsForTarget = 0, rowsOutside = 0, rowsWithoutElement = 0, setsWithoutNumbers = 0;
         foreach (var fs in forceSets)
         {
-            bool anyNumber = false;
-            int rows = 0;
-            foreach (int? num in RowElementNumbers(fs, isPlate))
+            // Статистика по номерам КЭ — без загрузки строк набора.
+            var stats = fs.ElementStats(isPlate);
+            rowsWithoutElement += stats.WithoutElement;
+            foreach (var (n, count) in stats.ByElement)
             {
-                rows++;
-                if (num is not int n) { rowsWithoutElement++; continue; }
-                anyNumber = true;
-                if (numbers.Contains(n)) { rowsForTarget++; covered.Add(n); }
-                else rowsOutside++;
+                if (numbers.Contains(n)) { rowsForTarget += count; covered.Add(n); }
+                else rowsOutside += count;
             }
-            if (rows > 0 && !anyNumber) setsWithoutNumbers++;
+            if (stats.WithoutElement > 0 && !stats.HasElementRows) setsWithoutNumbers++;
         }
 
         var sources = new List<FemCheckSourceReadiness>(probes.Count);
@@ -108,10 +106,6 @@ public sealed record FemCheckReadiness(
         return new FemCheckReadiness(elements.Count, elements.Count(e => e.ElemNum is int n && covered.Contains(n)),
             withoutForces, rowsForTarget, rowsOutside, rowsWithoutElement, setsWithoutNumbers, sources, blocking);
     }
-
-    /// <summary>Номера КЭ строк набора (null — строка без номера КЭ).</summary>
-    internal static IEnumerable<int?> RowElementNumbers(ForceSet fs, bool isPlate) =>
-        isPlate ? fs.ShellItems.Select(s => s.SourceElementNum) : fs.Items.Select(i => i.SourceElementNum);
 
     /// <summary>Номера диапазонами: «1-5, 8, 10-12»; длинный список обрывается многоточием.</summary>
     public static string FormatRanges(IEnumerable<int> numbers, int maxRanges = 20)

@@ -3378,7 +3378,7 @@ namespace OpenCS
             if (read.WrongKindElements > 0) LogService.Warning(string.Format(Loc.S("ScadForcesWrongKind"), read.WrongKindElements));
             if (read.NoResultElements > 0) LogService.Info(string.Format(Loc.S("ScadForcesNoResult"), read.NoResultElements));
             string done = string.Format(Loc.S("ScadForcesSuccess"), sets.Count, targetTag,
-               sets.Sum(s => s.Items.Count + s.ShellItems.Count));
+               sets.Sum(s => s.RowCount));
             LogService.Info(done);
             EndBusy(done);
          }
@@ -4850,12 +4850,28 @@ namespace OpenCS
             }
          }
 
-         db.SaveCalcResultRaw(result, check.Id);
+         // Строки результата на РСУ SCAD — миллионы, запись идёт секунды: сначала показываем статус.
+         if (result.FemCheckRows is { Count: > 100_000 })
+         {
+            BeginBusy(Loc.S("FemCheckSaving"));
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+         }
+         try
+         {
+            db.SaveCalcResultRaw(result, check.Id);
+         }
+         finally
+         {
+            if (IsBusy) EndBusy();
+         }
          check.ResultId = result.Id;
          db.SaveFemCheck(check);
+         // Строки наборов проверке больше не нужны (на РСУ SCAD — сотни мегабайт): при следующем
+         // обращении они прочитаются из БД.
+         foreach (var fs in lookup) fs.UnloadRows();
 
          CurrentFemCheck = check;
-         CurrentPage = new Views.FemCheckResultView(result);
+         CurrentPage = new Views.FemCheckResultView(result, db);
          string? checkError = null;
          try
          {

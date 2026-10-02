@@ -84,6 +84,8 @@ namespace OpenCS.ViewModels
          _model = model;
          App = app;
          _touchSet = () => App.TouchForceSet(_model);
+         // Редактор держит ссылки на строки: выгружать их из памяти больше нельзя.
+         model.PinRows();
          Items = new ObservableCollection<LoadItemVM>(
             model.Items.ConvertAll(i => new LoadItemVM(i, _touchSet)));
 

@@ -14,10 +14,15 @@ namespace OpenCS.Views;
 
 public partial class FemCheckResultView : UserControl
 {
-    public FemCheckResultView(CScore.CalcResult result)
+    /// <param name="db">БД с результатом — для строк, хранимых отдельно от <c>DataJson</c>.</param>
+    public FemCheckResultView(CScore.CalcResult result, DatabaseService? db = null)
     {
         InitializeComponent();
-        var vm = new FemCheckResultVM(result.DataJson);
+        FemCheckRowsLoader? loader = db != null && result.Id > 0
+            ? (elemNum, onlyFailed, limit) => (db.GetFemCheckRows(result.Id, elemNum, onlyFailed, limit),
+                                               db.CountFemCheckRows(result.Id, elemNum, onlyFailed))
+            : null;
+        var vm = new FemCheckResultVM(result.DataJson, loader);
         DataContext = vm;
 
         // Результаты без агрегата по КЭ (одно сечение на цель) показываются как раньше — одной таблицей.
@@ -44,8 +49,15 @@ public partial class FemCheckResultView : UserControl
     }
 }
 
+/// <summary>Чтение строк результата из БД: строки КЭ (или все), без прошедших, не больше <paramref name="limit"/>;
+/// вместе с их полным числом.</summary>
+public delegate (IReadOnlyList<CScore.Fem.FemCheckRow> Rows, int Total) FemCheckRowsLoader(int? elemNum, bool onlyFailed, int limit);
+
 public class FemCheckResultVM : ViewModelBase
 {
+    /// <summary>Сколько строк результата показывать без выбора КЭ (худшие).</summary>
+    public const int RowsLimit = 10_000;
+
     /// <summary>Ключ единственного «источника» у стержневых проверок (в результате он пустой).</summary>
     const string BarSourceKey = "bar";
 
@@ -65,15 +77,27 @@ public class FemCheckResultVM : ViewModelBase
 
     readonly List<FemCheckRowVM> _rows = [];
     readonly List<FemCheckElementRowVM> _elements = [];
-    public ICollectionView Rows { get; }
+    /// <summary>Строки хранятся в БД и читаются по фильтру; null — строки в самом <c>DataJson</c>.</summary>
+    readonly FemCheckRowsLoader? _loadRows;
+    ICollectionView _rowsView = null!;
+    public ICollectionView Rows { get => _rowsView; private set { _rowsView = value; OnPropertyChanged(); } }
     public ICollectionView Elements { get; }
+
+    string _rowsLimitText = "";
+    /// <summary>Пояснение, что показана только часть строк.</summary>
+    public string RowsLimitText
+    {
+        get => _rowsLimitText;
+        private set { _rowsLimitText = value; OnPropertyChanged(); OnPropertyChanged(nameof(RowsLimitVisibility)); }
+    }
+    public Visibility RowsLimitVisibility => _rowsLimitText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     bool _onlyFailed;
     /// <summary>Показывать только не прошедшие и не проверенные.</summary>
     public bool OnlyFailed
     {
         get => _onlyFailed;
-        set { _onlyFailed = value; OnPropertyChanged(); Rows.Refresh(); Elements.Refresh(); }
+        set { _onlyFailed = value; OnPropertyChanged(); RefreshRows(); Elements.Refresh(); }
     }
 
     FemCheckElementRowVM? _selectedElement;
@@ -87,7 +111,7 @@ public class FemCheckResultVM : ViewModelBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(ElementFilterText));
             OnPropertyChanged(nameof(ElementFilterVisibility));
-            Rows.Refresh();
+            RefreshRows();
         }
     }
 
@@ -96,7 +120,7 @@ public class FemCheckResultVM : ViewModelBase
     public Visibility ElementFilterVisibility => _selectedElement == null ? Visibility.Collapsed : Visibility.Visible;
     public ICommand ClearElementFilterCommand { get; }
 
-    public FemCheckResultVM(string dataJson)
+    public FemCheckResultVM(string dataJson, FemCheckRowsLoader? loadRows = null)
     {
         ClearElementFilterCommand = new RelayCommand(_ => SelectedElement = null);
         try
@@ -116,6 +140,8 @@ public class FemCheckResultVM : ViewModelBase
                 int total  = Int(root, "totalRows");
                 int passed = Int(root, "passedRows");
                 int failed = Int(root, "failedRows");
+                if (loadRows != null && root.TryGetProperty("rowsStored", out var stored) && stored.ValueKind == JsonValueKind.True)
+                    _loadRows = loadRows;
 
                 if (root.TryGetProperty("rows", out var rowsArr))
                     foreach (var r in rowsArr.EnumerateArray())
@@ -157,21 +183,52 @@ public class FemCheckResultVM : ViewModelBase
             SummaryBrush = Brushes.LightGray;
         }
 
-        // Сначала не прошедшие без коэффициента, затем по убыванию Кисп; непроверенные — в конце.
-        Rows = new ListCollectionView(_rows
-            .OrderBy(r => r.State == "failed" && double.IsNaN(r.Utilization) ? 0 : r.NotChecked ? 2 : 1)
-            .ThenByDescending(r => r.Utilization).ToList())
-        {
-            Filter = o => o is FemCheckRowVM r
-                          && (!_onlyFailed || r.State != "ok")
-                          && (_selectedElement == null || r.ElemNum == _selectedElement.ElemNum),
-        };
+        if (_loadRows != null)
+            LoadRows();
+        else
+            // Сначала не прошедшие без коэффициента, затем по убыванию Кисп; непроверенные — в конце.
+            Rows = new ListCollectionView(_rows
+                .OrderBy(r => r.State == "failed" && double.IsNaN(r.Utilization) ? 0 : r.NotChecked ? 2 : 1)
+                .ThenByDescending(r => r.Utilization).ToList())
+            {
+                Filter = o => o is FemCheckRowVM r
+                              && (!_onlyFailed || r.State != "ok")
+                              && (_selectedElement == null || r.ElemNum == _selectedElement.ElemNum),
+            };
         Elements = new ListCollectionView(_elements
             .OrderBy(e => e.State == "failed" && double.IsNaN(e.SortUtil) ? 0 : e.State is "failed" or "ok" ? 1 : 2)
             .ThenByDescending(e => e.SortUtil).ToList())
         {
             Filter = o => o is FemCheckElementRowVM e && (!_onlyFailed || e.State != "ok"),
         };
+    }
+
+    void RefreshRows()
+    {
+        if (_loadRows != null) LoadRows();
+        else Rows.Refresh();
+    }
+
+    /// <summary>Строки из БД по текущему фильтру: у выбранного КЭ — все, иначе — худшие <see cref="RowsLimit"/>.</summary>
+    void LoadRows()
+    {
+        int limit = _selectedElement == null ? RowsLimit : int.MaxValue;
+        var (rows, total) = _loadRows!(_selectedElement?.ElemNum, _onlyFailed, limit);
+        Rows = new ListCollectionView(rows.Select(r => new FemCheckRowVM
+        {
+            Label        = r.Label,
+            ForceSetTag  = r.ForceSetTag,
+            CalcType     = r.CalcType,
+            Utilization  = r.Utilization,
+            Passed       = r.Passed,
+            NotChecked   = r.NotChecked,
+            WorstFormula = r.WorstFormula,
+            WorstDesc    = r.WorstDescription,
+            ElemNum      = r.ElemNum,
+            SectionNum   = r.SectionNum,
+            SectionLabel = r.SectionLabel,
+        }).ToList());
+        RowsLimitText = rows.Count < total ? string.Format(Loc.S("FemCheckResultRowsLimited"), rows.Count, total) : "";
     }
 
     static readonly Brush Ok      = new SolidColorBrush(Color.FromArgb(70, 80, 180, 80));
