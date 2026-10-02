@@ -82,6 +82,79 @@ public class ScadApiReaderManualTests(ITestOutputHelper output)
         Assert.Equal(27, data.Stiffnesses.Count);
     }
 
+    /// <summary>
+    /// Усилия, комбинации и РСУ (срез 2): КЭ 814 (стержень) и 55459 (пластина) — числа пробника p9–p11,
+    /// затем время чтения группы «Покрытие».
+    /// </summary>
+    [Fact]
+    public void ReadForcesMuseumModel()
+    {
+        string? spr = Environment.GetEnvironmentVariable("OPENCS_SCAD_SPR");
+        if (string.IsNullOrWhiteSpace(spr)) return;
+        string dir = Environment.GetEnvironmentVariable("OPENCS_SCAD_DIR") ?? ScadInstallLocator.FindDllDirectory()!;
+        string? work = Environment.GetEnvironmentVariable("OPENCS_SCAD_WORK") ?? ScadInstallLocator.FindWorkDirectory();
+        var native = ScadApiNative.Load(dir);
+        using var s = new ScadApiSession(native);
+        s.Open(spr);
+
+        var two = new Dictionary<int, ScadElementKind> { [814] = ScadElementKind.Beam, [55459] = ScadElementKind.Shell };
+        var lc = ScadApiForceReader.Read(s, work, two, ScadForceReadKind.LoadCases, null, CancellationToken.None);
+        output.WriteLine("Загружения: " + string.Join(" | ", lc.Catalog.LoadNames));
+        Assert.Equal(2, lc.Forces.Count);
+        var bar = lc.Forces.Single(f => f.ElemId == 814);
+        output.WriteLine($"814: типы {string.Join(",", bar.Types)}, точек {bar.Points}, загр. {bar.LoadCount}, " +
+            $"с1 з1: {string.Join("; ", bar.LoadCase(0, 0).ToArray().Select(v => v.ToString("0.###")))}");
+        Assert.Equal(-24.31, bar.LoadCase(0, 0)[bar.Types.AsSpan().IndexOf(ScadApiForceMapper.BarN)], 2);
+        var plate = lc.Forces.Single(f => f.ElemId == 55459);
+        output.WriteLine($"55459: типы {string.Join(",", plate.Types)}, точек {plate.Points}, " +
+            $"з1: {string.Join("; ", plate.LoadCase(0, 0).ToArray().Select(v => v.ToString("0.###")))}");
+        Assert.Equal(lc.Catalog.LoadNames.Count, bar.LoadCount);
+        Assert.Empty(bar.Combinations);
+
+        var comb = ScadApiForceReader.Read(s, work, two, ScadForceReadKind.Combinations, null, CancellationToken.None);
+        output.WriteLine("Комбинации: " + string.Join(" | ", comb.Catalog.CombinationNames));
+        var barC = comb.Forces.Single(f => f.ElemId == 814);
+        Assert.True(barC.CombinationCount > 0);
+        Assert.Equal(barC.CombinationCount, comb.Catalog.CombinationNames.Count);
+        Assert.StartsWith("C1", comb.Catalog.CombinationNames[0]);
+
+        var rsu = ScadApiForceReader.Read(s, work, two, ScadForceReadKind.Rsu, null, CancellationToken.None);
+        var barR = rsu.Rsu.Single(r => r.ElemId == 814);
+        var first = barR.Rows[0];
+        output.WriteLine($"РСУ 814: строк {barR.Rows.Count}, первая: т{first.Point} гр{first.Group} кр{first.Criterion} " +
+            string.Join("; ", first.Us.Select(v => v.ToString("0.###"))));
+        Assert.Equal(0, first.Group);
+        Assert.Equal(-35.487, first.Us[barR.Types.AsSpan().IndexOf(ScadApiForceMapper.BarN)], 2);
+
+        // Чужой КЭ (другого вида) и несуществующий — в счётчики; больше половины — «другой проект».
+        var wrong = new Dictionary<int, ScadElementKind> { [814] = ScadElementKind.Shell, [55459] = ScadElementKind.Shell, [9_999_999] = ScadElementKind.Shell };
+        var ex = Assert.Throws<ScadApiException>(() =>
+            ScadApiForceReader.Read(s, work, wrong, ScadForceReadKind.LoadCases, null, CancellationToken.None));
+        Assert.Equal("ScadApiForcesOtherProject", ex.ResourceKey);
+
+        // Время на группу «Покрытие».
+        var schema = ScadApiReader.Read(s, new ScadReadOptions(OutputAxes: false, ConcreteGroups: false), null, CancellationToken.None);
+        var kinds = schema.Data.Elements.ToDictionary(e => e.Id, e => ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length));
+        var roof = schema.Data.Groups.Single(g => g.Name == "Покрытие").ElementIds
+            .Where(kinds.ContainsKey).ToDictionary(id => id, id => kinds[id]);
+        foreach (var kind in new[] { ScadForceReadKind.LoadCases, ScadForceReadKind.Combinations, ScadForceReadKind.Rsu })
+        {
+            var sw = Stopwatch.StartNew();
+            var r = ScadApiForceReader.Read(s, work, roof, kind, null, CancellationToken.None);
+            long readMs = sw.ElapsedMilliseconds;
+            output.WriteLine($"  чтение {readMs} мс, строк РСУ {r.Rsu.Sum(x => x.Rows.Count)}");
+            var sets = kind switch
+            {
+                ScadForceReadKind.LoadCases => ScadForceSetBuilder.LoadCases(r.Forces, r.Catalog, 1, "Покрытие", new ScadXlsImportOptions()),
+                ScadForceReadKind.Combinations => ScadForceSetBuilder.Combinations(r.Forces, r.Catalog, 1, "Покрытие", new ScadXlsImportOptions()),
+                _ => ScadForceSetBuilder.Rsu(r.Rsu, 1, "Покрытие", new ScadXlsImportOptions()),
+            };
+            output.WriteLine($"Покрытие {kind}: КЭ {roof.Count}, без результатов {r.NoResultElements}, нет {r.MissingElements}, " +
+                $"другой вид {r.WrongKindElements}; наборов {sets.Count} ({string.Join(", ", sets.Select(x => $"«{x.Tag}» {x.Items.Count + x.ShellItems.Count}"))}), {sw.ElapsedMilliseconds} мс");
+            Assert.NotEmpty(sets);
+        }
+    }
+
     [Fact]
     public void SummaryAndRepeatedSessions()
     {

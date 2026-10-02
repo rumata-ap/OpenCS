@@ -943,6 +943,10 @@
    <system:String x:Key="ScadApiDeletedElements">Elements deleted in SCAD were not imported: {0}.</system:String>
    <system:String x:Key="ScadApiBarsWithoutShape">Bar stiffnesses with a non-rectangular section (no section for checks): {0}.</system:String>
    <system:String x:Key="ScadApiDegenerateAxes">Elements with an undefined force output axis (system direction normal to the element plane): {0} — angle not set.</system:String>
+   <system:String x:Key="ScadApiNoResults">SCAD analysis results were not found in the working directory “{0}”. Run the analysis in SCAD or specify the working directory.</system:String>
+   <system:String x:Key="ScadApiNoForces">SCAD results (“{0}”) contain no element forces.</system:String>
+   <system:String x:Key="ScadApiNoRsu">SCAD results (“{0}”) contain no design force combinations (RSU). Run the RSU analysis in SCAD.</system:String>
+   <system:String x:Key="ScadApiForcesOtherProject">{0} of {1} elements are missing from the SCAD project or are of another kind (bar ↔ plate) — a different project seems to be selected.</system:String>
    <system:String x:Key="ImportScadTopologyTitle">Import SCAD topology — text format (.txt)</system:String>
    <system:String x:Key="ScadTextFileFilter">SCAD text format (*.txt)|*.txt|All files (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadErrorTitle">SCAD import</system:String>

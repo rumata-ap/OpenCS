@@ -55,6 +55,11 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, int> ApiYesEffors;
     public readonly delegate* unmanaged[Stdcall]<nint, int> ApiYesRSU;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetResultQuantityLoad;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, byte, ushort> ApiGetEffors;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*, ushort> ApiGetRsu;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetLoadName;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityComb;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint, byte*, ushort> ApiGetResultData;
 
     ScadApiNative(string path, nint lib)
     {
@@ -93,6 +98,11 @@ internal sealed unsafe class ScadApiNative
         ApiYesEffors = (delegate* unmanaged[Stdcall]<nint, int>)F(nameof(ApiYesEffors));
         ApiYesRSU = (delegate* unmanaged[Stdcall]<nint, int>)F(nameof(ApiYesRSU));
         ApiGetResultQuantityLoad = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetResultQuantityLoad));
+        ApiGetEffors = (delegate* unmanaged[Stdcall]<nint, uint, byte**, byte, ushort>)F(nameof(ApiGetEffors));
+        ApiGetRsu = (delegate* unmanaged[Stdcall]<nint, uint, byte*, ushort>)F(nameof(ApiGetRsu));
+        ApiGetLoadName = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetLoadName));
+        ApiGetQuantityComb = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityComb));
+        ApiGetResultData = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint, byte*, ushort>)F(nameof(ApiGetResultData));
     }
 
     /// <summary>

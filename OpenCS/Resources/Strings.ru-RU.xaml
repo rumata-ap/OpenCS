@@ -943,6 +943,10 @@
    <system:String x:Key="ScadApiDeletedElements">Удалённые в SCAD КЭ не импортированы: {0}.</system:String>
    <system:String x:Key="ScadApiBarsWithoutShape">Жёсткости стержней с сечением не «брус» (для проверок сечение не построится): {0}.</system:String>
    <system:String x:Key="ScadApiDegenerateAxes">КЭ с неопределённой осью выдачи усилий (направление системы перпендикулярно плоскости КЭ): {0} — угол не задан.</system:String>
+   <system:String x:Key="ScadApiNoResults">Результаты расчёта проекта SCAD не найдены в рабочем каталоге «{0}». Выполните расчёт в SCAD или укажите рабочий каталог.</system:String>
+   <system:String x:Key="ScadApiNoForces">В результатах расчёта SCAD («{0}») нет усилий в элементах.</system:String>
+   <system:String x:Key="ScadApiNoRsu">В результатах расчёта SCAD («{0}») нет РСУ. Выполните расчёт РСУ в SCAD.</system:String>
+   <system:String x:Key="ScadApiForcesOtherProject">{0} КЭ из {1} нет в проекте SCAD или они другого вида (стержень ↔ пластина) — похоже, выбран другой проект.</system:String>
    <system:String x:Key="ImportScadTopologyTitle">Импорт топологии SCAD — текстовый формат (.txt)</system:String>
    <system:String x:Key="ScadTextFileFilter">Текстовый формат SCAD (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ImportScadErrorTitle">Импорт SCAD</system:String>

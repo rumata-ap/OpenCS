@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-
 namespace CScore.Import;
 
 /// <summary>
@@ -60,11 +57,11 @@ public static class ScadForceSetBuilder
         var nums = new int[sets.Length];
         foreach (var e in elements)
         {
-            var seen = new HashSet<string>();
+            var seen = new HashSet<ScadRsuRow>(RsuRowValueComparer.Instance);
             foreach (var row in e.Rows.OrderBy(r => r.Point).ThenBy(r => r.Group).ThenBy(r => r.Criterion))
             {
                 if (row.Group < 0 || row.Group >= sets.Length) continue;
-                if (!seen.Add(RowKey(row))) continue;
+                if (!seen.Add(row)) continue;
                 var fs = sets[row.Group];
                 string label = $"э.{e.ElemId} с{row.Point} к{row.Criterion}";
                 if (e.Kind == ScadElementKind.Shell)
@@ -144,12 +141,22 @@ public static class ScadForceSetBuilder
     static string Name(IReadOnlyList<string> names, int index, string fallback) =>
         index < names.Count && !string.IsNullOrWhiteSpace(names[index]) ? names[index].Trim() : fallback;
 
-    static string RowKey(ScadRsuRow row)
+    /// <summary>Строки РСУ равны, если совпадают точка, группа и усилия (побитово); критерий не важен.</summary>
+    sealed class RsuRowValueComparer : IEqualityComparer<ScadRsuRow>
     {
-        var sb = new StringBuilder();
-        sb.Append(row.Point).Append('|').Append(row.Group);
-        foreach (double v in row.Us)
-            sb.Append('|').Append(BitConverter.DoubleToInt64Bits(v).ToString("X", CultureInfo.InvariantCulture));
-        return sb.ToString();
+        public static readonly RsuRowValueComparer Instance = new();
+
+        public bool Equals(ScadRsuRow? a, ScadRsuRow? b) =>
+            ReferenceEquals(a, b) || a != null && b != null && a.Point == b.Point && a.Group == b.Group
+                && a.Us.AsSpan().SequenceEqual(b.Us);
+
+        public int GetHashCode(ScadRsuRow r)
+        {
+            var h = new HashCode();
+            h.Add(r.Point);
+            h.Add(r.Group);
+            foreach (double v in r.Us) h.Add(v);
+            return h.ToHashCode();
+        }
     }
 }
