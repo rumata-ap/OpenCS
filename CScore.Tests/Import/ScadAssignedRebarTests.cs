@@ -1,4 +1,6 @@
+using CScore.Fem;
 using CScore.Import;
+using CScore.PlateRebar;
 using Xunit;
 
 namespace CScore.Tests.Import;
@@ -110,6 +112,64 @@ public class ScadAssignedRebarTests
         Assert.Equal(0.05, p.S1.Row2DeltaM);
         Assert.Null(p.S4);
         Assert.Equal("колонны", back.Rods[0].Name);
+    }
+
+    [Fact]
+    public void PlateSource_ComponentsAndMissing()
+    {
+        var file = new ScadAssignedRebarFile([new ScadAssignedPlate(1, "", [5], [12, 0, 10, 0], [0.2, 0.2, 0.2, 0.2], 0, 0, 0)], []);
+        var src = new ScadAssignedPlateRebarSource(file);
+        Assert.Equal(5.655, src.Get("5", PlateRebarMosaicComponent.BottomX).Value!.Value, 3);
+        Assert.Equal(0, src.Get("5", PlateRebarMosaicComponent.TopX).Value);
+        Assert.Equal(0, src.Get("5", PlateRebarMosaicComponent.Transverse).Value);
+        Assert.Null(src.Get("6", PlateRebarMosaicComponent.BottomX).Value);
+    }
+
+    [Fact]
+    public void BarSource_SectionsFollowParts_EnvelopeIsMinimum()
+    {
+        var rod = new ScadAssignedRod(1, "", [7], [Part(1, 30, 25), Part(2, 70, 16)]);
+        var src = new ScadAssignedBarRebarSource(new ScadAssignedRebarFile([], [rod]), _ => 3);
+
+        var s = src.GetSections("7", BarRebarComponent.As1).Select(v => v.Value!.Value).ToList();
+
+        Assert.Equal([3 * 4.909, 3 * 2.011, 3 * 2.011], s.Select(v => Math.Round(v, 3)).ToList(), new ToleranceComparer(0.01));
+        Assert.Equal(3 * 2.011, src.Get("7", BarRebarComponent.As1).Value!.Value, 2);
+        Assert.Empty(src.GetSections("8", BarRebarComponent.As1));
+    }
+
+    [Fact]
+    public void BarSource_UnknownSectionCount_OnePartGivesOneValue()
+    {
+        var file = new ScadAssignedRebarFile([], [new ScadAssignedRod(1, "", [7], [Part(1, 100, 16)])]);
+        Assert.Single(new ScadAssignedBarRebarSource(file).GetSections("7", BarRebarComponent.LongitudinalSum));
+    }
+
+    [Fact]
+    public void Difference_BySection_WhenCountsMatch()
+    {
+        var rod = new ScadAssignedRod(1, "", [7], [Part(1, 50, 25), Part(2, 50, 16)]);
+        var assigned = new ScadAssignedBarRebarSource(new ScadAssignedRebarFile([], [rod]), _ => 2);
+        var required = new FixedBarSource([10.0, 10.0]);
+
+        var d = new BarRebarDifferenceSource(assigned, required).GetSections("7", BarRebarComponent.As1);
+
+        Assert.Equal(3 * 4.909 - 10, d[0].Value!.Value, 2);
+        Assert.Equal(3 * 2.011 - 10, d[1].Value!.Value, 2);
+    }
+
+    sealed class FixedBarSource(double[] sections) : IBarRebarFieldSource
+    {
+        public bool Supports(BarRebarComponent component) => true;
+        public PlateRebarValue Get(string elemTag, BarRebarComponent component) => PlateRebarValue.Of(sections.Max());
+        public IReadOnlyList<PlateRebarValue> GetSections(string elemTag, BarRebarComponent component) =>
+            sections.Select(PlateRebarValue.Of).ToList();
+    }
+
+    sealed class ToleranceComparer(double tol) : IEqualityComparer<double>
+    {
+        public bool Equals(double x, double y) => Math.Abs(x - y) <= tol;
+        public int GetHashCode(double obj) => 0;
     }
 
     [Fact]

@@ -981,6 +981,7 @@
    <system:String x:Key="ScadRebarReadingGroups">Чтение ЖБ-групп и заданного армирования SCAD…</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Обновить ЖБ-группы и заданное армирование из .SPR</system:String>
+   <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>
    <system:String x:Key="ScadPluginNoScad">Каталог {0} не найден: SCAD не установлен или другая версия. Плагин не установлен.</system:String>

@@ -52,7 +52,8 @@ public interface IBarRebarFieldSource
 }
 
 /// <summary>Разность «заданное − требуемое» по стержням: минус — дефицит, плюс — запас.
-/// Заданное армирование постоянно по длине КЭ, поэтому сечения берутся у требуемого.</summary>
+/// Сечения берутся у требуемого; заданное — по тем же сечениям, если их у него столько же (участки SCAD),
+/// иначе (постоянное по длине КЭ, ТЗА ЛИРЫ) — значение на КЭ.</summary>
 public sealed class BarRebarDifferenceSource(IBarRebarFieldSource assigned, IBarRebarFieldSource required)
     : IBarRebarFieldSource
 {
@@ -66,8 +67,12 @@ public sealed class BarRebarDifferenceSource(IBarRebarFieldSource assigned, IBar
     /// <inheritdoc/>
     public IReadOnlyList<PlateRebarValue> GetSections(string elemTag, BarRebarComponent component)
     {
+        var need = required.GetSections(elemTag, component);
+        var given = assigned.GetSections(elemTag, component);
+        if (given.Count == need.Count)
+            return need.Select((r, k) => Subtract(given[k], r)).ToList();
         var a = assigned.Get(elemTag, component);
-        return required.GetSections(elemTag, component).Select(r => Subtract(a, r)).ToList();
+        return need.Select(r => Subtract(a, r)).ToList();
     }
 
     static PlateRebarValue Subtract(PlateRebarValue a, PlateRebarValue r)

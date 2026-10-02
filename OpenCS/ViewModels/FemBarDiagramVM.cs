@@ -315,13 +315,14 @@ public sealed class FemBarDiagramVM : ViewModelBase
 
         IBarRebarFieldSource? rebar = null;
         string? rebarFile = null;
+        ScadSelectedRebarFile? scadSelected = null;
         // У схем SCAD подобранная арматура — из выгрузки плагина, а не из ASP.
         if (db.GetFemSchemaSourceType(schemaId) == "scad")
         {
             if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scad)
                 try
                 {
-                    var file = ScadRebarExportReader.Read(scad.Data);
+                    var file = scadSelected = ScadRebarExportReader.Read(scad.Data);
                     if (numbers.Any(file.Bars.ContainsKey))
                     {
                         rebar = new ScadSelectedBarRebarSource(file);
@@ -350,7 +351,26 @@ public sealed class FemBarDiagramVM : ViewModelBase
 
         IBarRebarFieldSource? assigned = null;
         string? assignedFile = null;
-        if (db.GetFemSchemaReinforcementFile(schemaId) is { } rbt)
+        // У схем SCAD заданное армирование — вложение схемы, прочитанное из .SPR.
+        if (db.GetFemSchemaSourceType(schemaId) == "scad")
+        {
+            if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } scadAssigned)
+                try
+                {
+                    var file = ScadAssignedRebarFile.FromJson(System.Text.Encoding.UTF8.GetString(scadAssigned.Data));
+                    if (numbers.Any(n => file.Rod(n) != null))
+                    {
+                        assigned = new ScadAssignedBarRebarSource(file,
+                            ScadAssignedBarRebarSource.SectionCounts(scadSelected, sets));
+                        assignedFile = Loc.S("ScadAssignedRebarLabel");
+                    }
+                }
+                catch (InvalidDataException ex)
+                {
+                    warn?.Invoke(string.Format(Loc.S("PlateRebarMosaicReadError"), Loc.S("ScadAssignedRebarLabel"), ex.Message));
+                }
+        }
+        else if (db.GetFemSchemaReinforcementFile(schemaId) is { } rbt)
             try
             {
                 var source = new LiraRbtBarRebarSource(LiraRbtReader.Read(rbt.Data), scope.Elements

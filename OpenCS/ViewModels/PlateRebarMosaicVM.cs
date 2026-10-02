@@ -407,12 +407,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
       if (db.GetFemSchemaSourceType(schemaId) == "scad")
       {
+         ScadSelectedRebarFile? selectedScad = null;
          if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scad)
          {
             key.Append(scad.FileName).Append(':').Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(scad.Data))).Append('|');
             try
             {
-               var file = ScadRebarExportReader.Read(scad.Data);
+               var file = selectedScad = ScadRebarExportReader.Read(scad.Data);
                selected = new ScadSelectedPlateRebarSource(file);
                if (file.Bars.Count > 0) selectedBars = new ScadSelectedBarRebarSource(file);
                selectedFile = scad.FileName;
@@ -420,6 +421,24 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             {
                errors.Add((scad.FileName, ex.Message));
+            }
+         }
+
+         // Заданное армирование SCAD — вложение схемы, прочитанное из .SPR (не файл).
+         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } scadAssigned)
+         {
+            key.Append("scad-assigned:").Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(scadAssigned.Data)));
+            string label = Loc.S("ScadAssignedRebarLabel");
+            try
+            {
+               var file = ScadAssignedRebarFile.FromJson(System.Text.Encoding.UTF8.GetString(scadAssigned.Data));
+               if (file.Plates.Count > 0) assigned = new ScadAssignedPlateRebarSource(file);
+               if (file.Rods.Count > 0) assignedBars = new ScadAssignedBarRebarSource(file, ScadAssignedBarRebarSource.SectionCounts(selectedScad));
+               if (!file.IsEmpty) assignedFile = label;
+            }
+            catch (InvalidDataException ex)
+            {
+               errors.Add((label, ex.Message));
             }
          }
       }

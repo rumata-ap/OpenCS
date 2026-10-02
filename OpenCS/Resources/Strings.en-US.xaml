@@ -981,6 +981,7 @@
    <system:String x:Key="ScadRebarReadingGroups">Reading SCAD RC groups and assigned reinforcement…</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh RC groups and assigned reinforcement from .SPR</system:String>
+   <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
    <system:String x:Key="ScadPluginInstall">Install plugin into SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Plugin files not found: {0}. Reinstall OpenCS.</system:String>
    <system:String x:Key="ScadPluginNoScad">Directory {0} not found: SCAD is not installed or another version is used. The plugin was not installed.</system:String>
