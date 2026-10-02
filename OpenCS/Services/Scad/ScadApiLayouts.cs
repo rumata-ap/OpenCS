@@ -116,7 +116,9 @@ internal static class ScadApiLayouts
 
     /// <summary>
     /// ApiArmElemPlate (208 байт): ⌀ S1..S4 (мм) и шаги (м), поперечная; флаги NoDown/NoUp/NoTrans обнуляют
-    /// диаметры S1, S3 / S2, S4 / поперечной.
+    /// диаметры S1, S3 / S2, S4 / поперечной. Флаги в заголовке объявлены как BOOL, но DLL пишет их по байту
+    /// подряд ([68] NoUp, [69] NoDown, [70] NoTrans): в модели 111.SPR (02.10) с тремя отмеченными
+    /// «Отсутствует» лежит 01 01 01 00.
     /// </summary>
     public static ScadAssignedPlate ParseArmPlate(ReadOnlySpan<byte> b, int num, string name, int[] elementIds)
     {
@@ -129,7 +131,7 @@ internal static class ScadApiLayouts
             d[i] = (int)UInt32(b, 12 * i);
             steps[i] = Double(b, 12 * i + 4);
         }
-        bool noUp = UInt32(b, 68) != 0, noDown = UInt32(b, 72) != 0, noTrans = UInt32(b, 76) != 0;
+        bool noUp = b[68] != 0, noDown = b[69] != 0, noTrans = b[70] != 0;
         if (noDown) d[0] = d[2] = 0;
         if (noUp) d[1] = d[3] = 0;
         return new ScadAssignedPlate(num, name, elementIds, d, steps,

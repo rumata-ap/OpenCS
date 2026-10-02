@@ -77,7 +77,7 @@ public class ScadConcreteLayoutTests
         U32(b, 48, 8);      // dW
         F64(b, 52, 0.4);    // StepWx
         F64(b, 60, 0.3);    // StepWy
-        U32(b, 68, 1);      // NoUp
+        b[68] = 1;          // NoUp — флаги по байту, не UINT
 
         var p = ScadApiLayouts.ParseArmPlate(b, 3, "плиты", [7, 8]);
 
@@ -87,6 +87,24 @@ public class ScadConcreteLayoutTests
         Assert.Equal(0.3, p.TransverseStepYM);
         Assert.Equal(3, p.Num);
         Assert.Equal([7, 8], p.ElementIds);
+    }
+
+    /// <summary>Байты флагов из модели 111.SPR: отмечены все три «Отсутствует» — у группы нет арматуры.</summary>
+    [Fact]
+    public void ParseArmPlate_AllAbsentFlags_ZeroEverything()
+    {
+        var b = new byte[ScadApiLayouts.ArmElemPlateSize];
+        for (int i = 0; i < 4; i++) { U32(b, 12 * i, 10); F64(b, 12 * i + 4, 0.2); }
+        U32(b, 48, 10);
+        F64(b, 52, 0.3);
+        F64(b, 60, 0.3);
+        b[68] = b[69] = b[70] = 1;
+
+        var p = ScadApiLayouts.ParseArmPlate(b, 1, "", [1]);
+
+        Assert.Equal([0, 0, 0, 0], p.DiametersMm);
+        Assert.Equal(0, p.TransverseDiameterMm);
+        Assert.Equal(0, p.TransverseArea);
     }
 
     [Fact]
