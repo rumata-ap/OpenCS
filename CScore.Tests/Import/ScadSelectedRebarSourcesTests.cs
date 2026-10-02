@@ -302,6 +302,74 @@ public class ScadSelectedRebarSourcesTests
         Assert.Contains("ЖБ-групп", src.Resolve(Bar(814), 1).Reason);
     }
 
+    // ── Заданное армирование: сечения для проверок ──────────────────────────────────────────────
+
+    static ScadAssignedRebarFile Assigned()
+    {
+        var face = new ScadRodFace(new ScadBarSet(3, 20), new ScadBarSet(2, 16), new ScadBarSet(2, 12), 0.05);
+        var part1 = new ScadAssignedRodPart(1, 30, face, new ScadRodFace(new ScadBarSet(2, 16), null, null, 0),
+            new ScadBarSet(1, 12), new ScadBarSet(1, 12), null, null);
+        var part2 = new ScadAssignedRodPart(2, 70, new ScadRodFace(new ScadBarSet(2, 12), null, null, 0),
+            new ScadRodFace(new ScadBarSet(2, 12), null, null, 0), null, null, null, null);
+        return new ScadAssignedRebarFile(
+            [new ScadAssignedPlate(1, "плита", [23], [12, 0, 10, 0], [0.2, 0.2, 0.1, 0.2], 0, 0, 0)],
+            [new ScadAssignedRod(1, "колонны", [814], [part1, part2])]);
+    }
+
+    [Fact]
+    public void AssignedPlateSection_AreasAndDiametersFromGroup_CoversFromConcreteGroup()
+    {
+        var groups = new ScadConcreteGroupIndex([Group(1, [0.03, 0.03, 0, 0], 23)]);
+        var src = new ScadAssignedPlateSectionSource(Template(), Assigned(), groups);
+
+        var r = src.Resolve(Plate(23, 0.18));
+
+        Assert.Null(r.Reason);
+        Assert.Equal("SCAD, заданное «плита»", r.Label);
+        var layer = Assert.Single(r.Section!.RebarLayers);   // верхней арматуры нет
+        Assert.Equal(-0.06, layer.Zsx, 9);
+        Assert.Equal(5.655e-4, layer.Asx, 7);                // ⌀12 / 200
+        Assert.Equal(7.854e-4, layer.Asy, 7);                // ⌀10 / 100
+        Assert.Equal(0.012, layer.DiameterX);
+        Assert.Equal(0.010, layer.DiameterY);
+        Assert.Contains("нет в группах заданного", src.Resolve(Plate(24)).Reason);
+    }
+
+    [Fact]
+    public void AssignedLayout_RealBars_SecondRowAndSides()
+    {
+        var part = Assigned().Rods[0].Parts[0];
+        var (bars, reason) = ScadBarSectionBuilder.AssignedLayout(part, Profile60, 0.05, 0.04);
+
+        Assert.Null(reason);
+        // S1: 3⌀20 + 2⌀16 в первом ряду, 2⌀12 во втором; S2: 2⌀16; S3, S4 — по 1⌀12.
+        Assert.Equal(5 + 2 + 2 + 1 + 1, bars!.Count);
+        Assert.Equal(part.LongitudinalSum * 1e-4, bars.Sum(b => b.AreaM2), 9);
+        var row1 = bars.Where(b => Math.Abs(b.Y - (-0.3 + 0.05)) < 1e-9).OrderBy(b => b.X).ToList();
+        Assert.Equal([0.020, 0.016, 0.020, 0.016, 0.020], row1.Select(b => b.DiameterM));
+        Assert.Equal(-0.3 + 0.04, row1[0].X, 9);             // a = min(a1, a2)
+        Assert.Equal(2, bars.Count(b => Math.Abs(b.Y - (-0.3 + 0.05 + 0.05)) < 1e-9));
+        Assert.Single(bars, b => b.X < -0.25 && b.Y > -0.2 && b.Y < 0.2);
+
+        Assert.Contains("вторые ряды", ScadBarSectionBuilder.AssignedLayout(part, Profile60 with { HeightM = 0.10 }, 0.03, 0.03).Reason);
+    }
+
+    [Fact]
+    public void AssignedBarSource_PartBySection_WeakestWithoutNumber()
+    {
+        var groups = new ScadConcreteGroupIndex([Group(1, [0.04, 0.04, 0, 0], 814)]);
+        var src = new ScadAssignedBarSectionSource(Context(groups), Assigned(), _ => 3);
+
+        var s1 = src.Resolve(Bar(814), 1);
+        Assert.Null(s1.Reason);
+        Assert.Equal("SCAD, заданное «колонны» уч.1 600×600", s1.Section!.Tag);
+        Assert.Equal("SCAD, заданное «колонны» уч.2 600×600", src.Resolve(Bar(814), 2).Section!.Tag);
+        Assert.Equal("SCAD, заданное «колонны» уч.2 600×600", src.Resolve(Bar(814), null).Section!.Tag);
+        Assert.Same(s1, src.Resolve(Bar(814), 1));
+        Assert.Contains("нет в группах заданного", src.Resolve(Bar(818), 1).Reason);
+        Assert.Contains("ЖБ-групп", new ScadAssignedBarSectionSource(Context(null), Assigned()).Resolve(Bar(814), 1).Reason);
+    }
+
     // ── Шаблон пластины по ЖБ-группам ───────────────────────────────────────────────────────────
 
     [Fact]

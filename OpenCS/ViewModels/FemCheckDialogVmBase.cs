@@ -264,9 +264,13 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
                 e.Element.ElemType == elemType && !string.IsNullOrWhiteSpace(e.Element.ReinforcementTypeIds));
             if (data.IsScad)
             {
-                // Заданное армирование SCAD — срез 4; подобранное — выгрузка плагина.
-                AssignedSourceEnabled = false;
-                AssignedSourceHint = Loc.S("FemCheckScadAssignedNotYet");
+                // Заданное армирование SCAD — группы из .SPR; подобранное — выгрузка плагина.
+                bool anyAssigned = _scope.Elements.Any(e => e.Element.ElemType == elemType && e.ElemNum is int n
+                    && (IsPlateCheck ? data.ScadAssigned?.Plate(n) : (object?)data.ScadAssigned?.Rod(n)) != null);
+                AssignedSourceEnabled = anyAssigned;
+                AssignedSourceHint = anyAssigned ? null
+                    : data.ScadAssigned is not { IsEmpty: false } ? Loc.S("FemCheckNoScadAssigned")
+                    : Loc.S("FemCheckScadAssignedNotInTarget");
                 SelectedSourceEnabled = data.ScadSelected != null;
                 SelectedSourceHint = data.ScadSelected == null ? Loc.S("FemCheckNoScadSelected") : null;
             }

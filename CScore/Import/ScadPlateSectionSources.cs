@@ -42,26 +42,8 @@ public sealed class ScadSelectedPlateSectionSource : IPlateElementSectionSource
         double h = element.Element.ThicknessM is > 0 and var own ? own : _factory.Template.H;
         var top = _factory.Top;
         var bottom = _factory.Bottom;
-
-        double a1, a2, a3, a4;
-        if (_groups?.Find(num) is { } g)
-        {
-            (a1, a2, a3, a4) = ScadConcreteGroupIndex.PlateCovers(g);
-            if (!(a1 > 0 && a2 > 0 && a3 > 0 && a4 > 0) || a1 + a2 >= h || a3 + a4 >= h)
-                return PlateElementSection.Missing(string.Format(CultureInfo.InvariantCulture,
-                    "привязки ЖБ-группы SCAD {0} ({1:0.#}/{2:0.#}/{3:0.#}/{4:0.#} мм) не помещаются в толщину {5:0.#} мм",
-                    g.Num, a1 * 1000, a2 * 1000, a3 * 1000, a4 * 1000, h * 1000), Label);
-        }
-        else
-        {
-            if (top == null)
-                return PlateElementSection.Missing("КЭ нет в ЖБ-группах SCAD, а в сечении цели нет слоя арматуры у грани Z+ — " +
-                                                   "привязку подобранной арматуры взять неоткуда", Label);
-            if (bottom == null)
-                return PlateElementSection.Missing("КЭ нет в ЖБ-группах SCAD, а в сечении цели нет слоя арматуры у грани Z− — " +
-                                                   "привязку подобранной арматуры взять неоткуда", Label);
-            (a1, a2, a3, a4) = (bottom.CoverX, top.CoverX, bottom.CoverY, top.CoverY);
-        }
+        var (covers, reason) = ScadPlateCovers.Resolve(_groups, num, h, _factory);
+        if (covers is not var (a1, a2, a3, a4)) return PlateElementSection.Missing(reason!, Label);
 
         var layers = new List<PlateRebarLayer>(2);
         PlateSectionSourceHelpers.AddLayer(layers, +1, h, as2, as4, a2, a4, top?.DiameterX ?? 0, top?.DiameterY ?? 0);
@@ -94,6 +76,85 @@ public sealed class ScadSelectedPlateSectionSource : IPlateElementSectionSource
         if (_groups is { MultiGroupElements: > 0 } idx)
             warnings.Add($"{idx.MultiGroupElements} КЭ схемы входят в несколько ЖБ-групп SCAD — привязки взяты " +
                          "из группы с меньшим номером.");
+        return warnings;
+    }
+}
+
+/// <summary>
+/// Привязки арматуры пластины SCAD: из ЖБ-группы КЭ (a1..a4 — низ X, верх X, низ Y, верх Y; a3/a4 = 0 — берутся
+/// a1/a2), у КЭ без группы — от слоёв шаблона той же грани.
+/// </summary>
+internal static class ScadPlateCovers
+{
+    /// <summary>Привязки, м, либо причина, по которой их нет.</summary>
+    public static ((double A1, double A2, double A3, double A4)? Covers, string? Reason) Resolve(
+        ScadConcreteGroupIndex? groups, int num, double h, PlateElementSectionFactory factory)
+    {
+        if (groups?.Find(num) is { } g)
+        {
+            var (a1, a2, a3, a4) = ScadConcreteGroupIndex.PlateCovers(g);
+            if (!(a1 > 0 && a2 > 0 && a3 > 0 && a4 > 0) || a1 + a2 >= h || a3 + a4 >= h)
+                return (null, string.Format(CultureInfo.InvariantCulture,
+                    "привязки ЖБ-группы SCAD {0} ({1:0.#}/{2:0.#}/{3:0.#}/{4:0.#} мм) не помещаются в толщину {5:0.#} мм",
+                    g.Num, a1 * 1000, a2 * 1000, a3 * 1000, a4 * 1000, h * 1000));
+            return ((a1, a2, a3, a4), null);
+        }
+        if (factory.Top is not { } top)
+            return (null, "КЭ нет в ЖБ-группах SCAD, а в сечении цели нет слоя арматуры у грани Z+ — привязку арматуры взять неоткуда");
+        if (factory.Bottom is not { } bottom)
+            return (null, "КЭ нет в ЖБ-группах SCAD, а в сечении цели нет слоя арматуры у грани Z− — привязку арматуры взять неоткуда");
+        return ((bottom.CoverX, top.CoverX, bottom.CoverY, top.CoverY), null);
+    }
+}
+
+/// <summary>
+/// Источник <see cref="FemCheckRebarSource.Assigned"/>: сечение пластинчатого КЭ из заданного в SCAD армирования
+/// (группы ApiArmPlate, ⌀/шаг S1..S4). Привязки — как у подбора (<see cref="ScadPlateCovers"/>), диаметры —
+/// заданные (нулевой — от слоя шаблона той же грани). Толщина: своя толщина КЭ → толщина шаблона.
+/// </summary>
+public sealed class ScadAssignedPlateSectionSource(PlateSection template, ScadAssignedRebarFile file, ScadConcreteGroupIndex? groups)
+    : IPlateElementSectionSource
+{
+    const string Label = "SCAD, заданное";
+
+    readonly PlateElementSectionFactory _factory = new(template);
+
+    /// <inheritdoc/>
+    public string Key => FemCheckRebarSource.Assigned;
+
+    /// <inheritdoc/>
+    public PlateElementSection Resolve(FemCheckScopeElement element)
+    {
+        if (element.ElemNum is not int num || file.Plate(num) is not { } g)
+            return PlateElementSection.Missing("КЭ нет в группах заданного армирования SCAD", Label);
+        string label = g.Name.Length > 0 ? $"{Label} «{g.Name}»" : $"{Label} {g.Num}";
+        if (Enumerable.Range(0, 4).All(i => g.Area(i) == 0))
+            return PlateElementSection.Missing($"в группе заданного армирования SCAD {g.Num} нет продольной арматуры", label);
+
+        double h = element.Element.ThicknessM is > 0 and var own ? own : _factory.Template.H;
+        var (covers, reason) = ScadPlateCovers.Resolve(groups, num, h, _factory);
+        if (covers is not var (a1, a2, a3, a4)) return PlateElementSection.Missing(reason!, label);
+
+        double D(int i, double? face) => g.DiametersMm[i] > 0 ? g.DiametersMm[i] / 1000.0 : face ?? 0;
+        var top = _factory.Top;
+        var bottom = _factory.Bottom;
+        var layers = new List<PlateRebarLayer>(2);
+        PlateSectionSourceHelpers.AddLayer(layers, +1, h, g.Area(1), g.Area(3), a2, a4, D(1, top?.DiameterX), D(3, top?.DiameterY));
+        PlateSectionSourceHelpers.AddLayer(layers, -1, h, g.Area(0), g.Area(2), a1, a3, D(0, bottom?.DiameterX), D(2, bottom?.DiameterY));
+        var (section, key) = _factory.Get(h, layers);
+        return new PlateElementSection(section, label, key, null);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> Warnings(IReadOnlyList<FemCheckScopeElement> elements, Material? concrete, Material? rebar)
+    {
+        var warnings = new List<string>();
+        int withoutGroup = elements.Count(e => e.ElemNum is int num && file.Plate(num) != null && groups?.Find(num) == null);
+        if (withoutGroup > 0)
+            warnings.Add($"{withoutGroup} КЭ с заданным армированием SCAD не входят в ЖБ-группы — привязки арматуры взяты из сечения цели.");
+        if (file.MultiGroupElements > 0)
+            warnings.Add($"{file.MultiGroupElements} КЭ схемы входят в несколько групп заданного армирования SCAD — " +
+                         "армирование взято из группы с меньшим номером.");
         return warnings;
     }
 }
