@@ -95,9 +95,9 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
 
     public bool AssignedSourceEnabled { get; private set; }
     public bool SelectedSourceEnabled { get; private set; }
-    /// <summary>Чего не хватает источнику ТЗА (подсказка отключённого флажка).</summary>
+    /// <summary>Подсказка флажка «Заданное»: программа и файл источника или чего ему не хватает.</summary>
     public string? AssignedSourceHint { get; private set; }
-    /// <summary>Чего не хватает источнику ASP.</summary>
+    /// <summary>Подсказка флажка «Подобранное»: программа и файл источника или чего ему не хватает.</summary>
     public string? SelectedSourceHint { get; private set; }
     /// <summary>У цели есть КЭ плоских конструктивных элементов — раскладку OpenCS есть куда наложить.</summary>
     public bool LayoutSourceEnabled { get; private set; }
@@ -258,6 +258,7 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
                 if (AcceptsForceSet(fs))
                     FilteredForceSets.Add(new FemCheckForceSetItem(fs, string.Format(Loc.S("FemCheckDlgSetRows"), fs.Tag, rows)));
 
+            // Подсказки флажков «Заданное»/«Подобранное» называют программу и файл источника.
             // У стержней ТЗА разбираются только простые брусовые (ряды у нижней и верхней грани).
             string elemType = IsPlateCheck ? "shell" : "beam";
             bool anyTza = _scope.Elements.Any(e =>
@@ -268,18 +269,19 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
                 bool anyAssigned = _scope.Elements.Any(e => e.Element.ElemType == elemType && e.ElemNum is int n
                     && (IsPlateCheck ? data.ScadAssigned?.Plate(n) : (object?)data.ScadAssigned?.Rod(n)) != null);
                 AssignedSourceEnabled = anyAssigned;
-                AssignedSourceHint = anyAssigned ? null
+                AssignedSourceHint = anyAssigned ? Loc.S("FemCheckAssignedScadHint")
                     : data.ScadAssigned is not { IsEmpty: false } ? Loc.S("FemCheckNoScadAssigned")
                     : Loc.S("FemCheckScadAssignedNotInTarget");
                 SelectedSourceEnabled = data.ScadSelected != null;
-                SelectedSourceHint = data.ScadSelected == null ? Loc.S("FemCheckNoScadSelected") : null;
+                SelectedSourceHint = data.ScadSelected == null ? Loc.S("FemCheckNoScadSelected") : Loc.S("FemCheckSelectedScadHint");
             }
             else
             {
                 AssignedSourceEnabled = data.Rbt != null && anyTza && (IsPlateCheck || data.Rbt.BarTypes.Count > 0);
-                AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt") : anyTza ? null : Loc.S("FemCheckNoTza");
+                AssignedSourceHint = data.Rbt == null ? Loc.S("FemCheckNoRbt")
+                    : anyTza ? Loc.S("FemCheckAssignedLiraHint") : Loc.S("FemCheckNoTza");
                 SelectedSourceEnabled = data.Asp != null;
-                SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : null;
+                SelectedSourceHint = data.Asp == null ? Loc.S("FemCheckNoAsp") : Loc.S("FemCheckSelectedLiraHint");
             }
             LayoutSourceEnabled = IsPlateCheck && _scope.Elements.Any(e =>
                 e.Element.ElemType == "shell" && e.Member?.PlanarRegionId != null);

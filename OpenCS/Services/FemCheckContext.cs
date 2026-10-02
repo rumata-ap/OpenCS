@@ -344,7 +344,7 @@ public static class FemCheckContext
         _ => key,
     };
 
-    /// <summary>Строка состояния диалога: «Усилия: 412 из 480 КЭ · армирование (ТЗА): 480 из 480».</summary>
+    /// <summary>Строка состояния диалога: «Усилия: 412 из 480 КЭ · армирование (заданное): 480 из 480».</summary>
     public static string ReadinessLine(FemCheckReadiness r, bool isPlate)
     {
         var parts = new List<string> { string.Format(Loc.S("FemCheckReadyForces"), r.ElementsWithForces, r.ElementsTotal) };

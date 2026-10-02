@@ -172,7 +172,8 @@ public sealed class FemBarDiagramVM : ViewModelBase
         List<FemBarDiagramComponentOption> Rebar(IBarRebarFieldSource? source) => source == null ? []
             : Enum.GetValues<BarRebarComponent>()
                 .Where(source.Supports)
-                .Select(c => new FemBarDiagramComponentOption(c, Loc.S("MosaicBarRebar" + c))).ToList();
+                .Select(c => new FemBarDiagramComponentOption(c,
+                    RebarComponentLabels.Bar(c, RebarComponentLabels.IsScad(source)))).ToList();
 
         Components = SelectedKind?.Kind switch
         {

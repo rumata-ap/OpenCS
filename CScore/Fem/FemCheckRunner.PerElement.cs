@@ -335,7 +335,7 @@ public static partial class FemCheckRunner
         foreach (var s in plateSources)
             warnings.AddRange(s.Warnings(elements, inputs.ConcreteMat, inputs.RebarMat));
         if (lessThanSelected > 0)
-            warnings.Add($"У {lessThanSelected} КЭ продольная арматура принятого сечения меньше подобранной (ASP).");
+            warnings.Add($"У {lessThanSelected} КЭ продольная арматура принятого сечения меньше подобранной.");
 
         int passedRows = results.Count(r => r.Passed);
         int notCheckedRows = results.Count(r => r.NotChecked);

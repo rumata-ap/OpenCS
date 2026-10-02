@@ -654,14 +654,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             or PlateRebarMosaicSourceKind.DifferenceBars when BarRebarSource() is { } bars:
             return Enum.GetValues<BarRebarComponent>()
                .Where(bars.Supports)
-               .Select(c => new PlateRebarMosaicComponentOption(c, Loc.S("MosaicBarRebar" + c)))
+               .Select(c => new PlateRebarMosaicComponentOption(c,
+                  RebarComponentLabels.Bar(c, RebarComponentLabels.IsScad(_selectedBars ?? _assignedBars))))
                .ToList();
 
          default:
             return RebarSource() is { } source
                ? Enum.GetValues<PlateRebarMosaicComponent>()
                   .Where(source.Supports)
-                  .Select(c => new PlateRebarMosaicComponentOption(c, RebarComponentLabel(c)))
+                  .Select(c => new PlateRebarMosaicComponentOption(c,
+                     RebarComponentLabels.Plate(c, RebarComponentLabels.IsScad(_selected ?? _assigned))))
                   .ToList()
                : [];
       }
@@ -688,15 +690,6 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          _checkResults[check.Check.Id] = rows = FemCheckElementResults.Parse(check.LoadJson());
       return rows;
    }
-
-   static string RebarComponentLabel(PlateRebarMosaicComponent c) => Loc.S(c switch
-   {
-      PlateRebarMosaicComponent.BottomX => "PlateRebarMosaicCompAs1",
-      PlateRebarMosaicComponent.TopX => "PlateRebarMosaicCompAs2",
-      PlateRebarMosaicComponent.BottomY => "PlateRebarMosaicCompAs3",
-      PlateRebarMosaicComponent.TopY => "PlateRebarMosaicCompAs4",
-      _ => "PlateRebarMosaicCompAsw",
-   });
 
    void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
