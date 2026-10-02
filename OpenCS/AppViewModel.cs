@@ -3154,7 +3154,9 @@ namespace OpenCS
          db.SaveScadApiSettings(settings);
 
          string spr = vm.SprPath, dllDir = vm.DllDirectory;
-         var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, vm.ConcreteGroupsAsMemberGroups);
+         // ЖБ-группы читаются всегда (привязки и классы для подбора SCAD); флажок — только группы КЭ «ЖБ: …».
+         var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, ConcreteGroups: true);
+         bool concreteAsMemberGroups = vm.ConcreteGroupsAsMemberGroups;
          var cts = BeginBusyWithCancellation(Loc.S("ScadApiImporting"), indeterminate: false);
          var progress = new Progress<double>(f => ReportBusyProgress(f));
          try
@@ -3184,7 +3186,7 @@ namespace OpenCS
             var meshNodes    = ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
             var meshElements = ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
             var blockGroups  = ScadSchemaConverter.ToFemMemberGroupsByBlocks(data, schema.Id);
-            var concreteGroups = options.ConcreteGroups
+            var concreteGroups = concreteAsMemberGroups
                ? ScadSchemaConverter.ToFemMemberGroupsByConcreteGroups(data, schema.Id)
                : [];
             var memberGroups = ScadSchemaConverter.ToFemMemberGroups(data, schema.Id)
@@ -3194,6 +3196,7 @@ namespace OpenCS
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
+            SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
             RefreshFemSchemaTreeCounts(schema);
 
             foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
@@ -3849,6 +3852,11 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
          }
       }
+
+      /// <summary>Сохранить ЖБ-группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadConcreteGroups"/>).</summary>
+      void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
 
       /// <summary>
       /// Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp: Файл → Экспорт в режиме

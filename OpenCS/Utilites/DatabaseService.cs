@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 72;
+      const int CurrentSchemaVersion = 73;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -92,6 +92,7 @@ namespace OpenCS.Utilites
          [69] = MigrateV70,
          [70] = MigrateV71,
          [71] = MigrateV72,
+         [72] = MigrateV73,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -681,6 +682,7 @@ namespace OpenCS.Utilites
          EnsureSubmodelMaterializationTable();
          EnsureFemSchemaReinforcementFileTable();
          EnsureFemSchemaSelectedReinforcementFileTable();
+         EnsureFemSchemaSourceFileTable();
          EnsureFemSchemaConstructiveBlockTable();
          EnsureFemSchemaStiffnessTable();
          MigrateV50();
@@ -1631,6 +1633,23 @@ namespace OpenCS.Utilites
       void MigrateV72() => MigExec("""
          CREATE INDEX IF NOT EXISTS idx_force_items_set_num ON force_items(set_id, num);
          CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_num ON force_shell_items(set_id, num);
+         """);
+
+      /// <summary>Миграция v73: вложения схемы по видам (fem_schema_source_files) — подбор арматуры SCAD
+      /// из плагина, ЖБ-группы SCAD.</summary>
+      void MigrateV73() => EnsureFemSchemaSourceFileTable();
+
+      /// <summary>Вложения FEM-схемы по видам (<see cref="FemSchemaSourceFileKind"/>): файлы и данные
+      /// программы-источника, хранятся как есть и разбираются при использовании.</summary>
+      void EnsureFemSchemaSourceFileTable() => MigExec("""
+         CREATE TABLE IF NOT EXISTS fem_schema_source_files (
+             schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+             kind TEXT NOT NULL,
+             file_name TEXT NOT NULL DEFAULT '',
+             data BLOB NOT NULL,
+             imported_at TEXT NOT NULL DEFAULT '',
+             PRIMARY KEY (schema_id, kind)
+         );
          """);
 
       /// <summary>Миграция v68: угол согласования местных осей пластинчатых КЭ (оси выдачи усилий ЛИРЫ).</summary>
@@ -4104,6 +4123,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_elements           WHERE schema_id=@id;
                DELETE FROM fem_schema_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_schema_selected_reinforcement_files WHERE schema_id=@id;
+               DELETE FROM fem_schema_source_files WHERE schema_id=@id;
                DELETE FROM fem_schema_stiffnesses WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
@@ -6568,6 +6588,34 @@ namespace OpenCS.Utilites
          using var rdr = cmd.ExecuteReader();
          if (!rdr.Read()) return null;
          return (rdr.GetString(0), (byte[])rdr.GetValue(1));
+      }
+
+      /// <summary>Сохранить (заменить) вложение FEM-схемы вида <paramref name="kind"/>.</summary>
+      public void SaveFemSchemaSourceFile(int schemaId, string kind, string fileName, byte[] data)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT OR REPLACE INTO fem_schema_source_files (schema_id, kind, file_name, data, imported_at)
+            VALUES (@sid, @kind, @name, @data, @at)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         cmd.Parameters.AddWithValue("@name", fileName);
+         cmd.Parameters.AddWithValue("@data", data);
+         cmd.Parameters.AddWithValue("@at", DateTime.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Вложение FEM-схемы вида <paramref name="kind"/>; null — нет.</summary>
+      public (string FileName, byte[] Data, string ImportedAt)? GetFemSchemaSourceFile(int schemaId, string kind)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT file_name, data, imported_at FROM fem_schema_source_files WHERE schema_id=@sid AND kind=@kind";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         using var rdr = cmd.ExecuteReader();
+         if (!rdr.Read()) return null;
+         return (rdr.GetString(0), (byte[])rdr.GetValue(1), rdr.GetString(2));
       }
 
       /// <summary>Возвращает (nodeCount, barCount, shellCount) для быстрого отображения в дереве.</summary>
