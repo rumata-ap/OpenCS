@@ -83,6 +83,35 @@ public class ScadApiReaderManualTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Заданное армирование (срез 4): печать групп пластин и стержней модели OPENCS_SCAD_ARM_SPR — для сверки
+    /// с окном SCAD. Без переменной тест ничего не делает.
+    /// </summary>
+    [Fact]
+    public void ReadAssignedRebar()
+    {
+        string? spr = Environment.GetEnvironmentVariable("OPENCS_SCAD_ARM_SPR");
+        if (string.IsNullOrWhiteSpace(spr)) return;
+        string dir = Environment.GetEnvironmentVariable("OPENCS_SCAD_DIR") ?? ScadInstallLocator.FindDllDirectory()!;
+        using var s = new ScadApiSession(ScadApiNative.Load(dir));
+        s.Open(spr);
+
+        var file = ScadApiReader.ReadAssignedRebar(s);
+        foreach (var g in file.Plates)
+            output.WriteLine($"Пластины {g.Num} «{g.Name}», КЭ {g.ElementIds.Length} ({string.Join(",", g.ElementIds.Take(5))}…): " +
+                $"⌀ {string.Join("/", g.DiametersMm)} шаг {string.Join("/", g.StepsM)}; поперечная ⌀{g.TransverseDiameterMm} " +
+                $"{g.TransverseStepXM}×{g.TransverseStepYM}; площади {string.Join("/", Enumerable.Range(0, 4).Select(i => g.Area(i).ToString("0.###")))} см²/м");
+        foreach (var g in file.Rods)
+        {
+            output.WriteLine($"Стержни {g.Num} «{g.Name}», КЭ {g.ElementIds.Length} ({string.Join(",", g.ElementIds.Take(5))}…), участков {g.Parts.Length}");
+            foreach (var p in g.Parts)
+                output.WriteLine($"  уч.{p.PartNo} {p.LengthPercent}%: S1 {p.S1}; S2 {p.S2}; S3 {p.S3}; S4 {p.S4}; " +
+                    $"Z {p.StirrupsZ}; Y {p.StirrupsY}; Σ {p.LongitudinalSum:0.###} см²");
+        }
+        output.WriteLine($"КЭ в нескольких группах: {file.MultiGroupElements}");
+        Assert.False(file.IsEmpty);
+    }
+
+    /// <summary>
     /// Усилия, комбинации и РСУ (срез 2): КЭ 814 (стержень) и 55459 (пластина) — числа пробника p9–p11,
     /// затем время чтения группы «Покрытие».
     /// </summary>
