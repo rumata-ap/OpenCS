@@ -1,5 +1,6 @@
 using CScore;
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 
 namespace OpenCS.Utilites
 {
@@ -45,67 +46,82 @@ namespace OpenCS.Utilites
             ? " AND source_elem_num BETWEEN @from AND @to"
             : " AND source_elem_num IS NULL";
 
-      static void AddRangeParameters(SqliteCommand cmd, int? fromElem, int? toElem)
+      // Чтение строк — напрямую через SQLitePCL (дескриптор соединения Microsoft.Data.Sqlite): на РСУ в миллионы
+      // строк обёртки ADO.NET (~150 нс на столбец) давали половину времени загрузки набора.
+
+      /// <summary>Выполняет запрос строк набора и вызывает <paramref name="read"/> на каждую строку результата.</summary>
+      static void ReadRows(SqliteConnection conn, string sql, int setId, int? fromElem, int? toElem, Action<sqlite3_stmt> read)
       {
-         if (fromElem == null || toElem == null) return;
-         cmd.Parameters.AddWithValue("@from", fromElem.Value);
-         cmd.Parameters.AddWithValue("@to", toElem.Value);
+         var db = conn.Handle!;
+         // Фоновая запись результата проверки на время фиксации порции блокирует чтение — ждём, а не падаем.
+         raw.sqlite3_busy_timeout(db, 30_000);
+         int rc = raw.sqlite3_prepare_v2(db, sql, out sqlite3_stmt stmt);
+         if (rc != raw.SQLITE_OK) throw new SqliteException(raw.sqlite3_errmsg(db).utf8_to_string(), rc);
+         using (stmt)
+         {
+            raw.sqlite3_bind_int(stmt, raw.sqlite3_bind_parameter_index(stmt, "@sid"), setId);
+            if (fromElem is int from && toElem is int to)
+            {
+               raw.sqlite3_bind_int(stmt, raw.sqlite3_bind_parameter_index(stmt, "@from"), from);
+               raw.sqlite3_bind_int(stmt, raw.sqlite3_bind_parameter_index(stmt, "@to"), to);
+            }
+            while ((rc = raw.sqlite3_step(stmt)) == raw.SQLITE_ROW)
+               read(stmt);
+            if (rc != raw.SQLITE_DONE) throw new SqliteException(raw.sqlite3_errmsg(db).utf8_to_string(), rc);
+         }
       }
+
+      static bool IsNull(sqlite3_stmt s, int i) => raw.sqlite3_column_type(s, i) == raw.SQLITE_NULL;
+      static string Text(sqlite3_stmt s, int i) => raw.sqlite3_column_text(s, i).utf8_to_string() ?? "";
+      static int? NullableInt(sqlite3_stmt s, int i) => IsNull(s, i) ? null : raw.sqlite3_column_int(s, i);
+      static double? NullableDouble(sqlite3_stmt s, int i) => IsNull(s, i) ? null : raw.sqlite3_column_double(s, i);
 
       static List<LoadItem> ReadBarRows(SqliteConnection conn, int setId, string filter, int? fromElem = null, int? toElem = null)
       {
          var items = new List<LoadItem>();
-         using var cmd = conn.CreateCommand();
-         cmd.CommandText = $"SELECT id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num FROM force_items WHERE set_id=@sid{filter} ORDER BY num";
-         cmd.Parameters.AddWithValue("@sid", setId);
-         AddRangeParameters(cmd, fromElem, toElem);
-         using var r = cmd.ExecuteReader();
-         while (r.Read())
-            items.Add(new LoadItem
+         ReadRows(conn,
+            $"SELECT id, num, label, n, mx, my, vx, vy, t, source_elem_num, source_section_num FROM force_items WHERE set_id=@sid{filter} ORDER BY num",
+            setId, fromElem, toElem, r => items.Add(new LoadItem
             {
-               Id    = r.GetInt32(0),
-               Num   = r.GetInt32(1),
-               Label = r.GetString(2),
-               N     = r.GetDouble(3),
-               Mx    = r.GetDouble(4),
-               My    = r.GetDouble(5),
-               Vx    = r.GetDouble(6),
-               Vy    = r.GetDouble(7),
-               T     = r.GetDouble(8),
-               SourceElementNum = r.IsDBNull(9) ? null : r.GetInt32(9),
-               SourceSectionNum = r.IsDBNull(10) ? null : r.GetInt32(10),
-            });
+               Id    = raw.sqlite3_column_int(r, 0),
+               Num   = raw.sqlite3_column_int(r, 1),
+               Label = Text(r, 2),
+               N     = raw.sqlite3_column_double(r, 3),
+               Mx    = raw.sqlite3_column_double(r, 4),
+               My    = raw.sqlite3_column_double(r, 5),
+               Vx    = raw.sqlite3_column_double(r, 6),
+               Vy    = raw.sqlite3_column_double(r, 7),
+               T     = raw.sqlite3_column_double(r, 8),
+               SourceElementNum = NullableInt(r, 9),
+               SourceSectionNum = NullableInt(r, 10),
+            }));
          return items;
       }
 
       static List<ShellLoadItem> ReadShellRows(SqliteConnection conn, int setId, string filter, int? fromElem = null, int? toElem = null)
       {
          var shellItems = new List<ShellLoadItem>();
-         using var cmd = conn.CreateCommand();
-         cmd.CommandText = $"SELECT id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num FROM force_shell_items WHERE set_id=@sid{filter} ORDER BY num";
-         cmd.Parameters.AddWithValue("@sid", setId);
-         AddRangeParameters(cmd, fromElem, toElem);
-         using var r = cmd.ExecuteReader();
-         while (r.Read())
-            shellItems.Add(new ShellLoadItem
+         ReadRows(conn,
+            $"SELECT id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy, source_elem_num, source_section_num FROM force_shell_items WHERE set_id=@sid{filter} ORDER BY num",
+            setId, fromElem, toElem, r => shellItems.Add(new ShellLoadItem
             {
-               Id      = r.GetInt32(0),
-               Num     = r.GetInt32(1),
-               Label   = r.GetString(2),
-               Nx      = r.GetDouble(3),
-               Ny      = r.GetDouble(4),
-               Nxy     = r.GetDouble(5),
-               Mx      = r.GetDouble(6),
-               My      = r.GetDouble(7),
-               Mxy     = r.GetDouble(8),
-               Qx      = r.GetDouble(9),
-               Qy      = r.GetDouble(10),
-               SigmaX  = r.IsDBNull(11) ? null : r.GetDouble(11),
-               SigmaY  = r.IsDBNull(12) ? null : r.GetDouble(12),
-               TauXY   = r.IsDBNull(13) ? null : r.GetDouble(13),
-               SourceElementNum = r.IsDBNull(14) ? null : r.GetInt32(14),
-               SourceSectionNum = r.IsDBNull(15) ? null : r.GetInt32(15),
-            });
+               Id      = raw.sqlite3_column_int(r, 0),
+               Num     = raw.sqlite3_column_int(r, 1),
+               Label   = Text(r, 2),
+               Nx      = raw.sqlite3_column_double(r, 3),
+               Ny      = raw.sqlite3_column_double(r, 4),
+               Nxy     = raw.sqlite3_column_double(r, 5),
+               Mx      = raw.sqlite3_column_double(r, 6),
+               My      = raw.sqlite3_column_double(r, 7),
+               Mxy     = raw.sqlite3_column_double(r, 8),
+               Qx      = raw.sqlite3_column_double(r, 9),
+               Qy      = raw.sqlite3_column_double(r, 10),
+               SigmaX  = NullableDouble(r, 11),
+               SigmaY  = NullableDouble(r, 12),
+               TauXY   = NullableDouble(r, 13),
+               SourceElementNum = NullableInt(r, 14),
+               SourceSectionNum = NullableInt(r, 15),
+            }));
          return shellItems;
       }
 
