@@ -107,28 +107,12 @@ public sealed class LiraSelectedPlateSectionSource : IPlateElementSectionSource
       double h = element.Element.ThicknessM is > 0 and var own ? own
                : p.ThicknessM > 0 ? LiraPlateSectionTemplates.Thickness(p) : _factory.Template.H;
       var layers = new List<PlateRebarLayer>(2);
-      AddLayer(layers, "Z+", +1, h, _factory.Top!, p.As2, p.As4, PlateRebar.RebarFace.PlusN);
-      AddLayer(layers, "Z-", -1, h, _factory.Bottom!, p.As1, p.As3, PlateRebar.RebarFace.MinusN);
+      var top = _factory.Top!;
+      var bottom = _factory.Bottom!;
+      PlateSectionSourceHelpers.AddLayer(layers, +1, h, p.As2, p.As4, top.CoverX, top.CoverY, top.DiameterX, top.DiameterY);
+      PlateSectionSourceHelpers.AddLayer(layers, -1, h, p.As1, p.As3, bottom.CoverX, bottom.CoverY, bottom.DiameterX, bottom.DiameterY);
       var (section, key) = _factory.Get(h, layers);
       return new PlateElementSection(section, Label, key, null);
-   }
-
-   static void AddLayer(List<PlateRebarLayer> layers, string name, int sign, double h, PlateTemplateFace face,
-      double asxCm2, double asyCm2, PlateRebar.RebarFace rebarFace)
-   {
-      if (asxCm2 <= 0 && asyCm2 <= 0) return;
-      layers.Add(new PlateRebarLayer
-      {
-         Name = name,
-         InputMode = "direct",
-         Asx = asxCm2 * 1e-4,
-         Asy = asyCm2 * 1e-4,
-         Zsx = sign * (h / 2.0 - face.CoverX),
-         Zsy = sign * (h / 2.0 - face.CoverY),
-         DiameterX = face.DiameterX,
-         DiameterY = face.DiameterY,
-         Face = rebarFace,
-      });
    }
 
    /// <inheritdoc/>
@@ -144,23 +128,50 @@ public sealed class LiraSelectedPlateSectionSource : IPlateElementSectionSource
       }
 
       var warnings = new List<string>();
-      AddMismatch(warnings, "бетона", concreteClasses, concrete);
-      AddMismatch(warnings, "арматуры", rebarClasses, rebar);
+      PlateSectionSourceHelpers.AddMismatch(warnings, "ЛИРЫ", "бетона", concreteClasses, concrete);
+      PlateSectionSourceHelpers.AddMismatch(warnings, "ЛИРЫ", "арматуры", rebarClasses, rebar);
       return warnings;
    }
+}
 
-   static void AddMismatch(List<string> warnings, string what, SortedSet<string> classes, Material? material)
+/// <summary>Общие части источников сечений пластин по подбору программ-источников (ЛИРА, SCAD).</summary>
+internal static class PlateSectionSourceHelpers
+{
+   /// <summary>
+   /// Добавить слой подобранной арматуры у грани (<paramref name="sign"/> +1 — Z+, −1 — Z−); площади в см²/м,
+   /// привязки и диаметры — в м. Слой без арматуры не добавляется.
+   /// </summary>
+   public static void AddLayer(List<PlateRebarLayer> layers, int sign, double h, double asxCm2, double asyCm2,
+      double coverX, double coverY, double diameterX, double diameterY)
+   {
+      if (asxCm2 <= 0 && asyCm2 <= 0) return;
+      layers.Add(new PlateRebarLayer
+      {
+         Name = sign > 0 ? "Z+" : "Z-",
+         InputMode = "direct",
+         Asx = asxCm2 * 1e-4,
+         Asy = asyCm2 * 1e-4,
+         Zsx = sign * (h / 2.0 - coverX),
+         Zsy = sign * (h / 2.0 - coverY),
+         DiameterX = diameterX,
+         DiameterY = diameterY,
+         Face = sign > 0 ? PlateRebar.RebarFace.PlusN : PlateRebar.RebarFace.MinusN,
+      });
+   }
+
+   /// <summary>Предупреждение, если классы из подбора <paramref name="program"/> не совпадают с материалом сечения цели.</summary>
+   public static void AddMismatch(List<string> warnings, string program, string what, SortedSet<string> classes, Material? material)
    {
       if (material == null) return;
       string tag = Normalize(material.Tag);
       var other = classes.Where(c => !tag.Contains(Normalize(c), StringComparison.Ordinal)).ToList();
       if (other.Count > 0)
-         warnings.Add($"Класс {what} в подборе ЛИРЫ ({string.Join(", ", other)}) отличается от материала сечения цели " +
+         warnings.Add($"Класс {what} в подборе {program} ({string.Join(", ", other)}) отличается от материала сечения цели " +
                       $"«{material.Tag}» — расчёт выполнен по материалу сечения.");
    }
 
    /// <summary>Имя класса без пробелов, в верхнем регистре, кириллические буквы-двойники — латиницей.</summary>
-   static string Normalize(string s)
+   public static string Normalize(string s)
    {
       const string cyr = "АВСЕКМНОРТХ", lat = "ABCEKMHOPTX";
       var chars = new List<char>(s.Length);
