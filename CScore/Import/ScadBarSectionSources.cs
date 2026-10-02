@@ -146,6 +146,85 @@ public static class ScadBarSectionBuilder
 
     static LiraBarPoint Point(double x, double y, double areaM2) =>
         new(x, y, areaM2, Math.Sqrt(4 * areaM2 / Math.PI));
+
+    /// <summary>
+    /// Раскладка заданного в SCAD армирования участка — реальными стержнями. S1 — ряд на y = −H/2 + a1 от
+    /// x = −B/2 + a до B/2 − a (a = min(a1, a2)), равномерно, крайние — первого диаметра, стержни второго
+    /// диаметра — между ними вразбивку; второй ряд S1 — на a1 + Δ, равномерно по той же ширине. S2 — то же
+    /// у верхней грани (y = H/2 − a2, второй ряд — ниже на Δ). S3/S4 — на x = −B/2 + a и B/2 − a строго между
+    /// рядами S1 и S2.
+    /// </summary>
+    /// <returns>Стержни либо причина, по которой раскладка невозможна.</returns>
+    public static (List<LiraBarPoint>? Bars, string? Reason) AssignedLayout(
+        ScadAssignedRodPart part, LiraBarProfile profile, double a1, double a2)
+    {
+        double b = profile.WidthM, h = profile.HeightM, a = Math.Min(a1, a2);
+        double d1 = part.S1.Row2 != null ? part.S1.Row2DeltaM : 0, d2 = part.S2.Row2 != null ? part.S2.Row2DeltaM : 0;
+        if (!(a1 > 0 && a2 > 0) || a1 + a2 >= h || 2 * a >= b)
+            return (null, string.Format(CultureInfo.InvariantCulture,
+                "привязки арматуры {0:0.#}/{1:0.#} мм не помещаются в сечение {2:0.#}×{3:0.#} мм",
+                a1 * 1000, a2 * 1000, b * 1000, h * 1000));
+        if (d1 < 0 || d2 < 0 || a1 + d1 + a2 + d2 >= h)
+            return (null, string.Format(CultureInfo.InvariantCulture,
+                "вторые ряды арматуры (Δ = {0:0.#}/{1:0.#} мм) не помещаются в высоту сечения {2:0.#} мм",
+                d1 * 1000, d2 * 1000, h * 1000));
+
+        double left = -b / 2 + a, right = b / 2 - a, bottom = -h / 2 + a1, top = h / 2 - a2;
+        var bars = new List<LiraBarPoint>();
+        void Bar(double x, double y, int dMm)
+        {
+            double area = ScadAssignedRebarMath.BarAreaCm2(dMm) * 1e-4;
+            bars.Add(new LiraBarPoint(x, y, area, dMm / 1000.0));
+        }
+        void Row(double y, IReadOnlyList<int> diameters)
+        {
+            int n = diameters.Count;
+            for (int i = 0; i < n; i++)
+                Bar(n == 1 ? 0 : left + (right - left) * i / (n - 1), y, diameters[i]);
+        }
+        void Face(ScadRodFace face, double y, double row2Y)
+        {
+            Row(y, Diameters(face.First, face.Second));
+            if (face.Row2 is { } r) Row(row2Y, Diameters(r, null));
+        }
+        void Side(ScadBarSet? set, double x)
+        {
+            if (set is not { Count: > 0, DiameterMm: > 0 }) return;
+            for (int i = 1; i <= set.Count; i++)
+                Bar(x, bottom + (top - bottom) * i / (set.Count + 1), set.DiameterMm);
+        }
+
+        Face(part.S1, bottom, bottom + d1);
+        Face(part.S2, top, top - d2);
+        Side(part.S3, left);
+        Side(part.S4, right);
+        return bars.Count > 0 ? (bars, null) : (null, "в участке заданного армирования SCAD нет продольной арматуры");
+    }
+
+    /// <summary>
+    /// Диаметры ряда слева направо: крайние — первого диаметра (если его стержней хотя бы два), стержни второго
+    /// диаметра — вразбивку между ними.
+    /// </summary>
+    static List<int> Diameters(ScadBarSet first, ScadBarSet? second)
+    {
+        int n1 = first is { Count: > 0, DiameterMm: > 0 } ? first.Count : 0;
+        int n2 = second is { Count: > 0, DiameterMm: > 0 } ? second.Count : 0;
+        var row = new List<int>(n1 + n2);
+        if (n1 < 2)
+        {
+            for (int i = 0; i < n2; i++) row.Add(second!.DiameterMm);
+            if (n1 == 1) row.Insert(row.Count / 2, first.DiameterMm);
+            return row;
+        }
+        // Стержни второго диаметра — в центрах n2 равных долей середины ряда (симметрично).
+        int middle = n1 - 2 + n2;
+        var seconds = Enumerable.Range(0, n2).Select(j => (int)((j + 0.5) * middle / n2)).ToHashSet();
+        row.Add(first.DiameterMm);
+        for (int i = 0; i < middle; i++)
+            row.Add(seconds.Contains(i) ? second!.DiameterMm : first.DiameterMm);
+        row.Add(first.DiameterMm);
+        return row;
+    }
 }
 
 /// <summary>
@@ -216,4 +295,64 @@ public sealed class ScadSelectedBarSectionSource(ScadBarSectionContext context) 
             : $"SCAD {LiraBarSectionBuilder.SizeLabel(profile)} э.{bar.ElementId}";
         return new BarElementSection(LiraBarSectionBuilder.Build(tag, profile, bars), Label, null);
     }
+}
+
+/// <summary>
+/// Источник <see cref="FemCheckRebarSource.Assigned"/> для стержней: сечение КЭ из заданного в SCAD армирования
+/// (группы ApiArmRod) — по участку, в который попадает сечение КЭ; без номера сечения или при неизвестном
+/// числе сечений — участок с наименьшей продольной арматурой. Размеры, материалы и привязки — как у подбора
+/// (<see cref="ScadBarSectionContext"/>).
+/// </summary>
+/// <param name="context">Размеры, материалы и привязки.</param>
+/// <param name="file">Заданное армирование схемы.</param>
+/// <param name="sectionCount">Число сечений КЭ; null — неизвестно.</param>
+public sealed class ScadAssignedBarSectionSource(
+    ScadBarSectionContext context, ScadAssignedRebarFile file, Func<int, int?>? sectionCount = null) : IBarElementSectionSource
+{
+    const string Label = "SCAD, заданное";
+
+    readonly Dictionary<(int Group, int Part, LiraBarProfile Profile, double A1, double A2), BarElementSection> _cache = [];
+
+    /// <inheritdoc/>
+    public string Key => FemCheckRebarSource.Assigned;
+
+    /// <inheritdoc/>
+    public bool PerSection => true;
+
+    /// <inheritdoc/>
+    public string? MissingReason(FemCheckScopeElement element) =>
+        Rod(element) == null ? NotInGroups
+            : context.Profile(element).Reason ?? context.Covers(element).Reason;
+
+    /// <inheritdoc/>
+    public BarElementSection Resolve(FemCheckScopeElement element, int? sectionNum)
+    {
+        if (Rod(element) is not { } rod) return BarElementSection.Missing(NotInGroups, Label);
+        string label = rod.Name.Length > 0 ? $"{Label} «{rod.Name}»" : $"{Label} {rod.Num}";
+        var part = sectionNum is int k && sectionCount?.Invoke(element.ElemNum!.Value) is int n and > 0
+            ? rod.PartAt(k, n) : rod.Parts.Length == 1 ? rod.Parts[0] : rod.Weakest;
+        if (part == null) return BarElementSection.Missing($"в группе заданного армирования SCAD {rod.Num} нет участков", label);
+
+        var (profile, reason) = context.Profile(element);
+        if (profile == null) return BarElementSection.Missing(reason!, label);
+        var (covers, coversReason) = context.Covers(element);
+        if (covers is not { } c) return BarElementSection.Missing(coversReason!, label);
+
+        var key = (rod.Num, part.PartNo, profile, c.A1, c.A2);
+        if (!_cache.TryGetValue(key, out var result))
+        {
+            var (bars, layoutReason) = ScadBarSectionBuilder.AssignedLayout(part, profile, c.A1, c.A2);
+            string tag = rod.Parts.Length > 1
+                ? $"{label} уч.{part.PartNo} {LiraBarSectionBuilder.SizeLabel(profile)}"
+                : $"{label} {LiraBarSectionBuilder.SizeLabel(profile)}";
+            _cache[key] = result = bars == null
+                ? BarElementSection.Missing(layoutReason!, label)
+                : new BarElementSection(LiraBarSectionBuilder.Build(tag, profile, bars), label, null);
+        }
+        return result;
+    }
+
+    const string NotInGroups = "КЭ нет в группах заданного армирования SCAD";
+
+    ScadAssignedRod? Rod(FemCheckScopeElement element) => element.ElemNum is int num ? file.Rod(num) : null;
 }

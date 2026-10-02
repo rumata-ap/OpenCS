@@ -8,5 +8,8 @@ namespace OpenCS.Utilites
 
       /// <summary>ЖБ-группы SCAD схемы — JSON <see cref="CScore.Import.ScadConcreteGroupIndex.ToJson"/>.</summary>
       public const string ScadConcreteGroups = "scad_concrete_groups";
+
+      /// <summary>Заданное армирование SCAD схемы — JSON <see cref="CScore.Import.ScadAssignedRebarFile.ToJson"/>.</summary>
+      public const string ScadAssignedRebar = "scad_assigned_rebar";
    }
 }

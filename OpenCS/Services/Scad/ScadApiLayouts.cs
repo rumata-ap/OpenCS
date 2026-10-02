@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using CScore.Import;
 
 namespace OpenCS.Services.Scad;
 
@@ -100,6 +101,69 @@ internal static class ScadApiLayouts
             CrackWidthMm: [Double(b, ConcreteWidthCrack), Double(b, ConcreteWidthCrack + 8)],
             SlaveGroup: b[ConcreteSlave]);
     }
+
+    /// <summary>ApiArmPlate: LPSTR Text, UINT Quantity, UINT* List, затем ApiArmElemPlate (по значению).</summary>
+    public const int ArmPlateQuantity = 8, ArmPlateList = 12, ArmPlateElem = 20;
+
+    /// <summary>Размер ApiArmElemPlate (11 полей + 3 BOOL + reserved[128]).</summary>
+    public const int ArmElemPlateSize = 208;
+
+    /// <summary>ApiArmRod: LPSTR Text, UINT Quantity, UINT* List, UINT QuantityArmRod, ApiArmElemRod* ArmRod.</summary>
+    public const int ArmRodQuantity = 8, ArmRodList = 12, ArmRodParts = 20, ArmRodPartsPtr = 24, ArmRodSize = 32;
+
+    /// <summary>Размер ApiArmElemRod (108 байт полей + 128 байт «from reserved»).</summary>
+    public const int ArmElemRodSize = 236;
+
+    /// <summary>
+    /// ApiArmElemPlate (208 байт): ⌀ S1..S4 (мм) и шаги (м), поперечная; флаги NoDown/NoUp/NoTrans обнуляют
+    /// диаметры S1, S3 / S2, S4 / поперечной. Флаги в заголовке объявлены как BOOL, но DLL пишет их по байту
+    /// подряд ([68] NoUp, [69] NoDown, [70] NoTrans): в модели 111.SPR (02.10) с тремя отмеченными
+    /// «Отсутствует» лежит 01 01 01 00.
+    /// </summary>
+    public static ScadAssignedPlate ParseArmPlate(ReadOnlySpan<byte> b, int num, string name, int[] elementIds)
+    {
+        if (b.Length < ArmElemPlateSize)
+            throw new ArgumentException($"ApiArmElemPlate: {b.Length} байт вместо {ArmElemPlateSize}", nameof(b));
+        var d = new int[4];
+        var steps = new double[4];
+        for (int i = 0; i < 4; i++)
+        {
+            d[i] = (int)UInt32(b, 12 * i);
+            steps[i] = Double(b, 12 * i + 4);
+        }
+        bool noUp = b[68] != 0, noDown = b[69] != 0, noTrans = b[70] != 0;
+        if (noDown) d[0] = d[2] = 0;
+        if (noUp) d[1] = d[3] = 0;
+        return new ScadAssignedPlate(num, name, elementIds, d, steps,
+            noTrans ? 0 : (int)UInt32(b, 48), Double(b, 52), Double(b, 60));
+    }
+
+    /// <summary>
+    /// ApiArmElemRod (236 байт) — участок стержня. Флаги IsS1D2/IsS2D2/IsS34/IsSw/IsS1L2/IsS2L2 учитываются:
+    /// выключенные наборы не попадают в результат.
+    /// </summary>
+    public static ScadAssignedRodPart ParseArmRodPart(ReadOnlySpan<byte> b)
+    {
+        if (b.Length < ArmElemRodSize)
+            throw new ArgumentException($"ApiArmElemRod: {b.Length} байт вместо {ArmElemRodSize}", nameof(b));
+        bool s1d2 = UInt32(b, 12) != 0, s2d2 = UInt32(b, 16) != 0, sw = UInt32(b, 20) != 0, s34 = UInt32(b, 24) != 0;
+        bool s1l2 = b[108] != 0, s2l2 = b[109] != 0;
+        var s1 = new ScadRodFace(BarSet(b, 28), s1d2 ? BarSet(b, 44) : null, s1l2 ? BarSet(b, 126) : null,
+            s1l2 ? Double(b, 110) : 0);
+        var s2 = new ScadRodFace(BarSet(b, 36), s2d2 ? BarSet(b, 52) : null, s2l2 ? BarSet(b, 134) : null,
+            s2l2 ? Double(b, 118) : 0);
+        return new ScadAssignedRodPart(
+            PartNo: (int)UInt32(b, 0),
+            LengthPercent: Double(b, 4),
+            S1: s1, S2: s2,
+            S3: s34 ? BarSet(b, 60) : null,
+            S4: s34 ? BarSet(b, 68) : null,
+            StirrupsZ: sw ? new ScadRodStirrups((int)UInt32(b, 76), (int)UInt32(b, 80), Double(b, 84)) : null,
+            StirrupsY: sw ? new ScadRodStirrups((int)UInt32(b, 92), (int)UInt32(b, 96), Double(b, 100)) : null);
+    }
+
+    /// <summary>Пара «UINT диаметр (мм), UINT число» участка стержня.</summary>
+    static ScadBarSet BarSet(ReadOnlySpan<byte> b, int offset) => new((int)UInt32(b, offset + 4), (int)UInt32(b, offset));
 
     /// <summary>ApiElemEffors (69 байт).</summary>
     public static ScadEfforsHeader ParseEffors(ReadOnlySpan<byte> b)

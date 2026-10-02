@@ -55,6 +55,9 @@ public class ScadSchemaData
     /// <summary>ЖБ-группы SCAD. Пусто — не читались (txt).</summary>
     public List<ScadConcreteGroup>   ConcreteGroups { get; } = [];
 
+    /// <summary>Заданное армирование SCAD. Null — не читалось (txt).</summary>
+    public ScadAssignedRebarFile?    AssignedRebar { get; set; }
+
     /// <summary>
     /// Углы согласования осей выдачи усилий пластин: номер КЭ → угол X1 от «узел 1 → узел 2»
     /// вокруг нормали, град. КЭ нет в словаре — угол неизвестен.

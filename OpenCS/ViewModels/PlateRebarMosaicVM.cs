@@ -407,12 +407,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
       if (db.GetFemSchemaSourceType(schemaId) == "scad")
       {
+         ScadSelectedRebarFile? selectedScad = null;
          if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scad)
          {
             key.Append(scad.FileName).Append(':').Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(scad.Data))).Append('|');
             try
             {
-               var file = ScadRebarExportReader.Read(scad.Data);
+               var file = selectedScad = ScadRebarExportReader.Read(scad.Data);
                selected = new ScadSelectedPlateRebarSource(file);
                if (file.Bars.Count > 0) selectedBars = new ScadSelectedBarRebarSource(file);
                selectedFile = scad.FileName;
@@ -420,6 +421,24 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             {
                errors.Add((scad.FileName, ex.Message));
+            }
+         }
+
+         // Заданное армирование SCAD — вложение схемы, прочитанное из .SPR (не файл).
+         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } scadAssigned)
+         {
+            key.Append("scad-assigned:").Append(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(scadAssigned.Data)));
+            string label = Loc.S("ScadAssignedRebarLabel");
+            try
+            {
+               var file = ScadAssignedRebarFile.FromJson(System.Text.Encoding.UTF8.GetString(scadAssigned.Data));
+               if (file.Plates.Count > 0) assigned = new ScadAssignedPlateRebarSource(file);
+               if (file.Rods.Count > 0) assignedBars = new ScadAssignedBarRebarSource(file, ScadAssignedBarRebarSource.SectionCounts(selectedScad));
+               if (!file.IsEmpty) assignedFile = label;
+            }
+            catch (InvalidDataException ex)
+            {
+               errors.Add((label, ex.Message));
             }
          }
       }
@@ -635,14 +654,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             or PlateRebarMosaicSourceKind.DifferenceBars when BarRebarSource() is { } bars:
             return Enum.GetValues<BarRebarComponent>()
                .Where(bars.Supports)
-               .Select(c => new PlateRebarMosaicComponentOption(c, Loc.S("MosaicBarRebar" + c)))
+               .Select(c => new PlateRebarMosaicComponentOption(c,
+                  RebarComponentLabels.Bar(c, RebarComponentLabels.IsScad(_selectedBars ?? _assignedBars))))
                .ToList();
 
          default:
             return RebarSource() is { } source
                ? Enum.GetValues<PlateRebarMosaicComponent>()
                   .Where(source.Supports)
-                  .Select(c => new PlateRebarMosaicComponentOption(c, RebarComponentLabel(c)))
+                  .Select(c => new PlateRebarMosaicComponentOption(c,
+                     RebarComponentLabels.Plate(c, RebarComponentLabels.IsScad(_selected ?? _assigned))))
                   .ToList()
                : [];
       }
@@ -669,15 +690,6 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          _checkResults[check.Check.Id] = rows = FemCheckElementResults.Parse(check.LoadJson());
       return rows;
    }
-
-   static string RebarComponentLabel(PlateRebarMosaicComponent c) => Loc.S(c switch
-   {
-      PlateRebarMosaicComponent.BottomX => "PlateRebarMosaicCompAs1",
-      PlateRebarMosaicComponent.TopX => "PlateRebarMosaicCompAs2",
-      PlateRebarMosaicComponent.BottomY => "PlateRebarMosaicCompAs3",
-      PlateRebarMosaicComponent.TopY => "PlateRebarMosaicCompAs4",
-      _ => "PlateRebarMosaicCompAsw",
-   });
 
    void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
 

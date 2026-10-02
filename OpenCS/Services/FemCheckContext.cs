@@ -32,6 +32,8 @@ public sealed class FemCheckSchemaData
     public ScadSelectedRebarFile? ScadSelected { get; init; }
     /// <summary>ЖБ-группы SCAD схемы; null — не прочитаны.</summary>
     public ScadConcreteGroupIndex? ScadConcreteGroups { get; init; }
+    /// <summary>Заданное армирование SCAD схемы; null — не прочитано из .SPR.</summary>
+    public ScadAssignedRebarFile? ScadAssigned { get; init; }
     /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
     public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
@@ -61,6 +63,10 @@ public sealed class FemCheckSchemaData
         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups) is { } groupsFile)
             try { scadGroups = ScadConcreteGroupIndex.FromJson(Encoding.UTF8.GetString(groupsFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
+        ScadAssignedRebarFile? scadAssigned = null;
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } assignedFile)
+            try { scadAssigned = ScadAssignedRebarFile.FromJson(Encoding.UTF8.GetString(assignedFile.Data)); }
+            catch (InvalidDataException ex) { errors.Add(ex.Message); }
 
         var members = db.GetFemMembers(schemaId);
         // Узлы и регионы нужны только раскладке OpenCS — у схемы без плоских элементов их не читаем.
@@ -77,6 +83,7 @@ public sealed class FemCheckSchemaData
             SourceType = db.GetFemSchemaSourceType(schemaId),
             ScadSelected = scadSelected,
             ScadConcreteGroups = scadGroups,
+            ScadAssigned = scadAssigned,
             Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,
         };
@@ -162,7 +169,9 @@ public static class FemCheckContext
                             sources.Add(new TemplatePlateSectionSource(template));
                             break;
                         case FemCheckRebarSource.Assigned when data.IsScad:
-                            sources.Add(new UnavailablePlateSectionSource(key, Loc.S("FemCheckScadAssignedNotYet")));
+                            sources.Add(data.ScadAssigned is { Plates.Count: > 0 }
+                                ? new ScadAssignedPlateSectionSource(template, data.ScadAssigned, data.ScadConcreteGroups)
+                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadAssigned")));
                             break;
                         case FemCheckRebarSource.Selected when data.IsScad:
                             sources.Add(data.ScadSelected != null
@@ -212,7 +221,7 @@ public static class FemCheckContext
             BarSectionById = sid => sections.GetValueOrDefault(sid),
             BarSources = check.NormCode == "rc_check"
                 ? BarSources(app.Materials, BarCheckParams.Parse(check.ParamsJson).RebarSources, data,
-                    sections.GetValueOrDefault, targetSection)
+                    sections.GetValueOrDefault, targetSection, lookupForceSets)
                 : [],
             // rc_check меняет состояние сечения — считаем на клонах; стальная проверка опирается
             // на привязку параметрического профиля, которую клон не несёт.
@@ -232,7 +241,7 @@ public static class FemCheckContext
     /// </summary>
     public static List<IBarElementSectionSource> BarSources(
         IEnumerable<Material> materials, IReadOnlyList<string> keys, FemCheckSchemaData data,
-        Func<int, CrossSection?> sectionById, CrossSection? targetSection)
+        Func<int, CrossSection?> sectionById, CrossSection? targetSection, IEnumerable<ForceSet>? forceSets = null)
     {
         var sources = new List<IBarElementSectionSource>(keys.Count);
         if (keys.Count == 0) return sources;
@@ -256,7 +265,10 @@ public static class FemCheckContext
                     sources.Add(project);
                     break;
                 case FemCheckRebarSource.Assigned when scadContext != null:
-                    sources.Add(new UnavailableBarSectionSource(key, Loc.S("FemCheckScadAssignedNotYet")));
+                    sources.Add(data.ScadAssigned is { Rods.Count: > 0 }
+                        ? new ScadAssignedBarSectionSource(scadContext, data.ScadAssigned,
+                            ScadAssignedBarRebarSource.SectionCounts(data.ScadSelected, forceSets))
+                        : new UnavailableBarSectionSource(key, Loc.S("FemCheckNoScadAssigned")));
                     break;
                 case FemCheckRebarSource.Selected when scadContext != null:
                     sources.Add(data.ScadSelected != null
@@ -332,7 +344,7 @@ public static class FemCheckContext
         _ => key,
     };
 
-    /// <summary>Строка состояния диалога: «Усилия: 412 из 480 КЭ · армирование (ТЗА): 480 из 480».</summary>
+    /// <summary>Строка состояния диалога: «Усилия: 412 из 480 КЭ · армирование (заданное): 480 из 480».</summary>
     public static string ReadinessLine(FemCheckReadiness r, bool isPlate)
     {
         var parts = new List<string> { string.Format(Loc.S("FemCheckReadyForces"), r.ElementsWithForces, r.ElementsTotal) };

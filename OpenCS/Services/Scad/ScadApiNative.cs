@@ -50,6 +50,10 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort> ApiGetConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetNameConcrete;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityArmElemPlate;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort> ApiGetArmElemPlate;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityArmElemRod;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort> ApiGetArmElemRod;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityLoad;
     public readonly delegate* unmanaged[Stdcall]<nint, byte*, byte*, ushort> ApiInitResult;
     public readonly delegate* unmanaged[Stdcall]<nint, int> ApiYesEffors;
@@ -93,6 +97,10 @@ internal sealed unsafe class ScadApiNative
         ApiGetQuantityConcrete = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityConcrete));
         ApiGetConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort>)F(nameof(ApiGetConcrete));
         ApiGetNameConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetNameConcrete));
+        ApiGetQuantityArmElemPlate = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityArmElemPlate));
+        ApiGetArmElemPlate = (delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort>)F(nameof(ApiGetArmElemPlate));
+        ApiGetQuantityArmElemRod = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityArmElemRod));
+        ApiGetArmElemRod = (delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort>)F(nameof(ApiGetArmElemRod));
         ApiGetQuantityLoad = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityLoad));
         ApiInitResult = (delegate* unmanaged[Stdcall]<nint, byte*, byte*, ushort>)F(nameof(ApiInitResult));
         ApiYesEffors = (delegate* unmanaged[Stdcall]<nint, int>)F(nameof(ApiYesEffors));
