@@ -332,6 +332,10 @@ public sealed class FemCheckDeleteCascadeTests
 
                 var first = Summary();
                 db.SaveCalcResultRaw(first, check.Id);
+                // Проверка ссылается на прежний результат (fem_checks.result_id) — его удаление в Complete не должно
+                // упираться во внешний ключ.
+                check.ResultId = first.Id;
+                db.SaveFemCheck(check);
 
                 // Прерванная запись (отмена) не трогает прежний результат и не оставляет строк.
                 using (var cancelled = db.BeginFemCheckResult())

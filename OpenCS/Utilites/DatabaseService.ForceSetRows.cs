@@ -16,6 +16,11 @@ namespace OpenCS.Utilites
       {
          var conn = new SqliteConnection($"Data Source={_dataSource}");
          conn.Open();
+         // Как у основного соединения (SetDeleteJournalMode): сборка SQLite включает внешние ключи по умолчанию,
+         // а приложение удаляет связанные записи само (fem_checks.result_id → calc_results при замене результата).
+         using var cmd = conn.CreateCommand();
+         cmd.CommandText = "PRAGMA foreign_keys=OFF";
+         cmd.ExecuteNonQuery();
          return conn;
       }
 
