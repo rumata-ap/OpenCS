@@ -1,5 +1,6 @@
 using CScore;
 using CScore.Fem;
+using Microsoft.Data.Sqlite;
 
 namespace OpenCS.Utilites
 {
@@ -59,7 +60,21 @@ namespace OpenCS.Utilites
       /// <summary>Записывает строки результата (внутри текущей транзакции).</summary>
       void InsertFemCheckRows(int resultId, IReadOnlyList<FemCheckRow> rows)
       {
-         var strings = new Dictionary<string, int>(StringComparer.Ordinal) { [""] = 0 };
+         var strings = NewRowStrings();
+         InsertFemCheckRows(_connection, resultId, rows, 0, strings);
+         InsertFemCheckRowStrings(_connection, resultId, strings);
+      }
+
+      /// <summary>Словарь повторяющихся строк результата: пустая строка — номер 0.</summary>
+      static Dictionary<string, int> NewRowStrings() => new(StringComparer.Ordinal) { [""] = 0 };
+
+      /// <summary>
+      /// Записывает строки результата с номерами (idx) начиная с <paramref name="startIdx"/>; повторяющиеся
+      /// тексты заменяются номерами из <paramref name="strings"/> (пополняется). Внутри текущей транзакции.
+      /// </summary>
+      static void InsertFemCheckRows(SqliteConnection conn, int resultId,
+                                     IReadOnlyList<FemCheckRow> rows, int startIdx, Dictionary<string, int> strings)
+      {
          int Str(string? s)
          {
             s ??= "";
@@ -67,49 +82,155 @@ namespace OpenCS.Utilites
             return id;
          }
 
-         using (var insert = _connection.CreateCommand())
+         using var insert = conn.CreateCommand();
+         insert.CommandText = """
+            INSERT INTO fem_check_rows (result_id, idx, elem_num, section_num, utilization, flags, label,
+               set_tag, calc_type, formula, description, section_label, rebar_key, rebar_source)
+            VALUES (@rid, @idx, @elem, @sec, @util, @flags, @label, @tag, @ct, @f, @d, @sl, @rk, @rs)
+         """;
+         var p = new[] { "@rid", "@idx", "@elem", "@sec", "@util", "@flags", "@label",
+                         "@tag", "@ct", "@f", "@d", "@sl", "@rk", "@rs" }
+            .Select(n => insert.Parameters.Add(new SqliteParameter { ParameterName = n }))
+            .ToArray();
+         insert.Prepare();
+         p[0].Value = resultId;
+         for (int i = 0; i < rows.Count; i++)
          {
-            insert.CommandText = """
-               INSERT INTO fem_check_rows (result_id, idx, elem_num, section_num, utilization, flags, label,
-                  set_tag, calc_type, formula, description, section_label, rebar_key, rebar_source)
-               VALUES (@rid, @idx, @elem, @sec, @util, @flags, @label, @tag, @ct, @f, @d, @sl, @rk, @rs)
-            """;
-            var p = new[] { "@rid", "@idx", "@elem", "@sec", "@util", "@flags", "@label",
-                            "@tag", "@ct", "@f", "@d", "@sl", "@rk", "@rs" }
-               .Select(n => insert.Parameters.Add(new Microsoft.Data.Sqlite.SqliteParameter { ParameterName = n }))
-               .ToArray();
-            insert.Prepare();
-            p[0].Value = resultId;
-            for (int i = 0; i < rows.Count; i++)
-            {
-               var r = rows[i];
-               p[1].Value  = i;
-               p[2].Value  = (object?)r.ElemNum ?? DBNull.Value;
-               p[3].Value  = (object?)r.SectionNum ?? DBNull.Value;
-               p[4].Value  = double.IsFinite(r.Utilization) ? Math.Round(r.Utilization, 6) : DBNull.Value;
-               p[5].Value  = (r.Passed ? RowPassed : 0) | (r.NotChecked ? RowNotChecked : 0);
-               p[6].Value  = r.Label ?? "";
-               p[7].Value  = Str(r.ForceSetTag);
-               p[8].Value  = Str(r.CalcType);
-               p[9].Value  = Str(r.WorstFormula);
-               p[10].Value = Str(r.WorstDescription);
-               p[11].Value = Str(r.SectionLabel);
-               p[12].Value = Str(r.RebarKey);
-               p[13].Value = Str(r.RebarSource);
-               insert.ExecuteNonQuery();
-            }
+            var r = rows[i];
+            p[1].Value  = startIdx + i;
+            p[2].Value  = (object?)r.ElemNum ?? DBNull.Value;
+            p[3].Value  = (object?)r.SectionNum ?? DBNull.Value;
+            p[4].Value  = double.IsFinite(r.Utilization) ? Math.Round(r.Utilization, 6) : DBNull.Value;
+            p[5].Value  = (r.Passed ? RowPassed : 0) | (r.NotChecked ? RowNotChecked : 0);
+            p[6].Value  = r.Label ?? "";
+            p[7].Value  = Str(r.ForceSetTag);
+            p[8].Value  = Str(r.CalcType);
+            p[9].Value  = Str(r.WorstFormula);
+            p[10].Value = Str(r.WorstDescription);
+            p[11].Value = Str(r.SectionLabel);
+            p[12].Value = Str(r.RebarKey);
+            p[13].Value = Str(r.RebarSource);
+            insert.ExecuteNonQuery();
          }
+      }
 
-         using var insertStr = _connection.CreateCommand();
+      /// <summary>Записывает словарь строк результата (внутри текущей транзакции).</summary>
+      static void InsertFemCheckRowStrings(SqliteConnection conn, int resultId, Dictionary<string, int> strings)
+      {
+         using var insertStr = conn.CreateCommand();
          insertStr.CommandText = "INSERT INTO fem_check_row_strings (result_id, id, text) VALUES (@rid, @id, @text)";
          insertStr.Parameters.AddWithValue("@rid", resultId);
-         var pi = insertStr.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Integer);
-         var pt = insertStr.Parameters.Add("@text", Microsoft.Data.Sqlite.SqliteType.Text);
+         var pi = insertStr.Parameters.Add("@id", SqliteType.Integer);
+         var pt = insertStr.Parameters.Add("@text", SqliteType.Text);
          foreach (var (text, id) in strings)
          {
             pi.Value = id;
             pt.Value = text;
             insertStr.ExecuteNonQuery();
+         }
+      }
+
+      /// <summary>Статус результата, строки которого ещё пишутся (<see cref="FemCheckResultStream"/>).</summary>
+      const string RunningResultStatus = "running";
+
+      /// <summary>
+      /// Начинает запись результата проверки по КЭ по мере расчёта: строки пишутся в БД порциями и в памяти
+      /// не копятся. Результатом проверки он становится только после <see cref="FemCheckResultStream.Complete"/>;
+      /// без него (отмена, ошибка) удаляется в Dispose. Пишет через своё соединение — из фонового расчёта.
+      /// </summary>
+      public FemCheckResultStream BeginFemCheckResult() => new(OpenReadConnection());
+
+      /// <summary>Удаляет результаты, запись которых прервалась (программа закрылась во время проверки).</summary>
+      void DeleteUnfinishedFemCheckResults() => MigExec(
+         $"DELETE FROM calc_results WHERE task_id = 0 AND fem_check_id IS NULL AND status = '{RunningResultStatus}'");
+
+      /// <summary>Запись строк результата проверки по КЭ порциями (<see cref="BeginFemCheckResult"/>).</summary>
+      public sealed class FemCheckResultStream : IFemCheckRowSink, IDisposable
+      {
+         readonly SqliteConnection _conn;
+         readonly Dictionary<string, int> _strings = NewRowStrings();
+         readonly int _resultId;
+         int _nextIdx;
+         bool _completed;
+
+         internal FemCheckResultStream(SqliteConnection conn)
+         {
+            _conn = conn;
+            // Заготовка без привязки к проверке: до Complete её не видят ни окно результата, ни мозаики.
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = """
+               INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id)
+               VALUES (0, '', '', '', @status, '{}', NULL);
+               SELECT last_insert_rowid();
+            """;
+            cmd.Parameters.AddWithValue("@status", RunningResultStatus);
+            _resultId = (int)(long)cmd.ExecuteScalar()!;
+         }
+
+         /// <summary>Записывает порцию строк (своя транзакция на порцию).</summary>
+         public void Write(IReadOnlyList<FemCheckRow> rows)
+         {
+            if (rows.Count == 0) return;
+            using var tx = _conn.BeginTransaction();
+            InsertFemCheckRows(_conn, _resultId, rows, _nextIdx, _strings);
+            tx.Commit();
+            _nextIdx += rows.Count;
+         }
+
+         /// <summary>
+         /// Завершает запись: сводка <paramref name="r"/> — в заготовку, прежние результаты проверки удаляются,
+         /// результат привязывается к проверке; <c>r.Id</c> — его id.
+         /// </summary>
+         public void Complete(CalcResult r, int femCheckId)
+         {
+            using var tx = _conn.BeginTransaction();
+            using (var del = _conn.CreateCommand())
+            {
+               del.CommandText = """
+                  DELETE FROM calc_results WHERE id <> @rid AND (fem_check_id = @fid
+                     OR id = (SELECT result_id FROM fem_checks WHERE id = @fid));
+               """;
+               del.Parameters.AddWithValue("@rid", _resultId);
+               del.Parameters.AddWithValue("@fid", femCheckId);
+               del.ExecuteNonQuery();
+            }
+            InsertFemCheckRowStrings(_conn, _resultId, _strings);
+            using (var cmd = _conn.CreateCommand())
+            {
+               cmd.CommandText = """
+                  UPDATE calc_results SET task_kind = @kind, task_tag = @tag, created = @created, status = @status,
+                     data_json = @data, fem_check_id = @fid
+                  WHERE id = @rid
+               """;
+               cmd.Parameters.AddWithValue("@kind",    r.TaskKind);
+               cmd.Parameters.AddWithValue("@tag",     r.TaskTag);
+               cmd.Parameters.AddWithValue("@created", r.Created);
+               cmd.Parameters.AddWithValue("@status",  r.Status);
+               cmd.Parameters.AddWithValue("@data",    r.DataJson);
+               cmd.Parameters.AddWithValue("@fid",     femCheckId);
+               cmd.Parameters.AddWithValue("@rid",     _resultId);
+               cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+            r.Id = _resultId;
+            r.FemCheckRows = null;
+            _completed = true;
+         }
+
+         /// <summary>Незавершённый результат удаляется вместе с записанными строками (триггер).</summary>
+         public void Dispose()
+         {
+            try
+            {
+               if (!_completed)
+               {
+                  using var del = _conn.CreateCommand();
+                  del.CommandText = "DELETE FROM calc_results WHERE id = @rid";
+                  del.Parameters.AddWithValue("@rid", _resultId);
+                  del.ExecuteNonQuery();
+               }
+            }
+            finally { _conn.Dispose(); }
          }
       }
 

@@ -2428,7 +2428,6 @@
     <system:String x:Key="FemCheckResultAllElements">All elements</system:String>
     <system:String x:Key="FemCheckResultElemFilter">Rows of element {0}</system:String>
     <system:String x:Key="FemCheckResultRowsLimited">Showing the {0:N0} worst rows of {1:N0}. To see all rows of an element, select it on the "By element" tab.</system:String>
-    <system:String x:Key="FemCheckSaving">Saving the check result…</system:String>
     <system:String x:Key="FemCheckResultElem">FE</system:String>
     <system:String x:Key="FemCheckResultSecNum">Sec.</system:String>
     <system:String x:Key="FemCheckResultSection">Section / reinforcement</system:String>

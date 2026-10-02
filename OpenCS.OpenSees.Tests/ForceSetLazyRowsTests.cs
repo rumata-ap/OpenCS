@@ -116,6 +116,61 @@ public sealed class ForceSetLazyRowsTests
         }
     }
 
+    [Fact]
+    public void RowsOfElements_ReadOnlyTheRange_WithoutLoadingSet()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-lazy-rows-range-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+                db.SaveForceSet(new ForceSet
+                {
+                    Tag = "Плита", Kind = "shell",
+                    ShellItems =
+                    [
+                        new ShellLoadItem { Label = "э.5", SourceElementNum = 5 },
+                        new ShellLoadItem { Label = "э.1", SourceElementNum = 1 },
+                        new ShellLoadItem { Label = "ручная" },
+                        new ShellLoadItem { Label = "э.3", SourceElementNum = 3, SourceSectionNum = 2 },
+                        new ShellLoadItem { Label = "э.2", SourceElementNum = 2 },
+                    ],
+                });
+                db.SaveForceSet(new ForceSet
+                {
+                    Tag = "Стержни",
+                    Items = [new LoadItem { Label = "1", SourceElementNum = 1 }, new LoadItem { Label = "б/н" }],
+                });
+            }
+
+            using (var db = new DatabaseService(path))
+            {
+                db.LoadAll();
+                var shell = db.ForceSets.Single(f => f.Tag == "Плита");
+                var bar = db.ForceSets.Single(f => f.Tag == "Стержни");
+
+                // Диапазон — в порядке номеров строк; null — строки без номера КЭ.
+                Assert.Equal(["э.3", "э.2"], shell.ShellRowsOfElements(2, 3).Select(i => i.Label));
+                Assert.Equal(2, shell.ShellRowsOfElements(2, 3)[0].SourceSectionNum);
+                Assert.Equal(["ручная"], shell.ShellRowsOfElements(null, null).Select(i => i.Label));
+                Assert.Equal(["б/н"], bar.BarRowsOfElements(null, null).Select(i => i.Label));
+                Assert.Empty(bar.ShellRowsOfElements(1, 1));
+                Assert.False(shell.RowsLoaded);
+                Assert.False(bar.RowsLoaded);
+
+                // У загруженного набора — те же строки из памяти.
+                shell.EnsureRows();
+                Assert.Equal(["э.3", "э.2"], shell.ShellRowsOfElements(2, 3).Select(i => i.Label));
+                Assert.Equal(["ручная"], shell.ShellRowsOfElements(null, null).Select(i => i.Label));
+            }
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     static int Count(string path, string sql)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");

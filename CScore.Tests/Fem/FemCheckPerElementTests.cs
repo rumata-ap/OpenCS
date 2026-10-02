@@ -170,6 +170,40 @@ public class FemCheckPerElementTests
         Assert.Throws<OperationCanceledException>(() =>
             FemCheckRunner.RunPerElement(Check, Group, Scope(), [fs], Inputs(), Executor([]), ct: cts.Token));
     }
+
+    /// <summary>Приёмник строк результата для тестов.</summary>
+    sealed class ListSink : IFemCheckRowSink
+    {
+        public List<int> ChunkSizes { get; } = [];
+        public List<FemCheckRow> Rows { get; } = [];
+        public void Write(IReadOnlyList<FemCheckRow> rows) { ChunkSizes.Add(rows.Count); Rows.AddRange(rows); }
+    }
+
+    static string Key(FemCheckRow r) => $"{r.ForceSetTag}|{r.Label}|{r.ElemNum}|{r.Utilization}|{r.Passed}|{r.SectionLabel}";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Chunks_GiveSameResultAsWholeRun(bool parallel)
+    {
+        var sets = new[]
+        {
+            new ForceSet { Id = 1, Tag = "РСУ (C)", Items = [Row(3, 0.2), Row(1, 0.4), Row(99, 5), Row(1, 0.7, section: 2), Row(null, 0.1)] },
+            new ForceSet { Id = 2, Tag = "РСН (C)", Items = [Row(2, 1.2), Row(1, 0.3), Row(null, 0.6)] },
+        };
+
+        var whole = FemCheckRunner.RunPerElement(Check, Group, Scope(), sets, Inputs(parallel), Executor([]));
+        var sink = new ListSink();
+        var chunked = FemCheckRunner.RunPerElement(Check, Group, Scope(), sets, Inputs(parallel), Executor([]),
+            rowSink: sink, chunkRows: 1);
+
+        // Порция на каждый КЭ (1, 2, 3) и порция строк без номера КЭ.
+        Assert.Equal([3, 1, 1, 2], sink.ChunkSizes);
+        Assert.Null(chunked.FemCheckRows);
+        Assert.Equal(whole.Status, chunked.Status);
+        Assert.Equal(whole.DataJson, chunked.DataJson);
+        Assert.Equal(whole.FemCheckRows!.Select(Key).Order(), sink.Rows.Select(Key).Order());
+    }
 }
 
 /// <summary>Готовность цели к проверке по КЭ.</summary>

@@ -224,6 +224,50 @@ public class LiraPlateSectionSourcesTests
             new FemPerElementInputs { PlateTemplate = Template(), PlateSources = sources, ConcreteMat = Concrete(), RebarMat = Rebar() },
             (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
 
+    /// <summary>
+    /// Проверка порциями по КЭ: строка явного NL-набора (длительная часть, п. 8.2.7) ищется по метке — в порции
+    /// среди строк тех же КЭ; результат тот же, что у расчёта целиком.
+    /// </summary>
+    [Fact]
+    public void Chunks_FindNlRowsOfTheirElements()
+    {
+        var sls = new FemCheck
+        {
+            NormCode = "rc_plate_check", Tag = "плита",
+            ParamsJson = new PlateCheckParams { Kind = "shell_layered", CheckGroup = "sls", NlForceSetId = 2 }.ToJson(),
+        };
+        var n = new ForceSet
+        {
+            Id = 1, Kind = "shell", Tag = "Плита (N)",
+            ShellItems = [Shell(7, "э.7 с1", -30), Shell(8, "э.8 с1", -30), Shell(9, "э.9 с1", -30)],
+        };
+        var nl = new ForceSet
+        {
+            Id = 2, Kind = "shell", Tag = "Плита (NL)",
+            ShellItems = [Shell(9, "э.9 с1", -25), Shell(8, "э.8 с1", -5), Shell(7, "э.7 с1", -25)],
+        };
+        FemCheckScopeElement[] elements = [Elem(7), Elem(8), Elem(9)];
+
+        CalcResult RunChunks(int chunkRows) => FemCheckRunner.RunPerElement(sls, new FemMemberGroup { Tag = "Плита" },
+            new FemCheckScope([], elements, RefersToMeshElements: true), [n],
+            new FemPerElementInputs
+            {
+                PlateTemplate = Template(), ConcreteMat = Concrete(), RebarMat = Rebar(), LookupForceSets = [n, nl],
+            },
+            (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"), chunkRows: chunkRows);
+
+        var whole = RunChunks(FemCheckRunner.DefaultChunkRows);
+        var chunked = RunChunks(1);
+
+        double Util(CalcResult r, string label) => r.FemCheckRows!.Single(x => x.Label == label).Utilization;
+        foreach (var label in new[] { "э.7 с1", "э.8 с1", "э.9 с1" })
+            Assert.Equal(Util(whole, label), Util(chunked, label), 9);
+        Assert.Equal(whole.DataJson, chunked.DataJson);
+        // NL-строка своего КЭ участвует: при равных полных усилиях у КЭ 8 длительная часть меньше.
+        Assert.Equal(Util(chunked, "э.7 с1"), Util(chunked, "э.9 с1"), 9);
+        Assert.NotEqual(Util(chunked, "э.7 с1"), Util(chunked, "э.8 с1"), 6);
+    }
+
     static ShellLoadItem Shell(int elem, string label, double mx) =>
         new() { Label = label, Mx = mx, SourceElementNum = elem };
 

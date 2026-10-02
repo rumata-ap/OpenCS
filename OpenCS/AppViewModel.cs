@@ -4805,6 +4805,7 @@ namespace OpenCS
          }
 
          CalcResult result;
+         bool saved = false;   // результат по КЭ уже в БД (строки записаны по ходу расчёта)
          if (!CScore.Fem.FemCheckRunner.HasElementNumbers(check, selected)
              || CScore.Fem.FemCheckRunner.ScopeElements(check, scope).Count == 0)
          {
@@ -4829,11 +4830,20 @@ namespace OpenCS
             var cts = BeginBusyWithCancellation(string.Format(Loc.S("FemCheckRunning"), check.DisplayTag), indeterminate: false);
             var progress = new Progress<double>(f => { if (IsBusy) ReportBusyProgress(f); });
             var token = cts.Token;
+            int checkId = check.Id;
             try
             {
-               result = await Task.Run(() => CScore.Fem.FemCheckRunner.RunPerElement(
-                  check, target, scope, selected, inputs,
-                  (task, sect, item) => TaskRunner.Run(task, sect, item), progress, token));
+               // Строки РСУ читаются и строки результата пишутся порциями: в памяти — только порция.
+               result = await Task.Run(() =>
+               {
+                  using var stream = db.BeginFemCheckResult();
+                  var r = CScore.Fem.FemCheckRunner.RunPerElement(
+                     check, target, scope, selected, inputs,
+                     (task, sect, item) => TaskRunner.Run(task, sect, item), progress, token, stream);
+                  stream.Complete(r, checkId);
+                  return r;
+               });
+               saved = true;
                EndBusy();
             }
             catch (OperationCanceledException)
@@ -4850,20 +4860,8 @@ namespace OpenCS
             }
          }
 
-         // Строки результата на РСУ SCAD — миллионы, запись идёт секунды: сначала показываем статус.
-         if (result.FemCheckRows is { Count: > 100_000 })
-         {
-            BeginBusy(Loc.S("FemCheckSaving"));
-            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-         }
-         try
-         {
+         if (!saved)
             db.SaveCalcResultRaw(result, check.Id);
-         }
-         finally
-         {
-            if (IsBusy) EndBusy();
-         }
          check.ResultId = result.Id;
          db.SaveFemCheck(check);
          // Строки наборов проверке больше не нужны (на РСУ SCAD — сотни мегабайт): при следующем

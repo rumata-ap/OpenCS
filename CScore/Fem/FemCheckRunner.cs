@@ -534,19 +534,18 @@ public static partial class FemCheckRunner
     static Dictionary<string, ShellLoadItem>? BuildNlLookup(
         ForceSet currentNSet, IReadOnlyList<ForceSet> allSets)
     {
-        // Тег N-набора: "Плита — РСН 1 (N)" → ищем "Плита — РСН 1 (NL)"
-        string nTag  = currentNSet.Tag ?? "";
-        string nlTag = nTag.EndsWith("(N)")
-            ? nTag[..^3].TrimEnd() + "(NL)"
-            : null!;
-
-        if (nlTag == null) return null;
-
-        var nlSet = allSets.FirstOrDefault(f => f.Tag == nlTag);
-        if (nlSet == null) return null;
-
+        if (FindNlSet(currentNSet, allSets) is not { } nlSet) return null;
         // Метки строк могут повторяться (ручные наборы) — берём первую.
         return nlSet.ShellItems.GroupBy(s => s.Label).ToDictionary(g => g.Key, g => g.First());
+    }
+
+    /// <summary>Парный NL-набор N-набора: "Плита — РСН 1 (N)" → "Плита — РСН 1 (NL)"; null — нет такого.</summary>
+    static ForceSet? FindNlSet(ForceSet currentNSet, IReadOnlyList<ForceSet> allSets)
+    {
+        string nTag = currentNSet.Tag ?? "";
+        if (!nTag.EndsWith("(N)")) return null;
+        string nlTag = nTag[..^3].TrimEnd() + "(NL)";
+        return allSets.FirstOrDefault(f => f.Tag == nlTag);
     }
 
     // ------------------------------------------------------------------ bar check helpers

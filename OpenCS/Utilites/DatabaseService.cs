@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 74;
+      const int CurrentSchemaVersion = 75;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -94,6 +94,7 @@ namespace OpenCS.Utilites
          [71] = MigrateV72,
          [72] = MigrateV73,
          [73] = MigrateV74,
+         [74] = MigrateV75,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -137,6 +138,7 @@ namespace OpenCS.Utilites
           EnsurePlanarMeshTables();
           EnsurePlanarConnectionTables();
           Migrate();
+          DeleteUnfinishedFemCheckResults();
        }
 
       // Открывает файл БД; если он повреждён — удаляет и создаёт заново.
@@ -1644,6 +1646,13 @@ namespace OpenCS.Utilites
       /// <summary>Миграция v74: строки результатов проверок по КЭ — отдельной таблицей, а не в data_json
       /// (на РСУ SCAD результат одной проверки занимал около 1 ГБ JSON).</summary>
       void MigrateV74() => EnsureFemCheckRowTables();
+
+      /// <summary>Миграция v75: индексы строк наборов усилий по номеру КЭ (set_id, source_elem_num) — проверка
+      /// по КЭ читает строки РСУ порциями по диапазонам КЭ, а не весь набор.</summary>
+      void MigrateV75() => MigExec("""
+         CREATE INDEX IF NOT EXISTS idx_force_items_set_elem ON force_items(set_id, source_elem_num);
+         CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_elem ON force_shell_items(set_id, source_elem_num);
+         """);
 
       /// <summary>Вложения FEM-схемы по видам (<see cref="FemSchemaSourceFileKind"/>): файлы и данные
       /// программы-источника, хранятся как есть и разбираются при использовании.</summary>

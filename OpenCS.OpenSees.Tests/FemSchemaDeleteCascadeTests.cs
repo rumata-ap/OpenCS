@@ -306,6 +306,71 @@ public sealed class FemCheckDeleteCascadeTests
         }
     }
 
+    [Fact]
+    public void FemCheckResultStream_WritesRowsByChunks_AndReplacesResultOnlyOnComplete()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-check-stream-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+                var schema = new FemSchema { Tag = "Схема", SourceType = "internal" };
+                db.SaveFemSchema(schema);
+                var check = new FemCheck { SchemaId = schema.Id, MemberId = 0, NormCode = "rc_plate_check", Tag = "Проверка" };
+                db.SaveFemCheck(check);
+
+                global::CScore.CalcResult Summary() => new()
+                {
+                    TaskKind = "rc_plate_check", TaskTag = "run", Created = "now", Status = "not_passed",
+                    DataJson = "{\"perElement\":true,\"rowsStored\":true}",
+                };
+                FemCheckRow Row(string label, int elem, double util, bool passed) => new()
+                {
+                    Label = label, ElemNum = elem, Utilization = util, Passed = passed,
+                    ForceSetTag = "РСУ (C)", CalcType = "C", RebarSource = "selected",
+                };
+
+                var first = Summary();
+                db.SaveCalcResultRaw(first, check.Id);
+
+                // Прерванная запись (отмена) не трогает прежний результат и не оставляет строк.
+                using (var cancelled = db.BeginFemCheckResult())
+                    cancelled.Write([Row("x", 1, 2.0, false)]);
+                Assert.Equal(1, Scalar(path, "SELECT COUNT(*) FROM calc_results"));
+                Assert.Equal(0, Scalar(path, "SELECT COUNT(*) FROM fem_check_rows"));
+
+                var second = Summary();
+                using (var stream = db.BeginFemCheckResult())
+                {
+                    stream.Write([Row("a", 1, 0.5, true), Row("b", 1, 1.2, false)]);
+                    stream.Write([Row("c", 2, 0.9, true)]);
+                    // До завершения результат проверке не принадлежит.
+                    Assert.Equal(first.Id, db.GetCalcResultByFemCheck(check.Id)!.Id);
+                    stream.Complete(second, check.Id);
+                }
+                Assert.True(second.Id > first.Id);
+                Assert.Equal(1, CountResultsByFemCheck(path, check.Id));
+                Assert.Equal(1, Scalar(path, "SELECT COUNT(*) FROM calc_results"));
+
+                // Номера строк сквозные через порции, словарь строк — общий.
+                Assert.Equal(["b", "c", "a"], db.GetFemCheckRows(second.Id).Select(r => r.Label));
+                Assert.Equal(2, Scalar(path, $"SELECT MAX(idx) FROM fem_check_rows WHERE result_id = {second.Id}"));
+                Assert.All(db.GetFemCheckRows(second.Id), r => Assert.Equal("РСУ (C)", r.ForceSetTag));
+                Assert.Equal(second.Id, db.GetCalcResultByFemCheck(check.Id)!.Id);
+            }
+
+            // Заготовка, оставшаяся после аварийного выхода, удаляется при открытии.
+            Exec(path, "INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id) VALUES (0, '', '', '', 'running', '{}', NULL)");
+            using (new DatabaseService(path)) { }
+            Assert.Equal(1, Scalar(path, "SELECT COUNT(*) FROM calc_results"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     static void Exec(string path, string sql)
     {
         using var connection = new SqliteConnection($"Data Source={path};Pooling=False");

@@ -2428,7 +2428,6 @@
     <system:String x:Key="FemCheckResultAllElements">Все КЭ</system:String>
     <system:String x:Key="FemCheckResultElemFilter">Строки КЭ {0}</system:String>
     <system:String x:Key="FemCheckResultRowsLimited">Показаны {0:N0} худших строк из {1:N0}. Все строки КЭ — выберите его на вкладке «По КЭ».</system:String>
-    <system:String x:Key="FemCheckSaving">Сохранение результата проверки…</system:String>
     <system:String x:Key="FemCheckResultElem">КЭ</system:String>
     <system:String x:Key="FemCheckResultSecNum">Сеч.</system:String>
     <system:String x:Key="FemCheckResultSection">Сечение / армирование</system:String>

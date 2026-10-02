@@ -94,6 +94,14 @@ namespace CScore
 
       /// <summary>Число строк набора по номерам КЭ: строки пластин (<paramref name="shell"/>) или стержней.</summary>
       ForceSetElementStats ElementStats(int setId, bool shell);
+
+      /// <summary>Строки стержней набора по КЭ с номерами от <paramref name="fromElem"/> до <paramref name="toElem"/>
+      /// в порядке номеров строк; оба null — строки без номера КЭ.</summary>
+      List<LoadItem> LoadBarRows(int setId, int? fromElem, int? toElem);
+
+      /// <summary>Строки пластин набора по КЭ с номерами от <paramref name="fromElem"/> до <paramref name="toElem"/>
+      /// в порядке номеров строк; оба null — строки без номера КЭ.</summary>
+      List<ShellLoadItem> LoadShellRows(int setId, int? fromElem, int? toElem);
    }
 
    /// <summary>Число строк набора по номерам КЭ.</summary>
@@ -283,6 +291,33 @@ namespace CScore
                          : _barStats  ??= RowSource!.ElementStats(Id, shell: false);
          }
       }
+
+      /// <summary>
+      /// Строки стержней по КЭ с номерами от <paramref name="fromElem"/> до <paramref name="toElem"/>; оба null —
+      /// строки без номера КЭ. Набор целиком не загружается: у выгруженного набора читаются только эти строки.
+      /// </summary>
+      public List<LoadItem> BarRowsOfElements(int? fromElem, int? toElem)
+      {
+         lock (_rowsLock)
+            if (_items != null)
+               return _items.Where(i => InElementRange(i.SourceElementNum, fromElem, toElem)).ToList();
+         return RowSource!.LoadBarRows(Id, fromElem, toElem);
+      }
+
+      /// <summary>
+      /// Строки пластин по КЭ с номерами от <paramref name="fromElem"/> до <paramref name="toElem"/>; оба null —
+      /// строки без номера КЭ. Набор целиком не загружается: у выгруженного набора читаются только эти строки.
+      /// </summary>
+      public List<ShellLoadItem> ShellRowsOfElements(int? fromElem, int? toElem)
+      {
+         lock (_rowsLock)
+            if (_items != null)
+               return _shellItems!.Where(i => InElementRange(i.SourceElementNum, fromElem, toElem)).ToList();
+         return RowSource!.LoadShellRows(Id, fromElem, toElem);
+      }
+
+      static bool InElementRange(int? elemNum, int? fromElem, int? toElem) =>
+         fromElem is int from && toElem is int to ? elemNum >= from && elemNum <= to : elemNum == null;
 
       /// <summary>Признак изменений в памяти, ещё не записанных через SaveAll.</summary>
       public bool IsModified { get; set; }
