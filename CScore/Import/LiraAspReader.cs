@@ -375,7 +375,15 @@ public sealed record LiraAspSchemaMatch(
    int PlatesMatched, int BarsMatched, IReadOnlyList<int> Missing, IReadOnlyList<int> KindMismatch)
 {
    /// <summary>Сверить файл с КЭ схемы: номер КЭ в ЛИРЕ и признак «пластина» (иначе стержень).</summary>
-   public static LiraAspSchemaMatch Check(LiraAspFile asp, IEnumerable<(int Id, bool IsPlate)> elements)
+   public static LiraAspSchemaMatch Check(LiraAspFile asp, IEnumerable<(int Id, bool IsPlate)> elements) =>
+      Check(asp.Plates.Keys, asp.Bars.Keys, elements);
+
+   /// <summary>
+   /// Сверить номера КЭ файла армирования любой программы (пластины и стержни файла) с КЭ схемы:
+   /// номер КЭ и признак «пластина» (иначе стержень).
+   /// </summary>
+   public static LiraAspSchemaMatch Check(IEnumerable<int> filePlates, IEnumerable<int> fileBars,
+      IEnumerable<(int Id, bool IsPlate)> elements)
    {
       var kinds = new Dictionary<int, bool>();
       foreach (var (id, isPlate) in elements)
@@ -384,13 +392,13 @@ public sealed record LiraAspSchemaMatch(
       int plates = 0, bars = 0;
       var missing = new List<int>();
       var mismatch = new List<int>();
-      foreach (int id in asp.Plates.Keys)
+      foreach (int id in filePlates)
       {
          if (!kinds.TryGetValue(id, out bool isPlate)) missing.Add(id);
          else if (isPlate) plates++;
          else mismatch.Add(id);
       }
-      foreach (int id in asp.Bars.Keys)
+      foreach (int id in fileBars)
       {
          if (!kinds.TryGetValue(id, out bool isPlate)) missing.Add(id);
          else if (!isPlate) bars++;
