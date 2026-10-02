@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using CScore.Import;
 using OpenCS.Services.Scad;
 using Xunit;
 
@@ -63,6 +64,63 @@ public class ScadConcreteLayoutTests
         Assert.Equal(0, bytes![^1]);
         Assert.Equal(@"C:\Модели\музей.SPR", ScadApiLayouts.CString(bytes));
         Assert.Null(ScadApiLayouts.ToAnsiZ(@"C:\模型.SPR"));
+    }
+
+    static void U32(byte[] b, int offset, uint v) => BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(offset), v);
+    static void F64(byte[] b, int offset, double v) => BinaryPrimitives.WriteDoubleLittleEndian(b.AsSpan(offset), v);
+
+    [Fact]
+    public void ParseArmPlate_SyntheticRecord_FlagsZeroFaces()
+    {
+        var b = new byte[ScadApiLayouts.ArmElemPlateSize];
+        for (int i = 0; i < 4; i++) { U32(b, 12 * i, (uint)(10 + 2 * i)); F64(b, 12 * i + 4, 0.1 + 0.05 * i); }
+        U32(b, 48, 8);      // dW
+        F64(b, 52, 0.4);    // StepWx
+        F64(b, 60, 0.3);    // StepWy
+        U32(b, 68, 1);      // NoUp
+
+        var p = ScadApiLayouts.ParseArmPlate(b, 3, "плиты", [7, 8]);
+
+        Assert.Equal([10, 0, 14, 0], p.DiametersMm);
+        Assert.Equal(0.15, p.StepsM[1], 9);
+        Assert.Equal(8, p.TransverseDiameterMm);
+        Assert.Equal(0.3, p.TransverseStepYM);
+        Assert.Equal(3, p.Num);
+        Assert.Equal([7, 8], p.ElementIds);
+    }
+
+    [Fact]
+    public void ParseArmRodPart_SyntheticRecord()
+    {
+        var b = new byte[ScadApiLayouts.ArmElemRodSize];
+        U32(b, 0, 2);  F64(b, 4, 40);                     // участок 2, 40 %
+        U32(b, 12, 1); U32(b, 20, 1); U32(b, 24, 1);      // IsS1D2, IsSw, IsS34 (IsS2D2 = 0)
+        U32(b, 28, 20); U32(b, 32, 3);                    // S1 3⌀20
+        U32(b, 36, 16); U32(b, 40, 2);                    // S2 2⌀16
+        U32(b, 44, 12); U32(b, 48, 1);                    // S1 второй диаметр 1⌀12
+        U32(b, 52, 25); U32(b, 56, 9);                    // S2 второй диаметр — выключен флагом
+        U32(b, 60, 14); U32(b, 64, 2);                    // S3 2⌀14
+        U32(b, 68, 10); U32(b, 72, 1);                    // S4 1⌀10
+        U32(b, 76, 8); U32(b, 80, 2); F64(b, 84, 0.15);   // хомуты Z
+        U32(b, 92, 6); U32(b, 96, 4); F64(b, 100, 0.2);   // хомуты Y
+        b[108] = 1;                                       // IsS1L2
+        F64(b, 110, 0.05);                                // DeltaS1
+        U32(b, 126, 18); U32(b, 130, 2);                  // второй ряд S1 2⌀18
+
+        var p = ScadApiLayouts.ParseArmRodPart(b);
+
+        Assert.Equal(2, p.PartNo);
+        Assert.Equal(40, p.LengthPercent);
+        Assert.Equal(new ScadBarSet(3, 20), p.S1.First);
+        Assert.Equal(new ScadBarSet(1, 12), p.S1.Second);
+        Assert.Equal(new ScadBarSet(2, 18), p.S1.Row2);
+        Assert.Equal(0.05, p.S1.Row2DeltaM);
+        Assert.Null(p.S2.Second);
+        Assert.Null(p.S2.Row2);
+        Assert.Equal(new ScadBarSet(2, 14), p.S3);
+        Assert.Equal(new ScadBarSet(1, 10), p.S4);
+        Assert.Equal(new ScadRodStirrups(8, 2, 0.15), p.StirrupsZ);
+        Assert.Equal(new ScadRodStirrups(6, 4, 0.2), p.StirrupsY);
     }
 
     [Fact]

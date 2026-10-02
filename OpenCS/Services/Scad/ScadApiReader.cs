@@ -1,10 +1,11 @@
+using System.Runtime.InteropServices;
 using CScore.Import;
 using CScore.Planar;
 
 namespace OpenCS.Services.Scad;
 
 /// <summary>Что читать из проекта SCAD помимо схемы (узлы, КЭ, жёсткости, группы, блоки).</summary>
-internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true);
+internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true, bool AssignedRebar = true);
 
 /// <summary>
 /// Итог чтения схемы: данные и сведения для предупреждений (текст — в потоке UI по ресурсам).
@@ -87,6 +88,7 @@ internal static unsafe class ScadApiReader
         ReadGroups(s, data);
         ReadBlocks(s, data);
         if (options.ConcreteGroups) ReadConcreteGroups(s, data);
+        if (options.AssignedRebar) data.AssignedRebar = ReadAssignedRebar(s);
         int degenerate = options.OutputAxes ? ReadOutputAxes(s, data, coords, lu) : 0;
         progress?.Report(1);
 
@@ -211,6 +213,48 @@ internal static unsafe class ScadApiReader
         var data = new ScadSchemaData();
         ReadConcreteGroups(s, data);
         return data.ConcreteGroups;
+    }
+
+    /// <summary>Группы заданного армирования пластин и стержней (ApiGetArmElemPlate/ApiGetArmElemRod).</summary>
+    public static ScadAssignedRebarFile ReadAssignedRebar(ScadApiSession s)
+    {
+        var n = s.Native;
+        nint h = s.Handle;
+        var plates = new List<ScadAssignedPlate>();
+        uint plateCount = n.ApiGetQuantityArmElemPlate(h);
+        for (uint i = 1; i <= plateCount; i++)
+        {
+            byte* p;
+            if (n.ApiGetArmElemPlate(h, i, &p) != 0 || p == null) continue;
+            var head = new ReadOnlySpan<byte>(p, ScadApiLayouts.ArmPlateElem + ScadApiLayouts.ArmElemPlateSize);
+            plates.Add(ScadApiLayouts.ParseArmPlate(head[ScadApiLayouts.ArmPlateElem..], (int)i,
+                ScadApiSession.Str(*(byte**)p), ArmIds(head, ScadApiLayouts.ArmPlateQuantity, ScadApiLayouts.ArmPlateList)));
+        }
+
+        var rods = new List<ScadAssignedRod>();
+        uint rodCount = n.ApiGetQuantityArmElemRod(h);
+        for (uint i = 1; i <= rodCount; i++)
+        {
+            byte* p;
+            if (n.ApiGetArmElemRod(h, i, &p) != 0 || p == null) continue;
+            var head = new ReadOnlySpan<byte>(p, ScadApiLayouts.ArmRodSize);
+            int partCount = (int)*(uint*)(p + ScadApiLayouts.ArmRodParts);
+            byte* partsPtr = *(byte**)(p + ScadApiLayouts.ArmRodPartsPtr);
+            var parts = new ScadAssignedRodPart[partsPtr == null ? 0 : partCount];
+            for (int k = 0; k < parts.Length; k++)
+                parts[k] = ScadApiLayouts.ParseArmRodPart(
+                    new ReadOnlySpan<byte>(partsPtr + (long)k * ScadApiLayouts.ArmElemRodSize, ScadApiLayouts.ArmElemRodSize));
+            rods.Add(new ScadAssignedRod((int)i, ScadApiSession.Str(*(byte**)p),
+                ArmIds(head, ScadApiLayouts.ArmRodQuantity, ScadApiLayouts.ArmRodList), parts));
+        }
+        return new ScadAssignedRebarFile(plates, rods);
+    }
+
+    static int[] ArmIds(ReadOnlySpan<byte> head, int quantityOffset, int listOffset)
+    {
+        uint q = MemoryMarshal.Read<uint>(head[quantityOffset..]);
+        var list = (uint*)MemoryMarshal.Read<nint>(head[listOffset..]);
+        return Ids(list, q);
     }
 
     static void ReadConcreteGroups(ScadApiSession s, ScadSchemaData data)

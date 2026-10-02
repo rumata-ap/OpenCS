@@ -978,8 +978,9 @@
    <system:String x:Key="ScadRebarStale">Подбор {0} выгружен до последнего изменения проекта {1} — если в проекте менялись схема или расчёт, выгрузите подбор заново.</system:String>
    <system:String x:Key="ScadRebarLoaded">Подобранная арматура SCAD {0}: пластин {1}, стержней {2} (совпали со схемой).</system:String>
    <system:String x:Key="ScadRebarNoGroups">ЖБ-группы SCAD не прочитаны — привязки арматуры пластин берутся из сечения цели, у стержней проверка по подбору SCAD без них невозможна.</system:String>
-   <system:String x:Key="ScadRebarReadingGroups">Чтение ЖБ-групп SCAD…</system:String>
-   <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}.</system:String>
+   <system:String x:Key="ScadRebarReadingGroups">Чтение ЖБ-групп и заданного армирования SCAD…</system:String>
+   <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}.</system:String>
+   <system:String x:Key="ScadRebarRefreshFromSpr">Обновить ЖБ-группы и заданное армирование из .SPR</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>
    <system:String x:Key="ScadPluginNoScad">Каталог {0} не найден: SCAD не установлен или другая версия. Плагин не установлен.</system:String>

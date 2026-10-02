@@ -640,6 +640,8 @@ namespace OpenCS
       public ICommand LoadScadSelectedRebarCommand { get; set; } = null!;
       /// <summary>Установить плагин «Экспорт для OpenCS» в SCAD.</summary>
       public ICommand InstallScadPluginCommand { get; set; } = null!;
+      /// <summary>Перечитать ЖБ-группы и заданное армирование схемы SCAD из .SPR (параметр FemSchema).</summary>
+      public ICommand RefreshScadRebarDataCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1520,6 +1522,10 @@ namespace OpenCS
             p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Rsu), _ => !IsBusy);
          LoadScadSelectedRebarCommand = new RelayCommand(p => LoadScadSelectedRebar(p as CScore.Fem.FemSchema), _ => !IsBusy);
          InstallScadPluginCommand = new RelayCommand(_ => InstallScadPlugin());
+         RefreshScadRebarDataCommand = new RelayCommand(async p =>
+         {
+            if (p is CScore.Fem.FemSchema s) await RefreshScadRebarData(s);
+         }, _ => !IsBusy);
          SetScadProjectPathCommand = new RelayCommand(p =>
          {
             if (p is CScore.Fem.FemSchema s && ChooseScadProjectPath(s) is { } path)
@@ -3203,6 +3209,7 @@ namespace OpenCS
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
             SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
+            if (data.AssignedRebar != null) SaveScadAssignedRebar(schema.Id, data.AssignedRebar);
             RefreshFemSchemaTreeCounts(schema);
 
             foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
@@ -3864,6 +3871,11 @@ namespace OpenCS
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
             System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
 
+      /// <summary>Сохранить заданное армирование SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadAssignedRebar"/>).</summary>
+      void SaveScadAssignedRebar(int schemaId, CScore.Import.ScadAssignedRebarFile file) =>
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar, "",
+            System.Text.Encoding.UTF8.GetBytes(file.ToJson()));
+
       /// <summary>
       /// Загрузить к схеме SCAD выгрузку плагина «Экспорт для OpenCS» (*.opencs-scad.json — подобранная арматура):
       /// разобрать, сверить номера КЭ с сеткой и сохранить при схеме (заменяет ранее загруженную). Если у схемы
@@ -3948,7 +3960,7 @@ namespace OpenCS
          LogService.Info(done);
 
          if (db.GetFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadConcreteGroups) == null)
-            await LoadMissingScadConcreteGroups(schema);
+            await RefreshScadRebarData(schema);
 
          void Rejected(string message)
          {
@@ -3958,10 +3970,11 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Дочитать ЖБ-группы схемы SCAD из .SPR через SCADAPIX.dll (схема импортирована до v73 или из txt).
-      /// Отказ или ошибка — в журнал: подбор работает и без групп, привязки берутся из сечения цели.
+      /// Перечитать из .SPR через SCADAPIX.dll ЖБ-группы и заданное армирование схемы SCAD — для схем,
+      /// импортированных без них, и после правки армирования в SCAD. Отказ или ошибка — в журнал: подбор
+      /// работает и без групп, привязки берутся из сечения цели.
       /// </summary>
-      async Task LoadMissingScadConcreteGroups(CScore.Fem.FemSchema schema)
+      async Task RefreshScadRebarData(CScore.Fem.FemSchema schema)
       {
          string? spr = ResolveScadProjectPath(schema);
          var settings = db.LoadScadApiSettings();
@@ -3977,7 +3990,7 @@ namespace OpenCS
          var cts = BeginBusyWithCancellation(Loc.S("ScadRebarReadingGroups"));
          try
          {
-            var groups = await Task.Run(() =>
+            var (groups, assigned) = await Task.Run(() =>
             {
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
                try
@@ -3985,12 +3998,14 @@ namespace OpenCS
                   var native = Services.Scad.ScadApiNative.Load(dllDir);
                   using var session = new Services.Scad.ScadApiSession(native);
                   session.Open(spr);
-                  return Services.Scad.ScadApiReader.ReadConcreteGroups(session);
+                  return (Services.Scad.ScadApiReader.ReadConcreteGroups(session),
+                     Services.Scad.ScadApiReader.ReadAssignedRebar(session));
                }
                finally { Services.Scad.ScadApiNative.Gate.Release(); }
             }, cts.Token);
             SaveScadConcreteGroups(schema.Id, groups);
-            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count);
+            SaveScadAssignedRebar(schema.Id, assigned);
+            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count, assigned.Plates.Count, assigned.Rods.Count);
             LogService.Info(done);
             EndBusy(done);
          }
