@@ -4685,9 +4685,10 @@ namespace OpenCS
             LogService.Info(string.Format(Loc.S("FemGroupAutoResult"), added));
       }
 
+      /// <param name="member">Группа, из меню которой вызвана команда: становится целью проверки.</param>
       void AddFemCheck(CScore.Fem.FemMemberGroup? member)
       {
-         var dlg = new Views.FemCheckDialog(this);
+         var dlg = new Views.FemCheckDialog(this, target: member);
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          var check = dlg.ResultCheck;
          db.SaveFemCheck(check);
