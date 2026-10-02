@@ -1,0 +1,4 @@
+# Файлы плагина SCAD хранятся байт в байт: Plugin.js — ASCII с CRLF, 1049/Plugin.cfg — cp1251.
+*.js -text
+*.cfg binary
+*.ico binary
