@@ -205,6 +205,14 @@ internal static unsafe class ScadApiReader
         }
     }
 
+    /// <summary>Только ЖБ-группы проекта (дочитывание к схеме, импортированной без них).</summary>
+    public static List<ScadConcreteGroup> ReadConcreteGroups(ScadApiSession s)
+    {
+        var data = new ScadSchemaData();
+        ReadConcreteGroups(s, data);
+        return data.ConcreteGroups;
+    }
+
     static void ReadConcreteGroups(ScadApiSession s, ScadSchemaData data)
     {
         var n = s.Native;

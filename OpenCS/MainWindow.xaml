@@ -175,6 +175,8 @@
                 <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}" Command="{Binding ImportScadLoadCasesFromApiCommand}"/>
                 <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}" Command="{Binding ImportScadCombinationsFromApiCommand}"/>
                 <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}" Command="{Binding ImportScadRsuFromApiCommand}"/>
+                <MenuItem Header="{DynamicResource ScadRebarLoad}" Command="{Binding LoadScadSelectedRebarCommand}"/>
+                <MenuItem Header="{DynamicResource ScadPluginInstall}" Command="{Binding InstallScadPluginCommand}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
@@ -1372,6 +1374,15 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource ScadRebarLoad}"
+                                           Command="{Binding PlacementTarget.Tag.LoadScadSelectedRebarCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource ScadPluginInstall}"
+                                           Command="{Binding PlacementTarget.Tag.InstallScadPluginCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
                                  <MenuItem Header="{DynamicResource ScadForcesSetProject}"
                                            Command="{Binding PlacementTarget.Tag.SetScadProjectPathCommand,

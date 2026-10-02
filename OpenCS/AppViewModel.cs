@@ -636,6 +636,10 @@ namespace OpenCS
 
       /// <summary>Указать файл проекта SCAD (.SPR) для схемы (параметр FemSchema).</summary>
       public ICommand SetScadProjectPathCommand { get; set; } = null!;
+      /// <summary>Загрузить подбор арматуры SCAD (выгрузка плагина) к схеме SCAD; параметр — схема или null (текущая).</summary>
+      public ICommand LoadScadSelectedRebarCommand { get; set; } = null!;
+      /// <summary>Установить плагин «Экспорт для OpenCS» в SCAD.</summary>
+      public ICommand InstallScadPluginCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1514,6 +1518,8 @@ namespace OpenCS
             p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Combinations), _ => !IsBusy);
          ImportScadRsuFromApiCommand = new RelayCommand(
             p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Rsu), _ => !IsBusy);
+         LoadScadSelectedRebarCommand = new RelayCommand(p => LoadScadSelectedRebar(p as CScore.Fem.FemSchema), _ => !IsBusy);
+         InstallScadPluginCommand = new RelayCommand(_ => InstallScadPlugin());
          SetScadProjectPathCommand = new RelayCommand(p =>
          {
             if (p is CScore.Fem.FemSchema s && ChooseScadProjectPath(s) is { } path)
@@ -3857,6 +3863,204 @@ namespace OpenCS
       void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
             System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
+
+      /// <summary>
+      /// Загрузить к схеме SCAD выгрузку плагина «Экспорт для OpenCS» (*.opencs-scad.json — подобранная арматура):
+      /// разобрать, сверить номера КЭ с сеткой и сохранить при схеме (заменяет ранее загруженную). Если у схемы
+      /// нет ЖБ-групп (привязки и классы арматуры) — дочитать их из .SPR через SCADAPIX.dll.
+      /// </summary>
+      async void LoadScadSelectedRebar(CScore.Fem.FemSchema? schema)
+      {
+         if (IsBusy) return;
+         schema ??= currentFemSchema;
+         string title = Loc.S("ScadRebarLoad");
+         if (schema == null || schema.SourceType != "scad")
+         {
+            MessageBox.Show(schema == null ? Loc.S("ScadForcesNoTarget") : string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag),
+               title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         // Плагин пишет выгрузку рядом с .SPR: «<проект>.opencs-scad.json».
+         string? initial = null;
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath))
+         {
+            string candidate = Path.Combine(Path.GetDirectoryName(schema.SourcePath) ?? "",
+               Path.GetFileNameWithoutExtension(schema.SourcePath) + CScore.Import.ScadRebarExportReader.FileSuffix);
+            initial = File.Exists(candidate) ? candidate : Path.GetDirectoryName(schema.SourcePath);
+         }
+         string? path = FileDialogService.OpenFile(Loc.S("ScadRebarFilter"),
+            string.Format(Loc.S("ScadRebarOpenTitle"), schema.Tag), initial);
+         if (path == null) return;
+
+         string name = Path.GetFileName(path);
+         CScore.Import.ScadSelectedRebarFile parsed;
+         byte[] data;
+         try
+         {
+            data = File.ReadAllBytes(path);
+            parsed = CScore.Import.ScadRebarExportReader.Read(data);
+         }
+         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarReadError"), name, ex.Message));
+            return;
+         }
+
+         foreach (var w in parsed.Warnings)
+            LogService.Warning(w);
+         if (parsed.Plates.Count + parsed.Bars.Count == 0)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarEmpty"), name));
+            return;
+         }
+
+         var elements = db.GetFemMeshElements(schema.Id)
+            .Select(e => (Ok: int.TryParse(e.ElemTag, out int id), Id: id, IsPlate: e.ElemType == "shell"))
+            .Where(e => e.Ok)
+            .Select(e => (e.Id, e.IsPlate));
+         var match = parsed.MatchSchema(elements);
+         if (match.Missing.Count > 0 || match.KindMismatch.Count > 0)
+            LogService.Warning(string.Format(Loc.S("LiraAspSchemaMismatch"),
+               match.Missing.Count, match.KindMismatch.Count,
+               string.Join(", ", match.Missing.Concat(match.KindMismatch).Order().Take(20))));
+         if (match.PlatesMatched + match.BarsMatched == 0)
+         {
+            Rejected(string.Format(Loc.S("ScadRebarNoMatch"), name, schema.Tag, parsed.Plates.Count, parsed.Bars.Count));
+            return;
+         }
+
+         // Выгрузка не из проекта схемы или сделана до последнего сохранения проекта — предупреждение, не отказ.
+         if (!string.IsNullOrWhiteSpace(schema.SourcePath) && parsed.Project.Length > 0
+             && !string.Equals(Path.GetFileName(parsed.Project), Path.GetFileName(schema.SourcePath), StringComparison.OrdinalIgnoreCase))
+            LogService.Warning(string.Format(Loc.S("ScadRebarOtherProject"), name, parsed.Project, schema.SourcePath));
+         string? spr = !string.IsNullOrWhiteSpace(schema.SourcePath) && File.Exists(schema.SourcePath) ? schema.SourcePath
+                     : File.Exists(parsed.Project) ? parsed.Project : null;
+         if (spr != null)
+         {
+            DateTime exported = parsed.Exported?.UtcDateTime ?? File.GetLastWriteTimeUtc(path);
+            if (exported < File.GetLastWriteTimeUtc(spr))
+               LogService.Warning(string.Format(Loc.S("ScadRebarStale"), name, Path.GetFileName(spr)));
+         }
+
+         db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadSelectedRebar, name, data);
+         string done = string.Format(Loc.S("ScadRebarLoaded"), name, match.PlatesMatched, match.BarsMatched);
+         LogService.Info(done);
+
+         if (db.GetFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadConcreteGroups) == null)
+            await LoadMissingScadConcreteGroups(schema);
+
+         void Rejected(string message)
+         {
+            LogService.Warning(message);
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+         }
+      }
+
+      /// <summary>
+      /// Дочитать ЖБ-группы схемы SCAD из .SPR через SCADAPIX.dll (схема импортирована до v73 или из txt).
+      /// Отказ или ошибка — в журнал: подбор работает и без групп, привязки берутся из сечения цели.
+      /// </summary>
+      async Task LoadMissingScadConcreteGroups(CScore.Fem.FemSchema schema)
+      {
+         string? spr = ResolveScadProjectPath(schema);
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (spr == null || dllDir == null)
+         {
+            LogService.Warning(Loc.S("ScadRebarNoGroups"));
+            return;
+         }
+
+         var cts = BeginBusyWithCancellation(Loc.S("ScadRebarReadingGroups"));
+         try
+         {
+            var groups = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiReader.ReadConcreteGroups(session);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+            SaveScadConcreteGroups(schema.Id, groups);
+            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy();
+            LogService.Warning(Loc.S("ScadRebarNoGroups"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Format(Loc.S) + " " + Loc.S("ScadRebarNoGroups"));
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Message + " " + Loc.S("ScadRebarNoGroups"));
+         }
+      }
+
+      /// <summary>
+      /// Скопировать плагин «Экспорт для OpenCS» (поставляется в bin\ScadPlugin\OpenCSExport) в каталог плагинов
+      /// постпроцессора SCAD (%ALLUSERSPROFILE%\SCAD Soft\Plugins\PostProcessor). Прав не повышает: при отказе
+      /// доступа — путь назначения и предложение открыть папку плагина для ручного копирования.
+      /// </summary>
+      void InstallScadPlugin()
+      {
+         string title = Loc.S("ScadPluginInstall");
+         string source = Path.Combine(AppContext.BaseDirectory, "ScadPlugin", "OpenCSExport");
+         if (!File.Exists(Path.Combine(source, "Plugin.js")))
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadPluginNoSource"), source), title, MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         string scadSoft = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "SCAD Soft");
+         if (!Directory.Exists(scadSoft))
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadPluginNoScad"), scadSoft), title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         string target = Path.Combine(scadSoft, "Plugins", "PostProcessor", "OpenCSExport");
+         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()
+             && MessageBox.Show(string.Format(Loc.S("ScadPluginReplace"), target), title,
+                   MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+         try
+         {
+            foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+            {
+               string dest = Path.Combine(target, Path.GetRelativePath(source, file));
+               Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+               File.Copy(file, dest, overwrite: true);
+            }
+         }
+         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+         {
+            LogService.Warning(ex.Message);
+            if (MessageBox.Show(string.Format(Loc.S("ScadPluginAccessDenied"), target, source, ex.Message), title,
+                   MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+               System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "\"" + source + "\"")
+                  { UseShellExecute = true });
+            return;
+         }
+
+         string done = string.Format(Loc.S("ScadPluginInstalled"), target);
+         LogService.Info(done);
+         MessageBox.Show(done, title, MessageBoxButton.OK, MessageBoxImage.Information);
+      }
 
       /// <summary>
       /// Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp: Файл → Экспорт в режиме
