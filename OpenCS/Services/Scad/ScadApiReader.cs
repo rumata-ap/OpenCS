@@ -38,6 +38,7 @@ internal static unsafe class ScadApiReader
         var n = s.Native;
         nint h = s.Handle;
         var data = new ScadSchemaData();
+        using var trace = ScadApiTrace.Step("Read");
 
         var (lengthUnit, sectionUnit, _) = Units(s);
         data.LengthUnitM = lengthUnit.ToMeters;
@@ -84,12 +85,17 @@ internal static unsafe class ScadApiReader
         }
         ct.ThrowIfCancellationRequested();
 
-        ReadStiffnesses(s, data);
-        ReadGroups(s, data);
-        ReadBlocks(s, data);
-        if (options.ConcreteGroups) ReadConcreteGroups(s, data);
-        if (options.AssignedRebar) data.AssignedRebar = ReadAssignedRebar(s);
-        int degenerate = options.OutputAxes ? ReadOutputAxes(s, data, coords, lu) : 0;
+        ScadApiTrace.Write($"Read: узлов {data.Nodes.Count}, КЭ {data.Elements.Count}");
+        using (ScadApiTrace.Step("Жёсткости")) ReadStiffnesses(s, data);
+        using (ScadApiTrace.Step("Группы")) ReadGroups(s, data);
+        using (ScadApiTrace.Step("Блоки")) ReadBlocks(s, data);
+        if (options.ConcreteGroups)
+            using (ScadApiTrace.Step("ЖБ-группы")) ReadConcreteGroups(s, data);
+        if (options.AssignedRebar)
+            using (ScadApiTrace.Step("Заданное армирование")) data.AssignedRebar = ReadAssignedRebar(s);
+        int degenerate = 0;
+        if (options.OutputAxes)
+            using (ScadApiTrace.Step("Оси выдачи усилий")) degenerate = ReadOutputAxes(s, data, coords, lu);
         progress?.Report(1);
 
         var stiffById = data.Stiffnesses.ToDictionary(r => r.Id);
@@ -107,15 +113,19 @@ internal static unsafe class ScadApiReader
     {
         var n = s.Native;
         nint h = s.Handle;
+        using var trace = ScadApiTrace.Step("ReadSummary");
         var (lengthUnit, sectionUnit, forceUnit) = Units(s);
+        ScadApiTrace.Write($"Единицы: {lengthUnit.Name}, {sectionUnit.Name}, {forceUnit.Name}");
 
         uint nodeCount = n.ApiGetQuantityNode(h);
+        ScadApiTrace.Write($"Узлов: {nodeCount}");
         int nodes = 0;
         for (uint i = 1; i <= nodeCount; i++)
             if (n.ApiIsNodeDeleted(h, i) == 0) nodes++;
 
         int bars = 0, shells = 0, other = 0;
         uint elemCount = n.ApiGetElemQuantity(h);
+        ScadApiTrace.Write($"КЭ: {elemCount}");
         for (uint i = 1; i <= elemCount; i++)
         {
             if (n.ApiIsElemDeleted(h, i) != 0) continue;
@@ -132,12 +142,14 @@ internal static unsafe class ScadApiReader
 
         int? loads = null;
         bool forces = false, rsu = false;
+        ScadApiTrace.Write($"КЭ: стержней {bars}, пластин {shells}, прочих {other}");
         if (workDirectory != null && s.TryInitResult(workDirectory))
         {
-            loads = (int)n.ApiGetResultQuantityLoad(h);
-            forces = n.ApiYesEffors(h) != 0;
-            rsu = n.ApiYesRSU(h) != 0;
+            using (ScadApiTrace.Step("ApiGetResultQuantityLoad")) loads = (int)n.ApiGetResultQuantityLoad(h);
+            using (ScadApiTrace.Step("ApiYesEffors")) forces = n.ApiYesEffors(h) != 0;
+            using (ScadApiTrace.Step("ApiYesRSU")) rsu = n.ApiYesRSU(h) != 0;
         }
+        ScadApiTrace.Write("Сводка: число жёсткостей, групп, блоков, ЖБ-групп, осей");
 
         return new ScadProjectSummary(nodes, bars, shells, other, (int)n.ApiGetQuantityRigid(h),
             (int)n.ApiGetQuantityGroupElem(h), (int)n.ApiGetQuantityBlock(h), (int)n.ApiGetQuantityConcrete(h),

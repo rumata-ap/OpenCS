@@ -121,9 +121,12 @@ public sealed class ScadApiImportVM : ViewModelBase
         bool ok = false;
         try
         {
+            ScadApiTrace.Write($"Проверка проекта #{generation}: SPR «{spr}», DLL «{dll}», работа «{work}»");
             var sum = await Task.Run(() =>
             {
+                ScadApiTrace.Write($"Проверка #{generation}: ожидание Gate");
                 ScadApiNative.Gate.Wait();
+                ScadApiTrace.Write($"Проверка #{generation}: Gate получен");
                 try
                 {
                     var native = ScadApiNative.Load(dll);
@@ -136,8 +139,13 @@ public sealed class ScadApiImportVM : ViewModelBase
             text = FormatSummary(sum);
             ok = true;
         }
-        catch (ScadApiException ex) { text = ex.Format(Loc.S); }
-        catch (Exception ex) { text = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message); }
+        catch (ScadApiException ex) { text = ex.Format(Loc.S); ScadApiTrace.Write($"Проверка #{generation}: {text}"); }
+        catch (Exception ex)
+        {
+            text = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            ScadApiTrace.Write($"Проверка #{generation}: {ex}");
+        }
+        if (ok) ScadApiTrace.Write($"Проверка #{generation}: готово");
 
         if (generation != _probeGeneration) return; // за это время выбор изменился
         _probeOk = ok;

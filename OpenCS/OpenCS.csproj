@@ -7,6 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- SCADAPIX.dll (SCAD Office 2023) аварийно завершает CET-совместимый процесс (0xc0000409) уже при загрузке;
+         с .NET 9 apphost помечается CET-совместимым по умолчанию. -->
+    <CETCompat>false</CETCompat>
     <ApplicationIcon>Images\OpenCS.ico</ApplicationIcon>
     <!-- Большой автономный комплект копируется только в переносимую сборку. -->
     <BundleTools Condition="'$(BundleTools)' == ''">false</BundleTools>

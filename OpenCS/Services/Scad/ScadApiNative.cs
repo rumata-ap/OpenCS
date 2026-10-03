@@ -134,6 +134,7 @@ internal sealed unsafe class ScadApiNative
             if (!File.Exists(path))
                 throw new ScadApiException("ScadApiDllNotFound", [path]);
 
+            ScadApiTrace.Write($"Загрузка {path}");
             if (!NativeLibrary.TryLoad(path, out nint lib))
             {
                 // Зависимости SCAD (библиотеки рядом с DLL) иначе могут не найтись.

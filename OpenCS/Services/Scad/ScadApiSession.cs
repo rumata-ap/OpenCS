@@ -19,7 +19,10 @@ internal sealed unsafe class ScadApiSession : IDisposable
     {
         Native = native;
         nint h;
-        ushort code = native.ApiCreate(&h);
+        ushort code;
+        using (ScadApiTrace.Step("ApiCreate"))
+            code = native.ApiCreate(&h);
+        ScadApiTrace.Write($"ApiCreate: код {code}, хэндл 0x{h:X}");
         if (code != ApiOk || h == 0)
             throw new ScadApiException("ScadApiCallFailed", ["ApiCreate", code]);
         _handle = h;
@@ -46,8 +49,12 @@ internal sealed unsafe class ScadApiSession : IDisposable
             throw new ScadApiException("ScadApiProjectNotFound", [full]);
         var name = ScadApiLayouts.ToAnsiZ(full)
             ?? throw new ScadApiException("ScadApiPathNotAnsi", [full]);
-        fixed (byte* p = name)
-            Check(Native.ApiReadProject(Handle, p), "ApiReadProject");
+        ushort code;
+        using (ScadApiTrace.Step($"ApiReadProject «{full}»"))
+            fixed (byte* p = name)
+                code = Native.ApiReadProject(Handle, p);
+        ScadApiTrace.Write($"ApiReadProject: код {code}");
+        Check(code, "ApiReadProject");
     }
 
     /// <summary>
@@ -65,9 +72,13 @@ internal sealed unsafe class ScadApiSession : IDisposable
         Span<byte> units = stackalloc byte[ScadApiLayouts.UnitsSize * 2];
         ScadApiLayouts.WriteUnit(units, "m", 1);
         ScadApiLayouts.WriteUnit(units[ScadApiLayouts.UnitsSize..], "T", 1);
-        fixed (byte* u = units)
-        fixed (byte* d = dirBytes)
-            return Native.ApiInitResult(Handle, u, d) == ApiOk;
+        ushort code;
+        using (ScadApiTrace.Step($"ApiInitResult «{dir}»"))
+            fixed (byte* u = units)
+            fixed (byte* d = dirBytes)
+                code = Native.ApiInitResult(Handle, u, d);
+        ScadApiTrace.Write($"ApiInitResult: код {code}");
+        return code == ApiOk;
     }
 
     /// <summary>Код возврата ≠ APICode_OK → <see cref="ScadApiException"/> с сообщениями DLL.</summary>
@@ -106,6 +117,7 @@ internal sealed unsafe class ScadApiSession : IDisposable
         if (_handle == 0) return;
         nint h = _handle;
         _handle = 0;
-        Native.ApiRelease(&h);
+        using (ScadApiTrace.Step($"ApiRelease 0x{h:X}"))
+            Native.ApiRelease(&h);
     }
 }

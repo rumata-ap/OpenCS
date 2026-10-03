@@ -3181,7 +3181,9 @@ namespace OpenCS
          {
             var read = await Task.Run(() =>
             {
+               Services.Scad.ScadApiTrace.Write("Импорт: ожидание Gate");
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               Services.Scad.ScadApiTrace.Write("Импорт: Gate получен");
                try
                {
                   var native = Services.Scad.ScadApiNative.Load(dllDir);
@@ -3345,7 +3347,9 @@ namespace OpenCS
          {
             var read = await Task.Run(() =>
             {
+               Services.Scad.ScadApiTrace.Write("Импорт: ожидание Gate");
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               Services.Scad.ScadApiTrace.Write("Импорт: Gate получен");
                try
                {
                   var native = Services.Scad.ScadApiNative.Load(dllDir);
@@ -3998,7 +4002,9 @@ namespace OpenCS
          {
             var (groups, assigned) = await Task.Run(() =>
             {
+               Services.Scad.ScadApiTrace.Write("Импорт: ожидание Gate");
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               Services.Scad.ScadApiTrace.Write("Импорт: Gate получен");
                try
                {
                   var native = Services.Scad.ScadApiNative.Load(dllDir);
