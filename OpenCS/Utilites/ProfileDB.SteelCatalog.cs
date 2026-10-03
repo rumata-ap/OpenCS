@@ -97,10 +97,35 @@ public partial class ProfileDB : ISteelSortament, CScore.Import.ISteelCatalogLoo
         [47] = (SteelProfileKind.Pipe, SteelFabrication.Welded, 0),
     };
 
+    Dictionary<int, (SteelProfileKind Kind, SteelFabrication Fabrication, double Slope)>? _subtypeMap;
+
+    /// <summary>
+    /// Соответствие подтипов видам: <see cref="SteelSubtypes"/> и подтипы с заполненными колонками
+    /// <c>Kind</c>, <c>Fabrication</c>, <c>Slope</c> (перенесённые из сортамента SCAD, <see cref="SortamentPrfImporter"/>).
+    /// </summary>
+    Dictionary<int, (SteelProfileKind Kind, SteelFabrication Fabrication, double Slope)> SubtypeMap()
+    {
+        if (_subtypeMap != null) return _subtypeMap;
+        var map = new Dictionary<int, (SteelProfileKind, SteelFabrication, double)>(SteelSubtypes);
+        try
+        {
+            using var conn = Connect();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT ID, Kind, Fabrication, Slope FROM ShapeSubTypes WHERE Kind IS NOT NULL AND SubType IS NOT NULL";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                if (Enum.TryParse<SteelProfileKind>(reader.GetString(1), out var kind)
+                    && Enum.TryParse<SteelFabrication>(reader.GetString(2), out var fabrication))
+                    map.TryAdd(reader.GetInt32(0), (kind, fabrication, reader.IsDBNull(3) ? 0 : reader.GetDouble(3)));
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException) { }   // база без колонок вида — только встроенное соответствие
+        return _subtypeMap = map;
+    }
+
     /// <inheritdoc/>
     public IReadOnlyList<SteelCatalogSubtype> GetSteelCatalogSubtypes(SteelProfileKind kind, SteelFabrication fabrication)
     {
-        var ids = SteelSubtypes.Where(p => p.Value.Kind == kind && p.Value.Fabrication == fabrication)
+        var ids = SubtypeMap().Where(p => p.Value.Kind == kind && p.Value.Fabrication == fabrication)
             .Select(p => p.Key).ToHashSet();
         if (ids.Count == 0) return [];
         using var conn = Connect();
@@ -144,7 +169,7 @@ public partial class ProfileDB : ISteelSortament, CScore.Import.ISteelCatalogLoo
     /// <inheritdoc/>
     public SteelCatalogEntry? GetSteelCatalogEntry(int subtypeId, int profileId)
     {
-        if (!SteelSubtypes.TryGetValue(subtypeId, out var map)) return null;
+        if (!SubtypeMap().TryGetValue(subtypeId, out var map)) return null;
         string group = TypeForSubtype(subtypeId);
         string standard = SubtypeName(subtypeId);
         using var conn = Connect();
@@ -203,10 +228,15 @@ public partial class ProfileDB : ISteelSortament, CScore.Import.ISteelCatalogLoo
     {
         string core = StandardCore(shape.Standard);
         if (core.Length == 0) return null;
+        // Номер с годом («30245-2012») точнее номера: у одного стандарта бывают редакции с разными подтипами.
+        string withYear = System.Text.RegularExpressions.Regex.Match(shape.Standard, @"\d{4,5}-\d{2,4}").Value;
         var candidates = new List<SteelCatalogEntry>();
-        foreach (var subtype in GetSteelCatalogSubtypes(shape.Kind, shape.Fabrication))
+        var subtypes = GetSteelCatalogSubtypes(shape.Kind, shape.Fabrication)
+            .Where(s => s.Name.Contains(core, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (withYear.Length > 0 && subtypes.Any(s => s.Name.Contains(withYear, StringComparison.OrdinalIgnoreCase)))
+            subtypes = [.. subtypes.Where(s => s.Name.Contains(withYear, StringComparison.OrdinalIgnoreCase))];
+        foreach (var subtype in subtypes)
         {
-            if (!subtype.Name.Contains(core, StringComparison.OrdinalIgnoreCase)) continue;
             if (!_subtypeEntries.TryGetValue(subtype.Id, out var entries))
                 _subtypeEntries[subtype.Id] = entries = GetSteelCatalogProfiles(subtype.Id)
                     .Select(p => GetSteelCatalogEntry(subtype.Id, p.Id)).OfType<SteelCatalogEntry>().ToList();
