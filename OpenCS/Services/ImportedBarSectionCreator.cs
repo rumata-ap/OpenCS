@@ -4,6 +4,7 @@ using CScore.Fem;
 using CScore.Import;
 using CScore.ParametricRc;
 using CScore.ParametricSteel;
+using CScore.Sp16;
 using OpenCS.Utilites;
 
 namespace OpenCS.Services;
@@ -170,7 +171,7 @@ public static class ImportedBarSectionCreator
             assignments.AddRange(members.Select(e => (e, (int?)section.Id)));
             report.Assigned.Add((section.Tag, members.Count));
         }
-        CreateSteel(db, steelReady, chooseSteel, steelCatalog, report, assignments, Skip);
+        CreateSteel(db, steelReady, data.ScadSteelGroups, catalogDirectory, chooseSteel, steelCatalog, report, assignments, Skip);
         if (assignments.Count > 0) db.SetFemElementCrossSections(assignments);
 
         foreach (var (reason, nums) in skipped)
@@ -178,38 +179,83 @@ public static class ImportedBarSectionCreator
         return report;
     }
 
-    /// <summary>Стальные КЭ: сталь — выбором один раз, одно МК-сечение на ключ, равное существующее — повторно.</summary>
+    /// <summary>
+    /// Стальные КЭ: сталь — по марке стальной группы SCAD (строка справочника СП 16 по толщине профиля), у КЭ вне
+    /// групп и при неизвестной марке — выбором один раз; одно МК-сечение на (профиль, сталь), равное существующее —
+    /// повторно.
+    /// </summary>
     static void CreateSteel(DatabaseService db, List<(FemElement Element, int Num, ImportedBarProfile Profile)> ready,
+        ScadSteelGroupIndex? groups, string? catalogDirectory,
         Func<Material?>? chooseSteel, ISteelCatalogLookup? catalog, ImportedBarSectionsReport report,
         List<(FemElement, int?)> assignments, Action<string, int> skip)
     {
         if (ready.Count == 0) return;
-        var steel = chooseSteel?.Invoke();
-        if (steel == null)
+
+        Material Register(Material steel)
         {
-            foreach (var r in ready) skip("сталь для стальных сечений не выбрана", r.Num);
-            return;
-        }
-        if (steel.Id == 0 || !db.Materials.Contains(steel))
-        {
+            if (steel.Id != 0 && db.Materials.Contains(steel)) return steel;
+            if (MaterialCatalog.FindSameSteel(db.Materials, steel) is { } same) return same;
             db.AddMaterial(steel);
             report.Materials.Add(steel.Tag);
+            return steel;
         }
 
-        var plan = new Dictionary<SteelSectionKey, (ImportedBarProfile Profile, List<(FemElement Element, int Num)> Members)>();
+        Material? chosen = null;
+        bool asked = false;
+        Material? Chosen()
+        {
+            if (asked) return chosen;
+            asked = true;
+            return chosen = chooseSteel?.Invoke() is { } s ? Register(s) : null;
+        }
+
+        var byMark = new Dictionary<(string Mark, double Thickness, bool Shaped), Material?>();
+        var warned = new HashSet<string>(StringComparer.Ordinal);
+        void Warn(string text) { if (warned.Add(text)) report.Warnings.Add(text); }
+
+        Material? SteelOf(int num, ImportedSteelShape shape)
+        {
+            if (groups?.Find(num) is not { } g) return Chosen();
+            string label = ScadSteelGroupIndex.Label(g);
+            string mark = MaterialCatalog.NormalizeSteelMark(g.SteelMark);
+            if (mark.Length == 0)
+            {
+                Warn($"стальная группа SCAD {label}: марка стали не задана (Ry задано вручную) — сталь выбирается вручную");
+                return Chosen();
+            }
+            double t = Math.Round(Math.Max(shape.Tw, shape.Tf), 6);
+            bool shaped = shape.Fabrication == SteelFabrication.Rolled
+                          && shape.Kind is not (SteelProfileKind.Pipe or SteelProfileKind.Box or SteelProfileKind.Round);
+            if (!byMark.TryGetValue((mark, t, shaped), out var steel))
+            {
+                steel = MaterialCatalog.CreateStructuralSteel(mark, t, shaped, catalogDirectory) is { } created
+                    ? Register(created) : null;
+                byMark[(mark, t, shaped)] = steel;
+            }
+            if (steel != null) return steel;
+            Warn($"стальная группа SCAD {label}: марки {mark} для толщины {t * 1000:0.#} мм нет в справочнике СП 16 — " +
+                 "сталь выбирается вручную");
+            return Chosen();
+        }
+
+        var plan = new Dictionary<SteelSectionKey, (ImportedBarProfile Profile, Material Steel, List<(FemElement Element, int Num)> Members)>();
         foreach (var (element, num, profile) in ready)
         {
+            if (SteelOf(num, profile.Steel!) is not { } steel)
+            {
+                skip("сталь для стальных сечений не выбрана", num);
+                continue;
+            }
             var key = SteelSectionBuilder.Key(profile, steel.Id)!.Value;
-            if (!plan.TryGetValue(key, out var entry)) plan[key] = entry = (profile, []);
+            if (!plan.TryGetValue(key, out var entry)) plan[key] = entry = (profile, steel, []);
             entry.Members.Add((element, num));
         }
-
         var service = new ParametricSteelSectionProjectService(db);
         var existing = new List<(CrossSection Section, ParametricSteelSectionDefinition Definition)>();
         foreach (var s in db.CrossSections)
             if (service.TryGetDefinition(s, out var d)) existing.Add((s, d));
 
-        foreach (var (key, (profile, members)) in plan)
+        foreach (var (key, (profile, steel, members)) in plan)
         {
             var section = existing.FirstOrDefault(x => SteelSectionBuilder.Matches(x.Definition, key)).Section;
             if (section != null)
@@ -223,7 +269,7 @@ public static class ImportedBarSectionCreator
                     continue;
                 }
                 if (built.Warning != null) report.Warnings.Add(built.Warning);
-                definition = definition with { Tag = FreeTag(db, $"{definition.Tag} {steel.Tag}".Trim()) };
+                definition = definition with { Tag = FreeTag(db, $"{definition.Tag} {steel.Tag.Split(',')[0]}".Trim()) };
                 section = new CrossSection
                 {
                     Num = db.CrossSections.Count > 0 ? db.CrossSections.Max(s => s.Num) + 1 : 1,

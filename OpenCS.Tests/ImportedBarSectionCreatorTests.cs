@@ -238,6 +238,63 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
     }
 
     [Fact]
+    public void Scad_SteelGroups_SteelByMarkAndThickness_OthersChosen()
+    {
+        var mesh = Mesh("scad", (1, 1), (2, 1), (3, 2), (4, 2), (5, 2));
+        var steelData = ScadSteelData(mesh);
+        var data = new FemCheckSchemaData
+        {
+            SourceType = steelData.SourceType, Mesh = steelData.Mesh, Stiffnesses = steelData.Stiffnesses, ScadSteelProfiles = steelData.ScadSteelProfiles,
+            ScadSteelGroups = new ScadSteelGroupIndex(
+            [
+                ScadSteelGroupsTests.Group(2, "Балки", [1, 2]),
+                ScadSteelGroupsTests.Group(1, "Связи", [3]),
+                ScadSteelGroupsTests.Group(3, "Неизвестная", [5], mark: "C999"),
+            ]),
+        };
+        int asked = 0;
+        Material? Choose() { asked++; return MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()); }
+
+        var report = ImportedBarSectionCreator.Create(_db, data, catalogDirectory: CatalogDirectory(), chooseSteel: Choose,
+            steelCatalog: Sortament());
+
+        Assert.Equal(1, asked);                                            // КЭ 4 вне групп и КЭ 5 с неизвестной маркой
+        Assert.Equal(["С255 (4-10 мм), фасонный прокат", "С255 (2-4 мм)", "С245 (2-20 мм)"], report.Materials);
+        Assert.Equal(3, report.SteelSections.Count);
+        Assert.Contains(report.Warnings, w => w.Contains("Неизвестная") && w.Contains("С999"));
+        var ids = Reloaded(mesh);
+        Assert.Equal(ids["1"], ids["2"]);
+        Assert.Equal(ids["4"], ids["5"]);
+        Assert.NotEqual(ids["3"], ids["4"]);
+        var beam = _db.CrossSections.Single(s => s.Id == ids["1"]);
+        var ry = beam.Areas.Single().Material!.N!.Ry;
+        Assert.Equal(255000, ry);                                           // фасонный С255, t = 8 мм
+        Assert.Equal(255000, _db.CrossSections.Single(s => s.Id == ids["3"]).Areas.Single().Material!.N!.Ry);
+
+        // Повтор на новых КЭ — стали те же, без новых материалов.
+        var mesh2 = Mesh("scad", (1, 1));
+        var again = ImportedBarSectionCreator.Create(_db, new FemCheckSchemaData
+        {
+            SourceType = "scad", Mesh = mesh2, Stiffnesses = data.Stiffnesses, ScadSteelProfiles = data.ScadSteelProfiles,
+            ScadSteelGroups = data.ScadSteelGroups,
+        }, catalogDirectory: CatalogDirectory(), chooseSteel: Choose, steelCatalog: Sortament());
+        Assert.Empty(again.Materials);
+        Assert.Single(again.Reused);
+    }
+
+    [Fact]
+    public void Catalog_SteelByThickness()
+    {
+        string dir = CatalogDirectory();
+        Assert.Equal("С255 (2-4 мм)", MaterialCatalog.CreateStructuralSteel("C255", 0.004, shaped: false, dir)!.Tag);
+        Assert.Equal("С255 (4-10 мм)", MaterialCatalog.CreateStructuralSteel("С255", 0.0045, shaped: false, dir)!.Tag);
+        Assert.Equal("С255 (10-20 мм), фасонный прокат", MaterialCatalog.CreateStructuralSteel("С255 ГОСТ 27772-2015", 0.012, shaped: true, dir)!.Tag);
+        Assert.Equal("С255 (2-4 мм)", MaterialCatalog.CreateStructuralSteel("С255", 0.003, shaped: true, dir)!.Tag);   // фасонного тоньше 4 мм нет
+        Assert.Null(MaterialCatalog.CreateStructuralSteel("С255", 0.05, shaped: false, dir));
+        Assert.Null(MaterialCatalog.CreateStructuralSteel("", 0.01, shaped: false, dir));
+    }
+
+    [Fact]
     public void Scad_MixedConcreteAndSteel()
     {
         var mesh = Mesh("scad", (1, 1), (814, 6));
