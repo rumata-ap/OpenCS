@@ -39,11 +39,48 @@ public class ImportedBarProfilesTests
         Assert.Equal("Колонны", profile.SourceLabel);
     }
 
+    static ImportedSteelShape Channel20() => new(CScore.Sp16.SteelProfileKind.Channel, CScore.Sp16.SteelFabrication.Rolled,
+        0.2, 0.076, 0.0052, 0.009, 0.0095, 0.0055, 0, "ГОСТ 8240-97", "20П", 23.4, 1520, 113);
+
     [Fact]
-    public void Scad_Stz_ShapeNotSupported()
+    public void Scad_Stz_SteelProfileFromIndex()
+    {
+        var index = new ScadSteelProfileIndex([new(4, "RUSSIAN pu_typep 13", Channel20(), null)]);
+
+        var (profile, reason) = ImportedBarProfiles.Resolve(
+            Stiffnesses(ScadBar(4, "STZ RUSSIAN pu_typep 13", "Швеллер")), 4, scad: true, index);
+
+        Assert.Null(reason);
+        Assert.Equal(ImportedBarMaterial.Steel, profile!.Material);
+        Assert.Equal(ImportedBarShape.SteelSection, profile.Shape);
+        Assert.Equal(Channel20(), profile.Steel);
+        Assert.Equal(0.076, profile.WidthM);
+        Assert.Equal(0.2, profile.HeightM);
+        Assert.Equal("Швеллер", profile.SourceLabel);
+    }
+
+    [Fact]
+    public void Scad_Stz_NoIndexOrNoShape_Reason()
+    {
+        var stiffnesses = Stiffnesses(ScadBar(4, "STZ RUSSIAN pu_typep 13", "Швеллер"));
+        var failed = new ScadSteelProfileIndex([new(4, "RUSSIAN pu_typep 13", null, "нет сортамента SCAD RUSSIAN.PRF")]);
+
+        var notRead = ImportedBarProfiles.Resolve(stiffnesses, 4, scad: true);
+        var noShape = ImportedBarProfiles.Resolve(stiffnesses, 4, scad: true, failed);
+
+        Assert.Null(notRead.Profile);
+        Assert.Contains("Обновить данные армирования из .SPR", notRead.Reason);
+        Assert.Null(noShape.Profile);
+        Assert.Equal("жёсткость 4 (STZ RUSSIAN pu_typep 13): нет сортамента SCAD RUSSIAN.PRF", noShape.Reason);
+        Assert.True(ImportedBarProfiles.IsScadSteel(stiffnesses[4], scad: true));
+        Assert.False(ImportedBarProfiles.IsScadSteel(stiffnesses[4], scad: false));
+    }
+
+    [Fact]
+    public void Scad_UnknownKeyword_ShapeNotSupported()
     {
         var (profile, reason) = ImportedBarProfiles.Resolve(
-            Stiffnesses(ScadBar(4, "STZ RUSSIAN pu_typep 13", "Швеллер")), 4, scad: true);
+            Stiffnesses(ScadBar(4, "SPRING 1 2 3", "Пружина")), 4, scad: true);
 
         Assert.Null(profile);
         Assert.Contains("форма сечения не поддерживается", reason);

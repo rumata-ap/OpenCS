@@ -292,7 +292,7 @@ public class ScadSelectedRebarSourcesTests
         Assert.Contains("не выполнен", src.Resolve(Bar(900), null).Reason);
         Assert.Contains("SCAD не выдал подбор", src.Resolve(Bar(5), 1).Reason);
         Assert.Contains("нет в подборе", src.Resolve(Bar(6), 1).Reason);
-        Assert.Contains("форма сечения", new ScadSelectedBarSectionSource(Context(groups)).Resolve(Bar(814, stiffness: 4), 1).Reason);
+        Assert.Contains("стержень не железобетонный", new ScadSelectedBarSectionSource(Context(groups)).Resolve(Bar(814, stiffness: 4), 1).Reason);
     }
 
     [Fact]
