@@ -49,6 +49,9 @@ public sealed class ScadShellModelInput
 
     /// <summary>Политика Newton-анализа; null — по умолчанию модели.</summary>
     public NonlinearAnalysisPolicy? Policy { get; init; }
+
+    /// <summary>Запись состояний слоёв и волокон; null — по умолчанию модели (всё).</summary>
+    public ShellStateRecordingPolicy? MaterialStateRecording { get; init; }
 }
 
 /// <summary>Итог сборки: модель, суммарная вертикальная нагрузка стадий (Н, вниз — плюс), отчёт.</summary>
@@ -194,6 +197,7 @@ public static class ScadShellModelAssembler
             RigidLinks = links,
             Stages = stages,
             Policy = input.Policy ?? new ShellOpenSeesModel().Policy,
+            MaterialStateRecording = input.MaterialStateRecording ?? new ShellStateRecordingPolicy(),
         };
         result.Validate();
         return new ScadShellModelResult(result, totals, report);

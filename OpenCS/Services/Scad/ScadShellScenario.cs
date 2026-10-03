@@ -22,9 +22,13 @@ internal enum ScadShellMaterialMode
     Groups,
 }
 
-/// <summary>Параметры сценария: упругий расчёт (линейная сверка) или нелинейный, материалы, стадии.</summary>
+/// <summary>
+/// Параметры сценария: упругий расчёт (линейная сверка) или нелинейный, материалы, стадии; работа бетона на растяжение
+/// (false — колонны без растяжения, у пластин ft = <see cref="ScadShellScenario.MinTensionKPa"/>: модель
+/// PlasticDamageConcretePlaneStress требует ft &gt; 0).
+/// </summary>
 internal sealed record ScadShellScenarioOptions(bool Elastic, ScadShellMaterialMode Materials,
-    IReadOnlyList<ScadShellStage> Stages, string? CatalogDirectory = null);
+    IReadOnlyList<ScadShellStage> Stages, string? CatalogDirectory = null, bool ConcreteTension = true);
 
 /// <summary>
 /// Вход сборщика <see cref="ScadShellModelAssembler"/> по прочитанной схеме SCAD: материалы, сечения пластин из шаблонов
@@ -34,6 +38,9 @@ internal sealed record ScadShellScenarioOptions(bool Elastic, ScadShellMaterialM
 internal static class ScadShellScenario
 {
     const int ConcreteId = 1, A240Id = 2, A300Id = 3, A400Id = 4;
+
+    /// <summary>Прочность бетона пластин на растяжение при отключённой работе на растяжение, кПа (0,05 МПа).</summary>
+    public const double MinTensionKPa = 50;
 
     public static ScadShellModelInput Build(ScadSchemaData data, ScadShellScenarioOptions o, List<string> report)
     {
@@ -127,7 +134,7 @@ internal static class ScadShellScenario
             BeamSection = beamSection,
             BeamMaterials = byId,
             BeamCalc = CalcType.N,
-            BeamOptions = new CrossSectionToOpenSeesAdapter.Options { GJ = gj },
+            BeamOptions = new CrossSectionToOpenSeesAdapter.Options { GJ = gj, ConsiderConcreteTension = o.ConcreteTension },
             Stages = o.Stages,
         };
     }
@@ -142,6 +149,12 @@ internal static class ScadShellScenario
             case ScadShellMaterialMode.Experiment: SetConcrete(concrete, "Бетон опыта (Rпр 26,0 МПа)", -26000, 2000, 26_500_000); break;
             case ScadShellMaterialMode.NormativeB225: SetConcrete(concrete, "B22,5 (0,9·B25)", -16650, 1395, 28_750_000); break;
         }
+        if (!o.ConcreteTension)
+            foreach (var c in Chars(concrete))
+            {
+                c.Ft = MinTensionKPa;
+                c.Et1 = 0.6 * MinTensionKPa / c.E;
+            }
         concrete.Id = ConcreteId;
         var a240 = MaterialCatalog.CreateRebar("A240", o.CatalogDirectory) ?? throw new InvalidOperationException("Нет A240.");
         a240.Id = A240Id;

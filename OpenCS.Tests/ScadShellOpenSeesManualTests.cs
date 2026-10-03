@@ -62,7 +62,21 @@ public class ScadShellOpenSeesManualTests(ITestOutputHelper output)
         if (Read() is not { } data) return;
         var report = new List<string>();
         var stages = new List<ScadShellStage> { new("L1", [(1, 1.0)], 0.25), new("L2", [(2, 1.0)], 0.2) };
-        var input = ScadShellScenario.Build(data, new ScadShellScenarioOptions(false, ScadShellMaterialMode.Experiment, stages), report);
+        var scenario = ScadShellScenario.Build(data, new ScadShellScenarioOptions(false, ScadShellMaterialMode.Experiment, stages,
+            ConcreteTension: Environment.GetEnvironmentVariable("OPENCS_SCAD_SHELL_TENSION") == "1"), report);
+        // Допуск по приращению перемещений 1e-5 м (0,01 мм) при прогибах в миллиметры; состояния слоёв — в IP 1.
+        var input = new ScadShellModelInput
+        {
+            Data = scenario.Data, PlateSection = scenario.PlateSection, Resolver = scenario.Resolver,
+            BeamSection = scenario.BeamSection, BeamMaterials = scenario.BeamMaterials, BeamCalc = scenario.BeamCalc,
+            BeamOptions = scenario.BeamOptions, Stages = scenario.Stages,
+            Policy = new NonlinearAnalysisPolicy
+            {
+                Tolerance = 1e-5, MaxIterations = 100, ConvergenceTest = "NormDispIncr", Algorithm = "NewtonLineSearch",
+                RefinementDivisions = 4, MaxRefinementDepth = 4,
+            },
+            MaterialStateRecording = new ShellStateRecordingPolicy { RecordBeamFibers = false, ShellIntegrationPoints = [1] },
+        };
         var built = ScadShellModelAssembler.Assemble(input);
         foreach (var s in report.Concat(built.Report).Distinct()) output.WriteLine(s);
         output.WriteLine($"Секций пластин {built.Model.Sections.Count}, материалов {built.Model.Materials.Count}, " +
