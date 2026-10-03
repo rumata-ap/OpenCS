@@ -63,34 +63,28 @@ public sealed class ScadBarSectionContext(
         }
 
         // КЭ вне ЖБ-групп: материалы сечения, назначенного ему в проекте.
-        var (rect, shapeReason) = Shape(num);
-        if (rect == null) return (null, shapeReason);
+        var (shape, shapeReason) = Shape(num);
+        if (shape == null) return (null, shapeReason);
         var own = projectSection?.Invoke(element);
         var concrete = own?.Areas.FirstOrDefault(a => a.Category == AreaCategory.Region && a.Material?.Type == MatType.Concrete)?.Material;
         var rebar = own?.Areas.FirstOrDefault(a => a.Category == AreaCategory.RebarGroup && a.Material != null)?.Material;
         if (concrete == null || rebar == null)
             return (null, "классы материалов неизвестны: КЭ нет в ЖБ-группах SCAD, а у цели нет сечения с бетоном и арматурой");
-        return (new LiraBarProfile(num, rect.WidthM, rect.HeightM, concrete, rebar), null);
+        return (LiraBarProfile.From(shape, concrete, rebar), null);
     }
 
-    (LiraBarRect? Rect, string? Reason) Shape(int num)
-    {
-        if (!stiffnesses.TryGetValue(num, out var stiffness))
-            return (null, $"жёсткости {num} нет среди жёсткостей схемы");
-        return ScadStiffnessParams.BarRect(stiffness) is { } rect
-            ? (rect, null)
-            : (null, $"жёсткость {num} «{stiffness.Name}»: форма сечения не поддерживается (только брус S0)");
-    }
+    (ImportedBarProfile? Shape, string? Reason) Shape(int num) =>
+        ImportedBarProfiles.Resolve(stiffnesses, num, scad: true);
 
     (LiraBarProfile?, string?) Build(int num, ScadConcreteGroup g)
     {
-        var (rect, shapeReason) = Shape(num);
-        if (rect == null) return (null, shapeReason);
+        var (shape, shapeReason) = Shape(num);
+        if (shape == null) return (null, shapeReason);
         if (concreteByClass(g.ConcreteClass) is not { } concrete)
             return (null, $"в проекте нет бетона {g.ConcreteClass} (ЖБ-группа SCAD {g.Num})");
         if (rebarByClass(g.LongitudinalRebarClass) is not { } rebar)
             return (null, $"в проекте нет арматуры {g.LongitudinalRebarClass} (ЖБ-группа SCAD {g.Num})");
-        return (new LiraBarProfile(num, rect.WidthM, rect.HeightM, concrete, rebar), null);
+        return (LiraBarProfile.From(shape, concrete, rebar), null);
     }
 }
 

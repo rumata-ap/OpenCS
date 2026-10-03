@@ -16,7 +16,12 @@ public readonly record struct LiraBarPoint(double X, double Y, double AreaM2, do
 /// <param name="HeightM">Высота H (вдоль Z1), м.</param>
 /// <param name="Concrete">Бетон.</param>
 /// <param name="Rebar">Продольная арматура.</param>
-public sealed record LiraBarProfile(int StiffnessNum, double WidthM, double HeightM, Material Concrete, Material Rebar);
+public sealed record LiraBarProfile(int StiffnessNum, double WidthM, double HeightM, Material Concrete, Material Rebar)
+{
+   /// <summary>Сечение по профилю жёсткости <paramref name="profile"/> и материалам.</summary>
+   public static LiraBarProfile From(ImportedBarProfile profile, Material concrete, Material rebar) =>
+      new(profile.StiffnessNum, profile.WidthM, profile.HeightM, concrete, rebar);
+}
 
 /// <summary>
 /// Общие данные источников сечения стержня по данным ЛИРЫ: размеры — из жёсткости КЭ (таблица «Жёсткости»),
@@ -60,34 +65,28 @@ public sealed class LiraBarSectionContext(
       }
 
       // КЭ без подбора: материалы сечения, назначенного ему в проекте.
-      var (rect, shapeReason) = Shape(num);
-      if (rect == null) return (null, shapeReason);
+      var (shape, shapeReason) = Shape(num);
+      if (shape == null) return (null, shapeReason);
       var own = projectSection?.Invoke(element);
       var concrete = own?.Areas.FirstOrDefault(a => a.Category == AreaCategory.Region && a.Material?.Type == MatType.Concrete)?.Material;
       var rebar = own?.Areas.FirstOrDefault(a => a.Category == AreaCategory.RebarGroup && a.Material != null)?.Material;
       if (concrete == null || rebar == null)
          return (null, "классы материалов неизвестны: КЭ нет в файле ASP, а у цели нет сечения с бетоном и арматурой");
-      return (new LiraBarProfile(num, rect.WidthM, rect.HeightM, concrete, rebar), null);
+      return (LiraBarProfile.From(shape, concrete, rebar), null);
    }
 
-   (LiraBarRect? Rect, string? Reason) Shape(int num)
-   {
-      if (!stiffnesses.TryGetValue(num, out var stiffness))
-         return (null, $"жёсткости {num} нет среди жёсткостей схемы (меню схемы «Обновить жёсткости элементов из ЛИРЫ (API)»)");
-      return LiraStiffnessParams.BarRect(stiffness) is { } rect
-         ? (rect, null)
-         : (null, $"жёсткость {num} «{stiffness.Name}»: форма сечения не поддерживается (только «Брус»)");
-   }
+   (ImportedBarProfile? Shape, string? Reason) Shape(int num) =>
+      ImportedBarProfiles.Resolve(stiffnesses, num, scad: false);
 
    (LiraBarProfile?, string?) Build(int num, string concreteClass, string rebarClass)
    {
-      var (rect, shapeReason) = Shape(num);
-      if (rect == null) return (null, shapeReason);
+      var (shape, shapeReason) = Shape(num);
+      if (shape == null) return (null, shapeReason);
       if (concreteByClass(concreteClass) is not { } concrete)
          return (null, $"в проекте нет бетона {concreteClass} (кнопка «Создать материалы по данным ЛИРЫ» в диалоге проверки)");
       if (rebarByClass(rebarClass) is not { } rebar)
          return (null, $"в проекте нет арматуры {rebarClass} (кнопка «Создать материалы по данным ЛИРЫ» в диалоге проверки)");
-      return (new LiraBarProfile(num, rect.WidthM, rect.HeightM, concrete, rebar), null);
+      return (LiraBarProfile.From(shape, concrete, rebar), null);
    }
 }
 
