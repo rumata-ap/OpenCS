@@ -179,7 +179,7 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
             [2] = Scad(2, "STZ RUSSIAN okv2012 59 TMP 1.2e-05", ""),
             [6] = Scad(6, "S0 900000 40 60 NU 0.2", "Колонны"),
         },
-        ScadSteelProfiles = new ScadSteelProfileIndex(
+        SteelProfiles = new SteelProfileIndex(
         [
             new(1, "ASCHM d1 11", IBeam25B1(), null),
             new(2, "RUSSIAN okv2012 59", Tube100x4(), null),
@@ -244,7 +244,7 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         var steelData = ScadSteelData(mesh);
         var data = new FemCheckSchemaData
         {
-            SourceType = steelData.SourceType, Mesh = steelData.Mesh, Stiffnesses = steelData.Stiffnesses, ScadSteelProfiles = steelData.ScadSteelProfiles,
+            SourceType = steelData.SourceType, Mesh = steelData.Mesh, Stiffnesses = steelData.Stiffnesses, SteelProfiles = steelData.SteelProfiles,
             ScadSteelGroups = new ScadSteelGroupIndex(
             [
                 ScadSteelGroupsTests.Group(2, "Балки", [1, 2]),
@@ -275,7 +275,7 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         var mesh2 = Mesh("scad", (1, 1));
         var again = ImportedBarSectionCreator.Create(_db, new FemCheckSchemaData
         {
-            SourceType = "scad", Mesh = mesh2, Stiffnesses = data.Stiffnesses, ScadSteelProfiles = data.ScadSteelProfiles,
+            SourceType = "scad", Mesh = mesh2, Stiffnesses = data.Stiffnesses, SteelProfiles = data.SteelProfiles,
             ScadSteelGroups = data.ScadSteelGroups,
         }, catalogDirectory: CatalogDirectory(), chooseSteel: Choose, steelCatalog: Sortament());
         Assert.Empty(again.Materials);
@@ -292,6 +292,89 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         Assert.Equal("С255 (2-4 мм)", MaterialCatalog.CreateStructuralSteel("С255", 0.003, shaped: true, dir)!.Tag);   // фасонного тоньше 4 мм нет
         Assert.Null(MaterialCatalog.CreateStructuralSteel("С255", 0.05, shaped: false, dir));
         Assert.Null(MaterialCatalog.CreateStructuralSteel("", 0.01, shaped: false, dir));
+    }
+
+    // ── Сталь ЛИРЫ (вид 1018) ──────────────────────────────────────────────────────────────────
+
+    static LiraStiffnessRecord LiraSteel(int num, string shape, string? steel = null) =>
+        new(num, LiraSteelProfiles.SteelKindCode, "",
+            $"Section = Tubing  MatId = STL  File  = |gn-kv94.profiles.srt|  Shape = |{shape}|" + (steel != null ? $" Steel = |{steel}|" : ""),
+            0.01);
+
+    static ImportedSteelShape Tube80(double t) => new(CScore.Sp16.SteelProfileKind.Box, CScore.Sp16.SteelFabrication.Bent,
+        0.08, 0.08, t, t, t, 0, 0, "ГОСТ 30245-94", $"80 x {t * 1000:0}");
+
+    FemCheckSchemaData LiraSteelData(List<FemElement> mesh, string? steel22 = null) => new()
+    {
+        SourceType = "lira", Mesh = mesh,
+        Stiffnesses = new Dictionary<int, LiraStiffnessRecord>
+        {
+            [1] = LiraBrus(1, 30, 50), [14] = LiraSteel(14, "80 x 3"), [22] = LiraSteel(22, "80 x 5", steel22),
+        },
+        SteelProfiles = new SteelProfileIndex(
+        [
+            new(14, "gn-kv94.profiles.srt: 80 x 3", Tube80(0.003), null),
+            new(22, "gn-kv94.profiles.srt: 80 x 5", Tube80(0.005), null, steel22),
+        ]),
+    };
+
+    [Fact]
+    public void Lira_Steel_WithoutAsp_SectionsPerProfile_BrusReportedWithoutClasses()
+    {
+        var mesh = Mesh("lira", (1, 14), (2, 14), (3, 22), (4, 1));
+        int asked = 0;
+        Material? Choose() { asked++; return MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()); }
+
+        var report = ImportedBarSectionCreator.Create(_db, LiraSteelData(mesh), chooseSteel: Choose, steelCatalog: Sortament());
+
+        Assert.False(report.NoMaterialData);
+        Assert.Equal(1, asked);
+        Assert.Equal(2, report.SteelSections.Count);
+        Assert.Equal(3, report.AssignedElements);
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("нет файла подбора ASP") && s.Elements.SequenceEqual([4]));
+        var ids = Reloaded(mesh);
+        Assert.Equal(ids["1"], ids["2"]);
+        Assert.NotEqual(ids["1"], ids["3"]);
+        var tube = _db.CrossSections.Single(s => s.Id == ids["1"]);
+        Assert.StartsWith("80 x 3 ГОСТ 30245-94", tube.Tag);
+        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition.Kind);
+
+        // Повтор — без дублей.
+        _db.SetFemElementCrossSections([(mesh.Single(e => e.ElemTag == "3"), null)]);
+        var again = ImportedBarSectionCreator.Create(_db, LiraSteelData(mesh), chooseSteel: Choose);
+        Assert.Empty(again.Sections);
+        Assert.Single(again.Reused);
+    }
+
+    [Fact]
+    public void Lira_SteelMarkInStiffness_SteelByMark()
+    {
+        var mesh = Mesh("lira", (1, 14), (3, 22));
+        int asked = 0;
+        Material? Choose() { asked++; return MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()); }
+
+        var report = ImportedBarSectionCreator.Create(_db, LiraSteelData(mesh, steel22: "С255"),
+            catalogDirectory: CatalogDirectory(), chooseSteel: Choose);
+
+        Assert.Equal(1, asked);                                             // жёсткость 14 без марки
+        Assert.Contains("С255 (4-10 мм)", report.Materials);
+        var ids = Reloaded(mesh);
+        Assert.Equal(245000, _db.CrossSections.Single(s => s.Id == ids["3"]).Areas.Single().Material!.N!.Ry);
+    }
+
+    [Fact]
+    public void Lira_SteelWithoutStoredProfiles_HintInReason()
+    {
+        var mesh = Mesh("lira", (1, 14));
+        var data = new FemCheckSchemaData
+        {
+            SourceType = "lira", Mesh = mesh, Stiffnesses = new Dictionary<int, LiraStiffnessRecord> { [14] = LiraSteel(14, "80 x 3") },
+        };
+
+        var report = ImportedBarSectionCreator.Create(_db, data, chooseSteel: () => throw new InvalidOperationException());
+
+        Assert.False(report.NoMaterialData);
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("Обновить жёсткости элементов из ЛИРЫ (API)"));
     }
 
     [Fact]

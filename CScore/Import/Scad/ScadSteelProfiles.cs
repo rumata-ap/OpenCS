@@ -1,3 +1,4 @@
+using System.Globalization;
 using CScore.Sp16;
 
 namespace CScore.Import;
@@ -8,6 +9,58 @@ namespace CScore.Import;
 /// </summary>
 public static class ScadSteelProfiles
 {
+    /// <summary>
+    /// Ссылка на сортамент из строки жёсткости SCAD: <c>STZ &lt;база&gt; &lt;таблица&gt; &lt;номер&gt; …</c>;
+    /// null — жёсткость не из сортамента.
+    /// </summary>
+    public static (string Base, string Table, int Row)? SteelRef(string stiffnessParams)
+    {
+        var parts = stiffnessParams.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 4 || parts[0] != "STZ") return null;
+        return int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int row)
+            ? (parts[1], parts[2], row) : null;
+    }
+
+    /// <summary>
+    /// Разрешает профили всех жёсткостей STZ (сортамент <c>&lt;каталог SCAD&gt;\64\&lt;база&gt;.PRF</c>). Сортамент
+    /// базы загружается один раз; не найден или повреждён — у профилей базы причина.
+    /// </summary>
+    /// <param name="stiffnesses">Номер и строка жёсткости SCAD.</param>
+    /// <param name="loadBase">Сортамент по имени базы («RUSSIAN»); null — файла нет.
+    /// <see cref="InvalidDataException"/> — файл повреждён.</param>
+    public static List<SteelProfileEntry> ResolveAll(IEnumerable<(int Num, string Params)> stiffnesses,
+        Func<string, ScadPrfFile?> loadBase)
+    {
+        var bases = new Dictionary<string, (ScadPrfFile? File, string? Error)>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<SteelProfileEntry>();
+        foreach (var (num, text) in stiffnesses)
+        {
+            if (SteelRef(text) is not var (baseName, table, row)) continue;
+            string source = $"{baseName} {table} {row}";
+            if (!bases.TryGetValue(baseName, out var loaded))
+            {
+                try
+                {
+                    var file = loadBase(baseName);
+                    loaded = (file, file == null ? $"нет сортамента SCAD {baseName}.PRF" : null);
+                }
+                catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+                {
+                    loaded = (null, $"сортамент SCAD {baseName}.PRF не прочитан: {ex.Message}");
+                }
+                bases[baseName] = loaded;
+            }
+            if (loaded.File == null)
+            {
+                result.Add(new(num, source, null, loaded.Error));
+                continue;
+            }
+            var (shape, reason) = Resolve(loaded.File, table, row);
+            result.Add(new(num, source, shape, reason));
+        }
+        return result;
+    }
+
     /// <summary>Профиль строки <paramref name="rowNumber"/> (с 1) таблицы <paramref name="tableCode"/> либо причина.</summary>
     public static (ImportedSteelShape? Shape, string? Reason) Resolve(ScadPrfFile file, string tableCode, int rowNumber)
     {

@@ -3657,6 +3657,7 @@ namespace OpenCS
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
+            SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3867,6 +3868,7 @@ namespace OpenCS
             }
 
             int updated = db.ReplaceFemSchemaStiffnesses(schema.Id, stiffnesses, byTag);
+            SaveLiraSteelProfiles(schema.Id, stiffnesses);
             string done = string.Format(Loc.S("LiraStiffRefreshDone"), stiffnesses.Count,
                stiffnesses.Count(s => CScore.Import.LiraStiffnessParams.BarRect(s) != null), updated);
             LogService.Info(done);
@@ -3884,6 +3886,23 @@ namespace OpenCS
          }
       }
 
+      /// <summary>
+      /// Разрешить по сортаментам установленной ЛИРЫ (*.profiles.srt) профили стальных жёсткостей (вид 1018) и сохранить
+      /// их при схеме (вложение <see cref="FemSchemaSourceFileKind.LiraSteelProfiles"/>). Нет стальных жёсткостей —
+      /// вложение не создаётся; профили без сортамента — предупреждение в журнал.
+      /// </summary>
+      void SaveLiraSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses)
+      {
+         var entries = Services.LiraSteelProfileLoader.Resolve(stiffnesses, Services.LiraSteelProfileLoader.SortamentDirectories());
+         if (entries.Count == 0) return;
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraSteelProfiles, "",
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
+         var failed = entries.Where(e => e.Shape == null).ToList();
+         LogService.Info(string.Format(Loc.S("LiraSteelProfilesLoaded"), entries.Count - failed.Count, entries.Count));
+         foreach (var e in failed)
+            LogService.Warning(string.Format(Loc.S("LiraSteelProfileFailed"), e.Num, e.Source, e.Reason));
+      }
+
       /// <summary>Сохранить ЖБ-группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadConcreteGroups"/>).</summary>
       void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
@@ -3899,7 +3918,7 @@ namespace OpenCS
          var entries = Services.Scad.ScadSteelProfileLoader.Resolve(stiffnesses, prfDirectory);
          if (entries.Count == 0) return;
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles, "",
-            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelProfileIndex.ToJson(entries)));
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
          var failed = entries.Where(e => e.Shape == null).ToList();
          LogService.Info(string.Format(Loc.S("ScadSteelProfilesLoaded"), entries.Count - failed.Count, entries.Count));
          foreach (var e in failed)

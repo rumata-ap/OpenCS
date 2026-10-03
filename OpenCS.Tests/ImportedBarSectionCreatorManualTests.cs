@@ -41,7 +41,7 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
                     var entries = OpenCS.Services.Scad.ScadSteelProfileLoader.Resolve(db.GetFemSchemaStiffnesses(schema.Id).Values, prfDir);
                     if (entries.Count > 0)
                         db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadSteelProfiles, "",
-                            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelProfileIndex.ToJson(entries)));
+                            System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
                     foreach (var e in entries)
                         output.WriteLine($"  STZ {e.Num} ({e.Source}): {(e.Shape is { } s ? $"{s.Name} {s.Standard}, A={s.ACm2} см², Iy={s.IyCm4}, Iz={s.IzCm4} см⁴" : e.Reason)}");
                 }
@@ -116,6 +116,60 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
         {
             db.Dispose();
             try { File.Delete(copy); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>
+    /// Схема из запущенной ЛИРЫ (как «Импорт схемы из ЛИРЫ (API)») во временный проект: стальные профили вида 1018 по
+    /// сортаментам установленной ЛИРЫ, затем создание сечений. OPENCS_LIRA_STEEL_E2E=1 — запуск.
+    /// </summary>
+    [Fact]
+    public void LiraApi_SteelProfiles_Sections()
+    {
+        if (Environment.GetEnvironmentVariable("OPENCS_LIRA_STEEL_E2E") != "1") return;
+        CScore.Import.LiraSchemaData? raw = null;
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try { raw = LiraApiSchemaReader.Read(out _, out _); }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (error != null) throw error;
+
+        string path = Path.Combine(Path.GetTempPath(), "opencs_lira_steel_e2e_" + Guid.NewGuid().ToString("N") + ".db");
+        var db = new DatabaseService(path);
+        try
+        {
+            var schema = new FemSchema { Tag = "ЛИРА (API)", SourceType = "lira" };
+            db.SaveFemSchema(schema);
+            db.SaveFemMeshSnapshot(schema.Id, CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw!, schema.Id),
+                [.. CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw!, schema.Id)]);
+            db.SaveFemSchemaStiffnesses(schema.Id, raw!.Stiffnesses);
+            var entries = LiraSteelProfileLoader.Resolve(raw.Stiffnesses, LiraSteelProfileLoader.SortamentDirectories());
+            db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.LiraSteelProfiles, "",
+                System.Text.Encoding.UTF8.GetBytes(CScore.Import.SteelProfileIndex.ToJson(entries)));
+            foreach (var e in entries)
+                output.WriteLine($"  жёсткость {e.Num} ({e.Source}): {(e.Shape is { } s ? $"{s.Kind} {s.Name} {s.Standard}, H {s.H} B {s.B} t {s.Tw} R1 {s.R1}, A={s.ACm2} см², Iy={s.IyCm4} см⁴" : e.Reason)}");
+
+            var data = FemCheckSchemaData.Load(db, schema.Id);
+            output.WriteLine($"=== КЭ {data.Mesh.Count}, жёсткостей {data.Stiffnesses.Count}, профилей {data.SteelProfiles?.Entries.Count}");
+            var sortament = new ProfileDB(Path.Combine(CatalogDirectory(), "Sortamenty.db3"));
+            var r = ImportedBarSectionCreator.Create(db, data, catalogDirectory: CatalogDirectory(),
+                chooseSteel: () => MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()), steelCatalog: sortament);
+            Print(r);
+            foreach (var s in db.CrossSections.Where(s => s.ParametricSteel != null))
+                output.WriteLine($"  МК «{s.Tag}»: {s.ParametricSteel!.Definition.Kind}, каталог {(s.ParametricSteel.Definition.Catalog != null ? "есть" : "нет")}");
+            Assert.Equal(entries.Count(e => e.Shape != null), entries.Count);
+            Assert.NotEmpty(r.SteelSections);
+        }
+        finally
+        {
+            db.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try { File.Delete(path); } catch (IOException) { }
         }
     }
 

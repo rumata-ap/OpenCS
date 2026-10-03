@@ -23,8 +23,8 @@ public sealed record ImportedBarProfile(int StiffnessNum, ImportedBarMaterial Ma
 
 /// <summary>
 /// Профили стержней по жёсткостям схемы-источника: «Брус» ЛИРЫ и <c>S0</c> SCAD — прямоугольное ЖБ-сечение;
-/// <c>STZ</c> SCAD — стальной профиль сортамента (по профилям, сохранённым при схеме); прочие формы пока не
-/// поддерживаются.
+/// <c>STZ</c> SCAD и вид 1018 ЛИРЫ — стальной профиль сортамента (по профилям, сохранённым при схеме); прочие
+/// формы пока не поддерживаются.
 /// </summary>
 public static class ImportedBarProfiles
 {
@@ -32,10 +32,10 @@ public static class ImportedBarProfiles
     /// <param name="stiffnesses">Жёсткости схемы по номеру.</param>
     /// <param name="stiffnessNum">Номер жёсткости КЭ; null — у КЭ его нет.</param>
     /// <param name="scad">Схема из SCAD (иначе — ЛИРА); влияет на разбор и подсказки в причинах.</param>
-    /// <param name="steelProfiles">Стальные профили жёсткостей STZ схемы SCAD; null — не прочитаны.</param>
+    /// <param name="steelProfiles">Стальные профили жёсткостей схемы (STZ SCAD, вид 1018 ЛИРЫ); null — не прочитаны.</param>
     public static (ImportedBarProfile? Profile, string? Reason) Resolve(
         IReadOnlyDictionary<int, LiraStiffnessRecord> stiffnesses, int? stiffnessNum, bool scad,
-        ScadSteelProfileIndex? steelProfiles = null)
+        SteelProfileIndex? steelProfiles = null)
     {
         if (stiffnessNum is not int num)
             return (null, scad
@@ -46,13 +46,18 @@ public static class ImportedBarProfiles
                 ? $"жёсткости {num} нет среди жёсткостей схемы"
                 : $"жёсткости {num} нет среди жёсткостей схемы (меню схемы «Обновить жёсткости элементов из ЛИРЫ (API)»)");
 
-        if (IsScadSteel(stiffness, scad))
+        if (IsSteel(stiffness, scad))
         {
             if (steelProfiles?.Find(num) is not { } entry)
-                return (null, $"жёсткость {num} «{stiffness.Name}»: стальной профиль сортамента SCAD не прочитан "
-                              + "(меню схемы «Обновить данные схемы из .SPR»)");
+                return (null, scad
+                    ? $"жёсткость {num} «{stiffness.Name}»: стальной профиль сортамента SCAD не прочитан "
+                      + "(меню схемы «Обновить данные схемы из .SPR»)"
+                    : $"жёсткость {num} «{stiffness.Name}»: стальной профиль сортамента ЛИРЫ не прочитан "
+                      + "(меню схемы «Обновить жёсткости элементов из ЛИРЫ (API)»)");
             if (entry.Shape is not { } steel)
-                return (null, $"жёсткость {num} (STZ {entry.Source}): {entry.Reason}");
+                return (null, scad
+                    ? $"жёсткость {num} (STZ {entry.Source}): {entry.Reason}"
+                    : $"жёсткость {num} ({entry.Source}): {entry.Reason}");
             return (new ImportedBarProfile(num, ImportedBarMaterial.Steel, ImportedBarShape.SteelSection,
                 steel.B, steel.H, stiffness.Name.Length > 0 ? stiffness.Name : steel.Name, steel), null);
         }
@@ -65,7 +70,9 @@ public static class ImportedBarProfiles
             rect.WidthM, rect.HeightM, stiffness.Name), null);
     }
 
-    /// <summary>Жёсткость SCAD — профиль стального сортамента (<c>STZ …</c>).</summary>
-    public static bool IsScadSteel(LiraStiffnessRecord stiffness, bool scad) =>
-        scad && stiffness.KindCode == ScadStiffnessParams.ScadKindCode && ScadSteelProfileIndex.SteelRef(stiffness.Params) != null;
+    /// <summary>Жёсткость — профиль стального сортамента: SCAD — <c>STZ …</c>, ЛИРА — вид 1018.</summary>
+    public static bool IsSteel(LiraStiffnessRecord stiffness, bool scad) =>
+        scad
+            ? stiffness.KindCode == ScadStiffnessParams.ScadKindCode && ScadSteelProfiles.SteelRef(stiffness.Params) != null
+            : LiraSteelProfiles.IsSteel(stiffness);
 }

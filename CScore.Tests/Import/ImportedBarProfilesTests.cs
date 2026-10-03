@@ -45,7 +45,7 @@ public class ImportedBarProfilesTests
     [Fact]
     public void Scad_Stz_SteelProfileFromIndex()
     {
-        var index = new ScadSteelProfileIndex([new(4, "RUSSIAN pu_typep 13", Channel20(), null)]);
+        var index = new SteelProfileIndex([new(4, "RUSSIAN pu_typep 13", Channel20(), null)]);
 
         var (profile, reason) = ImportedBarProfiles.Resolve(
             Stiffnesses(ScadBar(4, "STZ RUSSIAN pu_typep 13", "Швеллер")), 4, scad: true, index);
@@ -63,7 +63,7 @@ public class ImportedBarProfilesTests
     public void Scad_Stz_NoIndexOrNoShape_Reason()
     {
         var stiffnesses = Stiffnesses(ScadBar(4, "STZ RUSSIAN pu_typep 13", "Швеллер"));
-        var failed = new ScadSteelProfileIndex([new(4, "RUSSIAN pu_typep 13", null, "нет сортамента SCAD RUSSIAN.PRF")]);
+        var failed = new SteelProfileIndex([new(4, "RUSSIAN pu_typep 13", null, "нет сортамента SCAD RUSSIAN.PRF")]);
 
         var notRead = ImportedBarProfiles.Resolve(stiffnesses, 4, scad: true);
         var noShape = ImportedBarProfiles.Resolve(stiffnesses, 4, scad: true, failed);
@@ -72,8 +72,45 @@ public class ImportedBarProfilesTests
         Assert.Contains("Обновить данные схемы из .SPR", notRead.Reason);
         Assert.Null(noShape.Profile);
         Assert.Equal("жёсткость 4 (STZ RUSSIAN pu_typep 13): нет сортамента SCAD RUSSIAN.PRF", noShape.Reason);
-        Assert.True(ImportedBarProfiles.IsScadSteel(stiffnesses[4], scad: true));
-        Assert.False(ImportedBarProfiles.IsScadSteel(stiffnesses[4], scad: false));
+        Assert.True(ImportedBarProfiles.IsSteel(stiffnesses[4], scad: true));
+        Assert.False(ImportedBarProfiles.IsSteel(stiffnesses[4], scad: false));
+    }
+
+    const string LiraTubing = "Section = Tubing  MatId = STL  Comment = | TCAR 80x3.2 | File  = |gn-kv94.profiles.srt|  "
+                              + "Shape = |80 x 3|   NEL:0 Iter:0 Uli:0 DS1:1";
+
+    static LiraStiffnessRecord LiraSteel(int num = 14) =>
+        new(num, LiraSteelProfiles.SteelKindCode, "TCAR 80x3.2", LiraTubing, 0.01);
+
+    static ImportedSteelShape Box80() => new(CScore.Sp16.SteelProfileKind.Box, CScore.Sp16.SteelFabrication.Bent,
+        0.08, 0.08, 0.003, 0.003, 0.003, 0, 0, "ГОСТ 30245-94", "80 x 3", 8.96, 87.8, 87.8);
+
+    [Fact]
+    public void Lira_Kind1018_SteelProfileFromIndex()
+    {
+        var index = new SteelProfileIndex([new(14, "gn-kv94.profiles.srt: 80 x 3", Box80(), null)]);
+
+        var (profile, reason) = ImportedBarProfiles.Resolve(Stiffnesses(LiraSteel()), 14, scad: false, index);
+
+        Assert.Null(reason);
+        Assert.Equal(ImportedBarMaterial.Steel, profile!.Material);
+        Assert.Equal(Box80(), profile.Steel);
+        Assert.Equal("TCAR 80x3.2", profile.SourceLabel);
+        Assert.True(ImportedBarProfiles.IsSteel(LiraSteel(), scad: false));
+        Assert.False(ImportedBarProfiles.IsSteel(LiraSteel(), scad: true));
+    }
+
+    [Fact]
+    public void Lira_Kind1018_NoIndexOrNoShape_Reason()
+    {
+        var failed = new SteelProfileIndex([new(14, "gn-kv94.profiles.srt: 80 x 3", null, "нет сортамента ЛИРЫ gn-kv94.profiles.srt")]);
+
+        var notRead = ImportedBarProfiles.Resolve(Stiffnesses(LiraSteel()), 14, scad: false);
+        var noShape = ImportedBarProfiles.Resolve(Stiffnesses(LiraSteel()), 14, scad: false, failed);
+
+        Assert.Contains("стальной профиль сортамента ЛИРЫ не прочитан", notRead.Reason);
+        Assert.Contains("Обновить жёсткости элементов из ЛИРЫ (API)", notRead.Reason);
+        Assert.Equal("жёсткость 14 (gn-kv94.profiles.srt: 80 x 3): нет сортамента ЛИРЫ gn-kv94.profiles.srt", noShape.Reason);
     }
 
     [Fact]

@@ -34,8 +34,8 @@ public sealed class FemCheckSchemaData
     public ScadConcreteGroupIndex? ScadConcreteGroups { get; init; }
     /// <summary>Заданное армирование SCAD схемы; null — не прочитано из .SPR.</summary>
     public ScadAssignedRebarFile? ScadAssigned { get; init; }
-    /// <summary>Стальные профили жёсткостей STZ схемы SCAD; null — не прочитаны (нет вложения).</summary>
-    public ScadSteelProfileIndex? ScadSteelProfiles { get; init; }
+    /// <summary>Стальные профили жёсткостей схемы (STZ SCAD, вид 1018 ЛИРЫ); null — не прочитаны (нет вложения).</summary>
+    public SteelProfileIndex? SteelProfiles { get; init; }
     /// <summary>Стальные группы SCAD схемы; null — не прочитаны (нет вложения).</summary>
     public ScadSteelGroupIndex? ScadSteelGroups { get; init; }
     /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
@@ -71,9 +71,10 @@ public sealed class FemCheckSchemaData
         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } assignedFile)
             try { scadAssigned = ScadAssignedRebarFile.FromJson(Encoding.UTF8.GetString(assignedFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
-        ScadSteelProfileIndex? scadSteel = null;
-        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles) is { } steelFile)
-            try { scadSteel = ScadSteelProfileIndex.FromJson(Encoding.UTF8.GetString(steelFile.Data)); }
+        SteelProfileIndex? steelProfiles = null;
+        if ((db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles)
+             ?? db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraSteelProfiles)) is { } steelFile)
+            try { steelProfiles = SteelProfileIndex.FromJson(Encoding.UTF8.GetString(steelFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
         ScadSteelGroupIndex? scadSteelGroups = null;
         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups) is { } steelGroupsFile)
@@ -97,7 +98,7 @@ public sealed class FemCheckSchemaData
             ScadSelected = scadSelected,
             ScadConcreteGroups = scadGroups,
             ScadAssigned = scadAssigned,
-            ScadSteelProfiles = scadSteel,
+            SteelProfiles = steelProfiles,
             ScadSteelGroups = scadSteelGroups,
             Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,

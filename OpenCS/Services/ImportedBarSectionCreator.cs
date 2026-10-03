@@ -77,12 +77,12 @@ public static class ImportedBarSectionCreator
             if (e.CrossSectionId != null) { report.AlreadyAssigned++; continue; }
 
             var (profile, reason) = ImportedBarProfiles.Resolve(data.Stiffnesses, e.StiffnessNum, data.IsScad,
-                data.ScadSteelProfiles);
+                data.SteelProfiles);
             if (profile == null)
             {
                 Skip(reason!, num);
                 steelUnresolved |= e.StiffnessNum is int sn && data.Stiffnesses.TryGetValue(sn, out var st)
-                                   && ImportedBarProfiles.IsScadSteel(st, data.IsScad);
+                                   && ImportedBarProfiles.IsSteel(st, data.IsScad);
                 continue;
             }
             if (profile.Material == ImportedBarMaterial.Steel) { steelReady.Add((e, num, profile)); continue; }
@@ -171,7 +171,7 @@ public static class ImportedBarSectionCreator
             assignments.AddRange(members.Select(e => (e, (int?)section.Id)));
             report.Assigned.Add((section.Tag, members.Count));
         }
-        CreateSteel(db, steelReady, data.ScadSteelGroups, catalogDirectory, chooseSteel, steelCatalog, report, assignments, Skip);
+        CreateSteel(db, steelReady, data.ScadSteelGroups, data.SteelProfiles, catalogDirectory, chooseSteel, steelCatalog, report, assignments, Skip);
         if (assignments.Count > 0) db.SetFemElementCrossSections(assignments);
 
         foreach (var (reason, nums) in skipped)
@@ -185,7 +185,7 @@ public static class ImportedBarSectionCreator
     /// повторно.
     /// </summary>
     static void CreateSteel(DatabaseService db, List<(FemElement Element, int Num, ImportedBarProfile Profile)> ready,
-        ScadSteelGroupIndex? groups, string? catalogDirectory,
+        ScadSteelGroupIndex? groups, SteelProfileIndex? profiles, string? catalogDirectory,
         Func<Material?>? chooseSteel, ISteelCatalogLookup? catalog, ImportedBarSectionsReport report,
         List<(FemElement, int?)> assignments, Action<string, int> skip)
     {
@@ -213,14 +213,24 @@ public static class ImportedBarSectionCreator
         var warned = new HashSet<string>(StringComparer.Ordinal);
         void Warn(string text) { if (warned.Add(text)) report.Warnings.Add(text); }
 
-        Material? SteelOf(int num, ImportedSteelShape shape)
+        // Марка стали КЭ: стальная группа SCAD либо Steel = |…| жёсткости ЛИРЫ; null — не задана.
+        (string Mark, string Label)? MarkOf(int num, ImportedBarProfile profile)
         {
-            if (groups?.Find(num) is not { } g) return Chosen();
-            string label = ScadSteelGroupIndex.Label(g);
-            string mark = MaterialCatalog.NormalizeSteelMark(g.SteelMark);
+            if (groups?.Find(num) is { } g)
+                return (g.SteelMark, $"стальная группа SCAD {ScadSteelGroupIndex.Label(g)}");
+            if (profiles?.Find(profile.StiffnessNum)?.SteelMark is { } liraMark)
+                return (liraMark, $"жёсткость ЛИРЫ {profile.StiffnessNum}");
+            return null;
+        }
+
+        Material? SteelOf(int num, ImportedBarProfile profile)
+        {
+            var shape = profile.Steel!;
+            if (MarkOf(num, profile) is not var (sourceMark, label)) return Chosen();
+            string mark = MaterialCatalog.NormalizeSteelMark(sourceMark);
             if (mark.Length == 0)
             {
-                Warn($"стальная группа SCAD {label}: марка стали не задана (Ry задано вручную) — сталь выбирается вручную");
+                Warn($"{label}: марка стали не задана (Ry задано вручную) — сталь выбирается вручную");
                 return Chosen();
             }
             double t = Math.Round(Math.Max(shape.Tw, shape.Tf), 6);
@@ -233,7 +243,7 @@ public static class ImportedBarSectionCreator
                 byMark[(mark, t, shaped)] = steel;
             }
             if (steel != null) return steel;
-            Warn($"стальная группа SCAD {label}: марки {mark} для толщины {t * 1000:0.#} мм нет в справочнике СП 16 — " +
+            Warn($"{label}: марки {mark} для толщины {t * 1000:0.#} мм нет в справочнике СП 16 — " +
                  "сталь выбирается вручную");
             return Chosen();
         }
@@ -241,7 +251,7 @@ public static class ImportedBarSectionCreator
         var plan = new Dictionary<SteelSectionKey, (ImportedBarProfile Profile, Material Steel, List<(FemElement Element, int Num)> Members)>();
         foreach (var (element, num, profile) in ready)
         {
-            if (SteelOf(num, profile.Steel!) is not { } steel)
+            if (SteelOf(num, profile) is not { } steel)
             {
                 skip("сталь для стальных сечений не выбрана", num);
                 continue;

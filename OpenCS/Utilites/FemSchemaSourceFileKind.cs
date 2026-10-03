@@ -14,9 +14,15 @@ namespace OpenCS.Utilites
 
       /// <summary>
       /// Стальные профили жёсткостей STZ схемы SCAD по сортаменту SCAD (PRF) — JSON
-      /// <see cref="CScore.Import.ScadSteelProfileIndex.ToJson"/>.
+      /// <see cref="CScore.Import.SteelProfileIndex.ToJson"/>.
       /// </summary>
       public const string ScadSteelProfiles = "scad_steel_profiles";
+
+      /// <summary>
+      /// Стальные профили жёсткостей вида 1018 схемы ЛИРЫ по сортаменту ЛИРЫ (*.profiles.srt) — JSON
+      /// <see cref="CScore.Import.SteelProfileIndex.ToJson"/>.
+      /// </summary>
+      public const string LiraSteelProfiles = "lira_steel_profiles";
 
       /// <summary>Стальные группы SCAD схемы — JSON <see cref="CScore.Import.ScadSteelGroupIndex.ToJson"/>.</summary>
       public const string ScadSteelGroups = "scad_steel_groups";

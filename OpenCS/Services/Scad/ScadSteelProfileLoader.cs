@@ -14,8 +14,8 @@ static class ScadSteelProfileLoader
     /// <summary>Профили жёсткостей STZ; без каталога SCAD — у всех причина «нет сортамента».</summary>
     /// <param name="stiffnesses">Жёсткости схемы SCAD (строка SCAD — в <see cref="LiraStiffnessRecord.Params"/>).</param>
     /// <param name="prfDirectory">Каталог сортаментов SCAD; null — SCAD не найден.</param>
-    public static List<ScadSteelProfileEntry> Resolve(IEnumerable<LiraStiffnessRecord> stiffnesses, string? prfDirectory) =>
-        ScadSteelProfileIndex.Resolve(
+    public static List<SteelProfileEntry> Resolve(IEnumerable<LiraStiffnessRecord> stiffnesses, string? prfDirectory) =>
+        ScadSteelProfiles.ResolveAll(
             stiffnesses.Where(s => s.KindCode == ScadStiffnessParams.ScadKindCode).Select(s => (s.Id, s.Params)),
             baseName =>
             {

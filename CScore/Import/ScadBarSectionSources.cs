@@ -74,7 +74,7 @@ public sealed class ScadBarSectionContext(
     }
 
     (ImportedBarProfile? Shape, string? Reason) Shape(int num) =>
-        stiffnesses.TryGetValue(num, out var s) && ImportedBarProfiles.IsScadSteel(s, scad: true)
+        stiffnesses.TryGetValue(num, out var s) && ImportedBarProfiles.IsSteel(s, scad: true)
             ? (null, $"жёсткость {num} «{s.Name}»: стержень не железобетонный (стальной профиль сортамента SCAD)")
             : ImportedBarProfiles.Resolve(stiffnesses, num, scad: true);
 

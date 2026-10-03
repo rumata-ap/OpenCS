@@ -76,7 +76,9 @@ public sealed class LiraBarSectionContext(
    }
 
    (ImportedBarProfile? Shape, string? Reason) Shape(int num) =>
-      ImportedBarProfiles.Resolve(stiffnesses, num, scad: false);
+      stiffnesses.TryGetValue(num, out var s) && ImportedBarProfiles.IsSteel(s, scad: false)
+         ? (null, $"жёсткость {num} «{s.Name}»: стержень не железобетонный (стальной профиль сортамента ЛИРЫ)")
+         : ImportedBarProfiles.Resolve(stiffnesses, num, scad: false);
 
    (LiraBarProfile?, string?) Build(int num, string concreteClass, string rebarClass)
    {
