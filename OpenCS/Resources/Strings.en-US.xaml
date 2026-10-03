@@ -1016,7 +1016,7 @@
    <system:String x:Key="FemCheckSteelGroupParams">SP 16 parameters (γc, effective lengths μ·l, lateral restraint spacing, limiting slenderness) of {0} elements are taken from SCAD steel groups; other elements use the check parameters.</system:String>
    <system:String x:Key="FemCheckSteelGroupNoLength">{0} elements of SCAD steel groups have no length (mesh nodes missing) — check parameters are used.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} of SCAD steel group {0} is not applied in the check.</system:String>
-   <system:String x:Key="FemCheckNoScadAssigned">The SCAD schema has no assigned reinforcement groups (schema menu “Refresh RC groups and assigned reinforcement from .SPR”)</system:String>
+   <system:String x:Key="FemCheckNoScadAssigned">The SCAD schema has no assigned reinforcement groups (schema menu “SCAD → Refresh schema data from .SPR”)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">Target elements are not in SCAD assigned reinforcement groups</system:String>
    <system:String x:Key="ScadForcesImporting">Importing SCAD forces: {0} elements, “{1}”…</system:String>
    <system:String x:Key="ScadForcesCancelled">SCAD force import cancelled.</system:String>

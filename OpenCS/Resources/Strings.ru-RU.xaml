@@ -1016,7 +1016,7 @@
    <system:String x:Key="FemCheckSteelGroupParams">Параметры СП 16 (γc, расчётные длины μ·l, шаг раскреплений, предельные гибкости) у {0} КЭ взяты из стальных групп SCAD; у остальных КЭ — из параметров проверки.</system:String>
    <system:String x:Key="FemCheckSteelGroupNoLength">У {0} КЭ стальных групп SCAD не определена длина (нет узлов сетки) — параметры из проверки.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} стальной группы SCAD {0} в проверке не учитывается.</system:String>
-   <system:String x:Key="FemCheckNoScadAssigned">В схеме SCAD нет групп заданного армирования (меню схемы «Обновить ЖБ-группы и заданное армирование из .SPR»)</system:String>
+   <system:String x:Key="FemCheckNoScadAssigned">В схеме SCAD нет групп заданного армирования (меню схемы «SCAD → Обновить данные схемы из .SPR»)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">КЭ цели не входят в группы заданного армирования SCAD</system:String>
    <system:String x:Key="ScadForcesImporting">Импорт усилий SCAD: {0} КЭ, «{1}»…</system:String>
    <system:String x:Key="ScadForcesCancelled">Импорт усилий SCAD отменён.</system:String>
