@@ -27,7 +27,8 @@ public static class ScadTextParser
     /// Типы КЭ, распознаваемые как топология: (код_типа, число_узлов) → стержень/оболочка.
     /// Остальные типы (пружины — 51, жёсткие вставки/объединения узлов — 100, и любые прочие)
     /// пропускаются, но их позиция в блоке (1) всё равно учитывается при нумерации элементов —
-    /// иначе номера разойдутся с диапазонами в именованных группах (блок 47).
+    /// иначе номера разойдутся с диапазонами в именованных группах (блок 47). Физически нелинейные КЭ
+    /// (405, 444 …) сверяются по линейному аналогу (<see cref="ScadElementKinds.LinearAnalog"/>).
     /// </summary>
     static readonly HashSet<(int Type, int NodeCount)> KnownStructuralTypes =
     [
@@ -206,7 +207,7 @@ public static class ScadTextParser
             }
             if (!ok) continue;
 
-            if (!KnownStructuralTypes.Contains((typeCode, nodeIds.Length)))
+            if (!KnownStructuralTypes.Contains((ScadElementKinds.LinearAnalog(typeCode), nodeIds.Length)))
             {
                 skipped[typeCode] = skipped.GetValueOrDefault(typeCode) + 1;
                 continue;

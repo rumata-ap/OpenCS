@@ -12,12 +12,19 @@ public enum ScadElementKind { Beam, Shell, Skip }
 public static class ScadElementKinds
 {
     /// <summary>
+    /// Линейный аналог типа: физически нелинейный КЭ SCAD — тот же КЭ с «4» перед номером
+    /// (405 — стержень 5, 444 — оболочка 44); прочие типы — без изменений.
+    /// </summary>
+    public static int LinearAnalog(int type) => type is >= 401 and <= 499 ? type - 400 : type;
+
+    /// <summary>
     /// Классифицирует КЭ по коду типа SCAD и числу узлов: стержни — типы 1–10 с 2 узлами;
-    /// пластины/оболочки — 11–20 и 41–50 с 3–4 узлами; остальное (балки-стенки 21–30, объёмные,
-    /// связи 51, жёсткие вставки 100, 200 …) — пропуск.
+    /// пластины/оболочки — 11–20 и 41–50 с 3–4 узлами; физически нелинейные (401–499) — как линейный
+    /// аналог; остальное (балки-стенки 21–30, объёмные, связи 51, жёсткие вставки 100, 200 …) — пропуск.
     /// </summary>
     public static ScadElementKind Classify(int type, int nodeCount)
     {
+        type = LinearAnalog(type);
         if (type is >= 1 and <= 10 && nodeCount == 2)
             return ScadElementKind.Beam;
         if ((type is >= 11 and <= 20 || type is >= 41 and <= 50) && nodeCount is 3 or 4)

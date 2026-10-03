@@ -52,4 +52,30 @@ public sealed class LiraSchemaConverterTests
         Assert.Equal("Плита 200", elements[0].SectionTag);
         Assert.Equal(3, elements[0].Node3);
     }
+
+    /// <summary>
+    /// Физически нелинейные КЭ ЛИРЫ (210, 241, 244, 410, 442 …) — те же стержни и оболочки, что и линейные
+    /// аналоги: вид КЭ определяется по числу узлов, код типа импорт не фильтрует.
+    /// </summary>
+    [Fact]
+    public void NonlinearElementTypesImportedAsLinearAnalogs()
+    {
+        var data = BuildData();
+        data.Nodes.Add(new LiraNodeRecord(4, 0, 1, 0, 0));
+        data.Elements.Add(new LiraElementRecord(30, 210, 1, 5, [2, 3]));
+        data.Elements.Add(new LiraElementRecord(31, 410, 1, 5, [3, 4]));
+        data.Elements.Add(new LiraElementRecord(40, 241, 1, 7, [1, 2, 3]));
+        data.Elements.Add(new LiraElementRecord(41, 244, 1, 7, [1, 2, 4, 3]));
+        data.Elements.Add(new LiraElementRecord(42, 442, 1, 7, [2, 3, 4]));
+
+        var bars = LiraSchemaConverter.ToFemMeshBarElements(data, schemaId: 9);
+        var shells = LiraSchemaConverter.ToFemMeshShellElements(data, schemaId: 9);
+
+        Assert.Equal(["10", "30", "31"], bars.Select(e => e.ElemTag));
+        Assert.All(bars, e => Assert.Equal("Балка 20x30", e.SectionTag));
+        Assert.Equal(["20", "40", "41", "42"], shells.Select(e => e.ElemTag));
+        Assert.All(shells, e => Assert.Equal("Плита 200", e.SectionTag));
+        Assert.Equal(3, shells.Single(e => e.ElemTag == "41").Node4);
+        Assert.All(data.Elements, e => Assert.True(LiraSchemaData.IsImported(e)));
+    }
 }

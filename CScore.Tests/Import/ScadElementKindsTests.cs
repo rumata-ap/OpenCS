@@ -19,6 +19,28 @@ public class ScadElementKindsTests
     [InlineData(30, 3, ScadElementKind.Skip)]
     [InlineData(10, 3, ScadElementKind.Skip)]
     [InlineData(44, 8, ScadElementKind.Skip)]
+    // Физически нелинейные КЭ — как линейный аналог (тип + 400).
+    [InlineData(405, 2, ScadElementKind.Beam)]
+    [InlineData(410, 2, ScadElementKind.Beam)]
+    [InlineData(401, 2, ScadElementKind.Beam)]
+    [InlineData(444, 4, ScadElementKind.Shell)]
+    [InlineData(442, 3, ScadElementKind.Shell)]
+    [InlineData(411, 4, ScadElementKind.Shell)]
+    [InlineData(405, 3, ScadElementKind.Skip)]
+    [InlineData(421, 4, ScadElementKind.Skip)]
+    [InlineData(451, 2, ScadElementKind.Skip)]
+    [InlineData(500, 2, ScadElementKind.Skip)]
+    [InlineData(400, 2, ScadElementKind.Skip)]
     public void Classify_ModelTypes(int type, int nodeCount, ScadElementKind expected) =>
         Assert.Equal(expected, ScadElementKinds.Classify(type, nodeCount));
+
+    [Theory]
+    [InlineData(405, 5)]
+    [InlineData(444, 44)]
+    [InlineData(499, 99)]
+    [InlineData(44, 44)]
+    [InlineData(400, 400)]
+    [InlineData(500, 500)]
+    public void LinearAnalog_SubtractsNonlinearPrefix(int type, int expected) =>
+        Assert.Equal(expected, ScadElementKinds.LinearAnalog(type));
 }

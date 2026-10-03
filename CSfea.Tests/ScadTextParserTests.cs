@@ -32,9 +32,28 @@ static class ScadTextParserTests
         TestHarness.Section("ScadTextParser");
         TestParseSuccess();
         TestParseLegacyFormat();
+        TestNonlinearTypes();
         TestRealFile();
         TestLegacyRealFile();
         TestConverter();
+    }
+
+    // Физически нелинейные КЭ (тип линейного аналога + 400): 405 — стержень, 444/442 — оболочки,
+    // 451 — нелинейная пружина (пропуск, номер элемента всё равно занят).
+    static void TestNonlinearTypes()
+    {
+        var r = ScadTextParser.ParseText(
+            "(0;Version=21;SubVersion=1/1;\"Test\";/)" +
+            "(1/405 1 1 2 /451 9 3 /444 2 1 2 4 3 /442 2 4 5 6 /)" +
+            "(3/1 S0 900000 40 90 Name \"Стойка\"/2 GE 1.8e+06 0.2 0.22 Name \"Плита\"/)" +
+            "(4/0 0 0/1 0 0/1 1 0/0 1 0/0 0 1/1 0 1/)");
+        TestHarness.Check("Нелинейные: Success", r.Success, r.Error ?? "");
+        if (!r.Success || r.Data == null) return;
+        var ids = r.Data.Elements.Select(e => e.Id).ToArray();
+        TestHarness.Check("Нелинейные: КЭ 1, 3, 4 (405, 444, 442), 451 пропущен",
+            ids.SequenceEqual([1, 3, 4]), string.Join(",", ids));
+        TestHarness.Check("Нелинейные: код типа сохранён (405)", r.Data.Elements[0].TypeCode == 405);
+        TestHarness.Check("Нелинейные: 1 предупреждение (тип 451)", r.Warnings.Count == 1, string.Join(" | ", r.Warnings));
     }
 
     static void TestParseLegacyFormat()
