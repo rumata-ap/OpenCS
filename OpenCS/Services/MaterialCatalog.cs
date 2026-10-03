@@ -75,6 +75,32 @@ public static partial class MaterialCatalog
         return Make(n.Tag, "Арматура стальная по СП 63.13330", n.Type, c, cl, n, nl);
     }
 
+    /// <summary>
+    /// Конструкционная сталь по СП 16.13330.2017: первая строка справочника, марка которой начинается с
+    /// <paramref name="mark"/> («С245» → «С245 (2-20 мм)»); C = CL, N = NL, как при добавлении стали из справочника.
+    /// null — марки нет.
+    /// </summary>
+    public static Material? CreateStructuralSteel(string mark, string? directory = null)
+    {
+        directory ??= DefaultDirectory;
+        var c = FindSteel(directory, "Конструкционная_сталь_C_СП_16_13330_2017.csv", mark);
+        var n = FindSteel(directory, "Конструкционная_сталь_N_СП_16_13330_2017.csv", mark);
+        if (c == null || n == null) return null;
+        c.Type = n.Type = MatType.Steel;
+        return Make(n.Tag, "Сталь по СП 16.13330.2017", MatType.Steel, c, c.Clone(), n, n.Clone());
+    }
+
+    static MaterialChars? FindSteel(string directory, string fileName, string mark)
+    {
+        string path = Path.Combine(directory, fileName);
+        if (!File.Exists(path)) return null;
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
+        using var reader = new StreamReader(path);
+        using var csv = new CsvReader(reader, config);
+        csv.Context.RegisterClassMap<MaterialCharsMap>();
+        return csv.GetRecords<MaterialChars>().FirstOrDefault(r =>
+            r.Tag.Equals(mark, StringComparison.OrdinalIgnoreCase) || r.Tag.StartsWith(mark + " ", StringComparison.OrdinalIgnoreCase));
+    }
     static Material Make(string tag, string description, MatType type,
         MaterialChars c, MaterialChars cl, MaterialChars n, MaterialChars nl)
     {

@@ -152,11 +152,118 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
 
         Assert.Equal(["Брус 400×600 B30 A400"], report.Sections);
         Assert.Equal(2, report.AssignedElements);
-        Assert.Contains(report.Skipped, s => s.Reason.Contains("форма сечения не поддерживается") && s.Elements.SequenceEqual([816]));
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("стальной профиль сортамента SCAD не прочитан") && s.Elements.SequenceEqual([816]));
         Assert.Contains(report.Skipped, s => s.Reason.Contains("ЖБ-группах SCAD") && s.Elements.SequenceEqual([900]));
         var ids = Reloaded(mesh);
         Assert.Equal(ids["814"], ids["815"]);
         Assert.NotNull(ids["814"]);
         Assert.Null(ids["816"]);
+    }
+
+    // ── Сталь (STZ SCAD) ────────────────────────────────────────────────────────────────────────
+
+    static ImportedSteelShape IBeam25B1() => new(CScore.Sp16.SteelProfileKind.IBeam, CScore.Sp16.SteelFabrication.Rolled,
+        0.248, 0.124, 0.005, 0.008, 0.012, 0, 0, "СТО АСЧМ 20-93", "25Б1", 32.68, 3537, 254.8);
+
+    static ImportedSteelShape Tube100x4() => new(CScore.Sp16.SteelProfileKind.Box, CScore.Sp16.SteelFabrication.Bent,
+        0.1, 0.1, 0.004, 0.004, 0.004, 0, 0, "ГОСТ 30245-2012", "100x4", 14.95, 225.1, 225.1);
+
+    static ProfileDB Sortament() => new(Path.Combine(CatalogDirectory(), "Sortamenty.db3"));
+
+    FemCheckSchemaData ScadSteelData(List<FemElement> mesh, ScadConcreteGroupIndex? groups = null) => new()
+    {
+        SourceType = "scad", Mesh = mesh, ScadConcreteGroups = groups,
+        Stiffnesses = new Dictionary<int, LiraStiffnessRecord>
+        {
+            [1] = Scad(1, "STZ ASCHM d1 11 TMP 1.2e-05", ""),
+            [2] = Scad(2, "STZ RUSSIAN okv2012 59 TMP 1.2e-05", ""),
+            [6] = Scad(6, "S0 900000 40 60 NU 0.2", "Колонны"),
+        },
+        ScadSteelProfiles = new ScadSteelProfileIndex(
+        [
+            new(1, "ASCHM d1 11", IBeam25B1(), null),
+            new(2, "RUSSIAN okv2012 59", Tube100x4(), null),
+        ]),
+    };
+
+    [Fact]
+    public void Scad_Steel_OneSectionPerProfile_SteelChosenOnce_CatalogRef()
+    {
+        var mesh = Mesh("scad", (1, 1), (2, 1), (3, 2));
+        int asked = 0;
+        Material? Choose() { asked++; return MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()); }
+
+        var report = ImportedBarSectionCreator.Create(_db, ScadSteelData(mesh), chooseSteel: Choose, steelCatalog: Sortament());
+
+        Assert.False(report.NoMaterialData);
+        Assert.Equal(1, asked);
+        Assert.Equal(["С245 (2-20 мм)"], report.Materials);
+        Assert.Equal(2, report.SteelSections.Count);
+        Assert.Equal(report.Sections.Order(), report.SteelSections.Order());
+        Assert.Empty(report.Skipped);
+        Assert.Empty(report.Warnings);
+        Assert.Equal(3, report.AssignedElements);
+
+        var ids = Reloaded(mesh);
+        Assert.Equal(ids["1"], ids["2"]);
+        Assert.NotEqual(ids["1"], ids["3"]);
+        var beam = _db.CrossSections.Single(s => s.Id == ids["1"]);
+        Assert.StartsWith("25Б1 СТО АСЧМ 20-93", beam.Tag);
+        Assert.NotNull(beam.ParametricSteel);
+        Assert.NotNull(beam.ParametricSteel!.Definition.Catalog);       // 25Б1 есть в Sortamenty.db3 → It
+        Assert.Equal(MatType.Steel, Assert.Single(beam.Areas).Material!.Type);
+        var tube = _db.CrossSections.Single(s => s.Id == ids["3"]);
+        Assert.Equal(CScore.Sp16.SteelProfileKind.Box, tube.ParametricSteel!.Definition.Kind);
+    }
+
+    [Fact]
+    public void Scad_Steel_SecondRun_NoDuplicates_ExistingSteelReused()
+    {
+        var mesh = Mesh("scad", (1, 1), (3, 2));
+        var steel = MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory())!;
+        _db.AddMaterial(steel);
+        var data = ScadSteelData(mesh);
+        var first = ImportedBarSectionCreator.Create(_db, data, chooseSteel: () => steel);
+        Assert.Empty(first.Materials);
+        int sections = _db.CrossSections.Count;
+
+        _db.SetFemElementCrossSections([(mesh.Single(e => e.ElemTag == "1"), null)]);
+        var again = ImportedBarSectionCreator.Create(_db, data, chooseSteel: () => steel);
+
+        Assert.Empty(again.Sections);
+        Assert.Single(again.Reused);
+        Assert.Equal(1, again.AlreadyAssigned);
+        Assert.Equal(sections, _db.CrossSections.Count);
+        Assert.NotNull(Reloaded(mesh)["1"]);
+    }
+
+    [Fact]
+    public void Scad_MixedConcreteAndSteel()
+    {
+        var mesh = Mesh("scad", (1, 1), (814, 6));
+        var groups = new ScadConcreteGroupIndex(
+            [new ScadConcreteGroup(2, "колонны", 1, [0.04, 0.04, 0, 0], "B30", "A400", "A240", false, [0.4, 0.3], [814])]);
+
+        var report = ImportedBarSectionCreator.Create(_db, ScadSteelData(mesh, groups), catalogDirectory: CatalogDirectory(),
+            chooseSteel: () => MaterialCatalog.CreateStructuralSteel("С245", CatalogDirectory()));
+
+        Assert.Equal(2, report.Sections.Count);
+        Assert.Contains("Брус 400×600 B30 A400", report.Sections);
+        Assert.Single(report.SteelSections);
+        Assert.Equal(2, report.AssignedElements);
+        Assert.Empty(report.Skipped);
+    }
+
+    [Fact]
+    public void Scad_SteelNotChosen_Skipped_ConcreteWithoutGroupsReported()
+    {
+        var mesh = Mesh("scad", (1, 1), (814, 6));
+
+        var report = ImportedBarSectionCreator.Create(_db, ScadSteelData(mesh), chooseSteel: () => null);
+
+        Assert.False(report.NoMaterialData);
+        Assert.Empty(report.Sections);
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("сталь для стальных сечений не выбрана") && s.Elements.SequenceEqual([1]));
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("нет ЖБ-групп SCAD") && s.Elements.SequenceEqual([814]));
     }
 }

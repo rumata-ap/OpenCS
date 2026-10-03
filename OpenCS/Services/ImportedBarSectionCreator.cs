@@ -3,6 +3,7 @@ using CScore;
 using CScore.Fem;
 using CScore.Import;
 using CScore.ParametricRc;
+using CScore.ParametricSteel;
 using OpenCS.Utilites;
 
 namespace OpenCS.Services;
@@ -22,6 +23,10 @@ public sealed class ImportedBarSectionsReport
     public List<(string Section, int Count)> Assigned { get; } = [];
     /// <summary>Стержневые КЭ, у которых сечение уже было, — не тронуты.</summary>
     public int AlreadyAssigned { get; set; }
+    /// <summary>Созданные стальные (МК) сечения — подмножество <see cref="Sections"/>.</summary>
+    public List<string> SteelSections { get; } = [];
+    /// <summary>Предупреждения сверки стальных сечений (площадь контура против сортамента источника).</summary>
+    public List<string> Warnings { get; } = [];
     /// <summary>Причины, по которым сечение не создано, и номера КЭ.</summary>
     public List<(string Reason, List<int> Elements)> Skipped { get; } = [];
 
@@ -33,6 +38,7 @@ public sealed class ImportedBarSectionsReport
 /// Создание сечений стержней импортированной схемы (ЛИРА, SCAD): профиль — из жёсткости КЭ
 /// (<see cref="ImportedBarProfiles"/>), классы бетона и арматуры — из подбора ЛИРЫ или ЖБ-группы SCAD
 /// (<see cref="ImportedBarRcClasses"/>), сечение — параметрическое ЖБ без арматуры (<see cref="RcSectionBuilder"/>).
+/// Стальные профили (STZ SCAD) — параметрические МК-сечения (<see cref="SteelSectionBuilder"/>) из выбранной стали.
 /// Одно сечение на форму, размеры и материалы; равное существующее параметрическое сечение используется повторно.
 /// Сечение назначается КЭ сетки; КЭ с уже назначенным сечением не трогаются.
 /// </summary>
@@ -41,12 +47,14 @@ public static class ImportedBarSectionCreator
     /// <summary>Создать и назначить сечения стержневым КЭ без сечения.</summary>
     /// <param name="elements">КЭ сетки; null — все КЭ схемы. Пластины пропускаются.</param>
     /// <param name="catalogDirectory">Каталог справочника материалов; null — рядом с приложением.</param>
+    /// <param name="chooseSteel">Сталь для стальных сечений: вызывается один раз, если есть стальные КЭ; новый
+    /// материал (Id = 0) добавляется в проект. null или вернувший null — стальные КЭ пропускаются.</param>
+    /// <param name="steelCatalog">Сортамент OpenCS для ссылки на каталог (It); null — без ссылки.</param>
     public static ImportedBarSectionsReport Create(
-        DatabaseService db, FemCheckSchemaData data, IEnumerable<FemElement>? elements = null, string? catalogDirectory = null)
+        DatabaseService db, FemCheckSchemaData data, IEnumerable<FemElement>? elements = null, string? catalogDirectory = null,
+        Func<Material?>? chooseSteel = null, ISteelCatalogLookup? steelCatalog = null)
     {
-        if (!ImportedBarRcClasses.Available(data.IsScad, data.Asp, data.ScadConcreteGroups))
-            return new ImportedBarSectionsReport { NoMaterialData = true };
-
+        bool rcData = ImportedBarRcClasses.Available(data.IsScad, data.Asp, data.ScadConcreteGroups);
         var report = new ImportedBarSectionsReport();
         var skipped = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         void Skip(string reason, int num)
@@ -58,14 +66,19 @@ public static class ImportedBarSectionCreator
         // ── КЭ, которым можно создать сечение ───────────────────────────────────────────────────
         var classesOf = ImportedBarRcClasses.Lookup(data.IsScad, data.Asp, data.ScadConcreteGroups);
         var ready = new List<(FemElement Element, int Num, ImportedBarProfile Profile, ImportedBarRcClasses Classes)>();
+        var steelReady = new List<(FemElement Element, int Num, ImportedBarProfile Profile)>();
+        var rcNoData = new List<int>();
         foreach (var e in elements ?? data.Mesh)
         {
             if (e.ElemType == "shell") continue;
             if (!int.TryParse(e.ElemTag, NumberStyles.None, CultureInfo.InvariantCulture, out int num)) continue;
             if (e.CrossSectionId != null) { report.AlreadyAssigned++; continue; }
 
-            var (profile, reason) = ImportedBarProfiles.Resolve(data.Stiffnesses, e.StiffnessNum, data.IsScad);
+            var (profile, reason) = ImportedBarProfiles.Resolve(data.Stiffnesses, e.StiffnessNum, data.IsScad,
+                data.ScadSteelProfiles);
             if (profile == null) { Skip(reason!, num); continue; }
+            if (profile.Material == ImportedBarMaterial.Steel) { steelReady.Add((e, num, profile)); continue; }
+            if (!rcData) { rcNoData.Add(num); continue; }
             if (classesOf(num) is not { } classes)
             {
                 Skip(data.IsScad ? "КЭ нет в ЖБ-группах SCAD — классы материалов неизвестны"
@@ -79,6 +92,12 @@ public static class ImportedBarSectionCreator
             }
             ready.Add((e, num, profile, classes));
         }
+
+        if (!rcData && steelReady.Count == 0)
+            return new ImportedBarSectionsReport { NoMaterialData = true };
+        foreach (int num in rcNoData)
+            Skip(data.IsScad ? "у схемы нет ЖБ-групп SCAD — классы материалов неизвестны"
+                             : "у схемы нет файла подбора ASP — классы материалов неизвестны", num);
 
         // ── Материалы: недостающие классы — из справочника ──────────────────────────────────────
         var missing = LiraBarMaterialCreator.MissingClasses(db.Materials, data,
@@ -144,11 +163,79 @@ public static class ImportedBarSectionCreator
             assignments.AddRange(members.Select(e => (e, (int?)section.Id)));
             report.Assigned.Add((section.Tag, members.Count));
         }
+        CreateSteel(db, steelReady, chooseSteel, steelCatalog, report, assignments, Skip);
         if (assignments.Count > 0) db.SetFemElementCrossSections(assignments);
 
         foreach (var (reason, nums) in skipped)
             report.Skipped.Add((reason, [.. nums.Order()]));
         return report;
+    }
+
+    /// <summary>Стальные КЭ: сталь — выбором один раз, одно МК-сечение на ключ, равное существующее — повторно.</summary>
+    static void CreateSteel(DatabaseService db, List<(FemElement Element, int Num, ImportedBarProfile Profile)> ready,
+        Func<Material?>? chooseSteel, ISteelCatalogLookup? catalog, ImportedBarSectionsReport report,
+        List<(FemElement, int?)> assignments, Action<string, int> skip)
+    {
+        if (ready.Count == 0) return;
+        var steel = chooseSteel?.Invoke();
+        if (steel == null)
+        {
+            foreach (var r in ready) skip("сталь для стальных сечений не выбрана", r.Num);
+            return;
+        }
+        if (steel.Id == 0 || !db.Materials.Contains(steel))
+        {
+            db.AddMaterial(steel);
+            report.Materials.Add(steel.Tag);
+        }
+
+        var plan = new Dictionary<SteelSectionKey, (ImportedBarProfile Profile, List<(FemElement Element, int Num)> Members)>();
+        foreach (var (element, num, profile) in ready)
+        {
+            var key = SteelSectionBuilder.Key(profile, steel.Id)!.Value;
+            if (!plan.TryGetValue(key, out var entry)) plan[key] = entry = (profile, []);
+            entry.Members.Add((element, num));
+        }
+
+        var service = new ParametricSteelSectionProjectService(db);
+        var existing = new List<(CrossSection Section, ParametricSteelSectionDefinition Definition)>();
+        foreach (var s in db.CrossSections)
+            if (service.TryGetDefinition(s, out var d)) existing.Add((s, d));
+
+        foreach (var (key, (profile, members)) in plan)
+        {
+            var section = existing.FirstOrDefault(x => SteelSectionBuilder.Matches(x.Definition, key)).Section;
+            if (section != null)
+                report.Reused.Add(section.Tag);
+            else
+            {
+                var built = SteelSectionBuilder.Build(profile, steel.Id, catalog);
+                if (built.Definition is not { } definition)
+                {
+                    foreach (var m in members) skip(built.Reason!, m.Num);
+                    continue;
+                }
+                if (built.Warning != null) report.Warnings.Add(built.Warning);
+                definition = definition with { Tag = FreeTag(db, $"{definition.Tag} {steel.Tag}".Trim()) };
+                section = new CrossSection
+                {
+                    Num = db.CrossSections.Count > 0 ? db.CrossSections.Max(s => s.Num) + 1 : 1,
+                    Tag = definition.Tag,
+                };
+                var result = service.GenerateAndSave(section, definition);
+                if (result.Diagnostics.Count != 0)
+                {
+                    string diagnostics = string.Join("; ", result.Diagnostics);
+                    foreach (var m in members) skip(diagnostics, m.Num);
+                    continue;
+                }
+                existing.Add((section, definition));
+                report.Sections.Add(section.Tag);
+                report.SteelSections.Add(section.Tag);
+            }
+            assignments.AddRange(members.Select(m => (m.Element, (int?)section.Id)));
+            report.Assigned.Add((section.Tag, members.Count));
+        }
     }
 
     /// <summary>Имя сечения, не занятое в проекте: «Брус 300×500 B25 A500», при занятом — «… (2)».</summary>
