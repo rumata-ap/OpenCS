@@ -100,6 +100,35 @@ public class FemCheckPerElementTests
     }
 
     [Fact]
+    public void ElementParams_ReplaceTaskParamsOfItsRows()
+    {
+        var fs = new ForceSet { Id = 1, Tag = "РСУ (C)", Items = [Row(1, 0.4), Row(2, 0.5), Row(null, 0.1)] };
+        var check = new FemCheck { NormCode = "steel_check", ParamsJson = "{\"GammaC\":1}" };
+        var seen = new Dictionary<string, string>();
+        var inputs = new FemPerElementInputs
+        {
+            TargetBarSection = OfTarget,
+            BarSectionById = id => id == Own.Id ? Own : id == OfMember.Id ? OfMember : null,
+            BarElementParams = (e, baseJson) => e.ElemNum == 1 ? baseJson.Replace("1", "0.8") : null,
+            Warnings = ["параметры из групп"],
+        };
+
+        var result = FemCheckRunner.RunPerElement(check, Group, Scope(), [fs], inputs,
+            (task, _, item) =>
+            {
+                seen[item.Label] = task.ParamsJson;
+                return new CalcResult { Status = "ok", DataJson = JsonSerializer.Serialize(new { utilization = item.N }) };
+            });
+
+        Assert.Equal("{\"GammaC\":0.8}", seen["э.1 с1"]);
+        Assert.Equal("{\"GammaC\":1}", seen["э.2 с1"]);
+        Assert.Equal("{\"GammaC\":1}", seen["ручная"]);
+        using var doc = JsonDocument.Parse(result.DataJson);
+        Assert.Contains("параметры из групп", doc.RootElement.GetProperty("summary").GetProperty("warnings")
+            .EnumerateArray().Select(w => w.GetString()));
+    }
+
+    [Fact]
     public void ElementWithoutForces_MakesResultIncomplete()
     {
         var fs = new ForceSet { Id = 1, Tag = "РСУ (C)", Items = [Row(1, 0.4), Row(2, 0.5)] };

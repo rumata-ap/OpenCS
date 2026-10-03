@@ -32,6 +32,13 @@ public sealed class FemPerElementInputs
     /// <summary>Источники сечения стержневых КЭ в порядке расчёта; пусто — сечение проекта
     /// (<see cref="BarSectionById"/>, <see cref="TargetBarSection"/>).</summary>
     public IReadOnlyList<IBarElementSectionSource> BarSources { get; init; } = [];
+    /// <summary>
+    /// Параметры проверки стержневого КЭ по базовым (JSON задания проверки): null — базовые. Например, параметры
+    /// СП 16 из стальной группы схемы-источника.
+    /// </summary>
+    public Func<FemCheckScopeElement, string, string?>? BarElementParams { get; init; }
+    /// <summary>Предупреждения подготовки входных данных — в сводку результата.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 
     /// <summary>Сечение-шаблон пластины цели: бетон, материалы, модель; у строк без номера КЭ — само сечение.</summary>
     public PlateSection? PlateTemplate { get; init; }
@@ -136,6 +143,8 @@ public static partial class FemCheckRunner
         string[] sourceKeys = isPlate ? [.. plateSources.Select(s => s.Key)] : [.. barSources.Select(s => s.Key)];
         var pParams = isPlate ? PlateCheckParams.Parse(check.ParamsJson) : null;
         var lookupSets = inputs.LookupForceSets.Count > 0 ? inputs.LookupForceSets : forceSets;
+        // Параметры КЭ — по базовому JSON задания (одинаков у всех наборов, различается только CalcType).
+        string baseParamsJson = BuildCalcTask(check, target).ParamsJson;
 
         // NL-набор строки (п. 8.2.7): явный NL-набор имеет приоритет над парным «(NL)» для auto-phi1 (SLS).
         var explicitNl = isPlate && pParams!.Kind == "shell_layered" && pParams.NlForceSetId > 0
@@ -220,7 +229,8 @@ public static partial class FemCheckRunner
                     g = isPlate
                         ? new ElementGroup(source, n, e, plateSources[sourceIndex].Resolve(e), null)
                         : new ElementGroup(source, n, e, null,
-                            barSources[sourceIndex].Resolve(e, sectionKey > 0 ? sectionKey : null));
+                            barSources[sourceIndex].Resolve(e, sectionKey > 0 ? sectionKey : null),
+                            inputs.BarElementParams?.Invoke(e, baseParamsJson));
                     groupByKey[(source, n, sectionKey)] = g;
                     if (!groupsByElem.TryGetValue((source, n), out var list))
                         groupsByElem[(source, n)] = list = [];
@@ -285,6 +295,8 @@ public static partial class FemCheckRunner
             {
                 // rc_check меняет состояние сечения (диаграммы, фибры) — в параллели у каждого КЭ свой клон.
                 var bar = inputs.ParallelBars ? g.Bar?.Section?.CloneForCalc() : g.Bar?.Section;
+                // Задания с параметрами КЭ: по одному на задание набора.
+                Dictionary<CalcTask, CalcTask>? ownTasks = g.ParamsJson == null ? null : [];
                 foreach (var job in g.Jobs)
                 {
                     if (ct.IsCancellationRequested) return;
@@ -302,7 +314,7 @@ public static partial class FemCheckRunner
                     }
                     else
                         row = bar != null
-                            ? CheckBarRow(barExecutor, job.Task, bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
+                            ? CheckBarRow(barExecutor, TaskOf(job.Task), bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
                             : NotCheckedRow(job, "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : ""));
 
                     results[job.Index] = row with
@@ -315,6 +327,17 @@ public static partial class FemCheckRunner
                     };
                     int d = Interlocked.Increment(ref done);
                     if (d % step == 0 || d == total) progress?.Report(Math.Min(1.0, (double)d / total));
+                }
+
+                CalcTask TaskOf(CalcTask task)
+                {
+                    if (ownTasks == null) return task;
+                    if (!ownTasks.TryGetValue(task, out var own))
+                        ownTasks[task] = own = new CalcTask
+                        {
+                            Kind = task.Kind, Tag = task.Tag, CalcType = task.CalcType, ParamsJson = g.ParamsJson!,
+                        };
+                    return own;
                 }
             }
 
@@ -436,7 +459,7 @@ public static partial class FemCheckRunner
             .ToList();
 
         // ── Сводка ────────────────────────────────────────────────────────────────────────────
-        var warnings = new List<string>();
+        var warnings = new List<string>(inputs.Warnings);
         foreach (var s in plateSources)
             warnings.AddRange(s.Warnings(elements, inputs.ConcreteMat, inputs.RebarMat));
         if (lessThanSelected > 0)
@@ -511,8 +534,10 @@ public static partial class FemCheckRunner
 
     /// <summary>Строки одного КЭ для одного источника армирования: у всех одно сечение.</summary>
     sealed class ElementGroup(string source, int? elemNum, FemCheckScopeElement? element,
-                              PlateElementSection? plate, BarElementSection? bar)
+                              PlateElementSection? plate, BarElementSection? bar, string? paramsJson = null)
     {
+        /// <summary>Параметры проверки КЭ вместо параметров задания; null — параметры задания.</summary>
+        public string? ParamsJson => paramsJson;
         public string Source => source;
         public int? ElemNum => elemNum;
         public FemCheckScopeElement? Element => element;
