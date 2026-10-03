@@ -1,5 +1,6 @@
 using CScore;
 using CScore.Fem;
+using CScore.Import;
 using OpenCS.Utilites;
 
 namespace OpenCS.Services;
@@ -25,23 +26,14 @@ public static class LiraBarMaterialCreator
         IEnumerable<Material> materials, FemCheckSchemaData data, IEnumerable<FemCheckScopeElement> elements)
     {
         var result = new List<(string, bool)>();
-        if (data.IsScad ? data.ScadConcreteGroups == null : data.Asp == null) return result;
+        if (!ImportedBarRcClasses.Available(data.IsScad, data.Asp, data.ScadConcreteGroups)) return result;
+        var classesOf = ImportedBarRcClasses.Lookup(data.IsScad, data.Asp, data.ScadConcreteGroups);
         var list = materials.ToList();
         var seen = new HashSet<(string, bool)>();
         foreach (var e in elements)
         {
             if (e.Element.ElemType == "shell" || e.ElemNum is not int num) continue;
-            (string Concrete, string Rebar) classes;
-            if (data.IsScad)
-            {
-                if (data.ScadConcreteGroups!.Find(num) is not { } g) continue;
-                classes = (g.ConcreteClass, g.LongitudinalRebarClass);
-            }
-            else
-            {
-                if (!data.Asp!.Bars.TryGetValue(num, out var bar)) continue;
-                classes = (bar.ConcreteClass, bar.RebarClass);
-            }
+            if (classesOf(num) is not { } classes) continue;
             foreach (var (cls, concrete) in (ReadOnlySpan<(string, bool)>)[(classes.Concrete, true), (classes.Rebar, false)])
             {
                 string key = MaterialCatalog.ClassKey(cls);
