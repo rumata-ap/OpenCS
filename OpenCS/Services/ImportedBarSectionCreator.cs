@@ -18,6 +18,10 @@ public sealed class ImportedBarSectionsReport
     public bool Cancelled { get; init; }
     /// <summary>Армирование создаваемых ЖБ-сечений.</summary>
     public ImportedBarRebarMode RebarMode { get; set; }
+    /// <summary>Допуск унификации подбора (доля) — при <see cref="ImportedBarRebarMode.Selected"/>.</summary>
+    public double SelectedTolerance { get; set; }
+    /// <summary>КЭ с подбором и число различных армирований после унификации.</summary>
+    public (int Elements, int Layouts) Unified { get; set; }
     /// <summary>Созданные материалы.</summary>
     public List<string> Materials { get; } = [];
     /// <summary>Созданные сечения.</summary>
@@ -43,6 +47,10 @@ public sealed class ImportedBarSectionsReport
     public int AssignedElements => Assigned.Sum(a => a.Count);
 }
 
+/// <summary>Выбор армирования ЖБ-сечений: режим и допуск унификации подбора (доля, 0,2 — 20 %).</summary>
+public sealed record ImportedBarRebarChoice(ImportedBarRebarMode Mode,
+    double Tolerance = ImportedBarRebar.DefaultSelectedTolerance);
+
 /// <summary>
 /// Создание сечений стержней импортированной схемы (ЛИРА, SCAD): профиль — из жёсткости КЭ
 /// (<see cref="ImportedBarProfiles"/>), классы бетона и арматуры — из подбора ЛИРЫ или ЖБ-группы SCAD
@@ -63,11 +71,12 @@ public static class ImportedBarSectionCreator
     /// <param name="steelCatalog">Сортамент OpenCS для ссылки на каталог (It); null — без ссылки.</param>
     /// <param name="chooseRebar">Армирование ЖБ-сечений: вызывается один раз со списком доступных режимов
     /// (первый — <see cref="ImportedBarRebarMode.None"/>), если есть ЖБ-КЭ и данные заданного или подобранного
-    /// армирования; null-результат — отмена без изменений. null — без арматуры.</param>
+    /// армирования; null-результат — отмена без изменений. null — без арматуры. Подобранное армирование
+    /// унифицируется с допуском выбора (<see cref="ImportedBarRebar.Cluster{T}"/>).</param>
     public static ImportedBarSectionsReport Create(
         DatabaseService db, FemCheckSchemaData data, IEnumerable<FemElement>? elements = null, string? catalogDirectory = null,
         Func<Material?>? chooseSteel = null, ISteelCatalogLookup? steelCatalog = null,
-        Func<IReadOnlyList<ImportedBarRebarMode>, ImportedBarRebarMode?>? chooseRebar = null)
+        Func<IReadOnlyList<ImportedBarRebarMode>, ImportedBarRebarChoice?>? chooseRebar = null)
     {
         bool rcData = ImportedBarRcClasses.Available(data.IsScad, data.Asp, data.ScadConcreteGroups);
         var report = new ImportedBarSectionsReport();
@@ -154,13 +163,15 @@ public static class ImportedBarSectionCreator
 
         // ── Армирование: выбор один раз, до изменений в проекте ─────────────────────────────────
         var mode = ImportedBarRebarMode.None;
+        double tolerance = 0;
         var modes = RebarModes(data);
         if (ready.Count > 0 && modes.Count > 1 && chooseRebar != null)
         {
             if (chooseRebar(modes) is not { } chosen) return new ImportedBarSectionsReport { Cancelled = true };
-            mode = chosen;
+            (mode, tolerance) = (chosen.Mode, chosen.Tolerance);
         }
         report.RebarMode = mode;
+        if (mode == ImportedBarRebarMode.Selected) report.SelectedTolerance = tolerance;
         if (mode == ImportedBarRebarMode.None)
         {
             report.AlreadyAssigned += ready.Count(r => r.Replaceable);
@@ -179,6 +190,23 @@ public static class ImportedBarSectionCreator
         // ── План: КЭ по ключам сечений ──────────────────────────────────────────────────────────
         var plan = new Dictionary<RcSectionKey, (ImportedBarProfile Profile, string Label, ImportedBarRebarLayout? Rebar,
             List<(FemElement Element, int Num)> Members)>();
+        void Plan(FemElement element, int num, ImportedBarProfile profile, string label, int concreteId, int rebarId,
+            ImportedBarRebarLayout? layout, bool replaceable)
+        {
+            if (layout == null && replaceable)
+            {
+                report.AlreadyAssigned++;     // армировать нечем — сечение без арматуры остаётся
+                return;
+            }
+            if (replaceable) report.Replaced++;
+            var key = RcSectionBuilder.Key(profile, concreteId, rebarId, layout?.Bars);
+            if (!plan.TryGetValue(key, out var entry))
+                plan[key] = entry = (profile, label, layout, []);
+            entry.Members.Add((element, num));
+        }
+        // Подбор — раскладка после унификации КЭ одной формы, материалов и привязок.
+        var selected = new Dictionary<(RcSectionKey Key, string Covers), List<(SelectedElement Element, double[] Areas)>>();
+
         foreach (var (element, num, profile, classes, replaceable) in ready)
         {
             if (MaterialCatalog.FindByClass(db.Materials, classes.Concrete, concrete: true) is not { } concrete)
@@ -201,25 +229,49 @@ public static class ImportedBarSectionCreator
                 continue;
             }
 
+            string label = $"{classes.Concrete} {classes.Rebar}";
+            var barProfile = LiraBarProfile.From(profile, concrete, rebar);
+            if (mode == ImportedBarRebarMode.Selected)
+            {
+                var (areas, reason) = SelectedAreas(data, num, barProfile);
+                if (areas == null)
+                {
+                    NoRebar(reason!, num);
+                    Plan(element, num, profile, label, concrete.Id, rebar.Id, null, replaceable);
+                    continue;
+                }
+                var groupKey = (RcSectionBuilder.Key(profile, concrete.Id, rebar.Id), areas.Covers);
+                if (!selected.TryGetValue(groupKey, out var group)) selected[groupKey] = group = [];
+                group.Add((new SelectedElement(element, num, profile, label, replaceable, areas), areas.Values));
+                continue;
+            }
+
             ImportedBarRebarLayout? layout = null;
             if (mode != ImportedBarRebarMode.None)
             {
-                var (found, reason) = Rebar(data, mode, element, num, LiraBarProfile.From(profile, concrete, rebar));
+                var (found, reason) = Rebar(data, mode, element, num, barProfile);
                 if (found == null) NoRebar(reason!, num);
                 layout = found;
             }
-            if (layout == null && replaceable)
-            {
-                report.AlreadyAssigned++;     // армировать нечем — сечение без арматуры остаётся
-                continue;
-            }
-            if (replaceable) report.Replaced++;
-
-            var key = RcSectionBuilder.Key(profile, concrete.Id, rebar.Id, layout?.Bars);
-            if (!plan.TryGetValue(key, out var entry))
-                plan[key] = entry = (profile, $"{classes.Concrete} {classes.Rebar}", layout, []);
-            entry.Members.Add((element, num));
+            Plan(element, num, profile, label, concrete.Id, rebar.Id, layout, replaceable);
         }
+
+        // Унификация подбора: одна раскладка на группу КЭ с перерасходом не выше допуска.
+        int selectedElements = 0, layouts = 0;
+        foreach (var ((key, _), items) in selected)
+            foreach (var (areas, members) in ImportedBarRebar.Cluster(items, tolerance))
+            {
+                var first = members[0];
+                var (layout, reason) = first.Areas.Layout(areas);
+                selectedElements += members.Count;
+                if (layout != null) layouts++;
+                foreach (var m in members)
+                {
+                    if (layout == null) NoRebar(reason!, m.Num);
+                    Plan(m.Element, m.Num, m.Profile, m.Label, key.ConcreteId, key.RebarId, layout, m.Replaceable);
+                }
+            }
+        if (mode == ImportedBarRebarMode.Selected) report.Unified = (selectedElements, layouts);
 
         // ── Сечения и назначение ────────────────────────────────────────────────────────────────
         // Сечение по ключу: равное существующее либо новое; null — причина, по которой его нет.
@@ -289,17 +341,25 @@ public static class ImportedBarSectionCreator
         return modes;
     }
 
-    /// <summary>Армирование КЭ по данным схемы в выбранном режиме либо причина, по которой его нет.</summary>
+    /// <summary>КЭ с подобранными площадями, ожидающий унификации.</summary>
+    sealed record SelectedElement(FemElement Element, int Num, ImportedBarProfile Profile, string Label, bool Replaceable,
+        ImportedSelectedAreas Areas);
+
+    /// <summary>Подобранные площади КЭ (ЛИРА — ASP, SCAD — выгрузка плагина) либо причина, по которой их нет.</summary>
+    static (ImportedSelectedAreas? Areas, string? Reason) SelectedAreas(FemCheckSchemaData data, int num, LiraBarProfile profile) =>
+        data.IsScad
+            ? ImportedBarRebar.ScadSelectedAreas(
+                data.ScadSelected != null && data.ScadSelected.Bars.TryGetValue(num, out var bar) ? bar : null,
+                data.ScadConcreteGroups?.Find(num), profile)
+            : ImportedBarRebar.LiraSelectedAreas(
+                data.Asp != null && data.Asp.Bars.TryGetValue(num, out var asp) ? asp : null, profile);
+
+    /// <summary>Армирование КЭ по данным схемы в выбранном режиме (кроме подобранного) либо причина, по которой его нет.</summary>
     static (ImportedBarRebarLayout? Layout, string? Reason) Rebar(
         FemCheckSchemaData data, ImportedBarRebarMode mode, FemElement element, int num, LiraBarProfile profile) =>
         (mode, data.IsScad) switch
         {
-            (ImportedBarRebarMode.Selected, false) => ImportedBarRebar.LiraSelected(
-                data.Asp != null && data.Asp.Bars.TryGetValue(num, out var asp) ? asp : null, profile),
             (ImportedBarRebarMode.Assigned, false) => ImportedBarRebar.LiraAssigned(data.Rbt, element.ReinforcementTypeIds, profile),
-            (ImportedBarRebarMode.Selected, true) => ImportedBarRebar.ScadSelected(
-                data.ScadSelected != null && data.ScadSelected.Bars.TryGetValue(num, out var bar) ? bar : null,
-                data.ScadConcreteGroups?.Find(num), profile),
             (ImportedBarRebarMode.Assigned, true) => ImportedBarRebar.ScadAssigned(
                 data.ScadAssigned?.Rod(num), data.ScadConcreteGroups?.Find(num), profile),
             _ => (null, null),

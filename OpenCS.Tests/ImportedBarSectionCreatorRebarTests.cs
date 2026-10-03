@@ -75,8 +75,9 @@ public sealed class ImportedBarSectionCreatorRebarTests : IDisposable
         Stiffnesses = new Dictionary<int, LiraStiffnessRecord> { [1] = LiraBrus(1, 30, 50) },
     };
 
-    static Func<IReadOnlyList<ImportedBarRebarMode>, ImportedBarRebarMode?> Choose(ImportedBarRebarMode mode,
-        List<IReadOnlyList<ImportedBarRebarMode>>? offered = null) => modes => { offered?.Add(modes); return mode; };
+    static Func<IReadOnlyList<ImportedBarRebarMode>, ImportedBarRebarChoice?> Choose(ImportedBarRebarMode mode,
+        List<IReadOnlyList<ImportedBarRebarMode>>? offered = null, double tolerance = 0) =>
+        modes => { offered?.Add(modes); return new ImportedBarRebarChoice(mode, tolerance); };
 
     [Fact]
     public void LiraSelected_CloseSelectionsShareSection_BarsInDefinition()
@@ -114,6 +115,36 @@ public sealed class ImportedBarSectionCreatorRebarTests : IDisposable
         var rebar = Assert.Single(section.Areas, a => a.Category == AreaCategory.RebarGroup);
         Assert.Equal(MatType.ReSteelF, rebar.Material!.Type);
         Assert.Equal(10.5e-4, rebar.Fibers.Sum(f => f.Area), 9);
+        Assert.Equal((3, 2), report.Unified);
+    }
+
+    [Fact]
+    public void LiraSelected_Tolerance_SharesEnvelopeWithinExcess()
+    {
+        // ΣAs после округления: КЭ 1 и 2 — 10,5, КЭ 3 — 12,5 (+19 %), КЭ 4 — 16,5 (+57 %).
+        var mesh = Mesh("lira", (1, 1, null), (2, 1, null), (3, 1, null), (4, 1, null));
+        var asp = new LiraAspFile
+        {
+            Bars = new Dictionary<int, LiraAspBar>
+            {
+                [1] = AspBar(1, Areas(1.2, 3.1), Areas(0.4, 4.2)),
+                [2] = AspBar(2, Areas(1.4, 4.4)),
+                [3] = AspBar(3, Areas(1.4, 6.3)),
+                [4] = AspBar(4, Areas(1.4, 10.3)),
+            },
+        };
+
+        var report = ImportedBarSectionCreator.Create(_db, LiraData(mesh, asp), catalogDirectory: CatalogDirectory(),
+            chooseRebar: Choose(ImportedBarRebarMode.Selected, tolerance: 0.2));
+
+        Assert.Equal(["Брус 300×500 B25 A500 ASP ΣAs 12,5 см²", "Брус 300×500 B25 A500 ASP ΣAs 16,5 см²"],
+            report.Sections.Order());
+        Assert.Equal((4, 2), report.Unified);
+        Assert.Equal(0.2, report.SelectedTolerance);
+        var ids = Reloaded().ToDictionary(e => e.ElemTag, e => e.CrossSectionId);
+        Assert.Equal(ids["1"], ids["3"]);
+        Assert.Equal(ids["2"], ids["3"]);
+        Assert.NotEqual(ids["3"], ids["4"]);
     }
 
     [Fact]
@@ -200,7 +231,7 @@ public sealed class ImportedBarSectionCreatorRebarTests : IDisposable
         };
         bool asked = false;
         var report = ImportedBarSectionCreator.Create(_db, data, catalogDirectory: CatalogDirectory(),
-            chooseRebar: _ => { asked = true; return ImportedBarRebarMode.Selected; });
+            chooseRebar: _ => { asked = true; return new ImportedBarRebarChoice(ImportedBarRebarMode.Selected); });
         Assert.False(asked);
         Assert.Equal(["Брус 400×600 B30 A400"], report.Sections);
     }

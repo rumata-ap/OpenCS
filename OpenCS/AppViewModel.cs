@@ -4363,6 +4363,9 @@ namespace OpenCS
             done += " " + string.Format(Loc.S("BarSectionsSteelSummary"), report.SteelSections.Count);
          if (report.Replaced > 0)
             done += " " + string.Format(Loc.S("BarSectionsReplaced"), report.Replaced);
+         if (report.Unified.Elements > 0)
+            done += " " + string.Format(Loc.S("BarSectionsUnified"), report.Unified.Elements, report.Unified.Layouts,
+               report.SelectedTolerance * 100);
          LogService.Info(done);
          StatusMessage = done;
 
@@ -4381,7 +4384,7 @@ namespace OpenCS
       /// Армирование создаваемых ЖБ-сечений стержней импорта: без арматуры, заданное или подобранное (только режимы,
       /// для которых у схемы есть данные); по умолчанию — заданное, иначе подобранное. null — отказ.
       /// </summary>
-      CScore.Import.ImportedBarRebarMode? ChooseRebarForImportedBars(IReadOnlyList<CScore.Import.ImportedBarRebarMode> modes)
+      Services.ImportedBarRebarChoice? ChooseRebarForImportedBars(IReadOnlyList<CScore.Import.ImportedBarRebarMode> modes)
       {
          var items = modes.Select(m => Loc.S(m switch
          {
@@ -4390,11 +4393,17 @@ namespace OpenCS
             _ => "BarSectionsRebarNone",
          })).ToList();
          int assigned = modes.ToList().IndexOf(CScore.Import.ImportedBarRebarMode.Assigned);
+         int selected = modes.ToList().IndexOf(CScore.Import.ImportedBarRebarMode.Selected);
          var dialog = new Views.SteelMaterialChoiceDialog(Loc.S("BarSectionsRebarPrompt"), items,
-            assigned >= 0 ? assigned : modes.Count - 1, Loc.S("BarSectionsRebarTitle"));
+            assigned >= 0 ? assigned : modes.Count - 1, Loc.S("BarSectionsRebarTitle"),
+            selected >= 0 ? (Loc.S("BarSectionsRebarTolerance"), selectedRebarTolerancePercent, selected, 0, 100) : null);
          if (dialog.ShowDialog() != true || dialog.SelectedIndex < 0) return null;
-         return modes[dialog.SelectedIndex];
+         if (dialog.Number is double percent) selectedRebarTolerancePercent = percent;
+         return new Services.ImportedBarRebarChoice(modes[dialog.SelectedIndex], selectedRebarTolerancePercent / 100);
       }
+
+      /// <summary>Допуск унификации подбора, % — запоминается до конца сеанса.</summary>
+      double selectedRebarTolerancePercent = CScore.Import.ImportedBarRebar.DefaultSelectedTolerance * 100;
 
       /// <summary>
       /// Сталь для стальных КЭ импорта вне стальных групп SCAD (или с маркой, которой нет в справочнике): стальной материал проекта

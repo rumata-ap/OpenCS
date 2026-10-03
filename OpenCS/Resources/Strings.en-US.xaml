@@ -1001,6 +1001,8 @@
    <system:String x:Key="BarSectionsRebarSelected">Selected reinforcement (envelope over element sections, areas rounded up to 0.5 cm²)</system:String>
    <system:String x:Key="BarSectionsWithoutRebar">Without reinforcement {0} elements ({1}): {2}</system:String>
    <system:String x:Key="BarSectionsReplaced">Auto-created sections without reinforcement replaced for elements: {0}.</system:String>
+   <system:String x:Key="BarSectionsRebarTolerance">Selected reinforcement unification tolerance: max excess of the shared section ΣAs over an element's selection, %</system:String>
+   <system:String x:Key="BarSectionsUnified">Selected reinforcement unified: {0} elements → {1} layouts (tolerance {2:0.##} %).</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}; steel groups: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh schema data from .SPR (RC groups, reinforcement, steel profiles)</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>

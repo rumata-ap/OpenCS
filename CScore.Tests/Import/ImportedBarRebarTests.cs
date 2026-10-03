@@ -115,4 +115,39 @@ public sealed class ImportedBarRebarTests
 
         Assert.Contains("заданного армирования", ImportedBarRebar.ScadAssigned(null, Group, Profile).Reason);
     }
+
+    [Fact]
+    public void Cluster_EnvelopeWithinTolerance_NeverBelowMember()
+    {
+        (string, double[])[] items =
+        [
+            ("a", [2, 0, 4]),     // Σ 6
+            ("b", [0, 2, 4]),     // Σ 6: с «a» — [2,2,4] = 8 (+33 %)
+            ("c", [2, 0, 5]),     // Σ 7: с «a» — [2,0,5] = 7
+            ("d", [1, 0, 4]),     // Σ 5: с «a»+«c» — 7 (+40 %)
+        ];
+
+        var strict = ImportedBarRebar.Cluster(items, 0);
+        Assert.Equal(4, strict.Count);
+
+        var c20 = ImportedBarRebar.Cluster(items, 0.2);
+        Assert.Equal(3, c20.Count);
+        var ac = Assert.Single(c20, c => c.Members.Contains("a"));
+        Assert.Equal(["c", "a"], ac.Members);
+        Assert.Equal([2, 0, 5], ac.Areas);
+
+        var c50 = ImportedBarRebar.Cluster(items, 0.5);
+        // c, a, b — [2,2,5] = 9 ≤ 1,5·6; d (Σ 5) с ними — 9 > 7,5, отдельно.
+        Assert.Equal(2, c50.Count);
+        Assert.Equal(["c", "a", "b"], c50[0].Members);
+        Assert.Equal([2, 2, 5], c50[0].Areas);
+        // Армирование каждого КЭ не меньше его подбора и в пределах допуска.
+        foreach (var (areas, members) in c50.Concat(c20))
+            foreach (string m in members)
+            {
+                double[] own = items.Single(i => i.Item1 == m).Item2;
+                Assert.All(own.Zip(areas), p => Assert.True(p.Second >= p.First));
+            }
+        Assert.All(c50, c => Assert.All(c.Members, m => Assert.True(c.Areas.Sum() <= 1.5 * items.Single(i => i.Item1 == m).Item2.Sum() + 1e-9)));
+    }
 }
