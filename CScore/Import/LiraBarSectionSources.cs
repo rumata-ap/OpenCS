@@ -174,7 +174,8 @@ public static class LiraBarSectionBuilder
 
    /// <summary>
    /// Раскладка заданной арматуры: ряды простых брусовых ТЗА у нижней и верхней грани, стержни равномерно
-   /// между боковыми привязками (один стержень — по оси сечения).
+   /// между боковыми привязками (один стержень — по оси сечения); стержни AS_spec — по своим координатам
+   /// (x ‖ B, y ‖ H от центра — те же оси, что у сечения OpenCS).
    /// </summary>
    /// <returns>Стержни либо причина, по которой раскладка невозможна.</returns>
    public static (List<LiraBarPoint>? Bars, string? Reason) AssignedLayout(
@@ -184,6 +185,19 @@ public static class LiraBarSectionBuilder
       var bars = new List<LiraBarPoint>();
       foreach (var type in types)
       {
+         if (type.IsSpec)
+         {
+            foreach (var s in type.Bars)
+            {
+               double sx = s.XCm / 100, sy = s.YCm / 100, r = s.DiameterMm / 2000;
+               if (Math.Abs(sx) + r > b / 2 + 1e-9 || Math.Abs(sy) + r > h / 2 + 1e-9)
+                  return (null, string.Format(CultureInfo.InvariantCulture,
+                     "ТЗА {0} (AS_spec, образец {1:0.#}×{2:0.#} см): стержни не помещаются в сечение {3:0.#}×{4:0.#} см",
+                     type.Id, type.TemplateWidthCm, type.TemplateHeightCm, b * 100, h * 100));
+               bars.Add(new LiraBarPoint(sx, sy, s.AreaCm2 * 1e-4, s.DiameterMm / 1000));
+            }
+            continue;
+         }
          if (type.Count < 1 || !(type.BarAreaCm2 > 0)) continue;
          double d = type.DiameterMm / 1000;
          // Привязка «защитный слой» — до грани стержня, прочие — до его центра.
@@ -328,7 +342,7 @@ public sealed class LiraAssignedBarSectionSource(LiraBarSectionContext context, 
 
       var missing = ids.Where(id => !rbt.BarTypes.ContainsKey(id)).Distinct().Order().ToList();
       if (missing.Count > 0)
-         return (null, $"ТЗА {string.Join(", ", missing)} нет среди разобранных брусовых ТЗА файла RBT (разбираются ряды у нижней и верхней грани)");
+         return (null, $"ТЗА {string.Join(", ", missing)} нет среди разобранных брусовых ТЗА файла RBT (разбираются ряды у нижней и верхней грани и AS_spec)");
       var types = ids.Distinct().Select(id => rbt.BarTypes[id]).ToList();
       return types.Count > 0 ? (types, null) : (null, "КЭ не назначены ТЗА");
    }

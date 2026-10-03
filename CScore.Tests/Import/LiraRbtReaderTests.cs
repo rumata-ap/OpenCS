@@ -92,14 +92,20 @@ public class LiraRbtReaderTests
    }
 
    [Fact]
-   public void MixedFile_BarTypesAreSkippedByHeader()
+   public void MixedFile_BarTypesSkippedByHeader_AsSpecParsed()
    {
       var f = Load("tza-plate-and-bar-mix.RBT");
 
       Assert.Empty(f.Warnings);
       Assert.Equal(17, f.PlateTypes.Count);
-      Assert.Equal([6, 9, 9, 9], f.Skipped.Select(s => s.Kind).OrderBy(k => k));
-      Assert.Contains(f.Skipped, s => s.Id == 17 && s.Name == "AS_spec" && s.Comment == "24шт_ф28");
+      Assert.Equal([9, 9, 9], f.Skipped.Select(s => s.Kind).OrderBy(k => k));
+      // AS_spec «24шт_ф28» — 24 стержня Ø28 с координатами внутри сечения-образца.
+      var spec = f.BarTypes[17];
+      Assert.Equal("24шт_ф28", spec.Comment);
+      Assert.Equal(24, spec.Bars.Count);
+      Assert.All(spec.Bars, b => Assert.Equal(28, b.DiameterMm));
+      Assert.All(spec.Bars, b => Assert.True(Math.Abs(b.XCm) + 1.4 <= spec.TemplateWidthCm / 2
+                                             && Math.Abs(b.YCm) + 1.4 <= spec.TemplateHeightCm / 2));
 
       // ТЗА 1: ЗС, XT/XB c = 3, YT/YB c = 4, все d12s200
       var t1 = f.PlateTypes[1];
@@ -230,5 +236,50 @@ public class LiraRbtReaderTests
 
       Assert.Empty(f.PlateTypes);
       Assert.Single(f.Warnings);
+   }
+
+   /// <summary>
+   /// AS_spec пилонов (6-k1.RBT, записи 38 и 48): стержни с координатами, сверено с окном ЛИРЫ —
+   /// 38: 30×180, 2 Ø20 «d20» + 16 Ø20 «4d20u200»; 48: 35×180, 38 Ø28 (угловые «8d28u82» и «у грани» d28).
+   /// </summary>
+   [Fact]
+   public void BarSpec_BarsWithCoordinates_LayoutAndFaces()
+   {
+      var f = Load("tza-bar-spec.RBT");
+
+      Assert.Empty(f.Skipped);
+      Assert.Empty(f.Warnings);
+      var t38 = f.BarTypes[38];
+      Assert.True(t38.IsSpec);
+      Assert.Equal(LiraRbtReader.KindBarSpec, t38.Kind);
+      Assert.Equal("30x180_18d20_1", t38.Comment);
+      Assert.Equal((30.0, 180.0), (t38.TemplateWidthCm, t38.TemplateHeightCm));
+      Assert.Equal(18, t38.Bars.Count);
+      Assert.All(t38.Bars, b => Assert.Equal(20, b.DiameterMm));
+      Assert.Equal(18 * 3.142, t38.AreaCm2, 3);        // площадь стержня ЛИРА хранит округлённой
+      Assert.Contains(t38.Bars, b => b.XCm == -10 && b.YCm == 0);
+      Assert.Contains(t38.Bars, b => b.XCm == 10 && b.YCm == 85);
+      Assert.Equal(17, t38.Bars.Max(b => b.YCm) - t38.Bars.Where(b => b.YCm > 0).Min(b => b.YCm) - 49, 6); // ряды 19…85 см
+
+      var t48 = f.BarTypes[48];
+      Assert.Equal((35.0, 180.0), (t48.TemplateWidthCm, t48.TemplateHeightCm));
+      Assert.Equal(38, t48.Bars.Count);
+      Assert.All(t48.Bars, b => Assert.Equal(28, b.DiameterMm));
+
+      // Раскладка «Заданное»: координаты от центра, x ‖ B, y ‖ H.
+      var concrete = new Material { Id = 1 };
+      var (bars, reason) = LiraBarSectionBuilder.AssignedLayout([t38], new LiraBarProfile(1, 0.30, 1.80, concrete, concrete));
+      Assert.Null(reason);
+      Assert.Equal(18, bars!.Count);
+      Assert.Equal(18 * 3.142e-4, bars.Sum(b => b.AreaM2), 7);
+      Assert.Contains(bars, b => Math.Abs(b.X - 0.10) < 1e-9 && Math.Abs(b.Y + 0.85) < 1e-9);
+      var (_, misfit) = LiraBarSectionBuilder.AssignedLayout([t38], new LiraBarProfile(1, 1.80, 0.30, concrete, concrete));
+      Assert.Contains("AS_spec, образец 30×180", misfit);
+
+      // Мозаика: симметричное армирование — низ = верх, стержни на оси делятся пополам.
+      var source = new LiraRbtBarRebarSource(f, [new KeyValuePair<string, string?>("7", "38")]);
+      double bottom = source.Get("7", BarRebarComponent.Bottom).Value!.Value;
+      Assert.Equal(9 * 3.142, bottom, 3);
+      Assert.Equal(bottom, source.Get("7", BarRebarComponent.Top).Value!.Value, 9);
    }
 }

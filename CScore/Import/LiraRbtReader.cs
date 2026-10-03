@@ -102,16 +102,32 @@ public enum LiraBarRebarFace
    Top,
 }
 
+/// <summary>Стержень ТЗА AS_spec в осях сечения-образца ЛИРЫ: x ‖ B (Y1), y ‖ H (Z1), от центра сечения.</summary>
+/// <param name="XCm">Абсцисса, см.</param>
+/// <param name="YCm">Ордината, см.</param>
+/// <param name="DiameterMm">Диаметр, мм.</param>
+/// <param name="AreaCm2">Площадь, см².</param>
+public sealed record LiraBarSpecBar(double XCm, double YCm, double DiameterMm, double AreaCm2);
+
 /// <summary>
-/// Простой брусовый ТЗА <c>AUAS.B</c> / <c>AUAS.T</c>: ряд из n одинаковых стержней у нижней или верхней
-/// грани сечения, включая угловые (автоимя <c>AUAS.B 3d16 c4.0/4.0</c>).
+/// Брусовый ТЗА: простой <c>AUAS.B</c> / <c>AUAS.T</c> — ряд из n одинаковых стержней у нижней или верхней
+/// грани сечения, включая угловые (автоимя <c>AUAS.B 3d16 c4.0/4.0</c>), либо <c>AS_spec</c> — произвольные
+/// стержни с координатами (<see cref="Bars"/>).
 /// </summary>
 public sealed class LiraBarReinforcementType
 {
    /// <summary>Номер ТЗА (совпадает с номерами в таблице «Элементы - ТЗА»).</summary>
    public int Id { get; init; }
-   /// <summary>Код шаблона записи: 21 — AUAS.B, 22 — AUAS.T.</summary>
+   /// <summary>Код шаблона записи: 21 — AUAS.B, 22 — AUAS.T, 6 — AS_spec.</summary>
    public int Kind { get; init; }
+   /// <summary>Стержни AS_spec с координатами; пусто — простой ряд у грани.</summary>
+   public IReadOnlyList<LiraBarSpecBar> Bars { get; init; } = [];
+   /// <summary>Ширина B сечения-образца AS_spec, см.</summary>
+   public double TemplateWidthCm { get; init; }
+   /// <summary>Высота H сечения-образца AS_spec, см.</summary>
+   public double TemplateHeightCm { get; init; }
+   /// <summary>ТЗА AS_spec: стержни заданы координатами.</summary>
+   public bool IsSpec => Bars.Count > 0;
    /// <summary>Имя ТЗА.</summary>
    public string Name { get; init; } = "";
    /// <summary>Комментарий пользователя.</summary>
@@ -131,8 +147,8 @@ public sealed class LiraBarReinforcementType
    /// <summary>Привязка арматуры.</summary>
    public LiraRebarBinding Binding { get; init; }
 
-   /// <summary>Площадь ряда, см².</summary>
-   public double AreaCm2 => Count * BarAreaCm2;
+   /// <summary>Площадь ряда (у AS_spec — всех стержней), см².</summary>
+   public double AreaCm2 => IsSpec ? Bars.Sum(b => b.AreaCm2) : Count * BarAreaCm2;
 }
 
 /// <summary>ТЗА, который читатель опознал по заголовку, но не разбирает (брус, кольцо, полка…).</summary>
@@ -144,7 +160,7 @@ public sealed class LiraRbtFile
    /// <summary>Пластинчатые ТЗА по номеру.</summary>
    public IReadOnlyDictionary<int, LiraPlateReinforcementType> PlateTypes { get; init; } =
       new Dictionary<int, LiraPlateReinforcementType>();
-   /// <summary>Простые брусовые ТЗА (AUAS.B / AUAS.T) по номеру.</summary>
+   /// <summary>Брусовые ТЗА (AUAS.B / AUAS.T, AS_spec) по номеру.</summary>
    public IReadOnlyDictionary<int, LiraBarReinforcementType> BarTypes { get; init; } =
       new Dictionary<int, LiraBarReinforcementType>();
    /// <summary>Прочие ТЗА (не разобраны).</summary>
@@ -159,8 +175,8 @@ public sealed class LiraRbtFile
 /// Файл — MFC CArchive, в котором один и тот же список ТЗА записан в нескольких версиях формата
 /// подряд (записи версий 2, 3, 3, 4). Читаются только записи версии 4: у них есть признак привязки.
 /// Заголовок записи: <c>int kind, int 4, int ID, CString имя, CString комментарий, COLORREF, int NL</c>.
-/// Разбираются пластинчатые шаблоны (kind 54 — AS/AS_S_*, 52 — AS_mult) и простые брусовые
-/// (21 — AUAS.B, 22 — AUAS.T); прочие шаблоны только опознаются по заголовку и попадают в
+/// Разбираются пластинчатые шаблоны (kind 54 — AS/AS_S_*, 52 — AS_mult), простые брусовые
+/// (21 — AUAS.B, 22 — AUAS.T) и брусовые AS_spec (6); прочие шаблоны только опознаются по заголовку и попадают в
 /// <see cref="LiraRbtFile.Skipped"/>.
 /// </para>
 /// <para>
@@ -179,6 +195,8 @@ public static class LiraRbtReader
    public const int KindBarBottom = 21;
    /// <summary>Код шаблона брусового ТЗА AUAS.T (ряд у верхней грани).</summary>
    public const int KindBarTop = 22;
+   /// <summary>Код шаблона брусового ТЗА AS_spec (произвольные стержни: угловые, у грани, одиночные).</summary>
+   public const int KindBarSpec = 6;
 
    const int RecordVersion = 4;
    static readonly LiraPlateRebarSlot[] SlotOrder =
@@ -195,8 +213,11 @@ public static class LiraRbtReader
       var skipped = new List<LiraRbtSkippedType>();
       var warnings = new List<string>();
 
-      foreach (int offset in FindRecordHeaders(data))
+      var headers = FindRecordHeaders(data).ToList();
+      for (int h = 0; h < headers.Count; h++)
       {
+         int offset = headers[h];
+         int end = h + 1 < headers.Count ? headers[h + 1] : data.Length;
          var r = new Cursor(data, offset);
          int kind = r.Int32();
          r.Int32(); // версия записи (4)
@@ -216,6 +237,12 @@ public static class LiraRbtReader
             {
                warnings.Add($"ТЗА {id} «{name}»: запись не разобрана ({ex.Message}).");
             }
+            continue;
+         }
+         if (kind == KindBarSpec && ReadSpecBody(data, r.Position, end, id, name, comment) is { } spec)
+         {
+            skipped.RemoveAll(s => s.Id == id);
+            bars[id] = spec;
             continue;
          }
          if (kind != KindPlateSimple && kind != KindPlateMultiple)
@@ -267,6 +294,70 @@ public static class LiraRbtReader
          Count = count, DiameterMm = diameter, BarAreaCm2 = barArea, A = a, ASide = aSide,
          Binding = bindingValue,
       };
+   }
+
+   /// <summary>
+   /// Тело записи AS_spec: +14/+18 от начала тела — <c>float B, H</c> сечения-образца, см; далее группы стержней
+   /// («8d28u82», «d28»): <c>CString</c> имя и четыре массива одной длины <c>n</c> — Ø, мм; площадь стержня, см²;
+   /// x ‖ B и y ‖ H, см, от центра сечения. Служебные блоки между группами пропускаются: группа опознаётся по
+   /// строке, за которой идут четыре согласованных массива; группа блока «Поперечная» (код 3) пропускается.
+   /// Сверено с окном ЛИРЫ на 29 ТЗА пилонов (6-k1.RBT) и ТЗА «24шт_ф28» (24 Ø28 + поперечная Ø10).
+   /// </summary>
+   /// <returns>ТЗА либо null, если ни одной продольной группы не найдено.</returns>
+   static LiraBarReinforcementType? ReadSpecBody(byte[] data, int body, int end, int id, string name, string comment)
+   {
+      if (body + 22 > end) return null;
+      double width = BitConverter.ToSingle(data, body + 14), height = BitConverter.ToSingle(data, body + 18);
+      var bars = new List<LiraBarSpecBar>();
+      for (int p = body; p + 4 <= end; p++)
+      {
+         if (data[p] != 0xFF || data[p + 1] != 0xFE || data[p + 2] != 0xFF) continue;
+         var r = new Cursor(data, p);
+         if (!r.TryCString()) continue;
+         var group = TryGroup(data, r.Position, end, out int next);
+         if (group == null) continue;
+         // Код блока окна ЛИРЫ — short за 68 байт до имени группы: 0 угловые, 1 у грани, 3 поперечная
+         // (точки ветвей хомутов — не продольная арматура).
+         if (!(p - SpecGroupCodeOffset >= body && BitConverter.ToInt16(data, p - SpecGroupCodeOffset) == SpecTransverseCode))
+            bars.AddRange(group);
+         p = next - 1;
+      }
+      if (bars.Count == 0) return null;
+      return new LiraBarReinforcementType
+      {
+         Id = id, Kind = KindBarSpec, Name = name, Comment = comment, Binding = LiraRebarBinding.Centroid,
+         Count = bars.Count, Bars = bars, TemplateWidthCm = width, TemplateHeightCm = height,
+      };
+   }
+
+   const int SpecGroupCodeOffset = 68;
+   const short SpecTransverseCode = 3;
+
+   /// <summary>Четыре массива float одной длины (Ø, As, x, y) с правдоподобными значениями; null — не группа.</summary>
+   static List<LiraBarSpecBar>? TryGroup(byte[] data, int pos, int end, out int next)
+   {
+      next = pos;
+      var arrays = new float[4][];
+      for (int k = 0; k < 4; k++)
+      {
+         if (pos + 4 > end) return null;
+         int n = BitConverter.ToInt32(data, pos);
+         if (n is < 1 or > 1000 || pos + 4 + 4 * n > end || (k > 0 && n != arrays[0].Length)) return null;
+         arrays[k] = new float[n];
+         for (int i = 0; i < n; i++) arrays[k][i] = BitConverter.ToSingle(data, pos + 4 + 4 * i);
+         pos += 4 + 4 * n;
+      }
+      var bars = new List<LiraBarSpecBar>(arrays[0].Length);
+      for (int i = 0; i < arrays[0].Length; i++)
+      {
+         float d = arrays[0][i], a = arrays[1][i], x = arrays[2][i], y = arrays[3][i];
+         if (!(d is > 0 and < 200) || !(a is > 0 and < 500) || !float.IsFinite(x) || !float.IsFinite(y)
+             || Math.Abs(x) > 1e4 || Math.Abs(y) > 1e4)
+            return null;
+         bars.Add(new LiraBarSpecBar(x, y, d, a));
+      }
+      next = pos;
+      return bars;
    }
 
    static LiraPlateReinforcementType ReadPlateBody(Cursor r, int kind, int id, string name, string comment,
@@ -381,6 +472,7 @@ public static class LiraRbtReader
    {
       int _pos = pos;
 
+      public int Position => _pos;
       public void Skip(int n) { Need(n); _pos += n; }
       public byte Byte() { Need(1); return data[_pos++]; }
       public short Int16() { Need(2); var v = BitConverter.ToInt16(data, _pos); _pos += 2; return v; }

@@ -837,7 +837,7 @@
    <system:String x:Key="ImportLiraErrorTitle">LIRA import</system:String>
    <system:String x:Key="LiraRbtFilter">LIRA reinforcement types (*.RBT)|*.RBT|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraRbtOpenTitle">LIRA reinforcement types file (.RBT) for schema "{0}"</system:String>
-   <system:String x:Key="LiraRbtLoaded">Reinforcement types file {0}: {1} plate types, {2} bar types (row at the bottom or top face), {3} other (not parsed)</system:String>
+   <system:String x:Key="LiraRbtLoaded">Reinforcement types file {0}: {1} plate types, {2} bar types (face rows and AS_spec), {3} other (not parsed)</system:String>
    <system:String x:Key="LiraRbtBarsHaveNoTypes">The file has bar reinforcement types, but the schema bars have no reinforcement type numbers. Open the schema in LIRA and run "Refresh element reinforcement type numbers from LIRA (API)" from the schema menu.</system:String>
    <system:String x:Key="FemSchemaRefreshLiraTza">Refresh element reinforcement type numbers from LIRA (API)</system:String>
    <system:String x:Key="LiraTzaRefreshBusy">Reading the "Elements - reinforcement types" table from LIRA…</system:String>

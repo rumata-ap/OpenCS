@@ -837,7 +837,7 @@
    <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
    <system:String x:Key="LiraRbtFilter">Типы заданного армирования ЛИРЫ (*.RBT)|*.RBT|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraRbtOpenTitle">Файл ТЗА ЛИРЫ (.RBT) для схемы «{0}»</system:String>
-   <system:String x:Key="LiraRbtLoaded">Файл ТЗА {0}: пластинчатых типов {1}, брусовых (ряд у нижней или верхней грани) {2}, прочих (не разобраны) {3}</system:String>
+   <system:String x:Key="LiraRbtLoaded">Файл ТЗА {0}: пластинчатых типов {1}, брусовых (ряды у граней и AS_spec) {2}, прочих (не разобраны) {3}</system:String>
    <system:String x:Key="LiraRbtBarsHaveNoTypes">В файле есть брусовые ТЗА, но у стержней схемы нет номеров ТЗА. Откройте схему в ЛИРЕ и выполните «Обновить номера ТЗА элементов из ЛИРЫ (API)» в меню схемы.</system:String>
    <system:String x:Key="FemSchemaRefreshLiraTza">Обновить номера ТЗА элементов из ЛИРЫ (API)</system:String>
    <system:String x:Key="LiraTzaRefreshBusy">Чтение таблицы «Элементы - ТЗА» из ЛИРЫ…</system:String>

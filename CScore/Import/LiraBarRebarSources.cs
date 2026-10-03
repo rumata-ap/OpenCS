@@ -5,8 +5,9 @@ using CScore.PlateRebar;
 namespace CScore.Import;
 
 /// <summary>
-/// Заданное армирование стержней ЛИРЫ: ТЗА КЭ (ячейка «Элементы - ТЗА») + простые брусовые ТЗА из .RBT
-/// (ряды у нижней и верхней грани). Площади рядов одной грани из разных ТЗА складываются.
+/// Заданное армирование стержней ЛИРЫ: ТЗА КЭ (ячейка «Элементы - ТЗА») + брусовые ТЗА из .RBT
+/// (ряды у нижней и верхней грани; у AS_spec низ — стержни с y &lt; 0, верх — с y &gt; 0, на оси — пополам).
+/// Площади рядов одной грани из разных ТЗА складываются.
 /// КЭ без ТЗА или с ТЗА, которых среди разобранных брусовых нет, — «нет данных»; грань без ряда — 0.
 /// По длине КЭ заданное армирование постоянно.
 /// </summary>
@@ -43,7 +44,15 @@ public sealed class LiraRbtBarRebarSource : IBarRebarFieldSource
       foreach (int id in ids.Distinct())
       {
          if (!rbt.BarTypes.TryGetValue(id, out var type)) return null;
-         if (type.Face == LiraBarRebarFace.Bottom) bottom += type.AreaCm2;
+         if (type.IsSpec)
+         {
+            // AS_spec: стержни ниже оси — низ, выше — верх, на оси — пополам.
+            foreach (var s in type.Bars)
+               if (s.YCm < 0) bottom += s.AreaCm2;
+               else if (s.YCm > 0) top += s.AreaCm2;
+               else { bottom += s.AreaCm2 / 2; top += s.AreaCm2 / 2; }
+         }
+         else if (type.Face == LiraBarRebarFace.Bottom) bottom += type.AreaCm2;
          else top += type.AreaCm2;
       }
       return (bottom, top);
