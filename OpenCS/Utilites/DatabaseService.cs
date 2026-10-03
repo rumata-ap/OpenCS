@@ -1,4 +1,4 @@
-﻿using CScore;
+using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using CScore.PlateRebar;
@@ -6735,7 +6735,7 @@ namespace OpenCS.Utilites
       /// Назначает сечения КЭ сетки одной транзакцией (сечения стержней импортированных схем). Объекты КЭ в памяти
       /// получают те же <c>CrossSectionId</c>.
       /// </summary>
-      public void SetFemElementCrossSections(IEnumerable<(CScore.Fem.FemElement Element, int SectionId)> assignments)
+      public void SetFemElementCrossSections(IEnumerable<(CScore.Fem.FemElement Element, int? SectionId)> assignments)
       {
          using var tx = _connection.BeginTransaction();
          using var cmd = _connection.CreateCommand();
@@ -6745,7 +6745,7 @@ namespace OpenCS.Utilites
          var idParam = cmd.Parameters.Add("@id", SqliteType.Integer);
          foreach (var (element, sectionId) in assignments)
          {
-            csParam.Value = sectionId;
+            csParam.Value = (object?)sectionId ?? DBNull.Value;
             idParam.Value = element.Id;
             cmd.ExecuteNonQuery();
             element.CrossSectionId = sectionId;
