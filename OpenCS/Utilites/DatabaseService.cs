@@ -6731,6 +6731,28 @@ namespace OpenCS.Utilites
          tx.Commit();
       }
 
+      /// <summary>
+      /// Назначает сечения КЭ сетки одной транзакцией (сечения стержней импортированных схем). Объекты КЭ в памяти
+      /// получают те же <c>CrossSectionId</c>.
+      /// </summary>
+      public void SetFemElementCrossSections(IEnumerable<(CScore.Fem.FemElement Element, int SectionId)> assignments)
+      {
+         using var tx = _connection.BeginTransaction();
+         using var cmd = _connection.CreateCommand();
+         cmd.Transaction = tx;
+         cmd.CommandText = "UPDATE fem_elements SET cross_section_id=@cs WHERE id=@id";
+         var csParam = cmd.Parameters.Add("@cs", SqliteType.Integer);
+         var idParam = cmd.Parameters.Add("@id", SqliteType.Integer);
+         foreach (var (element, sectionId) in assignments)
+         {
+            csParam.Value = sectionId;
+            idParam.Value = element.Id;
+            cmd.ExecuteNonQuery();
+            element.CrossSectionId = sectionId;
+         }
+         tx.Commit();
+      }
+
       /// <summary>Сохраняет один конструктивный элемент (INSERT/UPDATE по m.Id). Используется точечными
       /// операциями вне полной пересборки топологии — например, массовым назначением сечения всем
       /// элементам группы из FemMemberEditorPage.</summary>
