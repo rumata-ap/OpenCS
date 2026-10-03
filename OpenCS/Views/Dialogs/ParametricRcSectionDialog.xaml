@@ -132,6 +132,11 @@
                         </Grid>
                      </StackPanel>
                   </GroupBox>
+                  <DockPanel Margin="0,0,0,6" Visibility="{Binding HasExtraBars, Converter={StaticResource BoolToVisibility}}">
+                     <Button DockPanel.Dock="Right" Content="{DynamicResource ParametricRcExtraBarsClear}" Padding="10,2"
+                             Click="ClearExtraBars_Click"/>
+                     <TextBlock Text="{Binding ExtraBarsText}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0"/>
+                  </DockPanel>
                   <GroupBox Header="{DynamicResource ParametricRcPolarRebar}"
                             Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}">
                      <Grid Margin="7">

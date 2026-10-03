@@ -44,6 +44,16 @@ public sealed record ParametricLongitudinalLayer(
 /// <summary>Равномерная полярная раскладка физических стержней.</summary>
 public sealed record ParametricPolarRebar(int Count, double DiameterM, double RadiusM);
 
+/// <summary>
+/// Отдельный продольный стержень, заданный координатами (армирование по данным схемы-источника: угловые и боковые
+/// стержни подбора, второй диаметр и второй ряд заданного армирования).
+/// </summary>
+/// <param name="X">Абсцисса центра, м.</param>
+/// <param name="Y">Ордината центра, м.</param>
+/// <param name="AreaM2">Площадь, м² (у распределённой арматуры — доля площади грани).</param>
+/// <param name="DiameterM">Диаметр (у распределённой арматуры — эквивалентный по площади), м.</param>
+public sealed record ParametricRebarPoint(double X, double Y, double AreaM2, double DiameterM);
+
 /// <summary>Параметрический источник типового железобетонного сечения в единицах СИ.</summary>
 public sealed record ParametricRcSectionDefinition(
     ParametricRcShape Shape, double WidthM, double HeightM, double WebThicknessM,
@@ -60,6 +70,11 @@ public sealed record ParametricRcSectionDefinition(
     public int LongitudinalMaterialId { get; init; }
     /// <summary>Необязательные наборы открытых срезов поперечной арматуры.</summary>
     public IReadOnlyList<ParametricStirrupCutSet> StirrupCuts { get; init; } = [];
+    /// <summary>
+    /// Дополнительные продольные стержни (материал — <see cref="LongitudinalMaterialId"/>), кроме верхнего и нижнего
+    /// рядов; не для круга и кольца. Записи без поля читаются как пустой список.
+    /// </summary>
+    public IReadOnlyList<ParametricRebarPoint> ExtraBars { get; init; } = [];
     /// <summary>Создаёт прямоугольное сечение.</summary>
     public static ParametricRcSectionDefinition Rectangle(double widthM, double heightM) =>
         new(ParametricRcShape.Rectangle, widthM, heightM, 0, 0, 0, "Параметрическое сечение", null, null, null);

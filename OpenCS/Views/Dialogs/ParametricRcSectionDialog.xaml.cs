@@ -22,4 +22,6 @@ public partial class ParametricRcSectionDialog : Window
         if (!ViewModel.CanSave) return;
         DialogResult = true;
     }
+
+    void ClearExtraBars_Click(object sender, RoutedEventArgs e) => ViewModel.ClearExtraBars();
 }

@@ -55,6 +55,7 @@ public static class ParametricRcSectionGenerator
                 "Нижняя арматура", definition.LongitudinalMaterialId);
             AddLayer(section, concrete, definition, definition.UpperRebar,
                 "Верхняя арматура", definition.LongitudinalMaterialId);
+            AddExtraBars(section, concrete, definition);
             AddStirrupCuts(section, definition);
         }
         return new(section, [])
@@ -78,6 +79,15 @@ public static class ParametricRcSectionGenerator
             if (!(layer!.DiameterM > 0)) errors.Add("Диаметр продольной арматуры должен быть положительным.");
             if (layer.IsIdealized && (!(layer.AreaM2 > 0) || layer.Axis is null)) errors.Add("Расчётный слой требует площадь и ось изгиба.");
             if (!layer.IsIdealized && layer.Count < 1) errors.Add("Число физических стержней должно быть не менее одного.");
+        }
+        if (d.ExtraBars.Count > 0)
+        {
+            if (d.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
+                errors.Add("Для круга и кольца отдельные стержни не поддерживаются.");
+            else if (d.ExtraBars.Any(b => !(b.AreaM2 > 0) || !(b.DiameterM > 0)))
+                errors.Add("Площадь и диаметр отдельных стержней должны быть положительными.");
+            else if (d.WidthM > 0 && d.HeightM > 0 && !d.ExtraBars.All(b => InsideWithMargin(OuterPoints(d), b.X, b.Y, b.DiameterM / 2)))
+                errors.Add("Отдельные стержни выходят за контур бетонного сечения.");
         }
         if (d.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
         {
@@ -209,6 +219,38 @@ public static class ParametricRcSectionGenerator
 
         double step = (max - min) / (layer.Count - 1);
         return [.. Enumerable.Range(0, layer.Count).Select(i => min + i * step)];
+    }
+
+    static void AddExtraBars(CrossSection section, MaterialArea concrete, ParametricRcSectionDefinition definition)
+    {
+        if (definition.ExtraBars.Count == 0) return;
+        var area = new MaterialArea
+        {
+            Tag = "Арматура по данным схемы", Category = AreaCategory.RebarGroup,
+            MaterialId = definition.LongitudinalMaterialId, HostArea = concrete, HostAreaId = concrete.Id,
+            RebarRepresentation = RebarRepresentation.PhysicalBars,
+        };
+        foreach (var b in definition.ExtraBars)
+            area.Fibers.Add(Bar(b.X, b.Y, b.AreaM2, b.DiameterM));
+        section.Areas.Add(area);
+    }
+
+    /// <summary>Точка внутри многоугольника и отстоит от его сторон не меньше чем на <paramref name="margin"/>.</summary>
+    static bool InsideWithMargin(IReadOnlyList<(double X, double Y)> polygon, double x, double y, double margin)
+    {
+        const double tol = 1e-9;
+        bool inside = false;
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+        {
+            var (xi, yi) = polygon[i];
+            var (xj, yj) = polygon[j];
+            if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+            double dx = xj - xi, dy = yj - yi, len2 = dx * dx + dy * dy;
+            double t = len2 > 0 ? Math.Clamp(((x - xi) * dx + (y - yi) * dy) / len2, 0, 1) : 0;
+            double ex = xi + t * dx - x, ey = yi + t * dy - y;
+            if (Math.Sqrt(ex * ex + ey * ey) < margin - tol) return false;
+        }
+        return inside;
     }
 
     static void AddPolarRebar(CrossSection section, MaterialArea concrete,

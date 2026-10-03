@@ -135,6 +135,8 @@ public sealed class ParametricRcPreviewControl : FrameworkElement
         DrawLayer(dc, boundary, definition, definition.UpperRebar, vm.UpperRebarEnabled, vm.UpperRebarIdealized,
             vm.UpperRebarDiameterMm, vm.UpperRebarAreaMm2, vm.GetRebarCentroidCoordinateMm(false),
             vm.UpperRebarAxis, Math.Max(0, vm.StirrupCoverMm) / 1000.0, toScreen, scale);
+        foreach (var bar in definition.ExtraBars)
+            DrawBar(dc, toScreen((bar.X, bar.Y)), bar.DiameterM * scale);
     }
 
     void DrawLayer(DrawingContext dc, IReadOnlyList<(double X, double Y)> boundary,

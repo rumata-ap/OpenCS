@@ -10,6 +10,23 @@ namespace OpenCS.Tests;
 public sealed class ParametricRcSectionVMTests
 {
     [Fact]
+    public void ExtraBars_KeptOnLoadAndBuild_ClearRemoves()
+    {
+        var source = ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+        {
+            Tag = "Брус", ExtraBars = [new ParametricRebarPoint(-0.1, -0.2, 3.14e-4, 0.02), new ParametricRebarPoint(0.1, -0.2, 3.14e-4, 0.02)],
+        };
+        var vm = new ParametricRcSectionVM();
+        vm.LoadDefinition(source);
+
+        Assert.True(vm.HasExtraBars);
+        Assert.Equal(source.ExtraBars, vm.BuildDefinition().ExtraBars);
+
+        vm.ClearExtraBars();
+        Assert.False(vm.HasExtraBars);
+        Assert.Empty(vm.BuildDefinition().ExtraBars);
+    }
+    [Fact]
     public void BuildDefinitionConvertsMillimetresToMetres()
     {
         var vm = new ParametricRcSectionVM

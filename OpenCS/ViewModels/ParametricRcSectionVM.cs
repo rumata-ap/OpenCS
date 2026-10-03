@@ -33,6 +33,7 @@ public sealed class ParametricRcSectionVM : ViewModelBase
     double _stirrupRswMpa = 280;
     ParametricStirrupZone _stirrupZone = ParametricStirrupZone.Body;
     ParametricStirrupDirection _stirrupDirection = ParametricStirrupDirection.Vertical;
+    IReadOnlyList<ParametricRebarPoint> _extraBars = [];
 
     /// <summary>Дополнительные наборы срезов; основной набор задаётся полями мастера.</summary>
     public ObservableCollection<ParametricStirrupCutSet> AdditionalStirrupCuts { get; } = [];
@@ -105,6 +106,27 @@ public sealed class ParametricRcSectionVM : ViewModelBase
     public double PolarRebarDiameterMm { get => _polarRebarDiameterMm; set { _polarRebarDiameterMm = value; OnPropertyChanged(); RefreshPreview(); } }
     /// <summary>Радиус центра полярных стержней, мм.</summary>
     public double PolarRebarRadiusMm { get => _polarRebarRadiusMm; set { _polarRebarRadiusMm = value; OnPropertyChanged(); RefreshPreview(); } }
+
+    /// <summary>Отдельные стержни по данным схемы-источника (только сохраняются и показываются; не для круга и кольца).</summary>
+    public IReadOnlyList<ParametricRebarPoint> ExtraBars
+    {
+        get => _extraBars;
+        set
+        {
+            _extraBars = value ?? [];
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasExtraBars));
+            OnPropertyChanged(nameof(ExtraBarsText));
+            RefreshPreview();
+        }
+    }
+    /// <summary>Есть отдельные стержни.</summary>
+    public bool HasExtraBars => _extraBars.Count > 0;
+    /// <summary>Подпись отдельных стержней: число и суммарная площадь.</summary>
+    public string ExtraBarsText => string.Format(System.Globalization.CultureInfo.CurrentCulture,
+        Loc.S("ParametricRcExtraBars"), _extraBars.Count, _extraBars.Sum(b => b.AreaM2) * 1e4);
+    /// <summary>Убрать отдельные стержни.</summary>
+    public void ClearExtraBars() => ExtraBars = [];
 
     /// <summary>Включает нижний продольный слой.</summary>
     public bool LowerRebarEnabled { get => _lowerRebarEnabled; set { _lowerRebarEnabled = value; OnPropertyChanged(); RefreshPreview(); } }
@@ -233,6 +255,7 @@ public sealed class ParametricRcSectionVM : ViewModelBase
         }
         LoadLayer(definition.LowerRebar, true);
         LoadLayer(definition.UpperRebar, false);
+        ExtraBars = definition.ExtraBars;
         var cut = definition.StirrupCuts.FirstOrDefault();
         StirrupsEnabled = definition.StirrupCuts.Any(c => c.Count > 0);
         if (cut is not null)
@@ -287,7 +310,8 @@ public sealed class ParametricRcSectionVM : ViewModelBase
             PolarRebar = ShowPolarFields
                 ? new ParametricPolarRebar(PolarRebarCount, PolarRebarDiameterMm / 1000.0,
                     PolarRebarRadiusMm / 1000.0)
-                : null
+                : null,
+            ExtraBars = ShowPolarFields ? [] : _extraBars,
         };
 
         var cuts = new List<ParametricStirrupCutSet>();
