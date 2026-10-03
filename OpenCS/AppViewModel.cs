@@ -547,6 +547,7 @@ namespace OpenCS
       public ICommand LoadLiraAspCommand { get; set; } = null!;
       /// <summary>Создать сечения пластинчатых целей схемы по данным ЛИРЫ (ASP + ТЗА).</summary>
       public ICommand CreateLiraPlateSectionsCommand { get; set; } = null!;
+      public ICommand CreateImportedBarSectionsCommand { get; set; } = null!;
       public ICommand ConvertLiraBlocksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл описаний ТЗА ЛИРЫ (.RBT).</summary>
       public ICommand LoadLiraRbtCommand { get; set; } = null!;
@@ -1474,6 +1475,7 @@ namespace OpenCS
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
+         CreateImportedBarSectionsCommand = new RelayCommand(p => CreateImportedBarSections(p as CScore.Fem.FemSchema));
          ConvertLiraBlocksCommand  = new RelayCommand(p => ConvertLiraBlocksToMembers(p as CScore.Fem.FemSchema));
          LoadLiraRbtCommand        = new RelayCommand(p => LoadLiraRbt(p as CScore.Fem.FemSchema));
          RefreshLiraReinforcementTypesCommand = new RelayCommand(p => RefreshLiraReinforcementTypes(p as CScore.Fem.FemSchema));
@@ -4240,6 +4242,64 @@ namespace OpenCS
          return report.Assigned.Count > 0;
       }
 
+      /// <summary>
+      /// Создаёт сечения стержней импортированной схемы (ЛИРА, SCAD): параметрические ЖБ-сечения по жёсткостям «Брус» /
+      /// S0 и классам материалов (подбор ЛИРЫ, ЖБ-группы SCAD), назначает их КЭ сетки без сечения.
+      /// </summary>
+      void CreateImportedBarSections(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         bool scad = schema.SourceType == "scad";
+         string title = Loc.S("BarSectionsTitle");
+
+         // Открытый редактор этой схемы держит КЭ в памяти и при сохранении перезапишет назначения.
+         bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return;
+
+         var data = Services.FemCheckSchemaData.Load(db, schema.Id);
+         foreach (string error in data.Errors)
+            LogService.Warning(error);
+
+         var report = Services.ImportedBarSectionCreator.Create(db, data);
+         if (report.NoMaterialData)
+         {
+            MessageBox.Show(Loc.S(scad ? "BarSectionsNoScadData" : "BarSectionsNoLiraData"), title,
+               MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+
+         foreach (string tag in report.Materials)
+            LogService.Info(string.Format(Loc.S("LiraSectionsMaterialCreated"), tag));
+         foreach (string tag in report.Sections)
+            LogService.Info(string.Format(Loc.S("BarSectionsSectionCreated"), tag));
+         foreach (var (section, count) in report.Assigned)
+            LogService.Info(string.Format(Loc.S("BarSectionsAssigned"), section, count));
+         var skippedLines = report.Skipped
+            .Select(s => string.Format(Loc.S("BarSectionsSkipped"), s.Elements.Count,
+               CScore.Fem.FemCheckReadiness.FormatRanges(s.Elements), s.Reason))
+            .ToList();
+         foreach (string line in skippedLines)
+            LogService.Warning(line);
+
+         string done = report.AssignedElements == 0 && report.Skipped.Count == 0
+            ? string.Format(Loc.S("BarSectionsNothing"), report.AlreadyAssigned)
+            : string.Format(Loc.S("BarSectionsSummary"), report.Materials.Count, report.Sections.Count,
+               report.Reused.Count, report.AssignedElements, report.AlreadyAssigned,
+               report.Skipped.Sum(s => s.Elements.Count));
+         LogService.Info(done);
+         StatusMessage = done;
+
+         if (report.Sections.Count > 0)
+         {
+            RefreshSectionLiveCollections();
+            MarkDirty(SaveCategory.CrossSections);
+         }
+         string details = string.Join("\n", skippedLines.Take(10));
+         MessageBox.Show(details.Length > 0 ? done + "\n\n" + details : done, title, MessageBoxButton.OK,
+            report.Skipped.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+         if (editorOpen && report.AssignedElements > 0) ReloadFemSchemaPage();
+      }
       /// <summary>
       /// Преобразует выбранные в диалоге кБ ЛИРЫ в конструктивные элементы схемы (стержни — по прямым цепочкам,
       /// пластины — плоскими элементами с контуром). Сетка ЛИРЫ не меняется, элементы получают замок сетки.

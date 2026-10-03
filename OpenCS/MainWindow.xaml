@@ -1346,6 +1346,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource FemSchemaCreateLiraBarSections}"
+                                           Command="{Binding PlacementTarget.Tag.CreateImportedBarSectionsCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource FemSchemaConvertLiraBlocks}"
                                            Command="{Binding PlacementTarget.Tag.ConvertLiraBlocksCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -1393,6 +1398,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource FemSchemaCreateScadBarSections}"
+                                           Command="{Binding PlacementTarget.Tag.CreateImportedBarSectionsCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
                                  <MenuItem Header="{DynamicResource ScadForcesSetProject}"
                                            Command="{Binding PlacementTarget.Tag.SetScadProjectPathCommand,

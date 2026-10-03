@@ -37,6 +37,7 @@ public class RcSectionBuilderTests
         var area = Assert.Single(result.Section.Areas);
         Assert.Equal(AreaCategory.Region, area.Category);
         Assert.Equal(3, area.MaterialId);
+        Assert.NotNull(area.Hull);
         Assert.Equal(-0.15, area.Hull.X.Min(), 9);
         Assert.Equal(0.15, area.Hull.X.Max(), 9);
         Assert.Equal(-0.25, area.Hull.Y.Min(), 9);

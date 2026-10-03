@@ -968,6 +968,8 @@
    <system:String x:Key="ScadSectionsDiameterTitle">Арматура сечения по данным SCAD</system:String>
    <system:String x:Key="ScadSectionsDiameter">Диаметр арматуры, мм (привязки — из ЖБ-группы; диаметр нужен для ширины раскрытия трещин)</system:String>
    <system:String x:Key="FemSchemaCreateScadPlateSections">Создать сечения пластин по данным SCAD…</system:String>
+   <system:String x:Key="FemSchemaCreateLiraBarSections">Создать сечения стержней по данным ЛИРЫ…</system:String>
+   <system:String x:Key="FemSchemaCreateScadBarSections">Создать сечения стержней по данным SCAD…</system:String>
    <system:String x:Key="ScadRebarLoad">Подобранная арматура SCAD (плагин)…</system:String>
    <system:String x:Key="ScadRebarFilter">Выгрузка плагина SCAD для OpenCS (*.opencs-scad.json)|*.opencs-scad.json|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="ScadRebarOpenTitle">Подобранная арматура SCAD (выгрузка плагина «Export to OpenCS») для схемы «{0}»</system:String>
@@ -2486,6 +2488,14 @@
     <system:String x:Key="LiraSectionsNominalDiameter">Диаметр, мм</system:String>
     <system:String x:Key="LiraSectionsMaterialCreated">Создан материал «{0}» по справочнику СП 63.13330</system:String>
     <system:String x:Key="LiraSectionsSectionCreated">Создано пластинчатое сечение «{0}»</system:String>
+   <system:String x:Key="BarSectionsAssigned">Сечение «{0}» назначено КЭ: {1}</system:String>
+   <system:String x:Key="BarSectionsNoLiraData">У схемы нет файла подбора ЛИРЫ (*.asp): классы бетона и арматуры стержней неизвестны. Загрузите подбор (меню схемы «ЛИРА» → «Загрузить подбор арматуры…»).</system:String>
+   <system:String x:Key="BarSectionsNoScadData">У схемы не прочитаны ЖБ-группы SCAD: классы бетона и арматуры стержней неизвестны. Обновите данные армирования из .SPR (меню схемы «SCAD»).</system:String>
+   <system:String x:Key="BarSectionsNothing">Стержневых КЭ без сечения нет (уже с сечением: {0})</system:String>
+   <system:String x:Key="BarSectionsSectionCreated">Создано сечение стержней «{0}»</system:String>
+   <system:String x:Key="BarSectionsSkipped">Пропущено КЭ: {0} ({1}) — {2}</system:String>
+   <system:String x:Key="BarSectionsSummary">Материалов создано: {0}, сечений создано: {1}, использовано существующих: {2}, назначено КЭ: {3}, уже с сечением: {4}, пропущено КЭ: {5}</system:String>
+   <system:String x:Key="BarSectionsTitle">Сечения стержней по данным схемы</system:String>
     <system:String x:Key="LiraSectionsAssigned">Сечение «{0}» назначено целям ({1}): {2}</system:String>
     <system:String x:Key="LiraSectionsNominalNote">Нет фонового ТЗА у грани {1} — в сечение поставлена условная арматура ⌀{2:0.#} шаг 200, привязка {3:0.#} мм. Цели: {0}</system:String>
     <system:String x:Key="LiraSectionsOtherCombos">«{0}»: сечение взято по преобладающим данным КЭ, в цели есть и другие ({1}). Толщина учитывается по каждому КЭ, материалы — по сечению цели</system:String>

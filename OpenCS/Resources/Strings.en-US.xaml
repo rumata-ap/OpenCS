@@ -968,6 +968,8 @@
    <system:String x:Key="ScadSectionsDiameterTitle">Section reinforcement from SCAD data</system:String>
    <system:String x:Key="ScadSectionsDiameter">Bar diameter, mm (covers are taken from the RC group; the diameter is needed for crack width)</system:String>
    <system:String x:Key="FemSchemaCreateScadPlateSections">Create plate sections from SCAD data…</system:String>
+   <system:String x:Key="FemSchemaCreateLiraBarSections">Create bar sections from LIRA data…</system:String>
+   <system:String x:Key="FemSchemaCreateScadBarSections">Create bar sections from SCAD data…</system:String>
    <system:String x:Key="ScadRebarLoad">SCAD selected reinforcement (plugin)…</system:String>
    <system:String x:Key="ScadRebarFilter">SCAD plugin export for OpenCS (*.opencs-scad.json)|*.opencs-scad.json|All files (*.*)|*.*</system:String>
    <system:String x:Key="ScadRebarOpenTitle">SCAD selected reinforcement (“Export to OpenCS” plugin output) for schema “{0}”</system:String>
@@ -2486,6 +2488,14 @@
     <system:String x:Key="LiraSectionsNominalDiameter">Diameter, mm</system:String>
     <system:String x:Key="LiraSectionsMaterialCreated">Material “{0}” created from the SP 63.13330 catalogue</system:String>
     <system:String x:Key="LiraSectionsSectionCreated">Plate section “{0}” created</system:String>
+   <system:String x:Key="BarSectionsAssigned">Section “{0}” assigned to elements: {1}</system:String>
+   <system:String x:Key="BarSectionsNoLiraData">The scheme has no LIRA design file (*.asp): concrete and rebar classes of bars are unknown. Load the design results (scheme menu “LIRA” → “Load selected reinforcement…”).</system:String>
+   <system:String x:Key="BarSectionsNoScadData">SCAD concrete groups of the scheme are not read: concrete and rebar classes of bars are unknown. Refresh reinforcement data from .SPR (scheme menu “SCAD”).</system:String>
+   <system:String x:Key="BarSectionsNothing">No bar elements without a section (already with section: {0})</system:String>
+   <system:String x:Key="BarSectionsSectionCreated">Bar section “{0}” created</system:String>
+   <system:String x:Key="BarSectionsSkipped">Skipped elements: {0} ({1}) — {2}</system:String>
+   <system:String x:Key="BarSectionsSummary">Materials created: {0}, sections created: {1}, existing reused: {2}, elements assigned: {3}, already with section: {4}, elements skipped: {5}</system:String>
+   <system:String x:Key="BarSectionsTitle">Bar sections from scheme data</system:String>
     <system:String x:Key="LiraSectionsAssigned">Section “{0}” assigned to targets ({1}): {2}</system:String>
     <system:String x:Key="LiraSectionsNominalNote">No background reinforcement type at face {1} — nominal rebar ⌀{2:0.#} at 200, distance {3:0.#} mm is used. Targets: {0}</system:String>
     <system:String x:Key="LiraSectionsOtherCombos">“{0}”: the section follows the prevailing element data, other data are present ({1}). Thickness is taken per element, materials from the target section</system:String>
