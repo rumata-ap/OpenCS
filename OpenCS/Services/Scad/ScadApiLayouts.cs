@@ -102,6 +102,49 @@ internal static class ScadApiLayouts
             SlaveGroup: b[ConcreteSlave]);
     }
 
+    /// <summary>Байт ApiSteelElem, нужных для разбора (до StepOutPlane_type включительно).</summary>
+    public const int SteelSize = 683;
+
+    const int SteelMarkOffset = 0, SteelWhatIs = 80, SteelType = 81, SteelRy = 88, SteelGammaN = 96, SteelGammaC = 104,
+        SteelMuXoZ = 120, SteelMuYoZ = 128, SteelLimA = 136, SteelLimB = 144, SteelStepLinear = 152,
+        SteelLimAAlpha = 160, SteelLengthXoZ = 176, SteelLengthYoZ = 184, SteelDesignType = 262, SteelSlave = 280,
+        SteelMarkUser = 329, SteelStepRatio = 425, SteelEffXoZ = 633, SteelEffYoZ = 637, SteelStepType = 679;
+
+    /// <summary>
+    /// ApiSteelElem (pack 1, смещения — по ScadStructHelpAPI.hxx, сверено пробником на 111.SPR 03.10).
+    /// Расчётные длины и линейный шаг раскреплений — в единицах длины проекта, переводятся в м.
+    /// </summary>
+    public static ScadSteelGroup ParseSteel(ReadOnlySpan<byte> b, int num, string name, int[] elementIds, double lengthUnitM)
+    {
+        if (b.Length < SteelSize)
+            throw new ArgumentException($"ApiSteelElem: {b.Length} байт вместо {SteelSize}", nameof(b));
+        bool lengthXoZ = BinaryPrimitives.ReadInt32LittleEndian(b.Slice(SteelEffXoZ, 4)) == 1;
+        bool lengthYoZ = BinaryPrimitives.ReadInt32LittleEndian(b.Slice(SteelEffYoZ, 4)) == 1;
+        bool stepLinear = BinaryPrimitives.ReadInt32LittleEndian(b.Slice(SteelStepType, 4)) == 1;
+        return new ScadSteelGroup(
+            Num: num, Name: name, ElementIds: elementIds,
+            SteelMark: CString(b.Slice(SteelMarkOffset, 80)),
+            SteelMarkUser: CString(b.Slice(SteelMarkUser, 80)),
+            Ry: Double(b, SteelRy),
+            IsMember: b[SteelWhatIs] == 0,
+            ConstructionType: UInt16(b, SteelType),
+            GammaN: Double(b, SteelGammaN),
+            GammaC: Double(b, SteelGammaC),
+            MuXoZ: Double(b, SteelMuXoZ),
+            MuYoZ: Double(b, SteelMuYoZ),
+            LengthXoZ: lengthXoZ ? Meters(b, SteelLengthXoZ, lengthUnitM) : null,
+            LengthYoZ: lengthYoZ ? Meters(b, SteelLengthYoZ, lengthUnitM) : null,
+            CompressionLimit: Double(b, SteelLimA),
+            CompressionLimitAlpha: Double(b, SteelLimAAlpha),
+            TensionLimit: Double(b, SteelLimB),
+            StepOutPlane: stepLinear ? Meters(b, SteelStepLinear, lengthUnitM) : null,
+            StepOutPlaneRatio: Double(b, SteelStepRatio),
+            SlaveGroup: b[SteelSlave],
+            DesignType: b[SteelDesignType]);
+    }
+
+    static double Meters(ReadOnlySpan<byte> b, int offset, double unitM) => Math.Round(Double(b, offset) * unitM, 9);
+
     /// <summary>ApiArmPlate: LPSTR Text, UINT Quantity, UINT* List, затем ApiArmElemPlate (по значению).</summary>
     public const int ArmPlateQuantity = 8, ArmPlateList = 12, ArmPlateElem = 20;
 

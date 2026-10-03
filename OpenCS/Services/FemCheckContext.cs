@@ -36,6 +36,8 @@ public sealed class FemCheckSchemaData
     public ScadAssignedRebarFile? ScadAssigned { get; init; }
     /// <summary>Стальные профили жёсткостей STZ схемы SCAD; null — не прочитаны (нет вложения).</summary>
     public ScadSteelProfileIndex? ScadSteelProfiles { get; init; }
+    /// <summary>Стальные группы SCAD схемы; null — не прочитаны (нет вложения).</summary>
+    public ScadSteelGroupIndex? ScadSteelGroups { get; init; }
     /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
     public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
@@ -73,16 +75,21 @@ public sealed class FemCheckSchemaData
         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles) is { } steelFile)
             try { scadSteel = ScadSteelProfileIndex.FromJson(Encoding.UTF8.GetString(steelFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
+        ScadSteelGroupIndex? scadSteelGroups = null;
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups) is { } steelGroupsFile)
+            try { scadSteelGroups = ScadSteelGroupIndex.FromJson(Encoding.UTF8.GetString(steelGroupsFile.Data)); }
+            catch (InvalidDataException ex) { errors.Add(ex.Message); }
 
         var members = db.GetFemMembers(schemaId);
-        // Узлы и регионы нужны только раскладке OpenCS — у схемы без плоских элементов их не читаем.
+        // Узлы и регионы нужны раскладке OpenCS, узлы — ещё длинам КЭ стальных групп; иначе их не читаем.
         bool planar = members.Any(m => m.PlanarRegionId != null);
+        bool nodes = planar || scadSteelGroups is { Groups.Count: > 0 };
         return new FemCheckSchemaData
         {
             SchemaId = schemaId,
             Members = members,
             Mesh = db.GetFemMeshElements(schemaId),
-            MeshNodes = planar ? db.GetFemMeshNodes(schemaId) : [],
+            MeshNodes = nodes ? db.GetFemMeshNodes(schemaId) : [],
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
@@ -91,6 +98,7 @@ public sealed class FemCheckSchemaData
             ScadConcreteGroups = scadGroups,
             ScadAssigned = scadAssigned,
             ScadSteelProfiles = scadSteel,
+            ScadSteelGroups = scadSteelGroups,
             Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,
         };

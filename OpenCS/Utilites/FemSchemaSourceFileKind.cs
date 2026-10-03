@@ -17,5 +17,8 @@ namespace OpenCS.Utilites
       /// <see cref="CScore.Import.ScadSteelProfileIndex.ToJson"/>.
       /// </summary>
       public const string ScadSteelProfiles = "scad_steel_profiles";
+
+      /// <summary>Стальные группы SCAD схемы — JSON <see cref="CScore.Import.ScadSteelGroupIndex.ToJson"/>.</summary>
+      public const string ScadSteelGroups = "scad_steel_groups";
    }
 }

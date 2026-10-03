@@ -3175,6 +3175,7 @@ namespace OpenCS
          // ЖБ-группы читаются всегда (привязки и классы для подбора SCAD); флажок — только группы КЭ «ЖБ: …».
          var options = new Services.Scad.ScadReadOptions(vm.ReadOutputAxes, ConcreteGroups: true);
          bool concreteAsMemberGroups = vm.ConcreteGroupsAsMemberGroups;
+         bool steelAsMemberGroups = vm.SteelGroupsAsMemberGroups;
          var cts = BeginBusyWithCancellation(Loc.S("ScadApiImporting"), indeterminate: false);
          var progress = new Progress<double>(f => ReportBusyProgress(f));
          try
@@ -3209,14 +3210,18 @@ namespace OpenCS
             var concreteGroups = concreteAsMemberGroups
                ? ScadSchemaConverter.ToFemMemberGroupsByConcreteGroups(data, schema.Id)
                : [];
+            var steelGroups = steelAsMemberGroups
+               ? ScadSchemaConverter.ToFemMemberGroupsBySteelGroups(data, schema.Id)
+               : [];
             var memberGroups = ScadSchemaConverter.ToFemMemberGroups(data, schema.Id)
-               .Concat(blockGroups).Concat(concreteGroups).ToArray();
+               .Concat(blockGroups).Concat(concreteGroups).Concat(steelGroups).ToArray();
             var stiffnesses  = ScadSchemaConverter.ToSchemaStiffnesses(data);
 
             db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
             SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
+            if (data.SteelGroups.Count > 0) SaveScadSteelGroups(schema.Id, data.SteelGroups);
             SaveScadSteelProfiles(schema.Id, stiffnesses, dllDir);
             if (data.AssignedRebar != null) SaveScadAssignedRebar(schema.Id, data.AssignedRebar);
             RefreshFemSchemaTreeCounts(schema);
@@ -3234,7 +3239,8 @@ namespace OpenCS
             int barCount   = meshElements.Count(e => e.ElemType == "beam");
             int shellCount = meshElements.Count(e => e.ElemType == "shell");
             string done = string.Format(Loc.S("ScadApiImportSuccess"), schema.Tag, meshNodes.Length, barCount,
-               shellCount, memberGroups.Length, blockGroups.Length, concreteGroups.Length, stiffnesses.Length);
+               shellCount, memberGroups.Length, blockGroups.Length, concreteGroups.Length, stiffnesses.Length,
+               steelGroups.Length);
             LogService.Info(done);
             EndBusy(done);
          }
@@ -3899,6 +3905,11 @@ namespace OpenCS
             LogService.Warning(string.Format(Loc.S("ScadSteelProfileFailed"), e.Num, e.Source, e.Reason));
       }
 
+      /// <summary>Сохранить стальные группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelGroups"/>).</summary>
+      void SaveScadSteelGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadSteelGroup> groups) =>
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups, "",
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelGroupIndex.ToJson(groups)));
+
       /// <summary>Сохранить заданное армирование SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadAssignedRebar"/>).</summary>
       void SaveScadAssignedRebar(int schemaId, CScore.Import.ScadAssignedRebarFile file) =>
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar, "",
@@ -4019,7 +4030,7 @@ namespace OpenCS
          var cts = BeginBusyWithCancellation(Loc.S("ScadRebarReadingGroups"));
          try
          {
-            var (groups, assigned) = await Task.Run(() =>
+            var (groups, assigned, steelGroups) = await Task.Run(() =>
             {
                Services.Scad.ScadApiTrace.Write("Импорт: ожидание Gate");
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
@@ -4030,13 +4041,16 @@ namespace OpenCS
                   using var session = new Services.Scad.ScadApiSession(native);
                   session.Open(spr);
                   return (Services.Scad.ScadApiReader.ReadConcreteGroups(session),
-                     Services.Scad.ScadApiReader.ReadAssignedRebar(session));
+                     Services.Scad.ScadApiReader.ReadAssignedRebar(session),
+                     Services.Scad.ScadApiReader.ReadSteelGroups(session));
                }
                finally { Services.Scad.ScadApiNative.Gate.Release(); }
             }, cts.Token);
             SaveScadConcreteGroups(schema.Id, groups);
             SaveScadAssignedRebar(schema.Id, assigned);
-            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count, assigned.Plates.Count, assigned.Rods.Count);
+            SaveScadSteelGroups(schema.Id, steelGroups);
+            string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count, assigned.Plates.Count, assigned.Rods.Count,
+               steelGroups.Count);
             LogService.Info(done);
             EndBusy(done);
          }

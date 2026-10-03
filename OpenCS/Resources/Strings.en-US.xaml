@@ -914,6 +914,7 @@
    <system:String x:Key="ScadApiReadOutputAxes">Plate force output axes</system:String>
    <system:String x:Key="ScadApiReadOutputAxesTip">Angle of the X1 axis in which SCAD outputs plate forces (force output coordinate systems).</system:String>
    <system:String x:Key="ScadApiReadConcreteGroups">RC groups as element groups</system:String>
+   <system:String x:Key="ScadApiReadSteelGroups">Steel groups as element groups (Steel: …)</system:String>
    <system:String x:Key="ScadApiTargetNewSchema">Import creates a new schema. Updating an existing schema will come later.</system:String>
    <system:String x:Key="ScadApiImportButton">Import</system:String>
    <system:String x:Key="ScadApiSprFilter">SCAD project (*.SPR)|*.SPR;*.spr|All files (*.*)|*.*</system:String>
@@ -938,7 +939,7 @@
    <system:String x:Key="ScadApiPathNotAnsi">Path “{0}” contains characters outside Windows-1251 — SCAD cannot open it. Rename the file or folder.</system:String>
    <system:String x:Key="ScadApiImporting">Importing SCAD schema…</system:String>
    <system:String x:Key="ScadApiImportCancelled">SCAD schema import cancelled.</system:String>
-   <system:String x:Key="ScadApiImportSuccess">Imported SCAD schema “{0}”: {1} nodes, {2} bars, {3} shells, {4} element groups (blocks {5}, RC groups {6}), stiffnesses {7}.</system:String>
+   <system:String x:Key="ScadApiImportSuccess">Imported SCAD schema “{0}”: {1} nodes, {2} bars, {3} shells, {4} element groups (blocks {5}, RC groups {6}, steel groups {8}), stiffnesses {7}.</system:String>
    <system:String x:Key="ScadApiSkippedType">Skipped elements of type {0}: {1} (neither bar nor shell).</system:String>
    <system:String x:Key="ScadApiDeletedElements">Elements deleted in SCAD were not imported: {0}.</system:String>
    <system:String x:Key="ScadApiBarsWithoutShape">Bar stiffnesses with a non-rectangular section (no section for checks): {0}.</system:String>
@@ -988,7 +989,7 @@
    <system:String x:Key="SteelChoiceCreateC245">Create C245 per SP 16.13330.2017</system:String>
    <system:String x:Key="SteelChoiceNotInCatalog">Grade C245 is not in the structural steel catalog — steel sections were not created.</system:String>
    <system:String x:Key="BarSectionsSteelSummary">Steel sections among them: {0}.</system:String>
-   <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}.</system:String>
+   <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}; steel groups: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh schema data from .SPR (RC groups, reinforcement, steel profiles)</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
    <system:String x:Key="ScadPluginInstall">Install plugin into SCAD…</system:String>

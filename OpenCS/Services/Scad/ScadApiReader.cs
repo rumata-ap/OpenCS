@@ -5,7 +5,8 @@ using CScore.Planar;
 namespace OpenCS.Services.Scad;
 
 /// <summary>Что читать из проекта SCAD помимо схемы (узлы, КЭ, жёсткости, группы, блоки).</summary>
-internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true, bool AssignedRebar = true);
+internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true, bool AssignedRebar = true,
+    bool SteelGroups = true);
 
 /// <summary>
 /// Итог чтения схемы: данные и сведения для предупреждений (текст — в потоке UI по ресурсам).
@@ -91,6 +92,8 @@ internal static unsafe class ScadApiReader
         using (ScadApiTrace.Step("Блоки")) ReadBlocks(s, data);
         if (options.ConcreteGroups)
             using (ScadApiTrace.Step("ЖБ-группы")) ReadConcreteGroups(s, data);
+        if (options.SteelGroups)
+            using (ScadApiTrace.Step("Стальные группы")) ReadSteelGroups(s, data);
         if (options.AssignedRebar)
             using (ScadApiTrace.Step("Заданное армирование")) data.AssignedRebar = ReadAssignedRebar(s);
         int degenerate = 0;
@@ -225,6 +228,30 @@ internal static unsafe class ScadApiReader
         var data = new ScadSchemaData();
         ReadConcreteGroups(s, data);
         return data.ConcreteGroups;
+    }
+
+    /// <summary>Только стальные группы проекта (дочитывание к уже импортированной схеме).</summary>
+    public static List<ScadSteelGroup> ReadSteelGroups(ScadApiSession s)
+    {
+        var data = new ScadSchemaData { LengthUnitM = Units(s).Length.ToMeters };
+        ReadSteelGroups(s, data);
+        return data.SteelGroups;
+    }
+
+    static void ReadSteelGroups(ScadApiSession s, ScadSchemaData data)
+    {
+        var n = s.Native;
+        nint h = s.Handle;
+        uint count = n.ApiGetQuantitySteel(h);
+        for (uint i = 1; i <= count; i++)
+        {
+            byte* p;
+            uint q;
+            uint* list;
+            if (n.ApiGetSteel(h, i, &p, &q, &list) != 0 || p == null) continue;
+            data.SteelGroups.Add(ScadApiLayouts.ParseSteel(new ReadOnlySpan<byte>(p, ScadApiLayouts.SteelSize), (int)i,
+                ScadApiSession.Str(n.ApiGetNameSteel(h, i)), Ids(list, q), data.LengthUnitM));
+        }
     }
 
     /// <summary>Сырые записи ApiArmElemPlate групп заданного армирования пластин — для сверки раскладки.</summary>

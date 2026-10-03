@@ -147,6 +147,11 @@ public static class ScadSchemaConverter
         OverlappingGroups(data, schemaId, data.ConcreteGroups.Select(g =>
             ($"ЖБ: {(string.IsNullOrWhiteSpace(g.Name) ? g.Num.ToString() : g.Name.Trim())}", g.ElementIds)));
 
+    /// <summary>Группы КЭ «Сталь: &lt;имя&gt;» по стальным группам SCAD (КЭ может входить и в другие группы).</summary>
+    public static FemMemberGroup[] ToFemMemberGroupsBySteelGroups(ScadSchemaData data, int schemaId) =>
+        OverlappingGroups(data, schemaId, data.SteelGroups.Select(g =>
+            ($"Сталь: {(string.IsNullOrWhiteSpace(g.Name) ? g.Num.ToString() : g.Name.Trim())}", g.ElementIds)));
+
     static FemMemberGroup[] OverlappingGroups(ScadSchemaData data, int schemaId,
         IEnumerable<(string Tag, int[] ElementIds)> source)
     {

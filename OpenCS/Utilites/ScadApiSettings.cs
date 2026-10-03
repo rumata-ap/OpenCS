@@ -25,6 +25,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("concreteGroups")]
       public bool ConcreteGroupsAsMemberGroups { get; set; } = true;
 
+      /// <summary>Создавать группы КЭ «Сталь: …» по стальным группам SCAD.</summary>
+      [JsonPropertyName("steelGroups")]
+      public bool SteelGroupsAsMemberGroups { get; set; } = true;
+
       /// <summary>Группы РСУ SCAD, импортируемые в наборы: 0 — C, 1 — CL, 2 — N, 3 — NL.</summary>
       [JsonPropertyName("rsuGroups")]
       public int[] RsuGroups { get; set; } = [0, 1, 2, 3];

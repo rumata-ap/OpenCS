@@ -50,6 +50,9 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort> ApiGetConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetNameConcrete;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantitySteel;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort> ApiGetSteel;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetNameSteel;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityArmElemPlate;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort> ApiGetArmElemPlate;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityArmElemRod;
@@ -97,6 +100,9 @@ internal sealed unsafe class ScadApiNative
         ApiGetQuantityConcrete = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityConcrete));
         ApiGetConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort>)F(nameof(ApiGetConcrete));
         ApiGetNameConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetNameConcrete));
+        ApiGetQuantitySteel = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantitySteel));
+        ApiGetSteel = (delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort>)F(nameof(ApiGetSteel));
+        ApiGetNameSteel = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetNameSteel));
         ApiGetQuantityArmElemPlate = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityArmElemPlate));
         ApiGetArmElemPlate = (delegate* unmanaged[Stdcall]<nint, uint, byte**, ushort>)F(nameof(ApiGetArmElemPlate));
         ApiGetQuantityArmElemRod = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityArmElemRod));

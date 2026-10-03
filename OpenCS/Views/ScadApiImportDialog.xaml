@@ -34,6 +34,8 @@
                           Margin="0,4,0,0" ToolTip="{DynamicResource ScadApiReadOutputAxesTip}"/>
                 <CheckBox Content="{DynamicResource ScadApiReadConcreteGroups}"
                           IsChecked="{Binding ConcreteGroupsAsMemberGroups}" Margin="0,4,0,0"/>
+                <CheckBox Content="{DynamicResource ScadApiReadSteelGroups}"
+                          IsChecked="{Binding SteelGroupsAsMemberGroups}" Margin="0,4,0,0"/>
             </StackPanel>
         </GroupBox>
 

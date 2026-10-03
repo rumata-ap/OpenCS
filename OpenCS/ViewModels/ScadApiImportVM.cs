@@ -27,6 +27,7 @@ public sealed class ScadApiImportVM : ViewModelBase
         _sprPath = settings.LastProjectPath is { } last && File.Exists(last) ? last : "";
         _readOutputAxes = settings.ReadOutputAxes;
         _concreteGroups = settings.ConcreteGroupsAsMemberGroups;
+        _steelGroups = settings.SteelGroupsAsMemberGroups;
 
         BrowseSprCommand = new RelayCommand(_ =>
         {
@@ -81,6 +82,10 @@ public sealed class ScadApiImportVM : ViewModelBase
     /// <summary>Создать группы КЭ по ЖБ-группам SCAD.</summary>
     public bool ConcreteGroupsAsMemberGroups { get => _concreteGroups; set { _concreteGroups = value; OnPropertyChanged(); } }
 
+    bool _steelGroups;
+    /// <summary>Создать группы КЭ «Сталь: …» по стальным группам SCAD.</summary>
+    public bool SteelGroupsAsMemberGroups { get => _steelGroups; set { _steelGroups = value; OnPropertyChanged(); } }
+
     string _status;
     /// <summary>Сводка открытого проекта или сообщение об ошибке.</summary>
     public string Status { get => _status; private set { _status = value; OnPropertyChanged(); } }
@@ -101,6 +106,7 @@ public sealed class ScadApiImportVM : ViewModelBase
         s.LastProjectPath = SprPath;
         s.ReadOutputAxes = ReadOutputAxes;
         s.ConcreteGroupsAsMemberGroups = ConcreteGroupsAsMemberGroups;
+        s.SteelGroupsAsMemberGroups = SteelGroupsAsMemberGroups;
     }
 
     async Task ProbeAsync()

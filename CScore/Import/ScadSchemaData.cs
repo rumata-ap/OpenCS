@@ -55,6 +55,9 @@ public class ScadSchemaData
     /// <summary>ЖБ-группы SCAD. Пусто — не читались (txt).</summary>
     public List<ScadConcreteGroup>   ConcreteGroups { get; } = [];
 
+    /// <summary>Стальные группы SCAD (ApiGetSteel); пусто — нет или не читались.</summary>
+    public List<ScadSteelGroup>      SteelGroups { get; } = [];
+
     /// <summary>Заданное армирование SCAD. Null — не читалось (txt).</summary>
     public ScadAssignedRebarFile?    AssignedRebar { get; set; }
 
