@@ -4319,7 +4319,7 @@ namespace OpenCS
             .Select(s => string.Format(Loc.S("BarSectionsSkipped"), s.Elements.Count,
                CScore.Fem.FemCheckReadiness.FormatRanges(s.Elements), s.Reason))
             .ToList();
-         foreach (string line in skippedLines)
+         foreach (string line in skippedLines.Concat(report.Warnings))
             LogService.Warning(line);
 
          string done = report.AssignedElements == 0 && report.Skipped.Count == 0

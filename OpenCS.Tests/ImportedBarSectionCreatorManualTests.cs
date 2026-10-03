@@ -45,8 +45,24 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
                     foreach (var e in entries)
                         output.WriteLine($"  STZ {e.Num} ({e.Source}): {(e.Shape is { } s ? $"{s.Name} {s.Standard}, A={s.ACm2} см², Iy={s.IyCm4}, Iz={s.IzCm4} см⁴" : e.Reason)}");
                 }
+                // OPENCS_SCAD_STEEL_SPR — стальные группы из .SPR (как «Обновить данные схемы из .SPR»).
+                if (schema.SourceType == "scad" && Environment.GetEnvironmentVariable("OPENCS_SCAD_STEEL_SPR") is { Length: > 0 } spr)
+                {
+                    string dll = Environment.GetEnvironmentVariable("OPENCS_SCAD_DIR")
+                                 ?? OpenCS.Services.Scad.ScadInstallLocator.FindDllDirectory()!;
+                    using var session = new OpenCS.Services.Scad.ScadApiSession(OpenCS.Services.Scad.ScadApiNative.Load(dll));
+                    session.Open(spr);
+                    var groups = OpenCS.Services.Scad.ScadApiReader.ReadSteelGroups(session);
+                    db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadSteelGroups, "",
+                        System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelGroupIndex.ToJson(groups)));
+                    output.WriteLine($"  стальных групп SCAD: {groups.Count}");
+                    // Сечения КЭ стальных групп (назначенные прежним выбором стали) — снять, чтобы сталь взялась по марке.
+                    var steelIds = groups.SelectMany(g => g.ElementIds).Select(id => id.ToString()).ToHashSet();
+                    db.SetFemElementCrossSections([.. db.GetFemMeshElements(schema.Id)
+                        .Where(e => steelIds.Contains(e.ElemTag)).Select(e => (e, (int?)null))]);
+                }
                 var data = FemCheckSchemaData.Load(db, schema.Id);
-                int bars = data.Mesh.Count(e => e.ElemType != "shell");
+                int bars =data.Mesh.Count(e => e.ElemType != "shell");
                 output.WriteLine($"=== Схема «{schema.Tag}» ({schema.SourceType}): КЭ {data.Mesh.Count}, стержней {bars}, " +
                                  $"жёсткостей {data.Stiffnesses.Count}, ASP {(data.Asp != null ? "есть" : "нет")}, " +
                                  $"ЖБ-групп SCAD {(data.ScadConcreteGroups != null ? "есть" : "нет")}");
@@ -66,6 +82,25 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
                 var saved = db.GetFemMeshElements(schema.Id).Where(e => e.ElemType != "shell").ToList();
                 int withSection = saved.Count(e => e.CrossSectionId != null);
                 output.WriteLine($"  в БД стержней с сечением: {withSection} из {saved.Count}");
+
+                // Параметры СП 16 проверки по КЭ из стальных групп — по одному КЭ на группу.
+                if (data.ScadSteelGroups is { } steelGroups)
+                {
+                    var scope = new FemCheckScope([], [.. data.Mesh.Where(e => e.ElemType != "shell")
+                        .Select(e => new FemCheckScopeElement(int.Parse(e.ElemTag), e, null))], RefersToMeshElements: true);
+                    var (paramsOf, warnings) = FemCheckContext.SteelGroupParams(data, scope);
+                    foreach (string w in warnings) output.WriteLine("  проверка: " + w);
+                    foreach (var g in steelGroups.Groups)
+                    {
+                        var e = scope.Elements.First(x => x.ElemNum == g.ElementIds[0]);
+                        var p = CScore.Sp16.SteelDesignParams.Parse(paramsOf!(e, new CScore.Sp16.SteelDesignParams().ToJson()));
+                        var section = db.CrossSections.Single(s => s.Id == db.GetFemMeshElements(schema.Id)
+                            .Single(x => x.ElemTag == e.Element.ElemTag).CrossSectionId);
+                        output.WriteLine($"  КЭ {e.ElemNum} ({g.Name}): γc {p.GammaC}, lef,x {p.LefX:0.###}, lef,y {p.LefY:0.###}, " +
+                                         $"lef,b {p.LefB:0.###}, λu {p.CompressionLimit}, сечение «{section.Tag}», " +
+                                         $"сталь {section.Areas[0].Material!.Tag} Ry(N) {section.Areas[0].Material!.N!.Ry}");
+                    }
+                }
 
                 // Повторный запуск — без новых сечений и материалов.
                 var again = ImportedBarSectionCreator.Create(db, FemCheckSchemaData.Load(db, schema.Id), catalogDirectory: CatalogDirectory(),

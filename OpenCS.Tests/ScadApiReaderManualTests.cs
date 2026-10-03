@@ -114,6 +114,41 @@ public class ScadApiReaderManualTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Стальные группы (срез 3 сечений стержней): модель OPENCS_SCAD_STEEL_SPR = 111.SPR — группы «Связи» и
+    /// «Балки» (пробник 03.10). Без переменной тест ничего не делает.
+    /// </summary>
+    [Fact]
+    public void ReadSteelGroups()
+    {
+        string? spr = Environment.GetEnvironmentVariable("OPENCS_SCAD_STEEL_SPR");
+        if (string.IsNullOrWhiteSpace(spr)) return;
+        string dir = Environment.GetEnvironmentVariable("OPENCS_SCAD_DIR") ?? ScadInstallLocator.FindDllDirectory()!;
+        using var s = new ScadApiSession(ScadApiNative.Load(dir));
+        s.Open(spr);
+
+        var groups = ScadApiReader.ReadSteelGroups(s);
+        foreach (var g in groups)
+            output.WriteLine($"Сталь {g.Num} «{g.Name}», КЭ {g.ElementIds.Length}: {g.SteelMark}, γc {g.GammaC}, γn {g.GammaN}, " +
+                $"μ {g.MuXoZ}/{g.MuYoZ}, l {g.LengthXoZ}/{g.LengthYoZ}, λu {g.CompressionLimit}−{g.CompressionLimitAlpha}α/{g.TensionLimit}, " +
+                $"шаг {g.StepOutPlane?.ToString() ?? $"{g.StepOutPlaneRatio}·l"}, конструктивный элемент {g.IsMember}, тип {g.ConstructionType}");
+
+        Assert.Equal(2, groups.Count);
+        var ties = groups.Single(g => g.Name == "Связи");
+        var beams = groups.Single(g => g.Name == "Балки");
+        Assert.Equal(31, ties.ElementIds.Length);
+        Assert.Equal(33, beams.ElementIds.Length);
+        Assert.Equal("C255", beams.SteelMark);
+        Assert.Equal(0.8, beams.GammaC, 9);
+        Assert.Equal(2, beams.MuXoZ, 9);
+        Assert.Equal(0.5, beams.StepOutPlane!.Value, 9);
+        Assert.Null(ties.StepOutPlane);
+        Assert.Equal(1, ties.StepOutPlaneRatio, 9);
+        Assert.Equal(180, ties.CompressionLimit, 9);
+        Assert.Equal(60, ties.CompressionLimitAlpha, 9);
+        Assert.Equal(400, ties.TensionLimit, 9);
+    }
+
+    /// <summary>
     /// Усилия, комбинации и РСУ (срез 2): КЭ 814 (стержень) и 55459 (пластина) — числа пробника p9–p11,
     /// затем время чтения группы «Покрытие».
     /// </summary>
