@@ -999,6 +999,9 @@
    <system:String x:Key="ScadPluginAccessDenied">No access to the SCAD plugin directory:&#x0a;{0}&#x0a;&#x0a;Copy the contents of folder&#x0a;{1}&#x0a;into that directory manually (Explorer, as administrator).&#x0a;&#x0a;{2}&#x0a;&#x0a;Open the plugin folder?</system:String>
    <system:String x:Key="ScadPluginInstalled">The plugin was installed in {0}. Restart SCAD; the command is in the postprocessor plugin menu: “Export to OpenCS”.</system:String>
    <system:String x:Key="FemCheckNoScadSelected">The schema has no SCAD selected reinforcement (schema menu “SCAD → SCAD selected reinforcement (plugin)…”)</system:String>
+   <system:String x:Key="FemCheckSteelGroupParams">SP 16 parameters (γc, effective lengths μ·l, lateral restraint spacing, limiting slenderness) of {0} elements are taken from SCAD steel groups; other elements use the check parameters.</system:String>
+   <system:String x:Key="FemCheckSteelGroupNoLength">{0} elements of SCAD steel groups have no length (mesh nodes missing) — check parameters are used.</system:String>
+   <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} of SCAD steel group {0} is not applied in the check.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">The SCAD schema has no assigned reinforcement groups (schema menu “Refresh RC groups and assigned reinforcement from .SPR”)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">Target elements are not in SCAD assigned reinforcement groups</system:String>
    <system:String x:Key="ScadForcesImporting">Importing SCAD forces: {0} elements, “{1}”…</system:String>

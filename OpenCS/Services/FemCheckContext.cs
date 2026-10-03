@@ -228,8 +228,13 @@ public static class FemCheckContext
         var sections = new Dictionary<int, CrossSection>();
         foreach (var s in app.CrossSections) sections.TryAdd(s.Id, s);
         var targetSection = targetSectionId is int id ? sections.GetValueOrDefault(id) : null;
+        var (elementParams, paramWarnings) = check.NormCode == "steel_check"
+            ? SteelGroupParams(data, scope)
+            : (null, []);
         return new FemPerElementInputs
         {
+            BarElementParams = elementParams,
+            Warnings = paramWarnings,
             TargetBarSection = targetSection,
             BarSectionById = sid => sections.GetValueOrDefault(sid),
             BarSources = check.NormCode == "rc_check"
@@ -246,6 +251,53 @@ public static class FemCheckContext
                 : data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
                   ?? new Dictionary<int, double>(),
         };
+    }
+
+    /// <summary>
+    /// Параметры СП 16 стальных КЭ из стальных групп SCAD (только для проверки по КЭ): γc, расчётные длины,
+    /// раскрепления, предельные гибкости поверх параметров проверки. КЭ вне групп и КЭ без длины — параметры
+    /// проверки. Нет стальных групп — (null, []).
+    /// </summary>
+    public static (Func<FemCheckScopeElement, string, string?>? Params, List<string> Warnings) SteelGroupParams(
+        FemCheckSchemaData data, FemCheckScope scope)
+    {
+        if (data.ScadSteelGroups is not { Groups.Count: > 0 } groups) return (null, []);
+
+        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in data.MeshNodes) nodes.TryAdd(n.NodeTag, n);
+        var bars = new Dictionary<int, FemElement>();
+        foreach (var e in data.Mesh)
+            if (e.ElemType != "shell" && int.TryParse(e.ElemTag, out int num)) bars.TryAdd(num, e);
+        double? LengthOf(int num)
+        {
+            if (!bars.TryGetValue(num, out var e) || FemMeshTopology.ReadNodeTags(e) is not { Count: 2 } tags
+                || !nodes.TryGetValue(tags[0], out var a) || !nodes.TryGetValue(tags[1], out var b)) return null;
+            double l = Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y) + (a.Z - b.Z) * (a.Z - b.Z));
+            return l > 0 ? l : null;
+        }
+        double? LengthIn(ScadSteelGroup g, int num) => ImportedSteelDesign.Length(g, num, LengthOf);
+
+        // Сводка — по КЭ цели.
+        int withParams = 0, noLength = 0;
+        var gammaN = new SortedDictionary<int, ScadSteelGroup>();
+        foreach (var e in scope.Elements)
+        {
+            if (e.Element.ElemType == "shell" || e.ElemNum is not int num || groups.Find(num) is not { } g) continue;
+            if (LengthIn(g, num) == null) { noLength++; continue; }
+            withParams++;
+            if (Math.Abs(g.GammaN - 1) > 1e-9 && g.GammaN > 0) gammaN.TryAdd(g.Num, g);
+        }
+        var warnings = new List<string>();
+        if (withParams > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelGroupParams"), withParams));
+        if (noLength > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelGroupNoLength"), noLength));
+        foreach (var g in gammaN.Values)
+            warnings.Add(string.Format(Loc.S("FemCheckSteelGroupGammaN"), ScadSteelGroupIndex.Label(g), g.GammaN));
+
+        return ((e, baseJson) =>
+        {
+            if (e.ElemNum is not int num || groups.Find(num) is not { } g || LengthIn(g, num) is not double l) return null;
+            return ImportedSteelDesign.Apply(CScore.Sp16.SteelDesignParams.Parse(baseJson), g, l).ToJson();
+        }, warnings);
     }
 
     /// <summary>
