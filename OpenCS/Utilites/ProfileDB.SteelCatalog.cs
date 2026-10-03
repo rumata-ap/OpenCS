@@ -56,7 +56,7 @@ public interface ISteelSortament
     SteelCatalogEntry? GetSteelCatalogEntry(int subtypeId, int profileId);
 }
 
-public partial class ProfileDB : ISteelSortament
+public partial class ProfileDB : ISteelSortament, CScore.Import.ISteelCatalogLookup
 {
     /// <summary>
     /// Соответствие подтипов <c>ShapeSubTypes</c> видам и изготовлению ядра СП 16. Уклон внутренних граней
@@ -191,4 +191,53 @@ public partial class ProfileDB : ISteelSortament
         cmd.Parameters.AddWithValue("@id", subtypeId);
         return cmd.ExecuteScalar() as string ?? "";
     }
+
+    readonly Dictionary<int, List<SteelCatalogEntry>> _subtypeEntries = [];
+
+    /// <summary>
+    /// Строка сортамента для профиля импортированной схемы: подтип того же вида и изготовления, в названии
+    /// которого есть номер стандарта профиля («26020», «АСЧМ»), размеры совпадают до 0,1 мм (радиусы — у
+    /// двутавров, швеллеров и уголков); при нескольких совпадениях — с тем же именем. null — не найдена.
+    /// </summary>
+    public ParametricSteelCatalogRef? Find(CScore.Import.ImportedSteelShape shape)
+    {
+        string core = StandardCore(shape.Standard);
+        if (core.Length == 0) return null;
+        var candidates = new List<SteelCatalogEntry>();
+        foreach (var subtype in GetSteelCatalogSubtypes(shape.Kind, shape.Fabrication))
+        {
+            if (!subtype.Name.Contains(core, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!_subtypeEntries.TryGetValue(subtype.Id, out var entries))
+                _subtypeEntries[subtype.Id] = entries = GetSteelCatalogProfiles(subtype.Id)
+                    .Select(p => GetSteelCatalogEntry(subtype.Id, p.Id)).OfType<SteelCatalogEntry>().ToList();
+            candidates.AddRange(entries.Where(e => SameDimensions(e, shape)));
+        }
+        var best = candidates.FirstOrDefault(e => NormalizeName(e.Name) == NormalizeName(shape.Name))
+                   ?? candidates.FirstOrDefault();
+        return best?.ToCatalogRef();
+    }
+
+    /// <summary>Номер стандарта для сравнения с названием подтипа: 4–5 цифр («8240») либо «АСЧМ».</summary>
+    static string StandardCore(string standard)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(standard, @"\d{4,5}");
+        if (m.Success) return m.Value;
+        return standard.Contains("АСЧМ", StringComparison.OrdinalIgnoreCase) ? "АСЧМ" : "";
+    }
+
+    static bool SameDimensions(SteelCatalogEntry e, CScore.Import.ImportedSteelShape s)
+    {
+        static bool Eq(double a, double b) => Math.Abs(a - b) < 0.5e-4 + 1e-9;
+        bool radii = s.Kind is SteelProfileKind.IBeam or SteelProfileKind.Channel or SteelProfileKind.Angle;
+        return s.Kind switch
+        {
+            SteelProfileKind.Pipe => Eq(e.H, s.H) && Eq(e.Tw, s.Tw),
+            SteelProfileKind.Box => Eq(e.H, s.H) && Eq(e.B, s.B) && Eq(e.Tw, s.Tw),
+            _ => Eq(e.H, s.H) && Eq(e.B, s.B) && Eq(e.Tw, s.Tw) && Eq(e.Tf, s.Tf) && (!radii || Eq(e.R1, s.R1)),
+        };
+    }
+
+    /// <summary>Имя профиля без пробелов, префикса «L», с латинским «x» и точкой («25 x 16 x 3» = «L25x16x3»).</summary>
+    static string NormalizeName(string name) =>
+        name.Replace(" ", "").Replace('х', 'x').Replace('Х', 'x').Replace('X', 'x').Replace(',', '.').TrimStart('L');
 }
