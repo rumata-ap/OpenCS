@@ -57,6 +57,10 @@ internal static class ScadApiLayouts
     public const int LoadingDataSize = 58, LoadingDataName = 42;
 
     /// <summary>API_RESULT_LOAD_COMB — результаты от комбинаций загружений.</summary>
+    /// <summary>Смещение номера шага нелинейного процесса (WORD NumStep) в ApiLoadingData.</summary>
+    public const int LoadingDataStep = 10;
+    /// <summary>API_RESULT_LOAD — результаты загружений.</summary>
+    public const uint ResultLoad = 11;
     public const uint ResultLoadComb = 12;
 
     const int ConcreteModule = 0, ConcreteCrack = 2, ConcreteRange = 8, ConcreteClassBeton = 124,

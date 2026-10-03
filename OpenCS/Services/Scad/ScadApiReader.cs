@@ -6,7 +6,7 @@ namespace OpenCS.Services.Scad;
 
 /// <summary>Что читать из проекта SCAD помимо схемы (узлы, КЭ, жёсткости, группы, блоки).</summary>
 internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true, bool AssignedRebar = true,
-    bool SteelGroups = true);
+    bool SteelGroups = true, bool AnalysisModel = true);
 
 /// <summary>
 /// Итог чтения схемы: данные и сведения для предупреждений (текст — в потоке UI по ресурсам).
@@ -67,6 +67,7 @@ internal static unsafe class ScadApiReader
         uint elemCount = n.ApiGetElemQuantity(h);
         int deletedElements = 0;
         var skipped = new Dictionary<int, int>();
+        var rigidBodies = new List<(int Elem, int Stiffness, int[] Nodes)>();
         for (uint i = 1; i <= elemCount; i++)
         {
             if (i % CancelStride == 0) { ct.ThrowIfCancellationRequested(); progress?.Report(0.3 + 0.6 * i / elemCount); }
@@ -76,6 +77,13 @@ internal static unsafe class ScadApiReader
             if (n.ApiElemGetData(h, i, &type, &rigid, &qn, &list) != 0 || list == null && qn > 0) continue;
             if (ScadElementKinds.Classify((int)type, (int)qn) == ScadElementKind.Skip)
             {
+                if (type == ScadRigidBodyType && qn >= 2)
+                {
+                    var bodyNodes = new int[qn];
+                    for (int k = 0; k < qn; k++) bodyNodes[k] = (int)list[k];
+                    rigidBodies.Add(((int)i, (int)rigid, bodyNodes));
+                    continue;
+                }
                 skipped[(int)type] = skipped.GetValueOrDefault((int)type) + 1;
                 continue;
             }
@@ -96,6 +104,9 @@ internal static unsafe class ScadApiReader
             using (ScadApiTrace.Step("Стальные группы")) ReadSteelGroups(s, data);
         if (options.AssignedRebar)
             using (ScadApiTrace.Step("Заданное армирование")) data.AssignedRebar = ReadAssignedRebar(s);
+        if (options.AnalysisModel)
+            using (ScadApiTrace.Step("Опоры, жёсткие тела, нагрузки"))
+                data.AnalysisModel = ReadAnalysisModel(s, data, rigidBodies);
         int degenerate = 0;
         if (options.OutputAxes)
             using (ScadApiTrace.Step("Оси выдачи усилий")) degenerate = ReadOutputAxes(s, data, coords, lu);
@@ -109,6 +120,64 @@ internal static unsafe class ScadApiReader
             .Order().ToList();
 
         return new ScadApiReadResult(data, skipped, deletedElements, deletedNodes, noShape, degenerate);
+    }
+
+    /// <summary>Код типа КЭ «абсолютно жёсткое тело» (пробник 03.10: 9 узлов, жёсткость «SPRING … Type 100»).</summary>
+    const uint ScadRigidBodyType = 100;
+
+    /// <summary>
+    /// Расчётная модель сверх сетки: закрепления (ApiGetBound), жёсткие тела (КЭ 100, собраны при чтении КЭ),
+    /// нагрузки загружений (ApiGetForceNode/Elem/Area) в единицах проекта.
+    /// </summary>
+    static ScadAnalysisModel ReadAnalysisModel(ScadApiSession s, ScadSchemaData data,
+        IReadOnlyList<(int Elem, int Stiffness, int[] Nodes)> rigidBodies)
+    {
+        var n = s.Native;
+        nint h = s.Handle;
+        var bounds = new Dictionary<int, int>();
+        foreach (var node in data.Nodes)
+        {
+            uint mask = n.ApiGetBound(h, (uint)node.Id);
+            if ((mask & 0x3F) != 0) bounds[node.Id] = (int)(mask & 0x3F);
+        }
+
+        var stiffById = data.Stiffnesses.ToDictionary(r => r.Id);
+        var bodies = rigidBodies.Select(b => new ScadRigidBody(b.Elem, b.Stiffness, b.Nodes[0], b.Nodes[1..],
+            ScadAnalysisModel.RigidBodyMask(stiffById.GetValueOrDefault(b.Stiffness)?.Text))).ToList();
+
+        var loads = new List<ScadLoadCase>();
+        uint loadCount = n.ApiGetQuantityLoad(h);
+        for (uint l = 1; l <= loadCount; l++)
+            loads.Add(new ScadLoadCase((int)l, ScadApiSession.Str(n.ApiGetLoadName(h, l)),
+                ReadLoads(h, l, n.ApiGetQuantityForceNode(h, l), n.ApiGetForceNode),
+                ReadLoads(h, l, n.ApiGetQuantityForceElem(h, l), n.ApiGetForceElem),
+                ReadLoads(h, l, n.ApiGetQuantityForceArea(h, l), n.ApiGetForceArea)));
+
+        var (_, _, force) = Units(s);
+        return new ScadAnalysisModel
+        {
+            Bounds = bounds, RigidBodies = bodies, LoadCases = loads, LengthUnitM = data.LengthUnitM,
+            ForceUnitN = force.Coef > 0 ? 9810.0 / force.Coef : 1,
+        };
+    }
+
+    static ScadLoadRecord[] ReadLoads(nint h, uint load, uint count,
+        delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort> get)
+    {
+        var records = new List<ScadLoadRecord>((int)count);
+        for (uint pp = 1; pp <= count; pp++)
+        {
+            byte qw, qn;
+            uint qd, ql;
+            double* d;
+            uint* list;
+            if (get(h, load, pp, &qw, &qn, &qd, &d, &ql, &list) != 0) continue;
+            var values = d == null ? [] : new ReadOnlySpan<double>(d, (int)qd).ToArray();
+            var ids = new int[list == null ? 0 : ql];
+            for (int k = 0; k < ids.Length; k++) ids[k] = (int)list[k];
+            records.Add(new ScadLoadRecord(qw, qn, values, ids));
+        }
+        return [.. records];
     }
 
     /// <summary>Сводка проекта (без чтения координат); результаты — по рабочему каталогу.</summary>

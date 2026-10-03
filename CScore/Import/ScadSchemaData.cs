@@ -60,6 +60,8 @@ public class ScadSchemaData
 
     /// <summary>Заданное армирование SCAD. Null — не читалось (txt).</summary>
     public ScadAssignedRebarFile?    AssignedRebar { get; set; }
+    /// <summary>Закрепления, жёсткие тела и нагрузки (только SCADAPIX); null — не прочитаны.</summary>
+    public ScadAnalysisModel?        AnalysisModel { get; set; }
 
     /// <summary>
     /// Углы согласования осей выдачи усилий пластин: номер КЭ → угол X1 от «узел 1 → узел 2»

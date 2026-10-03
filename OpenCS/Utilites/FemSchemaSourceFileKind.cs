@@ -20,5 +20,11 @@ namespace OpenCS.Utilites
 
       /// <summary>Стальные группы SCAD схемы — JSON <see cref="CScore.Import.ScadSteelGroupIndex.ToJson"/>.</summary>
       public const string ScadSteelGroups = "scad_steel_groups";
+
+      /// <summary>Закрепления, жёсткие тела и нагрузки SCAD схемы — JSON <see cref="CScore.Import.ScadAnalysisModel.ToJson"/>.</summary>
+      public const string ScadAnalysisModel = "scad_analysis_model";
+
+      /// <summary>Перемещения узлов из результатов SCAD — JSON <see cref="CScore.Import.ScadDisplacementSet.ToJson"/>.</summary>
+      public const string ScadDisplacements = "scad_displacements";
    }
 }

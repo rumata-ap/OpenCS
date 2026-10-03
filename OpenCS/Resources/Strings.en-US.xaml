@@ -946,6 +946,7 @@
    <system:String x:Key="ScadApiDegenerateAxes">Elements with an undefined force output axis (system direction normal to the element plane): {0} — angle not set.</system:String>
    <system:String x:Key="ScadApiNoResults">SCAD analysis results were not found in the working directory “{0}”. Run the analysis in SCAD or specify the working directory.</system:String>
    <system:String x:Key="ScadApiNoForces">SCAD results (“{0}”) contain no element forces.</system:String>
+   <system:String x:Key="ScadApiNoDisplacements">SCAD results (“{0}”) contain no node displacements.</system:String>
    <system:String x:Key="ScadApiNoRsu">SCAD results (“{0}”) contain no design force combinations (RSU). Run the RSU analysis in SCAD.</system:String>
    <system:String x:Key="FemSchemaMenuLira">LIRA SAPR</system:String>
    <system:String x:Key="FemSchemaMenuScad">SCAD</system:String>

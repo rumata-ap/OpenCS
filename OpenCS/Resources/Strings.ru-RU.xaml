@@ -946,6 +946,7 @@
    <system:String x:Key="ScadApiDegenerateAxes">КЭ с неопределённой осью выдачи усилий (направление системы перпендикулярно плоскости КЭ): {0} — угол не задан.</system:String>
    <system:String x:Key="ScadApiNoResults">Результаты расчёта проекта SCAD не найдены в рабочем каталоге «{0}». Выполните расчёт в SCAD или укажите рабочий каталог.</system:String>
    <system:String x:Key="ScadApiNoForces">В результатах расчёта SCAD («{0}») нет усилий в элементах.</system:String>
+   <system:String x:Key="ScadApiNoDisplacements">В результатах расчёта SCAD («{0}») нет перемещений узлов.</system:String>
    <system:String x:Key="ScadApiNoRsu">В результатах расчёта SCAD («{0}») нет РСУ. Выполните расчёт РСУ в SCAD.</system:String>
    <system:String x:Key="FemSchemaMenuLira">ЛИРА-САПФИР</system:String>
    <system:String x:Key="FemSchemaMenuScad">SCAD</system:String>

@@ -67,6 +67,17 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetLoadName;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityComb;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint, byte*, ushort> ApiGetResultData;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint> ApiGetBound;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint> ApiGetQuantityForceNode;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint> ApiGetQuantityForceElem;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint> ApiGetQuantityForceArea;
+    /// <summary>ApiGetForceNode/Elem/Area(загружение, номер п/п, &amp;Qw, &amp;Qn, &amp;QntData, &amp;Data, &amp;QntList, &amp;List).</summary>
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort> ApiGetForceNode;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort> ApiGetForceElem;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort> ApiGetForceArea;
+    public readonly delegate* unmanaged[Stdcall]<nint, int> ApiYesDisplace;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint> ApiGetQuantityLoadStr;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint, double*> ApiGetDisplace;
 
     ScadApiNative(string path, nint lib)
     {
@@ -117,6 +128,16 @@ internal sealed unsafe class ScadApiNative
         ApiGetLoadName = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetLoadName));
         ApiGetQuantityComb = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityComb));
         ApiGetResultData = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint, byte*, ushort>)F(nameof(ApiGetResultData));
+        ApiGetBound = (delegate* unmanaged[Stdcall]<nint, uint, uint>)F(nameof(ApiGetBound));
+        ApiGetQuantityForceNode = (delegate* unmanaged[Stdcall]<nint, uint, uint>)F(nameof(ApiGetQuantityForceNode));
+        ApiGetQuantityForceElem = (delegate* unmanaged[Stdcall]<nint, uint, uint>)F(nameof(ApiGetQuantityForceElem));
+        ApiGetQuantityForceArea = (delegate* unmanaged[Stdcall]<nint, uint, uint>)F(nameof(ApiGetQuantityForceArea));
+        ApiGetForceNode = (delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort>)F(nameof(ApiGetForceNode));
+        ApiGetForceElem = (delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort>)F(nameof(ApiGetForceElem));
+        ApiGetForceArea = (delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, byte*, uint*, double**, uint*, uint**, ushort>)F(nameof(ApiGetForceArea));
+        ApiYesDisplace = (delegate* unmanaged[Stdcall]<nint, int>)F(nameof(ApiYesDisplace));
+        ApiGetQuantityLoadStr = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint>)F(nameof(ApiGetQuantityLoadStr));
+        ApiGetDisplace = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint, double*>)F(nameof(ApiGetDisplace));
     }
 
     /// <summary>
