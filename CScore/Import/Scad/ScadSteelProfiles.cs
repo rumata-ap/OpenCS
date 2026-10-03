@@ -46,13 +46,13 @@ public static class ScadSteelProfiles
         ImportedSteelShape? shape = table.Kind switch
         {
             1 => Make(SteelProfileKind.IBeam, SteelFabrication.Rolled,
-                V("h"), V("b"), V("s"), V("t"), V("r1"), V("r2"), Slope(table, row)),
+                V("h"), V("b"), V("s"), V("t"), Fillet(table, row), V("r2"), Slope(table, row)),
             // Тавр в ядре — только сварной: прокатный (разрезанный двутавр) строится без скругления у стенки.
             2 => Make(SteelProfileKind.Tee, SteelFabrication.Welded, V("h"), V("b"), V("s"), V("t"), 0),
             3 when bent => Make(SteelProfileKind.Channel, SteelFabrication.Bent,
                 V("h"), V("b"), V("s"), V("s"), V("r1")),
             3 => Make(SteelProfileKind.Channel, SteelFabrication.Rolled,
-                V("h"), V("b"), V("s"), V("t"), V("r1"), V("r2"), Slope(table, row)),
+                V("h"), V("b"), V("s"), V("t"), Fillet(table, row), V("r2"), Slope(table, row)),
             4 when bent => Make(SteelProfileKind.Angle, SteelFabrication.Bent, V("b"), V("b"), V("t"), V("t"), V("r1")),
             4 => Make(SteelProfileKind.Angle, SteelFabrication.Rolled, V("b"), V("b"), V("t"), V("t"), V("r1"), V("r2")),
             5 when bent => Make(SteelProfileKind.Angle, SteelFabrication.Bent, V("h"), V("b"), V("t"), V("t"), V("r1")),
@@ -82,14 +82,19 @@ public static class ScadSteelProfiles
         return table.Standard.Contains("8239") ? 0.12 : 0;
     }
 
+    /// <summary>Радиус сопряжения стенки и полки: r1, у ГОСТ Р 57837 изм. 1 — колонка R.</summary>
+    static double Fillet(ScadPrfTable table, ScadPrfRow row) =>
+        table.ValueSi(row, "r1") ?? table.ValueSi(row, "R") ?? 0;
+
     /// <summary>
-    /// Внутренний радиус гиба замкнутого профиля: R/r1 сортамента — наружный (ГОСТ 30245, 32931, Р 54157, 12336,
-    /// 25577: R ≈ 2s), внутренний = R − s; без колонки радиуса — s (наружный 2s).
+    /// Внутренний радиус гиба замкнутого профиля: колонка R — наружный радиус (ГОСТ 30245, 32931, Р 54157, 8639,
+    /// 8645), внутренний = R − s; колонка r1 — внутренний (ГОСТ 12336, 25577); без радиуса (ТУ 36-2287-80) —
+    /// острые углы, как площадь сортамента.
     /// </summary>
     static double InnerRadius(ScadPrfTable table, ScadPrfRow row)
     {
         double s = table.ValueSi(row, "s") ?? 0;
-        double outer = table.ValueSi(row, "R") ?? table.ValueSi(row, "r1") ?? 2 * s;
-        return Math.Max(0, outer - s);
+        if (table.ValueSi(row, "R") is double outer) return Math.Max(0, outer - s);
+        return table.ValueSi(row, "r1") ?? 0;
     }
 }
