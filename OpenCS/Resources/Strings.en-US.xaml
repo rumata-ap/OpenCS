@@ -981,6 +981,8 @@
    <system:String x:Key="ScadRebarLoaded">SCAD selected reinforcement {0}: plates {1}, bars {2} (matched to the schema).</system:String>
    <system:String x:Key="ScadRebarNoGroups">SCAD RC groups were not read — plate rebar covers are taken from the target section; bar checks by SCAD selection are not possible without them.</system:String>
    <system:String x:Key="ScadRebarReadingGroups">Reading SCAD RC groups and assigned reinforcement…</system:String>
+   <system:String x:Key="ScadSteelProfilesLoaded">SCAD steel profiles from the sortament: {0} of {1} STZ stiffnesses.</system:String>
+   <system:String x:Key="ScadSteelProfileFailed">Stiffness {0} (STZ {1}): {2}.</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh RC groups and assigned reinforcement from .SPR</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>

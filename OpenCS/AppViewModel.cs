@@ -3217,6 +3217,7 @@ namespace OpenCS
             db.SaveFemMemberGroups(schema.Id, memberGroups);
             db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
             SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
+            SaveScadSteelProfiles(schema.Id, stiffnesses, dllDir);
             if (data.AssignedRebar != null) SaveScadAssignedRebar(schema.Id, data.AssignedRebar);
             RefreshFemSchemaTreeCounts(schema);
 
@@ -3881,6 +3882,23 @@ namespace OpenCS
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups, "",
             System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadConcreteGroupIndex.ToJson(groups)));
 
+      /// <summary>
+      /// Разрешить по сортаментам SCAD (PRF из каталога <paramref name="prfDirectory"/>) стальные профили жёсткостей
+      /// STZ и сохранить их при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelProfiles"/>).
+      /// Нет жёсткостей STZ — вложение не создаётся; профили без сортамента — предупреждение в журнал.
+      /// </summary>
+      void SaveScadSteelProfiles(int schemaId, IEnumerable<CScore.Import.LiraStiffnessRecord> stiffnesses, string? prfDirectory)
+      {
+         var entries = Services.Scad.ScadSteelProfileLoader.Resolve(stiffnesses, prfDirectory);
+         if (entries.Count == 0) return;
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles, "",
+            System.Text.Encoding.UTF8.GetBytes(CScore.Import.ScadSteelProfileIndex.ToJson(entries)));
+         var failed = entries.Where(e => e.Shape == null).ToList();
+         LogService.Info(string.Format(Loc.S("ScadSteelProfilesLoaded"), entries.Count - failed.Count, entries.Count));
+         foreach (var e in failed)
+            LogService.Warning(string.Format(Loc.S("ScadSteelProfileFailed"), e.Num, e.Source, e.Reason));
+      }
+
       /// <summary>Сохранить заданное армирование SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadAssignedRebar"/>).</summary>
       void SaveScadAssignedRebar(int schemaId, CScore.Import.ScadAssignedRebarFile file) =>
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar, "",
@@ -3991,6 +4009,7 @@ namespace OpenCS
          string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
             ? settings.DllDirectory
             : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         SaveScadSteelProfiles(schema.Id, db.GetFemSchemaStiffnesses(schema.Id).Values, dllDir);
          if (spr == null || dllDir == null)
          {
             LogService.Warning(Loc.S("ScadRebarNoGroups"));

@@ -11,5 +11,11 @@ namespace OpenCS.Utilites
 
       /// <summary>Заданное армирование SCAD схемы — JSON <see cref="CScore.Import.ScadAssignedRebarFile.ToJson"/>.</summary>
       public const string ScadAssignedRebar = "scad_assigned_rebar";
+
+      /// <summary>
+      /// Стальные профили жёсткостей STZ схемы SCAD по сортаменту SCAD (PRF) — JSON
+      /// <see cref="CScore.Import.ScadSteelProfileIndex.ToJson"/>.
+      /// </summary>
+      public const string ScadSteelProfiles = "scad_steel_profiles";
    }
 }

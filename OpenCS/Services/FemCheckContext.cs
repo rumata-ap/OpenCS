@@ -34,6 +34,8 @@ public sealed class FemCheckSchemaData
     public ScadConcreteGroupIndex? ScadConcreteGroups { get; init; }
     /// <summary>Заданное армирование SCAD схемы; null — не прочитано из .SPR.</summary>
     public ScadAssignedRebarFile? ScadAssigned { get; init; }
+    /// <summary>Стальные профили жёсткостей STZ схемы SCAD; null — не прочитаны (нет вложения).</summary>
+    public ScadSteelProfileIndex? ScadSteelProfiles { get; init; }
     /// <summary>Жёсткости схемы-источника по номеру (размеры сечений стержней); пусто — схема их не хранит.</summary>
     public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
@@ -67,6 +69,10 @@ public sealed class FemCheckSchemaData
         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } assignedFile)
             try { scadAssigned = ScadAssignedRebarFile.FromJson(Encoding.UTF8.GetString(assignedFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
+        ScadSteelProfileIndex? scadSteel = null;
+        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles) is { } steelFile)
+            try { scadSteel = ScadSteelProfileIndex.FromJson(Encoding.UTF8.GetString(steelFile.Data)); }
+            catch (InvalidDataException ex) { errors.Add(ex.Message); }
 
         var members = db.GetFemMembers(schemaId);
         // Узлы и регионы нужны только раскладке OpenCS — у схемы без плоских элементов их не читаем.
@@ -84,6 +90,7 @@ public sealed class FemCheckSchemaData
             ScadSelected = scadSelected,
             ScadConcreteGroups = scadGroups,
             ScadAssigned = scadAssigned,
+            ScadSteelProfiles = scadSteel,
             Stiffnesses = db.GetFemSchemaStiffnesses(schemaId),
             Errors = errors,
         };
