@@ -77,4 +77,25 @@ public class RcSectionBuilderTests
         Assert.Contains("размеры сечения не заданы",
             RcSectionBuilder.Build(Brus(0, 0.5), 3, 4, "").Reason);
     }
+
+    [Fact]
+    public void Build_WithRebar_ExtraBarsTagAndKey()
+    {
+        var bars = new List<LiraBarPoint> { new(-0.11, -0.21, 3.14e-4, 0.02), new(0.11, -0.21, 3.14e-4, 0.02) };
+        var layout = new ImportedBarRebarLayout(bars, "ASP");
+        var (definition, reason) = RcSectionBuilder.Build(Brus(), 3, 4, "B25 A500", layout);
+
+        Assert.Null(reason);
+        Assert.Equal("Брус 300×500 B25 A500 ASP ΣAs 6,28 см²", definition!.Tag);
+        Assert.Equal(2, definition.ExtraBars.Count);
+        Assert.Empty(ParametricRcSectionGenerator.Generate(definition).Diagnostics);
+
+        var key = RcSectionBuilder.Key(Brus(), 3, 4, bars);
+        Assert.True(RcSectionBuilder.Matches(definition, key));
+        Assert.False(RcSectionBuilder.Matches(definition, RcSectionBuilder.Key(Brus(), 3, 4)));
+        Assert.False(RcSectionBuilder.Matches(RcSectionBuilder.Build(Brus(), 3, 4, "").Definition!, key));
+        // Порядок стержней не важен; разница в площади — другое сечение.
+        Assert.Equal(key, RcSectionBuilder.Key(Brus(), 3, 4, [bars[1], bars[0]]));
+        Assert.NotEqual(key, RcSectionBuilder.Key(Brus(), 3, 4, [bars[0], bars[1] with { AreaM2 = 2e-4 }]));
+    }
 }

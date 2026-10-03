@@ -118,6 +118,9 @@ public sealed record ScadAssignedRod(int Num, string Name, int[] ElementIds, Sca
 
     /// <summary>Участок с наименьшей продольной — для расчёта без номера сечения.</summary>
     public ScadAssignedRodPart? Weakest => Parts.Length == 0 ? null : Parts.MinBy(p => p.LongitudinalSum);
+
+    /// <summary>Участок с наибольшей продольной — для сечения проекта на весь КЭ (решение пользователя 03.10).</summary>
+    public ScadAssignedRodPart? Strongest => Parts.Length == 0 ? null : Parts.MaxBy(p => p.LongitudinalSum);
 }
 
 /// <summary>Площади стержней.</summary>

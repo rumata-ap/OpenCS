@@ -315,11 +315,12 @@ public sealed class LiraAssignedBarSectionSource(LiraBarSectionContext context, 
       string cell = element.Element.ReinforcementTypeIds?.Trim() ?? "";
       if (cell.Length == 0) return (null, "КЭ не назначены ТЗА");
       if (!_byCell.TryGetValue(cell, out var parsed))
-         _byCell[cell] = parsed = Parse(cell);
+         _byCell[cell] = parsed = ParseTypes(rbt, cell);
       return parsed;
    }
 
-   (List<LiraBarReinforcementType>?, string?) Parse(string cell)
+   /// <summary>Простые брусовые ТЗА ячейки КЭ («3», «3,5») либо причина, по которой их нет.</summary>
+   public static (List<LiraBarReinforcementType>? Types, string? Reason) ParseTypes(LiraRbtFile rbt, string cell)
    {
       IReadOnlyList<int> ids;
       try { ids = LiraPlateReinforcementAssembler.ParseTypeIds(cell); }
