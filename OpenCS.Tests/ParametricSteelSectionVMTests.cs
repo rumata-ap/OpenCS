@@ -225,11 +225,14 @@ public sealed class ProfileDbSteelCatalogTests
     public void SubtypesAreFilteredByKindAndFabrication()
     {
         var db = Db();
-        Assert.Equal([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-            db.GetSteelCatalogSubtypes(SteelProfileKind.IBeam, SteelFabrication.Rolled).Select(s => s.Id));
-        Assert.Equal([28, 29], db.GetSteelCatalogSubtypes(SteelProfileKind.Channel, SteelFabrication.Bent).Select(s => s.Id));
-        Assert.Equal([3, 4, 5, 6], db.GetSteelCatalogSubtypes(SteelProfileKind.Angle, SteelFabrication.Bent).Select(s => s.Id));
-        Assert.Equal([46], db.GetSteelCatalogSubtypes(SteelProfileKind.Pipe, SteelFabrication.Rolled).Select(s => s.Id));
+        // Подтипы 1–52 — исходные (из ЛИРЫ), с 53 — добавленные из сортамента SCAD (03.10).
+        IEnumerable<int> Original(SteelProfileKind kind, SteelFabrication fab) =>
+            db.GetSteelCatalogSubtypes(kind, fab).Select(s => s.Id).Where(id => id < 53);
+        Assert.Equal([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], Original(SteelProfileKind.IBeam, SteelFabrication.Rolled));
+        Assert.Contains(db.GetSteelCatalogSubtypes(SteelProfileKind.IBeam, SteelFabrication.Rolled), s => s.Id >= 53);
+        Assert.Equal([28, 29], Original(SteelProfileKind.Channel, SteelFabrication.Bent));
+        Assert.Equal([3, 4, 5, 6], Original(SteelProfileKind.Angle, SteelFabrication.Bent));
+        Assert.Equal([46], Original(SteelProfileKind.Pipe, SteelFabrication.Rolled));
         Assert.Empty(db.GetSteelCatalogSubtypes(SteelProfileKind.Box, SteelFabrication.Welded));
         Assert.Empty(db.GetSteelCatalogSubtypes(SteelProfileKind.Tee, SteelFabrication.Welded));
     }
