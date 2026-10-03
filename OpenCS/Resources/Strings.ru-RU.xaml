@@ -798,7 +798,7 @@
    <system:String x:Key="ForceSignConventionShellQx">Qx &gt; 0 — поперечная сила Qx направлена по +Z</system:String>
    <system:String x:Key="ForceSignConventionShellQy">Qy &gt; 0 — поперечная сила Qy направлена по +Z</system:String>
    <system:String x:Key="ForceSignConventionShellLiraNote">Схема и знаки — по правилам ЛИРА (зелёный — X, синий — Y, красный — Nxy, жёлтый — Mxy).</system:String>
-   <system:String x:Key="ForceSignConventionLiraNote">При импорте из LIRA знаки моментов могут инвертироваться — см. Настройки.</system:String>
+   <system:String x:Key="ForceSignConventionLiraNote">При импорте из ЛИРА-САПР знаки моментов могут инвертироваться — см. Настройки.</system:String>
    <system:String x:Key="ShellForceColNx">Nx, кН/м</system:String>
    <system:String x:Key="ShellForceColNy">Ny, кН/м</system:String>
    <system:String x:Key="ShellForceColNxy">Nxy, кН/м</system:String>
@@ -820,7 +820,7 @@
     <system:String x:Key="ImportMenu">Импорт</system:String>
     <system:String x:Key="ImportSubMenuDxf">DXF…</system:String>
     <system:String x:Key="ImportSubMenuAutoCAD">AutoCAD…</system:String>
-    <system:String x:Key="ImportSubMenuLira">ЛираСАПР…</system:String>
+    <system:String x:Key="ImportSubMenuLira">ЛИРА-САПР…</system:String>
     <system:String x:Key="ImportSubMenuScad">SCAD…</system:String>
     <system:String x:Key="ImportSubMenuRobot">Robot…</system:String>
     <system:String x:Key="ImportSubMenuRfem5">RFEM5…</system:String>
@@ -828,13 +828,13 @@
    <system:String x:Key="ImportCirclesFromDxf">Импорт окружностей из DXF…</system:String>
    <system:String x:Key="ImportContoursFromDxf">Импорт контуров из DXF…</system:String>
    <system:String x:Key="ImportAreasFromDxf">Импорт областей из DXF…</system:String>
-   <system:String x:Key="ImportLiraLoadCases">Импорт усилий LiraSAPR — по загружениям (HTML)…</system:String>
-   <system:String x:Key="ImportLiraRsn">Импорт усилий LiraSAPR — РСН (HTML)…</system:String>
-   <system:String x:Key="ImportLiraRsu">Импорт усилий LiraSAPR — РСУ (HTML)…</system:String>
-   <system:String x:Key="ImportLiraLoadCasesTitle">Импорт усилий LIRA — загружения</system:String>
-   <system:String x:Key="ImportLiraRsnTitle">Импорт усилий LIRA — РСН</system:String>
-   <system:String x:Key="ImportLiraRsuTitle">Импорт усилий LIRA — РСУ</system:String>
-   <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
+   <system:String x:Key="ImportLiraLoadCases">Импорт усилий ЛИРА-САПР — по загружениям (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsn">Импорт усилий ЛИРА-САПР — РСН (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsu">Импорт усилий ЛИРА-САПР — РСУ (HTML)…</system:String>
+   <system:String x:Key="ImportLiraLoadCasesTitle">Импорт усилий ЛИРА-САПР — загружения</system:String>
+   <system:String x:Key="ImportLiraRsnTitle">Импорт усилий ЛИРА-САПР — РСН</system:String>
+   <system:String x:Key="ImportLiraRsuTitle">Импорт усилий ЛИРА-САПР — РСУ</system:String>
+   <system:String x:Key="ImportLiraErrorTitle">Импорт ЛИРА-САПР</system:String>
    <system:String x:Key="LiraRbtFilter">Типы заданного армирования ЛИРЫ (*.RBT)|*.RBT|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraRbtOpenTitle">Файл ТЗА ЛИРЫ (.RBT) для схемы «{0}»</system:String>
    <system:String x:Key="LiraRbtLoaded">Файл ТЗА {0}: пластинчатых типов {1}, брусовых (ряды у граней и AS_spec) {2}, прочих (не разобраны) {3}</system:String>
@@ -895,9 +895,9 @@
    <system:String x:Key="LiraAspReadError">Не удалось прочитать файл подобранной арматуры {0}: {1}</system:String>
    <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
    <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>
-   <system:String x:Key="ImportLiraSchemaFromCsv">Импорт схемы ЛираСАПР (CSV)…</system:String>
-   <system:String x:Key="ImportLiraSchemaNodesTitle">Файл узлов ЛираСАПР (CSV)</system:String>
-   <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛираСАПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaFromCsv">Импорт схемы ЛИРА-САПР (CSV)…</system:String>
+   <system:String x:Key="ImportLiraSchemaNodesTitle">Файл узлов ЛИРА-САПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛИРА-САПР (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Файл жёсткостей стержней (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
@@ -950,7 +950,7 @@
    <system:String x:Key="ScadApiNoForces">В результатах расчёта SCAD («{0}») нет усилий в элементах.</system:String>
    <system:String x:Key="ScadApiNoDisplacements">В результатах расчёта SCAD («{0}») нет перемещений узлов.</system:String>
    <system:String x:Key="ScadApiNoRsu">В результатах расчёта SCAD («{0}») нет РСУ. Выполните расчёт РСУ в SCAD.</system:String>
-   <system:String x:Key="FemSchemaMenuLira">ЛИРА-САПФИР</system:String>
+   <system:String x:Key="FemSchemaMenuLira">ЛИРА-САПР</system:String>
    <system:String x:Key="FemSchemaMenuScad">SCAD</system:String>
    <system:String x:Key="ImportSubMenuScadForces">Усилия из SCAD (.SPR)</system:String>
    <system:String x:Key="ScadForcesLoadCasesFromApi">Усилия загружений из SCAD (.SPR)…</system:String>
@@ -1062,7 +1062,7 @@
     <system:String x:Key="ScadRsu2Importing">Импорт РСУ из RSU2…</system:String>
     <system:String x:Key="ScadRsu2Success">Импортировано наборов РСУ: {0}</system:String>
     <system:String x:Key="ImportSettingsTab">Импорт</system:String>
-    <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
+    <system:String x:Key="LiraImportGroupBox">ЛИРА-САПР</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
     <system:String x:Key="AcadImportUnitsGroup">Единицы измерения</system:String>
     <system:String x:Key="AcadImportMm">Миллиметры (1 мм → 0,001 м)</system:String>
@@ -1078,7 +1078,7 @@
     <system:String x:Key="AcadImportRebarGroupsSuccess">Импортировано групп арматуры: {0} (всего стержней: {1})</system:String>
     <system:String x:Key="AcadNoClosedPolylines">Не найдено замкнутых полилиний на указанном слое.</system:String>
     <system:String x:Key="AcadNoCircles">Не найдено окружностей на указанном слое.</system:String>
-    <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
+    <system:String x:Key="LiraImportSettingsTab">Импорт ЛИРА-САПР</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
    <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
    <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>
@@ -2737,16 +2737,16 @@
     <system:String x:Key="FemMemberForceNoResult">Нет успешного расчёта OpenSees для этой схемы</system:String>
     <system:String x:Key="FemMemberSectionNotAssigned">Для конструктивного стержня не назначено поперечное сечение.</system:String>
     <system:String x:Key="FemMemberSectionNotFound">Назначенное поперечное сечение не найдено в проекте.</system:String>
-    <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromApi">Импорт схемы ЛИРА-САПР (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Импорт схемы из .lir файла…</system:String>
-    <system:String x:Key="ImportLiraSchemaFromFileTitle">Файл ЛираСАПР (.lir)</system:String>
-    <system:String x:Key="LiraFileFilter">Файлы ЛираСАПР (*.lir)|*.lir</system:String>
-    <system:String x:Key="StatusImportingSchema">Импорт топологии из ЛираСАПР…</system:String>
-    <system:String x:Key="ImportSubMenuLiraForces">Усилия из ЛираСАПР (COM)</system:String>
-    <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЗН из ЛираСАПР (COM)…</system:String>
-    <system:String x:Key="ImportLiraRsnFromApi">Импорт усилий РСН из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFileTitle">Файл ЛИРА-САПР (.lir)</system:String>
+    <system:String x:Key="LiraFileFilter">Файлы ЛИРА-САПР (*.lir)|*.lir</system:String>
+    <system:String x:Key="StatusImportingSchema">Импорт схемы из ЛИРА-САПР…</system:String>
+    <system:String x:Key="ImportSubMenuLiraForces">Усилия из ЛИРА-САПР (COM)</system:String>
+    <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЛИРА-САПР — по загружениям (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsnFromApi">Импорт усилий ЛИРА-САПР — РСН (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Импорт усилий РСН: {0} КЭ, группа «{1}»…</system:String>
-    <system:String x:Key="ImportLiraRsuFromApi">Импорт усилий РСУ из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsuFromApi">Импорт усилий ЛИРА-САПР — РСУ (COM)…</system:String>
     <system:String x:Key="ImportLiraRsuStarted">Импорт усилий РСУ: {0} КЭ, группа «{1}»…</system:String>
     <system:String x:Key="ImportLiraForcesNoSchema">Расчётная схема конструктивного элемента не найдена в проекте.</system:String>
     <system:String x:Key="ImportLiraForcesNoMember">Выберите конструктивный элемент в дереве МКЭ (узел «Конструктивные элементы»).</system:String>

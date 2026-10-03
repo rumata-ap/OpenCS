@@ -71,7 +71,7 @@ static class LiraApiSchemaReader
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
-                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+                "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
         documentTitle = ReadDocumentTitle(doc);
 
         var data = new LiraSchemaData();
@@ -125,7 +125,7 @@ static class LiraApiSchemaReader
         {
             var probe = ProbeDocument(doc);
             throw new InvalidOperationException(
-                "Не удалось прочитать топологию ЛираСАПР.\n\n" +
+                "Не удалось прочитать схему ЛИРЫ.\n\n" +
                 "Журнал:\n" + string.Join("\n", diag) +
                 "\n\nДиагностика:\n" + probe);
         }
@@ -144,7 +144,7 @@ static class LiraApiSchemaReader
         dynamic lira = LiraComConnector.ConnectApplication(out liraVersion);
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
-                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+                "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
         if (!(liraVersion >= FirstVersionWithReinforcementTypes))
             throw new InvalidOperationException(
                 $"Таблица «Элементы - ТЗА» есть только в ЛИРА-САПФИР {FirstVersionWithReinforcementTypes} и новее.");
@@ -169,7 +169,7 @@ static class LiraApiSchemaReader
         dynamic lira = LiraComConnector.ConnectApplication();
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
-                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+                "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
 
         var diag = new List<string>();
         var data = new LiraSchemaData();
@@ -232,7 +232,7 @@ static class LiraApiSchemaReader
         dynamic lira = LiraComConnector.ConnectApplication();
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
-                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+                "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
 
         var diag = new List<string>();
         var raw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "PlateAxes");

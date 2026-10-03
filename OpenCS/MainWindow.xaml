@@ -158,17 +158,17 @@
               </MenuItem>
              <Separator/>
              <MenuItem Header="{DynamicResource ImportSubMenuLira}">
-                <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
-                <MenuItem Header="{DynamicResource ImportLiraSchemaFromFile}" Command="{Binding ImportLiraSchemaFromFileCommand}"/>
+                <!-- Схема: COM — основной путь, CSV — запасной. Импорт из .lir скрыт: формат разобран не полностью. -->
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
-                <Separator/>
-                <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
-                <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
-                <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
+                <Separator/>
+                <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuScad}">
                 <MenuItem Header="{DynamicResource ImportScadSchemaFromApi}" Command="{Binding ImportScadSchemaFromApiCommand}"/>

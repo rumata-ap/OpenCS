@@ -798,7 +798,7 @@
    <system:String x:Key="ForceSignConventionShellQx">Qx &gt; 0 — transverse shear Qx acts along +Z</system:String>
    <system:String x:Key="ForceSignConventionShellQy">Qy &gt; 0 — transverse shear Qy acts along +Z</system:String>
    <system:String x:Key="ForceSignConventionShellLiraNote">Diagram and signs follow LIRA rules (green — X, blue — Y, red — Nxy, yellow — Mxy).</system:String>
-   <system:String x:Key="ForceSignConventionLiraNote">LIRA import may invert bending moment signs — see Settings.</system:String>
+   <system:String x:Key="ForceSignConventionLiraNote">LIRA-SAPR import may invert bending moment signs — see Settings.</system:String>
    <system:String x:Key="ShellForceColNx">Nx, kN/m</system:String>
    <system:String x:Key="ShellForceColNy">Ny, kN/m</system:String>
    <system:String x:Key="ShellForceColNxy">Nxy, kN/m</system:String>
@@ -820,7 +820,7 @@
     <system:String x:Key="ImportMenu">Import</system:String>
     <system:String x:Key="ImportSubMenuDxf">DXF…</system:String>
     <system:String x:Key="ImportSubMenuAutoCAD">AutoCAD…</system:String>
-    <system:String x:Key="ImportSubMenuLira">LiraSAPR…</system:String>
+    <system:String x:Key="ImportSubMenuLira">LIRA-SAPR…</system:String>
     <system:String x:Key="ImportSubMenuScad">SCAD…</system:String>
     <system:String x:Key="ImportSubMenuRobot">Robot…</system:String>
     <system:String x:Key="ImportSubMenuRfem5">RFEM5…</system:String>
@@ -828,13 +828,13 @@
    <system:String x:Key="ImportCirclesFromDxf">Import circles from DXF…</system:String>
    <system:String x:Key="ImportContoursFromDxf">Import contours from DXF…</system:String>
    <system:String x:Key="ImportAreasFromDxf">Import material areas from DXF…</system:String>
-   <system:String x:Key="ImportLiraLoadCases">Import LiraSAPR forces — load cases (HTML)…</system:String>
-   <system:String x:Key="ImportLiraRsn">Import LiraSAPR forces — RSN (HTML)…</system:String>
-   <system:String x:Key="ImportLiraRsu">Import LiraSAPR forces — RSU (HTML)…</system:String>
-   <system:String x:Key="ImportLiraLoadCasesTitle">Import LIRA forces — load cases</system:String>
-   <system:String x:Key="ImportLiraRsnTitle">Import LIRA forces — RSN</system:String>
-   <system:String x:Key="ImportLiraRsuTitle">Import LIRA forces — RSU</system:String>
-   <system:String x:Key="ImportLiraErrorTitle">LIRA import</system:String>
+   <system:String x:Key="ImportLiraLoadCases">Import LIRA-SAPR forces — load cases (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsn">Import LIRA-SAPR forces — RSN (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsu">Import LIRA-SAPR forces — RSU (HTML)…</system:String>
+   <system:String x:Key="ImportLiraLoadCasesTitle">Import LIRA-SAPR forces — load cases</system:String>
+   <system:String x:Key="ImportLiraRsnTitle">Import LIRA-SAPR forces — RSN</system:String>
+   <system:String x:Key="ImportLiraRsuTitle">Import LIRA-SAPR forces — RSU</system:String>
+   <system:String x:Key="ImportLiraErrorTitle">LIRA-SAPR import</system:String>
    <system:String x:Key="LiraRbtFilter">LIRA reinforcement types (*.RBT)|*.RBT|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraRbtOpenTitle">LIRA reinforcement types file (.RBT) for schema "{0}"</system:String>
    <system:String x:Key="LiraRbtLoaded">Reinforcement types file {0}: {1} plate types, {2} bar types (face rows and AS_spec), {3} other (not parsed)</system:String>
@@ -858,7 +858,7 @@
    <system:String x:Key="LiraRbtReadError">Could not read reinforcement types file {0}: {1}</system:String>
    <system:String x:Key="LiraRbtNoTypes">no reinforcement type records found</system:String>
    <system:String x:Key="FemSchemaLoadLiraRbt">Load LIRA reinforcement types (RBT)…</system:String>
-   <system:String x:Key="LiraRbtSchemaHasNoTypes">Schema elements have no reinforcement type numbers (the "Elements - reinforcement types" table exists only in LIRA-SAPPHIRE 2025+): file saved but not assigned to any element</system:String>
+   <system:String x:Key="LiraRbtSchemaHasNoTypes">Schema elements have no reinforcement type numbers (the &quot;Elements - reinforcement types&quot; table exists only in LIRA-SAPPHIRE 2025+): file saved but not assigned to any element</system:String>
    <system:String x:Key="LiraAspFilter">LIRA selected reinforcement (*.asp)|*.asp|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraAspOpenTitle">LIRA selected reinforcement file (.asp) for schema "{0}"</system:String>
    <system:String x:Key="FemSchemaLoadLiraAsp">Load LIRA selected reinforcement (ASP)…</system:String>
@@ -895,9 +895,9 @@
    <system:String x:Key="LiraAspReadError">Failed to read selected reinforcement file {0}: {1}</system:String>
    <system:String x:Key="ImportLiraFailed">Failed to import the file.</system:String>
    <system:String x:Key="ImportLiraSuccess">Imported force sets: {0} ({1})</system:String>
-   <system:String x:Key="ImportLiraSchemaFromCsv">Import LIRA SAPR schema (CSV)…</system:String>
-   <system:String x:Key="ImportLiraSchemaNodesTitle">LIRA SAPR nodes file (CSV)</system:String>
-   <system:String x:Key="ImportLiraSchemaElemsTitle">LIRA SAPR elements file (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaFromCsv">Import LIRA-SAPR schema (CSV)…</system:String>
+   <system:String x:Key="ImportLiraSchemaNodesTitle">LIRA-SAPR nodes file (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaElemsTitle">LIRA-SAPR elements file (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Bar stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
@@ -950,7 +950,7 @@
    <system:String x:Key="ScadApiNoForces">SCAD results (“{0}”) contain no element forces.</system:String>
    <system:String x:Key="ScadApiNoDisplacements">SCAD results (“{0}”) contain no node displacements.</system:String>
    <system:String x:Key="ScadApiNoRsu">SCAD results (“{0}”) contain no design force combinations (RSU). Run the RSU analysis in SCAD.</system:String>
-   <system:String x:Key="FemSchemaMenuLira">LIRA SAPR</system:String>
+   <system:String x:Key="FemSchemaMenuLira">LIRA-SAPR</system:String>
    <system:String x:Key="FemSchemaMenuScad">SCAD</system:String>
    <system:String x:Key="ImportSubMenuScadForces">Forces from SCAD (.SPR)</system:String>
    <system:String x:Key="ScadForcesLoadCasesFromApi">Load case forces from SCAD (.SPR)…</system:String>
@@ -1062,7 +1062,7 @@
     <system:String x:Key="ScadRsu2Importing">Importing RSU from RSU2…</system:String>
     <system:String x:Key="ScadRsu2Success">Imported RSU sets: {0}</system:String>
     <system:String x:Key="ImportSettingsTab">Import</system:String>
-    <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
+    <system:String x:Key="LiraImportGroupBox">LIRA-SAPR</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
     <system:String x:Key="AcadImportUnitsGroup">Units</system:String>
     <system:String x:Key="AcadImportMm">Millimeters (1 mm → 0.001 m)</system:String>
@@ -1078,7 +1078,7 @@
     <system:String x:Key="AcadImportRebarGroupsSuccess">Imported rebar groups: {0} (total bars: {1})</system:String>
     <system:String x:Key="AcadNoClosedPolylines">No closed polylines found on the specified layer.</system:String>
     <system:String x:Key="AcadNoCircles">No circles found on the specified layer.</system:String>
-    <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
+    <system:String x:Key="LiraImportSettingsTab">LIRA-SAPR import</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
    <system:String x:Key="LiraTon981">9.80665 (1 t = 9.80665 kN)</system:String>
    <system:String x:Key="LiraTon10">10 (1 t = 10 kN)</system:String>
@@ -2737,16 +2737,16 @@
     <system:String x:Key="FemMemberForceNoResult">No successful OpenSees analysis for this schema</system:String>
     <system:String x:Key="FemMemberSectionNotAssigned">No cross-section is assigned to the structural member.</system:String>
     <system:String x:Key="FemMemberSectionNotFound">The assigned cross-section was not found in the project.</system:String>
-    <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromApi">Import LIRA-SAPR schema (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Import schema from .lir file…</system:String>
-    <system:String x:Key="ImportLiraSchemaFromFileTitle">LIRA SAPR file (.lir)</system:String>
-    <system:String x:Key="LiraFileFilter">LIRA SAPR files (*.lir)|*.lir</system:String>
-    <system:String x:Key="StatusImportingSchema">Importing topology from LIRA SAPR…</system:String>
-    <system:String x:Key="ImportSubMenuLiraForces">Forces from LIRA SAPR (COM)</system:String>
-    <system:String x:Key="ImportLiraForcesFromApi">Import load case forces from LIRA SAPR (COM)…</system:String>
-    <system:String x:Key="ImportLiraRsnFromApi">Import RSN forces from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFileTitle">LIRA-SAPR file (.lir)</system:String>
+    <system:String x:Key="LiraFileFilter">LIRA-SAPR files (*.lir)|*.lir</system:String>
+    <system:String x:Key="StatusImportingSchema">Importing schema from LIRA-SAPR…</system:String>
+    <system:String x:Key="ImportSubMenuLiraForces">Forces from LIRA-SAPR (COM)</system:String>
+    <system:String x:Key="ImportLiraForcesFromApi">Import LIRA-SAPR forces — load cases (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsnFromApi">Import LIRA-SAPR forces — RSN (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Importing RSN forces: {0} elements, group «{1}»…</system:String>
-    <system:String x:Key="ImportLiraRsuFromApi">Import RSU (design combination) forces from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsuFromApi">Import LIRA-SAPR forces — RSU (COM)…</system:String>
     <system:String x:Key="ImportLiraRsuStarted">Importing RSU forces: {0} elements, group «{1}»…</system:String>
     <system:String x:Key="ImportLiraForcesNoSchema">The design member's schema was not found in the project.</system:String>
     <system:String x:Key="ImportLiraForcesNoMember">Select a design member in the FEM tree (under «Design Members» node).</system:String>

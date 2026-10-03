@@ -136,7 +136,7 @@ static class LiraApiForceImporter
 
         dynamic doc = lira.ActiveDocument
             ?? throw new InvalidOperationException(
-                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+                "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
 
         string path = (string)doc.PathName;
         string docName = System.IO.Path.GetFileNameWithoutExtension(path);
