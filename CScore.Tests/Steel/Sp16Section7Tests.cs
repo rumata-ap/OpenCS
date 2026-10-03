@@ -107,6 +107,41 @@ public class Sp16Section7Tests
     }
 
     [Fact]
+    public void Slenderness_GivenLimits_ReplaceTables()
+    {
+        var p = new SteelDesignParams
+        {
+            LefX = 6, LefY = 3, Group4 = true,
+            CompressionLimit = new SlendernessLimit(150, 40, "стальная группа SCAD 2 «Балки»"),
+            TensionLimit = new SlendernessLimit(300),
+        };
+        var m = IBeam(0.300, 0.150, 0.008, 0.012, p);
+
+        var small = Sp16Slenderness.Check(m, new SteelForces(-10, 0, 0, 0, 0));
+        Assert.All(small, r => Assert.Equal(150 - 40 * 0.5, r.Allowable, 9));   // группа 4 к явному пределу не применяется
+        Assert.Contains(small[0].Notes, n => n.Contains("Балки") && n.Contains("150 − 40α"));
+        var big = Sp16Slenderness.Check(m, new SteelForces(-700, 0, 0, 0, 0));
+        double alpha = big[0].Variables.First(v => v.Key == "α").Value;
+        Assert.Equal(150 - 40 * alpha, big[0].Allowable, 9);
+
+        var tension = Sp16Slenderness.Check(m, new SteelForces(100, 0, 0, 0, 0));
+        Assert.All(tension, r => Assert.Equal(300, r.Allowable, 9));
+
+        var constant = IBeam(0.300, 0.150, 0.008, 0.012, p with { CompressionLimit = new SlendernessLimit(120) });
+        Assert.All(Sp16Slenderness.Check(constant, new SteelForces(-700, 0, 0, 0, 0)), r => Assert.Equal(120, r.Allowable, 9));
+    }
+
+    [Fact]
+    public void GivenLimits_JsonRoundTrip()
+    {
+        var p = new SteelDesignParams { CompressionLimit = new SlendernessLimit(180, 60), TensionLimit = new SlendernessLimit(400) };
+        var back = SteelDesignParams.Parse(p.ToJson());
+        Assert.Equal(p.CompressionLimit, back.CompressionLimit);
+        Assert.Equal(p.TensionLimit, back.TensionLimit);
+        Assert.Null(SteelDesignParams.Parse("{}").CompressionLimit);
+    }
+
+    [Fact]
     public void Legacy_ParamsJson_IsMigrated()
     {
         var p = SteelDesignParams.Parse("{\"DesignLengthX\":3.0,\"DesignLengthY\":2.0,\"MuX\":2.0,\"MuY\":1.0,\"BetaM\":1.0,\"GammaM\":1.025,\"DesignLengthBit\":1.5}");

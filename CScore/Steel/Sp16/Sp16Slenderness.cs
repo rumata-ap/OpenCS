@@ -19,7 +19,14 @@ public static class Sp16Slenderness
 
         if (tension)
         {
-            double? lu = Sp16Tables.TensionSlendernessLimit(m.P.TensionCategory, m.P.TensionLoad);
+            if (m.P.TensionLimit is { } given)
+            {
+                foreach (var (name, lambda) in axes)
+                    res.Add(Sp16CheckResult.Limit("10.4.1", "табл. 33", $"Предельная гибкость растянутого элемента ({name})",
+                        lambda, given.Base, [("λ", lambda), ("λu", given.Base)], [GivenNote(given)]));
+                return res;
+            }
+            double? lu =Sp16Tables.TensionSlendernessLimit(m.P.TensionCategory, m.P.TensionLoad);
             foreach (var (name, lambda) in axes)
             {
                 if (lu == null)
@@ -38,7 +45,8 @@ public static class Sp16Slenderness
         double? phi = phiOverride ?? m.GoverningPhi()?.Phi;
         double alpha = 1;
         string alphaNote = "";
-        if (Sp16Tables.CompressionLimitDependsOnAlpha(m.P.CompressionCategory))
+        var givenC = m.P.CompressionLimit;
+        if (givenC != null ? givenC.AlphaFactor != 0 : Sp16Tables.CompressionLimitDependsOnAlpha(m.P.CompressionCategory))
         {
             if (phi == null)
             {
@@ -50,10 +58,20 @@ public static class Sp16Slenderness
                 alphaNote = alpha < 0.5 ? "α < 0,5 — принято α = 0,5" : "";
             }
         }
-        double luC = Sp16Tables.CompressionSlendernessLimit(m.P.CompressionCategory, alpha) * k;
+        double luC = givenC != null
+            ? givenC.Base - givenC.AlphaFactor * Math.Max(alpha, 0.5)
+            : Sp16Tables.CompressionSlendernessLimit(m.P.CompressionCategory, alpha) * k;
+        string limitNote = givenC != null ? GivenNote(givenC) : groupNote;
         foreach (var (name, lambda) in axes)
             res.Add(Sp16CheckResult.Limit("10.4.1", "табл. 32", $"Предельная гибкость сжатого элемента ({name})", lambda, luC,
-                [("λ", lambda), ("α", Math.Max(alpha, 0.5)), ("λu", luC)], [alphaNote, groupNote]));
+                [("λ", lambda), ("α", Math.Max(alpha, 0.5)), ("λu", luC)], [alphaNote, limitNote]));
         return res;
+    }
+
+    /// <summary>Примечание к пределу, заданному явно.</summary>
+    static string GivenNote(SlendernessLimit l)
+    {
+        string formula = l.AlphaFactor != 0 ? $"λu = {l.Base:0.##} − {l.AlphaFactor:0.##}α" : $"λu = {l.Base:0.##}";
+        return string.IsNullOrWhiteSpace(l.Source) ? $"предел задан явно: {formula}" : $"предел задан ({l.Source}): {formula}";
     }
 }

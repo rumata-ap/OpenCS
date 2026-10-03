@@ -268,6 +268,12 @@ public sealed record SteelDesignParams
     /// <summary>Группа 4 по приложению В (10.4.2: предельная гибкость +10 %).</summary>
     public bool Group4 { get; init; }
 
+    /// <summary>Предельная гибкость сжатых элементов, заданная явно (вместо позиции табл. 32); null — по табл. 32.</summary>
+    public SlendernessLimit? CompressionLimit { get; init; }
+
+    /// <summary>Предельная гибкость растянутых элементов, заданная явно (вместо табл. 33); null — по табл. 33.</summary>
+    public SlendernessLimit? TensionLimit { get; init; }
+
     // ── Переопределения ──
 
     /// <summary>Тип сечения по табл. 7 относительно оси x (null — по профилю).</summary>
@@ -338,6 +344,15 @@ public sealed record SteelDesignParams
         };
     }
 }
+
+/// <summary>
+/// Предельная гибкость, заданная явно (например, в стальной группе схемы-источника): λu = Base − AlphaFactor·α,
+/// α = N/(φARyγc) ≥ 0,5; AlphaFactor = 0 — постоянный предел. Повышение 10.4.2 (группа 4) к нему не применяется.
+/// </summary>
+/// <param name="Base">Предел (при AlphaFactor = 0) или его постоянная часть.</param>
+/// <param name="AlphaFactor">Множитель при α.</param>
+/// <param name="Source">Откуда предел — для примечания результата («стальная группа SCAD 2 «Балки»»).</param>
+public sealed record SlendernessLimit(double Base, double AlphaFactor = 0, string? Source = null);
 
 /// <summary>Усилия в сечении, кН и кН·м. N &gt; 0 — растяжение; Mx = ∫σ·y dA, My = ∫σ·x dA; Qy сопутствует Mx, Qx — My.</summary>
 public sealed record SteelForces(double N, double Mx, double My, double Qx, double Qy)
