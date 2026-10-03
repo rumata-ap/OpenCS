@@ -227,6 +227,20 @@ internal static unsafe class ScadApiReader
         return data.ConcreteGroups;
     }
 
+    /// <summary>Сырые записи ApiArmElemPlate групп заданного армирования пластин — для сверки раскладки.</summary>
+    internal static List<byte[]> ReadArmPlateRecords(ScadApiSession s)
+    {
+        var result = new List<byte[]>();
+        uint count = s.Native.ApiGetQuantityArmElemPlate(s.Handle);
+        for (uint i = 1; i <= count; i++)
+        {
+            byte* p;
+            if (s.Native.ApiGetArmElemPlate(s.Handle, i, &p) != 0 || p == null) continue;
+            result.Add(new ReadOnlySpan<byte>(p + ScadApiLayouts.ArmPlateElem, ScadApiLayouts.ArmElemPlateSize).ToArray());
+        }
+        return result;
+    }
+
     /// <summary>Группы заданного армирования пластин и стержней (ApiGetArmElemPlate/ApiGetArmElemRod).</summary>
     public static ScadAssignedRebarFile ReadAssignedRebar(ScadApiSession s)
     {

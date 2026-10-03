@@ -107,6 +107,8 @@ public class ScadApiReaderManualTests(ITestOutputHelper output)
                 output.WriteLine($"  уч.{p.PartNo} {p.LengthPercent}%: S1 {p.S1}; S2 {p.S2}; S3 {p.S3}; S4 {p.S4}; " +
                     $"Z {p.StirrupsZ}; Y {p.StirrupsY}; Σ {p.LongitudinalSum:0.###} см²");
         }
+        foreach (var raw in ScadApiReader.ReadArmPlateRecords(s))
+            output.WriteLine("ApiArmElemPlate[0..80]: " + Convert.ToHexString(raw, 0, 80));
         output.WriteLine($"КЭ в нескольких группах: {file.MultiGroupElements}");
         Assert.False(file.IsEmpty);
     }
