@@ -14,6 +14,10 @@ public sealed class ImportedBarSectionsReport
 {
     /// <summary>У схемы нет данных о классах материалов: у ЛИРЫ — подбора (ASP), у SCAD — ЖБ-групп.</summary>
     public bool NoMaterialData { get; init; }
+    /// <summary>Пользователь отказался от выбора армирования — ничего не изменено.</summary>
+    public bool Cancelled { get; init; }
+    /// <summary>Армирование создаваемых ЖБ-сечений.</summary>
+    public ImportedBarRebarMode RebarMode { get; set; }
     /// <summary>Созданные материалы.</summary>
     public List<string> Materials { get; } = [];
     /// <summary>Созданные сечения.</summary>
@@ -24,12 +28,16 @@ public sealed class ImportedBarSectionsReport
     public List<(string Section, int Count)> Assigned { get; } = [];
     /// <summary>Стержневые КЭ, у которых сечение уже было, — не тронуты.</summary>
     public int AlreadyAssigned { get; set; }
+    /// <summary>КЭ, у которых автоматически созданное сечение без арматуры заменено армированным.</summary>
+    public int Replaced { get; set; }
     /// <summary>Созданные стальные (МК) сечения — подмножество <see cref="Sections"/>.</summary>
     public List<string> SteelSections { get; } = [];
     /// <summary>Предупреждения сверки стальных сечений (площадь контура против сортамента источника).</summary>
     public List<string> Warnings { get; } = [];
     /// <summary>Причины, по которым сечение не создано, и номера КЭ.</summary>
     public List<(string Reason, List<int> Elements)> Skipped { get; } = [];
+    /// <summary>Причины, по которым КЭ получили ЖБ-сечение без арматуры при выбранном армировании, и номера КЭ.</summary>
+    public List<(string Reason, List<int> Elements)> WithoutRebar { get; } = [];
 
     /// <summary>Число КЭ, получивших сечение.</summary>
     public int AssignedElements => Assigned.Sum(a => a.Count);
@@ -38,10 +46,12 @@ public sealed class ImportedBarSectionsReport
 /// <summary>
 /// Создание сечений стержней импортированной схемы (ЛИРА, SCAD): профиль — из жёсткости КЭ
 /// (<see cref="ImportedBarProfiles"/>), классы бетона и арматуры — из подбора ЛИРЫ или ЖБ-группы SCAD
-/// (<see cref="ImportedBarRcClasses"/>), сечение — параметрическое ЖБ без арматуры (<see cref="RcSectionBuilder"/>).
+/// (<see cref="ImportedBarRcClasses"/>), сечение — параметрическое ЖБ (<see cref="RcSectionBuilder"/>), по выбору —
+/// с армированием по данным схемы (<see cref="ImportedBarRebar"/>: заданное или подобранное).
 /// Стальные профили (STZ SCAD) — параметрические МК-сечения (<see cref="SteelSectionBuilder"/>) из выбранной стали.
-/// Одно сечение на форму, размеры и материалы; равное существующее параметрическое сечение используется повторно.
-/// Сечение назначается КЭ сетки; КЭ с уже назначенным сечением не трогаются.
+/// Одно сечение на форму, размеры, материалы и армирование; равное существующее параметрическое сечение используется
+/// повторно. Сечение назначается КЭ сетки; КЭ с уже назначенным сечением не трогаются, кроме автоматически
+/// созданного сечения без арматуры при выборе армирования — оно заменяется.
 /// </summary>
 public static class ImportedBarSectionCreator
 {
@@ -51,9 +61,13 @@ public static class ImportedBarSectionCreator
     /// <param name="chooseSteel">Сталь для стальных сечений: вызывается один раз, если есть стальные КЭ; новый
     /// материал (Id = 0) добавляется в проект. null или вернувший null — стальные КЭ пропускаются.</param>
     /// <param name="steelCatalog">Сортамент OpenCS для ссылки на каталог (It); null — без ссылки.</param>
+    /// <param name="chooseRebar">Армирование ЖБ-сечений: вызывается один раз со списком доступных режимов
+    /// (первый — <see cref="ImportedBarRebarMode.None"/>), если есть ЖБ-КЭ и данные заданного или подобранного
+    /// армирования; null-результат — отмена без изменений. null — без арматуры.</param>
     public static ImportedBarSectionsReport Create(
         DatabaseService db, FemCheckSchemaData data, IEnumerable<FemElement>? elements = null, string? catalogDirectory = null,
-        Func<Material?>? chooseSteel = null, ISteelCatalogLookup? steelCatalog = null)
+        Func<Material?>? chooseSteel = null, ISteelCatalogLookup? steelCatalog = null,
+        Func<IReadOnlyList<ImportedBarRebarMode>, ImportedBarRebarMode?>? chooseRebar = null)
     {
         bool rcData = ImportedBarRcClasses.Available(data.IsScad, data.Asp, data.ScadConcreteGroups);
         var report = new ImportedBarSectionsReport();
@@ -63,10 +77,27 @@ public static class ImportedBarSectionCreator
             if (!skipped.TryGetValue(reason, out var list)) skipped[reason] = list = [];
             list.Add(num);
         }
+        var withoutRebar = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        void NoRebar(string reason, int num)
+        {
+            if (!withoutRebar.TryGetValue(reason, out var list)) withoutRebar[reason] = list = [];
+            list.Add(num);
+        }
+
+        // Параметрические ЖБ-сечения проекта без арматуры: назначенные ими КЭ — кандидаты на замену армированным.
+        var service = new ParametricRcSectionProjectService(db);
+        var existing = new List<(CrossSection Section, ParametricRcSectionDefinition Definition)>();
+        foreach (var s in db.CrossSections)
+            if (service.TryGetDefinition(s, out var d)) existing.Add((s, d));
+        var rebarless = existing
+            .Where(x => x.Definition.Shape == ParametricRcShape.Rectangle && x.Definition.ExtraBars.Count == 0
+                        && x.Definition.UpperRebar is not { Enabled: true } && x.Definition.LowerRebar is not { Enabled: true }
+                        && x.Definition.StirrupCuts.Count == 0)
+            .ToDictionary(x => x.Section.Id, x => x.Definition);
 
         // ── КЭ, которым можно создать сечение ───────────────────────────────────────────────────
         var classesOf = ImportedBarRcClasses.Lookup(data.IsScad, data.Asp, data.ScadConcreteGroups);
-        var ready = new List<(FemElement Element, int Num, ImportedBarProfile Profile, ImportedBarRcClasses Classes)>();
+        var ready = new List<(FemElement Element, int Num, ImportedBarProfile Profile, ImportedBarRcClasses Classes, bool Replaceable)>();
         var steelReady = new List<(FemElement Element, int Num, ImportedBarProfile Profile)>();
         var rcNoData = new List<int>();
         bool steelUnresolved = false;
@@ -74,35 +105,68 @@ public static class ImportedBarSectionCreator
         {
             if (e.ElemType == "shell") continue;
             if (!int.TryParse(e.ElemTag, NumberStyles.None, CultureInfo.InvariantCulture, out int num)) continue;
-            if (e.CrossSectionId != null) { report.AlreadyAssigned++; continue; }
+            bool replaceable = e.CrossSectionId is int sid && rebarless.ContainsKey(sid);
+            if (e.CrossSectionId != null && !replaceable) { report.AlreadyAssigned++; continue; }
+            // У КЭ с сечением без арматуры препятствия не пропускают его, а оставляют сечение как есть.
+            void SkipOrKeep(string reason)
+            {
+                if (replaceable) report.AlreadyAssigned++;
+                else Skip(reason, num);
+            }
 
             var (profile, reason) = ImportedBarProfiles.Resolve(data.Stiffnesses, e.StiffnessNum, data.IsScad,
                 data.SteelProfiles);
             if (profile == null)
             {
-                Skip(reason!, num);
-                steelUnresolved |= e.StiffnessNum is int sn && data.Stiffnesses.TryGetValue(sn, out var st)
+                SkipOrKeep(reason!);
+                steelUnresolved |= !replaceable && e.StiffnessNum is int sn && data.Stiffnesses.TryGetValue(sn, out var st)
                                    && ImportedBarProfiles.IsSteel(st, data.IsScad);
                 continue;
             }
-            if (profile.Material == ImportedBarMaterial.Steel) { steelReady.Add((e, num, profile)); continue; }
-            if (!rcData) { rcNoData.Add(num); continue; }
+            if (profile.Material == ImportedBarMaterial.Steel)
+            {
+                if (replaceable) report.AlreadyAssigned++;
+                else steelReady.Add((e, num, profile));
+                continue;
+            }
+            if (!rcData)
+            {
+                if (replaceable) report.AlreadyAssigned++;
+                else rcNoData.Add(num);
+                continue;
+            }
             if (classesOf(num) is not { } classes)
             {
-                Skip(data.IsScad ? "КЭ нет в ЖБ-группах SCAD — классы материалов неизвестны"
-                                 : "КЭ нет в файле подбора ASP — классы материалов неизвестны", num);
+                SkipOrKeep(data.IsScad ? "КЭ нет в ЖБ-группах SCAD — классы материалов неизвестны"
+                                       : "КЭ нет в файле подбора ASP — классы материалов неизвестны");
                 continue;
             }
             if (classes.Concrete.Length == 0 || classes.Rebar.Length == 0)
             {
-                Skip("классы бетона и арматуры не заданы", num);
+                SkipOrKeep("классы бетона и арматуры не заданы");
                 continue;
             }
-            ready.Add((e, num, profile, classes));
+            ready.Add((e, num, profile, classes, replaceable));
         }
 
         if (!rcData && steelReady.Count == 0 && !steelUnresolved)
             return new ImportedBarSectionsReport { NoMaterialData = true };
+
+        // ── Армирование: выбор один раз, до изменений в проекте ─────────────────────────────────
+        var mode = ImportedBarRebarMode.None;
+        var modes = RebarModes(data);
+        if (ready.Count > 0 && modes.Count > 1 && chooseRebar != null)
+        {
+            if (chooseRebar(modes) is not { } chosen) return new ImportedBarSectionsReport { Cancelled = true };
+            mode = chosen;
+        }
+        report.RebarMode = mode;
+        if (mode == ImportedBarRebarMode.None)
+        {
+            report.AlreadyAssigned += ready.Count(r => r.Replaceable);
+            ready.RemoveAll(r => r.Replaceable);
+        }
+
         foreach (int num in rcNoData)
             Skip(data.IsScad ? "у схемы нет ЖБ-групп SCAD — классы материалов неизвестны"
                              : "у схемы нет файла подбора ASP — классы материалов неизвестны", num);
@@ -113,62 +177,92 @@ public static class ImportedBarSectionCreator
         report.Materials.AddRange(LiraBarMaterialCreator.Create(db, missing, catalogDirectory).Created);
 
         // ── План: КЭ по ключам сечений ──────────────────────────────────────────────────────────
-        var plan = new Dictionary<RcSectionKey, (ImportedBarProfile Profile, string Label, List<FemElement> Elements)>();
-        foreach (var (element, num, profile, classes) in ready)
+        var plan = new Dictionary<RcSectionKey, (ImportedBarProfile Profile, string Label, ImportedBarRebarLayout? Rebar,
+            List<(FemElement Element, int Num)> Members)>();
+        foreach (var (element, num, profile, classes, replaceable) in ready)
         {
             if (MaterialCatalog.FindByClass(db.Materials, classes.Concrete, concrete: true) is not { } concrete)
             {
-                Skip($"класса бетона {classes.Concrete} нет в справочнике тяжёлого бетона", num);
+                if (replaceable) report.AlreadyAssigned++;
+                else Skip($"класса бетона {classes.Concrete} нет в справочнике тяжёлого бетона", num);
                 continue;
             }
             if (MaterialCatalog.FindByClass(db.Materials, classes.Rebar, concrete: false) is not { } rebar)
             {
-                Skip($"класса арматуры {classes.Rebar} нет в справочнике арматуры", num);
+                if (replaceable) report.AlreadyAssigned++;
+                else Skip($"класса арматуры {classes.Rebar} нет в справочнике арматуры", num);
                 continue;
             }
-            var key = RcSectionBuilder.Key(profile, concrete.Id, rebar.Id);
+            // Заменяется только своё автоматическое сечение: та же форма, размеры и материалы.
+            if (replaceable && !RcSectionBuilder.Matches(rebarless[element.CrossSectionId!.Value],
+                    RcSectionBuilder.Key(profile, concrete.Id, rebar.Id)))
+            {
+                report.AlreadyAssigned++;
+                continue;
+            }
+
+            ImportedBarRebarLayout? layout = null;
+            if (mode != ImportedBarRebarMode.None)
+            {
+                var (found, reason) = Rebar(data, mode, element, num, LiraBarProfile.From(profile, concrete, rebar));
+                if (found == null) NoRebar(reason!, num);
+                layout = found;
+            }
+            if (layout == null && replaceable)
+            {
+                report.AlreadyAssigned++;     // армировать нечем — сечение без арматуры остаётся
+                continue;
+            }
+            if (replaceable) report.Replaced++;
+
+            var key = RcSectionBuilder.Key(profile, concrete.Id, rebar.Id, layout?.Bars);
             if (!plan.TryGetValue(key, out var entry))
-                plan[key] = entry = (profile, $"{classes.Concrete} {classes.Rebar}", []);
-            entry.Elements.Add(element);
+                plan[key] = entry = (profile, $"{classes.Concrete} {classes.Rebar}", layout, []);
+            entry.Members.Add((element, num));
         }
 
         // ── Сечения и назначение ────────────────────────────────────────────────────────────────
-        var service = new ParametricRcSectionProjectService(db);
-        var existing = new List<(CrossSection Section, ParametricRcSectionDefinition Definition)>();
-        foreach (var s in db.CrossSections)
-            if (service.TryGetDefinition(s, out var d)) existing.Add((s, d));
-
-        var assignments = new List<(FemElement, int?)>();
-        foreach (var (key, (profile, label, members)) in plan)
+        // Сечение по ключу: равное существующее либо новое; null — причина, по которой его нет.
+        (CrossSection? Section, string? Reason) SectionFor(RcSectionKey key, ImportedBarProfile profile, string label,
+            ImportedBarRebarLayout? layout)
         {
             var section = existing.FirstOrDefault(x => RcSectionBuilder.Matches(x.Definition, key)).Section;
             if (section != null)
-                report.Reused.Add(section.Tag);
-            else
             {
-                var (definition, reason) = RcSectionBuilder.Build(profile, key.ConcreteId, key.RebarId, label);
-                if (definition == null)
-                {
-                    foreach (var e in members) Skip(reason!, int.Parse(e.ElemTag, CultureInfo.InvariantCulture));
-                    continue;
-                }
-                definition = definition with { Tag = FreeTag(db, definition.Tag) };
-                section = new CrossSection
-                {
-                    Num = db.CrossSections.Count > 0 ? db.CrossSections.Max(s => s.Num) + 1 : 1,
-                    Tag = definition.Tag,
-                };
-                var result = service.GenerateAndSave(section, definition);
-                if (result.Diagnostics.Count != 0)
-                {
-                    string diagnostics = string.Join("; ", result.Diagnostics);
-                    foreach (var e in members) Skip(diagnostics, int.Parse(e.ElemTag, CultureInfo.InvariantCulture));
-                    continue;
-                }
-                existing.Add((section, definition));
-                report.Sections.Add(section.Tag);
+                report.Reused.Add(section.Tag);
+                return (section, null);
             }
-            assignments.AddRange(members.Select(e => (e, (int?)section.Id)));
+            var (definition, reason) = RcSectionBuilder.Build(profile, key.ConcreteId, key.RebarId, label, layout);
+            if (definition == null) return (null, reason);
+            definition = definition with { Tag = FreeTag(db, definition.Tag) };
+            section = new CrossSection
+            {
+                Num = db.CrossSections.Count > 0 ? db.CrossSections.Max(s => s.Num) + 1 : 1,
+                Tag = definition.Tag,
+            };
+            var result = service.GenerateAndSave(section, definition);
+            if (result.Diagnostics.Count != 0) return (null, string.Join("; ", result.Diagnostics));
+            existing.Add((section, definition));
+            report.Sections.Add(section.Tag);
+            return (section, null);
+        }
+
+        var assignments = new List<(FemElement, int?)>();
+        foreach (var (key, (profile, label, layout, members)) in plan)
+        {
+            var (section, reason) = SectionFor(key, profile, label, layout);
+            if (section == null && layout != null)
+            {
+                // Армирование не легло в сечение — сечение без арматуры с предупреждением.
+                foreach (var m in members) NoRebar(reason!, m.Num);
+                (section, reason) = SectionFor(key with { Bars = "" }, profile, label, null);
+            }
+            if (section == null)
+            {
+                foreach (var m in members) Skip(reason!, m.Num);
+                continue;
+            }
+            assignments.AddRange(members.Select(m => (m.Element, (int?)section.Id)));
             report.Assigned.Add((section.Tag, members.Count));
         }
         CreateSteel(db, steelReady, data.ScadSteelGroups, data.SteelProfiles, catalogDirectory, chooseSteel, steelCatalog, report, assignments, Skip);
@@ -176,8 +270,40 @@ public static class ImportedBarSectionCreator
 
         foreach (var (reason, nums) in skipped)
             report.Skipped.Add((reason, [.. nums.Order()]));
+        foreach (var (reason, nums) in withoutRebar)
+            report.WithoutRebar.Add((reason, [.. nums.Order()]));
         return report;
     }
+
+    /// <summary>
+    /// Режимы армирования, для которых у схемы есть данные: первый — без арматуры, затем заданное (ТЗА ЛИРЫ,
+    /// заданное SCAD) и подобранное (ASP ЛИРЫ, выгрузка плагина SCAD).
+    /// </summary>
+    public static IReadOnlyList<ImportedBarRebarMode> RebarModes(FemCheckSchemaData data)
+    {
+        var modes = new List<ImportedBarRebarMode> { ImportedBarRebarMode.None };
+        if (data.IsScad ? data.ScadAssigned is { Rods.Count: > 0 } : data.Rbt is { BarTypes.Count: > 0 })
+            modes.Add(ImportedBarRebarMode.Assigned);
+        if (data.IsScad ? data.ScadSelected is { Bars.Count: > 0 } : data.Asp is { Bars.Count: > 0 })
+            modes.Add(ImportedBarRebarMode.Selected);
+        return modes;
+    }
+
+    /// <summary>Армирование КЭ по данным схемы в выбранном режиме либо причина, по которой его нет.</summary>
+    static (ImportedBarRebarLayout? Layout, string? Reason) Rebar(
+        FemCheckSchemaData data, ImportedBarRebarMode mode, FemElement element, int num, LiraBarProfile profile) =>
+        (mode, data.IsScad) switch
+        {
+            (ImportedBarRebarMode.Selected, false) => ImportedBarRebar.LiraSelected(
+                data.Asp != null && data.Asp.Bars.TryGetValue(num, out var asp) ? asp : null, profile),
+            (ImportedBarRebarMode.Assigned, false) => ImportedBarRebar.LiraAssigned(data.Rbt, element.ReinforcementTypeIds, profile),
+            (ImportedBarRebarMode.Selected, true) => ImportedBarRebar.ScadSelected(
+                data.ScadSelected != null && data.ScadSelected.Bars.TryGetValue(num, out var bar) ? bar : null,
+                data.ScadConcreteGroups?.Find(num), profile),
+            (ImportedBarRebarMode.Assigned, true) => ImportedBarRebar.ScadAssigned(
+                data.ScadAssigned?.Rod(num), data.ScadConcreteGroups?.Find(num), profile),
+            _ => (null, null),
+        };
 
     /// <summary>
     /// Стальные КЭ: сталь — по марке стальной группы SCAD (строка справочника СП 16 по толщине профиля), у КЭ вне

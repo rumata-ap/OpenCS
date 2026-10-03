@@ -82,6 +82,8 @@
    <system:String x:Key="ParametricRcRebarDiameter">Ø, мм</system:String>
    <system:String x:Key="ParametricRcLowerRebarOffset">aₛ, мм</system:String>
    <system:String x:Key="ParametricRcUpperRebarOffset">a′ₛ, мм</system:String>
+   <system:String x:Key="ParametricRcExtraBars">Стержни по данным схемы: {0}, ΣAs = {1:0.##} см²</system:String>
+   <system:String x:Key="ParametricRcExtraBarsClear">Убрать</system:String>
    <system:String x:Key="ParametricRcRebarAxis">Ось</system:String>
    <system:String x:Key="ParametricRcAxisMx">Mx</system:String>
    <system:String x:Key="ParametricRcAxisMy">My</system:String>
@@ -992,6 +994,13 @@
    <system:String x:Key="SteelChoiceCreateC245">Создать С245 по СП 16.13330.2017</system:String>
    <system:String x:Key="SteelChoiceNotInCatalog">Марки С245 нет в справочнике конструкционной стали — стальные сечения не созданы.</system:String>
    <system:String x:Key="BarSectionsSteelSummary">Из них стальных сечений: {0}.</system:String>
+   <system:String x:Key="BarSectionsRebarTitle">Армирование сечений стержней</system:String>
+   <system:String x:Key="BarSectionsRebarPrompt">Какое армирование положить в создаваемые прямоугольные ЖБ-сечения? КЭ без данных выбранного вида получат сечение без арматуры (с предупреждением). Автоматически созданные ранее сечения без арматуры будут заменены.</system:String>
+   <system:String x:Key="BarSectionsRebarNone">Без арматуры (только форма и материалы)</system:String>
+   <system:String x:Key="BarSectionsRebarAssigned">Заданное армирование (ТЗА ЛИРЫ / заданное в SCAD; у SCAD — наиболее армированный участок)</system:String>
+   <system:String x:Key="BarSectionsRebarSelected">Подобранное армирование (огибающая по сечениям КЭ, площади вверх до 0,5 см²)</system:String>
+   <system:String x:Key="BarSectionsWithoutRebar">Без арматуры {0} КЭ ({1}): {2}</system:String>
+   <system:String x:Key="BarSectionsReplaced">Заменено автоматических сечений без арматуры у КЭ: {0}.</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}; стальные группы: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Обновить данные схемы из .SPR (ЖБ-группы, армирование, стальные профили)</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>

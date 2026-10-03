@@ -4329,7 +4329,8 @@ namespace OpenCS
             LogService.Warning(error);
 
          var report = Services.ImportedBarSectionCreator.Create(db, data,
-            chooseSteel: ChooseSteelForImportedBars, steelCatalog: new ProfileDB());
+            chooseSteel: ChooseSteelForImportedBars, steelCatalog: new ProfileDB(), chooseRebar: ChooseRebarForImportedBars);
+         if (report.Cancelled) return;
          if (report.NoMaterialData)
          {
             MessageBox.Show(Loc.S(scad ? "BarSectionsNoScadData" : "BarSectionsNoLiraData"), title,
@@ -4347,6 +4348,9 @@ namespace OpenCS
             .Select(s => string.Format(Loc.S("BarSectionsSkipped"), s.Elements.Count,
                CScore.Fem.FemCheckReadiness.FormatRanges(s.Elements), s.Reason))
             .ToList();
+         skippedLines.AddRange(report.WithoutRebar
+            .Select(s => string.Format(Loc.S("BarSectionsWithoutRebar"), s.Elements.Count,
+               CScore.Fem.FemCheckReadiness.FormatRanges(s.Elements), s.Reason)));
          foreach (string line in skippedLines.Concat(report.Warnings))
             LogService.Warning(line);
 
@@ -4357,6 +4361,8 @@ namespace OpenCS
                report.Skipped.Sum(s => s.Elements.Count));
          if (report.SteelSections.Count > 0)
             done += " " + string.Format(Loc.S("BarSectionsSteelSummary"), report.SteelSections.Count);
+         if (report.Replaced > 0)
+            done += " " + string.Format(Loc.S("BarSectionsReplaced"), report.Replaced);
          LogService.Info(done);
          StatusMessage = done;
 
@@ -4367,8 +4373,27 @@ namespace OpenCS
          }
          string details = string.Join("\n", skippedLines.Concat(report.Warnings).Take(10));
          MessageBox.Show(details.Length > 0 ? done + "\n\n" + details : done, title, MessageBoxButton.OK,
-            report.Skipped.Count + report.Warnings.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            report.Skipped.Count + report.Warnings.Count + report.WithoutRebar.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
          if (editorOpen && report.AssignedElements > 0) ReloadFemSchemaPage();
+      }
+
+      /// <summary>
+      /// Армирование создаваемых ЖБ-сечений стержней импорта: без арматуры, заданное или подобранное (только режимы,
+      /// для которых у схемы есть данные); по умолчанию — заданное, иначе подобранное. null — отказ.
+      /// </summary>
+      CScore.Import.ImportedBarRebarMode? ChooseRebarForImportedBars(IReadOnlyList<CScore.Import.ImportedBarRebarMode> modes)
+      {
+         var items = modes.Select(m => Loc.S(m switch
+         {
+            CScore.Import.ImportedBarRebarMode.Assigned => "BarSectionsRebarAssigned",
+            CScore.Import.ImportedBarRebarMode.Selected => "BarSectionsRebarSelected",
+            _ => "BarSectionsRebarNone",
+         })).ToList();
+         int assigned = modes.ToList().IndexOf(CScore.Import.ImportedBarRebarMode.Assigned);
+         var dialog = new Views.SteelMaterialChoiceDialog(Loc.S("BarSectionsRebarPrompt"), items,
+            assigned >= 0 ? assigned : modes.Count - 1, Loc.S("BarSectionsRebarTitle"));
+         if (dialog.ShowDialog() != true || dialog.SelectedIndex < 0) return null;
+         return modes[dialog.SelectedIndex];
       }
 
       /// <summary>

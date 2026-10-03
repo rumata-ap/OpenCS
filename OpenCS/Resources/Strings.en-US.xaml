@@ -82,6 +82,8 @@
    <system:String x:Key="ParametricRcRebarDiameter">Ø, mm</system:String>
    <system:String x:Key="ParametricRcLowerRebarOffset">aₛ, mm</system:String>
    <system:String x:Key="ParametricRcUpperRebarOffset">a′ₛ, mm</system:String>
+   <system:String x:Key="ParametricRcExtraBars">Bars from the source model: {0}, ΣAs = {1:0.##} cm²</system:String>
+   <system:String x:Key="ParametricRcExtraBarsClear">Remove</system:String>
    <system:String x:Key="ParametricRcRebarAxis">Axis</system:String>
    <system:String x:Key="ParametricRcAxisMx">Mx</system:String>
    <system:String x:Key="ParametricRcAxisMy">My</system:String>
@@ -992,6 +994,13 @@
    <system:String x:Key="SteelChoiceCreateC245">Create C245 per SP 16.13330.2017</system:String>
    <system:String x:Key="SteelChoiceNotInCatalog">Grade C245 is not in the structural steel catalog — steel sections were not created.</system:String>
    <system:String x:Key="BarSectionsSteelSummary">Steel sections among them: {0}.</system:String>
+   <system:String x:Key="BarSectionsRebarTitle">Reinforcement of bar sections</system:String>
+   <system:String x:Key="BarSectionsRebarPrompt">Which reinforcement should be placed into the created rectangular RC sections? Elements without data of the chosen kind get a section without reinforcement (with a warning). Previously auto-created sections without reinforcement will be replaced.</system:String>
+   <system:String x:Key="BarSectionsRebarNone">No reinforcement (shape and materials only)</system:String>
+   <system:String x:Key="BarSectionsRebarAssigned">Assigned reinforcement (LIRA reinforcement types / SCAD assigned; SCAD — the most reinforced part)</system:String>
+   <system:String x:Key="BarSectionsRebarSelected">Selected reinforcement (envelope over element sections, areas rounded up to 0.5 cm²)</system:String>
+   <system:String x:Key="BarSectionsWithoutRebar">Without reinforcement {0} elements ({1}): {2}</system:String>
+   <system:String x:Key="BarSectionsReplaced">Auto-created sections without reinforcement replaced for elements: {0}.</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}; steel groups: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh schema data from .SPR (RC groups, reinforcement, steel profiles)</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
