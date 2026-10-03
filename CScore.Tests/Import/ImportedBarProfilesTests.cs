@@ -69,7 +69,7 @@ public class ImportedBarProfilesTests
         var noShape = ImportedBarProfiles.Resolve(stiffnesses, 4, scad: true, failed);
 
         Assert.Null(notRead.Profile);
-        Assert.Contains("Обновить данные армирования из .SPR", notRead.Reason);
+        Assert.Contains("Обновить данные схемы из .SPR", notRead.Reason);
         Assert.Null(noShape.Profile);
         Assert.Equal("жёсткость 4 (STZ RUSSIAN pu_typep 13): нет сортамента SCAD RUSSIAN.PRF", noShape.Reason);
         Assert.True(ImportedBarProfiles.IsScadSteel(stiffnesses[4], scad: true));

@@ -277,6 +277,6 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         var report = ImportedBarSectionCreator.Create(_db, data, chooseSteel: () => throw new InvalidOperationException());
 
         Assert.False(report.NoMaterialData);
-        Assert.Contains(report.Skipped, s => s.Reason.Contains("Обновить данные армирования из .SPR") && s.Elements.SequenceEqual([1]));
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("Обновить данные схемы из .SPR") && s.Elements.SequenceEqual([1]));
     }
 }

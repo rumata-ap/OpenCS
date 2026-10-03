@@ -989,7 +989,7 @@
    <system:String x:Key="SteelChoiceNotInCatalog">Марки С245 нет в справочнике конструкционной стали — стальные сечения не созданы.</system:String>
    <system:String x:Key="BarSectionsSteelSummary">Из них стальных сечений: {0}.</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}.</system:String>
-   <system:String x:Key="ScadRebarRefreshFromSpr">Обновить ЖБ-группы и заданное армирование из .SPR</system:String>
+   <system:String x:Key="ScadRebarRefreshFromSpr">Обновить данные схемы из .SPR (ЖБ-группы, армирование, стальные профили)</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>

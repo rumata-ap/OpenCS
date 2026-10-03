@@ -32,7 +32,7 @@ public class ImportedBarSectionCreatorManualTests(ITestOutputHelper output)
         {
             db.LoadAll();
             output.WriteLine($"Схем: {db.FemSchemas.Count} — " + string.Join(", ", db.FemSchemas.Select(s => $"«{s.Tag}»:{s.SourceType}")));
-            // OPENCS_SCAD_PRF_DIR — как «Обновить данные армирования из .SPR»: профили STZ по сортаментам SCAD.
+            // OPENCS_SCAD_PRF_DIR — как «Обновить данные схемы из .SPR»: профили STZ по сортаментам SCAD.
             string? prfDir = Environment.GetEnvironmentVariable("OPENCS_SCAD_PRF_DIR");
             foreach (var schema in db.FemSchemas.Where(s => s.SourceType is "lira" or "scad").ToList())
             {

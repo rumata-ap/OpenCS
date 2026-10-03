@@ -50,7 +50,7 @@ public static class ImportedBarProfiles
         {
             if (steelProfiles?.Find(num) is not { } entry)
                 return (null, $"жёсткость {num} «{stiffness.Name}»: стальной профиль сортамента SCAD не прочитан "
-                              + "(меню схемы «Обновить данные армирования из .SPR»)");
+                              + "(меню схемы «Обновить данные схемы из .SPR»)");
             if (entry.Shape is not { } steel)
                 return (null, $"жёсткость {num} (STZ {entry.Source}): {entry.Reason}");
             return (new ImportedBarProfile(num, ImportedBarMaterial.Steel, ImportedBarShape.SteelSection,
