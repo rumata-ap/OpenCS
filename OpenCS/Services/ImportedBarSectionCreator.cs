@@ -68,6 +68,7 @@ public static class ImportedBarSectionCreator
         var ready = new List<(FemElement Element, int Num, ImportedBarProfile Profile, ImportedBarRcClasses Classes)>();
         var steelReady = new List<(FemElement Element, int Num, ImportedBarProfile Profile)>();
         var rcNoData = new List<int>();
+        bool steelUnresolved = false;
         foreach (var e in elements ?? data.Mesh)
         {
             if (e.ElemType == "shell") continue;
@@ -76,7 +77,13 @@ public static class ImportedBarSectionCreator
 
             var (profile, reason) = ImportedBarProfiles.Resolve(data.Stiffnesses, e.StiffnessNum, data.IsScad,
                 data.ScadSteelProfiles);
-            if (profile == null) { Skip(reason!, num); continue; }
+            if (profile == null)
+            {
+                Skip(reason!, num);
+                steelUnresolved |= e.StiffnessNum is int sn && data.Stiffnesses.TryGetValue(sn, out var st)
+                                   && ImportedBarProfiles.IsScadSteel(st, data.IsScad);
+                continue;
+            }
             if (profile.Material == ImportedBarMaterial.Steel) { steelReady.Add((e, num, profile)); continue; }
             if (!rcData) { rcNoData.Add(num); continue; }
             if (classesOf(num) is not { } classes)
@@ -93,7 +100,7 @@ public static class ImportedBarSectionCreator
             ready.Add((e, num, profile, classes));
         }
 
-        if (!rcData && steelReady.Count == 0)
+        if (!rcData && steelReady.Count == 0 && !steelUnresolved)
             return new ImportedBarSectionsReport { NoMaterialData = true };
         foreach (int num in rcNoData)
             Skip(data.IsScad ? "у схемы нет ЖБ-групп SCAD — классы материалов неизвестны"

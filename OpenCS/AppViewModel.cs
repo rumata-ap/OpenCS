@@ -4286,7 +4286,8 @@ namespace OpenCS
          foreach (string error in data.Errors)
             LogService.Warning(error);
 
-         var report = Services.ImportedBarSectionCreator.Create(db, data);
+         var report = Services.ImportedBarSectionCreator.Create(db, data,
+            chooseSteel: ChooseSteelForImportedBars, steelCatalog: new ProfileDB());
          if (report.NoMaterialData)
          {
             MessageBox.Show(Loc.S(scad ? "BarSectionsNoScadData" : "BarSectionsNoLiraData"), title,
@@ -4312,6 +4313,8 @@ namespace OpenCS
             : string.Format(Loc.S("BarSectionsSummary"), report.Materials.Count, report.Sections.Count,
                report.Reused.Count, report.AssignedElements, report.AlreadyAssigned,
                report.Skipped.Sum(s => s.Elements.Count));
+         if (report.SteelSections.Count > 0)
+            done += " " + string.Format(Loc.S("BarSectionsSteelSummary"), report.SteelSections.Count);
          LogService.Info(done);
          StatusMessage = done;
 
@@ -4320,10 +4323,26 @@ namespace OpenCS
             RefreshSectionLiveCollections();
             MarkDirty(SaveCategory.CrossSections);
          }
-         string details = string.Join("\n", skippedLines.Take(10));
+         string details = string.Join("\n", skippedLines.Concat(report.Warnings).Take(10));
          MessageBox.Show(details.Length > 0 ? done + "\n\n" + details : done, title, MessageBoxButton.OK,
-            report.Skipped.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            report.Skipped.Count + report.Warnings.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
          if (editorOpen && report.AssignedElements > 0) ReloadFemSchemaPage();
+      }
+
+      /// <summary>
+      /// Сталь для стальных сечений стержней импорта (марки в жёсткостях STZ SCAD нет): стальной материал проекта
+      /// либо новая С245 по СП 16.13330.2017; null — отказ.
+      /// </summary>
+      Material? ChooseSteelForImportedBars()
+      {
+         var steels = db.Materials.Where(m => m.Type == MatType.Steel).ToList();
+         var items = steels.Select(m => m.Tag).Append(Loc.S("SteelChoiceCreateC245")).ToList();
+         var dialog = new Views.SteelMaterialChoiceDialog(Loc.S("SteelChoiceDlgPrompt"), items, 0);
+         if (dialog.ShowDialog() != true) return null;
+         if (dialog.SelectedIndex < steels.Count) return steels[dialog.SelectedIndex];
+         var created = Services.MaterialCatalog.CreateStructuralSteel("С245");
+         if (created == null) LogService.Warning(Loc.S("SteelChoiceNotInCatalog"));
+         return created;
       }
       /// <summary>
       /// Преобразует выбранные в диалоге кБ ЛИРЫ в конструктивные элементы схемы (стержни — по прямым цепочкам,

@@ -172,6 +172,32 @@ public class FemCheckPerElementTests
     }
 
     /// <summary>Приёмник строк результата для тестов.</summary>
+    [Fact]
+    public void SteelCheck_DifferentProfilesInOneGroup_EachRowUsesOwnElementSection()
+    {
+        // Стальная проверка без источников сечения: КЭ одной группы с разными МК-сечениями (импорт SCAD:
+        // разные профили STZ) считаются каждый со своим сечением, а не с сечением цели.
+        var other = new CrossSection { Id = 11, Tag = "КЭ-2" };
+        var scope = new FemCheckScope([],
+        [
+            new FemCheckScopeElement(1, Bar("1", sectionId: Own.Id), null),
+            new FemCheckScopeElement(2, Bar("2", sectionId: other.Id), null),
+        ], RefersToMeshElements: true);
+        var inputs = new FemPerElementInputs
+        {
+            TargetBarSection = OfTarget,
+            BarSectionById = id => id == Own.Id ? Own : id == other.Id ? other : null,
+        };
+        var fs = new ForceSet { Id = 1, Tag = "РСУ", Items = [Row(1, 0.4), Row(2, 0.5)] };
+        var seen = new Dictionary<string, string>();
+        var steel = new FemCheck { NormCode = "steel_check", Tag = "сталь" };
+
+        FemCheckRunner.RunPerElement(steel, Group, scope, [fs], inputs, Executor(seen));
+
+        Assert.Equal("КЭ", seen["э.1 с1"]);
+        Assert.Equal("КЭ-2", seen["э.2 с1"]);
+    }
+
     sealed class ListSink : IFemCheckRowSink
     {
         public List<int> ChunkSizes { get; } = [];

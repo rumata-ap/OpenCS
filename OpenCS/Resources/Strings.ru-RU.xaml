@@ -983,6 +983,11 @@
    <system:String x:Key="ScadRebarReadingGroups">Чтение ЖБ-групп и заданного армирования SCAD…</system:String>
    <system:String x:Key="ScadSteelProfilesLoaded">Стальные профили SCAD по сортаменту: {0} из {1} жёсткостей STZ.</system:String>
    <system:String x:Key="ScadSteelProfileFailed">Жёсткость {0} (STZ {1}): {2}.</system:String>
+   <system:String x:Key="SteelChoiceDlgTitle">Сталь стальных сечений</system:String>
+   <system:String x:Key="SteelChoiceDlgPrompt">Марки стали в жёсткостях SCAD нет (она придёт со стальными группами). Выберите сталь для создаваемых стальных сечений стержней:</system:String>
+   <system:String x:Key="SteelChoiceCreateC245">Создать С245 по СП 16.13330.2017</system:String>
+   <system:String x:Key="SteelChoiceNotInCatalog">Марки С245 нет в справочнике конструкционной стали — стальные сечения не созданы.</system:String>
+   <system:String x:Key="BarSectionsSteelSummary">Из них стальных сечений: {0}.</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Обновить ЖБ-группы и заданное армирование из .SPR</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>

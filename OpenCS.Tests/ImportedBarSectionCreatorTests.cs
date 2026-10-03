@@ -266,4 +266,17 @@ public sealed class ImportedBarSectionCreatorTests : IDisposable
         Assert.Contains(report.Skipped, s => s.Reason.Contains("сталь для стальных сечений не выбрана") && s.Elements.SequenceEqual([1]));
         Assert.Contains(report.Skipped, s => s.Reason.Contains("нет ЖБ-групп SCAD") && s.Elements.SequenceEqual([814]));
     }
+
+    [Fact]
+    public void Scad_StzWithoutStoredProfiles_HintInsteadOfNoData()
+    {
+        var mesh = Mesh("scad", (1, 1));
+        var data = ScadSteelData(mesh);
+        data = new FemCheckSchemaData { SourceType = "scad", Mesh = mesh, Stiffnesses = data.Stiffnesses };
+
+        var report = ImportedBarSectionCreator.Create(_db, data, chooseSteel: () => throw new InvalidOperationException());
+
+        Assert.False(report.NoMaterialData);
+        Assert.Contains(report.Skipped, s => s.Reason.Contains("Обновить данные армирования из .SPR") && s.Elements.SequenceEqual([1]));
+    }
 }
