@@ -166,7 +166,7 @@ public static class ScadPrfReader
             {
                 string name = r.PString().Trim();
                 var values = new double[nc - 1];
-                for (int k = 0; k < values.Length; k++) values[k] = Math.Round(r.F32(), 6);
+                for (int k = 0; k < values.Length; k++) values[k] = r.F32();
                 rows.Add(new ScadPrfRow(name, values));
             }
             tables.Add(new ScadPrfTable(kind, code, tableTitle, StandardOf(tableTitle), columns, rows));
@@ -194,7 +194,15 @@ public static class ScadPrfReader
         public void Skip(int count) { Need(count); Position += count; }
         public int U8() { Need(1); return data[Position++]; }
         public int U16() { Need(2); int v = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(Position)); Position += 2; return v; }
-        public double F32() { Need(4); float v = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(Position)); Position += 4; return v; }
+        /// <summary>float32 как double с кратчайшим десятичным представлением (254.8, а не 254.800003).</summary>
+        public double F32()
+        {
+            Need(4);
+            float v = BinaryPrimitives.ReadSingleLittleEndian(data.AsSpan(Position));
+            Position += 4;
+            return double.Parse(v.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
         public byte[] Bytes(int count) { Need(count); var v = data.AsSpan(Position, count).ToArray(); Position += count; return v; }
 
         public string PString()
