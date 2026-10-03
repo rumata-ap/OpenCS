@@ -18,7 +18,9 @@ public static class ImportedSteelDesign
     {
         double lefX = g.LengthXoZ ?? g.MuXoZ * length;
         double lefY = g.LengthYoZ ?? g.MuYoZ * length;
+        // Как в SCAD: нулевой шаг раскреплений (расстояние или коэффициент) — длина элемента.
         double lefB = g.StepOutPlane ?? g.StepOutPlaneRatio * length;
+        if (!(lefB > 0)) lefB = length;
         string source = $"стальная группа SCAD {ScadSteelGroupIndex.Label(g)}";
         return baseParams with
         {

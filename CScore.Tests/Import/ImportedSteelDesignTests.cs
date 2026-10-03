@@ -43,6 +43,13 @@ public class ImportedSteelDesignTests
     }
 
     [Fact]
+    public void Apply_ZeroStep_ElementLength()
+    {
+        Assert.Equal(3, ImportedSteelDesign.Apply(Base, Group(step: 0), 3).LefB, 12);
+        Assert.Equal(3, ImportedSteelDesign.Apply(Base, Group(step: null, stepRatio: 0), 3).LefB, 12);
+    }
+
+    [Fact]
     public void Apply_ZeroValues_KeepBase()
     {
         var g = Group(gammaC: 0, muXoZ: 0) with { CompressionLimit = 0, TensionLimit = 0 };
