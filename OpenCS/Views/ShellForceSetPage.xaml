@@ -44,9 +44,10 @@
                </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Column="1" Header="{DynamicResource ForceSetPropsTitle}" Padding="8,6,8,8">
-               <local:ForceSetSp20Panel DataContext="{Binding Sp20}"/>
-            </GroupBox>
+            <Expander Grid.Column="1" Header="{DynamicResource ForceSetPropsTitle}" IsExpanded="False"
+                      VerticalAlignment="Top">
+               <local:ForceSetSp20Panel DataContext="{Binding Sp20}" Margin="8,6,8,8"/>
+            </Expander>
          </Grid>
       </Border>
 

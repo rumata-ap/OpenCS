@@ -23,9 +23,9 @@
       <Border Grid.Row="0" BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
               Padding="8,6">
-         <GroupBox Header="{DynamicResource ForceSetPropsTitle}" Padding="8,6,8,8">
-            <local:ForceSetSp20Panel DataContext="{Binding Sp20}"/>
-         </GroupBox>
+         <Expander Header="{DynamicResource ForceSetPropsTitle}" IsExpanded="False">
+            <local:ForceSetSp20Panel DataContext="{Binding Sp20}" Margin="8,6,8,8"/>
+         </Expander>
       </Border>
 
       <!-- Таблица усилий и справка по знакам -->
