@@ -2648,12 +2648,17 @@ namespace OpenCS
             Items       = src.Items.ConvertAll(i => new CScore.LoadItem
             {
                Label = i.Label, N = i.N, Mx = i.Mx, My = i.My,
-               Vx = i.Vx, Vy = i.Vy, T = i.T
+               Vx = i.Vx, Vy = i.Vy, T = i.T,
+               SourceElementNum = i.SourceElementNum, SourceSectionNum = i.SourceSectionNum,
             }),
+            // Напряжения копируются вместе с усилиями: у строк, импортированных из ЛИРЫ/SCAD,
+            // они — источник Nx/Ny/Nxy (пересчёт σ·h), без них копия теряет мембранные усилия.
             ShellItems = src.ShellItems.ConvertAll(i => new CScore.ShellLoadItem
             {
                Label = i.Label, Nx = i.Nx, Ny = i.Ny, Nxy = i.Nxy,
-               Mx = i.Mx, My = i.My, Mxy = i.Mxy, Qx = i.Qx, Qy = i.Qy
+               Mx = i.Mx, My = i.My, Mxy = i.Mxy, Qx = i.Qx, Qy = i.Qy,
+               SigmaX = i.SigmaX, SigmaY = i.SigmaY, TauXY = i.TauXY,
+               SourceElementNum = i.SourceElementNum, SourceSectionNum = i.SourceSectionNum,
             }),
          };
          var col = src.Kind == "shell" ? ShellForceSets : BarForceSets;
