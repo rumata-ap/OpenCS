@@ -142,7 +142,7 @@ namespace OpenCS.ViewModels
             sb.AppendLine($"  особая:           {acc}");
             sb.AppendLine();
             sb.AppendLine($"Выбрано наборов: {sets.Count}");
-            sb.AppendLine($"Строк в каждом:  {sets[0].Items.Count}");
+            sb.AppendLine($"Строк в каждом:  {SP20Combinations.RowCount(sets[0])}");
             if (warnings.Count > 0)
             {
                sb.AppendLine();
@@ -183,7 +183,7 @@ namespace OpenCS.ViewModels
             ? ResultName.Trim()
             : "СП20 — " + string.Join(", ", sets.Select(s => s.Tag));
 
-         var rowLabels = sets[0].Items.Select(i => i.Label).ToList();
+         var rowLabels = SP20Combinations.RowLabels(sets[0]).ToList();
          var created   = new List<string>();
 
          try

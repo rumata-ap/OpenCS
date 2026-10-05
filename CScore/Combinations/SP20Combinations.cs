@@ -106,24 +106,27 @@ namespace CScore.Combinations
             throw new InvalidOperationException(
                "Сочетания СП20 для наборов продавливания (punching) не поддерживаются.");
 
-         int nRows = forceSets[0].Items.Count;
+         int nRows = RowCount(forceSets[0]);
          foreach (var fs in forceSets)
          {
             if (fs.Kind != kind)
                throw new InvalidOperationException("Нельзя комбинировать наборы разных типов (bar/shell).");
-            if (fs.Items.Count != nRows)
+            if (RowCount(fs) != nRows)
                throw new InvalidOperationException("Нельзя комбинировать наборы с разным числом строк.");
          }
+         if (kind == "shell")
+            foreach (var fs in forceSets)
+               CheckShellStresses(fs, warnings);
 
          string[] keys   = ComponentKeysFor(kind);
          string[] cnames = keys;
 
          // Проверка совпадения меток строк
-         var refLabels = forceSets[0].Items.Select(i => i.Label).ToArray();
+         var refLabels = RowLabels(forceSets[0]).ToArray();
          foreach (var fs in forceSets.Skip(1))
          {
-            var mismatch = fs.Items
-               .Select((item, idx) => (idx, item.Label))
+            var mismatch = RowLabels(fs)
+               .Select((label, idx) => (idx, Label: label))
                .Where(t => t.idx < refLabels.Length && t.Label != refLabels[t.idx])
                .Select(t => t.idx)
                .Take(12)
@@ -140,7 +143,9 @@ namespace CScore.Combinations
             var (lt, title, group, gammaF, warn) = ParseForceSetName(fs.Tag);
             if (warn != null) warnings.Add(warn);
 
-            var mat = BuildMatrix(fs.Items, keys, nRows);
+            var mat = kind == "shell"
+               ? BuildShellMatrix(fs.ShellItems, keys, nRows)
+               : BuildMatrix(fs.Items, keys, nRows);
 
             var gammaKw = gammaF.HasValue ? gammaF.Value : (double?)null;
             Loading ld = lt switch
@@ -186,13 +191,8 @@ namespace CScore.Combinations
             int sMax = IndexOfMax(maxVals);
             int sMin = IndexOfMin(minVals);
 
-            var maxItem = new LoadItem { Label = $"{labelPrefix} max {comp} (sec={sMax})" };
-            SetItemFields(maxItem, keys, GetForceVec(env.MaxForces, k, sMax, nc));
-            fs.Items.Add(maxItem);
-
-            var minItem = new LoadItem { Label = $"{labelPrefix} min {comp} (sec={sMin})" };
-            SetItemFields(minItem, keys, GetForceVec(env.MinForces, k, sMin, nc));
-            fs.Items.Add(minItem);
+            AddRow(fs, $"{labelPrefix} max {comp} (sec={sMax})", keys, GetForceVec(env.MaxForces, k, sMax, nc));
+            AddRow(fs, $"{labelPrefix} min {comp} (sec={sMin})", keys, GetForceVec(env.MinForces, k, sMin, nc));
          }
          RenumberItems(fs);
          return fs;
@@ -207,7 +207,7 @@ namespace CScore.Combinations
          IList<GeneratedCase> cases, string kind, string tag)
       {
          var fs   = new ForceSet { Tag = tag, Kind = kind };
-         string[] keys = cases.Count > 0 ? GetCombComponentNames(cases[0]) : BarKeys;
+         string[] keys = cases.Count > 0 ? GetCombComponentNames(cases[0]) : ComponentKeysFor(kind);
 
          foreach (var c in cases)
          {
@@ -216,9 +216,7 @@ namespace CScore.Combinations
             string lbl    = $"{c.CombType} sec={c.Section} {sign} {c.Component}";
             if (active.Length > 0) lbl += $" [{active}]";
 
-            var item = new LoadItem { Label = lbl };
-            SetItemFields(item, keys, c.Forces);
-            fs.Items.Add(item);
+            AddRow(fs, lbl, keys, c.Forces);
          }
          RenumberItems(fs);
          return fs;
@@ -283,11 +281,9 @@ namespace CScore.Combinations
             for (int s = 0; s < nSec; s++)
             {
                string lbl = s < rowLabels.Count ? rowLabels[s] : $"sec {s + 1}";
-               var item   = new LoadItem { Label = lbl };
                double[] vec = new double[nc];
                for (int j = 0; j < nc; j++) vec[j] = mat[s, j];
-               SetItemFields(item, keys, vec);
-               fs.Items.Add(item);
+               AddRow(fs, lbl, keys, vec);
             }
             RenumberItems(fs);
             outSets.Add(fs);
@@ -319,6 +315,98 @@ namespace CScore.Combinations
       // Вспомогательные
       // ----------------------------------------------------------------
 
+      /// <summary>Число строк набора своего вида: стержневых или пластинчатых.</summary>
+      public static int RowCount(ForceSet fs) =>
+         fs.Kind == "shell" ? fs.ShellItems.Count : fs.Items.Count;
+
+      /// <summary>Метки строк набора своего вида: стержневых или пластинчатых.</summary>
+      public static IEnumerable<string> RowLabels(ForceSet fs) =>
+         fs.Kind == "shell" ? fs.ShellItems.Select(i => i.Label) : fs.Items.Select(i => i.Label);
+
+      /// <summary>
+      /// В сочетания идут хранимые Nx/Ny/Nxy: толщины пластины здесь нет, пересчитать σ·h нельзя.
+      /// Строка с ненулевыми напряжениями, но нулевыми Nx/Ny/Nxy ещё не пересчитана — это ошибка;
+      /// пересчитанные строки допускаются с предупреждением (напряжения в результат не переносятся).
+      /// </summary>
+      static void CheckShellStresses(ForceSet fs, List<string> warnings)
+      {
+         bool hasStress = false;
+         foreach (var i in fs.ShellItems)
+         {
+            if (i.SigmaX is null && i.SigmaY is null && i.TauXY is null) continue;
+            hasStress = true;
+            bool stressNonZero = (i.SigmaX ?? 0) != 0 || (i.SigmaY ?? 0) != 0 || (i.TauXY ?? 0) != 0;
+            if (stressNonZero && i.Nx == 0 && i.Ny == 0 && i.Nxy == 0)
+               throw new InvalidOperationException(
+                  $"Набор '{fs.Tag}', строка '{i.Label}': напряжения σx/σy/τxy не пересчитаны в усилия. " +
+                  "Задайте толщину и нажмите «Напряжения → усилия».");
+         }
+         if (hasStress)
+            warnings.Add(
+               $"Набор '{fs.Tag}': Nx/Ny/Nxy взяты пересчитанными из напряжений; " +
+               "напряжения σx/σy/τxy в сочетания не переносятся.");
+      }
+
+      static double[,] BuildShellMatrix(List<ShellLoadItem> items, string[] keys, int nRows)
+      {
+         var mat = new double[nRows, keys.Length];
+         for (int s = 0; s < items.Count && s < nRows; s++)
+         {
+            var item = items[s];
+            for (int j = 0; j < keys.Length; j++)
+               mat[s, j] = GetShellFieldValue(item, keys[j]);
+         }
+         return mat;
+      }
+
+      static double GetShellFieldValue(ShellLoadItem item, string key) => key switch
+      {
+         "Nx"  => item.Nx,
+         "Ny"  => item.Ny,
+         "Nxy" => item.Nxy,
+         "Mx"  => item.Mx,
+         "My"  => item.My,
+         "Mxy" => item.Mxy,
+         "Qx"  => item.Qx,
+         "Qy"  => item.Qy,
+         _     => 0.0
+      };
+
+      /// <summary>Добавить строку результата в набор своего вида.</summary>
+      static void AddRow(ForceSet fs, string label, string[] keys, double[] vec)
+      {
+         if (fs.Kind == "shell")
+         {
+            var item = new ShellLoadItem { Label = label };
+            SetShellItemFields(item, keys, vec);
+            fs.ShellItems.Add(item);
+         }
+         else
+         {
+            var item = new LoadItem { Label = label };
+            SetItemFields(item, keys, vec);
+            fs.Items.Add(item);
+         }
+      }
+
+      static void SetShellItemFields(ShellLoadItem item, string[] keys, double[] vec)
+      {
+         for (int j = 0; j < keys.Length && j < vec.Length; j++)
+         {
+            switch (keys[j])
+            {
+               case "Nx":  item.Nx  = vec[j]; break;
+               case "Ny":  item.Ny  = vec[j]; break;
+               case "Nxy": item.Nxy = vec[j]; break;
+               case "Mx":  item.Mx  = vec[j]; break;
+               case "My":  item.My  = vec[j]; break;
+               case "Mxy": item.Mxy = vec[j]; break;
+               case "Qx":  item.Qx  = vec[j]; break;
+               case "Qy":  item.Qy  = vec[j]; break;
+            }
+         }
+      }
+
       static double[,] BuildMatrix(List<LoadItem> items, string[] keys, int nRows)
       {
          var mat = new double[nRows, keys.Length];
@@ -339,9 +427,6 @@ namespace CScore.Combinations
          "Vx"  => item.Vx,
          "Vy"  => item.Vy,
          "T"   => item.T,
-         "Nx"  => item.N,   // shell mapped to closest bar field for now
-         "Ny"  => item.Mx,
-         "Nxy" => item.My,
          _     => 0.0
       };
 
@@ -401,6 +486,7 @@ namespace CScore.Combinations
       static void RenumberItems(ForceSet fs)
       {
          for (int i = 0; i < fs.Items.Count; i++) fs.Items[i].Num = i + 1;
+         for (int i = 0; i < fs.ShellItems.Count; i++) fs.ShellItems[i].Num = i + 1;
       }
    }
 
