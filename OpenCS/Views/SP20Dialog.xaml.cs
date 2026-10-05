@@ -220,7 +220,7 @@ namespace OpenCS.ViewModels
          if (MakeEnvelope)
          {
             var fs = SP20Combinations.EnvelopeToForceSet(
-               env, kind, $"{baseName} ({suffix})", labelPrefix);
+               env, kind, $"{baseName} ({suffix})", labelPrefix, rowLabels);
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }
@@ -228,7 +228,7 @@ namespace OpenCS.ViewModels
          if (MakeCases)
          {
             var fs = SP20Combinations.CasesToForceSet(
-               cases, kind, $"{baseName} ({suffix} — список)");
+               cases, kind, $"{baseName} ({suffix} — список)", rowLabels);
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }

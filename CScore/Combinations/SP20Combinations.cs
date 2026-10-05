@@ -175,7 +175,7 @@ namespace CScore.Combinations
       /// Конвертировать огибающую в ForceSet (глобальные экстремумы, одна строка на max/min компоненты).
       /// </summary>
       public static ForceSet EnvelopeToForceSet(
-         Envelope env, string kind, string tag, string labelPrefix)
+         Envelope env, string kind, string tag, string labelPrefix, IList<string>? rowLabels = null)
       {
          var fs = new ForceSet { Tag = tag, Kind = kind };
          string[] keys = env.ComponentNames;
@@ -191,8 +191,8 @@ namespace CScore.Combinations
             int sMax = IndexOfMax(maxVals);
             int sMin = IndexOfMin(minVals);
 
-            AddRow(fs, $"{labelPrefix} max {comp} (sec={sMax})", keys, GetForceVec(env.MaxForces, k, sMax, nc));
-            AddRow(fs, $"{labelPrefix} min {comp} (sec={sMin})", keys, GetForceVec(env.MinForces, k, sMin, nc));
+            AddRow(fs, $"{labelPrefix} max {comp} ({SectionLabel(rowLabels, sMax)})", keys, GetForceVec(env.MaxForces, k, sMax, nc));
+            AddRow(fs, $"{labelPrefix} min {comp} ({SectionLabel(rowLabels, sMin)})", keys, GetForceVec(env.MinForces, k, sMin, nc));
          }
          RenumberItems(fs);
          return fs;
@@ -204,7 +204,7 @@ namespace CScore.Combinations
 
       /// <summary>Список сгенерированных комбинаций → ForceSet (одна строка на комбинацию).</summary>
       public static ForceSet CasesToForceSet(
-         IList<GeneratedCase> cases, string kind, string tag)
+         IList<GeneratedCase> cases, string kind, string tag, IList<string>? rowLabels = null)
       {
          var fs   = new ForceSet { Tag = tag, Kind = kind };
          string[] keys = cases.Count > 0 ? GetCombComponentNames(cases[0]) : ComponentKeysFor(kind);
@@ -213,7 +213,9 @@ namespace CScore.Combinations
          {
             string sign   = c.Sign > 0 ? "max" : "min";
             string active = FormatActive(c.Active);
-            string lbl    = $"{c.CombType} sec={c.Section} {sign} {c.Component}";
+            // Префикс сочетания — как у огибающей: Cm — основное, Cs — особое.
+            string comb   = c.CombType == CombType.Accidental ? "Cs" : "Cm";
+            string lbl    = $"{comb} {SectionLabel(rowLabels, c.Section)} {sign} {c.Component}";
             if (active.Length > 0) lbl += $" [{active}]";
 
             AddRow(fs, lbl, keys, c.Forces);
@@ -314,6 +316,12 @@ namespace CScore.Combinations
       // ----------------------------------------------------------------
       // Вспомогательные
       // ----------------------------------------------------------------
+
+      /// <summary>Подпись сечения в метке результата: метка исходной строки, а без неё — номер «sec=N».</summary>
+      static string SectionLabel(IList<string>? rowLabels, int s) =>
+         rowLabels != null && s >= 0 && s < rowLabels.Count && !string.IsNullOrWhiteSpace(rowLabels[s])
+            ? rowLabels[s].Trim()
+            : $"sec={s}";
 
       /// <summary>Число строк набора своего вида: стержневых или пластинчатых.</summary>
       public static int RowCount(ForceSet fs) =>

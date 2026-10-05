@@ -66,4 +66,30 @@ public sealed class SP20CombinationsShellTests
         Assert.Empty(caseSet.Items);
         Assert.NotEmpty(caseSet.ShellItems);
     }
+
+    [Fact]
+    public void EnvelopeAndCases_LabelRowsWithSourceLabels()
+    {
+        static ForceSet Bar(string tag, double mSupport, double mSpan) => new()
+        {
+            Tag = tag, Kind = "bar",
+            Items = [new LoadItem { Label = "Опора", Mx = mSupport }, new LoadItem { Label = "Пролёт", Mx = mSpan }]
+        };
+        var g = Bar("G: Вес", -45, 38);
+        var q = Bar("Q: Полезная", -20, 15);
+        string[] labels = ["Опора", "Пролёт"];
+
+        var (env, cases, _, _) = SP20Combinations.SP20EnvelopeAndCasesFromForceSets([g, q], CombType.Fundamental);
+        var envSet = SP20Combinations.EnvelopeToForceSet(env, "bar", "env", "Cm", labels);
+        var caseSet = SP20Combinations.CasesToForceSet(cases, "bar", "cases", labels);
+
+        Assert.Contains(envSet.Items, i => i.Label == "Cm max Mx (Пролёт)");
+        Assert.Contains(envSet.Items, i => i.Label == "Cm min Mx (Опора)");
+        Assert.DoesNotContain(envSet.Items, i => i.Label.Contains("sec="));
+        Assert.All(caseSet.Items, i => Assert.Matches(@"^Cm (Опора|Пролёт) (max|min) ", i.Label));
+
+        // Без меток — прежний номер сечения.
+        var bare = SP20Combinations.EnvelopeToForceSet(env, "bar", "env", "Cm");
+        Assert.Contains(bare.Items, i => i.Label == "Cm max Mx (sec=1)");
+    }
 }
