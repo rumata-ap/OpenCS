@@ -17,13 +17,13 @@ public partial class FemCheckDialog : Window
     public FemCheck? ResultCheck { get; private set; }
 
     /// <param name="target">Группа, из меню которой вызвана команда: выбирается целью новой проверки.</param>
-    public FemCheckDialog(AppViewModel app, FemCheck? existing = null, FemMemberGroup? target = null)
+    public FemCheckDialog(AppViewModel app, FemCheck? existing = null, IFemCheckable? target = null)
     {
         _app = app;
         InitializeComponent();
         var vm = new FemCheckDialogVM(app, existing, ForceSetsBox);
         DataContext = vm;
-        if (existing == null && target != null) vm.SelectGroup(target);
+        if (existing == null && target != null) vm.SelectTarget(target);
         Owner = Application.Current.MainWindow;
     }
 
@@ -195,12 +195,19 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
     }
 
-    /// <summary>Выбрать целью группу (схема — её схема).</summary>
-    public void SelectGroup(FemMemberGroup group)
+    /// <summary>Выбрать целью группу или конструктивный элемент (схема — его схема).</summary>
+    public void SelectTarget(IFemCheckable target)
     {
-        if (Schemas.FirstOrDefault(s => s.Id == group.SchemaId) is not { } schema) return;
+        int schemaId = target switch { FemMemberGroup g => g.SchemaId, FemMember m => m.SchemaId, _ => 0 };
+        if (Schemas.FirstOrDefault(s => s.Id == schemaId) is not { } schema) return;
         if (schema != SelectedSchema) SelectedSchema = schema;
-        if (Members.FirstOrDefault(t => t.Group == group) is { } item) SelectedMember = item;
+        var item = target switch
+        {
+            FemMemberGroup g => Members.FirstOrDefault(t => t.Group == g),
+            FemMember m      => Members.FirstOrDefault(t => t.Kind == "element" && t.Id == m.Id),
+            _                => null,
+        };
+        if (item != null) SelectedMember = item;
     }
 
     void LoadFromExisting(FemCheck check)

@@ -438,7 +438,7 @@ public partial class FemSchemaView3D : UserControl
         }
 
         if (VM.BarGroups.Count > 0 || VM.ShellMesh != null)
-            viewport.ZoomExtents(500);
+            ZoomToModel();
 
         // BuildEditProxies — раньше глифов нагрузок: их прозрачные (но пишущие в z-buffer)
         // сферы-прокси для клика иначе перекрывают ещё не нарисованные видимые сферы узлов/труб
@@ -451,6 +451,22 @@ public partial class FemSchemaView3D : UserControl
         BuildSectionGlyphs();
         ApplyGridVisuals();
         UpdateGroundPlane();
+        BuildMarker();
+    }
+
+    /// <summary>Метка <see cref="Fem3DVM.MarkerPoint"/>: сфера с размером от габарита узлов вида.</summary>
+    void BuildMarker()
+    {
+        if (VM?.MarkerPoint is not Point3D point) return;
+        double radius = 0.1;
+        if (VM.NodePoints is { Count: > 1 } points)
+        {
+            var bounds = Rect3D.Empty;
+            foreach (var p in points) bounds.Union(p);
+            double diagonal = Math.Sqrt(bounds.SizeX * bounds.SizeX + bounds.SizeY * bounds.SizeY + bounds.SizeZ * bounds.SizeZ);
+            radius = Math.Max(0.05, diagonal * 0.008);
+        }
+        viewport.Children.Add(new SphereVisual3D { Center = point, Radius = radius, Fill = Brushes.OrangeRed });
     }
 
     /// <summary>Рисует условные знаки закреплений, сил и моментов отдельными 3D-линиями.</summary>
@@ -1179,8 +1195,31 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Включает общий показ сетки после построения расчётной сетки.</summary>
     public void ShowMeshOverlay() => showGridCheck.IsChecked = true;
 
-    void ZoomExtents_Click(object sender, RoutedEventArgs e)
-        => viewport.ZoomExtents(500);
+    void ZoomExtents_Click(object sender, RoutedEventArgs e) => ZoomToModel();
+
+    /// <summary>
+    /// «Показать всё». Для ортогональной камеры Helix подгоняет только ширину кадра, а расстояние до центра
+    /// оставляет прежним (у камеры по умолчанию ~26 м): на модели крупнее камера оказывалась внутри неё, и
+    /// ближняя к зрителю часть срезалась плоскостью поперёк взгляда. Камера отводится за габарит модели —
+    /// в ортогональной проекции расстояние на изображение не влияет.
+    /// </summary>
+    void ZoomToModel()
+    {
+        var bounds = Visual3DHelper.FindBounds(viewport.Children);
+        if (!bounds.IsEmpty && viewport.Camera is ProjectionCamera camera && camera.LookDirection.Length > 0)
+        {
+            double diagonal = new Vector3D(bounds.SizeX, bounds.SizeY, bounds.SizeZ).Length;
+            if (camera.LookDirection.Length < diagonal)
+            {
+                var target = camera.Position + camera.LookDirection;
+                var look = camera.LookDirection;
+                look.Normalize();
+                camera.LookDirection = look * diagonal;
+                camera.Position = target - camera.LookDirection;
+            }
+        }
+        viewport.ZoomExtents(500);
+    }
 
     void CreateNodeFromPanel_Click(object sender, RoutedEventArgs e)
     {

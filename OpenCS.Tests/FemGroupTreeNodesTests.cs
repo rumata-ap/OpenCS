@@ -122,6 +122,62 @@ public sealed class FemGroupTreeNodesTests
         }
     }
 
+    [Fact]
+    public void MembersAreListedUnderBarsAndShells_WithTheirOwnChecks()
+    {
+        string path = TempDbPath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var service = new FemGroupService(db, new NullLog());
+            var schema = new FemSchema { Tag = "Схема" };
+            db.SaveFemSchema(schema);
+            db.SaveFemTopology(schema.Id,
+                [new FemNode { SchemaId = schema.Id, NodeTag = "1", DofMask = 63 },
+                 new FemNode { SchemaId = schema.Id, NodeTag = "2", X = 3, DofMask = 5 }], [], []);
+            var beam = new FemMember { SchemaId = schema.Id, ElemTag = "Б1", NodeIdsJson = "[1,2]" };
+            var plate = new FemMember { SchemaId = schema.Id, ElemTag = "П1", ElemType = "shell", Kind = FemMemberTypes.Plate };
+            db.SaveFemMember(beam);
+            db.SaveFemMember(plate);
+            var group = service.CreateMembersGroup(schema, ["Б1"], "Балки", null)!;
+
+            var tree = new FemSchemaTreeVM(schema, db, []);
+            var bars = tree.ElementsSubNode.Bars.Members;
+            var shells = tree.ElementsSubNode.Shells.Members;
+            Assert.Equal(["Б1"], bars.Select(i => i.Member.ElemTag));
+            Assert.Equal(["П1"], shells.Select(i => i.Member.ElemTag));
+            Assert.Null(bars[0].TypeCode);
+            Assert.Equal(FemMemberTypes.Plate, shells[0].TypeCode);
+
+            // Узлы: подпись закреплений и примыкающие КонЭ по тегам узлов.
+            var nodes = tree.NodesSubNode.Nodes;
+            Assert.Equal(["1", "2"], nodes.Select(n => n.Node.NodeTag));
+            Assert.Equal("Tx Tz", nodes[1].Supports);
+            Assert.Equal(["Б1"], nodes[0].AdjacentMembers().Select(i => i.Member.ElemTag));
+
+            // В узел КонЭ попадают только проверки, нацеленные на него; групповая — нет.
+            var own = new FemCheck { SchemaId = schema.Id, ElementId = beam.Id, Tag = "Своя" };
+            db.SaveFemCheck(own);
+            db.SaveFemCheck(new FemCheck { SchemaId = schema.Id, MemberId = group.Id, Tag = "Группы" });
+            Assert.Equal([own], bars[0].Checks);
+            Assert.Empty(shells[0].Checks);
+
+            // Перечитывание топологии сохраняет проверки у новых узлов КонЭ.
+            db.SaveFemMember(new FemMember { SchemaId = schema.Id, ElemTag = "Б2" });
+            tree.ReloadTopology();
+            bars = tree.ElementsSubNode.Bars.Members;
+            Assert.Equal(["Б1", "Б2"], bars.Select(i => i.Member.ElemTag).Order());
+            Assert.Equal([own], bars.Single(i => i.Member.Id == beam.Id).Checks);
+
+            db.DeleteFemCheck(own);
+            Assert.Empty(bars.Single(i => i.Member.Id == beam.Id).Checks);
+        }
+        finally
+        {
+            Delete(path);
+        }
+    }
+
     sealed class NullLog : ILogService
     {
         public System.Collections.ObjectModel.ObservableCollection<LogEntry> LogEntries { get; } = [];

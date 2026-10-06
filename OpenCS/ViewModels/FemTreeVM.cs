@@ -130,6 +130,9 @@ class FemSchemaTreeVM
 
     readonly DatabaseService _db;
 
+    /// <summary>КонЭ дерева по Id — для раскладки проверок, нацеленных на одиночный элемент.</summary>
+    Dictionary<int, FemMemberTreeItem> _memberItems = [];
+
     public FemSchemaTreeVM(FemSchema schema, DatabaseService db,
                            ObservableCollection<CScore.ForceSet> forceSets)
     {
@@ -156,6 +159,41 @@ class FemSchemaTreeVM
         ];
 
         RefreshCounts();
+        db.FemChecks.CollectionChanged += FemChecks_CollectionChanged;
+    }
+
+    void FemChecks_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (var item in _memberItems.Values) item.Checks.Clear();
+            return;
+        }
+        if (e.OldItems != null)
+            foreach (FemCheck c in e.OldItems)
+                if (c.ElementId is int id && _memberItems.TryGetValue(id, out var item)) item.Checks.Remove(c);
+        if (e.NewItems != null)
+            foreach (FemCheck c in e.NewItems) RouteCheck(c);
+    }
+
+    void RouteCheck(FemCheck c)
+    {
+        if (c.TargetsElement && c.SchemaId == Schema.Id
+            && _memberItems.TryGetValue(c.ElementId!.Value, out var item) && !item.Checks.Contains(c))
+            item.Checks.Add(c);
+    }
+
+    /// <summary>Перечитывает КонЭ схемы в узлы «Стержни» и «Пластины» и раскладывает по ним их проверки.</summary>
+    void ReloadMembers()
+    {
+        var members = _db.GetFemMembers(Schema.Id);
+        var bars    = members.Where(m => m.ElemType == "beam").Select(m => new FemMemberTreeItem(m, Schema)).ToList();
+        var shells  = members.Where(m => m.ElemType == "shell").Select(m => new FemMemberTreeItem(m, Schema)).ToList();
+        ElementsSubNode.Bars.Members.Reset(bars);
+        ElementsSubNode.Shells.Members.Reset(shells);
+        NodesSubNode.Nodes.Reset(_db.GetFemNodes(Schema.Id).Select(n => new FemNodeTreeItem(n, this)));
+        _memberItems = bars.Concat(shells).ToDictionary(i => i.Member.Id);
+        foreach (var c in _db.FemChecks) RouteCheck(c);
     }
 
     void RefreshCounts()
@@ -166,6 +204,7 @@ class FemSchemaTreeVM
         ElementsSubNode.ShellCount     = shells;
         ElementsSubNode.Bars.Count     = bars;
         ElementsSubNode.Shells.Count   = shells;
+        ReloadMembers();
         RefreshMeshSnapshotCounts();
     }
 
@@ -302,12 +341,13 @@ public class FemMeshShellsSubNode : FemSubNode, System.ComponentModel.INotifyPro
     internal FemMeshShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
-/// <summary>Подузел «Узлы» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+/// <summary>Подузел «Узлы» — узлы конструктивной модели; таблица в DataGrid загружается асинхронно.</summary>
 public class FemNodesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     int _count;
     public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    public FemTreeItems<FemNodeTreeItem> Nodes { get; } = [];
     internal FemSchemaTreeVM Owner { get; }
     internal FemNodesSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
@@ -337,25 +377,105 @@ public class FemElementsSubNode : FemSubNode, System.ComponentModel.INotifyPrope
     }
 }
 
-/// <summary>Подузел «Стержни» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+/// <summary>Подузел «Стержни» — стержневые КонЭ схемы; таблица в DataGrid загружается асинхронно.</summary>
 public class FemBarsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     int _count;
     public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    public FemMemberTreeItems Members { get; } = [];
     internal FemSchemaTreeVM Owner { get; }
     internal FemBarsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
-/// <summary>Подузел «Пластины» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+/// <summary>Подузел «Пластины» — пластинчатые КонЭ схемы; таблица в DataGrid загружается асинхронно.</summary>
 public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     int _count;
     public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    public FemMemberTreeItems Members { get; } = [];
     internal FemSchemaTreeVM Owner { get; }
     public FemSchema Schema => Owner.Schema;
     internal FemShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Конструктивный элемент в дереве схемы: сам элемент и проверки, нацеленные на него
+/// (<see cref="FemCheck.ElementId"/>).</summary>
+public class FemMemberTreeItem
+{
+    public FemMember Member { get; }
+    public FemSchema Schema { get; }
+    public ObservableCollection<FemCheck> Checks { get; } = [];
+
+    public bool IsShell => Member.ElemType == "shell";
+
+    /// <summary>Код типа для подписи: у пластин — плита/стена; у стержней не показывается.</summary>
+    public string? TypeCode => IsShell ? Member.Kind ?? FemMemberTypes.Shell : null;
+
+    internal FemMemberTreeItem(FemMember member, FemSchema schema)
+    {
+        Member = member;
+        Schema = schema;
+    }
+}
+
+/// <summary>Узел конструктивной модели в дереве схемы.</summary>
+public class FemNodeTreeItem
+{
+    public FemNode Node { get; }
+    internal FemSchemaTreeVM Owner { get; }
+    public FemSchema Schema => Owner.Schema;
+
+    /// <summary>Закрепления для подписи: «заделка», «шарнир» или перечень (Tx Tz Ry); пусто — свободен.</summary>
+    public string Supports => SupportsText(Node.DofMask);
+
+    internal FemNodeTreeItem(FemNode node, FemSchemaTreeVM owner)
+    {
+        Node  = node;
+        Owner = owner;
+    }
+
+    static readonly string[] DofNames = ["Tx", "Ty", "Tz", "Rx", "Ry", "Rz"];
+
+    public static string SupportsText(int mask) => mask switch
+    {
+        0  => "",
+        63 => Loc.S("FemNodeSupportFixed"),
+        7  => Loc.S("FemNodeSupportPinned"),
+        _  => string.Join(" ", DofNames.Where((_, i) => (mask & (1 << i)) != 0)),
+    };
+
+    /// <summary>КонЭ, которым принадлежит узел (по тегу узла в <see cref="FemMember.NodeIdsJson"/>).</summary>
+    public IReadOnlyList<FemMemberTreeItem> AdjacentMembers()
+    {
+        if (!int.TryParse(Node.NodeTag, out int tag)) return [];
+        return Owner.ElementsSubNode.Bars.Members.Concat(Owner.ElementsSubNode.Shells.Members)
+            .Where(i => NodeTags(i.Member).Contains(tag))
+            .ToList();
+    }
+
+    static int[] NodeTags(FemMember member)
+    {
+        try { return System.Text.Json.JsonSerializer.Deserialize<int[]>(member.NodeIdsJson) ?? []; }
+        catch (System.Text.Json.JsonException) { return []; }
+    }
+}
+
+/// <summary>Список КонЭ узла дерева; перечитывается целиком одним уведомлением Reset.</summary>
+public class FemMemberTreeItems : FemTreeItems<FemMemberTreeItem>;
+
+/// <summary>Элементы узла дерева; перечитываются целиком одним уведомлением Reset.</summary>
+public class FemTreeItems<T> : ObservableCollection<T>
+{
+    internal void Reset(IEnumerable<T> items)
+    {
+        Items.Clear();
+        foreach (var item in items) Items.Add(item);
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(Count)));
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs("Item[]"));
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
 }
 
 /// <summary>Подузел групп схемы одного вида (<see cref="FemMemberGroup.Kind"/>) — фильтр над

@@ -476,6 +476,16 @@ namespace OpenCS
          RefreshFemSchemaTreeCounts(schema);
       }
 
+      /// <summary>Открывает редактор схемы и в нём — свойства узла (из дерева схемы).</summary>
+      public void OpenFemNodeInEditor(CScore.Fem.FemSchema schema, string nodeTag)
+      {
+         CurrentFemSchema = schema;
+         // Диалог — после показа страницы: у только что созданной ещё нет окна-владельца.
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.Dispatcher.BeginInvoke(() => page.OpenNodeProperties(nodeTag),
+               System.Windows.Threading.DispatcherPriority.Loaded);
+      }
+
       /// <summary>Страница схемы спрашивает при создании, открыть ли вкладку «Субмодель».</summary>
       public bool OpenSubmodelTabRequested => openSubmodelTabRequested;
 
@@ -1495,7 +1505,7 @@ namespace OpenCS
          CreateWallModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "wall"));
          CreateSpatialPlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "spatial"));
          DeleteFemMemberCommand    = new RelayCommand(p => DeleteFemMember(p as CScore.Fem.FemMemberGroup));
-         AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
+         AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.IFemCheckable));
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
          EditFemAnalysisCommand = new RelayCommand(p => EditFemAnalysis(p as CScore.Fem.FemAnalysis));
          ViewFemAnalysisResultCommand = new RelayCommand(
@@ -1507,7 +1517,7 @@ namespace OpenCS
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
-         AddSlsFemCheckCommand     = new RelayCommand(p => AddSlsFemCheck(p as CScore.Fem.FemMemberGroup));
+         AddSlsFemCheckCommand     = new RelayCommand(p => AddSlsFemCheck(p as CScore.Fem.IFemCheckable));
          ShowBarDiagramsCommand    = new RelayCommand(p => ShowBarDiagrams(p as CScore.Fem.IFemCheckable));
          AddFemCheckByGroupCommand = new RelayCommand(p =>
          {
@@ -3636,7 +3646,7 @@ namespace OpenCS
       public void ReloadFemMeshSnapshotTree(int schemaId)
           => femSchemasGroup?.ReloadMeshSnapshot(schemaId);
 
-      void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
+      internal void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
       {
          var vm = femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema == schema);
          vm?.ReloadTopology();
@@ -4997,8 +5007,8 @@ namespace OpenCS
             LogService.Info(string.Format(Loc.S("FemGroupAutoResult"), added));
       }
 
-      /// <param name="member">Группа, из меню которой вызвана команда: становится целью проверки.</param>
-      void AddFemCheck(CScore.Fem.FemMemberGroup? member)
+      /// <param name="member">Группа или КонЭ, из меню которых вызвана команда: становится целью проверки.</param>
+      public void AddFemCheck(CScore.Fem.IFemCheckable? member)
       {
          var dlg = new Views.FemCheckDialog(this, target: member);
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
@@ -5006,8 +5016,8 @@ namespace OpenCS
          db.SaveFemCheck(check);
       }
 
-      /// <param name="group">Группа, из меню которой вызвана команда: становится целью проверки.</param>
-      void AddSlsFemCheck(CScore.Fem.FemMemberGroup? group = null)
+      /// <param name="group">Группа или КонЭ, из меню которых вызвана команда: становится целью проверки.</param>
+      public void AddSlsFemCheck(CScore.Fem.IFemCheckable? group = null)
       {
          var dlg = new Views.FemSlsCheckDialog(this, target: group);
          if (group != null && !dlg.HasTarget(group))

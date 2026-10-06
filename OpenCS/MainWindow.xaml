@@ -1453,13 +1453,40 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <!-- Подузел «Узлы» — листовой, данные в DataGrid -->
-                  <DataTemplate DataType="{x:Type vm:FemNodesSubNode}">
-                     <StackPanel Orientation="Horizontal">
+                  <!-- Подузел «Узлы» — узлы конструктивной модели; таблица в DataGrid; меню собирается при открытии -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemNodesSubNode}"
+                                            ItemsSource="{Binding Nodes}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Nodes}"/>
                         <TextBlock Text="{DynamicResource FemNodes}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Узел схемы: щелчок — отметка на схеме и сводка, правка — в редакторе схемы -->
+                  <DataTemplate DataType="{x:Type vm:FemNodeTreeItem}">
+                     <StackPanel Orientation="Horizontal" Margin="1"
+                                 ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Nodes}"/>
+                        <TextBlock Text="{Binding Node.NodeTag}"/>
+                        <TextBlock Text="{Binding Supports, StringFormat='  [{0}]'}" Foreground="Gray">
+                           <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Supports}" Value="">
+                                       <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </TextBlock.Style>
+                        </TextBlock>
                      </StackPanel>
                   </DataTemplate>
 
@@ -1519,7 +1546,10 @@
                   <!-- Подузел «Конечные элементы» — два дочерних: Стержни и Пластины -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
                                             ItemsSource="{Binding Children}">
-                     <StackPanel Orientation="Horizontal">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Members}"/>
                         <TextBlock Text="{DynamicResource FemElements}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0">
@@ -1533,45 +1563,58 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <!-- Подузел «Стержни» — листовой, данные в DataGrid -->
-                  <DataTemplate DataType="{x:Type vm:FemBarsSubNode}">
-                     <StackPanel Orientation="Horizontal">
+                  <!-- Подузел «Стержни» — стержневые КонЭ; таблица в DataGrid; меню собирается при открытии -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemBarsSubNode}"
+                                            ItemsSource="{Binding Members}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Bars}"/>
                         <TextBlock Text="{DynamicResource FemBars}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
-                  </DataTemplate>
+                  </HierarchicalDataTemplate>
 
-                  <!-- Подузел «Пластины» — листовой, данные в DataGrid; контекстное меню создания -->
-                  <DataTemplate DataType="{x:Type vm:FemShellsSubNode}">
-                     <StackPanel Orientation="Horizontal"
-                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                  <!-- Подузел «Пластины» — пластинчатые КонЭ; таблица в DataGrid; меню собирается при открытии -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemShellsSubNode}"
+                                            ItemsSource="{Binding Members}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
                         <StackPanel.ContextMenu>
-                           <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCreatePlateMode}"
-                                        Command="{Binding PlacementTarget.Tag.CreatePlateModeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemCreateWallMode}"
-                                        Command="{Binding PlacementTarget.Tag.CreateWallModeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemCreateSpatialPlateMode}"
-                                        Command="{Binding PlacementTarget.Tag.CreateSpatialPlateModeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                           </ContextMenu>
+                           <ContextMenu/>
                         </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Shells}"/>
                         <TextBlock Text="{DynamicResource FemShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
-                  </DataTemplate>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Конструктивный элемент: щелчок — его КЭ в 3D, дочерние — его проверки -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMemberTreeItem}"
+                                            ItemsSource="{Binding Checks}">
+                     <StackPanel Orientation="Horizontal" Margin="1"
+                                 ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_Bars}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsShell}" Value="True">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_Shells}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
+                        <TextBlock Text="{Binding Member.ElemTag}"/>
+                        <TextBlock Text="{Binding TypeCode, Converter={StaticResource FemMemberTypeNameConverter}, ConverterParameter='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
 
                   <!-- Подузел «Группы КЭ» — состав задан номерами КЭ сетки -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshGroupsSubNode}"

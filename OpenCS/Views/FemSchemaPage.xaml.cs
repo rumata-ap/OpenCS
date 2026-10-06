@@ -34,6 +34,17 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         return dialog.ShowDialog() == true ? dialog.ResultParams : null;
     }
 
+    /// <summary>Выбирает узел и открывает его свойства (закрепления, нагрузки) — из 3D-вида и из дерева схемы.</summary>
+    public void OpenNodeProperties(string tag)
+    {
+        var node = _editorVm.Session.Nodes.FirstOrDefault(n => n.NodeTag == tag);
+        if (node == null) return;
+        _editorVm.Selection.ToggleNode(tag, additive: false);
+        var dlg = new FemNodePropertiesDialog(node, _editorVm) { Owner = Window.GetWindow(this) };
+        dlg.MemberSelected += elemTag => _editorVm.Selection.ToggleElement(elemTag, additive: false);
+        dlg.Show();
+    }
+
     void ISubmodelUiHost.Log(FemValidationDiagnostic diagnostic)
     {
         if (diagnostic.IsError) _app.LogService.Error(diagnostic.Message);
@@ -114,14 +125,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         };
         view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
-        view3D.NodePropertiesRequested += tag =>
-        {
-            var node = _editorVm.Session.Nodes.FirstOrDefault(n => n.NodeTag == tag);
-            if (node == null) return;
-            var dlg = new FemNodePropertiesDialog(node, _editorVm) { Owner = Window.GetWindow(this) };
-            dlg.MemberSelected += elemTag => _editorVm.Selection.ToggleElement(elemTag, additive: false);
-            dlg.Show();
-        };
+        view3D.NodePropertiesRequested += OpenNodeProperties;
         _editorVm.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(FemSchemaEditorVM.CreateNodeMode))

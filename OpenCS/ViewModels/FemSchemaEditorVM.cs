@@ -459,11 +459,15 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>«КонЭ из выделенных КЭ» — через приложение: элементы пишутся в БД мимо сеанса, страница перезагружается.</summary>
     public Func<IReadOnlyList<string>, bool> CreateMembersFromMeshElements { get; }
 
+    /// <summary>После сохранения: дерево схемы перечитывает узлы и КонЭ (подписи, проверки, счётчики).</summary>
+    readonly Action? _afterSave;
+
     public FemSchemaEditorVM(FemSchema schema, AppViewModel app)
     {
         _db = app.db;
         _logService = app.LogService;
         CreateMembersFromMeshElements = tags => app.CreateFemMembersFromMeshElements(schema, tags);
+        _afterSave = () => app.RefreshFemSchemaTreeCounts(schema);
         var gjResolver = new FemGjDefaultResolver(() => app.CalcSettings);
         _memberFactory = new FemMemberFactory(gjResolver);
         _gjBatchPlanner = new FemGjBatchPlanner(gjResolver);
@@ -1132,6 +1136,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.KinematicLoads, Session.LoadDefinitions);
         Session.MarkSaved();
         RefreshCollections();
+        _afterSave?.Invoke();
         return true;
     }
 }

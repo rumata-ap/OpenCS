@@ -145,6 +145,9 @@ public class Fem3DVM : ViewModelBase
     public FemSchemaSelectionVM? Selection { get; set; }
     public bool EditMode { get; set; }
 
+    /// <summary>Точка, отмеченная на виде (узел, выбранный в дереве схемы); null — без метки.</summary>
+    public Point3D? MarkerPoint { get; init; }
+
     /// <summary>
     /// Сессия редактирования схемы (страница схемы): вид строится по ней, а не по БД. <see cref="LoadAsync"/>
     /// читает сетку-подложку в фоне и строит вид один раз (раньше страница строила его синхронно, а

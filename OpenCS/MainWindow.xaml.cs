@@ -212,6 +212,10 @@ namespace OpenCS
              vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
              vm.CurrentPage = new Views.FemShellsView(shellsNode, vm);
+          else if (e.NewValue is ViewModels.FemMemberTreeItem memberItem)
+             vm.CurrentPage = new Views.FemMemberPage(memberItem, vm);
+          else if (e.NewValue is ViewModels.FemNodeTreeItem nodeItem)
+             vm.CurrentPage = new Views.FemNodePage(nodeItem, vm);
           else if (e.NewValue is ViewModels.FemMeshNodesSubNode meshNodesNode)
              vm.CurrentPage = new Views.FemMeshNodesView(meshNodesNode);
           else if (e.NewValue is ViewModels.FemMeshBarsSubNode meshBarsNode)
@@ -241,6 +245,36 @@ namespace OpenCS
                 vm.CurrentPage = null!;
              }
           }
+      }
+
+      /// <summary>Меню КонЭ и узлов «Конструктивные элементы», «Стержни», «Пластины» — собирается при открытии.</summary>
+      void FemMembersNode_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+      {
+         if (sender is not FrameworkElement { ContextMenu: { } menu } element) return;
+         menu.Items.Clear();
+         switch (element.DataContext)
+         {
+            case ViewModels.FemMemberTreeItem item:
+               Views.FemMemberTreeMenus.FillMember(menu.Items, item, vm);
+               break;
+            case ViewModels.FemNodeTreeItem nodeItem:
+               Views.FemMemberTreeMenus.FillNode(menu.Items, nodeItem, vm);
+               break;
+            case ViewModels.FemNodesSubNode nodes:
+               Views.FemMemberTreeMenus.FillNodes(menu.Items, nodes.Owner.Schema, vm);
+               break;
+            case ViewModels.FemBarsSubNode bars:
+               Views.FemMemberTreeMenus.FillCategory(menu.Items, bars.Owner.Schema, bars.Members, vm, shells: false);
+               break;
+            case ViewModels.FemShellsSubNode shells:
+               Views.FemMemberTreeMenus.FillCategory(menu.Items, shells.Owner.Schema, shells.Members, vm, shells: true);
+               break;
+            case ViewModels.FemElementsSubNode all:
+               Views.FemMemberTreeMenus.FillCategory(menu.Items, all.Owner.Schema,
+                  [.. all.Bars.Members, .. all.Shells.Members], vm, shells: null);
+               break;
+         }
+         if (menu.Items.Count == 0) e.Handled = true;
       }
 
       void TasksNode_Selected(object sender, RoutedEventArgs e)

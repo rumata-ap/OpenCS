@@ -17,18 +17,19 @@ public partial class FemSlsCheckDialog : Window
     public FemCheck? ResultCheck { get; private set; }
 
     /// <param name="target">Группа, которую выбрать целью новой проверки.</param>
-    public FemSlsCheckDialog(AppViewModel app, FemCheck? existing = null, FemMemberGroup? target = null)
+    public FemSlsCheckDialog(AppViewModel app, FemCheck? existing = null, IFemCheckable? target = null)
     {
         _app = app;
         InitializeComponent();
         var vm = new FemSlsCheckDialogVM(app, existing, ForceSetsBox);
         DataContext = vm;
-        if (existing == null && target != null) vm.SelectGroup(target);
+        if (existing == null && target != null) vm.SelectTarget(target);
         Owner = Application.Current.MainWindow;
     }
 
-    /// <summary>Выбрана ли целью заданная группа (в списке целей только группы с пластинчатыми КЭ).</summary>
-    public bool HasTarget(FemMemberGroup group) => ((FemSlsCheckDialogVM)DataContext).SelectedMember?.Group == group;
+    /// <summary>Выбрана ли целью заданная группа или элемент (в списке целей только цели с пластинчатыми КЭ).</summary>
+    public bool HasTarget(IFemCheckable target) => ((FemSlsCheckDialogVM)DataContext).SelectedMember is { } t
+        && (t.Group == target || t.Element is { } e && target is FemMember m && e.Id == m.Id);
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
@@ -174,12 +175,19 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
     }
 
-    /// <summary>Выбрать целью группу; если её нет среди целей, выбор не меняется.</summary>
-    public void SelectGroup(FemMemberGroup group)
+    /// <summary>Выбрать целью группу или конструктивный элемент; если его нет среди целей, выбор не меняется.</summary>
+    public void SelectTarget(IFemCheckable target)
     {
-        if (Schemas.FirstOrDefault(s => s.Id == group.SchemaId) is not { } schema) return;
+        int schemaId = target switch { FemMemberGroup g => g.SchemaId, FemMember m => m.SchemaId, _ => 0 };
+        if (Schemas.FirstOrDefault(s => s.Id == schemaId) is not { } schema) return;
         if (schema != SelectedSchema) SelectedSchema = schema;
-        if (Members.FirstOrDefault(t => t.Group == group) is { } item) SelectedMember = item;
+        var item = target switch
+        {
+            FemMemberGroup g => Members.FirstOrDefault(t => t.Group == g),
+            FemMember m      => Members.FirstOrDefault(t => t.Kind == "element" && t.Id == m.Id),
+            _                => null,
+        };
+        if (item != null) SelectedMember = item;
     }
 
     void LoadFromExisting(FemCheck check)
