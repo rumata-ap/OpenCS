@@ -83,6 +83,12 @@ public sealed class SecantPicardOptions
     /// <summary>Геометрическая нелинейность: оболочки — фон Карман, стержни — CR, при замороженных секущих.</summary>
     public bool Geometric { get; init; }
 
+    /// <summary>
+    /// Допуск Ньютона при <see cref="Geometric"/> (‖r‖/‖F‖). У схем с жёсткими связями и колоннами невязка упирается в
+    /// округление ~1e-8 (плита Дорфмана: 1,5e-8…2,5e-8), поэтому меньший допуск недостижим.
+    /// </summary>
+    public double GeometricTolerance { get; init; } = 1e-6;
+
     /// <summary>Дроблений шага пополам при несходимости (несходимость за MaxIterations/2 итераций — сигнал дробить).</summary>
     public int MaxBisections { get; init; } = 4;
 
@@ -361,7 +367,7 @@ public sealed class SecantPicardSolver
         try
         {
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
-            var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: 1e-8, maxIter: 30,
+            var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance, maxIter: 30,
                 corotational: false, u0: uFrom, f0: f);
             return history.AllConverged() ? u : null;
         }

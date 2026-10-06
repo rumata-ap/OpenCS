@@ -12,8 +12,11 @@ public sealed class RcSecantOptions
     /// <summary>ψs арматуры у трещин (п. 8.2.32 СП 63).</summary>
     public bool Psi { get; init; } = true;
 
-    /// <summary>Правило выключения растянутого бетона пластин трещиной.</summary>
-    public PlateCrackRule PlateCrackRule { get; init; } = PlateCrackRule.Layer;
+    /// <summary>
+    /// Правило выключения растянутого бетона пластин трещиной; по умолчанию <see cref="PlateCrackRule.Section"/> — сходится
+    /// со стержневым НДМ (послойное правило вместе с ψs учитывает бетон между трещинами дважды).
+    /// </summary>
+    public PlateCrackRule PlateCrackRule { get; init; } = PlateCrackRule.Section;
 
     /// <summary>
     /// Полоса регуляризации секущей бетона без растяжения у нуля деформаций (<see cref="SecantLaminateBuilder.Build"/>):
@@ -21,6 +24,12 @@ public sealed class RcSecantOptions
     /// (при δ = 1e-5 и E₀ = 26 500 МПа — 0,07 МПа).
     /// </summary>
     public double ZeroStrainBand { get; init; } = 1e-5;
+
+    /// <summary>
+    /// Диагностика: блок B секущей ABD пластин обнуляется (мембранные усилия не связаны с изгибом) — оценка вклада
+    /// физического распора от смещения центра тяжести сечения с трещиной.
+    /// </summary>
+    public bool DropMembraneBendingCoupling { get; init; }
 
     /// <summary>ν бетона до трещины (Дарвин — Пекнольд); null — как в сечении.</summary>
     public double? PoissonUncracked { get; init; }
@@ -57,7 +66,7 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
                 _plates[s.Key] = plate;
             }
             var st = new PlateSecantShellState(plate, s.PlateMaterials, options.Psi, options.PlateCrackRule,
-                options.ZeroStrainBand);
+                options.ZeroStrainBand, options.DropMembraneBendingCoupling);
             _shellStates[st.Response] = st;
             return st.Response;
         }

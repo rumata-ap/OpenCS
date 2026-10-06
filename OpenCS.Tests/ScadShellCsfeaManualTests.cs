@@ -91,6 +91,75 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
     public void SecantB_TensionLayerRule() => RunSecant("secant-B-layer",
         new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, PlateCrackRule = PlateCrackRule.Layer });
 
+    /// <summary>
+    /// Прогон B с геометрической нелинейностью (фон Карман/CR оболочек): проверка гипотезы о распоре — мембранные
+    /// усилия от прогиба при защемлённых колоннах.
+    /// </summary>
+    [Fact]
+    public void SecantB_Geometric() => RunSecant("secant-B-geom",
+        new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, Solver = new CSfea.Core.SecantPicardOptions { Geometric = true } });
+
+    /// <summary>
+    /// Прогон B с обнулённым блоком B секущей ABD: без физического распора (связи N с изгибом через смещение центра
+    /// тяжести сечения с трещиной). Разница с прогоном B — вклад этого распора.
+    /// </summary>
+    [Fact]
+    public void SecantB_NoCoupling() => RunSecant("secant-B-nocoupling",
+        new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, DropMembraneBendingCoupling = true });
+
+    /// <summary>
+    /// Упругая схема, L1 + L2 геометрически нелинейно (фон Карман, как SolveFrozen секущего расчёта с Geometric):
+    /// история невязки Ньютона и прогиб центра против линейного.
+    /// </summary>
+    [Fact]
+    public void GeometricElasticProbe()
+    {
+        if (Read() is not { } data) return;
+        var (e, nu) = ScadShellScenario.ElasticPlate(data);
+        var scenario = ScadShellScenario.Build(data, new ScadShellScenarioOptions(true, ScadShellMaterialMode.Experiment,
+            [new ScadShellStage("L1", [(1, 1.0)], 1.0), new ScadShellStage("L2", [(2, 1.0)], 1.0)]), []);
+        var adapted = ScadRcModelAdapter.Adapt(new ScadRcModelInput
+        {
+            Data = data, PlateSection = scenario.PlateSection, ShellSection = ScadRcModelAdapter.ElasticShells(e, nu),
+            Stages = scenario.Stages,
+        });
+        var build = RcStructuralMeshBuilder.Build(adapted.Model, new LinearRcSectionFactory());
+        var f = build.Combination(adapted.Model.Stages[0].Loads.Concat(adapted.Model.Stages[1].Loads).ToList());
+        var uLin = build.Mesh.SolveLinear(f, build.Bc);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (u, history) = build.Mesh.SolveNonlinear(f, build.Bc, nSteps: 1, tol: 1e-8, maxIter: 30, corotational: false,
+            u0: new double[build.Mesh.NDof], f0: f);
+        foreach (var h in history) output.WriteLine($"итерация {h.Iteration}: невязка {h.Residual:e3}");
+        output.WriteLine($"время {sw.Elapsed:mm\\:ss}; центр: линейно {Uz(build, uLin, CenterNode) * 1000:0.###} мм, " +
+            $"нелинейно {Uz(build, u, CenterNode) * 1000:0.###} мм");
+    }
+
+    /// <summary>
+    /// Армирование пластин по КЭ (как его видит сценарий с материалами опыта): центр, ключ сечения, слои
+    /// (Asx/Asy, см²/м, и z, мм) — в OPENCS_CSFEA_OUT/csfea-plate-rebar.csv.
+    /// </summary>
+    [Fact]
+    public void PlateRebarMap()
+    {
+        if (Read() is not { } data) return;
+        var report = new List<string>();
+        var scenario = ScadShellScenario.Build(data, new ScadShellScenarioOptions(false, ScadShellMaterialMode.Experiment,
+            [new ScadShellStage("L1", [(1, 1.0)], 1.0)]), report);
+        var nodes = data.Nodes.ToDictionary(n => n.Id);
+        var sb = new StringBuilder("shell,x,y,key,layers\n");
+        foreach (var el in data.Elements.Where(e => e.NodeIds.Length is 3 or 4))
+        {
+            if (scenario.PlateSection(el.Id) is not { } s) continue;
+            double x = el.NodeIds.Average(n => nodes[n].X), y = el.NodeIds.Average(n => nodes[n].Y);
+            string layers = string.Join(" ", s.Section.RebarLayers.Select(l => FormattableString.Invariant(
+                $"x{l.Asx * 1e4:0.##}@{l.Zsx * 1e3:0}/y{l.Asy * 1e4:0.##}@{l.Zsy * 1e3:0}")));
+            sb.Append(string.Join(",", el.Id, F(x), F(y), s.Key, layers)).Append('\n');
+        }
+        string? dir = Environment.GetEnvironmentVariable("OPENCS_CSFEA_OUT");
+        if (!string.IsNullOrWhiteSpace(dir)) File.WriteAllText(Path.Combine(dir, "csfea-plate-rebar.csv"), sb.ToString());
+        foreach (var r in report.Distinct()) output.WriteLine(r);
+    }
+
     /// <summary>Опыт: прогибы от нормативной нагрузки (L2, без собственного веса), мм — т. 2, 4, 9.</summary>
     static readonly Dictionary<string, double> Experiment = new() { ["2"] = 9.2, ["4"] = 15.1, ["9"] = 8.6 };
 
@@ -147,7 +216,11 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
             {
                 TensionConcrete = options.TensionConcrete, Psi = options.Psi, PoissonUncracked = options.PoissonUncracked,
                 PlateCrackRule = options.PlateCrackRule, ZeroStrainBand = options.ZeroStrainBand,
-                Solver = new CSfea.Core.SecantPicardOptions { Log = s => log?.WriteLine($"{sw.Elapsed:hh\\:mm\\:ss} {s}") },
+                DropMembraneBendingCoupling = options.DropMembraneBendingCoupling,
+                Solver = new CSfea.Core.SecantPicardOptions
+                {
+                    Geometric = options.Solver.Geometric, Log = s => log?.WriteLine($"{sw.Elapsed:hh\\:mm\\:ss} {s}"),
+                },
             });
         }
         finally { log?.Dispose(); }

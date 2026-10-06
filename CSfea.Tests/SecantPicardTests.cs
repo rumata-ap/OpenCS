@@ -283,7 +283,7 @@ public class SecantPicardTests
         f[6 * 0 + 4] = -p * e;
         f[6 * n + 4] = p * e;
         var res = new SecantPicardSolver(mesh, bc, Array.Empty<ISecantShellState?>(), states,
-            new SecantPicardOptions { Geometric = true }).Run([new SecantLoadStage("P", f, 5)]);
+            new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-8 }).Run([new SecantLoadStage("P", f, 5)]);
         var end = res.StageEnd(0);
         TestHarness.Check("стойка: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
         if (end == null) return;

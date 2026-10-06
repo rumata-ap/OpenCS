@@ -38,6 +38,7 @@ public sealed class PlateSecantShellState : ISecantShellState
     private readonly double _concreteLimit;
     private readonly PlateCrackRule _rule;
     private readonly double _band;
+    private readonly bool _dropCoupling;
 
     /// <param name="section">Слоистое сечение (<c>PlateModel = "layered"</c>) с нужными TensionConcrete и ν.</param>
     /// <param name="materials">Диаграммы; <see cref="PlateSectionMaterials.ConcreteE_MPa"/> — для упругой As.</param>
@@ -45,9 +46,12 @@ public sealed class PlateSecantShellState : ISecantShellState
     /// <param name="rule">Правило выключения растянутого бетона трещиной.</param>
     /// <param name="zeroStrainBand">Полоса регуляризации секущей бетона без растяжения у нуля
     /// (<see cref="SecantLaminateBuilder.Build"/>).</param>
+    /// <param name="dropCoupling">Диагностика: обнулять блок B секущей ABD (без связи мембранных усилий с изгибом —
+    /// оценка вклада физического распора). Неподвижная точка тогда не воспроизводит истинные усилия сечения.</param>
     public PlateSecantShellState(PlateSection section, PlateSectionMaterials materials, bool psi,
-        PlateCrackRule rule = PlateCrackRule.Layer, double zeroStrainBand = 0.0)
+        PlateCrackRule rule = PlateCrackRule.Section, double zeroStrainBand = 0.0, bool dropCoupling = false)
     {
+        _dropCoupling = dropCoupling;
         _rule = rule;
         _band = zeroStrainBand;
         _section = section ?? throw new ArgumentNullException(nameof(section));
@@ -109,8 +113,11 @@ public sealed class PlateSecantShellState : ISecantShellState
                             layerState: _layers);
 
     private ShellTangent Tangent(ShellStrainState s)
-        => SecantLaminateBuilder.ToCsfea(SecantLaminateBuilder.Build(_section, s, _m.ConcreteDiagram, _m.RebarDiagram,
+    {
+        var t = SecantLaminateBuilder.ToCsfea(SecantLaminateBuilder.Build(_section, s, _m.ConcreteDiagram, _m.RebarDiagram,
             _m.LayerDiagrams, _layers, zeroStrainBand: _band), _as);
+        return _dropCoupling ? t with { B = new double[3, 3] } : t;
+    }
 
     /// <summary>Трещина — хотя бы один слой; текучесть — растянутая арматура на площадке диаграммы; отказ —
     /// бетон за εb2 или арматура за εs2.</summary>
