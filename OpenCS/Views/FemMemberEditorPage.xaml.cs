@@ -14,11 +14,15 @@ public partial class FemMemberEditorPage : UserControl
     readonly FemMemberGroup _member;
     readonly AppViewModel   _app;
 
+    /// <summary>Ширина панели свойств, выбранная разделителем, — общая для страниц групп в пределах сеанса.</summary>
+    static double? _editorWidth;
+
     public FemMemberEditorPage(FemMemberGroup member, AppViewModel app)
     {
         _member = member;
         _app    = app;
         InitializeComponent();
+        if (_editorWidth is double w) colEditor.Width = new GridLength(w);
         var vm = new FemMemberEditorVM(member, app);
         DataContext = vm;
         Set3D(new Fem3DVM(member, app.db));
@@ -34,6 +38,9 @@ public partial class FemMemberEditorPage : UserControl
             if (view3D.DataContext is Fem3DVM v) Hook(v, false);
         };
     }
+
+    void Splitter_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e) =>
+        _editorWidth = colEditor.ActualWidth;
 
     void ViewMode_Changed(object sender, RoutedEventArgs e)
     {

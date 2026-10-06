@@ -4,9 +4,15 @@
              xmlns:local="clr-namespace:OpenCS.Views">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="360"/>
-            <ColumnDefinition Width="*"/>
+            <!-- Ширина панели свойств меняется разделителем (длинные подписи параметров СП 16) -->
+            <ColumnDefinition x:Name="colEditor" Width="360" MinWidth="280"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*" MinWidth="200"/>
         </Grid.ColumnDefinitions>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      ResizeBehavior="PreviousAndNext" DragCompleted="Splitter_DragCompleted"
+                      Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
 
         <!-- Левая панель: редактор свойств FemMember -->
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
@@ -105,7 +111,7 @@
         </ScrollViewer>
 
         <!-- Правая панель: 3D-вид с переключателем режима -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
