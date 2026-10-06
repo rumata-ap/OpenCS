@@ -12,7 +12,7 @@ public class LiraCsvSchemaParserTests
     static string BarStiff   => Path.Combine(Downloads, "лира_жесткости_стержни.csv");
     static string PlateStiff => Path.Combine(Downloads, "лира_жесткости_пластины.csv");
 
-    [Fact]
+    [Fact(Skip = "Нужны примеры CSV ЛИРЫ в Downloads — на этой машине их нет")]
     public static void RunAll()
     {
         TestHarness.Section("LiraCsvSchemaParser");
