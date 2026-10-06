@@ -12,8 +12,10 @@ namespace CSfea.Tests;
 /// (угол бетона на εcu ЛИБО стержень на εsu). Бисекция здесь не эталон: её
 /// StrainSolver расходится у предела и занижает предельный коэффициент.
 /// </summary>
-public static class LimitForceSolverTests
+[HarnessChecks]
+public class LimitForceSolverTests
 {
+   [Fact]
    public static void RunAll()
    {
       TestHarness.Section("LimitForceSolver: базовые проверки");

@@ -4,8 +4,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Разрешение группы класса арматуры по таблице 5.6 СП 468.</summary>
-public static class FireRebarClassResolverTests
+[HarnessChecks]
+public class FireRebarClassResolverTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireRebarClassResolver: группа класса арматуры");

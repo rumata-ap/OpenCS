@@ -6,8 +6,10 @@ using CSfea.Thermal.Materials;
 namespace CSfea.Tests;
 
 /// <summary>Эквивалентность сборки по постоянному паттерну и COO-сборки.</summary>
-public static class HeatAssemblyTests
+[HarnessChecks]
+public class HeatAssemblyTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatAssembly: эквивалентность COO");

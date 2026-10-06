@@ -5,8 +5,10 @@ using CScore.Sp16;
 
 namespace CSfea.Tests;
 
-public static class FemInfraTests
+[HarnessChecks]
+public class FemInfraTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FemInfra: domain model");

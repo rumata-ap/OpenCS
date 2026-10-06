@@ -5,8 +5,10 @@ using CSfea.Sparse.CSparseBackend;
 namespace CSfea.Tests;
 
 /// <summary>Кросс-валидация разреженных решателей на реальной FEM-матрице.</summary>
-public static class SolverTests
+[HarnessChecks]
+public class SolverTests
 {
+    [Fact]
     public static void RunCrossValidation()
     {
         TestHarness.Section("Решатели: SparseLU vs CSparse vs CG на K пластины");

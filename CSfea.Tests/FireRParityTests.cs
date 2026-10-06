@@ -9,13 +9,15 @@ namespace CSfea.Tests;
 /// <summary>
 /// Паритет R-проверки (fiber) с Python-фикстурами: встроенное тепловое поле + ожидаемый factor/γ.
 /// </summary>
-public static class FireRParityTests
+[HarnessChecks]
+public class FireRParityTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Fire R parity: Python fixtures");

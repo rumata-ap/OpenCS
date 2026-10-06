@@ -3,8 +3,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Тесты стандартных огневых кривых (ГОСТ 30247.0 / ISO 834).</summary>
-public static class FireCurvesTests
+[HarnessChecks]
+public class FireCurvesTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireCurves: ISO 834");

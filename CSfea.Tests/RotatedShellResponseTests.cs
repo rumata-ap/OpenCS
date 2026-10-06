@@ -3,8 +3,10 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Поворот сечения оболочки в локальные оси КЭ.</summary>
-public static class RotatedShellResponseTests
+[HarnessChecks]
+public class RotatedShellResponseTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("RotatedShellResponse: ламинат под углом = ламинат с Ply.Angle + α");

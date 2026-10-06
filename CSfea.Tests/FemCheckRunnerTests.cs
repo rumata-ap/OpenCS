@@ -3,7 +3,8 @@ using CScore.Fem;
 
 namespace CSfea.Tests;
 
-public static class FemCheckRunnerTests
+[HarnessChecks]
+public class FemCheckRunnerTests
 {
     static void CheckStr(string name, string actual, string expected)
     {
@@ -16,6 +17,7 @@ public static class FemCheckRunnerTests
         TestHarness.CheckRel(name, (double)(int)actual, (double)(int)expected, 0.01);
     }
 
+    [Fact]
     public static void RunExtractCalcType()
     {
         TestHarness.Section("FemCheckRunner: ExtractCalcType из тега набора");
@@ -28,6 +30,7 @@ public static class FemCheckRunnerTests
         CheckCalcType("override CL",      FemCheckRunner.ExtractCalcType("любой тег",           "CL"), CalcType.CL);
     }
 
+    [Fact]
     public static void RunExtractWorstDetail()
     {
         TestHarness.Section("FemCheckRunner: ExtractWorstDetail из DataJson");
@@ -43,6 +46,7 @@ public static class FemCheckRunnerTests
         CheckStr("description", d, "Сжатие с изгибом");
     }
 
+    [Fact]
     public static void RunExtractWorstDetailNoDetails()
     {
         TestHarness.Section("FemCheckRunner: ExtractWorstDetail — нет details");
@@ -52,6 +56,7 @@ public static class FemCheckRunnerTests
         CheckStr("description пусто", d, "");
     }
 
+    [Fact]
     public static void RunMultiAcceptsSingleElementTarget()
     {
         TestHarness.Section("FemCheckRunner: RunMulti принимает одиночный FemMember (без группы)");
@@ -85,6 +90,7 @@ public static class FemCheckRunnerTests
     /// Status="error" без utilization, а RunMulti читал это как Кисп = 0 и «проходил» строку.
     /// Ошибка, неприменимость и отсутствие коэффициента должны давать непройденную строку.
     /// </summary>
+    [Fact]
     public static void RunMultiFailsRowsWithoutUtilization()
     {
         TestHarness.Section("FemCheckRunner: строки без коэффициента использования не проходят");
@@ -144,6 +150,7 @@ public static class FemCheckRunnerTests
     /// Ручная проверка ComputeAcrcStrip для полосы B30/A500, Mx=50 кН·м/м.
     /// Эталон считаем вручную и сравниваем с допуском 0.1%.
     /// </summary>
+    [Fact]
     public static void RunLayeredSlsAcrc()
     {
         TestHarness.Section("FemCheckRunner: ComputeAcrcStrip (B30/A500, Mx=50 кН·м/м)");
@@ -212,6 +219,7 @@ public static class FemCheckRunnerTests
     /// Проверяет свойство acrc_непрод = acrc1 + acrc2 − acrc3 аналитически.
     /// При acrc2 == acrc3 результат равен acrc1, а acrc1/acrc2 == φ1_1/φ1_2 = 1.4.
     /// </summary>
+    [Fact]
     public static void RunLayeredSlsThreeComponent()
     {
         TestHarness.Section("FemCheckRunner: acrc1 + acrc2 − acrc3 = acrc1 (п.8.2.7)");
@@ -256,6 +264,7 @@ public static class FemCheckRunnerTests
     /// Проверяет виртуальный NL через LtFraction: acrc1 + acrc2 − acrc3 == acrc1
     /// при LtFraction=1.0 (virtualNl == N → acrc3 == acrc2 → сумма = acrc1).
     /// </summary>
+    [Fact]
     public static void RunLayeredSlsLtFraction()
     {
         TestHarness.Section("FemCheckRunner: ComputeAcrcStrip + LtFraction (виртуальный NL)");

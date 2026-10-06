@@ -3,8 +3,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Приведение эпюры температуры к линейной по п. 8.44а СП 468.</summary>
-public static class FireTemperatureProfileTests
+[HarnessChecks]
+public class FireTemperatureProfileTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireTemperatureProfile: приведение эпюры");

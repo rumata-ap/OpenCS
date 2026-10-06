@@ -5,8 +5,10 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Проверяет перенос узловых PlanarLoad-результатов в вектор CSfea.</summary>
-public static class PlanarLoadShellMeshAdapterTests
+[HarnessChecks]
+public class PlanarLoadShellMeshAdapterTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("PlanarLoad → CSfea.Core.ShellMesh: nodal force vector");

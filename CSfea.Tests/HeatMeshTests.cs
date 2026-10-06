@@ -5,8 +5,10 @@ using CSfea.Thermal.Materials;
 namespace CSfea.Tests;
 
 /// <summary>Тесты сборки глобальных матриц K и C на сетке HeatMesh.</summary>
-public static class HeatMeshTests
+[HarnessChecks]
+public class HeatMeshTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatMesh: сборка K и C на квадрате 2×2");

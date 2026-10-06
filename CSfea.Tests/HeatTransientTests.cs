@@ -6,8 +6,10 @@ using CSfea.Thermal.Solvers;
 namespace CSfea.Tests;
 
 /// <summary>Тесты нестационарного решателя теплопроводности TransientHeatSolver.</summary>
-public static class HeatTransientTests
+[HarnessChecks]
+public class HeatTransientTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatTransient: θ-схема + Пикар");

@@ -4,8 +4,10 @@ using CSfea.CScoreBridge;
 namespace CSfea.Tests;
 
 /// <summary>Проверки адаптера эквивалентного сечения в единицы собственного МКЭ.</summary>
-public static class EquivalentBeamResponseTests
+[HarnessChecks]
+public class EquivalentBeamResponseTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Эквивалентная балка: масштаб сил и касательной");

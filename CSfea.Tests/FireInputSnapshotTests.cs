@@ -6,8 +6,10 @@ using CScore.Fire.Entities;
 namespace CSfea.Tests;
 
 /// <summary>Канонизация и чувствительность снимка входных данных теплового расчёта.</summary>
-public static class FireInputSnapshotTests
+[HarnessChecks]
+public class FireInputSnapshotTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireThermalInputSnapshot: идентичность входа");

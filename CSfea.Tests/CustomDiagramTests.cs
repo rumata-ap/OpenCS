@@ -5,8 +5,10 @@ using System.Linq;
 namespace CSfea.Tests;
 
 /// <summary>Тесты ResolveCustomDiagramms и BuildSplines (LSpline).</summary>
-public static class CustomDiagramTests
+[HarnessChecks]
+public class CustomDiagramTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("CustomDiagram: ResolveCustomDiagramms + BuildSplines");

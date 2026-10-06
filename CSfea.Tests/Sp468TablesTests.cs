@@ -3,8 +3,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Проверка табличных данных СП 468 (с Изм. № 1): 5.1, 5.3, 5.5, 5.6, 5.7.</summary>
-public static class Sp468TablesTests
+[HarnessChecks]
+public class Sp468TablesTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Sp468Tables: нормативные таблицы");

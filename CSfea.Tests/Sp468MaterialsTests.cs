@@ -3,8 +3,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Тесты материалов СП 468: бетон и коэффициенты γ.</summary>
-public static class Sp468MaterialsTests
+[HarnessChecks]
+public class Sp468MaterialsTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("SP468 Materials: бетон");

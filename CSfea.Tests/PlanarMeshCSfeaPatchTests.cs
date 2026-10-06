@@ -20,7 +20,8 @@ namespace CSfea.Tests;
 /// подтвердить (см. историю правок) уткнулись в непредсказуемое расхождение вплоть до смены знака.
 /// Точная геометрическая корректность адаптера (сохранение узлов/connectivity/дедуп секций) уже
 /// однозначно доказана детерминированным unit-тестом PlanarMeshSnapshotShellMeshAdapterTests.</summary>
-public static class PlanarMeshCSfeaPatchTests
+[HarnessChecks]
+public class PlanarMeshCSfeaPatchTests
 {
     const double Length = 4.0, Width = 2.0, Thickness = 0.2;
     const double E_kPa = 30e9 / 1000.0; // PlateSection.Compute интегрирует в кПа, не в МПа.
@@ -29,6 +30,7 @@ public static class PlanarMeshCSfeaPatchTests
                                          // PlateSection.Compute в Н прежде, чем отдать ShellMesh).
     static double ExpectedNx => Ftotal / Width; // Н/м
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("PlanarMeshSnapshot → CSfea.Core.ShellMesh: реальный осевой sanity-тест (T3/Q4/mixed)");

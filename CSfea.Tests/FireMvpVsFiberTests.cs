@@ -7,8 +7,10 @@ namespace CSfea.Tests;
 /// по п. 8.42 и сворачивает температуру к одному коэффициенту. Тест фиксирует
 /// расхождение с фибровым методом как ожидаемое, а не как регрессию.
 /// </summary>
-public static class FireMvpVsFiberTests
+[HarnessChecks]
+public class FireMvpVsFiberTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireMvp: диагностический путь");

@@ -5,8 +5,10 @@ using CSfea.Thermal.Solvers;
 namespace CSfea.Tests;
 
 /// <summary>Тесты стационарного решателя теплопроводности HeatSteadySolver.</summary>
-public static class HeatSteadyTests
+[HarnessChecks]
+public class HeatSteadyTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatSteady: 1D-полоска, T_left=100, T_right=0");

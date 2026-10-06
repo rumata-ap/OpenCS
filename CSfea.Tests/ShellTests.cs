@@ -4,7 +4,8 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Проверки оболочечного слоя против аналитики и чисел из fea/README.md.</summary>
-public static class ShellTests
+[HarnessChecks]
+public class ShellTests
 {
     private const double E = 210e9;
     private const double Nu = 0.3;
@@ -15,6 +16,7 @@ public static class ShellTests
         => E * H * H * H / (12.0 * (1.0 - Nu * Nu));
 
     /// <summary>Симметрия локальной K и нулевая энергия жёстких трансляций.</summary>
+    [Fact]
     public static void RunElementChecks()
     {
         TestHarness.Section("Локальный элемент Shell4: симметрия и жёсткие моды");
@@ -50,6 +52,7 @@ public static class ShellTests
     }
 
     /// <summary>Защемлённая пластина под центральной силой: сходимость к Тимошенко.</summary>
+    [Fact]
     public static void RunClampedPlateLinear()
     {
         TestHarness.Section("Защемлённая пластина, P в центре (Тимошенко w=0.00560 P a²/D)");
@@ -74,6 +77,7 @@ public static class ShellTests
     }
 
     /// <summary>Фон Карман: укрепление защемлённой пластины 12×12 под равномерной q.</summary>
+    [Fact]
     public static void RunVonKarman()
     {
         TestHarness.Section("Фон Карман: защемлённая пластина 12×12, равномерная q");

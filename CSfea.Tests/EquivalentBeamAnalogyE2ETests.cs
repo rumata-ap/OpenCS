@@ -8,7 +8,8 @@ namespace CSfea.Tests;
 /// <summary>Аналитическая E2E-проверка стержневой аналогии полосы плиты: реальный прогон
 /// FrameMesh2D с EquivalentBeamResponse против замкнутой формулы консоли (P·L³/3·EI, P·L/EA)
 /// для однородной упругой прямоугольной плиты без трещин.</summary>
-public static class EquivalentBeamAnalogyE2ETests
+[HarnessChecks]
+public class EquivalentBeamAnalogyE2ETests
 {
     // Материал: числовое значение E используется в том же смысле, в каком его трактует
     // PlateSection.Compute()/ComputeTangent() — Nx=E·eps·h БЕЗ дополнительного множителя
@@ -23,6 +24,7 @@ public static class EquivalentBeamAnalogyE2ETests
                                 // ось EIy/EIz в FrameMesh2D осталась бы незамеченной)
     const double L = 4.0;      // длина консоли, м
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Стержневая аналогия полосы плиты: консоль, поперечная сила vs аналитика (2D, EIz)");

@@ -4,10 +4,12 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Жёсткие тела (MPC «ведущий — ведомый») в <see cref="StructuralMesh"/>.</summary>
-public static class RigidLinksTests
+[HarnessChecks]
+public class RigidLinksTests
 {
     private const double E = 30e9;
 
+    [Fact]
     public static void RunAll()
     {
         RunRigidArmVsStiffBeam();

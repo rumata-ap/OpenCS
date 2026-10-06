@@ -3,8 +3,10 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Линейная устойчивость: буклинг шарнирно-опёртой пластины под N_x.</summary>
-public static class BucklingTests
+[HarnessChecks]
+public class BucklingTests
 {
+    [Fact]
     public static void RunSimplySupportedPlate()
     {
         TestHarness.Section("Буклинг квадратной пластины под N_x vs Тимошенко");

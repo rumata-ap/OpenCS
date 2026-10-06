@@ -4,8 +4,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Проверка шага тепловой сетки по п. 6.2 СП 468.</summary>
-public static class FireMeshStepValidatorTests
+[HarnessChecks]
+public class FireMeshStepValidatorTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireMeshStepValidator: п. 6.2");

@@ -2,8 +2,10 @@ using CSfea.Core;
 
 namespace CSfea.Tests;
 
-public static class LinearDirichletSystemTests
+[HarnessChecks]
+public class LinearDirichletSystemTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("LinearDirichletSystem: факторизация переиспользуется между Solve()");

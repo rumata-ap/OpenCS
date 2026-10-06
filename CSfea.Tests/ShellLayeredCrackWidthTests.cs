@@ -3,7 +3,8 @@ using CScore.Fem;
 
 namespace CSfea.Tests;
 
-public static class ShellLayeredCrackWidthTests
+[HarnessChecks]
+public class ShellLayeredCrackWidthTests
 {
     static PlateSection MakeSection(double asx, double zsx, double asy, double zsy)
     {
@@ -24,6 +25,7 @@ public static class ShellLayeredCrackWidthTests
     }
 
     /// <summary>Изгиб по X (растяжение снизу по X) → трещина перпендикулярна X → угол 90°.</summary>
+    [Fact]
     public static void RunAngleBendingX()
     {
         TestHarness.Section("ShellLayeredCrackWidth: угол трещины — изгиб по X → 90°");
@@ -41,6 +43,7 @@ public static class ShellLayeredCrackWidthTests
     }
 
     /// <summary>Изгиб по Y → трещина перпендикулярна Y → угол 0°.</summary>
+    [Fact]
     public static void RunAngleBendingY()
     {
         TestHarness.Section("ShellLayeredCrackWidth: угол трещины — изгиб по Y → 0°");
@@ -56,6 +59,7 @@ public static class ShellLayeredCrackWidthTests
     }
 
     /// <summary>Чистое кручение → косые трещины ≈ ±45° (оба знака допустимы, не фиксируем один).</summary>
+    [Fact]
     public static void RunAngleTorsion()
     {
         TestHarness.Section("ShellLayeredCrackWidth: угол трещины — чистое кручение → |угол|≈45°");
@@ -73,6 +77,7 @@ public static class ShellLayeredCrackWidthTests
 
     /// <summary>Mcrc/Cracked заполнены даже когда полоса не растрескалась (M &lt;= Mcrc) —
     /// контракт A.1 спеки: Mcrc не зависит от eps_s, считается всегда.</summary>
+    [Fact]
     public static void RunMcrcAlwaysPopulated()
     {
         TestHarness.Section("ShellLayeredCrackWidth: Mcrc/Cracked заполнены и при отсутствии трещин");
@@ -90,6 +95,7 @@ public static class ShellLayeredCrackWidthTests
     }
 
     /// <summary>ComputeWorst совпадает с ComputeAll().Where(Cracked).MaxBy(AcrcMm).</summary>
+    [Fact]
     public static void RunComputeWorstMatchesComputeAll()
     {
         TestHarness.Section("ShellLayeredCrackWidth: ComputeWorst == ComputeAll().Where(Cracked).MaxBy(AcrcMm)");
@@ -112,6 +118,7 @@ public static class ShellLayeredCrackWidthTests
     /// <summary>Отрицательный mDes (растяжение нижней грани) должен растрескиваться так же,
     /// как и положительный той же величины — Cracked сравнивает |mDes| с Mcrc, не mDes напрямую
     /// (баг: до фикса отрицательный момент никогда не считался растрескавшим сечение).</summary>
+    [Fact]
     public static void RunNegativeMomentCracks()
     {
         TestHarness.Section("ShellLayeredCrackWidth: отрицательный момент тоже растрескивает");
@@ -128,6 +135,7 @@ public static class ShellLayeredCrackWidthTests
     }
 
     /// <summary>Пустой RebarLayers → ComputeAll пуст, ComputeWorst == null.</summary>
+    [Fact]
     public static void RunEmptyRebarLayers()
     {
         TestHarness.Section("ShellLayeredCrackWidth: пустой RebarLayers");

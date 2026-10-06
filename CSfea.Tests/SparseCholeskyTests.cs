@@ -3,8 +3,10 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Тесты разреженного Холецкого: сверка с прямым LU и плотной системой.</summary>
-public static class SparseCholeskyTests
+[HarnessChecks]
+public class SparseCholeskyTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("SparseCholesky");

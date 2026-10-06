@@ -7,8 +7,10 @@ using CSfea.CScoreBridge;
 namespace CSfea.Tests;
 
 /// <summary>Тесты геометрического адаптера PlanarMeshSnapshot → CSfea.Core.ShellMesh.</summary>
-public static class PlanarMeshSnapshotShellMeshAdapterTests
+[HarnessChecks]
+public class PlanarMeshSnapshotShellMeshAdapterTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("PlanarMeshSnapshot → CSfea.Core.ShellMesh: геометрия и дедуп секций");

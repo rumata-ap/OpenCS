@@ -6,8 +6,10 @@ namespace CSfea.Tests;
 /// разработке Task 7 ShellMeshPatchPostprocessor, Срез 3b) — dNdx считался с invJ[a,k] вместо
 /// invJ[k,a], что было незаметно на осеориентированном каноническом треугольнике (invJ=I
 /// симметрична), но давало неверный CST-отклик на скошенных/повёрнутых треугольниках.</summary>
-public static class Shell3Tests
+[HarnessChecks]
+public class Shell3Tests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Shell3.Geometry: полнота градиента dN/dx на скошенном треугольнике");

@@ -5,8 +5,10 @@ using CSfea.CScoreBridge;
 namespace CSfea.Tests;
 
 /// <summary>Тесты моста CScore ↔ CSfea: единицы, оси, упругая жёсткость.</summary>
-public static class CScoreBridgeTests
+[HarnessChecks]
+public class CScoreBridgeTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Мост CScore: масштаб единиц N");

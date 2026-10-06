@@ -3,13 +3,15 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Признак сходимости шаговых нелинейных решателей (фон Карман, CR оболочек, CR рамы).</summary>
-public static class NonlinearConvergenceTests
+[HarnessChecks]
+public class NonlinearConvergenceTests
 {
     private const double E = 210e9;
     private const double Nu = 0.3;
     private const double H = 0.01;
     private const double L = 1.0;
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Признак сходимости: фон Карман и CR оболочек, CR рамы");

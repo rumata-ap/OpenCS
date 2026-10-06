@@ -5,8 +5,10 @@ using CSfea.Thermal.Bc;
 namespace CSfea.Tests;
 
 /// <summary>Тесты физики граничного потока Робина (конвекция + излучение).</summary>
-public static class HeatBoundaryTests
+[HarnessChecks]
+public class HeatBoundaryTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatBoundary: поток и линеаризация Робина");

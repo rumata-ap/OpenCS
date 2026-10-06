@@ -4,9 +4,11 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Температурная кривизна, удлинение оси и жёсткость по п. 8.44б СП 468.</summary>
-public static class FireThermalCurvatureTests
+[HarnessChecks]
+public class FireThermalCurvatureTests
 {
     /// <summary>Запустить аналитические проверки температурной кривизны.</summary>
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireThermalCurvature: χ_t, ε_t, D");

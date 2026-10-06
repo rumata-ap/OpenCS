@@ -3,10 +3,12 @@ using CSfea.Thermal.Elements;
 namespace CSfea.Tests;
 
 /// <summary>Тесты CST-элемента теплопроводности HeatTri3.</summary>
-public static class HeatTri3Tests
+[HarnessChecks]
+public class HeatTri3Tests
 {
     private static readonly double[] UnitRightTriangle = [0, 0, 1, 0, 0, 1];
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatTri3: геометрия и матрицы элемента");

@@ -4,8 +4,10 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Собственный предел огнестойкости: sweep по температурным снимкам (п. 8.5 СП 468).</summary>
-public static class FireRTimeTests
+[HarnessChecks]
+public class FireRTimeTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireRTime: собственный предел огнестойкости");

@@ -7,8 +7,10 @@ using OpenCS.Gmsh;
 
 namespace CSfea.Tests;
 
-public static class ShellMeshPatchCSfeaTests
+[HarnessChecks]
+public class ShellMeshPatchCSfeaTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("ShellMeshPatchPlateSectionResponse (CSfea): реальный Gmsh + линейный решатель");

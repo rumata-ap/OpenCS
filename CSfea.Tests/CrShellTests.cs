@@ -4,7 +4,8 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Проверки коротационной формулировки оболочек.</summary>
-public static class CrShellTests
+[HarnessChecks]
+public class CrShellTests
 {
     private const double E = 210e9;
     private const double Nu = 0.3;
@@ -12,6 +13,7 @@ public static class CrShellTests
     private const double L = 1.0;
 
     /// <summary>Инвариантность F_int к жёсткому повороту элемента.</summary>
+    [Fact]
     public static void RunRigidRotation()
     {
         TestHarness.Section("CR: инвариантность к жёсткому повороту (F_int ≈ 0)");
@@ -43,6 +45,7 @@ public static class CrShellTests
     }
 
     /// <summary>CR совпадает с фон Карманом при умеренной нагрузке.</summary>
+    [Fact]
     public static void RunAgreementWithVonKarman()
     {
         TestHarness.Section("CR ↔ фон Карман: согласие при умеренной нагрузке");

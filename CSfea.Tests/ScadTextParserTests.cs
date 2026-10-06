@@ -2,7 +2,8 @@ using CScore.Import;
 
 namespace CSfea.Tests;
 
-static class ScadTextParserTests
+[HarnessChecks]
+public class ScadTextParserTests
 {
     // Синтетическая фикстура: 6 узлов, 6 записей в блоке элементов (2 из них — не топология
     // и должны быть пропущены, но обязаны "съесть" номер элемента), 2 жёсткости, 1 группа
@@ -27,6 +28,7 @@ static class ScadTextParserTests
         "2 S0 900000 40 90 NU 0.2 Name \"Стойка\"/)" +
         "( 4/-0.1 20.1 -0.3 /1 0 0 /1 1 0 /0 1 0 /0 0 1 /1 0 1 /)";
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("ScadTextParser");

@@ -9,13 +9,15 @@ namespace CSfea.Tests;
 /// <summary>
 /// Проверки паритета C# теплопереноса с Python-фикстурами.
 /// </summary>
-public static class FireParityTests
+[HarnessChecks]
+public class FireParityTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
+    [Fact(Skip = "нет фикстуры tools/fire-parity/fixtures/rectangle_200x400_5min_3sided.json; эталоны пересчитать по СП 468 с Изм. № 1")]
     public static void RunAll()
     {
         TestHarness.Section("Fire parity: Python fixtures");

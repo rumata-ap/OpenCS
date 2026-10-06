@@ -3,7 +3,8 @@ using CScore;
 namespace CSfea.Tests;
 
 /// <summary>Тесты обратной задачи пластины: солвер, клон, выборка по толщине.</summary>
-public static class ShellStrainSolverTests
+[HarnessChecks]
+public class ShellStrainSolverTests
 {
     // Линейная диаграмма σ=E·ε (как в PlateModelTests).
     static Diagramm LinearConcrete(double e_MPa)
@@ -24,6 +25,7 @@ public static class ShellStrainSolverTests
         SofteningModel = "", PlateModel = model,
     };
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Пластина: глубокий клон CloneForCalc");

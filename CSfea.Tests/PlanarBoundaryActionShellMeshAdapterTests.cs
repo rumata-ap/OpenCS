@@ -6,8 +6,10 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Проверяет перенос cut-interface actions в полный boundary input CSfea.</summary>
-public static class PlanarBoundaryActionShellMeshAdapterTests
+[HarnessChecks]
+public class PlanarBoundaryActionShellMeshAdapterTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Planar boundary action → CSfea ShellMesh");

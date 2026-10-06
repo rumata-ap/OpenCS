@@ -3,8 +3,10 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Тесты RCM-переупорядочивания.</summary>
-public static class SparseOrderingTests
+[HarnessChecks]
+public class SparseOrderingTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("SparseOrdering: RCM");

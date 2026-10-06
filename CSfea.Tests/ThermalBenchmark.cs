@@ -6,7 +6,8 @@ using CScore.Fire.Entities;
 namespace CSfea.Tests;
 
 /// <summary>Замер времени нестационарного теплового расчёта. Включается CSFEA_BENCH=1.</summary>
-public static class ThermalBenchmark
+[HarnessChecks]
+public class ThermalBenchmark
 {
     public static bool Enabled
     {
@@ -18,6 +19,7 @@ public static class ThermalBenchmark
         }
     }
 
+    [Fact]
     public static void RunAll()
     {
         if (!Enabled)

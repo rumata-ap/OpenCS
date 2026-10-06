@@ -3,9 +3,11 @@ using CScore.Fire;
 namespace CSfea.Tests;
 
 /// <summary>Проверки высоты сжатой зоны для температурной кривизны по СП 468.</summary>
-public static class FireCompressionZoneTests
+[HarnessChecks]
+public class FireCompressionZoneTests
 {
     /// <summary>Запустить проверки формулы (8.11) и её границ применимости.</summary>
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireCompressionZone: x_t и ξ_R");

@@ -5,8 +5,10 @@ using CSfea.Thermal;
 namespace CSfea.Tests;
 
 /// <summary>Тесты R-проверки огнестойкости (MVP и fiber).</summary>
-public static class FireRCheckTests
+[HarnessChecks]
+public class FireRCheckTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireRCheck: fiber и MVP");

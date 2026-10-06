@@ -1,14 +1,26 @@
-using System.Diagnostics;
+using System.Reflection;
+using System.Text;
+using Xunit.Sdk;
+
+// Тесты исторически шли последовательно одним прогоном; часть из них меряет время
+// (параллельный/последовательный Richardson, таймауты T6) и пишет в общий Console —
+// параллельный запуск классов исказил бы и то, и другое.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace CSfea.Tests;
 
-/// <summary>Простой раннер проверок с выводом PASS/FAIL и сводкой.</summary>
+/// <summary>
+/// Мягкие проверки поверх xUnit: <see cref="Check"/> не прерывает тест, а копит результат;
+/// по завершении [Fact] атрибут <see cref="HarnessChecksAttribute"/> валит тест, если была
+/// хоть одна FAIL, и выводит журнал всех проверок теста. Так один [Fact] по-прежнему
+/// показывает все расхождения сразу, а не только первое.
+/// </summary>
 public static class TestHarness
 {
-    private static int _passed;
+    private static readonly object Gate = new();
+    private static readonly StringBuilder Log = new();
     private static int _failed;
     private static int _skipped;
-    private static Stopwatch? _sectionSw;
 
     /// <summary>
     /// Полный прогон: R60 parity, длительные FEM. Включить: <c>CSFEA_SLOW=1</c>.
@@ -25,22 +37,16 @@ public static class TestHarness
         }
     }
 
-    public static void Section(string title)
-    {
-        _sectionSw?.Stop();
-        if (_sectionSw is not null)
-            Console.WriteLine($"  ({_sectionSw.ElapsedMilliseconds} ms)");
-
-        _sectionSw = Stopwatch.StartNew();
-        Console.WriteLine();
-        Console.WriteLine($"=== {title} ===");
-    }
+    public static void Section(string title) => Write($"=== {title} ===");
 
     public static void Check(string name, bool ok, string detail = "")
     {
-        if (ok) _passed++; else _failed++;
         string tag = ok ? "PASS" : "FAIL";
-        Console.WriteLine($"  [{tag}] {name}{(detail.Length > 0 ? "  — " + detail : "")}");
+        lock (Gate)
+        {
+            if (!ok) _failed++;
+            WriteLocked($"  [{tag}] {name}{(detail.Length > 0 ? "  — " + detail : "")}");
+        }
     }
 
     /// <summary>Проверка относительной погрешности значения относительно эталона.</summary>
@@ -60,23 +66,58 @@ public static class TestHarness
     {
         if (!IncludeSlowTests)
         {
-            _skipped++;
-            Console.WriteLine($"  [SKIP] {name}  — CSFEA_SLOW=1 для полного FEM-прогона");
+            lock (Gate)
+            {
+                _skipped++;
+                WriteLocked($"  [SKIP] {name}  — CSFEA_SLOW=1 для полного FEM-прогона");
+            }
             return;
         }
 
         body();
     }
 
-    public static int Summary()
+    internal static void Begin()
     {
-        _sectionSw?.Stop();
-        if (_sectionSw is not null)
-            Console.WriteLine($"  ({_sectionSw.ElapsedMilliseconds} ms)");
-
-        Console.WriteLine();
-        string skipNote = _skipped > 0 ? $", {_skipped} SKIP" : "";
-        Console.WriteLine($"ИТОГО: {_passed} PASS, {_failed} FAIL{skipNote}");
-        return _failed == 0 ? 0 : 1;
+        lock (Gate)
+        {
+            Log.Clear();
+            _failed = 0;
+            _skipped = 0;
+        }
     }
+
+    internal static void End()
+    {
+        string log;
+        int failed;
+        lock (Gate)
+        {
+            log = Log.ToString();
+            failed = _failed;
+        }
+
+        if (failed > 0)
+            throw new XunitException($"{failed} FAIL из проверок TestHarness:{Environment.NewLine}{log}");
+    }
+
+    private static void Write(string line)
+    {
+        lock (Gate) WriteLocked(line);
+    }
+
+    private static void WriteLocked(string line)
+    {
+        Log.AppendLine(line);
+        Console.WriteLine(line);
+    }
+}
+
+/// <summary>Обнуляет журнал <see cref="TestHarness"/> перед [Fact] и проверяет его после.</summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class HarnessChecksAttribute : BeforeAfterTestAttribute
+{
+    public override void Before(MethodInfo methodUnderTest) => TestHarness.Begin();
+
+    public override void After(MethodInfo methodUnderTest) => TestHarness.End();
 }

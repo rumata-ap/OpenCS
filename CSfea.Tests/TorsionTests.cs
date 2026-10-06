@@ -6,8 +6,10 @@ using System.Diagnostics;
 
 namespace CSfea.Tests;
 
-public static class TorsionTests
+[HarnessChecks]
+public class TorsionTests
 {
+    [Fact]
     public static void SmokePropsConstruction()
     {
         TestHarness.Section("TorsionProps: конструктор и TauMax");
@@ -17,6 +19,7 @@ public static class TorsionTests
         TestHarness.CheckRel("TauMax", props.TauMax(1000.0, 0.01), 20.0, 1e-9);
     }
 
+    [Fact]
     public static void BoundaryFromMaterialArea()
     {
         TestHarness.Section("TorsionBoundary: из MaterialArea с отверстием");
@@ -39,6 +42,7 @@ public static class TorsionTests
         TestHarness.Check("Hole[0] размер", b.Holes![0].X.Length == 4);
     }
 
+    [Fact]
     public static void PrandtlTri3ElementMatrices()
     {
         TestHarness.Section("PrandtlTri3: матрицы K и Load прямоугольного tri");
@@ -60,6 +64,7 @@ public static class TorsionTests
         TestHarness.CheckRel("M_i = A/3 = 1", m[0], 1.0, 1e-9);
     }
 
+    [Fact]
     public static void MeshBuilderSquare()
     {
         TestHarness.Section("MeshBuilder: сетка квадрата 1×1 с границей");
@@ -72,6 +77,7 @@ public static class TorsionTests
         TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
     }
 
+    [Fact]
     public static void MeshBuilderSquareWithHoleRuppert()
     {
         TestHarness.Section("MeshBuilder: Ruppert — квадрат 10×10 с отверстием 2×2");
@@ -91,6 +97,7 @@ public static class TorsionTests
             $"holeSets={mesh.HoleNodeSets.Length}");
     }
 
+    [Fact]
     public static void MeshBuilderFromMaterialAreaMeters()
     {
         TestHarness.Section("MeshBuilder: прямоугольник 0.3×0.5 м из MaterialArea");
@@ -111,6 +118,7 @@ public static class TorsionTests
             $"tri={mesh.Triangles.Length}");
     }
 
+    [Fact]
     public static void MeshBuilderConcaveFrameFine()
     {
         TestHarness.Section("MeshBuilder: вогнутая рамка 30×15 см, h=0.01");
@@ -149,6 +157,7 @@ public static class TorsionTests
         return new TorsionBoundary(ox, oy);
     }
 
+    [Fact]
     public static void FemCircleItVsAnalytical()
     {
         TestHarness.Section("МКЭ: It круга vs π·r⁴/2");
@@ -167,6 +176,7 @@ public static class TorsionTests
         TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
     }
 
+    [Fact]
     public static void BoundaryDiscretizeLoops()
     {
         TestHarness.Section("BoundaryDiscretizer: нарезка квадрата 10×10 с отверстием");
@@ -189,6 +199,7 @@ public static class TorsionTests
         TestHarness.Check("J1 замыкание отверстия", d.J1[23] == 20, $"J1[23]={d.J1[23]}");
     }
 
+    [Fact]
     public static void BemKernelSlintcDiagonal()
     {
         TestHarness.Section("BemKernels: slintc (диагональ G = (l/2)(ln(l/2)−1)/π)");
@@ -197,6 +208,7 @@ public static class TorsionTests
         TestHarness.CheckRel("G_ii для sl=1", g, -1.0 / Math.PI, 1e-9);
     }
 
+    [Fact]
     public static void BemCircleItVsAnalytical()
     {
         TestHarness.Section("МГЭ: It круга vs π·r⁴/2");
@@ -219,6 +231,7 @@ public static class TorsionTests
             $"sc=({props.ShearCenterX:F4},{props.ShearCenterY:F4})");
     }
 
+    [Fact]
     public static void CrossValidationBemVsFem()
     {
         TestHarness.Section("Перекрёстная сверка МГЭ↔МКЭ на прямоугольнике 0.3×0.5");
@@ -234,6 +247,7 @@ public static class TorsionTests
         TestHarness.CheckRel("МГЭ vs МКЭ (≤2%)", bem.It, fem.It, 0.02);
     }
 
+    [Fact]
     public static void ConvergenceByElementSize()
     {
         TestHarness.Section("Сходимость МКЭ по измельчению сетки");
@@ -249,6 +263,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It сходимость (fine vs coarse ≤30%)", itFine, itCoarse, 0.30);
     }
 
+    [Fact]
     public static void RectangleTimoshenko()
     {
         TestHarness.Section("Прямоугольник: It vs формула Тимошенко");
@@ -268,6 +283,7 @@ public static class TorsionTests
         }
     }
 
+    [Fact]
     public static void HollowBoxBredt()
     {
         TestHarness.Section("Полая коробка: It МКЭ (константы Прандтля) vs МГЭ");
@@ -293,6 +309,7 @@ public static class TorsionTests
         TestHarness.Check("It МКЭ / Бредт ∈ [0.9, 1.4]", ratio >= 0.9 && ratio <= 1.4, $"ratio={ratio:F3}");
     }
 
+    [Fact]
     public static void FemHollowCircleItVsExact()
     {
         TestHarness.Section("МКЭ: полая труба r_out=0.1 r_in=0.06 vs π/2·(r⁴_out−r⁴_in)");
@@ -310,6 +327,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It МКЭ (полая труба, ≤8%)", fem.It, exact, 0.08);
     }
 
+    [Fact]
     public static void BemHollowBoxBredt()
     {
         TestHarness.Section("МГЭ: полая коробка (многосвязная) vs формула Бредта");
@@ -334,6 +352,7 @@ public static class TorsionTests
         TestHarness.Check("It МГЭ / Бредт ∈ [0.9, 1.4]", ratio >= 0.9 && ratio <= 1.4, $"ratio={ratio:F3}");
     }
 
+    [Fact]
     public static void MinEdgeLengthSquareWithHole()
     {
         TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: квадрат 10×10 с отверстием 2×2");
@@ -349,6 +368,7 @@ public static class TorsionTests
         TestHarness.CheckRel("MinEdgeLength = 2 (по отверстию)", h0, 2.0, 1e-9);
     }
 
+    [Fact]
     public static void MinEdgeLengthCircleApprox()
     {
         TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: полигон-аппроксимация окружности");
@@ -367,6 +387,7 @@ public static class TorsionTests
         TestHarness.CheckRel("MinEdgeLength = хорда правильного 64-угольника", h0, chord, 1e-9);
     }
 
+    [Fact]
     public static void MinEdgeLengthIgnoresDegenerateEdges()
     {
         TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: игнорирует дублирующиеся (нулевые) точки");
@@ -378,6 +399,7 @@ public static class TorsionTests
         TestHarness.CheckRel("MinEdgeLength = 10 (вырожденное ребро проигнорировано)", h0, 10.0, 1e-9);
     }
 
+    [Fact]
     public static void RichardsonExtrapolateMonotonicSeries()
     {
         TestHarness.Section("TorsionRichardson.Extrapolate: синтетический ряд I(h) = I∞ + C·h^p");
@@ -395,6 +417,7 @@ public static class TorsionTests
         TestHarness.CheckRel("Экстраполированное значение ≈ I∞", value, iInf, 1e-6);
     }
 
+    [Fact]
     public static void RichardsonExtrapolateAlreadyConverged()
     {
         TestHarness.Section("TorsionRichardson.Extrapolate: ряд уже сошёлся (нет изменений)");
@@ -405,6 +428,7 @@ public static class TorsionTests
         TestHarness.CheckRel("Значение = последняя точка", value, 100.0, 1e-9);
     }
 
+    [Fact]
     public static void RichardsonExtrapolateNonMonotonicSeries()
     {
         TestHarness.Section("TorsionRichardson.Extrapolate: немонотонный (зашумлённый) ряд — не доверяем экстраполяции");
@@ -414,6 +438,7 @@ public static class TorsionTests
         TestHarness.CheckRel("Возвращено значение с самой мелкой сетки", value, 102.0, 1e-9);
     }
 
+    [Fact]
     public static void RichardsonBuildRunSizes()
     {
         TestHarness.Section("TorsionRichardson.BuildRunSizes");
@@ -425,6 +450,7 @@ public static class TorsionTests
         TestHarness.Check("nRuns<2 → 2", s2.Length == 2);
     }
 
+    [Fact]
     public static void RichardsonAutoConvergeCustomH0AndTwoRuns()
     {
         TestHarness.Section("TorsionRichardson.SolveAutoConverge: custom h0, N=2 — без экстраполяции");
@@ -439,6 +465,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It = It мелкой сетки", result.It, result.FinestProps.It, 1e-15);
     }
 
+    [Fact]
     public static void RichardsonAutoConvergeParallelMatchesSequentialIt()
     {
         TestHarness.Section("TorsionRichardson parallel vs sequential It (N=2, custom h0)");
@@ -454,6 +481,7 @@ public static class TorsionTests
             TestHarness.CheckRel($"h[{i}]", par.Steps[i].ElementSize, seq.Steps[i].ElementSize, 1e-15);
     }
 
+    [Fact]
     public static void RichardsonAutoConvergeConcaveFrame()
     {
         TestHarness.Section("TorsionRichardson.SolveAutoConverge: вогнутая рамка (двутавр-подобный профиль), МГЭ");
@@ -473,6 +501,7 @@ public static class TorsionTests
         TestHarness.Check("время < 30 с", sw.ElapsedMilliseconds < 30000, $"ms={sw.ElapsedMilliseconds}");
     }
 
+    [Fact]
     public static void BemHollowCircleItVsExact()
     {
         TestHarness.Section("МГЭ: полая труба r_out=0.1 r_in=0.06 vs π/2·(r⁴_out−r⁴_in)");
@@ -490,6 +519,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It МГЭ (полая труба, ≤8%)", bem.It, exact, 0.08);
     }
 
+    [Fact]
     public static void FemShearCenterRectangleSymmetricAtCentroid()
     {
         TestHarness.Section("МКЭ: центр кручения прямоугольника (симметрия) — elasticity и Трефтц ≈ центроид");
@@ -515,6 +545,7 @@ public static class TorsionTests
             new[] { 0.0, B, B, t, t, B, B, 0.0 },
             new[] { 0.0, 0.0, t, t, H - t, H - t, H, H });
 
+    [Fact]
     public static void GeoMomentsChannelSymmetricIxyIsZero()
     {
         TestHarness.Section("TorsionGeoMoments: швеллер симметричен относительно y=H/2 — Ixy строго 0, центроид точен");
@@ -531,6 +562,7 @@ public static class TorsionTests
         TestHarness.Check("Ixx, Iyy > 0", ixx > 0 && iyy > 0);
     }
 
+    [Fact]
     public static void FemShearCenterChannelVsBem()
     {
         TestHarness.Section("МКЭ vs МГЭ: центр кручения швеллера (независимая перекрёстная проверка)");
@@ -562,6 +594,7 @@ public static class TorsionTests
         0.5, 0, 0.5, 0.5, 0, 0.5
     ];
 
+    [Fact]
     public static void PrandtlTri6ShapeFunctionsPartitionOfUnity()
     {
         TestHarness.Section("PrandtlTri6: разбиение единицы функций формы");
@@ -572,6 +605,7 @@ public static class TorsionTests
         TestHarness.CheckRel("Σ N_i = 1", sum, 1.0, 1e-12);
     }
 
+    [Fact]
     public static void PrandtlTri6AreaMatchesTri3()
     {
         TestHarness.Section("PrandtlTri6: площадь по вершинам совпадает с PrandtlTri3");
@@ -580,6 +614,7 @@ public static class TorsionTests
         TestHarness.CheckRel("A совпадает", a6, a3, 1e-12);
     }
 
+    [Fact]
     public static void PrandtlTri6ElementKSymmetricPositiveDiagonalZeroRowSum()
     {
         TestHarness.Section("PrandtlTri6: K симметрична, диагональ > 0, суммы строк ≈ 0");
@@ -601,6 +636,7 @@ public static class TorsionTests
         TestHarness.Check("Суммы строк ≈ 0 (константное поле → нулевой поток)", rowSumsZero);
     }
 
+    [Fact]
     public static void PrandtlTri6LoadAndMassVectors()
     {
         TestHarness.Section("PrandtlTri6: аналитический Load/Mass-вектор (0 на вершинах, A/3 и 2A/3 на серединах)");
@@ -619,6 +655,7 @@ public static class TorsionTests
         TestHarness.CheckRel("F[3] (середина) = 2A/3 = 2", f[3], 2.0, 1e-9);
     }
 
+    [Fact]
     public static void PrandtlTri6NodeGradientReproducesLinearField()
     {
         TestHarness.Section("PrandtlTri6: поузловой градиент воспроизводит линейное поле φ=2x+3y");
@@ -638,6 +675,7 @@ public static class TorsionTests
         }
     }
 
+    [Fact]
     public static void MeshBuilderPromoteSquareNodeCount()
     {
         TestHarness.Section("MeshBuilder.Promote: квадрат 1×1 — число узлов/треугольников");
@@ -656,6 +694,7 @@ public static class TorsionTests
             quad.NodesX.Length - linear.NodesX.Length <= 3 * linear.Triangles.Length);
     }
 
+    [Fact]
     public static void MeshBuilderPromoteClassifiesBoundaryMidNodes()
     {
         TestHarness.Section("MeshBuilder.Promote: квадрат с отверстием — классификация серединных узлов границы");
@@ -686,6 +725,7 @@ public static class TorsionTests
             !quad.OuterDofs.Any(holeSet.Contains));
     }
 
+    [Fact]
     public static void MeshBuilderPromoteRejectsAlreadyQuadratic()
     {
         TestHarness.Section("MeshBuilder.Promote: повторный вызов на T6-сетке бросает исключение");
@@ -700,6 +740,7 @@ public static class TorsionTests
         TestHarness.Check("Promote(T6) бросает ArgumentException", threw);
     }
 
+    [Fact]
     public static void FemCircleItVsAnalyticalQuadratic()
     {
         TestHarness.Section("МКЭ T6: It круга vs π·r⁴/2 (та же сетка, что и T3 — точнее)");
@@ -718,6 +759,7 @@ public static class TorsionTests
         TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
     }
 
+    [Fact]
     public static void RectangleTimoshenkoQuadratic()
     {
         TestHarness.Section("МКЭ T6: прямоугольник vs Тимошенко (та же сетка, что и T3 — точнее)");
@@ -730,6 +772,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It (МКЭ T6 vs Тимошенко, ≤2%)", props.It, timo, 0.02);
     }
 
+    [Fact]
     public static void FemHollowCircleItVsExactQuadratic()
     {
         TestHarness.Section("МКЭ T6: полая труба (Брэдт на серединных узлах отверстия) vs π/2·(r⁴_out−r⁴_in)");
@@ -747,6 +790,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It МКЭ T6 (полая труба, ≤2%)", fem.It, exact, 0.02);
     }
 
+    [Fact]
     public static void TorsionSolverFemOrderDefaultIsLinear()
     {
         TestHarness.Section("TorsionSolver.Solve: параметр femOrder по умолчанию не меняет T3-результат");
@@ -760,6 +804,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It совпадает при явном и дефолтном Linear", explicitLinear.It, withoutParam.It, 1e-12);
     }
 
+    [Fact]
     public static void ConvergenceOrderT3VsT6()
     {
         TestHarness.Section("Сходимость МКЭ: T6 заметно точнее T3 на той же грубой сетке (прямоугольник)");
@@ -782,6 +827,7 @@ public static class TorsionTests
         TestHarness.CheckRel("It T6 (грубая сетка, ≤2%)", itT6, timo, 0.02);
     }
 
+    [Fact]
     public static void FemT6ConcaveFrameSolvesWithinTimeout()
     {
         TestHarness.Section("МКЭ T6: вогнутая рамка 30Б1-подобного профиля решается за разумное время (RCM+Холецкий)");
@@ -797,6 +843,7 @@ public static class TorsionTests
             sw.ElapsedMilliseconds < 20000, $"ms={sw.ElapsedMilliseconds}, nNodes={props.NodeX!.Length}");
     }
 
+    [Fact]
     public static void FemWarpingConstantCircleIsZero()
     {
         TestHarness.Section("МКЭ: секториальная жёсткость γ=Iω круга — депланация ω≡0 (осесимметрия), γ≈0");
@@ -823,6 +870,7 @@ public static class TorsionTests
     /// сигнатура E не принимает вовсе, так что регрессия невозможна на уровне компиляции;
     /// это равновесие остаётся единственной содержательной проверкой корректности порта.
     /// </summary>
+    [Fact]
     public static void FemShearUnitFieldsEquilibriumRectangle()
     {
         TestHarness.Section("МКЭ: равновесие единичных полей τ от Vx/Vy — ∫τ dA = V для прямоугольника");
@@ -858,6 +906,7 @@ public static class TorsionTests
         TestHarness.CheckRel("∫τy dA ≈ Vy=1 (нагрузка Vy)", intTauYvy, 1.0, 0.05);
     }
 
+    [Fact]
     public static void FemTauUnitFieldXyMatchesMagnitude()
     {
         TestHarness.Section("МКЭ: компоненты TauUnitFieldX/Y согласованы с магнитудой TauUnitField (круг)");
@@ -883,6 +932,7 @@ public static class TorsionTests
         TestHarness.Check("max|√(X²+Y²) − magnitude| ≈ 0", maxErr < 1e-9, $"maxErr={maxErr:E3}");
     }
 
+    [Fact]
     public static void CombinedStressSigmaZzPureAxial()
     {
         TestHarness.Section("CombinedStress.SigmaZz: чистое N даёт равномерное σ=N/A");
@@ -898,6 +948,7 @@ public static class TorsionTests
         TestHarness.CheckRel("σ(N) в произвольной точке 2 ≈ N/A (равномерно)", s2, n / area, 1e-9);
     }
 
+    [Fact]
     public static void CombinedStressSigmaZzPureBendingSymmetricRectangle()
     {
         TestHarness.Section("CombinedStress.SigmaZz: чистые Mx,My на симметричном прямоугольнике (Ixy=0) — крайнее волокно = M/W");
@@ -923,6 +974,7 @@ public static class TorsionTests
         TestHarness.CheckRel("σ(My) при x=-b/2 ≈ -My/Wy", sigLeftMy, -my / wy, 1e-9);
     }
 
+    [Fact]
     public static void CombinedStressCombineKnownCases()
     {
         TestHarness.Section("CombinedStress.Combine: von Mises и главные напряжения — известные частные случаи");

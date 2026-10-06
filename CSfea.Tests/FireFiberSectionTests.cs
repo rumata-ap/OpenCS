@@ -7,8 +7,10 @@ namespace CSfea.Tests;
 /// <summary>
 /// Тесты огневого фибрового сечения для проверки редукции несущей способности.
 /// </summary>
-public static class FireFiberSectionTests
+[HarnessChecks]
+public class FireFiberSectionTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireFiberSection: редукция интеграла по температуре");

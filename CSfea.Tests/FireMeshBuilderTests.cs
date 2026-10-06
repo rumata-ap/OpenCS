@@ -6,8 +6,10 @@ using CSfea.Thermal.Bc;
 namespace CSfea.Tests;
 
 /// <summary>Тесты построителя огневой сетки и маппинга граничных рёбер.</summary>
-public static class FireMeshBuilderTests
+[HarnessChecks]
+public class FireMeshBuilderTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireMeshBuilder: прямоугольник 0.2×0.4");

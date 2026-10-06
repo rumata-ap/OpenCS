@@ -6,8 +6,10 @@ using CSfea.Thermal.Solvers;
 namespace CSfea.Tests;
 
 /// <summary>Тесты повышения T3-сетки до T6.</summary>
-public static class HeatMeshQuadraticTests
+[HarnessChecks]
+public class HeatMeshQuadraticTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatMeshQuadratic: promote + сборка");

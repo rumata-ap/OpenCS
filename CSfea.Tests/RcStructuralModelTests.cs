@@ -4,10 +4,12 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Нейтральная модель <see cref="RcStructuralModel"/> и построитель сетки.</summary>
-public static class RcStructuralModelTests
+[HarnessChecks]
+public class RcStructuralModelTests
 {
     private const double E = 30e9;
 
+    [Fact]
     public static void RunAll()
     {
         RunCantileverUniformLoad();

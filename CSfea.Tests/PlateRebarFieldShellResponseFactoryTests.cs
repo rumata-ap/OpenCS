@@ -5,8 +5,10 @@ using CScore.PlateRebar;
 namespace CSfea.Tests;
 
 /// <summary>Тесты моста PlateRebarField → per-element IShellSectionResponse (CSfea).</summary>
-public static class PlateRebarFieldShellResponseFactoryTests
+[HarnessChecks]
+public class PlateRebarFieldShellResponseFactoryTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("PlateRebarField → CSfea: дедуп per-element откликов и разный Mx");

@@ -5,8 +5,10 @@ using CScore.Fire.Entities;
 namespace CSfea.Tests;
 
 /// <summary>Проверки T6-пути огневого расчёта.</summary>
-public static class FireT6ParityTests
+[HarnessChecks]
+public class FireT6ParityTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireT6: квадратичный путь");

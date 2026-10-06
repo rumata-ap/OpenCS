@@ -1,8 +1,10 @@
 namespace CSfea.Tests;
 
 /// <summary>Тесты теплофизических материалов CSfea.Thermal.</summary>
-public static class HeatMaterialTests
+[HarnessChecks]
+public class HeatMaterialTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatMaterial: ConstantHeatMaterial");

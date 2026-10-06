@@ -5,8 +5,10 @@ using CScore.Fire.Entities;
 namespace CSfea.Tests;
 
 /// <summary>Тесты сервиса огневого теплового расчёта и бинарного blob-кодека.</summary>
-public static class FireThermalServiceTests
+[HarnessChecks]
+public class FireThermalServiceTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("FireThermalService: smoke + blob");

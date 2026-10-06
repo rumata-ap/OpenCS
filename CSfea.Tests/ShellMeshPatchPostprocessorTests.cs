@@ -3,8 +3,10 @@ using CSfea.CScoreBridge;
 
 namespace CSfea.Tests;
 
-public static class ShellMeshPatchPostprocessorTests
+[HarnessChecks]
+public class ShellMeshPatchPostprocessorTests
 {
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("ShellMeshPatchPostprocessor: area-averaging в общем базисе патча");

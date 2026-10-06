@@ -3,7 +3,8 @@ using CSfea.Core;
 namespace CSfea.Tests;
 
 /// <summary>Проверки балочных элементов: линейные консоли и CR-сворачивание.</summary>
-public static class BeamTests
+[HarnessChecks]
+public class BeamTests
 {
     private const double E = 210e9;
 
@@ -19,6 +20,7 @@ public static class BeamTests
     }
 
     /// <summary>2D-консоль: поперечный и осевой прогиб vs аналитика.</summary>
+    [Fact]
     public static void RunLinearCantilever2D()
     {
         TestHarness.Section("Балка 2D: линейная консоль vs аналитика");
@@ -51,6 +53,7 @@ public static class BeamTests
     }
 
     /// <summary>2D CR: консоль под концевым моментом сворачивается в дугу.</summary>
+    [Fact]
     public static void RunCrRollup2D()
     {
         TestHarness.Section("Балка 2D CR: сворачивание в дугу концевым моментом");
@@ -86,6 +89,7 @@ public static class BeamTests
     }
 
     /// <summary>3D-консоль: поперечный прогиб по обеим главным осям vs аналитика.</summary>
+    [Fact]
     public static void RunLinearCantilever3D()
     {
         TestHarness.Section("Балка 3D: линейная консоль vs аналитика");
@@ -115,6 +119,7 @@ public static class BeamTests
     }
 
     /// <summary>3D CR: консоль под концевым моментом сворачивается в дугу (в плоскости xy).</summary>
+    [Fact]
     public static void RunCrRollup3D()
     {
         TestHarness.Section("Балка 3D CR: сворачивание в дугу концевым моментом");

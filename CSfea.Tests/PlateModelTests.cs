@@ -3,7 +3,8 @@ using CScore;
 namespace CSfea.Tests;
 
 /// <summary>Тесты нелинейных моделей пластины: слоистая и 1D по характерным точкам.</summary>
-public static class PlateModelTests
+[HarnessChecks]
+public class PlateModelTests
 {
     // Линейная диаграмма σ=E·ε (растяжение и сжатие), E в МПа.
     // ReSteelF L2: ветви (0,0)→(±Ft/E, ±Ft)→(±Et2, ±Ft). Предел текучести 600 МПа
@@ -26,6 +27,7 @@ public static class PlateModelTests
         SofteningModel = "", PlateModel = model,
     };
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("Пластина: слоистая модель — аналитика (линейная σ=Eε)");

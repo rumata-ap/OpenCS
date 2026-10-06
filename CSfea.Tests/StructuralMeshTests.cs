@@ -4,11 +4,13 @@ using CSfea.Sparse;
 namespace CSfea.Tests;
 
 /// <summary>Совместная сетка оболочек и стержней <see cref="StructuralMesh"/>.</summary>
-public static class StructuralMeshTests
+[HarnessChecks]
+public class StructuralMeshTests
 {
     private const double E = 30e9;
     private const double Nu = 0.2;
 
+    [Fact]
     public static void RunAll()
     {
         RunFrameEquivalence();

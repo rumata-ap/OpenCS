@@ -6,7 +6,8 @@ using CSfea.Thermal.Materials;
 namespace CSfea.Tests;
 
 /// <summary>Тесты квадратичного T6-элемента теплопроводности HeatTri6.</summary>
-public static class HeatTri6Tests
+[HarnessChecks]
+public class HeatTri6Tests
 {
     static readonly double[] UnitTri6 =
     [
@@ -14,6 +15,7 @@ public static class HeatTri6Tests
         0.5, 0, 0.5, 0.5, 0, 0.5
     ];
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("HeatTri6: матрицы элемента");

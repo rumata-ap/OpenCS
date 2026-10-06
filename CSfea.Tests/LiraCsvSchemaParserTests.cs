@@ -3,7 +3,8 @@ using CScore.Import;
 namespace CSfea.Tests;
 
 /// <summary>Тесты парсера и конвертера CSV-схем ЛираСАПР.</summary>
-static class LiraCsvSchemaParserTests
+[HarnessChecks]
+public class LiraCsvSchemaParserTests
 {
     const string Downloads = @"C:\Users\palex\Downloads";
     static string Nodes      => Path.Combine(Downloads, "лира_узлы_пример.csv");
@@ -11,6 +12,7 @@ static class LiraCsvSchemaParserTests
     static string BarStiff   => Path.Combine(Downloads, "лира_жесткости_стержни.csv");
     static string PlateStiff => Path.Combine(Downloads, "лира_жесткости_пластины.csv");
 
+    [Fact]
     public static void RunAll()
     {
         TestHarness.Section("LiraCsvSchemaParser");
