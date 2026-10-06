@@ -49,8 +49,6 @@ internal static class ScadShellScenario
         var groups = new ScadConcreteGroupIndex(data.ConcreteGroups);
         var stiff = data.Stiffnesses.ToDictionary(s => s.Id);
         var elems = data.Elements.ToDictionary(e => e.Id);
-        var shellIds = data.Elements.Where(e => ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) == ScadElementKind.Shell)
-            .Select(e => e.Id).ToHashSet();
 
         FemCheckScopeElement Scope(int id) => new(id, new FemElement
         {
@@ -110,17 +108,7 @@ internal static class ScadShellScenario
             };
         }
 
-        double eGe = 0, nu = 0.2;
-        if (o.Elastic)
-        {
-            var ge = data.Elements.Where(e => shellIds.Contains(e.Id)).Select(e => stiff.GetValueOrDefault(e.StiffnessId))
-                .FirstOrDefault(s => s?.Text != null);
-            var parts = ge?.Text!.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries) ?? [];
-            eGe = parts.Length > 2 && double.TryParse(parts[1], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double e0) ? e0 * (data.AnalysisModel?.ForceUnitN ?? 1) : 3e10;
-            if (parts.Length > 2 && double.TryParse(parts[2], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double v)) nu = v;
-        }
+        var (eGe, nu) = o.Elastic ? ElasticPlate(data) : (0.0, 0.2);
 
         var concrete = byId[ConcreteId].GetChars(CalcType.N)!;
         double gj = Math.Abs(concrete.E) * 1000 / 2.4 * 0.141 * Math.Pow(0.3, 4);
@@ -137,6 +125,23 @@ internal static class ScadShellScenario
             BeamOptions = new CrossSectionToOpenSeesAdapter.Options { GJ = gj, ConsiderConcreteTension = o.ConcreteTension },
             Stages = o.Stages,
         };
+    }
+
+    /// <summary>
+    /// Упругие E (Па) и ν пластин для линейной сверки — из строки жёсткости первой пластины SCAD («GE E ν h …»);
+    /// нет данных — 3·10¹⁰ Па и 0,2.
+    /// </summary>
+    public static (double E, double Nu) ElasticPlate(ScadSchemaData data)
+    {
+        var stiff = data.Stiffnesses.ToDictionary(s => s.Id);
+        var ge = data.Elements.Where(e => ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) == ScadElementKind.Shell)
+            .Select(e => stiff.GetValueOrDefault(e.StiffnessId)).FirstOrDefault(s => s?.Text != null);
+        var parts = ge?.Text!.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries) ?? [];
+        double e = parts.Length > 2 && double.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double e0) ? e0 * (data.AnalysisModel?.ForceUnitN ?? 1) : 3e10;
+        double nu = parts.Length > 2 && double.TryParse(parts[2], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0.2;
+        return (e, nu);
     }
 
     /// <summary>Материалы сценария: бетон (id 1), A240 (2), A300 (3), A400 (4).</summary>
