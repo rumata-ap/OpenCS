@@ -10,12 +10,15 @@ public partial class FemShellsView : UserControl
 {
     readonly FemShellsSubNode _node;
     readonly AppViewModel     _app;
+    readonly FemGroupTableTools _groups;
 
     internal FemShellsView(FemShellsSubNode node, AppViewModel app)
     {
         _node = node;
         _app  = app;
         InitializeComponent();
+        _groups = new FemGroupTableTools(app, node.Owner.Schema, shellsGrid, FemMemberGroup.KindMembers,
+            row => ((FemMember)row).ElemTag);
         // Меню — только импорт усилий из программы-источника схемы; у прочих схем его нет вовсе.
         string source = node.Owner.Schema.SourceType;
         liraForcesMenu.Visibility = source == "lira" ? Visibility.Visible : Visibility.Collapsed;
@@ -28,12 +31,12 @@ public partial class FemShellsView : UserControl
         };
     }
 
-    void CreateGroup_Click(object sender, RoutedEventArgs e)
-    {
-        var selected = shellsGrid.SelectedItems.OfType<FemMember>().ToList();
-        if (selected.Count == 0) return;
-        _app.CreateFemMemberFromSelection(_node.Owner.Schema, selected);
-    }
+    void CreateGroup_Click(object sender, RoutedEventArgs e) =>
+        _groups.CreateGroup(AppViewModel.FemMembersGroupType(shellsGrid.SelectedItems.OfType<FemMember>().ToList()));
+
+    void AddToGroup_Click(object sender, RoutedEventArgs e) => _groups.ShowAddMenu((Button)sender);
+
+    void RemoveFromGroup_Click(object sender, RoutedEventArgs e) => _groups.ShowRemoveMenu((Button)sender);
 
     async void ShellsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {

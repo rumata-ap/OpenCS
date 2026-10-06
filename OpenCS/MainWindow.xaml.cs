@@ -215,9 +215,9 @@ namespace OpenCS
           else if (e.NewValue is ViewModels.FemMeshNodesSubNode meshNodesNode)
              vm.CurrentPage = new Views.FemMeshNodesView(meshNodesNode);
           else if (e.NewValue is ViewModels.FemMeshBarsSubNode meshBarsNode)
-             vm.CurrentPage = new Views.FemMeshBarsView(meshBarsNode);
+             vm.CurrentPage = new Views.FemMeshBarsView(meshBarsNode, vm);
           else if (e.NewValue is ViewModels.FemMeshShellsSubNode meshShellsNode)
-             vm.CurrentPage = new Views.FemMeshShellsView(meshShellsNode);
+             vm.CurrentPage = new Views.FemMeshShellsView(meshShellsNode, vm);
           else if (e.NewValue is CScore.ForceSet forceSetItem)
           {
              if (forceSetItem.Kind == "shell")

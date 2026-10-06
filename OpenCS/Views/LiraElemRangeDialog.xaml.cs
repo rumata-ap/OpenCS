@@ -41,5 +41,30 @@ namespace OpenCS.Views
          }
          return [.. ids];
       }
+
+      /// <summary>
+      /// Обратное к <see cref="ParseRange"/>: номера сворачиваются в диапазоны «101-103 106».
+      /// Нечисловые теги дописываются в конец как есть.
+      /// </summary>
+      public static string FormatRange(IEnumerable<string> tags)
+      {
+         var numbers = new SortedSet<int>();
+         var other = new List<string>();
+         foreach (var tag in tags)
+            if (int.TryParse(tag, out int n)) numbers.Add(n);
+            else other.Add(tag);
+
+         var parts = new List<string>();
+         int? from = null, to = null;
+         foreach (int n in numbers)
+         {
+            if (to == n - 1) { to = n; continue; }
+            if (from != null) parts.Add(from == to ? $"{from}" : $"{from}-{to}");
+            from = to = n;
+         }
+         if (from != null) parts.Add(from == to ? $"{from}" : $"{from}-{to}");
+         parts.AddRange(other);
+         return string.Join(" ", parts);
+      }
    }
 }

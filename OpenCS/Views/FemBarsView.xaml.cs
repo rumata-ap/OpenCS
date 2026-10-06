@@ -9,12 +9,15 @@ public partial class FemBarsView : UserControl
 {
     readonly FemBarsSubNode _node;
     readonly AppViewModel   _app;
+    readonly FemGroupTableTools _groups;
 
     internal FemBarsView(FemBarsSubNode node, AppViewModel app)
     {
         _node = node;
         _app  = app;
         InitializeComponent();
+        _groups = new FemGroupTableTools(app, node.Owner.Schema, barsGrid, FemMemberGroup.KindMembers,
+            row => ((FemMember)row).ElemTag);
         liraForcesMenu.Visibility = node.Owner.Schema.SourceType == "lira" ? Visibility.Visible : Visibility.Collapsed;
         scadForcesMenu.Visibility = node.Owner.Schema.SourceType == "scad" ? Visibility.Visible : Visibility.Collapsed;
         Loaded += async (_, _) =>
@@ -24,31 +27,18 @@ public partial class FemBarsView : UserControl
         };
     }
 
-    void NewMember_Click(object sender, RoutedEventArgs e)
-    {
-        var selected = barsGrid.SelectedItems.OfType<FemMember>().ToList();
-        var initialRange = selected.Count > 0
-            ? string.Join(" ", selected.Select(el => el.ElemTag))
-            : "";
-        var dlg = new FemMemberDialog(initialRange);
-        if (dlg.ShowDialog() != true) return;
-        // Теги КонЭ бывают нечисловыми («Колонна №5 · 1»): пока строку не правили — берём выбранные как есть.
-        var tags = selected.Count > 0 && dlg.Range == initialRange
-            ? selected.Select(el => el.ElemTag).ToList()
-            : LiraElemRangeDialog.ParseRange(dlg.Range).Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
-        if (tags.Count == 0) return;
-        _app.CreateFemMembersGroupFromTags(_node.Owner.Schema, tags, dlg.MemberTag, dlg.MemberType);
-    }
+    void CreateGroup_Click(object sender, RoutedEventArgs e) =>
+        _groups.CreateGroup(AppViewModel.FemMembersGroupType(barsGrid.SelectedItems.OfType<FemMember>().ToList()));
 
-    void CreateGroup_Click(object sender, RoutedEventArgs e)
-    {
-        var selected = barsGrid.SelectedItems.OfType<FemMember>().ToList();
-        if (selected.Count == 0) return;
-        _app.CreateFemMemberFromSelection(_node.Owner.Schema, selected);
-    }
+    void AddToGroup_Click(object sender, RoutedEventArgs e) => _groups.ShowAddMenu((Button)sender);
+
+    void RemoveFromGroup_Click(object sender, RoutedEventArgs e) => _groups.ShowRemoveMenu((Button)sender);
 
     void AutoGroup_Click(object sender, RoutedEventArgs e)
-        => _app.AutoGroupFemMembersBySection(_node.Owner.Schema);
+    {
+        _app.AutoGroupFemMembersBySection(_node.Owner.Schema);
+        _groups.Refresh();
+    }
 
     /// <summary>Эпюры усилий и подобранной арматуры выбранного конструктивного элемента.</summary>
     void ShowDiagrams_Click(object sender, RoutedEventArgs e)

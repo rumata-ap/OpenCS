@@ -4852,22 +4852,16 @@ namespace OpenCS
       public Services.FemGroupService FemGroups => femGroups ??= new Services.FemGroupService(db, LogService);
       Services.FemGroupService? femGroups;
 
-      /// <summary>Создаёт группу КонЭ из выбранных конструктивных элементов. Тип — по составу:
-      /// все плиты / все стены / пластины / стержни.</summary>
-      public void CreateFemMemberFromSelection(CScore.Fem.FemSchema schema, IList<CScore.Fem.FemMember> elems)
-      {
-         if (elems.Count == 0) return;
-         string type = elems.All(e => e.ElemType == "shell")
-            ? elems.Select(e => e.Kind).Distinct().ToList() switch
+      /// <summary>Тип группы КонЭ по составу: все плиты / все стены / пластины / стержни.</summary>
+      public static string FemMembersGroupType(IReadOnlyCollection<CScore.Fem.FemMember> members) =>
+         members.Count > 0 && members.All(e => e.ElemType == "shell")
+            ? members.Select(e => e.Kind).Distinct().ToList() switch
             {
                ["plate"] => CScore.Fem.FemMemberTypes.Plate,
                ["wall"]  => CScore.Fem.FemMemberTypes.Wall,
                _         => CScore.Fem.FemMemberTypes.Shell,
             }
             : CScore.Fem.FemMemberTypes.Beam;
-         string? tag = elems.Count == 1 ? elems[0].ElemTag : null;
-         FemGroups.CreateMembersGroup(schema, elems.Select(e => e.ElemTag), tag, type);
-      }
 
       /// <summary>Создаёт группу КЭ из номеров КЭ сетки (строка диапазонов уже разобрана).</summary>
       public void CreateFemMemberFromRange(
@@ -4881,11 +4875,6 @@ namespace OpenCS
             MessageBox.Show(Loc.S("FemGroupMeshNoneAccepted"), Loc.S("FemGroupCreateTitle"),
                MessageBoxButton.OK, MessageBoxImage.Information);
       }
-
-      /// <summary>Создаёт группу КонЭ из тегов конструктивных элементов (строка диапазонов таблицы КонЭ).</summary>
-      public void CreateFemMembersGroupFromTags(
-         CScore.Fem.FemSchema schema, IEnumerable<string> memberTags, string tag, string? memberType)
-         => FemGroups.CreateMembersGroup(schema, memberTags, tag, memberType);
 
       /// <summary>Авто-группирует стержни схемы по SectionTag в группы КонЭ. Пропускает уже существующие имена.</summary>
       public void AutoGroupFemMembersBySection(CScore.Fem.FemSchema schema)

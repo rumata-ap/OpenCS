@@ -3,10 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
    <DockPanel>
       <ToolBar DockPanel.Dock="Top">
-         <Button Content="{DynamicResource FemMemberNew}"   Click="NewMember_Click" Margin="0,0,4,0"/>
-         <Separator/>
-         <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click" Margin="4,0,4,0"/>
+         <Button Content="{DynamicResource FemMembersGroupFromSelection}" Click="CreateGroup_Click" Margin="0,0,4,0"/>
          <Button Content="{DynamicResource FemGroupAuto}"   Click="AutoGroup_Click"/>
+         <Separator/>
+         <Button Content="{DynamicResource FemGroupAddTo}"      Click="AddToGroup_Click" Margin="4,0,4,0"/>
+         <Button Content="{DynamicResource FemGroupRemoveFrom}" Click="RemoveFromGroup_Click"/>
          <Separator/>
          <Button Content="{DynamicResource FemCheckAdd}"
                  Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>

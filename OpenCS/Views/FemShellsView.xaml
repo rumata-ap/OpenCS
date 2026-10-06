@@ -3,7 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
    <DockPanel>
       <ToolBar DockPanel.Dock="Top">
-         <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click"/>
+         <Button Content="{DynamicResource FemMembersGroupFromSelection}" Click="CreateGroup_Click" Margin="0,0,4,0"/>
+         <Separator/>
+         <Button Content="{DynamicResource FemGroupAddTo}"      Click="AddToGroup_Click" Margin="4,0,4,0"/>
+         <Button Content="{DynamicResource FemGroupRemoveFrom}" Click="RemoveFromGroup_Click"/>
          <Separator/>
          <Button Content="{DynamicResource FemShellDelete}" Click="DeleteShell_Click"/>
          <Separator/>

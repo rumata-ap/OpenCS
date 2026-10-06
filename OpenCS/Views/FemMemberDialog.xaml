@@ -34,9 +34,9 @@
                  SelectedValue="{Binding MemberType}"
                  Margin="0,0,0,8"/>
 
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemMemberDlgRange}"
+      <TextBlock Grid.Row="2" Grid.Column="0" x:Name="RangeLabel" Text="{DynamicResource FemMemberDlgRange}"
                  VerticalAlignment="Center" Margin="0,0,8,8"/>
-      <TextBox   Grid.Row="2" Grid.Column="1"
+      <TextBox   Grid.Row="2" Grid.Column="1" x:Name="RangeBox"
                  Height="80"
                  VerticalContentAlignment="Top"
                  TextWrapping="Wrap"

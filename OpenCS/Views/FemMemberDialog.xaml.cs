@@ -12,13 +12,20 @@ public partial class FemMemberDialog : Window
     /// <summary>Типы групп: код и локализованное имя.</summary>
     public IReadOnlyList<Converters.FemMemberTypeOption> MemberTypes { get; } = Converters.FemMemberTypeOption.All();
 
-    public FemMemberDialog(string initialRange = "")
+    /// <param name="showRange">Строка номеров КЭ — у групп КЭ; группе КонЭ состав задаёт выделение.</param>
+    public FemMemberDialog(string initialRange = "", string initialTag = "", string? initialType = null,
+        bool showRange = true, string? title = null)
     {
         InitializeComponent();
-        Owner     = Application.Current.MainWindow;
+        Owner      = Application.Current.MainWindow;
+        Range      = initialRange;
+        MemberTag  = initialTag;
+        MemberType = initialType;
+        if (title != null) Title = title;
+        if (!showRange) RangeLabel.Visibility = RangeBox.Visibility = Visibility.Collapsed;
         DataContext = this;
-        Range     = initialRange;
         TagBox.Focus();
+        TagBox.SelectAll();
     }
 
     void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
