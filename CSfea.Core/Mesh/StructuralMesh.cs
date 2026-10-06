@@ -16,7 +16,9 @@ public sealed record StructuralBeam(int I, int J, IBeamSectionResponse Section, 
 /// ux, uy, uz, θx, θy, θz). Элементные матрицы — существующие <see cref="ShellElementForces"/>,
 /// <see cref="ShellCorotational"/>, <see cref="BeamElements"/>, <see cref="BeamCorotational"/>.
 /// Решатели: линейный и шаговый Ньютон (геометрическая нелинейность: оболочки — CR или
-/// фон Карман, стержни — CR) с признаком сходимости шага.
+/// фон Карман, стержни — CR) с признаком сходимости шага. Жёсткие тела — исключением ведомых DOF
+/// (<see cref="RigidLinks"/>, линеаризованная связь); решатели работают в редуцированном пространстве,
+/// перемещения возвращаются полными (с ведомыми узлами).
 /// </summary>
 public sealed class StructuralMesh : IFeaMesh
 {
@@ -38,9 +40,14 @@ public sealed class StructuralMesh : IFeaMesh
     /// <summary>Полное число степеней свободы.</summary>
     public int NDof => 6 * NNodes;
 
+    /// <summary>Жёсткие связи (null — нет).</summary>
+    public RigidLinks? Links { get; }
+
     public StructuralMesh(double[][] nodes, IReadOnlyList<StructuralShell>? shells,
-                          IReadOnlyList<StructuralBeam>? beams)
+                          IReadOnlyList<StructuralBeam>? beams,
+                          IReadOnlyList<RigidLink>? rigidLinks = null)
     {
+        Links = rigidLinks is { Count: > 0 } ? new RigidLinks(nodes, rigidLinks) : null;
         Nodes = nodes;
         Shells = shells ?? Array.Empty<StructuralShell>();
         Beams = beams ?? Array.Empty<StructuralBeam>();
@@ -190,10 +197,46 @@ public sealed class StructuralMesh : IFeaMesh
         var k = AssembleK();
         var kSpring = bc.AssembleKSpring();
         if (kSpring.Count > 0) AppendInto(k, kSpring);
-        var reduced = DirichletReducer.Reduce(k, f, bc.FixedDofs, bc.UFixed);
+        var fixedSys = SysFixed(bc.FixedDofs);
+        var reduced = DirichletReducer.Reduce(SysMatrix(k), SysVector(f), fixedSys, bc.UFixed);
         var uFree = SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod);
-        return DirichletReducer.Expand(NDof, reduced.Free, uFree, bc.FixedDofs, bc.UFixed);
+        return Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
     }
+
+    /// <summary>
+    /// Опорные реакции на закреплённых DOF (с силами, переданными через жёсткие связи на ведущие
+    /// узлы): R = [Tᵀ·(F_int + K_spring·u + F_nl)] на закреплённых DOF, остальные — 0. F_int по
+    /// умолчанию K·u (линейный расчёт); для нелинейного передать <paramref name="fInternal"/>.
+    /// Для сетки без жёстких связей совпадает с <see cref="Reactions.Compute"/> на закреплённых DOF.
+    /// </summary>
+    public double[] ComputeReactions(double[] u, BoundaryConditions bc, double[]? fInternal = null)
+    {
+        var total = fInternal != null ? (double[])fInternal.Clone() : AssembleK().ToCsc().Multiply(u);
+        var kSpring = bc.AssembleKSpring();
+        if (kSpring.Count > 0)
+        {
+            var ks = kSpring.ToCsc().Multiply(u);
+            for (int i = 0; i < total.Length; i++) total[i] += ks[i];
+        }
+        if (bc.HasNonlinearSprings)
+        {
+            var fnl = bc.AssembleFSpringNonlinear(u);
+            for (int i = 0; i < total.Length; i++) total[i] += fnl[i];
+        }
+        var sys = SysVector(total);
+        var r = new double[NDof];
+        foreach (int d in bc.FixedDofs)
+            r[d] = sys[Links?.ToReducedIndex(d) ?? d];
+        return r;
+    }
+
+    // ---------------- пространство решения (с учётом жёстких связей) ----------------
+
+    private int NSys => Links?.NReduced ?? NDof;
+    private CooMatrix SysMatrix(CooMatrix k) => Links?.ReduceMatrix(k) ?? k;
+    private double[] SysVector(double[] f) => Links?.ReduceVector(f) ?? f;
+    private double[] Full(double[] uSys) => Links?.Expand(uSys) ?? uSys;
+    private int[] SysFixed(int[] fixedDofs) => Links?.ReduceFixedDofs(fixedDofs) ?? fixedDofs;
 
     /// <summary>
     /// Шаговый Ньютон с backtracking line search. Нагрузка шага s: F₀ + (s/nSteps)·(F − F₀),
@@ -208,16 +251,18 @@ public sealed class StructuralMesh : IFeaMesh
         double[]? u0 = null, double[]? f0 = null, bool verbose = false)
     {
         int ndof = NDof;
-        var fixedDofs = bc.FixedDofs;
+        var fixedDofs = SysFixed(bc.FixedDofs);   // индексы в пространстве решения
         var uFixedArr = bc.UFixed;
-        int[] free = DirichletReducer.FreeDofs(ndof, fixedDofs);
+        int[] free = DirichletReducer.FreeDofs(NSys, fixedDofs);
 
         var kSpringLinCoo = bc.AssembleKSpring();
         var kSpringLinCsc = kSpringLinCoo.Count > 0 ? kSpringLinCoo.ToCsc() : null;
 
-        var u = u0 != null ? (double[])u0.Clone() : new double[ndof];
+        // uSys — неизвестные решения; u = T·uSys — полные перемещения (с ведомыми узлами).
+        var uSys = u0 == null ? new double[NSys] : Links != null ? Links.Restrict(u0) : (double[])u0.Clone();
+        var u = Full(uSys);
         var fStart = f0 ?? new double[ndof];
-        var uFixedStart = fixedDofs.Select(d => u[d]).ToArray();
+        var uFixedStart = fixedDofs.Select(d => uSys[d]).ToArray();
         var history = new List<ShellMesh.NewtonRecord>();
 
         double[] FIntTotal(double[] uu)
@@ -236,7 +281,15 @@ public sealed class StructuralMesh : IFeaMesh
             return fi;
         }
 
-        double fNorm = Math.Max(NormAt(f, free), 1.0);
+        double[] Residual(double[] fStep) => SysVector(Dense.SubV(fStep, FIntTotal(u)));
+
+        void SetFree(double[] uBak, double[] du, double alpha)
+        {
+            for (int i = 0; i < free.Length; i++) uSys[free[i]] = uBak[i] + alpha * du[i];
+            u = Full(uSys);
+        }
+
+        double fNorm = Math.Max(NormAt(SysVector(f), free), 1.0);
 
         for (int step = 1; step <= nSteps; step++)
         {
@@ -244,12 +297,13 @@ public sealed class StructuralMesh : IFeaMesh
             var fStep = new double[ndof];
             for (int i = 0; i < ndof; i++) fStep[i] = fStart[i] + lam * (f[i] - fStart[i]);
             for (int t = 0; t < fixedDofs.Length; t++)
-                u[fixedDofs[t]] = uFixedStart[t] + lam * (uFixedArr[t] - uFixedStart[t]);
+                uSys[fixedDofs[t]] = uFixedStart[t] + lam * (uFixedArr[t] - uFixedStart[t]);
+            u = Full(uSys);
 
             bool converged = false;
             for (int it = 1; it <= maxIter; it++)
             {
-                var r = Dense.SubV(fStep, FIntTotal(u));
+                var r = Residual(fStep);
                 double resid = NormAt(r, free) / fNorm;
                 bool ok = resid < tol;
                 history.Add(new ShellMesh.NewtonRecord(step, it, resid, ok));
@@ -261,27 +315,27 @@ public sealed class StructuralMesh : IFeaMesh
                 var kt = AssembleKTangent(u, corotational);
                 if (kSpringLinCoo.Count > 0) AppendInto(kt, kSpringLinCoo);
                 if (bc.HasNonlinearSprings) AppendInto(kt, bc.AssembleKSpringTangent(u));
-                var reduced = DirichletReducer.Reduce(kt, r, fixedDofs, null);
+                var reduced = DirichletReducer.Reduce(SysMatrix(kt), r, fixedDofs, null);
                 double[] duFree;
                 try { duFree = SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod); }
                 catch (InvalidOperationException) { break; }
                 if (!duFree.All(double.IsFinite)) break;
 
-                var uBak = free.Select(i => u[i]).ToArray();
+                var uBak = free.Select(i => uSys[i]).ToArray();
                 double alpha = 1.0;
                 if (lineSearch)
                 {
                     bool accepted = false;
                     for (int ls = 0; ls < maxLsSteps; ls++)
                     {
-                        for (int i = 0; i < free.Length; i++) u[free[i]] = uBak[i] + alpha * duFree[i];
-                        var rTrial = Dense.SubV(fStep, FIntTotal(u));
+                        SetFree(uBak, duFree, alpha);
+                        var rTrial = Residual(fStep);
                         if (IsFinite(rTrial, free) && NormAt(rTrial, free) / fNorm < resid) { accepted = true; break; }
                         alpha *= 0.5;
                     }
                     if (accepted) continue;
                 }
-                for (int i = 0; i < free.Length; i++) u[free[i]] = uBak[i] + alpha * duFree[i];
+                SetFree(uBak, duFree, alpha);
             }
             if (verbose && !converged)
                 Console.WriteLine($"  step {step}: не сошёлся за {maxIter} итераций");

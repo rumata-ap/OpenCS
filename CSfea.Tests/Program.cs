@@ -15,6 +15,7 @@ CrShellTests.RunAgreementWithVonKarman();
 NonlinearConvergenceTests.RunAll();
 
 StructuralMeshTests.RunAll();
+RigidLinksTests.RunAll();
 
 BeamTests.RunLinearCantilever2D();
 BeamTests.RunCrRollup2D();
