@@ -83,9 +83,12 @@ public static class BeamElements
 
     // -------------------- 3D --------------------
 
-    /// <summary>Локальная 12×12 пространственного элемента.</summary>
+    /// <summary>Локальная 12×12 пространственного элемента. Сечение с замороженной связанной
+    /// матрицей (<see cref="SecantBeamResponse"/>) идёт через связанную перегрузку.</summary>
     public static double[,] Beam3dKLocal(IBeamSectionResponse section, double l)
     {
+        if (section is SecantBeamResponse secant)
+            return Beam3dKLocal(secant.Matrix, secant.GJ, l);
         var (ea, eIy, eIz, gj) = SectionStiffness(section);
         double l2 = l * l, l3 = l2 * l;
         var k = new double[12, 12];
@@ -127,6 +130,124 @@ public static class BeamElements
                     k[idx[a], idx[b]] += kb[a, b];
         }
         return k;
+    }
+
+    /// <summary>
+    /// Локальная 12×12 пространственного элемента со связанной матрицей сечения
+    /// <paramref name="s"/>: (N, M_y, M_z) = S·(ε₀, κ_y, κ_z), постоянной по длине, плюс GJ.
+    /// Кинематика — та же, что в <see cref="BeamCorotational.Beam3dKLocalFromResponse"/>:
+    /// ε₀ = u′, κ_z = v″, κ_y = −w″ (w′ = −θ_y), прогибы — кубические функции Эрмита.
+    ///
+    /// Продольное перемещение дополнено внутренним квадратичным «пузырём» 4ξ(1 − ξ) со статической
+    /// конденсацией: при связанной S (смещённая после трещин нейтральная ось, S₀₁ ≠ 0) и линейной
+    /// эпюре моментов условие N = 0 требует ε₀ = −e·κ(x), линейной по длине; при линейном u ε₀
+    /// постоянна, и КЭ «запирается» — завышает жёсткость тем сильнее, чем крупнее КЭ. С пузырём
+    /// один КЭ точен для линейной эпюры M. При диагональной S пузырь отделяется (∫u′_пузыря dx = 0) и
+    /// матрица совпадает с <see cref="Beam3dKLocal(IBeamSectionResponse, double)"/>.
+    /// K = ∫ Bᵀ·S·B dx — подынтегральное выражение не выше квадратичного, 2 точки Гаусса точны.
+    /// </summary>
+    public static double[,] Beam3dKLocal(double[,] s, double gj, double l)
+    {
+        var k13 = Beam3dKCoupled13(s, l);
+        var k = new double[12, 12];
+        double kbb = k13[12, 12];
+        for (int i = 0; i < 12; i++)
+            for (int j = 0; j < 12; j++)
+                k[i, j] = k13[i, j] - (kbb > 0.0 ? k13[i, 12] * k13[12, j] / kbb : 0.0);
+
+        double gjL = gj / l;
+        k[3, 3] += gjL; k[3, 9] += -gjL; k[9, 3] += -gjL; k[9, 9] += gjL;
+        return k;
+    }
+
+    /// <summary>
+    /// Обобщённые деформации (ε₀, κ_y, κ_z) в точке ξ ∈ [0, 1] КЭ со связанной матрицей сечения по
+    /// локальным перемещениям узлов <paramref name="dLocal"/> (12) — с восстановленной амплитудой
+    /// пузыря продольного перемещения (см. <see cref="Beam3dKLocal(double[,], double, double)"/>).
+    /// </summary>
+    public static (double Eps0, double KappaY, double KappaZ) Beam3dCoupledStrains(
+        double[,] s, double l, double[] dLocal, double xi)
+    {
+        var k13 = Beam3dKCoupled13(s, l);
+        double kbb = k13[12, 12], alpha = 0.0;
+        if (kbb > 0.0)
+        {
+            double r = 0.0;
+            for (int j = 0; j < 12; j++) r += k13[12, j] * dLocal[j];
+            alpha = -r / kbb;
+        }
+        var b = CoupledB(l, xi);
+        double e0 = 0.0, ky = 0.0, kz = 0.0;
+        for (int j = 0; j < 12; j++)
+        {
+            e0 += b[0, j] * dLocal[j];
+            ky += b[1, j] * dLocal[j];
+            kz += b[2, j] * dLocal[j];
+        }
+        return (e0 + b[0, 12] * alpha, ky, kz);
+    }
+
+    // 13×13: 12 узловых степеней свободы + амплитуда пузыря продольного перемещения.
+    private static double[,] Beam3dKCoupled13(double[,] s, double l)
+    {
+        if (s.GetLength(0) != 3 || s.GetLength(1) != 3)
+            throw new ArgumentException("Матрица сечения должна быть 3×3", nameof(s));
+        var k = new double[13, 13];
+        foreach (double x in new[] { 0.5 - 0.5 / Math.Sqrt(3.0), 0.5 + 0.5 / Math.Sqrt(3.0) })
+        {
+            var b = CoupledB(l, x);
+            Dense.AddScaledInPlace(k, Dense.MatMul(Dense.MatTMul(b, s), b), 0.5 * l);
+        }
+        return k;
+    }
+
+    // B (3×13) в точке ξ: строки ε₀, κ_y = −w″, κ_z = v″; столбец 12 — пузырь u = 4ξ(1 − ξ)·α.
+    private static double[,] CoupledB(double l, double x)
+    {
+        double l2 = l * l;
+        // Вторые производные функций Эрмита по x на отрезке длины l.
+        double n1 = (-6.0 + 12.0 * x) / l2, n2 = (-4.0 + 6.0 * x) / l;
+        double n3 = (6.0 - 12.0 * x) / l2, n4 = (-2.0 + 6.0 * x) / l;
+        var b = new double[3, 13];
+        b[0, 0] = -1.0 / l; b[0, 6] = 1.0 / l; b[0, 12] = 4.0 * (1.0 - 2.0 * x) / l;
+        b[1, 2] = -n1; b[1, 4] = n2; b[1, 8] = -n3; b[1, 10] = n4;
+        b[2, 1] = n1; b[2, 5] = n2; b[2, 7] = n3; b[2, 11] = n4;
+        return b;
+    }
+
+    /// <summary>
+    /// Секущая матрица КЭ по сечениям в трёх точках Лобатто (начало, середина, конец) — средняя
+    /// податливость S_эл⁻¹ = ∫S⁻¹ dx / L (Симпсон, веса 1/6, 4/6, 1/6): при линейной эпюре моментов
+    /// жёсткость не «усредняется в середину», а складывается как у последовательно работающих
+    /// участков.
+    /// </summary>
+    public static double[,] MeanCompliance(double[,] sStart, double[,] sMid, double[,] sEnd)
+    {
+        var f = Dense.Add(Dense.Scale(Inverse3(sStart), 1.0 / 6.0),
+                Dense.Add(Dense.Scale(Inverse3(sMid), 4.0 / 6.0), Dense.Scale(Inverse3(sEnd), 1.0 / 6.0)));
+        var r = Inverse3(f);
+        for (int i = 0; i < 3; i++)
+            for (int j = i + 1; j < 3; j++)
+                r[i, j] = r[j, i] = 0.5 * (r[i, j] + r[j, i]);
+        return r;
+    }
+
+    private static double[,] Inverse3(double[,] m)
+    {
+        double c00 = m[1, 1] * m[2, 2] - m[1, 2] * m[2, 1];
+        double c01 = m[1, 2] * m[2, 0] - m[1, 0] * m[2, 2];
+        double c02 = m[1, 0] * m[2, 1] - m[1, 1] * m[2, 0];
+        double det = m[0, 0] * c00 + m[0, 1] * c01 + m[0, 2] * c02;
+        double scale = Math.Abs(m[0, 0] * m[1, 1] * m[2, 2]);
+        if (!(Math.Abs(det) > 1e-14 * scale) || !double.IsFinite(det))
+            throw new InvalidOperationException("Вырожденная матрица сечения: податливость не определена.");
+        double inv = 1.0 / det;
+        return new[,]
+        {
+            { c00 * inv, (m[0, 2] * m[2, 1] - m[0, 1] * m[2, 2]) * inv, (m[0, 1] * m[1, 2] - m[0, 2] * m[1, 1]) * inv },
+            { c01 * inv, (m[0, 0] * m[2, 2] - m[0, 2] * m[2, 0]) * inv, (m[0, 2] * m[1, 0] - m[0, 0] * m[1, 2]) * inv },
+            { c02 * inv, (m[0, 1] * m[2, 0] - m[0, 0] * m[2, 1]) * inv, (m[0, 0] * m[1, 1] - m[0, 1] * m[1, 0]) * inv },
+        };
     }
 
     /// <summary>Базис элемента (строки — оси) и длина. Порт <c>beam3d_frame</c>.</summary>
