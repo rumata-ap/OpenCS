@@ -4829,12 +4829,12 @@ namespace OpenCS.Utilites
             preservedMemberLoads.Add((oldMember.ElemTag, load));
          }
 
+         List<int> removedGroupIds = [];
          using var tx = _connection.BeginTransaction();
          try
          {
             using var delCmd = _connection.CreateCommand();
             delCmd.CommandText = """
-               DELETE FROM fem_member_groups WHERE schema_id=@sid;
                DELETE FROM fem_member_loads  WHERE schema_id=@sid;
                DELETE FROM fem_kinematic_loads WHERE schema_id=@sid;
                DELETE FROM fem_members       WHERE schema_id=@sid;
@@ -4982,14 +4982,7 @@ namespace OpenCS.Utilites
             }
 
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
-            foreach (var g in memberGroups)
-            {
-               // fem_member_groups для схемы уже полностью удалены выше — старый g.Id (если он остался
-               // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
-               // SaveFemMemberGroupCore молча выполнил бы UPDATE по несуществующему id.
-               g.Id = 0;
-               SaveFemMemberGroupCore(g, schemaId);
-            }
+            removedGroupIds = SyncFemMemberGroupsCore(schemaId, memberGroups);
 
             if (schema != null)
             {
@@ -5001,6 +4994,7 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         ForgetFemChecksOfGroups(removedGroupIds);
       }
 
       /// <summary>
@@ -5081,6 +5075,7 @@ namespace OpenCS.Utilites
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
             throw new InvalidOperationException("Теги узлов FEM-схемы должны быть уникальными.");
 
+         List<int> removedGroupIds = [];
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -5092,7 +5087,6 @@ namespace OpenCS.Utilites
                   DELETE FROM fem_kinematic_loads WHERE schema_id=@sid;
                   DELETE FROM fem_load_definitions WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases    WHERE schema_id=@sid;
-                  DELETE FROM fem_member_groups WHERE schema_id=@sid;
                   DELETE FROM fem_members       WHERE schema_id=@sid;
                   DELETE FROM fem_nodes         WHERE schema_id=@sid;
                """;
@@ -5191,14 +5185,7 @@ namespace OpenCS.Utilites
                }
             }
 
-            foreach (var g in memberGroups)
-            {
-               // fem_member_groups для схемы уже полностью удалены выше — старый g.Id (если он остался
-               // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
-               // SaveFemMemberGroupCore молча выполнил бы UPDATE по несуществующему id.
-               g.Id = 0;
-               SaveFemMemberGroupCore(g, schemaId);
-            }
+            removedGroupIds = SyncFemMemberGroupsCore(schemaId, memberGroups);
 
             // Удалённый элемент с импортированной сеткой: его КЭ остаются в сетке, но больше ему не принадлежат.
             using (var unlink = _connection.CreateCommand())
@@ -5457,6 +5444,55 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         ForgetFemChecksOfGroups(removedGroupIds);
+      }
+
+      /// <summary>
+      /// Приводит группы схемы к списку сеанса, не пересоздавая их: на Id групп ссылаются проверки
+      /// (fem_checks.member_id), а при PRAGMA foreign_keys=OFF пересоздание молча оставило бы их без группы.
+      /// Группы, которых нет в списке, удаляются вместе со своими проверками (как при удалении из дерева).
+      /// Вызывается внутри транзакции; возвращает Id удалённых групп.
+      /// </summary>
+      List<int> SyncFemMemberGroupsCore(int schemaId, IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups)
+      {
+         var storedIds = new HashSet<int>();
+         using (var idCmd = _connection.CreateCommand())
+         {
+            idCmd.CommandText = "SELECT id FROM fem_member_groups WHERE schema_id=@sid";
+            idCmd.Parameters.AddWithValue("@sid", schemaId);
+            using var reader = idCmd.ExecuteReader();
+            while (reader.Read()) storedIds.Add(reader.GetInt32(0));
+         }
+         foreach (var g in memberGroups)
+         {
+            // Id не из этой схемы (строки нет) — UPDATE молча ничего бы не записал.
+            if (!storedIds.Contains(g.Id)) g.Id = 0;
+            SaveFemMemberGroupCore(g, schemaId);
+         }
+         var removed = storedIds.Except(memberGroups.Select(g => g.Id)).ToList();
+         foreach (int id in removed)
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE fem_check_id IN
+                  (SELECT id FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0))
+                  OR id IN
+                  (SELECT result_id FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0));
+               DELETE FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0);
+               DELETE FROM fem_member_groups WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", id);
+            cmd.ExecuteNonQuery();
+         }
+         return removed;
+      }
+
+      /// <summary>Убирает из списка в памяти проверки удалённых групп (после фиксации транзакции).</summary>
+      void ForgetFemChecksOfGroups(IReadOnlyCollection<int> groupIds)
+      {
+         if (groupIds.Count == 0) return;
+         foreach (var c in FemChecks.Where(c => groupIds.Contains(c.MemberId) && !c.TargetsElement).ToList())
+            FemChecks.Remove(c);
       }
 
       void SaveFemMemberGroupCore(CScore.Fem.FemMemberGroup g, int schemaId)
