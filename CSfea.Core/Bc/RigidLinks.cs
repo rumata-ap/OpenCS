@@ -2,17 +2,19 @@ using CSfea.Sparse;
 
 namespace CSfea.Core;
 
-/// <summary>Тип жёсткой связи «ведущий — ведомый».</summary>
-public enum RigidLinkKind
+/// <summary>
+/// Жёсткая связь ведомого узла с ведущим. <paramref name="Mask"/> — подчинённые DOF ведомого (бит i — DOF i:
+/// ux, uy, uz, θx, θy, θz): для перемещения u_s,i = u_m,i + (θ_m × r)_i, для поворота θ_s,i = θ_m,i;
+/// неподчинённые DOF ведомого остаются свободными.
+/// </summary>
+public readonly record struct RigidLink(int Master, int Slave, int Mask = RigidLink.All)
 {
-    /// <summary>Все 6 DOF: u_s = u_m + θ_m × r, θ_s = θ_m.</summary>
-    Beam,
-    /// <summary>Только перемещения: u_s = u_m + θ_m × r; повороты ведомого свободны.</summary>
-    Bar,
-}
+    /// <summary>Все 6 DOF (жёсткое тело «Beam»).</summary>
+    public const int All = 0x3F;
 
-/// <summary>Жёсткая связь ведомого узла с ведущим.</summary>
-public readonly record struct RigidLink(int Master, int Slave, RigidLinkKind Kind = RigidLinkKind.Beam);
+    /// <summary>Только перемещения (жёсткое тело «Bar»): повороты ведомого свободны.</summary>
+    public const int Translations = 0x07;
+}
 
 /// <summary>
 /// Жёсткие тела (MPC) исключением ведомых DOF: u = T·u_red, где u_red — все DOF, кроме ведомых.
@@ -53,9 +55,10 @@ public sealed class RigidLinks
                 throw new ArgumentException($"Жёсткая связь {l.Master}→{l.Slave}: узел вне диапазона.");
             masters.Add(l.Master);
             slaves.Add(l.Slave);
-            int nComp = l.Kind == RigidLinkKind.Beam ? 6 : 3;
-            for (int c = 0; c < nComp; c++)
-                if (!slaveDofs.TryAdd(6 * l.Slave + c, (l.Master, c)))
+            if ((l.Mask & RigidLink.All) == 0 || (l.Mask & ~RigidLink.All) != 0)
+                throw new ArgumentException($"Жёсткая связь {l.Master}→{l.Slave}: недопустимая маска DOF 0x{l.Mask:X}.");
+            for (int c = 0; c < 6; c++)
+                if ((l.Mask & (1 << c)) != 0 && !slaveDofs.TryAdd(6 * l.Slave + c, (l.Master, c)))
                     throw new ArgumentException(
                         $"DOF {c} узла {l.Slave} подчинён нескольким жёстким связям.");
         }

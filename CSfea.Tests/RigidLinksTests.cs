@@ -75,7 +75,7 @@ public static class RigidLinksTests
         int sBeam = n + 1, sBar = n + 2;
         var resp = new LinearBeamResponse(Col);
         var beams = Enumerable.Range(0, n).Select(i => new StructuralBeam(i, i + 1, resp)).ToArray();
-        var links = new[] { new RigidLink(tip, sBeam), new RigidLink(tip, sBar, RigidLinkKind.Bar) };
+        var links = new[] { new RigidLink(tip, sBeam), new RigidLink(tip, sBar, RigidLink.Translations) };
         var mesh = new StructuralMesh(nodes.ToArray(), null, beams, links);
         // Повороты Bar-ведомого ничем не удерживаются — закрепляем их.
         var bc = new BoundaryConditions(mesh).Fix(new[] { 0 }).Fix(new[] { sBar }, new[] { 3, 4, 5 });
@@ -94,7 +94,7 @@ public static class RigidLinksTests
                 maxErr = Math.Max(maxErr, Math.Abs(u[6 * s + c] - (u[6 * tip + c] + cross[c])));
         }
         for (int c = 3; c < 6; c++) maxErr = Math.Max(maxErr, Math.Abs(u[6 * sBeam + c] - u[6 * tip + c]));
-        TestHarness.Check("u_s = u_m + θ_m × r, θ_s = θ_m (Beam)", maxErr < 1e-14, $"max ошибка={maxErr:e2}");
+        TestHarness.Check("u_s = u_m + θ_m × r, θ_s = θ_m (маска All)", maxErr < 1e-14, $"max ошибка={maxErr:e2}");
 
         // Та же нагрузка, перенесённая на ведущий узел (силы + моменты r × F), без связей.
         var nodesPlain = nodes.Take(n + 1).ToArray();
@@ -161,11 +161,23 @@ public static class RigidLinksTests
             Throws(() => new RigidLinks(nodes, new[] { new RigidLink(0, 1), new RigidLink(1, 2) })));
         TestHarness.Check("двойное подчинение узла — исключение",
             Throws(() => new RigidLinks(nodes, new[] { new RigidLink(0, 2), new RigidLink(1, 2) })));
-        var links = new RigidLinks(nodes, new[] { new RigidLink(0, 2, RigidLinkKind.Bar) });
+        var links = new RigidLinks(nodes, new[] { new RigidLink(0, 2, RigidLink.Translations) });
         TestHarness.Check("Bar: повороты ведомого остаются свободными DOF",
             !links.IsSlave(6 * 2 + 3) && links.IsSlave(6 * 2 + 2) && links.NReduced == 18 - 3);
         TestHarness.Check("закрепление ведомого DOF — исключение",
             Throws(() => links.ReduceFixedDofs(new[] { 6 * 2 + 1 })));
+
+        // Произвольная маска: uz, θx, θy (связь «из плоскости»); r = (2, 0, 0) от узла 0 к узлу 2.
+        var partial = new RigidLinks(nodes, new[] { new RigidLink(0, 2, 0b011100) });
+        var rowUz = partial.Row(6 * 2 + 2).ToDictionary(t => t.Col, t => t.Coef);
+        TestHarness.Check("маска 0x1C: ux, uy, θz ведомого свободны, uz/θx/θy подчинены",
+            !partial.IsSlave(12) && !partial.IsSlave(13) && !partial.IsSlave(17)
+            && partial.IsSlave(14) && partial.IsSlave(15) && partial.IsSlave(16));
+        TestHarness.Check("маска 0x1C: u_s,z = u_m,z − θ_m,y·rx",
+            rowUz.Count == 3 && rowUz[partial.ToReducedIndex(2)] == 1.0 && rowUz[partial.ToReducedIndex(4)] == -2.0
+            && rowUz[partial.ToReducedIndex(3)] == 0.0);
+        TestHarness.Check("пустая маска — исключение",
+            Throws(() => new RigidLinks(nodes, new[] { new RigidLink(0, 2, 0) })));
     }
 
     private static bool Throws(Action a)
