@@ -257,10 +257,11 @@ public static class ShellCorotational
                 var fInt = AssembleFInternalCR(mesh, u);
                 var r = Dense.SubV(fStep, fInt);
                 double resid = NormAt(r, free) / fNorm;
-                history.Add(new ShellMesh.NewtonRecord(step, it, resid));
+                bool ok = resid < tol;
+                history.Add(new ShellMesh.NewtonRecord(step, it, resid, ok));
                 if (verbose)
                     Console.WriteLine($"  step {step}/{nSteps}  iter {it,2}  ||r||/||F||={resid:e3}");
-                if (resid < tol) { converged = true; break; }
+                if (ok) { converged = true; break; }
 
                 var kt = AssembleKTangentCR(mesh, u, numericalTangent);
                 var reduced = DirichletReducer.Reduce(kt, r, fixedDofs, null);

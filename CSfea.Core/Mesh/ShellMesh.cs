@@ -224,8 +224,13 @@ public sealed class ShellMesh : IFeaMesh
         throw new ArgumentException($"Неизвестный метод '{method}'.");
     }
 
-    /// <summary>Запись истории сходимости: шаг, итерация, относительная невязка.</summary>
-    public readonly record struct NewtonRecord(int Step, int Iteration, double Residual);
+    /// <summary>
+    /// Запись истории сходимости: шаг, итерация, относительная невязка.
+    /// <paramref name="Converged"/> — невязка на этой итерации ниже допуска (шаг сошёлся
+    /// именно на ней). Шаг сошёлся, если у него есть запись с <c>Converged = true</c>;
+    /// сводка — <see cref="NonlinearConvergence"/>.
+    /// </summary>
+    public readonly record struct NewtonRecord(int Step, int Iteration, double Residual, bool Converged = false);
 
     /// <summary>
     /// Геометрически нелинейная статика (фон Карман) методом Ньютона
@@ -282,10 +287,11 @@ public sealed class ShellMesh : IFeaMesh
                 AddSpringForces(fInt, u, bc, kSpringLinCsc);
                 var r = Dense.SubV(fStep, fInt);
                 double resid = NormAt(r, free) / fNorm;
-                history.Add(new NewtonRecord(step, it, resid));
+                bool ok = resid < tol;
+                history.Add(new NewtonRecord(step, it, resid, ok));
                 if (verbose)
                     Console.WriteLine($"  step {step}/{nSteps}  iter {it,2}  ||r||/||F||={resid:e3}");
-                if (resid < tol) { converged = true; break; }
+                if (ok) { converged = true; break; }
 
                 CooMatrix kt = useFullTangent ? AssembleKTangent(u) : CombineLinAndKg(kLin!, u);
                 if (hasSprings)
