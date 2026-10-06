@@ -38,6 +38,8 @@ public class FemGroupKindsTests
     [InlineData("Плита", FemMemberTypes.Plate)]
     [InlineData("Стена", FemMemberTypes.Wall)]
     [InlineData("Раскос", FemMemberTypes.Diagonal)]
+    [InlineData("Верхний пояс", FemMemberTypes.TopChord)]
+    [InlineData("bottom_chord", FemMemberTypes.BottomChord)]
     [InlineData("shell", FemMemberTypes.Shell)]
     [InlineData("Ригель Р1", "Ригель Р1")]
     [InlineData("  ", null)]

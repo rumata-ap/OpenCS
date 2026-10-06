@@ -119,13 +119,17 @@ public static class FemMemberTypes
     /// <summary>Пластины без уточнения (плита или стена) — так типизирует импорт по жёсткостям.</summary>
     public const string Shell    = "shell";
     public const string Truss    = "truss";
+    /// <summary>Верхний пояс фермы.</summary>
+    public const string TopChord = "top_chord";
+    /// <summary>Нижний пояс фермы.</summary>
+    public const string BottomChord = "bottom_chord";
     public const string Diagonal = "diagonal";
     public const string Bracing  = "bracing";
     public const string Other    = "other";
 
     /// <summary>Коды, предлагаемые пользователю, в порядке списка.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Beam, Column, Plate, Wall, Shell, Truss, Diagonal, Bracing, Other];
+        [Beam, Column, Plate, Wall, Shell, Truss, TopChord, BottomChord, Diagonal, Bracing, Other];
 
     /// <summary>Тип плоского элемента (сечение — пластинчатое).</summary>
     public static bool IsPlanar(string? code) => code is Plate or Wall or Shell;
@@ -145,6 +149,8 @@ public static class FemMemberTypes
             "стена"   => Wall,
             "пластина" or "пластины" => Shell,
             "ферма"   => Truss,
+            "верхний пояс" or "верхний пояс фермы" => TopChord,
+            "нижний пояс" or "нижний пояс фермы"   => BottomChord,
             "раскос"  => Diagonal,
             "связь"   => Bracing,
             "другое"  => Other,

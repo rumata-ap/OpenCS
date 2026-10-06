@@ -2431,6 +2431,8 @@
     <system:String x:Key="FemMemberType_wall">Стена</system:String>
     <system:String x:Key="FemMemberType_shell">Пластины</system:String>
     <system:String x:Key="FemMemberType_truss">Ферма</system:String>
+    <system:String x:Key="FemMemberType_top_chord">Верхний пояс фермы</system:String>
+    <system:String x:Key="FemMemberType_bottom_chord">Нижний пояс фермы</system:String>
     <system:String x:Key="FemMemberType_diagonal">Раскос</system:String>
     <system:String x:Key="FemMemberType_bracing">Связь</system:String>
     <system:String x:Key="FemMemberType_other">Другое</system:String>

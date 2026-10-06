@@ -2431,6 +2431,8 @@
     <system:String x:Key="FemMemberType_wall">Wall</system:String>
     <system:String x:Key="FemMemberType_shell">Shells</system:String>
     <system:String x:Key="FemMemberType_truss">Truss</system:String>
+    <system:String x:Key="FemMemberType_top_chord">Truss top chord</system:String>
+    <system:String x:Key="FemMemberType_bottom_chord">Truss bottom chord</system:String>
     <system:String x:Key="FemMemberType_diagonal">Diagonal</system:String>
     <system:String x:Key="FemMemberType_bracing">Bracing</system:String>
     <system:String x:Key="FemMemberType_other">Other</system:String>
