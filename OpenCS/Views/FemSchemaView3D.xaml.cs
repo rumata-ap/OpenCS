@@ -168,7 +168,7 @@ public partial class FemSchemaView3D : UserControl
 
     // ── Камера: проекция и угол обзора общие для всех 3D-видов сеанса ───────────────────────
 
-    static bool s_orthographic;
+    static bool s_orthographic = true;   // по умолчанию — ортогональная проекция
     static double s_fieldOfView = 45;
 
     void InitCamera()
@@ -282,7 +282,6 @@ public partial class FemSchemaView3D : UserControl
         }
 
         _activeVm         = vm;
-        _meshPickDefaulted = false;
         _nodesVisual      = null;
         _shellEdgesVisual = null;
         _meshVisual       = null;
@@ -1322,7 +1321,6 @@ public partial class FemSchemaView3D : UserControl
 
     // ── Выбор КЭ импортированной сетки и команды групп ──────────────────────────────────────
 
-    bool _meshPickDefaulted;
     readonly List<Visual3D> _meshSelectionVisuals = [];
 
     /// <summary>Сдвиг заливки выбранных пластин от плоскости подложки, м.</summary>
@@ -1331,15 +1329,9 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Выбор КЭ сетки включён и в схеме есть что выбирать.</summary>
     bool MeshPick => meshPickCheck.IsChecked == true && VM is { EditMode: true, HasPickableMesh: true };
 
-    /// <summary>Кнопка режима видна, только если в схеме есть импортированная сетка; у схемы без конструктивного
-    /// слоя режим включается сам — кроме КЭ, выбирать там нечего.</summary>
-    void UpdateMeshPickToggle()
-    {
-        bool available = VM is { EditMode: true, HasPickableMesh: true };
-        meshPickCheck.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
-        if (available && !_meshPickDefaulted && VM!.MeshIsSchema) meshPickCheck.IsChecked = true;
-        if (available) _meshPickDefaulted = true;
-    }
+    /// <summary>Кнопка режима видна, только если в схеме есть импортированная сетка. По умолчанию режим выключен.</summary>
+    void UpdateMeshPickToggle() =>
+        meshPickCheck.Visibility = VM is { EditMode: true, HasPickableMesh: true } ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Смена режима — выделение другого вида снимается.</summary>
     void MeshPickToggle_Click(object sender, RoutedEventArgs e) => Editor?.Selection.Clear();

@@ -495,7 +495,7 @@ public class Fem3DVM : ViewModelBase
     /// <summary>В схеме есть КЭ импортированной сетки, которые можно выбрать в 3D.</summary>
     public bool HasPickableMesh => _meshPickByTag.Count > 0;
 
-    /// <summary>Сетка и есть схема (нет конструктивного слоя) — выбирать в 3D, кроме КЭ, нечего.</summary>
+    /// <summary>Сетка и есть схема (нет конструктивного слоя, импорт ЛИРЫ/SCAD).</summary>
     public bool MeshIsSchema => _meshIsSchema;
 
     /// <summary>Стержни импортированной сетки для выбора щелчком (по расстоянию до проекции на экране).</summary>

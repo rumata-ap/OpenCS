@@ -53,7 +53,7 @@ public sealed class Fem3DMeshPickTests
     }
 
     [Fact]
-    public void PureImport_AllMeshElementsPickable_ModeIsMeshByDefault()
+    public void PureImport_AllMeshElementsPickable()
     {
         var (db, schema, path) = CreateSchema();
         try
