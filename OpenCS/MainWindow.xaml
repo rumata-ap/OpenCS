@@ -1242,7 +1242,10 @@
                            <Setter Property="IsExpanded" Value="True"/>
                         </Style>
                      </HierarchicalDataTemplate.ItemContainerStyle>
-                     <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
+                     <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Schemas}"/>
+                        <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
+                     </StackPanel>
                   </HierarchicalDataTemplate>
 
                   <!-- Корневой узел «МКЭ-проверки» — содержит 4 подгруппы -->
@@ -1264,6 +1267,7 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Checks}"/>
                         <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
@@ -1282,6 +1286,24 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_ChecksOther}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding GroupKey}" Value="uls">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_ChecksUls}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding GroupKey}" Value="sls">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_ChecksSls}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding GroupKey}" Value="fire">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_ChecksFire}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
                         <TextBlock Text="{Binding Label}" FontStyle="Italic"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
@@ -1289,6 +1311,11 @@
                   <!-- FemSchemaTreeVM — обёртка схемы с 4 подузлами -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemaTreeVM}"
                                             ItemsSource="{Binding SubNodes}">
+                     <HierarchicalDataTemplate.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                           <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}"/>
+                        </Style>
+                     </HierarchicalDataTemplate.ItemContainerStyle>
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
@@ -1418,9 +1445,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Viewbox Width="14" Height="14" Margin="0,0,4,0">
-                           <Path Fill="#0EA5E9" Data="M2,2 H14 V6 H2 Z M2,9 H14 V13 H2 Z M2,5 H14 V10 H2 Z"/>
-                        </Viewbox>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Schema}"/>
                         <TextBlock Text="{Binding Schema.Tag}"/>
                         <TextBlock Text=" [" Foreground="Gray"/>
                         <TextBlock Text="{Binding Schema.SourceType}" Foreground="Gray"/>
@@ -1431,6 +1456,7 @@
                   <!-- Подузел «Узлы» — листовой, данные в DataGrid -->
                   <DataTemplate DataType="{x:Type vm:FemNodesSubNode}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Nodes}"/>
                         <TextBlock Text="{DynamicResource FemNodes}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
@@ -1441,12 +1467,14 @@
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Mesh}"/>
                         <TextBlock Text="{DynamicResource FemMeshSnapshot}"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
                   <DataTemplate DataType="{x:Type vm:FemMeshNodesSubNode}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MeshNodes}"/>
                         <TextBlock Text="{DynamicResource FemNodes}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
@@ -1457,6 +1485,7 @@
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MeshElements}"/>
                         <TextBlock Text="{DynamicResource FemMeshElements}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0">
                            <TextBlock.Text>
@@ -1471,6 +1500,7 @@
 
                   <DataTemplate DataType="{x:Type vm:FemMeshBarsSubNode}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MeshBars}"/>
                         <TextBlock Text="{DynamicResource FemMeshBars}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
@@ -1479,6 +1509,7 @@
 
                   <DataTemplate DataType="{x:Type vm:FemMeshShellsSubNode}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MeshShells}"/>
                         <TextBlock Text="{DynamicResource FemMeshShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
@@ -1489,6 +1520,7 @@
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Members}"/>
                         <TextBlock Text="{DynamicResource FemElements}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0">
                            <TextBlock.Text>
@@ -1504,6 +1536,7 @@
                   <!-- Подузел «Стержни» — листовой, данные в DataGrid -->
                   <DataTemplate DataType="{x:Type vm:FemBarsSubNode}">
                      <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Bars}"/>
                         <TextBlock Text="{DynamicResource FemBars}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
@@ -1533,27 +1566,52 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Shells}"/>
                         <TextBlock Text="{DynamicResource FemShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
                   </DataTemplate>
 
-                  <!-- Подузел «Конструктивные элементы» с дочерними FemMember -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMembersSubNode}"
-                                            ItemsSource="{Binding Members}">
+                  <!-- Подузел «Группы КЭ» — состав задан номерами КЭ сетки -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshGroupsSubNode}"
+                                            ItemsSource="{Binding Groups}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemMemberNew}"
+                              <MenuItem Header="{DynamicResource FemMeshGroupNew}"
                                         Command="{Binding PlacementTarget.Tag.NewFemMemberDialogCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <TextBlock Text="{DynamicResource FemMembers}"/>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MeshGroup}"/>
+                        <TextBlock Text="{DynamicResource FemMeshGroups}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Группы КонЭ» — состав задан конструктивными элементами -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMemberGroupsSubNode}"
+                                            ItemsSource="{Binding Groups}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemMembersGroupNew}"
+                                        Command="{Binding PlacementTarget.Tag.NewFemMembersGroupCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_MemberGroup}"/>
+                        <TextBlock Text="{DynamicResource FemMemberGroups}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
@@ -1577,9 +1635,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
-                              Fill="SteelBlue"
-                              Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_ForceSet}"/>
                         <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                         <!-- Число строк набора (без загрузки строк из БД) -->
                         <TextBlock Foreground="Gray" VerticalAlignment="Center">
@@ -1607,6 +1663,7 @@
                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Forces}"/>
                         <TextBlock Text="{DynamicResource FemForces}"/>
                         <TextBlock Text=" (" Foreground="Gray"/>
                         <TextBlock Text="{Binding Count}" Foreground="Gray"/>
@@ -1684,6 +1741,11 @@
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <Separator/>
+                              <MenuItem Header="{DynamicResource FemGroupRename}"
+                                        Command="{Binding PlacementTarget.Tag.RenameFemMemberGroupCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource FemMemberDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -1691,9 +1753,18 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                              Fill="SteelBlue"
-                              Data="M3,3 H13 M3,8 H13 M3,13 H13"/>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_MemberGroup}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMeshGroup}" Value="True">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_MeshGroup}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
                         <TextBlock Text="{Binding Tag}"/>
                         <TextBlock Text="{Binding MemberType, Converter={StaticResource FemMemberTypeNameConverter}, ConverterParameter='  [{0}]'}" Foreground="Gray"/>
                      </StackPanel>
@@ -1723,9 +1794,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                              Fill="#4F46E5"
-                              Data="M12,2 L14,8 L8,14 L2,8 L4,2 Z"/>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Check}"/>
                         <TextBlock Text="{Binding DisplayTag}"/>
                      </StackPanel>
                   </DataTemplate>
@@ -1744,6 +1813,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Analyses}"/>
                         <TextBlock Text="{DynamicResource FemAnalysesNode}"/>
                         <TextBlock Text=" (" Foreground="Gray"/>
                         <TextBlock Text="{Binding Count}" Foreground="Gray"/>
@@ -1780,9 +1850,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                              Fill="#0E9F6E"
-                              Data="M4,12 H20 M12,4 V20"/>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Analysis}"/>
                         <TextBlock Text="{Binding Tag}"/>
                         <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray"/>
                      </StackPanel>

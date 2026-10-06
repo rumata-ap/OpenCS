@@ -11,6 +11,7 @@
       <ResourceDictionary>
          <ResourceDictionary.MergedDictionaries>
              <ResourceDictionary Source="/Images/svg.xaml"/>
+             <ResourceDictionary Source="Resources/FemTreeIcons.xaml"/>
              <ResourceDictionary Source="Resources/Strings.en-US.xaml"/>
              <ResourceDictionary Source="Resources/Strings.ru-RU.xaml"/>
          </ResourceDictionary.MergedDictionaries>

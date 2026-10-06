@@ -1,0 +1,377 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <!-- Иконки дерева МКЭ. Все в сетке 16×16 (прозрачная подложка и обрезка задают одинаковый масштаб).
+        Палитра: синий — конструктивная модель (схема, КонЭ), бирюзовый — расчётная сетка КЭ,
+        оранжевый — группы (как подсветка групп и кБ в 3D), красный — нагрузки и усилия,
+        индиго — проверки, зелёный — расчёты. -->
+
+   <!-- Иконка перед подписью узла дерева. -->
+   <Style x:Key="FemTreeIcon" TargetType="Image">
+      <Setter Property="Width" Value="16"/>
+      <Setter Property="Height" Value="16"/>
+      <Setter Property="Margin" Value="0,0,5,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
+   </Style>
+
+   <SolidColorBrush x:Key="FemIconBlue"       Color="#2F6DB5"/>
+   <SolidColorBrush x:Key="FemIconBlueLight"  Color="#B9D3F0"/>
+   <SolidColorBrush x:Key="FemIconBlueDark"   Color="#1F4E85"/>
+   <SolidColorBrush x:Key="FemIconTeal"       Color="#0F8B8D"/>
+   <SolidColorBrush x:Key="FemIconTealLight"  Color="#CDEDEC"/>
+   <SolidColorBrush x:Key="FemIconOrange"     Color="#E8870E"/>
+   <SolidColorBrush x:Key="FemIconOrangeLight" Color="#FBD9A8"/>
+   <SolidColorBrush x:Key="FemIconRed"        Color="#D9480F"/>
+   <SolidColorBrush x:Key="FemIconIndigo"     Color="#4F46E5"/>
+   <SolidColorBrush x:Key="FemIconGreen"      Color="#0E9F6E"/>
+   <SolidColorBrush x:Key="FemIconGrey"       Color="#8A97A3"/>
+
+   <!-- Схема: рама из стержней с узлами на опорной линии. -->
+   <DrawingImage x:Key="FemIcon_Schema">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,14.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M2.5,14.5 V3 H13.5 V14.5 M2.5,8.75 H13.5 M8,3 V14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.5" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White"
+                             Geometry="M1.3,3 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M6.8,3 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M12.3,3 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M1.3,8.75 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M6.8,8.75 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M12.3,8.75 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Корень «Расчётные схемы»: две рамы, одна за другой. -->
+   <DrawingImage x:Key="FemIcon_Schemas">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M5.5,10 V1.5 H15 V10 M10.75,5.75 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueLight}" Thickness="1.5" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M1.75,5.5 H10.75 V14.5 H1.75 Z"/>
+            <GeometryDrawing Geometry="M1,14.5 H11.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1.75,14.5 V5.5 H10.75 V14.5 M1.75,10 H10.75">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.5" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White"
+                             Geometry="M0.65,5.5 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M9.65,5.5 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M0.65,10 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M9.65,10 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Узлы конструктивной модели: три узла, связанные тонкими линиями. -->
+   <DrawingImage x:Key="FemIcon_Nodes">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3,12.5 L8,3.5 L13,12.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}"
+                             Geometry="M1,12.5 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z M6,3.5 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z M11,12.5 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Конструктивные элементы: портальная рама из «толстых» стержней. -->
+   <DrawingImage x:Key="FemIcon_Members">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}"
+                             Geometry="M1.5,2.5 H14.5 V5.5 H1.5 Z M2.5,5.5 H5 V14.5 H2.5 Z M11,5.5 H13.5 V14.5 H11 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Стержни (КонЭ): наклонный стержень. -->
+   <DrawingImage x:Key="FemIcon_Bars">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,12.5 L12.5,1.5 L14.5,3.5 L3.5,14.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M12.5,1.5 L14.5,3.5 L13.5,4.5 L11.5,2.5 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Пластины (КонЭ): плита в аксонометрии. -->
+   <DrawingImage x:Key="FemIcon_Shells">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M0.5,8 L5.5,3.5 H15.5 L10.5,8 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M0.5,8 H10.5 V11 H0.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M10.5,8 L15.5,3.5 V6.5 L10.5,11 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Сетка конечных элементов: сетка 3×3. -->
+   <DrawingImage x:Key="FemIcon_Mesh">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z M5.83,1.5 V14.5 M10.17,1.5 V14.5 M1.5,5.83 H14.5 M1.5,10.17 H14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Узлы сетки: узлы на линиях сетки. -->
+   <DrawingImage x:Key="FemIcon_MeshNodes">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3,3 H13 V13 H3 Z M8,3 V13 M3,8 H13">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="0.8"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconTeal}"
+                             Geometry="M1.4,3 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M6.4,3 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M11.4,3 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M1.4,8 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M6.4,8 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M11.4,8 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M1.4,13 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M6.4,13 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M11.4,13 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Элементы сетки: пластинчатый КЭ и примыкающий стержневой КЭ. -->
+   <DrawingImage x:Key="FemIcon_MeshElements">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M1.5,6 H10 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M10,6 L14.5,1.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White"
+                             Geometry="M0.3,6 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M8.8,6 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M0.3,14.5 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M8.8,14.5 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M13.3,1.5 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Стержневые КЭ сетки: отрезок между двумя узлами. -->
+   <DrawingImage x:Key="FemIcon_MeshBars">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3,13 L13,3">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.8" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White"
+                             Geometry="M1,13 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z M11,3 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.3"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Пластинчатые КЭ сетки: четырёхугольник с узлами в углах. -->
+   <DrawingImage x:Key="FemIcon_MeshShells">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M3,3 H13 V13 H3 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.4" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White"
+                             Geometry="M1.3,3 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 Z M11.3,3 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 Z M1.3,13 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 Z M11.3,13 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.2"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Группа КЭ: часть ячеек сетки выделена оранжевым. -->
+   <DrawingImage x:Key="FemIcon_MeshGroup">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconOrange}"
+                             Geometry="M1.5,5.83 H10.17 V10.17 H5.83 V14.5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z M5.83,1.5 V14.5 M10.17,1.5 V14.5 M1.5,5.83 H14.5 M1.5,10.17 H14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Группа КонЭ: рама, два стержня которой выделены оранжевым. -->
+   <DrawingImage x:Key="FemIcon_MemberGroup">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,2.5 H14.5 V5.5 H1.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconOrange}"
+                             Geometry="M2.5,5.5 H5 V14.5 H2.5 Z M11,5.5 H13.5 V14.5 H11 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M6.75,5.5 H9.25 V14.5 H6.75 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Усилия схемы: распределённая нагрузка на балку. -->
+   <DrawingImage x:Key="FemIcon_Forces">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,14 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1.5,1.5 H14.5 M3,1.5 V8.5 M8,1.5 V8.5 M13,1.5 V8.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.3" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}"
+                             Geometry="M1,8 H5 L3,12 Z M6,8 H10 L8,12 Z M11,8 H15 L13,12 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Набор усилий: таблица с красной шапкой. -->
+   <DrawingImage x:Key="FemIcon_ForceSet">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1.5,2 H14.5 V14 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M1.5,2 H14.5 V5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,8 H14.5 M1.5,11 H14.5 M6,5 V14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Корень «Проверки»: планшет с отметкой. -->
+   <DrawingImage x:Key="FemIcon_Checks">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M2.5,2.5 H13.5 V15 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M5.5,1 H10.5 V4 H5.5 Z"/>
+            <GeometryDrawing Geometry="M5,9.5 L7.25,11.75 L11,7.25">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.8" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Проверки по несущей способности: щит с отметкой. -->
+   <DrawingImage x:Key="FemIcon_ChecksUls">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}"
+                             Geometry="M8,1 L14,3.5 V8 C14,11.5 11.5,14 8,15.2 C4.5,14 2,11.5 2,8 V3.5 Z"/>
+            <GeometryDrawing Geometry="M5.2,8.2 L7.2,10.2 L10.8,6.2">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.7" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Проверки по эксплуатационной пригодности: балка с трещинами. -->
+   <DrawingImage x:Key="FemIcon_ChecksSls">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M0.5,4 H15.5 V12.5 H0.5 Z"/>
+            <GeometryDrawing Geometry="M4.5,12.5 L5.4,10.4 L4.6,9 L5.3,6.8 M8,12.5 L8.9,10 L8.1,8.4 L8.8,5.6 M11.5,12.5 L12.4,10.4 L11.6,9 L12.3,6.8">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.2" StartLineCap="Flat" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Проверки огнестойкости: пламя. -->
+   <DrawingImage x:Key="FemIcon_ChecksFire">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}"
+                             Geometry="M8,0.8 C9.2,3.8 13.2,6 13.2,10 C13.2,13.2 10.9,15.2 8,15.2 C5.1,15.2 2.8,13.2 2.8,10 C2.8,7.5 4.5,6.3 5.3,4.3 C6.3,5.6 6.6,6.8 6.8,8 C8.3,6.4 8.7,3.6 8,0.8 Z"/>
+            <GeometryDrawing Brush="#FFC24A"
+                             Geometry="M8,8 C8.8,9.6 10.6,10.6 10.6,12.4 C10.6,13.9 9.4,15 8,15 C6.6,15 5.4,13.9 5.4,12.4 C5.4,11 6.6,10.3 7.2,9.2 C7.8,9.9 7.9,10.5 8,11 C8.6,10.1 8.5,9 8,8 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Прочие проверки: список. -->
+   <DrawingImage x:Key="FemIcon_ChecksOther">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}"
+                             Geometry="M1.5,3.5 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z M1.5,8 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z M1.5,12.5 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z"/>
+            <GeometryDrawing Geometry="M6.5,3.5 H14.5 M6.5,8 H14.5 M6.5,12.5 H14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Проверка: лист с загнутым углом и отметкой. -->
+   <DrawingImage x:Key="FemIcon_Check">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M2.5,1 H10 L13.5,4.5 V15 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M10,1 V4.5 H13.5 Z"/>
+            <GeometryDrawing Geometry="M5,9.5 L7.2,11.7 L11,7.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.7" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Расчёты OpenSees: шестерня. -->
+   <DrawingImage x:Key="FemIcon_Analyses">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}">
+               <GeometryDrawing.Geometry>
+                  <CombinedGeometry GeometryCombineMode="Exclude">
+                     <CombinedGeometry.Geometry1>
+                        <PathGeometry Figures="M13.07,6.87 L15.14,7.07 L15.14,8.93 L13.07,9.13 L12.80,9.99 L12.39,10.79 L13.71,12.39 L12.39,13.71 L10.79,12.39 L9.99,12.80 L9.13,13.07 L8.93,15.14 L7.07,15.14 L6.87,13.07 L6.01,12.80 L5.21,12.39 L3.61,13.71 L2.29,12.39 L3.61,10.79 L3.20,9.99 L2.93,9.13 L0.86,8.93 L0.86,7.07 L2.93,6.87 L3.20,6.01 L3.61,5.21 L2.29,3.61 L3.61,2.29 L5.21,3.61 L6.01,3.20 L6.87,2.93 L7.07,0.86 L8.93,0.86 L9.13,2.93 L9.99,3.20 L10.79,3.61 L12.39,2.29 L13.71,3.61 L12.39,5.21 L12.80,6.01 Z"/>
+                     </CombinedGeometry.Geometry1>
+                     <CombinedGeometry.Geometry2>
+                        <EllipseGeometry Center="8,8" RadiusX="2.4" RadiusY="2.4"/>
+                     </CombinedGeometry.Geometry2>
+                  </CombinedGeometry>
+               </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Постановка расчёта: кнопка запуска. -->
+   <DrawingImage x:Key="FemIcon_Analysis">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M1,8 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M6.2,4.6 L11.4,8 L6.2,11.4 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+</ResourceDictionary>

@@ -125,6 +125,8 @@ class FemSchemaTreeVM
     internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
     internal FemForcesSubNode   ForcesSubNode   { get; }
     internal FemAnalysesSubNode AnalysesSubNode { get; }
+    internal FemMeshGroupsSubNode   MeshGroupsSubNode   { get; }
+    internal FemMemberGroupsSubNode MemberGroupsSubNode { get; }
 
     readonly DatabaseService _db;
 
@@ -139,13 +141,16 @@ class FemSchemaTreeVM
         MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
         ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
         AnalysesSubNode = new FemAnalysesSubNode(schema);
+        MeshGroupsSubNode   = new FemMeshGroupsSubNode(schema);
+        MemberGroupsSubNode = new FemMemberGroupsSubNode(schema);
 
         SubNodes =
         [
             NodesSubNode,
             ElementsSubNode,
             MeshSnapshotSubNode,
-            new FemMembersSubNode(schema, schema.MemberGroups),
+            MeshGroupsSubNode,
+            MemberGroupsSubNode,
             ForcesSubNode,
             AnalysesSubNode,
         ];
@@ -164,6 +169,15 @@ class FemSchemaTreeVM
         RefreshMeshSnapshotCounts();
     }
 
+    /// <summary>Какие узлы групп показывать у схемы без групп: «Группы КЭ» — при импортированной сетке,
+    /// «Группы КонЭ» — если есть КонЭ или схема не чистый импорт сетки (КонЭ можно построить).</summary>
+    void RefreshGroupNodes()
+    {
+        bool importedMesh = _db.HasFemImportedMesh(Schema.Id);
+        MeshGroupsSubNode.CanHaveGroups   = importedMesh;
+        MemberGroupsSubNode.CanHaveGroups = !importedMesh || ElementsSubNode.BarCount + ElementsSubNode.ShellCount > 0;
+    }
+
     void RefreshMeshSnapshotCounts()
     {
         var (nodes, bars, shells) = _db.GetFemMeshSnapshotCounts(Schema.Id);
@@ -172,6 +186,7 @@ class FemSchemaTreeVM
         MeshSnapshotSubNode.Elements.ShellCount      = shells;
         MeshSnapshotSubNode.Elements.Bars.Count      = bars;
         MeshSnapshotSubNode.Elements.Shells.Count    = shells;
+        RefreshGroupNodes();
     }
 
     /// <summary>Асинхронно загружает узлы схемы из БД.</summary>
@@ -210,7 +225,11 @@ class FemSchemaTreeVM
 }
 
 /// <summary>Базовый класс подузла расчётной схемы.</summary>
-public abstract class FemSubNode { }
+public abstract class FemSubNode
+{
+    /// <summary>Показывать ли подузел в дереве.</summary>
+    public virtual bool IsVisible => true;
+}
 
 /// <summary>Подузел сохранённой расчётной сетки с дочерними узлами её узлов и элементов.</summary>
 public class FemMeshSnapshotSubNode : FemSubNode
@@ -339,17 +358,65 @@ public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropert
     internal FemShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
-/// <summary>Подузел «Группы конструктивных элементов» — содержит FemMemberGroup'ы схемы.</summary>
-public class FemMembersSubNode : FemSubNode
+/// <summary>Подузел групп схемы одного вида (<see cref="FemMemberGroup.Kind"/>) — фильтр над
+/// <see cref="FemSchema.MemberGroups"/>. Вид группы после создания не меняется, поэтому достаточно
+/// следить за составом коллекции.</summary>
+public abstract class FemGroupsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
-    public FemSchema                             Schema  { get; }
-    public ObservableCollection<FemMemberGroup>  Members { get; }
-    public FemMembersSubNode(FemSchema schema, ObservableCollection<FemMemberGroup> members)
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public FemSchema                            Schema { get; }
+    public string                               Kind   { get; }
+    public ObservableCollection<FemMemberGroup> Groups { get; } = [];
+    public int Count => Groups.Count;
+
+    bool _canHaveGroups = true;
+    /// <summary>Схема может иметь группы этого вида; пустой узел без этой возможности скрыт.</summary>
+    internal bool CanHaveGroups
     {
-        Schema  = schema;
-        Members = members;
+        get => _canHaveGroups;
+        set { if (_canHaveGroups == value) return; _canHaveGroups = value; Notify(nameof(IsVisible)); }
     }
+
+    public override bool IsVisible => Groups.Count > 0 || _canHaveGroups;
+
+    protected FemGroupsSubNode(FemSchema schema, string kind)
+    {
+        Schema = schema;
+        Kind   = kind;
+        Rebuild();
+        schema.MemberGroups.CollectionChanged += (_, e) =>
+        {
+            if (e.Action is NotifyCollectionChangedAction.Reset or NotifyCollectionChangedAction.Move)
+                Rebuild();
+            else
+            {
+                if (e.OldItems != null)
+                    foreach (FemMemberGroup g in e.OldItems) Groups.Remove(g);
+                if (e.NewItems != null)
+                    foreach (FemMemberGroup g in e.NewItems)
+                        if (g.Kind == Kind) Groups.Add(g);
+            }
+            Notify(nameof(Count));
+            Notify(nameof(IsVisible));
+        };
+    }
+
+    void Rebuild()
+    {
+        Groups.Clear();
+        foreach (var g in Schema.MemberGroups)
+            if (g.Kind == Kind) Groups.Add(g);
+    }
+
+    void Notify(string name) => PropertyChanged?.Invoke(this, new(name));
 }
+
+/// <summary>Подузел «Группы КЭ» — состав групп задан номерами КЭ сетки (группы ЛИРЫ, SCAD).</summary>
+public class FemMeshGroupsSubNode(FemSchema schema) : FemGroupsSubNode(schema, FemMemberGroup.KindMesh);
+
+/// <summary>Подузел «Группы КонЭ» — состав групп задан конструктивными элементами.</summary>
+public class FemMemberGroupsSubNode(FemSchema schema) : FemGroupsSubNode(schema, FemMemberGroup.KindMembers);
 
 /// <summary>Подузел «Расчёты OpenSees» — постановки линейного расчёта схемы.</summary>
 public class FemAnalysesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged

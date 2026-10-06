@@ -559,6 +559,10 @@ namespace OpenCS
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
       public ICommand NewFemMemberDialogCommand { get; set; } = null!;
+      /// <summary>Команда создания пустой группы КонЭ (узел «Группы КонЭ» дерева).</summary>
+      public ICommand NewFemMembersGroupCommand { get; set; } = null!;
+      /// <summary>Команда переименования группы КЭ или КонЭ.</summary>
+      public ICommand RenameFemMemberGroupCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания плиты кликами по узлам в 3D-виде схемы.</summary>
       public ICommand CreatePlateModeCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания стены кликами по узлам в 3D-виде схемы.</summary>
@@ -1483,10 +1487,12 @@ namespace OpenCS
          RefreshLiraStiffnessesCommand = new RelayCommand(p => RefreshLiraStiffnesses(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
+         NewFemMembersGroupCommand = new RelayCommand(p => NewFemMembersGroup(p as CScore.Fem.FemSchema));
+         RenameFemMemberGroupCommand = new RelayCommand(p => RenameFemMemberGroup(p as CScore.Fem.FemMemberGroup));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
          CreateWallModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "wall"));
          CreateSpatialPlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "spatial"));
-         DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
+         DeleteFemMemberCommand    = new RelayCommand(p => DeleteFemMember(p as CScore.Fem.FemMemberGroup));
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
          EditFemAnalysisCommand = new RelayCommand(p => EditFemAnalysis(p as CScore.Fem.FemAnalysis));
@@ -4809,10 +4815,35 @@ namespace OpenCS
          }
       }
 
-      void DeleteFemMember()
+      void NewFemMembersGroup(CScore.Fem.FemSchema? schema)
       {
-         if (currentFemMember == null) return;
-         db.DeleteFemMemberGroup(currentFemMember);
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         FemGroups.CreateEmptyGroup(schema, "Группа", CScore.Fem.FemMemberGroup.KindMembers);
+      }
+
+      void RenameFemMemberGroup(CScore.Fem.FemMemberGroup? group)
+      {
+         group ??= currentFemMember;
+         if (group == null) return;
+         var dlg = new Views.Dialogs.TextInputDialog(
+            Loc.S("FemGroupRenameTitle"), Loc.S("FemGroupRenameLabel"), group.Tag);
+         if (dlg.ShowDialog() != true) return;
+         FemGroups.Rename(group, dlg.Value);
+      }
+
+      /// <param name="group">Группа из меню дерева; без параметра — открытая группа.</param>
+      void DeleteFemMember(CScore.Fem.FemMemberGroup? group)
+      {
+         group ??= currentFemMember;
+         if (group == null) return;
+         string message = group.Checks.Count > 0
+            ? string.Format(Loc.S("FemGroupDeleteConfirmChecks"), group.Tag, group.Checks.Count)
+            : string.Format(Loc.S("FemGroupDeleteConfirm"), group.Tag);
+         if (MessageBox.Show(message, Loc.S("FemGroupDeleteTitle"), MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+         db.DeleteFemMemberGroup(group);
+         if (group != currentFemMember) return;
          currentFemMember = null;
          CurrentPage = null!;
       }

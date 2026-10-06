@@ -34,13 +34,27 @@ public sealed class FemGroupService(DatabaseService db, ILogService log)
     }
 
     /// <summary>Пустая группа: группа КЭ у схемы с импортированной сеткой, иначе группа КонЭ.</summary>
-    public FemMemberGroup CreateEmptyGroup(FemSchema schema, string tag)
+    public FemMemberGroup CreateEmptyGroup(FemSchema schema, string tag) =>
+        CreateEmptyGroup(schema, tag, HasImportedMesh(schema) ? FemMemberGroup.KindMesh : FemMemberGroup.KindMembers);
+
+    /// <summary>Пустая группа заданного вида.</summary>
+    public FemMemberGroup CreateEmptyGroup(FemSchema schema, string tag, string kind)
     {
-        var group = HasImportedMesh(schema)
+        var group = kind == FemMemberGroup.KindMesh
             ? FemGroupComposition.NewMeshGroup(schema.Id, [], tag, null)
             : FemGroupComposition.NewMembersGroup(schema.Id, [], tag, null);
         Save(schema, group);
         return group;
+    }
+
+    /// <summary>Переименовывает группу. Пустое имя не принимается.</summary>
+    public bool Rename(FemMemberGroup group, string tag)
+    {
+        tag = tag.Trim();
+        if (tag.Length == 0 || tag == group.Tag) return false;
+        group.Tag = tag;
+        db.SaveFemMemberGroup(group);
+        return true;
     }
 
     /// <summary>Добавляет в состав группы КЭ или КонЭ — по её виду. Возвращает число добавленных.</summary>
@@ -61,8 +75,7 @@ public sealed class FemGroupService(DatabaseService db, ILogService log)
     }
 
     /// <summary>У схемы есть КЭ сетки, импортированные из внешней программы.</summary>
-    public bool HasImportedMesh(FemSchema schema) =>
-        db.GetFemMeshElements(schema.Id).Any(e => e.Origin == FemMember.MeshSourceImported);
+    public bool HasImportedMesh(FemSchema schema) => db.HasFemImportedMesh(schema.Id);
 
     void Save(FemSchema schema, FemMemberGroup group)
     {

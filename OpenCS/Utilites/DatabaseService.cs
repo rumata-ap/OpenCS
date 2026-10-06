@@ -6724,6 +6724,16 @@ namespace OpenCS.Utilites
          return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
       }
 
+      /// <summary>У схемы есть КЭ сетки, импортированные из внешней программы.</summary>
+      public bool HasFemImportedMesh(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM fem_elements WHERE schema_id=@sid AND origin=@origin)";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+         return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
+      }
+
       public void SaveFemMemberGroup(CScore.Fem.FemMemberGroup g)
       {
          using var tx = _connection.BeginTransaction();
@@ -6731,13 +6741,31 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
+      /// <summary>Удаляет группу вместе с её проверками и их calc_results (ON DELETE CASCADE не
+      /// выполняется при PRAGMA foreign_keys=OFF — см. DeleteFemCheck).</summary>
       public void DeleteFemMemberGroup(CScore.Fem.FemMemberGroup g)
       {
          if (g.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_member_groups WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", g.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE fem_check_id IN
+                  (SELECT id FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0))
+                  OR id IN
+                  (SELECT result_id FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0));
+               DELETE FROM fem_checks WHERE member_id=@id AND (element_id IS NULL OR element_id<=0);
+               DELETE FROM fem_member_groups WHERE id = @id;
+            """;
+            cmd.Parameters.AddWithValue("@id", g.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+         foreach (var c in FemChecks.Where(c => c.MemberId == g.Id && !c.TargetsElement).ToList())
+            FemChecks.Remove(c);
+         g.Checks.Clear();
          var schema = FemSchemas.FirstOrDefault(s => s.Id == g.SchemaId);
          schema?.MemberGroups.Remove(g);
       }
