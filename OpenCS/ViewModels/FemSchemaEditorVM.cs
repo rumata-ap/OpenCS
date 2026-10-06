@@ -494,7 +494,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var command = Session.Undo();
         if (command is DeleteNodeCommand or DeleteNodesCommand)
             Selection.Clear();
-        RefreshCollections();
+        if (IsGroupOnly(command)) RefreshGroups();
+        else RefreshCollections();
     }
 
     void RedoHistoryStep()
@@ -502,8 +503,12 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var command = Session.Redo();
         if (command is DeleteNodeCommand or DeleteNodesCommand)
             Selection.Clear();
-        RefreshCollections();
+        if (IsGroupOnly(command)) RefreshGroups();
+        else RefreshCollections();
     }
+
+    /// <summary>Команда меняет только группы — отмена не перестраивает 3D-вид (и не сбрасывает камеру).</summary>
+    static bool IsGroupOnly(IFemEditCommand? command) => command is EditMemberGroupTagsCommand or CreateMemberGroupCommand;
 
     public void CreateNodeAt(double x, double y, double z)
     {
@@ -715,6 +720,69 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var group = FemGroupComposition.NewMembersGroup(Session.Schema.Id, memberTags, $"M{MemberGroups.Count + 1}", null);
         Session.Execute(new CreateMemberGroupCommand(group));
         RefreshCollections();
+    }
+
+    // ── Группы из выбора в 3D: в сеансе (сохранение редактора переписывает группы схемы) и с отменой ──
+
+    /// <summary>Группы сеанса заданного вида.</summary>
+    public IEnumerable<FemMemberGroup> GroupsOfKind(string kind) => Session.MemberGroups.Where(g => g.Kind == kind);
+
+    HashSet<string>? _importedMeshTags;
+
+    /// <summary>Годные для группы теги: у группы КонЭ — конструктивные элементы сеанса, у группы КЭ —
+    /// импортированные КЭ сетки (номера КЭ дискретизации меняются при пересетке). Отброшенное — в журнал.</summary>
+    public List<string> AcceptGroupTags(string kind, IEnumerable<string> tags)
+    {
+        var distinct = tags.Select(t => t.Trim()).Where(t => t.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        HashSet<string> known;
+        if (kind == FemMemberGroup.KindMesh)
+            // Импортированная сетка в редакторе не меняется — номера читаются один раз.
+            known = _importedMeshTags ??= _db.GetFemMeshElements(Session.Schema.Id)
+                .Where(e => e.Origin == FemMember.MeshSourceImported)
+                .Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        else
+            known = Session.Members.Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var rejected = distinct.Where(t => !known.Contains(t)).ToList();
+        if (rejected.Count > 0)
+            _logService.Warning(string.Format(Loc.S(kind == FemMemberGroup.KindMesh ? "FemGroupMeshUnknown" : "FemGroupMembersUnknown"),
+                rejected.Count, string.Join(", ", rejected.Take(20)) + (rejected.Count > 20 ? ", …" : "")));
+        return distinct.Where(known.Contains).ToList();
+    }
+
+    /// <summary>Новая группа КЭ или КонЭ в сеансе. Null — ни один тег не годится (см. журнал).</summary>
+    public FemMemberGroup? CreateGroup(string kind, IEnumerable<string> tags, string? tag, string? memberType)
+    {
+        var accepted = AcceptGroupTags(kind, tags);
+        if (accepted.Count == 0) return null;
+        var group = kind == FemMemberGroup.KindMesh
+            ? FemGroupComposition.NewMeshGroup(Session.Schema.Id, accepted, tag, memberType)
+            : FemGroupComposition.NewMembersGroup(Session.Schema.Id, accepted, tag, memberType);
+        Session.Execute(new CreateMemberGroupCommand(group));
+        RefreshGroups();
+        _logService.Info(string.Format(Loc.S("FemGroupCreated"), group.Tag, group.Tags.Count));
+        return group;
+    }
+
+    /// <summary>Добавляет теги в состав группы сеанса (с проверкой по виду) или убирает их. Возвращает число изменённых.</summary>
+    public int EditGroupTags(FemMemberGroup group, IEnumerable<string> tags, bool remove)
+    {
+        var list = remove ? tags.ToList() : AcceptGroupTags(group.Kind, tags);
+        var present = group.Tags.ToHashSet(StringComparer.Ordinal);
+        if (!list.Any(t => present.Contains(t) == remove)) return 0;
+        var command = new EditMemberGroupTagsCommand(group, list, remove);
+        Session.Execute(command);
+        RefreshGroups();
+        _logService.Info(string.Format(Loc.S(remove ? "FemGroupTagsRemoved" : "FemGroupTagsAdded"), command.Changed, group.Tag));
+        return command.Changed;
+    }
+
+    /// <summary>После правки только групп: геометрия не менялась — 3D-вид не перестраивается.</summary>
+    void RefreshGroups()
+    {
+        SyncList(MemberGroups, Session.MemberGroups);
+        CollectionViewSource.GetDefaultView(MemberGroups).Refresh();
+        OnPropertyChanged(nameof(ExtractBlockReason));
+        CommandManager.InvalidateRequerySuggested();
     }
 
     public void AddLoadCase(string tagPrefix, string sp20Type)

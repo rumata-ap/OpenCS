@@ -2403,6 +2403,13 @@
     <system:String x:Key="FemGroupTagsRemoved">Removed from group &quot;{1}&quot;: {0}</system:String>
     <system:String x:Key="FemGroupNoSelection">(nothing selected)</system:String>
     <system:String x:Key="FemGroupSelectionInNoGroup">(selected items belong to no group)</system:String>
+    <system:String x:Key="Fem3DMeshPickMode">Pick mesh elements (off — pick structural members)</system:String>
+    <system:String x:Key="Fem3DMeshGroupFromSelection">FE group from selected ({0})…</system:String>
+    <system:String x:Key="Fem3DMembersGroupFromSelection">Member group from selected ({0})…</system:String>
+    <system:String x:Key="Fem3DGroupAddTo">Add to group</system:String>
+    <system:String x:Key="Fem3DGroupRemoveFrom">Remove from group</system:String>
+    <system:String x:Key="Fem3DClearSelection">Clear selection</system:String>
+    <system:String x:Key="FemGroupNoneAccepted">Group not created: none of the selected items fits. See the log for details.</system:String>
     <system:String x:Key="FemMeshGroupsNone">(the schema has no FE groups)</system:String>
     <system:String x:Key="FemMemberGroupsNone">(the schema has no member groups)</system:String>
     <system:String x:Key="FemMeshGroups">FE groups</system:String>

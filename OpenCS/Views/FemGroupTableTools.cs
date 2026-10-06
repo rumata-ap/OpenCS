@@ -106,23 +106,11 @@ internal sealed class FemGroupTableTools
     {
         var tags = SelectedTags();
         var menu = NewMenu(button);
-        if (tags.Count == 0) menu.Items.Add(Disabled("FemGroupNoSelection"));
-        else
+        FemGroupMenus.FillAdd(menu.Items, Groups, _kind, tags, group =>
         {
-            foreach (var group in Groups.OrderBy(g => g.Tag, StringComparer.CurrentCulture))
-            {
-                var present = group.Tags.ToHashSet(StringComparer.Ordinal);
-                int missing = tags.Count(t => !present.Contains(t));
-                var item = new MenuItem { Header = MenuHeader(group), IsEnabled = missing > 0 };
-                item.Click += (_, _) =>
-                {
-                    int added = _app.FemGroups.AddTags(_schema, group, tags);
-                    Done(string.Format(Loc.S("FemGroupTagsAdded"), added, group.Tag));
-                };
-                menu.Items.Add(item);
-            }
-            if (menu.Items.Count == 0) menu.Items.Add(Disabled(IsMesh ? "FemMeshGroupsNone" : "FemMemberGroupsNone"));
-        }
+            int added = _app.FemGroups.AddTags(_schema, group, tags);
+            Done(string.Format(Loc.S("FemGroupTagsAdded"), added, group.Tag));
+        });
         menu.IsOpen = true;
     }
 
@@ -131,31 +119,19 @@ internal sealed class FemGroupTableTools
     {
         var tags = SelectedTags();
         var menu = NewMenu(button);
-        foreach (var group in Groups.OrderBy(g => g.Tag, StringComparer.CurrentCulture))
+        FemGroupMenus.FillRemove(menu.Items, Groups, tags, group =>
         {
-            var present = group.Tags.ToHashSet(StringComparer.Ordinal);
-            if (!tags.Any(present.Contains)) continue;
-            var item = new MenuItem { Header = MenuHeader(group) };
-            item.Click += (_, _) =>
-            {
-                int removed = _app.FemGroups.RemoveTags(group, tags);
-                Done(string.Format(Loc.S("FemGroupTagsRemoved"), removed, group.Tag));
-            };
-            menu.Items.Add(item);
-        }
-        if (menu.Items.Count == 0) menu.Items.Add(Disabled(tags.Count == 0 ? "FemGroupNoSelection" : "FemGroupSelectionInNoGroup"));
+            int removed = _app.FemGroups.RemoveTags(group, tags);
+            Done(string.Format(Loc.S("FemGroupTagsRemoved"), removed, group.Tag));
+        });
         menu.IsOpen = true;
     }
-
-    static string MenuHeader(FemMemberGroup group) => $"{group.Tag} ({group.Tags.Count})";
 
     static ContextMenu NewMenu(Button button) => new()
     {
         PlacementTarget = button,
         Placement = PlacementMode.Bottom,
     };
-
-    static MenuItem Disabled(string key) => new() { Header = Loc.S(key), IsEnabled = false };
 
     /// <summary>Сообщение в журнал и перерисовка колонки «Группы» (строки таблицы — доменные объекты без
     /// уведомлений об изменении).</summary>

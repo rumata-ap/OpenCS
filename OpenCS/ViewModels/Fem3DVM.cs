@@ -239,6 +239,9 @@ public class Fem3DVM : ViewModelBase
                 meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
                 allNodes    = meshNodes.Select(ToFemNode).ToList();
                 allElements = meshElements.Select(ToFemMember).ToList();
+                _meshSchemaImported = new HashSet<FemMember>(
+                    allElements.Where((_, i) => meshElements[i].Origin == FemMember.MeshSourceImported),
+                    ReferenceEqualityComparer.Instance);
             }
             else if (await Task.Run(LoadImportedBackground))
             {
@@ -480,6 +483,24 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Конструктивного слоя нет — отображаемые элементы и есть КЭ сетки (импорт ЛИРЫ/SCAD).</summary>
     bool _meshIsSchema;
 
+    /// <summary>Импортированные КЭ среди отображаемых, когда сетка и есть схема.</summary>
+    HashSet<FemMember> _meshSchemaImported = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>КЭ импортированной сетки — выбираются в 3D в режиме «КЭ сетки» (у КЭ дискретизации номера
+    /// меняются при пересетке, в группы КЭ они не входят).</summary>
+    bool IsPickableMesh(FemMember element) => _bgSet.Contains(element) || _meshSchemaImported.Contains(element);
+
+    Dictionary<string, FemMember> _meshPickByTag = new(StringComparer.Ordinal);
+
+    /// <summary>В схеме есть КЭ импортированной сетки, которые можно выбрать в 3D.</summary>
+    public bool HasPickableMesh => _meshPickByTag.Count > 0;
+
+    /// <summary>Сетка и есть схема (нет конструктивного слоя) — выбирать в 3D, кроме КЭ, нечего.</summary>
+    public bool MeshIsSchema => _meshIsSchema;
+
+    /// <summary>Стержни импортированной сетки для выбора щелчком (по расстоянию до проекции на экране).</summary>
+    public IReadOnlyList<(string Tag, Point3D P1, Point3D P2)> MeshPickBars { get; private set; } = [];
+
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)
     {
         // В режиме члена — фильтруем только нужные КЭ
@@ -615,6 +636,14 @@ public class Fem3DVM : ViewModelBase
             BarProxies = elements
                 .Where(e => e.ElemType == "beam" && !_bgSet.Contains(e))
                 .Select(e => (Tag: e.ElemTag, Pair: GetBarPoints(nodeMap, e)))
+                .Where(x => x.Pair.HasValue)
+                .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
+                .ToList();
+            _meshPickByTag = new Dictionary<string, FemMember>(StringComparer.Ordinal);
+            foreach (var e in elements.Where(IsPickableMesh)) _meshPickByTag.TryAdd(e.ElemTag.Trim(), e);
+            MeshPickBars = _meshPickByTag.Values
+                .Where(e => e.ElemType == "beam")
+                .Select(e => (Tag: e.ElemTag.Trim(), Pair: GetBarPoints(nodeMap, e)))
                 .Where(x => x.Pair.HasValue)
                 .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
                 .ToList();
@@ -894,6 +923,7 @@ public class Fem3DVM : ViewModelBase
         var positions = new Point3DCollection(shells.Count * 4);
         var indices   = new Int32Collection(shells.Count * 6);
         var tags      = new List<string>(shells.Count * 4);
+        var pickable  = new List<bool>(shells.Count * 4);
         int idx       = 0;
 
         foreach (var e in shells)
@@ -905,16 +935,17 @@ public class Fem3DVM : ViewModelBase
                          .Select(p => p!.Value)
                          .ToArray();
 
+            bool isMesh = IsPickableMesh(e);
             if (pts.Length == 3)
             {
-                foreach (var p in pts) { positions.Add(p); tags.Add(e.ElemTag.Trim()); }
+                foreach (var p in pts) { positions.Add(p); tags.Add(e.ElemTag.Trim()); pickable.Add(isMesh); }
                 indices.Add(idx); indices.Add(idx + 1); indices.Add(idx + 2);
                 idx += 3;
             }
             else if (pts.Length >= 4)
             {
                 // ЛИРА хранит узлы как [n1,n2,n3,n4], геометрический обход: n1→n2→n4→n3
-                for (int k = 0; k < 4; k++) { positions.Add(pts[k]); tags.Add(e.ElemTag.Trim()); }
+                for (int k = 0; k < 4; k++) { positions.Add(pts[k]); tags.Add(e.ElemTag.Trim()); pickable.Add(isMesh); }
                 indices.Add(idx); indices.Add(idx + 1); indices.Add(idx + 3);
                 indices.Add(idx); indices.Add(idx + 3); indices.Add(idx + 2);
                 idx += 4;
@@ -923,7 +954,62 @@ public class Fem3DVM : ViewModelBase
 
         var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
         _shellMeshTags.AddOrUpdate(mesh, [.. tags]);
+        if (pickable.Contains(true)) _shellMeshPickable.AddOrUpdate(mesh, [.. pickable]);
         return mesh;
+    }
+
+    readonly System.Runtime.CompilerServices.ConditionalWeakTable<MeshGeometry3D, bool[]> _shellMeshPickable = new();
+
+    /// <summary>Номер пластинчатого КЭ импортированной сетки по вершине заливки; null — не КЭ сетки
+    /// (конструктивный элемент или сетка не из заливок пластин).</summary>
+    public string? MeshShellTagAt(MeshGeometry3D mesh, int vertexIndex) =>
+        _shellMeshPickable.TryGetValue(mesh, out var pickable) && vertexIndex >= 0 && vertexIndex < pickable.Length
+            && pickable[vertexIndex] ? ShellTagAt(mesh, vertexIndex) : null;
+
+    /// <summary>
+    /// Подсветка выбранных КЭ сетки: линии стержней, заливка пластин (две копии, сдвинутые по нормали в обе
+    /// стороны, — в плоскости подложки заливка мерцала бы) и контуры пластин.
+    /// </summary>
+    public (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) MeshSelectionGeometry(
+        IEnumerable<string> tags, double offset)
+    {
+        var bars = new Point3DCollection();
+        var outlines = new Point3DCollection();
+        var positions = new Point3DCollection();
+        var indices = new Int32Collection();
+        var nodeMap = _edgeNodeMap ?? [];
+        foreach (var tag in tags)
+        {
+            if (!_meshPickByTag.TryGetValue(tag, out var e)) continue;
+            if (e.ElemType == "beam")
+            {
+                if (GetBarPoints(nodeMap, e) is { } pair) { bars.Add(pair.p1); bars.Add(pair.p2); }
+                continue;
+            }
+            var ids = NodeIds(e.NodeIdsJson);
+            var pts = new List<Point3D>(4);
+            foreach (int id in ids)
+                if (nodeMap.TryGetValue(id.ToString(), out var p)) pts.Add(p);
+            // Обход контура: у четырёхузлового КЭ узлы хранятся «1 2 4 3».
+            Point3D[] loop = pts.Count switch
+            {
+                3 => [pts[0], pts[1], pts[2]],
+                >= 4 => [pts[0], pts[1], pts[3], pts[2]],
+                _ => [],
+            };
+            if (loop.Length == 0) continue;
+            var normal = Vector3D.CrossProduct(loop[1] - loop[0], loop[^1] - loop[0]);
+            if (normal.Length > 1e-12) normal.Normalize();
+            for (int i = 0; i < loop.Length; i++) { outlines.Add(loop[i]); outlines.Add(loop[(i + 1) % loop.Length]); }
+            foreach (double side in (double[])[offset, -offset])
+            {
+                int b = positions.Count;
+                foreach (var p in loop) positions.Add(p + normal * side);
+                for (int k = 1; k + 1 < loop.Length; k++) { indices.Add(b); indices.Add(b + k); indices.Add(b + k + 1); }
+            }
+        }
+        var shells = positions.Count > 0 ? new MeshGeometry3D { Positions = positions, TriangleIndices = indices } : null;
+        return (bars, shells, outlines);
     }
 
     // Вершины у каждого КЭ свои, поэтому вершина однозначно называет КЭ. Слабая таблица —

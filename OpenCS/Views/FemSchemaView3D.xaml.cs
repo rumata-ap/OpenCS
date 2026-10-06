@@ -244,6 +244,12 @@ public partial class FemSchemaView3D : UserControl
             BuildEditProxies();
             e.Handled = true;
         }
+        else if (Editor?.Selection is { } selection &&
+                 selection.SelectedNodeTags.Count + selection.SelectedElemTags.Count + selection.SelectedMeshElemTags.Count > 0)
+        {
+            selection.Clear();
+            e.Handled = true;
+        }
     }
 
     async void OnLoaded(object sender, RoutedEventArgs e)
@@ -276,6 +282,7 @@ public partial class FemSchemaView3D : UserControl
         }
 
         _activeVm         = vm;
+        _meshPickDefaulted = false;
         _nodesVisual      = null;
         _shellEdgesVisual = null;
         _meshVisual       = null;
@@ -438,6 +445,7 @@ public partial class FemSchemaView3D : UserControl
         // сферы-прокси для клика иначе перекрывают ещё не нарисованные видимые сферы узлов/труб
         // стержней, отрисованные позже в том же кадре (WPF 3D не отключает запись глубины для
         // прозрачных материалов) — узлы с нагрузкой визуально пропадали.
+        UpdateMeshPickToggle();
         BuildEditProxies();
         BuildDiagramGlyphs();
         BuildMemberLoadGlyphs();
@@ -848,8 +856,11 @@ public partial class FemSchemaView3D : UserControl
         _pickTargets.Clear();
         foreach (var visual in _planarRegionPickTargets.Keys) viewport.Children.Remove(visual);
         _planarRegionPickTargets.Clear();
+        foreach (var visual in _meshSelectionVisuals) viewport.Children.Remove(visual);
+        _meshSelectionVisuals.Clear();
         if (_editNodesVisual != null) { viewport.Children.Remove(_editNodesVisual); _editNodesVisual = null; }
         if (VM is not { EditMode: true } vm) return;
+        AddMeshSelectionVisuals(vm);
 
         if (showNodesCheck.IsChecked == true)
         {
@@ -930,6 +941,13 @@ public partial class FemSchemaView3D : UserControl
         }
 
         if (vm.Selection is not { } selection) return;
+        if (MeshPick && !_createBarMode && !_createPlateMode && !_createWallMode && !_createSpatialPlateMode)
+        {
+            bool additiveMesh = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+            if (MeshElementAt(vm, position) is { } meshTag) selection.ToggleMeshElement(meshTag, additiveMesh);
+            else if (!additiveMesh && selection.SelectedMeshElemTags.Count > 0) selection.Clear();
+            return;
+        }
         var hits = new List<(bool IsNode, string Tag)>();
         HitTestResultBehavior Callback(HitTestResult result)
         {
@@ -1016,7 +1034,7 @@ public partial class FemSchemaView3D : UserControl
 
         if (vm.MosaicBarSegments.Count > 0)
         {
-            vm.Mosaic.SetHover(BarTagNear(vm, e.GetPosition(viewport)));
+            vm.Mosaic.SetHover(SegmentTagNear(vm.MosaicBarSegments, e.GetPosition(viewport)));
             PlaceMosaicHoverTip(vm, e);
             return;
         }
@@ -1037,9 +1055,9 @@ public partial class FemSchemaView3D : UserControl
         PlaceMosaicHoverTip(vm, e);
     }
 
-    /// <summary>Стержень мозаики, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.
+    /// <summary>Стержень, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.
     /// У линий нет заливки, поэтому вместо луча по сцене — расстояние до проекции стержня.</summary>
-    string? BarTagNear(Fem3DVM vm, Point cursor)
+    string? SegmentTagNear(IReadOnlyList<(string Tag, Point3D P1, Point3D P2)> segments, Point cursor)
     {
         const double tolerance = 6;
         var transform = Viewport3DHelper.GetTotalTransform(viewport.Viewport);
@@ -1052,7 +1070,7 @@ public partial class FemSchemaView3D : UserControl
 
         string? best = null;
         double bestDistance = tolerance;
-        foreach (var (tag, p1, p2) in vm.MosaicBarSegments)
+        foreach (var (tag, p1, p2) in segments)
         {
             if (!Project(p1, out var a) || !Project(p2, out var b)) continue;
             var ab = b - a;
@@ -1201,10 +1219,15 @@ public partial class FemSchemaView3D : UserControl
 
     void ShowContextMenuAt(MouseButtonEventArgs e)
     {
-        if (VM is not { EditMode: true }) return;
+        if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
 
         var position = e.GetPosition(viewport);
+        if (MeshPick)
+        {
+            ShowMeshContextMenu(vm, position, e);
+            return;
+        }
 
         (string NodeTag, int Dof)? kinematicHit = null;
         HitTestResultBehavior KinematicCallback(HitTestResult result)
@@ -1268,6 +1291,7 @@ public partial class FemSchemaView3D : UserControl
         {
             _contextMenuTargetTag = target.Tag;
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
+            if (!target.IsNode) AppendMemberGroupItems(menu, target.Tag);
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
             e.Handled = true;
@@ -1290,9 +1314,148 @@ public partial class FemSchemaView3D : UserControl
 
         _contextMenuTargetTag = prHitTag;
         var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
+        AppendMemberGroupItems(prMenu, prHitTag);
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
         e.Handled = true;
+    }
+
+    // ── Выбор КЭ импортированной сетки и команды групп ──────────────────────────────────────
+
+    bool _meshPickDefaulted;
+    readonly List<Visual3D> _meshSelectionVisuals = [];
+
+    /// <summary>Сдвиг заливки выбранных пластин от плоскости подложки, м.</summary>
+    const double MeshSelectionOffset = 0.01;
+
+    /// <summary>Выбор КЭ сетки включён и в схеме есть что выбирать.</summary>
+    bool MeshPick => meshPickCheck.IsChecked == true && VM is { EditMode: true, HasPickableMesh: true };
+
+    /// <summary>Кнопка режима видна, только если в схеме есть импортированная сетка; у схемы без конструктивного
+    /// слоя режим включается сам — кроме КЭ, выбирать там нечего.</summary>
+    void UpdateMeshPickToggle()
+    {
+        bool available = VM is { EditMode: true, HasPickableMesh: true };
+        meshPickCheck.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        if (available && !_meshPickDefaulted && VM!.MeshIsSchema) meshPickCheck.IsChecked = true;
+        if (available) _meshPickDefaulted = true;
+    }
+
+    /// <summary>Смена режима — выделение другого вида снимается.</summary>
+    void MeshPickToggle_Click(object sender, RoutedEventArgs e) => Editor?.Selection.Clear();
+
+    /// <summary>КЭ сетки под курсором: стержень рядом с курсором, иначе пластина под лучом.</summary>
+    string? MeshElementAt(Fem3DVM vm, Point position)
+    {
+        if (SegmentTagNear(vm.MeshPickBars, position) is { } bar) return bar;
+        string? shell = null;
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult hit && vm.MeshShellTagAt(hit.MeshHit, hit.VertexIndex1) is { } found)
+            {
+                shell = found;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        return shell;
+    }
+
+    void AddMeshSelectionVisuals(Fem3DVM vm)
+    {
+        if (vm.Selection?.SelectedMeshElemTags is not { Count: > 0 } tags) return;
+        var (bars, shells, outlines) = vm.MeshSelectionGeometry(tags, MeshSelectionOffset);
+        if (shells != null)
+        {
+            var material = new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(200, 255, 69, 0)));
+            _meshSelectionVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(shells, material) { BackMaterial = material } });
+        }
+        if (outlines.Count > 0)
+            _meshSelectionVisuals.Add(new LinesVisual3D { Points = outlines, Color = Colors.OrangeRed, Thickness = 2 });
+        if (bars.Count > 0)
+            _meshSelectionVisuals.Add(new LinesVisual3D { Points = bars, Color = Colors.OrangeRed, Thickness = 4 });
+        foreach (var visual in _meshSelectionVisuals) viewport.Children.Add(visual);
+    }
+
+    /// <summary>ПКМ в режиме КЭ сетки: по КЭ — меню групп КЭ (невыделенный КЭ сначала выделяется);
+    /// по пустому месту — жест вращения.</summary>
+    void ShowMeshContextMenu(Fem3DVM vm, Point position, MouseButtonEventArgs e)
+    {
+        if (vm.Selection is not { } selection || MeshElementAt(vm, position) is not { } tag) return;
+        if (!selection.SelectedMeshElemTags.Contains(tag)) selection.ToggleMeshElement(tag, additive: false);
+        var menu = new ContextMenu { PlacementTarget = viewport };
+        AppendGroupItems(menu, FemMemberGroup.KindMesh, [.. selection.SelectedMeshElemTags]);
+        menu.Items.Add(new Separator());
+        var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
+        clear.Click += (_, _) => selection.Clear();
+        menu.Items.Add(clear);
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    const string GroupItemMarker = "fem-group-item";
+
+    /// <summary>Команды групп КонЭ в меню элемента: для выделения, если щёлкнутый элемент в нём, иначе для него
+    /// одного. Пункты прошлого показа меню убираются.</summary>
+    void AppendMemberGroupItems(ContextMenu menu, string clickedTag)
+    {
+        foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, GroupItemMarker)).ToList())
+            menu.Items.Remove(old);
+        if (Editor is not { } editor) return;
+        var selected = editor.Selection.SelectedElemTags;
+        IEnumerable<string> tags = selected.Contains(clickedTag) ? selected : [clickedTag];
+        // Только конструктивные элементы сеанса (у схемы без конструктивного слоя стержни — это КЭ сетки).
+        var members = editor.Session.Members.Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var memberTags = tags.Where(members.Contains).ToList();
+        if (memberTags.Count == 0) return;
+        menu.Items.Add(new Separator { Tag = GroupItemMarker });
+        AppendGroupItems(menu, FemMemberGroup.KindMembers, memberTags, GroupItemMarker);
+    }
+
+    /// <summary>«Группа … из выделенных…», «Добавить в группу ▸», «Убрать из группы ▸» — через сеанс редактора
+    /// (с отменой; сохраняются вместе со схемой).</summary>
+    void AppendGroupItems(ContextMenu menu, string kind, IReadOnlyList<string> tags, string? marker = null)
+    {
+        if (Editor is not { } editor || tags.Count == 0) return;
+        bool isMesh = kind == FemMemberGroup.KindMesh;
+
+        var create = new MenuItem
+        {
+            Header = string.Format(Loc.S(isMesh ? "Fem3DMeshGroupFromSelection" : "Fem3DMembersGroupFromSelection"), tags.Count),
+            Tag = marker,
+        };
+        create.Click += (_, _) => CreateGroup(editor, kind, tags);
+        menu.Items.Add(create);
+
+        var add = new MenuItem { Header = Loc.S("Fem3DGroupAddTo"), Tag = marker };
+        FemGroupMenus.FillAdd(add.Items, editor.GroupsOfKind(kind), kind, tags,
+            group => editor.EditGroupTags(group, tags, remove: false));
+        menu.Items.Add(add);
+
+        var remove = new MenuItem { Header = Loc.S("Fem3DGroupRemoveFrom"), Tag = marker };
+        FemGroupMenus.FillRemove(remove.Items, editor.GroupsOfKind(kind), tags,
+            group => editor.EditGroupTags(group, tags, remove: true));
+        menu.Items.Add(remove);
+    }
+
+    /// <summary>Диалог имени и типа новой группы; группа из одного КонЭ по умолчанию называется по нему.</summary>
+    void CreateGroup(FemSchemaEditorVM editor, string kind, IReadOnlyList<string> tags)
+    {
+        bool isMesh = kind == FemMemberGroup.KindMesh;
+        bool countedName = isMesh || tags.Count != 1;
+        string defaultTag = countedName ? FemGroupComposition.DefaultTag(kind, tags.Count) : tags[0];
+        var dialog = new FemMemberDialog("", defaultTag, null, showRange: false,
+            title: Loc.S(isMesh ? "FemMeshGroupDlgTitle" : "FemMembersGroupDlgTitle"))
+        {
+            Owner = Window.GetWindow(this),
+        };
+        if (dialog.ShowDialog() != true) return;
+        // Имя по умолчанию не трогали — пусть оно посчитается по фактическому составу.
+        string? tag = countedName && dialog.MemberTag == defaultTag ? null : dialog.MemberTag;
+        if (editor.CreateGroup(kind, tags, tag, dialog.MemberType) == null)
+            MessageBox.Show(Window.GetWindow(this), Loc.S("FemGroupNoneAccepted"), Loc.S("FemGroupCreateTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     void LoadEditCtx_Click(object sender, RoutedEventArgs e)

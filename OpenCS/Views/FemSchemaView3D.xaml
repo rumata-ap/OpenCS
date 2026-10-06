@@ -77,6 +77,17 @@
                           ToolTip="{DynamicResource FemCreateSpatialPlateMode}">
                 <Path Data="M4,16 L10,4 L20,8 L14,20 Z" Fill="Transparent" Stroke="Black" StrokeThickness="2" Stretch="Uniform" Margin="2"/>
             </ToggleButton>
+            <!-- Режим выбора: КЭ импортированной сетки вместо конструктивных элементов -->
+            <ToggleButton x:Name="meshPickCheck" Style="{StaticResource IconToggleButton25}" Visibility="Collapsed"
+                          ToolTip="{DynamicResource Fem3DMeshPickMode}" Click="MeshPickToggle_Click">
+                <Viewbox Width="20" Height="20">
+                    <Canvas Width="24" Height="24">
+                        <Path Data="M2,2 H16 V16 H2 Z M2,9 H16 M9,2 V16" Stroke="Black" StrokeThickness="1.5"/>
+                        <Path Data="M9,2 H16 V9 H9 Z" Fill="#FF4500"/>
+                        <Path Data="M13,12 L22,16 L18,17.5 L16.5,22 Z" Fill="Black"/>
+                    </Canvas>
+                </Viewbox>
+            </ToggleButton>
             <Separator/>
             <Button Style="{StaticResource IconButton25}" Click="NodeLoadTool_Click"
                     ToolTip="{DynamicResource FemNodeLoadToolTip}">
