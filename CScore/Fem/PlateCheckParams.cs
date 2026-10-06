@@ -53,6 +53,13 @@ public record PlateCheckParams
     /// </summary>
     public string[] RebarSources { get; init; } = [];
 
+    /// <summary>
+    /// Продольный изгиб стен из плоскости (η, п. 8.1.15; μ — <see cref="FemEtaParams.MuX"/>); null — не
+    /// учитывается. Только при проверке по КЭ, только у КЭ стен.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public FemEtaParams? Eta { get; init; }
+
     /// <summary>Источники армирования с учётом значения по умолчанию.</summary>
     public IReadOnlyList<string> GetRebarSources() =>
         RebarSources is { Length: > 0 } ? RebarSources : [FemCheckRebarSource.Section];

@@ -1,0 +1,64 @@
+<UserControl x:Class="OpenCS.Views.FemCheckBucklingEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Visibility="{Binding Visibility}">
+    <!-- Продольный изгиб в проверке по КЭ (DataContext — FemCheckBucklingVM):
+         ЖБ — η (п. 8.1.15 СП 63), сталь — расчётные длины lef = μ·l по сетке -->
+    <StackPanel>
+        <!-- ЖБ стержни и стены (полоса из плоскости) -->
+        <StackPanel Visibility="{Binding EtaVisibility}">
+            <CheckBox Content="{DynamicResource EtaEnabledLabel}"
+                      ToolTip="{DynamicResource EtaEnabledHint}"
+                      IsChecked="{Binding EtaEnabled}"/>
+            <StackPanel IsEnabled="{Binding EtaEnabled}" Margin="18,4,0,0">
+                <CheckBox Content="{DynamicResource EtaIterativeLabel}"
+                          ToolTip="{DynamicResource EtaIterativeHint}"
+                          IsChecked="{Binding EtaIterative}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{DynamicResource FemCheckEtaLength}" VerticalAlignment="Center" Margin="0,0,4,0"
+                               ToolTip="{DynamicResource FemCheckEtaLengthHint}"/>
+                    <TextBox Width="60" Text="{Binding EtaLength, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource FemCheckEtaLengthHint}"/>
+                    <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
+                               ToolTip="{DynamicResource EtaMuTableHint}"/>
+                    <TextBox Width="50" Text="{Binding EtaMuX, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource EtaMuTableHint}"/>
+                    <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
+                               ToolTip="{DynamicResource EtaMuTableHint}" Visibility="{Binding EtaYVisibility}"/>
+                    <TextBox Width="50" Text="{Binding EtaMuY, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource EtaMuTableHint}" Visibility="{Binding EtaYVisibility}"/>
+                </StackPanel>
+                <CheckBox Content="{DynamicResource FemCheckEtaPsiAuto}" Margin="0,4,0,0"
+                          ToolTip="{DynamicResource FemCheckEtaPsiAutoHint}"
+                          IsChecked="{Binding EtaPsiAuto}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{DynamicResource EtaPsixLabel}" VerticalAlignment="Center" Margin="0,0,4,0"
+                               ToolTip="{DynamicResource EtaPsiHint}"/>
+                    <TextBox Width="50" Text="{Binding EtaPsiX, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource EtaPsiHint}"/>
+                    <TextBlock Text="{DynamicResource EtaPsiyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
+                               ToolTip="{DynamicResource EtaPsiHint}" Visibility="{Binding EtaYVisibility}"/>
+                    <TextBox Width="50" Text="{Binding EtaPsiY, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource EtaPsiHint}" Visibility="{Binding EtaYVisibility}"/>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Сталь: lef = μ·l, l — по сетке схемы; иначе lef из параметров СП 16 группы -->
+        <StackPanel Visibility="{Binding SteelVisibility}">
+            <CheckBox Content="{DynamicResource Sp16MeshLef}"
+                      ToolTip="{DynamicResource Sp16MeshLefHint}"
+                      IsChecked="{Binding SteelMeshLef}"/>
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding SteelMeshLef}" Margin="18,4,0,0">
+                <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="50" Text="{Binding SteelMuX, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                <TextBox Width="50" Text="{Binding SteelMuY, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="{DynamicResource Sp16MeshMuBShort}" VerticalAlignment="Center" Margin="12,0,4,0"
+                           ToolTip="{DynamicResource Sp16MeshMuB}"/>
+                <TextBox Width="50" Text="{Binding SteelMuB, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{DynamicResource Sp16MeshMuB}"/>
+            </StackPanel>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

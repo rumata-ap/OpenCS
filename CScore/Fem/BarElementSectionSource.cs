@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CScore.Fem;
 
@@ -77,13 +78,36 @@ public sealed class UnavailableBarSectionSource(string key, string reason) : IBa
 }
 
 /// <summary>Параметры проверки стержней по КЭ, хранимые в <see cref="FemCheck.ParamsJson"/>.</summary>
-public sealed class BarCheckParams
+public sealed record BarCheckParams
 {
     /// <summary>
     /// Источники сечения КЭ в порядке расчёта (<see cref="FemCheckRebarSource"/>). Пусто — сечение проекта
     /// без выбора источников (как до появления источников у стержней).
     /// </summary>
     public string[] RebarSources { get; init; } = [];
+
+    /// <summary>Учёт продольного изгиба (η, п. 8.1.15); null — не учитывается.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FemEtaParams? Eta { get; init; }
+
+    /// <summary>Длина элемента l по сетке схемы для КЭ, м — проставляет проверка по КЭ; null — не определена.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? ElementLengthM { get; init; }
+
+    /// <summary>ψ строки в плоскости Mx из длительного набора — проставляет проверка по КЭ; null — из <see cref="Eta"/>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RowPsiX { get; init; }
+
+    /// <summary>ψ строки в плоскости My из длительного набора; null — из <see cref="Eta"/>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RowPsiY { get; init; }
+
+    /// <summary>η учитывается.</summary>
+    [JsonIgnore]
+    public bool EtaEnabled => Eta is { Enabled: true };
+
+    /// <summary>Длина элемента l: вручную, иначе по сетке; null — не определена.</summary>
+    public double? ResolveLengthM() => Eta is { HasManualLength: true } e ? e.LengthM : ElementLengthM;
 
     public string ToJson() => JsonSerializer.Serialize(this);
 

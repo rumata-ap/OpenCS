@@ -37,6 +37,16 @@ public sealed class FemPerElementInputs
     /// СП 16 из стальной группы схемы-источника.
     /// </summary>
     public Func<FemCheckScopeElement, string, string?>? BarElementParams { get; init; }
+    /// <summary>
+    /// Длина стержневого КЭ между раскреплениями по сетке схемы (<see cref="FemBracedLength"/>) — для расчётной
+    /// длины при учёте продольного изгиба (<see cref="BarCheckParams.Eta"/>); null — не определяется.
+    /// </summary>
+    public Func<FemCheckScopeElement, double?>? BarBracedLength { get; init; }
+    /// <summary>
+    /// Вертикальная полоса КЭ стены (<see cref="FemBracedLength.WallStrip"/>) — для продольного изгиба стен
+    /// (<see cref="PlateCheckParams.Eta"/>); null у КЭ — не стена (η не учитывается).
+    /// </summary>
+    public Func<FemCheckScopeElement, FemWallStrip?>? WallStrip { get; init; }
     /// <summary>Предупреждения подготовки входных данных — в сводку результата.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
@@ -152,6 +162,17 @@ public static partial class FemCheckRunner
         bool autoNl = isPlate && pParams!.Phi1Mode == "auto" && pParams.Kind.Contains("sls");
         var nlSetOf = forceSets.ToDictionary(fs => fs, fs => explicitNl ?? (autoNl ? FindNlSet(fs, forceSets) : null));
 
+        // Продольный изгиб стержней (п. 8.1.15): длина КЭ по сетке и ψ строки по парному длительному набору.
+        var barParams = isPlate ? null : BarCheckParams.Parse(baseParamsJson);
+        var eta = barParams?.EtaEnabled == true ? barParams.Eta : null;
+        bool etaLengthByMesh = eta is { HasManualLength: false } && inputs.BarBracedLength != null;
+        // Продольный изгиб стен из плоскости — только у КЭ с вертикальной полосой.
+        var wallEta = isPlate && pParams!.Eta is { Enabled: true } we && inputs.WallStrip != null ? we : null;
+        var psiAuto = (eta ?? wallEta) is { IsPsiAuto: true };
+        var longSetOf = forceSets.ToDictionary(fs => fs, fs =>
+            psiAuto && !FemEtaPsi.IsLongTerm(ExtractCalcType(fs.Tag, check.CalcTypeOverride))
+                ? FemEtaPsi.LongTermSet(fs, lookupSets) : null);
+
         // ── Порции: диапазоны номеров КЭ цели по статистике наборов (без загрузки строк) ──────────
         var rowsByElem = new SortedDictionary<int, int>();
         int skipped = 0, rowsWithoutElement = 0;
@@ -190,6 +211,8 @@ public static partial class FemCheckRunner
 
         // Строки NL-наборов без номера КЭ нужны каждой порции — читаются один раз.
         var nlWithoutElement = new Dictionary<ForceSet, List<ShellLoadItem>>();
+        var longWithoutElement = new Dictionary<ForceSet, List<LoadItem>>();
+        var longShellWithoutElement = new Dictionary<ForceSet, List<ShellLoadItem>>();
 
         foreach (var (from, to) in chunks)
         {
@@ -230,7 +253,7 @@ public static partial class FemCheckRunner
                         ? new ElementGroup(source, n, e, plateSources[sourceIndex].Resolve(e), null)
                         : new ElementGroup(source, n, e, null,
                             barSources[sourceIndex].Resolve(e, sectionKey > 0 ? sectionKey : null),
-                            inputs.BarElementParams?.Invoke(e, baseParamsJson));
+                            BarParamsOf(e));
                     groupByKey[(source, n, sectionKey)] = g;
                     if (!groupsByElem.TryGetValue((source, n), out var list))
                         groupsByElem[(source, n)] = list = [];
@@ -238,6 +261,42 @@ public static partial class FemCheckRunner
                     groups.Add(g);
                 }
                 return g;
+            }
+
+            // Параметры стержневого КЭ: свои (стальная группа) и длина по сетке для η.
+            string? BarParamsOf(FemCheckScopeElement e)
+            {
+                string? own = inputs.BarElementParams?.Invoke(e, baseParamsJson);
+                if (!etaLengthByMesh) return own;
+                var p = BarCheckParams.Parse(own ?? baseParamsJson);
+                return (p with { ElementLengthM = inputs.BarBracedLength!(e) }).ToJson();
+            }
+
+            // Строки длительного набора по метке (ψ для η): строки тех же КЭ и строки без номера КЭ.
+            var longLookups = new Dictionary<ForceSet, Dictionary<string, LoadItem>>();
+            Dictionary<string, LoadItem>? LongLookup(ForceSet fs)
+            {
+                if (longSetOf[fs] is not { } longSet) return null;
+                if (longLookups.TryGetValue(longSet, out var lookup)) return lookup;
+                if (!longWithoutElement.TryGetValue(longSet, out var without))
+                    longWithoutElement[longSet] = without = longSet.BarRowsOfElements(null, null);
+                var rows = withoutElement ? without : longSet.BarRowsOfElements(from, to).Concat(without);
+                lookup = new Dictionary<string, LoadItem>();
+                foreach (var r in rows) lookup.TryAdd(r.Label, r);
+                return longLookups[longSet] = lookup;
+            }
+
+            var longShellLookups = new Dictionary<ForceSet, Dictionary<string, ShellLoadItem>>();
+            Dictionary<string, ShellLoadItem>? LongShellLookup(ForceSet fs)
+            {
+                if (longSetOf[fs] is not { } longSet) return null;
+                if (longShellLookups.TryGetValue(longSet, out var lookup)) return lookup;
+                if (!longShellWithoutElement.TryGetValue(longSet, out var without))
+                    longShellWithoutElement[longSet] = without = longSet.ShellRowsOfElements(null, null);
+                var rows = withoutElement ? without : longSet.ShellRowsOfElements(from, to).Concat(without);
+                lookup = new Dictionary<string, ShellLoadItem>();
+                foreach (var r in rows) lookup.TryAdd(r.Label, r);
+                return longShellLookups[longSet] = lookup;
             }
 
             // NL-строки по метке: строки NL-набора тех же КЭ и строки без номера КЭ.
@@ -267,23 +326,32 @@ public static partial class FemCheckRunner
                     var rows = fs.ShellRowsOfElements(from, to);
                     if (rows.Count == 0) continue;
                     var nlLookup = NlLookup(fs);
+                    var longLookup = wallEta != null ? LongShellLookup(fs) : null;
+                    bool longTerm = wallEta != null && FemEtaPsi.IsLongTerm(calcType);
                     for (int si = 0; si < sourceCount; si++)
                         foreach (var shell in rows)
                         {
                             if (shell.SourceElementNum is int n && !byNum.ContainsKey(n)) continue;
-                            ShellLoadItem? nlItem = null;
+                            ShellLoadItem? nlItem = null, longItem = null;
                             nlLookup?.TryGetValue(shell.Label, out nlItem);
-                            GroupFor(si, shell.SourceElementNum, null).Jobs.Add(new Job(count++, fs, calcType, task, null, shell, nlItem));
+                            longLookup?.TryGetValue(shell.Label, out longItem);
+                            GroupFor(si, shell.SourceElementNum, null).Jobs.Add(
+                                new Job(count++, fs, calcType, task, null, shell, nlItem, null, longTerm, longItem));
                         }
                 }
                 else
                 {
                     var rows = fs.BarRowsOfElements(from, to);
+                    var longLookup = rows.Count > 0 ? LongLookup(fs) : null;
+                    bool longTerm = eta != null && FemEtaPsi.IsLongTerm(calcType);
                     for (int si = 0; si < sourceCount; si++)
                         foreach (var item in rows)
                         {
                             if (item.SourceElementNum is int n && !byNum.ContainsKey(n)) continue;
-                            GroupFor(si, item.SourceElementNum, item.SourceSectionNum).Jobs.Add(new Job(count++, fs, calcType, task, item, null, null));
+                            LoadItem? longItem = null;
+                            longLookup?.TryGetValue(item.Label, out longItem);
+                            GroupFor(si, item.SourceElementNum, item.SourceSectionNum).Jobs.Add(
+                                new Job(count++, fs, calcType, task, item, null, null, longItem, longTerm));
                         }
                 }
             }
@@ -297,6 +365,11 @@ public static partial class FemCheckRunner
                 var bar = inputs.ParallelBars ? g.Bar?.Section?.CloneForCalc() : g.Bar?.Section;
                 // Задания с параметрами КЭ: по одному на задание набора.
                 Dictionary<CalcTask, CalcTask>? ownTasks = g.ParamsJson == null ? null : [];
+                // Полоса стены КЭ (η стен); у не стен и строк без номера КЭ — null.
+                var strip = wallEta != null && g.Element is { } ge ? inputs.WallStrip!(ge) : null;
+                // ψ строки (η): из длительного набора — по стержням сечения КЭ.
+                var rebarExtents = eta != null && bar != null ? FemEtaPsi.RebarExtents(bar) : default;
+                var parsedParams = new Dictionary<CalcTask, BarCheckParams>();
                 foreach (var job in g.Jobs)
                 {
                     if (ct.IsCancellationRequested) return;
@@ -305,16 +378,26 @@ public static partial class FemCheckRunner
                     {
                         // Оси армирования КЭ могут не совпадать с осями выдачи его усилий (раскладка OpenCS).
                         double angle = g.Plate!.ForceAngleDeg;
-                        var shell = angle == 0 ? job.Shell! : ShellForceTransform.Rotate(job.Shell!, angle);
+                        var source = job.Shell!;
+                        FemWallEta.Outcome? wall = null;
+                        string? wallError = null;
+                        if (wallEta != null && g.Plate.Section is { } ws && strip != null)
+                        {
+                            try { (source, wall) = ApplyWallEta(job, strip, ws, angle); }
+                            catch (Exception ex) { wallError = "Продольный изгиб: " + ex.Message; }
+                        }
+                        var shell = angle == 0 ? source : ShellForceTransform.Rotate(source, angle);
                         var nl = angle == 0 || job.Nl == null ? job.Nl : ShellForceTransform.Rotate(job.Nl, angle);
-                        row = g.Plate.Section is { } plate
-                            ? CheckPlateRow(check, plate, shell, job.ForceSet.Tag, job.CalcType,
-                                            inputs.ConcreteMat, inputs.RebarMat, nl)
-                            : NotCheckedRow(job, "Нет армирования: " + (g.Plate.Reason ?? ""));
+                        row = g.Plate.Section is not { } plate
+                            ? NotCheckedRow(job, "Нет армирования: " + (g.Plate.Reason ?? ""))
+                            : wallError != null ? NotCheckedRow(job, wallError)
+                            : wall is { Stable: false } ? UnstableWallRow(job, wall)
+                            : WithWallNote(CheckPlateRow(check, plate, shell, job.ForceSet.Tag, job.CalcType,
+                                                         inputs.ConcreteMat, inputs.RebarMat, nl), wall);
                     }
                     else
                         row = bar != null
-                            ? CheckBarRow(barExecutor, TaskOf(job.Task), bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
+                            ? CheckBarRow(barExecutor, RowTask(job), bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
                             : NotCheckedRow(job, "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : ""));
 
                     results[job.Index] = row with
@@ -327,6 +410,46 @@ public static partial class FemCheckRunner
                     };
                     int d = Interlocked.Increment(ref done);
                     if (d % step == 0 || d == total) progress?.Report(Math.Min(1.0, (double)d / total));
+                }
+
+                // Задание строки: с ψ из длительного набора, если он есть.
+                CalcTask RowTask(Job job)
+                {
+                    var task = TaskOf(job.Task);
+                    if (eta == null || (job.BarLong == null && !job.LongTerm)) return task;
+                    if (!parsedParams.TryGetValue(task, out var p))
+                        parsedParams[task] = p = BarCheckParams.Parse(task.ParamsJson);
+                    var (minX, maxX, minY, maxY) = rebarExtents;
+                    var b = job.Bar!;
+                    var withPsi = job.LongTerm
+                        ? p with { RowPsiX = 1.0, RowPsiY = 1.0 }
+                        : p with
+                        {
+                            RowPsiX = FemEtaPsi.Compute(b.N, b.Mx, job.BarLong!.N, job.BarLong.Mx, minY, maxY),
+                            RowPsiY = FemEtaPsi.Compute(b.N, b.My, job.BarLong.N, job.BarLong.My, minX, maxX),
+                        };
+                    return new CalcTask
+                    {
+                        Kind = task.Kind, Tag = task.Tag, CalcType = task.CalcType, ParamsJson = withPsi.ToJson(),
+                    };
+                }
+
+                // η стены: ψ — по вертикальной арматуре сечения КЭ относительно наименее сжатой грани.
+                (ShellLoadItem, FemWallEta.Outcome) ApplyWallEta(Job job, FemWallStrip st, PlateSection section, double angle)
+                {
+                    if (inputs.ConcreteMat == null || inputs.RebarMat == null)
+                        throw new InvalidOperationException("не найдены материалы бетона/арматуры плитного сечения");
+                    double psi = wallEta!.PsiX;
+                    if (job.LongTerm) psi = 1.0;
+                    else if (job.ShellLong is { } lng)
+                    {
+                        var (zMin, zMax) = FemWallEta.VerticalRebarZ(section, st.VerticalAngleDeg + angle);
+                        var vt = FemWallEta.ToVertical(job.Shell!, st);
+                        var vl = FemWallEta.ToVertical(lng, st);
+                        psi = FemEtaPsi.Compute(vt.Nx, vt.Mx, vl.Nx, vl.Mx, zMin, zMax);
+                    }
+                    return FemWallEta.Apply(job.Shell!, st, wallEta, psi, section, inputs.ConcreteMat, inputs.RebarMat,
+                        job.CalcType, angle);
                 }
 
                 CalcTask TaskOf(CalcTask task)
@@ -517,6 +640,29 @@ public static partial class FemCheckRunner
     static double RebarAreaCm2(CrossSection section) =>
         section.Areas.Sum(a => a.Fibers.Where(f => f.TypeFiber == FiberType.point).Sum(f => f.Area)) * 1e4;
 
+    /// <summary>Стена теряет устойчивость из плоскости: |Nv| ≥ Ncr — строка не пройдена.</summary>
+    static FemCheckRow UnstableWallRow(Job job, FemWallEta.Outcome wall)
+    {
+        double ratio = wall.Ncr > 0 ? Math.Abs(wall.Nv) / wall.Ncr : double.PositiveInfinity;
+        return new FemCheckRow
+        {
+            Label            = job.Shell!.Label,
+            ForceSetTag      = job.ForceSet.Tag,
+            CalcType         = job.CalcType.ToString(),
+            Utilization      = ratio,
+            Passed           = false,
+            WorstFormula     = "п. 8.1.15",
+            WorstDescription = $"потеря устойчивости стены из плоскости: |Nv| = {Math.Abs(wall.Nv):F1} ≥ Ncr = {wall.Ncr:F1} кН/м "
+                             + $"(l0 = {wall.L0:F2} м)",
+        };
+    }
+
+    /// <summary>Строка проверки стены с пометкой η (если поправка была).</summary>
+    static FemCheckRow WithWallNote(FemCheckRow row, FemWallEta.Outcome? wall) =>
+        wall is { Eta: > 1.0 } w
+            ? row with { WorstDescription = $"{row.WorstDescription}; η = {w.Eta:F3} (l0 = {w.L0:F2} м)" }
+            : row;
+
     static FemCheckRow NotCheckedRow(Job job, string reason) => new()
     {
         Label            = job.Bar?.Label ?? job.Shell?.Label ?? "",
@@ -529,8 +675,12 @@ public static partial class FemCheckRunner
     };
 
     /// <summary>Строка усилий к расчёту.</summary>
+    /// <param name="BarLong">Строка длительного набора с той же меткой (ψ для η); null — нет.</param>
+    /// <param name="LongTerm">Набор строки сам длительный (CL/NL) — ψ = 1.</param>
+    /// <param name="ShellLong">Строка пластины длительного набора с той же меткой (ψ для η стены); null — нет.</param>
     sealed record Job(int Index, ForceSet ForceSet, CalcType CalcType, CalcTask Task,
-                      LoadItem? Bar, ShellLoadItem? Shell, ShellLoadItem? Nl);
+                      LoadItem? Bar, ShellLoadItem? Shell, ShellLoadItem? Nl,
+                      LoadItem? BarLong = null, bool LongTerm = false, ShellLoadItem? ShellLong = null);
 
     /// <summary>Строки одного КЭ для одного источника армирования: у всех одно сечение.</summary>
     sealed class ElementGroup(string source, int? elemNum, FemCheckScopeElement? element,

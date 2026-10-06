@@ -82,15 +82,15 @@ public sealed class FemCheckSchemaData
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
 
         var members = db.GetFemMembers(schemaId);
-        // Узлы и регионы нужны раскладке OpenCS, узлы — ещё длинам КЭ стальных групп; иначе их не читаем.
+        // Регионы нужны раскладке OpenCS; узлы — ей же, длинам КЭ стальных групп и длинам между раскреплениями
+        // при учёте продольного изгиба (настройка проверки, а не схемы) — читаются всегда.
         bool planar = members.Any(m => m.PlanarRegionId != null);
-        bool nodes = planar || scadSteelGroups is { Groups.Count: > 0 };
         return new FemCheckSchemaData
         {
             SchemaId = schemaId,
             Members = members,
             Mesh = db.GetFemMeshElements(schemaId),
-            MeshNodes = nodes ? db.GetFemMeshNodes(schemaId) : [],
+            MeshNodes = db.GetFemMeshNodes(schemaId),
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
@@ -207,8 +207,19 @@ public static class FemCheckContext
                             break;
                     }
 
+            // Продольный изгиб стен из плоскости: вертикальные полосы КЭ стен по сетке схемы.
+            FemBracedLength? walls = PlateCheckParams.Parse(check.ParamsJson).Eta is { Enabled: true }
+                ? new FemBracedLength(data.Mesh, data.MeshNodes) : null;
+            var plateWarnings = new List<string>();
+            if (walls != null)
+            {
+                int notWalls = scope.Elements.Count(e => e.Element.ElemType == "shell" && walls.WallStrip(e.Element) == null);
+                if (notWalls > 0) plateWarnings.Add(string.Format(Loc.S("FemCheckEtaNotWalls"), notWalls));
+            }
             return new FemPerElementInputs
             {
+                WallStrip = walls == null ? null : e => walls.WallStrip(e.Element),
+                Warnings = plateWarnings,
                 PlateTemplate = template,
                 PlateSources = sources,
                 ConcreteMat = template == null ? null : app.Materials.FirstOrDefault(m => m.Id == template.ConcreteMaterialId),
@@ -230,11 +241,21 @@ public static class FemCheckContext
         foreach (var s in app.CrossSections) sections.TryAdd(s.Id, s);
         var targetSection = targetSectionId is int id ? sections.GetValueOrDefault(id) : null;
         var (elementParams, paramWarnings) = check.NormCode == "steel_check"
-            ? SteelGroupParams(data, scope)
+            ? SteelElementParams(data, scope, FemCheckRunner.BuildCalcTask(check, target).ParamsJson)
             : (null, []);
+        var barParams = check.NormCode == "rc_check" ? BarCheckParams.Parse(check.ParamsJson) : null;
+        FemBracedLength? braced = barParams?.EtaEnabled == true && barParams.Eta is { HasManualLength: false }
+            ? new FemBracedLength(data.Mesh, data.MeshNodes) : null;
+        if (braced != null)
+        {
+            int noLength = scope.Elements.Count(e => e.Element.ElemType != "shell" && braced.BarLength(e.Element) == null);
+            if (noLength > 0)
+                paramWarnings = [.. paramWarnings, string.Format(Loc.S("FemCheckEtaNoLength"), noLength)];
+        }
         return new FemPerElementInputs
         {
             BarElementParams = elementParams,
+            BarBracedLength = braced == null ? null : e => braced.BarLength(e.Element),
             Warnings = paramWarnings,
             TargetBarSection = targetSection,
             BarSectionById = sid => sections.GetValueOrDefault(sid),
@@ -252,6 +273,39 @@ public static class FemCheckContext
                 : data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
                   ?? new Dictionary<int, double>(),
         };
+    }
+
+    /// <summary>
+    /// Параметры СП 16 стальных КЭ проверки по КЭ. Приоритет: стальная группа SCAD (<see cref="SteelGroupParams"/>);
+    /// иначе при режиме «lef = μ·l по сетке» (<see cref="CScore.Sp16.SteelDesignParams.MeshLef"/> задания —
+    /// из параметров проверки, <see cref="SteelFemCheckParams"/>) — длины по длине стержня между узлами примыкания (<see cref="FemBracedLength.BarLength"/>);
+    /// КЭ без длины — параметры проверки и предупреждение в сводке.
+    /// </summary>
+    public static (Func<FemCheckScopeElement, string, string?>? Params, List<string> Warnings) SteelElementParams(
+        FemCheckSchemaData data, FemCheckScope scope, string? baseParamsJson)
+    {
+        var (groupParams, warnings) = SteelGroupParams(data, scope);
+        if (CScore.Sp16.SteelDesignParams.Parse(baseParamsJson).MeshLef == null) return (groupParams, warnings);
+
+        var braced = new FemBracedLength(data.Mesh, data.MeshNodes);
+        var groups = data.ScadSteelGroups;
+        bool InGroup(FemCheckScopeElement e) => e.ElemNum is int num && groups?.Find(num) != null;
+        int byMesh = 0, noLength = 0;
+        foreach (var e in scope.Elements)
+        {
+            if (e.Element.ElemType == "shell" || InGroup(e)) continue;
+            if (braced.BarLength(e.Element) is > 0) byMesh++;
+            else noLength++;
+        }
+        if (byMesh > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelMeshLef"), byMesh));
+        if (noLength > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelMeshLefNoLength"), noLength));
+
+        return ((e, baseJson) =>
+        {
+            if (groupParams?.Invoke(e, baseJson) is { } own) return own;
+            if (braced.BarLength(e.Element) is not (> 0 and double l)) return null;
+            return CScore.Sp16.SteelDesignParams.Parse(baseJson).WithMeshLength(l).ToJson();
+        }, warnings);
     }
 
     /// <summary>

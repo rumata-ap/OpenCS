@@ -79,8 +79,12 @@ public static partial class FemCheckRunner
                     // Явный NL-набор имеет приоритет над auto-lookup:
                     if (explicitNlLookup != null)
                         explicitNlLookup.TryGetValue(shell.Label, out nlItem);
-                    rows.Add(CheckPlateRow(check, plateSection!, shell, fs.Tag, calcType,
-                                           concreteMat, rebarMat, nlItem));
+                    var row = CheckPlateRow(check, plateSection!, shell, fs.Tag, calcType,
+                                            concreteMat, rebarMat, nlItem);
+                    // η стен требует геометрии КЭ — без номеров КЭ не учитывается (сказать явно).
+                    rows.Add(pParams.Eta is { Enabled: true }
+                        ? row with { WorstDescription = row.WorstDescription + "; η не учтён: строка без номера КЭ" }
+                        : row);
                 }
             }
             else
@@ -539,14 +543,13 @@ public static partial class FemCheckRunner
         return nlSet.ShellItems.GroupBy(s => s.Label).ToDictionary(g => g.Key, g => g.First());
     }
 
-    /// <summary>Парный NL-набор N-набора: "Плита — РСН 1 (N)" → "Плита — РСН 1 (NL)"; null — нет такого.</summary>
-    static ForceSet? FindNlSet(ForceSet currentNSet, IReadOnlyList<ForceSet> allSets)
-    {
-        string nTag = currentNSet.Tag ?? "";
-        if (!nTag.EndsWith("(N)")) return null;
-        string nlTag = nTag[..^3].TrimEnd() + "(NL)";
-        return allSets.FirstOrDefault(f => f.Tag == nlTag);
-    }
+    /// <summary>
+    /// Парный NL-набор N-набора: "Плита — РСН 1 (N)" → "Плита — РСН 1 (NL)"; null — нет такого.
+    /// Пробел перед меткой не важен (раньше искался "…1(NL)" без пробела — пара не находилась).
+    /// </summary>
+    static ForceSet? FindNlSet(ForceSet currentNSet, IReadOnlyList<ForceSet> allSets) =>
+        (currentNSet.Tag ?? "").EndsWith("(N)", StringComparison.Ordinal)
+            ? FemEtaPsi.LongTermSet(currentNSet, allSets) : null;
 
     // ------------------------------------------------------------------ bar check helpers
 
@@ -630,6 +633,10 @@ public static partial class FemCheckRunner
     {
         // Исходный JSON сохраняет предупреждение о миграции до обработчика СП 16.
         var paramsJson = check.ParamsJson ?? member.DesignParamsJson ?? "{}";
+        // Сталь: параметры СП 16 — у цели, у проверки — только свои (расчётные длины по сетке) поверх них.
+        if (check.NormCode == "steel_check"
+            && (check.ParamsJson == null || SteelFemCheckParams.TryParse(check.ParamsJson) is not null))
+            paramsJson = SteelFemCheckParams.MergeInto(member.DesignParamsJson, SteelFemCheckParams.TryParse(check.ParamsJson));
         return new CalcTask
         {
             Kind       = check.NormCode,

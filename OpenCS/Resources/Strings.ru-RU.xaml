@@ -1015,6 +1015,8 @@
    <system:String x:Key="FemCheckNoScadSelected">У схемы нет подобранной арматуры SCAD (меню схемы «SCAD → Подобранная арматура SCAD (плагин)…»)</system:String>
    <system:String x:Key="FemCheckSteelGroupParams">Параметры СП 16 (γc, расчётные длины μ·l, шаг раскреплений, предельные гибкости) у {0} КЭ взяты из стальных групп SCAD; у остальных КЭ — из параметров проверки.</system:String>
    <system:String x:Key="FemCheckSteelGroupNoLength">У {0} КЭ стальных групп SCAD не определена длина (нет узлов сетки) — параметры из проверки.</system:String>
+   <system:String x:Key="FemCheckSteelMeshLef">Расчётные длины у {0} КЭ — lef = μ·l, l — длина стержня между узлами примыкания других КЭ по сетке схемы.</system:String>
+   <system:String x:Key="FemCheckSteelMeshLefNoLength">У {0} КЭ длина по сетке не определена (нет узлов сетки) — расчётные длины из параметров СП 16 группы.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} стальной группы SCAD {0} в проверке не учитывается.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">В схеме SCAD нет групп заданного армирования (меню схемы «SCAD → Обновить данные схемы из .SPR»)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">КЭ цели не входят в группы заданного армирования SCAD</system:String>
@@ -2375,6 +2377,7 @@
     <system:String x:Key="FemMembers">Группы конечных элементов</system:String>
     <system:String x:Key="FemMemberType">Тип элемента</system:String>
     <system:String x:Key="FemMemberShowAllForceSets">Показать все наборы</system:String>
+    <system:String x:Key="FemGroupComposition">КЭ сетки: {0} (стержней {1}, пластин {2})</system:String>
     <system:String x:Key="FemMemberNew">Новый элемент...</system:String>
     <system:String x:Key="FemMemberDlgTitle">Новый конструктивный элемент</system:String>
     <system:String x:Key="FemMemberDlgRange">Элементы КЭ</system:String>
@@ -2471,6 +2474,13 @@
     <system:String x:Key="FemCheckElemNoRebar">нет армирования</system:String>
     <system:String x:Key="FemCheckElemNotChecked">не проверено</system:String>
     <system:String x:Key="FemCheckDlgRebarSources">Армирование КЭ</system:String>
+    <system:String x:Key="FemCheckDlgEta">Продольный изгиб</system:String>
+    <system:String x:Key="FemCheckEtaLength">l, м</system:String>
+    <system:String x:Key="FemCheckEtaLengthHint">Длина элемента для l₀ = μ·l. Пусто — для каждого КЭ по сетке схемы. Стержень: цепочка соосных стержней между узлами, где примыкают другие КЭ (перекрытия, ригели) или стержень заканчивается. Стена: высота вертикальной полосы между уровнями перекрытий (μx — её коэффициент, изгиб из плоскости стены).</system:String>
+    <system:String x:Key="FemCheckEtaPsiAuto">ψ по длительному набору (C → CL, N → NL)</system:String>
+    <system:String x:Key="FemCheckEtaPsiAutoHint">ψ = M1l/M1 строки по парному длительному набору с той же меткой; моменты — относительно наименее сжатого стержня. Длительный набор проверяется с ψ = 1. Пары или строки нет — ψx/ψy ниже.</system:String>
+    <system:String x:Key="FemCheckEtaNoLength">У {0} КЭ длина между раскреплениями не определена (нет узлов сетки) — их строки не проверены; задайте длину l вручную.</system:String>
+    <system:String x:Key="FemCheckEtaNotWalls">У {0} КЭ продольный изгиб не учитывается: не стены (перекрытия, наклонные пластины) или нет узлов сетки.</system:String>
     <system:String x:Key="FemCheckDlgSetRows">{0} — строк для цели: {1}</system:String>
     <system:String x:Key="FemCheckDlgTargetGroup">[Группа] {0}</system:String>
     <system:String x:Key="FemCheckDlgTargetElement">[Элемент] {0}</system:String>
@@ -3716,6 +3726,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16GammaC">Коэффициент условий работы γc</system:String>
     <system:String x:Key="Sp16LefX">Расчётная длина lef,x, м</system:String>
     <system:String x:Key="Sp16LefY">Расчётная длина lef,y, м</system:String>
+    <system:String x:Key="Sp16MeshLef">lef = μ·l, l — по сетке схемы для каждого КЭ</system:String>
+    <system:String x:Key="Sp16MeshLefHint">l — длина цепочки соосных стержней между узлами, где примыкают другие КЭ. Одна l на обе плоскости; узел примыкания — не обязательно раскрепление из плоскости (связи, прогоны) — учтите это через μ. КЭ стальных групп SCAD берут длины из своих групп. Без флажка — lef,x и lef,y из параметров СП 16 группы.</system:String>
+    <system:String x:Key="Sp16MeshMuB">μb для φb: lef балки = μb·l; 0 — lef балки из параметров СП 16 группы</system:String>
+    <system:String x:Key="Sp16MeshMuBShort">μb</system:String>
+    <system:String x:Key="FemCheckDlgSteelLef">Расчётные длины</system:String>
+    <system:String x:Key="FemGroupCheckParams">Параметры проверки по КЭ</system:String>
+    <system:String x:Key="FemGroupCheckLabel">Проверка</system:String>
+    <system:String x:Key="FemGroupCheckSaveRun">Сохранить и выполнить</system:String>
+    <system:String x:Key="FemGroupCheckHint">Продольный изгиб и расчётные длины выбранной проверки группы — те же, что в окне «Нормативная проверка». Выбор проверки в мозаике переключает и этот список.</system:String>
     <system:String x:Key="Sp16SingleSteelAreaRequired">Нужна одна область конструкционной стали. Составные и многоматериальные сечения не поддерживаются.</system:String>
     <system:String x:Key="Sp16ContourRequired">Не задан корректный контур стального сечения.</system:String>
     <system:String x:Key="Sp16InvalidParameters">Некорректные характеристики стали или параметры расчёта СП 16.</system:String>

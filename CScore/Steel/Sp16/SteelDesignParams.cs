@@ -285,6 +285,12 @@ public sealed record SteelDesignParams
     /// <summary>Коэффициент η по табл. Д.2 (null — по профилю).</summary>
     public double? EtaOverride { get; init; }
 
+    /// <summary>
+    /// Проверка по КЭ: расчётные длины lef = μ·l, l — длина стержня между узлами примыкания по сетке схемы
+    /// для каждого КЭ; null — абсолютные <see cref="LefX"/>, <see cref="LefY"/>, <see cref="LefB"/>.
+    /// </summary>
+    public SteelMeshLef? MeshLef { get; init; }
+
     // ── Устаревшие поля (миграция старого ParamsJson) ──
 
     /// <summary>Устар.: l0x до умножения на μ. Используется только при чтении старых задач.</summary>
@@ -307,6 +313,19 @@ public sealed record SteelDesignParams
 
     /// <summary>Расчётная длина для φb.</summary>
     [JsonIgnore] public double LefBOrY => LefB > 0 ? LefB : LefY;
+
+    /// <summary>
+    /// Параметры КЭ с расчётными длинами по длине l между раскреплениями (режим <see cref="MeshLef"/>):
+    /// lef,x = μx·l, lef,y = μy·l, lef для φb = μb·l (μb = 0 — <see cref="LefB"/> как задан). Режим снимается —
+    /// длины в результате уже конкретные. Без режима или при l ≤ 0 — параметры без изменений.
+    /// </summary>
+    public SteelDesignParams WithMeshLength(double length) => MeshLef is not { } m || !(length > 0) ? this : this with
+    {
+        LefX = m.MuX * length,
+        LefY = m.MuY * length,
+        LefB = m.MuB > 0 ? m.MuB * length : LefB,
+        MeshLef = null,
+    };
 
     static readonly JsonSerializerOptions Opts = new()
     {
@@ -343,6 +362,21 @@ public sealed record SteelDesignParams
             MigratedFromLegacy = true,
         };
     }
+}
+
+/// <summary>
+/// Коэффициенты расчётной длины для режима «lef = μ·l по сетке» проверки по КЭ
+/// (<see cref="SteelDesignParams.MeshLef"/>). Одна l на обе плоскости — узел примыкания других КЭ; различие
+/// плоскостей (раскрепление из плоскости связями, прогонами) задаётся через μ.
+/// </summary>
+public sealed record SteelMeshLef
+{
+    /// <summary>μx для lef,x.</summary>
+    public double MuX { get; init; } = 1.0;
+    /// <summary>μy для lef,y.</summary>
+    public double MuY { get; init; } = 1.0;
+    /// <summary>μb для lef балки (φb); 0 — <see cref="SteelDesignParams.LefB"/> как задан.</summary>
+    public double MuB { get; init; }
 }
 
 /// <summary>

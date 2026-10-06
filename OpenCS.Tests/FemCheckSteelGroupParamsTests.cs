@@ -68,4 +68,47 @@ public sealed class FemCheckSteelGroupParamsTests
         Assert.Null(paramsOf);
         Assert.Empty(warnings);
     }
+    [Fact]
+    public void MeshLef_ElementsOutsideGroups_GetMuTimesMeshLength()
+    {
+        var data = Data(ScadSteelGroupsTests.Group(2, "Балки", [1], gammaC: 0.8, muXoZ: 2, step: 0.5));
+        var scope = Scope(data);
+        string baseJson = new SteelDesignParams
+        {
+            LefX = 9, LefY = 9, MeshLef = new SteelMeshLef { MuX = 2, MuY = 0.5 },
+        }.ToJson();
+
+        var (paramsOf, warnings) = FemCheckContext.SteelElementParams(data, scope, baseJson);
+
+        var p1 = SteelDesignParams.Parse(paramsOf!(scope.Elements[0], baseJson));
+        var p2 = SteelDesignParams.Parse(paramsOf(scope.Elements[1], baseJson));
+        var p3 = SteelDesignParams.Parse(paramsOf(scope.Elements[2], baseJson));
+        Assert.Equal(6, p1.LefX, 9);                                   // КЭ 1 — стальная группа SCAD: μXoZ·l = 2·3
+        Assert.Equal(0.8, p1.GammaC);
+        Assert.Equal(12, p2.LefX, 9);                                  // КЭ 2, 3 — соосная цепочка 4 + 2: 2·6 по сетке
+        Assert.Equal(3, p2.LefY, 9);                                   // 0,5·6
+        Assert.Equal(12, p3.LefX, 9);
+        Assert.Null(p2.MeshLef);
+        Assert.Contains("FemCheckSteelMeshLef", warnings);              // сводка «у 2 КЭ — по сетке»
+    }
+
+    [Fact]
+    public void MeshLef_Off_SameAsGroupParams()
+    {
+        var data = Data();
+        var (paramsOf, warnings) = FemCheckContext.SteelElementParams(data, Scope(data), new SteelDesignParams().ToJson());
+        Assert.Null(paramsOf);
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void MeshLef_NoNodes_FallsBackToCheckParams()
+    {
+        var data = new FemCheckSchemaData { SourceType = "lira", Mesh = [Bar(1, 1, 2)] };
+        string baseJson = new SteelDesignParams { MeshLef = new SteelMeshLef() }.ToJson();
+        var scope = Scope(data);
+        var (paramsOf, warnings) = FemCheckContext.SteelElementParams(data, scope, baseJson);
+        Assert.Null(paramsOf!(scope.Elements[0], baseJson));
+        Assert.Single(warnings);
+    }
 }

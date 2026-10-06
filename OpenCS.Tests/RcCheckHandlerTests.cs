@@ -119,6 +119,98 @@ public sealed class RcCheckHandlerTests
         Assert.Equal("not_passed", result.Status);
     }
 
+    static CalcTask EtaTask(FemEtaParams eta, double? elementLength = null, double? rowPsi = null) => new()
+    {
+        Kind = "rc_check", Tag = "rc", CalcType = CalcType.C,
+        ParamsJson = new BarCheckParams
+        {
+            Eta = eta, ElementLengthM = elementLength, RowPsiX = rowPsi, RowPsiY = rowPsi,
+        }.ToJson(),
+    };
+
+    static readonly LoadItem ColumnRow = new() { Label = "э.1 с1", N = -600.0, Mx = 20.0, My = 10.0 };
+
+    static double Utilization(CalcResult r)
+    {
+        using var doc = JsonDocument.Parse(r.DataJson);
+        return doc.RootElement.GetProperty("utilization").GetDouble();
+    }
+
+    /// <summary>
+    /// Колонна 25×60 при l = 4 м (гибкость по меньшей стороне ≈ 55 > 14): η > 1 по обеим осям, моменты
+    /// усилены, коэффициент использования больше, чем без η; в JSON — блок eta, в описании — ηx/ηy.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Eta_AmplifiesMomentsOfSlenderColumn(bool iterative)
+    {
+        var plain = TaskRunner.Run(new CalcTask { Kind = "rc_check", Tag = "rc", CalcType = CalcType.C },
+            Column25x60(), ColumnRow);
+        var withEta = TaskRunner.Run(EtaTask(new FemEtaParams { Enabled = true, Iterative = iterative }, elementLength: 4.0),
+            Column25x60(), ColumnRow);
+
+        Assert.Equal("ok", plain.Status);
+        Assert.Contains(withEta.Status, new[] { "ok", "not_passed" });
+        Assert.True(Utilization(withEta) > Utilization(plain));
+        using var doc = JsonDocument.Parse(withEta.DataJson);
+        var eta = doc.RootElement.GetProperty("eta");
+        Assert.True(eta.GetProperty("etaX").GetDouble() > 1.0 || eta.GetProperty("etaY").GetDouble() > 1.0);
+        Assert.Equal(4.0, eta.GetProperty("lengthM").GetDouble());
+        Assert.Contains("η", FemCheckRunner.ExtractWorstDetail(withEta.DataJson).description);
+    }
+
+    /// <summary>Ручная длина важнее длины по сетке; μ умножает её.</summary>
+    [Fact]
+    public void Eta_ManualLengthOverridesMeshLength()
+    {
+        var r = TaskRunner.Run(EtaTask(new FemEtaParams { Enabled = true, LengthM = 3.0, MuX = 0.7, MuY = 0.7 }, elementLength: 9.0),
+            Column25x60(), ColumnRow);
+
+        using var doc = JsonDocument.Parse(r.DataJson);
+        var eta = doc.RootElement.GetProperty("eta");
+        Assert.Equal(3.0, eta.GetProperty("lengthM").GetDouble());
+        Assert.Equal(2.1, eta.GetProperty("l0x").GetDouble(), 6);
+    }
+
+    /// <summary>ψ строки (из длительного набора) важнее ψ параметров: меньше ψ — меньше φl — больше D и меньше η.</summary>
+    [Fact]
+    public void Eta_RowPsiOverridesParams()
+    {
+        double EtaX(double? rowPsi)
+        {
+            var r = TaskRunner.Run(EtaTask(new FemEtaParams { Enabled = true, PsiX = 1.0, PsiY = 1.0 }, 4.0, rowPsi),
+                Column25x60(), ColumnRow);
+            using var doc = JsonDocument.Parse(r.DataJson);
+            return doc.RootElement.GetProperty("eta").GetProperty("etaX").GetDouble();
+        }
+
+        Assert.True(EtaX(0.0) < EtaX(null));
+    }
+
+    /// <summary>|N| ≥ Ncr — потеря устойчивости: строка не пройдена по п. 8.1.15 с коэффициентом |N|/Ncr ≥ 1.</summary>
+    [Fact]
+    public void Eta_InstabilityFailsRow()
+    {
+        var r = TaskRunner.Run(EtaTask(new FemEtaParams { Enabled = true, MuX = 2.0, MuY = 2.0 }, elementLength: 12.0),
+            Column25x60(), ColumnRow);
+
+        Assert.Equal("not_passed", r.Status);
+        Assert.True(Utilization(r) >= 1.0);
+        Assert.Equal("п. 8.1.15", FemCheckRunner.ExtractWorstDetail(r.DataJson).formula);
+    }
+
+    /// <summary>Длина не определена (нет ни ручной, ни по сетке) — строка не проверена, с причиной.</summary>
+    [Fact]
+    public void Eta_WithoutLength_NotApplicable()
+    {
+        var r = TaskRunner.Run(EtaTask(new FemEtaParams { Enabled = true }), Column25x60(), ColumnRow);
+
+        Assert.Equal("not_applicable", r.Status);
+        using var doc = JsonDocument.Parse(r.DataJson);
+        Assert.Contains("длина", doc.RootElement.GetProperty("reason").GetString());
+    }
+
     static CalcResult Run(double mx, CalcType calcType = CalcType.C) => TaskRunner.Run(
         new CalcTask { Kind = "rc_check", Tag = "rc", CalcType = calcType },
         ReportFixtures.BuildBeam(),

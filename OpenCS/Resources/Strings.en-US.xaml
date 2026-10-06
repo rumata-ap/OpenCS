@@ -1015,6 +1015,8 @@
    <system:String x:Key="FemCheckNoScadSelected">The schema has no SCAD selected reinforcement (schema menu “SCAD → SCAD selected reinforcement (plugin)…”)</system:String>
    <system:String x:Key="FemCheckSteelGroupParams">SP 16 parameters (γc, effective lengths μ·l, lateral restraint spacing, limiting slenderness) of {0} elements are taken from SCAD steel groups; other elements use the check parameters.</system:String>
    <system:String x:Key="FemCheckSteelGroupNoLength">{0} elements of SCAD steel groups have no length (mesh nodes missing) — check parameters are used.</system:String>
+   <system:String x:Key="FemCheckSteelMeshLef">Effective lengths of {0} elements — lef = μ·l, l is the bar length between joints with other elements in the schema mesh.</system:String>
+   <system:String x:Key="FemCheckSteelMeshLefNoLength">{0} elements have no mesh length (mesh nodes missing) — effective lengths from the group SP 16 parameters.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} of SCAD steel group {0} is not applied in the check.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">The SCAD schema has no assigned reinforcement groups (schema menu “SCAD → Refresh schema data from .SPR”)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">Target elements are not in SCAD assigned reinforcement groups</system:String>
@@ -2375,6 +2377,7 @@
     <system:String x:Key="FemMembers">Finite Element Groups</system:String>
     <system:String x:Key="FemMemberType">Member type</system:String>
     <system:String x:Key="FemMemberShowAllForceSets">Show all force sets</system:String>
+    <system:String x:Key="FemGroupComposition">Mesh elements: {0} (bars {1}, plates {2})</system:String>
     <system:String x:Key="FemMemberNew">New member...</system:String>
     <system:String x:Key="FemMemberDlgTitle">New structural member</system:String>
     <system:String x:Key="FemMemberDlgRange">FE range</system:String>
@@ -2471,6 +2474,13 @@
     <system:String x:Key="FemCheckElemNoRebar">no reinforcement</system:String>
     <system:String x:Key="FemCheckElemNotChecked">not checked</system:String>
     <system:String x:Key="FemCheckDlgRebarSources">Element reinforcement</system:String>
+    <system:String x:Key="FemCheckDlgEta">Buckling</system:String>
+    <system:String x:Key="FemCheckEtaLength">l, m</system:String>
+    <system:String x:Key="FemCheckEtaLengthHint">Member length for l₀ = μ·l. Empty — per element from the model mesh. Bar: chain of collinear bars between nodes where other elements (slabs, beams) connect or the bar ends. Wall: height of the vertical strip between slab levels (μx is its factor, out-of-plane bending).</system:String>
+    <system:String x:Key="FemCheckEtaPsiAuto">ψ from long-term set (C → CL, N → NL)</system:String>
+    <system:String x:Key="FemCheckEtaPsiAutoHint">ψ = M1l/M1 of the row from the paired long-term set with the same label; moments about the least compressed bar. A long-term set is checked with ψ = 1. No pair or row — ψx/ψy below.</system:String>
+    <system:String x:Key="FemCheckEtaNoLength">{0} elements have no braced length (mesh nodes missing) — their rows are not checked; enter length l manually.</system:String>
+    <system:String x:Key="FemCheckEtaNotWalls">Buckling is not considered for {0} elements: not walls (slabs, inclined plates) or mesh nodes missing.</system:String>
     <system:String x:Key="FemCheckDlgSetRows">{0} — rows for the target: {1}</system:String>
     <system:String x:Key="FemCheckDlgTargetGroup">[Group] {0}</system:String>
     <system:String x:Key="FemCheckDlgTargetElement">[Element] {0}</system:String>
@@ -3716,6 +3726,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16GammaC">Working conditions factor γc</system:String>
     <system:String x:Key="Sp16LefX">Effective length lef,x, m</system:String>
     <system:String x:Key="Sp16LefY">Effective length lef,y, m</system:String>
+    <system:String x:Key="Sp16MeshLef">lef = μ·l, l from the schema mesh for each element</system:String>
+    <system:String x:Key="Sp16MeshLefHint">l is the length of the chain of collinear bars between nodes where other elements join. One l for both planes; a joint is not necessarily an out-of-plane restraint (bracing, purlins) — account for it via μ. Elements of SCAD steel groups take lengths from their groups. Unchecked — lef,x and lef,y from the group SP 16 parameters.</system:String>
+    <system:String x:Key="Sp16MeshMuB">μb for φb: beam lef = μb·l; 0 — beam lef from the group SP 16 parameters</system:String>
+    <system:String x:Key="Sp16MeshMuBShort">μb</system:String>
+    <system:String x:Key="FemCheckDlgSteelLef">Effective lengths</system:String>
+    <system:String x:Key="FemGroupCheckParams">Per-element check parameters</system:String>
+    <system:String x:Key="FemGroupCheckLabel">Check</system:String>
+    <system:String x:Key="FemGroupCheckSaveRun">Save and run</system:String>
+    <system:String x:Key="FemGroupCheckHint">Buckling and effective lengths of the selected group check — the same as in the «Code check» window. Selecting a check in the mosaic switches this list too.</system:String>
     <system:String x:Key="Sp16SingleSteelAreaRequired">A single structural steel region is required. Composite and multi-material sections are not supported.</system:String>
     <system:String x:Key="Sp16ContourRequired">A valid steel section contour is required.</system:String>
     <system:String x:Key="Sp16InvalidParameters">Invalid steel properties or SP 16 design parameters.</system:String>

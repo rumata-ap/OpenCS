@@ -94,6 +94,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(PlateRowVisibility));
             OnPropertyChanged(nameof(AcrcRowVisibility));
+            Buckling.NormCode = value?.Code;
             // Вид проверки меняет вид КЭ цели (пластины / стержни) — наборы и готовность другие.
             RefreshTarget();
             AutoFillTag();
@@ -154,6 +155,9 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
     string _phi1 = "1.0";
     public string Phi1 { get => _phi1; set { _phi1 = value; OnPropertyChanged(); } }
 
+    // ── Продольный изгиб: η у ЖБ, расчётные длины по сетке у стали ─────────────────
+    public FemCheckBucklingVM Buckling { get; } = new();
+
     // ── CalcType ──────────────────────────────────────────────────────────────
     public record CalcTypeOption(string? Code, string Label);
     public List<CalcTypeOption> CalcTypeOptions { get; } =
@@ -182,6 +186,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
         Schemas   = app.FemSchemas;
 
         _selectedNormCode       = NormCodes[0];
+        Buckling.NormCode       = _selectedNormCode.Code;
         _selectedCalcTypeOption = CalcTypeOptions[0];
         _selectedPlateKind      = PlateKinds[0];
         _selectedPhi1Mode       = Phi1Modes[0]; // auto
@@ -209,6 +214,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
                                  ?? CalcTypeOptions[0];
         Tag     = check.Tag;
         AllSets = check.IsAllSets;
+        Buckling.Load(check);
 
         if (check.NormCode == "rc_plate_check" && !string.IsNullOrWhiteSpace(check.ParamsJson))
         {
@@ -220,7 +226,10 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             LoadRebarSources(p);
         }
         else if (check.NormCode == "rc_check")
-            LoadRebarSources(BarCheckParams.Parse(check.ParamsJson).RebarSources);
+        {
+            var p = BarCheckParams.Parse(check.ParamsJson);
+            LoadRebarSources(p.RebarSources);
+        }
 
         if (!AllSets)
             SelectForceSets(check.GetForceSetIds());
@@ -272,10 +281,13 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
                 Phi1       = phi1,
                 CheckGroup = "uls",
                 RebarSources = SelectedRebarSources(),
+                Eta = Buckling.BuildEta(),
             }.ToJson();
         }
         else if (IsBarRcCheck)
-            paramsJson = new BarCheckParams { RebarSources = SelectedRebarSources() }.ToJson();
+            paramsJson = new BarCheckParams { RebarSources = SelectedRebarSources(), Eta = Buckling.BuildEta() }.ToJson();
+        else if (_selectedNormCode?.Code == "steel_check")
+            paramsJson = Buckling.BuildSteel().ToJson();
 
         check.SchemaId         = _selectedSchema!.Id;
         check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;
