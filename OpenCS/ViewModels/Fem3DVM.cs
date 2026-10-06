@@ -181,7 +181,10 @@ public class Fem3DVM : ViewModelBase
         _schemaId   = member.SchemaId;
         _db         = db;
         _memberOnly = member;
-        Mosaic.ScopeTags = FemCheckScope.GroupTags(member).ToHashSet(StringComparer.Ordinal);
+        // Мозаика считается по КЭ сетки: у группы КонЭ — по КЭ её элементов.
+        Mosaic.ScopeTags = member.IsMeshGroup
+            ? FemCheckScope.GroupTags(member)
+            : db.GetFemCheckScope(member).Elements.Select(e => e.Element.ElemTag).ToHashSet(StringComparer.Ordinal);
         Status      = Loc.S("Fem3DLoading");
         Mosaic.Changed += (_, _) => RefreshMosaic();
         Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(_db, _schemaId);
@@ -223,6 +226,7 @@ public class Fem3DVM : ViewModelBase
             // (сплошная заливка пластин, полные рёбра, группировка стержней по сечению) служит
             // именно mesh-слой, а не одна лишь тонкая оверлейная сетка.
             bool constructiveEmpty = allNodes.Count == 0 && allElements.Count == 0;
+            _meshIsSchema = constructiveEmpty;
             bool importedBackground = false;
             // Глифы нагрузок и опор строятся только по конструктивному слою: у подложки из сетки ЛИРЫ
             // свои Id (другая таблица), они пересекаются с Id элементов и узлов слоя.
@@ -467,17 +471,23 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(MemberLoadGlyphs));
     }
 
+    /// <summary>Отображаемый элемент входит в группу: у группы КЭ — КЭ сетки (сетка схемы без конструктивного
+    /// слоя или подложка) с номером из состава; у группы КонЭ — конструктивный элемент с тегом из состава.
+    /// Номер КЭ сетки может совпасть с тегом конструктивного элемента, поэтому слой проверяется явно.</summary>
+    bool InGroup(FemMember element, FemMemberGroup group, HashSet<string> tags) =>
+        tags.Contains(element.ElemTag.Trim()) && group.IsMeshGroup == (_meshIsSchema || _bgSet.Contains(element));
+
+    /// <summary>Конструктивного слоя нет — отображаемые элементы и есть КЭ сетки (импорт ЛИРЫ/SCAD).</summary>
+    bool _meshIsSchema;
+
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)
     {
         // В режиме члена — фильтруем только нужные КЭ
         List<FemMember> elements;
         if (_memberOnly != null)
         {
-            var memberIds = (JsonSerializer.Deserialize<int[]>(_memberOnly.MemberTagsJson) ?? [])
-                            .ToHashSet();
-            elements = allElements
-                .Where(e => int.TryParse(e.ElemTag, out var id) && memberIds.Contains(id))
-                .ToList();
+            var tags = FemCheckScope.GroupTags(_memberOnly);
+            elements = allElements.Where(e => InGroup(e, _memberOnly, tags)).ToList();
         }
         else
         {
@@ -545,11 +555,9 @@ public class Fem3DVM : ViewModelBase
 
         if (_highlightMember != null)
         {
-            var hiTags  = (JsonSerializer.Deserialize<int[]>(_highlightMember.MemberTagsJson) ?? [])
-                          .Select(id => id.ToString())
-                          .ToHashSet(StringComparer.Ordinal);
-            var hiElems = elements.Where(e => hiTags.Contains(e.ElemTag.Trim())).ToList();
-            var bgElems = elements.Where(e => !hiTags.Contains(e.ElemTag.Trim())).ToList();
+            var hiTags  = FemCheckScope.GroupTags(_highlightMember);
+            var hiElems = elements.Where(e => InGroup(e, _highlightMember, hiTags)).ToList();
+            var bgElems = elements.Where(e => !InGroup(e, _highlightMember, hiTags)).ToList();
 
             var hiBars = hiElems.Where(e => e.ElemType == "beam").ToList();
             var bgBars = bgElems.Where(e => e.ElemType == "beam").ToList();

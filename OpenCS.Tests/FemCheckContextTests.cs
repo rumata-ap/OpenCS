@@ -22,7 +22,7 @@ public class FemCheckContextTests
     public void TargetForceSets_MemberSeesSchemaSetsWithRowsOfItsElements()
     {
         var slab = new FemMember { Id = 5, SchemaId = 1, ElemTag = "ПЛИТА №56", ElemType = "shell" };
-        var group = new FemMemberGroup { Id = 9, SchemaId = 1, Tag = "ПЛИТА №56", MemberTagsJson = "[10,11,12]" };
+        var group = new FemMemberGroup { Id = 9, SchemaId = 1, Tag = "ПЛИТА №56", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,11,12]" };
         FemElement[] mesh = [Shell("10", "ПЛИТА №56"), Shell("11", "ПЛИТА №56"), Shell("12", null)];
         var scope = FemCheckScope.ForMember(slab, mesh);
 
@@ -49,10 +49,10 @@ public class FemCheckContextTests
     {
         var slab = new FemMember { Id = 5, SchemaId = 1, ElemTag = "ПЛИТА №56", ElemType = "shell" };
         FemElement[] mesh = [Shell("10", "ПЛИТА №56"), Shell("11", "ПЛИТА №56"), Shell("12", null)];
-        var ofBlock = new FemMemberGroup { Id = 9, Tag = "ПЛИТА №56 [этаж]", MemberTagsJson = "[10,11]", PlateSectionId = 3 };
-        var wider = new FemMemberGroup { Id = 10, Tag = "Все плиты", MemberTagsJson = "[10,40,41]", PlateSectionId = 4 };
-        var other = new FemMemberGroup { Id = 11, Tag = "СТЕНА №7", MemberTagsJson = "[40]", PlateSectionId = 8 };
-        var noSection = new FemMemberGroup { Id = 12, Tag = "Без сечения", MemberTagsJson = "[10,11]" };
+        var ofBlock = new FemMemberGroup { Id = 9, Tag = "ПЛИТА №56 [этаж]", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,11]", PlateSectionId = 3 };
+        var wider = new FemMemberGroup { Id = 10, Tag = "Все плиты", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,40,41]", PlateSectionId = 4 };
+        var other = new FemMemberGroup { Id = 11, Tag = "СТЕНА №7", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[40]", PlateSectionId = 8 };
+        var noSection = new FemMemberGroup { Id = 12, Tag = "Без сечения", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,11]" };
 
         int? id = FemCheckContext.TargetPlateSectionId(slab, FemCheckScope.ForMember(slab, mesh),
             [other, wider, noSection, ofBlock], out string? from);
@@ -74,7 +74,7 @@ public class FemCheckContextTests
     [Fact]
     public void TargetForceSets_GroupKeepsItsOwnSetsEvenWithoutElementNumbers()
     {
-        var group = new FemMemberGroup { Id = 9, SchemaId = 1, Tag = "Балки", MemberTagsJson = "[1,2]" };
+        var group = new FemMemberGroup { Id = 9, SchemaId = 1, Tag = "Балки", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2]" };
         var scope = FemCheckScope.ForGroup(group, [],
             [new FemElement { ElemTag = "1" }, new FemElement { ElemTag = "2" }]);
         var rsu2 = new ForceSet { Id = 1, SourceMemberId = group.Id, Items = [new LoadItem(), new LoadItem()] };
@@ -88,7 +88,7 @@ public class FemCheckContextTests
     public void ResultVM_ReadsPerElementResult()
     {
         var check = new FemCheck { NormCode = "rc_check", Tag = "балки" };
-        var group = new FemMemberGroup { Tag = "Балки", MemberTagsJson = "[1,2,3]" };
+        var group = new FemMemberGroup { Tag = "Балки", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2,3]" };
         var section = new CrossSection { Id = 1, Tag = "Б1" };
         var scope = new FemCheckScope([],
         [

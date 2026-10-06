@@ -59,11 +59,25 @@ public sealed class FemTopologyValidatorTests
     public void Validate_AcceptsGroupOfImportedMeshElements()
     {
         var schema = new FemSchema { Id = 1 };
-        var groups = new[] { new FemMemberGroup { Id = 1, SchemaId = 1, Tag = "СТЕНА №5", MemberTagsJson = "[11,12]" } };
+        var groups = new[] { new FemMemberGroup { Id = 1, SchemaId = 1, Tag = "СТЕНА №5", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[11,12]" } };
 
         var errors = FemTopologyValidator.Validate(schema, [], [], groups, [], ["11", "12"]);
 
         Assert.DoesNotContain(errors, e => e.Code == "member_element_missing");
+    }
+
+    [Fact]
+    public void Validate_GroupKindDecidesWhereTagsAreLookedUp()
+    {
+        // Номер КЭ сетки «12» есть, конструктивного элемента «12» нет: группа КонЭ не должна «находить» его в сетке.
+        var schema = new FemSchema { Id = 1 };
+        var meshGroup = new FemMemberGroup { Tag = "КЭ", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[\"12\"]" };
+        var membersGroup = new FemMemberGroup { Tag = "КонЭ", Kind = FemMemberGroup.KindMembers, MemberTagsJson = "[\"12\"]" };
+
+        var errors = FemTopologyValidator.Validate(schema, [], [], [meshGroup, membersGroup], [], ["12"]);
+
+        var error = Assert.Single(errors, e => e.Code == "member_element_missing");
+        Assert.Contains("'КонЭ'", error.Message);
     }
 
     [Fact]

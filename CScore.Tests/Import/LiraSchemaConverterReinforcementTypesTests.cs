@@ -1,4 +1,4 @@
-using System.Text.Json;
+using CScore.Fem;
 using CScore.Import;
 using Xunit;
 
@@ -69,9 +69,11 @@ public class LiraSchemaConverterReinforcementTypesTests
       Assert.Equal(["ТЗА 1 · Плита 200", "ТЗА 1 2 4 · Плита 200", "ТЗА 1 · Стена 250"],
          groups.Select(g => g.Tag));
       Assert.All(groups, g => Assert.Equal("shell", g.MemberType));
-      Assert.Equal([3], JsonSerializer.Deserialize<int[]>(groups[0].MemberTagsJson));
-      Assert.Equal([1, 2], JsonSerializer.Deserialize<int[]>(groups[1].MemberTagsJson));
-      Assert.Equal([4], JsonSerializer.Deserialize<int[]>(groups[2].MemberTagsJson));
+      Assert.Equal(["3"], groups[0].Tags);
+      Assert.Equal(["1", "2"], groups[1].Tags);
+      Assert.Equal(["4"], groups[2].Tags);
+      Assert.All(groups, g => Assert.Equal(FemMemberGroup.KindMesh, g.Kind));
+      Assert.All(groups, g => Assert.Equal("import:lira", g.Origin));
    }
 
    [Fact]

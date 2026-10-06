@@ -17,6 +17,7 @@ public class LiraConstructiveBlockGroupTagTests
         var groups = LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(data, schemaId: 1);
 
         Assert.Equal(["СТЕНА №5 [1-й этаж]", "Блок №27", "Блок №28 К-1"], groups.Select(g => g.Tag));
-        Assert.Equal("[1]", groups[1].MemberTagsJson);
+        Assert.Equal(["1"], groups[1].Tags);
+        Assert.True(groups[1].IsMeshGroup);
     }
 }

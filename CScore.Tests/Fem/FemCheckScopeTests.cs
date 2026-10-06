@@ -37,7 +37,7 @@ public class FemCheckScopeTests
     {
         // Группа кБ ЛИРЫ ссылается на номера КЭ; часть КЭ уже привязана к элементу из кБ.
         var wall = new FemMember { ElemTag = "кБ5", ElemType = "shell" };
-        var group = new FemMemberGroup { Tag = "СТЕНА №5", MemberTagsJson = "[10,11,99]" };
+        var group = new FemMemberGroup { Tag = "СТЕНА №5", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,11,99]" };
         var mesh = new[] { Mesh("10", "кБ5"), Mesh("11"), Mesh("12", "кБ5") };
 
         var scope = FemCheckScope.ForGroup(group, [wall], mesh);
@@ -66,18 +66,38 @@ public class FemCheckScopeTests
     }
 
     [Fact]
-    public void ForGroup_TagCollisionWithOwnMember_StaysMeshGroupUnlessAllTagsAreMembers()
+    public void ForGroup_TagCollisionWithOwnMember_KindDecides()
     {
-        // Импортированная схема, к которой добавлен свой элемент с тегом «1»: группа ЛИРЫ [1,2]
-        // по-прежнему ссылается на КЭ 1 и 2, а не на элемент «1».
+        // Импортированная схема, к которой добавлен свой элемент с тегом «1»: вид группы, а не совпадение
+        // тегов, решает, что значит «1» — КЭ сетки или конструктивный элемент.
         var own = new FemMember { ElemTag = "1" };
-        var group = new FemMemberGroup { Tag = "Колонна", MemberTagsJson = "[1,2]" };
         var mesh = new[] { Mesh("1", type: "beam"), Mesh("2", type: "beam"), Mesh("500", "1", "beam") };
 
-        var scope = FemCheckScope.ForGroup(group, [own], mesh);
+        var meshScope = FemCheckScope.ForGroup(
+            new FemMemberGroup { Tag = "Колонна", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1]" }, [own], mesh);
+        var membersScope = FemCheckScope.ForGroup(
+            new FemMemberGroup { Tag = "Своя", Kind = FemMemberGroup.KindMembers, MemberTagsJson = "[1]" }, [own], mesh);
 
-        Assert.True(scope.RefersToMeshElements);
-        Assert.Equal([1, 2], scope.ElementNumbers);
+        Assert.True(meshScope.RefersToMeshElements);
+        Assert.Equal([1], meshScope.ElementNumbers);
+        Assert.False(membersScope.RefersToMeshElements);
+        Assert.Same(own, Assert.Single(membersScope.Members));
+        Assert.Equal([500], membersScope.ElementNumbers);
+    }
+
+    [Fact]
+    public void ForGroup_MembersWithNonNumericTags_TakesTheirMesh()
+    {
+        // Теги КонЭ из кБ ЛИРЫ нечисловые — при хранении int[] такие КонЭ выпадали из групп.
+        var col = new FemMember { ElemTag = "Колонна №5 · 1", ElemType = "beam" };
+        var group = new FemMemberGroup { Tag = "Колонны", Kind = FemMemberGroup.KindMembers };
+        group.SetTags(["Колонна №5 · 1", "нет такого"]);
+        var mesh = new[] { Mesh("31", "Колонна №5 · 1", "beam"), Mesh("32", "Колонна №5 · 1", "beam"), Mesh("33", type: "beam") };
+
+        var scope = FemCheckScope.ForGroup(group, [col], mesh);
+
+        Assert.Same(col, Assert.Single(scope.Members));
+        Assert.Equal([31, 32], scope.ElementNumbers);
     }
 
     [Theory]

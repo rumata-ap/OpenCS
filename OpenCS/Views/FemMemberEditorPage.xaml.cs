@@ -86,9 +86,6 @@ public class FemMemberEditorVM : ViewModelBase
         set { _member.Tag = value; OnPropertyChanged(); }
     }
 
-    static readonly HashSet<string> PlateMemberTypes =
-        new(System.StringComparer.OrdinalIgnoreCase) { "Плита", "Стена" };
-
     public string? MemberType
     {
         get => _member.MemberType;
@@ -121,9 +118,10 @@ public class FemMemberEditorVM : ViewModelBase
     /// <summary>Состав группы КЭ сетки («120 КЭ: пластины»).</summary>
     public string Composition { get; } = "";
 
-    public bool IsPlateType => _meshPlates ?? PlateMemberTypes.Contains(MemberType ?? "");
+    public bool IsPlateType => _meshPlates ?? CScore.Fem.FemMemberTypes.IsPlanar(MemberType);
 
-    public string[] MemberTypes { get; } = ["Балка", "Колонна", "Плита", "Стена", "Ферма", "Раскос", "Связь", "Другое"];
+    /// <summary>Типы групп: код и локализованное имя.</summary>
+    public IReadOnlyList<Converters.FemMemberTypeOption> MemberTypes { get; } = Converters.FemMemberTypeOption.All();
 
     /// <summary>Список доступных сечений — стержневые или пластинчатые в зависимости от типа.</summary>
     public System.Collections.IEnumerable AllSections => IsPlateType

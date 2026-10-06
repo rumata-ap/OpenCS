@@ -93,14 +93,7 @@ public sealed class DeleteNodesCommand : IFemEditCommand
         var removedMemberTags = _removedMembers
             .Select(member => member.ElemTag)
             .ToHashSet(StringComparer.Ordinal);
-        foreach (var group in session.MemberGroups)
-        {
-            var ids = JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
-            var kept = ids.Where(id => !removedMemberTags.Contains(id.ToString())).ToArray();
-            if (kept.Length == ids.Length) continue;
-            _groupEdits.Add((group, group.MemberTagsJson));
-            group.MemberTagsJson = JsonSerializer.Serialize(kept);
-        }
+        _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, removedMemberTags);
     }
 
     public void Undo(FemSchemaEditSession session)

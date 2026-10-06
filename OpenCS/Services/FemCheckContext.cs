@@ -426,13 +426,16 @@ public static class FemCheckContext
             case FemMemberGroup { PlateSectionId: int own }:
                 return own;
 
-            case FemMember:
+            case FemMember member:
             {
-                // Группа с сечением, покрывающая больше всего КЭ элемента.
+                // Группа с сечением, покрывающая больше всего КЭ элемента: группа КЭ — общими номерами,
+                // группа КонЭ, в которую входит сам элемент, — всеми его КЭ.
                 var tags = scope.Elements.Select(e => e.Element.ElemTag).ToHashSet(StringComparer.Ordinal);
                 var best = schemaGroups
                     .Where(g => g.PlateSectionId != null)
-                    .Select(g => (Group: g, Common: FemCheckScope.GroupTags(g).Count(tags.Contains)))
+                    .Select(g => (Group: g, Common: g.IsMeshGroup
+                        ? FemCheckScope.GroupTags(g).Count(tags.Contains)
+                        : g.Tags.Contains(member.ElemTag) ? tags.Count : 0))
                     .Where(x => x.Common > 0)
                     .OrderByDescending(x => x.Common)
                     .FirstOrDefault();

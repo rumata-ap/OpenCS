@@ -710,11 +710,10 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>Группирует выбранные конструктивные элементы в новую группу (FemMemberGroup).</summary>
     public void CreateMemberGroupFromElements(IEnumerable<FemMember> members)
     {
-        var memberTags = members.Select(e => int.Parse(e.ElemTag)).ToArray();
-        if (memberTags.Length == 0) return;
-        var tag = $"M{MemberGroups.Count + 1}";
-        var json = System.Text.Json.JsonSerializer.Serialize(memberTags);
-        Session.Execute(new CreateMemberGroupCommand(new FemMemberGroup { SchemaId = Session.Schema.Id, Tag = tag, MemberTagsJson = json }));
+        var memberTags = members.Select(e => e.ElemTag).ToList();
+        if (memberTags.Count == 0) return;
+        var group = FemGroupComposition.NewMembersGroup(Session.Schema.Id, memberTags, $"M{MemberGroups.Count + 1}", null);
+        Session.Execute(new CreateMemberGroupCommand(group));
         RefreshCollections();
     }
 

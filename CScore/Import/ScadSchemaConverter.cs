@@ -104,13 +104,7 @@ public static class ScadSchemaConverter
             if (ids.Length == 0) continue;
 
             bool allBars = ids.All(id => elementById[id].NodeIds.Length == 2);
-            groups.Add(new FemMemberGroup
-            {
-                SchemaId       = schemaId,
-                Tag            = group.Name,
-                MemberType     = allBars ? "beam" : "shell",
-                MemberTagsJson = JsonSerializer.Serialize(ids),
-            });
+            groups.Add(ImportedMeshGroup(schemaId, group.Name, allBars ? "beam" : "shell", ids));
         }
 
         var remaining = data.Elements.Where(e => !assigned.Contains(e.Id));
@@ -122,13 +116,7 @@ public static class ScadSchemaConverter
             var ids = g.Select(e => e.Id).ToArray();
             bool allBars = g.All(e => e.NodeIds.Length == 2);
 
-            groups.Add(new FemMemberGroup
-            {
-                SchemaId       = schemaId,
-                Tag            = tag,
-                MemberType     = allBars ? "beam" : "shell",
-                MemberTagsJson = JsonSerializer.Serialize(ids),
-            });
+            groups.Add(ImportedMeshGroup(schemaId, tag, allBars ? "beam" : "shell", ids));
         }
 
         return groups.ToArray();
@@ -162,13 +150,7 @@ public static class ScadSchemaConverter
             var ids = elementIds.Where(elementById.ContainsKey).Distinct().ToArray();
             if (ids.Length == 0) continue;
             var types = ids.Select(id => ElemType(elementById[id])).Distinct().ToArray();
-            groups.Add(new FemMemberGroup
-            {
-                SchemaId       = schemaId,
-                Tag            = tag,
-                MemberType     = types.Length == 1 ? types[0] : null, // смешанная — по составу КЭ
-                MemberTagsJson = JsonSerializer.Serialize(ids),
-            });
+            groups.Add(ImportedMeshGroup(schemaId, tag, types.Length == 1 ? types[0] : null, ids));
         }
         return groups.ToArray();
     }
@@ -184,4 +166,10 @@ public static class ScadSchemaConverter
             .Select(s => new LiraStiffnessRecord(s.Id, ScadStiffnessParams.ScadKindCode, s.Name ?? "",
                 s.Text!, data.SectionUnitM))
             .ToArray();
+
+    /// <summary>Группа КЭ импорта scad: состав — номера КЭ сетки.</summary>
+    static FemMemberGroup ImportedMeshGroup(int schemaId, string tag, string? memberType, IEnumerable<int> ids) =>
+        FemGroupComposition.NewMeshGroup(schemaId,
+            ids.Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            tag, memberType, FemMemberGroup.ImportOrigin("scad"));
 }

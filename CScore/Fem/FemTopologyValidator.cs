@@ -28,7 +28,7 @@ public static class FemTopologyValidator
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(memberGroups);
 
-        // NodeIdsJson/MemberTagsJson хранят NodeTag/ElemTag узлов и элементов как числа
+        // NodeIdsJson хранит NodeTag узлов как числа
         // (соглашение всей кодовой базы — см. Fem3DVM.GetBarPoints), а не БД-Id: у ещё не
         // сохранённых объектов Id всегда 0, поэтому 0 не считается дублирующимся идентификатором —
         // это законное состояние нескольких узлов/элементов одновременно до сохранения схемы.
@@ -91,17 +91,14 @@ public static class FemTopologyValidator
         foreach (var group in members.GroupBy(e => e.ElemTag, StringComparer.Ordinal).Where(g => g.Count() > 1))
             errors.Add(new("element_tag_duplicate", $"Тег элемента '{group.Key}' используется несколько раз."));
 
-        var elemTagSet = members.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
-        if (importedElementTags != null) elemTagSet.UnionWith(importedElementTags);
+        var memberTagSet = members.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var meshTagSet = importedElementTags?.ToHashSet(StringComparer.Ordinal) ?? [];
         foreach (var group in memberGroups)
-        {
-            var elemTags = (JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [])
-                .Select(id => id.ToString());
-            foreach (var tag in elemTags)
-                if (!elemTagSet.Contains(tag))
-                    errors.Add(new("member_element_missing",
-                        $"Группа '{group.Tag}' ссылается на отсутствующий конструктивный элемент {tag}."));
-        }
+            foreach (var tag in group.Tags)
+                if (!(group.IsMeshGroup ? meshTagSet : memberTagSet).Contains(tag))
+                    errors.Add(new("member_element_missing", group.IsMeshGroup
+                        ? $"Группа КЭ '{group.Tag}' ссылается на отсутствующий КЭ сетки {tag}."
+                        : $"Группа '{group.Tag}' ссылается на отсутствующий конструктивный элемент {tag}."));
 
         if (importedMeshNodes != null)
         {

@@ -91,7 +91,9 @@ public sealed class ScadSchemaConverterTests
 
         var blocks = ScadSchemaConverter.ToFemMemberGroupsByBlocks(data, 3);
         Assert.Equal(["Блок: Этаж 1", "Блок 2"], blocks.Select(g => g.Tag));
-        Assert.Equal("[1,2]", blocks[0].MemberTagsJson);
+        Assert.Equal(["1", "2"], blocks[0].Tags);
+        Assert.Equal(FemMemberGroup.KindMesh, blocks[0].Kind);
+        Assert.Equal("import:scad", blocks[0].Origin);
         Assert.Null(blocks[0].MemberType);   // стержень + оболочка
         Assert.Equal("shell", blocks[1].MemberType);
 

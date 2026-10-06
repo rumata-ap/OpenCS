@@ -97,9 +97,9 @@ public class LiraPlateSectionCreatorTests
         using var db = NewDb();
         var schema = new FemSchema { Tag = "1-lin", SourceType = "lira" };
         db.SaveFemSchema(schema);
-        var slab = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА №56", MemberTagsJson = "[10,11]" };
-        var other = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА №57", MemberTagsJson = "[12]" };
-        var bars = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонны", MemberTagsJson = "[99]" };
+        var slab = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА №56", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10,11]" };
+        var other = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА №57", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[12]" };
+        var bars = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонны", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[99]" };
         var data = new FemCheckSchemaData
         {
             SchemaId = schema.Id,
@@ -141,8 +141,8 @@ public class LiraPlateSectionCreatorTests
         using var db = NewDb();
         var schema = new FemSchema { Tag = "1-lin", SourceType = "lira" };
         db.SaveFemSchema(schema);
-        var a = new FemMemberGroup { SchemaId = schema.Id, Tag = "А", MemberTagsJson = "[10]" };
-        var b = new FemMemberGroup { SchemaId = schema.Id, Tag = "Б", MemberTagsJson = "[11]" };
+        var a = new FemMemberGroup { SchemaId = schema.Id, Tag = "А", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10]" };
+        var b = new FemMemberGroup { SchemaId = schema.Id, Tag = "Б", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[11]" };
         var data = new FemCheckSchemaData
         {
             SchemaId = schema.Id, Mesh = [Shell(10, "1"), Shell(11, "1")], Asp = Asp("B25", 10, 11), Rbt = Rbt(),
@@ -164,7 +164,7 @@ public class LiraPlateSectionCreatorTests
         using var db = NewDb();
         var schema = new FemSchema { Tag = "1-lin", SourceType = "lira" };
         db.SaveFemSchema(schema);
-        var slab = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА", MemberTagsJson = "[10]" };
+        var slab = new FemMemberGroup { SchemaId = schema.Id, Tag = "ПЛИТА", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[10]" };
         FemElement[] mesh = [Shell(10, "1")];
 
         Assert.True(LiraPlateSectionCreator.Create(db, new FemCheckSchemaData { SchemaId = schema.Id, Mesh = mesh },

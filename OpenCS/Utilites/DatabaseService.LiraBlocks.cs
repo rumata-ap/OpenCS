@@ -67,7 +67,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT tag, member_tags_json FROM fem_member_groups
-               WHERE schema_id=@sid AND member_type IS NULL ORDER BY id
+               WHERE schema_id=@sid AND kind='mesh' AND member_type IS NULL ORDER BY id
             """;
             cmd.Parameters.AddWithValue("@sid", schemaId);
             using var r = cmd.ExecuteReader();
@@ -79,15 +79,7 @@ namespace OpenCS.Utilites
          return result.OrderBy(b => b.Id).ToList();
       }
 
-      static List<string> ElementTags(string json)
-      {
-         try
-         {
-            return (JsonSerializer.Deserialize<int[]>(json) ?? [])
-               .Select(t => t.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
-         }
-         catch (JsonException) { return []; }
-      }
+      static List<string> ElementTags(string json) => [.. FemMemberGroup.ParseTags(json)];
 
       /// <summary>
       /// Сохраняет результат дискретизации схемы с импортированной сеткой: удаляются и вставляются заново
@@ -188,39 +180,94 @@ namespace OpenCS.Utilites
                   }
 
             // --- новые узлы, регионы, элементы и связи с сеткой
-            var nodeTags = GetFemNodes(schemaId).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
-            foreach (var build in builds)
+            InsertMembersOverMesh(schemaId, builds.SelectMany(b => b.Nodes),
+               builds.SelectMany(b => b.Parts).Select(p => new CScore.Fem.Import.FemImportMember(p.Member, p.Region, p.ElementTags)));
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      /// <summary>
+      /// Вставляет конструктивные элементы поверх уже сохранённой сетки (вызывается внутри транзакции):
+      /// узлы концов (существующие теги не дублируются) с привязкой узлов сетки, плоские регионы,
+      /// элементы и <c>source_member_tag</c> их КЭ сетки. Общий путь импорта и преобразования кБ ЛИРЫ.
+      /// </summary>
+      void InsertMembersOverMesh(int schemaId, IEnumerable<FemNode> nodes, IEnumerable<CScore.Fem.Import.FemImportMember> members)
+      {
+         var nodeTags = GetFemNodes(schemaId).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+         foreach (var node in nodes)
+         {
+            if (nodeTags.Add(node.NodeTag))
+               Exec("INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask) VALUES (@sid, @tag, @x, @y, @z, @dm)",
+                  ("@sid", schemaId), ("@tag", node.NodeTag), ("@x", node.X), ("@y", node.Y), ("@z", node.Z), ("@dm", node.DofMask));
+            Exec("UPDATE fem_mesh_nodes SET source_node_tag=@tag WHERE schema_id=@sid AND node_tag=@tag",
+               ("@sid", schemaId), ("@tag", node.NodeTag));
+         }
+         using var link = _connection.CreateCommand();
+         link.CommandText = "UPDATE fem_elements SET source_member_tag=@tag WHERE schema_id=@sid AND elem_tag=@elem";
+         link.Parameters.AddWithValue("@sid", schemaId);
+         var tagParam = link.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+         var elem = link.Parameters.Add("@elem", Microsoft.Data.Sqlite.SqliteType.Text);
+         foreach (var (member, region, elementTags) in members)
+         {
+            member.Id = 0;
+            member.SchemaId = schemaId;
+            if (region is { } r)
+               member.PlanarRegionId = AddPlanarRegion(r, schemaId);
+            SaveFemMember(member);
+            tagParam.Value = member.ElemTag;
+            foreach (var t in elementTags)
             {
-               foreach (var node in build.Nodes)
-               {
-                  if (nodeTags.Add(node.NodeTag))
-                     Exec("INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask) VALUES (@sid, @tag, @x, @y, @z, @dm)",
-                        ("@sid", schemaId), ("@tag", node.NodeTag), ("@x", node.X), ("@y", node.Y), ("@z", node.Z), ("@dm", node.DofMask));
-                  Exec("UPDATE fem_mesh_nodes SET source_node_tag=@tag WHERE schema_id=@sid AND node_tag=@tag",
-                     ("@sid", schemaId), ("@tag", node.NodeTag));
-               }
-               foreach (var part in build.Parts)
-               {
-                  part.Member.Id = 0;
-                  part.Member.SchemaId = schemaId;
-                  if (part.Region is { } region)
-                     part.Member.PlanarRegionId = AddPlanarRegion(region, schemaId);
-                  SaveFemMember(part.Member);
-                  using var link = _connection.CreateCommand();
-                  link.CommandText = "UPDATE fem_elements SET source_member_tag=@tag WHERE schema_id=@sid AND elem_tag=@elem";
-                  link.Parameters.AddWithValue("@sid", schemaId);
-                  link.Parameters.AddWithValue("@tag", part.Member.ElemTag);
-                  var elem = link.Parameters.Add("@elem", Microsoft.Data.Sqlite.SqliteType.Text);
-                  foreach (var t in part.ElementTags)
-                  {
-                     elem.Value = t;
-                     link.ExecuteNonQuery();
-                  }
-               }
+               elem.Value = t;
+               link.ExecuteNonQuery();
+            }
+         }
+      }
+
+      /// <summary>
+      /// Сохраняет импорт внешней программы в новую (пустую) схему одной транзакцией: сетка → узлы и
+      /// конструктивные элементы с привязкой КЭ → группы. Результат предварительно проверяется
+      /// (<see cref="CScore.Fem.Import.FemImportResult.Validate"/>); при ошибках и непустой схеме — исключение.
+      /// Возвращает предупреждения проверки — их показывает вызывающий.
+      /// </summary>
+      public IReadOnlyList<FemValidationDiagnostic> SaveFemImport(int schemaId, CScore.Fem.Import.FemImportResult result)
+      {
+         var diagnostics = result.Validate();
+         var errors = diagnostics.Where(d => d.IsError).ToList();
+         if (errors.Count > 0)
+            throw new InvalidOperationException("Импорт схемы не согласован:" + Environment.NewLine
+               + string.Join(Environment.NewLine, errors.Take(20).Select(e => e.Message))
+               + (errors.Count > 20 ? $"{Environment.NewLine}… и ещё {errors.Count - 20}" : ""));
+
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var check = _connection.CreateCommand())
+            {
+               check.CommandText = """
+                  SELECT EXISTS (SELECT 1 FROM fem_nodes WHERE schema_id=@sid)
+                      OR EXISTS (SELECT 1 FROM fem_members WHERE schema_id=@sid)
+                      OR EXISTS (SELECT 1 FROM fem_elements WHERE schema_id=@sid)
+                      OR EXISTS (SELECT 1 FROM fem_member_groups WHERE schema_id=@sid)
+               """;
+               check.Parameters.AddWithValue("@sid", schemaId);
+               if (Convert.ToInt64(check.ExecuteScalar()) != 0)
+                  throw new InvalidOperationException("Импорт сохраняется только в новую схему, а у этой уже есть данные.");
+            }
+
+            foreach (var n in result.MeshNodes) n.SchemaId = schemaId;
+            foreach (var e in result.MeshElements) e.SchemaId = schemaId;
+            InsertFemMeshSnapshot(schemaId, result.MeshNodes, result.MeshElements);
+            InsertMembersOverMesh(schemaId, result.MemberNodes, result.Members);
+            foreach (var g in result.Groups)
+            {
+               g.Id = 0;
+               SaveFemMemberGroupCore(g, schemaId);
             }
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         return diagnostics.Where(d => !d.IsError).ToList();
       }
 
       void Exec(string sql, params (string Name, object Value)[] parameters)

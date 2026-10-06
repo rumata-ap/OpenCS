@@ -50,7 +50,7 @@ public class FemBarDiagramVmTests
         {
             Tag = "Другая схема", Kind = "bar", SourceType = "fea", SourceSchemaId = schema.Id + 1, Items = [Row(1, 1, 5)],
         });
-        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Жёсткость 1", MemberTagsJson = "[1,2,3,4]" };
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Жёсткость 1", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2,3,4]" };
 
         var vm = FemBarDiagramVM.Load(db, group)!;
 
@@ -80,7 +80,7 @@ public class FemBarDiagramVmTests
     {
         using var db = NewDb();
         var schema = MeshOnlySchema(db);
-        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Плита", MemberTagsJson = "[4]" };
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Плита", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[4]" };
 
         Assert.Null(FemBarDiagramVM.Load(db, group));
     }
@@ -90,7 +90,7 @@ public class FemBarDiagramVmTests
     {
         using var db = NewDb();
         var schema = MeshOnlySchema(db);
-        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонна", MemberTagsJson = "[3]" };
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонна", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[3]" };
 
         var vm = FemBarDiagramVM.Load(db, group)!;
 

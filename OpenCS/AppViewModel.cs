@@ -3057,8 +3057,7 @@ namespace OpenCS
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
 
-            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
-            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -3073,6 +3072,20 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      /// <summary>Сохраняет прочитанный импорт в только что созданную схему (<see cref="Utilites.DatabaseService.SaveFemImport"/>).
+      /// Номера, которых нет в сетке (КЭ пропущенных типов), из групп убираются с предупреждением.</summary>
+      void SaveImportedSchema(CScore.Fem.FemSchema schema, CScore.Fem.Import.FemImportResult result)
+      {
+         int pruned = result.PruneMissingGroupTags();
+         if (pruned > 0)
+            LogService.Warning(string.Format(Loc.S("FemImportGroupTagsPruned"), pruned));
+         var warnings = db.SaveFemImport(schema.Id, result);
+         foreach (var w in warnings.Take(20))
+            LogService.Warning(w.Message);
+         if (warnings.Count > 20)
+            LogService.Warning(string.Format(Loc.S("FemImportMoreWarnings"), warnings.Count - 20));
       }
 
       void ImportLiraSchemaFromFile()
@@ -3102,8 +3115,7 @@ namespace OpenCS
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
 
-            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
-            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -3152,8 +3164,7 @@ namespace OpenCS
          var meshElements = CScore.Import.ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
          var memberGroups = CScore.Import.ScadSchemaConverter.ToFemMemberGroups(data, schema.Id);
 
-         db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
-         db.SaveFemMemberGroups(schema.Id, memberGroups);
+         SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
          RefreshFemSchemaTreeCounts(schema);
 
          int barCount   = meshElements.Count(e => e.ElemType == "beam");
@@ -3222,8 +3233,7 @@ namespace OpenCS
                .Concat(blockGroups).Concat(concreteGroups).Concat(steelGroups).ToArray();
             var stiffnesses  = ScadSchemaConverter.ToSchemaStiffnesses(data);
 
-            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
-            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
             db.SaveFemSchemaStiffnesses(schema.Id, stiffnesses);
             SaveScadConcreteGroups(schema.Id, data.ConcreteGroups);
             if (data.SteelGroups.Count > 0) SaveScadSteelGroups(schema.Id, data.SteelGroups);
@@ -3524,8 +3534,8 @@ namespace OpenCS
          {
             try
             {
-               var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.MemberTagsJson) ?? [];
-               if (ids.Length > 0)
+               var ids = db.GetFemCheckScope(currentFemMember).ElementNumbers;
+               if (ids.Count > 0)
                   seed = string.Join(", ", ids);
             }
             catch { /* ignore bad json */ }
@@ -3658,8 +3668,7 @@ namespace OpenCS
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
                 .ToArray();
-            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
-            db.SaveFemMemberGroups(schema.Id, memberGroups);
+            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
             SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
@@ -4674,11 +4683,11 @@ namespace OpenCS
          _     => ImportLiraRsuFromApiCommand,
       };
 
-      /// <summary>Номера КЭ внешней схемы, по которым запрашиваются усилия цели: у группы — её теги
-      /// (номера КЭ импортированной схемы), у конструктивного элемента — КЭ сетки, привязанные к нему.</summary>
+      /// <summary>Номера КЭ внешней схемы, по которым запрашиваются усилия цели: КЭ сетки группы (у группы КЭ —
+      /// её номера, у группы КонЭ — КЭ её элементов) или КЭ, привязанные к конструктивному элементу.</summary>
       int[] FemTargetElementNumbers(CScore.Fem.IFemCheckable target) => target switch
       {
-         CScore.Fem.FemMemberGroup group => System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [],
+         CScore.Fem.FemMemberGroup group => [.. db.GetFemCheckScope(group).ElementNumbers],
          CScore.Fem.FemMember element    => [.. db.GetFemCheckScope(element).ElementNumbers],
          _ => [],
       };
@@ -4769,9 +4778,7 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var group = new CScore.Fem.FemMemberGroup { SchemaId = schema.Id, Tag = "Элемент" };
-         db.SaveFemMemberGroup(group);
-         schema.MemberGroups.Add(group);
+         FemGroups.CreateEmptyGroup(schema, "Группа");
       }
 
       void NewFemMemberDialog(CScore.Fem.FemSchema? schema)
@@ -4810,53 +4817,46 @@ namespace OpenCS
          CurrentPage = null!;
       }
 
-      /// <summary>Создаёт FemMemberGroup из списка выбранных конструктивных элементов.</summary>
+      /// <summary>Создание групп и правка их состава (единственный путь из интерфейса).</summary>
+      public Services.FemGroupService FemGroups => femGroups ??= new Services.FemGroupService(db, LogService);
+      Services.FemGroupService? femGroups;
+
+      /// <summary>Создаёт группу КонЭ из выбранных конструктивных элементов. Тип — по составу:
+      /// все плиты / все стены / пластины / стержни.</summary>
       public void CreateFemMemberFromSelection(CScore.Fem.FemSchema schema, IList<CScore.Fem.FemMember> elems)
       {
          if (elems.Count == 0) return;
-         var ids = elems
-            .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
-            .Where(id => id > 0)
-            .ToArray();
-         bool allShells = elems.All(e => e.ElemType == "shell");
-         string typeLabel = allShells ? "Плита" : "Балка";
-         var tag = elems.Count == 1
-            ? (elems[0].SectionTag ?? elems[0].ElemTag)
-            : $"{typeLabel} ({elems.Count} КЭ)";
-         var group = new CScore.Fem.FemMemberGroup
-         {
-            SchemaId       = schema.Id,
-            Tag            = tag,
-            MemberType     = typeLabel,
-            MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(ids),
-         };
-         db.SaveFemMemberGroup(group);
-         schema.MemberGroups.Add(group);
+         string type = elems.All(e => e.ElemType == "shell")
+            ? elems.Select(e => e.Kind).Distinct().ToList() switch
+            {
+               ["plate"] => CScore.Fem.FemMemberTypes.Plate,
+               ["wall"]  => CScore.Fem.FemMemberTypes.Wall,
+               _         => CScore.Fem.FemMemberTypes.Shell,
+            }
+            : CScore.Fem.FemMemberTypes.Beam;
+         string? tag = elems.Count == 1 ? elems[0].ElemTag : null;
+         FemGroups.CreateMembersGroup(schema, elems.Select(e => e.ElemTag), tag, type);
       }
 
-      /// <summary>Создаёт FemMemberGroup из явного списка LIRA-id элементов (строка диапазонов уже распарсена).</summary>
+      /// <summary>Создаёт группу КЭ из номеров КЭ сетки (строка диапазонов уже разобрана).</summary>
       public void CreateFemMemberFromRange(
          CScore.Fem.FemSchema schema,
          IList<int>           elemIds,
          string               tag,
          string?              memberType)
       {
-         var group = new CScore.Fem.FemMemberGroup
-         {
-            SchemaId       = schema.Id,
-            Tag            = string.IsNullOrWhiteSpace(tag)
-                             ? (elemIds.Count > 0
-                                 ? $"{(string.IsNullOrWhiteSpace(memberType) ? "Группа" : memberType)} ({elemIds.Count} КЭ)"
-                                 : "Новый элемент")
-                             : tag,
-            MemberType     = string.IsNullOrWhiteSpace(memberType) ? null : memberType,
-            MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(elemIds),
-         };
-         db.SaveFemMemberGroup(group);
-         schema.MemberGroups.Add(group);
+         var tags = elemIds.Select(id => id.ToString(CultureInfo.InvariantCulture));
+         if (FemGroups.CreateMeshGroup(schema, tags, tag, memberType) == null)
+            MessageBox.Show(Loc.S("FemGroupMeshNoneAccepted"), Loc.S("FemGroupCreateTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
       }
 
-      /// <summary>Авто-группирует стержни схемы по SectionTag. Пропускает уже существующие группы.</summary>
+      /// <summary>Создаёт группу КонЭ из тегов конструктивных элементов (строка диапазонов таблицы КонЭ).</summary>
+      public void CreateFemMembersGroupFromTags(
+         CScore.Fem.FemSchema schema, IEnumerable<string> memberTags, string tag, string? memberType)
+         => FemGroups.CreateMembersGroup(schema, memberTags, tag, memberType);
+
+      /// <summary>Авто-группирует стержни схемы по SectionTag в группы КонЭ. Пропускает уже существующие имена.</summary>
       public void AutoGroupFemMembersBySection(CScore.Fem.FemSchema schema)
       {
          var members = db.GetFemMembers(schema.Id)
@@ -4865,24 +4865,12 @@ namespace OpenCS
          if (members.Count == 0) return;
 
          var existingTags = schema.MemberGroups.Select(g => g.Tag).ToHashSet();
-         var grouped = members.GroupBy(e => e.SectionTag ?? "");
          int added = 0;
-         foreach (var grp in grouped.OrderBy(g => g.Key))
+         foreach (var grp in members.GroupBy(e => e.SectionTag ?? "").OrderBy(g => g.Key))
          {
             if (existingTags.Contains(grp.Key)) continue;
-            var ids = grp
-               .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
-               .Where(id => id > 0)
-               .ToArray();
-            var group = new CScore.Fem.FemMemberGroup
-            {
-               SchemaId       = schema.Id,
-               Tag            = grp.Key,
-               MemberType     = "Балка",
-               MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(ids),
-            };
-            db.SaveFemMemberGroup(group);
-            schema.MemberGroups.Add(group);
+            if (FemGroups.CreateMembersGroup(schema, grp.Select(e => e.ElemTag), grp.Key,
+                   CScore.Fem.FemMemberTypes.Beam, CScore.Fem.FemMemberGroup.OriginAuto) == null) continue;
             existingTags.Add(grp.Key);
             added++;
          }

@@ -37,7 +37,7 @@ public class FemMemberEditorVmTests
     [Fact]
     public void MeshPlateGroup_PlateSectionsWithoutTypeAndForceSet() => WithApp((app, schema) =>
     {
-        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "СТЕНА №1", MemberTagsJson = "[2]" }, app);
+        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "СТЕНА №1", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[2]" }, app);
 
         Assert.True(vm.IsMeshGroup);
         Assert.False(vm.CanChooseType);
@@ -50,7 +50,7 @@ public class FemMemberEditorVmTests
     [Fact]
     public void MeshBarGroup_BarSections() => WithApp((app, schema) =>
     {
-        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонны", MemberTagsJson = "[1]" }, app);
+        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонны", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1]" }, app);
 
         Assert.False(vm.CanChooseType);
         Assert.False(vm.IsPlateType);
@@ -61,10 +61,12 @@ public class FemMemberEditorVmTests
     [Fact]
     public void MeshMixedGroup_TypeChosenManually() => WithApp((app, schema) =>
     {
-        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "Всё", MemberTagsJson = "[1,2]" }, app);
+        var vm = new FemMemberEditorVM(new FemMemberGroup { SchemaId = schema.Id, Tag = "Всё", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2]" }, app);
 
         Assert.True(vm.CanChooseType);
-        vm.MemberType = "Стена";
+        vm.MemberType = FemMemberTypes.Wall;
         Assert.True(vm.IsPlateType);
+        vm.MemberType = FemMemberTypes.Column;
+        Assert.False(vm.IsPlateType);
     });
 }

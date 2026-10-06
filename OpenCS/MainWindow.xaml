@@ -1695,7 +1695,7 @@
                               Fill="SteelBlue"
                               Data="M3,3 H13 M3,8 H13 M3,13 H13"/>
                         <TextBlock Text="{Binding Tag}"/>
-                        <TextBlock Text="{Binding MemberType, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                        <TextBlock Text="{Binding MemberType, Converter={StaticResource FemMemberTypeNameConverter}, ConverterParameter='  [{0}]'}" Foreground="Gray"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 

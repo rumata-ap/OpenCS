@@ -5,14 +5,12 @@ namespace OpenCS.Views;
 public partial class FemMemberDialog : Window
 {
     public string MemberTag  { get; set; } = "";
-    public string MemberType { get; set; } = "";
+    /// <summary>Код типа (<see cref="CScore.Fem.FemMemberTypes"/>); null — не задан.</summary>
+    public string? MemberType { get; set; }
     public string Range      { get; set; } = "";
 
-    /// <summary>Предопределённые типы конструктивных элементов; пользователь может ввести произвольный.</summary>
-    public string[] MemberTypes { get; } =
-    [
-        "Балка", "Колонна", "Плита", "Стена", "Ферма", "Раскос", "Связь", "Другое"
-    ];
+    /// <summary>Типы групп: код и локализованное имя.</summary>
+    public IReadOnlyList<Converters.FemMemberTypeOption> MemberTypes { get; } = Converters.FemMemberTypeOption.All();
 
     public FemMemberDialog(string initialRange = "")
     {

@@ -32,9 +32,12 @@ public partial class FemBarsView : UserControl
             : "";
         var dlg = new FemMemberDialog(initialRange);
         if (dlg.ShowDialog() != true) return;
-        var ids = LiraElemRangeDialog.ParseRange(dlg.Range);
-        if (ids.Count == 0) return;
-        _app.CreateFemMemberFromRange(_node.Owner.Schema, ids, dlg.MemberTag, dlg.MemberType);
+        // Теги КонЭ бывают нечисловыми («Колонна №5 · 1»): пока строку не правили — берём выбранные как есть.
+        var tags = selected.Count > 0 && dlg.Range == initialRange
+            ? selected.Select(el => el.ElemTag).ToList()
+            : LiraElemRangeDialog.ParseRange(dlg.Range).Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        if (tags.Count == 0) return;
+        _app.CreateFemMembersGroupFromTags(_node.Owner.Schema, tags, dlg.MemberTag, dlg.MemberType);
     }
 
     void CreateGroup_Click(object sender, RoutedEventArgs e)

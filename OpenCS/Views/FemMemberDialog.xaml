@@ -28,9 +28,10 @@
       <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemMemberType}"
                  VerticalAlignment="Center" Margin="0,0,8,8"/>
       <ComboBox  Grid.Row="1" Grid.Column="1"
-                 IsEditable="True"
                  ItemsSource="{Binding MemberTypes}"
-                 Text="{Binding MemberType, UpdateSourceTrigger=PropertyChanged}"
+                 DisplayMemberPath="Name"
+                 SelectedValuePath="Code"
+                 SelectedValue="{Binding MemberType}"
                  Margin="0,0,0,8"/>
 
       <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemMemberDlgRange}"

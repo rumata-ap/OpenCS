@@ -132,8 +132,8 @@ public class LiraBlocksPersistenceTests
         db.SaveFemSchema(schema);
         db.SaveFemMemberGroups(schema.Id,
         [
-            new FemMemberGroup { SchemaId = schema.Id, Tag = "СТЕНА №5 [1-й этаж] С-1", MemberTagsJson = "[11,12]" },
-            new FemMemberGroup { SchemaId = schema.Id, Tag = "Жёсткость 1", MemberType = "beam", MemberTagsJson = "[1]" },
+            new FemMemberGroup { SchemaId = schema.Id, Tag = "СТЕНА №5 [1-й этаж] С-1", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[11,12]" },
+            new FemMemberGroup { SchemaId = schema.Id, Tag = "Жёсткость 1", MemberType = "beam", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1]" },
         ]);
 
         var block = Assert.Single(db.GetLiraBlocks(schema.Id));

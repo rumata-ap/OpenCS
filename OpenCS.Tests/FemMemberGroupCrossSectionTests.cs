@@ -21,7 +21,7 @@ public class FemMemberGroupCrossSectionTests
              new FemMeshNode { NodeTag = "3", X = 2 }],
             [new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]" },
              new FemElement { ElemTag = "2", NodeIdsJson = "[2,3]" }]);
-        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонна1", MemberTagsJson = "[1]" };
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "Колонна1", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1]" };
 
         Assert.True(db.IsFemConstructiveLayerEmpty(schema.Id));
         Assert.Null(db.GetFemMemberGroupCrossSectionId(group));
@@ -55,7 +55,7 @@ public class FemMemberGroupCrossSectionTests
              new FemMeshNode { NodeTag = "3", X = 2 }],
             [new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]", SourceMemberTag = "кБ7" },
              new FemElement { ElemTag = "2", NodeIdsJson = "[2,3]", SourceMemberTag = "кБ7" }]);
-        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "КОЛОННА №7", MemberTagsJson = "[1,2]" };
+        var group = new FemMemberGroup { SchemaId = schema.Id, Tag = "КОЛОННА №7", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2]" };
 
         Assert.False(db.IsFemConstructiveLayerEmpty(schema.Id));
 

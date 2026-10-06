@@ -6,7 +6,7 @@ public sealed class AddMemberCommand(FemMember member) : IFemEditCommand
     public void Undo(FemSchemaEditSession session) => session.Members.Remove(member);
 }
 
-/// <summary>Удаляет элемент и убирает его тег из FemMemberGroup.MemberTagsJson всех групп, где он был. Обратимо.</summary>
+/// <summary>Удаляет элемент и убирает его тег из состава всех групп КонЭ, где он был. Обратимо.</summary>
 public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
 {
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
@@ -17,15 +17,7 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
         session.Members.Remove(member);
         _loadEdits = session.MemberLoads.Where(load => load.MemberId == member.Id).ToList();
         foreach (var load in _loadEdits) session.MemberLoads.Remove(load);
-        _groupEdits = [];
-        foreach (var group in session.MemberGroups)
-        {
-            var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
-            var kept = ids.Where(id => id.ToString() != member.ElemTag).ToArray();
-            if (kept.Length == ids.Length) continue;
-            _groupEdits.Add((group, group.MemberTagsJson));
-            group.MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(kept);
-        }
+        _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, [member.ElemTag]);
     }
 
     public void Undo(FemSchemaEditSession session)

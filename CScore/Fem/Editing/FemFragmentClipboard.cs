@@ -27,11 +27,9 @@ public static class FemFragmentClipboard
         requiredNodeTags.UnionWith(nodeTags);
 
         var nodes = session.Nodes.Where(n => requiredNodeTags.Contains(n.NodeTag)).ToList();
+        // Копируются только группы КонЭ, целиком вошедшие во фрагмент; группы КЭ сетки к фрагменту не относятся.
         var groups = session.MemberGroups
-            .Where(g => (JsonSerializer.Deserialize<int[]>(g.MemberTagsJson) ?? [])
-                .Select(id => id.ToString())
-                .All(memberTags.Contains) &&
-                (JsonSerializer.Deserialize<int[]>(g.MemberTagsJson) ?? []).Length > 0)
+            .Where(g => !g.IsMeshGroup && g.Tags.Count > 0 && g.Tags.All(memberTags.Contains))
             .ToList();
         return new FemFragmentSnapshot(nodes, members, groups);
     }
@@ -62,8 +60,8 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
         }
         foreach (var n in _newNodes) session.Nodes.Add(n);
 
-        // NodeIdsJson/MemberTagsJson хранят NodeTag/ElemTag как числа (соглашение всей кодовой базы —
-        // см. FemTopologyValidator), поэтому старый тег узла/элемента — это просто id.ToString().
+        // NodeIdsJson хранит NodeTag как числа (соглашение всей кодовой базы — см. FemTopologyValidator),
+        // поэтому старый тег узла — это просто id.ToString().
         var memberTagMap = new Dictionary<string, string>(StringComparer.Ordinal);
         _newMembers = [];
         foreach (var member in snapshot.Members)
@@ -91,18 +89,16 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
         _newGroups = [];
         foreach (var group in snapshot.MemberGroups)
         {
-            var oldMemberIds = JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
-            var newMemberIds = oldMemberIds
-                .Select(id => int.Parse(memberTagMap[id.ToString()]))
-                .ToArray();
-            _newGroups.Add(new FemMemberGroup
+            var copy = new FemMemberGroup
             {
                 SchemaId = session.Schema.Id,
                 Tag = group.Tag + " (копия)", MemberType = group.MemberType,
-                MemberTagsJson = JsonSerializer.Serialize(newMemberIds),
+                Kind = FemMemberGroup.KindMembers, Origin = FemMemberGroup.OriginManual,
                 PlateSectionId = group.PlateSectionId,
                 DesignParamsJson = group.DesignParamsJson,
-            });
+            };
+            copy.SetTags(group.Tags.Select(t => memberTagMap[t]));
+            _newGroups.Add(copy);
         }
         foreach (var g in _newGroups) session.MemberGroups.Add(g);
     }

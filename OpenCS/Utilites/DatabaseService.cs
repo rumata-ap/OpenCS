@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 75;
+      const int CurrentSchemaVersion = 76;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -95,6 +95,7 @@ namespace OpenCS.Utilites
          [72] = MigrateV73,
          [73] = MigrateV74,
          [74] = MigrateV75,
+         [75] = MigrateV76,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -584,7 +585,9 @@ namespace OpenCS.Utilites
                 member_tags_json   TEXT NOT NULL DEFAULT '[]',
                 plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
-                design_params_json TEXT
+                design_params_json TEXT,
+                kind               TEXT NOT NULL DEFAULT 'members',
+                origin             TEXT NOT NULL DEFAULT 'manual'
             );
             CREATE TABLE IF NOT EXISTS fem_load_cases (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1653,6 +1656,76 @@ namespace OpenCS.Utilites
          CREATE INDEX IF NOT EXISTS idx_force_items_set_elem ON force_items(set_id, source_elem_num);
          CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_elem ON force_shell_items(set_id, source_elem_num);
          """);
+
+      /// <summary>Миграция v76: вид группы (kind: mesh — номера КЭ сетки, members — теги КонЭ), происхождение
+      /// (origin), теги состава строками, коды типов вместо русских имён. Вид старых групп — по прежнему
+      /// правилу <c>FemCheckScope.ForGroup</c>: группа КонЭ, только если все её теги — теги КонЭ схемы.</summary>
+      void MigrateV76()
+      {
+         if (!ColumnExists("fem_member_groups", "kind"))
+            MigExec("ALTER TABLE fem_member_groups ADD COLUMN kind TEXT NOT NULL DEFAULT 'members'");
+         if (!ColumnExists("fem_member_groups", "origin"))
+            MigExec("ALTER TABLE fem_member_groups ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual'");
+         // Сетка схем SCAD до v76 сохранялась с origin='generated' (v66 исправил только ЛИРУ); КЭ, привязанные
+         // к конструктивному элементу, — дискретизация, их не трогаем.
+         MigExec("""
+            UPDATE fem_elements SET origin='imported'
+            WHERE origin<>'imported' AND source_member_tag IS NULL
+              AND schema_id IN (SELECT id FROM fem_schemas WHERE source_type='scad');
+            UPDATE fem_mesh_nodes SET origin='imported'
+            WHERE origin<>'imported' AND source_member_tag IS NULL AND source_node_tag IS NULL
+              AND schema_id IN (SELECT id FROM fem_schemas WHERE source_type='scad');
+            """);
+
+         var memberTags = new Dictionary<int, HashSet<string>>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT schema_id, elem_tag FROM fem_members";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               if (!memberTags.TryGetValue(r.GetInt32(0), out var set))
+                  memberTags[r.GetInt32(0)] = set = new HashSet<string>(StringComparer.Ordinal);
+               set.Add(r.GetString(1));
+            }
+         }
+         var groups = new List<(int Id, int SchemaId, string? Type, string Json, string? Source)>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT g.id, g.schema_id, g.member_type, g.member_tags_json, s.source_type
+               FROM fem_member_groups g LEFT JOIN fem_schemas s ON s.id=g.schema_id
+               """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+               groups.Add((r.GetInt32(0), r.GetInt32(1), r.IsDBNull(2) ? null : r.GetString(2),
+                  r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4)));
+         }
+         using var update = _connection.CreateCommand();
+         update.CommandText = """
+            UPDATE fem_member_groups SET kind=@kind, origin=@origin, member_type=@type, member_tags_json=@tags
+            WHERE id=@id
+            """;
+         foreach (var g in groups)
+         {
+            var tags = CScore.Fem.FemMemberGroup.ParseTags(g.Json);
+            bool imported = g.Source is "lira" or "scad";
+            bool isMembers = tags.Count > 0
+               ? memberTags.TryGetValue(g.SchemaId, out var set) && tags.All(set.Contains)
+               : !imported;
+            string kind = isMembers ? CScore.Fem.FemMemberGroup.KindMembers : CScore.Fem.FemMemberGroup.KindMesh;
+            string origin = !isMembers && imported
+               ? CScore.Fem.FemMemberGroup.ImportOrigin(g.Source!)
+               : CScore.Fem.FemMemberGroup.OriginManual;
+            update.Parameters.Clear();
+            update.Parameters.AddWithValue("@kind", kind);
+            update.Parameters.AddWithValue("@origin", origin);
+            update.Parameters.AddWithValue("@type", (object?)CScore.Fem.FemMemberTypes.Normalize(g.Type) ?? DBNull.Value);
+            update.Parameters.AddWithValue("@tags", JsonSerializer.Serialize(tags));
+            update.Parameters.AddWithValue("@id", g.Id);
+            update.ExecuteNonQuery();
+         }
+      }
 
       /// <summary>Вложения FEM-схемы по видам (<see cref="FemSchemaSourceFileKind"/>): файлы и данные
       /// программы-источника, хранятся как есть и разбираются при использовании.</summary>
@@ -3836,7 +3909,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, member_type, member_tags_json,
-                      plate_section_id, force_set_id, design_params_json
+                      plate_section_id, force_set_id, design_params_json, kind, origin
                FROM fem_member_groups WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
             cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
@@ -3855,6 +3928,8 @@ namespace OpenCS.Utilites
                   PlateSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
                   ForceSetId       = r.IsDBNull(6) ? null : r.GetInt32(6),
                   DesignParamsJson = r.IsDBNull(7) ? null : r.GetString(7),
+                  Kind             = r.GetString(8),
+                  Origin           = r.GetString(9),
                });
             }
          }
@@ -5391,14 +5466,16 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                INSERT INTO fem_member_groups
-                   (schema_id, tag, member_type, member_tags_json, plate_section_id, force_set_id, design_params_json)
-               VALUES (@sid, @tag, @mtype, @mtags, @psid, @fsid, @dp);
+                   (schema_id, tag, member_type, member_tags_json, plate_section_id, force_set_id, design_params_json, kind, origin)
+               VALUES (@sid, @tag, @mtype, @mtags, @psid, @fsid, @dp, @kind, @origin);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   schemaId);
             cmd.Parameters.AddWithValue("@tag",   g.Tag);
             cmd.Parameters.AddWithValue("@mtype", (object?)g.MemberType       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@mtags", g.MemberTagsJson);
+            cmd.Parameters.AddWithValue("@mtags", JsonSerializer.Serialize(g.Tags));
+            cmd.Parameters.AddWithValue("@kind",  g.Kind);
+            cmd.Parameters.AddWithValue("@origin", g.Origin);
             cmd.Parameters.AddWithValue("@psid",  (object?)g.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)g.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)g.DesignParamsJson ?? DBNull.Value);
@@ -5409,11 +5486,13 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE fem_member_groups SET tag=@tag, member_type=@mtype, member_tags_json=@mtags,
-               plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
+               plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp, kind=@kind, origin=@origin WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   g.Tag);
             cmd.Parameters.AddWithValue("@mtype", (object?)g.MemberType       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@mtags", g.MemberTagsJson);
+            cmd.Parameters.AddWithValue("@mtags", JsonSerializer.Serialize(g.Tags));
+            cmd.Parameters.AddWithValue("@kind",  g.Kind);
+            cmd.Parameters.AddWithValue("@origin", g.Origin);
             cmd.Parameters.AddWithValue("@psid",  (object?)g.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)g.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)g.DesignParamsJson ?? DBNull.Value);
@@ -5559,6 +5638,7 @@ namespace OpenCS.Utilites
                var groupCopy = new CScore.Fem.FemMemberGroup
                {
                   Tag = g.Tag, MemberType = g.MemberType, MemberTagsJson = g.MemberTagsJson,
+                  Kind = g.Kind, Origin = g.Origin,
                   PlateSectionId = g.PlateSectionId, ForceSetId = g.ForceSetId, DesignParamsJson = g.DesignParamsJson
                };
                SaveFemMemberGroupCore(groupCopy, newSchemaId);

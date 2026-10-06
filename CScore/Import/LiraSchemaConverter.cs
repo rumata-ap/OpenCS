@@ -148,13 +148,7 @@ public static class LiraSchemaConverter
             {
                 var tag  = stiffNames.TryGetValue(g.Key, out var name) ? name : $"Жёсткость {g.Key}";
                 var ids  = g.Select(e => e.Id).ToArray();
-                return new FemMemberGroup
-                {
-                    SchemaId       = schemaId,
-                    Tag            = tag,
-                    MemberType     = "beam",
-                    MemberTagsJson = JsonSerializer.Serialize(ids),
-                };
+                return ImportedMeshGroup(schemaId, tag, "beam", ids);
             })
             .ToArray();
     }
@@ -178,13 +172,7 @@ public static class LiraSchemaConverter
             {
                 var tag  = stiffNames.TryGetValue(g.Key, out var name) ? name : $"Жёсткость пластины {g.Key}";
                 var ids  = g.Select(e => e.Id).ToArray();
-                return new FemMemberGroup
-                {
-                    SchemaId       = schemaId,
-                    Tag            = tag,
-                    MemberType     = "shell",
-                    MemberTagsJson = JsonSerializer.Serialize(ids),
-                };
+                return ImportedMeshGroup(schemaId, tag, "shell", ids);
             })
             .ToArray();
     }
@@ -203,13 +191,7 @@ public static class LiraSchemaConverter
                 // Номер блока ЛИРА («Блок N» в карточке КЭ) — без него группы одного типа неразличимы
                 // (все безымянные блоки импортируются как «Блок»).
                 var tag = LiraBlockTags.Format(b.Id, b.Type, b.Floor, b.Mark);
-                return new FemMemberGroup
-                {
-                    SchemaId       = schemaId,
-                    Tag            = tag,
-                    MemberType     = null, // тип определяется по составу КЭ
-                    MemberTagsJson = JsonSerializer.Serialize(b.ElementIds),
-                };
+                return ImportedMeshGroup(schemaId, tag, null, b.ElementIds);
             })
             .ToArray();
     }
@@ -234,13 +216,7 @@ public static class LiraSchemaConverter
             .Select(g =>
             {
                 var stiff = stiffNames.TryGetValue(g.Key.StiffnessId, out var name) ? name : $"Жёсткость пластины {g.Key.StiffnessId}";
-                return new FemMemberGroup
-                {
-                    SchemaId       = schemaId,
-                    Tag            = $"ТЗА {g.Key.Item1} · {stiff}",
-                    MemberType     = "shell",
-                    MemberTagsJson = JsonSerializer.Serialize(g.Select(x => x.Elem.Id).ToArray()),
-                };
+                return ImportedMeshGroup(schemaId, $"ТЗА {g.Key.Item1} · {stiff}", "shell", g.Select(x => x.Elem.Id).ToArray());
             })
             .ToArray();
     }
@@ -260,4 +236,10 @@ public static class LiraSchemaConverter
             if (x[i] != y[i]) return x[i].CompareTo(y[i]);
         return x.Length.CompareTo(y.Length);
     }
+
+    /// <summary>Группа КЭ импорта lira: состав — номера КЭ сетки.</summary>
+    static FemMemberGroup ImportedMeshGroup(int schemaId, string tag, string? memberType, IEnumerable<int> ids) =>
+        FemGroupComposition.NewMeshGroup(schemaId,
+            ids.Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            tag, memberType, FemMemberGroup.ImportOrigin("lira"));
 }

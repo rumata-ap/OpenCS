@@ -12,8 +12,8 @@ public sealed record FemCheckScopeElement(int? ElemNum, FemElement Element, FemM
 /// <summary>Состав цели проверки: её конструктивные элементы и КЭ сетки.</summary>
 /// <param name="Members">Конструктивные элементы цели (у группы КЭ импортированной сетки — пусто).</param>
 /// <param name="Elements">КЭ сетки цели.</param>
-/// <param name="RefersToMeshElements">Группа ссылается на номера КЭ сетки (схемы ЛИРА/SCAD),
-/// а не на конструктивные элементы.</param>
+/// <param name="RefersToMeshElements">Цель — группа КЭ (<see cref="FemMemberGroup.KindMesh"/>):
+/// состав задан номерами КЭ сетки, а не конструктивными элементами.</param>
 public sealed record FemCheckScope(
     IReadOnlyList<FemMember> Members,
     IReadOnlyList<FemCheckScopeElement> Elements,
@@ -36,10 +36,8 @@ public sealed record FemCheckScope(
     }
 
     /// <summary>
-    /// Состав группы. Теги группы — либо теги конструктивных элементов, либо номера КЭ сетки
-    /// (группы импортированных схем ЛИРА/SCAD, в т.ч. кБ). Группа считается группой конструктивных
-    /// элементов, только если ими являются <b>все</b> её теги: у импортированной схемы с добавленными
-    /// своими элементами номер КЭ может совпасть с тегом такого элемента.
+    /// Состав группы по её виду: у группы КонЭ — её конструктивные элементы и их КЭ сетки
+    /// (<c>SourceMemberTag</c>); у группы КЭ — КЭ сетки с номерами из состава.
     /// </summary>
     public static FemCheckScope ForGroup(
         FemMemberGroup group, IEnumerable<FemMember> members, IEnumerable<FemElement> meshElements)
@@ -49,21 +47,22 @@ public sealed record FemCheckScope(
         ArgumentNullException.ThrowIfNull(meshElements);
 
         var tags = GroupTags(group);
-        var mesh = meshElements as IReadOnlyList<FemElement> ?? meshElements.ToList();
         var memberByTag = new Dictionary<string, FemMember>(StringComparer.Ordinal);
         foreach (var m in members) memberByTag.TryAdd(m.ElemTag, m);
 
-        if (tags.Count > 0 && tags.All(memberByTag.ContainsKey))
+        if (!group.IsMeshGroup)
         {
-            var groupMembers = tags.Select(t => memberByTag[t]).ToList();
-            var elements = mesh
-                .Where(e => e.SourceMemberTag != null && tags.Contains(e.SourceMemberTag))
+            // Порядок — как в составе группы; теги без конструктивного элемента пропускаются.
+            var groupMembers = group.Tags.Distinct(StringComparer.Ordinal)
+                .Where(memberByTag.ContainsKey).Select(t => memberByTag[t]).ToList();
+            var elements = meshElements
+                .Where(e => e.SourceMemberTag != null && tags.Contains(e.SourceMemberTag) && memberByTag.ContainsKey(e.SourceMemberTag))
                 .Select(e => new FemCheckScopeElement(ParseNum(e.ElemTag), e, memberByTag[e.SourceMemberTag!]))
                 .ToList();
             return new FemCheckScope(groupMembers, elements, RefersToMeshElements: false);
         }
 
-        var meshElementsOfGroup = mesh
+        var meshElementsOfGroup = meshElements
             .Where(e => tags.Contains(e.ElemTag))
             .Select(e => new FemCheckScopeElement(
                 ParseNum(e.ElemTag), e,
@@ -72,14 +71,9 @@ public sealed record FemCheckScope(
         return new FemCheckScope([], meshElementsOfGroup, RefersToMeshElements: true);
     }
 
-    /// <summary>Теги элементов группы (в JSON группы — числа).</summary>
-    public static HashSet<string> GroupTags(FemMemberGroup group)
-    {
-        int[] ids;
-        try { ids = JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? []; }
-        catch (JsonException) { ids = []; }
-        return ids.Select(t => t.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
-    }
+    /// <summary>Теги состава группы (номера КЭ или теги КонЭ — по виду группы).</summary>
+    public static HashSet<string> GroupTags(FemMemberGroup group) =>
+        group.Tags.ToHashSet(StringComparer.Ordinal);
 
     static int? ParseNum(string tag) =>
         int.TryParse(tag, NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : null;

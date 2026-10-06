@@ -133,7 +133,8 @@ public sealed class ScadSteelGroupsTests
         var groups = ScadSchemaConverter.ToFemMemberGroupsBySteelGroups(data, 7);
 
         Assert.Equal(["Сталь: Балки", "Сталь: 2"], groups.Select(g => g.Tag));
-        Assert.Equal("[1,2]", groups[0].MemberTagsJson);
+        Assert.Equal(["1", "2"], groups[0].Tags);
+        Assert.True(groups[0].IsMeshGroup);
         Assert.All(groups, g => Assert.Equal(7, g.SchemaId));
     }
 }
