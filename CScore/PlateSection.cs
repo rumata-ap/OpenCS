@@ -129,6 +129,16 @@ namespace CScore
       public DiagrammType ConcreteDiagramType { get; set; } = DiagrammType.L3;
 
       /// <summary>
+      /// Коэффициент Пуассона бетона ДО трещины в слоистой модели ("layered"); после трещины
+      /// в слое ν = 0. 0 — прежний закон слоя (одноосные диаграммы по главным направлениям).
+      /// При ν &gt; 0 — подход Дарвина — Пекнольда: эквивалентные одноосные деформации
+      /// ε_i,eq = (ε_i + ν·ε_j)/(1 − ν²), секущие E_i = σ(ε_i,eq)/ε_i,eq и
+      /// σ = Q·ε, Q = 1/(1 − ν²)·[[E₁, ν√(E₁E₂)], [ν√(E₁E₂), E₂]].
+      /// Параметр расчёта: в БД не хранится.
+      /// </summary>
+      public double PoissonUncracked { get; set; }
+
+      /// <summary>
       /// Глубокий клон сечения для потокобезопасности пакетных задач
       /// (симметрично <see cref="CrossSection.CloneForCalc"/>). Диаграммы не входят —
       /// строятся отдельно и используются только на чтение.
@@ -139,7 +149,7 @@ namespace CScore
          ConcreteMaterialId = ConcreteMaterialId, RebarMaterialId = RebarMaterialId,
          TensionConcrete = TensionConcrete, SofteningModel = SofteningModel,
          SofteningEpsC2 = SofteningEpsC2, PlateModel = PlateModel,
-         ConcreteDiagramType = ConcreteDiagramType,
+         ConcreteDiagramType = ConcreteDiagramType, PoissonUncracked = PoissonUncracked,
          RebarLayers = RebarLayers.Select(l => l.Clone()).ToList(),
       };
 
@@ -153,6 +163,8 @@ namespace CScore
       /// <param name="rebarDiagram">Диаграмма арматуры (глобальная).</param>
       /// <param name="layerDiagrams">Диаграммы арматуры по слоям; null-значение = использовать rebarDiagram.</param>
       /// <param name="computeStiffness">Вычислять касательные жёсткости (4 доп. вызова).</param>
+      /// <param name="layerState">Память трещин и εs,crc (только "layered"); null — без памяти,
+      /// прежнее поведение.</param>
       /// <returns>Результирующие усилия на 1 м ширины.</returns>
       public ShellResult Compute(
          ShellStrainState state,
@@ -160,11 +172,12 @@ namespace CScore
          Diagramm rebarDiagram,
          IReadOnlyList<Diagramm?>? layerDiagrams = null,
          bool computeStiffness = true,
-         bool? tensionOverride = null)
+         bool? tensionOverride = null,
+         PlateLayerState? layerState = null)
       {
          var (nx, ny, nxy, mx, my, mxy,
               nxc, nyc, nxyc, mxc, myc, mxyc,
-              nxr, nyr, mxr, myr) = Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+              nxr, nyr, mxr, myr) = Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
 
          double zc = 0.0, eax = 0.0, eay = 0.0, eix = 0.0, eiy = 0.0;
 
@@ -173,21 +186,21 @@ namespace CScore
             const double hd = 1e-7;
 
             var s1 = new ShellStrainState(state.Eps0x + hd, state.Eps0y, state.Gamma0xy, state.Kx, state.Ky, state.Kxy);
-            var (nx1, _, _, mx1, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s1, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+            var (nx1, _, _, mx1, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s1, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
             double dNx = nx1 - nx;
             eax = dNx / hd;
             zc  = Math.Abs(dNx) > 0.0 ? (mx1 - mx) / dNx : GeomCentroid();
 
             var s2 = new ShellStrainState(state.Eps0x, state.Eps0y + hd, state.Gamma0xy, state.Kx, state.Ky, state.Kxy);
-            var (_, ny2, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s2, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+            var (_, ny2, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s2, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
             eay = (ny2 - ny) / hd;
 
             var s3 = new ShellStrainState(state.Eps0x, state.Eps0y, state.Gamma0xy, state.Kx + hd, state.Ky, state.Kxy);
-            var (_, _, _, mx3, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s3, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+            var (_, _, _, mx3, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s3, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
             eix = (mx3 - mx) / hd;
 
             var s4 = new ShellStrainState(state.Eps0x, state.Eps0y, state.Gamma0xy, state.Kx, state.Ky + hd, state.Kxy);
-            var (_, _, _, _, my4, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s4, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+            var (_, _, _, _, my4, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s4, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
             eiy = (my4 - my) / hd;
          }
          else
@@ -219,10 +232,11 @@ namespace CScore
          double kShear = 5.0 / 6.0,
          double[,]? asOverride = null,
          double fdStep = 1e-7,
-         bool? tensionOverride = null)
+         bool? tensionOverride = null,
+         PlateLayerState? layerState = null)
       {
          var (nx, ny, nxy, mx, my, mxy, _, _, _, _, _, _, _, _, _, _) =
-            Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+            Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
 
          double[] state6 =
          [
@@ -239,7 +253,7 @@ namespace CScore
             arr[col] += h;
             var sPert = ShellStrainState.FromArray(arr);
             var (nx1, ny1, nxy1, mx1, my1, mxy1, _, _, _, _, _, _, _, _, _, _) =
-               Integrate(sPert, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
+               Integrate(sPert, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride, layerState);
             var f1 = new[] { nx1, ny1, nxy1, mx1, my1, mxy1 };
             for (int row = 0; row < 6; row++)
                j[row, col] = (f1[row] - f0[row]) / h;
@@ -398,16 +412,21 @@ namespace CScore
                double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc,
                double nxr, double nyr, double mxr, double myr)
          Integrate(ShellStrainState s, Diagramm cDiag, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags,
-            bool? tensionOverride = null)
+            bool? tensionOverride = null, PlateLayerState? layerState = null)
       {
+         if (!IsLayered && (layerState != null || PoissonUncracked != 0.0))
+            throw new InvalidOperationException(
+               $"ν до трещины и память трещин заданы только для слоистой модели, а не \"{PlateModel}\".");
+         CheckLayerState(layerState);
+
          var (nxc, nyc, nxyc, mxc, myc, mxyc) = PlateModel switch
          {
             "char1d_axial"     => IntegrateConcreteChar1dAxial(s, cDiag, tensionOverride),
             "char1d_principal" => IntegrateConcreteChar1dPrincipal(s, cDiag, tensionOverride),
-            _                  => IntegrateConcreteLayered(s, cDiag, tensionOverride),
+            _                  => IntegrateConcreteLayered(s, cDiag, tensionOverride, layerState),
          };
 
-         var (nxr, nyr, mxr, myr) = IntegrateRebar(s, rDiag, layerDiags);
+         var (nxr, nyr, mxr, myr) = IntegrateRebar(s, rDiag, layerDiags, layerState);
 
          return (nxc + nxr, nyc + nyr, nxyc, mxc + mxr, myc + myr, mxyc,
                  nxc, nyc, nxyc, mxc, myc, mxyc,
@@ -416,31 +435,21 @@ namespace CScore
 
       // ── Бетон: слоистая модель (разбиение на NLayers, главные + softening) ──
       private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
-         IntegrateConcreteLayered(ShellStrainState s, Diagramm cDiag, bool? tensionOverride)
+         IntegrateConcreteLayered(ShellStrainState s, Diagramm cDiag, bool? tensionOverride,
+            PlateLayerState? layerState)
       {
-         double h  = H;
          int    nl = NLayers < 1 ? 1 : NLayers;
-         double dz = h / nl;
-         double z0 = -h / 2.0 + dz / 2.0;  // центр первого слоя
+         double dz = H / nl;
+         // Начальный модуль нужен только закону с ν (секущая при ε_eq = 0).
+         double e0 = PoissonUncracked != 0.0 ? InitialConcreteModulus(cDiag) : 0.0;
 
          double nxc = 0, nyc = 0, nxyc = 0, mxc = 0, myc = 0, mxyc = 0;
 
          for (int i = 0; i < nl; i++)
          {
-            double zi  = z0 + i * dz;
-            double ex  = s.EpsX(zi);
-            double ey  = s.EpsY(zi);
-            double gxy = s.GammaXY(zi);
-
-            PrincipalStrains2D(ex, ey, gxy, out double eps1, out double eps2, out double theta);
-
-            double beta = SofteningModel == "vecchio_collins"
-               ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
-
-            double sig1 = ConcreteStress(cDiag, eps1, beta, tensionOverride);
-            double sig2 = ConcreteStress(cDiag, eps2, beta, tensionOverride);
-
-            RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
+            var p = EvaluateConcreteLayerCore(i, s, cDiag, tensionOverride, layerState, e0);
+            double zi = p.Z;
+            RotateStressesToXY(p.Sig1, p.Sig2, p.Theta, out double sigx, out double sigy, out double txy);
 
             // σ [кПа = кН/м²] · dz [м] → кН/м; · zi → кН·м/м
             double kf = dz;
@@ -580,7 +589,8 @@ namespace CScore
 
       // ── Арматура: точечные вклады в Zsx/Zsy (общая для всех моделей) ───────
       private (double nxr, double nyr, double mxr, double myr)
-         IntegrateRebar(ShellStrainState s, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags)
+         IntegrateRebar(ShellStrainState s, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags,
+            PlateLayerState? layerState)
       {
          double nxr = 0, nyr = 0, mxr = 0, myr = 0;
 
@@ -594,7 +604,7 @@ namespace CScore
             if (rl.Asx > 0.0)
             {
                double esx = s.EpsX(rl.Zsx);
-               double ssx = RebarStress(rd, esx);
+               double ssx = RebarStressPsi(rd, esx, layerState, li, true);
                // σ [кПа = кН/м²] · A [м²/м] → кН/м; · z → кН·м/м
                nxr += ssx * rl.Asx;
                mxr += ssx * rl.Asx * rl.Zsx;
@@ -603,13 +613,263 @@ namespace CScore
             if (rl.Asy > 0.0)
             {
                double esy = s.EpsY(rl.Zsy);
-               double ssy = RebarStress(rd, esy);
+               double ssy = RebarStressPsi(rd, esy, layerState, li, false);
                nyr += ssy * rl.Asy;
                myr += ssy * rl.Asy * rl.Zsy;
             }
          }
 
          return (nxr, nyr, mxr, myr);
+      }
+
+      // ── Закон слоя и память трещин (слоистая модель) ─────────────────────
+
+      bool IsLayered => PlateModel is not ("char1d_axial" or "char1d_principal");
+
+      void CheckLayerState(PlateLayerState? st)
+      {
+         if (st == null) return;
+         int nl = NLayers < 1 ? 1 : NLayers;
+         if (st.ConcreteLayerCount != nl || st.RebarLayerCount != RebarLayers.Count)
+            throw new ArgumentException(
+               $"Состояние слоёв ({st.ConcreteLayerCount} бетон, {st.RebarLayerCount} арматура) не " +
+               $"соответствует сечению ({nl} бетон, {RebarLayers.Count} арматура).", nameof(st));
+      }
+
+      /// <summary>Начальный модуль сжатой ветви бетона (как в <see cref="ComputeSecant"/>).</summary>
+      static double InitialConcreteModulus(Diagramm cDiag)
+      {
+         const double deps = 1e-7;
+         return -cDiag.Sig(-deps, out _, tenB: false) / deps;
+      }
+
+      static double SecantModulus(double sig, double eps, double e0) => eps != 0.0 ? sig / eps : e0;
+
+      /// <summary>Предельная растягивающая деформация бетона ε_bt,ult — конец растянутой ветви
+      /// диаграммы (как <see cref="Fem.ShellCrackingSolver.TensionLimit"/>).</summary>
+      public static double ConcreteTensionLimit(Diagramm cDiag)
+      {
+         ArgumentNullException.ThrowIfNull(cDiag);
+         if (cDiag.It?.X == null || cDiag.It.X.Length == 0)
+            throw new InvalidOperationException(
+               "У диаграммы бетона не построена растянутая ветвь: ε_bt,ult определить нечем.");
+         return cDiag.It.X.Max();
+      }
+
+      /// <summary>Индекс слоя бетона, в который попадает координата z (арматура на уровне слоя).</summary>
+      public int ConcreteLayerIndexAt(double z)
+      {
+         int nl = NLayers < 1 ? 1 : NLayers;
+         int i = (int)Math.Floor((z + H / 2.0) / (H / nl));
+         return i < 0 ? 0 : i >= nl ? nl - 1 : i;
+      }
+
+      /// <summary>
+      /// Закон слоя бетона в точке (слоистая модель): главные деформации, секущие модули,
+      /// напряжения — те же числа, что идут в интегрирование усилий <see cref="Compute"/>.
+      /// Нужен секущей ABD: слой с матрицей Q из этой точки воспроизводит усилия точно.
+      /// </summary>
+      public PlateConcreteLayerPoint EvaluateConcreteLayer(int layer, ShellStrainState s, Diagramm cDiag,
+         bool? tensionOverride = null, PlateLayerState? layerState = null)
+      {
+         if (!IsLayered)
+            throw new InvalidOperationException($"Закон слоя определён только для слоистой модели, а не \"{PlateModel}\".");
+         CheckLayerState(layerState);
+         return EvaluateConcreteLayerCore(layer, s, cDiag, tensionOverride, layerState, InitialConcreteModulus(cDiag));
+      }
+
+      PlateConcreteLayerPoint EvaluateConcreteLayerCore(int i, ShellStrainState s, Diagramm cDiag,
+         bool? tensionOverride, PlateLayerState? layerState, double e0)
+      {
+         int    nl = NLayers < 1 ? 1 : NLayers;
+         double dz = H / nl;
+         double z0 = -H / 2.0 + dz / 2.0;  // центр первого слоя
+         double zi = z0 + i * dz;
+
+         PrincipalStrains2D(s.EpsX(zi), s.EpsY(zi), s.GammaXY(zi),
+            out double eps1, out double eps2, out double theta);
+
+         double beta = SofteningModel == "vecchio_collins"
+            ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
+
+         // Трещина необратима: растяжение слоя выключено, ν = 0.
+         bool cracked = layerState != null && layerState.IsCracked(i);
+         bool? tension = cracked ? false : tensionOverride;
+         double nu = cracked ? 0.0 : PoissonUncracked;
+
+         double sig1, sig2, e1, e2, e1Eq, e2Eq, q11, q12, q22;
+         if (nu == 0.0)
+         {
+            // Прежний закон: одноосные диаграммы по главным направлениям.
+            sig1 = ConcreteStress(cDiag, eps1, beta, tension);
+            sig2 = ConcreteStress(cDiag, eps2, beta, tension);
+            e1Eq = eps1; e2Eq = eps2;
+            e1 = SecantModulus(sig1, eps1, e0);
+            e2 = SecantModulus(sig2, eps2, e0);
+            q11 = e1; q22 = e2; q12 = 0.0;
+         }
+         else
+         {
+            // Дарвин — Пекнольд: секущие по эквивалентным одноосным деформациям, σ = Q·ε.
+            double k = 1.0 / (1.0 - nu * nu);
+            e1Eq = (eps1 + nu * eps2) * k;
+            e2Eq = (eps2 + nu * eps1) * k;
+            e1 = SecantModulus(ConcreteStress(cDiag, e1Eq, beta, tension), e1Eq, e0);
+            e2 = SecantModulus(ConcreteStress(cDiag, e2Eq, beta, tension), e2Eq, e0);
+            q11 = k * e1;
+            q22 = k * e2;
+            q12 = k * nu * Math.Sqrt(Math.Max(0.0, e1 * e2));
+            sig1 = q11 * eps1 + q12 * eps2;
+            sig2 = q12 * eps1 + q22 * eps2;
+         }
+
+         // Сдвиговой секущий модуль из соосности вращающейся трещины; при ε₁ ≈ ε₂ — предел
+         // изотропного закона (Q11 + Q22)/4 − Q12/2 (= E/(2(1 + ν)) при E₁ = E₂ = E).
+         double dEps = eps1 - eps2;
+         double g12 = dEps > 1e-14 ? (sig1 - sig2) / (2.0 * dEps) : 0.25 * (q11 + q22) - 0.5 * q12;
+         if (g12 < 0.0) g12 = 0.0;
+
+         return new PlateConcreteLayerPoint(i, zi, dz, eps1, eps2, theta, e1Eq, e2Eq, nu,
+            e1, e2, q11, q12, q22, g12, sig1, sig2, cracked);
+      }
+
+      /// <summary>
+      /// Арматурный слой по направлению в точке: деформация, напряжение (с ψs по состоянию) и
+      /// секущий модуль σ/ε (при ε = 0 — начальный). Те же числа, что в <see cref="Compute"/>.
+      /// </summary>
+      public PlateRebarPoint EvaluateRebar(int rebarLayer, bool alongX, ShellStrainState s, Diagramm rDiag,
+         IReadOnlyList<Diagramm?>? layerDiags = null, PlateLayerState? layerState = null)
+      {
+         CheckLayerState(layerState);
+         var rl = RebarLayers[rebarLayer];
+         var rd = layerDiags != null && rebarLayer < layerDiags.Count && layerDiags[rebarLayer] != null
+                  ? layerDiags[rebarLayer]! : rDiag;
+         double area = alongX ? rl.Asx : rl.Asy;
+         double z = alongX ? rl.Zsx : rl.Zsy;
+         if (rd == null || area <= 0.0)
+            return new PlateRebarPoint(rebarLayer, alongX, z, 0.0, 0.0, 0.0, 0.0, 1.0);
+
+         double eps = alongX ? s.EpsX(z) : s.EpsY(z);
+         double sig = RebarStressPsi(rd, eps, layerState, rebarLayer, alongX);
+         const double deps = 1e-7;
+         double e0 = rd.Sig(deps, out _, tenB: true) / deps;
+         double psi = layerState != null ? Curvature8232.PsiS(layerState.EpsCrc(rebarLayer, alongX), eps) : 1.0;
+         return new PlateRebarPoint(rebarLayer, alongX, z, area, eps, sig, SecantModulus(sig, eps, e0), psi);
+      }
+
+      /// <summary>
+      /// Отметить новые трещины в слоях бетона по деформациям <paramref name="s"/>: слой трещит,
+      /// когда главная растягивающая деформация (при ν &gt; 0 — эквивалентная одноосная) выходит за
+      /// ε_bt,ult. Критерий чисто деформационный и от учёта растяжения бетона не зависит.
+      /// Возвращает число новых трещин и арматурные слои/направления, у которых бетон на их
+      /// уровне уже с трещиной, а εs,crc ещё не определена (для <see cref="ActivatePsi"/>).
+      /// </summary>
+      public PlateCrackUpdate UpdateCracks(PlateLayerState layerState, ShellStrainState s, Diagramm cDiag,
+         double? epsBtUlt = null)
+      {
+         ArgumentNullException.ThrowIfNull(layerState);
+         if (!IsLayered)
+            throw new InvalidOperationException($"Память трещин определена только для слоистой модели, а не \"{PlateModel}\".");
+         CheckLayerState(layerState);
+
+         double limit = epsBtUlt ?? ConcreteTensionLimit(cDiag);
+         int nl = layerState.ConcreteLayerCount;
+         double dz = H / nl;
+         double z0 = -H / 2.0 + dz / 2.0;
+         int newCracks = 0;
+         for (int i = 0; i < nl; i++)
+         {
+            if (layerState.IsCracked(i)) continue;
+            double zi = z0 + i * dz;
+            PrincipalStrains2D(s.EpsX(zi), s.EpsY(zi), s.GammaXY(zi), out double eps1, out double eps2, out _);
+            double nu = PoissonUncracked;
+            double e1Eq = nu == 0.0 ? eps1 : (eps1 + nu * eps2) / (1.0 - nu * nu);
+            if (e1Eq > limit)
+            {
+               layerState.MarkCracked(i);
+               newCracks++;
+            }
+         }
+
+         var pending = new List<(int RebarLayer, bool AlongX)>();
+         for (int li = 0; li < RebarLayers.Count; li++)
+         {
+            var rl = RebarLayers[li];
+            if (rl.Asx > 0.0 && !layerState.HasEpsCrc(li, true) && layerState.IsCracked(ConcreteLayerIndexAt(rl.Zsx)))
+               pending.Add((li, true));
+            if (rl.Asy > 0.0 && !layerState.HasEpsCrc(li, false) && layerState.IsCracked(ConcreteLayerIndexAt(rl.Zsy)))
+               pending.Add((li, false));
+         }
+         return new PlateCrackUpdate(newCracks, pending);
+      }
+
+      /// <summary>
+      /// Заморозить εs,crc у ожидающих арматурных слоёв (п. 8.2.32 СП 63, решения 1–2 спеки): по
+      /// <see cref="Fem.ShellCrackingSolver"/> при текущем соотношении усилий элемента
+      /// <paramref name="forces6"/> (Nx, Ny, Nxy, Mx, My, Mxy; кН, кН·м на 1 м) — деформация
+      /// стержня в сечении с трещиной при M = M_crc. Если поиск не сошёлся — запасной путь:
+      /// чистый изгиб полосы в направлении стержня, растягивающий его грань. Если не сошёлся и он,
+      /// εs,crc = 0 (ψs = 1, слой больше не ожидает).
+      /// </summary>
+      public PlatePsiActivation ActivatePsi(PlateLayerState layerState,
+         IReadOnlyList<(int RebarLayer, bool AlongX)> pending, double[] forces6,
+         Diagramm cDiag, Diagramm rDiag)
+      {
+         ArgumentNullException.ThrowIfNull(layerState);
+         ArgumentNullException.ThrowIfNull(pending);
+         ArgumentNullException.ThrowIfNull(forces6);
+         CheckLayerState(layerState);
+         if (pending.Count == 0) return new PlatePsiActivation(0, 0, 0);
+
+         var solver = new Fem.ShellCrackingSolver(this, cDiag, rDiag);
+         var main = solver.Solve(forces6, alongX: true);
+         var crackedMain = main.Converged ? main.CrackedStrainState : null;
+         var fallbackStates = new Dictionary<(bool AlongX, int Sign), ShellStrainState?>();
+
+         int activated = 0, fallbacks = 0, failures = 0;
+         foreach (var (li, alongX) in pending)
+         {
+            var rl = RebarLayers[li];
+            double z = alongX ? rl.Zsx : rl.Zsy;
+            var st = crackedMain;
+            if (st == null)
+            {
+               // Чистый изгиб полосы: M = ∫σ·z dz, растяжение стержня у грани z — момент знака z.
+               int sign = z < 0.0 ? -1 : 1;
+               if (!fallbackStates.TryGetValue((alongX, sign), out st))
+               {
+                  var target = new double[6];
+                  target[alongX ? 3 : 4] = sign;
+                  var r = solver.Solve(target, alongX);
+                  st = r.Converged ? r.CrackedStrainState : null;
+                  fallbackStates[(alongX, sign)] = st;
+               }
+               if (st != null) fallbacks++;
+            }
+
+            double epsCrc = st == null ? double.NaN : alongX ? st.EpsX(z) : st.EpsY(z);
+            if (!double.IsFinite(epsCrc))
+            {
+               epsCrc = 0.0;
+               failures++;
+            }
+            else activated++;
+            layerState.SetEpsCrc(li, alongX, epsCrc);
+         }
+         return new PlatePsiActivation(activated, fallbacks, failures);
+      }
+
+      /// <summary>Напряжение арматуры с ψs (п. 8.2.32): у растянутого стержня с определённой
+      /// εs,crc &gt; 0 — с диаграммы при деформации в трещине εs + 0,8·εs,crc (8.160–8.161), за
+      /// текучестью поправка затухает сама; сжатый — по диаграмме без поправки.</summary>
+      static double RebarStressPsi(Diagramm d, double eps, PlateLayerState? layerState, int rebarLayer, bool alongX)
+      {
+         if (layerState != null && eps > 0.0)
+         {
+            double epsCrc = layerState.EpsCrc(rebarLayer, alongX);
+            if (epsCrc > 0.0) return RebarStress(d, eps + 0.8 * epsCrc);
+         }
+         return RebarStress(d, eps);
       }
 
       double GeomCentroid()
