@@ -205,11 +205,13 @@ public sealed class StructuralMesh : IFeaMesh
 
     /// <summary>
     /// Опорные реакции на закреплённых DOF (с силами, переданными через жёсткие связи на ведущие
-    /// узлы): R = [Tᵀ·(F_int + K_spring·u + F_nl)] на закреплённых DOF, остальные — 0. F_int по
+    /// узлы): R = [Tᵀ·(F_int + K_spring·u + F_nl − F)] на закреплённых DOF, остальные — 0. F_int по
     /// умолчанию K·u (линейный расчёт); для нелинейного передать <paramref name="fInternal"/>.
-    /// Для сетки без жёстких связей совпадает с <see cref="Reactions.Compute"/> на закреплённых DOF.
+    /// <paramref name="fExternal"/> — внешняя нагрузка: с ней реакция полная (включает нагрузку,
+    /// приложенную прямо в опорном узле), без неё — как <see cref="Reactions.Compute"/>.
     /// </summary>
-    public double[] ComputeReactions(double[] u, BoundaryConditions bc, double[]? fInternal = null)
+    public double[] ComputeReactions(double[] u, BoundaryConditions bc, double[]? fInternal = null,
+                                     double[]? fExternal = null)
     {
         var total = fInternal != null ? (double[])fInternal.Clone() : AssembleK().ToCsc().Multiply(u);
         var kSpring = bc.AssembleKSpring();
@@ -223,6 +225,8 @@ public sealed class StructuralMesh : IFeaMesh
             var fnl = bc.AssembleFSpringNonlinear(u);
             for (int i = 0; i < total.Length; i++) total[i] += fnl[i];
         }
+        if (fExternal != null)
+            for (int i = 0; i < total.Length; i++) total[i] -= fExternal[i];
         var sys = SysVector(total);
         var r = new double[NDof];
         foreach (int d in bc.FixedDofs)

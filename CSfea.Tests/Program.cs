@@ -17,6 +17,7 @@ NonlinearConvergenceTests.RunAll();
 StructuralMeshTests.RunAll();
 RigidLinksTests.RunAll();
 RotatedShellResponseTests.RunAll();
+RcStructuralModelTests.RunAll();
 
 BeamTests.RunLinearCantilever2D();
 BeamTests.RunCrRollup2D();
