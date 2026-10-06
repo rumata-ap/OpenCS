@@ -199,7 +199,7 @@ public sealed class StructuralMesh : IFeaMesh
         if (kSpring.Count > 0) AppendInto(k, kSpring);
         var fixedSys = SysFixed(bc.FixedDofs);
         var reduced = DirichletReducer.Reduce(SysMatrix(k), SysVector(f), fixedSys, bc.UFixed);
-        var uFree = SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod);
+        var uFree = SolveSymmetric(reduced.Kff, reduced.Fmod);
         return Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
     }
 
@@ -235,13 +235,16 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     /// <summary>
-    /// Относительная невязка ‖F − F_int − K_spring·u − F_nl‖/‖F‖ на свободных DOF пространства решения
-    /// (силы через жёсткие связи приведены к ведущим узлам). <paramref name="fInternal"/> — внутренние
-    /// силы КЭ при <paramref name="u"/> (например, по истинным законам сечений). <paramref name="translationalOnly"/> —
-    /// только поступательные DOF (узловые силы): моменты с силами в одной норме несоизмеримы.
+    /// Относительная невязка ‖F − F_int − K_spring·u − F_nl‖ на свободных DOF пространства решения (силы через жёсткие
+    /// связи приведены к ведущим узлам). <paramref name="fInternal"/> — внутренние силы КЭ при <paramref name="u"/>
+    /// (например, по истинным законам сечений). Знаменатель — ‖F‖ или, если задан <paramref name="fInternalAbs"/>
+    /// (сборка модулей вкладов КЭ, без взаимного погашения), наибольшее из ‖F‖ и ‖F_int,abs‖: у плиты внутренние
+    /// мембранные усилия на порядок больше узловых нагрузок, и мерить их небаланс нагрузкой бессмысленно.
+    /// <paramref name="momentArm"/> &gt; 0 — узловые моменты входят в норму делёнными на это плечо (M/ℓ — сила);
+    /// 0 — все DOF без масштаба.
     /// </summary>
     public double RelativeResidual(double[] f, double[] fInternal, double[] u, BoundaryConditions bc,
-                                   bool translationalOnly = false)
+                                   double momentArm = 0.0, double[]? fInternalAbs = null)
     {
         var r = Dense.SubV(f, fInternal);
         var kSpring = bc.AssembleKSpring();
@@ -256,15 +259,21 @@ public sealed class StructuralMesh : IFeaMesh
             for (int i = 0; i < r.Length; i++) r[i] -= fnl[i];
         }
         var free = DirichletReducer.FreeDofs(NSys, SysFixed(bc.FixedDofs));
-        if (translationalOnly)
-        {
-            // Признак «поступательный» — по полному DOF (жёсткие связи сохраняют DOF ведущих узлов).
-            var trans = new bool[NSys];
+        // Вес DOF пространства решения: поворот (по полному DOF; жёсткие связи сохраняют DOF ведущих узлов) — 1/ℓ.
+        var w = Enumerable.Repeat(1.0, NSys).ToArray();
+        if (momentArm > 0.0)
             for (int d = 0; d < NDof; d++)
-                if (d % 6 < 3 && (Links?.ToReducedIndex(d) ?? d) is int k and >= 0) trans[k] = true;
-            free = free.Where(i => trans[i]).ToArray();
+                if (d % 6 >= 3 && (Links?.ToReducedIndex(d) ?? d) is int k and >= 0) w[k] = 1.0 / momentArm;
+        double Norm(double[] v)
+        {
+            var sys = SysVector(v);
+            double sum = 0.0;
+            foreach (int i in free) sum += sys[i] * w[i] * sys[i] * w[i];
+            return Math.Sqrt(sum);
         }
-        return NormAt(SysVector(r), free) / Math.Max(NormAt(SysVector(f), free), 1e-300);
+        double scale = Norm(f);
+        if (fInternalAbs != null) scale = Math.Max(scale, Norm(fInternalAbs));
+        return Norm(r) / Math.Max(scale, 1e-300);
     }
 
     // ---------------- пространство решения (с учётом жёстких связей) ----------------
@@ -383,6 +392,18 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     // ---------------- утилиты ----------------
+
+    /// <summary>
+    /// Симметричная система: Холецкий с RCM-упорядочиванием (на сетках оболочек в десятки раз быстрее LU без
+    /// упорядочивания); если матрица не положительно определена — LU.
+    /// </summary>
+    private static double[] SolveSymmetric(CscMatrix a, double[] b)
+    {
+        var chol = new SparseCholeskySolver();
+        chol.AnalyzePattern(a);
+        chol.Factorize(a);
+        return chol.LastFactorizationSpd ? chol.Solve(b) : SparseLuSolver.SolveOnce(a, b);
+    }
 
     private static void AppendInto(CooMatrix target, CooMatrix src)
     {

@@ -753,7 +753,10 @@ namespace CScore
          double sig = RebarStressPsi(rd, eps, layerState, rebarLayer, alongX);
          const double deps = 1e-7;
          double e0 = rd.Sig(deps, out _, tenB: true) / deps;
-         double psi = layerState != null ? Curvature8232.PsiS(layerState.EpsCrc(rebarLayer, alongX), eps) : 1.0;
+         double epsCrcPsi = layerState?.EpsCrc(rebarLayer, alongX) ?? double.NaN;
+         double psi = layerState == null ? 1.0
+            : eps > 0.0 && epsCrcPsi > 0.0 && eps < 0.2 * epsCrcPsi ? 0.2
+            : Curvature8232.PsiS(epsCrcPsi, eps);
          return new PlateRebarPoint(rebarLayer, alongX, z, area, eps, sig, SecantModulus(sig, eps, e0), psi);
       }
 
@@ -861,13 +864,20 @@ namespace CScore
 
       /// <summary>Напряжение арматуры с ψs (п. 8.2.32): у растянутого стержня с определённой
       /// εs,crc &gt; 0 — с диаграммы при деформации в трещине εs + 0,8·εs,crc (8.160–8.161), за
-      /// текучестью поправка затухает сама; сжатый — по диаграмме без поправки.</summary>
+      /// текучестью поправка затухает сама; сжатый — по диаграмме без поправки. εs здесь — средняя
+      /// деформация; при M = M_crc она равна 0,2·εs,crc (σ = σ(εs,crc)), и закон 8.160 действует с этой
+      /// точки. При 0 &lt; εs &lt; 0,2·εs,crc (разгрузка, перераспределение, зона смены знака момента) —
+      /// луч из начала координат в эту точку: иначе при εs → 0+ напряжение скачком уходило бы на
+      /// 0,8·Es·εs,crc (~100 МПа).</summary>
       static double RebarStressPsi(Diagramm d, double eps, PlateLayerState? layerState, int rebarLayer, bool alongX)
       {
          if (layerState != null && eps > 0.0)
          {
             double epsCrc = layerState.EpsCrc(rebarLayer, alongX);
-            if (epsCrc > 0.0) return RebarStress(d, eps + 0.8 * epsCrc);
+            if (epsCrc > 0.0)
+               return eps >= 0.2 * epsCrc
+                  ? RebarStress(d, eps + 0.8 * epsCrc)
+                  : RebarStress(d, epsCrc) * eps / (0.2 * epsCrc);
          }
          return RebarStress(d, eps);
       }

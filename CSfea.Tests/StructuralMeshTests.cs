@@ -48,7 +48,8 @@ public class StructuralMeshTests
         var uF = frame.SolveLinear(f, fixedDofs);
         var uS = mesh.SolveLinear(f, BoundaryConditions.FromArrays(mesh, fixedDofs));
         double d = MaxRelDiff(uF, uS);
-        TestHarness.Check("линейно: u совпадают", d < 1e-12, $"max|Δu|/max|u|={d:e2}");
+        // StructuralMesh решает Холецким, FrameMesh3D — LU: совпадение — до округления разных факторизаций.
+        TestHarness.Check("линейно: u совпадают", d < 1e-10, $"max|Δu|/max|u|={d:e2}");
 
         var f2 = Dense.ScaleV(f, 40.0);
         var (uFn, recF) = frame.SolveNonlinearCR(f2, fixedDofs, nSteps: 4, tol: 1e-7, maxIter: 30);
@@ -78,7 +79,7 @@ public class StructuralMeshTests
         var bc = BoundaryConditions.FromArrays(mesh, fixedDofs);
 
         double d = MaxRelDiff(shellMesh.SolveLinear(f, fixedDofs), mesh.SolveLinear(f, bc));
-        TestHarness.Check("линейно: u совпадают", d < 1e-12, $"{d:e2}");
+        TestHarness.Check("линейно: u совпадают", d < 1e-10, $"{d:e2}");   // Холецкий против LU ShellMesh
 
         var (uVk, _) = shellMesh.SolveNonlinear(f, fixedDofs, nSteps: 3, tol: 1e-10, maxIter: 30, lineSearch: false);
         var (uVkS, hVk) = mesh.SolveNonlinear(f, bc, nSteps: 3, tol: 1e-10, maxIter: 30, lineSearch: false, corotational: false);

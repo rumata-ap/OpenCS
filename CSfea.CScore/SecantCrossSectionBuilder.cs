@@ -109,12 +109,17 @@ public static class SecantCrossSectionBuilder
         return map;
     }
 
-    // Как MaterialArea.SecantModulus при ε → 0: секущая по пробной малой деформации.
+    // Как MaterialArea.SecantModulus при ε → 0: секущая по пробной малой деформации. Если ветвь растяжения выключена
+    // (бетон без растяжения) и проба на растяжение даёт ноль — модуль сжатой ветви: волокно при ε = 0 не «пустое»,
+    // иначе начальная осевая жёсткость сечения без растяжения сводилась бы к одной арматуре.
     private static double InitialModulus(Diagramm dgr, bool ten, bool ca)
     {
         const double probe = 1e-12;
         double sigma = dgr.Sig(probe, out double tangent, ten, ca);
-        return Math.Abs(sigma) > 1e-20 ? sigma / probe : tangent;
+        if (Math.Abs(sigma) > 1e-20) return sigma / probe;
+        double sigmaC = dgr.Sig(-probe, out double tangentC, ten, ca);
+        if (Math.Abs(sigmaC) > 1e-20) return sigmaC / -probe;
+        return tangent != 0.0 ? tangent : tangentC;
     }
 
     private static void Add(double[,] s, double a0, double ay, double ax, double ayy, double axy, double axx)

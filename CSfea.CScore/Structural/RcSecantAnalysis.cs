@@ -15,6 +15,13 @@ public sealed class RcSecantOptions
     /// <summary>Правило выключения растянутого бетона пластин трещиной.</summary>
     public PlateCrackRule PlateCrackRule { get; init; } = PlateCrackRule.Layer;
 
+    /// <summary>
+    /// Полоса регуляризации секущей бетона без растяжения у нуля деформаций (<see cref="SecantLaminateBuilder.Build"/>):
+    /// без неё слои с ε ≈ 0 «мигают» между E₀ и 0, и шаг не сходится. Ошибка напряжения в полосе — не более E₀·δ/4
+    /// (при δ = 1e-5 и E₀ = 26 500 МПа — 0,07 МПа).
+    /// </summary>
+    public double ZeroStrainBand { get; init; } = 1e-5;
+
     /// <summary>ν бетона до трещины (Дарвин — Пекнольд); null — как в сечении.</summary>
     public double? PoissonUncracked { get; init; }
 
@@ -49,7 +56,8 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
                 if (options.PoissonUncracked is { } nu) plate.PoissonUncracked = nu;
                 _plates[s.Key] = plate;
             }
-            var st = new PlateSecantShellState(plate, s.PlateMaterials, options.Psi, options.PlateCrackRule);
+            var st = new PlateSecantShellState(plate, s.PlateMaterials, options.Psi, options.PlateCrackRule,
+                options.ZeroStrainBand);
             _shellStates[st.Response] = st;
             return st.Response;
         }

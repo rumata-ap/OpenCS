@@ -18,22 +18,33 @@ public sealed record SecantAbd(double[,] A, double[,] B, double[,] D);
 /// </summary>
 public static class SecantLaminateBuilder
 {
-    /// <summary>Секущая ABD в единицах CScore.</summary>
+    /// <summary>
+    /// Секущая ABD в единицах CScore. <paramref name="zeroStrainBand"/> δ &gt; 0 — регуляризация бетона без растяжения
+    /// (слой с трещиной или растяжение выключено) у нуля: при 0 &lt; ε_eq &lt; δ секущий модуль спадает линейно от E₀ до 0,
+    /// а не скачком. Иначе у слоя с ε ≈ 0 модуль «мигает» между E₀ и 0 от знака ε, и итерации секущих не сходятся
+    /// (поперечное направление полосы, почти недеформированное направление плиты). Цена — напряжение по секущей в
+    /// полосе отличается от закона (σ = 0) не более чем на E₀·δ/4; вне полосы матрица точна. δ = 0 — без регуляризации.
+    /// </summary>
     public static SecantAbd Build(PlateSection section, ShellStrainState s, Diagramm cDiag, Diagramm rDiag,
         IReadOnlyList<Diagramm?>? layerDiags = null, PlateLayerState? layerState = null,
-        bool? tensionOverride = null)
+        bool? tensionOverride = null, double zeroStrainBand = 0.0)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(s);
         var a = new double[3, 3];
         var b = new double[3, 3];
         var d = new double[3, 3];
+        const double probe = 1e-9;
+        double e0 = zeroStrainBand > 0.0 ? -cDiag.Sig(-probe, out _, tenB: false) / probe : 0.0;
 
         int nl = section.NLayers < 1 ? 1 : section.NLayers;
         for (int i = 0; i < nl; i++)
         {
             var p = section.EvaluateConcreteLayer(i, s, cDiag, tensionOverride, layerState);
-            var q = RotatedLayerMatrix(p.Q11, p.Q12, p.Q22, p.G12, p.Theta);
+            var (q11, q12, q22, g12) = zeroStrainBand > 0.0
+                ? Regularized(p, zeroStrainBand, e0)
+                : (p.Q11, p.Q12, p.Q22, p.G12);
+            var q = RotatedLayerMatrix(q11, q12, q22, g12, p.Theta);
             Accumulate(a, b, d, q, p.Dz, p.Z);
         }
 
@@ -55,11 +66,11 @@ public static class SecantLaminateBuilder
     /// <summary>Секущая касательная в единицах CSfea (Н, м) с упругой As сечения (решение спеки:
     /// поперечный сдвиг не меняется).</summary>
     public static ShellTangent BuildTangent(PlateSection section, ShellStrainState s, PlateSectionMaterials materials,
-        PlateLayerState? layerState = null, bool? tensionOverride = null)
+        PlateLayerState? layerState = null, bool? tensionOverride = null, double zeroStrainBand = 0.0)
     {
         ArgumentNullException.ThrowIfNull(materials);
         var abd = Build(section, s, materials.ConcreteDiagram, materials.RebarDiagram, materials.LayerDiagrams,
-            layerState, tensionOverride);
+            layerState, tensionOverride, zeroStrainBand);
         var asMat = materials.AsOverride ?? section.BuildAs(materials.ConcreteE_MPa, materials.Nu, materials.KShear);
         return ToCsfea(abd, asMat);
     }
@@ -95,6 +106,27 @@ public static class SecantLaminateBuilder
                 r[i, j] = r[j, i] = v;
             }
         return r;
+    }
+
+    /// <summary>
+    /// Матрица слоя с регуляризацией у нуля: главное направление с нулевым секущим модулем (растяжение не работает) и
+    /// 0 &lt; ε_eq &lt; δ получает E = E₀·(1 − ε_eq/δ); Q и соосный G₁₂ пересобираются по закону слоя (Дарвин — Пекнольд с
+    /// ν слоя). Остальные слои — без изменений.
+    /// </summary>
+    private static (double Q11, double Q12, double Q22, double G12) Regularized(PlateConcreteLayerPoint p,
+        double band, double e0)
+    {
+        static bool InBand(double eps, double e, double band) => e == 0.0 && eps > 0.0 && eps < band;
+        bool r1 = InBand(p.Eps1Eq, p.E1, band), r2 = InBand(p.Eps2Eq, p.E2, band);
+        if (!r1 && !r2) return (p.Q11, p.Q12, p.Q22, p.G12);
+        double e1 = r1 ? e0 * (1.0 - p.Eps1Eq / band) : p.E1;
+        double e2 = r2 ? e0 * (1.0 - p.Eps2Eq / band) : p.E2;
+        double k = 1.0 / (1.0 - p.Nu * p.Nu);
+        double q11 = k * e1, q22 = k * e2, q12 = k * p.Nu * Math.Sqrt(Math.Max(0.0, e1 * e2));
+        double sig1 = q11 * p.Eps1 + q12 * p.Eps2, sig2 = q12 * p.Eps1 + q22 * p.Eps2;
+        double dEps = p.Eps1 - p.Eps2;
+        double g12 = dEps > 1e-14 ? (sig1 - sig2) / (2.0 * dEps) : 0.25 * (q11 + q22) - 0.5 * q12;
+        return (q11, q12, q22, Math.Max(g12, 0.0));
     }
 
     private static void Accumulate(double[,] a, double[,] b, double[,] d, double[,] q, double dz, double z)

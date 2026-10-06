@@ -13,8 +13,9 @@ public enum PlateCrackRule
     Layer,
 
     /// <summary>
-    /// Сечение с трещиной (как стержневой НДМ по п. 8.2.32 СП 63): после первой трещины в любом слое растянутый бетон
-    /// всего сечения не учитывается, работу бетона между трещинами даёт только ψs арматуры.
+    /// Сечение с трещиной (как стержневой НДМ по п. 8.2.32 СП 63): первая трещина в любом слое делает треснувшими все
+    /// слои — растянутый бетон сечения не учитывается, ν = 0 (как у слоя с трещиной), работу бетона между трещинами
+    /// даёт только ψs арматуры.
     /// </summary>
     Section,
 }
@@ -36,16 +37,19 @@ public sealed class PlateSecantShellState : ISecantShellState
     private readonly double[,] _as;
     private readonly double _concreteLimit;
     private readonly PlateCrackRule _rule;
-    private bool _sectionCracked, _sectionCrackedCommitted;
+    private readonly double _band;
 
     /// <param name="section">Слоистое сечение (<c>PlateModel = "layered"</c>) с нужными TensionConcrete и ν.</param>
     /// <param name="materials">Диаграммы; <see cref="PlateSectionMaterials.ConcreteE_MPa"/> — для упругой As.</param>
     /// <param name="psi">Учитывать ψs арматуры у трещин.</param>
     /// <param name="rule">Правило выключения растянутого бетона трещиной.</param>
+    /// <param name="zeroStrainBand">Полоса регуляризации секущей бетона без растяжения у нуля
+    /// (<see cref="SecantLaminateBuilder.Build"/>).</param>
     public PlateSecantShellState(PlateSection section, PlateSectionMaterials materials, bool psi,
-        PlateCrackRule rule = PlateCrackRule.Layer)
+        PlateCrackRule rule = PlateCrackRule.Layer, double zeroStrainBand = 0.0)
     {
         _rule = rule;
+        _band = zeroStrainBand;
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _m = materials ?? throw new ArgumentNullException(nameof(materials));
         _layers = PlateLayerState.For(section);
@@ -66,7 +70,11 @@ public sealed class PlateSecantShellState : ISecantShellState
     {
         var s = State(epsM, kappa);
         var upd = _section.UpdateCracks(_layers, s, _m.ConcreteDiagram);
-        if (_rule == PlateCrackRule.Section && _layers.CrackedCount > 0) _sectionCracked = true;
+        if (_rule == PlateCrackRule.Section && _layers.CrackedCount is > 0 and var cracked && cracked < _layers.ConcreteLayerCount)
+        {
+            for (int i = 0; i < _layers.ConcreteLayerCount; i++) _layers.MarkCracked(i);
+            upd = _section.UpdateCracks(_layers, s, _m.ConcreteDiagram);   // ψs ждёт вся арматура сечения
+        }
         if (_psi && upd.PendingPsi.Count > 0)
         {
             // Соотношение усилий для M_crc — по секущим усилиям S·ε: они уравновешены решением, а истинные усилия
@@ -91,30 +99,18 @@ public sealed class PlateSecantShellState : ISecantShellState
             [r.Mx * UnitScale.ShellMoment, r.My * UnitScale.ShellMoment, r.Mxy * UnitScale.ShellMoment], q);
     }
 
-    public void Commit()
-    {
-        _layers.Commit();
-        _sectionCrackedCommitted = _sectionCracked;
-    }
-
-    public void Revert()
-    {
-        _layers.Revert();
-        _sectionCracked = _sectionCrackedCommitted;
-    }
-
-    /// <summary>Растяжение бетона: null — по сечению и памяти слоёв; false — сечение с трещиной (правило Section).</summary>
-    public bool? TensionOverride => _sectionCracked ? false : null;
+    public void Commit() => _layers.Commit();
+    public void Revert() => _layers.Revert();
 
     private static ShellStrainState State(double[] e, double[] k) => new(e[0], e[1], e[2], k[0], k[1], k[2]);
 
     private ShellResult Compute(ShellStrainState s)
         => _section.Compute(s, _m.ConcreteDiagram, _m.RebarDiagram, _m.LayerDiagrams, computeStiffness: false,
-                            tensionOverride: TensionOverride, layerState: _layers);
+                            layerState: _layers);
 
     private ShellTangent Tangent(ShellStrainState s)
         => SecantLaminateBuilder.ToCsfea(SecantLaminateBuilder.Build(_section, s, _m.ConcreteDiagram, _m.RebarDiagram,
-            _m.LayerDiagrams, _layers, TensionOverride), _as);
+            _m.LayerDiagrams, _layers, zeroStrainBand: _band), _as);
 
     /// <summary>Трещина — хотя бы один слой; текучесть — растянутая арматура на площадке диаграммы; отказ —
     /// бетон за εb2 или арматура за εs2.</summary>
@@ -123,7 +119,7 @@ public sealed class PlateSecantShellState : ISecantShellState
         bool failed = false, yielded = false;
         int nl = _section.NLayers < 1 ? 1 : _section.NLayers;
         for (int i = 0; i < nl && !failed; i++)
-            if (_section.EvaluateConcreteLayer(i, s, _m.ConcreteDiagram, TensionOverride, _layers).Eps2Eq < _concreteLimit) failed = true;
+            if (_section.EvaluateConcreteLayer(i, s, _m.ConcreteDiagram, null, _layers).Eps2Eq < _concreteLimit) failed = true;
         for (int li = 0; li < _section.RebarLayers.Count; li++)
             foreach (bool alongX in new[] { true, false })
             {
@@ -134,7 +130,7 @@ public sealed class PlateSecantShellState : ISecantShellState
                 if (r.Eps > ultimate) failed = true;
                 if (r.Eps >= yieldStrain) yielded = true;
             }
-        return new SecantSectionStatus(_layers.CrackedCount > 0, yielded, failed);
+        return new SecantSectionStatus(_layers.CrackedCount > 0, yielded, failed, _layers.CrackedCount);
     }
 
     /// <summary>Деформация начала площадки текучести (σ ≥ 0,995·σ(εs2)) и εs2 растянутой ветви.</summary>
@@ -218,7 +214,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
                 for (int j = 0; j < 3; j++)
                     target[i, j] = (sp[0][i, j] + 4 * sp[1][i, j] + sp[2][i, j]) / 6.0;
         }
-        return new SecantBeamEvaluation(target, new SecantSectionStatus(_cracked.Any(c => c), yielded, failed));
+        return new SecantBeamEvaluation(target, new SecantSectionStatus(_cracked.Any(c => c), yielded, failed, _cracked.Count(c => c)));
     }
 
     public BeamForces TrueForces(double xi, double eps0, double kappaY, double kappaZ)

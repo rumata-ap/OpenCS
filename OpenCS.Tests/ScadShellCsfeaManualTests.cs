@@ -71,6 +71,144 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
         Assert.InRange(w2 / -6.873, 0.99, 1.01);
     }
 
+    /// <summary>
+    /// Секущий расчёт, прогон A: бетон без растяжения, без ψs (проверка схемы). Ожидание по OpenSees 03.10 (ft = 0,05 МПа):
+    /// т. 4 — 17,0 мм от L1, 67,4 мм от L2; т. 2/9 — 34,9 мм от L2.
+    /// </summary>
+    [Fact]
+    public void SecantA_NoTension() => RunSecant("secant-A", new RcSecantOptions { TensionConcrete = false, Psi = false });
+
+    /// <summary>
+    /// Прогон B: растяжение бетона до трещины, ψs, ν = 0,2; трещина выключает растянутый бетон сечения (как стержневой
+    /// НДМ по п. 8.2.32). Опыт (от нормативной нагрузки L2): т. 2 — 9,2, т. 4 — 15,1, т. 9 — 8,6 мм.
+    /// </summary>
+    [Fact]
+    public void SecantB_Tension() => RunSecant("secant-B",
+        new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, PlateCrackRule = PlateCrackRule.Section });
+
+    /// <summary>Прогон B с послойным правилом трещины (нетреснувшие растянутые слои работают, плюс ψs).</summary>
+    [Fact]
+    public void SecantB_TensionLayerRule() => RunSecant("secant-B-layer",
+        new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, PlateCrackRule = PlateCrackRule.Layer });
+
+    /// <summary>Опыт: прогибы от нормативной нагрузки (L2, без собственного веса), мм — т. 2, 4, 9.</summary>
+    static readonly Dictionary<string, double> Experiment = new() { ["2"] = 9.2, ["4"] = 15.1, ["9"] = 8.6 };
+
+    /// <summary>
+    /// Схема SCAD с материалами опыта (<see cref="ScadShellMaterialMode.Experiment"/>): пластины — слоистые сечения
+    /// по ЖБ-группам и заданному армированию (20 слоёв бетона), диаграммы — трёхлинейная бетона и двухлинейная
+    /// арматуры (II группа), колонны — сечения CScore по заданному армированию; стадии L1 × 1, L2 по 0,2 × 5.
+    /// </summary>
+    void RunSecant(string name, RcSecantOptions options)
+    {
+        if (Read() is not { } data) return;
+        var report = new List<string>();
+        var scenario = ScadShellScenario.Build(data, new ScadShellScenarioOptions(false, ScadShellMaterialMode.Experiment,
+            [new ScadShellStage("L1", [(1, 1.0)], 1.0), new ScadShellStage("L2", [(2, 1.0)], 0.2)]), report);
+        var materials = scenario.BeamMaterials;
+        RcShellSection Shell(ScadShellElementSection s)
+        {
+            var plate = s.Section.CloneForCalc();
+            plate.NLayers = 20;
+            var concrete = materials[plate.ConcreteMaterialId];
+            var rebar = materials[plate.RebarMaterialId];
+            var layerDiagrams = plate.RebarLayers.Select(l => l.MaterialId > 0 && materials.TryGetValue(l.MaterialId, out var lm)
+                ? lm.GetDiagramms(CScore.DiagrammType.L2)?[CScore.CalcType.N] : null).ToArray();
+            return new RcShellSection(s.Key)
+            {
+                Plate = plate,
+                PlateMaterials = new CSfea.CScoreBridge.PlateSectionMaterials
+                {
+                    ConcreteDiagram = concrete.GetDiagramms(CScore.DiagrammType.L3)![CScore.CalcType.N],
+                    RebarDiagram = rebar.GetDiagramms(CScore.DiagrammType.L2)![CScore.CalcType.N],
+                    LayerDiagrams = layerDiagrams,
+                    ConcreteE_MPa = concrete.E / 1000, Nu = 0.2,
+                },
+            };
+        }
+        var adapted = ScadRcModelAdapter.Adapt(new ScadRcModelInput
+        {
+            Data = data, PlateSection = scenario.PlateSection, ShellSection = Shell,
+            BeamSection = scenario.BeamSection, BeamCalc = CScore.CalcType.N, Stages = scenario.Stages,
+        });
+
+        string? dir = Environment.GetEnvironmentVariable("OPENCS_CSFEA_OUT");
+        StreamWriter? log = null;
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+            log = new StreamWriter(Path.Combine(dir, $"csfea-{name}-log.txt"), false, Encoding.UTF8) { AutoFlush = true };
+        }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        RcSecantRun run;
+        try
+        {
+            run = RcSecantAnalysis.Run(adapted.Model, new RcSecantOptions
+            {
+                TensionConcrete = options.TensionConcrete, Psi = options.Psi, PoissonUncracked = options.PoissonUncracked,
+                PlateCrackRule = options.PlateCrackRule, ZeroStrainBand = options.ZeroStrainBand,
+                Solver = new CSfea.Core.SecantPicardOptions { Log = s => log?.WriteLine($"{sw.Elapsed:hh\\:mm\\:ss} {s}") },
+            });
+        }
+        finally { log?.Dispose(); }
+        foreach (var s in report.Concat(adapted.Report).Concat(run.Build.Report).Distinct()) output.WriteLine(s);
+        var r = run.Result;
+        output.WriteLine($"{name}: {(r.Completed ? "все стадии пройдены" : r.Message)}; шагов {r.Steps.Count}, итераций " +
+            $"{r.Iterations.Count}, время {sw.Elapsed:mm\\:ss}; оболочек с нелинейным законом " +
+            $"{run.ShellStates.Count(s => s != null)}, стержней {run.BeamStates.Count(s => s != null)}");
+
+        var points = PointNodes(data);
+        double W(double[] u, int node) => -u[run.Build.Dof(node, 2)] * 1000;
+        var sb = new StringBuilder("stage,factor,refinement,converged,iterations,residual,cracked_shells,yielded_shells,failed_shells," +
+            string.Join(",", points.Select(p => $"w{p.Name}_mm")) + "\n");
+        foreach (var st in r.Steps)
+            sb.Append(string.Join(",", adapted.Model.Stages[st.Stage].Name, F(st.LoadFactor), st.IsRefinement ? 1 : 0,
+                st.Converged ? 1 : 0, st.Iterations, F(st.TrueResidual), st.Shells.Count(x => x.Cracked),
+                st.Shells.Count(x => x.Yielded), st.Shells.Count(x => x.Failed),
+                string.Join(",", points.Select(p => F(W(st.U, p.Node)))))).Append('\n');
+        if (!string.IsNullOrWhiteSpace(dir)) File.WriteAllText(Path.Combine(dir, $"csfea-{name}-steps.csv"), sb.ToString());
+
+        var e1 = r.StageEnd(0);
+        var e2 = r.StageEnd(1);
+        foreach (var st in r.Steps.Where(s => s.Converged))
+            output.WriteLine($"  {adapted.Model.Stages[st.Stage].Name} λ = {st.LoadFactor:0.###}: " +
+                string.Join(", ", points.Select(p => $"т. {p.Name} {W(st.U, p.Node):0.00}")) +
+                $" мм; итераций {st.Iterations}, невязка {st.TrueResidual:e2}, трещины {st.Shells.Count(x => x.Cracked)}, " +
+                $"текучесть {st.Shells.Count(x => x.Yielded)}, отказ {st.Shells.Count(x => x.Failed)}");
+        if (e1 != null && e2 != null)
+            foreach (var (pn, node) in points)
+                output.WriteLine($"Точка {pn}: L1 = {W(e1.U, node):0.00} мм, от L2 = {W(e2.U, node) - W(e1.U, node):0.00} мм " +
+                    $"(опыт {Experiment[pn]:0.0} мм)");
+        if (e1 != null && e2 != null) Export(name, run.Build, adapted.Model, [e1.U, e2.U]);
+        if (r.Steps.LastOrDefault(s => s.Converged) is { } last && !string.IsNullOrWhiteSpace(dir))
+            ExportElements(Path.Combine(dir, $"csfea-{name}-elements.csv"), run, last);
+        Assert.True(r.Completed, r.Message);
+    }
+
+    /// <summary>
+    /// CSV по оболочкам последнего сошедшегося шага: номер КЭ, центр, трещина/текучесть/отказ, усилия в центре по закону
+    /// сечения (оси сечения; кН/м, кН·м/м).
+    /// </summary>
+    static void ExportElements(string path, RcSecantRun run, CSfea.Core.SecantStepResult step)
+    {
+        var mesh = run.Build.Mesh;
+        var sb = new StringBuilder("shell,x,y,cracked,yielded,failed,Nx,Ny,Nxy,Mx,My,Mxy\n");
+        for (int e = 0; e < mesh.Shells.Count; e++)
+        {
+            if (run.ShellStates[e] is not { } st) continue;
+            var c = mesh.ShellCoords(e);
+            var dofs = CSfea.Core.StructuralMesh.NodeDofs(mesh.Shells[e].Nodes);
+            var (eps, kappa, gamma) = CSfea.Core.ShellElementForces.CenterStrainsGlobal(c, dofs.Select(d => step.U[d]).ToArray());
+            if (mesh.Shells[e].Section is CSfea.Core.RotatedShellResponse rot) (eps, kappa, gamma) = rot.ToSection(eps, kappa, gamma);
+            var f = st.TrueForces(eps, kappa, gamma);
+            var s = step.Shells[e];
+            sb.Append(string.Join(",", run.Build.ShellIds[e], F(c.Average(p => p[0])), F(c.Average(p => p[1])),
+                s.Cracked ? 1 : 0, s.Yielded ? 1 : 0, s.Failed ? 1 : 0,
+                F(f.N[0] / 1e3), F(f.N[1] / 1e3), F(f.N[2] / 1e3), F(f.M[0] / 1e3), F(f.M[1] / 1e3), F(f.M[2] / 1e3))).Append('\n');
+        }
+        File.WriteAllText(path, sb.ToString());
+    }
+
     ScadSchemaData? Read()
     {
         string? spr = Environment.GetEnvironmentVariable("OPENCS_SCAD_NL_SPR");
