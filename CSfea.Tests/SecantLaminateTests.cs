@@ -8,31 +8,8 @@ namespace CSfea.Tests;
 [HarnessChecks]
 public class SecantLaminateTests
 {
-    // Бетон B25 и арматура A500 — числа справочников OpenCS (как TestMaterials в CScore.Tests), кПа.
-    static MaterialChars ConcreteChars(CalcType ct) => new()
-    {
-        Type = MatType.Concrete, TypeCalc = ct, Fc = -18500, Ft = 1550, E = 30_000_000,
-        Ec0 = -0.002, Ec1 = -0.00029, Ec1Red = -0.0015, Ec2 = -0.0035,
-        Et0 = 0.0001, Et1 = 0.000021, Et1Red = 0.00008, Et2 = 0.00015,
-    };
-
-    static MaterialChars RebarChars(CalcType ct) => new()
-    {
-        Type = MatType.ReSteelF, TypeCalc = ct, Fc = -500000, Ft = 500000, E = 200_000_000,
-        Ec2 = -0.0035, Et2 = 0.025,
-    };
-
-    static readonly Diagramm Concrete = new Material
-    {
-        Id = 1, Tag = "B25", Type = MatType.Concrete, E = 30_000_000,
-        MaterialChars = [ConcreteChars(CalcType.C), ConcreteChars(CalcType.CL), ConcreteChars(CalcType.N), ConcreteChars(CalcType.NL)],
-    }.GetDiagramms(DiagrammType.L3)![CalcType.N];
-
-    static readonly Diagramm Rebar = new Material
-    {
-        Id = 2, Tag = "A500", Type = MatType.ReSteelF, E = 200_000_000,
-        MaterialChars = [RebarChars(CalcType.C), RebarChars(CalcType.CL), RebarChars(CalcType.N), RebarChars(CalcType.NL)],
-    }.GetDiagramms(DiagrammType.L2)![CalcType.N];
+    static readonly Diagramm Concrete = RcTestMaterials.ConcreteN();
+    static readonly Diagramm Rebar = RcTestMaterials.RebarN();
 
     static PlateSection Slab(double nu) => new()
     {
@@ -178,7 +155,7 @@ public class SecantLaminateTests
     }
 
     // Собственные числа симметричной матрицы — циклический метод Якоби.
-    static double[] JacobiEigenvalues(double[,] m0)
+    internal static double[] JacobiEigenvalues(double[,] m0)
     {
         int n = m0.GetLength(0);
         var m = (double[,])m0.Clone();
