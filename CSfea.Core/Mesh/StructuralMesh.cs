@@ -234,6 +234,39 @@ public sealed class StructuralMesh : IFeaMesh
         return r;
     }
 
+    /// <summary>
+    /// Относительная невязка ‖F − F_int − K_spring·u − F_nl‖/‖F‖ на свободных DOF пространства решения
+    /// (силы через жёсткие связи приведены к ведущим узлам). <paramref name="fInternal"/> — внутренние
+    /// силы КЭ при <paramref name="u"/> (например, по истинным законам сечений). <paramref name="translationalOnly"/> —
+    /// только поступательные DOF (узловые силы): моменты с силами в одной норме несоизмеримы.
+    /// </summary>
+    public double RelativeResidual(double[] f, double[] fInternal, double[] u, BoundaryConditions bc,
+                                   bool translationalOnly = false)
+    {
+        var r = Dense.SubV(f, fInternal);
+        var kSpring = bc.AssembleKSpring();
+        if (kSpring.Count > 0)
+        {
+            var ks = kSpring.ToCsc().Multiply(u);
+            for (int i = 0; i < r.Length; i++) r[i] -= ks[i];
+        }
+        if (bc.HasNonlinearSprings)
+        {
+            var fnl = bc.AssembleFSpringNonlinear(u);
+            for (int i = 0; i < r.Length; i++) r[i] -= fnl[i];
+        }
+        var free = DirichletReducer.FreeDofs(NSys, SysFixed(bc.FixedDofs));
+        if (translationalOnly)
+        {
+            // Признак «поступательный» — по полному DOF (жёсткие связи сохраняют DOF ведущих узлов).
+            var trans = new bool[NSys];
+            for (int d = 0; d < NDof; d++)
+                if (d % 6 < 3 && (Links?.ToReducedIndex(d) ?? d) is int k and >= 0) trans[k] = true;
+            free = free.Where(i => trans[i]).ToArray();
+        }
+        return NormAt(SysVector(r), free) / Math.Max(NormAt(SysVector(f), free), 1e-300);
+    }
+
     // ---------------- пространство решения (с учётом жёстких связей) ----------------
 
     private int NSys => Links?.NReduced ?? NDof;

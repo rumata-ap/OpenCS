@@ -79,8 +79,8 @@ public sealed record RcLoadCase(int Id, string Name)
 }
 
 /// <summary>
-/// Стадия истории нагружения: полная нагрузка в конце стадии — сумма загружений с коэффициентами
-/// (приращение к предыдущей стадии), дробится на <see cref="Steps"/> шагов.
+/// Стадия истории нагружения: <see cref="Loads"/> — приращение нагрузки (сумма загружений с коэффициентами), которое
+/// стадия добавляет к нагрузке конца предыдущей стадии; приращение дробится на <see cref="Steps"/> шагов.
 /// </summary>
 public sealed record RcStage(string Name, IReadOnlyList<(int LoadCase, double Factor)> Loads, int Steps = 1);
 

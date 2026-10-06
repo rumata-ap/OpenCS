@@ -12,7 +12,8 @@ namespace CSfea.Core;
 public static class ShellElementForces
 {
     /// <summary>Локальный вектор внутренних сил (5n) при u_loc.</summary>
-    public static double[] FInternalLocal(double[,] xy, IShellSectionResponse section, double[] uLoc)
+    public static double[] FInternalLocal(double[,] xy, IShellSectionResponse section, double[] uLoc,
+                                          bool vonKarman = true)
     {
         int n = xy.GetLength(0);
         if (n == 4)
@@ -24,7 +25,7 @@ public static class ShellElementForces
                 var (bm, bb, detJ) = Shell4.BMatricesBendingMembrane(xy, pts[gp][0], pts[gp][1]);
                 var bs = Shell4.BMatrixShear(xy, pts[gp][0], pts[gp][1]);
                 var (gMat, _) = Shell4.GMatrixW(xy, pts[gp][0], pts[gp][1]);
-                AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, wts[gp] * detJ);
+                AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, wts[gp] * detJ, vonKarman);
             }
             return f;
         }
@@ -34,7 +35,7 @@ public static class ShellElementForces
             var bs = Shell3.BMatrixShear(xy);
             var (gMat, _) = Shell3.GMatrixW(xy);
             var f = new double[15];
-            AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, area);
+            AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, area, vonKarman);
             return f;
         }
         throw new ArgumentException("Поддерживаются только 3 или 4 узла.");
@@ -42,9 +43,10 @@ public static class ShellElementForces
 
     private static void AccumulateFInternal(double[] f, double[,] bm, double[,] bb, double[,] bs,
                                             double[,] gMat, IShellSectionResponse section,
-                                            double[] uLoc, double scale)
+                                            double[] uLoc, double scale, bool vonKarman)
     {
-        var g = Dense.MatVec(gMat, uLoc);
+        // Без членов фон Кармана (g = 0) — линейная кинематика: ε = Bm·u, Bm_tot = Bm.
+        var g = vonKarman ? Dense.MatVec(gMat, uLoc) : new double[2];
         var epsL = Dense.MatVec(bm, uLoc);
         var epsNL = new[] { 0.5 * g[0] * g[0], 0.5 * g[1] * g[1], g[0] * g[1] };
         var epsM = Dense.AddV(epsL, epsNL);
@@ -149,15 +151,52 @@ public static class ShellElementForces
 
     /// <summary>Глобальный вектор внутренних сил элемента (6n) при u_global.</summary>
     public static double[] ElementFInternalGlobal(double[][] coords, IShellSectionResponse section,
-                                                  double[] uGlobal)
+                                                  double[] uGlobal, bool vonKarman = true)
     {
         var (xy, _, _) = ShellGeometry.ProjectToLocal(coords);
         int n = coords.Length;
         var r = ShellGeometry.LocalFrame(coords);
         var t = ShellGeometry.BuildTMatrix(r, n);
         var uLoc = Dense.MatTVec(t, uGlobal);
-        var fLoc = FInternalLocal(xy, section, uLoc);
+        var fLoc = FInternalLocal(xy, section, uLoc, vonKarman);
         return Dense.MatVec(t, fLoc);
+    }
+
+    /// <summary>
+    /// Обобщённые деформации в центре КЭ (Q4 — ξ = η = 0, T3 — постоянные) в локальных осях КЭ:
+    /// мембранные ε (с членами фон Кармана ½·g², если <paramref name="vonKarman"/>), кривизны κ и
+    /// поперечные сдвиги γ — та же кинематика, что в <see cref="FInternalLocal"/>.
+    /// </summary>
+    public static (double[] EpsM, double[] Kappa, double[] Gamma) CenterStrainsGlobal(
+        double[][] coords, double[] uGlobal, bool vonKarman = false)
+    {
+        var (xy, _, _) = ShellGeometry.ProjectToLocal(coords);
+        int n = coords.Length;
+        var t = ShellGeometry.BuildTMatrix(ShellGeometry.LocalFrame(coords), n);
+        var uLoc = Dense.MatTVec(t, uGlobal);
+        double[,] bm, bb, bs, gMat;
+        if (n == 4)
+        {
+            (bm, bb, _) = Shell4.BMatricesBendingMembrane(xy, 0.0, 0.0);
+            bs = Shell4.BMatrixShear(xy, 0.0, 0.0);
+            (gMat, _) = Shell4.GMatrixW(xy, 0.0, 0.0);
+        }
+        else if (n == 3)
+        {
+            (bm, bb, _) = Shell3.BMatricesBendingMembrane(xy);
+            bs = Shell3.BMatrixShear(xy);
+            (gMat, _) = Shell3.GMatrixW(xy);
+        }
+        else throw new ArgumentException("Поддерживаются только 3 или 4 узла.");
+        var epsM = Dense.MatVec(bm, uLoc);
+        if (vonKarman)
+        {
+            var g = Dense.MatVec(gMat, uLoc);
+            epsM[0] += 0.5 * g[0] * g[0];
+            epsM[1] += 0.5 * g[1] * g[1];
+            epsM[2] += g[0] * g[1];
+        }
+        return (epsM, Dense.MatVec(bb, uLoc), Dense.MatVec(bs, uLoc));
     }
 
     /// <summary>Глобальная тангенциальная K_T элемента (6n x 6n) при u_global.</summary>

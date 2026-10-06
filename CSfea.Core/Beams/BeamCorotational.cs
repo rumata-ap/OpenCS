@@ -217,7 +217,9 @@ public static class BeamCorotational
     {
         var pl0 = Beam3dPLocal(coordsRef, e0, l0, uElem);
         var b = ComputeBMatrix(coordsRef, e0, l0, uElem, eps);
-        double[] fl = section is not LinearBeamResponse
+        // Секущее сечение линейно, и его КЭ (связанная S с пузырём продольного перемещения) задан
+        // матрицей kL целиком — силы берутся из неё, иначе F_int не согласуется с K.
+        double[] fl = section is not (LinearBeamResponse or SecantBeamResponse)
             ? Beam3dForcesFromResponse(section, pl0, l0)
             : Dense.MatVec(kL, pl0);
         var fg = Dense.MatTVec(b, fl);
