@@ -456,10 +456,14 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public ICommand DiscretizeCommand { get; }
     public ICommand MergeNodesCommand { get; }
 
+    /// <summary>«КонЭ из выделенных КЭ» — через приложение: элементы пишутся в БД мимо сеанса, страница перезагружается.</summary>
+    public Func<IReadOnlyList<string>, bool> CreateMembersFromMeshElements { get; }
+
     public FemSchemaEditorVM(FemSchema schema, AppViewModel app)
     {
         _db = app.db;
         _logService = app.LogService;
+        CreateMembersFromMeshElements = tags => app.CreateFemMembersFromMeshElements(schema, tags);
         var gjResolver = new FemGjDefaultResolver(() => app.CalcSettings);
         _memberFactory = new FemMemberFactory(gjResolver);
         _gjBatchPlanner = new FemGjBatchPlanner(gjResolver);

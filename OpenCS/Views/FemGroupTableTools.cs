@@ -101,6 +101,11 @@ internal sealed class FemGroupTableTools
                 MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    /// <summary>«КонЭ из выделенных…» (таблицы сетки): конструктивные элементы из выделенных КЭ. True — созданы.</summary>
+    /// <param name="groupType">Тип группы КонЭ, предлагаемый в диалоге.</param>
+    public bool CreateMembers(string? groupType) =>
+        _app.CreateFemMembersFromMeshElements(_schema, SelectedTags(), groupType: groupType);
+
     /// <summary>Выпадающий список «Добавить в группу ▾» под кнопкой.</summary>
     public void ShowAddMenu(Button button)
     {

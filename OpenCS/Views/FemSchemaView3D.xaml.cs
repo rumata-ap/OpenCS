@@ -1379,6 +1379,14 @@ public partial class FemSchemaView3D : UserControl
         var menu = new ContextMenu { PlacementTarget = viewport };
         AppendGroupItems(menu, FemMemberGroup.KindMesh, [.. selection.SelectedMeshElemTags]);
         menu.Items.Add(new Separator());
+        if (Editor is { } editor)
+        {
+            List<string> tags = [.. selection.SelectedMeshElemTags];
+            var members = new MenuItem { Header = string.Format(Loc.S("Fem3DMeshMembersFromSelection"), tags.Count) };
+            members.Click += (_, _) => editor.CreateMembersFromMeshElements(tags);
+            menu.Items.Add(members);
+            menu.Items.Add(new Separator());
+        }
         var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
         clear.Click += (_, _) => selection.Clear();
         menu.Items.Add(clear);

@@ -116,25 +116,28 @@ namespace OpenCS.Utilites
          return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
       }
 
+      /// <summary>Конструктивные элементы из кБ ЛИРЫ: прежние элементы этих кБ заменяются (см. <see cref="ApplyMeshMembers"/>).</summary>
+      public void ApplyLiraBlockMembers(int schemaId, IReadOnlyList<LiraBlockInfo> blocks, IReadOnlyList<MeshMemberBuild> builds)
+         => ApplyMeshMembers(schemaId, blocks.Select(b => b.Tag).ToList(), builds);
+
       /// <summary>
-      /// Записывает конструктивные элементы, собранные из кБ ЛИРЫ, одной транзакцией. Прежние элементы этих кБ
-      /// (имя блока или «имя · k») заменяются: удаляются вместе с регионами, КЭ сетки отвязываются, узлы их концов,
-      /// которыми больше никто не пользуется и на которых нет нагрузок, удаляются. Затем добавляются новые узлы
-      /// (существующий узел с тем же тегом переиспользуется), регионы и элементы, а КЭ сетки и узлы концов
-      /// связываются с ними (<c>source_member_tag</c>, <c>source_node_tag</c>).
+      /// Записывает конструктивные элементы, собранные из КЭ сетки, одной транзакцией. Прежние элементы с именами
+      /// <paramref name="replacedTags"/> (имя или «имя · k») заменяются: удаляются вместе с регионами, КЭ сетки
+      /// отвязываются, узлы их концов, которыми больше никто не пользуется и на которых нет нагрузок, удаляются.
+      /// Затем добавляются новые узлы (существующий узел с тем же тегом переиспользуется), регионы и элементы,
+      /// а КЭ сетки и узлы концов связываются с ними (<c>source_member_tag</c>, <c>source_node_tag</c>).
       /// Прежний элемент с распределённой нагрузкой не удаляется — бросается исключение.
       /// </summary>
-      public void ApplyLiraBlockMembers(int schemaId, IReadOnlyList<LiraBlockInfo> blocks, IReadOnlyList<LiraBlockMemberBuild> builds)
+      public void ApplyMeshMembers(int schemaId, IReadOnlyList<string> replacedTags, IReadOnlyList<MeshMemberBuild> builds)
       {
          var existingMembers = GetFemMembers(schemaId);
-         var blockTags = blocks.Select(b => b.Tag).ToList();
-         var replaced = existingMembers.Where(m => blockTags.Any(t => m.ElemTag == t || m.ElemTag.StartsWith(t + " · ", StringComparison.Ordinal))).ToList();
+         var replaced = existingMembers.Where(m => replacedTags.Any(t => MeshMemberBuilder.IsPartTag(m.ElemTag, t))).ToList();
          var replacedIds = replaced.Select(m => m.Id).ToHashSet();
          var loaded = GetFemMemberLoads(schemaId).Where(l => replacedIds.Contains(l.MemberId)).Select(l => l.MemberId).ToHashSet();
          if (loaded.Count > 0)
             throw new InvalidOperationException("На элементах "
                + string.Join(", ", replaced.Where(m => loaded.Contains(m.Id)).Select(m => $"«{m.ElemTag}»"))
-               + " есть распределённые нагрузки — снимите их перед повторным преобразованием кБ.");
+               + " есть распределённые нагрузки — снимите их перед повторной сборкой элементов.");
 
          var remaining = existingMembers.Where(m => !replacedIds.Contains(m.Id)).ToList();
          var usedNodeTags = remaining.SelectMany(m => ReadIntTags(m.NodeIdsJson)).ToHashSet(StringComparer.Ordinal);

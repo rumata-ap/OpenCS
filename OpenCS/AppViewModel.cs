@@ -563,6 +563,7 @@ namespace OpenCS
       public ICommand NewFemMembersGroupCommand { get; set; } = null!;
       /// <summary>Команда переименования группы КЭ или КонЭ.</summary>
       public ICommand RenameFemMemberGroupCommand { get; set; } = null!;
+      public ICommand CreateFemMembersFromMeshGroupCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания плиты кликами по узлам в 3D-виде схемы.</summary>
       public ICommand CreatePlateModeCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания стены кликами по узлам в 3D-виде схемы.</summary>
@@ -1489,6 +1490,7 @@ namespace OpenCS
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          NewFemMembersGroupCommand = new RelayCommand(p => NewFemMembersGroup(p as CScore.Fem.FemSchema));
          RenameFemMemberGroupCommand = new RelayCommand(p => RenameFemMemberGroup(p as CScore.Fem.FemMemberGroup));
+         CreateFemMembersFromMeshGroupCommand = new RelayCommand(p => CreateFemMembersFromMeshGroup(p as CScore.Fem.FemMemberGroup));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
          CreateWallModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "wall"));
          CreateSpatialPlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "spatial"));
@@ -4469,13 +4471,13 @@ namespace OpenCS
          var selected = vm.SelectedBlocks;
 
          var replacedTags = members
-            .Where(m => selected.Any(b => m.ElemTag == b.Tag || m.ElemTag.StartsWith(b.Tag + " · ", StringComparison.Ordinal)))
+            .Where(m => selected.Any(b => CScore.Import.MeshMemberBuilder.IsPartTag(m.ElemTag, b.Tag)))
             .Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
          var ownerByElement = meshElements
             .Where(e => e.SourceMemberTag != null && !replacedTags.Contains(e.SourceMemberTag))
             .ToDictionary(e => e.ElemTag, e => e.SourceMemberTag!, StringComparer.Ordinal);
          var claimed = new HashSet<string>(StringComparer.Ordinal);
-         var builds = new List<CScore.Import.LiraBlockMemberBuild>();
+         var builds = new List<CScore.Import.MeshMemberBuild>();
          var converted = new List<CScore.Import.LiraBlockInfo>();
          foreach (var block in selected)
          {
@@ -4486,7 +4488,7 @@ namespace OpenCS
             if (busy.Count > 0)
                LogService.Warning(string.Format(Loc.S("LiraBlocksElementsBusy"), block.Tag, busy.Count,
                   string.Join(", ", busy.Take(20))));
-            CScore.Import.LiraBlockMemberBuild build;
+            CScore.Import.MeshMemberBuild build;
             try
             {
                build = CScore.Import.LiraBlockMemberBuilder.Build(block with { ElementTags = free }, meshNodes, meshElements);
@@ -4523,6 +4525,103 @@ namespace OpenCS
          StatusMessage = done;
          if (editorOpen) ReloadFemSchemaPage();
          else RefreshFemSchemaTreeCounts(schema);
+      }
+
+      /// <summary>«Создать КонЭ из группы…» в дереве: КЭ — состав группы КЭ, имя и тип — от группы.</summary>
+      void CreateFemMembersFromMeshGroup(CScore.Fem.FemMemberGroup? group)
+      {
+         if (group is not { IsMeshGroup: true }) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == group.SchemaId);
+         if (schema == null) return;
+         CreateFemMembersFromMeshElements(schema, group.Tags, group.Tag, group.MemberType, makeGroup: true);
+      }
+
+      /// <summary>
+      /// Конструктивные элементы из КЭ сетки (таблицы сетки, выбор КЭ в 3D, группа КЭ): прямые цепочки стержней и
+      /// плоские части пластин. Выбор, не складывающийся в один элемент, разбивается на части «Имя · 1», «Имя · 2»…
+      /// с сообщением. КЭ, уже принадлежащие элементу, пропускаются с предупреждением. Элементы получают замок
+      /// сетки; по флажку диалога из них собирается группа КонЭ. True — элементы созданы.
+      /// </summary>
+      /// <param name="groupType">Тип группы КонЭ по умолчанию; для пластин плита/стена задаёт и вид плоских частей.</param>
+      public bool CreateFemMembersFromMeshElements(CScore.Fem.FemSchema schema, IReadOnlyList<string> elementTags,
+         string? defaultTag = null, string? groupType = null, bool makeGroup = false)
+      {
+         if (elementTags.Count == 0) return false;
+         var meshElements = db.GetFemMeshElements(schema.Id);
+         var elementByTag = new Dictionary<string, CScore.Fem.FemElement>(StringComparer.Ordinal);
+         foreach (var e in meshElements) elementByTag.TryAdd(e.ElemTag, e);
+         var tags = elementTags.Distinct(StringComparer.Ordinal).ToList();
+         var busy = tags.Where(t => elementByTag.TryGetValue(t, out var e) && e.SourceMemberTag != null).ToList();
+         var free = tags.Except(busy, StringComparer.Ordinal).ToList();
+         if (free.Count == 0)
+         {
+            MessageBox.Show(string.Format(Loc.S("FemMeshMembersAllBusy"), tags.Count), Loc.S("FemMeshMembersDlgTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+         }
+
+         var members = db.GetFemMembers(schema.Id);
+         bool TagTaken(string tag) => members.Any(m => CScore.Import.MeshMemberBuilder.IsPartTag(m.ElemTag, tag));
+         string tag = defaultTag ?? "";
+         if (tag.Length == 0 || TagTaken(tag))
+         {
+            string stem = defaultTag is { Length: > 0 } ? defaultTag : Loc.S("FemMeshMembersDefaultTag");
+            int n = 1;
+            while (TagTaken(tag = $"{stem} {n}")) n++;
+         }
+         bool hasShells = free.Any(t => elementByTag.TryGetValue(t, out var e) && e.ElemType == "shell");
+         string? planarKind = groupType is CScore.Fem.FemMemberTypes.Plate or CScore.Fem.FemMemberTypes.Wall ? groupType : null;
+         var dialog = new Views.MeshMembersDialog(free.Count, hasShells, tag, planarKind, makeGroup, groupType);
+         if (dialog.ShowDialog() != true) return false;
+         tag = dialog.MemberTag;
+
+         // Открытый редактор этой схемы держит конструктивный слой в памяти и при сохранении перезапишет его.
+         bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return false;
+         members = db.GetFemMembers(schema.Id);
+         if (TagTaken(tag))
+         {
+            MessageBox.Show(string.Format(Loc.S("FemMeshMembersNameTaken"), tag), Loc.S("FemMeshMembersDlgTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (editorOpen) ReloadFemSchemaPage();
+            return false;
+         }
+         if (busy.Count > 0)
+            LogService.Warning(string.Format(Loc.S("LiraBlocksElementsBusy"), tag, busy.Count, string.Join(", ", busy.Take(20))));
+
+         CScore.Import.MeshMemberBuild build;
+         try
+         {
+            build = CScore.Import.MeshMemberBuilder.Build(new CScore.Import.MeshMemberRequest(tag, dialog.PlanarKind, free),
+               db.GetFemMeshNodes(schema.Id), meshElements);
+            db.ApplyMeshMembers(schema.Id, [], [build]);
+         }
+         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+         {
+            MessageBox.Show(ex.Message, Loc.S("FemMeshMembersDlgTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (editorOpen) ReloadFemSchemaPage();
+            return false;
+         }
+         foreach (var d in build.Diagnostics)
+            LogService.Warning(d.Message);
+
+         var parts = build.Parts;
+         if (parts.Count > 0 && dialog.MakeGroup)
+            FemGroups.CreateMembersGroup(schema, parts.Select(p => p.Member.ElemTag), tag, dialog.GroupType);
+         string done = string.Format(Loc.S("FemMeshMembersCreated"), tag, free.Count, parts.Count,
+            parts.Count(p => p.Member.ElemType == "beam"), parts.Count(p => p.Member.ElemType == "shell"), build.Diagnostics.Count);
+         LogService.Info(done);
+         StatusMessage = done;
+         if (editorOpen) ReloadFemSchemaPage();
+         else RefreshFemSchemaTreeCounts(schema);
+
+         if (parts.Count == 0)
+            MessageBox.Show(Loc.S("FemMeshMembersNoneBuilt"), Loc.S("FemMeshMembersDlgTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+         else if (parts.Count > 1)
+            MessageBox.Show(string.Format(Loc.S("FemMeshMembersSplit"), parts.Count, tag), Loc.S("FemMeshMembersDlgTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
+         return parts.Count > 0;
       }
 
       async void ImportLiraForcesFromApi(CScore.Fem.IFemCheckable? target = null)

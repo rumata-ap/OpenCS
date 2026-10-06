@@ -7,6 +7,8 @@
          <Separator/>
          <Button Content="{DynamicResource FemGroupAddTo}"      Click="AddToGroup_Click" Margin="4,0,4,0"/>
          <Button Content="{DynamicResource FemGroupRemoveFrom}" Click="RemoveFromGroup_Click"/>
+         <Separator/>
+         <Button Content="{DynamicResource FemMeshMembersFromSelection}" Click="CreateMembers_Click" Margin="4,0,0,0"/>
       </ToolBar>
       <DataGrid x:Name="meshBarsGrid"
                 AutoGenerateColumns="False"

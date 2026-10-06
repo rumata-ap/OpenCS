@@ -52,7 +52,7 @@ public class LiraBlockMemberBuilderTests
         return tags;
     }
 
-    LiraBlockMemberBuild Build(string type, IEnumerable<string> tags, int id = 5, string floor = "1-й этаж", string mark = "")
+    MeshMemberBuild Build(string type, IEnumerable<string> tags, int id = 5, string floor = "1-й этаж", string mark = "")
         => LiraBlockMemberBuilder.Build(new LiraBlockInfo(id, type, floor, mark, tags.ToList()), _nodes, _elements);
 
     static int[] Ends(FemMember m) => JsonSerializer.Deserialize<int[]>(m.NodeIdsJson)!;
@@ -197,7 +197,7 @@ public class LiraBlockMemberBuilderTests
         var build = Build("ПЛИТА", tags);
 
         Assert.Empty(build.Parts);
-        Assert.Contains(build.Diagnostics, d => d.Code == "lira_block_contour_ambiguous");
+        Assert.Contains(build.Diagnostics, d => d.Code == "mesh_member_contour_ambiguous");
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class LiraBlockMemberBuilderTests
         var part = Assert.Single(build.Parts);
         Assert.Equal(2, part.ElementTags.Count);
         Assert.Equal(4.0, Math.Abs(PlanarRegionTopologyValidator.SignedArea(part.Region!.Hull!.X, part.Region.Hull.Y)), 6);
-        Assert.Single(build.Diagnostics, x => x.Code == "lira_block_element_degenerate");
+        Assert.Single(build.Diagnostics, x => x.Code == "mesh_member_element_degenerate");
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public class LiraBlockMemberBuilderTests
         var build = Build("БАЛКА", [Bar(a, b), "999"]);
 
         Assert.Single(build.Parts);
-        Assert.Contains(build.Diagnostics, d => d.Code == "lira_block_element_missing");
+        Assert.Contains(build.Diagnostics, d => d.Code == "mesh_member_element_missing");
     }
 
     [Theory]
@@ -249,4 +249,57 @@ public class LiraBlockMemberBuilderTests
         Assert.Equal((id, type, floor, mark), (pid, ptype, pfloor, pmark));
         Assert.Equal(tag, LiraBlockTags.Format(id, type, floor, mark));
     }
+
+    // ---------------- «КонЭ из КЭ»: ручной выбор ----------------
+
+    MeshMemberBuild BuildManual(string tag, IEnumerable<string> tags, string? kind = null)
+        => MeshMemberBuilder.Build(new MeshMemberRequest(tag, kind, tags.ToList()), _nodes, _elements);
+
+    [Fact]
+    public void Manual_SingleBar_IsOneMemberNamedAsRequested()
+    {
+        var tag = Bar(Node(0, 0, 0), Node(0, 0, 3));
+
+        var part = Assert.Single(BuildManual("Стойка", [tag]).Parts);
+
+        Assert.Equal("Стойка", part.Member.ElemTag);
+        Assert.Equal([tag], part.ElementTags);
+    }
+
+    [Fact]
+    public void Manual_BarsAndPlate_SplitIntoNumberedParts()
+    {
+        // Г-образная цепочка стержней и плита — три части: «Рама · 1», «Рама · 2», «Рама · 3».
+        int a = Node(0, 0, 0), b = Node(0, 0, 3), c = Node(4, 0, 3);
+        var tags = new List<string> { Bar(a, b), Bar(b, c) };
+        tags.AddRange(Grid(2, 2, (i, j) => (10 + i * 0.5, j * 0.5, 3)));
+
+        var build = BuildManual("Рама", tags);
+
+        Assert.Equal(["Рама · 1", "Рама · 2", "Рама · 3"], build.Parts.Select(p => p.Member.ElemTag));
+        Assert.Equal(2, build.Parts.Count(p => p.Member.ElemType == "beam"));
+        var plate = Assert.Single(build.Parts, p => p.Member.ElemType == "shell");
+        Assert.Equal("plate", plate.Member.Kind);
+        Assert.Equal("auto", plate.Member.KindSource);
+        Assert.Equal("Рама · 3", plate.Region!.Tag);
+    }
+
+    [Fact]
+    public void Manual_KindOverridesGeometry()
+    {
+        var tags = Grid(2, 2, (i, j) => (i * 0.5, j * 0.5, 0));
+
+        var part = Assert.Single(BuildManual("Ростверк", tags, kind: "wall").Parts);
+
+        Assert.Equal("wall", part.Member.Kind);
+        Assert.Equal("manual", part.Member.KindSource);
+    }
+
+    [Theory]
+    [InlineData("Рама", true)]
+    [InlineData("Рама · 2", true)]
+    [InlineData("Рамка", false)]
+    [InlineData("Рама 2", false)]
+    public void IsPartTag_MatchesNameAndNumberedParts(string memberTag, bool expected)
+        => Assert.Equal(expected, MeshMemberBuilder.IsPartTag(memberTag, "Рама"));
 }

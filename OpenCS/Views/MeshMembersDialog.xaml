@@ -1,0 +1,64 @@
+<Window x:Class="OpenCS.Views.MeshMembersDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemMeshMembersDlgTitle}"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="8"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="150"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <TextBlock Grid.Row="0" Grid.ColumnSpan="2" x:Name="InfoText" TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,10"/>
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Tag}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <TextBox   Grid.Row="1" Grid.Column="1" x:Name="TagBox"
+                 Text="{Binding MemberTag, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"/>
+
+      <TextBlock Grid.Row="2" Grid.Column="0" x:Name="KindLabel" Text="{DynamicResource FemMeshMembersPlanarKind}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="2" Grid.Column="1" x:Name="KindBox"
+                 ItemsSource="{Binding PlanarKinds}"
+                 DisplayMemberPath="Name"
+                 SelectedValuePath="Code"
+                 SelectedValue="{Binding PlanarKind}"
+                 Margin="0,0,0,8"/>
+
+      <CheckBox  Grid.Row="3" Grid.ColumnSpan="2" x:Name="MakeGroupBox"
+                 Content="{DynamicResource FemMeshMembersMakeGroup}"
+                 IsChecked="{Binding MakeGroup}"
+                 Margin="0,4,0,8"/>
+
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FemMeshMembersGroupType}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 IsEnabled="{Binding IsChecked, ElementName=MakeGroupBox}"/>
+      <ComboBox  Grid.Row="4" Grid.Column="1"
+                 ItemsSource="{Binding GroupTypes}"
+                 DisplayMemberPath="Name"
+                 SelectedValuePath="Code"
+                 SelectedValue="{Binding GroupType}"
+                 IsEnabled="{Binding IsChecked, ElementName=MakeGroupBox}"
+                 Margin="0,0,0,8"/>
+
+      <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                  Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button Content="{DynamicResource OK}" IsDefault="True"
+                 Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+      </StackPanel>
+   </Grid>
+</Window>

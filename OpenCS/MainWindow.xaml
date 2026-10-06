@@ -1741,6 +1741,13 @@
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <Separator/>
+                              <MenuItem Header="{DynamicResource FemMeshMembersFromGroup}"
+                                        Visibility="{Binding PlacementTarget.DataContext.IsMeshGroup, Converter={StaticResource BoolToVisibility},
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        Command="{Binding PlacementTarget.Tag.CreateFemMembersFromMeshGroupCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource FemGroupRename}"
                                         Command="{Binding PlacementTarget.Tag.RenameFemMemberGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

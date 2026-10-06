@@ -140,4 +140,22 @@ public class LiraBlocksPersistenceTests
         Assert.Equal((5, "СТЕНА", "1-й этаж", "С-1"), (block.Id, block.Type, block.Floor, block.Mark));
         Assert.Equal(["11", "12"], block.ElementTags);
     }
+
+    [Fact]
+    public void MeshMembers_FromSelection_AddedNextToExistingMembers()
+    {
+        // Колонна — кБ; плита — ручным выбором КЭ: прежний элемент кБ не трогается, КЭ плиты связывается с новым.
+        var (db, schema) = CreateSchema();
+        using var _ = db;
+        Convert(db, schema.Id, db.GetLiraBlocks(schema.Id).Take(1).ToList());
+        var build = MeshMemberBuilder.Build(new MeshMemberRequest("Плита П-1", null, ["3"]),
+            db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
+
+        db.ApplyMeshMembers(schema.Id, [], [build]);
+
+        Assert.Equal(["КОЛОННА №1 [1 этаж] К-1", "Плита П-1"], db.GetFemMembers(schema.Id).Select(m => m.ElemTag).Order(StringComparer.Ordinal));
+        var mesh = db.GetFemMeshElements(schema.Id).ToDictionary(e => e.ElemTag);
+        Assert.Equal("КОЛОННА №1 [1 этаж] К-1", mesh["1"].SourceMemberTag);
+        Assert.Equal("Плита П-1", mesh["3"].SourceMemberTag);
+    }
 }
