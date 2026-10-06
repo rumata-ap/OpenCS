@@ -12,7 +12,7 @@ public class ScadShellModelAssemblerTests
     /// Плита 2 × 2 м из четырёх Q4 (узлы 1–9, сетка 1 м, порядок SCAD «1 2 4 3»), колонна 0,3 × 0,3 высотой 3 м под
     /// центром: узел 20 (z = −3, защемлён) → 10 (верх), жёсткое тело 10 → 5.
     /// </summary>
-    static ScadSchemaData Data()
+    internal static ScadSchemaData Data()
     {
         var d = new ScadSchemaData();
         int id = 1;

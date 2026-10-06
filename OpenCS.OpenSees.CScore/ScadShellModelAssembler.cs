@@ -289,7 +289,7 @@ public static class ScadShellModelAssembler
     /// <summary>
     /// Frame КЭ: Ex — ось X1 (узел 1 → узел 2), повёрнутая на угол осей выдачи SCAD вокруг нормали; нормаль — по обходу.
     /// </summary>
-    static ShellFrame Frame(ScadNodeRecord[] p, double angleDeg)
+    internal static ShellFrame Frame(ScadNodeRecord[] p, double angleDeg)
     {
         ShellVector3 V(ScadNodeRecord n) => new(n.X, n.Y, n.Z);
         var normal = (V(p[1]) - V(p[0])).Cross(V(p[^1]) - V(p[0])).Normalize();
@@ -309,13 +309,13 @@ public static class ScadShellModelAssembler
     static string FrameKey(ShellFrame f) => string.Join(",",
         new[] { f.Ex.X, f.Ex.Y, f.Ex.Z, f.Normal.X, f.Normal.Y, f.Normal.Z }.Select(v => v.ToString("F9", CultureInfo.InvariantCulture)));
 
-    static (double, double, double) Vecxz(ScadNodeRecord a, ScadNodeRecord b)
+    internal static (double, double, double) Vecxz(ScadNodeRecord a, ScadNodeRecord b)
     {
         var axis = new ShellVector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z).Normalize();
         return Math.Abs(axis.X) > 0.9 ? (0, 1, 0) : (1, 0, 0);
     }
 
-    static FemLinearElement? ElasticBeam(ScadElementRecord e, IReadOnlyDictionary<int, ScadStiffnessRecord> stiff,
+    internal static FemLinearElement? ElasticBeam(ScadElementRecord e, IReadOnlyDictionary<int, ScadStiffnessRecord> stiff,
         double fu, double lu, (double, double, double) vecxz, ScadNodeRecord a, ScadNodeRecord b)
     {
         if (stiff.GetValueOrDefault(e.StiffnessId) is not { BarRect: { } rect, Text: { } text }) return null;

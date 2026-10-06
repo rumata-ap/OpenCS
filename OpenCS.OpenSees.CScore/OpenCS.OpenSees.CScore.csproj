@@ -4,6 +4,8 @@
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
     <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
+    <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
+    <ProjectReference Include="..\CSfea.CScore\CSfea.CScore.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
