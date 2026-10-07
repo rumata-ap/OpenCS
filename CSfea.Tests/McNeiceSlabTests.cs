@@ -68,7 +68,7 @@ public class McNeiceSlabTests(ITestOutputHelper output)
     }
 
     /// <summary>Полная плита: опоры uz в углах, сила в центре; стадия до <see cref="PMax"/> за <paramref name="steps"/> шагов.</summary>
-    static RcStructuralModel FullModel(int steps)
+    static RcStructuralModel FullModel(int steps, double factor = 1.0)
     {
         var m = new RcStructuralModel();
         int Id(int i, int j) => i * (N + 1) + j;
@@ -84,12 +84,12 @@ public class McNeiceSlabTests(ITestOutputHelper output)
         var lc = new RcLoadCase(1, "P");
         lc.Nodal.Add(new RcNodalLoad(Id(N / 2, N / 2), [0, 0, -PMax, 0, 0, 0]));
         m.LoadCases.Add(lc);
-        m.Stages.Add(new RcStage("P", [(1, 1.0)], steps));
+        m.Stages.Add(new RcStage("P", [(1, factor)], steps));
         return m;
     }
 
-    static RcStructuralModel Quarter(int steps) =>
-        RcSymmetry.Cut(FullModel(steps), [new RcSymmetryPlane(0, L / 2), new RcSymmetryPlane(1, L / 2)]);
+    static RcStructuralModel Quarter(int steps, double factor = 1.0) =>
+        RcSymmetry.Cut(FullModel(steps, factor), [new RcSymmetryPlane(0, L / 2), new RcSymmetryPlane(1, L / 2)]);
 
     /// <summary>Узел замера: на оси симметрии в 76,2 мм от центра (2 КЭ), в четверти — к опоре.</summary>
     static int MeasureNode => (N / 2 - 2) * (N + 1) + N / 2;
@@ -144,6 +144,55 @@ public class McNeiceSlabTests(ITestOutputHelper output)
         File.WriteAllText(Path.Combine(dir, $"mcneice-{tag}-elements.csv"), elems.ToString());
         File.WriteAllText(Path.Combine(dir, $"mcneice-{tag}-nodes.csv"), nodes.ToString());
     }
+
+    /// <summary>
+    /// Эпюры по толщине в КЭ четверти у центра (центр КЭ — 19 мм от осей симметрии) при P = 6 кН для правил Layer и
+    /// Section с ψs: σx бетона по слоям (кПа → МПа), трещина слоя, εx; арматура x — ε, σ (с ψs), ψs. Печать и, при
+    /// OPENCS_CSFEA_OUT, mcneice-profile-{layer|section}.csv.
+    /// </summary>
+    [Fact]
+    public void ThicknessProfiles()
+    {
+        foreach (var (rule, tag) in new[] { (PlateCrackRule.Layer, "layer"), (PlateCrackRule.Section, "section") })
+        {
+            var m = Quarter(12, 0.5);
+            var run = RcSecantAnalysis.Run(m, new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = rule });
+            var end = run.Result.StageEnd(0)!;
+            var mesh = run.Build.Mesh;
+            int e = Enumerable.Range(0, mesh.Shells.Count).MinBy(i =>
+            {
+                var c = mesh.ShellCoords(i);
+                return Math.Pow(c.Average(q => q[0]) - (L / 2 - L / N / 2), 2) + Math.Pow(c.Average(q => q[1]) - (L / 2 - L / N / 2), 2);
+            });
+            var dofs = CSfea.Core.StructuralMesh.NodeDofs(mesh.Shells[e].Nodes);
+            var (eps, kappa, _) = CSfea.Core.ShellElementForces.CenterStrainsGlobal(mesh.ShellCoords(e), dofs.Select(d => end.U[d]).ToArray());
+            var st = (PlateSecantShellState)run.ShellStates[e]!;
+            var sec = Section();
+            var plate = sec.Plate!;
+            var mat = sec.PlateMaterials!;
+            var ss = new ShellStrainState(eps[0], eps[1], eps[2], kappa[0], kappa[1], kappa[2]);
+            var sb = new System.Text.StringBuilder("kind,z_mm,eps_x,sigma_x_MPa,cracked,psi\n");
+            output.WriteLine($"=== {tag}: P = 6 кН, КЭ {run.Build.ShellIds[e]}, κx = {kappa[0]:e3} 1/м, трещин слоёв {st.Layers.CrackedCount}");
+            for (int i = 0; i < plate.NLayers; i++)
+            {
+                var lp = plate.EvaluateConcreteLayer(i, ss, mat.ConcreteDiagram, null, st.Layers);
+                double c2 = Math.Cos(lp.Theta) * Math.Cos(lp.Theta), s2 = 1 - c2;
+                double sx = (lp.Sig1 * c2 + lp.Sig2 * s2) / 1e3;
+                sb.Append(string.Join(",", "concrete", F3(lp.Z * 1e3), F3(ss.EpsX(lp.Z)), F3(sx), lp.Cracked ? 1 : 0, "")).Append('\n');
+                output.WriteLine($"  слой {i,2}: z = {lp.Z * 1e3,7:0.00} мм, εx = {ss.EpsX(lp.Z) * 1e3,7:0.000}‰, σx = {sx,7:0.00} МПа{(lp.Cracked ? ", трещина" : "")}");
+            }
+            var rp = plate.EvaluateRebar(0, true, ss, mat.RebarDiagram, null, st.Layers);
+            sb.Append(string.Join(",", "rebar", F3(rp.Z * 1e3), F3(rp.Eps), F3(rp.Sig / 1e3), "", F3(rp.Psi))).Append('\n');
+            output.WriteLine($"  арматура x: z = {rp.Z * 1e3:0.00} мм, εs = {rp.Eps * 1e3:0.000}‰, σs = {rp.Sig / 1e3:0.0} МПа, ψs = {rp.Psi:0.000}");
+            if (Environment.GetEnvironmentVariable("OPENCS_CSFEA_OUT") is { Length: > 0 } dir)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, $"mcneice-profile-{tag}.csv"), sb.ToString());
+            }
+        }
+    }
+
+    static string F3(double v) => v.ToString("R", CultureInfo.InvariantCulture);
 
     /// <summary>Сила опыта при прогибе w (линейная интерполяция, NaN вне кривой).</summary>
     static double ExperimentAt(double w)
