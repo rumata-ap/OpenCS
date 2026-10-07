@@ -140,12 +140,21 @@ public sealed class PlateSecantShellState : ISecantShellState
         return new SecantSectionStatus(_layers.CrackedCount > 0, yielded, failed, _layers.CrackedCount);
     }
 
-    /// <summary>Деформация начала площадки текучести (σ ≥ 0,995·σ(εs2)) и εs2 растянутой ветви.</summary>
+    /// <summary>
+    /// Деформация начала текучести и εs2 растянутой ветви. Текучесть — первый излом, за которым касательный модуль
+    /// меньше 10 % начального (площадка или упрочнение), иначе — начало площадки σ ≥ 0,995·σ(εs2).
+    /// </summary>
     internal static (double Yield, double Ultimate) RebarLimits(Diagramm d)
     {
         double ult = d.It.X.Max();
         double sMax = d.Sig(ult, out _);
         var xs = d.It.X.Where(x => x > 0.0).OrderBy(x => x).ToArray();
+        double e0 = xs.Length > 0 ? d.Sig(xs[0], out _) / xs[0] : 0.0;
+        for (int i = 0; i + 1 < xs.Length; i++)
+        {
+            double slope = (d.Sig(xs[i + 1], out _) - d.Sig(xs[i], out _)) / (xs[i + 1] - xs[i]);
+            if (slope < 0.1 * e0) return (xs[i], ult);
+        }
         double y = xs.FirstOrDefault(x => d.Sig(x, out _) >= 0.995 * sMax, ult);
         return (y, ult);
     }
