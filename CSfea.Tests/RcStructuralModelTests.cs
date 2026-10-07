@@ -17,6 +17,7 @@ public class RcStructuralModelTests
         RunPlatePressure();
         RunSectionAxisRotation();
         RunUnconnectedNodes();
+        RunSymmetryQuarter();
     }
 
     private static readonly RcBeamSection Rect = new("rect 0.3×0.5")
@@ -187,5 +188,56 @@ public class RcStructuralModelTests
         double ei = E * Rect.Elastic!.Iz;
         TestHarness.CheckRel("прогиб конца консоли PL³/3EI", -u[build.Dof(12, 2)], 1e4 * 8 / (3 * ei), 1e-9);
         TestHarness.Check("кручение от плеча силы", Math.Abs(u[build.Dof(12, 3)]) > 0);
+    }
+    /// <summary>
+    /// Четверть плиты на колоннах по двум плоскостям симметрии: перемещения узлов четверти = полной схеме. Нагрузки —
+    /// давление, узловые силы во всех узлах (делятся на плоскостях) и сила в центре (делится на 4); колонны с жёсткими
+    /// телами оголовков внутри четверти.
+    /// </summary>
+    private static void RunSymmetryQuarter()
+    {
+        TestHarness.Section("RcSymmetry: четверть плиты на колоннах = полная схема");
+        const int n = 12;
+        const double l = 6.0, h = l / n;
+        var m = new RcStructuralModel();
+        int Id(int i, int j) => 1000 + i * (n + 1) + j;
+        for (int i = 0; i <= n; i++)
+            for (int j = 0; j <= n; j++) m.Nodes.Add(new RcNode(Id(i, j), i * h, j * h, 0));
+        var sec = new RcShellSection("h200") { Elastic = new Laminate(new[] { new Ply(new OrthotropicMaterial(E, E, 0.2, E / 2.4), 0, 0.2) }) };
+        int sid = 1;
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++) m.Shells.Add(new RcShell(sid++, new[] { Id(i, j), Id(i + 1, j), Id(i + 1, j + 1), Id(i, j + 1) }, sec));
+        var col = new RcBeamSection("col 0.3") { Elastic = new BeamSection(E, 0.09, 0.3 * 0.027 / 12, 0.3 * 0.027 / 12, 1.1e-3) };
+        int k = 0;
+        foreach (var (ci, cj) in new[] { (2, 2), (10, 2), (2, 10), (10, 10) })
+        {
+            int top = 1, bot = 2;
+            top += 10 * k; bot += 10 * k;
+            m.Nodes.Add(new RcNode(top, ci * h, cj * h, 0));
+            m.Nodes.Add(new RcNode(bot, ci * h, cj * h, -3));
+            m.Beams.Add(new RcBeam(1 + k, bot, top, col, new[] { 1.0, 0, 0 }));
+            m.RigidBodies.Add(new RcRigidBody(1 + k, top, new[] { Id(ci, cj), Id(ci + 1, cj), Id(ci - 1, cj), Id(ci, cj + 1), Id(ci, cj - 1) }));
+            m.Supports.Add(new RcSupport(bot, 0x3F));
+            k++;
+        }
+        var lc = new RcLoadCase(1, "q + P");
+        foreach (var s in m.Shells) lc.Shells.Add(new RcShellLoad(s.Id, 8e3, new[] { 0.0, 0.0, -1.0 }));
+        foreach (var nd in m.Nodes.Where(x => x.Z == 0 && x.Id >= 1000)) lc.Nodal.Add(new RcNodalLoad(nd.Id, new[] { 0.0, 0, -500, 0, 0, 0 }));
+        lc.Nodal.Add(new RcNodalLoad(Id(n / 2, n / 2), new[] { 0.0, 0, -4e4, 0, 0, 0 }));
+        m.LoadCases.Add(lc);
+
+        var q = RcSymmetry.Cut(m, new[] { new RcSymmetryPlane(0, l / 2), new RcSymmetryPlane(1, l / 2) });
+        TestHarness.Check("в четверти 36 оболочек и одна колонна", q.Shells.Count == 36 && q.Beams.Count == 1 && q.RigidBodies.Count == 1,
+            $"{q.Shells.Count} / {q.Beams.Count} / {q.RigidBodies.Count}");
+        var bf = RcStructuralMeshBuilder.Build(m, new LinearRcSectionFactory());
+        var bq = RcStructuralMeshBuilder.Build(q, new LinearRcSectionFactory());
+        var uf = bf.Mesh.SolveLinear(bf.LoadCases[1], bf.Bc);
+        var uq = bq.Mesh.SolveLinear(bq.LoadCases[1], bq.Bc);
+        double sc = uf.Max(Math.Abs), d = 0;
+        foreach (var nd in q.Nodes)
+            for (int c = 0; c < 6; c++) d = Math.Max(d, Math.Abs(uf[bf.Dof(nd.Id, c)] - uq[bq.Dof(nd.Id, c)]));
+        TestHarness.Check("перемещения четверти = полной схеме", d / sc < 1e-9, $"max|Δu|/max|u|={d / sc:e2}");
+        TestHarness.Check("маска симметрии x: ux, θy, θz", RcSymmetry.SymmetryMask(0) == 0b110001);
+        TestHarness.Check("маска симметрии y: uy, θx, θz", RcSymmetry.SymmetryMask(1) == 0b101010);
     }
 }
