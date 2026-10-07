@@ -2,6 +2,7 @@ using System.Diagnostics;
 using CScore.Fem.Loads;
 using CScore.Import;
 using Microsoft.Data.Sqlite;
+using OpenCS.Services.Scad;
 using OpenCS.Utilites;
 using Xunit;
 using Xunit.Abstractions;
@@ -66,6 +67,41 @@ public class ScadLoadTransferManualTests(ITestOutputHelper output)
         {
             SqliteConnection.ClearAllPools();
             File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// Плита Дорфмана из .SPR (OPENCS_SCAD_NL_SPR): ΣZ L1 после переноса без нагрузок в защемлённых узлах =
+    /// 43,32 т, как протокол SCAD «Суммарные внешние нагрузки».
+    /// </summary>
+    [Fact]
+    public void DorfmanSelfWeightMatchesScadProtocol()
+    {
+        string? spr = Environment.GetEnvironmentVariable("OPENCS_SCAD_NL_SPR");
+        if (string.IsNullOrWhiteSpace(spr)) return;
+        string dir = Environment.GetEnvironmentVariable("OPENCS_SCAD_DIR") ?? ScadInstallLocator.FindDllDirectory()!;
+        ScadSchemaData data;
+        using (var session = new ScadApiSession(ScadApiNative.Load(dir)))
+        {
+            session.Open(spr);
+            data = ScadApiReader.Read(session, new ScadReadOptions(), null, CancellationToken.None).Data;
+        }
+        var model = data.AnalysisModel!;
+        var nodes = ScadSchemaConverter.ToFemMeshNodes(data, 1);
+        var elements = ScadSchemaConverter.ToFemMeshElements(data, 1);
+        int next = 0;
+        var result = ScadLoadTransfer.Transfer(model, elements.ToDictionary(e => e.ElemTag, e => e.ElemType), [], [], [], () => --next);
+        foreach (var line in result.Report) output.WriteLine(line);
+        var mesh = new FemLoadMeshContext(nodes, elements, null, new ScadSelfWeightSource(
+            ScadSchemaConverter.ToSchemaStiffnesses(data).ToDictionary(x => x.Id), model.ForceUnitN, model.LengthUnitM));
+        var fixedNodes = model.Bounds.Where(b => b.Value == 0x3F).Select(b => b.Key.ToString()).ToHashSet();
+        foreach (var lc in result.LoadCases)
+        {
+            var f = FemLoadCaseNodalForces.Resolve(lc, result.ElementLoads, result.MeshNodeLoads, mesh);
+            double free = f.Forces.Where(x => !fixedNodes.Contains(x.NodeTag)).Sum(x => x.Fz) / 9810;
+            output.WriteLine($"«{lc.Tag}» (SCAD {lc.SourceLoadNum}): ΣZ = {f.Total.Fz / 9810:0.###} т, без защемлённых узлов {free:0.###} т");
+            foreach (var d in f.Diagnostics.Select(d => d.Message).Distinct().Take(5)) output.WriteLine("  ! " + d);
+            if (lc.SourceLoadNum == 1) Assert.Equal(-43.32, free, 2);
         }
     }
 }
