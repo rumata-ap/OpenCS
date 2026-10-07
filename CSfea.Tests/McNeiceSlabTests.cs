@@ -1,0 +1,138 @@
+using System.Globalization;
+using CScore;
+using CSfea.CScoreBridge;
+using CSfea.CScoreBridge.Structural;
+using Xunit.Abstractions;
+
+namespace CSfea.Tests;
+
+/// <summary>
+/// Плита McNeice (1967; Jofriet, McNeice 1971): 914,4 × 914,4 × 44,45 мм на четырёх угловых опорах, сила в центре,
+/// одна сетка у низа 282 мм²/м в двух направлениях (d = 33,3 мм). Данные — по DIANA Verification Report «McNeice Slab»:
+/// бетон E = 28 600 МПа, ν = 0,15, fcm = 38 МПа, ftm = 2,9 МПа; сталь Es = 200 000 МПа, fy = 350 МПа. Опыт — прогиб узла
+/// на оси симметрии в 76,2 мм от центра (кривая DIANA, оцифровка 07.10.2026). Четверть плиты по двум плоскостям симметрии.
+/// </summary>
+public class McNeiceSlabTests(ITestOutputHelper output)
+{
+    const double L = 0.9144, H = 0.04445, D = 0.0333, As = 2.82e-4;
+    const int N = 24;                       // КЭ на сторону полной плиты (38,1 мм)
+    const double PMax = 12e3;               // Н, полная сила
+
+    /// <summary>Опыт (DIANA, рис. «Experimental (McNeice 1967)»): прогиб, мм → сила, кН.</summary>
+    static readonly (double W, double P)[] Experiment =
+    [
+        (0.25, 1.60), (0.75, 4.70), (1.00, 5.73), (1.25, 6.35), (1.50, 6.76), (1.75, 7.08), (2.00, 7.54), (2.25, 7.78),
+        (2.50, 8.34), (2.75, 8.68), (3.00, 9.03), (3.25, 9.34), (3.50, 9.52), (3.75, 9.70), (4.00, 9.94), (4.25, 10.18),
+        (4.50, 10.37), (4.75, 10.57), (5.00, 10.83),
+    ];
+
+    static MaterialChars ConcreteChars(CalcType ct) => new()
+    {
+        Type = MatType.Concrete, TypeCalc = ct, Fc = -38000, Ft = 2900, E = 28_600_000,
+        Ec0 = -0.002, Ec1 = -0.6 * 38000 / 28.6e6, Ec1Red = -0.0015, Ec2 = -0.0035,
+        Et0 = 0.0001, Et1 = 0.6 * 2900 / 28.6e6, Et1Red = 0.00008, Et2 = 0.00015,
+    };
+
+    static MaterialChars RebarChars(CalcType ct) => new()
+    {
+        Type = MatType.ReSteelF, TypeCalc = ct, Fc = -350000, Ft = 350000, E = 200_000_000, Ec2 = -0.025, Et2 = 0.025,
+    };
+
+    static RcShellSection Section()
+    {
+        var concrete = new Material
+        {
+            Id = 1, Tag = "C30/37 (McNeice)", Type = MatType.Concrete, E = 28_600_000,
+            MaterialChars = [ConcreteChars(CalcType.C), ConcreteChars(CalcType.CL), ConcreteChars(CalcType.N), ConcreteChars(CalcType.NL)],
+        };
+        var rebar = new Material
+        {
+            Id = 2, Tag = "fy 350", Type = MatType.ReSteelF, E = 200_000_000,
+            MaterialChars = [RebarChars(CalcType.C), RebarChars(CalcType.CL), RebarChars(CalcType.N), RebarChars(CalcType.NL)],
+        };
+        double z = -(D - H / 2);
+        return new RcShellSection("McNeice")
+        {
+            Plate = new PlateSection
+            {
+                H = H, NLayers = 20, TensionConcrete = true, PlateModel = "layered", PoissonUncracked = 0.15,
+                RebarLayers = [new PlateRebarLayer { Asx = As, Asy = As, Zsx = z, Zsy = z }],
+            },
+            PlateMaterials = new PlateSectionMaterials
+            {
+                ConcreteDiagram = concrete.GetDiagramms(DiagrammType.L3)![CalcType.N],
+                RebarDiagram = rebar.GetDiagramms(DiagrammType.L2)![CalcType.N],
+                ConcreteE_MPa = 28600, Nu = 0.15,
+            },
+        };
+    }
+
+    /// <summary>Полная плита: опоры uz в углах, сила в центре; стадия до <see cref="PMax"/> за <paramref name="steps"/> шагов.</summary>
+    static RcStructuralModel FullModel(int steps)
+    {
+        var m = new RcStructuralModel();
+        int Id(int i, int j) => i * (N + 1) + j;
+        for (int i = 0; i <= N; i++)
+            for (int j = 0; j <= N; j++) m.Nodes.Add(new RcNode(Id(i, j), L * i / N, L * j / N, 0));
+        var sec = Section();
+        int e = 0;
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++) m.Shells.Add(new RcShell(e++, [Id(i, j), Id(i + 1, j), Id(i + 1, j + 1), Id(i, j + 1)], sec, [1, 0, 0]));
+        // Только uz: в плане четверть держат плоскости симметрии (связи в плане в углу дали бы ложный распор).
+        // Полная плита сама по себе в плане изменяема — считается только четверть.
+        foreach (var c in new[] { Id(0, 0), Id(N, 0), Id(0, N), Id(N, N) }) m.Supports.Add(new RcSupport(c, 0b000100));
+        var lc = new RcLoadCase(1, "P");
+        lc.Nodal.Add(new RcNodalLoad(Id(N / 2, N / 2), [0, 0, -PMax, 0, 0, 0]));
+        m.LoadCases.Add(lc);
+        m.Stages.Add(new RcStage("P", [(1, 1.0)], steps));
+        return m;
+    }
+
+    static RcStructuralModel Quarter(int steps) =>
+        RcSymmetry.Cut(FullModel(steps), [new RcSymmetryPlane(0, L / 2), new RcSymmetryPlane(1, L / 2)]);
+
+    /// <summary>Узел замера: на оси симметрии в 76,2 мм от центра (2 КЭ), в четверти — к опоре.</summary>
+    static int MeasureNode => (N / 2 - 2) * (N + 1) + N / 2;
+    static int CenterNode => (N / 2) * (N + 1) + N / 2;
+
+    /// <summary>Кривая «сила — прогиб» секущим расчётом: (P, кН; прогиб узла замера и центра, мм; трещины; текучесть).</summary>
+    List<(double P, double W, double WCenter, int Cracked, int Yielded)> Run(string name, RcSecantOptions options, int steps = 24)
+    {
+        var m = Quarter(steps);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var run = RcSecantAnalysis.Run(m, options);
+        var r = run.Result;
+        var curve = r.Steps.Where(s => s.Converged).Select(s => (P: s.LoadFactor * PMax / 1e3,
+            W: -s.U[run.Build.Dof(MeasureNode, 2)] * 1e3, WCenter: -s.U[run.Build.Dof(CenterNode, 2)] * 1e3,
+            Cracked: s.Shells.Count(x => x.Cracked), Yielded: s.Shells.Count(x => x.Yielded))).ToList();
+        output.WriteLine($"=== {name}: {(r.Completed ? "до конца" : r.Message)}; КЭ {m.Shells.Count}, время {sw.Elapsed:mm\\:ss}");
+        output.WriteLine("P, кН; w, мм; w центра, мм; опыт при w, кН; трещины; текучесть");
+        foreach (var c in curve)
+            output.WriteLine(string.Join("; ", F(c.P), F(c.W), F(c.WCenter), F(ExperimentAt(c.W)), c.Cracked, c.Yielded));
+        return curve;
+    }
+
+    /// <summary>Сила опыта при прогибе w (линейная интерполяция, NaN вне кривой).</summary>
+    static double ExperimentAt(double w)
+    {
+        var pts = new List<(double W, double P)> { (0, 0) };
+        pts.AddRange(Experiment);
+        for (int i = 1; i < pts.Count; i++)
+            if (w <= pts[i].W) return pts[i - 1].P + (pts[i].P - pts[i - 1].P) * (w - pts[i - 1].W) / (pts[i].W - pts[i - 1].W);
+        return double.NaN;
+    }
+
+    static string F(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00", CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void SectionPsi() => Run("Section, ψs", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
+
+    [Fact]
+    public void LayerPsi() => Run("Layer, ψs", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Layer });
+
+    [Fact]
+    public void SectionNoPsi() => Run("Section, без ψs", new RcSecantOptions { Psi = false, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
+
+    [Fact]
+    public void NoTension() => Run("бетон без растяжения", new RcSecantOptions { TensionConcrete = false, Psi = false });
+}
