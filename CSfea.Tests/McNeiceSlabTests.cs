@@ -96,7 +96,11 @@ public class McNeiceSlabTests(ITestOutputHelper output)
     static int CenterNode => (N / 2) * (N + 1) + N / 2;
 
     /// <summary>Кривая «сила — прогиб» секущим расчётом: (P, кН; прогиб узла замера и центра, мм; трещины; текучесть).</summary>
-    List<(double P, double W, double WCenter, int Cracked, int Yielded)> Run(string name, RcSecantOptions options, int steps = 24)
+    /// <remarks>
+    /// OPENCS_CSFEA_OUT — каталог выгрузки (необязательно): mcneice-{tag}-curve.csv (кривая), -elements.csv (центры КЭ
+    /// четверти и их состояние на каждом сошедшемся шаге), -nodes.csv (прогибы узлов четверти на каждом шаге).
+    /// </remarks>
+    List<(double P, double W, double WCenter, int Cracked, int Yielded)> Run(string name, string tag, RcSecantOptions options, int steps = 24)
     {
         var m = Quarter(steps);
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -109,7 +113,36 @@ public class McNeiceSlabTests(ITestOutputHelper output)
         output.WriteLine("P, кН; w, мм; w центра, мм; опыт при w, кН; трещины; текучесть");
         foreach (var c in curve)
             output.WriteLine(string.Join("; ", F(c.P), F(c.W), F(c.WCenter), F(ExperimentAt(c.W)), c.Cracked, c.Yielded));
+        if (Environment.GetEnvironmentVariable("OPENCS_CSFEA_OUT") is { Length: > 0 } dir) Export(dir, tag, m, run);
         return curve;
+    }
+
+    static void Export(string dir, string tag, RcStructuralModel m, RcSecantRun run)
+    {
+        Directory.CreateDirectory(dir);
+        static string R(double v) => v.ToString("R", CultureInfo.InvariantCulture);
+        var steps = run.Result.Steps.Where(s => s.Converged).ToList();
+        var curve = new System.Text.StringBuilder("P_kN,w_mm,w_center_mm,cracked,yielded\n");
+        var elems = new System.Text.StringBuilder("P_kN,shell,x_mm,y_mm,cracked,yielded,failed\n");
+        var nodes = new System.Text.StringBuilder("P_kN,node,x_mm,y_mm,uz_mm\n");
+        var mesh = run.Build.Mesh;
+        foreach (var s in steps)
+        {
+            string p = R(s.LoadFactor * PMax / 1e3);
+            curve.Append(string.Join(",", p, R(-s.U[run.Build.Dof(MeasureNode, 2)] * 1e3), R(-s.U[run.Build.Dof(CenterNode, 2)] * 1e3),
+                s.Shells.Count(x => x.Cracked), s.Shells.Count(x => x.Yielded))).Append('\n');
+            for (int e = 0; e < mesh.Shells.Count; e++)
+            {
+                var c = mesh.ShellCoords(e);
+                elems.Append(string.Join(",", p, run.Build.ShellIds[e], R(c.Average(q => q[0]) * 1e3), R(c.Average(q => q[1]) * 1e3),
+                    s.Shells[e].Cracked ? 1 : 0, s.Shells[e].Yielded ? 1 : 0, s.Shells[e].Failed ? 1 : 0)).Append('\n');
+            }
+            foreach (var n in m.Nodes)
+                nodes.Append(string.Join(",", p, n.Id, R(n.X * 1e3), R(n.Y * 1e3), R(s.U[run.Build.Dof(n.Id, 2)] * 1e3))).Append('\n');
+        }
+        File.WriteAllText(Path.Combine(dir, $"mcneice-{tag}-curve.csv"), curve.ToString());
+        File.WriteAllText(Path.Combine(dir, $"mcneice-{tag}-elements.csv"), elems.ToString());
+        File.WriteAllText(Path.Combine(dir, $"mcneice-{tag}-nodes.csv"), nodes.ToString());
     }
 
     /// <summary>Сила опыта при прогибе w (линейная интерполяция, NaN вне кривой).</summary>
@@ -125,14 +158,14 @@ public class McNeiceSlabTests(ITestOutputHelper output)
     static string F(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00", CultureInfo.InvariantCulture);
 
     [Fact]
-    public void SectionPsi() => Run("Section, ψs", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
+    public void SectionPsi() => Run("Section, ψs", "section-psi", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
 
     [Fact]
-    public void LayerPsi() => Run("Layer, ψs", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Layer });
+    public void LayerPsi() => Run("Layer, ψs", "layer-psi", new RcSecantOptions { Psi = true, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Layer });
 
     [Fact]
-    public void SectionNoPsi() => Run("Section, без ψs", new RcSecantOptions { Psi = false, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
+    public void SectionNoPsi() => Run("Section, без ψs", "section-nopsi", new RcSecantOptions { Psi = false, PoissonUncracked = 0.15, PlateCrackRule = PlateCrackRule.Section });
 
     [Fact]
-    public void NoTension() => Run("бетон без растяжения", new RcSecantOptions { TensionConcrete = false, Psi = false });
+    public void NoTension() => Run("бетон без растяжения", "no-tension", new RcSecantOptions { TensionConcrete = false, Psi = false });
 }
