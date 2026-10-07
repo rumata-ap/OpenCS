@@ -8,6 +8,9 @@ public sealed class FemMemberLoad
     public int LoadCaseId { get; set; }
     public int MemberId { get; set; }
 
+    /// <summary>Происхождение: <see cref="FemLoadOrigin.Manual"/> или «import:&lt;источник&gt;».</summary>
+    public string Origin { get; set; } = FemLoadOrigin.Manual;
+
     /// <summary>Система координат интенсивности: "local" или "global".</summary>
     public string CoordinateSystem { get; set; } = "local";
 

@@ -1,6 +1,6 @@
 namespace CScore.Fem;
 
-/// <summary>Загружение расчётной схемы. Используется только для internal/opensees источников.</summary>
+/// <summary>Загружение расчётной схемы (любого источника; у импорта — <see cref="Origin"/> и <see cref="SourceLoadNum"/>).</summary>
 public class FemLoadCase
 {
     public int     Id       { get; set; }
@@ -16,4 +16,13 @@ public class FemLoadCase
     public double? GammaFFav { get; set; }
     public double? Psi1 { get; set; }
     public double? Psi2 { get; set; }
+
+    /// <summary>Коэффициент к собственному весу всей схемы (по плотности материалов); null — без собственного веса.</summary>
+    public double? SelfWeightFactor { get; set; }
+
+    /// <summary>Происхождение: <see cref="FemLoadOrigin.Manual"/> или «import:&lt;источник&gt;».</summary>
+    public string Origin { get; set; } = FemLoadOrigin.Manual;
+
+    /// <summary>Номер загружения в программе-источнике — ключ повторного переноса нагрузок; null — задано вручную.</summary>
+    public int? SourceLoadNum { get; set; }
 }
