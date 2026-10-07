@@ -18,6 +18,9 @@ public class RcStructuralModelTests
         RunSectionAxisRotation();
         RunUnconnectedNodes();
         RunSymmetryQuarter();
+        RunFoundationUniformSettlement();
+        RunFoundationTiltedPlate();
+        RunFoundationPointLoad();
     }
 
     private static readonly RcBeamSection Rect = new("rect 0.3×0.5")
@@ -239,5 +242,123 @@ public class RcStructuralModelTests
         TestHarness.Check("перемещения четверти = полной схеме", d / sc < 1e-9, $"max|Δu|/max|u|={d / sc:e2}");
         TestHarness.Check("маска симметрии x: ux, θy, θz", RcSymmetry.SymmetryMask(0) == 0b110001);
         TestHarness.Check("маска симметрии y: uy, θx, θz", RcSymmetry.SymmetryMask(1) == 0b101010);
+    }
+
+    private static RcShellSection Isotropic(double h, double nu = 0.2) =>
+        new($"iso {h}") { Elastic = new Laminate(new[] { new Ply(new OrthotropicMaterial(E, E, nu, E / (2 * (1 + nu))), 0, h) }) };
+
+    /// <summary>Пружины основания: K_spring·u (Н) — силы основания на узлы.</summary>
+    private static double[] FoundationForces(RcStructuralMeshBuild build, double[] u)
+        => build.Bc.AssembleKSpring().ToCsc().Multiply(u);
+
+    /// <summary>
+    /// Свободная плита из искажённых Q4 и T3 на основании C1 под равномерным давлением: осадка q/C1 во всех узлах,
+    /// сумма сил основания = q·A (опор по нормали нет, закреплены только DOF в плоскости).
+    /// </summary>
+    private static void RunFoundationUniformSettlement()
+    {
+        TestHarness.Section("RcStructuralModel: плита на основании C1 — осадка q/C1");
+        var m = new RcStructuralModel();
+        (int, double, double)[] pts = { (1, 0, 0), (2, 1.3, 0), (3, 3, 0), (4, 0, 1.1), (5, 1.6, 0.9), (6, 3, 1.2), (7, 0, 2), (8, 1.4, 2), (9, 3, 2) };
+        foreach (var (id, x, y) in pts) m.Nodes.Add(new RcNode(id, x, y, 0));
+        var sec = Isotropic(0.2);
+        double c1 = 2e7, q = 50e3;
+        int[][] shells = { new[] { 1, 2, 5, 4 }, new[] { 2, 3, 6, 5 }, new[] { 4, 5, 8 }, new[] { 4, 8, 7 }, new[] { 5, 6, 9, 8 } };
+        for (int e = 0; e < shells.Length; e++) m.Shells.Add(new RcShell(e + 1, shells[e], sec, FoundationC1: c1));
+        foreach (var (id, _, _) in pts) m.Supports.Add(new RcSupport(id, 0b100011));
+        var lc = new RcLoadCase(1, "q");
+        foreach (var sh in m.Shells) lc.Shells.Add(new RcShellLoad(sh.Id, q, new[] { 0.0, 0.0, -1.0 }));
+        m.LoadCases.Add(lc);
+        var build = RcStructuralMeshBuilder.Build(m, new LinearRcSectionFactory());
+        var u = build.Mesh.SolveLinear(build.LoadCases[1], build.Bc);
+        double worst = pts.Max(p => Math.Abs(u[build.Dof(p.Item1, 2)] / (-q / c1) - 1));
+        TestHarness.Check($"осадка = q/C1 во всех узлах (откл. {worst:E1})", worst < 1e-3);
+        var fs = FoundationForces(build, u);
+        TestHarness.CheckRel("Σ сил основания = q·A", fs.Where((_, i) => i % 6 == 2).Sum(), -q * 6.0, 1e-9);
+        TestHarness.Check("в отчёте — упругое основание", build.Report.Any(r => r.Contains("C1")));
+    }
+
+    /// <summary>Плита, наклонённая на 35° вокруг x: перемещение вдоль нормали q/C1, силы основания — вдоль нормали.</summary>
+    private static void RunFoundationTiltedPlate()
+    {
+        TestHarness.Section("RcStructuralModel: наклонная плита на основании — осадка вдоль нормали");
+        double a = 35 * Math.PI / 180, c = Math.Cos(a), sn = Math.Sin(a);
+        var m = new RcStructuralModel();
+        int nn = 3;
+        double l = 3.0;
+        for (int j = 0; j <= nn; j++)
+            for (int i = 0; i <= nn; i++)
+            {
+                double x = i * l / nn + 0.1 * j, t = j * l / nn;
+                m.Nodes.Add(new RcNode(j * (nn + 1) + i, x, t * c, t * sn));
+            }
+        var sec = Isotropic(0.25);
+        double c1 = 1e7, q = 30e3;
+        for (int j = 0; j < nn; j++)
+            for (int i = 0; i < nn; i++)
+            {
+                int n0 = j * (nn + 1) + i;
+                m.Shells.Add(new RcShell(n0, new[] { n0, n0 + 1, n0 + nn + 2, n0 + nn + 1 }, sec, FoundationC1: c1));
+            }
+        // Равномерная осадка вдоль нормали без поворотов — точное решение; закрепления его не трогают
+        // (ux и повороты всех узлов, uy одного узла — снимают движения плиты как целого в её плоскости).
+        foreach (var n in m.Nodes) m.Supports.Add(new RcSupport(n.Id, 0b111001));
+        m.Supports.Add(new RcSupport(0, 0b000010));
+        var lc = new RcLoadCase(1, "q по нормали");
+        foreach (var sh in m.Shells) lc.Shells.Add(new RcShellLoad(sh.Id, q));
+        m.LoadCases.Add(lc);
+        var build = RcStructuralMeshBuilder.Build(m, new LinearRcSectionFactory());
+        var u = build.Mesh.SolveLinear(build.LoadCases[1], build.Bc);
+        var normal = new[] { 0.0, -sn, c };
+        double worst = m.Nodes.Max(n =>
+        {
+            double un = Enumerable.Range(0, 3).Sum(k => u[build.Dof(n.Id, k)] * normal[k]);
+            return Math.Abs(un / (q / c1) - 1);
+        });
+        TestHarness.Check($"перемещение вдоль нормали = q/C1 (откл. {worst:E1})", worst < 1e-3);
+        var fs = FoundationForces(build, u);
+        double area = l * l;
+        for (int k = 0; k < 3; k++)
+            TestHarness.Check($"Σ сил основания по оси {k} = q·A·n", Math.Abs(fs.Where((_, i) => i % 6 == k).Sum() - q * area * normal[k]) < 1e-6 * q * area);
+    }
+
+    /// <summary>
+    /// Сосредоточенная сила в центре большой плиты на основании (четверть с симметрией): w = P/(8·√(D·C1))
+    /// (Тимошенко, Войновский-Кригер, §57), ±3 %.
+    /// </summary>
+    private static void RunFoundationPointLoad()
+    {
+        TestHarness.Section("RcStructuralModel: сила в центре плиты на основании — P/(8√(D·C1))");
+        double h = 0.08, nu = 0.2, c1 = 1e6, p = 100e3;
+        double d = E * h * h * h / (12 * (1 - nu * nu));
+        double lChar = Math.Pow(d / c1, 0.25);
+        int nn = 60;
+        double size = 6.0;   // ≈ 5,6 характерной длины; тонкая плита — сдвиг Миндлина под силой < 1 %
+        var m = new RcStructuralModel();
+        for (int j = 0; j <= nn; j++)
+            for (int i = 0; i <= nn; i++) m.Nodes.Add(new RcNode(j * (nn + 1) + i, i * size / nn, j * size / nn, 0));
+        var sec = Isotropic(h, nu);
+        for (int j = 0; j < nn; j++)
+            for (int i = 0; i < nn; i++)
+            {
+                int n0 = j * (nn + 1) + i;
+                m.Shells.Add(new RcShell(n0, new[] { n0, n0 + 1, n0 + nn + 2, n0 + nn + 1 }, sec, FoundationC1: c1));
+            }
+        foreach (var n in m.Nodes)
+        {
+            int mask = 0b100011;                   // мембрана и поворот вокруг нормали — не нужны
+            if (n.X == 0) mask |= 0b010000;        // симметрия по x = 0: θy = 0
+            if (n.Y == 0) mask |= 0b001000;        // симметрия по y = 0: θx = 0
+            m.Supports.Add(new RcSupport(n.Id, mask));
+        }
+        var lc = new RcLoadCase(1, "P");
+        lc.Nodal.Add(new RcNodalLoad(0, new[] { 0, 0, -p / 4, 0, 0, 0 }));
+        m.LoadCases.Add(lc);
+        var build = RcStructuralMeshBuilder.Build(m, new LinearRcSectionFactory());
+        var u = build.Mesh.SolveLinear(build.LoadCases[1], build.Bc);
+        double w = -u[build.Dof(0, 2)];
+        TestHarness.CheckRel($"w центра = P/(8√(D·C1)), l = {lChar:F2} м", w, p / (8 * Math.Sqrt(d * c1)), 0.03);
+        var fs = FoundationForces(build, u);
+        TestHarness.CheckRel("Σ сил основания = P/4", fs.Where((_, i) => i % 6 == 2).Sum(), -p / 4, 1e-6);
     }
 }

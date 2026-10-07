@@ -23,6 +23,20 @@ public sealed record ScadSpring(int ElemId, int StiffnessId, int Node, double[] 
 /// <summary>Шарниры стержня SCAD (ApiGetJoint): маски освобождённых связей концов в местных осях (биты 0–5 — X…UZ).</summary>
 public sealed record ScadJoint(int ElemId, int MaskI, int MaskJ);
 
+/// <summary>
+/// Группа упругого основания SCAD (ApiGetBed): тип (73 'I' — изотропное, 79 'O', 65 'A', 0 — без признака), данные
+/// в СИ и КЭ группы. Для пластин Data[0] — C1 (Н/м³), далее C2 (Н/м) и прочие коэффициенты (C1 в плоскости и т. п.);
+/// для стержней — своя раскладка (ширина, C1, C2).
+/// </summary>
+public sealed record ScadBed(int Type, double[] Data, int[] Elements)
+{
+    /// <summary>C1 пластины, Н/м³ (Data[0]); 0 — нет данных.</summary>
+    public double C1 => Data.Length > 0 ? Data[0] : 0;
+
+    /// <summary>Есть ли ненулевые коэффициенты кроме C1 (C2 и прочие — не учитываются, модель Винклера).</summary>
+    public bool HasBeyondC1 => Data.Skip(1).Any(v => v != 0);
+}
+
 /// <summary>Виды ГУ SCAD, которые не переносятся (ключи <see cref="ScadAnalysisModel.NotTransferred"/>).</summary>
 public static class ScadNotTransferredKinds
 {
@@ -34,7 +48,7 @@ public static class ScadNotTransferredKinds
     public const string ElasticJoint = "elastic_joint";
     /// <summary>Жёсткие вставки, число КЭ.</summary>
     public const string Insert = "insert";
-    /// <summary>Упругое основание, число КЭ.</summary>
+    /// <summary>Упругое основание, число КЭ (вложения до среза 2а; теперь — <see cref="ScadAnalysisModel.Beds"/>).</summary>
     public const string Bed = "bed";
     /// <summary>Жёсткости КЭ 51, которые не удалось разобрать, число КЭ.</summary>
     public const string SpringUnparsed = "spring_unparsed";
@@ -85,6 +99,12 @@ public sealed class ScadAnalysisModel
     /// Вложение прочитано с пружинами и шарнирами (срез 4б); false — старое, где их нет, и ГУ надо дочитать из .SPR.
     /// </summary>
     public bool HasBoundaryV2 { get; init; }
+
+    /// <summary>Группы упругого основания (ApiGetBed).</summary>
+    public List<ScadBed> Beds { get; init; } = [];
+
+    /// <summary>Вложение прочитано с группами упругого основания (<see cref="Beds"/>); false — их надо дочитать из .SPR.</summary>
+    public bool HasBeds { get; init; }
 
     /// <summary>Загружения по возрастанию номера.</summary>
     public List<ScadLoadCase> LoadCases { get; init; } = [];

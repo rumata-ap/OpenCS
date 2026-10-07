@@ -101,6 +101,17 @@ public static class LiraSchemaConverter
             })
             .ToArray();
 
+    /// <summary>
+    /// ГУ КЭ из ЛИРЫ по тегу: C1 упругого основания пластин (таблица 5). Только пластины, переносимые в сетку.
+    /// </summary>
+    public static Dictionary<string, FemElementBoundaryProps> ToFemElementBoundaryProps(LiraSchemaData data)
+    {
+        var shells = data.Elements.Where(e => e.NodeIds.Length is 3 or 4).Select(e => e.Id).ToHashSet();
+        return data.PlateFoundationC1
+            .Where(kv => kv.Value > 0 && shells.Contains(kv.Key))
+            .ToDictionary(kv => kv.Key.ToString(), kv => new FemElementBoundaryProps(null, null, kv.Value), StringComparer.Ordinal);
+    }
+
     /// <summary>Создаёт 2-узловые стержневые элементы КЭ-сетки напрямую из данных ЛираСАПР.</summary>
     public static FemElement[] ToFemMeshBarElements(LiraSchemaData data, int schemaId)
         => data.Elements

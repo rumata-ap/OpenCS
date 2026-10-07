@@ -1016,6 +1016,8 @@
    <system:String x:Key="ScadBoundaryMoreDiagnostics">… и ещё замечаний по граничным условиям: {0}.</system:String>
    <system:String x:Key="ScadBoundaryAnalysesInvalidated">Граничные условия схемы изменились — результаты постановок сброшены: {0}.</system:String>
    <system:String x:Key="LiraSupportsImported">Перенесены закрепления узлов ЛИРЫ: {0}.</system:String>
+   <system:String x:Key="LiraFoundationImported">Перенесён коэффициент постели C1 пластин ЛИРЫ: {0} КЭ.</system:String>
+   <system:String x:Key="LiraFoundationBeyondC1">Упругое основание ЛИРЫ: у {0} пластин заданы C2 или другие коэффициенты кроме C1 — не учтены (модель Винклера, только C1).</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>
@@ -4145,6 +4147,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlateRebarMosaicNoFiles">Нет файлов армирования: загрузите ASP или RBT из меню схемы.</system:String>
     <system:String x:Key="MosaicSourceForces">Усилия</system:String>
     <system:String x:Key="MosaicSourceUtilization">Коэффициент использования</system:String>
+    <system:String x:Key="MosaicSourceFoundation">Упругое основание</system:String>
+    <system:String x:Key="MosaicFoundationC1">C1, кН/м³</system:String>
     <system:String x:Key="MosaicUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Не проверено</system:String>

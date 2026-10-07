@@ -13,6 +13,7 @@ static class LiraApiSchemaReader
     const int kNodesTable              = 2;   // kLiraTable_Nodes_Coordinates
     const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
     const int kSupportsTable           = 4;   // «Связи»: узел + 7 ячеек X Y Z UX UY UZ UW (пустая — связи нет)
+    const int kPlatesC1C2Table         = 5;   // «C1C2 Пластины»: КЭ | C1z | ? | C2z | ? | Pz | признак нелинейности
     const int kStiffnessesTable        = 9;   // kLiraTable_Stiffnesses: жёсткости схемы
     const int kElementsStiffnessTable  = 10;  // kLiraTable_Elements_Stiffnesses: КЭ → номер жёсткости
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
@@ -66,7 +67,8 @@ static class LiraApiSchemaReader
     /// <param name="liraVersion">Год версии ЛИРЫ из ProgID (null — не определена).</param>
     /// <param name="documentTitle">Имя открытой схемы (Title документа, иначе имя файла из PathName);
     /// null — ЛИРА его не отдала.</param>
-    public static LiraSchemaData Read(out int? liraVersion, out string? documentTitle)
+    /// <param name="tonToKn">Сколько кН в тонне-силе (настройка импорта) — для C1 в т/м³.</param>
+    public static LiraSchemaData Read(out int? liraVersion, out string? documentTitle, double tonToKn = 9.80665)
     {
         dynamic lira = LiraComConnector.ConnectApplication(out liraVersion);
 
@@ -111,6 +113,10 @@ static class LiraApiSchemaReader
         // Закрепления: в таблице узлов маски нет (пробник «Мирной» 07.10), связи — в таблице 4
         var supportsRaw = TryReadTable(doc.AllTables.CreateNewItem(kSupportsTable), diag, "S1-Supports");
         if (supportsRaw != null) ApplySupports(supportsRaw, data);
+
+        // Упругое основание пластин (C1) — таблица 5, единицы нагрузок документа (сила/длина³)
+        var bedRaw = TryReadTable(doc.AllTables.CreateNewItem(kPlatesC1C2Table), diag, "S1-PlatesC1C2");
+        if (bedRaw != null) ParsePlateFoundation(bedRaw, FoundationUnitNPerM3((object)lira, tonToKn), data);
 
         // Жёсткости: размеры сечений стержней и толщины пластин (не критично: без таблиц группы остаются «Жёсткость 0»)
         ReadStiffnessTables((object)lira, (object)doc, data, diag);
@@ -417,6 +423,42 @@ static class LiraApiSchemaReader
         for (int i = 0; i < data.Nodes.Count; i++)
             if (masks.TryGetValue(data.Nodes[i].Id, out int mask))
                 data.Nodes[i] = data.Nodes[i] with { DofMask = data.Nodes[i].DofMask | mask };
+    }
+
+    /// <summary>
+    /// Таблица 5 «C1C2 Пластины» (пробник «Мирной» 07.10): КЭ | C1z | 0 | C2z | 0 | Pz | признак нелинейности.
+    /// C1 (колонка 1) × <paramref name="unitNPerM3"/> → <see cref="LiraSchemaData.PlateFoundationC1"/>; ненулевые
+    /// колонки 2–4 (C2 и неопознанные) считаются в <see cref="LiraSchemaData.PlateFoundationBeyondC1"/>.
+    /// </summary>
+    internal static void ParsePlateFoundation(object[,] rows, double unitNPerM3, LiraSchemaData data)
+    {
+        int cols = rows.GetLength(1);
+        if (cols < 2) return;
+        for (int i = 0; i < rows.GetLength(0); i++)
+        {
+            if (!TryInt(rows[i, 0], out int elem)) continue;
+            double c1 = ToDouble(rows[i, 1]);
+            if (!(c1 > 0)) continue;
+            data.PlateFoundationC1[elem] = c1 * unitNPerM3;
+            for (int c = 2; c <= 4 && c < cols; c++)
+                if (ToDouble(rows[i, c]) != 0) { data.PlateFoundationBeyondC1++; break; }
+        }
+    }
+
+    /// <summary>
+    /// Единица C1 документа (сила нагрузок Loads1 / длина нагрузок Loads2 в кубе) → Н/м³; не читается — т/м³, как на
+    /// «Мирной». Какая группа единиц (Loads или MaterialProperties) управляет C1, на живой схеме не различена.
+    /// </summary>
+    static double FoundationUnitNPerM3(object liraApp, double tonToKn)
+    {
+        dynamic lira = liraApp;
+        try
+        {
+            double force = LiraApiUnits.ForceToKnOf((int)lira.MeasurementUnits.Loads1, tonToKn, tonToKn);
+            double length = LiraApiUnits.LengthToM((int)lira.MeasurementUnits.Loads2, 1.0);
+            return force * 1000 / (length * length * length);
+        }
+        catch (Exception) { return tonToKn * 1000; }
     }
 
     static void ParseElements(object[,] rows, LiraSchemaData data)

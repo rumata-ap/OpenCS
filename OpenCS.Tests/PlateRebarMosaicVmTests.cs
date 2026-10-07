@@ -37,6 +37,28 @@ public class PlateRebarMosaicVmTests
         vm.SelectedComponent = vm.ComponentOptions.Single(o => Equals(o.Component, component));
 
     [Fact]
+    public void Foundation_C1_ShownOnlyWhenPresent_AndColorsShells()
+    {
+        var vm = new PlateRebarMosaicVM();
+        vm.Apply(Data());
+        Assert.DoesNotContain(vm.SourceOptions, o => o.Kind == PlateRebarMosaicSourceKind.Foundation);
+
+        vm.Apply(Data() with { FoundationC1 = new Dictionary<string, double> { ["1"] = 8494, ["2"] = 24130 } });
+        Select(vm, PlateRebarMosaicSourceKind.Foundation);
+        Assert.False(vm.HasSubject);
+        Assert.True(vm.IsActive);
+
+        var coloring = vm.Compute(["1", "2", "3"], ["10"])!;
+
+        Assert.False(coloring.Bars);
+        Assert.Equal(["1", "2"], coloring.ColorByTag.Keys.Order());
+        Assert.NotEqual(coloring.ColorByTag["1"], coloring.ColorByTag["2"]);
+        Assert.Contains(vm.Legend, l => l.Count == 1 && l.Label == Utilites.Loc.S("PlateRebarMosaicNoData"));
+        vm.SetHover("2");
+        Assert.EndsWith("24130", vm.HoverText);
+    }
+
+    [Fact]
     public void Forces_ShellSet_ColorsElementsBySign()
     {
         var vm = new PlateRebarMosaicVM();

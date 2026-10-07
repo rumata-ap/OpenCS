@@ -7,7 +7,7 @@ namespace CScore.Import;
 /// <param name="Supports">Закрепления узлов сетки.</param>
 /// <param name="Springs">Пружины на узлах сетки (одна запись на узел, КЭ 51 одного узла суммируются).</param>
 /// <param name="RigidBodies">Жёсткие тела.</param>
-/// <param name="ElementProps">ГУ КЭ по тегу: освобождения концов стержней (только КЭ, где они есть).</param>
+/// <param name="ElementProps">ГУ КЭ по тегу: освобождения концов стержней и C1 пластин (только КЭ, где они есть).</param>
 /// <param name="Report">Журнал: первая строка — сводка, далее — что не перенесено и почему.</param>
 public sealed record ScadBoundaryTransferResult(
     IReadOnlyList<FemMeshNodeSupport> Supports,
@@ -19,7 +19,8 @@ public sealed record ScadBoundaryTransferResult(
 /// <summary>
 /// Перенос граничных условий из вложения SCAD (<see cref="ScadAnalysisModel"/>) в сеточный уровень схемы:
 /// закрепления (ApiGetBound) → <see cref="FemMeshNodeSupport"/>, КЭ 51 → <see cref="FemSpring"/>, КЭ 100 →
-/// <see cref="FemRigidBody"/>, шарниры стержней → <see cref="FemElement.ReleaseI"/>/<see cref="FemElement.ReleaseJ"/>.
+/// <see cref="FemRigidBody"/>, шарниры стержней → <see cref="FemElement.ReleaseI"/>/<see cref="FemElement.ReleaseJ"/>,
+/// C1 упругого основания пластин (ApiGetBed) → <see cref="FemElement.FoundationC1"/>.
 /// Результат целиком заменяет ГУ своего происхождения (запись — <c>SaveFemBoundary</c>), ручные не трогаются.
 /// Объекты на узлах/КЭ, которых нет в сетке, пропускаются с записью в журнал.
 /// </summary>
@@ -104,14 +105,49 @@ public static class ScadBoundaryTransfer
         }
         if (missingJoints > 0) report.Add($"Шарниры: {missingJoints} КЭ нет в сетке среди стержней, пропущены.");
 
+        int jointed = props.Count;
+
+        // Упругое основание: C1 пластин (Винклер); C2 и прочие коэффициенты, основание стержней — в журнал.
+        var c1 = new Dictionary<string, double>(StringComparer.Ordinal);
+        int beyondC1 = 0, beamBeds = 0, missingBeds = 0, repeatedBeds = 0;
+        foreach (var bed in model.Beds)
+            foreach (int id in bed.Elements)
+            {
+                string tag = T(id);
+                switch (elementTypes.GetValueOrDefault(tag))
+                {
+                    case "shell":
+                        if (!(bed.C1 > 0)) continue;
+                        if (c1.TryGetValue(tag, out double prev)) { repeatedBeds++; c1[tag] = prev + bed.C1; }
+                        else c1[tag] = bed.C1;
+                        if (bed.HasBeyondC1) beyondC1++;
+                        break;
+                    case "beam": beamBeds++; break;
+                    default: missingBeds++; break;
+                }
+            }
+        foreach (var (tag, value) in c1)
+            props[tag] = props.TryGetValue(tag, out var p) ? p with { FoundationC1 = value }
+                : new FemElementBoundaryProps(null, null, value);
+        if (beyondC1 > 0)
+            report.Add($"Упругое основание: у {beyondC1} пластин заданы C2 или другие коэффициенты кроме C1 — не учтены " +
+                "(модель Винклера, только C1).");
+        if (repeatedBeds > 0) report.Add($"Упругое основание: {repeatedBeds} пластин входят в несколько групп — C1 сложены.");
+        if (beamBeds > 0) report.Add($"Не перенесено: упругое основание стержней, КЭ — {beamBeds}.");
+        if (missingBeds > 0) report.Add($"Упругое основание: {missingBeds} КЭ нет в сетке среди пластин и стержней, пропущены.");
+
         foreach (var (kind, count) in model.NotTransferred.OrderBy(x => x.Key, StringComparer.Ordinal))
             if (count > 0) report.Add($"Не перенесено: {DescribeNotTransferred(kind)} — {count}.");
         if (!model.HasBoundaryV2)
             report.Add("Вложение SCAD прочитано до поддержки пружин и шарниров: перенесены только закрепления и жёсткие тела; " +
                 "дочитайте граничные условия из .SPR.");
+        else if (!model.HasBeds)
+            report.Add("Вложение SCAD прочитано до поддержки упругого основания: C1 пластин не перенесён; " +
+                "дочитайте граничные условия из .SPR.");
 
         report.Insert(0, $"Перенесено из SCAD граничных условий: закреплений {supports.Count}, пружин {springs.Count}, " +
-            $"жёстких тел {bodies.Count}, стержней с шарнирами {props.Count} (концов {releasedEnds}).");
+            $"жёстких тел {bodies.Count}, стержней с шарнирами {jointed} " +
+            $"(концов {releasedEnds}), пластин на упругом основании {c1.Count}.");
         return new ScadBoundaryTransferResult(supports, springs, bodies, props, report);
     }
 

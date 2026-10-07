@@ -193,7 +193,7 @@ internal static unsafe class ScadApiReader
 
         Count(ScadNotTransferredKinds.BoundUnite, (int)n.ApiGetQuantityBoundUnite(h));
         Count(ScadNotTransferredKinds.Insert, GroupElements(h, n.ApiGetQuantityInsert(h), n.ApiGetNumInsert));
-        Count(ScadNotTransferredKinds.Bed, GroupElements(h, n.ApiGetQuantityBed(h), n.ApiGetBed));
+        var beds = ReadBeds(h, n.ApiGetQuantityBed(h), n.ApiGetBed);
 
         var loads = new List<ScadLoadCase>();
         uint loadCount = n.ApiGetQuantityLoad(h);
@@ -209,11 +209,11 @@ internal static unsafe class ScadApiReader
             Bounds = bounds, RigidBodies = bodies, LoadCases = loads, LengthUnitM = data.LengthUnitM,
             ForceUnitN = force.Coef > 0 ? 9810.0 / force.Coef : 1,
             SchemaType = schemaType, Springs = springs, Joints = joints, NotTransferred = notTransferred,
-            HasBoundaryV2 = true,
+            HasBoundaryV2 = true, Beds = beds, HasBeds = true,
         };
     }
 
-    /// <summary>Число КЭ во всех группах ApiGetNumInsert/ApiGetBed (BOOL: 0 — группы нет).</summary>
+    /// <summary>Число КЭ во всех группах ApiGetNumInsert (BOOL: 0 — группы нет).</summary>
     static int GroupElements(nint h, uint groups,
         delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> get)
     {
@@ -227,6 +227,26 @@ internal static unsafe class ScadApiReader
             if (get(h, g, &type, &qs, &size, &qe, &list) != 0) total += (int)qe;
         }
         return total;
+    }
+
+    /// <summary>Группы упругого основания ApiGetBed: тип, данные (СИ) и КЭ.</summary>
+    static List<ScadBed> ReadBeds(nint h, uint groups,
+        delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> get)
+    {
+        var beds = new List<ScadBed>((int)groups);
+        for (uint g = 1; g <= groups; g++)
+        {
+            byte type;
+            uint qs, qe;
+            double* size;
+            uint* list;
+            if (get(h, g, &type, &qs, &size, &qe, &list) == 0) continue;
+            var data = size == null ? [] : new ReadOnlySpan<double>(size, (int)qs).ToArray();
+            var ids = new int[list == null ? 0 : qe];
+            for (int k = 0; k < ids.Length; k++) ids[k] = (int)list[k];
+            if (ids.Length > 0) beds.Add(new ScadBed(type, data, ids));
+        }
+        return beds;
     }
 
     static ScadLoadRecord[] ReadLoads(nint h, uint load, uint count,

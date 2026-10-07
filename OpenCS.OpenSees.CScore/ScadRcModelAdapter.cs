@@ -37,7 +37,7 @@ public sealed record ScadRcModelResult(RcStructuralModel Model, IReadOnlyList<do
 /// <summary>
 /// Адаптер схемы SCAD (.SPR, <see cref="ScadSchemaData"/>) → нейтральная модель <see cref="RcStructuralModel"/>:
 /// пластины Q4/T3 (порядок SCAD «1 2 4 3» → обход контура), ось x сечения — ось X1 КЭ, повёрнутая на угол осей
-/// SCAD (<see cref="ScadSchemaData.PlateAxisAngles"/>), стержни (упругие по жёсткости SCAD, при наличии — сечение
+/// SCAD (<see cref="ScadSchemaData.PlateAxisAngles"/>), C1 упругого основания пластин, стержни (упругие по жёсткости SCAD, при наличии — сечение
 /// CScore), жёсткие тела с любой маской DOF, закрепления, загружения — узловыми силами
 /// (<see cref="ScadShellModelAssembler.NodalLoads"/>, как в сборке OpenSees), стадии. Номера узлов и КЭ — номера SCAD.
 /// </summary>
@@ -63,9 +63,17 @@ public static class ScadRcModelAdapter
         var used = new HashSet<int>();
         var model = new RcStructuralModel();
 
-        // Пластины.
+        // Пластины; C1 упругого основания — из групп ApiGetBed (C2 и прочие коэффициенты не учитываются).
+        var c1 = new Dictionary<int, double>();
+        int beyondC1 = 0;
+        foreach (var bed in am.Beds.Where(b => b.C1 > 0))
+            foreach (int id in bed.Elements)
+            {
+                c1[id] = c1.GetValueOrDefault(id) + bed.C1;
+                if (bed.HasBeyondC1) beyondC1++;
+            }
         var sectionByKey = new Dictionary<string, RcShellSection>(StringComparer.Ordinal);
-        int noSection = 0;
+        int noSection = 0, onBed = 0;
         foreach (var e in data.Elements)
         {
             if (ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) != ScadElementKind.Shell) continue;
@@ -74,10 +82,14 @@ public static class ScadRcModelAdapter
             if (!sectionByKey.TryGetValue(sec.Key, out var rs)) sectionByKey[sec.Key] = rs = input.ShellSection(sec);
             var frame = ScadShellModelAssembler.Frame(contour.Select(id => nodes[id]).ToArray(),
                 data.PlateAxisAngles.GetValueOrDefault(e.Id));
-            model.Shells.Add(new RcShell(e.Id, contour, rs, [frame.Ex.X, frame.Ex.Y, frame.Ex.Z]));
+            double? foundation = c1.TryGetValue(e.Id, out double k) ? k : null;
+            if (foundation != null) onBed++;
+            model.Shells.Add(new RcShell(e.Id, contour, rs, [frame.Ex.X, frame.Ex.Y, frame.Ex.Z], foundation));
             foreach (int id in contour) used.Add(id);
         }
         if (noSection > 0) report.Add($"Пропущено {noSection} пластин без сечения.");
+        if (onBed > 0) report.Add($"Упругое основание C1: {onBed} пластин.");
+        if (beyondC1 > 0) report.Add($"Упругое основание: C2 и прочие коэффициенты кроме C1 не учтены ({beyondC1} КЭ).");
 
         // Стержни.
         var beamSectionByKey = new Dictionary<string, RcBeamSection>(StringComparer.Ordinal);

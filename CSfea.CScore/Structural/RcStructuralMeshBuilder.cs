@@ -139,6 +139,7 @@ public static class RcStructuralMeshBuilder
             if (dofs.Length > 0) bc.Fix(new[] { Idx(sup.NodeId, "Опора") }, dofs);
         }
         foreach (var sp in model.Springs) bc.Spring(Idx(sp.NodeId, "Пружина"), sp.Dof, sp.Stiffness);
+        AddFoundation(model, mesh, coords, bc, report);
         FixUnconnectedDofs(mesh, links, bc, nodeIds, report);
 
         var loadCases = new Dictionary<int, double[]>();
@@ -194,6 +195,40 @@ public static class RcStructuralMeshBuilder
             report.Add($"Узлы без КЭ и связей закреплены ({orphan.Count}): {Preview(orphan)}.");
         if (partial.Count > 0)
             report.Add($"Свободные DOF ведомых узлов без КЭ закреплены ({partial.Count}): {Preview(partial)}.");
+    }
+
+    /// <summary>
+    /// Упругое основание оболочек (Винклер, C1 вдоль нормали КЭ) — узловыми пружинами-матрицами: узлу КЭ добавляется
+    /// C1·wᵢ·n·nᵀ по поступательным DOF, wᵢ — доля площади узла (<see cref="AreaWeights"/>), n — нормаль КЭ; вклады
+    /// смежных КЭ суммируются. Матрица сосредоточенная (диагональ по узлам), как у узловых связей основания SCAD/ЛИРЫ.
+    /// </summary>
+    private static void AddFoundation(RcStructuralModel model, StructuralMesh mesh, double[][] coords,
+                                      BoundaryConditions bc, List<string> report)
+    {
+        var k = new Dictionary<int, double[,]>();
+        int shells = 0;
+        double area = 0;
+        for (int e = 0; e < model.Shells.Count; e++)
+        {
+            if (model.Shells[e].FoundationC1 is not { } c1 || c1 == 0) continue;
+            if (!(c1 > 0) || double.IsInfinity(c1))
+                throw new ArgumentException($"Оболочка {model.Shells[e].Id}: коэффициент постели C1 = {c1} — нужен положительный.");
+            var nodes = mesh.Shells[e].Nodes;
+            var xyz = nodes.Select(n => coords[n]).ToArray();
+            var n0 = Normal(xyz);
+            var w = AreaWeights(xyz);
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (!k.TryGetValue(nodes[i], out var m)) k[nodes[i]] = m = new double[6, 6];
+                for (int a = 0; a < 3; a++)
+                    for (int b = 0; b < 3; b++) m[a, b] += c1 * w[i] * n0[a] * n0[b];
+                area += w[i];
+            }
+            shells++;
+        }
+        foreach (var (node, m) in k) bc.SpringMatrix(node, m);
+        if (shells > 0)
+            report.Add($"Упругое основание C1: оболочек {shells}, площадь {area:F2} м², узлов {k.Count}.");
     }
 
     private static string Preview(List<int> ids)

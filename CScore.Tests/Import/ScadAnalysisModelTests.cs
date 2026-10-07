@@ -70,6 +70,7 @@ public class ScadAnalysisModelTests
             Springs = { new ScadSpring(7, 26, 101, [0, 0, 9.81e6, 0, 0, 0]) },
             Joints = { new ScadJoint(12, 0b110000, 0) },
             NotTransferred = { [ScadNotTransferredKinds.Bed] = 815 },
+            HasBeds = true, Beds = { new ScadBed(73, [8.494e6, 0, 5.946e6], [3, 4]) },
         };
 
         var back = ScadAnalysisModel.FromJson(model.ToJson());
@@ -79,9 +80,15 @@ public class ScadAnalysisModelTests
         Assert.Equal(9.81e6, Assert.Single(back.Springs).K[2]);
         Assert.Equal(new ScadJoint(12, 0b110000, 0), Assert.Single(back.Joints));
         Assert.Equal(815, back.NotTransferred[ScadNotTransferredKinds.Bed]);
+        Assert.True(back.HasBeds);
+        var bed = Assert.Single(back.Beds);
+        Assert.Equal((73, 8.494e6, true), (bed.Type, bed.C1, bed.HasBeyondC1));
+        Assert.Equal([3, 4], bed.Elements);
 
         var old = ScadAnalysisModel.FromJson("""{"Bounds":{"5":63},"RigidBodies":[],"LoadCases":[],"LengthUnitM":1,"ForceUnitN":1}""");
         Assert.False(old.HasBoundaryV2);
+        Assert.False(old.HasBeds);
+        Assert.Empty(old.Beds);
         Assert.Empty(old.Springs);
         Assert.Empty(old.Joints);
         Assert.Equal(63, old.Bounds[5]);

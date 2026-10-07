@@ -75,4 +75,41 @@ public sealed class ScadBoundaryTransferTests
         Assert.Empty(r.ElementProps);
         Assert.Contains(r.Report, l => l.Contains("дочитайте граничные условия"));
     }
+
+    [Fact]
+    public void Beds_ShellsGetC1_BeamsAndC2GoToReport()
+    {
+        var model = new ScadAnalysisModel
+        {
+            HasBoundaryV2 = true, HasBeds = true, SchemaType = 5,
+            Joints = { new ScadJoint(10, 0, 0b110000) },
+            Beds =
+            {
+                new ScadBed(73, [8.494e6, 0, 5.946e6], [20, 10]),
+                new ScadBed(0, [4.1e6, 5.1e7], [21, 99]),
+            },
+        };
+        var types = new Dictionary<string, string>(Types) { ["21"] = "shell" };
+
+        var r = ScadBoundaryTransfer.Transfer(model, Nodes, types);
+
+        Assert.Equal(new FemElementBoundaryProps(null, null, 8.494e6), r.ElementProps["20"]);
+        Assert.Equal(new FemElementBoundaryProps(null, null, 4.1e6), r.ElementProps["21"]);
+        Assert.Equal(new FemElementBoundaryProps(null, 0b110000, null), r.ElementProps["10"]);
+        Assert.Contains("стержней с шарнирами 1 (концов 1), пластин на упругом основании 2", r.Report[0]);
+        Assert.Contains(r.Report, l => l.StartsWith("Упругое основание: у 2 пластин заданы C2"));
+        Assert.Contains(r.Report, l => l.Contains("упругое основание стержней, КЭ — 1"));
+        Assert.Contains(r.Report, l => l.StartsWith("Упругое основание: 1 КЭ нет в сетке"));
+        Assert.DoesNotContain(r.Report, l => l.Contains("дочитайте"));
+    }
+
+    [Fact]
+    public void AttachmentWithoutBeds_AsksToReread()
+    {
+        var model = new ScadAnalysisModel { HasBoundaryV2 = true, Bounds = { [1] = 0x3F } };
+
+        var r = ScadBoundaryTransfer.Transfer(model, Nodes, Types);
+
+        Assert.Contains(r.Report, l => l.Contains("упругого основания") && l.Contains("дочитайте"));
+    }
 }

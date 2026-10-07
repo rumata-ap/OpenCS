@@ -3108,13 +3108,21 @@ namespace OpenCS
          }
       }
 
-      /// <summary>Закрепления узлов ЛИРЫ → закрепления узлов сетки (происхождение «import:lira»).</summary>
+      /// <summary>
+      /// Закрепления узлов ЛИРЫ → закрепления узлов сетки, C1 пластин (таблица 5) → <c>FoundationC1</c> КЭ
+      /// (происхождение «import:lira»).
+      /// </summary>
       void SaveLiraSupports(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
       {
          var supports = CScore.Import.LiraSchemaConverter.ToFemMeshNodeSupports(raw);
-         if (supports.Length == 0) return;
-         db.SaveFemBoundary(schema.Id, CScore.Import.LiraSchemaConverter.BoundaryOrigin, supports, [], []);
-         LogService.Info(string.Format(Loc.S("LiraSupportsImported"), supports.Length));
+         var props = CScore.Import.LiraSchemaConverter.ToFemElementBoundaryProps(raw);
+         if (supports.Length == 0 && props.Count == 0) return;
+         db.SaveFemBoundary(schema.Id, CScore.Import.LiraSchemaConverter.BoundaryOrigin, supports, [], [],
+            props.Count > 0 ? props : null);
+         if (supports.Length > 0) LogService.Info(string.Format(Loc.S("LiraSupportsImported"), supports.Length));
+         if (props.Count > 0) LogService.Info(string.Format(Loc.S("LiraFoundationImported"), props.Count));
+         if (raw.PlateFoundationBeyondC1 > 0)
+            LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
       }
 
       /// <summary>Сохраняет прочитанный импорт в только что созданную схему (<see cref="Utilites.DatabaseService.SaveFemImport"/>).
@@ -3705,7 +3713,8 @@ namespace OpenCS
          {
             int? liraVersion = null;
             string? liraTitle = null;
-            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion, out liraTitle));
+            double tonToKn = LiraImportSettings.TonToKnFactor;
+            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion, out liraTitle, tonToKn));
             var schema = new CScore.Fem.FemSchema { Tag = liraTitle ?? "Схема ЛИРА-САПР (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
@@ -4049,7 +4058,7 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Переносит ГУ вложения SCAD (закрепления, пружины КЭ 51, жёсткие тела, шарниры стержней) в сеточный уровень
+      /// Переносит ГУ вложения SCAD (закрепления, пружины КЭ 51, жёсткие тела, шарниры стержней, C1 пластин) в сеточный уровень
       /// схемы с заменой перенесённых раньше; ручные не трогаются. Журнал: сводка, непереносимое, проверки резолвера.
       /// Результаты постановок сбрасываются. Открытый редактор схемы закрывает вызывающий.
       /// </summary>
@@ -4079,7 +4088,7 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами и шарнирами, иначе — повторным
+      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами, шарнирами и основанием, иначе — повторным
       /// чтением .SPR через SCADAPIX.dll (вложение обновляется, нагрузки заново не переносятся).
       /// </summary>
       async Task RefreshScadBoundary(CScore.Fem.FemSchema schema)
@@ -4087,7 +4096,7 @@ namespace OpenCS
          if (IsBusy) return;
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
          if (editorOpen && !TryLeaveFemSchemaEditor()) return;
-         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true } stored)
+         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true } stored)
          {
             TransferScadBoundary(schema, stored);
             return;

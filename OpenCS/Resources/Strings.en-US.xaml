@@ -1016,6 +1016,8 @@
    <system:String x:Key="ScadBoundaryMoreDiagnostics">… and {0} more boundary condition remarks.</system:String>
    <system:String x:Key="ScadBoundaryAnalysesInvalidated">Schema boundary conditions changed — analysis results reset: {0}.</system:String>
    <system:String x:Key="LiraSupportsImported">LIRA node supports transferred: {0}.</system:String>
+   <system:String x:Key="LiraFoundationImported">LIRA plate subgrade modulus C1 transferred: {0} elements.</system:String>
+   <system:String x:Key="LiraFoundationBeyondC1">LIRA elastic foundation: {0} plates have C2 or other coefficients besides C1 — ignored (Winkler model, C1 only).</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
    <system:String x:Key="ScadPluginInstall">Install plugin into SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Plugin files not found: {0}. Reinstall OpenCS.</system:String>
@@ -4145,6 +4147,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlateRebarMosaicNoFiles">No reinforcement files: load ASP or RBT from the schema menu.</system:String>
     <system:String x:Key="MosaicSourceForces">Forces</system:String>
     <system:String x:Key="MosaicSourceUtilization">Utilization</system:String>
+    <system:String x:Key="MosaicSourceFoundation">Elastic foundation</system:String>
+    <system:String x:Key="MosaicFoundationC1">C1, kN/m³</system:String>
     <system:String x:Key="MosaicUtilization">Utilization</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    section {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Not checked</system:String>

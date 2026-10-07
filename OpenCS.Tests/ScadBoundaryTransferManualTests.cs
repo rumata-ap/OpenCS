@@ -86,7 +86,7 @@ public class ScadBoundaryTransferManualTests(ITestOutputHelper output)
                 Assert.Equal(r.Supports.Count, db.GetFemMeshNodeSupports(schema.Id).Count(s => s.Origin == ScadBoundaryTransfer.Origin));
                 Assert.Equal(r.Springs.Count, db.GetFemSprings(schema.Id).Count(s => s.Origin == ScadBoundaryTransfer.Origin));
                 Assert.Equal(r.RigidBodies.Count, db.GetFemRigidBodies(schema.Id).Count(s => s.Origin == ScadBoundaryTransfer.Origin));
-                Assert.Equal(r.ElementProps.Count, db.GetFemMeshElements(schema.Id).Count(e => e.ReleaseI != null || e.ReleaseJ != null));
+                Assert.Equal(r.ElementProps.Count, db.GetFemMeshElements(schema.Id).Count(e => e.ReleaseI != null || e.ReleaseJ != null || e.FoundationC1 != null));
                 output.WriteLine($"  БД: схема {schema.Id}, две записи {sw.ElapsedMilliseconds} мс, дублей нет");
             }
         }

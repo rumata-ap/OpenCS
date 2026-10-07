@@ -90,4 +90,27 @@ public class ScadRcModelAdapterTests
         var r = ScadRcModelAdapter.Adapt(Input(d));
         Assert.Equal(0b011100, Assert.Single(r.Model.RigidBodies).Mask);
     }
+
+    /// <summary>Основание под двумя КЭ плиты: C1 из вложения, ΣR опоры + Σ сил основания = нагрузка стадии.</summary>
+    [Fact]
+    public void Adapt_FoundationC1_ToShells_AndEquilibrium()
+    {
+        var d = ScadShellModelAssemblerTests.Data();
+        d.AnalysisModel!.Beds.Add(new global::CScore.Import.ScadBed(73, [2e7, 0, 1e7], [1, 2]));
+        var r = ScadRcModelAdapter.Adapt(Input(d));
+
+        Assert.Equal(2e7, r.Model.Shells.Single(s => s.Id == 1).FoundationC1);
+        Assert.Null(r.Model.Shells.Single(s => s.Id == 3).FoundationC1);
+        Assert.Contains(r.Report, l => l.Contains("C1: 2 пластин"));
+        Assert.Contains(r.Report, l => l.Contains("C2 и прочие"));
+
+        var build = RcStructuralMeshBuilder.Build(r.Model, new LinearRcSectionFactory());
+        var f = build.Combination(r.Model.Stages[0].Loads);
+        var u = build.Mesh.SolveLinear(f, build.Bc);
+        var reactions = build.Mesh.ComputeReactions(u, build.Bc, fExternal: f);
+        var bed = build.Bc.AssembleKSpring().ToCsc().Multiply(u);
+        double bedUp = -bed.Where((_, i) => i % 6 == 2).Sum();
+        Assert.True(bedUp > 0);
+        Assert.Equal(r.StageTotalDownN[0], reactions[build.Dof(20, 2)] + bedUp, 6);
+    }
 }

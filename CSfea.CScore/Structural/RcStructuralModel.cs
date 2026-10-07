@@ -26,8 +26,11 @@ public sealed record RcShellSection(string Key)
 /// <summary>
 /// Оболочечный КЭ: узлы контура по обходу (3 или 4), сечение и ось x сечения <see cref="SectionAxisX"/> — вектор в
 /// глобальных осях (проецируется на плоскость КЭ; null — ось x КЭ CSfea, ребро узел 0 → узел 1).
+/// <see cref="FoundationC1"/> — коэффициент постели упругого основания (Винклер), Н/м³, вдоль нормали КЭ; null или 0 —
+/// основания нет. Связь двусторонняя (отрыв не моделируется), одинаковая во всех вариантах расчёта.
 /// </summary>
-public sealed record RcShell(int Id, int[] NodeIds, RcShellSection Section, double[]? SectionAxisX = null);
+public sealed record RcShell(int Id, int[] NodeIds, RcShellSection Section, double[]? SectionAxisX = null,
+    double? FoundationC1 = null);
 
 /// <summary>
 /// Сечение стержня: упругое <see cref="Elastic"/> (Па, м; Iy — относительно локальной оси y) или сечение CScore
