@@ -27,7 +27,7 @@ public sealed class EditLoadCaseCommand(FemLoadCase target, FemLoadCase newValue
     {
         Tag = source.Tag, LoadType = source.LoadType, Sp20Type = source.Sp20Type,
         Sp20Group = source.Sp20Group, GammaFUnfav = source.GammaFUnfav, GammaFFav = source.GammaFFav,
-        Psi1 = source.Psi1, Psi2 = source.Psi2
+        Psi1 = source.Psi1, Psi2 = source.Psi2, SelfWeightFactor = source.SelfWeightFactor
     };
 
     static void Apply(FemLoadCase target, FemLoadCase source)
@@ -40,6 +40,7 @@ public sealed class EditLoadCaseCommand(FemLoadCase target, FemLoadCase newValue
         target.GammaFFav = source.GammaFFav;
         target.Psi1 = source.Psi1;
         target.Psi2 = source.Psi2;
+        target.SelfWeightFactor = source.SelfWeightFactor;
     }
 }
 
@@ -48,6 +49,8 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
     List<FemNodeLoad> _removedLoads = [];
     List<FemMemberLoad> _removedMemberLoads = [];
     List<FemKinematicLoad> _removedKinematicLoads = [];
+    List<FemElementLoad> _removedElementLoads = [];
+    List<FemMeshNodeLoad> _removedMeshNodeLoads = [];
 
     public void Do(FemSchemaEditSession session)
     {
@@ -58,6 +61,10 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
         foreach (var l in _removedMemberLoads) session.MemberLoads.Remove(l);
         _removedKinematicLoads = session.KinematicLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
         foreach (var l in _removedKinematicLoads) session.KinematicLoads.Remove(l);
+        _removedElementLoads = session.ElementLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
+        foreach (var l in _removedElementLoads) session.ElementLoads.Remove(l);
+        _removedMeshNodeLoads = session.MeshNodeLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
+        foreach (var l in _removedMeshNodeLoads) session.MeshNodeLoads.Remove(l);
     }
 
     public void Undo(FemSchemaEditSession session)
@@ -66,6 +73,8 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
         foreach (var l in _removedMemberLoads) session.MemberLoads.Add(l);
         foreach (var l in _removedKinematicLoads) session.KinematicLoads.Add(l);
+        foreach (var l in _removedElementLoads) session.ElementLoads.Add(l);
+        foreach (var l in _removedMeshNodeLoads) session.MeshNodeLoads.Add(l);
     }
 }
 

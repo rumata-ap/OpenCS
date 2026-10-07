@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 76;
+      const int CurrentSchemaVersion = 77;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -96,6 +96,7 @@ namespace OpenCS.Utilites
          [73] = MigrateV74,
          [74] = MigrateV75,
          [75] = MigrateV76,
+         [76] = MigrateV77,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -599,7 +600,10 @@ namespace OpenCS.Utilites
                 gamma_f_unfav REAL,
                 gamma_f_fav REAL,
                 psi1 REAL,
-                psi2 REAL
+                psi2 REAL,
+                self_weight_factor REAL,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                source_load_num INTEGER
             );
             CREATE TABLE IF NOT EXISTS fem_node_loads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -613,6 +617,34 @@ namespace OpenCS.Utilites
                 my REAL NOT NULL DEFAULT 0,
                 mz REAL NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS fem_element_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                target_kind TEXT NOT NULL DEFAULT 'elements',
+                target_tags_json TEXT NOT NULL DEFAULT '[]',
+                group_id INTEGER,
+                load_kind TEXT NOT NULL DEFAULT 'uniform',
+                coordinate_system TEXT NOT NULL DEFAULT 'global',
+                axis TEXT NOT NULL DEFAULT 'z',
+                values_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_element_loads_schema_case ON fem_element_loads(schema_id, load_case_id);
+            CREATE TABLE IF NOT EXISTS fem_mesh_node_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                mesh_node_tag TEXT NOT NULL,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                fx REAL NOT NULL DEFAULT 0,
+                fy REAL NOT NULL DEFAULT 0,
+                fz REAL NOT NULL DEFAULT 0,
+                mx REAL NOT NULL DEFAULT 0,
+                my REAL NOT NULL DEFAULT 0,
+                mz REAL NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_mesh_node_loads_schema_case ON fem_mesh_node_loads(schema_id, load_case_id);
             CREATE TABLE IF NOT EXISTS fem_member_loads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -1656,6 +1688,48 @@ namespace OpenCS.Utilites
          CREATE INDEX IF NOT EXISTS idx_force_items_set_elem ON force_items(set_id, source_elem_num);
          CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_elem ON force_shell_items(set_id, source_elem_num);
          """);
+
+      /// <summary>Миграция v77: нагрузки сеточного уровня (на КЭ и на узлы сетки), собственный вес загружения, его
+      /// происхождение и номер в источнике.</summary>
+      void MigrateV77()
+      {
+         if (!ColumnExists("fem_load_cases", "self_weight_factor"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN self_weight_factor REAL");
+         if (!ColumnExists("fem_load_cases", "origin"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual'");
+         if (!ColumnExists("fem_load_cases", "source_load_num"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN source_load_num INTEGER");
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_element_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                target_kind TEXT NOT NULL DEFAULT 'elements',
+                target_tags_json TEXT NOT NULL DEFAULT '[]',
+                group_id INTEGER,
+                load_kind TEXT NOT NULL DEFAULT 'uniform',
+                coordinate_system TEXT NOT NULL DEFAULT 'global',
+                axis TEXT NOT NULL DEFAULT 'z',
+                values_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_element_loads_schema_case ON fem_element_loads(schema_id, load_case_id);
+            CREATE TABLE IF NOT EXISTS fem_mesh_node_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                mesh_node_tag TEXT NOT NULL,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                fx REAL NOT NULL DEFAULT 0,
+                fy REAL NOT NULL DEFAULT 0,
+                fz REAL NOT NULL DEFAULT 0,
+                mx REAL NOT NULL DEFAULT 0,
+                my REAL NOT NULL DEFAULT 0,
+                mz REAL NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_mesh_node_loads_schema_case ON fem_mesh_node_loads(schema_id, load_case_id);
+            """);
+      }
 
       /// <summary>Миграция v76: вид группы (kind: mesh — номера КЭ сетки, members — теги КонЭ), происхождение
       /// (origin), теги состава строками, коды типов вместо русских имён. Вид старых групп — по прежнему
@@ -3937,7 +4011,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, load_type, sp20_type, sp20_group,
-                      gamma_f_unfav, gamma_f_fav, psi1, psi2
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num
                FROM fem_load_cases WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
             cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
@@ -3957,7 +4031,10 @@ namespace OpenCS.Utilites
                   GammaFUnfav = r.IsDBNull(6) ? null : r.GetDouble(6),
                   GammaFFav   = r.IsDBNull(7) ? null : r.GetDouble(7),
                   Psi1        = r.IsDBNull(8) ? null : r.GetDouble(8),
-                  Psi2        = r.IsDBNull(9) ? null : r.GetDouble(9)
+                  Psi2        = r.IsDBNull(9) ? null : r.GetDouble(9),
+                  SelfWeightFactor = r.IsDBNull(10) ? null : r.GetDouble(10),
+                  Origin      = r.GetString(11),
+                  SourceLoadNum = r.IsDBNull(12) ? null : r.GetInt32(12)
                });
             }
          }
@@ -4167,6 +4244,8 @@ namespace OpenCS.Utilites
                DELETE FROM fem_node_loads         WHERE schema_id=@id;
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
                DELETE FROM fem_kinematic_loads    WHERE schema_id=@id;
+               DELETE FROM fem_element_loads      WHERE schema_id=@id;
+               DELETE FROM fem_mesh_node_loads    WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
                DELETE FROM submodel_materializations
@@ -4204,7 +4283,7 @@ namespace OpenCS.Utilites
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             SELECT id, tag, load_type, sp20_type, sp20_group,
-                   gamma_f_unfav, gamma_f_fav, psi1, psi2
+                   gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num
             FROM fem_load_cases WHERE schema_id=@sid ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -4221,7 +4300,10 @@ namespace OpenCS.Utilites
                GammaFUnfav = r.IsDBNull(5) ? null : r.GetDouble(5),
                GammaFFav   = r.IsDBNull(6) ? null : r.GetDouble(6),
                Psi1        = r.IsDBNull(7) ? null : r.GetDouble(7),
-               Psi2        = r.IsDBNull(8) ? null : r.GetDouble(8)
+               Psi2        = r.IsDBNull(8) ? null : r.GetDouble(8),
+               SelfWeightFactor = r.IsDBNull(9) ? null : r.GetDouble(9),
+               Origin      = r.GetString(10),
+               SourceLoadNum = r.IsDBNull(11) ? null : r.GetInt32(11)
             });
          return result;
       }
@@ -4237,8 +4319,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO fem_load_cases
                      (schema_id, tag, load_type, sp20_type, sp20_group,
-                      gamma_f_unfav, gamma_f_fav, psi1, psi2)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
                   SELECT last_insert_rowid();
                """;
                AddFemLoadCaseParameters(cmd, loadCase);
@@ -4249,7 +4331,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   UPDATE fem_load_cases SET tag=@tag, load_type=@lt, sp20_type=@st,
                      sp20_group=@sg, gamma_f_unfav=@gu, gamma_f_fav=@gf,
-                     psi1=@p1, psi2=@p2 WHERE id=@id AND schema_id=@sid
+                     psi1=@p1, psi2=@p2, self_weight_factor=@swf, origin=@origin, source_load_num=@sln
+                     WHERE id=@id AND schema_id=@sid
                """;
                AddFemLoadCaseParameters(cmd, loadCase);
                cmd.Parameters.AddWithValue("@id", loadCase.Id);
@@ -4271,7 +4354,14 @@ namespace OpenCS.Utilites
          try
          {
             using var cmd = _connection.CreateCommand();
-            cmd.CommandText = "DELETE FROM fem_node_loads WHERE load_case_id=@id; DELETE FROM fem_load_cases WHERE id=@id";
+            cmd.CommandText = """
+               DELETE FROM fem_node_loads      WHERE load_case_id=@id;
+               DELETE FROM fem_member_loads    WHERE load_case_id=@id;
+               DELETE FROM fem_kinematic_loads WHERE load_case_id=@id;
+               DELETE FROM fem_element_loads   WHERE load_case_id=@id;
+               DELETE FROM fem_mesh_node_loads WHERE load_case_id=@id;
+               DELETE FROM fem_load_cases      WHERE id=@id;
+               """;
             cmd.Parameters.AddWithValue("@id", loadCase.Id);
             cmd.ExecuteNonQuery();
             tx.Commit();
@@ -4291,6 +4381,15 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@gf", (object?)loadCase.GammaFFav ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@p1", (object?)loadCase.Psi1 ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@p2", (object?)loadCase.Psi2 ?? DBNull.Value);
+         AddFemLoadCaseExtraParameters(cmd, loadCase);
+      }
+
+      /// <summary>Параметры v77: @swf (коэффициент собственного веса), @origin, @sln (номер в источнике).</summary>
+      static void AddFemLoadCaseExtraParameters(SqliteCommand cmd, CScore.Fem.FemLoadCase loadCase)
+      {
+         cmd.Parameters.AddWithValue("@swf", (object?)loadCase.SelfWeightFactor ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@origin", loadCase.Origin);
+         cmd.Parameters.AddWithValue("@sln", (object?)loadCase.SourceLoadNum ?? DBNull.Value);
       }
 
       public List<CScore.Fem.FemNodeLoad> GetFemNodeLoads(int schemaId, int? loadCaseId = null)
@@ -5069,8 +5168,13 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
          IReadOnlyList<CScore.Fem.FemMemberLoad>  memberLoads,
          IReadOnlyList<CScore.Fem.FemKinematicLoad> kinematicLoads,
-         IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
+         IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null,
+         IReadOnlyList<CScore.Fem.FemElementLoad>? elementLoads = null,
+         IReadOnlyList<CScore.Fem.FemMeshNodeLoad>? meshNodeLoads = null)
       {
+         // Нагрузки сеточного уровня передаются парой: обе — полная замена, ни одной — сохраняются (с переводом Id загружений).
+         if ((elementLoads == null) != (meshNodeLoads == null))
+            throw new ArgumentException("Нагрузки на КЭ и на узлы сетки передаются вместе.");
          var newTags = nodes.Select(n => n.NodeTag).ToList();
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
             throw new InvalidOperationException("Теги узлов FEM-схемы должны быть уникальными.");
@@ -5204,8 +5308,9 @@ namespace OpenCS.Utilites
             {
                lcCmd.CommandText = """
                   INSERT INTO fem_load_cases
-                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
+                      self_weight_factor, origin, source_load_num)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
                   SELECT last_insert_rowid();
                """;
                foreach (var lc in loadCases)
@@ -5220,6 +5325,7 @@ namespace OpenCS.Utilites
                   lcCmd.Parameters.AddWithValue("@gf",  (object?)lc.GammaFFav   ?? DBNull.Value);
                   lcCmd.Parameters.AddWithValue("@p1",  (object?)lc.Psi1 ?? DBNull.Value);
                   lcCmd.Parameters.AddWithValue("@p2",  (object?)lc.Psi2 ?? DBNull.Value);
+                  AddFemLoadCaseExtraParameters(lcCmd, lc);
                   int newId = (int)(long)lcCmd.ExecuteScalar()!;
                   newLoadCaseIdByOld[lc.Id] = newId;
                   lc.Id = newId;
@@ -5317,6 +5423,14 @@ namespace OpenCS.Utilites
                      ? mappedLoadCaseId : load.LoadCaseId;
                }
             }
+
+            if (elementLoads != null)
+            {
+               DeleteFemMeshLevelLoadsCore(schemaId);
+               InsertFemMeshLevelLoadsCore(schemaId, elementLoads, meshNodeLoads!,
+                  id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id, group => group);
+            }
+            else RemapFemMeshLevelLoadsCore(schemaId, newLoadCaseIdByOld);
 
             var savedDefinitions = definitions ?? [];
             using (var definitionCmd = _connection.CreateCommand())
@@ -5559,6 +5673,8 @@ namespace OpenCS.Utilites
          var loadDefinitions = GetFemLoadDefinitions(sourceSchemaId);
          var meshNodes       = GetFemMeshNodes(sourceSchemaId);
          var meshElements    = GetFemMeshElements(sourceSchemaId);
+         var elementLoads    = GetFemElementLoads(sourceSchemaId);
+         var meshNodeLoads   = GetFemMeshNodeLoads(sourceSchemaId);
 
          using var tx = _connection.BeginTransaction();
          try
@@ -5669,6 +5785,7 @@ namespace OpenCS.Utilites
                }
             }
 
+            var newGroupIdByOld = new Dictionary<int, int>();
             foreach (var g in sourceSchema.MemberGroups)
             {
                var groupCopy = new CScore.Fem.FemMemberGroup
@@ -5678,6 +5795,7 @@ namespace OpenCS.Utilites
                   PlateSectionId = g.PlateSectionId, ForceSetId = g.ForceSetId, DesignParamsJson = g.DesignParamsJson
                };
                SaveFemMemberGroupCore(groupCopy, newSchemaId);
+               newGroupIdByOld[g.Id] = groupCopy.Id;
                newSchema.MemberGroups.Add(groupCopy);
             }
 
@@ -5686,8 +5804,9 @@ namespace OpenCS.Utilites
             {
                lcCmd.CommandText = """
                   INSERT INTO fem_load_cases
-                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
+                      self_weight_factor, origin, source_load_num)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
                   SELECT last_insert_rowid();
                """;
                foreach (var lc in loadCases)
@@ -5702,13 +5821,15 @@ namespace OpenCS.Utilites
                   lcCmd.Parameters.AddWithValue("@gf",  (object?)lc.GammaFFav ?? DBNull.Value);
                   lcCmd.Parameters.AddWithValue("@p1",  (object?)lc.Psi1 ?? DBNull.Value);
                   lcCmd.Parameters.AddWithValue("@p2",  (object?)lc.Psi2 ?? DBNull.Value);
+                  AddFemLoadCaseExtraParameters(lcCmd, lc);
                   int newId = (int)(long)lcCmd.ExecuteScalar()!;
                   newLoadCaseIdByOld[lc.Id] = newId;
                   newSchema.LoadCases.Add(new CScore.Fem.FemLoadCase
                   {
                      Id = newId, SchemaId = newSchemaId, Tag = lc.Tag, LoadType = lc.LoadType,
                      Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav,
-                     GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2
+                     GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
+                     SelfWeightFactor = lc.SelfWeightFactor, Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum
                   });
                }
             }
@@ -5796,6 +5917,12 @@ namespace OpenCS.Utilites
                   kinematicLoadCmd.ExecuteNonQuery();
                }
             }
+
+            InsertFemMeshLevelLoadsCore(newSchemaId, elementLoads, meshNodeLoads,
+               id => newLoadCaseIdByOld.TryGetValue(id, out int lcId) ? lcId
+                  : throw new InvalidOperationException($"Нагрузка сеточного уровня ссылается на отсутствующий случай нагружения {id}."),
+               group => group is { } g && newGroupIdByOld.TryGetValue(g, out int mapped) ? mapped : null,
+               updateObjects: false);
 
             using (var definitionCmd = _connection.CreateCommand())
             {
@@ -6267,6 +6394,8 @@ namespace OpenCS.Utilites
                   DELETE FROM fem_node_loads       WHERE schema_id=@sid;
                   DELETE FROM fem_member_loads     WHERE schema_id=@sid;
                   DELETE FROM fem_kinematic_loads  WHERE schema_id=@sid;
+                  DELETE FROM fem_element_loads    WHERE schema_id=@sid;
+                  DELETE FROM fem_mesh_node_loads  WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases       WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups    WHERE schema_id=@sid;
                   DELETE FROM fem_members          WHERE schema_id=@sid;

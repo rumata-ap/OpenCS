@@ -7,9 +7,6 @@ public sealed class FemNodeLoad
     public int SchemaId { get; set; }
     public int LoadCaseId { get; set; }
     public int NodeId { get; set; }
-
-    /// <summary>Происхождение: <see cref="FemLoadOrigin.Manual"/> или «import:&lt;источник&gt;».</summary>
-    public string Origin { get; set; } = FemLoadOrigin.Manual;
     public double Fx { get; set; }
     public double Fy { get; set; }
     public double Fz { get; set; }

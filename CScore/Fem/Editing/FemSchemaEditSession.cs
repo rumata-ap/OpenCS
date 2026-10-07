@@ -13,6 +13,10 @@ public sealed class FemSchemaEditSession
     public List<FemMemberLoad>  MemberLoads  { get; } = [];
     public List<FemKinematicLoad> KinematicLoads { get; } = [];
     public List<FemLoadDefinition> LoadDefinitions { get; } = [];
+    /// <summary>Нагрузки на КЭ сетки (сеточный уровень).</summary>
+    public List<FemElementLoad> ElementLoads { get; } = [];
+    /// <summary>Узловые нагрузки на узлы сетки (сеточный уровень).</summary>
+    public List<FemMeshNodeLoad> MeshNodeLoads { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];
     int _position; // индекс первой ненаправленной команды (== _history.Count при отсутствии redo)
