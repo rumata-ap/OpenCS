@@ -32,6 +32,12 @@ public sealed class RcSecantOptions
     /// </summary>
     public bool DropMembraneBendingCoupling { get; init; }
 
+    /// <summary>
+    /// Сдвиговые деформации стержней с сечением CScore (КЭ Тимошенко, <see cref="BeamShearSection"/>): упругие до
+    /// трещины, после — ферменная аналогия по хомутам сечения. false — Эйлер — Бернулли, как до 07.10.2026.
+    /// </summary>
+    public bool BeamShear { get; init; } = true;
+
     /// <summary>ν бетона до трещины (Дарвин — Пекнольд); null — как в сечении.</summary>
     public double? PoissonUncracked { get; init; }
 
@@ -51,6 +57,7 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
     private readonly Dictionary<string, IBeamSectionResponse> _elasticBeams = new(StringComparer.Ordinal);
     private readonly Dictionary<object, ISecantShellState> _shellStates = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<object, ISecantBeamState> _beamStates = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<RcBeamSection, BeamShearSection?> _beamShear = new(ReferenceEqualityComparer.Instance);
 
     public IShellSectionResponse Shell(RcShell shell)
     {
@@ -80,7 +87,10 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
         var s = beam.Section;
         if (s.Cross != null)
         {
-            var st = new CrossSectionSecantBeamState(s.Cross, s.Calc, s.TorsionGJ, options.TensionConcrete ?? true, options.Psi);
+            if (!_beamShear.TryGetValue(s, out var shear))
+                _beamShear[s] = shear = options.BeamShear ? BeamShearSection.From(s.Cross, s.Calc) : null;
+            var st = new CrossSectionSecantBeamState(s.Cross, s.Calc, s.TorsionGJ, options.TensionConcrete ?? true, options.Psi,
+                shear);
             _beamStates[st.Response] = st;
             return st.Response;
         }

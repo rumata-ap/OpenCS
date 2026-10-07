@@ -53,6 +53,41 @@ public class SecantBeamTests
         var f = resp.Forces(1e-4, 2e-3, -1e-3);
         TestHarness.CheckRel("SecantBeamResponse: N = S·ε", f.N, Ea * 1e-4 + Ea * e * 2e-3, 1e-14);
 
+        TestHarness.Section("Сдвиговая податливость (Тимошенко)");
+        TestHarness.Check("без сдвига — прежний связанный КЭ",
+            Rel(BeamElements.Beam3dKLocal(sOff, Gj, L, BeamShearStiffness.Rigid), kCoupled) == 0.0);
+        const double gaY = 3e7, gaZ = 5e7;
+        var kT = BeamElements.Beam3dKLocal(sOff, Gj, L, new BeamShearStiffness(gaY, gaZ));
+        TestHarness.Check("КЭ Тимошенко: K симметрична", Asym(kT) < 1e-12 * MaxAbs(kT), $"асимм.={Asym(kT):e2}");
+        var rigid = new double[12];
+        for (int i = 0; i < 2; i++) { rigid[6 * i + 1] = 0.3 + 0.2 * i * L; rigid[6 * i + 2] = -0.1 - 0.4 * i * L; }
+        rigid[5] = rigid[11] = 0.2;
+        rigid[4] = rigid[10] = 0.4;
+        double fRigid = CSfea.Sparse.Dense.MaxAbs(CSfea.Sparse.Dense.MatVec(kT, rigid));
+        TestHarness.Check("КЭ Тимошенко: жёсткое смещение без усилий", fRigid < 1e-9 * MaxAbs(kT), $"max|F|={fRigid:e2}");
+
+        // Консоль одним КЭ, силы P по y и z на конце: w = P·L³/(3·EI) + P·L/GA — точно (Q постоянна).
+        var kTff = new double[6, 6];
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+                kTff[i, j] = kT[free[i], free[j]];
+        var dT = Solve(kTff, [0, p, p, 0, 0, 0]);
+        var dTl = new double[12];
+        for (int i = 0; i < 6; i++) dTl[free[i]] = dT[i];
+        TestHarness.CheckRel("консоль Тимошенко: v = P·L³/(3·EI_z) + P·L/GA_y", dTl[7], p * L * L * L / (3 * EIz) + p * L / gaY, 1e-10);
+        TestHarness.CheckRel("консоль Тимошенко: w = P·L³/(3·EI_c) + P·L/GA_z", dTl[8], p * L * L * L / (3 * EIy) + p * L / gaZ, 1e-10);
+        TestHarness.CheckRel("консоль Тимошенко: θ конца — только изгиб", -dTl[10], p * L * L / (2 * EIy), 1e-10);
+
+        var (bend, gy, gz) = BeamElements.Beam3dShearSplit(sOff, Gj, L, new BeamShearStiffness(gaY, gaZ), dTl);
+        TestHarness.CheckRel("разделение: γ_y = P/GA_y", gy, p / gaY, 1e-10);
+        TestHarness.CheckRel("разделение: γ_z = P/GA_z", gz, p / gaZ, 1e-10);
+        var (_, kyRoot, kzRoot) = BeamElements.Beam3dCoupledStrains(sOff, L, bend, 0.0);
+        TestHarness.CheckRel("разделение: M_z в заделке по изгибной части = P·L", Math.Abs(EIz * kzRoot), p * L, 1e-10);
+        TestHarness.CheckRel("разделение: |κ_y| в заделке = P·L/EI_c", Math.Abs(kyRoot), p * L / EIy, 1e-10);
+
+        var respT = new SecantBeamResponse(sOff, Gj, new BeamShearStiffness(gaY, gaZ));
+        TestHarness.Check("SecantBeamResponse со сдвигом → КЭ Тимошенко", Rel(BeamElements.Beam3dKLocal(respT, L), kT) == 0.0);
+
         TestHarness.Section("Средняя податливость по трём сечениям Лобатто");
         var same = BeamElements.MeanCompliance(sOff, sOff, sOff);
         TestHarness.Check("одинаковые сечения → то же S", Rel(same, sOff) < 1e-12, $"отн.={Rel(same, sOff):e2}");

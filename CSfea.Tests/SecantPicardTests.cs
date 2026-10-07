@@ -309,7 +309,8 @@ public class SecantPicardTests
     {
         public SecantBeamResponse Response { get; } = new(s, 1e7);
         public double[,] Initial => s;
-        public SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains) => new(s, default);
+        public SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains,
+            double gammaY, double gammaZ) => new(s, default);
         public BeamForces TrueForces(double xi, double eps0, double kappaY, double kappaZ) => Response.Forces(eps0, kappaY, kappaZ);
         public void Commit() { }
         public void Revert() { }

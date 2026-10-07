@@ -11,8 +11,11 @@ public readonly record struct SecantSectionStatus(bool Cracked, bool Yielded, bo
 /// <summary>Новая (целевая) секущая матрица оболочечного КЭ и его состояние.</summary>
 public sealed record SecantShellEvaluation(ShellTangent Target, SecantSectionStatus Status);
 
-/// <summary>Новая (целевая) секущая матрица стержневого КЭ и его состояние.</summary>
-public sealed record SecantBeamEvaluation(double[,] Target, SecantSectionStatus Status);
+/// <summary>
+/// Новая (целевая) секущая матрица стержневого КЭ, его состояние и целевые сдвиговые жёсткости (null — сдвиг КЭ не
+/// меняется).
+/// </summary>
+public sealed record SecantBeamEvaluation(double[,] Target, SecantSectionStatus Status, BeamShearStiffness? ShearTarget = null);
 
 /// <summary>
 /// Нелинейный закон сечения оболочечного КЭ для секущего расчёта. Матрицы — в осях сечения (у повёрнутого сечения
@@ -47,8 +50,15 @@ public interface ISecantBeamState
     SecantBeamResponse Response { get; }
     double[,] Initial { get; }
 
-    /// <summary>Секущая матрица КЭ по деформациям (ε₀, κ_y, κ_z) в точках ξ = 0, ½, 1.</summary>
-    SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains);
+    /// <summary>Начальные сдвиговые жёсткости — нижняя граница секущих (<see cref="BeamShearStiffness.Rigid"/> — без сдвига).</summary>
+    BeamShearStiffness InitialShear => BeamShearStiffness.Rigid;
+
+    /// <summary>
+    /// Секущая матрица КЭ по изгибным деформациям (ε₀, κ_y, κ_z) в точках ξ = 0, ½, 1 и углам сдвига КЭ
+    /// <paramref name="gammaY"/>, <paramref name="gammaZ"/> (постоянным по длине).
+    /// </summary>
+    SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains, double gammaY = 0.0,
+        double gammaZ = 0.0);
 
     /// <summary>Истинные усилия в точке ξ при текущем пробном состоянии (для невязки).</summary>
     BeamForces TrueForces(double xi, double eps0, double kappaY, double kappaZ);
@@ -280,6 +290,7 @@ public sealed class SecantPicardSolver
     {
         var shellSnap = _shells.Select(s => s?.Response.Matrix).ToArray();
         var beamSnap = _beams.Select(b => b?.Response.Matrix).ToArray();
+        var beamShearSnap = _beams.Select(b => b?.Response.Shear).ToArray();
         var shellStatus = new SecantSectionStatus[_shells.Length];
         var beamStatus = new SecantSectionStatus[_beams.Length];
         var uPrev = uStart;
@@ -302,7 +313,8 @@ public sealed class SecantPicardSolver
 
             var shellTargets = new ShellTangent?[_shells.Length];
             var beamT = new double[_beams.Length][,];
-            var (dK, r, worst) = EvaluateAll(u, shellTargets, beamT, shellStatus, beamStatus);   // dK — мера по работе
+            var beamShearT = new BeamShearStiffness?[_beams.Length];
+            var (dK, r, worst) = EvaluateAll(u, shellTargets, beamT, beamShearT, shellStatus, beamStatus);   // dK — мера по работе
             double tEval = clock.Elapsed.TotalSeconds - tSolve;
 
             double du = Dense.Norm(Dense.SubV(u, uPrev)) / Math.Max(Dense.Norm(u), 1e-300);
@@ -340,7 +352,7 @@ public sealed class SecantPicardSolver
                 $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}, " +
                 $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с, сечения {tEval:0.0} с");
 
-            Relax(shellTargets, beamT, applied);
+            Relax(shellTargets, beamT, beamShearT, applied);
             if (converged)
             {
                 foreach (var s in _shells) s?.Commit();
@@ -357,6 +369,7 @@ public sealed class SecantPicardSolver
         foreach (var b in _beams) b?.Revert();
         for (int e = 0; e < _shells.Length; e++) if (shellSnap[e] is { } m) _shells[e]!.Response.Update(m);
         for (int e = 0; e < _beams.Length; e++) if (beamSnap[e] is { } m) _beams[e]!.Response.Update(m);
+        for (int e = 0; e < _beams.Length; e++) if (beamShearSnap[e] is { } q) _beams[e]!.Response.UpdateShear(q);
         return new Attempt(false, _o.MaxIterations, double.IsNaN(residual) ? TrueResidual(f, uPrev) : residual,
             uPrev, shellStatus, beamStatus);
     }
@@ -383,9 +396,10 @@ public sealed class SecantPicardSolver
     /// невязка неподвижной точки для Эйткена.
     /// </summary>
     private (double DF, double[] R, string Worst) EvaluateAll(double[] u, ShellTangent?[] shellTargets,
-        double[][,] beamTargets, SecantSectionStatus[] shellStatus, SecantSectionStatus[] beamStatus)
+        double[][,] beamTargets, BeamShearStiffness?[] beamShearTargets, SecantSectionStatus[] shellStatus,
+        SecantSectionStatus[] beamStatus)
     {
-        const int shellBlock = 8, beamBlock = 9;   // (N, M, Q) оболочки; (N, M_y, M_z) в трёх точках стержня
+        const int shellBlock = 8, beamBlock = 11;   // (N, M, Q) оболочки; (N, M_y, M_z) в трёх точках стержня и (Q_y, Q_z)
         var r = new double[_shells.Length * shellBlock + _beams.Length * beamBlock];
         var work = new double[_shells.Length + _beams.Length];
         var change = new double[_shells.Length + _beams.Length];
@@ -423,8 +437,8 @@ public sealed class SecantPicardSolver
         for (int e = 0; e < _beams.Length; e++)
         {
             if (_beams[e] is not { } st) continue;
-            var strains = BeamStrains(e, u, st.Response.Matrix);
-            var ev = st.Evaluate(strains);
+            var (strains, gy, gz) = BeamStrains(e, u, st.Response);
+            var ev = st.Evaluate(strains, gy, gz);
             var target = FloorBeam(ev.Target, st.Initial);
             beamTargets[e] = target;
             beamStatus[e] = ev.Status;
@@ -440,6 +454,22 @@ public sealed class SecantPicardSolver
                     r[offset + e * beamBlock + 3 * p + i] = ep[i] * df[i];
                     c += Math.Abs(ep[i] * df[i]);
                     w += Math.Abs(ep[i] * ft[i]);
+                }
+            }
+            // Сдвиг: γ·ΔQ, ΔQ = (GA_new − GA)·γ; в работу — с весом трёх сечений (γ постоянна по КЭ).
+            var cur = st.Response.Shear;
+            if (ev.ShearTarget is { } qt)
+            {
+                var sh = FloorShear(qt, st.InitialShear);
+                beamShearTargets[e] = sh;
+                double[] g = [gy, gz], gaNew = [sh.GAvY, sh.GAvZ], gaCur = [cur.GAvY, cur.GAvZ];
+                for (int i = 0; i < 2; i++)
+                {
+                    if (!double.IsFinite(gaNew[i]) || !double.IsFinite(gaCur[i])) continue;
+                    double dq = (gaNew[i] - gaCur[i]) * g[i];
+                    r[offset + e * beamBlock + 9 + i] = 3.0 * g[i] * dq;
+                    c += 3.0 * Math.Abs(g[i] * dq);
+                    w += 3.0 * Math.Abs(g[i] * gaNew[i] * g[i]);
                 }
             }
             // Работа стержня — на единицу длины (три сечения), оболочки — на единицу площади: сравниваются внутри типа.
@@ -488,12 +518,13 @@ public sealed class SecantPicardSolver
         {
             int e = worstElem - _shells.Length, b0 = offset + e * beamBlock, k = 0;
             for (int i = 1; i < beamBlock; i++) if (Math.Abs(r[b0 + i]) > Math.Abs(r[b0 + k])) k = i;
-            where = $"стержень {e} ξ={0.5 * (k / 3)} {beamNames[k % 3]}";
+            where = k >= 9 ? $"стержень {e} {(k == 9 ? "Qy" : "Qz")}" : $"стержень {e} ξ={0.5 * (k / 3)} {beamNames[k % 3]}";
         }
         return (dF, r, where);
     }
 
-    private void Relax(ShellTangent?[] shellTargets, double[][,] beamTargets, double omega)
+    private void Relax(ShellTangent?[] shellTargets, double[][,] beamTargets, BeamShearStiffness?[] beamShearTargets,
+        double omega)
     {
         for (int e = 0; e < _shells.Length; e++)
         {
@@ -503,7 +534,15 @@ public sealed class SecantPicardSolver
                 Mix(cur.D, t.D, omega), Mix(cur.As, t.As, omega)));
         }
         for (int e = 0; e < _beams.Length; e++)
+        {
             if (beamTargets[e] is { } t) _beams[e]!.Response.Update(Mix(_beams[e]!.Response.Matrix, t, omega));
+            if (beamShearTargets[e] is { } q)
+            {
+                var cur = _beams[e]!.Response.Shear;
+                _beams[e]!.Response.UpdateShear(new BeamShearStiffness(MixShear(cur.GAvY, q.GAvY, omega),
+                    MixShear(cur.GAvZ, q.GAvZ, omega)));
+            }
+        }
     }
 
     // ---------------- деформации КЭ ----------------
@@ -516,11 +555,16 @@ public sealed class SecantPicardSolver
         return _mesh.Shells[e].Section is RotatedShellResponse rot ? rot.ToSection(eps, kappa, gamma) : (eps, kappa, gamma);
     }
 
-    /// <summary>Деформации стержня в точках Лобатто (с пузырём продольного перемещения по секущей <paramref name="s"/>).</summary>
-    private (double, double, double)[] BeamStrains(int e, double[] u, double[,] s)
+    /// <summary>
+    /// Изгибные деформации стержня в точках Лобатто (с пузырём продольного перемещения по секущей) и углы сдвига КЭ —
+    /// по разделению перемещений КЭ Тимошенко при текущих секущих <paramref name="r"/>.
+    /// </summary>
+    private ((double, double, double)[] Strains, double GammaY, double GammaZ) BeamStrains(int e, double[] u,
+        SecantBeamResponse r)
     {
         var (d, l) = BeamLocal(e, u);
-        return new[] { 0.0, 0.5, 1.0 }.Select(xi => BeamElements.Beam3dCoupledStrains(s, l, d, xi)).ToArray();
+        var (bend, gy, gz) = BeamElements.Beam3dShearSplit(r.Matrix, r.GJ, l, r.Shear, d);
+        return (new[] { 0.0, 0.5, 1.0 }.Select(xi => BeamElements.Beam3dCoupledStrains(r.Matrix, l, bend, xi)).ToArray(), gy, gz);
     }
 
     /// <summary>Локальные перемещения стержня: линейно — T·u, при геометрической нелинейности — деформационные CR.</summary>
@@ -627,6 +671,16 @@ public sealed class SecantPicardSolver
         for (int i = 0; i < 3; i++) r[i, i] = Math.Max(r[i, i], k * init[i, i]);
         return r;
     }
+
+    private BeamShearStiffness FloorShear(BeamShearStiffness s, BeamShearStiffness init)
+    {
+        double k = _o.StiffnessFloor;
+        return k <= 0.0 ? s : new BeamShearStiffness(Math.Max(s.GAvY, k * init.GAvY), Math.Max(s.GAvZ, k * init.GAvZ));
+    }
+
+    // Бесконечная жёсткость (без сдвига) смешивается только сама с собой.
+    private static double MixShear(double cur, double target, double w)
+        => double.IsFinite(cur) && double.IsFinite(target) ? cur + w * (target - cur) : target;
 
     private static double[,] Full6(ShellTangent m)
     {

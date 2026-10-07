@@ -167,6 +167,11 @@ public sealed class PlateSecantShellState : ISecantShellState
 /// (если разрешено), после — без растяжения и с ψs по εs,crc при M = M_crc (как в <see cref="TotalCurvatureSolver"/>).
 /// Сечение без трещины (в т. ч. внецентренно сжатое) — законный случай, ψs к нему не применяется. Сечение CScore
 /// мутирует фибры — вызовы последовательные; сечение можно делить между КЭ.
+///
+/// Сдвиг (<see cref="BeamShearSection"/>, null — Бернулли): до трещины упругий GA₀, наклонная трещина появляется в КЭ
+/// вместе с первой нормальной (изгибно-сдвиговые трещины) и необратима; Q_cr — поперечная сила КЭ в момент трещины,
+/// приведённая к M = M_crc точки трещины (при пропорциональном нагружении не зависит от шага). Дальше
+/// Q = Q_cr + K_v·(γ − Q_cr/GA₀) (без площадки, см. <see cref="BeamShearCracked"/>), секущая GA = Q/γ.
 /// </summary>
 public sealed class CrossSectionSecantBeamState : ISecantBeamState
 {
@@ -177,35 +182,50 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
     private readonly bool[] _cracked = new bool[3], _crackedCommitted = new bool[3];
     private readonly Dictionary<Fiber, double>?[] _epsCrc = new Dictionary<Fiber, double>?[3];
     private readonly Dictionary<Fiber, double>?[] _epsCrcCommitted = new Dictionary<Fiber, double>?[3];
+    private readonly BeamShearSection? _shear;
+    private ShearCrack? _shearCrack, _shearCrackCommitted;
 
-    public CrossSectionSecantBeamState(CrossSection section, CalcType calc, double torsionGJ, bool tension, bool psi)
+    /// <summary>Наклонная трещина КЭ: Q_cr и закон после трещины по осям y и z (null — упругий сдвиг по оси).</summary>
+    private sealed record ShearCrack(double QcrY, BeamShearCracked? LawY, double QcrZ, BeamShearCracked? LawZ);
+
+    public CrossSectionSecantBeamState(CrossSection section, CalcType calc, double torsionGJ, bool tension, bool psi,
+        BeamShearSection? shear = null)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calc = calc;
         _tension = tension;
         _psi = psi;
+        _shear = shear;
         var (s0, _) = SecantCrossSectionBuilder.Build(section, new Kurvature(), calc, tension);
         Initial = SecantCrossSectionBuilder.ToCsfea(s0);
-        Response = new SecantBeamResponse(Initial, torsionGJ);
+        InitialShear = shear?.Initial ?? BeamShearStiffness.Rigid;
+        Response = new SecantBeamResponse(Initial, torsionGJ, InitialShear);
     }
 
     public SecantBeamResponse Response { get; }
     public double[,] Initial { get; }
+    public BeamShearStiffness InitialShear { get; }
+
+    /// <summary>Есть ли в КЭ наклонная трещина (пробное состояние).</summary>
+    public bool ShearCracked => _shearCrack != null;
 
     /// <summary>Трещины в точках ξ = 0, ½, 1 (пробное состояние).</summary>
     public IReadOnlyList<bool> Cracked => _cracked;
 
-    public SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains)
+    public SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains,
+        double gammaY = 0.0, double gammaZ = 0.0)
     {
         if (strains.Count != 3) throw new ArgumentException("Нужны деформации в трёх точках Лобатто.");
         var sp = new double[3][,];
         bool yielded = false, failed = false;
+        var newCracks = new List<Kurvature>();
         for (int p = 0; p < 3; p++)
         {
             var k = new Kurvature { e0 = strains[p].Eps0, ky = strains[p].KappaY, kz = strains[p].KappaZ };
             if (!_cracked[p] && SecantCrossSectionBuilder.IsCracked(_section, k, _calc))
             {
                 _cracked[p] = true;
+                newCracks.Add(k);
                 if (_psi)
                 {
                     // Соотношение усилий — по секущим (уравновешенным) усилиям S·ε точки, не по истинным усилиям итерации.
@@ -230,7 +250,51 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
                 for (int j = 0; j < 3; j++)
                     target[i, j] = (sp[0][i, j] + 4 * sp[1][i, j] + sp[2][i, j]) / 6.0;
         }
-        return new SecantBeamEvaluation(target, new SecantSectionStatus(_cracked.Any(c => c), yielded, failed, _cracked.Count(c => c)));
+        BeamShearStiffness? shearTarget = null;
+        if (_shear != null)
+        {
+            if (_shearCrack == null && newCracks.Count > 0) _shearCrack = ShearCrackAt(newCracks, gammaY, gammaZ);
+            shearTarget = new BeamShearStiffness(
+                ShearSecant(gammaY, InitialShear.GAvY, _shearCrack?.QcrY ?? 0.0, _shearCrack?.LawY),
+                ShearSecant(gammaZ, InitialShear.GAvZ, _shearCrack?.QcrZ ?? 0.0, _shearCrack?.LawZ));
+        }
+        return new SecantBeamEvaluation(target, new SecantSectionStatus(_cracked.Any(c => c), yielded, failed,
+            _cracked.Count(c => c)), shearTarget);
+    }
+
+    /// <summary>
+    /// Наклонная трещина вместе с первой нормальной: Q_cr = r·|Q|, Q — секущая поперечная сила КЭ (уравновешенная), r —
+    /// наименьшее по новым точкам трещины M_crc/M (момент трещинообразования по лучу текущих усилий при неизменной N).
+    /// Закон после трещины — по растянутой стороне в точке трещины.
+    /// </summary>
+    private ShearCrack ShearCrackAt(List<Kurvature> points, double gammaY, double gammaZ)
+    {
+        double ratio = 1.0;
+        foreach (var k in points)
+        {
+            var f = Response.Forces(k.e0, k.ky, k.kz);
+            double n = f.N / UnitScale.Force, mx = f.My / UnitScale.Moment, my = f.Mz / UnitScale.Moment;
+            double m = Math.Sqrt(mx * mx + my * my);
+            if (!(m > 0.0)) continue;
+            var crc = new CrackingSolver(_section, _calc,
+                tensionZone: CrackingSolver.LoadedTensionZone(_section, n, mx, my, nAtZeroMoment: n)).CrackingMoment(n, mx, my);
+            if (crc.Converged) ratio = Math.Min(ratio, Math.Sqrt(crc.Mx * crc.Mx + crc.My * crc.My) / m);
+        }
+        var k0 = points[0];
+        var cur = Response.Shear;
+        double qy = double.IsFinite(cur.GAvY) ? Math.Abs(cur.GAvY * gammaY) : 0.0;
+        double qz = double.IsFinite(cur.GAvZ) ? Math.Abs(cur.GAvZ * gammaZ) : 0.0;
+        // ε = e0 + ky·Y + kz·X: растянута сторона +Y при ky > 0, +X — при kz > 0.
+        return new ShearCrack(ratio * qy, _shear!.CrackedY(k0.kz > 0.0), ratio * qz, _shear.CrackedZ(k0.ky > 0.0));
+    }
+
+    /// <summary>Секущая GA по углу сдвига γ.</summary>
+    private static double ShearSecant(double gamma, double ga0, double qcr, BeamShearCracked? law)
+    {
+        double g = Math.Abs(gamma);
+        if (law == null || !double.IsFinite(ga0) || !(g > 0.0)) return ga0;
+        double gcr = qcr / ga0;
+        return g <= gcr ? ga0 : (qcr + Math.Min(law.Kv, ga0) * (g - gcr)) / g;
     }
 
     public BeamForces TrueForces(double xi, double eps0, double kappaY, double kappaZ)
@@ -247,12 +311,14 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
     {
         Array.Copy(_cracked, _crackedCommitted, 3);
         Array.Copy(_epsCrc, _epsCrcCommitted, 3);
+        _shearCrackCommitted = _shearCrack;
     }
 
     public void Revert()
     {
         Array.Copy(_crackedCommitted, _cracked, 3);
         Array.Copy(_epsCrcCommitted, _epsCrc, 3);
+        _shearCrack = _shearCrackCommitted;
     }
 
     private bool Ten(int p) => _tension && !_cracked[p];

@@ -88,7 +88,7 @@ public static class BeamElements
     public static double[,] Beam3dKLocal(IBeamSectionResponse section, double l)
     {
         if (section is SecantBeamResponse secant)
-            return Beam3dKLocal(secant.Matrix, secant.GJ, l);
+            return Beam3dKLocal(secant.Matrix, secant.GJ, l, secant.Shear);
         var (ea, eIy, eIz, gj) = SectionStiffness(section);
         double l2 = l * l, l3 = l2 * l;
         var k = new double[12, 12];
@@ -158,6 +158,117 @@ public static class BeamElements
         double gjL = gj / l;
         k[3, 3] += gjL; k[3, 9] += -gjL; k[9, 3] += -gjL; k[9, 9] += gjL;
         return k;
+    }
+
+    /// <summary>
+    /// Связанная секущая КЭ (<see cref="Beam3dKLocal(double[,], double, double)"/>) с податливостью сдвига (Тимошенко):
+    /// у консоли, закреплённой в узле i, к податливости F = K_jj⁻¹ добавляется L/GA_v по поперечным перемещениям конца
+    /// (поперечная сила по КЭ постоянна, сечение от сдвига не поворачивается), K_jj' = F⁻¹, остальные блоки — из
+    /// равновесия: K = [Γᵀ·K_jj'·Γ, −Γᵀ·K_jj'; −K_jj'·Γ, K_jj'], Γ — перенос жёсткого тела из i в j. Для постоянной EI —
+    /// точный КЭ Тимошенко; при <see cref="BeamShearStiffness.Rigid"/> — прежний КЭ Бернулли.
+    /// </summary>
+    public static double[,] Beam3dKLocal(double[,] s, double gj, double l, BeamShearStiffness shear)
+    {
+        var k = Beam3dKLocal(s, gj, l);
+        if (shear.IsRigid) return k;
+        var kc = ShearCantilever(k, l, shear);
+        var g = RigidTransfer(l);
+        var kcg = Dense.MatMul(kc, g);
+        var r = new double[12, 12];
+        var gtkcg = Dense.MatTMul(g, kcg);
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+            {
+                r[i, j] = gtkcg[i, j];
+                r[i, 6 + j] = -kcg[j, i];
+                r[6 + i, j] = -kcg[i, j];
+                r[6 + i, 6 + j] = kc[i, j];
+            }
+        return r;
+    }
+
+    /// <summary>
+    /// Разделение локальных перемещений КЭ Тимошенко (<see cref="Beam3dKLocal(double[,], double, double, BeamShearStiffness)"/>)
+    /// на изгибные и сдвиговые: из перемещения конца j относительно жёсткого тела узла i вычитается сдвиговая часть
+    /// Q·L/GA_v. Изгибные перемещения подаются в <see cref="Beam3dCoupledStrains"/>; γ — углы сдвига КЭ по осям y и z
+    /// (знак — как у поперечной силы конца j).
+    /// </summary>
+    public static (double[] Bending, double GammaY, double GammaZ) Beam3dShearSplit(double[,] s, double gj, double l,
+        BeamShearStiffness shear, double[] dLocal)
+    {
+        if (shear.IsRigid) return (dLocal, 0.0, 0.0);
+        var kc = ShearCantilever(Beam3dKLocal(s, gj, l), l, shear);
+        var g = RigidTransfer(l);
+        var di = dLocal[..6];
+        var rel = Dense.SubV(dLocal[6..], Dense.MatVec(g, di));
+        var p = Dense.MatVec(kc, rel);
+        double gy = double.IsPositiveInfinity(shear.GAvY) ? 0.0 : p[1] / shear.GAvY;
+        double gz = double.IsPositiveInfinity(shear.GAvZ) ? 0.0 : p[2] / shear.GAvZ;
+        var bend = (double[])dLocal.Clone();
+        bend[7] -= gy * l;
+        bend[8] -= gz * l;
+        return (bend, gy, gz);
+    }
+
+    // Жёсткость консоли (узел i закреплён) с податливостью сдвига; кручение (DOF 3) не связано с остальными и не меняется.
+    private static double[,] ShearCantilever(double[,] k, double l, BeamShearStiffness shear)
+    {
+        int[] idx = [0, 1, 2, 4, 5];
+        var kc5 = new double[5, 5];
+        for (int a = 0; a < 5; a++)
+            for (int b = 0; b < 5; b++)
+                kc5[a, b] = k[6 + idx[a], 6 + idx[b]];
+        var f = Inverse(kc5);
+        if (!double.IsPositiveInfinity(shear.GAvY)) f[1, 1] += l / shear.GAvY;
+        if (!double.IsPositiveInfinity(shear.GAvZ)) f[2, 2] += l / shear.GAvZ;
+        var kc5s = Inverse(f);
+        var kc = new double[6, 6];
+        for (int a = 0; a < 5; a++)
+            for (int b = 0; b < 5; b++)
+                kc[idx[a], idx[b]] = 0.5 * (kc5s[a, b] + kc5s[b, a]);
+        kc[3, 3] = k[9, 9];
+        return kc;
+    }
+
+    // Перемещения конца j при жёстком смещении узла i: v_j = v_i + L·θz_i, w_j = w_i − L·θy_i (w′ = −θy).
+    private static double[,] RigidTransfer(double l)
+    {
+        var g = new double[6, 6];
+        for (int i = 0; i < 6; i++) g[i, i] = 1.0;
+        g[1, 5] = l;
+        g[2, 4] = -l;
+        return g;
+    }
+
+    // Обращение малой симметричной положительно определённой матрицы (Гаусс — Жордан с выбором ведущего).
+    private static double[,] Inverse(double[,] m)
+    {
+        int n = m.GetLength(0);
+        var a = (double[,])m.Clone();
+        var r = new double[n, n];
+        for (int i = 0; i < n; i++) r[i, i] = 1.0;
+        for (int c = 0; c < n; c++)
+        {
+            int piv = c;
+            for (int i = c + 1; i < n; i++) if (Math.Abs(a[i, c]) > Math.Abs(a[piv, c])) piv = i;
+            if (!(Math.Abs(a[piv, c]) > 0.0) || !double.IsFinite(a[piv, c]))
+                throw new InvalidOperationException("Вырожденная жёсткость консоли КЭ: податливость сдвига не добавить.");
+            if (piv != c)
+                for (int j = 0; j < n; j++)
+                {
+                    (a[c, j], a[piv, j]) = (a[piv, j], a[c, j]);
+                    (r[c, j], r[piv, j]) = (r[piv, j], r[c, j]);
+                }
+            double inv = 1.0 / a[c, c];
+            for (int j = 0; j < n; j++) { a[c, j] *= inv; r[c, j] *= inv; }
+            for (int i = 0; i < n; i++)
+            {
+                if (i == c || a[i, c] == 0.0) continue;
+                double f = a[i, c];
+                for (int j = 0; j < n; j++) { a[i, j] -= f * a[c, j]; r[i, j] -= f * r[c, j]; }
+            }
+        }
+        return r;
     }
 
     /// <summary>

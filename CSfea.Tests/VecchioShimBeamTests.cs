@@ -11,8 +11,9 @@ namespace CSfea.Tests;
 /// середине пролёта, изгибное разрушение (дробление сжатой зоны). Данные — по DIANA Verification Report, гл. 5 «Beams
 /// Failing in Bending» (табл. 5.1, рис. 5.1): бетон E = 34 300 МПа, fcm = 43,5 МПа, ftm = 3,13 МПа; низ — 2M30
 /// (fy = 436, fu = 700 МПа, εsu = 0,05) в 64 мм от низа и 2M25 (fy = 445, fu = 680 МПа) в 128 мм, верх — 3M10 (fy = 315,
-/// fu = 460 МПа, εsu = 0,025) в 50 мм от верха; хомуты не моделируются (сдвиг в стержне не учитывается, у C3 разрушение
-/// изгибное). Собственный вес не учитывается (как у DIANA). Опыт: пик 265 кН при прогибе 44,3 мм.
+/// fu = 460 МПа, εsu = 0,025) в 50 мм от верха; хомуты D4 (2 × 25,7 мм², fy = 600 МПа) с шагом 168 мм — для сдвиговой
+/// податливости стержня (КЭ Тимошенко, <see cref="RcSecantOptions.BeamShear"/>). Собственный вес не учитывается (как у
+/// DIANA). Опыт: пик 265 кН при прогибе 44,3 мм.
 /// </summary>
 public class VecchioShimBeamTests(ITestOutputHelper output)
 {
@@ -103,6 +104,25 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
                 r.Fibers.Add(Fiber.CreatePoint(b.D, b.Count == 1 ? 0.0 : -0.045 + i * 0.09 / (b.Count - 1), b.Y));
             areas.Add(r);
         }
+        // Хомуты D4: замкнутый контур по осям ветвей, две вертикальные ветви в плоскости сдвига.
+        var stirrupMat = Rebar(5, 600_000);
+        double sx = B / 2 - 0.025, sy = H / 2 - 0.025;
+        areas.Add(new MaterialArea
+        {
+            Id = 5, Tag = "хомуты D4", Category = AreaCategory.Stirrups, Material = stirrupMat, MaterialId = stirrupMat.Id,
+            Stirrups =
+            [
+                new StirrupGroup
+                {
+                    MaterialId = stirrupMat.Id, SpacingM = 0.168,
+                    Elements = [new StirrupElement
+                    {
+                        CenterlineContour = new Contour([-sx, sx, sx, -sx, -sx], [-sy, -sy, sy, sy, -sy], "хомут"),
+                        BarAreaM2 = 25.7e-6, BarDiameterM = 0.0057,
+                    }],
+                },
+            ],
+        });
         var section = new CrossSection { Id = 1, Tag = "C3", Areas = areas };
         section.ResolveAndBuildDiagramms(rebarDifferentialDiagram: false);
         foreach (var (a, b) in areas.Skip(1).Zip(bars))
@@ -165,11 +185,34 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
     static string F(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00", CultureInfo.InvariantCulture);
 
     [Fact]
-    public void Psi() => Run("ψs, упрочнение", "psi", new RcSecantOptions { Psi = true });
+    public void Psi() => Run("ψs, упрочнение, сдвиг", "psi", new RcSecantOptions { Psi = true });
 
     [Fact]
-    public void NoPsi() => Run("без ψs, упрочнение", "nopsi", new RcSecantOptions { Psi = false });
+    public void NoPsi() => Run("без ψs, упрочнение, сдвиг", "nopsi", new RcSecantOptions { Psi = false });
 
     [Fact]
-    public void PsiPlateau() => Run("ψs, площадка текучести", "psi-plateau", new RcSecantOptions { Psi = true }, hardening: false);
+    public void PsiPlateau() => Run("ψs, площадка текучести, сдвиг", "psi-plateau", new RcSecantOptions { Psi = true }, hardening: false);
+
+    [Fact]
+    public void PsiBernoulli() => Run("ψs, упрочнение, Бернулли", "psi-bernoulli", new RcSecantOptions { Psi = true, BeamShear = false });
+
+    [Fact]
+    public void NoPsiBernoulli() => Run("без ψs, упрочнение, Бернулли", "nopsi-bernoulli",
+        new RcSecantOptions { Psi = false, BeamShear = false });
+
+    /// <summary>Сдвиговые характеристики сечения C3 — сверка с ручным расчётом мини-спеки (07.10.2026).</summary>
+    [Fact]
+    public void ShearSection()
+    {
+        var s = BeamShearSection.From(Section(true), CalcType.N)!;
+        double ga0 = 0.4 * Ec * 5.0 / 6.0 * B * H * 1e3;
+        Assert.Equal(ga0, s.Initial.GAvZ, ga0 * 1e-9);
+        var law = s.CrackedZ(tensionPositive: false)!;   // растянут низ
+        double as1 = 2 * Math.PI * 0.0299 * 0.0299 / 4, as2 = 2 * Math.PI * 0.0252 * 0.0252 / 4;
+        double h0 = H - (as1 * 0.064 + as2 * 0.128) / (as1 + as2);
+        double rho = 2 * 25.7e-6 / (B * 0.168), n = 200_000_000 / Ec;
+        double kv = rho / (1 + 4 * n * rho) * 200e9 * B * h0;
+        output.WriteLine($"GA0 = {s.Initial.GAvZ / 1e6:0} МН, Kv = {law.Kv / 1e6:0.0} МН, h0 = {h0:0.000} м");
+        Assert.Equal(kv, law.Kv, kv * 1e-9);
+    }
 }
