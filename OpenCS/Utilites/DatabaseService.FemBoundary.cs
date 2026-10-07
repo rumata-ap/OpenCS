@@ -1,0 +1,216 @@
+using CScore.Fem;
+using Microsoft.Data.Sqlite;
+
+namespace OpenCS.Utilites
+{
+   /// <summary>Граничные условия сеточного уровня схемы: закрепления узлов сетки, пружины, жёсткие тела, ГУ КЭ.</summary>
+   public partial class DatabaseService
+   {
+      /// <summary>Закрепления узлов сетки схемы.</summary>
+      public List<FemMeshNodeSupport> GetFemMeshNodeSupports(int schemaId)
+      {
+         var result = new List<FemMeshNodeSupport>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, node_tag, mask, origin FROM fem_mesh_node_supports WHERE schema_id=@sid ORDER BY id";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new FemMeshNodeSupport
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId, NodeTag = r.GetString(1), Mask = r.GetInt32(2), Origin = r.GetString(3),
+            });
+         return result;
+      }
+
+      /// <summary>Пружины схемы (на узлах обоих уровней).</summary>
+      public List<FemSpring> GetFemSprings(int schemaId)
+      {
+         var result = new List<FemSpring>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, target_kind, node_tag, kx, ky, kz, kux, kuy, kuz, origin, source_elem_tag
+            FROM fem_springs WHERE schema_id=@sid ORDER BY id
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new FemSpring
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId, TargetKind = r.GetString(1), NodeTag = r.GetString(2),
+               Kx = r.GetDouble(3), Ky = r.GetDouble(4), Kz = r.GetDouble(5),
+               Kux = r.GetDouble(6), Kuy = r.GetDouble(7), Kuz = r.GetDouble(8),
+               Origin = r.GetString(9), SourceElemTag = r.IsDBNull(10) ? null : r.GetString(10),
+            });
+         return result;
+      }
+
+      /// <summary>Жёсткие тела схемы.</summary>
+      public List<FemRigidBody> GetFemRigidBodies(int schemaId)
+      {
+         var result = new List<FemRigidBody>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag
+            FROM fem_rigid_bodies WHERE schema_id=@sid ORDER BY id
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new FemRigidBody
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId, MasterNodeTag = r.GetString(1), SlaveNodeTagsJson = r.GetString(2),
+               Mask = r.GetInt32(3), Origin = r.GetString(4), SourceElemTag = r.IsDBNull(5) ? null : r.GetString(5),
+            });
+         return result;
+      }
+
+      /// <summary>
+      /// Записывает ГУ происхождения <paramref name="origin"/> одной транзакцией: закрепления, пружины и жёсткие тела
+      /// этого происхождения заменяются переданными (им проставляются схема, происхождение и новые Id), записи другого
+      /// происхождения (ручные) не трогаются. <paramref name="elementProps"/> (по тегу КЭ), если передан, заменяет
+      /// освобождения и C1 у всех импортированных КЭ схемы: КЭ вне словаря их теряют.
+      /// </summary>
+      /// <returns>Число КЭ, получивших ГУ из <paramref name="elementProps"/>.</returns>
+      public int SaveFemBoundary(int schemaId, string origin, IReadOnlyList<FemMeshNodeSupport> supports,
+         IReadOnlyList<FemSpring> springs, IReadOnlyList<FemRigidBody> rigidBodies,
+         IReadOnlyDictionary<string, FemElementBoundaryProps>? elementProps = null)
+      {
+         int updated = 0;
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = """
+                  DELETE FROM fem_mesh_node_supports WHERE schema_id=@sid AND origin=@origin;
+                  DELETE FROM fem_springs            WHERE schema_id=@sid AND origin=@origin;
+                  DELETE FROM fem_rigid_bodies       WHERE schema_id=@sid AND origin=@origin;
+                  """;
+               cmd.Parameters.AddWithValue("@sid", schemaId);
+               cmd.Parameters.AddWithValue("@origin", origin);
+               cmd.ExecuteNonQuery();
+            }
+            foreach (var s in supports) s.Origin = origin;
+            foreach (var s in springs) s.Origin = origin;
+            foreach (var b in rigidBodies) b.Origin = origin;
+            InsertFemBoundaryCore(schemaId, supports, springs, rigidBodies);
+            if (elementProps != null) updated = ReplaceFemElementBoundaryPropsCore(schemaId, elementProps);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+         return updated;
+      }
+
+      /// <summary>Вставляет ГУ в схему <paramref name="schemaId"/> (внутри транзакции вызывающего).</summary>
+      void InsertFemBoundaryCore(int schemaId, IEnumerable<FemMeshNodeSupport> supports, IEnumerable<FemSpring> springs,
+         IEnumerable<FemRigidBody> rigidBodies, bool updateObjects = true)
+      {
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_mesh_node_supports (schema_id, node_tag, mask, origin) VALUES (@sid, @tag, @mask, @origin);
+               SELECT last_insert_rowid();
+               """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+            var mask = cmd.Parameters.Add("@mask", SqliteType.Integer);
+            var org = cmd.Parameters.Add("@origin", SqliteType.Text);
+            foreach (var s in supports)
+            {
+               tag.Value = s.NodeTag; mask.Value = s.Mask; org.Value = s.Origin;
+               int id = (int)(long)cmd.ExecuteScalar()!;
+               if (updateObjects) { s.Id = id; s.SchemaId = schemaId; }
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_springs (schema_id, target_kind, node_tag, kx, ky, kz, kux, kuy, kuz, origin, source_elem_tag)
+               VALUES (@sid, @tk, @tag, @kx, @ky, @kz, @kux, @kuy, @kuz, @origin, @src);
+               SELECT last_insert_rowid();
+               """;
+            foreach (var s in springs)
+            {
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", schemaId);
+               cmd.Parameters.AddWithValue("@tk", s.TargetKind);
+               cmd.Parameters.AddWithValue("@tag", s.NodeTag);
+               cmd.Parameters.AddWithValue("@kx", s.Kx);
+               cmd.Parameters.AddWithValue("@ky", s.Ky);
+               cmd.Parameters.AddWithValue("@kz", s.Kz);
+               cmd.Parameters.AddWithValue("@kux", s.Kux);
+               cmd.Parameters.AddWithValue("@kuy", s.Kuy);
+               cmd.Parameters.AddWithValue("@kuz", s.Kuz);
+               cmd.Parameters.AddWithValue("@origin", s.Origin);
+               cmd.Parameters.AddWithValue("@src", (object?)s.SourceElemTag ?? DBNull.Value);
+               int id = (int)(long)cmd.ExecuteScalar()!;
+               if (updateObjects) { s.Id = id; s.SchemaId = schemaId; }
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_rigid_bodies (schema_id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag)
+               VALUES (@sid, @master, @slaves, @mask, @origin, @src);
+               SELECT last_insert_rowid();
+               """;
+            foreach (var b in rigidBodies)
+            {
+               cmd.Parameters.Clear();
+               cmd.Parameters.AddWithValue("@sid", schemaId);
+               cmd.Parameters.AddWithValue("@master", b.MasterNodeTag);
+               cmd.Parameters.AddWithValue("@slaves", b.SlaveNodeTagsJson);
+               cmd.Parameters.AddWithValue("@mask", b.Mask);
+               cmd.Parameters.AddWithValue("@origin", b.Origin);
+               cmd.Parameters.AddWithValue("@src", (object?)b.SourceElemTag ?? DBNull.Value);
+               int id = (int)(long)cmd.ExecuteScalar()!;
+               if (updateObjects) { b.Id = id; b.SchemaId = schemaId; }
+            }
+         }
+      }
+
+      /// <summary>Заменяет освобождения и C1 импортированных КЭ схемы (внутри транзакции вызывающего).</summary>
+      int ReplaceFemElementBoundaryPropsCore(int schemaId, IReadOnlyDictionary<string, FemElementBoundaryProps> props)
+      {
+         using (var clear = _connection.CreateCommand())
+         {
+            clear.CommandText = """
+               UPDATE fem_elements SET release_i=NULL, release_j=NULL, foundation_c1=NULL
+               WHERE schema_id=@sid AND origin=@origin
+               """;
+            clear.Parameters.AddWithValue("@sid", schemaId);
+            clear.Parameters.AddWithValue("@origin", FemMember.MeshSourceImported);
+            clear.ExecuteNonQuery();
+         }
+         int updated = 0;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            UPDATE fem_elements SET release_i=@ri, release_j=@rj, foundation_c1=@c1
+            WHERE schema_id=@sid AND origin=@origin AND elem_tag=@tag
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@origin", FemMember.MeshSourceImported);
+         var ri = cmd.Parameters.Add("@ri", SqliteType.Integer);
+         var rj = cmd.Parameters.Add("@rj", SqliteType.Integer);
+         var c1 = cmd.Parameters.Add("@c1", SqliteType.Real);
+         var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+         foreach (var (elemTag, p) in props)
+         {
+            ri.Value = (object?)p.ReleaseI ?? DBNull.Value;
+            rj.Value = (object?)p.ReleaseJ ?? DBNull.Value;
+            c1.Value = (object?)p.FoundationC1 ?? DBNull.Value;
+            tag.Value = elemTag;
+            updated += cmd.ExecuteNonQuery();
+         }
+         return updated;
+      }
+
+      /// <summary>Параметры @ri, @rj, @c1 — ГУ КЭ (v78).</summary>
+      static void AddFemElementBoundaryParameters(SqliteCommand cmd, FemElement element)
+      {
+         cmd.Parameters.AddWithValue("@ri", (object?)element.ReleaseI ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@rj", (object?)element.ReleaseJ ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@c1", (object?)element.FoundationC1 ?? DBNull.Value);
+      }
+   }
+}

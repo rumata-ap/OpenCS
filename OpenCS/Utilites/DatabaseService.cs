@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 77;
+      const int CurrentSchemaVersion = 78;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -97,6 +97,7 @@ namespace OpenCS.Utilites
          [74] = MigrateV75,
          [75] = MigrateV76,
          [76] = MigrateV77,
+         [77] = MigrateV78,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -576,7 +577,10 @@ namespace OpenCS.Utilites
                 reinforcement_type_ids TEXT,
                 local_axis_angle_deg REAL,
                 stiffness_num       INTEGER,
-                origin              TEXT NOT NULL DEFAULT 'generated'
+                origin              TEXT NOT NULL DEFAULT 'generated',
+                release_i           INTEGER,
+                release_j           INTEGER,
+                foundation_c1       REAL
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -645,6 +649,39 @@ namespace OpenCS.Utilites
                 mz REAL NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_fem_mesh_node_loads_schema_case ON fem_mesh_node_loads(schema_id, load_case_id);
+            CREATE TABLE IF NOT EXISTS fem_mesh_node_supports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag TEXT NOT NULL,
+                mask INTEGER NOT NULL DEFAULT 0,
+                origin TEXT NOT NULL DEFAULT 'manual'
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_mesh_node_supports_schema ON fem_mesh_node_supports(schema_id);
+            CREATE TABLE IF NOT EXISTS fem_springs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                target_kind TEXT NOT NULL DEFAULT 'mesh_node',
+                node_tag TEXT NOT NULL,
+                kx REAL NOT NULL DEFAULT 0,
+                ky REAL NOT NULL DEFAULT 0,
+                kz REAL NOT NULL DEFAULT 0,
+                kux REAL NOT NULL DEFAULT 0,
+                kuy REAL NOT NULL DEFAULT 0,
+                kuz REAL NOT NULL DEFAULT 0,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                source_elem_tag TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_springs_schema ON fem_springs(schema_id);
+            CREATE TABLE IF NOT EXISTS fem_rigid_bodies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                master_node_tag TEXT NOT NULL,
+                slave_node_tags_json TEXT NOT NULL DEFAULT '[]',
+                mask INTEGER NOT NULL DEFAULT 63,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                source_elem_tag TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_rigid_bodies_schema ON fem_rigid_bodies(schema_id);
             CREATE TABLE IF NOT EXISTS fem_member_loads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -1688,6 +1725,53 @@ namespace OpenCS.Utilites
          CREATE INDEX IF NOT EXISTS idx_force_items_set_elem ON force_items(set_id, source_elem_num);
          CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_elem ON force_shell_items(set_id, source_elem_num);
          """);
+
+      /// <summary>Миграция v78: граничные условия сеточного уровня — закрепления узлов сетки, пружины-«земля», жёсткие
+      /// тела; у КЭ — освобождения концов стержня и коэффициент постели C1 пластины.</summary>
+      void MigrateV78()
+      {
+         if (!ColumnExists("fem_elements", "release_i"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN release_i INTEGER");
+         if (!ColumnExists("fem_elements", "release_j"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN release_j INTEGER");
+         if (!ColumnExists("fem_elements", "foundation_c1"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN foundation_c1 REAL");
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_mesh_node_supports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag TEXT NOT NULL,
+                mask INTEGER NOT NULL DEFAULT 0,
+                origin TEXT NOT NULL DEFAULT 'manual'
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_mesh_node_supports_schema ON fem_mesh_node_supports(schema_id);
+            CREATE TABLE IF NOT EXISTS fem_springs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                target_kind TEXT NOT NULL DEFAULT 'mesh_node',
+                node_tag TEXT NOT NULL,
+                kx REAL NOT NULL DEFAULT 0,
+                ky REAL NOT NULL DEFAULT 0,
+                kz REAL NOT NULL DEFAULT 0,
+                kux REAL NOT NULL DEFAULT 0,
+                kuy REAL NOT NULL DEFAULT 0,
+                kuz REAL NOT NULL DEFAULT 0,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                source_elem_tag TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_springs_schema ON fem_springs(schema_id);
+            CREATE TABLE IF NOT EXISTS fem_rigid_bodies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                master_node_tag TEXT NOT NULL,
+                slave_node_tags_json TEXT NOT NULL DEFAULT '[]',
+                mask INTEGER NOT NULL DEFAULT 63,
+                origin TEXT NOT NULL DEFAULT 'manual',
+                source_elem_tag TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_rigid_bodies_schema ON fem_rigid_bodies(schema_id);
+            """);
+      }
 
       /// <summary>Миграция v77: нагрузки сеточного уровня (на КЭ и на узлы сетки), собственный вес загружения, его
       /// происхождение и номер в источнике.</summary>
@@ -4246,6 +4330,9 @@ namespace OpenCS.Utilites
                DELETE FROM fem_kinematic_loads    WHERE schema_id=@id;
                DELETE FROM fem_element_loads      WHERE schema_id=@id;
                DELETE FROM fem_mesh_node_loads    WHERE schema_id=@id;
+               DELETE FROM fem_mesh_node_supports WHERE schema_id=@id;
+               DELETE FROM fem_springs            WHERE schema_id=@id;
+               DELETE FROM fem_rigid_bodies       WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
                DELETE FROM submodel_materializations
@@ -5652,7 +5739,7 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Дублирует схему целиком: топология (узлы/стержни/группы), нагрузки (случаи +
-      /// узловые/распределённые/кинематические), определения нагрузок, сетка. НЕ копируются
+      /// узловые/распределённые/кинематические), определения нагрузок, сетка и её ГУ. НЕ копируются
       /// постановки расчётов (fem_analyses) и чек-листы (fem_checks) — специфичны для конкретного
       /// прогона/проверки. Теговые ссылки (node_ids_json у стержней и сетки, source_node_tag/
       /// source_member_tag у сетки) копируются без изменений — они хранят числовой ТЕГ узла, а не
@@ -5675,6 +5762,9 @@ namespace OpenCS.Utilites
          var meshElements    = GetFemMeshElements(sourceSchemaId);
          var elementLoads    = GetFemElementLoads(sourceSchemaId);
          var meshNodeLoads   = GetFemMeshNodeLoads(sourceSchemaId);
+         var meshSupports    = GetFemMeshNodeSupports(sourceSchemaId);
+         var springs         = GetFemSprings(sourceSchemaId);
+         var rigidBodies     = GetFemRigidBodies(sourceSchemaId);
 
          using var tx = _connection.BeginTransaction();
          try
@@ -5923,6 +6013,7 @@ namespace OpenCS.Utilites
                   : throw new InvalidOperationException($"Нагрузка сеточного уровня ссылается на отсутствующий случай нагружения {id}."),
                group => group is { } g && newGroupIdByOld.TryGetValue(g, out int mapped) ? mapped : null,
                updateObjects: false);
+            InsertFemBoundaryCore(newSchemaId, meshSupports, springs, rigidBodies, updateObjects: false);
 
             using (var definitionCmd = _connection.CreateCommand())
             {
@@ -5990,8 +6081,9 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
                                              cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                              section_tag, material_tag, thickness_m, reinforcement_type_ids,
-                                             local_axis_angle_deg, stiffness_num, origin)
-                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @laa, @snum, @origin)
+                                             local_axis_angle_deg, stiffness_num, origin, release_i, release_j, foundation_c1)
+                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @laa, @snum, @origin,
+                          @ri, @rj, @c1)
                """;
                foreach (var el in meshElements)
                {
@@ -6012,6 +6104,7 @@ namespace OpenCS.Utilites
                   meshElemCmd.Parameters.AddWithValue("@laa", (object?)el.LocalAxisAngleDeg ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@snum", (object?)el.StiffnessNum ?? DBNull.Value);
                   meshElemCmd.Parameters.AddWithValue("@origin", el.Origin);
+                  AddFemElementBoundaryParameters(meshElemCmd, el);
                   meshElemCmd.ExecuteNonQuery();
                }
             }
@@ -6228,7 +6321,7 @@ namespace OpenCS.Utilites
          }
          foreach (var element in elements)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,local_axis_angle_deg,stiffness_num,origin) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@laa,@snum,@origin); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin); command.Parameters.AddWithValue("@snum", (object?)element.StiffnessNum ?? DBNull.Value); command.Parameters.AddWithValue("@laa", (object?)element.LocalAxisAngleDeg ?? DBNull.Value);
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,local_axis_angle_deg,stiffness_num,origin,release_i,release_j,foundation_c1) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@laa,@snum,@origin,@ri,@rj,@c1); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin); AddFemElementBoundaryParameters(command, element); command.Parameters.AddWithValue("@snum", (object?)element.StiffnessNum ?? DBNull.Value); command.Parameters.AddWithValue("@laa", (object?)element.LocalAxisAngleDeg ?? DBNull.Value);
             command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); command.Parameters.AddWithValue("@rti", (object?)element.ReinforcementTypeIds ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
          }
       }
@@ -6396,6 +6489,9 @@ namespace OpenCS.Utilites
                   DELETE FROM fem_kinematic_loads  WHERE schema_id=@sid;
                   DELETE FROM fem_element_loads    WHERE schema_id=@sid;
                   DELETE FROM fem_mesh_node_loads  WHERE schema_id=@sid;
+                  DELETE FROM fem_mesh_node_supports WHERE schema_id=@sid;
+                  DELETE FROM fem_springs          WHERE schema_id=@sid;
+                  DELETE FROM fem_rigid_bodies     WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases       WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups    WHERE schema_id=@sid;
                   DELETE FROM fem_members          WHERE schema_id=@sid;
@@ -6658,7 +6754,8 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
-                   material_tag, thickness_m, reinforcement_type_ids, origin, local_axis_angle_deg, stiffness_num
+                   material_tag, thickness_m, reinforcement_type_ids, origin, local_axis_angle_deg, stiffness_num,
+                   release_i, release_j, foundation_c1
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -6685,6 +6782,9 @@ namespace OpenCS.Utilites
                Origin = rdr.GetString(13),
                LocalAxisAngleDeg = rdr.IsDBNull(14) ? null : rdr.GetDouble(14),
                StiffnessNum = rdr.IsDBNull(15) ? null : rdr.GetInt32(15),
+               ReleaseI = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
+               ReleaseJ = rdr.IsDBNull(17) ? null : rdr.GetInt32(17),
+               FoundationC1 = rdr.IsDBNull(18) ? null : rdr.GetDouble(18),
             });
          return result;
       }

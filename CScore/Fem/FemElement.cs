@@ -47,6 +47,17 @@ public class FemElement
     /// Null — источник угол не передал (оси выдачи усилий неизвестны).</summary>
     public double? LocalAxisAngleDeg { get; set; }
 
+    /// <summary>Освобождения (шарниры) конца I стержня в местных осях: биты 0–5 — N, Qy, Qz, T, My, Mz (порядок
+    /// SCAD X…UZ). Null — жёсткое примыкание. Принадлежит импортному КЭ, перечитывается вместе с ГУ источника.</summary>
+    public int? ReleaseI { get; set; }
+
+    /// <summary>Освобождения конца J стержня — как <see cref="ReleaseI"/>.</summary>
+    public int? ReleaseJ { get; set; }
+
+    /// <summary>Коэффициент постели C1 пластины, Н/м³, вдоль нормали z1 КЭ (модель Винклера). Null — основания нет.
+    /// Принадлежит импортному КЭ, перечитывается вместе с ГУ источника.</summary>
+    public double? FoundationC1 { get; set; }
+
     /// <summary>Идентификатор назначенного сечения.</summary>
     public int? CrossSectionId { get; set; }
 
