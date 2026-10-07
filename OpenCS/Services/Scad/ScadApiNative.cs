@@ -78,6 +78,17 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, int> ApiYesDisplace;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint> ApiGetQuantityLoadStr;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, uint, double*> ApiGetDisplace;
+    /// <summary>Признак схемы (1–5, 8, 9 …).</summary>
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetTypeSystem;
+    /// <summary>ApiGetJoint(КЭ, узел КЭ 1/2, &amp;Place, &amp;Value) → маска шарниров в местных осях; Value — 6 жёсткостей упругого шарнира.</summary>
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, double**, uint> ApiGetJoint;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityBoundUnite;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityInsert;
+    /// <summary>ApiGetNumInsert(группа, &amp;Type, &amp;QntSize, &amp;Size, &amp;QntEl, &amp;ListEl) — BOOL.</summary>
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> ApiGetNumInsert;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityBed;
+    /// <summary>ApiGetBed(группа, &amp;Type, &amp;QntSize, &amp;Size, &amp;QntList, &amp;ListElem) — BOOL.</summary>
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> ApiGetBed;
 
     ScadApiNative(string path, nint lib)
     {
@@ -138,6 +149,13 @@ internal sealed unsafe class ScadApiNative
         ApiYesDisplace = (delegate* unmanaged[Stdcall]<nint, int>)F(nameof(ApiYesDisplace));
         ApiGetQuantityLoadStr = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint>)F(nameof(ApiGetQuantityLoadStr));
         ApiGetDisplace = (delegate* unmanaged[Stdcall]<nint, uint, uint, uint, double*>)F(nameof(ApiGetDisplace));
+        ApiGetTypeSystem = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetTypeSystem));
+        ApiGetJoint = (delegate* unmanaged[Stdcall]<nint, uint, uint, byte*, double**, uint>)F(nameof(ApiGetJoint));
+        ApiGetQuantityBoundUnite = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityBoundUnite));
+        ApiGetQuantityInsert = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityInsert));
+        ApiGetNumInsert = (delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int>)F(nameof(ApiGetNumInsert));
+        ApiGetQuantityBed = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityBed));
+        ApiGetBed = (delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int>)F(nameof(ApiGetBed));
     }
 
     /// <summary>

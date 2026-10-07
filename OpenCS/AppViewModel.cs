@@ -664,6 +664,7 @@ namespace OpenCS
       public ICommand RefreshScadRebarDataCommand { get; set; } = null!;
       /// <summary>Перенести нагрузки из вложения SCAD в нагрузки сеточного уровня схемы.</summary>
       public ICommand TransferScadLoadsCommand { get; set; } = null!;
+      public ICommand RefreshScadBoundaryCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1559,6 +1560,10 @@ namespace OpenCS
             if (editorOpen && !TryLeaveFemSchemaEditor()) return;
             if (LoadScadAnalysisModel(s.Id) is { } model) TransferScadLoads(s, model);
             else LogService.Warning(string.Format(Loc.S("ScadLoadsNoModel"), s.Tag));
+         }, _ => !IsBusy);
+         RefreshScadBoundaryCommand = new RelayCommand(async p =>
+         {
+            if (p is CScore.Fem.FemSchema s) await RefreshScadBoundary(s);
          }, _ => !IsBusy);
          SetScadProjectPathCommand = new RelayCommand(p =>
          {
@@ -3086,6 +3091,7 @@ namespace OpenCS
                 .ToArray();
 
             SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
+            SaveLiraSupports(schema, raw);
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -3100,6 +3106,15 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      /// <summary>Закрепления узлов ЛИРЫ → закрепления узлов сетки (происхождение «import:lira»).</summary>
+      void SaveLiraSupports(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
+      {
+         var supports = CScore.Import.LiraSchemaConverter.ToFemMeshNodeSupports(raw);
+         if (supports.Length == 0) return;
+         db.SaveFemBoundary(schema.Id, CScore.Import.LiraSchemaConverter.BoundaryOrigin, supports, [], []);
+         LogService.Info(string.Format(Loc.S("LiraSupportsImported"), supports.Length));
       }
 
       /// <summary>Сохраняет прочитанный импорт в только что созданную схему (<see cref="Utilites.DatabaseService.SaveFemImport"/>).
@@ -3144,6 +3159,7 @@ namespace OpenCS
                 .ToArray();
 
             SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
+            SaveLiraSupports(schema, raw);
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -3271,6 +3287,7 @@ namespace OpenCS
             {
                SaveScadAnalysisModel(schema.Id, data.AnalysisModel);
                TransferScadLoads(schema, data.AnalysisModel);
+               TransferScadBoundary(schema, data.AnalysisModel);
             }
             RefreshFemSchemaTreeCounts(schema);
 
@@ -3701,6 +3718,7 @@ namespace OpenCS
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
                 .ToArray();
             SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
+            SaveLiraSupports(schema, raw);
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
             SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
@@ -4013,6 +4031,13 @@ namespace OpenCS
             foreach (var d in forces.Diagnostics.Select(d => d.Message).Distinct().Take(10)) LogService.Warning($"«{lc.Tag}»: {d}");
          }
 
+         int invalidated = InvalidateFemSchemaAnalyses(schema);
+         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
+      }
+
+      /// <summary>Сбрасывает результаты постановок схемы; возвращает число сброшенных.</summary>
+      int InvalidateFemSchemaAnalyses(CScore.Fem.FemSchema schema)
+      {
          int invalidated = 0;
          foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
          {
@@ -4020,7 +4045,97 @@ namespace OpenCS
             db.SaveFemAnalysis(analysis);
             invalidated++;
          }
-         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
+         return invalidated;
+      }
+
+      /// <summary>
+      /// Переносит ГУ вложения SCAD (закрепления, пружины КЭ 51, жёсткие тела, шарниры стержней) в сеточный уровень
+      /// схемы с заменой перенесённых раньше; ручные не трогаются. Журнал: сводка, непереносимое, проверки резолвера.
+      /// Результаты постановок сбрасываются. Открытый редактор схемы закрывает вызывающий.
+      /// </summary>
+      void TransferScadBoundary(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model)
+      {
+         var meshNodes = db.GetFemMeshNodes(schema.Id);
+         var elements = db.GetFemMeshElements(schema.Id);
+         var types = elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
+         var result = CScore.Import.ScadBoundaryTransfer.Transfer(model,
+            meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal), types);
+         db.SaveFemBoundary(schema.Id, CScore.Import.ScadBoundaryTransfer.Origin, result.Supports, result.Springs,
+            result.RigidBodies, result.ElementProps);
+
+         LogService.Info(result.Report[0]);
+         foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
+
+         var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes, elements,
+            db.GetFemMeshNodeSupports(schema.Id), db.GetFemSprings(schema.Id), db.GetFemRigidBodies(schema.Id));
+         foreach (var d in resolved.Diagnostics.Take(10))
+            if (d.IsError) LogService.Error(d.Message); else LogService.Warning(d.Message);
+         if (resolved.Diagnostics.Count > 10)
+            LogService.Warning(string.Format(Loc.S("ScadBoundaryMoreDiagnostics"), resolved.Diagnostics.Count - 10));
+
+         int invalidated = InvalidateFemSchemaAnalyses(schema);
+         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
+      }
+
+      /// <summary>
+      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами и шарнирами, иначе — повторным
+      /// чтением .SPR через SCADAPIX.dll (вложение обновляется, нагрузки заново не переносятся).
+      /// </summary>
+      async Task RefreshScadBoundary(CScore.Fem.FemSchema schema)
+      {
+         if (IsBusy) return;
+         bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+         if (editorOpen && !TryLeaveFemSchemaEditor()) return;
+         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true } stored)
+         {
+            TransferScadBoundary(schema, stored);
+            return;
+         }
+
+         string? spr = ResolveScadProjectPath(schema);
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (spr == null || dllDir == null)
+         {
+            LogService.Warning(string.Format(Loc.S("ScadBoundaryNoSpr"), schema.Tag));
+            return;
+         }
+
+         var cts = BeginBusyWithCancellation(Loc.S("ScadBoundaryReading"));
+         try
+         {
+            var analysis = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  return Services.Scad.ScadApiReader.Read(session, new Services.Scad.ScadReadOptions(OutputAxes: false,
+                     ConcreteGroups: false, AssignedRebar: false, SteelGroups: false), null, cts.Token).Data.AnalysisModel;
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+            }, cts.Token);
+            EndBusy();
+            if (analysis == null) return;
+            SaveScadAnalysisModel(schema.Id, analysis);
+            TransferScadBoundary(schema, analysis);
+         }
+         catch (OperationCanceledException) { EndBusy(); }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Format(Loc.S));
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Warning(ex.Message);
+         }
       }
 
       /// <summary>Сохранить стальные группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelGroups"/>).</summary>
@@ -4173,7 +4288,11 @@ namespace OpenCS
             {
                SaveScadAnalysisModel(schema.Id, analysis);
                bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
-               if (!editorOpen || TryLeaveFemSchemaEditor()) TransferScadLoads(schema, analysis);
+               if (!editorOpen || TryLeaveFemSchemaEditor())
+               {
+                  TransferScadLoads(schema, analysis);
+                  TransferScadBoundary(schema, analysis);
+               }
                else LogService.Warning(string.Format(Loc.S("ScadLoadsEditorOpen"), schema.Tag));
             }
             string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count, assigned.Plates.Count, assigned.Rods.Count,

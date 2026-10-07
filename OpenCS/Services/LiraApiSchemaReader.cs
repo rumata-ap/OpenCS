@@ -12,6 +12,7 @@ static class LiraApiSchemaReader
 {
     const int kNodesTable              = 2;   // kLiraTable_Nodes_Coordinates
     const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
+    const int kSupportsTable           = 4;   // «Связи»: узел + 7 ячеек X Y Z UX UY UZ UW (пустая — связи нет)
     const int kStiffnessesTable        = 9;   // kLiraTable_Stiffnesses: жёсткости схемы
     const int kElementsStiffnessTable  = 10;  // kLiraTable_Elements_Stiffnesses: КЭ → номер жёсткости
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
@@ -106,6 +107,10 @@ static class LiraApiSchemaReader
             blocksRaw = TryReadTable(GetItem(doc.AllTables, kConstructiveBlocksTable, diag, "S2-Blocks"), diag, "S2-Blocks");
             if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
         }
+
+        // Закрепления: в таблице узлов маски нет (пробник «Мирной» 07.10), связи — в таблице 4
+        var supportsRaw = TryReadTable(doc.AllTables.CreateNewItem(kSupportsTable), diag, "S1-Supports");
+        if (supportsRaw != null) ApplySupports(supportsRaw, data);
 
         // Жёсткости: размеры сечений стержней и толщины пластин (не критично: без таблиц группы остаются «Жёсткость 0»)
         ReadStiffnessTables((object)lira, (object)doc, data, diag);
@@ -387,6 +392,31 @@ static class LiraApiSchemaReader
             int dofMask = ParseDofMask(rows, i, 4);
             data.Nodes.Add(new LiraNodeRecord(id, x, y, z, dofMask));
         }
+    }
+
+    /// <summary>
+    /// Таблица 4 «Связи»: номер узла и 7 ячеек X Y Z UX UY UZ UW; непустая ячейка, кроме «0», — связь есть
+    /// (запись непустой ячейки на живой схеме не подтверждена). Маска добавляется к узлу таблицы 2.
+    /// </summary>
+    internal static void ApplySupports(object[,] rows, LiraSchemaData data)
+    {
+        var masks = new Dictionary<int, int>();
+        int cols = rows.GetLength(1);
+        for (int i = 0; i < rows.GetLength(0); i++)
+        {
+            if (!TryInt(rows[i, 0], out int node)) continue;
+            int mask = 0;
+            for (int bit = 0; bit < 7 && bit + 1 < cols; bit++)
+            {
+                string? cell = rows[i, bit + 1]?.ToString()?.Trim();
+                if (!string.IsNullOrEmpty(cell) && cell != "0") mask |= 1 << bit;
+            }
+            if (mask != 0) masks[node] = masks.GetValueOrDefault(node) | mask;
+        }
+        if (masks.Count == 0) return;
+        for (int i = 0; i < data.Nodes.Count; i++)
+            if (masks.TryGetValue(data.Nodes[i].Id, out int mask))
+                data.Nodes[i] = data.Nodes[i] with { DofMask = data.Nodes[i].DofMask | mask };
     }
 
     static void ParseElements(object[,] rows, LiraSchemaData data)

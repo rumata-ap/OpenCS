@@ -23,4 +23,26 @@ public sealed class LiraApiNodeUnitsTests
         Assert.Equal(-3.4, n.Z, 9);
         Assert.Equal(0b111, n.DofMask);
     }
+
+    [Fact]
+    public void ApplySupports_Table4_AddsMasksToNodes_AndConvertsToMeshSupports()
+    {
+        var data = new LiraSchemaData();
+        LiraApiSchemaReader.ParseNodes(new object[,]
+        {
+            { 1, 0.0, 0.0, 0.0 }, { 2, 1.0, 0.0, 0.0 }, { 3, 2.0, 0.0, 0.0 },
+        }, 1, data);
+        LiraApiSchemaReader.ApplySupports(new object[,]
+        {
+            { 1, "1", "1", "1", "", "", "", "" },
+            { 2, "", "", "#", "1", "1", "1", "1" },
+            { 3, "", "", "", "", "", "", "" },
+            { "", "", "", "", "", "", "", "" },
+        }, data);
+
+        Assert.Equal([0b111, 0b1111100, 0], data.Nodes.Select(n => n.DofMask));
+        var supports = LiraSchemaConverter.ToFemMeshNodeSupports(data);
+        Assert.Equal([("1", 0b111), ("2", 0b111100)], supports.Select(s => (s.NodeTag, s.Mask)));
+        Assert.All(supports, s => Assert.Equal("import:lira", s.Origin));
+    }
 }

@@ -84,6 +84,23 @@ public static class LiraSchemaConverter
             })
             .ToArray();
 
+    /// <summary>Происхождение ГУ, перенесённых из ЛИРЫ.</summary>
+    public static readonly string BoundaryOrigin = FemLoadOrigin.Import("lira");
+
+    /// <summary>
+    /// Закрепления узлов сетки из масок узлов ЛИРЫ (биты 0–5; бит 6 — депланация — не переносится).
+    /// </summary>
+    public static FemMeshNodeSupport[] ToFemMeshNodeSupports(LiraSchemaData data)
+        => data.Nodes
+            .Where(n => (n.DofMask & FemBoundaryDofs.All) != 0)
+            .Select(n => new FemMeshNodeSupport
+            {
+                NodeTag = n.Id.ToString(),
+                Mask    = n.DofMask & FemBoundaryDofs.All,
+                Origin  = BoundaryOrigin,
+            })
+            .ToArray();
+
     /// <summary>Создаёт 2-узловые стержневые элементы КЭ-сетки напрямую из данных ЛираСАПР.</summary>
     public static FemElement[] ToFemMeshBarElements(LiraSchemaData data, int schemaId)
         => data.Elements

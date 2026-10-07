@@ -1010,6 +1010,12 @@
    <system:String x:Key="ScadLoadsEditorOpen">SCAD loads of schema “{0}” were not transferred: the schema editor is open. Run “Transfer loads from the SCAD model”.</system:String>
    <system:String x:Key="ScadLoadsTotal">Load case “{0}” (SCAD {1}): ΣFx = {2:0.###} kN, ΣFy = {3:0.###} kN, ΣFz = {4:0.###} kN.</system:String>
    <system:String x:Key="ScadLoadsAnalysesInvalidated">Schema loads changed — analysis results reset: {0}.</system:String>
+   <system:String x:Key="ScadBoundaryRefresh">Read boundary conditions from SCAD</system:String>
+   <system:String x:Key="ScadBoundaryReading">Reading SCAD boundary conditions…</system:String>
+   <system:String x:Key="ScadBoundaryNoSpr">Boundary conditions of schema “{0}” were not read: no .SPR file or SCADAPIX.dll.</system:String>
+   <system:String x:Key="ScadBoundaryMoreDiagnostics">… and {0} more boundary condition remarks.</system:String>
+   <system:String x:Key="ScadBoundaryAnalysesInvalidated">Schema boundary conditions changed — analysis results reset: {0}.</system:String>
+   <system:String x:Key="LiraSupportsImported">LIRA node supports transferred: {0}.</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
    <system:String x:Key="ScadPluginInstall">Install plugin into SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Plugin files not found: {0}. Reinstall OpenCS.</system:String>

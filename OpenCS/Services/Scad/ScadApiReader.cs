@@ -68,6 +68,7 @@ internal static unsafe class ScadApiReader
         int deletedElements = 0;
         var skipped = new Dictionary<int, int>();
         var rigidBodies = new List<(int Elem, int Stiffness, int[] Nodes)>();
+        var springs = new List<(int Elem, int Stiffness, int Node)>();
         for (uint i = 1; i <= elemCount; i++)
         {
             if (i % CancelStride == 0) { ct.ThrowIfCancellationRequested(); progress?.Report(0.3 + 0.6 * i / elemCount); }
@@ -82,6 +83,11 @@ internal static unsafe class ScadApiReader
                     var bodyNodes = new int[qn];
                     for (int k = 0; k < qn; k++) bodyNodes[k] = (int)list[k];
                     rigidBodies.Add(((int)i, (int)rigid, bodyNodes));
+                    continue;
+                }
+                if (type == ScadSpringType && qn == 1)
+                {
+                    springs.Add(((int)i, (int)rigid, (int)list[0]));
                     continue;
                 }
                 skipped[(int)type] = skipped.GetValueOrDefault((int)type) + 1;
@@ -105,8 +111,8 @@ internal static unsafe class ScadApiReader
         if (options.AssignedRebar)
             using (ScadApiTrace.Step("Заданное армирование")) data.AssignedRebar = ReadAssignedRebar(s);
         if (options.AnalysisModel)
-            using (ScadApiTrace.Step("Опоры, жёсткие тела, нагрузки"))
-                data.AnalysisModel = ReadAnalysisModel(s, data, rigidBodies);
+            using (ScadApiTrace.Step("Опоры, пружины, жёсткие тела, шарниры, нагрузки"))
+                data.AnalysisModel = ReadAnalysisModel(s, data, rigidBodies, springs, skipped.GetValueOrDefault(ScadLinkType));
         int degenerate = 0;
         if (options.OutputAxes)
             using (ScadApiTrace.Step("Оси выдачи усилий")) degenerate = ReadOutputAxes(s, data, coords, lu);
@@ -124,13 +130,19 @@ internal static unsafe class ScadApiReader
 
     /// <summary>Код типа КЭ «абсолютно жёсткое тело» (пробник 03.10: 9 узлов, жёсткость «SPRING … Type 100»).</summary>
     const uint ScadRigidBodyType = 100;
+    /// <summary>Код типа КЭ «связь конечной жёсткости» узел — земля (1 узел, «SPRING … Type 51»).</summary>
+    const uint ScadSpringType = 51;
+    /// <summary>Код типа КЭ «упругая связь двух узлов» (не переносится).</summary>
+    const int ScadLinkType = 55;
 
     /// <summary>
-    /// Расчётная модель сверх сетки: закрепления (ApiGetBound), жёсткие тела (КЭ 100, собраны при чтении КЭ),
-    /// нагрузки загружений (ApiGetForceNode/Elem/Area) в единицах проекта.
+    /// Расчётная модель сверх сетки: закрепления (ApiGetBound), жёсткие тела и пружины (КЭ 100 и 51, собраны при
+    /// чтении КЭ), шарниры стержней (ApiGetJoint), нагрузки загружений (ApiGetForceNode/Elem/Area) в единицах проекта;
+    /// счётчики того, что не переносится (КЭ 55, объединения перемещений, упругие шарниры, вставки, основание).
     /// </summary>
     static ScadAnalysisModel ReadAnalysisModel(ScadApiSession s, ScadSchemaData data,
-        IReadOnlyList<(int Elem, int Stiffness, int[] Nodes)> rigidBodies)
+        IReadOnlyList<(int Elem, int Stiffness, int[] Nodes)> rigidBodies,
+        IReadOnlyList<(int Elem, int Stiffness, int Node)> springElements, int linkElements)
     {
         var n = s.Native;
         nint h = s.Handle;
@@ -145,6 +157,44 @@ internal static unsafe class ScadApiReader
         var bodies = rigidBodies.Select(b => new ScadRigidBody(b.Elem, b.Stiffness, b.Nodes[0], b.Nodes[1..],
             ScadAnalysisModel.RigidBodyMask(stiffById.GetValueOrDefault(b.Stiffness)?.Text))).ToList();
 
+        var notTransferred = new Dictionary<string, int>();
+        void Count(string kind, int value) { if (value > 0) notTransferred[kind] = notTransferred.GetValueOrDefault(kind) + value; }
+        Count(ScadNotTransferredKinds.Fe55, linkElements);
+
+        int schemaType = (int)n.ApiGetTypeSystem(h);
+        var springs = new List<ScadSpring>(springElements.Count);
+        foreach (var sp in springElements)
+        {
+            if (ScadAnalysisModel.SpringStiffness(stiffById.GetValueOrDefault(sp.Stiffness)?.Text, schemaType) is { } k)
+                springs.Add(new ScadSpring(sp.Elem, sp.Stiffness, sp.Node, k));
+            else Count(ScadNotTransferredKinds.SpringUnparsed, 1);
+        }
+
+        // Шарниры: по обоим концам стержней; упругие (ненулевые жёсткости) не переносятся.
+        var joints = new List<ScadJoint>();
+        Span<int> masks = stackalloc int[2];
+        foreach (var e in data.Elements)
+        {
+            if (ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) != ScadElementKind.Beam) continue;
+            for (uint k = 1; k <= 2; k++)
+            {
+                byte place;
+                double* value = null;
+                int mask = (int)(n.ApiGetJoint(h, (uint)e.Id, k, &place, &value) & 0x3F);
+                if (mask != 0 && value != null && new ReadOnlySpan<double>(value, 6).ContainsAnyExcept(0.0))
+                {
+                    Count(ScadNotTransferredKinds.ElasticJoint, 1);
+                    mask = 0;
+                }
+                masks[(int)k - 1] = mask;
+            }
+            if ((masks[0] | masks[1]) != 0) joints.Add(new ScadJoint(e.Id, masks[0], masks[1]));
+        }
+
+        Count(ScadNotTransferredKinds.BoundUnite, (int)n.ApiGetQuantityBoundUnite(h));
+        Count(ScadNotTransferredKinds.Insert, GroupElements(h, n.ApiGetQuantityInsert(h), n.ApiGetNumInsert));
+        Count(ScadNotTransferredKinds.Bed, GroupElements(h, n.ApiGetQuantityBed(h), n.ApiGetBed));
+
         var loads = new List<ScadLoadCase>();
         uint loadCount = n.ApiGetQuantityLoad(h);
         for (uint l = 1; l <= loadCount; l++)
@@ -158,7 +208,25 @@ internal static unsafe class ScadApiReader
         {
             Bounds = bounds, RigidBodies = bodies, LoadCases = loads, LengthUnitM = data.LengthUnitM,
             ForceUnitN = force.Coef > 0 ? 9810.0 / force.Coef : 1,
+            SchemaType = schemaType, Springs = springs, Joints = joints, NotTransferred = notTransferred,
+            HasBoundaryV2 = true,
         };
+    }
+
+    /// <summary>Число КЭ во всех группах ApiGetNumInsert/ApiGetBed (BOOL: 0 — группы нет).</summary>
+    static int GroupElements(nint h, uint groups,
+        delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> get)
+    {
+        int total = 0;
+        for (uint g = 1; g <= groups; g++)
+        {
+            byte type;
+            uint qs, qe;
+            double* size;
+            uint* list;
+            if (get(h, g, &type, &qs, &size, &qe, &list) != 0) total += (int)qe;
+        }
+        return total;
     }
 
     static ScadLoadRecord[] ReadLoads(nint h, uint load, uint count,

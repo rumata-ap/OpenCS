@@ -1010,6 +1010,12 @@
    <system:String x:Key="ScadLoadsEditorOpen">Нагрузки SCAD схемы «{0}» не перенесены: открыт редактор схемы. Выполните «Перенести нагрузки из вложения SCAD».</system:String>
    <system:String x:Key="ScadLoadsTotal">Загружение «{0}» (SCAD {1}): ΣFx = {2:0.###} кН, ΣFy = {3:0.###} кН, ΣFz = {4:0.###} кН.</system:String>
    <system:String x:Key="ScadLoadsAnalysesInvalidated">Нагрузки схемы изменились — результаты постановок сброшены: {0}.</system:String>
+   <system:String x:Key="ScadBoundaryRefresh">Дочитать граничные условия из SCAD</system:String>
+   <system:String x:Key="ScadBoundaryReading">Чтение граничных условий SCAD…</system:String>
+   <system:String x:Key="ScadBoundaryNoSpr">Граничные условия схемы «{0}» не дочитаны: нет файла .SPR или SCADAPIX.dll.</system:String>
+   <system:String x:Key="ScadBoundaryMoreDiagnostics">… и ещё замечаний по граничным условиям: {0}.</system:String>
+   <system:String x:Key="ScadBoundaryAnalysesInvalidated">Граничные условия схемы изменились — результаты постановок сброшены: {0}.</system:String>
+   <system:String x:Key="LiraSupportsImported">Перенесены закрепления узлов ЛИРЫ: {0}.</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>

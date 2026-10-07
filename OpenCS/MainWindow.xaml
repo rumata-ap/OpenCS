@@ -1422,6 +1422,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource ScadBoundaryRefresh}"
+                                           Command="{Binding PlacementTarget.Tag.RefreshScadBoundaryCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource ScadPluginInstall}"
                                            Command="{Binding PlacementTarget.Tag.InstallScadPluginCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
