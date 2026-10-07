@@ -185,7 +185,12 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public FemLoadCase? SelectedLoadCase
     {
         get => _selectedLoadCase;
-        set { _selectedLoadCase = value; OnPropertyChanged(); }
+        set
+        {
+            _selectedLoadCase = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedCaseElementLoads));
+        }
     }
     FemMember? _selectedLoadMember;
     /// <summary>Стержень, выбранный в редакторе распределённой нагрузки.</summary>
@@ -306,6 +311,94 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     {
         if (SelectedLoadMember is not { } member || FindMemberLoad(member) is not { } load) return;
         Session.Execute(new DeleteMemberLoadCommand(load));
+        RefreshCollections();
+    }
+
+    /// <summary>Нагрузки на КЭ выбранного загружения со строкой для списка.</summary>
+    public IReadOnlyList<FemElementLoadView> SelectedCaseElementLoads => SelectedLoadCase is { } lc
+        ? Session.ElementLoads.Where(l => l.LoadCaseId == lc.Id).Select(l => new FemElementLoadView(l, Session.MemberGroups)).ToList()
+        : [];
+
+    FemElementLoadView? _selectedElementLoad;
+    /// <summary>Нагрузка на КЭ, выбранная в списке загружения.</summary>
+    public FemElementLoadView? SelectedElementLoad
+    {
+        get => _selectedElementLoad;
+        set { _selectedElementLoad = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Режимы цели нагрузки на пластины в редакторе.</summary>
+    public const string AreaTargetSelection = "selection", AreaTargetGroup = "group", AreaTargetList = "list";
+
+    /// <summary>
+    /// Равномерная нагрузка на пластины выбранного загружения (новая или вместо выбранной в списке). Цель: выделенное
+    /// (КЭ сетки, иначе КонЭ), группа или список КЭ «1-50, 75». Возвращает текст ошибки или null.
+    /// </summary>
+    public string? ApplyAreaLoad(string targetMode, FemMemberGroup? group, string? tagsText, double pressurePa,
+        string coordinateSystem, string axis, bool replaceSelected)
+    {
+        if (SelectedLoadCase is not { } lc) return Loc.S("FemAreaLoadNoCase");
+        if (!double.IsFinite(pressurePa) || pressurePa == 0) return Loc.S("FemAreaLoadZero");
+        var load = new FemElementLoad
+        {
+            SchemaId = Session.Schema.Id, LoadCaseId = lc.Id, LoadKind = FemElementLoadKinds.Uniform,
+            CoordinateSystem = coordinateSystem, Axis = axis,
+        };
+        load.SetValues([pressurePa]);
+        switch (targetMode)
+        {
+            case AreaTargetSelection when Selection.SelectedMeshElemTags.Count > 0:
+                load.TargetKind = FemLoadTargetKinds.Elements;
+                load.SetTargetTags(Selection.SelectedMeshElemTags);
+                break;
+            case AreaTargetSelection when Selection.SelectedElemTags.Count > 0:
+                load.TargetKind = FemLoadTargetKinds.Members;
+                load.SetTargetTags(Selection.SelectedElemTags);
+                break;
+            case AreaTargetSelection:
+                return Loc.S("FemAreaLoadNoSelection");
+            case AreaTargetGroup when group is { Id: > 0 }:
+                load.TargetKind = FemLoadTargetKinds.Group;
+                load.GroupId = group.Id;
+                break;
+            case AreaTargetGroup:
+                return Loc.S("FemAreaLoadNoGroup");
+            default:
+                var tags = FemTagList.Parse(tagsText, out var error);
+                if (error != null) return error;
+                if (tags.Count == 0) return Loc.S("FemAreaLoadNoTags");
+                load.TargetKind = FemLoadTargetKinds.Elements;
+                load.SetTargetTags(tags);
+                break;
+        }
+        if (replaceSelected && SelectedElementLoad?.Load is { } old && Session.ElementLoads.Contains(old))
+            Session.Execute(new ReplaceElementLoadCommand(old, load));
+        else
+            Session.Execute(new AddElementLoadCommand(load));
+        RefreshCollections();
+        SelectedElementLoad = SelectedCaseElementLoads.FirstOrDefault(v => ReferenceEquals(v.Load, load));
+        return null;
+    }
+
+    /// <summary>Удаляет нагрузку на КЭ, выбранную в списке.</summary>
+    public void DeleteSelectedElementLoad()
+    {
+        if (SelectedElementLoad?.Load is not { } load) return;
+        Session.Execute(new DeleteElementLoadCommand(load));
+        SelectedElementLoad = null;
+        RefreshCollections();
+    }
+
+    /// <summary>Коэффициент собственного веса выбранного загружения; null — без собственного веса.</summary>
+    public void SetSelectedLoadCaseSelfWeight(double? factor)
+    {
+        if (SelectedLoadCase is not { } lc || lc.SelfWeightFactor == factor) return;
+        Session.Execute(new EditLoadCaseCommand(lc, new FemLoadCase
+        {
+            Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group,
+            GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
+            SelfWeightFactor = factor,
+        }));
         RefreshCollections();
     }
 
@@ -820,7 +913,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             GammaFUnfav = gammaFUnfav,
             GammaFFav = gammaFFav,
             Psi1 = psi1,
-            Psi2 = psi2
+            Psi2 = psi2,
+            SelfWeightFactor = loadCase.SelfWeightFactor
         }));
         RefreshCollections();
         return true;
@@ -834,7 +928,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         {
             Tag = tag.Trim(), LoadType = loadCase.LoadType, Sp20Type = loadCase.Sp20Type,
             Sp20Group = loadCase.Sp20Group, GammaFUnfav = loadCase.GammaFUnfav,
-            GammaFFav = loadCase.GammaFFav, Psi1 = loadCase.Psi1, Psi2 = loadCase.Psi2
+            GammaFFav = loadCase.GammaFFav, Psi1 = loadCase.Psi1, Psi2 = loadCase.Psi2,
+            SelfWeightFactor = loadCase.SelfWeightFactor
         }));
         RefreshCollections();
         return true;
@@ -1044,6 +1139,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CollectionViewSource.GetDefaultView(KinematicLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
         OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
+        OnPropertyChanged(nameof(SelectedCaseElementLoads));
         OnPropertyChanged(nameof(ExtractBlockReason));
     }
 

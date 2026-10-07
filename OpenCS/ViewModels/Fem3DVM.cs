@@ -44,6 +44,9 @@ public class Fem3DVM : ViewModelBase
     IReadOnlyList<FemNodeLoad> _diagramNodeLoads = [];
     IReadOnlyList<FemMemberLoad> _diagramMemberLoads = [];
     IReadOnlyList<FemKinematicLoad> _diagramKinematicLoads = [];
+    IReadOnlyList<FemElementLoad> _diagramElementLoads = [];
+    /// <summary>Сетка схемы для нагрузок на КЭ — читается из БД при первом показе таких нагрузок.</summary>
+    CScore.Fem.Loads.FemLoadMeshContext? _loadMesh;
 
     bool   _isLoading = true;
     bool   _noData;
@@ -101,6 +104,8 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  PlanarRegionMeshNodePoints { get; private set; }
     public IReadOnlyList<FemDiagramGlyph> DiagramGlyphs { get; private set; } = [];
     public IReadOnlyList<FemMemberLoadGlyph> MemberLoadGlyphs { get; private set; } = [];
+    /// <summary>Глифы нагрузок на КЭ и собственного веса выбранного загружения/определения; null — нет.</summary>
+    public CScore.Fem.Loads.FemElementLoadGlyphSet? ElementLoadGlyphs { get; private set; }
     public IReadOnlyList<FemSectionGlyph> SectionGlyphs { get; private set; } = [];
     public List<FemDiagramLoadSource> DiagramLoadSources { get; private set; } = [];
     public IReadOnlyDictionary<int, Point3D> DiagramNodePositions { get; private set; } = new Dictionary<int, Point3D>();
@@ -263,6 +268,8 @@ public class Fem3DVM : ViewModelBase
             _diagramNodeLoads = _db.GetFemNodeLoads(_schemaId);
             _diagramMemberLoads = _db.GetFemMemberLoads(_schemaId);
             _diagramKinematicLoads = _db.GetFemKinematicLoads(_schemaId);
+            _diagramElementLoads = _db.GetFemElementLoads(_schemaId);
+            _loadMesh = null;
             RefreshDiagramSources(_diagramLoadCases, []);
             if (_memberOnly == null && _highlightMember == null && !constructiveEmpty && !importedBackground)
                 await LoadMeshOverlayAsync();
@@ -423,6 +430,7 @@ public class Fem3DVM : ViewModelBase
         _diagramNodeLoads = session.NodeLoads;
         _diagramMemberLoads = session.MemberLoads;
         _diagramKinematicLoads = session.KinematicLoads;
+        _diagramElementLoads = session.ElementLoads;
         DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
@@ -473,8 +481,28 @@ public class Fem3DVM : ViewModelBase
         MemberLoadGlyphs = ShowLoadGlyphs
             ? FemMemberLoadGlyphFactory.Create(_diagramMembers, _diagramNodes, resolved.MemberLoads)
             : [];
+        ElementLoadGlyphs = ShowLoadGlyphs ? BuildElementLoadGlyphs() : null;
         OnPropertyChanged(nameof(DiagramGlyphs));
         OnPropertyChanged(nameof(MemberLoadGlyphs));
+        OnPropertyChanged(nameof(ElementLoadGlyphs));
+    }
+
+    /// <summary>Глифы нагрузок на КЭ и собственного веса по выбранному источнику; сетка читается лениво.</summary>
+    CScore.Fem.Loads.FemElementLoadGlyphSet? BuildElementLoadGlyphs()
+    {
+        var terms = SelectedDiagramLoadSource switch
+        {
+            { LoadCase: { } loadCase } => [(loadCase, 1.0)],
+            { Definition: { } definition } => FemLoadExpressionResolver.Terms(definition.GetExpression(), _diagramLoadCases),
+            _ => (IReadOnlyList<(FemLoadCase, double)>)[],
+        };
+        var ids = terms.Select(t => t.Item1.Id).ToHashSet();
+        if (!terms.Any(t => t.Item1.SelfWeightFactor is { } k && k != 0) &&
+            !_diagramElementLoads.Any(l => ids.Contains(l.LoadCaseId))) return null;
+        _loadMesh ??= new CScore.Fem.Loads.FemLoadMeshContext(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId),
+            _db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId)?.MemberGroups.ToList(),
+            Services.FemSelfWeightSourceFactory.Create(_db, _schemaId));
+        return CScore.Fem.Loads.FemElementLoadGlyphs.Build(terms, _diagramElementLoads, _loadMesh);
     }
 
     /// <summary>Отображаемый элемент входит в группу: у группы КЭ — КЭ сетки (сетка схемы без конструктивного

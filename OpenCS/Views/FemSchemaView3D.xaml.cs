@@ -308,6 +308,7 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.MeshNodePoints) ||
             e.PropertyName == nameof(Fem3DVM.DiagramGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.MemberLoadGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ElementLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
@@ -448,6 +449,7 @@ public partial class FemSchemaView3D : UserControl
         BuildEditProxies();
         BuildDiagramGlyphs();
         BuildMemberLoadGlyphs();
+        BuildElementLoadGlyphs();
         BuildSectionGlyphs();
         ApplyGridVisuals();
         UpdateGroundPlane();
@@ -703,6 +705,42 @@ public partial class FemSchemaView3D : UserControl
                     AddMemberLoadValueLabel(glyph.End, glyph.LoadAtEnd, isIntensity: true);
             }
             if (ribbonPickMidpoint is { } ribbonMid) AddMemberLoadPickTarget(ribbonMid, glyph.MemberTag);
+        }
+    }
+
+    /// <summary>
+    /// Стрелки нагрузок на КЭ и собственного веса (одним набором линий — их тысячи) и подписи значений, по одной на
+    /// нагрузку. Длина стрелки — от размера КЭ, остриё — в точке приложения.
+    /// </summary>
+    void BuildElementLoadGlyphs()
+    {
+        if (VM is not { ShowLoadGlyphs: true, ElementLoadGlyphs: { } set }) return;
+        var color = Colors.MediumVioletRed;
+        var points = new Point3DCollection(set.Arrows.Count * 6);
+        foreach (var a in set.Arrows)
+        {
+            var dir = new Vector3D(a.Direction.X, a.Direction.Y, a.Direction.Z);
+            double len = Math.Clamp(0.6 * a.SizeM, 0.1, 1.5);
+            var side = Math.Abs(dir.Z) < 0.9 ? Vector3D.CrossProduct(dir, new Vector3D(0, 0, 1)) : Vector3D.CrossProduct(dir, new Vector3D(0, 1, 0));
+            side.Normalize();
+            var tip = new Point3D(a.Point.X, a.Point.Y, a.Point.Z);
+            var tail = tip - dir * len;
+            points.Add(tail); points.Add(tip);
+            points.Add(tip); points.Add(tip - dir * len * 0.3 + side * len * 0.15);
+            points.Add(tip); points.Add(tip - dir * len * 0.3 - side * len * 0.15);
+        }
+        if (points.Count > 0) viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = 1.6 });
+        if (!VM.ShowLoadValues) return;
+        foreach (var label in set.Labels)
+        {
+            var (value, unit) = label.Unit switch
+            {
+                CScore.Fem.Loads.FemLoadGlyphUnit.Pressure => (label.Magnitude / 1e3, Loc.S("FemUnitKPa")),
+                CScore.Fem.Loads.FemLoadGlyphUnit.LineLoad => (label.Magnitude / 1e3, Loc.S("FemUnitKNPerM")),
+                _ => (label.Magnitude / 1e3, Loc.S("FemUnitKN")),
+            };
+            string prefix = label.Kind == CScore.Fem.FemElementLoadKinds.SelfWeight ? Loc.S("FemSelfWeightShort") + " " : "";
+            AddValueLabel(new Point3D(label.Point.X, label.Point.Y, label.Point.Z), $"{prefix}{value:0.##} {unit}", color);
         }
     }
 

@@ -165,7 +165,74 @@ public partial class FemLoadCasesPanel : UserControl
         gammaFavBox.Text = loadCase.GammaFFav?.ToString(CultureInfo.InvariantCulture) ?? "";
         psi1Box.Text = loadCase.Psi1?.ToString(CultureInfo.InvariantCulture) ?? "";
         psi2Box.Text = loadCase.Psi2?.ToString(CultureInfo.InvariantCulture) ?? "";
+        selfWeightCheck.IsChecked = loadCase.SelfWeightFactor != null;
+        selfWeightBox.Text = Format(loadCase.SelfWeightFactor ?? 1);
         PopulateMemberLoad();
+    }
+
+    void ApplySelfWeight_Click(object sender, RoutedEventArgs e)
+    {
+        if (Editor == null) return;
+        if (selfWeightCheck.IsChecked != true) { Editor.SetSelectedLoadCaseSelfWeight(null); return; }
+        if (!Pars.ParseAny(selfWeightBox.Text, out var factor) || factor == 0)
+        {
+            MessageBox.Show(Loc.S("FemSelfWeightFactorInvalid"), Loc.S("FemAreaLoadsTab"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        Editor.SetSelectedLoadCaseSelfWeight(factor);
+    }
+
+    void AreaTargetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (areaGroupCombo == null) return;
+        string mode = areaTargetCombo.SelectedValue as string ?? "selection";
+        areaGroupCombo.Visibility = mode == "group" ? Visibility.Visible : Visibility.Collapsed;
+        areaTagsBox.Visibility = mode == "list" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    void AddAreaLoad_Click(object sender, RoutedEventArgs e) => ApplyAreaLoad(replace: false);
+
+    void ReplaceAreaLoad_Click(object sender, RoutedEventArgs e) => ApplyAreaLoad(replace: true);
+
+    void ApplyAreaLoad(bool replace)
+    {
+        if (Editor is not { } editor) return;
+        if (!Pars.ParseAny(areaValueBox.Text, out var kpa))
+        {
+            MessageBox.Show(Loc.S("FemAreaLoadZero"), Loc.S("FemAreaLoadsTab"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var dir = (areaDirectionCombo.SelectedValue as string ?? "global:z").Split(':');
+        string? error = editor.ApplyAreaLoad(areaTargetCombo.SelectedValue as string ?? "selection",
+            areaGroupCombo.SelectedItem as FemMemberGroup, areaTagsBox.Text, kpa * 1e3, dir[0], dir[1], replace);
+        if (error != null)
+            MessageBox.Show(error, Loc.S("FemAreaLoadsTab"), MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    void DeleteAreaLoad_Click(object sender, RoutedEventArgs e) => Editor?.DeleteSelectedElementLoad();
+
+    /// <summary>Выбранная в списке ручная равномерная нагрузка подставляется в поля для правки; импортную можно только удалить.</summary>
+    void ElementLoadSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var view = Editor?.SelectedElementLoad;
+        replaceAreaLoadButton.IsEnabled = view is { IsManual: true, Load.LoadKind: FemElementLoadKinds.Uniform };
+        if (view is not { IsManual: true, Load: { LoadKind: FemElementLoadKinds.Uniform } load }) return;
+        areaValueBox.Text = Format(load.Values.Count > 0 ? load.Values[0] / 1e3 : 0);
+        areaDirectionCombo.SelectedValue = $"{(load.IsLocal ? "local" : "global")}:{load.Axis}";
+        switch (load.TargetKind)
+        {
+            case FemLoadTargetKinds.Group:
+                areaTargetCombo.SelectedValue = "group";
+                areaGroupCombo.SelectedItem = Editor!.MemberGroups.FirstOrDefault(g => g.Id == load.GroupId);
+                break;
+            case FemLoadTargetKinds.Elements:
+                areaTargetCombo.SelectedValue = "list";
+                areaTagsBox.Text = string.Join(", ", load.TargetTags);
+                break;
+            default:
+                areaTargetCombo.SelectedValue = "selection";
+                break;
+        }
     }
 
     void PopulateDefinitionName()

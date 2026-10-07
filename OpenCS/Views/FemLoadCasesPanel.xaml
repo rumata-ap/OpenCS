@@ -136,6 +136,53 @@
                     </StackPanel>
                 </ScrollViewer>
             </Expander>
+            <Expander Header="{DynamicResource FemAreaLoadsTab}" IsExpanded="False" Margin="0,12,0,0">
+                <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,6,0,0">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <CheckBox x:Name="selfWeightCheck" Content="{DynamicResource FemSelfWeightFactor}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="selfWeightBox" Grid.Column="1" Margin="4,0" Text="1"/>
+                            <Button Grid.Column="2" Content="{DynamicResource FemLoadCaseApplyParameters}" Click="ApplySelfWeight_Click"/>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource FemAreaLoadList}"/>
+                        <ListBox x:Name="elementLoadList" ItemsSource="{Binding SelectedCaseElementLoads}" DisplayMemberPath="Text"
+                                 SelectedItem="{Binding SelectedElementLoad}" SelectionChanged="ElementLoadSelectionChanged"
+                                 MaxHeight="150" Margin="0,2,0,8"/>
+                        <TextBlock Text="{DynamicResource FemAreaLoadTarget}"/>
+                        <ComboBox x:Name="areaTargetCombo" SelectedValuePath="Tag" SelectedIndex="0" Margin="0,2,0,4"
+                                  SelectionChanged="AreaTargetChanged">
+                            <ComboBoxItem Tag="selection" Content="{DynamicResource FemAreaLoadTargetSelection}"/>
+                            <ComboBoxItem Tag="group" Content="{DynamicResource FemAreaLoadTargetGroupItem}"/>
+                            <ComboBoxItem Tag="list" Content="{DynamicResource FemAreaLoadTargetList}"/>
+                        </ComboBox>
+                        <ComboBox x:Name="areaGroupCombo" ItemsSource="{Binding MemberGroups}" DisplayMemberPath="Tag"
+                                  Visibility="Collapsed" Margin="0,0,0,4"/>
+                        <TextBox x:Name="areaTagsBox" Visibility="Collapsed" Margin="0,0,0,4"
+                                 ToolTip="{DynamicResource FemAreaLoadTagsHint}"/>
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,4,0">
+                                <TextBlock Text="{DynamicResource FemAreaLoadValue}"/>
+                                <TextBox x:Name="areaValueBox" Text="-1"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Text="{DynamicResource FemAreaLoadDirection}"/>
+                                <ComboBox x:Name="areaDirectionCombo" SelectedValuePath="Tag" SelectedIndex="2">
+                                    <ComboBoxItem Tag="global:x" Content="X"/>
+                                    <ComboBoxItem Tag="global:y" Content="Y"/>
+                                    <ComboBoxItem Tag="global:z" Content="Z"/>
+                                    <ComboBoxItem Tag="local:z" Content="{DynamicResource FemAreaLoadDirNormal}"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource FemAreaLoadSignHint}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="1,4,1,4"/>
+                        <Button Content="{DynamicResource FemAreaLoadAdd}" Click="AddAreaLoad_Click" Margin="0,4,0,0"/>
+                        <Button x:Name="replaceAreaLoadButton" Content="{DynamicResource FemAreaLoadReplace}" Click="ReplaceAreaLoad_Click" Margin="0,4,0,0"/>
+                        <Button Content="{DynamicResource FemAreaLoadDelete}" Click="DeleteAreaLoad_Click" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Expander>
         </StackPanel>
         <Grid Grid.Column="2" Margin="16,0,0,0">
             <Grid.RowDefinitions>
