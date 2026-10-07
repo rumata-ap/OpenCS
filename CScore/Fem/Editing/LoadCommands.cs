@@ -294,3 +294,42 @@ public sealed class DeleteMemberLoadCommand(FemMemberLoad load) : IFemEditComman
     public void Do(FemSchemaEditSession session) => session.MemberLoads.Remove(load);
     public void Undo(FemSchemaEditSession session) => session.MemberLoads.Add(load);
 }
+
+/// <summary>Добавляет нагрузку на КЭ (сеточный уровень).</summary>
+public sealed class AddElementLoadCommand(FemElementLoad load) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => session.ElementLoads.Add(load);
+    public void Undo(FemSchemaEditSession session) => session.ElementLoads.Remove(load);
+}
+
+/// <summary>Заменяет нагрузку на КЭ другой на том же месте списка.</summary>
+public sealed class ReplaceElementLoadCommand(FemElementLoad oldLoad, FemElementLoad newLoad) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => Swap(session, oldLoad, newLoad);
+    public void Undo(FemSchemaEditSession session) => Swap(session, newLoad, oldLoad);
+
+    static void Swap(FemSchemaEditSession session, FemElementLoad from, FemElementLoad to)
+    {
+        int index = session.ElementLoads.IndexOf(from);
+        if (index < 0) session.ElementLoads.Add(to);
+        else session.ElementLoads[index] = to;
+    }
+}
+
+/// <summary>Удаляет нагрузку на КЭ; отмена возвращает её на прежнее место.</summary>
+public sealed class DeleteElementLoadCommand(FemElementLoad load) : IFemEditCommand
+{
+    int _index = -1;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _index = session.ElementLoads.IndexOf(load);
+        session.ElementLoads.Remove(load);
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_index >= 0 && _index <= session.ElementLoads.Count) session.ElementLoads.Insert(_index, load);
+        else session.ElementLoads.Add(load);
+    }
+}

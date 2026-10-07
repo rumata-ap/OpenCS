@@ -89,4 +89,30 @@ public sealed class FemSchemaEditSessionLoadTests
         session.Undo();
         Assert.Single(session.NodeLoads);
     }
+
+    [Fact]
+    public void ElementLoadCommands_AddReplaceDeleteAndUndo()
+    {
+        var session = NewSession();
+        var lc = new FemLoadCase { Id = -1, Tag = "L1" };
+        session.Execute(new AddLoadCaseCommand(lc));
+        var a = new FemElementLoad { LoadCaseId = -1 };
+        var b = new FemElementLoad { LoadCaseId = -1 };
+        var c = new FemElementLoad { LoadCaseId = -1 };
+        session.Execute(new AddElementLoadCommand(a));
+        session.Execute(new AddElementLoadCommand(b));
+        session.Execute(new ReplaceElementLoadCommand(a, c));
+        Assert.Equal([c, b], session.ElementLoads);
+        session.Execute(new DeleteElementLoadCommand(c));
+        Assert.Equal([b], session.ElementLoads);
+        session.Undo();
+        Assert.Equal([c, b], session.ElementLoads);
+        session.Undo();
+        Assert.Equal([a, b], session.ElementLoads);
+
+        session.Execute(new DeleteLoadCaseCommand(lc));
+        Assert.Empty(session.ElementLoads);
+        session.Undo();
+        Assert.Equal(2, session.ElementLoads.Count);
+    }
 }

@@ -121,7 +121,7 @@ public static class FemElementLoadNodalizer
     }
 
     /// <summary>Направление нагрузки (единичный вектор); null — не определено.</summary>
-    static PlanarVector3? Direction(FemElementLoad load, FemElementGeometry g)
+    internal static PlanarVector3? Direction(FemElementLoad load, FemElementGeometry g)
     {
         int axis = load.AxisIndex;
         if (axis < 0) return null;

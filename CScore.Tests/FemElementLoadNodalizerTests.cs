@@ -212,5 +212,27 @@ public sealed class FemElementLoadNodalizerTests
         Assert.Contains(r.Diagnostics, d => d.Code == "mesh_node_load_node_missing");
     }
 
+    [Fact]
+    public void Glyphs_SignPruningLabelAndSelfWeight()
+    {
+        // Полоса из 10 КЭ 1 × 1 м.
+        var nodes = new List<FemMeshNode>();
+        for (int i = 0; i <= 10; i++) { nodes.Add(N(2 * i + 1, i, 0)); nodes.Add(N(2 * i + 2, i, 1)); }
+        var elements = Enumerable.Range(0, 10)
+            .Select(i => E((100 + i).ToString(), "shell", [2 * i + 1, 2 * i + 3, 2 * i + 2, 2 * i + 4], 0.2)).ToArray();
+        var mesh = new FemLoadMeshContext(nodes, elements, null, new UnitWeights(25000, 0));
+        var load = Load("uniform", [-3000], target: string.Join(",", elements.Select(e => e.ElemTag)));
+        var lc = new FemLoadCase { Id = 1, SelfWeightFactor = 1 };
+
+        var set = FemElementLoadGlyphs.Build([(lc, 2)], [load], mesh, maxArrowsPerLoad: 4);
+        var pressure = set.Arrows.Where(a => a.Magnitude == 6000).ToList();
+        Assert.Equal(4, pressure.Count);                       // шаг 3: КЭ 0, 3, 6, 9
+        Assert.All(pressure, a => Assert.Equal(-1, a.Direction.Z, 12));
+        Assert.Equal(1, pressure[0].SizeM, 9);
+        Assert.Equal(2, set.Labels.Count);                     // с. в. и давление
+        Assert.Contains(set.Labels, l => l.Kind == "self_weight" && Math.Abs(l.Magnitude - 2 * 5000) < 1e-9);
+        Assert.Equal(10, set.LoadedElementTags.Count);
+    }
+
     static double Total(FemElementLoad load, FemLoadMeshContext mesh) => Run(load, mesh).Values.Sum(v => v[2]);
 }

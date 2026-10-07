@@ -81,6 +81,13 @@ public static class FemLoadExpressionResolver
         return new FemResolvedLoads(byNode.Values.ToList(), memberLoads, byKinematicDof.Values.ToList());
     }
 
+    /// <summary>Загружения выражения с коэффициентами (для нагрузок сеточного уровня — <see cref="Loads.FemLoadCaseNodalForces"/>).</summary>
+    public static IReadOnlyList<(FemLoadCase LoadCase, double Factor)> Terms(FemLoadExpression expr, IReadOnlyList<FemLoadCase> cases)
+    {
+        var factors = BuildFactors(expr, cases);
+        return cases.Where(c => factors.ContainsKey(c.Id)).Select(c => (c, factors[c.Id])).ToArray();
+    }
+
     static Dictionary<int, double> BuildFactors(FemLoadExpression expr, IReadOnlyList<FemLoadCase> cases)
     {
         var factor = new Dictionary<int, double>();
