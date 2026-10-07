@@ -49,7 +49,7 @@ public sealed class PlateSecantShellState : ISecantShellState
     /// <param name="dropCoupling">Диагностика: обнулять блок B секущей ABD (без связи мембранных усилий с изгибом —
     /// оценка вклада физического распора). Неподвижная точка тогда не воспроизводит истинные усилия сечения.</param>
     public PlateSecantShellState(PlateSection section, PlateSectionMaterials materials, bool psi,
-        PlateCrackRule rule = PlateCrackRule.Section, double zeroStrainBand = 0.0, bool dropCoupling = false)
+        PlateCrackRule rule = PlateCrackRule.Layer, double zeroStrainBand = 0.0, bool dropCoupling = false)
     {
         _dropCoupling = dropCoupling;
         _rule = rule;

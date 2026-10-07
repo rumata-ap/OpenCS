@@ -13,10 +13,11 @@ public sealed class RcSecantOptions
     public bool Psi { get; init; } = true;
 
     /// <summary>
-    /// Правило выключения растянутого бетона пластин трещиной; по умолчанию <see cref="PlateCrackRule.Section"/> — сходится
-    /// со стержневым НДМ (послойное правило вместе с ψs учитывает бетон между трещинами дважды).
+    /// Правило выключения растянутого бетона пластин трещиной; по умолчанию <see cref="PlateCrackRule.Layer"/> — ближе к
+    /// опыту на плите McNeice (совпадает с DIANA). <see cref="PlateCrackRule.Section"/> сходится со стержневым НДМ, но
+    /// плиту McNeice даёт мягче опыта на 5–15 %.
     /// </summary>
-    public PlateCrackRule PlateCrackRule { get; init; } = PlateCrackRule.Section;
+    public PlateCrackRule PlateCrackRule { get; init; } = PlateCrackRule.Layer;
 
     /// <summary>
     /// Полоса регуляризации секущей бетона без растяжения у нуля деформаций (<see cref="SecantLaminateBuilder.Build"/>):
