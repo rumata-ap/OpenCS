@@ -662,6 +662,8 @@ namespace OpenCS
       public ICommand InstallScadPluginCommand { get; set; } = null!;
       /// <summary>Перечитать ЖБ-группы и заданное армирование схемы SCAD из .SPR (параметр FemSchema).</summary>
       public ICommand RefreshScadRebarDataCommand { get; set; } = null!;
+      /// <summary>Перенести нагрузки из вложения SCAD в нагрузки сеточного уровня схемы.</summary>
+      public ICommand TransferScadLoadsCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1549,6 +1551,14 @@ namespace OpenCS
          RefreshScadRebarDataCommand = new RelayCommand(async p =>
          {
             if (p is CScore.Fem.FemSchema s) await RefreshScadRebarData(s);
+         }, _ => !IsBusy);
+         TransferScadLoadsCommand = new RelayCommand(p =>
+         {
+            if (p is not CScore.Fem.FemSchema s) return;
+            bool editorOpen = ReferenceEquals(currentFemSchema, s) && currentPage is Views.FemSchemaPage;
+            if (editorOpen && !TryLeaveFemSchemaEditor()) return;
+            if (LoadScadAnalysisModel(s.Id) is { } model) TransferScadLoads(s, model);
+            else LogService.Warning(string.Format(Loc.S("ScadLoadsNoModel"), s.Tag));
          }, _ => !IsBusy);
          SetScadProjectPathCommand = new RelayCommand(p =>
          {
@@ -3257,7 +3267,11 @@ namespace OpenCS
             if (data.SteelGroups.Count > 0) SaveScadSteelGroups(schema.Id, data.SteelGroups);
             SaveScadSteelProfiles(schema.Id, stiffnesses, dllDir);
             if (data.AssignedRebar != null) SaveScadAssignedRebar(schema.Id, data.AssignedRebar);
-            if (data.AnalysisModel != null) SaveScadAnalysisModel(schema.Id, data.AnalysisModel);
+            if (data.AnalysisModel != null)
+            {
+               SaveScadAnalysisModel(schema.Id, data.AnalysisModel);
+               TransferScadLoads(schema, data.AnalysisModel);
+            }
             RefreshFemSchemaTreeCounts(schema);
 
             foreach (var (type, count) in read.SkippedByType.OrderBy(kv => kv.Key))
@@ -3962,6 +3976,53 @@ namespace OpenCS
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAnalysisModel, "",
             System.Text.Encoding.UTF8.GetBytes(model.ToJson()));
 
+      /// <summary>Вложение SCAD схемы (закрепления, жёсткие тела, нагрузки); null — нет или повреждено (в журнал).</summary>
+      CScore.Import.ScadAnalysisModel? LoadScadAnalysisModel(int schemaId)
+      {
+         if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAnalysisModel) is not { } file) return null;
+         try { return CScore.Import.ScadAnalysisModel.FromJson(System.Text.Encoding.UTF8.GetString(file.Data)); }
+         catch (InvalidDataException ex) { LogService.Error(ex.Message); return null; }
+      }
+
+      /// <summary>
+      /// Переносит нагрузки вложения SCAD в нагрузки сеточного уровня схемы (повторно — с заменой перенесённого ранее,
+      /// ручное не трогается). Журнал: сводка, непереносимое, ΣF загружений для сверки с протоколом SCAD. Результаты
+      /// постановок схемы сбрасываются. Открытый редактор схемы закрывает вызывающий.
+      /// </summary>
+      void TransferScadLoads(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model)
+      {
+         var meshNodes = db.GetFemMeshNodes(schema.Id);
+         var elements = db.GetFemMeshElements(schema.Id);
+         var types = elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
+         int next = 0;
+         var result = CScore.Import.ScadLoadTransfer.Transfer(model, types, schema.LoadCases.ToList(),
+            db.GetFemElementLoads(schema.Id), db.GetFemMeshNodeLoads(schema.Id), () => --next);
+         db.SaveFemLoadCasesAndMeshLoads(schema.Id, result.LoadCases, result.ElementLoads, result.MeshNodeLoads);
+
+         LogService.Info(result.Report[0]);
+         foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
+
+         var mesh = new CScore.Fem.Loads.FemLoadMeshContext(meshNodes, elements, schema.MemberGroups.ToList(),
+            new CScore.Import.ScadSelfWeightSource(db.GetFemSchemaStiffnesses(schema.Id), model.ForceUnitN, model.LengthUnitM));
+         foreach (var lc in result.LoadCases.Where(c => c.Origin == CScore.Import.ScadLoadTransfer.Origin))
+         {
+            var forces = CScore.Fem.Loads.FemLoadCaseNodalForces.Resolve(lc, result.ElementLoads, result.MeshNodeLoads, mesh);
+            var (fx, fy, fz) = forces.Total;
+            LogService.Info(string.Format(Loc.S("ScadLoadsTotal"), lc.Tag, lc.SourceLoadNum, fx / 1e3, fy / 1e3, fz / 1e3));
+            foreach (var d in forces.Diagnostics.Select(d => d.Message).Distinct().Take(10)) LogService.Warning($"«{lc.Tag}»: {d}");
+         }
+
+         int invalidated = 0;
+         foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
+         {
+            analysis.InvalidateResult();
+            db.SaveFemAnalysis(analysis);
+            invalidated++;
+         }
+         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
+      }
+
       /// <summary>Сохранить стальные группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelGroups"/>).</summary>
       void SaveScadSteelGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadSteelGroup> groups) =>
          db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups, "",
@@ -4108,7 +4169,13 @@ namespace OpenCS
             SaveScadConcreteGroups(schema.Id, groups);
             SaveScadAssignedRebar(schema.Id, assigned);
             SaveScadSteelGroups(schema.Id, steelGroups);
-            if (analysis != null) SaveScadAnalysisModel(schema.Id, analysis);
+            if (analysis != null)
+            {
+               SaveScadAnalysisModel(schema.Id, analysis);
+               bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
+               if (!editorOpen || TryLeaveFemSchemaEditor()) TransferScadLoads(schema, analysis);
+               else LogService.Warning(string.Format(Loc.S("ScadLoadsEditorOpen"), schema.Tag));
+            }
             string done = string.Format(Loc.S("ScadRebarGroupsLoaded"), groups.Count, assigned.Plates.Count, assigned.Rods.Count,
                steelGroups.Count);
             LogService.Info(done);

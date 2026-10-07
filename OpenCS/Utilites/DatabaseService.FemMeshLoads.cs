@@ -160,6 +160,62 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>
+      /// Записывает итог переноса нагрузок из программы-источника одной транзакцией: загружения (Id ≤ 0 — новые,
+      /// иначе обновляются) и полный набор нагрузок сеточного уровня схемы (заменяет прежний). Конструктивный слой,
+      /// определения и постановки не трогаются; загружения в памяти схемы обновляются.
+      /// </summary>
+      public void SaveFemLoadCasesAndMeshLoads(int schemaId, IReadOnlyList<FemLoadCase> loadCases,
+         IReadOnlyList<FemElementLoad> elementLoads, IReadOnlyList<FemMeshNodeLoad> meshNodeLoads)
+      {
+         var newIdByTemp = new Dictionary<int, int>();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            foreach (var lc in loadCases)
+            {
+               using var cmd = _connection.CreateCommand();
+               lc.SchemaId = schemaId;
+               if (lc.Id <= 0)
+               {
+                  cmd.CommandText = """
+                     INSERT INTO fem_load_cases
+                        (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
+                         self_weight_factor, origin, source_load_num)
+                     VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
+                     SELECT last_insert_rowid();
+                     """;
+                  AddFemLoadCaseParameters(cmd, lc);
+                  int newId = (int)(long)cmd.ExecuteScalar()!;
+                  newIdByTemp[lc.Id] = newId;
+                  lc.Id = newId;
+               }
+               else
+               {
+                  cmd.CommandText = """
+                     UPDATE fem_load_cases SET tag=@tag, load_type=@lt, sp20_type=@st, sp20_group=@sg,
+                        gamma_f_unfav=@gu, gamma_f_fav=@gf, psi1=@p1, psi2=@p2, self_weight_factor=@swf,
+                        origin=@origin, source_load_num=@sln
+                     WHERE id=@id AND schema_id=@sid
+                     """;
+                  AddFemLoadCaseParameters(cmd, lc);
+                  cmd.Parameters.AddWithValue("@id", lc.Id);
+                  cmd.ExecuteNonQuery();
+               }
+            }
+            DeleteFemMeshLevelLoadsCore(schemaId);
+            InsertFemMeshLevelLoadsCore(schemaId, elementLoads, meshNodeLoads,
+               id => newIdByTemp.TryGetValue(id, out int mapped) ? mapped : id, group => group);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+
+         if (FemSchemas.FirstOrDefault(s => s.Id == schemaId) is { } schema)
+            foreach (var lc in loadCases)
+               if (!schema.LoadCases.Contains(lc) && schema.LoadCases.All(c => c.Id != lc.Id))
+                  schema.LoadCases.Add(lc);
+      }
+
       /// <summary>Удаляет нагрузки сеточного уровня схемы (внутри транзакции вызывающего).</summary>
       void DeleteFemMeshLevelLoadsCore(int schemaId)
       {

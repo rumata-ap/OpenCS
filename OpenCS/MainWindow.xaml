@@ -1417,6 +1417,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource ScadLoadsTransfer}"
+                                           Command="{Binding PlacementTarget.Tag.TransferScadLoadsCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource ScadPluginInstall}"
                                            Command="{Binding PlacementTarget.Tag.InstallScadPluginCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

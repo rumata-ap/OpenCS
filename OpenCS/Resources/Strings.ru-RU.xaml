@@ -1005,6 +1005,11 @@
    <system:String x:Key="BarSectionsUnified">Подбор унифицирован: КЭ {0} → армирований {1} (допуск {2:0.##} %).</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">Прочитаны ЖБ-группы SCAD: {0}; группы заданного армирования: пластин {1}, стержней {2}; стальные группы: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Обновить данные схемы из .SPR (ЖБ-группы, армирование, стальные профили)</system:String>
+   <system:String x:Key="ScadLoadsTransfer">Перенести нагрузки из вложения SCAD</system:String>
+   <system:String x:Key="ScadLoadsNoModel">У схемы «{0}» нет сохранённой расчётной модели SCAD — обновите данные схемы из .SPR.</system:String>
+   <system:String x:Key="ScadLoadsEditorOpen">Нагрузки SCAD схемы «{0}» не перенесены: открыт редактор схемы. Выполните «Перенести нагрузки из вложения SCAD».</system:String>
+   <system:String x:Key="ScadLoadsTotal">Загружение «{0}» (SCAD {1}): ΣFx = {2:0.###} кН, ΣFy = {3:0.###} кН, ΣFz = {4:0.###} кН.</system:String>
+   <system:String x:Key="ScadLoadsAnalysesInvalidated">Нагрузки схемы изменились — результаты постановок сброшены: {0}.</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: заданное армирование</system:String>
    <system:String x:Key="ScadPluginInstall">Установить плагин в SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>

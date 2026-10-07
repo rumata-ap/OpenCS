@@ -1005,6 +1005,11 @@
    <system:String x:Key="BarSectionsUnified">Selected reinforcement unified: {0} elements → {1} layouts (tolerance {2:0.##} %).</system:String>
    <system:String x:Key="ScadRebarGroupsLoaded">SCAD RC groups read: {0}; assigned reinforcement groups: plates {1}, bars {2}; steel groups: {3}.</system:String>
    <system:String x:Key="ScadRebarRefreshFromSpr">Refresh schema data from .SPR (RC groups, reinforcement, steel profiles)</system:String>
+   <system:String x:Key="ScadLoadsTransfer">Transfer loads from the SCAD model</system:String>
+   <system:String x:Key="ScadLoadsNoModel">Schema “{0}” has no stored SCAD analysis model — refresh schema data from .SPR.</system:String>
+   <system:String x:Key="ScadLoadsEditorOpen">SCAD loads of schema “{0}” were not transferred: the schema editor is open. Run “Transfer loads from the SCAD model”.</system:String>
+   <system:String x:Key="ScadLoadsTotal">Load case “{0}” (SCAD {1}): ΣFx = {2:0.###} kN, ΣFy = {3:0.###} kN, ΣFz = {4:0.###} kN.</system:String>
+   <system:String x:Key="ScadLoadsAnalysesInvalidated">Schema loads changed — analysis results reset: {0}.</system:String>
    <system:String x:Key="ScadAssignedRebarLabel">SCAD: assigned reinforcement</system:String>
    <system:String x:Key="ScadPluginInstall">Install plugin into SCAD…</system:String>
    <system:String x:Key="ScadPluginNoSource">Plugin files not found: {0}. Reinstall OpenCS.</system:String>
