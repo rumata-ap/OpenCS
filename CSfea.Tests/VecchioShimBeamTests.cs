@@ -51,7 +51,7 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
     };
 
     /// <summary>Арматура: материал для типа области; диаграмма заменяется своей (см. <see cref="Hardening"/>).</summary>
-    static Material Rebar(int id, double fy) => new()
+    internal static Material Rebar(int id, double fy) => new()
     {
         Id = id, Tag = $"fy {fy / 1e3:0}", Type = MatType.ReSteelF, E = 200_000_000,
         MaterialChars = new[] { CalcType.C, CalcType.CL, CalcType.N, CalcType.NL }.Select(ct => new MaterialChars
@@ -64,11 +64,11 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
     /// Двухлинейная диаграмма с упрочнением, симметричная: упругость до fy, далее прямая до fu при εsu (DIANA: «hardening
     /// plasticity»); <paramref name="hardening"/> = false — площадка fy до εsu.
     /// </summary>
-    static Diagramm Hardening(double fy, double fu, double esu, bool hardening)
+    internal static Diagramm Hardening(double fy, double fu, double esu, bool hardening)
     {
         double ey = fy / 200_000_000, top = hardening ? fu : fy;
         return new Diagramm(new LSpline([-esu, -ey, 0.0], [-top, -fy, 0.0]), new LSpline([0.0, ey, esu], [0.0, fy, top]),
-            DiagrammType.Custom, MatType.ReSteelF, "упрочнение (C3)");
+            DiagrammType.Custom, MatType.ReSteelF, "упрочнение");
     }
 
     /// <summary>Сечение CScore: X — ширина, Y — высота, начало в центре; бетон — 4 × 60 фибр.</summary>
@@ -173,7 +173,7 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
     }
 
     /// <summary>Сила кривой при прогибе w (линейная интерполяция, NaN вне кривой).</summary>
-    static double At((double W, double P)[] data, double w)
+    internal static double At((double W, double P)[] data, double w)
     {
         var pts = new List<(double W, double P)> { (0, 0) };
         pts.AddRange(data);
@@ -182,7 +182,7 @@ public class VecchioShimBeamTests(ITestOutputHelper output)
         return double.NaN;
     }
 
-    static string F(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00", CultureInfo.InvariantCulture);
+    internal static string F(double v) => double.IsNaN(v) ? "—" : v.ToString("0.00", CultureInfo.InvariantCulture);
 
     [Fact]
     public void Psi() => Run("ψs, упрочнение, сдвиг", "psi", new RcSecantOptions { Psi = true });
