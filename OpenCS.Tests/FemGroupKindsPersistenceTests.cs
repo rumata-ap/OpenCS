@@ -105,7 +105,10 @@ public sealed class FemGroupKindsPersistenceTests
                 var schema = new FemSchema { Tag = "Robot", SourceType = "robot" };
                 db.SaveFemSchema(schema);
                 schemaId = schema.Id;
-                db.SaveFemImport(schemaId, MemberProgramImport());
+                var import = MemberProgramImport();
+                db.SaveFemImport(schemaId, import);
+                // Кэш схемы сразу с группами — дерево их показывает без переоткрытия проекта.
+                Assert.Equal(import.Groups.Select(g => g.Tag), schema.MemberGroups.Select(g => g.Tag));
 
                 Assert.Throws<InvalidOperationException>(() => db.SaveFemImport(schemaId, MemberProgramImport()));
             }

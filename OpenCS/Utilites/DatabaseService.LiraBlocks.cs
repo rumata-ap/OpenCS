@@ -270,6 +270,9 @@ namespace OpenCS.Utilites
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
+         // Кэш схемы: дерево и редакторы читают группы из коллекции, а не из БД.
+         if (FemSchemas.FirstOrDefault(s => s.Id == schemaId) is { } schema)
+            foreach (var g in result.Groups) schema.MemberGroups.Add(g);
          return diagnostics.Where(d => !d.IsError).ToList();
       }
 
