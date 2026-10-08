@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <RootNamespace>CSfea.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- Верификация против опыта (McNeice, Vecchio–Shim) — ~13 из 15 мин полного прогона. По умолчанию dotnet test её
+         пропускает; полный прогон: dotnet test CSfea.Tests -p:VSTestTestCaseFilter=, только она: filter Category=Verification.
+         Явный filter заменяет этот фильтр. -->
+    <VSTestTestCaseFilter Condition="'$(VSTestTestCaseFilter)' == ''">Category!=Verification</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>

@@ -12,6 +12,7 @@ namespace CSfea.Tests;
 /// бетон E = 28 600 МПа, ν = 0,15, fcm = 38 МПа, ftm = 2,9 МПа; сталь Es = 200 000 МПа, fy = 350 МПа. Опыт — прогиб узла
 /// на оси симметрии в 76,2 мм от центра (кривая DIANA, оцифровка 07.10.2026). Четверть плиты по двум плоскостям симметрии.
 /// </summary>
+[Trait("Category", "Verification")]
 public class McNeiceSlabTests(ITestOutputHelper output)
 {
     const double L = 0.9144, H = 0.04445, D = 0.0333, As = 2.82e-4;

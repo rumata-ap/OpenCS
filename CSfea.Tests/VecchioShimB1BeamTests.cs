@@ -16,6 +16,7 @@ namespace CSfea.Tests;
 /// D5 (2 × 32,2 мм², fy = 600 МПа) с шагом 190 мм. Модуль всей арматуры — 200 000 МПа (у M25 в табл. 6.2 — 210 000).
 /// Собственный вес не учитывается. Опыт: пик 434 кН при прогибе 22,0 мм.
 /// </summary>
+[Trait("Category", "Verification")]
 public class VecchioShimB1BeamTests(ITestOutputHelper output)
 {
     const double Span = 3.66, B = 0.229, H = 0.552;

@@ -15,6 +15,7 @@ namespace CSfea.Tests;
 /// податливости стержня (КЭ Тимошенко, <see cref="RcSecantOptions.BeamShear"/>). Собственный вес не учитывается (как у
 /// DIANA). Опыт: пик 265 кН при прогибе 44,3 мм.
 /// </summary>
+[Trait("Category", "Verification")]
 public class VecchioShimBeamTests(ITestOutputHelper output)
 {
     const double Span = 6.4, B = 0.152, H = 0.552;
