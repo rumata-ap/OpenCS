@@ -13,6 +13,7 @@ public class SparseCholeskyTests
         Cholesky_MatchesLu_OnSpdFemLikeMatrix();
         Cholesky_RefactorizeReusesPattern();
         Cholesky_LargeGrid_NoException();
+        Cholesky_AmdMatchesRcm_LessFill();
     }
 
     // SPD-матрица: 2D-лапласиан на сетке gx×gy + диагональный сдвиг.
@@ -97,5 +98,31 @@ public class SparseCholeskyTests
         for (int i = 0; i < n; i++) maxDiff = Math.Max(maxDiff, Math.Abs(x[i] - xRef[i]));
         TestHarness.Check("Cholesky_LargeGrid: SPD", chol.LastFactorizationSpd, "");
         TestHarness.Check("Cholesky_LargeGrid: matches LU", maxDiff < 1e-6, $"maxDiff={maxDiff:E3}");
+    }
+
+    // AMD (по умолчанию) и RCM дают одно решение; на квадратной сетке заполнение L у AMD меньше, чем у ленты RCM.
+    static void Cholesky_AmdMatchesRcm_LessFill()
+    {
+        var a = BuildSpd(60, 60, 0.5);
+        int n = a.Cols;
+        var b = new double[n];
+        for (int i = 0; i < n; i++) b[i] = Math.Sin(0.01 * i) + 1.0;
+
+        var amd = new SparseCholeskySolver();
+        amd.AnalyzePattern(a);
+        amd.Factorize(a);
+        var rcm = new SparseCholeskySolver { Ordering = CholeskyOrdering.Rcm };
+        rcm.AnalyzePattern(a);
+        rcm.Factorize(a);
+        double[] xa = amd.Solve(b), xr = rcm.Solve(b);
+
+        double maxDiff = 0.0;
+        for (int i = 0; i < n; i++) maxDiff = Math.Max(maxDiff, Math.Abs(xa[i] - xr[i]));
+        TestHarness.Check("Cholesky_Amd: SPD и совпадает с RCM", amd.LastFactorizationSpd && maxDiff < 1e-9,
+            $"maxDiff={maxDiff:E3}");
+        TestHarness.Check("Cholesky_Amd: заполнение меньше RCM", amd.NnzL < rcm.NnzL,
+            $"nnz(L): AMD {amd.NnzL}, RCM {rcm.NnzL}");
+        var perm = ApproximateMinimumDegree.ComputeOrdering(n, a.ColPtr, a.RowIdx);
+        TestHarness.Check("Amd_IsValidPermutation", perm.Length == n && perm.OrderBy(i => i).SequenceEqual(Enumerable.Range(0, n)));
     }
 }

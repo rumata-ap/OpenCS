@@ -212,6 +212,35 @@ public sealed class StructuralMesh : IFeaMesh
         return Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
     }
 
+    /// <summary>Линейная статика для нескольких нагрузок: одна сборка и одна факторизация K на все правые части.</summary>
+    public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc)
+    {
+        if (bc.HasNonlinearSprings)
+            throw new InvalidOperationException(
+                "SolveLinear не поддерживает нелинейные пружины — используйте SolveNonlinear.");
+        if (bc.UFixed.Any(v => v != 0))
+            throw new NotSupportedException("SolveLinear для нескольких нагрузок — только с нулевыми заданными перемещениями.");
+        if (loads.Count == 0) return [];
+        var k = AssembleK();
+        var kSpring = bc.AssembleKSpring();
+        if (kSpring.Count > 0) AppendInto(k, kSpring);
+        var fixedSys = SysFixed(bc.FixedDofs);
+        var reduced = DirichletReducer.Reduce(SysMatrix(k), new double[NSys], fixedSys, bc.UFixed);
+        var chol = new SparseCholeskySolver();
+        chol.AnalyzePattern(reduced.Kff);
+        chol.Factorize(reduced.Kff);
+        var result = new double[loads.Count][];
+        for (int i = 0; i < loads.Count; i++)
+        {
+            // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
+            var fSys = SysVector(loads[i]);
+            var fi = Array.ConvertAll(reduced.Free, d => fSys[d]);
+            var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SparseLuSolver.SolveOnce(reduced.Kff, fi);
+            result[i] = Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
+        }
+        return result;
+    }
+
     /// <summary>
     /// Опорные реакции на закреплённых DOF (с силами, переданными через жёсткие связи на ведущие
     /// узлы): R = [Tᵀ·(F_int + K_spring·u + F_nl − F)] на закреплённых DOF, остальные — 0. F_int по

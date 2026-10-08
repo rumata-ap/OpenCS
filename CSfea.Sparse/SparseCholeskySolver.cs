@@ -1,8 +1,17 @@
 namespace CSfea.Sparse;
 
+/// <summary>Упорядочивание неизвестных перед разрежённым Холецким.</summary>
+public enum CholeskyOrdering
+{
+    /// <summary>Приближённая минимальная степень — по умолчанию; малое заполнение L на любых схемах.</summary>
+    Amd,
+    /// <summary>Обратный Катхилл–Макки — ленточная структура; на пространственных схемах заполнение огромно.</summary>
+    Rcm,
+}
+
 /// <summary>
 /// Разрежённый Холецкий A = L·Lᵀ для симметричных положительно определённых матриц.
-/// Up-looking факторизация (по строкам) с деревом исключений и RCM-переупорядочиванием.
+/// Up-looking факторизация (по строкам) с деревом исключений и переупорядочиванием (<see cref="Ordering"/>).
 /// Символический анализ выполняется один раз (<see cref="AnalyzePattern"/>),
 /// численная факторизация — многократно (<see cref="Factorize"/>) по постоянному паттерну.
 /// </summary>
@@ -24,7 +33,13 @@ public sealed class SparseCholeskySolver
     /// <summary>Последняя факторизация прошла как SPD (положительные пивоты).</summary>
     public bool LastFactorizationSpd { get; private set; }
 
-    /// <summary>Символический анализ: RCM + структура L. Выполнить один раз для постоянного паттерна.</summary>
+    /// <summary>Упорядочивание для <see cref="AnalyzePattern"/>.</summary>
+    public CholeskyOrdering Ordering { get; init; } = CholeskyOrdering.Amd;
+
+    /// <summary>Число ненулевых L (с диагональю) после символического анализа.</summary>
+    public long NnzL => _analyzed ? _Lp[_n] : 0;
+
+    /// <summary>Символический анализ: упорядочивание + структура L. Выполнить один раз для постоянного паттерна.</summary>
     public void AnalyzePattern(CscMatrix patternA)
     {
         if (patternA.Rows != patternA.Cols)
@@ -32,7 +47,9 @@ public sealed class SparseCholeskySolver
         int n = patternA.Cols;
         _n = n;
 
-        _perm = ReverseCuthillMcKee.ComputeOrdering(n, patternA.ColPtr, patternA.RowIdx);
+        _perm = Ordering == CholeskyOrdering.Rcm
+            ? ReverseCuthillMcKee.ComputeOrdering(n, patternA.ColPtr, patternA.RowIdx)
+            : ApproximateMinimumDegree.ComputeOrdering(n, patternA.ColPtr, patternA.RowIdx);
         _iperm = new int[n];
         for (int i = 0; i < n; i++) _iperm[_perm[i]] = i;
 
@@ -142,39 +159,29 @@ public sealed class SparseCholeskySolver
     private void BuildPermutedPattern(CscMatrix a)
     {
         int n = _n;
-        // Триплеты переставленной A: (i, j) = (iperm[r], iperm[col]); храним исходный индекс p.
-        var rows = new List<int>[n];
-        var srcs = new List<int>[n];
-        for (int j = 0; j < n; j++) { rows[j] = new List<int>(); srcs[j] = new List<int>(); }
+        // Переставленная A: (i, j) = (iperm[r], iperm[col]); храним исходный индекс p. Подсчётом, без списков.
+        var colPtr = new int[n + 1];
+        for (int col = 0; col < n; col++)
+            colPtr[_iperm[col] + 1] += a.ColPtr[col + 1] - a.ColPtr[col];
+        for (int j = 0; j < n; j++) colPtr[j + 1] += colPtr[j];
+        int nnz = colPtr[n];
+        var rows = new int[nnz];
+        var srcs = new int[nnz];
         for (int col = 0; col < n; col++)
         {
-            for (int p = a.ColPtr[col]; p < a.ColPtr[col + 1]; p++)
+            int q = colPtr[_iperm[col]];
+            for (int p = a.ColPtr[col]; p < a.ColPtr[col + 1]; p++, q++)
             {
-                int r = a.RowIdx[p];
-                int ni = _iperm[r];
-                int nj = _iperm[col];
-                rows[nj].Add(ni);
-                srcs[nj].Add(p);
+                rows[q] = _iperm[a.RowIdx[p]];
+                srcs[q] = p;
             }
         }
-
-        var colPtr = new int[n + 1];
-        var allRows = new List<int>();
-        var allSrc = new List<int>();
+        // Сортировка по строке внутри столбца.
         for (int j = 0; j < n; j++)
-        {
-            // сортировка по строке
-            var idx = Enumerable.Range(0, rows[j].Count).OrderBy(t => rows[j][t]).ToArray();
-            foreach (int t in idx)
-            {
-                allRows.Add(rows[j][t]);
-                allSrc.Add(srcs[j][t]);
-            }
-            colPtr[j + 1] = allRows.Count;
-        }
+            Array.Sort(rows, srcs, colPtr[j], colPtr[j + 1] - colPtr[j]);
         _pColPtr = colPtr;
-        _pRowIdx = allRows.ToArray();
-        _valMap = allSrc.ToArray();
+        _pRowIdx = rows;
+        _valMap = srcs;
     }
 
     private static int[] EliminationTree(int n, int[] ap, int[] ai)
@@ -202,32 +209,25 @@ public sealed class SparseCholeskySolver
 
     private void SymbolicFactor(int n, int[] ap, int[] ai, int[] parent)
     {
-        // Размеры столбцов L = 1 (диагональ) + число внедиагональных.
+        // Размеры столбцов L = 1 (диагональ) + число внедиагональных; только счётчики — Li заполнит численная фаза.
         var s = new int[n];
         var st = new int[n];
         var marked = new int[n];
         for (int i = 0; i < n; i++) marked[i] = -1;
 
-        var perCol = new List<int>[n];
-        for (int i = 0; i < n; i++) perCol[i] = new List<int>();
-
+        var count = new int[n];
         for (int k = 0; k < n; k++)
         {
             int top = Ereach(k, ap, ai, parent, s, st, marked);
-            for (int t = top; t < n; t++)
-            {
-                int i = s[t];
-                perCol[i].Add(k); // внедиагональ L(k,i) в столбце i
-            }
+            for (int t = top; t < n; t++) count[s[t]]++; // внедиагональ L(k,i) в столбце i
         }
 
         var lp = new int[n + 1];
         for (int i = 0; i < n; i++)
-            lp[i + 1] = lp[i] + 1 + perCol[i].Count;
+            lp[i + 1] = checked(lp[i] + 1 + count[i]);
         _Lp = lp;
         _Li = new int[lp[n]];
         _Lx = new double[lp[n]];
-        // Li заполнит численная фаза; здесь только размеры.
     }
 
     // Reach по дереву исключений: s[top..n-1] — паттерн строки k (топологически).

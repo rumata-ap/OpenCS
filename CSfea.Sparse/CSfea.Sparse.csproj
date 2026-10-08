@@ -7,4 +7,9 @@
     <RootNamespace>CSfea.Sparse</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- AMD-упорядочивание для Холецкого; позже заменить своей реализацией. -->
+    <PackageReference Include="CSparse" Version="4.4.0" />
+  </ItemGroup>
+
 </Project>
