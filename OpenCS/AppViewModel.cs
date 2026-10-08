@@ -3295,7 +3295,7 @@ namespace OpenCS
             {
                SaveScadAnalysisModel(schema.Id, data.AnalysisModel);
                TransferScadLoads(schema, data.AnalysisModel);
-               TransferScadBoundary(schema, data.AnalysisModel);
+               TransferScadBoundary(schema, data.AnalysisModel, showSummary: true);
             }
             RefreshFemSchemaTreeCounts(schema);
 
@@ -4062,7 +4062,8 @@ namespace OpenCS
       /// схемы с заменой перенесённых раньше; ручные не трогаются. Журнал: сводка, непереносимое, проверки резолвера.
       /// Результаты постановок сбрасываются. Открытый редактор схемы закрывает вызывающий.
       /// </summary>
-      void TransferScadBoundary(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model)
+      /// <param name="showSummary">Открыть окно сводки переноса (импорт и «Дочитать граничные условия»).</param>
+      void TransferScadBoundary(CScore.Fem.FemSchema schema, CScore.Import.ScadAnalysisModel model, bool showSummary = false)
       {
          var meshNodes = db.GetFemMeshNodes(schema.Id);
          var elements = db.GetFemMeshElements(schema.Id);
@@ -4070,11 +4071,16 @@ namespace OpenCS
             .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
          var result = CScore.Import.ScadBoundaryTransfer.Transfer(model,
             meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal), types);
+         var manual = db.ManualMeshNodeTags(schema.Id);
+         int keptManual = result.Supports.Select(x => x.NodeTag)
+            .Concat(result.Springs.Where(x => x.TargetKind == CScore.Fem.FemSpringTargetKinds.MeshNode).Select(x => x.NodeTag))
+            .Where(manual.Contains).Distinct().Count();
          db.SaveFemBoundary(schema.Id, CScore.Import.ScadBoundaryTransfer.Origin, result.Supports, result.Springs,
             result.RigidBodies, result.ElementProps);
 
          LogService.Info(result.Report[0]);
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
+         if (keptManual > 0) LogService.Info(string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
 
          var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes, elements,
             db.GetFemMeshNodeSupports(schema.Id), db.GetFemSprings(schema.Id), db.GetFemRigidBodies(schema.Id));
@@ -4085,6 +4091,16 @@ namespace OpenCS
 
          int invalidated = InvalidateFemSchemaAnalyses(schema);
          if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
+
+         if (showSummary && System.Windows.Application.Current?.MainWindow is { IsLoaded: true } owner)
+         {
+            var messages = result.Report.Skip(1).Concat(resolved.Diagnostics.Select(d => d.Message)).ToList();
+            if (keptManual > 0) messages.Insert(0, string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
+            new Views.FemBoundarySummaryWindow(string.Format(Loc.S("FemBoundarySummaryHeader"), schema.Tag), result.Summary, messages)
+            {
+               Owner = owner,
+            }.Show();
+         }
       }
 
       /// <summary>
@@ -4098,7 +4114,7 @@ namespace OpenCS
          if (editorOpen && !TryLeaveFemSchemaEditor()) return;
          if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true } stored)
          {
-            TransferScadBoundary(schema, stored);
+            TransferScadBoundary(schema, stored, showSummary: true);
             return;
          }
 
@@ -4132,7 +4148,7 @@ namespace OpenCS
             EndBusy();
             if (analysis == null) return;
             SaveScadAnalysisModel(schema.Id, analysis);
-            TransferScadBoundary(schema, analysis);
+            TransferScadBoundary(schema, analysis, showSummary: true);
          }
          catch (OperationCanceledException) { EndBusy(); }
          catch (Services.Scad.ScadApiException ex)

@@ -124,6 +124,39 @@ public class Fem3DVM : ViewModelBase
         set { if (_showLoadGlyphs == value) return; _showLoadGlyphs = value; RefreshDiagramGlyphs(); OnPropertyChanged(); }
     }
 
+    bool _showSpringGlyphs = true;
+    /// <summary>Показывать пружины узлов (зигзаг по направлениям с K ≠ 0).</summary>
+    public bool ShowSpringGlyphs
+    {
+        get => _showSpringGlyphs;
+        set { if (_showSpringGlyphs == value) return; _showSpringGlyphs = value; OnPropertyChanged(); }
+    }
+
+    bool _showHingeGlyphs = true;
+    /// <summary>Показывать шарниры концов стержней сетки.</summary>
+    public bool ShowHingeGlyphs
+    {
+        get => _showHingeGlyphs;
+        set { if (_showHingeGlyphs == value) return; _showHingeGlyphs = value; OnPropertyChanged(); }
+    }
+
+    bool _showRigidBodyGlyphs = true;
+    /// <summary>Показывать жёсткие тела (линии от ведущего узла к ведомым, прореженные).</summary>
+    public bool ShowRigidBodyGlyphs
+    {
+        get => _showRigidBodyGlyphs;
+        set { if (_showRigidBodyGlyphs == value) return; _showRigidBodyGlyphs = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Глифы ГУ сеточного уровня (закрепления узлов сетки, пружины, шарниры, жёсткие тела). Закрепления
+    /// показываются вместе со знаками опор узлов схемы (<see cref="ShowSupportGlyphs"/>).</summary>
+    public FemBoundaryGlyphSet BoundaryGlyphs { get; private set; } = FemBoundaryGlyphSet.Empty;
+
+    /// <summary>Подпись слоя жёстких тел: при прореживании — сколько связей показано.</summary>
+    public string RigidBodyGlyphsHeader => BoundaryGlyphs.RigidLinksShown < BoundaryGlyphs.RigidLinksTotal
+        ? string.Format(Loc.S("Fem3DShowRigidBodiesThinned"), BoundaryGlyphs.RigidLinksShown, BoundaryGlyphs.RigidLinksTotal)
+        : Loc.S("Fem3DShowRigidBodies");
+
     bool _showSectionGlyphs = true;
     /// <summary>Показывать контуры поперечных сечений и локальные оси стержней.</summary>
     public bool ShowSectionGlyphs
@@ -273,6 +306,8 @@ public class Fem3DVM : ViewModelBase
             RefreshDiagramSources(_diagramLoadCases, []);
             if (_memberOnly == null && _highlightMember == null && !constructiveEmpty && !importedBackground)
                 await LoadMeshOverlayAsync();
+            if (constructiveEmpty) _boundaryMesh = (await Task.Run(() => _db.GetFemMeshNodes(_schemaId)), meshElements!);
+            await LoadBoundaryAsync();
         }
         finally
         {
@@ -292,12 +327,41 @@ public class Fem3DVM : ViewModelBase
             Mosaic.Apply((await Task.Run(() => PlateRebarMosaicVM.Read(_db, _schemaId, meshElements))).WithProject(_db, _schemaId));
             if (!importedBackground)
                 await LoadMeshOverlayAsync();
+            await LoadBoundaryAsync();
         }
         finally
         {
             IsLoading = false;
             Status    = "";
         }
+    }
+
+    /// <summary>Сетка, уже прочитанная видом (схема без конструктивного слоя), — чтобы глифы ГУ не читали её снова.</summary>
+    (List<FemMeshNode> Nodes, List<FemElement> Elements)? _boundaryMesh;
+
+    /// <summary>
+    /// Читает ГУ сеточного уровня и строит их глифы (в фоне). Сетка читается, только если ГУ есть. В режиме
+    /// конструктивного элемента ГУ не показываются.
+    /// </summary>
+    async Task LoadBoundaryAsync()
+    {
+        if (_memberOnly != null) return;
+        var cached = _boundaryMesh;
+        _boundaryMesh = null;
+        BoundaryGlyphs = await Task.Run(() =>
+        {
+            var supports = _db.GetFemMeshNodeSupports(_schemaId);
+            var springs = _db.GetFemSprings(_schemaId);
+            var bodies = _db.GetFemRigidBodies(_schemaId);
+            if (supports.Count == 0 && springs.Count == 0 && bodies.Count == 0 && !_db.HasFemElementReleases(_schemaId))
+                return FemBoundaryGlyphSet.Empty;
+            var (meshNodes, elements) = cached ?? (_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
+            var nodes = springs.Any(s => s.TargetKind == FemSpringTargetKinds.Node) ? _db.GetFemNodes(_schemaId) : [];
+            return FemBoundaryGlyphs.Build(nodes, meshNodes, elements, supports, springs, bodies,
+                FemBoundaryGlyphs.GlyphSize(meshNodes, elements));
+        });
+        OnPropertyChanged(nameof(BoundaryGlyphs));
+        OnPropertyChanged(nameof(RigidBodyGlyphsHeader));
     }
 
     readonly object _bgLock = new();

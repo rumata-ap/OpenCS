@@ -1,0 +1,30 @@
+<Window x:Class="OpenCS.Views.FemBoundarySummaryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemBoundarySummaryTitle}"
+        Width="760" Height="440" MinWidth="480" MinHeight="260"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="12">
+        <TextBlock x:Name="headerText" DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,8" TextWrapping="Wrap"/>
+        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Right" Content="{DynamicResource OK}" IsDefault="True" IsCancel="True"
+                Padding="20,4" Margin="0,8,0,0" Click="Close_Click"/>
+        <ListBox x:Name="messagesList" DockPanel.Dock="Bottom" MaxHeight="120" Margin="0,8,0,0" BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <DataGrid x:Name="summaryGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource FemBoundarySummaryKind}" Binding="{Binding Kind}" Width="230"/>
+                <DataGridTextColumn Header="{DynamicResource FemBoundarySummaryUnit}" Binding="{Binding Unit}" Width="60"/>
+                <DataGridTextColumn Header="{DynamicResource FemBoundarySummaryTransferred}" Binding="{Binding Transferred}" Width="95"/>
+                <DataGridTextColumn Header="{DynamicResource FemBoundarySummaryNotTransferred}" Binding="{Binding NotTransferred}" Width="110"/>
+                <DataGridTextColumn Header="{DynamicResource FemBoundarySummaryNote}" Binding="{Binding Note}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

@@ -7,7 +7,13 @@
              CanUserAddRows="False"
              CanUserDeleteRows="False"
              EnableRowVirtualization="True"
-             VirtualizingPanel.IsVirtualizing="True">
+             VirtualizingPanel.IsVirtualizing="True"
+             MouseDoubleClick="Grid_MouseDoubleClick">
+      <DataGrid.ContextMenu>
+         <ContextMenu>
+            <MenuItem Header="{DynamicResource FemMeshNodeBoundaryEdit}" Click="EditBoundary_Click"/>
+         </ContextMenu>
+      </DataGrid.ContextMenu>
       <DataGrid.Columns>
          <DataGridTextColumn Header="{DynamicResource FemNodeTag}" Binding="{Binding NodeTag}" Width="80"/>
          <DataGridTextColumn Header="X, м" Binding="{Binding X, StringFormat=F4}" Width="100"/>
@@ -15,6 +21,9 @@
          <DataGridTextColumn Header="Z, м" Binding="{Binding Z, StringFormat=F4}" Width="100"/>
          <DataGridTextColumn Header="{DynamicResource FemMeshSourceNodeTag}" Binding="{Binding SourceNodeTag}" Width="100"/>
          <DataGridTextColumn Header="{DynamicResource FemMeshSourceMemberTag}" Binding="{Binding SourceMemberTag}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemMeshNodeSupportColumn}" Binding="{Binding SupportText}" Width="110"/>
+         <DataGridTextColumn Header="{DynamicResource FemMeshNodeSpringColumn}" Binding="{Binding SpringText}" Width="160"/>
+         <DataGridTextColumn Header="{DynamicResource FemMeshNodeOriginColumn}" Binding="{Binding OriginText}" Width="100"/>
       </DataGrid.Columns>
    </DataGrid>
 </UserControl>

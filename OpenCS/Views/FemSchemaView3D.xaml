@@ -169,6 +169,12 @@
                     </MenuItem.Header>
                     <MenuItem Header="{DynamicResource Fem3DShowSupports}" IsCheckable="True"
                               IsChecked="{Binding ShowSupportGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{DynamicResource Fem3DShowSprings}" IsCheckable="True"
+                              IsChecked="{Binding ShowSpringGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{DynamicResource Fem3DShowHinges}" IsCheckable="True"
+                              IsChecked="{Binding ShowHingeGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{Binding RigidBodyGlyphsHeader}" IsCheckable="True"
+                              IsChecked="{Binding ShowRigidBodyGlyphs, Mode=TwoWay}"/>
                     <MenuItem Header="{DynamicResource Fem3DShowLoads}" IsCheckable="True"
                               IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
                     <MenuItem Header="{DynamicResource Fem3DShowSectionGlyphs}" IsCheckable="True"

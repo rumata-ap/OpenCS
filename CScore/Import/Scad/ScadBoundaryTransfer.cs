@@ -9,12 +9,17 @@ namespace CScore.Import;
 /// <param name="RigidBodies">Жёсткие тела.</param>
 /// <param name="ElementProps">ГУ КЭ по тегу: освобождения концов стержней и C1 пластин (только КЭ, где они есть).</param>
 /// <param name="Report">Журнал: первая строка — сводка, далее — что не перенесено и почему.</param>
+/// <param name="Summary">Сводка по видам ГУ для окна импорта.</param>
 public sealed record ScadBoundaryTransferResult(
     IReadOnlyList<FemMeshNodeSupport> Supports,
     IReadOnlyList<FemSpring> Springs,
     IReadOnlyList<FemRigidBody> RigidBodies,
     IReadOnlyDictionary<string, FemElementBoundaryProps> ElementProps,
-    IReadOnlyList<string> Report);
+    IReadOnlyList<string> Report,
+    IReadOnlyList<FemBoundaryTransferRow> Summary);
+
+/// <summary>Строка сводки переноса ГУ: вид, единица счёта, перенесено, не перенесено, примечание.</summary>
+public sealed record FemBoundaryTransferRow(string Kind, string Unit, int Transferred, int NotTransferred, string Note = "");
 
 /// <summary>
 /// Перенос граничных условий из вложения SCAD (<see cref="ScadAnalysisModel"/>) в сеточный уровень схемы:
@@ -48,7 +53,7 @@ public static class ScadBoundaryTransfer
         if (missingSupports > 0) report.Add($"Закрепления: узлов нет в сетке — {missingSupports}, пропущены.");
 
         var springs = new List<FemSpring>();
-        int missingSprings = 0, mergedSprings = 0;
+        int missingSprings = 0, mergedSprings = 0, springElems = 0;
         foreach (var byNode in model.Springs.GroupBy(s => s.Node).OrderBy(g => g.Key))
         {
             if (!meshNodeTags.Contains(T(byNode.Key))) { missingSprings += byNode.Count(); continue; }
@@ -57,6 +62,7 @@ public static class ScadBoundaryTransfer
                 for (int i = 0; i < 6 && i < s.K.Length; i++) k[i] += s.K[i];
             if (k.All(v => v == 0)) continue;
             if (byNode.Count() > 1) mergedSprings += byNode.Count();
+            springElems += byNode.Count();
             var spring = new FemSpring
             {
                 TargetKind = FemSpringTargetKinds.MeshNode, NodeTag = T(byNode.Key), Origin = Origin,
@@ -145,11 +151,36 @@ public static class ScadBoundaryTransfer
             report.Add("Вложение SCAD прочитано до поддержки упругого основания: C1 пластин не перенесён; " +
                 "дочитайте граничные условия из .SPR.");
 
+        int Skipped(string kind) => model.NotTransferred.GetValueOrDefault(kind);
+        var summary = new List<FemBoundaryTransferRow>
+        {
+            new("Закрепления", "узлы", supports.Count, missingSupports),
+            new("Связи конечной жёсткости (КЭ 51)", "КЭ", springElems, missingSprings + Skipped(ScadNotTransferredKinds.SpringUnparsed),
+                Join(mergedSprings > 0 ? $"сложены на общих узлах: {mergedSprings}" : "",
+                    Skipped(ScadNotTransferredKinds.SpringUnparsed) > 0
+                        ? $"жёсткость не распознана: {Skipped(ScadNotTransferredKinds.SpringUnparsed)}" : "")),
+            new("Жёсткие тела (КЭ 100)", "КЭ", bodies.Count, missingBodies,
+                missingSlaves > 0 ? $"ведомых узлов нет в сетке: {missingSlaves}" : ""),
+            new("Шарниры стержней", "КЭ", jointed, missingJoints, releasedEnds > 0 ? $"освобождённых концов: {releasedEnds}" : ""),
+            new("Упругое основание пластин (C1)", "КЭ", c1.Count, missingBeds,
+                Join(beyondC1 > 0 ? $"C2 и прочие коэффициенты не учтены: {beyondC1}" : "",
+                    repeatedBeds > 0 ? $"C1 из нескольких групп сложены: {repeatedBeds}" : "")),
+        };
+        void Optional(string kind, string unit, int count) { if (count > 0) summary.Add(new(kind, unit, 0, count)); }
+        Optional("Упругое основание стержней", "КЭ", beamBeds);
+        Optional("Упругие шарниры", "концы", Skipped(ScadNotTransferredKinds.ElasticJoint));
+        Optional("Упругие связи двух узлов (КЭ 55)", "КЭ", Skipped(ScadNotTransferredKinds.Fe55));
+        Optional("Объединения перемещений", "группы", Skipped(ScadNotTransferredKinds.BoundUnite));
+        Optional("Жёсткие вставки", "КЭ", Skipped(ScadNotTransferredKinds.Insert));
+        Optional("Упругое основание (вложение до C1)", "КЭ", Skipped(ScadNotTransferredKinds.Bed));
+
         report.Insert(0, $"Перенесено из SCAD граничных условий: закреплений {supports.Count}, пружин {springs.Count}, " +
             $"жёстких тел {bodies.Count}, стержней с шарнирами {jointed} " +
             $"(концов {releasedEnds}), пластин на упругом основании {c1.Count}.");
-        return new ScadBoundaryTransferResult(supports, springs, bodies, props, report);
+        return new ScadBoundaryTransferResult(supports, springs, bodies, props, report, summary);
     }
+
+    static string Join(params string[] parts) => string.Join("; ", parts.Where(p => p.Length > 0));
 
     /// <summary>Подпись вида непереносимого для журнала.</summary>
     public static string DescribeNotTransferred(string kind) => kind switch

@@ -1,0 +1,54 @@
+<Window x:Class="OpenCS.Views.FemMeshNodeBoundaryDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemMeshNodeBoundaryTitle}"
+        Width="520" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <TextBlock x:Name="headerText" FontWeight="Bold"/>
+        <TextBlock x:Name="originText" Foreground="Gray" Margin="0,2,0,0"/>
+
+        <TextBlock Text="{DynamicResource FemMeshNodeBoundarySupport}" Margin="0,10,0,2"/>
+        <StackPanel Orientation="Horizontal">
+            <CheckBox x:Name="xCheck" Content="X" Margin="0,0,10,0"/>
+            <CheckBox x:Name="yCheck" Content="Y" Margin="0,0,10,0"/>
+            <CheckBox x:Name="zCheck" Content="Z" Margin="0,0,10,0"/>
+            <CheckBox x:Name="uxCheck" Content="UX" Margin="0,0,10,0"/>
+            <CheckBox x:Name="uyCheck" Content="UY" Margin="0,0,10,0"/>
+            <CheckBox x:Name="uzCheck" Content="UZ"/>
+        </StackPanel>
+
+        <TextBlock Text="{DynamicResource FemMeshNodeBoundarySprings}" Margin="0,10,0,2"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Kx" Grid.Column="0" Margin="1"/>
+            <TextBlock Text="Ky" Grid.Column="1" Margin="1"/>
+            <TextBlock Text="Kz" Grid.Column="2" Margin="1"/>
+            <TextBlock Text="Kux" Grid.Column="3" Margin="1"/>
+            <TextBlock Text="Kuy" Grid.Column="4" Margin="1"/>
+            <TextBlock Text="Kuz" Grid.Column="5" Margin="1"/>
+            <TextBox x:Name="kxBox" Grid.Row="1" Grid.Column="0" Margin="1"/>
+            <TextBox x:Name="kyBox" Grid.Row="1" Grid.Column="1" Margin="1"/>
+            <TextBox x:Name="kzBox" Grid.Row="1" Grid.Column="2" Margin="1"/>
+            <TextBox x:Name="kuxBox" Grid.Row="1" Grid.Column="3" Margin="1"/>
+            <TextBox x:Name="kuyBox" Grid.Row="1" Grid.Column="4" Margin="1"/>
+            <TextBox x:Name="kuzBox" Grid.Row="1" Grid.Column="5" Margin="1"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemMeshNodeBoundaryUnitsHint}" Foreground="Gray" FontSize="11" Margin="1,0,1,0"/>
+        <TextBlock x:Name="importHint" Text="{DynamicResource FemMeshNodeBoundaryImportHint}" TextWrapping="Wrap"
+                   Foreground="DarkGoldenrod" Margin="0,10,0,0" Visibility="Collapsed"/>
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

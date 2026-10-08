@@ -62,6 +62,13 @@ public sealed class ScadBoundaryTransferTests
         Assert.Contains(r.Report, l => l.Contains("КЭ 55") && l.Contains("58"));
         Assert.Contains(r.Report, l => l.StartsWith("Закрепления: узлов нет в сетке — 1"));
         Assert.Contains(r.Report, l => l.StartsWith("Шарниры: 1 КЭ"));
+
+        Assert.Equal(
+            [("Закрепления", 2, 1), ("Связи конечной жёсткости (КЭ 51)", 3, 1), ("Жёсткие тела (КЭ 100)", 1, 1),
+             ("Шарниры стержней", 2, 1), ("Упругое основание пластин (C1)", 0, 0), ("Упругие связи двух узлов (КЭ 55)", 0, 58)],
+            r.Summary.Select(x => (x.Kind, x.Transferred, x.NotTransferred)));
+        Assert.Equal("сложены на общих узлах: 2", r.Summary[1].Note);
+        Assert.Equal("освобождённых концов: 3", r.Summary[3].Note);
     }
 
     [Fact]

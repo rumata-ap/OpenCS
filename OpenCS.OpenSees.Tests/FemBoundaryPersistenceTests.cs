@@ -147,4 +147,59 @@ public sealed class FemBoundaryPersistenceTests
         }
         finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
     }
+
+    [Fact]
+    public void SetFemMeshNodeBoundary_MakesNodeManual_ReimportSkipsIt()
+    {
+        string path = TempPath();
+        try
+        {
+            var (db, schema) = Seed(path);
+            using (db)
+            {
+                var (supports, springs, bodies) = ScadBoundary(1e6);
+                db.SaveFemBoundary(schema.Id, Scad, supports, springs, bodies);
+
+                // Узел 1: закрепление SCAD → ручное закрепление Z и пружина UZ; узел 2: пружина SCAD снята.
+                db.SetFemMeshNodeBoundary(schema.Id, "1", 0b000100, [0, 0, 0, 0, 0, 5e3]);
+                db.SetFemMeshNodeBoundary(schema.Id, "2", 0, [0, 0, 0, 0, 0, 0]);
+                Assert.Equal(["1", "2"], db.ManualMeshNodeTags(schema.Id).Order());
+                // У узла 2 ГУ сняты, но пометка «вручную» (закрепление с нулевой маской) осталась.
+                Assert.Equal([("1", 0b000100, FemLoadOrigin.Manual), ("2", 0, FemLoadOrigin.Manual)],
+                    db.GetFemMeshNodeSupports(schema.Id).Select(s => (s.NodeTag, s.Mask, s.Origin)));
+                var spring = Assert.Single(db.GetFemSprings(schema.Id));
+                Assert.Equal(("1", 5e3, FemLoadOrigin.Manual), (spring.NodeTag, spring.Kuz, spring.Origin));
+
+                (supports, springs, bodies) = ScadBoundary(3e6);
+                db.SaveFemBoundary(schema.Id, Scad, supports, springs, bodies);
+                Assert.Equal(5e3, Assert.Single(db.GetFemSprings(schema.Id)).Kuz);
+            }
+        }
+        finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public void SaveFemBoundary_Import_DoesNotWriteOnManualNodes()
+    {
+        string path = TempPath();
+        try
+        {
+            var (db, schema) = Seed(path);
+            using (db)
+            {
+                db.SetFemMeshNodeBoundary(schema.Id, "1", 0b000100, [0, 0, 0, 0, 0, 0]);
+                db.SetFemMeshNodeBoundary(schema.Id, "2", 0, [1e3, 0, 0, 0, 0, 0]);
+                var (supports, springs, bodies) = ScadBoundary(2e6);
+                db.SaveFemBoundary(schema.Id, Scad, supports, springs, bodies);
+
+                Assert.Equal([("1", 0b000100, FemLoadOrigin.Manual), ("2", 0, FemLoadOrigin.Manual)],
+                    db.GetFemMeshNodeSupports(schema.Id).Select(s => (s.NodeTag, s.Mask, s.Origin)));
+                var spring = Assert.Single(db.GetFemSprings(schema.Id));
+                Assert.Equal((1e3, FemLoadOrigin.Manual), (spring.Kx, spring.Origin));
+                // Жёсткие тела узлам не принадлежат и переносятся как раньше.
+                Assert.Single(db.GetFemRigidBodies(schema.Id));
+            }
+        }
+        finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
+    }
 }

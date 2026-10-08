@@ -246,6 +246,40 @@ class FemSchemaTreeVM
     internal Task<List<FemMeshNode>> LoadMeshNodesAsync()
         => Task.Run(() => _db.GetFemMeshNodes(Schema.Id));
 
+    /// <summary>Асинхронно загружает узлы сетки вместе с их ГУ сеточного уровня (закрепления, пружины).</summary>
+    internal Task<List<FemMeshNodeRow>> LoadMeshNodeRowsAsync()
+        => Task.Run(() =>
+        {
+            var supports = _db.GetFemMeshNodeSupports(Schema.Id).ToLookup(s => s.NodeTag, StringComparer.Ordinal);
+            var springs = _db.GetFemSprings(Schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
+                .ToLookup(s => s.NodeTag, StringComparer.Ordinal);
+            return _db.GetFemMeshNodes(Schema.Id).Select(n =>
+            {
+                var row = new FemMeshNodeRow(n);
+                if (supports.Contains(n.NodeTag) || springs.Contains(n.NodeTag))
+                    row.Apply(supports[n.NodeTag], springs[n.NodeTag]);
+                return row;
+            }).ToList();
+        });
+
+    /// <summary>
+    /// Ручная правка ГУ узла сетки: записи узла заменяются ручными (импортные становятся ручными), результаты
+    /// постановок схемы сбрасываются. Возвращает число сброшенных постановок.
+    /// </summary>
+    internal int SetMeshNodeBoundary(FemMeshNodeRow row, int mask, IReadOnlyList<double> stiffnesses)
+    {
+        _db.SetFemMeshNodeBoundary(Schema.Id, row.NodeTag, mask, stiffnesses);
+        row.SetManual(mask, stiffnesses);
+        int invalidated = 0;
+        foreach (var analysis in Schema.Analyses.Where(a => a.ResultId != null))
+        {
+            analysis.InvalidateResult();
+            _db.SaveFemAnalysis(analysis);
+            invalidated++;
+        }
+        return invalidated;
+    }
+
     /// <summary>Асинхронно загружает стержневые элементы сохранённой расчётной сетки схемы из БД.</summary>
     internal Task<List<FemElement>> LoadMeshBarsAsync()
         => Task.Run(() => _db.GetFemMeshElements(Schema.Id)

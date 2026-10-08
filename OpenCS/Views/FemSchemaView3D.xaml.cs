@@ -309,6 +309,10 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.DiagramGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.MemberLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ElementLoadGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.BoundaryGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowSpringGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowHingeGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowRigidBodyGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
@@ -448,6 +452,7 @@ public partial class FemSchemaView3D : UserControl
         UpdateMeshPickToggle();
         BuildEditProxies();
         BuildDiagramGlyphs();
+        BuildBoundaryGlyphs();
         BuildMemberLoadGlyphs();
         BuildElementLoadGlyphs();
         BuildSectionGlyphs();
@@ -530,6 +535,34 @@ public partial class FemSchemaView3D : UserControl
             }
         }
     }
+
+    /// <summary>
+    /// ГУ сеточного уровня: каждый слой — одной линией (тысячи опор и пружин музея по линии на знак тормозили бы
+    /// вращение). Закрепления — цветом знаков опор узлов схемы, слой общий с ними.
+    /// </summary>
+    void BuildBoundaryGlyphs()
+    {
+        if (VM is not { BoundaryGlyphs: { IsEmpty: false } set }) return;
+        void Add(IReadOnlyList<CScore.Fem.FemGlyphSegment> segments, Color color, double thickness)
+        {
+            if (segments.Count == 0) return;
+            var points = new Point3DCollection(segments.Count * 2);
+            foreach (var s in segments)
+            {
+                points.Add(new Point3D(s.A.X, s.A.Y, s.A.Z));
+                points.Add(new Point3D(s.B.X, s.B.Y, s.B.Z));
+            }
+            points.Freeze();
+            viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
+        }
+        if (VM.ShowSupportGlyphs) Add(set.Supports, Colors.RoyalBlue, 1.5);
+        if (VM.ShowSpringGlyphs) Add(set.Springs, SpringColor, 1.3);
+        if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
+        if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
+    }
+
+    static readonly Color SpringColor = Color.FromRgb(0x2E, 0x8B, 0x57);
+    static readonly Color RigidBodyColor = Color.FromRgb(0xB0, 0x30, 0x60);
 
     /// <summary>Цвет глифов кинематических воздействий (заданных перемещений/поворотов) — тот же,
     /// что и у иконки KinematicLoadTool на тулбаре, чтобы визуально связать инструмент и результат.</summary>
