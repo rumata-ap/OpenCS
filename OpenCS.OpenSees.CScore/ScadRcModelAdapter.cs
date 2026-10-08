@@ -1,4 +1,8 @@
+using System.Globalization;
+using System.Text.Json;
 using CScore;
+using CScore.Fem;
+using CScore.Fem.Loads;
 using CScore.Import;
 using CSfea.CScoreBridge.Structural;
 using CSfea.Core;
@@ -39,7 +43,7 @@ public sealed record ScadRcModelResult(RcStructuralModel Model, IReadOnlyList<do
 /// пластины Q4/T3 (порядок SCAD «1 2 4 3» → обход контура), ось x сечения — ось X1 КЭ, повёрнутая на угол осей
 /// SCAD (<see cref="ScadSchemaData.PlateAxisAngles"/>), C1 упругого основания пластин, стержни (упругие по жёсткости SCAD, при наличии — сечение
 /// CScore), жёсткие тела с любой маской DOF, закрепления, загружения — узловыми силами
-/// (<see cref="ScadShellModelAssembler.NodalLoads"/>, как в сборке OpenSees), стадии. Номера узлов и КЭ — номера SCAD.
+/// по всем осям (<see cref="ScadLoadTransfer"/> + <see cref="FemElementLoadNodalizer"/>, как у схемы FEM), стадии. Номера узлов и КЭ — номера SCAD.
 /// </summary>
 public static class ScadRcModelAdapter
 {
@@ -136,13 +140,11 @@ public static class ScadRcModelAdapter
             if (mask != 0) model.Supports.Add(new RcSupport(n.Id, mask));
         }
 
-        // Загружения: узловые силы (Fz вниз — плюс в NodalLoads).
-        foreach (var lc in am.LoadCases)
+        // Загружения: нагрузки SCAD → нагрузки сеточного уровня (ScadLoadTransfer) → согласованные узловые силы
+        // (FemElementLoadNodalizer) — тот же путь, что у схемы FEM; собственный вес — по RO и толщине/сечению жёсткости.
+        foreach (var rc in NodalLoadCases(data, model, stiff, fu, lu, report))
         {
-            var f = ScadShellModelAssembler.NodalLoads(lc, data, stiff, nodes, fu, lu, report);
-            var rc = new RcLoadCase(lc.Num, lc.Name ?? $"L{lc.Num}");
-            foreach (var (node, fz) in f.OrderBy(kv => kv.Key))
-                if (used.Contains(node)) rc.Nodal.Add(new RcNodalLoad(node, [0, 0, -fz, 0, 0, 0]));
+            rc.Nodal.RemoveAll(p => !used.Contains(p.NodeId));
             model.LoadCases.Add(rc);
         }
 
@@ -162,6 +164,67 @@ public static class ScadRcModelAdapter
             totals.Add(total);
         }
         return new ScadRcModelResult(model, totals, report);
+    }
+
+    /// <summary>
+    /// Узловые силы загружений SCAD (глобальные оси, Н и Н·м) по КЭ модели: перенос <see cref="ScadLoadTransfer"/> и
+    /// согласованное распределение <see cref="FemElementLoadNodalizer"/>. Непереносимое и пропущенное — в отчёт.
+    /// </summary>
+    static List<RcLoadCase> NodalLoadCases(ScadSchemaData data, RcStructuralModel model,
+        IReadOnlyDictionary<int, ScadStiffnessRecord> stiff, double fu, double lu, List<string> report)
+    {
+        var am = data.AnalysisModel!;
+        var inModel = model.Shells.Select(x => x.Id).Concat(model.Beams.Select(x => x.Id)).ToHashSet();
+        string T(int id) => id.ToString(CultureInfo.InvariantCulture);
+        var elements = data.Elements.Where(e => inModel.Contains(e.Id)).Select(e =>
+        {
+            bool shell = ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) == ScadElementKind.Shell;
+            return new FemElement
+            {
+                ElemTag = T(e.Id), ElemType = shell ? "shell" : "beam", NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
+                StiffnessNum = e.StiffnessId, ThicknessM = shell ? stiff.GetValueOrDefault(e.StiffnessId)?.ThicknessM : null,
+            };
+        }).ToList();
+        var meshNodes = data.Nodes.Select(n => new FemMeshNode { NodeTag = T(n.Id), X = n.X, Y = n.Y, Z = n.Z }).ToList();
+        var mesh = new FemLoadMeshContext(meshNodes, elements, null, new StiffnessSelfWeight(stiff, fu, lu));
+
+        int nextId = 0;
+        var transfer = ScadLoadTransfer.Transfer(am, elements.ToDictionary(e => e.ElemTag, e => e.ElemType),
+            [], [], [], () => --nextId);
+        report.AddRange(transfer.Report.Skip(1));
+
+        var cases = new List<RcLoadCase>();
+        var diagnostics = new List<FemValidationDiagnostic>();
+        foreach (var lc in am.LoadCases)
+        {
+            var target = transfer.LoadCases.Single(c => c.SourceLoadNum == lc.Num);
+            var forces = new Dictionary<string, double[]>(StringComparer.Ordinal);
+            foreach (var load in transfer.ElementLoads.Where(l => l.LoadCaseId == target.Id))
+                FemElementLoadNodalizer.Accumulate(load, mesh, 1.0, forces, diagnostics);
+            foreach (var p in transfer.MeshNodeLoads.Where(l => l.LoadCaseId == target.Id))
+            {
+                if (!forces.TryGetValue(p.MeshNodeTag, out var v)) forces[p.MeshNodeTag] = v = new double[6];
+                v[0] += p.Fx; v[1] += p.Fy; v[2] += p.Fz; v[3] += p.Mx; v[4] += p.My; v[5] += p.Mz;
+            }
+            var rc = new RcLoadCase(lc.Num, lc.Name ?? $"L{lc.Num}");
+            foreach (var (tag, v) in forces.OrderBy(kv => int.Parse(kv.Key, CultureInfo.InvariantCulture)))
+                rc.Nodal.Add(new RcNodalLoad(int.Parse(tag, CultureInfo.InvariantCulture), v));
+            cases.Add(rc);
+        }
+        foreach (var d in diagnostics) if (!report.Contains(d.Message)) report.Add(d.Message);
+        return cases;
+    }
+
+    /// <summary>Удельный вес (RO жёсткости) и площадь бруса S0 для собственного веса.</summary>
+    sealed class StiffnessSelfWeight(IReadOnlyDictionary<int, ScadStiffnessRecord> stiff, double fu, double lu)
+        : IFemSelfWeightSource
+    {
+        public double? UnitWeight(FemElement element) =>
+            element.StiffnessNum is { } id && ScadShellModelAssembler.Density(stiff.GetValueOrDefault(id), fu, lu) is > 0 and var g
+                ? g : null;
+
+        public double? BarArea(FemElement element) =>
+            element.StiffnessNum is { } id && stiff.GetValueOrDefault(id)?.BarRect is { } r ? r.WidthM * r.HeightM : null;
     }
 
     /// <summary>

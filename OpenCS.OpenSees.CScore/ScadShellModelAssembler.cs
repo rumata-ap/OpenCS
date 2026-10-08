@@ -252,7 +252,7 @@ public static class ScadShellModelAssembler
     }
 
     /// <summary>Объёмный вес из строки жёсткости (RO), Н/м³; нет — 0.</summary>
-    static double Density(ScadStiffnessRecord? s, double fu, double lu) =>
+    internal static double Density(ScadStiffnessRecord? s, double fu, double lu) =>
         s?.Text is { } t && RoToken.Match(t) is { Success: true } m && Num(m.Groups[1].Value) is double ro
             ? ro * fu / (lu * lu * lu) : 0;
 

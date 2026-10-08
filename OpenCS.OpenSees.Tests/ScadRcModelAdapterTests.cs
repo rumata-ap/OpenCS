@@ -91,6 +91,31 @@ public class ScadRcModelAdapterTests
         Assert.Equal(0b011100, Assert.Single(r.Model.RigidBodies).Mask);
     }
 
+    /// <summary>
+    /// Трапеция в общей системе (Qw 17, Qn 2) и узловая сила (Qw 0, Qn 1): значения трапеции — по узлам в порядке SCAD
+    /// «1 2 4 3», положительные силы SCAD — против осей. КЭ 1 (узлы 1, 2, 4, 5 → x = 0, 1, 0, 1): q = 6000 Па при x = 0,
+    /// 0 при x = 1 → согласованные силы +Y: 1000 Н в узлах 1, 4 и 500 Н в узлах 2, 5.
+    /// </summary>
+    [Fact]
+    public void Adapt_TrapezoidGlobalY_AndNodeForce()
+    {
+        var d = ScadShellModelAssemblerTests.Data();
+        d.AnalysisModel!.LoadCases.Add(new global::CScore.Import.ScadLoadCase(3, "грунт",
+            [new global::CScore.Import.ScadLoadRecord(0, 1, [-200], [9])],
+            [new global::CScore.Import.ScadLoadRecord(17, 2, [-6000, 0, -6000, 0], [1])], []));
+        var r = ScadRcModelAdapter.Adapt(Input(d));
+
+        Assert.Empty(r.Report);
+        var lc = r.Model.LoadCases.Single(l => l.Id == 3);
+        double[] F(int node) => lc.Nodal.Single(p => p.NodeId == node).Force;
+        Assert.Equal(1000, F(1)[1], 9);
+        Assert.Equal(1000, F(4)[1], 9);
+        Assert.Equal(500, F(2)[1], 9);
+        Assert.Equal(500, F(5)[1], 9);
+        Assert.All(lc.Nodal, p => Assert.Equal(0, p.Force[2], 12));
+        Assert.Equal(200, F(9)[0], 12);
+    }
+
     /// <summary>Основание под двумя КЭ плиты: C1 из вложения, ΣR опоры + Σ сил основания = нагрузка стадии.</summary>
     [Fact]
     public void Adapt_FoundationC1_ToShells_AndEquilibrium()
