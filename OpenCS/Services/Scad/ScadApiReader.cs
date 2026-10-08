@@ -116,6 +116,8 @@ internal static unsafe class ScadApiReader
         int degenerate = 0;
         if (options.OutputAxes)
             using (ScadApiTrace.Step("Оси выдачи усилий")) degenerate = ReadOutputAxes(s, data, coords, lu);
+        if (options.OutputAxes)
+            using (ScadApiTrace.Step("Местные оси стержней")) ReadRodAxes(s, data, lu);
         progress?.Report(1);
 
         var stiffById = data.Stiffnesses.ToDictionary(r => r.Id);
@@ -539,6 +541,30 @@ internal static unsafe class ScadApiReader
         foreach (int id in shells.Keys)
             if (!degenerate.Contains(id)) data.PlateAxisAngles.TryAdd(id, 0);
         return degenerate.Count;
+    }
+
+    /// <summary>Ориентация местных осей стержней (группа стержней ApiGetSystemCoordElem); точки 3, 5, 7, 9 — в метры.</summary>
+    static void ReadRodAxes(ScadApiSession s, ScadSchemaData data, double lu)
+    {
+        var n = s.Native;
+        nint h = s.Handle;
+        var rods = data.Elements
+            .Where(e => ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) == ScadElementKind.Beam)
+            .Select(e => e.Id).ToHashSet();
+        uint count = n.ApiGetQuantitySystemCoordElem(h);
+        for (uint g = 1; g <= count; g++)
+        {
+            byte type;
+            uint qs, ql;
+            double* size;
+            uint* list;
+            if (n.ApiGetSystemCoordElem(h, g, &type, &qs, &size, &ql, &list) == 0 || type is 0 or > 10) continue;
+            var values = new double[size == null ? 0 : (int)Math.Min(qs, 6u)];
+            for (int k = 0; k < values.Length; k++) values[k] = size[k] * (type is 3 or 5 or 7 or 9 ? lu : 1);
+            var axes = new ScadRodAxes(type, values);
+            for (uint k = 0; k < ql; k++)
+                if (rods.Contains((int)list[k])) data.RodAxes[(int)list[k]] = axes;
+        }
     }
 
     static int[] Ids(uint* list, uint count)

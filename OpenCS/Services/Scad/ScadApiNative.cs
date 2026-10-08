@@ -47,6 +47,8 @@ internal sealed unsafe class ScadApiNative
     public readonly delegate* unmanaged[Stdcall]<nint, uint, uint*, uint**, byte**, uint*, ushort> ApiGetBlock;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantitySystemCoordEffors;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> ApiGetSystemCoordEffors;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantitySystemCoordElem;
+    public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int> ApiGetSystemCoordElem;
     public readonly delegate* unmanaged[Stdcall]<nint, uint> ApiGetQuantityConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort> ApiGetConcrete;
     public readonly delegate* unmanaged[Stdcall]<nint, uint, byte*> ApiGetNameConcrete;
@@ -119,6 +121,8 @@ internal sealed unsafe class ScadApiNative
         ApiGetBlock = (delegate* unmanaged[Stdcall]<nint, uint, uint*, uint**, byte**, uint*, ushort>)F(nameof(ApiGetBlock));
         ApiGetQuantitySystemCoordEffors = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantitySystemCoordEffors));
         ApiGetSystemCoordEffors = (delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int>)F(nameof(ApiGetSystemCoordEffors));
+        ApiGetQuantitySystemCoordElem = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantitySystemCoordElem));
+        ApiGetSystemCoordElem = (delegate* unmanaged[Stdcall]<nint, uint, byte*, uint*, double**, uint*, uint**, int>)F(nameof(ApiGetSystemCoordElem));
         ApiGetQuantityConcrete = (delegate* unmanaged[Stdcall]<nint, uint>)F(nameof(ApiGetQuantityConcrete));
         ApiGetConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte**, uint*, uint**, ushort>)F(nameof(ApiGetConcrete));
         ApiGetNameConcrete = (delegate* unmanaged[Stdcall]<nint, uint, byte*>)F(nameof(ApiGetNameConcrete));

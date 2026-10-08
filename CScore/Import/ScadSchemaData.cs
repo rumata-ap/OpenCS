@@ -69,6 +69,9 @@ public class ScadSchemaData
     /// </summary>
     public Dictionary<int, double>   PlateAxisAngles { get; } = [];
 
+    /// <summary>Ориентация местных осей стержней (только SCADAPIX): номер КЭ → данные SCAD; нет в словаре — по умолчанию.</summary>
+    public Dictionary<int, ScadRodAxes> RodAxes { get; } = [];
+
     /// <summary>Единица длины проекта в метрах (txt — 1).</summary>
     public double LengthUnitM  { get; set; } = 1;
 
