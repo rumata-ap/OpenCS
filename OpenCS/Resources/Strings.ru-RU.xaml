@@ -2893,7 +2893,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="Fem3DOrthographic">Ортогональная проекция (без перспективы)</system:String>
     <system:String x:Key="Fem3DFieldOfViewValue">Угол обзора перспективы: {0:0}°. Меньше — ближе к ортогональной проекции</system:String>
-    <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
+    <system:String x:Key="FemDiscretize">Построить сетку схемы: стержни и пластины областей (Gmsh), общие узлы</system:String>
+    <system:String x:Key="FemSchemaMeshBuilding">Построение сетки схемы…</system:String>
+    <system:String x:Key="FemSchemaMeshRegionBuilding">Сетка области «{0}» — Gmsh (точек {1}, линий {2}, свободных узлов {3})</system:String>
+    <system:String x:Key="FemSchemaMeshRegionFailed">Сетка области «{0}» не построена — подробности в журнале и в диалоге области</system:String>
+    <system:String x:Key="FemSchemaMeshDone">Сетка схемы: {0} узлов, {1} стержней, {2} пластин; областей {3} (построено Gmsh — {4}), общих узлов со стержнями и областями {5}, разделено стержней {6}</system:String>
+    <system:String x:Key="FemSchemaMeshNotSaved">Сетка схемы не записана: есть ошибки</system:String>
+    <system:String x:Key="FemSchemaMeshCancelled">Построение сетки схемы отменено</system:String>
+    <system:String x:Key="FemSchemaMeshAnalysesInvalidated">Сброшены результаты постановок схемы: {0}</system:String>
+    <system:String x:Key="FemSchemaMeshForceSetsStale">Наборы усилий по прежней сетке схемы (номера КЭ могли измениться): {0}</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
     <system:String x:Key="FemMergeNodes">Сшить совпадающие узлы</system:String>
     <system:String x:Key="FemMergeNodesDone">Объединено {0} узлов в {1} групп</system:String>

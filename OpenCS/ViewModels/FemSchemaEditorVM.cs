@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
@@ -18,6 +19,7 @@ public sealed record FemLoadDefinitionTermView(int LoadCaseId, string LoadCaseTa
 /// доменные объекты), пересинхронизируемые после каждой команды, чтобы гриды видели изменения.</summary>
 public sealed class FemSchemaEditorVM : ViewModelBase
 {
+    readonly AppViewModel _app;
     readonly DatabaseService _db;
     readonly ILogService _logService;
     readonly FemMemberFactory _memberFactory;
@@ -557,6 +559,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public FemSchemaEditorVM(FemSchema schema, AppViewModel app)
     {
+        _app = app;
         _db = app.db;
         _logService = app.LogService;
         CreateMembersFromMeshElements = tags => app.CreateFemMembersFromMeshElements(schema, tags);
@@ -582,7 +585,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         UndoCommand = new RelayCommand(_ => UndoHistoryStep(), _ => Session.CanUndo);
         RedoCommand = new RelayCommand(_ => RedoHistoryStep(), _ => Session.CanRedo);
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
-        DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
+        DiscretizeCommand = new RelayCommand(async _ => await DiscretizeAsync(), _ => !IsDiscretizing);
         MergeNodesCommand = new RelayCommand(_ => _logService.Info(MergeCoincidentNodes()));
         ExtractSubmodelCommand = new RelayCommand(_ => ExtractSubmodel(), _ => ExtractBlockReason is null);
         IsSubmodel = schema.SourceType == "submodel" && _db.GetSubmodelExtractionBySubmodelSchema(schema.Id) is not null;
@@ -1174,35 +1177,71 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         return string.Format(Loc.S("FemMergeNodesDone"), totalMerged, command.LastResult.Count);
     }
 
-    public void Discretize()
+    /// <summary>
+    /// «Построить сетку схемы» (CSfea 4г): стержни и пластины областей своей схемы (Gmsh, общие узлы). Сетка
+    /// импорта (ЛИРА/SCAD) и элементы на ней сохраняются как есть. Изменившаяся сетка сбрасывает результаты
+    /// постановок схемы; наборы усилий по прежней сетке перечисляются в журнале.
+    /// </summary>
+    public async Task DiscretizeAsync()
     {
         if (IsDiscretizing) return;
         IsDiscretizing = true;
+        var schema = Session.Schema;
+        bool planar = Session.Members.Any(m => m.PlanarRegionId != null && !m.IsMeshLocked);
+        var cts = planar ? _app.BeginBusyWithCancellation(Loc.S("FemSchemaMeshBuilding")) : null;
         try
         {
-            // Сетка, импортированная из ЛИРЫ (и элементы на ней), сохраняется как есть — перестраивается
-            // только сетка собственных элементов схемы.
-            bool keepImported = _db.HasImportedMesh(Session.Schema.Id);
-            var mesh = keepImported
-                ? FemMeshDiscretizer.DiscretizeKeepingImported(
-                    Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM,
-                    _db.GetFemMeshNodes(Session.Schema.Id), _db.GetFemMeshElements(Session.Schema.Id))
-                : FemMeshDiscretizer.Discretize(
-                    Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
-            LastMeshDiagnostics = FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements);
-            if (LastMeshDiagnostics.Any(diagnostic => diagnostic.IsError)) return;
+            var service = new FemSchemaMeshService(_db, _app.GmshSettings);
+            var result = await service.BuildAsync(schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM,
+                _logService.Info, cts?.Token ?? CancellationToken.None);
+            LastMeshDiagnostics = result.Diagnostics;
+            foreach (var d in result.Diagnostics)
+                if (d.IsError) _logService.Error(d.Message); else _logService.Warning(d.Message);
+            if (result.Mesh is not { } mesh || result.HasErrors)
+            {
+                if (planar) _logService.Warning(Loc.S("FemSchemaMeshNotSaved"));
+                return;
+            }
 
-            if (keepImported)
-                _db.SaveFemMeshSnapshotKeepingImported(Session.Schema.Id, mesh.Nodes, mesh.Elements);
-            else
-                _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
+            bool changed = !service.IsSameAsStored(schema.Id, mesh);
+            service.Save(schema.Id, mesh);
+            if (planar)
+                _logService.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
+                    mesh.Elements.Count(e => e.ElemType == "beam"), mesh.Elements.Count(e => e.ElemType == "shell"),
+                    result.RegionCount, result.RebuiltRegionCount, mesh.SharedNodeCount, mesh.SplitBeamCount));
+            if (changed) ReportMeshChanged(schema);
             MeshDiscretized?.Invoke(this, EventArgs.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            _logService.Info(Loc.S("FemSchemaMeshCancelled"));
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or IOException or InvalidDataException or TimeoutException)
+        {
+            _logService.Error(ex.Message);
         }
         finally
         {
+            if (cts != null) _app.EndBusy();
             IsDiscretizing = false;
             CommandManager.InvalidateRequerySuggested();
         }
+    }
+
+    /// <summary>Сетка схемы изменилась: результаты постановок сбрасываются, наборы усилий схемы (номера КЭ прежней
+    /// сетки) перечисляются в журнале — не удаляются.</summary>
+    void ReportMeshChanged(FemSchema schema)
+    {
+        int invalidated = 0;
+        foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
+        {
+            analysis.InvalidateResult();
+            _db.SaveFemAnalysis(analysis);
+            invalidated++;
+        }
+        if (invalidated > 0) _logService.Info(string.Format(Loc.S("FemSchemaMeshAnalysesInvalidated"), invalidated));
+        var stale = _db.ForceSets.Where(f => f.SourceType == "fea" && f.SourceSchemaId == schema.Id).Select(f => f.Tag).ToList();
+        if (stale.Count > 0) _logService.Warning(string.Format(Loc.S("FemSchemaMeshForceSetsStale"), string.Join(", ", stale)));
     }
 
     public bool Save()
