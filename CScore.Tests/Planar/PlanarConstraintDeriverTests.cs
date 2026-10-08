@@ -49,7 +49,7 @@ public sealed class PlanarConstraintDeriverTests
             1,
             [Node(1, 1, 1, 0), Node(2, 3, 1, 0), Node(3, 3, 3, 0), Node(4, 1, 3, 0)],
             [HostMember(region.Id)],
-            [Element(500, "host-e1", "shell", "host", 1, 2, 3, 4)]);
+            [Element(500, "host-e1", "shell", "host", 1, 2, 4, 3)]);
 
         var result = PlanarConstraintDeriver.Derive(topology, region, new());
 
@@ -102,8 +102,8 @@ public sealed class PlanarConstraintDeriverTests
             ],
             [HostMember(77), Member(20, "wall", "shell")],
             [
-                Element(201, "wall-e1", "shell", "wall", 1, 2, 3, 4),
-                Element(202, "wall-e2", "shell", "wall", 5, 6, 7, 8)
+                Element(201, "wall-e1", "shell", "wall", 1, 2, 4, 3),
+                Element(202, "wall-e2", "shell", "wall", 5, 6, 8, 7)
             ]);
 
         var result = PlanarConstraintDeriver.Derive(topology, Region(), new());
@@ -194,7 +194,7 @@ public sealed class PlanarConstraintDeriverTests
             [
                 HostMember(77), Member(10, "bar", "beam", 1, 2), Member(20, "wall", "shell")
             ],
-            [Element(201, "wall-e1", "shell", "wall", 3, 4, 5, 6)]);
+            [Element(201, "wall-e1", "shell", "wall", 3, 4, 6, 5)]);
         var options = new PlanarConstraintDerivationOptions
         {
             CoplanarBarDofMask = PlanarDofMask.UX,
@@ -226,11 +226,11 @@ public sealed class PlanarConstraintDeriverTests
     public void Derive_CoplanarEdgeCollinearWithBoundaryOutside_NoCurveAlongBoundary()
     {
         var region = Region();
-        // Соседняя плита слева: КЭ (−1…0) × (0…1), его нижнее ребро лежит на продолжении кромки y = 0.
+        // Соседняя плита слева: КЭ (−1…0) × (0…1) (узлы в порядке хранения «1 2 4 3»), его нижнее ребро лежит на продолжении кромки y = 0.
         var topology = new FemSchemaTopology(1,
             [Node(1, -1, 0, 0), Node(2, 0, 0, 0), Node(3, 0, 1, 0), Node(4, -1, 1, 0)],
             [HostMember(region.Id), Member(20, "left", "shell")],
-            [Element(1, "1", "shell", "left", 1, 2, 3, 4)]);
+            [Element(1, "1", "shell", "left", 1, 2, 4, 3)]);
 
         var result = PlanarConstraintDeriver.Derive(topology, region, new());
 

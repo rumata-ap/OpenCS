@@ -5,7 +5,7 @@ namespace CScore.Planar;
 /// <summary>Политика автоматического получения constraint-объектов из FEM topology.</summary>
 public sealed class PlanarConstraintDerivationOptions
 {
-    public const string DefaultAlgorithmVersion = "fem-driven-constraints-v2";
+    public const string DefaultAlgorithmVersion = "fem-driven-constraints-v4";
     public const PlanarDofMask AllDofs = PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ |
                                           PlanarDofMask.RX | PlanarDofMask.RY | PlanarDofMask.RZ;
     public const PlanarDofMask Translations = PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ;

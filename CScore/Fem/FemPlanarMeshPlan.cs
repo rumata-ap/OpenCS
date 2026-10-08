@@ -10,7 +10,8 @@ public sealed record FemPlanarRegionConstraints(
     string SourceFingerprint,
     IReadOnlyList<FemValidationDiagnostic> Diagnostics,
     DerivedPlanarConstraintSet Derived,
-    int FreeNodeCount);
+    int FreeNodeCount,
+    int JunctionCount = 0);
 
 /// <summary>
 /// Общий для команды «Построить сетку схемы» и диалога области порядок построения сеток областей и вход вывода
@@ -49,7 +50,9 @@ public static class FemPlanarMeshPlan
     /// <summary>
     /// Ограничения сетки области: вывод из топологии (узлы схемы, сетка <paramref name="prefixMesh"/> — стержни и
     /// пластины ранее построенных областей) + ручные объекты области + точки свободных узлов схемы (не принадлежащих
-    /// ни одному КонЭ), лежащих в области, — опоры и сосредоточенные нагрузки на плите.
+    /// ни одному КонЭ), лежащих в области, — опоры и сосредоточенные нагрузки на плите. Области, которые строятся
+    /// позже (<paramref name="laterRegions"/>), дают линии стыка по геометрии: их сеток ещё нет, а узлы на линии стыка
+    /// должны быть у обеих сторон (стена сквозь плиту) — поздняя область потом встроит узлы ранней.
     /// </summary>
     public static FemPlanarRegionConstraints Constraints(
         int schemaId,
@@ -57,7 +60,8 @@ public static class FemPlanarMeshPlan
         IReadOnlyList<FemMember> members,
         FemPlanarMaterializationResult prefixMesh,
         PlanarRegion region,
-        PlanarConstraintDerivationOptions? options = null)
+        PlanarConstraintDerivationOptions? options = null,
+        IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null)
     {
         options ??= new PlanarConstraintDerivationOptions();
         var diagnostics = new List<FemValidationDiagnostic>();
@@ -138,7 +142,159 @@ public static class FemPlanarMeshPlan
             free++;
         }
 
-        return new FemPlanarRegionConstraints(constraints, derived.SourceFingerprint, diagnostics, derived, free);
+        var junctions = new List<PlanarConstraintObject>();
+        foreach (var (tag, other) in laterRegions ?? [])
+            junctions.AddRange(JunctionConstraints(region, tag, other, options));
+        var fingerprint = derived.SourceFingerprint;
+        if (junctions.Count > 0)
+        {
+            foreach (var junction in junctions)
+                if (ids.Add(junction.Id)) constraints.Add(junction);
+            var text = string.Join("|", junctions.Select(j =>
+                j.Id + ":" + string.Join(";", j.Geometry.Points.Select(p => p.U.ToString("G17", CultureInfo.InvariantCulture) + "," +
+                                                                         p.V.ToString("G17", CultureInfo.InvariantCulture)))));
+            fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(fingerprint + "|junctions:" + text))).ToLowerInvariant();
+        }
+
+        return new FemPlanarRegionConstraints(constraints, fingerprint, diagnostics, derived, free, junctions.Count);
+    }
+
+    /// <summary>
+    /// Линии (точки) стыка области <paramref name="region"/> с областью <paramref name="other"/> по геометрии: пересечение
+    /// многоугольника <paramref name="other"/> с плоскостью области, обрезанное ею; рёбра <paramref name="other"/>, лежащие
+    /// в плоскости, — целиком; у компланарной соседки — её вершины в области (угол соседней плиты на кромке).
+    /// </summary>
+    static List<PlanarConstraintObject> JunctionConstraints(PlanarRegion region, string tag,
+        PlanarRegion other, PlanarConstraintDerivationOptions options)
+    {
+        double planeTol = options.PlaneToleranceM, tol = options.GeometryToleranceM;
+        var frame = region.Frame;
+        (double U, double V, double W) Local(double u, double v)
+        {
+            var g = other.Frame.Origin + other.Frame.LocalX * u + other.Frame.LocalY * v;
+            var d = g - frame.Origin;
+            return (d.Dot(frame.LocalX), d.Dot(frame.LocalY), d.Dot(frame.LocalZ));
+        }
+        var loops = other.Contours.Select(c =>
+        {
+            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(c.X, c.Y);
+            return Enumerable.Range(0, x.Length).Select(i => Local(x[i], y[i])).ToArray();
+        }).Where(l => l.Length >= 3).ToList();
+
+        var result = new List<PlanarConstraintObject>();
+        void AddPoint(double u, double v)
+        {
+            if (!InsideRegion(u, v, region, tol)) return;
+            var id = $"region-junction:{tag}:p{result.Count}";
+            var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
+                new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
+            point.IsDerived = true;
+            point.ToleranceM = tol;
+            result.Add(point);
+        }
+        void AddSegment((double U, double V) a, (double U, double V) b)
+        {
+            foreach (var (p, q) in Clip(a, b, region, tol))
+            {
+                var id = $"region-junction:{tag}:c{result.Count}";
+                var curve = PlanarConstraintObject.Curve(id, [new PlanarPoint2D(p.U, p.V), new PlanarPoint2D(q.U, q.V)],
+                    new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.ConformingPartition), id);
+                curve.IsDerived = true;
+                curve.ToleranceM = tol;
+                result.Add(curve);
+            }
+        }
+
+        if (loops.All(l => l.All(p => Math.Abs(p.W) <= planeTol)))
+        {
+            // Компланарная соседка: общая кромка — граница обеих областей; её вершины на кромке делят контур.
+            foreach (var p in loops.SelectMany(l => l)) AddPoint(p.U, p.V);
+            return result;
+        }
+
+        int Sign(double w) => Math.Abs(w) <= planeTol ? 0 : Math.Sign(w);
+        var crossings = new List<(double U, double V)>();
+        foreach (var loop in loops)
+        {
+            int n = loop.Length;
+            for (int i = 0; i < n; i++)
+            {
+                var a = loop[i];
+                var b = loop[(i + 1) % n];
+                int sa = Sign(a.W), sb = Sign(b.W);
+                if (sa == 0 && sb == 0) { AddSegment((a.U, a.V), (b.U, b.V)); continue; }
+                if (sa * sb < 0)
+                {
+                    var t = a.W / (a.W - b.W);
+                    crossings.Add((a.U + t * (b.U - a.U), a.V + t * (b.V - a.V)));
+                }
+                if (sa != 0) continue;
+                // Вершина в плоскости: пересечение, если соседние вершины (вне плоскости) по разные стороны; касание —
+                // точка. Вершины рёбер, лежащих в плоскости, уже учтены отрезком.
+                int prev = Sign(loop[(i - 1 + n) % n].W);
+                if (prev == 0 || sb == 0) continue;
+                if (prev * sb < 0) crossings.Add((a.U, a.V));
+                else AddPoint(a.U, a.V);
+            }
+        }
+        if (crossings.Count >= 2)
+        {
+            // Пересечения лежат на одной прямой: упорядочить вдоль неё и соединить парами (вход — выход).
+            var origin = crossings[0];
+            var far = crossings.MaxBy(p => (p.U - origin.U) * (p.U - origin.U) + (p.V - origin.V) * (p.V - origin.V));
+            double du = far.U - origin.U, dv = far.V - origin.V;
+            var sorted = crossings.OrderBy(p => (p.U - origin.U) * du + (p.V - origin.V) * dv).ToList();
+            for (int i = 0; i + 1 < sorted.Count; i += 2)
+                AddSegment(sorted[i], sorted[i + 1]);
+        }
+        return result;
+    }
+
+    /// <summary>Части отрезка внутри области (или на её контуре).</summary>
+    static List<((double U, double V) P, (double U, double V) Q)> Clip((double U, double V) a, (double U, double V) b,
+        PlanarRegion region, double tol)
+    {
+        double rx = b.U - a.U, ry = b.V - a.V;
+        var length = Math.Sqrt(rx * rx + ry * ry);
+        var result = new List<((double U, double V) P, (double U, double V) Q)>();
+        if (length <= tol) return result;
+        var ts = new List<double> { 0, 1 };
+        foreach (var contour in region.Contours)
+        {
+            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
+            for (int i = 0; i < x.Length; i++)
+            {
+                int j = (i + 1) % x.Length;
+                double sx = x[j] - x[i], sy = y[j] - y[i];
+                double qx = x[i] - a.U, qy = y[i] - a.V;
+                var den = rx * sy - ry * sx;
+                if (Math.Abs(den) <= 1e-12 * length * Math.Sqrt(sx * sx + sy * sy))
+                {
+                    // Коллинеарный участок контура — его концы, лежащие на отрезке.
+                    if (Math.Abs(qx * ry - qy * rx) > tol * length) continue;
+                    foreach (var (px, py) in new[] { (x[i], y[i]), (x[j], y[j]) })
+                    {
+                        var tc = ((px - a.U) * rx + (py - a.V) * ry) / (length * length);
+                        if (tc > 0 && tc < 1) ts.Add(tc);
+                    }
+                    continue;
+                }
+                var t = (qx * sy - qy * sx) / den;
+                var u = (qx * ry - qy * rx) / den;
+                if (t > 0 && t < 1 && u >= -1e-12 && u <= 1 + 1e-12) ts.Add(t);
+            }
+        }
+        ts.Sort();
+        for (int i = 0; i + 1 < ts.Count; i++)
+        {
+            double t0 = ts[i], t1 = ts[i + 1];
+            if ((t1 - t0) * length <= tol) continue;
+            var tm = (t0 + t1) / 2;
+            if (!InsideRegion(a.U + tm * rx, a.V + tm * ry, region, tol)) continue;
+            result.Add(((a.U + t0 * rx, a.V + t0 * ry), (a.U + t1 * rx, a.V + t1 * ry)));
+        }
+        return result;
     }
 
     static int[] ReadIds(string json)

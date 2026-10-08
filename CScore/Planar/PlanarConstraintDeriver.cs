@@ -108,8 +108,11 @@ public static class PlanarConstraintDeriver
                     if (elementNodes.Count != ids.Length || ids.Length < 2)
                         continue;
 
+                    // Q4 сетки хранится в порядке ЛИРЫ/SCAD «1 2 4 3» — контур обходит узлы 1 → 2 → 4 → 3.
                     if (string.Equals(element.ElemType, "shell", StringComparison.OrdinalIgnoreCase))
-                        AddShellCandidates(candidates, member, element, elementNodes, region, options, diagnostics);
+                        AddShellCandidates(candidates, member, element,
+                            elementNodes.Count == 4 ? [elementNodes[0], elementNodes[1], elementNodes[3], elementNodes[2]] : elementNodes,
+                            region, options, diagnostics);
                     else
                         AddSegmentCandidates(candidates, member, [element], elementNodes[0], elementNodes[1], region, options,
                             options.TransverseBarDofMask, diagnostics);
@@ -240,6 +243,11 @@ public static class PlanarConstraintDeriver
                 _ => PlanarConstraintObject.Curve(id, draft.Points, structuralFacet, meshFacet, id)
             };
             constraint.IsDerived = true;
+            // Кривая по готовой сетке другой области (стык): её вершины — узлы той сетки, новых узлов между ними
+            // быть не должно, иначе на стыке появятся висячие узлы.
+            constraint.KeepVertices = draft.Kind == PlanarConstraintGeometryKind.Curve && draft.Sources.Any(source =>
+                source.Member.PlanarRegionId != null &&
+                source.Elements.Any(element => string.Equals(element.ElemType, "shell", StringComparison.OrdinalIgnoreCase)));
             constraint.ToleranceM = options.GeometryToleranceM;
             constraint.DofMask = firstRelation.DofMask;
             constraint.MasterReference = firstRelation.MasterReference;

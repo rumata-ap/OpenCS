@@ -73,7 +73,7 @@ public sealed class PlanarConstraintMeshingTests
                 new FemMember { Id = 10, SchemaId = 1, ElemTag = "bar", ElemType = "beam", NodeIdsJson = "[1,2]" },
                 new FemMember { Id = 20, SchemaId = 1, ElemTag = "wall", ElemType = "shell", NodeIdsJson = "[]" }
             ],
-            [new FemElement { Id = 201, SchemaId = 1, ElemTag = "wall-e1", ElemType = "shell", SourceMemberTag = "wall", NodeIdsJson = "[3,4,5,6]" }]);
+            [new FemElement { Id = 201, SchemaId = 1, ElemTag = "wall-e1", ElemType = "shell", SourceMemberTag = "wall", NodeIdsJson = "[3,4,6,5]" }]);
         var derived = PlanarConstraintDeriver.Derive(topology, region, new());
         Assert.True(derived.IsCalculable, string.Join(Environment.NewLine, derived.Diagnostics));
         Assert.Contains(derived.Constraints, constraint => constraint.Geometry.Kind == PlanarConstraintGeometryKind.Point);

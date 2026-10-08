@@ -106,6 +106,76 @@ public sealed class FemSchemaMeshServiceTests
         }
     }
 
+    /// <summary>Стыки областей (срез 4): обе стороны стыка без висячих узлов при любом порядке построения.</summary>
+    [Theory]
+    [InlineData("wall-under-slab-edge", 0.3, 0.5)]
+    [InlineData("wall-under-slab-edge", 0.7, 0.5)]
+    [InlineData("wall-through-slab", 0.4, 0.5)]
+    [InlineData("wall-through-slab", 0.6, 0.5)]
+    [InlineData("wall-under-slab-middle", 0.35, 0.5)]
+    [InlineData("corner-walls", 0.4, 0.5)]
+    [InlineData("adjacent-slabs", 0.3, 0.5)]
+    public async Task Junctions_NoHangingNodes(string layout, double sizeA, double sizeB)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"opencs-junction-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var schema = new FemSchema { Tag = layout };
+            db.SaveFemSchema(schema);
+            var section = new PlateSection { H = 0.2, Tag = "П200" };
+            db.SavePlateSection(section);
+            // Закрепления — свободными узлами в углах, чтобы схема не была пустой по стержням.
+            db.SaveFemSchemaEdit(schema.Id, [Node(schema, "1", 0, 0, 0)], [], [], [], []);
+
+            static Frame3D Horizontal(double z, double x0 = 0) =>
+                new(new PlanarVector3(x0, 0, z), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1));
+            static Frame3D WallY(double y) =>
+                new(new PlanarVector3(0, y, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0));
+            static Frame3D WallX(double x) =>
+                new(new PlanarVector3(x, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(1, 0, 0));
+            var regions = layout switch
+            {
+                "wall-under-slab-edge" => new[] { ("A", WallY(0), 6.0, 3.0, sizeA), ("B", Horizontal(3), 6.0, 4.0, sizeB) },
+                "wall-through-slab" => [("A", WallY(2), 6.0, 6.0, sizeA), ("B", Horizontal(3), 6.0, 4.0, sizeB)],
+                "wall-under-slab-middle" => [("A", WallY(2), 6.0, 3.0, sizeA), ("B", Horizontal(3), 6.0, 4.0, sizeB)],
+                "corner-walls" => [("A", WallY(0), 6.0, 3.0, sizeA), ("B", WallX(6), 4.0, 3.0, sizeB)],
+                "adjacent-slabs" => [("A", Horizontal(3), 3.0, 4.0, sizeA), ("B", Horizontal(3, 3), 3.0, 4.0, sizeB)],
+                _ => throw new ArgumentOutOfRangeException(nameof(layout)),
+            };
+            foreach (var (tag, frame, width, height, size) in regions)
+            {
+                var region = PlanarRegion.CreateFromContour(new Contour { X = [0, width, width, 0], Y = [0, 0, height, height] },
+                    frame: frame, tag: tag);
+                region.MeshMaxElementSizeM = size;
+                db.AddPlanarRegion(region, schema.Id);
+                db.SaveFemMember(new FemMember
+                {
+                    SchemaId = schema.Id, ElemTag = tag, ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = region.Id,
+                    PlateSectionId = section.Id,
+                });
+            }
+
+            var service = new FemSchemaMeshService(db, new GmshSettings
+            {
+                ExecutablePath = Gmsh, ArtifactsPath = Path.Combine(root, "gmsh"), KeepArtifacts = false,
+                ElementMode = PlanarMeshElementMode.Quads,
+            });
+            var result = await service.BuildAsync(schema.Id, db.GetFemNodes(schema.Id), db.GetFemMembers(schema.Id), null, null,
+                CancellationToken.None);
+
+            Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+            Assert.Equal(2, result.RegionCount);
+            Assert.True(result.Mesh!.SharedNodeCount >= 3, $"общих узлов {result.Mesh.SharedNodeCount}");
+        }
+        finally
+        {
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+            catch (IOException) { }
+        }
+    }
+
     static FemNode Node(FemSchema schema, string tag, double x, double y, double z) =>
         new() { SchemaId = schema.Id, NodeTag = tag, X = x, Y = y, Z = z };
 

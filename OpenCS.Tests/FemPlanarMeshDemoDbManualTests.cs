@@ -122,6 +122,36 @@ public sealed class FemPlanarMeshDemoDbManualTests(Xunit.Abstractions.ITestOutpu
             Slab(db, s, "П1", 0, 0, 3, 4, 0.3, slab);
             Slab(db, s, "П2", 3, 0, 3, 4, 0.5, slab);
         }
+
+        // 5. Стена высотой 6 м в плоскости y = 2 проходит сквозь плиту 6×4 на отметке 3 (линия стыка внутри обеих
+        // областей); низ стены — закреплённые узлы в углах, плита на двух колоннах у кромки y = 4.
+        {
+            var s = Schema(db, "4г-5 Стена сквозь плиту");
+            var nodes = Columns(s, (6, 4), (0, 4));
+            var members = ColumnMembers(s, nodes, column);
+            nodes.Add(new FemNode { SchemaId = s.Id, NodeTag = "10", X = 0, Y = 2, Z = 0, DofMask = 63 });
+            nodes.Add(new FemNode { SchemaId = s.Id, NodeTag = "11", X = 6, Y = 2, Z = 0, DofMask = 63 });
+            db.SaveFemSchemaEdit(s.Id, nodes, members, [], [], []);
+            Slab(db, s, "П1", 0, 0, 6, 4, 0.5, slab);
+            var frame = new Frame3D(new PlanarVector3(0, 2, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0));
+            Region(db, s, "С1", frame, 0, 0, 6, 2 * H, 0.4, wall, "wall");
+        }
+
+        // 6. Угол двух стен: y = 0 (6 м, шаг 0,4) и x = 6 (4 м, шаг 0,5); низ — закреплённые узлы в углах.
+        {
+            var s = Schema(db, "4г-6 Угол двух стен");
+            var nodes = new List<FemNode>
+            {
+                new() { SchemaId = s.Id, NodeTag = "1", X = 0, Y = 0, Z = 0, DofMask = 63 },
+                new() { SchemaId = s.Id, NodeTag = "2", X = 6, Y = 0, Z = 0, DofMask = 63 },
+                new() { SchemaId = s.Id, NodeTag = "3", X = 6, Y = 4, Z = 0, DofMask = 63 },
+            };
+            db.SaveFemSchemaEdit(s.Id, nodes, [], [], [], []);
+            Region(db, s, "С1", new Frame3D(new PlanarVector3(0, 0, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1),
+                new PlanarVector3(0, -1, 0)), 0, 0, 6, H, 0.4, wall, "wall");
+            Region(db, s, "С2", new Frame3D(new PlanarVector3(6, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1),
+                new PlanarVector3(1, 0, 0)), 0, 0, 4, H, 0.5, wall, "wall");
+        }
     }
 
     static FemSchema Schema(DatabaseService db, string tag)

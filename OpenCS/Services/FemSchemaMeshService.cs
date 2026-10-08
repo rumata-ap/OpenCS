@@ -56,6 +56,13 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             : FemMeshDiscretizer.Discretize(schemaId, nodes, members, defaultTargetLengthM);
 
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, db.GetPlanarRegions(schemaId));
+        // Явные сопряжения областей (фрагменты) с независимыми сетками и MPC в схеме не поддерживаются: стыки сетки
+        // схемы — только общими узлами.
+        foreach (var connection in db.GetPlanarConnections(schemaId).Where(c => c.MeshMode == PlanarConnectionMeshMode.IndependentMpc))
+            diagnostics.Add(new("planar_connection_mpc_unsupported",
+                string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshMpcUnsupported"), connection.Tag), true, [connection.Tag]));
+        if (diagnostics.Any(d => d.IsError))
+            return new FemSchemaMeshBuildResult { Diagnostics = diagnostics, RegionCount = ordered.Count };
         var thickness = PlateThickness();
         var regionMeshes = new List<FemPlanarRegionMesh>();
         int rebuilt = 0;
@@ -65,11 +72,13 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), cancellationToken);
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
             var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
-            foreach (var (member, region) in ordered)
+            for (int k = 0; k < ordered.Count; k++)
             {
+                var (member, region) = ordered[k];
                 cancellationToken.ThrowIfCancellationRequested();
                 var prefix = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, regionMeshes);
-                var constraints = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, region);
+                var constraints = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, region,
+                    laterRegions: Later(ordered, k));
                 var settings = new PlanarMeshSettings(region.MeshMaxElementSizeM, gmsh.Algorithm, gmsh.ElementMode);
                 var fingerprint = PlanarMeshFingerprint.Compute(region, settings, provenance, constraints.SourceFingerprint);
                 var snapshot = db.GetPlanarMeshSnapshots(region.Id).LastOrDefault();
@@ -119,6 +128,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions);
         var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
         var prefix = new List<FemPlanarRegionMesh>();
+        int index = ordered.FindIndex(p => p.Region.Id == target.Id);
         foreach (var (member, region) in ordered)
         {
             if (region.Id == target.Id) break;
@@ -126,8 +136,13 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                 prefix.Add(new FemPlanarRegionMesh(member, region, snapshot, null));
         }
         var prefixMesh = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, prefix);
-        return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target);
+        return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
+            laterRegions: index >= 0 ? Later(ordered, index) : null);
     }
+
+    /// <summary>Области, которые строятся после k-й: их линии стыка с ней — по геометрии.</summary>
+    static List<(string Tag, PlanarRegion Region)> Later(List<(FemMember Member, PlanarRegion Region)> ordered, int k) =>
+        ordered.Skip(k + 1).Select(p => (p.Member.ElemTag, p.Region)).ToList();
 
     /// <summary>Записывает сетку схемы (импортные строки сохраняются).</summary>
     public void Save(int schemaId, FemPlanarMaterializationResult mesh)
