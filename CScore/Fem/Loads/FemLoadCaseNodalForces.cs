@@ -15,12 +15,17 @@ public sealed record FemNodalLoadResult(IReadOnlyList<FemNodalForce> Forces, IRe
 /// </summary>
 public static class FemLoadCaseNodalForces
 {
-    /// <summary>Сумма загружений с коэффициентами (<paramref name="terms"/>: Id загружения → коэффициент).</summary>
+    /// <summary>
+    /// Сумма загружений с коэффициентами (<paramref name="terms"/>: Id загружения → коэффициент). <paramref name="sink"/>
+    /// — отдельный приёмник сил КЭ (см. <see cref="FemElementLoadNodalizer.Accumulate"/>): ушедшее в него в результат не
+    /// входит.
+    /// </summary>
     public static FemNodalLoadResult Resolve(
         IReadOnlyList<(FemLoadCase LoadCase, double Factor)> terms,
         IReadOnlyList<FemElementLoad> elementLoads,
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads,
-        FemLoadMeshContext mesh)
+        FemLoadMeshContext mesh,
+        Func<FemElement, Dictionary<string, double[]>?>? sink = null)
     {
         var forces = new Dictionary<string, double[]>(StringComparer.Ordinal);
         var diagnostics = new List<FemValidationDiagnostic>();
@@ -28,9 +33,9 @@ public static class FemLoadCaseNodalForces
         {
             if (factor == 0) continue;
             if (lc.SelfWeightFactor is { } k && k != 0)
-                FemElementLoadNodalizer.AccumulateSelfWeight(k * factor, mesh.Elements, mesh, forces, diagnostics);
+                FemElementLoadNodalizer.AccumulateSelfWeight(k * factor, mesh.Elements, mesh, forces, diagnostics, sink);
             foreach (var load in elementLoads.Where(l => l.LoadCaseId == lc.Id))
-                FemElementLoadNodalizer.Accumulate(load, mesh, factor, forces, diagnostics);
+                FemElementLoadNodalizer.Accumulate(load, mesh, factor, forces, diagnostics, sink);
             var missing = new List<string>();
             foreach (var load in meshNodeLoads.Where(l => l.LoadCaseId == lc.Id))
             {

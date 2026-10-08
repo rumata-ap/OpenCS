@@ -12,16 +12,21 @@ public sealed record FemNodalForce(string NodeTag, double Fx, double Fy, double 
 /// </summary>
 public static class FemElementLoadNodalizer
 {
-    /// <summary>Добавляет узловые силы нагрузки (с множителем <paramref name="factor"/>) в <paramref name="forces"/>.</summary>
+    /// <summary>
+    /// Добавляет узловые силы нагрузки (с множителем <paramref name="factor"/>) в <paramref name="forces"/>.
+    /// <paramref name="sink"/> — отдельный приёмник сил КЭ (например, стержня с шарнирами, которому нужны концевые силы
+    /// самого КЭ); null у КЭ — общий <paramref name="forces"/>.
+    /// </summary>
     public static void Accumulate(FemElementLoad load, FemLoadMeshContext mesh, double factor,
-        Dictionary<string, double[]> forces, List<FemValidationDiagnostic> diagnostics)
+        Dictionary<string, double[]> forces, List<FemValidationDiagnostic> diagnostics,
+        Func<FemElement, Dictionary<string, double[]>?>? sink = null)
     {
         var elements = FemLoadTargets.Resolve(load, mesh, diagnostics);
         var skipped = new List<string>();
         string? reason = null;
         foreach (var e in elements)
         {
-            string? why = AccumulateElement(load, e, mesh, factor, forces);
+            string? why = AccumulateElement(load, e, mesh, factor, sink?.Invoke(e) ?? forces);
             if (why == null) continue;
             skipped.Add(e.ElemTag);
             reason ??= why;
@@ -34,7 +39,8 @@ public static class FemElementLoadNodalizer
 
     /// <summary>Собственный вес всей сетки с коэффициентом (вниз по −Z): пластины γ·h, стержни γ·A.</summary>
     public static void AccumulateSelfWeight(double coefficient, IEnumerable<FemElement> elements, FemLoadMeshContext mesh,
-        Dictionary<string, double[]> forces, List<FemValidationDiagnostic> diagnostics)
+        Dictionary<string, double[]> forces, List<FemValidationDiagnostic> diagnostics,
+        Func<FemElement, Dictionary<string, double[]>?>? sink = null)
     {
         var skipped = new List<string>();
         foreach (var e in elements)
@@ -42,7 +48,7 @@ public static class FemElementLoadNodalizer
             var g = mesh.Geometry(e);
             double? q = g == null ? null : SelfWeightIntensity(e, g, mesh.SelfWeight);
             if (q is not { } value) { skipped.Add(e.ElemTag); continue; }
-            Distribute(g!, new PlanarVector3(0, 0, -value * coefficient), forces);
+            Distribute(g!, new PlanarVector3(0, 0, -value * coefficient), sink?.Invoke(e) ?? forces);
         }
         if (skipped.Count > 0)
             diagnostics.Add(new("self_weight_skipped",
@@ -152,6 +158,39 @@ public static class FemElementLoadNodalizer
         Add(forces, g.NodeTags[0], q * (l / 2), m);
         Add(forces, g.NodeTags[1], q * (l / 2), m * -1);
     }
+
+    /// <summary>
+    /// Линейно меняющаяся погонная нагрузка (Н/м, глобальные оси) на участке [a, b] стержня (м от узла I) →
+    /// согласованные узловые силы: поперечная часть — эрмитовы функции (концевые моменты), продольная — линейные.
+    /// Гаусс по 3 точкам точен (кубическая функция формы × линейная интенсивность).
+    /// </summary>
+    public static void BarSegment(FemElementGeometry g, double a, double b, PlanarVector3 qa, PlanarVector3 qb,
+        Dictionary<string, double[]> forces)
+    {
+        double l = g.Length;
+        var axis = (g.Points[1] - g.Points[0]) * (1 / l);
+        PlanarVector3 fi = PlanarVector3.Zero, fj = PlanarVector3.Zero, ti = PlanarVector3.Zero, tj = PlanarVector3.Zero;
+        double half = (b - a) / 2, mid = (a + b) / 2, r = Math.Sqrt(0.6);
+        foreach (var (t, w) in new[] { (-r, 5.0 / 9), (0.0, 8.0 / 9), (r, 5.0 / 9) })
+        {
+            double s = mid + half * t, xi = s / l, u = (s - a) / (b - a), jw = w * half;
+            var q = qa * (1 - u) + qb * u;
+            var axial = axis * q.Dot(axis);
+            var transverse = q - axial;
+            double n1 = 1 - 3 * xi * xi + 2 * xi * xi * xi, n2 = l * (xi - 2 * xi * xi + xi * xi * xi);
+            double n3 = 3 * xi * xi - 2 * xi * xi * xi, n4 = l * (xi * xi * xi - xi * xi);
+            fi += (axial * (1 - xi) + transverse * n1) * jw;
+            fj += (axial * xi + transverse * n3) * jw;
+            ti += transverse * (n2 * jw);
+            tj += transverse * (n4 * jw);
+        }
+        Add(forces, g.NodeTags[0], fi, axis.Cross(ti));
+        Add(forces, g.NodeTags[1], fj, axis.Cross(tj));
+    }
+
+    /// <summary>Сосредоточенная сила (Н, глобальные оси) на стержне в точке a (м от узла I).</summary>
+    public static void BarPointForce(FemElementGeometry g, PlanarVector3 p, double a, Dictionary<string, double[]> forces) =>
+        BarPoint(g, p, a, forces);
 
     /// <summary>Сосредоточенная сила на стержне в точке a от узла I: эрмитовы функции для поперечной части.</summary>
     static void BarPoint(FemElementGeometry g, PlanarVector3 p, double a, Dictionary<string, double[]> forces)

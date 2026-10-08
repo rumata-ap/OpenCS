@@ -62,6 +62,6 @@ public static class FemLoadTargets
     internal static string Describe(FemElementLoad load) =>
         load.Id > 0 ? $"№{load.Id} ({load.LoadKind})" : $"({load.LoadKind})";
 
-    internal static string Sample(IReadOnlyList<string> tags) =>
+    public static string Sample(IReadOnlyList<string> tags) =>
         tags.Count <= 5 ? string.Join(", ", tags) : string.Join(", ", tags.Take(5)) + $" … (всего {tags.Count})";
 }

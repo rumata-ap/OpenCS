@@ -75,12 +75,20 @@ public sealed record RcShellLoad(int ShellId, double Pressure, double[]? Directi
 /// <summary>Равномерная погонная нагрузка на стержень (Н/м) в глобальных осях.</summary>
 public sealed record RcBeamLoad(int BeamId, double[] Force);
 
+/// <summary>
+/// Пролётная нагрузка стержня, заданная согласованными узловыми силами КЭ без шарниров (Н, Н·м; глобальные оси):
+/// 12 чисел — Fx, Fy, Fz, Mx, My, Mz конца I, затем конца J. У стержня с шарнирами силы конденсируются к сохранённым
+/// DOF (<see cref="BeamReleases.CondenseLoad"/>), поэтому любую нагрузку на такой КЭ задают здесь, а не узловыми силами.
+/// </summary>
+public sealed record RcBeamEndLoad(int BeamId, double[] Forces);
+
 /// <summary>Загружение.</summary>
 public sealed record RcLoadCase(int Id, string Name)
 {
     public List<RcNodalLoad> Nodal { get; } = new();
     public List<RcShellLoad> Shells { get; } = new();
     public List<RcBeamLoad> Beams { get; } = new();
+    public List<RcBeamEndLoad> BeamEnds { get; } = new();
 }
 
 /// <summary>

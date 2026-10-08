@@ -405,7 +405,31 @@ public static class RcStructuralMeshBuilder
             var fe = BeamUniformLoad(new[] { coords[b.I], coords[b.J] }, q.Force, b.RefVec, b.Releases == 0 ? null : b);
             for (int c = 0; c < 6; c++) { f[6 * b.I + c] += fe[c]; f[6 * b.J + c] += fe[6 + c]; }
         }
+        foreach (var q in lc.BeamEnds)
+        {
+            if (!beamById.TryGetValue(q.BeamId, out int e)) throw new ArgumentException($"Загружение {lc.Id}: нет стержня {q.BeamId}.");
+            if (q.Forces.Length != 12) throw new ArgumentException($"Загружение {lc.Id}, стержень {q.BeamId}: нужно 12 концевых сил.");
+            var b = mesh.Beams[e];
+            var fe = b.Releases == 0 ? q.Forces : CondensedEndLoad(new[] { coords[b.I], coords[b.J] }, q.Forces, b);
+            for (int c = 0; c < 6; c++) { f[6 * b.I + c] += fe[c]; f[6 * b.J + c] += fe[6 + c]; }
+        }
         return f;
+    }
+
+    /// <summary>Концевые силы КЭ без шарниров (глобальные оси) → приведённые к сохранённым DOF шарнирного КЭ.</summary>
+    private static double[] CondensedEndLoad(double[][] ends, double[] global, StructuralBeam released)
+    {
+        var (r, l) = BeamElements.Beam3dFrame(ends, released.RefVec);
+        var local = new double[12];
+        for (int blk = 0; blk < 4; blk++)
+            for (int i = 0; i < 3; i++)
+                for (int k = 0; k < 3; k++) local[3 * blk + i] += r[i, k] * global[3 * blk + k];
+        local = BeamReleases.CondenseLoad(BeamElements.Beam3dKLocal(released.Section, l), released.Releases, local);
+        var g = new double[12];
+        for (int blk = 0; blk < 4; blk++)
+            for (int i = 0; i < 3; i++)
+                for (int k = 0; k < 3; k++) g[3 * blk + i] += r[k, i] * local[3 * blk + k];
+        return g;
     }
 
     private static double[] Normal(double[][] xyz)

@@ -81,6 +81,7 @@ public static class RcSymmetry
                 .Select(p => p with { Force = p.Force.Select(f => f * Share(p.NodeId)).ToArray() }));
             c.Shells.AddRange(lc.Shells.Where(s => keptShells.Contains(s.ShellId)));
             c.Beams.AddRange(lc.Beams.Where(b => keptBeams.Contains(b.BeamId)));
+            c.BeamEnds.AddRange(lc.BeamEnds.Where(b => keptBeams.Contains(b.BeamId)));
             cut.LoadCases.Add(c);
         }
         cut.Stages.AddRange(model.Stages);
@@ -155,6 +156,7 @@ public static class RcSymmetry
                 if (twins.TryGetValue(l.ShellId, out int t)) c.Shells.Add(l with { ShellId = t });
             }
             c.Beams.AddRange(lc.Beams);
+            c.BeamEnds.AddRange(lc.BeamEnds);
             res.LoadCases.Add(c);
         }
         res.Stages.AddRange(model.Stages);
