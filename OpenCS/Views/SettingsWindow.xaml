@@ -574,9 +574,17 @@
                                 <RowDefinition Height="28"/>
                                 <RowDefinition Height="28"/>
                                 <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource GmshAlgorithmLabel}" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Row="0" Grid.Column="1" x:Name="GmshAlgorithmCombo" VerticalContentAlignment="Center" Margin="0,2">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource GmshPresetLabel}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <Button Content="{DynamicResource GmshPresetRegular}" ToolTip="{DynamicResource GmshPresetRegularTip}"
+                                        Click="GmshPresetRegular_Click" Padding="8,0" Margin="0,0,6,0"/>
+                                <Button Content="{DynamicResource GmshPresetFree}" ToolTip="{DynamicResource GmshPresetFreeTip}"
+                                        Click="GmshPresetFree_Click" Padding="8,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource GmshAlgorithmLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="GmshAlgorithmCombo" VerticalContentAlignment="Center" Margin="0,2">
                                 <ComboBoxItem Tag="1" Content="{DynamicResource GmshAlgorithmMeshAdapt}"/>
                                 <ComboBoxItem Tag="2" Content="{DynamicResource GmshAlgorithmAutomatic}"/>
                                 <ComboBoxItem Tag="5" Content="{DynamicResource GmshAlgorithmDelaunay}"/>
@@ -584,14 +592,14 @@
                                 <ComboBoxItem Tag="8" Content="{DynamicResource GmshAlgorithmFrontalDelaunayQuads}"/>
                                 <ComboBoxItem Tag="9" Content="{DynamicResource GmshAlgorithmPackingParallelograms}"/>
                             </ComboBox>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource GmshElementModeLabel}" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="GmshElementModeCombo" VerticalContentAlignment="Center" Margin="0,2">
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource GmshElementModeLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="2" Grid.Column="1" x:Name="GmshElementModeCombo" VerticalContentAlignment="Center" Margin="0,2">
                                 <ComboBoxItem Tag="Triangles" Content="{DynamicResource GmshElementModeTriangles}"/>
                                 <ComboBoxItem Tag="Quads" Content="{DynamicResource GmshElementModeQuads}"/>
                                 <ComboBoxItem Tag="Mixed" Content="{DynamicResource GmshElementModeMixed}"/>
                             </ComboBox>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource GmshTimeoutLabel}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" x:Name="GmshTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource GmshTimeoutLabel}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" x:Name="GmshTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
                         </Grid>
                     </GroupBox>
                     <GroupBox Header="{DynamicResource GmshArtifactsPathLabel}" Margin="0,0,0,10">

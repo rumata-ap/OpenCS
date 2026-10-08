@@ -267,6 +267,11 @@
     <system:String x:Key="GmshExecutableGroup">Executable</system:String>
     <system:String x:Key="GmshExecutablePath">Path to gmsh.exe</system:String>
     <system:String x:Key="GmshExeFilter">Gmsh (gmsh.exe)|gmsh.exe|Executables (*.exe)|*.exe</system:String>
+    <system:String x:Key="GmshPresetLabel">Mesh preset</system:String>
+    <system:String x:Key="GmshPresetRegular">Regular (Q4 + few T3)</system:String>
+    <system:String x:Key="GmshPresetRegularTip">Frontal-Delaunay for Quads with recombination: near-rectangular quads, triangles only at openings, columns and junctions. Region meshes are rebuilt on the next build</system:String>
+    <system:String x:Key="GmshPresetFree">Free</system:String>
+    <system:String x:Key="GmshPresetFreeTip">Frontal-Delaunay, mixed T3 + Q4 — the previous defaults</system:String>
     <system:String x:Key="GmshAlgorithmLabel">2D algorithm</system:String>
     <system:String x:Key="GmshAlgorithmMeshAdapt">MeshAdapt</system:String>
     <system:String x:Key="GmshAlgorithmAutomatic">Automatic</system:String>

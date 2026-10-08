@@ -35,6 +35,8 @@ public sealed class FemPlanarMeshDemoDbManualTests(Xunit.Abstractions.ITestOutpu
         var gmsh = new GmshSettings
         {
             ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe", ArtifactsPath = Path.Combine(root, "gmsh"),
+            // OPENCS_PLANAR_DEMO_ALGORITHM — алгоритм 2D Gmsh (8 — пресет «регулярная»; 11 дробит КЭ и не держит стыки).
+            Algorithm = int.TryParse(Environment.GetEnvironmentVariable("OPENCS_PLANAR_DEMO_ALGORITHM"), out var algorithm) ? algorithm : 6,
         };
         var service = new FemSchemaMeshService(db, gmsh);
         foreach (var schema in db.FemSchemas.ToList())

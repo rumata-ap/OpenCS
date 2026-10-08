@@ -267,6 +267,11 @@
     <system:String x:Key="GmshExecutableGroup">Исполняемый файл</system:String>
     <system:String x:Key="GmshExecutablePath">Путь к gmsh.exe</system:String>
     <system:String x:Key="GmshExeFilter">Gmsh (gmsh.exe)|gmsh.exe|Исполняемые файлы (*.exe)|*.exe</system:String>
+    <system:String x:Key="GmshPresetLabel">Пресет сетки</system:String>
+    <system:String x:Key="GmshPresetRegular">Регулярная (Q4 + немного T3)</system:String>
+    <system:String x:Key="GmshPresetRegularTip">Frontal-Delaunay for Quads с рекомбинацией: почти прямоугольные четырёхугольники, треугольники — только у отверстий, колонн и стыков. Сетки областей перестроятся при следующем построении</system:String>
+    <system:String x:Key="GmshPresetFree">Свободная</system:String>
+    <system:String x:Key="GmshPresetFreeTip">Frontal-Delaunay, смешанные T3 + Q4 — прежние настройки по умолчанию</system:String>
     <system:String x:Key="GmshAlgorithmLabel">Алгоритм 2D</system:String>
     <system:String x:Key="GmshAlgorithmMeshAdapt">MeshAdapt</system:String>
     <system:String x:Key="GmshAlgorithmAutomatic">Automatic</system:String>

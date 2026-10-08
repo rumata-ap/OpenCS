@@ -584,6 +584,22 @@ namespace OpenCS.Views
           GmshArtifactsPathBox.Text = _gmshSettings.ArtifactsPath ?? "";
        }
 
+       /// <summary>Пресет «регулярная сетка»: Frontal-Delaunay for Quads с рекомбинацией — почти прямоугольные Q4,
+       /// T3 только у отверстий, колонн и стыков (проба 08.10: медиана отклонения угла Q4 от 90° — 2° против 18° у
+       /// Frontal-Delaunay, T3 в 8 раз меньше).</summary>
+       void GmshPresetRegular_Click(object sender, RoutedEventArgs e)
+       {
+          SelectComboByTag(GmshAlgorithmCombo, "8");
+          SelectComboByTag(GmshElementModeCombo, nameof(CScore.Planar.PlanarMeshElementMode.Mixed));
+       }
+
+       /// <summary>Пресет «свободная сетка» — прежние настройки по умолчанию (Frontal-Delaunay, T3+Q4).</summary>
+       void GmshPresetFree_Click(object sender, RoutedEventArgs e)
+       {
+          SelectComboByTag(GmshAlgorithmCombo, "6");
+          SelectComboByTag(GmshElementModeCombo, nameof(CScore.Planar.PlanarMeshElementMode.Mixed));
+       }
+
        void HookGmshControls()
        {
           GmshExeBox.TextChanged += (_, _) =>
