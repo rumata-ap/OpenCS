@@ -35,7 +35,7 @@ public sealed class ScadLoadTransferReconciliationTests
             [], [], [], () => --next);
         var femCase = transfer.LoadCases.Single(c => c.SourceLoadNum == loadCase);
         var mesh = new FemLoadMeshContext(meshNodes, elements, null,
-            new ScadSelfWeightSource(stiffness, model.ForceUnitN, model.LengthUnitM));
+            new ScadElementStiffnessSource(stiffness, model.ForceUnitN, model.LengthUnitM));
         var actual = FemLoadCaseNodalForces.Resolve(femCase, transfer.ElementLoads, transfer.MeshNodeLoads, mesh);
 
         Assert.Empty(actual.Diagnostics);

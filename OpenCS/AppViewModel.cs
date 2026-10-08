@@ -4031,7 +4031,7 @@ namespace OpenCS
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
 
          var mesh = new CScore.Fem.Loads.FemLoadMeshContext(meshNodes, elements, schema.MemberGroups.ToList(),
-            new CScore.Import.ScadSelfWeightSource(db.GetFemSchemaStiffnesses(schema.Id), model.ForceUnitN, model.LengthUnitM));
+            Services.FemSelfWeightSourceFactory.Create(db, schema.Id));
          foreach (var lc in result.LoadCases.Where(c => c.Origin == CScore.Import.ScadLoadTransfer.Origin))
          {
             var forces = CScore.Fem.Loads.FemLoadCaseNodalForces.Resolve(lc, result.ElementLoads, result.MeshNodeLoads, mesh);

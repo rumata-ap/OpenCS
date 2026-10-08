@@ -49,7 +49,7 @@ public class ScadLoadTransferManualTests(ITestOutputHelper output)
                 Assert.Equal(result.ElementLoads.Count, again.ElementLoads.Count);
 
                 var mesh = new FemLoadMeshContext(nodes, elements, schema.MemberGroups.ToList(),
-                    new ScadSelfWeightSource(db.GetFemSchemaStiffnesses(schema.Id), model.ForceUnitN, model.LengthUnitM));
+                    new ScadElementStiffnessSource(db.GetFemSchemaStiffnesses(schema.Id), model.ForceUnitN, model.LengthUnitM));
                 var stored = db.GetFemElementLoads(schema.Id);
                 var storedNodes = db.GetFemMeshNodeLoads(schema.Id);
                 foreach (var lc in db.GetFemLoadCases(schema.Id).Where(c => c.Origin == ScadLoadTransfer.Origin))
@@ -92,7 +92,7 @@ public class ScadLoadTransferManualTests(ITestOutputHelper output)
         int next = 0;
         var result = ScadLoadTransfer.Transfer(model, elements.ToDictionary(e => e.ElemTag, e => e.ElemType), [], [], [], () => --next);
         foreach (var line in result.Report) output.WriteLine(line);
-        var mesh = new FemLoadMeshContext(nodes, elements, null, new ScadSelfWeightSource(
+        var mesh = new FemLoadMeshContext(nodes, elements, null, new ScadElementStiffnessSource(
             ScadSchemaConverter.ToSchemaStiffnesses(data).ToDictionary(x => x.Id), model.ForceUnitN, model.LengthUnitM));
         var fixedNodes = model.Bounds.Where(b => b.Value == 0x3F).Select(b => b.Key.ToString()).ToHashSet();
         foreach (var lc in result.LoadCases)
