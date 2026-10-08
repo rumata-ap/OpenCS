@@ -438,6 +438,7 @@ public class Fem3DVM : ViewModelBase
         }
 
         var linePoints = new Point3DCollection();
+        var seenEdges = new HashSet<(int, int)>();
 
         foreach (var element in snapshot.elements)
         {
@@ -451,13 +452,18 @@ public class Fem3DVM : ViewModelBase
                 continue;
             }
 
-            if (nodeIds.Length < 2 ||
-                !nodeMap.TryGetValue(nodeIds[0], out var first) ||
-                !nodeMap.TryGetValue(nodeIds[1], out var second))
-                continue;
-
-            linePoints.Add(first);
-            linePoints.Add(second);
+            if (nodeIds.Length < 2) continue;
+            // Пластина — весь контур (Q4 хранится «1 2 4 3»), общие рёбра соседних КЭ — один раз.
+            int[] contour = nodeIds.Length == 4 ? [nodeIds[0], nodeIds[1], nodeIds[3], nodeIds[2]] : nodeIds;
+            int edgeCount = contour.Length == 2 ? 1 : contour.Length;
+            for (int i = 0; i < edgeCount; i++)
+            {
+                int a = contour[i], b = contour[(i + 1) % contour.Length];
+                if (contour.Length > 2 && !seenEdges.Add(a < b ? (a, b) : (b, a))) continue;
+                if (!nodeMap.TryGetValue(a, out var first) || !nodeMap.TryGetValue(b, out var second)) continue;
+                linePoints.Add(first);
+                linePoints.Add(second);
+            }
         }
 
         if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;

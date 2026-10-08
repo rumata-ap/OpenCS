@@ -25,6 +25,15 @@ public static class FemAnalysisExecutor
 
         var meshNodes = db.GetFemMeshNodes(schema.Id);
         var meshElems = db.GetFemMeshElements(schema.Id);
+        // Пластины (своих областей или импорта) расчёт OpenSees схемы не берёт: только стержни и их узлы.
+        int shellCount = meshElems.Count(e => e.ElemType == "shell");
+        if (shellCount > 0)
+        {
+            meshElems = meshElems.Where(e => e.ElemType != "shell").ToList();
+            var used = meshElems.SelectMany(e => JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []).ToHashSet();
+            meshNodes = meshNodes.Where(n => int.TryParse(n.NodeTag, out var tag) && used.Contains(tag)).ToList();
+            app.LogService.Warning(string.Format(Utilites.Loc.S("FemAnalysisShellsIgnored"), analysis.Tag, shellCount));
+        }
         var sourceNodes = db.GetFemNodes(schema.Id);
         var sourceMembers = db.GetFemMembers(schema.Id);
         var loadCases = db.GetFemLoadCases(schema.Id);

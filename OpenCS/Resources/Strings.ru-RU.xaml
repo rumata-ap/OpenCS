@@ -2894,6 +2894,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DOrthographic">Ортогональная проекция (без перспективы)</system:String>
     <system:String x:Key="Fem3DFieldOfViewValue">Угол обзора перспективы: {0:0}°. Меньше — ближе к ортогональной проекции</system:String>
     <system:String x:Key="FemDiscretize">Построить сетку схемы: стержни и пластины областей (Gmsh), общие узлы</system:String>
+    <system:String x:Key="FemAnalysisShellsIgnored">[{0}] Пластины в расчёте OpenSees схемы не учитываются ({1} КЭ) — считаются только стержни</system:String>
     <system:String x:Key="FemSchemaMeshBuilding">Построение сетки схемы…</system:String>
     <system:String x:Key="FemSchemaMeshRegionBuilding">Сетка области «{0}» — Gmsh (точек {1}, линий {2}, свободных узлов {3})</system:String>
     <system:String x:Key="FemSchemaMeshRegionFailed">Сетка области «{0}» не построена — подробности в журнале и в диалоге области</system:String>

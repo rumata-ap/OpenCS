@@ -2894,6 +2894,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DOrthographic">Orthographic projection (no perspective)</system:String>
     <system:String x:Key="Fem3DFieldOfViewValue">Perspective field of view: {0:0}°. Smaller is closer to orthographic</system:String>
     <system:String x:Key="FemDiscretize">Build schema mesh: bars and region plates (Gmsh), shared nodes</system:String>
+    <system:String x:Key="FemAnalysisShellsIgnored">[{0}] Plates are not included in the OpenSees schema analysis ({1} elements) — bars only</system:String>
     <system:String x:Key="FemSchemaMeshBuilding">Building schema mesh…</system:String>
     <system:String x:Key="FemSchemaMeshRegionBuilding">Region "{0}" mesh — Gmsh ({1} points, {2} curves, {3} free nodes)</system:String>
     <system:String x:Key="FemSchemaMeshRegionFailed">Region "{0}" mesh failed — see the log and the region dialog</system:String>
