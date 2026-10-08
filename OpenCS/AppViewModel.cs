@@ -3733,6 +3733,7 @@ namespace OpenCS
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
             SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
+            if (raw.Units != null) SaveLiraUnits(schema.Id, raw.Units);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
@@ -3924,7 +3925,8 @@ namespace OpenCS
          BeginBusy(Loc.S("LiraStiffRefreshBusy"));
          try
          {
-            var (stiffnesses, byElement) = await RunOnStaThread(Services.LiraApiSchemaReader.ReadStiffnesses);
+            double tonToKn = LiraImportSettings.TonToKnFactor;
+            var (stiffnesses, byElement, units) = await RunOnStaThread(() => Services.LiraApiSchemaReader.ReadStiffnesses(tonToKn));
             var byTag = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var (elemId, num) in byElement)
                byTag[elemId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = num;
@@ -3945,6 +3947,7 @@ namespace OpenCS
 
             int updated = db.ReplaceFemSchemaStiffnesses(schema.Id, stiffnesses, byTag);
             SaveLiraSteelProfiles(schema.Id, stiffnesses);
+            SaveLiraUnits(schema.Id, units);
             string done = string.Format(Loc.S("LiraStiffRefreshDone"), stiffnesses.Count,
                stiffnesses.Count(s => CScore.Import.LiraStiffnessParams.BarRect(s) != null), updated);
             LogService.Info(done);
@@ -3978,6 +3981,11 @@ namespace OpenCS
          foreach (var e in failed)
             LogService.Warning(string.Format(Loc.S("LiraSteelProfileFailed"), e.Num, e.Source, e.Reason));
       }
+
+      /// <summary>Сохранить единицы характеристик материалов ЛИРЫ при схеме (вложение <see cref="FemSchemaSourceFileKind.LiraUnits"/>).</summary>
+      void SaveLiraUnits(int schemaId, CScore.Import.LiraUnits units) =>
+         db.SaveFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraUnits, "",
+            System.Text.Encoding.UTF8.GetBytes(units.ToJson()));
 
       /// <summary>Сохранить ЖБ-группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadConcreteGroups"/>).</summary>
       void SaveScadConcreteGroups(int schemaId, IReadOnlyCollection<CScore.Import.ScadConcreteGroup> groups) =>

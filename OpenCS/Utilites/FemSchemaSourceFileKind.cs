@@ -24,6 +24,12 @@ namespace OpenCS.Utilites
       /// </summary>
       public const string LiraSteelProfiles = "lira_steel_profiles";
 
+      /// <summary>
+      /// Единицы характеристик материалов документа ЛИРЫ (E, Ro, численные жёсткости) — JSON
+      /// <see cref="CScore.Import.LiraUnits.ToJson"/>.
+      /// </summary>
+      public const string LiraUnits = "lira_units";
+
       /// <summary>Стальные группы SCAD схемы — JSON <see cref="CScore.Import.ScadSteelGroupIndex.ToJson"/>.</summary>
       public const string ScadSteelGroups = "scad_steel_groups";
 

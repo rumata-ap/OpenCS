@@ -119,7 +119,7 @@ static class LiraApiSchemaReader
         if (bedRaw != null) ParsePlateFoundation(bedRaw, FoundationUnitNPerM3((object)lira, tonToKn), data);
 
         // Жёсткости: размеры сечений стержней и толщины пластин (не критично: без таблиц группы остаются «Жёсткость 0»)
-        ReadStiffnessTables((object)lira, (object)doc, data, diag);
+        ReadStiffnessTables((object)lira, (object)doc, data, diag, tonToKn);
 
         // Согласованные местные оси пластин — оси выдачи усилий (не критично: без таблицы оси считаются неизвестными)
         var axesRaw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "S1-PlateAxes");
@@ -175,7 +175,9 @@ static class LiraApiSchemaReader
     /// </summary>
     /// <returns>Жёсткости и номер жёсткости по номеру КЭ.</returns>
     /// <exception cref="InvalidOperationException">Нет открытого документа или таблицы не читаются.</exception>
-    public static (List<LiraStiffnessRecord> Stiffnesses, Dictionary<int, int> ElementStiffness) ReadStiffnesses()
+    /// <param name="tonToKn">Сколько кН в тонне-силе (настройка импорта) — для единиц характеристик материалов.</param>
+    public static (List<LiraStiffnessRecord> Stiffnesses, Dictionary<int, int> ElementStiffness, LiraUnits Units)
+        ReadStiffnesses(double tonToKn = 9.80665)
     {
         dynamic lira = LiraComConnector.ConnectApplication();
         dynamic doc = lira.ActiveDocument
@@ -184,7 +186,7 @@ static class LiraApiSchemaReader
 
         var diag = new List<string>();
         var data = new LiraSchemaData();
-        Dictionary<int, int> byElement = ReadStiffnessTables((object)lira, (object)doc, data, diag);
+        Dictionary<int, int> byElement = ReadStiffnessTables((object)lira, (object)doc, data, diag, tonToKn);
         if (data.Stiffnesses.Count == 0 || byElement.Count == 0)
             throw new InvalidOperationException("Не удалось прочитать таблицы жёсткостей.\n" + string.Join("\n", diag));
 
@@ -197,17 +199,20 @@ static class LiraApiSchemaReader
             foreach (var e in elements.Elements.Where(e => !LiraSchemaData.IsImported(e)))
                 byElement.Remove(e.Id);
         }
-        return (data.Stiffnesses, byElement);
+        return (data.Stiffnesses, byElement, data.Units ?? LiraUnits.Default(tonToKn));
     }
 
-    /// <summary>Таблицы 9 и 10: жёсткости схемы и жёсткость каждого КЭ; результат применяется к <paramref name="data"/>.</summary>
-    static Dictionary<int, int> ReadStiffnessTables(object liraApp, object document, LiraSchemaData data, List<string> diag)
+    /// <summary>Таблицы 9 и 10: жёсткости схемы и жёсткость каждого КЭ, единицы характеристик материалов; результат
+    /// применяется к <paramref name="data"/>.</summary>
+    static Dictionary<int, int> ReadStiffnessTables(object liraApp, object document, LiraSchemaData data, List<string> diag,
+        double tonToKn)
     {
         dynamic doc = document;
         var byElement = new Dictionary<int, int>();
         object[,]? stiffRaw = TryReadTable((object)doc.AllTables.CreateNewItem(kStiffnessesTable), diag, "Stiffnesses");
         if (stiffRaw == null) return byElement;
         ParseStiffnesses(stiffRaw, SectionUnitM(liraApp), data);
+        data.Units = MaterialUnits(liraApp, tonToKn);
 
         object[,]? elemRaw = TryReadTable((object)doc.AllTables.CreateNewItem(kElementsStiffnessTable), diag, "ElemStiffness");
         if (elemRaw != null) ParseElementStiffnesses(elemRaw, byElement);
@@ -222,6 +227,19 @@ static class LiraApiSchemaReader
         dynamic lira = liraApp;
         try { return LiraApiUnits.LengthToM((int)lira.MeasurementUnits.Geometry, 1.0); }
         catch (Exception) { return 1.0; }
+    }
+
+    /// <summary>Единицы характеристик материалов (MaterialProperties1/2: E, Ro, численные жёсткости); не читаются —
+    /// т и м.</summary>
+    static LiraUnits MaterialUnits(object liraApp, double tonToKn)
+    {
+        dynamic lira = liraApp;
+        try
+        {
+            return LiraUnits.FromCodes((int)lira.MeasurementUnits.MaterialProperties1,
+                (int)lira.MeasurementUnits.MaterialProperties2, tonToKn);
+        }
+        catch (Exception) { return LiraUnits.Default(tonToKn); }
     }
 
     /// <summary>Единица размеров сечений документа в метрах (LiraUnitsGeometryEnum);

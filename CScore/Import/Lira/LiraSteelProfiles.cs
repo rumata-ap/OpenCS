@@ -25,8 +25,12 @@ public static class LiraSteelProfiles
     static readonly Regex ShapePattern = new(@"(?<![A-Za-z])Shape\s*=\s*\|([^|]*)\|", RegexOptions.CultureInvariant);
     static readonly Regex SteelPattern = new(@"(?<![A-Za-z])Steel\s*=\s*\|([^|]*)\|", RegexOptions.CultureInvariant);
 
-    /// <summary>Жёсткость — стальной профиль сортамента ЛИРЫ.</summary>
-    public static bool IsSteel(LiraStiffnessRecord stiffness) => stiffness.KindCode == SteelKindCode;
+    /// <summary>
+    /// Жёсткость — стальной профиль сортамента ЛИРЫ: вид 1018 или строка со ссылкой на сортамент (у швеллера
+    /// «Мирной» вид 1003).
+    /// </summary>
+    public static bool IsSteel(LiraStiffnessRecord stiffness) =>
+        stiffness.KindCode == SteelKindCode || SteelRef(stiffness.Params) != null;
 
     /// <summary>Ссылка на сортамент из строки жёсткости; null — вида, файла или имени профиля нет.</summary>
     public static LiraSteelRef? SteelRef(string stiffnessParams)
