@@ -565,7 +565,9 @@ public class Fem3DVM : ViewModelBase
             !_diagramElementLoads.Any(l => ids.Contains(l.LoadCaseId))) return null;
         _loadMesh ??= new CScore.Fem.Loads.FemLoadMeshContext(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId),
             _db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId)?.MemberGroups.ToList(),
-            Services.FemSelfWeightSourceFactory.Create(_db, _schemaId));
+            Services.FemSelfWeightSourceFactory.Create(_db, _schemaId),
+            _db.GetFemMembers(_schemaId).GroupBy(m => m.ElemTag, StringComparer.Ordinal)
+               .ToDictionary(g => g.Key, g => g.First().RotationDeg, StringComparer.Ordinal));
         return CScore.Fem.Loads.FemElementLoadGlyphs.Build(terms, _diagramElementLoads, _loadMesh);
     }
 

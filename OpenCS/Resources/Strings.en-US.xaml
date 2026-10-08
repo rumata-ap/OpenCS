@@ -1013,6 +1013,8 @@
    <system:String x:Key="ScadBoundaryRefresh">Read boundary conditions from SCAD</system:String>
    <system:String x:Key="ScadBoundaryReading">Reading SCAD boundary conditions…</system:String>
    <system:String x:Key="ScadBoundaryNoSpr">Boundary conditions of schema “{0}” were not read: no .SPR file or SCADAPIX.dll.</system:String>
+   <system:String x:Key="ScadRodAxesUpdated">SCAD bar local axes: section rotation set for {0} bars (axes assigned in .SPR: {1}).</system:String>
+   <system:String x:Key="LiraBarAxesDefault">LIRA bar axes are assumed by default (Z1 up in the vertical plane): section rotation was not read from the schema; check rotated bars.</system:String>
    <system:String x:Key="ScadBoundaryMoreDiagnostics">… and {0} more boundary condition remarks.</system:String>
    <system:String x:Key="ScadBoundaryAnalysesInvalidated">Schema boundary conditions changed — analysis results reset: {0}.</system:String>
    <system:String x:Key="LiraSupportsImported">LIRA node supports transferred: {0}.</system:String>

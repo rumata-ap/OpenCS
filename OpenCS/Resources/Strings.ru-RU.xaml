@@ -1013,6 +1013,8 @@
    <system:String x:Key="ScadBoundaryRefresh">Дочитать граничные условия из SCAD</system:String>
    <system:String x:Key="ScadBoundaryReading">Чтение граничных условий SCAD…</system:String>
    <system:String x:Key="ScadBoundaryNoSpr">Граничные условия схемы «{0}» не дочитаны: нет файла .SPR или SCADAPIX.dll.</system:String>
+   <system:String x:Key="ScadRodAxesUpdated">Местные оси стержней SCAD: поворот сечения задан у {0} стержней (заданных осей в .SPR: {1}).</system:String>
+   <system:String x:Key="LiraBarAxesDefault">Оси стержней ЛИРЫ приняты по умолчанию (Z1 — вверх в вертикальной плоскости): поворот сечения из схемы не прочитан, проверьте развёрнутые стержни.</system:String>
    <system:String x:Key="ScadBoundaryMoreDiagnostics">… и ещё замечаний по граничным условиям: {0}.</system:String>
    <system:String x:Key="ScadBoundaryAnalysesInvalidated">Граничные условия схемы изменились — результаты постановок сброшены: {0}.</system:String>
    <system:String x:Key="LiraSupportsImported">Перенесены закрепления узлов ЛИРЫ: {0}.</system:String>

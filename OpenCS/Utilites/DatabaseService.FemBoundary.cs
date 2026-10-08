@@ -239,6 +239,43 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>
+      /// Заменяет повороты сечения импортированных стержней схемы (оси программы-источника, перечитанные из .SPR): КЭ из
+      /// словаря получают свой угол, остальные импортные — «оси не прочитаны».
+      /// </summary>
+      /// <returns>Число КЭ, получивших угол.</returns>
+      public int ReplaceFemElementBeamRotations(int schemaId, IReadOnlyDictionary<string, double> rotationByElemTag)
+      {
+         using var tx = _connection.BeginTransaction();
+         using (var clear = _connection.CreateCommand())
+         {
+            clear.CommandText = "UPDATE fem_elements SET beam_rotation_deg=NULL WHERE schema_id=@sid AND origin=@origin";
+            clear.Parameters.AddWithValue("@sid", schemaId);
+            clear.Parameters.AddWithValue("@origin", FemMember.MeshSourceImported);
+            clear.ExecuteNonQuery();
+         }
+         int updated = 0;
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               UPDATE fem_elements SET beam_rotation_deg=@deg
+               WHERE schema_id=@sid AND origin=@origin AND elem_type='beam' AND elem_tag=@tag
+               """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            cmd.Parameters.AddWithValue("@origin", FemMember.MeshSourceImported);
+            var deg = cmd.Parameters.Add("@deg", SqliteType.Real);
+            var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+            foreach (var (elemTag, value) in rotationByElemTag)
+            {
+               deg.Value = value;
+               tag.Value = elemTag;
+               updated += cmd.ExecuteNonQuery();
+            }
+         }
+         tx.Commit();
+         return updated;
+      }
+
       /// <summary>Заменяет освобождения и C1 импортированных КЭ схемы (внутри транзакции вызывающего).</summary>
       int ReplaceFemElementBoundaryPropsCore(int schemaId, IReadOnlyDictionary<string, FemElementBoundaryProps> props)
       {
@@ -275,9 +312,10 @@ namespace OpenCS.Utilites
          return updated;
       }
 
-      /// <summary>Параметры @ri, @rj, @c1 — ГУ КЭ (v78).</summary>
+      /// <summary>Параметры @ri, @rj, @c1 — ГУ КЭ (v78), @brd — поворот сечения стержня (v79).</summary>
       static void AddFemElementBoundaryParameters(SqliteCommand cmd, FemElement element)
       {
+         cmd.Parameters.AddWithValue("@brd", (object?)element.BeamRotationDeg ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@ri", (object?)element.ReleaseI ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@rj", (object?)element.ReleaseJ ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@c1", (object?)element.FoundationC1 ?? DBNull.Value);

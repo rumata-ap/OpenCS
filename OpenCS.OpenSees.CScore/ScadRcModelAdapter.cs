@@ -215,6 +215,7 @@ public static class ScadRcModelAdapter
         var am = data.AnalysisModel!;
         var inModel = model.Shells.Select(x => x.Id).Concat(model.Beams.Select(x => x.Id)).ToHashSet();
         string T(int id) => id.ToString(CultureInfo.InvariantCulture);
+        var rotations = ScadSchemaConverter.BeamRotations(data);
         var elements = data.Elements.Where(e => inModel.Contains(e.Id)).Select(e =>
         {
             bool shell = ScadElementKinds.Classify(e.TypeCode, e.NodeIds.Length) == ScadElementKind.Shell;
@@ -222,6 +223,8 @@ public static class ScadRcModelAdapter
             {
                 ElemTag = T(e.Id), ElemType = shell ? "shell" : "beam", NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                 StiffnessNum = e.StiffnessId, ThicknessM = shell ? stiff.GetValueOrDefault(e.StiffnessId)?.ThicknessM : null,
+                Origin = FemMember.MeshSourceImported,
+                BeamRotationDeg = shell ? null : rotations.TryGetValue(e.Id, out double r) ? r : null,
             };
         }).ToList();
         var meshNodes = data.Nodes.Select(n => new FemMeshNode { NodeTag = T(n.Id), X = n.X, Y = n.Y, Z = n.Z }).ToList();
@@ -232,26 +235,13 @@ public static class ScadRcModelAdapter
             [], [], [], () => --nextId);
         report.AddRange(transfer.Report.Skip(1));
 
-        // Оси Y1, Z1 стержней модели (ориентация SCAD) — для местных нагрузок по Y1/Z1.
-        var nodeById = model.Nodes.ToDictionary(n => n.Id);
-        var barAxes = new Dictionary<string, (double[] Y, double[] Z)>(StringComparer.Ordinal);
-        foreach (var b in model.Beams)
-        {
-            var (a, c) = (nodeById[b.NodeI], nodeById[b.NodeJ]);
-            double[] x = [c.X - a.X, c.Y - a.Y, c.Z - a.Z];
-            double l = Math.Sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);
-            x = [x[0] / l, x[1] / l, x[2] / l];
-            var y = b.RefVec!;
-            barAxes[T(b.Id)] = (y, [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]);
-        }
-
         var cases = new List<RcLoadCase>();
         var diagnostics = new List<FemValidationDiagnostic>();
         foreach (var lc in am.LoadCases)
         {
             var target = transfer.LoadCases.Single(c => c.SourceLoadNum == lc.Num);
             var forces = new Dictionary<string, double[]>(StringComparer.Ordinal);
-            foreach (var load in transfer.ElementLoads.Where(l => l.LoadCaseId == target.Id).SelectMany(l => GlobalBarLoads(l, barAxes)))
+            foreach (var load in transfer.ElementLoads.Where(l => l.LoadCaseId == target.Id))
                 FemElementLoadNodalizer.Accumulate(load, mesh, 1.0, forces, diagnostics);
             foreach (var p in transfer.MeshNodeLoads.Where(l => l.LoadCaseId == target.Id))
             {
@@ -265,37 +255,6 @@ public static class ScadRcModelAdapter
         }
         foreach (var d in diagnostics) if (!report.Contains(d.Message)) report.Add(d.Message);
         return cases;
-    }
-
-    /// <summary>
-    /// Местная нагрузка по Y1/Z1 на стержни → глобальные составляющие по осям SCAD каждого стержня (нодализатор
-    /// местных осей y/z стержня не знает). Прочие нагрузки — без изменений.
-    /// </summary>
-    static IEnumerable<FemElementLoad> GlobalBarLoads(FemElementLoad load,
-        IReadOnlyDictionary<string, (double[] Y, double[] Z)> barAxes)
-    {
-        if (!load.IsLocal || load.AxisIndex is not (1 or 2) || load.TargetTags.Any(t => !barAxes.ContainsKey(t))
-            || load.LoadKind is not (FemElementLoadKinds.Uniform or FemElementLoadKinds.Point) || load.Values.Count == 0)
-        {
-            yield return load;
-            yield break;
-        }
-        foreach (string tag in load.TargetTags)
-        {
-            var dir = load.AxisIndex == 1 ? barAxes[tag].Y : barAxes[tag].Z;
-            for (int c = 0; c < 3; c++)
-            {
-                if (Math.Abs(dir[c]) < 1e-12) continue;
-                var g = new FemElementLoad
-                {
-                    LoadCaseId = load.LoadCaseId, Origin = load.Origin, TargetKind = load.TargetKind, LoadKind = load.LoadKind,
-                    CoordinateSystem = "global", Axis = "xyz"[c].ToString(),
-                };
-                g.SetTargetTags([tag]);
-                g.SetValues(load.Values.Select((v, i) => i == 0 ? v * dir[c] : v));
-                yield return g;
-            }
-        }
     }
 
     /// <summary>Упругое сечение стержня, площадь и удельный вес (Н/м³; null — по RO жёсткости).</summary>

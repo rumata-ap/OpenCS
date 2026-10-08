@@ -6,7 +6,7 @@ namespace OpenCS.Services.Scad;
 
 /// <summary>Что читать из проекта SCAD помимо схемы (узлы, КЭ, жёсткости, группы, блоки).</summary>
 internal sealed record ScadReadOptions(bool OutputAxes = true, bool ConcreteGroups = true, bool AssignedRebar = true,
-    bool SteelGroups = true, bool AnalysisModel = true);
+    bool SteelGroups = true, bool AnalysisModel = true, bool RodAxes = true);
 
 /// <summary>
 /// Итог чтения схемы: данные и сведения для предупреждений (текст — в потоке UI по ресурсам).
@@ -112,11 +112,12 @@ internal static unsafe class ScadApiReader
             using (ScadApiTrace.Step("Заданное армирование")) data.AssignedRebar = ReadAssignedRebar(s);
         if (options.AnalysisModel)
             using (ScadApiTrace.Step("Опоры, пружины, жёсткие тела, шарниры, нагрузки"))
-                data.AnalysisModel = ReadAnalysisModel(s, data, rigidBodies, springs, skipped.GetValueOrDefault(ScadLinkType));
+                data.AnalysisModel = ReadAnalysisModel(s, data, rigidBodies, springs, skipped.GetValueOrDefault(ScadLinkType),
+                    options.RodAxes);
         int degenerate = 0;
         if (options.OutputAxes)
             using (ScadApiTrace.Step("Оси выдачи усилий")) degenerate = ReadOutputAxes(s, data, coords, lu);
-        if (options.OutputAxes)
+        if (options.RodAxes)
             using (ScadApiTrace.Step("Местные оси стержней")) ReadRodAxes(s, data, lu);
         progress?.Report(1);
 
@@ -144,7 +145,7 @@ internal static unsafe class ScadApiReader
     /// </summary>
     static ScadAnalysisModel ReadAnalysisModel(ScadApiSession s, ScadSchemaData data,
         IReadOnlyList<(int Elem, int Stiffness, int[] Nodes)> rigidBodies,
-        IReadOnlyList<(int Elem, int Stiffness, int Node)> springElements, int linkElements)
+        IReadOnlyList<(int Elem, int Stiffness, int Node)> springElements, int linkElements, bool rodAxes)
     {
         var n = s.Native;
         nint h = s.Handle;
@@ -211,7 +212,7 @@ internal static unsafe class ScadApiReader
             Bounds = bounds, RigidBodies = bodies, LoadCases = loads, LengthUnitM = data.LengthUnitM,
             ForceUnitN = force.Coef > 0 ? 9810.0 / force.Coef : 1,
             SchemaType = schemaType, Springs = springs, Joints = joints, NotTransferred = notTransferred,
-            HasBoundaryV2 = true, Beds = beds, HasBeds = true,
+            HasBoundaryV2 = true, Beds = beds, HasBeds = true, HasRodAxes = rodAxes,
         };
     }
 

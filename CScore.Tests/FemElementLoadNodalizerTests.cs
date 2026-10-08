@@ -134,13 +134,53 @@ public sealed class FemElementLoadNodalizerTests
     }
 
     [Fact]
-    public void BarLocalTransverse_IsSkippedNotGuessed()
+    public void BarLocalTransverse_ImportedWithoutAxes_IsSkippedNotGuessed()
     {
         var diag = new List<FemValidationDiagnostic>();
-        var mesh = new FemLoadMeshContext([N(1, 0, 0), N(2, 4, 0)], [E("1", "beam", [1, 2])]);
+        var bar = E("1", "beam", [1, 2]);
+        bar.Origin = FemMember.MeshSourceImported;
+        var mesh = new FemLoadMeshContext([N(1, 0, 0), N(2, 4, 0)], [bar]);
         var f = Run(Load("uniform", [-10], cs: "local", axis: "y"), mesh, diag);
         Assert.Empty(f);
         Assert.Contains(diag, d => d.Code == "element_load_skipped" && d.Message.Contains("местные оси"));
+    }
+
+    [Theory]
+    [InlineData("y", 0, 0, 0, 1)]     // горизонтальный стержень вдоль X: y — глобальная Z
+    [InlineData("z", 0, 0, -1, 0)]    // z = x × y = −Y
+    [InlineData("y", 90, 0, -1, 0)]   // поворот 90°: y → прежняя z
+    [InlineData("z", 90, 0, 0, -1)]
+    public void BarLocalTransverse_FollowsConventionAndRotation(string axis, double rotation, double ex, double ey, double ez)
+    {
+        var bar = E("1", "beam", [1, 2]);
+        bar.Origin = FemMember.MeshSourceImported;
+        bar.BeamRotationDeg = rotation;
+        var mesh = new FemLoadMeshContext([N(1, 0, 0), N(2, 4, 0)], [bar]);
+        var local = Run(Load("uniform", [-10], cs: "local", axis: axis), mesh);
+        var dir = new[] { ex, ey, ez };
+        for (int c = 0; c < 3; c++)
+        {
+            if (Math.Abs(dir[c]) < 0.5) continue;
+            var global = Run(Load("uniform", [-10 * dir[c]], axis: "xyz"[c].ToString()), mesh);
+            foreach (var tag in new[] { "1", "2" })
+                for (int k = 0; k < 6; k++) Assert.Equal(global[tag][k], local[tag][k], 9);
+        }
+    }
+
+    [Fact]
+    public void BarLocalTransverse_OwnSchema_UsesMemberRotation()
+    {
+        // Наклонный стержень своей схемы: поворот КонЭ 30° — y по конвенции с поворотом.
+        var bar = E("1", "beam", [1, 2], member: "M1");
+        var mesh = new FemLoadMeshContext([N(1, 0, 0), N(2, 3, 1, 2)], [bar], null, null,
+            new Dictionary<string, double> { ["M1"] = 30 });
+        Assert.Equal(30, mesh.BarRotationDeg(bar));
+        var f = Run(Load("point", [1000, 1.0], cs: "local", axis: "y"), mesh);
+        var (_, y, _) = BeamLocalAxisConvention.Frame(new(0, 0, 0), new(3, 1, 2), 30);
+        double fx = f.Values.Sum(v => v[0]), fy = f.Values.Sum(v => v[1]), fz = f.Values.Sum(v => v[2]);
+        Assert.Equal(1000 * y.X, fx, 9);
+        Assert.Equal(1000 * y.Y, fy, 9);
+        Assert.Equal(1000 * y.Z, fz, 9);
     }
 
     [Fact]
@@ -226,12 +266,36 @@ public sealed class FemElementLoadNodalizerTests
 
         var set = FemElementLoadGlyphs.Build([(lc, 2)], [load], mesh, maxArrowsPerLoad: 4);
         var pressure = set.Arrows.Where(a => a.Magnitude == 6000).ToList();
-        Assert.Equal(4, pressure.Count);                       // шаг 3: КЭ 0, 3, 6, 9
+        Assert.Equal(4, pressure.Count);                       // ячейки ≈ 2,5 м вдоль полосы
         Assert.All(pressure, a => Assert.Equal(-1, a.Direction.Z, 12));
         Assert.Equal(1, pressure[0].SizeM, 9);
         Assert.Equal(2, set.Labels.Count);                     // с. в. и давление
         Assert.Contains(set.Labels, l => l.Kind == "self_weight" && Math.Abs(l.Magnitude - 2 * 5000) < 1e-9);
         Assert.Equal(10, set.LoadedElementTags.Count);
+    }
+
+    [Fact]
+    public void Glyphs_PruningIsUniformOverPlate()
+    {
+        // Плита 20 × 20 КЭ 1 × 1 м, нумерация строками; не больше 100 стрелок — поровну по четвертям.
+        const int n = 20;
+        var nodes = new List<FemMeshNode>();
+        for (int j = 0; j <= n; j++)
+            for (int i = 0; i <= n; i++) nodes.Add(N(j * (n + 1) + i + 1, i, j));
+        int Tag(int i, int j) => j * (n + 1) + i + 1;
+        var elements = new List<FemElement>();
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++)
+                elements.Add(E((1000 + j * n + i).ToString(), "shell", [Tag(i, j), Tag(i + 1, j), Tag(i, j + 1), Tag(i + 1, j + 1)], 0.2));
+        var mesh = new FemLoadMeshContext(nodes, elements, null, null);
+        var load = Load("uniform", [-1000], target: string.Join(",", elements.Select(e => e.ElemTag)));
+
+        var set = FemElementLoadGlyphs.Build([(new FemLoadCase { Id = 1 }, 1)], [load], mesh, maxArrowsPerLoad: 100);
+        Assert.InRange(set.Arrows.Count, 60, 100);
+        var quarters = set.Arrows.GroupBy(a => (a.Point.X < n / 2.0, a.Point.Y < n / 2.0)).Select(g => g.Count()).ToList();
+        Assert.Equal(4, quarters.Count);
+        Assert.True(quarters.Max() - quarters.Min() <= quarters.Max() / 4, string.Join(", ", quarters));
+        Assert.Equal(n * n, set.LoadedElementTags.Count);
     }
 
     static double Total(FemElementLoad load, FemLoadMeshContext mesh) => Run(load, mesh).Values.Sum(v => v[2]);

@@ -106,6 +106,12 @@ public sealed class ScadAnalysisModel
     /// <summary>Вложение прочитано с группами упругого основания (<see cref="Beds"/>); false — их надо дочитать из .SPR.</summary>
     public bool HasBeds { get; init; }
 
+    /// <summary>
+    /// Схема прочитана вместе с местными осями стержней (ApiGetSystemCoordElem, v79): поворот сечения импортных стержней
+    /// (<see cref="Fem.FemElement.BeamRotationDeg"/>) задан по ним; false — оси надо дочитать из .SPR.
+    /// </summary>
+    public bool HasRodAxes { get; init; }
+
     /// <summary>Загружения по возрастанию номера.</summary>
     public List<ScadLoadCase> LoadCases { get; init; } = [];
 

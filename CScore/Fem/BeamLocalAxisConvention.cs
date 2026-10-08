@@ -43,6 +43,19 @@ public static class BeamLocalAxisConvention
         return (x, RotateAroundAxis(y, x, angleRad), RotateAroundAxis(z, x, angleRad));
     }
 
+    /// <summary>
+    /// Угол поворота сечения, град (−180…180], при котором местная Y конвенции стержня I→J совпадает с проекцией
+    /// <paramref name="localY"/> на плоскость сечения (оси программы-источника). Null — вектор вдоль оси стержня.
+    /// </summary>
+    public static double? RotationDeg(PlanarVector3 i, PlanarVector3 j, PlanarVector3 localY)
+    {
+        var (x, y0, z0) = Frame(i, j);
+        var t = localY - x * localY.Dot(x);
+        if (!double.IsFinite(t.Length) || t.Length < 1e-9) return null;
+        double deg = Math.Atan2(t.Dot(z0), t.Dot(y0)) * 180.0 / Math.PI;
+        return deg <= -180 ? deg + 360 : deg;
+    }
+
     static PlanarVector3 Normalize(PlanarVector3 v)
     {
         double length = v.Length;

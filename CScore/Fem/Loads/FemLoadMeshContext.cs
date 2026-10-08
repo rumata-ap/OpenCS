@@ -24,10 +24,14 @@ public sealed class FemLoadMeshContext
     public IReadOnlyDictionary<int, FemMemberGroup> GroupsById { get; }
     public IReadOnlyList<FemElement> Elements { get; }
     public IFemSelfWeightSource? SelfWeight { get; }
+    /// <summary>Поворот сечения конструктивных элементов своей схемы, град, по тегу КонЭ.</summary>
+    public IReadOnlyDictionary<string, double> MemberRotationDeg { get; }
 
     public FemLoadMeshContext(IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemElement> elements,
-        IReadOnlyList<FemMemberGroup>? groups = null, IFemSelfWeightSource? selfWeight = null)
+        IReadOnlyList<FemMemberGroup>? groups = null, IFemSelfWeightSource? selfWeight = null,
+        IReadOnlyDictionary<string, double>? memberRotationDeg = null)
     {
+        MemberRotationDeg = memberRotationDeg ?? new Dictionary<string, double>(StringComparer.Ordinal);
         var nodesByTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
         foreach (var n in nodes) nodesByTag.TryAdd(n.NodeTag, n);
         NodesByTag = nodesByTag;
@@ -41,6 +45,16 @@ public sealed class FemLoadMeshContext
         GroupsById = (groups ?? []).GroupBy(g => g.Id).ToDictionary(g => g.Key, g => g.First());
         SelfWeight = selfWeight;
     }
+
+    /// <summary>
+    /// Поворот сечения стержня от осей <see cref="BeamLocalAxisConvention"/>, град: свой у КЭ
+    /// (<see cref="FemElement.BeamRotationDeg"/>, импорт), иначе — у конструктивного элемента своей схемы (нет — 0).
+    /// Null — импортный КЭ, оси которого не прочитаны.
+    /// </summary>
+    public double? BarRotationDeg(FemElement element) =>
+        element.BeamRotationDeg
+        ?? (element.Origin == FemMember.MeshSourceImported ? null
+            : element.SourceMemberTag is { } tag && MemberRotationDeg.TryGetValue(tag, out double r) ? r : 0);
 
     /// <summary>Геометрия КЭ; null — у КЭ неизвестный узел или не 2–4 узла.</summary>
     public FemElementGeometry? Geometry(FemElement element)

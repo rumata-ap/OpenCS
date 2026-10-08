@@ -30,7 +30,7 @@ public static class MeshBeamSegmentAdapter
             var nodePoints=resolved.Select(p=>p.Item2).ToList();
             if(!chosen){if(nodePoints.Count>=2)environment.Add(new(element.ElemTag,element.ElemType=="shell"?EnvironmentElementKind.Shell:EnvironmentElementKind.Beam,nodePoints));continue;}
             if(element.ElemType!="beam"||nodePoints.Count!=2){diagnostics.Add(new("chain_adapter_skipped",$"Элемент {element.ElemTag} не является двухузловым стержнем и в анализе не участвует.",false,[element.ElemTag]));continue;}
-            var beta=element.SourceMemberTag is { } memberTag&&memberByTag.TryGetValue(memberTag,out var member)?(member.RotationDeg,BetaSource.Member):(0d,BetaSource.Absent);
+            var beta=element.BeamRotationDeg is { } own?(own,BetaSource.Member):element.SourceMemberTag is { } memberTag&&memberByTag.TryGetValue(memberTag,out var member)?(member.RotationDeg,BetaSource.Member):(0d,BetaSource.Absent);
             segments.Add(new(element.ElemTag,nodePoints[0],nodePoints[1],beta.Item1,beta.Item2,element.SourceMemberTag));
         }
         return new(segments,environment,Preferred(segments,memberByTag,points),diagnostics);

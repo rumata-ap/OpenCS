@@ -260,6 +260,7 @@ public static class FemRcModelAdapter
         var noSection = new List<string>();
         var noStirrups = new List<string>();
         var degenerate = new List<string>();
+        var noAxes = new List<string>();
         int released = 0, cscore = 0;
         foreach (var e in input.MeshElements.Where(e => e.ElemType == "beam"))
         {
@@ -269,6 +270,7 @@ public static class FemRcModelAdapter
                 badElements.Add(e.ElemTag);
                 continue;
             }
+            if (e.BeamRotationDeg == null && e.Origin == FemMember.MeshSourceImported) noAxes.Add(e.ElemTag);
             PlanarVector3 refVec;
             try { refVec = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], Rotation(e, members)).Y; }
             catch (InvalidOperationException) { degenerate.Add(e.ElemTag); continue; }
@@ -301,14 +303,17 @@ public static class FemRcModelAdapter
         }
         Add(diag, "beam_no_section", "Стержни без сечения CScore и без упругих свойств жёсткости", noSection, true);
         Add(diag, "beam_degenerate", "Стержни нулевой длины", degenerate, true);
+        Add(diag, "beam_axes_unknown", "Стержни импорта без прочитанных местных осей (поворот сечения 0; дочитайте граничные условия)",
+            noAxes, false);
         Add(diag, "beam_no_stirrups", "Стержни с сечением CScore без хомутов: сдвиг упругий", noStirrups, false);
         if (cscore > 0) Info(diag, "beam_cscore", $"Стержней с сечением CScore: {cscore}.");
         if (released > 0) Info(diag, "beam_releases", $"Стержней с шарнирами: {released}.");
     }
 
-    /// <summary>Поворот сечения стержня вокруг оси, град: у КЭ своей схемы — поворот конструктивного элемента.</summary>
+    /// <summary>Поворот сечения стержня вокруг оси, град: у импортного КЭ — свой (<see cref="FemElement.BeamRotationDeg"/>),
+    /// у КЭ своей схемы — поворот конструктивного элемента; не задан — 0.</summary>
     static double Rotation(FemElement e, IReadOnlyDictionary<string, FemMember> members) =>
-        e.SourceMemberTag is { } tag && members.TryGetValue(tag, out var m) ? m.RotationDeg : 0;
+        e.BeamRotationDeg ?? (e.SourceMemberTag is { } tag && members.TryGetValue(tag, out var m) ? m.RotationDeg : 0);
 
     // ---------------------------------------------------------------- нагрузки
 
@@ -327,7 +332,8 @@ public static class FemRcModelAdapter
         var beamById = model.Beams.ToDictionary(b => b.Id);
         var releasedTags = model.Beams.Where(b => b.ReleaseI != 0 || b.ReleaseJ != 0)
             .Select(b => b.Id.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
-        var mesh = new FemLoadMeshContext(input.MeshNodes, input.MeshElements, input.Groups, input.Properties);
+        var mesh = new FemLoadMeshContext(input.MeshNodes, input.MeshElements, input.Groups, input.Properties,
+            members.ToDictionary(kv => kv.Key, kv => kv.Value.RotationDeg, StringComparer.Ordinal));
         var meshNodeBySource = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var n in input.MeshNodes)
             if (n.SourceNodeTag is { } s) meshNodeBySource.TryAdd(s, n.NodeTag);

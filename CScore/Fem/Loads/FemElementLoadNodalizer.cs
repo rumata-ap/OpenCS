@@ -80,8 +80,8 @@ public static class FemElementLoadNodalizer
             return null;
         }
 
-        if (Direction(load, g) is not { } dir) return g.IsBar && load.IsLocal
-            ? "местные оси y/z стержня не поддерживаются" : "неизвестное направление";
+        if (Direction(load, g, mesh.BarRotationDeg(e)) is not { } dir) return g.IsBar && load.IsLocal
+            ? "местные оси стержня импорта не прочитаны (дочитайте граничные условия)" : "неизвестное направление";
 
         switch (load.LoadKind)
         {
@@ -126,8 +126,11 @@ public static class FemElementLoadNodalizer
         }
     }
 
-    /// <summary>Направление нагрузки (единичный вектор); null — не определено.</summary>
-    internal static PlanarVector3? Direction(FemElementLoad load, FemElementGeometry g)
+    /// <summary>
+    /// Направление нагрузки (единичный вектор); null — не определено. Местные y/z стержня — оси
+    /// <see cref="BeamLocalAxisConvention"/> с поворотом <paramref name="barRotationDeg"/> (null — оси неизвестны).
+    /// </summary>
+    internal static PlanarVector3? Direction(FemElementLoad load, FemElementGeometry g, double? barRotationDeg)
     {
         int axis = load.AxisIndex;
         if (axis < 0) return null;
@@ -138,8 +141,11 @@ public static class FemElementLoadNodalizer
             var (x, y, z) = g.ShellFrame();
             return axis switch { 0 => x, 1 => y, _ => z };
         }
-        // Стержень: местная x — по оси I → J однозначно; y/z зависят от конвенции программы-источника.
-        return axis == 0 ? (g.Points[1] - g.Points[0]).Normalize() : null;
+        // Стержень: местная x — по оси I → J однозначно; y/z — по конвенции с поворотом сечения.
+        if (axis == 0) return (g.Points[1] - g.Points[0]).Normalize();
+        if (barRotationDeg is not { } rotation || g.Length < 1e-12) return null;
+        var (_, by, bz) = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], rotation);
+        return axis == 1 ? by : bz;
     }
 
     /// <summary>Равномерная интенсивность <paramref name="q"/> (Па или Н/м) по КЭ.</summary>

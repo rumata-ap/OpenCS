@@ -2,7 +2,8 @@ using CScore.Planar;
 
 namespace CScore.Submodel;
 
-/// <summary>Источник β-угла отрезка. Absent означает, что источника нет —
+/// <summary>Источник β-угла отрезка. Member — угол известен: поворот конструктивного элемента или импортного КЭ
+/// (<see cref="Fem.FemElement.BeamRotationDeg"/>). Absent означает, что источника нет —
 /// β принят нулевым по конвенции локальных осей, а не прочитан из модели.</summary>
 public enum BetaSource
 {

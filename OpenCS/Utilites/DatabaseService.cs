@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 78;
+      const int CurrentSchemaVersion = 79;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -98,6 +98,7 @@ namespace OpenCS.Utilites
          [75] = MigrateV76,
          [76] = MigrateV77,
          [77] = MigrateV78,
+         [78] = MigrateV79,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -580,7 +581,8 @@ namespace OpenCS.Utilites
                 origin              TEXT NOT NULL DEFAULT 'generated',
                 release_i           INTEGER,
                 release_j           INTEGER,
-                foundation_c1       REAL
+                foundation_c1       REAL,
+                beam_rotation_deg   REAL
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1725,6 +1727,13 @@ namespace OpenCS.Utilites
          CREATE INDEX IF NOT EXISTS idx_force_items_set_elem ON force_items(set_id, source_elem_num);
          CREATE INDEX IF NOT EXISTS idx_force_shell_items_set_elem ON force_shell_items(set_id, source_elem_num);
          """);
+
+      /// <summary>Миграция v79: поворот сечения импортного стержня от осей конвенции OpenCS (оси SCAD/ЛИРЫ).</summary>
+      void MigrateV79()
+      {
+         if (!ColumnExists("fem_elements", "beam_rotation_deg"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN beam_rotation_deg REAL");
+      }
 
       /// <summary>Миграция v78: граничные условия сеточного уровня — закрепления узлов сетки, пружины-«земля», жёсткие
       /// тела; у КЭ — освобождения концов стержня и коэффициент постели C1 пластины.</summary>
@@ -6081,9 +6090,10 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
                                              cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                              section_tag, material_tag, thickness_m, reinforcement_type_ids,
-                                             local_axis_angle_deg, stiffness_num, origin, release_i, release_j, foundation_c1)
+                                             local_axis_angle_deg, stiffness_num, origin, release_i, release_j, foundation_c1,
+                                             beam_rotation_deg)
                   VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk, @rti, @laa, @snum, @origin,
-                          @ri, @rj, @c1)
+                          @ri, @rj, @c1, @brd)
                """;
                foreach (var el in meshElements)
                {
@@ -6321,7 +6331,7 @@ namespace OpenCS.Utilites
          }
          foreach (var element in elements)
          {
-            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,local_axis_angle_deg,stiffness_num,origin,release_i,release_j,foundation_c1) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@laa,@snum,@origin,@ri,@rj,@c1); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin); AddFemElementBoundaryParameters(command, element); command.Parameters.AddWithValue("@snum", (object?)element.StiffnessNum ?? DBNull.Value); command.Parameters.AddWithValue("@laa", (object?)element.LocalAxisAngleDeg ?? DBNull.Value);
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m,reinforcement_type_ids,local_axis_angle_deg,stiffness_num,origin,release_i,release_j,foundation_c1,beam_rotation_deg) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness,@rti,@laa,@snum,@origin,@ri,@rj,@c1,@brd); SELECT last_insert_rowid();"; command.Parameters.AddWithValue("@origin", element.Origin); AddFemElementBoundaryParameters(command, element); command.Parameters.AddWithValue("@snum", (object?)element.StiffnessNum ?? DBNull.Value); command.Parameters.AddWithValue("@laa", (object?)element.LocalAxisAngleDeg ?? DBNull.Value);
             command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); command.Parameters.AddWithValue("@rti", (object?)element.ReinforcementTypeIds ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
          }
       }
@@ -6755,7 +6765,7 @@ namespace OpenCS.Utilites
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
                    material_tag, thickness_m, reinforcement_type_ids, origin, local_axis_angle_deg, stiffness_num,
-                   release_i, release_j, foundation_c1
+                   release_i, release_j, foundation_c1, beam_rotation_deg
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -6785,6 +6795,7 @@ namespace OpenCS.Utilites
                ReleaseI = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
                ReleaseJ = rdr.IsDBNull(17) ? null : rdr.GetInt32(17),
                FoundationC1 = rdr.IsDBNull(18) ? null : rdr.GetDouble(18),
+               BeamRotationDeg = rdr.IsDBNull(19) ? null : rdr.GetDouble(19),
             });
          return result;
       }

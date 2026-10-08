@@ -28,7 +28,7 @@ public sealed record FemElementLoadGlyphSet(IReadOnlyList<FemElementLoadGlyph> A
 /// <summary>
 /// Глифы нагрузок на КЭ загружения или суммы загружений с коэффициентами. Направление и модуль — по виду нагрузки:
 /// равномерная — в центре КЭ, по узлам — среднее значение в центре, сосредоточенная — в точке, с. в. — вниз. Стрелок
-/// одной нагрузки не больше <paramref name="maxArrowsPerLoad"/> (КЭ берутся с равным шагом по списку цели).
+/// одной нагрузки не больше <paramref name="maxArrowsPerLoad"/> (равномерно по пространству: одна на ячейку).
 /// </summary>
 public static class FemElementLoadGlyphs
 {
@@ -52,21 +52,45 @@ public static class FemElementLoadGlyphs
         void AddLoad(FemElementLoad load, IReadOnlyList<FemElement> elements, double factor)
         {
             if (elements.Count == 0) return;
-            int step = Math.Max(1, (int)Math.Ceiling(elements.Count / (double)Math.Max(1, maxArrowsPerLoad)));
-            bool labelled = false;
-            for (int i = 0; i < elements.Count; i++)
+            var glyphs = new List<FemElementLoadGlyph>();
+            foreach (var e in elements)
             {
-                var e = elements[i];
                 if (mesh.Geometry(e) is not { } g) continue;
                 if (Glyph(load, e, g, mesh, factor) is not { } glyph) continue;
                 loaded.Add(e.ElemTag);
-                if (!labelled)
-                {
+                if (glyphs.Count == 0)
                     labels.Add(new FemElementLoadLabel(glyph.Point, glyph.Magnitude, glyph.Unit, load.LoadKind));
-                    labelled = true;
-                }
-                if (i % step == 0) arrows.Add(glyph);
+                glyphs.Add(glyph);
             }
+            arrows.AddRange(Thin(glyphs, Math.Max(1, maxArrowsPerLoad)));
+        }
+    }
+
+    /// <summary>
+    /// Равномерное прореживание по пространству: точки раскладываются по кубическим ячейкам, из ячейки берётся стрелка,
+    /// ближайшая к её центру. Шаг ячейки — от среднего размера КЭ (поверхностная плотность), растёт, пока стрелок
+    /// больше <paramref name="max"/>.
+    /// </summary>
+    static IEnumerable<FemElementLoadGlyph> Thin(List<FemElementLoadGlyph> glyphs, int max)
+    {
+        if (glyphs.Count <= max) return glyphs;
+        double size = glyphs.Average(a => a.SizeM);
+        if (!(size > 0)) size = 1;
+        double h = size * Math.Sqrt(glyphs.Count / (double)max);
+        while (true)
+        {
+            var best = new Dictionary<(long, long, long), (FemElementLoadGlyph Glyph, double D2)>();
+            foreach (var a in glyphs)
+            {
+                var p = a.Point;
+                double fx = p.X / h, fy = p.Y / h, fz = p.Z / h;
+                var key = ((long)Math.Floor(fx), (long)Math.Floor(fy), (long)Math.Floor(fz));
+                double dx = fx - key.Item1 - 0.5, dy = fy - key.Item2 - 0.5, dz = fz - key.Item3 - 0.5;
+                double d2 = dx * dx + dy * dy + dz * dz;
+                if (!best.TryGetValue(key, out var cur) || d2 < cur.D2) best[key] = (a, d2);
+            }
+            if (best.Count <= max) return best.Values.Select(v => v.Glyph);
+            h *= 1.25;
         }
     }
 
@@ -87,7 +111,7 @@ public static class FemElementLoadGlyphs
             if (v.Count < 1 || FemElementLoadNodalizer.SelfWeightIntensity(e, g, mesh.SelfWeight) is not { } q) return null;
             return Make(g.Centroid, new PlanarVector3(0, 0, -1), q * v[0] * factor, unit);
         }
-        if (FemElementLoadNodalizer.Direction(load, g) is not { } dir || v.Count < 1) return null;
+        if (FemElementLoadNodalizer.Direction(load, g, mesh.BarRotationDeg(e)) is not { } dir || v.Count < 1) return null;
         switch (load.LoadKind)
         {
             case FemElementLoadKinds.Uniform:

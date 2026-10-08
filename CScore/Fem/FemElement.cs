@@ -47,6 +47,12 @@ public class FemElement
     /// Null — источник угол не передал (оси выдачи усилий неизвестны).</summary>
     public double? LocalAxisAngleDeg { get; set; }
 
+    /// <summary>Поворот сечения импортного стержня вокруг оси X, град, от осей <see cref="BeamLocalAxisConvention"/>:
+    /// местные оси программы-источника (SCAD — ApiGetSystemCoordElem, ЛИРА — правило по умолчанию). Местная Y — ось
+    /// Iy жёсткости источника. Null — не задан: у КЭ своей схемы поворот берётся у конструктивного элемента
+    /// (<see cref="FemMember.RotationDeg"/>), у импортного — оси не прочитаны.</summary>
+    public double? BeamRotationDeg { get; set; }
+
     /// <summary>Освобождения (шарниры) конца I стержня в местных осях: биты 0–5 — N, Qy, Qz, T, My, Mz (порядок
     /// SCAD X…UZ). Null — жёсткое примыкание. Принадлежит импортному КЭ, перечитывается вместе с ГУ источника.</summary>
     public int? ReleaseI { get; set; }

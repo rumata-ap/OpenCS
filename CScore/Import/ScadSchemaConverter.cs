@@ -50,11 +50,13 @@ public static class ScadSchemaConverter
 
     /// <summary>
     /// Создаёт элементы КЭ-сетки (стержни и оболочки вперемешку) напрямую из данных SCAD.
-    /// Угол оси выдачи усилий (<see cref="ScadSchemaData.PlateAxisAngles"/>) — только у оболочек.
+    /// Угол оси выдачи усилий (<see cref="ScadSchemaData.PlateAxisAngles"/>) — только у оболочек; поворот сечения
+    /// стержня (<see cref="FemElement.BeamRotationDeg"/>) — по местным осям SCAD (<see cref="BeamRotations"/>).
     /// </summary>
     public static FemElement[] ToFemMeshElements(ScadSchemaData data, int schemaId)
     {
         var stiffById = data.Stiffnesses.ToDictionary(s => s.Id);
+        var rotations = BeamRotations(data);
         return data.Elements.Select(e =>
         {
             stiffById.TryGetValue(e.StiffnessId, out var stiff);
@@ -70,9 +72,31 @@ public static class ScadSchemaConverter
                 StiffnessNum = e.StiffnessId > 0 ? e.StiffnessId : null,
                 LocalAxisAngleDeg = type == "shell" && data.PlateAxisAngles.TryGetValue(e.Id, out double a)
                     ? a : null,
+                BeamRotationDeg = type == "beam" && rotations.TryGetValue(e.Id, out double r) ? r : null,
                 Origin       = FemMember.MeshSourceImported,
             };
         }).ToArray();
+    }
+
+    /// <summary>
+    /// Поворот сечения стержней SCAD от осей <see cref="BeamLocalAxisConvention"/>, град, по номеру КЭ: ось Y1 SCAD
+    /// (<see cref="ScadRodAxes.LocalY"/>; без записи в <see cref="ScadSchemaData.RodAxes"/> — ориентация по умолчанию)
+    /// становится местной Y. Стержни нулевой длины и с вырожденной ориентацией пропускаются.
+    /// </summary>
+    public static Dictionary<int, double> BeamRotations(ScadSchemaData data)
+    {
+        var nodes = data.Nodes.GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
+        var result = new Dictionary<int, double>();
+        foreach (var e in data.Elements)
+        {
+            if (ElemType(e) != "beam" || e.NodeIds.Length != 2
+                || !nodes.TryGetValue(e.NodeIds[0], out var a) || !nodes.TryGetValue(e.NodeIds[1], out var b)) continue;
+            var y = ScadRodAxes.LocalY(data.RodAxes.GetValueOrDefault(e.Id), (a.X, a.Y, a.Z), (b.X, b.Y, b.Z));
+            if (y == null) continue;
+            var (pa, pb) = (new Planar.PlanarVector3(a.X, a.Y, a.Z), new Planar.PlanarVector3(b.X, b.Y, b.Z));
+            if (BeamLocalAxisConvention.RotationDeg(pa, pb, new(y[0], y[1], y[2])) is { } deg) result[e.Id] = deg;
+        }
+        return result;
     }
 
     /// <summary>Тип КЭ OpenCS: по коду типа SCAD, для неизвестного типа — по числу узлов.</summary>

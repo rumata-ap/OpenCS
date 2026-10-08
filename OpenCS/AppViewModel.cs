@@ -3096,6 +3096,7 @@ namespace OpenCS
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
             LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
                raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
          }
@@ -3172,6 +3173,7 @@ namespace OpenCS
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
             LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
                raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
          }
@@ -3734,6 +3736,7 @@ namespace OpenCS
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
             int blockCount = raw.ConstructiveBlocks.Count;
             string done = string.Format(Loc.S("ImportLiraSchemaSuccess"),
                raw.Nodes.Count, barCount, shellCount, memberGroups.Length);
@@ -4104,15 +4107,16 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами, шарнирами и основанием, иначе — повторным
-      /// чтением .SPR через SCADAPIX.dll (вложение обновляется, нагрузки заново не переносятся).
+      /// «Дочитать граничные условия»: из вложения SCAD, если оно уже с пружинами, шарнирами, основанием и осями стержней,
+      /// иначе — повторным чтением .SPR через SCADAPIX.dll (вложение и повороты сечений стержней обновляются, нагрузки заново
+      /// не переносятся).
       /// </summary>
       async Task RefreshScadBoundary(CScore.Fem.FemSchema schema)
       {
          if (IsBusy) return;
          bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
          if (editorOpen && !TryLeaveFemSchemaEditor()) return;
-         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true } stored)
+         if (LoadScadAnalysisModel(schema.Id) is { HasBoundaryV2: true, HasBeds: true, HasRodAxes: true } stored)
          {
             TransferScadBoundary(schema, stored, showSummary: true);
             return;
@@ -4132,7 +4136,7 @@ namespace OpenCS
          var cts = BeginBusyWithCancellation(Loc.S("ScadBoundaryReading"));
          try
          {
-            var analysis = await Task.Run(() =>
+            var data = await Task.Run(() =>
             {
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
                try
@@ -4141,12 +4145,13 @@ namespace OpenCS
                   using var session = new Services.Scad.ScadApiSession(native);
                   session.Open(spr);
                   return Services.Scad.ScadApiReader.Read(session, new Services.Scad.ScadReadOptions(OutputAxes: false,
-                     ConcreteGroups: false, AssignedRebar: false, SteelGroups: false), null, cts.Token).Data.AnalysisModel;
+                     ConcreteGroups: false, AssignedRebar: false, SteelGroups: false), null, cts.Token).Data;
                }
                finally { Services.Scad.ScadApiNative.Gate.Release(); }
             }, cts.Token);
             EndBusy();
-            if (analysis == null) return;
+            if (data.AnalysisModel is not { } analysis) return;
+            ApplyScadRodAxes(schema, data);
             SaveScadAnalysisModel(schema.Id, analysis);
             TransferScadBoundary(schema, analysis, showSummary: true);
          }
@@ -4161,6 +4166,19 @@ namespace OpenCS
             EndBusy();
             LogService.Warning(ex.Message);
          }
+      }
+
+      /// <summary>
+      /// Повороты сечений импортных стержней схемы по местным осям SCAD, перечитанным из .SPR (v79). Стержни,
+      /// которых в схеме нет, пропускаются; число обновлённых — в журнал.
+      /// </summary>
+      void ApplyScadRodAxes(CScore.Fem.FemSchema schema, CScore.Import.ScadSchemaData data)
+      {
+         var rotations = CScore.Import.ScadSchemaConverter.BeamRotations(data)
+            .ToDictionary(kv => kv.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), kv => kv.Value,
+               StringComparer.Ordinal);
+         int updated = db.ReplaceFemElementBeamRotations(schema.Id, rotations);
+         LogService.Info(string.Format(Loc.S("ScadRodAxesUpdated"), updated, data.RodAxes.Count));
       }
 
       /// <summary>Сохранить стальные группы SCAD при схеме (вложение <see cref="FemSchemaSourceFileKind.ScadSteelGroups"/>).</summary>
@@ -4288,7 +4306,7 @@ namespace OpenCS
          var cts = BeginBusyWithCancellation(Loc.S("ScadRebarReadingGroups"));
          try
          {
-            var (groups, assigned, steelGroups, analysis) = await Task.Run(() =>
+            var (groups, assigned, steelGroups, data) = await Task.Run(() =>
             {
                Services.Scad.ScadApiTrace.Write("Импорт: ожидание Gate");
                Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
@@ -4302,15 +4320,16 @@ namespace OpenCS
                      Services.Scad.ScadApiReader.ReadAssignedRebar(session),
                      Services.Scad.ScadApiReader.ReadSteelGroups(session),
                      Services.Scad.ScadApiReader.Read(session, new Services.Scad.ScadReadOptions(OutputAxes: false,
-                        ConcreteGroups: false, AssignedRebar: false, SteelGroups: false), null, cts.Token).Data.AnalysisModel);
+                        ConcreteGroups: false, AssignedRebar: false, SteelGroups: false), null, cts.Token).Data);
                }
                finally { Services.Scad.ScadApiNative.Gate.Release(); }
             }, cts.Token);
             SaveScadConcreteGroups(schema.Id, groups);
             SaveScadAssignedRebar(schema.Id, assigned);
             SaveScadSteelGroups(schema.Id, steelGroups);
-            if (analysis != null)
+            if (data.AnalysisModel is { } analysis)
             {
+               ApplyScadRodAxes(schema, data);
                SaveScadAnalysisModel(schema.Id, analysis);
                bool editorOpen = ReferenceEquals(currentFemSchema, schema) && currentPage is Views.FemSchemaPage;
                if (!editorOpen || TryLeaveFemSchemaEditor())
