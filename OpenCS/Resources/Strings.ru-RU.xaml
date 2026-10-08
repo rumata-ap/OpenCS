@@ -295,6 +295,8 @@
     <system:String x:Key="PlanarRegionMeshSizeLabel">Размер эл., м</system:String>
     <system:String x:Key="PlanarRegionMeshSizeTip">Характерный размер элемента сетки Gmsh, м</system:String>
     <system:String x:Key="PlanarRegionMeshBuilding">Построение сетки «{0}»…</system:String>
+    <system:String x:Key="PlanarRegionMeshSizeSaved">Размер КЭ области «{0}» сохранён: {1} м</system:String>
+    <system:String x:Key="PlanarRegionMeshToSchemaHint">В сетку схемы она попадёт по кнопке «Построить сетку схемы» в редакторе (Gmsh повторно не запускается)</system:String>
     <system:String x:Key="PlanarRegionMeshBuilt">Сетка построена: {0} узлов, {1} T3, {2} Q4 ({3:F1} с)</system:String>
     <system:String x:Key="PlanarRegionMeshFailed">Не удалось построить сетку «{0}» — см. диагностику выше</system:String>
     <system:String x:Key="PlanarRegionMeshDone">Сетка «{0}» построена</system:String>

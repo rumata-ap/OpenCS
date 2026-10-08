@@ -71,6 +71,7 @@
                   <TextBlock Text="{DynamicResource PlanarRegionMeshSizeLabel}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                   <TextBox Width="55" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
                            Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=LostFocus, Converter={StaticResource AnyDoubleConverter}}"
+                           KeyDown="CommitOnEnter"
                            ToolTip="{DynamicResource PlanarRegionMeshSizeTip}"/>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"

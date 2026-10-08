@@ -295,6 +295,8 @@
     <system:String x:Key="PlanarRegionMeshSizeLabel">Element size, m</system:String>
     <system:String x:Key="PlanarRegionMeshSizeTip">Characteristic Gmsh mesh element size, m</system:String>
     <system:String x:Key="PlanarRegionMeshBuilding">Building mesh "{0}"…</system:String>
+    <system:String x:Key="PlanarRegionMeshSizeSaved">Region "{0}" element size saved: {1} m</system:String>
+    <system:String x:Key="PlanarRegionMeshToSchemaHint">It enters the schema mesh with "Build schema mesh" in the editor (Gmsh is not rerun)</system:String>
     <system:String x:Key="PlanarRegionMeshBuilt">Mesh built: {0} nodes, {1} T3, {2} Q4 ({3:F1} s)</system:String>
     <system:String x:Key="PlanarRegionMeshFailed">Failed to build mesh "{0}" — see diagnostics above</system:String>
     <system:String x:Key="PlanarRegionMeshDone">Mesh "{0}" built</system:String>

@@ -962,7 +962,10 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (!CanBuildMesh) return;
         if (_app.IsBusy) { _app.CancelBusy(); return; }
-        if (ShowMesh) { ShowMesh = false; return; }
+        // Новый размер КЭ сразу записывается в область: иначе сетка диалога и «Построить сетку схемы» (берёт размер
+        // из БД) расходятся по отпечатку и перестраивают друг друга. При изменённом размере — перестроение, не скрытие.
+        bool sizeChanged = PersistMeshSize();
+        if (ShowMesh && !sizeChanged) { ShowMesh = false; return; }
 
         var snapshot = _app.db.GetPlanarMeshSnapshots(_existingRegion!.Id).LastOrDefault();
         bool needsBuild = snapshot == null || !snapshot.IsCalculable;
@@ -975,6 +978,28 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         _meshSnapshot = snapshot;
         ShowMesh = true;
+    }
+
+    /// <summary>Показывает последнюю расчётную сетку области при открытии диалога (построенную здесь или командой
+    /// «Построить сетку схемы»), без проверки актуальности — её делает кнопка сетки.</summary>
+    public void ShowSavedMesh()
+    {
+        if (!CanBuildMesh) return;
+        if (_app.db.GetPlanarMeshSnapshots(_existingRegion!.Id).LastOrDefault() is not { IsCalculable: true } snapshot) return;
+        _meshSnapshot = snapshot;
+        ShowMesh = true;
+    }
+
+    /// <summary>Записывает изменённый размер КЭ в область (только его, без прочих несохранённых правок).
+    /// Возвращает, был ли размер изменён.</summary>
+    bool PersistMeshSize()
+    {
+        if (!MeshSizeDirty || !double.IsFinite(MeshMaxElementSizeM) || MeshMaxElementSizeM <= 0) return false;
+        _existingRegion!.MeshMaxElementSizeM = MeshMaxElementSizeM;
+        _app.db.UpdatePlanarRegion(_existingRegion, _schema.Id);
+        _app.LogService.Info(string.Format(Loc.S("PlanarRegionMeshSizeSaved"), Tag, MeshMaxElementSizeM));
+        OnPropertyChanged(nameof(MeshSizeDirty));
+        return true;
     }
 
     async Task<bool> IsStaleAsync(PlanarMeshSnapshot snapshot)
@@ -1047,6 +1072,7 @@ public class PlanarRegionMemberVM : ViewModelBase
                 int t3 = snapshot.Elements.Count(e => e.Kind == PlanarMeshElementKind.Triangle3);
                 int q4 = snapshot.Elements.Count(e => e.Kind == PlanarMeshElementKind.Quadrangle4);
                 _app.LogService.Info(string.Format(Loc.S("PlanarRegionMeshBuilt"), snapshot.Nodes.Count, t3, q4, sw.Elapsed.TotalSeconds));
+                _app.LogService.Info(Loc.S("PlanarRegionMeshToSchemaHint"));
 
                 if (!gmshSettings.KeepArtifacts && snapshot.Provenance?.ArtifactDirectory is { } dir && Directory.Exists(dir))
                 {

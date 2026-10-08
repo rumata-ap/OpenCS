@@ -46,10 +46,26 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
             Width = Owner.ActualWidth;
             Height = Owner.ActualHeight;
         }
+        _vm.ShowSavedMesh();
+    }
+
+    /// <summary>Поля пишут значение при потере фокуса, а кнопки панели инструментов фокус не забирают — перед их
+    /// действием значение поля в фокусе передаётся явно (иначе новый размер КЭ не доходит до построения).</summary>
+    static void CommitFocusedTextBox()
+    {
+        if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox box)
+            box.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+    }
+
+    void CommitOnEnter(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter && sender is System.Windows.Controls.TextBox box)
+            box.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
     }
 
     void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        CommitFocusedTextBox();
         bool rebarDirty = _vm.HasZones && _vm.RebarLayoutDirty;
         if (!rebarDirty && !_vm.MeshSizeDirty) return;
 
@@ -75,6 +91,7 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
     async void ToggleMesh_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         meshToggleButton.IsChecked = _vm.ShowMesh; // не даём WPF самостоятельно переключить состояние — им управляет VM
+        CommitFocusedTextBox();
         await _vm.ToggleMeshAsync();
     }
 
