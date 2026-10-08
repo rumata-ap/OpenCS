@@ -422,11 +422,7 @@ public static class PlanarConstraintDeriver
                 isNodePoint: endpoint is not null,
                 nodeId: endpoint?.Id));
         }
-        else if (Math.Abs(a.W - b.W) <= options.PlaneToleranceM)
-        {
-            diagnostics.Add(new("planar_constraint_plane_intersection_ambiguous",
-                $"Пересечение member '{member.ElemTag}' с плоскостью PlanarRegion неоднозначно."));
-        }
+        // Стержень параллелен плоскости вне её (колонна рядом со стеной) — пересечения нет.
     }
 
     static void AddCoplanarCurve(
@@ -557,8 +553,11 @@ public static class PlanarConstraintDeriver
             if (Math.Abs(Cross(qMinusP, r)) > tolerance) return;
             var rr = r.U * r.U + r.V * r.V;
             if (rr <= tolerance * tolerance) return;
-            parameters.Add(((c.U - a.U) * r.U + (c.V - a.V) * r.V) / rr);
-            parameters.Add(((d.U - a.U) * r.U + (d.V - a.V) * r.V) / rr);
+            // Коллинеарный участок контура: в разбиение идут только его концы, лежащие на самом отрезке, — иначе
+            // отрезок «продлевается» до конца участка (ребро соседней плиты вдоль общей кромки).
+            foreach (var tc in new[] { ((c.U - a.U) * r.U + (c.V - a.V) * r.V) / rr, ((d.U - a.U) * r.U + (d.V - a.V) * r.V) / rr })
+                if (tc >= -tolerance && tc <= 1 + tolerance)
+                    parameters.Add(Math.Clamp(tc, 0, 1));
             return;
         }
         var t = Cross(qMinusP, s) / denominator;

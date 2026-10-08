@@ -207,6 +207,38 @@ public sealed class PlanarConstraintDeriverTests
         Assert.Contains(result.Diagnostics, d => d.Code == "planar_constraint_dof_conflict");
     }
 
+    /// <summary>Стержень параллелен плоскости области вне её (колонна у стены) — пересечения нет, ошибки нет.</summary>
+    [Fact]
+    public void Derive_BarParallelToPlaneOffset_NoLocusNoError()
+    {
+        var region = Region();
+        var topology = new FemSchemaTopology(1, [Node(1, 1, 1, 2), Node(2, 3, 1, 2)],
+            [HostMember(region.Id), Member(10, "bar", "beam", 1, 2)], []);
+
+        var result = PlanarConstraintDeriver.Derive(topology, region, new());
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.Empty(result.Constraints);
+    }
+
+    /// <summary>Ребро соседней плиты на продолжении кромки области (касается её в углу) не «продлевается» вдоль кромки.</summary>
+    [Fact]
+    public void Derive_CoplanarEdgeCollinearWithBoundaryOutside_NoCurveAlongBoundary()
+    {
+        var region = Region();
+        // Соседняя плита слева: КЭ (−1…0) × (0…1), его нижнее ребро лежит на продолжении кромки y = 0.
+        var topology = new FemSchemaTopology(1,
+            [Node(1, -1, 0, 0), Node(2, 0, 0, 0), Node(3, 0, 1, 0), Node(4, -1, 1, 0)],
+            [HostMember(region.Id), Member(20, "left", "shell")],
+            [Element(1, "1", "shell", "left", 1, 2, 3, 4)]);
+
+        var result = PlanarConstraintDeriver.Derive(topology, region, new());
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics));
+        var curve = Assert.Single(result.Constraints, c => c.Geometry.Kind == PlanarConstraintGeometryKind.Curve);
+        Assert.All(curve.Geometry.Points, p => Assert.Equal(0, p.U, 9));
+    }
+
     static PlanarRegion Region()
     {
         var region = PlanarRegion.CreateFromContour(new Contour
