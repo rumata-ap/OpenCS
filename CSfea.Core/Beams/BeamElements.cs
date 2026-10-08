@@ -403,11 +403,15 @@ public static class BeamElements
         return (t, l);
     }
 
-    /// <summary>Глобальная 12×12 пространственного элемента.</summary>
-    public static double[,] Beam3dKGlobal(double[][] coords, IBeamSectionResponse section, double[]? refVec = null)
+    /// <summary>
+    /// Глобальная 12×12 пространственного элемента; <paramref name="releases"/> — 12-битная маска шарниров концов
+    /// (<see cref="BeamReleases"/>), освобождённые местные DOF сконденсированы.
+    /// </summary>
+    public static double[,] Beam3dKGlobal(double[][] coords, IBeamSectionResponse section, double[]? refVec = null,
+                                          int releases = 0)
     {
         var (t, l) = Beam3dT(coords, refVec);
-        var kl = Beam3dKLocal(section, l);
+        var kl = BeamReleases.Condense(Beam3dKLocal(section, l), releases);
         return Dense.MatMul(Dense.MatTMul(t, kl), t);
     }
 }

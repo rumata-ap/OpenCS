@@ -48,9 +48,11 @@ public sealed record RcBeamSection(string Key)
 
 /// <summary>
 /// Стержневой КЭ: узлы концов, сечение и <see cref="RefVec"/> — направление локальной оси y (конвенция
-/// <see cref="BeamElements.Beam3dFrame"/>; null — по умолчанию CSfea).
+/// <see cref="BeamElements.Beam3dFrame"/>; null — по умолчанию CSfea). <see cref="ReleaseI"/>, <see cref="ReleaseJ"/> —
+/// шарниры концов: маски освобождённых усилий в местных осях (биты 0–5: N, Qy, Qz, T, My, Mz — порядок SCAD X…UZ).
 /// </summary>
-public sealed record RcBeam(int Id, int NodeI, int NodeJ, RcBeamSection Section, double[]? RefVec = null);
+public sealed record RcBeam(int Id, int NodeI, int NodeJ, RcBeamSection Section, double[]? RefVec = null,
+    int ReleaseI = 0, int ReleaseJ = 0);
 
 /// <summary>Жёсткое тело: ведущий узел, ведомые, маска подчинённых DOF (бит i — DOF i).</summary>
 public sealed record RcRigidBody(int Id, int Master, IReadOnlyList<int> Slaves, int Mask = RigidLink.All);

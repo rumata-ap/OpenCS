@@ -226,22 +226,25 @@ public static class BeamCorotational
         return (fg, b, pl0, fl);
     }
 
-    /// <summary>Вектор внутренних сил (12) пространственного CR-элемента.</summary>
+    /// <summary>
+    /// Вектор внутренних сил (12) пространственного CR-элемента; <paramref name="releases"/> — маска шарниров концов
+    /// (<see cref="BeamReleases"/>): локальные силы — сконденсированная матрица на деформационные DOF.
+    /// </summary>
     public static double[] Beam3dInternalForce(double[][] coordsRef, IBeamSectionResponse section,
-                                               double[] uElem, double[]? refVec = null)
+                                               double[] uElem, double[]? refVec = null, int releases = 0)
     {
         var (e0, l0) = BeamElements.Beam3dFrame(coordsRef, refVec);
-        var kL = BeamElements.Beam3dKLocal(section, l0);
+        var kL = LocalK(section, l0, releases);
         return InternalAndB(coordsRef, e0, l0, kL, uElem, section).Fg;
     }
 
     /// <summary>Тангенциальная матрица (12×12) пространственного CR-элемента.</summary>
     public static double[,] Beam3dTangent(double[][] coordsRef, IBeamSectionResponse section,
                                           double[] uElem, double[]? refVec = null,
-                                          bool numerical = true, double eps = 1e-6)
+                                          bool numerical = true, double eps = 1e-6, int releases = 0)
     {
         var (e0, l0) = BeamElements.Beam3dFrame(coordsRef, refVec);
-        var kL = BeamElements.Beam3dKLocal(section, l0);
+        var kL = LocalK(section, l0, releases);
 
         if (!numerical)
         {
@@ -249,7 +252,7 @@ public static class BeamCorotational
             return Dense.MatMul(Dense.MatMul(Dense.Transpose(b0), kL), b0);
         }
 
-        if (section is not LinearBeamResponse)
+        if (section is not LinearBeamResponse && releases == 0)
         {
             var pl0 = Beam3dPLocal(coordsRef, e0, l0, uElem);
             var kLMat = Beam3dKLocalFromResponse(section, pl0, l0);
@@ -270,6 +273,16 @@ public static class BeamCorotational
             for (int i = 0; i < 12; i++) kNum[i, j] = (fp[i] - fm[i]) / (2.0 * h);
         }
         return Symmetrize(kNum);
+    }
+
+    // Локальная матрица КЭ с шарнирами. Конденсация — только у сечений, чей КЭ задан матрицей целиком (линейное и
+    // секущее): у нелинейного закона усилия берутся из сечения, и освобождённые DOF пришлось бы уравновешивать итерациями.
+    private static double[,] LocalK(IBeamSectionResponse section, double l0, int releases)
+    {
+        if (releases != 0 && section is not (LinearBeamResponse or SecantBeamResponse))
+            throw new NotSupportedException(
+                "Шарниры стержня поддержаны только для линейного и секущего сечения, не для нелинейного закона в точках Гаусса.");
+        return BeamReleases.Condense(BeamElements.Beam3dKLocal(section, l0), releases);
     }
 
     private static double[,] Symmetrize(double[,] k)

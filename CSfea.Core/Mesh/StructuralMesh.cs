@@ -8,8 +8,15 @@ public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section)
 /// <summary>
 /// Стержневой КЭ совместной сетки: узлы концов, сечение и опорный вектор ориентации
 /// локальной оси y (как в <see cref="BeamElements.Beam3dFrame"/>; null — по умолчанию).
+/// <paramref name="ReleaseI"/>, <paramref name="ReleaseJ"/> — шарниры концов: маски освобождённых местных DOF (биты 0–5:
+/// u, v, w, θx, θy, θz — усилия N, Qy, Qz, T, My, Mz), см. <see cref="BeamReleases"/>.
 /// </summary>
-public sealed record StructuralBeam(int I, int J, IBeamSectionResponse Section, double[]? RefVec = null);
+public sealed record StructuralBeam(int I, int J, IBeamSectionResponse Section, double[]? RefVec = null,
+    int ReleaseI = 0, int ReleaseJ = 0)
+{
+    /// <summary>12-битная маска шарниров КЭ (<see cref="BeamReleases.Mask"/>).</summary>
+    public int Releases => BeamReleases.Mask(ReleaseI, ReleaseJ);
+}
 
 /// <summary>
 /// Совместная сетка оболочек и пространственных стержней с общими узлами (6 DOF/узел:
@@ -61,6 +68,7 @@ public sealed class StructuralMesh : IFeaMesh
         {
             CheckNodes(new[] { b.I, b.J });
             if (b.I == b.J) throw new ArgumentException($"Стержень с совпадающими узлами {b.I}.");
+            _ = b.Releases;   // проверка масок
         }
     }
 
@@ -110,7 +118,7 @@ public sealed class StructuralMesh : IFeaMesh
         for (int e = 0; e < Beams.Count; e++)
         {
             var b = Beams[e];
-            coo.AddBlock(BeamDofs(b), BeamElements.Beam3dKGlobal(BeamCoords(e), b.Section, b.RefVec));
+            coo.AddBlock(BeamDofs(b), BeamElements.Beam3dKGlobal(BeamCoords(e), b.Section, b.RefVec, b.Releases));
         }
         return coo;
     }
@@ -135,7 +143,7 @@ public sealed class StructuralMesh : IFeaMesh
         {
             var b = Beams[e];
             var dofs = BeamDofs(b);
-            var fe = BeamCorotational.Beam3dInternalForce(BeamCoords(e), b.Section, Gather(u, dofs), b.RefVec);
+            var fe = BeamCorotational.Beam3dInternalForce(BeamCoords(e), b.Section, Gather(u, dofs), b.RefVec, b.Releases);
             for (int i = 0; i < dofs.Length; i++) f[dofs[i]] += fe[i];
         }
         return f;
@@ -158,7 +166,8 @@ public sealed class StructuralMesh : IFeaMesh
         {
             var b = Beams[e];
             var dofs = BeamDofs(b);
-            coo.AddBlock(dofs, BeamCorotational.Beam3dTangent(BeamCoords(e), b.Section, Gather(u, dofs), b.RefVec));
+            coo.AddBlock(dofs, BeamCorotational.Beam3dTangent(BeamCoords(e), b.Section, Gather(u, dofs), b.RefVec,
+                releases: b.Releases));
         }
         return coo;
     }

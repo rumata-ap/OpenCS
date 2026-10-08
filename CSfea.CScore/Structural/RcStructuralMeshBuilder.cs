@@ -122,7 +122,8 @@ public static class RcStructuralMeshBuilder
             shells.Add(new StructuralShell(nodes, resp));
         }
         var beams = model.Beams.Select(b => new StructuralBeam(
-            Idx(b.NodeI, $"Стержень {b.Id}"), Idx(b.NodeJ, $"Стержень {b.Id}"), factory.Beam(b), b.RefVec)).ToArray();
+            Idx(b.NodeI, $"Стержень {b.Id}"), Idx(b.NodeJ, $"Стержень {b.Id}"), factory.Beam(b), b.RefVec,
+            b.ReleaseI, b.ReleaseJ)).ToArray();
 
         var links = new List<RigidLink>();
         foreach (var rb in model.RigidBodies)
@@ -141,6 +142,7 @@ public static class RcStructuralMeshBuilder
         foreach (var sp in model.Springs) bc.Spring(Idx(sp.NodeId, "Пружина"), sp.Dof, sp.Stiffness);
         AddFoundation(model, mesh, coords, bc, report);
         FixUnconnectedDofs(mesh, links, bc, nodeIds, report);
+        FixReleasedDofs(mesh, links, bc, nodeIds, report);
 
         var loadCases = new Dictionary<int, double[]>();
         foreach (var lc in model.LoadCases)
@@ -198,6 +200,147 @@ public static class RcStructuralMeshBuilder
     }
 
     /// <summary>
+    /// Узлы, где шарниры всех сходящихся стержней оставили DOF без жёсткости (например, все стержни узла фермы
+    /// освобождены по My и Mz): нулевой собственный вектор блока 6×6 узла (сконденсированные стержни + пружины, без
+    /// закреплённых DOF). Вектор вдоль глобального DOF — DOF закрепляется (на решение не влияет: жёсткости и реакции по
+    /// нему нет), запись в отчёт; косой вектор (стержни разной ориентации) одним DOF не закрепить — только запись в отчёт:
+    /// система изменяема, как сообщил бы SCAD. Проверяются узлы у шарниров без оболочек и жёстких связей (оболочка даёт
+    /// узлу жёсткость по всем DOF, у связей — свои DOF ведущего).
+    /// </summary>
+    private static void FixReleasedDofs(StructuralMesh mesh, List<RigidLink> links, BoundaryConditions bc,
+                                        int[] nodeIds, List<string> report)
+    {
+        var candidates = new HashSet<int>();
+        foreach (var b in mesh.Beams)
+        {
+            if (b.ReleaseI != 0) candidates.Add(b.I);
+            if (b.ReleaseJ != 0) candidates.Add(b.J);
+        }
+        foreach (var s in mesh.Shells) foreach (int n in s.Nodes) candidates.Remove(n);
+        foreach (var l in links) { candidates.Remove(l.Master); candidates.Remove(l.Slave); }
+        if (candidates.Count == 0) return;
+
+        var blocks = candidates.ToDictionary(n => n, _ => new double[6, 6]);
+        for (int e = 0; e < mesh.Beams.Count; e++)
+        {
+            var b = mesh.Beams[e];
+            bool hasI = blocks.TryGetValue(b.I, out var ki), hasJ = blocks.TryGetValue(b.J, out var kj);
+            if (!hasI && !hasJ) continue;
+            var k = BeamElements.Beam3dKGlobal(mesh.BeamCoords(e), b.Section, b.RefVec, b.Releases);
+            for (int a = 0; a < 6; a++)
+                for (int c = 0; c < 6; c++)
+                {
+                    if (hasI) ki![a, c] += k[a, c];
+                    if (hasJ) kj![a, c] += k[6 + a, 6 + c];
+                }
+        }
+        var springs = bc.AssembleKSpring().ToCsc();
+        for (int col = 0; col < springs.Cols; col++)
+            for (int p = springs.ColPtr[col]; p < springs.ColPtr[col + 1]; p++)
+            {
+                int row = springs.RowIdx[p];
+                if (row / 6 == col / 6 && blocks.TryGetValue(col / 6, out var kn)) kn[row % 6, col % 6] += springs.Values[p];
+            }
+
+        var fixedSet = bc.FixedDofs.ToHashSet();
+        var fixedDofs = new List<string>();
+        var oblique = new List<int>();
+        foreach (var (n, k) in blocks)
+        {
+            var free = Enumerable.Range(0, 6).Where(c => !fixedSet.Contains(6 * n + c)).ToArray();
+            if (free.Length == 0) continue;
+            // Поступательные и вращательные члены разной размерности: масштаб по диагонали (D·K·D, единичная диагональ)
+            // нулевых векторов не меняет — у неотрицательно определённой матрицы нулевой диагональный член значит нулевую
+            // строку.
+            int nf = free.Length;
+            var d = new double[nf];
+            for (int a = 0; a < nf; a++)
+            {
+                double kaa = k[free[a], free[a]];
+                d[a] = kaa > 0 ? 1 / Math.Sqrt(kaa) : 0.0;
+            }
+            var m = new double[nf, nf];
+            for (int a = 0; a < nf; a++)
+                for (int c = 0; c < nf; c++) m[a, c] = d[a] == 0 || d[c] == 0 ? 0.0 : k[free[a], free[c]] * d[a] * d[c];
+            var (vals, vecs) = JacobiEigen(m);
+            bool anyOblique = false;
+            for (int v = 0; v < nf; v++)
+            {
+                if (vals[v] > 1e-9) continue;
+                // Вектор в исходных DOF: x = D·y (у DOF с нулевой диагональю — сам y).
+                var x = new double[nf];
+                double norm = 0, maxAbs = 0;
+                int big = 0;
+                for (int a = 0; a < nf; a++)
+                {
+                    x[a] = d[a] == 0 ? vecs[a, v] : vecs[a, v] * d[a];
+                    norm += x[a] * x[a];
+                    if (Math.Abs(x[a]) > maxAbs) { maxAbs = Math.Abs(x[a]); big = a; }
+                }
+                if (maxAbs * maxAbs > (1 - 1e-9) * norm)
+                {
+                    bc.Fix(new[] { n }, new[] { free[big] });
+                    fixedDofs.Add($"{nodeIds[n]} {DofNames[free[big]]}");
+                }
+                else anyOblique = true;
+            }
+            if (anyOblique) oblique.Add(nodeIds[n]);
+        }
+        if (fixedDofs.Count > 0)
+            report.Add($"DOF узлов без жёсткости из-за шарниров стержней закреплены ({fixedDofs.Count}): {Preview(fixedDofs)}.");
+        if (oblique.Count > 0)
+            report.Add($"Узлы, изменяемые из-за шарниров стержней (нулевая жёсткость не по глобальной оси) ({oblique.Count}): " +
+                       $"{Preview(oblique)}.");
+    }
+
+    private static readonly string[] DofNames = { "X", "Y", "Z", "UX", "UY", "UZ" };
+
+    // Собственные числа и векторы (столбцы) малой симметричной матрицы — вращения Якоби.
+    private static (double[] Values, double[,] Vectors) JacobiEigen(double[,] a0)
+    {
+        int n = a0.GetLength(0);
+        var a = (double[,])a0.Clone();
+        var v = new double[n, n];
+        for (int i = 0; i < n; i++) v[i, i] = 1.0;
+        for (int sweep = 0; sweep < 100; sweep++)
+        {
+            double off = 0;
+            for (int p = 0; p < n; p++)
+                for (int q = p + 1; q < n; q++) off += a[p, q] * a[p, q];
+            if (off < 1e-30) break;
+            for (int p = 0; p < n; p++)
+                for (int q = p + 1; q < n; q++)
+                {
+                    if (Math.Abs(a[p, q]) < 1e-300) continue;
+                    double theta = (a[q, q] - a[p, p]) / (2 * a[p, q]);
+                    double t = Math.Sign(theta == 0 ? 1.0 : theta) / (Math.Abs(theta) + Math.Sqrt(theta * theta + 1));
+                    double c = 1 / Math.Sqrt(t * t + 1), s = t * c;
+                    for (int k = 0; k < n; k++)
+                    {
+                        double akp = a[k, p], akq = a[k, q];
+                        a[k, p] = c * akp - s * akq;
+                        a[k, q] = s * akp + c * akq;
+                    }
+                    for (int k = 0; k < n; k++)
+                    {
+                        double apk = a[p, k], aqk = a[q, k];
+                        a[p, k] = c * apk - s * aqk;
+                        a[q, k] = s * apk + c * aqk;
+                    }
+                    for (int k = 0; k < n; k++)
+                    {
+                        double vkp = v[k, p], vkq = v[k, q];
+                        v[k, p] = c * vkp - s * vkq;
+                        v[k, q] = s * vkp + c * vkq;
+                    }
+                }
+        }
+        var vals = new double[n];
+        for (int i = 0; i < n; i++) vals[i] = a[i, i];
+        return (vals, v);
+    }
+
+    /// <summary>
     /// Упругое основание оболочек (Винклер, C1 вдоль нормали КЭ) — узловыми пружинами-матрицами: узлу КЭ добавляется
     /// C1·wᵢ·n·nᵀ по поступательным DOF, wᵢ — доля площади узла (<see cref="AreaWeights"/>), n — нормаль КЭ; вклады
     /// смежных КЭ суммируются. Матрица сосредоточенная (диагональ по узлам), как у узловых связей основания SCAD/ЛИРЫ.
@@ -231,7 +374,7 @@ public static class RcStructuralMeshBuilder
             report.Add($"Упругое основание C1: оболочек {shells}, площадь {area:F2} м², узлов {k.Count}.");
     }
 
-    private static string Preview(List<int> ids)
+    private static string Preview<T>(List<T> ids)
         => string.Join(", ", ids.Take(10)) + (ids.Count > 10 ? ", …" : "");
 
     private static double[] LoadVector(RcLoadCase lc, RcStructuralModel model, StructuralMesh mesh,
@@ -259,7 +402,7 @@ public static class RcStructuralMeshBuilder
         {
             if (!beamById.TryGetValue(q.BeamId, out int e)) throw new ArgumentException($"Загружение {lc.Id}: нет стержня {q.BeamId}.");
             var b = mesh.Beams[e];
-            var fe = BeamUniformLoad(new[] { coords[b.I], coords[b.J] }, q.Force, b.RefVec);
+            var fe = BeamUniformLoad(new[] { coords[b.I], coords[b.J] }, q.Force, b.RefVec, b.Releases == 0 ? null : b);
             for (int c = 0; c < 6; c++) { f[6 * b.I + c] += fe[c]; f[6 * b.J + c] += fe[6 + c]; }
         }
         return f;
@@ -305,9 +448,12 @@ public static class RcStructuralMeshBuilder
 
     /// <summary>
     /// Согласованные узловые силы стержня (12, глобальные) от равномерной погонной нагрузки w (глобальные оси):
-    /// силы wL/2 на концы, моменты Mz = ±w_y·L²/12, My = ∓w_z·L²/12 в локальных осях (w' = −θy).
+    /// силы wL/2 на концы, моменты Mz = ±w_y·L²/12, My = ∓w_z·L²/12 в локальных осях (w' = −θy). У стержня с шарнирами
+    /// (<paramref name="released"/>) нагрузка приводится к сохранённым DOF его матрицей (<see cref="BeamReleases.CondenseLoad"/>):
+    /// у шарнирного конца момент закрепления переходит в поперечные силы — wL/2 ± wL/8 у балки с одним шарниром.
     /// </summary>
-    public static double[] BeamUniformLoad(double[][] ends, double[] wGlobal, double[]? refVec)
+    public static double[] BeamUniformLoad(double[][] ends, double[] wGlobal, double[]? refVec,
+                                           StructuralBeam? released = null)
     {
         var (r, l) = BeamElements.Beam3dFrame(ends, refVec);
         var wl = Dense.MatVec(r, wGlobal);
@@ -316,6 +462,8 @@ public static class RcStructuralMeshBuilder
         double m = l * l / 12;
         local[5] = wl[1] * m; local[11] = -wl[1] * m;
         local[4] = -wl[2] * m; local[10] = wl[2] * m;
+        if (released is { Releases: not 0 })
+            local = BeamReleases.CondenseLoad(BeamElements.Beam3dKLocal(released.Section, l), released.Releases, local);
         var g = new double[12];
         for (int blk = 0; blk < 4; blk++)
             for (int i = 0; i < 3; i++)

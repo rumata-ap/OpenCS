@@ -563,6 +563,9 @@ public sealed class SecantPicardSolver
         SecantBeamResponse r)
     {
         var (d, l) = BeamLocal(e, u);
+        // У шарнира узел поворачивается независимо от конца стержня: деформации — по перемещениям конца.
+        int rel = _mesh.Beams[e].Releases;
+        if (rel != 0) d = BeamReleases.Recover(BeamElements.Beam3dKLocal(r.Matrix, r.GJ, l, r.Shear), rel, d);
         var (bend, gy, gz) = BeamElements.Beam3dShearSplit(r.Matrix, r.GJ, l, r.Shear, d);
         return (new[] { 0.0, 0.5, 1.0 }.Select(xi => BeamElements.Beam3dCoupledStrains(r.Matrix, l, bend, xi)).ToArray(), gy, gz);
     }
@@ -627,8 +630,8 @@ public sealed class SecantPicardSolver
             var coords = _mesh.BeamCoords(e);
             var ue = Gather(u, dofs);
             var fe = _o.Geometric
-                ? BeamCorotational.Beam3dInternalForce(coords, b.Section, ue, b.RefVec)
-                : Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec), ue);
+                ? BeamCorotational.Beam3dInternalForce(coords, b.Section, ue, b.RefVec, b.Releases)
+                : Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue);
             for (int i = 0; i < dofs.Length; i++)
             {
                 fInt[dofs[i]] += fe[i];
