@@ -119,8 +119,10 @@ public class ScadBedC1ManualTests(ITestOutputHelper output)
             Assert.InRange(-bedR / adapted.StageTotalDownN[k], 0.995, 1.005);
 
             // Нагрузка по осям и сравнение полей перемещений: регрессия CSfea = a·SCAD по каждой компоненте.
-            var lcNodal = adapted.Model.LoadCases.Single(l => l.Id == load).Nodal;
-            output.WriteLine($"  ΣF = ({string.Join("; ", Enumerable.Range(0, 3).Select(c => (lcNodal.Sum(p => p.Force[c]) / 1e3).ToString("0.###")))}) кН");
+            // ΣF — узловые силы и концевые силы шарнирных стержней.
+            var rcCase = adapted.Model.LoadCases.Single(l => l.Id == load);
+            double Sum(int c) => rcCase.Nodal.Sum(p => p.Force[c]) + rcCase.BeamEnds.Sum(p => p.Forces[c] + p.Forces[c + 6]);
+            output.WriteLine($"  ΣF = ({string.Join("; ", Enumerable.Range(0, 3).Select(c => (Sum(c) / 1e3).ToString("0.###")))}) кН");
             foreach (int c in new[] { 0, 1, 2 })
             {
                 var pairs = data.Nodes.Where(n => nodes.ContainsKey(n.Id) && row.Of(n.Id) != null)

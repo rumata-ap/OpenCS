@@ -57,6 +57,13 @@ public sealed class FemRcModelInput
     /// <summary>Сечение пластинчатого КЭ из источника армирования; null или сечение без армирования — упругий КЭ.</summary>
     public Func<FemElement, FemRcPlateSection?>? PlateSection { get; init; }
 
+    /// <summary>
+    /// Готовое сечение модели CSfea пластинчатого КЭ (приоритет над <see cref="PlateSection"/> и упругими свойствами,
+    /// оси армирования не поворачиваются); одинаковые сечения — один экземпляр. Для входов со своим переводом сечений
+    /// (адаптер сырых данных SCAD).
+    /// </summary>
+    public Func<FemElement, RcShellSection?>? ShellModelSection { get; init; }
+
     /// <summary>Сечение CScore стержневого КЭ; null — упругий по <see cref="Properties"/>.</summary>
     public Func<FemElement, FemRcBeamCross?>? BeamSection { get; init; }
 
@@ -70,6 +77,9 @@ public sealed class FemRcModelInput
     public bool BeamShear { get; init; } = true;
 
     public required IReadOnlyList<FemRcStage> Stages { get; init; }
+
+    /// <summary>Переводить в модель все загружения <see cref="LoadCases"/>, а не только входящие в стадии.</summary>
+    public bool AllLoadCases { get; init; }
 
     /// <summary>Диагностики подготовки входа (допущения источника свойств, сечения, стадии) — в начало отчёта.</summary>
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
@@ -186,10 +196,11 @@ public static class FemRcModelAdapter
             }
             int[] contour = g.Contour.Select(i => int.Parse(g.NodeTags[i], CultureInfo.InvariantCulture)).ToArray();
 
-            RcShellSection? section = null;
+            RcShellSection? section = input.ShellModelSection?.Invoke(e);
             double forceAngle = 0;
-            var plate = input.PlateSection?.Invoke(e);
-            if (plate is { Section.Section: { } ps, Materials: { } pm })
+            var plate = section == null ? input.PlateSection?.Invoke(e) : null;
+            if (section != null) { }
+            else if (plate is { Section.Section: { } ps, Materials: { } pm })
             {
                 string key = $"rc|{plate.Section.RebarKey}|{plate.MaterialsKey}";
                 if (!sections.TryGetValue(key, out section))
@@ -333,7 +344,8 @@ public static class FemRcModelAdapter
         List<FemValidationDiagnostic> diag)
     {
         var caseById = input.LoadCases.GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First());
-        var needed = input.Stages.SelectMany(s => s.Terms.Select(t => t.LoadCaseId)).Distinct().ToList();
+        var needed = (input.AllLoadCases ? input.LoadCases.Select(c => c.Id) : Enumerable.Empty<int>())
+            .Concat(input.Stages.SelectMany(s => s.Terms.Select(t => t.LoadCaseId))).Distinct().ToList();
         var missing = needed.Where(id => !caseById.ContainsKey(id)).ToList();
         if (missing.Count > 0)
             diag.Add(new("stage_load_case_missing", $"Стадии ссылаются на отсутствующие загружения: {string.Join(", ", missing)}.", true));

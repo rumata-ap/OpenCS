@@ -111,6 +111,21 @@ public sealed class ScadBoundaryTransferTests
     }
 
     [Fact]
+    public void Joints_SeveralRecordsOfOneElement_MasksMerged()
+    {
+        var model = new ScadAnalysisModel
+        {
+            HasBoundaryV2 = true, HasBeds = true, SchemaType = 5,
+            Joints = { new ScadJoint(10, 0b010000, 0), new ScadJoint(10, 0b100000, 0b010000) },
+        };
+
+        var r = ScadBoundaryTransfer.Transfer(model, Nodes, Types);
+
+        Assert.Equal(new FemElementBoundaryProps(0b110000, 0b010000, null), Assert.Single(r.ElementProps).Value);
+        Assert.Contains("стержней с шарнирами 1 (концов 2)", r.Report[0]);
+    }
+
+    [Fact]
     public void AttachmentWithoutBeds_AsksToReread()
     {
         var model = new ScadAnalysisModel { HasBoundaryV2 = true, Bounds = { [1] = 0x3F } };

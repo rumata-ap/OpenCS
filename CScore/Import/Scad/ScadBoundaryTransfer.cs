@@ -99,12 +99,14 @@ public static class ScadBoundaryTransfer
 
         var props = new Dictionary<string, FemElementBoundaryProps>(StringComparer.Ordinal);
         int releasedEnds = 0, missingJoints = 0;
-        foreach (var j in model.Joints.OrderBy(j => j.ElemId))
+        // Несколько записей шарниров одного КЭ объединяются по маске.
+        foreach (var j in model.Joints.GroupBy(j => j.ElemId).OrderBy(g => g.Key))
         {
-            string tag = T(j.ElemId);
+            string tag = T(j.Key);
             if (elementTypes.GetValueOrDefault(tag) != "beam") { missingJoints++; continue; }
-            int? ri = (j.MaskI & FemBoundaryDofs.All) is var mi and not 0 ? mi : null;
-            int? rj = (j.MaskJ & FemBoundaryDofs.All) is var mj and not 0 ? mj : null;
+            int maskI = j.Aggregate(0, (m, x) => m | x.MaskI), maskJ = j.Aggregate(0, (m, x) => m | x.MaskJ);
+            int? ri = (maskI & FemBoundaryDofs.All) is var mi and not 0 ? mi : null;
+            int? rj = (maskJ & FemBoundaryDofs.All) is var mj and not 0 ? mj : null;
             if (ri == null && rj == null) continue;
             releasedEnds += (ri != null ? 1 : 0) + (rj != null ? 1 : 0);
             props[tag] = new FemElementBoundaryProps(ri, rj, null);

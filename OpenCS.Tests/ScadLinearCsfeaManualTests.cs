@@ -101,8 +101,10 @@ public class ScadLinearCsfeaManualTests(ITestOutputHelper output)
             var scad = new Dictionary<int, double[]>(row.Nodes.Length);
             for (int i = 0; i < row.Nodes.Length; i++) scad[row.Nodes[i]] = row.Values.AsSpan(6 * i, 6).ToArray();
             var u = us[k];
-            var nodal = m.LoadCases.Single(l => l.Id == lc.Num).Nodal;
-            output.WriteLine($"L{lc.Num} «{lc.Name}»: ΣF = ({string.Join("; ", Enumerable.Range(0, 3).Select(c => (nodal.Sum(p => p.Force[c]) / 1e3).ToString("0.###", CultureInfo.InvariantCulture)))}) кН");
+            // ΣF — узловые силы и концевые силы шарнирных стержней.
+            var rcCase = m.LoadCases.Single(l => l.Id == lc.Num);
+            double Sum(int c) => rcCase.Nodal.Sum(p => p.Force[c]) + rcCase.BeamEnds.Sum(p => p.Forces[c] + p.Forces[c + 6]);
+            output.WriteLine($"L{lc.Num} «{lc.Name}»: ΣF = ({string.Join("; ", Enumerable.Range(0, 3).Select(c => (Sum(c) / 1e3).ToString("0.###", CultureInfo.InvariantCulture)))}) кН");
             for (int c = 0; c < 6; c++)
             {
                 var pairs = m.Nodes.Where(n => scad.ContainsKey(n.Id) && (c < 3 || !hinged.Contains(n.Id)))
