@@ -20,7 +20,7 @@ public class LiraSteelStiffnessProbeManualTests(ITestOutputHelper output)
         {
             try
             {
-                var (stiffnesses, byElement) = LiraApiSchemaReader.ReadStiffnesses();
+                var (stiffnesses, byElement, _) = LiraApiSchemaReader.ReadStiffnesses();
                 var counts = byElement.Values.GroupBy(v => v).ToDictionary(g => g.Key, g => g.Count());
                 foreach (var s in stiffnesses)
                     output.WriteLine($"{s.Id}\tkind={s.KindCode}\tКЭ={counts.GetValueOrDefault(s.Id)}\t«{s.Name}»\t{s.Params}");

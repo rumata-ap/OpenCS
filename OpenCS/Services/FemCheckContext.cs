@@ -177,35 +177,7 @@ public static class FemCheckContext
             var sources = new List<IPlateElementSectionSource>();
             if (template != null)
                 foreach (string key in PlateCheckParams.Parse(check.ParamsJson).GetRebarSources())
-                    switch (key)
-                    {
-                        case FemCheckRebarSource.Section:
-                            sources.Add(new TemplatePlateSectionSource(template));
-                            break;
-                        case FemCheckRebarSource.Assigned when data.IsScad:
-                            sources.Add(data.ScadAssigned is { Plates.Count: > 0 }
-                                ? new ScadAssignedPlateSectionSource(template, data.ScadAssigned, data.ScadConcreteGroups)
-                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadAssigned")));
-                            break;
-                        case FemCheckRebarSource.Selected when data.IsScad:
-                            sources.Add(data.ScadSelected != null
-                                ? new ScadSelectedPlateSectionSource(template, data.ScadSelected, data.ScadConcreteGroups)
-                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadSelected")));
-                            break;
-                        case FemCheckRebarSource.Assigned:
-                            sources.Add(data.Rbt != null
-                                ? new LiraAssignedPlateSectionSource(template, data.Rbt, data.Asp)
-                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoRbt")));
-                            break;
-                        case FemCheckRebarSource.Selected:
-                            sources.Add(data.Asp != null
-                                ? new LiraSelectedPlateSectionSource(template, data.Asp)
-                                : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoAsp")));
-                            break;
-                        case FemCheckRebarSource.Layout:
-                            sources.Add(new LayoutPlateSectionSource(template, data.LayoutResolver(app.PlateSections, template)));
-                            break;
-                    }
+                    if (PlateSource(key, template, data, app.PlateSections) is { } source) sources.Add(source);
 
             // Продольный изгиб стен из плоскости: вертикальные полосы КЭ стен по сетке схемы.
             FemBracedLength? walls = PlateCheckParams.Parse(check.ParamsJson).Eta is { Enabled: true }
@@ -274,6 +246,31 @@ public static class FemCheckContext
                   ?? new Dictionary<int, double>(),
         };
     }
+
+    /// <summary>
+    /// Источник армирования пластинчатых КЭ по ключу (<see cref="FemCheckRebarSource"/>) на сечение-шаблон: заданное и
+    /// подобранное — SCAD или ЛИРЫ по программе-источнику схемы; нет файла — источник с причиной; неизвестный ключ — null.
+    /// </summary>
+    /// <param name="sections">Пластинчатые сечения проекта (для раскладки OpenCS).</param>
+    public static IPlateElementSectionSource? PlateSource(
+        string key, PlateSection template, FemCheckSchemaData data, IEnumerable<PlateSection> sections) => key switch
+    {
+        FemCheckRebarSource.Section => new TemplatePlateSectionSource(template),
+        FemCheckRebarSource.Assigned when data.IsScad => data.ScadAssigned is { Plates.Count: > 0 }
+            ? new ScadAssignedPlateSectionSource(template, data.ScadAssigned, data.ScadConcreteGroups)
+            : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadAssigned")),
+        FemCheckRebarSource.Selected when data.IsScad => data.ScadSelected != null
+            ? new ScadSelectedPlateSectionSource(template, data.ScadSelected, data.ScadConcreteGroups)
+            : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoScadSelected")),
+        FemCheckRebarSource.Assigned => data.Rbt != null
+            ? new LiraAssignedPlateSectionSource(template, data.Rbt, data.Asp)
+            : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoRbt")),
+        FemCheckRebarSource.Selected => data.Asp != null
+            ? new LiraSelectedPlateSectionSource(template, data.Asp)
+            : new UnavailablePlateSectionSource(key, Loc.S("FemCheckNoAsp")),
+        FemCheckRebarSource.Layout => new LayoutPlateSectionSource(template, data.LayoutResolver(sections, template)),
+        _ => null,
+    };
 
     /// <summary>
     /// Параметры СП 16 стальных КЭ проверки по КЭ. Приоритет: стальная группа SCAD (<see cref="SteelGroupParams"/>);

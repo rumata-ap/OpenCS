@@ -47,7 +47,12 @@ public static class FemElementLoadNodalizer
         {
             var g = mesh.Geometry(e);
             double? q = g == null ? null : SelfWeightIntensity(e, g, mesh.SelfWeight);
-            if (q is not { } value) { skipped.Add(e.ElemTag); continue; }
+            if (q is not { } value)
+            {
+                // КЭ без жёсткости (стержневой аналог) веса не несёт и в модель не входит — не пропуск.
+                if (mesh.SelfWeight is not IFemElementStiffnessSource { } p || !p.IsWithoutStiffness(e)) skipped.Add(e.ElemTag);
+                continue;
+            }
             Distribute(g!, new PlanarVector3(0, 0, -value * coefficient), sink?.Invoke(e) ?? forces);
         }
         if (skipped.Count > 0)

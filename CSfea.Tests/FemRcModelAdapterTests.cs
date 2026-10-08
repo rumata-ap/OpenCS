@@ -28,8 +28,9 @@ public class FemRcModelAdapterTests
     private sealed class Props : IFemElementStiffnessSource
     {
         public FemShellStiffness? Shell(FemElement e) => e.ElemType == "shell" && e.StiffnessNum != 0 ? new(E, 0.2, 0.2) : null;
-        public FemBarStiffness? Bar(FemElement e) => e.ElemType == "beam" ? new(E, G, A, Iy, Iz, J) : null;
-        public double? UnitWeight(FemElement e) => 25e3;
+        public FemBarStiffness? Bar(FemElement e) => e.ElemType == "beam" && e.StiffnessNum != 0 ? new(E, G, A, Iy, Iz, J) : null;
+        public double? UnitWeight(FemElement e) => e.StiffnessNum == 0 ? null : 25e3;
+        public bool IsWithoutStiffness(FemElement e) => e.ElemType == "beam" && e.StiffnessNum == 0;
         public double? BarArea(FemElement e) => e.ElemType == "beam" ? A : null;
     }
 
@@ -88,6 +89,21 @@ public class FemRcModelAdapterTests
             Properties = new Props(),
         });
         TestHarness.Check("ошибка shell_no_section", r.HasErrors && r.Diagnostics.Any(d => d.Code == "shell_no_section"));
+
+        TestHarness.Section("FemRcModelAdapter: стержень без жёсткости в источнике — вне модели, без ошибки");
+        var analog = El(2, "beam", [3, 4]);
+        analog.StiffnessNum = 0;
+        var lc = new FemLoadCase { Id = 1, Tag = "с. в.", SelfWeightFactor = 1 };
+        var a = FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = [N(1, 0, 0), N(2, 1, 0), N(3, 0, 1), N(4, 0, 1, 2)], MeshElements = [El(1, "shell", [1, 2, 3]), analog],
+            LoadCases = [lc], Stages = [Stage(1)], Properties = new Props(),
+        });
+        TestHarness.Check("нет ошибок", !a.HasErrors);
+        TestHarness.Check("стержень не в модели, узел 4 тоже", a.Model.Beams.Count == 0 && a.Model.Nodes.All(n => n.Id != 4));
+        TestHarness.Check("предупреждение beam_without_stiffness",
+            a.Diagnostics.Any(d => d.Code == "beam_without_stiffness" && !d.IsError && d.SourceKeys!.SequenceEqual(["2"])));
+        TestHarness.Check("с. в. без пропусков", a.Diagnostics.All(d => d.Code != "self_weight_skipped"));
     }
 
     /// <summary>Опора КонЭ через исходный узел, опора и пружина сетки, жёсткое тело, шарнир конца КЭ.</summary>

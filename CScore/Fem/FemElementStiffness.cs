@@ -23,6 +23,12 @@ public interface IFemElementStiffnessSource : IFemSelfWeightSource
 
     /// <summary>Упругие свойства стержня; null — источник их не знает.</summary>
     FemBarStiffness? Bar(FemElement element);
+
+    /// <summary>
+    /// КЭ без жёсткости по данным источника (стержневой аналог ЛИРЫ: E = 0, численных жёсткостей нет) — в расчётную
+    /// модель не входит.
+    /// </summary>
+    bool IsWithoutStiffness(FemElement element) => false;
 }
 
 /// <summary>
@@ -43,6 +49,9 @@ public sealed class FemCompositeStiffnessSource(params IFemElementStiffnessSourc
 
     /// <inheritdoc/>
     public double? BarArea(FemElement element) => Pick(element)?.BarArea(element);
+
+    /// <inheritdoc/>
+    public bool IsWithoutStiffness(FemElement element) => Pick(element) == null && sources.Any(s => s.IsWithoutStiffness(element));
 
     IFemElementStiffnessSource? Pick(FemElement element) =>
         sources.FirstOrDefault(s => (element.ElemType == "shell" ? s.Shell(element) != null : s.Bar(element) != null))

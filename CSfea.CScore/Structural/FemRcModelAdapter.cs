@@ -9,9 +9,10 @@ namespace CSfea.CScoreBridge.Structural;
 
 /// <summary>
 /// Сечение пластинчатого КЭ из источника армирования (тот же, что в проверке по КЭ) с диаграммами материалов;
-/// <see cref="MaterialsKey"/> различает одинаковое армирование с разными диаграммами.
+/// <see cref="MaterialsKey"/> различает одинаковое армирование с разными диаграммами. Без армирования
+/// (<see cref="PlateElementSection.Section"/> == null) материалы не нужны — КЭ упругий, причина идёт в отчёт.
 /// </summary>
-public sealed record FemRcPlateSection(PlateElementSection Section, PlateSectionMaterials Materials, string MaterialsKey);
+public sealed record FemRcPlateSection(PlateElementSection Section, PlateSectionMaterials? Materials, string MaterialsKey);
 
 /// <summary>Сечение CScore стержня (материалы привязаны, диаграммы построены), ключ одинаковых сечений и GJ, Н·м².</summary>
 public sealed record FemRcBeamCross(CrossSection Section, string Key, double TorsionGJ);
@@ -69,6 +70,9 @@ public sealed class FemRcModelInput
     public bool BeamShear { get; init; } = true;
 
     public required IReadOnlyList<FemRcStage> Stages { get; init; }
+
+    /// <summary>Диагностики подготовки входа (допущения источника свойств, сечения, стадии) — в начало отчёта.</summary>
+    public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
 }
 
 /// <summary>Итог адаптации: модель (номера узлов и КЭ — теги сетки), диагностики, суммарные нагрузки стадий.</summary>
@@ -97,7 +101,7 @@ public static class FemRcModelAdapter
     public static FemRcModelResult Adapt(FemRcModelInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        var diag = new List<FemValidationDiagnostic>();
+        var diag = new List<FemValidationDiagnostic>(input.Diagnostics);
         var model = new RcStructuralModel();
 
         // Узлы сетки: теги — целые числа (NodeIdsJson КЭ хранит их числами).
@@ -185,11 +189,11 @@ public static class FemRcModelAdapter
             RcShellSection? section = null;
             double forceAngle = 0;
             var plate = input.PlateSection?.Invoke(e);
-            if (plate?.Section.Section is { } ps)
+            if (plate is { Section.Section: { } ps, Materials: { } pm })
             {
                 string key = $"rc|{plate.Section.RebarKey}|{plate.MaterialsKey}";
                 if (!sections.TryGetValue(key, out section))
-                    sections[key] = section = new RcShellSection(key) { Plate = ps, PlateMaterials = plate.Materials };
+                    sections[key] = section = new RcShellSection(key) { Plate = ps, PlateMaterials = pm };
                 forceAngle = plate.Section.ForceAngleDeg;
                 reinforced++;
             }
@@ -261,6 +265,7 @@ public static class FemRcModelAdapter
         var noStirrups = new List<string>();
         var degenerate = new List<string>();
         var noAxes = new List<string>();
+        var withoutStiffness = new List<string>();
         int released = 0, cscore = 0;
         foreach (var e in input.MeshElements.Where(e => e.ElemType == "beam"))
         {
@@ -277,7 +282,11 @@ public static class FemRcModelAdapter
 
             var cross = input.BeamSection?.Invoke(e);
             var bar = input.Properties?.Bar(e);
-            if (cross == null && bar == null) { noSection.Add(e.ElemTag); continue; }
+            if (cross == null && bar == null)
+            {
+                (input.Properties?.IsWithoutStiffness(e) == true ? withoutStiffness : noSection).Add(e.ElemTag);
+                continue;
+            }
             var lin = bar == null ? null : new BeamSection(bar.E, bar.A, bar.Iy, bar.Iz, bar.J, bar.G);
             string key = cross?.Key ?? "-";
             if (bar != null) key += FormattableString.Invariant($"|{bar.E:R}|{bar.G:R}|{bar.A:R}|{bar.Iy:R}|{bar.Iz:R}|{bar.J:R}");
@@ -303,6 +312,8 @@ public static class FemRcModelAdapter
         }
         Add(diag, "beam_no_section", "Стержни без сечения CScore и без упругих свойств жёсткости", noSection, true);
         Add(diag, "beam_degenerate", "Стержни нулевой длины", degenerate, true);
+        Add(diag, "beam_without_stiffness", "Стержни без жёсткости в источнике (стержневой аналог) не входят в модель",
+            withoutStiffness, false);
         Add(diag, "beam_axes_unknown", "Стержни импорта без прочитанных местных осей (поворот сечения 0; дочитайте граничные условия)",
             noAxes, false);
         Add(diag, "beam_no_stirrups", "Стержни с сечением CScore без хомутов: сдвиг упругий", noStirrups, false);

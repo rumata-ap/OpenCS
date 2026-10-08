@@ -22,6 +22,15 @@ public static class LiraStiffnessParams
    /// <summary>Жёсткость пластины.</summary>
    public static bool IsPlate(LiraStiffnessRecord s) => s.Params.Contains("PLATE_END", StringComparison.Ordinal);
 
+   /// <summary>
+   /// Стержневой аналог: стандартное сечение без модуля упругости и без численных EF, EIy, EIz (не сортамент и не
+   /// численная жёсткость DD10) — жёсткости в схеме ЛИРЫ не даёт.
+   /// </summary>
+   public static bool IsBarAnalog(LiraStiffnessRecord s) =>
+      IsBar(s) && !s.Params.Contains("DD10_END", StringComparison.Ordinal) && LiraSteelProfiles.SteelRef(s.Params) == null
+      && Value(s.Params, "E") is not > 0
+      && Value(s.Params, "EF") is not > 0 && Value(s.Params, "EIy") is not > 0 && Value(s.Params, "EIz") is not > 0;
+
    /// <summary>Размеры бруса; null — жёсткость не «Брус» или размеры не заданы.</summary>
    public static LiraBarRect? BarRect(LiraStiffnessRecord s)
    {

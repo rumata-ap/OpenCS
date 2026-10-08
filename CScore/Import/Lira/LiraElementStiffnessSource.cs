@@ -14,7 +14,8 @@ namespace CScore.Import;
 /// вес (сила/длина);</item>
 /// <item>стальной профиль сортамента — <see cref="ImportedSteelElastic"/>, сталь E = 2,06·10¹¹ Па, ν = 0,3, 7,85 т/м³.</item>
 /// </list>
-/// Стержень без E и без численных жёсткостей (стержневой аналог) — без свойств. ν стержня — Mu, по умолчанию 0,2.
+/// Стержень без E и без численных жёсткостей (стержневой аналог, <see cref="LiraStiffnessParams.IsBarAnalog"/>) — без
+/// свойств и вне расчётной модели (<see cref="IsWithoutStiffness"/>). ν стержня — Mu, по умолчанию 0,2.
 /// </summary>
 public sealed class LiraElementStiffnessSource : IFemElementStiffnessSource
 {
@@ -62,6 +63,10 @@ public sealed class LiraElementStiffnessSource : IFemElementStiffnessSource
 
     /// <inheritdoc/>
     public double? BarArea(FemElement element) => BarOf(element)?.Area;
+
+    /// <inheritdoc/>
+    public bool IsWithoutStiffness(FemElement element) =>
+        element.ElemType == "beam" && Record(element) is { } s && LiraStiffnessParams.IsBarAnalog(s);
 
     BarProps? BarOf(FemElement element)
     {
