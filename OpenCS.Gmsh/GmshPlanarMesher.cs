@@ -16,7 +16,7 @@ namespace OpenCS.Gmsh;
 /// <summary>Строит сетку одного PlanarRegion внешним Gmsh в формате MSH 2.2 ASCII.</summary>
 public sealed class GmshPlanarMesher : IPlanarMesher
 {
-    public const string GeneratorVersion = "gmsh-planar-v4-fem-driven-constraints";
+    public const string GeneratorVersion = "gmsh-planar-v5-noded-constraints";
     const int OuterPhysicalGroup = 1001;
     const int HolePhysicalGroupBase = 1002;
     const int SurfacePhysicalGroup = 2001;
@@ -53,7 +53,8 @@ public sealed class GmshPlanarMesher : IPlanarMesher
 
             var geoPath = Path.Combine(directory, "model.geo");
             var mshPath = Path.Combine(directory, "model.msh");
-            await File.WriteAllTextAsync(geoPath, GmshPlanarGeoBuilder.Build(request.Region, request.Settings, request.EffectiveConstraintObjects), Encoding.UTF8, cancellationToken);
+            var plan = GmshPlanarGeoBuilder.Plan(request.Region, request.Settings, request.EffectiveConstraintObjects);
+            await File.WriteAllTextAsync(geoPath, plan.Geo, Encoding.UTF8, cancellationToken);
             var result = await GmshProcessRunner.RunAsync(
                 executable.Path,
                 directory,
@@ -70,7 +71,7 @@ public sealed class GmshPlanarMesher : IPlanarMesher
             }
 
             var msh = GmshMsh41Reader.Read(await File.ReadAllTextAsync(mshPath, cancellationToken));
-            var parsed = ParseMsh41(msh, request.Region.Frame, request.Region, request.EffectiveConstraintObjects);
+            var parsed = ParseMsh41(msh, request.Region.Frame, request.Region, request.EffectiveConstraintObjects, plan.BoundaryLines);
             diagnostics.AddRange(parsed.Diagnostics);
             var snapshot = new PlanarMeshSnapshot
             {
@@ -176,7 +177,8 @@ public sealed class GmshPlanarMesher : IPlanarMesher
              GmshMsh41Document document,
              Frame3D frame,
              PlanarRegion region,
-             IReadOnlyList<PlanarConstraintObject> constraintObjects)
+             IReadOnlyList<PlanarConstraintObject> constraintObjects,
+             IReadOnlyDictionary<int, PlanarBoundaryKey> expectedLines)
     {
         var rawNodes = document.Nodes.ToDictionary(node => node.RawId);
         var ids = rawNodes.Keys.OrderBy(id => id).ToArray();
@@ -191,7 +193,6 @@ public sealed class GmshPlanarMesher : IPlanarMesher
         var diagnostics = document.Diagnostics.ToList();
         var elements = new List<PlanarMeshElement>();
         var boundaryEdges = new Dictionary<PlanarBoundaryKey, List<(int A, int B)>>();
-        var expectedLines = BoundaryLineMap(region);
         foreach (var item in document.Elements)
         {
             if (item.ElementType == 1)

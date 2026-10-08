@@ -78,6 +78,12 @@ public static class PlanarConstraintMeshMapper
             .Select(raw => rawToDense[raw])
             .Distinct()
             .ToArray();
+        // Точка, совпавшая с точкой другого constraint-а, попадает в его физическую группу (Gmsh пишет
+        // сущность один раз) — тогда узел ищется по координатам.
+        if (candidates.Length == 0)
+            candidates = Enumerable.Range(0, nodes.Count)
+                .Where(index => MatchesPoint(nodes[index], constraint.Geometry.Points[0], Math.Max(constraint.ToleranceM, 1e-9)))
+                .ToArray();
         if (candidates.Length == 0)
         {
             diagnostics.Add(new("planar_constraint_point_missing", $"Для constraint '{constraint.Id}' не найден точный mesh node."));
@@ -103,15 +109,19 @@ public static class PlanarConstraintMeshMapper
         IReadOnlyDictionary<long, int> rawToDense,
         ICollection<FemValidationDiagnostic> diagnostics)
     {
-        var prefix = $"constraint:{SafeName(constraint.Id)}:";
-        var lineElements = document.Elements
-            .Where(element => element.ElementType == 1 && element.PhysicalName is not null &&
-                (element.PhysicalName == prefix + "curve" || element.PhysicalName == prefix + "region-boundary"))
+        // Рёбра кривой — все линейные элементы сетки, лежащие на её ломаной: участок по кромке — это
+        // линия контура, общий с другим constraint-ом — линия под его физической группой
+        // (GmshPlanarGeoBuilder пишет линию в одну группу), поэтому отбор геометрический, не по имени.
+        var tolerance = Math.Max(constraint.ToleranceM, 1e-9);
+        var polyline = constraint.Geometry.Points;
+        var edges = document.Elements
+            .Select((element, index) => (element, index))
+            .Where(pair => pair.element.ElementType == 1 && pair.element.RawNodeIds.Count == 2 &&
+                rawToDense.ContainsKey(pair.element.RawNodeIds[0]) && rawToDense.ContainsKey(pair.element.RawNodeIds[1]))
+            .Select(pair => new RawEdge(pair.element, rawToDense[pair.element.RawNodeIds[0]], rawToDense[pair.element.RawNodeIds[1]], pair.index))
+            .Where(edge => OnPolyline(nodes[edge.A], nodes[edge.B], polyline, tolerance))
             .ToArray();
-        var edges = lineElements
-            .Where(element => element.RawNodeIds.Count == 2 && rawToDense.ContainsKey(element.RawNodeIds[0]) && rawToDense.ContainsKey(element.RawNodeIds[1]))
-            .Select(element => new RawEdge(element, rawToDense[element.RawNodeIds[0]], rawToDense[element.RawNodeIds[1]]))
-            .ToArray();
+        var lineElements = edges.Select(edge => edge.Element).ToArray();
         var start = FindExactNode(nodes, constraint.Geometry.Points[0], constraint.ToleranceM, edges.SelectMany(edge => new[] { edge.A, edge.B }));
         var end = FindExactNode(nodes, constraint.Geometry.Points[^1], constraint.ToleranceM, edges.SelectMany(edge => new[] { edge.A, edge.B }));
         if (start is null || end is null)
@@ -139,7 +149,7 @@ public static class PlanarConstraintMeshMapper
             var selected = next[0];
             visited.Add(selected.Edge);
             orderedEdges.Add(new(current, selected.Node));
-            elementIndices.Add(Array.IndexOf(document.Elements.ToArray(), selected.Edge.Element));
+            elementIndices.Add(selected.Edge.ElementIndex);
             previous = current;
             current = selected.Node;
         }
@@ -227,7 +237,29 @@ public static class PlanarConstraintMeshMapper
 
     static string SafeName(string value) => value.Replace("\"", "_");
 
-    sealed record RawEdge(GmshMsh41Element Element, int A, int B);
+    sealed record RawEdge(GmshMsh41Element Element, int A, int B, int ElementIndex);
+
+    /// <summary>Ребро лежит на одном звене ломаной: оба конца и середина — на звене в пределах допуска.</summary>
+    static bool OnPolyline(PlanarMeshNode a, PlanarMeshNode b, IReadOnlyList<PlanarPoint2D> polyline, double tolerance)
+    {
+        double mu = (a.U + b.U) / 2, mv = (a.V + b.V) / 2;
+        for (var i = 0; i + 1 < polyline.Count; i++)
+            if (OnSegment(a.U, a.V, polyline[i], polyline[i + 1], tolerance) &&
+                OnSegment(b.U, b.V, polyline[i], polyline[i + 1], tolerance) &&
+                OnSegment(mu, mv, polyline[i], polyline[i + 1], tolerance))
+                return true;
+        return false;
+    }
+
+    static bool OnSegment(double u, double v, PlanarPoint2D p, PlanarPoint2D q, double tolerance)
+    {
+        double rx = q.U - p.U, ry = q.V - p.V;
+        var lengthSquared = rx * rx + ry * ry;
+        var t = lengthSquared == 0 ? 0 : ((u - p.U) * rx + (v - p.V) * ry) / lengthSquared;
+        t = Math.Clamp(t, 0, 1);
+        double dx = u - (p.U + t * rx), dy = v - (p.V + t * ry);
+        return dx * dx + dy * dy <= tolerance * tolerance;
+    }
 
     sealed class PartialMapping
     {

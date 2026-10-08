@@ -141,15 +141,21 @@ public static class PlanarConstraintValidator
         Enumerable.Range(0, polygon.Count)
             .Any(index => OnSegment(polygon[index], polygon[(index + 1) % polygon.Count], point));
 
+    /// <summary>Ломаная пересекает контур трансверсально (внутренности отрезков). Касание и проход
+    /// по контуру — не пересечение: генератор сетки делит контур в этих точках.</summary>
     static bool IntersectsLoop(IReadOnlyList<PlanarPoint2D> points, bool closed, IReadOnlyList<PlanarPoint2D> loop)
     {
         var sourceSegments = Segments(points, closed).ToArray();
         var targetSegments = Segments(loop, closed: true).ToArray();
         return sourceSegments.Any(source => targetSegments.Any(target =>
-            SegmentsCross(source.A, source.B, target.A, target.B) &&
-            !SamePoint(source.A, target.A) && !SamePoint(source.A, target.B) &&
-            !SamePoint(source.B, target.A) && !SamePoint(source.B, target.B)));
+            SegmentsCrossProperly(source.A, source.B, target.A, target.B)));
     }
+
+    static bool SegmentsCrossProperly(PlanarPoint2D a, PlanarPoint2D b, PlanarPoint2D c, PlanarPoint2D d) =>
+        Orientation(a, b, c) * Orientation(a, b, d) < -GeometryTolerance &&
+        Orientation(c, d, a) * Orientation(c, d, b) < -GeometryTolerance &&
+        Math.Abs(Orientation(a, b, c)) > GeometryTolerance && Math.Abs(Orientation(a, b, d)) > GeometryTolerance &&
+        Math.Abs(Orientation(c, d, a)) > GeometryTolerance && Math.Abs(Orientation(c, d, b)) > GeometryTolerance;
 
     static bool HasSelfIntersection(IReadOnlyList<PlanarPoint2D> points, bool closed)
     {
@@ -163,9 +169,11 @@ public static class PlanarConstraintValidator
         return false;
     }
 
+    /// <summary>Наложение двух областей-constraint-ов. Кривые с чем угодно пересекаться и касаться могут:
+    /// генератор сетки делит их в общих точках (сетка балок, балка по краю области).</summary>
     static bool HasNonTrivialOverlap(PlanarConstraintGeometry first, PlanarConstraintGeometry second)
     {
-        if (first.Kind == PlanarConstraintGeometryKind.Point || second.Kind == PlanarConstraintGeometryKind.Point)
+        if (first.Kind != PlanarConstraintGeometryKind.Region || second.Kind != PlanarConstraintGeometryKind.Region)
             return false;
 
         var firstSegments = Segments(first.Points, first.Kind == PlanarConstraintGeometryKind.Region).ToArray();
@@ -205,7 +213,4 @@ public static class PlanarConstraintValidator
         point.U <= Math.Max(a.U, b.U) + GeometryTolerance &&
         point.V >= Math.Min(a.V, b.V) - GeometryTolerance &&
         point.V <= Math.Max(a.V, b.V) + GeometryTolerance;
-
-    static bool SamePoint(PlanarPoint2D a, PlanarPoint2D b) =>
-        Math.Abs(a.U - b.U) <= GeometryTolerance && Math.Abs(a.V - b.V) <= GeometryTolerance;
 }

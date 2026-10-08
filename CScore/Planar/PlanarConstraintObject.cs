@@ -86,6 +86,9 @@ public sealed class PlanarConstraintObject
     public string? Provenance { get; set; }
     /// <summary>Признак объекта, полученного автоматически из FEM topology.</summary>
     public bool IsDerived { get; set; }
+    /// <summary>Вершины кривой — узлы чужой готовой сетки (стык с другой областью): между соседними
+    /// вершинами сеточный генератор узлов не добавляет, иначе на стыке появятся висячие узлы.</summary>
+    public bool KeepVertices { get; set; }
     /// <summary>Все исходные FEM-объекты, вошедшие в общий geometry locus.</summary>
     public List<PlanarSourceReference> SourceReferences { get; set; } = [];
     /// <summary>Все structural relations общего geometry locus.</summary>
