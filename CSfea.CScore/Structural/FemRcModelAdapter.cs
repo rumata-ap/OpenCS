@@ -92,6 +92,13 @@ public sealed record FemRcModelResult(RcStructuralModel Model, IReadOnlyList<Fem
     /// <summary>Есть ошибки — модель считать нельзя.</summary>
     public bool HasErrors => Diagnostics.Any(d => d.IsError);
 
+    /// <summary>
+    /// Угол оси x выдачи усилий пластины в осях её сечения (<c>ForceAngleDeg</c> источника армирования), град: номер
+    /// оболочки → угол; нет — оси совпадают. Усилия в осях сечения → оси выдачи —
+    /// <c>ShellForceTransform.Rotate(…, −угол)</c>.
+    /// </summary>
+    public IReadOnlyDictionary<int, double> ShellForceAngles { get; init; } = new Dictionary<int, double>();
+
     /// <summary>Строки отчёта: ошибки, затем предупреждения и сведения.</summary>
     public IEnumerable<string> Report => Diagnostics.OrderByDescending(d => d.IsError)
         .Select(d => (d.IsError ? "Ошибка: " : "") + d.Message);
@@ -133,7 +140,8 @@ public static class FemRcModelAdapter
 
         var used = new HashSet<int>();
         var badElements = new List<string>();
-        AddShells(input, model, nodesByTag, memberByTag, boundary, used, badElements, diag);
+        var forceAngles = new Dictionary<int, double>();
+        AddShells(input, model, nodesByTag, memberByTag, boundary, used, badElements, diag, forceAngles);
         AddBeams(input, model, nodesByTag, memberByTag, boundary, used, badElements, diag);
         Add(diag, "element_topology", "КЭ с неизвестными узлами, нечисловым тегом или не 2–4 узлами", badElements, true);
 
@@ -173,14 +181,14 @@ public static class FemRcModelAdapter
         Add(diag, "spring_without_elements", "Пружины узлов без КЭ не учитываются", orphanSprings, false);
 
         var totals = AddLoads(input, model, nodesByTag, memberByTag, used, diag);
-        return new FemRcModelResult(model, diag, totals);
+        return new FemRcModelResult(model, diag, totals) { ShellForceAngles = forceAngles };
     }
 
     // ---------------------------------------------------------------- пластины
 
     static void AddShells(FemRcModelInput input, RcStructuralModel model, IReadOnlyDictionary<string, FemMeshNode> nodes,
         IReadOnlyDictionary<string, FemMember> members, FemResolvedBoundary boundary, HashSet<int> used,
-        List<string> badElements, List<FemValidationDiagnostic> diag)
+        List<string> badElements, List<FemValidationDiagnostic> diag, Dictionary<int, double> forceAngles)
     {
         var sections = new Dictionary<string, RcShellSection>(StringComparer.Ordinal);
         var noSection = new List<string>();
@@ -226,7 +234,11 @@ public static class FemRcModelAdapter
             if (section == null) { noSection.Add(e.ElemTag); continue; }
 
             var axis = ForceAxis(e, g, members, input.RegionAxisX);
-            if (forceAngle != 0) axis = Rotate(axis, g.ShellFrame().Z, -forceAngle);
+            if (forceAngle != 0)
+            {
+                axis = Rotate(axis, g.ShellFrame().Z, -forceAngle);
+                forceAngles[id] = forceAngle;
+            }
             double? c1 = boundary.FoundationC1.TryGetValue(e.ElemTag, out double k) ? k : null;
             if (c1 != null) onFoundation++;
             model.Shells.Add(new RcShell(id, contour, section, [axis.X, axis.Y, axis.Z], c1));

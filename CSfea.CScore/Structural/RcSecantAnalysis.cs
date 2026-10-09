@@ -43,6 +43,18 @@ public sealed class RcSecantOptions
 
     /// <summary>Параметры итераций Пикара.</summary>
     public SecantPicardOptions Solver { get; init; } = new();
+
+    /// <summary>
+    /// Угол оси x выдачи усилий пластины в осях сечения (номер оболочки → град, <see cref="FemRcModelResult.ShellForceAngles"/>)
+    /// — для усилий в полях шага.
+    /// </summary>
+    public IReadOnlyDictionary<int, double>? ShellForceAngles { get; init; }
+
+    /// <summary>
+    /// Принятый шаг и снятие его полей (вызывать сразу — позже состояния КЭ уже другие). Вызывается в потоке расчёта
+    /// после <see cref="SecantPicardOptions.OnStepAccepted"/> решателя.
+    /// </summary>
+    public Action<SecantStepResult, Func<RcSecantStepFields>>? OnStep { get; init; }
 }
 
 /// <summary>
@@ -113,7 +125,16 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
 
 /// <summary>Итог секущего расчёта схемы: сетка (номера узлов и КЭ модели), состояния КЭ, шаги и журнал.</summary>
 public sealed record RcSecantRun(RcStructuralMeshBuild Build, ISecantShellState?[] ShellStates,
-    ISecantBeamState?[] BeamStates, IReadOnlyList<SecantLoadStage> Stages, SecantPicardResult Result);
+    ISecantBeamState?[] BeamStates, IReadOnlyList<SecantLoadStage> Stages, SecantPicardResult Result)
+{
+    internal RcSecantFieldExtractor? Extractor { get; init; }
+
+    /// <summary>
+    /// Поля последнего принятого шага (состояния КЭ после расчёта отвечают ему); null — принятых шагов нет.
+    /// </summary>
+    public RcSecantStepFields? LastConvergedFields()
+        => Result.Steps.LastOrDefault(s => s.Converged) is { } last && Extractor != null ? Extractor.Extract(last) : null;
+}
 
 /// <summary>
 /// Секущий расчёт <see cref="RcStructuralModel"/>: сетка с секущими сечениями, стадии модели (нагрузка накапливается:
@@ -141,7 +162,18 @@ public static class RcSecantAnalysis
             f = f.Zip(df, (a, b) => a + b).ToArray();
             stages.Add(new SecantLoadStage(st.Name, f, st.Steps));
         }
-        var result = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, options.Solver).Run(stages, progress, ct);
-        return new RcSecantRun(build, shells, beams, stages, result);
+        var extractor = new RcSecantFieldExtractor(model, build, shells, options.Solver.Geometric, options.ShellForceAngles);
+        var solverOptions = options.Solver;
+        if (options.OnStep is { } onStep)
+        {
+            var inner = solverOptions.OnStepAccepted;
+            solverOptions = solverOptions.With(step =>
+            {
+                inner?.Invoke(step);
+                onStep(step, () => extractor.Extract(step));
+            });
+        }
+        var result = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, solverOptions).Run(stages, progress, ct);
+        return new RcSecantRun(build, shells, beams, stages, result) { Extractor = extractor };
     }
 }

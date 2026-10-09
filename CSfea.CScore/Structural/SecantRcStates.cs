@@ -21,6 +21,13 @@ public enum PlateCrackRule
 }
 
 /// <summary>
+/// Состояние слоистого сечения КЭ на шаге (поля результата): доли треснувших слоёв низа и верха, наименьший ψs,
+/// наибольшие σs/σs,т и εb/εb2.
+/// </summary>
+public readonly record struct PlateFieldState(double CrackBottom, double CrackTop, double PsiMin, double SigmaRatio,
+    double EpsRatio);
+
+/// <summary>
 /// Секущий закон оболочечного КЭ по слоистому сечению <see cref="PlateSection"/> (одна точка — центр КЭ): память
 /// трещин слоёв (<see cref="PlateLayerState"/>, трещина необратима — слой больше не работает на растяжение, ν
 /// выключается), εs,crc при первой трещине (<see cref="PlateSection.ActivatePsi"/>) и ψs арматуры (п. 8.2.32 СП 63),
@@ -105,6 +112,40 @@ public sealed class PlateSecantShellState : ISecantShellState
 
     public void Commit() => _layers.Commit();
     public void Revert() => _layers.Revert();
+
+    /// <summary>
+    /// Состояние сечения для полей шага по деформациям центра КЭ (оси сечения): доля треснувших слоёв бетона в нижней
+    /// (z &lt; 0) и верхней половинах, наименьший ψs арматуры с определённой εs,crc (1 — нет), наибольшее σs/σs,т
+    /// растянутой арматуры (σs,т — напряжение начала текучести диаграммы) и наибольшее εb/εb2 сжатого бетона.
+    /// </summary>
+    public PlateFieldState FieldState(double[] epsM, double[] kappa)
+    {
+        var s = State(epsM, kappa);
+        int nl = _section.NLayers < 1 ? 1 : _section.NLayers;
+        int bottom = 0, top = 0, crBottom = 0, crTop = 0;
+        double epsRatio = 0.0;
+        for (int i = 0; i < nl; i++)
+        {
+            var c = _section.EvaluateConcreteLayer(i, s, _m.ConcreteDiagram, null, _layers);
+            bool cracked = i < _layers.ConcreteLayerCount && _layers.IsCracked(i);
+            if (c.Z < 0) { bottom++; if (cracked) crBottom++; }
+            else { top++; if (cracked) crTop++; }
+            if (c.Eps2Eq < 0 && _concreteLimit < 0) epsRatio = Math.Max(epsRatio, c.Eps2Eq / _concreteLimit);
+        }
+        double psi = 1.0, sigRatio = 0.0;
+        for (int li = 0; li < _section.RebarLayers.Count; li++)
+            foreach (bool alongX in new[] { true, false })
+            {
+                var d = _m.LayerDiagrams is { } ld && li < ld.Count && ld[li] is { } l ? l : _m.RebarDiagram;
+                var r = _section.EvaluateRebar(li, alongX, s, _m.RebarDiagram, _m.LayerDiagrams, _layers);
+                if (r.Area <= 0.0) continue;
+                if (_layers.HasEpsCrc(li, alongX)) psi = Math.Min(psi, r.Psi);
+                double sy = d.Sig(RebarLimits(d).Yield, out _);
+                if (r.Sig > 0 && sy > 0) sigRatio = Math.Max(sigRatio, r.Sig / sy);
+            }
+        return new PlateFieldState(bottom > 0 ? (double)crBottom / bottom : 0.0, top > 0 ? (double)crTop / top : 0.0,
+            psi, sigRatio, epsRatio);
+    }
 
     private static ShellStrainState State(double[] e, double[] k) => new(e[0], e[1], e[2], k[0], k[1], k[2]);
 

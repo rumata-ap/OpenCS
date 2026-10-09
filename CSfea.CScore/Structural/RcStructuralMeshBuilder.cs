@@ -70,6 +70,13 @@ public sealed class RcStructuralMeshBuild
     /// <summary>Узловые векторы загружений (Н, Н·м; длина — NDof сетки).</summary>
     public required IReadOnlyDictionary<int, double[]> LoadCases { get; init; }
 
+    /// <summary>
+    /// Согласованные узловые силы пролётных нагрузок стержней по загружениям: загружение → индекс стержня сетки → 12
+    /// сил концов (глобальные оси; у шарнирного КЭ — приведённые к сохранённым DOF). Усилия концов КЭ — K·d минус они.
+    /// </summary>
+    public IReadOnlyDictionary<int, IReadOnlyDictionary<int, double[]>> BeamLoadCases { get; init; } =
+        new Dictionary<int, IReadOnlyDictionary<int, double[]>>();
+
     /// <summary>Замечания построения (автоматические закрепления и т. п.).</summary>
     public required IReadOnlyList<string> Report { get; init; }
 
@@ -86,6 +93,22 @@ public sealed class RcStructuralMeshBuild
             for (int i = 0; i < f.Length; i++) f[i] += k * v[i];
         }
         return f;
+    }
+
+    /// <summary>Сумма пролётных нагрузок стержней загружений с коэффициентами: индекс стержня → 12 сил (глобальные).</summary>
+    public Dictionary<int, double[]> BeamCombination(IEnumerable<(int LoadCase, double Factor)> loads)
+    {
+        var r = new Dictionary<int, double[]>();
+        foreach (var (lc, k) in loads)
+        {
+            if (!BeamLoadCases.TryGetValue(lc, out var beams)) continue;
+            foreach (var (e, fe) in beams)
+            {
+                if (!r.TryGetValue(e, out var acc)) r[e] = acc = new double[12];
+                for (int i = 0; i < 12; i++) acc[i] += k * fe[i];
+            }
+        }
+        return r;
     }
 }
 
@@ -145,14 +168,19 @@ public static class RcStructuralMeshBuilder
         FixReleasedDofs(mesh, links, bc, nodeIds, report);
 
         var loadCases = new Dictionary<int, double[]>();
+        var beamLoadCases = new Dictionary<int, IReadOnlyDictionary<int, double[]>>();
         foreach (var lc in model.LoadCases)
-            loadCases[lc.Id] = LoadVector(lc, model, mesh, index, coords);
+        {
+            var beamLoads = new Dictionary<int, double[]>();
+            loadCases[lc.Id] = LoadVector(lc, model, mesh, index, coords, beamLoads);
+            if (beamLoads.Count > 0) beamLoadCases[lc.Id] = beamLoads;
+        }
 
         return new RcStructuralMeshBuild
         {
             Mesh = mesh, Bc = bc, NodeIndex = index, NodeIds = nodeIds,
             ShellIds = model.Shells.Select(s => s.Id).ToArray(), BeamIds = model.Beams.Select(b => b.Id).ToArray(),
-            LoadCases = loadCases, Report = report,
+            LoadCases = loadCases, BeamLoadCases = beamLoadCases, Report = report,
         };
     }
 
@@ -378,8 +406,13 @@ public static class RcStructuralMeshBuilder
         => string.Join(", ", ids.Take(10)) + (ids.Count > 10 ? ", …" : "");
 
     private static double[] LoadVector(RcLoadCase lc, RcStructuralModel model, StructuralMesh mesh,
-                                       Dictionary<int, int> index, double[][] coords)
+                                       Dictionary<int, int> index, double[][] coords, Dictionary<int, double[]> beamLoads)
     {
+        void AddBeam(int e, double[] fe)
+        {
+            if (!beamLoads.TryGetValue(e, out var acc)) beamLoads[e] = acc = new double[12];
+            for (int i = 0; i < 12; i++) acc[i] += fe[i];
+        }
         var f = new double[mesh.NDof];
         foreach (var p in lc.Nodal)
         {
@@ -404,6 +437,7 @@ public static class RcStructuralMeshBuilder
             var b = mesh.Beams[e];
             var fe = BeamUniformLoad(new[] { coords[b.I], coords[b.J] }, q.Force, b.RefVec, b.Releases == 0 ? null : b);
             for (int c = 0; c < 6; c++) { f[6 * b.I + c] += fe[c]; f[6 * b.J + c] += fe[6 + c]; }
+            AddBeam(e, fe);
         }
         foreach (var q in lc.BeamEnds)
         {
@@ -412,6 +446,7 @@ public static class RcStructuralMeshBuilder
             var b = mesh.Beams[e];
             var fe = b.Releases == 0 ? q.Forces : CondensedEndLoad(new[] { coords[b.I], coords[b.J] }, q.Forces, b);
             for (int c = 0; c < 6; c++) { f[6 * b.I + c] += fe[c]; f[6 * b.J + c] += fe[6 + c]; }
+            AddBeam(e, fe);
         }
         return f;
     }

@@ -116,6 +116,22 @@ public sealed class SecantPicardOptions
 
     /// <summary>Журнал итераций (строки).</summary>
     public Action<string>? Log { get; init; }
+
+    /// <summary>
+    /// Принятый (сошедшийся) шаг — сразу после фиксации состояний КЭ (<c>Commit</c>): состояния сечений отвечают
+    /// этому шагу, по ним снимаются поля шага. Вызывается в потоке расчёта.
+    /// </summary>
+    public Action<SecantStepResult>? OnStepAccepted { get; init; }
+
+    /// <summary>Копия с другим <see cref="OnStepAccepted"/>.</summary>
+    public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => new()
+    {
+        MaxIterations = MaxIterations, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
+        TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric,
+        GeometricTolerance = GeometricTolerance, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
+        TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
+        OnStepAccepted = onStepAccepted,
+    };
 }
 
 /// <summary>
@@ -275,9 +291,11 @@ public sealed class SecantPicardSolver
                     Array.Copy(attempt.ShellStatus, shellStatus, shellStatus.Length);
                     Array.Copy(attempt.BeamStatus, beamStatus, beamStatus.Length);
                     stepNo++;
-                    result.Steps.Add(new SecantStepResult(si, stepNo, b, refinement, true, attempt.Iterations,
+                    var accepted = new SecantStepResult(si, stepNo, b, refinement, true, attempt.Iterations,
                         attempt.TrueResidual, (double[])u.Clone(), (SecantSectionStatus[])shellStatus.Clone(),
-                        (SecantSectionStatus[])beamStatus.Clone()));
+                        (SecantSectionStatus[])beamStatus.Clone());
+                    result.Steps.Add(accepted);
+                    _o.OnStepAccepted?.Invoke(accepted);
                     Log($"стадия «{stage.Name}» λ = {b:0.####}: сошлось за {attempt.Iterations} ит., невязка {attempt.TrueResidual:e2}");
                     return true;
                 }

@@ -223,7 +223,7 @@ public class SecantPicardTests
             $"Пикар {w * 1e3:f3} мм, НДМ {reference * 1e3:f3} мм ({(w / reference - 1) * 100:+0.00;-0.00} %)");
     }
 
-    static RcStructuralModel StripModel(double qKn, double phiDeg, out int midNode, int steps = 2)
+    internal static RcStructuralModel StripModel(double qKn, double phiDeg, out int midNode, int steps = 2)
     {
         const int nx = 20, ny = 2;
         double c = Math.Cos(phiDeg * Math.PI / 180), s = Math.Sin(phiDeg * Math.PI / 180);
