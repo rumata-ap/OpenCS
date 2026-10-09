@@ -2777,6 +2777,9 @@
     <system:String x:Key="FemCsfeaRecordAll">Все шаги</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Поля каждого шага — объём БД растёт пропорционально числу шагов.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">Не задано ни одного шага для записи: укажите номера шагов или отметьте «и концы стадий».</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSets">Шаг → наборы усилий</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSetsTip">Создать наборы усилий схемы (пластины и стержни) по полям этого шага — для проверок по КЭ. Доступно на шаге с записанными полями.</system:String>
+    <system:String x:Key="FemCsfeaForceSetCreated">Создан набор усилий «{0}» ({1} строк).</system:String>
     <system:String x:Key="FemCsfeaResultTitle">Результат CSfea «{0}» — схема «{1}»</system:String>
     <system:String x:Key="FemCsfeaResultErrorPrefix">Ошибка: </system:String>
     <system:String x:Key="FemCsfeaControlAxis">Контрольный {0}, {1}, {2}</system:String>

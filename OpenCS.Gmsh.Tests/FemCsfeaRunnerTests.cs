@@ -182,8 +182,21 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.State);
             Assert.Contains(vm.Legend, l => l.Count > 0);
 
+            // Шаг → наборы усилий: пластины, строка на КЭ, усилия в кН — как в полях шага.
+            Assert.True(vm.CanCreateForceSets);
+            var sets = vm.BuildForceSets([]);
+            var plates = Assert.Single(sets);
+            Assert.Equal("shell", plates.Kind);
+            Assert.Equal(schema.Id, plates.SourceSchemaId);
+            Assert.Equal(shells, plates.ShellItems.Count);
+            var row = plates.ShellItems[0];
+            var forces = vm.ShellForces(row.SourceElementNum!.Value)!;
+            Assert.Equal(forces[3] / 1e3, row.Mx, 12);
+            Assert.Equal(forces[7] / 1e3, row.Qy, 12);
+
             // Шаг без полей (записан только конечный): поля ближайшего записанного и подсказка.
             vm.SelectedStepIndex = 0;
+            Assert.False(vm.CanCreateForceSets);
             Assert.True(vm.HasFieldsNote);
             Assert.Equal(last, vm.FieldsStepIndex);
             vm.GoToFieldsStepCommand.Execute(null);

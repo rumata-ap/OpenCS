@@ -145,6 +145,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestDeformScale());
         GoToFieldsStepCommand = new RelayCommand(_ => GoToFieldsStep(), _ => FieldsStepIndex is int i && i != SelectedStepIndex);
+        CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
         ResetForceScaleCommand = new RelayCommand(_ => { _forceScale = SuggestForceScale(); RebuildForceDiagram(); OnPropertyChanged(nameof(ForceScale)); });
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
@@ -317,6 +318,25 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public System.Windows.Input.ICommand ResetDeformScaleCommand { get; }
     public System.Windows.Input.ICommand GoToFieldsStepCommand { get; }
     public System.Windows.Input.ICommand ResetForceScaleCommand { get; }
+
+    // ------------------------------------------------------------ шаг → набор усилий
+
+    public System.Windows.Input.ICommand CreateForceSetsCommand { get; }
+
+    /// <summary>Запрос «шаг → набор усилий» (обрабатывает AppViewModel: сохраняет наборы).</summary>
+    public event Action<FemCsfeaResultVM>? CreateForceSetsRequested;
+
+    /// <summary>Наборы можно создать: у шага под ползунком записаны поля и он сошёлся.</summary>
+    public bool CanCreateForceSets => Fields != null && FieldsStepIndex == SelectedStepIndex && SelectedStep?.Converged == true;
+
+    /// <summary>Наборы усилий шага под ползунком (пластины и стержни); пусто — поля шага не записаны.</summary>
+    public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing)
+    {
+        if (!CanCreateForceSets) return [];
+        var step = SelectedStep!;
+        string stage = step.Stage < Summary.Stages.Count ? Summary.Stages[step.Stage].Tag : "";
+        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing);
+    }
 
     public Point3DCollection OriginalLines { get; } = [];
     public Point3DCollection DeformedLines { get; private set; } = [];

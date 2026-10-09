@@ -2777,6 +2777,9 @@
     <system:String x:Key="FemCsfeaRecordAll">All steps</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Fields of every step — the database grows in proportion to the number of steps.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">No steps to record: enter step numbers or check "and stage ends".</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSets">Step → force sets</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSetsTip">Create schema force sets (plates and bars) from this step fields, for per-element checks. Available on steps with recorded fields.</system:String>
+    <system:String x:Key="FemCsfeaForceSetCreated">Force set "{0}" created ({1} rows).</system:String>
     <system:String x:Key="FemCsfeaResultTitle">CSfea result "{0}" — schema "{1}"</system:String>
     <system:String x:Key="FemCsfeaResultErrorPrefix">Error: </system:String>
     <system:String x:Key="FemCsfeaControlAxis">Control {0}, {1}, {2}</system:String>

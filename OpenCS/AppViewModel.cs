@@ -5498,7 +5498,7 @@ namespace OpenCS
          if (result == null) return;
          if (result.TaskKind == Services.FemCsfeaRunner.TaskKind)
          {
-            CurrentPage = new Views.FemCsfeaResultView(new ViewModels.FemCsfeaResultVM(result, db, schema));
+            ShowCsfeaResult(result, schema);
             return;
          }
 
@@ -5527,7 +5527,7 @@ namespace OpenCS
 
             if (LogCsfeaResult(result))
             {
-               CurrentPage = new Views.FemCsfeaResultView(new ViewModels.FemCsfeaResultVM(result, db, schema));
+               ShowCsfeaResult(result, schema);
                EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
                return;
             }
@@ -5603,6 +5603,23 @@ namespace OpenCS
                LogService.Info($"[{tag}] {line}");
          }
          return true;
+      }
+
+      /// <summary>Страница результата CSfea; «шаг → набор усилий» сохраняет наборы схемы.</summary>
+      void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema)
+      {
+         var vm = new ViewModels.FemCsfeaResultVM(result, db, schema);
+         vm.CreateForceSetsRequested += r =>
+         {
+            var sets = r.BuildForceSets(ForceSets);
+            foreach (var fs in sets)
+            {
+               db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+               LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+            }
+         };
+         CurrentPage = new Views.FemCsfeaResultView(vm);
       }
 
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)
