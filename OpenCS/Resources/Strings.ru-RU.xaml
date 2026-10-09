@@ -2773,7 +2773,7 @@
     <system:String x:Key="FemCsfeaRecordingGroup">Запись результатов</system:String>
     <system:String x:Key="FemCsfeaRecordFinal">Конечный результат</system:String>
     <system:String x:Key="FemCsfeaRecordSelected">Выбранные шаги:</system:String>
-    <system:String x:Key="FemCsfeaRecordStepsTip">Сквозные номера шагов через запятую, например «5, 10, 15».</system:String>
+    <system:String x:Key="FemCsfeaRecordStepsTip">Номера шагов по плану постановки, сквозные по стадиям (без промежуточных шагов дробления), через запятую, например «5, 10, 15». Конечный шаг записывается всегда.</system:String>
     <system:String x:Key="FemCsfeaRecordStageEnds">и концы стадий</system:String>
     <system:String x:Key="FemCsfeaRecordAll">Все шаги</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Поля каждого шага — объём БД растёт пропорционально числу шагов.</system:String>

@@ -45,13 +45,15 @@ public sealed record FemCsfeaSetup
     /// Параметры ядра по параметрам постановки; <paramref name="maxDegreeOfParallelism"/> — из общих настроек расчёта
     /// (−1 — по числу ядер), <paramref name="log"/> — журнал итераций.
     /// </summary>
-    public static RcSecantOptions SecantOptions(FemCsfeaParams? p, int maxDegreeOfParallelism = -1, Action<string>? log = null)
+    public static RcSecantOptions SecantOptions(FemCsfeaParams? p, int maxDegreeOfParallelism = -1, Action<string>? log = null,
+        IReadOnlyDictionary<int, double>? shellForceAngles = null,
+        Action<CSfea.Core.SecantStepResult, Func<RcSecantStepFields>>? onStep = null)
     {
         p ??= new FemCsfeaParams();
         return new RcSecantOptions
         {
             TensionConcrete = p.TensionConcrete, Psi = p.Psi, PlateCrackRule = p.PlateCrackRule, BeamShear = p.BeamShear,
-            PoissonUncracked = p.PoissonUncracked,
+            PoissonUncracked = p.PoissonUncracked, ShellForceAngles = shellForceAngles, OnStep = onStep,
             Solver = new CSfea.Core.SecantPicardOptions
             {
                 MaxIterations = p.MaxIterations, TolDisplacement = p.TolDisplacement, TolStiffness = p.TolStiffness,

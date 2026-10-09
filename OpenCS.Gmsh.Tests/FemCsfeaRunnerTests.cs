@@ -99,6 +99,61 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         });
     }
 
+    [Fact]
+    public async Task Recording_Final_WritesLastStepOnly()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, analysis, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            var last = summary.Steps.Last(s => s.Converged);
+            Assert.Equal([last.N], ctx.Db.GetFemResultStepNumbers(result.Id));
+            Assert.Equal([last.N], summary.Steps.Where(s => s.Fields).Select(s => s.N));
+            Assert.Equal(4, last.Planned);
+
+            var fields = FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, last.N)!);
+            int node = Array.IndexOf(fields.NodeIds, int.Parse(summary.ControlNodeTag, CultureInfo.InvariantCulture));
+            Assert.Equal(last.Control!.Value, fields.Displacements[6 * node + 2], 12);
+            Assert.Equal(1, fields.Stage);
+            Assert.Equal(1.0, fields.LoadFactor, 12);
+            // Плита на угловых шарнирах после q + q2: трещины есть, усилия пластин в выдаче конечны.
+            Assert.Contains(fields.ShellFlags, f => (f & CSfea.CScoreBridge.Structural.RcSecantStepFields.Cracked) != 0);
+            Assert.All(fields.ShellForces, v => Assert.True(double.IsFinite(v)));
+
+            ctx.Db.DeleteCalcResult(result);
+            Assert.Empty(ctx.Db.GetFemResultStepNumbers(result.Id));
+        });
+    }
+
+    [Fact]
+    public async Task Recording_Selected_PlannedStepsAndStageEnds()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, analysis, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var s in summary.Steps) output.WriteLine($"{s.N}: стадия {s.Stage}, λ = {s.LoadFactor}, план {s.Planned}, поля {s.Fields}");
+            // План: q — 1 шаг (№ 1), q2 — 3 шага (№ 2–4); выбран № 2, концы стадий — № 1 и 4.
+            var recorded = summary.Steps.Where(s => s.Fields).Select(s => s.Planned).ToList();
+            Assert.Equal([1, 2, 4], recorded);
+            Assert.Equal(summary.Steps.Where(s => s.Fields).Select(s => s.N), ctx.Db.GetFemResultStepNumbers(result.Id));
+        }, p => { p.ResultRecording = FemCsfeaRecording.Selected; p.RecordSteps = "2"; p.RecordStageEnds = true; });
+    }
+
+    [Fact]
+    public async Task Recording_All_WritesEveryConvergedStep()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, analysis, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            Assert.Equal(summary.Steps.Where(s => s.Converged).Select(s => s.N), ctx.Db.GetFemResultStepNumbers(result.Id));
+        }, p => p.ResultRecording = FemCsfeaRecording.All);
+    }
+
     sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
     {
         public void Report(T value) => report(value);
@@ -116,7 +171,8 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
     /// Схема: плита 4×4 м, h = 0,2 м на шарнирах в углах (узлы схемы 1–4), узел 5 в центре — контрольный; загружения
     /// q (−10 кПа) и q2 (−5 кПа); постановка CSfea: стадии q × 1 шаг и q2 × 3 шага. Сетка схемы не построена.
     /// </summary>
-    async Task WithSchema(Func<FemCsfeaRunContext, ListLog, FemSchema, FemAnalysis, Task> body)
+    async Task WithSchema(Func<FemCsfeaRunContext, ListLog, FemSchema, FemAnalysis, Task> body,
+        Action<FemCsfeaParams>? tune = null)
     {
         const double a = 4.0, h = 0.2;
         var root = Path.Combine(Path.GetTempPath(), $"opencs-csfea-runner-{Guid.NewGuid():N}");
@@ -192,6 +248,7 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
                 ],
                 Csfea = new FemCsfeaParams { ControlNodeTag = "5", ControlDof = 2 },
             };
+            tune?.Invoke(pars.Csfea);
             var analysis = new FemAnalysis
             {
                 SchemaId = schema.Id, Tag = "csfea", Kind = FemCsfeaRunner.AnalysisKind, ParamsJson = pars.ToJson(),

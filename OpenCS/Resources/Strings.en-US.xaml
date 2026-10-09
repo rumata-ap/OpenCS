@@ -2773,7 +2773,7 @@
     <system:String x:Key="FemCsfeaRecordingGroup">Result recording</system:String>
     <system:String x:Key="FemCsfeaRecordFinal">Final result</system:String>
     <system:String x:Key="FemCsfeaRecordSelected">Selected steps:</system:String>
-    <system:String x:Key="FemCsfeaRecordStepsTip">Global step numbers, comma-separated, e.g. "5, 10, 15".</system:String>
+    <system:String x:Key="FemCsfeaRecordStepsTip">Planned step numbers, counted through all stages (bisection substeps excluded), comma-separated, e.g. "5, 10, 15". The final step is always recorded.</system:String>
     <system:String x:Key="FemCsfeaRecordStageEnds">and stage ends</system:String>
     <system:String x:Key="FemCsfeaRecordAll">All steps</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Fields of every step — the database grows in proportion to the number of steps.</system:String>

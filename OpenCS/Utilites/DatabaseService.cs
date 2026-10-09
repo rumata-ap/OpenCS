@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 80;
+      const int CurrentSchemaVersion = 81;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -100,6 +100,7 @@ namespace OpenCS.Utilites
          [77] = MigrateV78,
          [78] = MigrateV79,
          [79] = MigrateV80,
+         [80] = EnsureFemResultStepTable,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -764,6 +765,7 @@ namespace OpenCS.Utilites
          EnsureFemSchemaSelectedReinforcementFileTable();
          EnsureFemSchemaSourceFileTable();
          EnsureFemCheckRowTables();
+         EnsureFemResultStepTable();
          EnsureFemSchemaConstructiveBlockTable();
          EnsureFemSchemaStiffnessTable();
          MigrateV50();

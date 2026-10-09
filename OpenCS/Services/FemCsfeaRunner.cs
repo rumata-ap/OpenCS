@@ -12,9 +12,69 @@ using OpenCS.Utilites;
 
 namespace OpenCS.Services;
 
-/// <summary>Шаг в сводке секущего расчёта: сквозной номер, стадия, доля стадии, сходимость, перемещение контрольного узла.</summary>
+/// <summary>
+/// Шаг в сводке секущего расчёта: сквозной номер (по всем шагам, с дроблениями), стадия, доля стадии, сходимость,
+/// перемещение контрольного узла; <see cref="Planned"/> — номер шага по плану постановки (сквозной по стадиям, без
+/// дроблений; null — промежуточный шаг дробления), <see cref="Fields"/> — записаны полные поля шага.
+/// </summary>
 public sealed record FemCsfeaStepSummary(int N, int Stage, int Step, double LoadFactor, bool Refinement, bool Converged,
-    int Iterations, double Residual, double? Control);
+    int Iterations, double Residual, double? Control, int? Planned = null, bool Fields = false);
+
+/// <summary>
+/// Отбор шагов для записи полей по <see cref="FemCsfeaParams.ResultRecording"/>: «все» — каждый принятый шаг;
+/// «выбранные» — шаги плана из <see cref="FemCsfeaParams.RecordSteps"/> и, по флажку, концы стадий; конечный
+/// (последний принятый) шаг записывается всегда. Поля снимаются и сжимаются в потоке расчёта.
+/// </summary>
+public sealed class FemCsfeaFieldRecorder
+{
+    readonly string _mode;
+    readonly HashSet<int> _selected;
+    readonly bool _stageEnds;
+    readonly int[] _stageSteps;
+    int _accepted;
+
+    public FemCsfeaFieldRecorder(FemCsfeaParams p, IReadOnlyList<int> stageSteps)
+    {
+        _mode = p.ResultRecording;
+        _selected = (FemCsfeaParams.ParseRecordSteps(p.RecordSteps, out _) ?? []).ToHashSet();
+        _stageEnds = p.RecordStageEnds;
+        _stageSteps = stageSteps.Select(n => Math.Max(1, n)).ToArray();
+    }
+
+    /// <summary>Сжатые поля по сквозному номеру шага сводки.</summary>
+    public SortedDictionary<int, byte[]> Records { get; } = new();
+
+    /// <summary>Номер шага по плану (сквозной по стадиям); null — промежуточный шаг дробления.</summary>
+    public int? Planned(int stage, double loadFactor, bool refinement)
+    {
+        if (refinement || stage < 0 || stage >= _stageSteps.Length) return null;
+        return _stageSteps.Take(stage).Sum() + (int)Math.Round(loadFactor * _stageSteps[stage]);
+    }
+
+    bool Wanted(CSfea.Core.SecantStepResult s)
+    {
+        if (_mode == FemCsfeaRecording.All) return true;
+        if (_mode != FemCsfeaRecording.Selected) return false;
+        if (s.IsRefinement) return false;
+        if (_stageEnds && Math.Abs(s.LoadFactor - 1) < 1e-12) return true;
+        return Planned(s.Stage, s.LoadFactor, false) is int n && _selected.Contains(n);
+    }
+
+    /// <summary>Принятый шаг (<see cref="RcSecantOptions.OnStep"/>).</summary>
+    public void OnStep(CSfea.Core.SecantStepResult s, Func<RcSecantStepFields> fields)
+    {
+        _accepted++;
+        if (Wanted(s)) Records[_accepted] = FemCsfeaStepFieldsCodec.Pack(fields());
+    }
+
+    /// <summary>Конечный шаг после расчёта — поля по состояниям КЭ последнего принятого шага.</summary>
+    public void RecordFinal(RcSecantRun run)
+    {
+        int last = run.Result.Steps.FindLastIndex(s => s.Converged);
+        if (last < 0 || Records.ContainsKey(last + 1)) return;
+        if (run.LastConvergedFields() is { } f) Records[last + 1] = FemCsfeaStepFieldsCodec.Pack(f);
+    }
+}
 
 /// <summary>Стадия в сводке: тег, заданное число шагов, суммарная нагрузка (Н) в глобальных осях.</summary>
 public sealed record FemCsfeaStageSummary(string Tag, int Steps, double Fx, double Fy, double Fz);
@@ -172,10 +232,17 @@ public static class FemCsfeaRunner
         {
             if (!line.StartsWith(' ')) ctx.Log.Info($"[{tag}] {line}");
         }
-        var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism, Log);
+        var recorder = new FemCsfeaFieldRecorder(csfea, adapted.Model.Stages.Select(s => s.Steps).ToList());
+        var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism, Log, adapted.ShellForceAngles,
+            recorder.OnStep);
 
         var clock = Stopwatch.StartNew();
-        var run = await Task.Run(() => RcSecantAnalysis.Run(adapted.Model, options, progress, ct), ct);
+        var run = await Task.Run(() =>
+        {
+            var r = RcSecantAnalysis.Run(adapted.Model, options, progress, ct);
+            recorder.RecordFinal(r);
+            return r;
+        }, ct);
         clock.Stop();
 
         string? controlTag = prepared.ControlNode?.MeshTag;
@@ -202,8 +269,13 @@ public static class FemCsfeaRunner
             return new FemCsfeaStageSummary(s.Name, s.Steps, total.Fx, total.Fy, total.Fz);
         }).ToList();
         summary.Steps = r.Steps.Select((s, i) => new FemCsfeaStepSummary(i + 1, s.Stage, s.Step, s.LoadFactor, s.IsRefinement,
-            s.Converged, s.Iterations, s.TrueResidual, controlDof is int d ? s.U[d] : null)).ToList();
-        return Result(analysis, created, r.Completed ? "ok" : "not_converged", summary);
+            s.Converged, s.Iterations, s.TrueResidual, controlDof is int d ? s.U[d] : null,
+            recorder.Planned(s.Stage, s.LoadFactor, s.IsRefinement), recorder.Records.ContainsKey(i + 1))).ToList();
+        var result = Result(analysis, created, r.Completed ? "ok" : "not_converged", summary);
+        // Поля шагов — отдельными записями к результату, поэтому результат сохраняется здесь.
+        ctx.Db.SaveCalcResult(result);
+        ctx.Db.SaveFemResultSteps(result.Id, recorder.Records.Select(kv => (kv.Key, kv.Value)));
+        return result;
     }
 
     static CalcResult Result(FemAnalysis analysis, string created, string status, FemCsfeaResultSummary summary) => new()
