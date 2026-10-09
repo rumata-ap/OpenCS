@@ -10,6 +10,10 @@ namespace CSfea.Sparse;
 public sealed class SupernodalCholeskySolver
 {
     private const int UpdateChunk = 256;   // столбцов цели за одно плотное произведение (размер буфера обновления)
+    private const long BigSupernode = 1L << 18;   // m·k, с которого обновления суперузла делятся по полосам столбцов
+    private const int ColumnChunk = 96;            // ширина полосы столбцов крупного суперузла
+
+    [ThreadStatic] private static double[]? _columnBuf;   // буфер обновления полосы (на поток)
 
     private SupernodalAnalysis? _an;
     private double[] _lx = [];
@@ -20,6 +24,14 @@ public sealed class SupernodalCholeskySolver
 
     /// <summary>Ослабленное слияние суперузлов (по умолчанию — как в CHOLMOD).</summary>
     public SupernodeRelaxation Relaxation { get; init; } = SupernodeRelaxation.Default;
+
+    /// <summary>
+    /// Число потоков факторизации (по умолчанию — число логических процессоров; 1 — последовательно). Потоки берут
+    /// суперузлы, у которых готовы все дети; у крупных суперузлов (у корня) обновления делятся по полосам столбцов,
+    /// а плотные произведения и решение панели — по блокам строк.
+    /// Порядок суммирования каждого элемента L фиксирован — результат не зависит от числа потоков.
+    /// </summary>
+    public int MaxDegreeOfParallelism { get; init; } = Environment.ProcessorCount;
 
     /// <summary>Последняя факторизация прошла как SPD (положительные ведущие элементы).</summary>
     public bool LastFactorizationSpd { get; private set; }
@@ -46,13 +58,96 @@ public sealed class SupernodalCholeskySolver
     {
         var an = _an ?? throw new InvalidOperationException("Сначала вызовите AnalyzePattern.");
         if (a.Cols != an.N) throw new ArgumentException("Размер матрицы не совпадает с анализом.");
-        var map = new int[an.N];
-        var buf = new double[(long)an.MaxSupernodeRows * Math.Min(UpdateChunk, Math.Max(an.MaxSupernodeCols, 1))];
+        int threads = Math.Max(1, Math.Min(MaxDegreeOfParallelism, Environment.ProcessorCount));
+        _factorized = false;
+        LastFactorizationSpd = threads == 1 || an.SupernodeCount < 2
+            ? FactorizeSequential(a.Values)
+            : FactorizeParallel(a.Values, threads);
+        _factorized = true;
+    }
+
+    private bool FactorizeSequential(double[] values)
+    {
+        var an = _an!;
+        var (map, buf) = Workspace();
         bool spd = true;
         for (int s = 0; s < an.SupernodeCount; s++)
-            spd &= FactorSupernode(s, a.Values, map, buf);
-        LastFactorizationSpd = spd;
-        _factorized = true;
+            spd &= FactorSupernode(s, values, map, buf, null);
+        return spd;
+    }
+
+    // Планировщик по дереву суперузлов: готов — у кого факторизованы все дети; стек готовых (LIFO) держит работу
+    // потока ближе к только что посчитанным блокам. Потоки — выделенные (не пул), пул занят делением крупных блоков.
+    private bool FactorizeParallel(double[] values, int threads)
+    {
+        var an = _an!;
+        int ns = an.SupernodeCount;
+        var pending = new int[ns];
+        for (int s = 0; s < ns; s++)
+            if (an.SuperParent[s] != -1) pending[an.SuperParent[s]]++;
+        var ready = new Stack<int>();
+        for (int s = ns - 1; s >= 0; s--)
+            if (pending[s] == 0) ready.Push(s);
+        var gate = new object();
+        using var available = new SemaphoreSlim(ready.Count);
+        int done = 0, notSpd = 0;
+        Exception? error = null;
+        var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
+
+        void Worker()
+        {
+            var (map, buf) = Workspace();
+            while (true)
+            {
+                available.Wait();
+                int s;
+                lock (gate) s = ready.Pop();
+                if (s < 0) return;
+                try
+                {
+                    if (!FactorSupernode(s, values, map, buf, po)) Interlocked.Exchange(ref notSpd, 1);
+                }
+                catch (Exception ex)
+                {
+                    lock (gate) error ??= ex;
+                }
+                lock (gate)
+                {
+                    int parent = an.SuperParent[s];
+                    int released = 0;
+                    if (parent != -1 && --pending[parent] == 0)
+                    {
+                        ready.Push(parent);
+                        released++;
+                    }
+                    // Конец (или ошибка — родитель всё равно ждёт детей, тогда считаем остальные впустую, но конечно).
+                    if (++done == ns)
+                    {
+                        for (int t = 0; t < threads; t++) ready.Push(-1);
+                        released += threads;
+                    }
+                    if (released > 0) available.Release(released);
+                }
+            }
+        }
+
+        var workers = new Thread[threads];
+        for (int t = 0; t < threads; t++)
+        {
+            workers[t] = new Thread(Worker) { IsBackground = true, Name = $"CSfea Cholesky {t}" };
+            workers[t].Start();
+        }
+        foreach (var w in workers) w.Join();
+        if (error != null)
+            throw new InvalidOperationException("Ошибка суперузловой факторизации: " + error.Message, error);
+        return notSpd == 0;
+    }
+
+    // Рабочие массивы потока: карта строк суперузла и буфер обновления.
+    private (int[] Map, double[] Buf) Workspace()
+    {
+        var an = _an!;
+        return (new int[an.N], new double[(long)an.MaxSupernodeRows * Math.Min(UpdateChunk, Math.Max(an.MaxSupernodeCols, 1))]);
     }
 
     /// <summary>Решить A·x = b после <see cref="Factorize"/>.</summary>
@@ -103,7 +198,7 @@ public sealed class SupernodalCholeskySolver
     }
 
     // Суперузел s: значения A, обновления от потомков, плотная факторизация панели. map и buf — рабочие (на поток).
-    private bool FactorSupernode(int s, double[] aValues, int[] map, double[] buf)
+    private bool FactorSupernode(int s, double[] aValues, int[] map, double[] buf, ParallelOptions? po)
     {
         var an = _an!;
         var lx = _lx;
@@ -126,29 +221,94 @@ public sealed class SupernodalCholeskySolver
         }
 
         // Обновления от потомков: C = −L_D(строки b.., :)·L_D(строки b..e, :)ᵀ, разброс по строкам и столбцам s.
+        if ((long)m * k >= BigSupernode)
+        {
+            // Крупный суперузел: полосы его столбцов независимы — каждая проходит все обновления только для своих
+            // столбцов. Разбиение фиксировано (не зависит от числа потоков), порядок потомков в элементе — тот же.
+            int chunks = (k + ColumnChunk - 1) / ColumnChunk;
+            if (po != null && po.MaxDegreeOfParallelism > 1)
+                Parallel.For(0, chunks, po, ch => UpdateColumns(s, f + ch * ColumnChunk, Math.Min(l, f + (ch + 1) * ColumnChunk), map));
+            else
+                for (int ch = 0; ch < chunks; ch++)
+                    UpdateColumns(s, f + ch * ColumnChunk, Math.Min(l, f + (ch + 1) * ColumnChunk), map);
+        }
+        else
+            for (int u = an.UpdPtr[s]; u < an.UpdPtr[s + 1]; u++)
+            {
+                int d = an.UpdSuper[u];
+                int drp = an.RowPtr[d], dm = an.RowPtr[d + 1] - drp;
+                int dk = an.SuperStart[d + 1] - an.SuperStart[d];
+                long doff = an.LxPtr[d];
+                int b = an.UpdRowBegin[u], e = an.UpdRowEnd[u];
+                for (int t0 = b; t0 < e; t0 += UpdateChunk)
+                {
+                    int q = Math.Min(UpdateChunk, e - t0);
+                    int p = dm - t0;
+                    Array.Clear(buf, 0, p * q);
+                    DenseKernels.GemmNtSub(p, q, dk, lx, doff + t0, dm, lx, doff + t0, dm, buf, 0, p, lowerOnly: true, po);
+                    Scatter(lx, off, m, f, rows, drp + t0, map, buf, p, 0, q);
+                }
+            }
+
+        return DenseKernels.FactorPanel(lx, off, m, k, po: po);
+    }
+
+    // Обновления от всех потомков суперузла s, только для его глобальных столбцов [c0, c1).
+    private void UpdateColumns(int s, int c0, int c1, int[] map)
+    {
+        var an = _an!;
+        var lx = _lx;
+        int[] rows = an.Rows;
+        int f = an.SuperStart[s];
+        int m = an.RowPtr[s + 1] - an.RowPtr[s];
+        long off = an.LxPtr[s];
+        var buf = _columnBuf;
+        if (buf == null || buf.Length < an.MaxSupernodeRows * ColumnChunk)
+            _columnBuf = buf = new double[an.MaxSupernodeRows * ColumnChunk];
         for (int u = an.UpdPtr[s]; u < an.UpdPtr[s + 1]; u++)
         {
             int d = an.UpdSuper[u];
             int drp = an.RowPtr[d], dm = an.RowPtr[d + 1] - drp;
+            int b = an.UpdRowBegin[u], e = an.UpdRowEnd[u];
+            // Строки D отсортированы: отрезок [tb, te) — те, что попадают в столбцы [c0, c1).
+            if (rows[drp + e - 1] < c0 || rows[drp + b] >= c1) continue;
+            int tb = LowerBound(rows, drp + b, drp + e, c0) - drp;
+            int te = LowerBound(rows, drp + tb, drp + e, c1) - drp;
+            if (tb == te) continue;
+            int p = dm - tb, q = te - tb;
             int dk = an.SuperStart[d + 1] - an.SuperStart[d];
             long doff = an.LxPtr[d];
-            int b = an.UpdRowBegin[u], e = an.UpdRowEnd[u];
-            for (int t0 = b; t0 < e; t0 += UpdateChunk)
-            {
-                int q = Math.Min(UpdateChunk, e - t0);
-                int p = dm - t0;
-                Array.Clear(buf, 0, p * q);
-                DenseKernels.GemmNtSub(p, q, dk, lx, doff + t0, dm, lx, doff + t0, dm, buf, 0, p, lowerOnly: true);
-                for (int t = 0; t < q; t++)
-                {
-                    long col = off + (long)(rows[drp + t0 + t] - f) * m;
-                    int bc = t * p;
-                    for (int i = t; i < p; i++)
-                        lx[col + map[rows[drp + t0 + i]]] += buf[bc + i];
-                }
-            }
+            Array.Clear(buf, 0, p * q);
+            DenseKernels.GemmNtSub(p, q, dk, lx, doff + tb, dm, lx, doff + tb, dm, buf, 0, p, lowerOnly: true);
+            Scatter(lx, off, m, f, rows, drp + tb, map, buf, p, 0, q);
         }
+    }
 
-        return DenseKernels.FactorPanel(lx, off, m, k);
+    private static int LowerBound(int[] a, int lo, int hi, int value)
+    {
+        while (lo < hi)
+        {
+            int mid = (lo + hi) >>> 1;
+            if (a[mid] < value) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    /// <summary>
+    /// Разброс столбцов [ta, tb) буфера обновления p×q в блок суперузла (начало off, m строк, первый столбец f):
+    /// столбец t буфера — глобальный столбец rows[rowStart + t], строка i (i ≥ t) — глобальная строка rows[rowStart + i].
+    /// </summary>
+    private static void Scatter(double[] lx, long off, int m, int f, int[] rows, int rowStart, int[] map,
+                                double[] buf, int p, int ta, int tb)
+    {
+        for (int t = ta; t < tb; t++)
+        {
+            long col = off + (long)(rows[rowStart + t] - f) * m;
+            int bc = t * p;
+            for (int i = t; i < p; i++)
+                lx[col + map[rows[rowStart + i]]] += buf[bc + i];
+        }
     }
 }
+

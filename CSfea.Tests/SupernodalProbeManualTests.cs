@@ -54,12 +54,24 @@ public class SupernodalProbeManualTests(ITestOutputHelper output)
         var sn = new SupernodalCholeskySolver();
         sn.AnalyzePattern(a);
         double tAn = sw.Elapsed.TotalSeconds;
-        sn.Factorize(a);
-        double tF = sw.Elapsed.TotalSeconds - tAn;
-        var x = sn.Solve(b);
-        double tS = sw.Elapsed.TotalSeconds - tAn - tF;
-        output.WriteLine($"  суперузловой: анализ {tAn:0.0} с, факторизация {tF:0.0} с ({sn.Analysis!.Flops / tF / 1e9:0.0} GFLOPS), " +
-                         $"решение {tS:0.00} с; SPD {sn.LastFactorizationSpd}, невязка {Residual(a, x, b):E2}");
+        output.WriteLine($"  суперузловой: анализ {tAn:0.0} с");
+        double[] x = [];
+        // CSFEA_PROBE_THREADS — список чисел потоков («1,2,4»); по умолчанию — все логические процессоры.
+        var threadList = (Environment.GetEnvironmentVariable("CSFEA_PROBE_THREADS") ?? Environment.ProcessorCount.ToString())
+            .Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse);
+        foreach (int threads in threadList)
+        {
+            sn = new SupernodalCholeskySolver { MaxDegreeOfParallelism = threads };
+            sn.AnalyzePattern(a);
+            sw.Restart();
+            sn.Factorize(a);
+            double tF = sw.Elapsed.TotalSeconds;
+            sw.Restart();
+            x = sn.Solve(b);
+            double tS = sw.Elapsed.TotalSeconds;
+            output.WriteLine($"    потоков {threads}: факторизация {tF:0.0} с ({sn.Analysis!.Flops / tF / 1e9:0.0} GFLOPS), " +
+                             $"решение {tS:0.00} с; SPD {sn.LastFactorizationSpd}, невязка {Residual(a, x, b):E2}");
+        }
         if (Environment.GetEnvironmentVariable("CSFEA_PROBE_X") is { Length: > 0 } xPath)
             File.WriteAllBytes(xPath, System.Runtime.InteropServices.MemoryMarshal.AsBytes(x.AsSpan()).ToArray());
         if (Environment.GetEnvironmentVariable("CSFEA_PROBE_OLD") != "1") return;
@@ -68,11 +80,11 @@ public class SupernodalProbeManualTests(ITestOutputHelper output)
         old.AnalyzePattern(a);
         tAn = sw.Elapsed.TotalSeconds;
         old.Factorize(a);
-        tF = sw.Elapsed.TotalSeconds - tAn;
+        double tFold = sw.Elapsed.TotalSeconds - tAn;
         var xo = old.Solve(b);
         double d = 0, nx = 0;
         for (int i = 0; i < x.Length; i++) { d = Math.Max(d, Math.Abs(x[i] - xo[i])); nx = Math.Max(nx, Math.Abs(xo[i])); }
-        output.WriteLine($"  up-looking: анализ {tAn:0.0} с, факторизация {tF:0.0} с; max|Δx|/max|x| = {d / nx:E2}");
+        output.WriteLine($"  up-looking: анализ {tAn:0.0} с, факторизация {tFold:0.0} с; max|Δx|/max|x| = {d / nx:E2}");
     }
 
     // Относительная невязка ‖A·x − b‖∞ / ‖b‖∞.
@@ -110,6 +122,33 @@ public class SupernodalProbeManualTests(ITestOutputHelper output)
             for (int p = pattern.ColPtr[k]; p < pattern.ColPtr[k + 1]; p++)
                 if (pattern.RowIdx[p] == k) v[p] = diag[k] + 1.0;
         return new CscMatrix(n, n, pattern.ColPtr, pattern.RowIdx, v);
+    }
+
+    /// <summary>Скорость плотного ядра C −= A·Bᵀ (CSFEA_PROBE_GEMM=1): 1 поток и все потоки.</summary>
+    [Fact]
+    public void GemmKernelSpeed()
+    {
+        if (Environment.GetEnvironmentVariable("CSFEA_PROBE_GEMM") != "1") return;
+        foreach (var (p, q, kk) in new[] { (2000, 2000, 2000), (3000, 96, 500), (5000, 256, 64) })
+        {
+            var rnd = new Random(1);
+            var a = Enumerable.Range(0, p * kk).Select(_ => rnd.NextDouble()).ToArray();
+            var c = new double[p * q];
+            DenseKernels.GemmNtSub(p, q, kk, a, 0, p, a, 0, p, c, 0, p, false); // прогрев
+            DenseKernels.GemmNtSub(p, q, kk, a, 0, p, a, 0, p, c, 0, p, false, new ParallelOptions());
+            var sw = Stopwatch.StartNew();
+            DenseKernels.GemmNtSub(p, q, kk, a, 0, p, a, 0, p, c, 0, p, false);
+            double t1 = sw.Elapsed.TotalSeconds;
+            double tn = double.MaxValue;
+            for (int rep = 0; rep < 3; rep++)
+            {
+                sw.Restart();
+                DenseKernels.GemmNtSub(p, q, kk, a, 0, p, a, 0, p, c, 0, p, false, new ParallelOptions());
+                tn = Math.Min(tn, sw.Elapsed.TotalSeconds);
+            }
+            double fl = 2.0 * p * q * kk;
+            output.WriteLine($"  GEMM {p}×{q}×{kk}: 1 поток {fl / t1 / 1e9:0.0} GFLOPS, все {fl / tn / 1e9:0.0} GFLOPS");
+        }
     }
 
     /// <summary>Портрет из файла пробника; значения — единицы (для символики не нужны).</summary>

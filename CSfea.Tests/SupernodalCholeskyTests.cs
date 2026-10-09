@@ -23,6 +23,33 @@ public class SupernodalCholeskyTests
         Factorize_MatchesUpLooking(DropSomeLower(BuildShellLike(14, 10, 6, seed: 2), every: 3), "односторонний портрет",
             SupernodeRelaxation.Default);
         Factorize_Refactorize_And_NotSpd();
+        Factorize_ThreadCountDoesNotChangeResult();
+    }
+
+    static void Factorize_ThreadCountDoesNotChangeResult()
+    {
+        // Крупная сетка, чтобы сработало и деление плотных произведений внутри суперузлов у корня.
+        var a = BuildShellLike(60, 50, 6, seed: 13);
+        var b = Enumerable.Range(0, a.Cols).Select(i => Math.Cos(0.01 * i)).ToArray();
+        double[]? x1 = null;
+        bool same = true;
+        foreach (int threads in new[] { 1, 2, 4, 8 })
+        {
+            var sn = new SupernodalCholeskySolver { MaxDegreeOfParallelism = threads };
+            sn.AnalyzePattern(a);
+            sn.Factorize(a);
+            var x = sn.Solve(b);
+            if (x1 == null) x1 = x;
+            else same &= x.AsSpan().SequenceEqual(x1);
+        }
+        var old = new SparseCholeskySolver();
+        old.AnalyzePattern(a);
+        old.Factorize(a);
+        var xo = old.Solve(b);
+        double d = 0, nx = 0;
+        for (int i = 0; i < xo.Length; i++) { d = Math.Max(d, Math.Abs(x1![i] - xo[i])); nx = Math.Max(nx, Math.Abs(xo[i])); }
+        TestHarness.Check("Потоки 1/2/4/8: решение побитно одно", same);
+        TestHarness.Check("Потоки: совпадает с up-looking", d <= 1e-11 * nx, $"n = {a.Cols}, max|Δx|/max|x| = {d / nx:E2}");
     }
 
     static void Kernels_GemmAndPanel_MatchNaive()
