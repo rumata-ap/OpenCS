@@ -19,7 +19,7 @@ public static class ShellCorotational
         double[][] coordsRef, IShellSectionResponse section, double[] uGlobal)
     {
         int n = coordsRef.Length;
-        var (xyLocal, uLoc5, p, rr) = Kinematics(coordsRef, uGlobal);
+        var (xyLocal, uLoc5, drill, p, rr) = Kinematics(coordsRef, uGlobal);
         var fLoc5 = ShellElementForces.FInternalLocal(xyLocal, section, uLoc5);
         var kLoc5 = ShellElementForces.KTangentLocal(xyLocal, section, uLoc5);
 
@@ -30,7 +30,7 @@ public static class ShellCorotational
                 for (int j = 0; j < n; j++)
                     for (int d = 0; d < 5; d++)
                         kLoc6[6 * i + c, 6 * j + d] = kLoc5[5 * i + c, 5 * j + d];
-        double kDrill = Dense.MaxAbs(Dense.Diagonal(kLoc5)) * 1.0e-6;
+        double kDrill = DrillingStiffness(section);
         for (int i = 0; i < n; i++)
             kLoc6[6 * i + 5, 6 * i + 5] += kDrill;
 
@@ -39,10 +39,18 @@ public static class ShellCorotational
         Symmetrize(kProj);
 
         var t = GlobalTransform(rr, n);
-        var fGlobal = ProjectToGlobal(fLoc5, p, rr);
+        var fGlobal = ProjectToGlobal(fLoc5, drill, kDrill, p, rr);
         var kGlobal = Dense.MatMul(Dense.MatMul(t, kProj), Dense.Transpose(t));
         return (fGlobal, kGlobal);
     }
+
+    /// <summary>Доля <see cref="IShellSectionResponse.DrillingScale"/> — жёсткость штрафа поворота вокруг нормали.</summary>
+    public const double DrillingFactor = 1e-6;
+
+    // Жёсткость поворота вокруг нормали: в F_int и K одна и та же (штраф kDrill·θ_def по деформационному повороту);
+    // без неё в F моменты вокруг нормали от проектора P ничем не уравновешены — Ньютон стоит (плита Дорфмана у
+    // жёстких тел оголовков колонн).
+    private static double DrillingStiffness(IShellSectionResponse section) => DrillingFactor * section.DrillingScale;
 
     /// <summary>
     /// Только внутренние силы CR-элемента в глобальной системе (как <see cref="ElementCR"/>.FGlobal, без
@@ -50,8 +58,9 @@ public static class ShellCorotational
     /// </summary>
     public static double[] ElementFCR(double[][] coordsRef, IShellSectionResponse section, double[] uGlobal)
     {
-        var (xyLocal, uLoc5, p, rr) = Kinematics(coordsRef, uGlobal);
-        return ProjectToGlobal(ShellElementForces.FInternalLocal(xyLocal, section, uLoc5), p, rr);
+        var (xyLocal, uLoc5, drill, p, rr) = Kinematics(coordsRef, uGlobal);
+        return ProjectToGlobal(ShellElementForces.FInternalLocal(xyLocal, section, uLoc5), drill,
+            DrillingStiffness(section), p, rr);
     }
 
     /// <summary>
@@ -60,7 +69,7 @@ public static class ShellCorotational
     /// </summary>
     public static (double[] EpsM, double[] Kappa, double[] Gamma) CenterStrainsCR(double[][] coordsRef, double[] uGlobal)
     {
-        var (xyLocal, uLoc5, _, _) = Kinematics(coordsRef, uGlobal);
+        var (xyLocal, uLoc5, _, _, _) = Kinematics(coordsRef, uGlobal);
         return ShellElementForces.CenterStrainsLocal(xyLocal, uLoc5, vonKarman: true);
     }
 
@@ -68,18 +77,17 @@ public static class ShellCorotational
     public const double NumericalTangentStep = 1e-6;
 
     /// <summary>
-    /// Касательная CR-элемента K_T = ∂F/∂u центральными разностями по <see cref="ElementFCR"/> — согласованная с
-    /// F_int, в отличие от <see cref="ElementCR"/>.KGlobal (T·Pᵀ·K_лок·P·Tᵀ без изменения базиса и проектора). Повороты
-    /// перемещаются аддитивно — как в шаге Ньютона, поэтому ∂F/∂u несимметрична (вектор поворота не сопряжён моменту):
-    /// <paramref name="symmetrize"/> отбрасывает кососимметричную часть (для Холецкого) ценой сходимости — стена при
-    /// 0,7·P_cr (с line search): 10 решений Ньютона против 7. Поворот вокруг нормали получает ту же искусственную
-    /// жёсткость 1e-6·max diag (в F её нет), отнесённую к главной диагонали самой ∂F/∂u.
+    /// Касательная CR-элемента K_T = ∂F/∂u центральными разностями по <see cref="ElementFCR"/> (с штрафом поворота
+    /// вокруг нормали) — согласованная с F_int, в отличие от <see cref="ElementCR"/>.KGlobal (T·Pᵀ·K_лок·P·Tᵀ без
+    /// изменения базиса и проектора). Повороты перемещаются аддитивно — как в шаге Ньютона, поэтому ∂F/∂u несимметрична
+    /// (вектор поворота не сопряжён моменту): <paramref name="symmetrize"/> отбрасывает кососимметричную часть (для
+    /// Холецкого) ценой сходимости — стена при 0,7·P_cr: 7 решений Ньютона против 5.
     /// </summary>
     public static double[,] ElementNumericalTangentCR(double[][] coordsRef, IShellSectionResponse section,
                                                       double[] uGlobal, double relStep = NumericalTangentStep,
                                                       bool symmetrize = false)
     {
-        int m = uGlobal.Length, n = coordsRef.Length;
+        int m = uGlobal.Length;
         double h = relStep * Math.Max(Dense.Norm(uGlobal), 1.0);
         var ke = new double[m, m];
         var up = (double[])uGlobal.Clone();
@@ -93,30 +101,11 @@ public static class ShellCorotational
             for (int i = 0; i < m; i++) ke[i, k] = (fp[i] - fm[i]) / (2 * h);
         }
         if (symmetrize) Symmetrize(ke);
-
-        // Drilling: kDrill·(T·Pᵀ·e)(T·Pᵀ·e)ᵀ для локального поворота вокруг нормали каждого узла (P симметрична).
-        double kDrill = Dense.MaxAbs(Dense.Diagonal(ke)) * 1.0e-6;
-        var (_, _, p, rr) = Kinematics(coordsRef, uGlobal);
-        var t = GlobalTransform(rr, n);
-        var v = new double[m];
-        for (int i = 0; i < n; i++)
-        {
-            int r = 6 * i + 5;
-            for (int a = 0; a < m; a++)
-            {
-                double s = 0.0;
-                for (int b = 0; b < m; b++) s += t[a, b] * p[r, b];
-                v[a] = s;
-            }
-            for (int a = 0; a < m; a++)
-                for (int b = 0; b < m; b++) ke[a, b] += kDrill * v[a] * v[b];
-        }
         return ke;
     }
-
-    // Кинематика CR: локальные координаты узлов (n×2), деформационные 5n DOF (после проектора), проектор P (6n×6n),
-    // текущий базис Rr.
-    private static (double[,] XyLocal, double[] ULoc5, double[,] P, double[,] Rr) Kinematics(
+    // Кинематика CR: локальные координаты узлов (n×2), деформационные 5n DOF и повороты вокруг нормали (n) после
+    // проектора, проектор P (6n×6n), текущий базис Rr.
+    private static (double[,] XyLocal, double[] ULoc5, double[] Drill, double[,] P, double[,] Rr) Kinematics(
         double[][] coordsRef, double[] uGlobal)
     {
         int n = coordsRef.Length;
@@ -188,17 +177,20 @@ public static class ShellCorotational
             uLoc5[5 * i + 3] = uDef[6 * i + 3];
             uLoc5[5 * i + 4] = uDef[6 * i + 4];
         }
-        return (xyLocal, uLoc5, p, rr);
+        var drill = new double[n];
+        for (int i = 0; i < n; i++) drill[i] = uDef[6 * i + 5];
+        return (xyLocal, uLoc5, drill, p, rr);
     }
 
-    // Локальные 5n сил → 6n (drilling — 0) → Pᵀ → глобальные оси (блоки Rrᵀ).
-    private static double[] ProjectToGlobal(double[] fLoc5, double[,] p, double[,] rr)
+    // Локальные 5n сил и штраф поворота вокруг нормали kDrill·θ → 6n → Pᵀ → глобальные оси (блоки Rrᵀ).
+    private static double[] ProjectToGlobal(double[] fLoc5, double[] drill, double kDrill, double[,] p, double[,] rr)
     {
         int n = fLoc5.Length / 5;
         var fLoc6 = new double[6 * n];
         for (int i = 0; i < n; i++)
             for (int c = 0; c < 5; c++)
                 fLoc6[6 * i + c] = fLoc5[5 * i + c];
+        for (int i = 0; i < n; i++) fLoc6[6 * i + 5] = kDrill * drill[i];
         return Dense.MatVec(GlobalTransform(rr, n), Dense.MatTVec(p, fLoc6));
     }
 

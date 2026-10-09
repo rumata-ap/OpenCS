@@ -201,8 +201,27 @@ internal sealed class KffAssembler
         var po = new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism };
         if (!ConstantPartValid()) BuildConstantPart(po);
         Array.Copy(_constValues!, _values, _values.Length);
-        AddElements(_variable, _values, po);
+        AddElements(_variable, _values, po, _mesh.ElementK);
+        AddSprings();
+        return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
+    }
 
+    /// <summary>
+    /// Числовая сборка K_ff по заданным матрицам КЭ единой нумерации (например, касательным K_T(u); все КЭ — без
+    /// кэша постоянного вклада) и линейным пружинам ГУ. Матрицы КЭ должны быть симметричны, если K_ff идёт в Холецкий;
+    /// <paramref name="elementMatrix"/> вызывается из нескольких потоков. Возвращаемая матрица — как у <see cref="Assemble"/>.
+    /// </summary>
+    public CscMatrix AssembleWith(Func<int, double[,]> elementMatrix, int maxDegreeOfParallelism)
+    {
+        var po = new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism };
+        Array.Clear(_values);
+        AddElements(Enumerable.Range(0, _mesh.ElementCount).ToArray(), _values, po, elementMatrix);
+        AddSprings();
+        return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
+    }
+
+    private void AddSprings()
+    {
         var springs = _bc.AssembleKSpring().ToCsc();
         for (int p = 0; p < springs.Nnz; p++)
             for (int t = _springLinkPtr[p]; t < _springLinkPtr[p + 1]; t++)
@@ -210,7 +229,6 @@ internal sealed class KffAssembler
                 int s = _springSlots[t];
                 if (s >= 0) _values[s] += _springCoef[t] * springs.Values[p];
             }
-        return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
     }
 
     /// <summary>Число КЭ, пересобираемых при каждой сборке (переменные матрицы); остальные — из кэша.</summary>
@@ -245,19 +263,18 @@ internal sealed class KffAssembler
         }
         _constValues = null;
         var values = new double[_values.Length];
-        AddElements(constant.ToArray(), values, po);
+        AddElements(constant.ToArray(), values, po, _mesh.ElementK);
         (_constValues, _constRecords, _variable) = (values, records, variable.ToArray());
     }
 
     // Матрицы КЭ из списка — параллельно пачками, раскладка последовательно в порядке списка.
-    private void AddElements(int[] elems, double[] values, ParallelOptions po)
+    private void AddElements(int[] elems, double[] values, ParallelOptions po, Func<int, double[,]> elementMatrix)
     {
-        var mesh = _mesh;
         var ke = new double[Math.Min(Batch, elems.Length)][,];
         for (int i0 = 0; i0 < elems.Length; i0 += Batch)
         {
             int count = Math.Min(Batch, elems.Length - i0);
-            Parallel.For(0, count, po, i => ke[i] = mesh.ElementK(elems[i0 + i]));
+            Parallel.For(0, count, po, i => ke[i] = elementMatrix(elems[i0 + i]));
             for (int i = 0; i < count; i++)
             {
                 Scatter(elems[i0 + i], ke[i], values);

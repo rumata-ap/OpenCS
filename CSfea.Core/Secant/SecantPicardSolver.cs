@@ -758,6 +758,7 @@ public sealed class SecantPicardSolver
     {
         public ShellForces Forces(double[] epsM, double[] kappa, double[] gamma) => state.TrueForces(epsM, kappa, gamma);
         public ShellTangent Tangent(double[] epsM, double[] kappa, double[] gamma) => state.Response.Matrix;
+        public double DrillingScale => ((IShellSectionResponse)state.Response).DrillingScale;
         public void Commit() { }
         public void Reset() { }
     }

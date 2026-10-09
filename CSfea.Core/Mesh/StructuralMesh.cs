@@ -217,6 +217,29 @@ public sealed class StructuralMesh : IFeaMesh
         return coo;
     }
 
+    // Симметризованная касательная КЭ единой нумерации (для Холецкого): оболочки CR — численная ∂F/∂u, фон Карман —
+    // аналитическая (симметрична), стержни CR — ½(K + Kᵀ).
+    private double[,] ElementTangentSymmetric(int e, double[] u, bool corotational)
+    {
+        var dofs = ElementDofs(e);
+        var ue = Gather(u, dofs);
+        if (e < Shells.Count)
+            return corotational
+                ? ShellCorotational.ElementNumericalTangentCR(ShellCoords(e), Shells[e].Section, ue, symmetrize: true)
+                : ShellElementForces.ElementKTangentGlobal(ShellCoords(e), Shells[e].Section, ue);
+        int i = e - Shells.Count;
+        var b = Beams[i];
+        var k = BeamCorotational.Beam3dTangent(BeamCoords(i), b.Section, ue, b.RefVec, releases: b.Releases);
+        int m = k.GetLength(0);
+        for (int a = 0; a < m; a++)
+            for (int c = a + 1; c < m; c++)
+            {
+                double avg = 0.5 * (k[a, c] + k[c, a]);
+                k[a, c] = avg; k[c, a] = avg;
+            }
+        return k;
+    }
+
     // Пачка матриц оболочек касательной: параллельный расчёт, раскладка в COO по порядку.
     private const int TangentBatch = 4096;
 
@@ -388,7 +411,8 @@ public sealed class StructuralMesh : IFeaMesh
     /// Шаговый Ньютон с backtracking line search. Нагрузка шага s: F₀ + (s/nSteps)·(F − F₀),
     /// где F₀ — нагрузка начального состояния <paramref name="u0"/> (по умолчанию 0); предписанные
     /// смещения — так же. История — <see cref="ShellMesh.NewtonRecord"/> с признаком сходимости
-    /// (сводка — <see cref="NonlinearConvergence"/>); несошедшийся шаг не прерывает расчёт.
+    /// (сводка — <see cref="NonlinearConvergence"/>); несошедшийся шаг не прерывает расчёт. Система шага — симметризованная
+    /// K_T, многопоточный суперузловой Холецкий; с нелинейными пружинами — точная K_T и LU.
     /// </summary>
     public (double[] U, List<ShellMesh.NewtonRecord> History) SolveNonlinear(
         double[] f, BoundaryConditions bc,
@@ -435,6 +459,31 @@ public sealed class StructuralMesh : IFeaMesh
             u = Full(uSys);
         }
 
+        // Шаг Ньютона: симметризованная K_T по постоянному портрету и многопоточный Холецкий (не SPD — LU для небольших
+        // систем, см. SolveNotSpd). Кососимметричная часть точной ∂F/∂u CR отбрасывается — сходимость линейная вместо
+        // квадратичной, зато решение многопоточное и без LU.
+        double[] SolveTangentCholesky(double[] uu, double[] r)
+        {
+            lock (_cholGate)
+            {
+                var asm = Assembler(bc, fixedDofs);
+                var kff = asm.AssembleWith(e => ElementTangentSymmetric(e, uu, corotational), MaxDegreeOfParallelism);
+                var rf = Array.ConvertAll(asm.Free, d => r[d]);
+                var chol = FactorizeCached(kff);
+                return chol.LastFactorizationSpd ? chol.Solve(rf) : SolveNotSpd(chol, kff, rf, asm.Free);
+            }
+        }
+
+        // Нелинейные пружины (их касательная вне портрета сборщика): точная K_T и LU.
+        double[] SolveTangentLu(double[] uu, double[] r)
+        {
+            var kt = AssembleKTangent(uu, corotational);
+            if (kSpringLinCoo.Count > 0) AppendInto(kt, kSpringLinCoo);
+            AppendInto(kt, bc.AssembleKSpringTangent(uu));
+            var reduced = DirichletReducer.Reduce(SysMatrix(kt), r, fixedDofs, null);
+            return SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod);
+        }
+
         double fNorm = Math.Max(NormAt(SysVector(f), free), 1.0);
 
         for (int step = 1; step <= nSteps; step++)
@@ -458,12 +507,8 @@ public sealed class StructuralMesh : IFeaMesh
                 if (ok) { converged = true; break; }
                 if (it == maxIter) break;
 
-                var kt = AssembleKTangent(u, corotational);
-                if (kSpringLinCoo.Count > 0) AppendInto(kt, kSpringLinCoo);
-                if (bc.HasNonlinearSprings) AppendInto(kt, bc.AssembleKSpringTangent(u));
-                var reduced = DirichletReducer.Reduce(SysMatrix(kt), r, fixedDofs, null);
                 double[] duFree;
-                try { duFree = SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod); }
+                try { duFree = bc.HasNonlinearSprings ? SolveTangentLu(u, r) : SolveTangentCholesky(u, r); }
                 catch (InvalidOperationException) { break; }
                 if (!duFree.All(double.IsFinite)) break;
 

@@ -139,7 +139,7 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
         new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, PlateCrackRule = PlateCrackRule.Layer });
 
     /// <summary>
-    /// Прогон B с геометрической нелинейностью (фон Карман/CR оболочек): проверка гипотезы о распоре — мембранные
+    /// Прогон B с геометрической нелинейностью (CR оболочек): проверка гипотезы о распоре — мембранные
     /// усилия от прогиба при защемлённых колоннах.
     /// </summary>
     [Fact]
@@ -155,7 +155,7 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
         new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, DropMembraneBendingCoupling = true });
 
     /// <summary>
-    /// Упругая схема, L1 + L2 геометрически нелинейно (фон Карман, как SolveFrozen секущего расчёта с Geometric):
+    /// Упругая схема, L1 + L2 геометрически нелинейно (фон Карман и CR, как SolveFrozen секущего расчёта с Geometric):
     /// история невязки Ньютона и прогиб центра против линейного.
     /// </summary>
     [Fact]
@@ -173,12 +173,32 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
         var build = RcStructuralMeshBuilder.Build(adapted.Model, new LinearRcSectionFactory());
         var f = build.Combination(adapted.Model.Stages[0].Loads.Concat(adapted.Model.Stages[1].Loads).ToList());
         var uLin = build.Mesh.SolveLinear(f, build.Bc);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var (u, history) = build.Mesh.SolveNonlinear(f, build.Bc, nSteps: 1, tol: 1e-8, maxIter: 30, corotational: false,
-            u0: new double[build.Mesh.NDof], f0: f);
-        foreach (var h in history) output.WriteLine($"итерация {h.Iteration}: невязка {h.Residual:e3}");
-        output.WriteLine($"время {sw.Elapsed:mm\\:ss}; центр: линейно {Uz(build, uLin, CenterNode) * 1000:0.###} мм, " +
-            $"нелинейно {Uz(build, u, CenterNode) * 1000:0.###} мм");
+        foreach (bool cr in new[] { false, true })
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var (u, history) = build.Mesh.SolveNonlinear(f, build.Bc, nSteps: 1, tol: 1e-8, maxIter: 30, corotational: cr,
+                u0: new double[build.Mesh.NDof], f0: f);
+            output.WriteLine(cr ? "CR:" : "фон Карман:");
+            foreach (var h in history) output.WriteLine($"итерация {h.Iteration}: невязка {h.Residual:e3}");
+            output.WriteLine($"время {sw.Elapsed:mm\\:ss}; центр: линейно {Uz(build, uLin, CenterNode) * 1000:0.###} мм, " +
+                $"нелинейно {Uz(build, u, CenterNode) * 1000:0.###} мм");
+            // Крупнейшие компоненты невязки на свободных DOF (где не сходится).
+            var mesh = build.Mesh;
+            var fi = mesh.AssembleFInternal(u, cr);
+            var ks = build.Bc.AssembleKSpring();
+            if (ks.Count > 0) { var kv = ks.ToCsc().Multiply(u); for (int i = 0; i < fi.Length; i++) fi[i] += kv[i]; }
+            var rr = new double[fi.Length];
+            for (int i = 0; i < fi.Length; i++) rr[i] = f[i] - fi[i];
+            var rs = mesh.Links?.ReduceVector(rr) ?? rr;
+            var fixedS = new HashSet<int>(mesh.Links?.ReduceFixedDofs(build.Bc.FixedDofs) ?? build.Bc.FixedDofs);
+            var shellNodes = mesh.Shells.SelectMany(x => x.Nodes).ToHashSet();
+            var beamNodes = mesh.Beams.SelectMany(x => new[] { x.I, x.J }).ToHashSet();
+            foreach (int d in Enumerable.Range(0, rs.Length).Where(d => !fixedS.Contains(d)).OrderByDescending(d => Math.Abs(rs[d])).Take(12))
+            {
+                int node = (mesh.Links?.ToFullIndex(d) ?? d) / 6;
+                output.WriteLine($"  r = {rs[d]:e3} — {mesh.DescribeDof(d)} оболочка:{shellNodes.Contains(node)} стержень:{beamNodes.Contains(node)} f = {f[mesh.Links?.ToFullIndex(d) ?? d]:e3}");
+            }
+        }
     }
 
     /// <summary>

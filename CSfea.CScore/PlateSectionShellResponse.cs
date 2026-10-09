@@ -82,6 +82,22 @@ public sealed class PlateSectionShellResponse : IShellSectionResponse
             ScaleBlock(r.As, UnitScale.ShellForce));
     }
 
+    // Масштаб штрафа поворота вокруг нормали — упругая A, считается один раз (гонка потоков безвредна: значение одно).
+    private double _drillingScale = double.NaN;
+
+    public double DrillingScale
+    {
+        get
+        {
+            if (double.IsNaN(_drillingScale))
+            {
+                var a = Tangent(new double[3], new double[3], new double[2]).A;
+                _drillingScale = Math.Max(a[0, 0], Math.Max(a[1, 1], a[2, 2]));
+            }
+            return _drillingScale;
+        }
+    }
+
     public void Commit() { }
 
     public void Reset()

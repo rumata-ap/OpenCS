@@ -61,4 +61,6 @@ public sealed class RotatedShellResponse : IShellSectionResponse
     public void Reset() => Inner.Reset();
 
     public bool IsConstantStiffness => Inner.IsConstantStiffness;
+
+    public double DrillingScale => Inner.DrillingScale;
 }

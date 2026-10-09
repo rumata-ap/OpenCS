@@ -33,4 +33,18 @@ public interface IShellSectionResponse
     /// посчитать один раз (<see cref="StructuralMesh.SolveLinear(double[], BoundaryConditions)"/> кэширует вклад таких КЭ).
     /// </summary>
     bool IsConstantStiffness => false;
+
+    /// <summary>
+    /// Масштаб искусственной жёсткости поворота вокруг нормали CR-оболочки (<see cref="ShellCorotational"/>): наибольшая
+    /// диагональ мембранной A при нулевых деформациях. В пределах одного решения должен быть постоянным (это
+    /// жёсткость штрафа в F_int, а не касательная); тяжёлые сечения его кэшируют.
+    /// </summary>
+    double DrillingScale
+    {
+        get
+        {
+            var a = Tangent(new double[3], new double[3], new double[2]).A;
+            return Math.Max(a[0, 0], Math.Max(a[1, 1], a[2, 2]));
+        }
+    }
 }

@@ -47,7 +47,7 @@ public class CrShellTangentTests
             var fp = mesh.AssembleFInternal(Dense.AddV(u, Dense.ScaleV(d, h)));
             var fm = mesh.AssembleFInternal(Dense.AddV(u, Dense.ScaleV(d, -h)));
             var dfNum = Dense.ScaleV(Dense.SubV(fp, fm), 0.5 / h);
-            // Искусственная жёсткость поворота вокруг нормали есть только в K_T: её вклад ~1e-6 от главной диагонали.
+            // Штраф поворота вокруг нормали — и в F_int, и в K_T.
             double err = Dense.Norm(Dense.SubV(kt.Multiply(d), dfNum)) / Dense.Norm(dfNum);
             worst = Math.Max(worst, err);
         }
@@ -57,7 +57,7 @@ public class CrShellTangentTests
     /// <summary>
     /// Стена 1×6 м, t = 0,2, 4×24 КЭ, заделка низа, из плоскости uy = 0; на верху сжатие P и сдвиг 0,01·P в плоскости.
     /// Ньютон за один шаг без line search: прежняя касательная CR (без изменения базиса) — 20/36 итераций при 0,5/0,7·P_cr,
-    /// точная ∂F/∂u — 4/5 (с line search — 4/7, симметризованная — 6/10). Прогиб верха — 46,0 / 100,5 мм (сетка Q4 чуть жёстче балки).
+    /// точная ∂F/∂u и LU — 4/5; симметризованная ∂F/∂u и Холецкий (как сейчас в SolveNonlinear) — 6/7. Прогиб верха — 46,0 / 100,5 мм (сетка Q4 чуть жёстче балки).
     /// </summary>
     private static void RunWallNewton()
     {
@@ -78,7 +78,7 @@ public class CrShellTangentTests
                 uxPerP = ux / p;
                 continue;
             }
-            TestHarness.Check($"P = {ratio}·P_cr: сошлось за ≤ 5 решений", hist.AllConverged() && iters <= 5,
+            TestHarness.Check($"P = {ratio}·P_cr: сошлось за ≤ 7 решений", hist.AllConverged() && iters <= 7,
                 $"итераций {iters}");
             // Консоль с боковой силой: δ/δ₀ = 3(tg u − u)/u³, u = (π/2)·√(P/P_cr) — с запасом на жёсткость сетки Q4.
             double k = Math.PI / 2 * Math.Sqrt(ratio);
