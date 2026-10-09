@@ -34,7 +34,14 @@ public sealed class SupernodalCholeskySolver
     public int MaxDegreeOfParallelism { get; init; } = Environment.ProcessorCount;
 
     /// <summary>Последняя факторизация прошла как SPD (положительные ведущие элементы).</summary>
-    public bool LastFactorizationSpd { get; private set; }
+    public bool LastFactorizationSpd => FirstNonPositivePivot < 0;
+
+    /// <summary>
+    /// Неизвестная (в нумерации исходной матрицы) с первым по порядку исключения неположительным ведущим элементом
+    /// последней факторизации; −1 — матрица положительно определена. Указывает на вырожденность (механизм) или
+    /// потерю устойчивости в окрестности этой неизвестной.
+    /// </summary>
+    public int FirstNonPositivePivot { get; private set; } = -1;
 
     /// <summary>Символический анализ (после <see cref="AnalyzePattern"/>).</summary>
     public SupernodalAnalysis? Analysis => _an;
@@ -60,25 +67,27 @@ public sealed class SupernodalCholeskySolver
         if (a.Cols != an.N) throw new ArgumentException("Размер матрицы не совпадает с анализом.");
         int threads = Math.Max(1, Math.Min(MaxDegreeOfParallelism, Environment.ProcessorCount));
         _factorized = false;
-        LastFactorizationSpd = threads == 1 || an.SupernodeCount < 2
+        int bad = threads == 1 || an.SupernodeCount < 2
             ? FactorizeSequential(a.Values)
             : FactorizeParallel(a.Values, threads);
+        FirstNonPositivePivot = bad == int.MaxValue ? -1 : an.Perm[bad];
         _factorized = true;
     }
 
-    private bool FactorizeSequential(double[] values)
+    // Возвращают наименьший переставленный столбец с неположительным ведущим элементом или int.MaxValue.
+    private int FactorizeSequential(double[] values)
     {
         var an = _an!;
         var (map, buf) = Workspace();
-        bool spd = true;
+        int bad = int.MaxValue;
         for (int s = 0; s < an.SupernodeCount; s++)
-            spd &= FactorSupernode(s, values, map, buf, null);
-        return spd;
+            bad = Math.Min(bad, FactorSupernode(s, values, map, buf, null));
+        return bad;
     }
 
     // Планировщик по дереву суперузлов: готов — у кого факторизованы все дети; стек готовых (LIFO) держит работу
     // потока ближе к только что посчитанным блокам. Потоки — выделенные (не пул), пул занят делением крупных блоков.
-    private bool FactorizeParallel(double[] values, int threads)
+    private int FactorizeParallel(double[] values, int threads)
     {
         var an = _an!;
         int ns = an.SupernodeCount;
@@ -90,7 +99,7 @@ public sealed class SupernodalCholeskySolver
             if (pending[s] == 0) ready.Push(s);
         var gate = new object();
         using var available = new SemaphoreSlim(ready.Count);
-        int done = 0, notSpd = 0;
+        int done = 0, bad = int.MaxValue;
         Exception? error = null;
         var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
 
@@ -105,7 +114,9 @@ public sealed class SupernodalCholeskySolver
                 if (s < 0) return;
                 try
                 {
-                    if (!FactorSupernode(s, values, map, buf, po)) Interlocked.Exchange(ref notSpd, 1);
+                    int col = FactorSupernode(s, values, map, buf, po);
+                    if (col != int.MaxValue)
+                        lock (gate) bad = Math.Min(bad, col);
                 }
                 catch (Exception ex)
                 {
@@ -140,7 +151,7 @@ public sealed class SupernodalCholeskySolver
         foreach (var w in workers) w.Join();
         if (error != null)
             throw new InvalidOperationException("Ошибка суперузловой факторизации: " + error.Message, error);
-        return notSpd == 0;
+        return bad;
     }
 
     // Рабочие массивы потока: карта строк суперузла и буфер обновления.
@@ -198,7 +209,8 @@ public sealed class SupernodalCholeskySolver
     }
 
     // Суперузел s: значения A, обновления от потомков, плотная факторизация панели. map и buf — рабочие (на поток).
-    private bool FactorSupernode(int s, double[] aValues, int[] map, double[] buf, ParallelOptions? po)
+    // Возвращает переставленный столбец первого неположительного ведущего элемента суперузла или int.MaxValue.
+    private int FactorSupernode(int s, double[] aValues, int[] map, double[] buf, ParallelOptions? po)
     {
         var an = _an!;
         var lx = _lx;
@@ -250,7 +262,8 @@ public sealed class SupernodalCholeskySolver
                 }
             }
 
-        return DenseKernels.FactorPanel(lx, off, m, k, po: po);
+        int local = DenseKernels.FactorPanel(lx, off, m, k, po: po);
+        return local < 0 ? int.MaxValue : f + local;
     }
 
     // Обновления от всех потомков суперузла s, только для его глобальных столбцов [c0, c1).

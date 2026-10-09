@@ -235,12 +235,12 @@ internal static class DenseKernels
     /// <summary>
     /// Холецкий панели m×k (по столбцам, ld = m): нижняя трапеция L·Lᵀ = A для первых k строк и L21 = A21·L11⁻ᵀ
     /// ниже. Блочный правосторонний алгоритм: панель шириной nb — левосторонне по столбцам, хвост — через
-    /// <see cref="GemmNtSub"/>. Возвращает false, если встретился неположительный ведущий элемент (он заменяется
-    /// на |d| или 1e−300, как в up-looking решателе, и счёт продолжается).
+    /// <see cref="GemmNtSub"/>. Возвращает номер первого столбца с неположительным ведущим элементом (он заменяется
+    /// на |d| или 1e−300, как в up-looking решателе, и счёт продолжается) или −1.
     /// </summary>
-    public static bool FactorPanel(double[] x, long off, int m, int k, int nb = 64, ParallelOptions? po = null)
+    public static int FactorPanel(double[] x, long off, int m, int k, int nb = 64, ParallelOptions? po = null)
     {
-        bool spd = true;
+        int firstBad = -1;
         for (int j = 0; j < k; j += nb)
         {
             int jb = Math.Min(nb, k - j);
@@ -258,7 +258,7 @@ internal static class DenseKernels
                 double d = x[colC + cc];
                 if (d <= 0.0)
                 {
-                    spd = false;
+                    if (firstBad < 0) firstBad = cc;
                     d = Math.Abs(d) < 1e-300 ? 1e-300 : Math.Abs(d);
                 }
                 d = Math.Sqrt(d);
@@ -283,7 +283,7 @@ internal static class DenseKernels
                           x, off + (long)j * m + j2, m,
                           x, off + (long)j2 * m + j2, m, lowerOnly: true, po);
         }
-        return spd;
+        return firstBad;
     }
 
     // Строки [r0, r1) столбцов панели [j, j+jb): x(:, c) = (x(:, c) − Σ_{l<c} x(:, l)·L(c, l)) / L(c, c).

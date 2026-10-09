@@ -105,6 +105,25 @@ public sealed class StructuralMesh : IFeaMesh
 
     // ---------------- сборка ----------------
 
+    /// <summary>Число КЭ: сначала оболочки, затем стержни (единая нумерация <see cref="ElementDofs"/>, <see cref="ElementK"/>).</summary>
+    public int ElementCount => Shells.Count + Beams.Count;
+
+    /// <summary>Глобальные DOF КЭ единой нумерации.</summary>
+    public int[] ElementDofs(int e) => e < Shells.Count ? NodeDofs(Shells[e].Nodes) : BeamDofs(Beams[e - Shells.Count]);
+
+    /// <summary>Матрица жёсткости КЭ единой нумерации (глобальные оси) — как в <see cref="AssembleK"/>.</summary>
+    public double[,] ElementK(int e)
+    {
+        if (e < Shells.Count)
+        {
+            var coords = ShellCoords(e);
+            return ShellElementForces.ElementKTangentGlobal(coords, Shells[e].Section, new double[6 * coords.Length]);
+        }
+        int i = e - Shells.Count;
+        var b = Beams[i];
+        return BeamElements.Beam3dKGlobal(BeamCoords(i), b.Section, b.RefVec, b.Releases);
+    }
+
     /// <summary>Линейная K (COO): оболочки — касательная при u = 0, стержни — линейный КЭ.</summary>
     public CooMatrix AssembleK()
     {
@@ -203,12 +222,23 @@ public sealed class StructuralMesh : IFeaMesh
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException(
                 "SolveLinear не поддерживает нелинейные пружины — используйте SolveNonlinear.");
+        var fixedSys = SysFixed(bc.FixedDofs);
+        if (bc.UFixed.All(v => v == 0))
+            lock (_cholGate)
+            {
+                // Нулевые заданные перемещения: K_ff собирается сразу по постоянному портрету.
+                var asm = Assembler(bc, fixedSys);
+                var kff = asm.Assemble(MaxDegreeOfParallelism);
+                var fSys = SysVector(f);
+                var fmod = Array.ConvertAll(asm.Free, d => fSys[d]);
+                var u = SolveSymmetric(kff, fmod, asm.Free);
+                return Full(DirichletReducer.Expand(NSys, asm.Free, u, fixedSys, bc.UFixed));
+            }
         var k = AssembleK();
         var kSpring = bc.AssembleKSpring();
         if (kSpring.Count > 0) AppendInto(k, kSpring);
-        var fixedSys = SysFixed(bc.FixedDofs);
         var reduced = DirichletReducer.Reduce(SysMatrix(k), SysVector(f), fixedSys, bc.UFixed);
-        var uFree = SolveSymmetric(reduced.Kff, reduced.Fmod);
+        var uFree = SolveSymmetric(reduced.Kff, reduced.Fmod, reduced.Free);
         return Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
     }
 
@@ -221,22 +251,21 @@ public sealed class StructuralMesh : IFeaMesh
         if (bc.UFixed.Any(v => v != 0))
             throw new NotSupportedException("SolveLinear для нескольких нагрузок — только с нулевыми заданными перемещениями.");
         if (loads.Count == 0) return [];
-        var k = AssembleK();
-        var kSpring = bc.AssembleKSpring();
-        if (kSpring.Count > 0) AppendInto(k, kSpring);
         var fixedSys = SysFixed(bc.FixedDofs);
-        var reduced = DirichletReducer.Reduce(SysMatrix(k), new double[NSys], fixedSys, bc.UFixed);
-        var chol = new SparseCholeskySolver();
-        chol.AnalyzePattern(reduced.Kff);
-        chol.Factorize(reduced.Kff);
         var result = new double[loads.Count][];
-        for (int i = 0; i < loads.Count; i++)
+        lock (_cholGate)
         {
-            // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
-            var fSys = SysVector(loads[i]);
-            var fi = Array.ConvertAll(reduced.Free, d => fSys[d]);
-            var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SparseLuSolver.SolveOnce(reduced.Kff, fi);
-            result[i] = Full(DirichletReducer.Expand(NSys, reduced.Free, uFree, fixedSys, bc.UFixed));
+            var asm = Assembler(bc, fixedSys);
+            var kff = asm.Assemble(MaxDegreeOfParallelism);
+            var chol = FactorizeCached(kff);
+            for (int i = 0; i < loads.Count; i++)
+            {
+                // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
+                var fSys = SysVector(loads[i]);
+                var fi = Array.ConvertAll(asm.Free, d => fSys[d]);
+                var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SolveNotSpd(chol, kff, fi, asm.Free);
+                result[i] = Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, bc.UFixed));
+            }
         }
         return result;
     }
@@ -432,15 +461,91 @@ public sealed class StructuralMesh : IFeaMesh
     // ---------------- утилиты ----------------
 
     /// <summary>
-    /// Симметричная система: Холецкий с RCM-упорядочиванием (на сетках оболочек в десятки раз быстрее LU без
-    /// упорядочивания); если матрица не положительно определена — LU.
+    /// Симметричная система: многопоточный суперузловой Холецкий (AMD); если матрица не положительно определена — LU
+    /// (только для небольших систем, см. <see cref="SolveNotSpd"/>). <paramref name="free"/> — DOF пространства решения
+    /// для неизвестных системы (для сообщения о вырожденности).
     /// </summary>
-    private static double[] SolveSymmetric(CscMatrix a, double[] b)
+    private double[] SolveSymmetric(CscMatrix a, double[] b, int[] free)
     {
-        var chol = new SparseCholeskySolver();
-        chol.AnalyzePattern(a);
-        chol.Factorize(a);
-        return chol.LastFactorizationSpd ? chol.Solve(b) : SparseLuSolver.SolveOnce(a, b);
+        lock (_cholGate)
+        {
+            var chol = FactorizeCached(a);
+            return chol.LastFactorizationSpd ? chol.Solve(b) : SolveNotSpd(chol, a, b, free);
+        }
+    }
+
+    /// <summary>Наибольший порядок системы, для которой при не-SPD матрице пробуется LU (без упорядочивания он медленный).</summary>
+    public const int LuFallbackMaxSize = 50_000;
+
+    // Не положительно определённая матрица: небольшая система — LU; большая (или вырожденная для LU) — исключение с
+    // узлом и DOF первого неположительного ведущего элемента.
+    private double[] SolveNotSpd(SupernodalCholeskySolver chol, CscMatrix a, double[] b, int[] free)
+    {
+        string where = chol.FirstNonPositivePivot is int i and >= 0 && i < free.Length ? " — " + DescribeDof(free[i]) : "";
+        if (a.Cols <= LuFallbackMaxSize)
+        {
+            try { return SparseLuSolver.SolveOnce(a, b); }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"{ex.Message} Матрица жёсткости не положительно определена{where}.", ex);
+            }
+        }
+        throw new InvalidOperationException(
+            $"Матрица жёсткости не положительно определена (механизм или потеря устойчивости){where}.");
+    }
+
+    /// <summary>Описание DOF пространства решения: узел сетки (индекс и координаты) и направление.</summary>
+    public string DescribeDof(int sysDof)
+    {
+        int full = Links?.ToFullIndex(sysDof) ?? sysDof;
+        int node = full / 6;
+        string[] names = ["ux", "uy", "uz", "rx", "ry", "rz"];
+        var x = Nodes[node];
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"узел сетки №{node} ({x[0]:0.###}; {x[1]:0.###}; {x[2]:0.###}), {names[full % 6]}");
+    }
+
+    /// <summary>Число потоков сборки K_ff и факторизации (−1 — все логические процессоры).</summary>
+    public int MaxDegreeOfParallelism { get; set; } = -1;
+
+    // Кэш сборки K_ff по постоянному портрету (на ГУ и набор закреплений).
+    private KffAssembler? _assembler;
+
+    private KffAssembler Assembler(BoundaryConditions bc, int[] fixedSys)
+    {
+        if (_assembler == null || !_assembler.Matches(bc, fixedSys))
+        {
+            _assembler = null;
+            _assembler = KffAssembler.Build(this, bc, fixedSys);
+        }
+        return _assembler;
+    }
+
+    // Кэш символики Холецкого: портрет Kff от решения к решению (итерации Пикара) обычно один и тот же — упорядочивание
+    // и суперузлы считаются заново, только если портрет изменился (сборка пропускает точные нули, так что он может
+    // зависеть от значений). Множитель L живёт вместе с сеткой.
+    private readonly object _cholGate = new();
+    private SupernodalCholeskySolver? _chol;
+    private int[]? _cholColPtr, _cholRowIdx;
+
+    /// <summary>Сколько раз выполнялся символический анализ Холецкого (для диагностики кэша).</summary>
+    public int CholeskyAnalyses { get; private set; }
+
+    private SupernodalCholeskySolver FactorizeCached(CscMatrix a)
+    {
+        if (_chol == null || !a.ColPtr.AsSpan().SequenceEqual(_cholColPtr) || !a.RowIdx.AsSpan().SequenceEqual(_cholRowIdx))
+        {
+            _chol = null;   // старый множитель отпускаем до выделения нового
+            var chol = new SupernodalCholeskySolver
+            {
+                MaxDegreeOfParallelism = MaxDegreeOfParallelism > 0 ? MaxDegreeOfParallelism : Environment.ProcessorCount,
+            };
+            chol.AnalyzePattern(a);
+            (_chol, _cholColPtr, _cholRowIdx) = (chol, a.ColPtr, a.RowIdx);
+            CholeskyAnalyses++;
+        }
+        _chol.Factorize(a);
+        return _chol;
     }
 
     private static void AppendInto(CooMatrix target, CooMatrix src)

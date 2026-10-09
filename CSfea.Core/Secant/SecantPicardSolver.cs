@@ -364,11 +364,11 @@ public sealed class SecantPicardSolver
                 ct.ThrowIfCancellationRequested();
             }
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            var u = SolveFrozen(f, uPrev);
+            var u = SolveFrozen(f, uPrev, out string? why);
             double tSolve = clock.Elapsed.TotalSeconds;
             if (u == null || !u.All(double.IsFinite))
             {
-                Log($"  итерация {it}: линейная задача не решена (вырожденная матрица или срыв Ньютона)");
+                Log($"  итерация {it}: линейная задача не решена — {why ?? "вырожденная матрица или срыв Ньютона"}");
                 break;
             }
 
@@ -433,16 +433,22 @@ public sealed class SecantPicardSolver
     }
 
     /// <summary>Решение с замороженными секущими: линейное или (геометрическая нелинейность) Ньютон от <paramref name="uFrom"/>.</summary>
-    private double[]? SolveFrozen(double[] f, double[] uFrom)
+    private double[]? SolveFrozen(double[] f, double[] uFrom, out string? why)
     {
+        why = null;
         try
         {
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
             var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance, maxIter: 30,
                 corotational: false, u0: uFrom, f0: f);
-            return history.AllConverged() ? u : null;
+            if (!history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
+            return why == null ? u : null;
         }
-        catch (InvalidOperationException) { return null; }
+        catch (InvalidOperationException ex)
+        {
+            why = ex.Message;
+            return null;
+        }
     }
 
     /// <summary>

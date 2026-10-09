@@ -102,6 +102,9 @@ public sealed class RigidLinks
     /// <summary>Индекс полного DOF в редуцированном пространстве (−1 для ведомого).</summary>
     public int ToReducedIndex(int dof) => _fullToReduced[dof];
 
+    /// <summary>Полный DOF редуцированного индекса.</summary>
+    public int ToFullIndex(int reduced) => _reducedToFull[reduced];
+
     /// <summary>Строка T для полного DOF: (индекс в u_red, коэффициент).</summary>
     public IReadOnlyList<(int Col, double Coef)> Row(int dof) => _rows[dof];
 

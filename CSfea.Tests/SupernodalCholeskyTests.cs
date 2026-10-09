@@ -87,7 +87,7 @@ public class SupernodalCholeskyTests
                 x[j * m + i] = sum;
             }
         var a0 = (double[])x.Clone();
-        bool spd = DenseKernels.FactorPanel(x, 0, m, k, nb: 16);
+        bool spd = DenseKernels.FactorPanel(x, 0, m, k, nb: 16) < 0;
         double err = 0;
         for (int j = 0; j < k; j++)
             for (int i = j; i < m; i++)
@@ -149,6 +149,16 @@ public class SupernodalCholeskyTests
                 if (a1.RowIdx[p] == j && j % 50 == 17) v3[p] = -v3[p];
         sn.Factorize(new CscMatrix(a1.Rows, a1.Cols, a1.ColPtr, a1.RowIdx, v3));
         TestHarness.Check("Не-SPD: флаг снят", !sn.LastFactorizationSpd);
+
+        // Одна отрицательная диагональ без связей (развязанная неизвестная) — именно она и указывается.
+        var v4 = (double[])a1.Values.Clone();
+        int target = 123;
+        for (int j = 0; j < a1.Cols; j++)
+            for (int p = a1.ColPtr[j]; p < a1.ColPtr[j + 1]; p++)
+                if (a1.RowIdx[p] == target || j == target) v4[p] = a1.RowIdx[p] == j ? -1.0 : 0.0;
+        sn.Factorize(new CscMatrix(a1.Rows, a1.Cols, a1.ColPtr, a1.RowIdx, v4));
+        TestHarness.Check("Не-SPD: указана неизвестная", sn.FirstNonPositivePivot == target,
+            $"FirstNonPositivePivot = {sn.FirstNonPositivePivot}");
     }
 
     /// <summary>
