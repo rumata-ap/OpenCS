@@ -79,6 +79,25 @@ public sealed class FemCsfeaLargeSchemaManualTests(ITestOutputHelper output)
                             var options = FemCsfeaSetup.SecantOptions(csfea, -1, Log, prepared.Adapted!.ShellForceAngles);
                             var run = CSfea.CScoreBridge.Structural.RcSecantAnalysis.Run(prepared.Adapted.Model, options, null, CancellationToken.None);
                             Log($"прямой прогон: {run.Result.Message}; анализов Холецкого {run.Build.Mesh.CholeskyAnalyses}");
+                            // OPENCS_CSFEA_LARGE_BEAMIDX — индексы стержней сетки (как в журнале Пикара): номер КЭ, узлы, сечение.
+                            foreach (var s in (Environment.GetEnvironmentVariable("OPENCS_CSFEA_LARGE_BEAMIDX") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                int bi = int.Parse(s);
+                                var b = run.Build.Mesh.Beams[bi];
+                                string tag = run.Build.BeamIds[bi].ToString();
+                                var el = prepared.Input!.MeshElements.FirstOrDefault(x => x.ElemTag == tag);
+                                output.WriteLine($"  стержень сетки {bi}: КЭ {tag}, узлы {run.Build.NodeIds[b.I]}–{run.Build.NodeIds[b.J]} " +
+                                    $"({string.Join("; ", run.Build.Mesh.BeamCoords(bi).Select(c => string.Join(" ", c.Select(x => x.ToString("0.###")))))}), " +
+                                    $"сечение КЭ {el?.CrossSectionId}, КонЭ {el?.SourceMemberTag}, шарниры I {b.ReleaseI:X} J {b.ReleaseJ:X}");
+                            }
+                            if (run.Result.Steps.LastOrDefault() is { } last)
+                            {
+                                int imax = Enumerable.Range(0, last.U.Length / 6).MaxBy(n => Math.Abs(last.U[6 * n + 2]));
+                                double sumUz = Enumerable.Range(0, last.U.Length / 6).Sum(n => last.U[6 * n + 2]);
+                                output.WriteLine($"  итог: сошёлся {last.Converged}, итераций {last.Iterations}, max|uz| = {last.U[6 * imax + 2] * 1000:0.0000} мм " +
+                                                 $"(узел сетки {imax}), Σuz = {sumUz * 1000:0.000} мм, треснувших оболочек {last.Shells.Count(s => s.Cracked)}, " +
+                                                 $"стержней {last.Beams.Count(s => s.Cracked)}, слоёв {last.Shells.Sum(s => s.Cracks) + last.Beams.Sum(s => s.Cracks)}");
+                            }
                             foreach (var line in run.Build.Report.Take(30)) output.WriteLine("  сетка: " + line);
                             var zeroGj = Enumerable.Range(0, run.Build.Mesh.Beams.Count)
                                 .Where(e => run.Build.Mesh.Beams[e].Section.TorsionalStiffness() == 0).ToList();

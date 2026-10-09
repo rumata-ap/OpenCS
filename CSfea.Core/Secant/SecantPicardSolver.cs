@@ -342,6 +342,7 @@ public sealed class SecantPicardSolver
         var uPrev = uStart;
         double[]? rPrev = null;
         double omega = _o.Omega0;
+        double omegaApplied = 1.0;   // ω последнего обновления жёсткостей (от него получено текущее u)
         double residual = double.NaN;
         int cracksPrev = -1;
         int abortAt = allowAbort ? Math.Max(1, _o.MaxIterations / 2) : _o.MaxIterations;
@@ -379,7 +380,9 @@ public sealed class SecantPicardSolver
             double tEval = clock.Elapsed.TotalSeconds - tSolve;
 
             double du = Dense.Norm(Dense.SubV(u, uPrev)) / Math.Max(Dense.Norm(u), 1e-300);
-            bool converged = dK < _o.TolStiffness && (it == 1 || du < _o.TolDisplacement);
+            // Приращение после неполного обновления (ω < 1) — доля полного шага Пикара: в критерий — полный шаг ‖Δu‖/ω,
+            // иначе малый ω сам по себе даёт малое ‖Δu‖ и ложную сходимость.
+            bool converged = dK < _o.TolStiffness && (it == 1 || du / Math.Min(omegaApplied, 1.0) < _o.TolDisplacement);
             if (_o.TrueResidualEachIteration || converged) residual = TrueResidual(f, u);
             int cracked = shellStatus.Count(s => s.Cracked) + beamStatus.Count(s => s.Cracked);
             int yielded = shellStatus.Count(s => s.Yielded) + beamStatus.Count(s => s.Yielded);
@@ -390,8 +393,10 @@ public sealed class SecantPicardSolver
             // истории Эйткена. Иначе Эйткен принимает каждый скачок за колебание и прижимает ω к нижней границе, а
             // лавина трещин идёт по кольцу КЭ за итерацию.
             int cracks = shellStatus.Sum(s => s.Cracks) + beamStatus.Sum(s => s.Cracks);
-            bool crackEvent = cracksPrev >= 0 && cracks > cracksPrev;
+            int newCracks = cracksPrev >= 0 ? cracks - cracksPrev : 0;
+            bool crackEvent = newCracks > 0;
             cracksPrev = cracks;
+            double aitken = double.NaN;
             if (crackEvent)
             {
                 omega = _o.OmegaMax;
@@ -404,6 +409,7 @@ public sealed class SecantPicardSolver
                 var diff = Dense.SubV(r, rPrev);
                 double dd = Dense.Dot(diff, diff);
                 double w = dd > 0.0 ? -omega * Dense.Dot(rPrev, diff) / dd : _o.Omega0;
+                aitken = w;
                 omega = double.IsFinite(w) ? Math.Clamp(w, _o.OmegaMin, _o.OmegaMax) : _o.Omega0;
             }
             double applied = converged ? 1.0 : omega;
@@ -412,7 +418,8 @@ public sealed class SecantPicardSolver
             result.Iterations.Add(record);
             onIteration?.Invoke(record);
             Log($"  ст.{stage} шаг {step} λ={lambda:0.####} ит.{it,2}: ω={applied:0.###} ‖Δu‖/‖u‖={du:e2} " +
-                $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}, " +
+                $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}" +
+                $"{(newCracks > 0 ? $" (+{newCracks} сл.)" : "")}{(double.IsNaN(aitken) ? "" : $" Эйткен {aitken:0.###}")}, " +
                 $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с{SolveDetail()}, сечения {tEval:0.0} с");
 
             Relax(shellTargets, beamT, beamShearT, applied);
@@ -424,6 +431,7 @@ public sealed class SecantPicardSolver
             }
             if (it >= abortAt) { uPrev = u; break; }
             uPrev = u;
+            omegaApplied = applied;
             if (!crackEvent) rPrev = r;
         }
 
@@ -588,6 +596,15 @@ public sealed class SecantPicardSolver
             int e = worstElem - _shells.Length, b0 = offset + e * beamBlock, k = 0;
             for (int i = 1; i < beamBlock; i++) if (Math.Abs(r[b0 + i]) > Math.Abs(r[b0 + k])) k = i;
             where = k >= 9 ? $"стержень {e} {(k == 9 ? "Qy" : "Qz")}" : $"стержень {e} ξ={0.5 * (k / 3)} {beamNames[k % 3]}";
+            if (_o.Log != null && k < 9 && beamTargets[e] is { } bt)
+            {
+                var (strains, _, _) = BeamStrains(e, u, _beams[e]!.Response);
+                var s = strains[k / 3];
+                var ep = new[] { s.Item1, s.Item2, s.Item3 };
+                string V(double[] v) => string.Join(" ", v.Select(x => x.ToString("e2")));
+                where += $" (ε,κ: {V(ep)}; S·ε: {V(Dense.MatVec(_beams[e]!.Response.Matrix, ep))}; " +
+                         $"S_new·ε: {V(Dense.MatVec(bt, ep))}; {beamStatus[e]})";
+            }
         }
         return (dF, r, where);
     }
