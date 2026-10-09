@@ -69,7 +69,7 @@ public static class SectionBridgeFactory
             ConcreteDiagram = cDiag,
             RebarDiagram = rDiag,
             LayerDiagrams = layerDiags,
-            ConcreteE_MPa = concrete.E,
+            ConcreteE_MPa = concrete.E / 1000.0,   // Material.E — кПа
         };
         return ShellFromPrepared(section, mats);
     }

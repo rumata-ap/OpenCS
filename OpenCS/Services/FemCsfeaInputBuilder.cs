@@ -168,8 +168,8 @@ public static class FemCsfeaInputBuilder
             {
                 try
                 {
-                    var (c, r, layers, concreteE) = PlateMaterialResolver.Resolve(ps, materials.Values, setup.Calc);
-                    mats = new PlateSectionMaterials { ConcreteDiagram = c, RebarDiagram = r, LayerDiagrams = layers, ConcreteE_MPa = concreteE };
+                    var (c, r, layers, concreteE_MPa) = PlateMaterialResolver.Resolve(ps, materials.Values, setup.Calc);
+                    mats = new PlateSectionMaterials { ConcreteDiagram = c, RebarDiagram = r, LayerDiagrams = layers, ConcreteE_MPa = concreteE_MPa };
                 }
                 catch (InvalidOperationException ex)
                 {

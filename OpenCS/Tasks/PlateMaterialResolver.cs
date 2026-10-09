@@ -12,7 +12,8 @@ namespace OpenCS.Tasks;
 /// </summary>
 public static class PlateMaterialResolver
 {
-    public static (Diagramm cDiag, Diagramm rDiag, Diagramm?[] layerDiags, double concreteE)
+    /// <returns>Диаграммы и модуль упругости бетона, МПа (<see cref="Material.E"/> хранится в кПа).</returns>
+    public static (Diagramm cDiag, Diagramm rDiag, Diagramm?[] layerDiags, double concreteE_MPa)
         Resolve(PlateSection section, IEnumerable<Material> materials, CalcType calc)
     {
         var matList = materials as IList<Material> ?? materials.ToList();
@@ -39,6 +40,6 @@ public static class PlateMaterialResolver
                         DiagrammCompatibility.Coerce(lm.Type, DiagrammType.L2))?[calc];
             }
         }
-        return (cDiag, rDiag, layerDiags, concrete.E);
+        return (cDiag, rDiag, layerDiags, concrete.E / 1000.0);
     }
 }
