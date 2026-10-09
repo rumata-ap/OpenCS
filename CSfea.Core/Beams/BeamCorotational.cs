@@ -254,10 +254,17 @@ public static class BeamCorotational
 
         if (section is not LinearBeamResponse && releases == 0)
         {
+            // K_T = Bᵀ·k_L·B + ∂(Bᵀ)/∂u·f_l. Материальная часть и локальные силы — те же, что в F_int
+            // (InternalAndB): у секущего сечения — матрица КЭ kL целиком (связанная S, сдвиг), у нелинейного
+            // закона — касательная в точках Гаусса. Без геометрической части Ньютон линеен с коэффициентом
+            // ≈ P/P_cr и у сжатых стоек упирается в лимит итераций задолго до потери устойчивости.
             var pl0 = Beam3dPLocal(coordsRef, e0, l0, uElem);
-            var kLMat = Beam3dKLocalFromResponse(section, pl0, l0);
+            bool secant = section is SecantBeamResponse;
+            var kLMat = secant ? kL : Beam3dKLocalFromResponse(section, pl0, l0);
+            var fl = secant ? Dense.MatVec(kL, pl0) : Beam3dForcesFromResponse(section, pl0, l0);
             var b = ComputeBMatrix(coordsRef, e0, l0, uElem, eps);
             var k = Dense.MatMul(Dense.MatMul(Dense.Transpose(b), kLMat), b);
+            Dense.AddScaledInPlace(k, GeometricStiffness(coordsRef, e0, l0, uElem, fl), 1.0);
             return Symmetrize(k);
         }
 
@@ -283,6 +290,41 @@ public static class BeamCorotational
             throw new NotSupportedException(
                 "Шарниры стержня поддержаны только для линейного и секущего сечения, не для нелинейного закона в точках Гаусса.");
         return BeamReleases.Condense(BeamElements.Beam3dKLocal(section, l0), releases);
+    }
+
+    /// <summary>
+    /// Геометрическая часть K_T при замороженных локальных силах: гессиан φ(u) = f_l·p_l(u) вторыми разностями
+    /// (F_int = Bᵀ·f_l = ∇φ, B = ∂p_l/∂u). Шаг 1e-4 (м, рад): ошибка усечения ~h², округления ~1e-16·L/h².
+    /// </summary>
+    private static double[,] GeometricStiffness(double[][] coordsRef, double[,] e0, double l0, double[] uElem,
+        double[] fl, double h = 1e-4)
+    {
+        var hs = new double[12];
+        for (int j = 0; j < 12; j++) hs[j] = h * Math.Max(Math.Abs(uElem[j]), 1.0);
+        double Phi(int j, double sj, int k, double sk)
+        {
+            var u = (double[])uElem.Clone();
+            u[j] += sj * hs[j];
+            if (k >= 0) u[k] += sk * hs[k];
+            var p = Beam3dPLocal(coordsRef, e0, l0, u);
+            double s = 0.0;
+            for (int i = 0; i < 12; i++) s += fl[i] * p[i];
+            return s;
+        }
+        var kg = new double[12, 12];
+        double phi0 = Phi(0, 0.0, -1, 0.0);
+        for (int j = 0; j < 12; j++)
+        {
+            kg[j, j] = (Phi(j, 1.0, -1, 0.0) - 2.0 * phi0 + Phi(j, -1.0, -1, 0.0)) / (hs[j] * hs[j]);
+            for (int k = j + 1; k < 12; k++)
+            {
+                double v = (Phi(j, 1.0, k, 1.0) - Phi(j, 1.0, k, -1.0) - Phi(j, -1.0, k, 1.0) + Phi(j, -1.0, k, -1.0))
+                           / (4.0 * hs[j] * hs[k]);
+                kg[j, k] = v;
+                kg[k, j] = v;
+            }
+        }
+        return kg;
     }
 
     private static double[,] Symmetrize(double[,] k)
