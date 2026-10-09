@@ -274,8 +274,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             ? string.Format(Loc.S(shells == 1 ? "FemMemberMeshStepTargetShell" : "FemMemberMeshStepTargetBar"), members[0].ElemTag)
             : string.Format(Loc.S("FemMemberMeshStepTargetMany"), members.Count, bars, shells);
         static string M(double v) => string.Format(Loc.S("FemMeshStepMeters"), v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture));
-        string barCommon = _schema.MeshBarStepM is double b ? M(b) : Loc.S("FemMeshBarStepNone");
-        string plateCommon = _schema.MeshPlateStepM is double p ? M(p) : Loc.S("FemMeshPlateStepNone");
+        var (barStep, plateStep) = _app.db.GetFemSchemaMeshSteps(_schema.Id);
+        string barCommon = barStep is double b ? M(b) : Loc.S("FemMeshBarStepNone");
+        string plateCommon = plateStep is double p ? M(p) : Loc.S("FemMeshPlateStepNone");
         string common = string.Format(Loc.S("FemMemberMeshStepCommon"),
             bars == 0 ? plateCommon : shells == 0 ? barCommon : $"{barCommon} / {plateCommon}");
         var steps = members.Select(m => m.TargetMeshLengthM).Distinct().ToList();

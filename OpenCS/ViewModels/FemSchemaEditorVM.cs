@@ -531,34 +531,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         foreach (var error in _extractDiagnostics.Where(d => d.IsError)) _logService.Error(error.Message);
     }
 
-    /// <summary>Общий шаг стержней схемы, м (null — делятся только узлами). Хранится в схеме; локальный шаг КонЭ важнее.</summary>
-    public double? DefaultTargetMeshLengthM
-    {
-        get => Session.Schema.MeshBarStepM;
-        set
-        {
-            value = value is > 0 ? value : null;
-            if (Session.Schema.MeshBarStepM == value) return;
-            Session.Schema.MeshBarStepM = value;
-            _db.UpdateFemSchemaMeshSteps(Session.Schema);
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>Общий размер КЭ пластин схемы, м (null — размер из области). Хранится в схеме; локальный шаг КонЭ важнее.</summary>
-    public double? DefaultPlateMeshStepM
-    {
-        get => Session.Schema.MeshPlateStepM;
-        set
-        {
-            value = value is > 0 ? value : null;
-            if (Session.Schema.MeshPlateStepM == value) return;
-            Session.Schema.MeshPlateStepM = value;
-            _db.UpdateFemSchemaMeshSteps(Session.Schema);
-            OnPropertyChanged();
-        }
-    }
-
     /// <summary>Задаёт локальный шаг сетки КонЭ (стержней и пластин); null — общий шаг схемы. Отменяется как правка.</summary>
     public void SetMembersMeshStep(IReadOnlyList<string> tags, double? stepM)
     {
@@ -1222,7 +1194,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         try
         {
             var service = new FemSchemaMeshService(_db, _app.GmshSettings);
-            var result = await service.BuildAsync(schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM,
+            // Общий шаг стержней хранится в схеме (БД); пластин — читает сервис.
+            var result = await service.BuildAsync(schema.Id, Session.Nodes, Session.Members, _db.GetFemSchemaMeshSteps(schema.Id).Bar,
                 _logService.Info, cts?.Token ?? CancellationToken.None);
             LastMeshDiagnostics = result.Diagnostics;
             foreach (var d in result.Diagnostics)

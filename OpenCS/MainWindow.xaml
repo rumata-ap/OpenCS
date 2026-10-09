@@ -1336,6 +1336,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaMeshSteps}"
+                                        Command="{Binding PlacementTarget.Tag.FemSchemaMeshStepsCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource FemSchemaMenuLira}">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="lira">

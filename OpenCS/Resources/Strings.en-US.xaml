@@ -2915,7 +2915,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshBarStep">Common bar step, m</system:String>
     <system:String x:Key="FemMeshPlateStep">Common plate element size, m</system:String>
     <system:String x:Key="FemMeshStepsHint">A member's own step ("Mesh step…" in the context menu; for a plate also in its editor) overrides the common one. Empty: bars are split only at nodes, plates use the region's size.</system:String>
-    <system:String x:Key="FemMeshBuildNow">Build</system:String>
+    <system:String x:Key="FemSchemaMeshSteps">Mesh steps…</system:String>
+    <system:String x:Key="FemSchemaMeshStepsTitle">Schema mesh steps</system:String>
+    <system:String x:Key="FemSchemaMeshStepsSaved">Mesh steps of schema "{0}": bars {1} m, plates {2} m. Applied by "Build schema mesh".</system:String>
     <system:String x:Key="FemMemberMeshStepCtx">Mesh step…</system:String>
     <system:String x:Key="FemMemberMeshStepTitle">Mesh step</system:String>
     <system:String x:Key="FemMemberMeshStepLocal">Own step, m:</system:String>

@@ -553,6 +553,7 @@ namespace OpenCS
       public ICommand DuplicateFemSchemaCommand { get; set; } = null!;
       /// <summary>Команда переименования МКЭ-схемы.</summary>
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
+      public ICommand FemSchemaMeshStepsCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
       public ICommand LoadLiraAspCommand { get; set; } = null!;
       /// <summary>Создать сечения пластинчатых целей схемы по данным ЛИРЫ (ASP + ТЗА).</summary>
@@ -1491,6 +1492,7 @@ namespace OpenCS
          DeleteFemSchemaCommand = new RelayCommand(p => DeleteFemSchema(p as CScore.Fem.FemSchema));
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
+         FemSchemaMeshStepsCommand = new RelayCommand(p => EditFemSchemaMeshSteps(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          CreateImportedBarSectionsCommand = new RelayCommand(p => CreateImportedBarSections(p as CScore.Fem.FemSchema));
@@ -3044,6 +3046,20 @@ namespace OpenCS
       {
          if (schema == null) return;
          db.DuplicateFemSchema(schema.Id, schema.Tag + " (копия)");
+      }
+
+      /// <summary>Общие шаги сетки схемы (стержни, пластины) — хранятся в схеме; применяются при «Построить сетку схемы».</summary>
+      void EditFemSchemaMeshSteps(CScore.Fem.FemSchema? schema)
+      {
+         if (schema == null) return;
+         var (bar, plate) = db.GetFemSchemaMeshSteps(schema.Id);
+         var dlg = new Views.FemSchemaMeshStepsDialog(schema.Tag, bar, plate) { Owner = Application.Current?.MainWindow };
+         if (dlg.ShowDialog() != true) return;
+         schema.MeshBarStepM = dlg.BarStepM;
+         schema.MeshPlateStepM = dlg.PlateStepM;
+         db.UpdateFemSchemaMeshSteps(schema);
+         static string F(double? v) => v?.ToString("0.###", CultureInfo.CurrentCulture) ?? "—";
+         LogService.Info(string.Format(Loc.S("FemSchemaMeshStepsSaved"), schema.Tag, F(dlg.BarStepM), F(dlg.PlateStepM)));
       }
 
       void RenameFemSchema(CScore.Fem.FemSchema? schema)

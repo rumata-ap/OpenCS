@@ -1,0 +1,29 @@
+<Window x:Class="OpenCS.Views.FemSchemaMeshStepsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemSchemaMeshStepsTitle}"
+        Width="360" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <TextBlock x:Name="schemaText" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <Grid Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{DynamicResource FemMeshBarStep}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+            <TextBox x:Name="barBox" Grid.Column="1" Width="72" Margin="0,0,0,4" VerticalContentAlignment="Center"/>
+            <TextBlock Grid.Row="1" Text="{DynamicResource FemMeshPlateStep}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="plateBox" Grid.Row="1" Grid.Column="1" Width="72" VerticalContentAlignment="Center"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemMeshStepsHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" Width="72" IsDefault="True" Click="Apply_Click" Margin="0,0,6,0"/>
+            <Button Content="{DynamicResource Cancel}" Width="72" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

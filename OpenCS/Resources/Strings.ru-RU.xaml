@@ -2915,7 +2915,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshBarStep">Общий шаг стержней, м</system:String>
     <system:String x:Key="FemMeshPlateStep">Общий размер КЭ пластин, м</system:String>
     <system:String x:Key="FemMeshStepsHint">Свой шаг элемента («Шаг сетки…» в контекстном меню, у пластины — и в её редакторе) важнее общего. Пусто: стержни делятся только узлами, пластины — по размеру из области.</system:String>
-    <system:String x:Key="FemMeshBuildNow">Построить</system:String>
+    <system:String x:Key="FemSchemaMeshSteps">Шаги сетки…</system:String>
+    <system:String x:Key="FemSchemaMeshStepsTitle">Шаги сетки схемы</system:String>
+    <system:String x:Key="FemSchemaMeshStepsSaved">Шаги сетки схемы «{0}»: стержни {1} м, пластины {2} м. Применятся при «Построить сетку схемы».</system:String>
     <system:String x:Key="FemMemberMeshStepCtx">Шаг сетки…</system:String>
     <system:String x:Key="FemMemberMeshStepTitle">Шаг сетки</system:String>
     <system:String x:Key="FemMemberMeshStepLocal">Свой шаг, м:</system:String>
