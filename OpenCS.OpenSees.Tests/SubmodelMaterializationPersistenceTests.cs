@@ -61,7 +61,6 @@ public sealed class SubmodelMaterializationPersistenceTests
 
             Assert.True(TableExists(path, "submodel_materializations"));
             Assert.Equal(DatabaseService.SchemaVersion.ToString(), SchemaVersion(path));
-            Assert.Equal("60", SchemaVersion(path));
         }
         finally { DeleteDatabase(path); }
     }
