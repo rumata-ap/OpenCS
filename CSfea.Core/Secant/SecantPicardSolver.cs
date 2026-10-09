@@ -132,6 +132,16 @@ public sealed record SecantIterationRecord(int Stage, int Step, double LoadFacto
 public sealed record SecantStepResult(int Stage, int Step, double LoadFactor, bool IsRefinement, bool Converged,
     int Iterations, double TrueResidual, double[] U, SecantSectionStatus[] Shells, SecantSectionStatus[] Beams);
 
+/// <summary>
+/// Прогресс секущего расчёта — после каждой итерации (<see cref="StepDone"/> = false) и после принятого шага (true).
+/// <see cref="Stage"/> — с 0; <see cref="Step"/> — номер шага в стадии с учётом дроблений (как в журнале),
+/// <see cref="StepCount"/> — заданное число шагов стадии; <see cref="LoadFactor"/> — доля стадии в конце шага;
+/// <see cref="Fraction"/> — пройденная доля всех шагов всех стадий (0…1) для полосы прогресса.
+/// </summary>
+public sealed record SecantProgress(int Stage, int StageCount, string StageName, int Step, int StepCount,
+    double LoadFactor, bool IsRefinement, int Iteration, double DuRel, double DStiffness, int Cracked, int Yielded,
+    int Failed, bool StepDone, double Fraction);
+
 /// <summary>Итог секущего расчёта.</summary>
 public sealed class SecantPicardResult
 {
@@ -218,9 +228,16 @@ public sealed class SecantPicardSolver
 
     // ---------------- стадии и шаги ----------------
 
-    public SecantPicardResult Run(IReadOnlyList<SecantLoadStage> stages)
+    /// <summary>
+    /// Расчёт по стадиям. Отмена проверяется перед каждой итерацией: незавершённый шаг откатывается (как несошедшийся)
+    /// и бросается <see cref="OperationCanceledException"/>; принятые шаги остаются в состояниях КЭ.
+    /// </summary>
+    public SecantPicardResult Run(IReadOnlyList<SecantLoadStage> stages, IProgress<SecantProgress>? progress = null,
+        CancellationToken ct = default)
     {
         var result = new SecantPicardResult();
+        int totalSteps = stages.Sum(s => Math.Max(1, s.Steps));
+        int stepsBefore = 0;
         var u = new double[_mesh.NDof];
         var fPrev = new double[_mesh.NDof];
         var shellStatus = new SecantSectionStatus[_shells.Length];
@@ -240,14 +257,24 @@ public sealed class SecantPicardSolver
             {
                 var f = Lerp(fStart, stage.FEnd, b);
                 bool allowAbort = depth < _o.MaxBisections;
-                var attempt = Picard(si, stepNo + 1, b, f, u, allowAbort, result);
+                bool refinement = depth > 0 && Math.Abs(b * nSteps - Math.Round(b * nSteps)) > 1e-9;
+                SecantProgress Report(SecantIterationRecord r, bool done, double share) => new(si, stages.Count, stage.Name,
+                    stepNo + 1, nSteps, b, refinement, r.Iteration, r.DuRel, r.DStiffness, r.Cracked, r.Yielded, r.Failed,
+                    done, Math.Clamp((stepsBefore + share * nSteps) / totalSteps, 0.0, 1.0));
+                SecantIterationRecord? last = null;
+                Action<SecantIterationRecord>? onIteration = progress == null ? null : r =>
+                {
+                    last = r;
+                    progress.Report(Report(r, false, a));
+                };
+                var attempt = Picard(si, stepNo + 1, b, f, u, allowAbort, result, onIteration, ct);
                 if (attempt.Converged)
                 {
+                    if (last != null) progress!.Report(Report(last, true, b));
                     u = attempt.U;
                     Array.Copy(attempt.ShellStatus, shellStatus, shellStatus.Length);
                     Array.Copy(attempt.BeamStatus, beamStatus, beamStatus.Length);
                     stepNo++;
-                    bool refinement = depth > 0 && Math.Abs(b * nSteps - Math.Round(b * nSteps)) > 1e-9;
                     result.Steps.Add(new SecantStepResult(si, stepNo, b, refinement, true, attempt.Iterations,
                         attempt.TrueResidual, (double[])u.Clone(), (SecantSectionStatus[])shellStatus.Clone(),
                         (SecantSectionStatus[])beamStatus.Clone()));
@@ -275,6 +302,7 @@ public sealed class SecantPicardSolver
                 return result;
             }
             fPrev = stage.FEnd;
+            stepsBefore += nSteps;
         }
         result.Completed = true;
         return result;
@@ -286,7 +314,7 @@ public sealed class SecantPicardSolver
     // ---------------- итерации Пикара одного шага ----------------
 
     private Attempt Picard(int stage, int step, double lambda, double[] f, double[] uStart, bool allowAbort,
-                           SecantPicardResult result)
+                           SecantPicardResult result, Action<SecantIterationRecord>? onIteration, CancellationToken ct)
     {
         var shellSnap = _shells.Select(s => s?.Response.Matrix).ToArray();
         var beamSnap = _beams.Select(b => b?.Response.Matrix).ToArray();
@@ -300,8 +328,23 @@ public sealed class SecantPicardSolver
         int cracksPrev = -1;
         int abortAt = allowAbort ? Math.Max(1, _o.MaxIterations / 2) : _o.MaxIterations;
 
+        // Шаг не принят (несходимость или отмена): состояние и секущие — как в начале шага.
+        void Restore()
+        {
+            foreach (var s in _shells) s?.Revert();
+            foreach (var b in _beams) b?.Revert();
+            for (int e = 0; e < _shells.Length; e++) if (shellSnap[e] is { } m) _shells[e]!.Response.Update(m);
+            for (int e = 0; e < _beams.Length; e++) if (beamSnap[e] is { } m) _beams[e]!.Response.Update(m);
+            for (int e = 0; e < _beams.Length; e++) if (beamShearSnap[e] is { } q) _beams[e]!.Response.UpdateShear(q);
+        }
+
         for (int it = 1; it <= _o.MaxIterations; it++)
         {
+            if (ct.IsCancellationRequested)
+            {
+                Restore();
+                ct.ThrowIfCancellationRequested();
+            }
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var u = SolveFrozen(f, uPrev);
             double tSolve = clock.Elapsed.TotalSeconds;
@@ -346,8 +389,10 @@ public sealed class SecantPicardSolver
                 omega = double.IsFinite(w) ? Math.Clamp(w, _o.OmegaMin, _o.OmegaMax) : _o.Omega0;
             }
             double applied = converged ? 1.0 : omega;
-            result.Iterations.Add(new SecantIterationRecord(stage, step, lambda, it, applied, du, dK,
-                _o.TrueResidualEachIteration || converged ? residual : double.NaN, cracked, yielded, failed));
+            var record = new SecantIterationRecord(stage, step, lambda, it, applied, du, dK,
+                _o.TrueResidualEachIteration || converged ? residual : double.NaN, cracked, yielded, failed);
+            result.Iterations.Add(record);
+            onIteration?.Invoke(record);
             Log($"  ст.{stage} шаг {step} λ={lambda:0.####} ит.{it,2}: ω={applied:0.###} ‖Δu‖/‖u‖={du:e2} " +
                 $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}, " +
                 $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с, сечения {tEval:0.0} с");
@@ -364,12 +409,7 @@ public sealed class SecantPicardSolver
             if (!crackEvent) rPrev = r;
         }
 
-        // Шаг не принят: состояние и секущие — как в начале шага.
-        foreach (var s in _shells) s?.Revert();
-        foreach (var b in _beams) b?.Revert();
-        for (int e = 0; e < _shells.Length; e++) if (shellSnap[e] is { } m) _shells[e]!.Response.Update(m);
-        for (int e = 0; e < _beams.Length; e++) if (beamSnap[e] is { } m) _beams[e]!.Response.Update(m);
-        for (int e = 0; e < _beams.Length; e++) if (beamShearSnap[e] is { } q) _beams[e]!.Response.UpdateShear(q);
+        Restore();
         return new Attempt(false, _o.MaxIterations, double.IsNaN(residual) ? TrueResidual(f, uPrev) : residual,
             uPrev, shellStatus, beamStatus);
     }

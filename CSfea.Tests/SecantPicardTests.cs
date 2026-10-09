@@ -40,6 +40,10 @@ public class SecantPicardTests
 
         TestHarness.Section("Пикар: несошедшийся шаг не принимается");
         RunNotConverged(q);
+
+        TestHarness.Section("Пикар: прогресс и отмена");
+        RunProgress(q);
+        RunCancel(q);
     }
 
     // ---------------- 1. упругость ----------------
@@ -416,6 +420,55 @@ public class SecantPicardTests
         TestHarness.Check("kmax = 2: расчёт не завершён", !r.Completed && r.LimitStage == 0, r.Message ?? "");
         TestHarness.Check("kmax = 2: шаг помечен несошедшимся",
             r.Steps.Count == 1 && !r.Steps[0].Converged && r.StageEnd(0) == null);
+    }
+
+    // ---------------- 6. прогресс и отмена ----------------
+
+    /// <summary>Отчёт на каждую итерацию и каждый принятый шаг; доля монотонна и доходит до 1.</summary>
+    static void RunProgress(double qKn)
+    {
+        var m = StripModel(qKn, 0, out _, steps: 2);
+        var reports = new List<SecantProgress>();
+        var run = RcSecantAnalysis.Run(m, new RcSecantOptions(), new SyncProgress<SecantProgress>(reports.Add));
+        var r = run.Result;
+        int iterations = reports.Count(p => !p.StepDone), steps = reports.Count(p => p.StepDone);
+        TestHarness.Check("прогресс: отчёт на каждую итерацию", r.Completed && iterations == r.Iterations.Count,
+            $"отчётов {iterations}, итераций {r.Iterations.Count}");
+        TestHarness.Check("прогресс: отчёт на каждый принятый шаг", steps == r.Steps.Count(s => s.Converged),
+            $"отчётов {steps}, шагов {r.Steps.Count}");
+        bool monotone = reports.Zip(reports.Skip(1), (a, b) => b.Fraction >= a.Fraction - 1e-12).All(x => x);
+        var last = reports[^1];
+        TestHarness.Check("прогресс: доля монотонна и доходит до 1",
+            monotone && last.StepDone && Math.Abs(last.Fraction - 1) < 1e-12 && Math.Abs(last.LoadFactor - 1) < 1e-12,
+            $"последняя доля {last.Fraction:0.###}, λ {last.LoadFactor:0.###}");
+    }
+
+    /// <summary>Отмена на второй итерации первого шага: исключение, третьей итерации нет, шаг не принят.</summary>
+    static void RunCancel(double qKn)
+    {
+        var m = StripModel(qKn, 0, out _, steps: 2);
+        using var cts = new CancellationTokenSource();
+        var reports = new List<SecantProgress>();
+        bool cancelled = false;
+        try
+        {
+            RcSecantAnalysis.Run(m, new RcSecantOptions(), new SyncProgress<SecantProgress>(p =>
+            {
+                reports.Add(p);
+                if (p.Iteration == 2) cts.Cancel();
+            }), cts.Token);
+        }
+        catch (OperationCanceledException) { cancelled = true; }
+        TestHarness.Check("отмена: OperationCanceledException", cancelled);
+        TestHarness.Check("отмена: после неё итераций нет, шаг не принят",
+            reports.Count == 2 && reports.All(p => !p.StepDone && p.Step == 1),
+            $"отчётов {reports.Count}");
+    }
+
+    /// <summary>Синхронный приёмник прогресса (<see cref="Progress{T}"/> шлёт отчёты асинхронно).</summary>
+    sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     // ---------------- утилиты ----------------

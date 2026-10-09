@@ -121,8 +121,14 @@ public sealed record RcSecantRun(RcStructuralMeshBuild Build, ISecantShellState?
 /// </summary>
 public static class RcSecantAnalysis
 {
-    public static RcSecantRun Run(RcStructuralModel model, RcSecantOptions? options = null)
+    /// <summary>
+    /// Расчёт модели; прогресс — после каждой итерации и принятого шага, отмена — перед итерацией
+    /// (<see cref="OperationCanceledException"/>, см. <see cref="SecantPicardSolver.Run"/>).
+    /// </summary>
+    public static RcSecantRun Run(RcStructuralModel model, RcSecantOptions? options = null,
+        IProgress<SecantProgress>? progress = null, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         options ??= new RcSecantOptions();
         var factory = new SecantRcSectionFactory(options);
         var build = RcStructuralMeshBuilder.Build(model, factory);
@@ -135,7 +141,7 @@ public static class RcSecantAnalysis
             f = f.Zip(df, (a, b) => a + b).ToArray();
             stages.Add(new SecantLoadStage(st.Name, f, st.Steps));
         }
-        var result = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, options.Solver).Run(stages);
+        var result = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, options.Solver).Run(stages, progress, ct);
         return new RcSecantRun(build, shells, beams, stages, result);
     }
 }
