@@ -60,10 +60,14 @@ public static class ShellCorotational
     /// касательной сечения).
     /// </summary>
     public static double[] ElementFCR(double[][] coordsRef, IShellSectionResponse section, double[] uGlobal)
+        => ElementFCR(new Reference(coordsRef), section, uGlobal);
+
+    // F_int по готовой опорной части кинематики (повторные вызовы численной касательной).
+    private static double[] ElementFCR(Reference rf, IShellSectionResponse section, double[] uGlobal)
     {
-        var (xyLocal, uLoc5, drill, p, rr) = Kinematics(coordsRef, uGlobal);
-        return ProjectToGlobal(ShellElementForces.FInternalLocal(xyLocal, section, uLoc5), drill,
-            DrillingStiffness(section), p, rr);
+        var (uLoc5, drill, rr) = Kinematics(rf, uGlobal);
+        return ProjectToGlobal(ShellElementForces.FInternalLocal(rf.Gauss, section, uLoc5), drill,
+            DrillingStiffness(section), rf.P, rr);
     }
 
     /// <summary>
@@ -94,12 +98,13 @@ public static class ShellCorotational
         double h = relStep * Math.Max(Dense.Norm(uGlobal), 1.0);
         var ke = new double[m, m];
         var up = (double[])uGlobal.Clone();
+        var rf = new Reference(coordsRef);
         for (int k = 0; k < m; k++)
         {
             up[k] = uGlobal[k] + h;
-            var fp = ElementFCR(coordsRef, section, up);
+            var fp = ElementFCR(rf, section, up);
             up[k] = uGlobal[k] - h;
-            var fm = ElementFCR(coordsRef, section, up);
+            var fm = ElementFCR(rf, section, up);
             up[k] = uGlobal[k];
             for (int i = 0; i < m; i++) ke[i, k] = (fp[i] - fm[i]) / (2 * h);
         }
@@ -111,6 +116,59 @@ public static class ShellCorotational
     private static (double[,] XyLocal, double[] ULoc5, double[] Drill, double[,] P, double[,] Rr) Kinematics(
         double[][] coordsRef, double[] uGlobal)
     {
+        var rf = new Reference(coordsRef);
+        var (uLoc5, drill, rr) = Kinematics(rf, uGlobal);
+        return (rf.XyLocal, uLoc5, drill, rf.P, rr);
+    }
+
+    // Опорная часть кинематики — только от исходных координат: базис r0, локальные координаты, проектор P, точки
+    // интегрирования локального КЭ.
+    private sealed class Reference
+    {
+        public readonly double[][] Coords;
+        public readonly double[,] R0;
+        public readonly double[,] Xy03d;
+        public readonly double[,] P;
+        public readonly double[,] XyLocal;
+        public readonly ShellElementForces.GaussPoint[] Gauss;
+
+        public Reference(double[][] coordsRef)
+        {
+            int n = coordsRef.Length;
+            Coords = coordsRef;
+            R0 = ShellGeometry.LocalFrame(coordsRef);
+            Xy03d = ProjectFull(coordsRef, R0);   // (n,3)
+
+            // Матрица проекции жёстких мод P = I − S (SᵀS)⁻¹ Sᵀ.
+            var xyMean = new double[3];
+            for (int i = 0; i < n; i++)
+                for (int k = 0; k < 3; k++)
+                    xyMean[k] += Xy03d[i, k] / n;
+            var s = new double[6 * n, 6];
+            for (int i = 0; i < n; i++)
+            {
+                for (int k = 0; k < 3; k++) s[6 * i + k, k] = 1.0;
+                var rvec = new[] { Xy03d[i, 0] - xyMean[0], Xy03d[i, 1] - xyMean[1], Xy03d[i, 2] - xyMean[2] };
+                var sk = So3.Skew(rvec);
+                for (int a = 0; a < 3; a++)
+                    for (int b = 0; b < 3; b++)
+                        s[6 * i + a, 3 + b] = -sk[a, b];
+                for (int k = 0; k < 3; k++) s[6 * i + 3 + k, 3 + k] = 1.0;
+            }
+            var sts = Dense.MatTMul(s, s);            // (6×6)
+            var stsInv = DenseLinAlg.Inverse(sts);
+            P = ProjectionMatrix(s, stsInv, 6 * n);
+
+            XyLocal = new double[n, 2];
+            for (int i = 0; i < n; i++) { XyLocal[i, 0] = Xy03d[i, 0]; XyLocal[i, 1] = Xy03d[i, 1]; }
+            Gauss = ShellElementForces.GaussData(XyLocal);
+        }
+    }
+
+    // Текущая часть кинематики CR: деформационные 5n DOF и повороты вокруг нормали (n) после проектора, базис Rr.
+    private static (double[] ULoc5, double[] Drill, double[,] Rr) Kinematics(Reference rf, double[] uGlobal)
+    {
+        var coordsRef = rf.Coords;
         int n = coordsRef.Length;
 
         var disp = new double[n][];
@@ -125,11 +183,11 @@ public static class ShellCorotational
         for (int i = 0; i < n; i++)
             coordsCur[i] = Dense.AddV(coordsRef[i], disp[i]);
 
-        var r0 = ShellGeometry.LocalFrame(coordsRef);
+        var r0 = rf.R0;
         var rr = ShellGeometry.LocalFrame(coordsCur);
 
         // Локальные координаты узлов в исходном/текущем базисах.
-        var xy03d = ProjectFull(coordsRef, r0);   // (n,3)
+        var xy03d = rf.Xy03d;
         var xyCur3d = ProjectFull(coordsCur, rr);  // (n,3)
 
         // Деформационные перемещения и повороты.
@@ -146,31 +204,9 @@ public static class ShellCorotational
             uDef[6 * i + 5] = tl[2];
         }
 
-        // Матрица проекции жёстких мод P = I − S (SᵀS)⁻¹ Sᵀ.
-        var xyMean = new double[3];
-        for (int i = 0; i < n; i++)
-            for (int k = 0; k < 3; k++)
-                xyMean[k] += xy03d[i, k] / n;
-        var s = new double[6 * n, 6];
-        for (int i = 0; i < n; i++)
-        {
-            for (int k = 0; k < 3; k++) s[6 * i + k, k] = 1.0;
-            var rvec = new[] { xy03d[i, 0] - xyMean[0], xy03d[i, 1] - xyMean[1], xy03d[i, 2] - xyMean[2] };
-            var sk = So3.Skew(rvec);
-            for (int a = 0; a < 3; a++)
-                for (int b = 0; b < 3; b++)
-                    s[6 * i + a, 3 + b] = -sk[a, b];
-            for (int k = 0; k < 3; k++) s[6 * i + 3 + k, 3 + k] = 1.0;
-        }
-        var sts = Dense.MatTMul(s, s);            // (6×6)
-        var stsInv = DenseLinAlg.Inverse(sts);
-        var p = ProjectionMatrix(s, stsInv, 6 * n);
-
-        uDef = Dense.MatVec(p, uDef);
+        uDef = Dense.MatVec(rf.P, uDef);
 
         // Локальный 5-DOF вызов фон-кармановского элемента.
-        var xyLocal = new double[n, 2];
-        for (int i = 0; i < n; i++) { xyLocal[i, 0] = xy03d[i, 0]; xyLocal[i, 1] = xy03d[i, 1]; }
         var uLoc5 = new double[5 * n];
         for (int i = 0; i < n; i++)
         {
@@ -182,7 +218,7 @@ public static class ShellCorotational
         }
         var drill = new double[n];
         for (int i = 0; i < n; i++) drill[i] = uDef[6 * i + 5];
-        return (xyLocal, uLoc5, drill, p, rr);
+        return (uLoc5, drill, rr);
     }
 
     // Локальные 5n сил и штраф поворота вокруг нормали kDrill·θ → 6n → Pᵀ → глобальные оси (блоки Rrᵀ).
@@ -194,7 +230,16 @@ public static class ShellCorotational
             for (int c = 0; c < 5; c++)
                 fLoc6[6 * i + c] = fLoc5[5 * i + c];
         for (int i = 0; i < n; i++) fLoc6[6 * i + 5] = kDrill * drill[i];
-        return Dense.MatVec(GlobalTransform(rr, n), Dense.MatTVec(p, fLoc6));
+        var fp = Dense.MatTVec(p, fLoc6);
+        // Блоки Rrᵀ (как GlobalTransform, без плотной матрицы 6n×6n).
+        var fg = new double[6 * n];
+        for (int blk = 0; blk < 2 * n; blk++)
+        {
+            int o = 3 * blk;
+            for (int a = 0; a < 3; a++)
+                fg[o + a] = rr[0, a] * fp[o] + rr[1, a] * fp[o + 1] + rr[2, a] * fp[o + 2];
+        }
+        return fg;
     }
 
     // Трансформация в глобальную систему: блоки Rrᵀ на каждый узел.

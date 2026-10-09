@@ -14,31 +14,46 @@ public static class ShellElementForces
     /// <summary>Локальный вектор внутренних сил (5n) при u_loc.</summary>
     public static double[] FInternalLocal(double[,] xy, IShellSectionResponse section, double[] uLoc,
                                           bool vonKarman = true)
+        => FInternalLocal(GaussData(xy), section, uLoc, vonKarman);
+
+    /// <summary>Точка интегрирования: B-матрицы мембраны, изгиба, сдвига, G (наклоны w) и вес (w·detJ или площадь).</summary>
+    public sealed record GaussPoint(double[,] Bm, double[,] Bb, double[,] Bs, double[,] G, double Scale);
+
+    /// <summary>Точки интегрирования КЭ — зависят только от локальных координат узлов (для повторных вызовов).</summary>
+    public static GaussPoint[] GaussData(double[,] xy)
     {
         int n = xy.GetLength(0);
         if (n == 4)
         {
-            var f = new double[20];
             var (pts, wts) = Shell4.Gauss2x2();
+            var gps = new GaussPoint[pts.Length];
             for (int gp = 0; gp < pts.Length; gp++)
             {
                 var (bm, bb, detJ) = Shell4.BMatricesBendingMembrane(xy, pts[gp][0], pts[gp][1]);
                 var bs = Shell4.BMatrixShear(xy, pts[gp][0], pts[gp][1]);
                 var (gMat, _) = Shell4.GMatrixW(xy, pts[gp][0], pts[gp][1]);
-                AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, wts[gp] * detJ, vonKarman);
+                gps[gp] = new GaussPoint(bm, bb, bs, gMat, wts[gp] * detJ);
             }
-            return f;
+            return gps;
         }
         if (n == 3)
         {
             var (bm, bb, area) = Shell3.BMatricesBendingMembrane(xy);
             var bs = Shell3.BMatrixShear(xy);
             var (gMat, _) = Shell3.GMatrixW(xy);
-            var f = new double[15];
-            AccumulateFInternal(f, bm, bb, bs, gMat, section, uLoc, area, vonKarman);
-            return f;
+            return [new GaussPoint(bm, bb, bs, gMat, area)];
         }
         throw new ArgumentException("Поддерживаются только 3 или 4 узла.");
+    }
+
+    /// <summary>Локальный вектор внутренних сил (5n) по готовым точкам интегрирования <see cref="GaussData"/>.</summary>
+    public static double[] FInternalLocal(GaussPoint[] gauss, IShellSectionResponse section, double[] uLoc,
+                                          bool vonKarman = true)
+    {
+        var f = new double[uLoc.Length];
+        foreach (var g in gauss)
+            AccumulateFInternal(f, g.Bm, g.Bb, g.Bs, g.G, section, uLoc, g.Scale, vonKarman);
+        return f;
     }
 
     private static void AccumulateFInternal(double[] f, double[,] bm, double[,] bb, double[,] bs,
