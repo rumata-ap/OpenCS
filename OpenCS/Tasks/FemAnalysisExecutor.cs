@@ -20,6 +20,9 @@ public static class FemAnalysisExecutor
     /// (kind=fem_linear|fem_nonlinear).</summary>
     public static async Task<CalcResult> RunAsync(AppViewModel app, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
     {
+        if (analysis.Kind == Services.FemCsfeaRunner.AnalysisKind)
+            return await RunCsfeaAsync(app, schema, analysis, ct);
+
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         var db = app.db;
 
@@ -81,6 +84,18 @@ public static class FemAnalysisExecutor
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved, runRequest, ct);
+    }
+
+    /// <summary>
+    /// Секущий расчёт CSfea (<see cref="Services.FemCsfeaRunner"/>); прогресс решателя — в полосу занятости приложения
+    /// (вызывать из UI-потока: <see cref="Progress{T}"/> возвращает отчёты в него).
+    /// </summary>
+    static Task<CalcResult> RunCsfeaAsync(AppViewModel app, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
+    {
+        var progress = new Progress<CSfea.Core.SecantProgress>(p => app.ReportBusyProgress(p.Fraction, string.Format(
+            Utilites.Loc.S("FemCsfeaProgress"), analysis.Tag, p.StageName, p.Step, p.StepCount, p.LoadFactor, p.Iteration, p.Cracked)));
+        var ctx = new Services.FemCsfeaRunContext(app.db, app.GmshSettings, app.LogService);
+        return Services.FemCsfeaRunner.RunAsync(ctx, schema, analysis, progress, ct);
     }
 
     /// <summary>Резолвит нагрузки и способ управления траекторией по стадиям нелинейной

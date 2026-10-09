@@ -1212,7 +1212,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 _logService.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
                     mesh.Elements.Count(e => e.ElemType == "beam"), mesh.Elements.Count(e => e.ElemType == "shell"),
                     result.RegionCount, result.RebuiltRegionCount, mesh.SharedNodeCount, mesh.SplitBeamCount));
-            if (changed) ReportMeshChanged(schema);
+            if (changed) service.ReportMeshChanged(schema, _logService);
             MeshDiscretized?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException)
@@ -1229,22 +1229,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             IsDiscretizing = false;
             CommandManager.InvalidateRequerySuggested();
         }
-    }
-
-    /// <summary>Сетка схемы изменилась: результаты постановок сбрасываются, наборы усилий схемы (номера КЭ прежней
-    /// сетки) перечисляются в журнале — не удаляются.</summary>
-    void ReportMeshChanged(FemSchema schema)
-    {
-        int invalidated = 0;
-        foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
-        {
-            analysis.InvalidateResult();
-            _db.SaveFemAnalysis(analysis);
-            invalidated++;
-        }
-        if (invalidated > 0) _logService.Info(string.Format(Loc.S("FemSchemaMeshAnalysesInvalidated"), invalidated));
-        var stale = _db.ForceSets.Where(f => f.SourceType == "fea" && f.SourceSchemaId == schema.Id).Select(f => f.Tag).ToList();
-        if (stale.Count > 0) _logService.Warning(string.Format(Loc.S("FemSchemaMeshForceSetsStale"), string.Join(", ", stale)));
     }
 
     public bool Save()

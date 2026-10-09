@@ -5490,6 +5490,7 @@ namespace OpenCS
          if (schema == null) return;
          var result = db.GetCalcResultById(resultId);
          if (result == null) return;
+         if (LogCsfeaResult(result)) return;
 
          var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
          AttachFemResultVmEvents(vm, schema);
@@ -5513,6 +5514,12 @@ namespace OpenCS
             analysis.ResultId = result.Id;
             analysis.Status   = result.Status;
             db.SaveFemAnalysis(analysis);
+
+            if (LogCsfeaResult(result))
+            {
+               EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
+               return;
+            }
 
             var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
             AttachFemResultVmEvents(vm, schema);
@@ -5556,6 +5563,36 @@ namespace OpenCS
             EndBusy();
             LogService.Error(ex.Message);
          }
+      }
+
+      /// <summary>
+      /// Результат секущего расчёта CSfea (окна просмотра пока нет — срез 4е): итог и отчёт — в журнал; true — это
+      /// он и показ OpenSees-окна не нужен.
+      /// </summary>
+      bool LogCsfeaResult(CalcResult result)
+      {
+         if (result.TaskKind != Services.FemCsfeaRunner.TaskKind) return false;
+         string tag = result.TaskTag;
+         var statusKey = result.Status switch
+         {
+            "ok" => "CalcResultOk",
+            "not_converged" => "CalcResultNotConverged",
+            _ => "CalcResultError"
+         };
+         string done = string.Format(Loc.S(statusKey), tag);
+         if (result.Status == "ok") LogService.Info(done);
+         else if (result.Status == "not_converged") LogService.Warning(done);
+         else LogService.Error(done);
+         if (Services.FemCsfeaResultSummary.Parse(result.DataJson) is { } summary)
+         {
+            foreach (var line in summary.Report)
+               if (line.StartsWith("Ошибка: ", StringComparison.Ordinal)) LogService.Error($"[{tag}] {line}");
+               else LogService.Warning($"[{tag}] {line}");
+            foreach (var line in summary.Describe().Where(l => !l.StartsWith("Ошибка: ", StringComparison.Ordinal)))
+               LogService.Info($"[{tag}] {line}");
+         }
+         LogService.Info(string.Format(Loc.S("FemCsfeaResultNoView"), tag));
+         return true;
       }
 
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)

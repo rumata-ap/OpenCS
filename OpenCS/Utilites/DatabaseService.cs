@@ -7002,6 +7002,16 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      /// <summary>Есть ли у FEM-схемы вложение вида <paramref name="kind"/> (без чтения данных).</summary>
+      public bool HasFemSchemaSourceFile(int schemaId, string kind)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT 1 FROM fem_schema_source_files WHERE schema_id=@sid AND kind=@kind LIMIT 1";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         return cmd.ExecuteScalar() != null;
+      }
+
       /// <summary>Вложение FEM-схемы вида <paramref name="kind"/>; null — нет.</summary>
       public (string FileName, byte[] Data, string ImportedAt)? GetFemSchemaSourceFile(int schemaId, string kind)
       {

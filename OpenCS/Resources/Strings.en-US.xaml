@@ -2727,6 +2727,8 @@
     <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>
     <system:String x:Key="FemAnalysisKindLinear">Linear</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Nonlinear</system:String>
+    <system:String x:Key="FemCsfeaProgress">"{0}": stage "{1}", step {2} of {3} (λ = {4:0.###}), iteration {5}, cracks {6}</system:String>
+    <system:String x:Key="FemCsfeaResultNoView">"{0}": no result view for the CSfea secant analysis yet — see the log.</system:String>
     <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Solver mechanics (executable, convergence, geomTransf, integration points) — see the "OpenSees" tab in global settings.</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Divisions of last failed step</system:String>

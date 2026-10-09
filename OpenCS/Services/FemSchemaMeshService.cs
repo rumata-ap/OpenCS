@@ -161,6 +161,22 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             db.SaveFemMeshSnapshot(schemaId, mesh.Nodes, mesh.Elements);
     }
 
+    /// <summary>Сетка схемы изменилась: результаты постановок сбрасываются, наборы усилий схемы (номера КЭ прежней
+    /// сетки) перечисляются в журнале — не удаляются.</summary>
+    public void ReportMeshChanged(FemSchema schema, ILogService log)
+    {
+        int invalidated = 0;
+        foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
+        {
+            analysis.InvalidateResult();
+            db.SaveFemAnalysis(analysis);
+            invalidated++;
+        }
+        if (invalidated > 0) log.Info(string.Format(Loc.S("FemSchemaMeshAnalysesInvalidated"), invalidated));
+        var stale = db.ForceSets.Where(f => f.SourceType == "fea" && f.SourceSchemaId == schema.Id).Select(f => f.Tag).ToList();
+        if (stale.Count > 0) log.Warning(string.Format(Loc.S("FemSchemaMeshForceSetsStale"), string.Join(", ", stale)));
+    }
+
     async Task<PlanarMeshSnapshot> BuildRegionMeshAsync(PlanarRegion region, PlanarMeshSettings settings,
         FemPlanarRegionConstraints constraints, CancellationToken cancellationToken)
     {

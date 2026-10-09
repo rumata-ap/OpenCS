@@ -2727,6 +2727,8 @@
     <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
     <system:String x:Key="FemAnalysisKindLinear">Линейный</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Нелинейный</system:String>
+    <system:String x:Key="FemCsfeaProgress">«{0}»: стадия «{1}», шаг {2} из {3} (λ = {4:0.###}), итерация {5}, трещин {6}</system:String>
+    <system:String x:Key="FemCsfeaResultNoView">«{0}»: окна результатов секущего расчёта CSfea пока нет — итог в журнале.</system:String>
     <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Механика решателя (исполняемый файл, сходимость, geomTransf, точки интегрирования) — в общих настройках, вкладка «OpenSees».</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Делений последнего неудачного шага</system:String>
