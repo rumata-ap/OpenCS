@@ -465,7 +465,12 @@ public sealed class SecantPicardSolver
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
             var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance, maxIter: 30,
                 corotational: true, u0: uFrom, f0: f);
-            if (!history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
+            if (!history.AllConverged())
+            {
+                why = "Ньютон геометрической нелинейности не сошёлся";
+                _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
+                    System.Globalization.CultureInfo.InvariantCulture))));
+            }
             return why == null ? u : null;
         }
         catch (InvalidOperationException ex)

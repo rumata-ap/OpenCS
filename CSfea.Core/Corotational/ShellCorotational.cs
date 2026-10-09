@@ -45,11 +45,14 @@ public static class ShellCorotational
     }
 
     /// <summary>Доля <see cref="IShellSectionResponse.DrillingScale"/> — жёсткость штрафа поворота вокруг нормали.</summary>
-    public const double DrillingFactor = 1e-6;
+    public const double DrillingFactor = 1e-4;
 
     // Жёсткость поворота вокруг нормали: в F_int и K одна и та же (штраф kDrill·θ_def по деформационному повороту);
     // без неё в F моменты вокруг нормали от проектора P ничем не уравновешены — Ньютон стоит (плита Дорфмана у
-    // жёстких тел оголовков колонн).
+    // жёстких тел оголовков колонн). Доля 1e-4, а не 1e-6: в Ньютоне на Холецком стоит симметричная часть ∂F/∂u, и
+    // при почти нулевой жёсткости поворота вокруг нормали отброшенная кососимметричная часть CR (поворот базиса)
+    // срывает сходимость (Дорфман с геомнелином, λ = 0,2 L2: застой невязки 1,7e-6…6,7e-5). Влияние на решение —
+    // 0,1 % (стена 1×6 м при 0,5·P_cr: 46,01 → 45,96 мм; 1e-3 дал бы уже 1 %).
     private static double DrillingStiffness(IShellSectionResponse section) => DrillingFactor * section.DrillingScale;
 
     /// <summary>
