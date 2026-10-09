@@ -26,11 +26,39 @@ public sealed record FemCsfeaSetup
     /// <summary>Стадии нагружения: выражение загружений, шаг и максимум коэффициента нагрузки.</summary>
     public IReadOnlyList<FemAnalysisStage> Stages { get; init; } = [];
 
-    /// <summary>Настройки по постановке: вид расчёта и стадии из её параметров (<see cref="FemAnalysisParams.ResolveStages"/>).</summary>
+    /// <summary>
+    /// Настройки по постановке: вид расчёта, стадии (<see cref="FemAnalysisParams.ResolveStages"/>), источник армирования
+    /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию).
+    /// </summary>
     public static FemCsfeaSetup FromAnalysis(FemAnalysis analysis)
     {
         var p = FemAnalysisParams.Parse(analysis.ParamsJson);
-        return new FemCsfeaSetup { Calc = p.CalcType ?? CalcType.N, Stages = p.ResolveStages(analysis) };
+        var c = p.Csfea ?? new FemCsfeaParams();
+        return new FemCsfeaSetup
+        {
+            Calc = p.CalcType ?? CalcType.N, Stages = p.ResolveStages(analysis),
+            PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
+        };
+    }
+
+    /// <summary>
+    /// Параметры ядра по параметрам постановки; <paramref name="maxDegreeOfParallelism"/> — из общих настроек расчёта
+    /// (−1 — по числу ядер), <paramref name="log"/> — журнал итераций.
+    /// </summary>
+    public static RcSecantOptions SecantOptions(FemCsfeaParams? p, int maxDegreeOfParallelism = -1, Action<string>? log = null)
+    {
+        p ??= new FemCsfeaParams();
+        return new RcSecantOptions
+        {
+            TensionConcrete = p.TensionConcrete, Psi = p.Psi, PlateCrackRule = p.PlateCrackRule, BeamShear = p.BeamShear,
+            PoissonUncracked = p.PoissonUncracked,
+            Solver = new CSfea.Core.SecantPicardOptions
+            {
+                MaxIterations = p.MaxIterations, TolDisplacement = p.TolDisplacement, TolStiffness = p.TolStiffness,
+                MaxBisections = p.MaxBisections, Omega0 = p.Omega0, Geometric = p.GeomNonlinear,
+                MaxDegreeOfParallelism = maxDegreeOfParallelism, Log = log,
+            },
+        };
     }
 }
 

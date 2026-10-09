@@ -100,6 +100,9 @@ public sealed class FemAnalysisParams
     /// при Kind="nonlinear". Пусто для легаси-постановок, сохранённых до появления многостадийного
     /// нагружения — см. ResolveStages.</summary>
     public List<FemAnalysisStage> Stages { get; set; } = [];
+    /// <summary>Параметры секущего расчёта CSfea (Kind = "csfea_secant"); null — по умолчанию.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FemCsfeaParams? Csfea { get; set; }
 
     /// <summary>Возвращает стадии постановки; если Stages пуст (легаси-постановка), синтезирует
     /// одну стадию из единственного LoadExpressionJson постановки (историческое поведение до
@@ -134,5 +137,85 @@ public sealed class FemAnalysisParams
             stage.MaxLoadFactor ??= result.MaxLoadFactor;
         }
         return result;
+    }
+}
+
+/// <summary>Какие шаги секущего расчёта CSfea записывают полные поля (сводка шагов пишется всегда).</summary>
+public static class FemCsfeaRecording
+{
+    /// <summary>Только конечный результат.</summary>
+    public const string Final = "Final";
+    /// <summary>Выбранные шаги (<see cref="FemCsfeaParams.RecordSteps"/>) и, по флажку, концы стадий.</summary>
+    public const string Selected = "Selected";
+    /// <summary>Все шаги подряд.</summary>
+    public const string All = "All";
+}
+
+/// <summary>
+/// Параметры секущего расчёта CSfea в <see cref="FemAnalysisParams.Csfea"/>: физика сечений, итерации Пикара, запись
+/// результатов, контрольный узел. Значения по умолчанию — умолчания ядра (<c>RcSecantOptions</c>,
+/// <c>SecantPicardOptions</c>). Вид расчёта — общий <see cref="FemAnalysisParams.CalcType"/>, стадии —
+/// <see cref="FemAnalysisParams.Stages"/> (path control не используется).
+/// </summary>
+public sealed class FemCsfeaParams
+{
+    /// <summary>Источник армирования пластин (<see cref="CScore.Fem.FemCheckRebarSource"/>), как в проверке по КЭ.</summary>
+    public string PlateRebarSource { get; set; } = CScore.Fem.FemCheckRebarSource.Section;
+    /// <summary>Работа бетона на растяжение до трещины: null — как в сечении (пластины), стержни — да.</summary>
+    public bool? TensionConcrete { get; set; }
+    /// <summary>ψs арматуры у трещин (п. 8.2.32 СП 63).</summary>
+    public bool Psi { get; set; } = true;
+    /// <summary>Правило выключения растянутого бетона пластин трещиной.</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public CSfea.CScoreBridge.Structural.PlateCrackRule PlateCrackRule { get; set; } = CSfea.CScoreBridge.Structural.PlateCrackRule.Layer;
+    /// <summary>Сдвиговые деформации стержней по хомутам (КЭ Тимошенко).</summary>
+    public bool BeamShear { get; set; } = true;
+    /// <summary>ν бетона до трещины; null — как в сечении.</summary>
+    public double? PoissonUncracked { get; set; }
+    /// <summary>Геометрическая нелинейность (оболочки — фон Карман, стержни — CR).</summary>
+    public bool GeomNonlinear { get; set; }
+
+    /// <summary>Наибольшее число итераций Пикара на шаге.</summary>
+    public int MaxIterations { get; set; } = 50;
+    /// <summary>Допуск ‖Δu‖/‖u‖.</summary>
+    public double TolDisplacement { get; set; } = 1e-4;
+    /// <summary>Допуск изменения секущих жёсткостей (мера по работе).</summary>
+    public double TolStiffness { get; set; } = 1e-3;
+    /// <summary>Дроблений шага пополам при несходимости.</summary>
+    public int MaxBisections { get; set; } = 4;
+    /// <summary>Начальный коэффициент релаксации жёсткостей.</summary>
+    public double Omega0 { get; set; } = 0.7;
+
+    /// <summary>Запись полей шагов: <see cref="FemCsfeaRecording"/>.</summary>
+    public string ResultRecording { get; set; } = FemCsfeaRecording.Final;
+    /// <summary>Сквозные номера шагов для <see cref="FemCsfeaRecording.Selected"/>: «5, 10, 15».</summary>
+    public string RecordSteps { get; set; } = "";
+    /// <summary>При <see cref="FemCsfeaRecording.Selected"/> — записывать и концы стадий.</summary>
+    public bool RecordStageEnds { get; set; } = true;
+
+    /// <summary>Контрольный узел графика «λ — перемещение»: тег узла сетки; пусто — не задан.</summary>
+    public string ControlNodeTag { get; set; } = "";
+    /// <summary>DOF контрольного узла: 0–2 — ux, uy, uz; 3–5 — повороты.</summary>
+    public int ControlDof { get; set; } = 2;
+
+    /// <summary>
+    /// Номера шагов из <see cref="RecordSteps"/> (разделители — запятая, точка с запятой, пробел), по возрастанию без
+    /// повторов; null и текст ошибки — если есть не целое положительное число.
+    /// </summary>
+    public static IReadOnlyList<int>? ParseRecordSteps(string? text, out string? error)
+    {
+        error = null;
+        var result = new SortedSet<int>();
+        foreach (var part in (text ?? "").Split([',', ';', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!int.TryParse(part, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture,
+                    out int n) || n < 1)
+            {
+                error = $"Номер шага «{part}» — не целое положительное число.";
+                return null;
+            }
+            result.Add(n);
+        }
+        return result.ToList();
     }
 }
