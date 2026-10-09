@@ -154,6 +154,43 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         }, p => p.ResultRecording = FemCsfeaRecording.All);
     }
 
+    [Fact]
+    public async Task ResultVM_StepsFieldsAndMosaic()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, analysis, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+
+            var vm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema);
+            int last = summary.Steps.FindLastIndex(s => s.Converged);
+            Assert.Equal(last, vm.SelectedStepIndex);
+            Assert.NotNull(vm.Fields);
+            Assert.False(vm.HasFieldsNote);
+            Assert.True(vm.HasShells);
+            int control = int.Parse(summary.ControlNodeTag, CultureInfo.InvariantCulture);
+            Assert.Equal(summary.Steps[last].Control!.Value, vm.Displacement(control).Z, 12);
+            Assert.Equal(summary.Steps.Count, vm.LambdaPoints.Count);
+            Assert.Equal(2.0, vm.LambdaPoints[last].Y, 12);   // стадия 1 + λ = 1
+
+            // Мозаика: все пластины раскрашены, прогиб центра — наибольший по модулю.
+            vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.Uz);
+            Assert.True(vm.IsActive);
+            int shells = ctx.Db.GetFemMeshElements(schema.Id).Count(e => e.ElemType == "shell");
+            Assert.Equal(shells, vm.Legend.Sum(l => l.Count));
+            Assert.Equal(shells * 2, vm.ShellPatches.Sum(p => p.TriangleElements.Count));
+            vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.State);
+            Assert.Contains(vm.Legend, l => l.Count > 0);
+
+            // Шаг без полей (записан только конечный): поля ближайшего записанного и подсказка.
+            vm.SelectedStepIndex = 0;
+            Assert.True(vm.HasFieldsNote);
+            Assert.Equal(last, vm.FieldsStepIndex);
+            vm.GoToFieldsStepCommand.Execute(null);
+            Assert.Equal(last, vm.SelectedStepIndex);
+        });
+    }
+
     sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
     {
         public void Report(T value) => report(value);

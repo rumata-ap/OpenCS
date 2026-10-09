@@ -68,7 +68,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Компонента мозаики упругого основания (единственная).</summary>
    const string FoundationComponent = "C1";
 
-   enum Palette { Rebar, Difference, Forces, Utilization }
+   internal enum Palette { Rebar, Difference, Forces, Utilization }
 
    static readonly Color[] SequentialStops =
    [
@@ -969,7 +969,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       return sb.ToString();
    }
 
-   static SolidColorBrush Freeze(Color c)
+   internal static SolidColorBrush Freeze(Color c)
    {
       var b = new SolidColorBrush(c);
       b.Freeze();
@@ -987,7 +987,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       return result;
    }
 
-   static Color[] BandColors(PlateRebarMosaicScale scale, Palette palette)
+   internal static Color[] BandColors(PlateRebarMosaicScale scale, Palette palette)
    {
       var bands = scale.Bands;
       var colors = new Color[bands.Count];
@@ -1032,7 +1032,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       return Color.FromRgb(L(stops[i].R, stops[i + 1].R), L(stops[i].G, stops[i + 1].G), L(stops[i].B, stops[i + 1].B));
    }
 
-   static string BandLabel(PlateRebarMosaicBand band, double min, double max)
+   internal static string BandLabel(PlateRebarMosaicBand band, double min, double max)
    {
       static string F(double v) => v.ToString("0.##", CultureInfo.CurrentCulture);
       if (band.IsZero) return "0";

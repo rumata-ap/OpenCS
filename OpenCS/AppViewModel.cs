@@ -5496,7 +5496,11 @@ namespace OpenCS
          if (schema == null) return;
          var result = db.GetCalcResultById(resultId);
          if (result == null) return;
-         if (LogCsfeaResult(result)) return;
+         if (result.TaskKind == Services.FemCsfeaRunner.TaskKind)
+         {
+            CurrentPage = new Views.FemCsfeaResultView(new ViewModels.FemCsfeaResultVM(result, db, schema));
+            return;
+         }
 
          var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
          AttachFemResultVmEvents(vm, schema);
@@ -5523,6 +5527,7 @@ namespace OpenCS
 
             if (LogCsfeaResult(result))
             {
+               CurrentPage = new Views.FemCsfeaResultView(new ViewModels.FemCsfeaResultVM(result, db, schema));
                EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
                return;
             }
@@ -5572,8 +5577,8 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Результат секущего расчёта CSfea (окна просмотра пока нет — срез 4е): итог и отчёт — в журнал; true — это
-      /// он и показ OpenSees-окна не нужен.
+      /// Результат расчёта CSfea: итог и отчёт — в журнал; true — это он (просмотр — <see cref="Views.FemCsfeaResultView"/>,
+      /// не окно OpenSees).
       /// </summary>
       bool LogCsfeaResult(CalcResult result)
       {
@@ -5597,7 +5602,6 @@ namespace OpenCS
             foreach (var line in summary.Describe().Where(l => !l.StartsWith("Ошибка: ", StringComparison.Ordinal)))
                LogService.Info($"[{tag}] {line}");
          }
-         LogService.Info(string.Format(Loc.S("FemCsfeaResultNoView"), tag));
          return true;
       }
 
