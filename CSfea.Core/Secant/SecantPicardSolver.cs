@@ -94,6 +94,13 @@ public sealed class SecantPicardOptions
     public bool Geometric { get; init; }
 
     /// <summary>
+    /// При <see cref="Geometric"/>: оболочки — CR, P-Δ стен и пластин и из плоскости, и в своей плоскости (true), или фон
+    /// Карман — только из плоскости (прогиб в плоскости на равновесие не влияет; касательная аналитическая, счёт быстрее).
+    /// Стержни — CR в обоих случаях.
+    /// </summary>
+    public bool ShellInPlanePDelta { get; init; } = true;
+
+    /// <summary>
     /// Допуск Ньютона при <see cref="Geometric"/> (‖r‖/‖F‖). У схем с жёсткими связями и колоннами невязка упирается в
     /// округление ~1e-8 (плита Дорфмана: 1,5e-8…2,5e-8), поэтому меньший допуск недостижим.
     /// </summary>
@@ -135,7 +142,7 @@ public sealed class SecantPicardOptions
     public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => new()
     {
         MaxIterations = MaxIterations, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
-        TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric,
+        TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, ShellInPlanePDelta = ShellInPlanePDelta,
         GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
         OnStepAccepted = onStepAccepted,
@@ -493,7 +500,7 @@ public sealed class SecantPicardSolver
             bool full = !inexact || _fullNewton;
             // maxIter — число вычислений невязки: k шагов Ньютона и невязка после последнего.
             var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance,
-                maxIter: full ? 30 : _o.GeometricNewtonSteps + 1, corotational: true, u0: uFrom, f0: f);
+                maxIter: full ? 30 : _o.GeometricNewtonSteps + 1, corotational: ShellCr, u0: uFrom, f0: f);
             _newtonResidual = history.Count > 0 ? history[^1].Residual : double.NaN;
             if (full && !history.AllConverged())
                 _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
@@ -692,13 +699,16 @@ public sealed class SecantPicardSolver
 
     // ---------------- деформации КЭ ----------------
 
+    // Кинематика оболочек: CR (геомнелин с P-Δ в плоскости) или линейная / фон Карман.
+    private bool ShellCr => _o.Geometric && _o.ShellInPlanePDelta;
+
     /// <summary>Деформации центра оболочки в осях сечения.</summary>
     private (double[] Eps, double[] Kappa, double[] Gamma) ShellStrains(int e, double[] u)
     {
         var dofs = StructuralMesh.NodeDofs(_mesh.Shells[e].Nodes);
-        var (eps, kappa, gamma) = _o.Geometric
+        var (eps, kappa, gamma) = ShellCr
             ? ShellCorotational.CenterStrainsCR(_mesh.ShellCoords(e), Gather(u, dofs))
-            : ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs));
+            : ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs), vonKarman: _o.Geometric);
         return _mesh.Shells[e].Section is RotatedShellResponse rot ? rot.ToSection(eps, kappa, gamma) : (eps, kappa, gamma);
     }
 
@@ -753,9 +763,9 @@ public sealed class SecantPicardSolver
                 IShellSectionResponse tr = new TrueShellResponse(st);
                 sec = _shellAngle[e] is { } a ? new RotatedShellResponse(tr, a[0]) : tr;
             }
-            parts[e] = _o.Geometric
+            parts[e] = ShellCr
                 ? ShellCorotational.ElementFCR(_mesh.ShellCoords(e), sec, Gather(u, dofs))
-                : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: false);
+                : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: _o.Geometric);
         });
         var fInt = new double[_mesh.NDof];
         var fAbs = new double[_mesh.NDof];

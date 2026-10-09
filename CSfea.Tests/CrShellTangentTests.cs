@@ -123,6 +123,31 @@ public class CrShellTangentTests
             TestHarness.Check($"P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
             if (end == null) continue;
             TestHarness.CheckRel($"P = {ratio}·P_cr: ux = прямой CR-Ньютон", TopUx(mesh, end.U), TopUx(direct, uDirect), 1e-5);
+
+            // Без прогиба в плоскости (ShellInPlanePDelta = false, фон Карман): P-Δ в плоскости стены не учитывается —
+            // прогиб от боковой силы линейный.
+            var (vkWall, _) = Wall();
+            var vkStates = new ISecantShellState?[vkWall.Shells.Count];
+            var vkShells = new List<StructuralShell>();
+            for (int e = 0; e < vkWall.Shells.Count; e++)
+            {
+                var st = new ConstantShellState(abd);
+                vkStates[e] = st;
+                vkShells.Add(new StructuralShell(vkWall.Shells[e].Nodes, st.Response));
+            }
+            var vkMesh = new StructuralMesh(vkWall.Nodes, vkShells, null);
+            var (_, vkBc) = WallBc(vkMesh);
+            var vk = new SecantPicardSolver(vkMesh, vkBc, vkStates, Array.Empty<ISecantBeamState?>(),
+                new SecantPicardOptions { Geometric = true, ShellInPlanePDelta = false, GeometricTolerance = 1e-8 })
+                .Run([new SecantLoadStage("P", f, 2)]);
+            var vkEnd = vk.StageEnd(0);
+            TestHarness.Check($"P = {ratio}·P_cr, без прогиба в плоскости: расчёт сошёлся", vk.Completed && vkEnd != null, vk.Message ?? "");
+            if (vkEnd != null)
+            {
+                var (lin, linBc) = Wall();
+                double uxLin = TopUx(lin, lin.SolveLinear(f, linBc));
+                TestHarness.CheckRel($"P = {ratio}·P_cr, без прогиба в плоскости: ux = линейный", TopUx(vkMesh, vkEnd.U), uxLin, 0.01);
+            }
         }
     }
 
@@ -176,14 +201,22 @@ public class CrShellTangentTests
                     0.01 * p * H * H * H / (3 * E * B * T * T * T / 12.0), 0.01);
                 continue;
             }
-            var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
-                new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-8 }).Run([new SecantLoadStage("P", f, 2)]);
-            var end = res.StageEnd(0);
-            TestHarness.Check($"из плоскости, P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
-            if (end == null) continue;
             double k = Math.PI / 2 * Math.Sqrt(ratio);
             double amp = 3 * (Math.Tan(k) - k) / (k * k * k);
-            TestHarness.CheckRel($"из плоскости, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", TopUy(end.U) / (uyPerP * p), amp, 0.005);
+            // CR и фон Карман (без прогиба в плоскости) — P-Δ из плоскости учитывают оба.
+            foreach (bool inPlane in new[] { true, false })
+            {
+                foreach (var st in states) st!.Revert();
+                var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
+                    new SecantPicardOptions { Geometric = true, ShellInPlanePDelta = inPlane, GeometricTolerance = 1e-8 })
+                    .Run([new SecantLoadStage("P", f, 2)]);
+                var end = res.StageEnd(0);
+                string mode = inPlane ? "CR" : "фон Карман";
+                TestHarness.Check($"из плоскости, {mode}, P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
+                if (end == null) continue;
+                TestHarness.CheckRel($"из плоскости, {mode}, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", TopUy(end.U) / (uyPerP * p),
+                    amp, 0.005);
+            }
         }
     }
 

@@ -243,6 +243,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaPsiCb.IsChecked = c.Psi;
         CsfeaBeamShearCb.IsChecked = c.BeamShear;
         CsfeaGeomNonlinearCb.IsChecked = c.GeomNonlinear;
+        CsfeaShellInPlanePDeltaCb.IsChecked = c.ShellInPlanePDelta;
         CsfeaMaxIterationsBox.Text = c.MaxIterations.ToString(culture);
         CsfeaMaxBisectionsBox.Text = c.MaxBisections.ToString(culture);
         CsfeaTolDisplacementBox.Text = c.TolDisplacement.ToString(culture);
@@ -304,6 +305,7 @@ public partial class FemAnalysisDialog : Window
             BeamShear = CsfeaBeamShearCb.IsChecked == true,
             PoissonUncracked = poisson,
             GeomNonlinear = CsfeaGeomNonlinearCb.IsChecked == true,
+            ShellInPlanePDelta = CsfeaShellInPlanePDeltaCb.IsChecked == true,
             MaxIterations = maxIter, TolDisplacement = tolU, TolStiffness = tolK, MaxBisections = bisections, Omega0 = omega,
             ResultRecording = recording,
             RecordSteps = CsfeaRecordStepsBox.Text.Trim(),

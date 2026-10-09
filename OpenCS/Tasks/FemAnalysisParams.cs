@@ -174,6 +174,11 @@ public sealed class FemCsfeaParams
     public double? PoissonUncracked { get; set; }
     /// <summary>Геометрическая нелинейность (оболочки и стержни — CR).</summary>
     public bool GeomNonlinear { get; set; }
+    /// <summary>
+    /// При <see cref="GeomNonlinear"/>: P-Δ стен и пластин и в своей плоскости (оболочки — CR); false — только из
+    /// плоскости (фон Карман, быстрее). Стержни — CR в обоих случаях.
+    /// </summary>
+    public bool ShellInPlanePDelta { get; set; } = true;
 
     /// <summary>Наибольшее число итераций Пикара на шаге.</summary>
     public int MaxIterations { get; set; } = 50;

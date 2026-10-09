@@ -243,7 +243,10 @@
                 <CheckBox x:Name="CsfeaBeamShearCb" Content="{DynamicResource FemCsfeaBeamShearLabel}"
                           ToolTip="{DynamicResource FemCsfeaBeamShearTip}" Margin="0,0,16,4"/>
                 <CheckBox x:Name="CsfeaGeomNonlinearCb" Content="{DynamicResource FemCsfeaGeomNonlinearLabel}"
-                          ToolTip="{DynamicResource FemCsfeaGeomNonlinearTip}" Margin="0,0,0,4"/>
+                          ToolTip="{DynamicResource FemCsfeaGeomNonlinearTip}" Margin="0,0,16,4"/>
+                <CheckBox x:Name="CsfeaShellInPlanePDeltaCb" Content="{DynamicResource FemCsfeaShellInPlanePDeltaLabel}"
+                          ToolTip="{DynamicResource FemCsfeaShellInPlanePDeltaTip}" Margin="0,0,0,4"
+                          IsEnabled="{Binding IsChecked, ElementName=CsfeaGeomNonlinearCb}"/>
             </WrapPanel>
 
             <GroupBox Header="{DynamicResource FemCsfeaIterationsGroup}" Margin="0,6,0,0">

@@ -58,6 +58,7 @@ public sealed record FemCsfeaSetup
             {
                 MaxIterations = p.MaxIterations, TolDisplacement = p.TolDisplacement, TolStiffness = p.TolStiffness,
                 MaxBisections = p.MaxBisections, Omega0 = p.Omega0, Geometric = p.GeomNonlinear,
+                ShellInPlanePDelta = p.ShellInPlanePDelta,
                 MaxDegreeOfParallelism = maxDegreeOfParallelism, Log = log,
             },
         };

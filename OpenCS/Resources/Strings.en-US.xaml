@@ -2755,7 +2755,9 @@
     <system:String x:Key="FemCsfeaBeamShearLabel">Bar shear from stirrups</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Shear deformations of bars (Timoshenko elements): secant GAv from the section stirrups.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Geometric nonlinearity</system:String>
-    <system:String x:Key="FemCsfeaGeomNonlinearTip">Plates and bars — corotational formulation (large rotations, in-plane and out-of-plane P-Δ).</system:String>
+    <system:String x:Key="FemCsfeaGeomNonlinearTip">Plates and bars — corotational formulation (large rotations, P-Δ). In-plane deflection of walls and plates — separate option.</system:String>
+    <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Account for in-plane deflection of walls and plates</system:String>
+    <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">On: plates use the corotational formulation, P-Δ both out of plane and in plane (a wall compressed and bent in its plane). Off: von Kármán — out-of-plane deflection only; faster. Bars are corotational either way.</system:String>
     <system:String x:Key="FemCsfeaIterationsGroup">Iterations (Picard)</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsLabel">Max iterations per step</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsInvalid">Number of iterations must be an integer ≥ 1.</system:String>

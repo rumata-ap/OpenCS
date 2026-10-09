@@ -50,15 +50,17 @@ public sealed class RcSecantFieldExtractor
     private readonly RcStructuralMeshBuild _build;
     private readonly ISecantShellState?[] _shells;
     private readonly bool _geometric;
+    private readonly bool _shellCr;   // оболочки — CR (геомнелин с P-Δ в плоскости), иначе линейно / фон Карман
     private readonly IReadOnlyDictionary<int, double> _forceAngles;
     private readonly List<Dictionary<int, double[]>> _stageBeamLoads = new();
 
     public RcSecantFieldExtractor(RcStructuralModel model, RcStructuralMeshBuild build, ISecantShellState?[] shells,
-        bool geometric, IReadOnlyDictionary<int, double>? shellForceAngles = null)
+        bool geometric, IReadOnlyDictionary<int, double>? shellForceAngles = null, bool shellInPlanePDelta = true)
     {
         _build = build;
         _shells = shells;
         _geometric = geometric;
+        _shellCr = geometric && shellInPlanePDelta;
         _forceAngles = shellForceAngles ?? new Dictionary<int, double>();
         var acc = new Dictionary<int, double[]>();
         foreach (var st in model.Stages)
@@ -91,9 +93,9 @@ public sealed class RcSecantFieldExtractor
             var sh = mesh.Shells[e];
             var dofs = StructuralMesh.NodeDofs(sh.Nodes);
             var ue = dofs.Select(d => u[d]).ToArray();
-            var (eps, kappa, gamma) = _geometric
+            var (eps, kappa, gamma) = _shellCr
                 ? ShellCorotational.CenterStrainsCR(mesh.ShellCoords(e), ue)
-                : ShellElementForces.CenterStrainsGlobal(mesh.ShellCoords(e), ue);
+                : ShellElementForces.CenterStrainsGlobal(mesh.ShellCoords(e), ue, vonKarman: _geometric);
             IShellSectionResponse sec = sh.Section;
             if (sec is RotatedShellResponse rot)
             {

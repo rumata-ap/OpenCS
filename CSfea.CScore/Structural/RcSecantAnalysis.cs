@@ -162,7 +162,8 @@ public static class RcSecantAnalysis
             f = f.Zip(df, (a, b) => a + b).ToArray();
             stages.Add(new SecantLoadStage(st.Name, f, st.Steps));
         }
-        var extractor = new RcSecantFieldExtractor(model, build, shells, options.Solver.Geometric, options.ShellForceAngles);
+        var extractor = new RcSecantFieldExtractor(model, build, shells, options.Solver.Geometric, options.ShellForceAngles,
+            options.Solver.ShellInPlanePDelta);
         var solverOptions = options.Solver;
         if (options.OnStep is { } onStep)
         {
