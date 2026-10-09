@@ -19,6 +19,97 @@ public static class ShellCorotational
         double[][] coordsRef, IShellSectionResponse section, double[] uGlobal)
     {
         int n = coordsRef.Length;
+        var (xyLocal, uLoc5, p, rr) = Kinematics(coordsRef, uGlobal);
+        var fLoc5 = ShellElementForces.FInternalLocal(xyLocal, section, uLoc5);
+        var kLoc5 = ShellElementForces.KTangentLocal(xyLocal, section, uLoc5);
+
+        // 5n → 6n.
+        var kLoc6 = new double[6 * n, 6 * n];
+        for (int i = 0; i < n; i++)
+            for (int c = 0; c < 5; c++)
+                for (int j = 0; j < n; j++)
+                    for (int d = 0; d < 5; d++)
+                        kLoc6[6 * i + c, 6 * j + d] = kLoc5[5 * i + c, 5 * j + d];
+        double kDrill = Dense.MaxAbs(Dense.Diagonal(kLoc5)) * 1.0e-6;
+        for (int i = 0; i < n; i++)
+            kLoc6[6 * i + 5, 6 * i + 5] += kDrill;
+
+        // Проекция и симметризация.
+        var kProj = Dense.MatMul(Dense.MatMul(Dense.Transpose(p), kLoc6), p);
+        Symmetrize(kProj);
+
+        var t = GlobalTransform(rr, n);
+        var fGlobal = ProjectToGlobal(fLoc5, p, rr);
+        var kGlobal = Dense.MatMul(Dense.MatMul(t, kProj), Dense.Transpose(t));
+        return (fGlobal, kGlobal);
+    }
+
+    /// <summary>
+    /// Только внутренние силы CR-элемента в глобальной системе (как <see cref="ElementCR"/>.FGlobal, без
+    /// касательной сечения).
+    /// </summary>
+    public static double[] ElementFCR(double[][] coordsRef, IShellSectionResponse section, double[] uGlobal)
+    {
+        var (xyLocal, uLoc5, p, rr) = Kinematics(coordsRef, uGlobal);
+        return ProjectToGlobal(ShellElementForces.FInternalLocal(xyLocal, section, uLoc5), p, rr);
+    }
+
+    /// <summary>Относительный шаг центральных разностей <see cref="ElementNumericalTangentCR"/> (к max(‖u_e‖, 1)).</summary>
+    public const double NumericalTangentStep = 1e-6;
+
+    /// <summary>
+    /// Касательная CR-элемента K_T = ∂F/∂u центральными разностями по <see cref="ElementFCR"/> — согласованная с
+    /// F_int, в отличие от <see cref="ElementCR"/>.KGlobal (T·Pᵀ·K_лок·P·Tᵀ без изменения базиса и проектора). Повороты
+    /// перемещаются аддитивно — как в шаге Ньютона, поэтому ∂F/∂u несимметрична (вектор поворота не сопряжён моменту):
+    /// <paramref name="symmetrize"/> отбрасывает кососимметричную часть (для Холецкого) ценой сходимости — стена при
+    /// 0,7·P_cr (с line search): 10 решений Ньютона против 7. Поворот вокруг нормали получает ту же искусственную
+    /// жёсткость 1e-6·max diag (в F её нет), отнесённую к главной диагонали самой ∂F/∂u.
+    /// </summary>
+    public static double[,] ElementNumericalTangentCR(double[][] coordsRef, IShellSectionResponse section,
+                                                      double[] uGlobal, double relStep = NumericalTangentStep,
+                                                      bool symmetrize = false)
+    {
+        int m = uGlobal.Length, n = coordsRef.Length;
+        double h = relStep * Math.Max(Dense.Norm(uGlobal), 1.0);
+        var ke = new double[m, m];
+        var up = (double[])uGlobal.Clone();
+        for (int k = 0; k < m; k++)
+        {
+            up[k] = uGlobal[k] + h;
+            var fp = ElementFCR(coordsRef, section, up);
+            up[k] = uGlobal[k] - h;
+            var fm = ElementFCR(coordsRef, section, up);
+            up[k] = uGlobal[k];
+            for (int i = 0; i < m; i++) ke[i, k] = (fp[i] - fm[i]) / (2 * h);
+        }
+        if (symmetrize) Symmetrize(ke);
+
+        // Drilling: kDrill·(T·Pᵀ·e)(T·Pᵀ·e)ᵀ для локального поворота вокруг нормали каждого узла (P симметрична).
+        double kDrill = Dense.MaxAbs(Dense.Diagonal(ke)) * 1.0e-6;
+        var (_, _, p, rr) = Kinematics(coordsRef, uGlobal);
+        var t = GlobalTransform(rr, n);
+        var v = new double[m];
+        for (int i = 0; i < n; i++)
+        {
+            int r = 6 * i + 5;
+            for (int a = 0; a < m; a++)
+            {
+                double s = 0.0;
+                for (int b = 0; b < m; b++) s += t[a, b] * p[r, b];
+                v[a] = s;
+            }
+            for (int a = 0; a < m; a++)
+                for (int b = 0; b < m; b++) ke[a, b] += kDrill * v[a] * v[b];
+        }
+        return ke;
+    }
+
+    // Кинематика CR: локальные координаты узлов (n×2), деформационные 5n DOF (после проектора), проектор P (6n×6n),
+    // текущий базис Rr.
+    private static (double[,] XyLocal, double[] ULoc5, double[,] P, double[,] Rr) Kinematics(
+        double[][] coordsRef, double[] uGlobal)
+    {
+        int n = coordsRef.Length;
 
         var disp = new double[n][];
         var thetas = new double[n][];
@@ -87,37 +178,23 @@ public static class ShellCorotational
             uLoc5[5 * i + 3] = uDef[6 * i + 3];
             uLoc5[5 * i + 4] = uDef[6 * i + 4];
         }
-        var fLoc5 = ShellElementForces.FInternalLocal(xyLocal, section, uLoc5);
-        var kLoc5 = ShellElementForces.KTangentLocal(xyLocal, section, uLoc5);
+        return (xyLocal, uLoc5, p, rr);
+    }
 
-        // 5n → 6n.
+    // Локальные 5n сил → 6n (drilling — 0) → Pᵀ → глобальные оси (блоки Rrᵀ).
+    private static double[] ProjectToGlobal(double[] fLoc5, double[,] p, double[,] rr)
+    {
+        int n = fLoc5.Length / 5;
         var fLoc6 = new double[6 * n];
-        var kLoc6 = new double[6 * n, 6 * n];
-        var map56 = new int[5 * n];
         for (int i = 0; i < n; i++)
             for (int c = 0; c < 5; c++)
-                map56[5 * i + c] = 6 * i + c;
-        for (int a = 0; a < 5 * n; a++)
-        {
-            fLoc6[map56[a]] = fLoc5[a];
-            for (int b = 0; b < 5 * n; b++)
-                kLoc6[map56[a], map56[b]] = kLoc5[a, b];
-        }
-        double kDrill = Dense.MaxAbs(Dense.Diagonal(kLoc5)) * 1.0e-6;
-        for (int i = 0; i < n; i++)
-            kLoc6[6 * i + 5, 6 * i + 5] += kDrill;
+                fLoc6[6 * i + c] = fLoc5[5 * i + c];
+        return Dense.MatVec(GlobalTransform(rr, n), Dense.MatTVec(p, fLoc6));
+    }
 
-        // Проекция и симметризация.
-        var fProj = Dense.MatTVec(p, fLoc6);
-        var kProj = Dense.MatMul(Dense.MatMul(Dense.Transpose(p), kLoc6), p);
-        for (int i = 0; i < 6 * n; i++)
-            for (int j = i + 1; j < 6 * n; j++)
-            {
-                double avg = 0.5 * (kProj[i, j] + kProj[j, i]);
-                kProj[i, j] = avg; kProj[j, i] = avg;
-            }
-
-        // Трансформация в глобальную систему: блоки Rrᵀ на каждый узел.
+    // Трансформация в глобальную систему: блоки Rrᵀ на каждый узел.
+    private static double[,] GlobalTransform(double[,] rr, int n)
+    {
         var t = new double[6 * n, 6 * n];
         for (int i = 0; i < n; i++)
             for (int a = 0; a < 3; a++)
@@ -126,10 +203,18 @@ public static class ShellCorotational
                     t[6 * i + a, 6 * i + b] = rr[b, a];       // Rr^T
                     t[6 * i + 3 + a, 6 * i + 3 + b] = rr[b, a];
                 }
+        return t;
+    }
 
-        var fGlobal = Dense.MatVec(t, fProj);
-        var kGlobal = Dense.MatMul(Dense.MatMul(t, kProj), Dense.Transpose(t));
-        return (fGlobal, kGlobal);
+    private static void Symmetrize(double[,] k)
+    {
+        int m = k.GetLength(0);
+        for (int i = 0; i < m; i++)
+            for (int j = i + 1; j < m; j++)
+            {
+                double avg = 0.5 * (k[i, j] + k[j, i]);
+                k[i, j] = avg; k[j, i] = avg;
+            }
     }
 
     private static double[,] ProjectFull(double[][] coords, double[,] r)
@@ -168,7 +253,7 @@ public static class ShellCorotational
             var coords = Coords(mesh, el);
             var dofs = mesh.ElementDofs(el);
             var ue = GatherDofs(u, dofs);
-            var (fe, _) = ElementCR(coords, mesh.Section(e), ue);
+            var fe = ElementFCR(coords, mesh.Section(e), ue);
             for (int i = 0; i < dofs.Length; i++) f[dofs[i]] += fe[i];
         }
         return f;
@@ -176,7 +261,7 @@ public static class ShellCorotational
 
     /// <summary>CR-сборка тангенциальной матрицы K_T(u) (COO).</summary>
     public static CooMatrix AssembleKTangentCR(ShellMesh mesh, double[] u,
-                                               bool useNumerical = false, double eps = 1e-7)
+                                               bool useNumerical = false, double eps = NumericalTangentStep)
     {
         var coo = new CooMatrix(mesh.NDof, mesh.NDof);
         for (int e = 0; e < mesh.Elements.Length; e++)
@@ -187,36 +272,12 @@ public static class ShellCorotational
             var ue = GatherDofs(u, dofs);
             double[,] ke;
             if (useNumerical)
-                ke = NumericalElementTangent(coords, mesh.Section(e), ue, eps);
+                ke = ElementNumericalTangentCR(coords, mesh.Section(e), ue, eps);
             else
                 ke = ElementCR(coords, mesh.Section(e), ue).KGlobal;
             coo.AddBlock(dofs, ke);
         }
         return coo;
-    }
-
-    private static double[,] NumericalElementTangent(double[][] coords, IShellSectionResponse section,
-                                                     double[] ue, double eps)
-    {
-        int m = ue.Length;
-        var (f0, _) = ElementCR(coords, section, ue);
-        var ke = new double[m, m];
-        double scale = Math.Max(Dense.Norm(ue), 1.0);
-        double h = eps * scale;
-        for (int k = 0; k < m; k++)
-        {
-            var up = (double[])ue.Clone();
-            up[k] += h;
-            var (fp, _) = ElementCR(coords, section, up);
-            for (int i = 0; i < m; i++) ke[i, k] = (fp[i] - f0[i]) / h;
-        }
-        for (int i = 0; i < m; i++)
-            for (int j = i + 1; j < m; j++)
-            {
-                double avg = 0.5 * (ke[i, j] + ke[j, i]);
-                ke[i, j] = avg; ke[j, i] = avg;
-            }
-        return ke;
     }
 
     /// <summary>Ньютоновский CR-решатель (плоский API).</summary>

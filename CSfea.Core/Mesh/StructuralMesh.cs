@@ -167,7 +167,7 @@ public sealed class StructuralMesh : IFeaMesh
             var dofs = NodeDofs(Shells[e].Nodes);
             var ue = Gather(u, dofs);
             var fe = corotational
-                ? ShellCorotational.ElementCR(ShellCoords(e), Shells[e].Section, ue).FGlobal
+                ? ShellCorotational.ElementFCR(ShellCoords(e), Shells[e].Section, ue)
                 : ShellElementForces.ElementFInternalGlobal(ShellCoords(e), Shells[e].Section, ue);
             for (int i = 0; i < dofs.Length; i++) f[dofs[i]] += fe[i];
         }
@@ -181,18 +181,31 @@ public sealed class StructuralMesh : IFeaMesh
         return f;
     }
 
-    /// <summary>Касательная K_T(u) (COO); кинематика — как в <see cref="AssembleFInternal"/>.</summary>
+    /// <summary>
+    /// Касательная K_T(u) (COO); кинематика — как в <see cref="AssembleFInternal"/>. CR-оболочки — численная
+    /// ∂F/∂u (<see cref="ShellCorotational.ElementNumericalTangentCR"/>), матрицы оболочек — параллельно пачками.
+    /// </summary>
     public CooMatrix AssembleKTangent(double[] u, bool corotational = true)
     {
         var coo = NewCoo();
-        for (int e = 0; e < Shells.Count; e++)
+        var po = new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
+        var ke = new double[Math.Min(TangentBatch, Shells.Count)][,];
+        for (int e0 = 0; e0 < Shells.Count; e0 += TangentBatch)
         {
-            var dofs = NodeDofs(Shells[e].Nodes);
-            var ue = Gather(u, dofs);
-            var ke = corotational
-                ? ShellCorotational.ElementCR(ShellCoords(e), Shells[e].Section, ue).KGlobal
-                : ShellElementForces.ElementKTangentGlobal(ShellCoords(e), Shells[e].Section, ue);
-            coo.AddBlock(dofs, ke);
+            int count = Math.Min(TangentBatch, Shells.Count - e0);
+            Parallel.For(0, count, po, i =>
+            {
+                int e = e0 + i;
+                var ue = Gather(u, NodeDofs(Shells[e].Nodes));
+                ke[i] = corotational
+                    ? ShellCorotational.ElementNumericalTangentCR(ShellCoords(e), Shells[e].Section, ue)
+                    : ShellElementForces.ElementKTangentGlobal(ShellCoords(e), Shells[e].Section, ue);
+            });
+            for (int i = 0; i < count; i++)
+            {
+                coo.AddBlock(NodeDofs(Shells[e0 + i].Nodes), ke[i]);
+                ke[i] = null!;
+            }
         }
         for (int e = 0; e < Beams.Count; e++)
         {
@@ -203,6 +216,9 @@ public sealed class StructuralMesh : IFeaMesh
         }
         return coo;
     }
+
+    // Пачка матриц оболочек касательной: параллельный расчёт, раскладка в COO по порядку.
+    private const int TangentBatch = 4096;
 
     private CooMatrix NewCoo()
         => new(NDof, NDof, Shells.Count * 24 * 24 + Beams.Count * 12 * 12);

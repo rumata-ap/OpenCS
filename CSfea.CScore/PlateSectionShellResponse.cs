@@ -28,10 +28,9 @@ public sealed class PlateSectionShellResponse : IShellSectionResponse
     private readonly PlateSection _section;
     private readonly PlateSectionMaterials _materials;
 
-    private double[]? _cacheEpsM;
-    private double[]? _cacheKappa;
-    private double[]? _cacheGamma;
-    private (double[] N, double[] M, double[] Q)? _cacheForces;
+    // Последний расчёт Forces одной ссылкой: чтение и замена атомарны — сечение можно звать из нескольких потоков.
+    private sealed record ForcesCache(double[] EpsM, double[] Kappa, double[] Gamma, double[] N, double[] M, double[] Q);
+    private ForcesCache? _cache;
 
     public PlateSectionShellResponse(PlateSection section, PlateSectionMaterials materials)
     {
@@ -87,18 +86,15 @@ public sealed class PlateSectionShellResponse : IShellSectionResponse
 
     public void Reset()
     {
-        _cacheEpsM = _cacheKappa = _cacheGamma = null;
-        _cacheForces = null;
+        _cache = null;
     }
 
     private bool TryGetCache(double[] epsM, double[] kappa, double[] gamma, out ShellForces forces)
     {
         forces = default;
-        if (_cacheForces == null || _cacheEpsM == null || _cacheKappa == null || _cacheGamma == null)
+        var c = _cache;
+        if (c == null || !VecEq(c.EpsM, epsM) || !VecEq(c.Kappa, kappa) || !VecEq(c.Gamma, gamma))
             return false;
-        if (!VecEq(_cacheEpsM, epsM) || !VecEq(_cacheKappa, kappa) || !VecEq(_cacheGamma, gamma))
-            return false;
-        var c = _cacheForces.Value;
         forces = new ShellForces(c.N, c.M, c.Q);
         return true;
     }
@@ -106,10 +102,7 @@ public sealed class PlateSectionShellResponse : IShellSectionResponse
     private void StoreCache(double[] epsM, double[] kappa, double[] gamma,
                             double[] n, double[] m, double[] q)
     {
-        _cacheEpsM = (double[])epsM.Clone();
-        _cacheKappa = (double[])kappa.Clone();
-        _cacheGamma = (double[])gamma.Clone();
-        _cacheForces = (n, m, q);
+        _cache = new ForcesCache((double[])epsM.Clone(), (double[])kappa.Clone(), (double[])gamma.Clone(), n, m, q);
     }
 
     private static bool VecEq(double[] a, double[] b)
