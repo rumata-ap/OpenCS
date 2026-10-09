@@ -105,6 +105,10 @@ public sealed class FemCsfeaLargeSchemaManualTests(ITestOutputHelper output)
                         var progress = new Progress<CSfea.Core.SecantProgress>();
                         var result = await FemCsfeaRunner.RunAsync(ctx, fresh, analysis, progress, CancellationToken.None);
                         Log($"«{analysis.Tag}» — расчёт: {result.Status}");
+                        // Как AppViewModel.RunFemAnalysis: без ссылки на результат окно анализа его не находит.
+                        analysis.ResultId = result.Id;
+                        analysis.Status = result.Status;
+                        db.SaveFemAnalysis(analysis);
                         var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
                         foreach (var line in summary.Describe()) output.WriteLine("  " + line);
                         foreach (var st in summary.Steps)
