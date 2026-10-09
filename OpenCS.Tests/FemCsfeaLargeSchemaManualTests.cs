@@ -128,7 +128,7 @@ public sealed class FemCsfeaLargeSchemaManualTests(ITestOutputHelper output)
         }
     }
 
-    /// <summary>Постановка «собственный вес»: загружение с номером SCAD 1, один шаг, запись только конечного шага.</summary>
+    /// <summary>Постановка «собственный вес»: загружение с номером SCAD 1, один шаг, до 100 итераций, запись только конечного шага.</summary>
     static void AddSelfWeight(DatabaseService db, FemSchema schema)
     {
         var cases = db.GetFemLoadCases(schema.Id);
@@ -138,7 +138,13 @@ public sealed class FemCsfeaLargeSchemaManualTests(ITestOutputHelper output)
         {
             CalcType = CalcType.N,
             Stages = [new FemAnalysisStage { Tag = dead.Tag, LoadExpressionJson = expr, LoadFactorStep = 1, MaxLoadFactor = 1 }],
-            Csfea = new FemCsfeaParams { ResultRecording = FemCsfeaRecording.Final },
+            // OPENCS_CSFEA_LARGE_TOLK — допуск по жёсткости (по умолчанию 1e-3; на музее Пикар выходит на полку ~7e-3).
+            Csfea = new FemCsfeaParams
+            {
+                ResultRecording = FemCsfeaRecording.Final, MaxIterations = 100,
+                TolStiffness = double.TryParse(Environment.GetEnvironmentVariable("OPENCS_CSFEA_LARGE_TOLK"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double tol) ? tol : 1e-3,
+            },
         };
         db.SaveFemAnalysis(new FemAnalysis
         {
