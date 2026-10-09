@@ -99,6 +99,14 @@ public sealed class SecantPicardOptions
     /// </summary>
     public double GeometricTolerance { get; init; } = 1e-6;
 
+    /// <summary>
+    /// Шагов Ньютона на итерацию Пикара при <see cref="Geometric"/> (неточный внутренний решатель): секущие всё равно
+    /// меняются после итерации, решать равновесие с ними до <see cref="GeometricTolerance"/> незачем. Сходимость шага —
+    /// по критериям Пикара и невязке Ньютона &lt; <see cref="GeometricTolerance"/>. 0 — Ньютон до допуска на каждой
+    /// итерации (до 30 шагов).
+    /// </summary>
+    public int GeometricNewtonSteps { get; init; } = 2;
+
     /// <summary>Дроблений шага пополам при несходимости (несходимость за MaxIterations/2 итераций — сигнал дробить).</summary>
     public int MaxBisections { get; init; } = 4;
 
@@ -128,7 +136,7 @@ public sealed class SecantPicardOptions
     {
         MaxIterations = MaxIterations, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
         TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric,
-        GeometricTolerance = GeometricTolerance, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
+        GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
         OnStepAccepted = onStepAccepted,
     };
@@ -334,6 +342,7 @@ public sealed class SecantPicardSolver
     private Attempt Picard(int stage, int step, double lambda, double[] f, double[] uStart, bool allowAbort,
                            SecantPicardResult result, Action<SecantIterationRecord>? onIteration, CancellationToken ct)
     {
+        _fullNewton = false;
         var shellSnap = _shells.Select(s => s?.Response.Matrix).ToArray();
         var beamSnap = _beams.Select(b => b?.Response.Matrix).ToArray();
         var beamShearSnap = _beams.Select(b => b?.Response.Shear).ToArray();
@@ -382,7 +391,13 @@ public sealed class SecantPicardSolver
             double du = Dense.Norm(Dense.SubV(u, uPrev)) / Math.Max(Dense.Norm(u), 1e-300);
             // Приращение после неполного обновления (ω < 1) — доля полного шага Пикара: в критерий — полный шаг ‖Δu‖/ω,
             // иначе малый ω сам по себе даёт малое ‖Δu‖ и ложную сходимость.
-            bool converged = dK < _o.TolStiffness && (it == 1 || du / Math.Min(omegaApplied, 1.0) < _o.TolDisplacement);
+            // Неточный Ньютон геометрии: шаг сходится, только когда и равновесие при замороженных секущих решено.
+            bool equilibrium = !_o.Geometric || _o.GeometricNewtonSteps <= 0 || _newtonResidual < _o.GeometricTolerance;
+            bool settled = dK < _o.TolStiffness && (it == 1 || du / Math.Min(omegaApplied, 1.0) < _o.TolDisplacement);
+            bool converged = settled && equilibrium;
+            // Секущие устоялись, а равновесие не дорешено — следующая итерация решает Ньютон до допуска (иначе по 2 шага
+            // каждая итерация доходит до допуска лишь асимптотически, и шаг упирается в предел итераций).
+            _fullNewton = settled && !equilibrium;
             if (_o.TrueResidualEachIteration || converged) residual = TrueResidual(f, u);
             int cracked = shellStatus.Count(s => s.Cracked) + beamStatus.Count(s => s.Cracked);
             int yielded = shellStatus.Count(s => s.Yielded) + beamStatus.Count(s => s.Yielded);
@@ -452,9 +467,20 @@ public sealed class SecantPicardSolver
         : "";
 
     // Раскладка линейного решения по фазам (только линейный путь по постоянному портрету).
-    private string SolveDetail() => !_o.Geometric && _mesh.LastSolveTimings is { } t
-        ? $" (сборка {t.Assemble:0.0}, факторизация {t.Factorize:0.0}, прочее {t.Total - t.Assemble - t.Factorize:0.0})"
-        : "";
+    private string SolveDetail() => _o.Geometric
+        ? _mesh.LastNewtonTimings is { } n
+            ? $" (Ньютон: {n.Solves} реш., невязка {_newtonResidual:e1}; касательная {n.Tangent:0.00}, факторизация " +
+              $"{n.Factorize:0.00}, F_int {n.FInt:0.00} за {n.FIntCalls}, прочее {n.Total - n.Tangent - n.Factorize - n.FInt:0.00})"
+            : ""
+        : _mesh.LastSolveTimings is { } t
+            ? $" (сборка {t.Assemble:0.0}, факторизация {t.Factorize:0.0}, прочее {t.Total - t.Assemble - t.Factorize:0.0})"
+            : "";
+
+    // Невязка Ньютона (‖r‖/‖F‖ при замороженных секущих) по последнему SolveFrozen; NaN — без геометрии.
+    private double _newtonResidual = double.NaN;
+
+    // Следующий SolveFrozen — Ньютон до допуска (секущие устоялись, осталось равновесие).
+    private bool _fullNewton;
 
     /// <summary>Решение с замороженными секущими: линейное или (геометрическая нелинейность) Ньютон от <paramref name="uFrom"/>.</summary>
     private double[]? SolveFrozen(double[] f, double[] uFrom, out string? why)
@@ -463,14 +489,18 @@ public sealed class SecantPicardSolver
         try
         {
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
-            var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance, maxIter: 30,
-                corotational: true, u0: uFrom, f0: f);
-            if (!history.AllConverged())
-            {
-                why = "Ньютон геометрической нелинейности не сошёлся";
+            bool inexact = _o.GeometricNewtonSteps > 0;
+            bool full = !inexact || _fullNewton;
+            // maxIter — число вычислений невязки: k шагов Ньютона и невязка после последнего.
+            var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance,
+                maxIter: full ? 30 : _o.GeometricNewtonSteps + 1, corotational: true, u0: uFrom, f0: f);
+            _newtonResidual = history.Count > 0 ? history[^1].Residual : double.NaN;
+            if (full && !history.AllConverged())
                 _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
                     System.Globalization.CultureInfo.InvariantCulture))));
-            }
+            // Неточный режим: недорешённое равновесие — не отказ, следующая итерация Пикара продолжит с этого u.
+            if (!inexact && !history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
+            else if (!double.IsFinite(_newtonResidual)) why = "Ньютон геометрической нелинейности: невязка не конечна";
             return why == null ? u : null;
         }
         catch (InvalidOperationException ex)

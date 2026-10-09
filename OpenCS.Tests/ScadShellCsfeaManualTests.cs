@@ -353,7 +353,10 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
                 DropMembraneBendingCoupling = options.DropMembraneBendingCoupling,
                 Solver = new CSfea.Core.SecantPicardOptions
                 {
-                    Geometric = options.Solver.Geometric, Log = s => log?.WriteLine($"{sw.Elapsed:hh\\:mm\\:ss} {s}"),
+                    Geometric = options.Solver.Geometric,
+                    GeometricNewtonSteps = int.TryParse(Environment.GetEnvironmentVariable("OPENCS_CSFEA_NEWTON_STEPS"), out int ns)
+                        ? ns : options.Solver.GeometricNewtonSteps,
+                    Log =s => log?.WriteLine($"{sw.Elapsed:hh\\:mm\\:ss} {s}"),
                 },
             });
         }

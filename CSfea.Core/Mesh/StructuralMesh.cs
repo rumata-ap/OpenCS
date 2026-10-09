@@ -5,6 +5,12 @@ namespace CSfea.Core;
 /// <summary>Фазы линейного решения, с: сборка K_ff, численная факторизация, всё решение (с подстановками).</summary>
 public sealed record LinearSolveTimings(double Assemble, double Factorize, double Total);
 
+/// <summary>
+/// Раскладка последнего <see cref="StructuralMesh.SolveNonlinear"/>, с: решений системы (шагов Ньютона), сборок F_int
+/// (невязки, включая пробы line search), сборка касательной, факторизация, F_int, всего.
+/// </summary>
+public sealed record NewtonSolveTimings(int Solves, int FIntCalls, double Tangent, double Factorize, double FInt, double Total);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -162,14 +168,26 @@ public sealed class StructuralMesh : IFeaMesh
     public double[] AssembleFInternal(double[] u, bool corotational = true)
     {
         var f = new double[NDof];
-        for (int e = 0; e < Shells.Count; e++)
+        // Векторы оболочек — параллельно пачками, раскладка по порядку (сумма не зависит от числа потоков).
+        var po = new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
+        var fes = new double[Math.Min(TangentBatch, Shells.Count)][];
+        for (int e0 = 0; e0 < Shells.Count; e0 += TangentBatch)
         {
-            var dofs = NodeDofs(Shells[e].Nodes);
-            var ue = Gather(u, dofs);
-            var fe = corotational
-                ? ShellCorotational.ElementFCR(ShellCoords(e), Shells[e].Section, ue)
-                : ShellElementForces.ElementFInternalGlobal(ShellCoords(e), Shells[e].Section, ue);
-            for (int i = 0; i < dofs.Length; i++) f[dofs[i]] += fe[i];
+            int count = Math.Min(TangentBatch, Shells.Count - e0);
+            Parallel.For(0, count, po, i =>
+            {
+                int e = e0 + i;
+                var ue = Gather(u, NodeDofs(Shells[e].Nodes));
+                fes[i] = corotational
+                    ? ShellCorotational.ElementFCR(ShellCoords(e), Shells[e].Section, ue)
+                    : ShellElementForces.ElementFInternalGlobal(ShellCoords(e), Shells[e].Section, ue);
+            });
+            for (int i = 0; i < count; i++)
+            {
+                var dofs = NodeDofs(Shells[e0 + i].Nodes);
+                var fe = fes[i];
+                for (int k = 0; k < dofs.Length; k++) f[dofs[k]] += fe[k];
+            }
         }
         for (int e = 0; e < Beams.Count; e++)
         {
@@ -434,9 +452,14 @@ public sealed class StructuralMesh : IFeaMesh
         var fStart = f0 ?? new double[ndof];
         var uFixedStart = fixedDofs.Select(d => uSys[d]).ToArray();
         var history = new List<ShellMesh.NewtonRecord>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        int nSolves = 0, nFInt = 0;
+        double tTangent = 0.0, tFactor = 0.0, tFInt = 0.0;
 
         double[] FIntTotal(double[] uu)
         {
+            double t0 = clock.Elapsed.TotalSeconds;
+            nFInt++;
             var fi = AssembleFInternal(uu, corotational);
             if (kSpringLinCsc != null)
             {
@@ -448,6 +471,7 @@ public sealed class StructuralMesh : IFeaMesh
                 var fnl = bc.AssembleFSpringNonlinear(uu);
                 for (int i = 0; i < fi.Length; i++) fi[i] += fnl[i];
             }
+            tFInt += clock.Elapsed.TotalSeconds - t0;
             return fi;
         }
 
@@ -466,10 +490,13 @@ public sealed class StructuralMesh : IFeaMesh
         {
             lock (_cholGate)
             {
+                double t0 = clock.Elapsed.TotalSeconds;
                 var asm = Assembler(bc, fixedDofs);
                 var kff = asm.AssembleWith(e => ElementTangentSymmetric(e, uu, corotational), MaxDegreeOfParallelism);
+                tTangent += clock.Elapsed.TotalSeconds - t0;
                 var rf = Array.ConvertAll(asm.Free, d => r[d]);
                 var chol = FactorizeCached(kff);
+                tFactor += _lastFactorSeconds;
                 return chol.LastFactorizationSpd ? chol.Solve(rf) : SolveNotSpd(chol, kff, rf, asm.Free);
             }
         }
@@ -508,6 +535,7 @@ public sealed class StructuralMesh : IFeaMesh
                 if (it == maxIter) break;
 
                 double[] duFree;
+                nSolves++;
                 try { duFree = bc.HasNonlinearSprings ? SolveTangentLu(u, r) : SolveTangentCholesky(u, r); }
                 catch (InvalidOperationException) { break; }
                 if (!duFree.All(double.IsFinite)) break;
@@ -533,6 +561,7 @@ public sealed class StructuralMesh : IFeaMesh
             bc.CommitStep(u);
             CommitStep(u);
         }
+        LastNewtonTimings = new NewtonSolveTimings(nSolves, nFInt, tTangent, tFactor, tFInt, clock.Elapsed.TotalSeconds);
         return (u, history);
     }
 
@@ -611,6 +640,9 @@ public sealed class StructuralMesh : IFeaMesh
 
     /// <summary>Фазы последнего <see cref="SolveLinear(double[], BoundaryConditions)"/> по постоянному портрету (null — не было).</summary>
     public LinearSolveTimings? LastSolveTimings { get; private set; }
+
+    /// <summary>Раскладка времени последнего <see cref="SolveNonlinear"/>.</summary>
+    public NewtonSolveTimings? LastNewtonTimings { get; private set; }
 
     private double _lastFactorSeconds;
 
