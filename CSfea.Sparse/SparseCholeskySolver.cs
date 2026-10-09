@@ -53,8 +53,8 @@ public sealed class SparseCholeskySolver
         _iperm = new int[n];
         for (int i = 0; i < n; i++) _iperm[_perm[i]] = i;
 
-        BuildPermutedPattern(patternA);
-        _parent = EliminationTree(n, _pColPtr, _pRowIdx);
+        CholeskyPattern.Permute(patternA, _iperm, out _pColPtr, out _pRowIdx, out _valMap);
+        _parent = CholeskyPattern.EliminationTree(n, _pColPtr, _pRowIdx);
         SymbolicFactor(n, _pColPtr, _pRowIdx, _parent);
         _analyzed = true;
         _factorized = false;
@@ -83,7 +83,7 @@ public sealed class SparseCholeskySolver
         LastFactorizationSpd = true;
         for (int k = 0; k < n; k++)
         {
-            int top = Ereach(k, _pColPtr, _pRowIdx, _parent, s, st, marked);
+            int top = CholeskyPattern.Ereach(k, _pColPtr, _pRowIdx, _parent, s, st, marked);
 
             // x = переставленная A(:,k), часть i<=k
             for (int p = _pColPtr[k]; p < _pColPtr[k + 1]; p++)
@@ -156,101 +156,15 @@ public sealed class SparseCholeskySolver
 
     // ---- внутреннее ----
 
-    private void BuildPermutedPattern(CscMatrix a)
-    {
-        int n = _n;
-        // Переставленная A: (i, j) = (iperm[r], iperm[col]); храним исходный индекс p. Подсчётом, без списков.
-        var colPtr = new int[n + 1];
-        for (int col = 0; col < n; col++)
-            colPtr[_iperm[col] + 1] += a.ColPtr[col + 1] - a.ColPtr[col];
-        for (int j = 0; j < n; j++) colPtr[j + 1] += colPtr[j];
-        int nnz = colPtr[n];
-        var rows = new int[nnz];
-        var srcs = new int[nnz];
-        for (int col = 0; col < n; col++)
-        {
-            int q = colPtr[_iperm[col]];
-            for (int p = a.ColPtr[col]; p < a.ColPtr[col + 1]; p++, q++)
-            {
-                rows[q] = _iperm[a.RowIdx[p]];
-                srcs[q] = p;
-            }
-        }
-        // Сортировка по строке внутри столбца.
-        for (int j = 0; j < n; j++)
-            Array.Sort(rows, srcs, colPtr[j], colPtr[j + 1] - colPtr[j]);
-        _pColPtr = colPtr;
-        _pRowIdx = rows;
-        _valMap = srcs;
-    }
-
-    private static int[] EliminationTree(int n, int[] ap, int[] ai)
-    {
-        var parent = new int[n];
-        var ancestor = new int[n];
-        for (int k = 0; k < n; k++)
-        {
-            parent[k] = -1;
-            ancestor[k] = -1;
-            for (int p = ap[k]; p < ap[k + 1]; p++)
-            {
-                int i = ai[p];
-                while (i != -1 && i < k)
-                {
-                    int inext = ancestor[i];
-                    ancestor[i] = k;
-                    if (inext == -1) parent[i] = k;
-                    i = inext;
-                }
-            }
-        }
-        return parent;
-    }
-
     private void SymbolicFactor(int n, int[] ap, int[] ai, int[] parent)
     {
-        // Размеры столбцов L = 1 (диагональ) + число внедиагональных; только счётчики — Li заполнит численная фаза.
-        var s = new int[n];
-        var st = new int[n];
-        var marked = new int[n];
-        for (int i = 0; i < n; i++) marked[i] = -1;
-
-        var count = new int[n];
-        for (int k = 0; k < n; k++)
-        {
-            int top = Ereach(k, ap, ai, parent, s, st, marked);
-            for (int t = top; t < n; t++) count[s[t]]++; // внедиагональ L(k,i) в столбце i
-        }
-
+        // Размеры столбцов L (с диагональю); только счётчики — Li заполнит численная фаза.
+        var count = CholeskyPattern.ColumnCounts(n, ap, ai, parent);
         var lp = new int[n + 1];
         for (int i = 0; i < n; i++)
-            lp[i + 1] = checked(lp[i] + 1 + count[i]);
+            lp[i + 1] = checked(lp[i] + count[i]);
         _Lp = lp;
         _Li = new int[lp[n]];
         _Lx = new double[lp[n]];
-    }
-
-    // Reach по дереву исключений: s[top..n-1] — паттерн строки k (топологически).
-    private static int Ereach(int k, int[] ap, int[] ai, int[] parent,
-                              int[] s, int[] st, int[] marked)
-    {
-        int n = marked.Length;
-        int top = n;
-        marked[k] = k;
-        for (int p = ap[k]; p < ap[k + 1]; p++)
-        {
-            int i = ai[p];
-            if (i > k) continue;
-            int len = 0;
-            while (marked[i] != k)
-            {
-                st[len++] = i;
-                marked[i] = k;
-                i = parent[i];
-                if (i == -1) break;
-            }
-            while (len > 0) s[--top] = st[--len];
-        }
-        return top;
     }
 }
