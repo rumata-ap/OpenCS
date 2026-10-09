@@ -420,7 +420,8 @@ public sealed class SecantPicardSolver
             Log($"  ст.{stage} шаг {step} λ={lambda:0.####} ит.{it,2}: ω={applied:0.###} ‖Δu‖/‖u‖={du:e2} " +
                 $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}" +
                 $"{(newCracks > 0 ? $" (+{newCracks} сл.)" : "")}{(double.IsNaN(aitken) ? "" : $" Эйткен {aitken:0.###}")}, " +
-                $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с{SolveDetail()}, сечения {tEval:0.0} с");
+                $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с{SolveDetail()}, сечения {tEval:0.0} с" +
+                EvalDetail());
 
             Relax(shellTargets, beamT, beamShearT, applied);
             if (converged)
@@ -439,6 +440,16 @@ public sealed class SecantPicardSolver
         return new Attempt(false, _o.MaxIterations, double.IsNaN(residual) ? TrueResidual(f, uPrev) : residual,
             uPrev, shellStatus, beamStatus);
     }
+
+    // Раскладка фазы «сечения»: оболочки (стена; сумма Evaluate по потокам), стержни (стена; Evaluate — сечения CScore).
+    private EvalTimings? _lastEval;
+
+    private sealed record EvalTimings(double ShellWall, double ShellEvalSum, double BeamWall, double BeamEval, int Threads);
+
+    private string EvalDetail() => _lastEval is { } t
+        ? $" (оболочки {t.ShellWall:0.0} с, Σ по потокам {t.ShellEvalSum:0.0} с на {t.Threads}; " +
+          $"стержни {t.BeamWall:0.0} с, из них CScore {t.BeamEval:0.0} с)"
+        : "";
 
     // Раскладка линейного решения по фазам (только линейный путь по постоянному портрету).
     private string SolveDetail() => !_o.Geometric && _mesh.LastSolveTimings is { } t
@@ -480,11 +491,15 @@ public sealed class SecantPicardSolver
         var r = new double[_shells.Length * shellBlock + _beams.Length * beamBlock];
         var work = new double[_shells.Length + _beams.Length];
         var change = new double[_shells.Length + _beams.Length];
+        long shellEvalTicks = 0;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         Parallel.For(0, _shells.Length, new ParallelOptions { MaxDegreeOfParallelism = _o.MaxDegreeOfParallelism }, e =>
         {
             if (_shells[e] is not { } st) return;
             var (eps, kappa, gamma) = ShellStrains(e, u);
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             var ev = st.Evaluate(eps, kappa, gamma);
+            Interlocked.Add(ref shellEvalTicks, System.Diagnostics.Stopwatch.GetTimestamp() - t0);
             var target = FloorShell(ev.Target, st.Initial);
             shellTargets[e] = target;
             shellStatus[e] = ev.Status;
@@ -510,12 +525,16 @@ public sealed class SecantPicardSolver
             change[e] = c;
         });
 
+        double shellWall = clock.Elapsed.TotalSeconds;
+        long beamEvalTicks = 0;
         int offset = _shells.Length * shellBlock;
         for (int e = 0; e < _beams.Length; e++)
         {
             if (_beams[e] is not { } st) continue;
             var (strains, gy, gz) = BeamStrains(e, u, st.Response);
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             var ev = st.Evaluate(strains, gy, gz);
+            beamEvalTicks += System.Diagnostics.Stopwatch.GetTimestamp() - t0;
             var target = FloorBeam(ev.Target, st.Initial);
             beamTargets[e] = target;
             beamStatus[e] = ev.Status;
@@ -553,6 +572,9 @@ public sealed class SecantPicardSolver
             work[_shells.Length + e] = w / 3.0;
             change[_shells.Length + e] = c / 3.0;
         }
+        double tick = 1.0 / System.Diagnostics.Stopwatch.Frequency;
+        _lastEval = new EvalTimings(shellWall, shellEvalTicks * tick, clock.Elapsed.TotalSeconds - shellWall,
+            beamEvalTicks * tick, _o.MaxDegreeOfParallelism > 0 ? _o.MaxDegreeOfParallelism : Environment.ProcessorCount);
 
         double wShell = 0.0, wBeam = 0.0;
         for (int e = 0; e < _shells.Length; e++) wShell = Math.Max(wShell, work[e]);
