@@ -1915,7 +1915,47 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
-                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Analysis}"/>
+                        <!-- Решатель постановки: CSfea — индиго (иконка и плашка), OpenSees — зелёный -->
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_Analysis}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_secant">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_AnalysisCsfea}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
+                        <Border CornerRadius="3" Padding="4,0" Margin="0,0,5,0" VerticalAlignment="Center" BorderThickness="1">
+                           <Border.Style>
+                              <Style TargetType="Border">
+                                 <Setter Property="Background" Value="{StaticResource FemIconTealLight}"/>
+                                 <Setter Property="BorderBrush" Value="{StaticResource FemIconGreen}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_secant">
+                                       <Setter Property="Background" Value="{StaticResource FemIconIndigo}"/>
+                                       <Setter Property="BorderBrush" Value="{StaticResource FemIconIndigo}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Border.Style>
+                           <TextBlock FontSize="10" FontWeight="SemiBold">
+                              <TextBlock.Style>
+                                 <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="OpenSees"/>
+                                    <Setter Property="Foreground" Value="{StaticResource FemIconGreen}"/>
+                                    <Style.Triggers>
+                                       <DataTrigger Binding="{Binding Kind}" Value="csfea_secant">
+                                          <Setter Property="Text" Value="CSfea"/>
+                                          <Setter Property="Foreground" Value="White"/>
+                                       </DataTrigger>
+                                    </Style.Triggers>
+                                 </Style>
+                              </TextBlock.Style>
+                           </TextBlock>
+                        </Border>
                         <TextBlock Text="{Binding Tag}"/>
                         <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray"/>
                      </StackPanel>

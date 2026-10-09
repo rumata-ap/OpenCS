@@ -485,6 +485,7 @@ namespace OpenCS.Views
          OpenSeesRecordFiberStatesCb.IsChecked = _calcSettings.OpenSeesRecordFiberStates;
          OpenSeesFiberStatesIntegrationPointsBox.Text = _calcSettings.OpenSeesFiberStatesIntegrationPoints ?? "";
          OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = _calcSettings.OpenSeesRecordFiberStates;
+         CsfeaThreadsBox.Text = Math.Max(0, _calcSettings.CsfeaThreads).ToString();
       }
 
       void HookOpenSeesControls()
@@ -559,6 +560,10 @@ namespace OpenCS.Views
          OpenSeesFiberStatesIntegrationPointsBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesFiberStatesIntegrationPoints =
                string.IsNullOrWhiteSpace(OpenSeesFiberStatesIntegrationPointsBox.Text) ? null : OpenSeesFiberStatesIntegrationPointsBox.Text.Trim();
+         CsfeaThreadsBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(CsfeaThreadsBox.Text, out var v) && v >= 0) _calcSettings.CsfeaThreads = v;
+         };
       }
 
       void OpenSeesExeBrowse_Click(object sender, RoutedEventArgs e)

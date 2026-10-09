@@ -24,12 +24,8 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisKindLabel}" VerticalAlignment="Center"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <RadioButton x:Name="KindLinearRadio" Content="{DynamicResource FemAnalysisKindLinear}"
-                             GroupName="Kind" IsChecked="True" Checked="KindRadio_Changed" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <RadioButton x:Name="KindNonlinearRadio" Content="{DynamicResource FemAnalysisKindNonlinear}"
-                             GroupName="Kind" Checked="KindRadio_Changed" VerticalAlignment="Center"/>
-            </StackPanel>
+            <ComboBox Grid.Column="1" x:Name="KindBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"
+                      SelectionChanged="KindBox_SelectionChanged" ToolTip="{DynamicResource FemAnalysisKindTip}"/>
         </Grid>
 
         <Grid x:Name="LoadSourceRow" Margin="0,4">
@@ -43,7 +39,7 @@
 
         <GroupBox x:Name="StagesGroup" Header="{DynamicResource FemAnalysisStagesLabel}" Visibility="Collapsed" Margin="0,4">
             <StackPanel Margin="4">
-                <TextBlock Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
+                <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6">
                     <DataGrid.Columns>
@@ -94,7 +90,7 @@
                         </DataGridTextColumn>
                         <DataGridComboBoxColumn x:Name="StagesPathControlColumn" Header="{DynamicResource FemAnalysisStagePathControlColumn}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding PathControlMode}" Width="120"/>
-                        <DataGridTemplateColumn Header="" Width="90">
+                        <DataGridTemplateColumn x:Name="StagesPathControlButtonColumn" Header="" Width="90">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="{DynamicResource FemAnalysisStagePathControlConfigure}" Padding="4,2"
@@ -207,10 +203,124 @@
                        FontStyle="Italic" Opacity="0.7" FontSize="11"/>
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="{DynamicResource OK}" Click="Ok_Click" Padding="16,4" MinWidth="80"/>
-            <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
+        <!-- Секущий расчёт CSfea: физика сечений, итерации Пикара, запись полей, контрольный узел -->
+        <StackPanel x:Name="CsfeaPanel" Visibility="Collapsed" Margin="0,4,0,0">
+            <Separator Margin="0,4"/>
+            <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="CsfeaCalcTypeBox" Height="22" VerticalContentAlignment="Center"/>
+                <TextBlock Grid.Row="1" Text="{DynamicResource FemCsfeaPlateRebarSourceLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemCsfeaPlateRebarSourceTip}"/>
+                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="CsfeaPlateRebarSourceBox" DisplayMemberPath="Label" Height="22"
+                          VerticalContentAlignment="Center" ToolTip="{DynamicResource FemCsfeaPlateRebarSourceTip}"/>
+                <TextBlock Grid.Row="2" Text="{DynamicResource FemCsfeaTensionConcreteLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemCsfeaTensionConcreteTip}"/>
+                <ComboBox Grid.Row="2" Grid.Column="1" x:Name="CsfeaTensionConcreteBox" DisplayMemberPath="Label" Height="22"
+                          VerticalContentAlignment="Center" ToolTip="{DynamicResource FemCsfeaTensionConcreteTip}"/>
+                <TextBlock Grid.Row="3" Text="{DynamicResource FemCsfeaPlateCrackRuleLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemCsfeaPlateCrackRuleTip}"/>
+                <ComboBox Grid.Row="3" Grid.Column="1" x:Name="CsfeaPlateCrackRuleBox" DisplayMemberPath="Label" Height="22"
+                          VerticalContentAlignment="Center" ToolTip="{DynamicResource FemCsfeaPlateCrackRuleTip}"/>
+                <TextBlock Grid.Row="4" Text="{DynamicResource FemCsfeaPoissonUncrackedLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemCsfeaPoissonUncrackedTip}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" x:Name="CsfeaPoissonBox" Height="22" VerticalContentAlignment="Center"
+                         ToolTip="{DynamicResource FemCsfeaPoissonUncrackedTip}"/>
+            </Grid>
+            <WrapPanel Margin="0,6,0,2">
+                <CheckBox x:Name="CsfeaPsiCb" Content="{DynamicResource FemCsfeaPsiLabel}"
+                          ToolTip="{DynamicResource FemCsfeaPsiTip}" Margin="0,0,16,4"/>
+                <CheckBox x:Name="CsfeaBeamShearCb" Content="{DynamicResource FemCsfeaBeamShearLabel}"
+                          ToolTip="{DynamicResource FemCsfeaBeamShearTip}" Margin="0,0,16,4"/>
+                <CheckBox x:Name="CsfeaGeomNonlinearCb" Content="{DynamicResource FemCsfeaGeomNonlinearLabel}"
+                          ToolTip="{DynamicResource FemCsfeaGeomNonlinearTip}" Margin="0,0,0,4"/>
+            </WrapPanel>
+
+            <GroupBox Header="{DynamicResource FemCsfeaIterationsGroup}" Margin="0,6,0,0">
+                <Grid Margin="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="24"/>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28"/>
+                        <RowDefinition Height="28"/>
+                        <RowDefinition Height="28"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FemCsfeaMaxIterationsLabel}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="CsfeaMaxIterationsBox" Height="22" VerticalContentAlignment="Center"/>
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{DynamicResource FemCsfeaMaxBisectionsLabel}" VerticalAlignment="Center"
+                               ToolTip="{DynamicResource FemCsfeaMaxBisectionsTip}"/>
+                    <TextBox Grid.Row="0" Grid.Column="4" x:Name="CsfeaMaxBisectionsBox" Height="22" VerticalContentAlignment="Center"
+                             ToolTip="{DynamicResource FemCsfeaMaxBisectionsTip}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemCsfeaTolDisplacementLabel}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="CsfeaTolDisplacementBox" Height="22" VerticalContentAlignment="Center"/>
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{DynamicResource FemCsfeaTolStiffnessLabel}" VerticalAlignment="Center"
+                               ToolTip="{DynamicResource FemCsfeaTolStiffnessTip}"/>
+                    <TextBox Grid.Row="1" Grid.Column="4" x:Name="CsfeaTolStiffnessBox" Height="22" VerticalContentAlignment="Center"
+                             ToolTip="{DynamicResource FemCsfeaTolStiffnessTip}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemCsfeaOmega0Label}" VerticalAlignment="Center"
+                               ToolTip="{DynamicResource FemCsfeaOmega0Tip}"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="CsfeaOmega0Box" Height="22" VerticalContentAlignment="Center"
+                             ToolTip="{DynamicResource FemCsfeaOmega0Tip}"/>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource FemCsfeaRecordingGroup}" Margin="0,6,0,0">
+                <StackPanel Margin="4">
+                    <RadioButton x:Name="CsfeaRecordFinalRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordFinal}"
+                                 Checked="CsfeaRecording_Changed" Margin="0,0,0,4"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <RadioButton x:Name="CsfeaRecordSelectedRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordSelected}"
+                                     Checked="CsfeaRecording_Changed" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox x:Name="CsfeaRecordStepsBox" Width="150" Height="22" VerticalContentAlignment="Center"
+                                 ToolTip="{DynamicResource FemCsfeaRecordStepsTip}" Margin="0,0,12,0"/>
+                        <CheckBox x:Name="CsfeaRecordStageEndsCb" Content="{DynamicResource FemCsfeaRecordStageEnds}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <RadioButton x:Name="CsfeaRecordAllRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordAll}"
+                                 ToolTip="{DynamicResource FemCsfeaRecordAllTip}" Checked="CsfeaRecording_Changed"/>
+                </StackPanel>
+            </GroupBox>
+
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="110"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemCsfeaControlNodeLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemCsfeaControlNodeTip}"/>
+                <TextBox Grid.Column="1" x:Name="CsfeaControlNodeBox" Height="22" VerticalContentAlignment="Center"
+                         ToolTip="{DynamicResource FemCsfeaControlNodeTip}"/>
+                <TextBlock Grid.Column="2" Text="{DynamicResource FemCsfeaControlDofLabel}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                <ComboBox Grid.Column="3" x:Name="CsfeaControlDofBox" Height="22" VerticalContentAlignment="Center"/>
+            </Grid>
+
+            <TextBlock Text="{DynamicResource FemCsfeaSettingsHint}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       FontStyle="Italic" Opacity="0.7" FontSize="11"/>
         </StackPanel>
+
+        <DockPanel Margin="0,12,0,0" LastChildFill="False">
+            <Button x:Name="CsfeaCheckInputButton" DockPanel.Dock="Left" Content="{DynamicResource FemCsfeaCheckInput}"
+                    ToolTip="{DynamicResource FemCsfeaCheckInputTip}" Click="CsfeaCheckInput_Click"
+                    Padding="12,4" Visibility="Collapsed"/>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource Cancel}" Click="Cancel_Click" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource OK}" Click="Ok_Click" Padding="16,4" MinWidth="80"/>
+        </DockPanel>
     </StackPanel>
     </ScrollViewer>
 </Window>

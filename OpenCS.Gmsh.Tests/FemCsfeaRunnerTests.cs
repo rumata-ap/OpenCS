@@ -44,6 +44,9 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var ends = summary.Steps.Where(s => s.Converged && !s.Refinement).ToList();
             Assert.Equal(1 + 3, ends.Count);
             Assert.All(summary.Steps, s => Assert.NotNull(s.Control));
+            Assert.Equal("5", summary.ControlSchemaNodeTag);
+            Assert.NotEqual("", summary.ControlNodeTag);
+            Assert.Contains(summary.Describe(), l => l.Contains("узел схемы 5 (сетка ", StringComparison.Ordinal));
             var w = summary.Steps.Select(s => s.Control!.Value).ToList();
             Assert.True(w.Zip(w.Skip(1), (a, b) => b <= a).All(x => x), "прогиб центра растёт по шагам");
             Assert.True(w[^1] < 0);

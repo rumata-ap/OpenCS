@@ -5450,13 +5450,18 @@ namespace OpenCS
          if (schema == null) return;
          var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id))
          {
-            Owner = System.Windows.Application.Current.MainWindow
+            Owner = System.Windows.Application.Current.MainWindow,
+            CsfeaContext = CsfeaRunContext()
          };
          if (dlg.ShowDialog() != true) return;
          var analysis = dlg.Result;
          analysis.SchemaId = schema.Id;
          db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
       }
+
+      /// <summary>Окружение секущего расчёта CSfea: БД, Gmsh, журнал, параллельность из настроек расчёта.</summary>
+      Services.FemCsfeaRunContext CsfeaRunContext() =>
+         new(db, GmshSettings, LogService, CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
 
       void EditFemAnalysis(CScore.Fem.FemAnalysis? analysis)
       {
@@ -5466,7 +5471,8 @@ namespace OpenCS
 
          var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), analysis)
          {
-            Owner = System.Windows.Application.Current.MainWindow
+            Owner = System.Windows.Application.Current.MainWindow,
+            CsfeaContext = CsfeaRunContext()
          };
          if (dlg.ShowDialog() != true) return;
          bool changed = analysis.Tag != dlg.Result.Tag ||

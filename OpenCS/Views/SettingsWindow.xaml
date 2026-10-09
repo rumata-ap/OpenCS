@@ -753,6 +753,21 @@
                                          ToolTip="{DynamicResource OpenSeesFiberStatesIntegrationPointsTip}"/>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource CsfeaSettingsGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="260"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CsfeaThreadsLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource CsfeaThreadsTip}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="CsfeaThreadsBox" VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CsfeaThreadsTip}"/>
+                            </Grid>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

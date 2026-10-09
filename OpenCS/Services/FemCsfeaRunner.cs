@@ -39,6 +39,8 @@ public sealed class FemCsfeaResultSummary
     public List<FemCsfeaStepSummary> Steps { get; set; } = [];
     /// <summary>Тег узла сетки контрольного узла (пусто — не задан) и его DOF.</summary>
     public string ControlNodeTag { get; set; } = "";
+    /// <summary>Тег узла схемы контрольного узла (пусто — задан узлом сетки без узла схемы).</summary>
+    public string ControlSchemaNodeTag { get; set; } = "";
     public int ControlDof { get; set; }
     /// <summary>Отчёт подготовки и адаптера: ошибки, предупреждения, сведения.</summary>
     public List<string> Report { get; set; } = [];
@@ -64,7 +66,7 @@ public sealed class FemCsfeaResultSummary
         foreach (var (stage, i) in Stages.Select((s, i) => (s, i)))
         {
             var end = Steps.LastOrDefault(s => s.Stage == i && s.Converged);
-            string control = end?.Control is { } c ? string.Create(CultureInfo.CurrentCulture, $", контрольный узел {ControlNodeTag}: {c * (ControlDof < 3 ? 1e3 : 1):0.###} {(ControlDof < 3 ? "мм" : "рад")}") : "";
+            string control = end?.Control is { } c ? string.Create(CultureInfo.CurrentCulture, $", контрольный {FemCsfeaRunner.DescribeControlNode(ControlSchemaNodeTag, ControlNodeTag)}: {c * (ControlDof < 3 ? 1e3 : 1):0.###} {(ControlDof < 3 ? "мм" : "рад")}") : "";
             string state = end == null ? "не начата" : Math.Abs(end.LoadFactor - 1) < 1e-12 ? "пройдена" : string.Create(CultureInfo.CurrentCulture, $"остановлена на λ = {end.LoadFactor:0.###}");
             yield return string.Create(CultureInfo.CurrentCulture,
                 $"Стадия «{stage.Tag}» (ΣFz = {stage.Fz / 1e3:0.###} кН): {state}{control}.");
@@ -80,6 +82,27 @@ public sealed record FemCsfeaRunContext(DatabaseService Db, GmshSettings Gmsh, I
 public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? Adapted, List<FemValidationDiagnostic> Diagnostics)
 {
     public bool HasErrors => Diagnostics.Any(d => d.IsError) || Adapted is not { HasErrors: false };
+
+    /// <summary>Контрольный узел: тег узла схемы (пусто — задан узлом сетки) и тег узла сетки; null — не задан или не найден.</summary>
+    public (string SchemaTag, string MeshTag)? ControlNode { get; init; }
+
+    /// <summary>Сводка подготовленной модели для отчёта «Проверить вход»: размеры, стадии с ΣF, контрольный узел.</summary>
+    public IEnumerable<string> Describe()
+    {
+        if (Adapted?.Model is not { } model) yield break;
+        yield return $"Модель: узлов {model.Nodes.Count}, оболочек {model.Shells.Count}, стержней {model.Beams.Count}, "
+            + $"опор {model.Supports.Count}, пружин {model.Springs.Count}, жёстких тел {model.RigidBodies.Count}.";
+        foreach (var (stage, i) in model.Stages.Select((s, i) => (s, i)))
+        {
+            var t = i < Adapted.StageTotals.Count ? Adapted.StageTotals[i] : null;
+            yield return t == null
+                ? $"Стадия «{stage.Name}»: шагов {stage.Steps}."
+                : string.Create(CultureInfo.CurrentCulture,
+                    $"Стадия «{stage.Name}»: шагов {stage.Steps}, ΣFx = {t.Fx / 1e3:0.###}, ΣFy = {t.Fy / 1e3:0.###}, ΣFz = {t.Fz / 1e3:0.###} кН.");
+        }
+        if (ControlNode is { } c)
+            yield return $"Контрольный {FemCsfeaRunner.DescribeControlNode(c.SchemaTag, c.MeshTag)}.";
+    }
 
     /// <summary>Строки отчёта: ошибки, затем предупреждения и сведения.</summary>
     public IEnumerable<string> Report => Diagnostics.Concat(Adapted?.Diagnostics ?? []).OrderByDescending(d => d.IsError)
@@ -116,14 +139,15 @@ public static class FemCsfeaRunner
 
         var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, FemCsfeaSetup.FromAnalysis(analysis));
         CheckScadTransfer(ctx.Db, schema.Id, input, diag);
-        if (!string.IsNullOrWhiteSpace(csfea.ControlNodeTag) && ControlMeshTag(input, csfea.ControlNodeTag) == null)
+        var control = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlNode(input, csfea.ControlNodeTag);
+        if (!string.IsNullOrWhiteSpace(csfea.ControlNodeTag) && control == null)
             diag.Add(new("control_node", $"Контрольный узел «{csfea.ControlNodeTag}» не найден ни среди узлов схемы, ни в сетке.", true));
         if (csfea.ControlDof is < 0 or > 5)
             diag.Add(new("control_dof", $"DOF контрольного узла {csfea.ControlDof} — вне 0…5.", true));
-        if (diag.Any(d => d.IsError)) return new(input, null, diag);
+        if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control };
 
         var adapted = await Task.Run(() => FemRcModelAdapter.Adapt(input), ct);
-        return new(input, adapted, diag);
+        return new(input, adapted, diag) { ControlNode = control };
     }
 
     /// <summary>Подготовка и расчёт; <paramref name="progress"/> — отчёты решателя (создавать в UI-потоке).</summary>
@@ -154,7 +178,7 @@ public static class FemCsfeaRunner
         var run = await Task.Run(() => RcSecantAnalysis.Run(adapted.Model, options, progress, ct), ct);
         clock.Stop();
 
-        string? controlTag = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlMeshTag(prepared.Input!, csfea.ControlNodeTag);
+        string? controlTag = prepared.ControlNode?.MeshTag;
         int? controlDof = controlTag != null && FemMeshTopology.CanonicalNodeTag(controlTag) is { } canon
             && int.TryParse(canon, NumberStyles.Integer, CultureInfo.InvariantCulture, out int nodeId)
             && run.Build.NodeIndex.ContainsKey(nodeId) ? run.Build.Dof(nodeId, csfea.ControlDof) : null;
@@ -170,6 +194,7 @@ public static class FemCsfeaRunner
         summary.Shells = run.Build.Mesh.Shells.Count;
         summary.Beams = run.Build.Mesh.Beams.Count;
         summary.ControlNodeTag = controlDof != null ? controlTag! : "";
+        summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
         summary.ControlDof = csfea.ControlDof;
         summary.Stages = adapted.Model.Stages.Select((s, i) =>
         {
@@ -248,12 +273,19 @@ public static class FemCsfeaRunner
                 $"Граничные условия SCAD не перенесены в схему — команда «{Loc.S("ScadBoundaryRefresh")}».", true));
     }
 
-    /// <summary>Тег узла сетки контрольного узла: узел схемы (по <see cref="FemMeshNode.SourceNodeTag"/>), иначе узел сетки.</summary>
-    static string? ControlMeshTag(FemRcModelInput input, string tag)
+    /// <summary>
+    /// Контрольный узел: узел схемы (узел сетки — по <see cref="FemMeshNode.SourceNodeTag"/>), иначе узел сетки (тег узла
+    /// схемы — его <see cref="FemMeshNode.SourceNodeTag"/>, если есть); null — не найден.
+    /// </summary>
+    static (string SchemaTag, string MeshTag)? ControlNode(FemRcModelInput input, string tag)
     {
         tag = tag.Trim();
         if (input.Nodes.Any(n => n.NodeTag == tag) && input.MeshNodes.FirstOrDefault(n => n.SourceNodeTag == tag) is { } bySource)
-            return bySource.NodeTag;
-        return input.MeshNodes.FirstOrDefault(n => n.NodeTag == tag)?.NodeTag;
+            return (tag, bySource.NodeTag);
+        return input.MeshNodes.FirstOrDefault(n => n.NodeTag == tag) is { } mesh ? (mesh.SourceNodeTag ?? "", mesh.NodeTag) : null;
     }
+
+    /// <summary>Подпись контрольного узла в журнале (после слова «контрольный»): «узел схемы 5 (сетка 123)» или «узел сетки 123».</summary>
+    public static string DescribeControlNode(string? schemaTag, string meshTag) =>
+        string.IsNullOrEmpty(schemaTag) ? $"узел сетки {meshTag}" : $"узел схемы {schemaTag} (сетка {meshTag})";
 }

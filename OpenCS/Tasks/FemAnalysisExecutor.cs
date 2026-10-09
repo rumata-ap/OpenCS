@@ -94,7 +94,8 @@ public static class FemAnalysisExecutor
     {
         var progress = new Progress<CSfea.Core.SecantProgress>(p => app.ReportBusyProgress(p.Fraction, string.Format(
             Utilites.Loc.S("FemCsfeaProgress"), analysis.Tag, p.StageName, p.Step, p.StepCount, p.LoadFactor, p.Iteration, p.Cracked)));
-        var ctx = new Services.FemCsfeaRunContext(app.db, app.GmshSettings, app.LogService);
+        var ctx = new Services.FemCsfeaRunContext(app.db, app.GmshSettings, app.LogService,
+            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
         return Services.FemCsfeaRunner.RunAsync(ctx, schema, analysis, progress, ct);
     }
 

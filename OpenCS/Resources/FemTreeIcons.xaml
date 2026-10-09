@@ -343,7 +343,7 @@
       </DrawingImage.Drawing>
    </DrawingImage>
 
-   <!-- Расчёты OpenSees: шестерня. -->
+   <!-- Расчёты схемы (OpenSees и CSfea): шестерня. -->
    <DrawingImage x:Key="FemIcon_Analyses">
       <DrawingImage.Drawing>
          <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
@@ -370,6 +370,20 @@
          <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
             <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
             <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M1,8 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M6.2,4.6 L11.4,8 L6.2,11.4 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+   <!-- Постановка секущего расчёта CSfea: индиго, скруглённый квадрат вместо круга OpenSees -->
+   <DrawingImage x:Key="FemIcon_AnalysisCsfea">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}">
+               <GeometryDrawing.Geometry>
+                  <RectangleGeometry Rect="1,1,14,14" RadiusX="3" RadiusY="3"/>
+               </GeometryDrawing.Geometry>
+            </GeometryDrawing>
             <GeometryDrawing Brush="White" Geometry="M6.2,4.6 L11.4,8 L6.2,11.4 Z"/>
          </DrawingGroup>
       </DrawingImage.Drawing>

@@ -572,7 +572,7 @@ public class FemMeshGroupsSubNode(FemSchema schema) : FemGroupsSubNode(schema, F
 /// <summary>Подузел «Группы КонЭ» — состав групп задан конструктивными элементами.</summary>
 public class FemMemberGroupsSubNode(FemSchema schema) : FemGroupsSubNode(schema, FemMemberGroup.KindMembers);
 
-/// <summary>Подузел «Расчёты OpenSees» — постановки линейного расчёта схемы.</summary>
+/// <summary>Подузел «Расчёты схемы» — постановки расчёта схемы (OpenSees и CSfea).</summary>
 public class FemAnalysesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;

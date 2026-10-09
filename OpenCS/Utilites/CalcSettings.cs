@@ -303,6 +303,16 @@ namespace OpenCS.Utilites
          return points.Count > 0 ? points : null;
       }
 
+      // ── CSfea (секущий расчёт схемы) ─────────────────────────────────
+      // Параметры итераций — в постановке (FemCsfeaParams), здесь — только общее для машины.
+
+      /// <summary>Число потоков пересчёта сечений КЭ в секущем расчёте CSfea; 0 — по числу ядер.</summary>
+      [JsonPropertyName("csfeaThreads")]
+      public int CsfeaThreads { get; set; }
+
+      /// <summary><see cref="CsfeaThreads"/> для ParallelOptions.MaxDegreeOfParallelism: 0 и меньше — −1 (без ограничения).</summary>
+      public int ResolveCsfeaMaxDegreeOfParallelism() => CsfeaThreads > 0 ? CsfeaThreads : -1;
+
       // Настройки материалов (учёт растяжения бетона, источник/модель) специфичны для конкретной
       // постановки — хранятся в FemAnalysisParams, а не здесь (задаются в диалоге постановки).
 
@@ -361,6 +371,7 @@ namespace OpenCS.Utilites
          OpenSeesIntegrationPoints = OpenSeesIntegrationPoints,
          OpenSeesRecordFiberStates = OpenSeesRecordFiberStates,
          OpenSeesFiberStatesIntegrationPoints = OpenSeesFiberStatesIntegrationPoints,
+         CsfeaThreads             = CsfeaThreads,
       };
 
       /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>
