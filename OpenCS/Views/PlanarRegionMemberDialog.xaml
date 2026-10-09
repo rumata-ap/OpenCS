@@ -19,6 +19,7 @@
          <Setter Property="Background" Value="Transparent"/>
       </Style>
       <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+      <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
    </Window.Resources>
    <TabControl>
       <TabItem Header="{DynamicResource PlanarRegionTabGeometry}">
@@ -70,9 +71,11 @@
                   </ToggleButton>
                   <TextBlock Text="{DynamicResource PlanarRegionMeshSizeLabel}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                   <TextBox Width="55" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                           Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=LostFocus, Converter={StaticResource AnyDoubleConverter}}"
+                           Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=LostFocus, Converter={StaticResource NullableDoubleTextConverter}}"
                            KeyDown="CommitOnEnter"
                            ToolTip="{DynamicResource PlanarRegionMeshSizeTip}"/>
+                  <TextBlock Text="{Binding MeshSizeHint}" VerticalAlignment="Center" Margin="4,0,0,0"
+                             Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">

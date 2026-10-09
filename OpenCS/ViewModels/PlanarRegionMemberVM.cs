@@ -9,6 +9,7 @@ using OpenCS.Utilites;
 using OpenCS.Views;
 using OpenCS.Views.Helpers;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -50,7 +51,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         _plateSectionOwned = RebarZones.Count > 0;
         _rebarSectionGridStep = existingRegion?.RebarSectionGridStep ?? 0.3;
-        _meshMaxElementSizeM = existingRegion?.MeshMaxElementSizeM ?? 0.2;
+        _meshMaxElementSizeM = existingMember?.TargetMeshLengthM;
 
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
@@ -109,21 +110,34 @@ public class PlanarRegionMemberVM : ViewModelBase
     /// базовая раскладка, шаг сетки). НЕ включает косметические правки (Name зоны).</summary>
     public bool RebarLayoutDirty { get => _rebarLayoutDirty; private set { _rebarLayoutDirty = value; OnPropertyChanged(); } }
 
-    double _meshMaxElementSizeM;
-    /// <summary>Сеттер игнорирует повторную установку того же значения — иначе безусловный
+    double? _meshMaxElementSizeM;
+    /// <summary>Свой (локальный) размер КЭ пластины, м — <see cref="FemMember.TargetMeshLengthM"/>; null — общий шаг
+    /// пластин схемы. Сеттер игнорирует повторную установку того же значения — иначе безусловный
     /// OnPropertyChanged на каждое нажатие клавиши заставляет WPF реформатировать TextBox.Text
-    /// через AnyDoubleConverter прямо во время набора и стирать только что введённый разделитель
+    /// через конвертер прямо во время набора и стирать только что введённый разделитель
     /// дробной части («0.» откатывается обратно в «0» раньше, чем пользователь допечатает «3»).</summary>
-    public double MeshMaxElementSizeM
+    public double? MeshMaxElementSizeM
     {
         get => _meshMaxElementSizeM;
         set
         {
+            if (value is not > 0) value = null;
             if (_meshMaxElementSizeM == value) return;
             _meshMaxElementSizeM = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(MeshSizeHint));
         }
     }
+
+    /// <summary>Размер КЭ, с которым строится сетка: свой, иначе общий шаг пластин схемы, иначе размер из области —
+    /// как в «Построить сетку схемы».</summary>
+    public double EffectiveMeshSizeM => FemPlanarMeshPlan.MeshSize(
+        new FemMember { TargetMeshLengthM = MeshMaxElementSizeM }, _existingRegion ?? new PlanarRegion(),
+        _app.db.GetFemSchemaMeshSteps(_schema.Id).Plate);
+
+    /// <summary>Подсказка у поля размера: какой размер действует, если своего нет.</summary>
+    public string MeshSizeHint => MeshMaxElementSizeM != null ? "" :
+        string.Format(Loc.S("PlanarRegionMeshSizeCommonHint"), EffectiveMeshSizeM.ToString("0.###", CultureInfo.CurrentCulture));
 
     /// <summary>Построение/показ сетки доступны только для уже сохранённого региона — диалог
     /// закрывается сразу после Save, поэтому свежесозданный регион нужно сначала сохранить и
@@ -134,7 +148,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     /// региона — использованный при последней сборке snapshot размер мог отличаться от того, что
     /// сохранён в БД, если пользователь не нажал «Сохранить». Используется для предупреждения при
     /// закрытии диалога (см. PlanarRegionMemberDialog.Window_Closing).</summary>
-    public bool MeshSizeDirty => _existingRegion != null && MeshMaxElementSizeM != _existingRegion.MeshMaxElementSizeM;
+    public bool MeshSizeDirty => _existingMember != null && MeshMaxElementSizeM != _existingMember.TargetMeshLengthM;
 
     bool _showMesh;
     public bool ShowMesh { get => _showMesh; private set { _showMesh = value; OnPropertyChanged(); RefreshGeometryPlotElements(); } }
@@ -862,7 +876,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         region.RebarZones = [.. RebarZones.Select(vm => vm.Model)];
         region.RebarSectionGridStep = RebarSectionGridStep;
-        region.MeshMaxElementSizeM = MeshMaxElementSizeM;
+        region.MeshMaxElementSizeM = _existingRegion?.MeshMaxElementSizeM ?? region.MeshMaxElementSizeM;   // запасной размер (нет своего и общего шага)
 
         if (_existingRegion != null)
         {
@@ -895,6 +909,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         builtMember.Kind = Kind;
         builtMember.KindSource = KindSource;
         builtMember.PlateSectionId = PlateSection?.Id;
+        builtMember.TargetMeshLengthM = MeshMaxElementSizeM;
         _app.db.SaveFemMember(builtMember);
 
         RebarLayoutDirty = false;
@@ -990,14 +1005,15 @@ public class PlanarRegionMemberVM : ViewModelBase
         ShowMesh = true;
     }
 
-    /// <summary>Записывает изменённый размер КЭ в область (только его, без прочих несохранённых правок).
+    /// <summary>Записывает изменённый свой размер КЭ в КонЭ пластины (только его, без прочих несохранённых правок).
     /// Возвращает, был ли размер изменён.</summary>
     bool PersistMeshSize()
     {
-        if (!MeshSizeDirty || !double.IsFinite(MeshMaxElementSizeM) || MeshMaxElementSizeM <= 0) return false;
-        _existingRegion!.MeshMaxElementSizeM = MeshMaxElementSizeM;
-        _app.db.UpdatePlanarRegion(_existingRegion, _schema.Id);
-        _app.LogService.Info(string.Format(Loc.S("PlanarRegionMeshSizeSaved"), Tag, MeshMaxElementSizeM));
+        if (!MeshSizeDirty) return false;
+        _existingMember!.TargetMeshLengthM = MeshMaxElementSizeM;
+        _app.db.SaveFemMember(_existingMember);
+        _app.LogService.Info(string.Format(Loc.S("PlanarRegionMeshSizeSaved"), Tag,
+            EffectiveMeshSizeM.ToString("0.###", CultureInfo.CurrentCulture)));
         OnPropertyChanged(nameof(MeshSizeDirty));
         return true;
     }
@@ -1010,7 +1026,7 @@ public class PlanarRegionMemberVM : ViewModelBase
             if (derivation.Diagnostics.Any(diagnostic => diagnostic.IsError)) return true;
             var executable = new GmshExecutableResolver().Resolve(_app.GmshSettings.ExecutablePath);
             var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), CancellationToken.None);
-            var settings = new PlanarMeshSettings(MeshMaxElementSizeM, _app.GmshSettings.Algorithm, _app.GmshSettings.ElementMode);
+            var settings = new PlanarMeshSettings(EffectiveMeshSizeM, _app.GmshSettings.Algorithm, _app.GmshSettings.ElementMode);
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
             var fingerprint = PlanarMeshFingerprint.Compute(_existingRegion!, settings, provenance, derivation.SourceFingerprint);
             bool actual = fingerprint == snapshot.InputFingerprint;
@@ -1038,7 +1054,7 @@ public class PlanarRegionMemberVM : ViewModelBase
             ArtifactRoot = gmshSettings.ResolveArtifactsPath(),
             Timeout = TimeSpan.FromSeconds(gmshSettings.TimeoutSeconds)
         };
-        var meshSettings = new PlanarMeshSettings(MeshMaxElementSizeM, gmshSettings.Algorithm, gmshSettings.ElementMode);
+        var meshSettings = new PlanarMeshSettings(EffectiveMeshSizeM, gmshSettings.Algorithm, gmshSettings.ElementMode);
         var mesher = new GmshPlanarMesher(options);
         var constraints = BuildRegionConstraints();
         var derived = constraints.Derived;

@@ -117,6 +117,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberPropertiesRequested  += OpenMemberProperties;
         view3D.MemberSectionEditRequested += OpenMemberProperties;
         view3D.MemberRotationRequested    += OpenMemberRotation;
+        view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.NodeMoveRequested += (tag, dx, dy, dz) =>
         {
@@ -258,6 +259,32 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _editorVm.Session.Members.RemoveAll(m => m.Id == member.Id);
         _editorVm.RefreshCollections();
         _fem3d.LoadFromSession(_editorVm.Session);
+    }
+
+    /// <summary>«Шаг сетки…»: локальный шаг щёлкнутого КонЭ; если он выделен — всех выделенных КонЭ.</summary>
+    void OpenMemberMeshStep(string tag)
+    {
+        var selected = _editorVm.Selection.SelectedElemTags;
+        var tags = selected.Contains(tag) ? selected.ToList() : [tag];
+        var members = _editorVm.Session.Members.Where(m => tags.Contains(m.ElemTag) && !m.IsMeshLocked).ToList();
+        if (members.Count == 0) return;
+
+        int shells = members.Count(m => m.ElemType == "shell"), bars = members.Count - shells;
+        string target = members.Count == 1
+            ? string.Format(Loc.S(shells == 1 ? "FemMemberMeshStepTargetShell" : "FemMemberMeshStepTargetBar"), members[0].ElemTag)
+            : string.Format(Loc.S("FemMemberMeshStepTargetMany"), members.Count, bars, shells);
+        static string M(double v) => string.Format(Loc.S("FemMeshStepMeters"), v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture));
+        string barCommon = _schema.MeshBarStepM is double b ? M(b) : Loc.S("FemMeshBarStepNone");
+        string plateCommon = _schema.MeshPlateStepM is double p ? M(p) : Loc.S("FemMeshPlateStepNone");
+        string common = string.Format(Loc.S("FemMemberMeshStepCommon"),
+            bars == 0 ? plateCommon : shells == 0 ? barCommon : $"{barCommon} / {plateCommon}");
+        var steps = members.Select(m => m.TargetMeshLengthM).Distinct().ToList();
+
+        var dlg = new FemMemberMeshStepDialog(target, common, steps.Count == 1 ? steps[0] : null) { Owner = Window.GetWindow(this) };
+        if (dlg.ShowDialog() != true) return;
+        _editorVm.SetMembersMeshStep(members.Select(m => m.ElemTag).ToList(), dlg.StepM);
+        _app.LogService.Info(string.Format(Loc.S(dlg.StepM is null ? "FemMemberMeshStepSetCommon" : "FemMemberMeshStepSet"),
+            members.Count, dlg.StepM is double s ? M(s) : ""));
     }
 
     void OpenMemberRotation(string tag)

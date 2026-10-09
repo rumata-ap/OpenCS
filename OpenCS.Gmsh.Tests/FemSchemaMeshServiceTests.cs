@@ -299,6 +299,61 @@ public sealed class FemSchemaMeshServiceTests
         }
     }
 
+    /// <summary>Шаг пластины: общий шаг схемы перестраивает область, свой шаг КонЭ его перебивает; без изменений —
+    /// снимок переиспользуется.</summary>
+    [Fact]
+    public async Task PlateStep_CommonThenLocalOverride()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"opencs-schema-step-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var schema = new FemSchema { Tag = "step" };
+            db.SaveFemSchema(schema);
+            var nodes = new List<FemNode> { Node(schema, "1", 0, 0, H) };
+            db.SaveFemSchemaEdit(schema.Id, nodes, [], [], [], []);
+            var frame = new Frame3D(new PlanarVector3(0, 0, H), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1));
+            var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: frame, tag: "P1");
+            region.MeshMaxElementSizeM = 1.0;
+            db.AddPlanarRegion(region, schema.Id);
+            db.SaveFemMember(new FemMember { SchemaId = schema.Id, ElemTag = "P1", ElemType = "shell", PlanarRegionId = region.Id });
+            var service = new FemSchemaMeshService(db, new GmshSettings
+            {
+                ExecutablePath = Gmsh, ArtifactsPath = Path.Combine(root, "gmsh"), KeepArtifacts = false,
+                ElementMode = PlanarMeshElementMode.Quads,
+            });
+            var members = db.GetFemMembers(schema.Id);
+            async Task<(int Shells, int Rebuilt)> Build()
+            {
+                var r = await service.BuildAsync(schema.Id, nodes, members, null, null, CancellationToken.None);
+                Assert.False(r.HasErrors, string.Join("\n", r.Diagnostics));
+                return (r.Mesh!.Elements.Count(e => e.ElemType == "shell"), r.RebuiltRegionCount);
+            }
+
+            var regionSize = await Build();
+            Assert.Equal(1, regionSize.Rebuilt);
+
+            schema.MeshPlateStepM = 0.5;
+            db.UpdateFemSchemaMeshSteps(schema);
+            Assert.Equal(0.5, db.GetFemSchemaMeshSteps(schema.Id).Plate);
+            var common = await Build();
+            Assert.Equal(1, common.Rebuilt);
+            Assert.True(common.Shells > regionSize.Shells * 2, $"общий 0,5: {common.Shells} КЭ против {regionSize.Shells}");
+
+            members.Single().TargetMeshLengthM = 1.0;
+            var local = await Build();
+            Assert.Equal(1, local.Rebuilt);
+            Assert.Equal(regionSize.Shells, local.Shells);
+            Assert.Equal(0, (await Build()).Rebuilt);
+        }
+        finally
+        {
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+            catch (IOException) { }
+        }
+    }
+
     static MaterialChars ConcreteChars(CalcType ct, double rb, double rbt) => new(ct)
     {
         Type = MatType.Concrete, E = 30_000_000.0, Fc = -rb, Ft = rbt,

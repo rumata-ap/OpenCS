@@ -21,17 +21,23 @@ public sealed record FemPlanarRegionConstraints(
 /// </summary>
 public static class FemPlanarMeshPlan
 {
-    /// <summary>КонЭ-пластины своей схемы с областью и незаблокированной сеткой — мелкие (по размеру КЭ) раньше,
-    /// затем по Id и тегу.</summary>
+    /// <summary>Размер КЭ пластины: локальный шаг КонЭ, иначе общий шаг пластин схемы, иначе размер из области.</summary>
+    public static double MeshSize(FemMember member, PlanarRegion region, double? schemaPlateStepM) =>
+        member.TargetMeshLengthM is > 0 and var local ? local
+        : schemaPlateStepM is > 0 and var common ? common
+        : region.MeshMaxElementSizeM;
+
+    /// <summary>КонЭ-пластины своей схемы с областью и незаблокированной сеткой — мелкие (по размеру КЭ,
+    /// <see cref="MeshSize"/>) раньше, затем по Id и тегу.</summary>
     public static List<(FemMember Member, PlanarRegion Region)> OrderedRegions(
-        IReadOnlyList<FemMember> members, IReadOnlyList<PlanarRegion> regions)
+        IReadOnlyList<FemMember> members, IReadOnlyList<PlanarRegion> regions, double? schemaPlateStepM = null)
     {
         var byId = new Dictionary<int, PlanarRegion>();
         foreach (var region in regions) byId.TryAdd(region.Id, region);
         return members
             .Where(m => m.PlanarRegionId is int id && byId.ContainsKey(id) && !m.IsMeshLocked)
             .Select(m => (Member: m, Region: byId[m.PlanarRegionId!.Value]))
-            .OrderBy(p => p.Region.MeshMaxElementSizeM)
+            .OrderBy(p => MeshSize(p.Member, p.Region, schemaPlateStepM))
             .ThenBy(p => p.Member.Id)
             .ThenBy(p => p.Member.ElemTag, StringComparer.Ordinal)
             .ToList();

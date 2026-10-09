@@ -77,7 +77,7 @@ public sealed class FemBeamRotationPersistenceTests
             var (db2, schema) = Seed(path);
             using (db2)
             {
-                Assert.Equal(79, DatabaseService.SchemaVersion);
+                Assert.True(DatabaseService.SchemaVersion >= 79);
                 Assert.Equal(-90, Rotations(db2, schema.Id)["10"]);
             }
         }

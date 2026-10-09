@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 79;
+      const int CurrentSchemaVersion = 80;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -99,6 +99,7 @@ namespace OpenCS.Utilites
          [76] = MigrateV77,
          [77] = MigrateV78,
          [78] = MigrateV79,
+         [79] = MigrateV80,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -490,7 +491,9 @@ namespace OpenCS.Utilites
                 tag         TEXT NOT NULL DEFAULT '',
                 source_type TEXT NOT NULL DEFAULT 'internal',
                 created     TEXT NOT NULL DEFAULT '',
-                source_path TEXT
+                source_path TEXT,
+                mesh_bar_step_m   REAL,
+                mesh_plate_step_m REAL
             );
             CREATE TABLE IF NOT EXISTS fem_nodes (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1733,6 +1736,22 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("fem_elements", "beam_rotation_deg"))
             MigExec("ALTER TABLE fem_elements ADD COLUMN beam_rotation_deg REAL");
+      }
+
+      /// <summary>Миграция v80: общие шаги сетки схемы (стержни, пластины). Шаг пластины, заданный прежде в её области,
+      /// становится локальным шагом КонЭ (<c>fem_members.target_mesh_length_m</c>) — сетки не перестраиваются.</summary>
+      void MigrateV80()
+      {
+         if (!ColumnExists("fem_schemas", "mesh_bar_step_m"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN mesh_bar_step_m REAL");
+         if (!ColumnExists("fem_schemas", "mesh_plate_step_m"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN mesh_plate_step_m REAL");
+         MigExec("""
+            UPDATE fem_members SET target_mesh_length_m =
+              (SELECT r.mesh_max_element_size_m FROM planar_regions r WHERE r.id = fem_members.planar_region_id)
+            WHERE planar_region_id IS NOT NULL AND target_mesh_length_m IS NULL
+              AND EXISTS (SELECT 1 FROM planar_regions r WHERE r.id = fem_members.planar_region_id);
+            """);
       }
 
       /// <summary>Миграция v78: граничные условия сеточного уровня — закрепления узлов сетки, пружины-«земля», жёсткие
@@ -4049,7 +4068,7 @@ namespace OpenCS.Utilites
          var schemas = new Dictionary<int, CScore.Fem.FemSchema>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, tag, source_type, created, source_path FROM fem_schemas ORDER BY id";
+            cmd.CommandText = "SELECT id, tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m FROM fem_schemas ORDER BY id";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -4060,6 +4079,8 @@ namespace OpenCS.Utilites
                   SourceType = r.GetString(2),
                   Created    = r.GetString(3),
                   SourcePath = r.IsDBNull(4) ? null : r.GetString(4),
+                  MeshBarStepM   = r.IsDBNull(5) ? null : r.GetDouble(5),
+                  MeshPlateStepM = r.IsDBNull(6) ? null : r.GetDouble(6),
                };
                schemas[s.Id] = s;
             }
@@ -4257,6 +4278,28 @@ namespace OpenCS.Utilites
             if (!check.TargetsElement)
                schema?.MemberGroups.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
          }
+      }
+
+      /// <summary>Общие шаги сетки схемы из БД (стержни, пластины), м; null — не заданы.</summary>
+      public (double? Bar, double? Plate) GetFemSchemaMeshSteps(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT mesh_bar_step_m, mesh_plate_step_m FROM fem_schemas WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", schemaId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read()) return (null, null);
+         return (r.IsDBNull(0) ? null : r.GetDouble(0), r.IsDBNull(1) ? null : r.GetDouble(1));
+      }
+
+      /// <summary>Записать общие шаги сетки схемы (стержни, пластины).</summary>
+      public void UpdateFemSchemaMeshSteps(CScore.Fem.FemSchema schema)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "UPDATE fem_schemas SET mesh_bar_step_m=@bar, mesh_plate_step_m=@plate WHERE id=@id";
+         cmd.Parameters.AddWithValue("@bar", (object?)schema.MeshBarStepM ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@plate", (object?)schema.MeshPlateStepM ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
       }
 
       /// <summary>Записать только путь к файлу проекта-источника (без пересохранения групп схемы).</summary>
@@ -5783,19 +5826,23 @@ namespace OpenCS.Utilites
                Tag = newTag,
                SourceType = sourceSchema.SourceType,
                SourcePath = sourceSchema.SourcePath,
-               Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+               Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+               MeshBarStepM = sourceSchema.MeshBarStepM,
+               MeshPlateStepM = sourceSchema.MeshPlateStepM,
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
-                  VALUES (@tag, @src, @created, @path);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m)
+                  VALUES (@tag, @src, @created, @path, @bar, @plate);
                   SELECT last_insert_rowid();
                """;
                schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
                schemaCmd.Parameters.AddWithValue("@src", newSchema.SourceType);
                schemaCmd.Parameters.AddWithValue("@created", newSchema.Created);
                schemaCmd.Parameters.AddWithValue("@path", (object?)newSchema.SourcePath ?? DBNull.Value);
+               schemaCmd.Parameters.AddWithValue("@bar", (object?)newSchema.MeshBarStepM ?? DBNull.Value);
+               schemaCmd.Parameters.AddWithValue("@plate", (object?)newSchema.MeshPlateStepM ?? DBNull.Value);
                newSchema.Id = (int)(long)schemaCmd.ExecuteScalar()!;
             }
             int newSchemaId = newSchema.Id;

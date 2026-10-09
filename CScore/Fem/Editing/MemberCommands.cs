@@ -133,3 +133,20 @@ public sealed class SetMemberRotationCommand(FemMember member, double rotationDe
 
     public void Undo(FemSchemaEditSession session) => member.RotationDeg = _old;
 }
+
+/// <summary>Локальный шаг сетки КонЭ (<see cref="FemMember.TargetMeshLengthM"/>); null — общий шаг схемы.</summary>
+public sealed class SetMembersMeshStepCommand(IReadOnlyList<FemMember> members, double? stepM) : IFemEditCommand
+{
+    double?[] _old = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old = members.Select(m => m.TargetMeshLengthM).ToArray();
+        foreach (var m in members) m.TargetMeshLengthM = stepM;
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        for (int i = 0; i < members.Count; i++) members[i].TargetMeshLengthM = _old[i];
+    }
+}

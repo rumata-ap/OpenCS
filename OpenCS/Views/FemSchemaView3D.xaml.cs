@@ -1446,6 +1446,30 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Смена режима — выделение другого вида снимается.</summary>
     void MeshPickToggle_Click(object sender, RoutedEventArgs e) => Editor?.Selection.Clear();
 
+    // ── «Построить сетку схемы»: панель общих шагов ─────────────────────────────────────────
+
+    void MeshBuildButton_Click(object sender, RoutedEventArgs e) => meshBuildPopup.IsOpen = true;
+
+    /// <summary>Построение запускает команда кнопки; панель закрывается.</summary>
+    void MeshBuildNow_Click(object sender, RoutedEventArgs e) => meshBuildPopup.IsOpen = false;
+
+    /// <summary>Enter фиксирует введённый шаг (привязка — по потере фокуса).</summary>
+    void MeshStepBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not TextBox box) return;
+        box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+    }
+
+    /// <summary>Пункт контекстного меню КонЭ «Шаг сетки…»: локальный шаг щёлкнутого элемента (и выделенных
+    /// вместе с ним КонЭ).</summary>
+    public event Action<string>? MemberMeshStepRequested;
+
+    void MemberMeshStepCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberMeshStepRequested?.Invoke(tag);
+    }
+
     /// <summary>КЭ сетки под курсором: стержень рядом с курсором, иначе пластина под лучом.</summary>
     string? MeshElementAt(Fem3DVM vm, Point position)
     {

@@ -18,6 +18,14 @@ public class FemSchema
     public string? SourcePath { get; set; }
     public string Created    { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
+    /// <summary>Общий шаг дискретизации стержней, м; null — стержни делятся только узлами. Локальный шаг КонЭ
+    /// (<see cref="FemMember.TargetMeshLengthM"/>) важнее.</summary>
+    public double? MeshBarStepM { get; set; }
+
+    /// <summary>Общий размер КЭ пластин, м; null — размер из области (<see cref="Planar.PlanarRegion.MeshMaxElementSizeM"/>).
+    /// Локальный шаг КонЭ (<see cref="FemMember.TargetMeshLengthM"/>) важнее.</summary>
+    public double? MeshPlateStepM { get; set; }
+
     /// <summary>Группы конструктивных элементов схемы. Заполняются при загрузке из БД.</summary>
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
 
