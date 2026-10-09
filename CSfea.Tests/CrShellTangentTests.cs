@@ -19,6 +19,7 @@ public class CrShellTangentTests
         RunTangentMatchesForces();
         RunWallNewton();
         RunWallSecantPicard();
+        RunWallOutOfPlane();
     }
 
     /// <summary>K_T·δ сетки = центральная разность F_int по направлению δ при больших поворотах и сжатии.</summary>
@@ -125,6 +126,67 @@ public class CrShellTangentTests
         }
     }
 
+    /// <summary>
+    /// Та же стена, изгиб из плоскости: в плоскости ux = 0, на верху сжатие P и сила 0,01·P по нормали (y). ν = 0 —
+    /// полоса со свободными кромками изгибается как балка EI = E·B·t³/12 (без неоднозначности D·B против EI).
+    /// Консоль: δ/δ₀ = 3(tg u − u)/u³, u = (π/2)·√(P/P_cr). Изгиб пластины Q4 точен (δ₀ −0,02 %, δ/δ₀ −0,04 / −0,12 %
+    /// при 0,5 / 0,7·P_cr), поэтому допуск 0,5 % — в отличие от изгиба в плоскости, где при 4 КЭ по ширине сетка жёстче
+    /// (−5 / −11 %; 8×48 — −2 / −5 %). Решатель — секущий Пикар с геомнелином (2 шага Ньютона, дорешивание до допуска).
+    /// </summary>
+    private static void RunWallOutOfPlane()
+    {
+        TestHarness.Section("CR-оболочки: стена, изгиб из плоскости — P-Δ против 3(tg u − u)/u³");
+        double pcr = Math.PI * Math.PI * E * (B * T * T * T / 12.0) / (4.0 * H * H);
+        var abd = new LinearLaminateResponse(PlateBuilder.Plate(E, 0.0, T)).Tangent(new double[3], new double[3], new double[2]);
+        double uyPerP = 0.0;
+        foreach (double ratio in new[] { 0.0, 0.5, 0.7 })
+        {
+            double p = (ratio > 0 ? ratio : 0.5) * pcr;
+            var wall = WallMesh(0.0);
+            var states = new ISecantShellState?[wall.Shells.Count];
+            var shells = new List<StructuralShell>();
+            for (int e = 0; e < wall.Shells.Count; e++)
+            {
+                var st = new ConstantShellState(abd);
+                states[e] = st;
+                shells.Add(new StructuralShell(wall.Shells[e].Nodes, st.Response));
+            }
+            var mesh = new StructuralMesh(wall.Nodes, shells, null);
+            var fixedDofs = new SortedSet<int>();
+            for (int i = 0; i <= Nx; i++)
+                for (int c = 0; c < 6; c++) fixedDofs.Add(6 * Node(i, 0) + c);
+            for (int n = 0; n < mesh.NNodes; n++) fixedDofs.Add(6 * n + 0);
+            var bc = BoundaryConditions.FromArrays(mesh, fixedDofs.ToArray());
+            var f = new double[mesh.NDof];
+            for (int i = 0; i <= Nx; i++)
+            {
+                double w = (i == 0 || i == Nx ? 0.5 : 1.0) / Nx;
+                f[6 * Node(i, Nz) + 2] += w * (ratio > 0 ? -p : 0.0);
+                f[6 * Node(i, Nz) + 1] += w * 0.01 * p;
+            }
+            double TopUy(double[] u) => Enumerable.Range(0, Nx + 1).Average(i => u[6 * Node(i, Nz) + 1]);
+            if (ratio == 0.0)
+            {
+                // δ₀ — линейное решение. Нелинейное от одной боковой силы — не эталон: CR видит у линейного прогиба
+                // растяжение от поворота (≈ θ²/2 по длине), невязка в разы больше малой нагрузки.
+                double uy = TopUy(mesh.SolveLinear(f, bc));
+                uyPerP = uy / p;
+                // Линейно: δ₀ = H_бок·L³/(3EI) — изгиб пластины Q4 сходится к балке.
+                TestHarness.CheckRel("из плоскости, линейно: δ₀ = H·L³/(3EI)", uy,
+                    0.01 * p * H * H * H / (3 * E * B * T * T * T / 12.0), 0.01);
+                continue;
+            }
+            var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
+                new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-8 }).Run([new SecantLoadStage("P", f, 2)]);
+            var end = res.StageEnd(0);
+            TestHarness.Check($"из плоскости, P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
+            if (end == null) continue;
+            double k = Math.PI / 2 * Math.Sqrt(ratio);
+            double amp = 3 * (Math.Tan(k) - k) / (k * k * k);
+            TestHarness.CheckRel($"из плоскости, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", TopUy(end.U) / (uyPerP * p), amp, 0.005);
+        }
+    }
+
     sealed class ConstantShellState(ShellTangent t) : ISecantShellState
     {
         public SecantShellResponse Response { get; } = new(t);
@@ -137,18 +199,20 @@ public class CrShellTangentTests
     // Узлы сетки: i — по ширине (x), j — по высоте (z); стена в плоскости XZ.
     private static int Node(int i, int j) => j * (Nx + 1) + i;
 
-    private static (StructuralMesh Mesh, BoundaryConditions Bc) Wall()
+    private static (StructuralMesh Mesh, BoundaryConditions Bc) Wall() => WallBc(WallMesh(Nu));
+
+    private static StructuralMesh WallMesh(double nu)
     {
         var nodes = new double[(Nx + 1) * (Nz + 1)][];
         for (int j = 0; j <= Nz; j++)
             for (int i = 0; i <= Nx; i++)
                 nodes[Node(i, j)] = [i * B / Nx, 0.0, j * H / Nz];
-        var section = new LinearLaminateResponse(PlateBuilder.Plate(E, Nu, T));
+        var section = new LinearLaminateResponse(PlateBuilder.Plate(E, nu, T));
         var shells = new List<StructuralShell>();
         for (int j = 0; j < Nz; j++)
             for (int i = 0; i < Nx; i++)
                 shells.Add(new StructuralShell([Node(i, j), Node(i + 1, j), Node(i + 1, j + 1), Node(i, j + 1)], section));
-        return WallBc(new StructuralMesh(nodes, shells, null));
+        return new StructuralMesh(nodes, shells, null);
     }
 
     // Заделка низа, из плоскости uy = 0 во всех узлах.

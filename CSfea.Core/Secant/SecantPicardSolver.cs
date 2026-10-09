@@ -498,8 +498,10 @@ public sealed class SecantPicardSolver
             if (full && !history.AllConverged())
                 _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
                     System.Globalization.CultureInfo.InvariantCulture))));
-            // Неточный режим: недорешённое равновесие — не отказ, следующая итерация Пикара продолжит с этого u.
-            if (!inexact && !history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
+            // Неточный режим: недорешённое равновесие после 2 шагов — не отказ, следующая итерация Пикара продолжит с этого
+            // u. Ньютон до допуска (дорешивание) не сошёлся — отказ, как в полном режиме: иначе каждая следующая итерация
+            // Пикара снова тратит 30 шагов Ньютона на недостижимый допуск.
+            if (full && !history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
             else if (!double.IsFinite(_newtonResidual)) why = "Ньютон геометрической нелинейности: невязка не конечна";
             return why == null ? u : null;
         }
