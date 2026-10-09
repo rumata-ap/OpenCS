@@ -12,4 +12,8 @@
     <PackageReference Include="CSparse" Version="4.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="CSfea.Tests" />
+  </ItemGroup>
+
 </Project>

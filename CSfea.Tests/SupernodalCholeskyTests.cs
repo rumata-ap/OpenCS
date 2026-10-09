@@ -14,6 +14,114 @@ public class SupernodalCholeskyTests
         Analysis_Relaxed_FewerSupernodesSameNnz();
         Analysis_UpdateListsCoverDescendantRows();
         Analysis_OneSidedPattern_UsesUpperTriangle();
+
+        TestHarness.Section("Supernodal: численная факторизация");
+        Kernels_GemmAndPanel_MatchNaive();
+        Factorize_MatchesUpLooking(BuildShellLike(12, 9, 6), "оболочка 12×9", SupernodeRelaxation.None);
+        Factorize_MatchesUpLooking(BuildShellLike(30, 25, 6, seed: 5), "оболочка 30×25", SupernodeRelaxation.Default);
+        Factorize_MatchesUpLooking(BuildShellLike(40, 40, 3, seed: 9), "оболочка 40×40, 3 DOF", SupernodeRelaxation.Default);
+        Factorize_MatchesUpLooking(DropSomeLower(BuildShellLike(14, 10, 6, seed: 2), every: 3), "односторонний портрет",
+            SupernodeRelaxation.Default);
+        Factorize_Refactorize_And_NotSpd();
+    }
+
+    static void Kernels_GemmAndPanel_MatchNaive()
+    {
+        var rnd = new Random(11);
+        double worst = 0;
+        foreach (var (p, q, kk, lower) in new[] { (37, 13, 70, false), (64, 64, 300, true), (21, 21, 5, true), (9, 3, 600, false) })
+        {
+            int lda = p + 3, ldc = p + 1;
+            var a = Enumerable.Range(0, lda * kk + 7).Select(_ => rnd.NextDouble() - 0.5).ToArray();
+            var c = Enumerable.Range(0, ldc * q + 5).Select(_ => rnd.NextDouble()).ToArray();
+            var cRef = (double[])c.Clone();
+            // B — первые q строк A со сдвигом 2 (как строки потомка в обновлении).
+            DenseKernels.GemmNtSub(p, q, kk, a, 2, lda, a, 4, lda, c, 3, ldc, lower);
+            for (int t = 0; t < q; t++)
+                for (int i = lower ? t : 0; i < p; i++)
+                {
+                    double sum = 0;
+                    for (int l = 0; l < kk; l++) sum += a[2 + l * lda + i] * a[4 + l * lda + t];
+                    worst = Math.Max(worst, Math.Abs(c[3 + t * ldc + i] - (cRef[3 + t * ldc + i] - sum)));
+                }
+        }
+        TestHarness.Check("GemmNtSub = наивное произведение (края, lowerOnly)", worst < 1e-12, $"max|Δ| = {worst:E2}");
+
+        // Панель 150×100: L·Lᵀ = A на первых 100 строках, L21·L11ᵀ = A21 ниже.
+        int m = 150, k = 100;
+        var g = new double[m, k];
+        for (int i = 0; i < m; i++) for (int j = 0; j < k; j++) g[i, j] = rnd.NextDouble() - 0.5;
+        var x = new double[m * k];
+        for (int j = 0; j < k; j++)
+            for (int i = j; i < m; i++)
+            {
+                double sum = i == j ? k : 0;
+                for (int l = 0; l < k; l++) sum += g[i, l] * g[j, l];
+                x[j * m + i] = sum;
+            }
+        var a0 = (double[])x.Clone();
+        bool spd = DenseKernels.FactorPanel(x, 0, m, k, nb: 16);
+        double err = 0;
+        for (int j = 0; j < k; j++)
+            for (int i = j; i < m; i++)
+            {
+                double sum = 0;
+                for (int l = 0; l <= j; l++) sum += x[l * m + i] * x[l * m + j];
+                err = Math.Max(err, Math.Abs(sum - a0[j * m + i]));
+            }
+        TestHarness.Check("FactorPanel: L·Lᵀ = A на трапеции", spd && err < 1e-10, $"max|Δ| = {err:E2}");
+    }
+
+    static void Factorize_MatchesUpLooking(CscMatrix a, string name, SupernodeRelaxation relax)
+    {
+        int n = a.Cols;
+        var b = Enumerable.Range(0, n).Select(i => Math.Sin(0.37 * i) + 0.5).ToArray();
+        var old = new SparseCholeskySolver();
+        old.AnalyzePattern(a);
+        old.Factorize(a);
+        var xOld = old.Solve(b);
+        var sn = new SupernodalCholeskySolver { Relaxation = relax };
+        sn.AnalyzePattern(a);
+        sn.Factorize(a);
+        var x = sn.Solve(b);
+        double diff = 0, norm = 0;
+        for (int i = 0; i < n; i++)
+        {
+            diff = Math.Max(diff, Math.Abs(x[i] - xOld[i]));
+            norm = Math.Max(norm, Math.Abs(xOld[i]));
+        }
+        TestHarness.Check($"{name}: совпадает с up-looking", sn.LastFactorizationSpd && diff <= 1e-11 * norm,
+            $"n = {n}, суперузлов {sn.Analysis!.SupernodeCount}, max|Δx|/max|x| = {diff / norm:E2}");
+    }
+
+    static void Factorize_Refactorize_And_NotSpd()
+    {
+        var a1 = BuildShellLike(10, 10, 6, seed: 4);
+        var sn = new SupernodalCholeskySolver();
+        sn.AnalyzePattern(a1);
+        sn.Factorize(a1);
+        // Тот же паттерн, другие значения: диагональ ×3.
+        var v2 = (double[])a1.Values.Clone();
+        for (int j = 0; j < a1.Cols; j++)
+            for (int p = a1.ColPtr[j]; p < a1.ColPtr[j + 1]; p++)
+                if (a1.RowIdx[p] == j) v2[p] *= 3;
+        var a2 = new CscMatrix(a1.Rows, a1.Cols, a1.ColPtr, a1.RowIdx, v2);
+        sn.Factorize(a2);
+        var b = Enumerable.Range(0, a1.Cols).Select(i => 1.0 + i % 7).ToArray();
+        var x = sn.Solve(b);
+        var r = a2.Multiply(x);
+        double res = 0;
+        for (int i = 0; i < r.Length; i++) res = Math.Max(res, Math.Abs(r[i] - b[i]));
+        TestHarness.Check("Повторная факторизация по тому же анализу", sn.LastFactorizationSpd && res < 1e-10,
+            $"max|A·x − b| = {res:E2}");
+
+        // Знаконеопределённая: диагональ со знаком минус → флаг не-SPD.
+        var v3 = (double[])a1.Values.Clone();
+        for (int j = 0; j < a1.Cols; j++)
+            for (int p = a1.ColPtr[j]; p < a1.ColPtr[j + 1]; p++)
+                if (a1.RowIdx[p] == j && j % 50 == 17) v3[p] = -v3[p];
+        sn.Factorize(new CscMatrix(a1.Rows, a1.Cols, a1.ColPtr, a1.RowIdx, v3));
+        TestHarness.Check("Не-SPD: флаг снят", !sn.LastFactorizationSpd);
     }
 
     /// <summary>

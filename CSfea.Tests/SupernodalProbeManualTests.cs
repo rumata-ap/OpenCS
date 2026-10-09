@@ -39,8 +39,77 @@ public class SupernodalProbeManualTests(ITestOutputHelper output)
             }
             output.WriteLine("  флоп по ширине суперузла (<8, <32, <128, <512, <2048, ≥2048): " +
                              string.Join(", ", hist.Select(h => $"{h / an.Flops * 100:0.0}%")));
+            if (Environment.GetEnvironmentVariable("CSFEA_PROBE_FACTORIZE") == "1") Factorize(a);
             output.WriteLine($"  пик рабочего набора {Process.GetCurrentProcess().PeakWorkingSet64 / 1048576.0:0} МБ");
         }
+    }
+
+    // Численная факторизация на синтетических значениях (SPD диагональным преобладанием) и невязка решения;
+    // CSFEA_PROBE_OLD=1 — то же up-looking решателем для сравнения времени.
+    void Factorize(CscMatrix pattern)
+    {
+        var a = SyntheticSpd(pattern);
+        var b = Enumerable.Range(0, a.Cols).Select(i => Math.Sin(0.001 * i) + 1.0).ToArray();
+        var sw = Stopwatch.StartNew();
+        var sn = new SupernodalCholeskySolver();
+        sn.AnalyzePattern(a);
+        double tAn = sw.Elapsed.TotalSeconds;
+        sn.Factorize(a);
+        double tF = sw.Elapsed.TotalSeconds - tAn;
+        var x = sn.Solve(b);
+        double tS = sw.Elapsed.TotalSeconds - tAn - tF;
+        output.WriteLine($"  суперузловой: анализ {tAn:0.0} с, факторизация {tF:0.0} с ({sn.Analysis!.Flops / tF / 1e9:0.0} GFLOPS), " +
+                         $"решение {tS:0.00} с; SPD {sn.LastFactorizationSpd}, невязка {Residual(a, x, b):E2}");
+        if (Environment.GetEnvironmentVariable("CSFEA_PROBE_X") is { Length: > 0 } xPath)
+            File.WriteAllBytes(xPath, System.Runtime.InteropServices.MemoryMarshal.AsBytes(x.AsSpan()).ToArray());
+        if (Environment.GetEnvironmentVariable("CSFEA_PROBE_OLD") != "1") return;
+        sw.Restart();
+        var old = new SparseCholeskySolver();
+        old.AnalyzePattern(a);
+        tAn = sw.Elapsed.TotalSeconds;
+        old.Factorize(a);
+        tF = sw.Elapsed.TotalSeconds - tAn;
+        var xo = old.Solve(b);
+        double d = 0, nx = 0;
+        for (int i = 0; i < x.Length; i++) { d = Math.Max(d, Math.Abs(x[i] - xo[i])); nx = Math.Max(nx, Math.Abs(xo[i])); }
+        output.WriteLine($"  up-looking: анализ {tAn:0.0} с, факторизация {tF:0.0} с; max|Δx|/max|x| = {d / nx:E2}");
+    }
+
+    // Относительная невязка ‖A·x − b‖∞ / ‖b‖∞.
+    static double Residual(CscMatrix a, double[] x, double[] b)
+    {
+        var ax = a.Multiply(x);
+        double r = 0;
+        for (int i = 0; i < b.Length; i++) r = Math.Max(r, Math.Abs(ax[i] - b[i]));
+        return r / b.Max(Math.Abs);
+    }
+
+    // Симметричные значения по паре (min, max) индексов (односторонние элементы — нули) — какой бы элемент пары ни попал в верхний треугольник после
+    // перестановки, значение одно; диагональное преобладание по полной строке → SPD.
+    static CscMatrix SyntheticSpd(CscMatrix pattern)
+    {
+        int n = pattern.Cols;
+        var v = new double[pattern.Nnz];
+        var diag = new double[n];
+        var sorted = (int[])pattern.RowIdx.Clone();
+        for (int k = 0; k < n; k++) Array.Sort(sorted, pattern.ColPtr[k], pattern.ColPtr[k + 1] - pattern.ColPtr[k]);
+        for (int k = 0; k < n; k++)
+            for (int p = pattern.ColPtr[k]; p < pattern.ColPtr[k + 1]; p++)
+            {
+                int i = pattern.RowIdx[p];
+                if (i == k) continue;
+                // Элемент без симметричной пары — ноль (Холецкий видит только один из пары).
+                if (Array.BinarySearch(sorted, pattern.ColPtr[i], pattern.ColPtr[i + 1] - pattern.ColPtr[i], k) < 0) continue;
+                int lo = Math.Min(i, k), hi = Math.Max(i, k);
+                double h = ((uint)(lo * 73856093 ^ hi * 19349663) % 1000) / 1000.0 - 0.5;
+                v[p] = h;
+                diag[k] += Math.Abs(h);
+                diag[i] += Math.Abs(h);
+            }
+        for (int k = 0; k < n; k++)
+            for (int p = pattern.ColPtr[k]; p < pattern.ColPtr[k + 1]; p++)
+                if (pattern.RowIdx[p] == k) v[p] = diag[k] + 1.0;
+        return new CscMatrix(n, n, pattern.ColPtr, pattern.RowIdx, v);
     }
 
     /// <summary>Портрет из файла пробника; значения — единицы (для символики не нужны).</summary>
