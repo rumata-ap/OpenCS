@@ -118,7 +118,8 @@ public sealed class PlateLayoutResolver
         if (!_byCombination.TryGetValue(key, out var result))
             _byCombination[key] = result = Build(resolved, background, member.ElemTag, h, mirrored);
         if (element.LocalAxisAngleDeg is not double axisAngle)
-            return result;
+            // КЭ своей сетки («Построить сетку схемы»): расчёт выдаёт усилия в осях области — оси известны и совпадают.
+            return element.Origin == FemMember.MeshSourceImported ? result : result with { AxesKnown = true };
 
         // Ось выдачи усилий: узловая ось, повёрнутая на угол согласования вокруг нормали КЭ.
         double a = axisAngle * Math.PI / 180.0;

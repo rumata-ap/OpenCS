@@ -7000,6 +7000,23 @@ namespace OpenCS.Utilites
          return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
       }
 
+      /// <summary>Теги конструктивных элементов, чьи пластины уже материализованы в сетку схемы
+      /// («Построить сетку схемы»; импортные КЭ не в счёт).</summary>
+      public HashSet<string> GetFemMeshGeneratedShellMemberTags(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT DISTINCT source_member_tag FROM fem_elements
+            WHERE schema_id=@sid AND elem_type='shell' AND origin<>@origin AND source_member_tag IS NOT NULL
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@origin", CScore.Fem.FemMember.MeshSourceImported);
+         var tags = new HashSet<string>(StringComparer.Ordinal);
+         using var r = cmd.ExecuteReader();
+         while (r.Read()) tags.Add(r.GetString(0));
+         return tags;
+      }
+
       /// <summary>У схемы есть КЭ сетки, импортированные из внешней программы.</summary>
       public bool HasFemImportedMesh(int schemaId)
       {

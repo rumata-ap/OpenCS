@@ -467,6 +467,13 @@ public class Fem3DVM : ViewModelBase
         }
 
         if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;
+        // Сетка схемы могла только что принять пластины областей — их снимки больше не рисуются отдельно.
+        if (_edgeElements != null)
+        {
+            (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(_edgeElements);
+            OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
+        }
         if (linePoints.Count > 0)
             linePoints.Freeze();
         if (meshNodePoints.Count > 0)
@@ -985,11 +992,15 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Строит оверлей настоящей Gmsh-сетки (рёбра+узлы) для всех регионов схемы, у
     /// которых есть последний расчётный (IsCalculable) PlanarMeshSnapshot. Координаты берутся
     /// напрямую из PlanarMeshNode.X/Y/Z — они уже в глобальной системе (см.
-    /// GmshPlanarMesher.ParseMsh22), пересчёт через Frame не нужен.</summary>
+    /// GmshPlanarMesher.ParseMsh22), пересчёт через Frame не нужен. Области, уже материализованные в сетку
+    /// схемы, пропускаются: их КЭ рисует оверлей сетки схемы (<see cref="MeshLinePoints"/>) — иначе двойные рёбра
+    /// и узлы, а при устаревшей сетке схемы — две разные сетки поверх друг друга.</summary>
     (Point3DCollection? Edges, Point3DCollection? Nodes) BuildPlanarRegionMeshOverlay(List<FemMember> elements)
     {
+        if (!elements.Any(e => e.PlanarRegionId.HasValue)) return (null, null);
+        var materialized = _db.GetFemMeshGeneratedShellMemberTags(_schemaId);
         var regionIds = elements
-            .Where(e => e.PlanarRegionId.HasValue)
+            .Where(e => e.PlanarRegionId.HasValue && !materialized.Contains(e.ElemTag))
             .Select(e => e.PlanarRegionId!.Value)
             .Distinct()
             .ToList();
