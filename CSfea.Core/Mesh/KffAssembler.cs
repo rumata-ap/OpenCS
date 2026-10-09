@@ -8,6 +8,8 @@ namespace CSfea.Core;
 /// сохраняются — портрет не зависит от значений) и ячейка CSC для каждого коэффициента каждого КЭ. Каждая сборка —
 /// матрицы КЭ параллельно пачками и последовательная раскладка в фиксированном порядке (результат не зависит от числа
 /// потоков), без промежуточных COO. Пружины — тем же способом. Только при нулевых заданных перемещениях.
+/// КЭ с линейными сечениями (<see cref="StructuralMesh.ElementHasConstantStiffness"/>) складываются один раз в
+/// отдельный массив; каждая сборка копирует его и добавляет только переменные КЭ (в секущем расчёте — ЖБ-сечения).
 /// </summary>
 internal sealed class KffAssembler
 {
@@ -24,7 +26,14 @@ internal sealed class KffAssembler
     // Вклады КЭ: для КЭ без ведомых DOF — n² ячеек подряд (порядок (a, b) по строкам ke), −1 — закреплённая.
     // Для КЭ с ведомыми DOF — тройки (ячейка, индекс a·n + b, коэффициент tₐ·t_b).
     private readonly long[] _elemOffset;
+    private readonly long[] _linkedStart;   // начало троек КЭ с ведомыми DOF в _linkedAb/_linkedCoef
     private readonly bool[] _elemLinked;
+
+    // Вклад КЭ с постоянной матрицей (линейные сечения) — суммируется один раз; _constRecords — записи КЭ, по которым
+    // он собран (null — КЭ переменный). Сменилась запись или признак постоянства — вклад пересобирается.
+    private double[]? _constValues;
+    private object?[]? _constRecords;
+    private int[] _variable = [];
     private readonly int[] _slots;
     private readonly int[] _linkedAb;
     private readonly double[] _linkedCoef;
@@ -112,6 +121,7 @@ internal sealed class KffAssembler
 
         // Проход 3: ячейки вкладов КЭ.
         _elemOffset = new long[nElem + 1];
+        _linkedStart = new long[nElem];
         _elemLinked = new bool[nElem];
         long plain = 0, linked = 0;
         for (int e = 0; e < nElem; e++)
@@ -128,6 +138,7 @@ internal sealed class KffAssembler
         for (int e = 0; e < nElem; e++)
         {
             _elemOffset[e] = q;
+            _linkedStart[e] = lq;
             var dofs = mesh.ElementDofs(e);
             if (!_elemLinked[e])
             {
@@ -187,42 +198,10 @@ internal sealed class KffAssembler
     /// </summary>
     public CscMatrix Assemble(int maxDegreeOfParallelism)
     {
-        Array.Clear(_values);
-        var mesh = _mesh;
-        int nElem = mesh.ElementCount;
-        var ke = new double[Math.Min(Batch, nElem)][,];
         var po = new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism };
-        long lq = 0;
-        for (int e0 = 0; e0 < nElem; e0 += Batch)
-        {
-            int count = Math.Min(Batch, nElem - e0);
-            Parallel.For(0, count, po, i => ke[i] = mesh.ElementK(e0 + i));
-            for (int i = 0; i < count; i++)
-            {
-                int e = e0 + i;
-                var m = ke[i];
-                int n = m.GetLength(0);
-                long q = _elemOffset[e];
-                if (!_elemLinked[e])
-                {
-                    for (int a = 0; a < n; a++)
-                        for (int b = 0; b < n; b++, q++)
-                        {
-                            int s = _slots[q];
-                            if (s >= 0) _values[s] += m[a, b];
-                        }
-                }
-                else
-                    for (; q < _elemOffset[e + 1]; q++, lq++)
-                    {
-                        int s = _slots[q];
-                        if (s < 0) continue;
-                        int ab = _linkedAb[lq];
-                        _values[s] += _linkedCoef[lq] * m[ab / n, ab % n];
-                    }
-                ke[i] = null!;
-            }
-        }
+        if (!ConstantPartValid()) BuildConstantPart(po);
+        Array.Copy(_constValues!, _values, _values.Length);
+        AddElements(_variable, _values, po);
 
         var springs = _bc.AssembleKSpring().ToCsc();
         for (int p = 0; p < springs.Nnz; p++)
@@ -232,5 +211,81 @@ internal sealed class KffAssembler
                 if (s >= 0) _values[s] += _springCoef[t] * springs.Values[p];
             }
         return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
+    }
+
+    /// <summary>Число КЭ, пересобираемых при каждой сборке (переменные матрицы); остальные — из кэша.</summary>
+    public int VariableElements => _variable.Length;
+
+    private bool ConstantPartValid()
+    {
+        if (_constValues == null) return false;
+        for (int e = 0; e < _constRecords!.Length; e++)
+        {
+            bool constant = _mesh.ElementHasConstantStiffness(e);
+            if (constant != (_constRecords[e] != null)) return false;
+            if (constant && !ReferenceEquals(_constRecords[e], _mesh.ElementRecord(e))) return false;
+        }
+        return true;
+    }
+
+    private void BuildConstantPart(ParallelOptions po)
+    {
+        int nElem = _mesh.ElementCount;
+        var records = new object?[nElem];
+        var constant = new List<int>();
+        var variable = new List<int>();
+        for (int e = 0; e < nElem; e++)
+        {
+            if (_mesh.ElementHasConstantStiffness(e))
+            {
+                records[e] = _mesh.ElementRecord(e);
+                constant.Add(e);
+            }
+            else variable.Add(e);
+        }
+        _constValues = null;
+        var values = new double[_values.Length];
+        AddElements(constant.ToArray(), values, po);
+        (_constValues, _constRecords, _variable) = (values, records, variable.ToArray());
+    }
+
+    // Матрицы КЭ из списка — параллельно пачками, раскладка последовательно в порядке списка.
+    private void AddElements(int[] elems, double[] values, ParallelOptions po)
+    {
+        var mesh = _mesh;
+        var ke = new double[Math.Min(Batch, elems.Length)][,];
+        for (int i0 = 0; i0 < elems.Length; i0 += Batch)
+        {
+            int count = Math.Min(Batch, elems.Length - i0);
+            Parallel.For(0, count, po, i => ke[i] = mesh.ElementK(elems[i0 + i]));
+            for (int i = 0; i < count; i++)
+            {
+                Scatter(elems[i0 + i], ke[i], values);
+                ke[i] = null!;
+            }
+        }
+    }
+
+    private void Scatter(int e, double[,] m, double[] values)
+    {
+        int n = m.GetLength(0);
+        long q = _elemOffset[e];
+        if (!_elemLinked[e])
+        {
+            for (int a = 0; a < n; a++)
+                for (int b = 0; b < n; b++, q++)
+                {
+                    int s = _slots[q];
+                    if (s >= 0) values[s] += m[a, b];
+                }
+            return;
+        }
+        for (long lq = _linkedStart[e]; q < _elemOffset[e + 1]; q++, lq++)
+        {
+            int s = _slots[q];
+            if (s < 0) continue;
+            int ab = _linkedAb[lq];
+            values[s] += _linkedCoef[lq] * m[ab / n, ab % n];
+        }
     }
 }

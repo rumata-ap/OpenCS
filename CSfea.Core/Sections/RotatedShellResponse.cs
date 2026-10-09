@@ -59,4 +59,6 @@ public sealed class RotatedShellResponse : IShellSectionResponse
     public void Commit() => Inner.Commit();
 
     public void Reset() => Inner.Reset();
+
+    public bool IsConstantStiffness => Inner.IsConstantStiffness;
 }

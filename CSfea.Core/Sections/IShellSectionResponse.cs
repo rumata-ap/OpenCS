@@ -27,4 +27,10 @@ public interface IShellSectionResponse
 
     /// <summary>Сбросить состояние.</summary>
     void Reset();
+
+    /// <summary>
+    /// Касательная не зависит от деформаций и не меняется со временем (линейное сечение): матрицу КЭ при u = 0 можно
+    /// посчитать один раз (<see cref="StructuralMesh.SolveLinear(double[], BoundaryConditions)"/> кэширует вклад таких КЭ).
+    /// </summary>
+    bool IsConstantStiffness => false;
 }

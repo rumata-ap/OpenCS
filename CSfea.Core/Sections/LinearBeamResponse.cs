@@ -51,4 +51,6 @@ public sealed class LinearBeamResponse : IBeamSectionResponse
     public void Commit() { }
 
     public void Reset() { }
+
+    public bool IsConstantStiffness => true;
 }

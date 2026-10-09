@@ -2,6 +2,9 @@ using CSfea.Sparse;
 
 namespace CSfea.Core;
 
+/// <summary>Фазы линейного решения, с: сборка K_ff, численная факторизация, всё решение (с подстановками).</summary>
+public sealed record LinearSolveTimings(double Assemble, double Factorize, double Total);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -124,6 +127,16 @@ public sealed class StructuralMesh : IFeaMesh
         return BeamElements.Beam3dKGlobal(BeamCoords(i), b.Section, b.RefVec, b.Releases);
     }
 
+    /// <summary>
+    /// Запись КЭ единой нумерации (неизменяемая): та же ссылка — те же узлы, сечение и шарниры. Вместе с
+    /// <see cref="ElementHasConstantStiffness"/> — ключ кэша матрицы КЭ.
+    /// </summary>
+    internal object ElementRecord(int e) => e < Shells.Count ? Shells[e] : Beams[e - Shells.Count];
+
+    /// <summary>Матрица КЭ не меняется от решения к решению (линейное сечение).</summary>
+    public bool ElementHasConstantStiffness(int e)
+        => e < Shells.Count ? Shells[e].Section.IsConstantStiffness : Beams[e - Shells.Count].Section.IsConstantStiffness;
+
     /// <summary>Линейная K (COO): оболочки — касательная при u = 0, стержни — линейный КЭ.</summary>
     public CooMatrix AssembleK()
     {
@@ -227,12 +240,16 @@ public sealed class StructuralMesh : IFeaMesh
             lock (_cholGate)
             {
                 // Нулевые заданные перемещения: K_ff собирается сразу по постоянному портрету.
+                var clock = System.Diagnostics.Stopwatch.StartNew();
                 var asm = Assembler(bc, fixedSys);
                 var kff = asm.Assemble(MaxDegreeOfParallelism);
+                double tAssemble = clock.Elapsed.TotalSeconds;
                 var fSys = SysVector(f);
                 var fmod = Array.ConvertAll(asm.Free, d => fSys[d]);
                 var u = SolveSymmetric(kff, fmod, asm.Free);
-                return Full(DirichletReducer.Expand(NSys, asm.Free, u, fixedSys, bc.UFixed));
+                var res = Full(DirichletReducer.Expand(NSys, asm.Free, u, fixedSys, bc.UFixed));
+                LastSolveTimings = new LinearSolveTimings(tAssemble, _lastFactorSeconds, clock.Elapsed.TotalSeconds);
+                return res;
             }
         var k = AssembleK();
         var kSpring = bc.AssembleKSpring();
@@ -531,6 +548,11 @@ public sealed class StructuralMesh : IFeaMesh
     /// <summary>Сколько раз выполнялся символический анализ Холецкого (для диагностики кэша).</summary>
     public int CholeskyAnalyses { get; private set; }
 
+    /// <summary>Фазы последнего <see cref="SolveLinear(double[], BoundaryConditions)"/> по постоянному портрету (null — не было).</summary>
+    public LinearSolveTimings? LastSolveTimings { get; private set; }
+
+    private double _lastFactorSeconds;
+
     private SupernodalCholeskySolver FactorizeCached(CscMatrix a)
     {
         if (_chol == null || !a.ColPtr.AsSpan().SequenceEqual(_cholColPtr) || !a.RowIdx.AsSpan().SequenceEqual(_cholRowIdx))
@@ -544,7 +566,9 @@ public sealed class StructuralMesh : IFeaMesh
             (_chol, _cholColPtr, _cholRowIdx) = (chol, a.ColPtr, a.RowIdx);
             CholeskyAnalyses++;
         }
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         _chol.Factorize(a);
+        _lastFactorSeconds = clock.Elapsed.TotalSeconds;
         return _chol;
     }
 

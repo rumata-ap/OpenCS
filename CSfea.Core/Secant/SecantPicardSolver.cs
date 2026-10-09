@@ -413,7 +413,7 @@ public sealed class SecantPicardSolver
             onIteration?.Invoke(record);
             Log($"  ст.{stage} шаг {step} λ={lambda:0.####} ит.{it,2}: ω={applied:0.###} ‖Δu‖/‖u‖={du:e2} " +
                 $"ΔW={dK:e2}{(double.IsNaN(residual) ? "" : $" невязка={residual:e2}")} трещин {cracked}, " +
-                $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с, сечения {tEval:0.0} с");
+                $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с{SolveDetail()}, сечения {tEval:0.0} с");
 
             Relax(shellTargets, beamT, beamShearT, applied);
             if (converged)
@@ -431,6 +431,11 @@ public sealed class SecantPicardSolver
         return new Attempt(false, _o.MaxIterations, double.IsNaN(residual) ? TrueResidual(f, uPrev) : residual,
             uPrev, shellStatus, beamStatus);
     }
+
+    // Раскладка линейного решения по фазам (только линейный путь по постоянному портрету).
+    private string SolveDetail() => !_o.Geometric && _mesh.LastSolveTimings is { } t
+        ? $" (сборка {t.Assemble:0.0}, факторизация {t.Factorize:0.0}, прочее {t.Total - t.Assemble - t.Factorize:0.0})"
+        : "";
 
     /// <summary>Решение с замороженными секущими: линейное или (геометрическая нелинейность) Ньютон от <paramref name="uFrom"/>.</summary>
     private double[]? SolveFrozen(double[] f, double[] uFrom, out string? why)

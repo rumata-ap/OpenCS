@@ -40,4 +40,6 @@ public sealed class LinearLaminateResponse : IShellSectionResponse
     public void Commit() { }
 
     public void Reset() { }
+
+    public bool IsConstantStiffness => true;
 }

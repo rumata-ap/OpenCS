@@ -28,4 +28,7 @@ public interface IBeamSectionResponse
 
     /// <summary>Сбросить состояние.</summary>
     void Reset();
+
+    /// <summary>Касательная и GJ не зависят от деформаций и не меняются (см. <see cref="IShellSectionResponse.IsConstantStiffness"/>).</summary>
+    bool IsConstantStiffness => false;
 }
