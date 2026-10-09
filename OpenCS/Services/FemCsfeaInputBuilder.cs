@@ -241,7 +241,9 @@ public static class FemCsfeaInputBuilder
 
     /// <summary>
     /// Сечения CScore стержневых КЭ по тегу: сечение КЭ, иначе КонЭ; клон с материалами и диаграммами — один на
-    /// сечение. GJ — по <see cref="ProjectElementStiffnessSource"/> (ручное значение, иначе Ix + Iy).
+    /// сечение. GJ — по <see cref="ProjectElementStiffnessSource"/> (ручное значение, иначе Ix + Iy) над подготовленными
+    /// клонами: характеристики считаются по волокнам, а у сечений из БД их нет — GJ был бы нулём (механизм кручения у
+    /// цепочки стержней без плит).
     /// </summary>
     static Dictionary<string, FemRcBeamCross> BeamSections(DatabaseService db, FemCheckSchemaData data,
         IReadOnlyDictionary<int, Material> materials, List<FemValidationDiagnostic> diag)
@@ -251,11 +253,11 @@ public static class FemCsfeaInputBuilder
         foreach (var m in data.Members) memberByTag.TryAdd(m.ElemTag, m);
         var sections = new Dictionary<int, CrossSection>();
         foreach (var s in db.CrossSections) sections.TryAdd(s.Id, s);
-        var gj = new ProjectElementStiffnessSource(data.Members, db.CrossSections, [], materials.Values);
 
         var prepared = new Dictionary<int, CrossSection?>();
         var missing = new List<string>();
         var saintVenant = new List<string>();
+        var bars = new List<(FemElement Element, CrossSection Section, int Id)>();
         foreach (var e in data.Mesh.Where(e => e.ElemType == "beam"))
         {
             var member = e.SourceMemberTag is { } tag ? memberByTag.GetValueOrDefault(tag) : null;
@@ -281,6 +283,11 @@ public static class FemCsfeaInputBuilder
             if (cs == null) { missing.Add(e.ElemTag); continue; }
             string strategy = e.CrossSectionId != null || member == null ? e.GjStrategy : member.GjStrategy;
             if (strategy == "saint_venant") saintVenant.Add(e.ElemTag);
+            bars.Add((e, cs, id));
+        }
+        var gj = new ProjectElementStiffnessSource(data.Members, prepared.Values.OfType<CrossSection>(), [], materials.Values);
+        foreach (var (e, cs, id) in bars)
+        {
             double torsion = gj.Bar(e) is { } b ? b.G * b.J : 0;
             result[e.ElemTag] = new FemRcBeamCross(cs, string.Create(CultureInfo.InvariantCulture, $"cs{id}|{torsion:R}"), torsion);
         }

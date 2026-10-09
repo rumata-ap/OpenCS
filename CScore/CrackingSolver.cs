@@ -492,6 +492,9 @@ public sealed class CrackingSolver
         return (plane, MaxTensionStrainInLoadedZone(plane), true);
     }
 
+    /// <summary>Есть ли в сечении бетон: без него нет ни трещин, ни ε_bt,ult (например, стальной профиль).</summary>
+    public static bool HasConcrete(CrossSection section) => section.Areas.Any(IsConcreteArea);
+
     static bool IsConcreteArea(MaterialArea area) =>
         area.Material?.Type == MatType.Concrete ||
         (area.Material?.Type == MatType.Custom && area.Material.BaseType == MatType.Concrete);

@@ -56,6 +56,33 @@ public sealed class ProjectElementStiffnessSourceTests
     }
 
     [Fact]
+    public void Bar_ContourAreaWithoutFibers_HullMinusHoles()
+    {
+        // Стальная квадратная труба 0,14×0,14, стенка 5 мм, без сетки волокон (интегрируется по контуру, как профиль
+        // из каталога): характеристики — по контурам, J = Iy + Iz > 0 (раньше Bar был null и GJ стержня — нулём).
+        var steel = SectionCutFixtures.BuildSteelMaterial();
+        double o = 0.07, i = 0.065;
+        var hull = new Contour([-o, o, o, -o, -o], [-o, -o, o, o, -o], "outer") { Type = ContourType.Hull };
+        var hole = new Contour([-i, i, i, -i, -i], [-i, -i, i, i, -i], "inner") { Type = ContourType.Hole };
+        var area = new MaterialArea
+        {
+            Id = 1, Tag = "tube", Category = AreaCategory.Region, Material = steel, MaterialId = steel.Id,
+            DiagrammType = DiagrammType.L2, Contours = [hull, hole],
+        };
+        area.Hull = hull;
+        var section = new CrossSection { Id = 11, Tag = "tube", Areas = [area] };
+        var src = new ProjectElementStiffnessSource([], [section], [], [steel]);
+
+        var bar = src.Bar(Beam("", section: 11));
+        Assert.NotNull(bar);
+        double a = 4 * (o * o - i * i), inertia = (Math.Pow(2 * o, 4) - Math.Pow(2 * i, 4)) / 12;
+        Assert.Equal(a, bar!.A, 9);
+        Assert.Equal(inertia, bar.Iy, 9);
+        Assert.Equal(inertia, bar.Iz, 9);
+        Assert.Equal(2 * inertia, bar.J, 9);
+    }
+
+    [Fact]
     public void Bar_SaintVenant_FromTorsionTask()
     {
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.5);

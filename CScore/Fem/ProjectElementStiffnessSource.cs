@@ -102,7 +102,15 @@ public sealed class ProjectElementStiffnessSource : IFemElementStiffnessSource
             if (!MaterialArea.IsCalcActive(area)) continue;
             var material = area.Material ?? _materials.GetValueOrDefault(area.MaterialId);
             if (material is not { E: > 0 }) continue;
-            var p = new GeoProps(area, material.E * KPa);
+            double em = material.E * KPa;
+            // Область без сеточных волокон (интегрируется по контуру — например, стальной профиль) — внешний контур
+            // минус отверстия, как CrossSection.ElasticProps; иначе характеристики по волокнам были бы нулевыми.
+            var p = new GeoProps(area, em);
+            if (area.Hull != null && !area.Fibers.Any(f => f.TypeFiber != FiberType.point))
+            {
+                p = p + new GeoProps(area.Hull, em);
+                foreach (var hole in area.Holes) p = p - new GeoProps(hole, em);
+            }
             total += p;
             bool concrete = IsConcrete(material);
             weight += p.A * (concrete ? ConcreteUnitWeight : SteelUnitWeight);

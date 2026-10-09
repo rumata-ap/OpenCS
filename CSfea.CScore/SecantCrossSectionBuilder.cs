@@ -71,10 +71,11 @@ public static class SecantCrossSectionBuilder
     /// Есть ли в сечении трещина при плоскости <paramref name="k"/>: растягивающая деформация бетона
     /// на контуре дошла до ε_bt,ult (критерий <see cref="CrackingSolver"/>). Целиком сжатое сечение
     /// (например, при внецентренном сжатии с малым эксцентриситетом) трещины не имеет — ψs к нему
-    /// не применяется.
+    /// не применяется. Сечение без бетона (стальной профиль) не трескается.
     /// </summary>
     public static bool IsCracked(CrossSection section, Kurvature k, CalcType calcCrc)
     {
+        if (!CrackingSolver.HasConcrete(section)) return false;
         var solver = new CrackingSolver(section, calcCrc);
         return solver.MaxTensionStrain(k) >= solver.TensionLimit();
     }
