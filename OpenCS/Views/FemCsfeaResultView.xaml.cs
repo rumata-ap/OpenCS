@@ -141,16 +141,7 @@ public partial class FemCsfeaResultView : UserControl
         int? elem = null;
         var hit = VisualTreeHelper.HitTest(viewport.Viewport, e.GetPosition(viewport.Viewport)) as RayMeshGeometry3DHitTestResult;
         if (hit?.ModelHit is GeometryModel3D model && _patchByModel.TryGetValue(model, out var patch))
-        {
-            // Номер треугольника — по первому индексу вершины в TriangleIndices.
-            var idx = hit.MeshHit.TriangleIndices;
-            for (int t = 0; 3 * t + 2 < idx.Count; t++)
-                if (idx[3 * t] == hit.VertexIndex1 && idx[3 * t + 1] == hit.VertexIndex2 && idx[3 * t + 2] == hit.VertexIndex3)
-                {
-                    elem = FemCsfeaResultVM.ElementOf(patch, t);
-                    break;
-                }
-        }
+            elem = FemCsfeaResultVM.ElementOf(patch, hit.VertexIndex1);
         _vm.SetHover(elem);
     }
 }

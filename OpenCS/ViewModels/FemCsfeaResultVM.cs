@@ -428,8 +428,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     readonly Dictionary<int, double> _mosaicValues = new();
     readonly Dictionary<int, Color> _mosaicColors = new();
 
-    /// <summary>Пластины одного цвета: цвет, КЭ (по порядку треугольников — по два на четырёхугольник).</summary>
-    public sealed record ShellPatch(Color Color, MeshGeometry3D Mesh, IReadOnlyList<int> TriangleElements);
+    /// <summary>
+    /// Пластины одного цвета: цвет, КЭ по треугольникам (по два на четырёхугольник) и по вершинам (у каждого КЭ свои
+    /// вершины — КЭ под курсором находится по вершине треугольника без перебора).
+    /// </summary>
+    public sealed record ShellPatch(Color Color, MeshGeometry3D Mesh, IReadOnlyList<int> TriangleElements,
+        IReadOnlyList<int> VertexElements);
 
     public IReadOnlyList<ShellPatch> ShellPatches { get; private set; } = [];
 
@@ -515,13 +519,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     void RebuildShellMeshes()
     {
-        var groups = new Dictionary<Color, (MeshGeometry3D Mesh, List<int> Elements)>();
+        var groups = new Dictionary<Color, (MeshGeometry3D Mesh, List<int> Elements, List<int> Vertices)>();
         foreach (var (tag, c) in _shells)
         {
             var color = _mosaicColors.TryGetValue(tag, out var mc) ? mc : IsActive ? Fem3DVM.ShellBgColor : ShellColor;
-            if (!groups.TryGetValue(color, out var g)) groups[color] = g = (new MeshGeometry3D(), new List<int>());
+            if (!groups.TryGetValue(color, out var g)) groups[color] = g = (new MeshGeometry3D(), new List<int>(), new List<int>());
             int n0 = g.Mesh.Positions.Count;
-            foreach (int node in c) g.Mesh.Positions.Add(Position(node));
+            foreach (int node in c) { g.Mesh.Positions.Add(Position(node)); g.Vertices.Add(tag); }
             for (int k = 1; k + 1 < c.Length; k++)
             {
                 g.Mesh.TriangleIndices.Add(n0); g.Mesh.TriangleIndices.Add(n0 + k); g.Mesh.TriangleIndices.Add(n0 + k + 1);
@@ -531,7 +535,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         ShellPatches = groups.Select(kv =>
         {
             kv.Value.Mesh.Freeze();
-            return new ShellPatch(kv.Key, kv.Value.Mesh, kv.Value.Elements);
+            return new ShellPatch(kv.Key, kv.Value.Mesh, kv.Value.Elements, kv.Value.Vertices);
         }).ToList();
         OnPropertyChanged(nameof(ShellPatches));
     }
@@ -644,7 +648,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return (new Vector3D(frame.Y.X, frame.Y.Y, frame.Y.Z), new Vector3D(frame.Z.X, frame.Z.Y, frame.Z.Z));
     }
 
-    /// <summary>Номер КЭ пластины по треугольнику патча (для наведения).</summary>
-    public static int? ElementOf(ShellPatch patch, int triangle) =>
-        triangle >= 0 && triangle < patch.TriangleElements.Count ? patch.TriangleElements[triangle] : null;
+    /// <summary>Номер КЭ пластины по вершине патча (для наведения).</summary>
+    public static int? ElementOf(ShellPatch patch, int vertex) =>
+        vertex >= 0 && vertex < patch.VertexElements.Count ? patch.VertexElements[vertex] : null;
 }
