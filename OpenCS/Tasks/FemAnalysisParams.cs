@@ -172,7 +172,7 @@ public sealed class FemCsfeaParams
     public bool BeamShear { get; set; } = true;
     /// <summary>ν бетона до трещины; null — как в сечении.</summary>
     public double? PoissonUncracked { get; set; }
-    /// <summary>Геометрическая нелинейность (оболочки — фон Карман, стержни — CR).</summary>
+    /// <summary>Геометрическая нелинейность (оболочки и стержни — CR).</summary>
     public bool GeomNonlinear { get; set; }
 
     /// <summary>Наибольшее число итераций Пикара на шаге.</summary>

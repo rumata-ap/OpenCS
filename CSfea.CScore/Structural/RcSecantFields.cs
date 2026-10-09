@@ -91,7 +91,9 @@ public sealed class RcSecantFieldExtractor
             var sh = mesh.Shells[e];
             var dofs = StructuralMesh.NodeDofs(sh.Nodes);
             var ue = dofs.Select(d => u[d]).ToArray();
-            var (eps, kappa, gamma) = ShellElementForces.CenterStrainsGlobal(mesh.ShellCoords(e), ue, _geometric);
+            var (eps, kappa, gamma) = _geometric
+                ? ShellCorotational.CenterStrainsCR(mesh.ShellCoords(e), ue)
+                : ShellElementForces.CenterStrainsGlobal(mesh.ShellCoords(e), ue);
             IShellSectionResponse sec = sh.Section;
             if (sec is RotatedShellResponse rot)
             {

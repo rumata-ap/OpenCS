@@ -18,6 +18,7 @@ public class CrShellTangentTests
     {
         RunTangentMatchesForces();
         RunWallNewton();
+        RunWallSecantPicard();
     }
 
     /// <summary>K_T·δ сетки = центральная разность F_int по направлению δ при больших поворотах и сжатии.</summary>
@@ -87,6 +88,52 @@ public class CrShellTangentTests
         }
     }
 
+    /// <summary>
+    /// Та же стена в секущем расчёте Пикара с геометрической нелинейностью (упругое сечение в секущей обёртке):
+    /// прогиб = прямой CR-Ньютон, т. е. P-Δ в плоскости стены учтён (фон Карман давал линейные 24,4 мм).
+    /// </summary>
+    private static void RunWallSecantPicard()
+    {
+        TestHarness.Section("CR-оболочки: секущий Пикар с геомнелином — стена, сжатая в плоскости");
+        double pcr = Math.PI * Math.PI * E * (T * B * B * B / 12.0) / (4.0 * H * H);
+        var abd = new LinearLaminateResponse(PlateBuilder.Plate(E, Nu, T)).Tangent(new double[3], new double[3], new double[2]);
+        foreach (double ratio in new[] { 0.5, 0.7 })
+        {
+            double p = ratio * pcr;
+            var (direct, bcDirect) = Wall();
+            var f = TopLoad(direct, -p, 0.01 * p);
+            var (uDirect, _) = direct.SolveNonlinear(f, bcDirect, nSteps: 1, tol: 1e-10, maxIter: 40, corotational: true,
+                lineSearch: false);
+
+            var (wall, _) = Wall();
+            var states = new ISecantShellState?[wall.Shells.Count];
+            var shells = new List<StructuralShell>();
+            for (int e = 0; e < wall.Shells.Count; e++)
+            {
+                var st = new ConstantShellState(abd);
+                states[e] = st;
+                shells.Add(new StructuralShell(wall.Shells[e].Nodes, st.Response));
+            }
+            var mesh = new StructuralMesh(wall.Nodes, shells, null);
+            var (_, bc) = WallBc(mesh);
+            var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
+                new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-10 }).Run([new SecantLoadStage("P", f, 2)]);
+            var end = res.StageEnd(0);
+            TestHarness.Check($"P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
+            if (end == null) continue;
+            TestHarness.CheckRel($"P = {ratio}·P_cr: ux = прямой CR-Ньютон", TopUx(mesh, end.U), TopUx(direct, uDirect), 1e-5);
+        }
+    }
+
+    sealed class ConstantShellState(ShellTangent t) : ISecantShellState
+    {
+        public SecantShellResponse Response { get; } = new(t);
+        public ShellTangent Initial => t;
+        public SecantShellEvaluation Evaluate(double[] epsM, double[] kappa, double[] gamma) => new(t, default);
+        public ShellForces TrueForces(double[] epsM, double[] kappa, double[] gamma) => Response.Forces(epsM, kappa, gamma);
+        public void Commit() { }
+        public void Revert() { }
+    }
     // Узлы сетки: i — по ширине (x), j — по высоте (z); стена в плоскости XZ.
     private static int Node(int i, int j) => j * (Nx + 1) + i;
 
@@ -101,11 +148,16 @@ public class CrShellTangentTests
         for (int j = 0; j < Nz; j++)
             for (int i = 0; i < Nx; i++)
                 shells.Add(new StructuralShell([Node(i, j), Node(i + 1, j), Node(i + 1, j + 1), Node(i, j + 1)], section));
-        var mesh = new StructuralMesh(nodes, shells, null);
+        return WallBc(new StructuralMesh(nodes, shells, null));
+    }
+
+    // Заделка низа, из плоскости uy = 0 во всех узлах.
+    private static (StructuralMesh Mesh, BoundaryConditions Bc) WallBc(StructuralMesh mesh)
+    {
         var fixedDofs = new SortedSet<int>();
         for (int i = 0; i <= Nx; i++)
             for (int c = 0; c < 6; c++) fixedDofs.Add(6 * Node(i, 0) + c);
-        for (int n = 0; n < nodes.Length; n++) fixedDofs.Add(6 * n + 1);
+        for (int n = 0; n < mesh.NNodes; n++) fixedDofs.Add(6 * n + 1);
         return (mesh, BoundaryConditions.FromArrays(mesh, fixedDofs.ToArray()));
     }
 

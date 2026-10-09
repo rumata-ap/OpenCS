@@ -173,7 +173,17 @@ public static class ShellElementForces
         var (xy, _, _) = ShellGeometry.ProjectToLocal(coords);
         int n = coords.Length;
         var t = ShellGeometry.BuildTMatrix(ShellGeometry.LocalFrame(coords), n);
-        var uLoc = Dense.MatTVec(t, uGlobal);
+        return CenterStrainsLocal(xy, Dense.MatTVec(t, uGlobal), vonKarman);
+    }
+
+    /// <summary>
+    /// Обобщённые деформации в центре КЭ по локальным координатам узлов <paramref name="xy"/> (n×2) и локальным 5n
+    /// перемещениям — см. <see cref="CenterStrainsGlobal"/>.
+    /// </summary>
+    public static (double[] EpsM, double[] Kappa, double[] Gamma) CenterStrainsLocal(
+        double[,] xy, double[] uLoc, bool vonKarman)
+    {
+        int n = xy.GetLength(0);
         double[,] bm, bb, bs, gMat;
         if (n == 4)
         {

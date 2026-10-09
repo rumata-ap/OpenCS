@@ -90,7 +90,7 @@ public sealed class SecantPicardOptions
     /// </summary>
     public double TolStiffness { get; init; } = 1e-3;
 
-    /// <summary>Геометрическая нелинейность: оболочки — фон Карман, стержни — CR, при замороженных секущих.</summary>
+    /// <summary>Геометрическая нелинейность: оболочки и стержни — CR, при замороженных секущих.</summary>
     public bool Geometric { get; init; }
 
     /// <summary>
@@ -464,7 +464,7 @@ public sealed class SecantPicardSolver
         {
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
             var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance, maxIter: 30,
-                corotational: false, u0: uFrom, f0: f);
+                corotational: true, u0: uFrom, f0: f);
             if (!history.AllConverged()) why = "Ньютон геометрической нелинейности не сошёлся";
             return why == null ? u : null;
         }
@@ -659,7 +659,9 @@ public sealed class SecantPicardSolver
     private (double[] Eps, double[] Kappa, double[] Gamma) ShellStrains(int e, double[] u)
     {
         var dofs = StructuralMesh.NodeDofs(_mesh.Shells[e].Nodes);
-        var (eps, kappa, gamma) = ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs), _o.Geometric);
+        var (eps, kappa, gamma) = _o.Geometric
+            ? ShellCorotational.CenterStrainsCR(_mesh.ShellCoords(e), Gather(u, dofs))
+            : ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs));
         return _mesh.Shells[e].Section is RotatedShellResponse rot ? rot.ToSection(eps, kappa, gamma) : (eps, kappa, gamma);
     }
 
@@ -699,7 +701,7 @@ public sealed class SecantPicardSolver
     /// Истинная невязка ‖F − F_int,true‖ (<see cref="StructuralMesh.RelativeResidual"/>): узловые моменты — делённые на
     /// средний размер КЭ, масштаб — наибольшее из ‖F‖ и ‖Σ|F_int,e|‖ (у плиты небаланс мембранных усилий и моментов
     /// несопоставим с вертикальной нагрузкой: её уравновешивает упругая поперечная сила). Оболочки — истинные законы
-    /// в точках Гаусса 2 × 2 (кинематика линейная или фон Карман); стержни и КЭ без нелинейного закона — по своему
+    /// в точках Гаусса 2 × 2 (кинематика линейная или CR); стержни и КЭ без нелинейного закона — по своему
     /// сечению в сетке.
     /// </summary>
     private double TrueResidual(double[] f, double[] u)
@@ -714,7 +716,9 @@ public sealed class SecantPicardSolver
                 IShellSectionResponse tr = new TrueShellResponse(st);
                 sec = _shellAngle[e] is { } a ? new RotatedShellResponse(tr, a[0]) : tr;
             }
-            parts[e] = ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), _o.Geometric);
+            parts[e] = _o.Geometric
+                ? ShellCorotational.ElementFCR(_mesh.ShellCoords(e), sec, Gather(u, dofs))
+                : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: false);
         });
         var fInt = new double[_mesh.NDof];
         var fAbs = new double[_mesh.NDof];

@@ -54,6 +54,16 @@ public static class ShellCorotational
         return ProjectToGlobal(ShellElementForces.FInternalLocal(xyLocal, section, uLoc5), p, rr);
     }
 
+    /// <summary>
+    /// Обобщённые деформации центра CR-элемента в локальных осях (как у сечения при u = 0): деформационные перемещения
+    /// повёрнутого базиса и проектора, затем кинематика фон Кармана локального КЭ — та же, что в <see cref="ElementFCR"/>.
+    /// </summary>
+    public static (double[] EpsM, double[] Kappa, double[] Gamma) CenterStrainsCR(double[][] coordsRef, double[] uGlobal)
+    {
+        var (xyLocal, uLoc5, _, _) = Kinematics(coordsRef, uGlobal);
+        return ShellElementForces.CenterStrainsLocal(xyLocal, uLoc5, vonKarman: true);
+    }
+
     /// <summary>Относительный шаг центральных разностей <see cref="ElementNumericalTangentCR"/> (к max(‖u_e‖, 1)).</summary>
     public const double NumericalTangentStep = 1e-6;
 

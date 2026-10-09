@@ -2755,7 +2755,7 @@
     <system:String x:Key="FemCsfeaBeamShearLabel">Сдвиг стержней по хомутам</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Сдвиговые деформации стержней (КЭ Тимошенко): секущая жёсткость GAv по хомутам сечения.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Геометрическая нелинейность</system:String>
-    <system:String x:Key="FemCsfeaGeomNonlinearTip">Пластины — фон Карман, стержни — коротационная формулировка.</system:String>
+    <system:String x:Key="FemCsfeaGeomNonlinearTip">Пластины и стержни — коротационная формулировка (большие повороты, P-Δ в плоскости и из плоскости).</system:String>
     <system:String x:Key="FemCsfeaIterationsGroup">Итерации (Пикар)</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsLabel">Итераций на шаг, не более</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsInvalid">Число итераций — целое ≥ 1.</system:String>
