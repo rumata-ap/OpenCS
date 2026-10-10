@@ -76,6 +76,18 @@ public sealed class SecantPicardOptions
     /// <summary>Наибольшее число итераций на шаге.</summary>
     public int MaxIterations { get; init; } = 50;
 
+    /// <summary>
+    /// Продление итераций шага, который держится у допуска: если за последние MaxIterations/2 итераций изменение
+    /// жёсткостей и полный шаг ‖Δu‖/‖u‖ хотя бы раз были в пределах <see cref="NearToleranceFactor"/> допусков и число
+    /// сечений с отказом не растёт, шаг не отвергается и идёт до MaxIterations·<see cref="IterationExtension"/> итераций.
+    /// Так сходятся шаги, где секущие колеблются у нулевой деформации (нулевая точка эпюры моментов на узле сетки);
+    /// без продления несходимость такого шага принималась за предельную нагрузку. 1 — без продления.
+    /// </summary>
+    public int IterationExtension { get; init; } = 6;
+
+    /// <summary>Во сколько раз меры сходимости могут превышать допуски у шага, которому продлеваются итерации.</summary>
+    public double NearToleranceFactor { get; init; } = 10.0;
+
     /// <summary>Начальный коэффициент релаксации жёсткостей и границы Эйткена.</summary>
     public double Omega0 { get; init; } = 0.7;
     public double OmegaMin { get; init; } = 0.1;
@@ -155,7 +167,7 @@ public sealed class SecantPicardOptions
     /// <summary>Копия с другим <see cref="OnStepAccepted"/>.</summary>
     public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => new()
     {
-        MaxIterations = MaxIterations, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
+        MaxIterations = MaxIterations, IterationExtension = IterationExtension, NearToleranceFactor = NearToleranceFactor, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
         TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, ShellInPlanePDelta = ShellInPlanePDelta,
         GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, NonSpdLuMaxSize = NonSpdLuMaxSize, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
@@ -378,6 +390,9 @@ public sealed class SecantPicardSolver
         int abortAt = allowAbort ? Math.Max(1, _o.MaxIterations / 2) : _o.MaxIterations;
         double duMin = double.PositiveInfinity;   // наименьшее ‖Δu‖/‖u‖ на шаге (без первой итерации)
         int failedPrev = 0;
+        int hardLimit = _o.MaxIterations * Math.Max(1, _o.IterationExtension);
+        int nearWindow = Math.Max(1, _o.MaxIterations / 2);
+        int lastNear = 0;   // последняя итерация, на которой меры сходимости были у допуска
 
         // Шаг не принят (несходимость или отмена): состояние и секущие — как в начале шага.
         void Restore()
@@ -389,7 +404,7 @@ public sealed class SecantPicardSolver
             for (int e = 0; e < _beams.Length; e++) if (beamShearSnap[e] is { } q) _beams[e]!.Response.UpdateShear(q);
         }
 
-        for (int it = 1; it <= _o.MaxIterations; it++)
+        for (int it = 1; it <= hardLimit; it++)
         {
             if (ct.IsCancellationRequested)
             {
@@ -469,8 +484,13 @@ public sealed class SecantPicardSolver
                 return new Attempt(true, it, residual, u, shellStatus, beamStatus);
             }
             // Досрочный отказ (шаг будет раздроблен) — только при расходимости; медленная сходимость идёт до MaxIterations.
-            bool diverging = du > 3.0 * duMin || (failed > 0 && failed > failedPrev);
-            if (it >= abortAt && (it >= _o.MaxIterations || diverging)) { uPrev = u; break; }
+            // Шаг у допуска (колебания секущих при малых мерах) расходящимся не считается и идёт дальше MaxIterations.
+            double measure = Math.Max(dK / _o.TolStiffness, du / Math.Min(omegaApplied, 1.0) / _o.TolDisplacement);
+            if (it > 1 && measure < _o.NearToleranceFactor) lastNear = it;
+            bool failing = failed > 0 && failed > failedPrev;
+            bool near = lastNear > 0 && it - lastNear < nearWindow && !failing;
+            bool diverging = failing || (!near && du > 3.0 * duMin);
+            if (it >= abortAt && diverging || it >= _o.MaxIterations && !near) { uPrev = u; break; }
             if (it > 1) duMin = Math.Min(duMin, du);
             failedPrev = failed;
             uPrev = u;

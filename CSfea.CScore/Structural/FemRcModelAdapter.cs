@@ -108,7 +108,8 @@ public sealed record FemRcModelResult(RcStructuralModel Model, IReadOnlyList<Fem
 /// Адаптер схемы FEM OpenCS (своей или импортированной) → <see cref="RcStructuralModel"/>. Решатель берёт сетку:
 /// пластины — Q4/T3 (хранение «1 2 4 3» → обход контура), ось x сечения — ось выдачи усилий (угол
 /// <see cref="FemElement.LocalAxisAngleDeg"/> или ось области), повёрнутая в оси армирования на −ForceAngleDeg;
-/// стержни — сечение CScore или упругие свойства, оси — <see cref="BeamLocalAxisConvention"/> с поворотом КонЭ;
+/// стержни — сечение CScore или упругие свойства, оси — <see cref="BeamLocalAxisConvention"/> с поворотом КонЭ
+/// (у КЭ своей схемы ось Y сечения CScore — по местной Y, у импортного — ось X: <see cref="RcBeamSection.CrossYAlongLocalY"/>);
 /// ГУ — <see cref="FemBoundaryResolver"/>; нагрузки — узловые силы (<see cref="FemLoadCaseNodalForces"/>, узловые
 /// нагрузки КонЭ, нагрузки стержней КонЭ через <see cref="FemMemberLoadSegmenter"/>), у стержней с шарнирами — концевые
 /// силы КЭ (<see cref="RcBeamEndLoad"/>, конденсируются в ядре). Ошибки — в диагностики, исключений по данным нет.
@@ -311,13 +312,18 @@ public static class FemRcModelAdapter
                 continue;
             }
             var lin = bar == null ? null : new BeamSection(bar.E, bar.A, bar.Iy, bar.Iz, bar.J, bar.G);
+            // Сечение своей схемы нарисовано осью Y по местной Y стержня (как в OpenSees и 3D-виде), импортное создано
+            // осью X по Y1.
+            bool yAlongY = cross != null && e.Origin != FemMember.MeshSourceImported;
             string key = cross?.Key ?? "-";
+            if (yAlongY) key += "|yY";
             if (bar != null) key += FormattableString.Invariant($"|{bar.E:R}|{bar.G:R}|{bar.A:R}|{bar.Iy:R}|{bar.Iz:R}|{bar.J:R}");
             if (!sections.TryGetValue(key, out var section))
                 sections[key] = section = new RcBeamSection(key)
                 {
                     Elastic = lin,
                     Cross = cross?.Section,
+                    CrossYAlongLocalY = yAlongY,
                     Calc = input.Calc,
                     TorsionGJ = cross?.TorsionGJ ?? (bar == null ? 0 : bar.G * bar.J),
                 };

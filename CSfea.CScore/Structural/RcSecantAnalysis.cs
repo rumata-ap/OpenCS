@@ -102,7 +102,7 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
             if (!_beamShear.TryGetValue(s, out var shear))
                 _beamShear[s] = shear = options.BeamShear ? BeamShearSection.From(s.Cross, s.Calc) : null;
             var st = new CrossSectionSecantBeamState(s.Cross, s.Calc, s.TorsionGJ, options.TensionConcrete ?? true, options.Psi,
-                shear);
+                shear, s.CrossYAlongLocalY);
             _beamStates[st.Response] = st;
             return st.Response;
         }

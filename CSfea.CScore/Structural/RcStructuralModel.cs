@@ -42,6 +42,12 @@ public sealed record RcBeamSection(string Key)
     public CrossSection? Cross { get; init; }
     public CalcType Calc { get; init; } = CalcType.N;
 
+    /// <summary>
+    /// Оси сечения CScore в местных осях стержня: false — X сечения по местной y, Y — по z (сечения импортных схем:
+    /// x ‖ Y1, y ‖ Z1); true — Y сечения по местной y, X — по z (свои схемы: как фибры OpenSees и 3D-вид сечения).
+    /// </summary>
+    public bool CrossYAlongLocalY { get; init; }
+
     /// <summary>Крутильная жёсткость GJ (Н·м²) для сечения CScore.</summary>
     public double TorsionGJ { get; init; }
 }

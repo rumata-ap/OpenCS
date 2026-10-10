@@ -27,6 +27,7 @@ public class SecantPicardTests
         double q = 8 * 30.0 / (Span * Span);   // M в пролёте 30 кН·м: ≈ 2,5·Mcrc, ниже текучести
         var reference = ReferenceDeflection(q);
         RunBeam(q, reference);
+        RunBeam(q, reference, yAlongLocalY: true);
 
         TestHarness.Section("Пикар: полоса пластины 1 м против того же решения (арматура под 0/30/45°)");
         foreach (double phi in new[] { 0.0, 30.0, 45.0 }) RunStrip(q, phi, reference, PlateCrackRule.Section);
@@ -140,15 +141,18 @@ public class SecantPicardTests
     /// Свободно опёртая балка из 24 стержневых КЭ с сечением CScore (12 КЭ: −1,6 % — у границы трещин средняя
     /// податливость КЭ огрубляет переход; 24 КЭ: +0,25 %).
     /// </summary>
-    static void RunBeam(double qKn, double reference)
+    static void RunBeam(double qKn, double reference, bool yAlongLocalY = false)
     {
         const int n = 24;
+        string tag = yAlongLocalY ? "балка, Y сечения по местной y" : "балка";
         var section = BeamSection();
-        var rs = new RcBeamSection("ЖБ 1×0,2") { Cross = section, Calc = CalcType.N, TorsionGJ = 1e7 };
+        var rs = new RcBeamSection("ЖБ 1×0,2") { Cross = section, Calc = CalcType.N, TorsionGJ = 1e7, CrossYAlongLocalY = yAlongLocalY };
         var m = new RcStructuralModel();
         for (int i = 0; i <= n; i++) m.Nodes.Add(new RcNode(i, Span * i / n, 0, 0));
-        // Локальная ось y — горизонтальная (глобальная Y), ось z КЭ = высота сечения (Y сечения CScore).
-        for (int i = 0; i < n; i++) m.Beams.Add(new RcBeam(i, i, i + 1, rs, [0.0, 1.0, 0.0]));
+        // Локальная ось y — горизонтальная (глобальная Y), ось z КЭ = высота сечения (Y сечения CScore); при
+        // yAlongLocalY — местная y вертикальна (глобальная Z), и по ней лежит Y сечения (оси своих схем и OpenSees).
+        double[] refVec = yAlongLocalY ? [0.0, 0.0, 1.0] : [0.0, 1.0, 0.0];
+        for (int i = 0; i < n; i++) m.Beams.Add(new RcBeam(i, i, i + 1, rs, refVec));
         m.Supports.Add(new RcSupport(0, 0b001111));
         m.Supports.Add(new RcSupport(n, 0b000110));
         var lc = new RcLoadCase(1, "q");
@@ -158,14 +162,14 @@ public class SecantPicardTests
 
         var run = RcSecantAnalysis.Run(m, new RcSecantOptions());
         var end = run.Result.StageEnd(0);
-        TestHarness.Check("балка: расчёт сошёлся", run.Result.Completed && end != null, run.Result.Message ?? "");
+        TestHarness.Check($"{tag}: расчёт сошёлся", run.Result.Completed && end != null, run.Result.Message ?? "");
         if (end == null) return;
         double w = -end.U[run.Build.Dof(n / 2, 2)];
-        TestHarness.Check("балка: прогиб середины ±2 % к НДМ", Math.Abs(w / reference - 1) <= 0.02,
+        TestHarness.Check($"{tag}: прогиб середины ±2 % к НДМ", Math.Abs(w / reference - 1) <= 0.02,
             $"Пикар {w * 1e3:f3} мм, НДМ {reference * 1e3:f3} мм ({(w / reference - 1) * 100:+0.00;-0.00} %), " +
             $"итераций {run.Result.Steps.Sum(s => s.Iterations)}, невязка {end.TrueResidual:e2}");
         int cracked = run.BeamStates.Count(s => s!.Response != null && ((CrossSectionSecantBeamState)s).Cracked.Any(c => c));
-        TestHarness.Check("балка: трещины есть, но не по всей длине", cracked > 0 && cracked < n, $"КЭ с трещинами {cracked}/{n}");
+        TestHarness.Check($"{tag}: трещины есть, но не по всей длине", cracked > 0 && cracked < n, $"КЭ с трещинами {cracked}/{n}");
     }
 
     // ---------------- 3. полоса пластины ----------------
@@ -414,7 +418,7 @@ public class SecantPicardTests
         var m = StripModel(qKn, 0, out _, steps: 1);
         var run = RcSecantAnalysis.Run(m, new RcSecantOptions
         {
-            Solver = new SecantPicardOptions { MaxIterations = 2, MaxBisections = 0 },
+            Solver = new SecantPicardOptions { MaxIterations = 2, MaxBisections = 0, IterationExtension = 1 },
         });
         var r = run.Result;
         TestHarness.Check("kmax = 2: расчёт не завершён", !r.Completed && r.LimitStage == 0, r.Message ?? "");
