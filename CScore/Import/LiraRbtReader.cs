@@ -199,6 +199,8 @@ public static class LiraRbtReader
    public const int KindBarSpec = 6;
 
    const int RecordVersion = 4;
+   /// <summary>Наибольший диаметр арматуры по сортаменту, мм: больше — признак перепутанной формулы слоя.</summary>
+   const double MaxPlausibleDiameterMm = 40;
    static readonly LiraPlateRebarSlot[] SlotOrder =
       [LiraPlateRebarSlot.XT, LiraPlateRebarSlot.XB, LiraPlateRebarSlot.YT, LiraPlateRebarSlot.YB];
 
@@ -391,6 +393,12 @@ public static class LiraRbtReader
          ? (LiraRebarBinding)binding : LiraRebarBinding.Unknown;
       if (bindingValue == LiraRebarBinding.Unknown)
          warnings.Add($"ТЗА {id} «{name}»: неизвестный код привязки {binding}, a трактуется как расстояние до ц. т.");
+
+      // Формула ЛИРЫ «NdD» — N стержней Ø D на метр (как «8d16» у бруса); Ø12 с шагом 200 пишется «d12s200».
+      foreach (var layer in slots.Values)
+         if (layer.Terms.FirstOrDefault(t => t.DiameterMm > MaxPlausibleDiameterMm) is { } odd)
+            warnings.Add($"ТЗА {id} «{name}», слой {layer.Slot}: по формуле «{layer.Formula}» ЛИРА записала стержни Ø{odd.DiameterMm:0.#} мм " +
+                         $"с шагом {odd.SpacingMm:0.#} мм ({layer.AreaPerMeterCm2:0.#} см²/м) — проверьте формулу (Ø12 с шагом 200 — «d12s200»).");
 
       if (symmetry == 1)
       {
