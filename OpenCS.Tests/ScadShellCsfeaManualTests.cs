@@ -155,6 +155,15 @@ public class ScadShellCsfeaManualTests(ITestOutputHelper output)
         new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, DropMembraneBendingCoupling = true });
 
     /// <summary>
+    /// Прогон B с геометрической нелинейностью и обнулённым блоком B: без мембранных усилий от сечений с трещиной
+    /// K_σ остаётся только от обжатия колонн. Разница с <see cref="SecantB_Geometric"/> — вклад этих усилий в K_σ.
+    /// </summary>
+    [Fact]
+    public void SecantB_GeometricNoCoupling() => RunSecant("secant-B-geom-nocoupling",
+        new RcSecantOptions { Psi = true, PoissonUncracked = 0.2, DropMembraneBendingCoupling = true,
+            Solver = new CSfea.Core.SecantPicardOptions { Geometric = true } });
+
+    /// <summary>
     /// Упругая схема, L1 + L2 геометрически нелинейно (фон Карман и CR, как SolveFrozen секущего расчёта с Geometric):
     /// история невязки Ньютона и прогиб центра против линейного.
     /// </summary>
