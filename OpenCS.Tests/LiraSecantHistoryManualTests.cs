@@ -419,6 +419,15 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                         string.Create(inv, $"{run.Build.ShellIds[e]},{string.Join(' ', mesh.Shells[e].Nodes.Select(n => run.Build.NodeIds[n]))},{last.Shells[e].Cracks},{(last.Shells[e].Cracked ? 1 : 0)},{(last.Shells[e].Yielded ? 1 : 0)},{(last.Shells[e].Failed ? 1 : 0)}"))));
                     File.WriteAllLines(stem + ".beams.csv", new[] { "id,i,j,cracked,yielded,failed" }.Concat(Enumerable.Range(0, mesh.Beams.Count).Select(e =>
                         string.Create(inv, $"{run.Build.BeamIds[e]},{run.Build.NodeIds[mesh.Beams[e].I]},{run.Build.NodeIds[mesh.Beams[e].J]},{(last.Beams[e].Cracked ? 1 : 0)},{(last.Beams[e].Yielded ? 1 : 0)},{(last.Beams[e].Failed ? 1 : 0)}"))));
+                    // Усилия последнего принятого шага: пластины — в осях выдачи (центр КЭ), стержни — местные силы концов i, j.
+                    if (run.LastConvergedFields() is { } fields)
+                    {
+                        const int sc = RcSecantStepFields.ShellForceComponents, bc = RcSecantStepFields.BeamForceComponents;
+                        File.WriteAllLines(stem + ".shellforces.csv", new[] { "id,nx,ny,nxy,mx,my,mxy,qx,qy" }.Concat(Enumerable.Range(0, fields.ShellIds.Length).Select(e =>
+                            fields.ShellIds[e].ToString(inv) + "," + string.Join(',', fields.ShellForces.Skip(e * sc).Take(sc).Select(x => x.ToString("R", inv))))));
+                        File.WriteAllLines(stem + ".beamforces.csv", new[] { "id,ni,qyi,qzi,mxi,myi,mzi,nj,qyj,qzj,mxj,myj,mzj" }.Concat(Enumerable.Range(0, fields.BeamIds.Length).Select(e =>
+                            fields.BeamIds[e].ToString(inv) + "," + string.Join(',', fields.BeamForces.Skip(e * bc).Take(bc).Select(x => x.ToString("R", inv))))));
+                    }
                 }
 
                 output.WriteLine($"  {(r.Completed ? "пройдено" : "ОСТАНОВЛЕНО: " + r.Message)}; λ = {lambda:0.####} (доля полной нагрузки × k), " +
