@@ -24,8 +24,11 @@ namespace OpenCS.Tests;
 /// OPENCS_LIRA_SECANT_RBT / _ASP; сечения пластин и стержней — как команды создания сечений; база —
 /// OPENCS_LIRA_SECANT_DB. <see cref="RunVariants"/> — прогоны базы OPENCS_LIRA_SECANT_RUN по списку
 /// OPENCS_LIRA_SECANT_VARIANTS («k=1,steps=1|k=1,steps=10,geom=1»; k — множитель нагрузки, steps — шагов, geom —
-/// геомнелин, seq — загружения стадиями по очереди, bis — дроблений, iter — итераций на шаг) и сравнение полей
-/// перемещений и трещин с первым вариантом. Журналы итераций — в OPENCS_CSFEA_OUT. Без переменных тесты выходят.
+/// геомнелин, seq — загружения стадиями по очереди, bis — дроблений, iter — итераций на шаг, calc — вид расчёта,
+/// tens — растяжение бетона до трещины, slab — ЗН 1 постоянно, растёт только ЗН 2) и сравнение полей перемещений и трещин с первым вариантом.
+/// <see cref="CreateQuarterDatabase"/> — база с четвертью схемы и условиями симметрии из базы полной схемы.
+/// OPENCS_LIRA_SECANT_MOMENT_CUTS («опора=6;пролёт=3») — по шагам средние по ширине Mx в сечениях плиты x = const и
+/// отношение первого к остальным. Журналы итераций — в OPENCS_CSFEA_OUT. Без переменных тесты выходят.
 /// </summary>
 public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
 {
@@ -298,16 +301,139 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
         output.WriteLine($"  вручную: стержней с сечением {assignments.Count}");
     }
 
-    /// <summary>Вариант прогона: множитель нагрузки, шаги, геомнелин, загружения по очереди, дробления, итерации.</summary>
-    sealed record Variant(string Name, double K, int Steps, bool Geom, bool Sequential, int Bisections, int Iterations)
+    /// <summary>
+    /// Вариант прогона: множитель нагрузки, шаги, геомнелин, загружения по очереди, дробления, итерации, вид расчёта
+    /// (calc=C|CL|N|NL), slab — растёт только ЗН 2: стадия 1 — ЗН 1 одним шагом, стадия 2 — ЗН 2 × k за steps шагов.
+    /// </summary>
+    sealed record Variant(string Name, double K, int Steps, bool Geom, bool Sequential, int Bisections, int Iterations,
+        CalcType Calc, bool Slab)
     {
+        /// <summary>Растяжение бетона до трещины (tens=0|1): по умолчанию C и CL — нет, N и NL — как в сечении (null).</summary>
+        public bool? Tension { get; init; }
+
         public static Variant Parse(string spec)
         {
             var map = spec.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('='))
                 .ToDictionary(p => p[0].Trim(), p => p.Length > 1 ? p[1].Trim() : "1");
             double D(string key, double def) => map.TryGetValue(key, out var s) ? double.Parse(s, CultureInfo.InvariantCulture) : def;
-            return new Variant(spec, D("k", 1), (int)D("steps", 1), D("geom", 0) != 0, D("seq", 0) != 0, (int)D("bis", 4), (int)D("iter", 50));
+            var calc = map.TryGetValue("calc", out var c) ? Enum.Parse<CalcType>(c, ignoreCase: true) : CalcType.N;
+            return new Variant(spec, D("k", 1), (int)D("steps", 1), D("geom", 0) != 0, D("seq", 0) != 0, (int)D("bis", 4), (int)D("iter", 50),
+                calc, D("slab", 0) != 0)
+            {
+                Tension = map.ContainsKey("tens") ? D("tens", 1) != 0 : calc is CalcType.C or CalcType.CL ? false : null,
+            };
         }
+    }
+
+    /// <summary>
+    /// Четверть схемы «Плита_упругое» в копии базы: остаются узлы x ≤ <paramref name="half"/>, y ≤ <paramref name="half"/>
+    /// и КЭ на них; на плоскостях симметрии x = half — ux, ry, rz, y = half — uy, rx, rz. Нагрузки: в ЗН 1 остаются
+    /// узловые силы на колонны, нагрузка на плиту из ЗН 1 переходит в ЗН 2 (плита целиком в одном загружении), прочие
+    /// загружения (боковая сила) пустеют. Id узлов и КЭ сохраняются — строки удаляются, а не перезаписываются.
+    /// </summary>
+    static string CutQuarter(string path, double half, bool elasticBars, bool elasticPlates)
+    {
+        using var c = new SqliteConnection($"Data Source={path}");
+        c.Open();
+        using var tx = c.BeginTransaction();
+        List<object[]> Rows(string sql)
+        {
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = sql;
+            var rows = new List<object[]>();
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) { var row = new object[r.FieldCount]; r.GetValues(row); rows.Add(row); }
+            return rows;
+        }
+        int Exec(string sql, params object[] args)
+        {
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = sql;
+            for (int i = 0; i < args.Length; i++) cmd.Parameters.AddWithValue("@p" + i, args[i]);
+            return cmd.ExecuteNonQuery();
+        }
+        long sid = (long)Rows("SELECT id FROM fem_schemas ORDER BY id LIMIT 1")[0][0];
+        const double eps = 1e-6;
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        var symmetry = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var n in Rows($"SELECT node_tag, x, y FROM fem_mesh_nodes WHERE schema_id={sid}"))
+        {
+            string tag = (string)n[0];
+            double x = Convert.ToDouble(n[1]), y = Convert.ToDouble(n[2]);
+            if (x > half + eps || y > half + eps) { Exec("DELETE FROM fem_mesh_nodes WHERE schema_id=@p0 AND node_tag=@p1", sid, tag); continue; }
+            keep.Add(tag);
+            int mask = (Math.Abs(x - half) < eps ? 0b110001 : 0) | (Math.Abs(y - half) < eps ? 0b101010 : 0);
+            if (mask != 0) symmetry[tag] = mask;
+        }
+        var elements = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var e in Rows($"SELECT id, elem_tag, node_ids_json FROM fem_elements WHERE schema_id={sid}"))
+            if (System.Text.Json.JsonSerializer.Deserialize<int[]>((string)e[2])!.All(n => keep.Contains(n.ToString(CultureInfo.InvariantCulture))))
+                elements.Add((string)e[1]);
+            else Exec("DELETE FROM fem_elements WHERE id=@p0", e[0]);
+
+        foreach (var s in Rows($"SELECT id, node_tag, mask FROM fem_mesh_node_supports WHERE schema_id={sid}"))
+            if (!keep.Contains((string)s[1])) Exec("DELETE FROM fem_mesh_node_supports WHERE id=@p0", s[0]);
+            else if (symmetry.Remove((string)s[1], out int mask)) Exec("UPDATE fem_mesh_node_supports SET mask=@p1 WHERE id=@p0", s[0], Convert.ToInt32(s[2]) | mask);
+        foreach (var (tag, mask) in symmetry)
+            Exec("INSERT INTO fem_mesh_node_supports (schema_id, node_tag, mask, origin) VALUES (@p0, @p1, @p2, @p3)", sid, tag, mask, LiraSchemaConverter.BoundaryOrigin);
+        int bodies = 0;
+        foreach (var b in Rows($"SELECT id, master_node_tag, slave_node_tags_json FROM fem_rigid_bodies WHERE schema_id={sid}"))
+        {
+            var slaves = System.Text.Json.JsonSerializer.Deserialize<string[]>((string)b[2])!;
+            if (!keep.Contains((string)b[1])) Exec("DELETE FROM fem_rigid_bodies WHERE id=@p0", b[0]);
+            else if (!slaves.All(keep.Contains)) throw new InvalidOperationException($"АЖТ узла {b[1]} пересекает плоскость симметрии.");
+            else bodies++;
+        }
+
+        var cases = Rows($"SELECT id, source_load_num FROM fem_load_cases WHERE schema_id={sid}").ToDictionary(r => Convert.ToInt32(r[1]), r => (long)r[0]);
+        Exec("DELETE FROM fem_mesh_node_loads WHERE schema_id=@p0 AND load_case_id<>@p1", sid, cases[1]);
+        foreach (var l in Rows($"SELECT id, mesh_node_tag FROM fem_mesh_node_loads WHERE schema_id={sid}"))
+            if (!keep.Contains((string)l[1])) Exec("DELETE FROM fem_mesh_node_loads WHERE id=@p0", l[0]);
+        Exec("DELETE FROM fem_element_loads WHERE schema_id=@p0 AND load_case_id NOT IN (@p1, @p2)", sid, cases[1], cases[2]);
+        Exec("UPDATE fem_element_loads SET load_case_id=@p2 WHERE schema_id=@p0 AND load_case_id=@p1", sid, cases[1], cases[2]);
+        foreach (var l in Rows($"SELECT id, target_tags_json FROM fem_element_loads WHERE schema_id={sid}"))
+            Exec("UPDATE fem_element_loads SET target_tags_json=@p1 WHERE id=@p0", l[0], System.Text.Json.JsonSerializer.Serialize(
+                System.Text.Json.JsonSerializer.Deserialize<string[]>((string)l[1])!.Where(elements.Contains)));
+        foreach (var g in Rows($"SELECT id, member_tags_json FROM fem_member_groups WHERE schema_id={sid}"))
+            Exec("UPDATE fem_member_groups SET member_tags_json=@p1 WHERE id=@p0", g[0], System.Text.Json.JsonSerializer.Serialize(
+                FemMemberGroup.ParseTags((string)g[1]).Where(elements.Contains)));
+        int elastic = elasticBars ? Exec("UPDATE fem_elements SET cross_section_id=NULL WHERE schema_id=@p0 AND elem_type='beam'", sid) : 0;
+        int elasticGroups = elasticPlates ? Exec("UPDATE fem_member_groups SET plate_section_id=NULL WHERE schema_id=@p0", sid) : 0;
+        tx.Commit();
+        return $"четверть: узлов {keep.Count}, КЭ {elements.Count}, АЖТ {bodies}, новых закреплений на плоскостях симметрии {symmetry.Count}, " +
+               $"стержней без сечения (упругих) {elastic}, групп пластин без сечения (упругих) {elasticGroups}";
+    }
+
+    /// <summary>
+    /// База с четвертью схемы: копия OPENCS_LIRA_SECANT_QUARTER_FROM (база <see cref="CreateDatabase"/>) в
+    /// OPENCS_LIRA_SECANT_QUARTER_DB, обрезанная <see cref="CutQuarter"/> по x, y ≤ OPENCS_LIRA_SECANT_QUARTER_HALF (по
+    /// умолчанию 9 м); OPENCS_LIRA_SECANT_ELASTIC_BARS=1 — стержни без сечения CScore (упругие по жёсткости схемы),
+    /// OPENCS_LIRA_SECANT_ELASTIC_PLATES=1 — то же для пластин (линейная схема, как в ЛИРЕ).
+    /// </summary>
+    [Fact]
+    public void CreateQuarterDatabase()
+    {
+        var from = Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_QUARTER_FROM");
+        var path = Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_QUARTER_DB");
+        if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(path)) return;
+        double half = double.TryParse(Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_QUARTER_HALF"), NumberStyles.Float, CultureInfo.InvariantCulture, out double h) ? h : 9;
+        File.Copy(from, path, overwrite: true);
+        try
+        {
+            output.WriteLine(CutQuarter(path, half, Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_ELASTIC_BARS") == "1",
+                Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_ELASTIC_PLATES") == "1"));
+            using var db = new DatabaseService(path);
+            db.LoadAll();
+            var schema = db.FemSchemas.First();
+            foreach (var lc in db.GetFemLoadCases(schema.Id).OrderBy(c => c.SourceLoadNum))
+                output.WriteLine($"ЗН {lc.SourceLoadNum} «{lc.Tag}»: узловых сил {db.GetFemMeshNodeLoads(schema.Id, lc.Id).Count}, " +
+                                 $"ΣFz = {db.GetFemMeshNodeLoads(schema.Id, lc.Id).Sum(l => l.Fz) / 1e3:0.###} кН; на КЭ: " +
+                                 string.Join("; ", db.GetFemElementLoads(schema.Id, lc.Id).Select(l => $"{l.Values[0] / 1e3:0.###} кПа × {l.TargetTags.Count} КЭ")));
+            output.WriteLine("закрепления, маска × узлов: " + string.Join(", ", db.GetFemMeshNodeSupports(schema.Id).GroupBy(s => s.Mask)
+                .Select(g => $"{Convert.ToString(g.Key, 2)} × {g.Count()}")));
+            output.WriteLine($"База: {path}");
+        }
+        finally { SqliteConnection.ClearAllPools(); }
     }
 
     sealed record Outcome(Variant Variant, bool Completed, double Lambda, int Iterations, double Seconds,
@@ -352,17 +478,20 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                     Mode = FemLoadExpressionMode.Sum,
                     Terms = [.. terms.Select(t => new FemLoadTerm { LoadCaseId = t.Case.Id, Coefficient = t.K })],
                 }.ToJson();
-                var stages = v.Sequential
+                var stages = v.Slab
+                    ? [new FemAnalysisStage { Tag = cases[0].Tag, LoadExpressionJson = Expr((cases[0], 1)), LoadFactorStep = 1, MaxLoadFactor = 1 },
+                       new FemAnalysisStage { Tag = cases[1].Tag, LoadExpressionJson = Expr((cases[1], v.K)), LoadFactorStep = 1.0 / v.Steps, MaxLoadFactor = 1 }]
+                    : v.Sequential
                     ? cases.Select(c => new FemAnalysisStage { Tag = c.Tag, LoadExpressionJson = Expr((c, v.K)), LoadFactorStep = 1.0 / v.Steps, MaxLoadFactor = 1 }).ToList()
                     : [new FemAnalysisStage { Tag = "все ЗН", LoadExpressionJson = Expr([.. cases.Select(c => (c, v.K))]), LoadFactorStep = 1.0 / v.Steps, MaxLoadFactor = 1 }];
                 var csfea = new FemCsfeaParams
                 {
-                    PlateRebarSource = db.PlateSections.Any(s => s.RebarLayers.Count > 0) ? FemCheckRebarSource.Section : FemCheckRebarSource.Assigned, GeomNonlinear = v.Geom, MaxBisections = v.Bisections, MaxIterations = v.Iterations,
+                    PlateRebarSource = db.PlateSections.Any(s => s.RebarLayers.Count > 0) ? FemCheckRebarSource.Section : FemCheckRebarSource.Assigned, GeomNonlinear = v.Geom, TensionConcrete = v.Tension, MaxBisections = v.Bisections, MaxIterations = v.Iterations,
                 };
                 var analysis = new FemAnalysis
                 {
                     SchemaId = schema.Id, Tag = v.Name, Kind = FemCsfeaRunner.AnalysisKind, LoadExpressionJson = stages[0].LoadExpressionJson,
-                    ParamsJson = new FemAnalysisParams { CalcType = CalcType.N, Stages = stages, Csfea = csfea }.ToJson(),
+                    ParamsJson = new FemAnalysisParams { CalcType = v.Calc, Stages = stages, Csfea = csfea }.ToJson(),
                 };
                 var prepared = await FemCsfeaRunner.PrepareAsync(ctx, schema, analysis, buildMesh: false, CancellationToken.None);
                 output.WriteLine($"=== {v.Name}: проверка входа — ошибки {prepared.HasErrors}");
@@ -372,12 +501,43 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                 if (outcomes.Count == 0 && prepared.Input!.PlateSection is { } plateOf
                     && plateOf(prepared.Input.MeshElements.First(e => e.ElemType == "shell")) is { } first)
                     output.WriteLine($"  пластина: {System.Text.Json.JsonSerializer.Serialize(first.Section.Section)}");
+                // Диаграммы материалов плиты варианта: точки ε → σ (единицы диаграммы).
+                if (prepared.Input!.PlateSection?.Invoke(prepared.Input.MeshElements.First(e => e.ElemType == "shell"))?.Materials is { } mats)
+                    foreach (var (name, d) in new[] { ("бетон", mats.ConcreteDiagram), ("арматура", mats.RebarDiagram) })
+                        output.WriteLine($"  диаграмма «{name}» ({v.Calc}): " + string.Join("; ", d.Ic.X.Concat(d.It.X).Distinct().OrderBy(x => x)
+                            .Select(x => string.Create(CultureInfo.InvariantCulture, $"{x:0.######} → {d.Sig(x, out _):0.###}"))));
 
                 using var log = outDir == null ? null : new StreamWriter(Path.Combine(outDir, Regex.Replace(v.Name, @"[^\w=.,-]", "_") + ".txt"));
                 var clock = Stopwatch.StartNew();
                 if (log != null) log.AutoFlush = true;
+                // OPENCS_LIRA_SECANT_MOMENT_CUTS = «опора=6;пролёт=3» — сечения плиты x = const: на каждом принятом шаге средний
+                // по ширине Mx (кН·м/м) в КЭ, ближайших к сечению с обеих сторон; отношения — первого сечения к остальным.
+                var cuts = (Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_MOMENT_CUTS") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => p.Split('=')).Select(p => (Name: p[0].Trim(), X: double.Parse(p[1], CultureInfo.InvariantCulture))).ToList();
+                var cutShells = new List<HashSet<int>>();
+                if (cuts.Count > 0)
+                {
+                    var at = meshNodes.Where(n => int.TryParse(n.NodeTag, out _)).ToDictionary(n => int.Parse(n.NodeTag), n => n.X);
+                    var centers = prepared.Input.MeshElements.Where(e => e.ElemType == "shell").ToDictionary(e => int.Parse(e.ElemTag),
+                        e => System.Text.Json.JsonSerializer.Deserialize<int[]>(e.NodeIdsJson)!.Average(n => at[n]));
+                    foreach (var (_, x) in cuts)
+                    {
+                        double nearest = centers.Values.Min(c => Math.Abs(c - x));
+                        cutShells.Add([.. centers.Where(kv => Math.Abs(kv.Value - x) < nearest + 1e-6).Select(kv => kv.Key)]);
+                    }
+                }
+                var cutMoments = new Dictionary<(int Stage, double Factor), double[]>();
+                Action<CSfea.Core.SecantStepResult, Func<RcSecantStepFields>>? onStep = cuts.Count == 0 ? null : (s, fields) =>
+                {
+                    var f = fields();
+                    var sum = new double[cuts.Count];
+                    for (int e = 0; e < f.ShellIds.Length; e++)
+                        for (int c = 0; c < cuts.Count; c++)
+                            if (cutShells[c].Contains(f.ShellIds[e])) sum[c] += f.ShellForces[e * RcSecantStepFields.ShellForceComponents + 3];
+                    cutMoments[(s.Stage, s.LoadFactor)] = [.. sum.Select((v, c) => v / cutShells[c].Count / 1e3)];
+                };
                 var options = FemCsfeaSetup.SecantOptions(csfea, -1, s => log?.WriteLine($"[{clock.Elapsed.TotalSeconds,7:0.0}] {s}"),
-                    prepared.Adapted!.ShellForceAngles);
+                    prepared.Adapted!.ShellForceAngles, onStep);
                 var run = RcSecantAnalysis.Run(prepared.Adapted.Model, options, null, CancellationToken.None);
                 clock.Stop();
                 log?.Flush();
@@ -386,20 +546,31 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                 var last = r.Steps.LastOrDefault(s => s.Converged);
                 if (last == null) { output.WriteLine($"  ни один шаг не сошёлся: {r.Message}"); continue; }
                 int stageCount = stages.Count;
-                double lambda = v.K * (last.Stage + last.LoadFactor) / stageCount;
+                // λ шага: доля полной нагрузки × k; при slab — множитель нагрузки на плиту (ЗН 2), стадия 1 — нуль.
+                double Lambda(int stage, double factor) => v.Slab ? (stage == 0 ? 0 : v.K * factor) : v.K * (stage + factor) / stageCount;
+                double lambda = Lambda(last.Stage, last.LoadFactor);
                 var u = new Dictionary<int, double[]>();
                 for (int i = 0; i < run.Build.NodeIds.Length; i++) u[run.Build.NodeIds[i]] = last.U[(6 * i)..(6 * i + 6)];
                 var cracks = new Dictionary<int, int>();
                 for (int e = 0; e < run.Build.ShellIds.Length; e++) cracks[run.Build.ShellIds[e]] = last.Shells[e].Cracks;
                 var history = r.Steps.Where(s => s.Converged)
-                    .Select(s => (v.K * (s.Stage + s.LoadFactor) / stageCount, s.U[run.Build.Dof(control[0].Node, 2)] * 1e3)).ToList();
+                    .Select(s => (Lambda(s.Stage, s.LoadFactor), s.U[run.Build.Dof(control[0].Node, 2)] * 1e3)).ToList();
                 // Состояние по шагам: наибольшее горизонтальное смещение, текучесть и отказ сечений (оболочки + стержни).
                 output.WriteLine("  λ: гориз., мм / текучесть об.+ст. / отказ об.+ст.: " + string.Join("; ", r.Steps.Where(s => s.Converged).Select(s =>
                 {
                     double h = 0;
                     for (int i = 0; i < s.U.Length / 6; i++) h = Math.Max(h, Math.Sqrt(s.U[6 * i] * s.U[6 * i] + s.U[6 * i + 1] * s.U[6 * i + 1]));
-                    return $"{v.K * (s.Stage + s.LoadFactor) / stageCount:0.####}: {h * 1e3:0.00} / {s.Shells.Count(x => x.Yielded)}+{s.Beams.Count(x => x.Yielded)} / {s.Shells.Count(x => x.Failed)}+{s.Beams.Count(x => x.Failed)}";
+                    return $"{Lambda(s.Stage, s.LoadFactor):0.####}: {h * 1e3:0.00} / {s.Shells.Count(x => x.Yielded)}+{s.Beams.Count(x => x.Yielded)} / {s.Shells.Count(x => x.Failed)}+{s.Beams.Count(x => x.Failed)}";
                 })));
+                if (cuts.Count > 0)
+                {
+                    output.WriteLine("  средний по ширине Mx, кН·м/м: λ | " + string.Join(" | ", cuts.Select(c => $"{c.Name} (x = {c.X:0.##})")) +
+                                     string.Concat(cuts.Skip(1).Select(c => $" | {cuts[0].Name} / {c.Name}")));
+                    foreach (var s in r.Steps.Where(s => s.Converged))
+                        if (cutMoments.TryGetValue((s.Stage, s.LoadFactor), out var m))
+                            output.WriteLine($"    {Lambda(s.Stage, s.LoadFactor):0.####} | " + string.Join(" | ", m.Select(x => x.ToString("0.00"))) +
+                                             string.Concat(m.Skip(1).Select(x => $" | {(Math.Abs(x) > 1e-9 ? Math.Abs(m[0] / x).ToString("0.000") : "—")}")));
+                }
                 var o = new Outcome(v, r.Completed, lambda, r.Steps.Sum(s => s.Iterations), clock.Elapsed.TotalSeconds, u, cracks,
                     last.Shells.Count(s => s.Cracked), last.Shells.Count(s => s.Yielded), last.Shells.Count(s => s.Failed),
                     last.Beams.Count(s => s.Cracked), last.Beams.Count(s => s.Yielded), history);
@@ -414,6 +585,12 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                     var xyz = meshNodes.Where(n => int.TryParse(n.NodeTag, out _)).ToDictionary(n => int.Parse(n.NodeTag), n => (n.X, n.Y, n.Z));
                     File.WriteAllLines(stem + ".nodes.csv", new[] { "id,x,y,z,ux,uy,uz" }.Concat(u.Where(kv => xyz.ContainsKey(kv.Key)).Select(kv =>
                         string.Create(inv, $"{kv.Key},{xyz[kv.Key].X},{xyz[kv.Key].Y},{xyz[kv.Key].Z},{kv.Value[0]},{kv.Value[1]},{kv.Value[2]}"))));
+                    // Ход нагружения: принятые шаги — λ, uz контрольных точек (мм), число оболочек с трещинами, текучестью, отказом.
+                    File.WriteAllLines(stem + ".history.csv", new[] { "lambda," + string.Join(',', control.Select(c => $"uz_{c.Node}")) + ",cracked,yielded,failed,iterations" + string.Concat(cuts.Select(c => string.Create(inv, $",mx_{c.X}"))) }
+                        .Concat(r.Steps.Where(s => s.Converged).Select(s => string.Create(inv, $"{Lambda(s.Stage, s.LoadFactor)},") +
+                            string.Join(',', control.Select(c => (s.U[run.Build.Dof(c.Node, 2)] * 1e3).ToString("R", inv))) +
+                            string.Create(inv, $",{s.Shells.Count(x => x.Cracked)},{s.Shells.Count(x => x.Yielded)},{s.Shells.Count(x => x.Failed)},{s.Iterations}") +
+                            string.Concat(cuts.Select((_, c) => "," + (cutMoments.TryGetValue((s.Stage, s.LoadFactor), out var m) ? m[c].ToString("R", inv) : ""))))));
                     var mesh = run.Build.Mesh;
                     File.WriteAllLines(stem + ".shells.csv", new[] { "id,nodes,cracks,cracked,yielded,failed" }.Concat(Enumerable.Range(0, mesh.Shells.Count).Select(e =>
                         string.Create(inv, $"{run.Build.ShellIds[e]},{string.Join(' ', mesh.Shells[e].Nodes.Select(n => run.Build.NodeIds[n]))},{last.Shells[e].Cracks},{(last.Shells[e].Cracked ? 1 : 0)},{(last.Shells[e].Yielded ? 1 : 0)},{(last.Shells[e].Failed ? 1 : 0)}"))));
@@ -425,6 +602,65 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                         const int sc = RcSecantStepFields.ShellForceComponents, bc = RcSecantStepFields.BeamForceComponents;
                         File.WriteAllLines(stem + ".shellforces.csv", new[] { "id,nx,ny,nxy,mx,my,mxy,qx,qy" }.Concat(Enumerable.Range(0, fields.ShellIds.Length).Select(e =>
                             fields.ShellIds[e].ToString(inv) + "," + string.Join(',', fields.ShellForces.Skip(e * sc).Take(sc).Select(x => x.ToString("R", inv))))));
+                        // Трещины по граням КЭ (низ и верх — по глобальной Z): доля треснувших слоёв половины сечения, главная
+                        // растягивающая деформация грани и угол линии трещины к оси X, град (перпендикуляр к ε₁), по
+                        // деформациям центра КЭ.
+                        var plateOfElement = prepared.Input.PlateSection;
+                        var byTag = prepared.Input.MeshElements.Where(e => e.ElemType == "shell").ToDictionary(e => int.Parse(e.ElemTag));
+                        // Ширина раскрытия (только N, NL): усилия КЭ шага → упрощённая проверка Капра — Мори (пп. 8.2.15–8.2.18
+                        // СП 63); длительная часть усилий — доля OPENCS_LIRA_SECANT_LONG_SHARE (по умолчанию 0,9) от полных;
+                        // a_long = a(длит., φ1 = 1,4), a_short = a(полн., 1,0) − a(длит., 1,0) + a(длит., 1,4) (п. 8.2.7) — наибольшие
+                        // по направлениям грани; угол — линия трещины к оси X сечения (перпендикуляр к направлению α).
+                        bool widths = v.Calc is CalcType.N or CalcType.NL;
+                        double longShare = double.TryParse(Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_LONG_SHARE"), NumberStyles.Float, inv, out double ls) ? ls : 0.9;
+                        var materialById = db.Materials.ToDictionary(m => m.Id);
+                        var crackRows = new List<string> { "id,crack_bot,crack_top,e1_bot,ang_bot,e1_top,ang_top,acrc_long_bot,acrc_short_bot,acrc_ang_bot,acrc_long_top,acrc_short_top,acrc_ang_top" };
+                        for (int e = 0; e < mesh.Shells.Count; e++)
+                        {
+                            if (plateOfElement?.Invoke(byTag[run.Build.ShellIds[e]])?.Section.Section is not { } ps) continue;
+                            var coords = mesh.ShellCoords(e);
+                            var ue = CSfea.Core.StructuralMesh.NodeDofs(mesh.Shells[e].Nodes).Select(d => last.U[d]).ToArray();
+                            var (eps, kappa, _) = CSfea.Core.ShellElementForces.CenterStrainsGlobal(coords, ue);
+                            var frame = CSfea.Core.ShellGeometry.LocalFrame(coords);
+                            bool up = frame[2, 2] > 0;
+                            (double E1, double Angle) Face(double z)
+                            {
+                                double ex = eps[0] + kappa[0] * z, ey = eps[1] + kappa[1] * z, g = eps[2] + kappa[2] * z;
+                                double theta = 0.5 * Math.Atan2(g, ex - ey);
+                                double e1 = 0.5 * (ex + ey) + Math.Sqrt(0.25 * (ex - ey) * (ex - ey) + 0.25 * g * g);
+                                double c = -Math.Sin(theta), s = Math.Cos(theta);   // линия трещины в местных осях КЭ
+                                double angle = Math.Atan2(c * frame[0, 1] + s * frame[1, 1], c * frame[0, 0] + s * frame[1, 0]) * 180 / Math.PI;
+                                return (e1, angle > 90 ? angle - 180 : angle <= -90 ? angle + 180 : angle);
+                            }
+                            var (bot, top) = (Face(up ? -ps.H / 2 : ps.H / 2), Face(up ? ps.H / 2 : -ps.H / 2));
+                            int so = e * RcSecantStepFields.ShellStateComponents;
+                            // [низ, верх] по оси z сечения: a_long, a_short, угол линии трещины.
+                            var w = new (double Long, double Short, double Angle)[2];
+                            if (widths && materialById.TryGetValue(ps.ConcreteMaterialId, out var concreteMat) && materialById.TryGetValue(ps.RebarMaterialId, out var rebarMat))
+                            {
+                                int fo = e * sc;
+                                List<ShellSimplDirectionResult> Dirs(double k, double phi1) => ShellSimplSolver.Solve(new ShellSimplSolver.SolveParams(
+                                    k * fields.ShellForces[fo] / 1e3, k * fields.ShellForces[fo + 1] / 1e3, k * fields.ShellForces[fo + 2] / 1e3,
+                                    k * fields.ShellForces[fo + 3] / 1e3, k * fields.ShellForces[fo + 4] / 1e3, k * fields.ShellForces[fo + 5] / 1e3,
+                                    "shell_simpl_capri_sls", 10.0, 0.3, phi1, 0.5), ps, concreteMat, rebarMat, CalcType.N).CapriDirs!;
+                                var (full10, long10, long14) = (Dirs(1, 1.0), Dirs(longShare, 1.0), Dirs(longShare, 1.4));
+                                for (int i = 0; i < full10.Count; i++)
+                                {
+                                    if (full10[i].Strip.NoRebar) continue;
+                                    double aLong = long14[i].Strip.Acrc_mm, aShort = full10[i].Strip.Acrc_mm - long10[i].Strip.Acrc_mm + aLong;
+                                    int face = full10[i].Top ? 1 : 0;
+                                    if (aShort > w[face].Short)
+                                    {
+                                        double line = full10[i].Alpha_deg + 90;
+                                        w[face] = (aLong, aShort, line > 90 ? line - 180 : line);
+                                    }
+                                }
+                            }
+                            var (wb, wt) = up ? (w[0], w[1]) : (w[1], w[0]);
+                            crackRows.Add(string.Create(inv, $"{run.Build.ShellIds[e]},{fields.ShellStates[so + (up ? 0 : 1)]},{fields.ShellStates[so + (up ? 1 : 0)]},{bot.E1:R},{bot.Angle:0.##},{top.E1:R},{top.Angle:0.##},") +
+                                          string.Create(inv, $"{wb.Long:0.####},{wb.Short:0.####},{wb.Angle:0.##},{wt.Long:0.####},{wt.Short:0.####},{wt.Angle:0.##}"));
+                        }
+                        File.WriteAllLines(stem + ".cracks.csv", crackRows);
                         File.WriteAllLines(stem + ".beamforces.csv", new[] { "id,ni,qyi,qzi,mxi,myi,mzi,nj,qyj,qzj,mxj,myj,mzj" }.Concat(Enumerable.Range(0, fields.BeamIds.Length).Select(e =>
                             fields.BeamIds[e].ToString(inv) + "," + string.Join(',', fields.BeamForces.Skip(e * bc).Take(bc).Select(x => x.ToString("R", inv))))));
                     }
