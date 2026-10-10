@@ -24,7 +24,7 @@ namespace OpenCS.Tests;
 /// OPENCS_LIRA_SECANT_RBT / _ASP; сечения пластин и стержней — как команды создания сечений; база —
 /// OPENCS_LIRA_SECANT_DB. <see cref="RunVariants"/> — прогоны базы OPENCS_LIRA_SECANT_RUN по списку
 /// OPENCS_LIRA_SECANT_VARIANTS («k=1,steps=1|k=1,steps=10,geom=1»; k — множитель нагрузки, steps — шагов, geom —
-/// геомнелин, seq — загружения стадиями по очереди, bis — дроблений, iter — итераций на шаг, calc — вид расчёта,
+/// геомнелин (теория второго порядка; cr=1 — коротационная формулировка), seq — загружения стадиями по очереди, bis — дроблений, iter — итераций на шаг, calc — вид расчёта,
 /// tens — растяжение бетона до трещины, slab — ЗН 1 постоянно, растёт только ЗН 2) и сравнение полей перемещений и трещин с первым вариантом.
 /// <see cref="CreateQuarterDatabase"/> — база с четвертью схемы и условиями симметрии из базы полной схемы.
 /// OPENCS_LIRA_SECANT_MOMENT_CUTS («опора=6;пролёт=3») — по шагам средние по ширине Mx в сечениях плиты x = const и
@@ -319,6 +319,19 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
         /// </summary>
         public double? ColumnShare { get; init; }
 
+        /// <summary>
+        /// Упругий расчёт (elastic=коэффициент): одно линейное решение на полную нагрузку варианта при начальных
+        /// жёсткостях сечений; жёсткость пластин умножена на коэффициент (1 — начальная, 0.2 — пониженная), стержни —
+        /// начальные. null — секущий расчёт.
+        /// </summary>
+        public double? Elastic { get; init; }
+
+        /// <summary>Геомнелин с большими перемещениями (cr=1): коротационная формулировка вместо теории второго порядка.</summary>
+        public bool LargeDisplacements { get; init; }
+
+        /// <summary>Диагностика (nob=1): блок B секущей матрицы пластин обнулён — без распора от смещения нейтральной оси.</summary>
+        public bool DropCoupling { get; init; }
+
         public static Variant Parse(string spec)
         {
             var map = spec.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('='))
@@ -330,6 +343,9 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
             {
                 Tension = map.ContainsKey("tens") ? D("tens", 1) != 0 : calc is CalcType.C or CalcType.CL ? false : null,
                 ColumnShare = map.ContainsKey("col") ? D("col", 1) : null,
+                Elastic = map.ContainsKey("elastic") ? D("elastic", 1) : null,
+                LargeDisplacements = D("cr", 0) != 0,
+                DropCoupling = D("nob", 0) != 0,
             };
         }
     }
@@ -429,6 +445,43 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
             db.LoadAll();
             var schema = db.FemSchemas.First();
             ManualSections(db, schema, FemCheckSchemaData.Load(db, schema.Id));
+        }
+        finally { SqliteConnection.ClearAllPools(); }
+    }
+
+    /// <summary>
+    /// Замена класса бетона в готовой базе OPENCS_LIRA_SECANT_REPLACE_CONCRETE: все материалы-бетоны получают
+    /// характеристики класса OPENCS_LIRA_SECANT_CONCRETE из справочника (Id сохраняются — сечения не трогаются).
+    /// </summary>
+    [Fact]
+    public void ReplaceConcreteClass()
+    {
+        var path = Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_REPLACE_CONCRETE");
+        var concreteClass = Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_CONCRETE");
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(concreteClass)) return;
+        try
+        {
+            using var db = new DatabaseService(path);
+            db.LoadAll();
+            foreach (var old in db.Materials.Where(m => m.Type == MatType.Concrete).ToList())
+            {
+                var fresh = MaterialCatalog.CreateHeavyConcrete(concreteClass, CatalogDirectory())
+                            ?? throw new InvalidOperationException($"Класса бетона {concreteClass} нет в справочнике.");
+                fresh.Id = old.Id;
+                var c = fresh.MaterialChars.First(x => x.TypeCalc == CalcType.C);
+                // OPENCS_LIRA_SECANT_CONCRETE_E / _RBT — модуль упругости (все виды расчёта) и Rbt вида C, МПа, вместо
+                // справочных; деформации первых изломов диаграммы (0,6 R / E) пересчитываются.
+                if (double.TryParse(Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_CONCRETE_RBT"), NumberStyles.Float, CultureInfo.InvariantCulture, out double rbt))
+                    c.Ft = rbt * 1e3;
+                if (double.TryParse(Environment.GetEnvironmentVariable("OPENCS_LIRA_SECANT_CONCRETE_E"), NumberStyles.Float, CultureInfo.InvariantCulture, out double e))
+                {
+                    fresh.E = e * 1e3;
+                    foreach (var x in fresh.MaterialChars) x.E = e * 1e3;
+                }
+                foreach (var x in fresh.MaterialChars) { x.Ec1 = 0.6 * x.Fc / x.E; x.Et1 = 0.6 * x.Ft / x.E; }
+                db.SaveMaterial(fresh);
+                output.WriteLine($"материал {old.Id}: «{old.Tag}» (E = {old.E}) → «{fresh.Tag}» (E = {fresh.E}); вид C: Rb = {c.Fc}, Rbt = {c.Ft}, εb1 = {c.Ec1:0.######}, εbt1 = {c.Et1:0.######}");
+            }
         }
         finally { SqliteConnection.ClearAllPools(); }
     }
@@ -567,7 +620,7 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                     : [new FemAnalysisStage { Tag = "все ЗН", LoadExpressionJson = Expr([.. cases.Select(c => (c, v.K))]), LoadFactorStep = 1.0 / v.Steps, MaxLoadFactor = 1 }];
                 var csfea = new FemCsfeaParams
                 {
-                    PlateRebarSource = db.PlateSections.Any(s => s.RebarLayers.Count > 0) ? FemCheckRebarSource.Section : FemCheckRebarSource.Assigned, GeomNonlinear = v.Geom, TensionConcrete = v.Tension, MaxBisections = v.Bisections, MaxIterations = v.Iterations,
+                    PlateRebarSource = db.PlateSections.Any(s => s.RebarLayers.Count > 0) ? FemCheckRebarSource.Section : FemCheckRebarSource.Assigned, GeomNonlinear = v.Geom, GeomLargeDisplacements = v.LargeDisplacements, TensionConcrete = v.Tension, MaxBisections = v.Bisections, MaxIterations = v.Iterations,
                 };
                 var analysis = new FemAnalysis
                 {
@@ -587,6 +640,29 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                     foreach (var (name, d) in new[] { ("бетон", mats.ConcreteDiagram), ("арматура", mats.RebarDiagram) })
                         output.WriteLine($"  диаграмма «{name}» ({v.Calc}): " + string.Join("; ", d.Ic.X.Concat(d.It.X).Distinct().OrderBy(x => x)
                             .Select(x => string.Create(CultureInfo.InvariantCulture, $"{x:0.######} → {d.Sig(x, out _):0.###}"))));
+
+                if (v.Elastic is double stiffness)
+                {
+                    var factory = new SecantRcSectionFactory(new RcSecantOptions { TensionConcrete = v.Tension });
+                    var build = RcStructuralMeshBuilder.Build(prepared.Adapted!.Model, factory);
+                    static double[,] Scaled(double[,] m, double k)
+                    {
+                        var s = (double[,])m.Clone();
+                        for (int i = 0; i < s.GetLength(0); i++) for (int j = 0; j < s.GetLength(1); j++) s[i, j] *= k;
+                        return s;
+                    }
+                    foreach (var st in factory.StatesFor(build.Mesh).Shells)
+                        if (st != null)
+                            st.Response.Update(new CSfea.Core.ShellTangent(Scaled(st.Initial.A, stiffness), Scaled(st.Initial.B, stiffness),
+                                Scaled(st.Initial.D, stiffness), Scaled(st.Initial.As, stiffness)));
+                    var fe = new double[build.Mesh.NDof];
+                    foreach (var st in prepared.Adapted.Model.Stages)
+                        fe = [.. fe.Zip(build.Combination(st.Loads), (a, b) => a + b)];
+                    var ue = build.Mesh.SolveLinear(fe, build.Bc);
+                    output.WriteLine($"  упругий расчёт, жёсткость пластин × {stiffness:0.###}, полная нагрузка варианта; uz, мм: " +
+                                     string.Join("; ", control.Select(c => $"{c.Name} (узел {c.Node}) {ue[build.Dof(c.Node, 2)] * 1e3:0.000}")));
+                    continue;
+                }
 
                 using var log = outDir == null ? null : new StreamWriter(Path.Combine(outDir, Regex.Replace(v.Name, @"[^\w=.,-]", "_") + ".txt"));
                 var clock = Stopwatch.StartNew();
@@ -619,6 +695,14 @@ public sealed class LiraSecantHistoryManualTests(ITestOutputHelper output)
                 };
                 var options = FemCsfeaSetup.SecantOptions(csfea, -1, s => log?.WriteLine($"[{clock.Elapsed.TotalSeconds,7:0.0}] {s}"),
                     prepared.Adapted!.ShellForceAngles, onStep);
+                if (v.DropCoupling)
+                    options = new RcSecantOptions
+                    {
+                        TensionConcrete = options.TensionConcrete, Psi = options.Psi, PlateCrackRule = options.PlateCrackRule,
+                        ZeroStrainBand = options.ZeroStrainBand, DropMembraneBendingCoupling = true, BeamShear = options.BeamShear,
+                        PoissonUncracked = options.PoissonUncracked, Solver = options.Solver, ShellForceAngles = options.ShellForceAngles,
+                        OnStep = options.OnStep,
+                    };
                 var run = RcSecantAnalysis.Run(prepared.Adapted.Model, options, null, CancellationToken.None);
                 clock.Stop();
                 log?.Flush();

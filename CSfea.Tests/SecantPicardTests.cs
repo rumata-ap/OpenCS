@@ -291,11 +291,26 @@ public class SecantPicardTests
         f[6 * 0 + 4] = -p * e;
         f[6 * n + 4] = p * e;
         var res = new SecantPicardSolver(mesh, bc, Array.Empty<ISecantShellState?>(), states,
-            new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-8 }).Run([new SecantLoadStage("P", f, 5)]);
+            new SecantPicardOptions { Geometric = true, GeometricSecondOrder = false, GeometricTolerance = 1e-8 }).Run([new SecantLoadStage("P", f, 5)]);
         var end = res.StageEnd(0);
         TestHarness.Check("стойка: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
         if (end == null) return;
         double w = Math.Abs(end.U[6 * (n / 2)]);
+
+        // Теория второго порядка (K + K_σ, без Ньютона): точное решение w = e·(sec(kL/2) − 1) — её же решение.
+        foreach (var st in states) st!.Revert();
+        var second = new SecantPicardSolver(mesh, bc, Array.Empty<ISecantShellState?>(), states,
+            new SecantPicardOptions { Geometric = true, TolDisplacement = 1e-8 }).Run([new SecantLoadStage("P", f, 5)]);
+        var secondEnd = second.StageEnd(0);
+        TestHarness.Check("стойка, второй порядок: расчёт сошёлся", second.Completed && secondEnd != null, second.Message ?? "");
+        if (secondEnd != null)
+            TestHarness.CheckRel("стойка, второй порядок: прогиб = e·(sec(kL/2) − 1)", Math.Abs(secondEnd.U[6 * (n / 2)]),
+                e * (1 / Math.Cos(Math.Sqrt(p / ei) * l / 2) - 1), 1e-3);
+        var fOver = f.Select(x => 2.4 * x).ToArray();   // 1,2·P_cr
+        var over = new SecantPicardSolver(mesh, bc, Array.Empty<ISecantShellState?>(), states,
+            new SecantPicardOptions { Geometric = true }).Run([new SecantLoadStage("P", fOver, 4)]);
+        TestHarness.Check("стойка, второй порядок, P = 1,2·P_cr: потеря устойчивости — расчёт остановлен", !over.Completed,
+            over.Message ?? "пройден");
 
         var direct = new StructuralMesh(nodes, null, Enumerable.Range(0, n).Select(i => new StructuralBeam(i, i + 1,
             new LinearBeamResponse(new BeamSection(1.0, ea, ei, ei, 1e7, 1.0)), [0.0, 1.0, 0.0])).ToList());

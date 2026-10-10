@@ -245,7 +245,10 @@
                 <CheckBox x:Name="CsfeaGeomNonlinearCb" Content="{DynamicResource FemCsfeaGeomNonlinearLabel}"
                           ToolTip="{DynamicResource FemCsfeaGeomNonlinearTip}" Margin="0,0,16,4"/>
                 <CheckBox x:Name="CsfeaShellInPlanePDeltaCb" Content="{DynamicResource FemCsfeaShellInPlanePDeltaLabel}"
-                          ToolTip="{DynamicResource FemCsfeaShellInPlanePDeltaTip}" Margin="0,0,0,4"
+                          ToolTip="{DynamicResource FemCsfeaShellInPlanePDeltaTip}" Margin="0,0,16,4"
+                          IsEnabled="{Binding IsChecked, ElementName=CsfeaGeomNonlinearCb}"/>
+                <CheckBox x:Name="CsfeaLargeDisplacementsCb" Content="{DynamicResource FemCsfeaLargeDisplacementsLabel}"
+                          ToolTip="{DynamicResource FemCsfeaLargeDisplacementsTip}" Margin="0,0,0,4"
                           IsEnabled="{Binding IsChecked, ElementName=CsfeaGeomNonlinearCb}"/>
             </WrapPanel>
 

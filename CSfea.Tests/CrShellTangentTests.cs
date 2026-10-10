@@ -20,6 +20,7 @@ public class CrShellTangentTests
         RunWallNewton();
         RunWallSecantPicard();
         RunWallOutOfPlane();
+        RunWallSecondOrder();
     }
 
     /// <summary>K_T·δ сетки = центральная разность F_int по направлению δ при больших поворотах и сжатии.</summary>
@@ -118,7 +119,7 @@ public class CrShellTangentTests
             var mesh = new StructuralMesh(wall.Nodes, shells, null);
             var (_, bc) = WallBc(mesh);
             var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
-                new SecantPicardOptions { Geometric = true, GeometricTolerance = 1e-10 }).Run([new SecantLoadStage("P", f, 2)]);
+                new SecantPicardOptions { Geometric = true, GeometricSecondOrder = false, GeometricTolerance = 1e-10 }).Run([new SecantLoadStage("P", f, 2)]);
             var end = res.StageEnd(0);
             TestHarness.Check($"P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
             if (end == null) continue;
@@ -138,7 +139,7 @@ public class CrShellTangentTests
             var vkMesh = new StructuralMesh(vkWall.Nodes, vkShells, null);
             var (_, vkBc) = WallBc(vkMesh);
             var vk = new SecantPicardSolver(vkMesh, vkBc, vkStates, Array.Empty<ISecantBeamState?>(),
-                new SecantPicardOptions { Geometric = true, ShellInPlanePDelta = false, GeometricTolerance = 1e-8 })
+                new SecantPicardOptions { Geometric = true, GeometricSecondOrder = false, ShellInPlanePDelta = false, GeometricTolerance = 1e-8 })
                 .Run([new SecantLoadStage("P", f, 2)]);
             var vkEnd = vk.StageEnd(0);
             TestHarness.Check($"P = {ratio}·P_cr, без прогиба в плоскости: расчёт сошёлся", vk.Completed && vkEnd != null, vk.Message ?? "");
@@ -208,7 +209,7 @@ public class CrShellTangentTests
             {
                 foreach (var st in states) st!.Revert();
                 var res = new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
-                    new SecantPicardOptions { Geometric = true, ShellInPlanePDelta = inPlane, GeometricTolerance = 1e-8 })
+                    new SecantPicardOptions { Geometric = true, GeometricSecondOrder = false, ShellInPlanePDelta = inPlane, GeometricTolerance = 1e-8 })
                     .Run([new SecantLoadStage("P", f, 2)]);
                 var end = res.StageEnd(0);
                 string mode = inPlane ? "CR" : "фон Карман";
@@ -217,6 +218,109 @@ public class CrShellTangentTests
                 TestHarness.CheckRel($"из плоскости, {mode}, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", TopUy(end.U) / (uyPerP * p),
                     amp, 0.005);
             }
+        }
+    }
+
+    /// <summary>
+    /// Та же стена в теории второго порядка (<see cref="SecantPicardOptions.GeometricSecondOrder"/>): K + K_σ в матрице
+    /// системы, без Ньютона. Консоль против δ/δ₀ = 3(tg u − u)/u³, δ₀ — линейный прогиб той же сетки. Из плоскости —
+    /// −0,004…−0,04 % (допуск 0,5 %). В своей плоскости (продольный изгиб стены или пилона) при 4 КЭ по ширине — −0,9 /
+    /// −1,7 % при 0,5 / 0,7·P_cr (допуск 2,5 %); прямой CR-Ньютон на этой же сетке даёт −5 / −11 %: поворот КЭ как
+    /// жёсткого целого убирает P-δ внутри КЭ. Без галки прогиба в плоскости — линейный прогиб. Выше критической силы —
+    /// K + K_σ не положительно определена, расчёт останавливается.
+    /// </summary>
+    private static void RunWallSecondOrder()
+    {
+        TestHarness.Section("Теория второго порядка: стена — P-Δ из плоскости и в своей плоскости");
+        (StructuralMesh Mesh, ISecantShellState?[] States) Secant(double nu)
+        {
+            var abd = new LinearLaminateResponse(PlateBuilder.Plate(E, nu, T)).Tangent(new double[3], new double[3], new double[2]);
+            var wall = WallMesh(nu);
+            var states = new ISecantShellState?[wall.Shells.Count];
+            var shells = new List<StructuralShell>();
+            for (int e = 0; e < wall.Shells.Count; e++)
+            {
+                var st = new ConstantShellState(abd);
+                states[e] = st;
+                shells.Add(new StructuralShell(wall.Shells[e].Nodes, st.Response));
+            }
+            return (new StructuralMesh(wall.Nodes, shells, null), states);
+        }
+        SecantPicardResult Run(StructuralMesh mesh, BoundaryConditions bc, ISecantShellState?[] states, double[] f, bool inPlane)
+            => new SecantPicardSolver(mesh, bc, states, Array.Empty<ISecantBeamState?>(),
+                new SecantPicardOptions { Geometric = true, ShellInPlanePDelta = inPlane, TolDisplacement = 1e-8 })
+                .Run([new SecantLoadStage("P", f, 2)]);
+
+        // ── из плоскости ──
+        double pcrOut = Math.PI * Math.PI * E * (B * T * T * T / 12.0) / (4.0 * H * H);
+        {
+            var (mesh, states) = Secant(0.0);
+            var fixedDofs = new SortedSet<int>();
+            for (int i = 0; i <= Nx; i++)
+                for (int c = 0; c < 6; c++) fixedDofs.Add(6 * Node(i, 0) + c);
+            for (int n = 0; n < mesh.NNodes; n++) fixedDofs.Add(6 * n + 0);
+            var bc = BoundaryConditions.FromArrays(mesh, fixedDofs.ToArray());
+            double[] Load(double p, bool axial)
+            {
+                var f = new double[mesh.NDof];
+                for (int i = 0; i <= Nx; i++)
+                {
+                    double w = (i == 0 || i == Nx ? 0.5 : 1.0) / Nx;
+                    f[6 * Node(i, Nz) + 2] += w * (axial ? -p : 0.0);
+                    f[6 * Node(i, Nz) + 1] += w * 0.01 * p;
+                }
+                return f;
+            }
+            double TopUy(double[] u) => Enumerable.Range(0, Nx + 1).Average(i => u[6 * Node(i, Nz) + 1]);
+            double uyPerP = TopUy(mesh.SolveLinear(Load(pcrOut, false), bc)) / pcrOut;
+            foreach (double ratio in new[] { 0.5, 0.7 })
+            {
+                double p = ratio * pcrOut, k = Math.PI / 2 * Math.Sqrt(ratio);
+                double amp = 3 * (Math.Tan(k) - k) / (k * k * k);
+                foreach (bool inPlane in new[] { true, false })
+                {
+                    var res = Run(mesh, bc, states, Load(p, true), inPlane);
+                    var end = res.StageEnd(0);
+                    string mode = inPlane ? "u, v, w" : "только w";
+                    TestHarness.Check($"из плоскости, K_σ {mode}, P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
+                    if (end == null) continue;
+                    TestHarness.CheckRel($"из плоскости, K_σ {mode}, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", TopUy(end.U) / (uyPerP * p), amp, 0.005);
+                }
+            }
+            var over = Run(mesh, bc, states, Load(1.2 * pcrOut, true), true);
+            TestHarness.Check("из плоскости, P = 1,2·P_cr: потеря устойчивости — расчёт остановлен", !over.Completed, over.Message ?? "пройден");
+        }
+
+        // ── в своей плоскости ──
+        double pcrIn = Math.PI * Math.PI * E * (T * B * B * B / 12.0) / (4.0 * H * H);
+        foreach (double ratio in new[] { 0.5, 0.7 })
+        {
+            double p = ratio * pcrIn;
+            var (direct, bcDirect) = Wall();
+            var f = TopLoad(direct, -p, 0.01 * p);
+            var (uDirect, _) = direct.SolveNonlinear(f, bcDirect, nSteps: 1, tol: 1e-10, maxIter: 40, corotational: true, lineSearch: false);
+            double uxLin = TopUx(direct, direct.SolveLinear(TopLoad(direct, 0.0, 0.01 * p), bcDirect));
+            foreach (bool inPlane in new[] { true, false })
+            {
+                var (mesh, states) = Secant(Nu);
+                var (_, bc) = WallBc(mesh);
+                var res = Run(mesh, bc, states, f, inPlane);
+                var end = res.StageEnd(0);
+                string mode = inPlane ? "с прогибом в плоскости" : "без прогиба в плоскости";
+                TestHarness.Check($"в плоскости, {mode}, P = {ratio}·P_cr: расчёт сошёлся", res.Completed && end != null, res.Message ?? "");
+                if (end == null) continue;
+                double ux = TopUx(mesh, end.U);
+                Console.WriteLine($"  в плоскости, {mode}, P = {ratio}·P_cr: ux = {ux * 1e3:f2} мм, CR-Ньютон {TopUx(direct, uDirect) * 1e3:f2}, линейно {uxLin * 1e3:f2}");
+                double k = Math.PI / 2 * Math.Sqrt(ratio);
+                if (inPlane) TestHarness.CheckRel($"в плоскости, P = {ratio}·P_cr: δ/δ₀ = 3(tg u − u)/u³", ux / uxLin, 3 * (Math.Tan(k) - k) / (k * k * k), 0.025);
+                else TestHarness.CheckRel($"в плоскости, без прогиба в плоскости, P = {ratio}·P_cr: ux = линейный", ux, uxLin, 0.01);
+            }
+        }
+        {
+            var (mesh, states) = Secant(Nu);
+            var (_, bc) = WallBc(mesh);
+            var over = Run(mesh, bc, states, TopLoad(mesh, -1.3 * pcrIn, 0.013 * pcrIn), true);
+            TestHarness.Check("в плоскости, P = 1,3·P_cr: потеря устойчивости — расчёт остановлен", !over.Completed, over.Message ?? "пройден");
         }
     }
 

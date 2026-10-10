@@ -2755,9 +2755,11 @@
     <system:String x:Key="FemCsfeaBeamShearLabel">Bar shear from stirrups</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Shear deformations of bars (Timoshenko elements): secant GAv from the section stirrups.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Geometric nonlinearity</system:String>
-    <system:String x:Key="FemCsfeaGeomNonlinearTip">Plates and bars — corotational formulation (large rotations, P-Δ). In-plane deflection of walls and plates — separate option.</system:String>
+    <system:String x:Key="FemCsfeaGeomNonlinearTip">Second-order analysis (deformed configuration): the initial stress matrix from the forces of the previous iteration is added to the secant stiffness — P-Δ of bars, walls and plates. A matrix that is no longer positive definite means loss of stability. Large displacements — separate option.</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Account for in-plane deflection of walls and plates</system:String>
-    <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">On: plates use the corotational formulation, P-Δ both out of plane and in plane (a wall compressed and bent in its plane). Off: von Kármán — out-of-plane deflection only; faster. Bars are corotational either way.</system:String>
+    <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">On: P-Δ of walls and plates both out of plane and in plane (a wall or pier compressed and bent in its plane). Off: out-of-plane deflection only.</system:String>
+    <system:String x:Key="FemCsfeaLargeDisplacementsLabel">Large displacements</system:String>
+    <system:String x:Key="FemCsfeaLargeDisplacementsTip">Corotational formulation of plates and bars: large rotations, equilibrium by Newton iterations at every iteration. Noticeably slower; rarely needed — flexible systems, snap-through. Off: second-order analysis.</system:String>
     <system:String x:Key="FemCsfeaIterationsGroup">Iterations (Picard)</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsLabel">Max iterations per step</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsInvalid">Number of iterations must be an integer ≥ 1.</system:String>

@@ -2755,9 +2755,11 @@
     <system:String x:Key="FemCsfeaBeamShearLabel">Сдвиг стержней по хомутам</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Сдвиговые деформации стержней (КЭ Тимошенко): секущая жёсткость GAv по хомутам сечения.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Геометрическая нелинейность</system:String>
-    <system:String x:Key="FemCsfeaGeomNonlinearTip">Пластины и стержни — коротационная формулировка (большие повороты, P-Δ). Учёт прогиба стен и пластин в своей плоскости — отдельной галкой.</system:String>
+    <system:String x:Key="FemCsfeaGeomNonlinearTip">Расчёт по деформированной схеме (теория второго порядка): к секущей жёсткости добавляется матрица начальных напряжений по усилиям предыдущей итерации — P-Δ стержней, стен и пластин. Потеря положительной определённости матрицы — потеря устойчивости. Большие перемещения — отдельной галкой.</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Учитывать прогиб в плоскости стен и пластин</system:String>
-    <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">Включено: пластины — коротационная формулировка, P-Δ и из плоскости, и в своей плоскости (стена, сжатая и изогнутая в плоскости). Выключено: фон Карман — только прогиб из плоскости; расчёт быстрее. Стержни — коротационная формулировка в обоих случаях.</system:String>
+    <system:String x:Key="FemCsfeaShellInPlanePDeltaTip">Включено: P-Δ стен и пластин и из плоскости, и в своей плоскости (стена или пилон, сжатые и изогнутые в своей плоскости). Выключено: только прогиб из плоскости.</system:String>
+    <system:String x:Key="FemCsfeaLargeDisplacementsLabel">Большие перемещения</system:String>
+    <system:String x:Key="FemCsfeaLargeDisplacementsTip">Коротационная формулировка пластин и стержней: большие повороты, равновесие — Ньютоном на каждой итерации. Считает заметно дольше; нужна редко — гибкие системы, прощёлкивание. Выключено: теория второго порядка.</system:String>
     <system:String x:Key="FemCsfeaIterationsGroup">Итерации (Пикар)</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsLabel">Итераций на шаг, не более</system:String>
     <system:String x:Key="FemCsfeaMaxIterationsInvalid">Число итераций — целое ≥ 1.</system:String>

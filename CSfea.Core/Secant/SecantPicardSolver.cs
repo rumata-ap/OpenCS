@@ -102,13 +102,25 @@ public sealed class SecantPicardOptions
     /// </summary>
     public double TolStiffness { get; init; } = 1e-3;
 
-    /// <summary>Геометрическая нелинейность: оболочки и стержни — CR, при замороженных секущих.</summary>
+    /// <summary>
+    /// Геометрическая нелинейность при замороженных секущих: теория второго порядка или CR — см.
+    /// <see cref="GeometricSecondOrder"/>.
+    /// </summary>
     public bool Geometric { get; init; }
 
     /// <summary>
-    /// При <see cref="Geometric"/>: оболочки — CR, P-Δ стен и пластин и из плоскости, и в своей плоскости (true), или фон
-    /// Карман — только из плоскости (прогиб в плоскости на равновесие не влияет; касательная аналитическая, счёт быстрее).
-    /// Стержни — CR в обоих случаях.
+    /// При <see cref="Geometric"/>: теория второго порядка (расчёт по деформированной схеме, малые повороты) — итерация
+    /// Пикара решает [K_сек + K_σ(N)]·u = F, где K_σ — матрица начальных напряжений по усилиям предыдущей итерации
+    /// (Агапов, «Метод конечных элементов…», п. 3.1). Матрица симметрична, решение — одно разложение Холецкого, как без
+    /// геометрической нелинейности; не положительно определённая K + K_σ — потеря устойчивости, отказ шага. false —
+    /// коротационная формулировка (большие перемещения): Ньютон по невязке при замороженных секущих.
+    /// </summary>
+    public bool GeometricSecondOrder { get; init; } = true;
+
+    /// <summary>
+    /// При <see cref="Geometric"/>: P-Δ стен и пластин и из плоскости, и в своей плоскости (true) или только из плоскости
+    /// (прогиб в плоскости на равновесие не влияет). Теория второго порядка: K_σ по наклонам u, v, w или только w. CR:
+    /// оболочки — CR или фон Карман (касательная аналитическая, счёт быстрее); стержни — CR в обоих случаях.
     /// </summary>
     public bool ShellInPlanePDelta { get; init; } = true;
 
@@ -168,7 +180,7 @@ public sealed class SecantPicardOptions
     public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => new()
     {
         MaxIterations = MaxIterations, IterationExtension = IterationExtension, NearToleranceFactor = NearToleranceFactor, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
-        TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, ShellInPlanePDelta = ShellInPlanePDelta,
+        TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, GeometricSecondOrder = GeometricSecondOrder, ShellInPlanePDelta = ShellInPlanePDelta,
         GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, NonSpdLuMaxSize = NonSpdLuMaxSize, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
         OnStepAccepted = onStepAccepted,
@@ -430,8 +442,10 @@ public sealed class SecantPicardSolver
             // Приращение после неполного обновления (ω < 1) — доля полного шага Пикара: в критерий — полный шаг ‖Δu‖/ω,
             // иначе малый ω сам по себе даёт малое ‖Δu‖ и ложную сходимость.
             // Неточный Ньютон геометрии: шаг сходится, только когда и равновесие при замороженных секущих решено.
-            bool equilibrium = !_o.Geometric || _o.GeometricNewtonSteps <= 0 || _newtonResidual < _o.GeometricTolerance;
-            bool settled = dK < _o.TolStiffness && (it == 1 || du / Math.Min(omegaApplied, 1.0) < _o.TolDisplacement);
+            bool equilibrium = !Cr || _o.GeometricNewtonSteps <= 0 || _newtonResidual < _o.GeometricTolerance;
+            // Теория второго порядка: K_σ собрана по усилиям предыдущей итерации — первая итерация шага сходимостью не
+            // считается (усилия ещё от прошлого шага), критерий ‖Δu‖ обязателен.
+            bool settled = dK < _o.TolStiffness && (it == 1 && !SecondOrder || du / Math.Min(omegaApplied, 1.0) < _o.TolDisplacement);
             bool converged = settled && equilibrium;
             // Секущие устоялись, а равновесие не дорешено — следующая итерация решает Ньютон до допуска (иначе по 2 шага
             // каждая итерация доходит до допуска лишь асимптотически, и шаг упирается в предел итераций).
@@ -514,14 +528,20 @@ public sealed class SecantPicardSolver
         : "";
 
     // Раскладка линейного решения по фазам (только линейный путь по постоянному портрету).
-    private string SolveDetail() => _o.Geometric
+    private string SolveDetail() => Cr
         ? _mesh.LastNewtonTimings is { } n
-            ? $" (Ньютон: {n.Solves} реш., невязка {_newtonResidual:e1}; касательная {n.Tangent:0.00}, факторизация " +
+            ? $" (Ньютон: {n.Solves} реш., невязка {_newtonResidual:e1}{LineSearchDetail()}; касательная {n.Tangent:0.00}, факторизация " +
               $"{n.Factorize:0.00}, F_int {n.FInt:0.00} за {n.FIntCalls}, прочее {n.Total - n.Tangent - n.Factorize - n.FInt:0.00})"
             : ""
         : _mesh.LastSolveTimings is { } t
             ? $" (сборка {t.Assemble:0.0}, факторизация {t.Factorize:0.0}, прочее {t.Total - t.Assemble - t.Factorize:0.0})"
             : "";
+
+    // Line search шагов Ньютона последнего решения: принятые α («!» — убывания невязки не нашлось) и причина выхода.
+    private string LineSearchDetail() => _mesh.LastNewtonTrace is { Count: > 0 } t
+        ? ", α " + string.Join(" ", t.Select(s => s.Stop != null ? $"[{s.Stop}]"
+            : s.Alpha.ToString("0.0e0", System.Globalization.CultureInfo.InvariantCulture) + (s.Accepted ? "" : "!")))
+        : "";
 
     // Невязка Ньютона (‖r‖/‖F‖ при замороженных секущих) по последнему SolveFrozen; NaN — без геометрии.
     private double _newtonResidual = double.NaN;
@@ -536,6 +556,7 @@ public sealed class SecantPicardSolver
         try
         {
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
+            if (SecondOrder) return _mesh.SolveSecondOrder(f, _bc, uFrom, _o.ShellInPlanePDelta);
             bool inexact = _o.GeometricNewtonSteps > 0;
             bool full = !inexact || _fullNewton;
             int luBefore = _mesh.LuFallbackSize;
@@ -551,8 +572,16 @@ public sealed class SecantPicardSolver
             var (u, history) = solved;
             _newtonResidual = history.Count > 0 ? history[^1].Residual : double.NaN;
             if (full && !history.AllConverged())
-                _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
-                    System.Globalization.CultureInfo.InvariantCulture))));
+            {
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0", inv))));
+                // Шаги: невязка до шага → проба α = 1 … последняя проба; принятый α («!» — убывания не нашлось); ‖Δu‖/‖u‖.
+                foreach (var s in _mesh.LastNewtonTrace ?? [])
+                    _o.Log?.Invoke(s.Stop != null
+                        ? string.Create(inv, $"    Ньютон ит.{s.Iteration}: невязка {s.Residual:e3}, выход — {s.Stop}")
+                        : string.Create(inv, $"    Ньютон ит.{s.Iteration}: невязка {s.Residual:e3} → α=1: {s.FirstTrial:e3}, посл. проба: {s.LastTrial:e3}; " +
+                                             $"α = {s.Alpha:e1}{(s.Accepted ? "" : " (убывания нет)")}, ‖Δu‖/‖u‖ = {s.StepNorm:e2}"));
+            }
             // Неточный режим: недорешённое равновесие после 2 шагов — не отказ, следующая итерация Пикара продолжит с этого
             // u. Ньютон до допуска (дорешивание) не сошёлся — отказ, как в полном режиме: иначе каждая следующая итерация
             // Пикара снова тратит 30 шагов Ньютона на недостижимый допуск.
@@ -747,8 +776,12 @@ public sealed class SecantPicardSolver
 
     // ---------------- деформации КЭ ----------------
 
+    // Геометрическая нелинейность: теория второго порядка (линейная кинематика, K_σ в матрице системы) или CR.
+    private bool SecondOrder => _o.Geometric && _o.GeometricSecondOrder;
+    private bool Cr => _o.Geometric && !_o.GeometricSecondOrder;
+
     // Кинематика оболочек: CR (геомнелин с P-Δ в плоскости) или линейная / фон Карман.
-    private bool ShellCr => _o.Geometric && _o.ShellInPlanePDelta;
+    private bool ShellCr => Cr && _o.ShellInPlanePDelta;
 
     /// <summary>Деформации центра оболочки в осях сечения.</summary>
     private (double[] Eps, double[] Kappa, double[] Gamma) ShellStrains(int e, double[] u)
@@ -756,7 +789,7 @@ public sealed class SecantPicardSolver
         var dofs = StructuralMesh.NodeDofs(_mesh.Shells[e].Nodes);
         var (eps, kappa, gamma) = ShellCr
             ? ShellCorotational.CenterStrainsCR(_mesh.ShellCoords(e), Gather(u, dofs))
-            : ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs), vonKarman: _o.Geometric);
+            : ShellElementForces.CenterStrainsGlobal(_mesh.ShellCoords(e), Gather(u, dofs), vonKarman: Cr);
         return _mesh.Shells[e].Section is RotatedShellResponse rot ? rot.ToSection(eps, kappa, gamma) : (eps, kappa, gamma);
     }
 
@@ -781,7 +814,7 @@ public sealed class SecantPicardSolver
         var b = _mesh.Beams[e];
         var ue = Gather(u, StructuralMesh.NodeDofs(new[] { b.I, b.J }));
         var coords = _mesh.BeamCoords(e);
-        if (_o.Geometric)
+        if (Cr)
         {
             var (r, l0) = BeamElements.Beam3dFrame(coords, b.RefVec);
             return (BeamCorotational.Beam3dPLocal(coords, r, l0, ue), l0);
@@ -813,7 +846,10 @@ public sealed class SecantPicardSolver
             }
             parts[e] = ShellCr
                 ? ShellCorotational.ElementFCR(_mesh.ShellCoords(e), sec, Gather(u, dofs))
-                : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: _o.Geometric);
+                : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: Cr);
+            // Теория второго порядка: к усилиям закона — вклад начальных напряжений K_σ·u.
+            if (SecondOrder)
+                parts[e] = Dense.AddV(parts[e], Dense.MatVec(_mesh.ShellKGeometric(e, u, _o.ShellInPlanePDelta), Gather(u, dofs)));
         });
         var fInt = new double[_mesh.NDof];
         var fAbs = new double[_mesh.NDof];
@@ -836,8 +872,10 @@ public sealed class SecantPicardSolver
             // КЭ, а не сходимость.
             var coords = _mesh.BeamCoords(e);
             var ue = Gather(u, dofs);
-            var fe = _o.Geometric
+            var fe = Cr
                 ? BeamCorotational.Beam3dInternalForce(coords, b.Section, ue, b.RefVec, b.Releases)
+                : SecondOrder
+                ? Dense.MatVec(_mesh.ElementKSecondOrder(_shells.Length + e, u, _o.ShellInPlanePDelta), ue)
                 : Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue);
             for (int i = 0; i < dofs.Length; i++)
             {

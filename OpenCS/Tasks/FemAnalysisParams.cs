@@ -172,13 +172,21 @@ public sealed class FemCsfeaParams
     public bool BeamShear { get; set; } = true;
     /// <summary>ν бетона до трещины; null — как в сечении.</summary>
     public double? PoissonUncracked { get; set; }
-    /// <summary>Геометрическая нелинейность (оболочки и стержни — CR).</summary>
+    /// <summary>
+    /// Геометрическая нелинейность: теория второго порядка (расчёт по деформированной схеме) или, при
+    /// <see cref="GeomLargeDisplacements"/>, коротационная формулировка.
+    /// </summary>
     public bool GeomNonlinear { get; set; }
     /// <summary>
-    /// При <see cref="GeomNonlinear"/>: P-Δ стен и пластин и в своей плоскости (оболочки — CR); false — только из
-    /// плоскости (фон Карман, быстрее). Стержни — CR в обоих случаях.
+    /// При <see cref="GeomNonlinear"/>: P-Δ стен и пластин и в своей плоскости (стена или пилон, сжатые и изогнутые в
+    /// своей плоскости); false — только из плоскости.
     /// </summary>
     public bool ShellInPlanePDelta { get; set; } = true;
+    /// <summary>
+    /// При <see cref="GeomNonlinear"/>: большие перемещения — оболочки и стержни CR, равновесие Ньютоном на каждой
+    /// итерации (дольше); false — теория второго порядка: матрица начальных напряжений в секущей матрице системы.
+    /// </summary>
+    public bool GeomLargeDisplacements { get; set; }
 
     /// <summary>Наибольшее число итераций Пикара на шаге.</summary>
     public int MaxIterations { get; set; } = 50;

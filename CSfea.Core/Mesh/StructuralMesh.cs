@@ -11,6 +11,15 @@ public sealed record LinearSolveTimings(double Assemble, double Factorize, doubl
 /// </summary>
 public sealed record NewtonSolveTimings(int Solves, int FIntCalls, double Tangent, double Factorize, double FInt, double Total);
 
+/// <summary>
+/// Шаг Ньютона последнего <see cref="StructuralMesh.SolveNonlinear"/> (диагностика): невязка до шага, принятый α line
+/// search и признак принятия (false — убывания не нашлось, шаг сделан с наименьшим α), невязка первой (α = 1) и последней
+/// пробы, ‖Δu‖/‖u‖ полного шага по свободным DOF; <paramref name="Stop"/> — причина выхода из итераций без шага
+/// (система не решена, приращение не конечно), иначе null.
+/// </summary>
+public sealed record NewtonStepTrace(int Step, int Iteration, double Residual, double Alpha, bool Accepted,
+    double FirstTrial, double LastTrial, double StepNorm, string? Stop);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -258,6 +267,119 @@ public sealed class StructuralMesh : IFeaMesh
         return k;
     }
 
+    // ---------------- теория второго порядка (расчёт по деформированной схеме) ----------------
+
+    /// <summary>
+    /// Матрица начальных напряжений K_σ оболочки (глобальные оси, 6n × 6n) по мембранным усилиям сечения при
+    /// перемещениях <paramref name="u"/> (линейная кинематика): Σ по точкам Гаусса Gᵀ·[Nx Nxy; Nxy Ny]·G для наклонов
+    /// прогиба w и, если <paramref name="inPlane"/>, перемещений в плоскости u, v (продольный изгиб стены или пилона в
+    /// своей плоскости).
+    /// </summary>
+    public double[,] ShellKGeometric(int e, double[] u, bool inPlane = true)
+    {
+        var coords = ShellCoords(e);
+        var (xy, _, _) = ShellGeometry.ProjectToLocal(coords);
+        int n = coords.Length;
+        var t = ShellGeometry.BuildTMatrix(ShellGeometry.LocalFrame(coords), n);
+        var uLoc = Dense.MatTVec(t, Gather(u, NodeDofs(Shells[e].Nodes)));
+        var section = Shells[e].Section;
+        var k = new double[5 * n, 5 * n];
+        foreach (var g in ShellElementForces.GaussData(xy))
+        {
+            var (nf, _, _) = section.Forces(Dense.MatVec(g.Bm, uLoc), Dense.MatVec(g.Bb, uLoc), Dense.MatVec(g.Bs, uLoc));
+            for (int i = 0; i < n; i++)
+            {
+                double gi0 = g.G[0, 5 * i + 2], gi1 = g.G[1, 5 * i + 2];
+                for (int j = 0; j < n; j++)
+                {
+                    double gj0 = g.G[0, 5 * j + 2], gj1 = g.G[1, 5 * j + 2];
+                    double h = g.Scale * (gi0 * (nf[0] * gj0 + nf[2] * gj1) + gi1 * (nf[2] * gj0 + nf[1] * gj1));
+                    k[5 * i + 2, 5 * j + 2] += h;
+                    if (!inPlane) continue;
+                    k[5 * i, 5 * j] += h;
+                    k[5 * i + 1, 5 * j + 1] += h;
+                }
+            }
+        }
+        return Dense.MatMul(Dense.MatMul(t, k), Dense.Transpose(t));
+    }
+
+    /// <summary>
+    /// Матрица КЭ единой нумерации в теории второго порядка: K + K_σ(N), N — усилия КЭ при перемещениях
+    /// <paramref name="u"/> и текущих жёсткостях сечений. Оболочки — <see cref="ShellKGeometric"/>; стержни — K_σ балки
+    /// с функциями Эрмита по продольной силе КЭ (растяжение — плюс), шарниры конденсируются из суммы.
+    /// </summary>
+    public double[,] ElementKSecondOrder(int e, double[] u, bool shellInPlane = true)
+    {
+        if (e < Shells.Count)
+        {
+            var k = ElementK(e);
+            Dense.AddScaledInPlace(k, ShellKGeometric(e, u, shellInPlane), 1.0);
+            return k;
+        }
+        int i = e - Shells.Count;
+        var b = Beams[i];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(i), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = Dense.MatVec(t, Gather(u, BeamDofs(b)));
+        double axial = Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
+        if (axial != 0.0)
+        {
+            kl = (double[,])kl.Clone();
+            AddBeamKGeometric(kl, axial, l);
+        }
+        return Dense.MatMul(Dense.MatTMul(t, BeamReleases.Condense(kl, b.Releases)), t);
+    }
+
+    // K_σ стержня (местные оси, функции Эрмита): N/(30·L)·[36, 3L, −36, 3L; …] в обеих плоскостях изгиба; у плоскости
+    // xz знаки связей прогиб — поворот обратные (w′ = −θy), как в Beam3dKLocal.
+    private static void AddBeamKGeometric(double[,] k, double axial, double l)
+    {
+        double c = axial / (30.0 * l), a = 36.0 * c, b = 3.0 * l * c, d4 = 4.0 * l * l * c, d1 = -l * l * c;
+        var xy = new[,] { { a, b, -a, b }, { b, d4, -b, d1 }, { -a, -b, a, -b }, { b, d1, -b, d4 } };
+        var xz = new[,] { { a, -b, -a, -b }, { -b, d4, b, d1 }, { -a, b, a, b }, { -b, d1, b, d4 } };
+        int[] ixy = [1, 5, 7, 11], ixz = [2, 4, 8, 10];
+        for (int p = 0; p < 4; p++)
+            for (int q = 0; q < 4; q++)
+            {
+                k[ixy[p], ixy[q]] += xy[p, q];
+                k[ixz[p], ixz[q]] += xz[p, q];
+            }
+    }
+
+    /// <summary>
+    /// Решение по теории второго порядка: [K + K_σ(N)]·u = F, N — усилия КЭ при перемещениях
+    /// <paramref name="uState"/> (обычно предыдущая итерация; N уточняется повторным вызовом). Матрица симметрична,
+    /// решение — тем же Холецким, что и линейное; не положительно определённая K + K_σ — потеря устойчивости
+    /// (<see cref="InvalidOperationException"/>, запасного LU нет: выше критической нагрузки решение не имеет смысла).
+    /// </summary>
+    public double[] SolveSecondOrder(double[] f, BoundaryConditions bc, double[] uState, bool shellInPlane = true)
+    {
+        if (bc.HasNonlinearSprings)
+            throw new InvalidOperationException("SolveSecondOrder не поддерживает нелинейные пружины — используйте SolveNonlinear.");
+        if (bc.UFixed.Any(v => v != 0))
+            throw new NotSupportedException("SolveSecondOrder — только с нулевыми заданными перемещениями.");
+        var fixedSys = SysFixed(bc.FixedDofs);
+        lock (_cholGate)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var asm = Assembler(bc, fixedSys);
+            var kff = asm.AssembleWith(e => ElementKSecondOrder(e, uState, shellInPlane), MaxDegreeOfParallelism);
+            double tAssemble = clock.Elapsed.TotalSeconds;
+            var fSys = SysVector(f);
+            var fmod = Array.ConvertAll(asm.Free, d => fSys[d]);
+            var chol = FactorizeCached(kff);
+            if (!chol.LastFactorizationSpd)
+            {
+                string where = chol.FirstNonPositivePivot is int i and >= 0 && i < asm.Free.Length ? " — " + DescribeDof(asm.Free[i]) : "";
+                throw new InvalidOperationException($"Матрица K + K_σ не положительно определена — потеря устойчивости{where}.");
+            }
+            var res = Full(DirichletReducer.Expand(NSys, asm.Free, chol.Solve(fmod), fixedSys, bc.UFixed));
+            LastSolveTimings = new LinearSolveTimings(tAssemble, _lastFactorSeconds, clock.Elapsed.TotalSeconds);
+            return res;
+        }
+    }
+
     // Пачка матриц оболочек касательной: параллельный расчёт, раскладка в COO по порядку.
     private const int TangentBatch = 4096;
 
@@ -452,6 +574,7 @@ public sealed class StructuralMesh : IFeaMesh
         var fStart = f0 ?? new double[ndof];
         var uFixedStart = fixedDofs.Select(d => uSys[d]).ToArray();
         var history = new List<ShellMesh.NewtonRecord>();
+        var trace = new List<NewtonStepTrace>();
         var clock = System.Diagnostics.Stopwatch.StartNew();
         int nSolves = 0, nFInt = 0;
         double tTangent = 0.0, tFactor = 0.0, tFInt = 0.0;
@@ -537,23 +660,36 @@ public sealed class StructuralMesh : IFeaMesh
                 double[] duFree;
                 nSolves++;
                 try { duFree = bc.HasNonlinearSprings ? SolveTangentLu(u, r) : SolveTangentCholesky(u, r); }
-                catch (InvalidOperationException) { break; }
-                if (!duFree.All(double.IsFinite)) break;
+                catch (InvalidOperationException ex)
+                {
+                    trace.Add(new NewtonStepTrace(step, it, resid, 0.0, false, double.NaN, double.NaN, double.NaN, ex.Message));
+                    break;
+                }
+                if (!duFree.All(double.IsFinite))
+                {
+                    trace.Add(new NewtonStepTrace(step, it, resid, 0.0, false, double.NaN, double.NaN, double.NaN, "приращение не конечно"));
+                    break;
+                }
 
                 var uBak = free.Select(i => uSys[i]).ToArray();
+                double stepNorm = Dense.Norm(duFree) / Math.Max(Dense.Norm(uBak), 1e-300);
                 double alpha = 1.0;
+                bool accepted = false;
+                double firstTrial = double.NaN, lastTrial = double.NaN;
                 if (lineSearch)
                 {
-                    bool accepted = false;
                     for (int ls = 0; ls < maxLsSteps; ls++)
                     {
                         SetFree(uBak, duFree, alpha);
                         var rTrial = Residual(fStep);
-                        if (IsFinite(rTrial, free) && NormAt(rTrial, free) / fNorm < resid) { accepted = true; break; }
+                        lastTrial = IsFinite(rTrial, free) ? NormAt(rTrial, free) / fNorm : double.PositiveInfinity;
+                        if (ls == 0) firstTrial = lastTrial;
+                        if (lastTrial < resid) { accepted = true; break; }
                         alpha *= 0.5;
                     }
-                    if (accepted) continue;
                 }
+                trace.Add(new NewtonStepTrace(step, it, resid, alpha, accepted, firstTrial, lastTrial, stepNorm, null));
+                if (accepted) continue;
                 SetFree(uBak, duFree, alpha);
             }
             if (verbose && !converged)
@@ -562,6 +698,7 @@ public sealed class StructuralMesh : IFeaMesh
             CommitStep(u);
         }
         LastNewtonTimings = new NewtonSolveTimings(nSolves, nFInt, tTangent, tFactor, tFInt, clock.Elapsed.TotalSeconds);
+        LastNewtonTrace = trace;
         return (u, history);
     }
 
@@ -650,6 +787,9 @@ public sealed class StructuralMesh : IFeaMesh
 
     /// <summary>Раскладка времени последнего <see cref="SolveNonlinear"/>.</summary>
     public NewtonSolveTimings? LastNewtonTimings { get; private set; }
+
+    /// <summary>Шаги Ньютона последнего <see cref="SolveNonlinear"/>: line search и причина выхода (диагностика).</summary>
+    public IReadOnlyList<NewtonStepTrace>? LastNewtonTrace { get; private set; }
 
     private double _lastFactorSeconds;
 
