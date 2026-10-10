@@ -584,12 +584,19 @@ public sealed class StructuralMesh : IFeaMesh
     /// <summary>Наибольший порядок системы, для которой при не-SPD матрице пробуется LU (без упорядочивания он медленный).</summary>
     public const int LuFallbackMaxSize = 50_000;
 
+    /// <summary>
+    /// Наибольший порядок системы, для которой при не положительно определённой матрице пробуется LU; больше — сразу
+    /// исключение. Расчёт шагами с дроблением снижает порог: выше предельной нагрузки LU шаг не спасает, а на десятках
+    /// тысяч неизвестных занимает минуты на решение.
+    /// </summary>
+    public int LuFallbackSize { get; set; } = LuFallbackMaxSize;
+
     // Не положительно определённая матрица: небольшая система — LU; большая (или вырожденная для LU) — исключение с
     // узлом и DOF первого неположительного ведущего элемента.
     private double[] SolveNotSpd(SupernodalCholeskySolver chol, CscMatrix a, double[] b, int[] free)
     {
         string where = chol.FirstNonPositivePivot is int i and >= 0 && i < free.Length ? " — " + DescribeDof(free[i]) : "";
-        if (a.Cols <= LuFallbackMaxSize)
+        if (a.Cols <= LuFallbackSize)
         {
             try { return SparseLuSolver.SolveOnce(a, b); }
             catch (InvalidOperationException ex)

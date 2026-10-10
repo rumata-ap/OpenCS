@@ -114,7 +114,21 @@ public sealed class SecantPicardOptions
     /// </summary>
     public int GeometricNewtonSteps { get; init; } = 2;
 
-    /// <summary>Дроблений шага пополам при несходимости (несходимость за MaxIterations/2 итераций — сигнал дробить).</summary>
+    /// <summary>
+    /// При <see cref="Geometric"/>: наибольший порядок системы, при котором не положительно определённая касательная
+    /// Ньютона решается запасным LU; у больших систем это отказ шага (шаг дробится). Выше предельной нагрузки LU шаг не
+    /// спасает, а на десятках тысяч неизвестных занимает минуты на каждое решение (схема 34 тыс. неизвестных — ~350 с).
+    /// У малых систем LU оставлен: симметризованная касательная CR-оболочки бывает не положительно определённой и ниже
+    /// критической нагрузки (стена из плоскости при 0,7·P_cr).
+    /// </summary>
+    public int NonSpdLuMaxSize { get; init; } = 10_000;
+
+    /// <summary>
+    /// Дроблений шага пополам при несходимости. Шаг, который можно раздробить, отвергается досрочно — после
+    /// MaxIterations/2 итераций, — только если итерации расходятся: ‖Δu‖/‖u‖ втрое больше наименьшего на шаге или растёт
+    /// число сечений с отказом. Медленно сходящийся шаг (фронт трещин продвигается на несколько КЭ за итерацию) идёт до
+    /// MaxIterations.
+    /// </summary>
     public int MaxBisections { get; init; } = 4;
 
     /// <summary>
@@ -143,7 +157,7 @@ public sealed class SecantPicardOptions
     {
         MaxIterations = MaxIterations, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
         TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, ShellInPlanePDelta = ShellInPlanePDelta,
-        GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
+        GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, NonSpdLuMaxSize = NonSpdLuMaxSize, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
         OnStepAccepted = onStepAccepted,
     };
@@ -362,6 +376,8 @@ public sealed class SecantPicardSolver
         double residual = double.NaN;
         int cracksPrev = -1;
         int abortAt = allowAbort ? Math.Max(1, _o.MaxIterations / 2) : _o.MaxIterations;
+        double duMin = double.PositiveInfinity;   // наименьшее ‖Δu‖/‖u‖ на шаге (без первой итерации)
+        int failedPrev = 0;
 
         // Шаг не принят (несходимость или отмена): состояние и секущие — как в начале шага.
         void Restore()
@@ -452,7 +468,11 @@ public sealed class SecantPicardSolver
                 foreach (var b in _beams) b?.Commit();
                 return new Attempt(true, it, residual, u, shellStatus, beamStatus);
             }
-            if (it >= abortAt) { uPrev = u; break; }
+            // Досрочный отказ (шаг будет раздроблен) — только при расходимости; медленная сходимость идёт до MaxIterations.
+            bool diverging = du > 3.0 * duMin || (failed > 0 && failed > failedPrev);
+            if (it >= abortAt && (it >= _o.MaxIterations || diverging)) { uPrev = u; break; }
+            if (it > 1) duMin = Math.Min(duMin, du);
+            failedPrev = failed;
             uPrev = u;
             omegaApplied = applied;
             if (!crackEvent) rPrev = r;
@@ -498,9 +518,17 @@ public sealed class SecantPicardSolver
             if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
             bool inexact = _o.GeometricNewtonSteps > 0;
             bool full = !inexact || _fullNewton;
+            int luBefore = _mesh.LuFallbackSize;
+            _mesh.LuFallbackSize = Math.Min(luBefore, _o.NonSpdLuMaxSize);
+            (double[] U, List<ShellMesh.NewtonRecord> History) solved;
             // maxIter — число вычислений невязки: k шагов Ньютона и невязка после последнего.
-            var (u, history) = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance,
-                maxIter: full ? 30 : _o.GeometricNewtonSteps + 1, corotational: ShellCr, u0: uFrom, f0: f);
+            try
+            {
+                solved = _mesh.SolveNonlinear(f, _bc, nSteps: 1, tol: _o.GeometricTolerance,
+                    maxIter: full ? 30 : _o.GeometricNewtonSteps + 1, corotational: ShellCr, u0: uFrom, f0: f);
+            }
+            finally { _mesh.LuFallbackSize = luBefore; }
+            var (u, history) = solved;
             _newtonResidual = history.Count > 0 ? history[^1].Residual : double.NaN;
             if (full && !history.AllConverged())
                 _o.Log?.Invoke("    Ньютон: невязки " + string.Join(" ", history.Select(h => h.Residual.ToString("0.0e0",
