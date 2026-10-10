@@ -643,7 +643,9 @@ namespace CScore
          return -cDiag.Sig(-deps, out _, tenB: false) / deps;
       }
 
-      static double SecantModulus(double sig, double eps, double e0) => eps != 0.0 ? sig / eps : e0;
+      // При |ε| на уровне округления σ(ε) диаграммы — не нуль, а погрешность интерполяции (~1e-11 кПа), и σ/ε даёт
+      // модуль ~1e36 (недеформированные КЭ внутри жёсткого тела) — там секущий модуль равен начальному.
+      static double SecantModulus(double sig, double eps, double e0) => Math.Abs(eps) > 1e-12 ? sig / eps : e0;
 
       /// <summary>Предельная растягивающая деформация бетона ε_bt,ult — конец растянутой ветви
       /// диаграммы (как <see cref="Fem.ShellCrackingSolver.TensionLimit"/>).</summary>
