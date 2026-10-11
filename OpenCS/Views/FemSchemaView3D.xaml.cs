@@ -373,7 +373,16 @@ public partial class FemSchemaView3D : UserControl
             ? new LinesVisual3D { Points = lines, Color = Colors.Gray, Thickness = 1 }
             : null;
         if (_resultOriginalVisual != null) viewport.Children.Add(_resultOriginalVisual);
+        // «Сетка» при показе результата — рёбра КЭ результата (на деформированной геометрии, если она показана),
+        // а не элементов схемы.
+        if (_resultGridVisual != null) viewport.Children.Remove(_resultGridVisual);
+        _resultGridVisual = vm.IsResultShown && vm.ResultMeshLines is { Count: > 0 } grid
+            ? new LinesVisual3D { Points = grid, Color = Colors.DimGray, Thickness = 0.5 }
+            : null;
+        if (_resultGridVisual != null) viewport.Children.Add(_resultGridVisual);
     }
+
+    LinesVisual3D? _resultGridVisual;
 
     List<ModelVisual3D> _shellVisuals = [];
     List<LinesVisual3D> _barVisuals = [];
@@ -423,6 +432,7 @@ public partial class FemSchemaView3D : UserControl
         for (int i = 0; i < _shellVisuals.Count; i++)
             viewport.Children.Insert(index + i, _shellVisuals[i]);
         UpdateResultOverlay();
+        ApplyGridVisuals();   // сетка схемы скрыта, пока показан результат
         AddGhostVisuals();
     }
 
@@ -432,6 +442,7 @@ public partial class FemSchemaView3D : UserControl
         _ghostVisuals.Clear();
         _planarVisuals.Clear();
         _resultOriginalVisual = null;
+        _resultGridVisual = null;
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
         _planarMeshEdgesVisual = null;
@@ -1307,7 +1318,7 @@ public partial class FemSchemaView3D : UserControl
     {
         FemGridVisuals.Apply(
             viewport.Children,
-            showGridCheck.IsChecked == true,
+            showGridCheck.IsChecked == true && VM?.IsResultShown != true,
             _shellEdgesVisual,
             _meshVisual,
             _meshNodeGlyphVisual,

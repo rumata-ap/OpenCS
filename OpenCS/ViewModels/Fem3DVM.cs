@@ -94,6 +94,8 @@ public class Fem3DVM : ViewModelBase
                 ShellEdgePoints = BuildShellEdges(_edgeNodeMap, _edgeElements);
                 OnPropertyChanged(nameof(ShellEdgePoints));
             }
+            // Сетка результата — по показанным КЭ на положениях слоя: перестраивается с мозаикой.
+            if (IsResultShown) RefreshMosaic();
         }
     }
     public Point3DCollection?  NodePoints      { get; private set; }
@@ -174,6 +176,13 @@ public class Fem3DVM : ViewModelBase
     {
         get => _showLoadValues;
         set { if (_showLoadValues == value) return; _showLoadValues = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Показать или скрыть все глифы разом (опоры, пружины, шарниры, жёсткие тела, нагрузки, сечения, значения нагрузок).</summary>
+    public void SetAllGlyphs(bool show)
+    {
+        ShowSupportGlyphs = ShowSpringGlyphs = ShowHingeGlyphs = ShowRigidBodyGlyphs = show;
+        ShowLoadGlyphs = ShowSectionGlyphs = ShowLoadValues = show;
     }
 
     FemDiagramLoadSource? _selectedDiagramLoadSource;
@@ -1011,6 +1020,7 @@ public class Fem3DVM : ViewModelBase
         if (Mosaic.ActiveResult is { } result) { ApplyResultMosaic(result); return; }
         IsResultShown = false;
         ResultOriginalLines = null;
+        ResultMeshLines = null;
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
         SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
@@ -1039,6 +1049,9 @@ public class Fem3DVM : ViewModelBase
 
     /// <summary>Рёбра исходной сетки под деформированной; null — деформированная схема не показана.</summary>
     public Point3DCollection? ResultOriginalLines { get; private set; }
+
+    /// <summary>Рёбра показанных пластин результата на положениях узлов слоя (кнопка «Сетка»); null — сетка выключена.</summary>
+    public Point3DCollection? ResultMeshLines { get; private set; }
 
     /// <summary>Сетка схемы для результатов (читается при первом показе результата, сбрасывается при перезагрузке вида).</summary>
     FemResult.FemResultMesh? _resultMesh;
@@ -1096,6 +1109,7 @@ public class Fem3DVM : ViewModelBase
         HiShellMesh = null;
         (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
         ResultOriginalLines = result.DeformedShown ? result.OriginalLines : null;
+        ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;
         IsResultShown = true;
     }
 

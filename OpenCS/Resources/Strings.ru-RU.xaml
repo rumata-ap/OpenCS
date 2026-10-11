@@ -3098,6 +3098,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowLoads">Нагрузки</system:String>
     <system:String x:Key="Fem3DShowSectionGlyphs">Контуры сечений и локальные оси</system:String>
     <system:String x:Key="Fem3DShowLoadValues">Значения нагрузок</system:String>
+    <system:String x:Key="Fem3DGlyphsShowAll">Показать всё</system:String>
+    <system:String x:Key="Fem3DGlyphsHideAll">Скрыть всё</system:String>
     <system:String x:Key="FemUnitKN">кН</system:String>
     <system:String x:Key="FemUnitKNm">кН·м</system:String>
     <system:String x:Key="FemUnitKNPerM">кН/м</system:String>

@@ -3098,6 +3098,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowLoads">Loads</system:String>
     <system:String x:Key="Fem3DShowSectionGlyphs">Section contours and local axes</system:String>
     <system:String x:Key="Fem3DShowLoadValues">Load values</system:String>
+    <system:String x:Key="Fem3DGlyphsShowAll">Show all</system:String>
+    <system:String x:Key="Fem3DGlyphsHideAll">Hide all</system:String>
     <system:String x:Key="FemUnitKN">kN</system:String>
     <system:String x:Key="FemUnitKNm">kN·m</system:String>
     <system:String x:Key="FemUnitKNPerM">kN/m</system:String>
