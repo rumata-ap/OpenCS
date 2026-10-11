@@ -214,6 +214,8 @@ public class Fem3DVM : ViewModelBase
         Status    = Loc.S("Fem3DLoading");
         Mosaic.Changed += (_, _) => RefreshMosaic();
         Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(_db, _schemaId);
+        // Результаты расчёта постановок — только в виде всей схемы.
+        Mosaic.ResultLoader = LoadResultLayer;
     }
 
     /// <summary>Режим конструктивного элемента — показывает только КЭ этой группы.</summary>
@@ -246,6 +248,7 @@ public class Fem3DVM : ViewModelBase
     public async Task LoadAsync()
     {
         IsLoading = true;
+        _resultMesh = null;   // сетку могли перестроить
         NoData    = false;
         Status    = Loc.S("Fem3DLoading");
 
@@ -785,23 +788,22 @@ public class Fem3DVM : ViewModelBase
     /// камера не сбрасывается.</summary>
     void RefreshMosaic()
     {
-        if (_mosaicShells.Count == 0 && _mosaicBars.Count == 0) { Mosaic.Compute([]); return; }
+        if (_mosaicShells.Count == 0 && _mosaicBars.Count == 0 && Mosaic.ActiveResult == null) { Mosaic.Compute([]); return; }
         ApplyMosaic();
+        OnPropertyChanged(nameof(IsResultShown));
+        OnPropertyChanged(nameof(ResultOriginalLines));
         OnPropertyChanged(nameof(MosaicShellMeshes));
     }
 
     /// <summary>Раскрасить пластины или стержни по текущим настройкам мозаики.</summary>
     void ApplyMosaic()
     {
+        if (Mosaic.ActiveResult is { } result) { ApplyResultMosaic(result); return; }
+        IsResultShown = false;
+        ResultOriginalLines = null;
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
-        BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring) : _baseBarGroups;
-        MosaicBarSegments = coloring is { Bars: true }
-            ? _mosaicBars
-                .Select(e => (Tag: e.ElemTag.Trim(), Pair: GetBarPoints(_mosaicNodeMap, e)))
-                .Where(x => x.Pair.HasValue)
-                .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
-                .ToList()
-            : [];
+        BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring, _mosaicNodeMap, _mosaicBars) : _baseBarGroups;
+        MosaicBarSegments = coloring is { Bars: true } ? BarSegments(_mosaicNodeMap, _mosaicBars) : [];
         if (MosaicBarSegments.Count > 0)
             BarGroups = [.. BarGroups, .. BuildBarDiagrams()];
         var shellColoring = coloring is { Bars: false, ColorByTag.Count: > 0 } ? coloring : null;
@@ -814,9 +816,67 @@ public class Fem3DVM : ViewModelBase
         else
         {
             HiShellMesh = null;
-            (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(shellColoring);
+            (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(shellColoring, _mosaicNodeMap, _mosaicShells);
         }
     }
+
+    // ------------------------------------------------------------------------- результат расчёта
+
+    /// <summary>Показан результат расчёта: вместо элементов схемы рисуется сетка результата на деформированной геометрии.</summary>
+    public bool IsResultShown { get; private set; }
+
+    /// <summary>Рёбра исходной сетки под деформированной; null — деформированная схема не показана.</summary>
+    public Point3DCollection? ResultOriginalLines { get; private set; }
+
+    /// <summary>Сетка схемы для результатов (читается при первом показе результата, сбрасывается при перезагрузке вида).</summary>
+    FemResult.FemResultMesh? _resultMesh;
+    (FemResult.FemResultMesh Mesh, List<FemMember> Shells, List<FemMember> Bars)? _resultMembers;
+
+    /// <summary>Показ результата постановки: результат из БД, VM прежнего окна результата, сетка схемы.</summary>
+    FemResult.FemResultLayer? LoadResultLayer(FemAnalysis analysis)
+    {
+        if (analysis.ResultId is not int id || _db.GetCalcResultById(id) is not { } result) return null;
+        if (_db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId) is not { } schema) return null;
+        _resultMesh ??= new FemResult.FemResultMesh(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
+        FemResult.IFemResultSteps steps = result.TaskKind == Services.FemCsfeaRunner.TaskKind
+            ? new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema))
+            : new FemResult.OpenSeesResultSteps(new FemAnalysisResultVM(result, _db, schema));
+        return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh);
+    }
+
+    /// <summary>Раскраска результата: пластины и стержни сетки на положениях узлов слоя (деформированных, если показаны).</summary>
+    void ApplyResultMosaic(FemResult.FemResultLayer result)
+    {
+        if (_resultMembers?.Mesh != result.Mesh)
+        {
+            var members = result.Mesh.Elements.Select(e =>
+            {
+                var m = ToFemMember(e);
+                m.ElemTag = int.Parse(e.ElemTag, System.Globalization.CultureInfo.InvariantCulture)
+                    .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return m;
+            }).ToList();
+            _resultMembers = (result.Mesh, members.Where(m => m.ElemType == "shell").ToList(),
+                members.Where(m => m.ElemType != "shell").ToList());
+        }
+        var (_, shells, bars) = _resultMembers.Value;
+        var nodeMap = new Dictionary<string, Point3D>(result.NodeMap, StringComparer.Ordinal);
+        var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
+        BarGroups = coloring != null
+            ? BuildMosaicBars(coloring, nodeMap, bars)
+            : [new BarGroup("", Colors.SteelBlue, BuildLinePoints(nodeMap, bars), 1.5)];
+        MosaicBarSegments = BarSegments(nodeMap, bars);
+        HiShellMesh = null;
+        (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
+        ResultOriginalLines = result.DeformedShown ? result.OriginalLines : null;
+        IsResultShown = true;
+    }
+
+    static List<(string Tag, Point3D P1, Point3D P2)> BarSegments(Dictionary<string, Point3D> nodeMap, List<FemMember> bars) => bars
+        .Select(e => (Tag: e.ElemTag.Trim(), Pair: GetBarPoints(nodeMap, e)))
+        .Where(x => x.Pair.HasValue)
+        .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
+        .ToList();
 
     /// <summary>Цвет положительной части эпюр на стержнях.</summary>
     public static Color BarDiagramPositiveColor => Color.FromRgb(190, 40, 40);
@@ -882,44 +942,45 @@ public class Fem3DVM : ViewModelBase
     }
 
     /// <summary>Стержни по цветам полос шкалы; стержни без данных — тонкой серой линией.</summary>
-    List<BarGroup> BuildMosaicBars(PlateRebarMosaicColoring coloring)
+    List<BarGroup> BuildMosaicBars(PlateRebarMosaicColoring coloring, Dictionary<string, Point3D> nodeMap, List<FemMember> mosaicBars)
     {
         var rest = new List<FemMember>();
         var byColor = new Dictionary<Color, List<FemMember>>();
-        foreach (var e in _mosaicBars)
+        foreach (var e in mosaicBars)
         {
             if (!coloring.ColorByTag.TryGetValue(e.ElemTag.Trim(), out var c)) { rest.Add(e); continue; }
             if (!byColor.TryGetValue(c, out var list)) byColor[c] = list = [];
             list.Add(e);
         }
         var result = new List<BarGroup>();
-        if (rest.Count > 0 && BuildLinePoints(_mosaicNodeMap, rest) is { Count: > 0 } restPoints)
+        if (rest.Count > 0 && BuildLinePoints(nodeMap, rest) is { Count: > 0 } restPoints)
             result.Add(new BarGroup("", Colors.LightGray, restPoints, 0.8));
         foreach (var (color, bars) in byColor)
-            if (BuildLinePoints(_mosaicNodeMap, bars) is { Count: > 0 } points)
+            if (BuildLinePoints(nodeMap, bars) is { Count: > 0 } points)
                 result.Add(new BarGroup("", color, points, 3.0));
         return result;
     }
 
-    (MeshGeometry3D? Uncolored, IReadOnlyList<MosaicShellMesh> Colored) BuildMosaicShells(PlateRebarMosaicColoring? coloring)
+    (MeshGeometry3D? Uncolored, IReadOnlyList<MosaicShellMesh> Colored) BuildMosaicShells(PlateRebarMosaicColoring? coloring,
+        Dictionary<string, Point3D> nodeMap, List<FemMember> mosaicShells)
     {
         if (coloring == null || coloring.ColorByTag.Count == 0)
-            return (BuildShellMesh(_mosaicNodeMap, _mosaicShells), []);
+            return (BuildShellMesh(nodeMap, mosaicShells), []);
 
         var rest = new List<FemMember>();
         var byColor = new Dictionary<Color, List<FemMember>>();
-        foreach (var e in _mosaicShells)
+        foreach (var e in mosaicShells)
         {
             if (!coloring.ColorByTag.TryGetValue(e.ElemTag.Trim(), out var c)) { rest.Add(e); continue; }
             if (!byColor.TryGetValue(c, out var list)) byColor[c] = list = [];
             list.Add(e);
         }
         var colored = byColor
-            .Select(kv => (kv.Key, Mesh: BuildShellMesh(_mosaicNodeMap, kv.Value)))
+            .Select(kv => (kv.Key, Mesh: BuildShellMesh(nodeMap, kv.Value)))
             .Where(x => x.Mesh != null)
             .Select(x => new MosaicShellMesh(x.Key, x.Mesh!))
             .ToList();
-        return (rest.Count > 0 ? BuildShellMesh(_mosaicNodeMap, rest) : null, colored);
+        return (rest.Count > 0 ? BuildShellMesh(nodeMap, rest) : null, colored);
     }
 
     List<BarGroup> BuildSectionColoredBars(Dictionary<string, Point3D> nodeMap, List<FemMember> bars)

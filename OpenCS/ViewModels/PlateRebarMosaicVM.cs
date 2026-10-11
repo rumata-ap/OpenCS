@@ -21,6 +21,8 @@ public enum PlateRebarMosaicSourceKind
    LayoutDifference,
    /// <summary>Коэффициент постели C1 упругого основания пластин (из ГУ КЭ схемы).</summary>
    Foundation,
+   /// <summary>Результат расчёта постановки схемы (OpenSees, CSfea): перемещения на сетке схемы.</summary>
+   Analysis,
 }
 
 /// <summary>Пункт списка источников мозаики.</summary>
@@ -43,7 +45,11 @@ public sealed record PlateRebarMosaicLegendItem(Brush Brush, string Label, int C
 
 /// <summary>Раскраска КЭ: цвет по тегу КЭ; КЭ без данных в словарь не попадают.</summary>
 /// <param name="Bars">Раскрашены стержни (иначе — пластины).</param>
-public sealed record PlateRebarMosaicColoring(IReadOnlyDictionary<string, Color> ColorByTag, bool Bars = false);
+public sealed record PlateRebarMosaicColoring(IReadOnlyDictionary<string, Color> ColorByTag, bool Bars = false)
+{
+   /// <summary>Раскрашены и пластины, и стержни (<see cref="ColorByTag"/> — по тегам тех и других).</summary>
+   public bool Both { get; init; }
+}
 
 /// <summary>
 /// Настройки и легенда мозаики по КЭ (общие для 3D-вида схемы и редактора пластинчатого КонЭ):
@@ -91,10 +97,21 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    public sealed record CheckInfo(FemCheck Check, string Label, Func<string?> LoadJson,
       Func<IReadOnlyList<FemCheckRowResult>> LoadRows);
 
+   /// <summary>Постановка расчёта схемы с результатом.</summary>
+   public sealed record AnalysisInfo(FemAnalysis Analysis, string Label)
+   {
+      /// <summary>Ключ результата: новый расчёт постановки — новый результат.</summary>
+      public string Key => $"{Analysis.Id}:{Analysis.ResultId}";
+   }
+
    /// <summary>Значения мозаики на КЭ и то, как их красить.</summary>
    sealed record Field(
       Dictionary<string, PlateRebarValue> Values, bool Bars, bool Diverging, Palette Palette,
-      IReadOnlyList<double>? DefaultThresholds = null);
+      IReadOnlyList<double>? DefaultThresholds = null)
+   {
+      /// <summary>Значения и пластин, и стержней.</summary>
+      public bool Both { get; init; }
+   }
 
    readonly Action<string>? _warn;
    IPlateRebarFieldSource? _selected, _assigned, _layout;
@@ -104,6 +121,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    IReadOnlyDictionary<string, double> _foundationC1 = new Dictionary<string, double>();
    IReadOnlyList<ForceSet> _forceSets = [];
    IReadOnlyList<CheckInfo> _checks = [];
+   IReadOnlyList<AnalysisInfo> _analyses = [];
+   readonly Dictionary<string, FemResult.FemResultLayer?> _resultLayers = new(StringComparer.Ordinal);
    readonly Dictionary<int, IReadOnlyList<FemCheckElementResult>> _checkResults = [];
    readonly Dictionary<int, IReadOnlyList<FemCheckRowResult>> _checkRows = [];
    PlateRebarMosaicScale? _scale;
@@ -149,7 +168,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    PlateRebarMosaicSourceKind Kind => SelectedSource?.Kind ?? PlateRebarMosaicSourceKind.None;
 
    /// <summary>Нужен второй список — набор усилий или проверка.</summary>
-   public bool HasSubject => Kind is PlateRebarMosaicSourceKind.Forces or PlateRebarMosaicSourceKind.Utilization;
+   public bool HasSubject => Kind is PlateRebarMosaicSourceKind.Forces or PlateRebarMosaicSourceKind.Utilization
+      or PlateRebarMosaicSourceKind.Analysis;
 
    /// <summary>Нужен выбор строки КЭ (усилия: у КЭ в наборе может быть несколько строк).</summary>
    public bool HasAggregate => Kind == PlateRebarMosaicSourceKind.Forces;
@@ -296,6 +316,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.Difference => "D",
       PlateRebarMosaicSourceKind.LayoutDifference => "LD",
       PlateRebarMosaicSourceKind.Foundation => "C1",
+      PlateRebarMosaicSourceKind.Analysis => "A:" + SelectedComponent?.Component,
       _ => "R",
    };
 
@@ -334,6 +355,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       public IReadOnlyList<ForceSet> ForceSets { get; init; } = [];
       /// <summary>Проверки схемы, у которых есть результат.</summary>
       public IReadOnlyList<CheckInfo> Checks { get; init; } = [];
+      /// <summary>Постановки расчёта схемы, у которых есть результат.</summary>
+      public IReadOnlyList<AnalysisInfo> Analyses { get; init; } = [];
 
       /// <summary>Дополнить наборами усилий и проверками схемы. Только в UI-потоке: читает коллекции проекта.</summary>
       public Data WithProject(DatabaseService db, int schemaId)
@@ -363,11 +386,18 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             }
          }
 
+         var schema = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+         var analyses = (schema is { Analyses.Count: > 0 } ? schema.Analyses.ToList() : db.GetFemAnalyses(schemaId))
+            .Where(a => a.ResultId is > 0)
+            .Select(a => new AnalysisInfo(a, $"{a.Tag} — {AnalysisKindLabel(a.Kind)}"))
+            .ToList();
+
          string key = Key
             + "|" + string.Join(',', sets.Select(s => $"{s.Id}:{s.RowCount}"))
             + "|" + string.Join(',', checks.Select(c => $"{c.Check.Id}:{c.Check.ResultId}"))
+            + "|" + string.Join(',', analyses.Select(a => a.Key))
             + "|" + layoutKey;
-         return this with { ForceSets = sets, Checks = checks, Layout = layout, Key = key };
+         return this with { ForceSets = sets, Checks = checks, Analyses = analyses, Layout = layout, Key = key };
       }
 
       /// <summary>Раскладка OpenCS схемы и её отпечаток (зоны регионов, слои и толщины сечений элементов).</summary>
@@ -559,6 +589,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          .Where(c => !ShellOnly || FemCheckContext.IsPlate(c.Check))
          .Where(c => CheckFilter == null || CheckFilter(c.Check))
          .ToList();
+      _analyses = ResultLoader != null && !ShellOnly && ScopeTags == null ? data.Analyses : [];
+      // Слои прежних результатов (постановку пересчитали или удалили) больше не нужны.
+      foreach (string stale in _resultLayers.Keys.Where(k => _analyses.All(a => a.Key != k)).ToList())
+         _resultLayers.Remove(stale);
 
       var kind = Kind;
       var options = new List<PlateRebarMosaicSourceOption>
@@ -582,6 +616,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_forceSets.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Forces, Loc.S("MosaicSourceForces")));
       if (_checks.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Utilization, Loc.S("MosaicSourceUtilization")));
       if (_foundationC1.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Foundation, Loc.S("MosaicSourceFoundation")));
+      if (_analyses.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Analysis, Loc.S("MosaicSourceAnalysis")));
       SourceOptions = options;
       OnPropertyChanged(nameof(SourceOptions));
       OnPropertyChanged(nameof(HasData));
@@ -590,6 +625,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       OnPropertyChanged(nameof(SelectedSource));
       RefreshSubjects();
       RaiseChanged();
+      SelectPendingAnalysis();
    }
 
    IPlateRebarFieldSource? RebarSource() => Kind switch
@@ -622,6 +658,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             _forceSets.Select(fs => new PlateRebarMosaicSubjectOption(fs, fs.Tag)).ToList(),
          PlateRebarMosaicSourceKind.Utilization =>
             _checks.Select(c => new PlateRebarMosaicSubjectOption(c, c.Label)).ToList(),
+         PlateRebarMosaicSourceKind.Analysis =>
+            _analyses.Select(a => new PlateRebarMosaicSubjectOption(a, a.Label)).ToList(),
          _ => [],
       };
       OnPropertyChanged(nameof(SubjectOptions));
@@ -636,6 +674,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    static bool SameSubject(object a, object? b) => (a, b) switch
    {
       (CheckInfo x, CheckInfo y) => x.Check.Id == y.Check.Id,
+      (AnalysisInfo x, AnalysisInfo y) => x.Analysis.Id == y.Analysis.Id,
       _ => ReferenceEquals(a, b),
    };
 
@@ -645,6 +684,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       // Выбрали другое, не дождавшись: подготовка доработает в фоне, огибающая запомнится в наборе.
       if (_preparingSet != null && !(Kind == PlateRebarMosaicSourceKind.Forces && SelectedSubject?.Subject == _preparingSet))
          _preparingSet = null;
+      UpdateActiveResult();
       ComponentOptions = BuildComponentOptions();
       // Пока набор готовится, компонент нет — после подготовки вернуть ту, что была выбрана.
       _componentWhilePreparing = _preparingSet != null ? previous : null;
@@ -682,6 +722,11 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
          case PlateRebarMosaicSourceKind.Foundation:
             return [new PlateRebarMosaicComponentOption(FoundationComponent, Loc.S("MosaicFoundationC1"))];
+
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult != null:
+            return Enum.GetValues<FemResult.FemResultComponent>()
+               .Select(c => new PlateRebarMosaicComponentOption(c, $"{FemResult.FemResultLayer.ComponentLabel(c)}, {Loc.S("UnitMm")}"))
+               .ToList();
 
          case PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars
             or PlateRebarMosaicSourceKind.DifferenceBars when BarRebarSource() is { } bars:
@@ -769,6 +814,80 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
+   // ------------------------------------------------------------ результат расчёта
+
+   /// <summary>
+   /// Загрузка показа результата постановки (задаёт 3D-вид всей схемы); null — источник «Расчёт» не предлагается.
+   /// Null из загрузчика — результат не прочитан.
+   /// </summary>
+   public Func<FemAnalysis, FemResult.FemResultLayer?>? ResultLoader { get; set; }
+
+   FemResult.FemResultLayer? _activeResult;
+   /// <summary>Показанный результат расчёта: источник «Расчёт» с выбранной постановкой; иначе null.</summary>
+   public FemResult.FemResultLayer? ActiveResult
+   {
+      get => _activeResult;
+      private set
+      {
+         if (ReferenceEquals(_activeResult, value)) return;
+         _activeResult = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(IsResultActive));
+      }
+   }
+
+   public bool IsResultActive => _activeResult != null;
+
+   int? _pendingAnalysisId;
+
+   /// <summary>
+   /// Показать результат постановки (вход из дерева «Показать результат»). Если данные вида ещё не прочитаны —
+   /// выбор применится после чтения; результат, появившийся после открытия вида, дочитывается.
+   /// </summary>
+   public void ShowAnalysis(int analysisId)
+   {
+      _pendingAnalysisId = analysisId;
+      if (_dataKey != null) Reload();
+      SelectPendingAnalysis();
+   }
+
+   void SelectPendingAnalysis()
+   {
+      if (_pendingAnalysisId is not int id || _analyses.FirstOrDefault(a => a.Analysis.Id == id) is not { } info) return;
+      _pendingAnalysisId = null;
+      SelectedSource = SourceOptions.First(o => o.Kind == PlateRebarMosaicSourceKind.Analysis);
+      SelectedSubject = SubjectOptions.First(o => o.Subject is AnalysisInfo a && a.Analysis.Id == info.Analysis.Id);
+   }
+   void UpdateActiveResult()
+   {
+      if (Kind != PlateRebarMosaicSourceKind.Analysis || SelectedSubject?.Subject is not AnalysisInfo info || ResultLoader == null)
+      {
+         ActiveResult = null;
+         return;
+      }
+      if (!_resultLayers.TryGetValue(info.Key, out var layer))
+      {
+         try { layer = ResultLoader(info.Analysis); }
+         catch (Exception ex) when (ex is InvalidOperationException or System.Text.Json.JsonException or IOException)
+         {
+            _warn?.Invoke(string.Format(Loc.S("MosaicAnalysisReadError"), info.Label, ex.Message));
+            layer = null;
+         }
+         _resultLayers[info.Key] = layer;
+         if (layer != null)
+            layer.Changed += () => { if (ReferenceEquals(ActiveResult, layer)) { OnPropertyChanged(nameof(LegendTitle)); RaiseChanged(); } };
+      }
+      ActiveResult = layer;
+   }
+
+   static string AnalysisKindLabel(string kind) => kind switch
+   {
+      Services.FemCsfeaRunner.AnalysisKind => Loc.S("FemAnalysisKindCsfea"),
+      Services.FemCsfeaRunner.LinearAnalysisKind => Loc.S("FemAnalysisKindCsfeaLinear"),
+      "nonlinear" => Loc.S("FemAnalysisKindNonlinearOpenSees"),
+      _ => Loc.S("FemAnalysisKindLinearOpenSees"),
+   };
+
    /// <summary>Значения текущей мозаики на КЭ; null — мозаика выключена.</summary>
    Field? BuildField(IEnumerable<string> shellTags, IEnumerable<string> barTags)
    {
@@ -808,6 +927,17 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             foreach (string tag in bars ? barTags : shellTags)
                values[tag] = byTag.GetValueOrDefault(tag);
             return new Field(values, bars, Diverging: false, Palette.Utilization, UtilizationThresholds);
+         }
+
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemResult.FemResultComponent rc:
+         {
+            // Перемещения есть и у пластин, и у стержней: красятся те и другие (значение КЭ — среднее его узлов).
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in shellTags.Concat(barTags))
+               values[tag] = result.Value(tag, rc) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
+            result.UpdateSummary(rc);
+            bool signed = rc != FemResult.FemResultComponent.U;
+            return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = true };
          }
 
          case PlateRebarMosaicSourceKind.Foundation:
@@ -894,7 +1024,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       OnPropertyChanged(nameof(Legend));
 
       LegendTitle = Title();
-      return new PlateRebarMosaicColoring(byTag, field.Bars);
+      return new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both };
    }
 
    string Title()
@@ -915,6 +1045,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return $"{comp}\n{SelectedSource!.Label}\n{_assignedFile} − {_selectedFile}";
          case PlateRebarMosaicSourceKind.Foundation:
             return $"{comp}\n{SelectedSource!.Label}";
+         case PlateRebarMosaicSourceKind.Analysis:
+            return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}";
          default:
             string unit = Equals(SelectedComponent.Component, PlateRebarMosaicComponent.Transverse) ? "" : Loc.S("PlateRebarMosaicUnit");
             string file = Kind switch

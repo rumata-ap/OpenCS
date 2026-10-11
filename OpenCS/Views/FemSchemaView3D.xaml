@@ -4,9 +4,11 @@
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:mosaic="clr-namespace:OpenCS.Views.Mosaic"
              xmlns:conv="clr-namespace:OpenCS.Converters"
+             xmlns:u="clr-namespace:OpenCS.Utilites"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
     <UserControl.Resources>
         <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
+        <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
         <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
             <Setter Property="Height" Value="25"/>
             <Setter Property="Width" Value="25"/>
@@ -51,9 +53,16 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ToolBar Grid.Row="0">
+        <!-- Строка 1 — редактирование и вид; сворачивается (сама — при показе результата расчёта) -->
+        <ToolBar x:Name="editToolBar" Grid.Row="0">
+            <Button Style="{StaticResource IconButton25}" Click="CollapseEditBar_Click"
+                    ToolTip="{DynamicResource Fem3DEditBarCollapse}">
+                <Path Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" Fill="Black" Stretch="Uniform" Margin="4"/>
+            </Button>
+            <Separator/>
             <ToggleButton Style="{StaticResource IconToggleButton25}"
                           IsChecked="{Binding Editor.CreateNodeMode, ElementName=root, Mode=TwoWay}"
                           ToolTip="{DynamicResource FemCreateNodeMode}">
@@ -205,7 +214,46 @@
         <Border Grid.Row="1" BorderThickness="0,0,0,1" Padding="2"
                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
                 Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-            <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="expandEditBarButton" Style="{StaticResource IconButton25}" Visibility="Collapsed"
+                        Click="ExpandEditBar_Click" ToolTip="{DynamicResource Fem3DEditBarExpand}">
+                    <Path Data="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" Fill="Black" Stretch="Uniform" Margin="4"/>
+                </Button>
+                <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}" HorizontalAlignment="Left"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Строка 3 — шаг и деформированная схема показанного результата расчёта -->
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" Padding="2"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                Visibility="{Binding Mosaic.IsResultActive, Converter={StaticResource BoolToVisibility}}">
+            <WrapPanel DataContext="{Binding Mosaic.ActiveResult}">
+                <!-- Нелинейный расчёт — шаги ползунком; линейный — загружения и комбинации списком -->
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowStepSlider, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource FemResultStep}" VerticalAlignment="Center" Margin="4,0"/>
+                    <Slider Width="240" Minimum="0" Maximum="{Binding MaxStepIndex}" VerticalAlignment="Center"
+                            Value="{Binding SelectedStepIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            IsSnapToTickEnabled="True" TickFrequency="1"/>
+                    <TextBlock Text="{Binding StepLabel}" VerticalAlignment="Center" Margin="6,0,12,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowCaseList, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource FemResultCase}" VerticalAlignment="Center" Margin="4,0"/>
+                    <ComboBox MinWidth="200" VerticalAlignment="Center" Margin="0,0,12,0" ItemsSource="{Binding StepNames}"
+                              SelectedIndex="{Binding SelectedStepIndex, Mode=TwoWay}"/>
+                </StackPanel>
+                <CheckBox Content="{DynamicResource Fem3DShowDeformedSchema}" IsChecked="{Binding ShowDeformed}"
+                          IsEnabled="{Binding HasDisplacements}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <StackPanel Orientation="Horizontal" IsEnabled="{Binding DeformedShown}">
+                    <TextBlock Text="{DynamicResource Fem3DDisplacementScale}" VerticalAlignment="Center"/>
+                    <TextBox Width="65" Margin="4,0" TextAlignment="Center" VerticalAlignment="Center"
+                             Text="{Binding DeformScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}"/>
+                    <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}">
+                        <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                    </Button>
+                </StackPanel>
+                <TextBlock Text="{Binding SummaryText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,4,0"/>
+            </WrapPanel>
         </Border>
 
         <!-- 3D viewport -->

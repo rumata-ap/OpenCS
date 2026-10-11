@@ -1412,6 +1412,7 @@
     <system:String x:Key="FemResetScale">Reset scale</system:String>
     <system:String x:Key="FemAnalysisEdit">Edit analysis</system:String>
     <system:String x:Key="FemAnalysisViewResult">View result</system:String>
+    <system:String x:Key="FemAnalysisResultWindow">Result window (tables)</system:String>
     <system:String x:Key="FemResultMember2D">Show 2D diagram</system:String>
     <system:String x:Key="FemResultMemberSection">Show cross-section</system:String>
     <system:String x:Key="FemResultNodeValues">Show node values</system:String>
@@ -4338,6 +4339,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicSourceForces">Forces</system:String>
     <system:String x:Key="MosaicSourceUtilization">Utilization</system:String>
     <system:String x:Key="MosaicSourceFoundation">Elastic foundation</system:String>
+    <system:String x:Key="MosaicSourceAnalysis">Analysis</system:String>
+    <system:String x:Key="MosaicAnalysisReadError">Analysis result "{0}" could not be read: {1}</system:String>
+    <system:String x:Key="FemResultExtremum">{0}: {1:0.###} mm, node {2}</system:String>
+    <system:String x:Key="FemResultCase">Load case:</system:String>
+    <system:String x:Key="FemResultNoDisplacements">No displacements at this step</system:String>
+    <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
+    <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>
     <system:String x:Key="MosaicFoundationC1">C1, kN/m³</system:String>
     <system:String x:Key="MosaicUtilization">Utilization</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    section {0}: {1}</system:String>

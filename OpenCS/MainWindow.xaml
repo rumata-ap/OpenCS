@@ -1907,6 +1907,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemAnalysisResultWindow}"
+                                        Command="{Binding PlacementTarget.Tag.OpenFemAnalysisResultWindowCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem Header="{DynamicResource FemAnalysisDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemAnalysisCommand,

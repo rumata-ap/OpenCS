@@ -55,6 +55,13 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     readonly AppViewModel _app;
     readonly FemSchema _schema;
 
+    /// <summary>Показать в 3D-виде схемы результат постановки (источник мозаики «Расчёт»).</summary>
+    public void ShowAnalysisResult(int analysisId)
+    {
+        tabs.SelectedIndex = 0;
+        _fem3d.Mosaic.ShowAnalysis(analysisId);
+    }
+
     public FemSchemaPage(FemSchema schema, AppViewModel app)
     {
         _app = app;
@@ -89,6 +96,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 () => app.CalcSettings, this);
             if (app.OpenSubmodelTabRequested) tabs.SelectedItem = submodelTab;
         }
+        if (app.ShowAnalysisResultRequested is int analysisId) _fem3d.Mosaic.ShowAnalysis(analysisId);
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);

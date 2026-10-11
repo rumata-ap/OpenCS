@@ -489,6 +489,9 @@ namespace OpenCS
       /// <summary>Страница схемы спрашивает при создании, открыть ли вкладку «Субмодель».</summary>
       public bool OpenSubmodelTabRequested => openSubmodelTabRequested;
 
+      /// <summary>Постановка, результат которой показать на открываемой странице схемы; null — не показывать.</summary>
+      public int? ShowAnalysisResultRequested { get; private set; }
+
       /// <summary>Снимает регистрацию редактора FEM при закрытии его страницы.</summary>
       public void UnregisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor)
       {
@@ -589,6 +592,8 @@ namespace OpenCS
       public ICommand CreateFemAnalysisCommand { get; set; } = null!;
       public ICommand EditFemAnalysisCommand { get; set; } = null!;
       public ICommand ViewFemAnalysisResultCommand { get; set; } = null!;
+      /// <summary>Прежнее окно результата постановки (таблицы, графики, эпюры 2D).</summary>
+      public ICommand OpenFemAnalysisResultWindowCommand { get; set; } = null!;
       /// <summary>Команда запуска линейного OpenSees-расчёта схемы.</summary>
       public ICommand RunFemAnalysisCommand    { get; set; } = null!;
       /// <summary>Команда удаления постановки линейного расчёта.</summary>
@@ -1514,6 +1519,9 @@ namespace OpenCS
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
          EditFemAnalysisCommand = new RelayCommand(p => EditFemAnalysis(p as CScore.Fem.FemAnalysis));
          ViewFemAnalysisResultCommand = new RelayCommand(
+            p => ShowFemAnalysisResultInSchema(p as CScore.Fem.FemAnalysis),
+            p => p is CScore.Fem.FemAnalysis a && a.ResultId is > 0);
+         OpenFemAnalysisResultWindowCommand = new RelayCommand(
             p => ViewFemAnalysisResult(p as CScore.Fem.FemAnalysis),
             p => p is CScore.Fem.FemAnalysis a && a.ResultId is > 0);
          RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
@@ -5489,6 +5497,22 @@ namespace OpenCS
          CommandManager.InvalidateRequerySuggested();
       }
 
+      /// <summary>Результат постановки — в 3D-виде схемы (источник мозаики «Расчёт»).</summary>
+      void ShowFemAnalysisResultInSchema(CScore.Fem.FemAnalysis? analysis)
+      {
+         if (analysis?.ResultId is not > 0) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
+         if (schema == null) return;
+         if (ReferenceEquals(schema, currentFemSchema) && currentPage is Views.FemSchemaPage page)
+         {
+            page.ShowAnalysisResult(analysis.Id);
+            return;
+         }
+         ShowAnalysisResultRequested = analysis.Id;
+         try { CurrentFemSchema = schema; }
+         finally { ShowAnalysisResultRequested = null; }
+      }
+
       void ViewFemAnalysisResult(CScore.Fem.FemAnalysis? analysis)
       {
          if (analysis?.ResultId is not int resultId || resultId <= 0) return;
@@ -5527,8 +5551,8 @@ namespace OpenCS
 
             if (LogCsfeaResult(result))
             {
-               ShowCsfeaResult(result, schema);
                EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
+               ShowFemAnalysisResultInSchema(analysis);
                return;
             }
 
@@ -5558,8 +5582,8 @@ namespace OpenCS
             if (vm.HasArtifacts)
                 LogService.Info($"[{analysis.Tag}] {Loc.S("FemResultArtifacts")} {vm.ArtifactDirectory}");
 
-            CurrentPage = new Views.FemAnalysisResultView(vm);
             EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
+            ShowFemAnalysisResultInSchema(analysis);
          }
          catch (OperationCanceledException)
          {

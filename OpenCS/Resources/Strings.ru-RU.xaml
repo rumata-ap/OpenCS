@@ -1412,6 +1412,7 @@
     <system:String x:Key="FemResetScale">Сбросить масштаб</system:String>
     <system:String x:Key="FemAnalysisEdit">Редактировать постановку</system:String>
     <system:String x:Key="FemAnalysisViewResult">Показать результат</system:String>
+    <system:String x:Key="FemAnalysisResultWindow">Окно результата (таблицы)</system:String>
     <system:String x:Key="FemResultMember2D">Показать 2D-эпюру</system:String>
     <system:String x:Key="FemResultMemberSection">Показать поперечное сечение</system:String>
     <system:String x:Key="FemResultNodeValues">Показать значения в узле</system:String>
@@ -4338,6 +4339,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicSourceForces">Усилия</system:String>
     <system:String x:Key="MosaicSourceUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicSourceFoundation">Упругое основание</system:String>
+    <system:String x:Key="MosaicSourceAnalysis">Расчёт</system:String>
+    <system:String x:Key="MosaicAnalysisReadError">Результат расчёта «{0}» не прочитан: {1}</system:String>
+    <system:String x:Key="FemResultExtremum">{0}: {1:0.###} мм, узел {2}</system:String>
+    <system:String x:Key="FemResultCase">Загружение:</system:String>
+    <system:String x:Key="FemResultNoDisplacements">Перемещений на шаге нет</system:String>
+    <system:String x:Key="Fem3DEditBarCollapse">Свернуть панель редактирования</system:String>
+    <system:String x:Key="Fem3DEditBarExpand">Развернуть панель редактирования</system:String>
     <system:String x:Key="MosaicFoundationC1">C1, кН/м³</system:String>
     <system:String x:Key="MosaicUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>

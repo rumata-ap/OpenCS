@@ -294,6 +294,7 @@ public partial class FemSchemaView3D : UserControl
         if (vm.Selection != null) vm.Selection.Changed += OnSelectionChanged;
         vm.ShowShellEdges = s_showGrid;
         await vm.LoadAsync();
+        UpdateEditBar();
     }
 
     void OnSelectionChanged(object? sender, EventArgs e)
@@ -318,6 +319,56 @@ public partial class FemSchemaView3D : UserControl
             BuildVisuals();
         else if (e.PropertyName == nameof(Fem3DVM.MosaicShellMeshes) && VM is { IsLoading: false })
             ReplaceMosaicVisuals();
+        else if (e.PropertyName == nameof(Fem3DVM.IsResultShown))
+            UpdateEditBar();
+    }
+
+    // ── Строка редактирования: сворачивается кнопкой и сама при показе результата расчёта ────
+
+    /// <summary>Выбор пользователя в этом сеансе (true — свёрнута); null — по показу результата расчёта.</summary>
+    static bool? s_editBarCollapsed;
+
+    void CollapseEditBar_Click(object sender, RoutedEventArgs e) { s_editBarCollapsed = true; UpdateEditBar(); }
+
+    void ExpandEditBar_Click(object sender, RoutedEventArgs e) { s_editBarCollapsed = false; UpdateEditBar(); }
+
+    void UpdateEditBar()
+    {
+        bool collapsed = s_editBarCollapsed ?? VM?.IsResultShown == true;
+        editToolBar.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        expandEditBarButton.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
+        // Кнопок режимов создания не видно — режимы не должны оставаться включёнными.
+        if (collapsed && Editor is { } editor)
+        {
+            editor.CreateNodeMode = false;
+            editor.CreateBarMode = false;
+            editor.CreatePlateMode = false;
+            editor.CreateWallMode = false;
+            editor.CreateSpatialPlateMode = false;
+        }
+    }
+
+    // ── Слой результата расчёта ───────────────────────────────────────────────────────────────
+
+    readonly List<Visual3D> _planarVisuals = [];
+    LinesVisual3D? _resultOriginalVisual;
+
+    /// <summary>При показе результата: заливки плоских элементов схемы скрыты (результат рисуется по сетке),
+    /// исходная сетка — светлыми линиями под деформированной.</summary>
+    void UpdateResultOverlay()
+    {
+        if (VM is not { } vm) return;
+        foreach (var v in _planarVisuals)
+        {
+            bool attached = viewport.Children.Contains(v);
+            if (vm.IsResultShown && attached) viewport.Children.Remove(v);
+            else if (!vm.IsResultShown && !attached) viewport.Children.Add(v);
+        }
+        if (_resultOriginalVisual != null) viewport.Children.Remove(_resultOriginalVisual);
+        _resultOriginalVisual = vm.ResultOriginalLines is { Count: > 0 } lines
+            ? new LinesVisual3D { Points = lines, Color = Colors.Gray, Thickness = 1 }
+            : null;
+        if (_resultOriginalVisual != null) viewport.Children.Add(_resultOriginalVisual);
     }
 
     List<ModelVisual3D> _shellVisuals = [];
@@ -367,11 +418,14 @@ public partial class FemSchemaView3D : UserControl
         if (index < 0 || index > viewport.Children.Count) index = Math.Min(1 + _barVisuals.Count, viewport.Children.Count);
         for (int i = 0; i < _shellVisuals.Count; i++)
             viewport.Children.Insert(index + i, _shellVisuals[i]);
+        UpdateResultOverlay();
     }
 
     void BuildVisuals()
     {
         viewport.Children.Clear();
+        _planarVisuals.Clear();
+        _resultOriginalVisual = null;
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
         _planarMeshEdgesVisual = null;
@@ -396,15 +450,16 @@ public partial class FemSchemaView3D : UserControl
             {
                 // Плита/стена из кБ ЛИРЫ: под ней уже залита сетка ЛИРЫ — только утолщённый контур
                 // (своя заливка ложится в ту же плоскость и накладывается некрасиво).
-                viewport.Children.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Fem3DVM.LockedMemberColor, Thickness = 3.5 });
+                _planarVisuals.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Fem3DVM.LockedMemberColor, Thickness = 3.5 });
                 continue;
             }
             var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.PlanarRegionMeshColor));
             var model = new GeometryModel3D(pv.Mesh, mat) { BackMaterial = mat };
-            viewport.Children.Add(new ModelVisual3D { Content = model });
+            _planarVisuals.Add(new ModelVisual3D { Content = model });
 
-            viewport.Children.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Colors.SteelBlue, Thickness = 1.2 });
+            _planarVisuals.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Colors.SteelBlue, Thickness = 1.2 });
         }
+        UpdateResultOverlay();
 
         _meshVisual = VM.MeshLinePoints is { Count: > 0 } meshPoints
             ? new LinesVisual3D { Points = meshPoints, Color = Colors.MediumTurquoise, Thickness = 2.0 }
@@ -1120,9 +1175,14 @@ public partial class FemSchemaView3D : UserControl
 
         if (vm.MosaicBarSegments.Count > 0)
         {
-            vm.Mosaic.SetHover(SegmentTagNear(vm.MosaicBarSegments, e.GetPosition(viewport)));
-            PlaceMosaicHoverTip(vm, e);
-            return;
+            // Стержень под курсором; если его нет, а пластины тоже раскрашены (результат расчёта) — ищется пластина.
+            string? bar = SegmentTagNear(vm.MosaicBarSegments, e.GetPosition(viewport));
+            if (bar != null || vm.MosaicShellMeshes.Count == 0)
+            {
+                vm.Mosaic.SetHover(bar);
+                PlaceMosaicHoverTip(vm, e);
+                return;
+            }
         }
 
         string? tag = null;
