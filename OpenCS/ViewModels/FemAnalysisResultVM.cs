@@ -525,6 +525,9 @@ public class FemAnalysisResultVM : ViewModelBase
         return true;
     }
 
+    /// <summary>Схема результата.</summary>
+    public FemSchema Schema => _schema;
+
     public FemAnalysisResultVM(CalcResult result, DatabaseService db, FemSchema schema)
     {
         _database = db;

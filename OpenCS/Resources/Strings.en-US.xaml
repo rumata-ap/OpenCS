@@ -4349,7 +4349,24 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultElementExtremum">{0}: {1:0.###}, element {2}</system:String>
     <system:String x:Key="FemResultNoValues">No values at this step</system:String>
     <system:String x:Key="FemResultActionsTip">Result actions: window with tables, force sets of the step</system:String>
-    <system:String x:Key="MosaicResultShellField">Plates: {0}</system:String>
+    <system:String x:Key="FemResultCardNode">Node {0}</system:String>
+    <system:String x:Key="FemResultCardBar">Bar, element {0}</system:String>
+    <system:String x:Key="FemResultCardShell">Shell, element {0}</system:String>
+    <system:String x:Key="FemResultCardMember">Member "{0}", elements: {1} — largest by magnitude</system:String>
+    <system:String x:Key="FemResultCardMembers">Members: {0}, elements: {1} — largest by magnitude</system:String>
+    <system:String x:Key="FemResultCardElements">Selected elements: {0} — largest by magnitude</system:String>
+    <system:String x:Key="FemResultCardOwner">Member</system:String>
+    <system:String x:Key="FemResultCardCoordinates">x; y; z, m</system:String>
+    <system:String x:Key="FemResultCardEnds">start {0}; end {1}</system:String>
+    <system:String x:Key="FemResultCardExtremum">{0} (element {1})</system:String>
+    <system:String x:Key="FemResultCardCloseTip">Close and clear selection</system:String>
+    <system:String x:Key="FemResultPickMembers">Members</system:String>
+    <system:String x:Key="FemResultPickMembersTip">Click selects a whole structural member (all its elements); Ctrl adds or removes</system:String>
+    <system:String x:Key="FemResultPickElements">Elements</system:String>
+    <system:String x:Key="FemResultPickElementsTip">Click selects a single mesh element, near a node — the node; Ctrl adds or removes</system:String>
+    <system:String x:Key="FemResultMenuMemberSection">Section of member "{0}"…</system:String>
+    <system:String x:Key="FemResultMenuMember2D">2D diagram of member "{0}"…</system:String>
+    <system:String x:Key="FemResultMenuMemberForceSet">Force set of member "{0}" at the step…</system:String>    <system:String x:Key="MosaicResultShellField">Plates: {0}</system:String>
     <system:String x:Key="MosaicResultBarForce">Bars: {0}, {1}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>

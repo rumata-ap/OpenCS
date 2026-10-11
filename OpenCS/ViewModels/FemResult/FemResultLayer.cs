@@ -38,7 +38,12 @@ public sealed class FemResultLayer : ViewModelBase
                 else if (e.PropertyName == nameof(FemCsfeaResultVM.LongShareNote)) OnPropertyChanged(nameof(LongShareNote));
             };
         }
+        if (steps is OpenSeesResultSteps openSees) OpenSees = openSees.Vm;
         RebuildNodeMap();
+        Selection = new FemResultSelection(mesh);
+        Selection.Changed += RefreshCard;
+        // Шаг, поля шага, доля длительности — значения карточки меняются.
+        Changed += RefreshCard;
     }
 
     public FemAnalysis Analysis { get; }
@@ -268,4 +273,111 @@ public sealed class FemResultLayer : ViewModelBase
 
     public string LongShareNote => Csfea?.LongShareNote ?? "";
     public ICommand? LongShareFromSetsCommand => Csfea?.LongShareFromSetsCommand;
+
+    /// <summary>VM результата OpenSees (пункты меню прежнего окна: 2D-эпюра, сечение, набор усилий, узел); null — CSfea.</summary>
+    public FemAnalysisResultVM? OpenSees { get; }
+
+    // ------------------------------------------------------------ выбор и карточка значений
+
+    /// <summary>Выбранное в 3D-виде: КЭ сетки результата или узел.</summary>
+    public FemResultSelection Selection { get; }
+
+    FemResultCard? _card;
+    /// <summary>Карточка значений выбранного на текущем шаге; null — ничего не выбрано.</summary>
+    public FemResultCard? Card { get => _card; private set { _card = value; OnPropertyChanged(); } }
+
+    void RefreshCard() => Card = BuildCard();
+
+    static readonly FemResultComponent[] Displacements = [FemResultComponent.Ux, FemResultComponent.Uy, FemResultComponent.Uz, FemResultComponent.U];
+    static readonly FemForceComponent[] Forces = Enum.GetValues<FemForceComponent>();
+
+    static string Num(double v) => v.ToString("0.###", CultureInfo.CurrentCulture);
+
+    static string DisplacementLabel(FemResultComponent c) => $"{ComponentLabel(c)}, {Loc.S("UnitMm")}";
+
+    static string ForceLabel(FemForceComponent c) => $"{c}, {Unit(c)}";
+
+    /// <summary>Карточка значений выбора: узел, один КЭ или группа КЭ (КонЭ).</summary>
+    public FemResultCard? BuildCard()
+    {
+        if (Selection.Node is int node) return NodeCard(node);
+        var tags = Selection.Elements.OrderBy(t => int.TryParse(t, out int n) ? n : int.MaxValue).ThenBy(t => t, StringComparer.Ordinal).ToList();
+        return tags.Count switch
+        {
+            0 => null,
+            1 when Selection.Mode == FemResultPickMode.Elements || Mesh.OwnerOf(tags[0]) == null => ElementCard(tags[0]),
+            _ => GroupCard(tags),
+        };
+    }
+
+    FemResultCard? NodeCard(int node)
+    {
+        if (!Mesh.Nodes.TryGetValue(node, out var p)) return null;
+        var rows = new List<FemResultCardRow>
+        {
+            new(Loc.S("FemResultCardCoordinates"), $"{Num(p.X)}; {Num(p.Y)}; {Num(p.Z)}"),
+        };
+        foreach (var c in Displacements)
+            if (NodeValue(node, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
+        return new FemResultCard(string.Format(Loc.S("FemResultCardNode"), node), rows);
+    }
+
+    FemResultCard ElementCard(string tag)
+    {
+        bool bar = Mesh.IsBar(tag);
+        var rows = new List<FemResultCardRow>();
+        if (Mesh.OwnerOf(tag) is { } owner) rows.Add(new(Loc.S("FemResultCardOwner"), owner));
+        foreach (var c in Displacements)
+            if (Value(tag, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
+        if (bar && HasBarForces)
+            foreach (var c in Forces)
+                if (BarEndValues(tag, c) is { } ends)
+                    rows.Add(new(ForceLabel(c), string.Format(Loc.S("FemResultCardEnds"), Num(ends.I), Num(ends.J))));
+        if (!bar)
+            foreach (var f in ShellFields)
+                if (ShellValue(tag, f.Value) is double v)
+                    rows.Add(new(f.Label, f.Value == FemCsfeaShellField.State ? StateLabel(v) : Num(v)));
+        return new FemResultCard(string.Format(Loc.S(bar ? "FemResultCardBar" : "FemResultCardShell"), tag), rows);
+    }
+
+    static string StateLabel(double v)
+    {
+        var styles = FemCsfeaResultVM.StateStyles;
+        int k = (int)v;
+        return k >= 0 && k < styles.Count ? Loc.S(styles[k].Key) : Num(v);
+    }
+
+    /// <summary>Несколько КЭ (КонЭ): по каждой величине — наибольшая по модулю с номером КЭ.</summary>
+    FemResultCard GroupCard(IReadOnlyList<string> tags)
+    {
+        var rows = new List<FemResultCardRow>();
+        void Extremum(string label, IEnumerable<(string Tag, double? Value)> values)
+        {
+            string? best = null;
+            double bestValue = 0;
+            foreach (var (t, value) in values)
+                if (value is double v && (best == null || Math.Abs(v) > Math.Abs(bestValue))) { best = t; bestValue = v; }
+            if (best != null) rows.Add(new(label, string.Format(Loc.S("FemResultCardExtremum"), Num(bestValue), best)));
+        }
+
+        foreach (var c in Displacements)
+            Extremum(DisplacementLabel(c), tags.Select(t => (t, Value(t, c))));
+        var bars = tags.Where(Mesh.IsBar).ToList();
+        var shells = tags.Where(t => !Mesh.IsBar(t)).ToList();
+        if (bars.Count > 0 && HasBarForces)
+            foreach (var c in Forces)
+                Extremum(ForceLabel(c), bars.Select(t => (t, BarEndValues(t, c) is { } e ? Math.Abs(e.I) >= Math.Abs(e.J) ? e.I : e.J : (double?)null)));
+        if (shells.Count > 0)
+            foreach (var f in ShellFields.Where(f => f.Value != FemCsfeaShellField.State))
+                Extremum(f.Label, shells.Select(t => (t, ShellValue(t, f.Value))));
+
+        var members = Selection.Members;
+        string title = Selection.Mode == FemResultPickMode.Members && members.Count == 1
+                       && members[0] is var m && tags.All(t => Mesh.OwnerOf(t) == m)
+            ? string.Format(Loc.S("FemResultCardMember"), m, tags.Count)
+            : members.Count > 0 && Selection.Mode == FemResultPickMode.Members
+                ? string.Format(Loc.S("FemResultCardMembers"), members.Count, tags.Count)
+                : string.Format(Loc.S("FemResultCardElements"), tags.Count);
+        return new FemResultCard(title, rows);
+    }
 }

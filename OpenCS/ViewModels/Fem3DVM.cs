@@ -309,6 +309,7 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Атомы фрагмента выбранного в 3D: КонЭ (у схемы без конструктивного слоя — КЭ) и КЭ сетки.</summary>
     public List<string> SelectionAtoms()
     {
+        if (ResultSelection is { } result) return FemViewFragment.AtomsOfMesh(result.Elements).ToList();
         if (Selection == null) return [];
         var atoms = FemViewFragment.AtomsOfMesh(Selection.SelectedMeshElemTags).ToList();
         atoms.AddRange(_meshIsSchema
@@ -317,7 +318,32 @@ public class Fem3DVM : ViewModelBase
         return atoms;
     }
 
-    public bool HasSelection => Selection is { } s && s.SelectedElemTags.Count + s.SelectedMeshElemTags.Count > 0;
+    public bool HasSelection => ResultSelection is { } result
+        ? result.Elements.Count > 0
+        : Selection is { } s && s.SelectedElemTags.Count + s.SelectedMeshElemTags.Count > 0;
+
+    /// <summary>Выбор в показанном результате расчёта; null — результат не показан.</summary>
+    public FemResult.FemResultSelection? ResultSelection => IsResultShown ? Mosaic.ActiveResult?.Selection : null;
+
+    /// <summary>Выбор в показанном результате изменился (или показан другой результат, или результат скрыт).</summary>
+    public event Action? ResultSelectionChanged;
+
+    FemResult.FemResultLayer? _selectionLayer;
+
+    void TrackResultSelection(FemResult.FemResultLayer? layer)
+    {
+        if (ReferenceEquals(layer, _selectionLayer)) return;
+        if (_selectionLayer != null) _selectionLayer.Selection.Changed -= OnResultSelectionChanged;
+        _selectionLayer = layer;
+        if (layer != null)
+        {
+            layer.Selection.Changed += OnResultSelectionChanged;
+            layer.Selection.IsVisible = Fragment.IsMeshVisible;
+        }
+        ResultSelectionChanged?.Invoke();
+    }
+
+    void OnResultSelectionChanged() => ResultSelectionChanged?.Invoke();
 
     /// <summary>Показать только выбранное (вид вписывается в фрагмент).</summary>
     public bool ShowOnlySelection()
@@ -333,6 +359,7 @@ public class Fem3DVM : ViewModelBase
     {
         if (!Fragment.Hide(SelectionAtoms())) return false;
         Selection?.Clear();
+        ResultSelection?.Clear();
         return true;
     }
 
@@ -348,7 +375,7 @@ public class Fem3DVM : ViewModelBase
             _ => Fragment.Show(atoms),
         };
         _zoomOnFragment = false;
-        if (done && action == FemFragmentAction.Hide) Selection?.Clear();
+        if (done && action == FemFragmentAction.Hide) { Selection?.Clear(); ResultSelection?.Clear(); }
         return done;
     }
 
@@ -1019,6 +1046,7 @@ public class Fem3DVM : ViewModelBase
     {
         if (Mosaic.ActiveResult is { } result) { ApplyResultMosaic(result); return; }
         IsResultShown = false;
+        TrackResultSelection(null);
         ResultOriginalLines = null;
         ResultMeshLines = null;
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
@@ -1083,6 +1111,7 @@ public class Fem3DVM : ViewModelBase
             }).ToList();
             _resultMembers = (result.Mesh, members.Where(m => m.ElemType == "shell").ToList(),
                 members.Where(m => m.ElemType != "shell").ToList());
+            _resultMemberByTag = members.GroupBy(m => m.ElemTag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         }
         var (_, allShells, allBars) = _resultMembers.Value;
         var nodeMap = new Dictionary<string, Point3D>(result.NodeMap, StringComparer.Ordinal);
@@ -1110,8 +1139,32 @@ public class Fem3DVM : ViewModelBase
         (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
         ResultOriginalLines = result.DeformedShown ? result.OriginalLines : null;
         ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;
+        _resultNodeMap = nodeMap;
+        _resultVisible = [.. shells, .. bars];
+        _resultPickNodes = null;
         IsResultShown = true;
+        TrackResultSelection(result);
     }
+
+    Dictionary<string, FemMember> _resultMemberByTag = new(StringComparer.Ordinal);
+    Dictionary<string, Point3D> _resultNodeMap = [];
+    List<FemMember> _resultVisible = [];
+    List<(int Node, Point3D Position)>? _resultPickNodes;
+
+    /// <summary>Узлы видимых КЭ результата на положениях слоя — для выбора узла щелчком.</summary>
+    public IReadOnlyList<(int Node, Point3D Position)> ResultPickNodes => _resultPickNodes ??= _resultVisible
+        .SelectMany(e => NodeIds(e.NodeIdsJson)).Distinct()
+        .Select(id => (Node: id, Found: _resultNodeMap.TryGetValue(id.ToString(System.Globalization.CultureInfo.InvariantCulture), out var p), Position: p))
+        .Where(x => x.Found).Select(x => (x.Node, x.Position)).ToList();
+
+    /// <summary>Положение узла результата на виде; null — узла нет среди видимых.</summary>
+    public Point3D? ResultNodePosition(int node) =>
+        _resultNodeMap.TryGetValue(node.ToString(System.Globalization.CultureInfo.InvariantCulture), out var p) ? p : null;
+
+    /// <summary>Подсветка выбранных КЭ результата на положениях слоя (на деформированной схеме, если она показана).</summary>
+    public (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) ResultSelectionGeometry(
+        IEnumerable<string> tags, double offset) =>
+        SelectionGeometry(tags.Select(t => _resultMemberByTag.GetValueOrDefault(t)).OfType<FemMember>(), _resultNodeMap, offset);
 
     static List<(string Tag, Point3D P1, Point3D P2)> BarSegments(Dictionary<string, Point3D> nodeMap, List<FemMember> bars) => bars
         .Select(e => (Tag: e.ElemTag.Trim(), Pair: GetBarPoints(nodeMap, e)))
@@ -1389,17 +1442,19 @@ public class Fem3DVM : ViewModelBase
     /// стороны, — в плоскости подложки заливка мерцала бы) и контуры пластин.
     /// </summary>
     public (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) MeshSelectionGeometry(
-        IEnumerable<string> tags, double offset)
+        IEnumerable<string> tags, double offset) =>
+        SelectionGeometry(tags.Select(t => _meshPickByTag.GetValueOrDefault(t)).OfType<FemMember>(), _edgeNodeMap ?? [], offset);
+
+    static (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) SelectionGeometry(
+        IEnumerable<FemMember> elements, Dictionary<string, Point3D> nodeMap, double offset)
     {
         var bars = new Point3DCollection();
         var outlines = new Point3DCollection();
         var positions = new Point3DCollection();
         var indices = new Int32Collection();
-        var nodeMap = _edgeNodeMap ?? [];
-        foreach (var tag in tags)
+        foreach (var e in elements)
         {
-            if (!_meshPickByTag.TryGetValue(tag, out var e)) continue;
-            if (e.ElemType == "beam")
+            if (e.ElemType != "shell")
             {
                 if (GetBarPoints(nodeMap, e) is { } pair) { bars.Add(pair.p1); bars.Add(pair.p2); }
                 continue;

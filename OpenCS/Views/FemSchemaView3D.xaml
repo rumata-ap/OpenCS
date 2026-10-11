@@ -7,6 +7,7 @@
              xmlns:u="clr-namespace:OpenCS.Utilites"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
     <UserControl.Resources>
+        <conv:NullToCollapsedVisibilityConverter x:Key="NullToCollapsedConv"/>
         <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
         <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
         <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
@@ -252,6 +253,12 @@
                     </ToggleButton>
                     <local:FemGlyphFlagsMenu/>
                     <Rectangle Width="1" Margin="4,3" Fill="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+                    <!-- Режим выбора в результате: конструктивные элементы целиком или отдельные КЭ (и узлы) -->
+                    <ToggleButton x:Name="resultPickMembers" Content="{DynamicResource FemResultPickMembers}" Padding="6,1"
+                                  VerticalAlignment="Center" ToolTip="{DynamicResource FemResultPickMembersTip}" Click="ResultPickMode_Click"/>
+                    <ToggleButton x:Name="resultPickElements" Content="{DynamicResource FemResultPickElements}" Padding="6,1"
+                                  VerticalAlignment="Center" ToolTip="{DynamicResource FemResultPickElementsTip}" Click="ResultPickMode_Click"/>
+                    <Rectangle Width="1" Margin="4,3" Fill="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
                 </StackPanel>
                 <!-- Нелинейный расчёт — шаги ползунком; линейный — загружения и комбинации списком -->
                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowStepSlider, Converter={StaticResource BoolToVisibility}}">
@@ -303,6 +310,34 @@
         <mosaic:PlateRebarMosaicLegend Grid.Row="2" DataContext="{Binding Mosaic}"
                                        HorizontalAlignment="Right" VerticalAlignment="Top"
                                        Margin="8" Panel.ZIndex="10"/>
+
+        <!-- Карточка значений выбранного в результате расчёта (узел, КЭ, КонЭ) -->
+        <Border x:Name="resultCard" Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
+                Padding="8,4,8,6" Background="#F2FFFFFF" BorderBrush="Gray" BorderThickness="1" CornerRadius="3"
+                Panel.ZIndex="12" DataContext="{Binding Mosaic.ActiveResult.Card, FallbackValue={x:Null}}"
+                Visibility="{Binding Converter={StaticResource NullToCollapsedConv}}">
+            <StackPanel Grid.IsSharedSizeScope="True" MaxWidth="420">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="✕" Padding="4,0" Margin="8,0,0,0" BorderThickness="0" Background="Transparent"
+                            VerticalAlignment="Top" ToolTip="{DynamicResource FemResultCardCloseTip}" Click="ResultCardClose_Click"/>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                </DockPanel>
+                <ItemsControl ItemsSource="{Binding Rows}" Margin="0,4,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="label"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Label}" Foreground="DimGray" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
 
         <!-- Значение КЭ мозаики у курсора -->
         <Border x:Name="mosaicHoverTip" Grid.Row="2" Visibility="Collapsed" IsHitTestVisible="False"

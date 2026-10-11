@@ -16,6 +16,9 @@ public sealed class FemResultMesh
     readonly Dictionary<string, int[]> _elementNodes = new(StringComparer.Ordinal);
     readonly List<(string Tag, int I, int J)> _bars = new();
     readonly List<(string Tag, int[] Contour)> _shells = new();
+    readonly HashSet<string> _barTags = new(StringComparer.Ordinal);
+    readonly Dictionary<string, string> _owner = new(StringComparer.Ordinal);
+    readonly Dictionary<string, List<string>> _byOwner = new(StringComparer.Ordinal);
 
     public FemResultMesh(IEnumerable<FemMeshNode> meshNodes, IEnumerable<FemElement> meshElements)
     {
@@ -33,7 +36,15 @@ public sealed class FemResultMesh
             if (_elementNodes.ContainsKey(tag)) continue;
             var ids = g.NodeTags.Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
             _elementNodes[tag] = ids;
-            if (g.IsBar) _bars.Add((tag, ids[0], ids[1]));
+            // КЭ дискретизации КонЭ; у импортированной сетки КЭ и есть элемент схемы — КонЭ у него нет.
+            if (e.SourceMemberTag is { } owner && !string.IsNullOrWhiteSpace(owner) && e.Origin != FemMember.MeshSourceImported)
+            {
+                owner = owner.Trim();
+                _owner[tag] = owner;
+                if (!_byOwner.TryGetValue(owner, out var list)) _byOwner[owner] = list = [];
+                list.Add(tag);
+            }
+            if (g.IsBar) { _bars.Add((tag, ids[0], ids[1])); _barTags.Add(tag); }
             else _shells.Add((tag, g.Contour.Select(i => ids[i]).ToArray()));
             elements.Add(e);
         }
@@ -61,6 +72,16 @@ public sealed class FemResultMesh
 
     /// <summary>Узлы КЭ по тегу; null — КЭ нет в сетке.</summary>
     public IReadOnlyList<int>? NodesOf(string elemTag) => _elementNodes.TryGetValue(elemTag, out var ids) ? ids : null;
+
+    /// <summary>Конструктивный элемент КЭ; null — КЭ без КонЭ (импортированная сетка) или его нет в сетке.</summary>
+    public string? OwnerOf(string elemTag) => _owner.TryGetValue(elemTag, out var owner) ? owner : null;
+
+    /// <summary>КЭ сетки конструктивного элемента (пусто — КонЭ не дискретизирован или его нет).</summary>
+    public IReadOnlyList<string> ElementsOf(string ownerTag) =>
+        _byOwner.TryGetValue(ownerTag.Trim(), out var list) ? list : [];
+
+    /// <summary>КЭ — стержень сетки.</summary>
+    public bool IsBar(string elemTag) => _barTags.Contains(elemTag);
 
     /// <summary>Отрезки (парами точек): стержни и контуры пластин.</summary>
     public Point3DCollection EdgeLines(Func<int, Point3D> position)

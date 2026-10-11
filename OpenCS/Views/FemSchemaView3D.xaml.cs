@@ -9,6 +9,7 @@ using CScore.Fem;
 using HelixToolkit.Wpf;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.ViewModels.FemResult;
 using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
@@ -164,6 +165,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
         InitCamera();
+        UpdateResultPickButtons();
     }
 
     // ── Камера: проекция и угол обзора общие для всех 3D-видов сеанса ───────────────────────
@@ -236,6 +238,12 @@ public partial class FemSchemaView3D : UserControl
         }
 
         if (e.Key != Key.Escape) return;
+        if (PickableResult?.Selection is { IsEmpty: false } resultSelection)
+        {
+            resultSelection.Clear();
+            e.Handled = true;
+            return;
+        }
         if (_createBarMode && _pendingBarFirstNode != null)
         {
             _pendingBarFirstNode = null;
@@ -279,6 +287,7 @@ public partial class FemSchemaView3D : UserControl
         {
             _activeVm.PropertyChanged -= OnVMPropertyChanged;
             _activeVm.FragmentApplied -= OnFragmentApplied;
+            _activeVm.ResultSelectionChanged -= OnResultSelectionChanged;
             if (_activeVm.Selection != null) _activeVm.Selection.Changed -= OnSelectionChanged;
         }
 
@@ -293,6 +302,7 @@ public partial class FemSchemaView3D : UserControl
 
         vm.PropertyChanged += OnVMPropertyChanged;
         vm.FragmentApplied += OnFragmentApplied;
+        vm.ResultSelectionChanged += OnResultSelectionChanged;
         if (vm.Selection != null) vm.Selection.Changed += OnSelectionChanged;
         vm.ShowShellEdges = s_showGrid;
         await vm.LoadAsync();
@@ -324,7 +334,10 @@ public partial class FemSchemaView3D : UserControl
         else if (e.PropertyName == nameof(Fem3DVM.MosaicShellMeshes) && VM is { IsLoading: false })
             ReplaceMosaicVisuals();
         else if (e.PropertyName == nameof(Fem3DVM.IsResultShown))
+        {
             UpdateEditBar();
+            UpdateFragmentButtons();
+        }
     }
 
     // ── Строка редактирования: сворачивается кнопкой и сама при показе результата расчёта ────
@@ -380,6 +393,156 @@ public partial class FemSchemaView3D : UserControl
             ? new LinesVisual3D { Points = grid, Color = Colors.DimGray, Thickness = 0.5 }
             : null;
         if (_resultGridVisual != null) viewport.Children.Add(_resultGridVisual);
+        UpdateResultSelectionVisuals();
+    }
+
+    // ── Выбор в показанном результате: «КонЭ / КЭ», подсветка, карточка значений, меню ──────────
+
+    /// <summary>Режим выбора в результате (на сеанс): по умолчанию — конструктивные элементы целиком.</summary>
+    static FemResultPickMode s_resultPickMode = FemResultPickMode.Members;
+
+    readonly List<Visual3D> _resultSelectionVisuals = [];
+
+    /// <summary>Щелчки идут в результат: он показан и не включён режим создания элементов схемы.</summary>
+    FemResultLayer? PickableResult =>
+        VM is { IsResultShown: true } vm && !_createNodeMode && !_createBarMode && !_createPlateMode && !_createWallMode
+            && !_createSpatialPlateMode ? vm.Mosaic.ActiveResult : null;
+
+    void OnResultSelectionChanged()
+    {
+        UpdateResultSelectionVisuals();
+        UpdateFragmentButtons();
+    }
+
+    void UpdateResultPickButtons()
+    {
+        resultPickMembers.IsChecked = s_resultPickMode == FemResultPickMode.Members;
+        resultPickElements.IsChecked = s_resultPickMode == FemResultPickMode.Elements;
+    }
+
+    void ResultPickMode_Click(object sender, RoutedEventArgs e)
+    {
+        s_resultPickMode = ReferenceEquals(sender, resultPickElements) ? FemResultPickMode.Elements : FemResultPickMode.Members;
+        UpdateResultPickButtons();
+    }
+
+    void ResultCardClose_Click(object sender, RoutedEventArgs e) => VM?.ResultSelection?.Clear();
+
+    /// <summary>Подсветка выбранного в результате: КЭ — как выбор КЭ сетки, узел — оранжевой точкой.</summary>
+    void UpdateResultSelectionVisuals()
+    {
+        foreach (var v in _resultSelectionVisuals) viewport.Children.Remove(v);
+        _resultSelectionVisuals.Clear();
+        if (VM is not { } vm || vm.ResultSelection is not { IsEmpty: false } selection) return;
+        if (selection.Node is int node && vm.ResultNodePosition(node) is { } p)
+            _resultSelectionVisuals.Add(new PointsVisual3D { Points = [p], Color = Colors.OrangeRed, Size = 9 });
+        if (selection.Elements.Count > 0)
+        {
+            var (bars, shells, outlines) = vm.ResultSelectionGeometry(selection.Elements, MeshSelectionOffset);
+            if (shells != null)
+            {
+                var material = new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(110, 255, 69, 0)));
+                _resultSelectionVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(shells, material) { BackMaterial = material } });
+            }
+            if (outlines.Count > 0)
+                _resultSelectionVisuals.Add(new LinesVisual3D { Points = outlines, Color = Colors.OrangeRed, Thickness = 2.5 });
+            if (bars.Count > 0)
+                _resultSelectionVisuals.Add(new LinesVisual3D { Points = bars, Color = Colors.OrangeRed, Thickness = 5 });
+        }
+        foreach (var v in _resultSelectionVisuals) viewport.Children.Add(v);
+    }
+
+    /// <summary>Что под курсором в результате: узел (в режиме КЭ, рядом с курсором), стержень рядом, пластина под лучом.</summary>
+    (string? Element, int? Node) ResultTargetAt(Fem3DVM vm, Point position)
+    {
+        if (s_resultPickMode == FemResultPickMode.Elements && NodeNear(vm.ResultPickNodes, position) is int node)
+            return (null, node);
+        if (SegmentTagNear(vm.MosaicBarSegments, position) is { } bar) return (bar, null);
+        string? shell = null;
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult hit && vm.ShellTagAt(hit.MeshHit, hit.VertexIndex1) is { } found)
+            {
+                shell = found;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        return (shell, null);
+    }
+
+    /// <summary>Узел, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.</summary>
+    int? NodeNear(IReadOnlyList<(int Node, Point3D Position)> nodes, Point cursor)
+    {
+        const double tolerance = 6;
+        var transform = Viewport3DHelper.GetTotalTransform(viewport.Viewport);
+        int? best = null;
+        double bestDistance = tolerance;
+        foreach (var (node, p) in nodes)
+        {
+            var q = transform.Transform(new Point4D(p.X, p.Y, p.Z, 1));
+            if (q.W <= 1e-9) continue;   // точка за камерой
+            double distance = (cursor - new Point(q.X / q.W, q.Y / q.W)).Length;
+            if (distance <= bestDistance) { bestDistance = distance; best = node; }
+        }
+        return best;
+    }
+
+    /// <summary>ЛКМ при показанном результате: выбор КЭ (в режиме КонЭ — его КонЭ) или узла; Ctrl — добавить или убрать;
+    /// пустое место — снять выбор.</summary>
+    void PickResult(Fem3DVM vm, FemResultLayer layer, Point position)
+    {
+        bool additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        var (element, node) = ResultTargetAt(vm, position);
+        if (node is int n) layer.Selection.PickNode(n);
+        else if (element != null) layer.Selection.PickElement(element, s_resultPickMode, additive);
+        else if (!additive) layer.Selection.Clear();
+    }
+
+    /// <summary>ПКМ по КЭ или узлу результата: невыбранный сначала выбирается; пункты прежнего окна OpenSees, фрагмент,
+    /// снять выделение. По пустому месту — жест вращения.</summary>
+    bool ShowResultContextMenu(Fem3DVM vm, FemResultLayer layer, MouseButtonEventArgs e)
+    {
+        var (element, node) = ResultTargetAt(vm, e.GetPosition(viewport));
+        var selection = layer.Selection;
+        if (node is int n) { if (selection.Node != n) selection.PickNode(n); }
+        else if (element != null) { if (!selection.Contains(element)) selection.PickElement(element, s_resultPickMode, additive: false); }
+        else return false;
+
+        var menu = new ContextMenu { PlacementTarget = viewport };
+        if (layer.Card is { } card)
+            menu.Items.Add(new MenuItem { Header = card.Title, IsEnabled = false, FontWeight = FontWeights.SemiBold });
+        var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
+        if (layer.OpenSees is { } openSees && app != null)
+        {
+            void Add(string header, Action action, bool enabled = true)
+            {
+                var item = new MenuItem { Header = header, IsEnabled = enabled };
+                item.Click += (_, _) => { app.EnsureFemResultVmEvents(openSees); action(); };
+                menu.Items.Add(item);
+            }
+            if (node is int nodeTag)
+                Add(Loc.S("FemResultNodeValues"), () => openSees.RequestShowNodeValues(nodeTag.ToString(CultureInfo.InvariantCulture)));
+            else if (selection.Members is [var owner] && selection.Elements.All(layer.Mesh.IsBar)
+                     && selection.Elements.All(t => layer.Mesh.OwnerOf(t) == owner))
+            {
+                menu.Items.Add(new Separator());
+                Add(string.Format(Loc.S("FemResultMenuMember2D"), owner), () => openSees.RequestShowMemberForce(owner));
+                Add(string.Format(Loc.S("FemResultMenuMemberSection"), owner), () => openSees.RequestShowMemberSection(owner));
+                Add(string.Format(Loc.S("FemResultMenuMemberForceSet"), owner), () => openSees.RequestCreateMemberForceSet(owner),
+                    openSees.CanCreateMemberForceSet(owner));
+            }
+        }
+        if (selection.Elements.Count > 0)
+            AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
+        menu.Items.Add(new Separator());
+        var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
+        clear.Click += (_, _) => selection.Clear();
+        menu.Items.Add(clear);
+        menu.IsOpen = true;
+        e.Handled = true;
+        return true;
     }
 
     LinesVisual3D? _resultGridVisual;
@@ -1084,6 +1247,12 @@ public partial class FemSchemaView3D : UserControl
 
     void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (VM is { } resultVm && PickableResult is { } result)
+        {
+            viewport.Focus();
+            PickResult(resultVm, result, e.GetPosition(viewport));
+            return;
+        }
         if (VM is not { EditMode: true } vm) return;
         viewport.Focus();
         var position = e.GetPosition(viewport);
@@ -1411,6 +1580,8 @@ public partial class FemSchemaView3D : UserControl
 
     void ShowContextMenuAt(MouseButtonEventArgs e)
     {
+        // При показанном результате — меню результата; меню редактирования не открываются.
+        if (VM is { } resultVm && PickableResult is { } result) { ShowResultContextMenu(resultVm, result, e); return; }
         if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
 
@@ -1555,7 +1726,7 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Кнопки по выбранному — только где есть выбор (страница схемы) и что-то выбрано.</summary>
     void UpdateFragmentButtons()
     {
-        var visibility = VM?.Selection != null ? Visibility.Visible : Visibility.Collapsed;
+        var visibility = VM?.Selection != null || VM?.IsResultShown == true ? Visibility.Visible : Visibility.Collapsed;
         fragmentShowOnlyButton.Visibility = fragmentHideButton.Visibility = visibility;
         bool hasSelection = VM?.HasSelection == true;
         fragmentShowOnlyButton.IsEnabled = fragmentHideButton.IsEnabled = hasSelection;

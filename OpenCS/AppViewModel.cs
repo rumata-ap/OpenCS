@@ -5865,6 +5865,16 @@ namespace OpenCS
          => MessageBox.Show(Loc.S(key), Loc.S("Warning"),
             System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
 
+      readonly System.Runtime.CompilerServices.ConditionalWeakTable<ViewModels.FemAnalysisResultVM, object> _femResultVmsWithEvents = new();
+
+      /// <summary>Подписки результатного VM, созданного вне AppViewModel (3D-вид схемы), — один раз на VM.</summary>
+      public void EnsureFemResultVmEvents(ViewModels.FemAnalysisResultVM vm)
+      {
+         if (_femResultVmsWithEvents.TryGetValue(vm, out _)) return;
+         _femResultVmsWithEvents.Add(vm, new object());
+         AttachFemResultVmEvents(vm, vm.Schema);
+      }
+
       /// <summary>Общие подписки событий результатного VM FEM-расчёта (все места создания).</summary>
       void AttachFemResultVmEvents(ViewModels.FemAnalysisResultVM vm, CScore.Fem.FemSchema schema)
       {
