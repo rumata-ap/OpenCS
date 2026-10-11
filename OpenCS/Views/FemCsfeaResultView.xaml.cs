@@ -19,7 +19,7 @@ public partial class FemCsfeaResultView : UserControl
     static readonly Color ForceRibbonColor = Color.FromArgb(90, 0x4D, 0xB6, 0xAC);
 
     readonly FemCsfeaResultVM _vm;
-    LinesVisual3D? _deformed;
+    LinesVisual3D? _deformed, _cracks;
     readonly ModelVisual3D _shells = new();
     readonly Dictionary<GeometryModel3D, FemCsfeaResultVM.ShellPatch> _patchByModel = new();
     MeshGeometryVisual3D? _forceRibbon;
@@ -53,6 +53,9 @@ public partial class FemCsfeaResultView : UserControl
             case nameof(FemCsfeaResultVM.DeformedLines) when _deformed != null:
                 _deformed.Points = _vm.DeformedLines;
                 break;
+            case nameof(FemCsfeaResultVM.CrackLines) when _cracks != null:
+                _cracks.Points = _vm.CrackLines;
+                break;
             case nameof(FemCsfeaResultVM.ShellPatches):
                 UpdateShells();
                 break;
@@ -73,6 +76,8 @@ public partial class FemCsfeaResultView : UserControl
         viewport.Children.Add(_shells);
         _deformed = new LinesVisual3D { Color = Colors.SteelBlue, Thickness = 1.5, Points = _vm.DeformedLines };
         viewport.Children.Add(_deformed);
+        _cracks = new LinesVisual3D { Color = Colors.Black, Thickness = 1.5, DepthOffset = 1e-4, Points = _vm.CrackLines };
+        viewport.Children.Add(_cracks);
         _forceRibbon = new MeshGeometryVisual3D { MeshGeometry = _vm.ForceDiagramMesh, Fill = new SolidColorBrush(ForceRibbonColor) };
         viewport.Children.Add(_forceRibbon);
         _forceMax = new BillboardTextVisual3D { Foreground = Brushes.Black, Background = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 12 };

@@ -2798,6 +2798,13 @@
     <system:String x:Key="FemCsfeaFieldSigmaRatio">σs/σs,y of tensile rebar</system:String>
     <system:String x:Key="FemCsfeaFieldEpsRatio">εb/εb2 of compressed concrete</system:String>
     <system:String x:Key="FemCsfeaFieldState">Section state (cracks, yielding, failure)</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcLongBottom">a_crc,1 bottom — long-term, mm</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcLongTop">a_crc,1 top — long-term, mm</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcShortBottom">a_crc bottom — short-term, mm</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcShortTop">a_crc top — short-term, mm</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShare">Long-term share:</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareTip">Share of the long-term part of the step forces (0…1). Crack width is computed from the element forces of the step by SP 63 clauses 8.2.15–8.2.18 over directions (as in the code check of plates): a_crc,1 — from the long-term part with φ1 = 1.4; a_crc — by clause 8.2.7. Strokes show crack lines of the largest width.</system:String>
+    <system:String x:Key="FemCsfeaCrackComputing">computing crack widths…</system:String>
     <system:String x:Key="FemCsfeaStateNone">uncracked</system:String>
     <system:String x:Key="FemCsfeaStateCracked">cracked</system:String>
     <system:String x:Key="FemCsfeaStateYielded">rebar yielding</system:String>

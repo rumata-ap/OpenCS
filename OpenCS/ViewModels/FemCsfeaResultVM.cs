@@ -16,6 +16,7 @@ namespace OpenCS.ViewModels;
 public enum FemCsfeaShellField
 {
     None, Ux, Uy, Uz, Nx, Ny, Nxy, Mx, My, Mxy, Qx, Qy, CrackBottom, CrackTop, Psi, SigmaRatio, EpsRatio, State,
+    AcrcLongBottom, AcrcLongTop, AcrcShortBottom, AcrcShortTop,
 }
 
 /// <summary>Пункт выпадающего списка: значение и подпись.</summary>
@@ -79,7 +80,14 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             FemCsfeaRunner.DescribeControlNode(Summary.ControlSchemaNodeTag, Summary.ControlNodeTag),
             DofLabel(Summary.ControlDof), Summary.ControlDof < 3 ? Loc.S("UnitMm") : Loc.S("UnitRad"));
 
-        ShellFields = new FemCsfeaOption<FemCsfeaShellField>[]
+        // Ширина раскрытия — только для нормативных видов расчёта (N, NL) постановки этого результата.
+        var analyses = schema.Analyses.Count > 0 ? schema.Analyses.ToList() : result.Id > 0 ? db.GetFemAnalyses(schema.Id) : [];
+        _analysis = analyses.FirstOrDefault(a => a.ResultId == result.Id) ?? analyses.FirstOrDefault(a => a.Tag == result.TaskTag);
+        var calc = _analysis != null ? Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).CalcType ?? CalcType.N : CalcType.C;
+        HasCrackWidths = calc is CalcType.N or CalcType.NL;
+        _longShare = calc == CalcType.NL ? 1.0 : 0.9;
+
+        var shellFields = new List<FemCsfeaOption<FemCsfeaShellField>>
         {
             new(FemCsfeaShellField.None, Loc.S("FemCsfeaFieldNone")),
             new(FemCsfeaShellField.Ux, "ux, " + Loc.S("UnitMm")), new(FemCsfeaShellField.Uy, "uy, " + Loc.S("UnitMm")),
@@ -96,6 +104,15 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             new(FemCsfeaShellField.EpsRatio, Loc.S("FemCsfeaFieldEpsRatio")),
             new(FemCsfeaShellField.State, Loc.S("FemCsfeaFieldState")),
         };
+        if (HasCrackWidths)
+            shellFields.AddRange(
+            [
+                new(FemCsfeaShellField.AcrcLongBottom, Loc.S("FemCsfeaFieldAcrcLongBottom")),
+                new(FemCsfeaShellField.AcrcLongTop, Loc.S("FemCsfeaFieldAcrcLongTop")),
+                new(FemCsfeaShellField.AcrcShortBottom, Loc.S("FemCsfeaFieldAcrcShortBottom")),
+                new(FemCsfeaShellField.AcrcShortTop, Loc.S("FemCsfeaFieldAcrcShortTop")),
+            ]);
+        ShellFields = shellFields;
         _selectedShellField = ShellFields[0];
         ForceComponents = new FemCsfeaOption<FemForceComponent?>[]
         {
@@ -464,6 +481,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             FemCsfeaShellField.Psi => State(2),
             FemCsfeaShellField.SigmaRatio => State(3),
             FemCsfeaShellField.EpsRatio => State(4),
+            >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop =>
+                _crackShown != null && _crackShown.TryGetValue(elem, out var w) ? CrackValue(w, field) : null,
             FemCsfeaShellField.State => (Fields.ShellFlags[i] & RcSecantStepFields.Failed) != 0 ? 3
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Yielded) != 0 ? 2
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Cracked) != 0 ? 1 : 0,
@@ -478,7 +497,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _mosaicColors.Clear();
         var field = _selectedShellField.Value;
         var legend = new List<PlateRebarMosaicLegendItem>();
-        if (IsActive && Fields != null)
+        _crackShown = IsActive && IsCrackField ? EnsureCrackWidths() : null;
+        bool computing = IsActive && IsCrackField && Fields != null && _crackShown == null;
+        if (IsActive && Fields != null && !computing)
         {
             // Перемещения ux/uy/uz по КЭ — среднее узлов контура.
             foreach (var (tag, _) in _shells)
@@ -510,9 +531,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             if (missing > 0) legend.Add(new(PlateRebarMosaicVM.Freeze(Fem3DVM.ShellBgColor), Loc.S("PlateRebarMosaicNoData"), missing));
         }
         Legend = legend;
-        LegendTitle = IsActive ? $"{_selectedShellField.Label}\n{CurrentStepLabel}" : "";
+        LegendTitle = IsActive ? $"{_selectedShellField.Label}\n{CurrentStepLabel}" + (computing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "") : "";
         HoverText = "";
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(IsCrackField));
         OnPropertyChanged(nameof(Legend));
         OnPropertyChanged(nameof(LegendTitle));
     }
@@ -538,6 +560,125 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             return new ShellPatch(kv.Key, kv.Value.Mesh, kv.Value.Elements, kv.Value.Vertices);
         }).ToList();
         OnPropertyChanged(nameof(ShellPatches));
+        RebuildCrackLines();
+    }
+
+    // ------------------------------------------------------------ ширина раскрытия трещин
+
+    readonly FemAnalysis? _analysis;
+    List<FemCsfeaCrackElement>? _crackElements;
+    Dictionary<int, FemCsfeaCrackElement> _crackById = new();
+    (int Step, double Share)? _crackKey, _crackPending;
+    Dictionary<int, FemCsfeaCrackWidth>? _crackWidths, _crackShown;
+    CancellationTokenSource? _crackCts;
+
+    /// <summary>Мозаики ширины раскрытия доступны: вид расчёта постановки — N или NL.</summary>
+    public bool HasCrackWidths { get; }
+
+    /// <summary>Выбрана мозаика ширины раскрытия.</summary>
+    public bool IsCrackField => _selectedShellField.Value is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
+
+    /// <summary>Идущий расчёт ширины раскрытия (завершённая задача — расчёта нет).</summary>
+    public Task CrackWidthsTask { get; private set; } = Task.CompletedTask;
+
+    double _longShare;
+    /// <summary>Доля длительной части усилий шага (0…1) для a_crc,1 и a_crc по п. 8.2.7.</summary>
+    public double LongShare
+    {
+        get => _longShare;
+        set
+        {
+            if (!(value >= 0 && value <= 1) || value == _longShare) return;
+            _longShare = value;
+            OnPropertyChanged();
+            RebuildMosaic();
+            RebuildShellMeshes();
+        }
+    }
+
+    /// <summary>Штрихи по линиям трещин в центрах КЭ (пары точек) для выбранной мозаики ширины раскрытия.</summary>
+    public Point3DCollection CrackLines { get; private set; } = [];
+
+    static double CrackValue(FemCsfeaCrackWidth w, FemCsfeaShellField field) => field switch
+    {
+        FemCsfeaShellField.AcrcLongBottom => w.LongBottom,
+        FemCsfeaShellField.AcrcLongTop => w.LongTop,
+        FemCsfeaShellField.AcrcShortBottom => w.ShortBottom,
+        _ => w.ShortTop,
+    };
+
+    /// <summary>
+    /// Ширина раскрытия показанного шага при текущей доле: из кеша или null — расчёт запущен в фоне, по завершении
+    /// мозаика перестраивается. Сечения пластин — по текущему состоянию проекта (как при запуске расчёта схемы).
+    /// </summary>
+    Dictionary<int, FemCsfeaCrackWidth>? EnsureCrackWidths()
+    {
+        if (Fields == null || FieldsStepIndex is not int idx || _analysis == null) return null;
+        var key = (Summary.Steps[idx].N, _longShare);
+        if (_crackKey == key && _crackWidths != null) return _crackWidths;
+        if (_crackPending == key) return null;
+        if (_crackElements == null)
+        {
+            // Вход читается из БД — в вызывающем (UI) потоке, как при запуске расчёта.
+            try
+            {
+                var input = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis));
+                _crackElements = FemCsfeaCrackWidths.Elements(FemRcModelAdapter.Adapt(input), _db.Materials);
+            }
+            catch (InvalidOperationException) { _crackElements = []; }
+            _crackById = _crackElements.ToDictionary(e => e.Id);
+        }
+        _crackCts?.Cancel();
+        _crackCts = new CancellationTokenSource();
+        _crackPending = key;
+        CrackWidthsTask = RunCrackWidthsAsync(key, _crackElements, Fields, _crackCts.Token);
+        return null;
+    }
+
+    async Task RunCrackWidthsAsync((int Step, double Share) key, List<FemCsfeaCrackElement> elements, RcSecantStepFields fields,
+        CancellationToken ct)
+    {
+        Dictionary<int, FemCsfeaCrackWidth> widths;
+        try { widths = await Task.Run(() => FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), ct); }
+        catch (OperationCanceledException) { return; }
+        if (_crackPending != key) return;
+        _crackPending = null;
+        _crackKey = key;
+        _crackWidths = widths;
+        RebuildMosaic();
+        RebuildShellMeshes();
+    }
+
+    void RebuildCrackLines()
+    {
+        var pts = new Point3DCollection();
+        var field = _selectedShellField.Value;
+        if (_crackShown != null && IsActive && IsCrackField)
+        {
+            bool top = field is FemCsfeaShellField.AcrcLongTop or FemCsfeaShellField.AcrcShortTop;
+            foreach (var (tag, c) in _shells)
+            {
+                if (!_crackShown.TryGetValue(tag, out var w) || !(CrackValue(w, field) > 0) || !_crackById.TryGetValue(tag, out var el)) continue;
+                // Линия трещины — в плоскости КЭ под углом к оси x сечения (против часовой с конца оси z сечения).
+                double beta = (top ? w.AngleTop : w.AngleBottom) * Math.PI / 180;
+                var x = new Vector3D(el.AxisX[0], el.AxisX[1], el.AxisX[2]);
+                var y = Vector3D.CrossProduct(new Vector3D(el.AxisZ[0], el.AxisZ[1], el.AxisZ[2]), x);
+                var dir = x * Math.Cos(beta) + y * Math.Sin(beta);
+                var center = new Point3D();
+                double edge = double.MaxValue;
+                for (int k = 0; k < c.Length; k++)
+                {
+                    Point3D a = Position(c[k]), b = Position(c[(k + 1) % c.Length]);
+                    center += (Vector3D)a / c.Length;
+                    edge = Math.Min(edge, (b - a).Length);
+                }
+                pts.Add(center - dir * (0.4 * edge));
+                pts.Add(center + dir * (0.4 * edge));
+            }
+        }
+        pts.Freeze();
+        CrackLines = pts;
+        OnPropertyChanged(nameof(CrackLines));
     }
 
     /// <summary>Подсказка легенды для КЭ под курсором; null — курсор не над КЭ.</summary>

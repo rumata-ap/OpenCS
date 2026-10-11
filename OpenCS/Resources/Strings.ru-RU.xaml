@@ -2798,6 +2798,13 @@
     <system:String x:Key="FemCsfeaFieldSigmaRatio">σs/σs,т растянутой арматуры</system:String>
     <system:String x:Key="FemCsfeaFieldEpsRatio">εb/εb2 сжатого бетона</system:String>
     <system:String x:Key="FemCsfeaFieldState">Состояние сечения (трещины, текучесть, отказ)</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcLongBottom">a_crc,1 низа — продолжительное, мм</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcLongTop">a_crc,1 верха — продолжительное, мм</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcShortBottom">a_crc низа — непродолжительное, мм</system:String>
+    <system:String x:Key="FemCsfeaFieldAcrcShortTop">a_crc верха — непродолжительное, мм</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShare">Доля длительной части:</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareTip">Доля длительной части усилий шага (0…1). Ширина раскрытия — по усилиям КЭ шага, пп. 8.2.15–8.2.18 СП 63 по направлениям (как в нормативной проверке пластин): a_crc,1 — от длительной части при φ1 = 1,4; a_crc — по п. 8.2.7. Штрихи — линии трещин наибольшего раскрытия.</system:String>
+    <system:String x:Key="FemCsfeaCrackComputing">расчёт ширины раскрытия…</system:String>
     <system:String x:Key="FemCsfeaStateNone">без трещин</system:String>
     <system:String x:Key="FemCsfeaStateCracked">трещины</system:String>
     <system:String x:Key="FemCsfeaStateYielded">текучесть арматуры</system:String>

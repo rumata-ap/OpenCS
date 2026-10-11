@@ -49,6 +49,13 @@
                         <ComboBox Width="230" Margin="4,0" VerticalAlignment="Center" ItemsSource="{Binding ShellFields}"
                                   SelectedItem="{Binding SelectedShellField}" DisplayMemberPath="Label"
                                   Visibility="{Binding HasShells, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{DynamicResource FemCsfeaCrackLongShare}" VerticalAlignment="Center" Margin="4,0,2,0"
+                                   ToolTip="{DynamicResource FemCsfeaCrackLongShareTip}"
+                                   Visibility="{Binding IsCrackField, Converter={StaticResource BoolToVis}}"/>
+                        <TextBox Width="50" Text="{Binding LongShare, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=700}"
+                                 VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"
+                                 ToolTip="{DynamicResource FemCsfeaCrackLongShareTip}"
+                                 Visibility="{Binding IsCrackField, Converter={StaticResource BoolToVis}}"/>
                         <Separator/>
                         <TextBlock Text="{DynamicResource FemCsfeaBars}" VerticalAlignment="Center" Margin="4,0,2,0"
                                    Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}"/>
