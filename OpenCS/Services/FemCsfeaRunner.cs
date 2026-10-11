@@ -121,12 +121,22 @@ public sealed class FemCsfeaResultSummary
     {
         foreach (var e in Errors) yield return "Ошибка: " + e;
         if (Steps.Count == 0) yield break;
-        yield return string.Create(CultureInfo.CurrentCulture,
-            $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; шагов {Steps.Count(s => s.Converged)}, итераций {Steps.Sum(s => s.Iterations)}, {ElapsedSeconds:0.#} с.");
+        bool linear = Kind == FemCsfeaRunner.LinearAnalysisKind;
+        yield return linear
+            ? string.Create(CultureInfo.CurrentCulture,
+                $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; загружений {Steps.Count}, {ElapsedSeconds:0.#} с.")
+            : string.Create(CultureInfo.CurrentCulture,
+                $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; шагов {Steps.Count(s => s.Converged)}, итераций {Steps.Sum(s => s.Iterations)}, {ElapsedSeconds:0.#} с.");
         foreach (var (stage, i) in Stages.Select((s, i) => (s, i)))
         {
             var end = Steps.LastOrDefault(s => s.Stage == i && s.Converged);
             string control = end?.Control is { } c ? string.Create(CultureInfo.CurrentCulture, $", контрольный {FemCsfeaRunner.DescribeControlNode(ControlSchemaNodeTag, ControlNodeTag)}: {c * (ControlDof < 3 ? 1e3 : 1):0.###} {(ControlDof < 3 ? "мм" : "рад")}") : "";
+            if (linear)
+            {
+                yield return string.Create(CultureInfo.CurrentCulture,
+                    $"Загружение «{stage.Tag}»: ΣFx = {stage.Fx / 1e3:0.###}, ΣFy = {stage.Fy / 1e3:0.###}, ΣFz = {stage.Fz / 1e3:0.###} кН{control}.");
+                continue;
+            }
             string state = end == null ? "не начата" : Math.Abs(end.LoadFactor - 1) < 1e-12 ? "пройдена" : string.Create(CultureInfo.CurrentCulture, $"остановлена на λ = {end.LoadFactor:0.###}");
             yield return string.Create(CultureInfo.CurrentCulture,
                 $"Стадия «{stage.Tag}» (ΣFz = {stage.Fz / 1e3:0.###} кН): {state}{control}.");
@@ -177,7 +187,17 @@ public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? 
 public static class FemCsfeaRunner
 {
     public const string AnalysisKind = "csfea_secant";
+
+    /// <summary>
+    /// Линейный расчёт CSfea: стадии постановки — независимые загружения (без накопления и шагов), одна факторизация на
+    /// все; сечения упругие, бетон брутто. Результат — того же вида <see cref="TaskKind"/> (общее окно просмотра),
+    /// различается <see cref="FemCsfeaResultSummary.Kind"/>: каждое загружение — стадия из одного шага с полями.
+    /// </summary>
+    public const string LinearAnalysisKind = "csfea_linear";
     public const string TaskKind = "fem_csfea_secant";
+
+    /// <summary>Постановка считается решателем CSfea (секущий или линейный расчёт).</summary>
+    public static bool IsCsfeaKind(string? kind) => kind is AnalysisKind or LinearAnalysisKind;
 
     /// <summary>
     /// Подготовка без расчёта. <paramref name="buildMesh"/> = false — «Проверить вход»: сетка не перестраивается и не
@@ -227,6 +247,8 @@ public static class FemCsfeaRunner
         var csfea = FemAnalysisParams.Parse(analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
         var adapted = prepared.Adapted!;
         string tag = analysis.Tag;
+        if (analysis.Kind == LinearAnalysisKind)
+            return await RunLinearAsync(ctx, analysis, created, prepared, summary, csfea, ct);
         // В журнал — строки шагов; строки итераций (с отступом) остаются в сводке итераций решателя.
         void Log(string line)
         {
@@ -246,11 +268,7 @@ public static class FemCsfeaRunner
         clock.Stop();
 
         string? controlTag = prepared.ControlNode?.MeshTag;
-        int? controlDof = controlTag != null && FemMeshTopology.CanonicalNodeTag(controlTag) is { } canon
-            && int.TryParse(canon, NumberStyles.Integer, CultureInfo.InvariantCulture, out int nodeId)
-            && run.Build.NodeIndex.ContainsKey(nodeId) ? run.Build.Dof(nodeId, csfea.ControlDof) : null;
-        if (controlTag != null && controlDof == null)
-            summary.Report.Add($"Контрольный узел «{csfea.ControlNodeTag}» не входит в расчётную модель — история не записана.");
+        int? controlDof = ControlDof(prepared, run.Build, csfea, summary);
 
         var r = run.Result;
         summary.Completed = r.Completed;
@@ -276,6 +294,70 @@ public static class FemCsfeaRunner
         ctx.Db.SaveCalcResult(result);
         ctx.Db.SaveFemResultSteps(result.Id, recorder.Records.Select(kv => (kv.Key, kv.Value)));
         return result;
+    }
+
+    /// <summary>
+    /// Линейный расчёт подготовленной модели: решения всех загружений и упаковка их полей — в фоне; в сводке каждое
+    /// загружение — стадия из одного сошедшегося шага, поля записываются у всех.
+    /// </summary>
+    static async Task<CalcResult> RunLinearAsync(FemCsfeaRunContext ctx, FemAnalysis analysis, string created,
+        FemCsfeaPrepared prepared, FemCsfeaResultSummary summary, FemCsfeaParams csfea, CancellationToken ct)
+    {
+        var adapted = prepared.Adapted!;
+        string tag = analysis.Tag;
+        var options = new RcLinearOptions
+        {
+            MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism, ShellForceAngles = adapted.ShellForceAngles,
+            Log = line => ctx.Log.Info($"[{tag}] {line}"),
+        };
+        var clock = Stopwatch.StartNew();
+        var (run, records) = await Task.Run(() =>
+        {
+            var r = RcLinearAnalysis.Run(adapted.Model, options, ct);
+            var packed = new byte[r.Cases.Count][];
+            Parallel.For(0, packed.Length, new ParallelOptions { MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism },
+                i => packed[i] = FemCsfeaStepFieldsCodec.Pack(r.Cases[i].Fields));
+            return (r, packed);
+        }, ct);
+        clock.Stop();
+
+        int? controlDof = ControlDof(prepared, run.Build, csfea, summary);
+        summary.Kind = LinearAnalysisKind;
+        summary.Completed = true;
+        summary.ElapsedSeconds = clock.Elapsed.TotalSeconds;
+        summary.Nodes = run.Build.Mesh.NNodes;
+        summary.Shells = run.Build.Mesh.Shells.Count;
+        summary.Beams = run.Build.Mesh.Beams.Count;
+        summary.ControlNodeTag = controlDof != null ? prepared.ControlNode!.Value.MeshTag : "";
+        summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
+        summary.ControlDof = csfea.ControlDof;
+        summary.Report.AddRange(run.Build.Report);
+        summary.Stages = adapted.Model.Stages.Select((s, i) =>
+        {
+            var total = i < adapted.StageTotals.Count ? adapted.StageTotals[i] : new FemRcStageTotal(s.Name, 0, 0, 0);
+            return new FemCsfeaStageSummary(s.Name, 1, total.Fx, total.Fy, total.Fz);
+        }).ToList();
+        summary.Steps = run.Cases.Select((c, i) => new FemCsfeaStepSummary(i + 1, i, 1, 1.0, false, true, 1, 0.0,
+            controlDof is int d ? c.U[d] : null, i + 1, true)).ToList();
+        var result = Result(analysis, created, "ok", summary);
+        ctx.Db.SaveCalcResult(result);
+        ctx.Db.SaveFemResultSteps(result.Id, records.Select((data, i) => (i + 1, data)));
+        return result;
+    }
+
+    /// <summary>
+    /// Глобальный DOF контрольного узла в сетке расчёта; null — узел не задан или не входит в модель (запись в отчёт).
+    /// </summary>
+    static int? ControlDof(FemCsfeaPrepared prepared, RcStructuralMeshBuild build, FemCsfeaParams csfea,
+        FemCsfeaResultSummary summary)
+    {
+        if (prepared.ControlNode?.MeshTag is not { } controlTag) return null;
+        if (FemMeshTopology.CanonicalNodeTag(controlTag) is { } canon
+            && int.TryParse(canon, NumberStyles.Integer, CultureInfo.InvariantCulture, out int nodeId)
+            && build.NodeIndex.ContainsKey(nodeId))
+            return build.Dof(nodeId, csfea.ControlDof);
+        summary.Report.Add($"Контрольный узел «{csfea.ControlNodeTag}» не входит в расчётную модель — история не записана.");
+        return null;
     }
 
     static CalcResult Result(FemAnalysis analysis, string created, string status, FemCsfeaResultSummary summary) => new()

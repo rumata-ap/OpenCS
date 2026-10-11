@@ -1924,6 +1924,9 @@
                                     <DataTrigger Binding="{Binding Kind}" Value="csfea_secant">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_AnalysisCsfea}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_linear">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_AnalysisCsfea}"/>
+                                    </DataTrigger>
                                  </Style.Triggers>
                               </Style>
                            </Image.Style>
@@ -1938,6 +1941,10 @@
                                        <Setter Property="Background" Value="{StaticResource FemIconIndigo}"/>
                                        <Setter Property="BorderBrush" Value="{StaticResource FemIconIndigo}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_linear">
+                                       <Setter Property="Background" Value="{StaticResource FemIconIndigo}"/>
+                                       <Setter Property="BorderBrush" Value="{StaticResource FemIconIndigo}"/>
+                                    </DataTrigger>
                                  </Style.Triggers>
                               </Style>
                            </Border.Style>
@@ -1948,6 +1955,10 @@
                                     <Setter Property="Foreground" Value="{StaticResource FemIconGreen}"/>
                                     <Style.Triggers>
                                        <DataTrigger Binding="{Binding Kind}" Value="csfea_secant">
+                                          <Setter Property="Text" Value="CSfea"/>
+                                          <Setter Property="Foreground" Value="White"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Kind}" Value="csfea_linear">
                                           <Setter Property="Text" Value="CSfea"/>
                                           <Setter Property="Foreground" Value="White"/>
                                        </DataTrigger>

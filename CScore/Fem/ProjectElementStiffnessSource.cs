@@ -24,6 +24,7 @@ public sealed class ProjectElementStiffnessSource : IFemElementStiffnessSource
     readonly IReadOnlyDictionary<int, PlateSection> _plates;
     readonly IReadOnlyDictionary<int, Material> _materials;
     readonly Func<int, double?>? _torsionGJ;
+    readonly bool _grossBars;
     readonly Dictionary<int, BarSection?> _bars = new();
 
     /// <summary>Свойства сечения стержня без кручения, J по умолчанию и удельный вес.</summary>
@@ -34,9 +35,15 @@ public sealed class ProjectElementStiffnessSource : IFemElementStiffnessSource
     /// <param name="plates">Сечения пластин проекта.</param>
     /// <param name="materials">Материалы проекта (модуль <see cref="Material.E"/> — кПа, как в БД: B20 — 27,5·10⁶).</param>
     /// <param name="torsionGJ">GJ, Н·м², по номеру задачи кручения; null — задачи не учитываются.</param>
+    /// <param name="grossBars">
+    /// Стержни «брутто»: в сечении с бетоном области арматуры в жёсткость не входят (как упругая жёсткость SCAD и
+    /// ЛИРА-САПР); сечения без бетона — без изменений.
+    /// </param>
     public ProjectElementStiffnessSource(IEnumerable<FemMember> members, IEnumerable<CrossSection> sections,
-        IEnumerable<PlateSection> plates, IEnumerable<Material> materials, Func<int, double?>? torsionGJ = null)
+        IEnumerable<PlateSection> plates, IEnumerable<Material> materials, Func<int, double?>? torsionGJ = null,
+        bool grossBars = false)
     {
+        _grossBars = grossBars;
         _members = members.Where(m => m.ElemTag.Length > 0).GroupBy(m => m.ElemTag, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         _sections = sections.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First());
@@ -97,11 +104,14 @@ public sealed class ProjectElementStiffnessSource : IFemElementStiffnessSource
     {
         var total = new GeoProps();
         double weight = 0, concreteEA = 0;
+        bool skipRebar = _grossBars && section.Areas.Any(a => MaterialArea.IsCalcActive(a)
+            && (a.Material ?? _materials.GetValueOrDefault(a.MaterialId)) is { E: > 0 } m && IsConcrete(m));
         foreach (var area in section.Areas)
         {
             if (!MaterialArea.IsCalcActive(area)) continue;
             var material = area.Material ?? _materials.GetValueOrDefault(area.MaterialId);
             if (material is not { E: > 0 }) continue;
+            if (skipRebar && IsRebar(material)) continue;
             double em = material.E * KPa;
             // Область без сеточных волокон (интегрируется по контуру — например, стальной профиль) — внешний контур
             // минус отверстия, как CrossSection.ElasticProps; иначе характеристики по волокнам были бы нулевыми.
@@ -127,4 +137,7 @@ public sealed class ProjectElementStiffnessSource : IFemElementStiffnessSource
 
     static bool IsConcrete(Material m) =>
         m.Type == MatType.Concrete || (m.Type == MatType.Custom && m.BaseType == MatType.Concrete);
+
+    static bool IsRebar(Material m) =>
+        (m.Type == MatType.Custom ? m.BaseType : m.Type) is MatType.ReSteelF or MatType.ReSteelU;
 }

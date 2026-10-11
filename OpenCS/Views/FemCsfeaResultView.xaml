@@ -85,7 +85,7 @@
             </TabItem>
 
             <!-- Графики -->
-            <TabItem Header="{DynamicResource FemCsfeaTabCharts}">
+            <TabItem x:Name="chartsTab" Header="{DynamicResource FemCsfeaTabCharts}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -113,13 +113,13 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColN}" Binding="{Binding N}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColStage}" Binding="{Binding Stage}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColLambda}" Binding="{Binding LoadFactor, StringFormat=0.####}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColPlanned}" Binding="{Binding Planned}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColConverged}" Binding="{Binding Converged}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColIterations}" Binding="{Binding Iterations}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColResidual}" Binding="{Binding Residual}"/>
+                            <DataGridTextColumn x:Name="lambdaColumn" Header="{DynamicResource FemCsfeaColLambda}" Binding="{Binding LoadFactor, StringFormat=0.####}"/>
+                            <DataGridTextColumn x:Name="plannedColumn" Header="{DynamicResource FemCsfeaColPlanned}" Binding="{Binding Planned}"/>
+                            <DataGridTextColumn x:Name="convergedColumn" Header="{DynamicResource FemCsfeaColConverged}" Binding="{Binding Converged}"/>
+                            <DataGridTextColumn x:Name="iterationsColumn" Header="{DynamicResource FemCsfeaColIterations}" Binding="{Binding Iterations}"/>
+                            <DataGridTextColumn x:Name="residualColumn" Header="{DynamicResource FemCsfeaColResidual}" Binding="{Binding Residual}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColControl}" Binding="{Binding Control}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColFields}" Binding="{Binding Fields}"/>
+                            <DataGridTextColumn x:Name="fieldsColumn" Header="{DynamicResource FemCsfeaColFields}" Binding="{Binding Fields}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="1" Text="{DynamicResource FemCsfeaReport}" Margin="6,6,6,2" FontWeight="Bold"/>

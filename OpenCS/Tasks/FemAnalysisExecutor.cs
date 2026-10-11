@@ -20,7 +20,7 @@ public static class FemAnalysisExecutor
     /// (kind=fem_linear|fem_nonlinear).</summary>
     public static async Task<CalcResult> RunAsync(AppViewModel app, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
     {
-        if (analysis.Kind == Services.FemCsfeaRunner.AnalysisKind)
+        if (Services.FemCsfeaRunner.IsCsfeaKind(analysis.Kind))
             return await RunCsfeaAsync(app, schema, analysis, ct);
 
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -87,8 +87,8 @@ public static class FemAnalysisExecutor
     }
 
     /// <summary>
-    /// Секущий расчёт CSfea (<see cref="Services.FemCsfeaRunner"/>); прогресс решателя — в полосу занятости приложения
-    /// (вызывать из UI-потока: <see cref="Progress{T}"/> возвращает отчёты в него).
+    /// Секущий или линейный расчёт CSfea (<see cref="Services.FemCsfeaRunner"/>); прогресс секущего решателя — в полосу
+    /// занятости приложения (вызывать из UI-потока: <see cref="Progress{T}"/> возвращает отчёты в него).
     /// </summary>
     static Task<CalcResult> RunCsfeaAsync(AppViewModel app, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
     {

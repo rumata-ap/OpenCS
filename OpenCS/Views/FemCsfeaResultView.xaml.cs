@@ -32,6 +32,13 @@ public partial class FemCsfeaResultView : UserControl
         _vm = vm;
         DataContext = vm;
         reportBox.Text = string.Join(Environment.NewLine, vm.ReportLines);
+        if (vm.IsLinear)
+        {
+            // Линейный расчёт: шагов по λ и итераций нет — графики и колонки хода решения не показываются.
+            chartsTab.Visibility = Visibility.Collapsed;
+            foreach (var column in new[] { lambdaColumn, plannedColumn, convergedColumn, iterationsColumn, residualColumn, fieldsColumn })
+                column.Visibility = Visibility.Collapsed;
+        }
         BuildViewport();
         UpdateCharts();
         lambdaCanvas.StepClicked += i => _vm.SelectedStepIndex = i;

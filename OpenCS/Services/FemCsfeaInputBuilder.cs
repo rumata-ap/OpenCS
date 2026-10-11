@@ -27,6 +27,12 @@ public sealed record FemCsfeaSetup
     public IReadOnlyList<FemAnalysisStage> Stages { get; init; } = [];
 
     /// <summary>
+    /// Упругая жёсткость стержней с сечениями проекта — бетон брутто, без арматуры (линейный расчёт и секущий без
+    /// физической нелинейности); в секущем расчёте с сечениями CScore упругая жёсткость таких стержней не используется.
+    /// </summary>
+    public bool GrossBars { get; init; }
+
+    /// <summary>
     /// Настройки по постановке: вид расчёта, стадии (<see cref="FemAnalysisParams.ResolveStages"/>), источник армирования
     /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию).
     /// </summary>
@@ -38,6 +44,7 @@ public sealed record FemCsfeaSetup
         {
             Calc = p.CalcType ?? CalcType.N, Stages = p.ResolveStages(analysis),
             PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
+            GrossBars = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity,
         };
     }
 
@@ -54,6 +61,7 @@ public sealed record FemCsfeaSetup
         {
             TensionConcrete = p.TensionConcrete, Psi = p.Psi, PlateCrackRule = p.PlateCrackRule, BeamShear = p.BeamShear,
             PoissonUncracked = p.PoissonUncracked, ShellForceAngles = shellForceAngles, OnStep = onStep,
+            PhysicallyLinear = !p.PhysicalNonlinearity,
             Solver = new CSfea.Core.SecantPicardOptions
             {
                 MaxIterations = p.MaxIterations, TolDisplacement = p.TolDisplacement, TolStiffness = p.TolStiffness,
@@ -85,7 +93,7 @@ public static class FemCsfeaInputBuilder
 
         var groups = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId)?.MemberGroups.ToList() ?? [];
         var loadCases = db.GetFemLoadCases(schemaId);
-        var properties = FemSelfWeightSourceFactory.Create(db, schemaId, out var notes);
+        var properties = FemSelfWeightSourceFactory.Create(db, schemaId, out var notes, setup.GrossBars);
         foreach (var note in notes) diag.Add(new("properties_default", note, false));
 
         var materials = new Dictionary<int, Material>();

@@ -47,6 +47,24 @@ public sealed class ProjectElementStiffnessSourceTests
     }
 
     [Fact]
+    public void Bar_Gross_ConcreteOnly_RebarSkipped()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.5, 41, 41);
+        section.Id = 5;
+        var concrete = SectionCutFixtures.BuildConcreteMaterial();
+        FemMember[] members = [new() { ElemTag = "B1", ElemType = "beam", CrossSectionId = 5 }];
+        var src = new ProjectElementStiffnessSource(members, [section], [], [concrete, SectionCutFixtures.BuildSteelMaterial()],
+            grossBars: true);
+
+        var bar = src.Bar(Beam("B1"))!;
+        Assert.Equal(Ec * 1e3, bar.E, 3);
+        Assert.Equal(0.15, bar.A, 4);
+        Assert.InRange(bar.Iy / (0.5 * Math.Pow(0.3, 3) / 12), 0.995, 1.0);
+        Assert.InRange(bar.Iz / (0.3 * Math.Pow(0.5, 3) / 12), 0.995, 1.0);
+        Assert.Equal(25e3, src.UnitWeight(Beam("B1"))!.Value, 6);
+    }
+
+    [Fact]
     public void Bar_WithoutGj_PolarMoment_ElementSectionFirst()
     {
         var (src, _) = Build(new FemMember { ElemTag = "B2", ElemType = "beam", CrossSectionId = 99 });

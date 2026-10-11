@@ -41,6 +41,12 @@ public sealed class RcSecantOptions
     /// <summary>ν бетона до трещины (Дарвин — Пекнольд); null — как в сечении.</summary>
     public double? PoissonUncracked { get; init; }
 
+    /// <summary>
+    /// Без физической нелинейности: все сечения упругие (<see cref="LinearRcSectionFactory"/>), состояний КЭ нет —
+    /// расчёт шагами только с геометрической нелинейностью (<see cref="SecantPicardOptions.Geometric"/>).
+    /// </summary>
+    public bool PhysicallyLinear { get; init; }
+
     /// <summary>Параметры итераций Пикара.</summary>
     public SecantPicardOptions Solver { get; init; } = new();
 
@@ -70,9 +76,11 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
     private readonly Dictionary<object, ISecantShellState> _shellStates = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<object, ISecantBeamState> _beamStates = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<RcBeamSection, BeamShearSection?> _beamShear = new(ReferenceEqualityComparer.Instance);
+    private readonly LinearRcSectionFactory _linear = new();
 
     public IShellSectionResponse Shell(RcShell shell)
     {
+        if (options.PhysicallyLinear) return _linear.Shell(shell);
         var s = shell.Section;
         if (s.Plate != null && s.PlateMaterials != null)
         {
@@ -96,6 +104,7 @@ public sealed class SecantRcSectionFactory(RcSecantOptions options) : IRcSection
 
     public IBeamSectionResponse Beam(RcBeam beam)
     {
+        if (options.PhysicallyLinear) return _linear.Beam(beam);
         var s = beam.Section;
         if (s.Cross != null)
         {

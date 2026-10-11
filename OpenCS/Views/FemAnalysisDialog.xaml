@@ -46,7 +46,7 @@
                         <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
+                        <DataGridTextColumn x:Name="StagesLoadFactorStepColumn" Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
                             <DataGridTextColumn.Binding>
                                 <Binding Path="LoadFactorStep" Mode="TwoWay"
                                          Converter="{StaticResource AnyDoubleConverter}"
@@ -67,7 +67,7 @@
                                 </Style>
                             </DataGridTextColumn.CellStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70">
+                        <DataGridTextColumn x:Name="StagesMaxLoadFactorColumn" Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70">
                             <DataGridTextColumn.Binding>
                                 <Binding Path="MaxLoadFactor" Mode="TwoWay"
                                          Converter="{StaticResource AnyDoubleConverter}"
@@ -214,9 +214,9 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="28"/>
                     <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
+                    <RowDefinition x:Name="CsfeaTensionRow" Height="28"/>
+                    <RowDefinition x:Name="CsfeaCrackRuleRow" Height="28"/>
+                    <RowDefinition x:Name="CsfeaPoissonRow" Height="28"/>
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Row="0" Grid.Column="1" x:Name="CsfeaCalcTypeBox" Height="22" VerticalContentAlignment="Center"/>
@@ -237,7 +237,9 @@
                 <TextBox Grid.Row="4" Grid.Column="1" x:Name="CsfeaPoissonBox" Height="22" VerticalContentAlignment="Center"
                          ToolTip="{DynamicResource FemCsfeaPoissonUncrackedTip}"/>
             </Grid>
-            <WrapPanel Margin="0,6,0,2">
+            <WrapPanel x:Name="CsfeaFlagsPanel" Margin="0,6,0,2">
+                <CheckBox x:Name="CsfeaPhysicalNonlinearityCb" Content="{DynamicResource FemCsfeaPhysicalNonlinearityLabel}"
+                          ToolTip="{DynamicResource FemCsfeaPhysicalNonlinearityTip}" Margin="0,0,16,4"/>
                 <CheckBox x:Name="CsfeaPsiCb" Content="{DynamicResource FemCsfeaPsiLabel}"
                           ToolTip="{DynamicResource FemCsfeaPsiTip}" Margin="0,0,16,4"/>
                 <CheckBox x:Name="CsfeaBeamShearCb" Content="{DynamicResource FemCsfeaBeamShearLabel}"
@@ -252,7 +254,7 @@
                           IsEnabled="{Binding IsChecked, ElementName=CsfeaGeomNonlinearCb}"/>
             </WrapPanel>
 
-            <GroupBox Header="{DynamicResource FemCsfeaIterationsGroup}" Margin="0,6,0,0">
+            <GroupBox x:Name="CsfeaIterationsGroup" Header="{DynamicResource FemCsfeaIterationsGroup}" Margin="0,6,0,0">
                 <Grid Margin="4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="180"/>
@@ -285,7 +287,7 @@
                 </Grid>
             </GroupBox>
 
-            <GroupBox Header="{DynamicResource FemCsfeaRecordingGroup}" Margin="0,6,0,0">
+            <GroupBox x:Name="CsfeaRecordingGroup" Header="{DynamicResource FemCsfeaRecordingGroup}" Margin="0,6,0,0">
                 <StackPanel Margin="4">
                     <RadioButton x:Name="CsfeaRecordFinalRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordFinal}"
                                  Checked="CsfeaRecording_Changed" Margin="0,0,0,4"/>

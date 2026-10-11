@@ -78,8 +78,25 @@ public sealed class RcSecantFieldExtractor
 
     public RcSecantStepFields Extract(SecantStepResult step)
     {
+        var loadsEnd = step.Stage < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage] : null;
+        var loadsStart = step.Stage > 0 && step.Stage - 1 < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage - 1] : null;
+        return Extract(step.U, step.Stage, step.Step, step.LoadFactor, step.IsRefinement, loadsStart, loadsEnd,
+            step.Shells, step.Beams);
+    }
+
+    /// <summary>
+    /// Поля независимого линейного решения <paramref name="u"/> (<see cref="RcLinearAnalysis"/>): загружение с номером
+    /// <paramref name="caseIndex"/> — «стадия» из одного шага, <paramref name="beamLoads"/> — пролётные нагрузки стержней
+    /// этого загружения (без накопления).
+    /// </summary>
+    public RcSecantStepFields ExtractLinear(double[] u, int caseIndex, IReadOnlyDictionary<int, double[]>? beamLoads)
+        => Extract(u, caseIndex, 1, 1.0, false, null, beamLoads, [], []);
+
+    private RcSecantStepFields Extract(double[] u, int stage, int stepNumber, double loadFactor, bool isRefinement,
+        IReadOnlyDictionary<int, double[]>? loadsStart, IReadOnlyDictionary<int, double[]>? loadsEnd,
+        SecantSectionStatus[] shellStatus, SecantSectionStatus[] beamStatus)
+    {
         var mesh = _build.Mesh;
-        var u = step.U;
         int nn = mesh.NNodes;
         var disp = new double[nn * RcSecantStepFields.NodeComponents];
         Array.Copy(u, disp, Math.Min(u.Length, disp.Length));
@@ -123,15 +140,14 @@ public sealed class RcSecantFieldExtractor
             }
             else
                 for (int i = 0; i < RcSecantStepFields.ShellStateComponents; i++) shellStates[so + i] = double.NaN;
-            if (e < step.Shells.Length) shellFlags[e] = RcSecantStepFields.Flags(step.Shells[e]);
+            if (e < shellStatus.Length) shellFlags[e] = RcSecantStepFields.Flags(shellStatus[e]);
         });
 
         int nb = mesh.Beams.Count;
         var beamForces = new double[nb * RcSecantStepFields.BeamForceComponents];
         var beamFlags = new byte[nb];
-        var loadsEnd = step.Stage < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage] : null;
-        var loadsStart = step.Stage > 0 && step.Stage - 1 < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage - 1] : null;
-        for (int e = 0; e < nb; e++)
+        // Матрица и внутренние силы КЭ — по текущей (зафиксированной) жёсткости сечения, только чтение.
+        Parallel.For(0, nb, e =>
         {
             var b = mesh.Beams[e];
             var coords = mesh.BeamCoords(e);
@@ -145,16 +161,16 @@ public sealed class RcSecantFieldExtractor
                 for (int i = 0; i < 12; i++)
                 {
                     double a = fe0?[i] ?? 0.0, c = fe1?[i] ?? 0.0;
-                    fGlobal[i] -= a + step.LoadFactor * (c - a);
+                    fGlobal[i] -= a + loadFactor * (c - a);
                 }
             var local = Dense.MatVec(t, fGlobal);
             Array.Copy(local, 0, beamForces, e * RcSecantStepFields.BeamForceComponents, 12);
-            if (e < step.Beams.Length) beamFlags[e] = RcSecantStepFields.Flags(step.Beams[e]);
-        }
+            if (e < beamStatus.Length) beamFlags[e] = RcSecantStepFields.Flags(beamStatus[e]);
+        });
 
         return new RcSecantStepFields
         {
-            Stage = step.Stage, Step = step.Step, LoadFactor = step.LoadFactor, IsRefinement = step.IsRefinement,
+            Stage = stage, Step = stepNumber, LoadFactor = loadFactor, IsRefinement = isRefinement,
             NodeIds = _build.NodeIds, Displacements = disp,
             ShellIds = _build.ShellIds, ShellForces = shellForces, ShellStates = shellStates, ShellFlags = shellFlags,
             BeamIds = _build.BeamIds, BeamForces = beamForces, BeamFlags = beamFlags,

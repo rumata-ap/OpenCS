@@ -94,7 +94,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaPlateCrackRuleBox.ItemsSource = CsfeaCrackRuleOptions;
         CsfeaControlDofBox.ItemsSource = CsfeaDofLabels;
 
-        bool isCsfeaExisting = existing?.Kind == FemCsfeaRunner.AnalysisKind;
+        bool isCsfeaExisting = FemCsfeaRunner.IsCsfeaKind(existing?.Kind);
         var existingPars = existing == null ? null : FemAnalysisParams.Parse(existing.ParamsJson);
         LoadCsfeaParams(isCsfeaExisting ? existingPars!.Csfea ?? new FemCsfeaParams() : new FemCsfeaParams(),
             isCsfeaExisting ? existingPars!.CalcType ?? CalcType.N : CalcType.N);
@@ -240,6 +240,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaPlateCrackRuleBox.SelectedItem = CsfeaCrackRuleOptions.FirstOrDefault(o => o.Value == c.PlateCrackRule.ToString())
             ?? CsfeaCrackRuleOptions[0];
         CsfeaPoissonBox.Text = c.PoissonUncracked?.ToString(culture) ?? "";
+        CsfeaPhysicalNonlinearityCb.IsChecked = c.PhysicalNonlinearity;
         CsfeaPsiCb.IsChecked = c.Psi;
         CsfeaBeamShearCb.IsChecked = c.BeamShear;
         CsfeaGeomNonlinearCb.IsChecked = c.GeomNonlinear;
@@ -305,6 +306,7 @@ public partial class FemAnalysisDialog : Window
                 (CsfeaPlateCrackRuleBox.SelectedItem as ComboOption)?.Value, out var rule) ? rule : default,
             BeamShear = CsfeaBeamShearCb.IsChecked == true,
             PoissonUncracked = poisson,
+            PhysicalNonlinearity = CsfeaPhysicalNonlinearityCb.IsChecked == true,
             GeomNonlinear = CsfeaGeomNonlinearCb.IsChecked == true,
             ShellInPlanePDelta = CsfeaShellInPlanePDeltaCb.IsChecked == true,
             GeomLargeDisplacements = CsfeaLargeDisplacementsCb.IsChecked == true,
@@ -420,6 +422,7 @@ public partial class FemAnalysisDialog : Window
     readonly List<ComboOption> _kindOptions =
     [
         new(FemCsfeaRunner.AnalysisKind, Loc.S("FemAnalysisKindCsfea")),
+        new(FemCsfeaRunner.LinearAnalysisKind, Loc.S("FemAnalysisKindCsfeaLinear")),
         new("linear", Loc.S("FemAnalysisKindLinearOpenSees")),
         new("nonlinear", Loc.S("FemAnalysisKindNonlinearOpenSees")),
     ];
@@ -436,7 +439,10 @@ public partial class FemAnalysisDialog : Window
         // Checked радиокнопок приходит ещё из InitializeComponent — до создания панелей ниже по разметке.
         if (NonlinearPanel == null || CsfeaPanel == null || CsfeaCheckInputButton == null) return;
         bool nonlinear = SelectedKind == "nonlinear";
-        bool csfea = SelectedKind == FemCsfeaRunner.AnalysisKind && !IsSubmodelMode;
+        bool csfea = FemCsfeaRunner.IsCsfeaKind(SelectedKind) && !IsSubmodelMode;
+        // Линейный CSfea: строки таблицы — независимые загружения (без шага и предела λ), из панели — только вид
+        // расчёта, источник армирования пластин и контрольный узел.
+        bool csfeaLinear = csfea && SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = nonlinear || csfea;
         NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         CsfeaPanel.Visibility = csfea ? Visibility.Visible : Visibility.Collapsed;
@@ -448,7 +454,21 @@ public partial class FemAnalysisDialog : Window
         var pathControl = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         StagesPathControlColumn.Visibility = pathControl;
         StagesPathControlButtonColumn.Visibility = pathControl;
-        StagesHintText.SetResourceReference(TextBlock.TextProperty, csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
+        var factorColumns = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
+        StagesLoadFactorStepColumn.Visibility = factorColumns;
+        StagesMaxLoadFactorColumn.Visibility = factorColumns;
+        StagesGroup.SetResourceReference(HeaderedContentControl.HeaderProperty,
+            csfeaLinear ? "FemCsfeaLinearCasesLabel" : "FemAnalysisStagesLabel");
+        StagesHintText.SetResourceReference(TextBlock.TextProperty,
+            csfeaLinear ? "FemCsfeaLinearCasesHint" : csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
+        var secantOnly = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
+        var secantRow = new GridLength(csfeaLinear ? 0 : 28);
+        CsfeaTensionRow.Height = secantRow;
+        CsfeaCrackRuleRow.Height = secantRow;
+        CsfeaPoissonRow.Height = secantRow;
+        CsfeaFlagsPanel.Visibility = secantOnly;
+        CsfeaIterationsGroup.Visibility = secantOnly;
+        CsfeaRecordingGroup.Visibility = secantOnly;
         if (csfea)
         {
             var loadControl = BuildPathControlModeOptions()[0];
@@ -472,7 +492,7 @@ public partial class FemAnalysisDialog : Window
             Tag = string.Format(Loc.S("FemAnalysisStageNumberedTag"), _stages.Count + 1),
             Source = _loadSources.FirstOrDefault(),
             LoadFactorStep = last?.LoadFactorStep ?? 0.1,
-            MaxLoadFactor = last?.MaxLoadFactor ?? (SelectedKind == FemCsfeaRunner.AnalysisKind ? 1.0 : 10.0)
+            MaxLoadFactor = last?.MaxLoadFactor ?? (FemCsfeaRunner.IsCsfeaKind(SelectedKind) ? 1.0 : 10.0)
         });
     }
 
@@ -540,7 +560,8 @@ public partial class FemAnalysisDialog : Window
     FemAnalysis? BuildAnalysis(string caption)
     {
         bool isNonlinear = SelectedKind == "nonlinear";
-        bool isCsfea = SelectedKind == FemCsfeaRunner.AnalysisKind;
+        bool isCsfea = FemCsfeaRunner.IsCsfeaKind(SelectedKind);
+        bool isCsfeaLinear = SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = isNonlinear || isCsfea;
 
         if (staged && _stages.Count == 0)
@@ -574,8 +595,9 @@ public partial class FemAnalysisDialog : Window
                 pars = ReadNonlinearParams();
             pars.Stages = _stages.Select(r =>
             {
-                double step = r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
-                double max = r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
+                // Линейный CSfea: загружение целиком, без шагов и множителя.
+                double step = isCsfeaLinear ? 1.0 : r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
+                double max = isCsfeaLinear ? 1.0 : r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
                 return new FemAnalysisStage
                 {
                     Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
@@ -599,7 +621,7 @@ public partial class FemAnalysisDialog : Window
         {
             SchemaId = _schema.Id,
             Tag = tag,
-            Kind = isCsfea ? FemCsfeaRunner.AnalysisKind : isNonlinear ? "nonlinear" : "linear",
+            Kind = isCsfea ? SelectedKind : isNonlinear ? "nonlinear" : "linear",
             LoadExpressionJson = loadExpressionJson,
             ParamsJson = pars.ToJson()
         };

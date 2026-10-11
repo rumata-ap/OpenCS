@@ -173,6 +173,11 @@ public sealed class FemCsfeaParams
     /// <summary>ν бетона до трещины; null — как в сечении.</summary>
     public double? PoissonUncracked { get; set; }
     /// <summary>
+    /// Физическая нелинейность сечений; false — сечения упругие (бетон брутто, как в линейном расчёте), расчёт шагами
+    /// только с геометрической нелинейностью (<see cref="GeomNonlinear"/>).
+    /// </summary>
+    public bool PhysicalNonlinearity { get; set; } = true;
+    /// <summary>
     /// Геометрическая нелинейность: теория второго порядка (расчёт по деформированной схеме) или, при
     /// <see cref="GeomLargeDisplacements"/>, коротационная формулировка.
     /// </summary>

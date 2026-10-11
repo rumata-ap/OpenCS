@@ -211,7 +211,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Шаг сводки под ползунком; null — шагов нет (ошибка до расчёта).</summary>
     public FemCsfeaStepSummary? SelectedStep => Summary.Steps.Count > 0 ? Summary.Steps[_selectedStepIndex] : null;
 
+    /// <summary>Линейный расчёт: шаги сводки — независимые загружения (без λ и итераций).</summary>
+    public bool IsLinear => Summary.Kind == FemCsfeaRunner.LinearAnalysisKind;
+
     public string CurrentStepLabel => SelectedStep is not { } s ? Loc.S("FemCsfeaNoSteps")
+        : IsLinear ? string.Format(Loc.S("FemCsfeaCaseLabel"), s.N, Summary.Steps.Count,
+            s.Stage < Summary.Stages.Count ? Summary.Stages[s.Stage].Tag : "")
         : string.Format(Loc.S("FemCsfeaStepLabel"), s.N, Summary.Steps.Count,
             s.Stage < Summary.Stages.Count ? Summary.Stages[s.Stage].Tag : "", s.LoadFactor,
             s.Converged ? Loc.S("FemResultConverged") : Loc.S("FemResultNotConverged"));

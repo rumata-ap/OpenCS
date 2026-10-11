@@ -2732,7 +2732,12 @@
     <system:String x:Key="FemAnalysisKindNonlinearOpenSees">Nonlinear — OpenSees (fallback)</system:String>
     <system:String x:Key="FemCsfeaProgress">"{0}": stage "{1}", step {2} of {3} (λ = {4:0.###}), iteration {5}, cracks {6}</system:String>
     <system:String x:Key="FemAnalysisKindCsfea">Nonlinear secant — CSfea</system:String>
-    <system:String x:Key="FemAnalysisKindTip">The primary solver is our own (CSfea): secant analysis with CScore sections, cracking, ψs and reinforcement yielding. OpenSees is a fallback.</system:String>
+    <system:String x:Key="FemAnalysisKindCsfeaLinear">Linear — CSfea</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesLabel">Load cases</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesHint">Each row is an independent load case or combination; all are solved with one assembly and one factorization of the stiffness matrix. Sections are elastic: gross concrete, reinforcement does not contribute to stiffness.</system:String>
+    <system:String x:Key="FemCsfeaPhysicalNonlinearityLabel">Physical nonlinearity</system:String>
+    <system:String x:Key="FemCsfeaPhysicalNonlinearityTip">Unchecked — sections are elastic (gross concrete, as in the linear analysis): stepped analysis with geometric nonlinearity only. Cracking, ψs and stirrup shear settings have no effect.</system:String>
+    <system:String x:Key="FemAnalysisKindTip">The primary solver is our own (CSfea): secant analysis with CScore sections, cracking, ψs and reinforcement yielding, and linear analysis of independent load cases with a single factorization. OpenSees is a fallback.</system:String>
     <system:String x:Key="FemCsfeaStagesHint">A stage applies the load × "Max λ" in round(max / step) steps on top of the state of previous stages.</system:String>
     <system:String x:Key="FemCsfeaPlateRebarSourceLabel">Plate reinforcement</system:String>
     <system:String x:Key="FemCsfeaPlateRebarSourceTip">Reinforcement source for plate elements — as in the FE check. Elements without reinforcement are elastic.</system:String>
@@ -2816,6 +2821,7 @@
     <system:String x:Key="FemCsfeaStateFailed">failure</system:String>
     <system:String x:Key="FemCsfeaNoSteps">No steps — the analysis did not run</system:String>
     <system:String x:Key="FemCsfeaStepLabel">Step {0}/{1}, stage "{2}", λ = {3:0.###} ({4})</system:String>
+    <system:String x:Key="FemCsfeaCaseLabel">Load case {0}/{1}: "{2}"</system:String>
     <system:String x:Key="FemCsfeaFieldsNotRecorded">Fields of this step were not recorded — showing the nearest recorded step {0}.</system:String>
     <system:String x:Key="FemCsfeaNoFieldsRecorded">No step fields recorded — only the summary and charts are available.</system:String>
     <system:String x:Key="FemCsfeaGoToFields">Go to step with fields</system:String>

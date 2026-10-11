@@ -2732,7 +2732,12 @@
     <system:String x:Key="FemAnalysisKindNonlinearOpenSees">Нелинейный — OpenSees (запасной)</system:String>
     <system:String x:Key="FemCsfeaProgress">«{0}»: стадия «{1}», шаг {2} из {3} (λ = {4:0.###}), итерация {5}, трещин {6}</system:String>
     <system:String x:Key="FemAnalysisKindCsfea">Нелинейный секущий — CSfea</system:String>
-    <system:String x:Key="FemAnalysisKindTip">Основной решатель — свой (CSfea): секущий расчёт по сечениям CScore с трещинами, ψs и текучестью арматуры. OpenSees — запасной вариант.</system:String>
+    <system:String x:Key="FemAnalysisKindCsfeaLinear">Линейный — CSfea</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesLabel">Загружения</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesHint">Каждая строка — независимое загружение или комбинация; все решаются одной сборкой и одной факторизацией матрицы жёсткости. Сечения упругие: бетон брутто, арматура в жёсткость не входит.</system:String>
+    <system:String x:Key="FemCsfeaPhysicalNonlinearityLabel">Физическая нелинейность</system:String>
+    <system:String x:Key="FemCsfeaPhysicalNonlinearityTip">Снята — сечения упругие (бетон брутто, как в линейном расчёте): расчёт шагами только с геометрической нелинейностью. Параметры трещин, ψs и сдвига по хомутам при этом не действуют.</system:String>
+    <system:String x:Key="FemAnalysisKindTip">Основной решатель — свой (CSfea): секущий расчёт по сечениям CScore с трещинами, ψs и текучестью арматуры и линейный расчёт независимых загружений одной факторизацией. OpenSees — запасной вариант.</system:String>
     <system:String x:Key="FemCsfeaStagesHint">Стадия прикладывает загружение × «Предел λ» за round(предел / шаг) шагов поверх НДС предыдущих стадий.</system:String>
     <system:String x:Key="FemCsfeaPlateRebarSourceLabel">Армирование пластин</system:String>
     <system:String x:Key="FemCsfeaPlateRebarSourceTip">Источник армирования пластинчатых КЭ — как в проверке по КЭ. КЭ без армирования считаются упруго.</system:String>
@@ -2816,6 +2821,7 @@
     <system:String x:Key="FemCsfeaStateFailed">отказ</system:String>
     <system:String x:Key="FemCsfeaNoSteps">Шагов нет — расчёт не выполнялся</system:String>
     <system:String x:Key="FemCsfeaStepLabel">Шаг {0}/{1}, стадия «{2}», λ = {3:0.###} ({4})</system:String>
+    <system:String x:Key="FemCsfeaCaseLabel">Загружение {0}/{1}: «{2}»</system:String>
     <system:String x:Key="FemCsfeaFieldsNotRecorded">Поля этого шага не записаны — показан ближайший записанный шаг {0}.</system:String>
     <system:String x:Key="FemCsfeaNoFieldsRecorded">Поля шагов не записаны — доступны только сводка и график.</system:String>
     <system:String x:Key="FemCsfeaGoToFields">К шагу с полями</system:String>

@@ -17,7 +17,9 @@ public static class FemSelfWeightSourceFactory
     /// схемы) — сечения проекта (<see cref="ProjectElementStiffnessSource"/>, удельный вес по умолчанию).
     /// </summary>
     /// <param name="notes">Допущения источника для отчёта (единицы и удельный вес по умолчанию).</param>
-    public static IFemElementStiffnessSource? Create(DatabaseService db, int schemaId, out IReadOnlyList<string> notes)
+    /// <param name="grossBars">Стержни с сечениями проекта — без арматуры (<see cref="ProjectElementStiffnessSource"/>).</param>
+    public static IFemElementStiffnessSource? Create(DatabaseService db, int schemaId, out IReadOnlyList<string> notes,
+        bool grossBars = false)
     {
         var list = new List<string>();
         notes = list;
@@ -28,7 +30,8 @@ public static class FemSelfWeightSourceFactory
         var members = db.GetFemMembers(schemaId);
         if (members.Count > 0 || sources.Count == 0)
         {
-            sources.Add(new ProjectElementStiffnessSource(members, db.CrossSections, db.PlateSections, db.Materials));
+            sources.Add(new ProjectElementStiffnessSource(members, db.CrossSections, db.PlateSections, db.Materials,
+                grossBars: grossBars));
             list.Add(string.Format(System.Globalization.CultureInfo.GetCultureInfo("ru-RU"),
                 "Удельный вес КЭ с сечениями проекта принят по умолчанию: бетон {0} кН/м³, сталь и арматура {1} кН/м³.",
                 ProjectElementStiffnessSource.ConcreteUnitWeight / 1e3, ProjectElementStiffnessSource.SteelUnitWeight / 1e3));

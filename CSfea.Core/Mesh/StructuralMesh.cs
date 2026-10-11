@@ -454,14 +454,20 @@ public sealed class StructuralMesh : IFeaMesh
             var asm = Assembler(bc, fixedSys);
             var kff = asm.Assemble(MaxDegreeOfParallelism);
             var chol = FactorizeCached(kff);
-            for (int i = 0; i < loads.Count; i++)
+            double[] Solve(int i)
             {
                 // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
                 var fSys = SysVector(loads[i]);
                 var fi = Array.ConvertAll(asm.Free, d => fSys[d]);
                 var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SolveNotSpd(chol, kff, fi, asm.Free);
-                result[i] = Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, bc.UFixed));
+                return Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, bc.UFixed));
             }
+            // Прямой и обратный ходы по готовому множителю независимы (только чтение L) — правые части параллельно.
+            if (chol.LastFactorizationSpd && loads.Count > 1)
+                Parallel.For(0, loads.Count, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
+                    i => result[i] = Solve(i));
+            else
+                for (int i = 0; i < loads.Count; i++) result[i] = Solve(i);
         }
         return result;
     }

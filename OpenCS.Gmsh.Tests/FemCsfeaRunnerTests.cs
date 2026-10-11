@@ -154,6 +154,53 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         }, p => p.ResultRecording = FemCsfeaRecording.All);
     }
 
+    /// <summary>
+    /// Линейный расчёт: стадии постановки — независимые загружения (q2 = q/2 — прогиб вдвое меньше, а не в полтора раза
+    /// больше, как при накоплении), у каждого — свой шаг сводки с полями; окно результата — по загружениям.
+    /// </summary>
+    [Fact]
+    public async Task Linear_IndependentCases_AllRecorded()
+    {
+        await WithSchema(async (ctx, log, schema, analysis) =>
+        {
+            analysis.Kind = FemCsfeaRunner.LinearAnalysisKind;
+            ctx.Db.SaveFemAnalysis(analysis);
+
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, analysis, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Report.Concat(summary.Describe())) output.WriteLine(line);
+            foreach (var e in log.LogEntries) output.WriteLine(e.Message);
+            Assert.Equal(FemCsfeaRunner.TaskKind, result.TaskKind);
+            Assert.Equal("ok", result.Status);
+            Assert.Equal(FemCsfeaRunner.LinearAnalysisKind, summary.Kind);
+            Assert.True(summary.Completed);
+            Assert.Equal(["q", "q2"], summary.Stages.Select(s => s.Tag));
+            Assert.Equal(4.0 * 4.0 * Q, summary.Stages[0].Fz, 1e-6 * Math.Abs(Q * 16));
+            Assert.Equal(2, summary.Steps.Count);
+            Assert.All(summary.Steps, s => Assert.True(s.Converged && s.Fields && s.LoadFactor == 1.0));
+            Assert.Equal([1, 2], ctx.Db.GetFemResultStepNumbers(result.Id));
+            double w1 = summary.Steps[0].Control!.Value, w2 = summary.Steps[1].Control!.Value;
+            Assert.True(w1 < 0);
+            Assert.Equal(0.5, w2 / w1, 9);
+            Assert.Contains(summary.Describe(), l => l.StartsWith("Загружение «q2»", StringComparison.Ordinal));
+            Assert.Contains(log.LogEntries, e => e.Message.Contains("Линейный расчёт: загружений 2", StringComparison.Ordinal));
+
+            var fields = FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, 2)!);
+            int node = Array.IndexOf(fields.NodeIds, int.Parse(summary.ControlNodeTag, CultureInfo.InvariantCulture));
+            Assert.Equal(w2, fields.Displacements[6 * node + 2], 12);
+            Assert.All(fields.ShellFlags, f => Assert.Equal(0, f));
+
+            var vm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema);
+            Assert.True(vm.IsLinear);
+            Assert.Equal(1, vm.SelectedStepIndex);
+            Assert.False(vm.HasFieldsNote);
+            vm.SelectedStepIndex = 0;
+            Assert.False(vm.HasFieldsNote);
+            Assert.Equal(w1, vm.Displacement(int.Parse(summary.ControlNodeTag, CultureInfo.InvariantCulture)).Z, 12);
+        });
+    }
+
     [Fact]
     public async Task ResultVM_StepsFieldsAndMosaic()
     {
