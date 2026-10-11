@@ -251,7 +251,8 @@ public class FemResultLayerTests
         Assert.True(vm.HasSubject);
         Assert.Same(layer, vm.ActiveResult);
         Assert.True(vm.IsResultActive);
-        Assert.Equal(4, vm.ComponentOptions.Count);
+        // Перемещения и усилия стержней (у OpenSees полей пластин нет).
+        Assert.Equal(4 + 6, vm.ComponentOptions.Count);
         vm.SelectedComponent = vm.ComponentOptions.Single(o => Equals(o.Component, FemResultComponent.Uz));
 
         int changed = 0;
@@ -269,6 +270,131 @@ public class FemResultLayerTests
         vm.SelectedSource = vm.SourceOptions.Single(o => o.Kind == PlateRebarMosaicSourceKind.Analysis);
         Assert.Same(layer, vm.ActiveResult);
         Assert.Equal(1, loads);
+    }
+
+    /// <summary>Поля шага: пластина 2 (Nx = 5 кН/м, σ/R = 0,8, трещины и текучесть), стержень 1 (N = −10 кН, Mz 2 → −4 кН·м).</summary>
+    static RcSecantStepFields FieldsWithForces() => new()
+    {
+        NodeIds = [1, 2, 3],
+        Displacements = new double[18],
+        ShellIds = [2],
+        ShellForces = [5000, 0, 0, 0, 0, 0, 0, 0],
+        ShellStates = [0, 0, 0, 0.8, 0],
+        ShellFlags = [RcSecantStepFields.Cracked | RcSecantStepFields.Yielded],
+        BeamIds = [1],
+        BeamForces = [10000, 0, 0, 0, 0, 2000, -10000, 0, 0, 0, 0, 4000],
+        BeamFlags = [0],
+    };
+
+    static PlateRebarMosaicVM MosaicOf(FemResultLayer layer)
+    {
+        var data = new PlateRebarMosaicVM.Data(null, null, null, null, []) { Analyses = [new(layer.Analysis, layer.Label)] };
+        var vm = new PlateRebarMosaicVM { ResultLoader = _ => layer };
+        vm.Apply(data);
+        vm.SelectedSource = vm.SourceOptions.Single(o => o.Kind == PlateRebarMosaicSourceKind.Analysis);
+        return vm;
+    }
+
+    static void Select(PlateRebarMosaicVM vm, object component) =>
+        vm.SelectedComponent = vm.ComponentOptions.Single(o => Equals(o.Component, component));
+
+    static string Extremum(PlateRebarMosaicVM vm, double value, string elem) => string.Format(
+        System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultElementExtremum"), vm.SelectedComponent!.Label, value, elem);
+
+    [Fact]
+    public void Mosaic_CsfeaShellFieldsAndBarForces()
+    {
+        using var t = new TempDb();
+        var summary = new FemCsfeaResultSummary { Steps = [new FemCsfeaStepSummary(1, 0, 1, 1.0, false, true, 3, 1e-6, null, 1, true)] };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Р1", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(FieldsWithForces()))]);
+        var layer = new FemResultLayer(new FemAnalysis { Id = 1, Tag = "Р1", ResultId = result.Id }, "Р1",
+            new CsfeaResultSteps(new FemCsfeaResultVM(result, t.Db, t.Schema)), t.Mesh());
+        var vm = MosaicOf(layer);
+
+        // Перемещения — отдельными величинами, не среди полей пластин; ширины раскрытия без постановки N/NL нет.
+        var components = vm.ComponentOptions.Select(o => o.Component).ToList();
+        Assert.DoesNotContain(FemCsfeaShellField.Ux, components.OfType<FemCsfeaShellField>());
+        Assert.DoesNotContain(FemCsfeaShellField.AcrcLongBottom, components.OfType<FemCsfeaShellField>());
+        Assert.Contains(FemCsfeaShellField.Nx, components.OfType<FemCsfeaShellField>());
+        Assert.Equal(6, components.OfType<FemForceComponent>().Count());
+        Assert.True(layer.IsCsfea);
+
+        Select(vm, FemCsfeaShellField.Nx);
+        var coloring = vm.Compute(["2"], ["1"])!;
+        Assert.False(coloring.Bars);
+        Assert.Equal(["2"], coloring.ColorByTag.Keys);
+        Assert.Equal(Extremum(vm, 5, "2"), layer.SummaryText);
+        Assert.False(vm.HasBarDiagrams);
+
+        Select(vm, FemCsfeaShellField.SigmaRatio);
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(Extremum(vm, 0.8, "2"), layer.SummaryText);
+
+        // Состояние — категориями: цвет и подпись текучести, без экстремума.
+        Select(vm, FemCsfeaShellField.State);
+        coloring = vm.Compute(["2"], ["1"])!;
+        Assert.Equal(FemCsfeaResultVM.StateStyles[2].Color, coloring.ColorByTag["2"]);
+        Assert.Equal(4, vm.Legend.Count);
+        Assert.Equal(1, vm.Legend.Single(l => l.Label == Loc.S("FemCsfeaStateYielded")).Count);
+        vm.SetHover("2");
+        Assert.EndsWith(Loc.S("FemCsfeaStateYielded"), vm.HoverText);
+        Assert.Equal("", layer.SummaryText);
+
+        // Усилия стержня: мозаика по наибольшему по модулю концу, эпюра по концам вдоль местной оси расчёта.
+        Select(vm, FemForceComponent.Mz);
+        coloring = vm.Compute(["2"], ["1"])!;
+        Assert.True(coloring.Bars);
+        Assert.Equal(["1"], coloring.ColorByTag.Keys);
+        Assert.Equal(Extremum(vm, -4, "1"), layer.SummaryText);
+        Assert.True(vm.HasBarDiagrams);
+        Assert.Equal([(0.0, 2.0), (1.0, -4.0)], vm.BarProfiles(["1"], out _)!["1"]);
+        // Стержень вдоль X: Ey — проекция глобальной Z, Ez = X × Ey = −Y.
+        Assert.Equal(new Vector3D(0, 0, 1), vm.BarDiagramAxis("1"));
+        Select(vm, FemForceComponent.N);
+        Assert.Equal(new Vector3D(0, -1, 0), vm.BarDiagramAxis("1"));
+        Assert.Equal([(0.0, -10.0), (1.0, -10.0)], vm.BarProfiles(["1"], out _)!["1"]);
+
+        // Пороги шкалы у Mx пластин и Mx стержней — свои.
+        Select(vm, FemCsfeaShellField.Mx);
+        vm.ThresholdsText = "1";
+        Select(vm, FemForceComponent.Mx);
+        Assert.Equal("", vm.ThresholdsText);
+    }
+
+    [Fact]
+    public void Layer_OpenSeesBarForcesAndAxes()
+    {
+        using var t = new TempDb();
+        var forces = new FemElementEndForces(1, 10000, 0, 0, 0, 0, 2000, -10000, 0, 0, 0, 0, 4000);
+        var result = new FemNonlinearResult
+        {
+            Status = "ok",
+            Steps = [new FemNonlinearStepResult(1, 1.0, true, [], [], [forces])],
+            CalcTypeName = "C",
+        };
+        var steps = new OpenSeesResultSteps(new FemAnalysisResultVM(
+            new CalcResult { Status = "ok", DataJson = JsonSerializer.Serialize(result) }, t.Db, t.Schema));
+        var layer = new FemResultLayer(new FemAnalysis { Tag = "Р1" }, "Р1", steps, t.Mesh());
+
+        Assert.True(layer.HasBarForces);
+        Assert.Empty(layer.ShellFields);
+        Assert.False(layer.IsCsfea);
+        Assert.Equal((2.0, -4.0), layer.BarEndValues("1", FemForceComponent.Mz));
+        Assert.Null(layer.BarEndValues("2", FemForceComponent.Mz));
+        Assert.Equal(new Vector3D(0, 0, 1), layer.BarDiagramAxis("1", FemForceComponent.Qy));
+        Assert.Equal(new Vector3D(0, -1, 0), layer.BarDiagramAxis("1", FemForceComponent.My));
+    }
+
+    [Fact]
+    public void BarDiagramGeometry_ExplicitDirection()
+    {
+        var positive = new List<BarDiagramLine>();
+        var negative = new List<BarDiagramLine>();
+        BarDiagramGeometry.AddBar(positive, negative, (0, 0, 0), (2, 0, 0), [(0, 1), (1, 1)], BarDiagramPlane.Z1, 0.5, (0, -1, 0));
+        Assert.Empty(negative);
+        Assert.Equal((0.0, -0.5, 0.0), positive[0].B);
     }
 
     [Fact]

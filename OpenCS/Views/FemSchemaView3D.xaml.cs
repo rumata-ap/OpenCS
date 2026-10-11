@@ -1558,6 +1558,28 @@ public partial class FemSchemaView3D : UserControl
 
     void FragmentShowAll_Click(object sender, RoutedEventArgs e) => VM?.ShowAllFragment();
 
+    /// <summary>«⋯» строки шага: действия показанного результата (прежнее окно с таблицами, наборы усилий шага CSfea).</summary>
+    void ResultActions_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM?.Mosaic.ActiveResult is not { } result || sender is not Button button) return;
+        var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
+        var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
+        var window = new MenuItem { Header = Loc.S("FemAnalysisResultWindow"), IsEnabled = app != null };
+        window.Click += (_, _) => app?.OpenFemAnalysisResultWindowCommand.Execute(result.Analysis);
+        menu.Items.Add(window);
+        if (result.Csfea is { } csfea)
+        {
+            var sets = new MenuItem
+            {
+                Header = Loc.S("FemCsfeaCreateForceSets"), ToolTip = Loc.S("FemCsfeaCreateForceSetsTip"),
+                IsEnabled = app != null && csfea.CanCreateForceSets,
+            };
+            sets.Click += (_, _) => app?.SaveCsfeaStepForceSets(csfea);
+            menu.Items.Add(sets);
+        }
+        menu.IsOpen = true;
+    }
+
     /// <summary>Группы схемы: «Показать только», «Скрыть», «Показать» для каждой (список — при открытии).</summary>
     void FragmentGroupsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
     {

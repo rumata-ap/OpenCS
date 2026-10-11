@@ -4344,6 +4344,11 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultExtremum">{0}: {1:0.###} мм, узел {2}</system:String>
     <system:String x:Key="FemResultCase">Загружение:</system:String>
     <system:String x:Key="FemResultNoDisplacements">Перемещений на шаге нет</system:String>
+    <system:String x:Key="FemResultElementExtremum">{0}: {1:0.###}, КЭ {2}</system:String>
+    <system:String x:Key="FemResultNoValues">Значений на шаге нет</system:String>
+    <system:String x:Key="FemResultActionsTip">Действия результата: окно с таблицами, наборы усилий шага</system:String>
+    <system:String x:Key="MosaicResultShellField">Пластины: {0}</system:String>
+    <system:String x:Key="MosaicResultBarForce">Стержни: {0}, {1}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Свернуть панель редактирования</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Развернуть панель редактирования</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Показать только выбранное</system:String>

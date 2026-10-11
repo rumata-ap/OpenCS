@@ -4344,6 +4344,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultExtremum">{0}: {1:0.###} mm, node {2}</system:String>
     <system:String x:Key="FemResultCase">Load case:</system:String>
     <system:String x:Key="FemResultNoDisplacements">No displacements at this step</system:String>
+    <system:String x:Key="FemResultElementExtremum">{0}: {1:0.###}, element {2}</system:String>
+    <system:String x:Key="FemResultNoValues">No values at this step</system:String>
+    <system:String x:Key="FemResultActionsTip">Result actions: window with tables, force sets of the step</system:String>
+    <system:String x:Key="MosaicResultShellField">Plates: {0}</system:String>
+    <system:String x:Key="MosaicResultBarForce">Bars: {0}, {1}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Show selected only</system:String>

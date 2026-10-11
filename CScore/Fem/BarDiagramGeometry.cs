@@ -53,13 +53,16 @@ public static class BarDiagramGeometry
     /// <param name="profile">Точки (t, значение) вдоль стержня, t = 0 — начальный узел; по возрастанию t
     /// (две точки с одним t — скачок).</param>
     /// <param name="scale">Длина ординаты на единицу значения, м.</param>
+    /// <param name="direction">Единичное направление ординат, если оно задано явно (местные оси расчёта);
+    /// null — по плоскости <paramref name="plane"/> в осях <see cref="LocalAxes"/>.</param>
     public static void AddBar(
         List<BarDiagramLine> positive, List<BarDiagramLine> negative,
         (double X, double Y, double Z) p1, (double X, double Y, double Z) p2,
-        IReadOnlyList<(double T, double V)> profile, BarDiagramPlane plane, double scale)
+        IReadOnlyList<(double T, double V)> profile, BarDiagramPlane plane, double scale,
+        (double X, double Y, double Z)? direction = null)
     {
         if (profile.Count == 0 || LocalAxes(p1, p2) is not { } axes) return;
-        var d = plane == BarDiagramPlane.Z1 ? axes.Z1 : axes.Y1;
+        var d = direction ?? (plane == BarDiagramPlane.Z1 ? axes.Z1 : axes.Y1);
 
         (double, double, double) Axis(double t) =>
             (p1.X + (p2.X - p1.X) * t, p1.Y + (p2.Y - p1.Y) * t, p1.Z + (p2.Z - p1.Z) * t);

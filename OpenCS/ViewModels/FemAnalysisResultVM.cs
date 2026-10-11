@@ -309,6 +309,18 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly record struct ElementGeom(int Tag, string? SourceMemberTag, int Ni, int Nj, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
     readonly List<ElementGeom> _elementGeoms = [];
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
+    Dictionary<int, (Vector3D Ey, Vector3D Ez)>? _axesByElem;
+
+    /// <summary>Концевые силы КЭ на выбранном шаге; null — нет в результате.</summary>
+    public FemElementEndForces? ElementForce(int elemTag) => _forcesByElem.TryGetValue(elemTag, out var f) ? f : null;
+
+    /// <summary>Оси эпюр КЭ (Ey, Ez местной системы OpenSees с углом поворота сечения); null — КЭ нет в сетке.</summary>
+    public (Vector3D Ey, Vector3D Ez)? ElementAxes(int elemTag)
+    {
+        _axesByElem ??= _elementGeoms.GroupBy(g => g.Tag).ToDictionary(g => g.Key, g => (g.First().Ey, g.First().Ez));
+        return _axesByElem.TryGetValue(elemTag, out var axes) ? axes : null;
+    }
+
     readonly DatabaseService _database;
     readonly FemSchema _schema;
     readonly Dictionary<int, int?> _sectionIdByElement = [];

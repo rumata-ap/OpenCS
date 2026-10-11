@@ -28,6 +28,16 @@ public sealed class FemResultLayer : ViewModelBase
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestDeformScale(), _ => HasDisplacements);
         _deformScale = SuggestDeformScale();
         steps.StepChanged += OnStepChanged;
+        steps.FieldsUpdated += () => Changed?.Invoke();
+        if (steps is CsfeaResultSteps csfea)
+        {
+            Csfea = csfea.Vm;
+            Csfea.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(FemCsfeaResultVM.LongShare)) { OnPropertyChanged(nameof(LongShare)); Changed?.Invoke(); }
+                else if (e.PropertyName == nameof(FemCsfeaResultVM.LongShareNote)) OnPropertyChanged(nameof(LongShareNote));
+            };
+        }
         RebuildNodeMap();
     }
 
@@ -183,4 +193,79 @@ public sealed class FemResultLayer : ViewModelBase
         FemResultComponent.Uz => "uz",
         _ => "|u|",
     };
+
+    // ------------------------------------------------------------ величины КЭ: поля пластин, усилия стержней
+
+    /// <summary>Поля пластин результата (CSfea), без перемещений; пусто — их нет.</summary>
+    public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields => _steps.ShellFields;
+
+    /// <summary>У результата есть усилия стержней и в сетке есть стержни.</summary>
+    public bool HasBarForces => _steps.HasBarForces && Mesh.Bars.Count > 0;
+
+    /// <summary>Значения поля готовы; false — досчитываются в фоне (по готовности — <see cref="Changed"/>).</summary>
+    public bool PrepareShellField(FemCsfeaShellField field) => _steps.PrepareShellField(field);
+
+    /// <summary>Поле пластины на выбранном шаге; null — нет данных.</summary>
+    public double? ShellValue(string elemTag, FemCsfeaShellField field) =>
+        int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? _steps.ShellValue(n, field) : null;
+
+    /// <summary>Усилие на концах стержня, кН или кН·м (знаки — как в окне результата OpenSees); null — нет данных.</summary>
+    public (double I, double J)? BarEndValues(string elemTag, FemForceComponent component)
+    {
+        if (!int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) || _steps.BarForces(n) is not { } f)
+            return null;
+        var pair = FemForceEndpointConverter.Convert(f, FemForceEndpointSignPolicy.OpenSeesDefault);
+        return (FemForceEndpointConverter.ReadComponent(pair.Start, component) / 1e3,
+            FemForceEndpointConverter.ReadComponent(pair.End, component) / 1e3);
+    }
+
+    /// <summary>Направление ординат эпюры на стержне: Qy и Mz — вдоль местной Ey, остальное — вдоль Ez.</summary>
+    public Vector3D? BarDiagramAxis(string elemTag, FemForceComponent component) =>
+        int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && _steps.BarAxes(n) is { } axes
+            ? component is FemForceComponent.Qy or FemForceComponent.Mz ? axes.Ey : axes.Ez
+            : null;
+
+    public static string Unit(FemForceComponent component) =>
+        component is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz ? Loc.S("UnitKN") : Loc.S("UnitKNm");
+
+    /// <summary>Итог по величине КЭ: наибольшая по модулю (или наибольшая у неотрицательных) с номером КЭ.</summary>
+    /// <param name="label">Подпись величины с единицей.</param>
+    /// <param name="values">Значения по КЭ показанного фрагмента.</param>
+    public void UpdateElementSummary(string label, IEnumerable<KeyValuePair<string, double>> values)
+    {
+        string? best = null;
+        double bestValue = 0;
+        foreach (var (tag, v) in values)
+            if (best == null || Math.Abs(v) > Math.Abs(bestValue)) { best = tag; bestValue = v; }
+        SummaryText = best != null
+            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultElementExtremum"), label, bestValue, best)
+            : Loc.S("FemResultNoValues");
+    }
+
+    /// <summary>Итога нет (величина без экстремума — например, состояние).</summary>
+    public void ClearSummary() => SummaryText = "";
+
+    // ------------------------------------------------------------ CSfea: ширина раскрытия, наборы усилий
+
+    /// <summary>VM результата CSfea; null — результат OpenSees.</summary>
+    public FemCsfeaResultVM? Csfea { get; }
+    public bool IsCsfea => Csfea != null;
+
+    bool _isCrackFieldShown;
+    /// <summary>Показана ширина раскрытия трещин — в строке шага доля длительной части.</summary>
+    public bool IsCrackFieldShown
+    {
+        get => _isCrackFieldShown;
+        set { if (_isCrackFieldShown == value) return; _isCrackFieldShown = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Доля длительной части усилий шага для ширины раскрытия (CSfea).</summary>
+    public double LongShare
+    {
+        get => Csfea?.LongShare ?? 0;
+        set { if (Csfea != null) Csfea.LongShare = value; }
+    }
+
+    public string LongShareNote => Csfea?.LongShareNote ?? "";
+    public ICommand? LongShareFromSetsCommand => Csfea?.LongShareFromSetsCommand;
 }

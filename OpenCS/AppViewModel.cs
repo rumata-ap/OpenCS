@@ -5646,17 +5646,19 @@ namespace OpenCS
       void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema)
       {
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema);
-         vm.CreateForceSetsRequested += r =>
-         {
-            var sets = r.BuildForceSets(ForceSets);
-            foreach (var fs in sets)
-            {
-               db.SaveForceSet(fs);
-               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
-               LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
-            }
-         };
+         vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
          CurrentPage = new Views.FemCsfeaResultView(vm);
+      }
+
+      /// <summary>«Шаг → наборы усилий» результата CSfea (окно результата и 3D-вид схемы): наборы сохраняются в проект.</summary>
+      public void SaveCsfeaStepForceSets(ViewModels.FemCsfeaResultVM result)
+      {
+         foreach (var fs in result.BuildForceSets(ForceSets))
+         {
+            db.SaveForceSet(fs);
+            if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+            LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+         }
       }
 
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)

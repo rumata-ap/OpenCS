@@ -111,6 +111,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    {
       /// <summary>Значения и пластин, и стержней.</summary>
       public bool Both { get; init; }
+      /// <summary>Категории вместо шкалы: значение — номер категории (цвет и подпись); null — шкала.</summary>
+      public IReadOnlyList<(Color Color, string Label)>? Categories { get; init; }
    }
 
    readonly Action<string>? _warn;
@@ -177,7 +179,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>У мозаики есть значения по сечениям стержней — можно рисовать эпюры на схеме
    /// (усилия стержней, подобранная арматура стержней).</summary>
    public bool HasBarDiagrams => !ShellOnly && (SelectedComponent?.Component is BarForceComponent or BarRebarComponent
-      || Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c && !FemCheckContext.IsPlate(c.Check));
+      || Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c && !FemCheckContext.IsPlate(c.Check)
+      || Kind == PlateRebarMosaicSourceKind.Analysis && SelectedComponent?.Component is FemForceComponent);
+
+   /// <summary>
+   /// Направление ординат эпюры на стержне, если его задаёт мозаика (усилия результата расчёта — по местным осям
+   /// расчёта); null — по плоскости <see cref="BarProfiles"/> (местные оси ЛИРЫ).
+   /// </summary>
+   public System.Windows.Media.Media3D.Vector3D? BarDiagramAxis(string barTag) =>
+      Kind == PlateRebarMosaicSourceKind.Analysis && ActiveResult is { } result && SelectedComponent?.Component is FemForceComponent c
+         ? result.BarDiagramAxis(barTag, c) : null;
 
    bool _showBarDiagrams = true;
    /// <summary>Рисовать эпюры на стержнях схемы.</summary>
@@ -228,6 +239,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                if (int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
                    && util.TryGetValue(n, out var profile))
                   result[tag] = profile;
+            break;
+
+         case FemForceComponent force when Kind == PlateRebarMosaicSourceKind.Analysis && ActiveResult is { } layer:
+            // Концевые силы КЭ — линейная эпюра между концами (нагрузка по КЭ в эпюре не видна, как в окне результата).
+            foreach (string tag in barTags)
+               if (layer.BarEndValues(tag, force) is { } ends)
+                  result[tag] = [(0, ends.I), (1, ends.J)];
             break;
       }
       return result;
@@ -316,7 +334,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.Difference => "D",
       PlateRebarMosaicSourceKind.LayoutDifference => "LD",
       PlateRebarMosaicSourceKind.Foundation => "C1",
-      PlateRebarMosaicSourceKind.Analysis => "A:" + SelectedComponent?.Component,
+      // Mx, My есть и у пластин, и у стержней — ключ с типом величины.
+      PlateRebarMosaicSourceKind.Analysis => $"A:{SelectedComponent?.Component.GetType().Name}.{SelectedComponent?.Component}",
       _ => "R",
    };
 
@@ -723,10 +742,18 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          case PlateRebarMosaicSourceKind.Foundation:
             return [new PlateRebarMosaicComponentOption(FoundationComponent, Loc.S("MosaicFoundationC1"))];
 
-         case PlateRebarMosaicSourceKind.Analysis when ActiveResult != null:
-            return Enum.GetValues<FemResult.FemResultComponent>()
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result:
+         {
+            var options = Enum.GetValues<FemResult.FemResultComponent>()
                .Select(c => new PlateRebarMosaicComponentOption(c, $"{FemResult.FemResultLayer.ComponentLabel(c)}, {Loc.S("UnitMm")}"))
                .ToList();
+            options.AddRange(result.ShellFields.Select(f =>
+               new PlateRebarMosaicComponentOption(f.Value, string.Format(Loc.S("MosaicResultShellField"), f.Label))));
+            if (result.HasBarForces)
+               options.AddRange(Enum.GetValues<FemForceComponent>().Select(c => new PlateRebarMosaicComponentOption(c,
+                  string.Format(Loc.S("MosaicResultBarForce"), c, FemResult.FemResultLayer.Unit(c)))));
+            return options;
+         }
 
          case PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars
             or PlateRebarMosaicSourceKind.DifferenceBars when BarRebarSource() is { } bars:
@@ -880,6 +907,17 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       ActiveResult = layer;
    }
 
+   /// <summary>Значения поля результата ещё считаются (ширина раскрытия в фоне) — пометка в легенде.</summary>
+   bool _resultComputing;
+
+   static bool IsCrackWidth(FemCsfeaShellField field) =>
+      field is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
+
+   /// <summary>Итог-экстремум строки шага по значениям КЭ показанного фрагмента.</summary>
+   void UpdateResultSummary(FemResult.FemResultLayer result, Dictionary<string, PlateRebarValue> values) =>
+      result.UpdateElementSummary(SelectedComponent!.Label,
+         values.Where(kv => kv.Value.Value != null).Select(kv => new KeyValuePair<string, double>(kv.Key, kv.Value.Value!.Value)));
+
    static string AnalysisKindLabel(string kind) => kind switch
    {
       Services.FemCsfeaRunner.AnalysisKind => Loc.S("FemAnalysisKindCsfea"),
@@ -892,6 +930,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    Field? BuildField(IEnumerable<string> shellTags, IEnumerable<string> barTags)
    {
       if (SelectedComponent is not { } comp) return null;
+      _resultComputing = false;
       switch (Kind)
       {
          case PlateRebarMosaicSourceKind.Forces when SelectedSubject?.Subject is ForceSet set:
@@ -937,8 +976,43 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                values[tag] = result.Value(tag, rc) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
             // Экстремум — по показанным КЭ (фрагмент вида).
             result.UpdateSummary(rc, values.Keys);
+            result.IsCrackFieldShown = false;
             bool signed = rc != FemResult.FemResultComponent.U;
             return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = true };
+         }
+
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemCsfeaShellField sf:
+         {
+            result.IsCrackFieldShown = IsCrackWidth(sf);
+            _resultComputing = !result.PrepareShellField(sf);
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in shellTags)
+               values[tag] = !_resultComputing && result.ShellValue(tag, sf) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
+            if (sf == FemCsfeaShellField.State)
+            {
+               result.ClearSummary();
+               return new Field(values, Bars: false, Diverging: false, Palette.Rebar)
+               {
+                  Categories = FemCsfeaResultVM.StateStyles.Select(s => (s.Color, Loc.S(s.Key))).ToList(),
+               };
+            }
+            UpdateResultSummary(result, values);
+            bool forces = sf is >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy;
+            bool ratio = sf is FemCsfeaShellField.SigmaRatio or FemCsfeaShellField.EpsRatio;
+            return new Field(values, Bars: false, forces, forces ? Palette.Forces : ratio ? Palette.Utilization : Palette.Rebar,
+               ratio ? UtilizationThresholds : null);
+         }
+
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemForceComponent fc:
+         {
+            // Значение стержня — наибольший по модулю из концов (эпюра по концам — отдельно).
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in barTags)
+               values[tag] = result.BarEndValues(tag, fc) is { } e
+                  ? PlateRebarValue.Of(Math.Abs(e.J) > Math.Abs(e.I) ? e.J : e.I) : PlateRebarValue.Missing;
+            UpdateResultSummary(result, values);
+            result.IsCrackFieldShown = false;
+            return new Field(values, Bars: true, Diverging: true, Palette.Forces);
          }
 
          case PlateRebarMosaicSourceKind.Foundation:
@@ -985,6 +1059,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          OnPropertyChanged(nameof(Legend));
          return null;
       }
+      if (field.Categories is { } categories) return ComputeCategories(field, categories);
 
       var numbers = field.Values.Values.Where(v => v.Value != null).Select(v => v.Value!.Value).ToList();
       double min = numbers.Count > 0 ? numbers.Min() : 0, max = numbers.Count > 0 ? numbers.Max() : 0;
@@ -1028,6 +1103,29 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       return new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both };
    }
 
+   /// <summary>Раскраска по категориям (состояние пластин результата): легенда — категории по убыванию номера.</summary>
+   PlateRebarMosaicColoring ComputeCategories(Field field, IReadOnlyList<(Color Color, string Label)> categories)
+   {
+      _scale = null;
+      _bandColors = [];
+      var counts = new int[categories.Count];
+      int missing = 0;
+      var byTag = new Dictionary<string, Color>(StringComparer.Ordinal);
+      foreach (var (tag, v) in field.Values)
+      {
+         if (v.Value is double x && (int)x is int k && k >= 0 && k < categories.Count) { counts[k]++; byTag[tag] = categories[k].Color; }
+         else missing++;
+      }
+      var legend = new List<PlateRebarMosaicLegendItem>();
+      for (int k = categories.Count - 1; k >= 0; k--)
+         legend.Add(new(Freeze(categories[k].Color), categories[k].Label, counts[k]));
+      if (missing > 0) legend.Add(new(Freeze(Fem3DVM.ShellBgColor), Loc.S("PlateRebarMosaicNoData"), missing));
+      Legend = legend;
+      OnPropertyChanged(nameof(Legend));
+      LegendTitle = Title();
+      return new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both };
+   }
+
    string Title()
    {
       string comp = SelectedComponent!.Label;
@@ -1047,7 +1145,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          case PlateRebarMosaicSourceKind.Foundation:
             return $"{comp}\n{SelectedSource!.Label}";
          case PlateRebarMosaicSourceKind.Analysis:
-            return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}";
+            return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}"
+                   + (_resultComputing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "");
          default:
             string unit = Equals(SelectedComponent.Component, PlateRebarMosaicComponent.Transverse) ? "" : Loc.S("PlateRebarMosaicUnit");
             string file = Kind switch
@@ -1076,6 +1175,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       string text;
       if (!_field.Values.TryGetValue(elemTag, out var v) || v.IsMissing) text = Loc.S("PlateRebarMosaicNoData");
       else if (v.FailureCode is int code) text = FailureStyle(_field.Palette, code).Label;
+      else if (_field.Categories is { } categories && (int)v.Value!.Value is int k && k >= 0 && k < categories.Count)
+         text = categories[k].Label;
       else text = v.Value!.Value.ToString("0.###", CultureInfo.CurrentCulture);
       HoverText = $"{Loc.S("MosaicElement")} {elemTag}: {text}" + UtilizationBySections(elemTag);
    }

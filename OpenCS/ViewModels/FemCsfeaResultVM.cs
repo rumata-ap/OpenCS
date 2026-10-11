@@ -466,7 +466,43 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     static readonly Color NoCrack = Color.FromRgb(225, 235, 245), Cracked = Color.FromRgb(254, 224, 144),
         Yielded = Color.FromRgb(244, 109, 67), Failed = Colors.Black;
 
-    double? ShellValue(int elem, FemCsfeaShellField field)
+    /// <summary>Цвета и ключи подписей состояний пластины по значению поля «Состояние» (0…3).</summary>
+    public static IReadOnlyList<(Color Color, string Key)> StateStyles { get; } =
+        [(NoCrack, "FemCsfeaStateNone"), (Cracked, "FemCsfeaStateCracked"), (Yielded, "FemCsfeaStateYielded"), (Failed, "FemCsfeaStateFailed")];
+
+    static bool IsCrack(FemCsfeaShellField field) => field is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
+
+    /// <summary>
+    /// Значение поля пластины на показанном шаге независимо от мозаики окна; ширина раскрытия — из готового расчёта
+    /// показанного шага при текущей доле (см. <see cref="PrepareShellField"/>). Null — нет данных.
+    /// </summary>
+    public double? ShellFieldValue(int elem, FemCsfeaShellField field) =>
+        ShellValue(elem, field, IsCrack(field) ? CurrentCrackWidths() : null);
+
+    /// <summary>
+    /// Значения поля на показанном шаге готовы (true) или запущен фоновый расчёт ширины раскрытия (false): по готовности —
+    /// <see cref="CrackWidthsReady"/>.
+    /// </summary>
+    public bool PrepareShellField(FemCsfeaShellField field) => !IsCrack(field) || Fields == null || EnsureCrackWidths() != null;
+
+    /// <summary>Досчитана ширина раскрытия трещин (шаг или доля сменились).</summary>
+    public event Action? CrackWidthsReady;
+
+    Dictionary<int, FemCsfeaCrackWidth>? CurrentCrackWidths() =>
+        Fields != null && FieldsStepIndex is int idx && _crackKey == (Summary.Steps[idx].N, _longShare) ? _crackWidths : null;
+
+    /// <summary>Оси эпюр стержня (Ey, Ez местной системы расчёта с углом поворота сечения); null — стержня нет в сетке.</summary>
+    public (Vector3D Ey, Vector3D Ez)? BeamAxes(int elem)
+    {
+        _beamAxes ??= _beams.GroupBy(b => b.Tag).ToDictionary(g => g.Key, g => (g.First().Ey, g.First().Ez));
+        return _beamAxes.TryGetValue(elem, out var axes) ? axes : null;
+    }
+
+    Dictionary<int, (Vector3D Ey, Vector3D Ez)>? _beamAxes;
+
+    double? ShellValue(int elem, FemCsfeaShellField field) => ShellValue(elem, field, _crackShown);
+
+    double? ShellValue(int elem, FemCsfeaShellField field, Dictionary<int, FemCsfeaCrackWidth>? cracks)
     {
         if (Fields == null || !_shellIndex.TryGetValue(elem, out int i)) return null;
         int fo = i * RcSecantStepFields.ShellForceComponents, so = i * RcSecantStepFields.ShellStateComponents;
@@ -488,7 +524,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             FemCsfeaShellField.SigmaRatio => State(3),
             FemCsfeaShellField.EpsRatio => State(4),
             >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop =>
-                _crackShown != null && _crackShown.TryGetValue(elem, out var w) ? CrackValue(w, field) : null,
+                cracks != null && cracks.TryGetValue(elem, out var w) ? CrackValue(w, field) : null,
             FemCsfeaShellField.State => (Fields.ShellFlags[i] & RcSecantStepFields.Failed) != 0 ? 3
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Yielded) != 0 ? 2
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Cracked) != 0 ? 1 : 0,
@@ -513,8 +549,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             int missing = _shells.Count - _mosaicValues.Count;
             if (field == FemCsfeaShellField.State)
             {
-                var states = new[] { (NoCrack, "FemCsfeaStateNone"), (Cracked, "FemCsfeaStateCracked"),
-                    (Yielded, "FemCsfeaStateYielded"), (Failed, "FemCsfeaStateFailed") };
+                var states = StateStyles;
                 var counts = new int[4];
                 foreach (var (tag, v) in _mosaicValues) { int k = (int)v; counts[k]++; _mosaicColors[tag] = states[k].Item1; }
                 for (int k = 3; k >= 0; k--) legend.Add(new(PlateRebarMosaicVM.Freeze(states[k].Item1), Loc.S(states[k].Item2), counts[k]));
@@ -707,6 +742,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _crackWidths = widths;
         RebuildMosaic();
         RebuildShellMeshes();
+        CrackWidthsReady?.Invoke();
     }
 
     void RebuildCrackLines()

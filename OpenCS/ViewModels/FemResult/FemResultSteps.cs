@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Media.Media3D;
+using OpenCS.OpenSees.Structural;
 
 namespace OpenCS.ViewModels.FemResult;
 
@@ -27,6 +28,22 @@ public interface IFemResultSteps
     Vector3D? Displacement(int node);
     /// <summary>Наибольшее перемещение узла на выбранном шаге, м.</summary>
     double MaxDisplacement();
+
+    /// <summary>Поля пластин результата (без перемещений); пусто — у результата их нет.</summary>
+    IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields { get; }
+    /// <summary>Значение поля пластины на выбранном шаге; null — нет данных.</summary>
+    double? ShellValue(int elem, FemCsfeaShellField field);
+    /// <summary>Значения поля готовы (true) или досчитываются в фоне (false; по готовности — <see cref="FieldsUpdated"/>).</summary>
+    bool PrepareShellField(FemCsfeaShellField field);
+    /// <summary>Досчитаны значения полей выбранного шага.</summary>
+    event Action? FieldsUpdated;
+
+    /// <summary>У результата есть концевые силы стержней.</summary>
+    bool HasBarForces { get; }
+    /// <summary>Концевые силы стержня на выбранном шаге (местные оси, как localForce OpenSees); null — нет данных.</summary>
+    FemElementEndForces? BarForces(int elem);
+    /// <summary>Местные оси Ey, Ez стержня в расчёте; null — стержня нет.</summary>
+    (Vector3D Ey, Vector3D Ez)? BarAxes(int elem);
 }
 
 /// <summary>Результат OpenSees поверх <see cref="FemAnalysisResultVM"/>: шаги λ нелинейного расчёта, перемещения шага.</summary>
@@ -53,6 +70,15 @@ public sealed class OpenSeesResultSteps : IFemResultSteps
     public bool HasDisplacements => _disp.Count > 0;
     public Vector3D? Displacement(int node) => _disp.TryGetValue(node, out var d) ? d : null;
     public double MaxDisplacement() => _disp.Values.Select(v => v.Length).DefaultIfEmpty(0).Max();
+
+    public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields => [];
+    public double? ShellValue(int elem, FemCsfeaShellField field) => null;
+    public bool PrepareShellField(FemCsfeaShellField field) => true;
+    public event Action? FieldsUpdated { add { } remove { } }
+
+    public bool HasBarForces => true;
+    public FemElementEndForces? BarForces(int elem) => Vm.ElementForce(elem);
+    public (Vector3D Ey, Vector3D Ez)? BarAxes(int elem) => Vm.ElementAxes(elem);
 
     void IndexStep()
     {
@@ -83,6 +109,12 @@ public sealed class CsfeaResultSteps : IFemResultSteps
         {
             if (e.PropertyName == nameof(FemCsfeaResultVM.SelectedStepIndex)) StepChanged?.Invoke();
         };
+        vm.CrackWidthsReady += () => FieldsUpdated?.Invoke();
+        // Перемещения показаны отдельными величинами — из полей пластин их убираем.
+        ShellFields = vm.HasShells
+            ? vm.ShellFields.Where(f => f.Value is not (FemCsfeaShellField.None or FemCsfeaShellField.Ux or FemCsfeaShellField.Uy
+                or FemCsfeaShellField.Uz)).ToList()
+            : [];
     }
 
     public FemCsfeaResultVM Vm { get; }
@@ -107,4 +139,13 @@ public sealed class CsfeaResultSteps : IFemResultSteps
             max = Math.Max(max, Math.Sqrt(d[6 * i] * d[6 * i] + d[6 * i + 1] * d[6 * i + 1] + d[6 * i + 2] * d[6 * i + 2]));
         return max;
     }
+
+    public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields { get; }
+    public double? ShellValue(int elem, FemCsfeaShellField field) => Vm.ShellFieldValue(elem, field);
+    public bool PrepareShellField(FemCsfeaShellField field) => Vm.PrepareShellField(field);
+    public event Action? FieldsUpdated;
+
+    public bool HasBarForces => Vm.HasBeams;
+    public FemElementEndForces? BarForces(int elem) => Vm.BeamForces(elem);
+    public (Vector3D Ey, Vector3D Ez)? BarAxes(int elem) => Vm.BeamAxes(elem);
 }

@@ -1090,6 +1090,9 @@ public class Fem3DVM : ViewModelBase
             ? BuildMosaicBars(coloring, nodeMap, bars)
             : [new BarGroup("", Colors.SteelBlue, BuildLinePoints(nodeMap, bars), 1.5)];
         MosaicBarSegments = BarSegments(nodeMap, bars);
+        // Эпюры усилий стержней — на положениях узлов слоя (деформированных, если показаны).
+        if (MosaicBarSegments.Count > 0)
+            BarGroups = [.. BarGroups, .. BuildBarDiagrams()];
         HiShellMesh = null;
         (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
         ResultOriginalLines = result.DeformedShown ? result.OriginalLines : null;
@@ -1147,7 +1150,8 @@ public class Fem3DVM : ViewModelBase
 
         foreach (var (tag, p1, p2) in MosaicBarSegments)
             if (profiles.TryGetValue(tag, out var profile))
-                BarDiagramGeometry.AddBar(positive, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile, plane, scale);
+                BarDiagramGeometry.AddBar(positive, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile, plane, scale,
+                    Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null);
 
         static Point3DCollection Points(List<BarDiagramLine> lines)
         {
