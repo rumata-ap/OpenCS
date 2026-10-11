@@ -2805,6 +2805,11 @@
     <system:String x:Key="FemCsfeaCrackLongShare">Long-term share:</system:String>
     <system:String x:Key="FemCsfeaCrackLongShareTip">Share of the long-term part of the step forces (0…1). Crack width is computed from the element forces of the step by SP 63 clauses 8.2.15–8.2.18 over directions (as in the code check of plates): a_crc,1 — from the long-term part with φ1 = 1.4; a_crc — by clause 8.2.7. Strokes show crack lines of the largest width.</system:String>
     <system:String x:Key="FemCsfeaCrackComputing">computing crack widths…</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareFromSets">From N and NL sets</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareFromSetsTip">Estimate the long-term share as one number from all pairs of plate force sets of the schema «… (N)» — «… (NL)» (load combinations and design combinations). Rows are matched by element, not by number: row counts of the sets may differ. For each N row — the largest projection of the NL rows of the same element in the energy metric; averaging over the schema is energy-weighted.</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNote">set pairs {0}, elements {1}, share by element {2:0.##}…{3:0.##}, elements without NL rows {4}</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNoSets">no paired plate sets «… (N)» and «… (NL)» of the schema</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNoData">paired sets have no rows of RC plates of the analysis</system:String>
     <system:String x:Key="FemCsfeaStateNone">uncracked</system:String>
     <system:String x:Key="FemCsfeaStateCracked">cracked</system:String>
     <system:String x:Key="FemCsfeaStateYielded">rebar yielding</system:String>

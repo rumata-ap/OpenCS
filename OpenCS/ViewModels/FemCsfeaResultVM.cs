@@ -163,6 +163,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestDeformScale());
         GoToFieldsStepCommand = new RelayCommand(_ => GoToFieldsStep(), _ => FieldsStepIndex is int i && i != SelectedStepIndex);
         CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
+        LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
         ResetForceScaleCommand = new RelayCommand(_ => { _forceScale = SuggestForceScale(); RebuildForceDiagram(); OnPropertyChanged(nameof(ForceScale)); });
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
@@ -617,22 +618,76 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         var key = (Summary.Steps[idx].N, _longShare);
         if (_crackKey == key && _crackWidths != null) return _crackWidths;
         if (_crackPending == key) return null;
-        if (_crackElements == null)
-        {
-            // Вход читается из БД — в вызывающем (UI) потоке, как при запуске расчёта.
-            try
-            {
-                var input = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis));
-                _crackElements = FemCsfeaCrackWidths.Elements(FemRcModelAdapter.Adapt(input), _db.Materials);
-            }
-            catch (InvalidOperationException) { _crackElements = []; }
-            _crackById = _crackElements.ToDictionary(e => e.Id);
-        }
+        var elements = EnsureCrackElements();
         _crackCts?.Cancel();
         _crackCts = new CancellationTokenSource();
         _crackPending = key;
-        CrackWidthsTask = RunCrackWidthsAsync(key, _crackElements, Fields, _crackCts.Token);
+        CrackWidthsTask = RunCrackWidthsAsync(key, elements, Fields, _crackCts.Token);
         return null;
+    }
+
+    /// <summary>ЖБ-пластины постановки с сечениями; вход читается из БД — в вызывающем (UI) потоке, как при запуске расчёта.</summary>
+    List<FemCsfeaCrackElement> EnsureCrackElements()
+    {
+        if (_crackElements != null) return _crackElements;
+        try
+        {
+            var input = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis!));
+            _crackElements = FemCsfeaCrackWidths.Elements(FemRcModelAdapter.Adapt(input), _db.Materials);
+        }
+        catch (InvalidOperationException) { _crackElements = []; }
+        _crackById = _crackElements.ToDictionary(e => e.Id);
+        return _crackElements;
+    }
+
+    // ------------------------------------------------------------ доля длительной части по наборам N и NL
+
+    public System.Windows.Input.ICommand LongShareFromSetsCommand { get; }
+
+    /// <summary>Идущая оценка доли по наборам (завершённая задача — оценки нет).</summary>
+    public Task LongShareTask { get; private set; } = Task.CompletedTask;
+
+    string _longShareNote = "";
+    /// <summary>Итог оценки доли по наборам: число КЭ и разброс доли по КЭ либо причина, по которой оценки нет.</summary>
+    public string LongShareNote
+    {
+        get => _longShareNote;
+        private set { if (value == _longShareNote) return; _longShareNote = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Доля длительной части одним числом на схему (<see cref="FemLongTermShare"/>) по всем парам пластинчатых наборов
+    /// схемы «… (N)» — «… (NL)»: ЖБ-пластины постановки, вес КЭ — площадь/толщина.
+    /// </summary>
+    async Task LongShareFromSetsAsync()
+    {
+        if (_analysis == null) return;
+        var sets = _db.ForceSets.Where(s => s.Kind == "shell" && s.SourceSchemaId == Schema.Id).ToList();
+        var pairs = sets.Where(s => (s.Tag ?? "").EndsWith("(N)", StringComparison.Ordinal))
+            .Select(s => (Total: s, Long: FemEtaPsi.LongTermSet(s, sets))).Where(p => p.Long != null).ToList();
+        if (pairs.Count == 0) { LongShareNote = Loc.S("FemCsfeaCrackLongShareNoSets"); return; }
+
+        var thickness = EnsureCrackElements().ToDictionary(e => e.Id, e => e.Section.H);
+        var weights = new Dictionary<int, double>(thickness.Count);
+        foreach (var (id, h) in thickness)
+            if (_contours.TryGetValue(id, out var c) && h > 0) weights[id] = Area(c) / h;
+
+        var result = await Task.Run(() => FemLongTermShare.Shells(
+            pairs.Select(p => ((IReadOnlyList<ShellLoadItem>)p.Total.ShellItems, (IReadOnlyList<ShellLoadItem>)p.Long!.ShellItems)),
+            e => thickness.TryGetValue(e, out double h) ? h : null, e => weights.GetValueOrDefault(e, 1.0)));
+        if (result == null) { LongShareNote = Loc.S("FemCsfeaCrackLongShareNoData"); return; }
+        LongShare = Math.Round(result.Share, 2);
+        LongShareNote = string.Format(Loc.S("FemCsfeaCrackLongShareNote"), pairs.Count, result.Groups, result.MinGroupShare, result.MaxGroupShare,
+            result.GroupsWithoutLong);
+    }
+
+    /// <summary>Площадь КЭ по исходным координатам узлов контура (треугольник или четырёхугольник).</summary>
+    double Area(int[] contour)
+    {
+        var s = new Vector3D();
+        for (int k = 1; k + 1 < contour.Length; k++)
+            s += Vector3D.CrossProduct(_nodes[contour[k]] - _nodes[contour[0]], _nodes[contour[k + 1]] - _nodes[contour[0]]);
+        return 0.5 * s.Length;
     }
 
     async Task RunCrackWidthsAsync((int Step, double Share) key, List<FemCsfeaCrackElement> elements, RcSecantStepFields fields,

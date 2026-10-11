@@ -2805,6 +2805,11 @@
     <system:String x:Key="FemCsfeaCrackLongShare">Доля длительной части:</system:String>
     <system:String x:Key="FemCsfeaCrackLongShareTip">Доля длительной части усилий шага (0…1). Ширина раскрытия — по усилиям КЭ шага, пп. 8.2.15–8.2.18 СП 63 по направлениям (как в нормативной проверке пластин): a_crc,1 — от длительной части при φ1 = 1,4; a_crc — по п. 8.2.7. Штрихи — линии трещин наибольшего раскрытия.</system:String>
     <system:String x:Key="FemCsfeaCrackComputing">расчёт ширины раскрытия…</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareFromSets">По наборам N и NL</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareFromSetsTip">Оценить долю длительной части одним числом по всем парам пластинчатых наборов усилий схемы «… (N)» — «… (NL)» (РСН и РСУ). Строки сопоставляются по КЭ, а не по номерам: число строк в наборах может не совпадать. Для каждой строки N — наибольшая проекция строк NL того же КЭ в энергетической метрике; осреднение по схеме — с весом по энергии.</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNote">пар наборов {0}, КЭ {1}, доля по КЭ {2:0.##}…{3:0.##}, КЭ без строк NL {4}</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNoSets">нет парных наборов пластин схемы «… (N)» и «… (NL)»</system:String>
+    <system:String x:Key="FemCsfeaCrackLongShareNoData">в парных наборах нет строк ЖБ-пластин расчёта</system:String>
     <system:String x:Key="FemCsfeaStateNone">без трещин</system:String>
     <system:String x:Key="FemCsfeaStateCracked">трещины</system:String>
     <system:String x:Key="FemCsfeaStateYielded">текучесть арматуры</system:String>

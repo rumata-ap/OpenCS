@@ -56,6 +56,12 @@
                                  VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"
                                  ToolTip="{DynamicResource FemCsfeaCrackLongShareTip}"
                                  Visibility="{Binding IsCrackField, Converter={StaticResource BoolToVis}}"/>
+                        <Button Content="{DynamicResource FemCsfeaCrackLongShareFromSets}" Command="{Binding LongShareFromSetsCommand}"
+                                VerticalAlignment="Center" Margin="4,0" Padding="6,1"
+                                ToolTip="{DynamicResource FemCsfeaCrackLongShareFromSetsTip}"
+                                Visibility="{Binding IsCrackField, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{Binding LongShareNote}" VerticalAlignment="Center" Margin="4,0" Foreground="Gray"
+                                   Visibility="{Binding IsCrackField, Converter={StaticResource BoolToVis}}"/>
                         <Separator/>
                         <TextBlock Text="{DynamicResource FemCsfeaBars}" VerticalAlignment="Center" Margin="4,0,2,0"
                                    Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}"/>
