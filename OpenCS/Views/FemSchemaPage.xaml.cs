@@ -62,6 +62,13 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _fem3d.Mosaic.ShowAnalysis(analysisId);
     }
 
+    /// <summary>Фрагмент 3D-вида схемы по группе (из дерева проекта).</summary>
+    public void ApplyGroupFragment(FemMemberGroup group, FemFragmentAction action)
+    {
+        tabs.SelectedIndex = 0;
+        _fem3d.ApplyGroupFragment(group, action);
+    }
+
     public FemSchemaPage(FemSchema schema, AppViewModel app)
     {
         _app = app;

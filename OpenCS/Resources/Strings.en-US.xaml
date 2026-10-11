@@ -4346,6 +4346,24 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultNoDisplacements">No displacements at this step</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnly">Show selected only</system:String>
+     <system:String x:Key="Fem3DFragmentHide">Hide selected</system:String>
+     <system:String x:Key="Fem3DFragmentInvert">Invert: show hidden, hide visible</system:String>
+     <system:String x:Key="Fem3DFragmentShowAll">Show all</system:String>
+     <system:String x:Key="Fem3DFragmentGroups">Groups</system:String>
+     <system:String x:Key="Fem3DFragmentGroupsTip">Show or hide member and element groups</system:String>
+     <system:String x:Key="Fem3DFragmentNoGroups">The schema has no groups</system:String>
+     <system:String x:Key="Fem3DFragmentMembersGroupItem">{0} (members)</system:String>
+     <system:String x:Key="Fem3DFragmentMeshGroupItem">{0} (elements)</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnlyCtx">Show only</system:String>
+     <system:String x:Key="Fem3DFragmentHideCtx">Hide</system:String>
+     <system:String x:Key="Fem3DFragmentShowCtx">Show (add to visible)</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnlyCtxN">Show selected only ({0})</system:String>
+     <system:String x:Key="Fem3DFragmentHideCtxN">Hide selected ({0})</system:String>
+     <system:String x:Key="Fem3DFragmentGhost">Ghost of hidden</system:String>
+     <system:String x:Key="Fem3DFragmentShown">Fragment: {0} of {1}</system:String>
+     <system:String x:Key="FemGroupShowOnlyIn3D">Show only this group in 3D</system:String>
+     <system:String x:Key="FemGroupHideIn3D">Hide group in 3D</system:String>
     <system:String x:Key="MosaicFoundationC1">C1, kN/m³</system:String>
     <system:String x:Key="MosaicUtilization">Utilization</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    section {0}: {1}</system:String>

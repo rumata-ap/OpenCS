@@ -211,6 +211,11 @@ public class FemResultLayerTests
         Assert.Null(layer.Value("99", FemResultComponent.Uz));
         layer.UpdateSummary(FemResultComponent.Uz);
         Assert.NotEqual(Loc.S("FemResultNoDisplacements"), layer.SummaryText);
+        // Экстремум по фрагменту: только узлы показанных КЭ (у пустого фрагмента перемещений нет).
+        layer.UpdateSummary(FemResultComponent.Uz, ["1"]);
+        Assert.NotEqual(Loc.S("FemResultNoDisplacements"), layer.SummaryText);
+        layer.UpdateSummary(FemResultComponent.Uz, []);
+        Assert.Equal(Loc.S("FemResultNoDisplacements"), layer.SummaryText);
 
         layer.SelectedStepIndex = 0;
         Assert.Equal(1, changed);

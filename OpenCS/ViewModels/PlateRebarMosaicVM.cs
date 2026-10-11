@@ -935,7 +935,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
             foreach (string tag in shellTags.Concat(barTags))
                values[tag] = result.Value(tag, rc) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
-            result.UpdateSummary(rc);
+            // Экстремум — по показанным КЭ (фрагмент вида).
+            result.UpdateSummary(rc, values.Keys);
             bool signed = rc != FemResult.FemResultComponent.U;
             return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = true };
          }

@@ -1806,6 +1806,17 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemGroupShowOnlyIn3D}"
+                                        Command="{Binding PlacementTarget.Tag.ShowOnlyFemGroupIn3DCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemGroupHideIn3D}"
+                                        Command="{Binding PlacementTarget.Tag.HideFemGroupIn3DCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
                               <MenuItem Header="{DynamicResource FemGroupRename}"
                                         Command="{Binding PlacementTarget.Tag.RenameFemMemberGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

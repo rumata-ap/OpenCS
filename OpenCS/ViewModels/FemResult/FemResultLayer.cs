@@ -157,11 +157,15 @@ public sealed class FemResultLayer : ViewModelBase
     public string SummaryText { get => _summaryText; private set { if (_summaryText == value) return; _summaryText = value; OnPropertyChanged(); } }
 
     /// <summary>Пересчитать экстремум величины: наибольшая по модулю (|u| — наибольшая) по узлам КЭ.</summary>
-    public void UpdateSummary(FemResultComponent component)
+    /// <param name="elemTags">КЭ показанного фрагмента; null — вся сетка.</param>
+    public void UpdateSummary(FemResultComponent component, IEnumerable<string>? elemTags = null)
     {
+        IEnumerable<int> nodes = elemTags == null
+            ? Mesh.UsedNodes
+            : elemTags.SelectMany(t => Mesh.NodesOf(t) ?? []).Distinct().Order();
         int? best = null;
         double bestValue = 0;
-        foreach (int n in Mesh.UsedNodes)
+        foreach (int n in nodes)
             if (NodeValue(n, component) is double v && (best == null || Math.Abs(v) > Math.Abs(bestValue)))
             {
                 best = n;

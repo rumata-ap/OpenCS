@@ -578,6 +578,8 @@ namespace OpenCS
       /// <summary>Команда переименования группы КЭ или КонЭ.</summary>
       public ICommand RenameFemMemberGroupCommand { get; set; } = null!;
       public ICommand CreateFemMembersFromMeshGroupCommand { get; set; } = null!;
+      public ICommand ShowOnlyFemGroupIn3DCommand { get; set; } = null!;
+      public ICommand HideFemGroupIn3DCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания плиты кликами по узлам в 3D-виде схемы.</summary>
       public ICommand CreatePlateModeCommand { get; set; } = null!;
       /// <summary>Команда включения режима создания стены кликами по узлам в 3D-виде схемы.</summary>
@@ -1511,6 +1513,8 @@ namespace OpenCS
          NewFemMembersGroupCommand = new RelayCommand(p => NewFemMembersGroup(p as CScore.Fem.FemSchema));
          RenameFemMemberGroupCommand = new RelayCommand(p => RenameFemMemberGroup(p as CScore.Fem.FemMemberGroup));
          CreateFemMembersFromMeshGroupCommand = new RelayCommand(p => CreateFemMembersFromMeshGroup(p as CScore.Fem.FemMemberGroup));
+         ShowOnlyFemGroupIn3DCommand = new RelayCommand(p => FragmentFemGroupIn3D(p as CScore.Fem.FemMemberGroup, ViewModels.FemFragmentAction.ShowOnly));
+         HideFemGroupIn3DCommand = new RelayCommand(p => FragmentFemGroupIn3D(p as CScore.Fem.FemMemberGroup, ViewModels.FemFragmentAction.Hide));
          CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
          CreateWallModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "wall"));
          CreateSpatialPlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "spatial"));
@@ -5495,6 +5499,15 @@ namespace OpenCS
             analysis.InvalidateResult();
          db.SaveFemAnalysis(analysis);
          CommandManager.InvalidateRequerySuggested();
+      }
+
+      /// <summary>Фрагмент 3D-вида схемы по группе из дерева: схема открывается, если ещё не открыта.</summary>
+      void FragmentFemGroupIn3D(CScore.Fem.FemMemberGroup? group, ViewModels.FemFragmentAction action)
+      {
+         if (group == null || FemSchemas.FirstOrDefault(s => s.Id == group.SchemaId) is not { } schema) return;
+         CurrentFemSchema = schema;
+         if (ReferenceEquals(currentFemSchema, schema) && CurrentPage is Views.FemSchemaPage page)
+            page.ApplyGroupFragment(group, action);
       }
 
       /// <summary>Результат постановки — в 3D-виде схемы (источник мозаики «Расчёт»).</summary>

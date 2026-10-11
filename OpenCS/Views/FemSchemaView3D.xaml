@@ -214,13 +214,48 @@
         <Border Grid.Row="1" BorderThickness="0,0,0,1" Padding="2"
                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
                 Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-            <StackPanel Orientation="Horizontal">
+            <WrapPanel Orientation="Horizontal">
                 <Button x:Name="expandEditBarButton" Style="{StaticResource IconButton25}" Visibility="Collapsed"
                         Click="ExpandEditBar_Click" ToolTip="{DynamicResource Fem3DEditBarExpand}">
                     <Path Data="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" Fill="Black" Stretch="Uniform" Margin="4"/>
                 </Button>
+                <!-- Фрагмент: изоляция и скрытие выбранного и групп; работает для всех мозаик -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="fragmentShowOnlyButton" Style="{StaticResource IconButton25}" Click="FragmentShowOnly_Click"
+                            ToolTip="{DynamicResource Fem3DFragmentShowOnly}">
+                        <Path Data="M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9M12,4.5C17,4.5 21.27,7.61 23,12C21.27,16.39 17,19.5 12,19.5C7,19.5 2.73,16.39 1,12C2.73,7.61 7,4.5 12,4.5M3.18,12C4.83,15.36 8.24,17.5 12,17.5C15.76,17.5 19.17,15.36 20.82,12C19.17,8.64 15.76,6.5 12,6.5C8.24,6.5 4.83,8.64 3.18,12Z" Fill="Black" Stretch="Uniform" Margin="3"/>
+                    </Button>
+                    <Button x:Name="fragmentHideButton" Style="{StaticResource IconButton25}" Click="FragmentHide_Click"
+                            ToolTip="{DynamicResource Fem3DFragmentHide}">
+                        <Path Data="M11.83,9L15,12.16C15,12.11 15,12.05 15,12A3,3 0 0,0 12,9C11.94,9 11.89,9 11.83,9M7.53,9.8L9.08,11.35C9.03,11.56 9,11.77 9,12A3,3 0 0,0 12,15C12.22,15 12.44,14.97 12.65,14.92L14.2,16.47C13.53,16.8 12.79,17 12,17A5,5 0 0,1 7,12C7,11.21 7.2,10.47 7.53,9.8M2,4.27L4.28,6.55L4.73,7C3.08,8.3 1.78,10 1,12C2.73,16.39 7,19.5 12,19.5C13.55,19.5 15.03,19.2 16.38,18.66L16.81,19.08L19.73,22L21,20.73L3.27,3M12,7A5,5 0 0,1 17,12C17,12.64 16.87,13.26 16.64,13.82L19.57,16.75C21.07,15.5 22.27,13.86 23,12C21.27,7.61 17,4.5 12,4.5C10.6,4.5 9.26,4.75 8,5.2L10.17,7.35C10.74,7.13 11.35,7 12,7Z" Fill="Black" Stretch="Uniform" Margin="3"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton25}" Click="FragmentInvert_Click"
+                            IsEnabled="{Binding IsFragmentActive}" ToolTip="{DynamicResource Fem3DFragmentInvert}">
+                        <Path Data="M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z" Fill="Black" Stretch="Uniform" Margin="3"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton25}" Click="FragmentShowAll_Click"
+                            IsEnabled="{Binding IsFragmentActive}" ToolTip="{DynamicResource Fem3DFragmentShowAll}">
+                        <Path Data="M9,9H15V15H9M7,17H17V7H7M15,5H17V3H15M15,21H17V19H15M19,17H21V15H19M19,9H21V7H19M19,21A2,2 0 0,0 21,19H19M19,13H21V11H19M11,21H13V19H11M9,3H7V5H9M3,17H5V15H3M5,21V19H3A2,2 0 0,0 5,21M19,3V5H21A2,2 0 0,0 19,3M13,3H11V5H13M3,9H5V7H3M7,21H9V19H7M3,13H5V11H3M3,5H5V3A2,2 0 0,0 3,5Z" Fill="Black" Stretch="Uniform" Margin="3"/>
+                    </Button>
+                    <Menu VerticalAlignment="Center" Background="Transparent">
+                        <MenuItem x:Name="fragmentGroupsMenu" Header="{DynamicResource Fem3DFragmentGroups}"
+                                  ToolTip="{DynamicResource Fem3DFragmentGroupsTip}" SubmenuOpened="FragmentGroupsMenu_SubmenuOpened">
+                            <MenuItem Header="…"/>
+                        </MenuItem>
+                    </Menu>
+                    <ToggleButton x:Name="ghostCheck" Style="{StaticResource IconToggleButton25}" Click="GhostToggle_Click"
+                                  ToolTip="{DynamicResource Fem3DFragmentGhost}">
+                        <Path Data="M12,2A9,9 0 0,0 3,11V22L6,19L9,22L12,19L15,22L18,19L21,22V11A9,9 0 0,0 12,2M9,8A2,2 0 0,1 11,10A2,2 0 0,1 9,12A2,2 0 0,1 7,10A2,2 0 0,1 9,8M15,8A2,2 0 0,1 17,10A2,2 0 0,1 15,12A2,2 0 0,1 13,10A2,2 0 0,1 15,8Z" Fill="Gray" Stretch="Uniform" Margin="3"/>
+                    </ToggleButton>
+                    <Button Style="{StaticResource IconButton25}" Click="ZoomExtents_Click"
+                            ToolTip="{DynamicResource Fem3DZoomExtents}">
+                        <Path Data="M10,21V19H6.41L10.91,14.5L9.5,13.09L5,17.59V14H3V21H10M14.5,10.91L19,6.41V10H21V3H14V5H17.59L13.09,9.5L14.5,10.91M3,3V10H5V6.41L9.5,10.91L10.91,9.5L6.41,5H10V3H3M21,21V14H19V17.59L14.5,13.09L13.09,14.5L17.59,19H14V21H21Z" Fill="Black" Stretch="Uniform" Margin="3"/>
+                    </Button>
+                    <TextBlock Text="{Binding FragmentText}" VerticalAlignment="Center" Margin="4,0" Foreground="DarkSlateBlue"/>
+                    <Rectangle Width="1" Margin="4,3" Fill="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+                </StackPanel>
                 <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}" HorizontalAlignment="Left"/>
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- Строка 3 — шаг и деформированная схема показанного результата расчёта -->

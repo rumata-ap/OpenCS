@@ -4346,6 +4346,24 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultNoDisplacements">Перемещений на шаге нет</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Свернуть панель редактирования</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Развернуть панель редактирования</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnly">Показать только выбранное</system:String>
+     <system:String x:Key="Fem3DFragmentHide">Скрыть выбранное</system:String>
+     <system:String x:Key="Fem3DFragmentInvert">Инвертировать: скрытое показать, видимое скрыть</system:String>
+     <system:String x:Key="Fem3DFragmentShowAll">Показать всё</system:String>
+     <system:String x:Key="Fem3DFragmentGroups">Группы</system:String>
+     <system:String x:Key="Fem3DFragmentGroupsTip">Показать или скрыть группы КонЭ и КЭ</system:String>
+     <system:String x:Key="Fem3DFragmentNoGroups">В схеме нет групп</system:String>
+     <system:String x:Key="Fem3DFragmentMembersGroupItem">{0} (КонЭ)</system:String>
+     <system:String x:Key="Fem3DFragmentMeshGroupItem">{0} (КЭ)</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnlyCtx">Показать только</system:String>
+     <system:String x:Key="Fem3DFragmentHideCtx">Скрыть</system:String>
+     <system:String x:Key="Fem3DFragmentShowCtx">Показать (добавить к видимым)</system:String>
+     <system:String x:Key="Fem3DFragmentShowOnlyCtxN">Показать только выделенные ({0})</system:String>
+     <system:String x:Key="Fem3DFragmentHideCtxN">Скрыть выделенные ({0})</system:String>
+     <system:String x:Key="Fem3DFragmentGhost">Тень скрытых</system:String>
+     <system:String x:Key="Fem3DFragmentShown">Фрагмент: {0} из {1}</system:String>
+     <system:String x:Key="FemGroupShowOnlyIn3D">Показать в 3D только группу</system:String>
+     <system:String x:Key="FemGroupHideIn3D">Скрыть группу в 3D</system:String>
     <system:String x:Key="MosaicFoundationC1">C1, кН/м³</system:String>
     <system:String x:Key="MosaicUtilization">Коэффициент использования</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>

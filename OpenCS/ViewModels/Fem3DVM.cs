@@ -20,6 +20,9 @@ public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, F
 /// <param name="IsMeshLocked">Элемент из кБ ЛИРЫ поверх её сетки: рисуется утолщённым контуром без заливки.</param>
 public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Point3DCollection EdgePoints, bool IsMeshLocked = false);
 
+/// <summary>Действие фрагмента по группе.</summary>
+public enum FemFragmentAction { ShowOnly, Hide, Show }
+
 /// <summary>Пластины мозаики одного цвета.</summary>
 public sealed record MosaicShellMesh(Color Color, MeshGeometry3D Mesh);
 
@@ -214,6 +217,7 @@ public class Fem3DVM : ViewModelBase
         Status    = Loc.S("Fem3DLoading");
         Mosaic.Changed += (_, _) => RefreshMosaic();
         Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(_db, _schemaId);
+        InitFragment();
         // Результаты расчёта постановок — только в виде всей схемы.
         Mosaic.ResultLoader = LoadResultLayer;
     }
@@ -231,6 +235,7 @@ public class Fem3DVM : ViewModelBase
         Status      = Loc.S("Fem3DLoading");
         Mosaic.Changed += (_, _) => RefreshMosaic();
         Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(_db, _schemaId);
+        InitFragment();
     }
 
     /// <summary>Режим схемы с подсветкой — все КЭ схемы, КЭ группы выделены красным
@@ -243,12 +248,176 @@ public class Fem3DVM : ViewModelBase
         Status           = Loc.S("Fem3DLoading");
         Mosaic.Changed += (_, _) => RefreshMosaic();
         Mosaic.Reader = () => PlateRebarMosaicVM.ReadAll(_db, _schemaId);
+        InitFragment();
+    }
+
+    // ------------------------------------------------------------------------- фрагмент
+
+    /// <summary>Фрагмент вида: скрытые КонЭ и КЭ сетки. Фильтр стоит до мозаики — шкалы и эпюры по видимому.</summary>
+    public FemViewFragment Fragment { get; } = new();
+
+    /// <summary>Фрагмент изменился и вид перестроен: сцену нужно собрать заново (вписать — если <c>true</c>).</summary>
+    public event Action<bool>? FragmentApplied;
+
+    /// <summary>Подпись фрагмента («показано N из M»); пусто — ничего не скрыто.</summary>
+    public string FragmentText { get; private set; } = "";
+
+    public bool IsFragmentActive => Fragment.IsActive;
+
+    /// <summary>Тень скрытых: стержни (линии) и пластины, без выбора и наведения.</summary>
+    public Point3DCollection? HiddenGhostLines { get; private set; }
+    public IReadOnlyList<MeshGeometry3D> HiddenGhostShells { get; private set; } = [];
+
+    (Point3DCollection? Lines, IReadOnlyList<MeshGeometry3D> Shells, int Visible, int Total) _topologyGhost = (null, [], 0, 0);
+    (List<FemNode> Nodes, List<FemMember> Elements)? _lastTopology;
+    (FemMemberGroup Group, FemFragmentAction Action)? _pendingGroupFragment;
+    bool _zoomOnFragment;
+
+    void InitFragment()
+    {
+        Fragment.SetMeshSource(() => _db.GetFemMeshElements(_schemaId));
+        Fragment.Changed += (_, _) => OnFragmentChanged();
+    }
+
+    void OnFragmentChanged()
+    {
+        if (_lastTopology is { } t) ApplyTopology(t.Nodes, t.Elements);
+        if (_meshOverlaySnapshot is { } snapshot) ApplyMeshOverlay(snapshot.Nodes, snapshot.Elements, notify: false);
+        OnPropertyChanged(nameof(IsFragmentActive));
+        if (IsLoading) return;   // сцену соберёт конец загрузки
+        bool zoom = _zoomOnFragment;
+        _zoomOnFragment = false;
+        FragmentApplied?.Invoke(zoom);
+    }
+
+    /// <summary>Отображаемый элемент — КЭ сетки (сетка схемы без конструктивного слоя или подложка ЛИРЫ).</summary>
+    bool IsMeshElement(FemMember element) => _meshIsSchema || _bgSet.Contains(element);
+
+    bool IsFragmentVisible(FemMember element) => IsMeshElement(element)
+        ? Fragment.IsMeshVisible(element.ElemTag)
+        : Fragment.IsMemberVisible(element.ElemTag);
+
+    /// <summary>Атомы фрагмента выбранного в 3D: КонЭ (у схемы без конструктивного слоя — КЭ) и КЭ сетки.</summary>
+    public List<string> SelectionAtoms()
+    {
+        if (Selection == null) return [];
+        var atoms = FemViewFragment.AtomsOfMesh(Selection.SelectedMeshElemTags).ToList();
+        atoms.AddRange(_meshIsSchema
+            ? FemViewFragment.AtomsOfMesh(Selection.SelectedElemTags)
+            : Fragment.AtomsOfMembers(Selection.SelectedElemTags));
+        return atoms;
+    }
+
+    public bool HasSelection => Selection is { } s && s.SelectedElemTags.Count + s.SelectedMeshElemTags.Count > 0;
+
+    /// <summary>Показать только выбранное (вид вписывается в фрагмент).</summary>
+    public bool ShowOnlySelection()
+    {
+        _zoomOnFragment = true;
+        bool done = Fragment.ShowOnly(SelectionAtoms());
+        _zoomOnFragment = false;
+        return done;
+    }
+
+    /// <summary>Скрыть выбранное; выбор снимается — скрытое не выбирается.</summary>
+    public bool HideSelection()
+    {
+        if (!Fragment.Hide(SelectionAtoms())) return false;
+        Selection?.Clear();
+        return true;
+    }
+
+    /// <summary>Фрагмент по элементам из меню 3D-вида: КонЭ (у схемы без конструктивного слоя — КЭ) или КЭ сетки.</summary>
+    public bool FragmentElements(IReadOnlyCollection<string> tags, bool meshElements, FemFragmentAction action)
+    {
+        var atoms = meshElements || _meshIsSchema ? FemViewFragment.AtomsOfMesh(tags).ToList() : Fragment.AtomsOfMembers(tags).ToList();
+        _zoomOnFragment = action == FemFragmentAction.ShowOnly;
+        bool done = action switch
+        {
+            FemFragmentAction.ShowOnly => Fragment.ShowOnly(atoms),
+            FemFragmentAction.Hide => Fragment.Hide(atoms),
+            _ => Fragment.Show(atoms),
+        };
+        _zoomOnFragment = false;
+        if (done && action == FemFragmentAction.Hide) Selection?.Clear();
+        return done;
+    }
+
+    public bool InvertFragment() => Fragment.Invert();
+
+    public bool ShowAllFragment() => Fragment.ShowAll();
+
+    /// <summary>Группы схемы для меню фрагмента.</summary>
+    public IReadOnlyList<FemMemberGroup> FragmentGroups =>
+        _db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId)?.MemberGroups.ToList() ?? [];
+
+    /// <summary>Фрагмент по группе; пока вид грузится — после загрузки.</summary>
+    public void ApplyGroupFragment(FemMemberGroup group, FemFragmentAction action)
+    {
+        if (IsLoading || _lastTopology == null) { _pendingGroupFragment = (group, action); return; }
+        DoGroupFragment(group, action);
+    }
+
+    void DoGroupFragment(FemMemberGroup group, FemFragmentAction action)
+    {
+        var atoms = Fragment.AtomsOfGroup(group);
+        _zoomOnFragment = action == FemFragmentAction.ShowOnly;
+        _ = action switch
+        {
+            FemFragmentAction.ShowOnly => Fragment.ShowOnly(atoms),
+            FemFragmentAction.Hide => Fragment.Hide(atoms),
+            _ => Fragment.Show(atoms),
+        };
+        _zoomOnFragment = false;
+    }
+
+    void ApplyPendingFragment()
+    {
+        if (_pendingGroupFragment is not { } pending) return;
+        _pendingGroupFragment = null;
+        if (_lastTopology != null) DoGroupFragment(pending.Group, pending.Action);
+    }
+
+    /// <summary>Видимые и скрытые фрагментом элементы; без фрагмента — все видимы.</summary>
+    (List<FemMember> Visible, List<FemMember> Hidden) SplitByFragment(List<FemMember> elements)
+    {
+        if (!Fragment.IsActive) return (elements, []);
+        var visible = new List<FemMember>(elements.Count);
+        var hidden = new List<FemMember>();
+        foreach (var e in elements) (IsFragmentVisible(e) ? visible : hidden).Add(e);
+        return (visible, hidden);
+    }
+
+    /// <summary>Тень скрытых: стержни линиями, пластины и плоские элементы — заливкой (без тегов выбора).</summary>
+    (Point3DCollection? Lines, IReadOnlyList<MeshGeometry3D> Shells) BuildGhost(Dictionary<string, Point3D> nodeMap,
+        List<FemMember> hidden, bool withRegions)
+    {
+        if (hidden.Count == 0) return (null, []);
+        var lines = BuildLinePoints(nodeMap, hidden.Where(e => e.ElemType == "beam"));
+        var shells = new List<MeshGeometry3D>();
+        if (BuildShellMesh(nodeMap, hidden, register: false) is { } mesh) shells.Add(mesh);
+        if (withRegions)
+            foreach (var pv in BuildPlanarRegionVisuals(hidden))
+            {
+                shells.Add(pv.Mesh);
+                foreach (var p in pv.EdgePoints) lines.Add(p);
+            }
+        return (lines.Count > 0 ? lines : null, shells);
+    }
+
+    void SetFragmentText(int visible, int total)
+    {
+        string text = Fragment.IsActive ? string.Format(Loc.S("Fem3DFragmentShown"), visible, total) : "";
+        if (text == FragmentText) return;
+        FragmentText = text;
+        OnPropertyChanged(nameof(FragmentText));
     }
 
     public async Task LoadAsync()
     {
         IsLoading = true;
         _resultMesh = null;   // сетку могли перестроить
+        Fragment.SetMeshSource(() => _db.GetFemMeshElements(_schemaId));
         NoData    = false;
         Status    = Loc.S("Fem3DLoading");
 
@@ -281,6 +450,8 @@ public class Fem3DVM : ViewModelBase
             {
                 var meshNodes    = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
                 meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
+                var fragmentMesh = meshElements;
+                Fragment.SetMeshSource(() => fragmentMesh);
                 allNodes    = meshNodes.Select(ToFemNode).ToList();
                 allElements = meshElements.Select(ToFemMember).ToList();
                 _meshSchemaImported = new HashSet<FemMember>(
@@ -311,6 +482,7 @@ public class Fem3DVM : ViewModelBase
                 await LoadMeshOverlayAsync();
             if (constructiveEmpty) _boundaryMesh = (await Task.Run(() => _db.GetFemMeshNodes(_schemaId)), meshElements!);
             await LoadBoundaryAsync();
+            ApplyPendingFragment();
         }
         finally
         {
@@ -331,6 +503,7 @@ public class Fem3DVM : ViewModelBase
             if (!importedBackground)
                 await LoadMeshOverlayAsync();
             await LoadBoundaryAsync();
+            ApplyPendingFragment();
         }
         finally
         {
@@ -431,10 +604,36 @@ public class Fem3DVM : ViewModelBase
             return (nodes, elements);
         });
 
+        if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;
+        // Сетка прочитана — она же источник КЭ для фрагмента (после дискретизации номера КЭ новые).
+        _meshOverlaySnapshot = (snapshot.nodes, snapshot.elements);
+        Fragment.SetMeshSource(() => snapshot.elements);
+        // Сетка схемы могла только что принять пластины областей — их снимки больше не рисуются отдельно.
+        if (_edgeElements != null)
+        {
+            (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(_edgeElements);
+            OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
+        }
+        ApplyMeshOverlay(snapshot.nodes, snapshot.elements);
+    }
+
+    (List<FemMeshNode> Nodes, List<FemElement> Elements)? _meshOverlaySnapshot;
+
+    /// <summary>Рёбра и узлы сетки дискретизации — без КЭ, скрытых фрагментом.</summary>
+    void ApplyMeshOverlay(List<FemMeshNode> nodes, List<FemElement> elements, bool notify = true)
+    {
         var nodeMap = new Dictionary<int, Point3D>();
         var meshNodePoints = new Point3DCollection();
-        foreach (var node in snapshot.nodes)
+        bool filtered = Fragment.IsActive;
+        HashSet<int>? usedNodes = filtered ? [] : null;
+        if (filtered)
+            foreach (var element in elements)
+                if (Fragment.IsMeshVisible(element.ElemTag))
+                    try { usedNodes!.UnionWith(NodeIds(element.NodeIdsJson)); } catch (JsonException) { }
+        foreach (var node in nodes)
         {
+            if (usedNodes != null && (!int.TryParse(node.NodeTag, out var used) || !usedNodes.Contains(used))) continue;
             meshNodePoints.Add(new Point3D(node.X, node.Y, node.Z));
             if (!int.TryParse(node.NodeTag, out var nodeTag)) continue;
             nodeMap.TryAdd(nodeTag, new Point3D(node.X, node.Y, node.Z));
@@ -443,8 +642,9 @@ public class Fem3DVM : ViewModelBase
         var linePoints = new Point3DCollection();
         var seenEdges = new HashSet<(int, int)>();
 
-        foreach (var element in snapshot.elements)
+        foreach (var element in elements)
         {
+            if (filtered && !Fragment.IsMeshVisible(element.ElemTag)) continue;
             int[] nodeIds;
             try
             {
@@ -469,20 +669,13 @@ public class Fem3DVM : ViewModelBase
             }
         }
 
-        if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;
-        // Сетка схемы могла только что принять пластины областей — их снимки больше не рисуются отдельно.
-        if (_edgeElements != null)
-        {
-            (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(_edgeElements);
-            OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
-            OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
-        }
         if (linePoints.Count > 0)
             linePoints.Freeze();
         if (meshNodePoints.Count > 0)
             meshNodePoints.Freeze();
         MeshLinePoints = linePoints.Count > 0 ? linePoints : null;
         MeshNodePoints = meshNodePoints.Count > 0 ? meshNodePoints : null;
+        if (!notify) return;   // смена фрагмента: сцену соберёт FragmentApplied
         OnPropertyChanged(nameof(MeshLinePoints));
         OnPropertyChanged(nameof(MeshNodePoints));
     }
@@ -616,6 +809,8 @@ public class Fem3DVM : ViewModelBase
 
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)
     {
+        _lastTopology = (allNodes, allElements);
+        Fragment.SetMembers(allElements.Where(e => !IsMeshElement(e)).Select(e => e.ElemTag));
         // В режиме члена — фильтруем только нужные КЭ
         List<FemMember> elements;
         if (_memberOnly != null)
@@ -687,6 +882,12 @@ public class Fem3DVM : ViewModelBase
 
         var nodeMap = allNodes.ToDictionary(n => n.NodeTag, n => new Point3D(n.X, n.Y, n.Z));
 
+        // Фрагмент: дальше всё строится по видимым; скрытые — тенью.
+        var shownAndHidden = elements;
+        (elements, var hiddenElements) = SplitByFragment(elements);
+        var ghost = BuildGhost(nodeMap, hiddenElements, withRegions: true);
+        _topologyGhost = (ghost.Lines, ghost.Shells, elements.Count, shownAndHidden.Count);
+
         if (_highlightMember != null)
         {
             var hiTags  = FemCheckScope.GroupTags(_highlightMember);
@@ -736,7 +937,16 @@ public class Fem3DVM : ViewModelBase
             .SelectMany(e => NodeIds(e.NodeIdsJson))
             .Select(id => id.ToString())
             .ToHashSet();
-        var visibleNodes = EditMode ? allNodes : allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag)).ToList();
+        // При фрагменте в редактировании видны узлы видимых КЭ и свободные узлы (ещё не связанные стержнем).
+        HashSet<string>? hiddenOnlyNodes = null;
+        if (EditMode && hiddenElements.Count > 0)
+        {
+            hiddenOnlyNodes = hiddenElements.SelectMany(e => NodeIds(e.NodeIdsJson)).Select(id => id.ToString()).ToHashSet();
+            hiddenOnlyNodes.ExceptWith(usedNodeKeys);
+        }
+        var visibleNodes = EditMode
+            ? hiddenOnlyNodes == null ? allNodes : allNodes.Where(n => !hiddenOnlyNodes.Contains(n.NodeTag)).ToList()
+            : allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag)).ToList();
         NodePoints = new Point3DCollection(visibleNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
 
         if (EditMode)
@@ -801,6 +1011,8 @@ public class Fem3DVM : ViewModelBase
         if (Mosaic.ActiveResult is { } result) { ApplyResultMosaic(result); return; }
         IsResultShown = false;
         ResultOriginalLines = null;
+        (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
+        SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
         BarGroups = coloring is { Bars: true } ? BuildMosaicBars(coloring, _mosaicNodeMap, _mosaicBars) : _baseBarGroups;
         MosaicBarSegments = coloring is { Bars: true } ? BarSegments(_mosaicNodeMap, _mosaicBars) : [];
@@ -859,8 +1071,20 @@ public class Fem3DVM : ViewModelBase
             _resultMembers = (result.Mesh, members.Where(m => m.ElemType == "shell").ToList(),
                 members.Where(m => m.ElemType != "shell").ToList());
         }
-        var (_, shells, bars) = _resultMembers.Value;
+        var (_, allShells, allBars) = _resultMembers.Value;
         var nodeMap = new Dictionary<string, Point3D>(result.NodeMap, StringComparer.Ordinal);
+        // Фрагмент: КЭ сетки скрытых КонЭ и групп — тенью; шкала, эпюры и экстремум — по видимым.
+        var shells = allShells;
+        var bars = allBars;
+        List<FemMember> hidden = [];
+        if (Fragment.IsActive)
+        {
+            shells = allShells.Where(e => Fragment.IsMeshVisible(e.ElemTag)).ToList();
+            bars = allBars.Where(e => Fragment.IsMeshVisible(e.ElemTag)).ToList();
+            hidden = [.. allShells.Where(e => !Fragment.IsMeshVisible(e.ElemTag)), .. allBars.Where(e => !Fragment.IsMeshVisible(e.ElemTag))];
+        }
+        (HiddenGhostLines, HiddenGhostShells) = BuildGhost(nodeMap, hidden, withRegions: false);
+        SetFragmentText(shells.Count + bars.Count, allShells.Count + allBars.Count);
         var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
         BarGroups = coloring != null
             ? BuildMosaicBars(coloring, nodeMap, bars)
@@ -1090,7 +1314,7 @@ public class Fem3DVM : ViewModelBase
         return (edgePoints, nodePoints);
     }
 
-    MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
+    MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements, bool register = true)
     {
         var shells = elements.Where(e => e.ElemType == "shell").ToList();
         if (shells.Count == 0) return null;
@@ -1128,6 +1352,7 @@ public class Fem3DVM : ViewModelBase
         }
 
         var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        if (!register) return mesh;   // тень скрытых: не выбирается и не наводится
         _shellMeshTags.AddOrUpdate(mesh, [.. tags]);
         if (pickable.Contains(true)) _shellMeshPickable.AddOrUpdate(mesh, [.. pickable]);
         return mesh;

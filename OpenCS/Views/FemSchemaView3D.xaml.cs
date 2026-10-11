@@ -278,6 +278,7 @@ public partial class FemSchemaView3D : UserControl
         if (_activeVm != null)
         {
             _activeVm.PropertyChanged -= OnVMPropertyChanged;
+            _activeVm.FragmentApplied -= OnFragmentApplied;
             if (_activeVm.Selection != null) _activeVm.Selection.Changed -= OnSelectionChanged;
         }
 
@@ -291,15 +292,18 @@ public partial class FemSchemaView3D : UserControl
         viewport.Children.Clear();
 
         vm.PropertyChanged += OnVMPropertyChanged;
+        vm.FragmentApplied += OnFragmentApplied;
         if (vm.Selection != null) vm.Selection.Changed += OnSelectionChanged;
         vm.ShowShellEdges = s_showGrid;
         await vm.LoadAsync();
         UpdateEditBar();
+        UpdateFragmentButtons();
     }
 
     void OnSelectionChanged(object? sender, EventArgs e)
     {
         if (VM is { IsLoading: false }) BuildEditProxies();
+        UpdateFragmentButtons();
     }
 
     void OnVMPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -419,11 +423,13 @@ public partial class FemSchemaView3D : UserControl
         for (int i = 0; i < _shellVisuals.Count; i++)
             viewport.Children.Insert(index + i, _shellVisuals[i]);
         UpdateResultOverlay();
+        AddGhostVisuals();
     }
 
-    void BuildVisuals()
+    void BuildVisuals(bool zoom = true)
     {
         viewport.Children.Clear();
+        _ghostVisuals.Clear();
         _planarVisuals.Clear();
         _resultOriginalVisual = null;
         _meshVisual = null;
@@ -497,7 +503,7 @@ public partial class FemSchemaView3D : UserControl
                 viewport.Children.Add(_nodesVisual);
         }
 
-        if (VM.BarGroups.Count > 0 || VM.ShellMesh != null)
+        if (zoom && (VM.BarGroups.Count > 0 || VM.ShellMesh != null))
             ZoomToModel();
 
         // BuildEditProxies — раньше глифов нагрузок: их прозрачные (но пишущие в z-buffer)
@@ -514,6 +520,8 @@ public partial class FemSchemaView3D : UserControl
         ApplyGridVisuals();
         UpdateGroundPlane();
         BuildMarker();
+        // Тень скрытых — последней: полупрозрачная заливка не должна закрывать в z-буфере то, что за ней.
+        AddGhostVisuals();
     }
 
     /// <summary>Метка <see cref="Fem3DVM.MarkerPoint"/>: сфера с размером от габарита узлов вида.</summary>
@@ -1336,7 +1344,10 @@ public partial class FemSchemaView3D : UserControl
     /// </summary>
     void ZoomToModel()
     {
-        var bounds = Visual3DHelper.FindBounds(viewport.Children);
+        // По фрагменту: тень скрытых в габарит не входит.
+        var bounds = Rect3D.Empty;
+        foreach (var child in viewport.Children)
+            if (!_ghostVisuals.Contains(child)) bounds.Union(Visual3DHelper.FindBounds(child, Transform3D.Identity));
         if (!bounds.IsEmpty && viewport.Camera is ProjectionCamera camera && camera.LookDirection.Length > 0)
         {
             double diagonal = new Vector3D(bounds.SizeX, bounds.SizeY, bounds.SizeZ).Length;
@@ -1349,7 +1360,8 @@ public partial class FemSchemaView3D : UserControl
                 camera.Position = target - camera.LookDirection;
             }
         }
-        viewport.ZoomExtents(500);
+        if (bounds.IsEmpty) viewport.ZoomExtents(500);
+        else viewport.ZoomExtents(bounds, 500);
     }
 
     void CreateNodeFromPanel_Click(object sender, RoutedEventArgs e)
@@ -1461,6 +1473,7 @@ public partial class FemSchemaView3D : UserControl
             _contextMenuTargetTag = target.Tag;
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
             if (!target.IsNode) AppendMemberGroupItems(menu, target.Tag);
+            AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
             e.Handled = true;
@@ -1484,9 +1497,125 @@ public partial class FemSchemaView3D : UserControl
         _contextMenuTargetTag = prHitTag;
         var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
         AppendMemberGroupItems(prMenu, prHitTag);
+        AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
         e.Handled = true;
+    }
+
+    // ── Фрагмент: изоляция и скрытие выбранного и групп ─────────────────────────────────────
+
+    /// <summary>Тень скрытых показывается (выбор на сеанс).</summary>
+    static bool s_showHiddenGhost = true;
+
+    readonly List<Visual3D> _ghostVisuals = [];
+    static readonly Color GhostLineColor = Color.FromArgb(90, 150, 150, 150);
+    static readonly Color GhostShellColor = Color.FromArgb(28, 150, 150, 160);
+
+    /// <summary>Фрагмент изменился — сцена собирается заново; камера остаётся, кроме «Показать только».</summary>
+    void OnFragmentApplied(bool zoom)
+    {
+        if (VM is not { IsLoading: false }) return;
+        BuildVisuals(zoom);
+        UpdateFragmentButtons();
+    }
+
+    /// <summary>Тень скрытых фрагментом: бледные линии стержней и почти прозрачная заливка пластин, без выбора.</summary>
+    void AddGhostVisuals()
+    {
+        foreach (var v in _ghostVisuals) viewport.Children.Remove(v);
+        _ghostVisuals.Clear();
+        ghostCheck.IsChecked = s_showHiddenGhost;
+        if (VM is not { } vm || !s_showHiddenGhost) return;
+        var material = new DiffuseMaterial(new SolidColorBrush(GhostShellColor));
+        foreach (var mesh in vm.HiddenGhostShells)
+            _ghostVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } });
+        if (vm.HiddenGhostLines is { Count: > 0 } lines)
+            _ghostVisuals.Add(new LinesVisual3D { Points = lines, Color = GhostLineColor, Thickness = 0.8 });
+        foreach (var v in _ghostVisuals) viewport.Children.Add(v);
+    }
+
+    void GhostToggle_Click(object sender, RoutedEventArgs e)
+    {
+        s_showHiddenGhost = ghostCheck.IsChecked == true;
+        AddGhostVisuals();
+    }
+
+    /// <summary>Кнопки по выбранному — только где есть выбор (страница схемы) и что-то выбрано.</summary>
+    void UpdateFragmentButtons()
+    {
+        var visibility = VM?.Selection != null ? Visibility.Visible : Visibility.Collapsed;
+        fragmentShowOnlyButton.Visibility = fragmentHideButton.Visibility = visibility;
+        bool hasSelection = VM?.HasSelection == true;
+        fragmentShowOnlyButton.IsEnabled = fragmentHideButton.IsEnabled = hasSelection;
+    }
+
+    void FragmentShowOnly_Click(object sender, RoutedEventArgs e) => VM?.ShowOnlySelection();
+
+    void FragmentHide_Click(object sender, RoutedEventArgs e) => VM?.HideSelection();
+
+    void FragmentInvert_Click(object sender, RoutedEventArgs e) => VM?.InvertFragment();
+
+    void FragmentShowAll_Click(object sender, RoutedEventArgs e) => VM?.ShowAllFragment();
+
+    /// <summary>Группы схемы: «Показать только», «Скрыть», «Показать» для каждой (список — при открытии).</summary>
+    void FragmentGroupsMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, fragmentGroupsMenu)) return;
+        fragmentGroupsMenu.Items.Clear();
+        if (VM is not { } vm) return;
+        var groups = vm.FragmentGroups;
+        if (groups.Count == 0)
+        {
+            fragmentGroupsMenu.Items.Add(new MenuItem { Header = Loc.S("Fem3DFragmentNoGroups"), IsEnabled = false });
+            return;
+        }
+        foreach (var group in groups.OrderBy(g => g.IsMeshGroup).ThenBy(g => g.Tag, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var item = new MenuItem
+            {
+                Header = string.Format(Loc.S(group.IsMeshGroup ? "Fem3DFragmentMeshGroupItem" : "Fem3DFragmentMembersGroupItem"), group.Tag),
+            };
+            foreach (var (key, action) in FragmentActions)
+            {
+                var sub = new MenuItem { Header = Loc.S(key) };
+                sub.Click += (_, _) => vm.ApplyGroupFragment(group, action);
+                item.Items.Add(sub);
+            }
+            fragmentGroupsMenu.Items.Add(item);
+        }
+    }
+
+    static readonly (string Key, FemFragmentAction Action)[] FragmentActions =
+    [
+        ("Fem3DFragmentShowOnlyCtx", FemFragmentAction.ShowOnly),
+        ("Fem3DFragmentHideCtx", FemFragmentAction.Hide),
+        ("Fem3DFragmentShowCtx", FemFragmentAction.Show),
+    ];
+
+    const string FragmentItemMarker = "fem-fragment-item";
+
+    /// <summary>«Показать только» и «Скрыть» в меню элемента: для выделения, если щёлкнутый в нём, иначе для него одного.
+    /// Пункты прошлого показа меню убираются.</summary>
+    void AppendFragmentItems(ContextMenu menu, IReadOnlyCollection<string> tags, bool meshElements, bool separator = true)
+    {
+        foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, FragmentItemMarker)).ToList())
+            menu.Items.Remove(old);
+        if (VM is not { } vm || tags.Count == 0) return;
+        if (separator) menu.Items.Add(new Separator { Tag = FragmentItemMarker });
+        foreach (var (key, action) in FragmentActions.Take(2))
+        {
+            var item = new MenuItem { Header = string.Format(Loc.S(key + "N"), tags.Count), Tag = FragmentItemMarker };
+            item.Click += (_, _) => vm.FragmentElements(tags, meshElements, action);
+            menu.Items.Add(item);
+        }
+    }
+
+    /// <summary>Щёлкнутый КонЭ и выделенные вместе с ним.</summary>
+    IReadOnlyCollection<string> ClickedWithSelection(string clickedTag)
+    {
+        var selected = Editor?.Selection.SelectedElemTags;
+        return selected != null && selected.Contains(clickedTag) ? [.. selected] : [clickedTag];
     }
 
     // ── Выбор КЭ импортированной сетки и команды групп ──────────────────────────────────────
@@ -1567,6 +1696,8 @@ public partial class FemSchemaView3D : UserControl
             menu.Items.Add(members);
             menu.Items.Add(new Separator());
         }
+        AppendFragmentItems(menu, [.. selection.SelectedMeshElemTags], meshElements: true, separator: false);
+        menu.Items.Add(new Separator());
         var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
         clear.Click += (_, _) => selection.Clear();
         menu.Items.Add(clear);
