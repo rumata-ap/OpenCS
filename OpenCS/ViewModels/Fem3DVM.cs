@@ -1066,6 +1066,7 @@ public class Fem3DVM : ViewModelBase
         TrackResultSelection(null);
         ResultOriginalLines = null;
         ResultMeshLines = null;
+        ResultCrackLines = null;
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
         SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
@@ -1097,6 +1098,9 @@ public class Fem3DVM : ViewModelBase
 
     /// <summary>Рёбра показанных пластин результата на положениях узлов слоя (кнопка «Сетка»); null — сетка выключена.</summary>
     public Point3DCollection? ResultMeshLines { get; private set; }
+
+    /// <summary>Штрихи линий трещин у показанных пластин при мозаике ширины раскрытия; null — мозаика другая.</summary>
+    public Point3DCollection? ResultCrackLines { get; private set; }
 
     /// <summary>Сетка схемы для результатов (читается при первом показе результата, сбрасывается при перезагрузке вида).</summary>
     FemResult.FemResultMesh? _resultMesh;
@@ -1169,6 +1173,7 @@ public class Fem3DVM : ViewModelBase
             : originalMap == null ? result.OriginalLines
             : FragmentOriginalLines(originalMap, shells, bars);
         ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;
+        ResultCrackLines = result.CrackStrokes(shells.Select(e => e.ElemTag));
         _resultNodeMap = nodeMap;
         _resultVisible = [.. shells, .. bars];
         _resultPickNodes = null;

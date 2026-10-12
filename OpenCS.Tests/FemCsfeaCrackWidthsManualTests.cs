@@ -41,12 +41,12 @@ public sealed class FemCsfeaCrackWidthsManualTests(ITestOutputHelper output)
                         foreach (var field in vm.ShellFields.Where(f => f.Value >= FemCsfeaShellField.AcrcLongBottom))
                         {
                             var clock = Stopwatch.StartNew();
-                            vm.SelectedShellField = field;
-                            await vm.CrackWidthsTask;
-                            double max = vm.Legend.Count == 0 ? 0 : Enumerable.Range(0, 1).Select(_ => MaxValue(vm)).First();
-                            output.WriteLine($"  доля {share}: {field.Label} — {clock.Elapsed.TotalSeconds:0.00} с, КЭ со значением {vm.Legend.Sum(l => l.Count)}, " +
-                                             $"наибольшее {max:0.000} мм, штрихов {vm.CrackLines.Count / 2}");
-                            foreach (var l in vm.Legend) output.WriteLine($"      {l.Label}: {l.Count}");
+                            if (!vm.PrepareShellField(field.Value)) await vm.CrackWidthsTask;
+                            var values = vm.Fields!.ShellIds.Select(id => vm.ShellFieldValue(id, field.Value)).OfType<double>().ToList();
+                            double max = values.DefaultIfEmpty(0).Max();
+                            int strokes = vm.CrackStrokes(field.Value, vm.Fields.ShellIds, _ => default).Count / 2;
+                            output.WriteLine($"  доля {share}: {field.Label} — {clock.Elapsed.TotalSeconds:0.00} с, КЭ со значением {values.Count}, " +
+                                             $"наибольшее {max:0.000} мм, штрихов {strokes}");
                         }
                     }
                 }
@@ -56,19 +56,5 @@ public sealed class FemCsfeaCrackWidthsManualTests(ITestOutputHelper output)
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { Directory.Delete(root, true); } catch (IOException) { }
         }
-    }
-
-    // Наибольшее значение мозаики — по подсказкам наведения (значения КЭ наружу не выдаются).
-    static double MaxValue(FemCsfeaResultVM vm)
-    {
-        double max = 0;
-        foreach (int id in vm.Fields!.ShellIds)
-        {
-            vm.SetHover(id);
-            int colon = vm.HoverText.LastIndexOf(": ", StringComparison.Ordinal);
-            if (colon >= 0 && double.TryParse(vm.HoverText[(colon + 2)..], out double v)) max = Math.Max(max, v);
-        }
-        vm.SetHover(null);
-        return max;
     }
 }

@@ -202,7 +202,7 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task ResultVM_StepsFieldsAndMosaic()
+    public async Task ResultVM_StepsFieldsAndTables()
     {
         await WithSchema(async (ctx, _, schema, analysis) =>
         {
@@ -220,14 +220,12 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             Assert.Equal(summary.Steps.Count, vm.LambdaPoints.Count);
             Assert.Equal(2.0, vm.LambdaPoints[last].Y, 12);   // стадия 1 + λ = 1
 
-            // Мозаика: все пластины раскрашены, прогиб центра — наибольший по модулю.
-            vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.Uz);
-            Assert.True(vm.IsActive);
-            int shells = ctx.Db.GetFemMeshElements(schema.Id).Count(e => e.ElemType == "shell");
-            Assert.Equal(shells, vm.Legend.Sum(l => l.Count));
-            Assert.Equal(shells * 2, vm.ShellPatches.Sum(p => p.TriangleElements.Count));
-            vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.State);
-            Assert.Contains(vm.Legend, l => l.Count > 0);
+            // Поля пластин для мозаики: прогиб и состояние есть у всех пластин.
+            var shellTags = ctx.Db.GetFemMeshElements(schema.Id).Where(e => e.ElemType == "shell")
+                .Select(e => int.Parse(e.ElemTag, CultureInfo.InvariantCulture)).ToList();
+            int shells = shellTags.Count;
+            Assert.All(shellTags, t => Assert.NotNull(vm.ShellFieldValue(t, OpenCS.ViewModels.FemCsfeaShellField.Uz)));
+            Assert.All(shellTags, t => Assert.InRange(vm.ShellFieldValue(t, OpenCS.ViewModels.FemCsfeaShellField.State)!.Value, 0, 3));
 
             // Таблицы окна: строка на узел и на пластину, перемещения в мм, усилия в кН — как в полях шага.
             Assert.Equal(vm.Fields!.NodeIds.Length, vm.NodeRows.Count);
@@ -237,6 +235,29 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var shellRow = vm.ShellRows[0];
             Assert.Equal(vm.ShellForces(shellRow.Elem)![3] / 1e3, shellRow.Mx, 12);
             Assert.NotEqual("", shellRow.State);
+
+            // Штрихи трещин мозаики ширины раскрытия: по одному на пластину с раскрытием, середина — в центре КЭ.
+            var acrc = OpenCS.ViewModels.FemCsfeaShellField.AcrcLongBottom;
+            Assert.True(vm.HasCrackWidths);
+            if (!vm.PrepareShellField(acrc)) await vm.CrackWidthsTask;
+            Assert.True(vm.PrepareShellField(acrc));
+            var cracked = shellTags.Where(t => vm.ShellFieldValue(t, acrc) > 0).ToList();
+            var nodes = ctx.Db.GetFemMeshNodes(schema.Id).ToDictionary(n => int.Parse(n.NodeTag, CultureInfo.InvariantCulture),
+                n => new System.Windows.Media.Media3D.Point3D(n.X, n.Y, n.Z));
+            var strokes = vm.CrackStrokes(acrc, shellTags, n => nodes[n]);
+            Assert.NotEmpty(cracked);
+            Assert.Equal(2 * cracked.Count, strokes.Count);
+            var contours = ctx.Db.GetFemMeshElements(schema.Id).Where(e => e.ElemType == "shell").ToDictionary(
+                e => int.Parse(e.ElemTag, CultureInfo.InvariantCulture),
+                e => System.Text.Json.JsonSerializer.Deserialize<int[]>(e.NodeIdsJson)!);
+            for (int k = 0; k < cracked.Count; k++)
+            {
+                var c = contours[cracked[k]];
+                var center = new System.Windows.Media.Media3D.Point3D(c.Average(n => nodes[n].X), c.Average(n => nodes[n].Y),
+                    c.Average(n => nodes[n].Z));
+                Assert.True((strokes[2 * k] + (strokes[2 * k + 1] - strokes[2 * k]) / 2 - center).Length < 1e-9);
+            }
+            Assert.Empty(vm.CrackStrokes(OpenCS.ViewModels.FemCsfeaShellField.Uz, shellTags, n => nodes[n]));
 
             // Шаг → наборы усилий: пластины, строка на КЭ, усилия в кН — как в полях шага.
             Assert.True(vm.CanCreateForceSets);

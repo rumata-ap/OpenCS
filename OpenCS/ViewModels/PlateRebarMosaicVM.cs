@@ -1083,6 +1083,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Значения текущей мозаики на КЭ; null — мозаика выключена.</summary>
    Field? BuildField(IEnumerable<string> shellTags, IEnumerable<string> barTags)
    {
+      // Мозаику ширины раскрытия (штрихи трещин, доля длительной части) отмечает только её ветка ниже.
+      if (ActiveResult is { } shown) shown.ShownCrackField = null;
       if (SelectedComponent is not { } comp) return null;
       _resultComputing = false;
       switch (Kind)
@@ -1133,7 +1135,6 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                values[tag] = result.Value(tag, rc) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
             // Экстремум — по показанным КЭ (фрагмент вида).
             result.UpdateSummary(rc, values.Keys);
-            result.IsCrackFieldShown = false;
             bool signed = rc != FemResult.FemResultComponent.U;
             return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = both };
          }
@@ -1141,7 +1142,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemCsfeaShellField sf:
          {
             UpdateResultBarForces(result, barTags);
-            result.IsCrackFieldShown = IsCrackWidth(sf);
+            result.ShownCrackField = IsCrackWidth(sf) ? sf : null;
             _resultComputing = !result.PrepareShellField(sf);
             var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
             foreach (string tag in shellTags)

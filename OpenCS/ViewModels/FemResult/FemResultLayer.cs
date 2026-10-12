@@ -337,13 +337,34 @@ public sealed class FemResultLayer : ViewModelBase
     public FemCsfeaResultVM? Csfea { get; }
     public bool IsCsfea => Csfea != null;
 
-    bool _isCrackFieldShown;
-    /// <summary>Показана ширина раскрытия трещин — в строке шага доля длительной части.</summary>
-    public bool IsCrackFieldShown
+    FemCsfeaShellField? _shownCrackField;
+    /// <summary>Показанная мозаика ширины раскрытия трещин; null — показано другое.</summary>
+    public FemCsfeaShellField? ShownCrackField
     {
-        get => _isCrackFieldShown;
-        set { if (_isCrackFieldShown == value) return; _isCrackFieldShown = value; OnPropertyChanged(); }
+        get => _shownCrackField;
+        set
+        {
+            if (_shownCrackField == value) return;
+            _shownCrackField = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsCrackFieldShown));
+        }
     }
+
+    /// <summary>Показана ширина раскрытия трещин — в строке шага доля длительной части.</summary>
+    public bool IsCrackFieldShown => _shownCrackField != null;
+
+    /// <summary>
+    /// Штрихи линий трещин (пары точек) у пластин показанной мозаики ширины раскрытия — на положениях узлов слоя;
+    /// null — мозаика ширины раскрытия не показана.
+    /// </summary>
+    /// <param name="shellTags">Пластины показанного фрагмента.</param>
+    public Point3DCollection? CrackStrokes(IEnumerable<string> shellTags) =>
+        Csfea != null && _shownCrackField is { } field
+            ? Csfea.CrackStrokes(field,
+                shellTags.Select(t => int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : -1),
+                Position)
+            : null;
 
     /// <summary>Доля длительной части усилий шага для ширины раскрытия (CSfea).</summary>
     public double LongShare

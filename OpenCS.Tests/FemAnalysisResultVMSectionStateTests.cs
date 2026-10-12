@@ -56,7 +56,7 @@ public class FemAnalysisResultVMSectionStateTests
     }
 
     [Fact]
-    public void Ctor_WithRecordedSections_BuildsLocationsAndMarkers()
+    public void Ctor_WithRecordedSections_BuildsLocations()
     {
         var (db, dir) = Setup(out var vm);
         try
@@ -65,8 +65,6 @@ public class FemAnalysisResultVMSectionStateTests
             Assert.True(row.IsStateAvailable);
             Assert.Equal(0.5, row.ElementLocalNormalized, 8);
             Assert.True(vm.CanRequestSectionState);
-            var marker = Assert.Single(vm.SectionMarkers);
-            Assert.Equal(1.0, marker.Point.X, 8);
         }
         finally { db.Dispose(); Directory.Delete(dir, true); }
     }

@@ -57,7 +57,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     readonly List<(int Tag, int I, int J, Vector3D Ey, Vector3D Ez)> _beams = new();
     readonly List<(int Tag, int[] Contour)> _shells = new();
     readonly Dictionary<int, int[]> _contours = new();
-    readonly double _diag;
 
     /// <param name="analysis">Постановка результата: у линейного расчёта строки названы по загружениям схемы
     /// (<see cref="Tasks.FemAnalysisCaseNames"/>); null — имена из сводки.</param>
@@ -128,14 +127,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 new(FemCsfeaShellField.AcrcShortTop, Loc.S("FemCsfeaFieldAcrcShortTop")),
             ]);
         ShellFields = shellFields;
-        _selectedShellField = ShellFields[0];
-        ForceComponents = new FemCsfeaOption<FemForceComponent?>[]
-        {
-            new(null, Loc.S("FemCsfeaFieldNone")),
-            new(FemForceComponent.N, "N"), new(FemForceComponent.Qy, "Qy"), new(FemForceComponent.Qz, "Qz"),
-            new(FemForceComponent.Mx, "Mx"), new(FemForceComponent.My, "My"), new(FemForceComponent.Mz, "Mz"),
-        };
-        _selectedForceComponent = ForceComponents[0];
 
         // Геометрия — из сетки схемы (номера узлов и КЭ — теги сетки, как в модели CSfea).
         var meshNodes = db.GetFemMeshNodes(schema.Id);
@@ -165,27 +156,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 _contours[tag] = contour;
             }
         }
-        if (_nodes.Count > 0)
-        {
-            var p = _nodes.Values;
-            double dx = p.Max(v => v.X) - p.Min(v => v.X), dy = p.Max(v => v.Y) - p.Min(v => v.Y), dz = p.Max(v => v.Z) - p.Min(v => v.Z);
-            _diag = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        }
-        foreach (var (_, i, j, _, _) in _beams) { OriginalLines.Add(_nodes[i]); OriginalLines.Add(_nodes[j]); }
-        foreach (var (_, c) in _shells)
-            for (int k = 0; k < c.Length; k++) { OriginalLines.Add(_nodes[c[k]]); OriginalLines.Add(_nodes[c[(k + 1) % c.Length]]); }
-
-        ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestDeformScale());
         GoToFieldsStepCommand = new RelayCommand(_ => GoToFieldsStep(), _ => FieldsStepIndex is int i && i != SelectedStepIndex);
         CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
-        ResetForceScaleCommand = new RelayCommand(_ => { _forceScale = SuggestForceScale(); RebuildForceDiagram(); OnPropertyChanged(nameof(ForceScale)); });
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
         _selectedStepIndex = Math.Max(0, last);
         ApplyStep();
-        _deformScale = SuggestDeformScale();
-        RebuildDeformed();
     }
 
     public FemSchema Schema { get; }
@@ -200,7 +177,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public IReadOnlyList<(double X, double Y, bool Converged, int SegmentId)> ControlPoints { get; }
     public bool HasControlChart => ControlPoints.Any(p => double.IsFinite(p.X));
     public string ControlAxisLabel { get; }
-    public bool HasGeometry => _nodes.Count > 0;
     public bool HasShells => _shells.Count > 0;
     public bool HasBeams => _beams.Count > 0;
 
@@ -219,7 +195,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             _selectedStepIndex = v;
             OnPropertyChanged();
             ApplyStep();
-            RebuildDeformed();
         }
     }
 
@@ -282,8 +257,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(NodeRows));
         OnPropertyChanged(nameof(ShellRows));
         OnPropertyChanged(nameof(BeamRows));
-        RebuildMosaic();
-        RebuildForceDiagram();
     }
 
     void GoToFieldsStep()
@@ -407,31 +380,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             f[o + 6], f[o + 7], f[o + 8], f[o + 9], f[o + 10], f[o + 11]);
     }
 
-    // ------------------------------------------------------------ деформированная схема
-
-    double _deformScale = 1;
-    public double DeformScale
-    {
-        get => _deformScale;
-        set
-        {
-            if (!FemScaleInput.IsValid(value) || value == _deformScale) return;
-            _deformScale = value;
-            OnPropertyChanged();
-            RebuildDeformed();
-        }
-    }
-
-    bool _showDeformed = true;
-    public bool ShowDeformed
-    {
-        get => _showDeformed;
-        set { if (value == _showDeformed) return; _showDeformed = value; OnPropertyChanged(); RebuildDeformed(); }
-    }
-
-    public System.Windows.Input.ICommand ResetDeformScaleCommand { get; }
     public System.Windows.Input.ICommand GoToFieldsStepCommand { get; }
-    public System.Windows.Input.ICommand ResetForceScaleCommand { get; }
 
     // ------------------------------------------------------------ шаг → набор усилий
 
@@ -452,107 +401,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing);
     }
 
-    public Point3DCollection OriginalLines { get; } = [];
-    public Point3DCollection DeformedLines { get; private set; } = [];
-
-    /// <summary>Положение узла на виде: деформированное (если включено) или исходное.</summary>
-    public Point3D Position(int node)
-    {
-        var p = _nodes[node];
-        return _showDeformed ? p + Displacement(node) * _deformScale : p;
-    }
-
-    double SuggestDeformScale()
-    {
-        if (Fields == null || _diag <= 0) return 1;
-        double max = 0;
-        for (int i = 0; i < Fields.NodeIds.Length; i++)
-        {
-            var d = Fields.Displacements;
-            max = Math.Max(max, Math.Sqrt(d[6 * i] * d[6 * i] + d[6 * i + 1] * d[6 * i + 1] + d[6 * i + 2] * d[6 * i + 2]));
-        }
-        if (max <= 1e-12) return 1;
-        double v = 0.05 * _diag / max;
-        double r = Math.Round(v, 2);
-        return r > 0 ? r : v;
-    }
-
-    void RebuildDeformed()
-    {
-        var pts = new Point3DCollection();
-        if (_showDeformed && Fields != null)
-        {
-            foreach (var (_, i, j, _, _) in _beams) { pts.Add(Position(i)); pts.Add(Position(j)); }
-            foreach (var (_, c) in _shells)
-                for (int k = 0; k < c.Length; k++) { pts.Add(Position(c[k])); pts.Add(Position(c[(k + 1) % c.Length])); }
-        }
-        pts.Freeze();
-        DeformedLines = pts;
-        OnPropertyChanged(nameof(DeformedLines));
-        RebuildShellMeshes();
-        RebuildForceDiagram();
-    }
-
-    // ------------------------------------------------------------ мозаика пластин
+    // ------------------------------------------------------------ поля пластин
 
     public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields { get; }
-
-    FemCsfeaOption<FemCsfeaShellField> _selectedShellField;
-    public FemCsfeaOption<FemCsfeaShellField> SelectedShellField
-    {
-        get => _selectedShellField;
-        set
-        {
-            if (value == null || value == _selectedShellField) return;
-            _selectedShellField = value;
-            OnPropertyChanged();
-            RebuildMosaic();
-            RebuildShellMeshes();
-        }
-    }
-
-    /// <summary>Мозаика включена (для легенды <c>PlateRebarMosaicLegend</c>).</summary>
-    public bool IsActive => _selectedShellField.Value != FemCsfeaShellField.None && HasShells;
-    public string LegendTitle { get; private set; } = "";
-    public IReadOnlyList<PlateRebarMosaicLegendItem> Legend { get; private set; } = [];
-
-    string _hoverText = "";
-    public string HoverText
-    {
-        get => _hoverText;
-        private set { if (value == _hoverText) return; _hoverText = value; OnPropertyChanged(); }
-    }
-
-    string _thresholdsText = "";
-    /// <summary>Ручные пороги шкалы («a; b; c»); пусто — автошкала.</summary>
-    public string ThresholdsText
-    {
-        get => _thresholdsText;
-        set
-        {
-            value ??= "";
-            if (value == _thresholdsText) return;
-            _thresholdsText = value;
-            OnPropertyChanged();
-            RebuildMosaic();
-            RebuildShellMeshes();
-        }
-    }
-
-    readonly Dictionary<int, double> _mosaicValues = new();
-    readonly Dictionary<int, Color> _mosaicColors = new();
-
-    /// <summary>
-    /// Пластины одного цвета: цвет, КЭ по треугольникам (по два на четырёхугольник) и по вершинам (у каждого КЭ свои
-    /// вершины — КЭ под курсором находится по вершине треугольника без перебора).
-    /// </summary>
-    public sealed record ShellPatch(Color Color, MeshGeometry3D Mesh, IReadOnlyList<int> TriangleElements,
-        IReadOnlyList<int> VertexElements);
-
-    public IReadOnlyList<ShellPatch> ShellPatches { get; private set; } = [];
-
-    /// <summary>Цвет пластин без мозаики.</summary>
-    public static Color ShellColor => Color.FromArgb(150, 200, 210, 225);
 
     static readonly Color NoCrack = Color.FromRgb(225, 235, 245), Cracked = Color.FromRgb(254, 224, 144),
         Yielded = Color.FromRgb(244, 109, 67), Failed = Colors.Black;
@@ -564,7 +415,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     static bool IsCrack(FemCsfeaShellField field) => field is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
 
     /// <summary>
-    /// Значение поля пластины на показанном шаге независимо от мозаики окна; ширина раскрытия — из готового расчёта
+    /// Значение поля пластины на показанном шаге; ширина раскрытия — из готового расчёта
     /// показанного шага при текущей доле (см. <see cref="PrepareShellField"/>). Null — нет данных.
     /// </summary>
     public double? ShellFieldValue(int elem, FemCsfeaShellField field) =>
@@ -590,8 +441,6 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     }
 
     Dictionary<int, (Vector3D Ey, Vector3D Ez)>? _beamAxes;
-
-    double? ShellValue(int elem, FemCsfeaShellField field) => ShellValue(elem, field, _crackShown);
 
     double? ShellValue(int elem, FemCsfeaShellField field, Dictionary<int, FemCsfeaCrackWidth>? cracks)
     {
@@ -624,91 +473,17 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return v is double d && double.IsFinite(d) ? d : null;
     }
 
-    void RebuildMosaic()
-    {
-        _mosaicValues.Clear();
-        _mosaicColors.Clear();
-        var field = _selectedShellField.Value;
-        var legend = new List<PlateRebarMosaicLegendItem>();
-        _crackShown = IsActive && IsCrackField ? EnsureCrackWidths() : null;
-        bool computing = IsActive && IsCrackField && Fields != null && _crackShown == null;
-        if (IsActive && Fields != null && !computing)
-        {
-            // Перемещения ux/uy/uz по КЭ — среднее узлов контура.
-            foreach (var (tag, _) in _shells)
-                if (ShellValue(tag, field) is double v) _mosaicValues[tag] = v;
-            int missing = _shells.Count - _mosaicValues.Count;
-            if (field == FemCsfeaShellField.State)
-            {
-                var states = StateStyles;
-                var counts = new int[4];
-                foreach (var (tag, v) in _mosaicValues) { int k = (int)v; counts[k]++; _mosaicColors[tag] = states[k].Item1; }
-                for (int k = 3; k >= 0; k--) legend.Add(new(PlateRebarMosaicVM.Freeze(states[k].Item1), Loc.S(states[k].Item2), counts[k]));
-            }
-            else
-            {
-                bool diverging = field is >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Qy;
-                var numbers = _mosaicValues.Values.ToList();
-                double min = numbers.Count > 0 ? numbers.Min() : 0, max = numbers.Count > 0 ? numbers.Max() : 0;
-                var manual = PlateRebarMosaicVM.ParseThresholds(_thresholdsText);
-                var scale = manual.Count > 0 ? PlateRebarMosaicScale.Manual(manual, diverging) : PlateRebarMosaicScale.Auto(numbers, diverging);
-                var colors = PlateRebarMosaicVM.BandColors(scale, diverging ? PlateRebarMosaicVM.Palette.Forces
-                    : field is FemCsfeaShellField.SigmaRatio or FemCsfeaShellField.EpsRatio ? PlateRebarMosaicVM.Palette.Utilization
-                    : PlateRebarMosaicVM.Palette.Rebar);
-                var counts = new int[scale.Bands.Count];
-                foreach (var (tag, v) in _mosaicValues) { int b = scale.BandOf(v); counts[b]++; _mosaicColors[tag] = colors[b]; }
-                for (int b = scale.Bands.Count - 1; b >= 0; b--)
-                    legend.Add(new(PlateRebarMosaicVM.Freeze(colors[b]), PlateRebarMosaicVM.BandLabel(scale.Bands[b], min, max), counts[b]));
-            }
-            if (missing > 0) legend.Add(new(PlateRebarMosaicVM.Freeze(Fem3DVM.ShellBgColor), Loc.S("PlateRebarMosaicNoData"), missing));
-        }
-        Legend = legend;
-        LegendTitle = IsActive ? $"{_selectedShellField.Label}\n{CurrentStepLabel}" + (computing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "") : "";
-        HoverText = "";
-        OnPropertyChanged(nameof(IsActive));
-        OnPropertyChanged(nameof(IsCrackField));
-        OnPropertyChanged(nameof(Legend));
-        OnPropertyChanged(nameof(LegendTitle));
-    }
-
-    void RebuildShellMeshes()
-    {
-        var groups = new Dictionary<Color, (MeshGeometry3D Mesh, List<int> Elements, List<int> Vertices)>();
-        foreach (var (tag, c) in _shells)
-        {
-            var color = _mosaicColors.TryGetValue(tag, out var mc) ? mc : IsActive ? Fem3DVM.ShellBgColor : ShellColor;
-            if (!groups.TryGetValue(color, out var g)) groups[color] = g = (new MeshGeometry3D(), new List<int>(), new List<int>());
-            int n0 = g.Mesh.Positions.Count;
-            foreach (int node in c) { g.Mesh.Positions.Add(Position(node)); g.Vertices.Add(tag); }
-            for (int k = 1; k + 1 < c.Length; k++)
-            {
-                g.Mesh.TriangleIndices.Add(n0); g.Mesh.TriangleIndices.Add(n0 + k); g.Mesh.TriangleIndices.Add(n0 + k + 1);
-                g.Elements.Add(tag);
-            }
-        }
-        ShellPatches = groups.Select(kv =>
-        {
-            kv.Value.Mesh.Freeze();
-            return new ShellPatch(kv.Key, kv.Value.Mesh, kv.Value.Elements, kv.Value.Vertices);
-        }).ToList();
-        OnPropertyChanged(nameof(ShellPatches));
-        RebuildCrackLines();
-    }
-
     // ------------------------------------------------------------ ширина раскрытия трещин
 
     readonly FemAnalysis? _analysis;
     List<FemCsfeaCrackElement>? _crackElements;
     Dictionary<int, FemCsfeaCrackElement> _crackById = new();
     (int Step, double Share)? _crackKey, _crackPending;
-    Dictionary<int, FemCsfeaCrackWidth>? _crackWidths, _crackShown;
+    Dictionary<int, FemCsfeaCrackWidth>? _crackWidths;
     CancellationTokenSource? _crackCts;
 
     /// <summary>Мозаики ширины раскрытия доступны: вид расчёта постановки — N или NL.</summary>
     public bool HasCrackWidths { get; }
-
-    /// <summary>Выбрана мозаика ширины раскрытия.</summary>
-    public bool IsCrackField => _selectedShellField.Value is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
 
     /// <summary>Идущий расчёт ширины раскрытия (завершённая задача — расчёта нет).</summary>
     public Task CrackWidthsTask { get; private set; } = Task.CompletedTask;
@@ -723,13 +498,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             if (!(value >= 0 && value <= 1) || value == _longShare) return;
             _longShare = value;
             OnPropertyChanged();
-            RebuildMosaic();
-            RebuildShellMeshes();
         }
     }
-
-    /// <summary>Штрихи по линиям трещин в центрах КЭ (пары точек) для выбранной мозаики ширины раскрытия.</summary>
-    public Point3DCollection CrackLines { get; private set; } = [];
 
     static double CrackValue(FemCsfeaCrackWidth w, FemCsfeaShellField field) => field switch
     {
@@ -740,8 +510,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     };
 
     /// <summary>
-    /// Ширина раскрытия показанного шага при текущей доле: из кеша или null — расчёт запущен в фоне, по завершении
-    /// мозаика перестраивается. Сечения пластин — по текущему состоянию проекта (как при запуске расчёта схемы).
+    /// Ширина раскрытия показанного шага при текущей доле: из кеша или null — расчёт запущен в фоне, по завершении —
+    /// <see cref="CrackWidthsReady"/>. Сечения пластин — по текущему состоянию проекта (как при запуске расчёта схемы).
     /// </summary>
     Dictionary<int, FemCsfeaCrackWidth>? EnsureCrackWidths()
     {
@@ -831,22 +601,27 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _crackPending = null;
         _crackKey = key;
         _crackWidths = widths;
-        RebuildMosaic();
-        RebuildShellMeshes();
         CrackWidthsReady?.Invoke();
     }
 
-    void RebuildCrackLines()
+    /// <summary>
+    /// Штрихи по линиям трещин в центрах КЭ (пары точек) для мозаики ширины раскрытия: у КЭ с раскрытием — отрезок
+    /// 0,8 наименьшего ребра под углом трещины к оси x сечения (против часовой с конца оси z сечения). Пусто — ширина
+    /// раскрытия показанного шага при текущей доле ещё не посчитана (см. <see cref="PrepareShellField"/>).
+    /// </summary>
+    /// <param name="field">Мозаика ширины раскрытия (грань — по ней).</param>
+    /// <param name="elems">КЭ пластин, у которых рисовать штрихи.</param>
+    /// <param name="position">Положение узла на виде.</param>
+    public Point3DCollection CrackStrokes(FemCsfeaShellField field, IEnumerable<int> elems, Func<int, Point3D> position)
     {
         var pts = new Point3DCollection();
-        var field = _selectedShellField.Value;
-        if (_crackShown != null && IsActive && IsCrackField)
+        if (IsCrack(field) && CurrentCrackWidths() is { } widths)
         {
             bool top = field is FemCsfeaShellField.AcrcLongTop or FemCsfeaShellField.AcrcShortTop;
-            foreach (var (tag, c) in _shells)
+            foreach (int tag in elems)
             {
-                if (!_crackShown.TryGetValue(tag, out var w) || !(CrackValue(w, field) > 0) || !_crackById.TryGetValue(tag, out var el)) continue;
-                // Линия трещины — в плоскости КЭ под углом к оси x сечения (против часовой с конца оси z сечения).
+                if (!_contours.TryGetValue(tag, out var c) || !widths.TryGetValue(tag, out var w) || !(CrackValue(w, field) > 0)
+                    || !_crackById.TryGetValue(tag, out var el)) continue;
                 double beta = (top ? w.AngleTop : w.AngleBottom) * Math.PI / 180;
                 var x = new Vector3D(el.AxisX[0], el.AxisX[1], el.AxisX[2]);
                 var y = Vector3D.CrossProduct(new Vector3D(el.AxisZ[0], el.AxisZ[1], el.AxisZ[2]), x);
@@ -855,7 +630,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 double edge = double.MaxValue;
                 for (int k = 0; k < c.Length; k++)
                 {
-                    Point3D a = Position(c[k]), b = Position(c[(k + 1) % c.Length]);
+                    Point3D a = position(c[k]), b = position(c[(k + 1) % c.Length]);
                     center += (Vector3D)a / c.Length;
                     edge = Math.Min(edge, (b - a).Length);
                 }
@@ -864,105 +639,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             }
         }
         pts.Freeze();
-        CrackLines = pts;
-        OnPropertyChanged(nameof(CrackLines));
-    }
-
-    /// <summary>Подсказка легенды для КЭ под курсором; null — курсор не над КЭ.</summary>
-    public void SetHover(int? elem)
-    {
-        if (elem is not int e || !IsActive) { HoverText = ""; return; }
-        string text = !_mosaicValues.TryGetValue(e, out double v) ? Loc.S("PlateRebarMosaicNoData")
-            : _selectedShellField.Value == FemCsfeaShellField.State
-                ? Loc.S(((int)v) switch { 0 => "FemCsfeaStateNone", 1 => "FemCsfeaStateCracked", 2 => "FemCsfeaStateYielded", _ => "FemCsfeaStateFailed" })
-                : v.ToString("0.###", CultureInfo.CurrentCulture);
-        HoverText = $"{Loc.S("MosaicElement")} {e}: {text}";
-    }
-
-    // ------------------------------------------------------------ эпюры стержней
-
-    public IReadOnlyList<FemCsfeaOption<FemForceComponent?>> ForceComponents { get; }
-
-    FemCsfeaOption<FemForceComponent?> _selectedForceComponent;
-    public FemCsfeaOption<FemForceComponent?> SelectedForceComponent
-    {
-        get => _selectedForceComponent;
-        set
-        {
-            if (value == null || value == _selectedForceComponent) return;
-            _selectedForceComponent = value;
-            _forceScale = SuggestForceScale();
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(ForceScale));
-            RebuildForceDiagram();
-        }
-    }
-
-    double _forceScale = 1;
-    /// <summary>Масштаб эпюры, м на кН (кН·м).</summary>
-    public double ForceScale
-    {
-        get => _forceScale;
-        set
-        {
-            if (!FemScaleInput.IsValid(value) || value == _forceScale) return;
-            _forceScale = value;
-            OnPropertyChanged();
-            RebuildForceDiagram();
-        }
-    }
-
-    public MeshGeometry3D ForceDiagramMesh { get; private set; } = new();
-    public Point3D? ForceMaxLabelPosition { get; private set; }
-    public string? ForceMaxLabelText { get; private set; }
-    public Point3D? ForceMinLabelPosition { get; private set; }
-    public string? ForceMinLabelText { get; private set; }
-
-    IEnumerable<(double Vi, double Vj)> ForceValues(FemForceComponent c)
-    {
-        foreach (var (tag, _, _, _, _) in _beams)
-            if (BeamForces(tag) is { } f)
-            {
-                var pair = FemForceEndpointConverter.Convert(f, FemForceEndpointSignPolicy.OpenSeesDefault);
-                yield return (FemForceEndpointConverter.ReadComponent(pair.Start, c), FemForceEndpointConverter.ReadComponent(pair.End, c));
-            }
-    }
-
-    double SuggestForceScale() => _selectedForceComponent.Value is { } c
-        ? FemForceScaleCalculator.Suggest(_diag, ForceValues(c).SelectMany(v => new[] { v.Vi, v.Vj }).ToList())
-        : 1;
-
-    void RebuildForceDiagram()
-    {
-        var segs = new List<(Point3D, Point3D, Vector3D, Vector3D)>();
-        double maxV = double.NegativeInfinity, minV = double.PositiveInfinity;
-        Point3D maxPos = default, minPos = default;
-        if (_selectedForceComponent.Value is { } comp)
-            foreach (var (tag, i, j, ey, ez) in _beams)
-            {
-                if (BeamForces(tag) is not { } f) continue;
-                var pair = FemForceEndpointConverter.Convert(f, FemForceEndpointSignPolicy.OpenSeesDefault);
-                double vi = FemForceEndpointConverter.ReadComponent(pair.Start, comp), vj = FemForceEndpointConverter.ReadComponent(pair.End, comp);
-                var axis = comp is FemForceComponent.Qy or FemForceComponent.Mz ? ey : ez;
-                Point3D pi = Position(i), pj = Position(j);
-                var oi = axis * (vi / 1e3 * _forceScale);
-                var oj = axis * (vj / 1e3 * _forceScale);
-                segs.Add((pi, pj, oi, oj));
-                if (vi > maxV) { maxV = vi; maxPos = pi + oi; }
-                if (vj > maxV) { maxV = vj; maxPos = pj + oj; }
-                if (vi < minV) { minV = vi; minPos = pi + oi; }
-                if (vj < minV) { minV = vj; minPos = pj + oj; }
-            }
-        ForceDiagramMesh = FemForceDiagramFactory.BuildRibbons(segs);
-        bool has = segs.Count > 0;
-        string unit = _selectedForceComponent.Value is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz
-            ? Loc.S("UnitKN") : Loc.S("UnitKNm");
-        ForceMaxLabelPosition = has ? maxPos : null;
-        ForceMaxLabelText = has ? $"{maxV / 1e3:G4} {unit}" : null;
-        ForceMinLabelPosition = has ? minPos : null;
-        ForceMinLabelText = has ? $"{minV / 1e3:G4} {unit}" : null;
-        OnPropertyChanged(nameof(ForceDiagramMesh));
-        OnPropertyChanged(nameof(ForceMaxLabelText));
+        return pts;
     }
 
     // ------------------------------------------------------------ утилиты
@@ -975,8 +652,4 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             new FemLinearNode(0, pi.X, pi.Y, pi.Z, new bool[6]), new FemLinearNode(0, pj.X, pj.Y, pj.Z, new bool[6]), rotationDeg);
         return (new Vector3D(frame.Y.X, frame.Y.Y, frame.Y.Z), new Vector3D(frame.Z.X, frame.Z.Y, frame.Z.Z));
     }
-
-    /// <summary>Номер КЭ пластины по вершине патча (для наведения).</summary>
-    public static int? ElementOf(ShellPatch patch, int vertex) =>
-        vertex >= 0 && vertex < patch.VertexElements.Count ? patch.VertexElements[vertex] : null;
 }
