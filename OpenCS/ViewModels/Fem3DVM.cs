@@ -1142,7 +1142,13 @@ public class Fem3DVM : ViewModelBase
             bars = allBars.Where(e => Fragment.IsMeshVisible(e.ElemTag)).ToList();
             hidden = [.. allShells.Where(e => !Fragment.IsMeshVisible(e.ElemTag)), .. allBars.Where(e => !Fragment.IsMeshVisible(e.ElemTag))];
         }
-        (HiddenGhostLines, HiddenGhostShells) = BuildGhost(nodeMap, hidden, withRegions: false);
+        // Деформированная схема — только у фрагмента: скрытые КЭ тенью в исходном положении, контур исходной
+        // сетки — у видимых.
+        var originalMap = result.DeformedShown && Fragment.IsActive
+            ? result.Mesh.UsedNodes.ToDictionary(n => n.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                n => result.Mesh.Nodes[n], StringComparer.Ordinal)
+            : null;
+        (HiddenGhostLines, HiddenGhostShells) = BuildGhost(originalMap ?? nodeMap, hidden, withRegions: false);
         SetFragmentText(shells.Count + bars.Count, allShells.Count + allBars.Count);
         var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
         // Стержни, не окрашенные величиной (поле пластин или эпюры усилий своим списком), — ровной линией.
@@ -1155,13 +1161,25 @@ public class Fem3DVM : ViewModelBase
             BarGroups = [.. BarGroups, .. BuildBarDiagrams()];
         HiShellMesh = null;
         (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
-        ResultOriginalLines = result.DeformedShown ? result.OriginalLines : null;
+        ResultOriginalLines = !result.DeformedShown ? null
+            : originalMap == null ? result.OriginalLines
+            : FragmentOriginalLines(originalMap, shells, bars);
         ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;
         _resultNodeMap = nodeMap;
         _resultVisible = [.. shells, .. bars];
         _resultPickNodes = null;
         IsResultShown = true;
         TrackResultSelection(result);
+    }
+
+    /// <summary>Рёбра исходной сетки у видимых КЭ фрагмента — фоном под деформированной.</summary>
+    Point3DCollection FragmentOriginalLines(Dictionary<string, Point3D> originalMap, List<FemMember> shells, List<FemMember> bars)
+    {
+        var pts = BuildLinePoints(originalMap, bars);
+        if (BuildShellEdges(originalMap, shells) is { } edges)
+            foreach (var pt in edges) pts.Add(pt);
+        pts.Freeze();
+        return pts;
     }
 
     Dictionary<string, FemMember> _resultMemberByTag = new(StringComparer.Ordinal);
