@@ -12,6 +12,17 @@ namespace OpenCS.ViewModels;
 /// <summary>Группа стержней одного цвета для 3D-отображения.</summary>
 public record BarGroup(string Label, Color Color, Point3DCollection Points, double Thickness = 1.5);
 
+/// <summary>Подпись эпюры на стержнях: вершина ординаты, текст значения, знак.</summary>
+public sealed record BarDiagramViewLabel(Point3D Position, string Text, bool Positive);
+
+/// <summary>Эпюры на стержнях — отдельным слоем 3D-вида: заливка и линии по знаку, ординаты, подписи экстремумов
+/// (по убыванию |значения| — порядок отбора без наложения).</summary>
+public sealed record BarDiagramView(
+    MeshGeometry3D? PositiveFill, MeshGeometry3D? NegativeFill,
+    Point3DCollection PositiveOutline, Point3DCollection NegativeOutline,
+    Point3DCollection PositiveOrdinates, Point3DCollection NegativeOrdinates,
+    IReadOnlyList<BarDiagramViewLabel> Labels);
+
 /// <summary>Источник, по которому в 3D показываются узловые нагрузки.</summary>
 public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, FemLoadDefinition? Definition);
 
@@ -68,6 +79,9 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Стержни, раскрашенные мозаикой: тег КЭ и концы — для поиска стержня под курсором
     /// (пусто — мозаика стержней выключена).</summary>
     public IReadOnlyList<(string Tag, Point3D P1, Point3D P2)> MosaicBarSegments { get; private set; } = [];
+    /// <summary>Эпюры текущей мозаики на стержнях (заливка, контур, ординаты, подписи); null — эпюр нет или они
+    /// ступенчатые (Кисп — линиями в <see cref="BarGroups"/>).</summary>
+    public BarDiagramView? BarDiagram { get; private set; }
     /// <summary>Настройки и легенда мозаики по КЭ: армирование, импортированные усилия, коэффициент использования.</summary>
     public PlateRebarMosaicVM Mosaic { get; } = new();
 
@@ -865,6 +879,7 @@ public class Fem3DVM : ViewModelBase
         if (!EditMode && (allNodes.Count == 0 || elements.Count == 0))
         {
             BarGroups        = [];
+            BarDiagram       = null;
             ShellMesh        = null;
             HiShellMesh      = null;
             PlanarRegionVisuals = [];
@@ -893,6 +908,7 @@ public class Fem3DVM : ViewModelBase
         if (EditMode && elements.Count == 0)
         {
             BarGroups        = [];
+            BarDiagram       = null;
             ShellMesh        = null;
             HiShellMesh      = null;
             PlanarRegionVisuals = [];
@@ -1044,6 +1060,7 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Раскрасить пластины или стержни по текущим настройкам мозаики.</summary>
     void ApplyMosaic()
     {
+        BarDiagram = null;
         if (Mosaic.ActiveResult is { } result) { ApplyResultMosaic(result); return; }
         IsResultShown = false;
         TrackResultSelection(null);
@@ -1178,13 +1195,17 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Цвет отрицательной части эпюр на стержнях.</summary>
     public static Color BarDiagramNegativeColor => Color.FromRgb(40, 70, 170);
 
-    /// <summary>Наибольшая ордината эпюры на стержнях — доля диагонали габарита стержней вида.</summary>
+    /// <summary>Наибольшая ордината эпюры на стержнях — доля диагонали габарита стержней вида (× множитель мозаики).</summary>
     const double BarDiagramSizeRatio = 0.05;
+    /// <summary>Шаг прореживания ординат эпюры — доля диагонали габарита стержней вида.</summary>
+    const double BarDiagramOrdinateSpacingRatio = 0.015;
 
-    /// <summary>Эпюры текущей мозаики на стержнях: ординаты по сечениям КЭ в местных осях, общий масштаб
-    /// на вид. Пусто — эпюры выключены или у мозаики нет значений по сечениям.</summary>
+    /// <summary>Эпюры текущей мозаики на стержнях: ординаты по сечениям КЭ в местных осях, общий масштаб на вид —
+    /// по показанным (видимым) стержням. Знакопеременные — сценой <see cref="BarDiagram"/>, ступени Кисп — линиями
+    /// (результат метода). Пусто — эпюры выключены, ступенчатых нет или у мозаики нет значений по сечениям.</summary>
     List<BarGroup> BuildBarDiagrams()
     {
+        BarDiagram = null;
         var profiles = Mosaic.BarProfiles(MosaicBarSegments.Select(s => s.Tag), out var plane);
         if (profiles == null || profiles.Count == 0) return [];
         double max = profiles.Values.SelectMany(p => p).Max(p => Math.Abs(p.V));
@@ -1193,7 +1214,7 @@ public class Fem3DVM : ViewModelBase
         var bounds = new Rect3D(MosaicBarSegments[0].P1, new Size3D());
         foreach (var (_, p1, p2) in MosaicBarSegments) { bounds.Union(p1); bounds.Union(p2); }
         double diagonal = Math.Sqrt(bounds.SizeX * bounds.SizeX + bounds.SizeY * bounds.SizeY + bounds.SizeZ * bounds.SizeZ);
-        double scale = diagonal * BarDiagramSizeRatio / max;
+        double scale = diagonal * BarDiagramSizeRatio * Mosaic.BarDiagramScale / max;
 
         var positive = new List<BarDiagramLine>();
         var negative = new List<BarDiagramLine>();
@@ -1216,25 +1237,50 @@ public class Fem3DVM : ViewModelBase
             return byColor.Select(kv => new BarGroup("", kv.Key, Points(kv.Value), 2.0)).ToList();
         }
 
+        var inputs = new List<BarDiagramInput>(profiles.Count);
         foreach (var (tag, p1, p2) in MosaicBarSegments)
             if (profiles.TryGetValue(tag, out var profile))
-                BarDiagramGeometry.AddBar(positive, negative, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile, plane, scale,
-                    Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null);
+                inputs.Add(new BarDiagramInput(tag, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile,
+                    Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null));
+        var scene = BarDiagramScene.Build(inputs, plane, scale, diagonal * BarDiagramOrdinateSpacingRatio);
+        if (!scene.IsEmpty)
+            BarDiagram = new BarDiagramView(Mesh(scene.PositiveFill), Mesh(scene.NegativeFill),
+                Points(scene.PositiveOutline), Points(scene.NegativeOutline),
+                Points(scene.PositiveOrdinates), Points(scene.NegativeOrdinates),
+                Mosaic.ShowBarDiagramLabels
+                    ? scene.Labels.Select(l => new BarDiagramViewLabel(new Point3D(l.Position.X, l.Position.Y, l.Position.Z),
+                        PlateRebarMosaicVM.FormatDiagramValue(l.Value), l.Value > 0)).ToList()
+                    : []);
+        return [];
 
-        static Point3DCollection Points(List<BarDiagramLine> lines)
+        static MeshGeometry3D? Mesh(List<BarDiagramTriangle> triangles)
         {
-            var points = new Point3DCollection(lines.Count * 2);
-            foreach (var l in lines)
+            if (triangles.Count == 0) return null;
+            var mesh = new MeshGeometry3D();
+            var positions = new Point3DCollection(triangles.Count * 3);
+            var indices = new System.Windows.Media.Int32Collection(triangles.Count * 3);
+            foreach (var (a, b, c) in triangles)
             {
-                points.Add(new Point3D(l.A.X, l.A.Y, l.A.Z));
-                points.Add(new Point3D(l.B.X, l.B.Y, l.B.Z));
+                indices.Add(positions.Count); positions.Add(new Point3D(a.X, a.Y, a.Z));
+                indices.Add(positions.Count); positions.Add(new Point3D(b.X, b.Y, b.Z));
+                indices.Add(positions.Count); positions.Add(new Point3D(c.X, c.Y, c.Z));
             }
-            return points;
+            mesh.Positions = positions;
+            mesh.TriangleIndices = indices;
+            mesh.Freeze();
+            return mesh;
         }
-        var result = new List<BarGroup>();
-        if (positive.Count > 0) result.Add(new BarGroup("", BarDiagramPositiveColor, Points(positive), 1.0));
-        if (negative.Count > 0) result.Add(new BarGroup("", BarDiagramNegativeColor, Points(negative), 1.0));
-        return result;
+    }
+
+    static Point3DCollection Points(List<BarDiagramLine> lines)
+    {
+        var points = new Point3DCollection(lines.Count * 2);
+        foreach (var l in lines)
+        {
+            points.Add(new Point3D(l.A.X, l.A.Y, l.A.Z));
+            points.Add(new Point3D(l.B.X, l.B.Y, l.B.Z));
+        }
+        return points;
     }
 
     /// <summary>Стержни по цветам полос шкалы; стержни без данных — тонкой серой линией.</summary>

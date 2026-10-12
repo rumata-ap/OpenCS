@@ -267,6 +267,47 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       }
    }
 
+   double _barDiagramScale = 1;
+   /// <summary>Множитель масштаба эпюр на стержнях (к автомасштабу по видимому фрагменту).</summary>
+   public double BarDiagramScale
+   {
+      get => _barDiagramScale;
+      set
+      {
+         if (!FemScaleInput.IsValid(value) || value == _barDiagramScale) return;
+         _barDiagramScale = value;
+         OnPropertyChanged();
+         RaiseChanged();
+      }
+   }
+
+   System.Windows.Input.ICommand? _resetBarDiagramScaleCommand;
+   /// <summary>Множитель эпюр — 1 (автомасштаб).</summary>
+   public System.Windows.Input.ICommand ResetBarDiagramScaleCommand =>
+      _resetBarDiagramScaleCommand ??= new RelayCommand(_ => BarDiagramScale = 1);
+
+   bool _showBarDiagramLabels = true;
+   /// <summary>Подписывать экстремумы эпюр на стержнях.</summary>
+   public bool ShowBarDiagramLabels
+   {
+      get => _showBarDiagramLabels;
+      set
+      {
+         if (_showBarDiagramLabels == value) return;
+         _showBarDiagramLabels = value;
+         OnPropertyChanged();
+         RaiseChanged();
+      }
+   }
+
+   /// <summary>Подпись значения эпюры: три значащие цифры, не меньше двух знаков после запятой у малых.</summary>
+   public static string FormatDiagramValue(double v)
+   {
+      double a = Math.Abs(v);
+      string format = a >= 100 ? "0" : a >= 10 ? "0.#" : a >= 0.01 || a == 0 ? "0.##" : "0.###E+0";
+      return v.ToString(format, CultureInfo.CurrentCulture);
+   }
+
    /// <summary>
    /// Значения текущей мозаики по сечениям стержней: точки (доля длины КЭ от начального узла, значение)
    /// по тегу КЭ. Null — эпюры выключены или у мозаики нет значений по сечениям.

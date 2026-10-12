@@ -164,6 +164,9 @@ public partial class FemSchemaView3D : UserControl
         PreviewMouseRightButtonDown += FemSchemaView3D_PreviewMouseRightButtonDown;
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
+        // Подписи эпюр переставляются по экрану — при движении камеры и смене размера вида.
+        viewport.CameraChanged += (_, _) => ScheduleDiagramLabels();
+        viewport.SizeChanged += (_, _) => ScheduleDiagramLabels();
         InitCamera();
         UpdateResultPickButtons();
     }
@@ -550,10 +553,99 @@ public partial class FemSchemaView3D : UserControl
     List<ModelVisual3D> _shellVisuals = [];
     List<LinesVisual3D> _barVisuals = [];
 
+    /// <summary>Сдвиг глубины линий стержней и контура эпюр: поверх заливки эпюры в той же плоскости, без z-fighting.</summary>
+    const double LineDepthOffset = 1e-4;
+
     /// <summary>Линии стержней: по сечениям либо по цветам мозаики.</summary>
     List<LinesVisual3D> CreateBarVisuals() => VM == null ? [] : VM.BarGroups
-        .Select(group => new LinesVisual3D { Points = group.Points, Color = group.Color, Thickness = group.Thickness })
+        .Select(group => new LinesVisual3D { Points = group.Points, Color = group.Color, Thickness = group.Thickness, DepthOffset = LineDepthOffset })
         .ToList();
+
+    // ── Эпюры на стержнях: отдельный слой — заливка, контур, ординаты, подписи без наложения ──────────
+
+    /// <summary>Заливка положительной части эпюры — светлый тон цвета знака (непрозрачная).</summary>
+    static readonly Color DiagramPositiveFill = Color.FromRgb(246, 190, 186);
+    /// <summary>Заливка отрицательной части эпюры.</summary>
+    static readonly Color DiagramNegativeFill = Color.FromRgb(184, 198, 238);
+    /// <summary>Кандидатов в подписи — не больше (по убыванию |значения|).</summary>
+    const int DiagramLabelCandidates = 300;
+
+    readonly List<Visual3D> _diagramVisuals = [];
+    readonly List<Visual3D> _diagramLabelVisuals = [];
+    System.Windows.Threading.DispatcherTimer? _diagramLabelTimer;
+
+    /// <summary>Перестроить слой эпюр по <see cref="Fem3DVM.BarDiagram"/>.</summary>
+    void UpdateDiagramVisuals()
+    {
+        foreach (var v in _diagramVisuals) viewport.Children.Remove(v);
+        _diagramVisuals.Clear();
+        if (VM?.BarDiagram is { } d)
+        {
+            void Fill(MeshGeometry3D? mesh, Color color)
+            {
+                if (mesh == null) return;
+                var material = new DiffuseMaterial(new SolidColorBrush(color));
+                _diagramVisuals.Add(new ModelVisual3D { Content = new GeometryModel3D(mesh, material) { BackMaterial = material } });
+            }
+            void Lines(Point3DCollection points, Color color, double thickness)
+            {
+                if (points.Count >= 2)
+                    _diagramVisuals.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness, DepthOffset = LineDepthOffset });
+            }
+            Fill(d.PositiveFill, DiagramPositiveFill);
+            Fill(d.NegativeFill, DiagramNegativeFill);
+            Lines(d.PositiveOrdinates, Fem3DVM.BarDiagramPositiveColor, 0.7);
+            Lines(d.NegativeOrdinates, Fem3DVM.BarDiagramNegativeColor, 0.7);
+            Lines(d.PositiveOutline, Fem3DVM.BarDiagramPositiveColor, 1.4);
+            Lines(d.NegativeOutline, Fem3DVM.BarDiagramNegativeColor, 1.4);
+        }
+        foreach (var v in _diagramVisuals) viewport.Children.Add(v);
+        UpdateDiagramLabels();
+    }
+
+    /// <summary>
+    /// Подписи эпюр без наложения: по убыванию |значения| в экранных координатах, налезающая на уже поставленную —
+    /// не ставится. Пересчитываются при повороте и зуме камеры (<see cref="ScheduleDiagramLabels"/>).
+    /// </summary>
+    void UpdateDiagramLabels()
+    {
+        foreach (var v in _diagramLabelVisuals) viewport.Children.Remove(v);
+        _diagramLabelVisuals.Clear();
+        if (VM?.BarDiagram is not { Labels.Count: > 0 } d || viewport.ActualWidth <= 0) return;
+        var bounds = new Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight);
+        var placed = new List<Rect>();
+        foreach (var label in d.Labels.Take(DiagramLabelCandidates))
+        {
+            var p = Viewport3DHelper.Point3DtoPoint2D(viewport.Viewport, label.Position);
+            if (double.IsNaN(p.X) || double.IsNaN(p.Y) || !bounds.Contains(p)) continue;
+            // Прямоугольник текста при FontSize 10 с подложкой — по числу знаков.
+            double w = 6.2 * label.Text.Length + 6, h = 15;
+            var rect = new Rect(p.X - w / 2, p.Y - h / 2, w, h);
+            if (placed.Any(r => r.IntersectsWith(rect))) continue;
+            placed.Add(rect);
+            _diagramLabelVisuals.Add(new BillboardTextVisual3D
+            {
+                Position = label.Position, Text = label.Text, FontSize = 10,
+                Foreground = new SolidColorBrush(label.Positive ? Fem3DVM.BarDiagramPositiveColor : Fem3DVM.BarDiagramNegativeColor),
+                Background = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
+                DepthOffset = LineDepthOffset,
+            });
+        }
+        foreach (var v in _diagramLabelVisuals) viewport.Children.Add(v);
+    }
+
+    /// <summary>Камера или размер вида изменились — подписи эпюр переставить, когда движение утихнет.</summary>
+    void ScheduleDiagramLabels()
+    {
+        if (VM?.BarDiagram is not { Labels.Count: > 0 }) return;
+        if (_diagramLabelTimer == null)
+        {
+            _diagramLabelTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            _diagramLabelTimer.Tick += (_, _) => { _diagramLabelTimer.Stop(); UpdateDiagramLabels(); };
+        }
+        _diagramLabelTimer.Stop();
+        _diagramLabelTimer.Start();
+    }
 
     /// <summary>Заливка пластин: мозаика (по цветам) и остальные КЭ — обычным цветом
     /// (при включённой мозаике — полупрозрачной подложкой).</summary>
@@ -597,6 +689,7 @@ public partial class FemSchemaView3D : UserControl
         UpdateResultOverlay();
         ApplyGridVisuals();   // сетка схемы скрыта, пока показан результат
         AddGhostVisuals();
+        UpdateDiagramVisuals();
     }
 
     void BuildVisuals(bool zoom = true)
@@ -623,6 +716,10 @@ public partial class FemSchemaView3D : UserControl
 
         _shellVisuals = CreateShellVisuals(isHighlight);
         foreach (var v in _shellVisuals) viewport.Children.Add(v);
+        // Сцена очищена целиком — слой эпюр и подписи заново.
+        _diagramVisuals.Clear();
+        _diagramLabelVisuals.Clear();
+        UpdateDiagramVisuals();
 
         foreach (var pv in VM.PlanarRegionVisuals)
         {

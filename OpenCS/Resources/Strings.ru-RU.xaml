@@ -4368,6 +4368,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultMenuMember2D">2D-эпюра КонЭ «{0}»…</system:String>
     <system:String x:Key="FemResultMenuMemberForceSet">Набор усилий КонЭ «{0}» на шаге…</system:String>    <system:String x:Key="MosaicResultShellField">Пластины: {0}</system:String>
     <system:String x:Key="MosaicResultBarForce">{0}, {1}</system:String>
+    <system:String x:Key="MosaicBarDiagramScaleTip">Множитель масштаба эпюр к автомасштабу по видимому фрагменту</system:String>
+    <system:String x:Key="MosaicBarDiagramScaleResetTip">Множитель 1 — автомасштаб</system:String>
+    <system:String x:Key="MosaicBarDiagramLabels">значения</system:String>
+    <system:String x:Key="MosaicBarDiagramLabelsTip">Подписи экстремумов эпюр: наибольшее и наименьшее значения на цепочке соосных КЭ; налезающие друг на друга скрываются</system:String>
     <system:String x:Key="MosaicResultNoBarForce">— (без эпюр)</system:String>
     <system:String x:Key="MosaicResultBarsLabel">Стержни:</system:String>
     <system:String x:Key="MosaicResultBarsTip">Усилие стержней результата — эпюрами поверх величины, которой окрашены пластины</system:String>
