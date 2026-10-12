@@ -27,6 +27,26 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- Стержни, окрашенные усилием своего списка (результат расчёта, эпюры выключены) -->
+            <StackPanel Visibility="{Binding HasBarLegend, Converter={StaticResource BoolToVis}}" Margin="0,8,0,0">
+                <TextBlock Text="{Binding BarLegendTitle}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                <ItemsControl ItemsSource="{Binding BarLegend}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="16" Height="4" Background="{Binding Brush}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Count}" Foreground="Gray" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
             <TextBlock Text="{DynamicResource PlateRebarMosaicThresholds}" Margin="0,8,0,2"/>
             <TextBox Text="{Binding ThresholdsText, UpdateSourceTrigger=LostFocus}"
                      ToolTip="{DynamicResource PlateRebarMosaicThresholdsTip}" KeyDown="Thresholds_KeyDown"/>

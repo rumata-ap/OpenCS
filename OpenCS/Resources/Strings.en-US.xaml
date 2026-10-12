@@ -4372,6 +4372,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicBarDiagramScaleResetTip">Multiplier 1 — auto scale</system:String>
     <system:String x:Key="MosaicBarDiagramLabels">values</system:String>
     <system:String x:Key="MosaicBarDiagramLabelsTip">Diagram extreme labels: the largest and smallest values along a chain of collinear elements; overlapping labels are hidden</system:String>
+    <system:String x:Key="MosaicResultBarLegendTitle">Bars: {0}</system:String>
     <system:String x:Key="MosaicResultNoBarForce">— (no diagrams)</system:String>
     <system:String x:Key="MosaicResultBarsLabel">Bars:</system:String>
     <system:String x:Key="MosaicResultBarsTip">Bar force of the result — as diagrams over the quantity the plates are coloured by</system:String>

@@ -398,6 +398,17 @@ public class FemResultLayerTests
         Assert.Equal([(0.0, 2.0), (1.0, -4.0)], vm.BarProfiles(["1"], out _)!["1"]);
         vm.SetHover("1");
         Assert.Contains(vm.SelectedBarComponent.Label, vm.HoverText);
+        Assert.False(vm.HasBarLegend);
+        // Эпюры выключены — стержни окрашены усилием по своей шкале со своей легендой, пластины — величиной основного.
+        vm.ShowBarDiagrams = false;
+        coloring = vm.Compute(["2"], ["1"])!;
+        Assert.True(coloring.Both);
+        Assert.Equal(["1", "2"], coloring.ColorByTag.Keys.Order());
+        Assert.True(vm.HasBarLegend);
+        Assert.Null(vm.BarProfiles(["1"], out _));
+        vm.ShowBarDiagrams = true;
+        Assert.False(vm.Compute(["2"], ["1"])!.Both);
+        Assert.False(vm.HasBarLegend);
         // Стержень вдоль X: Ey — проекция глобальной Z, Ez = X × Ey = −Y.
         Assert.Equal(new Vector3D(0, 0, 1), vm.BarDiagramAxis("1"));
         SelectBar(vm, FemForceComponent.N);

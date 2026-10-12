@@ -241,6 +241,51 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Концевые значения выбранного усилия по стержням показанного фрагмента (подсказка наведения).</summary>
    readonly Dictionary<string, (double I, double J)> _barForceValues = new(StringComparer.Ordinal);
 
+   /// <summary>Легенда стержней, окрашенных усилием своего списка (эпюры выключены); пусто — не окрашены.</summary>
+   public IReadOnlyList<PlateRebarMosaicLegendItem> BarLegend { get; private set; } = [];
+   public string BarLegendTitle { get; private set; } = "";
+   public bool HasBarLegend => BarLegend.Count > 0;
+
+   void SetBarLegend(IReadOnlyList<PlateRebarMosaicLegendItem> legend, string title)
+   {
+      BarLegend = legend;
+      BarLegendTitle = title;
+      OnPropertyChanged(nameof(BarLegend));
+      OnPropertyChanged(nameof(BarLegendTitle));
+      OnPropertyChanged(nameof(HasBarLegend));
+   }
+
+   /// <summary>
+   /// Усилие стержней своим списком при выключенных эпюрах — мозаикой стержней по своей шкале (наибольший по модулю
+   /// конец КЭ) и своей легендой; пластины остаются окрашены величиной основного списка.
+   /// </summary>
+   PlateRebarMosaicColoring WithResultBarColors(PlateRebarMosaicColoring coloring)
+   {
+      if (ShowBarDiagrams || ResultBarForce == null || _barForceValues.Count == 0)
+      {
+         SetBarLegend([], "");
+         return coloring;
+      }
+      var values = _barForceValues.ToDictionary(kv => kv.Key,
+         kv => Math.Abs(kv.Value.J) > Math.Abs(kv.Value.I) ? kv.Value.J : kv.Value.I, StringComparer.Ordinal);
+      double min = values.Values.Min(), max = values.Values.Max();
+      var scale = PlateRebarMosaicScale.Auto(values.Values.ToList(), diverging: true);
+      var colors = BandColors(scale, Palette.Forces);
+      var counts = new int[scale.Bands.Count];
+      var byTag = new Dictionary<string, Color>(coloring.ColorByTag, StringComparer.Ordinal);
+      foreach (var (tag, v) in values)
+      {
+         int b = scale.BandOf(v);
+         counts[b]++;
+         byTag[tag] = colors[b];
+      }
+      var legend = new List<PlateRebarMosaicLegendItem>();
+      for (int i = scale.Bands.Count - 1; i >= 0; i--)
+         legend.Add(new(Freeze(colors[i]), BandLabel(scale.Bands[i], min, max), counts[i]));
+      SetBarLegend(legend, string.Format(Loc.S("MosaicResultBarLegendTitle"), _selectedBarComponent!.Label));
+      return new PlateRebarMosaicColoring(byTag, coloring.Bars) { Both = true };
+   }
+
    /// <summary>Значения выбранного усилия стержней: концы КЭ и итог строки шага.</summary>
    void UpdateResultBarForces(FemResult.FemResultLayer result, IEnumerable<string> barTags)
    {
@@ -1150,6 +1195,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       HoverText = "";
       if (_field is not { } field)
       {
+         SetBarLegend([], "");
          Legend = [];
          LegendTitle = "";
          OnPropertyChanged(nameof(Legend));
@@ -1196,7 +1242,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       OnPropertyChanged(nameof(Legend));
 
       LegendTitle = Title();
-      return new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both };
+      return WithResultBarColors(new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both });
    }
 
    /// <summary>Раскраска по категориям (состояние пластин результата): легенда — категории по убыванию номера.</summary>
@@ -1219,7 +1265,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       Legend = legend;
       OnPropertyChanged(nameof(Legend));
       LegendTitle = Title();
-      return new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both };
+      return WithResultBarColors(new PlateRebarMosaicColoring(byTag, field.Bars) { Both = field.Both });
    }
 
    string Title()

@@ -4372,6 +4372,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicBarDiagramScaleResetTip">Множитель 1 — автомасштаб</system:String>
     <system:String x:Key="MosaicBarDiagramLabels">значения</system:String>
     <system:String x:Key="MosaicBarDiagramLabelsTip">Подписи экстремумов эпюр: наибольшее и наименьшее значения на цепочке соосных КЭ; налезающие друг на друга скрываются</system:String>
+    <system:String x:Key="MosaicResultBarLegendTitle">Стержни: {0}</system:String>
     <system:String x:Key="MosaicResultNoBarForce">— (без эпюр)</system:String>
     <system:String x:Key="MosaicResultBarsLabel">Стержни:</system:String>
     <system:String x:Key="MosaicResultBarsTip">Усилие стержней результата — эпюрами поверх величины, которой окрашены пластины</system:String>
