@@ -2,9 +2,20 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
+             xmlns:u="clr-namespace:OpenCS.Utilites"
              Language="ru-RU">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <u:NToKNConvert x:Key="NToKN"/>
+        <!-- Таблицы полей шага: на больших схемах — десятки тысяч строк, только виртуализированно -->
+        <Style x:Key="FieldGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+            <Setter Property="EnableColumnVirtualization" Value="True"/>
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -20,6 +31,60 @@
         </DockPanel>
 
         <TabControl Grid.Row="1">
+            <!-- Перемещения узлов показанного шага -->
+            <TabItem Header="{DynamicResource FemResultTabDisp}">
+                <DataGrid ItemsSource="{Binding NodeRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding Node}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColUx}" Binding="{Binding Ux, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColUy}" Binding="{Binding Uy, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColUz}" Binding="{Binding Uz, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColRx}" Binding="{Binding Rx, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColRy}" Binding="{Binding Ry, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColRz}" Binding="{Binding Rz, StringFormat=G5}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- Концевые силы стержней показанного шага -->
+            <TabItem Header="{DynamicResource FemCsfeaTabBarForces}" Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}">
+                <DataGrid ItemsSource="{Binding BeamRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding ElemTag}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceNi}" Binding="{Binding Ni, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQyi}" Binding="{Binding Qyi, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQzi}" Binding="{Binding Qzi, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMxi}" Binding="{Binding Mxi, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMyi}" Binding="{Binding Myi, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMzi}" Binding="{Binding Mzi, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceNj}" Binding="{Binding Nj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQyj}" Binding="{Binding Qyj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQzj}" Binding="{Binding Qzj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMxj}" Binding="{Binding Mxj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMyj}" Binding="{Binding Myj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMzj}" Binding="{Binding Mzj, Converter={StaticResource NToKN}, StringFormat=G5}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- Усилия пластин показанного шага -->
+            <TabItem Header="{DynamicResource FemCsfeaTabShellForces}" Visibility="{Binding HasShells, Converter={StaticResource BoolToVis}}">
+                <DataGrid ItemsSource="{Binding ShellRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding Elem}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColNx}" Binding="{Binding Nx, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColNy}" Binding="{Binding Ny, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColNxy}" Binding="{Binding Nxy, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColMx}" Binding="{Binding Mx, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColMy}" Binding="{Binding My, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColMxy}" Binding="{Binding Mxy, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColQx}" Binding="{Binding Qx, StringFormat=G5}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaColQy}" Binding="{Binding Qy, StringFormat=G5}"/>
+                        <DataGridTextColumn x:Name="shellStateColumn" Header="{DynamicResource FemCsfeaColState}" Binding="{Binding State}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
             <!-- Графики -->
             <TabItem x:Name="chartsTab" Header="{DynamicResource FemCsfeaTabCharts}">
                 <Grid>
@@ -59,7 +124,8 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="1" Text="{DynamicResource FemCsfeaReport}" Margin="6,6,6,2" FontWeight="Bold"/>
-                    <TextBox Grid.Row="2" x:Name="reportBox" IsReadOnly="True" TextWrapping="Wrap"
+                    <TextBox Grid.Row="2" x:Name="reportBox" IsReadOnly="True" TextWrapping="Wrap" Height="NaN"
+                             VerticalContentAlignment="Top" HorizontalContentAlignment="Left"
                              VerticalScrollBarVisibility="Auto" Margin="6,0,6,6"/>
                 </Grid>
             </TabItem>

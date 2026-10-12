@@ -6,8 +6,8 @@ using OpenCS.ViewModels;
 namespace OpenCS.Views;
 
 /// <summary>
-/// Графики и журнал результата расчёта схемы CSfea: «λ по шагам» и «λ — перемещение контрольного узла», журнал шагов
-/// и отчёт; ползунок шага, «шаг → наборы усилий». Сам результат (деформации, мозаики, эпюры) — в 3D-виде схемы.
+/// Таблицы и графики результата расчёта схемы CSfea: перемещения узлов, усилия стержней и пластин показанного шага,
+/// «λ по шагам» и «λ — перемещение контрольного узла», журнал шагов и отчёт; ползунок шага, «шаг → наборы усилий». Сам результат (деформации, мозаики, эпюры) — в 3D-виде схемы.
 /// </summary>
 public partial class FemCsfeaResultView : UserControl
 {
@@ -27,7 +27,7 @@ public partial class FemCsfeaResultView : UserControl
         {
             // Линейный расчёт: шагов по λ и итераций нет — графики и колонки хода решения не показываются.
             chartsTab.Visibility = Visibility.Collapsed;
-            journalTab.IsSelected = true;
+            shellStateColumn.Visibility = Visibility.Collapsed;
             foreach (var column in new[] { lambdaColumn, plannedColumn, convergedColumn, iterationsColumn, residualColumn, fieldsColumn })
                 column.Visibility = Visibility.Collapsed;
         }

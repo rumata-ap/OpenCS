@@ -229,6 +229,15 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             vm.SelectedShellField = vm.ShellFields.Single(f => f.Value == OpenCS.ViewModels.FemCsfeaShellField.State);
             Assert.Contains(vm.Legend, l => l.Count > 0);
 
+            // Таблицы окна: строка на узел и на пластину, перемещения в мм, усилия в кН — как в полях шага.
+            Assert.Equal(vm.Fields!.NodeIds.Length, vm.NodeRows.Count);
+            Assert.Equal(shells, vm.ShellRows.Count);
+            var controlRow = vm.NodeRows.Single(r => r.Node == control);
+            Assert.Equal(summary.Steps[last].Control!.Value * 1e3, controlRow.Uz, 9);
+            var shellRow = vm.ShellRows[0];
+            Assert.Equal(vm.ShellForces(shellRow.Elem)![3] / 1e3, shellRow.Mx, 12);
+            Assert.NotEqual("", shellRow.State);
+
             // Шаг → наборы усилий: пластины, строка на КЭ, усилия в кН — как в полях шага.
             Assert.True(vm.CanCreateForceSets);
             var sets = vm.BuildForceSets([]);

@@ -29,6 +29,16 @@ public sealed record FemCsfeaOption<T>(T Value, string Label)
 public sealed record FemCsfeaStepRow(int N, string Stage, double LoadFactor, string Planned, string Converged, int Iterations,
     string Residual, string Control, string Fields);
 
+/// <summary>Строка таблицы перемещений узла сетки на показанном шаге: ux, uy, uz — мм; rx, ry, rz — мрад.</summary>
+public sealed record FemCsfeaNodeRow(int Node, double Ux, double Uy, double Uz, double Rx, double Ry, double Rz);
+
+/// <summary>
+/// Строка таблицы усилий пластины на показанном шаге (оси выдачи, центр КЭ): Nx, Ny, Nxy, Qx, Qy — кН/м; Mx, My, Mxy —
+/// кН·м/м; состояние сечения словом (у линейного расчёта — пусто).
+/// </summary>
+public sealed record FemCsfeaShellRow(int Elem, double Nx, double Ny, double Nxy, double Mx, double My, double Mxy,
+    double Qx, double Qy, string State);
+
 /// <summary>
 /// Результат расчёта схемы CSfea (<see cref="FemCsfeaRunner.TaskKind"/>): сводка шагов (<see cref="FemCsfeaResultSummary"/>)
 /// и полные поля записанных шагов (<c>fem_result_steps</c>). Формат общий для секущего и (будущего) линейного
@@ -269,6 +279,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(HasFields));
         OnPropertyChanged(nameof(FieldsNote));
         OnPropertyChanged(nameof(HasFieldsNote));
+        OnPropertyChanged(nameof(NodeRows));
+        OnPropertyChanged(nameof(ShellRows));
+        OnPropertyChanged(nameof(BeamRows));
         RebuildMosaic();
         RebuildForceDiagram();
     }
@@ -276,6 +289,65 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     void GoToFieldsStep()
     {
         if (FieldsStepIndex is int i) SelectedStepIndex = i;
+    }
+
+    // ------------------------------------------------------------ таблицы полей шага
+
+    RcSecantStepFields? _rowsFields;
+    IReadOnlyList<FemCsfeaNodeRow> _nodeRows = [];
+    IReadOnlyList<FemCsfeaShellRow> _shellRows = [];
+    IReadOnlyList<FemElementEndForces> _beamRows = [];
+
+    /// <summary>Перемещения узлов показанного шага — строятся при первом обращении (их читает только окно таблиц).</summary>
+    public IReadOnlyList<FemCsfeaNodeRow> NodeRows { get { BuildRows(); return _nodeRows; } }
+
+    /// <summary>Усилия пластин показанного шага.</summary>
+    public IReadOnlyList<FemCsfeaShellRow> ShellRows { get { BuildRows(); return _shellRows; } }
+
+    /// <summary>Концевые силы стержней показанного шага (Н, Н·м — в таблице переводятся в кН, кН·м).</summary>
+    public IReadOnlyList<FemElementEndForces> BeamRows { get { BuildRows(); return _beamRows; } }
+
+    void BuildRows()
+    {
+        if (ReferenceEquals(_rowsFields, Fields) && (Fields != null || _nodeRows.Count == 0)) return;
+        _rowsFields = Fields;
+        if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; return; }
+
+        var nodes = new FemCsfeaNodeRow[f.NodeIds.Length];
+        var d = f.Displacements;
+        for (int i = 0; i < nodes.Length; i++)
+        {
+            int o = i * RcSecantStepFields.NodeComponents;
+            nodes[i] = new FemCsfeaNodeRow(f.NodeIds[i], d[o] * 1e3, d[o + 1] * 1e3, d[o + 2] * 1e3,
+                d[o + 3] * 1e3, d[o + 4] * 1e3, d[o + 5] * 1e3);
+        }
+        _nodeRows = nodes;
+
+        var shells = new FemCsfeaShellRow[f.ShellIds.Length];
+        var sf = f.ShellForces;
+        for (int i = 0; i < shells.Length; i++)
+        {
+            // Порядок полей: Nx, Ny, Nxy (Н/м), Mx, My, Mxy (Н·м/м), Qx, Qy (Н/м).
+            int o = i * RcSecantStepFields.ShellForceComponents;
+            byte flags = f.ShellFlags[i];
+            string state = IsLinear ? ""
+                : Loc.S(StateStyles[(flags & RcSecantStepFields.Failed) != 0 ? 3
+                    : (flags & RcSecantStepFields.Yielded) != 0 ? 2
+                    : (flags & RcSecantStepFields.Cracked) != 0 ? 1 : 0].Key);
+            shells[i] = new FemCsfeaShellRow(f.ShellIds[i], sf[o] / 1e3, sf[o + 1] / 1e3, sf[o + 2] / 1e3,
+                sf[o + 3] / 1e3, sf[o + 4] / 1e3, sf[o + 5] / 1e3, sf[o + 6] / 1e3, sf[o + 7] / 1e3, state);
+        }
+        _shellRows = shells;
+
+        var beams = new FemElementEndForces[f.BeamIds.Length];
+        var bf = f.BeamForces;
+        for (int i = 0; i < beams.Length; i++)
+        {
+            int o = i * RcSecantStepFields.BeamForceComponents;
+            beams[i] = new FemElementEndForces(f.BeamIds[i], bf[o], bf[o + 1], bf[o + 2], bf[o + 3], bf[o + 4], bf[o + 5],
+                bf[o + 6], bf[o + 7], bf[o + 8], bf[o + 9], bf[o + 10], bf[o + 11]);
+        }
+        _beamRows = beams;
     }
 
     // Индексы полей по номерам узлов/КЭ.
