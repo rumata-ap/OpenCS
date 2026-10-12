@@ -112,6 +112,43 @@ public sealed class FemBoundaryPersistenceTests
     }
 
     [Fact]
+    public void RigidBodyKind_RoundTrips_AndV81DatabaseGetsRigidByDefault()
+    {
+        string path = TempPath();
+        try
+        {
+            using (var db = new DatabaseService(path)) { }
+            using (var connection = new SqliteConnection($"Data Source={path}"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = """
+                    ALTER TABLE fem_rigid_bodies DROP COLUMN kind;
+                    UPDATE settings SET value_json='81' WHERE key='schema_version';
+                """;
+                command.ExecuteNonQuery();
+            }
+            SqliteConnection.ClearAllPools();
+
+            var (db2, schema) = Seed(path);
+            using (db2)
+            {
+                var (supports, springs, bodies) = ScadBoundary(1e6);
+                var coupling = new FemRigidBody { MasterNodeTag = "2", Mask = 0b000111, Kind = FemRigidBodyKinds.Coupled, SourceElemTag = "7" };
+                coupling.SetSlaveNodeTags(["3"]);
+                db2.SaveFemBoundary(schema.Id, Scad, supports, springs, [.. bodies, coupling]);
+
+                var stored = db2.GetFemRigidBodies(schema.Id);
+                Assert.Equal([(FemRigidBodyKinds.Rigid, "1"), (FemRigidBodyKinds.Coupled, "2")],
+                    stored.Select(b => (b.Kind, b.MasterNodeTag)));
+                var copy = db2.DuplicateFemSchema(schema.Id, "S2");
+                Assert.Equal(FemRigidBodyKinds.Coupled, db2.GetFemRigidBodies(copy.Id).Single(b => b.MasterNodeTag == "2").Kind);
+            }
+        }
+        finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public void SchemaVersion77Database_GetsV78TablesAndColumns()
     {
         string path = TempPath();

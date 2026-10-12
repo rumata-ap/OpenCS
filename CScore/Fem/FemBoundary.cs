@@ -87,8 +87,10 @@ public static class FemSpringTargetKinds
 }
 
 /// <summary>
-/// Жёсткое тело (КЭ 100 SCAD, АЖТ ЛИРЫ) на узлах сетки: ведомые узлы повторяют перемещения ведущего по DOF маски.
-/// Только сеточный уровень.
+/// Жёсткое тело (КЭ 100 SCAD, АЖТ ЛИРЫ) или объединение перемещений (документ 5 ЛИРЫ) на узлах сетки — по
+/// <see cref="Kind"/>. Жёсткое тело: ведомые узлы повторяют перемещения ведущего по DOF маски с поворотным членом
+/// θ × r. Объединение: DOF маски всех узлов группы равны (u_s = u_m), ведущий — любой узел группы. Только сеточный
+/// уровень.
 /// </summary>
 public sealed class FemRigidBody
 {
@@ -111,10 +113,16 @@ public sealed class FemRigidBody
     /// <summary>Маска объединяемых DOF в общих осях (биты 0–5: X Y Z UX UY UZ).</summary>
     public int Mask { get; set; } = FemBoundaryDofs.All;
 
+    /// <summary>Вид: <see cref="FemRigidBodyKinds.Rigid"/> или <see cref="FemRigidBodyKinds.Coupled"/>.</summary>
+    public string Kind { get; set; } = FemRigidBodyKinds.Rigid;
+
+    /// <summary>Объединение перемещений (равные DOF без поворотного члена).</summary>
+    public bool IsCoupled => Kind == FemRigidBodyKinds.Coupled;
+
     /// <summary>Происхождение: <see cref="FemLoadOrigin.Manual"/> или «import:&lt;источник&gt;».</summary>
     public string Origin { get; set; } = FemLoadOrigin.Manual;
 
-    /// <summary>Номер КЭ жёсткого тела в источнике (КЭ 100 SCAD, номер АЖТ ЛИРЫ); null — задано вручную.</summary>
+    /// <summary>Номер в источнике (КЭ 100 SCAD, номер АЖТ или группы объединения ЛИРЫ); null — задано вручную.</summary>
     public string? SourceElemTag { get; set; }
 
     /// <summary>Теги ведомых узлов в порядке хранения.</summary>
@@ -128,6 +136,15 @@ public sealed class FemRigidBody
         _slavesJson = JsonSerializer.Serialize(list);
         _slaves = list;
     }
+}
+
+/// <summary>Виды <see cref="FemRigidBody"/>.</summary>
+public static class FemRigidBodyKinds
+{
+    /// <summary>Жёсткое тело: u_s = u_m + θ_m × r, θ_s = θ_m по DOF маски.</summary>
+    public const string Rigid = "rigid";
+    /// <summary>Объединение перемещений: u_s = u_m по DOF маски, без поворотного члена.</summary>
+    public const string Coupled = "coupled";
 }
 
 /// <summary>Маски степеней свободы граничных условий.</summary>

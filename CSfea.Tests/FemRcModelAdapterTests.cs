@@ -111,7 +111,7 @@ public class FemRcModelAdapterTests
     {
         TestHarness.Section("FemRcModelAdapter: граничные условия");
         var fem = new[] { new FemNode { Id = 1, NodeTag = "1", DofMask = 0x3F } };
-        var nodes = new[] { N(10, 0, 0, 0, "1"), N(11, 3, 0, 0), N(12, 6, 0, 0), N(13, 6, 0, 1) };
+        var nodes = new[] { N(10, 0, 0, 0, "1"), N(11, 3, 0, 0), N(12, 6, 0, 0), N(13, 6, 0, 1), N(14, 3, 0, 0) };
         var beam = El(1, "beam", [10, 11]);
         var beam2 = El(2, "beam", [11, 12]);
         beam2.ReleaseJ = 0b11_0000;
@@ -119,16 +119,24 @@ public class FemRcModelAdapterTests
         spring.SetStiffnesses([0, 0, 5e6, 0, 0, 0]);
         var body = new FemRigidBody { MasterNodeTag = "12" };
         body.SetSlaveNodeTags(["13"]);
+        // Объединение по Z узла 11 и совпадающего с ним узла 14 (ЛИРА, документ 5).
+        var coupling = new FemRigidBody { MasterNodeTag = "11", Mask = 0b000100, Kind = FemRigidBodyKinds.Coupled, SourceElemTag = "1" };
+        coupling.SetSlaveNodeTags(["14"]);
         var r = FemRcModelAdapter.Adapt(new FemRcModelInput
         {
             MeshNodes = nodes, MeshElements = [beam, beam2], Nodes = fem, LoadCases = [], Stages = [], Properties = new Props(),
-            Supports = [new FemMeshNodeSupport { NodeTag = "11", Mask = 0b011 }], Springs = [spring], RigidBodies = [body],
+            Supports = [new FemMeshNodeSupport { NodeTag = "11", Mask = 0b011 }], Springs = [spring], RigidBodies = [body, coupling],
         });
+        TestHarness.Check("объединение 11 → 14 — равные DOF по Z",
+            r.Model.RigidBodies.Single(x => x.EqualDofs) is { Master: 11, Mask: 0b000100 } c && c.Slaves.SequenceEqual(new[] { 14 }));
+        var linksMesh = RcStructuralMeshBuilder.Build(r.Model, new LinearRcSectionFactory()).Mesh.Links!;
+        TestHarness.Check("сетка CSfea: связь объединения без поворотного члена",
+            linksMesh.Links.Count(l => l.EqualDofs) == 1 && linksMesh.Links.Count(l => !l.EqualDofs) == 1);
         TestHarness.Check("нет ошибок", !r.HasErrors, string.Join("; ", r.Report));
         TestHarness.Check("опора КонЭ на узле 10", r.Model.Supports.Any(s => s.NodeId == 10 && s.Mask == 0x3F));
         TestHarness.Check("опора сетки на узле 11", r.Model.Supports.Any(s => s.NodeId == 11 && s.Mask == 0b011));
         TestHarness.Check("пружина Z узла 12", r.Model.Springs.Single() == new RcSpring(12, 2, 5e6));
-        TestHarness.Check("жёсткое тело 12 → 13", r.Model.RigidBodies.Single() is { Master: 12 } b && b.Slaves.SequenceEqual(new[] { 13 }));
+        TestHarness.Check("жёсткое тело 12 → 13", r.Model.RigidBodies.Single(x => !x.EqualDofs) is { Master: 12 } b && b.Slaves.SequenceEqual(new[] { 13 }));
         TestHarness.Check("узел 13 в модели", r.Model.Nodes.Any(n => n.Id == 13));
         TestHarness.Check("шарнир конца J", r.Model.Beams.Single(x => x.Id == 2).ReleaseJ == 0b11_0000);
         var y = r.Model.Beams[0].RefVec!;

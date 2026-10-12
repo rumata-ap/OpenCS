@@ -15,6 +15,7 @@ public class RigidLinksTests
         RunRigidArmVsStiffBeam();
         RunTipBodyKinematics();
         RunPlateOnLinkedColumns();
+        RunCoupledCantilevers();
         RunValidation();
     }
 
@@ -153,6 +154,52 @@ public class RigidLinksTests
         double mx = bases.Sum(b => r[6 * b + 3] + nodes[b][1] * r[6 * b + 2]);
         double mxLoad = q * l * l * (l / 2);
         TestHarness.CheckRel("ΣMx реакций относительно оси x = момент нагрузки", mx, mxLoad, 1e-9);
+    }
+
+    /// <summary>
+    /// Две консоли вдоль x (L₁ = 3 м, L₂ = 2 м, концы разнесены по y на 1 м), концы объединены по Z (равные DOF,
+    /// ЛИРА, документ 5). Сила P на конце первой делится по жёсткостям: w = P / (3EI/L₁³ + 3EI/L₂³). Сила по x и
+    /// крутящий момент на первой консоли во вторую не передаются — у объединения нет поворотного члена θ × r.
+    /// </summary>
+    private static void RunCoupledCantilevers()
+    {
+        TestHarness.Section("Объединение перемещений: две консоли, объединённые по Z");
+        double l1 = 3.0, l2 = 2.0, p = 2e4, fx = 5e4, mx = 3e3;
+        int n = 4;
+        var nodes = new List<double[]>();
+        var beams = new List<StructuralBeam>();
+        var resp = new LinearBeamResponse(Col);
+        int Line(double l, double y)
+        {
+            int first = nodes.Count;
+            for (int i = 0; i <= n; i++) nodes.Add(new[] { i * l / n, y, 0.0 });
+            for (int i = 0; i < n; i++) beams.Add(new StructuralBeam(first + i, first + i + 1, resp));
+            return first;
+        }
+        int root1 = Line(l1, 0.0), root2 = Line(l2, 1.0);
+        int tip1 = root1 + n, tip2 = root2 + n;
+        var mesh = new StructuralMesh(nodes.ToArray(), null, beams.ToArray(),
+            new[] { new RigidLink(tip1, tip2, 0b000100, EqualDofs: true) });
+        var bc = new BoundaryConditions(mesh).Fix(new[] { root1, root2 });
+        var f = new double[mesh.NDof];
+        f[6 * tip1 + 2] = -p; f[6 * tip1 + 0] = fx; f[6 * tip1 + 3] = mx;
+        var u = mesh.SolveLinear(f, bc);
+
+        double ei = E * Col.Iy;
+        double w = -p / (3 * ei / Math.Pow(l1, 3) + 3 * ei / Math.Pow(l2, 3));
+        TestHarness.CheckRel("uz концов = −P / (k₁ + k₂)", u[6 * tip1 + 2], w, 1e-9);
+        TestHarness.Check("uz второго конца равен первому (без θ × r)", u[6 * tip2 + 2] == u[6 * tip1 + 2],
+            $"Δ={u[6 * tip2 + 2] - u[6 * tip1 + 2]:e2}");
+        TestHarness.Check("ux и θx второй консоли не связаны (= 0)",
+            Math.Abs(u[6 * tip2 + 0]) < 1e-15 && Math.Abs(u[6 * tip2 + 3]) < 1e-15,
+            $"ux={u[6 * tip2]:e2}, θx={u[6 * tip2 + 3]:e2}");
+        TestHarness.Check("θx первой консоли ≠ 0 (крутящий момент воспринят ею)", Math.Abs(u[6 * tip1 + 3]) > 1e-8);
+        var r = mesh.ComputeReactions(u, bc);
+        TestHarness.CheckRel("Rz заделки второй консоли = k₂·|w|", r[6 * root2 + 2], -3 * ei / Math.Pow(l2, 3) * w, 1e-9);
+        TestHarness.CheckRel("ΣRz = P", r[6 * root1 + 2] + r[6 * root2 + 2], p, 1e-9);
+
+        var row = new RigidLinks(nodes.ToArray(), mesh.Links!.Links).Row(6 * tip2 + 2);
+        TestHarness.Check("строка T ведомого uz — одна единица", row.Count == 1 && row[0].Coef == 1.0);
     }
 
     private static void RunValidation()

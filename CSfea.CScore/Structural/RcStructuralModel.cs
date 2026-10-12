@@ -60,8 +60,11 @@ public sealed record RcBeamSection(string Key)
 public sealed record RcBeam(int Id, int NodeI, int NodeJ, RcBeamSection Section, double[]? RefVec = null,
     int ReleaseI = 0, int ReleaseJ = 0);
 
-/// <summary>Жёсткое тело: ведущий узел, ведомые, маска подчинённых DOF (бит i — DOF i).</summary>
-public sealed record RcRigidBody(int Id, int Master, IReadOnlyList<int> Slaves, int Mask = RigidLink.All);
+/// <summary>
+/// Жёсткое тело: ведущий узел, ведомые, маска подчинённых DOF (бит i — DOF i). <paramref name="EqualDofs"/> — объединение
+/// перемещений: DOF маски ведомых равны DOF ведущего, без поворотного члена (см. <see cref="RigidLink"/>).
+/// </summary>
+public sealed record RcRigidBody(int Id, int Master, IReadOnlyList<int> Slaves, int Mask = RigidLink.All, bool EqualDofs = false);
 
 /// <summary>Закрепление узла: маска DOF (бит i — DOF i: ux, uy, uz, θx, θy, θz).</summary>
 public sealed record RcSupport(int NodeId, int Mask);

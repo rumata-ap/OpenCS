@@ -5,8 +5,13 @@ namespace CScore.Fem;
 /// <summary>Суммарная пружина узла сетки: жёсткости по DOF 0–5 (X Y Z UX UY UZ), Н/м и Н·м/рад.</summary>
 public sealed record FemResolvedSpring(string MeshNodeTag, IReadOnlyList<double> Stiffnesses);
 
-/// <summary>Жёсткое тело на узлах сетки после проверок.</summary>
-public sealed record FemResolvedRigidBody(string MasterNodeTag, IReadOnlyList<string> SlaveNodeTags, int Mask, string? SourceElemTag);
+/// <summary>Жёсткое тело или объединение перемещений (<paramref name="Kind"/>) на узлах сетки после проверок.</summary>
+public sealed record FemResolvedRigidBody(string MasterNodeTag, IReadOnlyList<string> SlaveNodeTags, int Mask, string? SourceElemTag,
+    string Kind = FemRigidBodyKinds.Rigid)
+{
+    /// <summary>Объединение перемещений (равные DOF без поворотного члена).</summary>
+    public bool IsCoupled => Kind == FemRigidBodyKinds.Coupled;
+}
 
 /// <summary>ГУ схемы, сведённые к узлам и КЭ сетки, и диагностики сведения.</summary>
 public sealed class FemResolvedBoundary
@@ -29,7 +34,9 @@ public sealed class FemResolvedBoundary
 /// ГУ обоих уровней схемы → узлы и КЭ сетки: закрепления <see cref="FemNode.DofMask"/> (через
 /// <see cref="FemMeshNode.SourceNodeTag"/>) и <see cref="FemMeshNodeSupport"/>, пружины, жёсткие тела, освобождения
 /// стержней и C1 пластин. Общий путь для адаптера CSfea, 3D-показа и сводки. Пропавшие узлы/КЭ и бессмысленные
-/// сочетания — предупреждения (объект пропускается); ведомый узел закреплён или ведом дважды — ошибка.
+/// сочетания — предупреждения (объект пропускается); ведомый узел закреплён, ведом дважды по одному DOF или ведом в
+/// одном теле и ведущий в другом (цепочка) — ошибка. Жёсткие тела и объединения перемещений проверяются вместе; у
+/// объединения ведущий — любой узел группы, поэтому закреплённый узел группы становится ведущим.
 /// </summary>
 public static class FemBoundaryResolver
 {
@@ -113,12 +120,13 @@ public static class FemBoundaryResolver
             .Select(kv => new FemResolvedSpring(kv.Key, kv.Value))
             .ToList();
 
-        // Жёсткие тела.
+        // Жёсткие тела и объединения перемещений.
         var bodies = new List<FemResolvedRigidBody>();
         var masterMissing = new List<string>();
         var slaveMissing = new List<string>();
         var slaveIsMaster = new List<string>();
-        var slaveOwner = new Dictionary<string, int>(StringComparer.Ordinal);
+        var slaveDofs = new Dictionary<string, int>(StringComparer.Ordinal);
+        var masterTags = new HashSet<string>(StringComparer.Ordinal);
         var slaveTwice = new List<string>();
         var slaveFixed = new List<string>();
         foreach (var b in rigidBodies)
@@ -134,19 +142,36 @@ public static class FemBoundaryResolver
                 slaves.Add(slave);
             }
             if (slaves.Count == 0) continue;
-            int index = bodies.Count;
+            string master = b.MasterNodeTag;
+            // Объединение симметрично: ведущим ставится закреплённый по объединяемым DOF узел группы, если ведущий свободен.
+            if (b.IsCoupled && !IsFixed(master) && slaves.FirstOrDefault(IsFixed) is { } fixedNode)
+            {
+                slaves[slaves.IndexOf(fixedNode)] = master;
+                master = fixedNode;
+            }
+            masterTags.Add(master);
             foreach (var slave in slaves)
             {
-                if (!slaveOwner.TryAdd(slave, index)) slaveTwice.Add(slave);
-                if (masks.TryGetValue(slave, out int fixedMask) && (fixedMask & mask) != 0) slaveFixed.Add(slave);
+                int owned = slaveDofs.TryGetValue(slave, out int o) ? o : 0;
+                if ((owned & mask) != 0) slaveTwice.Add(slave);
+                slaveDofs[slave] = owned | mask;
+                if (IsFixed(slave)) slaveFixed.Add(slave);
             }
-            bodies.Add(new FemResolvedRigidBody(b.MasterNodeTag, slaves, mask, b.SourceElemTag));
+            bodies.Add(new FemResolvedRigidBody(master, slaves, mask, b.SourceElemTag,
+                b.IsCoupled ? FemRigidBodyKinds.Coupled : FemRigidBodyKinds.Rigid));
+
+            bool IsFixed(string tag) => masks.TryGetValue(tag, out int fixedMask) && (fixedMask & mask) != 0;
         }
+        var chains = slaveDofs.Keys.Where(masterTags.Contains).ToList();
         Warn(diagnostics, "rigid_master_missing", "Жёсткие тела с отсутствующим ведущим узлом пропущены; узлы", masterMissing);
         Warn(diagnostics, "rigid_slave_missing", "Отсутствующие ведомые узлы жёстких тел пропущены", slaveMissing);
         Warn(diagnostics, "rigid_slave_is_master", "Ведомый узел совпадает с ведущим и пропущен", slaveIsMaster);
-        Error(diagnostics, "rigid_slave_twice", "Узлы ведомы в нескольких жёстких телах", slaveTwice);
-        Error(diagnostics, "rigid_slave_supported", "Ведомые узлы жёстких тел закреплены по объединяемым направлениям", slaveFixed);
+        Error(diagnostics, "rigid_slave_twice",
+            "Узлы ведомы по одним и тем же направлениям в нескольких жёстких телах или объединениях перемещений", slaveTwice);
+        Error(diagnostics, "rigid_slave_supported",
+            "Ведомые узлы жёстких тел или объединений закреплены по объединяемым направлениям", slaveFixed);
+        Error(diagnostics, "rigid_chain",
+            "Узлы ведомы в одном жёстком теле или объединении и ведущие в другом (цепочки не поддерживаются)", chains);
 
         // ГУ КЭ: освобождения — только у стержней, C1 — только у пластин.
         var releases = new Dictionary<string, (int, int)>(StringComparer.Ordinal);

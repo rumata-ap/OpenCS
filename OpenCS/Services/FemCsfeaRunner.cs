@@ -161,7 +161,8 @@ public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? 
     {
         if (Adapted?.Model is not { } model) yield break;
         yield return $"Модель: узлов {model.Nodes.Count}, оболочек {model.Shells.Count}, стержней {model.Beams.Count}, "
-            + $"опор {model.Supports.Count}, пружин {model.Springs.Count}, жёстких тел {model.RigidBodies.Count}.";
+            + $"опор {model.Supports.Count}, пружин {model.Springs.Count}, жёстких тел {model.RigidBodies.Count(b => !b.EqualDofs)}"
+            + (model.RigidBodies.Any(b => b.EqualDofs) ? $", объединений перемещений {model.RigidBodies.Count(b => b.EqualDofs)}." : ".");
         foreach (var (stage, i) in model.Stages.Select((s, i) => (s, i)))
         {
             var t = i < Adapted.StageTotals.Count ? Adapted.StageTotals[i] : null;

@@ -153,7 +153,7 @@ public static class FemRcModelAdapter
             int id = int.TryParse(b.SourceElemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int src) ? src : bodyId;
             int master = int.Parse(b.MasterNodeTag, CultureInfo.InvariantCulture);
             var slaves = b.SlaveNodeTags.Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
-            model.RigidBodies.Add(new RcRigidBody(id, master, slaves, b.Mask));
+            model.RigidBodies.Add(new RcRigidBody(id, master, slaves, b.Mask, b.IsCoupled));
             used.Add(master);
             used.UnionWith(slaves);
         }

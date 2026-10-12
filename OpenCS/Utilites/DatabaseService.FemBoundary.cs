@@ -96,7 +96,7 @@ namespace OpenCS.Utilites
          var result = new List<FemRigidBody>();
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
-            SELECT id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag
+            SELECT id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag, kind
             FROM fem_rigid_bodies WHERE schema_id=@sid ORDER BY id
             """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -106,6 +106,7 @@ namespace OpenCS.Utilites
             {
                Id = r.GetInt32(0), SchemaId = schemaId, MasterNodeTag = r.GetString(1), SlaveNodeTagsJson = r.GetString(2),
                Mask = r.GetInt32(3), Origin = r.GetString(4), SourceElemTag = r.IsDBNull(5) ? null : r.GetString(5),
+               Kind = r.GetString(6),
             });
          return result;
       }
@@ -220,8 +221,8 @@ namespace OpenCS.Utilites
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
-               INSERT INTO fem_rigid_bodies (schema_id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag)
-               VALUES (@sid, @master, @slaves, @mask, @origin, @src);
+               INSERT INTO fem_rigid_bodies (schema_id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag, kind)
+               VALUES (@sid, @master, @slaves, @mask, @origin, @src, @kind);
                SELECT last_insert_rowid();
                """;
             foreach (var b in rigidBodies)
@@ -233,6 +234,7 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@mask", b.Mask);
                cmd.Parameters.AddWithValue("@origin", b.Origin);
                cmd.Parameters.AddWithValue("@src", (object?)b.SourceElemTag ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@kind", b.Kind);
                int id = (int)(long)cmd.ExecuteScalar()!;
                if (updateObjects) { b.Id = id; b.SchemaId = schemaId; }
             }

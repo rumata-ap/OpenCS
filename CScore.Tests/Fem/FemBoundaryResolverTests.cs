@@ -107,6 +107,43 @@ public sealed class FemBoundaryResolverTests
         Assert.Equal(["4"], r.Diagnostics.Single(d => d.Code == "rigid_slave_supported").SourceKeys);
     }
 
+    static FemRigidBody Coupling(string master, int mask, params string[] slaves)
+    {
+        var body = Body(master, mask, slaves);
+        body.Kind = FemRigidBodyKinds.Coupled;
+        return body;
+    }
+
+    [Fact]
+    public void Couplings_KindKept_FixedNodeBecomesMaster()
+    {
+        var r = Resolve(
+            mesh: [Mesh("1"), Mesh("2"), Mesh("3"), Mesh("4"), Mesh("5")],
+            supports: [new FemMeshNodeSupport { NodeTag = "3", Mask = 0b000100 }, new FemMeshNodeSupport { NodeTag = "5", Mask = 0b000001 }],
+            bodies: [Coupling("1", 0b000111, "2", "3"), Coupling("4", 0b000100, "5")]);
+
+        // Группа 1–2–3 закреплена по Z в узле 3 — он становится ведущим; узел 5 закреплён по X, а объединён по Z — не пересекается.
+        Assert.False(r.HasErrors);
+        Assert.Equal([("3", "2,1"), ("4", "5")], r.RigidBodies.Select(b => (b.MasterNodeTag, string.Join(",", b.SlaveNodeTags))));
+        Assert.All(r.RigidBodies, b => Assert.True(b.IsCoupled));
+    }
+
+    [Fact]
+    public void Couplings_SlaveTwiceOnlyOnSharedDofs_ChainIsError()
+    {
+        // Узел 2 ведом в теле по X и в объединении по Z — допустимо; узел 3 ведом в АЖТ и ведущий объединения — цепочка;
+        // узел 6 ведом в двух объединениях по Y — ошибка.
+        var r = Resolve(
+            mesh: [Mesh("1"), Mesh("2"), Mesh("3"), Mesh("4"), Mesh("5"), Mesh("6"), Mesh("7")],
+            bodies: [Body("1", 0b000001, "2", "3"), Coupling("4", 0b000100, "2"), Coupling("3", 0b000111, "5"),
+                Coupling("7", 0b000010, "6"), Coupling("5", 0b000010, "6")]);
+
+        Assert.True(r.HasErrors);
+        Assert.Equal(["6"], r.Diagnostics.Single(d => d.Code == "rigid_slave_twice").SourceKeys);
+        Assert.Equal(["3", "5"], r.Diagnostics.Single(d => d.Code == "rigid_chain").SourceKeys);
+        Assert.Equal(FemRigidBodyKinds.Rigid, r.RigidBodies[0].Kind);
+    }
+
     [Fact]
     public void ElementProps_ReleasesOnBeams_C1OnShells()
     {

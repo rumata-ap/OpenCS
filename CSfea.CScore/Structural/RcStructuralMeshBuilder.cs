@@ -152,7 +152,7 @@ public static class RcStructuralMeshBuilder
         foreach (var rb in model.RigidBodies)
         {
             int m = Idx(rb.Master, $"Жёсткое тело {rb.Id}");
-            foreach (int s in rb.Slaves) links.Add(new RigidLink(m, Idx(s, $"Жёсткое тело {rb.Id}"), rb.Mask));
+            foreach (int s in rb.Slaves) links.Add(new RigidLink(m, Idx(s, $"Жёсткое тело {rb.Id}"), rb.Mask, rb.EqualDofs));
         }
         var mesh = new StructuralMesh(coords, shells, beams, links);
 

@@ -78,9 +78,9 @@ public sealed class LiraBoundaryTransferTests
         Assert.Equal([("1", 0b000111), ("2", 0b100100)], r.Supports.Select(x => (x.NodeTag, x.Mask)));
         Assert.All(r.Supports, x => Assert.Equal("import:lira", x.Origin));
 
-        // Пружины: т/м → Н/м и т·м/рад → Н·м/рад (длины в метрах).
+        // Пружины: т/м → Н/м и т·м/рад → Н·м/рад (длины в метрах); КЭ 56 — как КЭ 57.
         double t = TonToKn * 1e3;
-        Assert.Equal(2, r.Springs.Count);
+        Assert.Equal(3, r.Springs.Count);
         var s5 = r.Springs.Single(x => x.NodeTag == "5");
         Assert.Equal("3,4", s5.SourceElemTag);
         AssertClose([20 * t, 40 * t, 60 * t, 2 * t, 4 * t, 6 * t], s5.Stiffnesses);
@@ -88,11 +88,21 @@ public sealed class LiraBoundaryTransferTests
         Assert.Equal("5", s6.SourceElemTag);
         AssertClose([0, 0, 2000 * t, 0, 0, 5 * t], s6.Stiffnesses);
         Assert.Equal(FemSpringTargetKinds.MeshNode, s6.TargetKind);
+        var s7 = r.Springs.Single(x => x.NodeTag == "7");
+        Assert.Equal("6", s7.SourceElemTag);
+        AssertClose([100 * t, 100 * t, 0, 0, 0, 0], s7.Stiffnesses);
 
         // АЖТ: номер — порядковый в документе 25, ведущий в ведомых не повторяется; −2 и тело без ведомых — пропущены.
-        var body = Assert.Single(r.RigidBodies);
+        var body = Assert.Single(r.RigidBodies, b => !b.IsCoupled);
         Assert.Equal(("1", "1", FemBoundaryDofs.All), (body.MasterNodeTag, body.SourceElemTag, body.Mask));
+        Assert.Equal(FemRigidBodyKinds.Rigid, body.Kind);
         Assert.Equal(["2", "3"], body.SlaveNodeTags);
+
+        // Объединение «3 1 2 3 / 4 /»: ведущий — первый узел группы, равны X Y Z, номер — порядковый номер группы.
+        var coupling = Assert.Single(r.RigidBodies, b => b.IsCoupled);
+        Assert.Equal(("3", "1", 0b000111, "import:lira"),
+            (coupling.MasterNodeTag, coupling.SourceElemTag, coupling.Mask, coupling.Origin));
+        Assert.Equal(["4"], coupling.SlaveNodeTags);
 
         // Шарниры: конец 2 — DOF 4, 5 = T, My (биты 3, 4), конец 1 — N; упругий шарнир (поле 30) и пластина не переносятся.
         Assert.Equal(new FemElementBoundaryProps(0b000001, 0b011000, null), Assert.Single(r.ElementProps).Value);
@@ -100,19 +110,52 @@ public sealed class LiraBoundaryTransferTests
 
         var rows = r.Summary.ToDictionary(x => x.Kind);
         Assert.Equal((2, 1), (rows["Связи"].Transferred, rows["Связи"].NotTransferred));
-        Assert.Equal((3, 2), (rows["Упругие связи (КЭ 51, 57)"].Transferred, rows["Упругие связи (КЭ 51, 57)"].NotTransferred));
+        Assert.Equal((4, 2), (rows["Упругие связи (КЭ 51, 56, 57)"].Transferred, rows["Упругие связи (КЭ 51, 56, 57)"].NotTransferred));
         Assert.Equal((1, 3), (rows["Абсолютно жёсткие тела"].Transferred, rows["Абсолютно жёсткие тела"].NotTransferred));
         Assert.Equal((1, 1), (rows["Шарниры стержней"].Transferred, rows["Шарниры стержней"].NotTransferred));
+        Assert.Equal((1, 0, "узлов: 2"), (rows["Объединения перемещений"].Transferred, rows["Объединения перемещений"].NotTransferred,
+            rows["Объединения перемещений"].Note));
         Assert.Equal(1, rows["Упругие шарниры"].NotTransferred);
-        Assert.Equal(1, rows["Объединения перемещений"].NotTransferred);
-        Assert.Equal(1, rows["КЭ 56 (упругая связь)"].NotTransferred);
+        Assert.False(rows.ContainsKey("КЭ 56 (связь)"));
         Assert.Equal(1, rows["КЭ 251 (физически нелинейная связь)"].NotTransferred);
         Assert.Equal(1, rows["Жёсткие вставки (документ 14)"].NotTransferred);
         Assert.False(rows.ContainsKey("Упругое основание пластин (C1)"));
 
-        Assert.StartsWith("Перенесено из ЛИРЫ граничных условий: связей 2, пружин 2, жёстких тел 1, стержней с шарнирами 1 (концов 2).",
-            r.Report[0]);
-        Assert.Contains(r.Report, l => l.StartsWith("Не перенесено: объединения перемещений — групп 1 (узлов 2)"));
+        Assert.StartsWith("Перенесено из ЛИРЫ граничных условий: связей 2, пружин 3, жёстких тел 1, объединений перемещений 1, " +
+            "стержней с шарнирами 1 (концов 2).", r.Report[0]);
+        Assert.DoesNotContain(r.Report, l => l.Contains("объединения перемещений", StringComparison.OrdinalIgnoreCase)
+            && l.StartsWith("Не перенесено"));
+        Assert.DoesNotContain(r.Report, l => l.StartsWith("Не перенесено: КЭ 56"));
+    }
+
+    [Fact]
+    public void Couplings_NodesOutsideMeshDropped_GroupsWithOneNodeSkipped()
+    {
+        // Группы: 5 (X) + 6, 99 → 5–6; 7 (Z UX) + 98 → один узел в сетке, пропуск; 99 (Y) + 1, 2 → ведущий — 1.
+        string text = Schema.Replace("""
+            3 1 2 3 /
+            4 /
+            """, """
+            5 1 /
+            6 /99 /
+            7 3 4 /
+            98 /
+            99 2 /
+            1 /2 /
+            """);
+        var s = Parse(text);
+        Assert.Equal(3, s.Couplings.Count);
+
+        var r = LiraBoundaryTransfer.Transfer(s, Nodes, Types, TonToKn);
+
+        var couplings = r.RigidBodies.Where(b => b.IsCoupled).ToList();
+        Assert.Equal([("5", "1", 0b000001), ("1", "3", 0b000010)],
+            couplings.Select(c => (c.MasterNodeTag, c.SourceElemTag, c.Mask)));
+        Assert.Equal(["6"], couplings[0].SlaveNodeTags);
+        Assert.Equal(["2"], couplings[1].SlaveNodeTags);
+        var row = r.Summary.Single(x => x.Kind == "Объединения перемещений");
+        Assert.Equal((2, 1), (row.Transferred, row.NotTransferred));
+        Assert.Contains(r.Report, l => l == "Объединения перемещений: узлов нет в сетке — 3, исключены из групп.");
     }
 
     [Fact]
@@ -148,6 +191,7 @@ public sealed class LiraBoundaryTransferTests
     [InlineData(57, new[] { 1.0, 2, 3, 4, 5, 6, 7 }, new[] { 1.0, 2, 3, 4, 5, 6 })]
     [InlineData(51, new[] { 3.0, 2000, 3, 1 }, new[] { 0.0, 0, 2001, 0, 0, 0 })]
     [InlineData(51, new[] { 1.0, 10 }, new[] { 10.0, 0, 0, 0, 0, 0 })]
+    [InlineData(56, new[] { 100.0, 100, 0, 0, 0, 0 }, new[] { 100.0, 100, 0, 0, 0, 0 })]
     public void SpringStiffness_Parsed(int type, double[] values, double[] expected) =>
         Assert.Equal(expected, LiraBoundaryTransfer.SpringStiffness(type, values));
 
@@ -156,7 +200,8 @@ public sealed class LiraBoundaryTransferTests
     [InlineData(51, new[] { 3.0 })]
     [InlineData(51, new[] { 0.0, 1 })]
     [InlineData(51, new[] { 2.5, 1 })]
-    [InlineData(56, new[] { 1.0, 2, 3, 4, 5, 6 })]
+    [InlineData(56, new[] { 1.0, 2, 3 })]
+    [InlineData(55, new[] { 1.0, 2, 3, 4, 5, 6 })]
     public void SpringStiffness_Rejected(int type, double[] values) =>
         Assert.Null(LiraBoundaryTransfer.SpringStiffness(type, values));
 }

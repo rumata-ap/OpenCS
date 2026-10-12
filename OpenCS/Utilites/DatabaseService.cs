@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 81;
+      const int CurrentSchemaVersion = 82;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -101,6 +101,7 @@ namespace OpenCS.Utilites
          [78] = MigrateV79,
          [79] = MigrateV80,
          [80] = EnsureFemResultStepTable,
+         [81] = MigrateV82,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -685,7 +686,8 @@ namespace OpenCS.Utilites
                 slave_node_tags_json TEXT NOT NULL DEFAULT '[]',
                 mask INTEGER NOT NULL DEFAULT 63,
                 origin TEXT NOT NULL DEFAULT 'manual',
-                source_elem_tag TEXT
+                source_elem_tag TEXT,
+                kind TEXT NOT NULL DEFAULT 'rigid'
             );
             CREATE INDEX IF NOT EXISTS idx_fem_rigid_bodies_schema ON fem_rigid_bodies(schema_id);
             CREATE TABLE IF NOT EXISTS fem_member_loads (
@@ -1756,6 +1758,13 @@ namespace OpenCS.Utilites
             """);
       }
 
+      /// <summary>Миграция v82: вид жёсткого тела — «rigid» (жёсткое тело) или «coupled» (объединение перемещений ЛИРЫ).</summary>
+      void MigrateV82()
+      {
+         if (!ColumnExists("fem_rigid_bodies", "kind"))
+            MigExec("ALTER TABLE fem_rigid_bodies ADD COLUMN kind TEXT NOT NULL DEFAULT 'rigid'");
+      }
+
       /// <summary>Миграция v78: граничные условия сеточного уровня — закрепления узлов сетки, пружины-«земля», жёсткие
       /// тела; у КЭ — освобождения концов стержня и коэффициент постели C1 пластины.</summary>
       void MigrateV78()
@@ -1797,7 +1806,8 @@ namespace OpenCS.Utilites
                 slave_node_tags_json TEXT NOT NULL DEFAULT '[]',
                 mask INTEGER NOT NULL DEFAULT 63,
                 origin TEXT NOT NULL DEFAULT 'manual',
-                source_elem_tag TEXT
+                source_elem_tag TEXT,
+                kind TEXT NOT NULL DEFAULT 'rigid'
             );
             CREATE INDEX IF NOT EXISTS idx_fem_rigid_bodies_schema ON fem_rigid_bodies(schema_id);
             """);

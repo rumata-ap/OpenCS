@@ -5,13 +5,14 @@ namespace CScore.Import;
 
 /// <summary>
 /// Перенос граничных условий из текстового файла ЛИРЫ (<see cref="LiraTextSchema"/>) в сеточный уровень схемы:
-/// связи документа 5 → <see cref="FemMeshNodeSupport"/>, одноузловые КЭ 51 и 57 → <see cref="FemSpring"/>, шарниры
-/// документа 2 → <see cref="FemElement.ReleaseI"/>/<see cref="FemElement.ReleaseJ"/>, АЖТ документа 25 (код −1) →
-/// <see cref="FemRigidBody"/>. Узлы и КЭ сопоставляются по номерам: импорт ЛИРЫ даёт тегам узлов и КЭ сетки номера
-/// схемы. Результат целиком заменяет ГУ происхождения «import:lira» (запись — <c>SaveFemBoundary</c>), ручные не
-/// трогаются; C1 пластин из таблицы 5 API, если передан, сохраняется (запись заменяет ГУ всех импортных КЭ).
-/// Объединения перемещений, упругие шарниры, КЭ 55/56 и физически нелинейные связи, АЖТ с кодом не −1, вставки
-/// документа 14 — в сводку «не перенесено».
+/// связи документа 5 → <see cref="FemMeshNodeSupport"/>, одноузловые КЭ 51, 56 и 57 → <see cref="FemSpring"/>,
+/// шарниры документа 2 → <see cref="FemElement.ReleaseI"/>/<see cref="FemElement.ReleaseJ"/>, АЖТ документа 25 (код −1)
+/// и объединения перемещений документа 5 → <see cref="FemRigidBody"/> (виды <see cref="FemRigidBodyKinds.Rigid"/> и
+/// <see cref="FemRigidBodyKinds.Coupled"/>). Узлы и КЭ сопоставляются по номерам: импорт ЛИРЫ даёт тегам узлов и КЭ
+/// сетки номера схемы. Результат целиком заменяет ГУ происхождения «import:lira» (запись — <c>SaveFemBoundary</c>),
+/// ручные не трогаются; C1 пластин из таблицы 5 API, если передан, сохраняется (запись заменяет ГУ всех импортных КЭ).
+/// Упругие шарниры, КЭ 55 и физически нелинейные связи, АЖТ с кодом не −1, вставки документа 14 — в сводку
+/// «не перенесено».
 /// </summary>
 public static class LiraBoundaryTransfer
 {
@@ -19,6 +20,13 @@ public static class LiraBoundaryTransfer
 
     /// <summary>КЭ 51 — связь конечной жёсткости: жёсткость — пары «DOF величина» (<c>3 2000</c>).</summary>
     public const int SpringFe51 = 51;
+
+    /// <summary>
+    /// КЭ 56 — одноузловая упругая связь; жёсткость читается как у КЭ 57. Поля по описанию не подтверждены, но во всех
+    /// образцах (ЛИРА 2022–2025: ЗАГС, MIL-003, Turkestan, FRAME) форма одна — <c>Rx Ry 0 0 0 0</c>: горизонтальные
+    /// пружины узлов фундаментной плиты (вертикаль — C1), как у КЭ 57 «Мирной».
+    /// </summary>
+    public const int SpringFe56 = 56;
 
     /// <summary>КЭ 57 — одноузловая упругая связь: жёсткость <c>Rx Ry Rz Rux Ruy Ruz</c> в общих осях.</summary>
     public const int SpringFe57 = 57;
@@ -48,7 +56,7 @@ public static class LiraBoundaryTransfer
         }
         if (missingSupports > 0) report.Add($"Связи: узлов нет в сетке — {missingSupports}, пропущены.");
 
-        // ── КЭ 51 и 57 → пружины узлов (КЭ одного узла складываются) ──
+        // ── КЭ 51, 56 и 57 → пружины узлов (КЭ одного узла складываются) ──
         var units = schema.Units;
         double forceN = units.ForceUnitN(tonToKn), lengthM = units.LengthUnitM;
         double linear = forceN / lengthM, angular = forceN * lengthM;
@@ -57,7 +65,7 @@ public static class LiraBoundaryTransfer
 
         var springElems = new List<(LiraTextElement Element, double[] K)>();
         int unparsedSprings = 0;
-        foreach (var e in schema.Elements.Where(e => e.Type is SpringFe51 or SpringFe57))
+        foreach (var e in schema.Elements.Where(e => e.Type is SpringFe51 or SpringFe56 or SpringFe57))
         {
             var k = e.Nodes.Length == 1 && stiffnesses.TryGetValue(e.Stiffness, out var st)
                 ? SpringStiffness(e.Type, st.NumericValues) : null;
@@ -84,11 +92,11 @@ public static class LiraBoundaryTransfer
             spring.SetStiffnesses(k);
             springs.Add(spring);
         }
-        if (missingSprings > 0) report.Add($"Упругие связи (КЭ 51, 57): узлов нет в сетке — КЭ {missingSprings}, пропущены.");
+        if (missingSprings > 0) report.Add($"Упругие связи (КЭ 51, 56, 57): узлов нет в сетке — КЭ {missingSprings}, пропущены.");
         if (unparsedSprings > 0)
-            report.Add($"Упругие связи (КЭ 51, 57): у {unparsedSprings} КЭ жёсткость не распознана или узел не один — пропущены.");
-        if (mergedSprings > 0) report.Add($"Упругие связи (КЭ 51, 57): {mergedSprings} КЭ на общих узлах сложены в одну пружину узла.");
-        if (zeroSprings > 0) report.Add($"Упругие связи (КЭ 51, 57): у {zeroSprings} КЭ все жёсткости нулевые — пропущены.");
+            report.Add($"Упругие связи (КЭ 51, 56, 57): у {unparsedSprings} КЭ жёсткость не распознана или узел не один — пропущены.");
+        if (mergedSprings > 0) report.Add($"Упругие связи (КЭ 51, 56, 57): {mergedSprings} КЭ на общих узлах сложены в одну пружину узла.");
+        if (zeroSprings > 0) report.Add($"Упругие связи (КЭ 51, 56, 57): у {zeroSprings} КЭ все жёсткости нулевые — пропущены.");
 
         // ── АЖТ документа 25: номер тела — порядковый номер записи ──
         var bodies = new List<FemRigidBody>();
@@ -112,6 +120,32 @@ public static class LiraBoundaryTransfer
         if (missingSlaves > 0) report.Add($"АЖТ: ведомых узлов нет в сетке — {missingSlaves}, исключены из тел.");
         if (otherCodeBodies > 0)
             report.Add($"Не перенесено: АЖТ с кодом не −1 (−2 или без кода, смысл не установлен) — {otherCodeBodies}.");
+
+        // ── Объединения перемещений документа 5: ведущий — первый узел группы в сетке, номер — порядковый номер группы ──
+        var couplings = new List<FemRigidBody>();
+        int missingCouplings = 0, missingCoupled = 0, noDofCouplings = 0, couplingNodes = 0;
+        for (int i = 0; i < schema.Couplings.Count; i++)
+        {
+            var c = schema.Couplings[i];
+            int mask = Bits(c.Dofs);
+            if (mask == 0) { noDofCouplings++; continue; }
+            var group = c.Nodes.Prepend(c.Head).Distinct().Select(T).ToList();
+            var present = group.Where(meshNodeTags.Contains).ToList();
+            missingCoupled += group.Count - present.Count;
+            if (present.Count < 2) { missingCouplings++; continue; }
+            var coupling = new FemRigidBody
+            {
+                MasterNodeTag = present[0], Mask = mask, Kind = FemRigidBodyKinds.Coupled, Origin = Origin,
+                SourceElemTag = T(i + 1),
+            };
+            coupling.SetSlaveNodeTags(present.Skip(1));
+            couplings.Add(coupling);
+            couplingNodes += present.Count;
+        }
+        if (missingCoupled > 0) report.Add($"Объединения перемещений: узлов нет в сетке — {missingCoupled}, исключены из групп.");
+        if (missingCouplings > 0)
+            report.Add($"Объединения перемещений: {missingCouplings} групп, где в сетке меньше двух узлов, пропущены.");
+        if (noDofCouplings > 0) report.Add($"Объединения перемещений: {noDofCouplings} групп без направлений 1–6, пропущены.");
 
         // ── Шарниры документа 2: DOF 1–6 местных осей ЛИРЫ = биты N Qy Qz T My Mz (местная Y = Y1) ──
         var props = new Dictionary<string, FemElementBoundaryProps>(StringComparer.Ordinal);
@@ -154,10 +188,6 @@ public static class LiraBoundaryTransfer
             }
 
         // ── Не переносится ──
-        int couplingNodes = schema.Couplings.Sum(c => c.Nodes.Length + 1);
-        if (schema.Couplings.Count > 0)
-            report.Add($"Не перенесено: объединения перемещений — групп {schema.Couplings.Count} (узлов {couplingNodes}); " +
-                "в расчётном ядре их пока нет (это не жёсткое тело: равны только перемещения, без поворотного члена).");
         var otherLinks = schema.Elements.Where(e => IsOtherLink(e.Type)).GroupBy(e => e.Type).OrderBy(g => g.Key)
             .Select(g => (Type: g.Key, Count: g.Count())).ToList();
         foreach (var (type, count) in otherLinks)
@@ -168,7 +198,7 @@ public static class LiraBoundaryTransfer
         var summary = new List<FemBoundaryTransferRow>
         {
             new("Связи", "узлы", supports.Count, missingSupports),
-            new("Упругие связи (КЭ 51, 57)", "КЭ", transferredSpringElems, missingSprings + unparsedSprings,
+            new("Упругие связи (КЭ 51, 56, 57)", "КЭ", transferredSpringElems, missingSprings + unparsedSprings,
                 Join(mergedSprings > 0 ? $"сложены на общих узлах: {mergedSprings}" : "",
                     unparsedSprings > 0 ? $"жёсткость не распознана: {unparsedSprings}" : "",
                     zeroSprings > 0 ? $"нулевая жёсткость: {zeroSprings}" : "")),
@@ -177,21 +207,23 @@ public static class LiraBoundaryTransfer
                     otherCodeBodies > 0 ? $"код не −1: {otherCodeBodies}" : "")),
             new("Шарниры стержней", "КЭ", jointed, missingJoints, releasedEnds > 0 ? $"освобождённых концов: {releasedEnds}" : ""),
         };
+        if (schema.Couplings.Count > 0)
+            summary.Add(new("Объединения перемещений", "группы", couplings.Count, missingCouplings + noDofCouplings,
+                Join($"узлов: {couplingNodes}", missingCoupled > 0 ? $"узлов нет в сетке: {missingCoupled}" : "")));
         if (foundationC1 != null) summary.Add(new("Упругое основание пластин (C1)", "КЭ", c1Count, 0, "из API ЛИРЫ"));
         void Optional(string kind, string unit, int count, string note = "") { if (count > 0) summary.Add(new(kind, unit, 0, count, note)); }
         Optional("Упругие шарниры", "концы", elasticEnds.Count);
-        Optional("Объединения перемещений", "группы", schema.Couplings.Count, $"узлов: {couplingNodes}");
         foreach (var (type, count) in otherLinks) Optional($"КЭ {type} ({DescribeLink(type)})", "КЭ", count);
         Optional("Жёсткие вставки (документ 14)", "записи", inserts);
 
         report.Insert(0, $"Перенесено из ЛИРЫ граничных условий: связей {supports.Count}, пружин {springs.Count}, " +
-            $"жёстких тел {bodies.Count}, стержней с шарнирами {jointed} (концов {releasedEnds})" +
-            (foundationC1 != null ? $", пластин на упругом основании {c1Count}." : "."));
-        return new FemBoundaryTransferResult(supports, springs, bodies, props, report, summary);
+            $"жёстких тел {bodies.Count}, объединений перемещений {couplings.Count}, стержней с шарнирами {jointed} " +
+            $"(концов {releasedEnds})" + (foundationC1 != null ? $", пластин на упругом основании {c1Count}." : "."));
+        return new FemBoundaryTransferResult(supports, springs, [.. bodies, .. couplings], props, report, summary);
     }
 
     /// <summary>
-    /// Жёсткости X Y Z UX UY UZ в единицах файла по численной жёсткости документа 3: КЭ 57 — первые шесть чисел
+    /// Жёсткости X Y Z UX UY UZ в единицах файла по численной жёсткости документа 3: КЭ 56 и 57 — первые шесть чисел
     /// (<c>Rx Ry Rz Rux Ruy Ruz</c>), КЭ 51 — пары «DOF 1–6, величина» (повтор DOF складывается); null — не распознано.
     /// </summary>
     public static double[]? SpringStiffness(int type, double[]? values)
@@ -200,6 +232,7 @@ public static class LiraBoundaryTransfer
         var k = new double[6];
         switch (type)
         {
+            case SpringFe56:
             case SpringFe57:
                 if (values.Length < 6) return null;
                 Array.Copy(values, k, 6);
@@ -218,13 +251,12 @@ public static class LiraBoundaryTransfer
         }
     }
 
-    /// <summary>Связи, которые не переносятся: КЭ 5x и физически нелинейные 25x, кроме 51 и 57.</summary>
-    static bool IsOtherLink(int type) => type is (>= 50 and <= 59) or (>= 250 and <= 259) && type is not (SpringFe51 or SpringFe57);
+    /// <summary>Связи, которые не переносятся: КЭ 5x и физически нелинейные 25x, кроме 51, 56 и 57.</summary>
+    static bool IsOtherLink(int type) => type is (>= 50 and <= 59) or (>= 250 and <= 259) && type is not (SpringFe51 or SpringFe56 or SpringFe57);
 
     static string DescribeLink(int type) => type switch
     {
         55 => "упругая связь двух узлов",
-        56 => "упругая связь",
         >= 250 => "физически нелинейная связь",
         _ => "связь",
     };
