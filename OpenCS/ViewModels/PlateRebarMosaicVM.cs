@@ -1014,15 +1014,17 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    public bool IsResultActive => _activeResult != null;
 
-   int? _pendingAnalysisId;
+   int? _pendingAnalysisId, _pendingStepIndex;
 
    /// <summary>
-   /// Показать результат постановки (вход из дерева «Показать результат»). Если данные вида ещё не прочитаны —
-   /// выбор применится после чтения; результат, появившийся после открытия вида, дочитывается.
+   /// Показать результат постановки (вход из дерева «Показать результат», возврат из окна таблиц — на его шаге).
+   /// Если данные вида ещё не прочитаны — выбор применится после чтения; результат, появившийся после открытия вида,
+   /// дочитывается. Без шага — шаг, который слой выбирает сам.
    /// </summary>
-   public void ShowAnalysis(int analysisId)
+   public void ShowAnalysis(int analysisId, int? stepIndex = null)
    {
       _pendingAnalysisId = analysisId;
+      _pendingStepIndex = stepIndex;
       if (_dataKey != null) Reload();
       SelectPendingAnalysis();
    }
@@ -1033,6 +1035,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _pendingAnalysisId = null;
       SelectedSource = SourceOptions.First(o => o.Kind == PlateRebarMosaicSourceKind.Analysis);
       SelectedSubject = SubjectOptions.First(o => o.Subject is AnalysisInfo a && a.Analysis.Id == info.Analysis.Id);
+      if (_pendingStepIndex is int step && ActiveResult is { } layer)
+         layer.SelectedStepIndex = Math.Clamp(step, 0, layer.MaxStepIndex);
+      _pendingStepIndex = null;
    }
    void UpdateActiveResult()
    {

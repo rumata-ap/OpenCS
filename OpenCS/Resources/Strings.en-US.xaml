@@ -1412,7 +1412,7 @@
     <system:String x:Key="FemResetScale">Reset scale</system:String>
     <system:String x:Key="FemAnalysisEdit">Edit analysis</system:String>
     <system:String x:Key="FemAnalysisViewResult">View result</system:String>
-    <system:String x:Key="FemAnalysisResultWindow">Result window (tables)</system:String>
+    <system:String x:Key="FemAnalysisResultWindow">Result tables</system:String>
     <system:String x:Key="FemResultMember2D">Show 2D diagram</system:String>
     <system:String x:Key="FemResultMemberSection">Show cross-section</system:String>
     <system:String x:Key="FemResultNodeValues">Show node values</system:String>
@@ -4348,7 +4348,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultNoDisplacements">No displacements at this step</system:String>
     <system:String x:Key="FemResultElementExtremum">{0}: {1:0.###}, element {2}</system:String>
     <system:String x:Key="FemResultNoValues">No values at this step</system:String>
-    <system:String x:Key="FemResultActionsTip">Result actions: window with tables, force sets of the step</system:String>
+    <system:String x:Key="FemResultActionsTip">Result actions: tables and charts at the shown step, force sets of the step</system:String>
+    <system:String x:Key="FemResultShowInSchema">Show in the schema 3D view</system:String>
+    <system:String x:Key="FemResultShowInSchemaTip">Result in the main 3D view of the schema at this window's step: mosaics, diagrams, deformed shape, selection and menus</system:String>
     <system:String x:Key="FemResultCardNode">Node {0}</system:String>
     <system:String x:Key="FemResultCardBar">Bar, element {0}</system:String>
     <system:String x:Key="FemResultCardShell">Shell, element {0}</system:String>

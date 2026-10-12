@@ -1837,14 +1837,15 @@ public partial class FemSchemaView3D : UserControl
 
     void FragmentShowAll_Click(object sender, RoutedEventArgs e) => VM?.ShowAllFragment();
 
-    /// <summary>«⋯» строки шага: действия показанного результата (прежнее окно с таблицами, наборы усилий шага CSfea).</summary>
+    /// <summary>«⋯» строки шага: действия показанного результата (таблицы и графики — на показанном шаге, наборы усилий
+    /// шага CSfea).</summary>
     void ResultActions_Click(object sender, RoutedEventArgs e)
     {
         if (VM?.Mosaic.ActiveResult is not { } result || sender is not Button button) return;
         var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
         var window = new MenuItem { Header = Loc.S("FemAnalysisResultWindow"), IsEnabled = app != null };
-        window.Click += (_, _) => app?.OpenFemAnalysisResultWindowCommand.Execute(result.Analysis);
+        window.Click += (_, _) => app?.OpenFemAnalysisResultTables(result.Analysis, result.SelectedStepIndex);
         menu.Items.Add(window);
         if (result.Csfea is { } csfea)
         {
