@@ -59,6 +59,14 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     public void ShowAnalysisResult(int analysisId)
     {
         tabs.SelectedIndex = 0;
+        ShowResultWithoutGlyphs(analysisId);
+    }
+
+    /// <summary>Результат постановки — без глифов схемы (как «Скрыть всё» в меню глифов): опоры, нагрузки и сечения
+    /// заслоняют мозаику и эпюры; вернуть — тем же меню.</summary>
+    void ShowResultWithoutGlyphs(int analysisId)
+    {
+        _fem3d.SetAllGlyphs(false);
         _fem3d.Mosaic.ShowAnalysis(analysisId);
     }
 
@@ -103,7 +111,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 () => app.CalcSettings, this);
             if (app.OpenSubmodelTabRequested) tabs.SelectedItem = submodelTab;
         }
-        if (app.ShowAnalysisResultRequested is int analysisId) _fem3d.Mosaic.ShowAnalysis(analysisId);
+        if (app.ShowAnalysisResultRequested is int analysisId) ShowResultWithoutGlyphs(analysisId);
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);
