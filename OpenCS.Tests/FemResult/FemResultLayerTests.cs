@@ -445,7 +445,8 @@ public class FemResultLayerTests
         Assert.Equal((2.0, -4.0), layer.BarEndValues("1", FemForceComponent.Mz));
         Assert.Null(layer.BarEndValues("2", FemForceComponent.Mz));
         Assert.Equal(new Vector3D(0, 0, 1), layer.BarDiagramAxis("1", FemForceComponent.Qy));
-        Assert.Equal(new Vector3D(0, -1, 0), layer.BarDiagramAxis("1", FemForceComponent.My));
+        // My — против Ez: эпюра моментов на растянутых волокнах.
+        Assert.Equal(new Vector3D(0, 1, 0), layer.BarDiagramAxis("1", FemForceComponent.My));
     }
 
     [Fact]

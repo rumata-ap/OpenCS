@@ -224,11 +224,24 @@ public sealed class FemResultLayer : ViewModelBase
             FemForceEndpointConverter.ReadComponent(pair.End, component) / 1e3);
     }
 
-    /// <summary>Направление ординат эпюры на стержне: Qy и Mz — вдоль местной Ey, остальное — вдоль Ez.</summary>
+    /// <summary>Направление ординат эпюры на стержне (см. <see cref="DiagramAxis"/>).</summary>
     public Vector3D? BarDiagramAxis(string elemTag, FemForceComponent component) =>
         int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && _steps.BarAxes(n) is { } axes
-            ? component is FemForceComponent.Qy or FemForceComponent.Mz ? axes.Ey : axes.Ez
+            ? DiagramAxis(axes.Ey, axes.Ez, component)
             : null;
+
+    /// <summary>
+    /// Направление, в которое откладывается положительная ордината эпюры: Qy и Mz — вдоль местной Ey, My — против Ez,
+    /// остальное — вдоль Ez. Моменты при знаках OpenSees (<see cref="FemForceEndpointSignPolicy.OpenSeesDefault"/>)
+    /// так строятся на растянутых волокнах: положительный Mz растягивает волокна со стороны +Ey, положительный My —
+    /// со стороны −Ez.
+    /// </summary>
+    public static Vector3D DiagramAxis(Vector3D ey, Vector3D ez, FemForceComponent component) => component switch
+    {
+        FemForceComponent.Qy or FemForceComponent.Mz => ey,
+        FemForceComponent.My => -ez,
+        _ => ez,
+    };
 
     public static string Unit(FemForceComponent component) =>
         component is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz ? Loc.S("UnitKN") : Loc.S("UnitKNm");
