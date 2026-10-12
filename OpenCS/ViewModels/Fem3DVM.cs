@@ -1169,7 +1169,7 @@ public class Fem3DVM : ViewModelBase
             BarGroups = [.. BarGroups, .. BuildBarDiagrams()];
         HiShellMesh = null;
         (ShellMesh, MosaicShellMeshes) = BuildMosaicShells(coloring, nodeMap, shells);
-        ResultOriginalLines = !result.DeformedShown ? null
+        ResultOriginalLines = !result.DeformedShown || !result.ShowOriginal ? null
             : originalMap == null ? result.OriginalLines
             : FragmentOriginalLines(originalMap, shells, bars);
         ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;

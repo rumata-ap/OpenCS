@@ -108,6 +108,20 @@ public sealed class FemResultLayer : ViewModelBase
     /// <summary>Деформированная схема показывается: включена и есть перемещения.</summary>
     public bool DeformedShown => _showDeformed && HasDisplacements;
 
+    bool _showOriginal = true;
+    /// <summary>Под деформированной схемой — контур исходной сетки.</summary>
+    public bool ShowOriginal
+    {
+        get => _showOriginal;
+        set
+        {
+            if (value == _showOriginal) return;
+            _showOriginal = value;
+            OnPropertyChanged();
+            Changed?.Invoke();
+        }
+    }
+
     double _deformScale = 1;
     public double DeformScale
     {

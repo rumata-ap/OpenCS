@@ -258,6 +258,12 @@ public class FemResultLayerTests
         Assert.Equal(2, changed);
         Assert.Equal(new Point3D(2, 0, -1), layer.NodeMap["2"]);
 
+        // Контур исходной сетки под деформированной — по умолчанию показан, отключается отдельно.
+        Assert.True(layer.ShowOriginal);
+        layer.ShowOriginal = false;
+        layer.ShowOriginal = true;
+        changed -= 2;
+
         layer.ShowDeformed = false;
         Assert.Equal(3, changed);
         Assert.False(layer.DeformedShown);

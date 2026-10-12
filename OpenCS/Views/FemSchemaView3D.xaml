@@ -282,6 +282,8 @@
                     <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}">
                         <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                     </Button>
+                    <CheckBox Content="{DynamicResource Fem3DShowOriginalSchema}" IsChecked="{Binding ShowOriginal}"
+                              ToolTip="{DynamicResource Fem3DShowOriginalSchemaTip}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </StackPanel>
                 <!-- Ширина раскрытия трещин CSfea — доля длительной части усилий шага -->
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsCrackFieldShown, Converter={StaticResource BoolToVisibility}}">
