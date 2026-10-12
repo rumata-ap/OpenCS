@@ -1131,6 +1131,10 @@ public class Fem3DVM : ViewModelBase
             _resultMemberByTag = members.GroupBy(m => m.ElemTag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         }
         var (_, allShells, allBars) = _resultMembers.Value;
+        // Предложенный масштаб деформаций — по КЭ фрагмента (до чтения положений узлов: может их пересчитать).
+        result.SetScaleScope(Fragment.IsActive
+            ? allShells.Concat(allBars).Where(e => Fragment.IsMeshVisible(e.ElemTag)).Select(e => e.ElemTag)
+            : null);
         var nodeMap = new Dictionary<string, Point3D>(result.NodeMap, StringComparer.Ordinal);
         // Фрагмент: КЭ сетки скрытых КонЭ и групп — тенью; шкала, эпюры и экстремум — по видимым.
         var shells = allShells;

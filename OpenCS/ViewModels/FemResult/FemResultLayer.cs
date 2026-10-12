@@ -25,7 +25,11 @@ public sealed class FemResultLayer : ViewModelBase
         _steps = steps;
         Mesh = mesh;
         OriginalLines = mesh.EdgeLines(n => mesh.Nodes[n]);
-        ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestDeformScale(), _ => HasDisplacements);
+        ResetDeformScaleCommand = new RelayCommand(_ =>
+        {
+            DeformScale = SuggestDeformScale();
+            _autoScale = true;
+        }, _ => HasDisplacements);
         _deformScale = SuggestDeformScale();
         steps.StepChanged += OnStepChanged;
         steps.FieldsUpdated += () => Changed?.Invoke();
@@ -112,6 +116,7 @@ public sealed class FemResultLayer : ViewModelBase
         {
             if (!FemScaleInput.IsValid(value) || value == _deformScale) return;
             _deformScale = value;
+            _autoScale = false;
             OnPropertyChanged();
             RebuildNodeMap();
             Changed?.Invoke();
@@ -120,7 +125,40 @@ public sealed class FemResultLayer : ViewModelBase
 
     public ICommand ResetDeformScaleCommand { get; }
 
-    double SuggestDeformScale() => FemResultMesh.SuggestDeformScale(Mesh.Diagonal, _steps.MaxDisplacement());
+    // Масштаб предложен (при создании или сбросом) и не задавался вручную — следует за фрагментом.
+    bool _autoScale = true;
+    // Узлы КЭ показанного фрагмента; null — вся сетка.
+    IReadOnlyList<int>? _scaleNodes;
+
+    /// <summary>
+    /// Показанный фрагмент: предложенный масштаб деформаций считается по узлам его КЭ. Если масштаб не задавался
+    /// вручную, он пересчитывается сразу — вместе с положениями узлов, но без <see cref="Changed"/>: вызывается
+    /// при сборке сцены, которая затем читает <see cref="NodeMap"/>.
+    /// </summary>
+    /// <param name="elemTags">КЭ фрагмента; null — вся сетка.</param>
+    public void SetScaleScope(IEnumerable<string>? elemTags)
+    {
+        IReadOnlyList<int>? nodes = elemTags?.SelectMany(t => Mesh.NodesOf(t) ?? []).Distinct().Order().ToArray();
+        if (nodes == null ? _scaleNodes == null : _scaleNodes != null && nodes.SequenceEqual(_scaleNodes)) return;
+        _scaleNodes = nodes;
+        if (!_autoScale) return;
+        double scale = SuggestDeformScale();
+        if (scale == _deformScale) return;
+        _deformScale = scale;
+        OnPropertyChanged(nameof(DeformScale));
+        RebuildNodeMap();
+    }
+
+    /// <summary>5 % диагонали показанных узлов к их наибольшему перемещению на выбранном шаге.</summary>
+    double SuggestDeformScale()
+    {
+        if (_scaleNodes == null) return FemResultMesh.SuggestDeformScale(Mesh.Diagonal, _steps.MaxDisplacement());
+        if (_scaleNodes.Count == 0) return _deformScale;
+        double max = 0;
+        foreach (int n in _scaleNodes)
+            if (_steps.Displacement(n) is { } d) max = Math.Max(max, d.Length);
+        return FemResultMesh.SuggestDeformScale(FemResultMesh.DiagonalOf(_scaleNodes.Select(n => Mesh.Nodes[n])), max);
+    }
 
     /// <summary>Положение узла на виде: деформированное (если показано) или исходное.</summary>
     public Point3D Position(int node)

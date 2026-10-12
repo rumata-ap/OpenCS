@@ -50,13 +50,16 @@ public sealed class FemResultMesh
         }
         Elements = elements;
         UsedNodes = _elementNodes.Values.SelectMany(ids => ids).Distinct().Order().ToArray();
+        Diagonal = DiagonalOf(UsedNodes.Select(n => _nodes[n]));
+    }
 
-        if (UsedNodes.Count > 0)
-        {
-            var p = UsedNodes.Select(n => _nodes[n]).ToList();
-            double dx = p.Max(v => v.X) - p.Min(v => v.X), dy = p.Max(v => v.Y) - p.Min(v => v.Y), dz = p.Max(v => v.Z) - p.Min(v => v.Z);
-            Diagonal = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        }
+    /// <summary>Диагональ габарита точек, м; 0 — точек нет.</summary>
+    public static double DiagonalOf(IEnumerable<Point3D> points)
+    {
+        var p = points.ToList();
+        if (p.Count == 0) return 0;
+        double dx = p.Max(v => v.X) - p.Min(v => v.X), dy = p.Max(v => v.Y) - p.Min(v => v.Y), dz = p.Max(v => v.Z) - p.Min(v => v.Z);
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     /// <summary>Узлы сетки по номеру, исходные координаты, м.</summary>

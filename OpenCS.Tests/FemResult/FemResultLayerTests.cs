@@ -265,6 +265,34 @@ public class FemResultLayerTests
     }
 
     [Fact]
+    public void Layer_SuggestedScaleFollowsFragmentUntilSetByHand()
+    {
+        using var t = new TempDb();
+        var layer = new FemResultLayer(new FemAnalysis { Tag = "Р1" }, "Р1", OpenSeesTwoSteps(t), t.Mesh());
+        layer.ShowDeformed = true;
+        Assert.Equal(5.59, layer.DeformScale, 9);
+
+        // Фрагмент — стержень 1 (узлы 1, 2): диагональ 2 м, перемещение 0,02 м → 0,05·2/0,02 = 5.
+        layer.SetScaleScope(["1"]);
+        Assert.Equal(5, layer.DeformScale, 9);
+        Assert.Equal(new Point3D(2, 0, -0.1), layer.NodeMap["2"]);
+        // Пустой фрагмент масштаб не трогает; снятие фрагмента возвращает масштаб по всей сетке.
+        layer.SetScaleScope([]);
+        Assert.Equal(5, layer.DeformScale, 9);
+        layer.SetScaleScope(null);
+        Assert.Equal(5.59, layer.DeformScale, 9);
+
+        // Заданный вручную масштаб фрагмент не меняет, сброс — считает по фрагменту.
+        layer.DeformScale = 100;
+        layer.SetScaleScope(["1"]);
+        Assert.Equal(100, layer.DeformScale, 9);
+        layer.ResetDeformScaleCommand.Execute(null);
+        Assert.Equal(5, layer.DeformScale, 9);
+        layer.SetScaleScope(null);
+        Assert.Equal(5.59, layer.DeformScale, 9);
+    }
+
+    [Fact]
     public void Mosaic_AnalysisSource_ColorsShellsAndBars()
     {
         using var t = new TempDb();
