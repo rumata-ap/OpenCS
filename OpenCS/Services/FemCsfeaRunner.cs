@@ -220,6 +220,7 @@ public static class FemCsfeaRunner
 
         var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, FemCsfeaSetup.FromAnalysis(analysis));
         CheckScadTransfer(ctx.Db, schema.Id, input, diag);
+        CheckLiraTransfer(schema, input, diag);
         var control = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlNode(input, csfea.ControlNodeTag);
         if (!string.IsNullOrWhiteSpace(csfea.ControlNodeTag) && control == null)
             diag.Add(new("control_node", $"Контрольный узел «{csfea.ControlNodeTag}» не найден ни среди узлов схемы, ни в сетке.", true));
@@ -426,6 +427,27 @@ public static class FemCsfeaRunner
         if (!boundary)
             diag.Add(new("scad_boundary_not_transferred",
                 $"Граничные условия SCAD не перенесены в схему — команда «{Loc.S("ScadBoundaryRefresh")}».", true));
+    }
+
+    /// <summary>
+    /// Схема ЛИРЫ без нагрузок или без граничных условий вовсе (текстовый файл схемы при импорте не найден или перенос
+    /// не выполнялся) — ошибка с подсказкой команды переноса из текстового файла ЛИРЫ. Ручные нагрузки и ГУ считаются:
+    /// схемам, где пользователь задал их сам, перенос не навязывается.
+    /// </summary>
+    internal static void CheckLiraTransfer(FemSchema schema, FemRcModelInput input, List<FemValidationDiagnostic> diag)
+    {
+        if (schema.SourceType != "lira") return;
+        bool loads = input.ElementLoads.Count > 0 || input.MeshNodeLoads.Count > 0 || input.NodeLoads.Count > 0
+            || input.MemberLoads.Count > 0 || input.KinematicLoads.Count > 0
+            || input.LoadCases.Any(c => c.SelfWeightFactor is { } f && f != 0);
+        bool boundary = input.Supports.Count > 0 || input.Springs.Count > 0 || input.RigidBodies.Count > 0
+            || input.Nodes.Any(n => n.DofMask != 0) || input.MeshElements.Any(e => e.FoundationC1 is > 0);
+        if (!loads)
+            diag.Add(new("lira_loads_not_transferred",
+                $"У схемы ЛИРЫ нет нагрузок — перенесите их из текстового файла схемы: команда «{Loc.S("LiraLoadsTransfer")}».", true));
+        if (!boundary)
+            diag.Add(new("lira_boundary_not_transferred",
+                $"У схемы ЛИРЫ нет граничных условий — перенесите их из текстового файла схемы: команда «{Loc.S("LiraBoundaryRefresh")}».", true));
     }
 
     /// <summary>

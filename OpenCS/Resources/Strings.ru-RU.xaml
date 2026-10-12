@@ -1028,6 +1028,22 @@
    <system:String x:Key="LiraBarAxesDefault">Оси стержней ЛИРЫ приняты по умолчанию (Z1 — вверх в вертикальной плоскости): поворот сечения из схемы не прочитан, проверьте развёрнутые стержни.</system:String>
    <system:String x:Key="ScadBoundaryMoreDiagnostics">… и ещё замечаний по граничным условиям: {0}.</system:String>
    <system:String x:Key="ScadBoundaryAnalysesInvalidated">Граничные условия схемы изменились — результаты постановок сброшены: {0}.</system:String>
+   <system:String x:Key="LiraLoadsTransfer">Дочитать нагрузки из текстового файла ЛИРЫ</system:String>
+   <system:String x:Key="LiraBoundaryRefresh">Дочитать граничные условия из текстового файла ЛИРЫ</system:String>
+   <system:String x:Key="LiraLoadsTotal">Загружение «{0}» (ЛИРА {1}): ΣFx = {2:0.###} кН, ΣFy = {3:0.###} кН, ΣFz = {4:0.###} кН.</system:String>
+   <system:String x:Key="LiraTextNotFound">Текстовый файл схемы {0} не найден (каталоги: {1}) — граничные условия и нагрузки из ЛИРЫ не перенесены, закрепления и C1 — из API. Перенести позже: команды схемы «{2}» и «{3}».</system:String>
+   <system:String x:Key="LiraTextNotLiraSchema">Схема «{0}» импортирована не из ЛИРЫ.</system:String>
+   <system:String x:Key="LiraTextReading">Чтение текстового файла ЛИРЫ…</system:String>
+   <system:String x:Key="LiraLoadsTransferring">Перенос нагрузок ЛИРЫ…</system:String>
+   <system:String x:Key="LiraTextConfirm">Текстовый файл схемы «{0}»:&#x0a;{1}&#x0a;(записан {2}).&#x0a;&#x0a;Да — взять этот файл, Нет — выбрать другой.</system:String>
+   <system:String x:Key="LiraTextFilter">Текстовый файл схемы ЛИРЫ (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="LiraTextOpenTitle">Текстовый файл ЛИРЫ для схемы «{0}»</system:String>
+   <system:String x:Key="LiraTextRead">Прочитан текстовый файл ЛИРЫ {0}: узлов {1}, КЭ {2}, нагрузок {3}.</system:String>
+   <system:String x:Key="LiraTextMoreWarnings">{0}: … и ещё замечаний разбора: {1}.</system:String>
+   <system:String x:Key="LiraTextReadError">Текстовый файл ЛИРЫ {0} не прочитан: {1}</system:String>
+   <system:String x:Key="LiraTextStale">Текстовый файл {0} ({1}) старше файла схемы {2} ({3}): граничные условия и нагрузки могут быть устаревшими — сохраните схему в ЛИРЕ и дочитайте их заново.</system:String>
+   <system:String x:Key="LiraTextMismatch">Текстовый файл {0} не совпадает с сеткой схемы «{1}» (узлов и КЭ нет в файле: {2}, отличаются: {3}; {4}) — похоже, это файл другой схемы. Граничные условия и нагрузки не перенесены.</system:String>
+   <system:String x:Key="LiraTextNoImportedNodes">в схеме нет узлов, импортированных из ЛИРЫ</system:String>
    <system:String x:Key="LiraSupportsImported">Перенесены закрепления узлов ЛИРЫ: {0}.</system:String>
    <system:String x:Key="LiraFoundationImported">Перенесён коэффициент постели C1 пластин ЛИРЫ: {0} КЭ.</system:String>
    <system:String x:Key="LiraFoundationBeyondC1">Упругое основание ЛИРЫ: у {0} пластин заданы C2 или другие коэффициенты кроме C1 — не учтены (модель Винклера, только C1).</system:String>

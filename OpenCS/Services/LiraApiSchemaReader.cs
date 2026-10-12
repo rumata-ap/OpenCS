@@ -43,6 +43,21 @@ static class LiraApiSchemaReader
     }
 
     /// <summary>
+    /// Версия ЛИРЫ, имя и путь (.lir) открытой схемы — чтобы найти её текстовый файл (<c>Data\&lt;Title&gt;.txt</c>).
+    /// ЛИРА не запущена или схема не открыта — исключение.
+    /// </summary>
+    public static (int? Version, string? Title, string? PathName) ReadDocumentInfo()
+    {
+        dynamic lira = LiraComConnector.ConnectApplication(out int? version);
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException("В ЛИРЕ нет открытого документа.");
+        string? path = null;
+        try { path = doc.PathName as string; }
+        catch (Exception) { }
+        return (version, ReadDocumentTitle(doc), string.IsNullOrWhiteSpace(path) ? null : path);
+    }
+
+    /// <summary>
     /// Читает имена загружений из таблицы 25.
     /// Возвращает словарь: номер загружения → имя.
     /// </summary>

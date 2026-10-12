@@ -20,13 +20,17 @@ namespace OpenCS.Utilites
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          cmd.Parameters.AddWithValue("@lc", (object?)loadCaseId ?? DBNull.Value);
+         // Происхождение, вид, система координат и ось у сотен тысяч строк одни и те же — один экземпляр строки на значение.
+         var pool = new HashSet<string>(StringComparer.Ordinal);
+         string Pooled(string s) { if (pool.TryGetValue(s, out var known)) return known; pool.Add(s); return s; }
          using var r = cmd.ExecuteReader();
          while (r.Read())
             result.Add(new FemElementLoad
             {
-               Id = r.GetInt32(0), SchemaId = schemaId, LoadCaseId = r.GetInt32(1), Origin = r.GetString(2),
-               TargetKind = r.GetString(3), TargetTagsJson = r.GetString(4), GroupId = r.IsDBNull(5) ? null : r.GetInt32(5),
-               LoadKind = r.GetString(6), CoordinateSystem = r.GetString(7), Axis = r.GetString(8), ValuesJson = r.GetString(9),
+               Id = r.GetInt32(0), SchemaId = schemaId, LoadCaseId = r.GetInt32(1), Origin = Pooled(r.GetString(2)),
+               TargetKind = Pooled(r.GetString(3)), TargetTagsJson = r.GetString(4), GroupId = r.IsDBNull(5) ? null : r.GetInt32(5),
+               LoadKind = Pooled(r.GetString(6)), CoordinateSystem = Pooled(r.GetString(7)), Axis = Pooled(r.GetString(8)),
+               ValuesJson = r.GetString(9),
             });
          return result;
       }
@@ -44,12 +48,14 @@ namespace OpenCS.Utilites
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          cmd.Parameters.AddWithValue("@lc", (object?)loadCaseId ?? DBNull.Value);
+         var pool = new HashSet<string>(StringComparer.Ordinal);
+         string Pooled(string s) { if (pool.TryGetValue(s, out var known)) return known; pool.Add(s); return s; }
          using var r = cmd.ExecuteReader();
          while (r.Read())
             result.Add(new FemMeshNodeLoad
             {
                Id = r.GetInt32(0), SchemaId = schemaId, LoadCaseId = r.GetInt32(1), MeshNodeTag = r.GetString(2),
-               Origin = r.GetString(3), Fx = r.GetDouble(4), Fy = r.GetDouble(5), Fz = r.GetDouble(6),
+               Origin = Pooled(r.GetString(3)), Fx = r.GetDouble(4), Fy = r.GetDouble(5), Fz = r.GetDouble(6),
                Mx = r.GetDouble(7), My = r.GetDouble(8), Mz = r.GetDouble(9),
             });
          return result;
@@ -64,30 +70,42 @@ namespace OpenCS.Utilites
          IEnumerable<FemMeshNodeLoad> meshNodeLoads, Func<int, int> mapLoadCase, Func<int?, int?> mapGroup,
          bool updateObjects = true)
       {
+         // Параметры создаются один раз, у строк меняются только значения, Id — sqlite3_last_insert_rowid: на сотнях тысяч
+         // нагрузок (ФР19 — 0,6 млн) пересоздание параметров и второй оператор (SELECT last_insert_rowid() или RETURNING)
+         // заметно дороже самой вставки.
+         var handle = _connection.Handle!;
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
                INSERT INTO fem_element_loads (schema_id, load_case_id, origin, target_kind, target_tags_json, group_id,
                                               load_kind, coordinate_system, axis, values_json)
-               VALUES (@sid, @lc, @origin, @tk, @tags, @gid, @kind, @cs, @axis, @vals);
-               SELECT last_insert_rowid();
+               VALUES (@sid, @lc, @origin, @tk, @tags, @gid, @kind, @cs, @axis, @vals)
             """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            var lcP = cmd.Parameters.Add("@lc", SqliteType.Integer);
+            var originP = cmd.Parameters.Add("@origin", SqliteType.Text);
+            var tkP = cmd.Parameters.Add("@tk", SqliteType.Text);
+            var tagsP = cmd.Parameters.Add("@tags", SqliteType.Text);
+            var gidP = cmd.Parameters.Add("@gid", SqliteType.Integer);
+            var kindP = cmd.Parameters.Add("@kind", SqliteType.Text);
+            var csP = cmd.Parameters.Add("@cs", SqliteType.Text);
+            var axisP = cmd.Parameters.Add("@axis", SqliteType.Text);
+            var valsP = cmd.Parameters.Add("@vals", SqliteType.Text);
             foreach (var load in elementLoads)
             {
                int lc = mapLoadCase(load.LoadCaseId);
                int? group = mapGroup(load.GroupId);
-               cmd.Parameters.Clear();
-               cmd.Parameters.AddWithValue("@sid", schemaId);
-               cmd.Parameters.AddWithValue("@lc", lc);
-               cmd.Parameters.AddWithValue("@origin", load.Origin);
-               cmd.Parameters.AddWithValue("@tk", load.TargetKind);
-               cmd.Parameters.AddWithValue("@tags", load.TargetTagsJson);
-               cmd.Parameters.AddWithValue("@gid", (object?)group ?? DBNull.Value);
-               cmd.Parameters.AddWithValue("@kind", load.LoadKind);
-               cmd.Parameters.AddWithValue("@cs", load.CoordinateSystem);
-               cmd.Parameters.AddWithValue("@axis", load.Axis);
-               cmd.Parameters.AddWithValue("@vals", load.ValuesJson);
-               int id = (int)(long)cmd.ExecuteScalar()!;
+               lcP.Value = lc;
+               originP.Value = load.Origin;
+               tkP.Value = load.TargetKind;
+               tagsP.Value = load.TargetTagsJson;
+               gidP.Value = (object?)group ?? DBNull.Value;
+               kindP.Value = load.LoadKind;
+               csP.Value = load.CoordinateSystem;
+               axisP.Value = load.Axis;
+               valsP.Value = load.ValuesJson;
+               cmd.ExecuteNonQuery();
+               int id = (int)SQLitePCL.raw.sqlite3_last_insert_rowid(handle);
                if (!updateObjects) continue;
                load.Id = id;
                load.SchemaId = schemaId;
@@ -99,24 +117,32 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                INSERT INTO fem_mesh_node_loads (schema_id, load_case_id, mesh_node_tag, origin, fx, fy, fz, mx, my, mz)
-               VALUES (@sid, @lc, @tag, @origin, @fx, @fy, @fz, @mx, @my, @mz);
-               SELECT last_insert_rowid();
+               VALUES (@sid, @lc, @tag, @origin, @fx, @fy, @fz, @mx, @my, @mz)
             """;
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            var lcP = cmd.Parameters.Add("@lc", SqliteType.Integer);
+            var tagP = cmd.Parameters.Add("@tag", SqliteType.Text);
+            var originP = cmd.Parameters.Add("@origin", SqliteType.Text);
+            var fxP = cmd.Parameters.Add("@fx", SqliteType.Real);
+            var fyP = cmd.Parameters.Add("@fy", SqliteType.Real);
+            var fzP = cmd.Parameters.Add("@fz", SqliteType.Real);
+            var mxP = cmd.Parameters.Add("@mx", SqliteType.Real);
+            var myP = cmd.Parameters.Add("@my", SqliteType.Real);
+            var mzP = cmd.Parameters.Add("@mz", SqliteType.Real);
             foreach (var load in meshNodeLoads)
             {
                int lc = mapLoadCase(load.LoadCaseId);
-               cmd.Parameters.Clear();
-               cmd.Parameters.AddWithValue("@sid", schemaId);
-               cmd.Parameters.AddWithValue("@lc", lc);
-               cmd.Parameters.AddWithValue("@tag", load.MeshNodeTag);
-               cmd.Parameters.AddWithValue("@origin", load.Origin);
-               cmd.Parameters.AddWithValue("@fx", load.Fx);
-               cmd.Parameters.AddWithValue("@fy", load.Fy);
-               cmd.Parameters.AddWithValue("@fz", load.Fz);
-               cmd.Parameters.AddWithValue("@mx", load.Mx);
-               cmd.Parameters.AddWithValue("@my", load.My);
-               cmd.Parameters.AddWithValue("@mz", load.Mz);
-               int id = (int)(long)cmd.ExecuteScalar()!;
+               lcP.Value = lc;
+               tagP.Value = load.MeshNodeTag;
+               originP.Value = load.Origin;
+               fxP.Value = load.Fx;
+               fyP.Value = load.Fy;
+               fzP.Value = load.Fz;
+               mxP.Value = load.Mx;
+               myP.Value = load.My;
+               mzP.Value = load.Mz;
+               cmd.ExecuteNonQuery();
+               int id = (int)SQLitePCL.raw.sqlite3_last_insert_rowid(handle);
                if (!updateObjects) continue;
                load.Id = id;
                load.SchemaId = schemaId;

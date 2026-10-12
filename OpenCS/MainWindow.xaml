@@ -1388,6 +1388,17 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource LiraLoadsTransfer}"
+                                           Command="{Binding PlacementTarget.Tag.TransferLiraLoadsCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource LiraBoundaryRefresh}"
+                                           Command="{Binding PlacementTarget.Tag.RefreshLiraBoundaryCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <MenuItem Header="{DynamicResource FemSchemaMenuScad}">
                                  <MenuItem.Visibility>

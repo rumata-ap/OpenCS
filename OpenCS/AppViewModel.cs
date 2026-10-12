@@ -34,7 +34,7 @@ namespace OpenCS
    /// к сервисам логирования и файловых диалогов. Все дочерние ViewModel
    /// ссылаются на экземпляр данного класса для доступа к базе данных и общим данным.
    /// </summary>
-   public class AppViewModel : ViewModelBase
+   public partial class AppViewModel : ViewModelBase
    {
       /// <summary>
       /// Сервис работы с базой данных SQLite, используемый для загрузки, сохранения
@@ -1580,6 +1580,7 @@ namespace OpenCS
          {
             if (p is CScore.Fem.FemSchema s) await RefreshScadBoundary(s);
          }, _ => !IsBusy);
+         InitLiraTextCommands();
          SetScadProjectPathCommand = new RelayCommand(p =>
          {
             if (p is CScore.Fem.FemSchema s && ChooseScadProjectPath(s) is { } path)
@@ -3744,8 +3745,15 @@ namespace OpenCS
          {
             int? liraVersion = null;
             string? liraTitle = null;
+            string? lirPath = null;
             double tonToKn = LiraImportSettings.TonToKnFactor;
-            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read(out liraVersion, out liraTitle, tonToKn));
+            var raw = await RunOnStaThread(() =>
+            {
+               var data = Services.LiraApiSchemaReader.Read(out liraVersion, out liraTitle, tonToKn);
+               try { lirPath = Services.LiraApiSchemaReader.ReadDocumentInfo().PathName; }
+               catch (Exception) { }  // путь .lir нужен только для проверки свежести текстового файла
+               return data;
+            });
             var schema = new CScore.Fem.FemSchema { Tag = liraTitle ?? "Схема ЛИРА-САПР (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
@@ -3758,7 +3766,11 @@ namespace OpenCS
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
                 .ToArray();
             SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
-            SaveLiraSupports(schema, raw);
+            // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
+            if (await TransferLiraTextAfterImport(schema, raw, liraTitle, liraVersion, lirPath) == null)
+               SaveLiraSupports(schema, raw);
+            else if (raw.PlateFoundationBeyondC1 > 0)
+               LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
             db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
             db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
             SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
@@ -4065,21 +4077,57 @@ namespace OpenCS
          int next = 0;
          var result = CScore.Import.ScadLoadTransfer.Transfer(model, types, schema.LoadCases.ToList(),
             db.GetFemElementLoads(schema.Id), db.GetFemMeshNodeLoads(schema.Id), () => --next);
-         db.SaveFemLoadCasesAndMeshLoads(schema.Id, result.LoadCases, result.ElementLoads, result.MeshNodeLoads);
+         SaveLoadTransfer(schema, result, CScore.Import.ScadLoadTransfer.Origin, "ScadLoadsTotal", meshNodes, elements);
+      }
 
+      /// <summary>
+      /// Записывает итог переноса нагрузок из программы-источника: загружения и нагрузки сеточного уровня. Журнал: сводка,
+      /// непереносимое, ΣF загружений происхождения <paramref name="origin"/> (строка <paramref name="totalKey"/>) для
+      /// сверки с источником. Результаты постановок схемы сбрасываются.
+      /// </summary>
+      void SaveLoadTransfer(CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result, string origin,
+         string totalKey, IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements)
+      {
+         SaveLoadTransferResult(schema, result);
+         var resolve = LoadTotalsResolver(schema, result, origin, meshNodes, elements);
+         FinishLoadTransfer(schema, totalKey, resolve());
+      }
+
+      /// <summary>Записывает загружения и нагрузки переноса; сводка и непереносимое — в журнал.</summary>
+      void SaveLoadTransferResult(CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result)
+      {
+         db.SaveFemLoadCasesAndMeshLoads(schema.Id, result.LoadCases, result.ElementLoads, result.MeshNodeLoads);
          LogService.Info(result.Report[0]);
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
+      }
 
-         var mesh = new CScore.Fem.Loads.FemLoadMeshContext(meshNodes, elements, schema.MemberGroups.ToList(),
+      /// <summary>
+      /// Разнесение перенесённых загружений по узлам для ΣF: контекст сетки (с БД) собирается сразу, сам расчёт — в
+      /// возвращённой функции (без БД, можно в фоне).
+      /// </summary>
+      Func<List<(CScore.Fem.FemLoadCase Case, (double Fx, double Fy, double Fz) Total, List<string> Diagnostics)>> LoadTotalsResolver(
+         CScore.Fem.FemSchema schema, CScore.Import.FemLoadTransferResult result, string origin,
+         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements)
+      {
+         var mesh = new CScore.Fem.Loads.FemLoadMeshContext(meshNodes.ToList(), elements.ToList(), schema.MemberGroups.ToList(),
             Services.FemSelfWeightSourceFactory.Create(db, schema.Id));
-         foreach (var lc in result.LoadCases.Where(c => c.Origin == CScore.Import.ScadLoadTransfer.Origin))
+         var cases = result.LoadCases.Where(c => c.Origin == origin).ToList();
+         return () => cases.Select(lc =>
          {
             var forces = CScore.Fem.Loads.FemLoadCaseNodalForces.Resolve(lc, result.ElementLoads, result.MeshNodeLoads, mesh);
-            var (fx, fy, fz) = forces.Total;
-            LogService.Info(string.Format(Loc.S("ScadLoadsTotal"), lc.Tag, lc.SourceLoadNum, fx / 1e3, fy / 1e3, fz / 1e3));
-            foreach (var d in forces.Diagnostics.Select(d => d.Message).Distinct().Take(10)) LogService.Warning($"«{lc.Tag}»: {d}");
-         }
+            return (lc, forces.Total, forces.Diagnostics.Select(d => d.Message).Distinct().Take(10).ToList());
+         }).ToList();
+      }
 
+      /// <summary>ΣF загружений (строка <paramref name="totalKey"/>) — в журнал; результаты постановок сбрасываются.</summary>
+      void FinishLoadTransfer(CScore.Fem.FemSchema schema, string totalKey,
+         IEnumerable<(CScore.Fem.FemLoadCase Case, (double Fx, double Fy, double Fz) Total, List<string> Diagnostics)> totals)
+      {
+         foreach (var (lc, (fx, fy, fz), diagnostics) in totals)
+         {
+            LogService.Info(string.Format(Loc.S(totalKey), lc.Tag, lc.SourceLoadNum, fx / 1e3, fy / 1e3, fz / 1e3));
+            foreach (var d in diagnostics) LogService.Warning($"«{lc.Tag}»: {d}");
+         }
          int invalidated = InvalidateFemSchemaAnalyses(schema);
          if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
       }
@@ -4111,18 +4159,30 @@ namespace OpenCS
             .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
          var result = CScore.Import.ScadBoundaryTransfer.Transfer(model,
             meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal), types);
+         SaveBoundaryTransfer(schema, result, CScore.Import.ScadBoundaryTransfer.Origin, meshNodes, elements, showSummary);
+      }
+
+      /// <summary>
+      /// Записывает итог переноса ГУ из программы-источника (происхождение <paramref name="origin"/>; ручные ГУ не
+      /// трогаются). Журнал: сводка, непереносимое, проверки резолвера. Результаты постановок сбрасываются.
+      /// </summary>
+      /// <param name="showSummary">Открыть окно сводки переноса.</param>
+      void SaveBoundaryTransfer(CScore.Fem.FemSchema schema, CScore.Import.FemBoundaryTransferResult result, string origin,
+         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements, bool showSummary)
+      {
          var manual = db.ManualMeshNodeTags(schema.Id);
          int keptManual = result.Supports.Select(x => x.NodeTag)
             .Concat(result.Springs.Where(x => x.TargetKind == CScore.Fem.FemSpringTargetKinds.MeshNode).Select(x => x.NodeTag))
             .Where(manual.Contains).Distinct().Count();
-         db.SaveFemBoundary(schema.Id, CScore.Import.ScadBoundaryTransfer.Origin, result.Supports, result.Springs,
-            result.RigidBodies, result.ElementProps);
+         db.SaveFemBoundary(schema.Id, origin, result.Supports, result.Springs, result.RigidBodies, result.ElementProps);
 
          LogService.Info(result.Report[0]);
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
          if (keptManual > 0) LogService.Info(string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
 
-         var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes, elements,
+         // ГУ КЭ (освобождения, C1) записаны в БД — резолверу нужна сетка после записи.
+         var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes,
+            result.ElementProps != null ? db.GetFemMeshElements(schema.Id) : elements,
             db.GetFemMeshNodeSupports(schema.Id), db.GetFemSprings(schema.Id), db.GetFemRigidBodies(schema.Id));
          foreach (var d in resolved.Diagnostics.Take(10))
             if (d.IsError) LogService.Error(d.Message); else LogService.Warning(d.Message);
