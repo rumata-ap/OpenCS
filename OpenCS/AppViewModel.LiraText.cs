@@ -15,6 +15,7 @@ namespace OpenCS
    {
       public ICommand TransferLiraLoadsCommand { get; set; } = null!;
       public ICommand RefreshLiraBoundaryCommand { get; set; } = null!;
+      public ICommand ImportLiraSchemaFromTextCommand { get; set; } = null!;
 
       void InitLiraTextCommands()
       {
@@ -22,6 +23,7 @@ namespace OpenCS
             _ => !IsBusy);
          RefreshLiraBoundaryCommand = new RelayCommand(async p => await RefreshLiraFromText(p as FemSchema, boundary: true, loads: false),
             _ => !IsBusy);
+         ImportLiraSchemaFromTextCommand = new RelayCommand(_ => ImportLiraSchemaFromText(), _ => !IsBusy);
       }
 
       /// <summary>
@@ -52,12 +54,77 @@ namespace OpenCS
             LogService.Warning(MismatchMessage(schema, path, match));
             return null;
          }
+         await ApplyLiraTextToNewSchema(schema, raw, txt, path, meshNodes, elements);
+         return path;
+      }
+
+      /// <summary>ГУ (C1 пластин — из <paramref name="raw"/>) и нагрузки текстового файла в только что импортированную
+      /// схему; путь файла — в <see cref="FemSchema.SourcePath"/>.</summary>
+      async Task ApplyLiraTextToNewSchema(FemSchema schema, LiraSchemaData raw, LiraTextSchema txt, string path,
+         IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemElement> elements)
+      {
          var c1 = CScore.Import.LiraSchemaConverter.ToFemElementBoundaryProps(raw)
             .ToDictionary(kv => kv.Key, kv => kv.Value.FoundationC1!.Value, StringComparer.Ordinal);
-         TransferLiraBoundary(schema, txt, meshNodes, elements, c1, showSummary: true);
+         TransferLiraBoundary(schema, txt, meshNodes, elements, c1.Count > 0 ? c1 : null, showSummary: true);
          await TransferLiraLoads(schema, txt, meshNodes, elements);
          db.UpdateFemSchemaSourcePath(schema, Path.GetFullPath(path));
-         return path;
+      }
+
+      /// <summary>
+      /// Импорт схемы целиком из текстового файла ЛИРЫ — без COM API (ранние версии ЛИРЫ) и без запущенной ЛИРЫ: геометрия
+      /// и жёсткости — документы 1, 3, 4, 9 и <c>{13/}</c>, имена и Ro жёсткостей, блоки и C1 пластин —
+      /// <c>Work\&lt;Title&gt;.ald</c> (если есть), ГУ и нагрузки — как при импорте из API.
+      /// </summary>
+      async void ImportLiraSchemaFromText()
+      {
+         if (IsBusy) return;
+         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
+         string? path = FileDialogService.OpenFile(Loc.S("LiraTextFilter"), Loc.S("ImportLiraSchemaFromTextTitle"),
+            dirs.LastOrDefault()?.Path);
+         if (path == null) return;
+
+         BeginBusy(Loc.S("StatusImportingSchema"));
+         try
+         {
+            var txt = await ReadLiraText(path);
+            if (txt == null) { EndBusy(); return; }
+            if (txt.Nodes.Count == 0 || txt.Elements.Count == 0)
+            {
+               EndBusy();
+               MessageBox.Show(string.Format(Loc.S("LiraTextNoGeometry"), Path.GetFileName(path)), Loc.S("ImportLiraErrorTitle"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            string? aldPath = LiraAldFile.PathFor(path);
+            LiraAldFile? ald = null;
+            if (aldPath != null)
+               try { ald = await Task.Run(() => LiraAldFile.Read(aldPath)); }
+               catch (Exception ex) { LogService.Warning(string.Format(Loc.S("LiraAldReadError"), aldPath, ex.Message)); }
+            else LogService.Warning(string.Format(Loc.S("LiraAldNotFound"), Path.GetFileNameWithoutExtension(path) + ".ald"));
+
+            var report = new List<string>();
+            double tonToKn = LiraImportSettings.TonToKnFactor;
+            var raw = await Task.Run(() => LiraTextSchemaConverter.ToSchemaData(txt, ald, tonToKn, report));
+            foreach (var line in report) LogService.Warning(line);
+
+            string title = txt.Title.Trim() is { Length: > 0 } t ? t : Path.GetFileNameWithoutExtension(path);
+            var schema = new FemSchema { Tag = title, SourceType = "lira" };
+            db.SaveFemSchema(schema);
+            int groupCount = SaveLiraSchemaMesh(schema, raw);
+            await ApplyLiraTextToNewSchema(schema, raw, txt, path, db.GetFemMeshNodes(schema.Id), db.GetFemMeshElements(schema.Id));
+            if (raw.PlateFoundationBeyondC1 > 0)
+               LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
+            SaveLiraSchemaExtras(schema, raw);
+            string done = LiraImportDone(raw, groupCount);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.ToString());
+            MessageBox.Show(ex.Message, Loc.S("ImportLiraErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
       }
 
       /// <summary>

@@ -161,6 +161,24 @@ public sealed class LiraTextSchema
     /// <summary>Углы документа 17 по номерам КЭ (записи «КЭ угол»; у стержней — разворот местных осей, град).</summary>
     public Dictionary<int, double> ElementAngles { get; } = [];
 
+    /// <summary>
+    /// Углы документа 9 по номерам пластин — согласование местных осей (оси выдачи усилий): поворот X1 от направления
+    /// «узел 1 → узел 2» вокруг Z1, град (= таблица 18 API).
+    /// </summary>
+    public Dictionary<int, double> PlateAxisAngles { get; } = [];
+
+    /// <summary>
+    /// Описания сечений документа <c>{13/ … }</c> по номеру жёсткости: строки «ключ = значение» блока <c>[N]</c> через два
+    /// пробела, как строка стальной жёсткости API (<c>Section = Tubing  MatId = STL  File  = |…|  Shape = |…|</c>).
+    /// </summary>
+    public Dictionary<int, string> SectionDescriptions { get; } = [];
+
+    /// <summary>
+    /// Упругое основание документа 19 по номерам КЭ: величины записи после номера — у пластин <c>C1 C2 C2 …</c> (в единицах
+    /// документа 0, сила/длина³ и сила/длина; «Мирная»: C1 = таблица 5 API), у стержней — свой состав (ширина, C1, C2 …).
+    /// </summary>
+    public Dictionary<int, double[]> Foundation { get; } = [];
+
     /// <summary>Абсолютно жёсткие тела документа 25.</summary>
     public List<LiraTextRigidBody> RigidBodies { get; } = [];
 

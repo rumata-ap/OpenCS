@@ -35,7 +35,8 @@ public static class LiraBoundaryTransfer
     /// <param name="meshNodeTags">Теги узлов сетки схемы (номера узлов ЛИРЫ).</param>
     /// <param name="elementTypes">Тег КЭ сетки (номер КЭ ЛИРЫ) → тип («beam» | «shell»).</param>
     /// <param name="tonToKn">Сколько кН в тонне-силе (настройка импорта): жёсткости связей — в единицах документа 0.</param>
-    /// <param name="foundationC1">C1 пластин по тегу КЭ, Н/м³, прочитанный импортом из API; null — не переносится.</param>
+    /// <param name="foundationC1">C1 пластин по тегу КЭ, Н/м³, прочитанный импортом из API или сохранённый в схеме; берётся,
+    /// только если в файле нет документа 19 (иначе C1 — из него); null и нет документа 19 — C1 не переносится.</param>
     public static FemBoundaryTransferResult Transfer(LiraTextSchema schema, IReadOnlySet<string> meshNodeTags,
         IReadOnlyDictionary<string, string> elementTypes, double tonToKn,
         IReadOnlyDictionary<string, double>? foundationC1 = null)
@@ -177,8 +178,23 @@ public static class LiraBoundaryTransfer
         if (elasticEnds.Count > 0)
             report.Add($"Не перенесено: упругие шарниры (последнее поле записи не 0), концов стержней — {elasticEnds.Count}.");
 
-        // ── C1 пластин из API: сохраняется, т. к. запись ГУ КЭ заменяет освобождения и C1 всех импортных КЭ ──
-        int c1Count = 0;
+        // ── C1 пластин: документ 19, иначе переданный (API / схема) — запись ГУ КЭ заменяет освобождения и C1 всех
+        //    импортных КЭ, поэтому без источника C1 был бы стёрт ──
+        int c1Count = 0, beyondC1 = 0, barFoundation = 0;
+        string c1Source = "из API ЛИРЫ";
+        if (schema.Foundation.Count > 0)
+        {
+            var shells = elementTypes.Where(kv => kv.Value == "shell")
+                .Select(kv => int.TryParse(kv.Key, NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : 0)
+                .Where(n => n > 0).ToHashSet();
+            var (fromText, beyond, others) = FoundationC1(schema, shells, tonToKn);
+            foundationC1 = fromText.ToDictionary(kv => T(kv.Key), kv => kv.Value, StringComparer.Ordinal);
+            beyondC1 = beyond;
+            barFoundation = others;
+            c1Source = "документ 19";
+            if (beyond > 0) report.Add($"Не перенесено: C2 упругого основания (документ 19), пластин — {beyond} (модель Винклера, только C1).");
+            if (others > 0) report.Add($"Не перенесено: упругое основание не пластин (документ 19), записей — {others}.");
+        }
         if (foundationC1 != null)
             foreach (var (tag, c1) in foundationC1)
             {
@@ -210,7 +226,9 @@ public static class LiraBoundaryTransfer
         if (schema.Couplings.Count > 0)
             summary.Add(new("Объединения перемещений", "группы", couplings.Count, missingCouplings + noDofCouplings,
                 Join($"узлов: {couplingNodes}", missingCoupled > 0 ? $"узлов нет в сетке: {missingCoupled}" : "")));
-        if (foundationC1 != null) summary.Add(new("Упругое основание пластин (C1)", "КЭ", c1Count, 0, "из API ЛИРЫ"));
+        if (foundationC1 != null)
+            summary.Add(new("Упругое основание пластин (C1)", "КЭ", c1Count, barFoundation,
+                Join(c1Source, beyondC1 > 0 ? $"C2 не учтён: {beyondC1}" : "", barFoundation > 0 ? $"не пластины: {barFoundation}" : "")));
         void Optional(string kind, string unit, int count, string note = "") { if (count > 0) summary.Add(new(kind, unit, 0, count, note)); }
         Optional("Упругие шарниры", "концы", elasticEnds.Count);
         foreach (var (type, count) in otherLinks) Optional($"КЭ {type} ({DescribeLink(type)})", "КЭ", count);
@@ -220,6 +238,28 @@ public static class LiraBoundaryTransfer
             $"жёстких тел {bodies.Count}, объединений перемещений {couplings.Count}, стержней с шарнирами {jointed} " +
             $"(концов {releasedEnds})" + (foundationC1 != null ? $", пластин на упругом основании {c1Count}." : "."));
         return new FemBoundaryTransferResult(supports, springs, [.. bodies, .. couplings], props, report, summary);
+    }
+
+    /// <summary>
+    /// C1 пластин из документа 19, Н/м³ (единицы сила/длина³ документа 0): номер КЭ → C1 &gt; 0. Beyond — пластин с
+    /// ненулевыми величинами после C1 (C2 — не переносится), Others — записей не пластин (стержни на основании и т. п.).
+    /// </summary>
+    /// <param name="shells">Номера пластин сетки.</param>
+    public static (Dictionary<int, double> C1, int Beyond, int Others) FoundationC1(LiraTextSchema schema,
+        IReadOnlySet<int> shells, double tonToKn)
+    {
+        var u = schema.Units;
+        double unit = u.ForceUnitN(tonToKn) / (u.LengthUnitM * u.LengthUnitM * u.LengthUnitM);
+        var c1 = new Dictionary<int, double>();
+        int beyond = 0, others = 0;
+        foreach (var (elem, v) in schema.Foundation)
+        {
+            if (!shells.Contains(elem)) { others++; continue; }
+            if (v.Length == 0 || !(v[0] > 0)) continue;
+            c1[elem] = v[0] * unit;
+            if (v.Skip(1).Any(x => x != 0)) beyond++;
+        }
+        return (c1, beyond, others);
     }
 
     /// <summary>

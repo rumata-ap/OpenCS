@@ -32,9 +32,10 @@ internal static class LiraTextTokens
 /// <summary>
 /// Потоковый разбор текстового файла схемы ЛИРЫ (<c>Data\&lt;Title&gt;.txt</c>, ЛИРА-САПФИР 2024/2025) в
 /// <see cref="LiraTextSchema"/>. Файл — документы <c>( N/ запись/ запись/ … )</c> (и <c>{N/ … }</c> — описания
-/// сечений, пропускаются). Разбираются документы 0 (единицы, загружения), 1 (КЭ), 2 (шарниры), 3 (жёсткости),
-/// 4 (координаты), 5 (связи и объединения), 6 (нагрузки), 7 (значения нагрузок), 17 (углы — только записи
-/// «КЭ угол»), 25 (АЖТ); остальные — счётчиками
+/// сечений: <c>{13/}</c> читается, прочие пропускаются). Разбираются документы 0 (единицы, загружения), 1 (КЭ),
+/// 2 (шарниры), 3 (жёсткости), 4 (координаты), 5 (связи и объединения), 6 (нагрузки), 7 (значения нагрузок), 9 и 17
+/// (углы пластин и стержней — только записи «КЭ угол»), 13 (описания сечений), 19 (упругое основание), 25 (АЖТ);
+/// остальные — счётчиками
 /// в <see cref="LiraTextSchema.SkippedDocuments"/>.
 /// <para>Правила записи (описание «ЛИРА-Windows», раздел 3): запись продолжается записью с ведущими нулями (док. 1 —
 /// «0 0 узлы…», док. 3 и 7 — «0 …»); в документах 1–7 действует повторитель <c>R N1 N2 [N3]/ шаги…/</c> (п. 3.15) —
@@ -66,7 +67,8 @@ public static class LiraTextReader
             switch (e.Kind)
             {
                 case ScanKind.Begin:
-                    doc = e.Braced ? new SkippedDocument(schema, e.Document, true) : Create(schema, e.Document);
+                    doc = !e.Braced ? Create(schema, e.Document)
+                        : e.Document == 13 ? new SectionsDocument(schema) : new SkippedDocument(schema, e.Document, true);
                     break;
                 case ScanKind.Record:
                     doc!.Record(e.Text);
@@ -187,7 +189,9 @@ public static class LiraTextReader
         5 => new SupportsDocument(s),
         6 => new LoadsDocument(s),
         7 => new LoadValuesDocument(s),
-        17 => new AnglesDocument(s),
+        9 => new AnglesDocument(s, 9, s.PlateAxisAngles),
+        17 => new AnglesDocument(s, 17, s.ElementAngles),
+        19 => new FoundationDocument(s),
         25 => new RigidBodiesDocument(s),
         _ => new SkippedDocument(s, number, false),
     };
@@ -581,7 +585,7 @@ public static class LiraTextReader
     /// <see cref="LiraTextSchema.ElementAngles"/>; записи другой формы (у пластин бывают по 5–6 чисел, смысл не
     /// установлен) — счётчиком неразобранного документа.
     /// </summary>
-    sealed class AnglesDocument(LiraTextSchema s) : DocumentParser(s, 17)
+    sealed class AnglesDocument(LiraTextSchema s, int number, Dictionary<int, double> target) : DocumentParser(s, number)
     {
         int _other;
 
@@ -589,13 +593,66 @@ public static class LiraTextReader
         {
             var t = LiraTextTokens.Split(text);
             if (t.Length == 2 && LiraTextTokens.TryInt(t[0], out int element) && LiraTextTokens.TryDouble(t[1], out double angle))
-                Schema.ElementAngles[element] = angle;
+                target[element] = angle;
             else _other++;
         }
 
         public override void End()
         {
             if (_other > 0) Schema.SkippedDocuments.Add(new LiraTextSkippedDocument(Number, false, _other));
+        }
+    }
+
+    /// <summary>
+    /// Документ <c>{13/ … }</c>: блоки <c>[N]</c> со строками «ключ = значение» — описания сечений жёсткостей (сталь
+    /// сортамента и др.). Записи склеиваются обратно («/» внутри значения не рвёт блок).
+    /// </summary>
+    sealed class SectionsDocument(LiraTextSchema s) : DocumentParser(s, 13)
+    {
+        static readonly Regex Header = new(@"^\s*\[(\d+)\]\s*$", RegexOptions.Compiled);
+        readonly List<string> _records = [];
+
+        public override void Record(string text) => _records.Add(text);
+
+        public override void End()
+        {
+            int? current = null;
+            var lines = new List<string>();
+            void Flush()
+            {
+                if (current is { } n && lines.Count > 0) Schema.SectionDescriptions[n] = string.Join("  ", lines);
+                lines.Clear();
+            }
+            foreach (string raw in string.Join("/", _records).Split('\n'))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0) continue;
+                var m = Header.Match(line);
+                if (m.Success)
+                {
+                    Flush();
+                    current = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                    continue;
+                }
+                if (current == null) Bad(line, "строка вне блока [N]");
+                else lines.Add(line);
+            }
+            Flush();
+        }
+    }
+
+    /// <summary>Документ 19: <c>КЭ величины…</c> — упругое основание (у пластин <c>C1 C2 C2 …</c>).</summary>
+    sealed class FoundationDocument(LiraTextSchema s) : DocumentParser(s, 19)
+    {
+        public override void Record(string text)
+        {
+            var t = LiraTextTokens.Split(text);
+            if (t.Length < 2 || !LiraTextTokens.TryInt(t[0], out int element) || LiraTextTokens.TryNumbers(string.Join(" ", t[1..])) is not { } v)
+            {
+                Bad(text, "ожидается «КЭ C1 C2 …»");
+                return;
+            }
+            Schema.Foundation[element] = v;
         }
     }
 

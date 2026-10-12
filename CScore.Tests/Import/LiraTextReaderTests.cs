@@ -62,8 +62,8 @@ public class LiraTextReaderTests
 
         Assert.Empty(s.Hinges);
         Assert.Empty(s.RigidBodies);
-        Assert.Equal([new LiraTextSkippedDocument(9, false, 53), new LiraTextSkippedDocument(8, false, 2)],
-            s.SkippedDocuments);
+        Assert.Equal(53, s.PlateAxisAngles.Count);
+        Assert.Equal([new LiraTextSkippedDocument(8, false, 2)], s.SkippedDocuments);
     }
 
     /// <summary>Фрагменты «Мирной» (шарниры, КЭ 57, объединения, АЖТ), ЗАГС (шарнир с полем 30), dynam (продолжение
@@ -184,8 +184,9 @@ public class LiraTextReaderTests
             (s.RigidBodies[0].Master, J(s.RigidBodies[0].Slaves), s.RigidBodies[0].Code));
         Assert.Equal((416, 8, (int?)null), (s.RigidBodies[1].Master, s.RigidBodies[1].Slaves.Length, s.RigidBodies[1].Code));
 
-        Assert.Equal([new LiraTextSkippedDocument(13, true, 1), new LiraTextSkippedDocument(9, false, 2)],
-            s.SkippedDocuments);
+        Assert.Equal("Section = DoubleT  Shape = |30М|", s.SectionDescriptions[1]);
+        Assert.Equal([(207, -0.683243), (209, -0.770314)], s.PlateAxisAngles.Select(kv => (kv.Key, kv.Value)));
+        Assert.Empty(s.SkippedDocuments);
     }
 
     [Fact]

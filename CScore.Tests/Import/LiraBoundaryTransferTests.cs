@@ -174,6 +174,22 @@ public sealed class LiraBoundaryTransferTests
     }
 
     [Fact]
+    public void FoundationC1_FromDocument19_OverridesPassed_C2AndBarsReported()
+    {
+        // Документ 19: пластина 2 — C1 = 2393,08 т/м³ и C2; стержень 1 (ширина, C1) — не переносится.
+        var s = Parse(Schema + "( 19/ 2 2393.08 153.7 153.7 0 0/ 1 0.6 500 0 0 0/ )");
+        var passed = new Dictionary<string, double> { ["2"] = 1 };
+
+        var r = LiraBoundaryTransfer.Transfer(s, Nodes, Types, TonToKn, passed);
+
+        Assert.Equal(2393.08 * TonToKn * 1e3, r.ElementProps["2"].FoundationC1!.Value, 3);
+        var row = r.Summary.Single(x => x.Kind == "Упругое основание пластин (C1)");
+        Assert.Equal((1, 1), (row.Transferred, row.NotTransferred));
+        Assert.Contains(r.Report, l => l.Contains("C2 упругого основания (документ 19), пластин — 1"));
+        Assert.Contains(r.Report, l => l.Contains("упругое основание не пластин (документ 19), записей — 1"));
+    }
+
+    [Fact]
     public void Units_ForceAndLengthFromDocument0()
     {
         // Силы в кН (точно 1000 Н), длины в см: т/м → кН/см = 1e5 Н/м, кН·см = 10 Н·м.

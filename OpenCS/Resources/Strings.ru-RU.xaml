@@ -1044,6 +1044,11 @@
    <system:String x:Key="LiraTextStale">Текстовый файл {0} ({1}) старше файла схемы {2} ({3}): граничные условия и нагрузки могут быть устаревшими — сохраните схему в ЛИРЕ и дочитайте их заново.</system:String>
    <system:String x:Key="LiraTextMismatch">Текстовый файл {0} не совпадает с сеткой схемы «{1}» (узлов и КЭ нет в файле: {2}, отличаются: {3}; {4}) — похоже, это файл другой схемы. Граничные условия и нагрузки не перенесены.</system:String>
    <system:String x:Key="LiraTextNoImportedNodes">в схеме нет узлов, импортированных из ЛИРЫ</system:String>
+   <system:String x:Key="ImportLiraSchemaFromText">Импорт схемы из текстового файла ЛИРЫ…</system:String>
+   <system:String x:Key="ImportLiraSchemaFromTextTitle">Текстовый файл схемы ЛИРЫ (Data\&lt;имя&gt;.txt)</system:String>
+   <system:String x:Key="LiraTextNoGeometry">В файле {0} нет узлов или КЭ (документы 1 и 4) — это не текстовый файл схемы ЛИРЫ.</system:String>
+   <system:String x:Key="LiraAldNotFound">Файл проекта {0} (каталог Work рядом с Data) не найден: имена жёсткостей, блоки и упругое основание пластин (C1) не импортированы.</system:String>
+   <system:String x:Key="LiraAldReadError">Файл проекта {0} не прочитан: {1} — имена жёсткостей, блоки и C1 не импортированы.</system:String>
    <system:String x:Key="LiraSupportsImported">Перенесены закрепления узлов ЛИРЫ: {0}.</system:String>
    <system:String x:Key="LiraFoundationImported">Перенесён коэффициент постели C1 пластин ЛИРЫ: {0} КЭ.</system:String>
    <system:String x:Key="LiraFoundationBeyondC1">Упругое основание ЛИРЫ: у {0} пластин заданы C2 или другие коэффициенты кроме C1 — не учтены (модель Винклера, только C1).</system:String>

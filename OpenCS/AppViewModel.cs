@@ -3756,34 +3756,14 @@ namespace OpenCS
             });
             var schema = new CScore.Fem.FemSchema { Tag = liraTitle ?? "Схема ЛИРА-САПР (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
-            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
-            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
-                .ToArray();
-            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
-                .ToArray();
-            SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
+            int groupCount = SaveLiraSchemaMesh(schema, raw);
             // ГУ и нагрузки — из текстового файла схемы (Data\<Title>.txt); нет файла — закрепления и C1 из API.
             if (await TransferLiraTextAfterImport(schema, raw, liraTitle, liraVersion, lirPath) == null)
                SaveLiraSupports(schema, raw);
             else if (raw.PlateFoundationBeyondC1 > 0)
                LogService.Warning(string.Format(Loc.S("LiraFoundationBeyondC1"), raw.PlateFoundationBeyondC1));
-            db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
-            db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
-            SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
-            if (raw.Units != null) SaveLiraUnits(schema.Id, raw.Units);
-            RefreshFemSchemaTreeCounts(schema);
-            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
-            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-            if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
-            int blockCount = raw.ConstructiveBlocks.Count;
-            string done = string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, memberGroups.Length);
-            if (blockCount > 0)
-                done += $" ({blockCount} кБ)";
+            SaveLiraSchemaExtras(schema, raw);
+            string done = LiraImportDone(raw, groupCount);
             LogService.Info(done);
             EndBusy(done);
          }
@@ -3801,6 +3781,43 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      /// <summary>Сетка и группы КЭ (по жёсткостям, блокам, ТЗА) импорта ЛИРЫ в новую схему; возвращает число групп.</summary>
+      int SaveLiraSchemaMesh(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
+      {
+         var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
+         var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
+             .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
+             .ToArray();
+         var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
+             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
+             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
+             .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByReinforcementTypes(raw, schema.Id))
+             .ToArray();
+         SaveImportedSchema(schema, CScore.Fem.Import.FemImportResult.MeshOnly(meshNodes, meshElements, memberGroups));
+         return memberGroups.Length;
+      }
+
+      /// <summary>Блоки, жёсткости, стальные профили и единицы импорта ЛИРЫ; обновление счётчиков дерева.</summary>
+      void SaveLiraSchemaExtras(CScore.Fem.FemSchema schema, CScore.Import.LiraSchemaData raw)
+      {
+         db.SaveFemSchemaConstructiveBlocks(schema.Id, raw.ConstructiveBlocks);
+         db.SaveFemSchemaStiffnesses(schema.Id, raw.Stiffnesses);
+         SaveLiraSteelProfiles(schema.Id, raw.Stiffnesses);
+         if (raw.Units != null) SaveLiraUnits(schema.Id, raw.Units);
+         RefreshFemSchemaTreeCounts(schema);
+      }
+
+      /// <summary>Итог импорта ЛИРЫ для журнала (оси стержней по умолчанию — предупреждение).</summary>
+      string LiraImportDone(CScore.Import.LiraSchemaData raw, int groupCount)
+      {
+         int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
+         int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+         if (barCount > 0) LogService.Warning(Loc.S("LiraBarAxesDefault"));
+         string done = string.Format(Loc.S("ImportLiraSchemaSuccess"), raw.Nodes.Count, barCount, shellCount, groupCount);
+         if (raw.ConstructiveBlocks.Count > 0) done += $" ({raw.ConstructiveBlocks.Count} кБ)";
+         return done;
       }
 
       /// <summary>

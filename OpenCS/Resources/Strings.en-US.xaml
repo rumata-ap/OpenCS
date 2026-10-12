@@ -1044,6 +1044,11 @@
    <system:String x:Key="LiraTextStale">Text file {0} ({1}) is older than the schema file {2} ({3}): boundary conditions and loads may be outdated — save the schema in LIRA and read them again.</system:String>
    <system:String x:Key="LiraTextMismatch">Text file {0} does not match the mesh of schema "{1}" (nodes and elements missing in the file: {2}, different: {3}; {4}) — it seems to belong to another schema. Boundary conditions and loads were not transferred.</system:String>
    <system:String x:Key="LiraTextNoImportedNodes">the schema has no nodes imported from LIRA</system:String>
+   <system:String x:Key="ImportLiraSchemaFromText">Import schema from a LIRA text file…</system:String>
+   <system:String x:Key="ImportLiraSchemaFromTextTitle">LIRA schema text file (Data\&lt;name&gt;.txt)</system:String>
+   <system:String x:Key="LiraTextNoGeometry">File {0} has no nodes or elements (documents 1 and 4) — it is not a LIRA schema text file.</system:String>
+   <system:String x:Key="LiraAldNotFound">Project file {0} (Work folder next to Data) not found: stiffness names, blocks and plate foundation (C1) were not imported.</system:String>
+   <system:String x:Key="LiraAldReadError">Project file {0} could not be read: {1} — stiffness names, blocks and C1 were not imported.</system:String>
    <system:String x:Key="LiraSupportsImported">LIRA node supports transferred: {0}.</system:String>
    <system:String x:Key="LiraFoundationImported">LIRA plate subgrade modulus C1 transferred: {0} elements.</system:String>
    <system:String x:Key="LiraFoundationBeyondC1">LIRA elastic foundation: {0} plates have C2 or other coefficients besides C1 — ignored (Winkler model, C1 only).</system:String>
