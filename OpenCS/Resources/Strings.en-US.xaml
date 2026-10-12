@@ -3152,6 +3152,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemElementLoadKind_uniform">Uniform</system:String>
     <system:String x:Key="FemElementLoadKind_nodal">Nodal</system:String>
     <system:String x:Key="FemElementLoadKind_point">Point</system:String>
+    <system:String x:Key="FemElementLoadKind_trapezoid">Trapezoid</system:String>
+    <system:String x:Key="FemElementLoadKind_edge">Edge</system:String>
     <system:String x:Key="FemElementLoadKind_self_weight">SW</system:String>
     <system:String x:Key="FemSelfWeightShort">SW</system:String>
     <system:String x:Key="FemUnitM">m</system:String>

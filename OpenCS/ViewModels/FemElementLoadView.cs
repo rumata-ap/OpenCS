@@ -22,6 +22,8 @@ public sealed class FemElementLoadView(FemElementLoad load, IReadOnlyList<FemMem
                 FemElementLoadKinds.SelfWeight => v.Count > 0 ? $"× {Num(v[0])}" : "",
                 FemElementLoadKinds.Point => v.Count > 0 ? $"{Num(v[0] / 1e3)} {Loc.S("FemUnitKN")}" : "",
                 FemElementLoadKinds.Nodal => v.Count > 0 ? $"{Num(v.Min() / 1e3)}…{Num(v.Max() / 1e3)}" : "",
+                FemElementLoadKinds.Trapezoid when v.Count >= 4 => $"{Num(v[0] / 1e3)}…{Num(v[2] / 1e3)}",
+                FemElementLoadKinds.Edge when v.Count >= 4 => $"{Num(v[2] / 1e3)}…{Num(v[3] / 1e3)}",
                 _ => v.Count > 0 ? Num(v[0] / 1e3) : "",
             };
             string direction = Load.LoadKind == FemElementLoadKinds.SelfWeight ? ""

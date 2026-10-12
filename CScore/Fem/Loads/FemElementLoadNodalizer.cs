@@ -126,6 +126,27 @@ public static class FemElementLoadNodalizer
                 return null;
             }
 
+            case FemElementLoadKinds.Trapezoid:
+            {
+                if (!g.IsBar) return "трапеция на участке — только для стержней";
+                if (v.Count < 4) return "ожидалось [q1, a1, q2, a2]";
+                if (TrapezoidOnBar(v[0], v[1], v[2], v[3], g.Length) is not var (a, qa, b, qb)) return "участок вне стержня";
+                BarSegment(g, a, b, dir * (qa * factor), dir * (qb * factor), forces);
+                return null;
+            }
+
+            case FemElementLoadKinds.Edge:
+            {
+                if (!g.IsShell) return "нагрузка на ребро — только для пластин";
+                if (v.Count < 4) return "ожидалось [i, j, q1, q2]";
+                if (ShellEdge(g, v[0], v[1]) is not var (i, j)) return "узлы i, j — не ребро пластины";
+                // Линейная погонная по ребру: функции формы на ребре линейны (Q4 и T3) — L(2q₁+q₂)/6 и L(q₁+2q₂)/6.
+                double l = (g.Points[j] - g.Points[i]).Length;
+                Add(forces, g.NodeTags[i], dir * (l * (2 * v[2] + v[3]) / 6 * factor), PlanarVector3.Zero);
+                Add(forces, g.NodeTags[j], dir * (l * (v[2] + 2 * v[3]) / 6 * factor), PlanarVector3.Zero);
+                return null;
+            }
+
             default:
                 return $"неизвестный вид «{load.LoadKind}»";
         }
@@ -151,6 +172,39 @@ public static class FemElementLoadNodalizer
         if (barRotationDeg is not { } rotation || g.Length < 1e-12) return null;
         var (_, by, bz) = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], rotation);
         return axis == 1 ? by : bz;
+    }
+
+    /// <summary>
+    /// Участок трапеции [q1 в a1, q2 в a2] на стержне длины <paramref name="length"/>, обрезанный по [0, L] с линейной
+    /// интерполяцией (привязки ЛИРЫ при жёстких вставках бывают за концом КЭ); a1 &gt; a2 — концы меняются местами.
+    /// Null — участок нулевой длины или целиком вне стержня.
+    /// </summary>
+    public static (double A, double QA, double B, double QB)? TrapezoidOnBar(double q1, double a1, double q2, double a2, double length)
+    {
+        if (a1 > a2) (q1, a1, q2, a2) = (q2, a2, q1, a1);
+        if (!(a2 - a1 > 1e-12)) return null;
+        double Q(double s) => q1 + (q2 - q1) * (s - a1) / (a2 - a1);
+        double a = Math.Max(a1, 0), b = Math.Min(a2, length);
+        return b - a > 1e-12 ? (a, Q(a), b, Q(b)) : null;
+    }
+
+    /// <summary>
+    /// Индексы узлов ребра пластины по номерам <paramref name="i"/>, <paramref name="j"/> (с 1, порядок хранения);
+    /// null — не целые, вне КЭ или не соседние по контуру (у Q4 контур 1-2-4-3).
+    /// </summary>
+    public static (int I, int J)? ShellEdge(FemElementGeometry g, double i, double j)
+    {
+        int n = g.Points.Count;
+        if (i != Math.Floor(i) || j != Math.Floor(j) || i < 1 || j < 1 || i > n || j > n || i == j) return null;
+        int d = Math.Abs(ContourIndex((int)i - 1) - ContourIndex((int)j - 1));
+        return d == 1 || d == n - 1 ? ((int)i - 1, (int)j - 1) : null;
+
+        int ContourIndex(int node)
+        {
+            for (int k = 0; k < n; k++)
+                if (g.Contour[k] == node) return k;
+            return -1;
+        }
     }
 
     /// <summary>Равномерная интенсивность <paramref name="q"/> (Па или Н/м) по КЭ.</summary>

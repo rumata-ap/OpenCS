@@ -10,10 +10,12 @@ namespace CScore.Fem;
 /// </summary>
 public sealed class FemElementLoad
 {
+    // JSON и разобранные значения — ленивые в обе стороны: импорт создаёт сотни тысяч нагрузок (ЛИРА: 0,6 млн
+    // сосредоточенных), их JSON нужен только при записи в БД.
     IReadOnlyList<string>? _tags;
-    string _tagsJson = "[]";
+    string? _tagsJson = "[]";
     double[]? _values;
-    string _valuesJson = "[]";
+    string? _valuesJson = "[]";
 
     public int Id { get; set; }
     public int SchemaId { get; set; }
@@ -29,7 +31,7 @@ public sealed class FemElementLoad
     /// (<see cref="FemLoadTargetKinds.Elements"/>). Писать — через <see cref="SetTargetTags"/>.</summary>
     public string TargetTagsJson
     {
-        get => _tagsJson;
+        get => _tagsJson ??= JsonSerializer.Serialize(_tags);
         set { _tagsJson = value; _tags = null; }
     }
 
@@ -50,35 +52,37 @@ public sealed class FemElementLoad
     /// <item><c>uniform</c>: [q] — стержень Н/м, пластина Па;</item>
     /// <item><c>nodal</c>: [q1…qn] — пластина, Па в узлах КЭ в порядке хранения узлов;</item>
     /// <item><c>point</c>: стержень [P, a] (Н, м от узла 1); пластина [P, x, y] (Н; м в местных осях КЭ от узла 1);</item>
+    /// <item><c>trapezoid</c>: стержень [q1, a1, q2, a2] — Н/м, линейно на участке a1…a2 (м от узла 1);</item>
+    /// <item><c>edge</c>: пластина [i, j, q1, q2] — Н/м, линейно по ребру между узлами i и j (номера с 1 в порядке
+    /// хранения узлов КЭ);</item>
     /// <item><c>self_weight</c>: [k] — коэффициент к собственному весу.</item>
     /// </list></summary>
     public string ValuesJson
     {
-        get => _valuesJson;
+        get => _valuesJson ??= JsonSerializer.Serialize(_values);
         set { _valuesJson = value; _values = null; }
     }
 
     /// <summary>Теги цели в порядке хранения.</summary>
-    public IReadOnlyList<string> TargetTags => _tags ??= FemMemberGroup.ParseTags(_tagsJson);
+    public IReadOnlyList<string> TargetTags => _tags ??= FemMemberGroup.ParseTags(_tagsJson!);
 
     /// <summary>Значения вида.</summary>
-    public IReadOnlyList<double> Values => _values ??= ParseValues(_valuesJson);
+    public IReadOnlyList<double> Values => _values ??= ParseValues(_valuesJson!);
 
     /// <summary>Заменяет теги цели: без пустых и повторов, в порядке первого появления.</summary>
     public void SetTargetTags(IEnumerable<string> tags)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var list = tags.Select(t => t.Trim()).Where(t => t.Length > 0 && seen.Add(t)).ToList();
-        _tagsJson = JsonSerializer.Serialize(list);
+        _tagsJson = null;
         _tags = list;
     }
 
     /// <summary>Заменяет значения вида.</summary>
     public void SetValues(IEnumerable<double> values)
     {
-        var array = values.ToArray();
-        _valuesJson = JsonSerializer.Serialize(array);
-        _values = array;
+        _values = values.ToArray();
+        _valuesJson = null;
     }
 
     /// <summary>Местная система координат.</summary>
@@ -112,6 +116,10 @@ public static class FemElementLoadKinds
     public const string Nodal = "nodal";
     /// <summary>Сосредоточенная сила в точке КЭ.</summary>
     public const string Point = "point";
+    /// <summary>Стержень: трапециевидная на участке (трапециевидная ЛИРЫ).</summary>
+    public const string Trapezoid = "trapezoid";
+    /// <summary>Пластина: погонная по ребру (нагрузка на ребро пластины ЛИРЫ).</summary>
+    public const string Edge = "edge";
     /// <summary>Собственный вес с коэффициентом.</summary>
     public const string SelfWeight = "self_weight";
 }

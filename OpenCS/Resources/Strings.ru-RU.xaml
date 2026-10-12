@@ -3152,6 +3152,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemElementLoadKind_uniform">Равномерная</system:String>
     <system:String x:Key="FemElementLoadKind_nodal">По узлам</system:String>
     <system:String x:Key="FemElementLoadKind_point">Сосредоточенная</system:String>
+    <system:String x:Key="FemElementLoadKind_trapezoid">Трапеция</system:String>
+    <system:String x:Key="FemElementLoadKind_edge">По ребру</system:String>
     <system:String x:Key="FemElementLoadKind_self_weight">С. в.</system:String>
     <system:String x:Key="FemSelfWeightShort">с. в.</system:String>
     <system:String x:Key="FemUnitM">м</system:String>

@@ -88,8 +88,9 @@ public sealed class FemElementGeometry
     }
 
     /// <summary>
-    /// Функции формы пластины в точке (по узлам хранения); точка проецируется на плоскость КЭ. null — точка вне КЭ
-    /// (допуск 1 % размера) или КЭ вырожден.
+    /// Функции формы пластины в точке (по узлам хранения); точка проецируется на плоскость КЭ. Точка за контуром не
+    /// дальше 2 % размера КЭ прижимается к контуру (привязки ЛИРЫ бывают за краем на миллиметры — округления раскладки
+    /// нагрузки; ЗАГС: 3 мм у КЭ 0,29 м). null — точка дальше или КЭ вырожден.
     /// </summary>
     public double[]? ShellShapeAt(PlanarVector3 point)
     {
@@ -99,7 +100,7 @@ public sealed class FemElementGeometry
         var q = Local(point);
         var c = Contour.Select(i => Local(Points[i])).ToArray();
         var result = new double[Points.Count];
-        const double tol = 0.01;
+        const double tol = 0.02;
         if (c.Length == 3)
         {
             double det = (c[1].U - c[0].U) * (c[2].V - c[0].V) - (c[2].U - c[0].U) * (c[1].V - c[0].V);
@@ -108,7 +109,8 @@ public sealed class FemElementGeometry
             double l2 = ((c[1].U - c[0].U) * (q.V - c[0].V) - (q.U - c[0].U) * (c[1].V - c[0].V)) / det;
             double[] l = [1 - l1 - l2, l1, l2];
             if (l.Any(v => v < -tol)) return null;
-            for (int k = 0; k < 3; k++) result[Contour[k]] = l[k];
+            double sum = l.Sum(v => Math.Max(v, 0));
+            for (int k = 0; k < 3; k++) result[Contour[k]] = Math.Max(l[k], 0) / sum;
             return result;
         }
 
@@ -132,7 +134,7 @@ public sealed class FemElementGeometry
             if (Math.Abs(dx) + Math.Abs(dy) < 1e-12) break;
         }
         if (Math.Abs(xi) > 1 + 2 * tol || Math.Abs(eta) > 1 + 2 * tol) return null;
-        var shape = Bilinear(xi, eta, out _, out _);
+        var shape = Bilinear(Math.Clamp(xi, -1, 1), Math.Clamp(eta, -1, 1), out _, out _);
         for (int k = 0; k < 4; k++) result[Contour[k]] = shape[k];
         return result;
     }

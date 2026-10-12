@@ -17,7 +17,7 @@ public sealed class ScadLoadTransferTests
     static ScadAnalysisModel Model(params ScadLoadCase[] cases) => new() { LoadCases = [.. cases], ForceUnitN = 9810, LengthUnitM = 1 };
 
     static int _next;
-    static ScadLoadTransferResult Run(ScadAnalysisModel model, IReadOnlyList<FemLoadCase>? cases = null,
+    static FemLoadTransferResult Run(ScadAnalysisModel model, IReadOnlyList<FemLoadCase>? cases = null,
         IReadOnlyList<FemElementLoad>? loads = null, IReadOnlyList<FemMeshNodeLoad>? nodeLoads = null)
     {
         _next = 0;

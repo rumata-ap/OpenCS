@@ -33,7 +33,8 @@ internal static class LiraTextTokens
 /// Потоковый разбор текстового файла схемы ЛИРЫ (<c>Data\&lt;Title&gt;.txt</c>, ЛИРА-САПФИР 2024/2025) в
 /// <see cref="LiraTextSchema"/>. Файл — документы <c>( N/ запись/ запись/ … )</c> (и <c>{N/ … }</c> — описания
 /// сечений, пропускаются). Разбираются документы 0 (единицы, загружения), 1 (КЭ), 2 (шарниры), 3 (жёсткости),
-/// 4 (координаты), 5 (связи и объединения), 6 (нагрузки), 7 (значения нагрузок), 25 (АЖТ); остальные — счётчиками
+/// 4 (координаты), 5 (связи и объединения), 6 (нагрузки), 7 (значения нагрузок), 17 (углы — только записи
+/// «КЭ угол»), 25 (АЖТ); остальные — счётчиками
 /// в <see cref="LiraTextSchema.SkippedDocuments"/>.
 /// <para>Правила записи (описание «ЛИРА-Windows», раздел 3): запись продолжается записью с ведущими нулями (док. 1 —
 /// «0 0 узлы…», док. 3 и 7 — «0 …»); в документах 1–7 действует повторитель <c>R N1 N2 [N3]/ шаги…/</c> (п. 3.15) —
@@ -186,6 +187,7 @@ public static class LiraTextReader
         5 => new SupportsDocument(s),
         6 => new LoadsDocument(s),
         7 => new LoadValuesDocument(s),
+        17 => new AnglesDocument(s),
         25 => new RigidBodiesDocument(s),
         _ => new SkippedDocument(s, number, false),
     };
@@ -571,6 +573,29 @@ public static class LiraTextReader
                 return;
             }
             if (!Schema.LoadValues.TryAdd(number, [.. values])) Bad(text, $"строка {number} повторяется");
+        }
+    }
+
+    /// <summary>
+    /// Документ 17: записи «КЭ угол» (у стержней — угол разворота местных осей, = таблица 17 API) — в
+    /// <see cref="LiraTextSchema.ElementAngles"/>; записи другой формы (у пластин бывают по 5–6 чисел, смысл не
+    /// установлен) — счётчиком неразобранного документа.
+    /// </summary>
+    sealed class AnglesDocument(LiraTextSchema s) : DocumentParser(s, 17)
+    {
+        int _other;
+
+        public override void Record(string text)
+        {
+            var t = LiraTextTokens.Split(text);
+            if (t.Length == 2 && LiraTextTokens.TryInt(t[0], out int element) && LiraTextTokens.TryDouble(t[1], out double angle))
+                Schema.ElementAngles[element] = angle;
+            else _other++;
+        }
+
+        public override void End()
+        {
+            if (_other > 0) Schema.SkippedDocuments.Add(new LiraTextSkippedDocument(Number, false, _other));
         }
     }
 

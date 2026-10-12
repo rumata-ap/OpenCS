@@ -128,6 +128,17 @@ public static class FemElementLoadGlyphs
                 var axis = (g.Points[1] - g.Points[0]).Normalize();
                 return Make(g.Points[0] + axis * v[1], dir, v[0] * factor, FemLoadGlyphUnit.Force);
             }
+            case FemElementLoadKinds.Trapezoid when g.IsBar && v.Count >= 4:
+            {
+                if (FemElementLoadNodalizer.TrapezoidOnBar(v[0], v[1], v[2], v[3], g.Length) is not var (a, qa, b, qb)) return null;
+                var axis = (g.Points[1] - g.Points[0]).Normalize();
+                return Make(g.Points[0] + axis * ((a + b) / 2), dir, (qa + qb) / 2 * factor, FemLoadGlyphUnit.LineLoad);
+            }
+            case FemElementLoadKinds.Edge when g.IsShell && v.Count >= 4:
+            {
+                if (FemElementLoadNodalizer.ShellEdge(g, v[0], v[1]) is not var (i, j)) return null;
+                return Make((g.Points[i] + g.Points[j]) * 0.5, dir, (v[2] + v[3]) / 2 * factor, FemLoadGlyphUnit.LineLoad);
+            }
             default:
                 return null;
         }

@@ -100,6 +100,17 @@ public sealed class FemElementLoadNodalizerTests
     }
 
     [Fact]
+    public void PointJustOutsideShell_IsPressedToContour()
+    {
+        // 3 см за правым краем прямоугольника 2 × 3 (1,5 % размера) — на краю x = 2 посередине: узлы 2 и 4 поровну.
+        var f = Run(Load("point", [-10, 2.03, 1.5]), Rect());
+        Assert.Equal(-5, f["2"][2], 9);
+        Assert.Equal(-5, f["4"][2], 9);
+        Assert.Equal(0, f["1"][2], 9);
+        Assert.Equal(0, f["3"][2], 9);
+    }
+
+    [Fact]
     public void PointOutsideShell_IsReported()
     {
         var diag = new List<FemValidationDiagnostic>();
@@ -116,6 +127,42 @@ public sealed class FemElementLoadNodalizerTests
         Assert.Equal(-20, f["2"][2], 12);
         Assert.Equal(10 * 16 / 12.0, f["1"][4], 12);
         Assert.Equal(-10 * 16 / 12.0, f["2"][4], 12);
+    }
+
+    [Fact]
+    public void BarTrapezoid_ResultantAndMomentAboutNodeI_ClippedToBar()
+    {
+        // L = 4; трапеция −10 в a1 = 1 … −30 в a2 = 5 обрезается по концу: −10 … −25 на участке 1…4.
+        var mesh = new FemLoadMeshContext([N(1, 0, 0), N(2, 4, 0)], [E("1", "beam", [1, 2])]);
+        var f = Run(Load("trapezoid", [-10, 1, -30, 5]), mesh);
+        double total = -(10 + 25) / 2.0 * 3;                       // −52,5
+        double centroid = 1 + 3 * (10 + 2 * 25) / (3.0 * (10 + 25)); // от узла I
+        Assert.Equal(total, f["1"][2] + f["2"][2], 9);
+        // Момент относительно I вокруг Y: My = −x·Fz (x вдоль X); сумма узловых моментов и сил узла J.
+        Assert.Equal(-centroid * total, f["1"][4] + f["2"][4] - 4 * f["2"][2], 9);
+
+        // Обратный порядок концов — та же нагрузка; участок вне стержня — пропуск.
+        var g = Run(Load("trapezoid", [-30, 5, -10, 1]), mesh);
+        Assert.Equal(f["1"][2], g["1"][2], 9);
+        var diag = new List<FemValidationDiagnostic>();
+        Assert.Empty(Run(Load("trapezoid", [-10, 5, -10, 6]), mesh, diag));
+        Assert.Contains(diag, d => d.Message.Contains("участок вне стержня"));
+    }
+
+    [Fact]
+    public void ShellEdge_LinearLineLoadOnContourEdge_StorageNumbering()
+    {
+        // Прямоугольник 2 × 3, хранение 1 2 4 3: ребро 2–4 — правая сторона (x = 2), длина 3.
+        var mesh = Rect();
+        var f = Run(Load("edge", [2, 4, -10, -40]), mesh);
+        Assert.Equal(3 * (2 * -10 + -40) / 6.0, f["2"][2], 9);
+        Assert.Equal(3 * (-10 + 2 * -40) / 6.0, f["4"][2], 9);
+        Assert.False(f.ContainsKey("1") || f.ContainsKey("3"));
+
+        // 1–4 — диагональ Q4 (не ребро).
+        var diag = new List<FemValidationDiagnostic>();
+        Assert.Empty(Run(Load("edge", [1, 4, -10, -10]), mesh, diag));
+        Assert.Contains(diag, d => d.Message.Contains("не ребро"));
     }
 
     [Fact]

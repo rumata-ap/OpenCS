@@ -158,6 +158,9 @@ public sealed class LiraTextSchema
     /// <summary>Строки значений нагрузок документа 7 (номер → значения с продолжениями).</summary>
     public Dictionary<int, double[]> LoadValues { get; } = [];
 
+    /// <summary>Углы документа 17 по номерам КЭ (записи «КЭ угол»; у стержней — разворот местных осей, град).</summary>
+    public Dictionary<int, double> ElementAngles { get; } = [];
+
     /// <summary>Абсолютно жёсткие тела документа 25.</summary>
     public List<LiraTextRigidBody> RigidBodies { get; } = [];
 

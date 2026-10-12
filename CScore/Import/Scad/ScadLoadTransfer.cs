@@ -3,18 +3,6 @@ using CScore.Fem;
 
 namespace CScore.Import;
 
-/// <summary>Итог переноса нагрузок SCAD: полные списки загружений и нагрузок сеточного уровня схемы и журнал.</summary>
-/// <param name="LoadCases">Все загружения схемы после переноса (существующие объекты обновлены, новые — с временными Id).</param>
-/// <param name="ElementLoads">Все нагрузки на КЭ: не из SCAD — без изменений, из SCAD — новые.</param>
-/// <param name="MeshNodeLoads">Все узловые нагрузки на узлы сетки, по тому же правилу.</param>
-/// <param name="Report">Журнал: что перенесено, что нет и почему.</param>
-public sealed record ScadLoadTransferResult(
-    IReadOnlyList<FemLoadCase> LoadCases,
-    IReadOnlyList<FemElementLoad> ElementLoads,
-    IReadOnlyList<FemMeshNodeLoad> MeshNodeLoads,
-    IReadOnlyList<string> Report,
-    int CasesCreated, int ImportedElementLoads, int ImportedNodeLoads, int SkippedRecords);
-
 /// <summary>
 /// Перенос нагрузок из вложения SCAD (<see cref="ScadAnalysisModel"/>) в нагрузки сеточного уровня схемы. Виды —
 /// <c>ApiForceType</c> SCADAPIX (ScadStructHelpAPI.hxx); Qn 1–3 — оси X, Y, Z (в местной системе — x, y, z КЭ),
@@ -35,7 +23,7 @@ public static class ScadLoadTransfer
     /// <param name="elementLoads">Нагрузки на КЭ схемы.</param>
     /// <param name="meshNodeLoads">Узловые нагрузки на узлы сетки схемы.</param>
     /// <param name="allocateLoadCaseId">Временный Id нового загружения (отрицательный, до сохранения).</param>
-    public static ScadLoadTransferResult Transfer(ScadAnalysisModel model, IReadOnlyDictionary<string, string> elementTypes,
+    public static FemLoadTransferResult Transfer(ScadAnalysisModel model, IReadOnlyDictionary<string, string> elementTypes,
         IReadOnlyList<FemLoadCase> loadCases, IReadOnlyList<FemElementLoad> elementLoads,
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads, Func<int> allocateLoadCaseId)
     {
@@ -167,7 +155,7 @@ public static class ScadLoadTransfer
         var keptNode = meshNodeLoads.Where(l => l.Origin != Origin);
         report.Insert(0, $"Перенесено из SCAD: загружений {model.LoadCases.Count} (новых {created}), нагрузок на КЭ " +
             $"{newElementLoads.Count}, узловых {newNodeLoads.Count}; не перенесено записей {skippedRecords}.");
-        return new ScadLoadTransferResult(cases, keptElement.Concat(newElementLoads).ToList(),
+        return new FemLoadTransferResult(cases, keptElement.Concat(newElementLoads).ToList(),
             keptNode.Concat(newNodeLoads).ToList(), report, created, newElementLoads.Count, newNodeLoads.Count, skippedRecords);
     }
 
