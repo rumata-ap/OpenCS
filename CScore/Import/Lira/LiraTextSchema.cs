@@ -30,6 +30,19 @@ public sealed record LiraTextUnits(
 
     /// <summary>Единица силы, т.</summary>
     public double ForceUnitT => 1.0 / ForcePerTonne;
+
+    /// <summary>
+    /// Единица силы, Н: KN, N, DaN, MN — точно; тонна и прочие — через коэффициент строки 33 и кН в тонне-силе.
+    /// </summary>
+    /// <param name="tonToKn">Сколько кН в тонне-силе (настройка импорта).</param>
+    public double ForceUnitN(double tonToKn) => Force.ToUpperInvariant() switch
+    {
+        "N" => 1,
+        "DAN" => 10,
+        "KN" => 1e3,
+        "MN" => 1e6,
+        _ => ForceUnitT * tonToKn * 1e3,
+    };
 }
 
 /// <summary>Конечный элемент документа 1.</summary>

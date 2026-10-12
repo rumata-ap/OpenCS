@@ -3,24 +3,6 @@ using CScore.Fem;
 
 namespace CScore.Import;
 
-/// <summary>Итог переноса ГУ SCAD: объекты сеточного уровня происхождения «import:scad» и журнал.</summary>
-/// <param name="Supports">Закрепления узлов сетки.</param>
-/// <param name="Springs">Пружины на узлах сетки (одна запись на узел, КЭ 51 одного узла суммируются).</param>
-/// <param name="RigidBodies">Жёсткие тела.</param>
-/// <param name="ElementProps">ГУ КЭ по тегу: освобождения концов стержней и C1 пластин (только КЭ, где они есть).</param>
-/// <param name="Report">Журнал: первая строка — сводка, далее — что не перенесено и почему.</param>
-/// <param name="Summary">Сводка по видам ГУ для окна импорта.</param>
-public sealed record ScadBoundaryTransferResult(
-    IReadOnlyList<FemMeshNodeSupport> Supports,
-    IReadOnlyList<FemSpring> Springs,
-    IReadOnlyList<FemRigidBody> RigidBodies,
-    IReadOnlyDictionary<string, FemElementBoundaryProps> ElementProps,
-    IReadOnlyList<string> Report,
-    IReadOnlyList<FemBoundaryTransferRow> Summary);
-
-/// <summary>Строка сводки переноса ГУ: вид, единица счёта, перенесено, не перенесено, примечание.</summary>
-public sealed record FemBoundaryTransferRow(string Kind, string Unit, int Transferred, int NotTransferred, string Note = "");
-
 /// <summary>
 /// Перенос граничных условий из вложения SCAD (<see cref="ScadAnalysisModel"/>) в сеточный уровень схемы:
 /// закрепления (ApiGetBound) → <see cref="FemMeshNodeSupport"/>, КЭ 51 → <see cref="FemSpring"/>, КЭ 100 →
@@ -36,7 +18,7 @@ public static class ScadBoundaryTransfer
     /// <param name="model">Вложение SCAD схемы.</param>
     /// <param name="meshNodeTags">Теги узлов сетки схемы.</param>
     /// <param name="elementTypes">Тег КЭ сетки → тип («beam» | «shell»).</param>
-    public static ScadBoundaryTransferResult Transfer(ScadAnalysisModel model, IReadOnlySet<string> meshNodeTags,
+    public static FemBoundaryTransferResult Transfer(ScadAnalysisModel model, IReadOnlySet<string> meshNodeTags,
         IReadOnlyDictionary<string, string> elementTypes)
     {
         var report = new List<string>();
@@ -179,7 +161,7 @@ public static class ScadBoundaryTransfer
         report.Insert(0, $"Перенесено из SCAD граничных условий: закреплений {supports.Count}, пружин {springs.Count}, " +
             $"жёстких тел {bodies.Count}, стержней с шарнирами {jointed} " +
             $"(концов {releasedEnds}), пластин на упругом основании {c1.Count}.");
-        return new ScadBoundaryTransferResult(supports, springs, bodies, props, report, summary);
+        return new FemBoundaryTransferResult(supports, springs, bodies, props, report, summary);
     }
 
     static string Join(params string[] parts) => string.Join("; ", parts.Where(p => p.Length > 0));
