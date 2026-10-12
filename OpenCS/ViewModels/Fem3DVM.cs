@@ -1092,7 +1092,7 @@ public class Fem3DVM : ViewModelBase
         if (_db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId) is not { } schema) return null;
         _resultMesh ??= new FemResult.FemResultMesh(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
         FemResult.IFemResultSteps steps = result.TaskKind == Services.FemCsfeaRunner.TaskKind
-            ? new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema))
+            ? new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema, analysis))
             : new FemResult.OpenSeesResultSteps(new FemAnalysisResultVM(result, _db, schema));
         return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh);
     }
@@ -1128,7 +1128,8 @@ public class Fem3DVM : ViewModelBase
         (HiddenGhostLines, HiddenGhostShells) = BuildGhost(nodeMap, hidden, withRegions: false);
         SetFragmentText(shells.Count + bars.Count, allShells.Count + allBars.Count);
         var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
-        BarGroups = coloring != null
+        // Стержни, не окрашенные величиной (поле пластин или эпюры усилий своим списком), — ровной линией.
+        BarGroups = coloring is { } c && (c.Bars || c.Both)
             ? BuildMosaicBars(coloring, nodeMap, bars)
             : [new BarGroup("", Colors.SteelBlue, BuildLinePoints(nodeMap, bars), 1.5)];
         MosaicBarSegments = BarSegments(nodeMap, bars);

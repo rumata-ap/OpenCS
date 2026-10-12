@@ -250,6 +250,36 @@ public sealed class FemResultLayer : ViewModelBase
     /// <summary>Итога нет (величина без экстремума — например, состояние).</summary>
     public void ClearSummary() => SummaryText = "";
 
+    string _barSummaryText = "";
+    /// <summary>Экстремум усилия стержней, показанного эпюрами (свой список мозаики); пусто — эпюр нет.</summary>
+    public string BarSummaryText
+    {
+        get => _barSummaryText;
+        private set
+        {
+            if (_barSummaryText == value) return;
+            _barSummaryText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasBarSummary));
+        }
+    }
+
+    public bool HasBarSummary => _barSummaryText != "";
+
+    /// <summary>Итог по усилию стержней: наибольшее по модулю с номером КЭ.</summary>
+    public void UpdateBarSummary(string label, IEnumerable<KeyValuePair<string, double>> values)
+    {
+        string? best = null;
+        double bestValue = 0;
+        foreach (var (tag, v) in values)
+            if (best == null || Math.Abs(v) > Math.Abs(bestValue)) { best = tag; bestValue = v; }
+        BarSummaryText = best != null
+            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultBarExtremum"), label, bestValue, best)
+            : "";
+    }
+
+    public void ClearBarSummary() => BarSummaryText = "";
+
     // ------------------------------------------------------------ CSfea: ширина раскрытия, наборы усилий
 
     /// <summary>VM результата CSfea; null — результат OpenSees.</summary>

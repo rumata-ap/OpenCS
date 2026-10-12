@@ -2735,7 +2735,7 @@
     <system:String x:Key="FemAnalysisKindCsfea">Нелинейный секущий — CSfea</system:String>
     <system:String x:Key="FemAnalysisKindCsfeaLinear">Линейный — CSfea</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Загружения</system:String>
-    <system:String x:Key="FemCsfeaLinearCasesHint">Каждая строка — независимое загружение или комбинация; все решаются одной сборкой и одной факторизацией матрицы жёсткости. Сечения упругие: бетон брутто, арматура в жёсткость не входит.</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesHint">Каждая строка — отдельный расчёт на своё загружение или комбинацию: строки не суммируются и не накапливаются, как стадии нелинейного расчёта (сумму задавайте комбинацией). Все строки решаются одной сборкой и одной факторизацией матрицы жёсткости. Сечения упругие: бетон брутто, арматура в жёсткость не входит.</system:String>
     <system:String x:Key="FemCsfeaPhysicalNonlinearityLabel">Физическая нелинейность</system:String>
     <system:String x:Key="FemCsfeaPhysicalNonlinearityTip">Снята — сечения упругие (бетон брутто, как в линейном расчёте): расчёт шагами только с геометрической нелинейностью. Параметры трещин, ψs и сдвига по хомутам при этом не действуют.</system:String>
     <system:String x:Key="FemAnalysisKindTip">Основной решатель — свой (CSfea): секущий расчёт по сечениям CScore с трещинами, ψs и текучестью арматуры и линейный расчёт независимых загружений одной факторизацией. OpenSees — запасной вариант.</system:String>
@@ -4367,7 +4367,11 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultMenuMemberSection">Сечение КонЭ «{0}»…</system:String>
     <system:String x:Key="FemResultMenuMember2D">2D-эпюра КонЭ «{0}»…</system:String>
     <system:String x:Key="FemResultMenuMemberForceSet">Набор усилий КонЭ «{0}» на шаге…</system:String>    <system:String x:Key="MosaicResultShellField">Пластины: {0}</system:String>
-    <system:String x:Key="MosaicResultBarForce">Стержни: {0}, {1}</system:String>
+    <system:String x:Key="MosaicResultBarForce">{0}, {1}</system:String>
+    <system:String x:Key="MosaicResultNoBarForce">— (без эпюр)</system:String>
+    <system:String x:Key="MosaicResultBarsLabel">Стержни:</system:String>
+    <system:String x:Key="MosaicResultBarsTip">Усилие стержней результата — эпюрами поверх величины, которой окрашены пластины</system:String>
+    <system:String x:Key="FemResultBarExtremum">стержни {0}: {1:0.###}, КЭ {2}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Свернуть панель редактирования</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Развернуть панель редактирования</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Показать только выбранное</system:String>

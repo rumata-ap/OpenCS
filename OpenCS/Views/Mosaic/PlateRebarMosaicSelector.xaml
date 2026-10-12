@@ -18,6 +18,13 @@
         <ComboBox Width="150" Margin="4,0,0,0" ItemsSource="{Binding ComponentOptions}" DisplayMemberPath="Label"
                   SelectedItem="{Binding SelectedComponent, Mode=TwoWay}"
                   IsEnabled="{Binding IsActive}"/>
+        <!-- Усилия стержней результата расчёта — своим списком: эпюры поверх величины пластин -->
+        <StackPanel Orientation="Horizontal" Visibility="{Binding HasBarComponents, Converter={StaticResource BoolToVis}}"
+                    ToolTip="{DynamicResource MosaicResultBarsTip}">
+            <TextBlock Text="{DynamicResource MosaicResultBarsLabel}" VerticalAlignment="Center" Margin="8,0,4,0"/>
+            <ComboBox Width="110" ItemsSource="{Binding BarComponentOptions}" DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedBarComponent, Mode=TwoWay}"/>
+        </StackPanel>
         <ComboBox Width="130" Margin="4,0,0,0" ItemsSource="{Binding AggregateOptions}" DisplayMemberPath="Label"
                   SelectedItem="{Binding SelectedAggregate, Mode=TwoWay}"
                   Visibility="{Binding HasAggregate, Converter={StaticResource BoolToVis}}"

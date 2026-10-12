@@ -2735,7 +2735,7 @@
     <system:String x:Key="FemAnalysisKindCsfea">Nonlinear secant — CSfea</system:String>
     <system:String x:Key="FemAnalysisKindCsfeaLinear">Linear — CSfea</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Load cases</system:String>
-    <system:String x:Key="FemCsfeaLinearCasesHint">Each row is an independent load case or combination; all are solved with one assembly and one factorization of the stiffness matrix. Sections are elastic: gross concrete, reinforcement does not contribute to stiffness.</system:String>
+    <system:String x:Key="FemCsfeaLinearCasesHint">Each row is a separate analysis for its own load case or combination: rows are neither summed nor accumulated like nonlinear stages (define a sum as a combination). All rows are solved with one assembly and one factorization of the stiffness matrix. Sections are elastic: gross concrete, reinforcement does not contribute to stiffness.</system:String>
     <system:String x:Key="FemCsfeaPhysicalNonlinearityLabel">Physical nonlinearity</system:String>
     <system:String x:Key="FemCsfeaPhysicalNonlinearityTip">Unchecked — sections are elastic (gross concrete, as in the linear analysis): stepped analysis with geometric nonlinearity only. Cracking, ψs and stirrup shear settings have no effect.</system:String>
     <system:String x:Key="FemAnalysisKindTip">The primary solver is our own (CSfea): secant analysis with CScore sections, cracking, ψs and reinforcement yielding, and linear analysis of independent load cases with a single factorization. OpenSees is a fallback.</system:String>
@@ -4367,7 +4367,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultMenuMemberSection">Section of member "{0}"…</system:String>
     <system:String x:Key="FemResultMenuMember2D">2D diagram of member "{0}"…</system:String>
     <system:String x:Key="FemResultMenuMemberForceSet">Force set of member "{0}" at the step…</system:String>    <system:String x:Key="MosaicResultShellField">Plates: {0}</system:String>
-    <system:String x:Key="MosaicResultBarForce">Bars: {0}, {1}</system:String>
+    <system:String x:Key="MosaicResultBarForce">{0}, {1}</system:String>
+    <system:String x:Key="MosaicResultNoBarForce">— (no diagrams)</system:String>
+    <system:String x:Key="MosaicResultBarsLabel">Bars:</system:String>
+    <system:String x:Key="MosaicResultBarsTip">Bar force of the result — as diagrams over the quantity the plates are coloured by</system:String>
+    <system:String x:Key="FemResultBarExtremum">bars {0}: {1:0.###}, element {2}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Show selected only</system:String>

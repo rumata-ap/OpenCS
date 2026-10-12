@@ -174,6 +174,39 @@ public class FemResultLayerTests
     }
 
     [Fact]
+    public void CsfeaLinear_CaseNamesFromSchemaLoads()
+    {
+        using var t = new TempDb();
+        t.Schema.LoadCases.Add(new FemLoadCase { Id = 7, Tag = "Снег" });
+        t.Schema.LoadDefinitions.Add(new FemLoadDefinition { Tag = "РСН 1" });
+        var combo = new FemLoadExpression { Mode = FemLoadExpressionMode.Sum, Terms = [new FemLoadTerm { LoadCaseId = 7, Coefficient = 1.4 }] };
+        t.Schema.LoadDefinitions[0].SetExpression(combo);
+        var single = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [7] };
+        var pars = new OpenCS.Tasks.FemAnalysisParams
+        {
+            Stages =
+            [
+                new OpenCS.Tasks.FemAnalysisStage { Tag = "Стадия 1", LoadExpressionJson = single.ToJson() },
+                new OpenCS.Tasks.FemAnalysisStage { Tag = "Стадия 2", LoadExpressionJson = combo.ToJson() },
+                new OpenCS.Tasks.FemAnalysisStage { Tag = "Своя", LoadExpressionJson = "{}" },
+            ],
+        };
+        var analysis = new FemAnalysis { Kind = FemCsfeaRunner.LinearAnalysisKind, Tag = "Л", ParamsJson = pars.ToJson() };
+        Assert.Equal(["Снег", "РСН 1", "Своя"], OpenCS.Tasks.FemAnalysisCaseNames.Resolve(t.Schema, analysis));
+
+        // Старый результат со «Стадия N» в сводке показывает имена загружений.
+        var summary = new FemCsfeaResultSummary
+        {
+            Kind = FemCsfeaRunner.LinearAnalysisKind,
+            Stages = [new("Стадия 1", 1, 0, 0, 0), new("Стадия 2", 1, 0, 0, 0), new("Своя", 1, 0, 0, 0)],
+            Steps = [new(1, 0, 1, 1.0, false, true, 0, 0, null), new(2, 1, 1, 1.0, false, true, 0, 0, null), new(3, 2, 1, 1.0, false, true, 0, 0, null)],
+        };
+        var steps = new CsfeaResultSteps(new FemCsfeaResultVM(
+            new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, DataJson = summary.ToJson() }, t.Db, t.Schema, analysis));
+        Assert.Equal(["Снег", "РСН 1", "Своя"], steps.StepNames);
+    }
+
+    [Fact]
     public void CsfeaSteps_WithoutFields_HaveNoDisplacements()
     {
         using var t = new TempDb();
@@ -251,8 +284,9 @@ public class FemResultLayerTests
         Assert.True(vm.HasSubject);
         Assert.Same(layer, vm.ActiveResult);
         Assert.True(vm.IsResultActive);
-        // Перемещения и усилия стержней (у OpenSees полей пластин нет).
-        Assert.Equal(4 + 6, vm.ComponentOptions.Count);
+        // Перемещения (у OpenSees полей пластин нет); усилия стержней — своим списком «—», N…Mz.
+        Assert.Equal(4, vm.ComponentOptions.Count);
+        Assert.Equal(1 + 6, vm.BarComponentOptions.Count);
         vm.SelectedComponent = vm.ComponentOptions.Single(o => Equals(o.Component, FemResultComponent.Uz));
 
         int changed = 0;
@@ -298,6 +332,10 @@ public class FemResultLayerTests
     static void Select(PlateRebarMosaicVM vm, object component) =>
         vm.SelectedComponent = vm.ComponentOptions.Single(o => Equals(o.Component, component));
 
+    static void SelectBar(PlateRebarMosaicVM vm, object? component) =>
+        vm.SelectedBarComponent = component == null ? vm.BarComponentOptions[0]
+            : vm.BarComponentOptions.Single(o => Equals(o.Component, component));
+
     static string Extremum(PlateRebarMosaicVM vm, double value, string elem) => string.Format(
         System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultElementExtremum"), vm.SelectedComponent!.Label, value, elem);
 
@@ -318,7 +356,11 @@ public class FemResultLayerTests
         Assert.DoesNotContain(FemCsfeaShellField.Ux, components.OfType<FemCsfeaShellField>());
         Assert.DoesNotContain(FemCsfeaShellField.AcrcLongBottom, components.OfType<FemCsfeaShellField>());
         Assert.Contains(FemCsfeaShellField.Nx, components.OfType<FemCsfeaShellField>());
-        Assert.Equal(6, components.OfType<FemForceComponent>().Count());
+        // Усилия стержней — своим списком: «—» и N…Mz, по умолчанию «—».
+        Assert.Empty(components.OfType<FemForceComponent>());
+        Assert.True(vm.HasBarComponents);
+        Assert.Equal(7, vm.BarComponentOptions.Count);
+        Assert.Null(vm.ResultBarForce);
         Assert.True(layer.IsCsfea);
 
         Select(vm, FemCsfeaShellField.Nx);
@@ -342,25 +384,33 @@ public class FemResultLayerTests
         Assert.EndsWith(Loc.S("FemCsfeaStateYielded"), vm.HoverText);
         Assert.Equal("", layer.SummaryText);
 
-        // Усилия стержня: мозаика по наибольшему по модулю концу, эпюра по концам вдоль местной оси расчёта.
-        Select(vm, FemForceComponent.Mz);
+        // Усилие стержня своим списком: пластины красит величина основного списка, на стержнях — эпюра по концам
+        // вдоль местной оси расчёта, итог — отдельной строкой.
+        Select(vm, FemCsfeaShellField.Nx);
+        SelectBar(vm, FemForceComponent.Mz);
         coloring = vm.Compute(["2"], ["1"])!;
-        Assert.True(coloring.Bars);
-        Assert.Equal(["1"], coloring.ColorByTag.Keys);
-        Assert.Equal(Extremum(vm, -4, "1"), layer.SummaryText);
+        Assert.False(coloring.Bars);
+        Assert.Equal(["2"], coloring.ColorByTag.Keys);
+        Assert.Equal(Extremum(vm, 5, "2"), layer.SummaryText);
+        Assert.Equal(string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultBarExtremum"),
+            vm.SelectedBarComponent!.Label, -4.0, "1"), layer.BarSummaryText);
         Assert.True(vm.HasBarDiagrams);
         Assert.Equal([(0.0, 2.0), (1.0, -4.0)], vm.BarProfiles(["1"], out _)!["1"]);
+        vm.SetHover("1");
+        Assert.Contains(vm.SelectedBarComponent.Label, vm.HoverText);
         // Стержень вдоль X: Ey — проекция глобальной Z, Ez = X × Ey = −Y.
         Assert.Equal(new Vector3D(0, 0, 1), vm.BarDiagramAxis("1"));
-        Select(vm, FemForceComponent.N);
+        SelectBar(vm, FemForceComponent.N);
         Assert.Equal(new Vector3D(0, -1, 0), vm.BarDiagramAxis("1"));
         Assert.Equal([(0.0, -10.0), (1.0, -10.0)], vm.BarProfiles(["1"], out _)!["1"]);
 
-        // Пороги шкалы у Mx пластин и Mx стержней — свои.
-        Select(vm, FemCsfeaShellField.Mx);
-        vm.ThresholdsText = "1";
-        Select(vm, FemForceComponent.Mx);
-        Assert.Equal("", vm.ThresholdsText);
+        // Перемещения при эпюрах усилий красят только пластины; без эпюр — и стержни.
+        Select(vm, FemResultComponent.Uz);
+        Assert.False(vm.Compute(["2"], ["1"])!.Both);
+        SelectBar(vm, null);
+        Assert.True(vm.Compute(["2"], ["1"])!.Both);
+        Assert.False(vm.HasBarDiagrams);
+        Assert.Equal("", layer.BarSummaryText);
     }
 
     [Fact]

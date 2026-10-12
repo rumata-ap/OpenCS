@@ -237,3 +237,23 @@ public sealed class FemCsfeaParams
         return result.ToList();
     }
 }
+
+/// <summary>Имена строк постановки для показа результата.</summary>
+public static class FemAnalysisCaseNames
+{
+    /// <summary>
+    /// Имена загружений линейной постановки по строкам: тег определения нагрузки или загружения схемы с тем же
+    /// выражением, иначе тег строки. Строки линейной постановки — независимые загружения, а не стадии: старые
+    /// постановки хранят в теге «Стадия N».
+    /// </summary>
+    public static List<string> Resolve(CScore.Fem.FemSchema schema, CScore.Fem.FemAnalysis analysis)
+    {
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var d in schema.LoadDefinitions) labels.TryAdd(d.GetExpression().ToJson(), d.Tag);
+        foreach (var c in schema.LoadCases)
+            labels.TryAdd(new CScore.Fem.FemLoadExpression { Mode = CScore.Fem.FemLoadExpressionMode.Single, LoadCaseIds = [c.Id] }.ToJson(), c.Tag);
+        return FemAnalysisParams.Parse(analysis.ParamsJson).ResolveStages(analysis)
+            .Select(s => labels.TryGetValue(CScore.Fem.FemLoadExpression.Parse(s.LoadExpressionJson).ToJson(), out var label) ? label : s.Tag)
+            .ToList();
+    }
+}

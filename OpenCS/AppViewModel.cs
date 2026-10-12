@@ -5535,7 +5535,7 @@ namespace OpenCS
          if (result == null) return;
          if (result.TaskKind == Services.FemCsfeaRunner.TaskKind)
          {
-            ShowCsfeaResult(result, schema);
+            ShowCsfeaResult(result, schema, analysis);
             return;
          }
 
@@ -5643,9 +5643,9 @@ namespace OpenCS
       }
 
       /// <summary>Страница результата CSfea; «шаг → набор усилий» сохраняет наборы схемы.</summary>
-      void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema)
+      void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema, CScore.Fem.FemAnalysis analysis)
       {
-         var vm = new ViewModels.FemCsfeaResultVM(result, db, schema);
+         var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
          vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
          CurrentPage = new Views.FemCsfeaResultView(vm);
       }

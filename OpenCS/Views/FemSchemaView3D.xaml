@@ -294,6 +294,8 @@
                     <TextBlock Text="{Binding LongShareNote}" VerticalAlignment="Center" Margin="2,0" Foreground="Gray"/>
                 </StackPanel>
                 <TextBlock Text="{Binding SummaryText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                <TextBlock Text="{Binding BarSummaryText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,4,0"
+                           Visibility="{Binding HasBarSummary, Converter={StaticResource BoolToVisibility}}"/>
                 <Button Content="⋯" ToolTip="{DynamicResource FemResultActionsTip}" Click="ResultActions_Click"
                         Padding="8,0" Margin="8,0,2,0" VerticalAlignment="Center"/>
             </WrapPanel>

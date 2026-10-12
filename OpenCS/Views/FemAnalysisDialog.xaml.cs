@@ -456,6 +456,8 @@ public partial class FemAnalysisDialog : Window
         StagesPathControlButtonColumn.Visibility = pathControl;
         var factorColumns = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
         StagesLoadFactorStepColumn.Visibility = factorColumns;
+        // Линейный CSfea: строка — отдельное загружение, её имя — имя загружения или комбинации (не «Стадия N»).
+        StagesTagColumn.Visibility = factorColumns;
         StagesMaxLoadFactorColumn.Visibility = factorColumns;
         StagesGroup.SetResourceReference(HeaderedContentControl.HeaderProperty,
             csfeaLinear ? "FemCsfeaLinearCasesLabel" : "FemAnalysisStagesLabel");
@@ -600,7 +602,7 @@ public partial class FemAnalysisDialog : Window
                 double max = isCsfeaLinear ? 1.0 : r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
                 return new FemAnalysisStage
                 {
-                    Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
+                    Tag = isCsfeaLinear ? r.Source!.Label : r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
                     LoadFactorStep = step, MaxLoadFactor = max,
                     PathControl = isCsfea ? null : BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
                     ContinueWith = isCsfea || r.ContinueWithMode == null ? null

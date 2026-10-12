@@ -43,7 +43,7 @@
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
+                        <DataGridTextColumn x:Name="StagesTagColumn" Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
                         <DataGridTextColumn x:Name="StagesLoadFactorStepColumn" Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">

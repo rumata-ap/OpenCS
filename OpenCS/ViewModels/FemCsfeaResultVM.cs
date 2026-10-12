@@ -49,12 +49,17 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     readonly Dictionary<int, int[]> _contours = new();
     readonly double _diag;
 
-    public FemCsfeaResultVM(CalcResult result, DatabaseService db, FemSchema schema)
+    /// <param name="analysis">Постановка результата: у линейного расчёта строки названы по загружениям схемы
+    /// (<see cref="Tasks.FemAnalysisCaseNames"/>); null — имена из сводки.</param>
+    public FemCsfeaResultVM(CalcResult result, DatabaseService db, FemSchema schema, FemAnalysis? analysis = null)
     {
         _db = db;
         _result = result;
         Schema = schema;
         Summary = FemCsfeaResultSummary.Parse(result.DataJson) ?? new FemCsfeaResultSummary();
+        if (analysis != null && Summary.Kind == FemCsfeaRunner.LinearAnalysisKind
+            && Tasks.FemAnalysisCaseNames.Resolve(schema, analysis) is { } names && names.Count == Summary.Stages.Count)
+            Summary.Stages = Summary.Stages.Select((s, i) => s with { Tag = names[i] }).ToList();
         Status = result.Status;
         _recorded = result.Id > 0 ? db.GetFemResultStepNumbers(result.Id) : [];
 
