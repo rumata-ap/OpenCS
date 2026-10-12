@@ -4420,6 +4420,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultBarExtremum">bars {0}: {1:0.###}, element {2}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Collapse editing toolbar</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Expand editing toolbar</system:String>
+    <system:String x:Key="Fem3DMosaicBarExpand">Expand mosaic and fragment toolbar</system:String>
+    <system:String x:Key="Fem3DMosaicBarCollapse">Collapse mosaic and fragment toolbar</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Show selected only</system:String>
      <system:String x:Key="Fem3DFragmentHide">Hide selected</system:String>
      <system:String x:Key="Fem3DFragmentInvert">Invert: show hidden, hide visible</system:String>

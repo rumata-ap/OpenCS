@@ -4420,6 +4420,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemResultBarExtremum">стержни {0}: {1:0.###}, КЭ {2}</system:String>
     <system:String x:Key="Fem3DEditBarCollapse">Свернуть панель редактирования</system:String>
     <system:String x:Key="Fem3DEditBarExpand">Развернуть панель редактирования</system:String>
+    <system:String x:Key="Fem3DMosaicBarExpand">Развернуть панель мозаик и фрагмента</system:String>
+    <system:String x:Key="Fem3DMosaicBarCollapse">Свернуть панель мозаик и фрагмента</system:String>
      <system:String x:Key="Fem3DFragmentShowOnly">Показать только выбранное</system:String>
      <system:String x:Key="Fem3DFragmentHide">Скрыть выбранное</system:String>
      <system:String x:Key="Fem3DFragmentInvert">Инвертировать: скрытое показать, видимое скрыть</system:String>

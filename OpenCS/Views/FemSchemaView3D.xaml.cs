@@ -292,6 +292,7 @@ public partial class FemSchemaView3D : UserControl
             _activeVm.FragmentApplied -= OnFragmentApplied;
             _activeVm.ResultSelectionChanged -= OnResultSelectionChanged;
             if (_activeVm.Selection != null) _activeVm.Selection.Changed -= OnSelectionChanged;
+            _activeVm.Mosaic.PropertyChanged -= OnMosaicPropertyChanged;
         }
 
         _activeVm         = vm;
@@ -307,6 +308,7 @@ public partial class FemSchemaView3D : UserControl
         vm.FragmentApplied += OnFragmentApplied;
         vm.ResultSelectionChanged += OnResultSelectionChanged;
         if (vm.Selection != null) vm.Selection.Changed += OnSelectionChanged;
+        vm.Mosaic.PropertyChanged += OnMosaicPropertyChanged;
         vm.ShowShellEdges = s_showGrid;
         await vm.LoadAsync();
         UpdateEditBar();
@@ -352,9 +354,30 @@ public partial class FemSchemaView3D : UserControl
 
     void ExpandEditBar_Click(object sender, RoutedEventArgs e) { s_editBarCollapsed = false; UpdateEditBar(); }
 
+    // ── Строка мозаик: сворачивается кнопкой и сама при просмотре схемы (нет результата и мозаики) ──
+
+    /// <summary>Выбор пользователя в этом сеансе (true — свёрнута); null — по показу результата и мозаики.</summary>
+    static bool? s_mosaicBarCollapsed;
+
+    void CollapseMosaicBar_Click(object sender, RoutedEventArgs e) { s_mosaicBarCollapsed = true; UpdateEditBar(); }
+
+    void ExpandMosaicBar_Click(object sender, RoutedEventArgs e) { s_mosaicBarCollapsed = false; UpdateEditBar(); }
+
+    void OnMosaicPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlateRebarMosaicVM.IsActive)) UpdateEditBar();
+    }
+
+    /// <summary>Видимость строк редактирования и мозаик (кнопка развернуть строку редактирования — в строке мозаик,
+    /// поэтому при свёрнутой строке редактирования строка мозаик видна всегда).</summary>
     void UpdateEditBar()
     {
         bool collapsed = s_editBarCollapsed ?? VM?.IsResultShown == true;
+        bool mosaicCollapsed = !collapsed
+            && (s_mosaicBarCollapsed ?? (VM?.IsResultShown != true && VM?.Mosaic.IsActive != true));
+        mosaicBar.Visibility = mosaicCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        expandMosaicBarButton.Visibility = mosaicCollapsed ? Visibility.Visible : Visibility.Collapsed;
+        collapseMosaicBarButton.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         editToolBar.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         expandEditBarButton.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
         // Кнопок режимов создания не видно — режимы не должны оставаться включёнными.
