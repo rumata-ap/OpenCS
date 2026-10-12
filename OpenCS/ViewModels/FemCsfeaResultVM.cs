@@ -314,7 +314,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; return; }
 
         var nodes = new FemCsfeaNodeRow[f.NodeIds.Length];
-        var d = f.Displacements;
+        var d = Denoise(f.Displacements, RcSecantStepFields.NodeComponents);
         for (int i = 0; i < nodes.Length; i++)
         {
             int o = i * RcSecantStepFields.NodeComponents;
@@ -324,7 +324,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _nodeRows = nodes;
 
         var shells = new FemCsfeaShellRow[f.ShellIds.Length];
-        var sf = f.ShellForces;
+        var sf = Denoise(f.ShellForces, RcSecantStepFields.ShellForceComponents);
         for (int i = 0; i < shells.Length; i++)
         {
             // Порядок полей: Nx, Ny, Nxy (Н/м), Mx, My, Mxy (Н·м/м), Qx, Qy (Н/м).
@@ -340,7 +340,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _shellRows = shells;
 
         var beams = new FemElementEndForces[f.BeamIds.Length];
-        var bf = f.BeamForces;
+        var bf = Denoise(f.BeamForces, RcSecantStepFields.BeamForceComponents);
         for (int i = 0; i < beams.Length; i++)
         {
             int o = i * RcSecantStepFields.BeamForceComponents;
@@ -348,6 +348,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 bf[o + 6], bf[o + 7], bf[o + 8], bf[o + 9], bf[o + 10], bf[o + 11]);
         }
         _beamRows = beams;
+    }
+
+    /// <summary>
+    /// Копия поля, в которой численный ноль (|v| ≤ 1e-9 наибольшего по модулю значения той же компоненты на шаге)
+    /// заменён точным нулём: иначе в таблице вместо 0 видны остатки округления вроде 7,9E-34.
+    /// </summary>
+    static double[] Denoise(double[] a, int comps)
+    {
+        var floor = new double[comps];
+        for (int i = 0; i < a.Length; i++) floor[i % comps] = Math.Max(floor[i % comps], Math.Abs(a[i]));
+        for (int c = 0; c < comps; c++) floor[c] *= 1e-9;
+        var r = new double[a.Length];
+        for (int i = 0; i < a.Length; i++) r[i] = Math.Abs(a[i]) <= floor[i % comps] ? 0 : a[i];
+        return r;
     }
 
     // Индексы полей по номерам узлов/КЭ.

@@ -27,13 +27,16 @@
         <DockPanel Grid.Row="0" Margin="6,4">
             <Button DockPanel.Dock="Right" Content="{DynamicResource FemResultShowInSchema}"
                     ToolTip="{DynamicResource FemResultShowInSchemaTip}" Click="ShowInSchema_Click" Padding="8,2"/>
-            <TextBlock Text="{Binding Title}" FontWeight="Bold" VerticalAlignment="Center"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                <TextBlock Text="{DynamicResource FemCsfeaTablesHint}" Foreground="Gray" TextWrapping="Wrap"/>
+            </StackPanel>
         </DockPanel>
 
         <TabControl Grid.Row="1">
             <!-- Перемещения узлов показанного шага -->
             <TabItem Header="{DynamicResource FemResultTabDisp}">
-                <DataGrid ItemsSource="{Binding NodeRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                <DataGrid ItemsSource="{Binding NodeRows}" Style="{StaticResource FieldGrid}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding Node}"/>
                         <DataGridTextColumn Header="{DynamicResource FemCsfeaColUx}" Binding="{Binding Ux, StringFormat=G5}"/>
@@ -48,7 +51,7 @@
 
             <!-- Концевые силы стержней показанного шага -->
             <TabItem Header="{DynamicResource FemCsfeaTabBarForces}" Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}">
-                <DataGrid ItemsSource="{Binding BeamRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                <DataGrid ItemsSource="{Binding BeamRows}" Style="{StaticResource FieldGrid}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding ElemTag}"/>
                         <DataGridTextColumn Header="{DynamicResource FemColForceNi}" Binding="{Binding Ni, Converter={StaticResource NToKN}, StringFormat=G5}"/>
@@ -69,7 +72,7 @@
 
             <!-- Усилия пластин показанного шага -->
             <TabItem Header="{DynamicResource FemCsfeaTabShellForces}" Visibility="{Binding HasShells, Converter={StaticResource BoolToVis}}">
-                <DataGrid ItemsSource="{Binding ShellRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaTablesHint}">
+                <DataGrid ItemsSource="{Binding ShellRows}" Style="{StaticResource FieldGrid}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding Elem}"/>
                         <DataGridTextColumn Header="{DynamicResource FemCsfeaColNx}" Binding="{Binding Nx, StringFormat=G5}"/>
