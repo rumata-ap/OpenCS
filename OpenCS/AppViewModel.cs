@@ -2888,7 +2888,7 @@ namespace OpenCS
           var result = service.BuildAndSave(
              equivalent.Strip, equivalent.SourceSchemaId, equivalent.SourceRegionId,
              CalcType.C, equivalent.ReductionPolicy, equivalent.WidthIntegrationPoints,
-             equivalent.SpanStationFraction, equivalent);
+             equivalent.SpanStationFraction, equivalent, equivalent.BeamFormulation);
           if (result.Section != null)
           {
              currentEquivalentSection = result.Section;

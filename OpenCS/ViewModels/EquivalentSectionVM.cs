@@ -23,8 +23,48 @@ public sealed class EquivalentSectionVM : ViewModelBase
     {
         ReductionPolicy.DirectUniaxial => Loc.S("EquivalentSectionPolicyDirectUniaxial"),
         ReductionPolicy.ConstitutiveIntegration => Loc.S("EquivalentSectionPolicyConstitutiveIntegration"),
+        ReductionPolicy.EnergyEquivalent => Loc.S("EquivalentSectionPolicyEnergyEquivalent"),
         _ => Model.ReductionPolicy.ToString()
     };
+
+    /// <summary>Политики для выбора на странице (порядок совпадает с <see cref="PolicyIndex"/>).</summary>
+    public IReadOnlyList<string> PolicyNames { get; } =
+    [
+        Loc.S("EquivalentSectionPolicyDirectUniaxial"),
+        Loc.S("EquivalentSectionPolicyConstitutiveIntegration"),
+        Loc.S("EquivalentSectionPolicyEnergyEquivalent")
+    ];
+
+    static readonly ReductionPolicy[] PolicyOrder =
+        [ReductionPolicy.DirectUniaxial, ReductionPolicy.ConstitutiveIntegration, ReductionPolicy.EnergyEquivalent];
+
+    /// <summary>Выбранная политика редукции; применяется при «Пересчитать».</summary>
+    public int PolicyIndex
+    {
+        get => Math.Max(0, Array.IndexOf(PolicyOrder, Model.ReductionPolicy));
+        set
+        {
+            if (value < 0 || value >= PolicyOrder.Length) return;
+            Model.ReductionPolicy = PolicyOrder[value];
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PolicyText));
+        }
+    }
+
+    /// <summary>Формулировка Тимошенко (кручение и поперечный сдвиг); применяется при «Пересчитать».</summary>
+    public bool IsTimoshenko
+    {
+        get => Model.BeamFormulation == StripBeamFormulation.Timoshenko;
+        set
+        {
+            Model.BeamFormulation = value ? StripBeamFormulation.Timoshenko : StripBeamFormulation.EulerBernoulli;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(NoTorsionNoticeVisibility));
+        }
+    }
+
+    public System.Windows.Visibility NoTorsionNoticeVisibility =>
+        IsTimoshenko ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
     public string SourceKindText => Model.SourceKind switch
     {
         EquivalentSectionSourceKind.PlateSectionTangentSnapshot => Loc.S("EquivalentSectionSourceKindSnapshot"),
@@ -45,6 +85,8 @@ public sealed class EquivalentSectionVM : ViewModelBase
     public double EIy => Model.EIy;
     public double EIz => Model.EIz;
     public double GJ => Model.TorsionalStiffness;
+    public double GAy => Model.ShearStiffnessGAy;
+    public double GAz => Model.ShearStiffnessGAz;
 
     public ICommand RecalculateCommand { get; }
     public ICommand DeleteCommand { get; }

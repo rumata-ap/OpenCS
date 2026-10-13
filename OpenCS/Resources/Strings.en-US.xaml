@@ -1183,8 +1183,12 @@
     <system:String x:Key="EquivalentSectionEIy">EIy, kN·m²:</system:String>
     <system:String x:Key="EquivalentSectionEIz">EIz, kN·m²:</system:String>
     <system:String x:Key="EquivalentSectionGJ">GJ, kN·m²:</system:String>
+    <system:String x:Key="EquivalentSectionGAy">GAy (in-plane shear), kN:</system:String>
+    <system:String x:Key="EquivalentSectionGAz">GAz (out-of-plane shear), kN:</system:String>
+    <system:String x:Key="EquivalentSectionPolicyEnergyEquivalent">Energy equivalent (free lateral strains)</system:String>
+    <system:String x:Key="EquivalentSectionTimoshenko">Timoshenko beam: torsion and transverse shear (GA = 5/6·b·A₃₃)</system:String>
     <system:String x:Key="EquivalentSectionUnitNotice">At the FEM boundary, stiffnesses are scaled from kN/kN·m² to N/N·m².</system:String>
-    <system:String x:Key="EquivalentSectionNoTorsion">Torsion is not reduced in this slice: GJ = 0.</system:String>
+    <system:String x:Key="EquivalentSectionNoTorsion">Torsion is not reduced (Euler–Bernoulli formulation): GJ = 0. Enable the Timoshenko formulation and recalculate.</system:String>
     <system:String x:Key="EquivalentSectionKinematicNotice">Kinematic restriction: ε0y, γ0xy, κy and κxy are fixed at zero.</system:String>
     <system:String x:Key="EquivalentSectionRecalculateFailed">Equivalent section recalculation failed.</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow0">ε0</system:String>

@@ -62,18 +62,22 @@
             <GroupBox Header="{DynamicResource EquivalentSectionPolicy}" Margin="0,0,0,8">
                <Grid Margin="6">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionPolicy}"/>
-                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PolicyText}"/>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionPolicy}" VerticalAlignment="Center"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" Width="260" HorizontalAlignment="Left" Margin="0,0,0,4"
+                            ItemsSource="{Binding PolicyNames}" SelectedIndex="{Binding PolicyIndex}"/>
                   <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionIntegrationPoints}"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding WidthIntegrationPoints}"/>
+                  <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,6,0,0"
+                            Content="{DynamicResource EquivalentSectionTimoshenko}"
+                            IsChecked="{Binding IsTimoshenko}"/>
                </Grid>
             </GroupBox>
 
             <GroupBox Header="{DynamicResource EquivalentSectionStiffness}" Margin="0,0,0,8">
                <Grid Margin="6">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionEA}"/>
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EA, StringFormat={}{0:G8}}"/>
                   <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionEIy}"/>
@@ -82,11 +86,16 @@
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EIz, StringFormat={}{0:G8}}"/>
                   <TextBlock Grid.Row="3" Text="{DynamicResource EquivalentSectionGJ}"/>
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GJ, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource EquivalentSectionGAy}"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding GAy, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="5" Text="{DynamicResource EquivalentSectionGAz}"/>
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding GAz, StringFormat={}{0:G8}}"/>
                </Grid>
             </GroupBox>
 
             <TextBlock Text="{DynamicResource EquivalentSectionUnitNotice}" Foreground="DarkSlateGray" Margin="0,0,0,4" TextWrapping="Wrap"/>
-            <TextBlock Text="{DynamicResource EquivalentSectionNoTorsion}" Foreground="DarkSlateGray" Margin="0,0,0,4" TextWrapping="Wrap"/>
+            <TextBlock Text="{DynamicResource EquivalentSectionNoTorsion}" Foreground="DarkSlateGray" Margin="0,0,0,4" TextWrapping="Wrap"
+                       Visibility="{Binding NoTorsionNoticeVisibility}"/>
             <TextBlock Text="{DynamicResource EquivalentSectionKinematicNotice}" Foreground="DarkSlateGray" Margin="0,0,0,8" TextWrapping="Wrap"/>
 
             <GroupBox Header="{DynamicResource EquivalentSectionMatrix}" Margin="0,0,0,8">

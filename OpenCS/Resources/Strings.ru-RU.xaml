@@ -1183,8 +1183,12 @@
     <system:String x:Key="EquivalentSectionEIy">EIy, кН·м²:</system:String>
     <system:String x:Key="EquivalentSectionEIz">EIz, кН·м²:</system:String>
     <system:String x:Key="EquivalentSectionGJ">GJ, кН·м²:</system:String>
+    <system:String x:Key="EquivalentSectionGAy">GAy (сдвиг в плоскости), кН:</system:String>
+    <system:String x:Key="EquivalentSectionGAz">GAz (сдвиг из плоскости), кН:</system:String>
+    <system:String x:Key="EquivalentSectionPolicyEnergyEquivalent">Энергетически эквивалентная (свободные боковые деформации)</system:String>
+    <system:String x:Key="EquivalentSectionTimoshenko">Балка Тимошенко: кручение и поперечный сдвиг (GA = 5/6·b·A₃₃)</system:String>
     <system:String x:Key="EquivalentSectionUnitNotice">На границе с МКЭ жёсткости масштабируются из кН/кН·м² в Н/Н·м².</system:String>
-    <system:String x:Key="EquivalentSectionNoTorsion">Кручение в этом срезе не редуцируется: GJ = 0.</system:String>
+    <system:String x:Key="EquivalentSectionNoTorsion">Кручение не редуцируется (формулировка Эйлера–Бернулли): GJ = 0. Включите формулировку Тимошенко и пересчитайте.</system:String>
     <system:String x:Key="EquivalentSectionKinematicNotice">Ограничение кинематики: ε0y, γ0xy, κy и κxy принимаются равными нулю.</system:String>
     <system:String x:Key="EquivalentSectionRecalculateFailed">Пересчёт эквивалентного сечения не выполнен.</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow0">ε0</system:String>
