@@ -3150,6 +3150,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">Mesh node {0} boundary conditions set manually: restraint {1}, springs {2}.</system:String>
     <system:String x:Key="FemBoundarySummaryTitle">Boundary conditions transfer</system:String>
     <system:String x:Key="FemBoundarySummaryHeader">Boundary conditions of schema “{0}” from SCAD</system:String>
+    <system:String x:Key="FemBoundarySummaryHeaderLira">Boundary conditions of schema “{0}” from LIRA</system:String>
     <system:String x:Key="FemBoundarySummaryKind">Kind</system:String>
     <system:String x:Key="FemBoundarySummaryUnit">Unit</system:String>
     <system:String x:Key="FemBoundarySummaryTransferred">Transferred</system:String>

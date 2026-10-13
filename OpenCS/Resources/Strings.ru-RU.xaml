@@ -3150,6 +3150,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">ГУ узла сетки {0} заданы вручную: закрепление {1}, пружины {2}.</system:String>
     <system:String x:Key="FemBoundarySummaryTitle">Перенос граничных условий</system:String>
     <system:String x:Key="FemBoundarySummaryHeader">Граничные условия схемы «{0}» из SCAD</system:String>
+    <system:String x:Key="FemBoundarySummaryHeaderLira">Граничные условия схемы «{0}» из ЛИРЫ</system:String>
     <system:String x:Key="FemBoundarySummaryKind">Вид</system:String>
     <system:String x:Key="FemBoundarySummaryUnit">Ед.</system:String>
     <system:String x:Key="FemBoundarySummaryTransferred">Перенесено</system:String>

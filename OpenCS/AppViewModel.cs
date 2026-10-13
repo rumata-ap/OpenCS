@@ -4213,7 +4213,8 @@ namespace OpenCS
          {
             var messages = result.Report.Skip(1).Concat(resolved.Diagnostics.Select(d => d.Message)).ToList();
             if (keptManual > 0) messages.Insert(0, string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
-            new Views.FemBoundarySummaryWindow(string.Format(Loc.S("FemBoundarySummaryHeader"), schema.Tag), result.Summary, messages)
+            new Views.FemBoundarySummaryWindow(string.Format(Loc.S(origin == CScore.Import.LiraBoundaryTransfer.Origin
+               ? "FemBoundarySummaryHeaderLira" : "FemBoundarySummaryHeader"), schema.Tag), result.Summary, messages)
             {
                Owner = owner,
             }.Show();
