@@ -4650,6 +4650,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CadRoleHole">Hole</system:String>
    <system:String x:Key="CadRoleFrame">Frame</system:String>
    <system:String x:Key="CadRoleLabel">Label</system:String>
+   <system:String x:Key="CadRoleStirrups">Stirrups and ties</system:String>
    <system:String x:Key="CadArcDeviation">auto: deviation 0.1 mm</system:String>
    <system:String x:Key="CadArcChord">by chord (settings)</system:String>
    <system:String x:Key="CadArcFixed">segment count (settings)</system:String>

@@ -180,6 +180,38 @@ public static class CadGeometry
       }
    }
 
+   /// <summary>
+   /// Смещение замкнутой ломаной на <paramref name="delta"/> (&gt; 0 — наружу, &lt; 0 — внутрь): стороны сдвигаются
+   /// по нормали, вершины — в точки пересечения сдвинутых сторон (угол без срезки, вынос не больше 4·|δ|).
+   /// Для малых δ относительно сторон (ось хомута внутри двойного контура).
+   /// </summary>
+   public static List<CadPoint> Offset(IReadOnlyList<CadPoint> p, double delta)
+   {
+      int n = p.Count;
+      double sign = SignedArea(p) > 0 ? 1 : -1; // у обхода против часовой внешняя нормаль — справа от стороны
+      (double X, double Y) Normal(CadPoint a, CadPoint b)
+      {
+         double dx = b.X - a.X, dy = b.Y - a.Y, l = Math.Sqrt(dx * dx + dy * dy);
+         return l > 0 ? (sign * dy / l, -sign * dx / l) : (0, 0);
+      }
+      var res = new List<CadPoint>(n);
+      for (int i = 0; i < n; i++)
+      {
+         var n1 = Normal(p[(i + n - 1) % n], p[i]);
+         var n2 = Normal(p[i], p[(i + 1) % n]);
+         double k = 1 + n1.X * n2.X + n1.Y * n2.Y;
+         double f = k > 1.0 / 8 ? delta / k : 4 * delta;
+         double mx = n1.X + n2.X, my = n1.Y + n2.Y;
+         if (k <= 1.0 / 8) // почти разворот — вынос по биссектрисе, ограниченный
+         {
+            double ml = Math.Sqrt(mx * mx + my * my);
+            (mx, my) = ml > 1e-12 ? (mx / ml, my / ml) : n1;
+         }
+         res.Add(new(p[i].X + f * mx, p[i].Y + f * my));
+      }
+      return res;
+   }
+
    /// <summary>Есть ли у полигона пересекающиеся несмежные стороны.</summary>
    public static bool SelfIntersects(IReadOnlyList<CadPoint> p)
    {

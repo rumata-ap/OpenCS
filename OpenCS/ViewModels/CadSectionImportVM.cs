@@ -64,7 +64,7 @@ public sealed class CadLayerRowVM : ViewModelBase
       }
    }
 
-   public bool NeedsMaterial => _role.Role is CadLayerRole.Concrete or CadLayerRole.Steel or CadLayerRole.Rebar;
+   public bool NeedsMaterial => _role.Role is CadLayerRole.Concrete or CadLayerRole.Steel or CadLayerRole.Rebar or CadLayerRole.Stirrups;
 
    public List<CadMaterialChoice> Materials
    {
@@ -142,6 +142,7 @@ public sealed class CadSectionImportVM : ViewModelBase
       new(CadLayerRole.Hole, Loc.S("CadRoleHole")),
       new(CadLayerRole.Frame, Loc.S("CadRoleFrame")),
       new(CadLayerRole.Label, Loc.S("CadRoleLabel")),
+      new(CadLayerRole.Stirrups, Loc.S("CadRoleStirrups")),
    ];
 
    static readonly double[] UnitMeters = [0.001, 0.01, 1.0];
@@ -390,7 +391,7 @@ public sealed class CadSectionImportVM : ViewModelBase
       bool Fits(Material m) => role switch
       {
          CadLayerRole.Concrete => m.Type == MatType.Concrete,
-         CadLayerRole.Rebar => m.Type is MatType.ReSteelF or MatType.ReSteelU,
+         CadLayerRole.Rebar or CadLayerRole.Stirrups => m.Type is MatType.ReSteelF or MatType.ReSteelU,
          CadLayerRole.Steel => m.Type is MatType.Steel or MatType.ReSteelF or MatType.ReSteelU,
          _ => false,
       };
@@ -458,12 +459,12 @@ public sealed class CadSectionImportVM : ViewModelBase
          var choice = row?.Material;
          if (choice?.Existing is { } m) return m;
          if (choice?.CreateClass is not { } cls) return null;
-         string key = $"{role}:{cls}";
+         string key = $"{(role == CadLayerRole.Stirrups ? CadLayerRole.Rebar : role)}:{cls}"; // хомуты и стержни одного класса — один материал
          if (created.TryGetValue(key, out var made)) return made;
          made = role switch
          {
             CadLayerRole.Concrete => MaterialCatalog.CreateHeavyConcrete(cls),
-            CadLayerRole.Rebar => MaterialCatalog.CreateRebar(cls),
+            CadLayerRole.Rebar or CadLayerRole.Stirrups => MaterialCatalog.CreateRebar(cls),
             _ => MaterialCatalog.CreateStructuralSteel(MaterialCatalog.NormalizeSteelMark(cls)),
          };
          if (made == null) { errors.Add(string.Format(Loc.S("CadImpNoCatalogClass"), cls)); return null; }

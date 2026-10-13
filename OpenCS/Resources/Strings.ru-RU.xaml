@@ -4650,6 +4650,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CadRoleHole">Отверстие</system:String>
    <system:String x:Key="CadRoleFrame">Рамка</system:String>
    <system:String x:Key="CadRoleLabel">Подпись</system:String>
+   <system:String x:Key="CadRoleStirrups">Хомуты и шпильки</system:String>
    <system:String x:Key="CadArcDeviation">авто: отклонение 0,1 мм</system:String>
    <system:String x:Key="CadArcChord">по хорде (настройки)</system:String>
    <system:String x:Key="CadArcFixed">число отрезков (настройки)</system:String>

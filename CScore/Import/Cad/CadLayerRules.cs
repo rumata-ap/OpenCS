@@ -20,6 +20,8 @@ public enum CadLayerRole
    Frame = 5,
    /// <summary>Подпись: текст — имя сечения.</summary>
    Label = 6,
+   /// <summary>Хомуты и шпильки: линии (с шириной, тонкие, двойным контуром, с крючками) и окружности; тексты — подписи «Ø8 шаг 150».</summary>
+   Stirrups = 7,
 }
 
 /// <summary>Предзаполнение ролей и классов материалов по именам слоёв.</summary>
@@ -33,6 +35,7 @@ public static partial class CadLayerRules
       string lat = Latin(layer.Name);
       if (Has(n, "рамк", "frame", "border")) return CadLayerRole.Frame;
       if (Has(n, "отв", "hole", "пуст", "void")) return CadLayerRole.Hole;
+      if (Has(n, "хомут", "stirrup", "поп", "шпил")) return CadLayerRole.Stirrups;
       if (Has(n, "арм", "rebar", "reinf") || RebarClass().IsMatch(lat)) return CadLayerRole.Rebar;
       if (Has(n, "стал", "steel", "проф", "prof") || SteelClass().IsMatch(lat)) return CadLayerRole.Steel;
       if (Has(n, "бет", "conc", "жб") || ConcreteClass().IsMatch(lat)) return CadLayerRole.Concrete;
@@ -48,7 +51,7 @@ public static partial class CadLayerRules
       var m = role switch
       {
          CadLayerRole.Concrete => ConcreteClass().Match(n),
-         CadLayerRole.Rebar => RebarClass().Match(n),
+         CadLayerRole.Rebar or CadLayerRole.Stirrups => RebarClass().Match(n),
          CadLayerRole.Steel => SteelClass().Match(n),
          _ => null,
       };

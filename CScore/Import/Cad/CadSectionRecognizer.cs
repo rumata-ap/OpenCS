@@ -37,6 +37,9 @@ public sealed class CadImportOptions
    /// <summary>Округлять диаметры стержней до сортамента, если отличие не больше 0,5 мм.</summary>
    public bool SnapDiameters { get; set; } = true;
 
+   /// <summary>Диаметр и шаг по умолчанию для слоёв роли «Хомуты» (элементы без подписи).</summary>
+   public Dictionary<string, CadStirrupDefaults> StirrupDefaults { get; } = new(StringComparer.OrdinalIgnoreCase);
+
    public CadLayerRole RoleOf(string layer) => Roles.TryGetValue(layer, out var r) ? r : CadLayerRole.Ignore;
 
    /// <summary>Роли по именам слоёв снимка (<see cref="CadLayerRules.Guess"/>), не трогая уже заданные.</summary>
@@ -94,6 +97,10 @@ public sealed class CadSectionCandidate
 
    public List<CadSectionRegion> Regions { get; } = [];
    public List<CadSectionBar> Bars { get; } = [];
+
+   /// <summary>Хомуты и шпильки (слои роли «Хомуты»).</summary>
+   public List<CadSectionStirrup> Stirrups { get; } = [];
+
    public List<string> Warnings { get; } = [];
 
    /// <summary>Сигнатура геометрии для сравнения сечений.</summary>
@@ -122,6 +129,7 @@ public sealed class CadRecognitionResult
 /// охватывающая область, — тоже пустота (полое сечение, нарисованное двумя полилиниями); контур другого
 /// материала — пустота в охватывающей области и самостоятельная область (сталь в бетоне, бетон в трубе);
 /// контур в пустоте — снова область. Окружности «Арматура» — стержни, окружности бетона/стали/отверстий — круглые контуры.</para>
+/// <para>Линии и окружности слоёв «Хомуты» — хомуты и шпильки (<see cref="CadStirrupRecognizer"/>).</para>
 /// </summary>
 public static class CadSectionRecognizer
 {
@@ -151,6 +159,7 @@ public static class CadSectionRecognizer
       var nodes = new List<Node>();
       var bars = new List<CadCircle>();
       var labels = new List<CadText>();
+      var stirrups = new List<CadPath>();
 
       foreach (var p in snapshot.Polygons)
       {
@@ -162,6 +171,8 @@ public static class CadSectionRecognizer
       {
          var role = options.RoleOf(c.Layer);
          if (role == CadLayerRole.Rebar) bars.Add(c);
+         else if (role == CadLayerRole.Stirrups)
+            stirrups.Add(new CadPath(c.Layer, CadGeometry.CirclePoints(c.X, c.Y, c.R, options.Arcs), closed: true, 0));
          else if (role is CadLayerRole.Concrete or CadLayerRole.Steel or CadLayerRole.Hole or CadLayerRole.Frame)
          {
             var poly = new CadPolygon(c.Layer, CadGeometry.CirclePoints(c.X, c.Y, c.R, options.Arcs));
@@ -169,13 +180,20 @@ public static class CadSectionRecognizer
             else nodes.Add(new Node(poly, role));
          }
       }
+      foreach (var l in snapshot.Paths)
+         if (options.RoleOf(l.Layer) == CadLayerRole.Stirrups)
+            stirrups.Add(l);
       foreach (var t in snapshot.Texts)
-         if (options.RoleOf(t.Layer) == CadLayerRole.Label && !string.IsNullOrWhiteSpace(t.Text))
+         if (options.RoleOf(t.Layer) is CadLayerRole.Label or CadLayerRole.Stirrups && !string.IsNullOrWhiteSpace(t.Text))
             labels.Add(t);
+      // Незамкнутые линии — ошибка контуров, кроме слоёв хомутов (шпильки, крючки) и не импортируемых.
+      foreach (var l in snapshot.Layers())
+         if (l.Lines > 0 && options.RoleOf(l.Name) is not (CadLayerRole.Stirrups or CadLayerRole.Ignore))
+            result.Warnings.Add($"незамкнутых линий на слое «{l.Name}»: {l.Lines}");
 
       var groups = frames.Count > 0
-         ? ByFrames(frames, nodes, bars, labels, result)
-         : ByContours(nodes, bars, labels, result);
+         ? ByFrames(frames, nodes, bars, labels, stirrups, result)
+         : ByContours(nodes, bars, labels, stirrups, result);
 
       var sections = new List<CadSectionCandidate>();
       foreach (var g in groups)
@@ -211,16 +229,16 @@ public static class CadSectionRecognizer
       return result;
    }
 
-   sealed record Group(List<Node> Nodes, List<CadCircle> Bars, List<CadText> Labels, CadBounds? Frame);
+   sealed record Group(List<Node> Nodes, List<CadCircle> Bars, List<CadText> Labels, List<CadPath> Stirrups, CadBounds? Frame);
 
    // ── Сегментация ─────────────────────────────────────────────────────────
 
    static List<Group> ByFrames(List<CadPolygon> frames, List<Node> nodes, List<CadCircle> bars, List<CadText> labels,
-                               CadRecognitionResult result)
+                               List<CadPath> stirrups, CadRecognitionResult result)
    {
       // Самая внутренняя рамка — с наименьшей площадью среди содержащих.
       var order = frames.OrderBy(f => Math.Abs(f.Area)).ToList();
-      var groups = order.Select(f => new Group([], [], [], f.Bounds)).ToList();
+      var groups = order.Select(f => new Group([], [], [], [], f.Bounds)).ToList();
 
       int? FrameOf(double x, double y, CadBounds b)
       {
@@ -230,7 +248,7 @@ public static class CadSectionRecognizer
          return null;
       }
 
-      int lostNodes = 0, lostBars = 0;
+      int lostNodes = 0, lostBars = 0, lostStirrups = 0;
       foreach (var n in nodes)
       {
          var v = n.Poly.Points[0];
@@ -242,16 +260,24 @@ public static class CadSectionRecognizer
          if (FrameOf(c.X, c.Y, c.Bounds) is int i) groups[i].Bars.Add(c);
          else lostBars++;
       }
+      foreach (var l in stirrups)
+      {
+         var v = l.Points[0];
+         if (FrameOf(v.X, v.Y, l.Bounds) is int i) groups[i].Stirrups.Add(l);
+         else lostStirrups++;
+      }
       foreach (var t in labels)
          if (FrameOf(t.X, t.Y, new CadBounds(t.X, t.Y, t.X, t.Y)) is int i)
             groups[i].Labels.Add(t);
 
       if (lostNodes > 0) result.Warnings.Add($"контуров вне рамок: {lostNodes}");
       if (lostBars > 0) result.Warnings.Add($"стержней вне рамок: {lostBars}");
+      if (lostStirrups > 0) result.Warnings.Add($"хомутов вне рамок: {lostStirrups}");
       return groups;
    }
 
-   static List<Group> ByContours(List<Node> nodes, List<CadCircle> bars, List<CadText> labels, CadRecognitionResult result)
+   static List<Group> ByContours(List<Node> nodes, List<CadCircle> bars, List<CadText> labels, List<CadPath> stirrups,
+                                 CadRecognitionResult result)
    {
       Nest(nodes);
       var roots = nodes.Where(n => n.Parent == null && n.Role != CadLayerRole.Hole).ToList();
@@ -259,7 +285,7 @@ public static class CadSectionRecognizer
       if (orphanHoles > 0) result.Warnings.Add($"отверстий вне областей: {orphanHoles}");
 
       var index = roots.Select((r, i) => (r, i)).ToDictionary(x => x.r, x => x.i);
-      var groups = roots.Select(r => new Group([], [], [], null)).ToList();
+      var groups = roots.Select(r => new Group([], [], [], [], null)).ToList();
       foreach (var n in nodes)
       {
          var r = n;
@@ -275,6 +301,23 @@ public static class CadSectionRecognizer
          else lost++;
       }
       if (lost > 0) result.Warnings.Add($"стержней вне контуров: {lost}");
+
+      // Хомут — к контуру, габарит которого (с запасом 5 %) охватывает габарит линии; из нескольких — к меньшему.
+      lost = 0;
+      foreach (var l in stirrups)
+      {
+         int gi = -1;
+         for (int i = 0; i < roots.Count; i++)
+         {
+            var b = roots[i].Poly.Bounds;
+            if (b.Inflate(0.05 * Math.Max(b.Width, b.Height)).Contains(l.Bounds)
+                && (gi < 0 || Math.Abs(roots[i].Poly.Area) < Math.Abs(roots[gi].Poly.Area)))
+               gi = i;
+         }
+         if (gi >= 0) groups[gi].Stirrups.Add(l);
+         else lost++;
+      }
+      if (lost > 0) result.Warnings.Add($"хомутов вне контуров: {lost}");
 
       // Подпись — к ближайшему сечению: внутри габарита или не дальше полутора его размеров.
       foreach (var t in labels)
@@ -440,10 +483,20 @@ public static class CadSectionRecognizer
       if (s.Bars.Count == 0 && s.Regions.All(r => r.Role == CadLayerRole.Concrete))
          s.Warnings.Add("нет арматуры");
 
-      // Имя: подпись внутри габарита сечения, затем ближайшая; при равенстве — крупнее.
-      if (g.Labels.Count > 0)
+      if (g.Stirrups.Count > 0)
       {
-         var best = g.Labels
+         s.Stirrups.AddRange(CadStirrupRecognizer.Recognize(g.Stirrups, g.Labels, o,
+            v => new CadPoint((v.X - origin.X) * mpu, (v.Y - origin.Y) * mpu), s.Warnings));
+         CheckStirrups(s);
+      }
+
+      // Имя: подпись внутри габарита сечения, затем ближайшая; при равенстве — крупнее. Подписи хомутов
+      // («Ø8 шаг 150») и тексты слоёв хомутов именем не бывают.
+      var names = g.Labels.Where(t => o.RoleOf(t.Layer) == CadLayerRole.Label
+                                      && !CadStirrupLabel.Parse(t.Text).IsAnnotation).ToList();
+      if (names.Count > 0)
+      {
+         var best = names
             .OrderBy(t => bounds.Contains(t.X, t.Y) ? 0 : 1)
             .ThenByDescending(t => Math.Round(t.Height, 6))
             .ThenBy(t => bounds.DistanceTo(t.X, t.Y))
@@ -453,6 +506,27 @@ public static class CadSectionRecognizer
 
       s.Signature = Signature(s, o.QuantumM);
       return s;
+   }
+
+   /// <summary>
+   /// Проверки хомутов: ось с половиной диаметра внутри бетона (если он есть), замкнутый хомут охватывает
+   /// хотя бы один продольный стержень.
+   /// </summary>
+   static void CheckStirrups(CadSectionCandidate s)
+   {
+      var concrete = s.Regions.Where(r => r.Role == CadLayerRole.Concrete).ToList();
+      int outside = 0, empty = 0;
+      foreach (var st in s.Stirrups)
+      {
+         double half = st.DiameterM / 2 * (1 - 1e-6);
+         bool In(CadPoint v) => concrete.Any(r => r.Contains(v.X, v.Y)
+            && CadGeometry.DistanceToBoundary(r.Outer, v.X, v.Y) >= half
+            && r.Holes.All(h => CadGeometry.DistanceToBoundary(h, v.X, v.Y) >= half));
+         if (concrete.Count > 0 && !st.Axis.All(In)) outside++;
+         if (st.Closed && !s.Bars.Any(b => CadGeometry.Inside(st.Axis, b.X, b.Y))) empty++;
+      }
+      if (outside > 0) s.Warnings.Add($"хомутов, выходящих за бетон: {outside}");
+      if (empty > 0) s.Warnings.Add($"хомутов, не охватывающих продольных стержней: {empty}");
    }
 
    /// <summary>Контуры совпадают: та же площадь и габарит с точностью 10⁻⁶ размера.</summary>
@@ -514,6 +588,22 @@ public static class CadSectionRecognizer
       foreach (var b in s.Bars.Select(b => (L: b.Layer.ToLowerInvariant(), X: Q(b.X), Y: Q(b.Y), D: Q(b.DiameterM)))
                               .OrderBy(b => b.X).ThenBy(b => b.Y).ThenBy(b => b.L, StringComparer.Ordinal))
          sb.Append(CultureInfo.InvariantCulture, $"{b.L}:{b.X},{b.Y},{b.D};");
+      foreach (var st in s.Stirrups.OrderBy(st => st.Axis.Min(p => (Q(p.X), Q(p.Y))))
+                                   .ThenBy(st => st.Layer.ToLowerInvariant(), StringComparer.Ordinal))
+      {
+         sb.Append(CultureInfo.InvariantCulture,
+            $"S{st.Layer.ToLowerInvariant()}:{Q(st.DiameterM)},{(st.SpacingM is { } sp ? Q(sp) : -1)},{st.Class}");
+         if (st.Closed) Ring(st.Axis);
+         else
+         {
+            // Шпилька — в направлении от меньшего конца.
+            var a = st.Axis;
+            var pts = (Q(a[0].X), Q(a[0].Y)).CompareTo((Q(a[^1].X), Q(a[^1].Y))) <= 0 ? a : Enumerable.Reverse(a).ToList();
+            sb.Append('(');
+            foreach (var p in pts) sb.Append(Q(p.X)).Append(',').Append(Q(p.Y)).Append(';');
+            sb.Append(')');
+         }
+      }
       return sb.ToString();
    }
 }

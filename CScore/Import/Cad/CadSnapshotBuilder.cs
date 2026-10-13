@@ -155,7 +155,6 @@ public sealed class CadSnapshotBuilder(CadArcDiscretization arcs, double toleran
          return null;
       }
 
-      int unclosed = 0;
       for (int i = 0; i < chains.Count; i++)
       {
          if (used[i]) continue;
@@ -177,12 +176,7 @@ public sealed class CadSnapshotBuilder(CadArcDiscretization arcs, double toleran
             path.Reverse();
          }
          if (path.Count > 3 && Near(path[0], path[^1])) AddClosed(layer, path, width);
-         else
-         {
-            AddOpen(layer, path, width);
-            unclosed++;
-         }
+         else AddOpen(layer, path, width);
       }
-      if (unclosed > 0) _s.Warnings.Add($"незамкнутых линий на слое «{layer}»: {unclosed}");
    }
 }

@@ -81,7 +81,12 @@ public class CadSnapshotBuilderTests
       b.AddPolyline("Бетон", [new(200, 0), new(300, 0), new(300, 100), new(200, 0.001)], closed: false);
       var s = b.Build();
       Assert.Single(s.Polygons);
-      Assert.Contains("незамкнутых линий на слое «Бетон»: 1", s.Warnings);
+      Assert.Equal(1, Assert.Single(s.Layers()).Lines);
+      // Предупреждение — при распознавании, где известна роль слоя (у хомутов незамкнутые линии — норма).
+      var o = new CadImportOptions().GuessRoles(s);
+      Assert.Contains("незамкнутых линий на слое «Бетон»: 1", CadSectionRecognizer.Recognize(s, o).Warnings);
+      o.Roles["Бетон"] = CadLayerRole.Stirrups;
+      Assert.DoesNotContain(CadSectionRecognizer.Recognize(s, o).Warnings, w => w.StartsWith("незамкнутых"));
    }
 
    [Fact]
