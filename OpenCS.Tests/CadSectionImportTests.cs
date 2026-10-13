@@ -222,4 +222,102 @@ public sealed class CadSectionImportTests
          try { File.Delete(dbPath); } catch (IOException) { }
       }
    }
+
+   /// <summary>
+   /// Колонна 300×500 с 4 стержнями: хомут — полилиния шириной 8 по оси (подпись «Ø8 шаг 150», класс слоя A240),
+   /// шпилька шириной 6 поперёк (подпись «Ø6А500 с шагом 300» — класс из подписи).
+   /// </summary>
+   static DxfDocument StirrupSheet()
+   {
+      var d = new DxfDocument();
+      d.DrawingVariables.InsUnits = DrawingUnits.Millimeters;
+      Layer frame = L(d, "РАМКИ"), conc = L(d, "Бетон_B25"), reb = L(d, "Арм_A500"), lab = L(d, "Подписи"), st = L(d, "Хомуты_A240");
+      d.Entities.Add(Rect(frame, 0, 0, 1200, 1200));
+      d.Entities.Add(new Text("К-5", new Vector2(50, 80), 60) { Layer = lab });
+      d.Entities.Add(Rect(conc, 450, 350, 300, 500));
+      foreach (var (x, y) in new[] { (500.0, 400.0), (700.0, 400.0), (500.0, 800.0), (700.0, 800.0) })
+         d.Entities.Add(new Circle(new Vector2(x, y), 10) { Layer = reb });
+      var hoop = Rect(st, 480, 380, 240, 440);
+      hoop.SetConstantWidth(8);
+      d.Entities.Add(hoop);
+      var tie = new Polyline2D(new Vector2[] { new(480, 600), new(720, 600) }, false) { Layer = st };
+      tie.SetConstantWidth(6);
+      d.Entities.Add(tie);
+      d.Entities.Add(new Text("Ø8 шаг 150", new Vector2(430, 700), 20) { Layer = lab });
+      d.Entities.Add(new Text("Ø6А500 с шагом 300", new Vector2(560, 615), 20) { Layer = lab });
+      return d;
+   }
+
+   [Fact]
+   public void Stirrups_SavedAndReloaded_GroupedByMaterialAndSpacing()
+   {
+      string dxf = Path.Combine(Path.GetTempPath(), $"opencs-cad-{Guid.NewGuid():N}.dxf");
+      string dbPath = Path.Combine(Path.GetTempPath(), $"opencs-cad-{Guid.NewGuid():N}.db");
+      try
+      {
+         StirrupSheet().Save(dxf);
+         var r = Recognize(DxfSnapshotReader.Read(dxf, Arcs, 0.01));
+         var c = Assert.Single(r.Sections);
+         Assert.Equal("К-5", c.Name);
+         Assert.Equal(2, c.Stirrups.Count);
+         Assert.DoesNotContain(c.Warnings, w => w.Contains("хомут"));
+
+         var db = new DatabaseService(dbPath);
+         var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
+         var a500 = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
+         var a240 = MaterialCatalog.CreateRebar("А240", CatalogDirectory())!;
+         db.AddMaterial(concrete);
+         db.AddMaterial(a500);
+         db.AddMaterial(a240);
+         Material? Of(string layer, CadLayerRole role) => role switch
+         {
+            CadLayerRole.Concrete => concrete,
+            CadLayerRole.Stirrups => a240,
+            _ => a500,
+         };
+         Material? ByClass(CadSectionStirrup s) => s.Class == "A500" ? a500 : null;
+
+         var (section, reason) = CadSectionBuilder.Build(c, Of, stirrupMaterial: ByClass);
+         Assert.Null(reason);
+         Assert.Equal(2, section!.Areas.Count(a => a.Category == AreaCategory.Stirrups));
+         db.SaveNewCrossSections([section!]);
+         db.Dispose();
+
+         var loaded = new DatabaseService(dbPath);
+         loaded.LoadAll();
+         var k5 = Assert.Single(loaded.CrossSections);
+         var areas = k5.Areas.Where(a => a.Category == AreaCategory.Stirrups).OrderBy(a => a.Tag).ToList();
+         Assert.Equal(2, areas.Count);
+         Assert.All(areas, a => Assert.Null(a.HostAreaId));
+         Assert.All(areas, a => Assert.False(MaterialArea.IsCalcActive(a)));
+
+         var hoopArea = areas.Single(a => a.MaterialId == a240.Id);
+         Assert.Equal("Хомуты: Хомуты_A240 (" + a240.Tag + ")", hoopArea.Tag);
+         var hg = Assert.Single(hoopArea.Stirrups);
+         Assert.Equal(0.15, hg.SpacingM, 9);
+         Assert.Equal(a240.Id, hg.MaterialId);
+         var hoop = Assert.Single(hg.Elements);
+         Assert.True(hoop.IsClosed);
+         Assert.Equal(0.008, hoop.BarDiameterM, 9);
+         Assert.Equal(Math.PI * 0.008 * 0.008 / 4, hoop.BarAreaM2, 12);
+         // Ось в местных координатах (ц. т. бетона в 0,0): прямоугольник 240×440.
+         Assert.Equal(0.24, hoop.CenterlineContour.X.Max() - hoop.CenterlineContour.X.Min(), 6);
+         Assert.Equal(-0.22, hoop.CenterlineContour.Y.Min(), 6);
+
+         var tieArea = areas.Single(a => a.MaterialId == a500.Id);
+         var tg = Assert.Single(tieArea.Stirrups);
+         Assert.Equal(0.3, tg.SpacingM, 9);
+         var tie = Assert.Single(tg.Elements);
+         Assert.False(tie.IsClosed);
+         Assert.True(tie.CenterlineContour.IsPolyline);
+         Assert.Equal(0.006, tie.BarDiameterM, 9);
+         Assert.Equal(0.0, tie.CenterlineContour.Y[0], 6);
+         loaded.Dispose();
+      }
+      finally
+      {
+         File.Delete(dxf);
+         try { File.Delete(dbPath); } catch (IOException) { }
+      }
+   }
 }

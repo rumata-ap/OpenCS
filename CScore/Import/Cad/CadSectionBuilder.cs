@@ -9,8 +9,11 @@ public static class CadSectionBuilder
 {
    /// <summary>Сечение либо причина, по которой его не собрать.</summary>
    /// <param name="materialOf">Материал слоя заданной роли; null — материал не назначен.</param>
+   /// <param name="stirrupMaterial">Материал хомута с учётом класса из подписи; null (или результат null) —
+   /// материал слоя хомутов.</param>
    public static (CrossSection? Section, string? Reason) Build(CadSectionCandidate candidate,
-      Func<string, CadLayerRole, Material?> materialOf, DiagrammType diagramm = DiagrammType.L2)
+      Func<string, CadLayerRole, Material?> materialOf, DiagrammType diagramm = DiagrammType.L2,
+      Func<CadSectionStirrup, Material?>? stirrupMaterial = null)
    {
       var section = new CrossSection { Tag = candidate.Name };
       if (candidate.Count > 1)
@@ -54,9 +57,71 @@ public static class CadSectionBuilder
          rebar.ResolveAndBuildDiagramms(); // разностная — по ссылке на носитель
          section.Areas.Add(rebar);
       }
+      if (AddStirrups(section, candidate, materialOf, stirrupMaterial, diagramm) is { } why)
+         return (null, why);
       // Не section.ResolveAndBuildDiagramms(): у несохранённых областей Id = 0, поиск носителя по Id
       // нашёл бы первую область. HostAreaId переписывается при сохранении (по HostArea.Id).
       return (section, null);
+   }
+
+   /// <summary>
+   /// Хомуты и шпильки: область поперечного армирования «Хомуты: слой» на каждую пару (слой, материал),
+   /// в ней группы по шагу. Элементы без шага пропускаются (предупреждение дало распознавание).
+   /// </summary>
+   static string? AddStirrups(CrossSection section, CadSectionCandidate candidate,
+      Func<string, CadLayerRole, Material?> materialOf, Func<CadSectionStirrup, Material?>? stirrupMaterial,
+      DiagrammType diagramm)
+   {
+      var items = new List<(CadSectionStirrup St, Material M)>();
+      foreach (var st in candidate.Stirrups.Where(s => s.SpacingM is > 0))
+      {
+         if ((stirrupMaterial?.Invoke(st) ?? materialOf(st.Layer, CadLayerRole.Stirrups)) is not { } m)
+            return $"слою «{st.Layer}» не назначен материал";
+         items.Add((st, m));
+      }
+      var byArea = items.GroupBy(x => (Layer: x.St.Layer.ToLowerInvariant(), x.M)).ToList();
+      foreach (var grp in byArea)
+      {
+         string layer = grp.First().St.Layer;
+         bool several = byArea.Count(g => g.Key.Layer == grp.Key.Layer) > 1;
+         var area = new MaterialArea
+         {
+            Tag = several ? $"Хомуты: {layer} ({grp.Key.M.Tag})" : $"Хомуты: {layer}",
+            Category = AreaCategory.Stirrups,
+         };
+         area.SetMaterial(grp.Key.M, diagramm);
+         foreach (var bySpacing in grp.GroupBy(x => Math.Round(x.St.SpacingM!.Value, 6)).OrderBy(g => g.Key))
+         {
+            var group = new StirrupGroup { MaterialId = grp.Key.M.Id, SpacingM = bySpacing.Key };
+            foreach (var (st, _) in bySpacing)
+               group.Elements.Add(new StirrupElement
+               {
+                  CenterlineContour = Axis(st),
+                  BarDiameterM = st.DiameterM,
+                  BarAreaM2 = Math.PI * st.DiameterM * st.DiameterM / 4,
+               });
+            area.Stirrups.Add(group);
+         }
+         section.Areas.Add(area);
+      }
+      return null;
+   }
+
+   /// <summary>Осевая линия: замкнутая — с повтором первой вершины, шпилька — открытая полилиния.</summary>
+   static Contour Axis(CadSectionStirrup st)
+   {
+      string tag = st.Closed ? "хомут" : "шпилька";
+      if (!st.Closed)
+         return Contour.Polyline(st.Axis.Select(p => p.X), st.Axis.Select(p => p.Y), tag);
+      var c = new Contour
+      {
+         Tag = tag,
+         X = [.. st.Axis.Select(p => p.X).Append(st.Axis[0].X)],
+         Y = [.. st.Axis.Select(p => p.Y).Append(st.Axis[0].Y)],
+      };
+      c.SetWKT();
+      c.Points = c.XYsToPoints();
+      return c;
    }
 
    static Contour Ring(List<CadPoint> pts, string tag, ContourType type)

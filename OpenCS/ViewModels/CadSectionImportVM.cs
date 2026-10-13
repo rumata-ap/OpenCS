@@ -458,7 +458,11 @@ public sealed class CadSectionImportVM : ViewModelBase
          var row = Layers.FirstOrDefault(l => string.Equals(l.Name, layer, StringComparison.OrdinalIgnoreCase));
          var choice = row?.Material;
          if (choice?.Existing is { } m) return m;
-         if (choice?.CreateClass is not { } cls) return null;
+         return choice?.CreateClass is { } cls ? ByClass(cls, role) : null;
+      }
+
+      Material? ByClass(string cls, CadLayerRole role)
+      {
          string key = $"{(role == CadLayerRole.Stirrups ? CadLayerRole.Rebar : role)}:{cls}"; // хомуты и стержни одного класса — один материал
          if (created.TryGetValue(key, out var made)) return made;
          made = role switch
@@ -473,11 +477,24 @@ public sealed class CadSectionImportVM : ViewModelBase
          return made;
       }
 
+      // Класс из подписи хомута («Ø8А240 шаг 150») важнее материала слоя: материал проекта того же класса,
+      // иначе — созданный по справочнику.
+      Material? StirrupMaterial(CadSectionStirrup st)
+      {
+         var layerMat = MaterialOf(st.Layer, CadLayerRole.Stirrups);
+         if (st.Class is not { } cls
+             || layerMat != null && MaterialCatalog.ClassKey(layerMat.Tag) == MaterialCatalog.ClassKey(cls))
+            return layerMat;
+         return _mvm.Materials.FirstOrDefault(m => m.Type is MatType.ReSteelF or MatType.ReSteelU
+                                                    && MaterialCatalog.ClassKey(m.Tag) == MaterialCatalog.ClassKey(cls))
+                ?? ByClass(cls, CadLayerRole.Stirrups) ?? layerMat;
+      }
+
       var sections = new List<CrossSection>();
       var names = new HashSet<string>(_mvm.db.CrossSections.Select(s => s.Tag), StringComparer.OrdinalIgnoreCase);
       foreach (var card in chosen)
       {
-         var (section, reason) = CadSectionBuilder.Build(card.Candidate, MaterialOf);
+         var (section, reason) = CadSectionBuilder.Build(card.Candidate, MaterialOf, stirrupMaterial: StirrupMaterial);
          if (section == null) { errors.Add($"{card.Name}: {reason}"); continue; }
          string tag = string.IsNullOrWhiteSpace(card.Name) ? card.Candidate.Name : card.Name.Trim();
          for (int i = 2; names.Contains(tag); i++) tag = $"{card.Name.Trim()} ({i})";
