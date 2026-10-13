@@ -82,6 +82,13 @@ public static class BeamCorotational
 
     /// <summary>Локальные деформационные DOF p_l (12) пространственного CR-элемента.</summary>
     public static double[] Beam3dPLocal(double[][] coordsRef, double[,] e0, double l0, double[] uElem)
+        => Beam3dPLocalAndFrame(coordsRef, e0, l0, uElem).Pl;
+
+    /// <summary>
+    /// Деформационные DOF p_l (12) и CR-базис <c>er</c> (строки — оси деформированного КЭ в глобальных: e1 — хорда,
+    /// e2 — среднее повёрнутых осей y концов, ортогонализованное к хорде).
+    /// </summary>
+    private static (double[] Pl, double[,] Er) Beam3dPLocalAndFrame(double[][] coordsRef, double[,] e0, double l0, double[] uElem)
     {
         var x1 = new[] { coordsRef[0][0] + uElem[0], coordsRef[0][1] + uElem[1], coordsRef[0][2] + uElem[2] };
         var x2 = new[] { coordsRef[1][0] + uElem[6], coordsRef[1][1] + uElem[7], coordsRef[1][2] + uElem[8] };
@@ -126,7 +133,7 @@ public static class BeamCorotational
         pl[3] = tb1[0]; pl[4] = tb1[1]; pl[5] = tb1[2];
         pl[6] = ln - l0;
         pl[9] = tb2[0]; pl[10] = tb2[1]; pl[11] = tb2[2];
-        return pl;
+        return (pl, er);
     }
 
     private static readonly double[] GaussXi =
@@ -236,6 +243,24 @@ public static class BeamCorotational
         var (e0, l0) = BeamElements.Beam3dFrame(coordsRef, refVec);
         var kL = LocalK(section, l0, releases);
         return InternalAndB(coordsRef, e0, l0, kL, uElem, section).Fg;
+    }
+
+    /// <summary>
+    /// Силы концов (12: N, Qy, Qz, Mx, My, Mz на концах i, j), действующие на КЭ, в осях деформированного КЭ — CR-базисе
+    /// <c>Er</c> (строки — оси в глобальных; см. <see cref="Beam3dPLocal"/>): локальные силы, сопряжённые деформационным
+    /// DOF, той же формулировки, что <see cref="Beam3dInternalForce"/> (у шарниров — сконденсированная матрица). В
+    /// линейном пределе совпадают с T·K·u. Глобальная сила или момент переводится в эти оси как Er·v.
+    /// </summary>
+    public static (double[] F, double[,] Er) Beam3dLocalEndForces(double[][] coordsRef, IBeamSectionResponse section,
+                                                                double[] uElem, double[]? refVec = null, int releases = 0)
+    {
+        var (e0, l0) = BeamElements.Beam3dFrame(coordsRef, refVec);
+        var kL = LocalK(section, l0, releases);
+        var (pl, er) = Beam3dPLocalAndFrame(coordsRef, e0, l0, uElem);
+        var fl = section is not (LinearBeamResponse or SecantBeamResponse)
+            ? Beam3dForcesFromResponse(section, pl, l0)
+            : Dense.MatVec(kL, pl);
+        return (fl, er);
     }
 
     /// <summary>Тангенциальная матрица (12×12) пространственного CR-элемента.</summary>

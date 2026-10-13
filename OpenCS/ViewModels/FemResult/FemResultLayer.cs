@@ -351,11 +351,33 @@ public sealed class FemResultLayer : ViewModelBase
             FemForceEndpointConverter.ReadComponent(pair.End, component) / 1e3);
     }
 
-    /// <summary>Направление ординат эпюры на стержне (см. <see cref="DiagramAxis"/>).</summary>
-    public Vector3D? BarDiagramAxis(string elemTag, FemForceComponent component) =>
-        int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && _steps.BarAxes(n) is { } axes
-            ? DiagramAxis(axes.Ey, axes.Ez, component)
-            : null;
+    /// <summary>
+    /// Направление ординат эпюры на стержне (см. <see cref="DiagramAxis"/>). На деформированной схеме местные оси
+    /// поворачиваются вместе со стержнем — кратчайшим поворотом исходной хорды в показанную, — и ординаты остаются
+    /// перпендикулярны показанному стержню (при коротационном расчёте CSfea это и есть оси, в которых выданы силы концов).
+    /// </summary>
+    public Vector3D? BarDiagramAxis(string elemTag, FemForceComponent component)
+    {
+        if (!int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) || _steps.BarAxes(n) is not { } axes)
+            return null;
+        var axis = DiagramAxis(axes.Ey, axes.Ez, component);
+        return DeformedShown && Mesh.NodesOf(elemTag) is [int i, int j]
+            ? FollowChord(axis, Mesh.Nodes[j] - Mesh.Nodes[i], Position(j) - Position(i))
+            : axis;
+    }
+
+    /// <summary>Вектор <paramref name="v"/>, повёрнутый кратчайшим поворотом направления <paramref name="from"/> в <paramref name="to"/>.</summary>
+    public static Vector3D FollowChord(Vector3D v, Vector3D from, Vector3D to)
+    {
+        if (from.Length < 1e-300 || to.Length < 1e-300) return v;
+        from.Normalize();
+        to.Normalize();
+        double c = Vector3D.DotProduct(from, to);
+        if (c < -1 + 1e-9) return v;   // разворот на 180° неоднозначен — оставить как есть
+        var w = Vector3D.CrossProduct(from, to);
+        // Формула Родрига для оси w (|w| = sin θ) и cos θ = c.
+        return v * c + Vector3D.CrossProduct(w, v) + w * (Vector3D.DotProduct(w, v) / (1 + c));
+    }
 
     /// <summary>
     /// Направление, в которое откладывается положительная ордината эпюры: Qy и Mz — вдоль местной Ey, My — против Ez,

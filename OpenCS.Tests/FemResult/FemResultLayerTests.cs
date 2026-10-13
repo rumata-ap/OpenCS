@@ -618,4 +618,46 @@ public class FemResultLayerTests
         layer.ShowReactions = true;
         Assert.Null(layer.ReactionArrows(layer.NodeMap));
     }
+
+    [Fact]
+    public void FollowChord_RotatesWithBar()
+    {
+        // Хорда X → поворот на 30° в плоскости XZ: ось Z стержня поворачивается так же, ось Y — без изменений.
+        double a = Math.PI / 6;
+        var to = new Vector3D(Math.Cos(a), 0, Math.Sin(a));
+        var ez = FemResultLayer.FollowChord(new Vector3D(0, 0, 1), new Vector3D(2, 0, 0), to * 3);
+        Assert.True((ez - new Vector3D(-Math.Sin(a), 0, Math.Cos(a))).Length < 1e-12, ez.ToString());
+        Assert.Equal(new Vector3D(0, 1, 0), FemResultLayer.FollowChord(new Vector3D(0, 1, 0), new Vector3D(1, 0, 0), to));
+        Assert.Equal(new Vector3D(0, 0, 1), FemResultLayer.FollowChord(new Vector3D(0, 0, 1), new Vector3D(1, 0, 0), new Vector3D(1, 0, 0)));
+    }
+
+    [Fact]
+    public void Csfea_DiagramAxisFollowsDeformedBar()
+    {
+        using var t = new TempDb();
+        var fields = FieldsWithForces();
+        var disp = new double[18];
+        disp[6 + 2] = -0.01;   // узел 2 (конец стержня 1) опустился
+        var layer = ReactionLayer(t, new RcSecantStepFields
+        {
+            NodeIds = fields.NodeIds, Displacements = disp, ShellIds = fields.ShellIds, ShellForces = fields.ShellForces,
+            ShellStates = fields.ShellStates, ShellFlags = fields.ShellFlags, BeamIds = fields.BeamIds,
+            BeamForces = fields.BeamForces, BeamFlags = fields.BeamFlags,
+        });
+        FemForceComponent[] comps = [FemForceComponent.My, FemForceComponent.Mz];
+        var undeformed = comps.Select(c => layer.BarDiagramAxis("1", c)!.Value).ToArray();
+        layer.ShowDeformed = true;
+        layer.DeformScale = 100;   // показанный конец опущен на 1 м при длине 2 м
+        var chord = layer.NodeMap["2"] - layer.NodeMap["1"];
+        var deformed = comps.Select(c => layer.BarDiagramAxis("1", c)!.Value).ToArray();
+        foreach (var d in deformed)
+        {
+            Assert.True(Math.Abs(Vector3D.DotProduct(d, chord)) < 1e-12 * chord.Length, $"{d} не ⊥ {chord}");
+            Assert.Equal(1, d.Length, 12);
+        }
+        // Ось в плоскости изгиба (вертикальная у исходного стержня) повернулась вместе с ним.
+        Assert.Contains(undeformed, u => Math.Abs(Vector3D.DotProduct(u, chord)) > 0.1 * chord.Length);
+        layer.ShowDeformed = false;
+        Assert.Equal(undeformed, comps.Select(c => layer.BarDiagramAxis("1", c)!.Value));
+    }
 }

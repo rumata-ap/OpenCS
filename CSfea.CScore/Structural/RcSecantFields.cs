@@ -11,7 +11,8 @@ namespace CSfea.CScoreBridge.Structural;
 /// <see cref="ShellForceComponents"/> на КЭ в осях выдачи (Nx, Ny, Nxy, Н/м; Mx, My, Mxy, Н·м/м; Qx, Qy, Н/м) по закону
 /// сечения в центре КЭ; состояние пластин — <see cref="ShellStateComponents"/> (<see cref="PlateFieldState"/>; NaN — КЭ
 /// упругий); усилия стержней — <see cref="BeamForceComponents"/> на КЭ: местные силы концов i, j (N, Qy, Qz, Mx, My,
-/// Mz), действующие на КЭ, — как localForce OpenSees; реакции опор — <see cref="NodeComponents"/> на узел из
+/// Mz), действующие на КЭ, — как localForce OpenSees (при коротационной геометрической нелинейности — в осях
+/// деформированного КЭ, <see cref="BeamCorotational.Beam3dLocalEndForces"/>); реакции опор — <see cref="NodeComponents"/> на узел из
 /// <see cref="ReactionNodeIds"/> (глобальные оси, <see cref="RcReactionSet"/>).
 /// </summary>
 public sealed class RcSecantStepFields
@@ -59,7 +60,9 @@ public sealed class RcSecantStepFields
 /// Снятие полей шага секущего расчёта (<see cref="RcSecantStepFields"/>) по перемещениям шага и зафиксированным
 /// состояниям КЭ — вызывать из <see cref="SecantPicardOptions.OnStepAccepted"/>, пока состояния отвечают шагу.
 /// Пролётные нагрузки стержней — по стадиям модели (накопленные, как в <see cref="RcSecantAnalysis"/>): усилия концов
-/// = K·d − согласованные силы нагрузки шага.
+/// = K·d − согласованные силы нагрузки шага. При коротационной геометрической нелинейности концы — в осях
+/// деформированного КЭ (CR-базис): локальные силы КЭ минус согласованные силы, повёрнутые в эти оси (решатель
+/// прикладывал их в глобальных осях по недеформированной геометрии — так концы согласованы с решённой моделью).
 /// </summary>
 public sealed class RcSecantFieldExtractor
 {
@@ -188,18 +191,27 @@ public sealed class RcSecantFieldExtractor
             var b = mesh.Beams[e];
             var coords = mesh.BeamCoords(e);
             var ue = StructuralMesh.NodeDofs(new[] { b.I, b.J }).Select(d => u[d]).ToArray();
-            var (t, l) = BeamElements.Beam3dT(coords, b.RefVec);
-            var fGlobal = _geometric
-                ? BeamCorotational.Beam3dInternalForce(coords, b.Section, ue, b.RefVec, b.Releases)
-                : Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue);
+            double[] local;
+            double[,] rot;   // глобальные → оси КЭ, по тройкам
+            if (_geometric)
+                (local, rot) = BeamCorotational.Beam3dLocalEndForces(coords, b.Section, ue, b.RefVec, b.Releases);
+            else
+            {
+                var (t, _) = BeamElements.Beam3dT(coords, b.RefVec);
+                local = Dense.MatVec(t, Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue));
+                rot = new double[3, 3];
+                for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) rot[i, j] = t[i, j];
+            }
             double[]? fe0 = loadsStart?.GetValueOrDefault(e), fe1 = loadsEnd?.GetValueOrDefault(e);
             if (fe0 != null || fe1 != null)
-                for (int i = 0; i < 12; i++)
-                {
-                    double a = fe0?[i] ?? 0.0, c = fe1?[i] ?? 0.0;
-                    fGlobal[i] -= a + loadFactor * (c - a);
-                }
-            var local = Dense.MatVec(t, fGlobal);
+                for (int blk = 0; blk < 4; blk++)
+                    for (int i = 0; i < 3; i++)
+                        for (int j = 0; j < 3; j++)
+                        {
+                            int g = 3 * blk + j;
+                            double a = fe0?[g] ?? 0.0, c = fe1?[g] ?? 0.0;
+                            local[3 * blk + i] -= rot[i, j] * (a + loadFactor * (c - a));
+                        }
             Array.Copy(local, 0, beamForces, e * RcSecantStepFields.BeamForceComponents, 12);
             if (e < beamStatus.Length) beamFlags[e] = RcSecantStepFields.Flags(beamStatus[e]);
         });

@@ -2881,7 +2881,7 @@
     <system:String x:Key="FemCsfeaColQy">Qy, kN/m</system:String>
     <system:String x:Key="FemCsfeaColState">State</system:String>
     <system:String x:Key="FemCsfeaColElem">FE</system:String>
-    <system:String x:Key="FemCsfeaTablesHint">Fields of the shown step; FE and nodes are schema mesh numbers. Plate forces are in output axes at the FE centre, bar forces are end forces in local axes.</system:String>
+    <system:String x:Key="FemCsfeaTablesHint">Fields of the shown step; FE and nodes are schema mesh numbers. Plate forces are in output axes at the FE centre, bar forces are end forces in local axes (in a large-displacement CR analysis — in the axes of the deformed FE).</system:String>
     <system:String x:Key="FemCsfeaTabReactions">Reactions</system:String>
     <system:String x:Key="FemCsfeaColReactionZ">ΣRz, kN</system:String>
     <system:String x:Key="FemCsfeaColRxF">Rx, kN</system:String>

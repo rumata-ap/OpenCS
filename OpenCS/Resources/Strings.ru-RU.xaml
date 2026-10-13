@@ -2881,7 +2881,7 @@
     <system:String x:Key="FemCsfeaColQy">Qy, кН/м</system:String>
     <system:String x:Key="FemCsfeaColState">Состояние</system:String>
     <system:String x:Key="FemCsfeaColElem">КЭ</system:String>
-    <system:String x:Key="FemCsfeaTablesHint">Поля показанного шага; КЭ и узлы — номера сетки схемы. Усилия пластин — в осях выдачи в центре КЭ, стержней — концевые силы в местных осях.</system:String>
+    <system:String x:Key="FemCsfeaTablesHint">Поля показанного шага; КЭ и узлы — номера сетки схемы. Усилия пластин — в осях выдачи в центре КЭ, стержней — концевые силы в местных осях (при расчёте с большими перемещениями, CR, — в осях деформированного КЭ).</system:String>
     <system:String x:Key="FemCsfeaTabReactions">Реакции</system:String>
     <system:String x:Key="FemCsfeaColReactionZ">ΣRz, кН</system:String>
     <system:String x:Key="FemCsfeaColRxF">Rx, кН</system:String>
