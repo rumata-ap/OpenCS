@@ -83,6 +83,9 @@ public static class CadStirrupRecognizer
    /// <summary>Длина концевого крючка (и близость концов хомута с крючками) в диаметрах.</summary>
    const double HookDiameters = 10;
 
+   /// <summary>Предел длины концевого крючка шпильки в диаметрах: хвост ровно 10 d не должен зависеть от округления.</summary>
+   const double TieHookDiameters = 12;
+
    sealed class Raw(string layer, CadStirrupShape shape, List<CadPoint> axis, double? d)
    {
       public string Layer { get; } = layer;
@@ -255,7 +258,7 @@ public static class CadStirrupRecognizer
    // ── Шпилька ─────────────────────────────────────────────────────────────
 
    /// <summary>
-   /// Отбрасывает концевые крючки: участок до первого отрезка длиннее 10 d (при неизвестном d — 20 % длины линии),
+   /// Отбрасывает концевые крючки: участок до первого отрезка длиннее 12 d (хвост 10 d или 75 мм — с запасом; при неизвестном d — 20 % длины линии),
    /// если сам участок не длиннее этого предела и его начальный отрезок повёрнут к основному на 90° и больше.
    /// </summary>
    static List<CadPoint> TrimHooks(IReadOnlyList<CadPoint> p, double? d)
@@ -263,7 +266,7 @@ public static class CadStirrupRecognizer
       var pts = p.ToList();
       double len = 0;
       for (int i = 1; i < pts.Count; i++) len += Dist(pts[i - 1], pts[i]);
-      double limit = d is { } dd ? HookDiameters * dd : 0.2 * len;
+      double limit = d is { } dd ? TieHookDiameters * dd : 0.2 * len;
       pts = TrimStart(pts, limit);
       pts.Reverse();
       pts = TrimStart(pts, limit);

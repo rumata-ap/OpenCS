@@ -229,6 +229,20 @@ public class CadStirrupRecognizerTests
    }
 
    [Fact]
+   public void Tie_Hooks135_TailExactly10d_BothDropped()
+   {
+      // Ø6, хвосты ровно 10 d = 60 мм с обеих сторон (как на тестовом листе Х-7).
+      double h = 60 * Math.Sqrt(0.5);
+      var b = Column();
+      b.AddPolyline(St, [new(36 + h, 150 - h), new(36, 150), new(264, 150), new(264 - h, 150 - h)], closed: false, width: 6);
+      b.AddText(Lab, 320, 200, 20, "шаг 300");
+      var tie = Assert.Single(One(b).Stirrups);
+      Assert.Equal(CadStirrupShape.Tie, tie.Shape);
+      Assert.Equal(2, tie.Axis.Count);
+      Assert.Equal(0.228, tie.Axis[1].X - tie.Axis[0].X, 9);
+   }
+
+   [Fact]
    public void Tie_WithArcBends_TrimmedAtStraightBody()
    {
       // Крючок 135° со скруглённым загибом: тело от (60; 200) вправо, загиб r = 16 против часовой с центром над
