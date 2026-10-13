@@ -20,6 +20,7 @@ public class FemRcModelAdapterTests
         RunBoundary();
         RunCantileverMemberLoads();
         RunReleasedBeamLoad();
+        RunFixedBeamSpanLoadEndForces();
         RunMeshLoadsAndSelfWeight();
         RunKinematicAndMissingCases();
     }
@@ -241,6 +242,37 @@ public class FemRcModelAdapterTests
         var react = build.Mesh.ComputeReactions(u, build.Bc, fExternal: f);
         TestHarness.CheckRel("реакция шарнирного конца 3qL/8", react[build.Dof(5, 2)], 3 * q * l / 8, 1e-9);
         TestHarness.CheckRel("реакция заделки 5qL/8", react[build.Dof(1, 2)], 5 * q * l / 8, 1e-9);
+    }
+
+    /// <summary>
+    /// Балка с заделками по концам из одного КЭ, равномерная нагрузка на КЭ сетки: перемещений нет, усилия концов — одни
+    /// закреплённые силы пролётной нагрузки (Q = qL/2, M = qL²/12). Сверка CSfea с ЛИРОЙ 13.10: нагрузка на стержни без
+    /// шарниров уходила в узлы, и усилия концов были K·d без них (у колонн N постоянен по длине вопреки с. в.).
+    /// </summary>
+    private static void RunFixedBeamSpanLoadEndForces()
+    {
+        TestHarness.Section("FemRcModelAdapter: пролётная нагрузка в усилиях концов стержня без шарниров");
+        const double l = 4, q = 10e3;
+        var load = new FemElementLoad { LoadCaseId = 1, LoadKind = FemElementLoadKinds.Uniform, Axis = "z" };
+        load.SetTargetTags(["1"]);
+        load.SetValues([-q]);
+        var r = FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = [N(1, 0, 0), N(2, l, 0)], MeshElements = [El(1, "beam", [1, 2])], Properties = new Props(),
+            LoadCases = [new FemLoadCase { Id = 1, Tag = "q" }], ElementLoads = [load], Stages = [Stage(1)],
+            Supports = [new FemMeshNodeSupport { NodeTag = "1", Mask = 0b111111 }, new FemMeshNodeSupport { NodeTag = "2", Mask = 0b111111 }],
+        });
+        TestHarness.Check("нет ошибок", !r.HasErrors, string.Join("; ", r.Report));
+        TestHarness.Check("нагрузка — концевыми силами КЭ", r.Model.LoadCases[0].BeamEnds.Count == 1 && r.Model.LoadCases[0].Nodal.Count == 0);
+        TestHarness.CheckRel("ΣFz стадии = −qL", r.StageTotals[0].Fz, -q * l, 1e-12);
+        var f = RcLinearAnalysis.Run(r.Model).Cases[0].Fields;
+        var b = f.BeamForces;
+        TestHarness.CheckLess("N = 0", Math.Abs(b[0]) + Math.Abs(b[6]), 1e-6);
+        TestHarness.CheckRel("|Q| начала = qL/2", Math.Abs(b[1]) + Math.Abs(b[2]), q * l / 2, 1e-9);
+        TestHarness.CheckRel("|Q| конца = qL/2", Math.Abs(b[7]) + Math.Abs(b[8]), q * l / 2, 1e-9);
+        TestHarness.CheckRel("|M| начала = qL²/12", Math.Abs(b[4]) + Math.Abs(b[5]), q * l * l / 12, 1e-9);
+        TestHarness.CheckRel("|M| конца = qL²/12", Math.Abs(b[10]) + Math.Abs(b[11]), q * l * l / 12, 1e-9);
+        TestHarness.CheckRel("равновесие КЭ: |Q начала + Q конца| = qL", Math.Abs(b[1] + b[2] + b[7] + b[8]), q * l, 1e-9);
     }
 
     /// <summary>Нагрузка на пластины и собственный вес сеточного уровня — ΣF стадии = q·A + γ·h·A.</summary>

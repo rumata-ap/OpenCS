@@ -111,8 +111,9 @@ public sealed record FemRcModelResult(RcStructuralModel Model, IReadOnlyList<Fem
 /// стержни — сечение CScore или упругие свойства, оси — <see cref="BeamLocalAxisConvention"/> с поворотом КонЭ
 /// (у КЭ своей схемы ось Y сечения CScore — по местной Y, у импортного — ось X: <see cref="RcBeamSection.CrossYAlongLocalY"/>);
 /// ГУ — <see cref="FemBoundaryResolver"/>; нагрузки — узловые силы (<see cref="FemLoadCaseNodalForces"/>, узловые
-/// нагрузки КонЭ, нагрузки стержней КонЭ через <see cref="FemMemberLoadSegmenter"/>), у стержней с шарнирами — концевые
-/// силы КЭ (<see cref="RcBeamEndLoad"/>, конденсируются в ядре). Ошибки — в диагностики, исключений по данным нет.
+/// нагрузки КонЭ, нагрузки стержней КонЭ через <see cref="FemMemberLoadSegmenter"/>), у стержней — концевые силы КЭ
+/// (<see cref="RcBeamEndLoad"/>: у шарнирных конденсируются в ядре, у всех вычитаются при снятии усилий концов).
+/// Ошибки — в диагностики, исключений по данным нет.
 /// </summary>
 public static class FemRcModelAdapter
 {
@@ -371,8 +372,10 @@ public static class FemRcModelAdapter
             diag.Add(new("stage_empty", $"Стадия «{st.Tag}» без загружений.", true));
 
         var beamById = model.Beams.ToDictionary(b => b.Id);
-        var releasedTags = model.Beams.Where(b => b.ReleaseI != 0 || b.ReleaseJ != 0)
-            .Select(b => b.Id.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
+        // Нагрузки на КЭ всех стержней модели — концевыми силами: у шарнирного КЭ они конденсируются в ядре, у прочих
+        // входят в узловой вектор как есть, но остаются за КЭ — снятие полей вычитает их из K·d (иначе усилия концов
+        // нагруженного в пролёте стержня — без закреплённых сил: N у колонны под с. в. постоянен, нет qL²/12 и т. п.).
+        var beamTags = model.Beams.Select(b => b.Id.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
         var mesh = new FemLoadMeshContext(input.MeshNodes, input.MeshElements, input.Groups, input.Properties,
             members.ToDictionary(kv => kv.Key, kv => kv.Value.RotationDeg, StringComparer.Ordinal));
         var meshNodeBySource = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -388,7 +391,7 @@ public static class FemRcModelAdapter
             var perBeam = new Dictionary<string, Dictionary<string, double[]>>(StringComparer.Ordinal);
             Dictionary<string, double[]>? Sink(FemElement e)
             {
-                if (!releasedTags.Contains(e.ElemTag)) return null;
+                if (e.ElemType != "beam" || !beamTags.Contains(e.ElemTag)) return null;
                 if (!perBeam.TryGetValue(e.ElemTag, out var d)) perBeam[e.ElemTag] = d = new(StringComparer.Ordinal);
                 return d;
             }
