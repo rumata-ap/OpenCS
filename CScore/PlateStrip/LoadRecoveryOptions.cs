@@ -38,15 +38,17 @@ public enum LoadBasis
 /// построению нулевая), поэтому end actions прикладываются прямо к узловым DOF балки.</summary>
 public sealed record KnownEndActions(
     double StartN = 0.0, double StartMy = 0.0, double StartMz = 0.0,
-    double EndN = 0.0, double EndMy = 0.0, double EndMz = 0.0)
+    double EndN = 0.0, double EndMy = 0.0, double EndMz = 0.0,
+    double StartT = 0.0, double EndT = 0.0)
 {
     public bool IsZero =>
         StartN == 0.0 && StartMy == 0.0 && StartMz == 0.0 &&
-        EndN == 0.0 && EndMy == 0.0 && EndMz == 0.0;
+        EndN == 0.0 && EndMy == 0.0 && EndMz == 0.0 && StartT == 0.0 && EndT == 0.0;
 
     public bool IsFinite =>
         double.IsFinite(StartN) && double.IsFinite(StartMy) && double.IsFinite(StartMz) &&
-        double.IsFinite(EndN) && double.IsFinite(EndMy) && double.IsFinite(EndMz);
+        double.IsFinite(EndN) && double.IsFinite(EndMy) && double.IsFinite(EndMz) &&
+        double.IsFinite(StartT) && double.IsFinite(EndT);
 }
 
 /// <summary>Равнодействующая внешней нагрузки полосы относительно её начала.

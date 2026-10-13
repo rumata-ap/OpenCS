@@ -42,6 +42,28 @@ public sealed class StripKinematicEmbedding
         return b;
     }
 
+    /// <summary>Отобразить [eps0, kappaY, kappaZ] и скручивание полосы θx′ в шесть деформаций
+    /// плитного сечения (Срез 8b). κxy = 2·θx′: κxy — инженерная кривизна кручения
+    /// (γxy(z) = κxy·z), а θx′ = ∂²w/∂x∂y.</summary>
+    public ShellStrainState MapWithTwist(BeamStrainState beam, double twist, double v)
+    {
+        var state = Map(beam, v);
+        state.Kxy = 2.0 * twist;
+        return state;
+    }
+
+    /// <summary>Матрица B(v) размера 6x4 по [eps0, kappaY, kappaZ, θx′] (Срез 8b).</summary>
+    public double[,] MatrixWithTwist(double v)
+    {
+        var b3 = Matrix(v);
+        var b = new double[6, 4];
+        for (int i = 0; i < 6; i++)
+        for (int j = 0; j < 3; j++)
+            b[i, j] = b3[i, j];
+        b[5, 3] = 2.0;
+        return b;
+    }
+
     void ValidateCoordinate(double v)
     {
         if (!double.IsFinite(v))

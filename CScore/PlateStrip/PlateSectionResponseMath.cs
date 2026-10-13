@@ -21,6 +21,52 @@ internal static class PlateSectionResponseMath
         return h;
     }
 
+    /// <summary>Статическая конденсация 6×6 плитной жёсткости (политика EnergyEquivalent):
+    /// деформации вне <paramref name="retained"/> считаются свободными (усилие по ним равно
+    /// нулю) и исключаются: H_eff = H_rr − H_rc·H_cc⁻¹·H_cr. Результат — матрица 6×6, в которой
+    /// строки и столбцы конденсированных компонент нулевые. Возвращает false, если блок H_cc
+    /// вырожден.</summary>
+    public static bool TryCondense(double[,] h, int[] retained, out double[,] condensed)
+    {
+        int n = 6;
+        var kept = new HashSet<int>(retained);
+        var c = Enumerable.Range(0, n).Where(i => !kept.Contains(i)).ToArray();
+        var r = retained;
+        condensed = new double[n, n];
+
+        if (c.Length == 0)
+        {
+            Array.Copy(h, condensed, h.Length);
+            return true;
+        }
+
+        var hcc = new double[c.Length, c.Length];
+        for (int i = 0; i < c.Length; i++)
+        for (int j = 0; j < c.Length; j++)
+            hcc[i, j] = h[c[i], c[j]];
+
+        // X = H_cc⁻¹·H_cr, по столбцу удерживаемых компонент
+        var x = new double[c.Length, r.Length];
+        for (int col = 0; col < r.Length; col++)
+        {
+            var rhs = new double[c.Length];
+            for (int i = 0; i < c.Length; i++) rhs[i] = h[c[i], r[col]];
+            if (!DensePivotSolver.Solve(hcc, rhs, out double[] sol))
+                return false;
+            for (int i = 0; i < c.Length; i++) x[i, col] = sol[i];
+        }
+
+        for (int a = 0; a < r.Length; a++)
+        for (int b = 0; b < r.Length; b++)
+        {
+            double sum = h[r[a], r[b]];
+            for (int i = 0; i < c.Length; i++)
+                sum -= h[r[a], c[i]] * x[i, b];
+            condensed[r[a], r[b]] = sum;
+        }
+        return true;
+    }
+
     public static PlateResultants ToResultants(double[] values)
     {
         if (values.Length != 6) throw new ArgumentException("Ожидалось шесть плитных усилий.", nameof(values));
