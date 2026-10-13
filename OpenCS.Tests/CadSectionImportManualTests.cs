@@ -35,4 +35,35 @@ public class CadSectionImportManualTests(ITestOutputHelper output)
       if (int.TryParse(Environment.GetEnvironmentVariable("OPENCS_CAD_BARS"), out int nb))
          Assert.Equal(nb, r.Sections.Sum(x => x.Bars.Count * x.Count));
    }
+
+   /// <summary>
+   /// Запущенные AutoCAD/nanoCAD (OPENCS_CAD_LIVE=1): поиск, чтение всего активного документа и рамкой вокруг первого
+   /// распознанного сечения, зум к нему. Ввод рамки мышью (PickWindow) — только вручную в программе.
+   /// </summary>
+   [Fact]
+   public void LiveCad()
+   {
+      if (Environment.GetEnvironmentVariable("OPENCS_CAD_LIVE") != "1") return;
+      var found = CadComConnector.Find();
+      foreach (var c in found) output.WriteLine($"найдено: {c} ({c.ProgId})");
+      Assert.NotEmpty(found);
+      foreach (var cad in found)
+      {
+         var sw = Stopwatch.StartNew();
+         var s = CadComConnector.Read(cad, CadArcDiscretization.ByDeviation(0.1), 0.01);
+         var o = new CadImportOptions { MetersPerUnit = s.MetersPerUnit ?? 0.001 }.GuessRoles(s);
+         var r = CadSectionRecognizer.Recognize(s, o);
+         output.WriteLine($"{cad.Product}: весь чертёж {sw.ElapsedMilliseconds} мс — контуров {s.Polygons.Count}, " +
+                          $"окружностей {s.Circles.Count}, текстов {s.Texts.Count}; экземпляров {r.Instances}, разных {r.Sections.Count}");
+         if (r.Sections.Count == 0) continue;
+
+         var first = r.Sections[0].Instances[0];
+         sw.Restart();
+         var part = CadComConnector.Read(cad, CadArcDiscretization.ByDeviation(0.1), 0.01, first.Inflate(1));
+         var rp = CadSectionRecognizer.Recognize(part, o);
+         output.WriteLine($"{cad.Product}: рамка {sw.ElapsedMilliseconds} мс — экземпляров {rp.Instances}");
+         Assert.Equal(1, rp.Instances);
+         CadComConnector.ZoomTo(cad, first);
+      }
+   }
 }
