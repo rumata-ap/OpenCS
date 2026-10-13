@@ -147,6 +147,8 @@
          </MenuItem>
          <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
           <MenuItem Header="{DynamicResource ImportMenu}" Margin="3">
+             <MenuItem Header="{DynamicResource ImportCadSections}" Command="{Binding ImportCadSectionsCommand}"/>
+             <Separator/>
              <MenuItem Header="{DynamicResource ImportSubMenuDxf}">
                 <MenuItem Header="{DynamicResource ImportCirclesFromDxf}" Command="{Binding ImportCirclesFromDxfCommand}"/>
                 <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>

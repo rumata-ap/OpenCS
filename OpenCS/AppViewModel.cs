@@ -872,6 +872,7 @@ namespace OpenCS
           Views.BarForceSetPage           => Loc.S("VT_BarForceSet"),
           Views.ShellForceSetPage         => Loc.S("VT_ShellForceSet"),
           Views.FromDxfPage               => Loc.S("VT_FromDxf"),
+          Views.CadSectionImportPage      => Loc.S("VT_CadSectionImport"),
           Views.DiagramPage               => Loc.S("VT_Diagram"),
           Views.CirclesView               => Loc.S("VT_Circles"),
           Views.CalcTasksPage             => Loc.S("VT_CalcTasks"),
@@ -973,6 +974,9 @@ namespace OpenCS
       /// Открывает страницу <see cref="FromDxfPage"/>.
       /// </summary>
       public ICommand FromDxfCommand { get; set; } = null!;
+
+      /// <summary>Импорт множества сечений из DXF / AutoCAD / nanoCAD — страница <see cref="Views.CadSectionImportPage"/>.</summary>
+      public ICommand ImportCadSectionsCommand { get; set; } = null!;
 
       /// <summary>Команда прямого импорта замкнутых контуров из DXF без мастера.</summary>
       public ICommand ImportContoursFromDxfCommand { get; set; } = null!;
@@ -1418,6 +1422,7 @@ namespace OpenCS
           AddSteelCommand = new RelayCommand(_ => NewMaterialFromSource(2));
          DelMaterialCommand = new RelayCommand(DelMaterial);
          FromDxfCommand = new RelayCommand(FromDxf);
+         ImportCadSectionsCommand = new RelayCommand(_ => CurrentPage = new Views.CadSectionImportPage(this));
          DelContourCommand = new RelayCommand(DelContour);
          NewProjectCommand = new RelayCommand(NewProject);
          OpenProjectCommand = new RelayCommand(OpenProject);

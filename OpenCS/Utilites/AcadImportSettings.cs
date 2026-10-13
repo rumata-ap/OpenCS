@@ -28,6 +28,28 @@ namespace OpenCS.Utilites
       [JsonPropertyName("arcSegs")]
       public int ArcSegments { get; set; } = 16;
 
+      // ── Импорт сечений из чертежа ─────────────────────────────────────────
+
+      /// <summary>Дискретизация дуг при импорте сечений: по стрелке (по умолчанию) либо по настройкам выше.</summary>
+      [JsonPropertyName("cadArcMode")]
+      public CScore.Import.Cad.CadArcMode SectionArcMode { get; set; } = CScore.Import.Cad.CadArcMode.Deviation;
+
+      /// <summary>Наибольшее отклонение хорды от дуги [мм] при импорте сечений.</summary>
+      [JsonPropertyName("cadArcDeviation")]
+      public double SectionArcDeviation { get; set; } = 0.1;
+
+      /// <summary>Объединять одинаковые сечения листа.</summary>
+      [JsonPropertyName("cadMerge")]
+      public bool SectionMergeIdentical { get; set; } = true;
+
+      /// <summary>Запомненные роли слоёв (имя слоя → роль).</summary>
+      [JsonPropertyName("cadLayerRoles")]
+      public Dictionary<string, CScore.Import.Cad.CadLayerRole> SectionLayerRoles { get; set; } = [];
+
+      /// <summary>Запомненные материалы слоёв (имя слоя → Id материала проекта).</summary>
+      [JsonPropertyName("cadLayerMaterials")]
+      public Dictionary<string, int> SectionLayerMaterials { get; set; } = [];
+
       public static AcadImportSettings Default => new();
 
       public AcadImportSettings Clone() => new()
@@ -37,6 +59,11 @@ namespace OpenCS.Utilites
          ArcDiscretizationMode = ArcDiscretizationMode,
          ArcChordLength = ArcChordLength,
          ArcSegments = ArcSegments,
+         SectionArcMode = SectionArcMode,
+         SectionArcDeviation = SectionArcDeviation,
+         SectionMergeIdentical = SectionMergeIdentical,
+         SectionLayerRoles = new(SectionLayerRoles, StringComparer.OrdinalIgnoreCase),
+         SectionLayerMaterials = new(SectionLayerMaterials, StringComparer.OrdinalIgnoreCase),
       };
    }
 }

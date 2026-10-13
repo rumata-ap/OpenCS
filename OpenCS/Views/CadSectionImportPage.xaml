@@ -1,0 +1,132 @@
+<UserControl x:Class="OpenCS.Views.CadSectionImportPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Источник -->
+      <WrapPanel Grid.Row="0" Margin="5,5,5,0">
+         <Button Content="{DynamicResource CadImpOpenDxf}" Command="{Binding OpenFileCommand}" Padding="8,2" Margin="0,0,12,0"/>
+         <ComboBox ItemsSource="{Binding CadInstances}" SelectedItem="{Binding SelectedCad}" MinWidth="260" Margin="0,0,2,0"
+                   ToolTip="{DynamicResource CadImpCadTip}"/>
+         <Button Content="⟳" Command="{Binding RefreshCadCommand}" Width="24" Margin="0,0,4,0"
+                 ToolTip="{DynamicResource CadImpRefreshTip}"/>
+         <Button Content="{DynamicResource CadImpReadAll}" Command="{Binding ReadAllCommand}" Padding="8,2" Margin="0,0,4,0"/>
+         <Button Content="{DynamicResource CadImpReadWindow}" Command="{Binding ReadWindowCommand}" Padding="8,2" Margin="0,0,12,0"
+                 ToolTip="{DynamicResource CadImpReadWindowTip}"/>
+         <TextBlock Text="{DynamicResource DxfUnits}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <ComboBox ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIdx}" Width="55" Margin="0,0,12,0"/>
+         <TextBlock Text="{DynamicResource CadImpArcs}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <ComboBox ItemsSource="{Binding ArcModes}" SelectedIndex="{Binding ArcModeIdx}" MinWidth="170"
+                   ToolTip="{DynamicResource CadImpArcsTip}"/>
+      </WrapPanel>
+      <TextBlock Grid.Row="1" Text="{Binding SourceText}" Margin="7,4" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+
+      <Grid Grid.Row="2">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="430"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition/>
+         </Grid.ColumnDefinitions>
+
+         <!-- Слои -->
+         <GroupBox Header="{DynamicResource DxfLayers}" Margin="4">
+            <DataGrid ItemsSource="{Binding Layers}" AutoGenerateColumns="False" CanUserAddRows="False"
+                      CanUserDeleteRows="False" HeadersVisibility="Column" SelectionUnit="FullRow">
+               <DataGrid.Columns>
+                  <DataGridTemplateColumn Header="{DynamicResource CadImpLayer}" Width="*">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type vm:CadLayerRowVM}">
+                           <StackPanel Margin="2,0">
+                              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                              <TextBlock Text="{Binding Contents}" Foreground="Gray" FontSize="10"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="{DynamicResource CadImpRole}" Width="100">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type vm:CadLayerRowVM}">
+                           <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role, UpdateSourceTrigger=PropertyChanged}"
+                                     VerticalAlignment="Center"/>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="{DynamicResource CadImpMaterial}" Width="130">
+                     <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type vm:CadLayerRowVM}">
+                           <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding Material, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding NeedsMaterial}" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                     </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+               </DataGrid.Columns>
+            </DataGrid>
+         </GroupBox>
+
+         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch"/>
+
+         <!-- Сечения -->
+         <GroupBox Grid.Column="2" Margin="4">
+            <GroupBox.Header>
+               <TextBlock Text="{Binding SummaryText}"/>
+            </GroupBox.Header>
+            <DockPanel>
+               <DockPanel DockPanel.Dock="Top" Margin="2,2,2,4">
+                  <CheckBox Content="{DynamicResource CadImpMerge}" IsChecked="{Binding MergeIdentical}" VerticalAlignment="Center"/>
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                     <Button Content="{DynamicResource CadImpSelectAll}" Command="{Binding SelectAllCommand}" CommandParameter="true" Padding="6,1" Margin="0,0,4,0"/>
+                     <Button Content="{DynamicResource CadImpSelectNone}" Command="{Binding SelectAllCommand}" CommandParameter="false" Padding="6,1"/>
+                  </StackPanel>
+               </DockPanel>
+               <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Warnings}" Foreground="DarkOrange" Margin="2"/>
+               <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <ItemsControl ItemsSource="{Binding Sections}">
+                     <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                           <WrapPanel/>
+                        </ItemsPanelTemplate>
+                     </ItemsControl.ItemsPanel>
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:CadSectionCardVM}">
+                           <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Margin="3" Padding="4" Width="190">
+                              <StackPanel>
+                                 <DockPanel>
+                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                                    <TextBlock Text="{Binding CountText}" DockPanel.Dock="Right" FontWeight="Bold" Margin="4,0,0,0"
+                                               VerticalAlignment="Center" ToolTip="{Binding NamesText}"/>
+                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0"/>
+                                 </DockPanel>
+                                 <Button Command="{Binding DataContext.ShowInCadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         CommandParameter="{Binding}" Background="Transparent" BorderThickness="0" Margin="0,4"
+                                         ToolTip="{DynamicResource CadImpShowInCadTip}" Cursor="Hand">
+                                    <local:CadSectionThumb Candidate="{Binding Candidate}" Width="170" Height="130"/>
+                                 </Button>
+                                 <TextBlock Text="{Binding Info}" TextWrapping="Wrap" FontSize="11"/>
+                                 <TextBlock Text="{Binding WarningsText}" TextWrapping="Wrap" FontSize="11" Foreground="DarkOrange"
+                                            Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}"/>
+                              </StackPanel>
+                           </Border>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </ScrollViewer>
+            </DockPanel>
+         </GroupBox>
+      </Grid>
+
+      <!-- Итог -->
+      <DockPanel Grid.Row="3" Margin="5">
+         <Button DockPanel.Dock="Right" Content="{Binding CreateText}" Command="{Binding CreateCommand}" Padding="12,3"/>
+         <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0,8,0"/>
+      </DockPanel>
+   </Grid>
+</UserControl>
