@@ -486,6 +486,7 @@ public sealed class CadSectionImportVM : ViewModelBase
       try
       {
          _mvm.db.SaveNewCrossSections(sections);
+         _mvm.RefreshSectionLiveCollections(); // дерево проекта строится из производных списков
       }
       catch (Exception e)
       {
