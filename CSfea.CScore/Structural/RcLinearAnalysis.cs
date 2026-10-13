@@ -49,12 +49,16 @@ public static class RcLinearAnalysis
 
         var extractor = new RcSecantFieldExtractor(model, build, new ISecantShellState?[build.Mesh.Shells.Count],
             geometric: false, options.ShellForceAngles);
+        // Реакции: K·u — одной сборкой K на все загружения.
+        var k = loads.Count > 0 ? build.Mesh.AssembleK().ToCsc() : null;
         var cases = new List<RcLinearCase>(loads.Count);
         for (int i = 0; i < loads.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
             var st = model.Stages[i];
-            cases.Add(new RcLinearCase(st.Name, u[i], extractor.ExtractLinear(u[i], i, build.BeamCombination(st.Loads))));
+            var reactions = build.Mesh.ComputeReactions(u[i], build.Bc, k!.Multiply(u[i]), loads[i]);
+            cases.Add(new RcLinearCase(st.Name, u[i],
+                extractor.ExtractLinear(u[i], i, build.BeamCombination(st.Loads), reactions, loads[i])));
         }
         double tFields = clock.Elapsed.TotalSeconds - tBuild - tSolve;
         options.Log?.Invoke(string.Create(CultureInfo.InvariantCulture,

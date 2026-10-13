@@ -15,10 +15,19 @@ namespace OpenCS.Services;
 /// <summary>
 /// Шаг в сводке секущего расчёта: сквозной номер (по всем шагам, с дроблениями), стадия, доля стадии, сходимость,
 /// перемещение контрольного узла; <see cref="Planned"/> — номер шага по плану постановки (сквозной по стадиям, без
-/// дроблений; null — промежуточный шаг дробления), <see cref="Fields"/> — записаны полные поля шага.
+/// дроблений; null — промежуточный шаг дробления), <see cref="Fields"/> — записаны полные поля шага;
+/// <see cref="ReactionSums"/> — ΣRx, ΣRy, ΣRz (Н) по типам опор (связи, пружины, C1, автозакрепления — подряд по 3,
+/// <see cref="RcReactionSet.Sums"/>), <see cref="LoadSum"/> — ΣFx, ΣFy, ΣFz (Н) нагрузки шага; null — старая сводка.
 /// </summary>
 public sealed record FemCsfeaStepSummary(int N, int Stage, int Step, double LoadFactor, bool Refinement, bool Converged,
-    int Iterations, double Residual, double? Control, int? Planned = null, bool Fields = false);
+    int Iterations, double Residual, double? Control, int? Planned = null, bool Fields = false,
+    double[]? ReactionSums = null, double[]? LoadSum = null)
+{
+    /// <summary>ΣR по всем типам опор (3 компоненты); null — нет данных.</summary>
+    public double[]? ReactionTotal => ReactionSums is { Length: RcReactionSet.KindCount * 3 } s
+        ? Enumerable.Range(0, 3).Select(c => Enumerable.Range(0, RcReactionSet.KindCount).Sum(k => s[3 * k + c])).ToArray()
+        : null;
+}
 
 /// <summary>
 /// Отбор шагов для записи полей по <see cref="FemCsfeaParams.ResultRecording"/>: «все» — каждый принятый шаг;
@@ -288,9 +297,14 @@ public static class FemCsfeaRunner
             var total = i < adapted.StageTotals.Count ? adapted.StageTotals[i] : new FemRcStageTotal(s.Name, 0, 0, 0);
             return new FemCsfeaStageSummary(s.Name, s.Steps, total.Fx, total.Fy, total.Fz);
         }).ToList();
-        summary.Steps = r.Steps.Select((s, i) => new FemCsfeaStepSummary(i + 1, s.Stage, s.Step, s.LoadFactor, s.IsRefinement,
-            s.Converged, s.Iterations, s.TrueResidual, controlDof is int d ? s.U[d] : null,
-            recorder.Planned(s.Stage, s.LoadFactor, s.IsRefinement), recorder.Records.ContainsKey(i + 1))).ToList();
+        summary.Steps = r.Steps.Select((s, i) =>
+        {
+            var reactions = s.Converged ? run.StepReactions(s) : null;
+            return new FemCsfeaStepSummary(i + 1, s.Stage, s.Step, s.LoadFactor, s.IsRefinement,
+                s.Converged, s.Iterations, s.TrueResidual, controlDof is int d ? s.U[d] : null,
+                recorder.Planned(s.Stage, s.LoadFactor, s.IsRefinement), recorder.Records.ContainsKey(i + 1),
+                reactions?.Reactions.Sums, reactions?.LoadSum);
+        }).ToList();
         var result = Result(analysis, created, r.Completed ? "ok" : "not_converged", summary);
         // Поля шагов — отдельными записями к результату, поэтому результат сохраняется здесь.
         ctx.Db.SaveCalcResult(result);
@@ -340,7 +354,7 @@ public static class FemCsfeaRunner
             return new FemCsfeaStageSummary(s.Name, 1, total.Fx, total.Fy, total.Fz);
         }).ToList();
         summary.Steps = run.Cases.Select((c, i) => new FemCsfeaStepSummary(i + 1, i, 1, 1.0, false, true, 1, 0.0,
-            controlDof is int d ? c.U[d] : null, i + 1, true)).ToList();
+            controlDof is int d ? c.U[d] : null, i + 1, true, c.Fields.ReactionSums, c.Fields.LoadSum)).ToList();
         var result = Result(analysis, created, "ok", summary);
         ctx.Db.SaveCalcResult(result);
         ctx.Db.SaveFemResultSteps(result.Id, records.Select((data, i) => (i + 1, data)));

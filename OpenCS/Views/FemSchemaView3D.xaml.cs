@@ -424,6 +424,11 @@ public partial class FemSchemaView3D : UserControl
             ? new LinesVisual3D { Points = cracks, Color = Colors.Black, Thickness = 1.5, DepthOffset = 1e-4 }
             : null;
         if (_resultCrackVisual != null) viewport.Children.Add(_resultCrackVisual);
+        if (_resultReactionVisual != null) viewport.Children.Remove(_resultReactionVisual);
+        _resultReactionVisual = vm.IsResultShown && vm.ResultReactionLines is { Count: > 0 } arrows
+            ? new LinesVisual3D { Points = arrows, Color = Color.FromRgb(0, 140, 60), Thickness = 2, DepthOffset = 1e-4 }
+            : null;
+        if (_resultReactionVisual != null) viewport.Children.Add(_resultReactionVisual);
         UpdateResultSelectionVisuals();
     }
 
@@ -578,6 +583,7 @@ public partial class FemSchemaView3D : UserControl
 
     LinesVisual3D? _resultGridVisual;
     LinesVisual3D? _resultCrackVisual;
+    LinesVisual3D? _resultReactionVisual;
 
     List<ModelVisual3D> _shellVisuals = [];
     List<LinesVisual3D> _barVisuals = [];
@@ -729,6 +735,7 @@ public partial class FemSchemaView3D : UserControl
         _resultOriginalVisual = null;
         _resultGridVisual = null;
         _resultCrackVisual = null;
+        _resultReactionVisual = null;
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
         _planarMeshEdgesVisual = null;

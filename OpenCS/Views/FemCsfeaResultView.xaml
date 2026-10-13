@@ -88,6 +88,27 @@
                 </DataGrid>
             </TabItem>
 
+            <!-- Реакции опор показанного шага -->
+            <TabItem Header="{DynamicResource FemCsfeaTabReactions}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding ReactionSummaryText}" TextWrapping="Wrap" Margin="6,4"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemCsfeaNoReactions}" TextWrapping="Wrap" Margin="6,0,6,4"
+                               Foreground="Gray" Visibility="{Binding ShowNoReactionsNote, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid ItemsSource="{Binding ReactionRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaReactionsHint}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding Node}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColRxF}" Binding="{Binding Rx, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColRyF}" Binding="{Binding Ry, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColRzF}" Binding="{Binding Rz, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMxR}" Binding="{Binding Mx, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMyR}" Binding="{Binding My, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMzR}" Binding="{Binding Mz, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColSupportKind}" Binding="{Binding Kind}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <!-- Графики -->
             <TabItem x:Name="chartsTab" Header="{DynamicResource FemCsfeaTabCharts}">
                 <Grid>
@@ -124,6 +145,7 @@
                             <DataGridTextColumn x:Name="residualColumn" Header="{DynamicResource FemCsfeaColResidual}" Binding="{Binding Residual}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColControl}" Binding="{Binding Control}"/>
                             <DataGridTextColumn x:Name="fieldsColumn" Header="{DynamicResource FemCsfeaColFields}" Binding="{Binding Fields}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColReactionZ}" Binding="{Binding ReactionZ}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="1" Text="{DynamicResource FemCsfeaReport}" Margin="6,6,6,2" FontWeight="Bold"/>

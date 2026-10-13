@@ -80,6 +80,15 @@ public sealed class RcStructuralMeshBuild
     /// <summary>Замечания построения (автоматические закрепления и т. п.).</summary>
     public required IReadOnlyList<string> Report { get; init; }
 
+    /// <summary>Закреплённые DOF опор модели; прочие закреплённые DOF <see cref="Bc"/> — автоматические.</summary>
+    public IReadOnlySet<int> SupportDofs { get; init; } = new HashSet<int>();
+
+    /// <summary>Пружины опор модели (узел–земля): индекс узла сетки, DOF узла, жёсткость.</summary>
+    public IReadOnlyList<(int Node, int Dof, double K)> NodeSprings { get; init; } = [];
+
+    /// <summary>Узловые матрицы 6 × 6 упругого основания C1 (глобальные оси): индекс узла сетки → матрица.</summary>
+    public IReadOnlyDictionary<int, double[,]> FoundationSprings { get; init; } = new Dictionary<int, double[,]>();
+
     /// <summary>Глобальный DOF узла модели.</summary>
     public int Dof(int nodeId, int component) => 6 * NodeIndex[nodeId] + component;
 
@@ -157,13 +166,22 @@ public static class RcStructuralMeshBuilder
         var mesh = new StructuralMesh(coords, shells, beams, links);
 
         var bc = new BoundaryConditions(mesh);
+        var supportDofs = new HashSet<int>();
         foreach (var sup in model.Supports)
         {
             var dofs = Enumerable.Range(0, 6).Where(c => (sup.Mask & (1 << c)) != 0).ToArray();
-            if (dofs.Length > 0) bc.Fix(new[] { Idx(sup.NodeId, "Опора") }, dofs);
+            int n = Idx(sup.NodeId, "Опора");
+            if (dofs.Length > 0) bc.Fix(new[] { n }, dofs);
+            foreach (int c in dofs) supportDofs.Add(6 * n + c);
         }
-        foreach (var sp in model.Springs) bc.Spring(Idx(sp.NodeId, "Пружина"), sp.Dof, sp.Stiffness);
-        AddFoundation(model, mesh, coords, bc, report);
+        var nodeSprings = new List<(int, int, double)>();
+        foreach (var sp in model.Springs)
+        {
+            int n = Idx(sp.NodeId, "Пружина");
+            bc.Spring(n, sp.Dof, sp.Stiffness);
+            nodeSprings.Add((n, sp.Dof, sp.Stiffness));
+        }
+        var foundation = AddFoundation(model, mesh, coords, bc, report);
         FixUnconnectedDofs(mesh, links, bc, nodeIds, report);
         FixReleasedDofs(mesh, links, bc, nodeIds, report);
 
@@ -181,6 +199,7 @@ public static class RcStructuralMeshBuilder
             Mesh = mesh, Bc = bc, NodeIndex = index, NodeIds = nodeIds,
             ShellIds = model.Shells.Select(s => s.Id).ToArray(), BeamIds = model.Beams.Select(b => b.Id).ToArray(),
             LoadCases = loadCases, BeamLoadCases = beamLoadCases, Report = report,
+            SupportDofs = supportDofs, NodeSprings = nodeSprings, FoundationSprings = foundation,
         };
     }
 
@@ -373,7 +392,7 @@ public static class RcStructuralMeshBuilder
     /// C1·wᵢ·n·nᵀ по поступательным DOF, wᵢ — доля площади узла (<see cref="AreaWeights"/>), n — нормаль КЭ; вклады
     /// смежных КЭ суммируются. Матрица сосредоточенная (диагональ по узлам), как у узловых связей основания SCAD/ЛИРЫ.
     /// </summary>
-    private static void AddFoundation(RcStructuralModel model, StructuralMesh mesh, double[][] coords,
+    private static Dictionary<int, double[,]> AddFoundation(RcStructuralModel model, StructuralMesh mesh, double[][] coords,
                                       BoundaryConditions bc, List<string> report)
     {
         var k = new Dictionary<int, double[,]>();
@@ -400,6 +419,7 @@ public static class RcStructuralMeshBuilder
         foreach (var (node, m) in k) bc.SpringMatrix(node, m);
         if (shells > 0)
             report.Add($"Упругое основание C1: оболочек {shells}, площадь {area:F2} м², узлов {k.Count}.");
+        return k;
     }
 
     private static string Preview<T>(List<T> ids)

@@ -11,7 +11,8 @@ namespace CSfea.CScoreBridge.Structural;
 /// <see cref="ShellForceComponents"/> на КЭ в осях выдачи (Nx, Ny, Nxy, Н/м; Mx, My, Mxy, Н·м/м; Qx, Qy, Н/м) по закону
 /// сечения в центре КЭ; состояние пластин — <see cref="ShellStateComponents"/> (<see cref="PlateFieldState"/>; NaN — КЭ
 /// упругий); усилия стержней — <see cref="BeamForceComponents"/> на КЭ: местные силы концов i, j (N, Qy, Qz, Mx, My,
-/// Mz), действующие на КЭ, — как localForce OpenSees.
+/// Mz), действующие на КЭ, — как localForce OpenSees; реакции опор — <see cref="NodeComponents"/> на узел из
+/// <see cref="ReactionNodeIds"/> (глобальные оси, <see cref="RcReactionSet"/>).
 /// </summary>
 public sealed class RcSecantStepFields
 {
@@ -35,6 +36,21 @@ public sealed class RcSecantStepFields
     public required double[] BeamForces { get; init; }
     public required byte[] BeamFlags { get; init; }
 
+    /// <summary>Узлы с опорами (<see cref="RcReactionSet.NodeIds"/>); пусто — реакций в записи нет (старый формат).</summary>
+    public int[] ReactionNodeIds { get; init; } = [];
+
+    /// <summary>Реакции: Rx, Ry, Rz (Н), Rmx, Rmy, Rmz (Н·м) на узел из <see cref="ReactionNodeIds"/>.</summary>
+    public double[] Reactions { get; init; } = [];
+
+    /// <summary>Типы опор узла (<see cref="RcReactionSet.Support"/> …).</summary>
+    public byte[] ReactionKinds { get; init; } = [];
+
+    /// <summary>ΣRx, ΣRy, ΣRz (Н) по типам опор (<see cref="RcReactionSet.Sums"/>); пусто — нет данных.</summary>
+    public double[] ReactionSums { get; init; } = [];
+
+    /// <summary>ΣFx, ΣFy, ΣFz (Н) узловой нагрузки шага; пусто — нет данных.</summary>
+    public double[] LoadSum { get; init; } = [];
+
     public static byte Flags(SecantSectionStatus s) =>
         (byte)((s.Cracked ? Cracked : 0) | (s.Yielded ? Yielded : 0) | (s.Failed ? Failed : 0));
 }
@@ -53,6 +69,7 @@ public sealed class RcSecantFieldExtractor
     private readonly bool _shellCr;   // оболочки — CR (геомнелин с P-Δ в плоскости), иначе линейно / фон Карман
     private readonly IReadOnlyDictionary<int, double> _forceAngles;
     private readonly List<Dictionary<int, double[]>> _stageBeamLoads = new();
+    private readonly List<double[]> _stageLoadSums = new();   // ΣF конца стадии (накопленные)
 
     public RcSecantFieldExtractor(RcStructuralModel model, RcStructuralMeshBuild build, ISecantShellState?[] shells,
         bool geometric, IReadOnlyDictionary<int, double>? shellForceAngles = null, bool shellInPlanePDelta = true)
@@ -63,8 +80,11 @@ public sealed class RcSecantFieldExtractor
         _shellCr = geometric && shellInPlanePDelta;
         _forceAngles = shellForceAngles ?? new Dictionary<int, double>();
         var acc = new Dictionary<int, double[]>();
+        var sum = new double[3];
         foreach (var st in model.Stages)
         {
+            sum = sum.Zip(RcReactions.LoadSum(build.Combination(st.Loads)), (a, b) => a + b).ToArray();
+            _stageLoadSums.Add(sum);
             var next = acc.ToDictionary(kv => kv.Key, kv => (double[])kv.Value.Clone());
             foreach (var (e, fe) in build.BeamCombination(st.Loads))
             {
@@ -81,20 +101,36 @@ public sealed class RcSecantFieldExtractor
         var loadsEnd = step.Stage < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage] : null;
         var loadsStart = step.Stage > 0 && step.Stage - 1 < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage - 1] : null;
         return Extract(step.U, step.Stage, step.Step, step.LoadFactor, step.IsRefinement, loadsStart, loadsEnd,
-            step.Shells, step.Beams);
+            step.Shells, step.Beams, Reactions(step), LoadSum(step));
+    }
+
+    /// <summary>Реакции опор принятого шага; у несошедшегося шага — только пружины.</summary>
+    public RcReactionSet Reactions(SecantStepResult step) => RcReactions.Compute(_build, step.U, step.Reactions);
+
+    /// <summary>ΣFx, ΣFy, ΣFz (Н) узловой нагрузки шага (стадии накапливаются).</summary>
+    public double[] LoadSum(SecantStepResult step)
+    {
+        if (step.Stage >= _stageLoadSums.Count) return new double[3];
+        var end = _stageLoadSums[step.Stage];
+        var start = step.Stage > 0 ? _stageLoadSums[step.Stage - 1] : new double[3];
+        return Enumerable.Range(0, 3).Select(i => start[i] + step.LoadFactor * (end[i] - start[i])).ToArray();
     }
 
     /// <summary>
     /// Поля независимого линейного решения <paramref name="u"/> (<see cref="RcLinearAnalysis"/>): загружение с номером
     /// <paramref name="caseIndex"/> — «стадия» из одного шага, <paramref name="beamLoads"/> — пролётные нагрузки стержней
-    /// этого загружения (без накопления).
+    /// этого загружения (без накопления), <paramref name="fixedReactions"/> — реакции закреплённых DOF
+    /// (<see cref="StructuralMesh.ComputeReactions"/>), <paramref name="load"/> — узловой вектор нагрузки загружения.
     /// </summary>
-    public RcSecantStepFields ExtractLinear(double[] u, int caseIndex, IReadOnlyDictionary<int, double[]>? beamLoads)
-        => Extract(u, caseIndex, 1, 1.0, false, null, beamLoads, [], []);
+    public RcSecantStepFields ExtractLinear(double[] u, int caseIndex, IReadOnlyDictionary<int, double[]>? beamLoads,
+        double[]? fixedReactions = null, double[]? load = null)
+        => Extract(u, caseIndex, 1, 1.0, false, null, beamLoads, [], [],
+            fixedReactions != null ? RcReactions.Compute(_build, u, fixedReactions) : null,
+            load != null ? RcReactions.LoadSum(load) : null);
 
     private RcSecantStepFields Extract(double[] u, int stage, int stepNumber, double loadFactor, bool isRefinement,
         IReadOnlyDictionary<int, double[]>? loadsStart, IReadOnlyDictionary<int, double[]>? loadsEnd,
-        SecantSectionStatus[] shellStatus, SecantSectionStatus[] beamStatus)
+        SecantSectionStatus[] shellStatus, SecantSectionStatus[] beamStatus, RcReactionSet? reactions, double[]? loadSum)
     {
         var mesh = _build.Mesh;
         int nn = mesh.NNodes;
@@ -174,6 +210,8 @@ public sealed class RcSecantFieldExtractor
             NodeIds = _build.NodeIds, Displacements = disp,
             ShellIds = _build.ShellIds, ShellForces = shellForces, ShellStates = shellStates, ShellFlags = shellFlags,
             BeamIds = _build.BeamIds, BeamForces = beamForces, BeamFlags = beamFlags,
+            ReactionNodeIds = reactions?.NodeIds ?? [], Reactions = reactions?.Values ?? [],
+            ReactionKinds = reactions?.Kinds ?? [], ReactionSums = reactions?.Sums ?? [], LoadSum = loadSum ?? [],
         };
     }
 }

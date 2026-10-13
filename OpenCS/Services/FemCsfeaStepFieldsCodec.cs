@@ -6,13 +6,13 @@ namespace OpenCS.Services;
 
 /// <summary>
 /// Сжатая запись полей шага секущего расчёта (<see cref="RcSecantStepFields"/>) для таблицы <c>fem_result_steps</c>:
-/// двоичный поток (версия, шаг, узлы, пластины, стержни) под GZip. Перемещения и усилия — double, состояния пластин —
-/// float.
+/// двоичный поток (версия, шаг, узлы, пластины, стержни, с версии 2 — реакции опор и ΣF шага) под GZip. Перемещения,
+/// усилия и реакции — double, состояния пластин — float. Записи версии 1 читаются без реакций.
 /// </summary>
 public static class FemCsfeaStepFieldsCodec
 {
     const int Magic = 0x31465343;   // «CSF1»
-    const int Version = 1;
+    const int Version = 2;
 
     public static byte[] Pack(RcSecantStepFields f)
     {
@@ -36,6 +36,11 @@ public static class FemCsfeaStepFieldsCodec
             Ints(w, f.BeamIds);
             Doubles(w, f.BeamForces);
             Bytes(w, f.BeamFlags);
+            Ints(w, f.ReactionNodeIds);
+            Doubles(w, f.Reactions);
+            Bytes(w, f.ReactionKinds);
+            Doubles(w, f.ReactionSums);
+            Doubles(w, f.LoadSum);
         }
         return ms.ToArray();
     }
@@ -47,7 +52,7 @@ public static class FemCsfeaStepFieldsCodec
         using var r = new BinaryReader(gz);
         if (r.ReadInt32() != Magic) throw new InvalidDataException("Не поля шага CSfea.");
         int version = r.ReadInt32();
-        if (version != Version) throw new InvalidDataException($"Неизвестная версия полей шага CSfea: {version}.");
+        if (version is < 1 or > Version) throw new InvalidDataException($"Неизвестная версия полей шага CSfea: {version}.");
         int stage = r.ReadInt32(), step = r.ReadInt32();
         double lambda = r.ReadDouble();
         bool refinement = r.ReadBoolean();
@@ -61,12 +66,25 @@ public static class FemCsfeaStepFieldsCodec
         var beamIds = Ints(r);
         var beamForces = Doubles(r);
         var beamFlags = Bytes(r);
+        int[] reactionNodes = [];
+        double[] reactions = [], reactionSums = [], loadSum = [];
+        byte[] reactionKinds = [];
+        if (version >= 2)
+        {
+            reactionNodes = Ints(r);
+            reactions = Doubles(r);
+            reactionKinds = Bytes(r);
+            reactionSums = Doubles(r);
+            loadSum = Doubles(r);
+        }
         return new RcSecantStepFields
         {
             Stage = stage, Step = step, LoadFactor = lambda, IsRefinement = refinement,
             NodeIds = nodeIds, Displacements = disp,
             ShellIds = shellIds, ShellForces = shellForces, ShellStates = shellStates, ShellFlags = shellFlags,
             BeamIds = beamIds, BeamForces = beamForces, BeamFlags = beamFlags,
+            ReactionNodeIds = reactionNodes, Reactions = reactions, ReactionKinds = reactionKinds,
+            ReactionSums = reactionSums, LoadSum = loadSum,
         };
     }
 

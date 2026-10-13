@@ -1067,6 +1067,7 @@ public class Fem3DVM : ViewModelBase
         ResultOriginalLines = null;
         ResultMeshLines = null;
         ResultCrackLines = null;
+        ResultReactionLines = null;
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
         SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
@@ -1101,6 +1102,9 @@ public class Fem3DVM : ViewModelBase
 
     /// <summary>Штрихи линий трещин у показанных пластин при мозаике ширины раскрытия; null — мозаика другая.</summary>
     public Point3DCollection? ResultCrackLines { get; private set; }
+
+    /// <summary>Стрелки сил реакций опор показанного шага (флажок слоя); null — выключены или реакций нет.</summary>
+    public Point3DCollection? ResultReactionLines { get; private set; }
 
     /// <summary>Сетка схемы для результатов (читается при первом показе результата, сбрасывается при перезагрузке вида).</summary>
     FemResult.FemResultMesh? _resultMesh;
@@ -1174,6 +1178,9 @@ public class Fem3DVM : ViewModelBase
             : FragmentOriginalLines(originalMap, shells, bars);
         ResultMeshLines = _showShellEdges ? BuildShellEdges(nodeMap, shells) : null;
         ResultCrackLines = result.CrackStrokes(shells.Select(e => e.ElemTag));
+        // Реакции — у узлов видимых КЭ фрагмента; без фрагмента — все (и ведущие узлы жёстких тел без КЭ).
+        HashSet<int>? shownNodes = Fragment.IsActive ? [.. shells.Concat(bars).SelectMany(e => NodeIds(e.NodeIdsJson))] : null;
+        ResultReactionLines = result.ReactionArrows(nodeMap, shownNodes == null ? null : shownNodes.Contains);
         _resultNodeMap = nodeMap;
         _resultVisible = [.. shells, .. bars];
         _resultPickNodes = null;

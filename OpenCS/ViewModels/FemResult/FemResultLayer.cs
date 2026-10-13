@@ -81,8 +81,83 @@ public sealed class FemResultLayer : ViewModelBase
         OnPropertyChanged(nameof(StepLabel));
         OnPropertyChanged(nameof(HasDisplacements));
         OnPropertyChanged(nameof(DeformedShown));
+        OnPropertyChanged(nameof(HasReactions));
+        OnPropertyChanged(nameof(ReactionSummaryText));
         RebuildNodeMap();
         Changed?.Invoke();
+    }
+
+    // ------------------------------------------------------------ реакции опор (CSfea)
+
+    /// <summary>На показанном шаге есть реакции опор.</summary>
+    public bool HasReactions => Csfea?.HasReactions == true;
+
+    /// <summary>Итог реакций шага: ΣR по типам опор, ΣF и небаланс; пусто — нет данных.</summary>
+    public string ReactionSummaryText => Csfea?.ReactionSummaryText ?? "";
+
+    bool _showReactions;
+    /// <summary>Стрелки сил реакций опор на виде.</summary>
+    public bool ShowReactions
+    {
+        get => _showReactions;
+        set
+        {
+            if (value == _showReactions) return;
+            _showReactions = value;
+            OnPropertyChanged();
+            Changed?.Invoke();
+        }
+    }
+
+    double _reactionScale = 1;
+    /// <summary>Множитель длины стрелок реакций (1 — наибольшая реакция в 8 % диагонали сетки).</summary>
+    public double ReactionScale
+    {
+        get => _reactionScale;
+        set
+        {
+            if (!FemScaleInput.IsValid(value) || value == _reactionScale) return;
+            _reactionScale = value;
+            OnPropertyChanged();
+            if (_showReactions) Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Длина стрелки наибольшей реакции — доля диагонали сетки.</summary>
+    public const double ReactionArrowRatio = 0.08;
+
+    /// <summary>
+    /// Отрезки стрелок сил реакций (пары точек): остриё — в узле на положении слоя, стрелка — вдоль силы, действующей на
+    /// схему; длина пропорциональна силе (наибольшая — <see cref="ReactionArrowRatio"/> диагонали × множитель). Узлы вне
+    /// <paramref name="positions"/> и силы меньше 1e-6 наибольшей не рисуются. Null — стрелки выключены или реакций нет.
+    /// </summary>
+    public Point3DCollection? ReactionArrows(IReadOnlyDictionary<string, Point3D> positions, Func<int, bool>? shown = null)
+    {
+        if (!_showReactions || Csfea is not { } vm) return null;
+        var forces = vm.ReactionForces().Where(r => shown?.Invoke(r.Node) != false).ToList();
+        double max = forces.Count > 0 ? forces.Max(r => r.Force.Length) : 0;
+        if (!(max > 0)) return null;
+        double size = Mesh.Diagonal * ReactionArrowRatio * _reactionScale;
+        var pts = new Point3DCollection();
+        foreach (var (node, f) in forces)
+        {
+            double len = f.Length;
+            if (len < 1e-6 * max
+                || !positions.TryGetValue(node.ToString(CultureInfo.InvariantCulture), out var tip)) continue;
+            var d = f / len;
+            double l = size * len / max;
+            var tail = tip - d * l;
+            pts.Add(tail);
+            pts.Add(tip);
+            // Остриё — два штриха под ~25° к оси стрелки.
+            var w = Vector3D.CrossProduct(d, Math.Abs(d.Z) < 0.9 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0));
+            w.Normalize();
+            double h = Math.Min(0.25 * l, 0.3 * size);
+            pts.Add(tip); pts.Add(tip - d * h + w * (0.45 * h));
+            pts.Add(tip); pts.Add(tip - d * h - w * (0.45 * h));
+        }
+        pts.Freeze();
+        return pts.Count > 0 ? pts : null;
     }
 
     // ------------------------------------------------------------ деформированная схема
@@ -435,6 +510,14 @@ public sealed class FemResultLayer : ViewModelBase
         };
         foreach (var c in Displacements)
             if (NodeValue(node, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
+        if (Csfea?.Reaction(node) is { } r)
+        {
+            rows.Add(new(Loc.S("FemResultCardSupports"), FemCsfeaResultVM.ReactionKindText(r.Kinds)));
+            string[] labels = ["Rx", "Ry", "Rz", "Mx", "My", "Mz"];
+            for (int c = 0; c < 6; c++)
+                if (r.Values[c] != 0)
+                    rows.Add(new($"{labels[c]}, {Loc.S(c < 3 ? "UnitKN" : "UnitKNm")}", Num(r.Values[c] / 1e3)));
+        }
         return new FemResultCard(string.Format(Loc.S("FemResultCardNode"), node), rows);
     }
 

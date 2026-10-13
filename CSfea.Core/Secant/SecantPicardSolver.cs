@@ -199,7 +199,15 @@ public sealed record SecantIterationRecord(int Stage, int Step, double LoadFacto
 /// дробления, перемещения и состояние КЭ (индексы сетки) после шага.
 /// </summary>
 public sealed record SecantStepResult(int Stage, int Step, double LoadFactor, bool IsRefinement, bool Converged,
-    int Iterations, double TrueResidual, double[] U, SecantSectionStatus[] Shells, SecantSectionStatus[] Beams);
+    int Iterations, double TrueResidual, double[] U, SecantSectionStatus[] Shells, SecantSectionStatus[] Beams)
+{
+    /// <summary>
+    /// Реакции закреплённых DOF (длина — NDof, на свободных 0; <see cref="StructuralMesh.ComputeReactions"/>) по истинным
+    /// внутренним силам шага — тем же, что в <see cref="TrueResidual"/>, и нагрузке шага: Σ реакций и нагрузки
+    /// уравновешены с точностью невязки. Пружины в них не входят. null — шаг не сошёлся.
+    /// </summary>
+    public double[]? Reactions { get; init; }
+}
 
 /// <summary>
 /// Прогресс секущего расчёта — после каждой итерации (<see cref="StepDone"/> = false) и после принятого шага (true).
@@ -346,7 +354,7 @@ public sealed class SecantPicardSolver
                     stepNo++;
                     var accepted = new SecantStepResult(si, stepNo, b, refinement, true, attempt.Iterations,
                         attempt.TrueResidual, (double[])u.Clone(), (SecantSectionStatus[])shellStatus.Clone(),
-                        (SecantSectionStatus[])beamStatus.Clone());
+                        (SecantSectionStatus[])beamStatus.Clone()) { Reactions = attempt.Reactions };
                     result.Steps.Add(accepted);
                     _o.OnStepAccepted?.Invoke(accepted);
                     Log($"стадия «{stage.Name}» λ = {b:0.####}: сошлось за {attempt.Iterations} ит., невязка {attempt.TrueResidual:e2}");
@@ -380,7 +388,7 @@ public sealed class SecantPicardSolver
     }
 
     private sealed record Attempt(bool Converged, int Iterations, double TrueResidual, double[] U,
-        SecantSectionStatus[] ShellStatus, SecantSectionStatus[] BeamStatus);
+        SecantSectionStatus[] ShellStatus, SecantSectionStatus[] BeamStatus, double[]? Reactions = null);
 
     // ---------------- итерации Пикара одного шага ----------------
 
@@ -450,7 +458,16 @@ public sealed class SecantPicardSolver
             // Секущие устоялись, а равновесие не дорешено — следующая итерация решает Ньютон до допуска (иначе по 2 шага
             // каждая итерация доходит до допуска лишь асимптотически, и шаг упирается в предел итераций).
             _fullNewton = settled && !equilibrium;
-            if (_o.TrueResidualEachIteration || converged) residual = TrueResidual(f, u);
+            double[]? reactions = null;
+            if (converged)
+            {
+                // Реакции — по тем же истинным силам, что невязка, и до обновления секущих (Relax): Σ реакций и нагрузки
+                // шага уравновешены с точностью этой невязки.
+                var (fInt, fAbs) = TrueFInternal(u);
+                residual = _mesh.RelativeResidual(f, fInt, u, _bc, _momentArm, fAbs);
+                reactions = _mesh.ComputeReactions(u, _bc, fInt, f);
+            }
+            else if (_o.TrueResidualEachIteration) residual = TrueResidual(f, u);
             int cracked = shellStatus.Count(s => s.Cracked) + beamStatus.Count(s => s.Cracked);
             int yielded = shellStatus.Count(s => s.Yielded) + beamStatus.Count(s => s.Yielded);
             int failed = shellStatus.Count(s => s.Failed) + beamStatus.Count(s => s.Failed);
@@ -495,7 +512,7 @@ public sealed class SecantPicardSolver
             {
                 foreach (var s in _shells) s?.Commit();
                 foreach (var b in _beams) b?.Commit();
-                return new Attempt(true, it, residual, u, shellStatus, beamStatus);
+                return new Attempt(true, it, residual, u, shellStatus, beamStatus, reactions);
             }
             // Досрочный отказ (шаг будет раздроблен) — только при расходимости; медленная сходимость идёт до MaxIterations.
             // Шаг у допуска (колебания секущих при малых мерах) расходящимся не считается и идёт дальше MaxIterations.
@@ -834,6 +851,16 @@ public sealed class SecantPicardSolver
     /// </summary>
     private double TrueResidual(double[] f, double[] u)
     {
+        var (fInt, fAbs) = TrueFInternal(u);
+        return _mesh.RelativeResidual(f, fInt, u, _bc, _momentArm, fAbs);
+    }
+
+    /// <summary>
+    /// Истинные внутренние силы КЭ при <paramref name="u"/> (формулировка — как у решателя: линейная кинематика / фон
+    /// Карман / CR, второй порядок) и сборка их модулей (масштаб невязки).
+    /// </summary>
+    private (double[] FInt, double[] FAbs) TrueFInternal(double[] u)
+    {
         var parts = new double[_shells.Length][];
         Parallel.For(0, _shells.Length, new ParallelOptions { MaxDegreeOfParallelism = _o.MaxDegreeOfParallelism }, e =>
         {
@@ -883,7 +910,7 @@ public sealed class SecantPicardSolver
                 fAbs[dofs[i]] += Math.Abs(fe[i]);
             }
         }
-        return _mesh.RelativeResidual(f, fInt, u, _bc, _momentArm, fAbs);
+        return (fInt, fAbs);
     }
 
     /// <summary>Сечение для невязки: истинные усилия закона, касательная не нужна.</summary>

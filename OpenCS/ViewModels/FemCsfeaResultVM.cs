@@ -25,9 +25,18 @@ public sealed record FemCsfeaOption<T>(T Value, string Label)
     public override string ToString() => Label;
 }
 
-/// <summary>Строка журнала шагов: сквозной номер, стадия, λ, номер по плану, сходимость, итерации, невязка, контрольный узел.</summary>
+/// <summary>
+/// Строка журнала шагов: сквозной номер, стадия, λ, номер по плану, сходимость, итерации, невязка, контрольный узел,
+/// ΣRz опор (кН; пусто — нет данных).
+/// </summary>
 public sealed record FemCsfeaStepRow(int N, string Stage, double LoadFactor, string Planned, string Converged, int Iterations,
-    string Residual, string Control, string Fields);
+    string Residual, string Control, string Fields, string ReactionZ = "");
+
+/// <summary>
+/// Строка таблицы реакций опор узла на показанном шаге (глобальные оси, действуют на схему): Rx, Ry, Rz — кН; Mx, My,
+/// Mz — кН·м; типы опор узла словами.
+/// </summary>
+public sealed record FemCsfeaReactionRow(int Node, double Rx, double Ry, double Rz, double Mx, double My, double Mz, string Kind);
 
 /// <summary>Строка таблицы перемещений узла сетки на показанном шаге: ux, uy, uz — мм; rx, ry, rz — мрад.</summary>
 public sealed record FemCsfeaNodeRow(int Node, double Ux, double Uy, double Uz, double Rx, double Ry, double Rz);
@@ -80,7 +89,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             s.Converged ? Loc.S("FemResultConverged") : Loc.S("FemResultNotConverged"), s.Iterations,
             double.IsFinite(s.Residual) ? s.Residual.ToString("0.##e+0", CultureInfo.CurrentCulture) : "",
             s.Control is { } c ? (c * controlScale).ToString("0.###", CultureInfo.CurrentCulture) : "",
-            s.Fields ? "✓" : "")).ToList();
+            s.Fields ? "✓" : "",
+            s.ReactionTotal is { } r ? (r[2] / 1e3).ToString("0.###", CultureInfo.CurrentCulture) : "")).ToList();
         var lines = new List<string>();
         lines.AddRange(Summary.Errors.Select(e => Loc.S("FemCsfeaResultErrorPrefix") + e));
         lines.AddRange(Summary.Describe().Where(l => !Summary.Errors.Any(e => l.EndsWith(e, StringComparison.Ordinal))));
@@ -257,6 +267,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(NodeRows));
         OnPropertyChanged(nameof(ShellRows));
         OnPropertyChanged(nameof(BeamRows));
+        OnPropertyChanged(nameof(ReactionRows));
+        OnPropertyChanged(nameof(HasReactions));
+        OnPropertyChanged(nameof(ShowNoReactionsNote));
+        OnPropertyChanged(nameof(ReactionSummaryText));
     }
 
     void GoToFieldsStep()
@@ -270,6 +284,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     IReadOnlyList<FemCsfeaNodeRow> _nodeRows = [];
     IReadOnlyList<FemCsfeaShellRow> _shellRows = [];
     IReadOnlyList<FemElementEndForces> _beamRows = [];
+    IReadOnlyList<FemCsfeaReactionRow> _reactionRows = [];
 
     /// <summary>Перемещения узлов показанного шага — строятся при первом обращении (их читает только окно таблиц).</summary>
     public IReadOnlyList<FemCsfeaNodeRow> NodeRows { get { BuildRows(); return _nodeRows; } }
@@ -280,11 +295,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Концевые силы стержней показанного шага (Н, Н·м — в таблице переводятся в кН, кН·м).</summary>
     public IReadOnlyList<FemElementEndForces> BeamRows { get { BuildRows(); return _beamRows; } }
 
+    /// <summary>Реакции опор показанного шага по узлам.</summary>
+    public IReadOnlyList<FemCsfeaReactionRow> ReactionRows { get { BuildRows(); return _reactionRows; } }
+
+    /// <summary>В полях показанного шага есть реакции (записи до реакций — без них).</summary>
+    public bool HasReactions => Fields is { ReactionNodeIds.Length: > 0 };
+
+    /// <summary>Поля показаны, а реакций в них нет — запись шага старого формата.</summary>
+    public bool ShowNoReactionsNote => Fields != null && Fields.ReactionSums.Length == 0;
+
     void BuildRows()
     {
         if (ReferenceEquals(_rowsFields, Fields) && (Fields != null || _nodeRows.Count == 0)) return;
         _rowsFields = Fields;
-        if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; return; }
+        if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; _reactionRows = []; return; }
 
         var nodes = new FemCsfeaNodeRow[f.NodeIds.Length];
         var d = Denoise(f.Displacements, RcSecantStepFields.NodeComponents);
@@ -321,6 +345,52 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 bf[o + 6], bf[o + 7], bf[o + 8], bf[o + 9], bf[o + 10], bf[o + 11]);
         }
         _beamRows = beams;
+
+        var reactions = new FemCsfeaReactionRow[f.ReactionNodeIds.Length];
+        var rf = Denoise(f.Reactions, RcSecantStepFields.NodeComponents);
+        for (int i = 0; i < reactions.Length; i++)
+        {
+            int o = i * RcSecantStepFields.NodeComponents;
+            reactions[i] = new FemCsfeaReactionRow(f.ReactionNodeIds[i], rf[o] / 1e3, rf[o + 1] / 1e3, rf[o + 2] / 1e3,
+                rf[o + 3] / 1e3, rf[o + 4] / 1e3, rf[o + 5] / 1e3, ReactionKindText(f.ReactionKinds[i]));
+        }
+        _reactionRows = reactions;
+    }
+
+    static readonly (byte Flag, string Key)[] ReactionKindKeys =
+    [
+        (RcReactionSet.Support, "FemCsfeaReactionSupport"), (RcReactionSet.Spring, "FemCsfeaReactionSpring"),
+        (RcReactionSet.Foundation, "FemCsfeaReactionFoundation"), (RcReactionSet.Auto, "FemCsfeaReactionAuto"),
+    ];
+
+    /// <summary>Типы опор узла словами через запятую (<see cref="RcReactionSet.Support"/> …).</summary>
+    public static string ReactionKindText(byte kinds) =>
+        string.Join(", ", ReactionKindKeys.Where(k => (kinds & k.Flag) != 0).Select(k => Loc.S(k.Key)));
+
+    /// <summary>Итог реакций показанного шага (из сводки шага); пусто — нет данных.</summary>
+    public string ReactionSummaryText => SelectedStep is { } s ? DescribeReactions(s) : "";
+
+    /// <summary>
+    /// Итог реакций шага: ΣR (кН) с раскладкой по типам опор (ненулевые), ΣF нагрузки и небаланс |ΣR + ΣF|; пусто — в
+    /// сводке шага реакций нет.
+    /// </summary>
+    public static string DescribeReactions(FemCsfeaStepSummary s)
+    {
+        if (s.ReactionTotal is not { } total || s.ReactionSums is not { } sums) return "";
+        var c = CultureInfo.CurrentCulture;
+        string Vec(double[] v, int o = 0) => string.Create(c, $"({v[o] / 1e3:0.###}; {v[o + 1] / 1e3:0.###}; {v[o + 2] / 1e3:0.###})");
+        var parts = new List<string>();
+        for (int k = 0; k < RcReactionSet.KindCount; k++)
+            if (sums[3 * k] != 0 || sums[3 * k + 1] != 0 || sums[3 * k + 2] != 0)
+                parts.Add(Loc.S(ReactionKindKeys[k].Key) + " " + Vec(sums, 3 * k));
+        string kn = Loc.S("UnitKN");
+        string text = $"ΣR = {Vec(total)} {kn}: {string.Join(", ", parts)}";
+        if (s.LoadSum is { Length: 3 } f)
+        {
+            double un = Math.Sqrt(Enumerable.Range(0, 3).Sum(i => (total[i] + f[i]) * (total[i] + f[i])));
+            text += string.Create(c, $"; ΣF = {Vec(f)} {kn}, |ΣR + ΣF| = {un / 1e3:0.###} {kn}");
+        }
+        return text;
     }
 
     /// <summary>
@@ -338,12 +408,17 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     }
 
     // Индексы полей по номерам узлов/КЭ.
-    readonly Dictionary<int, int> _nodeIndex = new(), _shellIndex = new(), _beamIndex = new();
+    readonly Dictionary<int, int> _nodeIndex = new(), _shellIndex = new(), _beamIndex = new(), _reactionIndex = new();
     RcSecantStepFields? _indexed;
 
     void IndexFields()
     {
         if (Fields == null || ReferenceEquals(Fields, _indexed)) return;
+        if (_indexed == null || !Fields.ReactionNodeIds.SequenceEqual(_indexed.ReactionNodeIds))
+        {
+            _reactionIndex.Clear();
+            for (int i = 0; i < Fields.ReactionNodeIds.Length; i++) _reactionIndex.TryAdd(Fields.ReactionNodeIds[i], i);
+        }
         if (_indexed == null || !Fields.NodeIds.SequenceEqual(_indexed.NodeIds) || !Fields.ShellIds.SequenceEqual(_indexed.ShellIds)
             || !Fields.BeamIds.SequenceEqual(_indexed.BeamIds))
         {
@@ -361,6 +436,21 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (Fields == null || !_nodeIndex.TryGetValue(node, out int i)) return default;
         var d = Fields.Displacements;
         return new Vector3D(d[6 * i], d[6 * i + 1], d[6 * i + 2]);
+    }
+
+    /// <summary>Реакция опор узла на показанном шаге (6, Н и Н·м, глобальные оси) и типы опор; null — опор в узле нет.</summary>
+    public (double[] Values, byte Kinds)? Reaction(int node)
+    {
+        if (Fields == null || !_reactionIndex.TryGetValue(node, out int i)) return null;
+        return (Fields.Reactions.AsSpan(6 * i, 6).ToArray(), Fields.ReactionKinds[i]);
+    }
+
+    /// <summary>Силы реакций узлов показанного шага (Н, глобальные оси) — для стрелок вида.</summary>
+    public IEnumerable<(int Node, Vector3D Force)> ReactionForces()
+    {
+        if (Fields is not { } f) yield break;
+        for (int i = 0; i < f.ReactionNodeIds.Length; i++)
+            yield return (f.ReactionNodeIds[i], new Vector3D(f.Reactions[6 * i], f.Reactions[6 * i + 1], f.Reactions[6 * i + 2]));
     }
 
     /// <summary>Усилия пластины (8, СИ, оси выдачи); null — нет в полях.</summary>

@@ -120,6 +120,11 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             // Плита на угловых шарнирах после q + q2: трещины есть, усилия пластин в выдаче конечны.
             Assert.Contains(fields.ShellFlags, f => (f & CSfea.CScoreBridge.Structural.RcSecantStepFields.Cracked) != 0);
             Assert.All(fields.ShellForces, v => Assert.True(double.IsFinite(v)));
+            // Реакции: у каждого сошедшегося шага в сводке ΣR уравновешивает ΣF; в полях — угловые опоры.
+            Assert.All(summary.Steps.Where(s => s.Converged), s =>
+                Assert.True(Math.Abs(s.ReactionTotal![2] + s.LoadSum![2]) <= 1e-6 * Math.Abs(s.LoadSum[2]), $"шаг {s.N}"));
+            Assert.Equal(4, fields.ReactionNodeIds.Length);
+            Assert.Equal(-fields.LoadSum[2], Enumerable.Range(0, 4).Sum(i => fields.Reactions[6 * i + 2]), 1e-6 * Math.Abs(fields.LoadSum[2]));
 
             ctx.Db.DeleteCalcResult(result);
             Assert.Empty(ctx.Db.GetFemResultStepNumbers(result.Id));
@@ -190,6 +195,8 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             int node = Array.IndexOf(fields.NodeIds, int.Parse(summary.ControlNodeTag, CultureInfo.InvariantCulture));
             Assert.Equal(w2, fields.Displacements[6 * node + 2], 12);
             Assert.All(fields.ShellFlags, f => Assert.Equal(0, f));
+            Assert.Equal(-fields.LoadSum[2], fields.ReactionSums[2], 1e-9 * Math.Abs(fields.LoadSum[2]));
+            Assert.Equal(fields.ReactionSums, summary.Steps[1].ReactionSums);
 
             var vm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema);
             Assert.True(vm.IsLinear);

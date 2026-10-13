@@ -143,6 +143,10 @@ public sealed record RcSecantRun(RcStructuralMeshBuild Build, ISecantShellState?
     /// </summary>
     public RcSecantStepFields? LastConvergedFields()
         => Result.Steps.LastOrDefault(s => s.Converged) is { } last && Extractor != null ? Extractor.Extract(last) : null;
+
+    /// <summary>Реакции опор шага (у несошедшегося — только пружины) и ΣF его узловой нагрузки; null — без экстрактора.</summary>
+    public (RcReactionSet Reactions, double[] LoadSum)? StepReactions(SecantStepResult step)
+        => Extractor is { } x ? (x.Reactions(step), x.LoadSum(step)) : null;
 }
 
 /// <summary>

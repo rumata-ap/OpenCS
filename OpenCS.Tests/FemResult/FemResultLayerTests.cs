@@ -516,4 +516,106 @@ public class FemResultLayerTests
         Assert.Same(layer, open.ActiveResult);
         Assert.Equal("Р1", open.SelectedSubject!.Label);
     }
+
+    /// <summary>Поля шага с реакциями: узел 1 — связь (Rz = 30 кН, My = −12 кН·м), узел 3 — пружина (Rx = −2 кН).</summary>
+    static RcSecantStepFields FieldsWithReactions() => new()
+    {
+        NodeIds = [1, 2, 3], Displacements = new double[18],
+        ShellIds = [], ShellForces = [], ShellStates = [], ShellFlags = [], BeamIds = [], BeamForces = [], BeamFlags = [],
+        ReactionNodeIds = [1, 3], Reactions = [0, 0, 30e3, 0, -12e3, 0, -2e3, 0, 0, 0, 0, 0],
+        ReactionKinds = [RcReactionSet.Support, RcReactionSet.Spring],
+        ReactionSums = [0, 0, 30e3, -2e3, 0, 0, 0, 0, 0, 0, 0, 0], LoadSum = [2e3, 0, -30e3],
+    };
+
+    static FemResultLayer ReactionLayer(TempDb t, RcSecantStepFields fields)
+    {
+        var summary = new FemCsfeaResultSummary
+        {
+            Steps = [new FemCsfeaStepSummary(1, 0, 1, 1.0, false, true, 3, 1e-6, null, 1, true, fields.ReactionSums, fields.LoadSum)],
+        };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Р1", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(fields))]);
+        return new FemResultLayer(new FemAnalysis { Id = 1, Tag = "Р1", ResultId = result.Id }, "Р1",
+            new CsfeaResultSteps(new FemCsfeaResultVM(result, t.Db, t.Schema)), t.Mesh());
+    }
+
+    [Fact]
+    public void Csfea_ReactionRowsCardAndSummary()
+    {
+        using var t = new TempDb();
+        var layer = ReactionLayer(t, FieldsWithReactions());
+        var vm = layer.Csfea!;
+        Assert.True(vm.HasReactions);
+        Assert.False(vm.ShowNoReactionsNote);
+        Assert.Equal([1, 3], vm.ReactionRows.Select(r => r.Node));
+        var r1 = vm.ReactionRows[0];
+        Assert.Equal(30, r1.Rz, 12);
+        Assert.Equal(-12, r1.My, 12);
+        Assert.Equal(Loc.S("FemCsfeaReactionSupport"), r1.Kind);
+        Assert.Equal(Loc.S("FemCsfeaReactionSpring"), vm.ReactionRows[1].Kind);
+        Assert.Equal("30", vm.StepRows[0].ReactionZ);
+
+        // Итог: ΣR по типам (только ненулевые), ΣF и небаланс 0.
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        string text = vm.ReactionSummaryText;
+        string kn = Loc.S("UnitKN"), minus2 = (-2).ToString(c), minus30 = (-30).ToString(c);
+        Assert.StartsWith($"ΣR = ({minus2}; 0; 30) {kn}: ", text);
+        Assert.Contains(Loc.S("FemCsfeaReactionSupport") + " (0; 0; 30)", text);
+        Assert.Contains(Loc.S("FemCsfeaReactionSpring") + $" ({minus2}; 0; 0)", text);
+        Assert.DoesNotContain(Loc.S("FemCsfeaReactionAuto"), text);
+        Assert.EndsWith($"; ΣF = (2; 0; {minus30}) {kn}, |ΣR + ΣF| = 0 {kn}", text);
+        Assert.True(layer.HasReactions);
+        Assert.Equal(text, layer.ReactionSummaryText);
+
+        // Карточка узла: опоры и ненулевые компоненты реакции, кН и кН·м.
+        layer.Selection.PickNode(1);
+        var rows = layer.Card!.Rows;
+        Assert.Contains(rows, r => r.Label == Loc.S("FemResultCardSupports") && r.Value == Loc.S("FemCsfeaReactionSupport"));
+        Assert.Contains(rows, r => r.Label == $"Rz, {kn}" && r.Value == 30.ToString(c));
+        Assert.Contains(rows, r => r.Label == $"My, {Loc.S("UnitKNm")}" && r.Value == (-12).ToString(c));
+        Assert.DoesNotContain(rows, r => r.Label.StartsWith("Rx", StringComparison.Ordinal));
+        layer.Selection.PickNode(2);
+        Assert.DoesNotContain(layer.Card!.Rows, r => r.Label == Loc.S("FemResultCardSupports"));
+    }
+
+    [Fact]
+    public void Csfea_ReactionArrowsFollowFlagAndScale()
+    {
+        using var t = new TempDb();
+        var layer = ReactionLayer(t, FieldsWithReactions());
+        Assert.Null(layer.ReactionArrows(layer.NodeMap));   // по умолчанию выключены
+        int changed = 0;
+        layer.Changed += () => changed++;
+        layer.ShowReactions = true;
+        Assert.Equal(1, changed);
+        var pts = layer.ReactionArrows(layer.NodeMap)!;
+        // Две стрелки по три отрезка; остриё — в узле, стрелка наибольшей силы (узел 1, +z) — 8 % диагонали.
+        Assert.Equal(12, pts.Count);
+        double size = layer.Mesh.Diagonal * FemResultLayer.ReactionArrowRatio;
+        static void Near(Point3D a, Point3D b) => Assert.True((a - b).Length < 1e-12, $"{a} ≠ {b}");
+        Near(layer.NodeMap["1"], pts[1]);
+        Near(layer.NodeMap["1"] - new Vector3D(0, 0, size), pts[0]);
+        // Пружина узла 3: сила −x, в 15 раз меньше.
+        Near(layer.NodeMap["3"], pts[7]);
+        Near(layer.NodeMap["3"] + new Vector3D(size * 2 / 30, 0, 0), pts[6]);
+        layer.ReactionScale = 2;
+        Assert.Equal(2, changed);
+        Near(layer.NodeMap["1"] - new Vector3D(0, 0, 2 * size), layer.ReactionArrows(layer.NodeMap)![0]);
+        // Только показанные узлы.
+        Assert.Equal(6, layer.ReactionArrows(layer.NodeMap, n => n == 3)!.Count);
+    }
+
+    [Fact]
+    public void Csfea_OldRecordWithoutReactions_ShowsNote()
+    {
+        using var t = new TempDb();
+        var layer = ReactionLayer(t, FieldsWithForces());
+        Assert.False(layer.HasReactions);
+        Assert.True(layer.Csfea!.ShowNoReactionsNote);
+        Assert.Empty(layer.Csfea.ReactionRows);
+        Assert.Equal("", layer.ReactionSummaryText);
+        layer.ShowReactions = true;
+        Assert.Null(layer.ReactionArrows(layer.NodeMap));
+    }
 }
