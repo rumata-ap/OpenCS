@@ -52,6 +52,13 @@ namespace OpenCS.OpenSees.CScore.Fragments
         /// <summary>Концевые действия, взятые из shell-прогона в роли родителя, иначе null.</summary>
         public KnownEndActions? EndActions { get; set; }
 
+        /// <summary>Полная эпюра [N, My, Mz, T, Vy, Vz] формулировки Тимошенко (Срез 8b);
+        /// пусто для Эйлера–Бернулли.</summary>
+        public IReadOnlyList<double[]> BeamFullResultants { get; set; } = [];
+
+        /// <summary>Наибольший угол закручивания узлов балки θx, рад (Тимошенко).</summary>
+        public double BeamMaxTwistRad { get; set; }
+
         /// <summary>Заданные перемещения узлов балки из кинематических интерфейсов.</summary>
         public IReadOnlyList<StripPrescribedDisplacement> Prescribed { get; set; } = [];
     }

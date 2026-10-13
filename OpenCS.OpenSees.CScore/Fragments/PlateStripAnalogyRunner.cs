@@ -50,6 +50,13 @@ namespace OpenCS.OpenSees.CScore.Fragments
         public double NodeOnFootprintToleranceM { get; init; } = 1e-6;
         /// <summary>Граничные интерфейсы полосы: краевые силы и кинематические ГУ.</summary>
         public IReadOnlyList<StripBoundaryInterface> Interfaces { get; init; } = [];
+
+        /// <summary>Формулировка производной балки (Срез 8b). По умолчанию Эйлер–Бернулли;
+        /// <see cref="StripBeamFormulation.Timoshenko"/> включает кручение и поперечный сдвиг.</summary>
+        public StripBeamFormulation Formulation { get; init; } = StripBeamFormulation.EulerBernoulli;
+
+        /// <summary>Закрепление кручения (только для формулировки Тимошенко).</summary>
+        public StripTorsionRestraint TorsionRestraint { get; init; } = StripTorsionRestraint.BothEnds;
     }
 
     /// <summary>
@@ -126,7 +133,8 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return Fail(result, domainDiagnostics);
 
             var kinematic = StripKinematicMapper.MapAll(
-                request.Region.Frame, request.Analogy, request.Interfaces, request.StationFractions);
+                request.Region.Frame, request.Analogy, request.Interfaces, request.StationFractions,
+                request.Formulation == StripBeamFormulation.Timoshenko);
             domainDiagnostics.AddRange(kinematic.Diagnostics);
             if (!kinematic.IsCalculable)
                 return Fail(result, domainDiagnostics);
@@ -298,7 +306,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
             }
 
             var scheme = derivation?.Scheme ?? request.SupportScheme;
-            var beam = RunBeam(request, scheme, stripLoads, endActions, kinematic.Values, domainDiagnostics);
+            var beam = RunBeam(request, scheme, stripLoads, endActions, kinematic.Values, domainDiagnostics, result);
             // Диагностики самого решателя обязаны дойти до результата: без них «не сошлось»
             // возвращалось бы без единого объяснения.
             if (beam is not null) domainDiagnostics.AddRange(beam.Diagnostics);
@@ -332,8 +340,11 @@ namespace OpenCS.OpenSees.CScore.Fragments
             var stripLoads = new List<StripLoad>();
             foreach (var load in request.Loads)
             {
+                // Тимошенко несёт кручение: эксцентричная нагрузка даёт крутящий момент, а не отказ.
+                double torqueTolerance = request.Formulation == StripBeamFormulation.Timoshenko
+                    ? double.PositiveInfinity : 1e-6;
                 var mapped = StripLoadMapper.Map(
-                    request.Region.Frame, request.Analogy, load, 1e-6, request.Interfaces);
+                    request.Region.Frame, request.Analogy, load, torqueTolerance, request.Interfaces);
                 diagnostics.AddRange(mapped.Diagnostics);
                 if (mapped.IsCalculable && mapped.Load is not null)
                     stripLoads.Add(mapped.Load);
@@ -344,7 +355,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
         static StripBeamNonlinearSolveResult? RunBeam(
             PlateStripAnalogyRequest request, StripBeamSupportScheme scheme, List<StripLoad> stripLoads,
             KnownEndActions? endActions, IReadOnlyList<StripPrescribedDisplacement> prescribed,
-            List<FemValidationDiagnostic> diagnostics)
+            List<FemValidationDiagnostic> diagnostics, PlateStripAnalogyResult result)
         {
             if (request.WidthSources.Count == 0)
             {
@@ -365,10 +376,51 @@ namespace OpenCS.OpenSees.CScore.Fragments
             var grid = StripSectionSourceGrid.Uniform(
                 request.WidthSources, request.StationFractions.Count - 1);
 
+            if (request.Formulation == StripBeamFormulation.Timoshenko)
+            {
+                var law = new NonlinearStripTimoshenkoSectionLaw(grid, request.Analogy.ExplicitWidthM);
+                var full = StripBeamTimoshenkoModel.Solve(
+                    law, request.Analogy.Geometry.LengthM, request.StationFractions, scheme,
+                    new StripLoadSet(stripLoads), endActions, request.NewtonOptions, prescribed,
+                    request.TorsionRestraint);
+                result.BeamFullResultants = full.StationResultants;
+                result.BeamMaxTwistRad = MaxTwist(full.Displacements);
+                return ToCompatible(full);
+            }
+
             return StripBeamNonlinearModel.Solve(
                 grid, request.Analogy.ExplicitWidthM, request.Analogy.Geometry.LengthM,
                 request.StationFractions, scheme, new StripLoadSet(stripLoads),
                 endActions, request.NewtonOptions, prescribed);
+        }
+
+        /// <summary>Свести результат 6-DOF к контракту сверки: перемещения u, v, w, θy, θz
+        /// (без θx), усилия — первые три компоненты [N, My, Mz].</summary>
+        static StripBeamNonlinearSolveResult ToCompatible(StripBeamTimoshenkoSolveResult full)
+        {
+            int nodes = full.Displacements.Length / StripBeamElementTimoshenko.DofPerNode;
+            var u = new double[nodes * StripBeamElement.DofPerNode];
+            for (int n = 0; n < nodes; n++)
+            {
+                int s = n * StripBeamElementTimoshenko.DofPerNode, t = n * StripBeamElement.DofPerNode;
+                u[t] = full.Displacements[s + StripBeamElementTimoshenko.U];
+                u[t + 1] = full.Displacements[s + StripBeamElementTimoshenko.V];
+                u[t + 2] = full.Displacements[s + StripBeamElementTimoshenko.W];
+                u[t + 3] = full.Displacements[s + StripBeamElementTimoshenko.ThetaY];
+                u[t + 4] = full.Displacements[s + StripBeamElementTimoshenko.ThetaZ];
+            }
+            var stations = full.StationResultants.Select(r => new[] { r[0], r[1], r[2] }).ToArray();
+            return new(full.IsCalculable, full.Diagnostics, u, stations, full.TotalIterations,
+                full.AchievedLoadFactor);
+        }
+
+        static double MaxTwist(double[] displacements)
+        {
+            double max = 0.0;
+            for (int dof = StripBeamElementTimoshenko.ThetaX; dof < displacements.Length;
+                 dof += StripBeamElementTimoshenko.DofPerNode)
+                max = Math.Max(max, Math.Abs(displacements[dof]));
+            return max;
         }
 
         /// <summary>Региональные constraints плюс встроенные следы кандидатов и кинематических
