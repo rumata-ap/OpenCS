@@ -33,6 +33,12 @@ public sealed record FemCsfeaSetup
     public bool GrossBars { get; init; }
 
     /// <summary>
+    /// Понижающие коэффициенты жёсткости импорта из ЛИРЫ к упругой жёсткости бетона — там же, где бетон брутто
+    /// (<see cref="GrossBars"/>: линейный расчёт и секущий без физической нелинейности).
+    /// </summary>
+    public bool ReducedStiffness { get; init; }
+
+    /// <summary>
     /// Настройки по постановке: вид расчёта, стадии (<see cref="FemAnalysisParams.ResolveStages"/>), источник армирования
     /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию).
     /// </summary>
@@ -40,11 +46,12 @@ public sealed record FemCsfeaSetup
     {
         var p = FemAnalysisParams.Parse(analysis.ParamsJson);
         var c = p.Csfea ?? new FemCsfeaParams();
+        bool elastic = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity;
         return new FemCsfeaSetup
         {
             Calc = p.CalcType ?? CalcType.N, Stages = p.ResolveStages(analysis),
             PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
-            GrossBars = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity,
+            GrossBars = elastic, ReducedStiffness = elastic && c.ImportedStiffnessFactors,
         };
     }
 
@@ -93,7 +100,7 @@ public static class FemCsfeaInputBuilder
 
         var groups = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId)?.MemberGroups.ToList() ?? [];
         var loadCases = db.GetFemLoadCases(schemaId);
-        var properties = FemSelfWeightSourceFactory.Create(db, schemaId, out var notes, setup.GrossBars);
+        var properties = FemSelfWeightSourceFactory.Create(db, schemaId, out var notes, setup.GrossBars, setup.ReducedStiffness);
         foreach (var note in notes) diag.Add(new("properties_default", note, false));
 
         var materials = new Dictionary<int, Material>();

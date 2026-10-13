@@ -2781,6 +2781,8 @@
     <system:String x:Key="FemCsfeaPsiTip">Коэффициент ψs неравномерности деформаций растянутой арматуры между трещинами (п. 8.2.32 СП 63).</system:String>
     <system:String x:Key="FemCsfeaBeamShearLabel">Сдвиг стержней по хомутам</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Сдвиговые деформации стержней (КЭ Тимошенко): секущая жёсткость GAv по хомутам сечения.</system:String>
+    <system:String x:Key="FemCsfeaImportedFactorsLabel">Понижающие коэффициенты жёсткости импорта</system:String>
+    <system:String x:Key="FemCsfeaImportedFactorsTip">Коэффициенты к начальной упругой жёсткости бетона, заданные в импортированной схеме ЛИРЫ: PLKE и WLKE пластин, EIy/EIz бруса. Действуют в линейном расчёте и в секущем без физической нелинейности; в схемах SCAD коэффициентов нет.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Геометрическая нелинейность</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearTip">Расчёт по деформированной схеме (теория второго порядка): к секущей жёсткости добавляется матрица начальных напряжений по усилиям предыдущей итерации — P-Δ стержней, стен и пластин. Потеря положительной определённости матрицы — потеря устойчивости. Большие перемещения — отдельной галкой.</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Учитывать прогиб в плоскости стен и пластин</system:String>

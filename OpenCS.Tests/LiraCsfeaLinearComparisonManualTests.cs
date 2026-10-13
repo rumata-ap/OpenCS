@@ -131,9 +131,9 @@ public class LiraCsfeaLinearComparisonManualTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- пересчёт CSfea с коэффициентами ЛИРЫ
 
     /// <summary>
-    /// Линейный CSfea той же постановки по БД, но с понижающими коэффициентами жёсткости ЛИРЫ: у пластин изгиб × PLKE
-    /// (мембрана без изменений: E′ = E/√k, h′ = h·√k — точно для изотропной упругой оболочки), у бруса — численные
-    /// EIy/EIz ЛИРЫ вместо E·b·h³/12.
+    /// Линейный CSfea той же постановки по БД заново: штатная сборка входа применяет понижающие коэффициенты ЛИРЫ
+    /// (<see cref="FemCsfeaSetup.ReducedStiffness"/> — у линейного расчёта по умолчанию): у пластин PLKE и WLKE, у бруса —
+    /// численные EIy/EIz вместо E·b·h³/12.
     /// </summary>
     Dictionary<string, RcSecantStepFields> RerunWithLiraFactors(string db)
     {
@@ -141,54 +141,15 @@ public class LiraCsfeaLinearComparisonManualTests(ITestOutputHelper output)
         dbs.LoadAll();
         var schema = dbs.FemSchemas.First();
         var analysis = dbs.GetFemAnalyses(schema.Id).First(a => a.Kind == FemCsfeaRunner.LinearAnalysisKind);
-        var input = FemCsfeaInputBuilder.Build(dbs, schema.Id, FemCsfeaSetup.FromAnalysis(analysis));
-        var stiff = dbs.GetFemSchemaStiffnesses(schema.Id);
-        var props = new LiraFactorsSource(input.Properties!, stiff);
-        typeof(FemRcModelInput).GetField("<Properties>k__BackingField",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(input, props);
+        var setup = FemCsfeaSetup.FromAnalysis(analysis);
+        Assert.True(setup.ReducedStiffness, "у линейного расчёта коэффициенты ЛИРЫ должны быть включены по умолчанию");
+        var input = FemCsfeaInputBuilder.Build(dbs, schema.Id, setup);
+        foreach (var d in input.Diagnostics.Where(d => d.Message.StartsWith("Понижающие", StringComparison.Ordinal)))
+            output.WriteLine("  " + d.Message);
         var adapted = FemRcModelAdapter.Adapt(input);
         foreach (var d in adapted.Diagnostics.Take(8)) output.WriteLine("  адаптер: " + d.Message);
-        output.WriteLine($"  пластин с коэффициентом: {string.Join(", ", props.ShellFactors.GroupBy(x => x).Select(g => $"{g.Key}×{g.Count()}"))}; " +
-            $"стержней с численными EIy/EIz: {props.BarsScaled}");
         var run = RcLinearAnalysis.Run(adapted.Model, new RcLinearOptions { ShellForceAngles = adapted.ShellForceAngles });
         return run.Cases.ToDictionary(c => c.Name, c => c.Fields);
-    }
-
-    sealed class LiraFactorsSource(IFemElementStiffnessSource inner, IReadOnlyDictionary<int, LiraStiffnessRecord> stiff)
-        : IFemElementStiffnessSource
-    {
-        public List<double> ShellFactors { get; } = new();
-        public int BarsScaled { get; private set; }
-
-        LiraStiffnessRecord? Record(FemElement e) => e.StiffnessNum is int n && stiff.TryGetValue(n, out var s) ? s : null;
-
-        public FemShellStiffness? Shell(FemElement e)
-        {
-            var b = inner.Shell(e);
-            if (b == null || Record(e) is not { } s || LiraStiffnessParams.Value(s.Params, "PLKE") is not { } k || !(k > 0) || k == 1)
-                return b;
-            lock (ShellFactors) ShellFactors.Add(k);
-            double r = Math.Sqrt(k);
-            return new FemShellStiffness(b.E / r, b.Nu, b.H * r);
-        }
-
-        public FemBarStiffness? Bar(FemElement e)
-        {
-            var b = inner.Bar(e);
-            if (b == null || Record(e) is not { } s || LiraStiffnessParams.BarRect(s) is null) return b;
-            double? E = LiraStiffnessParams.Value(s.Params, "E"), eiy = LiraStiffnessParams.Value(s.Params, "EIy"),
-                eiz = LiraStiffnessParams.Value(s.Params, "EIz"), bb = LiraStiffnessParams.Value(s.Params, "B"),
-                hh = LiraStiffnessParams.Value(s.Params, "H");
-            if (E is not > 0 || eiy is not > 0 || eiz is not > 0 || bb is not > 0 || hh is not > 0) return b;
-            double u = s.SectionUnitM, bm = bb.Value * u, hm = hh.Value * u;
-            double ky = eiy.Value / (E.Value * bm * hm * hm * hm / 12), kz = eiz.Value / (E.Value * hm * bm * bm * bm / 12);
-            BarsScaled++;
-            return b with { Iy = b.Iy * ky, Iz = b.Iz * kz };
-        }
-
-        public double? UnitWeight(FemElement e) => inner.UnitWeight(e);
-        public double? BarArea(FemElement e) => inner.BarArea(e);
-        public bool IsWithoutStiffness(FemElement e) => inner.IsWithoutStiffness(e);
     }
 
     // ---------------------------------------------------------------- суммы

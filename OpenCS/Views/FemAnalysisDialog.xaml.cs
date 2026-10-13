@@ -243,6 +243,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaPhysicalNonlinearityCb.IsChecked = c.PhysicalNonlinearity;
         CsfeaPsiCb.IsChecked = c.Psi;
         CsfeaBeamShearCb.IsChecked = c.BeamShear;
+        CsfeaImportedFactorsCb.IsChecked = c.ImportedStiffnessFactors;
         CsfeaGeomNonlinearCb.IsChecked = c.GeomNonlinear;
         CsfeaShellInPlanePDeltaCb.IsChecked = c.ShellInPlanePDelta;
         CsfeaLargeDisplacementsCb.IsChecked = c.GeomLargeDisplacements;
@@ -305,6 +306,7 @@ public partial class FemAnalysisDialog : Window
             PlateCrackRule = Enum.TryParse<CSfea.CScoreBridge.Structural.PlateCrackRule>(
                 (CsfeaPlateCrackRuleBox.SelectedItem as ComboOption)?.Value, out var rule) ? rule : default,
             BeamShear = CsfeaBeamShearCb.IsChecked == true,
+            ImportedStiffnessFactors = CsfeaImportedFactorsCb.IsChecked == true,
             PoissonUncracked = poisson,
             PhysicalNonlinearity = CsfeaPhysicalNonlinearityCb.IsChecked == true,
             GeomNonlinear = CsfeaGeomNonlinearCb.IsChecked == true,
@@ -320,6 +322,19 @@ public partial class FemAnalysisDialog : Window
     }
 
     void CsfeaRecording_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaRecordingState();
+
+    void CsfeaPhysicalNonlinearity_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaImportedFactorsState();
+
+    /// <summary>
+    /// Коэффициенты жёсткости импорта действуют в линейном расчёте и в секущем без физической нелинейности — иначе
+    /// флажок недоступен.
+    /// </summary>
+    void UpdateCsfeaImportedFactorsState()
+    {
+        if (CsfeaImportedFactorsCb == null || CsfeaPhysicalNonlinearityCb == null) return;
+        CsfeaImportedFactorsCb.IsEnabled = SelectedKind == FemCsfeaRunner.LinearAnalysisKind
+            || CsfeaPhysicalNonlinearityCb.IsChecked != true;
+    }
 
     void UpdateCsfeaRecordingState()
     {
@@ -469,6 +484,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaCrackRuleRow.Height = secantRow;
         CsfeaPoissonRow.Height = secantRow;
         CsfeaFlagsPanel.Visibility = secantOnly;
+        UpdateCsfeaImportedFactorsState();
         CsfeaIterationsGroup.Visibility = secantOnly;
         CsfeaRecordingGroup.Visibility = secantOnly;
         if (csfea)

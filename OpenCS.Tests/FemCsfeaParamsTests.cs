@@ -138,6 +138,32 @@ public sealed class FemCsfeaParamsTests
     }
 
     [Theory]
+    [InlineData(FemCsfeaRunner.LinearAnalysisKind, true, true, true)]     // линейный — по умолчанию включено
+    [InlineData(FemCsfeaRunner.LinearAnalysisKind, true, false, false)]   // выключено в постановке
+    [InlineData("csfea_secant", true, true, false)]                       // физическая нелинейность — без коэффициентов
+    [InlineData("csfea_secant", false, true, true)]                       // только геомнелин — с коэффициентами
+    [InlineData("csfea_secant", false, false, false)]
+    public void FromAnalysis_ImportedStiffnessFactors_OnlyWhereSectionsAreElastic(
+        string kind, bool physical, bool factors, bool expected)
+    {
+        var pars = new FemAnalysisParams
+        {
+            Csfea = new FemCsfeaParams { PhysicalNonlinearity = physical, ImportedStiffnessFactors = factors },
+        };
+        var setup = FemCsfeaSetup.FromAnalysis(new FemAnalysis { Kind = kind, Tag = "А", ParamsJson = pars.ToJson() });
+
+        Assert.Equal(expected, setup.ReducedStiffness);
+    }
+
+    [Fact]
+    public void ImportedStiffnessFactors_DefaultOn_AndKeptInJson()
+    {
+        Assert.True(new FemCsfeaParams().ImportedStiffnessFactors);
+        var json = new FemAnalysisParams { Csfea = new FemCsfeaParams { ImportedStiffnessFactors = false } }.ToJson();
+        Assert.False(FemAnalysisParams.Parse(json).Csfea!.ImportedStiffnessFactors);
+    }
+
+    [Theory]
     [InlineData("", new int[0])]
     [InlineData("5,10,15", new[] { 5, 10, 15 })]
     [InlineData(" 15; 5 10,5 ", new[] { 5, 10, 15 })]

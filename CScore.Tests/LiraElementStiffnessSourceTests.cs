@@ -58,6 +58,62 @@ public sealed class LiraElementStiffnessSourceTests
         Assert.Equal(0.15, Source.BarArea(E(3))!.Value, 12);
     }
 
+    static readonly LiraElementStiffnessSource Reduced = new(new Dictionary<int, LiraStiffnessRecord>
+    {
+        [1] = new(1, 36, "Железобетон стен", Wall, Cm),
+        [3] = new(3, 0, "Железобетон колонн", Column, Cm),
+        [4] = new(4, 36, "Мембрана и изгиб", Wall.Replace("WLKE:1", "WLKE:0.8").Replace("PLKE:0.6", "PLKE:0.2"), Cm),
+        [5] = new(5, 36, "Без коэффициентов", Wall.Replace("PLKE:0.6", "PLKE:1"), Cm),
+    }, LiraUnits.Default(9.80665), reducedStiffness: true);
+
+    [Fact]
+    public void Reduced_Plate_BendingFactorPlke_MembraneUnchanged()
+    {
+        var plain = Source.Shell(E(1, "shell"))!;
+        var s = Reduced.Shell(E(1, "shell"))!;
+        // мембрана E·h прежняя, изгиб E·h³ × 0,6
+        Assert.Equal(plain.E * plain.H, s.E * s.H, 3);
+        Assert.Equal(0.6, s.E * Math.Pow(s.H, 3) / (plain.E * Math.Pow(plain.H, 3)), 9);
+        Assert.Equal(plain.Nu, s.Nu, 12);
+        Assert.Equal(2.5 * T, Reduced.UnitWeight(E(1, "shell"))!.Value, 6); // вес — по толщине КЭ, не по h′
+    }
+
+    [Fact]
+    public void Reduced_Plate_MembraneFactorWlke_AndBending()
+    {
+        var plain = Source.Shell(E(1, "shell"))!;
+        var s = Reduced.Shell(E(4, "shell"))!;
+        Assert.Equal(0.8, s.E * s.H / (plain.E * plain.H), 9);
+        Assert.Equal(0.2, s.E * Math.Pow(s.H, 3) / (plain.E * Math.Pow(plain.H, 3)), 9);
+        // коэффициент 1 — как без понижения
+        Assert.Equal(plain.E, Reduced.Shell(E(5, "shell"))!.E, 3);
+        Assert.Equal(plain.H, Reduced.Shell(E(5, "shell"))!.H, 12);
+    }
+
+    [Fact]
+    public void Reduced_BarRect_NumericEiToEiFactor_AreaAndModulusKept()
+    {
+        var plain = Source.Bar(E(3))!;
+        var bar = Reduced.Bar(E(3))!;
+        Assert.Equal(plain.E, bar.E, 3);
+        Assert.Equal(plain.A, bar.A, 12);
+        // EIy ЛИРЫ = 8262 т·м² — точно, как у E·Iy сечения 25×60 с коэффициентом 0,6
+        Assert.Equal(8262 * T, bar.E * bar.Iy, 0);
+        Assert.Equal(1434.37 * T, bar.E * bar.Iz, 0);
+        Assert.InRange(bar.Iy / plain.Iy, 0.599, 0.601);
+        Assert.Equal(plain.J, bar.J, 12);
+    }
+
+    [Fact]
+    public void Reduced_Summary_ListsOnlyFactorsNotEqualToOne()
+    {
+        var lines = Reduced.ReductionSummary();
+        Assert.Equal(3, lines.Count); // стена 1, пластина 4, колонна 3 (5 — коэффициенты 1)
+        Assert.Contains(lines, l => l.StartsWith("№ 1 «Железобетон стен»") && l.Contains("0,6"));
+        Assert.Contains(lines, l => l.Contains("брус"));
+        Assert.Empty(Source.ReductionSummary()); // без понижения сводки нет
+    }
+
     [Fact]
     public void BarAnalog_WithoutStiffness_HasNoProperties()
     {

@@ -2781,6 +2781,8 @@
     <system:String x:Key="FemCsfeaPsiTip">Coefficient ψs of non-uniform strain of tensile reinforcement between cracks (SP 63 cl. 8.2.32).</system:String>
     <system:String x:Key="FemCsfeaBeamShearLabel">Bar shear from stirrups</system:String>
     <system:String x:Key="FemCsfeaBeamShearTip">Shear deformations of bars (Timoshenko elements): secant GAv from the section stirrups.</system:String>
+    <system:String x:Key="FemCsfeaImportedFactorsLabel">Imported stiffness reduction factors</system:String>
+    <system:String x:Key="FemCsfeaImportedFactorsTip">Factors to the initial elastic concrete stiffness set in the imported LIRA model: plate PLKE and WLKE, bar EIy/EIz. Used in the linear analysis and in the secant one without physical nonlinearity; SCAD models carry no such factors.</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearLabel">Geometric nonlinearity</system:String>
     <system:String x:Key="FemCsfeaGeomNonlinearTip">Second-order analysis (deformed configuration): the initial stress matrix from the forces of the previous iteration is added to the secant stiffness — P-Δ of bars, walls and plates. A matrix that is no longer positive definite means loss of stability. Large displacements — separate option.</system:String>
     <system:String x:Key="FemCsfeaShellInPlanePDeltaLabel">Account for in-plane deflection of walls and plates</system:String>

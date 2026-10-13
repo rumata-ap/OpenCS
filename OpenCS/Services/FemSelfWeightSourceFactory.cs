@@ -18,14 +18,25 @@ public static class FemSelfWeightSourceFactory
     /// </summary>
     /// <param name="notes">Допущения источника для отчёта (единицы и удельный вес по умолчанию).</param>
     /// <param name="grossBars">Стержни с сечениями проекта — без арматуры (<see cref="ProjectElementStiffnessSource"/>).</param>
+    /// <param name="reducedStiffness">
+    /// Понижающие коэффициенты жёсткости ЛИРЫ к упругой жёсткости бетона (PLKE, WLKE, EIy/EIz бруса) — только линейный
+    /// расчёт и секущий без физической нелинейности; применённые коэффициенты — в <paramref name="notes"/>. У SCAD в
+    /// строках жёсткостей коэффициентов нет — на них не влияет.
+    /// </param>
     public static IFemElementStiffnessSource? Create(DatabaseService db, int schemaId, out IReadOnlyList<string> notes,
-        bool grossBars = false)
+        bool grossBars = false, bool reducedStiffness = false)
     {
         var list = new List<string>();
         notes = list;
         var sources = new List<IFemElementStiffnessSource>();
         if (ScadSource(db, schemaId) is { } scad) sources.Add(scad);
-        else if (LiraSource(db, schemaId, list) is { } lira) sources.Add(lira);
+        else if (LiraSource(db, schemaId, list, reducedStiffness) is { } lira)
+        {
+            sources.Add(lira);
+            var applied = lira.ReductionSummary();
+            if (applied.Count > 0)
+                list.Add("Понижающие коэффициенты жёсткости ЛИРЫ учтены (E′, h′ пластин; I бруса): " + string.Join("; ", applied) + ".");
+        }
 
         var members = db.GetFemMembers(schemaId);
         if (members.Count > 0 || sources.Count == 0)
@@ -51,7 +62,7 @@ public static class FemSelfWeightSourceFactory
         catch (System.IO.InvalidDataException) { return null; }
     }
 
-    static LiraElementStiffnessSource? LiraSource(DatabaseService db, int schemaId, List<string> notes)
+    static LiraElementStiffnessSource? LiraSource(DatabaseService db, int schemaId, List<string> notes, bool reducedStiffness)
     {
         if (db.FemSchemas.FirstOrDefault(s => s.Id == schemaId)?.SourceType != "lira") return null;
         var stiffnesses = db.GetFemSchemaStiffnesses(schemaId);
@@ -65,7 +76,8 @@ public static class FemSelfWeightSourceFactory
             units = LiraUnits.Default((db.LoadLiraImportSettings() ?? LiraImportSettings.Default).TonToKnFactor);
             notes.Add("Единицы жёсткостей ЛИРЫ не сохранены при схеме — приняты т и м (обновите жёсткости из ЛИРЫ).");
         }
-        return new LiraElementStiffnessSource(stiffnesses, units, SteelIndex(db, schemaId, FemSchemaSourceFileKind.LiraSteelProfiles));
+        return new LiraElementStiffnessSource(stiffnesses, units, SteelIndex(db, schemaId, FemSchemaSourceFileKind.LiraSteelProfiles),
+            reducedStiffness);
     }
 
     static SteelProfileIndex? SteelIndex(DatabaseService db, int schemaId, string kind)

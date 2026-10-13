@@ -237,9 +237,12 @@
                 <TextBox Grid.Row="4" Grid.Column="1" x:Name="CsfeaPoissonBox" Height="22" VerticalContentAlignment="Center"
                          ToolTip="{DynamicResource FemCsfeaPoissonUncrackedTip}"/>
             </Grid>
+            <CheckBox x:Name="CsfeaImportedFactorsCb" Content="{DynamicResource FemCsfeaImportedFactorsLabel}"
+                      ToolTip="{DynamicResource FemCsfeaImportedFactorsTip}" Margin="0,6,0,0"/>
             <WrapPanel x:Name="CsfeaFlagsPanel" Margin="0,6,0,2">
                 <CheckBox x:Name="CsfeaPhysicalNonlinearityCb" Content="{DynamicResource FemCsfeaPhysicalNonlinearityLabel}"
-                          ToolTip="{DynamicResource FemCsfeaPhysicalNonlinearityTip}" Margin="0,0,16,4"/>
+                          ToolTip="{DynamicResource FemCsfeaPhysicalNonlinearityTip}" Margin="0,0,16,4"
+                          Checked="CsfeaPhysicalNonlinearity_Changed" Unchecked="CsfeaPhysicalNonlinearity_Changed"/>
                 <CheckBox x:Name="CsfeaPsiCb" Content="{DynamicResource FemCsfeaPsiLabel}"
                           ToolTip="{DynamicResource FemCsfeaPsiTip}" Margin="0,0,16,4"/>
                 <CheckBox x:Name="CsfeaBeamShearCb" Content="{DynamicResource FemCsfeaBeamShearLabel}"

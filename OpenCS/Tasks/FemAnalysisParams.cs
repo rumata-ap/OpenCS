@@ -170,6 +170,11 @@ public sealed class FemCsfeaParams
     public CSfea.CScoreBridge.Structural.PlateCrackRule PlateCrackRule { get; set; } = CSfea.CScoreBridge.Structural.PlateCrackRule.Layer;
     /// <summary>Сдвиговые деформации стержней по хомутам (КЭ Тимошенко).</summary>
     public bool BeamShear { get; set; } = true;
+    /// <summary>
+    /// Понижающие коэффициенты жёсткости импорта из ЛИРЫ (PLKE, WLKE, EIy/EIz бруса) к начальной упругой жёсткости
+    /// бетона. Действуют только в линейном расчёте и в секущем без физической нелинейности (только геомнелин).
+    /// </summary>
+    public bool ImportedStiffnessFactors { get; set; } = true;
     /// <summary>ν бетона до трещины; null — как в сечении.</summary>
     public double? PoissonUncracked { get; set; }
     /// <summary>
