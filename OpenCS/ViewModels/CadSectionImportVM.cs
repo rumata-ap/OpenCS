@@ -60,9 +60,44 @@ public sealed class CadLayerRowVM : ViewModelBase
          _role = value;
          OnPropertyChanged();
          RefreshMaterials();
+         OnPropertyChanged(nameof(IsStirrups));
          _owner.Recognize();
       }
    }
+
+   /// <summary>Роль «Хомуты»: показываются диаметр и шаг слоя по умолчанию.</summary>
+   public bool IsStirrups => _role.Role == CadLayerRole.Stirrups;
+
+   /// <summary>Диаметр хомутов слоя по умолчанию, мм — для тонких линий без подписи.</summary>
+   public double? DiameterMm { get; private set; }
+
+   /// <summary>Шаг хомутов слоя по умолчанию, мм — для элементов без подписи шага.</summary>
+   public double? SpacingMm { get; private set; }
+
+   public string DiameterText
+   {
+      get => Format(DiameterMm);
+      set { var v = Parse(value); bool changed = v != DiameterMm; DiameterMm = v; OnPropertyChanged(); if (changed) _owner.Recognize(); }
+   }
+
+   public string SpacingText
+   {
+      get => Format(SpacingMm);
+      set { var v = Parse(value); bool changed = v != SpacingMm; SpacingMm = v; OnPropertyChanged(); if (changed) _owner.Recognize(); }
+   }
+
+   /// <summary>Значения по умолчанию без повторного распознавания (при построении таблицы).</summary>
+   public void SetStirrupDefaults(double? diameterMm, double? spacingMm)
+   {
+      DiameterMm = diameterMm;
+      SpacingMm = spacingMm;
+   }
+
+   static string Format(double? v) => v is { } d ? d.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture) : "";
+
+   static double? Parse(string? s) =>
+      double.TryParse(s?.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Float,
+         System.Globalization.CultureInfo.InvariantCulture, out double v) && v > 0 && double.IsFinite(v) ? v : null;
 
    public bool NeedsMaterial => _role.Role is CadLayerRole.Concrete or CadLayerRole.Steel or CadLayerRole.Rebar or CadLayerRole.Stirrups;
 
@@ -116,9 +151,17 @@ public sealed class CadSectionCardVM(CadSectionCandidate candidate) : ViewModelB
             .Select(g => $"{g.Count()}Ø{g.Key:0.#}");
          // Две строки: площадь и армирование — чтобы «см²» не отрывался переносом.
          string bars = Candidate.Bars.Count > 0 ? $"\n{string.Join(" + ", diam)}, As = {asum:0.##} см²" : "";
-         return $"A = {a:0.#} см²{bars}";
+         return $"A = {a:0.#} см²{bars}{StirrupsText(Candidate.Stirrups)}";
       }
    }
+
+   /// <summary>«хомуты Ø8 шаг 150 ×2» и «шпильки Ø6 шаг 300» — по строке на сочетание диаметра и шага.</summary>
+   public static string StirrupsText(IEnumerable<CadSectionStirrup> stirrups) => string.Concat(stirrups
+      .GroupBy(s => (s.Closed, D: Math.Round(s.DiameterM * 1000, 1), S: s.SpacingM is { } sp ? Math.Round(sp * 1000) : (double?)null))
+      .OrderByDescending(g => g.Key.Closed).ThenByDescending(g => g.Key.D)
+      .Select(g => $"\n{Loc.S(g.Key.Closed ? "CadImpStirrups" : "CadImpTies")} Ø{g.Key.D:0.#}"
+                   + (g.Key.S is { } s ? $" {Loc.S("CadImpSpacing")} {s:0}" : $" {Loc.S("CadImpNoSpacing")}")
+                   + (g.Count() > 1 ? $" ×{g.Count()}" : "")));
 
    public string WarningsText => string.Join("\n", Candidate.Warnings);
    public bool HasWarnings => Candidate.Warnings.Count > 0;
@@ -254,7 +297,12 @@ public sealed class CadSectionImportVM : ViewModelBase
          ArcChordM = s.ArcChordLength / 1000,
          ArcSegments = s.ArcSegments,
       };
-      foreach (var row in Layers) o.Roles[row.Name] = row.Role.Role;
+      foreach (var row in Layers)
+      {
+         o.Roles[row.Name] = row.Role.Role;
+         if (row.IsStirrups && (row.DiameterMm != null || row.SpacingMm != null))
+            o.StirrupDefaults[row.Name] = new CadStirrupDefaults(row.DiameterMm, row.SpacingMm);
+      }
       return o;
    }
 
@@ -368,6 +416,7 @@ public sealed class CadSectionImportVM : ViewModelBase
    {
       var s = _mvm.AcadImportSettings;
       var prev = Layers.ToDictionary(l => l.Name, l => (l.Role.Role, l.Material?.Existing?.Id), StringComparer.OrdinalIgnoreCase);
+      var prevStirrups = Layers.ToDictionary(l => l.Name, l => (l.DiameterMm, l.SpacingMm), StringComparer.OrdinalIgnoreCase);
       Layers.Clear();
       foreach (var info in _snapshot!.Layers())
       {
@@ -379,6 +428,8 @@ public sealed class CadSectionImportVM : ViewModelBase
          matId ??= Lookup(s.SectionLayerMaterials, info.Name);
          var row = new CadLayerRowVM(this, info, role);
          row.RefreshMaterials(matId);
+         if (prevStirrups.TryGetValue(info.Name, out var sd)) row.SetStirrupDefaults(sd.DiameterMm, sd.SpacingMm);
+         else row.SetStirrupDefaults(Lookup(s.SectionStirrupDiameters, info.Name), Lookup(s.SectionStirrupSpacings, info.Name));
          Layers.Add(row);
       }
    }
@@ -534,6 +585,16 @@ public sealed class CadSectionImportVM : ViewModelBase
       {
          s.SectionLayerRoles[row.Name] = row.Role.Role;
          if (row.Material?.Existing is { } m) s.SectionLayerMaterials[row.Name] = m.Id;
+         if (!row.IsStirrups) continue;
+         Remember(s.SectionStirrupDiameters, row.Name, row.DiameterMm);
+         Remember(s.SectionStirrupSpacings, row.Name, row.SpacingMm);
+      }
+
+      static void Remember(Dictionary<string, double> map, string layer, double? value)
+      {
+         foreach (var key in map.Keys.Where(k => string.Equals(k, layer, StringComparison.OrdinalIgnoreCase)).ToList())
+            map.Remove(key);
+         if (value is { } v) map[layer] = v;
       }
       _mvm.db.SaveAcadImportSettings(s);
    }

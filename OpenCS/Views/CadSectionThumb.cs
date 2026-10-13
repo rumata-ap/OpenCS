@@ -4,7 +4,7 @@ using CScore.Import.Cad;
 
 namespace OpenCS.Views;
 
-/// <summary>Миниатюра распознанного сечения: бетон и сталь с отверстиями, стержни; ц. т. — крестик.</summary>
+/// <summary>Миниатюра распознанного сечения: бетон и сталь с отверстиями, хомуты и шпильки, стержни; ц. т. — крестик.</summary>
 public sealed class CadSectionThumb : FrameworkElement
 {
    public static readonly DependencyProperty CandidateProperty = DependencyProperty.Register(
@@ -20,6 +20,7 @@ public sealed class CadSectionThumb : FrameworkElement
    static readonly Brush ConcreteFill = Freeze(new SolidColorBrush(Color.FromRgb(0xD9, 0xD9, 0xD9)));
    static readonly Brush SteelFill = Freeze(new SolidColorBrush(Color.FromRgb(0x7F, 0xA7, 0xD1)));
    static readonly Brush BarFill = Freeze(new SolidColorBrush(Color.FromRgb(0xB0, 0x30, 0x30)));
+   static readonly Brush StirrupStroke = Freeze(new SolidColorBrush(Color.FromRgb(0xE0, 0x80, 0x10)));
    static readonly Pen Outline = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x40, 0x40, 0x40)), 1));
    static readonly Pen Axis = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0x20, 0x80, 0x20)), 1));
 
@@ -49,6 +50,19 @@ public sealed class CadSectionThumb : FrameworkElement
          }
          g.Freeze();
          dc.DrawGeometry(r.Role == CadLayerRole.Steel ? SteelFill : ConcreteFill, Outline, g);
+      }
+      foreach (var st in c.Stirrups.Where(s => s.Axis.Count >= 2))
+      {
+         var g = new StreamGeometry();
+         using (var ctx = g.Open())
+         {
+            ctx.BeginFigure(P(st.Axis[0].X, st.Axis[0].Y), false, st.Closed);
+            ctx.PolyLineTo(st.Axis.Skip(1).Select(p => P(p.X, p.Y)).ToList(), true, true);
+         }
+         g.Freeze();
+         var pen = new Pen(StirrupStroke, Math.Max(1, st.DiameterM * k)) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+         pen.Freeze();
+         dc.DrawGeometry(null, pen, g);
       }
       foreach (var b in c.Bars)
       {

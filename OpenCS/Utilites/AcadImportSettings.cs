@@ -50,6 +50,14 @@ namespace OpenCS.Utilites
       [JsonPropertyName("cadLayerMaterials")]
       public Dictionary<string, int> SectionLayerMaterials { get; set; } = [];
 
+      /// <summary>Диаметр хомутов слоя по умолчанию [мм] — для линий без ширины и подписи.</summary>
+      [JsonPropertyName("cadStirrupDiameters")]
+      public Dictionary<string, double> SectionStirrupDiameters { get; set; } = [];
+
+      /// <summary>Шаг хомутов слоя по умолчанию [мм] — для элементов без подписи шага.</summary>
+      [JsonPropertyName("cadStirrupSpacings")]
+      public Dictionary<string, double> SectionStirrupSpacings { get; set; } = [];
+
       public static AcadImportSettings Default => new();
 
       public AcadImportSettings Clone() => new()
@@ -64,6 +72,8 @@ namespace OpenCS.Utilites
          SectionMergeIdentical = SectionMergeIdentical,
          SectionLayerRoles = new(SectionLayerRoles, StringComparer.OrdinalIgnoreCase),
          SectionLayerMaterials = new(SectionLayerMaterials, StringComparer.OrdinalIgnoreCase),
+         SectionStirrupDiameters = new(SectionStirrupDiameters, StringComparer.OrdinalIgnoreCase),
+         SectionStirrupSpacings = new(SectionStirrupSpacings, StringComparer.OrdinalIgnoreCase),
       };
    }
 }

@@ -32,6 +32,7 @@ public class CadSectionImportManualTests(ITestOutputHelper output)
          double Area(CadLayerRole role) => c.Regions.Where(x => x.Role == role).Sum(x => x.Area) * 1e4;
          output.WriteLine($"{c.Name} ×{c.Count}: бетон {Area(CadLayerRole.Concrete):0.00} см², сталь {Area(CadLayerRole.Steel):0.00} см², " +
                           $"областей {c.Regions.Count}, отверстий {c.Regions.Sum(x => x.Holes.Count)}, стержней {c.Bars.Count}" +
+                          $"{ViewModels.CadSectionCardVM.StirrupsText(c.Stirrups).Replace("\n", " | ")}" +
                           $"{(c.Warnings.Count > 0 ? " | " + string.Join("; ", c.Warnings) : "")}");
       }
 

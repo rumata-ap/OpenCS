@@ -63,8 +63,18 @@
                   <DataGridTemplateColumn Header="{DynamicResource CadImpMaterial}" Width="210">
                      <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="{x:Type vm:CadLayerRowVM}">
-                           <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding Material, UpdateSourceTrigger=PropertyChanged}"
-                                     IsEnabled="{Binding NeedsMaterial}" VerticalAlignment="Center"/>
+                           <StackPanel VerticalAlignment="Center">
+                              <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding Material, UpdateSourceTrigger=PropertyChanged}"
+                                        IsEnabled="{Binding NeedsMaterial}"/>
+                              <!-- Хомуты: диаметр и шаг слоя по умолчанию (для элементов без ширины и подписи) -->
+                              <StackPanel Orientation="Horizontal" Margin="0,2,0,0"
+                                          Visibility="{Binding IsStirrups, Converter={StaticResource BoolToVisibility}}">
+                                 <TextBlock Text="{DynamicResource CadImpStirrupD}" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                 <TextBox Text="{Binding DiameterText}" Width="40" ToolTip="{DynamicResource CadImpStirrupDTip}"/>
+                                 <TextBlock Text="{DynamicResource CadImpStirrupS}" VerticalAlignment="Center" Margin="8,0,3,0"/>
+                                 <TextBox Text="{Binding SpacingText}" Width="45" ToolTip="{DynamicResource CadImpStirrupSTip}"/>
+                              </StackPanel>
+                           </StackPanel>
                         </DataTemplate>
                      </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
