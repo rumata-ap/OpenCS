@@ -176,7 +176,7 @@ public sealed class StripNonlinearRunService
                 "балки в стержне OpenSees не учтена, сравнивается изгибная часть.", false));
 
         var fiber = await PlateStripFiberBeamRunner.RunAsync(
-            sources.Background!, sources.Field!, equivalent.Strip, result.StationFractions,
+            sources.Background!, sources.RebarSource ?? new FieldStripRebarSource(sources.Field!), equivalent.Strip, result.StationFractions,
             equivalent.WidthIntegrationPoints, scheme, loads, null, [], input.LoadSteps,
             new PlateStripFiberCheck { Materials = _materials, Calc = calc },
             openSeesExecutablePath, cancellationToken);

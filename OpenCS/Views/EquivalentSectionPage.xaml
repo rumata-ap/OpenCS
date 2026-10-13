@@ -1,7 +1,8 @@
 <UserControl x:Class="OpenCS.Views.EquivalentSectionPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
@@ -160,6 +161,28 @@
                   <Button Content="{DynamicResource StripRunAddLoad}" Command="{Binding AddLoadCommand}"
                           HorizontalAlignment="Left" Margin="0,0,0,8"/>
 
+                  <StackPanel Visibility="{Binding TransferVisibility}" Margin="0,0,0,8">
+                     <TextBlock Text="{DynamicResource StripRunTransferHint}" TextWrapping="Wrap"
+                                Foreground="DarkSlateGray" Margin="0,0,0,4"/>
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource StripRunTransferSource}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Width="240" ItemsSource="{Binding LoadSources}"
+                                  SelectedItem="{Binding SelectedLoadSource}" DisplayMemberPath="Label"
+                                  Margin="0,0,8,0"/>
+                        <Button Content="{DynamicResource StripRunTransferButton}"
+                                Command="{Binding TransferLoadsCommand}" Padding="10,3"/>
+                     </StackPanel>
+                     <TextBlock Text="{Binding TransferText}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                     <ItemsControl ItemsSource="{Binding TransferDiagnostics}">
+                        <ItemsControl.ItemTemplate>
+                           <DataTemplate>
+                              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                         Foreground="DarkSlateGray"/>
+                           </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                     </ItemsControl>
+                  </StackPanel>
+
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                      <TextBlock Text="{DynamicResource StripRunSteps}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                      <TextBox Width="60" Text="{Binding LoadSteps}" Margin="0,0,16,0"/>
@@ -180,7 +203,24 @@
                   <TextBlock Text="{Binding FiberText}" TextWrapping="Wrap" Margin="0,0,0,8"
                              Visibility="{Binding FiberVisibility}"/>
 
+                  <StackPanel Visibility="{Binding ResultVisibility}" Margin="0,0,0,8">
+                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="{DynamicResource StripRunDiagramQuantity}" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Margin="0,0,6,0"/>
+                        <ComboBox Width="300" ItemsSource="{Binding DiagramQuantityNames}"
+                                  SelectedIndex="{Binding DiagramQuantityIndex}"/>
+                     </StackPanel>
+                     <Border BorderThickness="1"
+                             BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+                        <helpers:FemMemberForceCanvas x:Name="stripCanvas" Height="300"/>
+                     </Border>
+                     <TextBlock Text="{Binding DiagramPeakText}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                     <TextBlock Text="{Binding DiagramNote}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                Foreground="DarkSlateGray" FontSize="11"/>
+                  </StackPanel>
+
                   <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                            SelectedIndex="{Binding SelectedStationIndex, Mode=TwoWay}"
                             CanUserAddRows="False" HeadersVisibility="Column" Visibility="{Binding ResultVisibility}">
                      <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource StripRunColX}"

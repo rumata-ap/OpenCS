@@ -4911,7 +4911,8 @@ namespace OpenCS
          if (group is not { IsMeshGroup: true }) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == group.SchemaId);
          if (schema == null) return;
-         CreateFemMembersFromMeshElements(schema, group.Tags, group.Tag, group.MemberType, makeGroup: true);
+         CreateFemMembersFromMeshElements(schema, group.Tags, group.Tag, group.MemberType, makeGroup: true,
+            plateSectionId: group.PlateSectionId);
       }
 
       /// <summary>
@@ -4921,8 +4922,9 @@ namespace OpenCS
       /// сетки; по флажку диалога из них собирается группа КонЭ. True — элементы созданы.
       /// </summary>
       /// <param name="groupType">Тип группы КонЭ по умолчанию; для пластин плита/стена задаёт и вид плоских частей.</param>
+      /// <param name="plateSectionId">Сечение пластины плоских частей (у группы КЭ — её сечение); null — не задано.</param>
       public bool CreateFemMembersFromMeshElements(CScore.Fem.FemSchema schema, IReadOnlyList<string> elementTags,
-         string? defaultTag = null, string? groupType = null, bool makeGroup = false)
+         string? defaultTag = null, string? groupType = null, bool makeGroup = false, int? plateSectionId = null)
       {
          if (elementTags.Count == 0) return false;
          var meshElements = db.GetFemMeshElements(schema.Id);
@@ -4970,7 +4972,8 @@ namespace OpenCS
          CScore.Import.MeshMemberBuild build;
          try
          {
-            build = CScore.Import.MeshMemberBuilder.Build(new CScore.Import.MeshMemberRequest(tag, dialog.PlanarKind, free),
+            build = CScore.Import.MeshMemberBuilder.Build(new CScore.Import.MeshMemberRequest(tag, dialog.PlanarKind, free, PlateSectionId: plateSectionId,
+                  MergeSectionTags: true),
                db.GetFemMeshNodes(schema.Id), meshElements);
             db.ApplyMeshMembers(schema.Id, [], [build]);
          }

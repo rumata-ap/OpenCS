@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 84;
+      const int CurrentSchemaVersion = 85;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -104,6 +104,7 @@ namespace OpenCS.Utilites
          [81] = MigrateV82,
          [82] = MigrateV83,
          [83] = MigrateV84,
+         [84] = MigrateV85,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -351,7 +352,8 @@ namespace OpenCS.Utilites
                  torsional_stiffness     REAL NOT NULL DEFAULT 0,
                  shear_gay               REAL NOT NULL DEFAULT 0,
                  shear_gaz               REAL NOT NULL DEFAULT 0,
-                 beam_formulation        TEXT NOT NULL DEFAULT 'EulerBernoulli'
+                 beam_formulation        TEXT NOT NULL DEFAULT 'EulerBernoulli',
+                 rebar_source_key        TEXT NOT NULL DEFAULT ''
              );
              CREATE TABLE IF NOT EXISTS strip_nonlinear_results (
                  id                          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1773,6 +1775,14 @@ namespace OpenCS.Utilites
             WHERE planar_region_id IS NOT NULL AND target_mesh_length_m IS NULL
               AND EXISTS (SELECT 1 FROM planar_regions r WHERE r.id = fem_members.planar_region_id);
             """);
+      }
+
+      /// <summary>Миграция v85: ключ источника армирования полосы плиты (КЭ импортированной схемы:
+      /// «assigned», «selected»); пусто — раскладка региона (мост импорта → полоса).</summary>
+      void MigrateV85()
+      {
+         if (!ColumnExists("equivalent_sections", "rebar_source_key"))
+            MigExec("ALTER TABLE equivalent_sections ADD COLUMN rebar_source_key TEXT NOT NULL DEFAULT ''");
       }
 
       /// <summary>Миграция v84: сохраняемые результаты нелинейного прогона полосы плиты (срез 8d).</summary>
@@ -3289,7 +3299,7 @@ namespace OpenCS.Utilites
                     strip_json, tangent_json, diagnostics_json,
                     input_fingerprint, result_fingerprint, is_calculable, is_stale,
                     span_station_fraction, source_region_fingerprint,
-                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation
+                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation, rebar_source_key
              FROM equivalent_sections ORDER BY num, id
           """;
           using var reader = cmd.ExecuteReader();
@@ -3330,7 +3340,8 @@ namespace OpenCS.Utilites
                 ShearStiffnessGAy = reader.GetDouble(20),
                 ShearStiffnessGAz = reader.GetDouble(21),
                 BeamFormulation = Enum.TryParse<StripBeamFormulation>(reader.GetString(22), out var formulation)
-                                  ? formulation : StripBeamFormulation.EulerBernoulli
+                                  ? formulation : StripBeamFormulation.EulerBernoulli,
+                RebarSourceKey = reader.GetString(23)
              };
              EquivalentSections.Add(equivalent);
           }
@@ -3356,11 +3367,11 @@ namespace OpenCS.Utilites
                     width_integration_points, strip_json, embedding_json, linearization_json,
                     tangent_json, diagnostics_json, input_fingerprint, result_fingerprint,
                     is_calculable, is_stale, span_station_fraction, source_region_fingerprint,
-                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation)
+                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation, rebar_source_key)
                 VALUES (@num,@tag,@description,@schema,@region,@plate,@sourceKind,@policy,
                         @points,@strip,@embedding,@linearization,@tangent,@diagnostics,
                         @input,@result,@calculable,@stale,@station,@regionFp,
-                        @gj,@gay,@gaz,@formulation);
+                        @gj,@gay,@gaz,@formulation,@rebarSource);
                 SELECT last_insert_rowid();
              """;
           }
@@ -3377,7 +3388,8 @@ namespace OpenCS.Utilites
                    input_fingerprint=@input, result_fingerprint=@result,
                    is_calculable=@calculable, is_stale=@stale,
                    span_station_fraction=@station, source_region_fingerprint=@regionFp,
-                   torsional_stiffness=@gj, shear_gay=@gay, shear_gaz=@gaz, beam_formulation=@formulation
+                   torsional_stiffness=@gj, shear_gay=@gay, shear_gaz=@gaz, beam_formulation=@formulation,
+                   rebar_source_key=@rebarSource
                 WHERE id=@id;
              """;
              cmd.Parameters.AddWithValue("@id", equivalent.Id);
@@ -3406,6 +3418,7 @@ namespace OpenCS.Utilites
           cmd.Parameters.AddWithValue("@gay", equivalent.ShearStiffnessGAy);
           cmd.Parameters.AddWithValue("@gaz", equivalent.ShearStiffnessGAz);
           cmd.Parameters.AddWithValue("@formulation", equivalent.BeamFormulation.ToString());
+          cmd.Parameters.AddWithValue("@rebarSource", equivalent.RebarSourceKey);
           if (isNew)
              equivalent.Id = (int)(long)cmd.ExecuteScalar()!;
           else

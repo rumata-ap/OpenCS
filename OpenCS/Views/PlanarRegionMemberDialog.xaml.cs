@@ -28,15 +28,85 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
                 UpdateRebarPlot();
             if (e.PropertyName == nameof(PlanarRegionMemberVM.ShowMesh))
                 meshToggleButton.IsChecked = _vm.ShowMesh;
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.StripPlotElements))
+                UpdateStripPlot();
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.IsDrawingZone))
+                rebarPreview.IsPicking = _vm.IsDrawingZone;
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.IsPickingStripAxis))
+                stripPreview.IsPicking = _vm.IsPickingStripAxis;
         };
         _vm.SaveCompleted += m => { SavedMember = m; DialogResult = true; Close(); };
         _vm.DeleteCompleted += m => { DeletedMember = m; DialogResult = true; Close(); };
 
-        rebarPreview.ModelClicked += (x, y) => _vm.SelectZoneAtPoint(x, y);
-        rebarPreview.ModelHover += (x, y) => _vm.HoverMosaicAt(x, y);
+        rebarPreview.ModelClicked += (x, y) => _vm.OnRebarCanvasClick(x, y, rebarPreview.ModelUnitsPerPixel);
+        rebarPreview.ModelDoubleClicked += (_, _) => _vm.FinishZoneDrawing();
+        rebarPreview.ModelHover += (x, y) =>
+        {
+            if (_vm.IsDrawingZone) _vm.HoverDrawing(x, y, rebarPreview.ModelUnitsPerPixel);
+            else _vm.HoverMosaicAt(x, y);
+        };
+        stripPreview.ModelClicked += (x, y) => _vm.OnStripCanvasClick(x, y, stripPreview.ModelUnitsPerPixel);
+        stripPreview.ModelHover += (x, y) => _vm.OnStripCanvasHover(x, y, stripPreview.ModelUnitsPerPixel);
+
+        PreviewKeyDown += Window_PreviewKeyDown;
 
         UpdateGeometryPlot();
         UpdateRebarPlot();
+    }
+
+    void MainTabs_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        // Событие всплывает из вложенных TabControl (грани армирования) — нужен только переход главных вкладок.
+        if (_vm is null || !ReferenceEquals(e.OriginalSource, mainTabs)) return;
+        if (mainTabs.SelectedItem is System.Windows.Controls.TabItem { Tag: "strip" })
+        {
+            _vm.EnsureStripInitialized();
+            UpdateStripPlot();
+        }
+        else
+        {
+            _vm.CancelZoneDrawing();
+            _vm.CancelStripAxisPicking();
+            drawZoneToggle.IsChecked = false;
+        }
+    }
+
+    void DrawZone_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        CommitFocusedTextBox();
+        if (_vm.IsDrawingZone) _vm.FinishZoneDrawing();
+        else _vm.BeginZoneDrawing();
+        drawZoneToggle.IsChecked = _vm.IsDrawingZone;
+    }
+
+    void FitStripView_Click(object sender, System.Windows.RoutedEventArgs e) => stripPreview.FitToView();
+
+    /// <summary>Enter — завершить контур зоны, Backspace — убрать вершину, Esc — отменить рисование/указание оси.
+    /// Клавиши не перехватываются, пока фокус в поле ввода.</summary>
+    void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox) return;
+        switch (e.Key)
+        {
+            case System.Windows.Input.Key.Enter when _vm.IsDrawingZone:
+                _vm.FinishZoneDrawing();
+                drawZoneToggle.IsChecked = _vm.IsDrawingZone;
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.Back when _vm.IsDrawingZone:
+                _vm.UndoDrawingPoint();
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.Escape when _vm.IsDrawingZone:
+                _vm.CancelZoneDrawing();
+                drawZoneToggle.IsChecked = false;
+                e.Handled = true;
+                break;
+            case System.Windows.Input.Key.Escape when _vm.IsPickingStripAxis:
+                _vm.CancelStripAxisPicking();
+                e.Handled = true;
+                break;
+        }
     }
 
     void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
@@ -165,6 +235,8 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         var hull = _vm.Hull;
         UpdatePlot(preview, elements, hull);
     }
+
+    void UpdateStripPlot() => UpdatePlot(stripPreview, _vm.StripPlotElements, _vm.Hull);
 
     void UpdateRebarPlot()
     {

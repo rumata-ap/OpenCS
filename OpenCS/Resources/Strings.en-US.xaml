@@ -1234,6 +1234,24 @@
     <system:String x:Key="StripRunColW">w, mm</system:String>
     <system:String x:Key="StripRunColFiberMy">My (fibers), kN·m</system:String>
     <system:String x:Key="StripRunColFiberW">w (fibers), mm</system:String>
+    <system:String x:Key="StripRunDiagramGroup">Diagram</system:String>
+    <system:String x:Key="StripRunDiagramQuantity">Quantity:</system:String>
+    <system:String x:Key="StripRunDiagramMy">My — bending moment, kN·m</system:String>
+    <system:String x:Key="StripRunDiagramN">N — axial force, kN</system:String>
+    <system:String x:Key="StripRunDiagramMz">Mz — in-plane moment, kN·m</system:String>
+    <system:String x:Key="StripRunDiagramW">w — deflection, mm</system:String>
+    <system:String x:Key="StripRunDiagramTitle">{0} — strip, L = {1:F2} m</system:String>
+    <system:String x:Key="StripRunDiagramFiberLegend">; orange line — OpenSees fiber beam</system:String>
+    <system:String x:Key="StripRunDiagramPeak">Extremes at stations ({0}): min = {1:F2} at x = {2:F2} m, max = {3:F2} at x = {4:F2} m.</system:String>
+    <system:String x:Key="StripRunDiagramNote">My and w ordinates are plotted on the tension side: up when the top face of the slab is in tension, down when the bottom face is. Click a station point to select its table row.</system:String>
+    <system:String x:Key="StripRunUnitMm">mm</system:String>
+    <system:String x:Key="StripRunTransferSource">Scheme load source:</system:String>
+    <system:String x:Key="StripRunTransferButton">Transfer scheme loads</system:String>
+    <system:String x:Key="StripRunTransferring">Transferring scheme loads…</system:String>
+    <system:String x:Key="StripRunTransferDone">Scheme loads transferred: table rows — {0}.</system:String>
+    <system:String x:Key="StripRunTransferEmpty">Nothing was transferred to the strip — the load table is unchanged.</system:String>
+    <system:String x:Key="StripRunTransferHint">Plate loads of the region, self weight and mesh node loads inside the strip are reduced to a line load by span fractions; the table can be edited by hand.</system:String>
+    <system:String x:Key="StripRunSourceCombination">combination</system:String>
     <system:String x:Key="ConfirmDeleteEquivalentSection">Permanently delete the selected equivalent section?</system:String>
    <system:String x:Key="PlateThicknessMm">Thickness h, mm:</system:String>
    <system:String x:Key="PlateNLayers">Concrete layers:</system:String>
@@ -3335,6 +3353,39 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlanarRegionDeleteCtx">Delete</system:String>
     <system:String x:Key="PlanarRegionTabGeometry">Geometry</system:String>
     <system:String x:Key="PlanarRegionTabRebar">Reinforcement</system:String>
+    <system:String x:Key="PlanarRegionTabStrip">Strip</system:String>
+    <system:String x:Key="PlanarRegionRebarZoneDrawTool">Draw a zone with the mouse: clicks place vertices; double-click or Enter finishes, Backspace removes a vertex, Esc cancels</system:String>
+    <system:String x:Key="PlanarRegionSnapLabel">Snap</system:String>
+    <system:String x:Key="PlanarRegionSnapTip">Snap points to contour, zone and FE node vertices and edge midpoints; orthogonal to the previous point</system:String>
+    <system:String x:Key="PlanarRegionSnapGridLabel">Step, m</system:String>
+    <system:String x:Key="PlanarRegionSnapGridTip">Snap grid step, m (0 — no grid snapping)</system:String>
+    <system:String x:Key="StripFormulationEuler">Euler–Bernoulli</system:String>
+    <system:String x:Key="StripFormulationTimoshenko">Timoshenko (torsion and shear)</system:String>
+    <system:String x:Key="StripRebarSourceLayout">Region layout (background + zones)</system:String>
+    <system:String x:Key="StripResultSummary">Section “{0}”: L = {1:0.###} m, b = {2:0.###} m; EA = {3:0.###E+0} kN, EIy = {4:0.###E+0} kN·m², EIz = {5:0.###E+0} kN·m². State: {6}.</system:String>
+    <system:String x:Key="StripAxisNotSet">The strip axis is not set: pick the start and end on the plan or enter coordinates.</system:String>
+    <system:String x:Key="StripWidthInvalid">The strip width must be positive.</system:String>
+    <system:String x:Key="StripNoPlateSection">The member has no plate section (Geometry tab).</system:String>
+    <system:String x:Key="StripRegionNotFound">The member region is not found in the project — save the member and retry.</system:String>
+    <system:String x:Key="StripBuiltLog">Equivalent strip section “{0}” built: L = {1:0.###} m.</system:String>
+    <system:String x:Key="StripBuildFailed">The equivalent section was not built — see the diagnostics.</system:String>
+    <system:String x:Key="StripNeedSave">Save the member first: the strip is built from the saved region.</system:String>
+    <system:String x:Key="StripExisting">Equivalent sections of this member</system:String>
+    <system:String x:Key="StripNew">New</system:String>
+    <system:String x:Key="StripName">Section name</system:String>
+    <system:String x:Key="StripAxisGroup">Strip axis (region axes)</system:String>
+    <system:String x:Key="StripStartLabel">Start A</system:String>
+    <system:String x:Key="StripEndLabel">End B</system:String>
+    <system:String x:Key="StripLengthLabel">Length, m:</system:String>
+    <system:String x:Key="StripPickAxis">Pick axis with mouse</system:String>
+    <system:String x:Key="StripClearAxis">Clear</system:String>
+    <system:String x:Key="StripPickHint">Click — start A, second click — end B. Snaps to vertices, FE nodes, edge midpoints; Esc cancels</system:String>
+    <system:String x:Key="StripWidth">Strip width b, m</system:String>
+    <system:String x:Key="StripWidthPoints">Width points</system:String>
+    <system:String x:Key="StripStation">Span station (0…1)</system:String>
+    <system:String x:Key="StripFormulation">Beam formulation</system:String>
+    <system:String x:Key="StripRebarSource">Strip reinforcement</system:String>
+    <system:String x:Key="StripBuild">Build equivalent section</system:String>
     <system:String x:Key="PlanarRegionRebarBaseLayoutHeader">Base layout (section)</system:String>
     <system:String x:Key="PlanarRegionRebarZonesHeader">Reinforcement zones</system:String>
     <system:String x:Key="AddRebarZone">Add zone</system:String>

@@ -19,7 +19,7 @@ namespace OpenCS.ViewModels;
 /// <summary>ViewModel редактора плоского конструктивного элемента (плита/стена) поверх
 /// PlanarRegion с заранее построенным Frame3D (см. FemSchemaEditorVM.BuildPlateFrame и аналоги).
 /// Контур берётся только из пула App.Contours — по образцу MaterialAreaVM.</summary>
-public class PlanarRegionMemberVM : ViewModelBase
+public partial class PlanarRegionMemberVM : ViewModelBase
 {
     readonly AppViewModel _app;
     readonly FemSchema _schema;
@@ -315,11 +315,13 @@ public class PlanarRegionMemberVM : ViewModelBase
         return clone;
     }
 
-    void AddRebarZone()
+    void AddRebarZone() =>
+        AddRebarZone(new RebarZone { Name = $"Зона {RebarZones.Count + 1}", Face = ActiveRebarFace });
+
+    void AddRebarZone(RebarZone zone)
     {
         RebarLayoutDirty = true;
         bool wasEmpty = RebarZones.Count == 0;
-        var zone = new RebarZone { Name = $"Зона {RebarZones.Count + 1}", Face = ActiveRebarFace };
         var vm = new RebarZoneVM(zone, OnZoneChanged, MarkRebarLayoutDirty, _app.Armatures);
         RebarZones.Add(vm);
         if (wasEmpty) EnsurePlateSectionOwned();
@@ -628,6 +630,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         RefreshGeometryPlotElements();
         RefreshRebarPlotElements();
+        if (_stripInitialized) RefreshStripPlot();
         RefreshGeoProps();
     }
 
@@ -801,6 +804,7 @@ public class PlanarRegionMemberVM : ViewModelBase
                 elements.AddRange(RebarGlyphBuilder.Build(zonePoly, zvm.Model.Layout, zvm.Layout.RebarMaterial));
             }
         }
+        AddDrawingElements(elements);
         RebarPlotElements = elements;
     }
 

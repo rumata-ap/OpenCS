@@ -21,7 +21,7 @@
       <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
       <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
    </Window.Resources>
-   <TabControl>
+   <TabControl x:Name="mainTabs" SelectionChanged="MainTabs_SelectionChanged">
       <TabItem Header="{DynamicResource PlanarRegionTabGeometry}">
          <Grid>
             <Grid.ColumnDefinitions>
@@ -283,6 +283,21 @@
                       <Image Source="{StaticResource di_import_dxf_xaml}" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
+                  <ToggleButton x:Name="drawZoneToggle" Style="{StaticResource IconToggleButton25}" Click="DrawZone_Click"
+                                IsChecked="{Binding IsDrawingZone, Mode=OneWay}"
+                                ToolTip="{DynamicResource PlanarRegionRebarZoneDrawTool}">
+                     <Path Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"
+                           Fill="Black" Stretch="Uniform" Margin="2"/>
+                  </ToggleButton>
+                  <CheckBox IsChecked="{Binding SnapEnabled}" VerticalAlignment="Center" Margin="4,0,2,0"
+                            Content="{DynamicResource PlanarRegionSnapLabel}"
+                            ToolTip="{DynamicResource PlanarRegionSnapTip}"/>
+                  <TextBlock Text="{DynamicResource PlanarRegionSnapGridLabel}" VerticalAlignment="Center" Margin="6,0,2,0"/>
+                  <TextBox Width="45" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                           Text="{Binding SnapGridStepM, UpdateSourceTrigger=LostFocus, StringFormat=G4}"
+                           KeyDown="CommitOnEnter"
+                           ToolTip="{DynamicResource PlanarRegionSnapGridTip}"/>
+                  <Separator/>
                   <Button Style="{StaticResource IconButton25}" Command="{Binding ComputeSectionCountCommand}"
                           ToolTip="{DynamicResource PlanarRegionComputeSectionCountTool}">
                       <Path Data="M7,2H17A2,2 0 0,1 19,4V20A2,2 0 0,1 17,22H7A2,2 0 0,1 5,20V4A2,2 0 0,1 7,2M7,4V8H17V4H7M7,10V12H9V10H7M11,10V12H13V10H11M15,10V12H17V10H15M7,14V16H9V14H7M11,14V16H13V14H11M15,14V16H17V14H15M7,18V20H9V18H7M11,18V20H13V18H11M15,18V20H17V18H15Z"
@@ -471,6 +486,148 @@
                      </StackPanel>
                   </GroupBox>
 
+               </StackPanel>
+            </ScrollViewer>
+         </Grid>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource PlanarRegionTabStrip}" Tag="strip">
+         <Grid>
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="*"/>
+               <ColumnDefinition Width="450"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <ToolBar Grid.Row="0">
+                  <Button Style="{StaticResource IconButton25}" Click="FitStripView_Click"
+                          ToolTip="{DynamicResource PlanarRegionFitViewButton}">
+                      <Path Data="M10,21V19H6.41L10.91,14.5L9.5,13.09L5,17.59V14H3V21H10M14.5,10.91L19,6.41V10H21V3H14V5H17.59L13.09,9.5L14.5,10.91M3,3V10H5V6.41L9.5,10.91L10.91,9.5L6.41,5H10V3H3M21,21V14H19V17.59L14.5,13.09L13.09,14.5L17.59,19H14V21H21Z"
+                            Fill="Black" Stretch="Uniform" Margin="2"/>
+                  </Button>
+                  <Separator/>
+                  <Button Content="{DynamicResource StripPickAxis}" Command="{Binding PickStripAxisCommand}" Padding="8,2"
+                          ToolTip="{DynamicResource StripPickHint}"/>
+                  <Separator/>
+                  <CheckBox IsChecked="{Binding SnapEnabled}" VerticalAlignment="Center" Margin="4,0,2,0"
+                            Content="{DynamicResource PlanarRegionSnapLabel}"
+                            ToolTip="{DynamicResource PlanarRegionSnapTip}"/>
+                  <TextBlock Text="{DynamicResource PlanarRegionSnapGridLabel}" VerticalAlignment="Center" Margin="6,0,2,0"/>
+                  <TextBox Width="45" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                           Text="{Binding SnapGridStepM, UpdateSourceTrigger=LostFocus, StringFormat=G4}"
+                           KeyDown="CommitOnEnter"
+                           ToolTip="{DynamicResource PlanarRegionSnapGridTip}"/>
+               </ToolBar>
+               <Border Grid.Row="1" BorderThickness="0,0,1,0"
+                       BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+                  <helpers:PlanarRegionPreviewCanvas x:Name="stripPreview"/>
+               </Border>
+            </Grid>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+               <StackPanel Margin="8">
+                  <TextBlock Text="{DynamicResource StripNeedSave}" TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,8"
+                             Visibility="{Binding CanBuildStrip, Converter={StaticResource InverseBoolToVisibility}}"/>
+
+                  <TextBlock Text="{DynamicResource StripExisting}" Margin="0,0,0,2"/>
+                  <Grid Margin="0,0,0,8">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <ComboBox ItemsSource="{Binding RegionEquivalentSections}" SelectedItem="{Binding SelectedEquivalent}"
+                               DisplayMemberPath="Tag"/>
+                     <Button Grid.Column="1" Content="{DynamicResource StripNew}" Command="{Binding NewStripCommand}"
+                             Padding="8,2" Margin="4,0,0,0"/>
+                  </Grid>
+
+                  <TextBlock Text="{DynamicResource StripName}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding StripName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                  <GroupBox Header="{DynamicResource StripAxisGroup}" Margin="0,0,0,8">
+                     <Grid Margin="4">
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="Auto"/>
+                           <ColumnDefinition Width="*"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="U, м" HorizontalAlignment="Center" Foreground="Gray"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="V, м" HorizontalAlignment="Center" Foreground="Gray"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource StripStartLabel}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,4,4"
+                                 Text="{Binding StripStartU, UpdateSourceTrigger=LostFocus, Converter={StaticResource NullableDoubleTextConverter}}"
+                                 KeyDown="CommitOnEnter"/>
+                        <TextBox Grid.Row="1" Grid.Column="2" Margin="0,0,0,4"
+                                 Text="{Binding StripStartV, UpdateSourceTrigger=LostFocus, Converter={StaticResource NullableDoubleTextConverter}}"
+                                 KeyDown="CommitOnEnter"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource StripEndLabel}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,4,4"
+                                 Text="{Binding StripEndU, UpdateSourceTrigger=LostFocus, Converter={StaticResource NullableDoubleTextConverter}}"
+                                 KeyDown="CommitOnEnter"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Margin="0,0,0,4"
+                                 Text="{Binding StripEndV, UpdateSourceTrigger=LostFocus, Converter={StaticResource NullableDoubleTextConverter}}"
+                                 KeyDown="CommitOnEnter"/>
+                        <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal">
+                           <TextBlock Text="{DynamicResource StripLengthLabel}" Margin="0,0,4,0"/>
+                           <TextBlock Text="{Binding StripLengthM, StringFormat=F3}" FontWeight="Bold" Margin="0,0,12,0"/>
+                           <Button Content="{DynamicResource StripPickAxis}" Command="{Binding PickStripAxisCommand}" Padding="6,2" Margin="0,0,6,0"/>
+                           <Button Content="{DynamicResource StripClearAxis}" Command="{Binding ClearStripAxisCommand}" Padding="6,2"/>
+                        </StackPanel>
+                     </Grid>
+                  </GroupBox>
+
+                  <Grid Margin="0,0,0,8">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Text="{DynamicResource StripWidth}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4" KeyDown="CommitOnEnter"
+                              Text="{Binding StripWidthM, UpdateSourceTrigger=LostFocus, StringFormat=G6}"/>
+                     <TextBlock Grid.Row="1" Text="{DynamicResource StripWidthPoints}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" KeyDown="CommitOnEnter"
+                              Text="{Binding StripWidthPoints, UpdateSourceTrigger=LostFocus}"/>
+                     <TextBlock Grid.Row="2" Text="{DynamicResource StripStation}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" KeyDown="CommitOnEnter"
+                              Text="{Binding StripStationFraction, UpdateSourceTrigger=LostFocus, StringFormat=G4}"/>
+                     <TextBlock Grid.Row="3" Text="{DynamicResource EquivalentSectionPolicy}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding StripPolicyOptions}"
+                               SelectedValuePath="Value" DisplayMemberPath="Display" SelectedValue="{Binding StripPolicy}"/>
+                     <TextBlock Grid.Row="4" Text="{DynamicResource StripFormulation}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding StripFormulationOptions}"
+                               SelectedValuePath="Value" DisplayMemberPath="Display" SelectedValue="{Binding StripFormulation}"/>
+                     <TextBlock Grid.Row="5" Text="{DynamicResource StripRebarSource}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                     <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding StripRebarSources}"
+                               SelectedValuePath="Key" DisplayMemberPath="Display" SelectedValue="{Binding StripRebarSourceKey}"/>
+                  </Grid>
+
+                  <Button Content="{DynamicResource StripBuild}" Command="{Binding BuildStripCommand}"
+                          Padding="12,4" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+
+                  <TextBlock Text="{Binding StripSummary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                  <TextBlock Text="{DynamicResource PlanarRegionDiagnosticsLabel}" Margin="0,0,0,2"/>
+                  <ListBox ItemsSource="{Binding StripDiagnostics}" Height="140">
+                     <ListBox.ItemTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding Message}"
+                                      Foreground="{Binding IsError, Converter={StaticResource ErrorToBrush}}"
+                                      TextWrapping="Wrap"/>
+                        </DataTemplate>
+                     </ListBox.ItemTemplate>
+                  </ListBox>
                </StackPanel>
             </ScrollViewer>
          </Grid>

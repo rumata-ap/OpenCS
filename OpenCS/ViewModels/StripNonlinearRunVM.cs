@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using CScore.PlateStrip;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -67,7 +68,11 @@ public sealed class StripNonlinearRunVM : ViewModelBase
     readonly EquivalentSection _equivalent;
     readonly AppViewModel _app;
     StripNonlinearRunResult? _latest;
+    StripNonlinearRunResult? _shown;
     bool _isBusy;
+    int _diagramQuantity;
+    int _selectedStationIndex = -1;
+    StripLoadSource? _selectedLoadSource;
 
     public StripNonlinearRunInput Input { get; private set; }
     public ObservableCollection<StripLoadRowVM> Loads { get; } = [];
@@ -82,6 +87,26 @@ public sealed class StripNonlinearRunVM : ViewModelBase
     public ICommand RunCommand { get; }
     public ICommand AddLoadCommand { get; }
     public ICommand RemoveLoadCommand { get; }
+    public ICommand TransferLoadsCommand { get; }
+
+    /// <summary>Загружения и сочетания схемы, из которых переносятся нагрузки.</summary>
+    public IReadOnlyList<StripLoadSource> LoadSources { get; }
+
+    /// <summary>В схеме есть загружения — доступен перенос нагрузок.</summary>
+    public Visibility TransferVisibility => LoadSources.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Выбранный источник нагрузок.</summary>
+    public StripLoadSource? SelectedLoadSource
+    {
+        get => _selectedLoadSource;
+        set { _selectedLoadSource = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); }
+    }
+
+    /// <summary>Итог последнего переноса нагрузок.</summary>
+    public string TransferText { get; private set; } = "";
+
+    /// <summary>Замечания последнего переноса нагрузок.</summary>
+    public IReadOnlyList<CScore.Fem.FemValidationDiagnostic> TransferDiagnostics { get; private set; } = [];
 
     public StripNonlinearRunVM(EquivalentSection equivalent, AppViewModel app)
     {
@@ -92,6 +117,11 @@ public sealed class StripNonlinearRunVM : ViewModelBase
         Input = _latest != null ? CloneInput(_latest.Input) : DefaultInput();
         foreach (var item in Input.Loads)
             Loads.Add(new StripLoadRowVM(item));
+
+        LoadSources = StripSchemaLoadService.Sources(_app.db, equivalent.SourceSchemaId);
+        _selectedLoadSource = LoadSources.FirstOrDefault();
+        TransferLoadsCommand = new RelayCommand(async _ => await TransferLoadsAsync(),
+            _ => !IsBusy && SelectedLoadSource != null);
 
         RunCommand = new RelayCommand(async _ => await RunAsync(), _ => !IsBusy);
         AddLoadCommand = new RelayCommand(_ => AddLoad());
@@ -194,6 +224,162 @@ public sealed class StripNonlinearRunVM : ViewModelBase
 
     public Visibility BusyVisibility => IsBusy ? Visibility.Visible : Visibility.Collapsed;
 
+    // --- Перенос нагрузок схемы ---------------------------------------------------------------
+
+    async Task TransferLoadsAsync()
+    {
+        if (SelectedLoadSource is not { } source) return;
+
+        IsBusy = true;
+        TransferText = Loc.S("StripRunTransferring");
+        TransferDiagnostics = [];
+        OnPropertyChanged(nameof(TransferText));
+        OnPropertyChanged(nameof(TransferDiagnostics));
+        try
+        {
+            int intervals = Math.Clamp(Input.ElementCount, 1, 200);
+            var result = await Task.Run(() => StripSchemaLoadService.Transfer(_app.db, _equivalent, source, intervals));
+
+            if (result.Loads.Count > 0)
+            {
+                Input.Loads.Clear();
+                Loads.Clear();
+                foreach (var item in result.Loads)
+                {
+                    Input.Loads.Add(item);
+                    Loads.Add(new StripLoadRowVM(item));
+                }
+                TransferText = string.Format(CultureInfo.CurrentCulture, Loc.S("StripRunTransferDone"), result.Loads.Count);
+            }
+            else
+            {
+                TransferText = Loc.S("StripRunTransferEmpty");
+            }
+            TransferDiagnostics = result.Diagnostics;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or System.IO.IOException)
+        {
+            TransferText = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+        OnPropertyChanged(nameof(TransferText));
+        OnPropertyChanged(nameof(TransferDiagnostics));
+    }
+
+    // --- Эпюра -------------------------------------------------------------------------------
+
+    /// <summary>Величины эпюры в порядке <see cref="StripRunDiagramQuantity"/>.</summary>
+    public IReadOnlyList<string> DiagramQuantityNames { get; } =
+    [
+        Loc.S("StripRunDiagramMy"),
+        Loc.S("StripRunDiagramN"),
+        Loc.S("StripRunDiagramMz"),
+        Loc.S("StripRunDiagramW")
+    ];
+
+    public int DiagramQuantityIndex
+    {
+        get => _diagramQuantity;
+        set
+        {
+            if (value < 0 || value >= DiagramQuantityNames.Count || value == _diagramQuantity) return;
+            _diagramQuantity = value;
+            OnPropertyChanged();
+            RefreshDiagram();
+        }
+    }
+
+    /// <summary>Строка таблицы станций, выбранная в таблице или щелчком по точке эпюры.</summary>
+    public int SelectedStationIndex
+    {
+        get => _selectedStationIndex;
+        set
+        {
+            if (value == _selectedStationIndex) return;
+            _selectedStationIndex = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Эпюра собственной балки CScore.</summary>
+    public FemDiagramSeries DiagramPrimary { get; private set; } = FemDiagramSeries.Empty;
+
+    /// <summary>Эпюра фибрового стержня OpenSees; пуста, если сверки не было.</summary>
+    public FemDiagramSeries DiagramFiber { get; private set; } = FemDiagramSeries.Empty;
+
+    /// <summary>Положения станций, м, — маркеры эпюры.</summary>
+    public IReadOnlyList<double> StationPositions { get; private set; } = [];
+
+    public string DiagramTitle { get; private set; } = "";
+    public string DiagramPeakText { get; private set; } = "";
+    public string DiagramNote { get; } = Loc.S("StripRunDiagramNote");
+
+    /// <summary>Эпюра или её настройки изменились — холст перерисовывает ряды.</summary>
+    public event EventHandler? DiagramChanged;
+
+    void RefreshDiagram()
+    {
+        var result = _shown;
+        var quantity = (StripRunDiagramQuantity)_diagramQuantity;
+        bool hasData = result != null && result.BeamResultants.Length > 0;
+
+        if (!hasData)
+        {
+            DiagramPrimary = DiagramFiber = FemDiagramSeries.Empty;
+            StationPositions = [];
+            DiagramTitle = DiagramPeakText = "";
+        }
+        else
+        {
+            // Нормаль полосы вниз — «вверх» на эпюре должен быть вверх в проекте: знак My и w меняется.
+            bool flip = _equivalent.Strip.StripFrame.LocalZ.Z < -1e-9;
+            double length = result!.LengthM;
+            DiagramPrimary = StripRunDiagramBuilder.Build(
+                result.StationFractions, length, result.BeamResultants, result.BeamDeflections, quantity, flip);
+
+            bool fiber = result.FiberChecked && result.FiberResultants.Length == result.StationFractions.Length &&
+                         result.FiberDeflections.Length == result.StationFractions.Length;
+            DiagramFiber = fiber
+                ? StripRunDiagramBuilder.Build(
+                    result.StationFractions, length, result.FiberResultants, result.FiberDeflections, quantity, flip)
+                : FemDiagramSeries.Empty;
+            StationPositions = result.StationFractions.Select(f => f * length).ToList();
+
+            var inv = CultureInfo.CurrentCulture;
+            string unit = quantity switch
+            {
+                StripRunDiagramQuantity.N => Loc.S("UnitKN"),
+                StripRunDiagramQuantity.W => Loc.S("StripRunUnitMm"),
+                _ => Loc.S("UnitKNm")
+            };
+            string name = quantity switch
+            {
+                StripRunDiagramQuantity.N => "N",
+                StripRunDiagramQuantity.Mz => "Mz",
+                StripRunDiagramQuantity.W => "w",
+                _ => "My"
+            };
+            DiagramTitle = string.Format(inv, Loc.S("StripRunDiagramTitle"), $"{name}, {unit}", length)
+                           + (DiagramFiber.Segments.Count > 0 ? Loc.S("StripRunDiagramFiberLegend") : "");
+
+            var min = DiagramPrimary.Extrema.FirstOrDefault(e => !e.IsMaximum);
+            var max = DiagramPrimary.Extrema.FirstOrDefault(e => e.IsMaximum);
+            DiagramPeakText = min != null && max != null
+                ? string.Format(inv, Loc.S("StripRunDiagramPeak"), unit, min.Value, min.Position, max.Value, max.Position)
+                : "";
+        }
+
+        OnPropertyChanged(nameof(DiagramPrimary));
+        OnPropertyChanged(nameof(DiagramFiber));
+        OnPropertyChanged(nameof(StationPositions));
+        OnPropertyChanged(nameof(DiagramTitle));
+        OnPropertyChanged(nameof(DiagramPeakText));
+        DiagramChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     // --- Результат ---------------------------------------------------------------------------
 
     public string SummaryText { get; private set; } = Loc.S("StripRunNoResult");
@@ -295,5 +481,9 @@ public sealed class StripNonlinearRunVM : ViewModelBase
         OnPropertyChanged(nameof(FiberVisibility));
         OnPropertyChanged(nameof(ResultVisibility));
         OnPropertyChanged(nameof(Diagnostics));
+
+        _shown = result;
+        SelectedStationIndex = -1;
+        RefreshDiagram();
     }
 }

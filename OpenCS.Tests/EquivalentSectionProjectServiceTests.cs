@@ -210,6 +210,97 @@ public sealed class EquivalentSectionProjectServiceTests
         Assert.True(equivalent.IsCalculable);
     }
 
+    [Fact]
+    public void BuildAndSave_MeshSource_UsesElementRebarAndPersistsKey()
+    {
+        using var fixture = Fixture();
+        int regionId = fixture.SaveRegion();
+        int plateId = fixture.SavePlateSection(withRebar: true);
+        var member = fixture.SaveMemberWithMesh(regionId, plateId);
+
+        var layout = fixture.Service.BuildAndSave(
+            Strip(), fixture.SchemaId, regionId, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 2);
+        var mesh = fixture.Service.BuildAndSave(
+            Strip(), fixture.SchemaId, regionId, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 2,
+            rebarSourceKey: FemCheckRebarSource.Section);
+
+        Assert.True(layout.IsCalculable, string.Join("; ", layout.Diagnostics.Select(d => d.Message)));
+        Assert.True(mesh.IsCalculable, string.Join("; ", mesh.Diagnostics.Select(d => d.Message)));
+        Assert.Equal("", layout.Section!.RebarSourceKey);
+        Assert.Equal(FemCheckRebarSource.Section, mesh.Section!.RebarSourceKey);
+        // Источник входит в отпечаток входов: смена источника помечает сечение устаревшим.
+        Assert.NotEqual(layout.Section.InputFingerprint, mesh.Section.InputFingerprint);
+        // Ключ переживает сохранение, а пересчёт по нему не считает сечение устаревшим.
+        var reloaded = fixture.Db.EquivalentSections.Single(e => e.Id == mesh.Section.Id);
+        Assert.Equal(FemCheckRebarSource.Section, reloaded.RebarSourceKey);
+        fixture.Service.RefreshStale(reloaded, CalcType.C);
+        Assert.False(reloaded.IsStale);
+        Assert.True(reloaded.IsCalculable);
+        Assert.False(string.IsNullOrEmpty(member));
+    }
+
+    [Fact]
+    public void BuildAndSave_StripAcrossHole_TakesStiffnessOfMaterialWidth()
+    {
+        using var solidFixture = Fixture();
+        int solidRegion = solidFixture.SaveRegion();
+        solidFixture.SaveMember(solidRegion, solidFixture.SavePlateSection());
+        var solid = solidFixture.Service.BuildAndSave(
+            Strip(), solidFixture.SchemaId, solidRegion, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 4);
+
+        using var holedFixture = Fixture();
+        // Отверстие 2×1 м посередине полосы шириной 2 м: на станции сечения (0,5) материала — половина ширины.
+        int holedRegion = holedFixture.SaveRegion(withHole: true);
+        holedFixture.SaveMember(holedRegion, holedFixture.SavePlateSection());
+        var holed = holedFixture.Service.BuildAndSave(
+            Strip(), holedFixture.SchemaId, holedRegion, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 4);
+
+        Assert.True(solid.IsCalculable, string.Join("; ", solid.Diagnostics.Select(d => d.Message)));
+        Assert.True(holed.IsCalculable, string.Join("; ", holed.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(0.5, holed.Section!.EA / solid.Section!.EA, 6);
+        Assert.Equal(0.5, holed.Section.EIy / solid.Section.EIy, 6);
+        Assert.NotEqual(solid.Section.InputFingerprint, holed.Section.InputFingerprint);
+    }
+
+    [Fact]
+    public void ResolveLiveSources_StripAcrossHole_ScalesSourcesOfElementsInHole()
+    {
+        using var fixture = Fixture();
+        int regionId = fixture.SaveRegion(withHole: true);
+        fixture.SaveMember(regionId, fixture.SavePlateSection());
+        var built = fixture.Service.BuildAndSave(
+            Strip(), fixture.SchemaId, regionId, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 4);
+        Assert.True(built.IsCalculable, string.Join("; ", built.Diagnostics.Select(d => d.Message)));
+
+        // 6 элементов по 1 м вдоль u ∈ [2,8]: отверстие u ∈ [4,6] — это 3-й и 4-й элементы (индексы 2 и 3).
+        double[] stations = [0, 1.0 / 6, 2.0 / 6, 3.0 / 6, 4.0 / 6, 5.0 / 6, 1];
+        var live = fixture.Service.ResolveLiveSources(built.Section!, CalcType.C, stations);
+
+        Assert.True(live.IsCalculable, string.Join("; ", live.Diagnostics.Select(d => d.Message)));
+        double Total(int element) => Enumerable.Range(0, live.Grid![element].Count)
+            .Sum(i => live.Grid[element][i] is ScaledPlateSectionResponse s ? s.Factor : 1.0);
+        Assert.Equal(4.0, Total(1), 9);
+        Assert.True(Total(2) < 4.0);
+        Assert.True(Total(3) < 4.0);
+        Assert.Equal(4.0, Total(4), 9);
+    }
+
+    [Fact]
+    public void BuildAndSave_MeshSourceWithoutMesh_IsBlockedWithDiagnostic()
+    {
+        using var fixture = Fixture();
+        int regionId = fixture.SaveRegion();
+        int plateId = fixture.SavePlateSection(withRebar: true);
+        fixture.SaveMember(regionId, plateId);
+
+        var result = fixture.Service.BuildAndSave(
+            Strip(), fixture.SchemaId, regionId, CalcType.C, ReductionPolicy.ConstitutiveIntegration, 2,
+            rebarSourceKey: FemCheckRebarSource.Section);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "strip_rebar_source_no_elements" && d.IsError);
+    }
+
     static PlateStripBeamAnalogy Strip() => new()
     {
         Id = "strip-service",
@@ -247,9 +338,12 @@ public sealed class EquivalentSectionProjectServiceTests
 
         public int SaveRegion(
             bool withHeavyZoneCoveringLeftHalf = false,
-            bool withConflictingPriorityZones = false)
+            bool withConflictingPriorityZones = false,
+            bool withHole = false)
         {
-            var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 10, 10, 0], Y = [0, 0, 10, 10] });
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 10, 10, 0], Y = [0, 0, 10, 10] },
+                withHole ? [new Contour { X = [4, 6, 6, 4], Y = [4.5, 4.5, 5.5, 5.5] }] : null);
             if (withHeavyZoneCoveringLeftHalf)
             {
                 region.RebarZones.Add(new RebarZone
@@ -286,7 +380,7 @@ public sealed class EquivalentSectionProjectServiceTests
             return Db.AddPlanarRegion(region, SchemaId);
         }
 
-        public int SavePlateSection()
+        public int SavePlateSection(bool withRebar = false)
         {
             // ConcreteDiagramType=L2 обязателен: LinearMaterial ниже использует MatType.ReSteelF
             // и для бетона, и для арматуры (по образцу PlateModelTests.LinearConcrete), а
@@ -299,6 +393,14 @@ public sealed class EquivalentSectionProjectServiceTests
                 ConcreteMaterialId = 1, RebarMaterialId = 2,
                 ConcreteDiagramType = DiagrammType.L2
             };
+            if (withRebar)
+                section.RebarLayers =
+                [
+                    new PlateRebarLayer
+                    {
+                        InputMode = "direct", Asx = 0.002, Asy = 0.002, Zsx = -0.12, Zsy = -0.11, Face = RebarFace.MinusN
+                    }
+                ];
             Db.SavePlateSection(section);
             return section.Id;
         }
@@ -315,6 +417,20 @@ public sealed class EquivalentSectionProjectServiceTests
             };
             Db.SaveFemMember(member);
             return member.Id;
+        }
+
+        /// <summary>Конструктивный элемент региона и один КЭ-пластина 10×10 м, покрывающий регион; возвращает тег КЭ.</summary>
+        public string SaveMemberWithMesh(int regionId, int plateSectionId)
+        {
+            SaveMember(regionId, plateSectionId);
+            static FemMeshNode N(string tag, double x, double y) => new() { NodeTag = tag, X = x, Y = y, Z = 0 };
+            var element = new FemElement
+            {
+                ElemTag = "1", ElemType = "shell", NodeIdsJson = "[1,2,4,3]", ThicknessM = 0.3,
+                SourceMemberTag = $"plate-{regionId}", Origin = FemMember.MeshSourceImported
+            };
+            Db.SaveFemMeshSnapshot(SchemaId, [N("1", 0, 0), N("2", 10, 0), N("3", 10, 10), N("4", 0, 10)], [element]);
+            return element.ElemTag;
         }
 
         public void DeleteMember(int id) => Db.DeleteFemMember(new CScore.Fem.FemMember { Id = id });

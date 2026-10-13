@@ -1234,6 +1234,24 @@
     <system:String x:Key="StripRunColW">w, мм</system:String>
     <system:String x:Key="StripRunColFiberMy">My (фибры), кН·м</system:String>
     <system:String x:Key="StripRunColFiberW">w (фибры), мм</system:String>
+    <system:String x:Key="StripRunDiagramGroup">Эпюра</system:String>
+    <system:String x:Key="StripRunDiagramQuantity">Величина:</system:String>
+    <system:String x:Key="StripRunDiagramMy">My — изгибающий момент, кН·м</system:String>
+    <system:String x:Key="StripRunDiagramN">N — продольная сила, кН</system:String>
+    <system:String x:Key="StripRunDiagramMz">Mz — момент в плоскости плиты, кН·м</system:String>
+    <system:String x:Key="StripRunDiagramW">w — прогиб, мм</system:String>
+    <system:String x:Key="StripRunDiagramTitle">{0} — полоса, L = {1:F2} м</system:String>
+    <system:String x:Key="StripRunDiagramFiberLegend">; оранжевая линия — фибровый стержень OpenSees</system:String>
+    <system:String x:Key="StripRunDiagramPeak">Экстремумы по станциям ({0}): min = {1:F2} при x = {2:F2} м, max = {3:F2} при x = {4:F2} м.</system:String>
+    <system:String x:Key="StripRunDiagramNote">Ординаты My и w отложены со стороны растянутых волокон: вверх — если растянута верхняя грань плиты, вниз — если нижняя. Нажмите точку станции — её строка выделится в таблице.</system:String>
+    <system:String x:Key="StripRunUnitMm">мм</system:String>
+    <system:String x:Key="StripRunTransferSource">Источник нагрузок схемы:</system:String>
+    <system:String x:Key="StripRunTransferButton">Перенести нагрузки схемы</system:String>
+    <system:String x:Key="StripRunTransferring">Перенос нагрузок схемы…</system:String>
+    <system:String x:Key="StripRunTransferDone">Нагрузки схемы перенесены: строк в таблице — {0}.</system:String>
+    <system:String x:Key="StripRunTransferEmpty">На полосу ничего не перенесено — таблица нагрузок не изменена.</system:String>
+    <system:String x:Key="StripRunTransferHint">Нагрузки на пластины региона, собственный вес и узловые нагрузки сетки, попавшие в полосу, приводятся к линейной нагрузке по долям пролёта; таблицу можно править вручную.</system:String>
+    <system:String x:Key="StripRunSourceCombination">сочетание</system:String>
     <system:String x:Key="ConfirmDeleteEquivalentSection">Удалить безвозвратно выбранное эквивалентное сечение?</system:String>
    <system:String x:Key="PlateThicknessMm">Толщина h, мм:</system:String>
    <system:String x:Key="PlateNLayers">Число слоёв бетона:</system:String>
@@ -3335,6 +3353,39 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="PlanarRegionDeleteCtx">Удалить</system:String>
     <system:String x:Key="PlanarRegionTabGeometry">Геометрия</system:String>
     <system:String x:Key="PlanarRegionTabRebar">Армирование</system:String>
+    <system:String x:Key="PlanarRegionTabStrip">Полоса</system:String>
+    <system:String x:Key="PlanarRegionRebarZoneDrawTool">Нарисовать зону мышью: щелчки ставят вершины; двойной щелчок или Enter — завершить, Backspace — убрать вершину, Esc — отмена</system:String>
+    <system:String x:Key="PlanarRegionSnapLabel">Привязка</system:String>
+    <system:String x:Key="PlanarRegionSnapTip">Привязка точек к вершинам контуров, зон и узлам КЭ, серединам рёбер; ортогонально к предыдущей точке</system:String>
+    <system:String x:Key="PlanarRegionSnapGridLabel">Шаг, м</system:String>
+    <system:String x:Key="PlanarRegionSnapGridTip">Шаг сетки привязки, м (0 — без привязки к сетке)</system:String>
+    <system:String x:Key="StripFormulationEuler">Эйлер–Бернулли</system:String>
+    <system:String x:Key="StripFormulationTimoshenko">Тимошенко (кручение и сдвиг)</system:String>
+    <system:String x:Key="StripRebarSourceLayout">Раскладка региона (фон + зоны)</system:String>
+    <system:String x:Key="StripResultSummary">Сечение «{0}»: L = {1:0.###} м, b = {2:0.###} м; EA = {3:0.###E+0} кН, EIy = {4:0.###E+0} кН·м², EIz = {5:0.###E+0} кН·м². Состояние: {6}.</system:String>
+    <system:String x:Key="StripAxisNotSet">Ось полосы не задана: укажите начало и конец мышью на плане или числами.</system:String>
+    <system:String x:Key="StripWidthInvalid">Ширина полосы должна быть положительной.</system:String>
+    <system:String x:Key="StripNoPlateSection">У элемента не задано сечение пластины (вкладка «Геометрия»).</system:String>
+    <system:String x:Key="StripRegionNotFound">Регион элемента не найден в проекте — сохраните элемент и повторите.</system:String>
+    <system:String x:Key="StripBuiltLog">Эквивалентное сечение полосы «{0}» построено: L = {1:0.###} м.</system:String>
+    <system:String x:Key="StripBuildFailed">Эквивалентное сечение не построено — см. диагностики.</system:String>
+    <system:String x:Key="StripNeedSave">Сначала сохраните элемент: полоса строится по сохранённому региону.</system:String>
+    <system:String x:Key="StripExisting">Эквивалентные сечения этого элемента</system:String>
+    <system:String x:Key="StripNew">Новая</system:String>
+    <system:String x:Key="StripName">Имя сечения</system:String>
+    <system:String x:Key="StripAxisGroup">Ось полосы (в осях региона)</system:String>
+    <system:String x:Key="StripStartLabel">Начало A</system:String>
+    <system:String x:Key="StripEndLabel">Конец B</system:String>
+    <system:String x:Key="StripLengthLabel">Длина, м:</system:String>
+    <system:String x:Key="StripPickAxis">Указать ось мышью</system:String>
+    <system:String x:Key="StripClearAxis">Сбросить</system:String>
+    <system:String x:Key="StripPickHint">Щелчок — начало A, второй щелчок — конец B. Привязка к вершинам, узлам КЭ, серединам рёбер; Esc — отмена</system:String>
+    <system:String x:Key="StripWidth">Ширина полосы b, м</system:String>
+    <system:String x:Key="StripWidthPoints">Точек по ширине</system:String>
+    <system:String x:Key="StripStation">Станция по длине (0…1)</system:String>
+    <system:String x:Key="StripFormulation">Формулировка балки</system:String>
+    <system:String x:Key="StripRebarSource">Армирование полосы</system:String>
+    <system:String x:Key="StripBuild">Построить эквивалентное сечение</system:String>
     <system:String x:Key="PlanarRegionRebarBaseLayoutHeader">Базовая раскладка (сечение)</system:String>
     <system:String x:Key="PlanarRegionRebarZonesHeader">Зоны армирования</system:String>
     <system:String x:Key="AddRebarZone">Добавить зону</system:String>

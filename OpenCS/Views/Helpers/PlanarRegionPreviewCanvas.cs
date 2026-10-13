@@ -213,6 +213,20 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
 
     public event Action<double, double>? ModelClicked;
 
+    /// <summary>Двойной щелчок левой кнопкой в точке модели (завершение рисования контура). Первый щелчок
+    /// двойного уже пришёл как <see cref="ModelClicked"/>; сам двойной ModelClicked не вызывает.</summary>
+    public event Action<double, double>? ModelDoubleClicked;
+
+    /// <summary>Размер пикселя экрана в единицах модели: допуск привязки точек не зависит от масштаба вида.</summary>
+    public double ModelUnitsPerPixel => _scale > 0 ? 1.0 / _scale : 0.0;
+
+    /// <summary>Режим указания точек: курсор-перекрестие. Обычный режим — стрелка.</summary>
+    public bool IsPicking
+    {
+        get => Cursor == Cursors.Cross;
+        set => Cursor = value ? Cursors.Cross : null;
+    }
+
     /// <summary>Курсор над точкой модели (не во время панорамирования).</summary>
     public event Action<double, double>? ModelHover;
 
@@ -221,7 +235,8 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         base.OnMouseLeftButtonDown(e);
         if (ActualWidth < 2 || ActualHeight < 2) return;
         var (x, y) = ToModel(e.GetPosition(this));
-        ModelClicked?.Invoke(x, y);
+        if (e.ClickCount >= 2) ModelDoubleClicked?.Invoke(x, y);
+        else ModelClicked?.Invoke(x, y);
     }
 
     bool _isPanning;

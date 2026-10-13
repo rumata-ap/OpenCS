@@ -33,13 +33,15 @@ public sealed class EquivalentSectionProjectService
         int widthIntegrationPoints = 2,
         double spanStationFraction = 0.5,
         EquivalentSection? existing = null,
-        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli,
+        IStripRebarSource? rebarSource = null,
+        string rebarSourceKey = "")
     {
         ArgumentNullException.ThrowIfNull(analogy);
 
         var resolved = ResolveAndBuild(
             analogy, sourceSchemaId, sourceRegionId, calc, policy,
-            widthIntegrationPoints, spanStationFraction, formulation);
+            widthIntegrationPoints, spanStationFraction, formulation, rebarSource, rebarSourceKey);
         if (!resolved.IsCalculable || resolved.Section == null)
             return resolved;
 
@@ -66,7 +68,7 @@ public sealed class EquivalentSectionProjectService
 
     /// <summary>Пересчитать провенанс/жёсткость и обновить IsStale/IsCalculable/Diagnostics.
     /// Возвращает true, если IsStale, IsCalculable или состав Diagnostics изменились.</summary>
-    public bool RefreshStale(EquivalentSection equivalent, CalcType calc)
+    public bool RefreshStale(EquivalentSection equivalent, CalcType calc, IStripRebarSource? rebarSource = null)
     {
         ArgumentNullException.ThrowIfNull(equivalent);
 
@@ -77,7 +79,7 @@ public sealed class EquivalentSectionProjectService
         var resolved = ResolveAndBuild(
             equivalent.Strip, equivalent.SourceSchemaId, equivalent.SourceRegionId, calc,
             equivalent.ReductionPolicy, equivalent.WidthIntegrationPoints, equivalent.SpanStationFraction,
-            equivalent.BeamFormulation);
+            equivalent.BeamFormulation, rebarSource, equivalent.RebarSourceKey);
 
         bool calculable = resolved.IsCalculable && resolved.Section != null;
         bool stale = !calculable || !string.Equals(
@@ -101,7 +103,9 @@ public sealed class EquivalentSectionProjectService
     EquivalentSectionBuildResult ResolveAndBuild(
         PlateStripBeamAnalogy analogy, int sourceSchemaId, int sourceRegionId, CalcType calc,
         ReductionPolicy policy, int widthIntegrationPoints, double spanStationFraction,
-        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli,
+        IStripRebarSource? rebarSource = null,
+        string rebarSourceKey = "")
     {
         if (!double.IsFinite(spanStationFraction) || spanStationFraction < 0.0 || spanStationFraction > 1.0)
             return Fail("equivalent_section_invalid_station_fraction",
@@ -133,13 +137,16 @@ public sealed class EquivalentSectionProjectService
                 $"Фоновое PlateSection Id={members[0].PlateSectionId} не найдено.");
 
         var field = PlateRebarField.From(background, region);
+        StripMaterialProfile.EnsureFromRegion(analogy.Geometry, region);
 
         var (gaussV, _) = EquivalentSectionCalculator.WidthGaussPoints(analogy.ExplicitWidthM, widthIntegrationPoints);
         const int CenterlineElementId = -1;
         var centroids = new List<(int ElementId, double U, double V)>();
         void AddCentroid(int elementId, double v)
         {
-            var uv = PlateStripWidthSampler.Point(analogy, spanStationFraction, v);
+            // Точка в отверстии: армирование берётся у ближайшей кромки материала.
+            var uv = PlateStripWidthSampler.Point(
+                analogy, spanStationFraction, StripMaterialProfile.SnapToMaterial(analogy, spanStationFraction, v));
             if (!IsInsideMaterial(region, uv))
                 diagnostics.Add(new(
                     "equivalent_section_width_sample_outside_material",
@@ -164,32 +171,56 @@ public sealed class EquivalentSectionProjectService
                 $"Геометрия сохранённой полосы повреждена или несовместима с шириной интегрирования: {ex.Message}");
         }
 
-        var resolvedLayouts = PlateRebarFieldResolver.ResolveMesh(field, centroids);
-        foreach (var resolved in resolvedLayouts)
-        foreach (var d in resolved.Layout.Diagnostics)
-            diagnostics.Add(d.Code == "plate_rebar_zone_priority_conflict" ? new(d.Code, d.Message, false) : d);
+        // Источник армирования: заданный вызывающей стороной, по ключу (КЭ импортированной схемы) либо раскладка региона.
+        if (rebarSource == null && StripRebarSourceFactory.IsMeshKey(rebarSourceKey))
+        {
+            var made = StripRebarSourceFactory.Create(
+                _database, _materials, sourceSchemaId, region, rebarSourceKey, background);
+            diagnostics.AddRange(made.Diagnostics);
+            if (made.Diagnostics.Any(d => d.IsError)) return new(false, null, diagnostics);
+            rebarSource = made.Source;
+        }
+        rebarSource ??= new FieldStripRebarSource(field);
+        var resolvedLayouts = new List<(int ElementId, IReadOnlyList<PlateRebarLayer> Layers, string Fingerprint)>();
+        var guardSeen = new HashSet<string>();
+        foreach (var (elementId, u, v) in centroids)
+        {
+            var sample = rebarSource.Resolve(u, v);
+            diagnostics.AddRange(sample.Diagnostics);
+            foreach (var d in StripRebarAxisGuard.Check(analogy, sample))
+                if (guardSeen.Add(d.Code + d.Message)) diagnostics.Add(d);
+            resolvedLayouts.Add((elementId, sample.Layers, PlateRebarLayoutFingerprint.Compute(sample.Layers)));
+        }
+        if (diagnostics.Any(d => d.IsError && d.Code.StartsWith("plate_strip_", StringComparison.Ordinal)))
+            return new(false, null, diagnostics);
 
         var snapshotByFingerprint = new Dictionary<string, IPlateSectionResponse>();
         foreach (var resolved in resolvedLayouts)
         {
-            if (snapshotByFingerprint.ContainsKey(resolved.LayoutFingerprint)) continue;
+            if (snapshotByFingerprint.ContainsKey(resolved.Fingerprint)) continue;
             var variant = background.CloneForCalc();
-            variant.RebarLayers = resolved.Layout.Layers.Select(l => l.Clone()).ToList();
+            variant.RebarLayers = resolved.Layers.Select(l => l.Clone()).ToList();
             var sourceResult = BuildSource(variant, calc);
             diagnostics.AddRange(sourceResult.Diagnostics);
             if (!sourceResult.IsCalculable || sourceResult.Source == null)
                 return new(false, null, diagnostics);
-            snapshotByFingerprint[resolved.LayoutFingerprint] = sourceResult.Source;
+            snapshotByFingerprint[resolved.Fingerprint] = sourceResult.Source;
         }
 
         var byId = resolvedLayouts.ToDictionary(r => r.ElementId);
-        var centerlineSource = snapshotByFingerprint[byId[CenterlineElementId].LayoutFingerprint];
+        var centerlineSource = snapshotByFingerprint[byId[CenterlineElementId].Fingerprint];
         var widthSources = new IPlateSectionResponse[gaussV.Length];
         for (int i = 0; i < gaussV.Length; i++)
-            widthSources[i] = snapshotByFingerprint[byId[i].LayoutFingerprint];
+            widthSources[i] = snapshotByFingerprint[byId[i].Fingerprint];
+
+        // Отверстия региона: доля материала в ячейках ширины на станции сечения; прямая редукция — ширина материала.
+        var cellFractions = StripMaterialProfile.CellFractions(analogy, spanStationFraction, widthIntegrationPoints);
+        for (int i = 0; i < widthSources.Length; i++)
+            widthSources[i] = ScaledPlateSectionResponse.Apply(widthSources[i], cellFractions[i]);
+        double materialWidth = StripMaterialProfile.MaterialWidth(analogy, spanStationFraction);
 
         var build = EquivalentSectionCalculator.Build(
-            analogy, centerlineSource, widthSources, policy, widthIntegrationPoints, formulation);
+            analogy, centerlineSource, widthSources, policy, widthIntegrationPoints, formulation, materialWidth);
         diagnostics.AddRange(build.Diagnostics);
         if (!build.IsCalculable || build.Section == null)
             return new(false, null, diagnostics);
@@ -204,7 +235,8 @@ public sealed class EquivalentSectionProjectService
         equivalent.IsCalculable = !diagnostics.Any(d => d.IsError);
         equivalent.InputFingerprint = EquivalentSectionFingerprint.Compute(
             analogy, sourceSchemaId, region.GeometryFingerprint, spanStationFraction,
-            centerlineSource, widthSources, policy, widthIntegrationPoints, formulation);
+            centerlineSource, widthSources, policy, widthIntegrationPoints, formulation, rebarSourceKey);
+        equivalent.RebarSourceKey = rebarSourceKey ?? "";
 
         return new(equivalent.IsCalculable, equivalent, diagnostics);
     }
@@ -289,7 +321,11 @@ public sealed class EquivalentSectionProjectService
         PlateSection? Background,
         PlateRebarField? Field,
         StripSectionSourceGrid? Grid,
-        IReadOnlyList<FemValidationDiagnostic> Diagnostics);
+        IReadOnlyList<FemValidationDiagnostic> Diagnostics)
+    {
+        /// <summary>Источник армирования вдоль полосы, по которому построена сетка источников.</summary>
+        public IStripRebarSource? RebarSource { get; init; }
+    }
 
     /// <summary>
     /// Срез 8d: «живые» источники <see cref="PlateSectionLiveResponse"/> по элементам полосы и точкам
@@ -297,7 +333,8 @@ public sealed class EquivalentSectionProjectService
     /// элементов (тот же резолвер, что у фибровой сверки), источники с одинаковой раскладкой общие.
     /// </summary>
     public StripLiveSources ResolveLiveSources(
-        EquivalentSection equivalent, CalcType calc, IReadOnlyList<double> stationFractions)
+        EquivalentSection equivalent, CalcType calc, IReadOnlyList<double> stationFractions,
+        IStripRebarSource? rebarSource = null)
     {
         ArgumentNullException.ThrowIfNull(equivalent);
         ArgumentNullException.ThrowIfNull(stationFractions);
@@ -325,17 +362,33 @@ public sealed class EquivalentSectionProjectService
                 $"Фоновое PlateSection Id={member.PlateSectionId} не найдено.");
 
         var field = PlateRebarField.From(background, region);
+        StripMaterialProfile.EnsureFromRegion(equivalent.Strip.Geometry, region);
+        var diagnostics = new List<FemValidationDiagnostic>();
+        if (rebarSource == null && StripRebarSourceFactory.IsMeshKey(equivalent.RebarSourceKey))
+        {
+            var made = StripRebarSourceFactory.Create(
+                _database, _materials, equivalent.SourceSchemaId, region, equivalent.RebarSourceKey, background);
+            diagnostics.AddRange(made.Diagnostics);
+            if (made.Diagnostics.Any(d => d.IsError)) return new(false, background, field, null, diagnostics);
+            rebarSource = made.Source;
+        }
+        rebarSource ??= new FieldStripRebarSource(field);
         var layouts = PlateStripFiberLayouts.Resolve(
-            field, equivalent.Strip, stationFractions, equivalent.WidthIntegrationPoints);
-        var diagnostics = layouts.Diagnostics.ToList();
+            rebarSource, equivalent.Strip, stationFractions, equivalent.WidthIntegrationPoints);
+        diagnostics.AddRange(layouts.Diagnostics);
         if (!layouts.IsCalculable)
-            return new(false, background, field, null, diagnostics);
+            return new(false, background, field, null, diagnostics) { RebarSource = rebarSource };
 
         var byFingerprint = new Dictionary<string, IPlateSectionResponse>();
         var rows = new List<IReadOnlyList<IPlateSectionResponse>>(layouts.PerElement.Count);
-        foreach (var element in layouts.PerElement)
+        for (int e = 0; e < layouts.PerElement.Count; e++)
         {
+            var element = layouts.PerElement[e];
             var row = new List<IPlateSectionResponse>(element.Count);
+            // Отверстия региона: доля материала в ячейках ширины, усреднённая по длине элемента.
+            var fractions = StripMaterialProfile.ElementFractions(
+                equivalent.Strip, stationFractions[e], stationFractions[e + 1], element.Count);
+            int point = 0;
             foreach (var layers in element)
             {
                 string key = PlateRebarLayoutFingerprint.Compute(layers);
@@ -346,20 +399,24 @@ public sealed class EquivalentSectionProjectService
                     var diagrams = ResolveDiagrams(variant, calc, out var failure);
                     if (diagrams == null)
                         return new(false, background, field, null,
-                            [.. diagnostics, new FemValidationDiagnostic("strip_run_diagram_missing", failure!)]);
+                            [.. diagnostics, new FemValidationDiagnostic("strip_run_diagram_missing", failure!)])
+                            { RebarSource = rebarSource };
                     diagnostics.AddRange(diagrams.Diagnostics);
                     if (diagrams.Diagnostics.Any(d => d.IsError))
-                        return new(false, background, field, null, diagnostics);
+                        return new(false, background, field, null, diagnostics) { RebarSource = rebarSource };
                     source = new PlateSectionLiveResponse(
                         variant, diagrams.Concrete, diagrams.Rebar, diagrams.Layers);
                     byFingerprint[key] = source;
                 }
-                row.Add(source);
+                row.Add(ScaledPlateSectionResponse.Apply(source, fractions[point++]));
             }
             rows.Add(row);
         }
 
-        return new(true, background, field, new StripSectionSourceGrid(rows), diagnostics);
+        return new(true, background, field, new StripSectionSourceGrid(rows), diagnostics)
+        {
+            RebarSource = rebarSource
+        };
     }
 
     static bool IsInsideMaterial(PlanarRegion region, PlanarPoint2D point)
