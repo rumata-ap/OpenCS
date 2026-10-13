@@ -154,6 +154,21 @@ public sealed class StripKinematicMapperTests
     }
 
     [Fact]
+    public void RotationAboutStripAxis_WithTorsion_IsTransferredAsTorsionDof()
+    {
+        var boundary = Boundary(Kinematic(PlanarDofMask.RX), [Sample(0, PlanarVector3.Zero, new(0.001, 0, 0))]);
+
+        var result = StripKinematicMapper.Map(
+            Frame3D.Identity, Analogy(), boundary, Stations, includeTorsion: true);
+
+        Assert.True(result.IsCalculable);
+        var value = Assert.Single(result.Values);
+        Assert.Equal(StripBeamTimoshenkoModel.StripTorsionDof, value.Dof);
+        Assert.Equal(0.001, value.Value, 12);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "plate_strip_kinematic_torsion_not_transferred");
+    }
+
+    [Fact]
     public void KinematicDofWithoutAction_IsRejected()
     {
         var boundary = new StripBoundaryInterface

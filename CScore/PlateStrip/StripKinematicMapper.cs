@@ -5,7 +5,8 @@ namespace CScore.PlateStrip;
 
 /// <summary>Заданное перемещение узла производной балки полосы.</summary>
 /// <param name="NodeIndex">Индекс узла балки (станции).</param>
-/// <param name="Dof">DOF узла в порядке u, v, w, θy, θz (0..4) — как у <see cref="StripBeamElement"/>.</param>
+/// <param name="Dof">DOF узла в порядке u, v, w, θy, θz (0..4) — как у <see cref="StripBeamElement"/>;
+/// 5 — поворот вокруг оси полосы θx (кручение), только для формулировки Тимошенко (Срез 8b).</param>
 /// <param name="Value">Значение при λ = 1, м или рад.</param>
 public sealed record StripPrescribedDisplacement(int NodeIndex, int Dof, double Value);
 
@@ -34,7 +35,8 @@ public static class StripKinematicMapper
 
     public static StripKinematicMappingResult Map(
         Frame3D regionFrame, PlateStripBeamAnalogy analogy,
-        StripBoundaryInterface boundary, IReadOnlyList<double> stationFractions)
+        StripBoundaryInterface boundary, IReadOnlyList<double> stationFractions,
+        bool includeTorsion = false)
     {
         ArgumentNullException.ThrowIfNull(regionFrame);
         ArgumentNullException.ThrowIfNull(analogy);
@@ -90,6 +92,8 @@ public static class StripKinematicMapper
             (3, strip.LocalY, true, "θy"),
             (4, strip.LocalZ, true, "θz")
         ];
+        if (includeTorsion)
+            beamDofs = [.. beamDofs, (StripBeamTimoshenkoModel.StripTorsionDof, strip.LocalX, true, "θx")];
         foreach (var (dof, axis, isRotation, name) in beamDofs)
         {
             var dofModes = isRotation ? rotation : translation;
@@ -112,7 +116,8 @@ public static class StripKinematicMapper
             values.Add(new(node, dof, (isRotation ? r : d).Dot(axis)));
         }
 
-        if (rotation.Any(m => m == PlanarBoundaryDofMode.Kinematic) && Math.Abs(r.Dot(strip.LocalX)) > 1e-12)
+        if (!includeTorsion && rotation.Any(m => m == PlanarBoundaryDofMode.Kinematic) &&
+            Math.Abs(r.Dot(strip.LocalX)) > 1e-12)
             diagnostics.Add(new("plate_strip_kinematic_torsion_not_transferred",
                 $"Граница «{boundary.Id}»: поворот вокруг оси полосы ({r.Dot(strip.LocalX):G6} рад) не " +
                 "переносится — кручение полосы вне модели (Срез 8b).", false));
@@ -124,7 +129,8 @@ public static class StripKinematicMapper
     /// значениями дают одну запись, с разными — ошибку <c>plate_strip_kinematic_conflict</c>.</summary>
     public static StripKinematicMappingResult MapAll(
         Frame3D regionFrame, PlateStripBeamAnalogy analogy,
-        IReadOnlyList<StripBoundaryInterface> boundaries, IReadOnlyList<double> stationFractions)
+        IReadOnlyList<StripBoundaryInterface> boundaries, IReadOnlyList<double> stationFractions,
+        bool includeTorsion = false)
     {
         ArgumentNullException.ThrowIfNull(boundaries);
         var diagnostics = new List<FemValidationDiagnostic>();
@@ -133,7 +139,7 @@ public static class StripKinematicMapper
 
         foreach (var boundary in boundaries)
         {
-            var mapped = Map(regionFrame, analogy, boundary, stationFractions);
+            var mapped = Map(regionFrame, analogy, boundary, stationFractions, includeTorsion);
             diagnostics.AddRange(mapped.Diagnostics);
             ok &= mapped.IsCalculable;
 
