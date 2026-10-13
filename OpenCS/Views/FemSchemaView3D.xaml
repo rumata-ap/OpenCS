@@ -312,6 +312,8 @@
                     <TextBox Width="45" TextAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding ShowReactions}"
                              ToolTip="{DynamicResource FemResultReactionScaleTip}"
                              Text="{Binding ReactionScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}"/>
+                    <CheckBox Content="{DynamicResource FemResultReactionValues}" IsChecked="{Binding ShowReactionValues}" IsEnabled="{Binding ShowReactions}"
+                              ToolTip="{DynamicResource FemResultReactionValuesTip}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     <TextBlock Text="{Binding ReactionSummaryText}" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="DimGray"
                                MaxWidth="520" TextTrimming="CharacterEllipsis" ToolTip="{Binding ReactionSummaryText}"/>
                 </StackPanel>

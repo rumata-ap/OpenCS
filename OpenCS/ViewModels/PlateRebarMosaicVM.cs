@@ -1156,7 +1156,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                };
             }
             UpdateResultSummary(result, values);
-            bool forces = sf is >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy;
+            bool forces = sf is >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy or FemCsfeaShellField.FoundationPressure;
             bool ratio = sf is FemCsfeaShellField.SigmaRatio or FemCsfeaShellField.EpsRatio;
             return new Field(values, Bars: false, forces, forces ? Palette.Forces : ratio ? Palette.Utilization : Palette.Rebar,
                ratio ? UtilizationThresholds : null);

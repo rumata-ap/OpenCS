@@ -2825,6 +2825,7 @@
     <system:String x:Key="FemCsfeaFieldSigmaRatio">σs/σs,y of tensile rebar</system:String>
     <system:String x:Key="FemCsfeaFieldEpsRatio">εb/εb2 of compressed concrete</system:String>
     <system:String x:Key="FemCsfeaFieldState">Section state (cracks, yielding, failure)</system:String>
+    <system:String x:Key="FemCsfeaFieldFoundationPressure">C1 foundation pressure, kPa (+ — foundation compressed)</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcLongBottom">a_crc,1 bottom — long-term, mm</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcLongTop">a_crc,1 top — long-term, mm</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcShortBottom">a_crc bottom — short-term, mm</system:String>
@@ -2901,6 +2902,8 @@
     <system:String x:Key="FemResultShowReactions">Reactions</system:String>
     <system:String x:Key="FemResultShowReactionsTip">Arrows of support reaction forces of the shown step (applied to the schema); length by the largest reaction, multiplier in the box on the right</system:String>
     <system:String x:Key="FemResultReactionScaleTip">Reaction arrow length multiplier</system:String>
+    <system:String x:Key="FemResultReactionValues">values</system:String>
+    <system:String x:Key="FemResultReactionValuesTip">|R|, kN labels at reaction arrows (no overlap, largest first)</system:String>
     <system:String x:Key="FemCsfeaControlNodeLabel">Control node</system:String>
     <system:String x:Key="FemCsfeaControlNodeTip">Schema node or mesh node tag — for the "λ — displacement" history. Empty — not set.</system:String>
     <system:String x:Key="FemCsfeaControlDofLabel">DOF</system:String>

@@ -426,9 +426,10 @@ public partial class FemSchemaView3D : UserControl
         if (_resultCrackVisual != null) viewport.Children.Add(_resultCrackVisual);
         if (_resultReactionVisual != null) viewport.Children.Remove(_resultReactionVisual);
         _resultReactionVisual = vm.IsResultShown && vm.ResultReactionLines is { Count: > 0 } arrows
-            ? new LinesVisual3D { Points = arrows, Color = Color.FromRgb(0, 140, 60), Thickness = 2, DepthOffset = 1e-4 }
+            ? new LinesVisual3D { Points = arrows, Color = Fem3DVM.ReactionColor, Thickness = 2, DepthOffset = 1e-4 }
             : null;
         if (_resultReactionVisual != null) viewport.Children.Add(_resultReactionVisual);
+        UpdateDiagramLabels();
         UpdateResultSelectionVisuals();
     }
 
@@ -646,10 +647,14 @@ public partial class FemSchemaView3D : UserControl
     {
         foreach (var v in _diagramLabelVisuals) viewport.Children.Remove(v);
         _diagramLabelVisuals.Clear();
-        if (VM?.BarDiagram is not { Labels.Count: > 0 } d || viewport.ActualWidth <= 0) return;
+        if (VM is not { } vm || viewport.ActualWidth <= 0) return;
+        // Подписи эпюр и значения у стрелок реакций — одним отбором без наложения (эпюры первыми).
+        var candidates = (vm.BarDiagram?.Labels ?? []).Take(DiagramLabelCandidates)
+            .Select(l => new ResultValueLabel(l.Position, l.Text, l.Positive ? Fem3DVM.BarDiagramPositiveColor : Fem3DVM.BarDiagramNegativeColor))
+            .Concat(vm.IsResultShown ? vm.ResultReactionLabels.Take(DiagramLabelCandidates) : []);
         var bounds = new Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight);
         var placed = new List<Rect>();
-        foreach (var label in d.Labels.Take(DiagramLabelCandidates))
+        foreach (var label in candidates)
         {
             var p = Viewport3DHelper.Point3DtoPoint2D(viewport.Viewport, label.Position);
             if (double.IsNaN(p.X) || double.IsNaN(p.Y) || !bounds.Contains(p)) continue;
@@ -661,7 +666,7 @@ public partial class FemSchemaView3D : UserControl
             _diagramLabelVisuals.Add(new BillboardTextVisual3D
             {
                 Position = label.Position, Text = label.Text, FontSize = 10,
-                Foreground = new SolidColorBrush(label.Positive ? Fem3DVM.BarDiagramPositiveColor : Fem3DVM.BarDiagramNegativeColor),
+                Foreground = new SolidColorBrush(label.Color),
                 Background = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
                 DepthOffset = LineDepthOffset,
             });
@@ -672,7 +677,7 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Камера или размер вида изменились — подписи эпюр переставить, когда движение утихнет.</summary>
     void ScheduleDiagramLabels()
     {
-        if (VM?.BarDiagram is not { Labels.Count: > 0 }) return;
+        if (VM?.BarDiagram is not { Labels.Count: > 0 } && VM?.ResultReactionLabels is not { Count: > 0 }) return;
         if (_diagramLabelTimer == null)
         {
             _diagramLabelTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };

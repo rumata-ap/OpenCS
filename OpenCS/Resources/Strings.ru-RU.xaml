@@ -2825,6 +2825,7 @@
     <system:String x:Key="FemCsfeaFieldSigmaRatio">σs/σs,т растянутой арматуры</system:String>
     <system:String x:Key="FemCsfeaFieldEpsRatio">εb/εb2 сжатого бетона</system:String>
     <system:String x:Key="FemCsfeaFieldState">Состояние сечения (трещины, текучесть, отказ)</system:String>
+    <system:String x:Key="FemCsfeaFieldFoundationPressure">Отпор основания C1, кПа (+ — сжатие основания)</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcLongBottom">a_crc,1 низа — продолжительное, мм</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcLongTop">a_crc,1 верха — продолжительное, мм</system:String>
     <system:String x:Key="FemCsfeaFieldAcrcShortBottom">a_crc низа — непродолжительное, мм</system:String>
@@ -2901,6 +2902,8 @@
     <system:String x:Key="FemResultShowReactions">Реакции</system:String>
     <system:String x:Key="FemResultShowReactionsTip">Стрелки сил реакций опор показанного шага (действуют на схему); длина — по наибольшей реакции, множитель — в поле справа</system:String>
     <system:String x:Key="FemResultReactionScaleTip">Множитель длины стрелок реакций</system:String>
+    <system:String x:Key="FemResultReactionValues">значения</system:String>
+    <system:String x:Key="FemResultReactionValuesTip">Подписи |R|, кН у стрелок реакций (без наложения, крупные — первыми)</system:String>
     <system:String x:Key="FemCsfeaControlNodeLabel">Контрольный узел</system:String>
     <system:String x:Key="FemCsfeaControlNodeTip">Тег узла схемы или узла сетки — для истории «λ — перемещение». Пусто — не задан.</system:String>
     <system:String x:Key="FemCsfeaControlDofLabel">DOF</system:String>

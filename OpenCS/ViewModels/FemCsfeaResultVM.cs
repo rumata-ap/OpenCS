@@ -17,6 +17,8 @@ public enum FemCsfeaShellField
 {
     None, Ux, Uy, Uz, Nx, Ny, Nxy, Mx, My, Mxy, Qx, Qy, CrackBottom, CrackTop, Psi, SigmaRatio, EpsRatio, State,
     AcrcLongBottom, AcrcLongTop, AcrcShortBottom, AcrcShortTop,
+    /// <summary>Отпор упругого основания C1 под КЭ, кПа (+ — основание сжато).</summary>
+    FoundationPressure,
 }
 
 /// <summary>Пункт выпадающего списка: значение и подпись.</summary>
@@ -66,6 +68,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     readonly List<(int Tag, int I, int J, Vector3D Ey, Vector3D Ez)> _beams = new();
     readonly List<(int Tag, int[] Contour)> _shells = new();
     readonly Dictionary<int, int[]> _contours = new();
+    // Пластины на основании C1: коэффициент постели (Н/м³) и единичная нормаль (n_z ≥ 0).
+    readonly Dictionary<int, (double C1, Vector3D Normal)> _foundation = new();
 
     /// <param name="analysis">Постановка результата: у линейного расчёта строки названы по загружениям схемы
     /// (<see cref="Tasks.FemAnalysisCaseNames"/>); null — имена из сводки.</param>
@@ -164,8 +168,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 var contour = g.Contour.Select(i => ids[i]).ToArray();
                 _shells.Add((tag, contour));
                 _contours[tag] = contour;
+                if (e.FoundationC1 is double c1 && c1 > 0) _foundation[tag] = (c1, UpNormal(contour.Select(n => _nodes[n]).ToArray()));
             }
         }
+        if (_foundation.Count > 0)
+            shellFields.Add(new(FemCsfeaShellField.FoundationPressure, Loc.S("FemCsfeaFieldFoundationPressure")));
         GoToFieldsStepCommand = new RelayCommand(_ => GoToFieldsStep(), _ => FieldsStepIndex is int i && i != SelectedStepIndex);
         CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
@@ -555,12 +562,48 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             FemCsfeaShellField.EpsRatio => State(4),
             >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop =>
                 cracks != null && cracks.TryGetValue(elem, out var w) ? CrackValue(w, field) : null,
+            FemCsfeaShellField.FoundationPressure => FoundationPressure(elem),
             FemCsfeaShellField.State => (Fields.ShellFlags[i] & RcSecantStepFields.Failed) != 0 ? 3
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Yielded) != 0 ? 2
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Cracked) != 0 ? 1 : 0,
             _ => null,
         };
         return v is double d && double.IsFinite(d) ? d : null;
+    }
+
+    /// <summary>
+    /// Отпор основания C1 под пластиной на показанном шаге, кПа: p = −C1·(n·ū), ū — среднее перемещение узлов КЭ, n —
+    /// нормаль КЭ вверх; + — основание сжато (осадка), − — отрыв (связь двусторонняя, отрыв в расчёте не моделируется).
+    /// Null — у КЭ нет основания или полей.
+    /// </summary>
+    public double? FoundationPressure(int elem)
+    {
+        if (Fields == null || !_foundation.TryGetValue(elem, out var f) || !_contours.TryGetValue(elem, out var nodes)) return null;
+        double un = 0;
+        foreach (int n in nodes)
+            if (_nodeIndex.TryGetValue(n, out int k))
+            {
+                var d = Fields.Displacements;
+                un += f.Normal.X * d[6 * k] + f.Normal.Y * d[6 * k + 1] + f.Normal.Z * d[6 * k + 2];
+            }
+        return -f.C1 * un / nodes.Length / 1e3;
+    }
+
+    /// <summary>Единичная нормаль многоугольника (по Ньюэллу), повёрнутая вверх (n_z ≥ 0; у вертикального — n_x, n_y ≥ 0).</summary>
+    static Vector3D UpNormal(Point3D[] p)
+    {
+        var n = new Vector3D();
+        for (int i = 0; i < p.Length; i++)
+        {
+            var a = p[i];
+            var b = p[(i + 1) % p.Length];
+            n += new Vector3D((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y));
+        }
+        if (n.Length < 1e-300) return new Vector3D(0, 0, 1);
+        n.Normalize();
+        const double eps = 1e-9;
+        bool flip = n.Z < -eps || Math.Abs(n.Z) <= eps && (n.X < -eps || Math.Abs(n.X) <= eps && n.Y < 0);
+        return flip ? -n : n;
     }
 
     // ------------------------------------------------------------ ширина раскрытия трещин

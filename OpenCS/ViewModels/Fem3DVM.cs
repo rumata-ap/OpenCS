@@ -15,6 +15,9 @@ public record BarGroup(string Label, Color Color, Point3DCollection Points, doub
 /// <summary>Подпись эпюры на стержнях: вершина ординаты, текст значения, знак.</summary>
 public sealed record BarDiagramViewLabel(Point3D Position, string Text, bool Positive);
 
+/// <summary>Подпись значения у глифа результата (стрелки реакции): положение, текст, цвет.</summary>
+public sealed record ResultValueLabel(Point3D Position, string Text, Color Color);
+
 /// <summary>Эпюры на стержнях — отдельным слоем 3D-вида: заливка и линии по знаку, ординаты, подписи экстремумов
 /// (по убыванию |значения| — порядок отбора без наложения).</summary>
 public sealed record BarDiagramView(
@@ -1068,6 +1071,7 @@ public class Fem3DVM : ViewModelBase
         ResultMeshLines = null;
         ResultCrackLines = null;
         ResultReactionLines = null;
+        ResultReactionLabels = [];
         (HiddenGhostLines, HiddenGhostShells, int visible, int total) = _topologyGhost;
         SetFragmentText(visible, total);
         var coloring = Mosaic.Compute(_mosaicShells.Select(e => e.ElemTag.Trim()), _mosaicBars.Select(e => e.ElemTag.Trim()));
@@ -1105,6 +1109,12 @@ public class Fem3DVM : ViewModelBase
 
     /// <summary>Стрелки сил реакций опор показанного шага (флажок слоя); null — выключены или реакций нет.</summary>
     public Point3DCollection? ResultReactionLines { get; private set; }
+
+    /// <summary>Подписи |R| у стрелок реакций (по убыванию силы); пусто — значения выключены или стрелок нет.</summary>
+    public IReadOnlyList<ResultValueLabel> ResultReactionLabels { get; private set; } = [];
+
+    /// <summary>Цвет стрелок и подписей реакций.</summary>
+    public static Color ReactionColor => Color.FromRgb(0, 140, 60);
 
     /// <summary>Сетка схемы для результатов (читается при первом показе результата, сбрасывается при перезагрузке вида).</summary>
     FemResult.FemResultMesh? _resultMesh;
@@ -1180,7 +1190,10 @@ public class Fem3DVM : ViewModelBase
         ResultCrackLines = result.CrackStrokes(shells.Select(e => e.ElemTag));
         // Реакции — у узлов видимых КЭ фрагмента; без фрагмента — все (и ведущие узлы жёстких тел без КЭ).
         HashSet<int>? shownNodes = Fragment.IsActive ? [.. shells.Concat(bars).SelectMany(e => NodeIds(e.NodeIdsJson))] : null;
-        ResultReactionLines = result.ReactionArrows(nodeMap, shownNodes == null ? null : shownNodes.Contains);
+        var (arrows, labels) = result.ReactionGlyphs(nodeMap, shownNodes == null ? null : shownNodes.Contains);
+        ResultReactionLines = arrows;
+        ResultReactionLabels = labels.Select(l => new ResultValueLabel(l.Position, PlateRebarMosaicVM.FormatDiagramValue(l.ValueKn),
+            ReactionColor)).ToList();
         _resultNodeMap = nodeMap;
         _resultVisible = [.. shells, .. bars];
         _resultPickNodes = null;

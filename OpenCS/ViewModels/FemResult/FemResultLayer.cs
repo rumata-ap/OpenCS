@@ -109,6 +109,20 @@ public sealed class FemResultLayer : ViewModelBase
         }
     }
 
+    bool _showReactionValues = true;
+    /// <summary>Подписи значений у стрелок реакций (|R|, кН), как у эпюр.</summary>
+    public bool ShowReactionValues
+    {
+        get => _showReactionValues;
+        set
+        {
+            if (value == _showReactionValues) return;
+            _showReactionValues = value;
+            OnPropertyChanged();
+            if (_showReactions) Changed?.Invoke();
+        }
+    }
+
     double _reactionScale = 1;
     /// <summary>Множитель длины стрелок реакций (1 — наибольшая реакция в 8 % диагонали сетки).</summary>
     public double ReactionScale
@@ -132,13 +146,22 @@ public sealed class FemResultLayer : ViewModelBase
     /// <paramref name="positions"/> и силы меньше 1e-6 наибольшей не рисуются. Null — стрелки выключены или реакций нет.
     /// </summary>
     public Point3DCollection? ReactionArrows(IReadOnlyDictionary<string, Point3D> positions, Func<int, bool>? shown = null)
+        => ReactionGlyphs(positions, shown).Arrows;
+
+    /// <summary>
+    /// Стрелки реакций (<see cref="ReactionArrows"/>) и подписи |R| (кН) у их хвостов — по убыванию силы (порядок
+    /// отбора подписей без наложения); подписей нет, если выключены <see cref="ShowReactionValues"/>.
+    /// </summary>
+    public (Point3DCollection? Arrows, IReadOnlyList<(Point3D Position, double ValueKn)> Labels) ReactionGlyphs(
+        IReadOnlyDictionary<string, Point3D> positions, Func<int, bool>? shown = null)
     {
-        if (!_showReactions || Csfea is not { } vm) return null;
+        if (!_showReactions || Csfea is not { } vm) return (null, []);
         var forces = vm.ReactionForces().Where(r => shown?.Invoke(r.Node) != false).ToList();
         double max = forces.Count > 0 ? forces.Max(r => r.Force.Length) : 0;
-        if (!(max > 0)) return null;
+        if (!(max > 0)) return (null, []);
         double size = Mesh.Diagonal * ReactionArrowRatio * _reactionScale;
         var pts = new Point3DCollection();
+        var labels = new List<(Point3D, double)>();
         foreach (var (node, f) in forces)
         {
             double len = f.Length;
@@ -147,6 +170,7 @@ public sealed class FemResultLayer : ViewModelBase
             var d = f / len;
             double l = size * len / max;
             var tail = tip - d * l;
+            if (_showReactionValues) labels.Add((tail, len / 1e3));
             pts.Add(tail);
             pts.Add(tip);
             // Остриё — два штриха под ~25° к оси стрелки.
@@ -157,7 +181,7 @@ public sealed class FemResultLayer : ViewModelBase
             pts.Add(tip); pts.Add(tip - d * h - w * (0.45 * h));
         }
         pts.Freeze();
-        return pts.Count > 0 ? pts : null;
+        return pts.Count > 0 ? (pts, labels.OrderByDescending(x => x.Item2).ToList()) : (null, []);
     }
 
     // ------------------------------------------------------------ деформированная схема

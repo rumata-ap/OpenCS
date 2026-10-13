@@ -54,7 +54,7 @@ public class FemResultLayerTests
         public DatabaseService Db { get; }
         public FemSchema Schema { get; } = new() { Tag = "Схема" };
 
-        public TempDb()
+        public TempDb(double? shellC1 = null)
         {
             Db = new DatabaseService(_path);
             Db.SaveFemSchema(Schema);
@@ -62,7 +62,7 @@ public class FemResultLayerTests
                 [N("1", 0, 0), N("2", 2, 0), N("3", 0, 1)],
                 [
                     new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]" },
-                    new FemElement { ElemTag = "2", ElemType = "shell", NodeIdsJson = "[1,2,3]" },
+                    new FemElement { ElemTag = "2", ElemType = "shell", NodeIdsJson = "[1,2,3]", FoundationC1 = shellC1 },
                 ]);
         }
 
@@ -526,6 +526,45 @@ public class FemResultLayerTests
         ReactionKinds = [RcReactionSet.Support, RcReactionSet.Spring],
         ReactionSums = [0, 0, 30e3, -2e3, 0, 0, 0, 0, 0, 0, 0, 0], LoadSum = [2e3, 0, -30e3],
     };
+
+    [Fact]
+    public void Csfea_FoundationPressureField()
+    {
+        using var t = new TempDb(shellC1: 1e7);
+        var fields = FieldsWithReactions();
+        var disp = new double[18];
+        disp[2] = disp[8] = disp[14] = -0.01;   // осадка всех узлов пластины 2 на 10 мм
+        var layer = ReactionLayer(t, new RcSecantStepFields
+        {
+            NodeIds = fields.NodeIds, Displacements = disp, ShellIds = [2], ShellForces = new double[8],
+            ShellStates = new double[5], ShellFlags = [0], BeamIds = [], BeamForces = [], BeamFlags = [],
+        });
+        Assert.Contains(layer.ShellFields, f => f.Value == FemCsfeaShellField.FoundationPressure);
+        // p = −C1·(n·u) = 1e7 Н/м³ · 0,01 м = 100 кПа (сжатие основания — плюс).
+        Assert.Equal(100, layer.ShellValue("2", FemCsfeaShellField.FoundationPressure)!.Value, 9);
+
+        using var plain = new TempDb();
+        Assert.DoesNotContain(ReactionLayer(plain, FieldsWithReactions()).ShellFields, f => f.Value == FemCsfeaShellField.FoundationPressure);
+    }
+
+    [Fact]
+    public void Csfea_ReactionLabelsFollowFlag()
+    {
+        using var t = new TempDb();
+        var layer = ReactionLayer(t, FieldsWithReactions());
+        layer.ShowReactions = true;
+        var (arrows, labels) = layer.ReactionGlyphs(layer.NodeMap);
+        Assert.NotNull(arrows);
+        // По убыванию силы: узел 1 (30 кН), узел 3 (2 кН); подпись — у хвоста стрелки.
+        Assert.Equal([30.0, 2.0], labels.Select(l => Math.Round(l.ValueKn, 9)));
+        Assert.Equal(arrows![0], labels[0].Position);
+        int changed = 0;
+        layer.Changed += () => changed++;
+        layer.ShowReactionValues = false;
+        Assert.Equal(1, changed);
+        Assert.Empty(layer.ReactionGlyphs(layer.NodeMap).Labels);
+        Assert.NotNull(layer.ReactionGlyphs(layer.NodeMap).Arrows);
+    }
 
     static FemResultLayer ReactionLayer(TempDb t, RcSecantStepFields fields)
     {
