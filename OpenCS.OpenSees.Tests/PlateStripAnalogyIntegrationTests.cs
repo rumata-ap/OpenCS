@@ -67,6 +67,42 @@ public sealed class PlateStripAnalogyIntegrationTests
         }
     }
 
+    /// <summary>Срез 8b: формулировка Тимошенко на той же плите. Момент определяется равновесием;
+    /// сдвиговая податливость увеличивает прогиб балки относительно Эйлера–Бернулли, и сверка с
+    /// shell (элемент со сдвигом Миндлина) не ухудшается.</summary>
+    [Fact]
+    public async Task Timoshenko_AddsShearDeflection_AndKeepsAgreementWithShell()
+    {
+        var (bernoulli, bRoot) = await RunAsync(surfaceLoadKnM2: -3.0);
+        var (timoshenko, tRoot) = await RunAsync(surfaceLoadKnM2: -3.0, StripBeamFormulation.Timoshenko);
+        try
+        {
+            string Report() => string.Join("; ", timoshenko.DomainDiagnostics.Select(d => d.Code + ": " + d.Message)
+                .Concat(timoshenko.BoundaryDiagnostics));
+            Assert.True(timoshenko.IsConverged, Report());
+            Assert.True(timoshenko.BeamIsCalculable, Report());
+            Assert.NotEmpty(timoshenko.BeamFullResultants);
+
+            int mid = timoshenko.StationFractions.Count / 2;
+            double analyticKnM = 3.0 * WidthM * LengthM * LengthM / 8.0;
+            Assert.Equal(analyticKnM, Math.Abs(timoshenko.BeamResultants[mid][1]), 1);
+            // опорная поперечная сила qLb/2
+            Assert.Equal(3.0 * WidthM * LengthM / 2.0, Math.Abs(timoshenko.BeamFullResultants[0][5]), 1);
+
+            Assert.True(timoshenko.BeamMaxDeflectionM > bernoulli.BeamMaxDeflectionM);
+            Assert.True(
+                timoshenko.RelativeDeflectionMismatch <= bernoulli.RelativeDeflectionMismatch + 0.02,
+                $"Тимошенко {timoshenko.RelativeDeflectionMismatch:P1} против Бернулли " +
+                $"{bernoulli.RelativeDeflectionMismatch:P1}.");
+            Assert.True(timoshenko.RelativeDeflectionMismatch < 0.25);
+        }
+        finally
+        {
+            if (Directory.Exists(bRoot)) Directory.Delete(bRoot, recursive: true);
+            if (Directory.Exists(tRoot)) Directory.Delete(tRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task AfterCracking_BeamIsSofterButKeepsEquilibrium()
     {
@@ -292,7 +328,8 @@ public sealed class PlateStripAnalogyIntegrationTests
         return (result, root);
     }
 
-    static async Task<(PlateStripAnalogyResult Result, string Root)> RunAsync(double surfaceLoadKnM2)
+    static async Task<(PlateStripAnalogyResult Result, string Root)> RunAsync(
+        double surfaceLoadKnM2, StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
     {
         string executable = OpenSeesTestExecutable.ResolveOrSkip();
         string root = Path.Combine(Path.GetTempPath(), "opencs-strip-e2e", Guid.NewGuid().ToString("N"));
@@ -331,7 +368,8 @@ public sealed class PlateStripAnalogyIntegrationTests
             MeshSettings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Quads),
             StationFractions = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
             WidthSources = [source, source],
-            NewtonOptions = new StripNewtonOptions(LoadSteps: 4, MaxIterations: 40)
+            NewtonOptions = new StripNewtonOptions(LoadSteps: 4, MaxIterations: 40),
+            Formulation = formulation
         };
 
         var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
