@@ -12,7 +12,8 @@ public static class EquivalentSectionCalculator
         IPlateSectionResponse? centerlineSource,
         IReadOnlyList<IPlateSectionResponse>? widthSources,
         ReductionPolicy policy,
-        int widthIntegrationPoints = 2)
+        int widthIntegrationPoints = 2,
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
     {
         if (analogy == null)
             return Fail("equivalent_section_invalid_strip", "Геометрия полосы не задана.");
@@ -29,17 +30,66 @@ public static class EquivalentSectionCalculator
         var h = PlateSectionResponseMath.BuildH(tangent.A, tangent.B, tangent.D);
         List<FemValidationDiagnostic> diagnostics;
         double[,]? kBeam;
+        double gj = 0.0, gaY = 0.0, gaZ = 0.0;
+        bool timoshenko = formulation == StripBeamFormulation.Timoshenko;
         switch (policy)
         {
             case ReductionPolicy.DirectUniaxial:
                 kBeam = Direct(h, analogy.ExplicitWidthM, out diagnostics);
+                if (timoshenko)
+                {
+                    gj = 4.0 * analogy.ExplicitWidthM * h[5, 5];
+                    gaY = gaZ = StripShear.RectangleCorrection * analogy.ExplicitWidthM * h[2, 2];
+                }
                 break;
             case ReductionPolicy.ConstitutiveIntegration:
                 if (widthSources == null || widthSources.Count != widthIntegrationPoints)
                     return Fail("equivalent_section_source_count_mismatch",
                         "Число источников по ширине должно совпадать с числом точек интегрирования.");
                 kBeam = Integrate(widthSources, analogy.ExplicitWidthM, widthIntegrationPoints, out diagnostics);
+                if (timoshenko)
+                {
+                    var full = NonlinearStripTimoshenkoSectionLaw.Integrate(
+                        analogy.ExplicitWidthM, widthSources, BeamStrainState.Zero, 0.0, null);
+                    gj = full.K[3, 3];
+                    gaY = full.GAy;
+                    gaZ = full.GAz;
+                    AddCouplingDiagnostic(full.K, diagnostics);
+                }
                 break;
+            case ReductionPolicy.EnergyEquivalent:
+            {
+                if (widthSources == null || widthSources.Count != widthIntegrationPoints)
+                    return Fail("equivalent_section_source_count_mismatch",
+                        "Число источников по ширине должно совпадать с числом точек интегрирования.");
+                diagnostics = [];
+                // ε_x, κ_x удерживаются; при кручении — ещё κ_xy = 2θ′.
+                int[] retained = timoshenko ? [0, 3, 5] : [0, 3];
+                StripTimoshenkoSectionResponse energy;
+                try
+                {
+                    energy = NonlinearStripTimoshenkoSectionLaw.Integrate(
+                        analogy.ExplicitWidthM, widthSources, BeamStrainState.Zero, 0.0, retained);
+                }
+                catch (InvalidOperationException)
+                {
+                    return Fail("equivalent_section_energy_singular",
+                        "Блок конденсируемых деформаций плитной жёсткости вырожден: EnergyEquivalent " +
+                        "не вычисляется.");
+                }
+                kBeam = new double[3, 3];
+                for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    kBeam[i, j] = energy.K[i, j];
+                if (timoshenko)
+                {
+                    gj = energy.K[3, 3];
+                    gaY = energy.GAy;
+                    gaZ = energy.GAz;
+                    AddCouplingDiagnostic(energy.K, diagnostics);
+                }
+                break;
+            }
             default:
                 return Fail("equivalent_section_unsupported_policy", "Выбранная политика редукции не поддерживается.");
         }
@@ -59,6 +109,10 @@ public static class EquivalentSectionCalculator
             EA = kBeam[0, 0],
             EIy = kBeam[1, 1],
             EIz = kBeam[2, 2],
+            TorsionalStiffness = gj,
+            ShearStiffnessGAy = gaY,
+            ShearStiffnessGAz = gaZ,
+            BeamFormulation = formulation,
             IsCalculable = true,
             Diagnostics = diagnostics,
             ResultFingerprint = EquivalentSectionFingerprint.ComputeResult(kBeam)
@@ -80,6 +134,26 @@ public static class EquivalentSectionCalculator
             w[i] = weights[i] * width / 2.0;
         }
         return (v, w);
+    }
+
+    /// <summary>Связи кручения с N/My/Mz в 4×4 касательной в линейном срезе отбрасываются:
+    /// GJ берётся по диагонали. Значимая связь (трещины, несимметричное армирование) — повод
+    /// для предупреждения.</summary>
+    static void AddCouplingDiagnostic(double[,] k4, List<FemValidationDiagnostic> diagnostics)
+    {
+        double scale = Math.Sqrt(Math.Abs(k4[3, 3]));
+        for (int j = 0; j < 3; j++)
+        {
+            double reference = scale * Math.Sqrt(Math.Abs(k4[j, j]));
+            if (reference > 0.0 && Math.Abs(k4[3, j]) > 1e-9 * reference)
+            {
+                diagnostics.Add(new(
+                    "equivalent_section_torsion_coupling_dropped",
+                    "Связь кручения с осевой/изгибными компонентами в линейном сечении отброшена.",
+                    false));
+                return;
+            }
+        }
     }
 
     static double[,] Direct(double[,] h, double width, out List<FemValidationDiagnostic> diagnostics)

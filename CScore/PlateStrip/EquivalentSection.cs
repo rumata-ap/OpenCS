@@ -24,8 +24,15 @@ public sealed class EquivalentSection
     public double EA { get; set; }
     public double EIy { get; set; }
     public double EIz { get; set; }
-    /// <summary>Крутильная жёсткость Среза 2, пока не редуцируется.</summary>
-    public double TorsionalStiffness => 0.0;
+    /// <summary>Крутильная жёсткость GJ, кН·м²/рад. Ненулевая только для формулировки
+    /// <see cref="StripBeamFormulation.Timoshenko"/> (Срез 8b): GJ = 4·b·H₅₅.</summary>
+    public double TorsionalStiffness { get; set; }
+    /// <summary>Сдвиговая жёсткость в плоскости полосы GAy = κs·b·A₃₃, кН (Срез 8b).</summary>
+    public double ShearStiffnessGAy { get; set; }
+    /// <summary>Сдвиговая жёсткость из плоскости GAz = κs·b·A₃₃, кН (Срез 8b).</summary>
+    public double ShearStiffnessGAz { get; set; }
+    /// <summary>Формулировка балки, под которую рассчитано сечение.</summary>
+    public StripBeamFormulation BeamFormulation { get; set; } = StripBeamFormulation.EulerBernoulli;
     public bool IsCalculable { get; set; }
     public bool IsStale { get; set; }
     public List<FemValidationDiagnostic> Diagnostics { get; set; } = [];

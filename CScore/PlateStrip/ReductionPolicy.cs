@@ -7,5 +7,10 @@ public enum ReductionPolicy
     DirectUniaxial,
 
     /// <summary>Интегрирование конститутивного отклика по ширине полосы.</summary>
-    ConstitutiveIntegration
+    ConstitutiveIntegration,
+
+    /// <summary>Энергетически эквивалентная редукция (Срез 8b): боковые деформации плиты
+    /// (ε_y, γ_xy, κ_y) считаются свободными и статически конденсируются, так что полоса ведёт
+    /// себя как изолированная лента, а не как фрагмент сплошной плиты. Линейная политика.</summary>
+    EnergyEquivalent
 }
