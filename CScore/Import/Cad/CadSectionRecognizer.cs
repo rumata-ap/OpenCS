@@ -343,16 +343,25 @@ public static class CadSectionRecognizer
       if (regionNodes.Count == 0) return null;
       double mpu = o.MetersPerUnit;
 
-      // Начало осей — центр тяжести областей за вычетом пустот (в единицах чертежа).
-      double a = 0, sx = 0, sy = 0;
+      // Пустоты каждой области. Совпадающие контуры — одна пустота: бетон, нарисованный точно по внутреннему контуру
+      // трубы, и сам этот контур (тот же слой, что труба) вырезают одно и то же отверстие.
+      var holesOf = regionNodes.ToDictionary(n => n, _ => new List<CadPolygon>());
       foreach (var n in g.Nodes)
+         if (n.HoleOf != null && holesOf.TryGetValue(n.HoleOf, out var list) && !list.Any(h => Coincide(h, n.Poly)))
+            list.Add(n.Poly);
+
+      // Начало осей — центр тяжести областей за вычетом их пустот (в единицах чертежа).
+      double a = 0, sx = 0, sy = 0;
+      void Add(CadPolygon p, double sign)
       {
-         // Область +1, пустота −1; сталь в бетоне — и то и другое (0): её площадь уже во внешнем контуре бетона.
-         double sign = (n.Kind == Kind.Region ? 1 : 0) - (n.HoleOf != null ? 1 : 0);
-         if (sign == 0) continue;
-         double ar = Math.Abs(n.Poly.Area);
-         var c = CadGeometry.Centroid(n.Poly.Points);
+         double ar = Math.Abs(p.Area);
+         var c = CadGeometry.Centroid(p.Points);
          a += sign * ar; sx += sign * ar * c.X; sy += sign * ar * c.Y;
+      }
+      foreach (var (n, holes) in holesOf)
+      {
+         Add(n.Poly, 1);
+         foreach (var h in holes) Add(h, -1);
       }
       var bounds = regionNodes.Select(n => n.Poly.Bounds).Aggregate((x, y) => x.Union(y));
       var origin = a > 1e-12 ? new CadPoint(sx / a, sy / a) : new CadPoint(bounds.CenterX, bounds.CenterY);
@@ -377,9 +386,9 @@ public static class CadSectionRecognizer
          if (CadGeometry.SelfIntersects(n.Poly.Points))
             s.Warnings.Add($"контур на слое «{n.Poly.Layer}» самопересекается");
       }
-      foreach (var n in g.Nodes)
-         if (n.HoleOf != null && map.TryGetValue(n.HoleOf, out var host))
-            host.Holes.Add(Local(n.Poly, ccw: false));
+      foreach (var (n, holes) in holesOf)
+         foreach (var h in holes)
+            map[n].Holes.Add(Local(h, ccw: false));
       int skipped = g.Nodes.Count(n => n.Kind == Kind.Skip);
       if (skipped > 0) s.Warnings.Add($"отверстий вне областей: {skipped}");
 
@@ -428,7 +437,7 @@ public static class CadSectionRecognizer
             if (Math.Sqrt(dx * dx + dy * dy) < (p.DiameterM + q.DiameterM) / 2 * (1 - 1e-6)) overlaps++;
          }
       if (overlaps > 0) s.Warnings.Add($"перекрывающихся стержней: {overlaps}");
-      if (s.Bars.Count == 0 && s.Regions.Any(r => r.Role == CadLayerRole.Concrete))
+      if (s.Bars.Count == 0 && s.Regions.All(r => r.Role == CadLayerRole.Concrete))
          s.Warnings.Add("нет арматуры");
 
       // Имя: подпись внутри габарита сечения, затем ближайшая; при равенстве — крупнее.
@@ -444,6 +453,15 @@ public static class CadSectionRecognizer
 
       s.Signature = Signature(s, o.QuantumM);
       return s;
+   }
+
+   /// <summary>Контуры совпадают: та же площадь и габарит с точностью 10⁻⁶ размера.</summary>
+   static bool Coincide(CadPolygon p, CadPolygon q)
+   {
+      double tol = 1e-6 * Math.Max(p.Bounds.Width, p.Bounds.Height);
+      return Math.Abs(Math.Abs(p.Area) - Math.Abs(q.Area)) <= 1e-6 * Math.Abs(p.Area)
+             && Math.Abs(p.Bounds.MinX - q.Bounds.MinX) <= tol && Math.Abs(p.Bounds.MinY - q.Bounds.MinY) <= tol
+             && Math.Abs(p.Bounds.MaxX - q.Bounds.MaxX) <= tol && Math.Abs(p.Bounds.MaxY - q.Bounds.MaxY) <= tol;
    }
 
    /// <summary>Сверху вниз по рядам, в ряду слева направо.</summary>

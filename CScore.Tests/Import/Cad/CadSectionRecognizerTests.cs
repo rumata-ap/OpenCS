@@ -135,6 +135,26 @@ public class CadSectionRecognizerTests
    }
 
    [Fact]
+   public void ConcreteCoincidentWithTubeInnerContour_SingleHole_CentroidOfWholeSection()
+   {
+      // Труба 300×200 со стенками 20 (слева) и 8 (справа, сверху, снизу); внутренний контур — тем же слоем стали,
+      // бетон нарисован точно по нему. Отверстие в стали — одно; ц. т. — по всему сечению (сталь + бетон = наружный контур).
+      var s = new CadSnapshot();
+      s.Polygons.Add(Rect(Steel, 0, 0, 300, 200));
+      s.Polygons.Add(Rect(Steel, 20, 8, 272, 184));
+      s.Polygons.Add(Rect(Conc, 20, 8, 272, 184));
+      var c = Assert.Single(CadSectionRecognizer.Recognize(s, Options(s)).Sections);
+
+      var steel = c.Regions.Single(r => r.Role == CadLayerRole.Steel);
+      var conc = c.Regions.Single(r => r.Role == CadLayerRole.Concrete);
+      Assert.Single(steel.Holes);
+      Assert.Equal((300 * 200 - 272 * 184) * 1e-6, steel.Area, 12);
+      Assert.Equal(272 * 184 * 1e-6, conc.Area, 12);
+      Assert.Equal(new CadPoint(150, 100), c.Origin);
+      Assert.DoesNotContain("нет арматуры", c.Warnings); // несущая сталь есть
+   }
+
+   [Fact]
    public void Frames_SectionPerFrame_NamesFromLabels_OrderedRowsLeftToRight()
    {
       var s = new CadSnapshot();

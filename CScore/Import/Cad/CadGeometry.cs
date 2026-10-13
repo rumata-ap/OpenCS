@@ -15,7 +15,7 @@ public enum CadArcMode
 /// <summary>Дискретизация дуг и окружностей; <paramref name="Value"/> — стрелка или хорда в единицах чертежа, либо число отрезков.</summary>
 public readonly record struct CadArcDiscretization(CadArcMode Mode, double Value)
 {
-   /// <summary>Стрелка по умолчанию, м (0,1 мм: абсолютное отклонение контура; доля потери площади — около (2/3)·s/r).</summary>
+   /// <summary>Стрелка по умолчанию, м (0,1 мм: абсолютное отклонение контура; доля потери площади круга — около (4/3)·s/r: r = 200 мм — 0,07 %).</summary>
    public const double DefaultDeviationM = 0.0001;
 
    public static CadArcDiscretization ByDeviation(double units) => new(CadArcMode.Deviation, units);

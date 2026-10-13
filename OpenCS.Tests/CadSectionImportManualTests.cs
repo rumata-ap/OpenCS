@@ -28,8 +28,12 @@ public class CadSectionImportManualTests(ITestOutputHelper output)
       output.WriteLine($"экземпляров {r.Instances}, разных сечений {r.Sections.Count}, стержней {r.Sections.Sum(x => x.Bars.Count * x.Count)}");
       foreach (var w in s.Warnings.Concat(r.Warnings)) output.WriteLine($"! {w}");
       foreach (var c in r.Sections)
-         output.WriteLine($"{c.Name} ×{c.Count}: областей {c.Regions.Count}, отверстий {c.Regions.Sum(x => x.Holes.Count)}, " +
-                          $"стержней {c.Bars.Count}{(c.Warnings.Count > 0 ? " | " + string.Join("; ", c.Warnings) : "")}");
+      {
+         double Area(CadLayerRole role) => c.Regions.Where(x => x.Role == role).Sum(x => x.Area) * 1e4;
+         output.WriteLine($"{c.Name} ×{c.Count}: бетон {Area(CadLayerRole.Concrete):0.00} см², сталь {Area(CadLayerRole.Steel):0.00} см², " +
+                          $"областей {c.Regions.Count}, отверстий {c.Regions.Sum(x => x.Holes.Count)}, стержней {c.Bars.Count}" +
+                          $"{(c.Warnings.Count > 0 ? " | " + string.Join("; ", c.Warnings) : "")}");
+      }
 
       if (int.TryParse(Environment.GetEnvironmentVariable("OPENCS_CAD_SECTIONS"), out int n)) Assert.Equal(n, r.Instances);
       if (int.TryParse(Environment.GetEnvironmentVariable("OPENCS_CAD_BARS"), out int nb))
