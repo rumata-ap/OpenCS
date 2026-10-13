@@ -2876,6 +2876,29 @@ namespace OpenCS
           }
        }
 
+       /// <summary>Срез 8d: нелинейный прогон полосы эквивалентного сечения (балка CScore и, по запросу,
+       /// сверка фибровым стержнем OpenSees); результат сохраняется в проекте.</summary>
+       public async Task<StripNonlinearRunResult> RunStripNonlinearAsync(
+          EquivalentSection equivalent, StripNonlinearRunInput input)
+       {
+          var materials = Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
+          var service = new Services.StripNonlinearRunService(db, materials);
+
+          string? openSees = null;
+          try
+          {
+             openSees = new OpenCS.OpenSees.Runtime.OpenSeesExecutableResolver()
+                .Resolve(CalcSettings.OpenSeesExecutablePath).Path;
+          }
+          catch (System.IO.FileNotFoundException) { }
+
+          LogService.Info($"[{equivalent.Tag}] нелинейный прогон полосы: нагрузок {input.Loads.Count}, шагов {input.LoadSteps}");
+          var result = await service.RunAsync(equivalent, input, CalcType.C, openSees, CancellationToken.None);
+          foreach (var d in result.Diagnostics)
+             if (d.IsError) LogService.Warning($"[{equivalent.Tag}] {d.Message}");
+          return result;
+       }
+
        void RecalculateEquivalentSection(EquivalentSection? target = null)
        {
           var equivalent = target ?? currentEquivalentSection;

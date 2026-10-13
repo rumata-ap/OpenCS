@@ -88,6 +88,9 @@ public sealed class EquivalentSectionVM : ViewModelBase
     public double GAy => Model.ShearStiffnessGAy;
     public double GAz => Model.ShearStiffnessGAz;
 
+    /// <summary>Нелинейный прогон полосы (срез 8d).</summary>
+    public StripNonlinearRunVM Run { get; }
+
     public ICommand RecalculateCommand { get; }
     public ICommand DeleteCommand { get; }
 
@@ -95,6 +98,7 @@ public sealed class EquivalentSectionVM : ViewModelBase
     {
         Model = model ?? throw new ArgumentNullException(nameof(model));
         App = app ?? throw new ArgumentNullException(nameof(app));
+        Run = new StripNonlinearRunVM(Model, App);
         RecalculateCommand = new RelayCommand(_ => App.RecalculateEquivalentSectionCommand.Execute(Model));
         DeleteCommand = new RelayCommand(_ => App.DeleteEquivalentSectionCommand.Execute(Model));
 

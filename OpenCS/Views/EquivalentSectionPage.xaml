@@ -109,6 +109,108 @@
                </DataGrid>
             </GroupBox>
 
+            <GroupBox Header="{DynamicResource StripRunGroup}" Margin="0,0,0,8" DataContext="{Binding Run}">
+               <StackPanel Margin="6">
+                  <TextBlock Text="{DynamicResource StripRunSupports}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                     <TextBlock Text="{DynamicResource StripRunStart}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                     <ComboBox Width="120" ItemsSource="{Binding ConditionNames}"
+                               SelectedIndex="{Binding StartConditionIndex}" Margin="0,0,16,0"/>
+                     <TextBlock Text="{DynamicResource StripRunEnd}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                     <ComboBox Width="120" ItemsSource="{Binding ConditionNames}"
+                               SelectedIndex="{Binding EndConditionIndex}"/>
+                  </StackPanel>
+                  <CheckBox Content="{DynamicResource StripRunAxialBoth}" IsChecked="{Binding AxialBothEnds}" Margin="0,0,0,8"/>
+
+                  <TextBlock Text="{DynamicResource StripRunLoads}" FontWeight="SemiBold" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                  <DataGrid ItemsSource="{Binding Loads}" AutoGenerateColumns="False" CanUserAddRows="False"
+                            HeadersVisibility="Column" Margin="0,0,0,4">
+                     <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="{DynamicResource StripRunLoadKind}" Width="150">
+                           <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                 <ComboBox ItemsSource="{Binding KindNames}" SelectedIndex="{Binding KindIndex}"/>
+                              </DataTemplate>
+                           </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="{DynamicResource StripRunLoadFrom}"
+                                            Binding="{Binding FromFraction, StringFormat={}{0:G6}}" Width="*"/>
+                        <DataGridTemplateColumn Header="{DynamicResource StripRunLoadTo}" Width="*">
+                           <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                 <TextBox Text="{Binding ToFraction, StringFormat={}{0:G6}}" IsEnabled="{Binding ToEnabled}"
+                                          BorderThickness="0"/>
+                              </DataTemplate>
+                           </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="{DynamicResource StripRunLoadValue}"
+                                            Binding="{Binding Value, StringFormat={}{0:G6}}" Width="*"/>
+                        <DataGridTemplateColumn Width="90">
+                           <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                 <Button Content="{DynamicResource StripRunRemoveLoad}"
+                                         Command="{Binding DataContext.RemoveLoadCommand,
+                                                   RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                         CommandParameter="{Binding}"/>
+                              </DataTemplate>
+                           </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                     </DataGrid.Columns>
+                  </DataGrid>
+                  <Button Content="{DynamicResource StripRunAddLoad}" Command="{Binding AddLoadCommand}"
+                          HorizontalAlignment="Left" Margin="0,0,0,8"/>
+
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                     <TextBlock Text="{DynamicResource StripRunSteps}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                     <TextBox Width="60" Text="{Binding LoadSteps}" Margin="0,0,16,0"/>
+                     <TextBlock Text="{DynamicResource StripRunElements}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                     <TextBox Width="60" Text="{Binding ElementCount}"/>
+                  </StackPanel>
+                  <CheckBox Content="{DynamicResource StripRunFiberCheck}" IsChecked="{Binding FiberCheck}" Margin="0,0,0,8"/>
+
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                     <Button Content="{DynamicResource StripRunRun}" Command="{Binding RunCommand}" Padding="12,3"/>
+                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                Foreground="DarkSlateGray"/>
+                  </StackPanel>
+
+                  <TextBlock Text="{DynamicResource StripRunStale}" Foreground="DarkOrange" TextWrapping="Wrap"
+                             Margin="0,0,0,4" Visibility="{Binding StaleVisibility}"/>
+                  <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                  <TextBlock Text="{Binding FiberText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                             Visibility="{Binding FiberVisibility}"/>
+
+                  <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                            CanUserAddRows="False" HeadersVisibility="Column" Visibility="{Binding ResultVisibility}">
+                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColX}"
+                                            Binding="{Binding X, StringFormat={}{0:F3}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColN}"
+                                            Binding="{Binding N, StringFormat={}{0:F2}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColMy}"
+                                            Binding="{Binding My, StringFormat={}{0:F2}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColMz}"
+                                            Binding="{Binding Mz, StringFormat={}{0:F2}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColW}"
+                                            Binding="{Binding W, StringFormat={}{0:F3}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColFiberMy}"
+                                            Binding="{Binding FiberMy}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource StripRunColFiberW}"
+                                            Binding="{Binding FiberW}" Width="*"/>
+                     </DataGrid.Columns>
+                  </DataGrid>
+
+                  <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="0,8,0,0">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                           <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,0,0,2"
+                                      Foreground="DarkSlateGray"/>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </StackPanel>
+            </GroupBox>
+
             <GroupBox Header="{DynamicResource EquivalentSectionDiagnostics}">
                <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="6">
                   <ItemsControl.ItemTemplate>
