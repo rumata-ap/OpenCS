@@ -131,6 +131,49 @@ public sealed class CadSectionImportTests
       finally { File.Delete(path); }
    }
 
+   [Fact]
+   public void DxfPolylineWidth_ReadIntoPaths()
+   {
+      var d = new DxfDocument();
+      d.DrawingVariables.InsUnits = DrawingUnits.Millimeters;
+      Layer st = L(d, "Хомуты_A240");
+      // Хомут с постоянной шириной 8; полилиния переменной ширины; шпилька с крючками шириной 6; хомут в блоке.
+      var hoop = Rect(st, 0, 0, 200, 300);
+      hoop.SetConstantWidth(8);
+      var tapered = Rect(st, 400, 0, 200, 300);
+      tapered.Vertexes[0].StartWidth = 4;
+      tapered.Vertexes[0].EndWidth = 8;
+      var tie = new Polyline2D(new Vector2[] { new(30, 60), new(0, 30), new(0, 150), new(200, 150), new(200, 120) }, false) { Layer = st };
+      tie.SetConstantWidth(6);
+      var blk = new Block("ХОМУТ");
+      var inBlock = Rect(L(d, "0"), -100, -150, 200, 300);
+      inBlock.SetConstantWidth(10);
+      blk.Entities.Add(inBlock);
+      d.Entities.Add(hoop);
+      d.Entities.Add(tapered);
+      d.Entities.Add(tie);
+      d.Entities.Add(new Insert(blk, new Vector3(1000, 150, 0)) { Layer = st });
+
+      string path = Path.Combine(Path.GetTempPath(), $"opencs-cad-{Guid.NewGuid():N}.dxf");
+      try
+      {
+         d.Save(path);
+         var s = DxfSnapshotReader.Read(path, Arcs, 0.01);
+         Assert.Equal(4, s.Paths.Count);
+         Assert.Equal(3, s.Polygons.Count);
+         Assert.Equal(8, s.Paths.Single(l => l.Closed && l.Bounds.MinX == 0).Width);
+         Assert.Equal(0, s.Paths.Single(l => l.Bounds.MinX == 400).Width);
+         var t = s.Paths.Single(l => !l.Closed);
+         Assert.Equal(6, t.Width);
+         Assert.Equal(5, t.Points.Count);
+         var b = s.Paths.Single(l => l.Bounds.MinX == 900);
+         Assert.Equal("Хомуты_A240", b.Layer);
+         Assert.Equal(10, b.Width);
+         Assert.Equal(1, Assert.Single(s.Layers()).Lines);
+      }
+      finally { File.Delete(path); }
+   }
+
    static string CatalogDirectory()
    {
       var dir = new DirectoryInfo(AppContext.BaseDirectory);

@@ -50,6 +50,21 @@ public static class DxfSnapshotReader
       _ => null,
    };
 
+   /// <summary>
+   /// Постоянная ширина полилинии: у всех сегментов начальная и конечная ширина одинаковы (group 43 LWPOLYLINE netDxf
+   /// раскладывает по вершинам); 0 — без ширины или ширина переменная.
+   /// </summary>
+   public static double ConstantWidth(Polyline2D p)
+   {
+      var v = p.Vertexes;
+      int segs = p.IsClosed ? v.Count : v.Count - 1;
+      if (segs < 1) return 0;
+      double w = v[0].StartWidth;
+      for (int i = 0; i < segs; i++)
+         if (Math.Abs(v[i].StartWidth - w) > 1e-9 || Math.Abs(v[i].EndWidth - w) > 1e-9) return 0;
+      return w > 0 ? w : 0;
+   }
+
    static void Add(CadSnapshotBuilder b, EntityObject e, string? insertLayer, int depth, ref int skipped)
    {
       string layer = e.Layer?.Name ?? "0";
@@ -63,7 +78,7 @@ public static class DxfSnapshotReader
             var v = p.Vertexes.Select(x => mirrored
                ? new CadVertex(-x.Position.X, x.Position.Y, -x.Bulge)
                : new CadVertex(x.Position.X, x.Position.Y, x.Bulge)).ToList();
-            b.AddPolyline(layer, v, p.IsClosed);
+            b.AddPolyline(layer, v, p.IsClosed, ConstantWidth(p));
             break;
          }
          case Line l:

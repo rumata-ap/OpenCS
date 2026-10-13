@@ -4641,6 +4641,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="VT_CadSectionImport">Импорт сечений из чертежа</system:String>
    <system:String x:Key="CadImpContours">контуров</system:String>
    <system:String x:Key="CadImpCircles">окружностей</system:String>
+   <system:String x:Key="CadImpLines">незамкнутых линий</system:String>
    <system:String x:Key="CadImpTexts">текстов</system:String>
    <system:String x:Key="CadRoleIgnore">—</system:String>
    <system:String x:Key="CadRoleConcrete">Бетон</system:String>

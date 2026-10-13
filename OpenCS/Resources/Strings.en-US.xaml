@@ -4641,6 +4641,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="VT_CadSectionImport">Import sections from drawing</system:String>
    <system:String x:Key="CadImpContours">contours</system:String>
    <system:String x:Key="CadImpCircles">circles</system:String>
+   <system:String x:Key="CadImpLines">open lines</system:String>
    <system:String x:Key="CadImpTexts">texts</system:String>
    <system:String x:Key="CadRoleIgnore">—</system:String>
    <system:String x:Key="CadRoleConcrete">Concrete</system:String>

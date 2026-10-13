@@ -85,6 +85,73 @@ public class CadSnapshotBuilderTests
    }
 
    [Fact]
+   public void WidePolyline_ClosedIsContourAndPath_OpenIsPathOnly()
+   {
+      var b = new CadSnapshotBuilder(Chord, Tol);
+      // Хомут полилинией с шириной 8 по оси 200×300 и шпилька с крючками (незамкнутая, ширина 6).
+      b.AddPolyline("Хомуты", [new(0, 0), new(200, 0), new(200, 300), new(0, 300)], closed: true, width: 8);
+      b.AddPolyline("Хомуты", [new(30, 60), new(0, 30), new(0, 150), new(200, 150), new(200, 120)], closed: false, width: 6);
+      var s = b.Build();
+
+      Assert.Single(s.Polygons);
+      Assert.Equal(2, s.Paths.Count);
+      var hoop = Assert.Single(s.Paths, l => l.Closed);
+      Assert.Equal(8, hoop.Width);
+      Assert.Equal(4, hoop.Points.Count);
+      var tie = Assert.Single(s.Paths, l => !l.Closed);
+      Assert.Equal(6, tie.Width);
+      Assert.Equal(5, tie.Points.Count);
+      Assert.Equal(new CadBounds(0, 30, 200, 150), tie.Bounds);
+   }
+
+   [Fact]
+   public void StitchedChains_KeptAsPaths_WidthOnlyIfCommon()
+   {
+      var b = new CadSnapshotBuilder(Chord, Tol);
+      // Замкнутая цепь из отрезков — контур и замкнутая линия без ширины.
+      b.AddLine("Хомуты", 0, 0, 100, 0);
+      b.AddLine("Хомуты", 100, 100, 100, 0);
+      b.AddLine("Хомуты", 100, 100, 0, 100);
+      b.AddLine("Хомуты", 0, 0, 0, 100);
+      // Незамкнутая цепь из двух полилиний одной ширины — одна линия с этой шириной.
+      b.AddPolyline("Хомуты", [new(300, 0), new(400, 0)], closed: false, width: 8);
+      b.AddPolyline("Хомуты", [new(500, 50), new(400, 0)], closed: false, width: 8);
+      // Из полилинии с шириной и отрезка — ширина 0.
+      b.AddPolyline("Шпильки", [new(0, 500), new(100, 500)], closed: false, width: 8);
+      b.AddLine("Шпильки", 100, 500, 100, 600);
+      var s = b.Build();
+
+      Assert.Single(s.Polygons);
+      var closed = Assert.Single(s.Paths, l => l.Closed);
+      Assert.Equal(0, closed.Width);
+      Assert.Equal(4, closed.Points.Count);
+      var same = Assert.Single(s.Paths, l => !l.Closed && l.Layer == "Хомуты");
+      Assert.Equal(8, same.Width);
+      Assert.Equal(3, same.Points.Count);
+      Assert.Equal(new CadPoint(400, 0), same.Points[1]);
+      Assert.Equal(0, Assert.Single(s.Paths, l => l.Layer == "Шпильки").Width);
+   }
+
+   [Fact]
+   public void Paths_InWindowExtentsAndLayerCounts()
+   {
+      var b = new CadSnapshotBuilder(Chord, Tol);
+      b.AddPolyline("Хомуты", [new(0, 0), new(200, 0), new(200, 300), new(0, 300)], closed: true, width: 8);
+      b.AddPolyline("Хомуты", [new(0, 150), new(200, 150)], closed: false);
+      b.AddPolyline("Хомуты", [new(1000, 0), new(1500, 0)], closed: false);
+      b.AddText("Хомуты", 50, 350, 20, "Ø8 шаг 150");
+      var s = b.Build();
+
+      Assert.Equal(new CadBounds(0, 0, 1500, 350), s.Extents());
+      Assert.Equal(2, s.Within(new CadBounds(-10, -10, 400, 400)).Paths.Count);
+      var layer = Assert.Single(s.Layers());
+      Assert.Equal(1, layer.Polygons);
+      Assert.Equal(2, layer.Lines);
+      // Слой с линиями и текстами — не подписи.
+      Assert.NotEqual(CadLayerRole.Label, CadLayerRules.Guess(new CadLayerInfo("Слой1") { Lines = 2, Texts = 1 }));
+   }
+
+   [Fact]
    public void FixedSegmentsSetting_AppliedToBulgeArcsAndCircles()
    {
       var d = CadArcDiscretization.FromMeters(CadArcMode.FixedSegments, 0.0001, 0.01, 6, 0.001);

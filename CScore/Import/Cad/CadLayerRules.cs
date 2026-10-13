@@ -37,7 +37,7 @@ public static partial class CadLayerRules
       if (Has(n, "стал", "steel", "проф", "prof") || SteelClass().IsMatch(lat)) return CadLayerRole.Steel;
       if (Has(n, "бет", "conc", "жб") || ConcreteClass().IsMatch(lat)) return CadLayerRole.Concrete;
       if (Has(n, "подп", "надп", "text", "текст", "label", "назв", "марк")) return CadLayerRole.Label;
-      if (layer.Texts > 0 && layer.Polygons == 0 && layer.Circles == 0) return CadLayerRole.Label;
+      if (layer.Texts > 0 && layer.Polygons == 0 && layer.Circles == 0 && layer.Lines == 0) return CadLayerRole.Label;
       return CadLayerRole.Ignore;
    }
 

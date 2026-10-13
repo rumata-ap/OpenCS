@@ -46,6 +46,7 @@ public sealed class CadLayerRowVM : ViewModelBase
       Info.Polygons > 0 ? $"{Loc.S("CadImpContours")} {Info.Polygons}" : null,
       Info.Circles > 0 ? $"{Loc.S("CadImpCircles")} {Info.Circles}" : null,
       Info.Texts > 0 ? $"{Loc.S("CadImpTexts")} {Info.Texts}" : null,
+      Info.Lines > 0 ? $"{Loc.S("CadImpLines")} {Info.Lines}" : null,
    }.Where(s => s != null));
 
    public IReadOnlyList<CadRoleItem> Roles => CadSectionImportVM.RoleItems;

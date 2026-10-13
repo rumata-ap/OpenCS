@@ -67,6 +67,35 @@ public sealed class CadPolygon
    public double Area { get; }
 }
 
+/// <summary>
+/// Линия чертежа: полилиния (дуги заменены ломаной) или цепочка LINE/ARC/полилиний после сшивки — до превращения
+/// в контур. Замкнутые линии дублируют контуры <see cref="CadSnapshot.Polygons"/>; линии нужны роли «Хомуты»
+/// (ось хомута, ширина полилинии = диаметр, незамкнутые хомуты с крючками и шпильки).
+/// </summary>
+public sealed class CadPath
+{
+   public CadPath(string layer, IReadOnlyList<CadPoint> points, bool closed, double width)
+   {
+      Layer = layer;
+      Points = points;
+      Closed = closed;
+      Width = width;
+      Bounds = CadBounds.Of(points);
+   }
+
+   public string Layer { get; }
+
+   /// <summary>Вершины; у замкнутой первая в конце не повторяется.</summary>
+   public IReadOnlyList<CadPoint> Points { get; }
+
+   public bool Closed { get; }
+
+   /// <summary>Постоянная ширина полилинии в единицах чертежа; 0 — без ширины или ширина переменная.</summary>
+   public double Width { get; }
+
+   public CadBounds Bounds { get; }
+}
+
 /// <summary>Окружность чертежа.</summary>
 public sealed record CadCircle(string Layer, double X, double Y, double R)
 {
@@ -85,6 +114,7 @@ public sealed class CadSnapshot
    public List<CadPolygon> Polygons { get; } = [];
    public List<CadCircle> Circles { get; } = [];
    public List<CadText> Texts { get; } = [];
+   public List<CadPath> Paths { get; } = [];
 
    /// <summary>Объекты, которые не удалось прочитать или не поддерживаются (незамкнутые полилинии и т. п.).</summary>
    public List<string> Warnings { get; } = [];
@@ -103,6 +133,8 @@ public sealed class CadSnapshot
       foreach (var p in Polygons) Get(p.Layer).Polygons++;
       foreach (var c in Circles) Get(c.Layer).Circles++;
       foreach (var t in Texts) Get(t.Layer).Texts++;
+      foreach (var l in Paths)
+         if (!l.Closed) Get(l.Layer).Lines++;
       return [.. map.Values.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)];
    }
 
@@ -113,6 +145,7 @@ public sealed class CadSnapshot
       s.Polygons.AddRange(Polygons.Where(p => window.Contains(p.Bounds)));
       s.Circles.AddRange(Circles.Where(c => window.Contains(c.Bounds)));
       s.Texts.AddRange(Texts.Where(t => window.Contains(t.X, t.Y)));
+      s.Paths.AddRange(Paths.Where(l => window.Contains(l.Bounds)));
       s.Warnings.AddRange(Warnings);
       return s;
    }
@@ -125,6 +158,7 @@ public sealed class CadSnapshot
       foreach (var p in Polygons) Add(p.Bounds);
       foreach (var c in Circles) Add(c.Bounds);
       foreach (var t in Texts) Add(new CadBounds(t.X, t.Y, t.X, t.Y));
+      foreach (var l in Paths) Add(l.Bounds);
       return b;
    }
 }
@@ -136,4 +170,7 @@ public sealed class CadLayerInfo(string name)
    public int Polygons { get; set; }
    public int Circles { get; set; }
    public int Texts { get; set; }
+
+   /// <summary>Незамкнутые линии (замкнутые учтены в <see cref="Polygons"/>).</summary>
+   public int Lines { get; set; }
 }
