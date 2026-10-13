@@ -39,6 +39,15 @@ namespace OpenCS.OpenSees.CScore.Fragments
         /// <summary>Источник плитного отклика для каждой точки квадратуры по ширине.</summary>
         public IReadOnlyList<IPlateSectionResponse> WidthSources { get; init; } = [];
 
+        /// <summary>Срез 8c: источники по ширине для каждого элемента полосы ([элемент][точка ширины]).
+        /// Если заданы — заменяют равномерную по длине решётку из <see cref="WidthSources"/>
+        /// (переменное армирование по пролёту). Число элементов = станции − 1.</summary>
+        public IReadOnlyList<IReadOnlyList<IPlateSectionResponse>>? ElementWidthSources { get; init; }
+
+        /// <summary>Срез 8c: фибровая сверка — тот же расчёт полосы стержнем OpenSees с фибровым
+        /// сечением, построенным из <see cref="Section"/> и <see cref="RebarField"/>. null — не выполняется.</summary>
+        public PlateStripFiberCheck? FiberCheck { get; init; }
+
         /// <summary>Источник опор (Срез 8a).</summary>
         public PlateStripSupportMode SupportMode { get; init; } = PlateStripSupportMode.Explicit;
         /// <summary>Кандидаты в опоры из родительской схемы — для <see cref="PlateStripSupportMode.DerivedFromParent"/>.</summary>
@@ -322,7 +331,45 @@ namespace OpenCS.OpenSees.CScore.Fragments
             result.MaxRelativeMomentMismatch = MomentMismatch(
                 result.ShellResultants, beam.StationResultants, interiorOnly: derived);
             result.RelativeDeflectionMismatch = Relative(result.ShellMaxDeflectionM, result.BeamMaxDeflectionM);
+
+            if (request.FiberCheck is not null)
+                await RunFiberCheckAsync(
+                    request, scheme, stripLoads, endActions, kinematic.Values, result, openSeesExecutablePath,
+                    cancellationToken);
             return result;
+        }
+
+        /// <summary>Срез 8c: фибровая сверка. Ошибки пути сверки не портят основной результат —
+        /// они попадают в диагностики и оставляют поля сверки пустыми.</summary>
+        static async Task RunFiberCheckAsync(
+            PlateStripAnalogyRequest request, StripBeamSupportScheme scheme, List<StripLoad> stripLoads,
+            KnownEndActions? endActions, IReadOnlyList<StripPrescribedDisplacement> prescribed,
+            PlateStripAnalogyResult result, string openSeesExecutablePath, CancellationToken cancellationToken)
+        {
+            var diagnostics = result.DomainDiagnostics.ToList();
+            int widthPoints = request.ElementWidthSources is { Count: > 0 } perElement
+                ? perElement[0].Count
+                : request.WidthSources.Count;
+
+            if (request.Formulation == StripBeamFormulation.Timoshenko)
+                diagnostics.Add(new("plate_strip_fiber_timoshenko_bending_only",
+                    "Фибровая сверка — формулировка Эйлера–Бернулли: при Тимошенко сравнивается только " +
+                    "изгибная часть, сдвиговая податливость в фибровом пути не учтена.", false));
+
+            var fiber = await PlateStripFiberBeamRunner.RunAsync(
+                request.Section, request.RebarField, request.Analogy, request.StationFractions, widthPoints,
+                scheme, stripLoads, endActions, prescribed, request.NewtonOptions.LoadSteps,
+                request.FiberCheck!, openSeesExecutablePath, cancellationToken);
+
+            diagnostics.AddRange(fiber.Diagnostics);
+            result.DomainDiagnostics = diagnostics;
+            result.FiberBeam = fiber;
+            if (!fiber.IsConverged) return;
+
+            result.FiberBeamResultants = fiber.StationResultants;
+            result.FiberBeamMaxDeflectionM = fiber.MaxDeflectionM;
+            result.FiberVsBeamMomentMismatch = MomentMismatch(result.BeamResultants, fiber.StationResultants);
+            result.FiberVsBeamDeflectionMismatch = Relative(result.BeamMaxDeflectionM, fiber.MaxDeflectionM);
         }
 
         static PlateStripAnalogyResult Fail(
@@ -357,7 +404,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
             KnownEndActions? endActions, IReadOnlyList<StripPrescribedDisplacement> prescribed,
             List<FemValidationDiagnostic> diagnostics, PlateStripAnalogyResult result)
         {
-            if (request.WidthSources.Count == 0)
+            if (request.WidthSources.Count == 0 && request.ElementWidthSources is null)
             {
                 diagnostics.Add(new("plate_strip_source_grid_shape_mismatch",
                     "Не заданы источники плитного отклика по ширине полосы."));
@@ -373,8 +420,9 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return null;
             }
 
-            var grid = StripSectionSourceGrid.Uniform(
-                request.WidthSources, request.StationFractions.Count - 1);
+            var grid = request.ElementWidthSources is { } perElement
+                ? new StripSectionSourceGrid(perElement)
+                : StripSectionSourceGrid.Uniform(request.WidthSources, request.StationFractions.Count - 1);
 
             if (request.Formulation == StripBeamFormulation.Timoshenko)
             {

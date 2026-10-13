@@ -61,5 +61,21 @@ namespace OpenCS.OpenSees.CScore.Fragments
 
         /// <summary>Заданные перемещения узлов балки из кинематических интерфейсов.</summary>
         public IReadOnlyList<StripPrescribedDisplacement> Prescribed { get; set; } = [];
+
+        /// <summary>Срез 8c: результат фибровой сверки; null — сверка не запрашивалась.</summary>
+        public PlateStripFiberBeamResult? FiberBeam { get; set; }
+
+        /// <summary>Усилия [N, My, Mz] фибрового стержня OpenSees на станциях, кН и кН·м.</summary>
+        public IReadOnlyList<double[]> FiberBeamResultants { get; set; } = [];
+
+        /// <summary>Максимальный прогиб фибрового стержня, м.</summary>
+        public double FiberBeamMaxDeflectionM { get; set; }
+
+        /// <summary>Относительное расхождение изгибающих моментов собственной балки и фибрового
+        /// стержня (по максимуму эпюры); NaN — сверка не выполнена.</summary>
+        public double FiberVsBeamMomentMismatch { get; set; } = double.NaN;
+
+        /// <summary>Относительное расхождение максимальных прогибов; NaN — сверка не выполнена.</summary>
+        public double FiberVsBeamDeflectionMismatch { get; set; } = double.NaN;
     }
 }

@@ -329,7 +329,8 @@ public sealed class PlateStripAnalogyIntegrationTests
     }
 
     static async Task<(PlateStripAnalogyResult Result, string Root)> RunAsync(
-        double surfaceLoadKnM2, StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
+        double surfaceLoadKnM2, StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli,
+        PlateStripFiberCheck? fiberCheck = null)
     {
         string executable = OpenSeesTestExecutable.ResolveOrSkip();
         string root = Path.Combine(Path.GetTempPath(), "opencs-strip-e2e", Guid.NewGuid().ToString("N"));
@@ -369,7 +370,8 @@ public sealed class PlateStripAnalogyIntegrationTests
             StationFractions = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
             WidthSources = [source, source],
             NewtonOptions = new StripNewtonOptions(LoadSteps: 4, MaxIterations: 40),
-            Formulation = formulation
+            Formulation = formulation,
+            FiberCheck = fiberCheck
         };
 
         var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
@@ -384,6 +386,55 @@ public sealed class PlateStripAnalogyIntegrationTests
         var result = await new PlateStripAnalogyRunner().RunAsync(
             request, mesher, new ConcreteOnlyResolver(), analysis, executable, CancellationToken.None);
         return (result, root);
+    }
+
+    /// <summary>Срез 8c: опция FiberCheck в Runner добавляет к результату фибровый стержень OpenSees,
+    /// совпадающий с собственной балкой полосы; без опции поля остаются пустыми.</summary>
+    [Fact]
+    public async Task FiberCheck_AddsFiberBeamResult_AgreeingWithOwnBeam()
+    {
+        var concrete = new Material { Id = 1, E = ConcreteEValue, Type = MatType.ReSteelF, Tag = "strip-e2e" };
+        MaterialChars Ch(CalcType ct) => new(ct)
+        {
+            E = ConcreteEValue, Ry = 1500.0, Ru = 1650.0, Ft = 1500.0, Fc = -1500.0,
+            Ec2 = -0.15, Et2 = 0.15, Type = MatType.ReSteelF,
+        };
+        concrete.MaterialChars = [Ch(CalcType.C), Ch(CalcType.CL), Ch(CalcType.N), Ch(CalcType.NL)];
+        var check = new PlateStripFiberCheck { Materials = new Dictionary<int, Material> { [1] = concrete } };
+
+        var (result, root) = await RunAsync(surfaceLoadKnM2: -6.0, fiberCheck: check);
+        try
+        {
+            Assert.True(result.BeamIsCalculable);
+            Assert.NotNull(result.FiberBeam);
+            Assert.True(result.FiberBeam!.IsConverged,
+                string.Join("; ", result.FiberBeam.Diagnostics.Select(d => d.Message)));
+            Assert.Equal(result.StationFractions.Count, result.FiberBeamResultants.Count);
+            Assert.True(result.FiberVsBeamMomentMismatch < 0.02,
+                $"расхождение эпюр собственной балки и фибрового стержня {result.FiberVsBeamMomentMismatch:P2}");
+            Assert.True(result.FiberVsBeamDeflectionMismatch < 0.03,
+                $"расхождение прогибов {result.FiberVsBeamDeflectionMismatch:P2}");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task WithoutFiberCheck_FiberFieldsStayEmpty()
+    {
+        var (result, root) = await RunAsync(surfaceLoadKnM2: -3.0);
+        try
+        {
+            Assert.Null(result.FiberBeam);
+            Assert.Empty(result.FiberBeamResultants);
+            Assert.True(double.IsNaN(result.FiberVsBeamMomentMismatch));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
 
     /// <summary>Билинейный материал с изломом: до него отклик линеен, после — заметно мягче.
