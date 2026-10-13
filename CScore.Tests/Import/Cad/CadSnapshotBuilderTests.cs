@@ -6,7 +6,8 @@ namespace CScore.Tests.Import.Cad;
 /// <summary>Сборка снимка: дуги полилиний, сшивка LINE/ARC, кольца (единицы — мм).</summary>
 public class CadSnapshotBuilderTests
 {
-   const double Chord = 10, Tol = 0.01;
+   const double Tol = 0.01;
+   static readonly CadArcDiscretization Chord = CadArcDiscretization.ByChord(10);
 
    /// <summary>Площадь квадрата a×a со скруглёнными углами радиуса r.</summary>
    static double RoundedSquare(double a, double r) => a * a - (4 - Math.PI) * r * r;
@@ -83,9 +84,41 @@ public class CadSnapshotBuilderTests
       Assert.Contains("незамкнутых линий на слое «Бетон»: 1", s.Warnings);
    }
 
+   [Fact]
+   public void FixedSegmentsSetting_AppliedToBulgeArcsAndCircles()
+   {
+      var d = CadArcDiscretization.FromMeters(CadArcMode.FixedSegments, 0.0001, 0.01, 6, 0.001);
+      var b = new CadSnapshotBuilder(d, Tol);
+      double t = Math.Tan(Math.PI / 8);
+      b.AddPolyline("Сталь", [new(0, 0), new(90, 0, t), new(100, 10), new(0, 10)], closed: true);
+      Assert.Equal(4 + 5, Assert.Single(b.Build().Polygons).Points.Count);
+      Assert.Equal(6, CadGeometry.CirclePoints(0, 0, 500, d).Count);
+
+      var byChord = CadArcDiscretization.FromMeters(CadArcMode.Chord, 0.0001, 0.01, 6, 0.001);
+      Assert.Equal(10, byChord.Value, 12); // 10 мм хорды в единицах чертежа (мм)
+   }
+
    [Theory]
    [InlineData(10.0, Math.PI / 2, 10.0, 9)]     // малое скругление — по углу
    [InlineData(1000.0, Math.PI / 2, 10.0, 158)] // большой радиус — по хорде
    public void ArcSegments_AngleOrChord(double r, double sweep, double chord, int expected) =>
       Assert.Equal(expected, CadGeometry.ArcSegments(r, sweep, chord));
+
+   [Theory]
+   [InlineData(10.0, Math.PI / 2, 9)]     // скругление — ограничение 10°
+   [InlineData(200.0, 2 * Math.PI, 100)]  // по стрелке 0,1 мм
+   [InlineData(600.0, 2 * Math.PI, 173)]
+   public void ArcSegments_ByDeviation(double r, double sweep, int expected) =>
+      Assert.Equal(expected, CadArcDiscretization.ByDeviation(0.1).Segments(r, sweep));
+
+   [Fact]
+   public void DeviationMode_ChordDeviationWithinTolerance()
+   {
+      foreach (double r in new[] { 5.0, 50, 300, 1500 })
+      {
+         var pts = CadGeometry.CirclePoints(0, 0, r, CadArcDiscretization.ByDeviation(0.1));
+         // Стрелка правильного n-угольника — r·(1 − cos(π/n)).
+         Assert.InRange(r * (1 - Math.Cos(Math.PI / pts.Count)), 0, 0.1 + 1e-12);
+      }
+   }
 }

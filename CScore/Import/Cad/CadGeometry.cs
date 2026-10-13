@@ -1,5 +1,45 @@
 namespace CScore.Import.Cad;
 
+/// <summary>Способ дискретизации дуг и окружностей.</summary>
+public enum CadArcMode
+{
+   /// <summary>По наибольшему отклонению хорды от дуги (стрелке) и не больше 10° на отрезок: число отрезков
+   /// подстраивается под радиус — малые скругления не вырождаются, большие окружности не перегружены.</summary>
+   Deviation = 0,
+   /// <summary>По длине хорды (настройка импорта), не больше 10° на отрезок.</summary>
+   Chord = 1,
+   /// <summary>Фиксированное число отрезков на дугу (настройка импорта).</summary>
+   FixedSegments = 2,
+}
+
+/// <summary>Дискретизация дуг и окружностей; <paramref name="Value"/> — стрелка или хорда в единицах чертежа, либо число отрезков.</summary>
+public readonly record struct CadArcDiscretization(CadArcMode Mode, double Value)
+{
+   /// <summary>Стрелка по умолчанию, м (0,1 мм: абсолютное отклонение контура; доля потери площади — около (2/3)·s/r).</summary>
+   public const double DefaultDeviationM = 0.0001;
+
+   public static CadArcDiscretization ByDeviation(double units) => new(CadArcMode.Deviation, units);
+   public static CadArcDiscretization ByChord(double units) => new(CadArcMode.Chord, units);
+   public static CadArcDiscretization Fixed(int segments) => new(CadArcMode.FixedSegments, Math.Max(3, segments));
+
+   /// <summary>По настройке в метрах (стрелка, хорда) для чертежа с <paramref name="metersPerUnit"/>.</summary>
+   public static CadArcDiscretization FromMeters(CadArcMode mode, double deviationM, double chordM, int segments,
+                                                 double metersPerUnit) => mode switch
+   {
+      CadArcMode.Chord => ByChord(chordM / metersPerUnit),
+      CadArcMode.FixedSegments => Fixed(segments),
+      _ => ByDeviation(deviationM / metersPerUnit),
+   };
+
+   /// <summary>Число отрезков дуги радиуса r с центральным углом sweep.</summary>
+   public int Segments(double r, double sweep) => Mode switch
+   {
+      CadArcMode.FixedSegments => (int)Value,
+      CadArcMode.Chord => CadGeometry.ArcSegments(r, sweep, Value),
+      _ => CadGeometry.ArcSegmentsByDeviation(r, sweep, Value),
+   };
+}
+
 /// <summary>Плоская геометрия контуров чертежа: площадь, вхождение, дуги, самопересечения.</summary>
 public static class CadGeometry
 {
@@ -92,10 +132,21 @@ public static class CadGeometry
       return Math.Clamp(Math.Max(byAngle, byChord), 1, 720);
    }
 
-   /// <summary>Ломаная окружности против часовой стрелки; число сторон — по хорде и не меньше 36 (10°).</summary>
-   public static List<CadPoint> CirclePoints(double cx, double cy, double r, double chord)
+   /// <summary>Число отрезков дуги по наибольшей стрелке s (отклонению хорды от дуги) и не больше 10° на отрезок.</summary>
+   public static int ArcSegmentsByDeviation(double r, double sweep, double s)
    {
-      int n = ArcSegments(r, 2 * Math.PI, chord);
+      sweep = Math.Abs(sweep);
+      int byAngle = (int)Math.Ceiling(sweep / MaxArcStep - 1e-9);
+      int byDev = s > 0 && r > s
+         ? (int)Math.Ceiling(sweep / (2 * Math.Acos(1 - s / r)) - 1e-9)
+         : 0;
+      return Math.Clamp(Math.Max(byAngle, byDev), 1, 720);
+   }
+
+   /// <summary>Ломаная окружности против часовой стрелки по настройке дискретизации.</summary>
+   public static List<CadPoint> CirclePoints(double cx, double cy, double r, CadArcDiscretization d)
+   {
+      int n = Math.Max(3, d.Segments(r, 2 * Math.PI));
       var pts = new List<CadPoint>(n);
       for (int i = 0; i < n; i++)
       {
@@ -107,9 +158,9 @@ public static class CadGeometry
 
    /// <summary>
    /// Промежуточные точки дуги сегмента полилинии с кривизной bulge (tg четверти центрального угла),
-   /// без начальной и конечной точек. Длина хорды аппроксимации — <paramref name="chord"/>, шаг не больше 10°.
+   /// без начальной и конечной точек, по настройке дискретизации <paramref name="d"/>.
    /// </summary>
-   public static IEnumerable<CadPoint> BulgeArc(CadPoint p1, CadPoint p2, double bulge, double chord)
+   public static IEnumerable<CadPoint> BulgeArc(CadPoint p1, CadPoint p2, double bulge, CadArcDiscretization d)
    {
       double dx = p2.X - p1.X, dy = p2.Y - p1.Y;
       double c = Math.Sqrt(dx * dx + dy * dy);
@@ -121,7 +172,7 @@ public static class CadGeometry
       double mx = (p1.X + p2.X) / 2, my = (p1.Y + p2.Y) / 2;
       double cx = mx - h * dy / c, cy = my + h * dx / c;
       double a1 = Math.Atan2(p1.Y - cy, p1.X - cx);
-      int n = Math.Max(2, ArcSegments(r, theta, chord));
+      int n = Math.Max(2, d.Segments(r, theta));
       for (int i = 1; i < n; i++)
       {
          double a = a1 + theta * i / n;

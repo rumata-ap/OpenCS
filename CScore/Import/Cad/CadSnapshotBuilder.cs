@@ -8,14 +8,17 @@ public readonly record struct CadVertex(double X, double Y, double Bulge = 0);
 /// дуги полилиний (скругления профилей, дуговые фаски), отрезки и дуги заменяются ломаной; незамкнутые
 /// цепи из LINE/ARC/полилиний одного слоя сшиваются в замкнутые контуры (расчленённые профили).
 /// </summary>
-/// <param name="chord">Длина хорды ломаной дуги в единицах чертежа (шаг к тому же не больше 10°).</param>
+/// <param name="arcs">Дискретизация дуг и окружностей (настройка импорта).</param>
 /// <param name="tolerance">Допуск совпадения концов при сшивке, в единицах чертежа.</param>
-public sealed class CadSnapshotBuilder(double chord, double tolerance)
+public sealed class CadSnapshotBuilder(CadArcDiscretization arcs, double tolerance)
 {
    readonly CadSnapshot _s = new();
    readonly List<(string Layer, List<CadPoint> Pts)> _open = [];
 
    public CadSnapshot Snapshot => _s;
+
+   /// <summary>Дискретизация дуг, с которой работает построитель.</summary>
+   public CadArcDiscretization Arcs => arcs;
 
    /// <summary>Полилиния (LWPOLYLINE, 2D POLYLINE); замкнутая — контур, незамкнутая — в сшивку.</summary>
    public void AddPolyline(string layer, IReadOnlyList<CadVertex> v, bool closed)
@@ -27,7 +30,7 @@ public sealed class CadSnapshotBuilder(double chord, double tolerance)
       {
          var a = v[i];
          var b = v[(i + 1) % v.Count];
-         pts.AddRange(CadGeometry.BulgeArc(new(a.X, a.Y), new(b.X, b.Y), a.Bulge, chord));
+         pts.AddRange(CadGeometry.BulgeArc(new(a.X, a.Y), new(b.X, b.Y), a.Bulge, arcs));
          pts.Add(new(b.X, b.Y));
       }
       // Замкнутая — повтор первой вершины в конце убираем; незамкнутая, но с совпадающими концами — тоже контур.
@@ -51,7 +54,7 @@ public sealed class CadSnapshotBuilder(double chord, double tolerance)
    {
       double sweep = end - start;
       while (sweep <= 0) sweep += 2 * Math.PI;
-      int n = CadGeometry.ArcSegments(r, sweep, chord);
+      int n = arcs.Segments(r, sweep);
       var pts = new List<CadPoint>(n + 1);
       for (int i = 0; i <= n; i++)
       {

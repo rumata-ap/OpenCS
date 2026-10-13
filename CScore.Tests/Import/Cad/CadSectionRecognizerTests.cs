@@ -128,8 +128,8 @@ public class CadSectionRecognizerTests
       var conc = c.Regions.Single(r => r.Role == CadLayerRole.Concrete);
       Assert.Single(steel.Holes);
       Assert.Empty(conc.Holes);
-      // Ломаная по хорде 10 мм: площадь кольца близка к точной.
-      Assert.Equal(Math.PI * (0.2 * 0.2 - 0.19 * 0.19), steel.Area, 4);
+      // Ломаная по стрелке 0,1 мм: площадь кольца близка к точной (в пределах 0,1 %).
+      Assert.Equal(Math.PI * (0.2 * 0.2 - 0.19 * 0.19), steel.Area, Math.PI * (0.2 * 0.2 - 0.19 * 0.19) * 1e-3);
       Assert.Equal(0, c.Origin.X, 6);
       Assert.Equal(0, c.Origin.Y, 6);
    }
@@ -259,7 +259,7 @@ public class CadSectionRecognizerTests
    [Fact]
    public void BulgeArc_SemicircleBelowChord()
    {
-      var pts = CadGeometry.BulgeArc(new CadPoint(-1, 0), new CadPoint(1, 0), 1.0, 0.1).ToList();
+      var pts = CadGeometry.BulgeArc(new CadPoint(-1, 0), new CadPoint(1, 0), 1.0, CadArcDiscretization.ByChord(0.1)).ToList();
       Assert.True(pts.Count > 10);
       Assert.All(pts, p => Assert.Equal(1, Math.Sqrt(p.X * p.X + p.Y * p.Y), 9));
       Assert.All(pts, p => Assert.True(p.Y < 0));

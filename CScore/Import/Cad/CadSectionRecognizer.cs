@@ -12,8 +12,21 @@ public sealed class CadImportOptions
    /// <summary>Роли слоёв; слой без записи — <see cref="CadLayerRole.Ignore"/>.</summary>
    public Dictionary<string, CadLayerRole> Roles { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-   /// <summary>Длина хорды ломаной, заменяющей окружность бетона/стали/отверстия, м.</summary>
-   public double ChordM { get; set; } = 0.01;
+   /// <summary>Способ дискретизации дуг и окружностей; по умолчанию — по отклонению хорды.</summary>
+   public CadArcMode ArcMode { get; set; } = CadArcMode.Deviation;
+
+   /// <summary>Наибольшее отклонение хорды от дуги, м (<see cref="CadArcMode.Deviation"/>).</summary>
+   public double ArcDeviationM { get; set; } = CadArcDiscretization.DefaultDeviationM;
+
+   /// <summary>Длина хорды, м (<see cref="CadArcMode.Chord"/>).</summary>
+   public double ArcChordM { get; set; } = 0.01;
+
+   /// <summary>Число отрезков на дугу (<see cref="CadArcMode.FixedSegments"/>).</summary>
+   public int ArcSegments { get; set; } = 16;
+
+   /// <summary>Дискретизация в единицах чертежа.</summary>
+   public CadArcDiscretization Arcs =>
+      CadArcDiscretization.FromMeters(ArcMode, ArcDeviationM, ArcChordM, ArcSegments, MetersPerUnit);
 
    /// <summary>Объединять одинаковые по геометрии сечения в одно (имена — списком).</summary>
    public bool MergeIdentical { get; set; } = true;
@@ -133,7 +146,6 @@ public static class CadSectionRecognizer
    {
       var result = new CadRecognitionResult();
       double mpu = options.MetersPerUnit;
-      double chord = options.ChordM / mpu;
 
       var frames = new List<CadPolygon>();
       var nodes = new List<Node>();
@@ -152,7 +164,7 @@ public static class CadSectionRecognizer
          if (role == CadLayerRole.Rebar) bars.Add(c);
          else if (role is CadLayerRole.Concrete or CadLayerRole.Steel or CadLayerRole.Hole or CadLayerRole.Frame)
          {
-            var poly = new CadPolygon(c.Layer, CadGeometry.CirclePoints(c.X, c.Y, c.R, chord));
+            var poly = new CadPolygon(c.Layer, CadGeometry.CirclePoints(c.X, c.Y, c.R, options.Arcs));
             if (role == CadLayerRole.Frame) frames.Add(poly);
             else nodes.Add(new Node(poly, role));
          }
