@@ -38,7 +38,8 @@ public static class PlateStripFiberSectionBuilder
         IReadOnlyList<IReadOnlyList<PlateRebarLayer>> layersPerWidthPoint,
         double widthM,
         IReadOnlyDictionary<int, Material> materials,
-        CalcType calc)
+        CalcType calc,
+        IReadOnlyList<double>? materialFractions = null)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(layersPerWidthPoint);
@@ -84,13 +85,18 @@ public static class PlateStripFiberSectionBuilder
             MaterialId = concrete.Id,
             DiagrammType = concreteType
         };
+        // Доля материала в ячейке ширины: отверстие убирает соответствующую часть площади волокон.
+        double Fraction(int g) => materialFractions is { } f && g < f.Count ? Math.Clamp(f[g], 0.0, 1.0) : 1.0;
         for (int g = 0; g < n; g++)
         for (int k = 0; k < layerCount; k++)
+        {
+            if (Fraction(g) <= 0.0) continue;
             concreteArea.Fibers.Add(new Fiber(x: z0 + k * dz, y: vs[g])
             {
-                Area = weights[g] * dz,
+                Area = weights[g] * Fraction(g) * dz,
                 TypeFiber = FiberType.poly
             });
+        }
 
         var areas = new List<MaterialArea> { concreteArea };
 
@@ -98,6 +104,7 @@ public static class PlateStripFiberSectionBuilder
         var rebarByMaterial = new SortedDictionary<int, List<Fiber>>();
         for (int g = 0; g < n; g++)
         {
+            if (Fraction(g) <= 0.0) continue;
             foreach (var layer in layersPerWidthPoint[g])
             {
                 if (layer.Asx <= 0.0) continue;
@@ -106,7 +113,7 @@ public static class PlateStripFiberSectionBuilder
                     rebarByMaterial[materialId] = list = [];
                 list.Add(new Fiber(x: layer.Zsx, y: vs[g])
                 {
-                    Area = layer.Asx * weights[g],
+                    Area = layer.Asx * weights[g] * Fraction(g),
                     TypeFiber = FiberType.point
                 });
             }

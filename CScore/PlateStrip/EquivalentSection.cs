@@ -33,6 +33,9 @@ public sealed class EquivalentSection
     public double ShearStiffnessGAz { get; set; }
     /// <summary>Формулировка балки, под которую рассчитано сечение.</summary>
     public StripBeamFormulation BeamFormulation { get; set; } = StripBeamFormulation.EulerBernoulli;
+    /// <summary>Источник армирования вдоль полосы: пусто — раскладка региона (PlateRebarField); иначе ключ
+    /// <see cref="FemCheckRebarSource"/> («assigned», «selected»): армирование КЭ сетки региона.</summary>
+    public string RebarSourceKey { get; set; } = "";
     public bool IsCalculable { get; set; }
     public bool IsStale { get; set; }
     public List<FemValidationDiagnostic> Diagnostics { get; set; } = [];

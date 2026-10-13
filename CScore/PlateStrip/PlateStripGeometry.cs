@@ -13,4 +13,11 @@ public sealed class PlateStripGeometry
     public IReadOnlyList<PlanarPoint2D> RightBoundary { get; set; } = [];
     public IReadOnlyList<PlanarPoint2D> Polygon { get; set; } = [];
     public double LengthM { get; set; }
+
+    /// <summary>Внешний контур региона (открытый обход): где есть материал плиты. Пусто — материал сплошной
+    /// (старые записи); см. <see cref="StripMaterialProfile"/>.</summary>
+    public IReadOnlyList<PlanarPoint2D> MaterialHull { get; set; } = [];
+
+    /// <summary>Отверстия региона (открытые обходы): в них у полосы материала нет.</summary>
+    public IReadOnlyList<IReadOnlyList<PlanarPoint2D>> MaterialHoles { get; set; } = [];
 }

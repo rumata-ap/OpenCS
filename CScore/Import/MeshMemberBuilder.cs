@@ -8,7 +8,12 @@ namespace CScore.Import;
 /// <param name="Tag">Имя элемента; если частей несколько — «Имя · 1», «Имя · 2»…</param>
 /// <param name="Kind">Вид плоских частей: "plate" | "wall"; null — по геометрии.</param>
 /// <param name="KindSource">Источник заданного <paramref name="Kind"/> (<see cref="FemMember.KindSource"/>).</param>
-public sealed record MeshMemberRequest(string Tag, string? Kind, IReadOnlyList<string> ElementTags, string KindSource = "manual");
+/// <param name="PlateSectionId">Сечение пластины, которое получают плоские части (из группы КЭ); null — не задано.</param>
+/// <param name="MergeSectionTags">Пластины разных сечений источника (ЖБ-группы SCAD, жёсткости ЛИРЫ) с одинаковой толщиной
+/// и плоскостью собираются в одну часть: армирование КЭ берётся из источника, а не из деления на сечения.</param>
+public sealed record MeshMemberRequest(
+    string Tag, string? Kind, IReadOnlyList<string> ElementTags, string KindSource = "manual", int? PlateSectionId = null,
+    bool MergeSectionTags = false);
 
 /// <summary>Конструктивный элемент, собранный из части набора КЭ, и КЭ сетки, которые он покрывает.</summary>
 public sealed record MeshMemberPart(FemMember Member, PlanarRegion? Region, IReadOnlyList<string> ElementTags);
@@ -107,7 +112,7 @@ public static class MeshMemberBuilder
             }, null, chain.Elements.Select(e => e.ElemTag).ToArray()));
         }
 
-        foreach (var part in PlanarParts(shells, nodeByTag))
+        foreach (var part in PlanarParts(shells, nodeByTag, request.MergeSectionTags))
         {
             var region = BuildRegion(request.Tag, part, nodeByTag, diagnostics);
             if (region is null) continue;
@@ -119,6 +124,7 @@ public static class MeshMemberBuilder
                 NodeIdsJson = "[]",
                 SectionTag = sample.SectionTag,
                 ThicknessM = sample.ThicknessM,
+                PlateSectionId = request.PlateSectionId,
                 Kind = kind,
                 KindSource = request.Kind is null ? "auto" : request.KindSource,
                 MeshSource = FemMember.MeshSourceImported,
@@ -210,7 +216,7 @@ public static class MeshMemberBuilder
 
     /// <summary>Делит пластинчатые КЭ на плоские части с одним сечением, связные по рёбрам.</summary>
     static List<List<(FemElement Element, string[] Nodes)>> PlanarParts(
-        List<(FemElement Element, string[] Nodes)> shells, Dictionary<string, FemMeshNode> nodes)
+        List<(FemElement Element, string[] Nodes)> shells, Dictionary<string, FemMeshNode> nodes, bool mergeSectionTags)
     {
         var byEdge = new Dictionary<(string, string), List<int>>();
         for (int i = 0; i < shells.Count; i++)
@@ -229,7 +235,7 @@ public static class MeshMemberBuilder
             if (assigned[seed]) continue;
             var n = normals[seed];
             var origin = Point(nodes[shells[seed].Nodes[0]]);
-            var section = SectionKey(shells[seed].Element);
+            var section = SectionKey(shells[seed].Element, mergeSectionTags);
             var part = new List<(FemElement, string[])>();
             var queue = new Queue<int>([seed]);
             assigned[seed] = true;
@@ -240,7 +246,7 @@ public static class MeshMemberBuilder
                 foreach (var edge in Edges(shells[i].Nodes))
                     foreach (int j in byEdge[edge])
                     {
-                        if (assigned[j] || SectionKey(shells[j].Element) != section) continue;
+                        if (assigned[j] || SectionKey(shells[j].Element, mergeSectionTags) != section) continue;
                         if (Math.Abs(normals[j].Dot(n)) < cosTol) continue;
                         if (shells[j].Nodes.Any(t => Math.Abs((Point(nodes[t]) - origin).Dot(n)) > PlaneToleranceM)) continue;
                         assigned[j] = true;
@@ -252,7 +258,8 @@ public static class MeshMemberBuilder
         return parts;
     }
 
-    static string SectionKey(FemElement e) => $"{e.SectionTag}|{e.ThicknessM}";
+    static string SectionKey(FemElement e, bool mergeSectionTags) =>
+        mergeSectionTags ? $"|{e.ThicknessM}" : $"{e.SectionTag}|{e.ThicknessM}";
 
     static IEnumerable<(string, string)> Edges(string[] ring)
     {

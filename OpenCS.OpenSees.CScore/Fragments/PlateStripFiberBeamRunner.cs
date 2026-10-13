@@ -54,7 +54,7 @@ public sealed class PlateStripFiberBeamResult
 public static class PlateStripFiberBeamRunner
 {
     /// <summary>Выполнить сверку для уже сформированной постановки полосы.</summary>
-    public static async Task<PlateStripFiberBeamResult> RunAsync(
+    public static Task<PlateStripFiberBeamResult> RunAsync(
         PlateSection section,
         PlateRebarField rebarField,
         PlateStripBeamAnalogy analogy,
@@ -70,17 +70,42 @@ public static class PlateStripFiberBeamRunner
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(section);
-        ArgumentNullException.ThrowIfNull(check);
-
-        var diagnostics = new List<FemValidationDiagnostic>();
-        PlateStripFiberBeamResult Fail() => new() { Diagnostics = diagnostics };
+        ArgumentNullException.ThrowIfNull(rebarField);
 
         // Базовый layout поля — источник истины PlateSection.RebarLayers (как у PlateRebarField.From).
         var field = rebarField.BaseLayout.Count == 0 && rebarField.Zones.Count == 0 && section.RebarLayers.Count > 0
             ? new PlateRebarField(section.RebarLayers, [])
             : rebarField;
 
-        var layouts = PlateStripFiberLayouts.Resolve(field, analogy, stationFractions, widthPointCount);
+        return RunAsync(
+            section, new FieldStripRebarSource(field), analogy, stationFractions, widthPointCount, scheme, loads,
+            endActions, prescribed, loadSteps, check, openSeesExecutablePath, cancellationToken);
+    }
+
+    /// <summary>То же с произвольным источником армирования вдоль полосы (раскладка OpenCS, КЭ импортированной схемы).</summary>
+    public static async Task<PlateStripFiberBeamResult> RunAsync(
+        PlateSection section,
+        IStripRebarSource rebarSource,
+        PlateStripBeamAnalogy analogy,
+        IReadOnlyList<double> stationFractions,
+        int widthPointCount,
+        StripBeamSupportScheme scheme,
+        IReadOnlyList<StripLoad> loads,
+        KnownEndActions? endActions,
+        IReadOnlyList<StripPrescribedDisplacement> prescribed,
+        int loadSteps,
+        PlateStripFiberCheck check,
+        string openSeesExecutablePath,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        ArgumentNullException.ThrowIfNull(rebarSource);
+        ArgumentNullException.ThrowIfNull(check);
+
+        var diagnostics = new List<FemValidationDiagnostic>();
+        PlateStripFiberBeamResult Fail() => new() { Diagnostics = diagnostics };
+
+        var layouts = PlateStripFiberLayouts.Resolve(rebarSource, analogy, stationFractions, widthPointCount);
         diagnostics.AddRange(layouts.Diagnostics);
         if (!layouts.IsCalculable) return Fail();
 
@@ -91,13 +116,18 @@ public static class PlateStripFiberBeamRunner
         int nextMaterialTag = 1;
         try
         {
-            foreach (var element in layouts.PerElement)
+            for (int e = 0; e < layouts.PerElement.Count; e++)
             {
-                string key = string.Join("|", element.Select(PlateRebarLayoutFingerprint.Compute));
+                var element = layouts.PerElement[e];
+                // Отверстия региона: доля материала в ячейках ширины элемента (между его станциями).
+                var fractions = StripMaterialProfile.ElementFractions(
+                    analogy, stationFractions[e], stationFractions[e + 1], element.Count);
+                string key = string.Join("|", element.Select(PlateRebarLayoutFingerprint.Compute)) + "#" +
+                             string.Join(",", fractions.Select(f => f.ToString("G6", System.Globalization.CultureInfo.InvariantCulture)));
                 if (!cache.TryGetValue(key, out var openSees))
                 {
                     var built = PlateStripFiberSectionBuilder.Build(
-                        section, element, width, check.Materials, check.Calc);
+                        section, element, width, check.Materials, check.Calc, fractions);
                     foreach (var d in built.Diagnostics)
                         if (seenWarnings.Add(d.Code + d.Message)) diagnostics.Add(d);
                     if (!built.IsCalculable) return Fail();

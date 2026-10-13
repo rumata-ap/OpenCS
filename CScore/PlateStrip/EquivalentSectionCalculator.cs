@@ -13,7 +13,8 @@ public static class EquivalentSectionCalculator
         IReadOnlyList<IPlateSectionResponse>? widthSources,
         ReductionPolicy policy,
         int widthIntegrationPoints = 2,
-        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli,
+        double? materialWidthM = null)
     {
         if (analogy == null)
             return Fail("equivalent_section_invalid_strip", "Геометрия полосы не задана.");
@@ -35,11 +36,13 @@ public static class EquivalentSectionCalculator
         switch (policy)
         {
             case ReductionPolicy.DirectUniaxial:
-                kBeam = Direct(h, analogy.ExplicitWidthM, out diagnostics);
+                // Отверстия сужают полосу: прямая редукция работает по ширине материала на станции.
+                double materialWidth = materialWidthM is > 0.0 ? materialWidthM.Value : analogy.ExplicitWidthM;
+                kBeam = Direct(h, materialWidth, out diagnostics);
                 if (timoshenko)
                 {
-                    gj = 4.0 * analogy.ExplicitWidthM * h[5, 5];
-                    gaY = gaZ = StripShear.RectangleCorrection * analogy.ExplicitWidthM * h[2, 2];
+                    gj = 4.0 * materialWidth * h[5, 5];
+                    gaY = gaZ = StripShear.RectangleCorrection * materialWidth * h[2, 2];
                 }
                 break;
             case ReductionPolicy.ConstitutiveIntegration:

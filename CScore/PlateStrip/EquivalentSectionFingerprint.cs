@@ -16,7 +16,8 @@ public static class EquivalentSectionFingerprint
         IReadOnlyList<IPlateSectionResponse> widthSources,
         ReductionPolicy policy,
         int widthIntegrationPoints,
-        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli,
+        string rebarSourceKey = "")
     {
         ArgumentNullException.ThrowIfNull(analogy);
         ArgumentNullException.ThrowIfNull(centerlineSource);
@@ -36,6 +37,9 @@ public static class EquivalentSectionFingerprint
         // Формулировка входит в отпечаток только для Тимошенко: отпечатки прежних сечений не меняются.
         if (formulation != StripBeamFormulation.EulerBernoulli)
             parts.Add($"formulation:{formulation}");
+        // Источник армирования входит в отпечаток, только если это не раскладка региона: прежние отпечатки не меняются.
+        if (!string.IsNullOrEmpty(rebarSourceKey))
+            parts.Add($"rebar-source:{rebarSourceKey}");
         AddSource(parts, "centerline", centerlineSource);
         for (int i = 0; i < widthSources.Count; i++)
             AddSource(parts, $"width{i}", widthSources[i]);

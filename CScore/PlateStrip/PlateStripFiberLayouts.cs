@@ -20,6 +20,18 @@ public sealed record PlateStripFiberLayouts(
         int widthPointCount)
     {
         ArgumentNullException.ThrowIfNull(field);
+        return Resolve(new FieldStripRebarSource(field), analogy, stationFractions, widthPointCount);
+    }
+
+    /// <summary>То же для произвольного источника армирования (раскладка OpenCS, КЭ импортированной схемы).
+    /// Оси полосы и армирования проверяются <see cref="StripRebarAxisGuard"/>: несогласованные — ошибка.</summary>
+    public static PlateStripFiberLayouts Resolve(
+        IStripRebarSource source,
+        PlateStripBeamAnalogy analogy,
+        IReadOnlyList<double> stationFractions,
+        int widthPointCount)
+    {
+        ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(analogy);
         ArgumentNullException.ThrowIfNull(stationFractions);
         if (stationFractions.Count < 2)
@@ -32,7 +44,8 @@ public sealed record PlateStripFiberLayouts(
         var perElement = new List<IReadOnlyList<IReadOnlyList<PlateRebarLayer>>>();
 
         // Без зон армирование однородно: пространственный резолв (и геометрия границ полосы) не нужны.
-        bool spatial = field.Zones.Count > 0;
+        bool spatial = source.IsSpatial;
+        var guardSeen = new HashSet<string>();
         try
         {
             for (int e = 0; e < stationFractions.Count - 1; e++)
@@ -44,14 +57,16 @@ public sealed record PlateStripFiberLayouts(
                     double u = 0.0, vv = 0.0;
                     if (spatial)
                     {
-                        var uv = PlateStripWidthSampler.Point(analogy, mid, v);
+                        // Точка в отверстии: армирование берётся у ближайшей кромки материала.
+                        var uv = PlateStripWidthSampler.Point(
+                            analogy, mid, StripMaterialProfile.SnapToMaterial(analogy, mid, v));
                         (u, vv) = (uv.U, uv.V);
                     }
-                    var resolved = PlateRebarFieldResolver.Resolve(field, u, vv);
-                    foreach (var d in resolved.Diagnostics)
-                        diagnostics.Add(d.Code == "plate_rebar_zone_priority_conflict"
-                            ? new(d.Code, d.Message, false) : d);
-                    points.Add(resolved.Layers);
+                    var sample = source.Resolve(u, vv);
+                    diagnostics.AddRange(sample.Diagnostics);
+                    foreach (var d in StripRebarAxisGuard.Check(analogy, sample))
+                        if (guardSeen.Add(d.Code + d.Message)) diagnostics.Add(d);
+                    points.Add(sample.Layers);
                 }
                 perElement.Add(points);
             }

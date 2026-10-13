@@ -67,6 +67,68 @@ public sealed class PlateStripFiberLayoutsTests
         Assert.Equal([0.002, 0.002, 0.006, 0.006], asx);
     }
 
+    static PlateStripBeamAnalogy Angled(double endU, double endV) => new()
+    {
+        Id = "strip", SourceRegionId = 1, ExplicitWidthM = 1.0, Fingerprint = "fp",
+        Geometry = new PlateStripGeometry
+        {
+            CenterLine = [new PlanarPoint2D(0, 0), new PlanarPoint2D(endU, endV)],
+            LengthM = Math.Sqrt(endU * endU + endV * endV)
+        }
+    };
+
+    sealed class FixedAxisSource(double axisDeg, double asx) : IStripRebarSource
+    {
+        public string Key => "test";
+        public bool IsSpatial => false;
+        public StripRebarSample Resolve(double u, double v) => new([Layer(asx)], [], axisDeg);
+    }
+
+    [Fact]
+    public void StripAlongRegionX_IsAccepted_AlsoWhenDirectionReversed()
+    {
+        var field = new PlateRebarField([Layer(0.002)], []);
+
+        Assert.True(PlateStripFiberLayouts.Resolve(field, Angled(8, 0), Stations, 2).IsCalculable);
+        Assert.True(PlateStripFiberLayouts.Resolve(field, Angled(-8, 0), Stations, 2).IsCalculable);
+    }
+
+    [Fact]
+    public void StripAtAngleToRebarAxis_IsBlockedWithDiagnostic()
+    {
+        var field = new PlateRebarField([Layer(0.002)], []);
+
+        var layouts = PlateStripFiberLayouts.Resolve(field, Angled(6, 6), Stations, 2);
+
+        Assert.False(layouts.IsCalculable);
+        var d = Assert.Single(layouts.Diagnostics, d => d.Code == "plate_strip_rebar_axis_mismatch");
+        Assert.True(d.IsError);
+        Assert.Contains("45,0°", d.Message.Replace('.', ','));
+    }
+
+    [Fact]
+    public void RebarAxisFromSource_IsComparedWithStripAxis()
+    {
+        // Ось армирования КЭ повёрнута на 30°; полоса вдоль неё допустима, вдоль оси U региона — нет.
+        var along = Angled(Math.Cos(Math.PI / 6) * 8, Math.Sin(Math.PI / 6) * 8);
+
+        Assert.True(PlateStripFiberLayouts.Resolve(new FixedAxisSource(30, 0.002), along, Stations, 2).IsCalculable);
+        Assert.False(PlateStripFiberLayouts.Resolve(new FixedAxisSource(30, 0.002), Angled(8, 0), Stations, 2)
+            .IsCalculable);
+    }
+
+    [Fact]
+    public void LayerWithAngle_IsBlocked()
+    {
+        var angled = Layer(0.002);
+        angled.Angle = 15;
+
+        var layouts = PlateStripFiberLayouts.Resolve(new PlateRebarField([angled], []), Angled(8, 0), Stations, 2);
+
+        Assert.False(layouts.IsCalculable);
+        Assert.Contains(layouts.Diagnostics, d => d.Code == "plate_strip_rebar_layer_angle");
+    }
+
     [Fact]
     public void BrokenGeometry_IsReportedAsErrorNotThrown()
     {

@@ -64,20 +64,10 @@ public static class PlateStripGeometryBuilder
         // гарантируют консистентного поведения ровно на границе.
         if (hullParts.Count == 0)
             return Fail("plate_strip_outside_region", "Ось полосы не пересекает Hull региона.");
-        if (hullParts.Count > 1)
-            return Fail("plate_strip_non_contiguous",
-                "Клиппинг полосы по Hull региона даёт несвязный результат — разбиение на span fragments не входит в этот срез.");
-
-        foreach (var hole in region.Holes)
-        {
-            var holeLocal = ToStripLocal(hole.X, hole.Y, startUv, axisDirU, axisDirV, perpU, perpV);
-            holeLocal.Reverse(); // Holes — CW по конвенции региона; переворачиваем в CCW (как GridSplit.Slice)
-            var holeParts = ClipToStrip(holeLocal, length, explicitWidthM);
-            if (holeParts.Count > 0)
-                return Fail("plate_strip_crosses_hole", "Полоса пересекает отверстие региона.");
-        }
-
-        var candidate = hullParts[0];
+        // Несколько частей контура (ось уходит из региона и возвращается) и отверстия не блокируют построение:
+        // материал по ширине считается по контуру региона и его отверстиям (StripMaterialProfile); блокирует
+        // только перерезание полосы целиком. Polygon — наибольшая по площади часть: он нужен рисунку и сбору нагрузок.
+        var candidate = hullParts.OrderByDescending(PolygonArea).First();
         var polygon = candidate.Select(p => ToRegionUv(p, startUv, axisDirU, axisDirV, perpU, perpV)).ToList();
         var stripFrame = BuildStripFrame(region.Frame, startUv, axisDirU, axisDirV);
 
@@ -95,7 +85,9 @@ public static class PlateStripGeometryBuilder
                 ToRegionUv((length, -explicitWidthM / 2), startUv, axisDirU, axisDirV, perpU, perpV)
             ],
             Polygon = polygon,
-            LengthM = length
+            LengthM = length,
+            MaterialHull = StripMaterialProfile.OpenLoop(region.Hull.X, region.Hull.Y),
+            MaterialHoles = [.. region.Holes.Select(h => (IReadOnlyList<PlanarPoint2D>)StripMaterialProfile.OpenLoop(h.X, h.Y))]
         };
 
         var analogy = new PlateStripBeamAnalogy
@@ -110,7 +102,28 @@ public static class PlateStripGeometryBuilder
             Fingerprint = PlateStripFingerprint.Compute(region, start, end, explicitWidthM)
         };
 
-        return new PlateStripBuildResult(true, analogy, []);
+        // Материал вдоль оси: полностью перерезанная полоса — ошибка, суженная — предупреждение.
+        var (narrowest, atFraction) = StripMaterialProfile.Narrowest(analogy);
+        if (narrowest < StripMaterialProfile.CutFraction * explicitWidthM)
+            return Fail("plate_strip_cut_by_hole",
+                $"Полоса полностью перерезана отверстием или краем региона на расстоянии {atFraction * length:0.###} м " +
+                "от начала оси: материала по всей ширине нет. Выберите ось между отверстиями или уже полосу.");
+        var diagnostics = new List<FemValidationDiagnostic>();
+        if (narrowest < 0.999 * explicitWidthM)
+            diagnostics.Add(new("plate_strip_narrowed_by_hole",
+                $"Отверстие сужает полосу: наименьшая ширина материала {narrowest:0.###} м из {explicitWidthM:0.###} м " +
+                $"(на расстоянии {atFraction * length:0.###} м от начала оси); жёсткость учтена по ширине материала.",
+                false));
+
+        return new PlateStripBuildResult(true, analogy, diagnostics);
+    }
+
+    static double PolygonArea(List<(double X, double Y)> polygon)
+    {
+        double a = 0.0;
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+            a += polygon[j].X * polygon[i].Y - polygon[i].X * polygon[j].Y;
+        return Math.Abs(a) / 2.0;
     }
 
     static PlanarPoint2D ProjectToRegionPlane(Frame3D frame, PlanarVector3 point)

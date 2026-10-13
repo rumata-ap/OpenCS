@@ -253,7 +253,7 @@ public sealed class PlateStripGeometryBuilderTests
     }
 
     [Fact]
-    public void Build_StripCrossesNotchInNonConvexHull_ReturnsNonContiguousDiagnostic()
+    public void Build_StripCrossesNotchInNonConvexHull_IsCutByVoid()
     {
         // "Скобообразный" (U-образный сверху) Hull: сплошной прямоугольник 0..10 x 0..10 с
         // выемкой сверху между x=4..6, идущей вниз до y=3. У y=8 сечение Hull по x —
@@ -268,13 +268,14 @@ public sealed class PlateStripGeometryBuilderTests
 
         var result = PlateStripGeometryBuilder.Build("strip-notch", region, start, end, 1.0);
 
+        // Выемка перерезает полосу по всей ширине: материала на этом участке нет.
         Assert.False(result.IsCalculable);
         Assert.Null(result.Analogy);
-        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_non_contiguous");
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_cut_by_hole" && d.IsError);
     }
 
     [Fact]
-    public void Build_HoleInsideCorridor_ReturnsCrossesHoleDiagnostic()
+    public void Build_HoleInsideCorridor_NarrowsStripAndWarns()
     {
         var region = Region(holes: [new Contour { X = [4, 6, 6, 4], Y = [4.5, 4.5, 5.5, 5.5] }]);
         var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
@@ -282,9 +283,13 @@ public sealed class PlateStripGeometryBuilderTests
 
         var result = PlateStripGeometryBuilder.Build("strip-hole", region, start, end, 2.0);
 
-        Assert.False(result.IsCalculable);
-        Assert.Null(result.Analogy);
-        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_crosses_hole");
+        // Отверстие 2×1 м закрывает половину ширины полосы 2 м: полоса сужена, а не отвергнута.
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_narrowed_by_hole" && !d.IsError);
+        var geometry = result.Analogy!.Geometry;
+        Assert.Single(geometry.MaterialHoles);
+        Assert.Equal(1.0, StripMaterialProfile.Narrowest(result.Analogy).MinWidthM, 6);
+        Assert.Equal(2.0, StripMaterialProfile.MaterialWidth(result.Analogy, 0.1), 9);
     }
 
     [Fact]
@@ -301,7 +306,7 @@ public sealed class PlateStripGeometryBuilderTests
     }
 
     [Fact]
-    public void Build_ConcaveHoleInsideCorridor_ReturnsCrossesHoleDiagnostic()
+    public void Build_ConcaveHoleInsideCorridor_NarrowsStrip()
     {
         // U-образное (вогнутое) отверстие, целиком внутри коридора u∈[2,8], v∈[4,6].
         var region = Region(holes:
@@ -317,9 +322,9 @@ public sealed class PlateStripGeometryBuilderTests
 
         var result = PlateStripGeometryBuilder.Build("strip-hole-concave", region, start, end, 2.0);
 
-        Assert.False(result.IsCalculable);
-        Assert.Null(result.Analogy);
-        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_crosses_hole");
+        // Самое узкое место — ножки «U»: отверстие 4,2…5,8 из коридора 4…6 оставляет 0,4 м материала.
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(0.4, StripMaterialProfile.Narrowest(result.Analogy!).MinWidthM, 6);
     }
 
     [Fact]
