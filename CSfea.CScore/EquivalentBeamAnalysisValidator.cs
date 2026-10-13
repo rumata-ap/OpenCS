@@ -15,10 +15,11 @@ public static class EquivalentBeamAnalysisValidator
             diagnostics.Add(new(
                 "equivalent_section_invalid_result",
                 "Нельзя передать в стержневой МКЭ нерассчитанное эквивалентное сечение."));
-        if (torsionActive)
+        if (torsionActive && !(section.TorsionalStiffness > 0.0))
             diagnostics.Add(new(
                 "equivalent_section_torsion_unsupported",
-                "Эквивалентное сечение Среза 2 не имеет крутильной жёсткости."));
+                "У эквивалентного сечения нет крутильной жёсткости: сечение рассчитано по " +
+                "формулировке Эйлера–Бернулли, нужна формулировка Тимошенко (срез 8b)."));
         return diagnostics;
     }
 }

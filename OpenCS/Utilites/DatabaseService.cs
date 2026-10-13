@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 82;
+      const int CurrentSchemaVersion = 83;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -102,6 +102,7 @@ namespace OpenCS.Utilites
          [79] = MigrateV80,
          [80] = EnsureFemResultStepTable,
          [81] = MigrateV82,
+         [82] = MigrateV83,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -342,7 +343,11 @@ namespace OpenCS.Utilites
                  is_calculable           INTEGER NOT NULL DEFAULT 0,
                  is_stale                INTEGER NOT NULL DEFAULT 0,
                  span_station_fraction   REAL NOT NULL DEFAULT 0.5,
-                 source_region_fingerprint TEXT NOT NULL DEFAULT ''
+                 source_region_fingerprint TEXT NOT NULL DEFAULT '',
+                 torsional_stiffness     REAL NOT NULL DEFAULT 0,
+                 shear_gay               REAL NOT NULL DEFAULT 0,
+                 shear_gaz               REAL NOT NULL DEFAULT 0,
+                 beam_formulation        TEXT NOT NULL DEFAULT 'EulerBernoulli'
              );
              CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1756,6 +1761,20 @@ namespace OpenCS.Utilites
             WHERE planar_region_id IS NOT NULL AND target_mesh_length_m IS NULL
               AND EXISTS (SELECT 1 FROM planar_regions r WHERE r.id = fem_members.planar_region_id);
             """);
+      }
+
+      /// <summary>Миграция v83: жёсткости кручения и сдвига эквивалентного сечения полосы плиты и
+      /// формулировка балки (срез 8b). Прежние записи — Эйлер–Бернулли с нулями.</summary>
+      void MigrateV83()
+      {
+         if (!ColumnExists("equivalent_sections", "torsional_stiffness"))
+            MigExec("ALTER TABLE equivalent_sections ADD COLUMN torsional_stiffness REAL NOT NULL DEFAULT 0");
+         if (!ColumnExists("equivalent_sections", "shear_gay"))
+            MigExec("ALTER TABLE equivalent_sections ADD COLUMN shear_gay REAL NOT NULL DEFAULT 0");
+         if (!ColumnExists("equivalent_sections", "shear_gaz"))
+            MigExec("ALTER TABLE equivalent_sections ADD COLUMN shear_gaz REAL NOT NULL DEFAULT 0");
+         if (!ColumnExists("equivalent_sections", "beam_formulation"))
+            MigExec("ALTER TABLE equivalent_sections ADD COLUMN beam_formulation TEXT NOT NULL DEFAULT 'EulerBernoulli'");
       }
 
       /// <summary>Миграция v82: вид жёсткого тела — «rigid» (жёсткое тело) или «coupled» (объединение перемещений ЛИРЫ).</summary>
@@ -3243,7 +3262,8 @@ namespace OpenCS.Utilites
                     source_kind, reduction_policy, width_integration_points,
                     strip_json, tangent_json, diagnostics_json,
                     input_fingerprint, result_fingerprint, is_calculable, is_stale,
-                    span_station_fraction, source_region_fingerprint
+                    span_station_fraction, source_region_fingerprint,
+                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation
              FROM equivalent_sections ORDER BY num, id
           """;
           using var reader = cmd.ExecuteReader();
@@ -3279,7 +3299,12 @@ namespace OpenCS.Utilites
                 IsCalculable = reader.GetInt32(15) != 0,
                 IsStale = reader.GetInt32(16) != 0,
                 SpanStationFraction = reader.GetDouble(17),
-                SourceRegionFingerprint = reader.GetString(18)
+                SourceRegionFingerprint = reader.GetString(18),
+                TorsionalStiffness = reader.GetDouble(19),
+                ShearStiffnessGAy = reader.GetDouble(20),
+                ShearStiffnessGAz = reader.GetDouble(21),
+                BeamFormulation = Enum.TryParse<StripBeamFormulation>(reader.GetString(22), out var formulation)
+                                  ? formulation : StripBeamFormulation.EulerBernoulli
              };
              EquivalentSections.Add(equivalent);
           }
@@ -3304,10 +3329,12 @@ namespace OpenCS.Utilites
                     source_plate_section_id, source_kind, reduction_policy,
                     width_integration_points, strip_json, embedding_json, linearization_json,
                     tangent_json, diagnostics_json, input_fingerprint, result_fingerprint,
-                    is_calculable, is_stale, span_station_fraction, source_region_fingerprint)
+                    is_calculable, is_stale, span_station_fraction, source_region_fingerprint,
+                    torsional_stiffness, shear_gay, shear_gaz, beam_formulation)
                 VALUES (@num,@tag,@description,@schema,@region,@plate,@sourceKind,@policy,
                         @points,@strip,@embedding,@linearization,@tangent,@diagnostics,
-                        @input,@result,@calculable,@stale,@station,@regionFp);
+                        @input,@result,@calculable,@stale,@station,@regionFp,
+                        @gj,@gay,@gaz,@formulation);
                 SELECT last_insert_rowid();
              """;
           }
@@ -3323,7 +3350,8 @@ namespace OpenCS.Utilites
                    tangent_json=@tangent, diagnostics_json=@diagnostics,
                    input_fingerprint=@input, result_fingerprint=@result,
                    is_calculable=@calculable, is_stale=@stale,
-                   span_station_fraction=@station, source_region_fingerprint=@regionFp
+                   span_station_fraction=@station, source_region_fingerprint=@regionFp,
+                   torsional_stiffness=@gj, shear_gay=@gay, shear_gaz=@gaz, beam_formulation=@formulation
                 WHERE id=@id;
              """;
              cmd.Parameters.AddWithValue("@id", equivalent.Id);
@@ -3348,6 +3376,10 @@ namespace OpenCS.Utilites
           cmd.Parameters.AddWithValue("@stale", equivalent.IsStale ? 1 : 0);
           cmd.Parameters.AddWithValue("@station", equivalent.SpanStationFraction);
           cmd.Parameters.AddWithValue("@regionFp", equivalent.SourceRegionFingerprint);
+          cmd.Parameters.AddWithValue("@gj", equivalent.TorsionalStiffness);
+          cmd.Parameters.AddWithValue("@gay", equivalent.ShearStiffnessGAy);
+          cmd.Parameters.AddWithValue("@gaz", equivalent.ShearStiffnessGAz);
+          cmd.Parameters.AddWithValue("@formulation", equivalent.BeamFormulation.ToString());
           if (isNew)
              equivalent.Id = (int)(long)cmd.ExecuteScalar()!;
           else

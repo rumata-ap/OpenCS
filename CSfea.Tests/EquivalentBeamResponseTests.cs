@@ -43,6 +43,12 @@ public class EquivalentBeamResponseTests
         TestHarness.Check("Без кручения ошибок нет", noTorsion.All(d => !d.IsError));
         TestHarness.Check("Кручение блокируется", withTorsion.Any(d =>
             d.Code == "equivalent_section_torsion_unsupported" && d.IsError));
+
+        section.TorsionalStiffness = 150.0;
+        var timoshenko = EquivalentBeamAnalysisValidator.Validate(section, torsionActive: true);
+        TestHarness.Check("С GJ кручение допускается", timoshenko.All(d => !d.IsError));
+        TestHarness.CheckRel("GJ кН·м²→Н·м²",
+            new EquivalentBeamResponse(section).TorsionalStiffness(), 150.0 * 1000.0, 1e-12);
     }
 
     static EquivalentSection Section() => new()

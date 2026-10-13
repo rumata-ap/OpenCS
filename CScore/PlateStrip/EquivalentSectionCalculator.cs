@@ -115,7 +115,9 @@ public static class EquivalentSectionCalculator
             BeamFormulation = formulation,
             IsCalculable = true,
             Diagnostics = diagnostics,
-            ResultFingerprint = EquivalentSectionFingerprint.ComputeResult(kBeam)
+            ResultFingerprint = timoshenko
+                ? EquivalentSectionFingerprint.ComputeResult(kBeam, gj, gaY, gaZ)
+                : EquivalentSectionFingerprint.ComputeResult(kBeam)
         };
         return new(true, section, diagnostics);
     }

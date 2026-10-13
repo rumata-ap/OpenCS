@@ -32,13 +32,14 @@ public sealed class EquivalentSectionProjectService
         ReductionPolicy policy,
         int widthIntegrationPoints = 2,
         double spanStationFraction = 0.5,
-        EquivalentSection? existing = null)
+        EquivalentSection? existing = null,
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
     {
         ArgumentNullException.ThrowIfNull(analogy);
 
         var resolved = ResolveAndBuild(
             analogy, sourceSchemaId, sourceRegionId, calc, policy,
-            widthIntegrationPoints, spanStationFraction);
+            widthIntegrationPoints, spanStationFraction, formulation);
         if (!resolved.IsCalculable || resolved.Section == null)
             return resolved;
 
@@ -75,7 +76,8 @@ public sealed class EquivalentSectionProjectService
 
         var resolved = ResolveAndBuild(
             equivalent.Strip, equivalent.SourceSchemaId, equivalent.SourceRegionId, calc,
-            equivalent.ReductionPolicy, equivalent.WidthIntegrationPoints, equivalent.SpanStationFraction);
+            equivalent.ReductionPolicy, equivalent.WidthIntegrationPoints, equivalent.SpanStationFraction,
+            equivalent.BeamFormulation);
 
         bool calculable = resolved.IsCalculable && resolved.Section != null;
         bool stale = !calculable || !string.Equals(
@@ -98,7 +100,8 @@ public sealed class EquivalentSectionProjectService
     /// Не сохраняет в БД и не трогает Id/Num/Tag/Description.</summary>
     EquivalentSectionBuildResult ResolveAndBuild(
         PlateStripBeamAnalogy analogy, int sourceSchemaId, int sourceRegionId, CalcType calc,
-        ReductionPolicy policy, int widthIntegrationPoints, double spanStationFraction)
+        ReductionPolicy policy, int widthIntegrationPoints, double spanStationFraction,
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
     {
         if (!double.IsFinite(spanStationFraction) || spanStationFraction < 0.0 || spanStationFraction > 1.0)
             return Fail("equivalent_section_invalid_station_fraction",
@@ -186,7 +189,7 @@ public sealed class EquivalentSectionProjectService
             widthSources[i] = snapshotByFingerprint[byId[i].LayoutFingerprint];
 
         var build = EquivalentSectionCalculator.Build(
-            analogy, centerlineSource, widthSources, policy, widthIntegrationPoints);
+            analogy, centerlineSource, widthSources, policy, widthIntegrationPoints, formulation);
         diagnostics.AddRange(build.Diagnostics);
         if (!build.IsCalculable || build.Section == null)
             return new(false, null, diagnostics);
@@ -201,7 +204,7 @@ public sealed class EquivalentSectionProjectService
         equivalent.IsCalculable = !diagnostics.Any(d => d.IsError);
         equivalent.InputFingerprint = EquivalentSectionFingerprint.Compute(
             analogy, sourceSchemaId, region.GeometryFingerprint, spanStationFraction,
-            centerlineSource, widthSources, policy, widthIntegrationPoints);
+            centerlineSource, widthSources, policy, widthIntegrationPoints, formulation);
 
         return new(equivalent.IsCalculable, equivalent, diagnostics);
     }

@@ -50,7 +50,8 @@ public sealed class EquivalentBeamResponse : IBeamSectionResponse
         return (ea, eIy, eIz);
     }
 
-    public double TorsionalStiffness(double twist = 0.0) => 0.0;
+    /// <summary>GJ сечения полосы (формулировка Тимошенко, срез 8b); у Эйлера–Бернулли 0.</summary>
+    public double TorsionalStiffness(double twist = 0.0) => UnitScale.ToCsfeaMoment(_section.TorsionalStiffness);
 
     public void Commit() { }
     public void Reset() { }

@@ -15,7 +15,8 @@ public static class EquivalentSectionFingerprint
         IPlateSectionResponse centerlineSource,
         IReadOnlyList<IPlateSectionResponse> widthSources,
         ReductionPolicy policy,
-        int widthIntegrationPoints)
+        int widthIntegrationPoints,
+        StripBeamFormulation formulation = StripBeamFormulation.EulerBernoulli)
     {
         ArgumentNullException.ThrowIfNull(analogy);
         ArgumentNullException.ThrowIfNull(centerlineSource);
@@ -32,6 +33,9 @@ public static class EquivalentSectionFingerprint
             $"policy:{policy}",
             $"points:{widthIntegrationPoints}"
         };
+        // Формулировка входит в отпечаток только для Тимошенко: отпечатки прежних сечений не меняются.
+        if (formulation != StripBeamFormulation.EulerBernoulli)
+            parts.Add($"formulation:{formulation}");
         AddSource(parts, "centerline", centerlineSource);
         for (int i = 0; i < widthSources.Count; i++)
             AddSource(parts, $"width{i}", widthSources[i]);
@@ -42,6 +46,17 @@ public static class EquivalentSectionFingerprint
     {
         var parts = new List<string>();
         AddMatrix(parts, tangent, "KBeam");
+        return Hash(parts);
+    }
+
+    /// <summary>Отпечаток результата с жёсткостями кручения и сдвига (формулировка Тимошенко).</summary>
+    public static string ComputeResult(double[,] tangent, double gj, double gaY, double gaZ)
+    {
+        var parts = new List<string>();
+        AddMatrix(parts, tangent, "KBeam");
+        parts.Add($"GJ:{gj.ToString("G17", CultureInfo.InvariantCulture)}");
+        parts.Add($"GAy:{gaY.ToString("G17", CultureInfo.InvariantCulture)}");
+        parts.Add($"GAz:{gaZ.ToString("G17", CultureInfo.InvariantCulture)}");
         return Hash(parts);
     }
 

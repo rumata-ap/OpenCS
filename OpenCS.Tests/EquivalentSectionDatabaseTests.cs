@@ -41,6 +41,40 @@ public sealed class EquivalentSectionDatabaseTests
     }
 
     [Fact]
+    public void EquivalentSection_RoundTripsTorsionShearAndFormulation()
+    {
+        string path = TempPath();
+        try
+        {
+            var source = new DatabaseService(path);
+            var original = Section();
+            original.TorsionalStiffness = 4321.5;
+            original.ShearStiffnessGAy = 7.0e4;
+            original.ShearStiffnessGAz = 8.0e4;
+            original.BeamFormulation = StripBeamFormulation.Timoshenko;
+            original.ReductionPolicy = ReductionPolicy.EnergyEquivalent;
+            source.SaveEquivalentSection(original);
+
+            var loaded = new DatabaseService(path);
+            loaded.LoadAll();
+
+            var actual = Assert.Single(loaded.EquivalentSections);
+            Assert.Equal(4321.5, actual.TorsionalStiffness, 12);
+            Assert.Equal(7.0e4, actual.ShearStiffnessGAy, 6);
+            Assert.Equal(8.0e4, actual.ShearStiffnessGAz, 6);
+            Assert.Equal(StripBeamFormulation.Timoshenko, actual.BeamFormulation);
+            Assert.Equal(ReductionPolicy.EnergyEquivalent, actual.ReductionPolicy);
+
+            loaded.Dispose();
+            source.Dispose();
+        }
+        finally
+        {
+            TryDelete(path);
+        }
+    }
+
+    [Fact]
     public void EquivalentSection_SaveUpdatesExistingRowAndDeleteRemovesIt()
     {
         string path = TempPath();
