@@ -209,23 +209,41 @@ public sealed class EquivalentSectionProjectService
         return new(equivalent.IsCalculable, equivalent, diagnostics);
     }
 
-    PlateSectionTangentSnapshotBuildResult BuildSource(PlateSection section, CalcType calc)
+    /// <summary>Диаграммы плитного сечения для расчёта: бетон, арматура и диаграммы слоёв с собственным
+    /// материалом. Единственный источник правды для замороженного и «живого» источников.</summary>
+    sealed record SectionDiagrams(
+        Diagramm Concrete, Diagramm Rebar, Diagramm?[]? Layers, List<FemValidationDiagnostic> Diagnostics);
+
+    SectionDiagrams? ResolveDiagrams(PlateSection section, CalcType calc, out string? failure)
     {
+        failure = null;
         var diagnostics = new List<FemValidationDiagnostic>();
         if (!_materials.TryGetValue(section.ConcreteMaterialId, out var concrete))
-            return MissingSource($"Материал бетона Id={section.ConcreteMaterialId} не найден.");
+        {
+            failure = $"Материал бетона Id={section.ConcreteMaterialId} не найден.";
+            return null;
+        }
         if (!_materials.TryGetValue(section.RebarMaterialId, out var rebar))
-            return MissingSource($"Материал арматуры Id={section.RebarMaterialId} не найден.");
+        {
+            failure = $"Материал арматуры Id={section.RebarMaterialId} не найден.";
+            return null;
+        }
 
         var concreteDiagram = concrete.GetDiagramms(section.ConcreteDiagramType)?[calc]
             ?? concrete.GetDiagramms(DiagrammType.L3)?[calc];
         if (concreteDiagram == null)
-            return MissingSource($"Диаграмма бетона для CalcType={calc} не построена.");
+        {
+            failure = $"Диаграмма бетона для CalcType={calc} не построена.";
+            return null;
+        }
 
         var rebarDiagram = rebar.GetDiagramms(
             DiagrammCompatibility.Coerce(rebar.Type, DiagrammType.L2))?[calc];
         if (rebarDiagram == null)
-            return MissingSource($"Диаграмма арматуры для CalcType={calc} не построена.");
+        {
+            failure = $"Диаграмма арматуры для CalcType={calc} не построена.";
+            return null;
+        }
 
         Diagramm?[]? layerDiagrams = null;
         if (section.RebarLayers.Count > 0)
@@ -245,15 +263,103 @@ public sealed class EquivalentSectionProjectService
             }
         }
 
+        return new(concreteDiagram, rebarDiagram, layerDiagrams, diagnostics);
+    }
+
+    PlateSectionTangentSnapshotBuildResult BuildSource(PlateSection section, CalcType calc)
+    {
+        var diagrams = ResolveDiagrams(section, calc, out var failure);
+        if (diagrams == null)
+            return MissingSource(failure!);
+        var diagnostics = diagrams.Diagnostics;
         if (diagnostics.Any(d => d.IsError))
             return new(false, null, diagnostics);
 
         var source = PlateSectionTangentSnapshot.Create(
-            section, concreteDiagram, rebarDiagram, layerDiagrams);
+            section, diagrams.Concrete, diagrams.Rebar, diagrams.Layers);
         return diagnostics.Count == 0
             ? source
             : new(source.IsCalculable, source.Source,
                   diagnostics.Concat(source.Diagnostics).ToList());
+    }
+
+    /// <summary>Результат построения «живых» источников полосы для нелинейного прогона.</summary>
+    public sealed record StripLiveSources(
+        bool IsCalculable,
+        PlateSection? Background,
+        PlateRebarField? Field,
+        StripSectionSourceGrid? Grid,
+        IReadOnlyList<FemValidationDiagnostic> Diagnostics);
+
+    /// <summary>
+    /// Срез 8d: «живые» источники <see cref="PlateSectionLiveResponse"/> по элементам полосы и точкам
+    /// квадратуры по ширине. Армирование разрешается из <see cref="PlateRebarField"/> в серединах
+    /// элементов (тот же резолвер, что у фибровой сверки), источники с одинаковой раскладкой общие.
+    /// </summary>
+    public StripLiveSources ResolveLiveSources(
+        EquivalentSection equivalent, CalcType calc, IReadOnlyList<double> stationFractions)
+    {
+        ArgumentNullException.ThrowIfNull(equivalent);
+        ArgumentNullException.ThrowIfNull(stationFractions);
+
+        StripLiveSources Failure(string code, string message) =>
+            new(false, null, null, null, [new FemValidationDiagnostic(code, message)]);
+
+        var region = _database.GetPlanarRegions(equivalent.SourceSchemaId)
+            .FirstOrDefault(r => r.Id == equivalent.SourceRegionId);
+        if (region == null)
+            return Failure("strip_run_region_not_found",
+                $"Регион Id={equivalent.SourceRegionId} не найден в схеме Id={equivalent.SourceSchemaId}.");
+
+        var member = _database.GetFemMembers(equivalent.SourceSchemaId)
+            .Where(m => m.PlanarRegionId == equivalent.SourceRegionId && m.PlateSectionId.HasValue)
+            .OrderBy(m => m.Id)
+            .FirstOrDefault();
+        if (member == null)
+            return Failure("strip_run_background_section_not_found",
+                $"У региона Id={equivalent.SourceRegionId} нет FemMember с фоновым PlateSectionId.");
+
+        var background = _database.PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId!.Value);
+        if (background == null)
+            return Failure("strip_run_background_section_not_found",
+                $"Фоновое PlateSection Id={member.PlateSectionId} не найдено.");
+
+        var field = PlateRebarField.From(background, region);
+        var layouts = PlateStripFiberLayouts.Resolve(
+            field, equivalent.Strip, stationFractions, equivalent.WidthIntegrationPoints);
+        var diagnostics = layouts.Diagnostics.ToList();
+        if (!layouts.IsCalculable)
+            return new(false, background, field, null, diagnostics);
+
+        var byFingerprint = new Dictionary<string, IPlateSectionResponse>();
+        var rows = new List<IReadOnlyList<IPlateSectionResponse>>(layouts.PerElement.Count);
+        foreach (var element in layouts.PerElement)
+        {
+            var row = new List<IPlateSectionResponse>(element.Count);
+            foreach (var layers in element)
+            {
+                string key = PlateRebarLayoutFingerprint.Compute(layers);
+                if (!byFingerprint.TryGetValue(key, out var source))
+                {
+                    var variant = background.CloneForCalc();
+                    variant.RebarLayers = layers.Select(l => l.Clone()).ToList();
+                    var diagrams = ResolveDiagrams(variant, calc, out var failure);
+                    if (diagrams == null)
+                        return new(false, background, field, null,
+                            [.. diagnostics, new FemValidationDiagnostic("strip_run_diagram_missing", failure!)]);
+                    diagnostics.AddRange(diagrams.Diagnostics);
+                    if (diagrams.Diagnostics.Any(d => d.IsError))
+                        return new(false, background, field, null, diagnostics);
+                    source = new PlateSectionLiveResponse(
+                        variant, diagrams.Concrete, diagrams.Rebar, diagrams.Layers);
+                    byFingerprint[key] = source;
+                }
+                row.Add(source);
+            }
+            rows.Add(row);
+        }
+
+        return new(true, background, field, new StripSectionSourceGrid(rows), diagnostics);
     }
 
     static bool IsInsideMaterial(PlanarRegion region, PlanarPoint2D point)

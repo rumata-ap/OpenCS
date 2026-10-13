@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 83;
+      const int CurrentSchemaVersion = 84;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -103,6 +103,7 @@ namespace OpenCS.Utilites
          [80] = EnsureFemResultStepTable,
          [81] = MigrateV82,
          [82] = MigrateV83,
+         [83] = MigrateV84,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -131,6 +132,9 @@ namespace OpenCS.Utilites
       public ObservableCollection<ForceSet> ForceSets { get; } = [];
        public ObservableCollection<PlateSection> PlateSections { get; } = [];
        public ObservableCollection<EquivalentSection> EquivalentSections { get; } = [];
+
+       /// <summary>Результаты нелинейных прогонов полосы (срез 8d), новые — в конце.</summary>
+       public ObservableCollection<StripNonlinearRunResult> StripNonlinearResults { get; } = [];
       public ObservableCollection<FireSectionDef> FireSections { get; } = [];
       public ObservableCollection<CalcTask> CalcTasks { get; } = [];
       public ObservableCollection<CalcResult> CalcResults  { get; } = [];
@@ -348,6 +352,14 @@ namespace OpenCS.Utilites
                  shear_gay               REAL NOT NULL DEFAULT 0,
                  shear_gaz               REAL NOT NULL DEFAULT 0,
                  beam_formulation        TEXT NOT NULL DEFAULT 'EulerBernoulli'
+             );
+             CREATE TABLE IF NOT EXISTS strip_nonlinear_results (
+                 id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+                 equivalent_section_id       INTEGER NOT NULL DEFAULT 0,
+                 created_utc                 TEXT NOT NULL DEFAULT '',
+                 equivalent_input_fingerprint TEXT NOT NULL DEFAULT '',
+                 is_converged                INTEGER NOT NULL DEFAULT 0,
+                 result_json                 TEXT NOT NULL DEFAULT '{}'
              );
              CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1763,6 +1775,18 @@ namespace OpenCS.Utilites
             """);
       }
 
+      /// <summary>Миграция v84: сохраняемые результаты нелинейного прогона полосы плиты (срез 8d).</summary>
+      void MigrateV84() => MigExec("""
+         CREATE TABLE IF NOT EXISTS strip_nonlinear_results (
+             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+             equivalent_section_id       INTEGER NOT NULL DEFAULT 0,
+             created_utc             TEXT NOT NULL DEFAULT '',
+             equivalent_input_fingerprint TEXT NOT NULL DEFAULT '',
+             is_converged            INTEGER NOT NULL DEFAULT 0,
+             result_json             TEXT NOT NULL DEFAULT '{}'
+         );
+         """);
+
       /// <summary>Миграция v83: жёсткости кручения и сдвига эквивалентного сечения полосы плиты и
       /// формулировка балки (срез 8b). Прежние записи — Эйлер–Бернулли с нулями.</summary>
       void MigrateV83()
@@ -2367,6 +2391,7 @@ namespace OpenCS.Utilites
          ForceSets.Clear();
           PlateSections.Clear();
           EquivalentSections.Clear();
+          StripNonlinearResults.Clear();
          FireSections.Clear();
          MaterialAreas.Clear();
          CalcTasks.Clear();
@@ -2394,6 +2419,7 @@ namespace OpenCS.Utilites
          LoadForceSets();
           LoadPlateSections();
           LoadEquivalentSections();
+          LoadStripNonlinearResults();
          LoadFireSections();
          LoadCalcTasks();
          LoadCalcResults();
@@ -3396,12 +3422,100 @@ namespace OpenCS.Utilites
              EquivalentSections.Remove(equivalent);
              return;
           }
+          // Результаты прогонов удаляются явно: ON DELETE CASCADE при foreign_keys=OFF не работает.
+          using (var results = _connection.CreateCommand())
+          {
+             results.CommandText = "DELETE FROM strip_nonlinear_results WHERE equivalent_section_id=@id";
+             results.Parameters.AddWithValue("@id", equivalent.Id);
+             results.ExecuteNonQuery();
+          }
+          foreach (var stale in StripNonlinearResults.Where(r => r.EquivalentSectionId == equivalent.Id).ToList())
+             StripNonlinearResults.Remove(stale);
           using var cmd = _connection.CreateCommand();
           cmd.CommandText = "DELETE FROM equivalent_sections WHERE id=@id";
           cmd.Parameters.AddWithValue("@id", equivalent.Id);
           cmd.ExecuteNonQuery();
           EquivalentSections.Remove(equivalent);
        }
+
+       /// <summary>Сколько последних прогонов хранится на одно эквивалентное сечение.</summary>
+       const int StripNonlinearResultsKept = 10;
+
+       void LoadStripNonlinearResults()
+       {
+          StripNonlinearResults.Clear();
+          using var cmd = _connection.CreateCommand();
+          cmd.CommandText = """
+             SELECT id, equivalent_section_id, created_utc, equivalent_input_fingerprint, result_json
+             FROM strip_nonlinear_results ORDER BY id
+          """;
+          using var reader = cmd.ExecuteReader();
+          while (reader.Read())
+          {
+             var result = JsonSerializer.Deserialize<StripNonlinearRunResult>(reader.GetString(4), _jsonSettings)
+                          ?? new StripNonlinearRunResult();
+             result.Id = reader.GetInt32(0);
+             result.EquivalentSectionId = reader.GetInt32(1);
+             if (DateTime.TryParse(reader.GetString(2), null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var created))
+                result.CreatedUtc = created;
+             result.EquivalentInputFingerprint = reader.GetString(3);
+             StripNonlinearResults.Add(result);
+          }
+       }
+
+       /// <summary>Сохранить результат прогона; для сечения хранятся последние
+       /// <see cref="StripNonlinearResultsKept"/> результатов.</summary>
+       public void SaveStripNonlinearResult(StripNonlinearRunResult result)
+       {
+          ArgumentNullException.ThrowIfNull(result);
+          if (result.EquivalentSectionId == 0)
+             throw new InvalidOperationException("Результат прогона не привязан к сохранённому эквивалентному сечению.");
+
+          string json = JsonSerializer.Serialize(result, _jsonSettings);
+          using (var cmd = _connection.CreateCommand())
+          {
+             cmd.CommandText = """
+                INSERT INTO strip_nonlinear_results
+                   (equivalent_section_id, created_utc, equivalent_input_fingerprint, is_converged, result_json)
+                VALUES (@section, @created, @fingerprint, @converged, @json);
+                SELECT last_insert_rowid();
+             """;
+             cmd.Parameters.AddWithValue("@section", result.EquivalentSectionId);
+             cmd.Parameters.AddWithValue("@created", result.CreatedUtc.ToString("O"));
+             cmd.Parameters.AddWithValue("@fingerprint", result.EquivalentInputFingerprint);
+             cmd.Parameters.AddWithValue("@converged", result.IsConverged ? 1 : 0);
+             cmd.Parameters.AddWithValue("@json", json);
+             result.Id = (int)(long)cmd.ExecuteScalar()!;
+          }
+          StripNonlinearResults.Add(result);
+
+          var surplus = StripNonlinearResults
+             .Where(r => r.EquivalentSectionId == result.EquivalentSectionId)
+             .OrderByDescending(r => r.Id)
+             .Skip(StripNonlinearResultsKept)
+             .ToList();
+          foreach (var old in surplus)
+             DeleteStripNonlinearResult(old);
+       }
+
+       public void DeleteStripNonlinearResult(StripNonlinearRunResult result)
+       {
+          ArgumentNullException.ThrowIfNull(result);
+          if (result.Id != 0)
+          {
+             using var cmd = _connection.CreateCommand();
+             cmd.CommandText = "DELETE FROM strip_nonlinear_results WHERE id=@id";
+             cmd.Parameters.AddWithValue("@id", result.Id);
+             cmd.ExecuteNonQuery();
+          }
+          StripNonlinearResults.Remove(result);
+       }
+
+       /// <summary>Последний результат прогона для сечения или null.</summary>
+       public StripNonlinearRunResult? LatestStripNonlinearResult(int equivalentSectionId) =>
+          StripNonlinearResults.Where(r => r.EquivalentSectionId == equivalentSectionId)
+             .OrderByDescending(r => r.Id).FirstOrDefault();
 
        static double[][] MatrixToJagged(double[,] matrix)
        {
