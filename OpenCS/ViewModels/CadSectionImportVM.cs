@@ -113,7 +113,8 @@ public sealed class CadSectionCardVM(CadSectionCandidate candidate) : ViewModelB
          double asum = Candidate.Bars.Sum(b => Math.PI * b.DiameterM * b.DiameterM / 4) * 1e4;
          var diam = Candidate.Bars.GroupBy(b => Math.Round(b.DiameterM * 1000, 1)).OrderByDescending(g => g.Key)
             .Select(g => $"{g.Count()}Ø{g.Key:0.#}");
-         string bars = Candidate.Bars.Count > 0 ? $"; {string.Join(" + ", diam)} (As = {asum:0.##} см²)" : "";
+         // Две строки: площадь и армирование — чтобы «см²» не отрывался переносом.
+         string bars = Candidate.Bars.Count > 0 ? $"\n{string.Join(" + ", diam)}, As = {asum:0.##} см²" : "";
          return $"A = {a:0.#} см²{bars}";
       }
    }

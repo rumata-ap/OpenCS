@@ -32,7 +32,7 @@
 
       <Grid Grid.Row="2">
          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="430"/>
+            <ColumnDefinition Width="510"/>
             <ColumnDefinition Width="5"/>
             <ColumnDefinition/>
          </Grid.ColumnDefinitions>
@@ -60,7 +60,7 @@
                         </DataTemplate>
                      </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="{DynamicResource CadImpMaterial}" Width="130">
+                  <DataGridTemplateColumn Header="{DynamicResource CadImpMaterial}" Width="210">
                      <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate DataType="{x:Type vm:CadLayerRowVM}">
                            <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding Material, UpdateSourceTrigger=PropertyChanged}"
