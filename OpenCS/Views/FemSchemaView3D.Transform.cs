@@ -126,15 +126,54 @@ public partial class FemSchemaView3D
             return false;
         }
         if (Keyboard.Modifiers != ModifierKeys.None || VM is not { EditMode: true }) return false;
-        if (e.Key == Key.M) { StartTransformFromSelection(FemTransformKind.Move); return true; }
-        if (e.Key == Key.C) { StartTransformFromSelection(FemTransformKind.Copy); return true; }
-        return false;
+        // Клавиши M и C по положению — в любой раскладке (в русской это «Ь» и «С»).
+        var kind = e.Key switch { Key.M => FemTransformKind.Move, Key.C => FemTransformKind.Copy, _ => (FemTransformKind?)null };
+        if (kind == null) return false;
+        StartTransformByHotkey(kind.Value);
+        return true;
     }
 
-    /// <summary>Набор с клавиатуры, пока фокус во viewport, уходит в командную строку.</summary>
+    /// <summary>Буква запустившей команду клавиши не должна попасть в командную строку: её текст приходит после
+    /// KeyDown — пропускаем его до конца текущей обработки ввода.</summary>
+    bool _swallowHotkeyText;
+
+    void StartTransformByHotkey(FemTransformKind kind)
+    {
+        _swallowHotkeyText = true;
+        Dispatcher.BeginInvoke(() => _swallowHotkeyText = false, System.Windows.Threading.DispatcherPriority.Background);
+        StartTransformFromSelection(kind);
+    }
+
+    /// <summary>Горячие клавиши по букве: кириллические «М» (переместить) и «С» (копировать) в русской раскладке.</summary>
+    static FemTransformKind? HotkeyByText(string text) => text switch
+    {
+        "м" or "М" => FemTransformKind.Move,
+        "с" or "С" => FemTransformKind.Copy,
+        _ => null,
+    };
+
+    /// <summary>Набор с клавиатуры, пока фокус во viewport: во время команды уходит в командную строку, вне её —
+    /// кириллические «М» / «С» запускают команду.</summary>
     void TransformPreviewTextInput(object sender, TextCompositionEventArgs e)
     {
-        if (_transform == null || transformInput.IsKeyboardFocusWithin || string.IsNullOrEmpty(e.Text)) return;
+        if (string.IsNullOrEmpty(e.Text)) return;
+        if (_swallowHotkeyText)
+        {
+            _swallowHotkeyText = false;
+            e.Handled = true;
+            return;
+        }
+        if (_transform == null)
+        {
+            if (viewport.IsKeyboardFocusWithin && Keyboard.Modifiers == ModifierKeys.None
+                && VM is { EditMode: true } && HotkeyByText(e.Text) is { } kind)
+            {
+                StartTransformFromSelection(kind);
+                e.Handled = true;
+            }
+            return;
+        }
+        if (transformInput.IsKeyboardFocusWithin) return;
         transformInput.Text += e.Text;
         transformInput.CaretIndex = transformInput.Text.Length;
         Keyboard.Focus(transformInput);

@@ -28,7 +28,8 @@ public abstract record FemPointInput
     {
         var s = (text ?? "").Trim();
         if (s.Length == 0) return new Empty();
-        if (s is "М" or "м" or "M" or "m") return new ArrayOption();
+        // «М» — кириллицей или латиницей; «ь» — та же клавиша M в русской раскладке.
+        if (s is "М" or "м" or "M" or "m" or "Ь" or "ь") return new ArrayOption();
         bool relative = s.StartsWith('@');
         if (relative) s = s[1..].Trim();
         var parts = s.Split(';', StringSplitOptions.TrimEntries);

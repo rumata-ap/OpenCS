@@ -27,6 +27,7 @@ public class FemTransformCommandTests
     [InlineData("", typeof(FemPointInput.Empty))]
     [InlineData("М", typeof(FemPointInput.ArrayOption))]
     [InlineData("m", typeof(FemPointInput.ArrayOption))]
+    [InlineData("ь", typeof(FemPointInput.ArrayOption))]
     [InlineData("1;2;3;4", typeof(FemPointInput.Invalid))]
     [InlineData("abc", typeof(FemPointInput.Invalid))]
     [InlineData("@5", typeof(FemPointInput.Invalid))]

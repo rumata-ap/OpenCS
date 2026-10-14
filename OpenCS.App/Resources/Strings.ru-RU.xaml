@@ -3300,8 +3300,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMemberCopyCtx">Копировать…</system:String>
     <system:String x:Key="FemFragmentMoveTitle">Переместить</system:String>
     <system:String x:Key="FemFragmentCopyTitle">Копировать</system:String>
-    <system:String x:Key="FemTransformMoveTip">Переместить выбранное (M): базовая точка → вторая точка, как в AutoCAD</system:String>
-    <system:String x:Key="FemTransformCopyTip">Копировать выбранное (C): базовая точка → вторая точка, повтор до Enter; «М» — массив</system:String>
+    <system:String x:Key="FemTransformMoveTip">Переместить выбранное (M, в русской раскладке — М): базовая точка → вторая точка, как в AutoCAD</system:String>
+    <system:String x:Key="FemTransformCopyTip">Копировать выбранное (C, в русской раскладке — С): базовая точка → вторая точка, повтор до Enter; «М» — массив</system:String>
     <system:String x:Key="FemTransformSelectFirst">Сначала выберите узлы или конструктивные элементы.</system:String>
     <system:String x:Key="FemTransformPromptBase">Базовая точка: щёлкните узел или точку, введите X;Y;Z или сразу смещение @dX;dY;dZ</system:String>
     <system:String x:Key="FemTransformPromptTargetMove">Вторая точка: щёлкните, введите X;Y;Z, @dX;dY;dZ или расстояние вдоль курсора. Esc — отмена</system:String>
