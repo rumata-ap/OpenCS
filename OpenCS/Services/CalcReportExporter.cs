@@ -1,10 +1,8 @@
-using System.Windows;
 using CScore;
 using OpenCS.Reporting;
 using OpenCS.Reporting.Pandoc;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
-using OpenCS.Views;
 
 namespace OpenCS.Services;
 
@@ -12,7 +10,7 @@ namespace OpenCS.Services;
 static class CalcReportExporter
 {
     /// <summary>Строит карты, документирует результат и сохраняет отчёт выбранного формата.</summary>
-    public static async Task ExportAsync(AppViewModel app, CalcResult? result)
+    public static async Task ExportAsync(IProjectContext app, IFileDialogService fileDialogs, CalcResult? result)
     {
         if (result == null) return;
 
@@ -29,7 +27,7 @@ static class CalcReportExporter
         string? parametricSectionWarning = null;
         if (section != null && (task.Kind is "sp63_normal" or "shear_inclined"))
         {
-            var parametricService = new ParametricRcSectionProjectService(app.db);
+            var parametricService = new ParametricRcSectionProjectService(app.Db);
             var state = parametricService.GetState(section);
             if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported && !state.IsStale &&
                 parametricService.TryGetDefinition(section, out var definition))
@@ -54,7 +52,7 @@ static class CalcReportExporter
             rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram,
             ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
 
-        var outputPath = app.FileDialogService.SaveFile(
+        var outputPath = fileDialogs.SaveFile(
             Loc.S("ReportExportFileFilter"),
             Loc.S("ReportExportDefaultExtension"),
             Loc.S("ReportExportDialogTitle"));
@@ -83,8 +81,7 @@ static class CalcReportExporter
             var service = new ReportExportService();
             await service.ExportAsync(document, outputPath);
 
-            MessageBox.Show(Loc.S("ReportExportSuccess"), Loc.S("ReportExportInfo"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            app.Notifier.Info(Loc.S("ReportExportSuccess"), Loc.S("ReportExportInfo"));
         }
         catch (PandocExportException ex)
         {
@@ -96,8 +93,7 @@ static class CalcReportExporter
                 : ex.Reason == PandocExportFailureReason.TimedOut
                     ? Loc.S("ReportExportTimedOut")
                     : Loc.S("ReportExportFailed");
-            MessageBox.Show(message, Loc.S("ReportExportWarning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            app.Notifier.Warning(message, Loc.S("ReportExportWarning"));
         }
         catch (OperationCanceledException)
         {
@@ -109,8 +105,7 @@ static class CalcReportExporter
         }
         catch (Exception ex)
         {
-            MessageBox.Show(string.Format(Loc.S("ReportExportError"), ex.Message),
-                Loc.S("ReportExportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            app.Notifier.Error(string.Format(Loc.S("ReportExportError"), ex.Message), Loc.S("ReportExportErrorTitle"));
         }
     }
 }

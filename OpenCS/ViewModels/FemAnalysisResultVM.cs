@@ -400,14 +400,14 @@ public class FemAnalysisResultVM : ViewModelBase
             IsNonlinear = true;
             Steps = nonlinear.Steps;
             ArtifactDirectory = nonlinear.ArtifactDirectory;
-            Diagnostics = CollectDiagnostics(result.DataJson, nonlinear.Diagnostics);
+            Diagnostics = Services.FemAnalysisResultDiagnostics.Collect(result.DataJson, nonlinear.Diagnostics);
         }
         else
         {
             var linear = ParseResult(result.DataJson);
             IsNonlinear = false;
             ArtifactDirectory = linear?.ArtifactDirectory;
-            Diagnostics = CollectDiagnostics(result.DataJson, linear?.Diagnostics ?? []);
+            Diagnostics = Services.FemAnalysisResultDiagnostics.Collect(result.DataJson, linear?.Diagnostics ?? []);
             Steps = linear != null
                 ? [new FemNonlinearStepResult(1, 1.0, Status == "ok", linear.Displacements, linear.Reactions, linear.ElementForces)]
                 : [];
@@ -558,23 +558,6 @@ public class FemAnalysisResultVM : ViewModelBase
             return JsonSerializer.Deserialize<FemNonlinearResult>(dataJson);
         }
         catch (JsonException) { return null; }
-    }
-
-    static IReadOnlyList<string> CollectDiagnostics(string dataJson, IReadOnlyList<string> parsedDiagnostics)
-    {
-        var list = new List<string>();
-        if (parsedDiagnostics.Count > 0) list.AddRange(parsedDiagnostics);
-        try
-        {
-            using var doc = JsonDocument.Parse(dataJson);
-            if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
-                foreach (var e in errors.EnumerateArray())
-                    if (e.GetString() is { } s) list.Add(s);
-            else if (doc.RootElement.TryGetProperty("error", out var err) && err.GetString() is { } m && list.Count == 0)
-                list.Add(m);
-        }
-        catch (JsonException) { }
-        return list;
     }
 
     static string BuildStopReasonText(IReadOnlyList<FemNonlinearStepResult> steps)

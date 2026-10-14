@@ -158,7 +158,7 @@ namespace OpenCS.ViewModels
          {
             RefreshResults();
             SelectedResult = SelectedTaskResults.LastOrDefault();
-         }, navigateToResult: true);
+         }, showResult: r => _app.CurrentPage = new CalcResultView(r, _app));
       }
 
       public void SelectTask(int taskId)

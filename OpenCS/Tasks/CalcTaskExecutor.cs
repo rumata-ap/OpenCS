@@ -1,8 +1,6 @@
-using System.Windows;
 using CScore;
 using OpenCS.Services;
 using OpenCS.Utilites;
-using OpenCS.Views;
 
 namespace OpenCS.Tasks;
 
@@ -11,23 +9,25 @@ namespace OpenCS.Tasks;
 /// </summary>
 public static class CalcTaskExecutor
 {
-    public static async Task RunAsync(AppViewModel app, CalcTask task,
-        Action? onResultsChanged = null, bool navigateToResult = true)
+    /// <param name="showResult">Показ сохранённого результата (навигация UI); вызывается до снятия занятости.</param>
+    public static async Task RunAsync(IProjectContext app, CalcTask task,
+        Action? onResultsChanged = null, Action<CalcResult>? showResult = null)
     {
-        if (app.IsBusy) return;
+        var busy = app.Busy;
+        if (busy.IsBusy) return;
 
         if (!TryResolve(app, task, out var section, out var fi))
             return;
 
-        var cts = app.BeginBusyWithCancellation(
+        var cts = busy.BeginBusyWithCancellation(
             string.Format(Loc.S("CalcTaskRunning"), task.Tag), indeterminate: true);
 
         var progress = new Progress<CalcTaskProgress>(p =>
-            app.ReportBusyProgress(p.Fraction, p.Message));
+            busy.ReportBusyProgress(p.Fraction, p.Message));
 
         var ctx = new TaskRunContext
         {
-            Database = app.db,
+            Database = app.Db,
             FireSections = app.FireSections,
             CancellationToken = cts.Token,
             Progress = progress
@@ -42,12 +42,12 @@ public static class CalcTaskExecutor
             if (cts.IsCancellationRequested)
             {
                 app.LogService.Warning(Loc.S("CalcTaskCancelled"));
-                app.EndBusy(Loc.S("CalcTaskCancelled"));
+                busy.EndBusy(Loc.S("CalcTaskCancelled"));
                 return;
             }
 
-            app.ReportBusyProgress(1.0, Loc.S("CalcTaskSavingResult"));
-            app.db.SaveCalcResult(result);
+            busy.ReportBusyProgress(1.0, Loc.S("CalcTaskSavingResult"));
+            app.Db.SaveCalcResult(result);
 
             var statusKey = result.Status switch
             {
@@ -78,20 +78,18 @@ public static class CalcTaskExecutor
             if (TryGetThermalWarning(result, out string thermalWarning))
                 app.LogService.Warning($"{task.Tag}: {thermalWarning}");
             onResultsChanged?.Invoke();
-            if (navigateToResult)
-                app.CurrentPage = new CalcResultView(result, app);
-            app.EndBusy(done);
+            showResult?.Invoke(result);
+            busy.EndBusy(done);
         }
         catch (OperationCanceledException)
         {
             app.LogService.Warning(Loc.S("CalcTaskCancelled"));
-            app.EndBusy(Loc.S("CalcTaskCancelled"));
+            busy.EndBusy(Loc.S("CalcTaskCancelled"));
         }
         catch (Exception ex)
         {
-            app.EndBusy();
-            MessageBox.Show(ex.Message, Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            busy.EndBusy();
+            app.Notifier.Error(ex.Message);
         }
     }
 
@@ -111,7 +109,7 @@ public static class CalcTaskExecutor
         return warning.Length > 0;
     }
 
-    static bool TryResolve(AppViewModel app, CalcTask ct,
+    static bool TryResolve(IProjectContext app, CalcTask ct,
         out CrossSection section, out LoadItem? fi)
     {
         section = null!;
@@ -132,8 +130,7 @@ public static class CalcTaskExecutor
             var plate = app.PlateSections.FirstOrDefault(s => s.Id == ct.SectionId);
             if (plate == null)
             {
-                MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                app.Notifier.Error(Loc.S("CalcTaskSectionNotFound"));
                 return false;
             }
 
@@ -144,8 +141,7 @@ public static class CalcTaskExecutor
         var sec = app.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
         if (sec == null)
         {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            app.Notifier.Error(Loc.S("CalcTaskSectionNotFound"));
             return false;
         }
         section = sec;
@@ -159,8 +155,7 @@ public static class CalcTaskExecutor
             fi = CalcTaskForceHelper.ResolveSingleForces(ct, app.BarForceSets);
             if (fi == null)
             {
-                MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                app.Notifier.Error(Loc.S("CalcTaskForceItemNotFound"));
                 return false;
             }
             return true;
@@ -172,8 +167,7 @@ public static class CalcTaskExecutor
             && steelKind != CScore.Sp16.Sp16TaskKind.Constructive
             && CScore.Sp16.SteelDesignParams.Parse(ct.ParamsJson).ManualForces == null)
         {
-            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            app.Notifier.Error(Loc.S("CalcTaskForceItemNotFound"));
             return false;
         }
 
@@ -183,8 +177,7 @@ public static class CalcTaskExecutor
             return true;
         }
 
-        MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-            MessageBoxButton.OK, MessageBoxImage.Error);
+        app.Notifier.Error(Loc.S("CalcTaskForceItemNotFound"));
         return false;
     }
 }

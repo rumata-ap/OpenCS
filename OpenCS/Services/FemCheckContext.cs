@@ -166,7 +166,7 @@ public static class FemCheckContext
 
     /// <summary>Сечения и источники армирования проверки. Вызывать в UI-потоке: читает коллекции проекта.</summary>
     public static FemPerElementInputs BuildInputs(
-        AppViewModel app, FemCheck check, IFemCheckable target, FemCheckSchemaData data, FemCheckScope scope,
+        IProjectContext app, FemCheck check, IFemCheckable target, FemCheckSchemaData data, FemCheckScope scope,
         IReadOnlyList<ForceSet> lookupForceSets)
     {
         if (IsPlate(check))

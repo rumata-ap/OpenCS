@@ -34,7 +34,7 @@ namespace OpenCS
    /// к сервисам логирования и файловых диалогов. Все дочерние ViewModel
    /// ссылаются на экземпляр данного класса для доступа к базе данных и общим данным.
    /// </summary>
-   public partial class AppViewModel : ViewModelBase
+   public partial class AppViewModel : ViewModelBase, IProjectContext, IBusyHost
    {
       /// <summary>
       /// Сервис работы с базой данных SQLite, используемый для загрузки, сохранения
@@ -260,6 +260,21 @@ namespace OpenCS
       /// для выбора файлов пользователем. Инжектируется через конструктор.
       /// </summary>
       public IFileDialogService FileDialogService { get; }
+
+      /// <summary>Уведомления пользователю из исполнителей расчётов (окна сообщений).</summary>
+      public IUserNotifier Notifier { get; }
+
+      DatabaseService IProjectContext.Db => db;
+      IBusyHost IProjectContext.Busy => this;
+      IReadOnlyList<Material> IProjectContext.Materials => Materials;
+      IReadOnlyList<Diagramm> IProjectContext.Diagrams => Diagrams;
+      IReadOnlyList<CrossSection> IProjectContext.CrossSections => CrossSections;
+      IReadOnlyList<PlateSection> IProjectContext.PlateSections => PlateSections;
+      IReadOnlyList<FireSectionDef> IProjectContext.FireSections => FireSections;
+      IReadOnlyList<ForceSet> IProjectContext.ForceSets => ForceSets;
+      IReadOnlyList<ForceSet> IProjectContext.BarForceSets => BarForceSets;
+      IReadOnlyList<CScore.Fem.FemSchema> IProjectContext.FemSchemas => FemSchemas;
+      IReadOnlyList<CalcTask> IProjectContext.CalcTasks => CalcTasks;
 
       /// <summary>
       /// Коллекция характеристик материалов (MaterialChars), загруженных из базы данных.
@@ -1156,11 +1171,13 @@ namespace OpenCS
       /// </summary>
       /// <param name="logService">Сервис логирования, инжектируемый в ViewModel.</param>
       /// <param name="fileDialogService">Сервис файловых диалогов, инжектируемый в ViewModel.</param>
+       /// <param name="notifier">Уведомления исполнителей расчётов; по умолчанию — окна сообщений WPF.</param>
        public AppViewModel(ILogService logService, IFileDialogService fileDialogService,
-                           string? databasePath = null)
+                           string? databasePath = null, IUserNotifier? notifier = null)
        {
           LogService = logService;
           FileDialogService = fileDialogService;
+          Notifier = notifier ?? new WpfUserNotifier();
           this.databasePath = string.IsNullOrWhiteSpace(databasePath)
              ? GetTempDbPath() : databasePath;
           SectionTreeItems = new System.Windows.Data.CompositeCollection
@@ -1478,7 +1495,7 @@ namespace OpenCS
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
          ExportCalcResultReportCommand = new RelayCommand(
-            p => _ = CalcReportExporter.ExportAsync(this, p as CalcResult),
+            p => _ = CalcReportExporter.ExportAsync(this, FileDialogService, p as CalcResult),
             p => p is CalcResult result
                  && CalcTasks.FirstOrDefault(task => task.Id == result.TaskId) is { } task
                  && ReportProviders.TryResolve(task, out _));
@@ -3027,7 +3044,7 @@ namespace OpenCS
       async Task RunCalcTaskAsync(CalcTask? ct)
       {
          if (ct == null) return;
-         await CalcTaskExecutor.RunAsync(this, ct);
+         await CalcTaskExecutor.RunAsync(this, ct, showResult: r => CurrentPage = new CalcResultView(r, this));
       }
 
       void EditCalcTask(CalcTask? ct)
@@ -5447,123 +5464,14 @@ namespace OpenCS
       /// <summary>Возвращает конструктивные элементы схемы синхронно (для диалогов выбора цели проверки).</summary>
       public List<CScore.Fem.FemMember> GetFemMembers(CScore.Fem.FemSchema schema) => db.GetFemMembers(schema.Id);
 
-      /// <summary>
-      /// Выполняет нормативную проверку цели. Если в строках усилий есть номера КЭ — проверка идёт по КЭ
-      /// (каждая строка с сечением и армированием своего КЭ) в фоне, с прогрессом и отменой; иначе —
-      /// по-старому, с одним сечением цели.
-      /// </summary>
+      /// <summary>Нормативная проверка цели (<see cref="Tasks.FemCheckExecutor"/>) и переход к её результату.</summary>
       async Task RunFemCheck(CScore.Fem.FemCheck? check)
       {
          check ??= currentFemCheck;
-         if (check == null || IsBusy) return;
-
-         var data = Services.FemCheckSchemaData.Load(db, check.SchemaId);
-         CScore.Fem.IFemCheckable? target = check.TargetsElement
-            ? data.Members.FirstOrDefault(e => e.Id == check.ElementId)
-            : FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
-         if (target == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
-         foreach (string error in data.Errors) LogService.Warning(error);
-
-         bool isPlate = Services.FemCheckContext.IsPlate(check);
-         var scope = data.Scope(target);
-
-         // Наборы цели: привязанные к ней и наборы схемы со строками по её КЭ; явный выбор — по id.
-         var candidates = Services.FemCheckContext.TargetForceSets(ForceSets, target, check.SchemaId, scope, isPlate)
-            .Select(t => t.Set).ToList();
-         List<CScore.ForceSet> selected = candidates;
-         if (!check.IsAllSets)
-         {
-            var ids = check.GetForceSetIds().ToHashSet();
-            selected = ForceSets.Where(f => ids.Contains(f.Id)).ToList();
-         }
-         var lookup = candidates.Union(selected).ToList();
-         var inputs = Services.FemCheckContext.BuildInputs(this, check, target, data, scope, lookup);
-         if (isPlate)
-         {
-            var schemaGroups = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId)?.MemberGroups;
-            Services.FemCheckContext.TargetPlateSectionId(target, scope, schemaGroups ?? [], out string? inheritedFrom);
-            if (inheritedFrom != null && inputs.PlateTemplate != null)
-               LogService.Info(string.Format(Loc.S("FemCheckPlateSectionInherited"), check.DisplayTag,
-                  inputs.PlateTemplate.Tag, inheritedFrom));
-         }
-
-         CalcResult result;
-         bool saved = false;   // результат по КЭ уже в БД (строки записаны по ходу расчёта)
-         if (!CScore.Fem.FemCheckRunner.HasElementNumbers(check, selected)
-             || CScore.Fem.FemCheckRunner.ScopeElements(check, scope).Count == 0)
-         {
-            result = CScore.Fem.FemCheckRunner.RunMulti(
-               check, target, inputs.TargetBarSection, inputs.PlateTemplate, check.IsAllSets ? candidates : lookup,
-               (task, sect, item) => TaskRunner.Run(task, sect, item),
-               inputs.ConcreteMat, inputs.RebarMat);
-         }
-         else
-         {
-            var readiness = CScore.Fem.FemCheckRunner.EvaluateReadiness(check, scope, selected, inputs);
-            if (readiness.CanRun && !readiness.IsComplete)
-            {
-               string message = Loc.S("FemCheckIncompleteTitle") + "\n\n"
-                  + Services.FemCheckContext.ReadinessDetails(readiness, isPlate) + "\n\n"
-                  + Loc.S("FemCheckIncompleteQuestion");
-               if (System.Windows.MessageBox.Show(message, check.DisplayTag, System.Windows.MessageBoxButton.YesNo,
-                      System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
-                  return;
-            }
-
-            var cts = BeginBusyWithCancellation(string.Format(Loc.S("FemCheckRunning"), check.DisplayTag), indeterminate: false);
-            var progress = new Progress<double>(f => { if (IsBusy) ReportBusyProgress(f); });
-            var token = cts.Token;
-            int checkId = check.Id;
-            try
-            {
-               // Строки РСУ читаются и строки результата пишутся порциями: в памяти — только порция.
-               result = await Task.Run(() =>
-               {
-                  using var stream = db.BeginFemCheckResult();
-                  var r = CScore.Fem.FemCheckRunner.RunPerElement(
-                     check, target, scope, selected, inputs,
-                     (task, sect, item) => TaskRunner.Run(task, sect, item), progress, token, stream);
-                  stream.Complete(r, checkId);
-                  return r;
-               });
-               saved = true;
-               EndBusy();
-            }
-            catch (OperationCanceledException)
-            {
-               // Отменённая проверка результат не сохраняет.
-               EndBusy(Loc.S("CalcTaskCancelled"));
-               return;
-            }
-            catch (Exception ex)
-            {
-               EndBusy();
-               LogService.Error($"FemCheck «{check.DisplayTag}»: {ex.Message}");
-               return;
-            }
-         }
-
-         if (!saved)
-            db.SaveCalcResultRaw(result, check.Id);
-         check.ResultId = result.Id;
-         db.SaveFemCheck(check);
-         // Строки наборов проверке больше не нужны (на РСУ SCAD — сотни мегабайт): при следующем
-         // обращении они прочитаются из БД.
-         foreach (var fs in lookup) fs.UnloadRows();
-
+         if (check == null) return;
+         if (await Tasks.FemCheckExecutor.RunAsync(this, check) is not { } result) return;
          CurrentFemCheck = check;
          CurrentPage = new Views.FemCheckResultView(result, db);
-         string? checkError = null;
-         try
-         {
-            using var resDoc = JsonDocument.Parse(result.DataJson);
-            if (resDoc.RootElement.TryGetProperty("error", out var errEl)) checkError = errEl.GetString();
-         }
-         catch (JsonException) { }
-         if (checkError != null)
-            LogService.Warning($"FemCheck «{check.DisplayTag}»: {checkError}");
-         else
-            LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
       void CreateFemAnalysis(CScore.Fem.FemSchema? schema)
@@ -5664,100 +5572,9 @@ namespace OpenCS
 
       async Task RunFemAnalysis(CScore.Fem.FemAnalysis? analysis)
       {
-         if (analysis == null || IsBusy) return;
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
-         if (schema == null) return;
-
-         var cts = BeginBusyWithCancellation(
-            string.Format(Loc.S("FemAnalysisRunning"), analysis.Tag), indeterminate: true);
-         analysis.Status = "running";
-         db.SaveFemAnalysis(analysis);
-         try
-         {
-            var result = await Tasks.FemAnalysisExecutor.RunAsync(this, schema, analysis, cts.Token);
-            db.SaveCalcResult(result);
-            analysis.ResultId = result.Id;
-            analysis.Status   = result.Status;
-            db.SaveFemAnalysis(analysis);
-
-            if (LogCsfeaResult(result))
-            {
-               EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
-               ShowFemAnalysisResultInSchema(analysis);
-               return;
-            }
-
-            var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-            AttachFemResultVmEvents(vm, schema);
-            
-            var statusKey = result.Status switch
-            {
-                "ok" => "CalcResultOk",
-                "not_converged" => "CalcResultNotConverged",
-                "partial" => "CalcResultPartial",
-                "not_passed" => "CalcResultNotPassed",
-                _ => "CalcResultError"
-            };
-            string done = string.Format(Loc.S(statusKey), analysis.Tag);
-            if (result.Status == "ok")
-                LogService.Info(done);
-            else if (result.Status == "not_converged")
-                LogService.Warning(done);
-            else
-                LogService.Error(done);
-
-            if (vm.Diagnostics.Count > 0)
-                foreach (var diag in vm.Diagnostics)
-                    LogService.Warning($"[{analysis.Tag}] {diag}");
-            
-            if (vm.HasArtifacts)
-                LogService.Info($"[{analysis.Tag}] {Loc.S("FemResultArtifacts")} {vm.ArtifactDirectory}");
-
-            EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
+         if (analysis == null) return;
+         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis) != null)
             ShowFemAnalysisResultInSchema(analysis);
-         }
-         catch (OperationCanceledException)
-         {
-            analysis.Status = "cancelled";
-            db.SaveFemAnalysis(analysis);
-            EndBusy(Loc.S("CalcTaskCancelled"));
-         }
-         catch (Exception ex)
-         {
-            analysis.Status = "error";
-            db.SaveFemAnalysis(analysis);
-            EndBusy();
-            LogService.Error(ex.Message);
-         }
-      }
-
-      /// <summary>
-      /// Результат расчёта CSfea: итог и отчёт — в журнал; true — это он (просмотр — 3D-вид схемы и графики
-      /// с журналом <see cref="Views.FemCsfeaResultView"/>, не окно OpenSees).
-      /// </summary>
-      bool LogCsfeaResult(CalcResult result)
-      {
-         if (result.TaskKind != Services.FemCsfeaRunner.TaskKind) return false;
-         string tag = result.TaskTag;
-         var statusKey = result.Status switch
-         {
-            "ok" => "CalcResultOk",
-            "not_converged" => "CalcResultNotConverged",
-            _ => "CalcResultError"
-         };
-         string done = string.Format(Loc.S(statusKey), tag);
-         if (result.Status == "ok") LogService.Info(done);
-         else if (result.Status == "not_converged") LogService.Warning(done);
-         else LogService.Error(done);
-         if (Services.FemCsfeaResultSummary.Parse(result.DataJson) is { } summary)
-         {
-            foreach (var line in summary.Report)
-               if (line.StartsWith("Ошибка: ", StringComparison.Ordinal)) LogService.Error($"[{tag}] {line}");
-               else LogService.Warning($"[{tag}] {line}");
-            foreach (var line in summary.Describe().Where(l => !l.StartsWith("Ошибка: ", StringComparison.Ordinal)))
-               LogService.Info($"[{tag}] {line}");
-         }
-         return true;
       }
 
       /// <summary>Графики и журнал результата CSfea; «шаг → набор усилий» сохраняет наборы схемы.</summary>
