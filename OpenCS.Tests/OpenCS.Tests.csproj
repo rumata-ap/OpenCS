@@ -19,13 +19,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenCS\OpenCS.csproj" />
+    <ProjectReference Include="..\OpenCS.App\OpenCS.App.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.Reporting\OpenCS.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\OpenCS\Resources\Strings.ru-RU.xaml" Link="Resources\Strings.ru-RU.xaml" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\OpenCS\Resources\Strings.en-US.xaml" Link="Resources\Strings.en-US.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\OpenCS.App\Resources\Strings.ru-RU.xaml" Link="Resources\Strings.ru-RU.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\OpenCS.App\Resources\Strings.en-US.xaml" Link="Resources\Strings.en-US.xaml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\CScore.Tests\Import\Fixtures\lira-text-wall.txt" Link="Fixtures\lira-text-wall.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

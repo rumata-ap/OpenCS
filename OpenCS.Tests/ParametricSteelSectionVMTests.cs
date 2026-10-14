@@ -215,7 +215,7 @@ public sealed class ProfileDbSteelCatalogTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-        return new ProfileDB(Path.Combine(dir!.FullName, "OpenCS", "DataSource", "Sortamenty.db3"));
+        return new ProfileDB(Path.Combine(dir!.FullName, "OpenCS.App", "DataSource", "Sortamenty.db3"));
     }
 
     static SteelCatalogEntry Find(ProfileDB db, int subtype, string name) =>

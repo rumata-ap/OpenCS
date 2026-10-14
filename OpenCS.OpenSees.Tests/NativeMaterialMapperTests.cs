@@ -7,7 +7,7 @@ namespace OpenCS.OpenSees.Tests;
 
 public sealed class NativeMaterialMapperTests
 {
-    // Реальные характеристики B25 из OpenCS/DataSource/Бетон_тяжелый_C.csv (кПа/безразмерные).
+    // Реальные характеристики B25 из OpenCS.App/DataSource/Бетон_тяжелый_C.csv (кПа/безразмерные).
     static MaterialChars ConcreteB25() => new()
     {
         Type = MatType.Concrete,
@@ -15,7 +15,7 @@ public sealed class NativeMaterialMapperTests
         Ec0 = -0.002, Ec2 = -0.0035, Et0 = 0.0001, Et2 = 0.00015
     };
 
-    // Реальные характеристики A500 из OpenCS/DataSource/Арматура стальная_C.csv.
+    // Реальные характеристики A500 из OpenCS.App/DataSource/Арматура стальная_C.csv.
     static MaterialChars RebarA500() => new()
     {
         Type = MatType.ReSteelF,
@@ -23,7 +23,7 @@ public sealed class NativeMaterialMapperTests
         Ec2 = -0.0035, Et0 = 0.002175, Et2 = 0.025
     };
 
-    // Реальные характеристики С235 из OpenCS/DataSource/Конструкционная_сталь_C_ГОСТ_27772-2015.csv.
+    // Реальные характеристики С235 из OpenCS.App/DataSource/Конструкционная_сталь_C_ГОСТ_27772-2015.csv.
     static MaterialChars StructuralSteelC235() => new()
     {
         Type = MatType.Steel,

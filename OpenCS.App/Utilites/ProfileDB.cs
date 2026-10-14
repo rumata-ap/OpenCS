@@ -27,7 +27,7 @@ public partial class ProfileDB
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
         string path = Path.Combine(baseDir, "DataSource", "Sortamenty.db3");
         if (File.Exists(path)) return path;
-        path = Path.Combine(baseDir, "..", "..", "..", "..", "OpenCS", "DataSource", "Sortamenty.db3");
+        path = Path.Combine(baseDir, "..", "..", "..", "..", "OpenCS.App", "DataSource", "Sortamenty.db3");
         return Path.GetFullPath(path);
     }
 

@@ -167,8 +167,8 @@ public sealed class MomentCurvatureRebarStressModeTests
         string root = FindWorkspaceRoot();
         string view = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml"));
         string viewCode = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml.cs"));
-        string ru = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml"));
-        string en = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml"));
+        string ru = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.ru-RU.xaml"));
+        string en = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.en-US.xaml"));
 
         // Один выбор на обе вкладки — два ComboBox на одно свойство VM.
         Assert.Equal(2, CountOccurrences(view, "{Binding SelectedRebarStressMode"));

@@ -178,7 +178,7 @@ public sealed class CadSectionImportTests
    {
       var dir = new DirectoryInfo(AppContext.BaseDirectory);
       while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-      return Path.Combine(dir!.FullName, "OpenCS", "DataSource");
+      return Path.Combine(dir!.FullName, "OpenCS.App", "DataSource");
    }
 
    [Fact]

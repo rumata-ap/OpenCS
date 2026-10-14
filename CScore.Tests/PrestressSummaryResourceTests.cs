@@ -35,7 +35,7 @@ public class PrestressSummaryResourceTests
     [InlineData("Strings.en-US.xaml")]
     public void StringDictionary_ContainsPrestressActualKeys(string dictionary)
     {
-        string xaml = File.ReadAllText(Find(Path.Combine("OpenCS", "Resources", dictionary)));
+        string xaml = File.ReadAllText(Find(Path.Combine("OpenCS.App", "Resources", dictionary)));
 
         foreach (string key in RequiredKeys)
             Assert.Contains($"x:Key=\"{key}\"", xaml);

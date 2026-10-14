@@ -10,7 +10,7 @@ namespace OpenCS.Tests;
 /// <summary>
 /// Пополнение Sortamenty.db3 сортаментом SCAD (<see cref="SortamentPrfImporter"/>). OPENCS_SCAD_PRF_DIR — каталог
 /// PRF; без переменной тест сразу выходит. Работа идёт на копии базы; OPENCS_SORTAMENT_WRITE=1 — после проверок
-/// результат записывается в <c>OpenCS/DataSource/Sortamenty.db3</c> репозитория.
+/// результат записывается в <c>OpenCS.App/DataSource/Sortamenty.db3</c> репозитория.
 /// </summary>
 public class SortamentPrfImportManualTests(ITestOutputHelper output)
 {
@@ -18,7 +18,7 @@ public class SortamentPrfImportManualTests(ITestOutputHelper output)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-        return Path.Combine(dir!.FullName, "OpenCS", "DataSource", "Sortamenty.db3");
+        return Path.Combine(dir!.FullName, "OpenCS.App", "DataSource", "Sortamenty.db3");
     }
 
     [Fact]

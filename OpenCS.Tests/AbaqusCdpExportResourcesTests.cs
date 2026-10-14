@@ -33,8 +33,8 @@ public sealed class AbaqusCdpExportResourcesTests
     public void ResourceDictionaries_ContainEveryCdpKeyInBothLanguages()
     {
         string root = FindWorkspaceRoot();
-        string ru = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml"));
-        string en = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml"));
+        string ru = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.ru-RU.xaml"));
+        string en = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.en-US.xaml"));
         var ruKeys = Keys(ru);
         var enKeys = Keys(en);
 

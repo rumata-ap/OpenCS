@@ -96,7 +96,7 @@ public sealed class ConcreteLongTermModulusTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-        var lines = File.ReadAllLines(Path.Combine(dir!.FullName, "OpenCS", "DataSource", name))
+        var lines = File.ReadAllLines(Path.Combine(dir!.FullName, "OpenCS.App", "DataSource", name))
             .Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
         var header = lines[0].Split(';');
         return lines.Skip(1)

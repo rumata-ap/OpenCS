@@ -93,8 +93,8 @@ public sealed class MomentCurvatureBiaxialResultTests
         string root = FindWorkspaceRoot();
         string viewPath = Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml");
         string viewCodePath = Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml.cs");
-        string ruPath = Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml");
-        string enPath = Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml");
+        string ruPath = Path.Combine(root, "OpenCS.App", "Resources", "Strings.ru-RU.xaml");
+        string enPath = Path.Combine(root, "OpenCS.App", "Resources", "Strings.en-US.xaml");
 
         string view = File.ReadAllText(viewPath);
         string viewCode = File.ReadAllText(viewCodePath);

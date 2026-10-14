@@ -48,22 +48,6 @@
   </Target>
 
   <ItemGroup>
-    <None Remove="DataSource\Арматура стальная_C.csv" />
-    <None Remove="DataSource\Арматура стальная_CL.csv" />
-    <None Remove="DataSource\Арматура стальная_N.csv" />
-    <None Remove="DataSource\Арматура стальная_NL.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_C.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_CL.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_N.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_NL_1.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_NL_2.csv" />
-    <None Remove="DataSource\Мелкозернистый группы А_NL_3.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_C.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_CL.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_N.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_NL_1.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_NL_2.csv" />
-    <None Remove="DataSource\Мелкозернистый группы Б_NL_3.csv" />
     <None Remove="Images\add__32.png" />
     <None Remove="Images\armarura__32.png" />
     <None Remove="Images\beton_9z1hl7dg9744__32.png" />
@@ -134,93 +118,6 @@
 
   <ItemGroup>
     <Content Include="..\tools\ScadPlugin\OpenCSExport\**\*" Link="ScadPlugin\OpenCSExport\%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Sortamenty.db3">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Арматура стальная_C.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Арматура стальная_CL.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Арматура стальная_N.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Арматура стальная_NL.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_C.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_CL.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_N.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_NL_1.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_NL_2.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Бетон_тяжелый_NL_3.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_C.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_CL.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_N.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_NL_1.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_NL_2.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы А_NL_3.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_C.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_CL.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_N.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_NL_1.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_NL_2.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Мелкозернистый группы Б_NL_3.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_C_СП_16_13330_2017.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_N_СП_16_13330_2017.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_C_СП_16_13330_2011.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_N_СП_16_13330_2011.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_C_ГОСТ_27772-2015.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="DataSource\Конструкционная_сталь_N_ГОСТ_27772-2015.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Images\add__32.png">
@@ -438,10 +335,10 @@
     </Content>
   </ItemGroup>
 
-  <!-- Словари строк остаются Page (BAML для DynamicResource) и вкладываются в сборку для Loc без WPF. -->
+  <!-- Словари строк лежат в OpenCS.App (там же вложены для Loc); здесь — Page для DynamicResource,
+       Link сохраняет pack-URI Resources/Strings.*.xaml в App.xaml. -->
   <ItemGroup>
-    <!-- WithCulture=false: иначе «ru-RU» в имени уводит ресурс в сателлитную сборку. -->
-    <EmbeddedResource Include="Resources\Strings.*.xaml" LogicalName="OpenCS.%(Filename).xaml" WithCulture="false" />
+    <Page Include="..\OpenCS.App\Resources\Strings.*.xaml" Link="Resources\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -453,6 +350,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\OpenCS.App\OpenCS.App.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
     <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />

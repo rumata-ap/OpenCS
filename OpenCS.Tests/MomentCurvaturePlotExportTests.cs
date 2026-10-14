@@ -28,8 +28,8 @@ public sealed class MomentCurvaturePlotExportTests
     public void CsvStiffnessHeaders_AreCompatibleWithWindows1251()
     {
         string root = FindWorkspaceRoot();
-        string ru = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml"));
-        string en = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml"));
+        string ru = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.ru-RU.xaml"));
+        string en = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.en-US.xaml"));
         string resultView = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml.cs"));
 
         foreach (string key in new[]

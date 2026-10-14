@@ -103,8 +103,8 @@ public sealed class MomentCurvatureRebarTotalMomentTests
     {
         string root = FindWorkspaceRoot();
         string view = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml"));
-        string ru = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml"));
-        string en = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml"));
+        string ru = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.ru-RU.xaml"));
+        string en = File.ReadAllText(Path.Combine(root, "OpenCS.App", "Resources", "Strings.en-US.xaml"));
 
         // Обе вкладки арматуры (деформации и напряжения) получают подвкладку.
         Assert.Equal(2, CountOccurrences(view, "MomentCurvature_SubTabTotal"));
