@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using OpenCS.Services;
 
 namespace OpenCS.Utilites
 {
@@ -135,9 +136,9 @@ namespace OpenCS.Utilites
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         if (value is not OpenCS.ViewModels.FemForceComponent c) return value?.ToString() ?? "";
-         bool isForce = c is OpenCS.ViewModels.FemForceComponent.N
-            or OpenCS.ViewModels.FemForceComponent.Qy or OpenCS.ViewModels.FemForceComponent.Qz;
+         if (value is not FemForceComponent c) return value?.ToString() ?? "";
+         bool isForce = c is FemForceComponent.N
+            or FemForceComponent.Qy or FemForceComponent.Qz;
          string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
          return $"{c}, {unit}";
       }
@@ -150,12 +151,12 @@ namespace OpenCS.Utilites
    public class FemForceSourceSideLabelConverter : IValueConverter
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-         value is OpenCS.ViewModels.FemForceSourceSide side
+         value is FemForceSourceSide side
             ? Loc.S(side switch
             {
-               OpenCS.ViewModels.FemForceSourceSide.Only => "FemForceSetSourceOnly",
-               OpenCS.ViewModels.FemForceSourceSide.Left => "FemForceSetSourceLeft",
-               OpenCS.ViewModels.FemForceSourceSide.Right => "FemForceSetSourceRight",
+               FemForceSourceSide.Only => "FemForceSetSourceOnly",
+               FemForceSourceSide.Left => "FemForceSetSourceLeft",
+               FemForceSourceSide.Right => "FemForceSetSourceRight",
                _ => "FemForceSetSourceOnly"
             })
             : "";

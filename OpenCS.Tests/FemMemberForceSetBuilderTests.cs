@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CScore.Fem;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using Xunit;
 

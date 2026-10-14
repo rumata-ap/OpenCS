@@ -6,6 +6,7 @@ using CScore.Fem;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -573,6 +574,3 @@ public class FemAnalysisResultVM : ViewModelBase
         };
     }
 }
-
-/// <summary>Компонента усилия стержня для отображения эпюры.</summary>
-public enum FemForceComponent { N, Qy, Qz, Mx, My, Mz }

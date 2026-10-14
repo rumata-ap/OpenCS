@@ -1,7 +1,7 @@
 using CScore;
 using OpenCS.OpenSees.Structural;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Канонические компоненты концевого усилия в единицах OpenSees.</summary>
 public readonly record struct FemForceEndpointValues(

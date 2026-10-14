@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using Xunit;
 

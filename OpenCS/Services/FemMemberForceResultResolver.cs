@@ -2,7 +2,7 @@ using System.Text.Json;
 using CScore;
 using OpenCS.OpenSees.Structural;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Усилия одного шага расчёта вместе с его признаками.</summary>
 /// <param name="Forces">Концевые усилия элементов на этом шаге.</param>

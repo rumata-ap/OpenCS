@@ -1,6 +1,6 @@
 using CScore.Fem;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Выбирает сохранённый результат FEM-анализа для просмотра.</summary>
 public static class FemAnalysisResultResolver

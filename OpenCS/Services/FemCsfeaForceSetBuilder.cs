@@ -3,7 +3,6 @@ using CScore;
 using CScore.Fem;
 using CSfea.CScoreBridge.Structural;
 using OpenCS.OpenSees.Structural;
-using OpenCS.ViewModels;
 
 namespace OpenCS.Services;
 

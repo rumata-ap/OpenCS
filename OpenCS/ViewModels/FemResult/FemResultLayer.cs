@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows.Input;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels.FemResult;

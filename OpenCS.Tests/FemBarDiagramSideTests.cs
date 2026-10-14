@@ -1,6 +1,7 @@
 using System.Windows.Media.Media3D;
 using CSfea.Core;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using OpenCS.ViewModels.FemResult;
 using Xunit;

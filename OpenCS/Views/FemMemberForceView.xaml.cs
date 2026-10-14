@@ -6,6 +6,7 @@ using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views.Helpers;

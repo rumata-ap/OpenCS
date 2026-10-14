@@ -3,7 +3,7 @@ using System.Text.Json;
 using CScore.Fem;
 using OpenCS.OpenSees.Structural;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Входные данные построения preview набора усилий.</summary>
 public sealed record FemMemberForceSetBuildInput(

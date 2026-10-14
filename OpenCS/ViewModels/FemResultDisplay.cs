@@ -1,5 +1,6 @@
 using System.Windows.Media.Media3D;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 
 namespace OpenCS.ViewModels;
 

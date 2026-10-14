@@ -1,6 +1,6 @@
 using CScore;
 
-namespace OpenCS.ViewModels;
+namespace OpenCS.Services;
 
 /// <summary>Источник усилий для строки mesh-узла.</summary>
 public enum FemForceSourceSide

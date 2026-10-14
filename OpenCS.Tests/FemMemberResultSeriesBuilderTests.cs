@@ -1,5 +1,6 @@
 using System.Windows.Media.Media3D;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using Xunit;
 

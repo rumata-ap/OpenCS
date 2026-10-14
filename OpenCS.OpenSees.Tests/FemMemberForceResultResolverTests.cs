@@ -2,7 +2,7 @@ using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.Structural;
-using OpenCS.ViewModels;
+using OpenCS.Services;
 
 namespace OpenCS.OpenSees.Tests;
 

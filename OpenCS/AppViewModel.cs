@@ -5689,11 +5689,11 @@ namespace OpenCS
             .FirstOrDefault(item => item.ElemTag == memberTag);
          if (member is null)
          {
-            ShowFemForceSetError(ViewModels.FemMemberForceSetBuildError.MemberNotFound);
+            ShowFemForceSetError(Services.FemMemberForceSetBuildError.MemberNotFound);
             return;
          }
 
-         var build = ViewModels.FemMemberForceSetBuilder.Build(
+         var build = Services.FemMemberForceSetBuilder.Build(
             vm.BuildMemberForceSetInput(member));
          if (!build.IsSuccess)
          {
@@ -5715,23 +5715,23 @@ namespace OpenCS
       }
 
       /// <summary>Показывает локализованную ошибку построения preview набора.</summary>
-      void ShowFemForceSetError(ViewModels.FemMemberForceSetBuildError error)
+      void ShowFemForceSetError(Services.FemMemberForceSetBuildError error)
       {
-         if (error == ViewModels.FemMemberForceSetBuildError.None) return;
+         if (error == Services.FemMemberForceSetBuildError.None) return;
          string key = error switch
          {
-            ViewModels.FemMemberForceSetBuildError.MemberNotFound => "FemForceSetMemberNotFound",
-            ViewModels.FemMemberForceSetBuildError.MissingSourceNode => "FemForceSetMissingSourceNode",
-            ViewModels.FemMemberForceSetBuildError.CannotOrientMember => "FemForceSetCannotOrient",
-            ViewModels.FemMemberForceSetBuildError.NoMeshElements => "FemForceSetNoMeshElements",
-            ViewModels.FemMemberForceSetBuildError.MissingMeshNode => "FemForceSetMissingMeshNode",
-            ViewModels.FemMemberForceSetBuildError.MissingElementForce => "FemForceSetMissingForce",
-            ViewModels.FemMemberForceSetBuildError.NonFiniteForce => "FemForceSetNonFiniteForce",
-            ViewModels.FemMemberForceSetBuildError.ReusedElement => "FemForceSetReusedElement",
-            ViewModels.FemMemberForceSetBuildError.DuplicateElementPair => "FemForceSetDuplicateElementPair",
-            ViewModels.FemMemberForceSetBuildError.EqualElementNodes => "FemForceSetEqualElementNodes",
-            ViewModels.FemMemberForceSetBuildError.ZeroLengthElement => "FemForceSetZeroElementLength",
-            ViewModels.FemMemberForceSetBuildError.NotConvergedStep => "FemForceSetNotConverged",
+            Services.FemMemberForceSetBuildError.MemberNotFound => "FemForceSetMemberNotFound",
+            Services.FemMemberForceSetBuildError.MissingSourceNode => "FemForceSetMissingSourceNode",
+            Services.FemMemberForceSetBuildError.CannotOrientMember => "FemForceSetCannotOrient",
+            Services.FemMemberForceSetBuildError.NoMeshElements => "FemForceSetNoMeshElements",
+            Services.FemMemberForceSetBuildError.MissingMeshNode => "FemForceSetMissingMeshNode",
+            Services.FemMemberForceSetBuildError.MissingElementForce => "FemForceSetMissingForce",
+            Services.FemMemberForceSetBuildError.NonFiniteForce => "FemForceSetNonFiniteForce",
+            Services.FemMemberForceSetBuildError.ReusedElement => "FemForceSetReusedElement",
+            Services.FemMemberForceSetBuildError.DuplicateElementPair => "FemForceSetDuplicateElementPair",
+            Services.FemMemberForceSetBuildError.EqualElementNodes => "FemForceSetEqualElementNodes",
+            Services.FemMemberForceSetBuildError.ZeroLengthElement => "FemForceSetZeroElementLength",
+            Services.FemMemberForceSetBuildError.NotConvergedStep => "FemForceSetNotConverged",
             _ => "FemForceSetInvalidTopology"
          };
          System.Windows.MessageBox.Show(
