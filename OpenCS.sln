@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.App", "OpenCS.App\Op
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Cli", "OpenCS.Cli\OpenCS.Cli.csproj", "{AA871D3C-926B-4D73-A112-B2CF7F0D4602}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.ExternalTools", "OpenCS.ExternalTools\OpenCS.ExternalTools.csproj", "{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -323,6 +325,18 @@ Global
 		{AA871D3C-926B-4D73-A112-B2CF7F0D4602}.Release|x64.Build.0 = Release|Any CPU
 		{AA871D3C-926B-4D73-A112-B2CF7F0D4602}.Release|x86.ActiveCfg = Release|Any CPU
 		{AA871D3C-926B-4D73-A112-B2CF7F0D4602}.Release|x86.Build.0 = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|x64.Build.0 = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Debug|x86.Build.0 = Debug|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|x64.ActiveCfg = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|x64.Build.0 = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|x86.ActiveCfg = Release|Any CPU
+		{5EE4FAB1-AA77-4A15-8C7A-0F7B43CC8D9A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -25,10 +25,12 @@ public sealed class GmshSettings
     /// исполняемым файлом OpenCS (см. ResolveArtifactsPath).</summary>
     public string? ArtifactsPath { get; set; }
 
+    /// <summary>Заданный каталог или "GmshArtifacts" рядом с exe; путь другой ОС (проект с Windows на Linux
+    /// и наоборот) считается незаданным.</summary>
     public string ResolveArtifactsPath() =>
-        string.IsNullOrWhiteSpace(ArtifactsPath)
-            ? System.IO.Path.Combine(AppContext.BaseDirectory, "GmshArtifacts")
-            : ArtifactsPath;
+        OpenCS.ExternalTools.ExecutableSearch.IsUsablePath(ArtifactsPath)
+            ? ArtifactsPath!
+            : System.IO.Path.Combine(AppContext.BaseDirectory, "GmshArtifacts");
 
     public GmshSettings Clone() => new()
     {

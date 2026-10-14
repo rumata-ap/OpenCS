@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Поиск внешних программ (gmsh, OpenSees) и Python-пакетов одинаково на Windows и Linux.
+       Без зависимостей: общая для OpenCS.Gmsh и OpenCS.OpenSees, которые друг от друга не зависят. -->
+  <PropertyGroup>
+    <TargetFramework>$(OpenCSTargetFramework)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

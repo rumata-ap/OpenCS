@@ -168,7 +168,7 @@ public static class FemAnalysisExecutor
 
         var calcSettings = app.CalcSettings;
         var executable = new OpenSeesExecutableResolver()
-            .Resolve(calcSettings.OpenSeesExecutablePath ?? ResolveFromOpenSeesHome());
+            .Resolve(calcSettings.OpenSeesExecutablePath);
         var runRequest = new OpenSeesRunRequest
         {
             ExecutablePath = executable.Path,
@@ -321,15 +321,6 @@ public static class FemAnalysisExecutor
             TaskId = 0, TaskKind = "fem_nonlinear", TaskTag = analysis.Tag, Created = created,
             Status = output.Status, DataJson = output.DataJson
         };
-    }
-
-    /// <summary>Путь к OpenSees.exe из %OPENSEES_HOME%\bin, если он существует; иначе null.</summary>
-    static string? ResolveFromOpenSeesHome()
-    {
-        var home = Environment.GetEnvironmentVariable("OPENSEES_HOME");
-        if (string.IsNullOrWhiteSpace(home)) return null;
-        var candidate = Path.Combine(home, "bin", "OpenSees.exe");
-        return File.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>Пишет сырую диагностику OpenSees-прогона (stdout/stderr) в собственный лог OpenCS

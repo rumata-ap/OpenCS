@@ -9,6 +9,7 @@ public sealed class GmshExecutableResolverTests
     {
         const string executable = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe";
 
+        using var auto = OpenCS.ExternalTools.ExternalToolPolicy.Use(OpenCS.ExternalTools.ExternalToolSource.Auto);
         var resolved = new GmshExecutableResolver().Resolve(executable);
 
         Assert.Equal(Path.GetFullPath(executable), resolved.Path);

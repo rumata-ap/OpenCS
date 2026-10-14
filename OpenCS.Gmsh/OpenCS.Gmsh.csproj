@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\OpenCS.ExternalTools\OpenCS.ExternalTools.csproj" />
   </ItemGroup>
 </Project>

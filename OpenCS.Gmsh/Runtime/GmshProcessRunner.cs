@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using OpenCS.ExternalTools;
 
 namespace OpenCS.Gmsh.Runtime;
 
@@ -16,9 +17,20 @@ public sealed class GmshProcessTimeoutException : TimeoutException
 }
 
 /// <summary>Запуск внешнего gmsh.exe и чтение его версии — переиспользуется полной сборкой сетки
-/// (GmshPlanarMesher) и дешёвой проверкой актуальности (staleness check в PlanarRegionMemberVM).</summary>
+/// (GmshPlanarMesher) и дешёвой проверкой актуальности (staleness check в PlanarRegionMemberVM).
+/// Вместо exe может быть Python-пакет gmsh (<see cref="PythonToolCommand"/> от <see cref="GmshExecutableResolver"/>).</summary>
 public static class GmshProcessRunner
 {
+    const string PythonLauncherFileName = "opencs_gmsh_launcher.py";
+
+    // Запускатель — файлом, а не «python -c»: при -c текущий каталог попадает в sys.path.
+    const string PythonLauncher = """
+        import sys
+        import gmsh
+        gmsh.initialize(sys.argv, run=True)
+        gmsh.finalize()
+        """;
+
     public static async Task<string> ReadVersionAsync(string executable, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var result = await RunAsync(executable, Environment.CurrentDirectory, ["-version"], timeout, cancellationToken);
@@ -38,15 +50,30 @@ public static class GmshProcessRunner
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var info = new ProcessStartInfo(executable)
+        // Режим Python-пакетов (консоль) строгий: gmsh.exe, пришедший в обход поиска, тоже заменяется пакетом.
+        if (!PythonToolCommand.TryParse(executable, out _) && ExternalToolPolicy.Current == ExternalToolSource.PythonPackages)
+            executable = new GmshExecutableResolver().Resolve(null).Path;
+
+        ProcessStartInfo info;
+        if (PythonToolCommand.TryParse(executable, out var python))
         {
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-        foreach (var argument in arguments) info.ArgumentList.Add(argument);
+            // Python-пакет gmsh: gmsh.initialize(argv, run=True) разбирает те же аргументы, что gmsh.exe.
+            var launcher = PythonRuntime.MaterializeScript(PythonLauncherFileName, PythonLauncher);
+            info = PythonRuntime.CreateStartInfo(python.PythonPath, launcher, arguments);
+            info.WorkingDirectory = workingDirectory;
+        }
+        else
+        {
+            info = new ProcessStartInfo(executable)
+            {
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        }
         // Gmsh при старте читает личные настройки пользователя (gmsh-options/gmshrc из GMSH_HOME,
         // иначе из APPDATA/HOME), и они перекрывают умолчания, на которые рассчитан .geo OpenCS
         // (например, Mesh.RecombineAll = 1 превращает треугольную сетку в смешанную). Пустой

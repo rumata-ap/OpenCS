@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using OpenCS.ExternalTools;
 
 namespace OpenCS.OpenSees.Runtime;
 
@@ -14,20 +15,38 @@ public sealed class OpenSeesProcessRunner : IOpenSeesProcessRunner
         ArgumentNullException.ThrowIfNull(request);
         request.Validate();
 
-        ProcessStartInfo startInfo = new()
-        {
-            FileName = request.ExecutablePath,
-            WorkingDirectory = request.WorkingDirectory,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
+        List<string> arguments = [.. request.Arguments];
+        if (arguments.Count == 0 && !string.IsNullOrWhiteSpace(request.ScriptPath))
+            arguments.Add(request.ScriptPath);
 
-        foreach (string argument in request.Arguments)
-            startInfo.ArgumentList.Add(argument);
-        if (request.Arguments.Count == 0 && !string.IsNullOrWhiteSpace(request.ScriptPath))
-            startInfo.ArgumentList.Add(request.ScriptPath);
+        // Режим Python-пакетов (консоль) строгий: путь к OpenSees.exe, пришедший в обход поиска (параметры задачи,
+        // фрагменты), тоже исполняется через OpenSeesPy.
+        string executable = request.ExecutablePath;
+        if (!PythonToolCommand.TryParse(executable, out _) && ExternalToolPolicy.Current == ExternalToolSource.PythonPackages)
+            executable = new OpenSeesExecutableResolver().Resolve(null).Path;
+
+        ProcessStartInfo startInfo;
+        if (PythonToolCommand.TryParse(executable, out PythonToolCommand? python))
+        {
+            // OpenSeesPy: тот же Tcl-сценарий через мост (OpenSeesPyBridge).
+            string bridge = PythonRuntime.MaterializeScript(OpenSeesPyBridge.FileName, OpenSeesPyBridge.Script);
+            startInfo = PythonRuntime.CreateStartInfo(python.PythonPath, bridge, arguments);
+            startInfo.WorkingDirectory = request.WorkingDirectory;
+        }
+        else
+        {
+            startInfo = new()
+            {
+                FileName = executable,
+                WorkingDirectory = request.WorkingDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (string argument in arguments)
+                startInfo.ArgumentList.Add(argument);
+        }
 
         using Process process = new() { StartInfo = startInfo, EnableRaisingEvents = true };
         StringBuilder stdout = new();

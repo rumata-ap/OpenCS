@@ -232,11 +232,12 @@ namespace OpenCS.Utilites
       public string? OpenSeesArtifactsPath { get; set; }
 
       /// <summary>Разрешённый путь к каталогу артефактов OpenSees: заданный пользователем
-      /// или каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS по умолчанию.</summary>
+      /// или каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS по умолчанию. Путь другой ОС
+      /// (проект с Windows открыт на Linux и наоборот) считается незаданным.</summary>
       public string ResolveOpenSeesArtifactsPath()
-         => string.IsNullOrWhiteSpace(OpenSeesArtifactsPath)
-            ? System.IO.Path.Combine(System.AppContext.BaseDirectory, "OpenSeesArtifacts")
-            : OpenSeesArtifactsPath;
+         => OpenCS.ExternalTools.ExecutableSearch.IsUsablePath(OpenSeesArtifactsPath)
+            ? OpenSeesArtifactsPath!
+            : System.IO.Path.Combine(System.AppContext.BaseDirectory, "OpenSeesArtifacts");
 
       /// <summary>Количество частей, на которое делится неудавшийся шаг нагрузки на каждом уровне
       /// дробления (нелинейный расчёт).</summary>

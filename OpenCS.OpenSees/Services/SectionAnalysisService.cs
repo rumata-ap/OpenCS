@@ -102,7 +102,10 @@ public sealed class SectionAnalysisService : ISectionAnalysisExecutor
         IReadOnlyList<SectionHistoryRow> rows = [];
         try
         {
-            rows = _parser.Parse(artifact.DirectoryPath + "\\section_history.out", artifact.DirectoryPath + "\\completed.marker", request.Axis);
+            rows = _parser.Parse(
+                Path.Combine(artifact.DirectoryPath, "section_history.out"),
+                Path.Combine(artifact.DirectoryPath, "completed.marker"),
+                request.Axis);
         }
         catch (OpenSeesResultException exception)
         {

@@ -105,6 +105,8 @@ public sealed class OpenSeesProcessRunnerTests
         string bundled = Path.Combine(Path.GetTempPath(), "bundled-opensees.exe");
         string? oldEnvironment = Environment.GetEnvironmentVariable("OPENSEES_EXE");
         File.Copy(executable, bundled, overwrite: true);
+        // Порядок источников режима OpenCS — и при OPENCS_EXTERNAL_TOOLS=python в окружении прогона.
+        using var auto = OpenCS.ExternalTools.ExternalToolPolicy.Use(OpenCS.ExternalTools.ExternalToolSource.Auto);
         try
         {
             Environment.SetEnvironmentVariable("OPENSEES_EXE", null);
@@ -130,6 +132,7 @@ public sealed class OpenSeesProcessRunnerTests
     {
         string executable = OpenSeesTestExecutable.ResolveOrSkip();
         string? oldEnvironment = Environment.GetEnvironmentVariable("OPENSEES_EXE");
+        using var auto = OpenCS.ExternalTools.ExternalToolPolicy.Use(OpenCS.ExternalTools.ExternalToolSource.Auto);
         try
         {
             Environment.SetEnvironmentVariable("OPENSEES_EXE", null);
@@ -146,11 +149,15 @@ public sealed class OpenSeesProcessRunnerTests
     [Fact]
     public void Resolver_reports_missing_executable_clearly()
     {
+        string? oldHome = Environment.GetEnvironmentVariable("OPENSEES_HOME");
         string? oldEnvironment = Environment.GetEnvironmentVariable("OPENSEES_EXE");
+        using var auto = OpenCS.ExternalTools.ExternalToolPolicy.Use(OpenCS.ExternalTools.ExternalToolSource.Auto);
         try
         {
+            Environment.SetEnvironmentVariable("OPENSEES_HOME", null);
             Environment.SetEnvironmentVariable("OPENSEES_EXE", null);
-            OpenSeesExecutableResolver resolver = new(Path.Combine(Path.GetTempPath(), "missing-opensees.exe"));
+            // Без PATH и OpenSeesPy: на машине с установленным openseespy резолвер иначе найдёт его.
+            OpenSeesExecutableResolver resolver = new(Path.Combine(Path.GetTempPath(), "missing-opensees.exe"), useFallbacks: false);
 
             FileNotFoundException exception = Assert.Throws<FileNotFoundException>(() =>
                 resolver.Resolve(Path.Combine(Path.GetTempPath(), "also-missing-opensees.exe")));
@@ -159,6 +166,7 @@ public sealed class OpenSeesProcessRunnerTests
         }
         finally
         {
+            Environment.SetEnvironmentVariable("OPENSEES_HOME", oldHome);
             Environment.SetEnvironmentVariable("OPENSEES_EXE", oldEnvironment);
         }
     }
