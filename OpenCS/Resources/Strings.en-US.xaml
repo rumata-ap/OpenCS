@@ -107,8 +107,8 @@
    <system:String x:Key="ParametricRcDirectionHorizontal">Horizontal</system:String>
    <system:String x:Key="ParametricRcStirrupMaterial">Transverse reinforcement material</system:String>
    <system:String x:Key="ParametricRcStirrupRsw">Rsw for preview, MPa</system:String>
-   <system:String x:Key="ParametricRcAsw">Asw: </system:String>
-   <system:String x:Key="ParametricRcQsw">; qsw: </system:String>
+   <system:String x:Key="ParametricRcAsw" xml:space="preserve">Asw: </system:String>
+   <system:String x:Key="ParametricRcQsw" xml:space="preserve">; qsw: </system:String>
    <system:String x:Key="ParametricRcDifferentStepWarning">Different spacings: qsw is summed by group, while Sw is the maximum spacing.</system:String>
    <system:String x:Key="ParametricRcMissingConcreteMaterial">Select a concrete material.</system:String>
    <system:String x:Key="ParametricRcMissingLongitudinalMaterial">Select a longitudinal reinforcement material.</system:String>
@@ -448,7 +448,7 @@
    <system:String x:Key="Update">Update</system:String>
    <system:String x:Key="Shape">Shape</system:String>
    <system:String x:Key="WKT">Fiber contour WKT text representation</system:String>
-   <system:String x:Key="Area">Area, </system:String>
+   <system:String x:Key="Area" xml:space="preserve">Area, </system:String>
    <system:String x:Key="Stress_MPa">Stress, MPa</system:String>
    <system:String x:Key="Number">#</system:String>
    <system:String x:Key="X_m">X, m</system:String>
@@ -738,8 +738,8 @@
    <system:String x:Key="GammaSp_1_0">1.0 — not applied</system:String>
    <system:String x:Key="GammaSp_0_9">0.9 — favorable</system:String>
    <system:String x:Key="GammaSp_1_1">1.1 — unfavorable</system:String>
-   <system:String x:Key="EpsSpLabel">ε_sp (computed): </system:String>
-   <system:String x:Key="CurrentHull">Current: </system:String>
+   <system:String x:Key="EpsSpLabel">ε_sp (computed):</system:String>
+   <system:String x:Key="CurrentHull">Current:</system:String>
    <system:String x:Key="DiagramType">Diagram Type</system:String>
    <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>
    <system:String x:Key="CrossSectionAreas">In Section</system:String>
@@ -1035,7 +1035,7 @@
    <system:String x:Key="LiraTextNotLiraSchema">Schema "{0}" was not imported from LIRA.</system:String>
    <system:String x:Key="LiraTextReading">Reading the LIRA text file…</system:String>
    <system:String x:Key="LiraLoadsTransferring">Transferring LIRA loads…</system:String>
-   <system:String x:Key="LiraTextConfirm">Text file of schema "{0}":&#x0a;{1}&#x0a;(written {2}).&#x0a;&#x0a;Yes — use this file, No — choose another one.</system:String>
+   <system:String x:Key="LiraTextConfirm" xml:space="preserve">Text file of schema "{0}":&#x0a;{1}&#x0a;(written {2}).&#x0a;&#x0a;Yes — use this file, No — choose another one.</system:String>
    <system:String x:Key="LiraTextFilter">LIRA schema text file (*.txt)|*.txt|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraTextOpenTitle">LIRA text file for schema "{0}"</system:String>
    <system:String x:Key="LiraTextRead">LIRA text file {0} read: {1} nodes, {2} elements, {3} loads.</system:String>
@@ -1057,7 +1057,7 @@
    <system:String x:Key="ScadPluginNoSource">Plugin files not found: {0}. Reinstall OpenCS.</system:String>
    <system:String x:Key="ScadPluginNoScad">Directory {0} not found: SCAD is not installed or another version is used. The plugin was not installed.</system:String>
    <system:String x:Key="ScadPluginReplace">The plugin is already installed in {0}. Replace the files?</system:String>
-   <system:String x:Key="ScadPluginAccessDenied">No access to the SCAD plugin directory:&#x0a;{0}&#x0a;&#x0a;Copy the contents of folder&#x0a;{1}&#x0a;into that directory manually (Explorer, as administrator).&#x0a;&#x0a;{2}&#x0a;&#x0a;Open the plugin folder?</system:String>
+   <system:String x:Key="ScadPluginAccessDenied" xml:space="preserve">No access to the SCAD plugin directory:&#x0a;{0}&#x0a;&#x0a;Copy the contents of folder&#x0a;{1}&#x0a;into that directory manually (Explorer, as administrator).&#x0a;&#x0a;{2}&#x0a;&#x0a;Open the plugin folder?</system:String>
    <system:String x:Key="ScadPluginInstalled">The plugin was installed in {0}. Restart SCAD; the command is in the postprocessor plugin menu: “Export to OpenCS”.</system:String>
    <system:String x:Key="FemCheckNoScadSelected">The schema has no SCAD selected reinforcement (schema menu “SCAD → SCAD selected reinforcement (plugin)…”)</system:String>
    <system:String x:Key="FemCheckSteelGroupParams">SP 16 parameters (γc, effective lengths μ·l, lateral restraint spacing, limiting slenderness) of {0} elements are taken from SCAD steel groups; other elements use the check parameters.</system:String>
@@ -1343,7 +1343,7 @@
    <system:String x:Key="MeshApply">Apply</system:String>
    <system:String x:Key="MeshClear">Clear Mesh</system:String>
    <system:String x:Key="MeshConfigure">Configure...</system:String>
-   <system:String x:Key="MeshFibersCount">Fibers: </system:String>
+   <system:String x:Key="MeshFibersCount">Fibers:</system:String>
    <system:String x:Key="MeshDisplayMode">Display</system:String>
    <system:String x:Key="MeshDisplayCentroids">Centroids</system:String>
    <system:String x:Key="MeshDisplayElements">Elements</system:String>
@@ -1948,10 +1948,10 @@
     <system:String x:Key="ShellStrainMembrane">Membrane strains</system:String>
     <system:String x:Key="ShellStrainCurvatures">Curvatures</system:String>
     <system:String x:Key="ShellStrainForcesHeader">Forces</system:String>
-    <system:String x:Key="ShellStrainForcesDesc">target → result  (deviation)</system:String>
+    <system:String x:Key="ShellStrainForcesDesc" xml:space="preserve">target → result  (deviation)</system:String>
     <system:String x:Key="ShellStrainSecant">Secant stiffness</system:String>
     <system:String x:Key="ShellStrainElastic">Elastic stiffness</system:String>
-    <system:String x:Key="ShellStrainPhi">Reduction factors φ  (secant / elastic)</system:String>
+    <system:String x:Key="ShellStrainPhi" xml:space="preserve">Reduction factors φ  (secant / elastic)</system:String>
     <system:String x:Key="ShellStrainConvergence">Convergence</system:String>
     <system:String x:Key="ShellStrainTabSummary">Summary</system:String>
     <system:String x:Key="ShellStrainTabStrains">Strains</system:String>
@@ -2039,7 +2039,7 @@
     <system:String x:Key="EtaLLabel">Element length L, m</system:String>
     <system:String x:Key="EtaMuxLabel">μx</system:String>
     <system:String x:Key="EtaMuyLabel">μy</system:String>
-    <system:String x:Key="EtaMuTableHint">Effective length coefficient μ (l₀=μ·L) per cl. 8.1.17 SP63.13330:&#10;a) pinned at both ends — 1.0&#10;b) fixed at one end, free (cantilever) at the other — 2.0&#10;c) pinned, non-sway at one end, at the other:&#10;   — rigid fixity — 0.7&#10;   — flexible fixity — 0.9&#10;d) pinned, sway-permitting at one end, at the other:&#10;   — rigid fixity — 1.5&#10;   — flexible fixity — 2.0&#10;e) non-sway fixity at both ends:&#10;   — rigid — 0.5&#10;   — flexible — 0.8&#10;f) limited-sway fixity at both ends:&#10;   — rigid — 0.8&#10;   — flexible — 1.2</system:String>
+    <system:String x:Key="EtaMuTableHint" xml:space="preserve">Effective length coefficient μ (l₀=μ·L) per cl. 8.1.17 SP63.13330:&#10;a) pinned at both ends — 1.0&#10;b) fixed at one end, free (cantilever) at the other — 2.0&#10;c) pinned, non-sway at one end, at the other:&#10;   — rigid fixity — 0.7&#10;   — flexible fixity — 0.9&#10;d) pinned, sway-permitting at one end, at the other:&#10;   — rigid fixity — 1.5&#10;   — flexible fixity — 2.0&#10;e) non-sway fixity at both ends:&#10;   — rigid — 0.5&#10;   — flexible — 0.8&#10;f) limited-sway fixity at both ends:&#10;   — rigid — 0.8&#10;   — flexible — 1.2</system:String>
     <system:String x:Key="EtaPsixLabel">ψx</system:String>
     <system:String x:Key="EtaPsiyLabel">ψy</system:String>
     <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — relative share of the moment from long-term loads (0…1 or more); φl = 1+ψ, capped at 2 (cl. 8.1.15 SP63.13330).</system:String>
@@ -2050,7 +2050,7 @@
     <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify element length L (&gt; 0) and, if needed, coefficients μx/μy (&gt; 0).</system:String>
     <system:String x:Key="EtaInvalidThreshold">The slenderness limit l₀/i must be a positive number.</system:String>
 
-    <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
+    <system:String x:Key="SteelCheckUtilizationLabel" xml:space="preserve">Utilization ratio: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>
     <system:String x:Key="SteelCheckStatusFailed">FAILED</system:String>
     <system:String x:Key="SteelCheckColFormula">Formula</system:String>
@@ -2154,7 +2154,7 @@
     <system:String x:Key="Sp63NormalForcesFormat">N = {0} kN; Mx = {1} kN·m; My = {2} kN·m</system:String>
     <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} m; l₀ = {4} m; {5}; ψ = {6}; l₀/i = {7}</system:String>
     <system:String x:Key="Sp63NormalVariableFormat">{0} = {1}</system:String>
-    <system:String x:Key="Sp63NormalVariableSeparator">; </system:String>
+    <system:String x:Key="Sp63NormalVariableSeparator" xml:space="preserve">; </system:String>
     <system:String x:Key="Sp63NormalNotANumber">not a number</system:String>
     <system:String x:Key="Sp63NormalPositiveInfinity">+∞</system:String>
     <system:String x:Key="Sp63NormalNegativeInfinity">−∞</system:String>
@@ -2504,7 +2504,7 @@
     <system:String x:Key="FemMeshGroupDlgTitle">New FE group</system:String>
     <system:String x:Key="FemMembersGroupDlgTitle">New member group</system:String>
     <system:String x:Key="FemGroupCreated">Group &quot;{0}&quot; created: {1} items</system:String>
-    <system:String x:Key="FemMeshGroupOfferMembers">The selected elements ({0}) were generated by meshing: their numbers change on remeshing, so they cannot form an FE group.&#10;&#10;Create a member group from the members these elements belong to ({1}) instead?</system:String>
+    <system:String x:Key="FemMeshGroupOfferMembers" xml:space="preserve">The selected elements ({0}) were generated by meshing: their numbers change on remeshing, so they cannot form an FE group.&#10;&#10;Create a member group from the members these elements belong to ({1}) instead?</system:String>
     <system:String x:Key="FemGroupTagsAdded">Added to group &quot;{1}&quot;: {0}</system:String>
     <system:String x:Key="FemGroupTagsRemoved">Removed from group &quot;{1}&quot;: {0}</system:String>
     <system:String x:Key="FemGroupNoSelection">(nothing selected)</system:String>
@@ -2872,7 +2872,7 @@
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Create schema force sets (plates and bars) from this step fields, for per-element checks. Available on steps with recorded fields.</system:String>
     <system:String x:Key="FemCsfeaForceSetCreated">Force set "{0}" created ({1} rows).</system:String>
     <system:String x:Key="FemCsfeaResultTitle">CSfea result "{0}" — schema "{1}"</system:String>
-    <system:String x:Key="FemCsfeaResultErrorPrefix">Error: </system:String>
+    <system:String x:Key="FemCsfeaResultErrorPrefix" xml:space="preserve">Error: </system:String>
     <system:String x:Key="FemCsfeaControlAxis">Control {0}, {1}, {2}</system:String>
     <system:String x:Key="UnitMm">mm</system:String>
     <system:String x:Key="UnitRad">rad</system:String>
@@ -3129,7 +3129,7 @@
     <system:String x:Key="ImportLiraForcesStarted">Importing forces: {0} elements, group «{1}»…</system:String>
     <system:String x:Key="LiraElemRangeDlgTitle">LIRA Element Range</system:String>
     <system:String x:Key="LiraElemRangeDlgPrompt">Topology not imported. Enter beam element numbers to read forces from LIRA:</system:String>
-    <system:String x:Key="LiraElemRangeDlgHint">Example: 1-144  or  1-50, 75-100, 120</system:String>
+    <system:String x:Key="LiraElemRangeDlgHint" xml:space="preserve">Example: 1-144  or  1-50, 75-100, 120</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Created {0} element stubs. Imported {1} force sets.</system:String>
     <system:String x:Key="FemSchema3DTab">3D View</system:String>
     <system:String x:Key="FemMembersListTab">Members</system:String>
@@ -3143,7 +3143,7 @@
     <system:String x:Key="Fem3DShowOriginalSchemaTip">Outline of the original (undeformed) mesh under the deformed scheme</system:String>
     <system:String x:Key="Fem3DShowDeformedNodes">Deformed-line node markers</system:String>
     <system:String x:Key="Fem3DShowNodeResultValues">Nodal displacement and rotation values</system:String>
-    <system:String x:Key="Fem3DNodeResultFormat">Node {0}
+    <system:String x:Key="Fem3DNodeResultFormat" xml:space="preserve">Node {0}
 U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
 R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
@@ -3202,7 +3202,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeOriginColumn">Defined by</system:String>
     <system:String x:Key="FemMeshNodeBoundaryEdit">Node boundary conditions…</system:String>
     <system:String x:Key="FemMeshNodeBoundaryTitle">Mesh node boundary conditions</system:String>
-    <system:String x:Key="FemMeshNodeBoundaryHeader">Node {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} m)</system:String>
+    <system:String x:Key="FemMeshNodeBoundaryHeader" xml:space="preserve">Node {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} m)</system:String>
     <system:String x:Key="FemMeshNodeBoundaryOrigin">Currently defined by: {0}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySupport">Restraints (global axes):</system:String>
     <system:String x:Key="FemMeshNodeBoundarySprings">Springs (global axes):</system:String>
@@ -3720,8 +3720,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SectionCutLegendConcreteTen">concrete: tension — blue</system:String>
    <system:String x:Key="SectionCutLegendRebarComp">rebar: compression — blue</system:String>
    <system:String x:Key="SectionCutLegendRebarTen">rebar: tension — red</system:String>
-   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} mm&#10;σ = {1:+0.00;-0.00} MPa</system:String>
-   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} mm&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutTooltipStress" xml:space="preserve">s = {0:F0} mm&#10;σ = {1:+0.00;-0.00} MPa</system:String>
+   <system:String x:Key="SectionCutTooltipStrain" xml:space="preserve">s = {0:F0} mm&#10;ε = {1:+0.00000;-0.00000}</system:String>
    <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
    <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
    <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
@@ -3929,17 +3929,17 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_LabelKyFull">κy total</system:String>
     <system:String x:Key="TotalCurvature_LabelKzFull">κz total</system:String>
     <system:String x:Key="TotalCurvature_LabelKFull">κ total</system:String>
-    <system:String x:Key="TotalCurvature_LabelNColon">N: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxLongColon">Mx long-term: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxTotalColon">Mx total: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyLongColon">My long-term: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyTotalColon">My total: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMcrcColon">Mcrc: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxCrcColon">Mx at cracking: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyCrcColon">My at cracking: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKyFullColon">κy total: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKzFullColon">κz total: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKFullColon">κ total: </system:String>
+    <system:String x:Key="TotalCurvature_LabelNColon" xml:space="preserve">N: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxLongColon" xml:space="preserve">Mx long-term: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxTotalColon" xml:space="preserve">Mx total: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyLongColon" xml:space="preserve">My long-term: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyTotalColon" xml:space="preserve">My total: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMcrcColon" xml:space="preserve">Mcrc: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxCrcColon" xml:space="preserve">Mx at cracking: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyCrcColon" xml:space="preserve">My at cracking: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKyFullColon" xml:space="preserve">κy total: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKzFullColon" xml:space="preserve">κz total: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKFullColon" xml:space="preserve">κ total: </system:String>
     <system:String x:Key="TotalCurvature_StageValuesFormat">Mx={0} kN·m; My={1} kN·m; κy={2} 1/m; κz={3} 1/m; {4}</system:String>
     <system:String x:Key="TotalCurvature_StageConverged">converged</system:String>
     <system:String x:Key="TotalCurvature_StageNotConverged">not converged</system:String>

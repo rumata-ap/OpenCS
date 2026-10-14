@@ -135,6 +135,22 @@ public class LocTests
         Assert.Empty(en.Except(ru));
     }
 
+    /// <summary>Переносы строк и пробелы у подписей, которые XAML без xml:space="preserve" съедает.</summary>
+    [Theory]
+    [InlineData(Loc.Russian)]
+    [InlineData(Loc.English)]
+    public void Dictionaries_KeepIntendedLineBreaksAndSpaces(string language)
+    {
+        var t = Loc.Table(language);
+        foreach (var key in new[] { "LiraTextConfirm", "ScadPluginAccessDenied", "EtaMuTableHint", "FemMeshGroupOfferMembers",
+                     "Fem3DNodeResultFormat", "SectionCutTooltipStress", "SectionCutTooltipStrain" })
+            Assert.Contains("\n", t[key]);
+        foreach (var key in new[] { "ParametricRcAsw", "ParametricRcQsw", "Area", "Sp63NormalVariableSeparator",
+                     "FemCsfeaResultErrorPrefix", "TotalCurvature_LabelNColon", "TotalCurvature_LabelKFullColon" })
+            Assert.EndsWith(" ", t[key]);
+        Assert.Contains("  (", t["ShellStrainForcesDesc"]);
+    }
+
     [Fact]
     public void LiteralKeysInSources_ExistInBothDictionaries()
     {

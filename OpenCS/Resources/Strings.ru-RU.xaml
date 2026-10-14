@@ -107,8 +107,8 @@
    <system:String x:Key="ParametricRcDirectionHorizontal">Горизонтальное</system:String>
    <system:String x:Key="ParametricRcStirrupMaterial">Материал поперечной арматуры</system:String>
    <system:String x:Key="ParametricRcStirrupRsw">Rsw для preview, МПа</system:String>
-   <system:String x:Key="ParametricRcAsw">Asw: </system:String>
-   <system:String x:Key="ParametricRcQsw">; qsw: </system:String>
+   <system:String x:Key="ParametricRcAsw" xml:space="preserve">Asw: </system:String>
+   <system:String x:Key="ParametricRcQsw" xml:space="preserve">; qsw: </system:String>
    <system:String x:Key="ParametricRcDifferentStepWarning">Разные шаги: qsw суммируется по группам, поле Sw принимается максимальным.</system:String>
    <system:String x:Key="ParametricRcMissingConcreteMaterial">Выберите материал бетона.</system:String>
    <system:String x:Key="ParametricRcMissingLongitudinalMaterial">Выберите материал продольной арматуры.</system:String>
@@ -448,7 +448,7 @@
    <system:String x:Key="Update">Обновить</system:String>
    <system:String x:Key="Shape">Форма</system:String>
    <system:String x:Key="WKT">Текстовое представление контура фибры в формате WKT</system:String>
-   <system:String x:Key="Area">Area, </system:String>
+   <system:String x:Key="Area" xml:space="preserve">Area, </system:String>
    <system:String x:Key="Stress_MPa">Stress, МПа</system:String>
    <system:String x:Key="Number">#</system:String>
    <system:String x:Key="X_m">X, м</system:String>
@@ -738,8 +738,8 @@
    <system:String x:Key="GammaSp_1_0">1.0 — не учитывать</system:String>
    <system:String x:Key="GammaSp_0_9">0.9 — благоприятное влияние</system:String>
    <system:String x:Key="GammaSp_1_1">1.1 — неблагоприятное влияние</system:String>
-   <system:String x:Key="EpsSpLabel">ε_sp (вычислено): </system:String>
-   <system:String x:Key="CurrentHull">Текущий: </system:String>
+   <system:String x:Key="EpsSpLabel">ε_sp (вычислено):</system:String>
+   <system:String x:Key="CurrentHull">Текущий:</system:String>
    <system:String x:Key="DiagramType">Тип диаграммы</system:String>
    <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>
    <system:String x:Key="CrossSectionAreas">В сечении</system:String>
@@ -1035,7 +1035,7 @@
    <system:String x:Key="LiraTextNotLiraSchema">Схема «{0}» импортирована не из ЛИРЫ.</system:String>
    <system:String x:Key="LiraTextReading">Чтение текстового файла ЛИРЫ…</system:String>
    <system:String x:Key="LiraLoadsTransferring">Перенос нагрузок ЛИРЫ…</system:String>
-   <system:String x:Key="LiraTextConfirm">Текстовый файл схемы «{0}»:&#x0a;{1}&#x0a;(записан {2}).&#x0a;&#x0a;Да — взять этот файл, Нет — выбрать другой.</system:String>
+   <system:String x:Key="LiraTextConfirm" xml:space="preserve">Текстовый файл схемы «{0}»:&#x0a;{1}&#x0a;(записан {2}).&#x0a;&#x0a;Да — взять этот файл, Нет — выбрать другой.</system:String>
    <system:String x:Key="LiraTextFilter">Текстовый файл схемы ЛИРЫ (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraTextOpenTitle">Текстовый файл ЛИРЫ для схемы «{0}»</system:String>
    <system:String x:Key="LiraTextRead">Прочитан текстовый файл ЛИРЫ {0}: узлов {1}, КЭ {2}, нагрузок {3}.</system:String>
@@ -1057,7 +1057,7 @@
    <system:String x:Key="ScadPluginNoSource">Файлы плагина не найдены: {0}. Переустановите OpenCS.</system:String>
    <system:String x:Key="ScadPluginNoScad">Каталог {0} не найден: SCAD не установлен или другая версия. Плагин не установлен.</system:String>
    <system:String x:Key="ScadPluginReplace">Плагин уже установлен в {0}. Заменить файлы?</system:String>
-   <system:String x:Key="ScadPluginAccessDenied">Нет доступа к каталогу плагинов SCAD:&#x0a;{0}&#x0a;&#x0a;Скопируйте содержимое папки&#x0a;{1}&#x0a;в этот каталог вручную (Проводник, от имени администратора).&#x0a;&#x0a;{2}&#x0a;&#x0a;Открыть папку плагина?</system:String>
+   <system:String x:Key="ScadPluginAccessDenied" xml:space="preserve">Нет доступа к каталогу плагинов SCAD:&#x0a;{0}&#x0a;&#x0a;Скопируйте содержимое папки&#x0a;{1}&#x0a;в этот каталог вручную (Проводник, от имени администратора).&#x0a;&#x0a;{2}&#x0a;&#x0a;Открыть папку плагина?</system:String>
    <system:String x:Key="ScadPluginInstalled">Плагин установлен в {0}. Перезапустите SCAD; команда — в постпроцессоре, меню плагинов: «Export to OpenCS».</system:String>
    <system:String x:Key="FemCheckNoScadSelected">У схемы нет подобранной арматуры SCAD (меню схемы «SCAD → Подобранная арматура SCAD (плагин)…»)</system:String>
    <system:String x:Key="FemCheckSteelGroupParams">Параметры СП 16 (γc, расчётные длины μ·l, шаг раскреплений, предельные гибкости) у {0} КЭ взяты из стальных групп SCAD; у остальных КЭ — из параметров проверки.</system:String>
@@ -1343,7 +1343,7 @@
    <system:String x:Key="MeshApply">Применить</system:String>
    <system:String x:Key="MeshClear">Очистить</system:String>
    <system:String x:Key="MeshConfigure">Настроить...</system:String>
-   <system:String x:Key="MeshFibersCount">Фибр: </system:String>
+   <system:String x:Key="MeshFibersCount">Фибр:</system:String>
    <system:String x:Key="MeshDisplayMode">Отображение</system:String>
    <system:String x:Key="MeshDisplayCentroids">Центроиды</system:String>
    <system:String x:Key="MeshDisplayElements">Элементы</system:String>
@@ -1948,10 +1948,10 @@
     <system:String x:Key="ShellStrainMembrane">Мембранные деформации</system:String>
     <system:String x:Key="ShellStrainCurvatures">Кривизны</system:String>
     <system:String x:Key="ShellStrainForcesHeader">Усилия</system:String>
-    <system:String x:Key="ShellStrainForcesDesc">задано → найдено  (отклонение)</system:String>
+    <system:String x:Key="ShellStrainForcesDesc" xml:space="preserve">задано → найдено  (отклонение)</system:String>
     <system:String x:Key="ShellStrainSecant">Секущие жёсткости</system:String>
     <system:String x:Key="ShellStrainElastic">Упругие жёсткости</system:String>
-    <system:String x:Key="ShellStrainPhi">Коэффициенты снижения φ  (секущ. / упруг.)</system:String>
+    <system:String x:Key="ShellStrainPhi" xml:space="preserve">Коэффициенты снижения φ  (секущ. / упруг.)</system:String>
     <system:String x:Key="ShellStrainConvergence">Сходимость</system:String>
     <system:String x:Key="ShellStrainTabSummary">Сводка</system:String>
     <system:String x:Key="ShellStrainTabStrains">Деформации</system:String>
@@ -2039,7 +2039,7 @@
     <system:String x:Key="EtaLLabel">Длина элемента L, м</system:String>
     <system:String x:Key="EtaMuxLabel">μx</system:String>
     <system:String x:Key="EtaMuyLabel">μy</system:String>
-    <system:String x:Key="EtaMuTableHint">Коэффициент μ расчётной длины l₀=μ·L по п. 8.1.17 СП63.13330:&#10;а) шарнир-шарнир на двух концах — 1,0&#10;б) жёсткая заделка на одном конце, консоль на другом — 2,0&#10;в) шарнирное несмещаемое опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 0,7&#10;   — податливая заделка — 0,9&#10;г) податливое шарнирное опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 1,5&#10;   — податливая заделка — 2,0&#10;д) несмещаемые заделки на двух концах:&#10;   — жёсткие — 0,5&#10;   — податливые — 0,8&#10;е) ограниченно смещаемые заделки на двух концах:&#10;   — жёсткие — 0,8&#10;   — податливые — 1,2</system:String>
+    <system:String x:Key="EtaMuTableHint" xml:space="preserve">Коэффициент μ расчётной длины l₀=μ·L по п. 8.1.17 СП63.13330:&#10;а) шарнир-шарнир на двух концах — 1,0&#10;б) жёсткая заделка на одном конце, консоль на другом — 2,0&#10;в) шарнирное несмещаемое опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 0,7&#10;   — податливая заделка — 0,9&#10;г) податливое шарнирное опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 1,5&#10;   — податливая заделка — 2,0&#10;д) несмещаемые заделки на двух концах:&#10;   — жёсткие — 0,5&#10;   — податливые — 0,8&#10;е) ограниченно смещаемые заделки на двух концах:&#10;   — жёсткие — 0,8&#10;   — податливые — 1,2</system:String>
     <system:String x:Key="EtaPsixLabel">ψx</system:String>
     <system:String x:Key="EtaPsiyLabel">ψy</system:String>
     <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — относительная доля момента от длительных нагрузок (0…1 и более); φl = 1+ψ, не более 2 (п. 8.1.15 СП63.13330).</system:String>
@@ -2050,7 +2050,7 @@
     <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>
     <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/i должна быть положительным числом.</system:String>
 
-    <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
+    <system:String x:Key="SteelCheckUtilizationLabel" xml:space="preserve">Коэффициент использования: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
     <system:String x:Key="SteelCheckStatusFailed">НЕ ПРОЙДЕНО</system:String>
     <system:String x:Key="SteelCheckColFormula">Формула</system:String>
@@ -2154,7 +2154,7 @@
     <system:String x:Key="Sp63NormalForcesFormat">N = {0} кН; Mx = {1} кН·м; My = {2} кН·м</system:String>
     <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} м; l₀ = {4} м; {5}; ψ = {6}; l₀/i = {7}</system:String>
     <system:String x:Key="Sp63NormalVariableFormat">{0} = {1}</system:String>
-    <system:String x:Key="Sp63NormalVariableSeparator">; </system:String>
+    <system:String x:Key="Sp63NormalVariableSeparator" xml:space="preserve">; </system:String>
     <system:String x:Key="Sp63NormalNotANumber">не число</system:String>
     <system:String x:Key="Sp63NormalPositiveInfinity">+∞</system:String>
     <system:String x:Key="Sp63NormalNegativeInfinity">−∞</system:String>
@@ -2504,7 +2504,7 @@
     <system:String x:Key="FemMeshGroupDlgTitle">Новая группа КЭ</system:String>
     <system:String x:Key="FemMembersGroupDlgTitle">Новая группа КонЭ</system:String>
     <system:String x:Key="FemGroupCreated">Создана группа «{0}»: {1} шт.</system:String>
-    <system:String x:Key="FemMeshGroupOfferMembers">Выделенные КЭ ({0}) построены дискретизацией: их номера меняются при пересетке, поэтому в группу КЭ они не входят.&#10;&#10;Создать вместо неё группу КонЭ из конструктивных элементов, которым принадлежат эти КЭ ({1})?</system:String>
+    <system:String x:Key="FemMeshGroupOfferMembers" xml:space="preserve">Выделенные КЭ ({0}) построены дискретизацией: их номера меняются при пересетке, поэтому в группу КЭ они не входят.&#10;&#10;Создать вместо неё группу КонЭ из конструктивных элементов, которым принадлежат эти КЭ ({1})?</system:String>
     <system:String x:Key="FemGroupTagsAdded">Добавлено в группу «{1}»: {0}</system:String>
     <system:String x:Key="FemGroupTagsRemoved">Убрано из группы «{1}»: {0}</system:String>
     <system:String x:Key="FemGroupNoSelection">(ничего не выделено)</system:String>
@@ -2872,7 +2872,7 @@
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Создать наборы усилий схемы (пластины и стержни) по полям этого шага — для проверок по КЭ. Доступно на шаге с записанными полями.</system:String>
     <system:String x:Key="FemCsfeaForceSetCreated">Создан набор усилий «{0}» ({1} строк).</system:String>
     <system:String x:Key="FemCsfeaResultTitle">Результат CSfea «{0}» — схема «{1}»</system:String>
-    <system:String x:Key="FemCsfeaResultErrorPrefix">Ошибка: </system:String>
+    <system:String x:Key="FemCsfeaResultErrorPrefix" xml:space="preserve">Ошибка: </system:String>
     <system:String x:Key="FemCsfeaControlAxis">Контрольный {0}, {1}, {2}</system:String>
     <system:String x:Key="UnitMm">мм</system:String>
     <system:String x:Key="UnitRad">рад</system:String>
@@ -3129,7 +3129,7 @@
     <system:String x:Key="ImportLiraForcesStarted">Импорт усилий: {0} КЭ, группа «{1}»…</system:String>
     <system:String x:Key="LiraElemRangeDlgTitle">Диапазон элементов ЛИРА</system:String>
     <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
-    <system:String x:Key="LiraElemRangeDlgHint">Пример: 1-144  или  1-50, 75-100, 120</system:String>
+    <system:String x:Key="LiraElemRangeDlgHint" xml:space="preserve">Пример: 1-144  или  1-50, 75-100, 120</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Создано {0} заглушек. Импортировано {1} наборов усилий.</system:String>
     <system:String x:Key="FemSchema3DTab">3D-схема</system:String>
     <system:String x:Key="FemMembersListTab">Элементы</system:String>
@@ -3143,7 +3143,7 @@
     <system:String x:Key="Fem3DShowOriginalSchemaTip">Контур исходной (недеформированной) сетки под деформированной схемой</system:String>
     <system:String x:Key="Fem3DShowDeformedNodes">Узловые маркеры деформированной линии</system:String>
     <system:String x:Key="Fem3DShowNodeResultValues">Значения перемещений и поворотов в узлах</system:String>
-    <system:String x:Key="Fem3DNodeResultFormat">Узел {0}
+    <system:String x:Key="Fem3DNodeResultFormat" xml:space="preserve">Узел {0}
 U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
 R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
@@ -3202,7 +3202,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeOriginColumn">ГУ заданы</system:String>
     <system:String x:Key="FemMeshNodeBoundaryEdit">Граничные условия узла…</system:String>
     <system:String x:Key="FemMeshNodeBoundaryTitle">Граничные условия узла сетки</system:String>
-    <system:String x:Key="FemMeshNodeBoundaryHeader">Узел {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} м)</system:String>
+    <system:String x:Key="FemMeshNodeBoundaryHeader" xml:space="preserve">Узел {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} м)</system:String>
     <system:String x:Key="FemMeshNodeBoundaryOrigin">Сейчас заданы: {0}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySupport">Закрепления (общие оси):</system:String>
     <system:String x:Key="FemMeshNodeBoundarySprings">Пружины (общие оси):</system:String>
@@ -3720,8 +3720,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="SectionCutLegendConcreteTen">бетон: растяжение — синий</system:String>
    <system:String x:Key="SectionCutLegendRebarComp">арматура: сжатие — синий</system:String>
    <system:String x:Key="SectionCutLegendRebarTen">арматура: растяжение — красный</system:String>
-   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} мм&#10;σ = {1:+0.00;-0.00} МПа</system:String>
-   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} мм&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutTooltipStress" xml:space="preserve">s = {0:F0} мм&#10;σ = {1:+0.00;-0.00} МПа</system:String>
+   <system:String x:Key="SectionCutTooltipStrain" xml:space="preserve">s = {0:F0} мм&#10;ε = {1:+0.00000;-0.00000}</system:String>
    <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
    <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
    <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
@@ -3929,17 +3929,17 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_LabelKyFull">κy полная</system:String>
     <system:String x:Key="TotalCurvature_LabelKzFull">κz полная</system:String>
     <system:String x:Key="TotalCurvature_LabelKFull">κ полная</system:String>
-    <system:String x:Key="TotalCurvature_LabelNColon">N: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxLongColon">Mx длительное: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxTotalColon">Mx полное: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyLongColon">My длительное: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyTotalColon">My полное: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMcrcColon">Mcrc: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMxCrcColon">Mx при трещинообразовании: </system:String>
-    <system:String x:Key="TotalCurvature_LabelMyCrcColon">My при трещинообразовании: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKyFullColon">κy полная: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKzFullColon">κz полная: </system:String>
-    <system:String x:Key="TotalCurvature_LabelKFullColon">κ полная: </system:String>
+    <system:String x:Key="TotalCurvature_LabelNColon" xml:space="preserve">N: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxLongColon" xml:space="preserve">Mx длительное: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxTotalColon" xml:space="preserve">Mx полное: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyLongColon" xml:space="preserve">My длительное: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyTotalColon" xml:space="preserve">My полное: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMcrcColon" xml:space="preserve">Mcrc: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMxCrcColon" xml:space="preserve">Mx при трещинообразовании: </system:String>
+    <system:String x:Key="TotalCurvature_LabelMyCrcColon" xml:space="preserve">My при трещинообразовании: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKyFullColon" xml:space="preserve">κy полная: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKzFullColon" xml:space="preserve">κz полная: </system:String>
+    <system:String x:Key="TotalCurvature_LabelKFullColon" xml:space="preserve">κ полная: </system:String>
     <system:String x:Key="TotalCurvature_StageValuesFormat">Mx={0} кН·м; My={1} кН·м; κy={2} 1/м; κz={3} 1/м; {4}</system:String>
     <system:String x:Key="TotalCurvature_StageConverged">сошлось</system:String>
     <system:String x:Key="TotalCurvature_StageNotConverged">не сошлось</system:String>
