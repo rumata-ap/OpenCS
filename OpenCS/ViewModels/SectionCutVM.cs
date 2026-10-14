@@ -12,6 +12,8 @@ namespace OpenCS.ViewModels;
 public sealed class SectionCutVM : ViewModelBase
 {
     readonly CrossSection _section;
+    /// <summary>Внешний источник σ (огневая проверка: γbt/γst по полю температур); null — диаграммы областей.</summary>
+    readonly ISectionCutStressSource? _stressSource;
     readonly Kurvature _k;
     readonly CalcType _calcType;
     readonly IFileDialogService _fileDialogService;
@@ -137,9 +139,11 @@ public sealed class SectionCutVM : ViewModelBase
 
     void ClearRebarOverrides() => _rebarLengthPxOverrides.Clear();
 
-    public SectionCutVM(CrossSection section, Kurvature k, CalcType calcType, IFileDialogService fileDialogService, bool ten = true)
+    public SectionCutVM(CrossSection section, Kurvature k, CalcType calcType, IFileDialogService fileDialogService, bool ten = true,
+        ISectionCutStressSource? stressSource = null)
     {
         _section = section;
+        _stressSource = stressSource;
         _k = k;
         _calcType = calcType;
         _fileDialogService = fileDialogService;
@@ -228,7 +232,7 @@ public sealed class SectionCutVM : ViewModelBase
     {
         if (_p1 == null) return;
         ClearRebarOverrides();
-        Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM, tenB: _ten);
+        Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM, tenB: _ten, stressSource: _stressSource);
         OnPropertyChanged(nameof(HasPendingPoint));
         OnPropertyChanged(nameof(Result));
         RequestFit();

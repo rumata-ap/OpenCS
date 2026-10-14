@@ -7,13 +7,19 @@ using System.Text.Json;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Графики R-проверки (T, γ, σ, ε) на чистом WPF.</summary>
+/// <summary>
+/// Графики R-проверки: T и γ — карты T3 с ползунком времени; σ и ε — вид НДС (<see cref="SectionPlotVM"/>)
+/// на момент проверки, с контурами, сглаживанием, интерактивными фибрами и разрезом.
+/// </summary>
 public sealed class FireRCheckPlotsVM
 {
     public FireMeshPlotVM? TemperaturePlot { get; }
     public FireMeshPlotVM? GammaPlot { get; }
-    public FireMeshPlotVM? StressPlot { get; }
-    public FireMeshPlotVM? StrainPlot { get; }
+    public SectionPlotVM? StressPlot { get; }
+    public SectionPlotVM? StrainPlot { get; }
+
+    /// <summary>Общий разрез вкладок σ и ε (σ — с γbt/γst по полю температур).</summary>
+    public SectionCutVM? CutVM { get; }
     public bool HasPlots => TemperaturePlot != null;
 
     /// <summary>Почему графиков нет, если тепловой расчёт после проверки пересчитан.</summary>
@@ -71,7 +77,16 @@ public sealed class FireRCheckPlotsVM
         var k = new Kurvature { e0 = e0, ky = ky, kz = kz };
         var calc = task?.CalcType ?? CalcType.C;
 
-        StressPlot = FireMeshPlotBuilder.CreateStressPlot(fiber, thermal, k, calc, snapIdx);
-        StrainPlot = FireMeshPlotBuilder.CreateStrainPlot(fiber, thermal, k, snapIdx);
+        // Отдельный экземпляр: ползунок карты γ переключает снапшоты у своего FireFiberSection,
+        // а σ, ε и разрез должны оставаться на моменте проверки.
+        var stateFiber = FireFiberSection.FromThermalResult(thermal, section, snapIdx);
+        StressPlot = FireSectionStatePlotBuilder.Build(SectionPlotMode.Stress, stateFiber, thermal, section, k, calc, app.CalcSettings);
+        StrainPlot = FireSectionStatePlotBuilder.Build(SectionPlotMode.Strain, stateFiber, thermal, section, k, calc, app.CalcSettings);
+        CutVM = new SectionCutVM(section, k, calc, app.FileDialogService, ten: false, stressSource: stateFiber)
+        {
+            WindowTitleSuffix = $"{task?.Tag} — {section.Tag}"
+        };
+        StressPlot.CutVM = CutVM;
+        StrainPlot.CutVM = CutVM;
     }
 }

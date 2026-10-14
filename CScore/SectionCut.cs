@@ -34,6 +34,19 @@ public sealed record SectionCutResult(
     IReadOnlyList<CutRebarMarker> Rebars,
     IReadOnlyList<CutRebarMarker> NearbyRebars);
 
+/// <summary>
+/// Внешний источник напряжений для разреза — когда σ зависит не только от ε и диаграммы области
+/// (например, температурные коэффициенты γbt/γst огневой проверки). null — взять диаграмму как обычно.
+/// </summary>
+public interface ISectionCutStressSource
+{
+    /// <summary>σ, МПа, основного материала в точке (x, y), м, при деформации eps.</summary>
+    double? ConcreteSigMpa(MaterialArea area, double x, double y, double eps, CalcType calcType);
+
+    /// <summary>σ, МПа, арматурного стержня при деформации eps.</summary>
+    double? RebarSigMpa(Fiber fiber, double eps, CalcType calcType);
+}
+
 /// <summary>Строит эпюру σ/ε вдоль произвольного разреза сечения.</summary>
 public static class SectionCutBuilder
 {
@@ -54,7 +67,8 @@ public static class SectionCutBuilder
         (double X, double Y)? p2,
         double rebarThresholdM,
         bool tenB = true,
-        bool comprA = true)
+        bool comprA = true,
+        ISectionCutStressSource? stressSource = null)
     {
         var (origin, dir) = ResolveLine(mode, k, p1, p2);
 
@@ -91,7 +105,7 @@ public static class SectionCutBuilder
                     },
                     AreaIndex: null));
             }
-            segments.Add(BuildAreaSegment(seg.AreaIndex, seg.Area, seg.Ka, calcType, tMin, origin, dir, seg.TStart, seg.TEnd, tenB, comprA));
+            segments.Add(BuildAreaSegment(seg.AreaIndex, seg.Area, seg.Ka, calcType, tMin, origin, dir, seg.TStart, seg.TEnd, tenB, comprA, stressSource));
             cursor = Math.Max(cursor, seg.TEnd);
         }
 
@@ -109,7 +123,7 @@ public static class SectionCutBuilder
                 double t = relX * dir.X + relY * dir.Y;
                 if (t < tMin - nearbyMax || t > tMax + nearbyMax) continue;
                 double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
-                double sig = dgr.SigValue(eps, tenB, comprA) / 1000.0;
+                double sig = stressSource?.RebarSigMpa(f, eps, calcType) ?? dgr.SigValue(eps, tenB, comprA) / 1000.0;
                 // Num = 0 — стержень без номера (напр. сгенерированный параметрическим сечением).
                 var marker = new CutRebarMarker(t - tMin, f.X, f.Y, eps, sig, f.Diameter, f.Num > 0 ? f.Num : null);
                 if (dist <= rebarThresholdM)
@@ -192,7 +206,7 @@ public static class SectionCutBuilder
 
     static CutSegment BuildAreaSegment(int areaIndex, MaterialArea area, Kurvature ka, CalcType calcType,
         double tMin, (double X, double Y) origin, (double X, double Y) dir,
-        double tStart, double tEnd, bool tenB, bool comprA)
+        double tStart, double tEnd, bool tenB, bool comprA, ISectionCutStressSource? stressSource)
     {
         var dgr = area.Diagramms[calcType];
 
@@ -215,8 +229,10 @@ public static class SectionCutBuilder
                     breakTs.Add(t);
             }
         }
-        for (int i = 1; i < SamplesPerInterval; i++)
-            breakTs.Add(tStart + (tEnd - tStart) * i / SamplesPerInterval);
+        // Внешний источник (поле температур) меняет σ и вдоль линии постоянной ε — шаг мельче.
+        int samples = stressSource != null ? SamplesPerInterval * 5 : SamplesPerInterval;
+        for (int i = 1; i < samples; i++)
+            breakTs.Add(tStart + (tEnd - tStart) * i / samples);
 
         breakTs = breakTs.Distinct().OrderBy(t => t).ToList();
 
@@ -225,7 +241,7 @@ public static class SectionCutBuilder
         {
             double x = origin.X + dir.X * t, y = origin.Y + dir.Y * t;
             double eps = ka.e0 + ka.ky * y + ka.kz * x;
-            double sig = dgr.SigValue(eps, tenB, comprA) / 1000.0;
+            double sig = stressSource?.ConcreteSigMpa(area, x, y, eps, calcType) ?? dgr.SigValue(eps, tenB, comprA) / 1000.0;
             points.Add(new CutSample(t - tMin, x, y, eps, sig, areaIndex));
         }
         return new CutSegment(points, areaIndex);

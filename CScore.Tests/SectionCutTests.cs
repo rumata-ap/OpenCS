@@ -61,6 +61,34 @@ public class SectionCutTests
         Assert.Contains(result.Rebars, r => r.Num == 7);
     }
 
+    /// <summary>Источник σ, зависящий от точки (как поле γbt огневой проверки).</summary>
+    sealed class PointStressSource : ISectionCutStressSource
+    {
+        public double? ConcreteSigMpa(MaterialArea area, double x, double y, double eps, CalcType calcType) => -10.0 * (1.0 + x);
+        public double? RebarSigMpa(Fiber fiber, double eps, CalcType calcType) => 123.0;
+    }
+
+    [Fact]
+    public void Build_WithStressSource_TakesSigmaFromSourceInsteadOfDiagram()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.4, 0.6);
+        var k = new Kurvature { e0 = -0.0005, ky = 0.0, kz = 0.0 };
+        double ry = 0.3 - 0.05;
+
+        var result = SectionCutBuilder.Build(
+            section, k, CalcType.C, CutMode.Free,
+            p1: (-0.3, ry), p2: (0.3, ry),
+            rebarThresholdM: 0.001, stressSource: new PointStressSource());
+
+        Assert.NotNull(result);
+        foreach (var sample in result!.Segments[0].Points)
+        {
+            Assert.Equal(-0.0005, sample.Eps!.Value, 6);
+            Assert.Equal(-10.0 * (1.0 + sample.X), sample.Sig!.Value, 9);
+        }
+        Assert.All(result.Rebars, r => Assert.Equal(123.0, r.Sig, 9));
+    }
+
     [Fact]
     public void Build_CutThroughHollowRectangle_ReturnsGapSegmentInsideHole()
     {

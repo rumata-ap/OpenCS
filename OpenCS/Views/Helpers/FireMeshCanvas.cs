@@ -329,11 +329,9 @@ public sealed class FireMeshCanvas : FrameworkElement
             DrawDiscreteThermalTriangles(dc, vm, useThermal);
         }
 
-        if (vm.IsTemperatureMode)
-        {
-            DrawMeshEdges(dc, vm);
-            DrawSectionContours(dc, vm);
-        }
+        // Рёбра сетки и границы областей сечения — и на температуре, и на γ (пусто, если не переданы).
+        DrawMeshEdges(dc, vm);
+        DrawSectionContours(dc, vm);
 
         if (vm.ShowIsolines && vm.Isolines.Count > 0)
         {

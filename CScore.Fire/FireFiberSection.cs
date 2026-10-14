@@ -7,7 +7,7 @@ namespace CScore.Fire;
 /// <summary>
 /// Огневое фибровое сечение для предельной проверки по температурным полям.
 /// </summary>
-public sealed class FireFiberSection : ILimitSection
+public sealed class FireFiberSection : ILimitSection, ISectionCutStressSource
 {
     private readonly FireThermalResult _thermal;
     private readonly CrossSectionLimitAdapter _limitAdapter;
@@ -280,6 +280,81 @@ public sealed class FireFiberSection : ILimitSection
     /// <summary>Напряжение в арматурном волокне с учётом γ_st.</summary>
     public double RebarStress(FireRebarElement r, double eps, CalcType calc)
         => ResolveDiagram(r.Material, calc).Sig(eps, out _) * r.GammaSt;
+
+    /// <summary>Напряжение бетона, кПа, при заданном γ_bt (например, по узловой температуре).</summary>
+    public double ConcreteStress(Material material, double eps, CalcType calc, double gammaBt)
+        => ResolveDiagram(material, calc).Sig(eps, out _) * gammaBt;
+
+    /// <summary>Температуры узлов сетки на текущем снапшоте, °C.</summary>
+    public IReadOnlyList<double> NodeTemperatures => _thermal.Snapshots[SnapshotIndex];
+
+    /// <summary>γ_bt при температуре t, °C, для заполнителя теплового расчёта.</summary>
+    public double GammaBtAt(double tCelsius) => Sp468Tables.GammaBt(_thermal.AggregateType, tCelsius);
+
+    /// <summary>
+    /// Температура в точке (x, y), м, на текущем снапшоте: линейная интерполяция в треугольнике T3;
+    /// точка вне сетки (на границе с погрешностью) — температура ближайшего элемента.
+    /// </summary>
+    public double TemperatureAt(double x, double y)
+    {
+        var mesh = _thermal.MeshInfo.Mesh;
+        double[] nodeT = _thermal.Snapshots[SnapshotIndex];
+        double bestD2 = double.MaxValue;
+        double bestT = double.NaN;
+        foreach (var m in _concreteMeta)
+        {
+            double x1 = mesh.X[m.N1], y1 = mesh.Y[m.N1];
+            double x2 = mesh.X[m.N2], y2 = mesh.Y[m.N2];
+            double x3 = mesh.X[m.N3], y3 = mesh.Y[m.N3];
+            double det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+            if (Math.Abs(det) < 1e-18) continue;
+            double l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / det;
+            double l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / det;
+            double l3 = 1.0 - l1 - l2;
+            const double eps = -1e-9;
+            if (l1 >= eps && l2 >= eps && l3 >= eps)
+                return l1 * nodeT[m.N1] + l2 * nodeT[m.N2] + l3 * nodeT[m.N3];
+
+            double cx = (x1 + x2 + x3) / 3.0 - x, cy = (y1 + y2 + y3) / 3.0 - y;
+            double d2 = cx * cx + cy * cy;
+            if (d2 < bestD2)
+            {
+                bestD2 = d2;
+                bestT = (nodeT[m.N1] + nodeT[m.N2] + nodeT[m.N3]) / 3.0;
+            }
+        }
+        return bestT;
+    }
+
+    /// <summary>Стержень огневого сечения, совпадающий по положению с точечной фиброй исходного сечения.</summary>
+    public FireRebarElement? FindRebar(double x, double y)
+    {
+        const double tol = 1e-6;
+        FireRebarElement? best = null;
+        double bestD2 = tol * tol;
+        foreach (var r in RebarElements)
+        {
+            double dx = r.X - x, dy = r.Y - y;
+            double d2 = dx * dx + dy * dy;
+            if (d2 <= bestD2) { bestD2 = d2; best = r; }
+        }
+        return best;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>Как в <see cref="Integral"/>: растянутый бетон не работает (п. 8.42 СП 468).</remarks>
+    public double? ConcreteSigMpa(MaterialArea area, double x, double y, double eps, CalcType calcType)
+    {
+        if (eps >= 0.0) return 0.0;
+        if (ConcreteElements.Count == 0) return null;
+        double t = TemperatureAt(x, y);
+        if (double.IsNaN(t)) return null;
+        return ConcreteStress(ConcreteElements[0].Material, eps, calcType, GammaBtAt(t)) / 1000.0;
+    }
+
+    /// <inheritdoc/>
+    public double? RebarSigMpa(Fiber fiber, double eps, CalcType calcType)
+        => FindRebar(fiber.X, fiber.Y) is { } r ? RebarStress(r, eps, calcType) / 1000.0 : null;
 
     private Diagramm ResolveDiagram(Material material, CalcType calc)
     {

@@ -27,23 +27,7 @@ internal static class FireMeshPlotBuilder
                 c => c.GammaBt,
                 r => r.GammaSt,
                 v => string.Format(CultureInfo.InvariantCulture, "γ = {0:F4}", v));
-        }, initialSnapshot);
-
-    public static FireMeshPlotVM CreateStressPlot(
-        FireFiberSection fiber, FireThermalResult thermal, Kurvature k, CalcType calc, int initialSnapshot = -1)
-        => new(FireMeshPlotMode.Stress, "σ, МПа", thermal.TimesMin, snap =>
-        {
-            fiber.SetSnapshot(snap);
-            return BuildStressFromMesh(fiber, thermal, k, calc);
-        }, initialSnapshot);
-
-    public static FireMeshPlotVM CreateStrainPlot(
-        FireFiberSection fiber, FireThermalResult thermal, Kurvature k, int initialSnapshot = -1)
-        => new(FireMeshPlotMode.Strain, "ε", thermal.TimesMin, snap =>
-        {
-            fiber.SetSnapshot(snap);
-            return BuildStrainFromMesh(fiber, thermal, k);
-        }, initialSnapshot);
+        }, initialSnapshot, meshBuildInfo: thermal.MeshInfo);
 
     public static FireLineChartVM CreateRebarChart(FireThermalResult thermal)
     {
@@ -174,65 +158,6 @@ internal static class FireMeshPlotBuilder
             pts.Add(new FirePointDraw(Mm(r.X, r.Y), Math.Max(1.5, r.Diameter * 500), v, fmt(v)));
         }
         return (tris, pts);
-    }
-
-    static (IReadOnlyList<FireTriDraw>, IReadOnlyList<FirePointDraw>) BuildStressFromMesh(
-        FireFiberSection fiber, FireThermalResult thermal, Kurvature k, CalcType calc)
-    {
-        var mesh = thermal.MeshInfo.Mesh;
-        var tris = new List<FireTriDraw>(mesh.Elements.Length);
-        for (int e = 0; e < mesh.Elements.Length && e < fiber.ConcreteElements.Count; e++)
-        {
-            var c = fiber.ConcreteElements[e];
-            double eps = k.e0 + k.ky * c.Cy + k.kz * c.Cx;
-            var d = GetDiagram(c.Material, calc);
-            double sig = d.Sig(eps, out _) * c.GammaBt / 1000.0;
-            var tri = mesh.Elements[e];
-            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), ConstantNodeValues(sig), Mm(c.Cx, c.Cy), sig,
-                string.Format(CultureInfo.InvariantCulture, "σ = {0:+0.0;-0.0} МПа", sig)));
-        }
-
-        var pts = new List<FirePointDraw>();
-        foreach (var r in fiber.RebarElements)
-        {
-            double eps = k.e0 + k.ky * r.Y + k.kz * r.X;
-            var d = GetDiagram(r.Material, calc);
-            double sig = d.Sig(eps, out _) * r.GammaSt / 1000.0;
-            pts.Add(new FirePointDraw(Mm(r.X, r.Y), Math.Max(1.5, r.Diameter * 500), sig,
-                string.Format(CultureInfo.InvariantCulture, "#{0}: σ = {1:+0.0;-0.0} МПа", r.RebarId, sig)));
-        }
-        return (tris, pts);
-    }
-
-    static (IReadOnlyList<FireTriDraw>, IReadOnlyList<FirePointDraw>) BuildStrainFromMesh(
-        FireFiberSection fiber, FireThermalResult thermal, Kurvature k)
-    {
-        var mesh = thermal.MeshInfo.Mesh;
-        var tris = new List<FireTriDraw>(mesh.Elements.Length);
-        for (int e = 0; e < mesh.Elements.Length && e < fiber.ConcreteElements.Count; e++)
-        {
-            var c = fiber.ConcreteElements[e];
-            double eps = k.e0 + k.ky * c.Cy + k.kz * c.Cx;
-            var tri = mesh.Elements[e];
-            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), ConstantNodeValues(eps), Mm(c.Cx, c.Cy), eps,
-                string.Format(CultureInfo.InvariantCulture, "ε = {0:+0.000000;-0.000000}", eps)));
-        }
-
-        var pts = new List<FirePointDraw>();
-        foreach (var r in fiber.RebarElements)
-        {
-            double eps = k.e0 + k.ky * r.Y + k.kz * r.X;
-            pts.Add(new FirePointDraw(Mm(r.X, r.Y), Math.Max(1.5, r.Diameter * 500), eps,
-                string.Format(CultureInfo.InvariantCulture, "#{0}: ε = {1:+0.000000;-0.000000}", r.RebarId, eps)));
-        }
-        return (tris, pts);
-    }
-
-    static Diagramm GetDiagram(Material mat, CalcType calc)
-    {
-        var d = mat.GetDiagramms(DiagrammCompatibility.Coerce(mat.Type, DiagrammType.L2));
-        if (d != null && d.TryGetValue(calc, out var dg)) return dg;
-        throw new InvalidOperationException($"Диаграмма {mat.Tag} не найдена.");
     }
 
     static double[] ConstantNodeValues(double v) => [v, v, v];

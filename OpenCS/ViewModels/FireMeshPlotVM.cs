@@ -15,9 +15,7 @@ namespace OpenCS.ViewModels;
 public enum FireMeshPlotMode
 {
     Temperature,
-    Gamma,
-    Stress,
-    Strain
+    Gamma
 }
 
 /// <summary>Треугольник T3 для отрисовки на канве.</summary>
@@ -35,7 +33,7 @@ public sealed record FirePointDraw(
     double Value,
     string Tooltip);
 
-/// <summary>ViewModel интерактивной карты T3 (температура, γ, σ, ε).</summary>
+/// <summary>ViewModel интерактивной карты T3 (температура, γ).</summary>
 public sealed class FireMeshPlotVM : ViewModelBase
 {
     public const int NumBands = 10;

@@ -73,26 +73,26 @@ namespace OpenCS.ViewModels
     {
         public SectionPlotMode Mode { get; }
 
-        public IReadOnlyList<FiberDrawData>       ConcreteFibers { get; }
-        public IReadOnlyList<NoMeshAreaDrawData>  NoMeshAreas    { get; }
-        public IReadOnlyList<RebarDrawData>       RebarFibers    { get; }
+        public IReadOnlyList<FiberDrawData>       ConcreteFibers { get; private set; } = [];
+        public IReadOnlyList<NoMeshAreaDrawData>  NoMeshAreas    { get; private set; } = [];
+        public IReadOnlyList<RebarDrawData>       RebarFibers    { get; private set; } = [];
 
-        public double ConcreteMin { get; }
-        public double ConcreteMax { get; }
-        public double RebarMin    { get; }
-        public double RebarMax    { get; }
+        public double ConcreteMin { get; private set; }
+        public double ConcreteMax { get; private set; }
+        public double RebarMin    { get; private set; }
+        public double RebarMax    { get; private set; }
 
         public bool HasRebar => RebarFibers.Count > 0;
 
         /// <summary>Два конца нейтральной линии ε=0 в мм (null если нет).</summary>
-        public IReadOnlyList<Point>? NeutralAxis { get; }
+        public IReadOnlyList<Point>? NeutralAxis { get; private set; }
 
         /// <summary>Точка максимального сжатия: координаты мм, ε и σ [МПа] (вершина с мин. ε, независимо от режима).</summary>
-        public (Point Pt, double Eps, double SigMpa)? MaxComprData { get; }
+        public (Point Pt, double Eps, double SigMpa)? MaxComprData { get; private set; }
 
         public const int NumBands = 8;
-        public IReadOnlyList<ColorBand> ConcreteColorBands { get; }
-        public IReadOnlyList<ColorBand> RebarColorBands    { get; }
+        public IReadOnlyList<ColorBand> ConcreteColorBands { get; private set; } = [];
+        public IReadOnlyList<ColorBand> RebarColorBands    { get; private set; } = [];
 
         // ── Чекбоксы ─────────────────────────────────────────────────
         bool _showConcrete = true, _showRebar = true,
@@ -139,18 +139,18 @@ namespace OpenCS.ViewModels
         public event Action? FitAllRequested;
 
         // ── Стили линий (из CalcSettings) ────────────────────────────────
-        public string HullColorHex         { get; }
-        public double HullThickness        { get; }
-        public string HoleColorHex         { get; }
-        public double HoleThickness        { get; }
-        public string NeutralAxisColorHex  { get; }
-        public double NeutralAxisThickness { get; }
-        public string CentroidNdsColorHex  { get; }
-        public double CentroidNdsSize      { get; }
-        public double FiberLabelFontSize   { get; }
+        public string HullColorHex         { get; private set; } = "";
+        public double HullThickness        { get; private set; }
+        public string HoleColorHex         { get; private set; } = "";
+        public double HoleThickness        { get; private set; }
+        public string NeutralAxisColorHex  { get; private set; } = "";
+        public double NeutralAxisThickness { get; private set; }
+        public string CentroidNdsColorHex  { get; private set; } = "";
+        public double CentroidNdsSize      { get; private set; }
+        public double FiberLabelFontSize   { get; private set; }
 
         /// <summary>Центр тяжести по НДС (секущий модуль) в мм; null если не вычислен.</summary>
-        public Point? NdsCentroid { get; }
+        public Point? NdsCentroid { get; private set; }
 
         SectionCutVM? _cutVM;
         /// <summary>Общий инструмент разреза — один экземпляр на результат, назначается и вкладке «Напряжения», и вкладке «Деформации» (см. CalcResultView/LimitForceResultView).</summary>
@@ -171,17 +171,8 @@ namespace OpenCS.ViewModels
             Mode = mode;
 
             var cs = settings ?? CalcSettings.Default;
-            _smoothColormap       = cs.SmoothColormap;
+            ApplySettings(cs);
             int gridDensity       = cs.GridDensity;
-            HullColorHex          = cs.HullColor;
-            HullThickness         = cs.HullThickness;
-            HoleColorHex          = cs.HoleColor;
-            HoleThickness         = cs.HoleThickness;
-            NeutralAxisColorHex   = cs.NeutralAxisColor;
-            NeutralAxisThickness  = cs.NeutralAxisThickness;
-            CentroidNdsColorHex   = cs.CentroidNdsColor;
-            CentroidNdsSize       = cs.CentroidNdsSize;
-            FiberLabelFontSize    = cs.FiberLabelFontSize;
 
             var concrete   = new List<FiberDrawData>();
             var noMesh     = new List<NoMeshAreaDrawData>();
@@ -387,17 +378,79 @@ namespace OpenCS.ViewModels
                     }
             }
 
-            ConcreteFibers  = concrete;
-            NoMeshAreas     = noMesh;
-            RebarFibers     = rebar;
-            _showFiberGrid  = anyMesh;
             // Запасной вариант: hull не найден — берём центроид наиболее сжатой фибры
             if (mcPt == null)
                 foreach (var f in concrete)
                     if (f.Eps < mcEps) { mcEps = f.Eps; mcPt = f.Centroid; mcSig = f.Sigma; }
-            MaxComprData = mcPt.HasValue ? (mcPt.Value, mcEps, mcSig) : null;
 
-            NdsCentroid = ea_c > 1e-6 ? new Point(esy_c / ea_c, esz_c / ea_c) : (Point?)null;
+            Finish(k, concrete, noMesh, rebar, anyMesh,
+                mcPt.HasValue ? (mcPt.Value, mcEps, mcSig) : null,
+                ea_c > 1e-6 ? new Point(esy_c / ea_c, esz_c / ea_c) : (Point?)null,
+                symmetricConcreteStressScale: mode == SectionPlotMode.Stress && recordedFibers != null);
+            FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
+        }
+
+        /// <summary>
+        /// Представление из готовых фибр — когда σ считает не диаграмма области, а внешний расчёт
+        /// (огневая проверка: треугольники T3 теплового расчёта с γbt, стержни с γst).
+        /// </summary>
+        /// <param name="contours">Контуры областей (HullValues пусто) — рисуются поверх заливки.</param>
+        public SectionPlotVM(SectionPlotMode mode, Kurvature k,
+            IReadOnlyList<FiberDrawData> concrete, IReadOnlyList<NoMeshAreaDrawData> contours,
+            IReadOnlyList<RebarDrawData> rebar, CalcSettings? settings = null)
+        {
+            Mode = mode;
+            ApplySettings(settings ?? CalcSettings.Default);
+
+            (Point Pt, double Eps, double SigMpa)? maxCompr = null;
+            double ea = 0, esx = 0, esy = 0;
+            foreach (var f in concrete)
+            {
+                if (maxCompr == null || f.Eps < maxCompr.Value.Eps)
+                    maxCompr = (f.Centroid, f.Eps, f.Sigma);
+                if (Math.Abs(f.Eps) > 1e-9 && Math.Abs(f.Sigma) > 1e-9)
+                    Accumulate(Math.Abs(f.Sigma / f.Eps), f.AreaMm2, f.Centroid);
+            }
+            foreach (var r in rebar)
+                if (Math.Abs(r.Eps) > 1e-9)
+                    Accumulate(Math.Abs(r.Sigma / r.Eps), r.AreaMm2, r.Center);
+
+            void Accumulate(double esf, double aMm2, Point c)
+            {
+                ea += esf * aMm2;
+                esx += esf * aMm2 * c.X;
+                esy += esf * aMm2 * c.Y;
+            }
+
+            Finish(k, concrete, contours, rebar, anyMesh: concrete.Count > 0, maxCompr,
+                ea > 1e-6 ? new Point(esx / ea, esy / ea) : null, symmetricConcreteStressScale: false);
+            FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
+        }
+
+        void ApplySettings(CalcSettings cs)
+        {
+            _smoothColormap       = cs.SmoothColormap;
+            HullColorHex          = cs.HullColor;
+            HullThickness         = cs.HullThickness;
+            HoleColorHex          = cs.HoleColor;
+            HoleThickness         = cs.HoleThickness;
+            NeutralAxisColorHex   = cs.NeutralAxisColor;
+            NeutralAxisThickness  = cs.NeutralAxisThickness;
+            CentroidNdsColorHex   = cs.CentroidNdsColor;
+            CentroidNdsSize       = cs.CentroidNdsSize;
+            FiberLabelFontSize    = cs.FiberLabelFontSize;
+        }
+
+        void Finish(Kurvature k, IReadOnlyList<FiberDrawData> concrete, IReadOnlyList<NoMeshAreaDrawData> noMesh,
+            IReadOnlyList<RebarDrawData> rebar, bool anyMesh, (Point Pt, double Eps, double SigMpa)? maxCompr,
+            Point? ndsCentroid, bool symmetricConcreteStressScale)
+        {
+            ConcreteFibers  = concrete;
+            NoMeshAreas     = noMesh;
+            RebarFibers     = rebar;
+            _showFiberGrid  = anyMesh;
+            MaxComprData    = maxCompr;
+            NdsCentroid     = ndsCentroid;
 
             // Диапазоны нормировки
             var concreteVals = concrete.Select(f => f.Value)
@@ -420,7 +473,7 @@ namespace OpenCS.ViewModels
             // значимое растягивающее напряжение, хотя оно на порядки меньше сжатия. Для карты по
             // OpenSees обе стороны шкалы приводятся к общему масштабу (по модулю большей из двух),
             // чтобы такой остаток корректно оставался почти белым на фоне реального сжатия.
-            if (mode == SectionPlotMode.Stress && recordedFibers != null)
+            if (symmetricConcreteStressScale)
             {
                 double sharedScale = Math.Max(Math.Abs(ConcreteMin), Math.Abs(ConcreteMax));
                 if (sharedScale > 1e-10)
@@ -443,8 +496,6 @@ namespace OpenCS.ViewModels
                 NeutralAxis = ComputeNeutralAxisSegment(
                     k.kz, k.ky, k.e0 * 1000, bxMin, bxMax, byMin, byMax);
             }
-
-            FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
         }
 
         static (IReadOnlyList<Point>? outer, IReadOnlyList<IReadOnlyList<Point>> holes) ParseWktFull(string? wkt)

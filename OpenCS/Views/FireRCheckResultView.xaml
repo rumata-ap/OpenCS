@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views">
 
-   <TabControl>
+   <TabControl x:Name="Tabs">
       <TabItem Header="{DynamicResource ResultTabSummary}">
          <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="12,8" DataContext="{Binding Summary}">
@@ -147,10 +147,10 @@
       </TabItem>
 
       <TabItem Header="{DynamicResource ResultTabStress}">
-         <local:FireMeshPlotView DataContext="{Binding Plots.StressPlot}"/>
+         <local:SectionPlotView DataContext="{Binding Plots.StressPlot}"/>
       </TabItem>
       <TabItem Header="{DynamicResource ResultTabStrain}">
-         <local:FireMeshPlotView DataContext="{Binding Plots.StrainPlot}"/>
+         <local:SectionPlotView DataContext="{Binding Plots.StrainPlot}"/>
       </TabItem>
       <TabItem Header="{DynamicResource FireRCheck_TabGamma}">
          <local:FireMeshPlotView DataContext="{Binding Plots.GammaPlot}"/>
