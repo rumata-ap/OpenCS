@@ -3296,8 +3296,14 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodeDeleteConfirmTitle">Delete node</system:String>
     <system:String x:Key="FemNodeDeleteConfirm">Delete node “{0}”? Connected structural members will also be deleted: {1}.</system:String>
     <system:String x:Key="FemNodesDeleteConfirm">Delete selected nodes ({0})? Connected structural members will also be deleted: {1}.</system:String>
-    <system:String x:Key="FemNodeOffsetMoveTitle">Move node</system:String>
-    <system:String x:Key="FemNodeOffsetCopyTitle">Copy node</system:String>
+    <system:String x:Key="FemMemberMoveCtx">Move…</system:String>
+    <system:String x:Key="FemMemberCopyCtx">Copy…</system:String>
+    <system:String x:Key="FemFragmentMoveTitle">Move</system:String>
+    <system:String x:Key="FemFragmentCopyTitle">Copy</system:String>
+    <system:String x:Key="FemFragmentOffsetSummary">Nodes: {0}, members: {1} (with member nodes)</system:String>
+    <system:String x:Key="FemFragmentCopies">Number of copies</system:String>
+    <system:String x:Key="FemFragmentMoveBlocked">Move cancelled: the moved nodes carry members whose geometry cannot be changed here — planar region plates (edit them in the region editor) or members with a mesh imported from LIRA: {0}.</system:String>
+    <system:String x:Key="FemFragmentCopySkippedPlanar">Planar region plates are not copied ({0}): their geometry is stored in the region. The other members were copied.</system:String>
     <system:String x:Key="FemNodeOffsetDx">dX, m</system:String>
     <system:String x:Key="FemNodeOffsetDy">dY, m</system:String>
     <system:String x:Key="FemNodeOffsetDz">dZ, m</system:String>

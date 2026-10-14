@@ -142,12 +142,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
-        view3D.NodeMoveRequested += (tag, dx, dy, dz) =>
-        {
-            if (!_editorVm.MoveNodeByTag(tag, dx, dy, dz))
-                _fem3d.LoadFromSession(_editorVm.Session);
-        };
-        view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
+        view3D.FragmentOffsetRequested += OffsetFragment;
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
         view3D.NodePropertiesRequested += OpenNodeProperties;
         _editorVm.PropertyChanged += (_, args) =>
@@ -172,6 +167,22 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
 
         PreviewKeyDown += OnPreviewKeyDown;
+    }
+
+    /// <summary>«Переместить…» / «Копировать…» узлов и КонЭ (из меню 3D и дерева): смещение, у копирования — число
+    /// копий; одна отмена на всю операцию.</summary>
+    public void OffsetFragment(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags, bool copy)
+    {
+        string titleKey = copy ? "FemFragmentCopyTitle" : "FemFragmentMoveTitle";
+        var dlg = new FemFragmentOffsetDialog(titleKey,
+            string.Format(Loc.S("FemFragmentOffsetSummary"), nodeTags.Count, memberTags.Count), showCopies: copy)
+        { Owner = Window.GetWindow(this) };
+        if (dlg.ShowDialog() != true) return;
+        string? message = copy
+            ? _editorVm.CopyFragment(nodeTags, memberTags, dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies)
+            : _editorVm.MoveFragment(nodeTags, memberTags, dlg.Dx, dlg.Dy, dlg.Dz);
+        if (message != null)
+            MessageBox.Show(Window.GetWindow(this), message, Loc.S(titleKey), MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     void CreateMember_Click(object sender, RoutedEventArgs e)
@@ -335,8 +346,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         }
         else if (e.Key == Key.V && _editorVm.HasClipboard)
         {
-            var dlg = new FemFragmentOffsetDialog { Owner = Window.GetWindow(this) };
-            if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz);
+            var dlg = new FemFragmentOffsetDialog("FemPasteOffsetTitle", null, showCopies: true) { Owner = Window.GetWindow(this) };
+            if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies);
         }
         else if (e.Key == Key.Z && _editorVm.UndoCommand.CanExecute(null))
         {

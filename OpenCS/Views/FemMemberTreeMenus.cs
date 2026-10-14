@@ -30,6 +30,14 @@ internal static class FemMemberTreeMenus
         AddForceImport(items, schema, kind => app.ImportLiraForcesCommand(kind).Execute(member),
             kind => app.ImportScadForcesCommand(kind).Execute(member));
 
+        // Пластины плоских областей перемещаются и копируются вместе с областью — в её редакторе.
+        if (member.PlanarRegionId == null)
+        {
+            items.Add(new Separator());
+            items.Add(Item("FemMemberMoveCtx", () => app.OffsetFemFragmentInEditor(schema, [], [member.ElemTag], copy: false)));
+            items.Add(Item("FemMemberCopyCtx", () => app.OffsetFemFragmentInEditor(schema, [], [member.ElemTag], copy: true)));
+        }
+
         items.Add(new Separator());
         items.Add(Item("FemMemberTreeGroupFromMember",
             () => CreateGroup(app, schema, [member], member.ElemTag)));
@@ -81,6 +89,8 @@ internal static class FemMemberTreeMenus
     {
         var node = item.Node;
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
+        items.Add(Item("FemNodeMoveCtx", () => app.OffsetFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: false)));
+        items.Add(Item("FemNodeCopyCtx", () => app.OffsetFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: true)));
 
         var adjacent = item.AdjacentMembers();
         var members = CommandIcons.Item("FemNodeTreeMembers");

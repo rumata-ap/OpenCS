@@ -25,6 +25,8 @@
             <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberLoadCtx" Click="MemberLoadCtx_Click"/>
             <Separator/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberMoveCtx" Click="MemberMoveCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberCopyCtx" Click="MemberCopyCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberSplitCtx" Click="MemberSplitCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberDeleteCtx" Click="MemberDeleteCtx_Click"/>
             <Separator/>

@@ -28,6 +28,31 @@ public sealed class MoveNodeCommand(FemNode node, double x, double y, double z) 
     }
 }
 
+/// <summary>Сдвигает набор узлов на (dx, dy, dz) одной отменой. КонЭ, у которых сдвинута лишь часть узлов,
+/// деформируются вместе с ними.</summary>
+public sealed class MoveNodesCommand(IReadOnlyCollection<FemNode> nodes, double dx, double dy, double dz) : IFemEditCommand
+{
+    readonly List<(FemNode Node, double X, double Y, double Z)> _old = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old.Clear();
+        foreach (var node in nodes)
+        {
+            _old.Add((node, node.X, node.Y, node.Z));
+            node.X += dx; node.Y += dy; node.Z += dz;
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        foreach (var (node, x, y, z) in _old)
+        {
+            node.X = x; node.Y = y; node.Z = z;
+        }
+    }
+}
+
 public sealed class SetDofMaskCommand(FemNode node, int mask) : IFemEditCommand
 {
     int _oldMask;

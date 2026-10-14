@@ -786,14 +786,35 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     }
 
     /// <summary>Сдвигает узел. False — узел не найден или на него опирается элемент с сеткой ЛИРЫ.</summary>
-    public bool MoveNodeByTag(string nodeTag, double dx, double dy, double dz)
+    /// <summary>Сдвигает узлы и узлы КонЭ на (dx, dy, dz) одной отменой. Возвращает причину отказа или null:
+    /// узлы, на которые опираются пластины плоских областей или элементы с импортированной сеткой, не двигаются.</summary>
+    public string? MoveFragment(IEnumerable<string> nodeTags, IEnumerable<string> memberTags, double dx, double dy, double dz)
     {
-        var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
-        if (node == null) return false;
-        if (RejectLockedNodes([nodeTag])) return false;
-        Session.Execute(new MoveNodeCommand(node, node.X + dx, node.Y + dy, node.Z + dz));
+        var move = FemFragmentTargets.ForMove(Session, nodeTags, memberTags);
+        if (move.Blockers.Count > 0)
+            return string.Format(Loc.S("FemFragmentMoveBlocked"),
+                string.Join(", ", move.Blockers.Take(5).Select(m => $"«{m.ElemTag}»")) + (move.Blockers.Count > 5 ? ", …" : ""));
+        if (move.Nodes.Count == 0 || dx == 0 && dy == 0 && dz == 0) return null;
+        Session.Execute(new MoveNodesCommand(move.Nodes, dx, dy, dz));
         RefreshCollections();
-        return true;
+        return null;
+    }
+
+    /// <summary>Копирует узлы и КонЭ <paramref name="copies"/> раз с шагом (dx, dy, dz) одной отменой. Возвращает
+    /// предупреждение о пропущенных пластинах плоских областей или null.</summary>
+    public string? CopyFragment(IEnumerable<string> nodeTags, IEnumerable<string> memberTags,
+        double dx, double dy, double dz, int copies)
+    {
+        var snapshot = FemFragmentClipboard.Copy(Session, nodeTags.ToHashSet(StringComparer.Ordinal),
+            memberTags.ToHashSet(StringComparer.Ordinal));
+        if (snapshot.Nodes.Count > 0)
+        {
+            Session.Execute(new PasteFragmentCommand(snapshot, dx, dy, dz, copies));
+            RefreshCollections();
+        }
+        return snapshot.SkippedPlanarMembers > 0
+            ? string.Format(Loc.S("FemFragmentCopySkippedPlanar"), snapshot.SkippedPlanarMembers)
+            : null;
     }
 
     /// <summary>Сообщает (<see cref="GeometryLocked"/>) и возвращает true, если среди узлов есть узлы
@@ -805,19 +826,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         GeometryLocked?.Invoke(string.Format(Loc.S("FemMemberMeshLockedNodes"),
             string.Join(", ", locked.Take(5).Select(m => $"«{m.ElemTag}»")) + (locked.Count > 5 ? ", …" : "")));
         return true;
-    }
-
-    public void CopyNodeByTag(string nodeTag, double dx, double dy, double dz)
-    {
-        var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
-        if (node == null) return;
-        var newTag = FemTopologyValidator.NextNodeTag(Session.Nodes);
-        Session.Execute(new AddNodeCommand(new FemNode
-        {
-            SchemaId = Session.Schema.Id, NodeTag = newTag,
-            X = node.X + dx, Y = node.Y + dy, Z = node.Z + dz, DofMask = node.DofMask
-        }));
-        RefreshCollections();
     }
 
     /// <summary>Группирует выбранные конструктивные элементы в новую группу (FemMemberGroup).</summary>
@@ -1110,10 +1118,10 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         OnPropertyChanged(nameof(HasClipboard));
     }
 
-    public void PasteClipboard(double dx, double dy, double dz)
+    public void PasteClipboard(double dx, double dy, double dz, int copies = 1)
     {
         if (_clipboard is not { } snapshot) return;
-        Session.Execute(new PasteFragmentCommand(snapshot, dx, dy, dz));
+        Session.Execute(new PasteFragmentCommand(snapshot, dx, dy, dz, copies));
         RefreshCollections();
     }
 

@@ -69,6 +69,8 @@ public static class CommandIcons
         ["FemMemberDeleteCtx"] = "CmdIcon_Delete",
         ["FemShellDelete"] = "CmdIcon_Delete",
         ["FemMemberForcesCtx"] = "CmdIcon_Diagram",
+        ["FemMemberMoveCtx"] = "CmdIcon_Move",
+        ["FemMemberCopyCtx"] = "CmdIcon_Copy",
         ["FemNodeMoveCtx"] = "CmdIcon_Move",
         ["FemNodeCopyCtx"] = "CmdIcon_Copy",
         ["FemNodeLoadCtx"] = "CmdIcon_NodeLoad",

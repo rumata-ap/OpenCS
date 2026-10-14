@@ -2277,22 +2277,22 @@ public partial class FemSchemaView3D : UserControl
     public event Action<string>? MemberRotationRequested;
     public event Action<string>? MemberForcesRequested;
 
-    void NodeMoveCtx_Click(object sender, RoutedEventArgs e)
-    {
-        if (_contextMenuTargetTag is not { } tag) return;
-        var dlg = new FemNodeOffsetDialog(isCopy: false,
-            (dx, dy, dz) => NodeMoveRequested?.Invoke(tag, dx, dy, dz))
-        { Owner = Window.GetWindow(this) };
-        dlg.Show();
-    }
+    void NodeMoveCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: true, copy: false);
+    void NodeCopyCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: true, copy: true);
+    void MemberMoveCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: false, copy: false);
+    void MemberCopyCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: false, copy: true);
 
-    void NodeCopyCtx_Click(object sender, RoutedEventArgs e)
+    /// <summary>«Переместить…» / «Копировать…» из меню узла или КонЭ: весь выбор (узлы и КонЭ), если щёлкнутый
+    /// объект в нём, иначе только он.</summary>
+    void OffsetFragment(bool clickedIsNode, bool copy)
     {
         if (_contextMenuTargetTag is not { } tag) return;
-        var dlg = new FemNodeOffsetDialog(isCopy: true,
-            (dx, dy, dz) => NodeCopyRequested?.Invoke(tag, dx, dy, dz))
-        { Owner = Window.GetWindow(this) };
-        dlg.Show();
+        var selection = Editor?.Selection;
+        bool inSelection = selection != null
+            && (clickedIsNode ? selection.SelectedNodeTags.Contains(tag) : selection.SelectedElemTags.Contains(tag));
+        IReadOnlyCollection<string> nodes = inSelection ? [.. selection!.SelectedNodeTags] : clickedIsNode ? [tag] : [];
+        IReadOnlyCollection<string> members = inSelection ? [.. selection!.SelectedElemTags] : clickedIsNode ? [] : [tag];
+        FragmentOffsetRequested?.Invoke(nodes, members, copy);
     }
 
     void NodePropertiesCtx_Click(object sender, RoutedEventArgs e)
@@ -2307,8 +2307,8 @@ public partial class FemSchemaView3D : UserControl
         NodeDeleteRequested?.Invoke([tag]);
     }
 
-    public event Action<string, double, double, double>? NodeMoveRequested;
-    public event Action<string, double, double, double>? NodeCopyRequested;
+    /// <summary>«Переместить…» (false) / «Копировать…» (true): теги узлов и КонЭ фрагмента.</summary>
+    public event Action<IReadOnlyCollection<string>, IReadOnlyCollection<string>, bool>? FragmentOffsetRequested;
     public event Action<string>? NodePropertiesRequested;
     public event Action<IReadOnlyList<string>>? NodeDeleteRequested;
 }
