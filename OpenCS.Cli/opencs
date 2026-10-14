@@ -1,0 +1,4 @@
+#!/bin/sh
+# Консоль OpenCS (Linux): работает и через симлинк, например /usr/local/bin/opencs -> <папка>/opencs.
+dir=$(dirname "$(readlink -f "$0")")
+exec dotnet "$dir/OpenCS.Cli.dll" "$@"

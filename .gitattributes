@@ -1,0 +1,3 @@
+# Обёртка консоли для Linux — только LF: с CRLF строка #!/bin/sh не запустится.
+OpenCS.Cli/opencs text eol=lf
+OpenCS.Cli/opencs.cmd text eol=crlf

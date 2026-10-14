@@ -46,7 +46,8 @@ public static class ProjectFile
 
     /// <summary>
     /// Файл открыт другим процессом (например, запущенным OpenCS): монопольное открытие не удаётся.
-    /// На Linux блокировки рекомендательные — там всегда false.
+    /// На Linux блокировки рекомендательные (.NET ставит flock): true — только если файл держит другой процесс .NET,
+    /// например консоль с --in-place; SQLite-клиенты вне .NET не видны.
     /// </summary>
     public static bool IsInUse(string path)
     {

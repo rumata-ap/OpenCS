@@ -4780,4 +4780,18 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliLevelWarning">предупреждение</system:String>
    <system:String x:Key="CliLevelError">ошибка</system:String>
    <system:String x:Key="CliNone">—</system:String>
+   <system:String x:Key="CliOptArtifacts">Сохранить артефакты gmsh/OpenSees в эту папку (по умолчанию — временная папка, удаляется)</system:String>
+   <system:String x:Key="CliArtifactsKept">Артефакты gmsh/OpenSees: {0}</system:String>
+   <system:String x:Key="CliErrInUseByCli">Файл занят другим процессом opencs (--in-place): {0}</system:String>
+   <system:String x:Key="CliCmdTools">Внешние программы: Python-пакеты openseespy и gmsh, найденные OpenSees и Gmsh</system:String>
+   <system:String x:Key="CliToolsMode">Источник программ</system:String>
+   <system:String x:Key="CliToolsModeAuto">как в OpenCS (явный путь, переменные окружения, PATH, Python-пакеты)</system:String>
+   <system:String x:Key="CliToolsModePython">Python-пакеты (openseespy, gmsh)</system:String>
+   <system:String x:Key="CliToolsOs">ОС</system:String>
+   <system:String x:Key="CliToolsArtifacts">Артефакты</system:String>
+   <system:String x:Key="CliToolsArtifactsSession">временная папка сессии; сохранить — run … --artifacts &lt;папка&gt;</system:String>
+   <system:String x:Key="CliToolsNoPython">Python не найден: укажите интерпретатор в {0}, активируйте окружение или добавьте python в PATH.</system:String>
+   <system:String x:Key="CliToolsVersion">Версия</system:String>
+   <system:String x:Key="CliToolsMissing">нет</system:String>
+   <system:String x:Key="CliToolsNotFound">не найден — {0}</system:String>
 </ResourceDictionary>

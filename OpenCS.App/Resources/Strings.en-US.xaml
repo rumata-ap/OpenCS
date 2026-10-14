@@ -4780,4 +4780,18 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliLevelWarning">warning</system:String>
    <system:String x:Key="CliLevelError">error</system:String>
    <system:String x:Key="CliNone">—</system:String>
+   <system:String x:Key="CliOptArtifacts">Keep gmsh/OpenSees artifacts in this folder (default: temporary folder, deleted)</system:String>
+   <system:String x:Key="CliArtifactsKept">gmsh/OpenSees artifacts: {0}</system:String>
+   <system:String x:Key="CliErrInUseByCli">The file is locked by another opencs process (--in-place): {0}</system:String>
+   <system:String x:Key="CliCmdTools">External programs: Python packages openseespy and gmsh, resolved OpenSees and Gmsh</system:String>
+   <system:String x:Key="CliToolsMode">Program source</system:String>
+   <system:String x:Key="CliToolsModeAuto">as in OpenCS (explicit path, environment variables, PATH, Python packages)</system:String>
+   <system:String x:Key="CliToolsModePython">Python packages (openseespy, gmsh)</system:String>
+   <system:String x:Key="CliToolsOs">OS</system:String>
+   <system:String x:Key="CliToolsArtifacts">Artifacts</system:String>
+   <system:String x:Key="CliToolsArtifactsSession">temporary session folder; to keep them use run … --artifacts &lt;folder&gt;</system:String>
+   <system:String x:Key="CliToolsNoPython">Python not found: set the interpreter in {0}, activate an environment or add python to PATH.</system:String>
+   <system:String x:Key="CliToolsVersion">Version</system:String>
+   <system:String x:Key="CliToolsMissing">no</system:String>
+   <system:String x:Key="CliToolsNotFound">not found — {0}</system:String>
 </ResourceDictionary>

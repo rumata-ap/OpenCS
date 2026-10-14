@@ -188,4 +188,73 @@ public sealed class CliTests : IDisposable
         Assert.Contains("Cross sections", output);
         Assert.DoesNotContain("Сечения", output);
     }
+
+    [Fact]
+    public async Task Tools_Json_PythonPackagesMode()
+    {
+        var (code, output, err) = await Run("tools", "--json");
+
+        Assert.True(code == CliExitCode.Ok, err);
+        using var doc = JsonDocument.Parse(output);
+        Assert.Equal("python-packages", doc.RootElement.GetProperty("mode").GetString());
+        Assert.True(doc.RootElement.TryGetProperty("openSees", out _));
+        Assert.True(doc.RootElement.TryGetProperty("gmsh", out _));
+    }
+
+    [Fact]
+    public void Session_Artifacts_InSessionFolderOrOption_NotSavedToProject()
+    {
+        string artifacts = Path.Combine(_dir, "артефакты");
+        string output = Path.Combine(_dir, "out.db");
+        var log = new ConsoleLog(TextWriter.Null);
+        string sessionArtifacts;
+        using (var session = ProjectSession.Open(_project, new ProjectSessionOptions(), log,
+                   new ConsoleNotifier(log, false), new ConsoleBusyHost(TextWriter.Null, true, CancellationToken.None)))
+        {
+            sessionArtifacts = session.ArtifactsPath;
+            Assert.StartsWith(Path.GetTempPath(), sessionArtifacts);
+            Assert.StartsWith(sessionArtifacts, session.Context.GmshSettings.ResolveArtifactsPath());
+            Assert.StartsWith(sessionArtifacts, session.Context.CalcSettings.ResolveOpenSeesArtifactsPath());
+        }
+        // Временная папка сессии удалена вместе с артефактами.
+        Assert.False(Directory.Exists(Path.GetDirectoryName(sessionArtifacts)));
+
+        using (var session = ProjectSession.Open(_project, new ProjectSessionOptions(OutPath: output, ArtifactsPath: artifacts), log,
+                   new ConsoleNotifier(log, false), new ConsoleBusyHost(TextWriter.Null, true, CancellationToken.None)))
+            Assert.StartsWith(artifacts, session.Context.GmshSettings.ResolveArtifactsPath());
+
+        // Переопределение — только в памяти: в сохранённом проекте настройки прежние.
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        using var db = new DatabaseService(output);
+        Assert.Null(db.LoadGmshSettings().ArtifactsPath);
+        Assert.Null(db.LoadCalcSettings().OpenSeesArtifactsPath);
+    }
+
+    [Fact]
+    public void ArtifactsPath_FromOtherOs_FallsBackToDefault()
+    {
+        string foreign = OperatingSystem.IsWindows() ? "/opt/opencs/artifacts" : @"C:\OpenCS\artifacts";
+
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "GmshArtifacts"),
+            new GmshSettings { ArtifactsPath = foreign }.ResolveArtifactsPath());
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts"),
+            new CalcSettings { OpenSeesArtifactsPath = foreign }.ResolveOpenSeesArtifactsPath());
+        Assert.Equal(_dir, new GmshSettings { ArtifactsPath = _dir }.ResolveArtifactsPath());
+    }
+
+    [Fact]
+    public void Wrappers_InOutputFolder_LinuxScriptHasLfWithoutBom()
+    {
+        string sh = Path.Combine(AppContext.BaseDirectory, "opencs");
+        string cmd = Path.Combine(AppContext.BaseDirectory, "opencs.cmd");
+
+        Assert.True(File.Exists(sh), sh);
+        Assert.True(File.Exists(cmd), cmd);
+        byte[] bytes = File.ReadAllBytes(sh);
+        Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+        Assert.DoesNotContain((byte)'\r', bytes);
+        Assert.StartsWith("#!/bin/sh\n", System.Text.Encoding.UTF8.GetString(bytes));
+        Assert.Contains("OpenCS.Cli.dll", System.Text.Encoding.UTF8.GetString(bytes));
+        Assert.Contains("OpenCS.Cli.exe", File.ReadAllText(cmd));
+    }
 }

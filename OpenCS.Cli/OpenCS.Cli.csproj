@@ -20,6 +20,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Короткое имя запуска: opencs.cmd (Windows) и opencs (Linux, sh; LF — см. .gitattributes).
+         Публикация одна для обеих ОС: dotnet publish OpenCS.Cli -c Release -o <папка>. -->
+    <None Include="opencs;opencs.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Triangle.dll объявлен raw-ссылкой в CSTriangulation: в bin потребителя копируется,
          но не попадает в .deps.json (нужно для рантайм-резолва в .NET). -->
     <Reference Include="Triangle">

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using OpenCS.ExternalTools;
 using OpenCS.Utilites;
 
 namespace OpenCS.Cli;
@@ -29,6 +30,7 @@ sealed partial class CliApp
     readonly Option<int?> _analysis = new("--analysis");
     readonly Argument<int?> _resultId = new("result-id") { Arity = ArgumentArity.ZeroOrOne };
     readonly Option<string?> _output = new("--output", "-o");
+    readonly Option<string?> _artifacts = new("--artifacts");
 
     CliApp(TextWriter stdout, TextWriter stderr)
     {
@@ -44,6 +46,10 @@ sealed partial class CliApp
         // Справка и ошибки разбора System.CommandLine — на языке UI-культуры (вне этого вызова не утекает).
         System.Globalization.CultureInfo.CurrentUICulture =
             System.Globalization.CultureInfo.GetCultureInfo(english ? "en-US" : "ru-RU");
+        // gmsh и OpenSees в консоли — только Python-пакеты (одинаково на Windows и Linux); на время вызова, в его
+        // потоке выполнения. OPENCS_EXTERNAL_TOOLS=auto оставляет поиск как в OpenCS (exe, PATH).
+        using var tools = string.Equals(Environment.GetEnvironmentVariable(ExternalToolPolicy.EnvironmentVariable), "auto",
+            StringComparison.OrdinalIgnoreCase) ? null : ExternalToolPolicy.Use(ExternalToolSource.PythonPackages);
         var app = new CliApp(stdout, stderr);
         var parse = app.BuildRoot().Parse(args);
         if (parse.Errors.Count > 0)
@@ -91,6 +97,7 @@ sealed partial class CliApp
         _analysis.Description = Loc.S("CliOptAnalysis");
         _resultId.Description = Loc.S("CliArgResultId");
         _output.Description = Loc.S("CliOptOutput");
+        _artifacts.Description = Loc.S("CliOptArtifacts");
 
         var info = new Command("info", Loc.S("CliCmdInfo")) { _project };
         info.SetAction((p, ct) => Handle(p, ct, InfoAsync));
@@ -119,14 +126,17 @@ sealed partial class CliApp
         exportResult.SetAction((p, ct) => Handle(p, ct, ExportResultAsync));
         var export = new Command("export", Loc.S("CliCmdExport")) { exportResult };
 
-        return new RootCommand(Loc.S("CliRootDescription")) { _lang, _json, _quiet, info, list, run, export };
+        var tools = new Command("tools", Loc.S("CliCmdTools"));
+        tools.SetAction((p, ct) => Handle(p, ct, ToolsAsync));
+
+        return new RootCommand(Loc.S("CliRootDescription")) { _lang, _json, _quiet, info, list, run, export, tools };
     }
 
     Command RunCommand(string name, string descriptionKey, Func<CliCall, Task<int>> body)
     {
         var command = new Command(name, Loc.S(descriptionKey))
         {
-            _project, _ids, _all, _outFile, _force, _inPlace, _yes, _withData
+            _project, _ids, _all, _outFile, _force, _inPlace, _yes, _withData, _artifacts
         };
         command.SetAction((p, ct) => Handle(p, ct, body));
         return command;

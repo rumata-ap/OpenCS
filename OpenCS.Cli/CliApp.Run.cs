@@ -36,7 +36,8 @@ sealed partial class CliApp
         bool withData = p.GetValue(_withData);
 
         using var session = call.OpenProject(
-            new ProjectSessionOptions(p.GetValue(_inPlace), p.GetValue(_outFile), p.GetValue(_force)), p.GetValue(_yes));
+            new ProjectSessionOptions(p.GetValue(_inPlace), p.GetValue(_outFile), p.GetValue(_force), p.GetValue(_artifacts)),
+            p.GetValue(_yes));
         var available = candidates(session.Context).ToList();
         var items = all
             ? available
@@ -86,6 +87,8 @@ sealed partial class CliApp
             call.Err.WriteLine(string.Format(Loc.S("CliSavedTo"), saved));
         else if (!keeps)
             call.Err.WriteLine(Loc.S("CliResultsDiscarded"));
+        if (p.GetValue(_artifacts) != null && Directory.Exists(session.ArtifactsPath))
+            call.Err.WriteLine(string.Format(Loc.S("CliArtifactsKept"), session.ArtifactsPath));
         return failed ? CliExitCode.Failed : CliExitCode.Ok;
     }
 }
