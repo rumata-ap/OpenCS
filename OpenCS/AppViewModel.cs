@@ -44,21 +44,11 @@ namespace OpenCS
 
       /// <summary>
       /// Реестр поставщиков отчётов. Новый тип отчёта добавляется реализацией
-      /// <see cref="OpenCS.Reporting.IReportProvider"/> и включением его в этот список.
+      /// <see cref="OpenCS.Reporting.IReportProvider"/> и включением его в
+      /// <see cref="OpenCS.Reporting.ReportProviderRegistry.CreateDefault"/>.
       /// </summary>
       public OpenCS.Reporting.ReportProviderRegistry ReportProviders { get; } =
-         new([
-            new OpenCS.Reporting.StrainStateReportProvider(),
-            new OpenCS.Reporting.LimitForceReportProvider(),
-            new OpenCS.Reporting.CrackingReportProvider(),
-            new OpenCS.Reporting.CrackWidthReportProvider(),
-            new OpenCS.Reporting.TotalCurvatureReportProvider(),
-            new OpenCS.Reporting.Sp63NormalReportProvider(),
-            new OpenCS.Reporting.ShearInclinedReportProvider(),
-            new OpenCS.Reporting.Sp63CrackWidthReportProvider(),
-            new OpenCS.Reporting.Sp63DeflectionReportProvider(),
-            new OpenCS.Reporting.ShellLayeredCrackWidthReportProvider()
-         ]);
+         OpenCS.Reporting.ReportProviderRegistry.CreateDefault();
 
       readonly string databasePath;
 
@@ -2292,7 +2282,7 @@ namespace OpenCS
          if (path == null) return;
          try
          {
-            if (!IsSqliteDatabase(path))
+            if (!Utilites.ProjectFile.IsSqliteDatabase(path))
                throw new Exception(Loc.S("NotSqliteDatabase"));
             db.SaveAll();
             db.ChangeDatabase(path);
@@ -2309,19 +2299,6 @@ namespace OpenCS
           {
              LogService.Error(string.Format(Loc.S("ProjectOpenError"), ex.Message));
           }
-      }
-
-      static bool IsSqliteDatabase(string path)
-      {
-         try
-         {
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var buf = new byte[16];
-            if (fs.Read(buf, 0, 16) < 16) return false;
-            var header = System.Text.Encoding.ASCII.GetString(buf, 0, 15);
-            return header == "SQLite format 3";
-         }
-         catch { return false; }
       }
 
       /// <summary>

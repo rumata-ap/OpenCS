@@ -23,6 +23,21 @@ public sealed class ReportProviderRegistry
             .ToArray();
     }
 
+    /// <summary>Реестр со всеми поставщиками отчётов OpenCS — общий для WPF-оболочки и консоли.</summary>
+    public static ReportProviderRegistry CreateDefault() =>
+        new([
+            new StrainStateReportProvider(),
+            new LimitForceReportProvider(),
+            new CrackingReportProvider(),
+            new CrackWidthReportProvider(),
+            new TotalCurvatureReportProvider(),
+            new Sp63NormalReportProvider(),
+            new ShearInclinedReportProvider(),
+            new Sp63CrackWidthReportProvider(),
+            new Sp63DeflectionReportProvider(),
+            new ShellLayeredCrackWidthReportProvider()
+        ]);
+
     /// <summary>Пытается подобрать поставщика; false, если для задачи его нет.</summary>
     public bool TryResolve(CalcTask task, out IReportProvider provider)
     {

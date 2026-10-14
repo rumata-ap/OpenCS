@@ -10,14 +10,15 @@ namespace OpenCS.Tasks;
 public static class CalcTaskExecutor
 {
     /// <param name="showResult">Показ сохранённого результата (навигация UI); вызывается до снятия занятости.</param>
-    public static async Task RunAsync(IProjectContext app, CalcTask task,
+    /// <returns>Сохранённый результат; null — занято, нет сечения или усилий, отмена, исключение.</returns>
+    public static async Task<CalcResult?> RunAsync(IProjectContext app, CalcTask task,
         Action? onResultsChanged = null, Action<CalcResult>? showResult = null)
     {
         var busy = app.Busy;
-        if (busy.IsBusy) return;
+        if (busy.IsBusy) return null;
 
         if (!TryResolve(app, task, out var section, out var fi))
-            return;
+            return null;
 
         var cts = busy.BeginBusyWithCancellation(
             string.Format(Loc.S("CalcTaskRunning"), task.Tag), indeterminate: true);
@@ -43,7 +44,7 @@ public static class CalcTaskExecutor
             {
                 app.LogService.Warning(Loc.S("CalcTaskCancelled"));
                 busy.EndBusy(Loc.S("CalcTaskCancelled"));
-                return;
+                return null;
             }
 
             busy.ReportBusyProgress(1.0, Loc.S("CalcTaskSavingResult"));
@@ -80,6 +81,7 @@ public static class CalcTaskExecutor
             onResultsChanged?.Invoke();
             showResult?.Invoke(result);
             busy.EndBusy(done);
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -91,6 +93,7 @@ public static class CalcTaskExecutor
             busy.EndBusy();
             app.Notifier.Error(ex.Message);
         }
+        return null;
     }
 
     /// <summary>Предупреждение огневой задачи об устаревшем тепловом расчёте (поле thermal_warning).</summary>
