@@ -24,10 +24,13 @@ public static class FemAnalysisResultDiagnostics
         {
             using var doc = JsonDocument.Parse(dataJson);
             if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+            {
                 foreach (var e in errors.EnumerateArray())
-                    if (e.GetString() is { } s) list.Add(s);
-            else if (doc.RootElement.TryGetProperty("error", out var err) && err.GetString() is { } m && list.Count == 0)
-                list.Add(m);
+                    if (e.ValueKind == JsonValueKind.String) list.Add(e.GetString()!);
+            }
+            else if (list.Count == 0 && doc.RootElement.TryGetProperty("error", out var err)
+                     && err.ValueKind == JsonValueKind.String)
+                list.Add(err.GetString()!);
         }
         catch (JsonException) { }
         return list;

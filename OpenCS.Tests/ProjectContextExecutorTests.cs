@@ -186,6 +186,19 @@ public sealed class ProjectContextExecutorTests : IDisposable
         Assert.Equal(["d1"], diag);
         Assert.Equal("C:\\a", dir);
 
+        // Одиночная ошибка без массива errors — в диагностику (раньше терялась из-за висячего else).
+        (diag, _) = FemAnalysisResultDiagnostics.Read("""{"error":"нет сечения"}""");
+        Assert.Equal(["нет сечения"], diag);
+
+        // При разобранной диагностике прогона одиночная ошибка не дублируется.
+        (diag, _) = FemAnalysisResultDiagnostics.Read(
+            """{"Displacements":[],"Diagnostics":["d1"],"error":"e"}""");
+        Assert.Equal(["d1"], diag);
+
+        // Нестроковый элемент errors не подменяется полем error.
+        (diag, _) = FemAnalysisResultDiagnostics.Read("""{"errors":[1],"error":"e"}""");
+        Assert.Empty(diag);
+
         (diag, _) = FemAnalysisResultDiagnostics.Read("не JSON");
         Assert.Empty(diag);
     }
