@@ -137,7 +137,15 @@ namespace CSTriangulation.Ruppert
             ConformingDelaunay = true
          };
 
-         var mesher = new TriangleMesh.GenericMesher();
+         // Свой экземпляр предикатов на каждую триангуляцию: конфигурация по умолчанию
+         // берёт общий на процесс RobustPredicates.Default, а его буферы точной арифметики
+         // (fin1, temp64 и др.) — экземплярные. Параллельные триангуляции (прогоны
+         // Richardson кручения) портили друг другу результаты ориентационных тестов —
+         // противоречивая топология, бесконечная рекурсия ConstraintMesher.ScoutSegment.
+         var config = new TriangleNet.Configuration(
+            () => new TriangleNet.RobustPredicates(),
+            () => new TriangleNet.TrianglePool());
+         var mesher = new TriangleMesh.GenericMesher(config);
          TriangleMesh.IMesh mesh;
 
          if (parms.DoRefine)

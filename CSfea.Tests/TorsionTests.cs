@@ -482,6 +482,27 @@ public class TorsionTests
     }
 
     [Fact]
+    public static void RuppertParallelMeshesMatchSequential()
+    {
+        // Регрессия test_prj.db, задача 4: параллельные прогоны Richardson делили общий
+        // RobustPredicates.Default Triangle.NET с экземплярными буферами точной арифметики —
+        // процесс падал Stack overflow в ConstraintMesher.ScoutSegment либо сетка выходила другой.
+        TestHarness.Section("Ruppert: параллельные сетки серии Richardson = последовательные");
+        var boundary = SampleConcaveFrameBoundary();
+        double[] sizes = TorsionRichardson.BuildRunSizes(0.005, 3);
+        var expected = sizes.Select(h => MeshBuilder.Build(boundary, h, TriangulationMethod.Ruppert).Triangles.Length).ToArray();
+        for (int rep = 0; rep < 5; rep++)
+        {
+            var actual = new int[sizes.Length];
+            Parallel.For(0, sizes.Length, i =>
+                actual[i] = MeshBuilder.Build(boundary, sizes[i], TriangulationMethod.Ruppert).Triangles.Length);
+            for (int i = 0; i < sizes.Length; i++)
+                TestHarness.Check($"повтор {rep}, h={sizes[i]}: треугольников как последовательно",
+                    actual[i] == expected[i], $"par={actual[i]}, seq={expected[i]}");
+        }
+    }
+
+    [Fact]
     public static void RichardsonAutoConvergeConcaveFrame()
     {
         TestHarness.Section("TorsionRichardson.SolveAutoConverge: вогнутая рамка (двутавр-подобный профиль), МГЭ");
