@@ -1,6 +1,7 @@
 using System.Windows.Controls;
 using CScore.Fem;
 using OpenCS.Utilites;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -18,7 +19,7 @@ internal static class FemGroupMenus
         foreach (var group in Sorted(groups))
         {
             var present = group.Tags.ToHashSet(StringComparer.Ordinal);
-            var item = new MenuItem { Header = Header(group), IsEnabled = tags.Any(t => !present.Contains(t)) };
+            var item = GroupItem(group, tags.Any(t => !present.Contains(t)));
             item.Click += (_, _) => add(group);
             items.Add(item);
         }
@@ -34,7 +35,7 @@ internal static class FemGroupMenus
         {
             var present = group.Tags.ToHashSet(StringComparer.Ordinal);
             if (!tags.Any(present.Contains)) continue;
-            var item = new MenuItem { Header = Header(group) };
+            var item = GroupItem(group);
             item.Click += (_, _) => remove(group);
             items.Add(item);
         }
@@ -46,6 +47,9 @@ internal static class FemGroupMenus
         groups.OrderBy(g => g.Tag, StringComparer.CurrentCulture);
 
     static string Header(FemMemberGroup group) => $"{group.Tag} ({group.Tags.Count})";
+
+    static MenuItem GroupItem(FemMemberGroup group, bool enabled = true) =>
+        new() { Header = Header(group), IsEnabled = enabled, Icon = MenuIcon.Create("CmdIcon_Group") };
 
     static MenuItem Disabled(string key) => new() { Header = Loc.S(key), IsEnabled = false };
 }

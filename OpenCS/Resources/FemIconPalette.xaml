@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <!-- Палитра иконок МКЭ: общая для иконок дерева (FemTreeIcons.xaml) и команд (FemCommandIcons.xaml).
+        Отдельный словарь, потому что StaticResource не видит соседние словари из MergedDictionaries App.xaml —
+        каждый словарь иконок подключает палитру сам.
+        Синий — конструктивная модель, бирюзовый — сетка КЭ, оранжевый — группы, красный — нагрузки, усилия
+        и удаление, индиго — проверки, зелёный — расчёты и создание, серый — служебные линии. -->
+   <SolidColorBrush x:Key="FemIconBlue"        Color="#2F6DB5"/>
+   <SolidColorBrush x:Key="FemIconBlueLight"   Color="#B9D3F0"/>
+   <SolidColorBrush x:Key="FemIconBlueDark"    Color="#1F4E85"/>
+   <SolidColorBrush x:Key="FemIconTeal"        Color="#0F8B8D"/>
+   <SolidColorBrush x:Key="FemIconTealLight"   Color="#CDEDEC"/>
+   <SolidColorBrush x:Key="FemIconOrange"      Color="#E8870E"/>
+   <SolidColorBrush x:Key="FemIconOrangeLight" Color="#FBD9A8"/>
+   <SolidColorBrush x:Key="FemIconRed"         Color="#D9480F"/>
+   <SolidColorBrush x:Key="FemIconRedLight"    Color="#F8D2C2"/>
+   <SolidColorBrush x:Key="FemIconIndigo"      Color="#4F46E5"/>
+   <SolidColorBrush x:Key="FemIconGreen"       Color="#0E9F6E"/>
+   <SolidColorBrush x:Key="FemIconGreenLight"  Color="#C9F0E0"/>
+   <SolidColorBrush x:Key="FemIconGrey"        Color="#8A97A3"/>
+   <SolidColorBrush x:Key="FemIconGreyLight"   Color="#E3E8EC"/>
+</ResourceDictionary>

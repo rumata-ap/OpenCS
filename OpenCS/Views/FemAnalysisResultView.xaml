@@ -13,17 +13,17 @@
         <u:FemExtremeComponentsLabelConverter x:Key="ExtremeComponentsLabelConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <ContextMenu x:Key="ResultMemberContextMenu">
-            <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemResultMember2D" Click="MemberShow2DCtx_Click"/>
             <MenuItem x:Name="createMemberForceSetMenu"
-                      Header="{DynamicResource FemResultMemberCreateForceSet}"
+                      helpers:CommandIcons.Header="FemResultMemberCreateForceSet"
                       Click="MemberCreateForceSetCtx_Click" />
-            <MenuItem Header="{DynamicResource FemResultMemberSection}" Click="MemberSectionCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemResultMemberSection" Click="MemberSectionCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="ResultNodeContextMenu" x:Shared="False">
-            <MenuItem Header="{DynamicResource FemResultNodeValues}" Click="NodeValuesCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemResultNodeValues" Click="NodeValuesCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="ResultSectionContextMenu">
-            <MenuItem Header="{DynamicResource FemMemberForceSectionState}" Click="SectionStateCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberForceSectionState" Click="SectionStateCtx_Click"/>
         </ContextMenu>
     </UserControl.Resources>
     <Grid>

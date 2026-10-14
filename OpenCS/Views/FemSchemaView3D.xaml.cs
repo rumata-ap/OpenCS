@@ -553,28 +553,31 @@ public partial class FemSchemaView3D : UserControl
         var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
         if (layer.OpenSees is { } openSees && app != null)
         {
-            void Add(string header, Action action, bool enabled = true)
+            void Add(string key, string header, Action action, bool enabled = true)
             {
-                var item = new MenuItem { Header = header, IsEnabled = enabled };
+                var item = CommandIcons.Apply(new MenuItem { Header = header, IsEnabled = enabled }, key);
                 item.Click += (_, _) => { app.EnsureFemResultVmEvents(openSees); action(); };
                 menu.Items.Add(item);
             }
             if (node is int nodeTag)
-                Add(Loc.S("FemResultNodeValues"), () => openSees.RequestShowNodeValues(nodeTag.ToString(CultureInfo.InvariantCulture)));
+                Add("FemResultNodeValues", Loc.S("FemResultNodeValues"),
+                    () => openSees.RequestShowNodeValues(nodeTag.ToString(CultureInfo.InvariantCulture)));
             else if (selection.Members is [var owner] && selection.Elements.All(layer.Mesh.IsBar)
                      && selection.Elements.All(t => layer.Mesh.OwnerOf(t) == owner))
             {
                 menu.Items.Add(new Separator());
-                Add(string.Format(Loc.S("FemResultMenuMember2D"), owner), () => openSees.RequestShowMemberForce(owner));
-                Add(string.Format(Loc.S("FemResultMenuMemberSection"), owner), () => openSees.RequestShowMemberSection(owner));
-                Add(string.Format(Loc.S("FemResultMenuMemberForceSet"), owner), () => openSees.RequestCreateMemberForceSet(owner),
-                    openSees.CanCreateMemberForceSet(owner));
+                Add("FemResultMenuMember2D", string.Format(Loc.S("FemResultMenuMember2D"), owner),
+                    () => openSees.RequestShowMemberForce(owner));
+                Add("FemResultMenuMemberSection", string.Format(Loc.S("FemResultMenuMemberSection"), owner),
+                    () => openSees.RequestShowMemberSection(owner));
+                Add("FemResultMenuMemberForceSet", string.Format(Loc.S("FemResultMenuMemberForceSet"), owner),
+                    () => openSees.RequestCreateMemberForceSet(owner), openSees.CanCreateMemberForceSet(owner));
             }
         }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
         menu.Items.Add(new Separator());
-        var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
+        var clear = CommandIcons.Item("Fem3DClearSelection");
         clear.Click += (_, _) => selection.Clear();
         menu.Items.Add(clear);
         menu.IsOpen = true;
@@ -1886,16 +1889,17 @@ public partial class FemSchemaView3D : UserControl
         if (VM?.Mosaic.ActiveResult is not { } result || sender is not Button button) return;
         var app = Application.Current?.MainWindow?.DataContext as AppViewModel;
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
-        var window = new MenuItem { Header = Loc.S("FemAnalysisResultWindow"), IsEnabled = app != null };
+        var window = CommandIcons.Item("FemAnalysisResultWindow");
+        window.IsEnabled = app != null;
         window.Click += (_, _) => app?.OpenFemAnalysisResultTables(result.Analysis, result.SelectedStepIndex);
         menu.Items.Add(window);
         if (result.Csfea is { } csfea)
         {
-            var sets = new MenuItem
+            var sets = CommandIcons.Apply(new MenuItem
             {
                 Header = Loc.S("FemCsfeaCreateForceSets"), ToolTip = Loc.S("FemCsfeaCreateForceSetsTip"),
                 IsEnabled = app != null && csfea.CanCreateForceSets,
-            };
+            }, "FemCsfeaCreateForceSets");
             sets.Click += (_, _) => app?.SaveCsfeaStepForceSets(csfea);
             menu.Items.Add(sets);
         }
@@ -1916,13 +1920,11 @@ public partial class FemSchemaView3D : UserControl
         }
         foreach (var group in groups.OrderBy(g => g.IsMeshGroup).ThenBy(g => g.Tag, StringComparer.CurrentCultureIgnoreCase))
         {
-            var item = new MenuItem
-            {
-                Header = string.Format(Loc.S(group.IsMeshGroup ? "Fem3DFragmentMeshGroupItem" : "Fem3DFragmentMembersGroupItem"), group.Tag),
-            };
+            string itemKey = group.IsMeshGroup ? "Fem3DFragmentMeshGroupItem" : "Fem3DFragmentMembersGroupItem";
+            var item = CommandIcons.Apply(new MenuItem { Header = string.Format(Loc.S(itemKey), group.Tag) }, itemKey);
             foreach (var (key, action) in FragmentActions)
             {
-                var sub = new MenuItem { Header = Loc.S(key) };
+                var sub = CommandIcons.Item(key);
                 sub.Click += (_, _) => vm.ApplyGroupFragment(group, action);
                 item.Items.Add(sub);
             }
@@ -1949,7 +1951,8 @@ public partial class FemSchemaView3D : UserControl
         if (separator) menu.Items.Add(new Separator { Tag = FragmentItemMarker });
         foreach (var (key, action) in FragmentActions.Take(2))
         {
-            var item = new MenuItem { Header = string.Format(Loc.S(key + "N"), tags.Count), Tag = FragmentItemMarker };
+            var item = CommandIcons.Apply(
+                new MenuItem { Header = string.Format(Loc.S(key + "N"), tags.Count), Tag = FragmentItemMarker }, key);
             item.Click += (_, _) => vm.FragmentElements(tags, meshElements, action);
             menu.Items.Add(item);
         }
@@ -2035,14 +2038,16 @@ public partial class FemSchemaView3D : UserControl
         if (Editor is { } editor)
         {
             List<string> tags = [.. selection.SelectedMeshElemTags];
-            var members = new MenuItem { Header = string.Format(Loc.S("Fem3DMeshMembersFromSelection"), tags.Count) };
+            var members = CommandIcons.Apply(
+                new MenuItem { Header = string.Format(Loc.S("Fem3DMeshMembersFromSelection"), tags.Count) },
+                "Fem3DMeshMembersFromSelection");
             members.Click += (_, _) => editor.CreateMembersFromMeshElements(tags);
             menu.Items.Add(members);
             menu.Items.Add(new Separator());
         }
         AppendFragmentItems(menu, [.. selection.SelectedMeshElemTags], meshElements: true, separator: false);
         menu.Items.Add(new Separator());
-        var clear = new MenuItem { Header = Loc.S("Fem3DClearSelection") };
+        var clear = CommandIcons.Item("Fem3DClearSelection");
         clear.Click += (_, _) => selection.Clear();
         menu.Items.Add(clear);
         menu.IsOpen = true;
@@ -2075,20 +2080,20 @@ public partial class FemSchemaView3D : UserControl
         if (Editor is not { } editor || tags.Count == 0) return;
         bool isMesh = kind == FemMemberGroup.KindMesh;
 
-        var create = new MenuItem
-        {
-            Header = string.Format(Loc.S(isMesh ? "Fem3DMeshGroupFromSelection" : "Fem3DMembersGroupFromSelection"), tags.Count),
-            Tag = marker,
-        };
+        string createKey = isMesh ? "Fem3DMeshGroupFromSelection" : "Fem3DMembersGroupFromSelection";
+        var create = CommandIcons.Apply(
+            new MenuItem { Header = string.Format(Loc.S(createKey), tags.Count), Tag = marker }, createKey);
         create.Click += (_, _) => CreateGroup(editor, kind, tags);
         menu.Items.Add(create);
 
-        var add = new MenuItem { Header = Loc.S("Fem3DGroupAddTo"), Tag = marker };
+        var add = CommandIcons.Item("Fem3DGroupAddTo");
+        add.Tag = marker;
         FemGroupMenus.FillAdd(add.Items, editor.GroupsOfKind(kind), kind, tags,
             group => editor.EditGroupTags(group, tags, remove: false));
         menu.Items.Add(add);
 
-        var remove = new MenuItem { Header = Loc.S("Fem3DGroupRemoveFrom"), Tag = marker };
+        var remove = CommandIcons.Item("Fem3DGroupRemoveFrom");
+        remove.Tag = marker;
         FemGroupMenus.FillRemove(remove.Items, editor.GroupsOfKind(kind), tags,
             group => editor.EditGroupTags(group, tags, remove: true));
         menu.Items.Add(remove);

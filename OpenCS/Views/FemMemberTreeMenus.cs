@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using CScore.Fem;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -82,7 +83,8 @@ internal static class FemMemberTreeMenus
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
 
         var adjacent = item.AdjacentMembers();
-        var members = new MenuItem { Header = Loc.S("FemNodeTreeMembers"), IsEnabled = adjacent.Count > 0 };
+        var members = CommandIcons.Item("FemNodeTreeMembers");
+        members.IsEnabled = adjacent.Count > 0;
         foreach (var member in adjacent)
         {
             var open = new MenuItem { Header = member.Member.ElemTag };
@@ -112,7 +114,7 @@ internal static class FemMemberTreeMenus
     {
         if (schema.SourceType == "lira")
         {
-            var sub = new MenuItem { Header = Loc.S("ImportSubMenuLiraForces") };
+            var sub = CommandIcons.Item("ImportSubMenuLiraForces");
             sub.Items.Add(Item("ImportLiraForcesFromApi", () => lira("lc")));
             sub.Items.Add(Item("ImportLiraRsnFromApi", () => lira("rsn")));
             sub.Items.Add(Item("ImportLiraRsuFromApi", () => lira("rsu")));
@@ -120,7 +122,7 @@ internal static class FemMemberTreeMenus
         }
         else if (schema.SourceType == "scad")
         {
-            var sub = new MenuItem { Header = Loc.S("ImportSubMenuScadForces") };
+            var sub = CommandIcons.Item("ImportSubMenuScadForces");
             sub.Items.Add(Item("ScadForcesLoadCasesFromApi", () => scad("lc")));
             sub.Items.Add(Item("ScadForcesCombinationsFromApi", () => scad("rsn")));
             sub.Items.Add(Item("ScadForcesRsuFromApi", () => scad("rsu")));
@@ -133,7 +135,7 @@ internal static class FemMemberTreeMenus
     {
         var groups = schema.MemberGroups.Where(g => g.Kind == FemMemberGroup.KindMembers).ToList();
 
-        var add = new MenuItem { Header = Loc.S("FemMemberTreeAddToGroup") };
+        var add = CommandIcons.Item("FemMemberTreeAddToGroup");
         FemGroupMenus.FillAdd(add.Items, groups, FemMemberGroup.KindMembers, tags, group =>
         {
             int added = app.FemGroups.AddTags(schema, group, tags);
@@ -141,7 +143,7 @@ internal static class FemMemberTreeMenus
         });
         items.Add(add);
 
-        var remove = new MenuItem { Header = Loc.S("FemMemberTreeRemoveFromGroup") };
+        var remove = CommandIcons.Item("FemMemberTreeRemoveFromGroup");
         FemGroupMenus.FillRemove(remove.Items, groups, tags, group =>
         {
             int removed = app.FemGroups.RemoveTags(group, tags);
@@ -189,11 +191,11 @@ internal static class FemMemberTreeMenus
 
     static MenuItem Item(string key, Action action)
     {
-        var item = new MenuItem { Header = Loc.S(key) };
+        var item = CommandIcons.Item(key);
         item.Click += (_, _) => action();
         return item;
     }
 
     static MenuItem Command(string key, System.Windows.Input.ICommand command, object parameter) =>
-        new() { Header = Loc.S(key), Command = command, CommandParameter = parameter };
+        CommandIcons.Apply(new MenuItem { Header = Loc.S(key), Command = command, CommandParameter = parameter }, key);
 }

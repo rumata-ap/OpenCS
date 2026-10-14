@@ -3,7 +3,10 @@
    <!-- Иконки дерева МКЭ. Все в сетке 16×16 (прозрачная подложка и обрезка задают одинаковый масштаб).
         Палитра: синий — конструктивная модель (схема, КонЭ), бирюзовый — расчётная сетка КЭ,
         оранжевый — группы (как подсветка групп и кБ в 3D), красный — нагрузки и усилия,
-        индиго — проверки, зелёный — расчёты. -->
+        индиго — проверки, зелёный — расчёты. Кисти — в FemIconPalette.xaml. -->
+   <ResourceDictionary.MergedDictionaries>
+      <ResourceDictionary Source="FemIconPalette.xaml"/>
+   </ResourceDictionary.MergedDictionaries>
 
    <!-- Иконка перед подписью узла дерева. -->
    <Style x:Key="FemTreeIcon" TargetType="Image">
@@ -13,18 +16,6 @@
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="SnapsToDevicePixels" Value="True"/>
    </Style>
-
-   <SolidColorBrush x:Key="FemIconBlue"       Color="#2F6DB5"/>
-   <SolidColorBrush x:Key="FemIconBlueLight"  Color="#B9D3F0"/>
-   <SolidColorBrush x:Key="FemIconBlueDark"   Color="#1F4E85"/>
-   <SolidColorBrush x:Key="FemIconTeal"       Color="#0F8B8D"/>
-   <SolidColorBrush x:Key="FemIconTealLight"  Color="#CDEDEC"/>
-   <SolidColorBrush x:Key="FemIconOrange"     Color="#E8870E"/>
-   <SolidColorBrush x:Key="FemIconOrangeLight" Color="#FBD9A8"/>
-   <SolidColorBrush x:Key="FemIconRed"        Color="#D9480F"/>
-   <SolidColorBrush x:Key="FemIconIndigo"     Color="#4F46E5"/>
-   <SolidColorBrush x:Key="FemIconGreen"      Color="#0E9F6E"/>
-   <SolidColorBrush x:Key="FemIconGrey"       Color="#8A97A3"/>
 
    <!-- Схема: рама из стержней с узлами на опорной линии. -->
    <DrawingImage x:Key="FemIcon_Schema">

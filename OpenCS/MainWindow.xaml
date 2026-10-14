@@ -1,6 +1,7 @@
 <Window x:Class="OpenCS.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
@@ -165,9 +166,9 @@
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromText}" Command="{Binding ImportLiraSchemaFromTextCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
                 <Separator/>
-                <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ImportLiraForcesFromApi" Command="{Binding ImportLiraForcesFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ImportLiraRsnFromApi" Command="{Binding ImportLiraRsnFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ImportLiraRsuFromApi" Command="{Binding ImportLiraRsuFromApiCommand}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
@@ -175,11 +176,11 @@
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuScad}">
                 <MenuItem Header="{DynamicResource ImportScadSchemaFromApi}" Command="{Binding ImportScadSchemaFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}" Command="{Binding ImportScadLoadCasesFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}" Command="{Binding ImportScadCombinationsFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}" Command="{Binding ImportScadRsuFromApiCommand}"/>
-                <MenuItem Header="{DynamicResource ScadRebarLoad}" Command="{Binding LoadScadSelectedRebarCommand}"/>
-                <MenuItem Header="{DynamicResource ScadPluginInstall}" Command="{Binding InstallScadPluginCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ScadForcesLoadCasesFromApi" Command="{Binding ImportScadLoadCasesFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ScadForcesCombinationsFromApi" Command="{Binding ImportScadCombinationsFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ScadForcesRsuFromApi" Command="{Binding ImportScadRsuFromApiCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ScadRebarLoad" Command="{Binding LoadScadSelectedRebarCommand}"/>
+                <MenuItem helpers:CommandIcons.Header="ScadPluginInstall" Command="{Binding InstallScadPluginCommand}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
@@ -1013,7 +1014,7 @@
                             <MenuItem Header="{DynamicResource SP20CombineBtn}"
                                       Command="{Binding SP20BarCombinationsCommand}"/>
                             <Separator/>
-                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                            <MenuItem helpers:CommandIcons.Header="DeleteSelectedForceSetsMenu"
                                       Command="{Binding DeleteSelectedBarForceSetsCommand}"/>
                             <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
                                       Command="{Binding DeleteAllBarForceSetsCommand}"/>
@@ -1025,13 +1026,13 @@
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>
                                  <ContextMenu>
-                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                    <MenuItem helpers:CommandIcons.Header="DuplicateForceSet"
                                               Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                               CommandParameter="{Binding PlacementTarget.DataContext,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <Separator/>
-                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                    <MenuItem helpers:CommandIcons.Header="DeleteForceSetItem"
                                               Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                               CommandParameter="{Binding PlacementTarget.DataContext,
@@ -1062,7 +1063,7 @@
                             <MenuItem Header="{DynamicResource SP20CombineBtn}"
                                       Command="{Binding SP20ShellCombinationsCommand}"/>
                             <Separator/>
-                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                            <MenuItem helpers:CommandIcons.Header="DeleteSelectedForceSetsMenu"
                                       Command="{Binding DeleteSelectedShellForceSetsCommand}"/>
                             <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
                                       Command="{Binding DeleteAllShellForceSetsCommand}"/>
@@ -1074,13 +1075,13 @@
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>
                                  <ContextMenu>
-                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                    <MenuItem helpers:CommandIcons.Header="DuplicateForceSet"
                                               Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                               CommandParameter="{Binding PlacementTarget.DataContext,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <Separator/>
-                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                    <MenuItem helpers:CommandIcons.Header="DeleteForceSetItem"
                                               Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                               CommandParameter="{Binding PlacementTarget.DataContext,
@@ -1231,7 +1232,7 @@
                </TreeView.ItemContainerStyle>
                <TreeView.ContextMenu>
                   <ContextMenu>
-                     <MenuItem Header="{DynamicResource FemSchemaNew}"
+                     <MenuItem helpers:CommandIcons.Header="FemSchemaNew"
                                Command="{Binding NewFemSchemaCommand}"/>
                   </ContextMenu>
                </TreeView.ContextMenu>
@@ -1258,14 +1259,14 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCheckAddUls}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckAddUls"
                                         Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemCheckAddSls}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckAddSls"
                                         Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemCheckDeleteAll}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckDeleteAll"
                                         Command="{Binding PlacementTarget.Tag.DeleteAllFemChecksCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
@@ -1282,7 +1283,7 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckAdd"
                                         Command="{Binding PlacementTarget.Tag.AddFemCheckByGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
@@ -1323,151 +1324,151 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemMemberNew}"
+                              <MenuItem helpers:CommandIcons.Header="FemMemberNew"
                                         Command="{Binding PlacementTarget.Tag.NewFemMemberCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemSchemaDuplicate}"
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaDuplicate"
                                         Command="{Binding PlacementTarget.Tag.DuplicateFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemSchemaRename}"
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaRename"
                                         Command="{Binding PlacementTarget.Tag.RenameFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemSchemaMeshSteps}"
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaMeshSteps"
                                         Command="{Binding PlacementTarget.Tag.FemSchemaMeshStepsCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemSchemaMenuLira}">
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaMenuLira">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="lira">
                                        <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                        <Binding Path="PlacementTarget.DataContext.Schema" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                     </MultiBinding>
                                  </MenuItem.Visibility>
-                                 <MenuItem Header="{DynamicResource FemSchemaLoadLiraRbt}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaLoadLiraRbt"
                                            Command="{Binding PlacementTarget.Tag.LoadLiraRbtCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaRefreshLiraTza}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaRefreshLiraTza"
                                            Command="{Binding PlacementTarget.Tag.RefreshLiraReinforcementTypesCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaRefreshLiraAxes}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaRefreshLiraAxes"
                                            Command="{Binding PlacementTarget.Tag.RefreshLiraPlateAxesCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaRefreshLiraStiffness}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaRefreshLiraStiffness"
                                            Command="{Binding PlacementTarget.Tag.RefreshLiraStiffnessesCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaLoadLiraAsp}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaLoadLiraAsp"
                                            Command="{Binding PlacementTarget.Tag.LoadLiraAspCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaCreateLiraPlateSections}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaCreateLiraPlateSections"
                                            Command="{Binding PlacementTarget.Tag.CreateLiraPlateSectionsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaCreateLiraBarSections}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaCreateLiraBarSections"
                                            Command="{Binding PlacementTarget.Tag.CreateImportedBarSectionsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaConvertLiraBlocks}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaConvertLiraBlocks"
                                            Command="{Binding PlacementTarget.Tag.ConvertLiraBlocksCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
-                                 <MenuItem Header="{DynamicResource LiraLoadsTransfer}"
+                                 <MenuItem helpers:CommandIcons.Header="LiraLoadsTransfer"
                                            Command="{Binding PlacementTarget.Tag.TransferLiraLoadsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource LiraBoundaryRefresh}"
+                                 <MenuItem helpers:CommandIcons.Header="LiraBoundaryRefresh"
                                            Command="{Binding PlacementTarget.Tag.RefreshLiraBoundaryCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
-                              <MenuItem Header="{DynamicResource FemSchemaMenuScad}">
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaMenuScad">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="scad">
                                        <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                        <Binding Path="PlacementTarget.DataContext.Schema" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                     </MultiBinding>
                                  </MenuItem.Visibility>
-                                 <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesLoadCasesFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadLoadCasesFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesCombinationsFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadCombinationsFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesRsuFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadRsuFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
-                                 <MenuItem Header="{DynamicResource ScadRebarLoad}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadRebarLoad"
                                            Command="{Binding PlacementTarget.Tag.LoadScadSelectedRebarCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadRebarRefreshFromSpr}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadRebarRefreshFromSpr"
                                            Command="{Binding PlacementTarget.Tag.RefreshScadRebarDataCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadLoadsTransfer}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadLoadsTransfer"
                                            Command="{Binding PlacementTarget.Tag.TransferScadLoadsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadBoundaryRefresh}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadBoundaryRefresh"
                                            Command="{Binding PlacementTarget.Tag.RefreshScadBoundaryCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadPluginInstall}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadPluginInstall"
                                            Command="{Binding PlacementTarget.Tag.InstallScadPluginCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaCreateScadPlateSections}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaCreateScadPlateSections"
                                            Command="{Binding PlacementTarget.Tag.CreateLiraPlateSectionsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource FemSchemaCreateScadBarSections}"
+                                 <MenuItem helpers:CommandIcons.Header="FemSchemaCreateScadBarSections"
                                            Command="{Binding PlacementTarget.Tag.CreateImportedBarSectionsCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
-                                 <MenuItem Header="{DynamicResource ScadForcesSetProject}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesSetProject"
                                            Command="{Binding PlacementTarget.Tag.SetScadProjectPathCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemSchemaDelete}"
+                              <MenuItem helpers:CommandIcons.Header="FemSchemaDelete"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
@@ -1652,7 +1653,7 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemMeshGroupNew}"
+                              <MenuItem helpers:CommandIcons.Header="FemMeshGroupNew"
                                         Command="{Binding PlacementTarget.Tag.NewFemMemberDialogCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
@@ -1673,7 +1674,7 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemMembersGroupNew}"
+                              <MenuItem helpers:CommandIcons.Header="FemMembersGroupNew"
                                         Command="{Binding PlacementTarget.Tag.NewFemMembersGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
@@ -1694,13 +1695,13 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                              <MenuItem helpers:CommandIcons.Header="DuplicateForceSet"
                                         Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                              <MenuItem helpers:CommandIcons.Header="DeleteForceSetItem"
                                         Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
@@ -1723,12 +1724,12 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                               <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                               <MenuItem helpers:CommandIcons.Header="DeleteSelectedForceSetsMenu"
                                          Command="{Binding PlacementTarget.Tag.DeleteSelectedForceSetsCommand,
                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                          CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                               <MenuItem Header="{DynamicResource DeleteFemForceSetsMenu}"
+                               <MenuItem helpers:CommandIcons.Header="DeleteFemForceSetsMenu"
                                          Command="{Binding PlacementTarget.Tag.DeleteFemSchemaForceSetsCommand,
                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                          CommandParameter="{Binding PlacementTarget.DataContext.Schema,
@@ -1750,93 +1751,93 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCheckAddUls}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckAddUls"
                                         Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemCheckAddSls}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckAddSls"
                                         Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemBarDiagramMenu}"
+                              <MenuItem helpers:CommandIcons.Header="FemBarDiagramMenu"
                                         Command="{Binding PlacementTarget.Tag.ShowBarDiagramsCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
+                              <MenuItem helpers:CommandIcons.Header="ImportSubMenuLiraForces">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="lira">
                                        <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                        <Binding Path="PlacementTarget.DataContext" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                     </MultiBinding>
                                  </MenuItem.Visibility>
-                                 <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ImportLiraForcesFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraForcesFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ImportLiraRsnFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraRsnFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ImportLiraRsuFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportLiraRsuFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
-                              <MenuItem Header="{DynamicResource ImportSubMenuScadForces}">
+                              <MenuItem helpers:CommandIcons.Header="ImportSubMenuScadForces">
                                  <MenuItem.Visibility>
                                     <MultiBinding Converter="{StaticResource FemSourceVisibilityConverter}" ConverterParameter="scad">
                                        <Binding Path="PlacementTarget.Tag" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                        <Binding Path="PlacementTarget.DataContext" RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                     </MultiBinding>
                                  </MenuItem.Visibility>
-                                 <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesLoadCasesFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadLoadCasesFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesCombinationsFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadCombinationsFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}"
+                                 <MenuItem helpers:CommandIcons.Header="ScadForcesRsuFromApi"
                                            Command="{Binding PlacementTarget.Tag.ImportScadRsuFromApiCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </MenuItem>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemMeshMembersFromGroup}"
+                              <MenuItem helpers:CommandIcons.Header="FemMeshMembersFromGroup"
                                         Visibility="{Binding PlacementTarget.DataContext.IsMeshGroup, Converter={StaticResource BoolToVisibility},
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         Command="{Binding PlacementTarget.Tag.CreateFemMembersFromMeshGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemGroupShowOnlyIn3D}"
+                              <MenuItem helpers:CommandIcons.Header="FemGroupShowOnlyIn3D"
                                         Command="{Binding PlacementTarget.Tag.ShowOnlyFemGroupIn3DCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemGroupHideIn3D}"
+                              <MenuItem helpers:CommandIcons.Header="FemGroupHideIn3D"
                                         Command="{Binding PlacementTarget.Tag.HideFemGroupIn3DCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemGroupRename}"
+                              <MenuItem helpers:CommandIcons.Header="FemGroupRename"
                                         Command="{Binding PlacementTarget.Tag.RenameFemMemberGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemMemberDelete}"
+                              <MenuItem helpers:CommandIcons.Header="FemMemberDelete"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
@@ -1866,18 +1867,18 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource RunFemCheck}"
+                              <MenuItem helpers:CommandIcons.Header="RunFemCheck"
                                         Command="{Binding PlacementTarget.Tag.RunFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemCheckEdit}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckEdit"
                                         Command="{Binding PlacementTarget.Tag.EditFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemCheckDelete}"
+                              <MenuItem helpers:CommandIcons.Header="FemCheckDelete"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
@@ -1896,7 +1897,7 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemAnalysisCreate}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisCreate"
                                         Command="{Binding PlacementTarget.Tag.CreateFemAnalysisCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
@@ -1917,28 +1918,28 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemAnalysisEdit}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisEdit"
                                         Command="{Binding PlacementTarget.Tag.EditFemAnalysisCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemAnalysisRun}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisRun"
                                         Command="{Binding PlacementTarget.Tag.RunFemAnalysisCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemAnalysisViewResult}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisViewResult"
                                         Command="{Binding PlacementTarget.Tag.ViewFemAnalysisResultCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              <MenuItem Header="{DynamicResource FemAnalysisResultWindow}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisResultWindow"
                                         Command="{Binding PlacementTarget.Tag.OpenFemAnalysisResultWindowCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
-                              <MenuItem Header="{DynamicResource FemAnalysisDelete}"
+                              <MenuItem helpers:CommandIcons.Header="FemAnalysisDelete"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemAnalysisCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,

@@ -1,0 +1,1037 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <!-- Иконки команд МКЭ-схемы: пункты контекстных меню и кнопки панелей. Сетка 16×16, палитра FemIconPalette.xaml,
+        стиль — как у иконок дерева (FemTreeIcons.xaml). Одно действие — одна иконка во всех местах.
+        Значки-бейджи в правом нижнем углу (CmdBadge_*): «+» — создать, «−» — убрать, «↓» — загрузить из
+        внешнего источника, «⟳» — обновить, «×» — снять. Ключи: CmdIcon_<Действие>. -->
+   <ResourceDictionary.MergedDictionaries>
+      <ResourceDictionary Source="FemIconPalette.xaml"/>
+   </ResourceDictionary.MergedDictionaries>
+
+   <!-- ============================== Бейджи ============================== -->
+
+   <DrawingGroup x:Key="CmdBadge_Plus">
+      <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M12,9.9 V14.1 M9.9,12 H14.1">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_Minus">
+      <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M9.9,12 H14.1">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_Cross">
+      <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M10.5,10.5 L13.5,13.5 M13.5,10.5 L10.5,13.5">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.3" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_Import">
+      <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M12,9.6 V14 M10.2,12.3 L12,14.1 L13.8,12.3">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_Refresh">
+      <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M13.9,12.4 A1.95,1.95 0 1,1 13.3,10.6">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M14.4,9.2 L14.2,11.6 L11.9,10.9 Z"/>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_In">
+      <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M14,10 L10.6,13.4 M10.4,11 V13.6 H13">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <DrawingGroup x:Key="CmdBadge_Auto">
+      <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M12.7,9.2 L10.5,12.5 H12 L11.3,14.8 L13.6,11.4 H12.1 Z"/>
+   </DrawingGroup>
+
+   <!-- Общие фигуры, из которых собираются иконки с бейджем. -->
+
+   <!-- Группа: оранжевая пунктирная рамка выбора с тремя объектами. -->
+   <DrawingGroup x:Key="CmdShape_Group">
+      <GeometryDrawing Brush="{StaticResource FemIconOrangeLight}" Geometry="M1.5,2.5 H13.5 V12.5 H1.5 Z">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconOrange}" Thickness="1.2" DashStyle="{x:Static DashStyles.Dash}" LineJoin="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M3.8,10 L6.5,5 M6.5,5 L10.8,5">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M2.6,10 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M5.3,5 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z M9.6,5 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <!-- Опора: узел на шарнирно-неподвижной опоре. -->
+   <DrawingGroup x:Key="CmdShape_Support">
+      <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M7,5.5 L11.5,11.5 H2.5 Z">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M1,13 H13 M2.5,15 L4,13 M5.5,15 L7,13 M8.5,15 L10,13 M11.5,15 L13,13">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M5,4 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <!-- Распределённая нагрузка на балку (как «Усилия схемы» в дереве). -->
+   <DrawingGroup x:Key="CmdShape_MemberLoad">
+      <GeometryDrawing Geometry="M1,14 H15">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M1.5,1.5 H14.5 M3,1.5 V8.5 M8,1.5 V8.5 M13,1.5 V8.5">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.3" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M1,8 H5 L3,12 Z M6,8 H10 L8,12 Z M11,8 H15 L13,12 Z"/>
+   </DrawingGroup>
+
+   <!-- Двутавр. -->
+   <GeometryDrawing x:Key="CmdShape_Section" Brush="{StaticResource FemIconBlue}"
+                    Geometry="M2,1.5 H12 V4 H8.25 V11 H12 V13.5 H2 V11 H5.75 V4 H2 Z"/>
+
+   <!-- Портальная рама КонЭ. -->
+   <GeometryDrawing x:Key="CmdShape_Members" Brush="{StaticResource FemIconBlue}"
+                    Geometry="M1,2 H13 V4.8 H1 Z M2,4.8 H4.4 V13.5 H2 Z M9.6,4.8 H12 V13.5 H9.6 Z"/>
+
+   <!-- ============================== Общие действия ============================== -->
+
+   <!-- Создать: зелёный круг с плюсом. -->
+   <DrawingImage x:Key="CmdIcon_Add">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M1.5,8 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 Z"/>
+            <GeometryDrawing Geometry="M8,4.5 V11.5 M4.5,8 H11.5">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Изменить: карандаш. -->
+   <DrawingImage x:Key="CmdIcon_Edit">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconOrange}" Geometry="M3.5,10.5 L10.5,3.5 L12.5,5.5 L5.5,12.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M10.5,3.5 L12,2 L14,4 L12.5,5.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconOrangeLight}" Geometry="M3.5,10.5 L5.5,12.5 L2,14 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M2,14 L2.6,12.6 L3.4,13.4 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Свойства: лист со строками параметров. -->
+   <DrawingImage x:Key="CmdIcon_Properties">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M2.5,1.5 H10.5 L13.5,4.5 V14.5 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M10.5,1.5 V4.5 H13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4.5,6.5 H6 M7.5,6.5 H11.5 M4.5,9 H6 M7.5,9 H11.5 M4.5,11.5 H6 M7.5,11.5 H10">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.3" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Удалить: красный крест. -->
+   <DrawingImage x:Key="CmdIcon_Delete">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3.5,3.5 L12.5,12.5 M12.5,3.5 L3.5,12.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="2.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Удалить все / выбранные: стопка листов и крест. -->
+   <DrawingImage x:Key="CmdIcon_DeleteAll">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreyLight}" Geometry="M6.5,1.5 H14.5 V9.5 H6.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M4,4 H12 V12 H4 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1.5,7.5 L8.5,14.5 M8.5,7.5 L1.5,14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="2.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Переименовать: поле ввода с курсором. -->
+   <DrawingImage x:Key="CmdIcon_Rename">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1,4.5 H15 V11.5 H1 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M3,8 H8.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M11.5,2.5 V13.5 M10,2.5 H13 M10,13.5 H13">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Дублировать: два листа. -->
+   <DrawingImage x:Key="CmdIcon_Duplicate">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M5.5,1.5 H14.5 V10.5 H5.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M1.5,5.5 H10.5 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M3.5,8.5 H8.5 M3.5,11 H7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueLight}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Копировать со смещением: объект, его копия и зелёная стрелка. -->
+   <DrawingImage x:Key="CmdIcon_Copy">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M1,8.5 H7.5 V15 H1 Z M8.5,1 H15 V7.5 H8.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M5.2,10.8 L10.3,5.7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGreen}" Thickness="1.5" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M11.6,4.4 L10.9,8.1 L7.9,5.1 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Переместить: исходное положение пунктиром, новое — сплошное, синяя стрелка. -->
+   <DrawingImage x:Key="CmdIcon_Move">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,8.5 H7.5 V15 H1 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.1" DashStyle="{x:Static DashStyles.Dash}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M8.5,1 H15 V7.5 H8.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4.2,11.8 L10.3,5.7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.5" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M11.6,4.4 L10.9,8.1 L7.9,5.1 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Копировать в буфер (координаты): планшет с текстом. -->
+   <DrawingImage x:Key="CmdIcon_Clipboard">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M2.5,2.5 H13.5 V15 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconGrey}" Geometry="M5.5,1 H10.5 V4 H5.5 Z"/>
+            <GeometryDrawing Geometry="M5,7 H11 M5,9.5 H11 M5,12 H9">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Выделить: стрелка-курсор. -->
+   <DrawingImage x:Key="CmdIcon_Select">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M3.5,1.5 V13 L6.4,10.2 L8.5,14.8 L10.4,13.9 L8.3,9.4 H12.3 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Снять выделение: пунктирная рамка выбора и крест. -->
+   <DrawingImage x:Key="CmdIcon_ClearSelection">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M1.5,1.5 H12.5 V11.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" DashStyle="{x:Static DashStyles.Dash}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Cross"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Видимость ============================== -->
+
+   <!-- Показать всё: глаз. -->
+   <DrawingImage x:Key="CmdIcon_ShowAll">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1,8 C3.5,3.2 12.5,3.2 15,8 C12.5,12.8 3.5,12.8 1,8 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M5.5,8 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M7.6,7.2 a0.8,0.8 0 1,0 1.6,0 a0.8,0.8 0 1,0 -1.6,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Скрыть: перечёркнутый глаз. -->
+   <DrawingImage x:Key="CmdIcon_Hide">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1,8 C3.5,3.2 12.5,3.2 15,8 C12.5,12.8 3.5,12.8 1,8 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconGrey}" Geometry="M5.5,8 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0 Z"/>
+            <GeometryDrawing Geometry="M2.5,13.5 L13.5,2.5">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="3.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M2.5,13.5 L13.5,2.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Показать только: сплошной объект в пунктирной рамке пустого окружения. -->
+   <DrawingImage x:Key="CmdIcon_ShowOnly">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" DashStyle="{x:Static DashStyles.Dash}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M4.5,4.5 H11.5 V11.5 H4.5 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Инвертировать видимость: квадрат, закрашенный по диагонали. -->
+   <DrawingImage x:Key="CmdIcon_Invert">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,1.5 H14.5 L1.5,14.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,1.5 H14.5 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Полупрозрачно: бледный объект в пунктирном контуре. -->
+   <DrawingImage x:Key="CmdIcon_Ghost">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M1.5,4.5 H11.5 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" DashStyle="{x:Static DashStyles.Dash}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M7,1.5 H14.5 V9 H7 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Создание объектов схемы ============================== -->
+
+   <!-- Создать узел. -->
+   <DrawingImage x:Key="CmdIcon_CreateNode">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M2,6.5 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать стержень. -->
+   <DrawingImage x:Key="CmdIcon_CreateBar">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M2.5,11.5 L11.5,2.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M0.9,11.5 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z M9.9,2.5 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать плиту: горизонтальная плита в аксонометрии. -->
+   <DrawingImage x:Key="CmdIcon_CreatePlate">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M0.5,6.5 L5,2.5 H14.5 L10,6.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M0.5,6.5 H10 V9 H0.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M10,6.5 L14.5,2.5 V5 L10,9 Z"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать стену: вертикальная пластина. -->
+   <DrawingImage x:Key="CmdIcon_CreateWall">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M1.5,3.5 L4,1 H11 L8.5,3.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,3.5 H8.5 V14.5 H1.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M8.5,3.5 L11,1 V8 L8.5,10.5 Z"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать произвольную (наклонную) пластину. -->
+   <DrawingImage x:Key="CmdIcon_CreateSpatialPlate">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M0.8,12.5 L4.5,1.5 H13.5 L9.8,12.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.3" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Новый конструктивный элемент. -->
+   <DrawingImage x:Key="CmdIcon_MemberNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Members"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Новая схема. -->
+   <DrawingImage x:Key="CmdIcon_SchemaNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,13.5 H10">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M2,13.5 V2 H11 V8.5 M2,7.75 H11 M6.5,2 V13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.5" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- КонЭ из КЭ сетки: сетка превращается в раму. -->
+   <DrawingImage x:Key="CmdIcon_MembersFromMesh">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M1,1 H8 V8 H1 Z"/>
+            <GeometryDrawing Geometry="M1,1 H8 V8 H1 Z M4.5,1 V8 M1,4.5 H8">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M9.5,3 C12.5,3 13.5,4.5 13.5,7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.2" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconGrey}" Geometry="M11.8,6.3 H15.2 L13.5,8.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M6.5,9.5 H15 V11.3 H6.5 Z M7.2,11.3 H8.8 V15 H7.2 Z M12.7,11.3 H14.3 V15 H12.7 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Геометрия и свойства КонЭ ============================== -->
+
+   <!-- Сечение (и GJ). -->
+   <DrawingImage x:Key="CmdIcon_Section">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M3,1.5 H13 V4 H9.25 V12 H13 V14.5 H3 V12 H6.75 V4 H3 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать сечения (по данным ЛИРЫ/SCAD). -->
+   <DrawingImage x:Key="CmdIcon_SectionNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Section"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Состояние сечения: сжатая зона и арматура. -->
+   <DrawingImage x:Key="CmdIcon_SectionState">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreyLight}" Geometry="M3.5,1.5 H12.5 V14.5 H3.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRedLight}" Geometry="M3.5,1.5 H12.5 V6.5 H3.5 Z"/>
+            <GeometryDrawing Geometry="M3.5,6.5 H12.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1" DashStyle="{x:Static DashStyles.Dash}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M3.5,1.5 H12.5 V14.5 H3.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M4.9,12.2 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M8.9,12.2 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Поворот сечения: двутавр и круговая стрелка. -->
+   <DrawingImage x:Key="CmdIcon_Rotate">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M14,8.5 A6,6 0 1,1 11.6,3.7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.4" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M13.8,1.6 L13.6,5.9 L9.9,4.1 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M5.5,5 H10.5 V6.5 H8.75 V9.5 H10.5 V11 H5.5 V9.5 H7.25 V6.5 H5.5 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Разбить стержень: новый узел посередине. -->
+   <DrawingImage x:Key="CmdIcon_Split">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,8 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M8,1.5 V4.5 M8,11.5 V14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M6,8 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.3"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Шаг сетки: сетка КЭ и размерная линия. -->
+   <DrawingImage x:Key="CmdIcon_MeshStep">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTealLight}" Geometry="M1.5,6 H14.5 V14.5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,6 H14.5 V14.5 H1.5 Z M5.83,6 V14.5 M10.17,6 V14.5 M1.5,10.25 H14.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconTeal}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1.5,1 V4.5 M5.83,1 V4.5 M1.5,2.75 H5.83">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Примыкающие КонЭ: узел и сходящиеся стержни. -->
+   <DrawingImage x:Key="CmdIcon_Adjacent">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M8,8 L2,2 M8,8 L14.5,5 M8,8 L8,15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M5.8,8 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconOrange}" Thickness="1.6"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Граничные условия / закрепление. -->
+   <DrawingImage x:Key="CmdIcon_Support">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <DrawingGroup Transform="1,0,0,1,1,0">
+               <GeometryDrawing Brush="Transparent" Geometry="M0,0 H1 V1 H0 Z"/>
+               <StaticResource ResourceKey="CmdShape_Support"/>
+            </DrawingGroup>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Нагрузки ============================== -->
+
+   <!-- Узловая нагрузка: сила в узел. -->
+   <DrawingImage x:Key="CmdIcon_NodeLoad">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M8,1 V7.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.8" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M5.2,7 H10.8 L8,10.8 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M5.8,13.2 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Нагрузка на стержень. -->
+   <DrawingImage x:Key="CmdIcon_MemberLoad">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_MemberLoad"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Площадная нагрузка на пластину. -->
+   <DrawingImage x:Key="CmdIcon_AreaLoad">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M0.5,14.5 L4,10.5 H15.5 L12,14.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4.5,1 V6.5 M8.5,1 V6.5 M12.5,1 V6.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.3" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M2.8,6 H6.2 L4.5,9 Z M6.8,6 H10.2 L8.5,9 Z M10.8,6 H14.2 L12.5,9 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Кинематическая нагрузка: заданное смещение узла. -->
+   <DrawingImage x:Key="CmdIcon_KinematicLoad">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1.8,12 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.1" DashStyle="{x:Static DashStyles.Dot}"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M5.8,10.2 L9.4,6.6">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.5" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M10.7,5.3 L10.1,8.6 L7.4,5.9 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M9.8,4 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Перенести нагрузки из ЛИРЫ/SCAD. -->
+   <DrawingImage x:Key="CmdIcon_LoadsImport">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_MemberLoad"/>
+            <StaticResource ResourceKey="CmdBadge_Import"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Дочитать граничные условия из ЛИРЫ/SCAD. -->
+   <DrawingImage x:Key="CmdIcon_SupportImport">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Support"/>
+            <StaticResource ResourceKey="CmdBadge_Import"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Группы ============================== -->
+
+   <!-- Группы (подменю групп). -->
+   <DrawingImage x:Key="CmdIcon_Group">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <DrawingGroup Transform="1,0,0,1,0.5,0.5">
+               <GeometryDrawing Brush="Transparent" Geometry="M0,0 H1 V1 H0 Z"/>
+               <StaticResource ResourceKey="CmdShape_Group"/>
+            </DrawingGroup>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Новая группа. -->
+   <DrawingImage x:Key="CmdIcon_GroupNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Group"/>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Добавить в группу. -->
+   <DrawingImage x:Key="CmdIcon_GroupAdd">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Group"/>
+            <StaticResource ResourceKey="CmdBadge_In"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Убрать из группы. -->
+   <DrawingImage x:Key="CmdIcon_GroupRemove">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Group"/>
+            <StaticResource ResourceKey="CmdBadge_Minus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Авто-группировка по сечению. -->
+   <DrawingImage x:Key="CmdIcon_GroupAuto">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_Group"/>
+            <StaticResource ResourceKey="CmdBadge_Auto"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Расчёт, результаты, проверки ============================== -->
+
+   <!-- Запустить. -->
+   <DrawingImage x:Key="CmdIcon_Run">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M4,2 L14,8 L4,14 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGreen}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать расчёт: лист постановки со знаком суммы. -->
+   <DrawingImage x:Key="CmdIcon_AnalysisNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1.5,1 H11 V14 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M8.8,3.5 H3.7 L6.6,7 L3.7,10.5 H8.8">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGreen}" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Показать результат: поле результата цветными полосами. -->
+   <DrawingImage x:Key="CmdIcon_ShowResult">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,2.5 H5.83 V13.5 H1.5 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M5.83,2.5 H10.17 V13.5 H5.83 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconOrange}" Geometry="M10.17,2.5 H14.5 V13.5 H10.17 Z"/>
+            <GeometryDrawing Geometry="M1.5,2.5 H14.5 V13.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Таблицы результата. -->
+   <DrawingImage x:Key="CmdIcon_Table">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1.5,2 H14.5 V14 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,2 H14.5 V5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M1.5,8 H14.5 M1.5,11 H14.5 M6,5 V14 M10.3,5 V14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Эпюры: эпюра над балкой. -->
+   <DrawingImage x:Key="CmdIcon_Diagram">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRedLight}" Geometry="M1.5,12 Q8,-1.5 14.5,12 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4.5,12 V7.4 M8,12 V5.4 M11.5,12 V7.4">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="0.8"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,12.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Значения в узле: узел и выноска. -->
+   <DrawingImage x:Key="CmdIcon_NodeValues">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M5.2,10.8 L7.5,8">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M6.5,1.5 H15 V8 H6.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M8.3,3.8 H13.2 M8.3,5.8 H11.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.3,12.5 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Создать наборы усилий (из шага/результата). -->
+   <DrawingImage x:Key="CmdIcon_ForceSetNew">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1,1.5 H13 V12.5 H1 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconRed}" Geometry="M1,1.5 H13 V4.5 H1 Z"/>
+            <GeometryDrawing Geometry="M1,7.3 H13 M1,10 H8 M5,4.5 V12.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Новая проверка (общая). -->
+   <DrawingImage x:Key="CmdIcon_CheckAdd">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1.5,2.5 H11.5 V14.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M4.5,1 H8.5 V4 H4.5 Z"/>
+            <GeometryDrawing Geometry="M3.8,8.5 L5.8,10.5 L9,6.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconIndigo}" Thickness="1.7" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Добавить проверку 1-й группы ПС: щит. -->
+   <DrawingImage x:Key="CmdIcon_CheckUls">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}"
+                             Geometry="M6.5,0.8 L12,3 V7 C12,10.2 9.7,12.5 6.5,13.6 C3.3,12.5 1,10.2 1,7 V3 Z"/>
+            <GeometryDrawing Geometry="M3.9,7.1 L5.8,9 L9.1,5.3">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Добавить проверку 2-й группы ПС: балка с трещинами. -->
+   <DrawingImage x:Key="CmdIcon_CheckSls">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M0.5,2.5 H15.5 V10 H0.5 Z"/>
+            <GeometryDrawing Geometry="M3.5,10 L4.4,8 L3.6,6.6 L4.3,4.6 M7,10 L7.9,7.7 L7.1,6.1 L7.8,3.6">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.1" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <StaticResource ResourceKey="CmdBadge_Plus"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- ============================== Обмен с внешними программами ============================== -->
+
+   <!-- Импорт (из файла, COM, API). -->
+   <DrawingImage x:Key="CmdIcon_Import">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1.5,9.5 V14.5 H14.5 V9.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M8,1 V8">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.8" StartLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}" Geometry="M4.8,7.2 H11.2 L8,11 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Обновить из источника. -->
+   <DrawingImage x:Key="CmdIcon_Refresh">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M13.4,6.3 A5.6,5.6 0 0,0 3.1,5.2 M2.6,9.7 A5.6,5.6 0 0,0 12.9,10.8">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGreen}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconGreen}" Geometry="M1.4,2.6 L2.2,7 L5.9,5 Z M14.6,13.4 L13.8,9 L10.1,11 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Подобранная/заданная арматура из внешней программы. -->
+   <DrawingImage x:Key="CmdIcon_RebarImport">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconGreyLight}" Geometry="M1.5,1.5 H12.5 V12.5 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}"
+                             Geometry="M2.9,4 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M8.9,4 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M2.9,10 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M5.9,10 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z"/>
+            <StaticResource ResourceKey="CmdBadge_Import"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Файл проекта внешней программы: документ со ссылкой. -->
+   <DrawingImage x:Key="CmdIcon_FileLink">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M2.5,1 H9.5 L12.5,4 V15 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M9.5,1 V4 H12.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M6.6,8.2 H5.6 A1.6,1.6 0 0,0 5.6,11.4 H6.6 M8.4,8.2 H9.4 A1.6,1.6 0 0,1 9.4,11.4 H8.4 M6.3,9.8 H8.7">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Установить плагин: деталь пазла. -->
+   <DrawingImage x:Key="CmdIcon_Plugin">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}"
+                             Geometry="M1.5,4.5 H5 A2,2 0 1,1 9,4.5 H12.5 V8 A2,2 0 1,1 12.5,12 V14.5 H1.5 Z"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Подменю ЛИРА-САПР: буква «Л» на плашке (не логотип). -->
+   <DrawingImage x:Key="CmdIcon_Lira">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueDark}">
+               <GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,14,14" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4,12 C5.3,11.5 5.9,9 6.3,4 H11 V12">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.7" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Подменю SCAD: буква «S» на плашке (не логотип). -->
+   <DrawingImage x:Key="CmdIcon_Scad">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconTeal}">
+               <GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,14,14" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M10.8,5 C10,3.6 5.2,3.4 5.2,6 C5.2,8.2 10.8,7.8 10.8,10.1 C10.8,12.7 6,12.6 5,11">
+               <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.7" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Открыть редактор схемы: окно с рамой. -->
+   <DrawingImage x:Key="CmdIcon_OpenEditor">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1.5,2 H14.5 V14 H1.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1.5,2 H14.5 V4.5 H1.5 Z"/>
+            <GeometryDrawing Geometry="M4.5,12 V7 H11.5 V12">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.5" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+</ResourceDictionary>

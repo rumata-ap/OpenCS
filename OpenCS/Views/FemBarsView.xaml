@@ -1,6 +1,7 @@
 <UserControl x:Class="OpenCS.Views.FemBarsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
    <DockPanel>
       <ToolBar DockPanel.Dock="Top">
          <Button Content="{DynamicResource FemMembersGroupFromSelection}" Click="CreateGroup_Click" Margin="0,0,4,0"/>
@@ -22,16 +23,16 @@
                 VirtualizingPanel.IsVirtualizing="True">
          <DataGrid.ContextMenu>
             <ContextMenu>
-               <MenuItem Header="{DynamicResource FemBarDiagramMenu}" Click="ShowDiagrams_Click"/>
-               <MenuItem x:Name="liraForcesMenu" Header="{DynamicResource ImportSubMenuLiraForces}">
-                  <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Tag="lc"  Click="ImportLiraForces_Click"/>
-                  <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"    Tag="rsn" Click="ImportLiraForces_Click"/>
-                  <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"    Tag="rsu" Click="ImportLiraForces_Click"/>
+               <MenuItem helpers:CommandIcons.Header="FemBarDiagramMenu" Click="ShowDiagrams_Click"/>
+               <MenuItem x:Name="liraForcesMenu" helpers:CommandIcons.Header="ImportSubMenuLiraForces">
+                  <MenuItem helpers:CommandIcons.Header="ImportLiraForcesFromApi" Tag="lc"  Click="ImportLiraForces_Click"/>
+                  <MenuItem helpers:CommandIcons.Header="ImportLiraRsnFromApi"    Tag="rsn" Click="ImportLiraForces_Click"/>
+                  <MenuItem helpers:CommandIcons.Header="ImportLiraRsuFromApi"    Tag="rsu" Click="ImportLiraForces_Click"/>
                </MenuItem>
-               <MenuItem x:Name="scadForcesMenu" Header="{DynamicResource ImportSubMenuScadForces}">
-                  <MenuItem Header="{DynamicResource ScadForcesLoadCasesFromApi}"    Tag="lc"  Click="ImportScadForces_Click"/>
-                  <MenuItem Header="{DynamicResource ScadForcesCombinationsFromApi}" Tag="rsn" Click="ImportScadForces_Click"/>
-                  <MenuItem Header="{DynamicResource ScadForcesRsuFromApi}"          Tag="rsu" Click="ImportScadForces_Click"/>
+               <MenuItem x:Name="scadForcesMenu" helpers:CommandIcons.Header="ImportSubMenuScadForces">
+                  <MenuItem helpers:CommandIcons.Header="ScadForcesLoadCasesFromApi"    Tag="lc"  Click="ImportScadForces_Click"/>
+                  <MenuItem helpers:CommandIcons.Header="ScadForcesCombinationsFromApi" Tag="rsn" Click="ImportScadForces_Click"/>
+                  <MenuItem helpers:CommandIcons.Header="ScadForcesRsuFromApi"          Tag="rsu" Click="ImportScadForces_Click"/>
                </MenuItem>
             </ContextMenu>
          </DataGrid.ContextMenu>

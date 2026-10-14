@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="OpenCS.Views.FemSchemaView3D" x:Name="root"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:mosaic="clr-namespace:OpenCS.Views.Mosaic"
              xmlns:conv="clr-namespace:OpenCS.Converters"
@@ -18,35 +19,35 @@
             <Setter Property="Margin" Value="2,0"/>
         </Style>
         <ContextMenu x:Key="MemberContextMenu">
-            <MenuItem Header="{DynamicResource FemMemberSectionCtx}" Click="MemberSectionCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberPropertiesCtx}" Click="MemberPropertiesCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberRotationCtx}" Click="MemberRotationCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberMeshStepCtx}" Click="MemberMeshStepCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberLoadCtx}" Click="MemberLoadCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberSectionCtx" Click="MemberSectionCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberPropertiesCtx" Click="MemberPropertiesCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberRotationCtx" Click="MemberRotationCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberLoadCtx" Click="MemberLoadCtx_Click"/>
             <Separator/>
-            <MenuItem Header="{DynamicResource FemMemberSplitCtx}" Click="MemberSplitCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberDeleteCtx}" Click="MemberDeleteCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberSplitCtx" Click="MemberSplitCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberDeleteCtx" Click="MemberDeleteCtx_Click"/>
             <Separator/>
-            <MenuItem Header="{DynamicResource FemMemberForcesCtx}" Click="MemberForcesCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberForcesCtx" Click="MemberForcesCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="NodeContextMenu">
-            <MenuItem Header="{DynamicResource FemNodeMoveCtx}" Click="NodeMoveCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemNodeCopyCtx}" Click="NodeCopyCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemNodeLoadCtx}" Click="NodeLoadCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemKinematicLoadCtx}" Click="KinematicLoadCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodeMoveCtx" Click="NodeMoveCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodeCopyCtx" Click="NodeCopyCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodeLoadCtx" Click="NodeLoadCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemKinematicLoadCtx" Click="KinematicLoadCtx_Click"/>
             <Separator/>
-            <MenuItem Header="{DynamicResource FemNodePropertiesCtx}" Click="NodePropertiesCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodePropertiesCtx" Click="NodePropertiesCtx_Click"/>
             <Separator/>
-            <MenuItem Header="{DynamicResource FemNodeDeleteCtx}" Click="NodeDeleteCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodeDeleteCtx" Click="NodeDeleteCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="LoadContextMenu">
-            <MenuItem Header="{DynamicResource FemLoadEditCtx}" Click="LoadEditCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemLoadDeleteCtx}" Click="LoadDeleteCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemLoadEditCtx" Click="LoadEditCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemLoadDeleteCtx" Click="LoadDeleteCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="PlanarRegionContextMenu">
-            <MenuItem Header="{DynamicResource PlanarRegionEditCtx}" Click="PlanarRegionEditCtx_Click"/>
-            <MenuItem Header="{DynamicResource FemMemberMeshStepCtx}" Click="MemberMeshStepCtx_Click"/>
-            <MenuItem Header="{DynamicResource PlanarRegionDeleteCtx}" Click="PlanarRegionDeleteCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="PlanarRegionEditCtx" Click="PlanarRegionEditCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="PlanarRegionDeleteCtx" Click="PlanarRegionDeleteCtx_Click"/>
         </ContextMenu>
     </UserControl.Resources>
     <Grid>
@@ -229,7 +230,7 @@
                         <Path Data="M9,9H15V15H9M7,17H17V7H7M15,5H17V3H15M15,21H17V19H15M19,17H21V15H19M19,9H21V7H19M19,21A2,2 0 0,0 21,19H19M19,13H21V11H19M11,21H13V19H11M9,3H7V5H9M3,17H5V15H3M5,21V19H3A2,2 0 0,0 5,21M19,3V5H21A2,2 0 0,0 19,3M13,3H11V5H13M3,9H5V7H3M7,21H9V19H7M3,13H5V11H3M3,5H5V3A2,2 0 0,0 3,5Z" Fill="Black" Stretch="Uniform" Margin="3"/>
                     </Button>
                     <Menu VerticalAlignment="Center" Background="Transparent">
-                        <MenuItem x:Name="fragmentGroupsMenu" Header="{DynamicResource Fem3DFragmentGroups}"
+                        <MenuItem x:Name="fragmentGroupsMenu" helpers:CommandIcons.Header="Fem3DFragmentGroups"
                                   ToolTip="{DynamicResource Fem3DFragmentGroupsTip}" SubmenuOpened="FragmentGroupsMenu_SubmenuOpened">
                             <MenuItem Header="…"/>
                         </MenuItem>
