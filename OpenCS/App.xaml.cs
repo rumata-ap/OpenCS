@@ -9,6 +9,8 @@ namespace OpenCS
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            // Строки кода — из таблицы Loc; язык совпадает со словарём App.xaml (ru подключён последним).
+            Utilites.Loc.SetLanguage(Utilites.Loc.Russian);
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
             // Явная загрузка HelixToolkit при старте — иначе при первом открытии

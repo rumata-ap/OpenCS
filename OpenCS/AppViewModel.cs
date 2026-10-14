@@ -1161,6 +1161,7 @@ namespace OpenCS
                break;
          }
          Application.Current.Resources.MergedDictionaries.Add(dict);
+         Loc.SetLanguage(lang == 1 ? Loc.English : Loc.Russian);
          LangID = lang;
       }
 

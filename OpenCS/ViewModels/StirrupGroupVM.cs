@@ -390,5 +390,5 @@ public sealed class StirrupGroupVM : ViewModelBase
     }
 
     void SetError(string key, string? fallback = null) => ErrorMessage =
-        Application.Current?.TryFindResource(key) as string ?? fallback ?? key;
+        Loc.S(key, fallback ?? key);
 }

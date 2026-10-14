@@ -438,6 +438,12 @@
     </Content>
   </ItemGroup>
 
+  <!-- Словари строк остаются Page (BAML для DynamicResource) и вкладываются в сборку для Loc без WPF. -->
+  <ItemGroup>
+    <!-- WithCulture=false: иначе «ru-RU» в имени уводит ресурс в сателлитную сборку. -->
+    <EmbeddedResource Include="Resources\Strings.*.xaml" LogicalName="OpenCS.%(Filename).xaml" WithCulture="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.0.1" />
     <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
