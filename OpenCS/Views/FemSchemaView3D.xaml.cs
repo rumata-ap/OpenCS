@@ -163,6 +163,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.MouseLeave          += Viewport_MouseLeave;
         PreviewMouseRightButtonDown += FemSchemaView3D_PreviewMouseRightButtonDown;
         viewport.KeyDown              += Viewport_KeyDown;
+        PreviewTextInput             += TransformPreviewTextInput;
         viewport.Focusable = true;
         // Подписи эпюр переставляются по экрану — при движении камеры и смене размера вида.
         viewport.CameraChanged += (_, _) => ScheduleDiagramLabels();
@@ -218,6 +219,8 @@ public partial class FemSchemaView3D : UserControl
     /// открывает меню, а клик по пустому месту остаётся жестом вращения модели.</summary>
     void FemSchemaView3D_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // Во время «Переместить» / «Копировать» ПКМ — только вращение вида, без меню.
+        if (IsTransformActive) return;
         if (_createBarMode && _pendingBarFirstNode != null)
         {
             _pendingBarFirstNode = null;
@@ -232,6 +235,7 @@ public partial class FemSchemaView3D : UserControl
 
     void Viewport_KeyDown(object sender, KeyEventArgs e)
     {
+        if (HandleTransformKey(e)) { e.Handled = true; return; }
         if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None &&
             Editor?.Selection?.SelectedNodeTags is { Count: > 0 } selectedNodes)
         {
@@ -1398,6 +1402,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM is not { EditMode: true } vm) return;
         viewport.Focus();
         var position = e.GetPosition(viewport);
+        if (HandleTransformClick(position)) return;
 
         if (_createNodeMode)
         {
@@ -1580,6 +1585,7 @@ public partial class FemSchemaView3D : UserControl
     void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
         UpdateMosaicHover(e);
+        if (HandleTransformMove(e.GetPosition(viewport))) return;
 
         if (VM is not { EditMode: true } vm || !_createBarMode || _pendingBarFirstNode == null)
         {
@@ -2277,22 +2283,23 @@ public partial class FemSchemaView3D : UserControl
     public event Action<string>? MemberRotationRequested;
     public event Action<string>? MemberForcesRequested;
 
-    void NodeMoveCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: true, copy: false);
-    void NodeCopyCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: true, copy: true);
-    void MemberMoveCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: false, copy: false);
-    void MemberCopyCtx_Click(object sender, RoutedEventArgs e) => OffsetFragment(clickedIsNode: false, copy: true);
+    void NodeMoveCtx_Click(object sender, RoutedEventArgs e) => TransformFromMenu(clickedIsNode: true, FemTransformKind.Move);
+    void NodeCopyCtx_Click(object sender, RoutedEventArgs e) => TransformFromMenu(clickedIsNode: true, FemTransformKind.Copy);
+    void MemberMoveCtx_Click(object sender, RoutedEventArgs e) => TransformFromMenu(clickedIsNode: false, FemTransformKind.Move);
+    void MemberCopyCtx_Click(object sender, RoutedEventArgs e) => TransformFromMenu(clickedIsNode: false, FemTransformKind.Copy);
 
-    /// <summary>«Переместить…» / «Копировать…» из меню узла или КонЭ: весь выбор (узлы и КонЭ), если щёлкнутый
-    /// объект в нём, иначе только он.</summary>
-    void OffsetFragment(bool clickedIsNode, bool copy)
+    /// <summary>«Переместить» / «Копировать» из меню узла или КонЭ: весь выбор (узлы и КонЭ), если щёлкнутый
+    /// объект в нём, иначе только он (он же становится выбором).</summary>
+    void TransformFromMenu(bool clickedIsNode, FemTransformKind kind)
     {
-        if (_contextMenuTargetTag is not { } tag) return;
-        var selection = Editor?.Selection;
-        bool inSelection = selection != null
-            && (clickedIsNode ? selection.SelectedNodeTags.Contains(tag) : selection.SelectedElemTags.Contains(tag));
-        IReadOnlyCollection<string> nodes = inSelection ? [.. selection!.SelectedNodeTags] : clickedIsNode ? [tag] : [];
-        IReadOnlyCollection<string> members = inSelection ? [.. selection!.SelectedElemTags] : clickedIsNode ? [] : [tag];
-        FragmentOffsetRequested?.Invoke(nodes, members, copy);
+        if (_contextMenuTargetTag is not { } tag || Editor?.Selection is not { } selection) return;
+        bool inSelection = clickedIsNode ? selection.SelectedNodeTags.Contains(tag) : selection.SelectedElemTags.Contains(tag);
+        if (!inSelection)
+        {
+            if (clickedIsNode) selection.ToggleNode(tag, additive: false);
+            else selection.ToggleElement(tag, additive: false);
+        }
+        StartTransform(kind, [.. selection.SelectedNodeTags], [.. selection.SelectedElemTags]);
     }
 
     void NodePropertiesCtx_Click(object sender, RoutedEventArgs e)
@@ -2307,8 +2314,6 @@ public partial class FemSchemaView3D : UserControl
         NodeDeleteRequested?.Invoke([tag]);
     }
 
-    /// <summary>«Переместить…» (false) / «Копировать…» (true): теги узлов и КонЭ фрагмента.</summary>
-    public event Action<IReadOnlyCollection<string>, IReadOnlyCollection<string>, bool>? FragmentOffsetRequested;
     public event Action<string>? NodePropertiesRequested;
     public event Action<IReadOnlyList<string>>? NodeDeleteRequested;
 }

@@ -142,7 +142,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
-        view3D.FragmentOffsetRequested += OffsetFragment;
+        view3D.FragmentTransformRequested += TransformFragment;
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
         view3D.NodePropertiesRequested += OpenNodeProperties;
         _editorVm.PropertyChanged += (_, args) =>
@@ -169,20 +169,28 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         PreviewKeyDown += OnPreviewKeyDown;
     }
 
-    /// <summary>«Переместить…» / «Копировать…» узлов и КонЭ (из меню 3D и дерева): смещение, у копирования — число
-    /// копий; одна отмена на всю операцию.</summary>
-    public void OffsetFragment(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags, bool copy)
+    /// <summary>Выполняет шаг команды «Переместить» (copies = 0) или «Копировать» из 3D-вида; одна отмена на шаг.</summary>
+    void TransformFragment(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags,
+        System.Windows.Media.Media3D.Vector3D offset, int copies)
     {
-        string titleKey = copy ? "FemFragmentCopyTitle" : "FemFragmentMoveTitle";
-        var dlg = new FemFragmentOffsetDialog(titleKey,
-            string.Format(Loc.S("FemFragmentOffsetSummary"), nodeTags.Count, memberTags.Count), showCopies: copy)
-        { Owner = Window.GetWindow(this) };
-        if (dlg.ShowDialog() != true) return;
+        bool copy = copies > 0;
         string? message = copy
-            ? _editorVm.CopyFragment(nodeTags, memberTags, dlg.Dx, dlg.Dy, dlg.Dz, dlg.Copies)
-            : _editorVm.MoveFragment(nodeTags, memberTags, dlg.Dx, dlg.Dy, dlg.Dz);
+            ? _editorVm.CopyFragment(nodeTags, memberTags, offset.X, offset.Y, offset.Z, copies)
+            : _editorVm.MoveFragment(nodeTags, memberTags, offset.X, offset.Y, offset.Z);
         if (message != null)
-            MessageBox.Show(Window.GetWindow(this), message, Loc.S(titleKey), MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Window.GetWindow(this), message, Loc.S(copy ? "FemFragmentCopyTitle" : "FemFragmentMoveTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>Запуск «Переместить» / «Копировать» из дерева: вкладка 3D, объекты выбираются, команда ждёт базовую точку.</summary>
+    public void StartTransform(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags, bool copy)
+    {
+        tabs.SelectedIndex = 0;
+        var selection = _editorVm.Selection;
+        selection.Clear();
+        foreach (var tag in nodeTags) selection.ToggleNode(tag, additive: true);
+        foreach (var tag in memberTags) selection.ToggleElement(tag, additive: true);
+        view3D.StartTransform(copy ? FemTransformKind.Copy : FemTransformKind.Move, nodeTags, memberTags);
     }
 
     void CreateMember_Click(object sender, RoutedEventArgs e)

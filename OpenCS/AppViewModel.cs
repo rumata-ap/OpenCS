@@ -491,14 +491,16 @@ namespace OpenCS
                System.Windows.Threading.DispatcherPriority.Loaded);
       }
 
-      /// <summary>«Переместить…» / «Копировать…» из дерева: открывает редактор схемы и в нём — диалог смещения.</summary>
-      public void OffsetFemFragmentInEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags,
+      /// <summary>«Переместить» / «Копировать» из дерева: открывает редактор схемы и запускает в 3D команду
+      /// (базовая точка → вторая точка).</summary>
+      public void TransformFemFragmentInEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags,
          IReadOnlyCollection<string> memberTags, bool copy)
       {
          CurrentFemSchema = schema;
+         // Команда — после показа страницы: 3D-вид должен успеть загрузить схему.
          if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
-            page.Dispatcher.BeginInvoke(() => page.OffsetFragment(nodeTags, memberTags, copy),
-               System.Windows.Threading.DispatcherPriority.Loaded);
+            page.Dispatcher.BeginInvoke(() => page.StartTransform(nodeTags, memberTags, copy),
+               System.Windows.Threading.DispatcherPriority.ApplicationIdle);
       }
 
       /// <summary>Страница схемы спрашивает при создании, открыть ли вкладку «Субмодель».</summary>

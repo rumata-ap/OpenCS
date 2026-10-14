@@ -143,6 +143,17 @@
                     </Canvas>
                 </Viewbox>
             </Button>
+            <Separator/>
+            <!-- Переместить / Копировать в духе AutoCAD: базовая точка → вторая точка -->
+            <Button Style="{StaticResource IconButton25}" Click="MoveTool_Click"
+                    ToolTip="{DynamicResource FemTransformMoveTip}">
+                <Image Source="{StaticResource CmdIcon_Move}" Width="16" Height="16"/>
+            </Button>
+            <Button Style="{StaticResource IconButton25}" Click="CopyTool_Click"
+                    ToolTip="{DynamicResource FemTransformCopyTip}">
+                <Image Source="{StaticResource CmdIcon_Copy}" Width="16" Height="16"/>
+            </Button>
+            <Separator/>
             <Button Style="{StaticResource IconButton25}"
                     Command="{Binding Editor.UndoCommand, ElementName=root}"
                     ToolTip="{DynamicResource FemUndo}">
@@ -442,6 +453,28 @@
                           DisplayMemberPath="Tag"
                           SelectionChanged="CreateBarSectionCombo_SelectionChanged"/>
             </StackPanel>
+        </Border>
+
+        <!-- Командная строка «Переместить» / «Копировать» (как в AutoCAD) -->
+        <Border x:Name="transformBar" Grid.Row="2" Visibility="Collapsed"
+                HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                Margin="8" Padding="8,4" Background="#F2FFFFFF"
+                BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Panel.ZIndex="25">
+            <DockPanel LastChildFill="True">
+                <Image x:Name="transformIcon" DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding Title}" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <Button DockPanel.Dock="Right" Content="✕" Padding="6,0" Margin="6,0,0,0" BorderThickness="0" Background="Transparent"
+                        VerticalAlignment="Center" ToolTip="{DynamicResource FemTransformCloseTip}" Click="TransformClose_Click"/>
+                <ToggleButton DockPanel.Dock="Right" Content="{DynamicResource FemTransformOrtho}" IsChecked="{Binding Ortho}"
+                              Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center" Focusable="False"/>
+                <TextBox x:Name="transformInput" DockPanel.Dock="Right" Width="170" VerticalAlignment="Center"
+                         PreviewKeyDown="TransformInput_PreviewKeyDown"/>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="{Binding Prompt}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="transformStatus" Foreground="Gray" FontSize="11"/>
+                    <TextBlock Text="{Binding Message}" Foreground="#D9480F" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <!-- Оверлей загрузки -->
