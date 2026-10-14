@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Консоль opencs: расчёт проекта без UI, одна сборка для Windows и Linux (Этап 0 дорожной карты API).
+       Имя сборки не «opencs»: на Windows opencs.dll и OpenCS.dll WPF — один файл. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(OpenCSTargetFramework)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenCS.Cli</RootNamespace>
+    <AssemblyName>OpenCS.Cli</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenCS.App\OpenCS.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Triangle.dll объявлен raw-ссылкой в CSTriangulation: в bin потребителя копируется,
+         но не попадает в .deps.json (нужно для рантайм-резолва в .NET). -->
+    <Reference Include="Triangle">
+      <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

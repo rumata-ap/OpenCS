@@ -8084,6 +8084,25 @@ namespace OpenCS.Utilites
          FemChecks.Clear();
       }
 
+      /// <summary>Заголовок последнего результата проверки по КЭ (id, статус, дата) без данных — для списков.</summary>
+      public CalcResult? GetCalcResultHeaderByFemCheck(int femCheckId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status FROM calc_results WHERE fem_check_id = @fid ORDER BY id DESC LIMIT 1";
+         cmd.Parameters.AddWithValue("@fid", femCheckId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read()) return null;
+         return new CalcResult
+         {
+            Id       = r.GetInt32(0),
+            TaskId   = r.GetInt32(1),
+            TaskKind = r.GetString(2),
+            TaskTag  = r.GetString(3),
+            Created  = r.GetString(4),
+            Status   = r.GetString(5)
+         };
+      }
+
       /// <summary>Загружает последний CalcResult для указанного FemCheck по fem_check_id.</summary>
       public CalcResult? GetCalcResultByFemCheck(int femCheckId)
       {

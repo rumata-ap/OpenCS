@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\OpenCS\OpenCS.csproj" />
     <ProjectReference Include="..\OpenCS.App\OpenCS.App.csproj" />
+    <ProjectReference Include="..\OpenCS.Cli\OpenCS.Cli.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.Reporting\OpenCS.Reporting.csproj" />
   </ItemGroup>

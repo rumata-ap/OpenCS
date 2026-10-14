@@ -27,6 +27,17 @@ public class AppLibraryBoundaryTests
     }
 
     [Fact]
+    public void CliAssembly_DoesNotReferenceUiAssemblies()
+    {
+        var cli = typeof(OpenCS.Cli.CliApp).Assembly;
+        Assert.Equal("OpenCS.Cli", cli.GetName().Name);
+
+        var leaked = cli.GetReferencedAssemblies().Select(r => r.Name)
+            .Where(name => UiAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase) || name == "OpenCS").ToList();
+        Assert.True(leaked.Count == 0, "OpenCS.Cli ссылается на UI-сборки: " + string.Join(", ", leaked));
+    }
+
+    [Fact]
     public void StringDictionaries_AreEmbeddedInAppAssembly()
     {
         var names = typeof(Loc).Assembly.GetManifestResourceNames();

@@ -158,7 +158,7 @@ public class LocTests
         var literal = new Regex(@"Loc\.S\(\s*""([^""]+)""\s*[,)]", RegexOptions.Compiled);
         var missing = new List<string>();
         int count = 0;
-        var sources = new[] { "OpenCS", "OpenCS.App" }
+        var sources = new[] { "OpenCS", "OpenCS.App", "OpenCS.Cli" }
             .SelectMany(dir => Directory.EnumerateFiles(Path.Combine(root, dir), "*.cs", SearchOption.AllDirectories));
         foreach (var file in sources)
         {
