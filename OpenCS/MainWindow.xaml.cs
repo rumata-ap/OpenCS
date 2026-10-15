@@ -221,6 +221,10 @@ namespace OpenCS
              vm.SelectFemBoundaryInEditor(boundaryGroup.Schema, boundaryGroup.Targets());
           else if (e.NewValue is ViewModels.FemBoundaryCategoryNode { Kind: not ViewModels.FemBoundaryKind.Foundation } boundaryCategory)
              vm.SelectFemBoundaryInEditor(boundaryCategory.Schema, boundaryCategory.Targets());
+          else if (e.NewValue is ViewModels.FemLoadCaseTreeItem loadCaseItem)
+             vm.ActivateFemLoadCase(loadCaseItem.Schema, loadCaseItem.LoadCase.Tag);
+          else if (e.NewValue is ViewModels.FemCombinationTreeItem combinationItem)
+             vm.ShowFemCombination(combinationItem.Schema, combinationItem.Definition.Tag);
           else if (e.NewValue is ViewModels.FemBoundarySubNode boundary)
              vm.SelectFemBoundaryInEditor(boundary.Schema, boundary.NodalSupports.Targets());
           else if (e.NewValue is ViewModels.FemMeshNodesSubNode meshNodesNode)
@@ -281,6 +285,14 @@ namespace OpenCS
                break;
             case ViewModels.FemBoundaryCategoryNode category:
                Views.FemMemberTreeMenus.FillBoundaryCategory(menu.Items, category, vm);
+               break;
+            case ViewModels.FemLoadCaseTreeItem loadCaseItem:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseActivate",
+                  () => vm.ActivateFemLoadCase(loadCaseItem.Schema, loadCaseItem.LoadCase.Tag)));
+               break;
+            case ViewModels.FemCombinationTreeItem combinationItem:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationShow",
+                  () => vm.ShowFemCombination(combinationItem.Schema, combinationItem.Definition.Tag)));
                break;
             case ViewModels.FemElementsSubNode all:
                Views.FemMemberTreeMenus.FillCategory(menu.Items, all.Owner.Schema,

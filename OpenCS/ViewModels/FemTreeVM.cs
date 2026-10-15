@@ -37,6 +37,14 @@ class FemSchemasGroupNode
 
     public void ReloadMeshSnapshot(int schemaId)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadMeshSnapshot();
+
+    /// <summary>Отмечает активное загружение схемы в дереве.</summary>
+    public void SetActiveLoadCase(int schemaId, string? tag)
+        => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.LoadCasesSubNode.SetActive(tag);
+
+    /// <summary>Перечитывает загружения и комбинации схемы.</summary>
+    public void ReloadLoads(int schemaId)
+        => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadLoads();
 }
 
 /// <summary>Подгруппа проверок по типу предельного состояния.</summary>
@@ -123,6 +131,8 @@ class FemSchemaTreeVM
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
     internal FemBoundarySubNode BoundarySubNode { get; }
+    internal FemLoadCasesSubNode LoadCasesSubNode { get; }
+    internal FemCombinationsSubNode CombinationsSubNode { get; }
     internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
     internal FemForcesSubNode   ForcesSubNode   { get; }
     internal FemAnalysesSubNode AnalysesSubNode { get; }
@@ -146,6 +156,8 @@ class FemSchemaTreeVM
         NodesSubNode    = new FemNodesSubNode(this);
         ElementsSubNode = new FemElementsSubNode(this);
         BoundarySubNode = new FemBoundarySubNode(schema);
+        LoadCasesSubNode = new FemLoadCasesSubNode(schema);
+        CombinationsSubNode = new FemCombinationsSubNode(schema);
         MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
         ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
         AnalysesSubNode = new FemAnalysesSubNode(schema);
@@ -159,6 +171,8 @@ class FemSchemaTreeVM
             BoundarySubNode,
             BoundarySubNode.Releases,
             BoundarySubNode.RigidBodies,
+            LoadCasesSubNode,
+            CombinationsSubNode,
             MeshSnapshotSubNode,
             MeshGroupsSubNode,
             MemberGroupsSubNode,
@@ -217,6 +231,13 @@ class FemSchemaTreeVM
         RefreshMeshSnapshotCounts();
     }
 
+    /// <summary>Перечитывает загружения, их счётчики и комбинации (после сохранения схемы и переноса нагрузок).</summary>
+    public void ReloadLoads()
+    {
+        LoadCasesSubNode.Reload(_db);
+        CombinationsSubNode.Reload(_db);
+    }
+
     /// <summary>Какие узлы групп показывать у схемы без групп: «Группы КЭ» — при импортированной сетке,
     /// «Группы КонЭ» — если есть КонЭ или схема не чистый импорт сетки (КонЭ можно построить).</summary>
     void RefreshGroupNodes()
@@ -236,6 +257,7 @@ class FemSchemaTreeVM
         MeshSnapshotSubNode.Elements.Shells.Count    = shells;
         RefreshGroupNodes();
         BoundarySubNode.Reload(_db, _nodes);
+        ReloadLoads();
     }
 
     /// <summary>Асинхронно загружает узлы схемы из БД.</summary>

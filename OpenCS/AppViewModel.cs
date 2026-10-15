@@ -542,6 +542,33 @@ namespace OpenCS
       }
 
       /// <summary>
+      /// Щелчок по загружению в дереве: оно становится активным (как в RFEM) — запоминается для схемы, жирным в дереве,
+      /// в редакторе схемы — источник глифов 3D и загружение по умолчанию для новых нагрузок.
+      /// </summary>
+      public void ActivateFemLoadCase(CScore.Fem.FemSchema schema, string tag)
+      {
+         OnFemActiveLoadCaseChanged(schema, tag);
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.SetActiveLoadCase(tag);
+      }
+
+      /// <summary>Активное загружение схемы сменилось (в дереве, в 3D, на вкладке «Загружения») — запомнить и отметить.</summary>
+      public void OnFemActiveLoadCaseChanged(CScore.Fem.FemSchema schema, string? tag)
+      {
+         if (db.GetFemActiveLoadCaseTag(schema.Id) != tag) db.SetFemActiveLoadCaseTag(schema.Id, tag);
+         femSchemasGroup?.SetActiveLoadCase(schema.Id, tag);
+      }
+
+      /// <summary>Щелчок по комбинации в дереве: её нагрузки в 3D редактора схемы; активное загружение не меняется.</summary>
+      public void ShowFemCombination(CScore.Fem.FemSchema schema, string definitionTag)
+      {
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.ShowLoadDefinition(definitionTag);
+      }
+
+      /// <summary>
       /// «Изменить…» у типа линейной связи: одни параметры всем его граням — командой редактора схемы (отмена,
       /// сохранение схемы пользователем).
       /// </summary>
@@ -3829,6 +3856,9 @@ namespace OpenCS
       /// <summary>Обновляет в дереве счётчики сохранённой расчётной сетки схемы.</summary>
       public void ReloadFemMeshSnapshotTree(int schemaId)
           => femSchemasGroup?.ReloadMeshSnapshot(schemaId);
+
+      /// <summary>Перечитывает загружения и комбинации схемы в дереве (перенос нагрузок, сохранение схемы).</summary>
+      public void ReloadFemLoadTree(int schemaId) => femSchemasGroup?.ReloadLoads(schemaId);
 
       internal void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
       {

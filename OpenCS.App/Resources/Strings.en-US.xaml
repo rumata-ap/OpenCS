@@ -2562,6 +2562,17 @@
     <system:String x:Key="FemBoundaryUnitKrLine">kN·m/rad/m</system:String>
     <system:String x:Key="FemBoundaryLineDelete">Delete line supports</system:String>
     <system:String x:Key="FemBoundaryLineGroupHeader">Line support type: {0}</system:String>
+    <system:String x:Key="FemLoadCasesNode">Load cases</system:String>
+    <system:String x:Key="FemCombinationsNode">Combinations</system:String>
+    <system:String x:Key="FemLoadTreeNodal">Nodal</system:String>
+    <system:String x:Key="FemLoadTreeMember">On bars</system:String>
+    <system:String x:Key="FemLoadTreeArea">On elements (area)</system:String>
+    <system:String x:Key="FemLoadTreeKinematic">Kinematic</system:String>
+    <system:String x:Key="FemLoadTreeMeshNodal">Mesh nodal</system:String>
+    <system:String x:Key="FemLoadTreeSelfWeight">Self-weight ×{0:0.###}</system:String>
+    <system:String x:Key="FemLoadCaseActivate">Make active</system:String>
+    <system:String x:Key="FemLoadCaseActiveTip">Active load case: its loads are shown in 3D, new loads go into it</system:String>
+    <system:String x:Key="FemCombinationShow">Show loads on the schema</system:String>
     <system:String x:Key="FemBoundaryRigidBodyPlural">Rigid bodies</system:String>
     <system:String x:Key="FemBoundaryCoupledPlural">Couplings</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>

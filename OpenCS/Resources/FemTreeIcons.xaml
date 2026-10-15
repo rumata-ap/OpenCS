@@ -166,6 +166,114 @@
       </DrawingImage.Drawing>
    </DrawingImage>
 
+   <!-- Загружения: стопка из двух стрелок нагрузки на балку. -->
+   <DrawingImage x:Key="FemIcon_LoadCases">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M4,2 V8 M2.3,6.3 L4,8 L5.7,6.3">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M10,4 V10 M8.3,8.3 L10,10 L11.7,8.3">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Постоянное загружение (G): сплошной груз на балке. -->
+   <DrawingImage x:Key="FemIcon_LoadPermanent">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRedLight}" Geometry="M3,6 H13 V12 H3 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Длительное загружение (L): равномерная нагрузка с полкой. -->
+   <DrawingImage x:Key="FemIcon_LoadLong">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M2,4 H14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M4,4 V11 M2.6,9.6 L4,11 L5.4,9.6 M8,4 V11 M6.6,9.6 L8,11 L9.4,9.6 M12,4 V11 M10.6,9.6 L12,11 L13.4,9.6">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Кратковременное загружение (Q): одна сила. -->
+   <DrawingImage x:Key="FemIcon_LoadShort">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M8,2 V11 M5.5,8.5 L8,11 L10.5,8.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Особое загружение (A): молния. -->
+   <DrawingImage x:Key="FemIcon_LoadAccidental">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRedLight}" Geometry="M9.5,1.5 L5,8 H8.5 L6.5,12 L11.5,5.5 H8 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Комбинации: знак суммы. -->
+   <DrawingImage x:Key="FemIcon_Combinations">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M12.5,3 H3.5 L8.5,8 L3.5,13 H12.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Комбинация: плюс в рамке. -->
+   <DrawingImage x:Key="FemIcon_Combination">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconRedLight}" Geometry="M2.5,2.5 H13.5 V13.5 H2.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M8,5 V11 M5,8 H11">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
    <!-- Пружины: упругая связь узла с основанием. -->
    <DrawingImage x:Key="FemIcon_Springs">
       <DrawingImage.Drawing>

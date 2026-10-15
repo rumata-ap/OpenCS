@@ -2562,6 +2562,17 @@
     <system:String x:Key="FemBoundaryUnitKrLine">кН·м/рад/м</system:String>
     <system:String x:Key="FemBoundaryLineDelete">Удалить линейные связи</system:String>
     <system:String x:Key="FemBoundaryLineGroupHeader">Тип линейной связи: {0}</system:String>
+    <system:String x:Key="FemLoadCasesNode">Загружения</system:String>
+    <system:String x:Key="FemCombinationsNode">Комбинации</system:String>
+    <system:String x:Key="FemLoadTreeNodal">Узловые</system:String>
+    <system:String x:Key="FemLoadTreeMember">На стержни</system:String>
+    <system:String x:Key="FemLoadTreeArea">На КЭ (площадные)</system:String>
+    <system:String x:Key="FemLoadTreeKinematic">Кинематические</system:String>
+    <system:String x:Key="FemLoadTreeMeshNodal">Узловые сетки</system:String>
+    <system:String x:Key="FemLoadTreeSelfWeight">Собственный вес ×{0:0.###}</system:String>
+    <system:String x:Key="FemLoadCaseActivate">Сделать активным</system:String>
+    <system:String x:Key="FemLoadCaseActiveTip">Активное загружение: его нагрузки показаны в 3D, новые нагрузки попадают в него</system:String>
+    <system:String x:Key="FemCombinationShow">Показать нагрузки на схеме</system:String>
     <system:String x:Key="FemBoundaryRigidBodyPlural">Жёсткие тела</system:String>
     <system:String x:Key="FemBoundaryCoupledPlural">Объединения</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>

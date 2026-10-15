@@ -88,6 +88,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 
         // Вид строится по сессии при показе (LoadAsync): сетка-подложка читается в фоне, без замирания.
         _fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true, SessionSource = () => _editorVm.Session };
+        RestoreActiveLoadCase();
         view3D.Editor = _editorVm;
         view3D.DataContext = _fem3d;
         _editorVm.MeshDiscretized += async (_, _) =>
@@ -180,6 +181,43 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         if (message != null)
             MessageBox.Show(Window.GetWindow(this), message, Loc.S(copy ? "FemFragmentCopyTitle" : "FemFragmentMoveTitle"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>
+    /// Активное загружение (как в RFEM) — запомненное для схемы или первое: загружение по умолчанию редактора нагрузок и
+    /// источник глифов 3D. Смена в 3D или на вкладке «Загружения» синхронизирует второе и отмечается в дереве.
+    /// </summary>
+    void RestoreActiveLoadCase()
+    {
+        string? tag = FemLoadTree.ActiveTag(_editorVm.Session.LoadCases, _app.db.GetFemActiveLoadCaseTag(_schema.Id));
+        _fem3d.PreferredLoadCaseTag = tag;
+        _editorVm.SelectedLoadCase = _editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag);
+        _editorVm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(FemSchemaEditorVM.SelectedLoadCase) || _editorVm.SelectedLoadCase is not { } lc) return;
+            if (_fem3d.SelectedDiagramLoadSource?.LoadCase != lc) _fem3d.SelectDiagramLoadCase(lc);
+            _app.OnFemActiveLoadCaseChanged(_schema, lc.Tag);
+        };
+        _fem3d.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(Fem3DVM.SelectedDiagramLoadSource)) return;
+            if (_fem3d.SelectedDiagramLoadSource?.LoadCase is { } lc && _editorVm.SelectedLoadCase != lc)
+                _editorVm.SelectedLoadCase = lc;
+        };
+    }
+
+    /// <summary>Активное загружение по имени (щелчок в дереве).</summary>
+    public void SetActiveLoadCase(string tag)
+    {
+        _fem3d.PreferredLoadCaseTag = tag;
+        if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is { } lc) _editorVm.SelectedLoadCase = lc;
+    }
+
+    /// <summary>Нагрузки комбинации в 3D (щелчок по комбинации в дереве).</summary>
+    public void ShowLoadDefinition(string tag)
+    {
+        tabs.SelectedIndex = 0;
+        _fem3d.SelectDiagramDefinition(tag);
     }
 
     /// <summary>Выделяет объекты ГУ из дерева схемы; вкладка не переключается — выбор виден в 3D при переходе на неё.</summary>

@@ -1605,6 +1605,78 @@
                      </StackPanel>
                   </DataTemplate>
 
+                  <!-- «Загружения (N)»: щелчок по загружению делает его активным (жирным), его нагрузки — в 3D -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemLoadCasesSubNode}" ItemsSource="{Binding Items}">
+                     <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_LoadCases}"/>
+                        <TextBlock Text="{DynamicResource FemLoadCasesNode}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemLoadCaseTreeItem}" ItemsSource="{Binding Details}">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_LoadShort}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Sp20Type}" Value="permanent">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_LoadPermanent}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Sp20Type}" Value="long_term">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_LoadLong}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_LoadAccidental}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
+                        <TextBlock Text="{Binding Label}">
+                           <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                       <Setter Property="FontWeight" Value="Bold"/>
+                                       <Setter Property="ToolTip" Value="{DynamicResource FemLoadCaseActiveTip}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="{Binding OriginText, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <DataTemplate DataType="{x:Type vm:FemLoadCaseDetail}">
+                     <TextBlock Text="{Binding Text}" Foreground="DimGray" Margin="1"/>
+                  </DataTemplate>
+
+                  <!-- «Комбинации (N)»: щелчок — нагрузки комбинации в 3D (без смены активного загружения) -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationsSubNode}" ItemsSource="{Binding Items}">
+                     <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combinations}"/>
+                        <TextBlock Text="{DynamicResource FemCombinationsNode}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationTreeItem}" ItemsSource="{Binding Terms}">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combination}"/>
+                        <TextBlock Text="{Binding Label}"/>
+                        <TextBlock Text="{Binding TypeText, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
                   <!-- Подузел «Сетка конечных элементов» — отдельный слепок, не меняет конструктивную модель -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
                                             ItemsSource="{Binding Children}">

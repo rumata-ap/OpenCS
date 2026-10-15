@@ -804,9 +804,23 @@ public class Fem3DVM : ViewModelBase
             .Select(loadCase => new FemDiagramLoadSource(loadCase.Tag, loadCase, null))
             .Concat(definitions.Select(definition => new FemDiagramLoadSource(definition.Tag, null, definition)))
             .ToList();
-        SelectedDiagramLoadSource = DiagramLoadSources.FirstOrDefault(source =>
+        // Первый показ — активное загружение схемы (запомненное), иначе прежний выбор или первое загружение.
+        var preferred = SelectedDiagramLoadSource == null && PreferredLoadCaseTag is { } tag
+            ? DiagramLoadSources.FirstOrDefault(source => source.LoadCase?.Tag == tag)
+            : null;
+        SelectedDiagramLoadSource = preferred ?? DiagramLoadSources.FirstOrDefault(source =>
             source.LoadCase?.Id == selectedLoadCaseId || source.Definition?.Id == selectedDefinitionId);
         OnPropertyChanged(nameof(DiagramLoadSources));
+    }
+
+    /// <summary>Активное загружение схемы (имя) — источник глифов при первом показе.</summary>
+    public string? PreferredLoadCaseTag { get; set; }
+
+    /// <summary>Показывает нагрузки комбинации (определения) по имени; активное загружение не меняется.</summary>
+    public void SelectDiagramDefinition(string tag)
+    {
+        if (DiagramLoadSources.FirstOrDefault(source => source.Definition?.Tag == tag) is { } source)
+            SelectedDiagramLoadSource = source;
     }
 
     /// <summary>Выбирает исходное загружение как источник глифов в 3D-виде.</summary>

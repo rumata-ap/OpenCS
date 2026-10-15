@@ -227,7 +227,7 @@ internal static class FemMemberTreeMenus
         app.RefreshFemSchemaTreeCounts(schema);
     }
 
-    static MenuItem Item(string key, Action action)
+    internal static MenuItem Item(string key, Action action)
     {
         var item = CommandIcons.Item(key);
         item.Click += (_, _) => action();
