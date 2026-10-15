@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using CScore.Fem;
+using CScore.Planar;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -149,19 +150,45 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
         Children = [NodalSupports, LineSupports, Foundation];
     }
 
+    // ГУ сетки (пишутся в БД сразу) — для обновления по сессии редактора без повторного чтения тысяч пружин.
+    List<FemMeshNodeSupport> _meshSupports = [];
+    List<FemSpring> _springs = [];
+
     /// <summary>Перечитывает ГУ схемы из БД.</summary>
     internal void Reload(DatabaseService db, IReadOnlyList<FemNode> nodes)
     {
         int id = Schema.Id;
-        NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, db.GetFemMeshNodeSupports(id), db.GetFemSprings(id)));
-        var lines = db.GetFemLineSupports(id);
-        LineSupports.Reset(lines.Count == 0 ? [] : FemBoundaryTree.LineGroups(Schema, lines,
-            FemLineSupportGeometry.EdgesByMember(db.GetFemMembers(id), db.GetPlanarRegions(id))));
+        _meshSupports = db.GetFemMeshNodeSupports(id);
+        _springs = db.GetFemSprings(id);
+        ResetSupports(db, nodes, db.GetFemMembers(id), db.GetFemLineSupports(id));
         Foundation.Reset([], db.GetFemFoundationElementCount(id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
         RigidBodies.Reset(FemBoundaryTree.RigidBodyItems(Schema, db.GetFemRigidBodies(id)));
+        UpdateVisible();
+    }
 
+    /// <summary>
+    /// Узловые и линейные связи по несохранённой сессии редактора схемы — тип появляется и меняется в дереве сразу после
+    /// команды; ГУ сетки — из последнего чтения БД.
+    /// </summary>
+    internal void ReloadSupports(DatabaseService db, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        IReadOnlyList<FemLineSupport> lineSupports)
+    {
+        ResetSupports(db, nodes, members, lineSupports);
+        UpdateVisible();
+    }
+
+    void ResetSupports(DatabaseService db, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        IReadOnlyList<FemLineSupport> lineSupports)
+    {
+        NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, _meshSupports, _springs));
+        LineSupports.Reset(lineSupports.Count == 0 ? [] : FemBoundaryTree.LineGroups(Schema, lineSupports,
+            FemLineSupportGeometry.EdgesByMember(members, db.GetPlanarRegions(Schema.Id))));
+    }
+
+    void UpdateVisible()
+    {
         bool visible = Children.Any(c => c.IsVisible);
         if (visible == _visible) return;
         _visible = visible;
@@ -389,4 +416,94 @@ public static class FemBoundaryTree
     static int SupportOrder(int mask) => mask switch { FemBoundaryDofs.All => 0, 7 => 1, _ => 2 };
 
     static string Number(double value) => value.ToString("G6", CultureInfo.CurrentCulture);
+}
+
+/// <summary>
+/// Списки объектов типа ГУ для правки текстом, как поле «Узлы №» RFEM: узлы — «1-4 7 12» (числовые теги сворачиваются
+/// в диапазоны), грани — «КонЭ/сторона» и «КонЭ/о отверстие/сторона» («12/3 12/о1/2», стороны и отверстия с 1).
+/// </summary>
+public static class FemBoundaryObjectList
+{
+    static readonly char[] Separators = [' ', ',', ';', '\t', '\r', '\n'];
+
+    /// <summary>Теги узлов: числовые по возрастанию с диапазонами, затем прочие.</summary>
+    public static string FormatTags(IEnumerable<string> tags)
+    {
+        var list = tags.Distinct(StringComparer.Ordinal).ToList();
+        var numbers = list.Select(t => int.TryParse(t, NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : (int?)null)
+            .Where(n => n != null).Select(n => n!.Value).Distinct().Order().ToList();
+        var parts = new List<string>();
+        for (int i = 0; i < numbers.Count;)
+        {
+            int j = i;
+            while (j + 1 < numbers.Count && numbers[j + 1] == numbers[j] + 1) j++;
+            parts.Add(j - i >= 2 ? $"{numbers[i]}-{numbers[j]}"
+                : string.Join(" ", numbers.Skip(i).Take(j - i + 1)));
+            i = j + 1;
+        }
+        parts.AddRange(list.Where(t => !int.TryParse(t, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            .Order(StringComparer.Ordinal));
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>Теги узлов из текста; диапазон «a-b» — числовые теги от a до b. null и <paramref name="error"/> — ошибка.</summary>
+    public static List<string>? ParseTags(string text, out string? error)
+    {
+        error = null;
+        var result = new List<string>();
+        foreach (var token in text.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            int dash = token.IndexOf('-', 1);
+            if (dash > 0)
+            {
+                if (!int.TryParse(token[..dash], NumberStyles.None, CultureInfo.InvariantCulture, out int a) ||
+                    !int.TryParse(token[(dash + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out int b) || b < a ||
+                    b - a > 1_000_000)
+                {
+                    error = string.Format(Loc.S("FemBoundaryObjectsBadRange"), token);
+                    return null;
+                }
+                for (int n = a; n <= b; n++) result.Add(n.ToString(CultureInfo.InvariantCulture));
+            }
+            else result.Add(token);
+        }
+        return result.Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>«12/3» — сторона 3 внешнего контура КонЭ 12, «12/о1/2» — сторона 2 отверстия 1.</summary>
+    public static string FormatEdge(FemPlateEdgeKey key) => key.Loop == BoundaryLoop.Outer
+        ? $"{key.MemberTag}/{key.StartVertex + 1}"
+        : $"{key.MemberTag}/о{key.HoleIndex + 1}/{key.StartVertex + 1}";
+
+    public static string FormatEdges(IEnumerable<FemPlateEdgeKey> keys) => string.Join(" ", keys.Distinct()
+        .OrderBy(k => int.TryParse(k.MemberTag, out int n) ? n : int.MaxValue).ThenBy(k => k.MemberTag, StringComparer.Ordinal)
+        .ThenBy(k => k.Loop).ThenBy(k => k.HoleIndex).ThenBy(k => k.StartVertex).Select(FormatEdge));
+
+    /// <summary>Грани из текста (отверстие — «о», «o» или «h» с номером). null и <paramref name="error"/> — ошибка.</summary>
+    public static List<FemPlateEdgeKey>? ParseEdges(string text, out string? error)
+    {
+        error = null;
+        var result = new List<FemPlateEdgeKey>();
+        foreach (var token in text.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = token.Split('/');
+            FemPlateEdgeKey? key = parts.Length switch
+            {
+                2 when Positive(parts[1]) is int side => new(parts[0], BoundaryLoop.Outer, 0, side - 1),
+                3 when parts[1].Length > 1 && "оOoHhО".Contains(parts[1][0]) && Positive(parts[1][1..]) is int hole &&
+                       Positive(parts[2]) is int side => new(parts[0], BoundaryLoop.Hole, hole - 1, side - 1),
+                _ => null,
+            };
+            if (key == null || parts[0].Length == 0)
+            {
+                error = string.Format(Loc.S("FemBoundaryObjectsBadEdge"), token);
+                return null;
+            }
+            result.Add(key.Value);
+        }
+        return result.Distinct().ToList();
+    }
+
+    static int? Positive(string s) =>
+        int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n > 0 ? n : null;
 }

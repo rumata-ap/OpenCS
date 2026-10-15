@@ -584,6 +584,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
+        Session.Changed += () => app.ScheduleFemSupportsTreeRefresh(Session);
 
         UndoCommand = new RelayCommand(_ => UndoHistoryStep(), _ => Session.CanUndo);
         RedoCommand = new RelayCommand(_ => RedoHistoryStep(), _ => Session.CanRedo);

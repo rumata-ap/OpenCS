@@ -2577,6 +2577,23 @@
     <system:String x:Key="FemBoundaryCoupledPlural">Couplings</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>
     <system:String x:Key="FemBoundaryEdit">Edit…</system:String>
+    <system:String x:Key="FemBoundaryObjects">Objects…</system:String>
+    <system:String x:Key="FemBoundaryAssignSelected">Assign to selected</system:String>
+    <system:String x:Key="FemBoundaryRemoveSelected">Remove from selected</system:String>
+    <system:String x:Key="FemBoundaryObjectsTitle">Support type objects</system:String>
+    <system:String x:Key="FemBoundaryObjectsHeader">Type "{0}"</system:String>
+    <system:String x:Key="FemBoundaryObjectsNodes">Member nodes No.:</system:String>
+    <system:String x:Key="FemBoundaryObjectsMeshNodes">Mesh nodes No.:</system:String>
+    <system:String x:Key="FemBoundaryObjectsEdges">Plate edges (member/side, hole — member/о1/side):</system:String>
+    <system:String x:Key="FemBoundaryObjectsHint">Numbers separated by spaces or commas, range — "1-4". Removed objects lose the support, added ones get the type parameters (the previous support of an object is replaced).</system:String>
+    <system:String x:Key="FemBoundaryObjectsBadRange">Invalid range "{0}".</system:String>
+    <system:String x:Key="FemBoundaryObjectsBadEdge">Invalid edge "{0}": expected "member/side" or "member/о1/side".</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingNodes">No member nodes: {0}.</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingMeshNodes">No mesh nodes: {0}.</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingEdges">No plate edges: {0}.</system:String>
+    <system:String x:Key="FemBoundaryAssignNoNodes">Select member nodes in the schema editor.</system:String>
+    <system:String x:Key="FemBoundaryAssignNoMeshNodes">Select mesh nodes (a type with springs applies to mesh nodes only).</system:String>
+    <system:String x:Key="FemBoundaryAssignNoEdges">Select plate edges in the "Plate edges" mode of the schema editor.</system:String>
     <system:String x:Key="FemBoundaryShowOnSchema">Show on schema</system:String>
     <system:String x:Key="FemBoundaryGroupHeader">Nodal support “{0}”, nodes: {1}</system:String>
     <system:String x:Key="MosaicSourceSprings">Node springs</system:String>
@@ -3261,6 +3278,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySpringInFixed">A spring along a restrained direction is meaningless: {0}. Remove the restraint or zero the stiffness.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">Mesh node {0} boundary conditions set manually: restraint {1}, springs {2}.</system:String>
     <system:String x:Key="FemLineSupportTitle">Line support</system:String>
+    <system:String x:Key="FemSchemaConfirmSaveOnLeave" xml:space="preserve">Schema "{0}" has unsaved changes. Save the schema?&#x0a;&#x0a;"Yes" — save, "No" — discard the changes, "Cancel" — return to the schema.</system:String>
     <system:String x:Key="FemLineSupportPresets">Presets:</system:String>
     <system:String x:Key="FemLineSupportPresetPlate">Simple support</system:String>
     <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z and edge rotation — slab edge or wall base: deflection as for a hinged contour (no "soft" support of a Mindlin plate)</system:String>

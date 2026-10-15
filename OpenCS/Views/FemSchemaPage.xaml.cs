@@ -256,7 +256,54 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         var nodes = _editorVm.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
         if (nodes.Count == 0) return;
         _editorVm.Session.Execute(new SetDofMasksCommand(nodes, mask));
+        _editorVm.RefreshCollections();
         _editorVm.Selection.Set(tags, [], [], []);
+    }
+
+    /// <summary>Сессия редактора — объекты для проверки списков типа ГУ из дерева.</summary>
+    public CScore.Fem.Editing.FemSchemaEditSession EditorSession => _editorVm.Session;
+
+    /// <summary>Выбор в редакторе — «Назначить выделенным» у типа ГУ в дереве.</summary>
+    public FemSchemaSelectionVM EditorSelection => _editorVm.Selection;
+
+    /// <summary>
+    /// Состав типа узловой связи (из дерева): узлам <paramref name="add"/> — маска типа, у <paramref name="remove"/>
+    /// закрепления снимаются — одной отменой; затронутые узлы выделяются.
+    /// </summary>
+    public void AssignNodeMasks(IReadOnlyCollection<string> add, IReadOnlyCollection<string> remove, int mask)
+    {
+        var addSet = add.ToHashSet(StringComparer.Ordinal);
+        var removeSet = remove.Where(t => !addSet.Contains(t)).ToHashSet(StringComparer.Ordinal);
+        var addNodes = _editorVm.Session.Nodes.Where(n => addSet.Contains(n.NodeTag) && n.DofMask != mask).ToList();
+        var removeNodes = _editorVm.Session.Nodes.Where(n => removeSet.Contains(n.NodeTag) && n.DofMask != 0).ToList();
+        var commands = new List<IFemEditCommand>();
+        if (removeNodes.Count > 0) commands.Add(new SetDofMasksCommand(removeNodes, 0));
+        if (addNodes.Count > 0) commands.Add(new SetDofMasksCommand(addNodes, mask));
+        if (commands.Count == 0) return;
+        _editorVm.Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
+        _editorVm.RefreshCollections();
+        _editorVm.Selection.Set(addSet.Concat(removeSet), [], [], []);
+    }
+
+    /// <summary>
+    /// Состав типа линейной связи (из дерева): граням <paramref name="add"/> — параметры типа, с <paramref name="remove"/>
+    /// связь снимается — одной отменой; грани ищутся по сессии, затронутые выделяются.
+    /// </summary>
+    public void AssignLineSupports(IReadOnlyCollection<CScore.Fem.FemPlateEdgeKey> add,
+        IReadOnlyCollection<CScore.Fem.FemPlateEdgeKey> remove, CScore.Fem.FemLineSupport template)
+    {
+        var addSet = add.ToHashSet();
+        var removeSet = remove.Where(k => !addSet.Contains(k)).ToHashSet();
+        var edges = CScore.Fem.FemLineSupportGeometry.EdgesByMember(_editorVm.Session.Members, _app.db.GetPlanarRegions(_editorVm.Session.Schema.Id))
+            .Values.SelectMany(x => x).Where(e => addSet.Contains(e.Key)).ToList();
+        var removed = _editorVm.Session.LineSupports.Where(s => removeSet.Contains(s.Key)).ToList();
+        var commands = new List<IFemEditCommand>();
+        if (removed.Count > 0) commands.Add(new RemoveLineSupportsCommand(removed));
+        if (edges.Count > 0) commands.Add(new SetLineSupportsCommand(edges, template));
+        if (commands.Count == 0) return;
+        _editorVm.Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
+        _editorVm.RefreshCollections();
+        _editorVm.Selection.Set([], [], [], [], addSet.Concat(removeSet));
     }
 
     /// <summary>Запуск «Переместить» / «Копировать» из дерева: вкладка 3D, объекты выбираются, команда ждёт базовую точку.</summary>

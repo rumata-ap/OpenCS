@@ -45,6 +45,10 @@ class FemSchemasGroupNode
     /// <summary>Перечитывает загружения и комбинации схемы.</summary>
     public void ReloadLoads(int schemaId)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadLoads();
+
+    /// <summary>Узловые и линейные связи схемы — по несохранённой сессии редактора.</summary>
+    public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
+        => Schemas.FirstOrDefault(schema => schema.Schema.Id == session.Schema.Id)?.ReloadSupports(session);
 }
 
 /// <summary>Подгруппа проверок по типу предельного состояния.</summary>
@@ -328,6 +332,10 @@ class FemSchemaTreeVM
 
     /// <summary>Перечитывает счётчики после сохранения mesh-снимка.</summary>
     public void ReloadMeshSnapshot() => RefreshMeshSnapshotCounts();
+
+    /// <summary>Узловые и линейные связи по сессии редактора (до сохранения схемы).</summary>
+    public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
+        => BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports);
 }
 
 /// <summary>Базовый класс подузла расчётной схемы.</summary>

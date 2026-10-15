@@ -585,6 +585,148 @@ namespace OpenCS
             page.SetLineSupports(keys, dialog.Result);
       }
 
+      /// <summary>Страница открытого редактора схемы (открывает его при необходимости); null — пользователь остался в другом.</summary>
+      Views.FemSchemaPage? OpenFemSchemaPage(CScore.Fem.FemSchema schema)
+      {
+         CurrentFemSchema = schema;
+         return currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page ? page : null;
+      }
+
+      /// <summary>
+      /// «Объекты…» у типа узловой или линейной связи — список узлов (граней) текстом, как «Узлы №» типа опоры RFEM:
+      /// убранные теряют связь, добавленные получают параметры типа. Узлы КонЭ и грани — командой редактора (одна
+      /// отмена), узлы сетки — сразу в БД, как правка типа.
+      /// </summary>
+      public void EditFemBoundaryGroupObjects(ViewModels.FemBoundaryGroupItem group)
+      {
+         if (OpenFemSchemaPage(group.Schema) is not { } page) return;
+         var targets = group.Targets();
+         var session = page.EditorSession;
+         string header = string.Format(Loc.S("FemBoundaryObjectsHeader"), group.Label);
+         var owner = System.Windows.Application.Current.MainWindow;
+
+         if (group.Kind == ViewModels.FemBoundaryKind.LineSupports)
+         {
+            var edges = CScore.Fem.FemLineSupportGeometry.EdgesByMember(session.Members, db.GetPlanarRegions(group.Schema.Id))
+               .Values.SelectMany(x => x).Select(e => e.Key).ToHashSet();
+            List<CScore.Fem.FemPlateEdgeKey>? parsed = null;
+            var dialog = new Views.FemBoundaryObjectsDialog(header, group.OriginText)
+            {
+               Owner = owner,
+               Validate = texts =>
+               {
+                  parsed = ViewModels.FemBoundaryObjectList.ParseEdges(texts[0], out var error);
+                  if (parsed == null) return error;
+                  var missing = parsed.Where(k => !edges.Contains(k)).ToList();
+                  return missing.Count == 0 ? null : string.Format(Loc.S("FemBoundaryObjectsMissingEdges"),
+                     ViewModels.FemBoundaryObjectList.FormatEdges(missing.Take(10)));
+               },
+            }.Field(Loc.S("FemBoundaryObjectsEdges"), ViewModels.FemBoundaryObjectList.FormatEdges(targets.PlateEdges));
+            if (dialog.ShowDialog() != true || parsed == null) return;
+            var keep = parsed.ToHashSet();
+            page.AssignLineSupports(parsed.Where(k => !targets.PlateEdges.Contains(k)).ToList(),
+               targets.PlateEdges.Where(k => !keep.Contains(k)).ToList(), group.LineSupport!);
+            return;
+         }
+
+         // Узлы КонЭ — только у типа без пружин (пружины узлов КонЭ в редакторе не задаются); узлы сетки — если они есть у типа.
+         bool structural = group.Stiffnesses.All(k => k == 0);
+         bool mesh = targets.MeshNodeTags.Count > 0;
+         var structuralTags = session.Nodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
+         var meshTags = mesh
+            ? db.GetFemMeshNodes(group.Schema.Id).Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+         List<string>? newStructural = null, newMesh = null;
+         var nodesDialog = new Views.FemBoundaryObjectsDialog(header, group.OriginText)
+         {
+            Owner = owner,
+            Validate = texts =>
+            {
+               int i = 0;
+               if (structural)
+               {
+                  newStructural = ViewModels.FemBoundaryObjectList.ParseTags(texts[i++], out var error);
+                  if (newStructural == null) return error;
+                  if (Missing(newStructural, structuralTags) is { } text) return string.Format(Loc.S("FemBoundaryObjectsMissingNodes"), text);
+               }
+               if (mesh)
+               {
+                  newMesh = ViewModels.FemBoundaryObjectList.ParseTags(texts[i], out var error);
+                  if (newMesh == null) return error;
+                  if (Missing(newMesh, meshTags) is { } text) return string.Format(Loc.S("FemBoundaryObjectsMissingMeshNodes"), text);
+               }
+               return null;
+            },
+         };
+         if (structural) nodesDialog.Field(Loc.S("FemBoundaryObjectsNodes"), ViewModels.FemBoundaryObjectList.FormatTags(targets.NodeTags));
+         if (mesh) nodesDialog.Field(Loc.S("FemBoundaryObjectsMeshNodes"), ViewModels.FemBoundaryObjectList.FormatTags(targets.MeshNodeTags));
+         if (nodesDialog.ShowDialog() != true) return;
+
+         if (newMesh != null)
+            ApplyFemMeshNodeGroup(group, newMesh.Except(targets.MeshNodeTags).ToList(), targets.MeshNodeTags.Except(newMesh).ToList());
+         if (newStructural != null)
+            page.AssignNodeMasks(newStructural.Except(targets.NodeTags).ToList(), targets.NodeTags.Except(newStructural).ToList(), group.Mask);
+
+         static string? Missing(List<string> tags, HashSet<string> known)
+         {
+            var missing = tags.Where(t => !known.Contains(t)).ToList();
+            return missing.Count == 0 ? null : ViewModels.FemBoundaryObjectList.FormatTags(missing.Take(20));
+         }
+      }
+
+      /// <summary>
+      /// «Назначить выделенным» / «Снять с выделенных» у типа ГУ: узлы КонЭ, узлы сетки и грани, выбранные в редакторе
+      /// схемы, получают параметры типа или (снятие — только объекты этого типа) теряют связь.
+      /// </summary>
+      public void AssignFemBoundaryGroupToSelection(ViewModels.FemBoundaryGroupItem group, bool remove)
+      {
+         if (OpenFemSchemaPage(group.Schema) is not { } page) return;
+         var selection = page.EditorSelection;
+         var targets = group.Targets();
+         if (group.Kind == ViewModels.FemBoundaryKind.LineSupports)
+         {
+            var edges = selection.SelectedPlateEdges.ToList();
+            if (remove) edges = edges.Where(targets.PlateEdges.Contains).ToList();
+            if (edges.Count == 0)
+            {
+               LogService.Info(Loc.S("FemBoundaryAssignNoEdges"));
+               return;
+            }
+            page.AssignLineSupports(remove ? [] : edges, remove ? edges : [], group.LineSupport!);
+            return;
+         }
+
+         bool structural = group.Stiffnesses.All(k => k == 0);
+         var nodes = structural ? selection.SelectedNodeTags.ToList() : [];
+         var meshNodes = selection.SelectedMeshNodeTags.ToList();
+         if (remove)
+         {
+            nodes = nodes.Intersect(targets.NodeTags, StringComparer.Ordinal).ToList();
+            meshNodes = meshNodes.Intersect(targets.MeshNodeTags, StringComparer.Ordinal).ToList();
+         }
+         if (nodes.Count + meshNodes.Count == 0)
+         {
+            LogService.Info(Loc.S(structural ? "FemBoundaryAssignNoNodes" : "FemBoundaryAssignNoMeshNodes"));
+            return;
+         }
+         if (meshNodes.Count > 0) ApplyFemMeshNodeGroup(group, remove ? [] : meshNodes, remove ? meshNodes : []);
+         if (nodes.Count > 0) page.AssignNodeMasks(remove ? [] : nodes, remove ? nodes : [], group.Mask);
+      }
+
+      /// <summary>Узлам сетки <paramref name="add"/> — закрепления и пружины типа, у <paramref name="remove"/> — сняты;
+      /// сразу в БД (ручные ГУ), постановки схемы сбрасываются.</summary>
+      void ApplyFemMeshNodeGroup(ViewModels.FemBoundaryGroupItem group, IReadOnlyCollection<string> add,
+         IReadOnlyCollection<string> remove)
+      {
+         if (add.Count + remove.Count == 0) return;
+         var schema = group.Schema;
+         if (remove.Count > 0) db.SetFemMeshNodesBoundary(schema.Id, remove, 0, new double[6]);
+         if (add.Count > 0) db.SetFemMeshNodesBoundary(schema.Id, add, group.Mask, group.Stiffnesses);
+         int invalidated = InvalidateFemSchemaAnalyses(schema);
+         if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
+         ReloadFemMeshSnapshotTree(schema.Id);
+      }
+
       /// <summary>«Удалить линейные связи» у типа (или потерявших грань) — командой редактора схемы.</summary>
       public void DeleteFemLineSupportGroup(ViewModels.FemBoundaryGroupItem group)
       {
@@ -621,17 +763,21 @@ namespace OpenCS
             activeFemSchemaEditor = null;
       }
 
-      bool TryLeaveFemSchemaEditor()
+      /// <summary>
+      /// Уход из редактора схемы (другая страница, закрытие окна): несохранённые правки — сохранить, отбросить или остаться.
+      /// Отброшенные правки убираются и из дерева (оно показывает связи по сессии).
+      /// </summary>
+      public bool TryLeaveFemSchemaEditor()
       {
          var editor = activeFemSchemaEditor;
          if (editor == null || !editor.Session.IsDirty)
             return true;
 
          var result = MessageBox.Show(
-            Loc.S("ConfirmSaveOnExit"),
+            string.Format(Loc.S("FemSchemaConfirmSaveOnLeave"), editor.Session.Schema.Tag),
             Loc.S("Confirmation"),
             MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+            MessageBoxImage.Warning);
 
          if (result == MessageBoxResult.Cancel)
             return false;
@@ -640,6 +786,12 @@ namespace OpenCS
             editor.Save();
             if (editor.Session.IsDirty)
                return false;
+         }
+         else
+         {
+            activeFemSchemaEditor = null;
+            pendingSupportsRefresh = null;
+            RefreshFemSchemaTreeCounts(editor.Session.Schema);
          }
 
          activeFemSchemaEditor = null;
@@ -3855,16 +4007,46 @@ namespace OpenCS
 
       /// <summary>Обновляет в дереве счётчики сохранённой расчётной сетки схемы.</summary>
       public void ReloadFemMeshSnapshotTree(int schemaId)
-          => femSchemasGroup?.ReloadMeshSnapshot(schemaId);
+      {
+         femSchemasGroup?.ReloadMeshSnapshot(schemaId);
+         OverlayFemEditorSupports(schemaId);
+      }
+
+      /// <summary>После чтения дерева из БД — несохранённые связи открытого редактора этой схемы поверх.</summary>
+      void OverlayFemEditorSupports(int schemaId)
+      {
+         if (activeFemSchemaEditor?.Session is { IsDirty: true } session && session.Schema.Id == schemaId)
+            femSchemasGroup?.ReloadSupports(session);
+      }
 
       /// <summary>Перечитывает загружения и комбинации схемы в дереве (перенос нагрузок, сохранение схемы).</summary>
       public void ReloadFemLoadTree(int schemaId) => femSchemasGroup?.ReloadLoads(schemaId);
+
+      CScore.Fem.Editing.FemSchemaEditSession? pendingSupportsRefresh;
+
+      /// <summary>
+      /// Сессия редактора схемы изменилась: узловые и линейные связи в дереве — по ней, не дожидаясь сохранения. Серия
+      /// команд (перетаскивание, пакетная правка) сводится к одному перечитыванию после обработки ввода.
+      /// </summary>
+      internal void ScheduleFemSupportsTreeRefresh(CScore.Fem.Editing.FemSchemaEditSession session)
+      {
+         bool scheduled = pendingSupportsRefresh != null;
+         pendingSupportsRefresh = session;
+         if (scheduled) return;
+         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+         {
+            var target = pendingSupportsRefresh;
+            pendingSupportsRefresh = null;
+            if (target != null) femSchemasGroup?.ReloadSupports(target);
+         }, System.Windows.Threading.DispatcherPriority.Background);
+      }
 
       internal void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
       {
          var vm = femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema == schema);
          vm?.ReloadTopology();
          vm?.ReloadMeshSnapshot();
+         OverlayFemEditorSupports(schema.Id);
       }
 
 

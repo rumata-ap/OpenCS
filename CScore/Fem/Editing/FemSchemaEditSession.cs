@@ -27,6 +27,9 @@ public sealed class FemSchemaEditSession
 
     public FemSchemaEditSession(FemSchema schema) => Schema = schema;
 
+    /// <summary>Состав сессии изменился: команда выполнена, отменена или повторена, история сброшена сохранением.</summary>
+    public event Action? Changed;
+
     public bool CanUndo => _position > 0;
     public bool CanRedo => _position < _history.Count;
     public bool IsDirty => _position > 0;
@@ -44,6 +47,7 @@ public sealed class FemSchemaEditSession
         command.Do(this);
         _history.Add(command);
         _position++;
+        Changed?.Invoke();
     }
 
     public IFemEditCommand? Undo()
@@ -52,6 +56,7 @@ public sealed class FemSchemaEditSession
         _position--;
         var command = _history[_position];
         command.Undo(this);
+        Changed?.Invoke();
         return command;
     }
 
@@ -61,6 +66,7 @@ public sealed class FemSchemaEditSession
         var command = _history[_position];
         command.Do(this);
         _position++;
+        Changed?.Invoke();
         return command;
     }
 
@@ -69,5 +75,6 @@ public sealed class FemSchemaEditSession
     {
         _history.Clear();
         _position = 0;
+        Changed?.Invoke();
     }
 }

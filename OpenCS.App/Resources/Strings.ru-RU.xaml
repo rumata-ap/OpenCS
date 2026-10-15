@@ -2577,6 +2577,23 @@
     <system:String x:Key="FemBoundaryCoupledPlural">Объединения</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>
     <system:String x:Key="FemBoundaryEdit">Изменить…</system:String>
+    <system:String x:Key="FemBoundaryObjects">Объекты…</system:String>
+    <system:String x:Key="FemBoundaryAssignSelected">Назначить выделенным</system:String>
+    <system:String x:Key="FemBoundaryRemoveSelected">Снять с выделенных</system:String>
+    <system:String x:Key="FemBoundaryObjectsTitle">Объекты типа опоры</system:String>
+    <system:String x:Key="FemBoundaryObjectsHeader">Тип «{0}»</system:String>
+    <system:String x:Key="FemBoundaryObjectsNodes">Узлы КонЭ №:</system:String>
+    <system:String x:Key="FemBoundaryObjectsMeshNodes">Узлы сетки №:</system:String>
+    <system:String x:Key="FemBoundaryObjectsEdges">Грани пластин (КонЭ/сторона, отверстие — КонЭ/о1/сторона):</system:String>
+    <system:String x:Key="FemBoundaryObjectsHint">Номера через пробел или запятую, диапазон — «1-4». Убранные из списка теряют связь, добавленные получают параметры типа (прежняя связь объекта заменяется).</system:String>
+    <system:String x:Key="FemBoundaryObjectsBadRange">Неверный диапазон «{0}».</system:String>
+    <system:String x:Key="FemBoundaryObjectsBadEdge">Неверная грань «{0}»: нужно «КонЭ/сторона» или «КонЭ/о1/сторона».</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingNodes">Нет узлов КонЭ: {0}.</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingMeshNodes">Нет узлов сетки: {0}.</system:String>
+    <system:String x:Key="FemBoundaryObjectsMissingEdges">Нет граней пластин: {0}.</system:String>
+    <system:String x:Key="FemBoundaryAssignNoNodes">Выделите узлы КонЭ в редакторе схемы.</system:String>
+    <system:String x:Key="FemBoundaryAssignNoMeshNodes">Выделите узлы сетки (тип с пружинами задаётся только узлам сетки).</system:String>
+    <system:String x:Key="FemBoundaryAssignNoEdges">Выделите грани пластин в режиме «Грани пластин» редактора схемы.</system:String>
     <system:String x:Key="FemBoundaryShowOnSchema">Показать на схеме</system:String>
     <system:String x:Key="FemBoundaryGroupHeader">Узловая связь «{0}», узлов: {1}</system:String>
     <system:String x:Key="MosaicSourceSprings">Пружины узлов</system:String>
@@ -3261,6 +3278,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySpringInFixed">Пружина по закреплённому направлению не имеет смысла: {0}. Снимите закрепление или обнулите жёсткость.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">ГУ узла сетки {0} заданы вручную: закрепление {1}, пружины {2}.</system:String>
     <system:String x:Key="FemLineSupportTitle">Линейная связь</system:String>
+    <system:String x:Key="FemSchemaConfirmSaveOnLeave" xml:space="preserve">Схема «{0}» изменена, правки не сохранены. Сохранить схему?&#x0a;&#x0a;«Да» — сохранить, «Нет» — отбросить правки, «Отмена» — вернуться к схеме.</system:String>
     <system:String x:Key="FemLineSupportPresets">Быстрый выбор:</system:String>
     <system:String x:Key="FemLineSupportPresetPlate">Шарнирное опирание</system:String>
     <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z и поворот кромки — опирание края плиты или низа стены: прогиб как у шарнира по контуру (без «мягкого» опирания пластины Миндлина)</system:String>

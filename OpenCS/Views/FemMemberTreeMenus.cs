@@ -115,8 +115,8 @@ internal static class FemMemberTreeMenus
         }));
     }
 
-    /// <summary>Меню типа ГУ: изменить параметры узловой связи для всех её узлов, показать мозаику переменных пружин,
-    /// выделить узлы и КЭ в редакторе схемы.</summary>
+    /// <summary>Меню типа ГУ: изменить параметры для всех объектов типа, правка состава типа (список, назначить выделенным,
+    /// снять с выделенных), мозаика переменных пружин, выделить объекты в редакторе схемы.</summary>
     public static void FillBoundaryGroup(ItemCollection items, FemBoundaryGroupItem group, AppViewModel app)
     {
         if (group.IsEditable)
@@ -125,6 +125,12 @@ internal static class FemMemberTreeMenus
                 if (group.Kind == FemBoundaryKind.LineSupports) app.EditFemLineSupportGroup(group);
                 else app.EditFemNodalSupportGroup(group);
             }));
+        if (group.IsEditable)
+        {
+            items.Add(Item("FemBoundaryObjects", () => app.EditFemBoundaryGroupObjects(group)));
+            items.Add(Item("FemBoundaryAssignSelected", () => app.AssignFemBoundaryGroupToSelection(group, remove: false)));
+            items.Add(Item("FemBoundaryRemoveSelected", () => app.AssignFemBoundaryGroupToSelection(group, remove: true)));
+        }
         if (group.Kind == FemBoundaryKind.LineSupports)
             items.Add(Item("FemBoundaryLineDelete", () => app.DeleteFemLineSupportGroup(group)));
         if (group.IsMosaic)
