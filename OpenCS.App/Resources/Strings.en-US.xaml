@@ -3285,7 +3285,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeSpringColumn">Springs, kN/m · kN·m/rad</system:String>
     <system:String x:Key="FemMeshNodeOriginColumn">Defined by</system:String>
     <system:String x:Key="FemMeshNodeBoundaryEdit">Node boundary conditions…</system:String>
-    <system:String x:Key="FemMeshNodeBoundaryTitle">Mesh node boundary conditions</system:String>
+    <system:String x:Key="FemMeshNodeBoundaryTitle">Node boundary conditions</system:String>
     <system:String x:Key="FemMeshNodeBoundaryHeader" xml:space="preserve">Node {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} m)</system:String>
     <system:String x:Key="FemMeshNodeBoundaryOrigin">Currently defined by: {0}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySupport">Restraints (global axes):</system:String>
@@ -3603,6 +3603,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMemberLoadToolTip">Set load for selected members (distributed or point)</system:String>
     <system:String x:Key="FemNodeLoadCtx">Set nodal load</system:String>
     <system:String x:Key="FemKinematicLoadCtx">Set kinematic load</system:String>
+    <system:String x:Key="FemNodeBoundaryCtx">Fixities and springs…</system:String>
+    <system:String x:Key="FemNodeBoundaryNodesHeader">Nodes {0}</system:String>
     <system:String x:Key="FemMemberLoadCtx">Set member load</system:String>
     <system:String x:Key="FemNodeLoadSelectNodes">Select at least one node.</system:String>
     <system:String x:Key="FemMemberLoadSelectMembers">Select at least one member.</system:String>

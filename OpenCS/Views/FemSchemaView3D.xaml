@@ -37,6 +37,7 @@
             <MenuItem helpers:CommandIcons.Header="FemNodeCopyCtx" Click="NodeCopyCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemNodeLoadCtx" Click="NodeLoadCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemKinematicLoadCtx" Click="KinematicLoadCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemNodeBoundaryCtx" Click="NodeBoundaryCtx_Click"/>
             <Separator/>
             <MenuItem helpers:CommandIcons.Header="FemNodePropertiesCtx" Click="NodePropertiesCtx_Click"/>
             <Separator/>

@@ -2331,6 +2331,41 @@ public partial class FemSchemaView3D : UserControl
         StartTransform(kind, [.. selection.SelectedNodeTags], [.. selection.SelectedElemTags]);
     }
 
+    /// <summary>
+    /// «Закрепления и пружины…»: одна узловая связь выделенным узлам КонЭ (если щёлкнутый узел среди выделенных) или
+    /// щёлкнутому — одной отменой. Начальные значения — общие у всех узлов, иначе пустые.
+    /// </summary>
+    void NodeBoundaryCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (Editor is not { } editor || _contextMenuTargetTag is not { } tag) return;
+        var selected = editor.Selection.SelectedNodeTags.ToHashSet(StringComparer.Ordinal);
+        var tags = selected.Contains(tag) ? selected : [tag];
+        var nodes = editor.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
+        if (nodes.Count == 0) return;
+
+        double[] Stiffness(CScore.Fem.FemNode node)
+        {
+            var k = new double[6];
+            foreach (var spring in editor.Session.NodeSprings.Where(s => s.NodeTag == node.NodeTag))
+                for (int i = 0; i < 6; i++) k[i] += spring.Stiffnesses[i];
+            return k;
+        }
+        var masks = nodes.Select(n => n.DofMask & CScore.Fem.FemBoundaryDofs.All).Distinct().ToList();
+        var stiffnesses = nodes.Select(Stiffness).ToList();
+        bool sameK = stiffnesses.All(k => k.SequenceEqual(stiffnesses[0]));
+        var node0 = nodes[0];
+        string header = nodes.Count == 1
+            ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"),
+                node0.NodeTag, node0.X, node0.Y, node0.Z)
+            : string.Format(Loc.S("FemNodeBoundaryNodesHeader"), FemBoundaryObjectList.FormatTags(nodes.Select(n => n.NodeTag)));
+        var dialog = new FemMeshNodeBoundaryDialog(header, null, imported: false, masks.Count == 1 ? masks[0] : 0,
+            sameK ? stiffnesses[0] : new double[6], allowSprings: true)
+        { Owner = Window.GetWindow(this) };
+        if (dialog.ShowDialog() != true) return;
+        editor.Session.Execute(new CScore.Fem.Editing.SetNodeBoundaryCommand(nodes, dialog.Mask, dialog.Stiffnesses));
+        editor.RefreshCollections();
+    }
+
     void NodePropertiesCtx_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMenuTargetTag is not { } tag) return;

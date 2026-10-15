@@ -74,6 +74,7 @@ public static class CommandIcons
         ["FemNodeMoveCtx"] = "CmdIcon_Move",
         ["FemNodeCopyCtx"] = "CmdIcon_Copy",
         ["FemNodeLoadCtx"] = "CmdIcon_NodeLoad",
+        ["FemNodeBoundaryCtx"] = "CmdIcon_Support",
         ["FemKinematicLoadCtx"] = "CmdIcon_KinematicLoad",
         ["FemNodePropertiesCtx"] = "CmdIcon_Properties",
         ["FemNodeTreeProperties"] = "CmdIcon_Properties",

@@ -3285,7 +3285,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeSpringColumn">Пружины, кН/м · кН·м/рад</system:String>
     <system:String x:Key="FemMeshNodeOriginColumn">ГУ заданы</system:String>
     <system:String x:Key="FemMeshNodeBoundaryEdit">Граничные условия узла…</system:String>
-    <system:String x:Key="FemMeshNodeBoundaryTitle">Граничные условия узла сетки</system:String>
+    <system:String x:Key="FemMeshNodeBoundaryTitle">Граничные условия узла</system:String>
     <system:String x:Key="FemMeshNodeBoundaryHeader" xml:space="preserve">Узел {0}  (X = {1:0.###}, Y = {2:0.###}, Z = {3:0.###} м)</system:String>
     <system:String x:Key="FemMeshNodeBoundaryOrigin">Сейчас заданы: {0}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySupport">Закрепления (общие оси):</system:String>
@@ -3603,6 +3603,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMemberLoadToolTip">Задать нагрузку выбранным стержням (распределённую или сосредоточенную)</system:String>
     <system:String x:Key="FemNodeLoadCtx">Задать узловую нагрузку</system:String>
     <system:String x:Key="FemKinematicLoadCtx">Задать кинематическую нагрузку</system:String>
+    <system:String x:Key="FemNodeBoundaryCtx">Закрепления и пружины…</system:String>
+    <system:String x:Key="FemNodeBoundaryNodesHeader">Узлы {0}</system:String>
     <system:String x:Key="FemMemberLoadCtx">Задать нагрузку на стержень</system:String>
     <system:String x:Key="FemNodeLoadSelectNodes">Выберите хотя бы один узел.</system:String>
     <system:String x:Key="FemMemberLoadSelectMembers">Выберите хотя бы один стержень.</system:String>
