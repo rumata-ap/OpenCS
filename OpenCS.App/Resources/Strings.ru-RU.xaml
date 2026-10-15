@@ -2554,6 +2554,14 @@
     <system:String x:Key="FemBoundaryRigidBodyLabel">{0} {1}: узел {2} + {3} [{4}]</system:String>
     <system:String x:Key="FemBoundaryNodalSupports">Узловые связи</system:String>
     <system:String x:Key="FemBoundaryVariableSprings">{0} — переменная жёсткость</system:String>
+    <system:String x:Key="FemBoundaryLineSupports">Линейные связи</system:String>
+    <system:String x:Key="FemBoundaryLineCount" xml:space="preserve"> — {0} гр., {1:0.##} м</system:String>
+    <system:String x:Key="FemBoundaryLineLost">Потеряли грань (контур изменён или КонЭ удалён)</system:String>
+    <system:String x:Key="FemBoundaryLineEdgeRotation">поворот кромки</system:String>
+    <system:String x:Key="FemBoundaryUnitKLine">кН/м²</system:String>
+    <system:String x:Key="FemBoundaryUnitKrLine">кН·м/рад/м</system:String>
+    <system:String x:Key="FemBoundaryLineDelete">Удалить линейные связи</system:String>
+    <system:String x:Key="FemBoundaryLineGroupHeader">Тип линейной связи: {0}</system:String>
     <system:String x:Key="FemBoundaryRigidBodyPlural">Жёсткие тела</system:String>
     <system:String x:Key="FemBoundaryCoupledPlural">Объединения</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>

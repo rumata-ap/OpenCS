@@ -120,7 +120,13 @@ internal static class FemMemberTreeMenus
     public static void FillBoundaryGroup(ItemCollection items, FemBoundaryGroupItem group, AppViewModel app)
     {
         if (group.IsEditable)
-            items.Add(Item("FemBoundaryEdit", () => app.EditFemNodalSupportGroup(group)));
+            items.Add(Item("FemBoundaryEdit", () =>
+            {
+                if (group.Kind == FemBoundaryKind.LineSupports) app.EditFemLineSupportGroup(group);
+                else app.EditFemNodalSupportGroup(group);
+            }));
+        if (group.Kind == FemBoundaryKind.LineSupports)
+            items.Add(Item("FemBoundaryLineDelete", () => app.DeleteFemLineSupportGroup(group)));
         if (group.IsMosaic)
             items.Add(Item("FemBoundaryShowOnSchema",
                 () => app.ShowFemBoundaryMosaic(group.Schema, PlateRebarMosaicSourceKind.Springs)));

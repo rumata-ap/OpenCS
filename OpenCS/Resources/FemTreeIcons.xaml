@@ -148,6 +148,24 @@
       </DrawingImage.Drawing>
    </DrawingImage>
 
+   <!-- Линейные связи: пластина опёрта гранью на штриховку. -->
+   <DrawingImage x:Key="FemIcon_LineSupports">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M5,2.5 H15 L12,10 H2 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M2,10 H12">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13 H13 M2,15.5 L3.5,13 M5,15.5 L6.5,13 M8,15.5 L9.5,13 M11,15.5 L12.5,13">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
    <!-- Пружины: упругая связь узла с основанием. -->
    <DrawingImage x:Key="FemIcon_Springs">
       <DrawingImage.Drawing>

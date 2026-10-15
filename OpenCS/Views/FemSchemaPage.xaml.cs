@@ -184,7 +184,24 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 
     /// <summary>Выделяет объекты ГУ из дерева схемы; вкладка не переключается — выбор виден в 3D при переходе на неё.</summary>
     public void SelectBoundaryTargets(FemBoundaryTargets targets) =>
-        _editorVm.Selection.Set(targets.NodeTags, [], targets.MeshElemTags, targets.MeshNodeTags);
+        _editorVm.Selection.Set(targets.NodeTags, [], targets.MeshElemTags, targets.MeshNodeTags, targets.PlateEdges);
+
+    /// <summary>
+    /// Линейная связь граням (правка типа из дерева) одной отменой — по текущим граням сессии (ключ связи мог устареть
+    /// после перенумерации контура); грани выделяются, схема сохраняется пользователем.
+    /// </summary>
+    public void SetLineSupports(IReadOnlyCollection<CScore.Fem.FemPlateEdgeKey> keys, CScore.Fem.FemLineSupport template)
+    {
+        // Грани — по сессии и областям из БД: 3D-вид может быть ещё не загружен (страница только открыта из дерева).
+        var edges = CScore.Fem.FemLineSupportGeometry.EdgesByMember(_editorVm.Session.Members, _app.db.GetPlanarRegions(_editorVm.Session.Schema.Id))
+            .Values.SelectMany(x => x).Where(e => keys.Contains(e.Key)).ToList();
+        if (edges.Count == 0) return;
+        _editorVm.SetLineSupports(edges, template);
+        _editorVm.Selection.Set([], [], [], [], keys);
+    }
+
+    /// <summary>Снимает линейные связи граней (в т. ч. потерявших грань) одной отменой.</summary>
+    public void RemoveLineSupports(IReadOnlyCollection<CScore.Fem.FemPlateEdgeKey> keys) => _editorVm.RemoveLineSupports(keys);
 
     /// <summary>Мозаика ГУ из дерева схемы (C1 упругого основания, переменные пружины) — на вкладке 3D.</summary>
     public void ShowMosaic(PlateRebarMosaicSourceKind kind)

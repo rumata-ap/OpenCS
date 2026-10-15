@@ -6,13 +6,17 @@ using OpenCS.Utilites;
 namespace OpenCS.ViewModels;
 
 /// <summary>Вид ветки ГУ дерева схемы.</summary>
-public enum FemBoundaryKind { NodalSupports, Foundation, Releases, RigidBodies }
+public enum FemBoundaryKind { NodalSupports, LineSupports, Foundation, Releases, RigidBodies }
 
-/// <summary>Объекты схемы, на которых заданы ГУ группы: узлы конструктивного уровня, узлы и КЭ сетки.</summary>
+/// <summary>Объекты схемы, на которых заданы ГУ группы: узлы конструктивного уровня, узлы и КЭ сетки, грани пластин.</summary>
 public sealed record FemBoundaryTargets(
-    IReadOnlyList<string> NodeTags, IReadOnlyList<string> MeshNodeTags, IReadOnlyList<string> MeshElemTags)
+    IReadOnlyList<string> NodeTags, IReadOnlyList<string> MeshNodeTags, IReadOnlyList<string> MeshElemTags,
+    IReadOnlyList<FemPlateEdgeKey>? PlateEdgeKeys = null)
 {
     public static readonly FemBoundaryTargets Empty = new([], [], []);
+
+    /// <summary>Грани пластинчатых КонЭ (линейные связи).</summary>
+    public IReadOnlyList<FemPlateEdgeKey> PlateEdges => PlateEdgeKeys ?? [];
 }
 
 /// <summary>
@@ -39,10 +43,19 @@ public sealed class FemBoundaryGroupItem
     /// <summary>Жёсткости пружин узловой связи X…UZ, Н/м и Н·м/рад.</summary>
     public IReadOnlyList<double> Stiffnesses { get; init; } = new double[6];
 
-    /// <summary>Параметры можно изменить диалогом сразу для всех узлов группы.</summary>
-    public bool IsEditable => Kind == FemBoundaryKind.NodalSupports && !IsMosaic;
+    /// <summary>Параметры линейной связи типа (маска, поворот кромки, погонные жёсткости); null — не линейная связь.</summary>
+    public FemLineSupport? LineSupport { get; init; }
+    /// <summary>Линейные связи, потерявшие грань (контур изменён или КонЭ удалён): их можно только удалить.</summary>
+    public bool IsLost { get; init; }
+    /// <summary>Общая длина граней линейной связи, м.</summary>
+    public double LengthM { get; init; }
 
-    public string CountText => Count > 0 ? $" — {Count}" : "";
+    /// <summary>Параметры можно изменить диалогом сразу для всех узлов или граней группы.</summary>
+    public bool IsEditable => Kind == FemBoundaryKind.NodalSupports && !IsMosaic || Kind == FemBoundaryKind.LineSupports && !IsLost;
+
+    public string CountText => Kind == FemBoundaryKind.LineSupports && !IsLost
+        ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemBoundaryLineCount"), Count, LengthM)
+        : Count > 0 ? $" — {Count}" : "";
 
     internal FemBoundaryGroupItem(FemBoundaryKind kind, FemSchema schema, string label, int count, string? originText,
         Func<FemBoundaryTargets> targets)
@@ -114,6 +127,8 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
 
     public FemSchema Schema { get; }
     public FemBoundaryCategoryNode NodalSupports { get; }
+    /// <summary>Линейные связи на гранях пластинчатых КонЭ; Count — число граней.</summary>
+    public FemBoundaryCategoryNode LineSupports { get; }
     /// <summary>Упругое основание пластин: без дочерних, Count — число КЭ с C1; «Показать на схеме» — мозаика C1.</summary>
     public FemBoundaryCategoryNode Foundation { get; }
     public FemBoundaryCategoryNode Releases { get; }
@@ -127,10 +142,11 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
     {
         Schema = schema;
         NodalSupports = new(FemBoundaryKind.NodalSupports, schema);
+        LineSupports = new(FemBoundaryKind.LineSupports, schema);
         Foundation = new(FemBoundaryKind.Foundation, schema);
         Releases = new(FemBoundaryKind.Releases, schema);
         RigidBodies = new(FemBoundaryKind.RigidBodies, schema);
-        Children = [NodalSupports, Foundation];
+        Children = [NodalSupports, LineSupports, Foundation];
     }
 
     /// <summary>Перечитывает ГУ схемы из БД.</summary>
@@ -138,6 +154,9 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
     {
         int id = Schema.Id;
         NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, db.GetFemMeshNodeSupports(id), db.GetFemSprings(id)));
+        var lines = db.GetFemLineSupports(id);
+        LineSupports.Reset(lines.Count == 0 ? [] : FemBoundaryTree.LineGroups(Schema, lines,
+            FemLineSupportGeometry.EdgesByMember(db.GetFemMembers(id), db.GetPlanarRegions(id))));
         Foundation.Reset([], db.GetFemFoundationElementCount(id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
@@ -236,6 +255,56 @@ public static class FemBoundaryTree
     static FemBoundaryTargets Targets(List<NodalEntry> list) => new(
         list.Where(e => !e.Mesh).Select(e => e.Tag).ToList(), list.Where(e => e.Mesh).Select(e => e.Tag).ToList(), []);
 
+    /// <summary>
+    /// Линейные связи: типы по маске, повороту кромки, погонным жёсткостям и происхождению (как типы линейных опор
+    /// RFEM), счётчик — граней и их длина; связи, потерявшие грань, — отдельной строкой.
+    /// </summary>
+    public static List<FemBoundaryGroupItem> LineGroups(FemSchema schema, IEnumerable<FemLineSupport> supports,
+        IReadOnlyDictionary<string, List<FemPlateEdge>> edgesByMember)
+    {
+        var matched = new List<(FemLineSupport Support, FemPlateEdge Edge)>();
+        var lost = new List<FemLineSupport>();
+        foreach (var s in supports.Where(s => s.IsActive))
+        {
+            if (FemLineSupportGeometry.Match(s, edgesByMember.GetValueOrDefault(s.MemberTag)) is { } edge) matched.Add((s, edge));
+            else lost.Add(s);
+        }
+        var result = matched
+            .GroupBy(x => (x.Support.Mask & FemBoundaryDofs.All, x.Support.FixEdgeRotation, x.Support.Kx, x.Support.Ky,
+                x.Support.Kz, x.Support.Kux, x.Support.Kuy, x.Support.Kuz, x.Support.Origin))
+            .OrderBy(g => g.Key.Item1 == 0).ThenBy(g => SupportOrder(g.Key.Item1)).ThenBy(g => g.Key.Item1)
+            .ThenByDescending(g => g.Key.FixEdgeRotation).ThenBy(g => OriginOrder(g.Key.Origin))
+            .Select(g =>
+            {
+                var list = g.ToList();
+                var template = list[0].Support;
+                return new FemBoundaryGroupItem(FemBoundaryKind.LineSupports, schema, LineLabel(template), list.Count,
+                    FemMeshNodeRow.DescribeOrigin(g.Key.Origin), () => new([], [], [], list.Select(x => x.Edge.Key).ToList()))
+                {
+                    LineSupport = template, LengthM = list.Sum(x => x.Edge.Length), Mask = template.Mask,
+                    Stiffnesses = template.Stiffnesses,
+                };
+            }).ToList();
+        if (lost.Count > 0)
+            result.Add(new FemBoundaryGroupItem(FemBoundaryKind.LineSupports, schema, Loc.S("FemBoundaryLineLost"), lost.Count,
+                null, () => new([], [], [], lost.Select(s => s.Key).ToList())) { IsLost = true });
+        return result;
+    }
+
+    /// <summary>«Шарнирное опирание», «Tz; поворот кромки», «Kz′ = 50000 кН/м²».</summary>
+    public static string LineLabel(FemLineSupport s)
+    {
+        int mask = s.Mask & FemBoundaryDofs.All;
+        string support = mask == 0b111 && s.FixEdgeRotation
+            ? Loc.S("FemLineSupportPresetPlate")
+            : string.Join("; ", new[] { SupportLabel(mask), s.FixEdgeRotation ? Loc.S("FemBoundaryLineEdgeRotation") : "" }
+                .Where(x => x.Length > 0));
+        var k = s.Stiffnesses;
+        string springs = string.Join("; ", Enumerable.Range(0, 6).Where(i => k[i] != 0)
+            .Select(i => $"{SpringNames[i]}′ = {Number(k[i] / 1000)} {Loc.S(i < 3 ? "FemBoundaryUnitKLine" : "FemBoundaryUnitKrLine")}"));
+        return string.Join("; ", new[] { support, springs }.Where(x => x.Length > 0));
+    }
+
     /// <summary>«Заделка», «Tz; Kx = 100 кН/м», «Kz = 5000 кН/м».</summary>
     public static string NodalLabel(int mask, IReadOnlyList<double> k)
     {
@@ -287,7 +356,8 @@ public static class FemBoundaryTree
         return new(
             list.SelectMany(t => t.NodeTags).Distinct(StringComparer.Ordinal).ToList(),
             list.SelectMany(t => t.MeshNodeTags).Distinct(StringComparer.Ordinal).ToList(),
-            list.SelectMany(t => t.MeshElemTags).Distinct(StringComparer.Ordinal).ToList());
+            list.SelectMany(t => t.MeshElemTags).Distinct(StringComparer.Ordinal).ToList(),
+            list.SelectMany(t => t.PlateEdges).Distinct().ToList());
     }
 
     /// <summary>«Заделка», «Шарнир» или перечень DOF (Tz, Tx Ty Tz Rz).</summary>

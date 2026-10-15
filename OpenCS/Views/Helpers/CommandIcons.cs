@@ -85,6 +85,7 @@ public static class CommandIcons
         ["FemBoundaryShowOnSchema"] = "CmdIcon_ShowResult",
         ["FemMeshNodeBoundaryEdit"] = "CmdIcon_Support",
         ["FemLineSupportMenu"] = "CmdIcon_LineSupport",
+        ["FemBoundaryLineDelete"] = "CmdIcon_Delete",
         ["FemLineSupportRemove"] = "CmdIcon_Delete",
         ["FemLineSupportPickExit"] = "CmdIcon_ClearSelection",
         ["FemLoadEditCtx"] = "CmdIcon_Edit",

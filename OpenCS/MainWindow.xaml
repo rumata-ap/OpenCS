@@ -1551,6 +1551,9 @@
                                     <DataTrigger Binding="{Binding Kind}" Value="Releases">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_Releases}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="LineSupports">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_LineSupports}"/>
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="Foundation">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_Foundation}"/>
                                     </DataTrigger>
@@ -1568,6 +1571,9 @@
                                  <Style.Triggers>
                                     <DataTrigger Binding="{Binding Kind}" Value="Releases">
                                        <Setter Property="Text" Value="{DynamicResource FemBoundaryReleases}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="LineSupports">
+                                       <Setter Property="Text" Value="{DynamicResource FemBoundaryLineSupports}"/>
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="Foundation">
                                        <Setter Property="Text" Value="{DynamicResource FemBoundaryFoundation}"/>

@@ -541,6 +541,33 @@ namespace OpenCS
          }
       }
 
+      /// <summary>
+      /// «Изменить…» у типа линейной связи: одни параметры всем его граням — командой редактора схемы (отмена,
+      /// сохранение схемы пользователем).
+      /// </summary>
+      public void EditFemLineSupportGroup(ViewModels.FemBoundaryGroupItem group)
+      {
+         var schema = group.Schema;
+         var keys = group.Targets().PlateEdges;
+         var dialog = new Views.FemLineSupportDialog(string.Format(Loc.S("FemBoundaryLineGroupHeader"), group.Label),
+            group.Label + group.CountText, group.LineSupport)
+         { Owner = System.Windows.Application.Current.MainWindow };
+         if (dialog.ShowDialog() != true) return;
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.SetLineSupports(keys, dialog.Result);
+      }
+
+      /// <summary>«Удалить линейные связи» у типа (или потерявших грань) — командой редактора схемы.</summary>
+      public void DeleteFemLineSupportGroup(ViewModels.FemBoundaryGroupItem group)
+      {
+         var schema = group.Schema;
+         var keys = group.Targets().PlateEdges;
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.RemoveLineSupports(keys);
+      }
+
       /// <summary>«Переместить» / «Копировать» из дерева: открывает редактор схемы и запускает в 3D команду
       /// (базовая точка → вторая точка).</summary>
       public void TransformFemFragmentInEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags,

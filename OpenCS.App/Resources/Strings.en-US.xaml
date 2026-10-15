@@ -2554,6 +2554,14 @@
     <system:String x:Key="FemBoundaryRigidBodyLabel">{0} {1}: node {2} + {3} [{4}]</system:String>
     <system:String x:Key="FemBoundaryNodalSupports">Nodal supports</system:String>
     <system:String x:Key="FemBoundaryVariableSprings">{0} — variable stiffness</system:String>
+    <system:String x:Key="FemBoundaryLineSupports">Line supports</system:String>
+    <system:String x:Key="FemBoundaryLineCount" xml:space="preserve"> — {0} edges, {1:0.##} m</system:String>
+    <system:String x:Key="FemBoundaryLineLost">Lost their edge (contour changed or member deleted)</system:String>
+    <system:String x:Key="FemBoundaryLineEdgeRotation">edge rotation</system:String>
+    <system:String x:Key="FemBoundaryUnitKLine">kN/m²</system:String>
+    <system:String x:Key="FemBoundaryUnitKrLine">kN·m/rad/m</system:String>
+    <system:String x:Key="FemBoundaryLineDelete">Delete line supports</system:String>
+    <system:String x:Key="FemBoundaryLineGroupHeader">Line support type: {0}</system:String>
     <system:String x:Key="FemBoundaryRigidBodyPlural">Rigid bodies</system:String>
     <system:String x:Key="FemBoundaryCoupledPlural">Couplings</system:String>
     <system:String x:Key="FemBoundaryRigidBodyGroupLabel">{0} [{1}]</system:String>
