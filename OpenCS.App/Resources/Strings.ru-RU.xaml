@@ -3267,7 +3267,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLineSupportPresetHinge">Шарнир</system:String>
     <system:String x:Key="FemLineSupportPresetHingeTip">X Y Z без поворота кромки — узлы грани свободно поворачиваются («мягкое» опирание)</system:String>
     <system:String x:Key="FemLineSupportPresetFixed">Заделка</system:String>
+    <system:String x:Key="FemLineSupportPresetFixedTip">Все шесть степеней свободы грани закреплены: перемещения X Y Z и повороты UX UY UZ</system:String>
     <system:String x:Key="FemLineSupportPresetNone">Снять</system:String>
+    <system:String x:Key="FemLineSupportPresetNoneTip">Очистить закрепления и пружины — после «OK» связь с граней снимается</system:String>
     <system:String x:Key="FemLineSupportEdgeRotation">Закрепить поворот кромки (вокруг нормали к грани в плоскости пластины)</system:String>
     <system:String x:Key="FemLineSupportEdgeRotationTip">Действует у граней, параллельных общим осям; у наклонных — предупреждение при расчёте</system:String>
     <system:String x:Key="FemLineSupportSprings">Упругое опирание — погонные жёсткости (общие оси):</system:String>

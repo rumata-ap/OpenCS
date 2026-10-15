@@ -3267,7 +3267,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLineSupportPresetHinge">Hinge</system:String>
     <system:String x:Key="FemLineSupportPresetHingeTip">X Y Z without edge rotation — edge nodes rotate freely ("soft" support)</system:String>
     <system:String x:Key="FemLineSupportPresetFixed">Fixed</system:String>
+    <system:String x:Key="FemLineSupportPresetFixedTip">All six degrees of freedom of the edge are fixed: displacements X Y Z and rotations UX UY UZ</system:String>
     <system:String x:Key="FemLineSupportPresetNone">Remove</system:String>
+    <system:String x:Key="FemLineSupportPresetNoneTip">Clear restraints and springs — on "OK" the support is removed from the edges</system:String>
     <system:String x:Key="FemLineSupportEdgeRotation">Restrain edge rotation (about the in-plane normal to the edge)</system:String>
     <system:String x:Key="FemLineSupportEdgeRotationTip">Works for edges parallel to global axes; skew edges get a warning in analysis</system:String>
     <system:String x:Key="FemLineSupportSprings">Elastic support — stiffness per unit length (global axes):</system:String>

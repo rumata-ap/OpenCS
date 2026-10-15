@@ -614,19 +614,99 @@
    </DrawingImage>
 
    <!-- Линейная связь: пластина (параллелограмм) опёрта гранью на штриховку. -->
+   <DrawingGroup x:Key="CmdShape_LineSupport">
+      <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M4.5,2.5 H14.5 L11.5,9.5 H1.5 Z">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M1.5,9.5 H11.5">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M0.5,12.5 H12.5 M1.5,15 L3,12.5 M4.5,15 L6,12.5 M7.5,15 L9,12.5 M10.5,15 L12,12.5">
+         <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+   </DrawingGroup>
+
+   <!-- Бейдж «поворот закреплён»: замок. -->
+   <DrawingGroup x:Key="CmdBadge_Lock">
+      <GeometryDrawing Brush="{StaticResource FemIconIndigo}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M10.9,11.4 V10.6 A1.1,1.1 0 0 1 13.1,10.6 V11.4">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M10.2,11.4 H13.8 V14.2 H10.2 Z"/>
+   </DrawingGroup>
+
+   <!-- Бейдж «поворот свободен»: дуговая стрелка. -->
+   <DrawingGroup x:Key="CmdBadge_RotateFree">
+      <GeometryDrawing Brush="{StaticResource FemIconOrange}" Geometry="M8.1,12 a3.9,3.9 0 1,0 7.8,0 a3.9,3.9 0 1,0 -7.8,0 Z">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Geometry="M13.9,12.4 A1.95,1.95 0 1,1 13.3,10.6">
+         <GeometryDrawing.Pen><Pen Brush="White" Thickness="1.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="White" Geometry="M14.4,9.2 L14.2,11.6 L11.9,10.9 Z"/>
+   </DrawingGroup>
+
    <DrawingImage x:Key="CmdIcon_LineSupport">
       <DrawingImage.Drawing>
          <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
             <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
-            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M4.5,2.5 H14.5 L11.5,9.5 H1.5 Z">
+            <StaticResource ResourceKey="CmdShape_LineSupport"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Быстрый выбор линейной связи. Шарнирное опирание: X Y Z и поворот кромки закреплён (замок). -->
+   <DrawingImage x:Key="CmdIcon_LineSupportPlate">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_LineSupport"/>
+            <StaticResource ResourceKey="CmdBadge_Lock"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Шарнир: X Y Z, грань поворачивается свободно. -->
+   <DrawingImage x:Key="CmdIcon_LineSupportHinge">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_LineSupport"/>
+            <StaticResource ResourceKey="CmdBadge_RotateFree"/>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Заделка: грань пластины замоноличена в заштрихованный массив. -->
+   <DrawingImage x:Key="CmdIcon_LineSupportFixed">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M5.5,1.5 H15.5 L12.5,8.5 H2.5 Z">
                <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
             </GeometryDrawing>
-            <GeometryDrawing Geometry="M1.5,9.5 H11.5">
+            <GeometryDrawing Brush="{StaticResource FemIconGreyLight}" Geometry="M0.5,8.5 H15.5 V15.5 H0.5 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13 L5,9 M3.5,15.5 L10.5,8.5 M8.5,15.5 L15,9 M13.5,15.5 L15.5,13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="0.8" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M2.5,8.5 H12.5">
                <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
             </GeometryDrawing>
-            <GeometryDrawing Geometry="M0.5,12.5 H12.5 M1.5,15 L3,12.5 M4.5,15 L6,12.5 M7.5,15 L9,12.5 M10.5,15 L12,12.5">
-               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
-            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Снять связь: линейная связь с красным крестом. -->
+   <DrawingImage x:Key="CmdIcon_LineSupportRemove">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <StaticResource ResourceKey="CmdShape_LineSupport"/>
+            <StaticResource ResourceKey="CmdBadge_Cross"/>
          </DrawingGroup>
       </DrawingImage.Drawing>
    </DrawingImage>

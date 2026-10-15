@@ -9,14 +9,52 @@
         <TextBlock x:Name="edgesText" Foreground="Gray" TextWrapping="Wrap" Margin="0,2,0,0"/>
 
         <TextBlock Text="{DynamicResource FemLineSupportPresets}" Margin="0,10,0,2"/>
-        <WrapPanel>
-            <Button Content="{DynamicResource FemLineSupportPresetPlate}" ToolTip="{DynamicResource FemLineSupportPresetPlateTip}"
-                    Click="PresetPlate_Click" Padding="8,2" Margin="0,0,6,4"/>
-            <Button Content="{DynamicResource FemLineSupportPresetHinge}" ToolTip="{DynamicResource FemLineSupportPresetHingeTip}"
-                    Click="PresetHinge_Click" Padding="8,2" Margin="0,0,6,4"/>
-            <Button Content="{DynamicResource FemLineSupportPresetFixed}" Click="PresetFixed_Click" Padding="8,2" Margin="0,0,6,4"/>
-            <Button Content="{DynamicResource FemLineSupportPresetNone}" Click="PresetNone_Click" Padding="8,2" Margin="0,0,0,4"/>
-        </WrapPanel>
+        <StackPanel Orientation="Horizontal">
+            <StackPanel.Resources>
+                <Style x:Key="PresetButton" TargetType="Button">
+                    <Setter Property="Width" Value="36"/>
+                    <Setter Property="Height" Value="34"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="ToolTipService.InitialShowDelay" Value="300"/>
+                </Style>
+            </StackPanel.Resources>
+            <Button Style="{StaticResource PresetButton}" Click="PresetPlate_Click" Margin="0,0,6,4">
+                <Button.ToolTip>
+                    <StackPanel MaxWidth="360">
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetPlate}" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetPlateTip}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button.ToolTip>
+                <Image Source="{StaticResource CmdIcon_LineSupportPlate}" Width="24" Height="24"/>
+            </Button>
+            <Button Style="{StaticResource PresetButton}" Click="PresetHinge_Click" Margin="0,0,6,4">
+                <Button.ToolTip>
+                    <StackPanel MaxWidth="360">
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetHinge}" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetHingeTip}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button.ToolTip>
+                <Image Source="{StaticResource CmdIcon_LineSupportHinge}" Width="24" Height="24"/>
+            </Button>
+            <Button Style="{StaticResource PresetButton}" Click="PresetFixed_Click" Margin="0,0,6,4">
+                <Button.ToolTip>
+                    <StackPanel MaxWidth="360">
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetFixed}" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetFixedTip}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button.ToolTip>
+                <Image Source="{StaticResource CmdIcon_LineSupportFixed}" Width="24" Height="24"/>
+            </Button>
+            <Button Style="{StaticResource PresetButton}" Click="PresetNone_Click" Margin="0,0,0,4">
+                <Button.ToolTip>
+                    <StackPanel MaxWidth="360">
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetNone}" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource FemLineSupportPresetNoneTip}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Button.ToolTip>
+                <Image Source="{StaticResource CmdIcon_LineSupportRemove}" Width="24" Height="24"/>
+            </Button>
+        </StackPanel>
 
         <TextBlock Text="{DynamicResource FemMeshNodeBoundarySupport}" Margin="0,8,0,2"/>
         <StackPanel Orientation="Horizontal">
