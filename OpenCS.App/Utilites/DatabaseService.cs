@@ -5484,7 +5484,8 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null,
          IReadOnlyList<CScore.Fem.FemElementLoad>? elementLoads = null,
          IReadOnlyList<CScore.Fem.FemMeshNodeLoad>? meshNodeLoads = null,
-         IReadOnlyList<CScore.Fem.FemLineSupport>? lineSupports = null)
+         IReadOnlyList<CScore.Fem.FemLineSupport>? lineSupports = null,
+         IReadOnlyList<CScore.Fem.FemSpring>? nodeSprings = null)
       {
          // Нагрузки сеточного уровня передаются парой: обе — полная замена, ни одной — сохраняются (с переводом Id загружений).
          if ((elementLoads == null) != (meshNodeLoads == null))
@@ -5748,6 +5749,9 @@ namespace OpenCS.Utilites
 
             // Линейные связи — полная замена, если переданы (ключ — тег КонЭ, Id КонЭ не нужны).
             if (lineSupports != null) ReplaceFemLineSupportsCore(schemaId, lineSupports);
+
+            // Пружины узлов КонЭ — полная замена, если переданы; пружины удалённых узлов не пишутся.
+            if (nodeSprings != null) ReplaceFemNodeSpringsCore(schemaId, nodeSprings, newTags);
 
             var savedDefinitions = definitions ?? [];
             using (var definitionCmd = _connection.CreateCommand())

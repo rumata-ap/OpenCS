@@ -248,14 +248,14 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _fem3d.Mosaic.ShowSource(kind);
     }
 
-    /// <summary>Одна маска закреплений узлам КонЭ (правка типа узловой связи из дерева) — одной отменой; узлы
-    /// выделяются, схема сохраняется пользователем.</summary>
-    public void SetNodeMasks(IReadOnlyCollection<string> nodeTags, int mask)
+    /// <summary>Одна узловая связь (закрепления и пружины) узлам КонЭ — правка типа узловой связи из дерева — одной
+    /// отменой; узлы выделяются, схема сохраняется пользователем.</summary>
+    public void SetNodeBoundary(IReadOnlyCollection<string> nodeTags, int mask, IReadOnlyList<double> stiffnesses)
     {
         var tags = nodeTags.ToHashSet(StringComparer.Ordinal);
         var nodes = _editorVm.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
         if (nodes.Count == 0) return;
-        _editorVm.Session.Execute(new SetDofMasksCommand(nodes, mask));
+        _editorVm.Session.Execute(new SetNodeBoundaryCommand(nodes, mask, stiffnesses));
         _editorVm.RefreshCollections();
         _editorVm.Selection.Set(tags, [], [], []);
     }
@@ -267,18 +267,19 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     public FemSchemaSelectionVM EditorSelection => _editorVm.Selection;
 
     /// <summary>
-    /// Состав типа узловой связи (из дерева): узлам <paramref name="add"/> — маска типа, у <paramref name="remove"/>
-    /// закрепления снимаются — одной отменой; затронутые узлы выделяются.
+    /// Состав типа узловой связи (из дерева): узлам <paramref name="add"/> — закрепления и пружины типа, у
+    /// <paramref name="remove"/> связь снимается — одной отменой; затронутые узлы выделяются.
     /// </summary>
-    public void AssignNodeMasks(IReadOnlyCollection<string> add, IReadOnlyCollection<string> remove, int mask)
+    public void AssignNodeBoundary(IReadOnlyCollection<string> add, IReadOnlyCollection<string> remove, int mask,
+        IReadOnlyList<double> stiffnesses)
     {
         var addSet = add.ToHashSet(StringComparer.Ordinal);
         var removeSet = remove.Where(t => !addSet.Contains(t)).ToHashSet(StringComparer.Ordinal);
-        var addNodes = _editorVm.Session.Nodes.Where(n => addSet.Contains(n.NodeTag) && n.DofMask != mask).ToList();
-        var removeNodes = _editorVm.Session.Nodes.Where(n => removeSet.Contains(n.NodeTag) && n.DofMask != 0).ToList();
+        var addNodes = _editorVm.Session.Nodes.Where(n => addSet.Contains(n.NodeTag)).ToList();
+        var removeNodes = _editorVm.Session.Nodes.Where(n => removeSet.Contains(n.NodeTag)).ToList();
         var commands = new List<IFemEditCommand>();
-        if (removeNodes.Count > 0) commands.Add(new SetDofMasksCommand(removeNodes, 0));
-        if (addNodes.Count > 0) commands.Add(new SetDofMasksCommand(addNodes, mask));
+        if (removeNodes.Count > 0) commands.Add(new SetNodeBoundaryCommand(removeNodes, 0, new double[6]));
+        if (addNodes.Count > 0) commands.Add(new SetNodeBoundaryCommand(addNodes, mask, stiffnesses));
         if (commands.Count == 0) return;
         _editorVm.Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
         _editorVm.RefreshCollections();

@@ -91,4 +91,40 @@ public sealed class FemSchemaEditPersistenceTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+    [Fact]
+    public void SaveFemSchemaEdit_ReplacesNodeSprings_KeepsMeshSprings_DropsDeletedNodes()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-edit-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Springs", SourceType = "internal" };
+            db.SaveFemSchema(schema);
+            db.SaveFemBoundary(schema.Id, FemLoadOrigin.Import("scad"), [],
+                [new FemSpring { NodeTag = "m1", Kz = 1 }], []);
+
+            FemNode n1 = new() { NodeTag = "1" }, n2 = new() { NodeTag = "2", X = 1 };
+            FemSpring Spring(string tag, double kz) => new() { TargetKind = FemSpringTargetKinds.Node, NodeTag = tag, Kz = kz };
+            db.SaveFemSchemaEdit(schema.Id, [n1, n2], [], [], [], [], [], [],
+                nodeSprings: [Spring("1", 5e6), Spring("2", 0), Spring("9", 1)]);
+            var node = Assert.Single(db.GetFemSprings(schema.Id), s => s.TargetKind == FemSpringTargetKinds.Node);
+            Assert.Equal(("1", 5e6), (node.NodeTag, node.Kz));
+
+            // Повторное сохранение заменяет пружины КонЭ; узел 1 удалён — его пружина не пишется.
+            db.SaveFemSchemaEdit(schema.Id, [n2], [], [], [], [], [], [],
+                nodeSprings: [Spring("1", 5e6), Spring("2", 7e6)]);
+            var springs = db.GetFemSprings(schema.Id);
+            var kept = Assert.Single(springs, s => s.TargetKind == FemSpringTargetKinds.Node);
+            Assert.Equal(("2", 7e6), (kept.NodeTag, kept.Kz));
+            Assert.Single(springs, s => s.TargetKind == FemSpringTargetKinds.MeshNode);
+
+            // Без списка — пружины КонЭ не трогаются.
+            db.SaveFemSchemaEdit(schema.Id, [n2], [], [], [], []);
+            Assert.Equal(2, db.GetFemSprings(schema.Id).Count);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }

@@ -337,6 +337,7 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.ElementLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.BoundaryGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.LineSupportGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.NodeSpringGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSpringGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowHingeGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowRigidBodyGlyphs) ||
@@ -932,7 +933,8 @@ public partial class FemSchemaView3D : UserControl
         if (VM == null) return;
         var set = VM.BoundaryGlyphs;
         var lines = VM.LineSupportGlyphs;
-        if (set.IsEmpty && lines.IsEmpty) return;
+        var nodeSprings = VM.NodeSpringGlyphs;
+        if (set.IsEmpty && lines.IsEmpty && nodeSprings.IsEmpty) return;
         void Add(IReadOnlyList<CScore.Fem.FemGlyphSegment> segments, Color color, double thickness)
         {
             if (segments.Count == 0) return;
@@ -947,6 +949,7 @@ public partial class FemSchemaView3D : UserControl
         }
         if (VM.ShowSupportGlyphs) Add(set.Supports, Colors.RoyalBlue, 1.5);
         if (VM.ShowSpringGlyphs) Add(set.Springs, SpringColor, 1.3);
+        if (VM.ShowSpringGlyphs) Add(nodeSprings.Springs, SpringColor, 1.3);
         if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
         if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
 

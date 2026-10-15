@@ -335,7 +335,7 @@ class FemSchemaTreeVM
 
     /// <summary>Узловые и линейные связи по сессии редактора (до сохранения схемы).</summary>
     public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
-        => BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports);
+        => BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports, session.NodeSprings);
 }
 
 /// <summary>Базовый класс подузла расчётной схемы.</summary>

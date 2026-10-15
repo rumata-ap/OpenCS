@@ -31,18 +31,54 @@ public partial class FemNodePropertiesDialog : Window
             .ToList();
         membersList.ItemsSource = owningMembers;
 
-        txCheck.IsChecked = (node.DofMask & 1)  != 0;
-        tyCheck.IsChecked = (node.DofMask & 2)  != 0;
-        tzCheck.IsChecked = (node.DofMask & 4)  != 0;
-        rxCheck.IsChecked = (node.DofMask & 8)  != 0;
-        ryCheck.IsChecked = (node.DofMask & 16) != 0;
-        rzCheck.IsChecked = (node.DofMask & 32) != 0;
+        ShowBoundary();
 
         loadCaseCombo.ItemsSource = editorVm.Session.LoadCases;
         loadCaseCombo.SelectedItem = editorVm.Session.LoadCases.FirstOrDefault();
         LoadLoadFields();
 
         _initializing = false;
+    }
+
+    /// <summary>Закрепления и пружины узла — в флажки и строку пружин.</summary>
+    void ShowBoundary()
+    {
+        bool initializing = _initializing;
+        _initializing = true;
+        txCheck.IsChecked = (_node.DofMask & 1)  != 0;
+        tyCheck.IsChecked = (_node.DofMask & 2)  != 0;
+        tzCheck.IsChecked = (_node.DofMask & 4)  != 0;
+        rxCheck.IsChecked = (_node.DofMask & 8)  != 0;
+        ryCheck.IsChecked = (_node.DofMask & 16) != 0;
+        rzCheck.IsChecked = (_node.DofMask & 32) != 0;
+        _initializing = initializing;
+        var k = Stiffnesses();
+        string[] names = ["Kx", "Ky", "Kz", "Kux", "Kuy", "Kuz"];
+        var parts = Enumerable.Range(0, 6).Where(i => k[i] != 0)
+            .Select(i => string.Format(CultureInfo.CurrentCulture, "{0} = {1:0.###}", names[i], k[i] / 1e3)).ToList();
+        springsText.Text = parts.Count == 0 ? Loc.S("FemNodePropsNoSprings")
+            : string.Format(Loc.S("FemNodePropsSprings"), string.Join("; ", parts));
+    }
+
+    /// <summary>Жёсткости пружин узла в сессии, Н/м и Н·м/рад (сумма записей узла).</summary>
+    double[] Stiffnesses()
+    {
+        var k = new double[6];
+        foreach (var spring in _editorVm.Session.NodeSprings.Where(s => s.NodeTag == _node.NodeTag))
+            for (int i = 0; i < 6; i++) k[i] += spring.Stiffnesses[i];
+        return k;
+    }
+
+    void Boundary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new FemMeshNodeBoundaryDialog(
+            string.Format(CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"), _node.NodeTag, _node.X, _node.Y, _node.Z),
+            null, imported: false, _node.DofMask & FemBoundaryDofs.All, Stiffnesses(), allowSprings: true)
+        { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        _editorVm.Session.Execute(new SetNodeBoundaryCommand([_node], dialog.Mask, dialog.Stiffnesses));
+        _editorVm.RefreshCollections();
+        ShowBoundary();
     }
 
     void LoadLoadFields()

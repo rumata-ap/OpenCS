@@ -172,6 +172,24 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>
+      /// Заменяет пружины узлов КонЭ (<see cref="FemSpringTargetKinds.Node"/>) схемы переданными (внутри транзакции
+      /// вызывающего): пишутся только пружины с ненулевой жёсткостью на узлах из <paramref name="nodeTags"/>.
+      /// </summary>
+      void ReplaceFemNodeSpringsCore(int schemaId, IEnumerable<FemSpring> springs, IEnumerable<string> nodeTags)
+      {
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "DELETE FROM fem_springs WHERE schema_id=@sid AND target_kind=@kind";
+            cmd.Parameters.AddWithValue("@sid", schemaId);
+            cmd.Parameters.AddWithValue("@kind", FemSpringTargetKinds.Node);
+            cmd.ExecuteNonQuery();
+         }
+         var tags = nodeTags.ToHashSet(StringComparer.Ordinal);
+         var kept = springs.Where(s => s.TargetKind == FemSpringTargetKinds.Node && s.ActiveMask != 0 && tags.Contains(s.NodeTag));
+         InsertFemBoundaryCore(schemaId, [], kept.ToList(), []);
+      }
+
       /// <summary>Вставляет ГУ в схему <paramref name="schemaId"/> (внутри транзакции вызывающего).</summary>
       void InsertFemBoundaryCore(int schemaId, IEnumerable<FemMeshNodeSupport> supports, IEnumerable<FemSpring> springs,
          IEnumerable<FemRigidBody> rigidBodies, bool updateObjects = true)

@@ -160,7 +160,8 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
         int id = Schema.Id;
         _meshSupports = db.GetFemMeshNodeSupports(id);
         _springs = db.GetFemSprings(id);
-        ResetSupports(db, nodes, db.GetFemMembers(id), db.GetFemLineSupports(id));
+        ResetSupports(db, nodes, db.GetFemMembers(id), db.GetFemLineSupports(id),
+            _springs.Where(s => s.TargetKind == FemSpringTargetKinds.Node).ToList());
         Foundation.Reset([], db.GetFemFoundationElementCount(id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
@@ -173,16 +174,18 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
     /// команды; ГУ сетки — из последнего чтения БД.
     /// </summary>
     internal void ReloadSupports(DatabaseService db, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
-        IReadOnlyList<FemLineSupport> lineSupports)
+        IReadOnlyList<FemLineSupport> lineSupports, IReadOnlyList<FemSpring> nodeSprings)
     {
-        ResetSupports(db, nodes, members, lineSupports);
+        ResetSupports(db, nodes, members, lineSupports, nodeSprings);
         UpdateVisible();
     }
 
     void ResetSupports(DatabaseService db, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
-        IReadOnlyList<FemLineSupport> lineSupports)
+        IReadOnlyList<FemLineSupport> lineSupports, IReadOnlyList<FemSpring> nodeSprings)
     {
-        NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, _meshSupports, _springs));
+        // Пружины узлов КонЭ — из сессии (или БД), узлов сетки — из последнего чтения БД.
+        var springs = _springs.Where(s => s.TargetKind != FemSpringTargetKinds.Node).Concat(nodeSprings);
+        NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, _meshSupports, springs));
         LineSupports.Reset(lineSupports.Count == 0 ? [] : FemBoundaryTree.LineGroups(Schema, lineSupports,
             FemLineSupportGeometry.EdgesByMember(members, db.GetPlanarRegions(Schema.Id))));
     }

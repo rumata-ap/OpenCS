@@ -204,6 +204,17 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(LineSupportGlyphs));
     }
 
+    /// <summary>Глифы пружин узлов КонЭ (из сессии редактора — видны до сохранения).</summary>
+    public FemBoundaryGlyphSet NodeSpringGlyphs { get; private set; } = FemBoundaryGlyphSet.Empty;
+
+    /// <summary>Перестраивает глифы пружин узлов КонЭ по сессии (без БД).</summary>
+    public void RefreshNodeSprings(CScore.Fem.Editing.FemSchemaEditSession session)
+    {
+        NodeSpringGlyphs = session.NodeSprings.Count == 0 ? FemBoundaryGlyphSet.Empty
+            : FemBoundaryGlyphs.Build(session.Nodes, [], [], [], session.NodeSprings, [], LineGlyphSize);
+        OnPropertyChanged(nameof(NodeSpringGlyphs));
+    }
+
     /// <summary>Подпись слоя жёстких тел: при прореживании — сколько связей показано.</summary>
     public string RigidBodyGlyphsHeader => BoundaryGlyphs.RigidLinksShown < BoundaryGlyphs.RigidLinksTotal
         ? string.Format(Loc.S("Fem3DShowRigidBodiesThinned"), BoundaryGlyphs.RigidLinksShown, BoundaryGlyphs.RigidLinksTotal)
@@ -611,13 +622,13 @@ public class Fem3DVM : ViewModelBase
         BoundaryGlyphs = await Task.Run(() =>
         {
             var supports = _db.GetFemMeshNodeSupports(_schemaId);
-            var springs = _db.GetFemSprings(_schemaId);
+            // Пружины узлов КонЭ — из сессии редактора (NodeSpringGlyphs), здесь только узлов сетки.
+            var springs = _db.GetFemSprings(_schemaId).Where(s => s.TargetKind != FemSpringTargetKinds.Node).ToList();
             var bodies = _db.GetFemRigidBodies(_schemaId);
             if (supports.Count == 0 && springs.Count == 0 && bodies.Count == 0 && !_db.HasFemElementReleases(_schemaId))
                 return FemBoundaryGlyphSet.Empty;
             var (meshNodes, elements) = cached ?? (_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
-            var nodes = springs.Any(s => s.TargetKind == FemSpringTargetKinds.Node) ? _db.GetFemNodes(_schemaId) : [];
-            return FemBoundaryGlyphs.Build(nodes, meshNodes, elements, supports, springs, bodies,
+            return FemBoundaryGlyphs.Build([], meshNodes, elements, supports, springs, bodies,
                 FemBoundaryGlyphs.GlyphSize(meshNodes, elements));
         });
         OnPropertyChanged(nameof(BoundaryGlyphs));
@@ -792,6 +803,7 @@ public class Fem3DVM : ViewModelBase
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
         RefreshLineSupports(session);
+        RefreshNodeSprings(session);
     }
 
     void RefreshDiagramSources(

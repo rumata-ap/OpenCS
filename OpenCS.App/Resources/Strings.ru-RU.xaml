@@ -2591,8 +2591,7 @@
     <system:String x:Key="FemBoundaryObjectsMissingNodes">Нет узлов КонЭ: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingMeshNodes">Нет узлов сетки: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingEdges">Нет граней пластин: {0}.</system:String>
-    <system:String x:Key="FemBoundaryAssignNoNodes">Выделите узлы КонЭ в редакторе схемы.</system:String>
-    <system:String x:Key="FemBoundaryAssignNoMeshNodes">Выделите узлы сетки (тип с пружинами задаётся только узлам сетки).</system:String>
+    <system:String x:Key="FemBoundaryAssignNoNodes">Выделите узлы КонЭ или узлы сетки в редакторе схемы.</system:String>
     <system:String x:Key="FemBoundaryAssignNoEdges">Выделите грани пластин в режиме «Грани пластин» редактора схемы.</system:String>
     <system:String x:Key="FemBoundaryShowOnSchema">Показать на схеме</system:String>
     <system:String x:Key="FemBoundaryGroupHeader">Узловая связь «{0}», узлов: {1}</system:String>
@@ -3419,6 +3418,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodePropsTag">Узел</system:String>
     <system:String x:Key="FemNodePropsMembers">Входит в элементы</system:String>
     <system:String x:Key="FemNodePropsDof">Закрепления (Tx Ty Tz Rx Ry Rz)</system:String>
+    <system:String x:Key="FemNodePropsSprings">Пружины: {0}</system:String>
+    <system:String x:Key="FemNodePropsNoSprings">Пружин нет</system:String>
+    <system:String x:Key="FemNodePropsBoundary">Закрепления и пружины…</system:String>
     <system:String x:Key="FemNodePropsLoadCase">Загружение</system:String>
     <system:String x:Key="FemNodePropsFx">Fx, кН</system:String>
     <system:String x:Key="FemNodePropsFy">Fy, кН</system:String>

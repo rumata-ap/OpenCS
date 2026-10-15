@@ -2591,8 +2591,7 @@
     <system:String x:Key="FemBoundaryObjectsMissingNodes">No member nodes: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingMeshNodes">No mesh nodes: {0}.</system:String>
     <system:String x:Key="FemBoundaryObjectsMissingEdges">No plate edges: {0}.</system:String>
-    <system:String x:Key="FemBoundaryAssignNoNodes">Select member nodes in the schema editor.</system:String>
-    <system:String x:Key="FemBoundaryAssignNoMeshNodes">Select mesh nodes (a type with springs applies to mesh nodes only).</system:String>
+    <system:String x:Key="FemBoundaryAssignNoNodes">Select member nodes or mesh nodes in the schema editor.</system:String>
     <system:String x:Key="FemBoundaryAssignNoEdges">Select plate edges in the "Plate edges" mode of the schema editor.</system:String>
     <system:String x:Key="FemBoundaryShowOnSchema">Show on schema</system:String>
     <system:String x:Key="FemBoundaryGroupHeader">Nodal support “{0}”, nodes: {1}</system:String>
@@ -3419,6 +3418,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemNodePropsTag">Node</system:String>
     <system:String x:Key="FemNodePropsMembers">Belongs to members</system:String>
     <system:String x:Key="FemNodePropsDof">Fixities (Tx Ty Tz Rx Ry Rz)</system:String>
+    <system:String x:Key="FemNodePropsSprings">Springs: {0}</system:String>
+    <system:String x:Key="FemNodePropsNoSprings">No springs</system:String>
+    <system:String x:Key="FemNodePropsBoundary">Fixities and springs…</system:String>
     <system:String x:Key="FemNodePropsLoadCase">Load case</system:String>
     <system:String x:Key="FemNodePropsFx">Fx, kN</system:String>
     <system:String x:Key="FemNodePropsFy">Fy, kN</system:String>

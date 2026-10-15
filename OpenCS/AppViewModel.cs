@@ -511,8 +511,7 @@ namespace OpenCS
 
       /// <summary>
       /// «Изменить…» у типа узловой связи: одни закрепления и пружины для всех его узлов. Узлы сетки пишутся сразу (ручные
-      /// ГУ, результаты постановок сбрасываются); узлы КонЭ — командой редактора схемы (отмена, сохранение схемы), их
-      /// пружины в редакторе не задаются.
+      /// ГУ, результаты постановок сбрасываются); узлы КонЭ — командой редактора схемы (отмена, сохранение схемы).
       /// </summary>
       public void EditFemNodalSupportGroup(ViewModels.FemBoundaryGroupItem group)
       {
@@ -522,7 +521,7 @@ namespace OpenCS
          var dialog = new Views.FemMeshNodeBoundaryDialog(
             string.Format(Loc.S("FemBoundaryGroupHeader"), group.Label, group.Count), group.OriginText,
             imported: group.OriginText != Loc.S("FemBoundaryOriginManual"), group.Mask, group.Stiffnesses,
-            allowSprings: !structural)
+            allowSprings: true)
          { Owner = System.Windows.Application.Current.MainWindow };
          if (dialog.ShowDialog() != true) return;
 
@@ -537,7 +536,7 @@ namespace OpenCS
          {
             CurrentFemSchema = schema;
             if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
-               page.SetNodeMasks(targets.NodeTags, dialog.Mask);
+               page.SetNodeBoundary(targets.NodeTags, dialog.Mask, dialog.Stiffnesses);
          }
       }
 
@@ -629,8 +628,7 @@ namespace OpenCS
             return;
          }
 
-         // Узлы КонЭ — только у типа без пружин (пружины узлов КонЭ в редакторе не задаются); узлы сетки — если они есть у типа.
-         bool structural = group.Stiffnesses.All(k => k == 0);
+         // Узлы КонЭ — всегда, узлы сетки — если они есть у типа.
          bool mesh = targets.MeshNodeTags.Count > 0;
          var structuralTags = session.Nodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
          var meshTags = mesh
@@ -642,30 +640,27 @@ namespace OpenCS
             Owner = owner,
             Validate = texts =>
             {
-               int i = 0;
-               if (structural)
-               {
-                  newStructural = ViewModels.FemBoundaryObjectList.ParseTags(texts[i++], out var error);
-                  if (newStructural == null) return error;
-                  if (Missing(newStructural, structuralTags) is { } text) return string.Format(Loc.S("FemBoundaryObjectsMissingNodes"), text);
-               }
+               newStructural = ViewModels.FemBoundaryObjectList.ParseTags(texts[0], out var structuralError);
+               if (newStructural == null) return structuralError;
+               if (Missing(newStructural, structuralTags) is { } missing) return string.Format(Loc.S("FemBoundaryObjectsMissingNodes"), missing);
                if (mesh)
                {
-                  newMesh = ViewModels.FemBoundaryObjectList.ParseTags(texts[i], out var error);
+                  newMesh = ViewModels.FemBoundaryObjectList.ParseTags(texts[1], out var error);
                   if (newMesh == null) return error;
                   if (Missing(newMesh, meshTags) is { } text) return string.Format(Loc.S("FemBoundaryObjectsMissingMeshNodes"), text);
                }
                return null;
             },
          };
-         if (structural) nodesDialog.Field(Loc.S("FemBoundaryObjectsNodes"), ViewModels.FemBoundaryObjectList.FormatTags(targets.NodeTags));
+         nodesDialog.Field(Loc.S("FemBoundaryObjectsNodes"), ViewModels.FemBoundaryObjectList.FormatTags(targets.NodeTags));
          if (mesh) nodesDialog.Field(Loc.S("FemBoundaryObjectsMeshNodes"), ViewModels.FemBoundaryObjectList.FormatTags(targets.MeshNodeTags));
          if (nodesDialog.ShowDialog() != true) return;
 
          if (newMesh != null)
             ApplyFemMeshNodeGroup(group, newMesh.Except(targets.MeshNodeTags).ToList(), targets.MeshNodeTags.Except(newMesh).ToList());
          if (newStructural != null)
-            page.AssignNodeMasks(newStructural.Except(targets.NodeTags).ToList(), targets.NodeTags.Except(newStructural).ToList(), group.Mask);
+            page.AssignNodeBoundary(newStructural.Except(targets.NodeTags).ToList(), targets.NodeTags.Except(newStructural).ToList(),
+               group.Mask, group.Stiffnesses);
 
          static string? Missing(List<string> tags, HashSet<string> known)
          {
@@ -696,8 +691,7 @@ namespace OpenCS
             return;
          }
 
-         bool structural = group.Stiffnesses.All(k => k == 0);
-         var nodes = structural ? selection.SelectedNodeTags.ToList() : [];
+         var nodes = selection.SelectedNodeTags.ToList();
          var meshNodes = selection.SelectedMeshNodeTags.ToList();
          if (remove)
          {
@@ -706,11 +700,11 @@ namespace OpenCS
          }
          if (nodes.Count + meshNodes.Count == 0)
          {
-            LogService.Info(Loc.S(structural ? "FemBoundaryAssignNoNodes" : "FemBoundaryAssignNoMeshNodes"));
+            LogService.Info(Loc.S("FemBoundaryAssignNoNodes"));
             return;
          }
          if (meshNodes.Count > 0) ApplyFemMeshNodeGroup(group, remove ? [] : meshNodes, remove ? meshNodes : []);
-         if (nodes.Count > 0) page.AssignNodeMasks(remove ? [] : nodes, remove ? nodes : [], group.Mask);
+         if (nodes.Count > 0) page.AssignNodeBoundary(remove ? [] : nodes, remove ? nodes : [], group.Mask, group.Stiffnesses);
       }
 
       /// <summary>Узлам сетки <paramref name="add"/> — закрепления и пружины типа, у <paramref name="remove"/> — сняты;

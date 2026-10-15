@@ -19,6 +19,8 @@ public sealed class FemSchemaEditSession
     public List<FemMeshNodeLoad> MeshNodeLoads { get; } = [];
     /// <summary>Линейные связи на гранях пластинчатых КонЭ.</summary>
     public List<FemLineSupport> LineSupports { get; } = [];
+    /// <summary>Пружины узлов КонЭ (<see cref="FemSpringTargetKinds.Node"/>); пружины узлов сетки пишутся в БД сразу.</summary>
+    public List<FemSpring> NodeSprings { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];
     int _position; // индекс первой ненаправленной команды (== _history.Count при отсутствии redo)

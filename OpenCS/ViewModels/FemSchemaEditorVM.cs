@@ -582,6 +582,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.ElementLoads.AddRange(_db.GetFemElementLoads(schema.Id));
         Session.MeshNodeLoads.AddRange(_db.GetFemMeshNodeLoads(schema.Id));
         Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
+        Session.NodeSprings.AddRange(_db.GetFemSprings(schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.Node));
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
         Session.Changed += () => app.ScheduleFemSupportsTreeRefresh(Session);
@@ -1292,7 +1293,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
             Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.KinematicLoads, Session.LoadDefinitions,
-            Session.ElementLoads, Session.MeshNodeLoads, Session.LineSupports);
+            Session.ElementLoads, Session.MeshNodeLoads, Session.LineSupports, Session.NodeSprings);
         Session.MarkSaved();
         RefreshCollections();
         _afterSave?.Invoke();

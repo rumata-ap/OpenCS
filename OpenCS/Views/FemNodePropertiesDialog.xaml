@@ -25,6 +25,11 @@
             <CheckBox x:Name="ryCheck" Content="Ry" Margin="0,0,8,0" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
             <CheckBox x:Name="rzCheck" Content="Rz" Checked="Dof_Changed" Unchecked="Dof_Changed"/>
         </StackPanel>
+        <DockPanel Margin="0,4,0,0">
+            <Button DockPanel.Dock="Right" Content="{DynamicResource FemNodePropsBoundary}" Padding="8,1"
+                    Click="Boundary_Click"/>
+            <TextBlock x:Name="springsText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
+        </DockPanel>
 
         <Separator Margin="0,8"/>
         <TextBlock Text="{DynamicResource FemNodePropsLoadCase}" Margin="0,2"/>

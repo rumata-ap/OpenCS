@@ -28,7 +28,7 @@ public partial class FemMeshNodeBoundaryDialog : Window
 
     /// <summary>ГУ узла или типа узловой связи (все узлы группы получат одни значения).</summary>
     /// <param name="stiffnesses">Текущие жёсткости X…UZ, Н/м и Н·м/рад.</param>
-    /// <param name="allowSprings">Пружины можно задать (у узлов КонЭ — только закрепления).</param>
+    /// <param name="allowSprings">Пружины можно задать.</param>
     public FemMeshNodeBoundaryDialog(string header, string? origin, bool imported, int mask,
         IReadOnlyList<double> stiffnesses, bool allowSprings)
     {
