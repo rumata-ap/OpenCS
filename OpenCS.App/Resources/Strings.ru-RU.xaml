@@ -2584,7 +2584,7 @@
     <system:String x:Key="FemLoadCaseDialogSp20Type">Вид нагрузки (СП 20)</system:String>
     <system:String x:Key="FemLoadCaseDialogGroup">Группа</system:String>
     <system:String x:Key="FemLoadCaseDialogGroupTip">Взаимоисключающие загружения одной группы не входят в сочетание вместе</system:String>
-    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Пустые γf и ψ — значения по умолчанию по виду нагрузки.</system:String>
+    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Пустые γf — значения по умолчанию по виду нагрузки. Коэффициенты сочетаний ψ назначаются по СП 20 по степени влияния нагрузки (п. 6.3–6.5).</system:String>
     <system:String x:Key="FemLoadCaseDialogBadNumber">Нужно неотрицательное число или пустое поле.</system:String>
     <system:String x:Key="FemLoadCaseDialogOrigin">Источник: {0}</system:String>
     <system:String x:Key="FemCombinationDialogTitle">Комбинация</system:String>
@@ -3665,8 +3665,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadCaseSp20Group">Группа</system:String>
     <system:String x:Key="FemLoadCaseGammaUnfav">γf неблаг.</system:String>
     <system:String x:Key="FemLoadCaseGammaFav">γf благ.</system:String>
-    <system:String x:Key="FemLoadCasePsi1">ψ1</system:String>
-    <system:String x:Key="FemLoadCasePsi2">ψ2</system:String>
     <system:String x:Key="FemLoadCaseTypePermanent">Постоянная</system:String>
     <system:String x:Key="FemLoadCaseTypeLongTerm">Длительная</system:String>
     <system:String x:Key="FemLoadCaseTypeShortTerm">Кратковременная</system:String>
@@ -3721,7 +3719,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsAddAreaTip">Площадная нагрузка на выделенное, группу или список КЭ…</system:String>
     <system:String x:Key="FemLoadsAddKinematicTip">Заданное перемещение выбранным в 3D узлам КонЭ (DOF и значение — в таблице)</system:String>
     <system:String x:Key="FemLoadsDeleteRowsTip">Удалить выбранные строки (одной отменой)</system:String>
-    <system:String x:Key="FemLoadsHint">Строка слева — активное загружение: его нагрузки справа и в 3D. Пустые γf и ψ — по умолчанию по виду нагрузки.</system:String>
+    <system:String x:Key="FemLoadsHint">Строка слева — активное загружение: его нагрузки справа и в 3D. Пустые γf — по умолчанию по виду нагрузки; ψ сочетаний — по СП 20 по степени влияния.</system:String>
     <system:String x:Key="FemLoadsMemberHint">Оси «Локальная» — местные оси стержня. У равномерной нагрузки конец равен началу; правка конца делает её трапециевидной. Моменты — только у сосредоточенной.</system:String>
     <system:String x:Key="FemLoadsAreaHint">Значение: равномерная — кПа, сосредоточенная — кН. Импортные нагрузки на КЭ — только просмотр и удаление; у ручных равномерных правятся значение и направление. Знак — вдоль оси: −5 по Z — вниз.</system:String>
     <system:String x:Key="FemLoadsKinematicHint">Перемещения Ux, Uy, Uz — мм, повороты Rx, Ry, Rz — мрад, в общих осях.</system:String>

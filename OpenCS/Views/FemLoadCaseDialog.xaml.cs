@@ -27,8 +27,8 @@ public partial class FemLoadCaseDialog : Window
         groupBox.Text = loadCase.Sp20Group ?? "";
         gammaUnfavBox.Text = Format(loadCase.GammaFUnfav);
         gammaFavBox.Text = Format(loadCase.GammaFFav);
-        psi1Box.Text = Format(loadCase.Psi1);
-        psi2Box.Text = Format(loadCase.Psi2);
+        // ψ1/ψ2 в диалоге не правятся: коэффициенты сочетаний СП 20 назначаются по рангу нагрузки (п. 6.3–6.5).
+        _psi = (loadCase.Psi1, loadCase.Psi2);
         selfWeightCheck.IsChecked = loadCase.SelfWeightFactor is { } k && k != 0;
         selfWeightBox.Text = Format(loadCase.SelfWeightFactor ?? 1);
         selfWeightBox.IsEnabled = selfWeightCheck.IsChecked == true;
@@ -40,6 +40,8 @@ public partial class FemLoadCaseDialog : Window
         Loaded += (_, _) => { tagBox.Focus(); tagBox.SelectAll(); };
     }
 
+    readonly (double? Psi1, double? Psi2) _psi;
+
     static string Format(double? value) => value?.ToString("0.####", CultureInfo.CurrentCulture) ?? "";
 
     void SelfWeight_Changed(object sender, RoutedEventArgs e) => selfWeightBox.IsEnabled = selfWeightCheck.IsChecked == true;
@@ -47,8 +49,7 @@ public partial class FemLoadCaseDialog : Window
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(tagBox.Text)) { ShowError(Loc.S("FemLoadCaseTagTaken"), tagBox); return; }
-        if (!TryParse(gammaUnfavBox, out var gu) || !TryParse(gammaFavBox, out var gf) ||
-            !TryParse(psi1Box, out var p1) || !TryParse(psi2Box, out var p2)) return;
+        if (!TryParse(gammaUnfavBox, out var gu) || !TryParse(gammaFavBox, out var gf)) return;
         double? selfWeight = null;
         if (selfWeightCheck.IsChecked == true)
         {
@@ -60,7 +61,7 @@ public partial class FemLoadCaseDialog : Window
             Tag = tagBox.Text.Trim(),
             Sp20Type = typeCombo.SelectedValue as string ?? "short_term",
             Sp20Group = string.IsNullOrWhiteSpace(groupBox.Text) ? null : groupBox.Text.Trim(),
-            GammaFUnfav = gu, GammaFFav = gf, Psi1 = p1, Psi2 = p2,
+            GammaFUnfav = gu, GammaFFav = gf, Psi1 = _psi.Psi1, Psi2 = _psi.Psi2,
             SelfWeightFactor = selfWeight,
         };
         if (Validate?.Invoke(result) is { } error) { ShowError(error, tagBox); return; }

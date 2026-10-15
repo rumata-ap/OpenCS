@@ -14,7 +14,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Text="{DynamicResource FemLoadCaseDialogName}" VerticalAlignment="Center"/>
             <TextBox x:Name="tagBox" Grid.Row="0" Grid.Column="1" Margin="0,2"/>
@@ -32,13 +31,9 @@
             <TextBox x:Name="gammaUnfavBox" Grid.Row="3" Grid.Column="1" Margin="0,2"/>
             <TextBlock Grid.Row="4" Text="{DynamicResource FemLoadCaseGammaFav}" VerticalAlignment="Center"/>
             <TextBox x:Name="gammaFavBox" Grid.Row="4" Grid.Column="1" Margin="0,2"/>
-            <TextBlock Grid.Row="5" Text="{DynamicResource FemLoadCasePsi1}" VerticalAlignment="Center"/>
-            <TextBox x:Name="psi1Box" Grid.Row="5" Grid.Column="1" Margin="0,2"/>
-            <TextBlock Grid.Row="6" Text="{DynamicResource FemLoadCasePsi2}" VerticalAlignment="Center"/>
-            <TextBox x:Name="psi2Box" Grid.Row="6" Grid.Column="1" Margin="0,2"/>
-            <CheckBox x:Name="selfWeightCheck" Grid.Row="7" Content="{DynamicResource FemSelfWeightFactor}"
+            <CheckBox x:Name="selfWeightCheck" Grid.Row="5" Content="{DynamicResource FemSelfWeightFactor}"
                       VerticalAlignment="Center" Checked="SelfWeight_Changed" Unchecked="SelfWeight_Changed"/>
-            <TextBox x:Name="selfWeightBox" Grid.Row="7" Grid.Column="1" Margin="0,2"/>
+            <TextBox x:Name="selfWeightBox" Grid.Row="5" Grid.Column="1" Margin="0,2"/>
         </Grid>
         <TextBlock Text="{DynamicResource FemLoadCaseDialogDefaultsHint}" Foreground="Gray" FontSize="11"
                    TextWrapping="Wrap" Margin="1,4,1,0"/>

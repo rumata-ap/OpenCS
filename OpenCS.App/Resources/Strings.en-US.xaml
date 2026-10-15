@@ -2584,7 +2584,7 @@
     <system:String x:Key="FemLoadCaseDialogSp20Type">Load kind (SP 20)</system:String>
     <system:String x:Key="FemLoadCaseDialogGroup">Group</system:String>
     <system:String x:Key="FemLoadCaseDialogGroupTip">Mutually exclusive load cases of one group never combine together</system:String>
-    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Empty γf and ψ mean defaults for the load kind.</system:String>
+    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Empty γf mean defaults for the load kind. Combination factors ψ follow SP 20 by the degree of influence of the load (cl. 6.3–6.5).</system:String>
     <system:String x:Key="FemLoadCaseDialogBadNumber">Enter a non-negative number or leave the field empty.</system:String>
     <system:String x:Key="FemLoadCaseDialogOrigin">Source: {0}</system:String>
     <system:String x:Key="FemCombinationDialogTitle">Combination</system:String>
@@ -3665,8 +3665,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadCaseSp20Group">Group</system:String>
     <system:String x:Key="FemLoadCaseGammaUnfav">γf unfav.</system:String>
     <system:String x:Key="FemLoadCaseGammaFav">γf fav.</system:String>
-    <system:String x:Key="FemLoadCasePsi1">ψ1</system:String>
-    <system:String x:Key="FemLoadCasePsi2">ψ2</system:String>
     <system:String x:Key="FemLoadCaseTypePermanent">Permanent</system:String>
     <system:String x:Key="FemLoadCaseTypeLongTerm">Long-term</system:String>
     <system:String x:Key="FemLoadCaseTypeShortTerm">Short-term</system:String>
@@ -3721,7 +3719,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsAddAreaTip">Area load on the selection, a group or an element list…</system:String>
     <system:String x:Key="FemLoadsAddKinematicTip">Prescribed displacement on structural nodes selected in 3D (DOF and value — in the table)</system:String>
     <system:String x:Key="FemLoadsDeleteRowsTip">Delete selected rows (one undo)</system:String>
-    <system:String x:Key="FemLoadsHint">The row on the left is the active load case: its loads are on the right and in 3D. Empty γf and ψ — defaults for the load kind.</system:String>
+    <system:String x:Key="FemLoadsHint">The row on the left is the active load case: its loads are on the right and in 3D. Empty γf — defaults for the load kind; combination ψ follow SP 20 by degree of influence.</system:String>
     <system:String x:Key="FemLoadsMemberHint">"Local" axes are the bar local axes. A uniform load has end = start; editing the end makes it trapezoidal. Moments apply to point loads only.</system:String>
     <system:String x:Key="FemLoadsAreaHint">Value: uniform — kPa, point — kN. Imported element loads are view/delete only; manual uniform loads allow editing value and direction. Sign is along the axis: −5 along Z is downward.</system:String>
     <system:String x:Key="FemLoadsKinematicHint">Displacements Ux, Uy, Uz — mm, rotations Rx, Ry, Rz — mrad, global axes.</system:String>

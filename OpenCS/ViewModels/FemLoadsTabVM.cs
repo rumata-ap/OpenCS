@@ -48,8 +48,6 @@ public sealed class FemLoadCaseRow(FemLoadsTabVM owner, FemLoadCase loadCase, in
     }
     public string GammaFUnfav { get => FemLoadsFormat.Optional(LoadCase.GammaFUnfav); set => SetOptional(value, (v, x) => v.GammaFUnfav = x); }
     public string GammaFFav { get => FemLoadsFormat.Optional(LoadCase.GammaFFav); set => SetOptional(value, (v, x) => v.GammaFFav = x); }
-    public string Psi1 { get => FemLoadsFormat.Optional(LoadCase.Psi1); set => SetOptional(value, (v, x) => v.Psi1 = x); }
-    public string Psi2 { get => FemLoadsFormat.Optional(LoadCase.Psi2); set => SetOptional(value, (v, x) => v.Psi2 = x); }
 
     /// <summary>Множитель собственного веса; пусто — без собственного веса.</summary>
     public string SelfWeight

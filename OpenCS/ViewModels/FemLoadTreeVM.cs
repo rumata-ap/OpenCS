@@ -129,7 +129,7 @@ public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
 /// <summary>Подписи загружений и комбинаций дерева.</summary>
 public static class FemLoadTree
 {
-    /// <summary>Заданные параметры загружения: γf, ψ, группа, собственный вес; null — ничего не задано.</summary>
+    /// <summary>Заданные параметры загружения: γf, группа, собственный вес; null — ничего не задано.</summary>
     public static string? Parameters(FemLoadCase loadCase)
     {
         var c = CultureInfo.CurrentCulture;
@@ -137,8 +137,6 @@ public static class FemLoadTree
         if (loadCase.GammaFUnfav is { } gu)
             parts.Add(loadCase.GammaFFav is { } gf ? string.Format(c, "γf {0:0.###}/{1:0.###}", gu, gf) : string.Format(c, "γf {0:0.###}", gu));
         else if (loadCase.GammaFFav is { } gfOnly) parts.Add(string.Format(c, "γf −/{0:0.###}", gfOnly));
-        if (loadCase.Psi1 is { } p1) parts.Add(string.Format(c, "ψ1 {0:0.###}", p1));
-        if (loadCase.Psi2 is { } p2) parts.Add(string.Format(c, "ψ2 {0:0.###}", p2));
         if (!string.IsNullOrWhiteSpace(loadCase.Sp20Group)) parts.Add($"[{loadCase.Sp20Group}]");
         if (loadCase.SelfWeightFactor is { } k && k != 0)
             parts.Add(string.Format(c, Loc.S("FemLoadTreeSelfWeight"), k));

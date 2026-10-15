@@ -31,8 +31,6 @@ public sealed class FemLoadsTabTests(FemSchemaEditorVMFixture fixture)
 
         row.GammaFUnfav = "1,1";
         Assert.Equal(1.1, g.GammaFUnfav);
-        row.Psi1 = "0.95";
-        Assert.Equal(0.95, g.Psi1);
         row.SelfWeight = "1,05";
         Assert.Equal(1.05, g.SelfWeightFactor);
 
@@ -53,9 +51,7 @@ public sealed class FemLoadsTabTests(FemSchemaEditorVMFixture fixture)
         Assert.Equal(1.1, g.GammaFUnfav);
         editor.UndoCommand.Execute(null);
         editor.UndoCommand.Execute(null);
-        editor.UndoCommand.Execute(null);
         Assert.Null(g.GammaFUnfav);
-        Assert.Null(g.Psi1);
         Assert.Null(g.SelfWeightFactor);
     }
 

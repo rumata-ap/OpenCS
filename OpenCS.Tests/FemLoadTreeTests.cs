@@ -15,7 +15,7 @@ public sealed class FemLoadTreeTests
         Assert.Null(FemLoadTree.Parameters(new FemLoadCase { Tag = "Q" }));
         var lc = new FemLoadCase { Tag = "G", GammaFUnfav = 1.1, GammaFFav = 0.9, Psi1 = 0.95, Sp20Group = "ветер", SelfWeightFactor = 1.1 };
         Assert.Equal(
-            string.Join("; ", string.Format("γf {0:0.###}/{1:0.###}", 1.1, 0.9), string.Format("ψ1 {0:0.###}", 0.95), "[ветер]",
+            string.Join("; ", string.Format("γf {0:0.###}/{1:0.###}", 1.1, 0.9), "[ветер]",
                 string.Format(Loc.S("FemLoadTreeSelfWeight"), 1.1)),
             FemLoadTree.Parameters(lc));
     }

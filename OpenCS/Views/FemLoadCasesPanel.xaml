@@ -109,8 +109,6 @@
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColGroup}" Binding="{Binding Group}" Width="*" MinWidth="50"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaUnfav}" Binding="{Binding GammaFUnfav}" Width="64"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaFav}" Binding="{Binding GammaFFav}" Width="64"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadCasePsi1}" Binding="{Binding Psi1}" Width="44"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadCasePsi2}" Binding="{Binding Psi2}" Width="44"/>
                     <DataGridTextColumn Binding="{Binding SelfWeight}" Width="48">
                         <DataGridTextColumn.HeaderTemplate>
                             <DataTemplate>
