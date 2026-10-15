@@ -258,7 +258,10 @@ public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
             session.MemberLoads.Remove(_created);
     }
 
-    static FemMemberLoad Snapshot(FemMemberLoad source) => new()
+    /// <summary>Копия всех полей нагрузки (для правки в таблице).</summary>
+    public static FemMemberLoad Copy(FemMemberLoad source) => Snapshot(source);
+
+    internal static FemMemberLoad Snapshot(FemMemberLoad source) => new()
     {
         Id = source.Id, SchemaId = source.SchemaId, LoadCaseId = source.LoadCaseId,
         MemberId = source.MemberId, CoordinateSystem = source.CoordinateSystem,
@@ -268,7 +271,7 @@ public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
         Mx = source.Mx, My = source.My, Mz = source.Mz
     };
 
-    static void Apply(FemMemberLoad target, FemMemberLoad source)
+    internal static void Apply(FemMemberLoad target, FemMemberLoad source)
     {
         target.LoadCaseId = source.LoadCaseId;
         target.MemberId = source.MemberId;
@@ -288,11 +291,52 @@ public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
     }
 }
 
+/// <summary>
+/// Меняет поля нагрузки стержня по ссылке (правка в таблице): в отличие от <see cref="SetMemberLoadCommand"/> работает
+/// и с несохранённой нагрузкой (Id = 0). Id, схема, загружение и стержень не меняются.
+/// </summary>
+public sealed class EditMemberLoadCommand(FemMemberLoad target, FemMemberLoad values) : IFemEditCommand
+{
+    FemMemberLoad? _old;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old = SetMemberLoadCommand.Snapshot(target);
+        var next = SetMemberLoadCommand.Snapshot(values);
+        next.LoadCaseId = target.LoadCaseId;
+        next.MemberId = target.MemberId;
+        SetMemberLoadCommand.Apply(target, next);
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_old != null) SetMemberLoadCommand.Apply(target, _old);
+    }
+}
+
 /// <summary>Удаляет распределённую нагрузку с возможностью отмены.</summary>
 public sealed class DeleteMemberLoadCommand(FemMemberLoad load) : IFemEditCommand
 {
     public void Do(FemSchemaEditSession session) => session.MemberLoads.Remove(load);
     public void Undo(FemSchemaEditSession session) => session.MemberLoads.Add(load);
+}
+
+/// <summary>Удаляет нагрузку на узел сетки; отмена возвращает её на прежнее место.</summary>
+public sealed class DeleteMeshNodeLoadCommand(FemMeshNodeLoad load) : IFemEditCommand
+{
+    int _index = -1;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _index = session.MeshNodeLoads.IndexOf(load);
+        session.MeshNodeLoads.Remove(load);
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_index >= 0 && _index <= session.MeshNodeLoads.Count) session.MeshNodeLoads.Insert(_index, load);
+        else session.MeshNodeLoads.Add(load);
+    }
 }
 
 /// <summary>Добавляет нагрузку на КЭ (сеточный уровень).</summary>

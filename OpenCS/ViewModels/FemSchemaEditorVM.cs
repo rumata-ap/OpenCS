@@ -30,8 +30,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public ObservableCollection<FemNode>        Nodes        { get; } = [];
     public ObservableCollection<FemMember>      Members      { get; } = [];
-    /// <summary>Конструктивные стержни, доступные для задания распределённых нагрузок.</summary>
-    public IEnumerable<FemMember> BeamMembers => Members.Where(member => member.ElemType == "beam");
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
     public ObservableCollection<FemLoadCase>    LoadCases    { get; } = [];
     public ObservableCollection<FemMemberLoad>  MemberLoads  { get; } = [];
@@ -191,15 +189,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         {
             _selectedLoadCase = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedCaseElementLoads));
         }
-    }
-    FemMember? _selectedLoadMember;
-    /// <summary>Стержень, выбранный в редакторе распределённой нагрузки.</summary>
-    public FemMember? SelectedLoadMember
-    {
-        get => _selectedLoadMember;
-        set { _selectedLoadMember = value; OnPropertyChanged(); }
     }
     FemLoadDefinition? _selectedLoadDefinition;
     public FemLoadDefinition? SelectedLoadDefinition
@@ -221,11 +211,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 Session.LoadCases.FirstOrDefault(loadCase => loadCase.Id == term.LoadCaseId)?.Tag ?? term.LoadCaseId.ToString(),
                 term.Coefficient))
             .ToArray() ?? [];
-
-    /// <summary>Возвращает нагрузку выбранного загружения на заданный конструктивный стержень.</summary>
-    public FemMemberLoad? FindMemberLoad(FemMember member) => SelectedLoadCase is { } loadCase
-        ? Session.MemberLoads.FirstOrDefault(load => load.LoadCaseId == loadCase.Id && load.MemberId == member.Id)
-        : null;
 
     /// <summary>Удаляет нагрузку заданного загружения с заданного стержня (для 3D-глифов,
     /// где отображаемое загружение может отличаться от выбранного в панели свойств).</summary>
@@ -280,64 +265,15 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         return true;
     }
 
-    /// <summary>Создаёт или обновляет распределённую или сосредоточенную нагрузку конструктивного стержня.</summary>
-    public bool ApplyMemberLoad(
-        double startOffsetM, double endOffsetM, string coordinateSystem, string distributionType,
-        double qxStart, double qyStart, double qzStart, double qxEnd, double qyEnd, double qzEnd,
-        double mx = 0, double my = 0, double mz = 0)
-    {
-        if (SelectedLoadCase is not { } loadCase || SelectedLoadMember is not { } member || member.Id == 0)
-            return false;
-
-        var existing = FindMemberLoad(member);
-        Session.Execute(new SetMemberLoadCommand(new FemMemberLoad
-        {
-            Id = existing?.Id ?? 0,
-            SchemaId = Session.Schema.Id,
-            LoadCaseId = loadCase.Id,
-            MemberId = member.Id,
-            CoordinateSystem = coordinateSystem,
-            DistributionType = distributionType,
-            StartOffsetM = startOffsetM,
-            EndOffsetM = endOffsetM,
-            QxStart = qxStart, QyStart = qyStart, QzStart = qzStart,
-            QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd,
-            Mx = mx, My = my, Mz = mz
-        }));
-        RefreshCollections();
-        return true;
-    }
-
-    /// <summary>Удаляет нагрузку выбранного загружения с выбранного стержня.</summary>
-    public void DeleteMemberLoad()
-    {
-        if (SelectedLoadMember is not { } member || FindMemberLoad(member) is not { } load) return;
-        Session.Execute(new DeleteMemberLoadCommand(load));
-        RefreshCollections();
-    }
-
-    /// <summary>Нагрузки на КЭ выбранного загружения со строкой для списка.</summary>
-    public IReadOnlyList<FemElementLoadView> SelectedCaseElementLoads => SelectedLoadCase is { } lc
-        ? Session.ElementLoads.Where(l => l.LoadCaseId == lc.Id).Select(l => new FemElementLoadView(l, Session.MemberGroups)).ToList()
-        : [];
-
-    FemElementLoadView? _selectedElementLoad;
-    /// <summary>Нагрузка на КЭ, выбранная в списке загружения.</summary>
-    public FemElementLoadView? SelectedElementLoad
-    {
-        get => _selectedElementLoad;
-        set { _selectedElementLoad = value; OnPropertyChanged(); }
-    }
-
     /// <summary>Режимы цели нагрузки на пластины в редакторе.</summary>
     public const string AreaTargetSelection = "selection", AreaTargetGroup = "group", AreaTargetList = "list";
 
     /// <summary>
-    /// Равномерная нагрузка на пластины выбранного загружения (новая или вместо выбранной в списке). Цель: выделенное
-    /// (КЭ сетки, иначе КонЭ), группа или список КЭ «1-50, 75». Возвращает текст ошибки или null.
+    /// Новая равномерная нагрузка на пластины выбранного загружения. Цель: выделенное (КЭ сетки, иначе КонЭ), группа
+    /// или список КЭ «1-50, 75». Возвращает текст ошибки или null.
     /// </summary>
     public string? ApplyAreaLoad(string targetMode, FemMemberGroup? group, string? tagsText, double pressurePa,
-        string coordinateSystem, string axis, bool replaceSelected)
+        string coordinateSystem, string axis)
     {
         if (SelectedLoadCase is not { } lc) return Loc.S("FemAreaLoadNoCase");
         if (!double.IsFinite(pressurePa) || pressurePa == 0) return Loc.S("FemAreaLoadZero");
@@ -373,35 +309,9 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 load.SetTargetTags(tags);
                 break;
         }
-        if (replaceSelected && SelectedElementLoad?.Load is { } old && Session.ElementLoads.Contains(old))
-            Session.Execute(new ReplaceElementLoadCommand(old, load));
-        else
-            Session.Execute(new AddElementLoadCommand(load));
+        Session.Execute(new AddElementLoadCommand(load));
         RefreshCollections();
-        SelectedElementLoad = SelectedCaseElementLoads.FirstOrDefault(v => ReferenceEquals(v.Load, load));
         return null;
-    }
-
-    /// <summary>Удаляет нагрузку на КЭ, выбранную в списке.</summary>
-    public void DeleteSelectedElementLoad()
-    {
-        if (SelectedElementLoad?.Load is not { } load) return;
-        Session.Execute(new DeleteElementLoadCommand(load));
-        SelectedElementLoad = null;
-        RefreshCollections();
-    }
-
-    /// <summary>Коэффициент собственного веса выбранного загружения; null — без собственного веса.</summary>
-    public void SetSelectedLoadCaseSelfWeight(double? factor)
-    {
-        if (SelectedLoadCase is not { } lc || lc.SelfWeightFactor == factor) return;
-        Session.Execute(new EditLoadCaseCommand(lc, new FemLoadCase
-        {
-            Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group,
-            GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
-            SelfWeightFactor = factor,
-        }));
-        RefreshCollections();
     }
 
     IReadOnlyList<FemValidationDiagnostic> _diagnostics = [];
@@ -1022,43 +932,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CombinationType = combinationType, ExpressionJson = expression.ToJson(),
     };
 
-    /// <summary>Обновляет имя и параметры комбинаторики СП 20 выбранного исходного загружения.</summary>
-    public bool UpdateSelectedLoadCase(
-        string tag, string sp20Type, string? sp20Group,
-        double? gammaFUnfav, double? gammaFFav, double? psi1, double? psi2)
-    {
-        if (SelectedLoadCase is not { } loadCase || !CanUseLoadCaseTag(tag, loadCase)) return false;
-        Session.Execute(new EditLoadCaseCommand(loadCase, new FemLoadCase
-        {
-            Tag = tag.Trim(),
-            LoadType = loadCase.LoadType,
-            Sp20Type = sp20Type,
-            Sp20Group = string.IsNullOrWhiteSpace(sp20Group) ? null : sp20Group,
-            GammaFUnfav = gammaFUnfav,
-            GammaFFav = gammaFFav,
-            Psi1 = psi1,
-            Psi2 = psi2,
-            SelfWeightFactor = loadCase.SelfWeightFactor
-        }));
-        RefreshCollections();
-        return true;
-    }
-
-    /// <summary>Переименовывает выбранное исходное загружение с проверкой уникальности.</summary>
-    public bool TryRenameSelectedLoadCase(string tag)
-    {
-        if (SelectedLoadCase is not { } loadCase || !CanUseLoadCaseTag(tag, loadCase)) return false;
-        Session.Execute(new EditLoadCaseCommand(loadCase, new FemLoadCase
-        {
-            Tag = tag.Trim(), LoadType = loadCase.LoadType, Sp20Type = loadCase.Sp20Type,
-            Sp20Group = loadCase.Sp20Group, GammaFUnfav = loadCase.GammaFUnfav,
-            GammaFFav = loadCase.GammaFFav, Psi1 = loadCase.Psi1, Psi2 = loadCase.Psi2,
-            SelfWeightFactor = loadCase.SelfWeightFactor
-        }));
-        RefreshCollections();
-        return true;
-    }
-
     /// <summary>Переименовывает выбранную комбинацию с проверкой уникальности.</summary>
     public bool TryRenameSelectedLoadDefinition(string tag)
     {
@@ -1199,25 +1072,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
-    /// <summary>
-    /// Применяет компоненты нагрузки к выбранным в 3D узлам для текущего загружения.
-    /// </summary>
-    public IReadOnlyList<string> ApplyLoadToSelection(double fx, double fy, double fz, double mx, double my, double mz)
-    {
-        var skipped = new List<string>();
-        if (SelectedLoadCase is not { } loadCase) return skipped;
-
-        foreach (var tag in Selection.SelectedNodeTags)
-        {
-            var node = Session.Nodes.SingleOrDefault(n => n.NodeTag == tag);
-            if (node == null) continue;
-            Session.Execute(new SetNodeLoadCommand(loadCase.Id, node.Id, fx, fy, fz, mx, my, mz));
-        }
-        RefreshCollections();
-        NodeLoadsApplied?.Invoke(loadCase);
-        return skipped;
-    }
-
     FemFragmentSnapshot? _clipboard;
     public bool HasClipboard => _clipboard != null;
 
@@ -1256,14 +1110,12 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         // устаревшие значения таких полей до следующей структурной пересборки коллекции.
         CollectionViewSource.GetDefaultView(Nodes).Refresh();
         CollectionViewSource.GetDefaultView(Members).Refresh();
-        OnPropertyChanged(nameof(BeamMembers));
         CollectionViewSource.GetDefaultView(MemberGroups).Refresh();
         CollectionViewSource.GetDefaultView(LoadCases).Refresh();
         CollectionViewSource.GetDefaultView(MemberLoads).Refresh();
         CollectionViewSource.GetDefaultView(KinematicLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
         OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
-        OnPropertyChanged(nameof(SelectedCaseElementLoads));
         OnPropertyChanged(nameof(ExtractBlockReason));
     }
 
@@ -1283,7 +1135,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>Правка отклонена: затронута геометрия элемента с импортированной сеткой (текст — причина).</summary>
     public event Action<string>? GeometryLocked;
     public event EventHandler? MeshDiscretized;
-    public event Action<FemLoadCase>? NodeLoadsApplied;
 
     /// <summary>Сшивает совпадающие по координатам узлы конструктивного слоя. Возвращает короткий
     /// отчёт для лога.</summary>

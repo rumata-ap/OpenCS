@@ -1,0 +1,44 @@
+<UserControl x:Class="OpenCS.Views.FemCombinationsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Комбинации загружений (перенесены с вкладки «Загружения»; матрица — срез 5б). DataContext — FemSchemaEditorVM. -->
+    <Grid Margin="16" MaxWidth="720" HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="200"/>
+        </Grid.RowDefinitions>
+        <ToolBar Grid.Row="0">
+            <Button Content="{DynamicResource FemLoadDefinitionNew}" Click="NewDefinition_Click"/>
+            <Button Content="{DynamicResource FemLoadDefinitionDelete}" Click="DeleteDefinition_Click"/>
+            <Separator/>
+            <Button Content="{DynamicResource FemLoadDefinitionGenerateSp20}" Click="GenerateSp20_Click"/>
+        </ToolBar>
+        <ListBox Grid.Row="1" ItemsSource="{Binding LoadDefinitions}" DisplayMemberPath="Tag"
+                 SelectedItem="{Binding SelectedLoadDefinition}" SelectionChanged="DefinitionSelectionChanged" Margin="0,8,0,8"/>
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="definitionNameBox" Margin="0,0,4,0"/>
+            <Button Grid.Column="1" Content="{DynamicResource FemRename}" Click="RenameDefinition_Click"/>
+        </Grid>
+        <ToolBar Grid.Row="3">
+            <ComboBox ItemsSource="{Binding LoadCases}" DisplayMemberPath="Tag" SelectedItem="{Binding SelectedLoadCase}"
+                      Width="160" ToolTip="{DynamicResource FemCombinationsPanelCaseTip}"/>
+            <Button Content="{DynamicResource FemLoadDefinitionAddCase}" Click="AddCaseToDefinition_Click"/>
+            <Button Content="{DynamicResource FemLoadDefinitionRemoveCase}" Click="DeleteDefinitionTerm_Click"/>
+            <Separator/>
+            <TextBox x:Name="definitionCoefficientBox" Width="70" Text="1"/>
+            <Button Content="{DynamicResource FemLoadDefinitionApplyCoefficient}" Click="SaveDefinitionTermCoefficient_Click"/>
+        </ToolBar>
+        <DataGrid Grid.Row="4" ItemsSource="{Binding SelectedLoadDefinitionTerms}"
+                  SelectedItem="{Binding SelectedLoadDefinitionTerm}"
+                  AutoGenerateColumns="False" IsReadOnly="True" Margin="0,8,0,0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCase}" Binding="{Binding LoadCaseTag}" Width="*"/>
+                <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCoefficient}" Binding="{Binding Coefficient}" Width="100"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

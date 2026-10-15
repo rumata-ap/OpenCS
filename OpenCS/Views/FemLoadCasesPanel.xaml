@@ -1,225 +1,256 @@
 <UserControl x:Class="OpenCS.Views.FemLoadCasesPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Margin="16">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+    <!-- Вкладка «Загружения»: слева — загружения (строка = активное), справа — нагрузки активного загружения.
+         DataContext снаружи — FemSchemaEditorVM; внутри — FemLoadsTabVM (создаётся в коде). -->
+    <UserControl.Resources>
+        <Style x:Key="LoadsGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        </Style>
+        <Style x:Key="ReadOnlyRow" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEditable}" Value="False">
+                    <Setter Property="Foreground" Value="#666666"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="2,4,2,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid x:Name="root" Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220"/>
-            <ColumnDefinition Width="260"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="5*" MinWidth="320"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="6*" MinWidth="320"/>
         </Grid.ColumnDefinitions>
-        <DockPanel Grid.Column="0">
-            <Button DockPanel.Dock="Top" Content="{DynamicResource FemLoadCaseNew}" Click="NewLoadCase_Click" Margin="0,0,0,8"/>
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBox x:Name="loadCaseNameBox" Margin="0,0,4,0"/>
-                <Button Grid.Column="1" Content="{DynamicResource FemRename}" Click="RenameLoadCase_Click"/>
-            </Grid>
-            <ListBox ItemsSource="{Binding LoadCases}" DisplayMemberPath="Tag"
-                     SelectedItem="{Binding SelectedLoadCase}" SelectionChanged="LoadCaseSelectionChanged"/>
-        </DockPanel>
-        <StackPanel Grid.Column="1" Margin="16,0,0,0">
-            <TextBlock Text="{DynamicResource FemNodeLoadHint}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-            <TextBlock Text="{DynamicResource FemLoadFx}"/>
-            <TextBox x:Name="fxBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemLoadFy}"/>
-            <TextBox x:Name="fyBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemLoadFz}"/>
-            <TextBox x:Name="fzBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemLoadMx}"/>
-            <TextBox x:Name="mxBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemLoadMy}"/>
-            <TextBox x:Name="myBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemLoadMz}"/>
-            <TextBox x:Name="mzBox" Text="0" Margin="0,2,0,6"/>
-            <TextBlock Text="{DynamicResource FemNodePropsLoadUnitsHint}" Foreground="Gray" FontSize="11" Margin="1,0,1,6" TextWrapping="Wrap"/>
-            <Button Content="{DynamicResource FemApplyLoadToSelection}" Click="ApplyLoad_Click" Margin="0,8,0,0"/>
-            <Expander Header="{DynamicResource FemLoadCaseSp20Parameters}" IsExpanded="False" Margin="0,12,0,0">
-                <Grid Margin="0,6,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="85"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="{DynamicResource Tag}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="loadCaseTagBox" Grid.Row="0" Grid.Column="1"/>
-                    <TextBlock Grid.Row="1" Text="{DynamicResource FemLoadCaseSp20Type}" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="loadCaseTypeCombo" Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag">
-                        <ComboBoxItem Tag="permanent" Content="{DynamicResource FemLoadCaseTypePermanent}"/>
-                        <ComboBoxItem Tag="long_term" Content="{DynamicResource FemLoadCaseTypeLongTerm}"/>
-                        <ComboBoxItem Tag="short_term" Content="{DynamicResource FemLoadCaseTypeShortTerm}"/>
-                        <ComboBoxItem Tag="accidental" Content="{DynamicResource FemLoadCaseTypeAccidental}"/>
-                    </ComboBox>
-                    <TextBlock Grid.Row="2" Text="{DynamicResource FemLoadCaseSp20Group}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="loadCaseGroupBox" Grid.Row="2" Grid.Column="1"/>
-                    <TextBlock Grid.Row="3" Text="{DynamicResource FemLoadCaseGammaUnfav}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="gammaUnfavBox" Grid.Row="3" Grid.Column="1"/>
-                    <TextBlock Grid.Row="4" Text="{DynamicResource FemLoadCaseGammaFav}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="gammaFavBox" Grid.Row="4" Grid.Column="1"/>
-                    <TextBlock Grid.Row="5" Text="{DynamicResource FemLoadCasePsi1}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="psi1Box" Grid.Row="5" Grid.Column="1"/>
-                    <TextBlock Grid.Row="6" Text="{DynamicResource FemLoadCasePsi2}" VerticalAlignment="Center"/>
-                    <TextBox x:Name="psi2Box" Grid.Row="6" Grid.Column="1"/>
-                    <Button Grid.Row="7" Grid.ColumnSpan="2" Content="{DynamicResource FemLoadCaseApplyParameters}"
-                            Click="SaveLoadCaseParameters_Click" Margin="0,6,0,0"/>
-                </Grid>
-            </Expander>
-            <Expander Header="{DynamicResource FemMemberLoadsTab}" IsExpanded="False" Margin="0,12,0,0">
-                <ScrollViewer MaxHeight="520" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="0,6,0,0">
-                        <TextBlock Text="{DynamicResource FemMemberLoadHint}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                        <TextBlock Text="{DynamicResource FemMemberLoadMember}"/>
-                        <ComboBox x:Name="memberLoadMemberCombo" ItemsSource="{Binding BeamMembers}"
-                                  DisplayMemberPath="ElemTag" SelectedItem="{Binding SelectedLoadMember}"
-                                  SelectionChanged="MemberLoadMemberChanged" Margin="0,2,0,6"/>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                <TextBlock Text="{DynamicResource FemMemberLoadCoordinateSystem}"/>
-                                <ComboBox x:Name="memberLoadCoordinateCombo" SelectedValuePath="Tag">
-                                    <ComboBoxItem Tag="local" Content="{DynamicResource FemMemberLoadLocal}"/>
-                                    <ComboBoxItem Tag="global" Content="{DynamicResource FemMemberLoadGlobal}"/>
-                                </ComboBox>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                <TextBlock Text="{DynamicResource FemMemberLoadDistribution}"/>
-                                <ComboBox x:Name="memberLoadDistributionCombo" SelectedValuePath="Tag"
-                                          SelectionChanged="MemberLoadDistributionChanged">
-                                    <ComboBoxItem Tag="uniform" Content="{DynamicResource FemMemberLoadUniform}"/>
-                                    <ComboBoxItem Tag="trapezoidal" Content="{DynamicResource FemMemberLoadTrapezoidal}"/>
-                                    <ComboBoxItem Tag="point" Content="{DynamicResource FemMemberLoadPoint}"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </Grid>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                <TextBlock Text="{DynamicResource FemMemberLoadStartOffset}" TextWrapping="Wrap"/>
-                                <TextBox x:Name="memberLoadStartOffsetBox" Text="0"/>
-                            </StackPanel>
-                            <StackPanel x:Name="memberLoadEndOffsetPanel" Grid.Column="1" Margin="4,0,0,0">
-                                <TextBlock Text="{DynamicResource FemMemberLoadEndOffset}" TextWrapping="Wrap"/>
-                                <TextBox x:Name="memberLoadEndOffsetBox" Text="0"/>
-                            </StackPanel>
-                        </Grid>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Column="1" Text="{DynamicResource FemMemberLoadStart}" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="memberLoadEndHeaderText" Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
-                            <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="memberLoadQxStartBox" Margin="2"/>
-                            <TextBox Grid.Row="1" Grid.Column="2" x:Name="memberLoadQxEndBox" Margin="2"/>
-                            <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadQy}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" x:Name="memberLoadQyStartBox" Margin="2"/>
-                            <TextBox Grid.Row="2" Grid.Column="2" x:Name="memberLoadQyEndBox" Margin="2"/>
-                            <TextBlock Grid.Row="3" Text="{DynamicResource FemMemberLoadQz}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" x:Name="memberLoadQzStartBox" Margin="2"/>
-                            <TextBox Grid.Row="3" Grid.Column="2" x:Name="memberLoadQzEndBox" Margin="2"/>
-                        </Grid>
-                        <Grid x:Name="memberLoadMomentGrid" Visibility="Collapsed" Margin="0,4,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Row="0" Text="{DynamicResource FemMemberLoadMx}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="memberLoadMxBox" Grid.Row="0" Grid.Column="1" Margin="2"/>
-                            <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadMy}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="memberLoadMyBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
-                            <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadMz}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="memberLoadMzBox" Grid.Row="2" Grid.Column="1" Margin="2"/>
-                        </Grid>
-                        <Button Content="{DynamicResource FemMemberLoadApply}" Click="ApplyMemberLoad_Click" Margin="0,8,0,0"/>
-                        <Button Content="{DynamicResource FemMemberLoadDelete}" Click="DeleteMemberLoad_Click" Margin="0,4,0,0"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </Expander>
-            <Expander Header="{DynamicResource FemAreaLoadsTab}" IsExpanded="False" Margin="0,12,0,0">
-                <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="0,6,0,0">
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <CheckBox x:Name="selfWeightCheck" Content="{DynamicResource FemSelfWeightFactor}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="selfWeightBox" Grid.Column="1" Margin="4,0" Text="1"/>
-                            <Button Grid.Column="2" Content="{DynamicResource FemLoadCaseApplyParameters}" Click="ApplySelfWeight_Click"/>
-                        </Grid>
-                        <TextBlock Text="{DynamicResource FemAreaLoadList}"/>
-                        <ListBox x:Name="elementLoadList" ItemsSource="{Binding SelectedCaseElementLoads}" DisplayMemberPath="Text"
-                                 SelectedItem="{Binding SelectedElementLoad}" SelectionChanged="ElementLoadSelectionChanged"
-                                 MaxHeight="150" Margin="0,2,0,8"/>
-                        <TextBlock Text="{DynamicResource FemAreaLoadTarget}"/>
-                        <ComboBox x:Name="areaTargetCombo" SelectedValuePath="Tag" SelectedIndex="0" Margin="0,2,0,4"
-                                  SelectionChanged="AreaTargetChanged">
-                            <ComboBoxItem Tag="selection" Content="{DynamicResource FemAreaLoadTargetSelection}"/>
-                            <ComboBoxItem Tag="group" Content="{DynamicResource FemAreaLoadTargetGroupItem}"/>
-                            <ComboBoxItem Tag="list" Content="{DynamicResource FemAreaLoadTargetList}"/>
-                        </ComboBox>
-                        <ComboBox x:Name="areaGroupCombo" ItemsSource="{Binding MemberGroups}" DisplayMemberPath="Tag"
-                                  Visibility="Collapsed" Margin="0,0,0,4"/>
-                        <TextBox x:Name="areaTagsBox" Visibility="Collapsed" Margin="0,0,0,4"
-                                 ToolTip="{DynamicResource FemAreaLoadTagsHint}"/>
-                        <Grid Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,4,0">
-                                <TextBlock Text="{DynamicResource FemAreaLoadValue}"/>
-                                <TextBox x:Name="areaValueBox" Text="-1"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                <TextBlock Text="{DynamicResource FemAreaLoadDirection}"/>
-                                <ComboBox x:Name="areaDirectionCombo" SelectedValuePath="Tag" SelectedIndex="2">
-                                    <ComboBoxItem Tag="global:x" Content="X"/>
-                                    <ComboBoxItem Tag="global:y" Content="Y"/>
-                                    <ComboBoxItem Tag="global:z" Content="Z"/>
-                                    <ComboBoxItem Tag="local:z" Content="{DynamicResource FemAreaLoadDirNormal}"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock Text="{DynamicResource FemAreaLoadSignHint}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="1,4,1,4"/>
-                        <Button Content="{DynamicResource FemAreaLoadAdd}" Click="AddAreaLoad_Click" Margin="0,4,0,0"/>
-                        <Button x:Name="replaceAreaLoadButton" Content="{DynamicResource FemAreaLoadReplace}" Click="ReplaceAreaLoad_Click" Margin="0,4,0,0"/>
-                        <Button Content="{DynamicResource FemAreaLoadDelete}" Click="DeleteAreaLoad_Click" Margin="0,4,0,0"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </Expander>
-        </StackPanel>
-        <Grid Grid.Column="2" Margin="16,0,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="130"/>
-            </Grid.RowDefinitions>
-            <ToolBar Grid.Row="0">
-                <Button Content="{DynamicResource FemLoadDefinitionNew}" Click="NewDefinition_Click"/>
-                <Button Content="{DynamicResource FemLoadDefinitionDelete}" Click="DeleteDefinition_Click"/>
-                <Separator/>
-                <Button Content="{DynamicResource FemLoadDefinitionGenerateSp20}" Click="GenerateSp20_Click"/>
-            </ToolBar>
-            <ListBox Grid.Row="1" ItemsSource="{Binding LoadDefinitions}" DisplayMemberPath="Tag"
-                     SelectedItem="{Binding SelectedLoadDefinition}" SelectionChanged="DefinitionSelectionChanged" Margin="0,8,0,8"/>
-            <Grid Grid.Row="2" Margin="0,0,0,8">
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBox x:Name="definitionNameBox" Margin="0,0,4,0"/>
-                <Button Grid.Column="1" Content="{DynamicResource FemRename}" Click="RenameDefinition_Click"/>
-            </Grid>
-            <ToolBar Grid.Row="3">
-                <Button Content="{DynamicResource FemLoadDefinitionAddCase}" Click="AddCaseToDefinition_Click"/>
-                <Button Content="{DynamicResource FemLoadDefinitionRemoveCase}" Click="DeleteDefinitionTerm_Click"/>
-                <Separator/>
-                <TextBox x:Name="definitionCoefficientBox" Width="70" Text="1"/>
-                <Button Content="{DynamicResource FemLoadDefinitionApplyCoefficient}" Click="SaveDefinitionTermCoefficient_Click"/>
-            </ToolBar>
-            <DataGrid Grid.Row="4" ItemsSource="{Binding SelectedLoadDefinitionTerms}"
-                      SelectedItem="{Binding SelectedLoadDefinitionTerm}"
-                      AutoGenerateColumns="False" IsReadOnly="True" Margin="0,8,0,0">
+
+        <!-- Панель: загружение | отмена | сохранение -->
+        <ToolBar Grid.Row="0" Grid.ColumnSpan="3" ToolBarTray.IsLocked="True">
+            <Button Style="{StaticResource IconButton25}" Click="AddLoadCase_Click" ToolTip="{DynamicResource FemLoadsAddCaseTip}">
+                <Image Source="{StaticResource CmdIcon_Add}" Width="16" Height="16"/>
+            </Button>
+            <Button Style="{StaticResource IconButton25}" Click="DeleteLoadCase_Click" ToolTip="{DynamicResource FemLoadsDeleteCaseTip}">
+                <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+            </Button>
+            <Separator/>
+            <Button Style="{StaticResource IconButton25}" Command="{Binding Editor.UndoCommand}" ToolTip="{DynamicResource FemUndo}">
+                <Path Data="M13.5,7A6.5,6.5 0 0,1 20,13.5A6.5,6.5 0 0,1 13.5,20H10V18H13.5C16,18 18,16 18,13.5C18,11 16,9 13.5,9H7.83L10.91,12.09L9.5,13.5L4,8L9.5,2.5L10.92,3.91L7.83,7H13.5Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+            </Button>
+            <Button Style="{StaticResource IconButton25}" Command="{Binding Editor.RedoCommand}" ToolTip="{DynamicResource FemRedo}">
+                <Path Data="M10.5,7A6.5,6.5 0 0,0 4,13.5A6.5,6.5 0 0,0 10.5,20H14V18H10.5C8,18 6,16 6,13.5C6,11 8,9 10.5,9H16.17L13.09,12.09L14.5,13.5L20,8L14.5,2.5L13.08,3.91L16.17,7H10.5Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+            </Button>
+            <Separator/>
+            <Button Style="{StaticResource IconButton25}" Command="{Binding Editor.SaveCommand}" ToolTip="{DynamicResource FemSaveSchema}">
+                <Path Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+            </Button>
+        </ToolBar>
+
+        <!-- Загружения -->
+        <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,6,0,0">
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsHint}"/>
+            <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" SelectionMode="Single"
+                      ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=TwoWay}"
+                      BeginningEdit="Grid_BeginningEdit">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCase}" Binding="{Binding LoadCaseTag}" Width="*"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCoefficient}" Binding="{Binding Coefficient}" Width="100"/>
+                    <DataGridTextColumn Binding="{Binding ActiveMark}" IsReadOnly="True" Width="28">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{DynamicResource FemLoadsColActive}" ToolTip="{DynamicResource FemLoadsColActiveTip}"/>
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadsColNumber}" Binding="{Binding Number}" IsReadOnly="True" Width="32"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadsColName}" Binding="{Binding Tag}" Width="2*" MinWidth="90"/>
+                    <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColSp20}" Width="1.5*" MinWidth="110"
+                                            ItemsSource="{x:Static vm:FemLoadsTabVM.Sp20Types}" SelectedValuePath="Key"
+                                            DisplayMemberPath="Label" SelectedValueBinding="{Binding Sp20Type}"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadsColGroup}" Binding="{Binding Group}" Width="*" MinWidth="50"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaUnfav}" Binding="{Binding GammaFUnfav}" Width="64"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaFav}" Binding="{Binding GammaFFav}" Width="64"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadCasePsi1}" Binding="{Binding Psi1}" Width="44"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadCasePsi2}" Binding="{Binding Psi2}" Width="44"/>
+                    <DataGridTextColumn Binding="{Binding SelfWeight}" Width="48">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{DynamicResource FemLoadsColSelfWeight}" ToolTip="{DynamicResource FemLoadsColSelfWeightTip}"/>
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadsColOrigin}" Binding="{Binding OriginText}" IsReadOnly="True" Width="64"/>
                 </DataGrid.Columns>
             </DataGrid>
-        </Grid>
+        </DockPanel>
+
+        <GridSplitter Grid.Row="1" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Margin="2,6,2,0"/>
+
+        <!-- Нагрузки активного загружения -->
+        <TabControl Grid.Row="1" Grid.Column="2" Margin="0,6,0,0">
+            <TabItem Header="{Binding NodeLoadsHeader}">
+                <DockPanel>
+                    <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+                        <Button Style="{StaticResource IconButton25}" Click="AddNodeLoads_Click" ToolTip="{DynamicResource FemLoadsAddNodeTip}">
+                            <Image Source="{StaticResource CmdIcon_NodeLoad}" Width="16" Height="16"/>
+                        </Button>
+                        <Button Style="{StaticResource IconButton25}" Click="DeleteRows_Click" Tag="{Binding ElementName=nodeLoadsGrid}"
+                                ToolTip="{DynamicResource FemLoadsDeleteRowsTip}">
+                            <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+                        </Button>
+                    </ToolBar>
+                    <DataGrid x:Name="nodeLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding NodeLoadRows}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColNode}" Binding="{Binding NodeTag}" IsReadOnly="True" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFx}" Binding="{Binding Fx}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFy}" Binding="{Binding Fy}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFz}" Binding="{Binding Fz}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMx}" Binding="{Binding Mx}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMy}" Binding="{Binding My}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMz}" Binding="{Binding Mz}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="{Binding MemberLoadsHeader}">
+                <DockPanel>
+                    <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+                        <Button Style="{StaticResource IconButton25}" Click="AddMemberLoads_Click" ToolTip="{DynamicResource FemLoadsAddMemberTip}">
+                            <Image Source="{StaticResource CmdIcon_MemberLoad}" Width="16" Height="16"/>
+                        </Button>
+                        <Button Style="{StaticResource IconButton25}" Click="DeleteRows_Click" Tag="{Binding ElementName=memberLoadsGrid}"
+                                ToolTip="{DynamicResource FemLoadsDeleteRowsTip}">
+                            <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+                        </Button>
+                    </ToolBar>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsMemberHint}"/>
+                    <DataGrid x:Name="memberLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding MemberLoadRows}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMember}" Binding="{Binding MemberTag}" IsReadOnly="True" Width="70"/>
+                            <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColAxes}" Width="90"
+                                                    ItemsSource="{x:Static vm:FemLoadsTabVM.CoordinateSystems}" SelectedValuePath="Key"
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding CoordinateSystem}"/>
+                            <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDistribution}" Width="120"
+                                                    ItemsSource="{x:Static vm:FemLoadsTabVM.Distributions}" SelectedValuePath="Key"
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding DistributionType}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColA1}" Binding="{Binding StartOffset}" Width="60"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColA2}" Binding="{Binding EndOffset}" Width="60"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQx1}" Binding="{Binding QxStart}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQy1}" Binding="{Binding QyStart}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQz1}" Binding="{Binding QzStart}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQx2}" Binding="{Binding QxEnd}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQy2}" Binding="{Binding QyEnd}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColQz2}" Binding="{Binding QzEnd}" Width="70"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMx}" Binding="{Binding Mx}" Width="60"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMy}" Binding="{Binding My}" Width="60"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMz}" Binding="{Binding Mz}" Width="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="{Binding ElementLoadsHeader}">
+                <DockPanel>
+                    <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+                        <Button Style="{StaticResource IconButton25}" Click="AddAreaLoad_Click" ToolTip="{DynamicResource FemLoadsAddAreaTip}">
+                            <Image Source="{StaticResource CmdIcon_AreaLoad}" Width="16" Height="16"/>
+                        </Button>
+                        <Button Style="{StaticResource IconButton25}" Click="DeleteRows_Click" Tag="{Binding ElementName=elementLoadsGrid}"
+                                ToolTip="{DynamicResource FemLoadsDeleteRowsTip}">
+                            <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+                        </Button>
+                    </ToolBar>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsAreaHint}"/>
+                    <DataGrid x:Name="elementLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding ElementLoadRows}"
+                              RowStyle="{StaticResource ReadOnlyRow}" BeginningEdit="Grid_BeginningEdit">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColKind}" Binding="{Binding Kind}" IsReadOnly="True" Width="100"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColAreaValue}" Binding="{Binding Value}" Width="90"/>
+                            <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDirection}" Width="100"
+                                                    ItemsSource="{x:Static vm:FemLoadsTabVM.AreaDirections}" SelectedValuePath="Key"
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding Direction}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColTarget}" Binding="{Binding Target}" IsReadOnly="True" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColOrigin}" Binding="{Binding OriginText}" IsReadOnly="True" Width="64"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="{Binding KinematicLoadsHeader}">
+                <DockPanel>
+                    <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+                        <Button Style="{StaticResource IconButton25}" Click="AddKinematicLoads_Click" ToolTip="{DynamicResource FemLoadsAddKinematicTip}">
+                            <Image Source="{StaticResource CmdIcon_KinematicLoad}" Width="16" Height="16"/>
+                        </Button>
+                        <Button Style="{StaticResource IconButton25}" Click="DeleteRows_Click" Tag="{Binding ElementName=kinematicLoadsGrid}"
+                                ToolTip="{DynamicResource FemLoadsDeleteRowsTip}">
+                            <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+                        </Button>
+                    </ToolBar>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsKinematicHint}"/>
+                    <DataGrid x:Name="kinematicLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding KinematicLoadRows}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColNode}" Binding="{Binding NodeTag}" IsReadOnly="True" Width="70"/>
+                            <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDof}" Width="70"
+                                                    ItemsSource="{x:Static vm:FemLoadsTabVM.Dofs}" SelectedValuePath="Key"
+                                                    DisplayMemberPath="Value" SelectedValueBinding="{Binding Dof}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColKinematicValue}" Binding="{Binding Value}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="{Binding MeshNodeLoadsHeader}">
+                <DockPanel>
+                    <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+                        <Button Style="{StaticResource IconButton25}" Click="DeleteRows_Click" Tag="{Binding ElementName=meshNodeLoadsGrid}"
+                                ToolTip="{DynamicResource FemLoadsDeleteRowsTip}">
+                            <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
+                        </Button>
+                    </ToolBar>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsMeshNodalHint}"/>
+                    <DataGrid x:Name="meshNodeLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding MeshNodeLoadRows}" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMeshNode}" Binding="{Binding NodeTag}" Width="80"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFx}" Binding="{Binding Fx}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFy}" Binding="{Binding Fy}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColFz}" Binding="{Binding Fz}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMx}" Binding="{Binding Mx}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMy}" Binding="{Binding My}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColMz}" Binding="{Binding Mz}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColOrigin}" Binding="{Binding OriginText}" Width="64"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding Status}" Foreground="#B00020" TextWrapping="Wrap" Margin="2,6,2,0"/>
     </Grid>
 </UserControl>

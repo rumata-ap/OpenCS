@@ -127,7 +127,12 @@
 
         <!-- Вкладка загружений -->
         <TabItem Header="{DynamicResource FemLoadCasesTab}">
-            <local:FemLoadCasesPanel DataContext="{Binding}"/>
+            <local:FemLoadCasesPanel x:Name="loadCasesPanel" DataContext="{Binding}"/>
+        </TabItem>
+
+        <!-- Вкладка комбинаций -->
+        <TabItem Header="{DynamicResource FemCombinationsTab}">
+            <local:FemCombinationsPanel DataContext="{Binding}"/>
         </TabItem>
 
         <!-- Вкладка проверки схемы -->

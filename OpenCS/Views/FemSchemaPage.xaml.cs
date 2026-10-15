@@ -89,6 +89,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         // Вид строится по сессии при показе (LoadAsync): сетка-подложка читается в фоне, без замирания.
         _fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true, SessionSource = () => _editorVm.Session };
         RestoreActiveLoadCase();
+        loadCasesPanel.LoadCaseRenamed += lc => _app.OnFemActiveLoadCaseChanged(_schema, lc.Tag);
         view3D.Editor = _editorVm;
         view3D.DataContext = _fem3d;
         _editorVm.MeshDiscretized += async (_, _) =>
@@ -104,7 +105,6 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 Debug.WriteLine(exception);
             }
         };
-        _editorVm.NodeLoadsApplied += _fem3d.SelectDiagramLoadCase;
         _editorVm.OpenSchemaRequested += child => app.OpenFemSchema(child, openSubmodelTab: true);
         if (_editorVm.IsSubmodel)
         {
