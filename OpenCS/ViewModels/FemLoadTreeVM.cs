@@ -6,12 +6,12 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Строка состава загружения в дереве: «Узловые — 3», «Собственный вес ×1,1».</summary>
+/// <summary>Строка состава комбинации: «1,1 × 1. Собственный вес».</summary>
 public sealed record FemLoadCaseDetail(string Text);
 
 /// <summary>
-/// Загружение в дереве схемы: номер, имя, вид по СП 20 (иконка), активное — жирным; дочерние — нагрузки по видам
-/// (только непустые) и собственный вес. Щелчок делает загружение активным (как в RFEM).
+/// Загружение в дереве схемы (как в RFEM — без нагрузок: они рисуются на схеме): номер, имя, вид по СП 20 (иконка),
+/// сводка параметров серым, активное — жирным. Щелчок делает загружение активным, правка параметров — «Изменить…».
 /// </summary>
 public sealed class FemLoadCaseTreeItem : INotifyPropertyChanged
 {
@@ -27,9 +27,8 @@ public sealed class FemLoadCaseTreeItem : INotifyPropertyChanged
     public string Sp20Type => LoadCase.Sp20Type;
     /// <summary>Происхождение серым: «ЛИРА», «SCAD»; у ручных — null.</summary>
     public string? OriginText { get; }
-    public IReadOnlyList<FemLoadCaseDetail> Details { get; }
-    /// <summary>Нагрузок всех видов.</summary>
-    public int LoadCount { get; }
+    /// <summary>Заданные параметры серым: «γf 1,1/0,9; ψ1 0,95; СВ ×1,1»; null — все по умолчанию.</summary>
+    public string? ParametersText { get; }
 
     bool _isActive;
     public bool IsActive
@@ -43,14 +42,13 @@ public sealed class FemLoadCaseTreeItem : INotifyPropertyChanged
         }
     }
 
-    internal FemLoadCaseTreeItem(FemSchema schema, FemLoadCase loadCase, int number, FemLoadCaseCounts counts)
+    internal FemLoadCaseTreeItem(FemSchema schema, FemLoadCase loadCase, int number)
     {
         Schema = schema;
         LoadCase = loadCase;
         Number = number;
         OriginText = loadCase.Origin == FemLoadOrigin.Manual ? null : FemMeshNodeRow.DescribeOrigin(loadCase.Origin);
-        LoadCount = counts.Total;
-        Details = FemLoadTree.Details(loadCase, counts);
+        ParametersText = FemLoadTree.Parameters(loadCase);
     }
 }
 
@@ -66,13 +64,14 @@ public sealed class FemLoadCasesSubNode : FemSubNode, INotifyPropertyChanged
 
     internal FemLoadCasesSubNode(FemSchema schema) => Schema = schema;
 
-    /// <summary>Перечитывает загружения, счётчики нагрузок и активное загружение из БД.</summary>
-    internal void Reload(DatabaseService db)
+    /// <summary>Перечитывает загружения и активное загружение из БД.</summary>
+    internal void Reload(DatabaseService db) => Reset(db.GetFemLoadCases(Schema.Id), db.GetFemActiveLoadCaseTag(Schema.Id));
+
+    /// <summary>Загружения по списку (из БД или несохранённой сессии редактора) и запомненному активному.</summary>
+    internal void Reset(IReadOnlyList<FemLoadCase> cases, string? activeTag)
     {
-        var counts = db.GetFemLoadCaseCounts(Schema.Id);
-        var cases = db.GetFemLoadCases(Schema.Id);
-        Items.Reset(cases.Select((lc, i) => new FemLoadCaseTreeItem(Schema, lc, i + 1, counts.GetValueOrDefault(lc.Id))));
-        SetActive(FemLoadTree.ActiveTag(cases, db.GetFemActiveLoadCaseTag(Schema.Id)));
+        Items.Reset(cases.Select((lc, i) => new FemLoadCaseTreeItem(Schema, lc, i + 1)));
+        SetActive(FemLoadTree.ActiveTag(cases, activeTag));
         PropertyChanged?.Invoke(this, new(nameof(Count)));
         PropertyChanged?.Invoke(this, new(nameof(IsVisible)));
     }
@@ -116,10 +115,12 @@ public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
 
     internal FemCombinationsSubNode(FemSchema schema) => Schema = schema;
 
-    internal void Reload(DatabaseService db)
+    internal void Reload(DatabaseService db) => Reset(db.GetFemLoadDefinitions(Schema.Id), db.GetFemLoadCases(Schema.Id));
+
+    /// <summary>Комбинации по списку (из БД или несохранённой сессии редактора).</summary>
+    internal void Reset(IReadOnlyList<FemLoadDefinition> definitions, IReadOnlyList<FemLoadCase> cases)
     {
-        var cases = db.GetFemLoadCases(Schema.Id);
-        Items.Reset(db.GetFemLoadDefinitions(Schema.Id).Select(d => new FemCombinationTreeItem(Schema, d, cases)));
+        Items.Reset(definitions.Select(d => new FemCombinationTreeItem(Schema, d, cases)));
         PropertyChanged?.Invoke(this, new(nameof(Count)));
         PropertyChanged?.Invoke(this, new(nameof(IsVisible)));
     }
@@ -128,19 +129,20 @@ public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
 /// <summary>Подписи загружений и комбинаций дерева.</summary>
 public static class FemLoadTree
 {
-    /// <summary>Нагрузки по видам (только непустые) и собственный вес.</summary>
-    public static IReadOnlyList<FemLoadCaseDetail> Details(FemLoadCase loadCase, FemLoadCaseCounts counts)
+    /// <summary>Заданные параметры загружения: γf, ψ, группа, собственный вес; null — ничего не задано.</summary>
+    public static string? Parameters(FemLoadCase loadCase)
     {
-        var list = new List<FemLoadCaseDetail>();
-        void Add(string key, int n) { if (n > 0) list.Add(new($"{Loc.S(key)} — {n}")); }
-        Add("FemLoadTreeNodal", counts.Node);
-        Add("FemLoadTreeMember", counts.Member);
-        Add("FemLoadTreeArea", counts.Element);
-        Add("FemLoadTreeKinematic", counts.Kinematic);
-        Add("FemLoadTreeMeshNodal", counts.MeshNode);
+        var c = CultureInfo.CurrentCulture;
+        var parts = new List<string>();
+        if (loadCase.GammaFUnfav is { } gu)
+            parts.Add(loadCase.GammaFFav is { } gf ? string.Format(c, "γf {0:0.###}/{1:0.###}", gu, gf) : string.Format(c, "γf {0:0.###}", gu));
+        else if (loadCase.GammaFFav is { } gfOnly) parts.Add(string.Format(c, "γf −/{0:0.###}", gfOnly));
+        if (loadCase.Psi1 is { } p1) parts.Add(string.Format(c, "ψ1 {0:0.###}", p1));
+        if (loadCase.Psi2 is { } p2) parts.Add(string.Format(c, "ψ2 {0:0.###}", p2));
+        if (!string.IsNullOrWhiteSpace(loadCase.Sp20Group)) parts.Add($"[{loadCase.Sp20Group}]");
         if (loadCase.SelfWeightFactor is { } k && k != 0)
-            list.Add(new(string.Format(CultureInfo.CurrentCulture, Loc.S("FemLoadTreeSelfWeight"), k)));
-        return list;
+            parts.Add(string.Format(c, Loc.S("FemLoadTreeSelfWeight"), k));
+        return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
     /// <summary>Состав комбинации: «1,1 × 1. Собственный вес»; режим «все загружения» — по одному с коэффициентом 1.</summary>

@@ -6,18 +6,18 @@ using Xunit;
 
 namespace OpenCS.Tests;
 
-/// <summary>Загружения и комбинации в дереве схемы: счётчики нагрузок, состав комбинаций, активное загружение.</summary>
+/// <summary>Загружения и комбинации в дереве схемы: сводка параметров, состав комбинаций, активное загружение, сессия.</summary>
 public sealed class FemLoadTreeTests
 {
     [Fact]
-    public void Details_OnlyNonEmpty_AndSelfWeight()
+    public void Parameters_OnlyGiven()
     {
-        var lc = new FemLoadCase { Tag = "G", SelfWeightFactor = 1.1 };
-        var details = FemLoadTree.Details(lc, new FemLoadCaseCounts(Node: 3, Member: 0, Element: 5, Kinematic: 0, MeshNode: 0));
+        Assert.Null(FemLoadTree.Parameters(new FemLoadCase { Tag = "Q" }));
+        var lc = new FemLoadCase { Tag = "G", GammaFUnfav = 1.1, GammaFFav = 0.9, Psi1 = 0.95, Sp20Group = "ветер", SelfWeightFactor = 1.1 };
         Assert.Equal(
-            [$"{Loc.S("FemLoadTreeNodal")} — 3", $"{Loc.S("FemLoadTreeArea")} — 5",
-             string.Format(Loc.S("FemLoadTreeSelfWeight"), 1.1)],
-            details.Select(d => d.Text));
+            string.Join("; ", string.Format("γf {0:0.###}/{1:0.###}", 1.1, 0.9), string.Format("ψ1 {0:0.###}", 0.95), "[ветер]",
+                string.Format(Loc.S("FemLoadTreeSelfWeight"), 1.1)),
+            FemLoadTree.Parameters(lc));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class FemLoadTreeTests
     }
 
     [Fact]
-    public void Tree_ReadsLoadCasesCountsAndActive()
+    public void Tree_ReadsLoadCasesAndActive_AndResetsFromSession()
     {
         string path = Path.Combine(Path.GetTempPath(), $"opencs-load-tree-{Guid.NewGuid():N}.db");
         try
@@ -65,11 +65,6 @@ public sealed class FemLoadTreeTests
             });
             db.SaveFemSchemaEdit(schema.Id, [node], [], [], cases, [load], [], [], definitions: [definition]);
 
-            var counts = db.GetFemLoadCaseCounts(schema.Id);
-            var saved = db.GetFemLoadCases(schema.Id);
-            Assert.Equal(1, counts[saved[1].Id].Node);
-            Assert.False(counts.ContainsKey(saved[0].Id));
-
             Assert.Null(db.GetFemActiveLoadCaseTag(schema.Id));
             db.SetFemActiveLoadCaseTag(schema.Id, "Q");
             Assert.Equal("Q", db.GetFemActiveLoadCaseTag(schema.Id));
@@ -81,7 +76,7 @@ public sealed class FemLoadTreeTests
             Assert.Equal(["1. G", "2. Q"], loads.Items.Select(i => i.Label));
             Assert.Equal([false, true], loads.Items.Select(i => i.IsActive));
             Assert.Equal("permanent", loads.Items[0].Sp20Type);
-            Assert.Single(loads.Items[1].Details);
+            Assert.Equal(string.Format(Loc.S("FemLoadTreeSelfWeight"), 1), loads.Items[0].ParametersText);
 
             loads.SetActive("G");
             Assert.Equal([true, false], loads.Items.Select(i => i.IsActive));
@@ -89,6 +84,16 @@ public sealed class FemLoadTreeTests
             var combo = Assert.Single(tree.CombinationsSubNode.Items);
             Assert.Equal("C1", combo.Label);
             Assert.Equal(2, combo.Terms.Count);
+
+            // Несохранённая сессия редактора: загружение переименовано и добавлено, комбинация удалена.
+            var session = new CScore.Fem.Editing.FemSchemaEditSession(schema);
+            session.LoadCases.AddRange(db.GetFemLoadCases(schema.Id));
+            session.LoadCases[1].Tag = "Q1";
+            session.LoadCases.Add(new FemLoadCase { Id = -5, Tag = "W" });
+            tree.ReloadSupports(session);
+            Assert.Equal(["1. G", "2. Q1", "3. W"], loads.Items.Select(i => i.Label));
+            Assert.Equal([true, false, false], loads.Items.Select(i => i.IsActive)); // «Q» в сессии нет — активно первое
+            Assert.Empty(tree.CombinationsSubNode.Items);
 
             db.SetFemActiveLoadCaseTag(schema.Id, null);
             Assert.Null(db.GetFemActiveLoadCaseTag(schema.Id));

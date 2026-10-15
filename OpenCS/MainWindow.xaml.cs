@@ -258,6 +258,16 @@ namespace OpenCS
           }
       }
 
+      /// <summary>Двойной щелчок по загружению или комбинации в дереве — «Изменить…».</summary>
+      void FemLoadTreeItem_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+      {
+         if (e.ClickCount != 2 || sender is not FrameworkElement element) return;
+         if (element.DataContext is ViewModels.FemLoadCaseTreeItem loadCase) vm.EditFemLoadCase(loadCase);
+         else if (element.DataContext is ViewModels.FemCombinationTreeItem combination) vm.EditFemCombination(combination);
+         else return;
+         e.Handled = true;
+      }
+
       /// <summary>Меню КонЭ и узлов «Конструктивные элементы», «Стержни», «Пластины» — собирается при открытии.</summary>
       void FemMembersNode_ContextMenuOpening(object sender, ContextMenuEventArgs e)
       {
@@ -286,13 +296,28 @@ namespace OpenCS
             case ViewModels.FemBoundaryCategoryNode category:
                Views.FemMemberTreeMenus.FillBoundaryCategory(menu.Items, category, vm);
                break;
+            case ViewModels.FemLoadCasesSubNode loadCases:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseCreate", () => vm.CreateFemLoadCase(loadCases.Schema)));
+               break;
             case ViewModels.FemLoadCaseTreeItem loadCaseItem:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseActivate",
                   () => vm.ActivateFemLoadCase(loadCaseItem.Schema, loadCaseItem.LoadCase.Tag)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseEdit", () => vm.EditFemLoadCase(loadCaseItem)));
+               menu.Items.Add(new Separator());
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseCreate", () => vm.CreateFemLoadCase(loadCaseItem.Schema)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseDelete", () => vm.DeleteFemLoadCase(loadCaseItem)));
+               break;
+            case ViewModels.FemCombinationsSubNode combinations:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationCreate", () => vm.CreateFemCombination(combinations.Schema)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationsSp20", () => vm.GenerateFemSp20Combinations(combinations.Schema)));
                break;
             case ViewModels.FemCombinationTreeItem combinationItem:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationShow",
                   () => vm.ShowFemCombination(combinationItem.Schema, combinationItem.Definition.Tag)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationEdit", () => vm.EditFemCombination(combinationItem)));
+               menu.Items.Add(new Separator());
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationCreate", () => vm.CreateFemCombination(combinationItem.Schema)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationDelete", () => vm.DeleteFemCombination(combinationItem)));
                break;
             case ViewModels.FemElementsSubNode all:
                Views.FemMemberTreeMenus.FillCategory(menu.Items, all.Owner.Schema,

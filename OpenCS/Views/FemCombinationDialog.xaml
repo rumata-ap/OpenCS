@@ -1,0 +1,56 @@
+<Window x:Class="OpenCS.Views.FemCombinationDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemCombinationDialogTitle}"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="{DynamicResource FemCombinationDialogName}" VerticalAlignment="Center"/>
+            <TextBox x:Name="tagBox" Grid.Column="1" Margin="0,2"/>
+            <TextBlock Grid.Row="1" Text="{DynamicResource FemCombinationDialogType}" VerticalAlignment="Center"/>
+            <ComboBox x:Name="typeCombo" Grid.Row="1" Grid.Column="1" Margin="0,2" IsEditable="True"
+                      ToolTip="{DynamicResource FemCombinationDialogTypeTip}">
+                <ComboBoxItem Content="C"/>
+                <ComboBoxItem Content="CL"/>
+                <ComboBoxItem Content="N"/>
+                <ComboBoxItem Content="NL"/>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock Text="{DynamicResource FemCombinationDialogTerms}" Margin="0,10,0,2"/>
+        <Border BorderBrush="LightGray" BorderThickness="1">
+            <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="termsList" Margin="4">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <TextBox Grid.Column="1" Text="{Binding Coefficient, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+        <TextBlock Text="{DynamicResource FemCombinationDialogHint}" Foreground="Gray" FontSize="11"
+                   TextWrapping="Wrap" Margin="1,4,1,0"/>
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -928,15 +928,99 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CommandManager.InvalidateRequerySuggested();
     }
 
-    public void AddLoadCase(string tagPrefix, string sp20Type)
+    public FemLoadCase AddLoadCase(string tagPrefix, string sp20Type)
     {
         var tag = tagPrefix;
         int n = 2;
         while (Session.LoadCases.Any(lc => lc.Tag == tag))
             tag = $"{tagPrefix} {n++}";
-        Session.Execute(new AddLoadCaseCommand(new FemLoadCase { SchemaId = Session.Schema.Id, Tag = tag, Sp20Type = sp20Type }));
+        var loadCase = new FemLoadCase { SchemaId = Session.Schema.Id, Tag = tag, Sp20Type = sp20Type };
+        Session.Execute(new AddLoadCaseCommand(loadCase));
+        RefreshCollections();
+        return loadCase;
+    }
+
+    /// <summary>Параметры загружения (из дерева схемы) одной отменой; текст ошибки — имя пустое или занято.</summary>
+    public string? EditLoadCase(FemLoadCase target, FemLoadCase values)
+    {
+        if (!CanUseLoadCaseTag(values.Tag, target)) return Loc.S("FemLoadCaseTagTaken");
+        values.Tag = values.Tag.Trim();
+        values.LoadType ??= target.LoadType;
+        Session.Execute(new EditLoadCaseCommand(target, values));
+        RefreshCollections();
+        return null;
+    }
+
+    /// <summary>Удаляет загружение с его нагрузками и слагаемыми комбинаций — одной отменой.</summary>
+    public void DeleteLoadCase(FemLoadCase loadCase)
+    {
+        var commands = new List<IFemEditCommand>();
+        foreach (var definition in Session.LoadDefinitions)
+        {
+            var expression = definition.GetExpression();
+            if (!expression.LoadCaseIds.Contains(loadCase.Id) && expression.Terms.All(t => t.LoadCaseId != loadCase.Id)) continue;
+            var terms = expression.Terms.Where(t => t.LoadCaseId != loadCase.Id).ToList();
+            commands.Add(new EditLoadDefinitionCommand(definition, DefinitionValues(definition, definition.Tag,
+                definition.CombinationType, new FemLoadExpression
+                {
+                    Mode = expression.Mode,
+                    LoadCaseIds = expression.LoadCaseIds.Where(id => id != loadCase.Id).ToList(),
+                    Terms = terms,
+                    CombinationType = expression.CombinationType,
+                })));
+        }
+        commands.Add(new DeleteLoadCaseCommand(loadCase));
+        Session.Execute(commands.Count == 1 ? commands[0] : new CompositeFemCommand(commands));
+        if (ReferenceEquals(SelectedLoadCase, loadCase)) SelectedLoadCase = null;
         RefreshCollections();
     }
+
+    /// <summary>Новая пустая комбинация (из дерева схемы).</summary>
+    public FemLoadDefinition AddLoadDefinition(string tagPrefix)
+    {
+        var tag = tagPrefix;
+        int index = 2;
+        while (Session.LoadDefinitions.Any(definition => definition.Tag == tag))
+            tag = $"{tagPrefix} {index++}";
+        var definition = new FemLoadDefinition { SchemaId = Session.Schema.Id, Tag = tag, SourceKind = "manual" };
+        definition.SetExpression(new FemLoadExpression { Mode = FemLoadExpressionMode.Sum });
+        Session.Execute(new AddLoadDefinitionCommand(definition));
+        RefreshCollections();
+        return definition;
+    }
+
+    /// <summary>
+    /// Имя, тип и состав комбинации (слагаемые с ненулевыми коэффициентами) одной отменой; текст ошибки — имя пустое
+    /// или занято.
+    /// </summary>
+    public string? EditLoadDefinition(FemLoadDefinition target, string tag, string? combinationType, IReadOnlyList<FemLoadTerm> terms)
+    {
+        if (!CanUseDefinitionTag(tag, target)) return Loc.S("FemCombinationTagTaken");
+        string? type = string.IsNullOrWhiteSpace(combinationType) ? null : combinationType.Trim();
+        var kept = terms.Where(t => t.Coefficient != 0).ToList();
+        Session.Execute(new EditLoadDefinitionCommand(target, DefinitionValues(target, tag.Trim(), type, new FemLoadExpression
+        {
+            Mode = kept.Count == 1 ? FemLoadExpressionMode.Single : FemLoadExpressionMode.Sum,
+            Terms = kept,
+            CombinationType = type,
+        })));
+        RefreshCollections();
+        return null;
+    }
+
+    /// <summary>Удаляет комбинацию (из дерева схемы).</summary>
+    public void DeleteLoadDefinition(FemLoadDefinition definition)
+    {
+        Session.Execute(new DeleteLoadDefinitionCommand(definition));
+        if (ReferenceEquals(SelectedLoadDefinition, definition)) SelectedLoadDefinition = null;
+        RefreshCollections();
+    }
+
+    static FemLoadDefinition DefinitionValues(FemLoadDefinition source, string tag, string? combinationType, FemLoadExpression expression) => new()
+    {
+        Tag = tag, Description = source.Description, SourceKind = source.SourceKind,
+        CombinationType = combinationType, ExpressionJson = expression.ToJson(),
+    };
 
     /// <summary>Обновляет имя и параметры комбинаторики СП 20 выбранного исходного загружения.</summary>
     public bool UpdateSelectedLoadCase(

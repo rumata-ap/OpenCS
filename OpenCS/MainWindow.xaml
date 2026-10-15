@@ -1607,15 +1607,19 @@
 
                   <!-- «Загружения (N)»: щелчок по загружению делает его активным (жирным), его нагрузки — в 3D -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemLoadCasesSubNode}" ItemsSource="{Binding Items}">
-                     <StackPanel Orientation="Horizontal">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_LoadCases}"/>
                         <TextBlock Text="{DynamicResource FemLoadCasesNode}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemLoadCaseTreeItem}" ItemsSource="{Binding Details}">
-                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                  <DataTemplate DataType="{x:Type vm:FemLoadCaseTreeItem}">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening"
+                                 MouseLeftButtonDown="FemLoadTreeItem_MouseLeftButtonDown">
                         <StackPanel.ContextMenu>
                            <ContextMenu/>
                         </StackPanel.ContextMenu>
@@ -1649,9 +1653,10 @@
                               </Style>
                            </TextBlock.Style>
                         </TextBlock>
+                        <TextBlock Text="{Binding ParametersText, StringFormat='  {0}'}" Foreground="Gray"/>
                         <TextBlock Text="{Binding OriginText, StringFormat='  [{0}]'}" Foreground="Gray"/>
                      </StackPanel>
-                  </HierarchicalDataTemplate>
+                  </DataTemplate>
 
                   <DataTemplate DataType="{x:Type vm:FemLoadCaseDetail}">
                      <TextBlock Text="{Binding Text}" Foreground="DimGray" Margin="1"/>
@@ -1659,7 +1664,10 @@
 
                   <!-- «Комбинации (N)»: щелчок — нагрузки комбинации в 3D (без смены активного загружения) -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationsSubNode}" ItemsSource="{Binding Items}">
-                     <StackPanel Orientation="Horizontal">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combinations}"/>
                         <TextBlock Text="{DynamicResource FemCombinationsNode}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
@@ -1667,7 +1675,8 @@
                   </HierarchicalDataTemplate>
 
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationTreeItem}" ItemsSource="{Binding Terms}">
-                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening"
+                                 MouseLeftButtonDown="FemLoadTreeItem_MouseLeftButtonDown">
                         <StackPanel.ContextMenu>
                            <ContextMenu/>
                         </StackPanel.ContextMenu>

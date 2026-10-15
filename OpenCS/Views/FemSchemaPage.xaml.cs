@@ -213,6 +213,103 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is { } lc) _editorVm.SelectedLoadCase = lc;
     }
 
+    /// <summary>«Создать загружение…» из дерева: параметры в диалоге, добавление — одной отменой.</summary>
+    public void CreateLoadCase()
+    {
+        var session = _editorVm.Session;
+        string prefix = Loc.S("FemLoadCaseDefaultTag"), tag = prefix;
+        for (int n = 2; session.LoadCases.Any(lc => lc.Tag == tag); n++) tag = $"{prefix} {n}";
+        var template = new FemLoadCase { SchemaId = session.Schema.Id, Tag = tag, Sp20Type = "short_term" };
+        var dialog = new FemLoadCaseDialog(template, null)
+        {
+            Owner = Window.GetWindow(this),
+            Validate = v => session.LoadCases.Any(lc => lc.Tag == v.Tag) ? Loc.S("FemLoadCaseTagTaken") : null,
+        };
+        if (dialog.ShowDialog() != true) return;
+        var values = dialog.Result;
+        values.SchemaId = session.Schema.Id;
+        session.Execute(new AddLoadCaseCommand(values));
+        _editorVm.RefreshCollections();
+    }
+
+    /// <summary>«Изменить…» у загружения в дереве: параметры одной отменой; активное загружение следует за именем.</summary>
+    public void EditLoadCase(string tag, string? originText)
+    {
+        if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is not { } loadCase) return;
+        var dialog = new FemLoadCaseDialog(loadCase, originText)
+        {
+            Owner = Window.GetWindow(this),
+            Validate = v => _editorVm.Session.LoadCases.Any(lc => !ReferenceEquals(lc, loadCase) && lc.Tag == v.Tag)
+                ? Loc.S("FemLoadCaseTagTaken") : null,
+        };
+        if (dialog.ShowDialog() != true) return;
+        bool wasActive = _app.db.GetFemActiveLoadCaseTag(_schema.Id) == tag;
+        if (_editorVm.EditLoadCase(loadCase, dialog.Result) is { } error) { _app.LogService.Warning(error); return; }
+        if (wasActive && loadCase.Tag != tag)
+        {
+            _app.OnFemActiveLoadCaseChanged(_schema, loadCase.Tag);
+            SetActiveLoadCase(loadCase.Tag);
+        }
+    }
+
+    /// <summary>«Удалить» у загружения в дереве: с его нагрузками и слагаемыми комбинаций — одной отменой.</summary>
+    public void DeleteLoadCase(string tag)
+    {
+        if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is { } loadCase) _editorVm.DeleteLoadCase(loadCase);
+    }
+
+    /// <summary>«Создать комбинацию…» из дерева: состав в диалоге, добавление — одной отменой.</summary>
+    public void CreateLoadDefinition()
+    {
+        var session = _editorVm.Session;
+        string prefix = Loc.S("FemLoadDefinitionDefaultTag"), tag = prefix;
+        for (int n = 2; session.LoadDefinitions.Any(d => d.Tag == tag); n++) tag = $"{prefix} {n}";
+        var definition = new FemLoadDefinition { SchemaId = session.Schema.Id, Tag = tag, SourceKind = "manual" };
+        definition.SetExpression(new FemLoadExpression { Mode = FemLoadExpressionMode.Sum });
+        var dialog = new FemCombinationDialog(definition, session.LoadCases)
+        {
+            Owner = Window.GetWindow(this),
+            Validate = t => session.LoadDefinitions.Any(d => d.Tag == t) ? Loc.S("FemCombinationTagTaken") : null,
+        };
+        if (dialog.ShowDialog() != true) return;
+        definition.Tag = dialog.DefinitionTag;
+        definition.CombinationType = dialog.CombinationType;
+        definition.SetExpression(new FemLoadExpression
+        {
+            Mode = dialog.Terms.Count == 1 ? FemLoadExpressionMode.Single : FemLoadExpressionMode.Sum,
+            Terms = dialog.Terms.ToList(),
+            CombinationType = dialog.CombinationType,
+        });
+        session.Execute(new AddLoadDefinitionCommand(definition));
+        _editorVm.RefreshCollections();
+    }
+
+    /// <summary>«Изменить…» у комбинации в дереве: имя, тип и коэффициенты одной отменой.</summary>
+    public void EditLoadDefinition(string tag)
+    {
+        var session = _editorVm.Session;
+        if (session.LoadDefinitions.FirstOrDefault(d => d.Tag == tag) is not { } definition) return;
+        var dialog = new FemCombinationDialog(definition, session.LoadCases)
+        {
+            Owner = Window.GetWindow(this),
+            Validate = t => session.LoadDefinitions.Any(d => !ReferenceEquals(d, definition) && d.Tag == t)
+                ? Loc.S("FemCombinationTagTaken") : null,
+        };
+        if (dialog.ShowDialog() != true) return;
+        if (_editorVm.EditLoadDefinition(definition, dialog.DefinitionTag, dialog.CombinationType, dialog.Terms) is { } error)
+            _app.LogService.Warning(error);
+    }
+
+    /// <summary>«Удалить» у комбинации в дереве — одной отменой.</summary>
+    public void DeleteLoadDefinition(string tag)
+    {
+        if (_editorVm.Session.LoadDefinitions.FirstOrDefault(d => d.Tag == tag) is { } definition)
+            _editorVm.DeleteLoadDefinition(definition);
+    }
+
+    /// <summary>«Сочетания по СП 20» из дерева — по параметрам загружений.</summary>
+    public void GenerateSp20LoadDefinitions() => _editorVm.GenerateSp20LoadDefinitions("fundamental");
+
     /// <summary>Нагрузки комбинации в 3D (щелчок по комбинации в дереве).</summary>
     public void ShowLoadDefinition(string tag)
     {

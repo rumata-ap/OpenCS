@@ -235,7 +235,7 @@ class FemSchemaTreeVM
         RefreshMeshSnapshotCounts();
     }
 
-    /// <summary>Перечитывает загружения, их счётчики и комбинации (после сохранения схемы и переноса нагрузок).</summary>
+    /// <summary>Перечитывает загружения и комбинации (после сохранения схемы и переноса нагрузок).</summary>
     public void ReloadLoads()
     {
         LoadCasesSubNode.Reload(_db);
@@ -333,9 +333,13 @@ class FemSchemaTreeVM
     /// <summary>Перечитывает счётчики после сохранения mesh-снимка.</summary>
     public void ReloadMeshSnapshot() => RefreshMeshSnapshotCounts();
 
-    /// <summary>Узловые и линейные связи по сессии редактора (до сохранения схемы).</summary>
+    /// <summary>Узловые и линейные связи, загружения и комбинации по сессии редактора (до сохранения схемы).</summary>
     public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
-        => BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports, session.NodeSprings);
+    {
+        BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports, session.NodeSprings);
+        LoadCasesSubNode.Reset(session.LoadCases, _db.GetFemActiveLoadCaseTag(Schema.Id));
+        CombinationsSubNode.Reset(session.LoadDefinitions, session.LoadCases);
+    }
 }
 
 /// <summary>Базовый класс подузла расчётной схемы.</summary>

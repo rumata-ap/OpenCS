@@ -567,6 +567,27 @@ namespace OpenCS
             page.ShowLoadDefinition(definitionTag);
       }
 
+      /// <summary>Загружения и комбинации из дерева схемы: создание, параметры, удаление — командами редактора схемы
+      /// (отмена, сохранение схемы пользователем).</summary>
+      public void CreateFemLoadCase(CScore.Fem.FemSchema schema) => OpenFemSchemaPage(schema)?.CreateLoadCase();
+
+      public void EditFemLoadCase(ViewModels.FemLoadCaseTreeItem item) =>
+         OpenFemSchemaPage(item.Schema)?.EditLoadCase(item.LoadCase.Tag, item.OriginText);
+
+      public void DeleteFemLoadCase(ViewModels.FemLoadCaseTreeItem item) =>
+         OpenFemSchemaPage(item.Schema)?.DeleteLoadCase(item.LoadCase.Tag);
+
+      public void CreateFemCombination(CScore.Fem.FemSchema schema) => OpenFemSchemaPage(schema)?.CreateLoadDefinition();
+
+      public void EditFemCombination(ViewModels.FemCombinationTreeItem item) =>
+         OpenFemSchemaPage(item.Schema)?.EditLoadDefinition(item.Definition.Tag);
+
+      public void DeleteFemCombination(ViewModels.FemCombinationTreeItem item) =>
+         OpenFemSchemaPage(item.Schema)?.DeleteLoadDefinition(item.Definition.Tag);
+
+      public void GenerateFemSp20Combinations(CScore.Fem.FemSchema schema) =>
+         OpenFemSchemaPage(schema)?.GenerateSp20LoadDefinitions();
+
       /// <summary>
       /// «Изменить…» у типа линейной связи: одни параметры всем его граням — командой редактора схемы (отмена,
       /// сохранение схемы пользователем).

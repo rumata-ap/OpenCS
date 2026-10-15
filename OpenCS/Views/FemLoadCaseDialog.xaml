@@ -1,0 +1,52 @@
+<Window x:Class="OpenCS.Views.FemLoadCaseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemLoadCaseDialogTitle}"
+        Width="420" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <TextBlock x:Name="originText" Foreground="Gray" Margin="0,0,0,6" Visibility="Collapsed"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="{DynamicResource FemLoadCaseDialogName}" VerticalAlignment="Center"/>
+            <TextBox x:Name="tagBox" Grid.Row="0" Grid.Column="1" Margin="0,2"/>
+            <TextBlock Grid.Row="1" Text="{DynamicResource FemLoadCaseDialogSp20Type}" VerticalAlignment="Center"/>
+            <ComboBox x:Name="typeCombo" Grid.Row="1" Grid.Column="1" Margin="0,2" SelectedValuePath="Tag">
+                <ComboBoxItem Tag="permanent" Content="{DynamicResource FemLoadCaseTypePermanent}"/>
+                <ComboBoxItem Tag="long_term" Content="{DynamicResource FemLoadCaseTypeLongTerm}"/>
+                <ComboBoxItem Tag="short_term" Content="{DynamicResource FemLoadCaseTypeShortTerm}"/>
+                <ComboBoxItem Tag="accidental" Content="{DynamicResource FemLoadCaseTypeAccidental}"/>
+            </ComboBox>
+            <TextBlock Grid.Row="2" Text="{DynamicResource FemLoadCaseDialogGroup}" VerticalAlignment="Center"/>
+            <TextBox x:Name="groupBox" Grid.Row="2" Grid.Column="1" Margin="0,2"
+                     ToolTip="{DynamicResource FemLoadCaseDialogGroupTip}"/>
+            <TextBlock Grid.Row="3" Text="{DynamicResource FemLoadCaseGammaUnfav}" VerticalAlignment="Center"/>
+            <TextBox x:Name="gammaUnfavBox" Grid.Row="3" Grid.Column="1" Margin="0,2"/>
+            <TextBlock Grid.Row="4" Text="{DynamicResource FemLoadCaseGammaFav}" VerticalAlignment="Center"/>
+            <TextBox x:Name="gammaFavBox" Grid.Row="4" Grid.Column="1" Margin="0,2"/>
+            <TextBlock Grid.Row="5" Text="{DynamicResource FemLoadCasePsi1}" VerticalAlignment="Center"/>
+            <TextBox x:Name="psi1Box" Grid.Row="5" Grid.Column="1" Margin="0,2"/>
+            <TextBlock Grid.Row="6" Text="{DynamicResource FemLoadCasePsi2}" VerticalAlignment="Center"/>
+            <TextBox x:Name="psi2Box" Grid.Row="6" Grid.Column="1" Margin="0,2"/>
+            <CheckBox x:Name="selfWeightCheck" Grid.Row="7" Content="{DynamicResource FemSelfWeightFactor}"
+                      VerticalAlignment="Center" Checked="SelfWeight_Changed" Unchecked="SelfWeight_Changed"/>
+            <TextBox x:Name="selfWeightBox" Grid.Row="7" Grid.Column="1" Margin="0,2"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemLoadCaseDialogDefaultsHint}" Foreground="Gray" FontSize="11"
+                   TextWrapping="Wrap" Margin="1,4,1,0"/>
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
