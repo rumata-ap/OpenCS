@@ -15,6 +15,13 @@
             <Setter Property="EnableRowVirtualization" Value="True"/>
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="Cell_PreviewMouseLeftButtonDown"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="ReadOnlyRow" TargetType="DataGridRow">
             <Style.Triggers>
@@ -67,7 +74,7 @@
         <!-- Загружения -->
         <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,6,0,0">
             <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsHint}"/>
-            <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" SelectionMode="Single"
+            <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" ContextMenuOpening="LoadCasesGrid_ContextMenuOpening"
                       ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=OneWay}"
                       SelectionChanged="LoadCasesGrid_SelectionChanged" BeginningEdit="Grid_BeginningEdit">
                 <DataGrid.RowStyle>

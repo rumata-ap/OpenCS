@@ -3689,6 +3689,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsColActiveTip">Active load case: its loads are shown on the right and in 3D, new loads go into it</system:String>
     <system:String x:Key="FemLoadsColNumber">No.</system:String>
     <system:String x:Key="FemLoadsColName">Name</system:String>
+    <system:String x:Key="FemLoadsSetKindMenu">Load kind (SP 20)</system:String>
     <system:String x:Key="FemLoadsColSp20">Kind (SP 20)</system:String>
     <system:String x:Key="FemLoadsColGroup">Group</system:String>
     <system:String x:Key="FemLoadsColSelfWeight">SW ×</system:String>

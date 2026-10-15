@@ -60,6 +60,18 @@ public sealed class FemLoadsTabTests(FemSchemaEditorVMFixture fixture)
     }
 
     [Fact]
+    public void SetSp20Type_SeveralRowsOneUndo()
+    {
+        var (editor, tab, g, q) = NewTab();
+        tab.SetSp20Type(tab.LoadCaseRows, "long_term");
+        Assert.Equal("long_term", g.Sp20Type);
+        Assert.Equal("long_term", q.Sp20Type);
+        editor.UndoCommand.Execute(null);
+        Assert.Equal("permanent", g.Sp20Type);
+        Assert.Equal("short_term", q.Sp20Type);
+    }
+
+    [Fact]
     public void LoadRows_FollowActiveLoadCase()
     {
         var (editor, tab, g, q) = NewTab();

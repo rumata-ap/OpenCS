@@ -3689,6 +3689,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsColActiveTip">Активное загружение: его нагрузки показаны справа и в 3D, новые нагрузки попадают в него</system:String>
     <system:String x:Key="FemLoadsColNumber">№</system:String>
     <system:String x:Key="FemLoadsColName">Имя</system:String>
+    <system:String x:Key="FemLoadsSetKindMenu">Вид нагрузки (СП 20)</system:String>
     <system:String x:Key="FemLoadsColSp20">Вид (СП 20)</system:String>
     <system:String x:Key="FemLoadsColGroup">Группа</system:String>
     <system:String x:Key="FemLoadsColSelfWeight">СВ ×</system:String>

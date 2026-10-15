@@ -429,6 +429,20 @@ public sealed class FemLoadsTabVM : ViewModelBase
         if (lc.Tag != oldTag && ReferenceEquals(Editor.SelectedLoadCase, lc)) LoadCaseRenamed?.Invoke(lc);
     }
 
+    /// <summary>Вид нагрузки СП 20 нескольким загружениям одной отменой (контекстное меню таблицы).</summary>
+    public void SetSp20Type(IEnumerable<FemLoadCaseRow> rows, string sp20Type)
+    {
+        Status = null;
+        var commands = rows.Select(r => r.LoadCase).Distinct().Where(lc => lc.Sp20Type != sp20Type)
+            .Select(lc => (IFemEditCommand)new EditLoadCaseCommand(lc, new FemLoadCase
+            {
+                Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = sp20Type, Sp20Group = lc.Sp20Group,
+                GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
+                SelfWeightFactor = lc.SelfWeightFactor,
+            })).ToList();
+        if (commands.Count > 0) Execute(Group(commands));
+    }
+
     /// <summary>Активное загружение переименовано в таблице — запомнить новое имя (активное хранится по имени).</summary>
     public event Action<FemLoadCase>? LoadCaseRenamed;
 
