@@ -91,7 +91,7 @@
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColName}" Binding="{Binding Tag}" Width="2*" MinWidth="90"/>
                     <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColSp20}" Width="1.5*" MinWidth="110"
                                             ItemsSource="{x:Static vm:FemLoadsTabVM.Sp20Types}" SelectedValuePath="Key"
-                                            DisplayMemberPath="Label" SelectedValueBinding="{Binding Sp20Type}"/>
+                                            DisplayMemberPath="Label" SelectedValueBinding="{Binding Sp20Type, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColGroup}" Binding="{Binding Group}" Width="*" MinWidth="50"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaUnfav}" Binding="{Binding GammaFUnfav}" Width="64"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaFav}" Binding="{Binding GammaFFav}" Width="64"/>
@@ -155,10 +155,10 @@
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColMember}" Binding="{Binding MemberTag}" IsReadOnly="True" Width="70"/>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColAxes}" Width="90"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.CoordinateSystems}" SelectedValuePath="Key"
-                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding CoordinateSystem}"/>
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding CoordinateSystem, UpdateSourceTrigger=PropertyChanged}"/>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDistribution}" Width="120"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.Distributions}" SelectedValuePath="Key"
-                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding DistributionType}"/>
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding DistributionType, UpdateSourceTrigger=PropertyChanged}"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColA1}" Binding="{Binding StartOffset}" Width="60"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColA2}" Binding="{Binding EndOffset}" Width="60"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColQx1}" Binding="{Binding QxStart}" Width="70"/>
@@ -194,7 +194,7 @@
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColAreaValue}" Binding="{Binding Value}" Width="90"/>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDirection}" Width="100"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.AreaDirections}" SelectedValuePath="Key"
-                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding Direction}"/>
+                                                    DisplayMemberPath="Label" SelectedValueBinding="{Binding Direction, UpdateSourceTrigger=PropertyChanged}"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColTarget}" Binding="{Binding Target}" IsReadOnly="True" Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColOrigin}" Binding="{Binding OriginText}" IsReadOnly="True" Width="64"/>
                         </DataGrid.Columns>
@@ -219,7 +219,7 @@
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColNode}" Binding="{Binding NodeTag}" IsReadOnly="True" Width="70"/>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDof}" Width="70"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.Dofs}" SelectedValuePath="Key"
-                                                    DisplayMemberPath="Value" SelectedValueBinding="{Binding Dof}"/>
+                                                    DisplayMemberPath="Value" SelectedValueBinding="{Binding Dof, UpdateSourceTrigger=PropertyChanged}"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColKinematicValue}" Binding="{Binding Value}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>

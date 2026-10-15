@@ -21,6 +21,19 @@ public partial class FemLoadCasesPanel : UserControl
             if (_vm != null) _vm.LoadCaseRenamed += lc => LoadCaseRenamed?.Invoke(lc);
             root.DataContext = _vm;
         };
+        foreach (var grid in new[] { loadCasesGrid, nodeLoadsGrid, memberLoadsGrid, elementLoadsGrid, kinematicLoadsGrid })
+            grid.CellEditEnding += CommitRowOnCellEnd;
+    }
+
+    /// <summary>
+    /// Правка применяется по выходу из ячейки (Enter, Tab, щелчок мимо), а не только при уходе со строки: иначе значение
+    /// оставалось в строке DataGrid и не доходило до схемы, если фокус уходил в 3D или на другую вкладку.
+    /// </summary>
+    void CommitRowOnCellEnd(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit || sender is not DataGrid grid) return;
+        Dispatcher.BeginInvoke(() => grid.CommitEdit(DataGridEditingUnit.Row, true),
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>Активное загружение переименовано в таблице (страница схемы запоминает новое имя).</summary>
