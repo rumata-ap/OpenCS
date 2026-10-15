@@ -19,6 +19,7 @@ public class FemLineSupportCsfeaTests
     {
         RunSimplySupportedNavier();
         RunElasticEdgesEquilibrium();
+        RunEdgeReactions();
     }
 
     private sealed class Props : IFemElementStiffnessSource
@@ -102,6 +103,29 @@ public class FemLineSupportCsfeaTests
 
         var (_, soft, softDof, _) = Solve(_ => new FemLineSupport { Mask = 0b111 });
         TestHarness.Check("мягкое опирание податливее", -soft[softDof(Tag(Div / 2, Div / 2), 2)] > w * 1.02);
+    }
+
+    /// <summary>
+    /// Реакции по граням (линейный расчёт CSfea): у квадратной плиты, шарнирно опёртой по контуру, на каждую грань
+    /// приходится q·a²/4 (углы делятся поровну), средняя погонная — q·a/4; у жёсткого опирания Миндлина в углах
+    /// отрывающие реакции, так что наибольшая погонная — в середине грани и больше средней.
+    /// </summary>
+    private static void RunEdgeReactions()
+    {
+        TestHarness.Section("Линейные связи: реакции по граням");
+        var (r, _, _, lines) = Solve(_ => new FemLineSupport { Mask = 0b111, FixEdgeRotation = true });
+        var f = RcLinearAnalysis.Run(r.Model).Cases[0].Fields;
+        var index = new Dictionary<string, int>();
+        for (int i = 0; i < f.ReactionNodeIds.Length; i++) index[f.ReactionNodeIds[i].ToString()] = i;
+        var edges = FemLineSupportReactions.Compute(lines.Chains,
+            tag => index.TryGetValue(tag, out int i) ? f.Reactions.AsSpan(6 * i, 6).ToArray() : null);
+        TestHarness.Check("четыре грани", edges.Count == 4);
+        TestHarness.CheckRel("Σ по граням = q·a²", edges.Sum(e => e.Rz), Q * A * A, 1e-6);
+        foreach (var e in edges)
+            TestHarness.CheckRel($"грань {e.Key}: ΣRz = q·a²/4", e.Rz, Q * A * A / 4, 1e-6);
+        TestHarness.CheckRel("средняя погонная = q·a/4", edges[0].QzMean, Q * A / 4, 1e-6);
+        TestHarness.Check("наибольшая погонная — больше средней", edges[0].QzMax > edges[0].QzMean * 1.2,
+            $"{edges[0].QzMax:G4} / {edges[0].QzMean:G4}");
     }
 
     /// <summary>Упругие грани Kz′ (X Y закреплены): сумма реакций пружин k·w равна нагрузке q·a².</summary>

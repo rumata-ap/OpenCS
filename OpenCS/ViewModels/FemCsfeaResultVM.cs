@@ -38,6 +38,10 @@ public sealed record FemCsfeaStepRow(int N, string Stage, double LoadFactor, str
 /// Строка таблицы реакций опор узла на показанном шаге (глобальные оси, действуют на схему): Rx, Ry, Rz — кН; Mx, My,
 /// Mz — кН·м; типы опор узла словами.
 /// </summary>
+/// <summary>Реакция линейной связи по грани: суммы, кН; погонная Rz — средняя, наименьшая, наибольшая, кН/м.</summary>
+public sealed record FemCsfeaLineReactionRow(string Edge, double Length, double Rx, double Ry, double Rz,
+    double QzMean, double QzMin, double QzMax);
+
 public sealed record FemCsfeaReactionRow(int Node, double Rx, double Ry, double Rz, double Mx, double My, double Mz, string Kind);
 
 /// <summary>Строка таблицы перемещений узла сетки на показанном шаге: ux, uy, uz — мм; rx, ry, rz — мрад.</summary>
@@ -275,6 +279,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(ShellRows));
         OnPropertyChanged(nameof(BeamRows));
         OnPropertyChanged(nameof(ReactionRows));
+        OnPropertyChanged(nameof(LineReactionRows));
+        OnPropertyChanged(nameof(HasLineReactions));
         OnPropertyChanged(nameof(HasReactions));
         OnPropertyChanged(nameof(ShowNoReactionsNote));
         OnPropertyChanged(nameof(ReactionSummaryText));
@@ -305,6 +311,24 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Реакции опор показанного шага по узлам.</summary>
     public IReadOnlyList<FemCsfeaReactionRow> ReactionRows { get { BuildRows(); return _reactionRows; } }
 
+    IReadOnlyList<FemCsfeaLineReactionRow> _lineReactionRows = [];
+    IReadOnlyList<FemLineSupportChain>? _lineChains;
+
+    /// <summary>Реакции линейных связей показанного шага по граням.</summary>
+    public IReadOnlyList<FemCsfeaLineReactionRow> LineReactionRows { get { BuildRows(); return _lineReactionRows; } }
+
+    /// <summary>У схемы есть линейные связи, и в полях шага есть реакции.</summary>
+    public bool HasLineReactions => LineReactionRows.Count > 0;
+
+    /// <summary>Узлы граней линейных связей по текущей сетке схемы (читаются один раз и только при наличии связей).</summary>
+    IReadOnlyList<FemLineSupportChain> LineChains()
+    {
+        if (_lineChains != null) return _lineChains;
+        if (_db.GetFemLineSupports(Schema.Id).Count == 0) return _lineChains = [];
+        return _lineChains = _db.ResolveFemLineSupports(Schema.Id, _db.GetFemMembers(Schema.Id),
+            _db.GetFemMeshNodes(Schema.Id), _db.GetFemMeshElements(Schema.Id)).Chains;
+    }
+
     /// <summary>В полях показанного шага есть реакции (записи до реакций — без них).</summary>
     public bool HasReactions => Fields is { ReactionNodeIds.Length: > 0 };
 
@@ -315,7 +339,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     {
         if (ReferenceEquals(_rowsFields, Fields) && (Fields != null || _nodeRows.Count == 0)) return;
         _rowsFields = Fields;
-        if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; _reactionRows = []; return; }
+        if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; _reactionRows = []; _lineReactionRows = []; return; }
 
         var nodes = new FemCsfeaNodeRow[f.NodeIds.Length];
         var d = Denoise(f.Displacements, RcSecantStepFields.NodeComponents);
@@ -362,6 +386,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 rf[o + 3] / 1e3, rf[o + 4] / 1e3, rf[o + 5] / 1e3, ReactionKindText(f.ReactionKinds[i]));
         }
         _reactionRows = reactions;
+
+        _lineReactionRows = [];
+        if (f.ReactionNodeIds.Length > 0 && LineChains() is { Count: > 0 } chains)
+        {
+            var index = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < f.ReactionNodeIds.Length; i++)
+                index.TryAdd(f.ReactionNodeIds[i].ToString(CultureInfo.InvariantCulture), i);
+            _lineReactionRows = FemLineSupportReactions.Compute(chains, tag =>
+                    FemMeshTopology.CanonicalNodeTag(tag) is { } t && index.TryGetValue(t, out int i)
+                        ? f.Reactions.AsSpan(6 * i, 6).ToArray() : null)
+                .Select(r => new FemCsfeaLineReactionRow(r.Key.ToString(), r.Length, r.Rx / 1e3, r.Ry / 1e3, r.Rz / 1e3,
+                    r.QzMean / 1e3, r.QzMin / 1e3, r.QzMax / 1e3))
+                .ToList();
+        }
     }
 
     static readonly (byte Flag, string Key)[] ReactionKindKeys =

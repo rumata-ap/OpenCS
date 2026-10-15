@@ -2978,6 +2978,14 @@
     <system:String x:Key="FemCsfeaColRxF">Rx, kN</system:String>
     <system:String x:Key="FemCsfeaColRyF">Ry, kN</system:String>
     <system:String x:Key="FemCsfeaColRzF">Rz, kN</system:String>
+    <system:String x:Key="FemCsfeaLineReactions">Line supports — reactions by edge</system:String>
+    <system:String x:Key="FemCsfeaLineReactionsHint">Sums of edge node reactions and Rz per unit length (node Rz / tributary length). A corner of two edges is split equally; a reaction of another support at the same node is not separated.</system:String>
+    <system:String x:Key="FemCsfeaNodeReactions">Reactions by node</system:String>
+    <system:String x:Key="FemCsfeaColEdge">Edge</system:String>
+    <system:String x:Key="FemCsfeaColEdgeLength">L, m</system:String>
+    <system:String x:Key="FemCsfeaColQzMean">rz mean, kN/m</system:String>
+    <system:String x:Key="FemCsfeaColQzMin">rz min, kN/m</system:String>
+    <system:String x:Key="FemCsfeaColQzMax">rz max, kN/m</system:String>
     <system:String x:Key="FemCsfeaColMxR">Mx, kN·m</system:String>
     <system:String x:Key="FemCsfeaColMyR">My, kN·m</system:String>
     <system:String x:Key="FemCsfeaColMzR">Mz, kN·m</system:String>

@@ -94,6 +94,24 @@
                     <TextBlock DockPanel.Dock="Top" Text="{Binding ReactionSummaryText}" TextWrapping="Wrap" Margin="6,4"/>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemCsfeaNoReactions}" TextWrapping="Wrap" Margin="6,0,6,4"
                                Foreground="Gray" Visibility="{Binding ShowNoReactionsNote, Converter={StaticResource BoolToVis}}"/>
+                    <!-- Линейные связи: реакция по граням (суммы и погонная Rz) -->
+                    <StackPanel DockPanel.Dock="Top" Visibility="{Binding HasLineReactions, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{DynamicResource FemCsfeaLineReactions}" FontWeight="SemiBold" Margin="6,2"/>
+                        <DataGrid ItemsSource="{Binding LineReactionRows}" Style="{StaticResource FieldGrid}" MaxHeight="180"
+                                  ToolTip="{DynamicResource FemCsfeaLineReactionsHint}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColEdge}" Binding="{Binding Edge}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColEdgeLength}" Binding="{Binding Length, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColRxF}" Binding="{Binding Rx, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColRyF}" Binding="{Binding Ry, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColRzF}" Binding="{Binding Rz, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColQzMean}" Binding="{Binding QzMean, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColQzMin}" Binding="{Binding QzMin, StringFormat=G5}"/>
+                                <DataGridTextColumn Header="{DynamicResource FemCsfeaColQzMax}" Binding="{Binding QzMax, StringFormat=G5}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="{DynamicResource FemCsfeaNodeReactions}" FontWeight="SemiBold" Margin="6,6,6,2"/>
+                    </StackPanel>
                     <DataGrid ItemsSource="{Binding ReactionRows}" Style="{StaticResource FieldGrid}" ToolTip="{DynamicResource FemCsfeaReactionsHint}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding Node}"/>

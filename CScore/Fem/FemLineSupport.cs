@@ -352,3 +352,51 @@ public static class FemLineSupportResolver
         diagnostics.Add(new FemValidationDiagnostic(code, $"{text}: {list}.", isError, distinct));
     }
 }
+
+/// <summary>
+/// Реакция линейной связи по грани: суммы сил ΣRx, ΣRy, ΣRz (Н) и погонная реакция по Z вдоль грани (Н/м): средняя
+/// ΣRz/L, наименьшая и наибольшая по узлам (Rz узла / приходящаяся длина).
+/// </summary>
+public sealed record FemLineSupportReaction(FemPlateEdgeKey Key, double Length, double Rx, double Ry, double Rz,
+    double QzMean, double QzMin, double QzMax);
+
+/// <summary>Реакции линейных связей по граням из реакций узлов сетки.</summary>
+public static class FemLineSupportReactions
+{
+    /// <summary>
+    /// <paramref name="nodeReaction"/> — реакция узла сетки (Rx, Ry, Rz, …; null — у узла реакции нет). Узел, общий для
+    /// нескольких граней (угол), делится между ними поровну; реакции других опор узла (колонна под углом) не
+    /// отделяются — в таких узлах реакция грани приближённая.
+    /// </summary>
+    public static List<FemLineSupportReaction> Compute(IReadOnlyList<FemLineSupportChain> chains,
+        Func<string, IReadOnlyList<double>?> nodeReaction)
+    {
+        var shares = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var chain in chains)
+            foreach (var node in chain.Nodes)
+                shares[node.NodeTag] = shares.GetValueOrDefault(node.NodeTag) + 1;
+        var result = new List<FemLineSupportReaction>(chains.Count);
+        foreach (var chain in chains)
+        {
+            double rx = 0, ry = 0, rz = 0, qMin = double.PositiveInfinity, qMax = double.NegativeInfinity;
+            foreach (var node in chain.Nodes)
+            {
+                var r = nodeReaction(node.NodeTag);
+                double share = 1.0 / shares[node.NodeTag];
+                double x = r is { Count: >= 3 } ? r[0] * share : 0, y = r is { Count: >= 3 } ? r[1] * share : 0,
+                    z = r is { Count: >= 3 } ? r[2] * share : 0;
+                rx += x; ry += y; rz += z;
+                if (node.Tributary > 0)
+                {
+                    double q = z / node.Tributary;
+                    qMin = Math.Min(qMin, q);
+                    qMax = Math.Max(qMax, q);
+                }
+            }
+            double length = chain.Edge.Length;
+            if (double.IsInfinity(qMin)) qMin = qMax = 0;
+            result.Add(new FemLineSupportReaction(chain.Edge.Key, length, rx, ry, rz, length > 0 ? rz / length : 0, qMin, qMax));
+        }
+        return result;
+    }
+}

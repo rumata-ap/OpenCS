@@ -2978,6 +2978,14 @@
     <system:String x:Key="FemCsfeaColRxF">Rx, кН</system:String>
     <system:String x:Key="FemCsfeaColRyF">Ry, кН</system:String>
     <system:String x:Key="FemCsfeaColRzF">Rz, кН</system:String>
+    <system:String x:Key="FemCsfeaLineReactions">Линейные связи — реакции по граням</system:String>
+    <system:String x:Key="FemCsfeaLineReactionsHint">Суммы реакций узлов грани и погонная реакция Rz (Rz узла / приходящаяся длина). Угол двух граней делится между ними поровну; реакция другой опоры в том же узле не отделяется.</system:String>
+    <system:String x:Key="FemCsfeaNodeReactions">Реакции по узлам</system:String>
+    <system:String x:Key="FemCsfeaColEdge">Грань</system:String>
+    <system:String x:Key="FemCsfeaColEdgeLength">L, м</system:String>
+    <system:String x:Key="FemCsfeaColQzMean">rz ср., кН/м</system:String>
+    <system:String x:Key="FemCsfeaColQzMin">rz мин., кН/м</system:String>
+    <system:String x:Key="FemCsfeaColQzMax">rz макс., кН/м</system:String>
     <system:String x:Key="FemCsfeaColMxR">Mx, кН·м</system:String>
     <system:String x:Key="FemCsfeaColMyR">My, кН·м</system:String>
     <system:String x:Key="FemCsfeaColMzR">Mz, кН·м</system:String>
