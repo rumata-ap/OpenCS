@@ -54,6 +54,20 @@ public partial class FemLoadCasesPanel : UserControl
             _vm.DeleteRows(grid.SelectedItems.OfType<FemLoadsRow>().ToList());
     }
 
+    /// <summary>
+    /// Строка таблицы — активное загружение. Смена откладывается до конца обработки щелчка: она перечитывает таблицы,
+    /// а повторный вход в выделение DataGrid (щелчок по ячейке-списку другой строки) ронял его автоматизацию
+    /// (ArgumentNullException в DataGridItemAutomationPeer).
+    /// </summary>
+    void LoadCasesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_vm is not { } vm || loadCasesGrid.SelectedItem is not FemLoadCaseRow row) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ReferenceEquals(vm, _vm) && vm.LoadCaseRows.Contains(row)) vm.SelectedLoadCaseRow = row;
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
     /// <summary>Импортные нагрузки не правятся в ячейках.</summary>
     void Grid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
     {

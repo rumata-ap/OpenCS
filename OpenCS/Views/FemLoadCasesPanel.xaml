@@ -68,8 +68,8 @@
         <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,6,0,0">
             <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsHint}"/>
             <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" SelectionMode="Single"
-                      ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=TwoWay}"
-                      BeginningEdit="Grid_BeginningEdit">
+                      ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=OneWay}"
+                      SelectionChanged="LoadCasesGrid_SelectionChanged" BeginningEdit="Grid_BeginningEdit">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Style.Triggers>
