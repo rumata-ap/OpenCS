@@ -2561,6 +2561,8 @@
     <system:String x:Key="FemBoundaryUnitKLine">кН/м²</system:String>
     <system:String x:Key="FemBoundaryUnitKrLine">кН·м/рад/м</system:String>
     <system:String x:Key="FemBoundaryLineDelete">Удалить линейные связи</system:String>
+    <system:String x:Key="FemBoundaryNodalDelete">Удалить связь со всех узлов</system:String>
+    <system:String x:Key="FemBoundaryNodalDeleteConfirm">Снять закрепления и пружины «{0}» со всех узлов ({1})?</system:String>
     <system:String x:Key="FemBoundaryLineGroupHeader">Тип линейной связи: {0}</system:String>
     <system:String x:Key="FemLoadCasesNode">Загружения</system:String>
     <system:String x:Key="FemCombinationsNode">Комбинации</system:String>

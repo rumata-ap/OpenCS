@@ -77,6 +77,30 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _fem3d.ApplyGroupFragment(group, action);
     }
 
+    /// <summary>Фрагмент 3D-вида по КонЭ (из дерева схемы).</summary>
+    public void ApplyMembersFragment(IReadOnlyCollection<string> memberTags, FemFragmentAction action)
+    {
+        tabs.SelectedIndex = 0;
+        _fem3d.ApplyMembersFragment(memberTags, action);
+    }
+
+    /// <summary>«Выделить в схеме» у узлов и КонЭ дерева: выбор в 3D заменяется ими.</summary>
+    public void SelectInSchema(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags)
+    {
+        tabs.SelectedIndex = 0;
+        _editorVm.Selection.Set(nodeTags, memberTags, [], []);
+    }
+
+    /// <summary>«Удалить» у КонЭ дерева — командой редактора (отмена, сохранение схемы).</summary>
+    public void DeleteMember(string elemTag) => _editorVm.DeleteMemberByTag(elemTag);
+
+    /// <summary>«Удалить узел» из дерева — с тем же подтверждением, что в 3D (сколько КонЭ уйдёт вместе с узлом).</summary>
+    public void DeleteNodes(IReadOnlyList<string> nodeTags) => ConfirmAndDeleteNodes(nodeTags);
+
+    /// <summary>Снимает узловые связи (закрепления и пружины) с узлов КонЭ одной отменой.</summary>
+    public void ClearNodeBoundary(IReadOnlyCollection<string> nodeTags) =>
+        SetNodeBoundary(nodeTags, 0, new double[6]);
+
     public FemSchemaPage(FemSchema schema, AppViewModel app)
     {
         _app = app;

@@ -2561,6 +2561,8 @@
     <system:String x:Key="FemBoundaryUnitKLine">kN/m²</system:String>
     <system:String x:Key="FemBoundaryUnitKrLine">kN·m/rad/m</system:String>
     <system:String x:Key="FemBoundaryLineDelete">Delete line supports</system:String>
+    <system:String x:Key="FemBoundaryNodalDelete">Remove support from all nodes</system:String>
+    <system:String x:Key="FemBoundaryNodalDeleteConfirm">Remove restraints and springs «{0}» from all nodes ({1})?</system:String>
     <system:String x:Key="FemBoundaryLineGroupHeader">Line support type: {0}</system:String>
     <system:String x:Key="FemLoadCasesNode">Load cases</system:String>
     <system:String x:Key="FemCombinationsNode">Combinations</system:String>

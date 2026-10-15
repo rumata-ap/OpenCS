@@ -337,7 +337,8 @@ public class Fem3DVM : ViewModelBase
 
     (Point3DCollection? Lines, IReadOnlyList<MeshGeometry3D> Shells, int Visible, int Total) _topologyGhost = (null, [], 0, 0);
     (List<FemNode> Nodes, List<FemMember> Elements)? _lastTopology;
-    (FemMemberGroup Group, FemFragmentAction Action)? _pendingGroupFragment;
+    /// <summary>Фрагмент, заказанный до загрузки вида (из дерева проекта) — применяется после неё.</summary>
+    Action? _pendingFragment;
     bool _zoomOnFragment;
 
     void InitFragment()
@@ -446,15 +447,21 @@ public class Fem3DVM : ViewModelBase
         _db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId)?.MemberGroups.ToList() ?? [];
 
     /// <summary>Фрагмент по группе; пока вид грузится — после загрузки.</summary>
-    public void ApplyGroupFragment(FemMemberGroup group, FemFragmentAction action)
+    public void ApplyGroupFragment(FemMemberGroup group, FemFragmentAction action) =>
+        WhenLoaded(() => DoFragment(Fragment.AtomsOfGroup(group).ToList(), action));
+
+    /// <summary>Фрагмент по КонЭ (из дерева проекта); пока вид грузится — после загрузки.</summary>
+    public void ApplyMembersFragment(IReadOnlyCollection<string> memberTags, FemFragmentAction action) =>
+        WhenLoaded(() => FragmentElements(memberTags, meshElements: false, action));
+
+    void WhenLoaded(Action apply)
     {
-        if (IsLoading || _lastTopology == null) { _pendingGroupFragment = (group, action); return; }
-        DoGroupFragment(group, action);
+        if (IsLoading || _lastTopology == null) { _pendingFragment = apply; return; }
+        apply();
     }
 
-    void DoGroupFragment(FemMemberGroup group, FemFragmentAction action)
+    void DoFragment(IReadOnlyCollection<string> atoms, FemFragmentAction action)
     {
-        var atoms = Fragment.AtomsOfGroup(group);
         _zoomOnFragment = action == FemFragmentAction.ShowOnly;
         _ = action switch
         {
@@ -467,9 +474,9 @@ public class Fem3DVM : ViewModelBase
 
     void ApplyPendingFragment()
     {
-        if (_pendingGroupFragment is not { } pending) return;
-        _pendingGroupFragment = null;
-        if (_lastTopology != null) DoGroupFragment(pending.Group, pending.Action);
+        if (_pendingFragment is not { } pending) return;
+        _pendingFragment = null;
+        if (_lastTopology != null) pending();
     }
 
     /// <summary>Видимые и скрытые фрагментом элементы; без фрагмента — все видимы.</summary>

@@ -77,7 +77,7 @@ namespace OpenCS.Utilites
                }
             }
             var supports = nodeTags.Select(t => new FemMeshNodeSupport
-               { NodeTag = t, Mask = mask & FemBoundaryDofs.All, Origin = FemLoadOrigin.Manual }).ToList();
+               { NodeTag = t, Mask = mask & FemBoundaryDofs.All, Origin = FemLoadOrigin.Manual }).Where(s => s.Mask != 0).ToList();
             var springs = new List<FemSpring>();
             foreach (var t in nodeTags)
             {

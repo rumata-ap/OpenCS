@@ -30,6 +30,9 @@ internal static class FemMemberTreeMenus
         AddForceImport(items, schema, kind => app.ImportLiraForcesCommand(kind).Execute(member),
             kind => app.ImportScadForcesCommand(kind).Execute(member));
 
+        items.Add(new Separator());
+        AddViewActions(items, app, schema, [member.ElemTag]);
+
         // Пластины плоских областей перемещаются и копируются вместе с областью — в её редакторе.
         if (member.PlanarRegionId == null)
         {
@@ -49,6 +52,11 @@ internal static class FemMemberTreeMenus
             items.Add(Item("FemMemberTreeProperties", () => EditPlanar(app, schema, member, regionId)));
             items.Add(Item("FemShellDelete", () => DeletePlanar(app, schema, member, regionId)));
         }
+        else
+        {
+            items.Add(new Separator());
+            items.Add(Item("FemMemberDeleteCtx", () => app.InFemSchemaEditor(schema, page => page.DeleteMember(member.ElemTag))));
+        }
     }
 
     /// <summary>Действия над всеми КонЭ узла «Стержни» (<paramref name="shells"/> = false), «Пластины» (true)
@@ -65,6 +73,11 @@ internal static class FemMemberTreeMenus
         }
 
         var all = members.Select(m => m.Member).ToList();
+        if (all.Count > 0)
+        {
+            AddViewActions(items, app, schema, all.Select(m => m.ElemTag).ToList());
+            items.Add(new Separator());
+        }
         var groupAll = Item(shells switch
         {
             true  => "FemMemberTreeGroupAllShells",
@@ -89,6 +102,7 @@ internal static class FemMemberTreeMenus
     {
         var node = item.Node;
         items.Add(Item("FemNodeTreeProperties", () => app.OpenFemNodeInEditor(item.Schema, node.NodeTag)));
+        items.Add(Item("FemBoundarySelect", () => app.InFemSchemaEditor(item.Schema, page => page.SelectInSchema([node.NodeTag], []))));
         items.Add(Item("FemNodeMoveCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: false)));
         items.Add(Item("FemNodeCopyCtx", () => app.TransformFemFragmentInEditor(item.Schema, [node.NodeTag], [], copy: true)));
 
@@ -113,6 +127,9 @@ internal static class FemMemberTreeMenus
             try { Clipboard.SetText(FormattableString.Invariant($"{node.X}\t{node.Y}\t{node.Z}")); }
             catch { /* буфер обмена занят другим процессом (CLIPBRD_E_CANT_OPEN) */ }
         }));
+
+        items.Add(new Separator());
+        items.Add(Item("FemNodeDeleteCtx", () => app.InFemSchemaEditor(item.Schema, page => page.DeleteNodes([node.NodeTag]))));
     }
 
     /// <summary>Меню типа ГУ: изменить параметры для всех объектов типа, правка состава типа (список, назначить выделенным,
@@ -133,6 +150,8 @@ internal static class FemMemberTreeMenus
         }
         if (group.Kind == FemBoundaryKind.LineSupports)
             items.Add(Item("FemBoundaryLineDelete", () => app.DeleteFemLineSupportGroup(group)));
+        else if (group.Kind == FemBoundaryKind.NodalSupports && group.IsEditable)
+            items.Add(Item("FemBoundaryNodalDelete", () => app.DeleteFemNodalSupportGroup(group)));
         if (group.IsMosaic)
             items.Add(Item("FemBoundaryShowOnSchema",
                 () => app.ShowFemBoundaryMosaic(group.Schema, PlateRebarMosaicSourceKind.Springs)));
@@ -152,6 +171,17 @@ internal static class FemMemberTreeMenus
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>
     public static void FillNodes(ItemCollection items, FemSchema schema, AppViewModel app) =>
         items.Add(Item("FemNodeTreeOpenEditor", () => app.CurrentFemSchema = schema));
+
+    /// <summary>«Выделить в схеме», «Показать только», «Скрыть» для КонЭ — в редакторе схемы; он открывается, если
+    /// открыт другой вид.</summary>
+    static void AddViewActions(ItemCollection items, AppViewModel app, FemSchema schema, IReadOnlyCollection<string> memberTags)
+    {
+        items.Add(Item("FemBoundarySelect", () => app.InFemSchemaEditor(schema, page => page.SelectInSchema([], memberTags))));
+        items.Add(Item("Fem3DFragmentShowOnlyCtx",
+            () => app.InFemSchemaEditor(schema, page => page.ApplyMembersFragment(memberTags, FemFragmentAction.ShowOnly))));
+        items.Add(Item("Fem3DFragmentHideCtx",
+            () => app.InFemSchemaEditor(schema, page => page.ApplyMembersFragment(memberTags, FemFragmentAction.Hide))));
+    }
 
     /// <summary>Подменю импорта усилий по источнику схемы (ЛИРА, SCAD); у прочих схем — ничего.</summary>
     static void AddForceImport(ItemCollection items, FemSchema schema, Action<string> lira, Action<string> scad)

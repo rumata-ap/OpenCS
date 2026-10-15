@@ -500,6 +500,37 @@ namespace OpenCS
             page.SelectBoundaryTargets(targets);
       }
 
+      /// <summary>Действие из дерева над узлами и КонЭ схемы («Выделить в схеме», «Показать только», «Скрыть», «Удалить»):
+      /// открывает редактор схемы (если открыт другой вид) и выполняет действие на его странице.</summary>
+      public void InFemSchemaEditor(CScore.Fem.FemSchema schema, Action<Views.FemSchemaPage> action)
+      {
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            action(page);
+      }
+
+      /// <summary>
+      /// «Удалить» у типа узловой связи: снять закрепления и пружины со всех его узлов после подтверждения. Узлы сетки
+      /// пишутся сразу (результаты постановок сбрасываются), узлы КонЭ — командой редактора схемы (отмена, сохранение).
+      /// </summary>
+      public void DeleteFemNodalSupportGroup(ViewModels.FemBoundaryGroupItem group)
+      {
+         if (MessageBox.Show(string.Format(Loc.S("FemBoundaryNodalDeleteConfirm"), group.Label, group.Count),
+                Loc.S("Confirmation"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+         var schema = group.Schema;
+         var targets = group.Targets();
+         if (targets.MeshNodeTags.Count > 0)
+         {
+            db.SetFemMeshNodesBoundary(schema.Id, targets.MeshNodeTags, 0, new double[6]);
+            int invalidated = InvalidateFemSchemaAnalyses(schema);
+            if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
+            ReloadFemMeshSnapshotTree(schema.Id);
+         }
+         if (targets.NodeTags.Count > 0)
+            InFemSchemaEditor(schema, page => page.ClearNodeBoundary(targets.NodeTags));
+      }
+
       /// <summary>«Показать на схеме» у упругого основания и переменных пружин: открывает редактор схемы и включает в
       /// 3D мозаику вида <paramref name="kind"/>.</summary>
       public void ShowFemBoundaryMosaic(CScore.Fem.FemSchema schema, ViewModels.PlateRebarMosaicSourceKind kind)

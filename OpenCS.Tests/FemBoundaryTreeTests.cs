@@ -152,6 +152,16 @@ public sealed class FemBoundaryTreeTests
             Assert.Equal(Loc.S("FemBoundaryOriginManual"), edited.OriginText);
             Assert.Equal(3e3, edited.Stiffnesses[5]);
 
+            // «Удалить связь со всех узлов»: без закреплений и пружин узел уходит из узловых связей.
+            int before = bc.NodalSupports.Count;
+            var editedTags = edited.Targets().MeshNodeTags.ToList();
+            db.SetFemMeshNodesBoundary(schema.Id, editedTags, 0, new double[6]);
+            tree.ReloadMeshSnapshot();
+            Assert.Equal(before - edited.Count, bc.NodalSupports.Count);
+            Assert.DoesNotContain(bc.NodalSupports.Groups, g => g.Mask == 4);
+            db.SetFemMeshNodesBoundary(schema.Id, editedTags, 4, [0, 0, 0, 0, 0, 3e3]);
+            tree.ReloadMeshSnapshot();
+
             // Повторный перенос без ГУ: ручная связь остаётся, импортные ветки скрываются.
             db.SaveFemBoundary(schema.Id, Scad, [], [], [], new Dictionary<string, FemElementBoundaryProps>());
             tree.ReloadMeshSnapshot();
