@@ -491,6 +491,15 @@ namespace OpenCS
                System.Windows.Threading.DispatcherPriority.Loaded);
       }
 
+      /// <summary>Щелчок по граничным условиям в дереве: открывает редактор схемы (если открыт другой вид) и выделяет
+      /// в нём узлы и КЭ, на которых заданы ГУ.</summary>
+      public void SelectFemBoundaryInEditor(CScore.Fem.FemSchema schema, ViewModels.FemBoundaryTargets targets)
+      {
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.SelectBoundaryTargets(targets);
+      }
+
       /// <summary>«Переместить» / «Копировать» из дерева: открывает редактор схемы и запускает в 3D команду
       /// (базовая точка → вторая точка).</summary>
       public void TransformFemFragmentInEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags,
@@ -3185,6 +3194,7 @@ namespace OpenCS
          if (supports.Length == 0 && props.Count == 0) return;
          db.SaveFemBoundary(schema.Id, CScore.Import.LiraSchemaConverter.BoundaryOrigin, supports, [], [],
             props.Count > 0 ? props : null);
+         ReloadFemMeshSnapshotTree(schema.Id);
          if (supports.Length > 0) LogService.Info(string.Format(Loc.S("LiraSupportsImported"), supports.Length));
          if (props.Count > 0) LogService.Info(string.Format(Loc.S("LiraFoundationImported"), props.Count));
          if (raw.PlateFoundationBeyondC1 > 0)
@@ -4227,6 +4237,7 @@ namespace OpenCS
             .Concat(result.Springs.Where(x => x.TargetKind == CScore.Fem.FemSpringTargetKinds.MeshNode).Select(x => x.NodeTag))
             .Where(manual.Contains).Distinct().Count();
          db.SaveFemBoundary(schema.Id, origin, result.Supports, result.Springs, result.RigidBodies, result.ElementProps);
+         ReloadFemMeshSnapshotTree(schema.Id);
 
          LogService.Info(result.Report[0]);
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);

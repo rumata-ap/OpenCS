@@ -115,6 +115,10 @@ internal static class FemMemberTreeMenus
         }));
     }
 
+    /// <summary>Меню группы или подузла «Граничных условий»: выделить их узлы и КЭ в редакторе схемы.</summary>
+    public static void FillBoundary(ItemCollection items, FemSchema schema, Func<FemBoundaryTargets> targets, AppViewModel app) =>
+        items.Add(Item("FemBoundarySelect", () => app.SelectFemBoundaryInEditor(schema, targets())));
+
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>
     public static void FillNodes(ItemCollection items, FemSchema schema, AppViewModel app) =>
         items.Add(Item("FemNodeTreeOpenEditor", () => app.CurrentFemSchema = schema));

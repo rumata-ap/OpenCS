@@ -216,6 +216,13 @@ namespace OpenCS
              vm.CurrentPage = new Views.FemMemberPage(memberItem, vm);
           else if (e.NewValue is ViewModels.FemNodeTreeItem nodeItem)
              vm.CurrentPage = new Views.FemNodePage(nodeItem, vm);
+          else if (e.NewValue is ViewModels.FemBoundaryGroupItem boundaryGroup)
+             vm.SelectFemBoundaryInEditor(boundaryGroup.Schema, boundaryGroup.Targets());
+          else if (e.NewValue is ViewModels.FemBoundaryCategoryNode boundaryCategory)
+             vm.SelectFemBoundaryInEditor(boundaryCategory.Schema, boundaryCategory.Targets());
+          else if (e.NewValue is ViewModels.FemBoundarySubNode boundary)
+             vm.SelectFemBoundaryInEditor(boundary.Schema,
+                ViewModels.FemBoundaryTree.Merge(boundary.Children.Select(c => c.Targets())));
           else if (e.NewValue is ViewModels.FemMeshNodesSubNode meshNodesNode)
              vm.CurrentPage = new Views.FemMeshNodesView(meshNodesNode);
           else if (e.NewValue is ViewModels.FemMeshBarsSubNode meshBarsNode)
@@ -268,6 +275,12 @@ namespace OpenCS
                break;
             case ViewModels.FemShellsSubNode shells:
                Views.FemMemberTreeMenus.FillCategory(menu.Items, shells.Owner.Schema, shells.Members, vm, shells: true);
+               break;
+            case ViewModels.FemBoundaryGroupItem group:
+               Views.FemMemberTreeMenus.FillBoundary(menu.Items, group.Schema, group.Targets, vm);
+               break;
+            case ViewModels.FemBoundaryCategoryNode category:
+               Views.FemMemberTreeMenus.FillBoundary(menu.Items, category.Schema, category.Targets, vm);
                break;
             case ViewModels.FemElementsSubNode all:
                Views.FemMemberTreeMenus.FillCategory(menu.Items, all.Owner.Schema,

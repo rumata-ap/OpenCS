@@ -1520,6 +1520,87 @@
                      </StackPanel>
                   </DataTemplate>
 
+                  <!-- Подузел «Граничные условия» — ГУ уровня КонЭ и сетки по видам; пустые подузлы скрыты.
+                       Щелчок по подузлу или группе — выделение её узлов и КЭ в редакторе схемы. -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemBoundarySubNode}"
+                                            ItemsSource="{Binding Children}">
+                     <HierarchicalDataTemplate.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                           <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}"/>
+                        </Style>
+                     </HierarchicalDataTemplate.ItemContainerStyle>
+                     <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Boundary}"/>
+                        <TextBlock Text="{DynamicResource FemBoundaryConditions}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел одного вида ГУ: иконка и подпись по виду, дочерние — группы -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemBoundaryCategoryNode}"
+                                            ItemsSource="{Binding Groups}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_Supports}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Springs">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_Springs}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Releases">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_Releases}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Foundation">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_Foundation}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="RigidBodies">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_RigidBodies}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
+                        <TextBlock>
+                           <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                 <Setter Property="Text" Value="{DynamicResource FemBoundarySupports}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Springs">
+                                       <Setter Property="Text" Value="{DynamicResource FemBoundarySprings}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Releases">
+                                       <Setter Property="Text" Value="{DynamicResource FemBoundaryReleases}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="Foundation">
+                                       <Setter Property="Text" Value="{DynamicResource FemBoundaryFoundation}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="RigidBodies">
+                                       <Setter Property="Text" Value="{DynamicResource FemBoundaryRigidBodies}"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Группа ГУ («Заделка — 12») или жёсткое тело; происхождение — серым -->
+                  <DataTemplate DataType="{x:Type vm:FemBoundaryGroupItem}">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{Binding Label}"/>
+                        <TextBlock Text="{Binding CountText}"/>
+                        <TextBlock Text="{Binding OriginText, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </DataTemplate>
+
                   <!-- Подузел «Сетка конечных элементов» — отдельный слепок, не меняет конструктивную модель -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
                                             ItemsSource="{Binding Children}">

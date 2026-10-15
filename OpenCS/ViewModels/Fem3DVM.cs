@@ -1539,6 +1539,21 @@ public class Fem3DVM : ViewModelBase
         IEnumerable<string> tags, double offset) =>
         SelectionGeometry(tags.Select(t => _meshPickByTag.GetValueOrDefault(t)).OfType<FemMember>(), _edgeNodeMap ?? [], offset);
 
+    /// <summary>Положения выбранных узлов сетки (ГУ сеточного уровня из дерева): по прочитанной сетке схемы, иначе —
+    /// по узлам вида (подложка импортированной сетки).</summary>
+    public Point3DCollection MeshNodeSelectionPoints(IEnumerable<string> tags)
+    {
+        var overlay = _meshOverlaySnapshot?.Nodes;
+        Dictionary<string, Point3D>? overlayMap = overlay == null ? null
+            : overlay.GroupBy(n => n.NodeTag, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => new Point3D(g.First().X, g.First().Y, g.First().Z), StringComparer.Ordinal);
+        var points = new Point3DCollection();
+        foreach (var tag in tags)
+            if (overlayMap?.TryGetValue(tag, out var p) == true || _edgeNodeMap?.TryGetValue(tag, out p) == true)
+                points.Add(p);
+        return points;
+    }
+
     static (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) SelectionGeometry(
         IEnumerable<FemMember> elements, Dictionary<string, Point3D> nodeMap, double offset)
     {

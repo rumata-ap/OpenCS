@@ -122,6 +122,7 @@ class FemSchemaTreeVM
 
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
+    internal FemBoundarySubNode BoundarySubNode { get; }
     internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
     internal FemForcesSubNode   ForcesSubNode   { get; }
     internal FemAnalysesSubNode AnalysesSubNode { get; }
@@ -133,6 +134,9 @@ class FemSchemaTreeVM
     /// <summary>КонЭ дерева по Id — для раскладки проверок, нацеленных на одиночный элемент.</summary>
     Dictionary<int, FemMemberTreeItem> _memberItems = [];
 
+    /// <summary>Узлы КонЭ последнего чтения — для закреплений в «Граничных условиях».</summary>
+    List<FemNode> _nodes = [];
+
     public FemSchemaTreeVM(FemSchema schema, DatabaseService db,
                            ObservableCollection<CScore.ForceSet> forceSets)
     {
@@ -141,6 +145,7 @@ class FemSchemaTreeVM
 
         NodesSubNode    = new FemNodesSubNode(this);
         ElementsSubNode = new FemElementsSubNode(this);
+        BoundarySubNode = new FemBoundarySubNode(schema);
         MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
         ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
         AnalysesSubNode = new FemAnalysesSubNode(schema);
@@ -151,6 +156,7 @@ class FemSchemaTreeVM
         [
             NodesSubNode,
             ElementsSubNode,
+            BoundarySubNode,
             MeshSnapshotSubNode,
             MeshGroupsSubNode,
             MemberGroupsSubNode,
@@ -191,7 +197,8 @@ class FemSchemaTreeVM
         var shells  = members.Where(m => m.ElemType == "shell").Select(m => new FemMemberTreeItem(m, Schema)).ToList();
         ElementsSubNode.Bars.Members.Reset(bars);
         ElementsSubNode.Shells.Members.Reset(shells);
-        NodesSubNode.Nodes.Reset(_db.GetFemNodes(Schema.Id).Select(n => new FemNodeTreeItem(n, this)));
+        _nodes = _db.GetFemNodes(Schema.Id);
+        NodesSubNode.Nodes.Reset(_nodes.Select(n => new FemNodeTreeItem(n, this)));
         _memberItems = bars.Concat(shells).ToDictionary(i => i.Member.Id);
         foreach (var c in _db.FemChecks) RouteCheck(c);
     }
@@ -226,6 +233,7 @@ class FemSchemaTreeVM
         MeshSnapshotSubNode.Elements.Bars.Count      = bars;
         MeshSnapshotSubNode.Elements.Shells.Count    = shells;
         RefreshGroupNodes();
+        BoundarySubNode.Reload(_db, _nodes);
     }
 
     /// <summary>Асинхронно загружает узлы схемы из БД.</summary>
@@ -270,6 +278,7 @@ class FemSchemaTreeVM
     {
         _db.SetFemMeshNodeBoundary(Schema.Id, row.NodeTag, mask, stiffnesses);
         row.SetManual(mask, stiffnesses);
+        BoundarySubNode.Reload(_db, _nodes);
         int invalidated = 0;
         foreach (var analysis in Schema.Analyses.Where(a => a.ResultId != null))
         {

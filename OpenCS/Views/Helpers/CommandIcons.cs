@@ -80,6 +80,7 @@ public static class CommandIcons
         ["FemNodeDeleteCtx"] = "CmdIcon_Delete",
         ["FemNodeTreeMembers"] = "CmdIcon_Adjacent",
         ["FemNodeTreeCopyCoords"] = "CmdIcon_Clipboard",
+        ["FemBoundarySelect"] = "CmdIcon_Select",
         ["FemMeshNodeBoundaryEdit"] = "CmdIcon_Support",
         ["FemLoadEditCtx"] = "CmdIcon_Edit",
         ["FemLoadDeleteCtx"] = "CmdIcon_Delete",

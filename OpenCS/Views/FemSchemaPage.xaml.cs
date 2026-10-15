@@ -182,6 +182,10 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    /// <summary>Выделяет объекты ГУ из дерева схемы; вкладка не переключается — выбор виден в 3D при переходе на неё.</summary>
+    public void SelectBoundaryTargets(FemBoundaryTargets targets) =>
+        _editorVm.Selection.Set(targets.NodeTags, [], targets.MeshElemTags, targets.MeshNodeTags);
+
     /// <summary>Запуск «Переместить» / «Копировать» из дерева: вкладка 3D, объекты выбираются, команда ждёт базовую точку.</summary>
     public void StartTransform(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags, bool copy)
     {

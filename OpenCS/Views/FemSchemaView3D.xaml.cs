@@ -2018,6 +2018,13 @@ public partial class FemSchemaView3D : UserControl
 
     void AddMeshSelectionVisuals(Fem3DVM vm)
     {
+        if (vm.Selection?.SelectedMeshNodeTags is { Count: > 0 } meshNodes
+            && vm.MeshNodeSelectionPoints(meshNodes) is { Count: > 0 } points)
+        {
+            var nodesVisual = new PointsVisual3D { Points = points, Color = Colors.OrangeRed, Size = 7 };
+            _meshSelectionVisuals.Add(nodesVisual);
+            viewport.Children.Add(nodesVisual);
+        }
         if (vm.Selection?.SelectedMeshElemTags is not { Count: > 0 } tags) return;
         var (bars, shells, outlines) = vm.MeshSelectionGeometry(tags, MeshSelectionOffset);
         if (shells != null)

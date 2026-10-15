@@ -109,6 +109,112 @@
       </DrawingImage.Drawing>
    </DrawingImage>
 
+   <!-- Граничные условия: шарнирная опора и пружина на общем основании. -->
+   <DrawingImage x:Key="FemIcon_Boundary">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M4.5,6 L8,14 H1 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M11.5,3.5 V5 L13.5,6 L9.5,7.5 L13.5,9 L9.5,10.5 L11.5,11.5 V14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,14 H15 M2.5,16 L4,14 M5.5,16 L7,14 M8.5,16 L10,14 M11.5,16 L13,14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M3,5.5 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z M10,3 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Закрепления: узел на шарнирно-неподвижной опоре. -->
+   <DrawingImage x:Key="FemIcon_Supports">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Brush="{StaticResource FemIconBlueLight}" Geometry="M8,5.5 L13,14 H3 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.2" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,14 H15 M2.5,16 L4,14 M5.5,16 L7,14 M8.5,16 L10,14 M11.5,16 L13,14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M6,4 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Пружины: упругая связь узла с основанием. -->
+   <DrawingImage x:Key="FemIcon_Springs">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M8,4 V5.2 L10.8,6.3 L5.2,7.9 L10.8,9.5 L5.2,11.1 L8,12.2 V14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,14 H15 M2.5,16 L4,14 M5.5,16 L7,14 M8.5,16 L10,14 M11.5,16 L13,14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M6,3 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.2"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Шарниры стержней: стержень с шарниром посередине. -->
+   <DrawingImage x:Key="FemIcon_Releases">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M1,8 H5.8 M10.2,8 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="2.2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="White" Geometry="M5.8,8 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1.3"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Упругое основание: пластина на пружинах. -->
+   <DrawingImage x:Key="FemIcon_Foundation">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3,7 V8 L4.4,8.7 L1.6,9.9 L4.4,11.1 L3,11.8 V14 M8,7 V8 L9.4,8.7 L6.6,9.9 L9.4,11.1 L8,11.8 V14 M13,7 V8 L14.4,8.7 L11.6,9.9 L14.4,11.1 L13,11.8 V14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlue}" Thickness="1" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,14 H15 M2.5,16 L4,14 M5.5,16 L7,14 M8.5,16 L10,14 M11.5,16 L13,14">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M1,3.5 H15 V6.5 H1 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+   <!-- Жёсткие тела и объединения: ведущий узел, жёстко связанный с ведомыми. -->
+   <DrawingImage x:Key="FemIcon_RigidBodies">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M8,8 L2.5,3 M8,8 L13.5,3 M8,8 V13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="2" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Brush="{StaticResource FemIconBlue}" Geometry="M5.5,8 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0 Z"/>
+            <GeometryDrawing Brush="White" Geometry="M1,3 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z M12,3 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z M6.5,13.5 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 Z">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconBlueDark}" Thickness="1"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
    <!-- Сетка конечных элементов: сетка 3×3. -->
    <DrawingImage x:Key="FemIcon_Mesh">
       <DrawingImage.Drawing>
