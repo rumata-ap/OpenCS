@@ -17,6 +17,8 @@ public sealed class FemSchemaEditSession
     public List<FemElementLoad> ElementLoads { get; } = [];
     /// <summary>Узловые нагрузки на узлы сетки (сеточный уровень).</summary>
     public List<FemMeshNodeLoad> MeshNodeLoads { get; } = [];
+    /// <summary>Линейные связи на гранях пластинчатых КонЭ.</summary>
+    public List<FemLineSupport> LineSupports { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];
     int _position; // индекс первой ненаправленной команды (== _history.Count при отсутствии redo)

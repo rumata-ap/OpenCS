@@ -581,6 +581,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.KinematicLoads.AddRange(_db.GetFemKinematicLoads(schema.Id));
         Session.ElementLoads.AddRange(_db.GetFemElementLoads(schema.Id));
         Session.MeshNodeLoads.AddRange(_db.GetFemMeshNodeLoads(schema.Id));
+        Session.LineSupports.AddRange(_db.GetFemLineSupports(schema.Id));
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
 
@@ -1266,7 +1267,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
             Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.KinematicLoads, Session.LoadDefinitions,
-            Session.ElementLoads, Session.MeshNodeLoads);
+            Session.ElementLoads, Session.MeshNodeLoads, Session.LineSupports);
         Session.MarkSaved();
         RefreshCollections();
         _afterSave?.Invoke();

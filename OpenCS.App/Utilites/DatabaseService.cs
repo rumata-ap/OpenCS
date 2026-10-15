@@ -5483,7 +5483,8 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemKinematicLoad> kinematicLoads,
          IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null,
          IReadOnlyList<CScore.Fem.FemElementLoad>? elementLoads = null,
-         IReadOnlyList<CScore.Fem.FemMeshNodeLoad>? meshNodeLoads = null)
+         IReadOnlyList<CScore.Fem.FemMeshNodeLoad>? meshNodeLoads = null,
+         IReadOnlyList<CScore.Fem.FemLineSupport>? lineSupports = null)
       {
          // Нагрузки сеточного уровня передаются парой: обе — полная замена, ни одной — сохраняются (с переводом Id загружений).
          if ((elementLoads == null) != (meshNodeLoads == null))
@@ -5744,6 +5745,9 @@ namespace OpenCS.Utilites
                   id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id, group => group);
             }
             else RemapFemMeshLevelLoadsCore(schemaId, newLoadCaseIdByOld);
+
+            // Линейные связи — полная замена, если переданы (ключ — тег КонЭ, Id КонЭ не нужны).
+            if (lineSupports != null) ReplaceFemLineSupportsCore(schemaId, lineSupports);
 
             var savedDefinitions = definitions ?? [];
             using (var definitionCmd = _connection.CreateCommand())

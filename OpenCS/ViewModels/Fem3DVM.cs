@@ -174,6 +174,33 @@ public class Fem3DVM : ViewModelBase
     /// показываются вместе со знаками опор узлов схемы (<see cref="ShowSupportGlyphs"/>).</summary>
     public FemBoundaryGlyphSet BoundaryGlyphs { get; private set; } = FemBoundaryGlyphSet.Empty;
 
+    /// <summary>Размер знаков линейных связей, м — как у знаков опор узлов схемы.</summary>
+    public const double LineGlyphSize = 0.28;
+
+    /// <summary>Глифы линейных связей граней пластин (уровень КонЭ, из сессии редактора — видны до сохранения).</summary>
+    public FemLineGlyphSet LineSupportGlyphs { get; private set; } = FemLineGlyphSet.Empty;
+
+    /// <summary>Грани пластинчатых КонЭ сессии по тегу КонЭ — для выбора граней и глифов.</summary>
+    public IReadOnlyDictionary<string, List<FemPlateEdge>> PlateEdges { get; private set; } =
+        new Dictionary<string, List<FemPlateEdge>>();
+
+    /// <summary>Области схемы (контуры пластинчатых КонЭ), читаются при загрузке вида.</summary>
+    List<CScore.Planar.PlanarRegion> _regions = [];
+
+    /// <summary>Перестраивает грани пластин и глифы линейных связей по сессии (без БД).</summary>
+    public void RefreshLineSupports(CScore.Fem.Editing.FemSchemaEditSession session)
+    {
+        PlateEdges = FemLineSupportGeometry.EdgesByMember(session.Members, _regions);
+        var items = session.LineSupports
+            .Select(s => (Support: s, Edge: FemLineSupportGeometry.Match(s, PlateEdges.GetValueOrDefault(s.MemberTag))))
+            .Where(x => x.Edge != null)
+            .Select(x => (x.Support, x.Edge!))
+            .ToList();
+        LineSupportGlyphs = FemBoundaryGlyphs.BuildLines(items, LineGlyphSize);
+        OnPropertyChanged(nameof(PlateEdges));
+        OnPropertyChanged(nameof(LineSupportGlyphs));
+    }
+
     /// <summary>Подпись слоя жёстких тел: при прореживании — сколько связей показано.</summary>
     public string RigidBodyGlyphsHeader => BoundaryGlyphs.RigidLinksShown < BoundaryGlyphs.RigidLinksTotal
         ? string.Format(Loc.S("Fem3DShowRigidBodiesThinned"), BoundaryGlyphs.RigidLinksShown, BoundaryGlyphs.RigidLinksTotal)
@@ -549,6 +576,7 @@ public class Fem3DVM : ViewModelBase
         try
         {
             bool importedBackground = await Task.Run(LoadImportedBackground);
+            _regions = await Task.Run(() => _db.GetPlanarRegions(_schemaId));
             var session = source();
             ApplySession(session);
             var meshElements = Interlocked.Exchange(ref _meshElementsForMosaic, null);
@@ -760,6 +788,7 @@ public class Fem3DVM : ViewModelBase
         DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
+        RefreshLineSupports(session);
     }
 
     void RefreshDiagramSources(

@@ -214,4 +214,22 @@ public sealed class FemLineSupportTests
         Assert.Equal(new[] { "line_support_edge_rotation_skew" }, r.Diagnostics.Select(d => d.Code));
         Assert.All(r.Supports, x => Assert.Equal(0b100, x.Mask));
     }
+
+    [Fact]
+    public void Glyphs_FromEdgeGeometry()
+    {
+        var (member, region) = Plate();
+        var edges = FemLineSupportGeometry.Edges(member, region);
+        var hinge = On(edges[0], mask: 0b100);      // 4 м, шаг 3·0,28 → 5 участков, 6 точек
+        var spring = On(edges[1], kz: 1e7);         // 2 м → 3 участка, 4 точки
+
+        var set = FemBoundaryGlyphs.BuildLines([(hinge, edges[0]), (spring, edges[1]), (new FemLineSupport(), edges[2])], 0.28);
+
+        Assert.Equal(2, set.EdgeCount);
+        Assert.Equal(6, set.TotalLength, 12);
+        Assert.Equal(2, set.Edges.Count);
+        Assert.Equal(6 * 4 + 1, set.Supports.Count);  // знак Tz — 4 отрезка, плюс «земля»
+        Assert.Equal(4 * 15 + 1, set.Springs.Count);  // пружина — 14 отрезков зигзага и «земля», плюс линия
+        Assert.True(FemBoundaryGlyphs.BuildLines([], 0.28).IsEmpty);
+    }
 }

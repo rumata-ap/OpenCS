@@ -334,6 +334,7 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.MemberLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ElementLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.BoundaryGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.LineSupportGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSpringGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowHingeGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowRigidBodyGlyphs) ||
@@ -925,7 +926,10 @@ public partial class FemSchemaView3D : UserControl
     /// </summary>
     void BuildBoundaryGlyphs()
     {
-        if (VM is not { BoundaryGlyphs: { IsEmpty: false } set }) return;
+        if (VM == null) return;
+        var set = VM.BoundaryGlyphs;
+        var lines = VM.LineSupportGlyphs;
+        if (set.IsEmpty && lines.IsEmpty) return;
         void Add(IReadOnlyList<CScore.Fem.FemGlyphSegment> segments, Color color, double thickness)
         {
             if (segments.Count == 0) return;
@@ -942,6 +946,11 @@ public partial class FemSchemaView3D : UserControl
         if (VM.ShowSpringGlyphs) Add(set.Springs, SpringColor, 1.3);
         if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
         if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
+
+        // Линейные связи: сама грань — толще, знаки — теми же слоями, что у узлов.
+        if (VM.ShowSupportGlyphs || VM.ShowSpringGlyphs) Add(lines.Edges, Colors.RoyalBlue, 3.5);
+        if (VM.ShowSupportGlyphs) Add(lines.Supports, Colors.RoyalBlue, 1.5);
+        if (VM.ShowSpringGlyphs) Add(lines.Springs, SpringColor, 1.3);
     }
 
     static readonly Color SpringColor = Color.FromRgb(0x2E, 0x8B, 0x57);

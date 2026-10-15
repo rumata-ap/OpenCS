@@ -22,6 +22,18 @@ public sealed record FemBoundaryGlyphSet(
     public bool IsEmpty => SupportNodes == 0 && SpringNodes == 0 && HingeEnds == 0 && RigidBodyCount == 0;
 }
 
+/// <summary>Глифы линейных связей: грани, знаки закреплений и пружин; число граней и их общая длина, м.</summary>
+public sealed record FemLineGlyphSet(
+    IReadOnlyList<FemGlyphSegment> Edges,
+    IReadOnlyList<FemGlyphSegment> Supports,
+    IReadOnlyList<FemGlyphSegment> Springs,
+    int EdgeCount, double TotalLength)
+{
+    public static readonly FemLineGlyphSet Empty = new([], [], [], 0, 0);
+
+    public bool IsEmpty => EdgeCount == 0;
+}
+
 /// <summary>
 /// Строит глифы ГУ сеточного уровня: закрепления <see cref="FemMeshNodeSupport"/> (знак опор как у узлов схемы),
 /// пружины (зигзаг по поступательным направлениям с K ≠ 0, спираль — по поворотным), шарниры концов стержней
@@ -123,6 +135,50 @@ public static class FemBoundaryGlyphs
 
         return new FemBoundaryGlyphSet(supportLines, springLines, hingeLines, rigidLines,
             masks.Count, stiff.Count, hingeEnds, bodies.Count, shown, total);
+    }
+
+    /// <summary>
+    /// Глифы линейных связей граней пластин — от геометрии грани, без сетки: сама грань (<see cref="FemLineGlyphSet.Edges"/>),
+    /// знаки закреплений и пружин тех же видов, что у узлов, в точках с шагом ≈ 3·<paramref name="size"/> (не меньше трёх,
+    /// включая концы) и «земля» — линия вдоль грани через основания знаков первой закреплённой (пружинной) поступательной
+    /// оси. Поворот кромки (<see cref="FemLineSupport.FixEdgeRotation"/>) рисуется дугой вокруг своей оси.
+    /// </summary>
+    public static FemLineGlyphSet BuildLines(IReadOnlyList<(FemLineSupport Support, FemPlateEdge Edge)> items, double size)
+    {
+        var edges = new List<FemGlyphSegment>();
+        var supports = new List<FemGlyphSegment>();
+        var springs = new List<FemGlyphSegment>();
+        double length = 0;
+        foreach (var (support, edge) in items)
+        {
+            double l = edge.Length;
+            if (!(l > FemLineSupportGeometry.Tolerance) || !support.IsActive) continue;
+            length += l;
+            edges.Add(new FemGlyphSegment(edge.A, edge.B));
+            int n = Math.Max(2, (int)Math.Ceiling(l / (3 * size)));
+            var points = Enumerable.Range(0, n + 1).Select(i => edge.A + (edge.B - edge.A) * (i / (double)n)).ToList();
+
+            int mask = support.Mask & FemBoundaryDofs.All;
+            if (support.FixEdgeRotation && FemLineSupportGeometry.EdgeRotationBit(edge) is { } bit) mask |= bit;
+            var k = support.Stiffnesses;
+            for (int i = 0; i < 6; i++)
+            {
+                bool fixedDof = (mask & (1 << i)) != 0, spring = k[i] != 0;
+                if (!fixedDof && !spring) continue;
+                foreach (var p in points)
+                {
+                    if (fixedDof && i < 3) AddTranslationSupport(supports, p, Axes[i], size);
+                    else if (fixedDof) AddRotationSupport(supports, p, Axes[i - 3], size);
+                    else if (i < 3) AddTranslationSpring(springs, p, Axes[i], size);
+                    else AddRotationSpring(springs, p, Axes[i - 3], size);
+                }
+            }
+            if (Enumerable.Range(0, 3).FirstOrDefault(i => (mask & (1 << i)) != 0, -1) is var fi and >= 0)
+                supports.Add(new FemGlyphSegment(edge.A + Axes[fi] * size, edge.B + Axes[fi] * size));
+            if (Enumerable.Range(0, 3).FirstOrDefault(i => (mask & (1 << i)) == 0 && k[i] != 0, -1) is var si and >= 0)
+                springs.Add(new FemGlyphSegment(edge.A + Axes[si] * (1.3 * size), edge.B + Axes[si] * (1.3 * size)));
+        }
+        return new FemLineGlyphSet(edges, supports, springs, edges.Count, length);
     }
 
     /// <summary>
