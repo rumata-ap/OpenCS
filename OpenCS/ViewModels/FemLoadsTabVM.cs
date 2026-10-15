@@ -375,7 +375,7 @@ public sealed class FemLoadsTabVM : ViewModelBase
             OnPropertyChanged(name);
     }
 
-    static IReadOnlyList<TRow> Merge<TRow, TSource>(IReadOnlyList<TRow> rows, IReadOnlyList<TSource> sources, Func<TSource, int, TRow> create)
+    internal static IReadOnlyList<TRow> Merge<TRow, TSource>(IReadOnlyList<TRow> rows, IReadOnlyList<TSource> sources, Func<TSource, int, TRow> create)
         where TRow : FemLoadsRow where TSource : class
     {
         if (rows.Count == sources.Count && rows.Select(r => r.Source).SequenceEqual(sources, ReferenceEqualityComparer.Instance))

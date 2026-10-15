@@ -11,9 +11,6 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Строка состава выбранного определения нагрузки для редактора.</summary>
-public sealed record FemLoadDefinitionTermView(int LoadCaseId, string LoadCaseTag, double Coefficient);
-
 /// <summary>ViewModel редактора FEM-схемы: держит сессию, выбор, режимы создания и сохранение.
 /// Nodes/Elements/Members/LoadCases — ObservableCollection-зеркала Session.* (та же ссылка на
 /// доменные объекты), пересинхронизируемые после каждой команды, чтобы гриды видели изменения.</summary>
@@ -191,26 +188,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             OnPropertyChanged();
         }
     }
-    FemLoadDefinition? _selectedLoadDefinition;
-    public FemLoadDefinition? SelectedLoadDefinition
-    {
-        get => _selectedLoadDefinition;
-        set
-        {
-            _selectedLoadDefinition = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
-        }
-    }
-    FemLoadDefinitionTermView? _selectedLoadDefinitionTerm;
-    public FemLoadDefinitionTermView? SelectedLoadDefinitionTerm { get => _selectedLoadDefinitionTerm; set { _selectedLoadDefinitionTerm = value; OnPropertyChanged(); } }
-    public IReadOnlyList<FemLoadDefinitionTermView> SelectedLoadDefinitionTerms =>
-        SelectedLoadDefinition?.GetExpression().Terms
-            .Select(term => new FemLoadDefinitionTermView(
-                term.LoadCaseId,
-                Session.LoadCases.FirstOrDefault(loadCase => loadCase.Id == term.LoadCaseId)?.Tag ?? term.LoadCaseId.ToString(),
-                term.Coefficient))
-            .ToArray() ?? [];
 
     /// <summary>Удаляет нагрузку заданного загружения с заданного стержня (для 3D-глифов,
     /// где отображаемое загружение может отличаться от выбранного в панели свойств).</summary>
@@ -910,7 +887,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var kept = terms.Where(t => t.Coefficient != 0).ToList();
         Session.Execute(new EditLoadDefinitionCommand(target, DefinitionValues(target, tag.Trim(), type, new FemLoadExpression
         {
-            Mode = kept.Count == 1 ? FemLoadExpressionMode.Single : FemLoadExpressionMode.Sum,
+            Mode = FemLoadExpressionMode.Sum,
             Terms = kept,
             CombinationType = type,
         })));
@@ -922,7 +899,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void DeleteLoadDefinition(FemLoadDefinition definition)
     {
         Session.Execute(new DeleteLoadDefinitionCommand(definition));
-        if (ReferenceEquals(SelectedLoadDefinition, definition)) SelectedLoadDefinition = null;
         RefreshCollections();
     }
 
@@ -931,19 +907,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Tag = tag, Description = source.Description, SourceKind = source.SourceKind,
         CombinationType = combinationType, ExpressionJson = expression.ToJson(),
     };
-
-    /// <summary>Переименовывает выбранную комбинацию с проверкой уникальности.</summary>
-    public bool TryRenameSelectedLoadDefinition(string tag)
-    {
-        if (SelectedLoadDefinition is not { } definition || !CanUseDefinitionTag(tag, definition)) return false;
-        Session.Execute(new EditLoadDefinitionCommand(definition, new FemLoadDefinition
-        {
-            Tag = tag.Trim(), Description = definition.Description, ExpressionJson = definition.ExpressionJson,
-            SourceKind = definition.SourceKind, CombinationType = definition.CombinationType
-        }));
-        RefreshCollections();
-        return true;
-    }
 
     bool CanUseLoadCaseTag(string tag, FemLoadCase target) =>
         !string.IsNullOrWhiteSpace(tag) &&
@@ -954,93 +917,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         !string.IsNullOrWhiteSpace(tag) &&
         Session.LoadDefinitions.All(definition => ReferenceEquals(definition, target) ||
             !string.Equals(definition.Tag, tag.Trim(), StringComparison.Ordinal));
-
-    /// <summary>Создаёт ручное определение, начав его текущим выбранным загружением.</summary>
-    public void AddManualLoadDefinition(string tagPrefix)
-    {
-        var tag = tagPrefix;
-        int index = 2;
-        while (Session.LoadDefinitions.Any(definition => definition.Tag == tag))
-            tag = $"{tagPrefix} {index++}";
-
-        var definition = new FemLoadDefinition
-        {
-            SchemaId = Session.Schema.Id,
-            Tag = tag,
-            SourceKind = "manual"
-        };
-        definition.SetExpression(new FemLoadExpression
-        {
-            Mode = FemLoadExpressionMode.Sum,
-            Terms = SelectedLoadCase == null ? [] :
-                [new FemLoadTerm { LoadCaseId = SelectedLoadCase.Id, Coefficient = 1 }]
-        });
-        Session.Execute(new AddLoadDefinitionCommand(definition));
-        SelectedLoadDefinition = definition;
-        RefreshCollections();
-    }
-
-    /// <summary>Добавляет текущее исходное загружение в выбранное ручное определение.</summary>
-    public void AddSelectedLoadCaseToDefinition()
-    {
-        if (SelectedLoadDefinition is not { } definition || SelectedLoadCase is not { } loadCase) return;
-        var expression = definition.GetExpression();
-        var terms = expression.Terms.ToList();
-        terms.Add(new FemLoadTerm { LoadCaseId = loadCase.Id, Coefficient = 1 });
-        SetDefinitionExpression(definition, new FemLoadExpression
-        {
-            Mode = FemLoadExpressionMode.Sum,
-            LoadCaseIds = expression.LoadCaseIds,
-            Terms = terms,
-            CombinationType = expression.CombinationType
-        });
-    }
-
-    /// <summary>Удаляет выбранное определение нагрузки.</summary>
-    public void DeleteSelectedLoadDefinition()
-    {
-        if (SelectedLoadDefinition is not { } definition) return;
-        Session.Execute(new DeleteLoadDefinitionCommand(definition));
-        SelectedLoadDefinition = null;
-        RefreshCollections();
-    }
-
-    /// <summary>Удаляет выбранное слагаемое из ручного определения.</summary>
-    public void DeleteSelectedLoadDefinitionTerm()
-    {
-        if (SelectedLoadDefinition is not { } definition || SelectedLoadDefinitionTerm is not { } term) return;
-        var expression = definition.GetExpression();
-        var terms = expression.Terms.ToList();
-        var index = terms.FindIndex(item => item.LoadCaseId == term.LoadCaseId && item.Coefficient == term.Coefficient);
-        if (index < 0) return;
-        terms.RemoveAt(index);
-        SetDefinitionExpression(definition, new FemLoadExpression
-        {
-            Mode = terms.Count == 1 ? FemLoadExpressionMode.Single : FemLoadExpressionMode.Sum,
-            LoadCaseIds = expression.LoadCaseIds,
-            Terms = terms,
-            CombinationType = expression.CombinationType
-        });
-        SelectedLoadDefinitionTerm = null;
-    }
-
-    /// <summary>Изменяет коэффициент выбранного слагаемого ручного определения.</summary>
-    public void UpdateSelectedLoadDefinitionTermCoefficient(double coefficient)
-    {
-        if (SelectedLoadDefinition is not { } definition || SelectedLoadDefinitionTerm is not { } selected) return;
-        var expression = definition.GetExpression();
-        var terms = expression.Terms.ToList();
-        var index = terms.FindIndex(item => item.LoadCaseId == selected.LoadCaseId && item.Coefficient == selected.Coefficient);
-        if (index < 0) return;
-        terms[index] = new FemLoadTerm { LoadCaseId = selected.LoadCaseId, Coefficient = coefficient };
-        SetDefinitionExpression(definition, new FemLoadExpression
-        {
-            Mode = terms.Count == 1 ? FemLoadExpressionMode.Single : FemLoadExpressionMode.Sum,
-            LoadCaseIds = expression.LoadCaseIds,
-            Terms = terms,
-            CombinationType = expression.CombinationType
-        });
-    }
 
     /// <summary>Создаёт материализованные сочетания СП 20 для всех исходных загружений с параметрами из их карточек.</summary>
     public void GenerateSp20LoadDefinitions(string combinationType)
@@ -1055,20 +931,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 definition.Tag = $"{baseTag} {index++}";
             Session.Execute(new AddLoadDefinitionCommand(definition));
         }
-        RefreshCollections();
-    }
-
-    void SetDefinitionExpression(FemLoadDefinition definition, FemLoadExpression expression)
-    {
-        var values = new FemLoadDefinition
-        {
-            Tag = definition.Tag,
-            Description = definition.Description,
-            SourceKind = definition.SourceKind,
-            CombinationType = definition.CombinationType,
-            ExpressionJson = expression.ToJson()
-        };
-        Session.Execute(new EditLoadDefinitionCommand(definition, values));
         RefreshCollections();
     }
 
@@ -1115,7 +977,6 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CollectionViewSource.GetDefaultView(MemberLoads).Refresh();
         CollectionViewSource.GetDefaultView(KinematicLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
-        OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
         OnPropertyChanged(nameof(ExtractBlockReason));
     }
 

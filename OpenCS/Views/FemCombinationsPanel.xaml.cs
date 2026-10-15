@@ -1,53 +1,88 @@
 using System.Windows;
 using System.Windows.Controls;
-using OpenCS.Utilites;
+using System.Windows.Input;
+using System.Windows.Media;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-/// <summary>Вкладка «Комбинации» редактора схемы: список комбинаций и их состав (до матрицы среза 5б).</summary>
+/// <summary>
+/// Вкладка «Комбинации» редактора схемы (<see cref="FemCombinationsTabVM"/>): список комбинаций, свойства выбранной и
+/// перенос загружений стрелками. Внешний DataContext — редактор схемы; модель вкладки создаётся при его смене.
+/// </summary>
 public partial class FemCombinationsPanel : UserControl
 {
-    FemSchemaEditorVM? Editor => DataContext as FemSchemaEditorVM;
+    FemCombinationsTabVM? _vm;
 
     public FemCombinationsPanel()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => PopulateDefinitionName();
+        DataContextChanged += (_, _) =>
+        {
+            _vm = DataContext is FemSchemaEditorVM editor ? new FemCombinationsTabVM(editor) : null;
+            root.DataContext = _vm;
+        };
+        termsGrid.CellEditEnding += (_, e) =>
+        {
+            // Коэффициент применяется по выходу из ячейки, а не только при уходе со строки.
+            if (e.EditAction == DataGridEditAction.Commit)
+                Dispatcher.BeginInvoke(() => termsGrid.CommitEdit(DataGridEditingUnit.Row, true),
+                    System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
-    void NewDefinition_Click(object sender, RoutedEventArgs e)
-        => Editor?.AddManualLoadDefinition(Loc.S("FemLoadDefinitionDefaultTag"));
+    void NewCombination_Click(object sender, RoutedEventArgs e) => _vm?.AddCombination();
+    void CopyCombination_Click(object sender, RoutedEventArgs e) => _vm?.CopyCombination();
+    void GenerateSp20_Click(object sender, RoutedEventArgs e) => _vm?.GenerateSp20();
+    void DeleteCombinations_Click(object sender, RoutedEventArgs e) =>
+        _vm?.DeleteCombinations(combinationsGrid.SelectedItems.OfType<FemCombinationRow>().ToList());
 
-    void RenameDefinition_Click(object sender, RoutedEventArgs e)
+    void AddTerms_Click(object sender, RoutedEventArgs e) => _vm?.AddTerms(availableGrid.SelectedItems.OfType<FemCombinationCaseRow>().ToList());
+    void AddAllTerms_Click(object sender, RoutedEventArgs e) => _vm?.AddAllTerms();
+    void RemoveTerms_Click(object sender, RoutedEventArgs e) => _vm?.RemoveTerms(SelectedTerms());
+    void RemoveAllTerms_Click(object sender, RoutedEventArgs e) => _vm?.RemoveAllTerms();
+    void ApplyCoefficient_Click(object sender, RoutedEventArgs e) => _vm?.ApplyCoefficient(SelectedTerms());
+    void ResetCoefficient_Click(object sender, RoutedEventArgs e) => _vm?.ResetCoefficient(SelectedTerms());
+
+    List<FemCombinationTermRow> SelectedTerms() => termsGrid.SelectedItems.OfType<FemCombinationTermRow>().ToList();
+
+    /// <summary>Двойной щелчок по загружению схемы — в комбинацию.</summary>
+    void AvailableRow_DoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (Editor?.TryRenameSelectedLoadDefinition(definitionNameBox.Text) != true)
-            MessageBox.Show(Loc.S("FemRenameInvalid"), Loc.S("FemRename"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-        else
-            definitionNameBox.Text = Editor.SelectedLoadDefinition?.Tag ?? "";
+        if (sender is DataGridRow { DataContext: FemCombinationCaseRow row }) _vm?.AddTerms([row]);
     }
 
-    void DeleteDefinition_Click(object sender, RoutedEventArgs e)
-        => Editor?.DeleteSelectedLoadDefinition();
-
-    void AddCaseToDefinition_Click(object sender, RoutedEventArgs e)
-        => Editor?.AddSelectedLoadCaseToDefinition();
-
-    void DeleteDefinitionTerm_Click(object sender, RoutedEventArgs e)
-        => Editor?.DeleteSelectedLoadDefinitionTerm();
-
-    void GenerateSp20_Click(object sender, RoutedEventArgs e)
-        => Editor?.GenerateSp20LoadDefinitions("fundamental");
-
-    void SaveDefinitionTermCoefficient_Click(object sender, RoutedEventArgs e)
+    /// <summary>Двойной щелчок по слагаемому (кроме ячейки коэффициента — она правится) — убрать из комбинации.</summary>
+    void TermRow_DoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (Editor == null || !Pars.ParseAny(definitionCoefficientBox.Text, out var coefficient)) return;
-        Editor.UpdateSelectedLoadDefinitionTermCoefficient(coefficient);
+        if (sender is not DataGridRow { DataContext: FemCombinationTermRow row }) return;
+        if (FindParent<DataGridCell>(e.OriginalSource as DependencyObject) is { Column.DisplayIndex: 0 }) return;
+        _vm?.RemoveTerms([row]);
     }
 
-    void DefinitionSelectionChanged(object sender, SelectionChangedEventArgs e) => PopulateDefinitionName();
+    /// <summary>Enter в поле имени, типа или комментария — применить (как выход из поля).</summary>
+    void CommitOnEnter(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        var binding = sender switch
+        {
+            ComboBox combo => combo.GetBindingExpression(ComboBox.TextProperty),
+            TextBox box => box.GetBindingExpression(TextBox.TextProperty),
+            _ => null,
+        };
+        binding?.UpdateSource();
+        e.Handled = true;
+    }
 
-    void PopulateDefinitionName()
-        => definitionNameBox.Text = Editor?.SelectedLoadDefinition?.Tag ?? "";
+    /// <summary>Тип, выбранный из списка, применяется сразу.</summary>
+    void TypeCombo_DropDownClosed(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() => typeCombo.GetBindingExpression(ComboBox.TextProperty)?.UpdateSource(),
+            System.Windows.Threading.DispatcherPriority.Background);
+
+    static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        for (var p = child; p != null; p = p is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(p) : LogicalTreeHelper.GetParent(p))
+            if (p is T t) return t;
+        return null;
+    }
 }
