@@ -11,10 +11,12 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
 {
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
     List<FemMemberLoad> _loadEdits = [];
+    List<(int Index, FemLineSupport Support)> _lineSupports = [];
 
     public void Do(FemSchemaEditSession session)
     {
         session.Members.Remove(member);
+        _lineSupports = LineSupportCascade.RemoveForMembers(session, [member.ElemTag]);
         _loadEdits = session.MemberLoads.Where(load => load.MemberId == member.Id).ToList();
         foreach (var load in _loadEdits) session.MemberLoads.Remove(load);
         _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, [member.ElemTag]);
@@ -23,6 +25,7 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
     public void Undo(FemSchemaEditSession session)
     {
         session.Members.Add(member);
+        LineSupportCascade.Restore(session, _lineSupports);
         foreach (var load in _loadEdits) session.MemberLoads.Add(load);
         foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
     }

@@ -49,6 +49,7 @@
         <ContextMenu x:Key="PlanarRegionContextMenu">
             <MenuItem helpers:CommandIcons.Header="PlanarRegionEditCtx" Click="PlanarRegionEditCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemLineSupportMenu" Click="PlateLineSupportCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="PlanarRegionDeleteCtx" Click="PlanarRegionDeleteCtx_Click"/>
         </ContextMenu>
     </UserControl.Resources>
@@ -153,6 +154,11 @@
                     ToolTip="{DynamicResource FemTransformCopyTip}">
                 <Image Source="{StaticResource CmdIcon_Copy}" Width="16" Height="16"/>
             </Button>
+            <!-- Грани пластин: выбор для линейных связей -->
+            <ToggleButton x:Name="edgePickButton" Style="{StaticResource IconToggleButton25}" Click="EdgePickTool_Click"
+                          ToolTip="{DynamicResource FemLineSupportPickMode}">
+                <Image Source="{StaticResource CmdIcon_LineSupport}" Width="16" Height="16"/>
+            </ToggleButton>
             <Separator/>
             <Button Style="{StaticResource IconButton25}"
                     Command="{Binding Editor.UndoCommand, ElementName=root}"
@@ -481,6 +487,21 @@
                     <TextBlock x:Name="transformStatus" Foreground="Gray" FontSize="11"/>
                     <TextBlock Text="{Binding Message}" Foreground="#D9480F" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Режим «Грани пластин» (линейные связи) -->
+        <Border x:Name="edgePickBar" Grid.Row="2" Visibility="Collapsed"
+                HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                Margin="8" Padding="8,4" Background="#F2FFFFFF"
+                BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Panel.ZIndex="25">
+            <DockPanel LastChildFill="True">
+                <Image Source="{StaticResource CmdIcon_LineSupport}" DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                <Button DockPanel.Dock="Right" Content="✕" Padding="6,0" Margin="6,0,0,0" BorderThickness="0" Background="Transparent"
+                        VerticalAlignment="Center" ToolTip="{DynamicResource FemLineSupportPickExit}" Click="EdgePickClose_Click"/>
+                <Button DockPanel.Dock="Right" Content="{DynamicResource FemLineSupportMenu}" Padding="8,1" Margin="6,0,0,0"
+                        VerticalAlignment="Center" Click="EdgePickAssign_Click"/>
+                <TextBlock x:Name="edgePickStatus" TextWrapping="Wrap" VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
 

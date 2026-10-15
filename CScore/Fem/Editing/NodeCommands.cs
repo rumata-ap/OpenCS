@@ -104,6 +104,7 @@ public sealed class DeleteNodesCommand : IFemEditCommand
     List<FemKinematicLoad> _removedKinematicLoads = [];
     List<FemMemberLoad> _removedMemberLoads = [];
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
+    List<(int Index, FemLineSupport Support)> _lineSupports = [];
 
     public DeleteNodesCommand(IEnumerable<FemNode> nodes)
         => _candidates = nodes.Distinct().ToList();
@@ -136,10 +137,12 @@ public sealed class DeleteNodesCommand : IFemEditCommand
             .Select(member => member.ElemTag)
             .ToHashSet(StringComparer.Ordinal);
         _groupEdits = FemGroupComposition.RemoveMemberTags(session.MemberGroups, removedMemberTags);
+        _lineSupports = LineSupportCascade.RemoveForMembers(session, removedMemberTags);
     }
 
     public void Undo(FemSchemaEditSession session)
     {
+        LineSupportCascade.Restore(session, _lineSupports);
         foreach (var node in _removedNodes) session.Nodes.Add(node);
         foreach (var member in _removedMembers) session.Members.Add(member);
         foreach (var load in _removedNodeLoads) session.NodeLoads.Add(load);

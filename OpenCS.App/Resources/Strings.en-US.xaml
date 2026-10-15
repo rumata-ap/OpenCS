@@ -3233,6 +3233,25 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundaryBadStiffness">Stiffness {0}: a non-negative number is required.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySpringInFixed">A spring along a restrained direction is meaningless: {0}. Remove the restraint or zero the stiffness.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">Mesh node {0} boundary conditions set manually: restraint {1}, springs {2}.</system:String>
+    <system:String x:Key="FemLineSupportTitle">Line support</system:String>
+    <system:String x:Key="FemLineSupportPresets">Presets:</system:String>
+    <system:String x:Key="FemLineSupportPresetPlate">Simple support</system:String>
+    <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z and edge rotation — slab edge or wall base: deflection as for a hinged contour (no "soft" support of a Mindlin plate)</system:String>
+    <system:String x:Key="FemLineSupportPresetHinge">Hinge</system:String>
+    <system:String x:Key="FemLineSupportPresetHingeTip">X Y Z without edge rotation — edge nodes rotate freely ("soft" support)</system:String>
+    <system:String x:Key="FemLineSupportPresetFixed">Fixed</system:String>
+    <system:String x:Key="FemLineSupportPresetNone">Remove</system:String>
+    <system:String x:Key="FemLineSupportEdgeRotation">Restrain edge rotation (about the in-plane normal to the edge)</system:String>
+    <system:String x:Key="FemLineSupportEdgeRotationTip">Works for edges parallel to global axes; skew edges get a warning in analysis</system:String>
+    <system:String x:Key="FemLineSupportSprings">Elastic support — stiffness per unit length (global axes):</system:String>
+    <system:String x:Key="FemLineSupportUnitsHint">Kx′, Ky′, Kz′ — kN/m per metre of edge (kN/m²); Kux′, Kuy′, Kuz′ — kN·m/rad per metre; 0 or empty — none. Strip on soil of width b: Kz′ = C1·b.</system:String>
+    <system:String x:Key="FemLineSupportEdges">Edges: {0}, total length {1:0.###} m — {2}</system:String>
+    <system:String x:Key="FemLineSupportMenu">Line support…</system:String>
+    <system:String x:Key="FemLineSupportRemove">Remove line support</system:String>
+    <system:String x:Key="FemLineSupportPickMode">Plate edges — pick for line supports</system:String>
+    <system:String x:Key="FemLineSupportPickExit">Finish picking edges</system:String>
+    <system:String x:Key="FemLineSupportPickStatus">Edges selected: {0}. Click — select or deselect, Shift+click — all plate edges, right click — "Line support…", Esc — exit.</system:String>
+    <system:String x:Key="FemLineSupportNoEdges">The schema has no plate members with a contour — line supports are assigned to their edges.</system:String>
     <system:String x:Key="FemBoundarySummaryTitle">Boundary conditions transfer</system:String>
     <system:String x:Key="FemBoundarySummaryHeader">Boundary conditions of schema “{0}” from SCAD</system:String>
     <system:String x:Key="FemBoundarySummaryHeaderLira">Boundary conditions of schema “{0}” from LIRA</system:String>

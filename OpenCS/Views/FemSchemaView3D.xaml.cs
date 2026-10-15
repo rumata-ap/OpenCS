@@ -236,6 +236,7 @@ public partial class FemSchemaView3D : UserControl
     void Viewport_KeyDown(object sender, KeyEventArgs e)
     {
         if (HandleTransformKey(e)) { e.Handled = true; return; }
+        if (HandleEdgePickKey(e)) { e.Handled = true; return; }
         if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None &&
             Editor?.Selection?.SelectedNodeTags is { Count: > 0 } selectedNodes)
         {
@@ -323,6 +324,7 @@ public partial class FemSchemaView3D : UserControl
     {
         if (VM is { IsLoading: false }) BuildEditProxies();
         UpdateFragmentButtons();
+        UpdateEdgeSelectionVisual();
     }
 
     void OnVMPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -835,6 +837,7 @@ public partial class FemSchemaView3D : UserControl
         BuildEditProxies();
         BuildDiagramGlyphs();
         BuildBoundaryGlyphs();
+        UpdateEdgeSelectionVisual();
         BuildMemberLoadGlyphs();
         BuildElementLoadGlyphs();
         BuildSectionGlyphs();
@@ -1412,6 +1415,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.Focus();
         var position = e.GetPosition(viewport);
         if (HandleTransformClick(position)) return;
+        if (HandleEdgePickClick(position)) return;
 
         if (_createNodeMode)
         {
@@ -1595,6 +1599,7 @@ public partial class FemSchemaView3D : UserControl
     {
         UpdateMosaicHover(e);
         if (HandleTransformMove(e.GetPosition(viewport))) return;
+        if (HandleEdgePickMove(e.GetPosition(viewport))) return;
 
         if (VM is not { EditMode: true } vm || !_createBarMode || _pendingBarFirstNode == null)
         {
@@ -1741,6 +1746,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM is { } resultVm && PickableResult is { } result) { ShowResultContextMenu(resultVm, result, e); return; }
         if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
+        if (ShowEdgePickMenu(e)) return;
 
         var position = e.GetPosition(viewport);
         if (MeshPick)

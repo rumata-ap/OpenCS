@@ -196,6 +196,9 @@ public class Fem3DVM : ViewModelBase
             .Where(x => x.Edge != null)
             .Select(x => (x.Support, x.Edge!))
             .ToList();
+        // Контур перенумерован, грань та же — ключ связи обновляется молча (концы совпадают).
+        foreach (var (support, edge) in items)
+            if (support.Key != edge.Key) support.AssignEdge(edge);
         LineSupportGlyphs = FemBoundaryGlyphs.BuildLines(items, LineGlyphSize);
         OnPropertyChanged(nameof(PlateEdges));
         OnPropertyChanged(nameof(LineSupportGlyphs));

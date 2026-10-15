@@ -3233,6 +3233,25 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundaryBadStiffness">Жёсткость {0}: нужно неотрицательное число.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySpringInFixed">Пружина по закреплённому направлению не имеет смысла: {0}. Снимите закрепление или обнулите жёсткость.</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">ГУ узла сетки {0} заданы вручную: закрепление {1}, пружины {2}.</system:String>
+    <system:String x:Key="FemLineSupportTitle">Линейная связь</system:String>
+    <system:String x:Key="FemLineSupportPresets">Быстрый выбор:</system:String>
+    <system:String x:Key="FemLineSupportPresetPlate">Шарнирное опирание</system:String>
+    <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z и поворот кромки — опирание края плиты или низа стены: прогиб как у шарнира по контуру (без «мягкого» опирания пластины Миндлина)</system:String>
+    <system:String x:Key="FemLineSupportPresetHinge">Шарнир</system:String>
+    <system:String x:Key="FemLineSupportPresetHingeTip">X Y Z без поворота кромки — узлы грани свободно поворачиваются («мягкое» опирание)</system:String>
+    <system:String x:Key="FemLineSupportPresetFixed">Заделка</system:String>
+    <system:String x:Key="FemLineSupportPresetNone">Снять</system:String>
+    <system:String x:Key="FemLineSupportEdgeRotation">Закрепить поворот кромки (вокруг нормали к грани в плоскости пластины)</system:String>
+    <system:String x:Key="FemLineSupportEdgeRotationTip">Действует у граней, параллельных общим осям; у наклонных — предупреждение при расчёте</system:String>
+    <system:String x:Key="FemLineSupportSprings">Упругое опирание — погонные жёсткости (общие оси):</system:String>
+    <system:String x:Key="FemLineSupportUnitsHint">Kx′, Ky′, Kz′ — кН/м на метр грани (кН/м²); Kux′, Kuy′, Kuz′ — кН·м/рад на метр; 0 или пусто — связи нет. Полоса на грунте шириной b: Kz′ = C1·b.</system:String>
+    <system:String x:Key="FemLineSupportEdges">Граней: {0}, общая длина {1:0.###} м — {2}</system:String>
+    <system:String x:Key="FemLineSupportMenu">Линейная связь…</system:String>
+    <system:String x:Key="FemLineSupportRemove">Снять линейную связь</system:String>
+    <system:String x:Key="FemLineSupportPickMode">Грани пластин — выбор для линейных связей</system:String>
+    <system:String x:Key="FemLineSupportPickExit">Завершить выбор граней</system:String>
+    <system:String x:Key="FemLineSupportPickStatus">Граней выбрано: {0}. Щелчок — выбрать или снять, Shift+щелчок — все грани пластины, ПКМ — «Линейная связь…», Esc — выход.</system:String>
+    <system:String x:Key="FemLineSupportNoEdges">В схеме нет пластинчатых конструктивных элементов с контуром — линейные связи задаются на их гранях.</system:String>
     <system:String x:Key="FemBoundarySummaryTitle">Перенос граничных условий</system:String>
     <system:String x:Key="FemBoundarySummaryHeader">Граничные условия схемы «{0}» из SCAD</system:String>
     <system:String x:Key="FemBoundarySummaryHeaderLira">Граничные условия схемы «{0}» из ЛИРЫ</system:String>

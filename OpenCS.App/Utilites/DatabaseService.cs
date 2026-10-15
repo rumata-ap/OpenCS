@@ -7469,8 +7469,13 @@ namespace OpenCS.Utilites
       {
          if (m.Id == 0) return;
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_members WHERE id = @id";
+         cmd.CommandText = """
+            DELETE FROM fem_line_supports WHERE schema_id = @sid AND member_tag = @tag;
+            DELETE FROM fem_members WHERE id = @id;
+            """;
          cmd.Parameters.AddWithValue("@id", m.Id);
+         cmd.Parameters.AddWithValue("@sid", m.SchemaId);
+         cmd.Parameters.AddWithValue("@tag", m.ElemTag);
          cmd.ExecuteNonQuery();
       }
 

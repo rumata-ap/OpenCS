@@ -746,6 +746,30 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
+    /// <summary>
+    /// Назначает линейную связь граням одной отменой (пустые параметры — снимает связи этих граней); грани остаются
+    /// выбранными.
+    /// </summary>
+    public void SetLineSupports(IReadOnlyCollection<FemPlateEdge> edges, FemLineSupport template)
+    {
+        if (edges.Count == 0) return;
+        Session.Execute(new SetLineSupportsCommand(edges, template));
+        RefreshCollections();
+    }
+
+    /// <summary>Снимает линейные связи граней одной отменой.</summary>
+    public void RemoveLineSupports(IReadOnlyCollection<FemPlateEdgeKey> edges)
+    {
+        var keys = edges.ToHashSet();
+        var targets = Session.LineSupports.Where(s => keys.Contains(s.Key)).ToList();
+        if (targets.Count == 0) return;
+        Session.Execute(new RemoveLineSupportsCommand(targets));
+        RefreshCollections();
+    }
+
+    /// <summary>Линейная связь грани (по ключу), если есть.</summary>
+    public FemLineSupport? LineSupportAt(FemPlateEdgeKey key) => Session.LineSupports.FirstOrDefault(s => s.Key == key);
+
     public void SplitMemberByTag(string elemTag)
     {
         var member = Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
