@@ -108,6 +108,11 @@ public static class FemCsfeaInputBuilder
         var plates = PlateSections(db, data, groups, materials, setup, diag);
         var beams = BeamSections(db, data, materials, diag);
 
+        // Линейные связи граней пластин — узловыми закреплениями и пружинами сетки (дальше общий путь резолвера ГУ).
+        var lines = db.ResolveFemLineSupports(schemaId, data.Members, data.MeshNodes, data.Mesh, data.Regions);
+        diag.AddRange(lines.Diagnostics);
+        var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), db.GetFemSprings(schemaId));
+
         return new FemRcModelInput
         {
             MeshNodes = data.MeshNodes,
@@ -115,8 +120,8 @@ public static class FemCsfeaInputBuilder
             Nodes = db.GetFemNodes(schemaId),
             Members = data.Members,
             Groups = groups,
-            Supports = db.GetFemMeshNodeSupports(schemaId),
-            Springs = db.GetFemSprings(schemaId),
+            Supports = supports,
+            Springs = springs,
             RigidBodies = db.GetFemRigidBodies(schemaId),
             LoadCases = loadCases,
             NodeLoads = db.GetFemNodeLoads(schemaId),
