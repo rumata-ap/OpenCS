@@ -19,6 +19,19 @@ public class FemLoadExpressionResolverTests
         Assert.Equal(-1000, r.Single(l => l.NodeId == 2).Fz, 6);
     }
 
+    /// <summary>Комбинация из одного слагаемого, сохранённая диалогом в режиме Single: берётся слагаемое с его
+    /// коэффициентом, а не первое загружение схемы с 1,0.</summary>
+    [Fact]
+    public void Resolve_SingleWithOneTerm_UsesTermAndCoefficient()
+    {
+        var expr = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Single, Terms = [new FemLoadTerm { LoadCaseId = 2, Coefficient = 1.35 }],
+        };
+        var r = FemLoadExpressionResolver.Resolve(expr, Cases(), Loads());
+        Assert.Equal(-500 * 1.35, r.Single(l => l.NodeId == 2).Fz, 6);
+    }
+
     [Fact]
     public void Resolve_All_SumsCases()
     {

@@ -94,6 +94,12 @@ public static class FemLoadExpressionResolver
         switch (expr.Mode)
         {
             case FemLoadExpressionMode.Single:
+                // Комбинация из одного слагаемого (так её писали диалог и прежняя вкладка) — с его коэффициентом.
+                if (expr.LoadCaseIds.Count == 0 && expr.Terms.Count > 0)
+                {
+                    foreach (var t in expr.Terms) factor[t.LoadCaseId] = t.Coefficient;
+                    break;
+                }
                 foreach (var id in expr.LoadCaseIds) factor[id] = 1.0;
                 if (factor.Count == 0 && cases.Count > 0) factor[cases[0].Id] = 1.0;
                 break;
