@@ -259,6 +259,13 @@
                     <TextBlock Text="{Binding FragmentText}" VerticalAlignment="Center" Margin="4,0" Foreground="DarkSlateBlue"/>
                     <Rectangle Width="1" Margin="4,3" Fill="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
                 </StackPanel>
+                <!-- Мозаика C1 упругого основания одной кнопкой (то же — «Показать на схеме» в дереве) -->
+                <ToggleButton Style="{StaticResource IconToggleButton25}" VerticalAlignment="Center"
+                              IsChecked="{Binding Mosaic.IsFoundationShown, Mode=TwoWay}"
+                              Visibility="{Binding Mosaic.HasFoundation, Converter={StaticResource BoolToVisibility}}"
+                              ToolTip="{DynamicResource Fem3DFoundationMosaic}">
+                    <Image Source="{StaticResource FemIcon_Foundation}" Width="18" Height="18"/>
+                </ToggleButton>
                 <mosaic:PlateRebarMosaicSelector DataContext="{Binding Mosaic}" HorizontalAlignment="Left"/>
             </WrapPanel>
         </Border>

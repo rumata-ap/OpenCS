@@ -5,8 +5,8 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Вид граничных условий подузла «Граничные условия».</summary>
-public enum FemBoundaryKind { Supports, Springs, Releases, Foundation, RigidBodies }
+/// <summary>Вид ветки ГУ дерева схемы.</summary>
+public enum FemBoundaryKind { NodalSupports, Foundation, Releases, RigidBodies }
 
 /// <summary>Объекты схемы, на которых заданы ГУ группы: узлы конструктивного уровня, узлы и КЭ сетки.</summary>
 public sealed record FemBoundaryTargets(
@@ -16,8 +16,9 @@ public sealed record FemBoundaryTargets(
 }
 
 /// <summary>
-/// Группа одинаковых ГУ в дереве схемы («Заделка — 12», «Kz = 5000 кН/м — 4») или одно жёсткое тело.
-/// Объекты группы читаются по требованию — у шарниров и основания импортированных схем их могут быть тысячи.
+/// Тип ГУ в дереве схемы — как тип опоры в навигаторе RFEM: узловая связь с одними параметрами («Заделка — 12»,
+/// «Kz = 5000 кН/м — 4»), набор шарниров, жёсткое тело. Узловые связи с переменной жёсткостью (основание импорта —
+/// у каждого узла своя) — одна строка-мозаика без списка значений. Объекты читаются по требованию.
 /// </summary>
 public sealed class FemBoundaryGroupItem
 {
@@ -31,6 +32,15 @@ public sealed class FemBoundaryGroupItem
     public int Count { get; }
     /// <summary>Происхождение для подписи: «вручную», «SCAD», «ЛИРА».</summary>
     public string? OriginText { get; }
+    /// <summary>Узловые связи с переменной жёсткостью: значения показывает мозаика, правка группой недоступна.</summary>
+    public bool IsMosaic { get; init; }
+    /// <summary>Закреплённые DOF узловой связи (биты 0–5: X Y Z UX UY UZ).</summary>
+    public int Mask { get; init; }
+    /// <summary>Жёсткости пружин узловой связи X…UZ, Н/м и Н·м/рад.</summary>
+    public IReadOnlyList<double> Stiffnesses { get; init; } = new double[6];
+
+    /// <summary>Параметры можно изменить диалогом сразу для всех узлов группы.</summary>
+    public bool IsEditable => Kind == FemBoundaryKind.NodalSupports && !IsMosaic;
 
     public string CountText => Count > 0 ? $" — {Count}" : "";
 
@@ -49,7 +59,7 @@ public sealed class FemBoundaryGroupItem
     public FemBoundaryTargets Targets() => _targets();
 }
 
-/// <summary>Подузел одного вида ГУ («Закрепления», «Пружины»…) с группами; пустой скрыт.</summary>
+/// <summary>Ветка одного вида ГУ («Узловые связи», «Шарниры стержней»…) с типами; пустая скрыта.</summary>
 public sealed class FemBoundaryCategoryNode : FemSubNode, INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -59,7 +69,7 @@ public sealed class FemBoundaryCategoryNode : FemSubNode, INotifyPropertyChanged
     public FemTreeItems<FemBoundaryGroupItem> Groups { get; } = [];
 
     int _count;
-    /// <summary>Число объектов с ГУ этого вида (у жёстких тел — число тел).</summary>
+    /// <summary>Число объектов (узлов, КЭ, жёстких тел).</summary>
     public int Count
     {
         get => _count;
@@ -80,29 +90,33 @@ public sealed class FemBoundaryCategoryNode : FemSubNode, INotifyPropertyChanged
         Schema = schema;
     }
 
-    internal void Reset(IReadOnlyList<FemBoundaryGroupItem> groups)
+    /// <param name="count">Число объектов; null — сумма по группам (жёсткое тело без счётчика — одно).</param>
+    internal void Reset(IReadOnlyList<FemBoundaryGroupItem> groups, int? count = null)
     {
         Groups.Reset(groups);
-        Count = Kind == FemBoundaryKind.RigidBodies ? groups.Count : groups.Sum(g => g.Count);
+        Count = count ?? groups.Sum(g => Kind == FemBoundaryKind.RigidBodies ? Math.Max(g.Count, 1) : g.Count);
     }
 
-    /// <summary>Объекты всех групп подузла.</summary>
+    /// <summary>Объекты всех групп ветки.</summary>
     public FemBoundaryTargets Targets() => FemBoundaryTree.Merge(Groups.Select(g => g.Targets()));
 
     void Notify(string name) => PropertyChanged?.Invoke(this, new(name));
 }
 
-/// <summary>Подузел «Граничные условия» схемы: закрепления, пружины, шарниры стержней, упругое основание, жёсткие
-/// тела и объединения — уровня КонЭ и сетки вместе; пустой скрыт.</summary>
+/// <summary>
+/// ГУ схемы в дереве. Подузел «Граничные условия» — узловые связи (жёсткие и упругие, уровня КонЭ и сетки) и упругое
+/// основание пластин (строка-мозаика); шарниры стержней и жёсткие тела — отдельные ветки схемы (<see cref="Releases"/>,
+/// <see cref="RigidBodies"/>), перечитываются вместе. Пустые скрыты.
+/// </summary>
 public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public FemSchema Schema { get; }
-    public FemBoundaryCategoryNode Supports { get; }
-    public FemBoundaryCategoryNode Springs { get; }
-    public FemBoundaryCategoryNode Releases { get; }
+    public FemBoundaryCategoryNode NodalSupports { get; }
+    /// <summary>Упругое основание пластин: без дочерних, Count — число КЭ с C1; «Показать на схеме» — мозаика C1.</summary>
     public FemBoundaryCategoryNode Foundation { get; }
+    public FemBoundaryCategoryNode Releases { get; }
     public FemBoundaryCategoryNode RigidBodies { get; }
     public FemBoundaryCategoryNode[] Children { get; }
 
@@ -112,24 +126,21 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
     internal FemBoundarySubNode(FemSchema schema)
     {
         Schema = schema;
-        Supports = new(FemBoundaryKind.Supports, schema);
-        Springs = new(FemBoundaryKind.Springs, schema);
-        Releases = new(FemBoundaryKind.Releases, schema);
+        NodalSupports = new(FemBoundaryKind.NodalSupports, schema);
         Foundation = new(FemBoundaryKind.Foundation, schema);
+        Releases = new(FemBoundaryKind.Releases, schema);
         RigidBodies = new(FemBoundaryKind.RigidBodies, schema);
-        Children = [Supports, Springs, Releases, Foundation, RigidBodies];
+        Children = [NodalSupports, Foundation];
     }
 
     /// <summary>Перечитывает ГУ схемы из БД.</summary>
     internal void Reload(DatabaseService db, IReadOnlyList<FemNode> nodes)
     {
         int id = Schema.Id;
-        Supports.Reset(FemBoundaryTree.SupportGroups(Schema, nodes, db.GetFemMeshNodeSupports(id)));
-        Springs.Reset(FemBoundaryTree.SpringGroups(Schema, db.GetFemSprings(id)));
+        NodalSupports.Reset(FemBoundaryTree.NodalGroups(Schema, nodes, db.GetFemMeshNodeSupports(id), db.GetFemSprings(id)));
+        Foundation.Reset([], db.GetFemFoundationElementCount(id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
-        Foundation.Reset(db.GetFemFoundationGroups(id).Select(g => FemBoundaryTree.FoundationGroup(Schema, g.C1, g.Count,
-            () => new([], [], db.GetFemElementTagsByFoundation(id, g.C1)))).ToList());
         RigidBodies.Reset(FemBoundaryTree.RigidBodyItems(Schema, db.GetFemRigidBodies(id)));
 
         bool visible = Children.Any(c => c.IsVisible);
@@ -142,70 +153,132 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
 /// <summary>Группировка и подписи ГУ для дерева схемы.</summary>
 public static class FemBoundaryTree
 {
-    static readonly string[] ReleaseNames = ["N", "Qy", "Qz", "T", "My", "Mz"];
+    /// <summary>Больше различных наборов жёсткостей с одними масками — узловые связи показываются одной строкой-мозаикой
+    /// (переменное основание импорта: у каждого узла своя жёсткость — тысячи строк дерева).</summary>
+    public const int MaxExactGroups = 12;
+    /// <summary>Больше жёстких тел — они группируются по виду, маске и происхождению.</summary>
+    public const int MaxRigidBodyItems = 50;
 
-    /// <summary>Закрепления узлов КонЭ (<see cref="FemNode.DofMask"/>) и узлов сетки по маске и происхождению;
-    /// записи с нулевой маской (отметка ручного узла сетки) не показываются.</summary>
-    public static List<FemBoundaryGroupItem> SupportGroups(FemSchema schema, IEnumerable<FemNode> nodes,
-        IEnumerable<FemMeshNodeSupport> meshSupports)
+    static readonly string[] ReleaseNames = ["N", "Qy", "Qz", "T", "My", "Mz"];
+    static readonly string[] SpringNames = ["Kx", "Ky", "Kz", "Kux", "Kuy", "Kuz"];
+
+    /// <summary>Узловая связь одного узла: закрепление и пружины.</summary>
+    sealed class NodalEntry(string tag, bool mesh, string origin)
     {
-        var entries = nodes.Where(n => n.DofMask != 0)
-            .Select(n => (Mask: n.DofMask & FemBoundaryDofs.All, Origin: FemLoadOrigin.Manual, Mesh: false, Tag: n.NodeTag))
-            .Concat(meshSupports.Where(s => (s.Mask & FemBoundaryDofs.All) != 0)
-                .Select(s => (Mask: s.Mask & FemBoundaryDofs.All, s.Origin, Mesh: true, Tag: s.NodeTag)));
-        return entries
-            .GroupBy(e => (e.Mask, e.Origin))
-            .OrderBy(g => SupportOrder(g.Key.Mask)).ThenBy(g => g.Key.Mask).ThenBy(g => OriginOrder(g.Key.Origin))
-            .Select(g =>
-            {
-                var list = g.ToList();
-                FemBoundaryTargets targets = new(
-                    list.Where(e => !e.Mesh).Select(e => e.Tag).ToList(), list.Where(e => e.Mesh).Select(e => e.Tag).ToList(), []);
-                return new FemBoundaryGroupItem(FemBoundaryKind.Supports, schema, SupportLabel(g.Key.Mask), list.Count,
-                    FemMeshNodeRow.DescribeOrigin(g.Key.Origin), () => targets);
-            })
-            .ToList();
+        public string Tag { get; } = tag;
+        public bool Mesh { get; } = mesh;
+        public string Origin { get; set; } = origin;
+        public int Mask { get; set; }
+        public double[] K { get; } = new double[6];
+
+        public int SpringMask => Enumerable.Range(0, 6).Where(i => K[i] != 0).Aggregate(0, (m, i) => m | 1 << i);
+
+        public (double, double, double, double, double, double) Stiffness => (K[0], K[1], K[2], K[3], K[4], K[5]);
     }
 
-    /// <summary>Пружины по набору жёсткостей и происхождению.</summary>
-    public static List<FemBoundaryGroupItem> SpringGroups(FemSchema schema, IEnumerable<FemSpring> springs) =>
-        springs.Where(s => s.ActiveMask != 0)
-            .GroupBy(s => (s.Kx, s.Ky, s.Kz, s.Kux, s.Kuy, s.Kuz, s.Origin))
-            .OrderBy(g => g.Key.Kx).ThenBy(g => g.Key.Ky).ThenBy(g => g.Key.Kz)
-            .ThenBy(g => g.Key.Kux).ThenBy(g => g.Key.Kuy).ThenBy(g => g.Key.Kuz).ThenBy(g => OriginOrder(g.Key.Origin))
-            .Select(g =>
+    /// <summary>
+    /// Узловые связи: закрепления (<see cref="FemNode.DofMask"/>, <see cref="FemMeshNodeSupport"/>) и пружины узла —
+    /// одна связь на узел. Типы — по маске, жёсткостям и происхождению; если наборов жёсткостей с одними масками больше
+    /// <see cref="MaxExactGroups"/>, они сводятся в строку-мозаику. Записи с нулевой маской без пружин (отметка ручного
+    /// узла сетки) не показываются.
+    /// </summary>
+    public static List<FemBoundaryGroupItem> NodalGroups(FemSchema schema, IEnumerable<FemNode> nodes,
+        IEnumerable<FemMeshNodeSupport> meshSupports, IEnumerable<FemSpring> springs)
+    {
+        var entries = new Dictionary<(bool Mesh, string Tag), NodalEntry>();
+        NodalEntry Get(bool mesh, string tag, string origin)
+        {
+            if (!entries.TryGetValue((mesh, tag), out var e)) entries[(mesh, tag)] = e = new NodalEntry(tag, mesh, origin);
+            return e;
+        }
+        foreach (var n in nodes.Where(n => n.DofMask != 0))
+            Get(false, n.NodeTag, FemLoadOrigin.Manual).Mask = n.DofMask & FemBoundaryDofs.All;
+        foreach (var s in meshSupports.Where(s => (s.Mask & FemBoundaryDofs.All) != 0))
+            Get(true, s.NodeTag, s.Origin).Mask = s.Mask & FemBoundaryDofs.All;
+        foreach (var s in springs.Where(s => s.ActiveMask != 0))
+        {
+            var e = Get(s.TargetKind == FemSpringTargetKinds.MeshNode, s.NodeTag, s.Origin);
+            var k = s.Stiffnesses;
+            for (int i = 0; i < 6; i++)
+                if (k[i] != 0) e.K[i] = k[i];
+        }
+
+        var result = new List<FemBoundaryGroupItem>();
+        var byMasks = entries.Values
+            .GroupBy(e => (e.Mask, e.SpringMask, e.Origin))
+            .OrderBy(g => g.Key.SpringMask != 0).ThenBy(g => SupportOrder(g.Key.Mask)).ThenBy(g => g.Key.Mask)
+            .ThenBy(g => g.Key.SpringMask).ThenBy(g => OriginOrder(g.Key.Origin));
+        foreach (var g in byMasks)
+        {
+            string origin = FemMeshNodeRow.DescribeOrigin(g.Key.Origin);
+            var sets = g.GroupBy(e => e.Stiffness).OrderBy(x => x.Key).ToList();
+            if (sets.Count > MaxExactGroups)
             {
-                var list = g.ToList();
-                FemBoundaryTargets targets = new(
-                    list.Where(s => s.TargetKind == FemSpringTargetKinds.Node).Select(s => s.NodeTag).ToList(),
-                    list.Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode).Select(s => s.NodeTag).ToList(), []);
-                return new FemBoundaryGroupItem(FemBoundaryKind.Springs, schema, SpringLabel(list[0].Stiffnesses), list.Count,
-                    FemMeshNodeRow.DescribeOrigin(g.Key.Origin), () => targets);
-            })
-            .ToList();
+                var all = g.ToList();
+                string label = string.Format(Loc.S("FemBoundaryVariableSprings"),
+                    string.Join(" ", SpringNames.Where((_, i) => (g.Key.SpringMask & (1 << i)) != 0)));
+                if (g.Key.Mask != 0) label = SupportLabel(g.Key.Mask) + "; " + label;
+                result.Add(new FemBoundaryGroupItem(FemBoundaryKind.NodalSupports, schema, label, all.Count, origin,
+                    () => Targets(all)) { IsMosaic = true, Mask = g.Key.Mask });
+                continue;
+            }
+            foreach (var set in sets)
+            {
+                var list = set.ToList();
+                var k = list[0].K;
+                result.Add(new FemBoundaryGroupItem(FemBoundaryKind.NodalSupports, schema, NodalLabel(g.Key.Mask, k),
+                    list.Count, origin, () => Targets(list)) { Mask = g.Key.Mask, Stiffnesses = k });
+            }
+        }
+        return result;
+    }
+
+    static FemBoundaryTargets Targets(List<NodalEntry> list) => new(
+        list.Where(e => !e.Mesh).Select(e => e.Tag).ToList(), list.Where(e => e.Mesh).Select(e => e.Tag).ToList(), []);
+
+    /// <summary>«Заделка», «Tz; Kx = 100 кН/м», «Kz = 5000 кН/м».</summary>
+    public static string NodalLabel(int mask, IReadOnlyList<double> k)
+    {
+        string springs = SpringLabel(k);
+        if (mask == 0) return springs;
+        return springs.Length == 0 ? SupportLabel(mask) : SupportLabel(mask) + "; " + springs;
+    }
 
     /// <summary>Группа КЭ с одинаковыми освобождениями концов (ГУ импортных КЭ — источник схемы).</summary>
     public static FemBoundaryGroupItem ReleaseGroup(FemSchema schema, int releaseI, int releaseJ, int count,
         Func<FemBoundaryTargets> targets) =>
         new(FemBoundaryKind.Releases, schema, ReleaseLabel(releaseI, releaseJ), count, SchemaOrigin(schema), targets);
 
-    /// <summary>Группа КЭ с одинаковым коэффициентом постели (ГУ импортных КЭ — источник схемы).</summary>
-    public static FemBoundaryGroupItem FoundationGroup(FemSchema schema, double c1, int count, Func<FemBoundaryTargets> targets) =>
-        new(FemBoundaryKind.Foundation, schema, $"C1 = {Number(c1 / 1000)} {Loc.S("FemBoundaryUnitC1")}", count,
-            SchemaOrigin(schema), targets);
+    /// <summary>Жёсткие тела и объединения — по одному; больше <see cref="MaxRigidBodyItems"/> — группами по виду,
+    /// маске и происхождению.</summary>
+    public static List<FemBoundaryGroupItem> RigidBodyItems(FemSchema schema, IEnumerable<FemRigidBody> bodies)
+    {
+        var list = bodies.ToList();
+        if (list.Count <= MaxRigidBodyItems) return list.Select(b => RigidBodyItem(schema, b)).ToList();
+        return list.GroupBy(b => (b.IsCoupled, b.Mask, b.Origin))
+            .OrderBy(g => g.Key.IsCoupled).ThenByDescending(g => g.Key.Mask).ThenBy(g => OriginOrder(g.Key.Origin))
+            .Select(g =>
+            {
+                var group = g.ToList();
+                string label = string.Format(Loc.S("FemBoundaryRigidBodyGroupLabel"),
+                    Loc.S(g.Key.IsCoupled ? "FemBoundaryCoupledPlural" : "FemBoundaryRigidBodyPlural"),
+                    FemBoundaryDofs.Describe(g.Key.Mask));
+                return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, label, group.Count,
+                    FemMeshNodeRow.DescribeOrigin(g.Key.Origin), () => new([],
+                        group.SelectMany(b => b.SlaveNodeTags.Prepend(b.MasterNodeTag)).Distinct(StringComparer.Ordinal).ToList(), []));
+            }).ToList();
+    }
 
-    /// <summary>Жёсткие тела и объединения — по одному в дереве.</summary>
-    public static List<FemBoundaryGroupItem> RigidBodyItems(FemSchema schema, IEnumerable<FemRigidBody> bodies) =>
-        bodies.Select(b =>
-        {
-            string name = Loc.S(b.IsCoupled ? "FemBoundaryCoupled" : "FemBoundaryRigidBody");
-            string number = b.SourceElemTag ?? b.Id.ToString(CultureInfo.InvariantCulture);
-            string label = string.Format(Loc.S("FemBoundaryRigidBodyLabel"), name, number, b.MasterNodeTag,
-                b.SlaveNodeTags.Count, FemBoundaryDofs.Describe(b.Mask));
-            FemBoundaryTargets targets = new([], [b.MasterNodeTag, .. b.SlaveNodeTags], []);
-            return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, label, 0,
-                FemMeshNodeRow.DescribeOrigin(b.Origin), () => targets);
-        }).ToList();
+    static FemBoundaryGroupItem RigidBodyItem(FemSchema schema, FemRigidBody b)
+    {
+        string name = Loc.S(b.IsCoupled ? "FemBoundaryCoupled" : "FemBoundaryRigidBody");
+        string number = b.SourceElemTag ?? b.Id.ToString(CultureInfo.InvariantCulture);
+        string label = string.Format(Loc.S("FemBoundaryRigidBodyLabel"), name, number, b.MasterNodeTag,
+            b.SlaveNodeTags.Count, FemBoundaryDofs.Describe(b.Mask));
+        FemBoundaryTargets targets = new([], [b.MasterNodeTag, .. b.SlaveNodeTags], []);
+        return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, label, 0,
+            FemMeshNodeRow.DescribeOrigin(b.Origin), () => targets);
+    }
 
     /// <summary>Объединение объектов нескольких групп без повторов.</summary>
     public static FemBoundaryTargets Merge(IEnumerable<FemBoundaryTargets> parts)
@@ -225,13 +298,9 @@ public static class FemBoundaryTree
     }
 
     /// <summary>Ненулевые жёсткости: «Kz = 5000 кН/м; Kux = 20 кН·м/рад».</summary>
-    public static string SpringLabel(IReadOnlyList<double> k)
-    {
-        string[] names = ["Kx", "Ky", "Kz", "Kux", "Kuy", "Kuz"];
-        var parts = Enumerable.Range(0, 6).Where(i => k[i] != 0)
-            .Select(i => $"{names[i]} = {Number(k[i] / 1000)} {Loc.S(i < 3 ? "FemBoundaryUnitK" : "FemBoundaryUnitKr")}");
-        return string.Join("; ", parts);
-    }
+    public static string SpringLabel(IReadOnlyList<double> k) =>
+        string.Join("; ", Enumerable.Range(0, 6).Where(i => k[i] != 0)
+            .Select(i => $"{SpringNames[i]} = {Number(k[i] / 1000)} {Loc.S(i < 3 ? "FemBoundaryUnitK" : "FemBoundaryUnitKr")}"));
 
     /// <summary>«I: My Mz; J: My Mz» в местных осях стержня; жёсткий конец — «—».</summary>
     public static string ReleaseLabel(int releaseI, int releaseJ) => $"I: {ReleaseText(releaseI)}; J: {ReleaseText(releaseJ)}";

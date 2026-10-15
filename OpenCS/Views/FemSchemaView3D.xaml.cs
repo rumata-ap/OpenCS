@@ -2035,7 +2035,11 @@ public partial class FemSchemaView3D : UserControl
         if (outlines.Count > 0)
             _meshSelectionVisuals.Add(new LinesVisual3D { Points = outlines, Color = Colors.OrangeRed, Thickness = 2 });
         if (bars.Count > 0)
+        {
             _meshSelectionVisuals.Add(new LinesVisual3D { Points = bars, Color = Colors.OrangeRed, Thickness = 4 });
+            // Концы выбранных стержней — точками: короткие стержни (шарниры из дерева) иначе теряются на схеме.
+            _meshSelectionVisuals.Add(new PointsVisual3D { Points = bars, Color = Colors.OrangeRed, Size = 7 });
+        }
         foreach (var visual in _meshSelectionVisuals) viewport.Children.Add(visual);
     }
 

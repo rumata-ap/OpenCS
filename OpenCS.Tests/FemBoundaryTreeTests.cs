@@ -6,67 +6,88 @@ using Xunit;
 
 namespace OpenCS.Tests;
 
-/// <summary>Подузел «Граничные условия» дерева схемы: группировка, счётчики, объекты групп, видимость.</summary>
+/// <summary>ГУ в дереве схемы: типы узловых связей, строка-мозаика переменных пружин, упругое основание, шарниры и
+/// жёсткие тела отдельными ветками, правка типа связи группой.</summary>
 public sealed class FemBoundaryTreeTests
 {
     static readonly FemSchema Schema = new() { Tag = "Схема" };
+    static readonly string Scad = FemLoadOrigin.Import("scad");
 
     static FemNode Node(string tag, int mask) => new() { NodeTag = tag, DofMask = mask };
 
     static FemMeshNodeSupport Support(string tag, int mask, string origin) => new() { NodeTag = tag, Mask = mask, Origin = origin };
 
-    [Fact]
-    public void Supports_GroupByMaskAndOrigin_BothLevelsTogether()
+    static FemSpring Spring(string tag, double kz, string kind = FemSpringTargetKinds.MeshNode)
     {
-        var groups = FemBoundaryTree.SupportGroups(Schema,
+        var s = new FemSpring { NodeTag = tag, TargetKind = kind, Origin = Scad };
+        s.SetStiffnesses([0, 0, kz, 0, 0, 0]);
+        return s;
+    }
+
+    [Fact]
+    public void NodalSupports_GroupByMaskStiffnessAndOrigin_BothLevelsTogether()
+    {
+        var groups = FemBoundaryTree.NodalGroups(Schema,
             [Node("1", 63), Node("2", 63), Node("3", 0), Node("4", 4)],
             [
                 Support("10", 63, FemLoadOrigin.Manual),
-                Support("11", 7, FemLoadOrigin.Import("scad")),
-                Support("12", 7, FemLoadOrigin.Import("scad")),
+                Support("11", 7, Scad),
+                Support("12", 7, Scad),
                 Support("13", 0, FemLoadOrigin.Manual), // отметка ручного узла без закреплений
-            ]);
+                Support("20", 3, Scad),
+            ],
+            [Spring("20", 5e6), Spring("21", 5e6), Spring("22", 5e6)]);
 
-        // Заделки, затем шарниры, затем прочие маски; внутри — сначала ручные.
-        Assert.Equal([(63, 3), (7, 2), (4, 1)], groups.Select(g => (Mask(g.Label), g.Count)));
-        Assert.Equal(FemBoundaryTree.SupportLabel(63), groups[0].Label);
-        Assert.Equal("Tz", groups[2].Label);
+        // Жёсткие связи (заделки, шарниры, прочие маски), затем упругие; узел 20 — закрепление и пружина одной связью.
+        string kz = $"Kz = 5000 {Loc.S("FemBoundaryUnitK")}";
+        Assert.Equal(
+            [FemBoundaryTree.SupportLabel(63), FemBoundaryTree.SupportLabel(7), "Tz", kz, "Tx Ty; " + kz],
+            groups.Select(g => g.Label));
+        Assert.Equal([3, 2, 1, 2, 1], groups.Select(g => g.Count));
         Assert.Equal(Loc.S("FemBoundaryOriginManual"), groups[0].OriginText);
         Assert.Equal("SCAD", groups[1].OriginText);
+        Assert.All(groups, g => Assert.True(g.IsEditable));
+        Assert.Equal(3, groups[4].Mask);
+        Assert.Equal(5e6, groups[4].Stiffnesses[2]);
 
         var fixedTargets = groups[0].Targets();
         Assert.Equal(["1", "2"], fixedTargets.NodeTags);
         Assert.Equal(["10"], fixedTargets.MeshNodeTags);
-        Assert.Equal(["11", "12"], groups[1].Targets().MeshNodeTags);
-
-        static int Mask(string label) =>
-            label == FemBoundaryTree.SupportLabel(63) ? 63 : label == FemBoundaryTree.SupportLabel(7) ? 7 : 4;
+        Assert.Equal(["21", "22"], groups[3].Targets().MeshNodeTags);
     }
 
     [Fact]
-    public void Springs_GroupByStiffnessSet()
+    public void ManyStiffnessSets_BecomeOneMosaicRow()
     {
-        FemSpring Spring(string tag, string kind, double kz, double kux = 0)
+        var springs = Enumerable.Range(1, FemBoundaryTree.MaxExactGroups + 1)
+            .Select(i => Spring(i.ToString(), 1e6 * i)).ToList();
+
+        var groups = FemBoundaryTree.NodalGroups(Schema, [], [], springs);
+
+        var row = Assert.Single(groups);
+        Assert.True(row.IsMosaic);
+        Assert.False(row.IsEditable);
+        Assert.Equal(springs.Count, row.Count);
+        Assert.Equal(string.Format(Loc.S("FemBoundaryVariableSprings"), "Kz"), row.Label);
+        Assert.Equal(springs.Select(s => s.NodeTag), row.Targets().MeshNodeTags);
+    }
+
+    [Fact]
+    public void ManyRigidBodies_AreGroupedByKindAndMask()
+    {
+        var bodies = Enumerable.Range(1, FemBoundaryTree.MaxRigidBodyItems + 1).Select(i =>
         {
-            var s = new FemSpring { NodeTag = tag, TargetKind = kind, Origin = FemLoadOrigin.Import("scad") };
-            s.SetStiffnesses([0, 0, kz, kux, 0, 0]);
-            return s;
-        }
+            var b = new FemRigidBody { MasterNodeTag = $"m{i}", Kind = i % 2 == 0 ? FemRigidBodyKinds.Coupled : FemRigidBodyKinds.Rigid };
+            b.SetSlaveNodeTags([$"s{i}"]);
+            return b;
+        }).ToList();
 
-        var groups = FemBoundaryTree.SpringGroups(Schema,
-        [
-            Spring("1", FemSpringTargetKinds.MeshNode, 5e6),
-            Spring("2", FemSpringTargetKinds.MeshNode, 5e6),
-            Spring("3", FemSpringTargetKinds.Node, 5e6),
-            Spring("4", FemSpringTargetKinds.MeshNode, 5e6, 2e4),
-            Spring("5", FemSpringTargetKinds.MeshNode, 0),
-        ]);
+        var groups = FemBoundaryTree.RigidBodyItems(Schema, bodies);
 
-        Assert.Equal([3, 1], groups.Select(g => g.Count));
-        Assert.StartsWith("Kz = 5000 ", groups[0].Label);
-        Assert.Contains("Kux = 20 ", groups[1].Label);
-        Assert.Equal(["3"], groups[0].Targets().NodeTags);
-        Assert.Equal(["1", "2"], groups[0].Targets().MeshNodeTags);
+        Assert.Equal([26, 25], groups.Select(g => g.Count));
+        Assert.Contains("m1", groups[0].Targets().MeshNodeTags);
+        Assert.Contains("s1", groups[0].Targets().MeshNodeTags);
+        Assert.Single(FemBoundaryTree.RigidBodyItems(Schema, bodies.Take(1)));
     }
 
     [Fact]
@@ -77,7 +98,7 @@ public sealed class FemBoundaryTreeTests
     }
 
     [Fact]
-    public void Tree_ReadsBoundaryFromDatabase_AndHidesEmptyCategories()
+    public void Tree_ReadsBoundaryFromDatabase_AndHidesEmptyBranches()
     {
         string path = TempDbPath();
         try
@@ -87,18 +108,20 @@ public sealed class FemBoundaryTreeTests
             db.SaveFemSchema(schema);
 
             var tree = new FemSchemaTreeVM(schema, db, []);
-            Assert.False(tree.BoundarySubNode.IsVisible);
+            var bc = tree.BoundarySubNode;
+            Assert.False(bc.IsVisible);
+            Assert.Contains(bc.Releases, tree.SubNodes);
+            Assert.Contains(bc.RigidBodies, tree.SubNodes);
+            Assert.DoesNotContain(bc.Releases, bc.Children);
 
             db.SaveFemMeshSnapshot(schema.Id,
                 [MeshNode("1", 0), MeshNode("2", 1), MeshNode("3", 2), MeshNode("4", 3)],
                 [Bar("1", "[1,2]"), Bar("2", "[2,3]"), Bar("3", "[3,4]"), Shell("4", "[1,2,3,4]")]);
-            var spring = new FemSpring { NodeTag = "4", TargetKind = FemSpringTargetKinds.MeshNode };
-            spring.SetStiffnesses([0, 0, 1e6, 0, 0, 0]);
             var body = new FemRigidBody { MasterNodeTag = "1", SourceElemTag = "100" };
             body.SetSlaveNodeTags(["2", "3"]);
-            db.SaveFemBoundary(schema.Id, FemLoadOrigin.Import("scad"),
+            db.SaveFemBoundary(schema.Id, Scad,
                 [new FemMeshNodeSupport { NodeTag = "1", Mask = FemBoundaryDofs.All }],
-                [spring], [body],
+                [Spring("4", 1e6)], [body],
                 new Dictionary<string, FemElementBoundaryProps>
                 {
                     ["1"] = new(null, 0b11_0000, null),
@@ -108,29 +131,34 @@ public sealed class FemBoundaryTreeTests
                 });
 
             tree.ReloadMeshSnapshot();
-            var bc = tree.BoundarySubNode;
             Assert.True(bc.IsVisible);
-            Assert.Equal(1, bc.Supports.Count);
-            Assert.Equal(1, bc.Springs.Count);
-            Assert.Equal(3, bc.Releases.Count);
+            Assert.Equal(2, bc.NodalSupports.Count);
+            Assert.Equal(2, bc.NodalSupports.Groups.Count);
             Assert.Equal(1, bc.Foundation.Count);
+            Assert.Empty(bc.Foundation.Groups);
+            Assert.Equal(3, bc.Releases.Count);
             Assert.Equal(1, bc.RigidBodies.Count);
-            Assert.All(bc.Children, c => Assert.True(c.IsVisible));
 
-            Assert.Equal([2, 1], bc.Releases.Groups.Select(g => g.Count).OrderDescending());
             var pair = bc.Releases.Groups.Single(g => g.Count == 2);
             Assert.Equal("I: —; J: My Mz", pair.Label);
             Assert.Equal(["1", "2"], pair.Targets().MeshElemTags);
-            Assert.Equal(["4"], bc.Foundation.Groups.Single().Targets().MeshElemTags);
-            Assert.StartsWith("C1 = 20000 ", bc.Foundation.Groups.Single().Label);
             Assert.Equal(["1", "2", "3"], bc.RigidBodies.Groups.Single().Targets().MeshNodeTags);
-            Assert.Equal(["1", "2", "3"], bc.Releases.Targets().MeshElemTags.Order());
 
-            // Повторный перенос без ГУ: подузлы и сам узел скрываются.
-            db.SaveFemBoundary(schema.Id, FemLoadOrigin.Import("scad"), [], [], [], new Dictionary<string, FemElementBoundaryProps>());
+            // Правка типа связи группой: узлы становятся ручными с новыми значениями.
+            var fixedGroup = bc.NodalSupports.Groups.First(g => g.Mask == FemBoundaryDofs.All);
+            db.SetFemMeshNodesBoundary(schema.Id, fixedGroup.Targets().MeshNodeTags, 4, [0, 0, 0, 0, 0, 3e3]);
             tree.ReloadMeshSnapshot();
-            Assert.False(bc.IsVisible);
-            Assert.All(bc.Children, c => Assert.Equal(0, c.Count));
+            var edited = bc.NodalSupports.Groups.Single(g => g.Mask == 4);
+            Assert.Equal(Loc.S("FemBoundaryOriginManual"), edited.OriginText);
+            Assert.Equal(3e3, edited.Stiffnesses[5]);
+
+            // Повторный перенос без ГУ: ручная связь остаётся, импортные ветки скрываются.
+            db.SaveFemBoundary(schema.Id, Scad, [], [], [], new Dictionary<string, FemElementBoundaryProps>());
+            tree.ReloadMeshSnapshot();
+            Assert.Equal(1, bc.NodalSupports.Count);
+            Assert.False(bc.Foundation.IsVisible);
+            Assert.False(bc.Releases.IsVisible);
+            Assert.False(bc.RigidBodies.IsVisible);
         }
         finally
         {
@@ -150,11 +178,11 @@ public sealed class FemBoundaryTreeTests
             db.SaveFemTopology(schema.Id, [Node("1", 63), Node("2", 7), Node("3", 0)], [], []);
 
             var tree = new FemSchemaTreeVM(schema, db, []);
-            var supports = tree.BoundarySubNode.Supports;
-            Assert.Equal(2, supports.Count);
-            Assert.Equal([["1"], ["2"]], supports.Groups.Select(g => g.Targets().NodeTags));
-            Assert.All(supports.Groups, g => Assert.Equal(Loc.S("FemBoundaryOriginManual"), g.OriginText));
-            Assert.False(tree.BoundarySubNode.Springs.IsVisible);
+            var nodal = tree.BoundarySubNode.NodalSupports;
+            Assert.Equal(2, nodal.Count);
+            Assert.Equal([["1"], ["2"]], nodal.Groups.Select(g => g.Targets().NodeTags));
+            Assert.All(nodal.Groups, g => Assert.Equal(Loc.S("FemBoundaryOriginManual"), g.OriginText));
+            Assert.False(tree.BoundarySubNode.Foundation.IsVisible);
         }
         finally
         {

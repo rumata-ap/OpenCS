@@ -115,9 +115,27 @@ internal static class FemMemberTreeMenus
         }));
     }
 
-    /// <summary>Меню группы или подузла «Граничных условий»: выделить их узлы и КЭ в редакторе схемы.</summary>
-    public static void FillBoundary(ItemCollection items, FemSchema schema, Func<FemBoundaryTargets> targets, AppViewModel app) =>
-        items.Add(Item("FemBoundarySelect", () => app.SelectFemBoundaryInEditor(schema, targets())));
+    /// <summary>Меню типа ГУ: изменить параметры узловой связи для всех её узлов, показать мозаику переменных пружин,
+    /// выделить узлы и КЭ в редакторе схемы.</summary>
+    public static void FillBoundaryGroup(ItemCollection items, FemBoundaryGroupItem group, AppViewModel app)
+    {
+        if (group.IsEditable)
+            items.Add(Item("FemBoundaryEdit", () => app.EditFemNodalSupportGroup(group)));
+        if (group.IsMosaic)
+            items.Add(Item("FemBoundaryShowOnSchema",
+                () => app.ShowFemBoundaryMosaic(group.Schema, PlateRebarMosaicSourceKind.Springs)));
+        items.Add(Item("FemBoundarySelect", () => app.SelectFemBoundaryInEditor(group.Schema, group.Targets())));
+    }
+
+    /// <summary>Меню ветки ГУ: у упругого основания — мозаика C1, у прочих — выделить все объекты.</summary>
+    public static void FillBoundaryCategory(ItemCollection items, FemBoundaryCategoryNode category, AppViewModel app)
+    {
+        if (category.Kind == FemBoundaryKind.Foundation)
+            items.Add(Item("FemBoundaryShowOnSchema",
+                () => app.ShowFemBoundaryMosaic(category.Schema, PlateRebarMosaicSourceKind.Foundation)));
+        else
+            items.Add(Item("FemBoundarySelect", () => app.SelectFemBoundaryInEditor(category.Schema, category.Targets())));
+    }
 
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>
     public static void FillNodes(ItemCollection items, FemSchema schema, AppViewModel app) =>

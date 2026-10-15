@@ -157,6 +157,8 @@ class FemSchemaTreeVM
             NodesSubNode,
             ElementsSubNode,
             BoundarySubNode,
+            BoundarySubNode.Releases,
+            BoundarySubNode.RigidBodies,
             MeshSnapshotSubNode,
             MeshGroupsSubNode,
             MemberGroupsSubNode,

@@ -66,6 +66,23 @@ public sealed class SetDofMaskCommand(FemNode node, int mask) : IFemEditCommand
     public void Undo(FemSchemaEditSession session) => node.DofMask = _oldMask;
 }
 
+/// <summary>Задаёт одну маску закреплений нескольким узлам — одна отмена на всю группу.</summary>
+public sealed class SetDofMasksCommand(IReadOnlyList<FemNode> nodes, int mask) : IFemEditCommand
+{
+    int[] _oldMasks = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _oldMasks = nodes.Select(n => n.DofMask).ToArray();
+        foreach (var node in nodes) node.DofMask = mask;
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        for (int i = 0; i < nodes.Count; i++) nodes[i].DofMask = _oldMasks[i];
+    }
+}
+
 /// <summary>Количество объектов, которые будут затронуты удалением узлов FEM-схемы.</summary>
 public readonly record struct FemNodeDeletionImpact(int NodeCount, int MemberCount);
 

@@ -186,6 +186,24 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     public void SelectBoundaryTargets(FemBoundaryTargets targets) =>
         _editorVm.Selection.Set(targets.NodeTags, [], targets.MeshElemTags, targets.MeshNodeTags);
 
+    /// <summary>Мозаика ГУ из дерева схемы (C1 упругого основания, переменные пружины) — на вкладке 3D.</summary>
+    public void ShowMosaic(PlateRebarMosaicSourceKind kind)
+    {
+        tabs.SelectedIndex = 0;
+        _fem3d.Mosaic.ShowSource(kind);
+    }
+
+    /// <summary>Одна маска закреплений узлам КонЭ (правка типа узловой связи из дерева) — одной отменой; узлы
+    /// выделяются, схема сохраняется пользователем.</summary>
+    public void SetNodeMasks(IReadOnlyCollection<string> nodeTags, int mask)
+    {
+        var tags = nodeTags.ToHashSet(StringComparer.Ordinal);
+        var nodes = _editorVm.Session.Nodes.Where(n => tags.Contains(n.NodeTag)).ToList();
+        if (nodes.Count == 0) return;
+        _editorVm.Session.Execute(new SetDofMasksCommand(nodes, mask));
+        _editorVm.Selection.Set(tags, [], [], []);
+    }
+
     /// <summary>Запуск «Переместить» / «Копировать» из дерева: вкладка 3D, объекты выбираются, команда ждёт базовую точку.</summary>
     public void StartTransform(IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags, bool copy)
     {

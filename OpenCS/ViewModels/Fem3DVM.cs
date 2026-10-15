@@ -1535,21 +1535,75 @@ public class Fem3DVM : ViewModelBase
     /// Подсветка выбранных КЭ сетки: линии стержней, заливка пластин (две копии, сдвинутые по нормали в обе
     /// стороны, — в плоскости подложки заливка мерцала бы) и контуры пластин.
     /// </summary>
+    /// <remarks>КЭ, которых нет среди выбираемых щелчком (выбор из дерева: шарниры стержней, вошедших в кБ или КонЭ), —
+    /// по прочитанной сетке схемы.</remarks>
     public (Point3DCollection Bars, MeshGeometry3D? Shells, Point3DCollection Outlines) MeshSelectionGeometry(
-        IEnumerable<string> tags, double offset) =>
-        SelectionGeometry(tags.Select(t => _meshPickByTag.GetValueOrDefault(t)).OfType<FemMember>(), _edgeNodeMap ?? [], offset);
+        IEnumerable<string> tags, double offset)
+    {
+        var picked = new List<FemMember>();
+        var missing = new List<string>();
+        foreach (var tag in tags)
+        {
+            if (_meshPickByTag.TryGetValue(tag, out var element)) picked.Add(element);
+            else missing.Add(FemViewFragment.CanonicalTag(tag));
+        }
+        var result = SelectionGeometry(picked, _edgeNodeMap ?? [], offset);
+        if (missing.Count == 0 || OverlayLookup() is not { } overlay) return result;
+        var extra = SelectionGeometry(missing.Select(t => overlay.Elements.GetValueOrDefault(t)).OfType<FemMember>(),
+            overlay.Nodes, offset);
+        foreach (var p in extra.Bars) result.Bars.Add(p);
+        foreach (var p in extra.Outlines) result.Outlines.Add(p);
+        return (result.Bars, MergeMeshes(result.Shells, extra.Shells), result.Outlines);
+    }
+
+    object? _overlayLookupSource;
+    (Dictionary<string, Point3D> Nodes, Dictionary<string, FemMember> Elements)? _overlayLookup;
+
+    /// <summary>Узлы и КЭ сетки схемы по тегу (для выбора из дерева): прочитанная сетка дискретизации или подложка
+    /// импортированной сетки (в т. ч. КЭ, вошедшие в кБ и КонЭ); null — сетка ещё не прочитана.</summary>
+    (Dictionary<string, Point3D> Nodes, Dictionary<string, FemMember> Elements)? OverlayLookup()
+    {
+        object? source = _meshOverlaySnapshot is { } snapshot ? snapshot.Elements
+            : _bgElements is { Count: > 0 } bg ? bg : null;
+        if (source == null) return null;
+        if (_overlayLookup != null && ReferenceEquals(_overlayLookupSource, source)) return _overlayLookup;
+        var nodes = new Dictionary<string, Point3D>(StringComparer.Ordinal);
+        var elements = new Dictionary<string, FemMember>(StringComparer.Ordinal);
+        if (_meshOverlaySnapshot is { } overlay)
+        {
+            foreach (var n in overlay.Nodes) nodes.TryAdd(FemViewFragment.CanonicalTag(n.NodeTag), new Point3D(n.X, n.Y, n.Z));
+            foreach (var e in overlay.Elements) elements.TryAdd(FemViewFragment.CanonicalTag(e.ElemTag), ToFemMember(e));
+        }
+        else
+        {
+            foreach (var n in _bgNodes ?? []) nodes.TryAdd(FemViewFragment.CanonicalTag(n.NodeTag), new Point3D(n.X, n.Y, n.Z));
+            foreach (var e in _bgElements!) elements.TryAdd(FemViewFragment.CanonicalTag(e.ElemTag), e);
+        }
+        _overlayLookupSource = source;
+        _overlayLookup = (nodes, elements);
+        return _overlayLookup;
+    }
+
+    static MeshGeometry3D? MergeMeshes(MeshGeometry3D? a, MeshGeometry3D? b)
+    {
+        if (a == null || b == null) return a ?? b;
+        var positions = new Point3DCollection(a.Positions);
+        var indices = new Int32Collection(a.TriangleIndices);
+        foreach (var p in b.Positions) positions.Add(p);
+        foreach (int i in b.TriangleIndices) indices.Add(i + a.Positions.Count);
+        var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        mesh.Freeze();
+        return mesh;
+    }
 
     /// <summary>Положения выбранных узлов сетки (ГУ сеточного уровня из дерева): по прочитанной сетке схемы, иначе —
     /// по узлам вида (подложка импортированной сетки).</summary>
     public Point3DCollection MeshNodeSelectionPoints(IEnumerable<string> tags)
     {
-        var overlay = _meshOverlaySnapshot?.Nodes;
-        Dictionary<string, Point3D>? overlayMap = overlay == null ? null
-            : overlay.GroupBy(n => n.NodeTag, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => new Point3D(g.First().X, g.First().Y, g.First().Z), StringComparer.Ordinal);
+        var overlayMap = OverlayLookup()?.Nodes;
         var points = new Point3DCollection();
         foreach (var tag in tags)
-            if (overlayMap?.TryGetValue(tag, out var p) == true || _edgeNodeMap?.TryGetValue(tag, out p) == true)
+            if (overlayMap?.TryGetValue(FemViewFragment.CanonicalTag(tag), out var p) == true || _edgeNodeMap?.TryGetValue(tag, out p) == true)
                 points.Add(p);
         return points;
     }

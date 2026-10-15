@@ -20,19 +20,30 @@ public partial class FemMeshNodeBoundaryDialog : Window
     public double[] Stiffnesses { get; private set; } = new double[6];
 
     public FemMeshNodeBoundaryDialog(FemMeshNodeRow row)
+        : this(string.Format(CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"), row.NodeTag, row.X, row.Y, row.Z),
+            row.Origins.Count > 0 ? row.OriginText : null, row.Origins.Any(o => o != FemLoadOrigin.Manual),
+            row.SupportMask, row.Stiffnesses, allowSprings: true)
+    {
+    }
+
+    /// <summary>ГУ узла или типа узловой связи (все узлы группы получат одни значения).</summary>
+    /// <param name="stiffnesses">Текущие жёсткости X…UZ, Н/м и Н·м/рад.</param>
+    /// <param name="allowSprings">Пружины можно задать (у узлов КонЭ — только закрепления).</param>
+    public FemMeshNodeBoundaryDialog(string header, string? origin, bool imported, int mask,
+        IReadOnlyList<double> stiffnesses, bool allowSprings)
     {
         InitializeComponent();
         _checks = [xCheck, yCheck, zCheck, uxCheck, uyCheck, uzCheck];
         _boxes = [kxBox, kyBox, kzBox, kuxBox, kuyBox, kuzBox];
 
-        headerText.Text = string.Format(CultureInfo.CurrentCulture, Loc.S("FemMeshNodeBoundaryHeader"),
-            row.NodeTag, row.X, row.Y, row.Z);
-        originText.Text = row.Origins.Count > 0 ? string.Format(Loc.S("FemMeshNodeBoundaryOrigin"), row.OriginText) : "";
-        importHint.Visibility = row.Origins.Any(o => o != FemLoadOrigin.Manual) ? Visibility.Visible : Visibility.Collapsed;
+        headerText.Text = header;
+        originText.Text = origin != null ? string.Format(Loc.S("FemMeshNodeBoundaryOrigin"), origin) : "";
+        importHint.Visibility = imported ? Visibility.Visible : Visibility.Collapsed;
         for (int i = 0; i < 6; i++)
         {
-            _checks[i].IsChecked = (row.SupportMask & (1 << i)) != 0;
-            _boxes[i].Text = (row.Stiffnesses[i] / 1e3).ToString("0.######", CultureInfo.CurrentCulture);
+            _checks[i].IsChecked = (mask & (1 << i)) != 0;
+            _boxes[i].Text = (stiffnesses[i] / 1e3).ToString("0.######", CultureInfo.CurrentCulture);
+            _boxes[i].IsEnabled = allowSprings;
         }
     }
 

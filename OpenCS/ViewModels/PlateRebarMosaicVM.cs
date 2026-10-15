@@ -21,6 +21,8 @@ public enum PlateRebarMosaicSourceKind
    LayoutDifference,
    /// <summary>Коэффициент постели C1 упругого основания пластин (из ГУ КЭ схемы).</summary>
    Foundation,
+   /// <summary>Жёсткости пружин узлов сетки, средние по узлам пластинчатого КЭ (переменное основание импорта).</summary>
+   Springs,
    /// <summary>Результат расчёта постановки схемы (OpenSees, CSfea): перемещения на сетке схемы.</summary>
    Analysis,
 }
@@ -121,6 +123,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    string? _selectedFile, _assignedFile;
    IReadOnlyDictionary<string, double> _thicknessByTag = new Dictionary<string, double>();
    IReadOnlyDictionary<string, double> _foundationC1 = new Dictionary<string, double>();
+   IReadOnlyDictionary<string, double[]> _springsByElem = new Dictionary<string, double[]>();
    IReadOnlyList<ForceSet> _forceSets = [];
    IReadOnlyList<CheckInfo> _checks = [];
    IReadOnlyList<AnalysisInfo> _analyses = [];
@@ -410,6 +413,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          if (Equals(_selectedSource, value)) return;
          _selectedSource = value;
          OnPropertyChanged();
+         OnPropertyChanged(nameof(IsFoundationShown));
          RefreshSubjects();
          RaiseChanged();
       }
@@ -484,6 +488,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       PlateRebarMosaicSourceKind.Difference => "D",
       PlateRebarMosaicSourceKind.LayoutDifference => "LD",
       PlateRebarMosaicSourceKind.Foundation => "C1",
+      PlateRebarMosaicSourceKind.Springs => "K:" + SelectedComponent?.Component,
       // Mx, My есть и у пластин, и у стержней — ключ с типом величины.
       PlateRebarMosaicSourceKind.Analysis => $"A:{SelectedComponent?.Component.GetType().Name}.{SelectedComponent?.Component}",
       _ => "R",
@@ -520,6 +525,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       public IReadOnlyDictionary<string, double> ThicknessByTag { get; init; } = new Dictionary<string, double>();
       /// <summary>Коэффициент постели C1 пластинчатого КЭ по тегу, кН/м³ (только КЭ на основании).</summary>
       public IReadOnlyDictionary<string, double> FoundationC1 { get; init; } = new Dictionary<string, double>();
+      /// <summary>Жёсткости пружин X…UZ пластинчатого КЭ по тегу — средние по его узлам с пружиной этого направления,
+      /// кН/м и кН·м/рад (только КЭ с пружинами).</summary>
+      public IReadOnlyDictionary<string, double[]> SpringsByElement { get; init; } = new Dictionary<string, double[]>();
       /// <summary>Наборы усилий схемы со строками по КЭ.</summary>
       public IReadOnlyList<ForceSet> ForceSets { get; init; } = [];
       /// <summary>Проверки схемы, у которых есть результат.</summary>
@@ -624,6 +632,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          if (e.FoundationC1 is double c1 && c1 > 0) foundation[e.ElemTag.Trim()] = c1 / 1000;   // Н/м³ → кН/м³
       }
 
+      var springsByElem = SpringsByElement(db.GetFemSprings(schemaId), shells, key);
+
       // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
       if (db.GetFemSchemaSourceType(schemaId) == "scad")
       {
@@ -703,8 +713,42 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       return new Data(selected, selectedFile, assigned, assignedFile, errors, key.ToString())
       {
          SelectedBars = selectedBars, AssignedBars = assignedBars, ThicknessByTag = thickness, MeshElements = elements,
-         FoundationC1 = foundation,
+         FoundationC1 = foundation, SpringsByElement = springsByElem,
       };
+   }
+
+   /// <summary>Жёсткости пружин узлов сетки, средние по узлам каждого пластинчатого КЭ (по каждому направлению — среди
+   /// узлов, где эта жёсткость задана), кН/м и кН·м/рад.</summary>
+   static Dictionary<string, double[]> SpringsByElement(IEnumerable<FemSpring> springs, IEnumerable<FemElement> shells,
+      System.Text.StringBuilder key)
+   {
+      var byNode = new Dictionary<string, double[]>(StringComparer.Ordinal);
+      var hash = new HashCode();
+      foreach (var s in springs.Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode && s.ActiveMask != 0))
+      {
+         byNode[s.NodeTag.Trim()] = s.Stiffnesses.Select(k => k / 1e3).ToArray();
+         hash.Add(s.NodeTag); hash.Add(s.Kx); hash.Add(s.Ky); hash.Add(s.Kz); hash.Add(s.Kux); hash.Add(s.Kuy); hash.Add(s.Kuz);
+      }
+      key.Append(hash.ToHashCode()).Append('|');
+      var result = new Dictionary<string, double[]>(StringComparer.Ordinal);
+      if (byNode.Count == 0) return result;
+      foreach (var e in shells)
+      {
+         int[] ids;
+         try { ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []; }
+         catch (System.Text.Json.JsonException) { continue; }
+         var sum = new double[6];
+         var count = new int[6];
+         foreach (int id in ids)
+         {
+            if (!byNode.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var k)) continue;
+            for (int i = 0; i < 6; i++)
+               if (k[i] != 0) { sum[i] += k[i]; count[i]++; }
+         }
+         if (count.All(c => c == 0)) continue;
+         result[e.ElemTag.Trim()] = Enumerable.Range(0, 6).Select(i => count[i] > 0 ? sum[i] / count[i] : 0).ToArray();
+      }
+      return result;
    }
 
    /// <summary>Прочитать все данные мозаики схемы. Только в UI-потоке.</summary>
@@ -742,6 +786,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       _assignedBars = data.AssignedBars;
       _thicknessByTag = data.ThicknessByTag;
       _foundationC1 = data.FoundationC1;
+      _springsByElem = data.SpringsByElement;
       _checkResults.Clear();
       _checkRows.Clear();
       foreach (var (file, error) in data.Errors)
@@ -785,16 +830,56 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_forceSets.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Forces, Loc.S("MosaicSourceForces")));
       if (_checks.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Utilization, Loc.S("MosaicSourceUtilization")));
       if (_foundationC1.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Foundation, Loc.S("MosaicSourceFoundation")));
+      if (_springsByElem.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Springs, Loc.S("MosaicSourceSprings")));
       if (_analyses.Count > 0) options.Add(new(PlateRebarMosaicSourceKind.Analysis, Loc.S("MosaicSourceAnalysis")));
       SourceOptions = options;
       OnPropertyChanged(nameof(SourceOptions));
       OnPropertyChanged(nameof(HasData));
 
+      if (_pendingSource is { } pending && options.Any(o => o.Kind == pending))
+      {
+         kind = pending;
+         _pendingSource = null;
+      }
       _selectedSource = options.FirstOrDefault(o => o.Kind == kind) ?? options[0];
       OnPropertyChanged(nameof(SelectedSource));
+      OnPropertyChanged(nameof(HasFoundation));
+      OnPropertyChanged(nameof(IsFoundationShown));
       RefreshSubjects();
       RaiseChanged();
       SelectPendingAnalysis();
+   }
+
+   PlateRebarMosaicSourceKind? _pendingSource;
+
+   /// <summary>
+   /// Показать мозаику вида <paramref name="kind"/> (из дерева схемы: «Показать на схеме» у упругого основания и
+   /// пружин). Если данные вида ещё не прочитаны — выбор применится после чтения.
+   /// </summary>
+   public void ShowSource(PlateRebarMosaicSourceKind kind)
+   {
+      if (SourceOptions.FirstOrDefault(o => o.Kind == kind) is { } option)
+      {
+         _pendingSource = null;
+         SelectedSource = option;
+      }
+      else
+         _pendingSource = kind;
+   }
+
+   /// <summary>У схемы есть КЭ на упругом основании — показывается кнопка мозаики C1.</summary>
+   public bool HasFoundation => _foundationC1.Count > 0;
+
+   /// <summary>Кнопка «Мозаика C1» на панели 3D: включает мозаику C1, выключение — мозаика «нет».</summary>
+   public bool IsFoundationShown
+   {
+      get => Kind == PlateRebarMosaicSourceKind.Foundation;
+      set
+      {
+         if (value == IsFoundationShown) return;
+         if (value) ShowSource(PlateRebarMosaicSourceKind.Foundation);
+         else SelectedSource = SourceOptions.FirstOrDefault(o => o.Kind == PlateRebarMosaicSourceKind.None);
+      }
    }
 
    IPlateRebarFieldSource? RebarSource() => Kind switch
@@ -892,6 +977,16 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
          case PlateRebarMosaicSourceKind.Foundation:
             return [new PlateRebarMosaicComponentOption(FoundationComponent, Loc.S("MosaicFoundationC1"))];
+
+         case PlateRebarMosaicSourceKind.Springs:
+         {
+            string[] names = ["Kx", "Ky", "Kz", "Kux", "Kuy", "Kuz"];
+            return Enumerable.Range(0, 6).Where(i => _springsByElem.Values.Any(k => k[i] != 0))
+               .OrderBy(i => i == 2 ? 0 : 1).ThenBy(i => i)
+               .Select(i => new PlateRebarMosaicComponentOption(i, string.Format(Loc.S("MosaicSpringComponent"), names[i],
+                  Loc.S(i < 3 ? "FemBoundaryUnitK" : "FemBoundaryUnitKr"))))
+               .ToList();
+         }
 
          case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result:
          {
@@ -1170,6 +1265,15 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return new Field(values, Bars: false, Diverging: false, Palette.Rebar);
          }
 
+         case PlateRebarMosaicSourceKind.Springs when comp.Component is int dof:
+         {
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in shellTags)
+               values[tag] = _springsByElem.TryGetValue(tag, out var k) && k[dof] != 0
+                  ? PlateRebarValue.Of(k[dof]) : PlateRebarValue.Missing;
+            return new Field(values, Bars: false, Diverging: false, Palette.Rebar);
+         }
+
          case PlateRebarMosaicSourceKind.SelectedBars or PlateRebarMosaicSourceKind.AssignedBars
             or PlateRebarMosaicSourceKind.DifferenceBars
             when BarRebarSource() is { } barSource && comp.Component is BarRebarComponent c:
@@ -1292,6 +1396,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return $"{comp}\n{SelectedSource!.Label}\n{_assignedFile} − {_selectedFile}";
          case PlateRebarMosaicSourceKind.Foundation:
             return $"{comp}\n{SelectedSource!.Label}";
+         case PlateRebarMosaicSourceKind.Springs:
+            return $"{comp}\n{SelectedSource!.Label}\n{Loc.S("MosaicSpringsNote")}";
          case PlateRebarMosaicSourceKind.Analysis:
             return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}"
                    + (_resultComputing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "");

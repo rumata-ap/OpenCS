@@ -1535,7 +1535,8 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <!-- Подузел одного вида ГУ: иконка и подпись по виду, дочерние — группы -->
+                  <!-- Ветка ГУ (узловые связи, упругое основание, шарниры стержней, жёсткие тела): иконка и подпись по
+                       виду, дочерние — типы; у упругого основания дочерних нет — «Показать на схеме» включает мозаику C1 -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemBoundaryCategoryNode}"
                                             ItemsSource="{Binding Groups}">
                      <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
@@ -1547,9 +1548,6 @@
                               <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
                                  <Setter Property="Source" Value="{StaticResource FemIcon_Supports}"/>
                                  <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Kind}" Value="Springs">
-                                       <Setter Property="Source" Value="{StaticResource FemIcon_Springs}"/>
-                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="Releases">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_Releases}"/>
                                     </DataTrigger>
@@ -1566,11 +1564,8 @@
                         <TextBlock>
                            <TextBlock.Style>
                               <Style TargetType="TextBlock">
-                                 <Setter Property="Text" Value="{DynamicResource FemBoundarySupports}"/>
+                                 <Setter Property="Text" Value="{DynamicResource FemBoundaryNodalSupports}"/>
                                  <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Kind}" Value="Springs">
-                                       <Setter Property="Text" Value="{DynamicResource FemBoundarySprings}"/>
-                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="Releases">
                                        <Setter Property="Text" Value="{DynamicResource FemBoundaryReleases}"/>
                                     </DataTrigger>
@@ -1589,12 +1584,15 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <!-- Группа ГУ («Заделка — 12») или жёсткое тело; происхождение — серым -->
+                  <!-- Тип ГУ («Заделка — 12») или жёсткое тело; происхождение — серым. Узловые связи переменной
+                       жёсткости — строка-мозаика с иконкой пружины: значения — «Показать на схеме» -->
                   <DataTemplate DataType="{x:Type vm:FemBoundaryGroupItem}">
                      <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
                         <StackPanel.ContextMenu>
                            <ContextMenu/>
                         </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Springs}"
+                               Visibility="{Binding IsMosaic, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBlock Text="{Binding Label}"/>
                         <TextBlock Text="{Binding CountText}"/>
                         <TextBlock Text="{Binding OriginText, StringFormat='  [{0}]'}" Foreground="Gray"/>

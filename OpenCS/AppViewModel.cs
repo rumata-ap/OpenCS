@@ -500,6 +500,47 @@ namespace OpenCS
             page.SelectBoundaryTargets(targets);
       }
 
+      /// <summary>«Показать на схеме» у упругого основания и переменных пружин: открывает редактор схемы и включает в
+      /// 3D мозаику вида <paramref name="kind"/>.</summary>
+      public void ShowFemBoundaryMosaic(CScore.Fem.FemSchema schema, ViewModels.PlateRebarMosaicSourceKind kind)
+      {
+         CurrentFemSchema = schema;
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+            page.ShowMosaic(kind);
+      }
+
+      /// <summary>
+      /// «Изменить…» у типа узловой связи: одни закрепления и пружины для всех его узлов. Узлы сетки пишутся сразу (ручные
+      /// ГУ, результаты постановок сбрасываются); узлы КонЭ — командой редактора схемы (отмена, сохранение схемы), их
+      /// пружины в редакторе не задаются.
+      /// </summary>
+      public void EditFemNodalSupportGroup(ViewModels.FemBoundaryGroupItem group)
+      {
+         var schema = group.Schema;
+         var targets = group.Targets();
+         bool structural = targets.NodeTags.Count > 0;
+         var dialog = new Views.FemMeshNodeBoundaryDialog(
+            string.Format(Loc.S("FemBoundaryGroupHeader"), group.Label, group.Count), group.OriginText,
+            imported: group.OriginText != Loc.S("FemBoundaryOriginManual"), group.Mask, group.Stiffnesses,
+            allowSprings: !structural)
+         { Owner = System.Windows.Application.Current.MainWindow };
+         if (dialog.ShowDialog() != true) return;
+
+         if (targets.MeshNodeTags.Count > 0)
+         {
+            db.SetFemMeshNodesBoundary(schema.Id, targets.MeshNodeTags, dialog.Mask, dialog.Stiffnesses);
+            int invalidated = InvalidateFemSchemaAnalyses(schema);
+            if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
+            ReloadFemMeshSnapshotTree(schema.Id);
+         }
+         if (structural)
+         {
+            CurrentFemSchema = schema;
+            if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page)
+               page.SetNodeMasks(targets.NodeTags, dialog.Mask);
+         }
+      }
+
       /// <summary>«Переместить» / «Копировать» из дерева: открывает редактор схемы и запускает в 3D команду
       /// (базовая точка → вторая точка).</summary>
       public void TransformFemFragmentInEditor(CScore.Fem.FemSchema schema, IReadOnlyCollection<string> nodeTags,

@@ -216,13 +216,13 @@ namespace OpenCS
              vm.CurrentPage = new Views.FemMemberPage(memberItem, vm);
           else if (e.NewValue is ViewModels.FemNodeTreeItem nodeItem)
              vm.CurrentPage = new Views.FemNodePage(nodeItem, vm);
-          else if (e.NewValue is ViewModels.FemBoundaryGroupItem boundaryGroup)
+          // Строки-мозаики (переменные пружины, упругое основание) щелчком не выделяются — мозаика по «Показать на схеме».
+          else if (e.NewValue is ViewModels.FemBoundaryGroupItem { IsMosaic: false } boundaryGroup)
              vm.SelectFemBoundaryInEditor(boundaryGroup.Schema, boundaryGroup.Targets());
-          else if (e.NewValue is ViewModels.FemBoundaryCategoryNode boundaryCategory)
+          else if (e.NewValue is ViewModels.FemBoundaryCategoryNode { Kind: not ViewModels.FemBoundaryKind.Foundation } boundaryCategory)
              vm.SelectFemBoundaryInEditor(boundaryCategory.Schema, boundaryCategory.Targets());
           else if (e.NewValue is ViewModels.FemBoundarySubNode boundary)
-             vm.SelectFemBoundaryInEditor(boundary.Schema,
-                ViewModels.FemBoundaryTree.Merge(boundary.Children.Select(c => c.Targets())));
+             vm.SelectFemBoundaryInEditor(boundary.Schema, boundary.NodalSupports.Targets());
           else if (e.NewValue is ViewModels.FemMeshNodesSubNode meshNodesNode)
              vm.CurrentPage = new Views.FemMeshNodesView(meshNodesNode);
           else if (e.NewValue is ViewModels.FemMeshBarsSubNode meshBarsNode)
@@ -277,10 +277,10 @@ namespace OpenCS
                Views.FemMemberTreeMenus.FillCategory(menu.Items, shells.Owner.Schema, shells.Members, vm, shells: true);
                break;
             case ViewModels.FemBoundaryGroupItem group:
-               Views.FemMemberTreeMenus.FillBoundary(menu.Items, group.Schema, group.Targets, vm);
+               Views.FemMemberTreeMenus.FillBoundaryGroup(menu.Items, group, vm);
                break;
             case ViewModels.FemBoundaryCategoryNode category:
-               Views.FemMemberTreeMenus.FillBoundary(menu.Items, category.Schema, category.Targets, vm);
+               Views.FemMemberTreeMenus.FillBoundaryCategory(menu.Items, category, vm);
                break;
             case ViewModels.FemElementsSubNode all:
                Views.FemMemberTreeMenus.FillCategory(menu.Items, all.Owner.Schema,
