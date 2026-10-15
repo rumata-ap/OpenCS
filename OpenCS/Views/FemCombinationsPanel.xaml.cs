@@ -17,6 +17,8 @@ public partial class FemCombinationsPanel : UserControl
     public FemCombinationsPanel()
     {
         InitializeComponent();
+        // «1,0» или «1.0» — в той же культуре, что коэффициенты в таблице и формуле.
+        resetButton.Content = 1.0.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture);
         DataContextChanged += (_, _) =>
         {
             _vm = DataContext is FemSchemaEditorVM editor ? new FemCombinationsTabVM(editor) : null;

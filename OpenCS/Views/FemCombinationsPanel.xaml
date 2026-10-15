@@ -226,8 +226,8 @@
                             <Path Data="M3,8 L7,12 L13,4" Stroke="#2060B0" StrokeThickness="2.2" StrokeLineJoin="Round"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="16" Height="16"/>
                         </Button>
-                        <Button Margin="4,0,0,0" Padding="6,0" MinHeight="25" Click="ResetCoefficient_Click"
-                                ToolTip="{DynamicResource FemCombinationsResetTip}" Content="{DynamicResource FemCombinationsResetLabel}"/>
+                        <Button x:Name="resetButton" Margin="4,0,0,0" Padding="6,0" MinHeight="25" Click="ResetCoefficient_Click"
+                                ToolTip="{DynamicResource FemCombinationsResetTip}"/>
                     </StackPanel>
                     <DataGrid x:Name="termsGrid" Style="{StaticResource CombGrid}" ItemsSource="{Binding Terms}" IsReadOnly="False">
                         <DataGrid.RowStyle>

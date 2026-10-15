@@ -3746,7 +3746,6 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsCoefficientTip">Factor for added load cases and the Apply button</system:String>
     <system:String x:Key="FemCombinationsApplyTip">Apply the factor to selected load cases of the combination</system:String>
     <system:String x:Key="FemCombinationsResetTip">Factor 1.0 for selected load cases of the combination</system:String>
-    <system:String x:Key="FemCombinationsResetLabel">1.0</system:String>
     <system:String x:Key="FemCombinationsNewTip">New combination</system:String>
     <system:String x:Key="FemCombinationsCopyTip">Copy the selected combination</system:String>
     <system:String x:Key="FemCombinationsSp20Tip">Fundamental SP 20 combinations from schema load cases (load kind, γf, ψ, groups from load case parameters)</system:String>

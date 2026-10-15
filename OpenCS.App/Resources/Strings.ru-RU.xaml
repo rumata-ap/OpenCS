@@ -3746,7 +3746,6 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsCoefficientTip">Коэффициент для добавляемых загружений и кнопки «Применить»</system:String>
     <system:String x:Key="FemCombinationsApplyTip">Применить коэффициент к выделенным загружениям комбинации</system:String>
     <system:String x:Key="FemCombinationsResetTip">Коэффициент 1,0 выделенным загружениям комбинации</system:String>
-    <system:String x:Key="FemCombinationsResetLabel">1,0</system:String>
     <system:String x:Key="FemCombinationsNewTip">Создать комбинацию</system:String>
     <system:String x:Key="FemCombinationsCopyTip">Копировать выбранную комбинацию</system:String>
     <system:String x:Key="FemCombinationsSp20Tip">Основные сочетания по СП 20 из загружений схемы (вид нагрузки, γf, ψ, группы — из параметров загружений)</system:String>
