@@ -30,6 +30,12 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="LeftText" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+        </Style>
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="Foreground" Value="Gray"/>
             <Setter Property="FontSize" Value="11"/>
@@ -45,7 +51,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5*" MinWidth="320"/>
+            <ColumnDefinition Width="6*" MinWidth="420"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="6*" MinWidth="320"/>
         </Grid.ColumnDefinitions>
@@ -95,8 +101,9 @@
                         </DataGridTextColumn.HeaderTemplate>
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColNumber}" Binding="{Binding Number}" IsReadOnly="True" Width="32"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadsColName}" Binding="{Binding Tag}" Width="2*" MinWidth="90"/>
-                    <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColSp20}" Width="1.5*" MinWidth="110"
+                    <DataGridTextColumn Header="{DynamicResource FemLoadsColName}" Binding="{Binding Tag}" Width="3*" MinWidth="170"
+                                        ElementStyle="{StaticResource LeftText}"/>
+                    <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColSp20}" Width="1.5*" MinWidth="125"
                                             ItemsSource="{x:Static vm:FemLoadsTabVM.Sp20Types}" SelectedValuePath="Key"
                                             DisplayMemberPath="Label" SelectedValueBinding="{Binding Sp20Type, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColGroup}" Binding="{Binding Group}" Width="*" MinWidth="50"/>
@@ -197,12 +204,14 @@
                     <DataGrid x:Name="elementLoadsGrid" Style="{StaticResource LoadsGrid}" ItemsSource="{Binding ElementLoadRows}"
                               RowStyle="{StaticResource ReadOnlyRow}" BeginningEdit="Grid_BeginningEdit">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="{DynamicResource FemLoadsColKind}" Binding="{Binding Kind}" IsReadOnly="True" Width="100"/>
-                            <DataGridTextColumn Header="{DynamicResource FemLoadsColAreaValue}" Binding="{Binding Value}" Width="90"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColKind}" Binding="{Binding Kind}" IsReadOnly="True" Width="115"
+                                                ElementStyle="{StaticResource LeftText}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColAreaValue}" Binding="{Binding Value}" Width="100"/>
                             <DataGridComboBoxColumn Header="{DynamicResource FemLoadsColDirection}" Width="100"
                                                     ItemsSource="{x:Static vm:FemLoadsTabVM.AreaDirections}" SelectedValuePath="Key"
                                                     DisplayMemberPath="Label" SelectedValueBinding="{Binding Direction, UpdateSourceTrigger=PropertyChanged}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemLoadsColTarget}" Binding="{Binding Target}" IsReadOnly="True" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadsColTarget}" Binding="{Binding Target}" IsReadOnly="True" Width="*"
+                                                ElementStyle="{StaticResource LeftText}"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColOrigin}" Binding="{Binding OriginText}" IsReadOnly="True" Width="64"/>
                         </DataGrid.Columns>
                     </DataGrid>

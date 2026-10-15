@@ -3715,7 +3715,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsColQy2">qy end, kN/m</system:String>
     <system:String x:Key="FemLoadsColQz2">qz end, kN/m</system:String>
     <system:String x:Key="FemLoadsColKind">Kind</system:String>
-    <system:String x:Key="FemLoadsColAreaValue">Value, kPa</system:String>
+    <system:String x:Key="FemLoadsColAreaValue">Value</system:String>
     <system:String x:Key="FemLoadsColDirection">Direction</system:String>
     <system:String x:Key="FemLoadsColTarget">Target</system:String>
     <system:String x:Key="FemLoadsColDof">DOF</system:String>
@@ -3729,7 +3729,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsDeleteRowsTip">Delete selected rows (one undo)</system:String>
     <system:String x:Key="FemLoadsHint">The row on the left is the active load case: its loads are on the right and in 3D. Empty γf and ψ — defaults for the load kind.</system:String>
     <system:String x:Key="FemLoadsMemberHint">"Local" axes are the bar local axes. A uniform load has end = start; editing the end makes it trapezoidal. Moments apply to point loads only.</system:String>
-    <system:String x:Key="FemLoadsAreaHint">Imported element loads are view/delete only; manual uniform loads allow editing value and direction. Sign is along the axis: −5 along Z is downward.</system:String>
+    <system:String x:Key="FemLoadsAreaHint">Value: uniform — kPa, point — kN. Imported element loads are view/delete only; manual uniform loads allow editing value and direction. Sign is along the axis: −5 along Z is downward.</system:String>
     <system:String x:Key="FemLoadsKinematicHint">Displacements Ux, Uy, Uz — mm, rotations Rx, Ry, Rz — mrad, global axes.</system:String>
     <system:String x:Key="FemLoadsMeshNodalHint">Mesh node loads come from LIRA-SAPR or SCAD; here they can only be viewed and deleted.</system:String>
     <system:String x:Key="FemLoadsNoActive">No load cases — create one.</system:String>

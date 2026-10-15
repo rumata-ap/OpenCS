@@ -3715,7 +3715,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsColQy2">qy кон., кН/м</system:String>
     <system:String x:Key="FemLoadsColQz2">qz кон., кН/м</system:String>
     <system:String x:Key="FemLoadsColKind">Вид</system:String>
-    <system:String x:Key="FemLoadsColAreaValue">Значение, кПа</system:String>
+    <system:String x:Key="FemLoadsColAreaValue">Значение</system:String>
     <system:String x:Key="FemLoadsColDirection">Направление</system:String>
     <system:String x:Key="FemLoadsColTarget">Цель</system:String>
     <system:String x:Key="FemLoadsColDof">DOF</system:String>
@@ -3729,7 +3729,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadsDeleteRowsTip">Удалить выбранные строки (одной отменой)</system:String>
     <system:String x:Key="FemLoadsHint">Строка слева — активное загружение: его нагрузки справа и в 3D. Пустые γf и ψ — по умолчанию по виду нагрузки.</system:String>
     <system:String x:Key="FemLoadsMemberHint">Оси «Локальная» — местные оси стержня. У равномерной нагрузки конец равен началу; правка конца делает её трапециевидной. Моменты — только у сосредоточенной.</system:String>
-    <system:String x:Key="FemLoadsAreaHint">Импортные нагрузки на КЭ — только просмотр и удаление; у ручных равномерных правятся значение и направление. Знак — вдоль оси: −5 по Z — вниз.</system:String>
+    <system:String x:Key="FemLoadsAreaHint">Значение: равномерная — кПа, сосредоточенная — кН. Импортные нагрузки на КЭ — только просмотр и удаление; у ручных равномерных правятся значение и направление. Знак — вдоль оси: −5 по Z — вниз.</system:String>
     <system:String x:Key="FemLoadsKinematicHint">Перемещения Ux, Uy, Uz — мм, повороты Rx, Ry, Rz — мрад, в общих осях.</system:String>
     <system:String x:Key="FemLoadsMeshNodalHint">Нагрузки на узлы сетки переносятся из ЛИРЫ-САПР или SCAD; здесь их можно только просмотреть и удалить.</system:String>
     <system:String x:Key="FemLoadsNoActive">Нет загружений — создайте загружение.</system:String>
