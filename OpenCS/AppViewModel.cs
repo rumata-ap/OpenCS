@@ -4518,6 +4518,21 @@ namespace OpenCS
          }
          int invalidated = InvalidateFemSchemaAnalyses(schema);
          if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadLoadsAnalysesInvalidated"), invalidated));
+         AskDesignLoadValues();
+      }
+
+      /// <summary>
+      /// После переноса нагрузок из ЛИРЫ/SCAD: величины источника обычно расчётные — при «нормативных» в настройках
+      /// предлагает переключить, иначе сочетания СП 20 учтут γf повторно.
+      /// </summary>
+      void AskDesignLoadValues()
+      {
+         if (CalcSettings.ToSp20LoadValueKind() == CScore.Combinations.Sp20LoadValueKind.Design) return;
+         if (MessageBox.Show(Loc.S("ImportDesignLoadValuesQuestion"), Loc.S("Confirmation"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+         CalcSettings.Sp20LoadValueKind = "design";
+         db.SaveCalcSettings(CalcSettings);
+         LogService.Info(Loc.S("ImportDesignLoadValuesSwitched"));
       }
 
       /// <summary>Сбрасывает результаты постановок схемы; возвращает число сброшенных.</summary>

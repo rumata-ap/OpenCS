@@ -3781,6 +3781,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemEnvelopeSelectedPartial">{0}, лимит {1}: огибающая воспроизведена не полностью ({2:P2}) — увеличьте лимит или допуск.</system:String>
     <system:String x:Key="FemEnvelopeSelectionGroups">Группы:</system:String>
     <system:String x:Key="FemEnvelopeSelectionNoGroups">Выберите хотя бы одну группу.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionValueKind">Величины нагрузок:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionValueKindTip">Как заданы величины загружений: нормативные — в формулах C/CL умножаются на γf; расчётные — в C/CL без γf, в N/NL делятся на γf. Меняет настройку расчёта проекта (раздел «Сочетания СП 20»).</system:String>
+    <system:String x:Key="FemEnvelopeSelectionImportedWarning">Загружения импортированы — их величины обычно расчётные. С «нормативными» γf будет учтён повторно.</system:String>
     <system:String x:Key="FemCombinationGroupC">C — ПС1, полные</system:String>
     <system:String x:Key="FemCombinationGroupCL">CL — ПС1, длительные</system:String>
     <system:String x:Key="FemCombinationGroupN">N — ПС2, полные</system:String>
@@ -3811,6 +3814,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SP20ValueKindHint">Величины нагрузок в наборах: {0} (настройки расчёта). C/CL — ×γf у нормативных; N/NL — ÷γf у расчётных; в CL/NL кратковременные наборы не входят (доля длительной части в имени набора не задаётся).</system:String>
     <system:String x:Key="FemValueKindNote">Величины нагрузок: {0} — настройка расчёта (раздел «Сочетания СП 20»).</system:String>
     <system:String x:Key="FemValueKindImportedWarning">Загружения импортированы (величины обычно расчётные), а в настройках расчёта величины нагрузок — {0}: «авто»-коэффициенты C умножат их на γf повторно. Проверьте настройку «Величины нагрузок».</system:String>
+    <system:String x:Key="ImportDesignLoadValuesQuestion">Величины загружений ЛИРЫ/SCAD обычно расчётные, а в настройках расчёта проекта величины нагрузок — нормативные: сочетания СП 20 и «авто»-коэффициенты комбинаций умножат их на γf повторно.&#x0a;&#x0a;Переключить настройку «Величины нагрузок» на «расчётные»?</system:String>
+    <system:String x:Key="ImportDesignLoadValuesSwitched">Величины нагрузок в настройках расчёта — «расчётные» (после переноса нагрузок).</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Площадная нагрузка</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Применить параметры</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Сохранение заблокировано</system:String>

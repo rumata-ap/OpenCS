@@ -6,6 +6,21 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <StackPanel Margin="12">
         <TextBlock x:Name="sourceText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="130"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemEnvelopeSelectionValueKind}" VerticalAlignment="Center"
+                       ToolTip="{DynamicResource FemEnvelopeSelectionValueKindTip}"/>
+            <ComboBox x:Name="valueKindBox" Grid.Column="1" SelectionChanged="ValueKind_Changed"
+                      ToolTip="{DynamicResource FemEnvelopeSelectionValueKindTip}">
+                <ComboBoxItem Tag="normative" Content="{DynamicResource CalcSettingsSp20Normative}"/>
+                <ComboBoxItem Tag="design" Content="{DynamicResource CalcSettingsSp20Design}"/>
+            </ComboBox>
+        </Grid>
+        <TextBlock x:Name="valueKindWarning" Text="{DynamicResource FemEnvelopeSelectionImportedWarning}"
+                   Foreground="DarkOrange" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
         <TextBlock Text="{DynamicResource FemEnvelopeSelectionGroups}" Margin="0,0,0,4"/>
         <StackPanel x:Name="groupsPanel" Margin="8,0,0,8">
             <CheckBox x:Name="groupC" Tag="C" Content="{DynamicResource FemCombinationGroupC}" Margin="0,0,0,2"/>

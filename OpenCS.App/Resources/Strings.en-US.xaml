@@ -3781,6 +3781,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemEnvelopeSelectedPartial">{0}, limit {1}: the envelope is not fully reproduced ({2:P2}) — increase the limit or the tolerance.</system:String>
     <system:String x:Key="FemEnvelopeSelectionGroups">Groups:</system:String>
     <system:String x:Key="FemEnvelopeSelectionNoGroups">Select at least one group.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionValueKind">Load values:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionValueKindTip">How load case values are given: normative — multiplied by γf in C/CL formulas; design — no γf in C/CL, divided by γf in N/NL. Changes the project calculation setting (SP 20 combinations section).</system:String>
+    <system:String x:Key="FemEnvelopeSelectionImportedWarning">Load cases are imported — their values are usually design. With “normative” γf will be applied twice.</system:String>
     <system:String x:Key="FemCombinationGroupC">C — ULS, full loads</system:String>
     <system:String x:Key="FemCombinationGroupCL">CL — ULS, long-term loads</system:String>
     <system:String x:Key="FemCombinationGroupN">N — SLS, full loads</system:String>
@@ -3811,6 +3814,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="SP20ValueKindHint">Load values in sets: {0} (calculation settings). C/CL — ×γf for normative; N/NL — ÷γf for design; short-term sets do not enter CL/NL (the set name holds no long-term share).</system:String>
     <system:String x:Key="FemValueKindNote">Load values: {0} — calculation setting (SP 20 combinations section).</system:String>
     <system:String x:Key="FemValueKindImportedWarning">Load cases are imported (values are usually design), but calculation settings say load values are {0}: auto factors of C will apply γf twice. Check the Load values setting.</system:String>
+    <system:String x:Key="ImportDesignLoadValuesQuestion">LIRA/SCAD load case values are usually design, but the project calculation settings say load values are normative: SP 20 combinations and auto combination factors will apply γf twice.&#x0a;&#x0a;Switch the Load values setting to design?</system:String>
+    <system:String x:Key="ImportDesignLoadValuesSwitched">Load values in calculation settings are now design (after load transfer).</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Area load</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Apply parameters</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Save blocked</system:String>

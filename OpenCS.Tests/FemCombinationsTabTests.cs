@@ -261,4 +261,29 @@ public sealed class FemCombinationsTabTests(FemSchemaEditorVMFixture fixture)
         Assert.Equal(normative, tab.HasValueKindConflict);
         Assert.False(string.IsNullOrEmpty(tab.ValueKindNote));
     }
+
+    [Fact]
+    public void SetValueKind_Design_ClearsImportConflict_AndStalesAutoTerms()
+    {
+        var (editor, tab, g, _, _) = NewTab();
+        var settings = fixture.App.CalcSettings;
+        string saved = settings.Sp20LoadValueKind;
+        try
+        {
+            editor.SetSp20LoadValueKind(CScore.Combinations.Sp20LoadValueKind.Normative);
+            g.Origin = CScore.Fem.FemLoadOrigin.ImportPrefix + "lira";
+            tab.AddCombination();
+            tab.AddAllTerms();   // «авто»: G ×1,1 при нормативных
+            tab.Reload();
+            Assert.True(tab.HasValueKindConflict);
+            Assert.Equal(0, editor.StaleAutoCombinationCount);
+
+            editor.SetSp20LoadValueKind(CScore.Combinations.Sp20LoadValueKind.Design);
+            Assert.Equal("design", settings.Sp20LoadValueKind);
+            tab.Reload();
+            Assert.False(tab.HasValueKindConflict);
+            Assert.Equal(1, editor.StaleAutoCombinationCount);
+        }
+        finally { settings.Sp20LoadValueKind = saved; }
+    }
 }

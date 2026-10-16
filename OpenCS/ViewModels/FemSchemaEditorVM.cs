@@ -938,7 +938,23 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// пересчёта и обычно расчётные — «авто»-коэффициенты C умножили бы их на γf повторно.
     /// </summary>
     public bool HasValueKindConflict => Sp20LoadValueKind == CScore.Combinations.Sp20LoadValueKind.Normative
-        && Session.LoadCases.Any(lc => lc.Origin.StartsWith(FemLoadOrigin.ImportPrefix, StringComparison.Ordinal));
+        && HasImportedLoadCases;
+
+    /// <summary>В схеме есть импортированные загружения (ЛИРА-САПР, SCAD…).</summary>
+    public bool HasImportedLoadCases =>
+        Session.LoadCases.Any(lc => lc.Origin.StartsWith(FemLoadOrigin.ImportPrefix, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Меняет вид величин нагрузок в настройках расчёта проекта (сохраняет в БД); «авто»-коэффициенты комбинаций
+    /// после этого устаревают — плашка «Пересчитать» на вкладке «Комбинации».
+    /// </summary>
+    public void SetSp20LoadValueKind(CScore.Combinations.Sp20LoadValueKind kind)
+    {
+        if (kind == Sp20LoadValueKind) return;
+        var settings = _app.CalcSettings;
+        settings.Sp20LoadValueKind = kind == CScore.Combinations.Sp20LoadValueKind.Design ? "design" : "normative";
+        _db.SaveCalcSettings(settings);
+    }
 
     /// <summary>Подсказка о виде величин нагрузок (настройка расчёта); при конфликте с импортом — предупреждение.</summary>
     public string Sp20ValueKindNote => string.Format(Loc.S(HasValueKindConflict ? "FemValueKindImportedWarning" : "FemValueKindNote"),
@@ -998,9 +1014,11 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var settings = _app.CalcSettings;
         var current = new FemEnvelopeSelectionOptions(settings.FemEnvelopeTolerancePercent / 100, settings.FemEnvelopeMaxCombinations)
         {
-            Groups = FemEnvelopeSelectionOptions.ParseGroups(settings.FemEnvelopeGroups)
+            Groups = FemEnvelopeSelectionOptions.ParseGroups(settings.FemEnvelopeGroups),
+            ValueKind = Sp20LoadValueKind
         };
         if (askOptions(analysis, current) is not { } selection) return null;
+        if (selection.ValueKind is { } kind) SetSp20LoadValueKind(kind);
         if (selection.Tolerance != current.Tolerance || selection.MaxCount != current.MaxCount
             || selection.GroupsText != current.GroupsText)
         {

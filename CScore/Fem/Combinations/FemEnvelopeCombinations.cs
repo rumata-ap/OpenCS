@@ -13,6 +13,9 @@ public sealed record FemEnvelopeSelectionOptions(double Tolerance = 0.03, int Ma
     /// <summary>Группы C/CL/N/NL/A; null — <see cref="FemEnvelopeCombinations.DefaultGroups"/>.</summary>
     public IReadOnlyList<string>? Groups { get; init; }
 
+    /// <summary>Вид величин нагрузок, выбранный при отборе (меняет настройку расчёта); null — из настроек.</summary>
+    public Sp20LoadValueKind? ValueKind { get; init; }
+
     /// <summary>Группы строкой настроек «C,CL» (порядок — как в <see cref="FemCombinationTypes.All"/>).</summary>
     public string GroupsText => string.Join(",",
         FemCombinationTypes.All.Where(g => (Groups ?? FemEnvelopeCombinations.DefaultGroups).Contains(g)));

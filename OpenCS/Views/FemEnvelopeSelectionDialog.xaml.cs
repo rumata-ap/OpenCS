@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using CScore.Combinations;
 using CScore.Fem.Combinations;
 using OpenCS.Utilites;
 
@@ -14,11 +15,16 @@ public partial class FemEnvelopeSelectionDialog : Window
     /// <summary>Параметры отбора; заданы после OK.</summary>
     public FemEnvelopeSelectionOptions? Options { get; private set; }
 
+    readonly bool _hasImportedLoads;
+
     /// <param name="current">Текущие параметры (из настроек расчёта); лимит 0 — поле пустое.</param>
-    public FemEnvelopeSelectionDialog(string source, FemEnvelopeSelectionOptions current)
+    /// <param name="hasImportedLoads">В схеме есть импортированные загружения — при «нормативных» предупреждение.</param>
+    public FemEnvelopeSelectionDialog(string source, FemEnvelopeSelectionOptions current, bool hasImportedLoads)
     {
         InitializeComponent();
+        _hasImportedLoads = hasImportedLoads;
         sourceText.Text = source;
+        valueKindBox.SelectedIndex = current.ValueKind == Sp20LoadValueKind.Design ? 1 : 0;
         var groups = current.Groups ?? FemEnvelopeCombinations.DefaultGroups;
         foreach (var box in GroupBoxes()) box.IsChecked = groups.Contains((string)box.Tag);
         toleranceBox.Text = (current.Tolerance * 100).ToString("G", CultureInfo.CurrentCulture);
@@ -27,6 +33,16 @@ public partial class FemEnvelopeSelectionDialog : Window
     }
 
     IEnumerable<CheckBox> GroupBoxes() => groupsPanel.Children.OfType<CheckBox>();
+
+    Sp20LoadValueKind SelectedValueKind => valueKindBox.SelectedIndex == 1 ? Sp20LoadValueKind.Design : Sp20LoadValueKind.Normative;
+
+    void ValueKind_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        // SelectionChanged приходит ещё из InitializeComponent — до создания предупреждения ниже по разметке.
+        if (valueKindWarning == null) return;
+        valueKindWarning.Visibility = _hasImportedLoads && SelectedValueKind == Sp20LoadValueKind.Normative
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
@@ -45,7 +61,7 @@ public partial class FemEnvelopeSelectionDialog : Window
             MessageBox.Show(this, Loc.S("FemEnvelopeSelectionInvalid"), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        Options = new FemEnvelopeSelectionOptions(tolerance / 100, max) { Groups = groups };
+        Options = new FemEnvelopeSelectionOptions(tolerance / 100, max) { Groups = groups, ValueKind = SelectedValueKind };
         DialogResult = true;
     }
 }
