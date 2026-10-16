@@ -307,9 +307,7 @@
                     <TextBlock Text="{Binding StepLabel}" VerticalAlignment="Center" Margin="6,0,12,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowCaseList, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource FemResultCase}" VerticalAlignment="Center" Margin="4,0"/>
-                    <ComboBox MinWidth="200" VerticalAlignment="Center" Margin="0,0,12,0" ItemsSource="{Binding StepNames}"
-                              SelectedIndex="{Binding SelectedStepIndex, Mode=TwoWay}"/>
+                    <local:FemCsfeaCaseSelector DataContext="{Binding Csfea}" Margin="4,0,12,0"/>
                 </StackPanel>
                 <CheckBox Content="{DynamicResource Fem3DShowDeformedSchema}" IsChecked="{Binding ShowDeformed}"
                           IsEnabled="{Binding HasDisplacements}" VerticalAlignment="Center" Margin="0,0,6,0"/>

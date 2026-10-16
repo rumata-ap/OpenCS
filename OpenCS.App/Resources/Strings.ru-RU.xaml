@@ -3026,6 +3026,21 @@
     <system:String x:Key="FemCsfeaNoSteps">Шагов нет — расчёт не выполнялся</system:String>
     <system:String x:Key="FemCsfeaStepLabel">Шаг {0}/{1}, стадия «{2}», λ = {3:0.###} ({4})</system:String>
     <system:String x:Key="FemCsfeaCaseLabel">Загружение {0}/{1}: «{2}»</system:String>
+    <system:String x:Key="FemCsfeaCombinationLabel">Комбинация {0}/{1}: «{2}» — суперпозиция загружений ({3}), без перерасчёта</system:String>
+    <system:String x:Key="FemCsfeaCasesMode">Загружения {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationsMode">Комбинации {0}</system:String>
+    <system:String x:Key="FemCsfeaCasesModeTip">Результаты загружений линейного расчёта</system:String>
+    <system:String x:Key="FemCsfeaCombinationsModeTip">Комбинации схемы — суперпозицией записанных результатов загружений, без перерасчёта. Серые — со слагаемым, не посчитанным в этом расчёте.</system:String>
+    <system:String x:Key="FemCsfeaCombinationsNone">В схеме нет комбинаций (вкладка «Комбинации» редактора схемы, «Из огибающей» или СП 20).</system:String>
+    <system:String x:Key="FemCsfeaCombinationsNoneAvailable">Ни одна комбинация схемы не собирается из загружений расчёта «{0}»: в каждой есть загружение, не отмеченное в постановке.</system:String>
+    <system:String x:Key="FemCsfeaCombinationMissing">Не отмечено в расчёте «{1}»: {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationError">Формула комбинации не разобрана: {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationEmpty">В комбинации нет слагаемых с ненулевым коэффициентом.</system:String>
+    <system:String x:Key="FemCsfeaCombinationNoFields">Поля загружения «{0}» не прочитаны — комбинацию не собрать.</system:String>
+    <system:String x:Key="FemCsfeaPickTitle">Показать в результате</system:String>
+    <system:String x:Key="FemCsfeaPrevCase">Предыдущий пункт списка</system:String>
+    <system:String x:Key="FemCsfeaNextCase">Следующий пункт списка</system:String>
+    <system:String x:Key="FemCsfeaPickCombination">Выбор комбинации: типы, поиск, состав</system:String>
     <system:String x:Key="FemCsfeaFieldsNotRecorded">Поля этого шага не записаны — показан ближайший записанный шаг {0}.</system:String>
     <system:String x:Key="FemCsfeaNoFieldsRecorded">Поля шагов не записаны — доступны только сводка и график.</system:String>
     <system:String x:Key="FemCsfeaGoToFields">К шагу с полями</system:String>

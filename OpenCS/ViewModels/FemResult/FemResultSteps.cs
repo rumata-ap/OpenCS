@@ -105,10 +105,8 @@ public sealed class CsfeaResultSteps : IFemResultSteps
             ? vm.Summary.Steps.Select(s => s.Stage >= 0 && s.Stage < stages.Count ? stages[s.Stage].Tag
                 : s.N.ToString(System.Globalization.CultureInfo.CurrentCulture)).ToList()
             : [];
-        vm.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(FemCsfeaResultVM.SelectedStepIndex)) StepChanged?.Invoke();
-        };
+        // Шаг, загружение или комбинация линейного расчёта — общий сигнал VM.
+        vm.CaseChanged += () => StepChanged?.Invoke();
         vm.CrackWidthsReady += () => FieldsUpdated?.Invoke();
         // Перемещения показаны отдельными величинами — из полей пластин их убираем.
         ShellFields = vm.HasShells

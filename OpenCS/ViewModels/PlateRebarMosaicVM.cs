@@ -1109,17 +1109,18 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    public bool IsResultActive => _activeResult != null;
 
-   int? _pendingAnalysisId, _pendingStepIndex;
+   int? _pendingAnalysisId, _pendingStepIndex, _pendingCombinationId;
 
    /// <summary>
    /// Показать результат постановки (вход из дерева «Показать результат», возврат из окна таблиц — на его шаге).
    /// Если данные вида ещё не прочитаны — выбор применится после чтения; результат, появившийся после открытия вида,
    /// дочитывается. Без шага — шаг, который слой выбирает сам.
    /// </summary>
-   public void ShowAnalysis(int analysisId, int? stepIndex = null)
+   public void ShowAnalysis(int analysisId, int? stepIndex = null, int? combinationId = null)
    {
       _pendingAnalysisId = analysisId;
       _pendingStepIndex = stepIndex;
+      _pendingCombinationId = combinationId;
       if (_dataKey != null) Reload();
       SelectPendingAnalysis();
    }
@@ -1132,7 +1133,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       SelectedSubject = SubjectOptions.First(o => o.Subject is AnalysisInfo a && a.Analysis.Id == info.Analysis.Id);
       if (_pendingStepIndex is int step && ActiveResult is { } layer)
          layer.SelectedStepIndex = Math.Clamp(step, 0, layer.MaxStepIndex);
+      // Комбинация линейного расчёта CSfea (суперпозиция) — поверх шага.
+      if (_pendingCombinationId is int combination && ActiveResult is { } shown) shown.SelectedCombinationId = combination;
       _pendingStepIndex = null;
+      _pendingCombinationId = null;
    }
    void UpdateActiveResult()
    {

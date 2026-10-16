@@ -27,6 +27,9 @@ public partial class FemCsfeaResultView : UserControl
         {
             // Линейный расчёт: шагов по λ и итераций нет — графики и колонки хода решения не показываются.
             chartsTab.Visibility = Visibility.Collapsed;
+            // Список загружений/комбинаций вместо ползунка шагов.
+            casePanel.Visibility = Visibility.Visible;
+            stepCaption.Visibility = stepSlider.Visibility = stepLabel.Visibility = Visibility.Collapsed;
             shellStateColumn.Visibility = Visibility.Collapsed;
             foreach (var column in new[] { lambdaColumn, plannedColumn, convergedColumn, iterationsColumn, residualColumn, fieldsColumn })
                 column.Visibility = Visibility.Collapsed;

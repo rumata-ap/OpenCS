@@ -64,12 +64,18 @@ public sealed class FemLoadSource
 
     public bool IsUnresolved => Kind == FemLoadSourceKind.Unresolved;
 
+    /// <summary>Почему источник нельзя выбрать (строка серая, с подсказкой); null — можно.</summary>
+    public string? DisabledReason { get; set; }
+
+    public bool IsEnabled => DisabledReason == null;
+
     /// <summary>Подсказка ячейки стадии: имя, формула и расшифровка построчно.</summary>
     public string ToolTipText
     {
         get
         {
             var lines = new List<string> { string.IsNullOrEmpty(TypeBadge) ? Tag : $"[{TypeBadge}] {Tag}" };
+            if (DisabledReason != null) lines.Add(DisabledReason);
             if (IsUnresolved) lines.Add(Loc.S("FemLoadSourceUnresolvedTip"));
             if (Kind != FemLoadSourceKind.LoadCase && Formula.Length > 0) lines.Add(Formula);
             if (Kind != FemLoadSourceKind.LoadCase) lines.AddRange(Terms.Select(t => "  " + t.Text));
@@ -425,7 +431,7 @@ public sealed class FemLoadSourcePickerVM : ViewModelBase
         ? _selectedCombination is { } c && VisibleCombinations.Contains(c) ? c : null
         : _selectedCase is { } lc && VisibleCases.Contains(lc) ? lc : null;
 
-    public bool CanAccept => Selected != null;
+    public bool CanAccept => Selected is { IsEnabled: true };
 
     /// <summary>«Состав «Огибающая C 018»:» над расшифровкой; без выбора — подсказка.</summary>
     public string SelectedCaption => Selected is { } s

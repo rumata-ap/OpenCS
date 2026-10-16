@@ -206,6 +206,130 @@ public class FemResultLayerTests
         Assert.Equal(["Снег", "РСН 1", "Своя"], steps.StepNames);
     }
 
+    /// <summary>Линейный результат: загружения G (uz = −0,01) и Q (−0,02); комбинации К1 = 1,1G + 1,4Q, К2 со «Снегом» вне расчёта, К3 = Q.</summary>
+    static (FemCsfeaResultVM Vm, FemAnalysis Analysis) CombinationResult(TempDb t)
+    {
+        t.Schema.LoadCases.Add(new FemLoadCase { Id = 7, Tag = "G", Sp20Type = "permanent" });
+        t.Schema.LoadCases.Add(new FemLoadCase { Id = 8, Tag = "Q", Sp20Type = "short_term" });
+        t.Schema.LoadCases.Add(new FemLoadCase { Id = 9, Tag = "Снег", Sp20Type = "short_term" });
+        FemLoadDefinition Combination(int id, string tag, params (int Case, double K)[] terms)
+        {
+            var d = new FemLoadDefinition { Id = id, Tag = tag, CombinationType = "C" };
+            d.SetExpression(new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum, CombinationType = "C",
+                Terms = terms.Select(x => new FemLoadTerm { LoadCaseId = x.Case, Coefficient = x.K }).ToList(),
+            });
+            return d;
+        }
+        t.Schema.LoadDefinitions.Add(Combination(21, "К1", (7, 1.1), (8, 1.4)));
+        t.Schema.LoadDefinitions.Add(Combination(22, "К2", (7, 1), (9, 1.4)));
+        t.Schema.LoadDefinitions.Add(Combination(23, "К3", (8, 1)));
+        var pars = new OpenCS.Tasks.FemAnalysisParams
+        {
+            Stages = new[] { 7, 8 }.Select(id => new OpenCS.Tasks.FemAnalysisStage
+            {
+                Tag = id.ToString(), LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [id] }.ToJson(),
+            }).ToList(),
+        };
+        var analysis = new FemAnalysis { Kind = FemCsfeaRunner.LinearAnalysisKind, Tag = "Л", ParamsJson = pars.ToJson() };
+        var summary = new FemCsfeaResultSummary
+        {
+            Kind = FemCsfeaRunner.LinearAnalysisKind,
+            Stages = [new("7", 1, 0, 0, 0), new("8", 1, 0, 0, 0)],
+            Steps = [new(1, 0, 1, 1.0, false, true, 1, 0, null, 1, true), new(2, 1, 1, 1.0, false, true, 1, 0, null, 2, true)],
+        };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Л", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(Fields(-0.01))), (2, FemCsfeaStepFieldsCodec.Pack(Fields(-0.02)))]);
+        return (new FemCsfeaResultVM(result, t.Db, t.Schema, analysis), analysis);
+    }
+
+    [Fact]
+    public void CsfeaLinear_CombinationsBySuperposition_MissingCaseGray()
+    {
+        using var t = new TempDb();
+        var (vm, analysis) = CombinationResult(t);
+        var layer = new FemResultLayer(analysis, "Л", new CsfeaResultSteps(vm), t.Mesh());
+        int changed = 0;
+        layer.Changed += () => changed++;
+
+        Assert.Equal(["G", "Q"], vm.LoadCaseItems.Select(i => i.Name));
+        Assert.Equal(["К1", "К2", "К3"], vm.CombinationItems.Select(i => i.Name));
+        Assert.Equal([true, false, true], vm.CombinationItems.Select(i => i.IsAvailable));
+        Assert.Equal("Снег", Assert.Single(vm.CombinationItems[1].Combination!.Missing).Tag);
+        Assert.NotNull(vm.CombinationItems[1].Source.DisabledReason);
+        Assert.True(vm.CanShowCombinations);
+        Assert.Equal(1, vm.SelectedStepIndex);   // последний сошедшийся шаг
+
+        vm.ShowCombinations = true;
+        Assert.Same(vm.CombinationItems[0], vm.SelectedCaseItem);
+        Assert.Same(vm.CombinationItems, vm.CaseItems);
+        // 1,1·(−0,01) + 1,4·(−0,02) = −0,039.
+        Assert.Equal(-0.039, vm.Displacement(2).Z, 12);
+        Assert.Equal(21, layer.SelectedCombinationId);
+        Assert.True(changed > 0);
+        Assert.True(vm.CanCreateForceSets);
+
+        // ▶ перескакивает серую К2.
+        vm.NextCaseCommand.Execute(null);
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+        Assert.False(vm.NextCaseCommand.CanExecute(null));
+        Assert.Equal(-0.02, vm.Displacement(2).Z, 12);
+        vm.SelectedCaseItem = vm.CombinationItems[1];   // недоступная — не выбирается
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+
+        // Назад к загружениям — прежний шаг; снова к комбинациям — запомненная К3.
+        vm.ShowCombinations = false;
+        Assert.Same(vm.LoadCaseItems[1], vm.SelectedCaseItem);
+        Assert.Null(vm.SelectedCombinationId);
+        Assert.Equal(-0.02, vm.Displacement(2).Z, 12);
+        vm.ShowCombinations = true;
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+
+        // Шаг, выбранный явно (журнал, ползунок), выключает комбинацию.
+        vm.SelectedStepIndex = 0;
+        Assert.False(vm.ShowCombinations);
+        Assert.Equal(-0.01, vm.Displacement(2).Z, 12);
+
+        layer.SelectedCombinationId = 21;
+        Assert.Equal(-0.039, vm.Displacement(2).Z, 12);
+    }
+
+    [Fact]
+    public void CaseSelector_ParsesXaml_ListFollowsMode()
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var t = new TempDb();
+                var (vm, _) = CombinationResult(t);
+                var selector = new OpenCS.Views.FemCsfeaCaseSelector { DataContext = vm };
+                var window = new System.Windows.Window
+                {
+                    Content = selector, WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
+                    Left = -20000, Top = -20000, ShowActivated = false, SizeToContent = System.Windows.SizeToContent.WidthAndHeight,
+                };
+                window.Show();
+                window.UpdateLayout();
+                var list = (System.Windows.Controls.ComboBox)selector.FindName("list");
+                Assert.Equal(2, list.Items.Count);
+                vm.ShowCombinations = true;
+                window.UpdateLayout();
+                Assert.Equal(3, list.Items.Count);
+                Assert.Same(vm.CombinationItems[0], list.SelectedItem);
+                window.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(error);
+    }
+
     [Fact]
     public void CsfeaSteps_WithoutFields_HaveNoDisplacements()
     {

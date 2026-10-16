@@ -1915,7 +1915,7 @@ public partial class FemSchemaView3D : UserControl
         var menu = new ContextMenu { PlacementTarget = button, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
         var window = CommandIcons.Item("FemAnalysisResultWindow");
         window.IsEnabled = app != null;
-        window.Click += (_, _) => app?.OpenFemAnalysisResultTables(result.Analysis, result.SelectedStepIndex);
+        window.Click += (_, _) => app?.OpenFemAnalysisResultTables(result.Analysis, result.SelectedStepIndex, result.SelectedCombinationId);
         menu.Items.Add(window);
         if (result.Csfea is { } csfea)
         {

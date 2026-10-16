@@ -1,0 +1,62 @@
+<UserControl x:Class="OpenCS.Views.FemCsfeaCaseSelector"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Показ линейного результата CSfea: переключатель «Загружения | Комбинации», один список, ◀ ▶ и окно выбора «⋯».
+         DataContext — FemCsfeaResultVM. -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="ModeButton" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="8,1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+        </Style>
+        <Style x:Key="ArrowButton" TargetType="Button">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel Orientation="Horizontal">
+        <ToggleButton x:Name="casesMode" Style="{StaticResource ModeButton}" Content="{Binding CasesModeLabel}"
+                      ToolTip="{DynamicResource FemCsfeaCasesModeTip}" IsChecked="{Binding ShowLoadCases, Mode=OneWay}" Click="Mode_Click"/>
+        <ToggleButton x:Name="combinationsMode" Style="{StaticResource ModeButton}" Content="{Binding CombinationsModeLabel}"
+                      ToolTip="{Binding CombinationsModeTip}" Margin="-1,0,6,0" IsEnabled="{Binding CanShowCombinations}"
+                      IsChecked="{Binding ShowCombinations, Mode=OneWay}" Click="Mode_Click"/>
+        <Button Style="{StaticResource ArrowButton}" Content="◀" Command="{Binding PrevCaseCommand}" ToolTip="{DynamicResource FemCsfeaPrevCase}"/>
+        <ComboBox x:Name="list" Width="420" Margin="2,0" VerticalAlignment="Center" ItemsSource="{Binding CaseItems}"
+                  SelectedItem="{Binding SelectedCaseItem, Mode=TwoWay}" ToolTip="{Binding SelectedCaseItem.ToolTip}"
+                  IsTextSearchEnabled="True" TextSearch.TextPath="Name"
+                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" MaxDropDownHeight="480">
+            <ComboBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel/>
+                </ItemsPanelTemplate>
+            </ComboBox.ItemsPanel>
+            <ComboBox.ItemContainerStyle>
+                <Style TargetType="ComboBoxItem">
+                    <Setter Property="ToolTip" Value="{Binding ToolTip}"/>
+                    <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+                    <Setter Property="IsEnabled" Value="{Binding IsAvailable}"/>
+                </Style>
+            </ComboBox.ItemContainerStyle>
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel LastChildFill="True">
+                        <Border DockPanel.Dock="Left" CornerRadius="3" Padding="4,0" MinWidth="24" Margin="0,0,6,0"
+                                VerticalAlignment="Center" Background="#E8EEF7" BorderBrush="#B8C7DD" BorderThickness="1">
+                            <TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="SemiBold" Foreground="#2F4A73"
+                                       HorizontalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding Formula}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Style="{StaticResource ArrowButton}" Content="▶" Command="{Binding NextCaseCommand}" ToolTip="{DynamicResource FemCsfeaNextCase}"/>
+        <Button Style="{StaticResource ArrowButton}" Content="⋯" Margin="2,0,0,0" Click="Pick_Click"
+                ToolTip="{DynamicResource FemCsfeaPickCombination}"
+                Visibility="{Binding ShowCombinations, Converter={StaticResource BoolToVis}}"/>
+    </StackPanel>
+</UserControl>

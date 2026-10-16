@@ -76,6 +76,13 @@ public sealed class FemResultLayer : ViewModelBase
 
     public string StepLabel => _steps.StepLabel;
 
+    /// <summary>Комбинация схемы, показанная в линейном результате CSfea (суперпозиция); null — загружение или шаг.</summary>
+    public int? SelectedCombinationId
+    {
+        get => Csfea?.SelectedCombinationId;
+        set { if (Csfea != null) Csfea.SelectedCombinationId = value; }
+    }
+
     void OnStepChanged()
     {
         OnPropertyChanged(nameof(SelectedStepIndex));

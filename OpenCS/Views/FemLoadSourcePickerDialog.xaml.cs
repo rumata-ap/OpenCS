@@ -20,10 +20,11 @@ public partial class FemLoadSourcePickerDialog : Window
     public FemLoadSource? Result { get; private set; }
 
     /// <param name="stageTag">Имя стадии для заголовка; null — нагрузка одиночного расчёта.</param>
-    public FemLoadSourcePickerDialog(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current, string? stageTag)
+    /// <param name="title">Заголовок окна вместо заголовка по стадии.</param>
+    public FemLoadSourcePickerDialog(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current, string? stageTag, string? title = null)
     {
         InitializeComponent();
-        Title = stageTag is null ? Loc.S("FemLoadSourcePickerTitleSingle") : string.Format(Loc.S("FemLoadSourcePickerTitle"), stageTag);
+        Title = title ?? (stageTag is null ? Loc.S("FemLoadSourcePickerTitleSingle") : string.Format(Loc.S("FemLoadSourcePickerTitle"), stageTag));
         _vm = new FemLoadSourcePickerVM(sources, current);
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;
@@ -120,7 +121,7 @@ public partial class FemLoadSourcePickerDialog : Window
 
     void Accept()
     {
-        if (_vm.Selected is not { } selected) return;
+        if (!_vm.CanAccept || _vm.Selected is not { } selected) return;
         Result = selected;
         DialogResult = true;
     }

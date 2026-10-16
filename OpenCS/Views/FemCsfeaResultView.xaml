@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
              xmlns:u="clr-namespace:OpenCS.Utilites"
+             xmlns:local="clr-namespace:OpenCS.Views"
              Language="ru-RU">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -175,12 +176,17 @@
         </TabControl>
 
         <StackPanel Grid.Row="2" Margin="4">
+            <!-- Линейный расчёт — загружения и комбинации схемы (суперпозиция) одним списком -->
+            <StackPanel x:Name="casePanel" Orientation="Horizontal" Margin="0,0,0,4" Visibility="Collapsed">
+                <local:FemCsfeaCaseSelector/>
+                <TextBlock Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="Gray"/>
+            </StackPanel>
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{DynamicResource FemResultStep}" VerticalAlignment="Center"/>
-                <Slider Width="260" Margin="8,0" Minimum="0" Maximum="{Binding MaxStepIndex}"
+                <TextBlock x:Name="stepCaption" Text="{DynamicResource FemResultStep}" VerticalAlignment="Center"/>
+                <Slider x:Name="stepSlider" Width="260" Margin="8,0" Minimum="0" Maximum="{Binding MaxStepIndex}"
                         Value="{Binding SelectedStepIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                         IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <TextBlock x:Name="stepLabel" Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 <Button Content="{DynamicResource FemCsfeaCreateForceSets}" Command="{Binding CreateForceSetsCommand}"
                         ToolTip="{DynamicResource FemCsfeaCreateForceSetsTip}" Padding="8,2" Margin="12,0,0,0"/>
                 <Button Content="{DynamicResource FemCsfeaLoadCaseForceSets}" Command="{Binding CreateLoadCaseForceSetsCommand}"

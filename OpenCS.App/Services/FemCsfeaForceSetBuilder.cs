@@ -19,15 +19,22 @@ public static class FemCsfeaForceSetBuilder
     public static List<ForceSet> Build(FemSchema schema, string analysisTag, FemCsfeaStepSummary step, string stageTag,
         RcSecantStepFields fields, IReadOnlyCollection<ForceSet> existing)
     {
-        ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(step);
-        ArgumentNullException.ThrowIfNull(fields);
-        int num = existing.Count == 0 ? 1 : existing.Max(f => f.Num) + 1;
         string baseTag = string.Format(CultureInfo.CurrentCulture, "CSfea {0}, шаг {1} ({2}, λ = {3:0.###})", analysisTag, step.N,
             stageTag, step.LoadFactor);
         string description = string.Format(CultureInfo.CurrentCulture,
             "Расчёт CSfea «{0}» схемы «{1}»: шаг {2}, стадия «{3}», λ = {4:0.####}.", analysisTag, schema.Tag, step.N, stageTag,
             step.LoadFactor);
+        return BuildNamed(schema, baseTag, description, fields, existing);
+    }
+
+    /// <summary>Наборы полей с заданным именем (к нему добавляется « — пластины»/« — стержни») и описанием.</summary>
+    public static List<ForceSet> BuildNamed(FemSchema schema, string baseTag, string description, RcSecantStepFields fields,
+        IReadOnlyCollection<ForceSet> existing)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        ArgumentNullException.ThrowIfNull(fields);
+        int num = existing.Count == 0 ? 1 : existing.Max(f => f.Num) + 1;
         var sets = new List<ForceSet>();
 
         if (fields.ShellIds.Length > 0)

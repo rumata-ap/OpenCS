@@ -30,6 +30,19 @@
             <Setter Property="EnableRowVirtualization" Value="True"/>
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+            <!-- Недоступный источник (комбинация со слагаемым вне расчёта) — серый, причина в подсказке -->
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                <Setter Property="Foreground" Value="#A0A0A0"/>
+                                <Setter Property="ToolTip" Value="{Binding ToolTipText}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="GrayCell" TargetType="TextBlock">

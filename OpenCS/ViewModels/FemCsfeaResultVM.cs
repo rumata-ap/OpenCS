@@ -55,6 +55,30 @@ public sealed record FemCsfeaShellRow(int Elem, double Nx, double Ny, double Nxy
     double Qx, double Qy, string State);
 
 /// <summary>
+/// Пункт списка показа линейного результата: загружение (шаг сводки) или комбинация схемы (суперпозиция шагов
+/// загружений). Недоступная комбинация — серая, причина в подсказке.
+/// </summary>
+public sealed class FemCsfeaCaseItem
+{
+    public required FemLoadSource Source { get; init; }
+
+    /// <summary>Загружение — индекс шага сводки; комбинация — null.</summary>
+    public int? StepIndex { get; init; }
+
+    /// <summary>Комбинация — слагаемые по шагам загружений; загружение — null.</summary>
+    public FemCsfeaCombinationCase? Combination { get; init; }
+
+    public bool IsCombination => Combination != null;
+    public bool IsAvailable => Source.IsEnabled;
+    public string Badge => Source.TypeBadge;
+    public string Name => Source.Tag;
+
+    /// <summary>Формула комбинации серым («1·ЗГ1 + 0,9·ЗГ8»); у загружения — код «ЗГ3».</summary>
+    public string Formula => Source.Formula;
+    public string ToolTip => Source.ToolTipText;
+}
+
+/// <summary>
 /// Результат расчёта схемы CSfea (<see cref="FemCsfeaRunner.TaskKind"/>): сводка шагов (<see cref="FemCsfeaResultSummary"/>)
 /// и полные поля записанных шагов (<c>fem_result_steps</c>). Формат общий для секущего и (будущего) линейного
 /// расчёта: линейный — одна стадия из одного шага. Ползунок ходит по всем шагам сводки; поля показываются ближайшего
@@ -183,6 +207,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         CreateLoadCaseForceSetsCommand = new RelayCommand(_ => CreateLoadCaseForceSetsRequested?.Invoke(this),
             _ => CanCreateLoadCaseForceSets);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
+        PrevCaseCommand = new RelayCommand(_ => StepCase(-1), _ => NeighbourCase(-1) != null);
+        NextCaseCommand = new RelayCommand(_ => StepCase(+1), _ => NeighbourCase(+1) != null);
+        BuildCaseItems();
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
         _selectedStepIndex = Math.Max(0, last);
@@ -218,20 +245,32 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         set
         {
             int v = Summary.Steps.Count == 0 ? 0 : Math.Clamp(value, 0, Summary.Steps.Count - 1);
-            if (v == _selectedStepIndex) return;
+            if (v == _selectedStepIndex && _shownCombination == null) return;
+            // Шаг (загружение) выбран явно — комбинация больше не показана.
+            _shownCombination = null;
+            _showCombinations = false;
             _selectedStepIndex = v;
             OnPropertyChanged();
             ApplyStep();
         }
     }
 
-    /// <summary>Шаг сводки под ползунком; null — шагов нет (ошибка до расчёта).</summary>
-    public FemCsfeaStepSummary? SelectedStep => Summary.Steps.Count > 0 ? Summary.Steps[_selectedStepIndex] : null;
+    /// <summary>
+    /// Шаг сводки под ползунком; у показанной комбинации — сводка суперпозиции (N = 0, стадия −1, ΣR и ΣF суммой);
+    /// null — шагов нет (ошибка до расчёта).
+    /// </summary>
+    public FemCsfeaStepSummary? SelectedStep => _shownCombination != null ? _combinationStep
+        : Summary.Steps.Count > 0 ? Summary.Steps[_selectedStepIndex] : null;
+
+    FemCsfeaStepSummary? _combinationStep;
 
     /// <summary>Линейный расчёт: шаги сводки — независимые загружения (без λ и итераций).</summary>
     public bool IsLinear => Summary.Kind == FemCsfeaRunner.LinearAnalysisKind;
 
-    public string CurrentStepLabel => SelectedStep is not { } s ? Loc.S("FemCsfeaNoSteps")
+    public string CurrentStepLabel => _shownCombination is { Combination: { } comb } item
+        ? string.Format(Loc.S("FemCsfeaCombinationLabel"), CombinationItems.ToList().IndexOf(item) + 1, CombinationItems.Count,
+            item.Name, comb.Terms.Count)
+        : SelectedStep is not { } s ? Loc.S("FemCsfeaNoSteps")
         : IsLinear ? string.Format(Loc.S("FemCsfeaCaseLabel"), s.N, Summary.Steps.Count,
             s.Stage < Summary.Stages.Count ? Summary.Stages[s.Stage].Tag : "")
         : string.Format(Loc.S("FemCsfeaStepLabel"), s.N, Summary.Steps.Count,
@@ -263,7 +302,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         catch (Exception ex) when (ex is System.IO.InvalidDataException or System.IO.EndOfStreamException) { return null; }
         lock (_cache)
         {
-            if (_cache.Count >= 4) _cache.Clear();
+            // Комбинации линейного расчёта складываются из всех загружений — их поля держатся все (до 32).
+            if (_cache.Count >= (IsLinear ? Math.Clamp(Summary.Steps.Count, 4, 32) : 4)) _cache.Clear();
             return _cache[stepN] = f;
         }
     }
@@ -273,7 +313,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         FieldsStepIndex = null;
         Fields = null;
         FieldsNote = "";
-        if (SelectedStep is { } s && _recorded.Count > 0)
+        _combinationStep = null;
+        if (_shownCombination is { Combination: { } comb })
+        {
+            try
+            {
+                var terms = comb.Terms.Select(t => (LoadFields(t.StepN) ?? throw new InvalidOperationException(
+                    string.Format(Loc.S("FemCsfeaCombinationNoFields"), t.LoadCase.Tag)), t.Factor)).ToList();
+                Fields = FemCsfeaCombinationFields.Superpose(terms);
+                _combinationStep = new FemCsfeaStepSummary(0, -1, 1, 1.0, false, true, 1, 0.0, null, null, true,
+                    Fields.ReactionSums.Length > 0 ? Fields.ReactionSums : null, Fields.LoadSum.Length > 0 ? Fields.LoadSum : null);
+            }
+            catch (InvalidOperationException ex) { FieldsNote = ex.Message; }
+        }
+        else if (SelectedStep is { } s && _recorded.Count > 0)
         {
             int n = _recorded.MinBy(r => (Math.Abs(r - s.N), r))!;
             FieldsStepIndex = Summary.Steps.FindIndex(x => x.N == n);
@@ -298,6 +351,161 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(HasReactions));
         OnPropertyChanged(nameof(ShowNoReactionsNote));
         OnPropertyChanged(nameof(ReactionSummaryText));
+        OnPropertyChanged(nameof(ShowCombinations));
+        OnPropertyChanged(nameof(ShowLoadCases));
+        OnPropertyChanged(nameof(CaseItems));
+        OnPropertyChanged(nameof(SelectedCaseItem));
+        OnPropertyChanged(nameof(SelectedCombinationId));
+        OnPropertyChanged(nameof(CanCreateForceSets));
+        CaseChanged?.Invoke();
+    }
+
+    /// <summary>Показанное изменилось: шаг, загружение или комбинация (для 3D-вида — общий сигнал).</summary>
+    public event Action? CaseChanged;
+
+    // ------------------------------------------------------------ загружения и комбинации линейного расчёта
+
+    FemCsfeaCaseItem? _shownCombination, _rememberedCombination;
+    bool _showCombinations;
+
+    /// <summary>Загружения линейного расчёта — по пункту на шаг сводки; пусто — расчёт не линейный.</summary>
+    public IReadOnlyList<FemCsfeaCaseItem> LoadCaseItems { get; private set; } = [];
+
+    /// <summary>Комбинации схемы в порядке C → CL → N → NL → A; недоступные — со слагаемым вне расчёта.</summary>
+    public IReadOnlyList<FemCsfeaCaseItem> CombinationItems { get; private set; } = [];
+
+    /// <summary>Есть хотя бы одна комбинация, которая собирается из загружений расчёта.</summary>
+    public bool CanShowCombinations => CombinationItems.Any(i => i.IsAvailable);
+
+    public string CasesModeLabel => string.Format(Loc.S("FemCsfeaCasesMode"), LoadCaseItems.Count);
+    public string CombinationsModeLabel => string.Format(Loc.S("FemCsfeaCombinationsMode"), CombinationItems.Count);
+
+    /// <summary>Подсказка переключателя «Комбинации»: что показывается или почему недоступно.</summary>
+    public string CombinationsModeTip => CombinationItems.Count == 0 ? Loc.S("FemCsfeaCombinationsNone")
+        : !CanShowCombinations ? string.Format(Loc.S("FemCsfeaCombinationsNoneAvailable"), _result.TaskTag)
+        : Loc.S("FemCsfeaCombinationsModeTip");
+
+    /// <summary>
+    /// Список показывает комбинации (true) или загружения. Включение показывает запомненную комбинацию или первую
+    /// доступную; выключение возвращает загружение, которое было показано.
+    /// </summary>
+    public bool ShowCombinations
+    {
+        get => _showCombinations;
+        set
+        {
+            if (value == _showCombinations) return;
+            if (value)
+            {
+                var item = _rememberedCombination ?? CombinationItems.FirstOrDefault(i => i.IsAvailable);
+                if (item == null) { OnPropertyChanged(); return; }
+                SelectedCaseItem = item;
+            }
+            else
+            {
+                _showCombinations = false;
+                _shownCombination = null;
+                ApplyStep();
+            }
+        }
+    }
+
+    /// <summary>Список показывает загружения (обратное <see cref="ShowCombinations"/>).</summary>
+    public bool ShowLoadCases => !_showCombinations;
+
+    /// <summary>Пункты списка в текущем режиме.</summary>
+    public IReadOnlyList<FemCsfeaCaseItem> CaseItems => _showCombinations ? CombinationItems : LoadCaseItems;
+
+    /// <summary>Показанный пункт: комбинация или загружение шага; недоступная комбинация не выбирается.</summary>
+    public FemCsfeaCaseItem? SelectedCaseItem
+    {
+        get => _shownCombination ?? (_selectedStepIndex < LoadCaseItems.Count ? LoadCaseItems[_selectedStepIndex] : null);
+        set
+        {
+            if (value == null || ReferenceEquals(value, SelectedCaseItem)) return;
+            if (!value.IsAvailable) { OnPropertyChanged(); return; }
+            if (value.IsCombination)
+            {
+                _shownCombination = _rememberedCombination = value;
+                _showCombinations = true;
+                ApplyStep();
+            }
+            else if (value.StepIndex is int step) SelectedStepIndex = step;
+        }
+    }
+
+    /// <summary>Id комбинации схемы показанного пункта (для перехода окно ↔ 3D-вид); null — показано загружение.</summary>
+    public int? SelectedCombinationId
+    {
+        get => _shownCombination?.Source.Definition?.Id;
+        set
+        {
+            if (value is int id && CombinationItems.FirstOrDefault(i => i.Source.Definition?.Id == id && i.IsAvailable) is { } item)
+                SelectedCaseItem = item;
+        }
+    }
+
+    /// <summary>Источники окна выбора «⋯»: комбинации (недоступные — серые) и загружения расчёта.</summary>
+    public IReadOnlyList<FemLoadSource> PickerSources =>
+        CombinationItems.Select(i => i.Source).Concat(LoadCaseItems.Select(i => i.Source).Where(s => s.Kind == FemLoadSourceKind.LoadCase)).ToList();
+
+    /// <summary>Показать выбранный в окне «⋯» источник.</summary>
+    public void SelectSource(FemLoadSource source)
+    {
+        if (CombinationItems.Concat(LoadCaseItems).FirstOrDefault(i => ReferenceEquals(i.Source, source)) is { } item)
+            SelectedCaseItem = item;
+    }
+
+    public System.Windows.Input.ICommand PrevCaseCommand { get; }
+    public System.Windows.Input.ICommand NextCaseCommand { get; }
+
+    /// <summary>Соседний доступный пункт списка текущего режима; null — его нет.</summary>
+    FemCsfeaCaseItem? NeighbourCase(int direction)
+    {
+        var items = CaseItems;
+        int i = SelectedCaseItem is { } current ? items.ToList().IndexOf(current) : -1;
+        if (i < 0) return null;
+        for (i += direction; i >= 0 && i < items.Count; i += direction)
+            if (items[i].IsAvailable) return items[i];
+        return null;
+    }
+
+    void StepCase(int direction)
+    {
+        if (NeighbourCase(direction) is { } item) SelectedCaseItem = item;
+    }
+
+    /// <summary>
+    /// Пункты списков линейного расчёта: загружение — по шагу сводки; комбинации схемы — слагаемые по шагам загружений
+    /// (<see cref="FemCsfeaCombinationFields"/>), без шага у слагаемого с k ≠ 0 — недоступна.
+    /// </summary>
+    void BuildCaseItems()
+    {
+        if (!IsLinear || Analysis == null) return;
+        var loadCases = Schema.LoadCases.ToList();
+        var sources = FemLoadSources.Build(Schema.LoadDefinitions.ToList(), loadCases, CScore.Combinations.Sp20GammaDefaults.Standard);
+        var caseSteps = FemCsfeaCombinationFields.CaseSteps(Analysis, Summary);
+        var caseByStep = caseSteps.ToDictionary(kv => kv.Value, kv => kv.Key);
+        var caseSources = sources.Where(s => s.Kind == FemLoadSourceKind.LoadCase && s.LoadCase != null)
+            .GroupBy(s => s.LoadCase!.Id).ToDictionary(g => g.Key, g => g.First());
+
+        LoadCaseItems = Summary.Steps.Select((s, i) =>
+        {
+            string tag = s.Stage >= 0 && s.Stage < Summary.Stages.Count ? Summary.Stages[s.Stage].Tag : s.N.ToString(CultureInfo.CurrentCulture);
+            var source = caseByStep.TryGetValue(s.N, out int id) && caseSources.TryGetValue(id, out var src) ? src
+                : new FemLoadSource { Kind = FemLoadSourceKind.Unresolved, Tag = tag };
+            return new FemCsfeaCaseItem { Source = source, StepIndex = i };
+        }).ToList();
+
+        CombinationItems = sources.Where(s => s.Kind == FemLoadSourceKind.Combination && s.Definition != null).Select(s =>
+        {
+            var comb = FemCsfeaCombinationFields.Resolve(s.Definition!, loadCases, caseSteps);
+            s.DisabledReason = comb.Error != null ? string.Format(Loc.S("FemCsfeaCombinationError"), comb.Error)
+                : comb.Missing.Count > 0 ? string.Format(Loc.S("FemCsfeaCombinationMissing"),
+                    string.Join(", ", comb.Missing.Select(lc => $"«{lc.Tag}»")), _result.TaskTag)
+                : comb.Terms.Count == 0 ? Loc.S("FemCsfeaCombinationEmpty") : null;
+            return new FemCsfeaCaseItem { Source = s, Combination = comb };
+        }).ToList();
     }
 
     void GoToFieldsStep()
@@ -539,7 +747,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public event Action<FemCsfeaResultVM>? CreateForceSetsRequested;
 
     /// <summary>Наборы можно создать: у шага под ползунком записаны поля и он сошёлся.</summary>
-    public bool CanCreateForceSets => Fields != null && FieldsStepIndex == SelectedStepIndex && SelectedStep?.Converged == true;
+    public bool CanCreateForceSets => _shownCombination != null ? Fields != null
+        : Fields != null && FieldsStepIndex == SelectedStepIndex && SelectedStep?.Converged == true;
 
     public System.Windows.Input.ICommand CreateLoadCaseForceSetsCommand { get; }
 
@@ -553,6 +762,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing)
     {
         if (!CanCreateForceSets) return [];
+        if (_shownCombination is { } comb)
+            return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{comb.Name} — {_result.TaskTag}",
+                $"Комбинация «{comb.Name}» = {comb.Formula} по линейному расчёту CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: " +
+                "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing);
         var step = SelectedStep!;
         string stage = step.Stage < Summary.Stages.Count ? Summary.Stages[step.Stage].Tag : "";
         return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing);

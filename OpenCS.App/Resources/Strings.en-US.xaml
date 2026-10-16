@@ -3026,6 +3026,21 @@
     <system:String x:Key="FemCsfeaNoSteps">No steps — the analysis did not run</system:String>
     <system:String x:Key="FemCsfeaStepLabel">Step {0}/{1}, stage "{2}", λ = {3:0.###} ({4})</system:String>
     <system:String x:Key="FemCsfeaCaseLabel">Load case {0}/{1}: "{2}"</system:String>
+    <system:String x:Key="FemCsfeaCombinationLabel">Combination {0}/{1}: "{2}" — superposition of load cases ({3}), no re-analysis</system:String>
+    <system:String x:Key="FemCsfeaCasesMode">Load cases {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationsMode">Combinations {0}</system:String>
+    <system:String x:Key="FemCsfeaCasesModeTip">Results of the linear analysis load cases</system:String>
+    <system:String x:Key="FemCsfeaCombinationsModeTip">Schema combinations as a superposition of recorded load case results, no re-analysis. Gray ones contain a load case not computed in this analysis.</system:String>
+    <system:String x:Key="FemCsfeaCombinationsNone">The schema has no combinations (Combinations tab of the schema editor, From envelope or SP 20).</system:String>
+    <system:String x:Key="FemCsfeaCombinationsNoneAvailable">No schema combination can be assembled from the load cases of analysis "{0}": each has a load case not checked in the setup.</system:String>
+    <system:String x:Key="FemCsfeaCombinationMissing">Not checked in analysis "{1}": {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationError">Combination formula not parsed: {0}</system:String>
+    <system:String x:Key="FemCsfeaCombinationEmpty">The combination has no terms with a non-zero factor.</system:String>
+    <system:String x:Key="FemCsfeaCombinationNoFields">Fields of load case "{0}" could not be read — the combination cannot be assembled.</system:String>
+    <system:String x:Key="FemCsfeaPickTitle">Show in result</system:String>
+    <system:String x:Key="FemCsfeaPrevCase">Previous item</system:String>
+    <system:String x:Key="FemCsfeaNextCase">Next item</system:String>
+    <system:String x:Key="FemCsfeaPickCombination">Pick a combination: types, search, composition</system:String>
     <system:String x:Key="FemCsfeaFieldsNotRecorded">Fields of this step were not recorded — showing the nearest recorded step {0}.</system:String>
     <system:String x:Key="FemCsfeaNoFieldsRecorded">No step fields recorded — only the summary and charts are available.</system:String>
     <system:String x:Key="FemCsfeaGoToFields">Go to step with fields</system:String>
