@@ -205,6 +205,14 @@ namespace OpenCS.Utilites
       [JsonPropertyName("sp20LoadValueKind")]
       public string Sp20LoadValueKind { get; set; } = "normative";
 
+      /// <summary>«Из огибающей линейного расчёта»: допуск к экстремуму огибающей при отборе формул, %.</summary>
+      [JsonPropertyName("femEnvelopeTolerancePercent")]
+      public double FemEnvelopeTolerancePercent { get; set; } = 3;
+
+      /// <summary>«Из огибающей линейного расчёта»: не более стольких комбинаций; 0 — без ограничения.</summary>
+      [JsonPropertyName("femEnvelopeMaxCombinations")]
+      public int FemEnvelopeMaxCombinations { get; set; }
+
       // ── OpenSees (расчёт схемы: линейный и нелинейный) ──────────────────
       // Solver-настройки нелинейного FEM-расчёта — по аналогии с NewtonTolerance/NewtonMaxIter
       // выше (глобальные, не дублируются в каждой постановке FemAnalysis).
@@ -364,6 +372,8 @@ namespace OpenCS.Utilites
          Sp20GammaFShortTerm      = Sp20GammaFShortTerm,
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
          Sp20LoadValueKind        = Sp20LoadValueKind,
+         FemEnvelopeTolerancePercent = FemEnvelopeTolerancePercent,
+         FemEnvelopeMaxCombinations = FemEnvelopeMaxCombinations,
          OpenSeesDefaultGjKnm2    = OpenSeesDefaultGjKnm2,
          OpenSeesAutoGjFromSection = OpenSeesAutoGjFromSection,
          SubmodelLinearPrecheck   = SubmodelLinearPrecheck,

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -39,7 +40,13 @@ public partial class FemCombinationsPanel : UserControl
     void RecomputeAuto_Click(object sender, RoutedEventArgs e) => _vm?.RecomputeAuto();
     async void GenerateFromEnvelope_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm != null) await _vm.GenerateFromEnvelopeAsync();
+        if (_vm == null) return;
+        await _vm.GenerateFromEnvelopeAsync((analysis, current) =>
+        {
+            var dialog = new FemEnvelopeSelectionDialog(string.Format(Loc.S("FemEnvelopeSelectionSource"), analysis.Tag),
+                current.Tolerance * 100, current.MaxCount) { Owner = Window.GetWindow(this) };
+            return dialog.ShowDialog() == true ? dialog.Options : null;
+        });
     }
 
     /// <summary>Поле правки коэффициента: фокус и выделение — сразу вводить число.</summary>

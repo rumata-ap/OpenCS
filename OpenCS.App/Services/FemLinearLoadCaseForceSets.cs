@@ -92,11 +92,21 @@ public static class FemLinearLoadCaseForceSets
     /// <param name="loadCases">Загружения с текущими атрибутами (редактор схемы); null — загружения схемы.</param>
     public static IReadOnlyList<FemLoadDefinition> EnvelopeDefinitions(FemSchema schema, Result result,
         Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings,
-        IReadOnlyList<FemLoadCase>? loadCases = null)
+        IReadOnlyList<FemLoadCase>? loadCases = null) =>
+        SelectEnvelopeDefinitions(schema, result, defaults, valueKind, warnings, null, loadCases).Definitions;
+
+    /// <summary>
+    /// <see cref="EnvelopeDefinitions"/> с отбором покрывающего набора формул (<see cref="FemEnvelopeCombinations.Select"/>):
+    /// допуск к огибающей и лимит числа комбинаций; <paramref name="selection"/> = null — все уникальные формулы.
+    /// </summary>
+    public static (IReadOnlyList<FemLoadDefinition> Definitions, FemEnvelopeSelectionReport Report) SelectEnvelopeDefinitions(
+        FemSchema schema, Result result, Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings,
+        FemEnvelopeSelectionOptions? selection, IReadOnlyList<FemLoadCase>? loadCases = null)
     {
-        var combinations = FemEnvelopeCombinations.FromLoadCaseForceSets(result.Sets, defaults, warnings);
-        return FemLoadDefinitionFactory.FromCombinations(schema, loadCases ?? schema.LoadCases, combinations, "envelope",
-            FemLoadExpressionMode.Sum, defaults, valueKind);
+        var (combinations, report) = FemEnvelopeCombinations.Select(result.Sets, defaults, warnings, selection);
+        var definitions = FemLoadDefinitionFactory.FromCombinations(schema, loadCases ?? schema.LoadCases, combinations,
+            "envelope", FemLoadExpressionMode.Sum, defaults, valueKind);
+        return (definitions, report);
     }
 
     /// <summary>Последняя линейная постановка CSfea схемы с сохранённым результатом; null — такой нет.</summary>

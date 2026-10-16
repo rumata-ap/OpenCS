@@ -3771,6 +3771,14 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemEnvelopeNothing">No combinations from analysis “{0}” — see the log.</system:String>
     <system:String x:Key="FemEnvelopeDescription">From the envelope of linear analysis “{0}”</system:String>
     <system:String x:Key="FemEnvelopeCreated">Combinations from the envelope of analysis “{1}”: {0}.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionTitle">Combinations from the envelope</system:String>
+    <system:String x:Key="FemEnvelopeSelectionSource">Linear analysis “{0}”</system:String>
+    <system:String x:Key="FemEnvelopeSelectionTolerance">Tolerance to the envelope, %:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionMax">At most combinations:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionHint">Envelope formulas that reproduce its extremes within the tolerance are selected, those governing most values first. Empty limit — no limit.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionInvalid">Tolerance must be a number from 0 to 100, limit — an integer of at least 0 or empty.</system:String>
+    <system:String x:Key="FemEnvelopeSelected">Selected {0} of {1} envelope formulas (tolerance {2} %): {3:P2} of envelope values reproduced.</system:String>
+    <system:String x:Key="FemEnvelopeSelectedPartial">Limit {0}: the envelope is not fully reproduced ({1:P2}) — increase the limit or the tolerance.</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSets">Sets per load case</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Force sets (plates and bars) for each load case of the linear analysis with SP 20 load kind, γf and group in the name — for the SP 20 combinations dialog</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Analysis “{0}”: no sets per load case — see warnings above.</system:String>

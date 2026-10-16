@@ -373,12 +373,17 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         Execute(Group(commands));
     }
 
-    /// <summary>Комбинации из огибающей последнего линейного расчёта CSfea (для нелинейного расчёта).</summary>
-    public async Task GenerateFromEnvelopeAsync()
+    /// <summary>
+    /// Комбинации из огибающей последнего линейного расчёта CSfea (для нелинейного расчёта); параметры отбора —
+    /// <paramref name="askOptions"/> (диалог).
+    /// </summary>
+    public async Task GenerateFromEnvelopeAsync(
+        Func<CScore.Fem.FemAnalysis, CScore.Fem.Combinations.FemEnvelopeSelectionOptions,
+            CScore.Fem.Combinations.FemEnvelopeSelectionOptions?> askOptions)
     {
         Status = null;
         int before = Editor.Session.LoadDefinitions.Count;
-        Status = await Editor.GenerateEnvelopeLoadDefinitionsAsync();
+        Status = await Editor.GenerateEnvelopeLoadDefinitionsAsync(askOptions);
         if (Editor.Session.LoadDefinitions.Count > before)
             Selected = Rows.FirstOrDefault(r => ReferenceEquals(r.Definition, Editor.Session.LoadDefinitions[before]));
     }

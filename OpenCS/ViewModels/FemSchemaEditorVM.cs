@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Combinations;
 using CScore.Fem.Editing;
 using CScore.Submodel;
 using OpenCS.Services;
@@ -983,13 +985,25 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// «Комбинации из огибающей линейного расчёта» (спека 2026-10-14, п. 5.2.4): по последнему линейному расчёту
     /// CSfea схемы — наборы усилий по загружениям, огибающая СП 20 и её уникальные формулы как комбинации с
     /// «авто»-слагаемыми, одной отменой. Текст ошибки или null; замечания — в журнал. Чтение полей шагов и огибающая
-    /// идут в фоне со статусом в статусбаре; в схему комбинации добавляются в потоке UI.
+    /// идут в фоне со статусом в статусбаре; в схему комбинации добавляются в потоке UI. Формулы отбираются покрывающим
+    /// набором (допуск к огибающей и лимит — <paramref name="askOptions"/>: по текущим из настроек расчёта вернуть
+    /// выбранные или null — отказ; выбранные запоминаются в настройках).
     /// </summary>
-    public async Task<string?> GenerateEnvelopeLoadDefinitionsAsync()
+    public async Task<string?> GenerateEnvelopeLoadDefinitionsAsync(
+        Func<FemAnalysis, FemEnvelopeSelectionOptions, FemEnvelopeSelectionOptions?> askOptions)
     {
         if (IsGeneratingEnvelope) return null;
         var analyses = Session.Schema.Analyses.Count > 0 ? Session.Schema.Analyses.ToList() : _db.GetFemAnalyses(Session.Schema.Id);
         if (FemLinearLoadCaseForceSets.LatestLinear(analyses) is not { } analysis) return Loc.S("FemEnvelopeNoLinearResult");
+        var settings = _app.CalcSettings;
+        var current = new FemEnvelopeSelectionOptions(settings.FemEnvelopeTolerancePercent / 100, settings.FemEnvelopeMaxCombinations);
+        if (askOptions(analysis, current) is not { } selection) return null;
+        if (selection != current)
+        {
+            settings.FemEnvelopeTolerancePercent = selection.Tolerance * 100;
+            settings.FemEnvelopeMaxCombinations = selection.MaxCount;
+            _db.SaveCalcSettings(settings);
+        }
 
         // Снимок входа: фоновая часть не трогает сессию редактора.
         var schema = Session.Schema;
@@ -1001,17 +1015,26 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         string? endMessage = null;
         try
         {
-            var built = await Task.Run<(IReadOnlyList<FemLoadDefinition> Definitions, List<string> Warnings)?>(() =>
+            var built = await Task.Run<(IReadOnlyList<FemLoadDefinition> Definitions, List<string> Warnings,
+                FemEnvelopeSelectionReport? Report)?>(() =>
             {
                 var result = FemLinearLoadCaseForceSets.BuildFromDatabase(_db, schema, analysis, [], defaults, loadCases);
                 if (result == null) return null;
                 var warnings = new List<string>(result.Warnings);
-                var definitions = result.Sets.Count == 0 ? [] : FemLinearLoadCaseForceSets.EnvelopeDefinitions(schema, result,
-                    defaults, valueKind, warnings, loadCases);
-                return (Definitions: definitions, Warnings: warnings);
+                if (result.Sets.Count == 0) return ([], warnings, null);
+                var (definitions, report) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result,
+                    defaults, valueKind, warnings, selection, loadCases);
+                return (definitions, warnings, report);
             });
             if (built is not { } b) return string.Format(Loc.S("FemEnvelopeResultMissing"), analysis.Tag);
             foreach (var warning in b.Warnings) _logService.Warning(warning);
+            if (b.Report is { } report)
+            {
+                _logService.Info(string.Format(Loc.S("FemEnvelopeSelected"), report.Selected, report.Candidates,
+                    (selection.Tolerance * 100).ToString("0.##", CultureInfo.CurrentCulture), report.CoveredShare));
+                if (report.Covered < report.Triples && selection.MaxCount > 0 && report.Selected >= selection.MaxCount)
+                    _logService.Warning(string.Format(Loc.S("FemEnvelopeSelectedPartial"), selection.MaxCount, report.CoveredShare));
+            }
             if (b.Definitions.Count == 0) return string.Format(Loc.S("FemEnvelopeNothing"), analysis.Tag);
 
             _app.StatusMessage = string.Format(Loc.S("FemEnvelopeApplying"), b.Definitions.Count, analysis.Tag);

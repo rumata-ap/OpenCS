@@ -3771,6 +3771,14 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemEnvelopeNothing">По расчёту «{0}» комбинаций не получено — замечания в журнале.</system:String>
     <system:String x:Key="FemEnvelopeDescription">Из огибающей линейного расчёта «{0}»</system:String>
     <system:String x:Key="FemEnvelopeCreated">Комбинации из огибающей расчёта «{1}»: {0}.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionTitle">Комбинации из огибающей</system:String>
+    <system:String x:Key="FemEnvelopeSelectionSource">Линейный расчёт «{0}»</system:String>
+    <system:String x:Key="FemEnvelopeSelectionTolerance">Допуск к огибающей, %:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionMax">Не более комбинаций:</system:String>
+    <system:String x:Key="FemEnvelopeSelectionHint">Из формул огибающей усилий отбираются те, что воспроизводят её экстремумы с допуском; первыми — определяющие больше всего значений. Пустой лимит — без ограничения.</system:String>
+    <system:String x:Key="FemEnvelopeSelectionInvalid">Допуск — число от 0 до 100, лимит — целое не меньше 0 или пусто.</system:String>
+    <system:String x:Key="FemEnvelopeSelected">Отобрано {0} из {1} формул огибающей (допуск {2} %): воспроизведено {3:P2} значений огибающей.</system:String>
+    <system:String x:Key="FemEnvelopeSelectedPartial">Лимит {0}: огибающая воспроизведена не полностью ({1:P2}) — увеличьте лимит или допуск.</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSets">Наборы по загружениям</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Наборы усилий (пластины и стержни) по каждому загружению линейного расчёта с видом нагрузки, γf и группой СП 20 в имени — для диалога «Сочетания СП 20»</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Расчёт «{0}»: наборы по загружениям не созданы — замечания выше.</system:String>

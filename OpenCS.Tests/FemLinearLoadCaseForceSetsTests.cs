@@ -109,6 +109,37 @@ public sealed class FemLinearLoadCaseForceSetsTests
         Assert.Contains(design, d => Formula(d) == "11:1:permanent|12:1:leading");
     }
 
+    [Fact]
+    public void SelectEnvelopeDefinitions_CoverWithinTolerance_AndLimit()
+    {
+        var (schema, analysis, summary) = Model();
+        var result = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard);
+        var warnings = new List<string>();
+        var all = FemLinearLoadCaseForceSets.EnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings);
+
+        // Допуск 0: огибающая воспроизводится вся, формулы — из числа уникальных, номера — по порядку отбора.
+        var (exact, report) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0));
+        Assert.Equal(all.Count, report.Candidates);
+        Assert.Equal(report.Triples, report.Covered);
+        Assert.InRange(exact.Count, 1, all.Count);
+        Assert.All(exact, d => Assert.Contains(all, a => Formula(a) == Formula(d)));
+        Assert.Equal("Огибающая 001", exact[0].Tag);
+
+        // Лимит 1: одна формула — та, что покрывает больше всего троек.
+        var (one, partial) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0, 1));
+        Assert.Single(one);
+        Assert.Equal(Formula(exact[0]), Formula(one[0]));
+        Assert.True(partial.Covered < partial.Triples);
+
+        // Больший допуск — не больше формул.
+        var (loose, _) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0.5));
+        Assert.True(loose.Count <= exact.Count);
+    }
+
     static string Formula(FemLoadDefinition d) => string.Join("|", d.GetExpression().Terms.Select(t =>
         $"{t.LoadCaseId}:{Math.Round(t.Coefficient, 6).ToString(System.Globalization.CultureInfo.InvariantCulture)}:{t.Role}"));
 
