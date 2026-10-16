@@ -20,6 +20,7 @@ public partial class FemAnalysisDialog : Window
     readonly IReadOnlyList<FemNode> _nodes;
     readonly System.Collections.ObjectModel.ObservableCollection<StageRow> _stages = [];
     List<LoadSource> _loadSources = [];
+    readonly ViewModels.FemLinearCasesVM _linearCases;
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
@@ -64,11 +65,19 @@ public partial class FemAnalysisDialog : Window
         return dialog;
     }
 
-    public FemAnalysisDialog(FemSchema schema, IReadOnlyList<FemNode> nodes, FemAnalysis? existing = null)
+    /// <param name="gammaDefaults">γf по умолчанию (настройки расчёта) — для столбца γf списка загружений линейного CSfea.</param>
+    public FemAnalysisDialog(FemSchema schema, IReadOnlyList<FemNode> nodes, FemAnalysis? existing = null,
+        CScore.Combinations.Sp20GammaDefaults? gammaDefaults = null)
     {
         _schema = schema;
         _nodes = nodes;
         InitializeComponent();
+        // Загружения линейного CSfea: у правимой линейной постановки — отмечены её стадии, иначе все.
+        var linearStages = existing?.Kind == FemCsfeaRunner.LinearAnalysisKind
+            ? FemAnalysisParams.Parse(existing.ParamsJson).ResolveStages(existing) : null;
+        _linearCases = new ViewModels.FemLinearCasesVM(schema.LoadCases.ToList(),
+            gammaDefaults ?? CScore.Combinations.Sp20GammaDefaults.Standard, linearStages);
+        LinearCasesGroup.DataContext = _linearCases;
         KindBox.ItemsSource = _kindOptions;
         var sources = BuildLoadSources();
         _loadSources = sources;
@@ -455,29 +464,22 @@ public partial class FemAnalysisDialog : Window
         if (NonlinearPanel == null || CsfeaPanel == null || CsfeaCheckInputButton == null) return;
         bool nonlinear = SelectedKind == "nonlinear";
         bool csfea = FemCsfeaRunner.IsCsfeaKind(SelectedKind) && !IsSubmodelMode;
-        // Линейный CSfea: строки таблицы — независимые загружения (без шага и предела λ), из панели — только вид
-        // расчёта, источник армирования пластин и контрольный узел.
+        // Линейный CSfea: вместо стадий — загружения галочками, из панели — только вид расчёта, источник армирования
+        // пластин и контрольный узел.
         bool csfeaLinear = csfea && SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = nonlinear || csfea;
         NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         CsfeaPanel.Visibility = csfea ? Visibility.Visible : Visibility.Collapsed;
         CsfeaCheckInputButton.Visibility = csfea && _csfeaContext != null ? Visibility.Visible : Visibility.Collapsed;
         LoadSourceRow.Visibility = staged || IsSubmodelMode ? Visibility.Collapsed : Visibility.Visible;
-        StagesGroup.Visibility = staged && !IsSubmodelMode ? Visibility.Visible : Visibility.Collapsed;
+        StagesGroup.Visibility = staged && !csfeaLinear && !IsSubmodelMode ? Visibility.Visible : Visibility.Collapsed;
+        LinearCasesGroup.Visibility = csfeaLinear ? Visibility.Visible : Visibility.Collapsed;
         // Секущий расчёт ведётся только по нагрузке: path control скрыт, а заданный в OpenSees-виде —
         // сбрасывается, чтобы не гасить колонки шага и предела λ.
         var pathControl = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         StagesPathControlColumn.Visibility = pathControl;
         StagesPathControlButtonColumn.Visibility = pathControl;
-        var factorColumns = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
-        StagesLoadFactorStepColumn.Visibility = factorColumns;
-        // Линейный CSfea: строка — отдельное загружение, её имя — имя загружения или комбинации (не «Стадия N»).
-        StagesTagColumn.Visibility = factorColumns;
-        StagesMaxLoadFactorColumn.Visibility = factorColumns;
-        StagesGroup.SetResourceReference(HeaderedContentControl.HeaderProperty,
-            csfeaLinear ? "FemCsfeaLinearCasesLabel" : "FemAnalysisStagesLabel");
-        StagesHintText.SetResourceReference(TextBlock.TextProperty,
-            csfeaLinear ? "FemCsfeaLinearCasesHint" : csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
+        StagesHintText.SetResourceReference(TextBlock.TextProperty, csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
         var secantOnly = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
         var secantRow = new GridLength(csfeaLinear ? 0 : 28);
         CsfeaTensionRow.Height = secantRow;
@@ -501,6 +503,10 @@ public partial class FemAnalysisDialog : Window
                 MaxLoadFactor = csfea ? 1.0 : 10.0
             });
     }
+
+    void LinearCasesAll_Click(object sender, RoutedEventArgs e) => _linearCases.CheckAll();
+
+    void LinearCasesNone_Click(object sender, RoutedEventArgs e) => _linearCases.CheckNone();
 
     void AddStage_Click(object sender, RoutedEventArgs e)
     {
@@ -582,12 +588,17 @@ public partial class FemAnalysisDialog : Window
         bool isCsfeaLinear = SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = isNonlinear || isCsfea;
 
-        if (staged && _stages.Count == 0)
+        if (isCsfeaLinear && _linearCases.CheckedCount == 0)
+        {
+            MessageBox.Show(Loc.S("FemCsfeaLinearCasesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+        if (staged && !isCsfeaLinear && _stages.Count == 0)
         {
             MessageBox.Show(Loc.S("FemAnalysisStagesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
-        if (staged && _stages.Any(s => s.Source == null))
+        if (staged && !isCsfeaLinear && _stages.Any(s => s.Source == null))
         {
             MessageBox.Show(Loc.S("FemAnalysisStageMissingSource"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
@@ -611,14 +622,14 @@ public partial class FemAnalysisDialog : Window
             }
             else
                 pars = ReadNonlinearParams();
-            pars.Stages = _stages.Select(r =>
+            // Линейный CSfea: отмеченные загружения целиком, без шагов и множителя.
+            pars.Stages = isCsfeaLinear ? _linearCases.BuildStages() : _stages.Select(r =>
             {
-                // Линейный CSfea: загружение целиком, без шагов и множителя.
-                double step = isCsfeaLinear ? 1.0 : r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
-                double max = isCsfeaLinear ? 1.0 : r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
+                double step = r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
+                double max = r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
                 return new FemAnalysisStage
                 {
-                    Tag = isCsfeaLinear ? r.Source!.Label : r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
+                    Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
                     LoadFactorStep = step, MaxLoadFactor = max,
                     PathControl = isCsfea ? null : BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
                     ContinueWith = isCsfea || r.ContinueWithMode == null ? null

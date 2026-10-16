@@ -37,6 +37,80 @@
             <ComboBox Grid.Column="1" x:Name="LoadSourceBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
         </Grid>
 
+        <!-- Линейный CSfea: загружения галочками, каждое отмеченное — отдельный расчёт (FemLinearCasesVM) -->
+        <GroupBox x:Name="LinearCasesGroup" Header="{DynamicResource FemCsfeaLinearCasesLabel}" Visibility="Collapsed" Margin="0,4">
+            <StackPanel Margin="4">
+                <TextBlock Text="{DynamicResource FemCsfeaLinearCasesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
+                <DockPanel Margin="0,0,0,4">
+                    <Button Content="{DynamicResource FemCsfeaLinearCasesAll}" Click="LinearCasesAll_Click" Padding="8,2" Margin="0,0,4,0"/>
+                    <Button Content="{DynamicResource FemCsfeaLinearCasesNone}" Click="LinearCasesNone_Click" Padding="8,2" Margin="0,0,4,0"/>
+                    <TextBox DockPanel.Dock="Right" Width="180" Height="22" VerticalContentAlignment="Center"
+                             Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock DockPanel.Dock="Right" Text="{DynamicResource FemCsfeaLinearCasesSearch}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <Border/>
+                </DockPanel>
+                <DataGrid x:Name="LinearCasesGrid" ItemsSource="{Binding VisibleRows}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" HeadersVisibility="Column"
+                          SelectionMode="Extended" SelectionUnit="FullRow" MaxHeight="260" MinHeight="80">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="28">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="{DynamicResource FemCsfeaLinearCasesTypeColumn}" Width="44" IsReadOnly="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Image Width="16" Height="16" Source="{StaticResource FemIcon_LoadShort}" x:Name="Icon"/>
+                                        <TextBlock Text="{Binding TypeLetter}" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Sp20Type}" Value="permanent">
+                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadPermanent}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Sp20Type}" Value="long_term">
+                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadLong}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
+                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadAccidental}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Sp20Type}" Value="">
+                                            <Setter TargetName="Icon" Property="Source" Value="{x:Null}"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaLinearCasesNameColumn}" Binding="{Binding Label}" Width="*" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="γf" Binding="{Binding GammaText}" Width="56" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaLinearCasesShareColumn}" Binding="{Binding ShareText}" Width="64" IsReadOnly="True"/>
+                        <DataGridTextColumn Binding="{Binding Note}" Width="Auto" MinWidth="40" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#A05A00"/>
+                                    <Setter Property="Margin" Value="3,0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsLegacy}" Value="True">
+                                    <Setter Property="Foreground" Value="Gray"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                </DataGrid>
+                <TextBlock Text="{Binding CountText}" Margin="0,4,0,0" FontSize="11" Opacity="0.8"/>
+            </StackPanel>
+        </GroupBox>
+
         <GroupBox x:Name="StagesGroup" Header="{DynamicResource FemAnalysisStagesLabel}" Visibility="Collapsed" Margin="0,4">
             <StackPanel Margin="4">
                 <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>

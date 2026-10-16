@@ -5820,7 +5820,7 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id))
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), null, CalcSettings.ToSp20GammaDefaults())
          {
             Owner = System.Windows.Application.Current.MainWindow,
             CsfeaContext = CsfeaRunContext()
@@ -5841,7 +5841,7 @@ namespace OpenCS
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
          if (schema == null) return;
 
-         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), analysis)
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), analysis, CalcSettings.ToSp20GammaDefaults())
          {
             Owner = System.Windows.Application.Current.MainWindow,
             CsfeaContext = CsfeaRunContext()
