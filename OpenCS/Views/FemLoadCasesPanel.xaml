@@ -107,8 +107,43 @@
                                             ItemsSource="{x:Static vm:FemLoadsTabVM.Sp20Types}" SelectedValuePath="Key"
                                             DisplayMemberPath="Label" SelectedValueBinding="{Binding Sp20Type, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTextColumn Header="{DynamicResource FemLoadsColGroup}" Binding="{Binding Group}" Width="*" MinWidth="50"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaUnfav}" Binding="{Binding GammaFUnfav}" Width="64"/>
-                    <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaFav}" Binding="{Binding GammaFFav}" Width="64"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadCaseGammaUnfav}" Binding="{Binding GammaFUnfav}" Width="48"/>
+                    <!-- γf п. 7.3 — только у постоянных; доля длительной части — только у кратковременных. -->
+                    <DataGridTextColumn Binding="{Binding GammaFFav}" Width="64">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{DynamicResource FemLoadCaseGammaFav}" ToolTip="{DynamicResource Sp20AttrReducedGammaTip}"/>
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                        <DataGridTextColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                <EventSetter Event="PreviewMouseLeftButtonDown" Handler="Cell_PreviewMouseLeftButtonDown"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPermanent}" Value="False">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.CellStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding LongTermShare}" Width="58">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{DynamicResource FemLoadsColLongTermShare}" ToolTip="{DynamicResource Sp20AttrShareTip}"/>
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                        <DataGridTextColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                <EventSetter Event="PreviewMouseLeftButtonDown" Handler="Cell_PreviewMouseLeftButtonDown"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsShortTerm}" Value="False">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                        <Setter Property="Foreground" Value="Gray"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.CellStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Binding="{Binding SelfWeight}" Width="48">
                         <DataGridTextColumn.HeaderTemplate>
                             <DataTemplate>

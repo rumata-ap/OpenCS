@@ -2584,7 +2584,7 @@
     <system:String x:Key="FemLoadCaseDialogSp20Type">Load kind (SP 20)</system:String>
     <system:String x:Key="FemLoadCaseDialogGroup">Group</system:String>
     <system:String x:Key="FemLoadCaseDialogGroupTip">Mutually exclusive load cases of one group never combine together</system:String>
-    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Empty γf mean defaults for the load kind. Combination factors ψ follow SP 20 by the degree of influence of the load (cl. 6.3–6.5).</system:String>
+    <system:String x:Key="FemLoadCaseDialogDefaultsHint">Empty γf — defaults from calculation settings. Combination factors ψ are assigned per SP 20 by load influence rank (cl. 6.3–6.5) — by the term role on the Combinations tab.</system:String>
     <system:String x:Key="FemLoadCaseDialogBadNumber">Enter a non-negative number or leave the field empty.</system:String>
     <system:String x:Key="FemLoadCaseDialogOrigin">Source: {0}</system:String>
     <system:String x:Key="FemCombinationDialogTitle">Combination</system:String>
@@ -3663,8 +3663,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemLoadCaseSp20Parameters">SP20 parameters</system:String>
     <system:String x:Key="FemLoadCaseSp20Type">Type</system:String>
     <system:String x:Key="FemLoadCaseSp20Group">Group</system:String>
-    <system:String x:Key="FemLoadCaseGammaUnfav">γf unfav.</system:String>
-    <system:String x:Key="FemLoadCaseGammaFav">γf fav.</system:String>
+    <system:String x:Key="FemLoadCaseGammaUnfav">γf</system:String>
+    <system:String x:Key="FemLoadCaseGammaFav">γf cl. 7.3</system:String>
     <system:String x:Key="FemLoadCaseTypePermanent">Permanent</system:String>
     <system:String x:Key="FemLoadCaseTypeLongTerm">Long-term</system:String>
     <system:String x:Key="FemLoadCaseTypeShortTerm">Short-term</system:String>
@@ -3774,6 +3774,14 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSets">Sets per load case</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Force sets (plates and bars) for each load case of the linear analysis with SP 20 load kind, γf and group in the name — for the SP 20 combinations dialog</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Analysis “{0}”: no sets per load case — see warnings above.</system:String>
+    <system:String x:Key="Sp20AttrDefaultHint">default {0}</system:String>
+    <system:String x:Key="Sp20AttrReducedGammaTip">Self-weight γf for overturning and other cases where a smaller weight is unfavourable (SP 20 cl. 7.3); term role “permanent, γf cl. 7.3”</system:String>
+    <system:String x:Key="Sp20AttrShareKind">Load kind (reduced value)</system:String>
+    <system:String x:Key="Sp20AttrShareKindTip">Fills the typical long-term share per SP 20; the share field stays editable</system:String>
+    <system:String x:Key="Sp20AttrShare">Long-term share</system:String>
+    <system:String x:Key="Sp20AttrShareTip">Long-term share (reduced value per SP 20), 0…1: the short-term load case enters CL/NL combinations with it; empty — not set (0). Permanent and long-term enter in full, accidental do not</system:String>
+    <system:String x:Key="Sp20AttrBadShare">Long-term share is a number from 0 to 1 or empty.</system:String>
+    <system:String x:Key="FemLoadsColLongTermShare">LT share</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Area load</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Apply parameters</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Save blocked</system:String>

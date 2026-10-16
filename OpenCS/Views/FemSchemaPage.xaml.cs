@@ -244,7 +244,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         string prefix = Loc.S("FemLoadCaseDefaultTag"), tag = prefix;
         for (int n = 2; session.LoadCases.Any(lc => lc.Tag == tag); n++) tag = $"{prefix} {n}";
         var template = new FemLoadCase { SchemaId = session.Schema.Id, Tag = tag, Sp20Type = "short_term" };
-        var dialog = new FemLoadCaseDialog(template, null)
+        var dialog = new FemLoadCaseDialog(template, null, _editorVm.Sp20GammaDefaults)
         {
             Owner = Window.GetWindow(this),
             Validate = v => session.LoadCases.Any(lc => lc.Tag == v.Tag) ? Loc.S("FemLoadCaseTagTaken") : null,
@@ -260,7 +260,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     public void EditLoadCase(string tag, string? originText)
     {
         if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is not { } loadCase) return;
-        var dialog = new FemLoadCaseDialog(loadCase, originText)
+        var dialog = new FemLoadCaseDialog(loadCase, originText, _editorVm.Sp20GammaDefaults)
         {
             Owner = Window.GetWindow(this),
             Validate = v => _editorVm.Session.LoadCases.Any(lc => !ReferenceEquals(lc, loadCase) && lc.Tag == v.Tag)

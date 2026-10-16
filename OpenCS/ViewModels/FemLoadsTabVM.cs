@@ -47,7 +47,36 @@ public sealed class FemLoadCaseRow(FemLoadsTabVM owner, FemLoadCase loadCase, in
         set => owner.EditLoadCase(this, v => v.Sp20Group = string.IsNullOrWhiteSpace(value) ? null : value.Trim());
     }
     public string GammaFUnfav { get => FemLoadsFormat.Optional(LoadCase.GammaFUnfav); set => SetOptional(value, (v, x) => v.GammaFUnfav = x); }
-    public string GammaFFav { get => FemLoadsFormat.Optional(LoadCase.GammaFFav); set => SetOptional(value, (v, x) => v.GammaFFav = x); }
+
+    /// <summary>γf при уменьшении веса (п. 7.3 СП 20) — только у постоянных; у прочих ячейка пуста и не правится.</summary>
+    public string GammaFFav
+    {
+        get => IsPermanent ? FemLoadsFormat.Optional(LoadCase.GammaFFav) : "";
+        set { if (IsPermanent) SetOptional(value, (v, x) => v.GammaFFav = x); }
+    }
+
+    public bool IsPermanent => LoadCase.Sp20Type == "permanent";
+    public bool IsShortTerm => LoadCase.Sp20Type == "short_term";
+
+    /// <summary>
+    /// Доля длительной части (пониженное значение, СП 20) — правится у кратковременных (0…1, пусто — не задана);
+    /// постоянные и длительные входят в CL/NL целиком («1»), особые не входят («—»).
+    /// </summary>
+    public string LongTermShare
+    {
+        get => IsShortTerm ? FemLoadsFormat.Optional(LoadCase.LongTermShare)
+            : LoadCase.Sp20Type == "accidental" ? "—" : FemLoadsFormat.Number(1);
+        set
+        {
+            if (!IsShortTerm) { Refresh(); return; }
+            if (!FemLoadsFormat.TryOptional(value, out var share, allowNegative: false) || share > 1)
+            {
+                owner.Reject(Loc.S("Sp20AttrBadShare"), this);
+                return;
+            }
+            owner.EditLoadCase(this, v => v.LongTermShare = share);
+        }
+    }
 
     /// <summary>Множитель собственного веса; пусто — без собственного веса.</summary>
     public string SelfWeight
