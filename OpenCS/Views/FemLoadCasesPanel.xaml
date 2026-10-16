@@ -80,6 +80,20 @@
         <!-- Загружения -->
         <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,6,0,0">
             <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{DynamicResource FemLoadsHint}"/>
+            <!-- Вид величин нагрузок — настройка расчёта (спека 2026-10-14, п. 5.4). -->
+            <TextBlock DockPanel.Dock="Bottom" Text="{Binding ValueKindNote}" TextWrapping="Wrap" Margin="2,4,2,0">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="Gray"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasValueKindConflict}" Value="True">
+                                <Setter Property="Foreground" Value="#A05A00"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <DataGrid x:Name="loadCasesGrid" Style="{StaticResource LoadsGrid}" ContextMenuOpening="LoadCasesGrid_ContextMenuOpening"
                       ItemsSource="{Binding LoadCaseRows}" SelectedItem="{Binding SelectedLoadCaseRow, Mode=OneWay}"
                       SelectionChanged="LoadCasesGrid_SelectionChanged" BeginningEdit="Grid_BeginningEdit">

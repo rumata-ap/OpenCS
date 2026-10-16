@@ -364,7 +364,7 @@
    <system:String x:Key="CalcSettingsShearAnchorageTip">Коэффициент включения продольной арматуры k; анкеровка по 10.3.21–10.3.28 расчётом не проверяется</system:String>
    <system:String x:Key="CalcSettingsSp20Group">Сочетания СП20 (γf по умолчанию)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — постоянная (неблаг.)</system:String>
-   <system:String x:Key="CalcSettingsSp20GammaGFav">G — постоянная (благ.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaGFav">G — при уменьшении веса (п. 7.3)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaL">L — длительная</system:String>
    <system:String x:Key="CalcSettingsSp20GammaQ">Q — кратковременная</system:String>
    <system:String x:Key="CalcSettingsSp20GammaA">A — особая</system:String>
@@ -3782,6 +3782,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp20AttrShareTip">Доля длительной части (пониженное значение по СП 20), 0…1: с ней кратковременное загружение входит в комбинации CL/NL; пусто — не задана (0). Постоянные и длительные входят целиком, особые не входят</system:String>
     <system:String x:Key="Sp20AttrBadShare">Доля длительной части — число от 0 до 1 или пусто.</system:String>
     <system:String x:Key="FemLoadsColLongTermShare">Доля дл.</system:String>
+    <system:String x:Key="CalcSettingsSp20LoadValueKind">Величины нагрузок</system:String>
+    <system:String x:Key="CalcSettingsSp20LoadValueKindTip">Какие величины заданы в загружениях схем и наборах усилий. Нормативные: в группах C/CL «авто»-коэффициенты и сочетания умножают на γf. Расчётные: в C/CL — ×1, в N/NL — ÷γf</system:String>
+    <system:String x:Key="CalcSettingsSp20Normative">нормативные</system:String>
+    <system:String x:Key="CalcSettingsSp20Design">расчётные</system:String>
+    <system:String x:Key="SP20GroupLabel">Группа:</system:String>
+    <system:String x:Key="SP20GroupTip">Группа основного сочетания — как тип расчёта проверок: C — ПС1 полные, CL — ПС1 длительные, N — ПС2 полные, NL — ПС2 длительные. Метка группы попадает в имя набора, проверки по КЭ определяют по ней тип расчёта</system:String>
+    <system:String x:Key="SP20ValueKindHint">Величины нагрузок в наборах: {0} (настройки расчёта). C/CL — ×γf у нормативных; N/NL — ÷γf у расчётных; в CL/NL кратковременные наборы не входят (доля длительной части в имени набора не задаётся).</system:String>
+    <system:String x:Key="FemValueKindNote">Величины нагрузок: {0} — настройка расчёта (раздел «Сочетания СП 20»).</system:String>
+    <system:String x:Key="FemValueKindImportedWarning">Загружения импортированы (величины обычно расчётные), а в настройках расчёта величины нагрузок — {0}: «авто»-коэффициенты C умножат их на γf повторно. Проверьте настройку «Величины нагрузок».</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Площадная нагрузка</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Применить параметры</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Сохранение заблокировано</system:String>

@@ -111,6 +111,19 @@
                     <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
                 </Button>
             </ToolBar>
+            <TextBlock DockPanel.Dock="Top" Text="{Binding ValueKindNote}" TextWrapping="Wrap" Margin="2,0,2,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="Gray"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasValueKindConflict}" Value="True">
+                                <Setter Property="Foreground" Value="#A05A00"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <!-- «Авто»-коэффициенты устарели (сменились γf или вид величин в настройках) — пересчитать одной отменой. -->
             <Border DockPanel.Dock="Top" Background="#FFF6D5" BorderBrush="#E0C060" BorderThickness="1" Padding="6,3" Margin="0,0,0,4">
                 <Border.Style>

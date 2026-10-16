@@ -42,11 +42,23 @@
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
          </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+         </Grid.RowDefinitions>
          <TextBlock Grid.Column="0" Text="{DynamicResource SP20ModeLabel}"
                     VerticalAlignment="Center"/>
          <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}"
                    SelectedItem="{Binding SelectedMode, Mode=TwoWay}"/>
+         <!-- Группа основного сочетания (C/CL/N/NL — как CalcType проверок; метка в имени набора). -->
+         <TextBlock Grid.Column="2" Text="{DynamicResource SP20GroupLabel}" VerticalAlignment="Center" Margin="10,0,4,0"/>
+         <ComboBox Grid.Column="3" Width="60" ItemsSource="{Binding GroupOptions}"
+                   SelectedItem="{Binding SelectedGroup, Mode=TwoWay}" ToolTip="{DynamicResource SP20GroupTip}"/>
+         <TextBlock Grid.Row="1" Grid.ColumnSpan="4" Text="{Binding ValueKindText}" Foreground="Gray"
+                    TextWrapping="Wrap" Margin="0,4,0,0"/>
       </Grid>
 
       <!-- Флаги вывода -->

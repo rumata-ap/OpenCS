@@ -364,7 +364,7 @@
    <system:String x:Key="CalcSettingsShearAnchorageTip">Longitudinal reinforcement engagement factor k; anchorage per 10.3.21–10.3.28 is not verified</system:String>
    <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
-   <system:String x:Key="CalcSettingsSp20GammaGFav">G — permanent (fav.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaGFav">G — reduced weight (cl. 7.3)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaL">L — long-term</system:String>
    <system:String x:Key="CalcSettingsSp20GammaQ">Q — short-term</system:String>
    <system:String x:Key="CalcSettingsSp20GammaA">A — accidental</system:String>
@@ -3782,6 +3782,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp20AttrShareTip">Long-term share (reduced value per SP 20), 0…1: the short-term load case enters CL/NL combinations with it; empty — not set (0). Permanent and long-term enter in full, accidental do not</system:String>
     <system:String x:Key="Sp20AttrBadShare">Long-term share is a number from 0 to 1 or empty.</system:String>
     <system:String x:Key="FemLoadsColLongTermShare">LT share</system:String>
+    <system:String x:Key="CalcSettingsSp20LoadValueKind">Load values</system:String>
+    <system:String x:Key="CalcSettingsSp20LoadValueKindTip">Which values schema load cases and force sets hold. Normative: in C/CL groups auto factors and combinations multiply by γf. Design: ×1 in C/CL, ÷γf in N/NL</system:String>
+    <system:String x:Key="CalcSettingsSp20Normative">normative</system:String>
+    <system:String x:Key="CalcSettingsSp20Design">design</system:String>
+    <system:String x:Key="SP20GroupLabel">Group:</system:String>
+    <system:String x:Key="SP20GroupTip">Fundamental combination group — same as the check calculation type: C — ULS full, CL — ULS long-term, N — SLS full, NL — SLS long-term. The group mark goes into the set name; FE checks take the calculation type from it</system:String>
+    <system:String x:Key="SP20ValueKindHint">Load values in sets: {0} (calculation settings). C/CL — ×γf for normative; N/NL — ÷γf for design; short-term sets do not enter CL/NL (the set name holds no long-term share).</system:String>
+    <system:String x:Key="FemValueKindNote">Load values: {0} — calculation setting (SP 20 combinations section).</system:String>
+    <system:String x:Key="FemValueKindImportedWarning">Load cases are imported (values are usually design), but calculation settings say load values are {0}: auto factors of C will apply γf twice. Check the Load values setting.</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Area load</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Apply parameters</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Save blocked</system:String>

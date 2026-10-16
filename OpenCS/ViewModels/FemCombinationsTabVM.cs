@@ -261,9 +261,15 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         foreach (var name in new[] { nameof(HasSelection), nameof(NumberText), nameof(TagText), nameof(TypeText),
                      nameof(CommentText), nameof(TermsHeader) })
             OnPropertyChanged(name);
+        OnPropertyChanged(nameof(ValueKindNote));
+        OnPropertyChanged(nameof(HasValueKindConflict));
         int stale = Editor.StaleAutoCombinationCount;
         StaleText = stale == 0 ? null : string.Format(Loc.S("FemCombinationsStaleAuto"), stale);
     }
+
+    /// <summary>Вид величин нагрузок из настроек расчёта (при импортированных загружениях — предупреждение).</summary>
+    public string ValueKindNote => Editor.Sp20ValueKindNote;
+    public bool HasValueKindConflict => Editor.HasValueKindConflict;
 
     string? _staleText;
     /// <summary>Сколько комбинаций с устаревшими «авто»-коэффициентами (после смены настроек СП 20); null — нет.</summary>

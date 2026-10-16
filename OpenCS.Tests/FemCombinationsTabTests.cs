@@ -249,4 +249,16 @@ public sealed class FemCombinationsTabTests(FemSchemaEditorVMFixture fixture)
         Assert.Equal(1.0, terms[g.Id].Coefficient, 9); // «авто» пересчитано под ПС2
         Assert.Equal((FemLoadTerm.ManualMode, FemLoadTermRoles.Second, 2.0), (terms[s.Id].Mode, terms[s.Id].Role, terms[s.Id].Coefficient));
     }
+
+    [Fact]
+    public void ImportedLoadCases_WithNormativeSetting_Warn()
+    {
+        var (editor, tab, g, _, _) = NewTab();
+        Assert.False(tab.HasValueKindConflict);
+        g.Origin = CScore.Fem.FemLoadOrigin.ImportPrefix + "lira";
+        tab.Reload();
+        bool normative = editor.Sp20LoadValueKind == CScore.Combinations.Sp20LoadValueKind.Normative;
+        Assert.Equal(normative, tab.HasValueKindConflict);
+        Assert.False(string.IsNullOrEmpty(tab.ValueKindNote));
+    }
 }

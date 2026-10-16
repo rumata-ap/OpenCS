@@ -235,6 +235,7 @@ namespace OpenCS.Views
          Sp20GammaLBox.Text          = _calcSettings.Sp20GammaFLongTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          Sp20GammaQBox.Text          = _calcSettings.Sp20GammaFShortTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          Sp20GammaABox.Text          = _calcSettings.Sp20GammaFAccidental.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20LoadValueKindCombo.SelectedIndex = _calcSettings.Sp20LoadValueKind == "design" ? 1 : 0;
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
@@ -335,6 +336,8 @@ namespace OpenCS.Views
          HookSp20GammaBox(Sp20GammaLBox, v => _calcSettings.Sp20GammaFLongTerm = v);
          HookSp20GammaBox(Sp20GammaQBox, v => _calcSettings.Sp20GammaFShortTerm = v);
          HookSp20GammaBox(Sp20GammaABox, v => _calcSettings.Sp20GammaFAccidental = v);
+         Sp20LoadValueKindCombo.SelectionChanged += (_, _) =>
+            _calcSettings.Sp20LoadValueKind = ComboTag(Sp20LoadValueKindCombo) ?? "normative";
          BatchParallelCb.Checked    += (_, _) => _calcSettings.BatchParallel  = true;
          BatchParallelCb.Unchecked  += (_, _) => _calcSettings.BatchParallel  = false;
          ShellWarmStartCb.Checked   += (_, _) => _calcSettings.ShellWarmStart = true;

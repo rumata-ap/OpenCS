@@ -313,6 +313,76 @@ namespace CScore.Combinations
          return (env, cases, loadings, warnings);
       }
 
+      /// <summary>
+      /// Огибающая и формулы по группе <c>C/CL/N/NL</c> (основное сочетание) или <c>A</c> (особое) с учётом вида
+      /// величин нагрузок в наборах (спека 2026-10-14, п. 5.4): C/CL — ×γf у нормативных, ×1 у расчётных; N/NL — ×1
+      /// у нормативных, ÷γf у расчётных; A — γf = 1 (у расчётных ÷γf). В CL/NL особые не входят, кратковременные —
+      /// только долей длительной части, которую имя набора не хранит: они не входят (с предупреждением).
+      /// Коэффициенты формул — к величинам наборов.
+      /// </summary>
+      public static (Envelope Env, List<GeneratedCase> Cases, List<Loading> Loadings, List<string> Warnings)
+         SP20EnvelopeAndCasesForGroup(IList<ForceSet> forceSets, string group, Sp20LoadValueKind valueKind,
+            Sp20GammaDefaults? gammaDefaults = null)
+      {
+         var (loadings, warnings) = ForceSetsToLoadings(forceSets, gammaDefaults);
+         bool accidental = group == "A";
+         bool longTerm = group is "CL" or "NL";
+         bool serviceability = group is "N" or "NL";
+         bool design = valueKind == Sp20LoadValueKind.Design;
+         var adjusted = new List<Loading>();
+         var scale = new Dictionary<string, double>(StringComparer.Ordinal);
+         int skippedShort = 0;
+         foreach (var ld in loadings)
+         {
+            if (longTerm && ld.LoadType == NormLoadType.Accidental) continue;
+            if (longTerm && ld.LoadType == NormLoadType.ShortTerm) { skippedShort++; continue; }
+            double gu = ld.GammaFUnfav, gf = ld.GammaFFav;
+            var forces = ld.Forces;
+            if (accidental)
+            {
+               // Особое: комбинатор берёт γf = 1 сам, расчётные величины приводятся к нормативным делением усилий.
+               if (design && gu != 1)
+               {
+                  forces = Scaled(ld.Forces, 1 / gu);
+                  scale[ld.Name] = 1 / gu;
+               }
+            }
+            else if (serviceability) (gu, gf) = design ? (1 / gu, 1 / gu) : (1, 1);
+            else if (design) (gu, gf) = (1, gf / gu);
+            adjusted.Add(Rebuild(ld, forces, gu, gf));
+         }
+         if (skippedShort > 0)
+            warnings.Add($"Группа {group}: доля длительной части у наборов усилий не задаётся — кратковременные наборы " +
+                         $"({skippedShort}) в сочетание не входят.");
+         if (adjusted.Count == 0)
+            throw new InvalidOperationException($"Группа {group}: нет наборов, входящих в сочетание.");
+
+         var rules = accidental ? CombRules.SP20Accidental() : CombRules.SP20Fundamental();
+         var (env, cases) = new Combinator(adjusted, rules).FullEnvelopeWithCases();
+         if (scale.Count > 0)
+            foreach (var c in cases)
+               foreach (var name in c.Active.Keys.ToList())
+                  if (scale.TryGetValue(name, out double k)) c.Active[name] *= k;
+         return (env, cases, adjusted, warnings);
+      }
+
+      static double[,] Scaled(double[,] forces, double k)
+      {
+         var result = (double[,])forces.Clone();
+         for (int i = 0; i < result.GetLength(0); i++)
+            for (int j = 0; j < result.GetLength(1); j++)
+               result[i, j] *= k;
+         return result;
+      }
+
+      static Loading Rebuild(Loading ld, double[,] forces, double gammaFUnfav, double gammaFFav) => ld.LoadType switch
+      {
+         NormLoadType.Permanent => Loading.Permanent(ld.Name, forces, ld.ComponentNames, gammaFUnfav, gammaFFav, ld.Group),
+         NormLoadType.LongTerm => Loading.LongTerm(ld.Name, forces, ld.ComponentNames, gammaFUnfav, gammaFFav, group: ld.Group),
+         NormLoadType.Accidental => Loading.Accidental(ld.Name, forces, ld.ComponentNames, gammaFUnfav, gammaFFav, ld.Group),
+         _ => Loading.ShortTerm(ld.Name, forces, ld.ComponentNames, gammaFUnfav, gammaFFav, group: ld.Group),
+      };
+
       // ----------------------------------------------------------------
       // Вспомогательные
       // ----------------------------------------------------------------

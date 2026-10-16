@@ -322,6 +322,10 @@ public sealed class FemLoadsTabVM : ViewModelBase
         Reload();
     }
 
+    /// <summary>Вид величин нагрузок из настроек расчёта (при импортированных загружениях — предупреждение).</summary>
+    public string ValueKindNote => Editor.Sp20ValueKindNote;
+    public bool HasValueKindConflict => Editor.HasValueKindConflict;
+
     public static IReadOnlyList<FemLoadsChoice> Sp20Types { get; } =
     [
         new("permanent", Loc.S("FemLoadCaseTypePermanent")),
@@ -377,6 +381,8 @@ public sealed class FemLoadsTabVM : ViewModelBase
     /// <summary>Перечитывает таблицы из сессии: состав не изменился — строки только обновляют значения.</summary>
     public void Reload()
     {
+        OnPropertyChanged(nameof(ValueKindNote));
+        OnPropertyChanged(nameof(HasValueKindConflict));
         var session = Editor.Session;
         var active = Editor.SelectedLoadCase;
         LoadCaseRows = Merge(LoadCaseRows, session.LoadCases, (lc, i) => new FemLoadCaseRow(this, lc, i + 1));

@@ -932,6 +932,17 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public CScore.Combinations.Sp20LoadValueKind Sp20LoadValueKind => _app.CalcSettings.ToSp20LoadValueKind();
 
     /// <summary>
+    /// Импортированные загружения (ЛИРА-САПР, SCAD…) при «нормативных» в настройках: величины переносятся без
+    /// пересчёта и обычно расчётные — «авто»-коэффициенты C умножили бы их на γf повторно.
+    /// </summary>
+    public bool HasValueKindConflict => Sp20LoadValueKind == CScore.Combinations.Sp20LoadValueKind.Normative
+        && Session.LoadCases.Any(lc => lc.Origin.StartsWith(FemLoadOrigin.ImportPrefix, StringComparison.Ordinal));
+
+    /// <summary>Подсказка о виде величин нагрузок (настройка расчёта); при конфликте с импортом — предупреждение.</summary>
+    public string Sp20ValueKindNote => string.Format(Loc.S(HasValueKindConflict ? "FemValueKindImportedWarning" : "FemValueKindNote"),
+        Loc.S(Sp20LoadValueKind == CScore.Combinations.Sp20LoadValueKind.Design ? "CalcSettingsSp20Design" : "CalcSettingsSp20Normative"));
+
+    /// <summary>
     /// Команда и пересчёт «авто»-слагаемых комбинаций одной отменой: после правки загружения или типа комбинации
     /// коэффициенты не устаревают.
     /// </summary>

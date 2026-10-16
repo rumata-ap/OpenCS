@@ -73,12 +73,28 @@ namespace OpenCS.ViewModels
             new SP20ModeItem { Mode = SP20ModeChoice.Both,        Label = Loc.S("SP20ModeBoth")        },
          ];
          _selectedMode = ModeOptions[2]; // Both by default
+         _selectedGroup = GroupOptions[0];
 
          GenerateCommand = new RelayCommand(_ => Generate());
          RefreshPreview();
       }
 
       public ObservableCollection<ForceSetSelectionVM> Items { get; }
+
+      /// <summary>Группа основного сочетания: те же C/CL/N/NL, что CalcType проверок (метка в имени набора).</summary>
+      public List<string> GroupOptions { get; } = ["C", "CL", "N", "NL"];
+
+      string _selectedGroup;
+      public string SelectedGroup
+      {
+         get => _selectedGroup;
+         set { _selectedGroup = value; OnPropertyChanged(); RefreshPreview(); }
+      }
+
+      /// <summary>Вид величин нагрузок в наборах — глобальная настройка расчёта.</summary>
+      public string ValueKindText => string.Format(Loc.S("SP20ValueKindHint"),
+         Loc.S(_app.CalcSettings.ToSp20LoadValueKind() == Sp20LoadValueKind.Design
+            ? "CalcSettingsSp20Design" : "CalcSettingsSp20Normative"));
       public List<SP20ModeItem> ModeOptions { get; }
 
       public SP20ModeItem SelectedMode
@@ -190,9 +206,9 @@ namespace OpenCS.ViewModels
          {
             var mode = _selectedMode.Mode;
             if (mode is SP20ModeChoice.Fundamental or SP20ModeChoice.Both)
-               RunMode(sets, CombType.Fundamental, baseName, "основное", "Cm", rowLabels, created);
+               RunMode(sets, SelectedGroup, baseName, $"основное ({SelectedGroup})", "Cm", rowLabels, created);
             if (mode is SP20ModeChoice.Accidental or SP20ModeChoice.Both)
-               RunMode(sets, CombType.Accidental, baseName, "особое", "Cs", rowLabels, created);
+               RunMode(sets, "A", baseName, "особое", "Cs", rowLabels, created);
          }
          catch (System.Exception ex)
          {
@@ -208,12 +224,13 @@ namespace OpenCS.ViewModels
          _window.DialogResult = true;
       }
 
-      void RunMode(List<ForceSet> sets, CombType combType, string baseName,
+      /// <param name="group">C/CL/N/NL — основное сочетание, A — особое (проверки как C).</param>
+      void RunMode(List<ForceSet> sets, string group, string baseName,
                    string suffix, string labelPrefix,
                    List<string> rowLabels, List<string> created)
       {
-         var (env, cases, loadings, _) =
-            SP20Combinations.SP20EnvelopeAndCasesFromForceSets(sets, combType, _app.CalcSettings.ToSp20GammaDefaults());
+         var (env, cases, loadings, _) = SP20Combinations.SP20EnvelopeAndCasesForGroup(sets, group,
+            _app.CalcSettings.ToSp20LoadValueKind(), _app.CalcSettings.ToSp20GammaDefaults());
 
          string kind = sets[0].Kind;
 
