@@ -18,6 +18,9 @@ namespace CScore.Combinations
 
       /// <summary>Активные загружения: {имя → итоговый коэффициент}.</summary>
       public Dictionary<string, double> Active { get; init; } = [];
+
+      /// <summary>Роли активных загружений: {имя → роль в сочетании (ранг по степени влияния)}.</summary>
+      public Dictionary<string, Sp20TermRole> Roles { get; init; } = [];
    }
 
    /// <summary>
