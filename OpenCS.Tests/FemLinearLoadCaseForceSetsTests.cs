@@ -119,25 +119,57 @@ public sealed class FemLinearLoadCaseForceSetsTests
             Sp20LoadValueKind.Normative, warnings);
 
         // Допуск 0: огибающая воспроизводится вся, формулы — из числа уникальных, номера — по порядку отбора.
-        var (exact, report) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
-            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0));
+        var (exact, reports) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0), null);
+        var report = Assert.Single(reports); // особых нет — только C
+        Assert.Equal("C", report.Group);
         Assert.Equal(all.Count, report.Candidates);
         Assert.Equal(report.Triples, report.Covered);
         Assert.InRange(exact.Count, 1, all.Count);
         Assert.All(exact, d => Assert.Contains(all, a => Formula(a) == Formula(d)));
-        Assert.Equal("Огибающая 001", exact[0].Tag);
+        Assert.Equal("Огибающая C 001", exact[0].Tag);
 
         // Лимит 1: одна формула — та, что покрывает больше всего троек.
         var (one, partial) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
-            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0, 1));
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0, 1), null);
         Assert.Single(one);
         Assert.Equal(Formula(exact[0]), Formula(one[0]));
-        Assert.True(partial.Covered < partial.Triples);
+        Assert.True(partial[0].Covered < partial[0].Triples);
 
         // Больший допуск — не больше формул.
         var (loose, _) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
-            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0.5));
+            Sp20LoadValueKind.Normative, warnings, new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0.5), null);
         Assert.True(loose.Count <= exact.Count);
+    }
+
+    [Fact]
+    public void SelectEnvelopeDefinitions_Groups_LongTermShareAndNoReducedWeightInN()
+    {
+        var (schema, analysis, summary) = Model();
+        var result = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard);
+        // Доля длительной части — только у Q1 (правка редактора): в CL/NL Q2 не входит.
+        var edited = schema.LoadCases.Select(lc => new FemLoadCase
+        {
+            Id = lc.Id, SchemaId = lc.SchemaId, Tag = lc.Tag, Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group,
+            GammaFUnfav = lc.GammaFUnfav, LongTermShare = lc.Id == 12 ? 0.35 : null,
+        }).ToList();
+        var warnings = new List<string>();
+        var (definitions, reports) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result,
+            Sp20GammaDefaults.Standard, Sp20LoadValueKind.Normative, warnings,
+            new CScore.Fem.Combinations.FemEnvelopeSelectionOptions(0) { Groups = ["NL", "C", "CL", "N", "A"] }, null, edited);
+
+        Assert.Equal(["C", "CL", "N", "NL"], reports.Select(r => r.Group)); // A без особых загружений не строится
+        Assert.All(reports, r => Assert.Equal(r.Triples, r.Covered));
+        Assert.Contains(warnings, w => w.Contains("доля длительной части"));
+        var byType = definitions.GroupBy(d => d.CombinationType).ToDictionary(g => g.Key, g => g.ToList());
+        Assert.Equal("Огибающая CL 001", byType["CL"][0].Tag);
+        // CL: max Mx пластины 102 — G при уменьшении веса 0,9 и Q1 1,4·0,35 = 0,49; Q2 без доли не входит.
+        Assert.Contains(byType["CL"], d => Formula(d) == "11:0.9:permanent_reduced|12:0.49:leading");
+        Assert.All(byType["CL"].Concat(byType["NL"]), d => Assert.DoesNotContain(d.GetExpression().Terms, t => t.LoadCaseId == 13));
+        // N: нормативные ×1, снижения веса нет; NL: Q1 долей 0,35.
+        Assert.All(byType["N"], d => Assert.DoesNotContain(d.GetExpression().Terms, t => t.Role == "permanent_reduced"));
+        Assert.Contains(byType["N"], d => Formula(d) == "11:1:permanent|12:0.9:second|13:1:leading");
+        Assert.Contains(byType["NL"], d => Formula(d) == "11:1:permanent|12:0.35:leading");
     }
 
     static string Formula(FemLoadDefinition d) => string.Join("|", d.GetExpression().Terms.Select(t =>

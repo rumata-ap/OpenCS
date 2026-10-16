@@ -44,7 +44,7 @@ public partial class FemCombinationsPanel : UserControl
         await _vm.GenerateFromEnvelopeAsync((analysis, current) =>
         {
             var dialog = new FemEnvelopeSelectionDialog(string.Format(Loc.S("FemEnvelopeSelectionSource"), analysis.Tag),
-                current.Tolerance * 100, current.MaxCount) { Owner = Window.GetWindow(this) };
+                current) { Owner = Window.GetWindow(this) };
             return dialog.ShowDialog() == true ? dialog.Options : null;
         });
     }

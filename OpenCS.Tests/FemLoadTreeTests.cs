@@ -84,6 +84,10 @@ public sealed class FemLoadTreeTests
             var combo = Assert.Single(tree.CombinationsSubNode.Items);
             Assert.Equal("C1", combo.Label);
             Assert.Equal(2, combo.Terms.Count);
+            // Подузлы типов: тип не задан — C; пустые типы не показываются.
+            var group = Assert.Single(tree.CombinationsSubNode.Groups);
+            Assert.Equal("C", group.Type);
+            Assert.Same(combo, Assert.Single(group.Items));
 
             // Несохранённая сессия редактора: загружение переименовано и добавлено, комбинация удалена.
             var session = new CScore.Fem.Editing.FemSchemaEditSession(schema);
@@ -94,6 +98,7 @@ public sealed class FemLoadTreeTests
             Assert.Equal(["1. G", "2. Q1", "3. W"], loads.Items.Select(i => i.Label));
             Assert.Equal([true, false, false], loads.Items.Select(i => i.IsActive)); // «Q» в сессии нет — активно первое
             Assert.Empty(tree.CombinationsSubNode.Items);
+            Assert.Empty(tree.CombinationsSubNode.Groups);
 
             db.SetFemActiveLoadCaseTag(schema.Id, null);
             Assert.Null(db.GetFemActiveLoadCaseTag(schema.Id));

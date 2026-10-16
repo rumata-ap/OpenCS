@@ -6,15 +6,31 @@ namespace CScore.Fem.Combinations;
 
 /// <summary>
 /// Отбор комбинаций из огибающей: <paramref name="Tolerance"/> — допуск к экстремуму огибающей (доля, 0,03 = 3 %),
-/// <paramref name="MaxCount"/> — не более стольких комбинаций (0 — без ограничения).
+/// <paramref name="MaxCount"/> — не более стольких комбинаций в каждой группе (0 — без ограничения).
 /// </summary>
-public sealed record FemEnvelopeSelectionOptions(double Tolerance = 0.03, int MaxCount = 0);
+public sealed record FemEnvelopeSelectionOptions(double Tolerance = 0.03, int MaxCount = 0)
+{
+    /// <summary>Группы C/CL/N/NL/A; null — <see cref="FemEnvelopeCombinations.DefaultGroups"/>.</summary>
+    public IReadOnlyList<string>? Groups { get; init; }
+
+    /// <summary>Группы строкой настроек «C,CL» (порядок — как в <see cref="FemCombinationTypes.All"/>).</summary>
+    public string GroupsText => string.Join(",",
+        FemCombinationTypes.All.Where(g => (Groups ?? FemEnvelopeCombinations.DefaultGroups).Contains(g)));
+
+    /// <summary>Группы из строки настроек; неизвестные пропускаются, пусто — null.</summary>
+    public static IReadOnlyList<string>? ParseGroups(string? text)
+    {
+        var groups = (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(g => FemCombinationTypes.All.Contains(g)).Distinct().ToList();
+        return groups.Count == 0 ? null : groups;
+    }
+}
 
 /// <summary>
-/// Итог отбора: формул-кандидатов (уникальных), отобрано, троек «строка × компонента × знак» огибающей и сколько
-/// из них воспроизведено отобранными формулами с допуском.
+/// Итог отбора по группе: формул-кандидатов (уникальных), отобрано, троек «строка × компонента × знак» огибающей и
+/// сколько из них воспроизведено отобранными формулами с допуском.
 /// </summary>
-public sealed record FemEnvelopeSelectionReport(int Candidates, int Selected, long Triples, long Covered)
+public sealed record FemEnvelopeSelectionReport(string Group, int Candidates, int Selected, long Triples, long Covered)
 {
     public double CoveredShare => Triples == 0 ? 1 : (double)Covered / Triples;
 }
@@ -30,6 +46,9 @@ public static class FemEnvelopeCombinations
     /// строки) не требуют своих формул.
     /// </summary>
     public const double AbsoluteFloorShare = 1e-3;
+
+    /// <summary>Группы по умолчанию: основное C и, при особых загружениях, особое A.</summary>
+    public static IReadOnlyList<string> DefaultGroups { get; } = [FemCombinationTypes.C, FemCombinationTypes.A];
 
     /// <summary>
     /// Имя набора усилий загружения в формате <see cref="SP20Combinations.ParseForceSetName"/>:
@@ -55,87 +74,117 @@ public static class FemEnvelopeCombinations
     /// </summary>
     public static IReadOnlyList<FemLoadCombination> FromLoadCaseForceSets(
         IReadOnlyList<(ForceSet Set, FemLoadCase LoadCase)> sets, Sp20GammaDefaults defaults, List<string> warnings,
-        string tagPrefix = "Огибающая") => Select(sets, defaults, warnings, null, tagPrefix).Combinations;
+        string tagPrefix = "Огибающая") =>
+        Select(sets, defaults, Sp20LoadValueKind.Normative, warnings, null, null, tagPrefix).Combinations;
 
     /// <summary>
-    /// Формулы огибающей (<see cref="FromLoadCaseForceSets"/>) с отбором покрывающего набора: жадно берётся формула,
-    /// воспроизводящая экстремум с допуском в наибольшем числе ещё не покрытых троек «строка × компонента × знак»
-    /// (все виды наборов и типы сочетаний вместе), пока покрываются новые тройки или не набрано
-    /// <see cref="FemEnvelopeSelectionOptions.MaxCount"/>. Комбинации — в порядке отбора (первые важнее).
-    /// <paramref name="options"/> = null — все уникальные формулы без отбора.
+    /// Формулы огибающей по группам <paramref name="groups"/> (C/CL/N/NL, A — только при особых загружениях; null —
+    /// группы <paramref name="options"/>, без них — <see cref="DefaultGroups"/>): огибающая каждой группы — <see cref="SP20Combinations.SP20EnvelopeAndCasesForGroup"/>
+    /// с видом величин и долей длительной части загружений. С <paramref name="options"/> — отбор покрывающего набора в
+    /// каждой группе: жадно берётся формула, воспроизводящая экстремум с допуском в наибольшем числе ещё не покрытых
+    /// троек «строка × компонента × знак» (виды наборов вместе), пока покрываются новые тройки или не набрано
+    /// <see cref="FemEnvelopeSelectionOptions.MaxCount"/>; комбинации — в порядке отбора (первые важнее).
+    /// <paramref name="options"/> = null — все уникальные формулы. Имена — «Огибающая C 001».
     /// </summary>
-    public static (IReadOnlyList<FemLoadCombination> Combinations, FemEnvelopeSelectionReport Report) Select(
-        IReadOnlyList<(ForceSet Set, FemLoadCase LoadCase)> sets, Sp20GammaDefaults defaults, List<string> warnings,
-        FemEnvelopeSelectionOptions? options, string tagPrefix = "Огибающая")
+    public static (IReadOnlyList<FemLoadCombination> Combinations, IReadOnlyList<FemEnvelopeSelectionReport> Reports) Select(
+        IReadOnlyList<(ForceSet Set, FemLoadCase LoadCase)> sets, Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind,
+        List<string> warnings, IReadOnlyCollection<string>? groups, FemEnvelopeSelectionOptions? options,
+        string tagPrefix = "Огибающая")
+    {
+        bool hasAccidental = sets.Any(s => FemCombinationCoefficients.LoadType(s.LoadCase) == NormLoadType.Accidental);
+        var requested = FemCombinationTypes.All.Where(g => (groups ?? options?.Groups ?? DefaultGroups).Contains(g)).ToList();
+        var combinations = new List<FemLoadCombination>();
+        var reports = new List<FemEnvelopeSelectionReport>();
+        foreach (string group in requested)
+        {
+            if (group == FemCombinationTypes.A && !hasAccidental) continue;
+            var (candidates, blocks) = Candidates(sets, defaults, valueKind, group, warnings);
+            long triples = blocks.Sum(b => b.Triples);
+            List<FemLoadCombination> selected;
+            long covered = triples;
+            if (options == null) selected = candidates;
+            else
+            {
+                (var order, covered) = GreedyCover(candidates, blocks, options);
+                selected = order.Select(index => candidates[index]).ToList();
+            }
+            combinations.AddRange(selected.Select((c, rank) => c with { Tag = $"{tagPrefix} {group} {rank + 1:D3}" }));
+            reports.Add(new FemEnvelopeSelectionReport(group, candidates.Count, selected.Count, triples, covered));
+        }
+        return (combinations, reports);
+    }
+
+    /// <summary>Уникальные формулы огибающей группы по видам наборов и блоки огибающей для отбора.</summary>
+    static (List<FemLoadCombination> Candidates, List<Block> Blocks) Candidates(
+        IReadOnlyList<(ForceSet Set, FemLoadCase LoadCase)> sets, Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind,
+        string group, List<string> warnings)
     {
         var unique = new Dictionary<string, FemLoadCombination>(StringComparer.Ordinal);
         var blocks = new List<Block>();
-        bool hasAccidental = sets.Any(s => FemCombinationCoefficients.LoadType(s.LoadCase) == NormLoadType.Accidental);
-        foreach (var group in sets.GroupBy(s => s.Set.Kind))
+        // В N/NL постоянные берутся одним коэффициентом: снижение веса (п. 7.3) — только в C/CL.
+        bool reducedApplies = group is FemCombinationTypes.C or FemCombinationTypes.CL;
+        foreach (var kind in sets.GroupBy(s => s.Set.Kind))
         {
-            var items = group.ToList();
+            var items = kind.ToList();
             var caseIdByTitle = new Dictionary<string, int>(StringComparer.Ordinal);
+            var shares = new Dictionary<string, double>(StringComparer.Ordinal);
             foreach (var (set, loadCase) in items)
-                caseIdByTitle[SP20Combinations.ParseForceSetName(set.Tag).Title] = loadCase.Id;
-            var combTypes = hasAccidental ? new[] { CombType.Fundamental, CombType.Accidental } : [CombType.Fundamental];
-            foreach (var combType in combTypes)
             {
-                List<GeneratedCase> cases;
-                Envelope envelope;
-                List<Loading> loadings;
-                try
-                {
-                    var (env, generated, lds, w) = SP20Combinations.SP20EnvelopeAndCasesFromForceSets(
-                        items.Select(i => i.Set).ToList(), combType, defaults);
-                    warnings.AddRange(w);
-                    cases = generated;
-                    envelope = env;
-                    loadings = lds;
-                }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
-                {
-                    warnings.Add(ex.Message);
-                    continue;
-                }
+                string title = SP20Combinations.ParseForceSetName(set.Tag).Title;
+                caseIdByTitle[title] = loadCase.Id;
+                if (loadCase.LongTermShare is double share) shares[title] = share;
+            }
+            List<GeneratedCase> cases;
+            Envelope envelope;
+            List<Loading> loadings;
+            try
+            {
+                var (env, generated, lds, w) = SP20Combinations.SP20EnvelopeAndCasesForGroup(
+                    items.Select(i => i.Set).ToList(), group, valueKind, defaults, shares);
+                foreach (var warning in w)
+                    if (!warnings.Contains(warning)) warnings.Add(warning);
+                cases = generated;
+                envelope = env;
+                loadings = lds;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+            {
+                if (!warnings.Contains(ex.Message)) warnings.Add(ex.Message);
+                continue;
+            }
 
-                string type = combType == CombType.Accidental ? FemCombinationTypes.A : FemCombinationTypes.C;
-                var forcesByCase = new Dictionary<int, double[,]>();
-                foreach (var loading in loadings)
-                    if (caseIdByTitle.TryGetValue(loading.Name, out int id)) forcesByCase[id] = loading.Forces;
-                blocks.Add(new Block(type, envelope, forcesByCase));
-                foreach (var generatedCase in cases)
+            // Коэффициенты формул — к величинам наборов (у особых расчётных огибающая считает по F/γf и множит
+            // коэффициенты обратно), поэтому значения формул — по исходным матрицам наборов.
+            var forcesByCase = new Dictionary<int, double[,]>();
+            foreach (var raw in SP20Combinations.ForceSetsToLoadings(items.Select(i => i.Set).ToList(), defaults).Loadings)
+                if (caseIdByTitle.TryGetValue(raw.Name, out int id) && loadings.Any(l => l.Name == raw.Name))
+                    forcesByCase[id] = raw.Forces;
+            blocks.Add(new Block(envelope, forcesByCase));
+            foreach (var generatedCase in cases)
+            {
+                var coefficients = new SortedDictionary<int, double>();
+                var roles = new Dictionary<int, Sp20TermRole>();
+                foreach (var (name, coefficient) in generatedCase.Active)
                 {
-                    var coefficients = new SortedDictionary<int, double>();
-                    var roles = new Dictionary<int, Sp20TermRole>();
-                    foreach (var (name, coefficient) in generatedCase.Active)
-                    {
-                        if (!caseIdByTitle.TryGetValue(name, out int caseId)) continue;
-                        coefficients[caseId] = coefficient;
-                        if (generatedCase.Roles.TryGetValue(name, out var role)) roles[caseId] = role;
-                    }
-                    if (coefficients.Count == 0) continue;
-                    string key = type + "|" + string.Join("|", coefficients.Select(p =>
-                        $"{p.Key}={p.Value.ToString("R", CultureInfo.InvariantCulture)}:{roles.GetValueOrDefault(p.Key)}"));
-                    if (unique.ContainsKey(key)) continue;
-                    unique[key] = new FemLoadCombination($"{tagPrefix} {unique.Count + 1:D3}", type,
-                        new Dictionary<int, double>(coefficients), [], new Dictionary<string, double>(generatedCase.Active))
-                    { Roles = roles };
+                    if (!caseIdByTitle.TryGetValue(name, out int caseId)) continue;
+                    coefficients[caseId] = coefficient;
+                    if (generatedCase.Roles.TryGetValue(name, out var role))
+                        roles[caseId] = !reducedApplies && role == Sp20TermRole.PermanentReduced ? Sp20TermRole.Permanent : role;
                 }
+                if (coefficients.Count == 0) continue;
+                string key = string.Join("|", coefficients.Select(p =>
+                    $"{p.Key}={p.Value.ToString("R", CultureInfo.InvariantCulture)}:{roles.GetValueOrDefault(p.Key)}"));
+                if (unique.ContainsKey(key)) continue;
+                unique[key] = new FemLoadCombination("", group, new Dictionary<int, double>(coefficients), [],
+                    new Dictionary<string, double>(generatedCase.Active))
+                { Roles = roles };
             }
         }
-
-        var candidates = unique.Values.ToList();
-        long triples = blocks.Sum(b => b.Triples);
-        if (options == null)
-            return (candidates, new FemEnvelopeSelectionReport(candidates.Count, candidates.Count, triples, triples));
-
-        var (order, covered) = GreedyCover(candidates, blocks, options);
-        var selected = order.Select((index, rank) => candidates[index] with { Tag = $"{tagPrefix} {rank + 1:D3}" }).ToList();
-        return (selected, new FemEnvelopeSelectionReport(candidates.Count, selected.Count, triples, covered));
+        return (unique.Values.ToList(), blocks);
     }
 
-    /// <summary>Огибающая одного вида наборов и типа сочетания: усилия загружений по Id и экстремумы.</summary>
-    sealed record Block(string Type, Envelope Envelope, Dictionary<int, double[,]> Forces)
+    /// <summary>Огибающая одного вида наборов группы: усилия загружений по Id и экстремумы.</summary>
+    sealed record Block(Envelope Envelope, Dictionary<int, double[,]> Forces)
     {
         public int Sections => Envelope.NSections;
         public int Components => Envelope.ComponentNames.Length;
@@ -163,7 +212,6 @@ public static class FemEnvelopeCombinations
             for (int b = 0; b < blocks.Count; b++)
             {
                 var block = blocks[b];
-                if (block.Type != combination.CombinationType) continue;
                 var terms = combination.Coefficients.Where(p => block.Forces.ContainsKey(p.Key))
                     .Select(p => (Coefficient: p.Value, Forces: block.Forces[p.Key])).ToArray();
                 int nc = block.Components;

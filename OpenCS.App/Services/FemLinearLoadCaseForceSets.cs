@@ -93,20 +93,25 @@ public static class FemLinearLoadCaseForceSets
     public static IReadOnlyList<FemLoadDefinition> EnvelopeDefinitions(FemSchema schema, Result result,
         Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings,
         IReadOnlyList<FemLoadCase>? loadCases = null) =>
-        SelectEnvelopeDefinitions(schema, result, defaults, valueKind, warnings, null, loadCases).Definitions;
+        SelectEnvelopeDefinitions(schema, result, defaults, valueKind, warnings, null, null, loadCases).Definitions;
 
     /// <summary>
-    /// <see cref="EnvelopeDefinitions"/> с отбором покрывающего набора формул (<see cref="FemEnvelopeCombinations.Select"/>):
-    /// допуск к огибающей и лимит числа комбинаций; <paramref name="selection"/> = null — все уникальные формулы.
+    /// <see cref="EnvelopeDefinitions"/> по группам <paramref name="groups"/> (C/CL/N/NL/A; null — C и при особых A) с
+    /// отбором покрывающего набора формул (<see cref="FemEnvelopeCombinations.Select"/>): допуск к огибающей и лимит
+    /// числа комбинаций в группе; <paramref name="selection"/> = null — все уникальные формулы.
     /// </summary>
-    public static (IReadOnlyList<FemLoadDefinition> Definitions, FemEnvelopeSelectionReport Report) SelectEnvelopeDefinitions(
-        FemSchema schema, Result result, Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings,
-        FemEnvelopeSelectionOptions? selection, IReadOnlyList<FemLoadCase>? loadCases = null)
+    public static (IReadOnlyList<FemLoadDefinition> Definitions, IReadOnlyList<FemEnvelopeSelectionReport> Reports)
+        SelectEnvelopeDefinitions(FemSchema schema, Result result, Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind,
+            List<string> warnings, FemEnvelopeSelectionOptions? selection, IReadOnlyCollection<string>? groups,
+            IReadOnlyList<FemLoadCase>? loadCases = null)
     {
-        var (combinations, report) = FemEnvelopeCombinations.Select(result.Sets, defaults, warnings, selection);
+        // Доля длительной части — из загружений редактора (несохранённая правка).
+        var byId = (loadCases ?? schema.LoadCases).GroupBy(lc => lc.Id).ToDictionary(g => g.Key, g => g.First());
+        var sets = result.Sets.Select(s => (s.Set, byId.TryGetValue(s.LoadCase.Id, out var lc) ? lc : s.LoadCase)).ToList();
+        var (combinations, reports) = FemEnvelopeCombinations.Select(sets, defaults, valueKind, warnings, groups, selection);
         var definitions = FemLoadDefinitionFactory.FromCombinations(schema, loadCases ?? schema.LoadCases, combinations,
             "envelope", FemLoadExpressionMode.Sum, defaults, valueKind);
-        return (definitions, report);
+        return (definitions, reports);
     }
 
     /// <summary>Последняя линейная постановка CSfea схемы с сохранённым результатом; null — такой нет.</summary>

@@ -103,15 +103,44 @@ public sealed class FemCombinationTreeItem
     }
 }
 
-/// <summary>Ветка «Комбинации (N)»: у своих схем видна и пустой, у импортированных — при N > 0.</summary>
+/// <summary>Подузел типа комбинаций в ветке «Комбинации»: «C — ПС1, полные (12)».</summary>
+public sealed class FemCombinationGroupNode : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Тип C/CL/N/NL/A.</summary>
+    public string Type { get; }
+    public string Title => Loc.S("FemCombinationGroup" + Type);
+    public FemTreeItems<FemCombinationTreeItem> Items { get; } = [];
+    public int Count => Items.Count;
+
+    internal FemCombinationGroupNode(string type) => Type = type;
+
+    internal void Reset(IEnumerable<FemCombinationTreeItem> items)
+    {
+        Items.Reset(items);
+        PropertyChanged?.Invoke(this, new(nameof(Count)));
+    }
+}
+
+/// <summary>
+/// Ветка «Комбинации (N)»: у своих схем видна и пустой, у импортированных — при N > 0. Внутри — подузлы по типам
+/// (C, CL, N, NL, A), только непустые; узлы типов сохраняются между перезагрузками (раскрытие не сбрасывается).
+/// </summary>
 public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public FemSchema Schema { get; }
+    /// <summary>Все комбинации подряд.</summary>
     public FemTreeItems<FemCombinationTreeItem> Items { get; } = [];
+    /// <summary>Непустые подузлы типов в порядке C, CL, N, NL, A.</summary>
+    public FemTreeItems<FemCombinationGroupNode> Groups { get; } = [];
     public int Count => Items.Count;
     public override bool IsVisible => Items.Count > 0 || Schema.SourceType is "internal" or "submodel";
+
+    readonly Dictionary<string, FemCombinationGroupNode> _groups =
+        FemCombinationTypes.All.ToDictionary(t => t, t => new FemCombinationGroupNode(t));
 
     internal FemCombinationsSubNode(FemSchema schema) => Schema = schema;
 
@@ -121,6 +150,10 @@ public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
     internal void Reset(IReadOnlyList<FemLoadDefinition> definitions, IReadOnlyList<FemLoadCase> cases)
     {
         Items.Reset(definitions.Select(d => new FemCombinationTreeItem(Schema, d, cases)));
+        var byType = Items.ToLookup(i => FemCombinationTypes.Normalize(i.TypeText));
+        foreach (var (type, node) in _groups) node.Reset(byType[type]);
+        var visible = FemCombinationTypes.All.Select(t => _groups[t]).Where(g => g.Count > 0).ToList();
+        if (!visible.SequenceEqual(Groups)) Groups.Reset(visible);
         PropertyChanged?.Invoke(this, new(nameof(Count)));
         PropertyChanged?.Invoke(this, new(nameof(IsVisible)));
     }

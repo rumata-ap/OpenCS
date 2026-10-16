@@ -1663,13 +1663,22 @@
                   </DataTemplate>
 
                   <!-- «Комбинации (N)»: щелчок — нагрузки комбинации в 3D (без смены активного загружения) -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationsSubNode}" ItemsSource="{Binding Items}">
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationsSubNode}" ItemsSource="{Binding Groups}">
                      <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
                         <StackPanel.ContextMenu>
                            <ContextMenu/>
                         </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combinations}"/>
                         <TextBlock Text="{DynamicResource FemCombinationsNode}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел типа комбинаций: «C — ПС1, полные (12)» -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationGroupNode}" ItemsSource="{Binding Items}">
+                     <StackPanel Orientation="Horizontal">
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combinations}"/>
+                        <TextBlock Text="{Binding Title}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>

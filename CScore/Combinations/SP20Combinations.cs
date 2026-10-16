@@ -317,12 +317,13 @@ namespace CScore.Combinations
       /// Огибающая и формулы по группе <c>C/CL/N/NL</c> (основное сочетание) или <c>A</c> (особое) с учётом вида
       /// величин нагрузок в наборах (спека 2026-10-14, п. 5.4): C/CL — ×γf у нормативных, ×1 у расчётных; N/NL — ×1
       /// у нормативных, ÷γf у расчётных; A — γf = 1 (у расчётных ÷γf). В CL/NL особые не входят, кратковременные —
-      /// только долей длительной части, которую имя набора не хранит: они не входят (с предупреждением).
+      /// только долей длительной части: имя набора её не хранит, поэтому доля — из <paramref name="longTermShares"/>
+      /// (по заголовку набора, как у МКЭ-загружений); без доли кратковременные не входят (с предупреждением).
       /// Коэффициенты формул — к величинам наборов.
       /// </summary>
       public static (Envelope Env, List<GeneratedCase> Cases, List<Loading> Loadings, List<string> Warnings)
          SP20EnvelopeAndCasesForGroup(IList<ForceSet> forceSets, string group, Sp20LoadValueKind valueKind,
-            Sp20GammaDefaults? gammaDefaults = null)
+            Sp20GammaDefaults? gammaDefaults = null, IReadOnlyDictionary<string, double>? longTermShares = null)
       {
          var (loadings, warnings) = ForceSetsToLoadings(forceSets, gammaDefaults);
          bool accidental = group == "A";
@@ -335,7 +336,12 @@ namespace CScore.Combinations
          foreach (var ld in loadings)
          {
             if (longTerm && ld.LoadType == NormLoadType.Accidental) continue;
-            if (longTerm && ld.LoadType == NormLoadType.ShortTerm) { skippedShort++; continue; }
+            double share = 1;
+            if (longTerm && ld.LoadType == NormLoadType.ShortTerm)
+            {
+               share = longTermShares != null && longTermShares.TryGetValue(ld.Name, out double s) ? s : 0;
+               if (share <= 0) { skippedShort++; continue; }
+            }
             double gu = ld.GammaFUnfav, gf = ld.GammaFFav;
             var forces = ld.Forces;
             if (accidental)
@@ -349,10 +355,10 @@ namespace CScore.Combinations
             }
             else if (serviceability) (gu, gf) = design ? (1 / gu, 1 / gu) : (1, 1);
             else if (design) (gu, gf) = (1, gf / gu);
-            adjusted.Add(Rebuild(ld, forces, gu, gf));
+            adjusted.Add(Rebuild(ld, forces, gu * share, gf * share));
          }
          if (skippedShort > 0)
-            warnings.Add($"Группа {group}: доля длительной части у наборов усилий не задаётся — кратковременные наборы " +
+            warnings.Add($"Группа {group}: доля длительной части не задана — кратковременные наборы " +
                          $"({skippedShort}) в сочетание не входят.");
          if (adjusted.Count == 0)
             throw new InvalidOperationException($"Группа {group}: нет наборов, входящих в сочетание.");

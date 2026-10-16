@@ -213,6 +213,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("femEnvelopeMaxCombinations")]
       public int FemEnvelopeMaxCombinations { get; set; }
 
+      /// <summary>«Из огибающей линейного расчёта»: группы через запятую (C, CL, N, NL, A).</summary>
+      [JsonPropertyName("femEnvelopeGroups")]
+      public string FemEnvelopeGroups { get; set; } = "C,A";
+
       // ── OpenSees (расчёт схемы: линейный и нелинейный) ──────────────────
       // Solver-настройки нелинейного FEM-расчёта — по аналогии с NewtonTolerance/NewtonMaxIter
       // выше (глобальные, не дублируются в каждой постановке FemAnalysis).
@@ -374,6 +378,7 @@ namespace OpenCS.Utilites
          Sp20LoadValueKind        = Sp20LoadValueKind,
          FemEnvelopeTolerancePercent = FemEnvelopeTolerancePercent,
          FemEnvelopeMaxCombinations = FemEnvelopeMaxCombinations,
+         FemEnvelopeGroups = FemEnvelopeGroups,
          OpenSeesDefaultGjKnm2    = OpenSeesDefaultGjKnm2,
          OpenSeesAutoGjFromSection = OpenSeesAutoGjFromSection,
          SubmodelLinearPrecheck   = SubmodelLinearPrecheck,

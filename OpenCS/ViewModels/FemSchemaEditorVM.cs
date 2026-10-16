@@ -996,12 +996,17 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var analyses = Session.Schema.Analyses.Count > 0 ? Session.Schema.Analyses.ToList() : _db.GetFemAnalyses(Session.Schema.Id);
         if (FemLinearLoadCaseForceSets.LatestLinear(analyses) is not { } analysis) return Loc.S("FemEnvelopeNoLinearResult");
         var settings = _app.CalcSettings;
-        var current = new FemEnvelopeSelectionOptions(settings.FemEnvelopeTolerancePercent / 100, settings.FemEnvelopeMaxCombinations);
+        var current = new FemEnvelopeSelectionOptions(settings.FemEnvelopeTolerancePercent / 100, settings.FemEnvelopeMaxCombinations)
+        {
+            Groups = FemEnvelopeSelectionOptions.ParseGroups(settings.FemEnvelopeGroups)
+        };
         if (askOptions(analysis, current) is not { } selection) return null;
-        if (selection != current)
+        if (selection.Tolerance != current.Tolerance || selection.MaxCount != current.MaxCount
+            || selection.GroupsText != current.GroupsText)
         {
             settings.FemEnvelopeTolerancePercent = selection.Tolerance * 100;
             settings.FemEnvelopeMaxCombinations = selection.MaxCount;
+            settings.FemEnvelopeGroups = selection.GroupsText;
             _db.SaveCalcSettings(settings);
         }
 
@@ -1016,24 +1021,26 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         try
         {
             var built = await Task.Run<(IReadOnlyList<FemLoadDefinition> Definitions, List<string> Warnings,
-                FemEnvelopeSelectionReport? Report)?>(() =>
+                IReadOnlyList<FemEnvelopeSelectionReport> Reports)?>(() =>
             {
                 var result = FemLinearLoadCaseForceSets.BuildFromDatabase(_db, schema, analysis, [], defaults, loadCases);
                 if (result == null) return null;
                 var warnings = new List<string>(result.Warnings);
-                if (result.Sets.Count == 0) return ([], warnings, null);
-                var (definitions, report) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result,
-                    defaults, valueKind, warnings, selection, loadCases);
-                return (definitions, warnings, report);
+                if (result.Sets.Count == 0) return ([], warnings, []);
+                var (definitions, reports) = FemLinearLoadCaseForceSets.SelectEnvelopeDefinitions(schema, result,
+                    defaults, valueKind, warnings, selection, selection.Groups, loadCases);
+                return (definitions, warnings, reports);
             });
             if (built is not { } b) return string.Format(Loc.S("FemEnvelopeResultMissing"), analysis.Tag);
             foreach (var warning in b.Warnings) _logService.Warning(warning);
-            if (b.Report is { } report)
+            string tolerance = (selection.Tolerance * 100).ToString("0.##", CultureInfo.CurrentCulture);
+            foreach (var report in b.Reports)
             {
-                _logService.Info(string.Format(Loc.S("FemEnvelopeSelected"), report.Selected, report.Candidates,
-                    (selection.Tolerance * 100).ToString("0.##", CultureInfo.CurrentCulture), report.CoveredShare));
+                _logService.Info(string.Format(Loc.S("FemEnvelopeSelected"), report.Group, report.Selected, report.Candidates,
+                    tolerance, report.CoveredShare));
                 if (report.Covered < report.Triples && selection.MaxCount > 0 && report.Selected >= selection.MaxCount)
-                    _logService.Warning(string.Format(Loc.S("FemEnvelopeSelectedPartial"), selection.MaxCount, report.CoveredShare));
+                    _logService.Warning(string.Format(Loc.S("FemEnvelopeSelectedPartial"), report.Group, selection.MaxCount,
+                        report.CoveredShare));
             }
             if (b.Definitions.Count == 0) return string.Format(Loc.S("FemEnvelopeNothing"), analysis.Tag);
 
