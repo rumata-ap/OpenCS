@@ -5843,6 +5843,10 @@ namespace OpenCS
          if (changed)
             analysis.InvalidateResult();
          db.SaveFemAnalysis(analysis);
+         // FemAnalysis без INotifyPropertyChanged: правка того же объекта (имя, статус после сброса результата)
+         // не перерисует узел дерева — пересобрать вид коллекции.
+         if (changed)
+            System.Windows.Data.CollectionViewSource.GetDefaultView(schema.Analyses)?.Refresh();
          CommandManager.InvalidateRequerySuggested();
       }
 
