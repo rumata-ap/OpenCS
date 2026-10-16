@@ -5847,15 +5847,16 @@ namespace OpenCS
             CsfeaContext = CsfeaRunContext()
          };
          if (dlg.ShowDialog() != true) return;
-         bool changed = analysis.Tag != dlg.Result.Tag ||
-            analysis.Kind != dlg.Result.Kind ||
+         // Переименование результат не сбрасывает — только смена вида, нагрузки или параметров.
+         bool inputChanged = analysis.Kind != dlg.Result.Kind ||
             analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
             analysis.ParamsJson != dlg.Result.ParamsJson;
+         bool changed = inputChanged || analysis.Tag != dlg.Result.Tag;
          analysis.Tag = dlg.Result.Tag;
          analysis.Kind = dlg.Result.Kind;
          analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
          analysis.ParamsJson = dlg.Result.ParamsJson;
-         if (changed)
+         if (inputChanged)
             analysis.InvalidateResult();
          db.SaveFemAnalysis(analysis);
          // FemAnalysis без INotifyPropertyChanged: правка того же объекта (имя, статус после сброса результата)
