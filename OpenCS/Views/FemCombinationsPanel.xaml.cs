@@ -37,6 +37,7 @@ public partial class FemCombinationsPanel : UserControl
     void CopyCombination_Click(object sender, RoutedEventArgs e) => _vm?.CopyCombination();
     void GenerateSp20_Click(object sender, RoutedEventArgs e) => _vm?.GenerateSp20();
     void RecomputeAuto_Click(object sender, RoutedEventArgs e) => _vm?.RecomputeAuto();
+    void GenerateFromEnvelope_Click(object sender, RoutedEventArgs e) => _vm?.GenerateFromEnvelope();
 
     /// <summary>Поле правки коэффициента: фокус и выделение — сразу вводить число.</summary>
     void CoefficientEditor_Loaded(object sender, RoutedEventArgs e)

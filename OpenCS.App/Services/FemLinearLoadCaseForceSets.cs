@@ -4,6 +4,7 @@ using CScore.Fem;
 using CScore.Fem.Combinations;
 using CSfea.CScoreBridge.Structural;
 using OpenCS.Tasks;
+using OpenCS.Utilites;
 
 namespace OpenCS.Services;
 
@@ -28,10 +29,13 @@ public static class FemLinearLoadCaseForceSets
 
     /// <summary>
     /// Наборы по стадиям линейной постановки, каждая из которых — одно загружение схемы: поля последнего сошедшегося
-    /// шага стадии с записанными полями. Имена — «Q(γf=1.4): ЗГ2 — расчёт — пластины [группа]».
+    /// шага стадии с записанными полями. Имена — «Q(γf=1.4): ЗГ2 — расчёт — пластины [группа]»; занятое имя
+    /// получает номер после заголовка («… — пластины (2) [группа]»).
     /// </summary>
+    /// <param name="loadCases">Загружения с текущими атрибутами (редактор схемы); null — загружения схемы.</param>
     public static Result Build(FemSchema schema, FemAnalysis analysis, FemCsfeaResultSummary summary,
-        Func<int, RcSecantStepFields?> loadFields, IReadOnlyCollection<ForceSet> existing, Sp20GammaDefaults defaults)
+        Func<int, RcSecantStepFields?> loadFields, IReadOnlyCollection<ForceSet> existing, Sp20GammaDefaults defaults,
+        IReadOnlyList<FemLoadCase>? loadCases = null)
     {
         var sets = new List<(ForceSet, FemLoadCase)>();
         var warnings = new List<string>();
@@ -42,7 +46,8 @@ public static class FemLinearLoadCaseForceSets
         }
 
         var stages = FemAnalysisParams.Parse(analysis.ParamsJson).ResolveStages(analysis);
-        var byId = schema.LoadCases.ToDictionary(lc => lc.Id);
+        var byId = (loadCases ?? schema.LoadCases).GroupBy(lc => lc.Id).ToDictionary(g => g.Key, g => g.First());
+        var tags = existing.Select(fs => fs.Tag).ToHashSet(StringComparer.Ordinal);
         var used = new HashSet<int>();
         var numbered = existing.ToList();
         for (int i = 0; i < stages.Count; i++)
@@ -68,7 +73,11 @@ public static class FemLinearLoadCaseForceSets
             foreach (var set in FemCsfeaForceSetBuilder.Build(schema, analysis.Tag, step, loadCase.Tag, fields, numbered))
             {
                 string part = set.Kind == "shell" ? "пластины" : "стержни";
-                set.Tag = FemEnvelopeCombinations.ForceSetTag(loadCase, $"{loadCase.Tag} — {analysis.Tag} — {part}", defaults);
+                string title = $"{loadCase.Tag} — {analysis.Tag} — {part}";
+                set.Tag = FemEnvelopeCombinations.ForceSetTag(loadCase, title, defaults);
+                for (int n = 2; tags.Contains(set.Tag); n++)
+                    set.Tag = FemEnvelopeCombinations.ForceSetTag(loadCase, $"{title} ({n})", defaults);
+                tags.Add(set.Tag);
                 numbered.Add(set);
                 sets.Add((set, loadCase));
             }
@@ -80,11 +89,38 @@ public static class FemLinearLoadCaseForceSets
     /// «Комбинации из огибающей линейного расчёта»: уникальные формулы огибающей усилий по наборам загружений —
     /// определения схемы с «авто»-слагаемыми (тип C, при особых загружениях и A).
     /// </summary>
+    /// <param name="loadCases">Загружения с текущими атрибутами (редактор схемы); null — загружения схемы.</param>
     public static IReadOnlyList<FemLoadDefinition> EnvelopeDefinitions(FemSchema schema, Result result,
-        Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings)
+        Sp20GammaDefaults defaults, Sp20LoadValueKind valueKind, List<string> warnings,
+        IReadOnlyList<FemLoadCase>? loadCases = null)
     {
         var combinations = FemEnvelopeCombinations.FromLoadCaseForceSets(result.Sets, defaults, warnings);
-        return FemLoadDefinitionFactory.FromCombinations(schema, schema.LoadCases, combinations, "envelope",
+        return FemLoadDefinitionFactory.FromCombinations(schema, loadCases ?? schema.LoadCases, combinations, "envelope",
             FemLoadExpressionMode.Sum, defaults, valueKind);
+    }
+
+    /// <summary>Последняя линейная постановка CSfea схемы с сохранённым результатом; null — такой нет.</summary>
+    public static FemAnalysis? LatestLinear(IEnumerable<FemAnalysis> analyses) => analyses
+        .Where(a => a.Kind == FemCsfeaRunner.LinearAnalysisKind && a.ResultId is > 0
+            && a.Status is "ok" or "not_converged" or "partial")
+        .OrderByDescending(a => a.Id)
+        .FirstOrDefault();
+
+    /// <summary>
+    /// <see cref="Build"/> по сохранённому результату постановки: сводка — из результата, поля шагов — из БД.
+    /// null — результат не найден или повреждён.
+    /// </summary>
+    public static Result? BuildFromDatabase(DatabaseService db, FemSchema schema, FemAnalysis analysis,
+        IReadOnlyCollection<ForceSet> existing, Sp20GammaDefaults defaults, IReadOnlyList<FemLoadCase>? loadCases = null)
+    {
+        if (analysis.ResultId is not int resultId || db.GetCalcResultById(resultId) is not { } result
+            || FemCsfeaResultSummary.Parse(result.DataJson) is not { } summary) return null;
+        RcSecantStepFields? Fields(int stepN)
+        {
+            if (db.GetFemResultStep(resultId, stepN) is not { } data) return null;
+            try { return FemCsfeaStepFieldsCodec.Unpack(data); }
+            catch (Exception ex) when (ex is System.IO.InvalidDataException or System.IO.EndOfStreamException) { return null; }
+        }
+        return Build(schema, analysis, summary, Fields, existing, defaults, loadCases);
     }
 }

@@ -99,6 +99,9 @@
                         IsEnabled="{Binding HasSelection}">
                     <Image Source="{StaticResource CmdIcon_Copy}" Width="16" Height="16"/>
                 </Button>
+                <Button Style="{StaticResource IconButton25}" Click="GenerateFromEnvelope_Click" ToolTip="{DynamicResource FemCombinationsEnvelopeTip}">
+                    <Image Source="{StaticResource CmdIcon_Diagram}" Width="16" Height="16"/>
+                </Button>
                 <Button Style="{StaticResource IconButton25}" Click="GenerateSp20_Click" ToolTip="{DynamicResource FemCombinationsSp20Tip}">
                     <Image Source="{StaticResource CmdIcon_GroupAuto}" Width="16" Height="16"/>
                 </Button>

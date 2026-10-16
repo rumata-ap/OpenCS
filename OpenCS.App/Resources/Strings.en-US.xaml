@@ -3748,7 +3748,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsResetTip">Factor 1.0 for selected load cases of the combination</system:String>
     <system:String x:Key="FemCombinationsNewTip">New combination</system:String>
     <system:String x:Key="FemCombinationsCopyTip">Copy the selected combination</system:String>
-    <system:String x:Key="FemCombinationsSp20Tip">Fundamental SP 20 combinations from schema load cases (load kind, γf, ψ, groups from load case parameters)</system:String>
+    <system:String x:Key="FemCombinationsSp20Tip">SP 20 combinations from the load vector (fallback; more exact — From linear envelope): load kind, γf and groups from load case parameters</system:String>
     <system:String x:Key="FemCombinationsDeleteTip">Delete selected combinations (single undo)</system:String>
     <system:String x:Key="FemCombinationsBadCoefficient">The factor must be a non-zero number: «{0}».</system:String>
     <system:String x:Key="FemCombinationsEmpty">No combinations — create one or generate SP 20 combinations.</system:String>
@@ -3765,6 +3765,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsRecompute">Recompute</system:String>
     <system:String x:Key="FemCombinationsRecomputeTip">Recompute auto factors of all combinations for the current γf and load value kind (one undo)</system:String>
     <system:String x:Key="FemCombinationsAutoCellTip">Auto: factor from the role, load case γf, combination type and load value kind. Type a number to set it manually</system:String>
+    <system:String x:Key="FemCombinationsEnvelopeTip">From linear envelope: from the latest CSfea linear analysis — force sets per load case, SP 20 envelope and its formulas as combinations with auto factors (for nonlinear analysis)</system:String>
+    <system:String x:Key="FemEnvelopeNoLinearResult">The schema has no CSfea linear analysis with a result — run one per load case (one row per load case).</system:String>
+    <system:String x:Key="FemEnvelopeResultMissing">Result of analysis “{0}” is missing or damaged.</system:String>
+    <system:String x:Key="FemEnvelopeNothing">No combinations from analysis “{0}” — see the log.</system:String>
+    <system:String x:Key="FemEnvelopeDescription">From the envelope of linear analysis “{0}”</system:String>
+    <system:String x:Key="FemEnvelopeCreated">Combinations from the envelope of analysis “{1}”: {0}.</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSets">Sets per load case</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Force sets (plates and bars) for each load case of the linear analysis with SP 20 load kind, γf and group in the name — for the SP 20 combinations dialog</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Analysis “{0}”: no sets per load case — see warnings above.</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Area load</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Apply parameters</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Save blocked</system:String>

@@ -5909,6 +5909,7 @@ namespace OpenCS
       {
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
          vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
+         vm.CreateLoadCaseForceSetsRequested += SaveCsfeaLoadCaseForceSets;
          if (stepIndex is int step) vm.SelectedStepIndex = Math.Clamp(step, 0, vm.MaxStepIndex);
          CurrentPage = new Views.FemCsfeaResultView(vm)
          {
@@ -5925,6 +5926,25 @@ namespace OpenCS
             if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
             LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
          }
+      }
+
+      /// <summary>
+      /// «Наборы усилий по загружениям» линейного расчёта CSfea (спека 2026-10-14, п. 5.2.3): по набору пластин и
+      /// стержней на загружение с атрибутами СП 20 в имени — их комбинирует диалог «Сочетания СП 20».
+      /// </summary>
+      public void SaveCsfeaLoadCaseForceSets(ViewModels.FemCsfeaResultVM result)
+      {
+         if (result.Analysis is not { } analysis) return;
+         var built = Services.FemLinearLoadCaseForceSets.Build(result.Schema, analysis, result.Summary, result.LoadFields,
+            ForceSets, CalcSettings.ToSp20GammaDefaults());
+         foreach (var warning in built.Warnings) LogService.Warning(warning);
+         foreach (var (fs, _) in built.Sets)
+         {
+            db.SaveForceSet(fs);
+            if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+            LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+         }
+         if (built.Sets.Count == 0) LogService.Warning(string.Format(Loc.S("FemCsfeaLoadCaseForceSetsNone"), analysis.Tag));
       }
 
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)

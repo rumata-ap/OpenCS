@@ -367,6 +367,16 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         Execute(Group(commands));
     }
 
+    /// <summary>Комбинации из огибающей последнего линейного расчёта CSfea (для нелинейного расчёта).</summary>
+    public void GenerateFromEnvelope()
+    {
+        Status = null;
+        int before = Editor.Session.LoadDefinitions.Count;
+        Status = Editor.GenerateEnvelopeLoadDefinitions();
+        if (Editor.Session.LoadDefinitions.Count > before)
+            Selected = Rows.FirstOrDefault(r => ReferenceEquals(r.Definition, Editor.Session.LoadDefinitions[before]));
+    }
+
     /// <summary>Основные сочетания по СП 20 (тот же генератор, что в дереве).</summary>
     public void GenerateSp20()
     {

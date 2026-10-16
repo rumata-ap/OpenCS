@@ -3748,7 +3748,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsResetTip">Коэффициент 1,0 выделенным загружениям комбинации</system:String>
     <system:String x:Key="FemCombinationsNewTip">Создать комбинацию</system:String>
     <system:String x:Key="FemCombinationsCopyTip">Копировать выбранную комбинацию</system:String>
-    <system:String x:Key="FemCombinationsSp20Tip">Основные сочетания по СП 20 из загружений схемы (вид нагрузки, γf, ψ, группы — из параметров загружений)</system:String>
+    <system:String x:Key="FemCombinationsSp20Tip">Сочетания по СП 20 по вектору нагрузок (запасной путь; точнее — «Из огибающей линейного расчёта»): вид нагрузки, γf и группы — из параметров загружений</system:String>
     <system:String x:Key="FemCombinationsDeleteTip">Удалить выделенные комбинации (одной отменой)</system:String>
     <system:String x:Key="FemCombinationsBadCoefficient">Коэффициент — ненулевое число: «{0}».</system:String>
     <system:String x:Key="FemCombinationsEmpty">Комбинаций нет — создайте комбинацию или сочетания по СП 20.</system:String>
@@ -3765,6 +3765,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCombinationsRecompute">Пересчитать</system:String>
     <system:String x:Key="FemCombinationsRecomputeTip">Пересчитать «авто»-коэффициенты всех комбинаций под текущие γf и вид величин нагрузок (одной отменой)</system:String>
     <system:String x:Key="FemCombinationsAutoCellTip">«Авто»: коэффициент по роли, γf загружения, типу комбинации и виду величин нагрузок. Ввод числа — задать вручную</system:String>
+    <system:String x:Key="FemCombinationsEnvelopeTip">Из огибающей линейного расчёта: по последнему линейному расчёту CSfea — наборы усилий по загружениям, огибающая по СП 20 и её формулы как комбинации с «авто»-коэффициентами (для нелинейного расчёта)</system:String>
+    <system:String x:Key="FemEnvelopeNoLinearResult">У схемы нет линейного расчёта CSfea с результатом — выполните его по загружениям (по строке на загружение).</system:String>
+    <system:String x:Key="FemEnvelopeResultMissing">Результат расчёта «{0}» не найден или повреждён.</system:String>
+    <system:String x:Key="FemEnvelopeNothing">По расчёту «{0}» комбинаций не получено — замечания в журнале.</system:String>
+    <system:String x:Key="FemEnvelopeDescription">Из огибающей линейного расчёта «{0}»</system:String>
+    <system:String x:Key="FemEnvelopeCreated">Комбинации из огибающей расчёта «{1}»: {0}.</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSets">Наборы по загружениям</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Наборы усилий (пластины и стержни) по каждому загружению линейного расчёта с видом нагрузки, γf и группой СП 20 в имени — для диалога «Сочетания СП 20»</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Расчёт «{0}»: наборы по загружениям не созданы — замечания выше.</system:String>
     <system:String x:Key="FemAreaLoadDialogTitle">Площадная нагрузка</system:String>
     <system:String x:Key="FemLoadCaseApplyParameters">Применить параметры</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Сохранение заблокировано</system:String>

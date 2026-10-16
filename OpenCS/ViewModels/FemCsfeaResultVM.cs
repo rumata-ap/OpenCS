@@ -82,6 +82,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         _db = db;
         _result = result;
         Schema = schema;
+        Analysis = analysis;
         Summary = FemCsfeaResultSummary.Parse(result.DataJson) ?? new FemCsfeaResultSummary();
         if (analysis != null && Summary.Kind == FemCsfeaRunner.LinearAnalysisKind
             && Tasks.FemAnalysisCaseNames.Resolve(schema, analysis) is { } names && names.Count == Summary.Stages.Count)
@@ -179,6 +180,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             shellFields.Add(new(FemCsfeaShellField.FoundationPressure, Loc.S("FemCsfeaFieldFoundationPressure")));
         GoToFieldsStepCommand = new RelayCommand(_ => GoToFieldsStep(), _ => FieldsStepIndex is int i && i != SelectedStepIndex);
         CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
+        CreateLoadCaseForceSetsCommand = new RelayCommand(_ => CreateLoadCaseForceSetsRequested?.Invoke(this),
+            _ => CanCreateLoadCaseForceSets);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
@@ -187,6 +190,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     }
 
     public FemSchema Schema { get; }
+
+    /// <summary>Постановка результата; null — не передана (имена стадий из сводки).</summary>
+    public FemAnalysis? Analysis { get; }
     public FemCsfeaResultSummary Summary { get; }
     public string Status { get; }
     public int ResultId => _result.Id;
@@ -526,6 +532,14 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>Наборы можно создать: у шага под ползунком записаны поля и он сошёлся.</summary>
     public bool CanCreateForceSets => Fields != null && FieldsStepIndex == SelectedStepIndex && SelectedStep?.Converged == true;
+
+    public System.Windows.Input.ICommand CreateLoadCaseForceSetsCommand { get; }
+
+    /// <summary>Запрос «наборы усилий по загружениям» линейного расчёта (обрабатывает AppViewModel).</summary>
+    public event Action<FemCsfeaResultVM>? CreateLoadCaseForceSetsRequested;
+
+    /// <summary>Наборы по загружениям — только у линейного расчёта с известной постановкой.</summary>
+    public bool CanCreateLoadCaseForceSets => IsLinear && Analysis != null && _result.Id > 0;
 
     /// <summary>Наборы усилий шага под ползунком (пластины и стержни); пусто — поля шага не записаны.</summary>
     public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing)

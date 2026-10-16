@@ -968,6 +968,38 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
+    /// <summary>
+    /// «Комбинации из огибающей линейного расчёта» (спека 2026-10-14, п. 5.2.4): по последнему линейному расчёту
+    /// CSfea схемы — наборы усилий по загружениям, огибающая СП 20 и её уникальные формулы как комбинации с
+    /// «авто»-слагаемыми, одной отменой. Текст ошибки или null; замечания — в журнал.
+    /// </summary>
+    public string? GenerateEnvelopeLoadDefinitions()
+    {
+        var analyses = Session.Schema.Analyses.Count > 0 ? Session.Schema.Analyses.ToList() : _db.GetFemAnalyses(Session.Schema.Id);
+        if (FemLinearLoadCaseForceSets.LatestLinear(analyses) is not { } analysis) return Loc.S("FemEnvelopeNoLinearResult");
+        var result = FemLinearLoadCaseForceSets.BuildFromDatabase(_db, Session.Schema, analysis, [], Sp20GammaDefaults,
+            Session.LoadCases);
+        if (result == null) return string.Format(Loc.S("FemEnvelopeResultMissing"), analysis.Tag);
+        var warnings = new List<string>(result.Warnings);
+        var definitions = result.Sets.Count == 0 ? [] : FemLinearLoadCaseForceSets.EnvelopeDefinitions(Session.Schema, result,
+            Sp20GammaDefaults, Sp20LoadValueKind, warnings, Session.LoadCases);
+        foreach (var warning in warnings) _logService.Warning(warning);
+        if (definitions.Count == 0) return string.Format(Loc.S("FemEnvelopeNothing"), analysis.Tag);
+
+        var tags = Session.LoadDefinitions.Select(d => d.Tag).ToHashSet(StringComparer.Ordinal);
+        foreach (var definition in definitions)
+        {
+            string baseTag = definition.Tag;
+            for (int index = 2; tags.Contains(definition.Tag); index++) definition.Tag = $"{baseTag} ({index})";
+            tags.Add(definition.Tag);
+            definition.Description = string.Format(Loc.S("FemEnvelopeDescription"), analysis.Tag);
+        }
+        Session.Execute(new CompositeFemCommand(definitions.Select(d => (IFemEditCommand)new AddLoadDefinitionCommand(d))));
+        RefreshCollections();
+        _logService.Info(string.Format(Loc.S("FemEnvelopeCreated"), definitions.Count, analysis.Tag));
+        return null;
+    }
+
     FemFragmentSnapshot? _clipboard;
     public bool HasClipboard => _clipboard != null;
 

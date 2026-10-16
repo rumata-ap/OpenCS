@@ -111,4 +111,40 @@ public sealed class FemLinearLoadCaseForceSetsTests
 
     static string Formula(FemLoadDefinition d) => string.Join("|", d.GetExpression().Terms.Select(t =>
         $"{t.LoadCaseId}:{Math.Round(t.Coefficient, 6).ToString(System.Globalization.CultureInfo.InvariantCulture)}:{t.Role}"));
+
+    [Fact]
+    public void Build_TakenTag_NumberedBeforeGroup_EditorLoadCasesWin()
+    {
+        var (schema, analysis, summary) = Model();
+        var first = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard);
+        // Повторный выпуск: занятые имена получают номер, разбор имени СП 20 не ломается.
+        var second = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, first.Sets.Select(s => s.Set).ToList(),
+            Sp20GammaDefaults.Standard);
+        Assert.Equal("Q(γf=1.4): Q1 — Лин — пластины (2) [полезная]", second.Sets[1].Set.Tag);
+        Assert.Equal("полезная", SP20Combinations.ParseForceSetName(second.Sets[1].Set.Tag).Group);
+
+        // Атрибуты — из переданных загружений (несохранённая правка в редакторе).
+        var edited = schema.LoadCases.Select(lc => new FemLoadCase
+        {
+            Id = lc.Id, Tag = lc.Tag, Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group, GammaFUnfav = lc.Id == 12 ? 1.2 : lc.GammaFUnfav,
+        }).ToList();
+        var third = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard, edited);
+        Assert.Equal("Q(γf=1.2): Q1 — Лин — пластины [полезная]", third.Sets[1].Set.Tag);
+    }
+
+    [Fact]
+    public void LatestLinear_OnlyCsfeaLinearWithResult()
+    {
+        FemAnalysis A(int id, string kind, int? result, string status = "ok") =>
+            new() { Id = id, Kind = kind, ResultId = result, Status = status };
+        var analyses = new[]
+        {
+            A(1, FemCsfeaRunner.LinearAnalysisKind, 10),
+            A(2, FemCsfeaRunner.AnalysisKind, 11),
+            A(3, FemCsfeaRunner.LinearAnalysisKind, null),
+            A(4, FemCsfeaRunner.LinearAnalysisKind, 12, "failed"),
+        };
+        Assert.Equal(1, FemLinearLoadCaseForceSets.LatestLinear(analyses)?.Id);
+        Assert.Null(FemLinearLoadCaseForceSets.LatestLinear(analyses.Skip(1)));
+    }
 }
