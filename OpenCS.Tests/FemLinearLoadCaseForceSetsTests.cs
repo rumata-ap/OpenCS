@@ -1,0 +1,114 @@
+using CScore;
+using CScore.Combinations;
+using CScore.Fem;
+using CSfea.CScoreBridge.Structural;
+using OpenCS.Services;
+using OpenCS.Tasks;
+using Xunit;
+
+namespace OpenCS.Tests;
+
+/// <summary>Наборы усилий по загружениям линейного расчёта и комбинации из огибающей (срез 5а).</summary>
+public sealed class FemLinearLoadCaseForceSetsTests
+{
+    // Mx двух пластин по загружениям, кН·м/м: G (10, −2), Q1 (5, 4), Q2 (−3, 6).
+    static readonly double[][] Mx = [[10, -2], [5, 4], [-3, 6]];
+
+    static (FemSchema Schema, FemAnalysis Analysis, FemCsfeaResultSummary Summary) Model()
+    {
+        var schema = new FemSchema { Id = 1, Tag = "Схема" };
+        schema.LoadCases.Add(new FemLoadCase { Id = 11, SchemaId = 1, Tag = "G", Sp20Type = "permanent" });
+        schema.LoadCases.Add(new FemLoadCase { Id = 12, SchemaId = 1, Tag = "Q1", Sp20Type = "short_term", Sp20Group = "полезная" });
+        schema.LoadCases.Add(new FemLoadCase { Id = 13, SchemaId = 1, Tag = "Q2", Sp20Type = "short_term", GammaFUnfav = 1.3 });
+        var stages = schema.LoadCases.Select(lc => new FemAnalysisStage
+        {
+            Tag = lc.Tag,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [lc.Id] }.ToJson(),
+        }).ToList();
+        // Строка-комбинация — не загружение, пропускается.
+        stages.Add(new FemAnalysisStage
+        {
+            Tag = "Комб",
+            LoadExpressionJson = new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum,
+                Terms = [new FemLoadTerm { LoadCaseId = 11, Coefficient = 1.1 }, new FemLoadTerm { LoadCaseId = 12, Coefficient = 1.4 }],
+            }.ToJson(),
+        });
+        var analysis = new FemAnalysis
+        {
+            Id = 5, SchemaId = 1, Tag = "Лин", Kind = FemCsfeaRunner.LinearAnalysisKind,
+            ParamsJson = new FemAnalysisParams { Stages = stages }.ToJson(),
+        };
+        var summary = new FemCsfeaResultSummary
+        {
+            Kind = FemCsfeaRunner.LinearAnalysisKind,
+            Stages = stages.Select(s => new FemCsfeaStageSummary(s.Tag, 1, 0, 0, 0)).ToList(),
+            Steps = stages.Select((_, i) => new FemCsfeaStepSummary(i + 1, i, 1, 1, false, true, 1, 0, null, Fields: true)).ToList(),
+        };
+        return (schema, analysis, summary);
+    }
+
+    static RcSecantStepFields? Fields(int stepN)
+    {
+        if (stepN > Mx.Length) return null;
+        var forces = new double[2 * RcSecantStepFields.ShellForceComponents];
+        for (int e = 0; e < 2; e++) forces[e * RcSecantStepFields.ShellForceComponents + 3] = Mx[stepN - 1][e] * 1e3;
+        return new RcSecantStepFields
+        {
+            NodeIds = [], Displacements = [], ShellIds = [101, 102], ShellForces = forces,
+            ShellStates = new double[2 * RcSecantStepFields.ShellStateComponents], ShellFlags = new byte[2],
+            BeamIds = [], BeamForces = [], BeamFlags = [],
+        };
+    }
+
+    [Fact]
+    public void Build_SetPerLoadCaseWithSp20Name_SkipsCombinationRows()
+    {
+        var (schema, analysis, summary) = Model();
+        var result = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard);
+
+        Assert.Equal([11, 12, 13], result.Sets.Select(s => s.LoadCase.Id));
+        Assert.Single(result.Warnings, w => w.Contains("Комб"));
+        Assert.Equal("Q(γf=1.4): Q1 — Лин — пластины [полезная]", result.Sets[1].Set.Tag);
+        var (type, title, group, gamma, warn) = SP20Combinations.ParseForceSetName(result.Sets[2].Set.Tag);
+        Assert.Equal(NormLoadType.ShortTerm, type);
+        Assert.Equal("Q2 — Лин — пластины", title);
+        Assert.Null(group);
+        Assert.Equal(1.3, gamma);
+        Assert.Null(warn);
+        Assert.Equal(SP20Combinations.ParseForceSetName(result.Sets[0].Set.Tag).Type, NormLoadType.Permanent);
+        Assert.Equal(-2, result.Sets[0].Set.ShellItems[1].Mx, 9);
+        Assert.Equal(3, result.Sets.Select(s => s.Set.Num).Distinct().Count());
+    }
+
+    [Fact]
+    public void EnvelopeDefinitions_FormulasWithRoles()
+    {
+        var (schema, analysis, summary) = Model();
+        var result = FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard);
+        var warnings = new List<string>();
+        var definitions = FemLinearLoadCaseForceSets.EnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Normative, warnings);
+
+        Assert.NotEmpty(definitions);
+        Assert.All(definitions, d =>
+        {
+            Assert.Equal("C", d.CombinationType);
+            Assert.Equal("envelope", d.SourceKind);
+            Assert.All(d.GetExpression().Terms, t => Assert.True(t.IsAuto));
+        });
+        // max Mx пластины 102: G разгружает (п. 7.3, 0,9), Q2 — основная (1,3), Q1 — вторая (1,4·0,9).
+        Assert.Contains(definitions, d => Formula(d) == "11:0.9:permanent_reduced|12:1.26:second|13:1.3:leading");
+        // max Mx пластины 101: G 1,1, Q1 — основная.
+        Assert.Contains(definitions, d => Formula(d) == "11:1.1:permanent|12:1.4:leading");
+        Assert.Equal(definitions.Count, definitions.Select(Formula).Distinct().Count());
+
+        var design = FemLinearLoadCaseForceSets.EnvelopeDefinitions(schema, result, Sp20GammaDefaults.Standard,
+            Sp20LoadValueKind.Design, warnings);
+        Assert.Contains(design, d => Formula(d) == "11:1:permanent|12:1:leading");
+    }
+
+    static string Formula(FemLoadDefinition d) => string.Join("|", d.GetExpression().Terms.Select(t =>
+        $"{t.LoadCaseId}:{Math.Round(t.Coefficient, 6).ToString(System.Globalization.CultureInfo.InvariantCulture)}:{t.Role}"));
+}
