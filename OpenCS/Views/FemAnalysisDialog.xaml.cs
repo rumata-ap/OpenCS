@@ -19,7 +19,10 @@ public partial class FemAnalysisDialog : Window
     readonly FemSchema _schema;
     readonly IReadOnlyList<FemNode> _nodes;
     readonly System.Collections.ObjectModel.ObservableCollection<StageRow> _stages = [];
-    List<LoadSource> _loadSources = [];
+    /// <summary>Комбинации и загружения схемы для окна выбора нагрузки.</summary>
+    readonly List<ViewModels.FemLoadSource> _loadSources;
+    /// <summary>Нагрузка одиночного расчёта (линейный OpenSees) — та же ячейка, что у стадии.</summary>
+    readonly StageRow _single = new();
     readonly ViewModels.FemLinearCasesVM _linearCases;
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
@@ -79,11 +82,10 @@ public partial class FemAnalysisDialog : Window
             gammaDefaults ?? CScore.Combinations.Sp20GammaDefaults.Standard, linearStages);
         LinearCasesGroup.DataContext = _linearCases;
         KindBox.ItemsSource = _kindOptions;
-        var sources = BuildLoadSources();
-        _loadSources = sources;
-        LoadSourceBox.ItemsSource = sources;
+        _loadSources = ViewModels.FemLoadSources.Build(schema.LoadDefinitions, schema.LoadCases,
+            gammaDefaults ?? CScore.Combinations.Sp20GammaDefaults.Standard);
+        LoadSourceBox.DataContext = _single;
         StagesGrid.ItemsSource = _stages;
-        StagesSourceColumn.ItemsSource = sources;
         StagesPathControlColumn.ItemsSource = BuildPathControlModeOptions();
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         var materialSourceOptions = BuildMaterialSourceOptions();
@@ -127,10 +129,9 @@ public partial class FemAnalysisDialog : Window
             {
                 foreach (var stage in pars.ResolveStages(existing))
                 {
-                    var match = sources.FirstOrDefault(s => s.Expr.ToJson() == stage.LoadExpressionJson);
                     var row = new StageRow
                     {
-                        Tag = stage.Tag, Source = match ?? sources.FirstOrDefault(),
+                        Tag = stage.Tag, Source = ResolveSource(stage.LoadExpressionJson),
                         LoadFactorStep = stage.LoadFactorStep ?? 0.1,
                         MaxLoadFactor = stage.MaxLoadFactor ?? (isCsfeaExisting ? 1.0 : 10.0)
                     };
@@ -145,9 +146,7 @@ public partial class FemAnalysisDialog : Window
             // добавлялась лишняя дублирующая (баг: расчёт с одной стадией сохранялся с двумя).
             SelectKind(existing.Kind);
 
-            var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
-            if (sel != null) LoadSourceBox.SelectedItem = sel;
-            else if (sources.Count > 0) LoadSourceBox.SelectedIndex = 0;
+            if (existing.Kind == "linear") _single.Source = ResolveSource(existing.LoadExpressionJson);
         }
         else
         {
@@ -156,15 +155,12 @@ public partial class FemAnalysisDialog : Window
             MainMaterialModelBox.SelectedItem = mainMaterialModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions[1];
             ElementFormulationBox.SelectedItem = elementFormulationOptions[0];
-            if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
             SelectKind(_kindOptions[0].Value);   // по умолчанию — свой решатель
         }
         UpdateNonlinearPanelVisibility();
         UpdateNativeMaterialPanelVisibility();
         UpdateMaterialNonlinearityPanelVisibility();
     }
-
-    internal sealed record LoadSource(string Label, FemLoadExpression Expr);
 
     /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».
     /// `internal`, не default `private` — нужен извне сборки-члена `FemAnalysisDialog`:
@@ -181,14 +177,34 @@ public partial class FemAnalysisDialog : Window
     ];
 
     /// <summary>Строка редактора стадий: имя + выбранный источник нагрузки + способ
-    /// управления траекторией. PathControlMode — единственное свойство с уведомлением
-    /// (INotifyPropertyChanged) — на него реагирует CellStyle-триггер, затемняющий колонки
-    /// «Шаг λ»/«Предел λ» для не-LoadControl режимов; остальные свойства читает только код
-    /// сборки при Ok_Click, реактивность им не нужна.</summary>
+    /// управления траекторией. С уведомлением — имя и источник (меняются окном выбора нагрузки) и PathControlMode
+    /// (CellStyle-триггер затемняет колонки «Шаг λ»/«Предел λ» для не-LoadControl режимов); остальные свойства
+    /// читает только код сборки при Ok_Click.</summary>
     internal sealed class StageRow : System.ComponentModel.INotifyPropertyChanged
     {
-        public string Tag { get; set; } = "";
-        public LoadSource? Source { get; set; }
+        string _tag = "";
+        public string Tag
+        {
+            get => _tag;
+            set
+            {
+                if (_tag == value) return;
+                _tag = value;
+                PropertyChanged?.Invoke(this, new(nameof(Tag)));
+            }
+        }
+
+        ViewModels.FemLoadSource? _source;
+        public ViewModels.FemLoadSource? Source
+        {
+            get => _source;
+            set
+            {
+                if (ReferenceEquals(_source, value)) return;
+                _source = value;
+                PropertyChanged?.Invoke(this, new(nameof(Source)));
+            }
+        }
         public double LoadFactorStep { get; set; } = 0.1;
         public double MaxLoadFactor { get; set; } = 10.0;
 
@@ -428,18 +444,58 @@ public partial class FemAnalysisDialog : Window
         dlg.ShowDialog();
     }
 
-    List<LoadSource> BuildLoadSources()
+    /// <summary>Источник сохранённой стадии: из схемы или, если его там нет, выражение как было (не подменяется).</summary>
+    ViewModels.FemLoadSource ResolveSource(string? expressionJson) =>
+        ViewModels.FemLoadSources.Resolve(_loadSources, expressionJson, _schema.LoadCases);
+
+    /// <summary>Окно выбора нагрузки; null — отмена.</summary>
+    ViewModels.FemLoadSource? PickSource(ViewModels.FemLoadSource? current, string? stageTag)
     {
-        var list = new List<LoadSource>();
-        foreach (var d in _schema.LoadDefinitions)
-            list.Add(new(d.Tag, d.GetExpression()));
-        foreach (var c in _schema.LoadCases)
-            list.Add(new(c.Tag, new FemLoadExpression
-            {
-                Mode = FemLoadExpressionMode.Single,
-                LoadCaseIds = [c.Id]
-            }));
-        return list;
+        var dlg = new FemLoadSourcePickerDialog(_loadSources, current, stageTag) { Owner = this };
+        return dlg.ShowDialog() == true ? dlg.Result : null;
+    }
+
+    /// <summary>Выбор нагрузки строки: стадии (с подстановкой имени) или одиночного расчёта.</summary>
+    void ChooseSource(StageRow row)
+    {
+        bool isStage = !ReferenceEquals(row, _single);
+        if (PickSource(row.Source, isStage ? row.Tag : null) is not { } picked) return;
+        if (isStage && IsAutoStageTag(row)) row.Tag = picked.Tag;
+        row.Source = picked;
+    }
+
+    /// <summary>
+    /// Имя стадии не задано пользователем: пустое, «Стадия N» или совпадает с именем прежней нагрузки — тогда при
+    /// выборе нагрузки имя стадии берётся из неё.
+    /// </summary>
+    static bool IsAutoStageTag(StageRow row)
+    {
+        string tag = row.Tag.Trim();
+        if (tag.Length == 0 || tag == Loc.S("FemAnalysisStageDefaultTag")) return true;
+        if (row.Source is { } old && tag == old.Tag) return true;
+        string pattern = "^" + System.Text.RegularExpressions.Regex.Escape(Loc.S("FemAnalysisStageNumberedTag")).Replace(@"\{0}", @"\d+") + "$";
+        return System.Text.RegularExpressions.Regex.IsMatch(tag, pattern);
+    }
+
+    void ChooseSource_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is StageRow row) ChooseSource(row);
+    }
+
+    void SourceCell_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || (sender as FrameworkElement)?.DataContext is not StageRow row) return;
+        e.Handled = true;
+        ChooseSource(row);
+    }
+
+    /// <summary>F2 или пробел в столбце нагрузки — окно выбора (ячейка только для чтения).</summary>
+    void StagesGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key is not (System.Windows.Input.Key.F2 or System.Windows.Input.Key.Space)) return;
+        if (StagesGrid.CurrentColumn != StagesSourceColumn || StagesGrid.CurrentItem is not StageRow row) return;
+        e.Handled = true;
+        ChooseSource(row);
     }
 
     /// <summary>Виды постановки: свой решатель CSfea первым, OpenSees — запасной.</summary>
@@ -495,11 +551,14 @@ public partial class FemAnalysisDialog : Window
             foreach (var row in _stages.Where(r => r.PathControlMode.Value != loadControl.Value))
                 row.PathControlMode = loadControl;
         }
+        // Переход со стадийного вида на линейный OpenSees — нагрузка первой стадии.
+        if (!staged && _single.Source == null) _single.Source = _stages.FirstOrDefault(s => s.Source != null)?.Source;
+        // Первая стадия — без нагрузки (ячейка «Выберите нагрузку…»): из сотен комбинаций первая попавшаяся не годится.
         if (staged && _stages.Count == 0)
             _stages.Add(new StageRow
             {
                 Tag = Loc.S("FemAnalysisStageDefaultTag"),
-                Source = LoadSourceBox.SelectedItem as LoadSource ?? _loadSources.FirstOrDefault(),
+                Source = _single.Source,
                 MaxLoadFactor = csfea ? 1.0 : 10.0
             });
     }
@@ -508,16 +567,22 @@ public partial class FemAnalysisDialog : Window
 
     void LinearCasesNone_Click(object sender, RoutedEventArgs e) => _linearCases.CheckNone();
 
+    /// <summary>«Добавить…»: сразу окно выбора нагрузки; новая стадия получает её имя, шаг и предел λ — от последней.</summary>
     void AddStage_Click(object sender, RoutedEventArgs e)
     {
+        string tag = string.Format(Loc.S("FemAnalysisStageNumberedTag"), _stages.Count + 1);
+        if (PickSource(null, tag) is not { } picked) return;
         var last = _stages.LastOrDefault();
-        _stages.Add(new StageRow
+        var row = new StageRow
         {
-            Tag = string.Format(Loc.S("FemAnalysisStageNumberedTag"), _stages.Count + 1),
-            Source = _loadSources.FirstOrDefault(),
+            Tag = picked.Tag,
+            Source = picked,
             LoadFactorStep = last?.LoadFactorStep ?? 0.1,
             MaxLoadFactor = last?.MaxLoadFactor ?? (FemCsfeaRunner.IsCsfeaKind(SelectedKind) ? 1.0 : 10.0)
-        });
+        };
+        _stages.Add(row);
+        StagesGrid.SelectedItem = row;
+        StagesGrid.ScrollIntoView(row);
     }
 
     void RemoveStage_Click(object sender, RoutedEventArgs e)
@@ -571,7 +636,6 @@ public partial class FemAnalysisDialog : Window
             return;
         }
 
-        if (SelectedKind == "linear" && LoadSourceBox.SelectedItem is not LoadSource) { DialogResult = false; return; }
         if (BuildAnalysis(Loc.S("FemAnalysisCreate")) is not { } analysis) return;
         Result = analysis;
         DialogResult = true;
@@ -598,12 +662,18 @@ public partial class FemAnalysisDialog : Window
             MessageBox.Show(Loc.S("FemAnalysisStagesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
-        if (staged && !isCsfeaLinear && _stages.Any(s => s.Source == null))
+        if (staged && !isCsfeaLinear && _stages.FirstOrDefault(s => s.Source == null) is { } missing)
         {
+            StagesGrid.SelectedItem = missing;
+            StagesGrid.ScrollIntoView(missing);
             MessageBox.Show(Loc.S("FemAnalysisStageMissingSource"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
-        if (!staged && LoadSourceBox.SelectedItem is not LoadSource) return null;
+        if (!staged && _single.Source == null)
+        {
+            MessageBox.Show(Loc.S("FemAnalysisLoadMissing"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
 
         var pars = new FemAnalysisParams();
         string tag = TagBox.Text.Trim();
@@ -629,7 +699,7 @@ public partial class FemAnalysisDialog : Window
                 double max = r.MaxLoadFactor >= step ? r.MaxLoadFactor : isCsfea ? step : Math.Max(10.0, step);
                 return new FemAnalysisStage
                 {
-                    Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
+                    Tag = r.Tag, LoadExpressionJson = r.Source!.ExpressionJson,
                     LoadFactorStep = step, MaxLoadFactor = max,
                     PathControl = isCsfea ? null : BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
                     ContinueWith = isCsfea || r.ContinueWithMode == null ? null
@@ -641,9 +711,9 @@ public partial class FemAnalysisDialog : Window
         }
         else
         {
-            var src = (LoadSource)LoadSourceBox.SelectedItem!;
-            loadExpressionJson = src.Expr.ToJson();
-            if (string.IsNullOrWhiteSpace(tag)) tag = src.Label;
+            var src = _single.Source!;
+            loadExpressionJson = src.ExpressionJson;
+            if (string.IsNullOrWhiteSpace(tag)) tag = src.Tag;
         }
 
         return new FemAnalysis

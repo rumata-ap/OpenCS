@@ -302,17 +302,7 @@ public sealed class FemCombinationsTabVM : ViewModelBase
     }
 
     /// <summary>Формула комбинации: «1,35·ЗГ1 + 1,05·ЗГ2»; отрицательный коэффициент — через минус.</summary>
-    public string Formula(FemLoadDefinition definition)
-    {
-        var numbers = CaseNumbers();
-        var parts = definition.GetExpression().Terms.Select((t, i) =>
-        {
-            string code = numbers.TryGetValue(t.LoadCaseId, out var n) ? CaseCode(n) : $"#{t.LoadCaseId}";
-            string value = FemLoadsFormat.Number(Math.Abs(t.Coefficient)) + "·" + code;
-            return i == 0 ? (t.Coefficient < 0 ? "−" : "") + value : (t.Coefficient < 0 ? " − " : " + ") + value;
-        });
-        return string.Concat(parts);
-    }
+    public string Formula(FemLoadDefinition definition) => FemLoadSources.Formula(definition.GetExpression(), CaseNumbers());
 
     IReadOnlyList<FemLoadsChoice> BuildFilters(IReadOnlyList<FemLoadCase> cases)
     {

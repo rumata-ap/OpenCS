@@ -2,10 +2,49 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:util="clr-namespace:OpenCS.Utilites"
-        Title="{DynamicResource FemAnalysisCreate}" Width="680" SizeToContent="Height"
+        Title="{DynamicResource FemAnalysisCreate}" Width="760" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+
+        <!-- Нагрузка стадии/расчёта (DataContext — StageRow): бейдж типа, имя, формула серым и «…» — окно выбора.
+             Двойной щелчок по ячейке и F2 в столбце стадий — тоже окно выбора. -->
+        <DataTemplate x:Key="LoadSourceCell">
+            <Grid Background="Transparent" ToolTip="{Binding Source.ToolTipText}" MouseLeftButtonDown="SourceCell_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Badge" Grid.Column="0" CornerRadius="3" Padding="4,0" MinWidth="22" Margin="2,0,5,0" VerticalAlignment="Center"
+                        Background="#E8EEF7" BorderBrush="#B8C7DD" BorderThickness="1">
+                    <TextBlock Text="{Binding Source.TypeBadge}" FontSize="11" FontWeight="SemiBold" Foreground="#2F4A73" HorizontalAlignment="Center"/>
+                </Border>
+                <TextBlock x:Name="SourceName" Grid.Column="1" Text="{Binding Source.Tag}" MaxWidth="240" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="SourceFormula" Grid.Column="2" Text="{Binding Source.Formula}" Foreground="#777777" Margin="8,0,4,0"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <TextBlock x:Name="Placeholder" Grid.Column="0" Grid.ColumnSpan="3" Text="{DynamicResource FemLoadSourceChoose}"
+                           Foreground="#C0392B" FontStyle="Italic" Margin="2,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <Button Grid.Column="3" Content="…" Width="24" Padding="0" Click="ChooseSource_Click" Tag="{Binding}"
+                        ToolTip="{DynamicResource FemLoadSourceChooseTip}" Focusable="False"/>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Source}" Value="{x:Null}">
+                    <Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="SourceName" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="SourceFormula" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Source.TypeBadge}" Value="">
+                    <Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Source.IsUnresolved}" Value="True">
+                    <Setter TargetName="SourceName" Property="Foreground" Value="#A05A00"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="780">
     <StackPanel Margin="12">
@@ -34,7 +73,9 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadLabel}" VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="1" x:Name="LoadSourceBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
+            <Border Grid.Column="1" x:Name="LoadSourceBox" Height="24" BorderBrush="#ABADB3" BorderThickness="1" Padding="1">
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource LoadSourceCell}"/>
+            </Border>
         </Grid>
 
         <!-- Линейный CSfea: загружения галочками, каждое отмеченное — отдельный расчёт (FemLinearCasesVM) -->
@@ -65,18 +106,18 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Image Width="16" Height="16" Source="{StaticResource FemIcon_LoadShort}" x:Name="Icon"/>
+                                        <Image Width="16" Height="16" Source="{DynamicResource FemIcon_LoadShort}" x:Name="Icon"/>
                                         <TextBlock Text="{Binding TypeLetter}" Margin="3,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="permanent">
-                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadPermanent}"/>
+                                            <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadPermanent}"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="long_term">
-                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadLong}"/>
+                                            <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadLong}"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
-                                            <Setter TargetName="Icon" Property="Source" Value="{StaticResource FemIcon_LoadAccidental}"/>
+                                            <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadAccidental}"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="">
                                             <Setter TargetName="Icon" Property="Source" Value="{x:Null}"/>
@@ -115,11 +156,11 @@
             <StackPanel Margin="4">
                 <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
-                          Height="140" Margin="0,0,0,6">
+                          Height="140" Margin="0,0,0,6" PreviewKeyDown="StagesGrid_PreviewKeyDown">
                     <DataGrid.Columns>
                         <DataGridTextColumn x:Name="StagesTagColumn" Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
-                        <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
-                                                 DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
+                        <DataGridTemplateColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}" Width="*"
+                                                IsReadOnly="True" MinWidth="200" CellTemplate="{StaticResource LoadSourceCell}"/>
                         <DataGridTextColumn x:Name="StagesLoadFactorStepColumn" Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
                             <DataGridTextColumn.Binding>
                                 <Binding Path="LoadFactorStep" Mode="TwoWay"

@@ -175,7 +175,8 @@ public sealed class FemLinearCasesVM : ViewModelBase
         catch (System.Text.Json.JsonException) { return null; }
     }
 
-    static string TypeLetter(NormLoadType type) => type switch
+    /// <summary>Буква вида нагрузки СП 20: G/L/Q/A.</summary>
+    public static string TypeLetter(NormLoadType type) => type switch
     {
         NormLoadType.Permanent => "G",
         NormLoadType.LongTerm => "L",
