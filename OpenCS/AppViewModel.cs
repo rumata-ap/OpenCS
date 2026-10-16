@@ -803,7 +803,7 @@ namespace OpenCS
 
       /// <summary>Постановка (и шаг; null — шаг по умолчанию), результат которой показать на открываемой странице схемы;
       /// null — не показывать.</summary>
-      public (int AnalysisId, int? StepIndex, int? CombinationId)? ShowAnalysisResultRequested { get; private set; }
+      public (int AnalysisId, int? StepIndex, ViewModels.FemCsfeaCaseKey? CaseKey)? ShowAnalysisResultRequested { get; private set; }
 
       /// <summary>Снимает регистрацию редактора FEM при закрытии его страницы.</summary>
       public void UnregisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor)
@@ -5905,17 +5905,17 @@ namespace OpenCS
       }
 
       /// <summary>Результат постановки — в 3D-виде схемы (источник мозаики «Расчёт»); шаг — из окна таблиц.</summary>
-      void ShowFemAnalysisResultInSchema(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, int? combinationId = null)
+      void ShowFemAnalysisResultInSchema(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null)
       {
          if (analysis?.ResultId is not > 0) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
          if (schema == null) return;
          if (ReferenceEquals(schema, currentFemSchema) && currentPage is Views.FemSchemaPage page)
          {
-            page.ShowAnalysisResult(analysis.Id, stepIndex, combinationId);
+            page.ShowAnalysisResult(analysis.Id, stepIndex, caseKey);
             return;
          }
-         ShowAnalysisResultRequested = (analysis.Id, stepIndex, combinationId);
+         ShowAnalysisResultRequested = (analysis.Id, stepIndex, caseKey);
          try { CurrentFemSchema = schema; }
          finally { ShowAnalysisResultRequested = null; }
       }
@@ -5924,7 +5924,7 @@ namespace OpenCS
       /// Таблицы и графики результата постановки (прежнее окно результата без 3D — результат смотрится в 3D-виде
       /// схемы). Шаг — показанный в 3D-виде; null — шаг окна по умолчанию. Кнопка окна возвращает в 3D-вид на его шаге.
       /// </summary>
-      public void OpenFemAnalysisResultTables(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, int? combinationId = null)
+      public void OpenFemAnalysisResultTables(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null)
       {
          if (analysis?.ResultId is not int resultId || resultId <= 0) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
@@ -5933,7 +5933,7 @@ namespace OpenCS
          if (result == null) return;
          if (result.TaskKind == Services.FemCsfeaRunner.TaskKind)
          {
-            ShowCsfeaResult(result, schema, analysis, stepIndex, combinationId);
+            ShowCsfeaResult(result, schema, analysis, stepIndex, caseKey);
             return;
          }
 
@@ -5955,16 +5955,16 @@ namespace OpenCS
 
       /// <summary>Графики и журнал результата CSfea; «шаг → набор усилий» сохраняет наборы схемы.</summary>
       void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema, CScore.Fem.FemAnalysis analysis, int? stepIndex,
-         int? combinationId = null)
+         ViewModels.FemCsfeaCaseKey? caseKey = null)
       {
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
          vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
          vm.CreateLoadCaseForceSetsRequested += SaveCsfeaLoadCaseForceSets;
          if (stepIndex is int step) vm.SelectedStepIndex = Math.Clamp(step, 0, vm.MaxStepIndex);
-         vm.SelectedCombinationId = combinationId;
+         vm.ShownKey = caseKey;
          CurrentPage = new Views.FemCsfeaResultView(vm)
          {
-            ShowInSchema = () => ShowFemAnalysisResultInSchema(analysis, vm.SelectedStepIndex, vm.SelectedCombinationId)
+            ShowInSchema = () => ShowFemAnalysisResultInSchema(analysis, vm.SelectedStepIndex, vm.ShownKey)
          };
       }
 

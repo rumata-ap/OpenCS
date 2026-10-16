@@ -41,6 +41,12 @@ public sealed class FemResultLayer : ViewModelBase
             {
                 if (e.PropertyName == nameof(FemCsfeaResultVM.LongShare)) { OnPropertyChanged(nameof(LongShare)); Changed?.Invoke(); }
                 else if (e.PropertyName == nameof(FemCsfeaResultVM.LongShareNote)) OnPropertyChanged(nameof(LongShareNote));
+                // Ход расчёта огибающей — в подписи шага.
+                else if (e.PropertyName == nameof(FemCsfeaResultVM.FieldsNote))
+                {
+                    OnPropertyChanged(nameof(StepLabel));
+                    OnPropertyChanged(nameof(HeaderText));
+                }
             };
         }
         if (steps is OpenSeesResultSteps openSees) OpenSees = openSees.Vm;
@@ -76,19 +82,25 @@ public sealed class FemResultLayer : ViewModelBase
 
     public string StepLabel => _steps.StepLabel;
 
-    /// <summary>Комбинация схемы, показанная в линейном результате CSfea (суперпозиция); null — загружение или шаг.</summary>
-    public int? SelectedCombinationId
+    /// <summary>Комбинация или огибающая, показанная в линейном результате CSfea; null — загружение или шаг.</summary>
+    public FemCsfeaCaseKey? ShownKey
     {
-        get => Csfea?.SelectedCombinationId;
-        set { if (Csfea != null) Csfea.SelectedCombinationId = value; }
+        get => Csfea?.ShownKey;
+        set { if (Csfea != null) Csfea.ShownKey = value; }
     }
+
+    /// <summary>Показана огибающая группы комбинаций (см. <see cref="IFemResultSteps.IsEnvelope"/>).</summary>
+    public bool IsEnvelope => _steps.IsEnvelope;
 
     void OnStepChanged()
     {
         OnPropertyChanged(nameof(SelectedStepIndex));
         OnPropertyChanged(nameof(StepLabel));
+        OnPropertyChanged(nameof(HeaderText));
         OnPropertyChanged(nameof(HasDisplacements));
+        OnPropertyChanged(nameof(CanShowDeformed));
         OnPropertyChanged(nameof(DeformedShown));
+        OnPropertyChanged(nameof(IsEnvelope));
         OnPropertyChanged(nameof(HasReactions));
         OnPropertyChanged(nameof(ReactionSummaryText));
         RebuildNodeMap();
@@ -98,7 +110,7 @@ public sealed class FemResultLayer : ViewModelBase
     // ------------------------------------------------------------ реакции опор (CSfea)
 
     /// <summary>На показанном шаге есть реакции опор.</summary>
-    public bool HasReactions => Csfea?.HasReactions == true;
+    public bool HasReactions => Csfea?.HasReactions == true && !IsEnvelope;
 
     /// <summary>Итог реакций шага: ΣR по типам опор, ΣF и небаланс; пусто — нет данных.</summary>
     public string ReactionSummaryText => Csfea?.ReactionSummaryText ?? "";
@@ -163,7 +175,7 @@ public sealed class FemResultLayer : ViewModelBase
     public (Point3DCollection? Arrows, IReadOnlyList<(Point3D Position, double ValueKn)> Labels) ReactionGlyphs(
         IReadOnlyDictionary<string, Point3D> positions, Func<int, bool>? shown = null)
     {
-        if (!_showReactions || Csfea is not { } vm) return (null, []);
+        if (!_showReactions || !HasReactions || Csfea is not { } vm) return (null, []);
         var forces = vm.ReactionForces().Where(r => shown?.Invoke(r.Node) != false).ToList();
         double max = forces.Count > 0 ? forces.Max(r => r.Force.Length) : 0;
         if (!(max > 0)) return (null, []);
@@ -212,8 +224,11 @@ public sealed class FemResultLayer : ViewModelBase
         }
     }
 
-    /// <summary>Деформированная схема показывается: включена и есть перемещения.</summary>
-    public bool DeformedShown => _showDeformed && HasDisplacements;
+    /// <summary>Деформированную схему можно показать: есть перемещения и это не огибающая.</summary>
+    public bool CanShowDeformed => HasDisplacements && !IsEnvelope;
+
+    /// <summary>Деформированная схема показывается: включена, есть перемещения и это не огибающая.</summary>
+    public bool DeformedShown => _showDeformed && CanShowDeformed;
 
     bool _showOriginal = true;
     /// <summary>Под деформированной схемой — контур исходной сетки.</summary>
@@ -311,7 +326,7 @@ public sealed class FemResultLayer : ViewModelBase
             FemResultComponent.Ux => d.X,
             FemResultComponent.Uy => d.Y,
             FemResultComponent.Uz => d.Z,
-            _ => d.Length,
+            _ => _steps.DisplacementLength(node) ?? d.Length,
         };
     }
 
@@ -327,27 +342,83 @@ public sealed class FemResultLayer : ViewModelBase
     }
 
     string _summaryText = "";
-    /// <summary>Экстремум показанной величины с номером узла.</summary>
+    /// <summary>min и max показанной величины мозаики с местом (узел, КЭ) — подпись внизу 3D-вида.</summary>
     public string SummaryText { get => _summaryText; private set { if (_summaryText == value) return; _summaryText = value; OnPropertyChanged(); } }
 
-    /// <summary>Пересчитать экстремум величины: наибольшая по модулю (|u| — наибольшая) по узлам КЭ.</summary>
+    /// <summary>Шапка 3D-вида: расчёт и показанное (шаг, загружение, комбинация или огибающая).</summary>
+    public string HeaderText => string.Format(Loc.S("FemResultHeader"), Label, StepLabel);
+
+    /// <summary>
+    /// Наименьшее и наибольшее значение с местом: «label: min v (место) · max v (место)». Источник — комбинация
+    /// огибающей, давшая значение (пусто — не огибающая).
+    /// </summary>
+    static string MinMaxText<T>(string label, IEnumerable<(T Where, double Min, string MinSource, double Max, string MaxSource)> values,
+        Func<T, string> place)
+    {
+        (T Where, double V, string Source)? min = null, max = null;
+        foreach (var x in values)
+        {
+            if (min == null || x.Min < min.Value.V) min = (x.Where, x.Min, x.MinSource);
+            if (max == null || x.Max > max.Value.V) max = (x.Where, x.Max, x.MaxSource);
+        }
+        if (min is not { } lo || max is not { } hi) return "";
+        string At((T Where, double V, string Source) e) => e.Source == "" ? place(e.Where) : $"{place(e.Where)}, {e.Source}";
+        return string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultMinMax"), label, Num(lo.V), At(lo), Num(hi.V), At(hi));
+    }
+
+    static string AtNode(int node) => string.Format(Loc.S("FemResultAtNode"), node);
+    static string AtElement(string tag) => string.Format(Loc.S("FemResultAtElement"), tag);
+
+    /// <summary>
+    /// Пересчитать min/max перемещения по узлам КЭ показанного фрагмента. У огибающей min — по ветви min, max — по
+    /// ветви max (с комбинацией); выбор |max| / max / min влияет только на раскраску.
+    /// </summary>
     /// <param name="elemTags">КЭ показанного фрагмента; null — вся сетка.</param>
     public void UpdateSummary(FemResultComponent component, IEnumerable<string>? elemTags = null)
     {
         IEnumerable<int> nodes = elemTags == null
             ? Mesh.UsedNodes
             : elemTags.SelectMany(t => Mesh.NodesOf(t) ?? []).Distinct().Order();
-        int? best = null;
-        double bestValue = 0;
-        foreach (int n in nodes)
-            if (NodeValue(n, component) is double v && (best == null || Math.Abs(v) > Math.Abs(bestValue)))
-            {
-                best = n;
-                bestValue = v;
-            }
-        SummaryText = best is int node
-            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultExtremum"), ComponentLabel(component), bestValue, node)
-            : Loc.S("FemResultNoDisplacements");
+        var values = IsEnvelope
+            ? nodes.Select(n => (n, NodeEnvelope(n, component))).Where(x => x.Item2 != null)
+                .Select(x => (x.n, x.Item2!.Value.Min, x.Item2.Value.MinSource, x.Item2.Value.Max, x.Item2.Value.MaxSource))
+            : nodes.Select(n => (n, NodeValue(n, component))).Where(x => x.Item2 != null)
+                .Select(x => (x.n, x.Item2!.Value, "", x.Item2.Value, ""));
+        string text = MinMaxText($"{ComponentLabel(component)}, {Loc.S("UnitMm")}", values, AtNode);
+        SummaryText = text != "" ? text : Loc.S("FemResultNoDisplacements");
+    }
+
+    /// <summary>Огибающая перемещения узла в мм (ux, uy, uz, |u|); null — огибающая не показана.</summary>
+    FemCsfeaEnvelopeValue? NodeEnvelope(int node, FemResultComponent component) =>
+        Csfea?.EnvelopeNode(node, component switch
+        {
+            FemResultComponent.Ux => 0,
+            FemResultComponent.Uy => 1,
+            FemResultComponent.Uz => 2,
+            _ => 6,
+        })?.Scale(1e3);
+
+    /// <summary>
+    /// Огибающая усилия на концах стержня, кН или кН·м, знаки — как у <see cref="BarEndValues"/> (при смене знака ветви
+    /// меняются местами); null — огибающая не показана.
+    /// </summary>
+    public (FemCsfeaEnvelopeValue I, FemCsfeaEnvelopeValue J)? BarEndEnvelope(string elemTag, FemForceComponent component)
+    {
+        if (Csfea is not { IsEnvelopeShown: true } vm
+            || !int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) return null;
+        int c = component switch
+        {
+            FemForceComponent.N => 0,
+            FemForceComponent.Qy => 1,
+            FemForceComponent.Qz => 2,
+            FemForceComponent.Mx => 3,
+            FemForceComponent.My => 4,
+            _ => 5,
+        };
+        var p = FemForceEndpointSignPolicy.OpenSeesDefault;
+        double[] si = [p.NI, p.QyI, p.QzI, p.MxI, p.MyI, p.MzI], sj = [p.NJ, p.QyJ, p.QzJ, p.MxJ, p.MyJ, p.MzJ];
+        if (vm.EnvelopeBeam(n, c) is not { } i || vm.EnvelopeBeam(n, c + 6) is not { } j) return null;
+        return (i.Scale(si[c] / 1e3), j.Scale(sj[c] / 1e3));
     }
 
     public static string ComponentLabel(FemResultComponent component) => component switch
@@ -427,18 +498,21 @@ public sealed class FemResultLayer : ViewModelBase
     public static string Unit(FemForceComponent component) =>
         component is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz ? Loc.S("UnitKN") : Loc.S("UnitKNm");
 
-    /// <summary>Итог по величине КЭ: наибольшая по модулю (или наибольшая у неотрицательных) с номером КЭ.</summary>
+    /// <summary>Итог по величине КЭ: min и max с номером КЭ (у огибающей — по ветвям, с комбинацией).</summary>
     /// <param name="label">Подпись величины с единицей.</param>
     /// <param name="values">Значения по КЭ показанного фрагмента.</param>
-    public void UpdateElementSummary(string label, IEnumerable<KeyValuePair<string, double>> values)
+    /// <param name="field">Поле пластины CSfea — для ветвей огибающей; null — без них.</param>
+    public void UpdateElementSummary(string label, IEnumerable<KeyValuePair<string, double>> values, FemCsfeaShellField? field = null)
     {
-        string? best = null;
-        double bestValue = 0;
-        foreach (var (tag, v) in values)
-            if (best == null || Math.Abs(v) > Math.Abs(bestValue)) { best = tag; bestValue = v; }
-        SummaryText = best != null
-            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultElementExtremum"), label, bestValue, best)
-            : Loc.S("FemResultNoValues");
+        IEnumerable<(string, double, string, double, string)> rows =
+            IsEnvelope && field is { } f && Csfea is { } vm
+                ? values.Select(kv => (kv.Key, int.TryParse(kv.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+                        ? vm.EnvelopeShell(n, f) : null))
+                    .Where(x => x.Item2 != null)
+                    .Select(x => (x.Key, x.Item2!.Value.Min, x.Item2.Value.MinSource, x.Item2.Value.Max, x.Item2.Value.MaxSource))
+                : values.Select(kv => (kv.Key, kv.Value, "", kv.Value, ""));
+        string text = MinMaxText(label, rows, AtElement);
+        SummaryText = text != "" ? text : Loc.S("FemResultNoValues");
     }
 
     /// <summary>Итога нет (величина без экстремума — например, состояние).</summary>
@@ -460,16 +534,18 @@ public sealed class FemResultLayer : ViewModelBase
 
     public bool HasBarSummary => _barSummaryText != "";
 
-    /// <summary>Итог по усилию стержней: наибольшее по модулю с номером КЭ.</summary>
-    public void UpdateBarSummary(string label, IEnumerable<KeyValuePair<string, double>> values)
+    /// <summary>
+    /// Итог по усилию стержней: min и max по концам КЭ с номером КЭ (у огибающей — по ветвям, с комбинацией).
+    /// </summary>
+    /// <param name="ends">Значения на концах КЭ показанного фрагмента.</param>
+    public void UpdateBarSummary(string label, IEnumerable<KeyValuePair<string, (double I, double J)>> ends, FemForceComponent component)
     {
-        string? best = null;
-        double bestValue = 0;
-        foreach (var (tag, v) in values)
-            if (best == null || Math.Abs(v) > Math.Abs(bestValue)) { best = tag; bestValue = v; }
-        BarSummaryText = best != null
-            ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemResultBarExtremum"), label, bestValue, best)
-            : "";
+        IEnumerable<(string, double, string, double, string)> rows = IsEnvelope
+            ? ends.Select(kv => (kv.Key, BarEndEnvelope(kv.Key, component))).Where(x => x.Item2 != null)
+                .SelectMany(x => new[] { x.Item2!.Value.I, x.Item2.Value.J }
+                    .Select(e => (x.Key, e.Min, e.MinSource, e.Max, e.MaxSource)))
+            : ends.SelectMany(kv => new[] { kv.Value.I, kv.Value.J }.Select(v => (kv.Key, v, "", v, "")));
+        BarSummaryText = MinMaxText(string.Format(Loc.S("FemResultBarsLabel"), label), rows, AtElement);
     }
 
     public void ClearBarSummary() => BarSummaryText = "";
@@ -563,14 +639,22 @@ public sealed class FemResultLayer : ViewModelBase
             new(Loc.S("FemResultCardCoordinates"), $"{Num(p.X)}; {Num(p.Y)}; {Num(p.Z)}"),
         };
         foreach (var c in Displacements)
-            if (NodeValue(node, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
+            if (NodeEnvelope(node, c) is { } env) rows.Add(new(DisplacementLabel(c), EnvelopeText(env)));
+            else if (NodeValue(node, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
         if (Csfea?.Reaction(node) is { } r)
         {
             rows.Add(new(Loc.S("FemResultCardSupports"), FemCsfeaResultVM.ReactionKindText(r.Kinds)));
             string[] labels = ["Rx", "Ry", "Rz", "Mx", "My", "Mz"];
             for (int c = 0; c < 6; c++)
-                if (r.Values[c] != 0)
-                    rows.Add(new($"{labels[c]}, {Loc.S(c < 3 ? "UnitKN" : "UnitKNm")}", Num(r.Values[c] / 1e3)));
+            {
+                string label = $"{labels[c]}, {Loc.S(c < 3 ? "UnitKN" : "UnitKNm")}";
+                if (IsEnvelope)
+                {
+                    if (Csfea.EnvelopeReaction(node, c)?.Scale(1e-3) is { } env && (env.Max != 0 || env.Min != 0))
+                        rows.Add(new(label, EnvelopeText(env)));
+                }
+                else if (r.Values[c] != 0) rows.Add(new(label, Num(r.Values[c] / 1e3)));
+            }
         }
         return new FemResultCard(string.Format(Loc.S("FemResultCardNode"), node), rows);
     }
@@ -580,6 +664,24 @@ public sealed class FemResultLayer : ViewModelBase
         bool bar = Mesh.IsBar(tag);
         var rows = new List<FemResultCardRow>();
         if (Mesh.OwnerOf(tag) is { } owner) rows.Add(new(Loc.S("FemResultCardOwner"), owner));
+        if (IsEnvelope && Csfea is { } vm && int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int elem))
+        {
+            // Огибающая: обе ветви с комбинациями; перемещения — средние по узлам пластины (у стержня их нет в огибающей).
+            if (bar && HasBarForces)
+                foreach (var c in Forces)
+                    if (BarEndEnvelope(tag, c) is { } e)
+                        rows.Add(new(ForceLabel(c), string.Format(Loc.S("FemResultCardEnvelopeEnds"), Num(e.I.Max), e.I.MaxSource,
+                            Num(e.I.Min), e.I.MinSource, Num(e.J.Max), e.J.MaxSource, Num(e.J.Min), e.J.MinSource)));
+            if (!bar)
+            {
+                foreach (var c in Displacements.Where(c => c != FemResultComponent.U))
+                    if (vm.EnvelopeShell(elem, FemCsfeaShellField.Ux + (int)c) is { } env)
+                        rows.Add(new(DisplacementLabel(c), EnvelopeText(env)));
+                foreach (var f in ShellFields)
+                    if (vm.EnvelopeShell(elem, f.Value) is { } env) rows.Add(new(f.Label, EnvelopeText(env)));
+            }
+            return new FemResultCard(string.Format(Loc.S(bar ? "FemResultCardBar" : "FemResultCardShell"), tag), rows);
+        }
         foreach (var c in Displacements)
             if (Value(tag, c) is double v) rows.Add(new(DisplacementLabel(c), Num(v)));
         if (bar && HasBarForces)
@@ -592,6 +694,9 @@ public sealed class FemResultLayer : ViewModelBase
                     rows.Add(new(f.Label, f.Value == FemCsfeaShellField.State ? StateLabel(v) : Num(v)));
         return new FemResultCard(string.Format(Loc.S(bar ? "FemResultCardBar" : "FemResultCardShell"), tag), rows);
     }
+
+    static string EnvelopeText(FemCsfeaEnvelopeValue v) =>
+        string.Format(Loc.S("FemResultCardEnvelope"), Num(v.Max), v.MaxSource, Num(v.Min), v.MinSource);
 
     static string StateLabel(double v)
     {

@@ -1320,7 +1320,9 @@ public class Fem3DVM : ViewModelBase
         BarDiagram = null;
         var profiles = Mosaic.BarProfiles(MosaicBarSegments.Select(s => s.Tag), out var plane);
         if (profiles == null || profiles.Count == 0) return [];
-        double max = profiles.Values.SelectMany(p => p).Max(p => Math.Abs(p.V));
+        // Огибающая результата: вторая ветвь (min) — своей сценой в общем масштабе.
+        var minProfiles = Mosaic.BarEnvelopeMinProfiles(MosaicBarSegments.Select(s => s.Tag));
+        double max = profiles.Values.SelectMany(p => p).Concat(minProfiles?.Values.SelectMany(p => p) ?? []).Max(p => Math.Abs(p.V));
         if (!(max > 0)) return [];
 
         var bounds = new Rect3D(MosaicBarSegments[0].P1, new Size3D());
@@ -1349,12 +1351,31 @@ public class Fem3DVM : ViewModelBase
             return byColor.Select(kv => new BarGroup("", kv.Key, Points(kv.Value), 2.0)).ToList();
         }
 
-        var inputs = new List<BarDiagramInput>(profiles.Count);
-        foreach (var (tag, p1, p2) in MosaicBarSegments)
-            if (profiles.TryGetValue(tag, out var profile))
-                inputs.Add(new BarDiagramInput(tag, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile,
-                    Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null));
-        var scene = BarDiagramScene.Build(inputs, plane, scale, diagonal * BarDiagramOrdinateSpacingRatio);
+        BarDiagramScene Scene(Dictionary<string, IReadOnlyList<(double T, double V)>> byTag)
+        {
+            var inputs = new List<BarDiagramInput>(byTag.Count);
+            foreach (var (tag, p1, p2) in MosaicBarSegments)
+                if (byTag.TryGetValue(tag, out var profile))
+                    inputs.Add(new BarDiagramInput(tag, (p1.X, p1.Y, p1.Z), (p2.X, p2.Y, p2.Z), profile,
+                        Mosaic.BarDiagramAxis(tag) is { } d ? (d.X, d.Y, d.Z) : null));
+            return BarDiagramScene.Build(inputs, plane, scale, diagonal * BarDiagramOrdinateSpacingRatio);
+        }
+
+        var scene = Scene(profiles);
+        if (minProfiles is { Count: > 0 })
+        {
+            var second = Scene(minProfiles);
+            scene.PositiveFill.AddRange(second.PositiveFill);
+            scene.NegativeFill.AddRange(second.NegativeFill);
+            scene.PositiveOutline.AddRange(second.PositiveOutline);
+            scene.NegativeOutline.AddRange(second.NegativeOutline);
+            scene.PositiveOrdinates.AddRange(second.PositiveOrdinates);
+            scene.NegativeOrdinates.AddRange(second.NegativeOrdinates);
+            // Подписи обеих ветвей — по убыванию |значения| (порядок отбора без наложения).
+            var labels = scene.Labels.Concat(second.Labels).OrderByDescending(l => Math.Abs(l.Value)).ToList();
+            scene.Labels.Clear();
+            scene.Labels.AddRange(labels);
+        }
         if (!scene.IsEmpty)
             BarDiagram = new BarDiagramView(Mesh(scene.PositiveFill), Mesh(scene.NegativeFill),
                 Points(scene.PositiveOutline), Points(scene.NegativeOutline),

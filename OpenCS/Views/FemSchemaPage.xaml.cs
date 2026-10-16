@@ -56,18 +56,18 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     readonly FemSchema _schema;
 
     /// <summary>Показать в 3D-виде схемы результат постановки (источник мозаики «Расчёт»).</summary>
-    public void ShowAnalysisResult(int analysisId, int? stepIndex = null, int? combinationId = null)
+    public void ShowAnalysisResult(int analysisId, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null)
     {
         tabs.SelectedIndex = 0;
-        ShowResultWithoutGlyphs(analysisId, stepIndex, combinationId);
+        ShowResultWithoutGlyphs(analysisId, stepIndex, caseKey);
     }
 
     /// <summary>Результат постановки — без глифов схемы (как «Скрыть всё» в меню глифов): опоры, нагрузки и сечения
     /// заслоняют мозаику и эпюры; вернуть — тем же меню.</summary>
-    void ShowResultWithoutGlyphs(int analysisId, int? stepIndex = null, int? combinationId = null)
+    void ShowResultWithoutGlyphs(int analysisId, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null)
     {
         _fem3d.SetAllGlyphs(false);
-        _fem3d.Mosaic.ShowAnalysis(analysisId, stepIndex, combinationId);
+        _fem3d.Mosaic.ShowAnalysis(analysisId, stepIndex, caseKey);
     }
 
     /// <summary>Фрагмент 3D-вида схемы по группе (из дерева проекта).</summary>
@@ -136,8 +136,8 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
                 () => app.CalcSettings, this);
             if (app.OpenSubmodelTabRequested) tabs.SelectedItem = submodelTab;
         }
-        if (app.ShowAnalysisResultRequested is (int analysisId, var stepIndex, var combinationId))
-            ShowResultWithoutGlyphs(analysisId, stepIndex, combinationId);
+        if (app.ShowAnalysisResultRequested is (int analysisId, var stepIndex, var caseKey))
+            ShowResultWithoutGlyphs(analysisId, stepIndex, caseKey);
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);

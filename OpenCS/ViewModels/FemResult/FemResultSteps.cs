@@ -29,6 +29,14 @@ public interface IFemResultSteps
     /// <summary>Наибольшее перемещение узла на выбранном шаге, м.</summary>
     double MaxDisplacement();
 
+    /// <summary>
+    /// Показана огибающая группы комбинаций: значения — по выбору |max| / max / min, деформированной схемы и стрелок
+    /// реакций нет.
+    /// </summary>
+    bool IsEnvelope { get; }
+    /// <summary>|u| узла огибающей (м; |u| не складывается из огибающих компонент); null — не огибающая.</summary>
+    double? DisplacementLength(int node);
+
     /// <summary>Поля пластин результата (без перемещений); пусто — у результата их нет.</summary>
     IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields { get; }
     /// <summary>Значение поля пластины на выбранном шаге; null — нет данных.</summary>
@@ -70,6 +78,8 @@ public sealed class OpenSeesResultSteps : IFemResultSteps
     public bool HasDisplacements => _disp.Count > 0;
     public Vector3D? Displacement(int node) => _disp.TryGetValue(node, out var d) ? d : null;
     public double MaxDisplacement() => _disp.Values.Select(v => v.Length).DefaultIfEmpty(0).Max();
+    public bool IsEnvelope => false;
+    public double? DisplacementLength(int node) => null;
 
     public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields => [];
     public double? ShellValue(int elem, FemCsfeaShellField field) => null;
@@ -137,6 +147,9 @@ public sealed class CsfeaResultSteps : IFemResultSteps
             max = Math.Max(max, Math.Sqrt(d[6 * i] * d[6 * i] + d[6 * i + 1] * d[6 * i + 1] + d[6 * i + 2] * d[6 * i + 2]));
         return max;
     }
+
+    public bool IsEnvelope => Vm.IsEnvelopeShown;
+    public double? DisplacementLength(int node) => Vm.EnvelopeDisplacementLength(node);
 
     public IReadOnlyList<FemCsfeaOption<FemCsfeaShellField>> ShellFields { get; }
     public double? ShellValue(int elem, FemCsfeaShellField field) => Vm.ShellFieldValue(elem, field);

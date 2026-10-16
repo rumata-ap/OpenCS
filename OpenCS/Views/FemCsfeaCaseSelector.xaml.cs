@@ -6,7 +6,8 @@ using OpenCS.ViewModels;
 namespace OpenCS.Views;
 
 /// <summary>
-/// Выбор показанного в линейном результате CSfea: загружение или комбинация схемы (суперпозиция). Общий для окна
+/// Выбор показанного в линейном результате CSfea: загружение, комбинация схемы (суперпозиция) или огибающая группы
+/// комбинаций. Общий для окна
 /// результата и строки результата под 3D-видом; DataContext — <see cref="FemCsfeaResultVM"/>.
 /// </summary>
 public partial class FemCsfeaCaseSelector : UserControl
@@ -18,10 +19,12 @@ public partial class FemCsfeaCaseSelector : UserControl
     void Mode_Click(object sender, RoutedEventArgs e)
     {
         if (Vm is not { } vm) return;
-        vm.ShowCombinations = ReferenceEquals(sender, combinationsMode);
+        if (ReferenceEquals(sender, combinationsMode)) vm.ShowCombinations = true;
+        else if (ReferenceEquals(sender, envelopesMode)) vm.ShowEnvelopes = true;
+        else { vm.ShowCombinations = false; vm.ShowEnvelopes = false; }
         // Повторный щелчок по нажатой кнопке снимает её локально — вернуть состояние из VM.
-        casesMode.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
-        combinationsMode.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
+        foreach (var button in new[] { casesMode, combinationsMode, envelopesMode })
+            button.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
     }
 
     void Pick_Click(object sender, RoutedEventArgs e)

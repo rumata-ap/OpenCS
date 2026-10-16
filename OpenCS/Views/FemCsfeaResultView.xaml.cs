@@ -34,6 +34,8 @@ public partial class FemCsfeaResultView : UserControl
             foreach (var column in new[] { lambdaColumn, plannedColumn, convergedColumn, iterationsColumn, residualColumn, fieldsColumn })
                 column.Visibility = Visibility.Collapsed;
         }
+        foreach (var grid in new[] { nodeGrid, beamGrid, shellGrid, reactionGrid }) AddEnvelopeColumns(grid);
+        UpdateEnvelopeColumns();
         UpdateCharts();
         lambdaCanvas.StepClicked += i => _vm.SelectedStepIndex = i;
         controlCanvas.StepClicked += i => _vm.SelectedStepIndex = i;
@@ -41,8 +43,44 @@ public partial class FemCsfeaResultView : UserControl
         SyncGrid();
     }
 
+    readonly List<DataGridColumn> _envelopeColumns = [];
+
+    /// <summary>
+    /// Столбцы огибающей: «Ветвь» (max/min) вторым и «Комбинации» последним; у столбцов значений — подсказка ячейки с
+    /// комбинацией-источником (<c>Sources[имя свойства]</c> строки; у не-огибающей строки словаря нет — подсказки нет).
+    /// </summary>
+    void AddEnvelopeColumns(DataGrid grid)
+    {
+        foreach (var column in grid.Columns.OfType<DataGridBoundColumn>())
+        {
+            if (column.Binding is not System.Windows.Data.Binding { Path.Path: { } path }) continue;
+            var style = new Style(typeof(DataGridCell), column.CellStyle);
+            style.Setters.Add(new Setter(ToolTipProperty, new System.Windows.Data.Binding($"Sources[{path}]")));
+            column.CellStyle = style;
+        }
+        var ext = new DataGridTextColumn
+        {
+            Binding = new System.Windows.Data.Binding(nameof(FemCsfeaNodeRow.Ext)), Header = TryFindResource("FemCsfeaColExt"),
+        };
+        var combos = new DataGridTextColumn
+        {
+            Binding = new System.Windows.Data.Binding(nameof(FemCsfeaNodeRow.Combos)), Header = TryFindResource("FemCsfeaColCombos"),
+        };
+        grid.Columns.Insert(Math.Min(1, grid.Columns.Count), ext);
+        grid.Columns.Add(combos);
+        _envelopeColumns.Add(ext);
+        _envelopeColumns.Add(combos);
+    }
+
+    void UpdateEnvelopeColumns()
+    {
+        var visibility = _vm.IsEnvelopeShown ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var column in _envelopeColumns) column.Visibility = visibility;
+    }
+
     void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FemCsfeaResultVM.IsEnvelopeShown)) UpdateEnvelopeColumns();
         if (e.PropertyName != nameof(FemCsfeaResultVM.SelectedStepIndex)) return;
         UpdateCharts();
         SyncGrid();

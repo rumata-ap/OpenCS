@@ -66,6 +66,11 @@ public static class FemCsfeaCombinationFields
         return new FemCsfeaCombinationCase(definition, resolved, missing);
     }
 
+    /// <summary>Поля записаны на одной сетке: одинаковые номера узлов, КЭ и опор в том же порядке.</summary>
+    public static bool SameMesh(RcSecantStepFields a, RcSecantStepFields b) =>
+        a.NodeIds.AsSpan().SequenceEqual(b.NodeIds) && a.ShellIds.AsSpan().SequenceEqual(b.ShellIds)
+        && a.BeamIds.AsSpan().SequenceEqual(b.BeamIds) && a.ReactionNodeIds.AsSpan().SequenceEqual(b.ReactionNodeIds);
+
     /// <summary>
     /// Σ k·поля. Поля всех слагаемых — одной сетки (одинаковые номера узлов, КЭ и опор), иначе
     /// <see cref="InvalidOperationException"/>. ΣR/ΣF суммируются, если есть у всех слагаемых.
@@ -75,8 +80,7 @@ public static class FemCsfeaCombinationFields
         if (terms.Count == 0) throw new ArgumentException("Нет слагаемых.", nameof(terms));
         var first = terms[0].Fields;
         foreach (var (f, _) in terms.Skip(1))
-            if (!f.NodeIds.AsSpan().SequenceEqual(first.NodeIds) || !f.ShellIds.AsSpan().SequenceEqual(first.ShellIds)
-                || !f.BeamIds.AsSpan().SequenceEqual(first.BeamIds) || !f.ReactionNodeIds.AsSpan().SequenceEqual(first.ReactionNodeIds))
+            if (!SameMesh(f, first))
                 throw new InvalidOperationException("Поля загружений записаны на разных сетках.");
 
         double[] Sum(Func<RcSecantStepFields, double[]> pick)

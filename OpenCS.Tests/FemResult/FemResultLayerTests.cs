@@ -267,7 +267,7 @@ public class FemResultLayerTests
         Assert.Same(vm.CombinationItems, vm.CaseItems);
         // 1,1·(−0,01) + 1,4·(−0,02) = −0,039.
         Assert.Equal(-0.039, vm.Displacement(2).Z, 12);
-        Assert.Equal(21, layer.SelectedCombinationId);
+        Assert.Equal(21, layer.ShownKey?.CombinationId);
         Assert.True(changed > 0);
         Assert.True(vm.CanCreateForceSets);
 
@@ -292,8 +292,85 @@ public class FemResultLayerTests
         Assert.False(vm.ShowCombinations);
         Assert.Equal(-0.01, vm.Displacement(2).Z, 12);
 
-        layer.SelectedCombinationId = 21;
+        layer.ShownKey = new FemCsfeaCaseKey(21, null, CScore.Fem.ForceRowAggregate.MaxAbs);
         Assert.Equal(-0.039, vm.Displacement(2).Z, 12);
+    }
+
+    [Fact]
+    public async Task CsfeaLinear_Envelope_LeavingCancelsThenRecomputes()
+    {
+        using var t = new TempDb();
+        var (vm, _) = CombinationResult(t);
+        vm.ShowEnvelopes = true;
+        vm.SelectedStepIndex = 0;               // ушли до готовности — расчёт прерывается
+        await vm.EnvelopeTask;
+        Assert.False(vm.IsEnvelopeShown);
+        Assert.Equal(-0.01, vm.Displacement(2).Z, 12);
+
+        vm.ShowEnvelopes = true;
+        await vm.EnvelopeTask;
+        Assert.True(vm.HasFields, vm.FieldsNote);
+        Assert.Equal(-0.039, vm.Displacement(2).Z, 12);
+    }
+
+    [Fact]
+    public async Task CsfeaLinear_EnvelopeOfGroup_MaxMinWithSources()
+    {
+        using var t = new TempDb();
+        var (vm, analysis) = CombinationResult(t);
+        var layer = new FemResultLayer(analysis, "Л", new CsfeaResultSteps(vm), t.Mesh());
+
+        // Группа C: К1 и К3 доступны, К2 (со «Снегом» вне расчёта) пропущена.
+        var item = Assert.Single(vm.EnvelopeItems);
+        Assert.Equal("C", item.Badge);
+        Assert.Equal(["К1", "К3"], item.Envelope!.Combinations.Select(c => c.Name));
+        Assert.Equal(1, item.Envelope.Unavailable);
+        Assert.True(vm.CanShowEnvelopes);
+
+        vm.ShowEnvelopes = true;
+        Assert.True(vm.IsEnvelopeShown);
+        Assert.Same(vm.EnvelopeItems, vm.CaseItems);
+        await vm.EnvelopeTask;
+        Assert.True(vm.HasFields, vm.FieldsNote);
+
+        // uz узла 2: К1 = −0,039, К3 = −0,02.
+        var uz = vm.EnvelopeNode(2, 2)!.Value;
+        Assert.Equal((-0.02, "К3", -0.039, "К1"), (Math.Round(uz.Max, 12), uz.MaxSource, Math.Round(uz.Min, 12), uz.MinSource));
+        Assert.Equal(-0.039, vm.Displacement(2).Z, 12);              // |max|
+        Assert.Equal(0.039, vm.EnvelopeDisplacementLength(2)!.Value, 12);
+        Assert.Equal(39, layer.NodeValue(2, FemResultComponent.U)!.Value, 9);
+        vm.EnvelopeAggregate = CScore.Fem.ForceRowAggregate.Max;
+        Assert.Equal(-0.02, vm.Displacement(2).Z, 12);
+
+        // У огибающей нет деформированной схемы, стрелок реакций, ΣR и наборов усилий.
+        Assert.True(layer.IsEnvelope);
+        Assert.False(layer.CanShowDeformed);
+        Assert.False(layer.HasReactions);
+        Assert.Null(vm.SelectedStep);
+        Assert.False(vm.CanCreateForceSets);
+
+        // Таблица: по узлу строки max и min, комбинация ячейки — по имени столбца.
+        Assert.Equal(["max", "min", "max", "min"], vm.NodeRows.Select(r => r.Ext));
+        var min = vm.NodeRows.Single(r => r.Node == 2 && r.Ext == "min");
+        Assert.Equal(-39, min.Uz, 9);
+        Assert.Equal("К1", min.Sources!["Uz"]);
+
+        // Карточка узла — обе ветви с комбинациями.
+        layer.Selection.PickNode(2);
+        var card = layer.BuildCard()!;
+        string Num(double v) => v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture);
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemResultCardEnvelope"), Num(-20), "К3", Num(-39), "К1"),
+            card.Rows.Single(r => r.Label.StartsWith("uz", StringComparison.Ordinal)).Value);
+
+        // Ключ показа переносит огибающую и выбор max; повторный показ — из кеша, без фона.
+        var key = vm.ShownKey!;
+        Assert.Equal(("C", CScore.Fem.ForceRowAggregate.Max), (key.EnvelopeType, key.Aggregate));
+        vm.SelectedStepIndex = 0;
+        Assert.False(vm.IsEnvelopeShown);
+        Assert.True(layer.CanShowDeformed);
+        vm.ShownKey = key;
+        Assert.True(vm.HasFields);
+        Assert.Equal(-0.02, vm.Displacement(2).Z, 12);
     }
 
     [Fact]
@@ -320,6 +397,10 @@ public class FemResultLayerTests
                 window.UpdateLayout();
                 Assert.Equal(3, list.Items.Count);
                 Assert.Same(vm.CombinationItems[0], list.SelectedItem);
+                vm.ShowEnvelopes = true;
+                window.UpdateLayout();
+                Assert.Equal(1, list.Items.Count);
+                Assert.Same(vm.EnvelopeItems[0], list.SelectedItem);
                 window.Close();
             }
             catch (Exception ex) { error = ex; }
@@ -494,8 +575,14 @@ public class FemResultLayerTests
         vm.SelectedBarComponent = component == null ? vm.BarComponentOptions[0]
             : vm.BarComponentOptions.Single(o => Equals(o.Component, component));
 
-    static string Extremum(PlateRebarMosaicVM vm, double value, string elem) => string.Format(
-        System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultElementExtremum"), vm.SelectedComponent!.Label, value, elem);
+    static string Num(double v) => v.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>Итог min/max, у которого оба экстремума — на одном КЭ (одна пластина во фрагменте).</summary>
+    static string Extremum(PlateRebarMosaicVM vm, double value, string elem) => MinMax(vm.SelectedComponent!.Label, value, elem, value, elem);
+
+    static string MinMax(string label, double min, string minElem, double max, string maxElem) => string.Format(
+        System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultMinMax"), label,
+        Num(min), string.Format(Loc.S("FemResultAtElement"), minElem), Num(max), string.Format(Loc.S("FemResultAtElement"), maxElem));
 
     [Fact]
     public void Mosaic_CsfeaShellFieldsAndBarForces()
@@ -550,8 +637,9 @@ public class FemResultLayerTests
         Assert.False(coloring.Bars);
         Assert.Equal(["2"], coloring.ColorByTag.Keys);
         Assert.Equal(Extremum(vm, 5, "2"), layer.SummaryText);
-        Assert.Equal(string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.S("FemResultBarExtremum"),
-            vm.SelectedBarComponent!.Label, -4.0, "1"), layer.BarSummaryText);
+        // Концы стержня: 2 и −4 — min и max на одном КЭ.
+        Assert.Equal(MinMax(string.Format(Loc.S("FemResultBarsLabel"), vm.SelectedBarComponent!.Label), -4, "1", 2, "1"),
+            layer.BarSummaryText);
         Assert.True(vm.HasBarDiagrams);
         Assert.Equal([(0.0, 2.0), (1.0, -4.0)], vm.BarProfiles(["1"], out _)!["1"]);
         vm.SetHover("1");

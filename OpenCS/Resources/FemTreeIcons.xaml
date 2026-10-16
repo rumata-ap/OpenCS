@@ -259,6 +259,26 @@
       </DrawingImage.Drawing>
    </DrawingImage>
 
+   <!-- Огибающая комбинаций: эпюры комбинаций (серые) и охватывающая их внешняя кривая (красная) над осью. -->
+   <DrawingImage x:Key="FemIcon_Envelope">
+      <DrawingImage.Drawing>
+         <DrawingGroup ClipGeometry="M0,0 H16 V16 H0 Z">
+            <GeometryDrawing Brush="Transparent" Geometry="M0,0 H16 V16 H0 Z"/>
+            <GeometryDrawing Geometry="M3,13.5 C5.5,9.5 10.5,9.5 13,13.5 M2,13.5 C5,6.5 11,6.5 14,13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="0.9" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1.5,13.5 C4.5,2 11.5,2 14.5,13.5">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconRed}" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+            <GeometryDrawing Geometry="M1,13.5 H15">
+               <GeometryDrawing.Pen><Pen Brush="{StaticResource FemIconGrey}" Thickness="1.4" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+            </GeometryDrawing>
+         </DrawingGroup>
+      </DrawingImage.Drawing>
+   </DrawingImage>
+
+
+
    <!-- Комбинация: плюс в рамке. -->
    <DrawingImage x:Key="FemIcon_Combination">
       <DrawingImage.Drawing>

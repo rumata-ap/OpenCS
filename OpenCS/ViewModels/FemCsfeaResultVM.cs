@@ -42,17 +42,48 @@ public sealed record FemCsfeaStepRow(int N, string Stage, double LoadFactor, str
 public sealed record FemCsfeaLineReactionRow(string Edge, double Length, double Rx, double Ry, double Rz,
     double QzMean, double QzMin, double QzMax);
 
-public sealed record FemCsfeaReactionRow(int Node, double Rx, double Ry, double Rz, double Mx, double My, double Mz, string Kind);
+public sealed record FemCsfeaReactionRow(int Node, double Rx, double Ry, double Rz, double Mx, double My, double Mz, string Kind,
+    string Ext = "", IReadOnlyDictionary<string, string>? Sources = null)
+{
+    public string Combos => FemCsfeaEnvelopeRows.Combos(Sources);
+}
 
-/// <summary>Строка таблицы перемещений узла сетки на показанном шаге: ux, uy, uz — мм; rx, ry, rz — мрад.</summary>
-public sealed record FemCsfeaNodeRow(int Node, double Ux, double Uy, double Uz, double Rx, double Ry, double Rz);
+/// <summary>
+/// Строка таблицы перемещений узла сетки на показанном шаге: ux, uy, uz — мм; rx, ry, rz — мрад. У огибающей —
+/// строка ветви (<c>Ext</c> = max/min), <c>Sources</c> — комбинация-источник по имени свойства.
+/// </summary>
+public sealed record FemCsfeaNodeRow(int Node, double Ux, double Uy, double Uz, double Rx, double Ry, double Rz,
+    string Ext = "", IReadOnlyDictionary<string, string>? Sources = null)
+{
+    public string Combos => FemCsfeaEnvelopeRows.Combos(Sources);
+}
+
+/// <summary>Строка таблицы концевых сил стержня (Н, Н·м, местные оси; в таблице — кН, кН·м); у огибающей — ветвь.</summary>
+public sealed record FemCsfeaBeamRow(int ElemTag,
+    double Ni, double Qyi, double Qzi, double Mxi, double Myi, double Mzi,
+    double Nj, double Qyj, double Qzj, double Mxj, double Myj, double Mzj,
+    string Ext = "", IReadOnlyDictionary<string, string>? Sources = null)
+{
+    public string Combos => FemCsfeaEnvelopeRows.Combos(Sources);
+}
+
+/// <summary>Строки таблиц огибающей: столбец «Комбинации».</summary>
+public static class FemCsfeaEnvelopeRows
+{
+    /// <summary>Комбинации-источники ячеек строки без повторов, по частоте; пусто — строка не огибающей.</summary>
+    public static string Combos(IReadOnlyDictionary<string, string>? sources) => sources == null ? ""
+        : string.Join(", ", sources.Values.Where(v => v != "").GroupBy(v => v).OrderByDescending(g => g.Count()).Select(g => g.Key));
+}
 
 /// <summary>
 /// Строка таблицы усилий пластины на показанном шаге (оси выдачи, центр КЭ): Nx, Ny, Nxy, Qx, Qy — кН/м; Mx, My, Mxy —
 /// кН·м/м; состояние сечения словом (у линейного расчёта — пусто).
 /// </summary>
 public sealed record FemCsfeaShellRow(int Elem, double Nx, double Ny, double Nxy, double Mx, double My, double Mxy,
-    double Qx, double Qy, string State);
+    double Qx, double Qy, string State, string Ext = "", IReadOnlyDictionary<string, string>? Sources = null)
+{
+    public string Combos => FemCsfeaEnvelopeRows.Combos(Sources);
+}
 
 /// <summary>
 /// Пункт списка показа линейного результата: загружение (шаг сводки) или комбинация схемы (суперпозиция шагов
@@ -68,14 +99,54 @@ public sealed class FemCsfeaCaseItem
     /// <summary>Комбинация — слагаемые по шагам загружений; загружение — null.</summary>
     public FemCsfeaCombinationCase? Combination { get; init; }
 
+    /// <summary>Огибающая группы комбинаций одного типа; иначе null.</summary>
+    public FemCsfeaEnvelopeGroup? Envelope { get; init; }
+
     public bool IsCombination => Combination != null;
+    public bool IsEnvelope => Envelope != null;
     public bool IsAvailable => Source.IsEnabled;
     public string Badge => Source.TypeBadge;
     public string Name => Source.Tag;
 
-    /// <summary>Формула комбинации серым («1·ЗГ1 + 0,9·ЗГ8»); у загружения — код «ЗГ3».</summary>
+    /// <summary>Формула комбинации серым («1·ЗГ1 + 0,9·ЗГ8»); у загружения — код «ЗГ3»; у огибающей — число комбинаций.</summary>
     public string Formula => Source.Formula;
-    public string ToolTip => Source.ToolTipText;
+    public string ToolTip => ToolTipText ?? Source.ToolTipText;
+
+    /// <summary>Своя подсказка пункта (огибающая); null — подсказка источника.</summary>
+    public string? ToolTipText { get; init; }
+}
+
+/// <summary>Огибающая группы: тип комбинаций (C, CL, N, NL, A), доступные комбинации группы и число недоступных.</summary>
+public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCaseItem> Combinations, int Unavailable);
+
+/// <summary>
+/// Что показано в линейном результате CSfea поверх шага — для перехода окно результата ↔ 3D-вид: комбинация схемы
+/// (Id) или огибающая группы (тип) и выбор |max| / max / min.
+/// </summary>
+public sealed record FemCsfeaCaseKey(int? CombinationId, string? EnvelopeType, ForceRowAggregate Aggregate);
+
+/// <summary>Значение огибающей величины: ветви max и min с именами комбинаций-источников (в единицах показа).</summary>
+public readonly record struct FemCsfeaEnvelopeValue(double Max, string MaxSource, double Min, string MinSource)
+{
+    /// <summary>Значение по выбору |max| / max / min.</summary>
+    public double Pick(ForceRowAggregate aggregate) => aggregate switch
+    {
+        ForceRowAggregate.Max => Max,
+        ForceRowAggregate.Min => Min,
+        _ => Math.Abs(Min) > Math.Abs(Max) ? Min : Max,
+    };
+
+    /// <summary>Комбинация, давшая значение <see cref="Pick"/>.</summary>
+    public string PickSource(ForceRowAggregate aggregate) => aggregate switch
+    {
+        ForceRowAggregate.Max => MaxSource,
+        ForceRowAggregate.Min => MinSource,
+        _ => Math.Abs(Min) > Math.Abs(Max) ? MinSource : MaxSource,
+    };
+
+    /// <summary>Значение со знаком ×s (у s &lt; 0 ветви меняются местами).</summary>
+    public FemCsfeaEnvelopeValue Scale(double s) => s >= 0 ? new(Max * s, MaxSource, Min * s, MinSource)
+        : new(Min * s, MinSource, Max * s, MaxSource);
 }
 
 /// <summary>
@@ -245,10 +316,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         set
         {
             int v = Summary.Steps.Count == 0 ? 0 : Math.Clamp(value, 0, Summary.Steps.Count - 1);
-            if (v == _selectedStepIndex && _shownCombination == null) return;
-            // Шаг (загружение) выбран явно — комбинация больше не показана.
+            if (v == _selectedStepIndex && _shownCombination == null && _shownEnvelope == null) return;
+            // Шаг (загружение) выбран явно — комбинация и огибающая больше не показаны.
             _shownCombination = null;
+            _shownEnvelope = null;
             _showCombinations = false;
+            _showEnvelopes = false;
             _selectedStepIndex = v;
             OnPropertyChanged();
             ApplyStep();
@@ -259,7 +332,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// Шаг сводки под ползунком; у показанной комбинации — сводка суперпозиции (N = 0, стадия −1, ΣR и ΣF суммой);
     /// null — шагов нет (ошибка до расчёта).
     /// </summary>
-    public FemCsfeaStepSummary? SelectedStep => _shownCombination != null ? _combinationStep
+    public FemCsfeaStepSummary? SelectedStep => _shownEnvelope != null ? null
+        : _shownCombination != null ? _combinationStep
         : Summary.Steps.Count > 0 ? Summary.Steps[_selectedStepIndex] : null;
 
     FemCsfeaStepSummary? _combinationStep;
@@ -267,7 +341,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Линейный расчёт: шаги сводки — независимые загружения (без λ и итераций).</summary>
     public bool IsLinear => Summary.Kind == FemCsfeaRunner.LinearAnalysisKind;
 
-    public string CurrentStepLabel => _shownCombination is { Combination: { } comb } item
+    public string CurrentStepLabel => _shownEnvelope is { Envelope: { } env } shown
+        ? string.Format(Loc.S("FemCsfeaEnvelopeLabel"), shown.Name, env.Combinations.Count, AggregateLabel(EnvelopeAggregate))
+        : _shownCombination is { Combination: { } comb } item
         ? string.Format(Loc.S("FemCsfeaCombinationLabel"), CombinationItems.ToList().IndexOf(item) + 1, CombinationItems.Count,
             item.Name, comb.Terms.Count)
         : SelectedStep is not { } s ? Loc.S("FemCsfeaNoSteps")
@@ -314,7 +390,28 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         Fields = null;
         FieldsNote = "";
         _combinationStep = null;
-        if (_shownCombination is { Combination: { } comb })
+        _envelope = null;
+        // Огибающая другого типа больше не нужна — её расчёт прерывается.
+        if (_envelopeTaskType != null && _shownEnvelope?.Envelope?.Type != _envelopeTaskType)
+        {
+            _envelopeCts?.Cancel();
+            _envelopeTaskType = null;
+        }
+        if (_shownEnvelope is { Envelope: { } env })
+        {
+            if (_envelopes.TryGetValue(env.Type, out var ready))
+            {
+                _envelope = ready;
+                Fields = PickEnvelope(ready, EnvelopeAggregate);
+            }
+            else
+            {
+                _envelope = null;
+                FieldsNote = EnvelopeProgressNote(env, 0);
+                StartEnvelope(_shownEnvelope);
+            }
+        }
+        else if (_shownCombination is { Combination: { } comb })
         {
             try
             {
@@ -352,6 +449,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(ShowNoReactionsNote));
         OnPropertyChanged(nameof(ReactionSummaryText));
         OnPropertyChanged(nameof(ShowCombinations));
+        OnPropertyChanged(nameof(ShowEnvelopes));
+        OnPropertyChanged(nameof(IsEnvelopeShown));
         OnPropertyChanged(nameof(ShowLoadCases));
         OnPropertyChanged(nameof(CaseItems));
         OnPropertyChanged(nameof(SelectedCaseItem));
@@ -360,13 +459,255 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         CaseChanged?.Invoke();
     }
 
-    /// <summary>Показанное изменилось: шаг, загружение или комбинация (для 3D-вида — общий сигнал).</summary>
+    /// <summary>Показанное изменилось: шаг, загружение, комбинация или огибающая (для 3D-вида — общий сигнал).</summary>
     public event Action? CaseChanged;
+
+    void SetFieldsNote(string note)
+    {
+        if (note == FieldsNote) return;
+        FieldsNote = note;
+        OnPropertyChanged(nameof(FieldsNote));
+        OnPropertyChanged(nameof(HasFieldsNote));
+    }
+
+    // ------------------------------------------------------------ огибающая группы комбинаций
+
+    // Вектор величин огибающей (раскладка по опорному шагу — номера узлов и КЭ у всех загружений одни): узел — 6
+    // перемещений и |u|; пластина — 8 усилий, ux/uy/uz среднее по узлам КЭ (м), отпор C1 (кПа, NaN без основания);
+    // стержень — 12 концевых сил; опора — 6 реакций. Всё, кроме |u|, линейно по загружениям.
+    const int NodeQ = RcSecantStepFields.NodeComponents + 1;
+    const int ShellQ = RcSecantStepFields.ShellForceComponents + 4;
+
+    /// <summary>Готовая огибающая группы: значения, опорный шаг раскладки, группа (имена комбинаций-источников).</summary>
+    sealed record EnvelopeData(FemCsfeaEnvelope Values, RcSecantStepFields Reference, FemCsfeaEnvelopeGroup Group)
+    {
+        public int ShellOffset => Reference.NodeIds.Length * NodeQ;
+        public int BeamOffset => ShellOffset + Reference.ShellIds.Length * ShellQ;
+        public int ReactionOffset => BeamOffset + Reference.BeamIds.Length * RcSecantStepFields.BeamForceComponents;
+    }
+
+    readonly Dictionary<string, EnvelopeData> _envelopes = new();
+    EnvelopeData? _envelope;
+    CancellationTokenSource? _envelopeCts;
+    string? _envelopeTaskType;
+
+    /// <summary>Идущий расчёт огибающей (завершённая задача — расчёта нет).</summary>
+    public Task EnvelopeTask { get; private set; } = Task.CompletedTask;
+
+    static string EnvelopeProgressNote(FemCsfeaEnvelopeGroup env, int done) =>
+        string.Format(Loc.S("FemCsfeaEnvelopeProgress"), env.Type, done, env.Combinations.Count);
+
+    /// <summary>Запустить расчёт огибающей пункта в фоне; по готовности, если пункт ещё показан, — показать.</summary>
+    void StartEnvelope(FemCsfeaCaseItem item)
+    {
+        var env = item.Envelope!;
+        if (_envelopeTaskType == env.Type && _envelopeCts is { IsCancellationRequested: false } && !EnvelopeTask.IsCompleted) return;
+        _envelopeCts?.Cancel();
+        var cts = _envelopeCts = new CancellationTokenSource();
+        _envelopeTaskType = env.Type;
+        var progress = new Progress<int>(done =>
+        {
+            if (ReferenceEquals(_shownEnvelope, item) && _envelope == null) SetFieldsNote(EnvelopeProgressNote(env, done));
+        });
+        EnvelopeTask = RunEnvelopeAsync(item, progress, cts);
+    }
+
+    async Task RunEnvelopeAsync(FemCsfeaCaseItem item, IProgress<int> progress, CancellationTokenSource cts)
+    {
+        var env = item.Envelope!;
+        var ct = cts.Token;
+        try
+        {
+            _envelopes[env.Type] = await Task.Run(() => BuildEnvelope(env, progress, ct), ct);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (InvalidOperationException ex)
+        {
+            if (ReferenceEquals(_shownEnvelope, item)) SetFieldsNote(ex.Message);
+            return;
+        }
+        finally
+        {
+            // Признак сбрасывает только последний запущенный расчёт (прерванный мог смениться новым того же типа).
+            if (ReferenceEquals(_envelopeCts, cts)) _envelopeTaskType = null;
+        }
+        if (ReferenceEquals(_shownEnvelope, item)) ApplyStep();
+    }
+
+    /// <summary>Огибающая группы по полям загружений (фон): величины загружений один раз, комбинации — суммой.</summary>
+    EnvelopeData BuildEnvelope(FemCsfeaEnvelopeGroup env, IProgress<int> progress, CancellationToken ct)
+    {
+        var caseIndex = new Dictionary<int, int>();
+        var vectors = new List<double[]>();
+        RcSecantStepFields? reference = null;
+        Dictionary<int, int>? nodeIndex = null;
+        foreach (var term in env.Combinations.SelectMany(i => i.Combination!.Terms).DistinctBy(t => t.StepN).OrderBy(t => t.StepN))
+        {
+            ct.ThrowIfCancellationRequested();
+            var f = LoadFields(term.StepN) ?? throw new InvalidOperationException(
+                string.Format(Loc.S("FemCsfeaCombinationNoFields"), term.LoadCase.Tag));
+            if (reference == null)
+            {
+                reference = f;
+                nodeIndex = new Dictionary<int, int>();
+                for (int i = 0; i < f.NodeIds.Length; i++) nodeIndex.TryAdd(f.NodeIds[i], i);
+            }
+            else if (!FemCsfeaCombinationFields.SameMesh(f, reference))
+                throw new InvalidOperationException(Loc.S("FemCsfeaEnvelopeMeshMismatch"));
+            caseIndex[term.StepN] = vectors.Count;
+            vectors.Add(EnvelopeVector(f, nodeIndex!));
+        }
+        if (reference == null) throw new InvalidOperationException(Loc.S("FemCsfeaCombinationEmpty"));
+        var combinations = env.Combinations
+            .Select(i => (IReadOnlyList<(int, double)>)i.Combination!.Terms.Select(t => (caseIndex[t.StepN], t.Factor)).ToList())
+            .ToList();
+        // |u| — по записям узлов (куски вектора не режут записи по NodeQ величин).
+        int nodeEnd = reference.NodeIds.Length * NodeQ;
+        var values = FemCsfeaCombinationEnvelope.Build(vectors, combinations, (v, offset) =>
+        {
+            for (int o = 0; o < v.Length && offset + o < nodeEnd; o += NodeQ)
+                v[o + 6] = Math.Sqrt(v[o] * v[o] + v[o + 1] * v[o + 1] + v[o + 2] * v[o + 2]);
+        }, NodeQ, progress, ct);
+        return new EnvelopeData(values, reference, env);
+    }
+
+    /// <summary>Величины огибающей одного загружения (раскладка — см. <see cref="NodeQ"/>).</summary>
+    double[] EnvelopeVector(RcSecantStepFields f, Dictionary<int, int> nodeIndex)
+    {
+        int nn = f.NodeIds.Length, ns = f.ShellIds.Length;
+        const int sc = RcSecantStepFields.ShellForceComponents, nc = RcSecantStepFields.NodeComponents;
+        var v = new double[nn * NodeQ + ns * ShellQ + f.BeamForces.Length + f.Reactions.Length];
+        var d = f.Displacements;
+        for (int i = 0; i < nn; i++)
+        {
+            for (int c = 0; c < nc; c++) v[i * NodeQ + c] = d[nc * i + c];
+            v[i * NodeQ + nc] = double.NaN;
+        }
+        int o = nn * NodeQ;
+        for (int i = 0; i < ns; i++, o += ShellQ)
+        {
+            Array.Copy(f.ShellForces, i * sc, v, o, sc);
+            int elem = f.ShellIds[i];
+            if (!_contours.TryGetValue(elem, out var contour))
+            {
+                for (int c = 0; c < 4; c++) v[o + sc + c] = double.NaN;
+                continue;
+            }
+            // Как ShellValue/FoundationPressure: среднее по узлам контура (узел вне полей — ноль).
+            for (int c = 0; c < 3; c++)
+            {
+                double sum = 0;
+                foreach (int n in contour)
+                    if (nodeIndex.TryGetValue(n, out int k)) sum += d[nc * k + c];
+                v[o + sc + c] = sum / contour.Length;
+            }
+            if (_foundation.TryGetValue(elem, out var fd))
+            {
+                double un = 0;
+                foreach (int n in contour)
+                    if (nodeIndex.TryGetValue(n, out int k))
+                        un += fd.Normal.X * d[nc * k] + fd.Normal.Y * d[nc * k + 1] + fd.Normal.Z * d[nc * k + 2];
+                v[o + sc + 3] = -fd.C1 * un / contour.Length / 1e3;
+            }
+            else v[o + sc + 3] = double.NaN;
+        }
+        Array.Copy(f.BeamForces, 0, v, o, f.BeamForces.Length);
+        Array.Copy(f.Reactions, 0, v, o + f.BeamForces.Length, f.Reactions.Length);
+        return v;
+    }
+
+    /// <summary>Поля показа огибающей: каждая величина — по выбору |max| / max / min (состояния пластин пусты).</summary>
+    static RcSecantStepFields PickEnvelope(EnvelopeData e, ForceRowAggregate a)
+    {
+        var r = e.Reference;
+        var env = e.Values;
+        double P(int i) => ForceSetEnvelope.Entry.Pick(env.Min[i], env.Max[i], a) ?? double.NaN;
+        const int sc = RcSecantStepFields.ShellForceComponents, nc = RcSecantStepFields.NodeComponents;
+        var disp = new double[r.Displacements.Length];
+        for (int i = 0; i < r.NodeIds.Length; i++)
+            for (int c = 0; c < nc; c++) disp[nc * i + c] = P(i * NodeQ + c);
+        var shell = new double[r.ShellForces.Length];
+        for (int i = 0; i < r.ShellIds.Length; i++)
+            for (int c = 0; c < sc; c++) shell[sc * i + c] = P(e.ShellOffset + i * ShellQ + c);
+        var beam = new double[r.BeamForces.Length];
+        for (int i = 0; i < beam.Length; i++) beam[i] = P(e.BeamOffset + i);
+        var reactions = new double[r.Reactions.Length];
+        for (int i = 0; i < reactions.Length; i++) reactions[i] = P(e.ReactionOffset + i);
+        var states = new double[r.ShellStates.Length];
+        Array.Fill(states, double.NaN);
+        return new RcSecantStepFields
+        {
+            Stage = -1, Step = 1, LoadFactor = 1,
+            NodeIds = r.NodeIds, Displacements = disp,
+            ShellIds = r.ShellIds, ShellForces = shell, ShellStates = states, ShellFlags = new byte[r.ShellFlags.Length],
+            BeamIds = r.BeamIds, BeamForces = beam, BeamFlags = new byte[r.BeamFlags.Length],
+            ReactionNodeIds = r.ReactionNodeIds, Reactions = reactions, ReactionKinds = r.ReactionKinds,
+            ReactionSums = [], LoadSum = [],
+        };
+    }
+
+    /// <summary>Величина огибающей по индексу вектора ×<paramref name="scale"/>; null — огибающая не показана или значений нет.</summary>
+    FemCsfeaEnvelopeValue? EnvelopeAt(int index, double scale = 1)
+    {
+        if (_envelope is not { } e || e.Values.MaxSource[index] < 0) return null;
+        var items = e.Group.Combinations;
+        return new FemCsfeaEnvelopeValue(e.Values.Max[index], items[e.Values.MaxSource[index]].Name,
+            e.Values.Min[index], items[e.Values.MinSource[index]].Name).Scale(scale);
+    }
+
+    /// <summary>Огибающая перемещения узла: компоненты 0…5 (м, рад), 6 — |u| (м); null — огибающая не показана.</summary>
+    public FemCsfeaEnvelopeValue? EnvelopeNode(int node, int component) =>
+        _envelope != null && _nodeIndex.TryGetValue(node, out int i) ? EnvelopeAt(i * NodeQ + component) : null;
+
+    /// <summary>Огибающая поля пластины в единицах мозаики (усилия, ux/uy/uz, отпор C1); null — поля нет в огибающей.</summary>
+    public FemCsfeaEnvelopeValue? EnvelopeShell(int elem, FemCsfeaShellField field)
+    {
+        if (_envelope is not { } e || !_shellIndex.TryGetValue(elem, out int i)) return null;
+        int o = e.ShellOffset + i * ShellQ;
+        const int sc = RcSecantStepFields.ShellForceComponents;
+        return field switch
+        {
+            >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy => EnvelopeAt(o + (field - FemCsfeaShellField.Nx), 1e-3),
+            >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Uz => EnvelopeAt(o + sc + (field - FemCsfeaShellField.Ux), 1e3),
+            FemCsfeaShellField.FoundationPressure => EnvelopeAt(o + sc + 3),
+            _ => null,
+        };
+    }
+
+    /// <summary>Огибающая концевой силы стержня (0…11 — как в <see cref="FemElementEndForces"/>, Н и Н·м); null — нет.</summary>
+    public FemCsfeaEnvelopeValue? EnvelopeBeam(int elem, int component) =>
+        _envelope is { } e && _beamIndex.TryGetValue(elem, out int i)
+            ? EnvelopeAt(e.BeamOffset + i * RcSecantStepFields.BeamForceComponents + component) : null;
+
+    /// <summary>Огибающая реакции опоры узла (0…5, Н и Н·м, глобальные оси); null — нет.</summary>
+    public FemCsfeaEnvelopeValue? EnvelopeReaction(int node, int component) =>
+        _envelope is { } e && _reactionIndex.TryGetValue(node, out int i)
+            ? EnvelopeAt(e.ReactionOffset + i * RcSecantStepFields.NodeComponents + component) : null;
+
+    /// <summary>Концевые силы стержня ветвями max и min огибающей (сырые, местные оси); null — огибающая не показана.</summary>
+    public (FemElementEndForces Max, FemElementEndForces Min)? BeamForcesEnvelope(int elem)
+    {
+        if (_envelope == null) return null;
+        var max = new double[RcSecantStepFields.BeamForceComponents];
+        var min = new double[max.Length];
+        for (int c = 0; c < max.Length; c++)
+        {
+            if (EnvelopeBeam(elem, c) is not { } v) return null;
+            max[c] = v.Max;
+            min[c] = v.Min;
+        }
+        static FemElementEndForces Of(int tag, double[] f) => new(tag, f[0], f[1], f[2], f[3], f[4], f[5],
+            f[6], f[7], f[8], f[9], f[10], f[11]);
+        return (Of(elem, max), Of(elem, min));
+    }
+
+    /// <summary>|u| узла по огибающей при выбранном |max| / max / min; null — огибающая не показана.</summary>
+    public double? EnvelopeDisplacementLength(int node) => EnvelopeNode(node, 6)?.Pick(EnvelopeAggregate);
 
     // ------------------------------------------------------------ загружения и комбинации линейного расчёта
 
-    FemCsfeaCaseItem? _shownCombination, _rememberedCombination;
-    bool _showCombinations;
+    FemCsfeaCaseItem? _shownCombination, _rememberedCombination, _shownEnvelope, _rememberedEnvelope;
+    bool _showCombinations, _showEnvelopes;
 
     /// <summary>Загружения линейного расчёта — по пункту на шаг сводки; пусто — расчёт не линейный.</summary>
     public IReadOnlyList<FemCsfeaCaseItem> LoadCaseItems { get; private set; } = [];
@@ -401,33 +742,48 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 if (item == null) { OnPropertyChanged(); return; }
                 SelectedCaseItem = item;
             }
-            else
-            {
-                _showCombinations = false;
-                _shownCombination = null;
-                ApplyStep();
-            }
+            else ShowLoadCaseList();
         }
     }
 
-    /// <summary>Список показывает загружения (обратное <see cref="ShowCombinations"/>).</summary>
-    public bool ShowLoadCases => !_showCombinations;
+    /// <summary>Вернуть показ загружения, которое было показано до комбинации или огибающей.</summary>
+    void ShowLoadCaseList()
+    {
+        _showCombinations = false;
+        _showEnvelopes = false;
+        _shownCombination = null;
+        _shownEnvelope = null;
+        ApplyStep();
+    }
+
+    /// <summary>Список показывает загружения (не комбинации и не огибающие).</summary>
+    public bool ShowLoadCases => !_showCombinations && !_showEnvelopes;
 
     /// <summary>Пункты списка в текущем режиме.</summary>
-    public IReadOnlyList<FemCsfeaCaseItem> CaseItems => _showCombinations ? CombinationItems : LoadCaseItems;
+    public IReadOnlyList<FemCsfeaCaseItem> CaseItems => _showEnvelopes ? EnvelopeItems : _showCombinations ? CombinationItems : LoadCaseItems;
 
-    /// <summary>Показанный пункт: комбинация или загружение шага; недоступная комбинация не выбирается.</summary>
+    /// <summary>Показанный пункт: огибающая, комбинация или загружение шага; недоступный пункт не выбирается.</summary>
     public FemCsfeaCaseItem? SelectedCaseItem
     {
-        get => _shownCombination ?? (_selectedStepIndex < LoadCaseItems.Count ? LoadCaseItems[_selectedStepIndex] : null);
+        get => _shownEnvelope ?? _shownCombination ?? (_selectedStepIndex < LoadCaseItems.Count ? LoadCaseItems[_selectedStepIndex] : null);
         set
         {
             if (value == null || ReferenceEquals(value, SelectedCaseItem)) return;
             if (!value.IsAvailable) { OnPropertyChanged(); return; }
-            if (value.IsCombination)
+            if (value.IsEnvelope)
+            {
+                _shownEnvelope = _rememberedEnvelope = value;
+                _shownCombination = null;
+                _showEnvelopes = true;
+                _showCombinations = false;
+                ApplyStep();
+            }
+            else if (value.IsCombination)
             {
                 _shownCombination = _rememberedCombination = value;
+                _shownEnvelope = null;
                 _showCombinations = true;
+                _showEnvelopes = false;
                 ApplyStep();
             }
             else if (value.StepIndex is int step) SelectedStepIndex = step;
@@ -442,6 +798,86 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         {
             if (value is int id && CombinationItems.FirstOrDefault(i => i.Source.Definition?.Id == id && i.IsAvailable) is { } item)
                 SelectedCaseItem = item;
+        }
+    }
+
+    /// <summary>Огибающая группы показана (значения — по <see cref="EnvelopeAggregate"/>, деформаций и ΣR нет).</summary>
+    public bool IsEnvelopeShown => _shownEnvelope != null;
+
+    /// <summary>Огибающие групп комбинаций по типам C → CL → N → NL → A (тип — если в нём есть доступная комбинация).</summary>
+    public IReadOnlyList<FemCsfeaCaseItem> EnvelopeItems { get; private set; } = [];
+
+    public bool CanShowEnvelopes => EnvelopeItems.Count > 0;
+    public string EnvelopesModeLabel => string.Format(Loc.S("FemCsfeaEnvelopesMode"), EnvelopeItems.Count);
+    public string EnvelopesModeTip => CanShowEnvelopes ? Loc.S("FemCsfeaEnvelopesModeTip") : CombinationsModeTip;
+
+    /// <summary>
+    /// Список показывает огибающие групп. Включение показывает запомненную огибающую или первую; выключение
+    /// возвращает загружение.
+    /// </summary>
+    public bool ShowEnvelopes
+    {
+        get => _showEnvelopes;
+        set
+        {
+            if (value == _showEnvelopes) return;
+            if (value)
+            {
+                var item = _rememberedEnvelope ?? EnvelopeItems.FirstOrDefault();
+                if (item == null) { OnPropertyChanged(); return; }
+                SelectedCaseItem = item;
+            }
+            else ShowLoadCaseList();
+        }
+    }
+
+    /// <summary>Варианты значения огибающей: |max|, max, min.</summary>
+    public IReadOnlyList<FemCsfeaOption<ForceRowAggregate>> AggregateOptions => AggregateOptionList;
+
+    static readonly FemCsfeaOption<ForceRowAggregate>[] AggregateOptionList =
+    [
+        new(ForceRowAggregate.MaxAbs, "|max|"), new(ForceRowAggregate.Max, "max"), new(ForceRowAggregate.Min, "min"),
+    ];
+
+    /// <summary>Подпись выбора огибающей: |max|, max, min.</summary>
+    public static string AggregateLabel(ForceRowAggregate a) => AggregateOptionList.First(o => o.Value == a).Label;
+
+    ForceRowAggregate _envelopeAggregate = ForceRowAggregate.MaxAbs;
+    /// <summary>Какое значение огибающей показывать: мозаика, итог-экстремум, карточка группы КЭ.</summary>
+    public ForceRowAggregate EnvelopeAggregate
+    {
+        get => _envelopeAggregate;
+        set
+        {
+            if (value == _envelopeAggregate) return;
+            _envelopeAggregate = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedAggregateOption));
+            if (_shownEnvelope != null) ApplyStep();
+        }
+    }
+
+    /// <summary>Пункт списка |max| / max / min (привязка выпадающего списка).</summary>
+    public FemCsfeaOption<ForceRowAggregate> SelectedAggregateOption
+    {
+        get => AggregateOptionList.First(o => o.Value == _envelopeAggregate);
+        set { if (value != null) EnvelopeAggregate = value.Value; }
+    }
+
+    /// <summary>Показанное поверх шага (комбинация или огибающая) — для перехода окно ↔ 3D-вид; null — шаг.</summary>
+    public FemCsfeaCaseKey? ShownKey
+    {
+        get => _shownEnvelope?.Envelope is { } env ? new FemCsfeaCaseKey(null, env.Type, EnvelopeAggregate)
+            : SelectedCombinationId is int id ? new FemCsfeaCaseKey(id, null, EnvelopeAggregate) : null;
+        set
+        {
+            if (value == null) return;
+            EnvelopeAggregate = value.Aggregate;
+            if (value.EnvelopeType is { } type)
+            {
+                if (EnvelopeItems.FirstOrDefault(i => i.Envelope!.Type == type) is { } item) SelectedCaseItem = item;
+            }
+            else SelectedCombinationId = value.CombinationId;
         }
     }
 
@@ -506,6 +942,25 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 : comb.Terms.Count == 0 ? Loc.S("FemCsfeaCombinationEmpty") : null;
             return new FemCsfeaCaseItem { Source = s, Combination = comb };
         }).ToList();
+
+        EnvelopeItems = CombinationItems.GroupBy(i => i.Badge).Where(g => g.Any(i => i.IsAvailable)).Select(g =>
+        {
+            var available = g.Where(i => i.IsAvailable).ToList();
+            int unavailable = g.Count() - available.Count;
+            string tip = string.Format(Loc.S("FemCsfeaEnvelopeTip"), g.Key, available.Count);
+            if (unavailable > 0) tip += Environment.NewLine + string.Format(Loc.S("FemCsfeaEnvelopeSkipped"), unavailable, _result.TaskTag);
+            return new FemCsfeaCaseItem
+            {
+                Source = new FemLoadSource
+                {
+                    Kind = FemLoadSourceKind.Combination, TypeBadge = g.Key,
+                    Tag = string.Format(Loc.S("FemCsfeaEnvelopeName"), g.Key),
+                    Formula = string.Format(Loc.S("FemCsfeaEnvelopeCount"), available.Count),
+                },
+                Envelope = new FemCsfeaEnvelopeGroup(g.Key, available, unavailable),
+                ToolTipText = tip,
+            };
+        }).ToList();
     }
 
     void GoToFieldsStep()
@@ -518,7 +973,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     RcSecantStepFields? _rowsFields;
     IReadOnlyList<FemCsfeaNodeRow> _nodeRows = [];
     IReadOnlyList<FemCsfeaShellRow> _shellRows = [];
-    IReadOnlyList<FemElementEndForces> _beamRows = [];
+    IReadOnlyList<FemCsfeaBeamRow> _beamRows = [];
     IReadOnlyList<FemCsfeaReactionRow> _reactionRows = [];
 
     /// <summary>Перемещения узлов показанного шага — строятся при первом обращении (их читает только окно таблиц).</summary>
@@ -528,7 +983,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public IReadOnlyList<FemCsfeaShellRow> ShellRows { get { BuildRows(); return _shellRows; } }
 
     /// <summary>Концевые силы стержней показанного шага (Н, Н·м — в таблице переводятся в кН, кН·м).</summary>
-    public IReadOnlyList<FemElementEndForces> BeamRows { get { BuildRows(); return _beamRows; } }
+    public IReadOnlyList<FemCsfeaBeamRow> BeamRows { get { BuildRows(); return _beamRows; } }
 
     /// <summary>Реакции опор показанного шага по узлам.</summary>
     public IReadOnlyList<FemCsfeaReactionRow> ReactionRows { get { BuildRows(); return _reactionRows; } }
@@ -555,13 +1010,14 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public bool HasReactions => Fields is { ReactionNodeIds.Length: > 0 };
 
     /// <summary>Поля показаны, а реакций в них нет — запись шага старого формата.</summary>
-    public bool ShowNoReactionsNote => Fields != null && Fields.ReactionSums.Length == 0;
+    public bool ShowNoReactionsNote => Fields != null && _envelope == null && Fields.ReactionSums.Length == 0;
 
     void BuildRows()
     {
         if (ReferenceEquals(_rowsFields, Fields) && (Fields != null || _nodeRows.Count == 0)) return;
         _rowsFields = Fields;
         if (Fields is not { } f) { _nodeRows = []; _shellRows = []; _beamRows = []; _reactionRows = []; _lineReactionRows = []; return; }
+        if (_envelope != null) { BuildEnvelopeRows(f); return; }
 
         var nodes = new FemCsfeaNodeRow[f.NodeIds.Length];
         var d = Denoise(f.Displacements, RcSecantStepFields.NodeComponents);
@@ -589,12 +1045,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         }
         _shellRows = shells;
 
-        var beams = new FemElementEndForces[f.BeamIds.Length];
+        var beams = new FemCsfeaBeamRow[f.BeamIds.Length];
         var bf = Denoise(f.BeamForces, RcSecantStepFields.BeamForceComponents);
         for (int i = 0; i < beams.Length; i++)
         {
             int o = i * RcSecantStepFields.BeamForceComponents;
-            beams[i] = new FemElementEndForces(f.BeamIds[i], bf[o], bf[o + 1], bf[o + 2], bf[o + 3], bf[o + 4], bf[o + 5],
+            beams[i] = new FemCsfeaBeamRow(f.BeamIds[i], bf[o], bf[o + 1], bf[o + 2], bf[o + 3], bf[o + 4], bf[o + 5],
                 bf[o + 6], bf[o + 7], bf[o + 8], bf[o + 9], bf[o + 10], bf[o + 11]);
         }
         _beamRows = beams;
@@ -622,6 +1078,75 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                     r.QzMean / 1e3, r.QzMin / 1e3, r.QzMax / 1e3))
                 .ToList();
         }
+    }
+
+    static readonly string[] NodeColumns = ["Ux", "Uy", "Uz", "Rx", "Ry", "Rz"];
+    static readonly string[] ShellColumns = ["Nx", "Ny", "Nxy", "Mx", "My", "Mxy", "Qx", "Qy"];
+    static readonly string[] BeamColumns = ["Ni", "Qyi", "Qzi", "Mxi", "Myi", "Mzi", "Nj", "Qyj", "Qzj", "Mxj", "Myj", "Mzj"];
+    static readonly string[] ReactionColumns = ["Rx", "Ry", "Rz", "Mx", "My", "Mz"];
+
+    /// <summary>
+    /// Таблицы огибающей: по объекту строки «max» и «min»; значение и комбинация-источник каждой ячейки (по имени
+    /// столбца). Реакций по граням нет — огибающая их не считает.
+    /// </summary>
+    void BuildEnvelopeRows(RcSecantStepFields f)
+    {
+        // Ветви объекта: значения (в единицах таблицы) и источники по столбцам; нет значения — 0 и пустой источник.
+        (double[] Max, double[] Min, Dictionary<string, string> MaxSrc, Dictionary<string, string> MinSrc) Branches(
+            string[] columns, Func<int, FemCsfeaEnvelopeValue?> value, double scale)
+        {
+            var max = new double[columns.Length];
+            var min = new double[columns.Length];
+            var maxSrc = new Dictionary<string, string>(StringComparer.Ordinal);
+            var minSrc = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (int c = 0; c < columns.Length; c++)
+            {
+                if (value(c) is not { } v) { maxSrc[columns[c]] = minSrc[columns[c]] = ""; continue; }
+                (max[c], min[c]) = (v.Max * scale, v.Min * scale);
+                maxSrc[columns[c]] = v.MaxSource;
+                minSrc[columns[c]] = v.MinSource;
+            }
+            return (max, min, maxSrc, minSrc);
+        }
+
+        var nodes = new List<FemCsfeaNodeRow>(2 * f.NodeIds.Length);
+        foreach (int id in f.NodeIds)
+        {
+            var (mx, mn, xs, ns) = Branches(NodeColumns, c => EnvelopeNode(id, c), 1e3);
+            nodes.Add(new FemCsfeaNodeRow(id, mx[0], mx[1], mx[2], mx[3], mx[4], mx[5], "max", xs));
+            nodes.Add(new FemCsfeaNodeRow(id, mn[0], mn[1], mn[2], mn[3], mn[4], mn[5], "min", ns));
+        }
+        _nodeRows = nodes;
+
+        var shells = new List<FemCsfeaShellRow>(2 * f.ShellIds.Length);
+        foreach (int id in f.ShellIds)
+        {
+            var (mx, mn, xs, ns) = Branches(ShellColumns, c => EnvelopeShell(id, FemCsfeaShellField.Nx + c), 1);
+            shells.Add(new FemCsfeaShellRow(id, mx[0], mx[1], mx[2], mx[3], mx[4], mx[5], mx[6], mx[7], "", "max", xs));
+            shells.Add(new FemCsfeaShellRow(id, mn[0], mn[1], mn[2], mn[3], mn[4], mn[5], mn[6], mn[7], "", "min", ns));
+        }
+        _shellRows = shells;
+
+        var beams = new List<FemCsfeaBeamRow>(2 * f.BeamIds.Length);
+        foreach (int id in f.BeamIds)
+        {
+            var (mx, mn, xs, ns) = Branches(BeamColumns, c => EnvelopeBeam(id, c), 1);
+            beams.Add(new FemCsfeaBeamRow(id, mx[0], mx[1], mx[2], mx[3], mx[4], mx[5], mx[6], mx[7], mx[8], mx[9], mx[10], mx[11], "max", xs));
+            beams.Add(new FemCsfeaBeamRow(id, mn[0], mn[1], mn[2], mn[3], mn[4], mn[5], mn[6], mn[7], mn[8], mn[9], mn[10], mn[11], "min", ns));
+        }
+        _beamRows = beams;
+
+        var reactions = new List<FemCsfeaReactionRow>(2 * f.ReactionNodeIds.Length);
+        for (int i = 0; i < f.ReactionNodeIds.Length; i++)
+        {
+            int id = f.ReactionNodeIds[i];
+            string kind = ReactionKindText(f.ReactionKinds[i]);
+            var (mx, mn, xs, ns) = Branches(ReactionColumns, c => EnvelopeReaction(id, c), 1e-3);
+            reactions.Add(new FemCsfeaReactionRow(id, mx[0], mx[1], mx[2], mx[3], mx[4], mx[5], kind, "max", xs));
+            reactions.Add(new FemCsfeaReactionRow(id, mn[0], mn[1], mn[2], mn[3], mn[4], mn[5], kind, "min", ns));
+        }
+        _reactionRows = reactions;
+        _lineReactionRows = [];
     }
 
     static readonly (byte Flag, string Key)[] ReactionKindKeys =
@@ -747,7 +1272,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public event Action<FemCsfeaResultVM>? CreateForceSetsRequested;
 
     /// <summary>Наборы можно создать: у шага под ползунком записаны поля и он сошёлся.</summary>
-    public bool CanCreateForceSets => _shownCombination != null ? Fields != null
+    public bool CanCreateForceSets => _shownEnvelope != null ? false
+        : _shownCombination != null ? Fields != null
         : Fields != null && FieldsStepIndex == SelectedStepIndex && SelectedStep?.Converged == true;
 
     public System.Windows.Input.ICommand CreateLoadCaseForceSetsCommand { get; }
@@ -815,6 +1341,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     double? ShellValue(int elem, FemCsfeaShellField field, Dictionary<int, FemCsfeaCrackWidth>? cracks)
     {
         if (Fields == null || !_shellIndex.TryGetValue(elem, out int i)) return null;
+        // Огибающая: величины, которые не сводятся к компоненте полей (средние по узлам, отпор), — из её вектора.
+        if (_envelope != null && field is >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Uz or FemCsfeaShellField.FoundationPressure)
+            return EnvelopeShell(elem, field)?.Pick(EnvelopeAggregate);
         int fo = i * RcSecantStepFields.ShellForceComponents, so = i * RcSecantStepFields.ShellStateComponents;
         double State(int k) => Fields.ShellStates[so + k];
         double? Disp(int c)
@@ -851,6 +1380,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// </summary>
     public double? FoundationPressure(int elem)
     {
+        if (_envelope != null) return EnvelopeShell(elem, FemCsfeaShellField.FoundationPressure)?.Pick(EnvelopeAggregate);
         if (Fields == null || !_foundation.TryGetValue(elem, out var f) || !_contours.TryGetValue(elem, out var nodes)) return null;
         double un = 0;
         foreach (int n in nodes)

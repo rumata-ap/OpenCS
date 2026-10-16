@@ -296,9 +296,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (ResultBarForce is not { } force) { result.ClearBarSummary(); return; }
       foreach (string tag in barTags)
          if (result.BarEndValues(tag, force) is { } e) _barForceValues[tag] = e;
-      result.UpdateBarSummary(_selectedBarComponent!.Label,
-         _barForceValues.Select(kv => new KeyValuePair<string, double>(kv.Key,
-            Math.Abs(kv.Value.J) > Math.Abs(kv.Value.I) ? kv.Value.J : kv.Value.I)));
+      result.UpdateBarSummary(_selectedBarComponent!.Label, _barForceValues, force);
    }
 
    bool _showBarDiagrams = true;
@@ -357,6 +355,21 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    }
 
    /// <summary>
+   /// Ветвь min эпюр усилия стержней огибающей результата (ветвь max — <see cref="BarProfiles"/>); null — показана не
+   /// огибающая или эпюры выключены.
+   /// </summary>
+   public Dictionary<string, IReadOnlyList<(double T, double V)>>? BarEnvelopeMinProfiles(IEnumerable<string> barTags)
+   {
+      if (!ShowBarDiagrams || !HasBarDiagrams || ResultBarForce is not { } barForce || ActiveResult is not { IsEnvelope: true } layer)
+         return null;
+      var result = new Dictionary<string, IReadOnlyList<(double T, double V)>>(StringComparer.Ordinal);
+      foreach (string tag in barTags)
+         if (layer.BarEndEnvelope(tag, barForce) is { } env)
+            result[tag] = [(0, env.I.Min), (1, env.J.Min)];
+      return result;
+   }
+
+   /// <summary>
    /// Значения текущей мозаики по сечениям стержней: точки (доля длины КЭ от начального узла, значение)
    /// по тегу КЭ. Null — эпюры выключены или у мозаики нет значений по сечениям.
    /// </summary>
@@ -369,9 +382,14 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (ResultBarForce is { } barForce && ActiveResult is { } layer)
       {
          // Концевые силы КЭ — линейная эпюра между концами (нагрузка по КЭ в эпюре не видна, как в окне результата).
+         // Огибающая — ветвь max (ветвь min — BarEnvelopeMinProfiles).
          foreach (string tag in barTags)
-            if (layer.BarEndValues(tag, barForce) is { } ends)
-               result[tag] = [(0, ends.I), (1, ends.J)];
+         {
+            (double I, double J)? ends = layer.IsEnvelope
+               ? layer.BarEndEnvelope(tag, barForce) is { } env ? (env.I.Max, env.J.Max) : null
+               : layer.BarEndValues(tag, barForce);
+            if (ends is { } e) result[tag] = [(0, e.I), (1, e.J)];
+         }
          return result;
       }
       switch (SelectedComponent!.Component)
@@ -1109,18 +1127,19 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    public bool IsResultActive => _activeResult != null;
 
-   int? _pendingAnalysisId, _pendingStepIndex, _pendingCombinationId;
+   int? _pendingAnalysisId, _pendingStepIndex;
+   FemCsfeaCaseKey? _pendingCaseKey;
 
    /// <summary>
    /// Показать результат постановки (вход из дерева «Показать результат», возврат из окна таблиц — на его шаге).
    /// Если данные вида ещё не прочитаны — выбор применится после чтения; результат, появившийся после открытия вида,
    /// дочитывается. Без шага — шаг, который слой выбирает сам.
    /// </summary>
-   public void ShowAnalysis(int analysisId, int? stepIndex = null, int? combinationId = null)
+   public void ShowAnalysis(int analysisId, int? stepIndex = null, FemCsfeaCaseKey? caseKey = null)
    {
       _pendingAnalysisId = analysisId;
       _pendingStepIndex = stepIndex;
-      _pendingCombinationId = combinationId;
+      _pendingCaseKey = caseKey;
       if (_dataKey != null) Reload();
       SelectPendingAnalysis();
    }
@@ -1134,9 +1153,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (_pendingStepIndex is int step && ActiveResult is { } layer)
          layer.SelectedStepIndex = Math.Clamp(step, 0, layer.MaxStepIndex);
       // Комбинация линейного расчёта CSfea (суперпозиция) — поверх шага.
-      if (_pendingCombinationId is int combination && ActiveResult is { } shown) shown.SelectedCombinationId = combination;
+      if (_pendingCaseKey is { } key && ActiveResult is { } shown) shown.ShownKey = key;
       _pendingStepIndex = null;
-      _pendingCombinationId = null;
+      _pendingCaseKey = null;
    }
    void UpdateActiveResult()
    {
@@ -1166,10 +1185,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    static bool IsCrackWidth(FemCsfeaShellField field) =>
       field is >= FemCsfeaShellField.AcrcLongBottom and <= FemCsfeaShellField.AcrcShortTop;
 
-   /// <summary>Итог-экстремум строки шага по значениям КЭ показанного фрагмента.</summary>
-   void UpdateResultSummary(FemResult.FemResultLayer result, Dictionary<string, PlateRebarValue> values) =>
+   /// <summary>Итог min/max по значениям КЭ показанного фрагмента (у огибающей — по ветвям поля).</summary>
+   void UpdateResultSummary(FemResult.FemResultLayer result, Dictionary<string, PlateRebarValue> values, FemCsfeaShellField field) =>
       result.UpdateElementSummary(SelectedComponent!.Label,
-         values.Where(kv => kv.Value.Value != null).Select(kv => new KeyValuePair<string, double>(kv.Key, kv.Value.Value!.Value)));
+         values.Where(kv => kv.Value.Value != null).Select(kv => new KeyValuePair<string, double>(kv.Key, kv.Value.Value!.Value)), field);
 
    static string AnalysisKindLabel(string kind) => kind switch
    {
@@ -1254,7 +1273,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                   Categories = FemCsfeaResultVM.StateStyles.Select(s => (s.Color, Loc.S(s.Key))).ToList(),
                };
             }
-            UpdateResultSummary(result, values);
+            UpdateResultSummary(result, values, sf);
             bool forces = sf is >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy or FemCsfeaShellField.FoundationPressure;
             bool ratio = sf is FemCsfeaShellField.SigmaRatio or FemCsfeaShellField.EpsRatio;
             return new Field(values, Bars: false, forces, forces ? Palette.Forces : ratio ? Palette.Utilization : Palette.Rebar,
