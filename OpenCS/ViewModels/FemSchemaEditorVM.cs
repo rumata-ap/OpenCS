@@ -911,6 +911,16 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
+    /// <summary>Удаляет несколько комбинаций одной отменой.</summary>
+    public void DeleteLoadDefinitions(IReadOnlyList<FemLoadDefinition> definitions)
+    {
+        if (definitions.Count == 0) return;
+        if (definitions.Count == 1) { DeleteLoadDefinition(definitions[0]); return; }
+        Session.Execute(new CompositeFemCommand(
+            definitions.Select(d => (IFemEditCommand)new DeleteLoadDefinitionCommand(d)).ToList()));
+        RefreshCollections();
+    }
+
     static FemLoadDefinition DefinitionValues(FemLoadDefinition source, string tag, string? combinationType, FemLoadExpression expression) => new()
     {
         Tag = tag, Description = source.Description, SourceKind = source.SourceKind,

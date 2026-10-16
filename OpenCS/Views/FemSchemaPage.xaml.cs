@@ -331,6 +331,20 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             _editorVm.DeleteLoadDefinition(definition);
     }
 
+    /// <summary>
+    /// «Удалить» у группы типа или у всей ветки «Комбинации» в дереве — с подтверждением, одной отменой.
+    /// </summary>
+    public void DeleteLoadDefinitions(IReadOnlyCollection<string> tags)
+    {
+        var set = tags.ToHashSet(StringComparer.Ordinal);
+        var definitions = _editorVm.Session.LoadDefinitions.Where(d => set.Contains(d.Tag)).ToList();
+        if (definitions.Count == 0) return;
+        if (definitions.Count > 1 && MessageBox.Show(Window.GetWindow(this),
+                string.Format(Loc.S("FemCombinationsDeleteConfirm"), definitions.Count), Loc.S("Confirmation"),
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        _editorVm.DeleteLoadDefinitions(definitions);
+    }
+
     /// <summary>«Сочетания по СП 20» из дерева — по параметрам загружений.</summary>
     public void GenerateSp20LoadDefinitions() => _editorVm.GenerateSp20LoadDefinitions("fundamental");
 

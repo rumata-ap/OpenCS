@@ -108,13 +108,18 @@ public sealed class FemCombinationGroupNode : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public FemSchema Schema { get; }
     /// <summary>Тип C/CL/N/NL/A.</summary>
     public string Type { get; }
     public string Title => Loc.S("FemCombinationGroup" + Type);
     public FemTreeItems<FemCombinationTreeItem> Items { get; } = [];
     public int Count => Items.Count;
 
-    internal FemCombinationGroupNode(string type) => Type = type;
+    internal FemCombinationGroupNode(FemSchema schema, string type)
+    {
+        Schema = schema;
+        Type = type;
+    }
 
     internal void Reset(IEnumerable<FemCombinationTreeItem> items)
     {
@@ -139,10 +144,13 @@ public sealed class FemCombinationsSubNode : FemSubNode, INotifyPropertyChanged
     public int Count => Items.Count;
     public override bool IsVisible => Items.Count > 0 || Schema.SourceType is "internal" or "submodel";
 
-    readonly Dictionary<string, FemCombinationGroupNode> _groups =
-        FemCombinationTypes.All.ToDictionary(t => t, t => new FemCombinationGroupNode(t));
+    readonly Dictionary<string, FemCombinationGroupNode> _groups;
 
-    internal FemCombinationsSubNode(FemSchema schema) => Schema = schema;
+    internal FemCombinationsSubNode(FemSchema schema)
+    {
+        Schema = schema;
+        _groups = FemCombinationTypes.All.ToDictionary(t => t, t => new FemCombinationGroupNode(schema, t));
+    }
 
     internal void Reload(DatabaseService db) => Reset(db.GetFemLoadDefinitions(Schema.Id), db.GetFemLoadCases(Schema.Id));
 

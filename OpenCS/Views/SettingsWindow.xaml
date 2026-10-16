@@ -367,7 +367,8 @@
                                            Text="{DynamicResource CalcSettingsSp20LoadValueKind}"
                                            VerticalAlignment="Center"
                                            ToolTip="{DynamicResource CalcSettingsSp20LoadValueKindTip}"/>
-                                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="Sp20LoadValueKindCombo"
+                                <ComboBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" x:Name="Sp20LoadValueKindCombo"
+                                          HorizontalAlignment="Right" MinWidth="140"
                                           VerticalContentAlignment="Center" Margin="0,2"
                                           ToolTip="{DynamicResource CalcSettingsSp20LoadValueKindTip}">
                                     <ComboBoxItem Tag="normative" Content="{DynamicResource CalcSettingsSp20Normative}"/>

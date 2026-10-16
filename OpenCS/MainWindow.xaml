@@ -327,7 +327,8 @@
 
       <!-- Вкладка 1: Дерево проекта -->
       <TabItem Header="{DynamicResource ProjectTab}">
-      <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
+      <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged"
+                KeyDown="structureTree_KeyDown">
 
                <TreeViewItem x:Name="geometryNode" IsExpanded="True">
                   <TreeViewItem.Header>
@@ -1676,7 +1677,10 @@
 
                   <!-- Подузел типа комбинаций: «C — ПС1, полные (12)» -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemCombinationGroupNode}" ItemsSource="{Binding Items}">
-                     <StackPanel Orientation="Horizontal">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
                         <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Combinations}"/>
                         <TextBlock Text="{Binding Title}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0" Text="{Binding Count, StringFormat=({0})}"/>

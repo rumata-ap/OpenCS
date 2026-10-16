@@ -2576,6 +2576,9 @@
     <system:String x:Key="FemCombinationCreate">Создать комбинацию…</system:String>
     <system:String x:Key="FemCombinationEdit">Изменить…</system:String>
     <system:String x:Key="FemCombinationDelete">Удалить комбинацию</system:String>
+    <system:String x:Key="FemCombinationGroupDelete">Удалить группу ({0})</system:String>
+    <system:String x:Key="FemCombinationsDeleteAll">Удалить все комбинации ({0})</system:String>
+    <system:String x:Key="FemCombinationsDeleteConfirm">Удалить комбинации: {0}? Вернуть их можно отменой (Ctrl+Z).</system:String>
     <system:String x:Key="FemCombinationsSp20">Сочетания по СП 20</system:String>
     <system:String x:Key="FemLoadCaseTagTaken">Имя загружения пустое или уже занято.</system:String>
     <system:String x:Key="FemCombinationTagTaken">Имя комбинации пустое или уже занято.</system:String>

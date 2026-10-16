@@ -99,6 +99,8 @@ public static class CommandIcons
         ["FemCombinationCreate"] = "CmdIcon_Add",
         ["FemCombinationEdit"] = "CmdIcon_Edit",
         ["FemCombinationDelete"] = "CmdIcon_Delete",
+        ["FemCombinationGroupDelete"] = "CmdIcon_Delete",
+        ["FemCombinationsDeleteAll"] = "CmdIcon_Delete",
         ["FemCombinationsSp20"] = "CmdIcon_GroupAuto",
         ["FemLineSupportRemove"] = "CmdIcon_Delete",
         ["FemLineSupportPickExit"] = "CmdIcon_ClearSelection",

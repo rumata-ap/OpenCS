@@ -2576,6 +2576,9 @@
     <system:String x:Key="FemCombinationCreate">New combination…</system:String>
     <system:String x:Key="FemCombinationEdit">Edit…</system:String>
     <system:String x:Key="FemCombinationDelete">Delete combination</system:String>
+    <system:String x:Key="FemCombinationGroupDelete">Delete group ({0})</system:String>
+    <system:String x:Key="FemCombinationsDeleteAll">Delete all combinations ({0})</system:String>
+    <system:String x:Key="FemCombinationsDeleteConfirm">Delete {0} combinations? They can be restored with Undo (Ctrl+Z).</system:String>
     <system:String x:Key="FemCombinationsSp20">SP 20 combinations</system:String>
     <system:String x:Key="FemLoadCaseTagTaken">The load case name is empty or already used.</system:String>
     <system:String x:Key="FemCombinationTagTaken">The combination name is empty or already used.</system:String>

@@ -616,6 +616,9 @@ namespace OpenCS
       public void DeleteFemCombination(ViewModels.FemCombinationTreeItem item) =>
          OpenFemSchemaPage(item.Schema)?.DeleteLoadDefinition(item.Definition.Tag);
 
+      public void DeleteFemCombinations(CScore.Fem.FemSchema schema, IEnumerable<ViewModels.FemCombinationTreeItem> items) =>
+         OpenFemSchemaPage(schema)?.DeleteLoadDefinitions(items.Select(i => i.Definition.Tag).ToList());
+
       public void GenerateFemSp20Combinations(CScore.Fem.FemSchema schema) =>
          OpenFemSchemaPage(schema)?.GenerateSp20LoadDefinitions();
 

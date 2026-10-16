@@ -310,6 +310,18 @@ namespace OpenCS
             case ViewModels.FemCombinationsSubNode combinations:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationCreate", () => vm.CreateFemCombination(combinations.Schema)));
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationsSp20", () => vm.GenerateFemSp20Combinations(combinations.Schema)));
+               if (combinations.Count > 0)
+               {
+                  menu.Items.Add(new Separator());
+                  menu.Items.Add(CountedItem("FemCombinationsDeleteAll", combinations.Count,
+                     () => vm.DeleteFemCombinations(combinations.Schema, combinations.Items.ToList())));
+               }
+               break;
+            case ViewModels.FemCombinationGroupNode group:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationCreate", () => vm.CreateFemCombination(group.Schema)));
+               menu.Items.Add(new Separator());
+               menu.Items.Add(CountedItem("FemCombinationGroupDelete", group.Count,
+                  () => vm.DeleteFemCombinations(group.Schema, group.Items.ToList())));
                break;
             case ViewModels.FemCombinationTreeItem combinationItem:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationShow",
@@ -325,6 +337,35 @@ namespace OpenCS
                break;
          }
          if (menu.Items.Count == 0) e.Handled = true;
+      }
+
+      /// <summary>Пункт меню с числом объектов в подписи: «Удалить группу (12)».</summary>
+      static MenuItem CountedItem(string key, int count, Action action)
+      {
+         var item = Views.FemMemberTreeMenus.Item(key, action);
+         item.Header = string.Format(Loc.S(key), count);
+         return item;
+      }
+
+      /// <summary>Delete в дереве: комбинация — сразу, группа типа и ветка «Комбинации» — с подтверждением.</summary>
+      void structureTree_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+      {
+         if (e.Key != System.Windows.Input.Key.Delete) return;
+         switch (structureTree.SelectedItem)
+         {
+            case ViewModels.FemCombinationTreeItem item:
+               vm.DeleteFemCombination(item);
+               break;
+            case ViewModels.FemCombinationGroupNode group:
+               vm.DeleteFemCombinations(group.Schema, group.Items.ToList());
+               break;
+            case ViewModels.FemCombinationsSubNode combinations:
+               vm.DeleteFemCombinations(combinations.Schema, combinations.Items.ToList());
+               break;
+            default:
+               return;
+         }
+         e.Handled = true;
       }
 
       void TasksNode_Selected(object sender, RoutedEventArgs e)
