@@ -922,7 +922,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void GenerateSp20LoadDefinitions(string combinationType)
     {
         var definitions = FemLoadDefinitionFactory.CreateSp20(
-            Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads, combinationType, Session.MemberLoads);
+            Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads, combinationType, Session.MemberLoads,
+            _app.CalcSettings.ToSp20GammaDefaults(), _app.CalcSettings.ToSp20LoadValueKind());
         foreach (var definition in definitions)
         {
             var baseTag = definition.Tag;

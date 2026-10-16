@@ -29,6 +29,7 @@ public partial class FemLoadCaseDialog : Window
         gammaFavBox.Text = Format(loadCase.GammaFFav);
         // ψ1/ψ2 в диалоге не правятся: коэффициенты сочетаний СП 20 назначаются по рангу нагрузки (п. 6.3–6.5).
         _psi = (loadCase.Psi1, loadCase.Psi2);
+        _longTermShare = loadCase.LongTermShare;
         selfWeightCheck.IsChecked = loadCase.SelfWeightFactor is { } k && k != 0;
         selfWeightBox.Text = Format(loadCase.SelfWeightFactor ?? 1);
         selfWeightBox.IsEnabled = selfWeightCheck.IsChecked == true;
@@ -41,6 +42,7 @@ public partial class FemLoadCaseDialog : Window
     }
 
     readonly (double? Psi1, double? Psi2) _psi;
+    readonly double? _longTermShare;
 
     static string Format(double? value) => value?.ToString("0.####", CultureInfo.CurrentCulture) ?? "";
 
@@ -62,7 +64,7 @@ public partial class FemLoadCaseDialog : Window
             Sp20Type = typeCombo.SelectedValue as string ?? "short_term",
             Sp20Group = string.IsNullOrWhiteSpace(groupBox.Text) ? null : groupBox.Text.Trim(),
             GammaFUnfav = gu, GammaFFav = gf, Psi1 = _psi.Psi1, Psi2 = _psi.Psi2,
-            SelfWeightFactor = selfWeight,
+            SelfWeightFactor = selfWeight, LongTermShare = _longTermShare,
         };
         if (Validate?.Invoke(result) is { } error) { ShowError(error, tagBox); return; }
         Result = result;

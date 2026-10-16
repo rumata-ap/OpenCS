@@ -8,13 +8,19 @@ public sealed record FemLoadingConversion(
     IReadOnlyList<Loading> Loadings,
     IReadOnlyList<string> Warnings);
 
-/// <summary>Одна узловая комбинация с коэффициентами исходных загружений.</summary>
+/// <summary>
+/// Одна узловая комбинация с коэффициентами исходных загружений; <see cref="Roles"/> — роли загружений в сочетании
+/// (пусто у суммы с единицами).
+/// </summary>
 public sealed record FemLoadCombination(
     string Tag,
     string CombinationType,
     IReadOnlyDictionary<int, double> Coefficients,
     double[] Vector,
-    IReadOnlyDictionary<string, double> Active);
+    IReadOnlyDictionary<string, double> Active)
+{
+    public IReadOnlyDictionary<int, Sp20TermRole> Roles { get; init; } = new Dictionary<int, Sp20TermRole>();
+}
 
 /// <summary>Адаптер канонических FEM-загружений к существующей комбинаторике СП20.</summary>
 public static class FemSp20CombinationAdapter
@@ -25,14 +31,19 @@ public static class FemSp20CombinationAdapter
         "permanent", "long_term", "short_term", "accidental"
     };
 
-    /// <summary>Преобразует выбранные загружения в матрицы Loading с одной строкой.</summary>
+    /// <summary>
+    /// Преобразует выбранные загружения в матрицы Loading с одной строкой; γf, не заданные у загружения, — из
+    /// <paramref name="gammaDefaults"/> (настройки расчёта; null — типовые).
+    /// </summary>
     public static FemLoadingConversion ToLoadings(
         IReadOnlyList<FemLoadCase> loadCases,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
         IReadOnlyList<int> orderedNodeIds,
-        IReadOnlyList<FemMemberLoad>? memberLoads = null)
+        IReadOnlyList<FemMemberLoad>? memberLoads = null,
+        Sp20GammaDefaults? gammaDefaults = null)
     {
+        var gamma = gammaDefaults ?? Sp20GammaDefaults.Standard;
         ArgumentNullException.ThrowIfNull(loadCases);
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(loads);
@@ -99,7 +110,7 @@ public static class FemSp20CombinationAdapter
             for (int i = 0; i < vector.Length; i++)
                 matrix[0, i] = vector[i];
 
-            result.Add(CreateLoading(loadCase, name, matrix, components));
+            result.Add(CreateLoading(loadCase, name, matrix, components, gamma));
         }
 
         return new FemLoadingConversion(result, warnings);
@@ -132,16 +143,20 @@ public static class FemSp20CombinationAdapter
         return new FemLoadCombination("Сумма загружений", "unit_sum", coefficients, vector, active);
     }
 
-    /// <summary>Генерирует FEM-векторы огибающей существующим Combinator СП20.</summary>
+    /// <summary>
+    /// Генерирует FEM-векторы огибающей существующим Combinator СП20 (по вектору нагрузок — запасной путь).
+    /// <paramref name="combinationType"/> — "fundamental"/"accidental" или тип комбинации C/A; у результата — C или A.
+    /// </summary>
     public static IReadOnlyList<FemLoadCombination> BuildSp20(
         IReadOnlyList<FemLoadCase> loadCases,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
         IReadOnlyList<int> orderedNodeIds,
         string combinationType = "fundamental",
-        IReadOnlyList<FemMemberLoad>? memberLoads = null)
+        IReadOnlyList<FemMemberLoad>? memberLoads = null,
+        Sp20GammaDefaults? gammaDefaults = null)
     {
-        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds, memberLoads);
+        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds, memberLoads, gammaDefaults);
         ThrowIfWarnings(conversion.Warnings);
         if (conversion.Loadings.Count == 0)
             return [];
@@ -165,6 +180,7 @@ public static class FemSp20CombinationAdapter
                 continue;
 
             var coefficients = new Dictionary<int, double>();
+            var roles = new Dictionary<int, Sp20TermRole>();
             var vector = new double[conversion.Loadings[0].Forces.GetLength(1)];
             foreach (var (name, coefficient) in generatedCase.Active)
             {
@@ -179,48 +195,50 @@ public static class FemSp20CombinationAdapter
                 }
 
                 coefficients[caseId] = coefficient;
+                if (generatedCase.Roles.TryGetValue(name, out var role)) roles[caseId] = role;
                 for (int i = 0; i < vector.Length; i++)
                     vector[i] += coefficient * loading.Forces[0, i];
             }
 
             unique[key] = new FemLoadCombination(
                 $"СП20 {unique.Count + 1:D3}",
-                combinationType,
+                combType == CombType.Accidental ? FemCombinationTypes.A : FemCombinationTypes.C,
                 coefficients,
                 vector,
-                new Dictionary<string, double>(generatedCase.Active, StringComparer.Ordinal));
+                new Dictionary<string, double>(generatedCase.Active, StringComparer.Ordinal)) { Roles = roles };
         }
 
         return unique.Values.ToArray();
     }
 
-    static Loading CreateLoading(FemLoadCase loadCase, string name, double[,] matrix, string[] components)
+    static Loading CreateLoading(FemLoadCase loadCase, string name, double[,] matrix, string[] components,
+        Sp20GammaDefaults gamma)
     {
         return loadCase.Sp20Type.ToLowerInvariant() switch
         {
             "permanent" => Loading.Permanent(
                 name, matrix, components,
-                loadCase.GammaFUnfav ?? 1.1,
-                loadCase.GammaFFav ?? 0.9,
+                loadCase.GammaFUnfav ?? gamma.PermanentUnfav,
+                loadCase.GammaFFav ?? gamma.PermanentFav,
                 loadCase.Sp20Group),
             "long_term" => Loading.LongTerm(
                 name, matrix, components,
-                loadCase.GammaFUnfav ?? 1.2,
-                loadCase.GammaFFav ?? 1.0,
+                loadCase.GammaFUnfav ?? gamma.LongTermUnfav,
+                1.0,
                 loadCase.Psi1 ?? 1.0,
                 loadCase.Psi2 ?? 0.95,
                 loadCase.Sp20Group),
             "short_term" => Loading.ShortTerm(
                 name, matrix, components,
-                loadCase.GammaFUnfav ?? 1.4,
-                loadCase.GammaFFav ?? 1.0,
+                loadCase.GammaFUnfav ?? gamma.ShortTermUnfav,
+                1.0,
                 loadCase.Psi1 ?? 1.0,
                 loadCase.Psi2 ?? 0.9,
                 loadCase.Sp20Group),
             "accidental" => Loading.Accidental(
                 name, matrix, components,
-                loadCase.GammaFUnfav ?? 1.0,
-                loadCase.GammaFFav ?? 1.0,
+                loadCase.GammaFUnfav ?? gamma.AccidentalUnfav,
+                1.0,
                 loadCase.Sp20Group),
             _ => throw new InvalidOperationException("Недопустимый тип загружения СП20.")
         };
@@ -229,8 +247,8 @@ public static class FemSp20CombinationAdapter
     static CombType ParseCombinationType(string combinationType) =>
         combinationType.Trim().ToLowerInvariant() switch
         {
-            "fundamental" => CombType.Fundamental,
-            "accidental" => CombType.Accidental,
+            "fundamental" or "c" => CombType.Fundamental,
+            "accidental" or "a" => CombType.Accidental,
             _ => throw new ArgumentException(
                 $"Неизвестный тип сочетания '{combinationType}'.", nameof(combinationType))
         };

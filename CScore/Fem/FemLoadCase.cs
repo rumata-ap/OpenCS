@@ -17,6 +17,12 @@ public class FemLoadCase
     public double? Psi1 { get; set; }
     public double? Psi2 { get; set; }
 
+    /// <summary>
+    /// Доля длительной части (пониженное значение по СП 20) кратковременного загружения, 0…1: с ней оно входит в
+    /// сочетания групп CL/NL; null — не задана (0). У постоянных и длительных не используется (входят целиком).
+    /// </summary>
+    public double? LongTermShare { get; set; }
+
     /// <summary>Коэффициент к собственному весу всей схемы (по плотности материалов); null — без собственного веса.</summary>
     public double? SelfWeightFactor { get; set; }
 

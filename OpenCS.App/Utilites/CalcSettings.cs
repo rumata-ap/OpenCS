@@ -198,6 +198,13 @@ namespace OpenCS.Utilites
       [JsonPropertyName("sp20GammaFA")]
       public double Sp20GammaFAccidental { get; set; } = 1.0;
 
+      /// <summary>
+      /// Вид величин нагрузок в загружениях схем и наборах усилий: "normative" (генераторы СП 20 умножают на γf) или
+      /// "design" (расчётные; для групп N/NL делятся на γf).
+      /// </summary>
+      [JsonPropertyName("sp20LoadValueKind")]
+      public string Sp20LoadValueKind { get; set; } = "normative";
+
       // ── OpenSees (расчёт схемы: линейный и нелинейный) ──────────────────
       // Solver-настройки нелинейного FEM-расчёта — по аналогии с NewtonTolerance/NewtonMaxIter
       // выше (глобальные, не дублируются в каждой постановке FemAnalysis).
@@ -356,6 +363,7 @@ namespace OpenCS.Utilites
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,
          Sp20GammaFShortTerm      = Sp20GammaFShortTerm,
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
+         Sp20LoadValueKind        = Sp20LoadValueKind,
          OpenSeesDefaultGjKnm2    = OpenSeesDefaultGjKnm2,
          OpenSeesAutoGjFromSection = OpenSeesAutoGjFromSection,
          SubmodelLinearPrecheck   = SubmodelLinearPrecheck,
@@ -374,6 +382,11 @@ namespace OpenCS.Utilites
          OpenSeesFiberStatesIntegrationPoints = OpenSeesFiberStatesIntegrationPoints,
          CsfeaThreads             = CsfeaThreads,
       };
+
+      /// <summary>Вид величин нагрузок для комбинаторики СП 20.</summary>
+      public CScore.Combinations.Sp20LoadValueKind ToSp20LoadValueKind() =>
+         Sp20LoadValueKind == "design" ? CScore.Combinations.Sp20LoadValueKind.Design
+            : CScore.Combinations.Sp20LoadValueKind.Normative;
 
       /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>
       public Sp20GammaDefaults ToSp20GammaDefaults() => new()

@@ -415,12 +415,13 @@ public sealed class FemLoadsTabVM : ViewModelBase
         {
             Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group,
             GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
-            SelfWeightFactor = lc.SelfWeightFactor,
+            SelfWeightFactor = lc.SelfWeightFactor, LongTermShare = lc.LongTermShare,
         };
         apply(values);
         if (values.Tag == lc.Tag && values.Sp20Type == lc.Sp20Type && values.Sp20Group == lc.Sp20Group
             && values.GammaFUnfav == lc.GammaFUnfav && values.GammaFFav == lc.GammaFFav && values.Psi1 == lc.Psi1
-            && values.Psi2 == lc.Psi2 && values.SelfWeightFactor == lc.SelfWeightFactor) return;
+            && values.Psi2 == lc.Psi2 && values.SelfWeightFactor == lc.SelfWeightFactor
+            && values.LongTermShare == lc.LongTermShare) return;
         string oldTag = lc.Tag;
         Status = Editor.EditLoadCase(lc, values);
         if (Status != null) { row.Refresh(); return; }
@@ -436,7 +437,7 @@ public sealed class FemLoadsTabVM : ViewModelBase
             {
                 Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = sp20Type, Sp20Group = lc.Sp20Group,
                 GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
-                SelfWeightFactor = lc.SelfWeightFactor,
+                SelfWeightFactor = lc.SelfWeightFactor, LongTermShare = lc.LongTermShare,
             })).ToList();
         if (commands.Count > 0) Execute(Group(commands));
     }

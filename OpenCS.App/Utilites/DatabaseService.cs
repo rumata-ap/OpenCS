@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 86;
+      const int CurrentSchemaVersion = 87;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -106,6 +106,7 @@ namespace OpenCS.Utilites
          [83] = MigrateV84,
          [84] = MigrateV85,
          [85] = MigrateV86,
+         [86] = MigrateV87,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -634,7 +635,8 @@ namespace OpenCS.Utilites
                 psi2 REAL,
                 self_weight_factor REAL,
                 origin TEXT NOT NULL DEFAULT 'manual',
-                source_load_num INTEGER
+                source_load_num INTEGER,
+                long_term_share REAL
             );
             CREATE TABLE IF NOT EXISTS fem_node_loads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1777,6 +1779,13 @@ namespace OpenCS.Utilites
             WHERE planar_region_id IS NOT NULL AND target_mesh_length_m IS NULL
               AND EXISTS (SELECT 1 FROM planar_regions r WHERE r.id = fem_members.planar_region_id);
             """);
+      }
+
+      /// <summary>Миграция v87: доля длительной части загружения (пониженное значение по СП 20) для групп CL/NL.</summary>
+      void MigrateV87()
+      {
+         if (!ColumnExists("fem_load_cases", "long_term_share"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN long_term_share REAL");
       }
 
       /// <summary>Миграция v85: ключ источника армирования полосы плиты (КЭ импортированной схемы:
@@ -4298,7 +4307,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, load_type, sp20_type, sp20_group,
-                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num, long_term_share
                FROM fem_load_cases WHERE @only IS NULL OR schema_id=@only ORDER BY schema_id, id
             """;
             cmd.Parameters.AddWithValue("@only", (object?)onlySchemaId ?? DBNull.Value);
@@ -4321,7 +4330,8 @@ namespace OpenCS.Utilites
                   Psi2        = r.IsDBNull(9) ? null : r.GetDouble(9),
                   SelfWeightFactor = r.IsDBNull(10) ? null : r.GetDouble(10),
                   Origin      = r.GetString(11),
-                  SourceLoadNum = r.IsDBNull(12) ? null : r.GetInt32(12)
+                  SourceLoadNum = r.IsDBNull(12) ? null : r.GetInt32(12),
+                  LongTermShare = r.IsDBNull(13) ? null : r.GetDouble(13)
                });
             }
          }
@@ -4596,7 +4606,7 @@ namespace OpenCS.Utilites
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             SELECT id, tag, load_type, sp20_type, sp20_group,
-                   gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num
+                   gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num, long_term_share
             FROM fem_load_cases WHERE schema_id=@sid ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -4616,7 +4626,8 @@ namespace OpenCS.Utilites
                Psi2        = r.IsDBNull(8) ? null : r.GetDouble(8),
                SelfWeightFactor = r.IsDBNull(9) ? null : r.GetDouble(9),
                Origin      = r.GetString(10),
-               SourceLoadNum = r.IsDBNull(11) ? null : r.GetInt32(11)
+               SourceLoadNum = r.IsDBNull(11) ? null : r.GetInt32(11),
+               LongTermShare = r.IsDBNull(12) ? null : r.GetDouble(12)
             });
          return result;
       }
@@ -4632,8 +4643,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO fem_load_cases
                      (schema_id, tag, load_type, sp20_type, sp20_group,
-                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2, self_weight_factor, origin, source_load_num, long_term_share)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts);
                   SELECT last_insert_rowid();
                """;
                AddFemLoadCaseParameters(cmd, loadCase);
@@ -4644,7 +4655,7 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   UPDATE fem_load_cases SET tag=@tag, load_type=@lt, sp20_type=@st,
                      sp20_group=@sg, gamma_f_unfav=@gu, gamma_f_fav=@gf,
-                     psi1=@p1, psi2=@p2, self_weight_factor=@swf, origin=@origin, source_load_num=@sln
+                     psi1=@p1, psi2=@p2, self_weight_factor=@swf, origin=@origin, source_load_num=@sln, long_term_share=@lts
                      WHERE id=@id AND schema_id=@sid
                """;
                AddFemLoadCaseParameters(cmd, loadCase);
@@ -4697,12 +4708,14 @@ namespace OpenCS.Utilites
          AddFemLoadCaseExtraParameters(cmd, loadCase);
       }
 
-      /// <summary>Параметры v77: @swf (коэффициент собственного веса), @origin, @sln (номер в источнике).</summary>
+      /// <summary>Параметры v77: @swf (коэффициент собственного веса), @origin, @sln (номер в источнике); v87: @lts (доля
+      /// длительной части).</summary>
       static void AddFemLoadCaseExtraParameters(SqliteCommand cmd, CScore.Fem.FemLoadCase loadCase)
       {
          cmd.Parameters.AddWithValue("@swf", (object?)loadCase.SelfWeightFactor ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@origin", loadCase.Origin);
          cmd.Parameters.AddWithValue("@sln", (object?)loadCase.SourceLoadNum ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@lts", (object?)loadCase.LongTermShare ?? DBNull.Value);
       }
 
       public List<CScore.Fem.FemNodeLoad> GetFemNodeLoads(int schemaId, int? loadCaseId = null)
@@ -5624,8 +5637,8 @@ namespace OpenCS.Utilites
                lcCmd.CommandText = """
                   INSERT INTO fem_load_cases
                      (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
-                      self_weight_factor, origin, source_load_num)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
+                      self_weight_factor, origin, source_load_num, long_term_share)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts);
                   SELECT last_insert_rowid();
                """;
                foreach (var lc in loadCases)
@@ -6134,8 +6147,8 @@ namespace OpenCS.Utilites
                lcCmd.CommandText = """
                   INSERT INTO fem_load_cases
                      (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
-                      self_weight_factor, origin, source_load_num)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
+                      self_weight_factor, origin, source_load_num, long_term_share)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts);
                   SELECT last_insert_rowid();
                """;
                foreach (var lc in loadCases)
@@ -6158,7 +6171,8 @@ namespace OpenCS.Utilites
                      Id = newId, SchemaId = newSchemaId, Tag = lc.Tag, LoadType = lc.LoadType,
                      Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav,
                      GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
-                     SelfWeightFactor = lc.SelfWeightFactor, Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum
+                     SelfWeightFactor = lc.SelfWeightFactor, Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum,
+                     LongTermShare = lc.LongTermShare
                   });
                }
             }

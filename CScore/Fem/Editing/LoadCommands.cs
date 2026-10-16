@@ -27,7 +27,8 @@ public sealed class EditLoadCaseCommand(FemLoadCase target, FemLoadCase newValue
     {
         Tag = source.Tag, LoadType = source.LoadType, Sp20Type = source.Sp20Type,
         Sp20Group = source.Sp20Group, GammaFUnfav = source.GammaFUnfav, GammaFFav = source.GammaFFav,
-        Psi1 = source.Psi1, Psi2 = source.Psi2, SelfWeightFactor = source.SelfWeightFactor
+        Psi1 = source.Psi1, Psi2 = source.Psi2, SelfWeightFactor = source.SelfWeightFactor,
+        LongTermShare = source.LongTermShare
     };
 
     static void Apply(FemLoadCase target, FemLoadCase source)
@@ -41,6 +42,7 @@ public sealed class EditLoadCaseCommand(FemLoadCase target, FemLoadCase newValue
         target.Psi1 = source.Psi1;
         target.Psi2 = source.Psi2;
         target.SelfWeightFactor = source.SelfWeightFactor;
+        target.LongTermShare = source.LongTermShare;
     }
 }
 

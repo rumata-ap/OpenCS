@@ -207,8 +207,8 @@ namespace OpenCS.Utilites
                   cmd.CommandText = """
                      INSERT INTO fem_load_cases
                         (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
-                         self_weight_factor, origin, source_load_num)
-                     VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln);
+                         self_weight_factor, origin, source_load_num, long_term_share)
+                     VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts);
                      SELECT last_insert_rowid();
                      """;
                   AddFemLoadCaseParameters(cmd, lc);
@@ -221,7 +221,7 @@ namespace OpenCS.Utilites
                   cmd.CommandText = """
                      UPDATE fem_load_cases SET tag=@tag, load_type=@lt, sp20_type=@st, sp20_group=@sg,
                         gamma_f_unfav=@gu, gamma_f_fav=@gf, psi1=@p1, psi2=@p2, self_weight_factor=@swf,
-                        origin=@origin, source_load_num=@sln
+                        origin=@origin, source_load_num=@sln, long_term_share=@lts
                      WHERE id=@id AND schema_id=@sid
                      """;
                   AddFemLoadCaseParameters(cmd, lc);
