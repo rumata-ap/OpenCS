@@ -3774,6 +3774,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSets">Sets per load case</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Force sets (plates and bars) for each load case of the linear analysis with SP 20 load kind, γf and group in the name — for the SP 20 combinations dialog</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Analysis “{0}”: no sets per load case — see warnings above.</system:String>
+    <system:String x:Key="FemEnvelopeBusy">Combinations from the envelope of analysis “{0}”: reading the result and the SP 20 envelope…</system:String>
+    <system:String x:Key="FemEnvelopeApplying">Combinations from the envelope of analysis “{1}”: adding {0} to the schema…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsBusy">Sets per load case of analysis “{0}”: preparing…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsSaving">Sets per load case of analysis “{1}”: saving {0}…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsDone">Sets per load case of analysis “{1}”: {0}.</system:String>
     <system:String x:Key="Sp20AttrDefaultHint">default {0}</system:String>
     <system:String x:Key="Sp20AttrReducedGammaTip">Self-weight γf for overturning and other cases where a smaller weight is unfavourable (SP 20 cl. 7.3); term role “permanent, γf cl. 7.3”</system:String>
     <system:String x:Key="Sp20AttrShareKind">Load kind (reduced value)</system:String>

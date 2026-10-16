@@ -249,15 +249,23 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     public bool HasFields => Fields != null;
 
-    /// <summary>Поля шага по сквозному номеру (кеш); null — не записаны или запись повреждена.</summary>
+    /// <summary>
+    /// Поля шага по сквозному номеру (кеш); null — не записаны или запись повреждена. Вызывается и из фона
+    /// («Наборы по загружениям»), поэтому кеш под блокировкой.
+    /// </summary>
     public RcSecantStepFields? LoadFields(int stepN)
     {
-        if (_cache.TryGetValue(stepN, out var f)) return f;
+        lock (_cache)
+            if (_cache.TryGetValue(stepN, out var cached)) return cached;
         if (_result.Id <= 0 || _db.GetFemResultStep(_result.Id, stepN) is not { } data) return null;
+        RcSecantStepFields f;
         try { f = FemCsfeaStepFieldsCodec.Unpack(data); }
         catch (Exception ex) when (ex is System.IO.InvalidDataException or System.IO.EndOfStreamException) { return null; }
-        if (_cache.Count >= 4) _cache.Clear();
-        return _cache[stepN] = f;
+        lock (_cache)
+        {
+            if (_cache.Count >= 4) _cache.Clear();
+            return _cache[stepN] = f;
+        }
     }
 
     void ApplyStep()

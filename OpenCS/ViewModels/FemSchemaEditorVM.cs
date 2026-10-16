@@ -982,33 +982,73 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>
     /// «Комбинации из огибающей линейного расчёта» (спека 2026-10-14, п. 5.2.4): по последнему линейному расчёту
     /// CSfea схемы — наборы усилий по загружениям, огибающая СП 20 и её уникальные формулы как комбинации с
-    /// «авто»-слагаемыми, одной отменой. Текст ошибки или null; замечания — в журнал.
+    /// «авто»-слагаемыми, одной отменой. Текст ошибки или null; замечания — в журнал. Чтение полей шагов и огибающая
+    /// идут в фоне со статусом в статусбаре; в схему комбинации добавляются в потоке UI.
     /// </summary>
-    public string? GenerateEnvelopeLoadDefinitions()
+    public async Task<string?> GenerateEnvelopeLoadDefinitionsAsync()
     {
+        if (IsGeneratingEnvelope) return null;
         var analyses = Session.Schema.Analyses.Count > 0 ? Session.Schema.Analyses.ToList() : _db.GetFemAnalyses(Session.Schema.Id);
         if (FemLinearLoadCaseForceSets.LatestLinear(analyses) is not { } analysis) return Loc.S("FemEnvelopeNoLinearResult");
-        var result = FemLinearLoadCaseForceSets.BuildFromDatabase(_db, Session.Schema, analysis, [], Sp20GammaDefaults,
-            Session.LoadCases);
-        if (result == null) return string.Format(Loc.S("FemEnvelopeResultMissing"), analysis.Tag);
-        var warnings = new List<string>(result.Warnings);
-        var definitions = result.Sets.Count == 0 ? [] : FemLinearLoadCaseForceSets.EnvelopeDefinitions(Session.Schema, result,
-            Sp20GammaDefaults, Sp20LoadValueKind, warnings, Session.LoadCases);
-        foreach (var warning in warnings) _logService.Warning(warning);
-        if (definitions.Count == 0) return string.Format(Loc.S("FemEnvelopeNothing"), analysis.Tag);
 
-        var tags = Session.LoadDefinitions.Select(d => d.Tag).ToHashSet(StringComparer.Ordinal);
-        foreach (var definition in definitions)
+        // Снимок входа: фоновая часть не трогает сессию редактора.
+        var schema = Session.Schema;
+        var loadCases = Session.LoadCases.ToList();
+        var defaults = Sp20GammaDefaults;
+        var valueKind = Sp20LoadValueKind;
+        IsGeneratingEnvelope = true;
+        _app.BeginBusy(string.Format(Loc.S("FemEnvelopeBusy"), analysis.Tag));
+        string? endMessage = null;
+        try
         {
-            string baseTag = definition.Tag;
-            for (int index = 2; tags.Contains(definition.Tag); index++) definition.Tag = $"{baseTag} ({index})";
-            tags.Add(definition.Tag);
-            definition.Description = string.Format(Loc.S("FemEnvelopeDescription"), analysis.Tag);
+            var built = await Task.Run<(IReadOnlyList<FemLoadDefinition> Definitions, List<string> Warnings)?>(() =>
+            {
+                var result = FemLinearLoadCaseForceSets.BuildFromDatabase(_db, schema, analysis, [], defaults, loadCases);
+                if (result == null) return null;
+                var warnings = new List<string>(result.Warnings);
+                var definitions = result.Sets.Count == 0 ? [] : FemLinearLoadCaseForceSets.EnvelopeDefinitions(schema, result,
+                    defaults, valueKind, warnings, loadCases);
+                return (Definitions: definitions, Warnings: warnings);
+            });
+            if (built is not { } b) return string.Format(Loc.S("FemEnvelopeResultMissing"), analysis.Tag);
+            foreach (var warning in b.Warnings) _logService.Warning(warning);
+            if (b.Definitions.Count == 0) return string.Format(Loc.S("FemEnvelopeNothing"), analysis.Tag);
+
+            _app.StatusMessage = string.Format(Loc.S("FemEnvelopeApplying"), b.Definitions.Count, analysis.Tag);
+            // Дать статусбару перерисоваться до синхронного добавления в схему.
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+            var tags = Session.LoadDefinitions.Select(d => d.Tag).ToHashSet(StringComparer.Ordinal);
+            foreach (var definition in b.Definitions)
+            {
+                string baseTag = definition.Tag;
+                for (int index = 2; tags.Contains(definition.Tag); index++) definition.Tag = $"{baseTag} ({index})";
+                tags.Add(definition.Tag);
+                definition.Description = string.Format(Loc.S("FemEnvelopeDescription"), analysis.Tag);
+            }
+            Session.Execute(new CompositeFemCommand(b.Definitions.Select(d => (IFemEditCommand)new AddLoadDefinitionCommand(d))));
+            RefreshCollections();
+            endMessage = string.Format(Loc.S("FemEnvelopeCreated"), b.Definitions.Count, analysis.Tag);
+            _logService.Info(endMessage);
+            return null;
         }
-        Session.Execute(new CompositeFemCommand(definitions.Select(d => (IFemEditCommand)new AddLoadDefinitionCommand(d))));
-        RefreshCollections();
-        _logService.Info(string.Format(Loc.S("FemEnvelopeCreated"), definitions.Count, analysis.Tag));
-        return null;
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException)
+        {
+            _logService.Error(ex.Message);
+            return ex.Message;
+        }
+        finally
+        {
+            _app.EndBusy(endMessage);
+            IsGeneratingEnvelope = false;
+        }
+    }
+
+    bool _isGeneratingEnvelope;
+    /// <summary>Идёт «Из огибающей линейного расчёта» — кнопка недоступна.</summary>
+    public bool IsGeneratingEnvelope
+    {
+        get => _isGeneratingEnvelope;
+        private set { if (_isGeneratingEnvelope == value) return; _isGeneratingEnvelope = value; OnPropertyChanged(); }
     }
 
     FemFragmentSnapshot? _clipboard;

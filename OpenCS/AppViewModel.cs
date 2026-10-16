@@ -5931,20 +5931,42 @@ namespace OpenCS
       /// <summary>
       /// «Наборы усилий по загружениям» линейного расчёта CSfea (спека 2026-10-14, п. 5.2.3): по набору пластин и
       /// стержней на загружение с атрибутами СП 20 в имени — их комбинирует диалог «Сочетания СП 20».
+      /// Чтение полей шагов, построение и запись наборов — в фоне, со статусом в статусбаре.
       /// </summary>
-      public void SaveCsfeaLoadCaseForceSets(ViewModels.FemCsfeaResultVM result)
+      public async void SaveCsfeaLoadCaseForceSets(ViewModels.FemCsfeaResultVM result)
       {
-         if (result.Analysis is not { } analysis) return;
-         var built = Services.FemLinearLoadCaseForceSets.Build(result.Schema, analysis, result.Summary, result.LoadFields,
-            ForceSets, CalcSettings.ToSp20GammaDefaults());
-         foreach (var warning in built.Warnings) LogService.Warning(warning);
-         foreach (var (fs, _) in built.Sets)
+         if (result.Analysis is not { } analysis || IsBusy) return;
+         var existing = ForceSets.ToList();
+         var defaults = CalcSettings.ToSp20GammaDefaults();
+         BeginBusy(string.Format(Loc.S("FemCsfeaLoadCaseForceSetsBusy"), analysis.Tag));
+         string? endMessage = null;
+         try
          {
-            db.SaveForceSet(fs);
-            if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
-            LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+            var built = await Task.Run(() => Services.FemLinearLoadCaseForceSets.Build(result.Schema, analysis, result.Summary,
+               result.LoadFields, existing, defaults));
+            foreach (var warning in built.Warnings) LogService.Warning(warning);
+            if (built.Sets.Count == 0)
+            {
+               LogService.Warning(string.Format(Loc.S("FemCsfeaLoadCaseForceSetsNone"), analysis.Tag));
+               return;
+            }
+            StatusMessage = string.Format(Loc.S("FemCsfeaLoadCaseForceSetsSaving"), built.Sets.Count, analysis.Tag);
+            await Task.Run(() => { foreach (var (fs, _) in built.Sets) db.SaveForceSet(fs); });
+            foreach (var (fs, _) in built.Sets)
+            {
+               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+               LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+            }
+            endMessage = string.Format(Loc.S("FemCsfeaLoadCaseForceSetsDone"), built.Sets.Count, analysis.Tag);
          }
-         if (built.Sets.Count == 0) LogService.Warning(string.Format(Loc.S("FemCsfeaLoadCaseForceSetsNone"), analysis.Tag));
+         catch (Exception ex)
+         {
+            LogService.Error($"{analysis.Tag}: {ex.Message}");
+         }
+         finally
+         {
+            EndBusy(endMessage);
+         }
       }
 
       void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)

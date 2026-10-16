@@ -3774,6 +3774,11 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSets">Наборы по загружениям</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsTip">Наборы усилий (пластины и стержни) по каждому загружению линейного расчёта с видом нагрузки, γf и группой СП 20 в имени — для диалога «Сочетания СП 20»</system:String>
     <system:String x:Key="FemCsfeaLoadCaseForceSetsNone">Расчёт «{0}»: наборы по загружениям не созданы — замечания выше.</system:String>
+    <system:String x:Key="FemEnvelopeBusy">Комбинации из огибающей расчёта «{0}»: чтение результата и огибающая СП 20…</system:String>
+    <system:String x:Key="FemEnvelopeApplying">Комбинации из огибающей расчёта «{1}»: добавление {0} в схему…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsBusy">Наборы по загружениям расчёта «{0}»: подготовка…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsSaving">Наборы по загружениям расчёта «{1}»: сохранение {0}…</system:String>
+    <system:String x:Key="FemCsfeaLoadCaseForceSetsDone">Наборы по загружениям расчёта «{1}»: {0}.</system:String>
     <system:String x:Key="Sp20AttrDefaultHint">по умолч. {0}</system:String>
     <system:String x:Key="Sp20AttrReducedGammaTip">γf веса при расчёте на опрокидывание и в других случаях, когда уменьшение веса ухудшает работу конструкции (п. 7.3 СП 20); роль слагаемого «постоянная, γf п. 7.3»</system:String>
     <system:String x:Key="Sp20AttrShareKind">Вид нагрузки (пониж. знач.)</system:String>

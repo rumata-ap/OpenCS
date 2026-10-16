@@ -374,11 +374,11 @@ public sealed class FemCombinationsTabVM : ViewModelBase
     }
 
     /// <summary>Комбинации из огибающей последнего линейного расчёта CSfea (для нелинейного расчёта).</summary>
-    public void GenerateFromEnvelope()
+    public async Task GenerateFromEnvelopeAsync()
     {
         Status = null;
         int before = Editor.Session.LoadDefinitions.Count;
-        Status = Editor.GenerateEnvelopeLoadDefinitions();
+        Status = await Editor.GenerateEnvelopeLoadDefinitionsAsync();
         if (Editor.Session.LoadDefinitions.Count > before)
             Selected = Rows.FirstOrDefault(r => ReferenceEquals(r.Definition, Editor.Session.LoadDefinitions[before]));
     }
