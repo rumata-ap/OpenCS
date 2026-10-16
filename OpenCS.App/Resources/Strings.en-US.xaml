@@ -3342,6 +3342,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">Mesh node {0} boundary conditions set manually: restraint {1}, springs {2}.</system:String>
     <system:String x:Key="FemLineSupportTitle">Line support</system:String>
     <system:String x:Key="FemSchemaConfirmSaveOnLeave" xml:space="preserve">Schema "{0}" has unsaved changes. Save the schema?&#x0a;&#x0a;"Yes" — save, "No" — discard the changes, "Cancel" — return to the schema.</system:String>
+    <system:String x:Key="FemSchemaConfirmSaveBeforeAnalysis" xml:space="preserve">Schema "{0}" has unsaved changes. The analysis setup uses load cases and combinations of the saved schema. Save the schema?&#x0a;&#x0a;"Yes" — save, "No" — continue with the saved version, "Cancel" — do not open the setup.</system:String>
     <system:String x:Key="FemLineSupportPresets">Presets:</system:String>
     <system:String x:Key="FemLineSupportPresetPlate">Simple support</system:String>
     <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z and edge rotation — slab edge or wall base: deflection as for a hinged contour (no "soft" support of a Mindlin plate)</system:String>

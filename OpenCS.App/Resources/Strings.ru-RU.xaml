@@ -3342,6 +3342,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshNodeBoundarySaved">ГУ узла сетки {0} заданы вручную: закрепление {1}, пружины {2}.</system:String>
     <system:String x:Key="FemLineSupportTitle">Линейная связь</system:String>
     <system:String x:Key="FemSchemaConfirmSaveOnLeave" xml:space="preserve">Схема «{0}» изменена, правки не сохранены. Сохранить схему?&#x0a;&#x0a;«Да» — сохранить, «Нет» — отбросить правки, «Отмена» — вернуться к схеме.</system:String>
+    <system:String x:Key="FemSchemaConfirmSaveBeforeAnalysis" xml:space="preserve">Схема «{0}» изменена, правки не сохранены. Постановка расчёта берёт загружения и комбинации из сохранённой схемы. Сохранить схему?&#x0a;&#x0a;«Да» — сохранить, «Нет» — продолжить по сохранённой версии, «Отмена» — не открывать постановку.</system:String>
     <system:String x:Key="FemLineSupportPresets">Быстрый выбор:</system:String>
     <system:String x:Key="FemLineSupportPresetPlate">Шарнирное опирание</system:String>
     <system:String x:Key="FemLineSupportPresetPlateTip">X Y Z и поворот кромки — опирание края плиты или низа стены: прогиб как у шарнира по контуру (без «мягкого» опирания пластины Миндлина)</system:String>

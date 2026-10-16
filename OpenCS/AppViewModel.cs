@@ -5819,10 +5819,36 @@ namespace OpenCS
          CurrentPage = new Views.FemCheckResultView(result, db);
       }
 
+      /// <summary>
+      /// Перед диалогом постановки: если редактор этой схемы открыт с несохранёнными правками, спросить о сохранении —
+      /// диалог берёт загружения и комбинации из сохранённой схемы, а дерево показывает правки редактора.
+      /// «Да» — сохранить, «Нет» — продолжить по сохранённой версии, «Отмена» — не открывать диалог.
+      /// </summary>
+      bool ConfirmFemSchemaSavedForAnalysis(CScore.Fem.FemSchema schema)
+      {
+         var editor = activeFemSchemaEditor;
+         if (editor == null || !editor.Session.IsDirty || editor.Session.Schema.Id != schema.Id)
+            return true;
+
+         var result = MessageBox.Show(
+            string.Format(Loc.S("FemSchemaConfirmSaveBeforeAnalysis"), schema.Tag),
+            Loc.S("Confirmation"),
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning);
+         if (result == MessageBoxResult.Cancel)
+            return false;
+         if (result == MessageBoxResult.Yes)
+         {
+            editor.Save();
+            return !editor.Session.IsDirty;
+         }
+         return true;
+      }
+
       void CreateFemAnalysis(CScore.Fem.FemSchema? schema)
       {
          schema ??= currentFemSchema;
-         if (schema == null) return;
+         if (schema == null || !ConfirmFemSchemaSavedForAnalysis(schema)) return;
          var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), null, CalcSettings.ToSp20GammaDefaults())
          {
             Owner = System.Windows.Application.Current.MainWindow,
@@ -5842,7 +5868,7 @@ namespace OpenCS
       {
          if (analysis == null) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
-         if (schema == null) return;
+         if (schema == null || !ConfirmFemSchemaSavedForAnalysis(schema)) return;
 
          var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), analysis, CalcSettings.ToSp20GammaDefaults())
          {
