@@ -108,6 +108,24 @@
                     <Image Source="{StaticResource CmdIcon_Delete}" Width="16" Height="16"/>
                 </Button>
             </ToolBar>
+            <!-- «Авто»-коэффициенты устарели (сменились γf или вид величин в настройках) — пересчитать одной отменой. -->
+            <Border DockPanel.Dock="Top" Background="#FFF6D5" BorderBrush="#E0C060" BorderThickness="1" Padding="6,3" Margin="0,0,0,4">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasStale}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="{DynamicResource FemCombinationsRecompute}" Padding="8,1" Margin="6,0,0,0"
+                            Click="RecomputeAuto_Click" ToolTip="{DynamicResource FemCombinationsRecomputeTip}"/>
+                    <TextBlock Text="{Binding StaleText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
             <Grid>
                 <DataGrid x:Name="combinationsGrid" Style="{StaticResource CombGrid}" ItemsSource="{Binding Rows}"
                           SelectedItem="{Binding Selected, Mode=TwoWay}">
@@ -236,7 +254,40 @@
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="{DynamicResource FemCombinationsColCoefficient}" Binding="{Binding Coefficient}" Width="60"/>
+                            <!-- «Авто» — серая подстановка «1,4·0,9 = 1,26»; правка — число (режим «задано»). -->
+                            <DataGridTemplateColumn Header="{DynamicResource FemCombinationsColCoefficient}" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding CoefficientDisplay}" Margin="3,0" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAuto}" Value="True">
+                                                            <Setter Property="Foreground" Value="Gray"/>
+                                                            <Setter Property="ToolTip" Value="{DynamicResource FemCombinationsAutoCellTip}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding Coefficient, UpdateSourceTrigger=LostFocus}" BorderThickness="0"
+                                                 Loaded="CoefficientEditor_Loaded"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="{DynamicResource FemCombinationsColRole}" Width="130" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding RoleChoices}" SelectedValuePath="Key" DisplayMemberPath="Label"
+                                                  SelectedValue="{Binding Role, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="{DynamicResource FemCombinationsRoleTip}" BorderThickness="0" Padding="3,0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn CellTemplate="{StaticResource Sp20IconCell}" Width="24" IsReadOnly="True"/>
                             <DataGridTextColumn Header="{DynamicResource FemCombinationsColCode}" Binding="{Binding Code}" Width="46" IsReadOnly="True"/>
                             <DataGridTextColumn Header="{DynamicResource FemLoadsColName}" Binding="{Binding Tag}" Width="*" IsReadOnly="True"

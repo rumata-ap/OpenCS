@@ -1,5 +1,7 @@
 using System.Globalization;
+using CScore.Combinations;
 using CScore.Fem;
+using CScore.Fem.Combinations;
 using CScore.Fem.Editing;
 using OpenCS.Utilites;
 
@@ -28,7 +30,10 @@ public sealed class FemCombinationCaseRow(FemLoadCase loadCase, int number) : Fe
     public string Sp20Type => LoadCase.Sp20Type;
 }
 
-/// <summary>Слагаемое комбинации: коэффициент правится в ячейке (одна отмена на правку).</summary>
+/// <summary>
+/// Слагаемое комбинации: коэффициент правится в ячейке (число — режим «задано»), роль СП 20 — списком (режим «авто»:
+/// коэффициент по роли с подстановкой). Одна отмена на правку.
+/// </summary>
 public sealed class FemCombinationTermRow(FemCombinationsTabVM owner, int index, FemLoadTerm term, FemLoadCase? loadCase, int number)
     : FemLoadsRow
 {
@@ -46,6 +51,22 @@ public sealed class FemCombinationTermRow(FemCombinationsTabVM owner, int index,
     {
         get => FemLoadsFormat.Number(Term.Coefficient);
         set => owner.SetCoefficient(this, value);
+    }
+
+    /// <summary>Коэффициент вычисляется по роли (показывается серым с подстановкой).</summary>
+    public bool IsAuto => Term.IsAuto && LoadCase != null;
+
+    /// <summary>Ячейка коэффициента: у «авто» — подстановка «1,4·0,9 = 1,26», иначе число.</summary>
+    public string CoefficientDisplay => owner.Substitution(this) ?? Coefficient;
+
+    /// <summary>Роли, допустимые для вида нагрузки загружения.</summary>
+    public IReadOnlyList<FemLoadsChoice> RoleChoices => LoadCase == null ? [] : FemCombinationsTabVM.RoleChoicesFor(LoadCase);
+
+    /// <summary>Роль СП 20 (ключ JSON); выбор роли переводит слагаемое в «авто».</summary>
+    public string Role
+    {
+        get => Term.Role ?? "";
+        set => owner.SetRole(this, value);
     }
 }
 
@@ -65,13 +86,41 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         Reload();
     }
 
-    /// <summary>Типы комбинаций: расчётные полные и длительные, нормативные полные и длительные.</summary>
-    public static IReadOnlyList<string> CombinationTypes { get; } = ["C", "CL", "N", "NL"];
+    /// <summary>Типы комбинаций: ПС1 полные и длительные, ПС2 полные и длительные, особое сочетание.</summary>
+    public static IReadOnlyList<string> CombinationTypes => FemCombinationTypes.All;
 
-    /// <summary>Частые коэффициенты для списка (можно ввести любой).</summary>
-    public static IReadOnlyList<string> CommonCoefficients { get; } =
-        new[] { 1.0, 1.05, 1.1, 1.2, 1.3, 1.35, 1.4, 1.5, 0.9, 0.95, 0.8, 0.7, 0.5 }
-            .Select(FemLoadsFormat.Number).ToList();
+    /// <summary>Значение поля коэффициента «авто» — коэффициент по роли СП 20.</summary>
+    public static string AutoText => Loc.S("FemCombinationsAuto");
+
+    /// <summary>Частые коэффициенты для списка (можно ввести любой); первым — «авто».</summary>
+    public static IReadOnlyList<string> CommonCoefficients =>
+        [AutoText, .. new[] { 1.0, 1.05, 1.1, 1.2, 1.3, 1.35, 1.4, 1.5, 0.9, 0.95, 0.8, 0.7, 0.5 }.Select(FemLoadsFormat.Number)];
+
+    /// <summary>Роли слагаемого, допустимые для вида нагрузки загружения (подписи — для столбца «Роль»).</summary>
+    /// <remarks>
+    /// Списки кэшируются по виду нагрузки: новый экземпляр ItemsSource сбросил бы выбор в ячейке и записал null в роль.
+    /// </remarks>
+    public static IReadOnlyList<FemLoadsChoice> RoleChoicesFor(FemLoadCase loadCase)
+    {
+        var type = FemCombinationCoefficients.LoadType(loadCase);
+        lock (RoleChoicesCache)
+        {
+            if (!RoleChoicesCache.TryGetValue(type, out var list)) RoleChoicesCache[type] = list = BuildRoleChoices(type);
+            return list;
+        }
+    }
+
+    static readonly Dictionary<NormLoadType, IReadOnlyList<FemLoadsChoice>> RoleChoicesCache = [];
+
+    static IReadOnlyList<FemLoadsChoice> BuildRoleChoices(NormLoadType type) =>
+        type switch
+        {
+            NormLoadType.Permanent => [RoleChoice(FemLoadTermRoles.Permanent), RoleChoice(FemLoadTermRoles.PermanentReduced)],
+            NormLoadType.Accidental => [RoleChoice(FemLoadTermRoles.Accidental)],
+            _ => [RoleChoice(FemLoadTermRoles.Leading), RoleChoice(FemLoadTermRoles.Second), RoleChoice(FemLoadTermRoles.Other)],
+        };
+
+    static FemLoadsChoice RoleChoice(string key) => new(key, Loc.S("FemTermRole_" + key));
 
     /// <summary>Фильтр загружений схемы: пусто — все, иначе вид нагрузки СП 20.</summary>
     public IReadOnlyList<FemLoadsChoice> CaseFilters { get; private set; } = [];
@@ -109,8 +158,8 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         set { _filter = value ?? ""; OnPropertyChanged(); ReloadSelected(rebuild: false); }
     }
 
-    string _coefficientText = FemLoadsFormat.Number(1);
-    /// <summary>Коэффициент для добавляемых слагаемых и кнопки «Применить к выделенным».</summary>
+    string _coefficientText = AutoText;
+    /// <summary>Коэффициент для добавляемых слагаемых и кнопки «Применить к выделенным»; «авто» — по роли СП 20.</summary>
     public string CoefficientText { get => _coefficientText; set { _coefficientText = value; OnPropertyChanged(); } }
 
     string? _status;
@@ -149,10 +198,11 @@ public sealed class FemCombinationsTabVM : ViewModelBase
             if (SelectedDefinition is not { } d) return;
             string? type = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
             if (type == d.CombinationType) return;
-            Edit(d, v => v.CombinationType = type, expression => new FemLoadExpression
+            // Смена типа пересчитывает «авто»-слагаемые (C ×γf, N ÷γf у расчётных, CL/NL — доля длительной части…).
+            Edit(d, v => v.CombinationType = type, expression => Recompute(new FemLoadExpression
             {
                 Mode = expression.Mode, LoadCaseIds = expression.LoadCaseIds, Terms = expression.Terms, CombinationType = type,
-            });
+            }, type));
         }
     }
 
@@ -211,7 +261,31 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         foreach (var name in new[] { nameof(HasSelection), nameof(NumberText), nameof(TagText), nameof(TypeText),
                      nameof(CommentText), nameof(TermsHeader) })
             OnPropertyChanged(name);
+        int stale = Editor.StaleAutoCombinationCount;
+        StaleText = stale == 0 ? null : string.Format(Loc.S("FemCombinationsStaleAuto"), stale);
     }
+
+    string? _staleText;
+    /// <summary>Сколько комбинаций с устаревшими «авто»-коэффициентами (после смены настроек СП 20); null — нет.</summary>
+    public string? StaleText { get => _staleText; private set { _staleText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasStale)); } }
+    public bool HasStale => _staleText != null;
+
+    /// <summary>Пересчитывает «авто»-слагаемые всех комбинаций под текущие настройки (одна отмена).</summary>
+    public void RecomputeAuto()
+    {
+        Status = null;
+        Editor.RecomputeAutoTerms();
+    }
+
+    /// <summary>Подстановка «авто»-слагаемого выбранной комбинации; null — задано числом.</summary>
+    internal string? Substitution(FemCombinationTermRow row) => SelectedDefinition is { } d && row.LoadCase is { } lc
+        ? FemCombinationCoefficients.Substitution(row.Term, lc, d.CombinationType, Editor.Sp20LoadValueKind,
+            Editor.Sp20GammaDefaults, CultureInfo.CurrentCulture)
+        : null;
+
+    FemLoadExpression Recompute(FemLoadExpression expression, string? combinationType) =>
+        FemCombinationCoefficients.Recompute(expression, Editor.Session.LoadCases, combinationType,
+            Editor.Sp20LoadValueKind, Editor.Sp20GammaDefaults);
 
     Dictionary<int, int> CaseNumbers()
     {
@@ -300,16 +374,39 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         Editor.GenerateSp20LoadDefinitions("fundamental");
     }
 
-    /// <summary>Загружения — в комбинацию с коэффициентом из поля (одна отмена).</summary>
+    /// <summary>
+    /// Загружения — в комбинацию с коэффициентом из поля (одна отмена); «авто» — роль по умолчанию (G — постоянная,
+    /// A — особая, L/Q — основная, вторая, остальные по числу загружений того же вида в комбинации).
+    /// </summary>
     public void AddTerms(IEnumerable<FemCombinationCaseRow> rows)
     {
         if (SelectedDefinition is not { } d) return;
         var cases = rows.Select(r => r.LoadCase).ToList();
         if (cases.Count == 0) return;
-        if (!TryCoefficient(out var k)) return;
-        EditTerms(d, terms => terms.AddRange(cases.Where(lc => terms.All(t => t.LoadCaseId != lc.Id))
-            .Select(lc => new FemLoadTerm { LoadCaseId = lc.Id, Coefficient = k })));
+        bool auto = IsAutoText(CoefficientText);
+        double k = 0;
+        if (!auto && !TryCoefficient(out k)) return;
+        EditTerms(d, terms =>
+        {
+            foreach (var lc in cases.Where(lc => terms.All(t => t.LoadCaseId != lc.Id)).ToList())
+                terms.Add(auto ? AutoTerm(lc, terms) : new FemLoadTerm { LoadCaseId = lc.Id, Coefficient = k });
+        });
     }
+
+    /// <summary>«Авто»-слагаемое с ролью (по умолчанию — по уже входящим); коэффициент считает пересчёт в EditTerms.</summary>
+    FemLoadTerm AutoTerm(FemLoadCase loadCase, IEnumerable<FemLoadTerm> terms, string? role = null)
+    {
+        var byId = CasesById();
+        role ??= FemLoadTermRoles.ToKey(FemCombinationCoefficients.DefaultRole(loadCase,
+            terms.Select(t => byId.GetValueOrDefault(t.LoadCaseId)).OfType<FemLoadCase>()));
+        return new FemLoadTerm { LoadCaseId = loadCase.Id, Role = role, Mode = FemLoadTerm.AutoMode, Coefficient = 1 };
+    }
+
+    Dictionary<int, FemLoadCase> CasesById() =>
+        Editor.Session.LoadCases.GroupBy(lc => lc.Id).ToDictionary(g => g.Key, g => g.First());
+
+    static bool IsAutoText(string? text) =>
+        string.Equals(text?.Trim(), AutoText, StringComparison.CurrentCultureIgnoreCase);
 
     public void AddAllTerms() => AddTerms(AvailableCases);
 
@@ -328,8 +425,44 @@ public sealed class FemCombinationsTabVM : ViewModelBase
 
     public void RemoveAllTerms() => RemoveTerms(Terms);
 
-    /// <summary>Коэффициент из поля — выделенным слагаемым (одна отмена).</summary>
-    public void ApplyCoefficient(IEnumerable<FemCombinationTermRow> rows) => SetCoefficients(rows, null);
+    /// <summary>Коэффициент из поля — выделенным слагаемым (одна отмена); «авто» — сбросить к коэффициенту по роли.</summary>
+    public void ApplyCoefficient(IEnumerable<FemCombinationTermRow> rows)
+    {
+        if (IsAutoText(CoefficientText)) ResetToAuto(rows);
+        else SetCoefficients(rows, null);
+    }
+
+    /// <summary>Выделенные слагаемые — «авто» с прежней ролью (без роли — по умолчанию), одна отмена.</summary>
+    public void ResetToAuto(IEnumerable<FemCombinationTermRow> rows)
+    {
+        if (SelectedDefinition is not { } d) return;
+        var targets = rows.Where(r => r.LoadCase != null).ToDictionary(r => r.Index, r => r.LoadCase!);
+        if (targets.Count == 0) return;
+        EditTerms(d, terms =>
+        {
+            for (int i = 0; i < terms.Count; i++)
+            {
+                if (!targets.TryGetValue(i, out var lc)) continue;
+                string? role = FemLoadTermRoles.Parse(terms[i].Role) is { } r
+                    ? FemLoadTermRoles.ToKey(FemCombinationCoefficients.NormalizeRole(FemCombinationCoefficients.LoadType(lc), r))
+                    : null;
+                terms[i] = AutoTerm(lc, terms.Take(i), role);
+            }
+        });
+    }
+
+    /// <summary>Роль слагаемого из списка — слагаемое становится «авто».</summary>
+    internal void SetRole(FemCombinationTermRow row, string? role)
+    {
+        if (SelectedDefinition is not { } d || row.LoadCase is not { } lc) return;
+        // null приходит из ячейки при смене списка — не правка пользователя.
+        if (FemLoadTermRoles.Parse(role) == null) return;
+        if (row.Term.IsAuto && row.Term.Role == role) return;
+        EditTerms(d, terms =>
+        {
+            if (row.Index < terms.Count) terms[row.Index] = AutoTerm(lc, [], role);
+        });
+    }
 
     /// <summary>Коэффициент 1,0 выделенным слагаемым.</summary>
     public void ResetCoefficient(IEnumerable<FemCombinationTermRow> rows) => SetCoefficients(rows, 1);
@@ -345,7 +478,7 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         EditTerms(d, terms =>
         {
             for (int i = 0; i < terms.Count; i++)
-                if (indexes.Contains(i)) terms[i] = new FemLoadTerm { LoadCaseId = terms[i].LoadCaseId, Coefficient = k };
+                if (indexes.Contains(i)) terms[i] = Manual(terms[i], k);
         });
     }
 
@@ -353,12 +486,18 @@ public sealed class FemCombinationsTabVM : ViewModelBase
     {
         if (SelectedDefinition is not { } d) return;
         if (!TryNumber(text, out var k)) { row.Refresh(); return; }
-        if (k == row.Term.Coefficient) return;
+        if (k == row.Term.Coefficient && !row.Term.IsAuto) return;
         EditTerms(d, terms =>
         {
-            if (row.Index < terms.Count) terms[row.Index] = new FemLoadTerm { LoadCaseId = terms[row.Index].LoadCaseId, Coefficient = k };
+            if (row.Index < terms.Count) terms[row.Index] = Manual(terms[row.Index], k);
         });
     }
+
+    /// <summary>Слагаемое с заданным числом; роль сохраняется — «сбросить к авто» вернёт её.</summary>
+    static FemLoadTerm Manual(FemLoadTerm term, double k) => new()
+    {
+        LoadCaseId = term.LoadCaseId, Coefficient = k, Role = term.Role, Mode = term.Role != null ? FemLoadTerm.ManualMode : null,
+    };
 
     bool TryCoefficient(out double k) => TryNumber(CoefficientText, out k);
 
@@ -375,12 +514,12 @@ public sealed class FemCombinationsTabVM : ViewModelBase
         var expression = d.GetExpression();
         var terms = expression.Terms.ToList();
         change(terms);
-        Edit(d, _ => { }, _ => new FemLoadExpression
+        string? type = d.CombinationType ?? expression.CombinationType;
+        Edit(d, _ => { }, _ => Recompute(new FemLoadExpression
         {
             // Sum со слагаемыми: Single берёт LoadCaseIds с 1,0, а пустой Sum — LoadCaseIds, поэтому их не переносим.
-            Mode = FemLoadExpressionMode.Sum, Terms = terms,
-            CombinationType = d.CombinationType ?? expression.CombinationType,
-        });
+            Mode = FemLoadExpressionMode.Sum, Terms = terms, CombinationType = type,
+        }, type));
     }
 
     void Edit(FemLoadDefinition d, Action<FemLoadDefinition> apply, Func<FemLoadExpression, FemLoadExpression>? expression = null)

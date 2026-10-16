@@ -134,4 +134,119 @@ public sealed class FemCombinationsTabTests(FemSchemaEditorVMFixture fixture)
         Assert.Equal(1.4, down[q.Id], 9);
         Assert.Equal(1.4 * 0.9, down[s.Id], 9);
     }
+
+    [Fact]
+    public void AutoTerms_DefaultRoles_TypeChange_ManualAndBack()
+    {
+        var (editor, tab, g, q, s) = NewTab();
+        var gamma = editor.Sp20GammaDefaults;
+        tab.AddCombination();
+        Assert.Equal(FemCombinationsTabVM.AutoText, tab.CoefficientText);
+        tab.AddAllTerms();
+
+        // G — постоянная, первое кратковременное — основное, второе — второе (ψ = 0,9 по п. 6.4 СП 20).
+        Assert.Equal([FemLoadTermRoles.Permanent, FemLoadTermRoles.Leading, FemLoadTermRoles.Second],
+            tab.Terms.Select(t => t.Role));
+        Assert.All(tab.Terms, t => Assert.True(t.IsAuto));
+        var f = Factors(tab.SelectedDefinition!, editor.Session.LoadCases);
+        Assert.Equal(gamma.PermanentUnfav, f[g.Id], 9);
+        Assert.Equal(gamma.ShortTermUnfav, f[q.Id], 9);
+        Assert.Equal(gamma.ShortTermUnfav * 0.9, f[s.Id], 9);
+        Assert.Contains("0", tab.Terms[2].CoefficientDisplay);
+        Assert.Contains("=", tab.Terms[2].CoefficientDisplay);
+
+        // ПС2 по нормативным: γf не входит, ψ остаётся; отмена возвращает тип и коэффициенты.
+        tab.TypeText = FemCombinationTypes.N;
+        f = Factors(tab.SelectedDefinition!, editor.Session.LoadCases);
+        Assert.Equal([1.0, 1.0, 0.9], new[] { f[g.Id], f[q.Id], f[s.Id] }.Select(x => Math.Round(x, 9)));
+        editor.UndoCommand.Execute(null);
+        Assert.Equal(FemCombinationTypes.C, tab.SelectedDefinition!.CombinationType);
+        Assert.Equal(gamma.ShortTermUnfav * 0.9, Factors(tab.SelectedDefinition!, editor.Session.LoadCases)[s.Id], 9);
+
+        // Роль «прочие» — ψ 0,7; число в ячейке — «задано» с прежней ролью; «авто» в поле — обратно по роли.
+        tab.Terms[2].Role = FemLoadTermRoles.Other;
+        Assert.Equal(gamma.ShortTermUnfav * 0.7, tab.Terms[2].Term.Coefficient, 9);
+        tab.Terms[2].Coefficient = FemLoadsFormat.Number(1.25);
+        Assert.False(tab.Terms[2].IsAuto);
+        Assert.Equal((FemLoadTermRoles.Other, 1.25), (tab.Terms[2].Role, tab.Terms[2].Term.Coefficient));
+        Assert.Equal(FemLoadsFormat.Number(1.25), tab.Terms[2].CoefficientDisplay);
+        tab.CoefficientText = FemCombinationsTabVM.AutoText;
+        tab.ApplyCoefficient(tab.Terms.Skip(2).ToList());
+        Assert.True(tab.Terms[2].IsAuto);
+        Assert.Equal(gamma.ShortTermUnfav * 0.7, tab.Terms[2].Term.Coefficient, 9);
+
+        // Постоянной доступны γf и γf п. 7.3, особой — только «особая».
+        Assert.Equal([FemLoadTermRoles.Permanent, FemLoadTermRoles.PermanentReduced], tab.Terms[0].RoleChoices.Select(c => c.Key));
+        tab.Terms[0].Role = FemLoadTermRoles.PermanentReduced;
+        Assert.Equal(gamma.PermanentFav, tab.Terms[0].Term.Coefficient, 9);
+    }
+
+    [Fact]
+    public void AutoTerms_FollowLoadCaseEdit_InOneUndo_AndStaleRecompute()
+    {
+        var (editor, tab, _, q, _) = NewTab();
+        tab.AddCombination();
+        tab.AddAllTerms();
+        var d = tab.SelectedDefinition!;
+        double before = Factors(d, editor.Session.LoadCases)[q.Id];
+
+        // γf загружения 1,3 — «авто»-коэффициент следует за ним; одна отмена возвращает и загружение, и формулу.
+        var values = new FemLoadCase { Tag = q.Tag, Sp20Type = q.Sp20Type, GammaFUnfav = 1.3 };
+        Assert.Null(editor.EditLoadCase(q, values));
+        Assert.Equal(1.3, Factors(d, editor.Session.LoadCases)[q.Id], 9);
+        editor.UndoCommand.Execute(null);
+        Assert.Null(q.GammaFUnfav);
+        Assert.Equal(before, Factors(d, editor.Session.LoadCases)[q.Id], 9);
+
+        // Формула с устаревшим «авто» (как после смены настроек) — плашка и пересчёт одной отменой.
+        var expression = d.GetExpression();
+        d.SetExpression(new FemLoadExpression
+        {
+            Mode = expression.Mode, CombinationType = expression.CombinationType,
+            Terms = expression.Terms.Select(t => new FemLoadTerm
+            {
+                LoadCaseId = t.LoadCaseId, Role = t.Role, Mode = t.Mode, Coefficient = t.Coefficient + 1,
+            }).ToList(),
+        });
+        tab.Reload();
+        Assert.True(tab.HasStale);
+        tab.RecomputeAuto();
+        Assert.False(tab.HasStale);
+        Assert.Equal(before, Factors(d, editor.Session.LoadCases)[q.Id], 9);
+        editor.UndoCommand.Execute(null);
+        Assert.True(tab.HasStale);
+    }
+
+    [Fact]
+    public void LegacyNumericTerms_StayManual()
+    {
+        var (editor, tab, g, _, _) = NewTab();
+        tab.AddCombination();
+        tab.CoefficientText = FemLoadsFormat.Number(1.35);
+        tab.AddTerms(tab.AvailableCases.Where(r => r.LoadCase == g).ToList());
+        Assert.False(tab.Terms[0].IsAuto);
+        Assert.Equal("", tab.Terms[0].Role);
+        Assert.Null(tab.Terms[0].Term.Mode);
+        Assert.Equal(0, editor.StaleAutoCombinationCount);
+        Assert.Equal(1.35, tab.Terms[0].Term.Coefficient);
+    }
+
+    [Fact]
+    public void TreeDialogEdit_KeepsAutoForUnchangedCoefficients()
+    {
+        var (editor, tab, g, q, s) = NewTab();
+        tab.AddCombination();
+        tab.AddAllTerms();
+        var d = tab.SelectedDefinition!;
+        // Как диалог «Изменить…» из дерева: числа с 4 знаками, у S — новое значение, тип — N.
+        var numbers = d.GetExpression().Terms.Select(t => new FemLoadTerm
+        {
+            LoadCaseId = t.LoadCaseId, Coefficient = t.LoadCaseId == s.Id ? 2 : Math.Round(t.Coefficient, 4),
+        }).ToList();
+        Assert.Null(editor.EditLoadDefinition(d, d.Tag, FemCombinationTypes.N, numbers));
+        var terms = d.GetExpression().Terms.ToDictionary(t => t.LoadCaseId);
+        Assert.True(terms[g.Id].IsAuto);
+        Assert.Equal(1.0, terms[g.Id].Coefficient, 9); // «авто» пересчитано под ПС2
+        Assert.Equal((FemLoadTerm.ManualMode, FemLoadTermRoles.Second, 2.0), (terms[s.Id].Mode, terms[s.Id].Role, terms[s.Id].Coefficient));
+    }
 }

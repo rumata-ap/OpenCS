@@ -126,6 +126,50 @@ public sealed class EditLoadDefinitionCommand(FemLoadDefinition target, FemLoadD
     }
 }
 
+/// <summary>
+/// Пересчитывает «авто»-слагаемые всех комбинаций под текущие параметры загружений
+/// (<see cref="Combinations.FemCombinationCoefficients.Recompute"/>). Ставится в составную команду после правки
+/// загружения или типа комбинации — коэффициенты не устаревают; отмена возвращает прежние формулы.
+/// </summary>
+public sealed class RecomputeAutoTermsCommand(CScore.Combinations.Sp20GammaDefaults defaults,
+    CScore.Combinations.Sp20LoadValueKind kind) : IFemEditCommand
+{
+    readonly List<(FemLoadDefinition Definition, string Json)> _old = [];
+
+    /// <summary>Комбинации, «авто»-слагаемые которых расходятся с пересчётом (без правки).</summary>
+    public static IReadOnlyList<FemLoadDefinition> Stale(FemSchemaEditSession session,
+        CScore.Combinations.Sp20GammaDefaults defaults, CScore.Combinations.Sp20LoadValueKind kind) =>
+        session.LoadDefinitions.Where(d => Recomputed(d, session, defaults, kind) != null).ToList();
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old.Clear();
+        foreach (var definition in session.LoadDefinitions)
+        {
+            if (Recomputed(definition, session, defaults, kind) is not { } json) continue;
+            _old.Add((definition, definition.ExpressionJson));
+            definition.ExpressionJson = json;
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        foreach (var (definition, json) in _old) definition.ExpressionJson = json;
+    }
+
+    /// <summary>Новый JSON формулы; null — «авто»-слагаемых нет или коэффициенты актуальны.</summary>
+    static string? Recomputed(FemLoadDefinition definition, FemSchemaEditSession session,
+        CScore.Combinations.Sp20GammaDefaults defaults, CScore.Combinations.Sp20LoadValueKind kind)
+    {
+        var expression = definition.GetExpression();
+        if (!expression.Terms.Any(t => t.IsAuto)) return null;
+        var fresh = Combinations.FemCombinationCoefficients.Recompute(expression, session.LoadCases,
+            definition.CombinationType ?? expression.CombinationType, kind, defaults);
+        bool same = fresh.Terms.Zip(expression.Terms).All(p => Math.Abs(p.First.Coefficient - p.Second.Coefficient) < 1e-12);
+        return same ? null : fresh.ToJson();
+    }
+}
+
 /// <summary>Создаёт или обновляет единственную FemNodeLoad для пары (loadCaseId, nodeId). Обратимо.</summary>
 public sealed class SetNodeLoadCommand(
     int loadCaseId, int nodeId,

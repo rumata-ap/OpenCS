@@ -833,7 +833,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         if (!CanUseLoadCaseTag(values.Tag, target)) return Loc.S("FemLoadCaseTagTaken");
         values.Tag = values.Tag.Trim();
         values.LoadType ??= target.LoadType;
-        Session.Execute(new EditLoadCaseCommand(target, values));
+        Session.Execute(WithAutoRecompute(new EditLoadCaseCommand(target, values)));
         RefreshCollections();
         return null;
     }
@@ -884,13 +884,20 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     {
         if (!CanUseDefinitionTag(tag, target)) return Loc.S("FemCombinationTagTaken");
         string? type = string.IsNullOrWhiteSpace(combinationType) ? null : combinationType.Trim();
-        var kept = terms.Where(t => t.Coefficient != 0).ToList();
-        Session.Execute(new EditLoadDefinitionCommand(target, DefinitionValues(target, tag.Trim(), type, new FemLoadExpression
+        // Диалог отдаёт числа: слагаемое с прежним коэффициентом сохраняет роль и режим «авто», изменённое — «задано»
+        // с ролью; затем «авто» пересчитываются под (возможно, новый) тип.
+        var previous = target.GetExpression().Terms.GroupBy(t => t.LoadCaseId).ToDictionary(g => g.Key, g => g.First());
+        var kept = terms.Where(t => t.Coefficient != 0).Select(t =>
+            !previous.TryGetValue(t.LoadCaseId, out var old) || old.Role == null ? t
+            : Math.Abs(old.Coefficient - t.Coefficient) < 1e-4 ? old // диалог показывает 4 знака
+            : new FemLoadTerm { LoadCaseId = t.LoadCaseId, Coefficient = t.Coefficient, Role = old.Role, Mode = FemLoadTerm.ManualMode }).ToList();
+        var expression = CScore.Fem.Combinations.FemCombinationCoefficients.Recompute(new FemLoadExpression
         {
             Mode = FemLoadExpressionMode.Sum,
             Terms = kept,
             CombinationType = type,
-        })));
+        }, Session.LoadCases, type, Sp20LoadValueKind, Sp20GammaDefaults);
+        Session.Execute(new EditLoadDefinitionCommand(target, DefinitionValues(target, tag.Trim(), type, expression)));
         RefreshCollections();
         return null;
     }
@@ -917,6 +924,32 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         !string.IsNullOrWhiteSpace(tag) &&
         Session.LoadDefinitions.All(definition => ReferenceEquals(definition, target) ||
             !string.Equals(definition.Tag, tag.Trim(), StringComparison.Ordinal));
+
+    /// <summary>γf СП 20 по умолчанию из настроек расчёта.</summary>
+    public CScore.Combinations.Sp20GammaDefaults Sp20GammaDefaults => _app.CalcSettings.ToSp20GammaDefaults();
+
+    /// <summary>Вид величин нагрузок (нормативные/расчётные) из настроек расчёта.</summary>
+    public CScore.Combinations.Sp20LoadValueKind Sp20LoadValueKind => _app.CalcSettings.ToSp20LoadValueKind();
+
+    /// <summary>
+    /// Команда и пересчёт «авто»-слагаемых комбинаций одной отменой: после правки загружения или типа комбинации
+    /// коэффициенты не устаревают.
+    /// </summary>
+    public IFemEditCommand WithAutoRecompute(IFemEditCommand command) =>
+        new CompositeFemCommand([command, new RecomputeAutoTermsCommand(Sp20GammaDefaults, Sp20LoadValueKind)]);
+
+    /// <summary>Комбинации с устаревшими «авто»-коэффициентами (например, после смены настроек СП 20).</summary>
+    public int StaleAutoCombinationCount => RecomputeAutoTermsCommand.Stale(Session, Sp20GammaDefaults, Sp20LoadValueKind).Count;
+
+    /// <summary>Пересчитывает «авто»-слагаемые всех комбинаций одной отменой; возвращает число изменённых.</summary>
+    public int RecomputeAutoTerms()
+    {
+        int count = StaleAutoCombinationCount;
+        if (count == 0) return 0;
+        Session.Execute(new RecomputeAutoTermsCommand(Sp20GammaDefaults, Sp20LoadValueKind));
+        RefreshCollections();
+        return count;
+    }
 
     /// <summary>Создаёт материализованные сочетания СП 20 для всех исходных загружений с параметрами из их карточек.</summary>
     public void GenerateSp20LoadDefinitions(string combinationType)

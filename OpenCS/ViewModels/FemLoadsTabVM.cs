@@ -439,7 +439,7 @@ public sealed class FemLoadsTabVM : ViewModelBase
                 GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2,
                 SelfWeightFactor = lc.SelfWeightFactor, LongTermShare = lc.LongTermShare,
             })).ToList();
-        if (commands.Count > 0) Execute(Group(commands));
+        if (commands.Count > 0) Execute(Editor.WithAutoRecompute(Group(commands)));
     }
 
     /// <summary>Активное загружение переименовано в таблице — запомнить новое имя (активное хранится по имени).</summary>
