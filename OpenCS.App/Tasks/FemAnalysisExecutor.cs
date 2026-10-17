@@ -44,6 +44,7 @@ public static class FemAnalysisExecutor
             db.SaveCalcResult(result);
             analysis.ResultId = result.Id;
             analysis.Status   = result.Status;
+            analysis.StatusNote = Services.FemCsfeaResultSummary.StatusNote(result);
             db.SaveFemAnalysis(analysis);
 
             if (!LogCsfeaResult(log, result))

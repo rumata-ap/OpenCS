@@ -5927,7 +5927,9 @@ namespace OpenCS
       /// Таблицы и графики результата постановки (прежнее окно результата без 3D — результат смотрится в 3D-виде
       /// схемы). Шаг — показанный в 3D-виде; null — шаг окна по умолчанию. Кнопка окна возвращает в 3D-вид на его шаге.
       /// </summary>
-      public void OpenFemAnalysisResultTables(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null)
+      /// <param name="showBatchProblems">Пакет CSfea: открыть сводку пакета с фильтром недошедших (плашка под 3D-видом).</param>
+      public void OpenFemAnalysisResultTables(CScore.Fem.FemAnalysis? analysis, int? stepIndex = null, ViewModels.FemCsfeaCaseKey? caseKey = null,
+         bool showBatchProblems = false)
       {
          if (analysis?.ResultId is not int resultId || resultId <= 0) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
@@ -5936,7 +5938,7 @@ namespace OpenCS
          if (result == null) return;
          if (result.TaskKind == Services.FemCsfeaRunner.TaskKind)
          {
-            ShowCsfeaResult(result, schema, analysis, stepIndex, caseKey);
+            ShowCsfeaResult(result, schema, analysis, stepIndex, caseKey, showBatchProblems);
             return;
          }
 
@@ -5962,13 +5964,17 @@ namespace OpenCS
             if (answer == MessageBoxResult.Cancel) return;
             resume = answer == MessageBoxResult.Yes;
          }
-         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis, resume) != null)
+         var done = await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis, resume);
+         // Статус и его пояснение (пакет: не дошедшие до предела λ) — узел дерева без INotifyPropertyChanged.
+         if (FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId) is { } schema)
+            System.Windows.Data.CollectionViewSource.GetDefaultView(schema.Analyses)?.Refresh();
+         if (done != null)
             ShowFemAnalysisResultInSchema(analysis);
       }
 
       /// <summary>Графики и журнал результата CSfea; «шаг → набор усилий» сохраняет наборы схемы.</summary>
       void ShowCsfeaResult(CalcResult result, CScore.Fem.FemSchema schema, CScore.Fem.FemAnalysis analysis, int? stepIndex,
-         ViewModels.FemCsfeaCaseKey? caseKey = null)
+         ViewModels.FemCsfeaCaseKey? caseKey = null, bool showBatchProblems = false)
       {
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
          vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
@@ -5979,6 +5985,38 @@ namespace OpenCS
          {
             ShowInSchema = () => ShowFemAnalysisResultInSchema(analysis, vm.SelectedStepIndex, vm.ShownKey)
          };
+         if (showBatchProblems) vm.ShowBatchProblems();
+      }
+
+      /// <summary>
+      /// «Новый пакет из недошедших…»: диалог новой постановки с копией параметров пакета и только вариантами, не
+      /// дошедшими до предела λ (пересчитать с меньшим шагом λ, другими дроблениями).
+      /// </summary>
+      public void NewFemBatchFromProblems(ViewModels.FemCsfeaResultVM result)
+      {
+         if (result.Analysis is not { } source || !result.CanNewBatchFromProblems) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == source.SchemaId);
+         if (schema == null || !ConfirmFemSchemaSavedForAnalysis(schema)) return;
+         var pars = Tasks.FemAnalysisParams.Parse(source.ParamsJson);
+         if (pars.Batch is not { } batch) return;
+         var stopped = result.BatchStoppedItems.Select(b => b.ExpressionJson).ToHashSet(StringComparer.Ordinal);
+         batch.Items = batch.Items.Where(i => stopped.Contains(i.LoadExpressionJson)).ToList();
+         if (batch.Items.Count == 0) return;
+         var template = new CScore.Fem.FemAnalysis
+         {
+            SchemaId = schema.Id, Kind = source.Kind, Tag = string.Format(Loc.S("FemCsfeaBatchProblemsTag"), source.Tag),
+            LoadExpressionJson = batch.Items[0].LoadExpressionJson, ParamsJson = pars.ToJson(),
+         };
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), template, CalcSettings.ToSp20GammaDefaults())
+         {
+            Owner = System.Windows.Application.Current.MainWindow,
+            CsfeaContext = CsfeaRunContext(),
+            Title = Loc.S("FemCsfeaBatchNewFromProblems"),
+         };
+         if (dlg.ShowDialog() != true) return;
+         var analysis = dlg.Result;
+         analysis.SchemaId = schema.Id;
+         db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
       }
 
       /// <summary>«Шаг → наборы усилий» результата CSfea (окно результата и 3D-вид схемы): наборы сохраняются в проект.</summary>

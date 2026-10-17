@@ -4383,6 +4383,11 @@ namespace OpenCS.Utilites
                });
             }
          }
+         // Пояснение статуса пакета CSfea в дереве («7 из 128 не дошли до λ = 1») — из сводки его результата.
+         foreach (var analysis in schemas.Values.SelectMany(s => s.Analyses))
+            if (analysis is { ResultId: int rid, Status: "not_converged" or "partial", Kind: Services.FemCsfeaRunner.AnalysisKind }
+                && analysis.ParamsJson.Contains("\"Batch\"", StringComparison.Ordinal) && GetCalcResultById(rid) is { } result)
+               analysis.StatusNote = Services.FemCsfeaResultSummary.StatusNote(result);
       }
 
       /// <summary>Перечитывает из БД кэшированные коллекции схемы (группы, загружения, определения,

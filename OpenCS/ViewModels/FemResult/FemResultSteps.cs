@@ -12,7 +12,7 @@ public interface IFemResultSteps
 {
     /// <summary>Шагов больше одного (ползунок или список загружений).</summary>
     bool HasSteps { get; }
-    /// <summary>Шаги — независимые загружения и комбинации линейного расчёта (выбор из списка, не ползунком).</summary>
+    /// <summary>Шаги — независимые загружения и комбинации линейного расчёта или варианты пакета (выбор из списка, не ползунком).</summary>
     bool IsCaseList { get; }
     /// <summary>Имена шагов для списка загружений; пусто — не список.</summary>
     IReadOnlyList<string> StepNames { get; }
@@ -126,8 +126,9 @@ public sealed class CsfeaResultSteps : IFemResultSteps
     }
 
     public FemCsfeaResultVM Vm { get; }
-    public bool HasSteps => Vm.Summary.Steps.Count > 1;
-    public bool IsCaseList => Vm.IsLinear;
+    /// <summary>Шагов больше одного; у пакета — есть хотя бы один вариант или огибающая (выбор из списка).</summary>
+    public bool HasSteps => Vm.IsBatch ? Vm.CombinationItems.Count + Vm.EnvelopeItems.Count > 0 : Vm.Summary.Steps.Count > 1;
+    public bool IsCaseList => Vm.IsCaseList;
     public IReadOnlyList<string> StepNames { get; }
     public int StepCount => Vm.Summary.Steps.Count;
     public int SelectedStepIndex { get => Vm.SelectedStepIndex; set => Vm.SelectedStepIndex = value; }

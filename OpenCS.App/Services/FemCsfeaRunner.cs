@@ -230,6 +230,26 @@ public sealed class FemCsfeaResultSummary
     }
 
     /// <summary>
+    /// Пояснение статуса постановки пакета для дерева: «7 из 128 не дошли до λ = 1; не посчитаны 3»; null — не пакет или
+    /// все дошли.
+    /// </summary>
+    /// <summary>Пояснение статуса постановки по результату CSfea (<see cref="BatchStatusNote"/>); null — нет.</summary>
+    public static string? StatusNote(CalcResult result) =>
+        result.TaskKind == FemCsfeaRunner.TaskKind ? Parse(result.DataJson)?.BatchStatusNote() : null;
+
+    public string? BatchStatusNote()
+    {
+        if (Batch is not { Count: > 0 } batch) return null;
+        int stopped = batch.Count(b => b.Done && !b.Completed), notDone = batch.Count(b => !b.Done);
+        if (stopped == 0 && notDone == 0) return null;
+        var parts = new List<string>();
+        if (stopped > 0)
+            parts.Add(string.Create(CultureInfo.CurrentCulture, $"{stopped} из {batch.Count} не дошли до λ = {BatchMaxLoadFactor:0.###}"));
+        if (notDone > 0) parts.Add($"не посчитаны {notDone} из {batch.Count}");
+        return string.Join("; ", parts);
+    }
+
+    /// <summary>
     /// Итог пакета: сколько дошли до предела λ, затем по строке на каждый недошедший и непосчитанный (спека 2026-10-17,
     /// п. 4.1 — какие варианты не вошли в огибающие).
     /// </summary>

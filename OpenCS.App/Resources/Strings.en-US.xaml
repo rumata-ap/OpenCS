@@ -2954,6 +2954,41 @@
     <system:String x:Key="FemCsfeaBatchProgress">Batch "{0}": variant {1} of {2} "{3}" — step {4} of {5} (λ = {6:0.###}), iteration {7}</system:String>
     <system:String x:Key="FemCsfeaBatchPartial">Batch "{0}": not all variants analysed.</system:String>
     <system:String x:Key="FemCsfeaBatchResumeText">Batch "{0}" is incomplete: {1} of {2} variants have no result.&#10;&#10;Yes — analyse the remaining ones, No — analyse all variants again.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantLabel">Variant {0} of {1} «{2}» · λ = {3:0.###} {4}</system:String>
+    <system:String x:Key="FemCsfeaBatchNotReachedMark">— limit not reached</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantNotReached">Did not reach λ = {0:0.###}: the last converged state λ = {1:0.###} is shown{2}.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantNoFields">Fields of variant «{0}» are not recorded.</system:String>
+    <system:String x:Key="FemCsfeaBatchNothingToShow">The batch has no computed variants with fields.</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeMissing">The batch envelope record {0} is missing or damaged.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantsMode">Batch variants: {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantsModeTip">Final state of every batch variant — a nonlinear analysis from zero up to the λ limit. Variants that did not reach the limit are marked with an orange λ.</system:String>
+    <system:String x:Key="FemCsfeaBatchFieldsNotStored">Variant fields are not stored (storage «envelopes and summary only»).</system:String>
+    <system:String x:Key="FemCsfeaBatchNotDone">not computed</system:String>
+    <system:String x:Key="FemCsfeaBatchLoadCasesBadge">LC</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeLoadCases">Load case envelope</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">Not included: {0} (did not reach λ = {1:0.###} or not computed).</system:String>
+    <system:String x:Key="FemCsfeaBatchStateNotDone">not computed</system:String>
+    <system:String x:Key="FemCsfeaBatchStateStopped">stopped</system:String>
+    <system:String x:Key="FemCsfeaBatchProblems">Did not reach λ = {0:0.###}: {1} of {2} · not computed: {3}</system:String>
+    <system:String x:Key="FemCsfeaBatchSummaryLine">Variants {0} · reached λ = {1:0.###}: {2}, stopped {3}, not computed {4} · {5}</system:String>
+    <system:String x:Key="FemCsfeaDurationHm">{0} h {1} min</system:String>
+    <system:String x:Key="FemCsfeaDurationMs">{0} min {1} s</system:String>
+    <system:String x:Key="FemCsfeaDurationS">{0:0.#} s</system:String>
+    <system:String x:Key="FemCsfeaTabBatch">Batch summary</system:String>
+    <system:String x:Key="FemCsfeaBatchOnlyProblems">Only variants that did not reach the λ limit or were not computed</system:String>
+    <system:String x:Key="FemCsfeaBatchGridTip">Double-click — show the variant (tables and 3D view).</system:String>
+    <system:String x:Key="FemCsfeaBatchShowVariant">Show variant</system:String>
+    <system:String x:Key="FemCsfeaBatchNewFromProblems">New batch from stopped…</system:String>
+    <system:String x:Key="FemCsfeaBatchNewFromProblemsTip">A new analysis with the same parameters and only the variants that did not reach the λ limit — recompute with a smaller λ step or other refinements.</system:String>
+    <system:String x:Key="FemCsfeaBatchShowProblems">Show</system:String>
+    <system:String x:Key="FemCsfeaBatchShowProblemsTip">Batch summary — only stopped and not computed variants.</system:String>
+    <system:String x:Key="FemCsfeaBatchProblemsTag">{0} — stopped</system:String>
+    <system:String x:Key="FemCsfeaColBatchType">Type</system:String>
+    <system:String x:Key="FemCsfeaColBatchName">Variant</system:String>
+    <system:String x:Key="FemCsfeaColBatchState">Result</system:String>
+    <system:String x:Key="FemCsfeaColBatchSteps">Steps</system:String>
+    <system:String x:Key="FemCsfeaColBatchTime">Time, s</system:String>
+    <system:String x:Key="FemCsfeaColBatchReason">Reason</system:String>
     <system:String x:Key="FemLoadSourceChoose">Choose load…</system:String>
     <system:String x:Key="FemLoadSourceChooseTip">Choose a combination or load case (double-click the cell, F2)</system:String>
     <system:String x:Key="FemLoadSourceUnresolved">Analysis expression</system:String>

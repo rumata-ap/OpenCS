@@ -442,6 +442,9 @@
                 DataContext="{Binding Mosaic.ActiveResult}" Visibility="{Binding Converter={StaticResource NullToCollapsedConv}}">
             <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" TextWrapping="Wrap" MaxWidth="700"/>
         </Border>
+        <!-- Пакет CSfea: не дошедшие до предела λ и не посчитанные варианты -->
+        <local:FemCsfeaBatchProblemBar DataContext="{Binding Mosaic.ActiveResult.Csfea}" OpensResultWindow="True"
+                                       HorizontalAlignment="Left" Margin="0,4,0,0"/>
         <!-- Карточка значений выбранного в результате расчёта (узел, КЭ, КонЭ) -->
         <Border x:Name="resultCard" HorizontalAlignment="Left" Margin="0,4,0,0"
                 Padding="8,4,8,6" Background="#F2FFFFFF" BorderBrush="Gray" BorderThickness="1" CornerRadius="3"

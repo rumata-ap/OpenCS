@@ -102,7 +102,14 @@ public sealed class FemCsfeaCaseItem
     /// <summary>Огибающая группы комбинаций одного типа; иначе null.</summary>
     public FemCsfeaEnvelopeGroup? Envelope { get; init; }
 
-    public bool IsCombination => Combination != null;
+    /// <summary>Вариант пакетного расчёта (поля конечного состояния — запись <see cref="FemCsfeaBatchSummary.RecordN"/>); иначе null.</summary>
+    public FemCsfeaBatchSummary? Batch { get; init; }
+
+    /// <summary>Отметка пункта оранжевым (вариант пакета не дошёл до предела: «λ = 0,73»); пусто — нет.</summary>
+    public string Warning { get; init; } = "";
+    public bool HasWarning => Warning != "";
+
+    public bool IsCombination => Combination != null || Batch != null;
     public bool IsEnvelope => Envelope != null;
     public bool IsAvailable => Source.IsEnabled;
     public string Badge => Source.TypeBadge;
@@ -116,14 +123,25 @@ public sealed class FemCsfeaCaseItem
     public string? ToolTipText { get; init; }
 }
 
-/// <summary>Огибающая группы: тип комбинаций (C, CL, N, NL, A), доступные комбинации группы и число недоступных.</summary>
-public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCaseItem> Combinations, int Unavailable);
+/// <summary>
+/// Огибающая группы: тип комбинаций (C, CL, N, NL, A; у пакета ещё <see cref="FemCsfeaBatchGroup.LoadCases"/>), доступные
+/// комбинации группы и число недоступных. <see cref="RecordN"/> — запись готовой огибающей пакета (хранение «только
+/// огибающие»); null — огибающая собирается по полям.
+/// </summary>
+public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCaseItem> Combinations, int Unavailable, int? RecordN = null);
 
 /// <summary>
-/// Что показано в линейном результате CSfea поверх шага — для перехода окно результата ↔ 3D-вид: комбинация схемы
-/// (Id) или огибающая группы (тип) и выбор |max| / max / min.
+/// Что показано в результате CSfea поверх шага — для перехода окно результата ↔ 3D-вид: комбинация схемы (Id),
+/// огибающая группы (тип) или вариант пакета (индекс) и выбор |max| / max / min.
 /// </summary>
-public sealed record FemCsfeaCaseKey(int? CombinationId, string? EnvelopeType, ForceRowAggregate Aggregate);
+public sealed record FemCsfeaCaseKey(int? CombinationId, string? EnvelopeType, ForceRowAggregate Aggregate, int? BatchIndex = null);
+
+/// <summary>
+/// Строка вкладки «Сводка пакета»: вариант и итог его расчёта (λ, шагов, итераций, время, перемещение контрольного узла —
+/// мм или рад, ΣRz — кН; null — нет данных). <see cref="IsProblem"/> — не дошёл до предела λ или не посчитан.
+/// </summary>
+public sealed record FemCsfeaBatchRow(int N, string Type, string Tag, double LoadFactor, string State, int Steps, int Iterations,
+    double ElapsedSeconds, double? Control, double? ReactionZ, string Reason, bool IsProblem, FemCsfeaCaseItem Item);
 
 /// <summary>Значение огибающей величины: ветви max и min с именами комбинаций-источников (в единицах показа).</summary>
 public readonly record struct FemCsfeaEnvelopeValue(double Max, string MaxSource, double Min, string MinSource)
@@ -284,6 +302,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
         int last = Summary.Steps.FindLastIndex(s => s.Converged);
         _selectedStepIndex = Math.Max(0, last);
+        // Пакет: шагов нет — показан первый посчитанный вариант или (хранение «только огибающие») первая огибающая.
+        if (IsBatch)
+        {
+            if (CombinationItems.FirstOrDefault(i => i.IsAvailable) is { } first)
+            {
+                _shownCombination = _rememberedCombination = first;
+                _showCombinations = true;
+            }
+            else if (EnvelopeItems.FirstOrDefault() is { } envelope)
+            {
+                _shownEnvelope = _rememberedEnvelope = envelope;
+                _showEnvelopes = true;
+            }
+        }
         ApplyStep();
     }
 
@@ -315,6 +347,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         get => _selectedStepIndex;
         set
         {
+            // У пакета шагов нет — показ задаёт только список вариантов и огибающих.
+            if (IsBatch) return;
             int v = Summary.Steps.Count == 0 ? 0 : Math.Clamp(value, 0, Summary.Steps.Count - 1);
             if (v == _selectedStepIndex && _shownCombination == null && _shownEnvelope == null) return;
             // Шаг (загружение) выбран явно — комбинация и огибающая больше не показаны.
@@ -341,8 +375,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Линейный расчёт: шаги сводки — независимые загружения (без λ и итераций).</summary>
     public bool IsLinear => Summary.Kind == FemCsfeaRunner.LinearAnalysisKind;
 
+    /// <summary>Пакетный расчёт: варианты — независимые нелинейные расчёты, выбор из списка (шагов в сводке нет).</summary>
+    public bool IsBatch => Summary.Batch != null;
+
+    /// <summary>Показ — списком (загружения и комбинации линейного расчёта, варианты пакета), а не ползунком шагов.</summary>
+    public bool IsCaseList => IsLinear || IsBatch;
+
+    /// <summary>Переключатель «Загружения» есть (у пакета — только варианты и огибающие).</summary>
+    public bool ShowCasesMode => !IsBatch;
+
     public string CurrentStepLabel => _shownEnvelope is { Envelope: { } env } shown
         ? string.Format(Loc.S("FemCsfeaEnvelopeLabel"), shown.Name, env.Combinations.Count, AggregateLabel(EnvelopeAggregate))
+        : _shownCombination is { Batch: { } b } variant
+        ? string.Format(Loc.S("FemCsfeaBatchVariantLabel"), CombinationItems.ToList().IndexOf(variant) + 1, CombinationItems.Count,
+            variant.Name, b.LoadFactor, b.Completed ? "✓" : Loc.S("FemCsfeaBatchNotReachedMark"))
         : _shownCombination is { Combination: { } comb } item
         ? string.Format(Loc.S("FemCsfeaCombinationLabel"), CombinationItems.ToList().IndexOf(item) + 1, CombinationItems.Count,
             item.Name, comb.Terms.Count)
@@ -355,6 +401,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>Индекс шага, поля которого показаны (ближайший записанный); null — полей нет.</summary>
     public int? FieldsStepIndex { get; private set; }
+
+    // Номер записи показанных полей (шаг или вариант пакета) — ключ расчёта ширины раскрытия; null — поля собраны
+    // (комбинация линейного расчёта, огибающая).
+    int? _fieldsRecordN;
 
     /// <summary>Поля показанного шага; null — не записаны ни у одного шага.</summary>
     public RcSecantStepFields? Fields { get; private set; }
@@ -389,6 +439,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         FieldsStepIndex = null;
         Fields = null;
         FieldsNote = "";
+        _fieldsRecordN = null;
         _combinationStep = null;
         _envelope = null;
         // Огибающая другого типа больше не нужна — её расчёт прерывается.
@@ -411,6 +462,21 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 StartEnvelope(_shownEnvelope);
             }
         }
+        else if (_shownCombination is { Batch: { } b })
+        {
+            // Вариант пакета — конечное сошедшееся состояние; сводка шага — из сводки варианта.
+            if (b.RecordN is int n && LoadFields(n) is { } f)
+            {
+                Fields = f;
+                _fieldsRecordN = n;
+                _combinationStep = new FemCsfeaStepSummary(0, -1, 1, b.LoadFactor, false, b.Completed, b.Iterations, double.NaN,
+                    b.Control, null, true, b.ReactionSums, b.LoadSum);
+                if (!b.Completed)
+                    FieldsNote = string.Format(Loc.S("FemCsfeaBatchVariantNotReached"), Summary.BatchMaxLoadFactor, b.LoadFactor,
+                        string.IsNullOrEmpty(b.Reason) ? "" : $" ({b.Reason})");
+            }
+            else FieldsNote = string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag);
+        }
         else if (_shownCombination is { Combination: { } comb })
         {
             try
@@ -428,9 +494,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             int n = _recorded.MinBy(r => (Math.Abs(r - s.N), r))!;
             FieldsStepIndex = Summary.Steps.FindIndex(x => x.N == n);
             Fields = LoadFields(n);
+            _fieldsRecordN = Fields != null ? n : null;
             if (n != s.N) FieldsNote = string.Format(Loc.S("FemCsfeaFieldsNotRecorded"), n);
         }
         else if (_recorded.Count == 0 && Summary.Steps.Count > 0) FieldsNote = Loc.S("FemCsfeaNoFieldsRecorded");
+        else if (IsBatch && _shownCombination == null) FieldsNote = Loc.S("FemCsfeaBatchNothingToShow");
         IndexFields();
         OnPropertyChanged(nameof(SelectedStep));
         OnPropertyChanged(nameof(CurrentStepLabel));
@@ -480,8 +548,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     FemCsfeaEnvelopeQuantities Quantities => _quantities ??= new FemCsfeaEnvelopeQuantities(_contours,
         _foundation.ToDictionary(kv => kv.Key, kv => (kv.Value.C1, kv.Value.Normal.X, kv.Value.Normal.Y, kv.Value.Normal.Z)));
 
-    /// <summary>Готовая огибающая группы: значения, опорный шаг раскладки, группа (имена комбинаций-источников).</summary>
-    sealed record EnvelopeData(FemCsfeaEnvelope Values, RcSecantStepFields Reference, FemCsfeaEnvelopeGroup Group)
+    /// <summary>
+    /// Готовая огибающая группы: значения, опорный шаг раскладки, группа и имена источников по номеру источника
+    /// значений (комбинация группы; у записанной огибающей пакета — индекс варианта).
+    /// </summary>
+    sealed record EnvelopeData(FemCsfeaEnvelope Values, RcSecantStepFields Reference, FemCsfeaEnvelopeGroup Group,
+        IReadOnlyList<string> Names)
     {
         public int ShellOffset => Reference.NodeIds.Length * NodeQ;
         public int BeamOffset => ShellOffset + Reference.ShellIds.Length * ShellQ;
@@ -539,6 +611,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Огибающая группы по полям загружений (фон): величины загружений один раз, комбинации — суммой.</summary>
     EnvelopeData BuildEnvelope(FemCsfeaEnvelopeGroup env, IProgress<int> progress, CancellationToken ct)
     {
+        if (IsBatch) return BuildBatchEnvelope(env, progress, ct);
         var caseIndex = new Dictionary<int, int>();
         var vectors = new List<double[]>();
         RcSecantStepFields? reference = null;
@@ -566,7 +639,53 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         int nodeEnd = reference.NodeIds.Length * NodeQ;
         var values = FemCsfeaCombinationEnvelope.Build(vectors, combinations,
             (v, offset) => FemCsfeaEnvelopeQuantities.DeriveNodeNorms(v, offset, nodeEnd), NodeQ, progress, ct);
-        return new EnvelopeData(values, reference, env);
+        return new EnvelopeData(values, reference, env, env.Combinations.Select(i => i.Name).ToList());
+    }
+
+    /// <summary>
+    /// Огибающая группы пакета: записанная при расчёте (хранение «только огибающие») или по полям вариантов группы —
+    /// по одному из БД за раз (память не растёт с числом вариантов).
+    /// </summary>
+    EnvelopeData BuildBatchEnvelope(FemCsfeaEnvelopeGroup env, IProgress<int> progress, CancellationToken ct)
+    {
+        if (env.RecordN is int record)
+        {
+            var data = _result.Id > 0 ? _db.GetFemResultStep(_result.Id, record) : null;
+            if (data == null) throw new InvalidOperationException(string.Format(Loc.S("FemCsfeaBatchEnvelopeMissing"), env.Type));
+            FemCsfeaEnvelope stored;
+            RcSecantStepFields skeleton;
+            try { (stored, skeleton) = FemCsfeaEnvelopeCodec.Unpack(data); }
+            catch (Exception ex) when (ex is System.IO.InvalidDataException or System.IO.EndOfStreamException)
+            {
+                throw new InvalidOperationException(string.Format(Loc.S("FemCsfeaBatchEnvelopeMissing"), env.Type));
+            }
+            // Источник записанной огибающей — индекс варианта в пакете.
+            var names = new string[Summary.Batch!.Select(b => b.Index + 1).DefaultIfEmpty(0).Max()];
+            Array.Fill(names, "");
+            foreach (var b in Summary.Batch!) names[b.Index] = b.Tag;
+            return new EnvelopeData(stored, skeleton, env, names);
+        }
+        var acc = new FemCsfeaEnvelopeAccumulator();
+        RcSecantStepFields? reference = null;
+        Dictionary<int, int>? nodeIndex = null;
+        for (int k = 0; k < env.Combinations.Count; k++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var b = env.Combinations[k].Batch!;
+            var f = (b.RecordN is int n ? LoadFields(n) : null) ?? throw new InvalidOperationException(
+                string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag));
+            if (reference == null)
+            {
+                reference = f;
+                nodeIndex = FemCsfeaEnvelopeQuantities.NodeIndex(f);
+            }
+            else if (!FemCsfeaCombinationFields.SameMesh(f, reference))
+                throw new InvalidOperationException(Loc.S("FemCsfeaEnvelopeMeshMismatch"));
+            acc.Add(Quantities.Vector(f, nodeIndex!, norms: true), k);
+            progress.Report(k + 1);
+        }
+        if (acc.Result is not { } values) throw new InvalidOperationException(Loc.S("FemCsfeaCombinationEmpty"));
+        return new EnvelopeData(values, reference!, env, env.Combinations.Select(i => i.Name).ToList());
     }
 
     /// <summary>Поля показа огибающей: каждая величина — по выбору |max| / max / min (состояния пластин пусты).</summary>
@@ -603,9 +722,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     FemCsfeaEnvelopeValue? EnvelopeAt(int index, double scale = 1)
     {
         if (_envelope is not { } e || e.Values.MaxSource[index] < 0) return null;
-        var items = e.Group.Combinations;
-        return new FemCsfeaEnvelopeValue(e.Values.Max[index], items[e.Values.MaxSource[index]].Name,
-            e.Values.Min[index], items[e.Values.MinSource[index]].Name).Scale(scale);
+        string Name(int source) => source >= 0 && source < e.Names.Count ? e.Names[source] : "";
+        return new FemCsfeaEnvelopeValue(e.Values.Max[index], Name(e.Values.MaxSource[index]),
+            e.Values.Min[index], Name(e.Values.MinSource[index])).Scale(scale);
     }
 
     /// <summary>Огибающая перемещения узла: компоненты 0…5 (м, рад), 6 — |u| (м); null — огибающая не показана.</summary>
@@ -672,10 +791,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public bool CanShowCombinations => CombinationItems.Any(i => i.IsAvailable);
 
     public string CasesModeLabel => string.Format(Loc.S("FemCsfeaCasesMode"), LoadCaseItems.Count);
-    public string CombinationsModeLabel => string.Format(Loc.S("FemCsfeaCombinationsMode"), CombinationItems.Count);
+    public string CombinationsModeLabel => string.Format(Loc.S(IsBatch ? "FemCsfeaBatchVariantsMode" : "FemCsfeaCombinationsMode"),
+        CombinationItems.Count);
 
     /// <summary>Подсказка переключателя «Комбинации»: что показывается или почему недоступно.</summary>
-    public string CombinationsModeTip => CombinationItems.Count == 0 ? Loc.S("FemCsfeaCombinationsNone")
+    public string CombinationsModeTip => IsBatch
+        ? Loc.S(CanShowCombinations ? "FemCsfeaBatchVariantsModeTip" : "FemCsfeaBatchFieldsNotStored")
+        : CombinationItems.Count == 0 ? Loc.S("FemCsfeaCombinationsNone")
         : !CanShowCombinations ? string.Format(Loc.S("FemCsfeaCombinationsNoneAvailable"), _result.TaskTag)
         : Loc.S("FemCsfeaCombinationsModeTip");
 
@@ -702,6 +824,17 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Вернуть показ загружения, которое было показано до комбинации или огибающей.</summary>
     void ShowLoadCaseList()
     {
+        // У пакета загружений нет: снятие одного режима включает другой (если в нём есть что показать).
+        if (IsBatch)
+        {
+            if (_showEnvelopes && (_rememberedCombination ?? CombinationItems.FirstOrDefault(i => i.IsAvailable)) is { } variant)
+                SelectedCaseItem = variant;
+            else if (_showCombinations && (_rememberedEnvelope ?? EnvelopeItems.FirstOrDefault()) is { } envelope)
+                SelectedCaseItem = envelope;
+            OnPropertyChanged(nameof(ShowCombinations));
+            OnPropertyChanged(nameof(ShowEnvelopes));
+            return;
+        }
         _showCombinations = false;
         _showEnvelopes = false;
         _shownCombination = null;
@@ -821,6 +954,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public FemCsfeaCaseKey? ShownKey
     {
         get => _shownEnvelope?.Envelope is { } env ? new FemCsfeaCaseKey(null, env.Type, EnvelopeAggregate)
+            : _shownCombination?.Batch is { } b ? new FemCsfeaCaseKey(null, null, EnvelopeAggregate, b.Index)
             : SelectedCombinationId is int id ? new FemCsfeaCaseKey(id, null, EnvelopeAggregate) : null;
         set
         {
@@ -829,6 +963,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             if (value.EnvelopeType is { } type)
             {
                 if (EnvelopeItems.FirstOrDefault(i => i.Envelope!.Type == type) is { } item) SelectedCaseItem = item;
+            }
+            else if (value.BatchIndex is int index)
+            {
+                if (CombinationItems.FirstOrDefault(i => i.Batch?.Index == index) is { } item) SelectedCaseItem = item;
             }
             else SelectedCombinationId = value.CombinationId;
         }
@@ -870,6 +1008,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// </summary>
     void BuildCaseItems()
     {
+        if (IsBatch)
+        {
+            BuildBatchItems();
+            return;
+        }
         if (!IsLinear || Analysis == null) return;
         var loadCases = Schema.LoadCases.ToList();
         var sources = FemLoadSources.Build(Schema.LoadDefinitions.ToList(), loadCases, CScore.Combinations.Sp20GammaDefaults.Standard);
@@ -915,6 +1058,152 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             };
         }).ToList();
     }
+
+    /// <summary>
+    /// Пункты пакета: вариант — по строке сводки (формула — по комбинации или загружению схемы с тем же выражением;
+    /// без полей — серый с причиной, не дошедший до предела — оранжевая отметка λ); огибающие — по группам
+    /// (тип комбинации, загружения) из дошедших до предела вариантов с полями или из записанных огибающих.
+    /// </summary>
+    void BuildBatchItems()
+    {
+        var batch = Summary.Batch!.OrderBy(b => b.Index).ToList();
+        var loadCases = Schema.LoadCases.ToList();
+        var sources = FemLoadSources.Build(Schema.LoadDefinitions.ToList(), loadCases, CScore.Combinations.Sp20GammaDefaults.Standard);
+        bool fields = Summary.BatchRecording != Tasks.FemCsfeaBatchRecording.Envelopes;
+        CombinationItems = batch.Select(b =>
+        {
+            var match = FemLoadSources.Resolve(sources, b.ExpressionJson, loadCases);
+            var source = new FemLoadSource
+            {
+                Kind = b.Kind == Tasks.FemCsfeaBatchItemKind.LoadCase ? FemLoadSourceKind.LoadCase : FemLoadSourceKind.Combination,
+                Definition = match.Definition, LoadCase = match.LoadCase, Number = match.Number,
+                Tag = b.Tag, TypeBadge = b.Type, Formula = match.Formula, Origin = match.Origin, Terms = match.Terms,
+                GammaText = match.GammaText, ShareText = match.ShareText, ExpressionJson = b.ExpressionJson,
+                SearchText = match.SearchText, Codes = match.Codes,
+                DisabledReason = !fields ? Loc.S("FemCsfeaBatchFieldsNotStored")
+                    : !b.Done ? Loc.S("FemCsfeaBatchNotDone")
+                    : b.RecordN == null ? string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag) : null,
+            };
+            bool stopped = b.Done && !b.Completed;
+            string tip = source.ToolTipText;
+            if (stopped)
+                tip += Environment.NewLine + string.Format(Loc.S("FemCsfeaBatchVariantNotReached"), Summary.BatchMaxLoadFactor,
+                    b.LoadFactor, string.IsNullOrEmpty(b.Reason) ? "" : $" ({b.Reason})");
+            return new FemCsfeaCaseItem
+            {
+                Source = source, Batch = b, ToolTipText = tip,
+                Warning = stopped ? string.Create(CultureInfo.CurrentCulture, $"λ = {b.LoadFactor:0.###}") : "",
+            };
+        }).ToList();
+
+        // Группы огибающих: C, CL, N, NL, A, затем загружения; в огибающую входят дошедшие до предела λ.
+        var order = CScore.Fem.Combinations.FemCombinationTypes.All.Append(FemCsfeaBatchGroup.LoadCases).ToList();
+        int Order(string key) => order.IndexOf(key) is int i and >= 0 ? i : order.Count;
+        var groups = CombinationItems.GroupBy(i => i.Batch!.GroupKey).OrderBy(g => Order(g.Key)).ThenBy(g => g.Key, StringComparer.Ordinal);
+        var records = (Summary.BatchGroups ?? []).ToDictionary(g => g.Key, g => g.RecordN, StringComparer.Ordinal);
+        var envelopes = new List<FemCsfeaCaseItem>();
+        foreach (var g in groups)
+        {
+            var included = g.Where(i => i.Batch!.Completed && (!fields || i.IsAvailable)).ToList();
+            int? record = fields ? null : records.TryGetValue(g.Key, out int n) ? n : null;
+            if (included.Count == 0 || !fields && record == null) continue;
+            int skipped = g.Count() - included.Count;
+            bool cases = g.Key == FemCsfeaBatchGroup.LoadCases;
+            string badge = cases ? Loc.S("FemCsfeaBatchLoadCasesBadge") : g.Key;
+            string tip = string.Format(Loc.S("FemCsfeaEnvelopeTip"), badge, included.Count);
+            if (skipped > 0) tip += Environment.NewLine + string.Format(Loc.S("FemCsfeaBatchEnvelopeSkipped"), skipped, Summary.BatchMaxLoadFactor);
+            envelopes.Add(new FemCsfeaCaseItem
+            {
+                Source = new FemLoadSource
+                {
+                    Kind = FemLoadSourceKind.Combination, TypeBadge = badge,
+                    Tag = cases ? Loc.S("FemCsfeaBatchEnvelopeLoadCases") : string.Format(Loc.S("FemCsfeaEnvelopeName"), g.Key),
+                    Formula = string.Format(Loc.S("FemCsfeaEnvelopeCount"), included.Count),
+                },
+                Envelope = new FemCsfeaEnvelopeGroup(g.Key, included, skipped, record),
+                ToolTipText = tip,
+            });
+        }
+        EnvelopeItems = envelopes;
+
+        BatchRows = CombinationItems.Select(i =>
+        {
+            var b = i.Batch!;
+            string state = !b.Done ? Loc.S("FemCsfeaBatchStateNotDone") : b.Completed ? "✓" : Loc.S("FemCsfeaBatchStateStopped");
+            double? control = b.Control is { } c ? c * (Summary.ControlDof < 3 ? 1e3 : 1) : null;
+            double? rz = b.ReactionSums is { Length: RcReactionSet.KindCount * 3 } s
+                ? Enumerable.Range(0, RcReactionSet.KindCount).Sum(k => s[3 * k + 2]) / 1e3 : null;
+            string reason = !b.Done ? Loc.S("FemCsfeaBatchNotDone") : b.Reason ?? "";
+            return new FemCsfeaBatchRow(b.Index + 1, b.Type, b.Tag, b.LoadFactor, state, b.Steps, b.Iterations,
+                Math.Round(b.ElapsedSeconds, 1), control, rz, reason, !b.Completed, i);
+        }).ToList();
+        BatchStoppedItems = batch.Where(b => b.Done && !b.Completed).ToList();
+    }
+
+    // ------------------------------------------------------------ сводка пакета
+
+    /// <summary>Строки вкладки «Сводка пакета» (все варианты в порядке пакета); пусто — не пакет.</summary>
+    public IReadOnlyList<FemCsfeaBatchRow> BatchRows { get; private set; } = [];
+
+    /// <summary>Варианты, не дошедшие до предела λ (посчитанные) — для «Нового пакета из недошедших».</summary>
+    public IReadOnlyList<FemCsfeaBatchSummary> BatchStoppedItems { get; private set; } = [];
+
+    bool _batchOnlyProblems;
+    /// <summary>В сводке пакета — только не дошедшие до предела λ и не посчитанные.</summary>
+    public bool BatchOnlyProblems
+    {
+        get => _batchOnlyProblems;
+        set
+        {
+            if (value == _batchOnlyProblems) return;
+            _batchOnlyProblems = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(VisibleBatchRows));
+        }
+    }
+
+    public IReadOnlyList<FemCsfeaBatchRow> VisibleBatchRows => _batchOnlyProblems ? BatchRows.Where(r => r.IsProblem).ToList() : BatchRows;
+
+    int BatchNotDone => Summary.Batch?.Count(b => !b.Done) ?? 0;
+
+    /// <summary>Есть не дошедшие до предела λ или не посчитанные варианты (оранжевая плашка).</summary>
+    public bool HasBatchProblems => IsBatch && (BatchStoppedItems.Count > 0 || BatchNotDone > 0);
+
+    /// <summary>«Не дошли до λ = 1: 7 из 128 · не посчитаны: 0».</summary>
+    public string BatchProblemText => !IsBatch ? "" : string.Format(Loc.S("FemCsfeaBatchProblems"), Summary.BatchMaxLoadFactor,
+        BatchStoppedItems.Count, Summary.Batch!.Count, BatchNotDone);
+
+    /// <summary>Итог пакета одной строкой: число вариантов, дошедшие и не дошедшие, время.</summary>
+    public string BatchSummaryText => !IsBatch ? "" : string.Format(Loc.S("FemCsfeaBatchSummaryLine"), Summary.Batch!.Count,
+        Summary.BatchMaxLoadFactor, Summary.Batch.Count(b => b.Completed), BatchStoppedItems.Count, BatchNotDone,
+        FormatDuration(Summary.ElapsedSeconds));
+
+    /// <summary>«3 ч 12 мин», «4 мин 5 с», «12,3 с».</summary>
+    public static string FormatDuration(double seconds)
+    {
+        var t = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        if (t.TotalHours >= 1) return string.Format(Loc.S("FemCsfeaDurationHm"), (int)t.TotalHours, t.Minutes);
+        if (t.TotalMinutes >= 1) return string.Format(Loc.S("FemCsfeaDurationMs"), t.Minutes, t.Seconds);
+        return string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaDurationS"), Math.Max(0, seconds));
+    }
+
+    /// <summary>«Показать» плашки: сводка пакета с фильтром недошедших (окно результата переключается на вкладку).</summary>
+    public event Action? ShowBatchProblemsRequested;
+
+    public void ShowBatchProblems()
+    {
+        BatchOnlyProblems = true;
+        ShowBatchProblemsRequested?.Invoke();
+    }
+
+    /// <summary>Показать вариант строки сводки (без полей — не показывается).</summary>
+    public void ShowBatchRow(FemCsfeaBatchRow row)
+    {
+        if (row.Item.IsAvailable) SelectedCaseItem = row.Item;
+    }
+
+    /// <summary>«Новый пакет из недошедших…» доступен: постановка известна и есть не дошедшие до предела λ.</summary>
+    public bool CanNewBatchFromProblems => Analysis != null && BatchStoppedItems.Count > 0;
 
     void GoToFieldsStep()
     {
@@ -1241,6 +1530,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing)
     {
         if (!CanCreateForceSets) return [];
+        if (_shownCombination is { Batch: { } b } variant)
+            return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{variant.Name} — {_result.TaskTag}",
+                string.Create(CultureInfo.CurrentCulture,
+                    $"Вариант «{variant.Name}» пакетного расчёта CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: конечное состояние, λ = {b.LoadFactor:0.###}") +
+                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing);
         if (_shownCombination is { } comb)
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{comb.Name} — {_result.TaskTag}",
                 $"Комбинация «{comb.Name}» = {comb.Formula} по линейному расчёту CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: " +
@@ -1280,7 +1574,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public event Action? CrackWidthsReady;
 
     Dictionary<int, FemCsfeaCrackWidth>? CurrentCrackWidths() =>
-        Fields != null && FieldsStepIndex is int idx && _crackKey == (Summary.Steps[idx].N, _longShare) ? _crackWidths : null;
+        Fields != null && _fieldsRecordN is int n && _crackKey == (n, _longShare) ? _crackWidths : null;
 
     /// <summary>Оси эпюр стержня (Ey, Ez местной системы расчёта с углом поворота сечения); null — стержня нет в сетке.</summary>
     public (Vector3D Ey, Vector3D Ez)? BeamAxes(int elem)
@@ -1394,8 +1688,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// </summary>
     Dictionary<int, FemCsfeaCrackWidth>? EnsureCrackWidths()
     {
-        if (Fields == null || FieldsStepIndex is not int idx || _analysis == null) return null;
-        var key = (Summary.Steps[idx].N, _longShare);
+        if (Fields == null || _fieldsRecordN is not int n || _analysis == null) return null;
+        var key = (n, _longShare);
         if (_crackKey == key && _crackWidths != null) return _crackWidths;
         if (_crackPending == key) return null;
         var elements = EnsureCrackElements();

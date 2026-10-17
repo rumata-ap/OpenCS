@@ -23,16 +23,31 @@ public partial class FemCsfeaResultView : UserControl
         _vm = vm;
         DataContext = vm;
         reportBox.Text = string.Join(Environment.NewLine, vm.ReportLines);
+        if (vm.IsCaseList)
+        {
+            // Список загружений/комбинаций (вариантов пакета) вместо ползунка шагов.
+            casePanel.Visibility = Visibility.Visible;
+            stepCaption.Visibility = stepSlider.Visibility = stepLabel.Visibility = Visibility.Collapsed;
+        }
         if (vm.IsLinear)
         {
             // Линейный расчёт: шагов по λ и итераций нет — графики и колонки хода решения не показываются.
             chartsTab.Visibility = Visibility.Collapsed;
-            // Список загружений/комбинаций вместо ползунка шагов.
-            casePanel.Visibility = Visibility.Visible;
-            stepCaption.Visibility = stepSlider.Visibility = stepLabel.Visibility = Visibility.Collapsed;
             shellStateColumn.Visibility = Visibility.Collapsed;
             foreach (var column in new[] { lambdaColumn, plannedColumn, convergedColumn, iterationsColumn, residualColumn, fieldsColumn })
                 column.Visibility = Visibility.Collapsed;
+        }
+        if (vm.IsBatch)
+        {
+            // Пакет: шагов в сводке нет (ход решения вариантов — в журнале приложения) — вместо графиков и таблицы
+            // шагов сводка вариантов; журнал — только отчёт.
+            chartsTab.Visibility = Visibility.Collapsed;
+            batchTab.Visibility = Visibility.Visible;
+            tabs.SelectedItem = batchTab;
+            stepsGrid.Visibility = Visibility.Collapsed;
+            journalGrid.RowDefinitions[0].Height = new GridLength(0);
+            journalGrid.RowDefinitions[2].Height = new GridLength(1, GridUnitType.Star);
+            vm.ShowBatchProblemsRequested += () => tabs.SelectedItem = batchTab;
         }
         foreach (var grid in new[] { nodeGrid, beamGrid, shellGrid, reactionGrid }) AddEnvelopeColumns(grid);
         UpdateEnvelopeColumns();
@@ -112,4 +127,20 @@ public partial class FemCsfeaResultView : UserControl
     }
 
     void ShowInSchema_Click(object sender, RoutedEventArgs e) => ShowInSchema?.Invoke();
+
+    void BatchGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // Двойной щелчок по заголовку столбца (сортировка) — не по строке.
+        if (e.OriginalSource is DependencyObject source && ItemsControl.ContainerFromElement(batchGrid, source) is DataGridRow
+            && batchGrid.SelectedItem is FemCsfeaBatchRow row)
+            _vm.ShowBatchRow(row);
+    }
+
+    void BatchShowVariant_Click(object sender, RoutedEventArgs e)
+    {
+        if (batchGrid.SelectedItem is FemCsfeaBatchRow row) _vm.ShowBatchRow(row);
+    }
+
+    void BatchNewFromProblems_Click(object sender, RoutedEventArgs e) =>
+        (Application.Current?.MainWindow?.DataContext as AppViewModel)?.NewFemBatchFromProblems(_vm);
 }

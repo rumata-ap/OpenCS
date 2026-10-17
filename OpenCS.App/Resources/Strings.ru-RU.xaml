@@ -2954,6 +2954,41 @@
     <system:String x:Key="FemCsfeaBatchProgress">Пакет «{0}»: вариант {1} из {2} «{3}» — шаг {4} из {5} (λ = {6:0.###}), итерация {7}</system:String>
     <system:String x:Key="FemCsfeaBatchPartial">Пакет «{0}»: посчитаны не все варианты.</system:String>
     <system:String x:Key="FemCsfeaBatchResumeText">Пакет «{0}» посчитан не полностью: без результата {1} из {2} вариантов.&#10;&#10;Да — досчитать оставшиеся, Нет — пересчитать все варианты заново.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantLabel">Вариант {0} из {1} «{2}» · λ = {3:0.###} {4}</system:String>
+    <system:String x:Key="FemCsfeaBatchNotReachedMark">— не дошёл до предела</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantNotReached">Не дошёл до λ = {0:0.###}: показано конечное сошедшееся состояние λ = {1:0.###}{2}.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantNoFields">Поля варианта «{0}» не записаны.</system:String>
+    <system:String x:Key="FemCsfeaBatchNothingToShow">В пакете нет посчитанных вариантов с полями.</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeMissing">Запись огибающей {0} пакета не найдена или повреждена.</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantsMode">Варианты пакета: {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchVariantsModeTip">Конечное состояние каждого варианта пакета — нелинейный расчёт с нуля до предела λ. Не дошедшие до предела отмечены оранжевым λ.</system:String>
+    <system:String x:Key="FemCsfeaBatchFieldsNotStored">Поля вариантов не хранятся (хранение «только огибающие и сводку»).</system:String>
+    <system:String x:Key="FemCsfeaBatchNotDone">не посчитан</system:String>
+    <system:String x:Key="FemCsfeaBatchLoadCasesBadge">ЗГ</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeLoadCases">Огибающая загружений</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">Не вошли {0} (не дошли до λ = {1:0.###} или не посчитаны).</system:String>
+    <system:String x:Key="FemCsfeaBatchStateNotDone">не посчитан</system:String>
+    <system:String x:Key="FemCsfeaBatchStateStopped">не дошёл</system:String>
+    <system:String x:Key="FemCsfeaBatchProblems">Не дошли до λ = {0:0.###}: {1} из {2} · не посчитаны: {3}</system:String>
+    <system:String x:Key="FemCsfeaBatchSummaryLine">Вариантов {0} · до λ = {1:0.###} — {2}, не дошли {3}, не посчитаны {4} · {5}</system:String>
+    <system:String x:Key="FemCsfeaDurationHm">{0} ч {1} мин</system:String>
+    <system:String x:Key="FemCsfeaDurationMs">{0} мин {1} с</system:String>
+    <system:String x:Key="FemCsfeaDurationS">{0:0.#} с</system:String>
+    <system:String x:Key="FemCsfeaTabBatch">Сводка пакета</system:String>
+    <system:String x:Key="FemCsfeaBatchOnlyProblems">Только не дошедшие до предела λ и не посчитанные</system:String>
+    <system:String x:Key="FemCsfeaBatchGridTip">Двойной щелчок — показать вариант (таблицы и 3D-вид).</system:String>
+    <system:String x:Key="FemCsfeaBatchShowVariant">Показать вариант</system:String>
+    <system:String x:Key="FemCsfeaBatchNewFromProblems">Новый пакет из недошедших…</system:String>
+    <system:String x:Key="FemCsfeaBatchNewFromProblemsTip">Новая постановка с теми же параметрами и только не дошедшими до предела λ вариантами — пересчитать с меньшим шагом λ или другими дроблениями.</system:String>
+    <system:String x:Key="FemCsfeaBatchShowProblems">Показать</system:String>
+    <system:String x:Key="FemCsfeaBatchShowProblemsTip">Сводка пакета — только не дошедшие и не посчитанные варианты.</system:String>
+    <system:String x:Key="FemCsfeaBatchProblemsTag">{0} — недошедшие</system:String>
+    <system:String x:Key="FemCsfeaColBatchType">Тип</system:String>
+    <system:String x:Key="FemCsfeaColBatchName">Вариант</system:String>
+    <system:String x:Key="FemCsfeaColBatchState">Итог</system:String>
+    <system:String x:Key="FemCsfeaColBatchSteps">Шагов</system:String>
+    <system:String x:Key="FemCsfeaColBatchTime">Время, с</system:String>
+    <system:String x:Key="FemCsfeaColBatchReason">Причина</system:String>
     <system:String x:Key="FemLoadSourceChoose">Выберите нагрузку…</system:String>
     <system:String x:Key="FemLoadSourceChooseTip">Выбрать комбинацию или загружение (двойной щелчок по ячейке, F2)</system:String>
     <system:String x:Key="FemLoadSourceUnresolved">Выражение постановки</system:String>

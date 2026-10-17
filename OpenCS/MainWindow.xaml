@@ -2178,7 +2178,19 @@
                            </TextBlock>
                         </Border>
                         <TextBlock Text="{Binding Tag}"/>
-                        <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray" ToolTip="{Binding StatusNote}"/>
+                        <!-- Пакет CSfea: не все варианты дошли до предела λ (или посчитаны) -->
+                        <TextBlock Text=" ⚠" Foreground="DarkOrange" FontWeight="SemiBold" ToolTip="{Binding StatusNote}">
+                           <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusNote}" Value="{x:Null}">
+                                       <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </TextBlock.Style>
+                        </TextBlock>
                      </StackPanel>
                   </DataTemplate>
 

@@ -13,6 +13,12 @@ public sealed class FemAnalysis
     public int? ResultId { get; set; }
     public string Created { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
+    /// <summary>
+    /// Пояснение к статусу для дерева (пакет CSfea: «7 из 128 не дошли до λ = 1»); null — нет. Не хранится — выводится
+    /// из результата при загрузке и после расчёта.
+    /// </summary>
+    public string? StatusNote { get; set; }
+
     public FemLoadExpression GetLoadExpression() => FemLoadExpression.Parse(LoadExpressionJson);
 
     public void SetLoadExpression(FemLoadExpression expression) => LoadExpressionJson = expression.ToJson();
@@ -22,5 +28,6 @@ public sealed class FemAnalysis
     {
         ResultId = null;
         Status = "created";
+        StatusNote = null;
     }
 }

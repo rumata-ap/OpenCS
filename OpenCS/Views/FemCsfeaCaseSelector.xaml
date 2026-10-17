@@ -35,7 +35,8 @@
         </Style>
     </UserControl.Resources>
     <StackPanel Orientation="Horizontal">
-        <ToggleButton x:Name="casesMode" Style="{StaticResource ModeButton}" IsChecked="{Binding ShowLoadCases, Mode=OneWay}" Click="Mode_Click">
+        <ToggleButton x:Name="casesMode" Style="{StaticResource ModeButton}" IsChecked="{Binding ShowLoadCases, Mode=OneWay}" Click="Mode_Click"
+                      Visibility="{Binding ShowCasesMode, Converter={StaticResource BoolToVis}}">
             <ToggleButton.ToolTip>
                 <TextBlock>
                     <Run Text="{Binding CasesModeLabel, Mode=OneWay}" FontWeight="SemiBold"/><LineBreak/>
@@ -99,6 +100,10 @@
                                        HorizontalAlignment="Center"/>
                         </Border>
                         <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <!-- Вариант пакета, не дошедший до предела λ -->
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding Warning}" Foreground="DarkOrange" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Text="{Binding Formula}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                 </DataTemplate>

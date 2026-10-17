@@ -30,13 +30,15 @@
                     ToolTip="{DynamicResource FemResultShowInSchemaTip}" Click="ShowInSchema_Click" Padding="8,2"/>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                <TextBlock Text="{Binding BatchSummaryText}" TextWrapping="Wrap"
+                           Visibility="{Binding IsBatch, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{DynamicResource FemCsfeaTablesHint}" Foreground="Gray" TextWrapping="Wrap"/>
                 <TextBlock Text="{DynamicResource FemCsfeaEnvelopeRowsNote}" Foreground="#8A5A00" TextWrapping="Wrap"
                            Visibility="{Binding IsEnvelopeShown, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
         </DockPanel>
 
-        <TabControl Grid.Row="1">
+        <TabControl Grid.Row="1" x:Name="tabs">
             <!-- Перемещения узлов показанного шага -->
             <TabItem Header="{DynamicResource FemResultTabDisp}">
                 <DataGrid x:Name="nodeGrid" ItemsSource="{Binding NodeRows}" Style="{StaticResource FieldGrid}">
@@ -145,9 +147,49 @@
                 </Grid>
             </TabItem>
 
+            <!-- Сводка пакета: итог каждого варианта; двойной щелчок — показать вариант -->
+            <TabItem x:Name="batchTab" Header="{DynamicResource FemCsfeaTabBatch}" Visibility="Collapsed">
+                <DockPanel>
+                    <CheckBox DockPanel.Dock="Top" Margin="6,4" Content="{DynamicResource FemCsfeaBatchOnlyProblems}"
+                              IsChecked="{Binding BatchOnlyProblems}"/>
+                    <DataGrid x:Name="batchGrid" ItemsSource="{Binding VisibleBatchRows}" Style="{StaticResource FieldGrid}"
+                              SelectionMode="Single" MouseDoubleClick="BatchGrid_MouseDoubleClick" ToolTip="{DynamicResource FemCsfeaBatchGridTip}">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem helpers:CommandIcons.Header="FemCsfeaBatchShowVariant" Click="BatchShowVariant_Click"/>
+                                <MenuItem helpers:CommandIcons.Header="FemCsfeaBatchNewFromProblems" Click="BatchNewFromProblems_Click"
+                                          IsEnabled="{Binding CanNewBatchFromProblems}"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                                        <Setter Property="Foreground" Value="#B05A00"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColN}" Binding="{Binding N}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchType}" Binding="{Binding Type}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchName}" Binding="{Binding Tag}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColLambda}" Binding="{Binding LoadFactor, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchState}" Binding="{Binding State}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchSteps}" Binding="{Binding Steps}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColIterations}" Binding="{Binding Iterations}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchTime}" Binding="{Binding ElapsedSeconds, StringFormat=0.#}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColControl}" Binding="{Binding Control, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColReactionZ}" Binding="{Binding ReactionZ, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchReason}" Binding="{Binding Reason}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <!-- Журнал -->
             <TabItem x:Name="journalTab" Header="{DynamicResource FemCsfeaTabJournal}">
-                <Grid>
+                <Grid x:Name="journalGrid">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
@@ -178,6 +220,8 @@
         </TabControl>
 
         <StackPanel Grid.Row="2" Margin="4">
+            <!-- Пакет: не дошедшие до предела λ и не посчитанные варианты -->
+            <local:FemCsfeaBatchProblemBar Margin="0,0,0,4"/>
             <!-- Линейный расчёт — загружения и комбинации схемы (суперпозиция) одним списком -->
             <StackPanel x:Name="casePanel" Orientation="Horizontal" Margin="0,0,0,4" Visibility="Collapsed">
                 <local:FemCsfeaCaseSelector/>

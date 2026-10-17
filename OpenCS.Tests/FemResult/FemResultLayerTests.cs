@@ -373,6 +373,206 @@ public class FemResultLayerTests
         Assert.Equal(-0.02, vm.Displacement(2).Z, 12);
     }
 
+    static FemCsfeaBatchSummary Variant(int index, string tag, bool done, bool completed, double lambda, int? record,
+        string kind = OpenCS.Tasks.FemCsfeaBatchItemKind.Combination, string type = "C") => new()
+    {
+        Index = index, Tag = tag, Kind = kind, Type = type, Done = done, Completed = completed, LoadFactor = lambda, Steps = 10,
+        Iterations = 30, ElapsedSeconds = 2, RecordN = record, Reason = done && !completed ? "шаг не сошёлся" : null,
+        ExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [100 + index] }.ToJson(),
+    };
+
+    /// <summary>
+    /// Пакет: К1 дошёл (uz = −0,01), К2 остановился на λ = 0,7 (−0,03), К3 дошёл (−0,02), загружение G не посчитано.
+    /// </summary>
+    static (FemCsfeaResultVM Vm, FemAnalysis Analysis, CalcResult Result) BatchResult(TempDb t)
+    {
+        var summary = new FemCsfeaResultSummary
+        {
+            Batch =
+            [
+                Variant(0, "К1", true, true, 1.0, 1), Variant(1, "К2", true, false, 0.7, 2), Variant(2, "К3", true, true, 1.0, 3),
+                Variant(3, "G", false, false, 0, null, OpenCS.Tasks.FemCsfeaBatchItemKind.LoadCase, "G"),
+            ],
+            BatchRecording = OpenCS.Tasks.FemCsfeaBatchRecording.Fields, ElapsedSeconds = 3725,
+        };
+        var analysis = new FemAnalysis { Kind = FemCsfeaRunner.AnalysisKind, Tag = "Пакет" };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Пакет", Status = "partial", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(Fields(-0.01))),
+            (2, FemCsfeaStepFieldsCodec.Pack(Fields(-0.03))), (3, FemCsfeaStepFieldsCodec.Pack(Fields(-0.02)))]);
+        return (new FemCsfeaResultVM(result, t.Db, t.Schema, analysis), analysis, result);
+    }
+
+    [Fact]
+    public void CsfeaBatch_VariantsAsList_StoppedMarkedNotDoneGray()
+    {
+        using var t = new TempDb();
+        var (vm, analysis, result) = BatchResult(t);
+        var steps = new CsfeaResultSteps(vm);
+        var layer = new FemResultLayer(analysis, "Пакет", steps, t.Mesh());
+
+        Assert.True(vm.IsBatch);
+        Assert.True(steps.IsCaseList);
+        Assert.True(layer.ShowCaseList);
+        Assert.False(layer.ShowStepSlider);
+        Assert.False(vm.ShowCasesMode);
+        Assert.Empty(vm.LoadCaseItems);
+        Assert.Equal(["К1", "К2", "К3", "G"], vm.CombinationItems.Select(i => i.Name));
+        Assert.Equal([true, true, true, false], vm.CombinationItems.Select(i => i.IsAvailable));
+        Assert.Equal(["", string.Create(System.Globalization.CultureInfo.CurrentCulture, $"λ = {0.7:0.###}"), "", ""],
+            vm.CombinationItems.Select(i => i.Warning));
+
+        // Показан первый вариант — конечное состояние, сводка шага — из сводки варианта.
+        Assert.True(vm.ShowCombinations);
+        Assert.Same(vm.CombinationItems[0], vm.SelectedCaseItem);
+        Assert.Equal(-0.01, vm.Displacement(2).Z, 12);
+        Assert.True(layer.HasDisplacements);
+        Assert.True(vm.CanCreateForceSets);
+        Assert.False(vm.HasFieldsNote);
+
+        // Не дошедший: поля конечного сошедшегося состояния и пояснение.
+        vm.NextCaseCommand.Execute(null);
+        Assert.Equal("К2", vm.SelectedCaseItem!.Name);
+        Assert.Equal(-0.03, vm.Displacement(2).Z, 12);
+        Assert.Equal(0.7, vm.SelectedStep!.LoadFactor, 12);
+        Assert.False(vm.SelectedStep.Converged);
+        Assert.True(vm.HasFieldsNote);
+        var key = vm.ShownKey!;
+        Assert.Equal(1, key.BatchIndex);
+
+        // ▶ дальше К3, непосчитанный G не выбирается.
+        vm.NextCaseCommand.Execute(null);
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+        Assert.False(vm.NextCaseCommand.CanExecute(null));
+        vm.SelectedCaseItem = vm.CombinationItems[3];
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+
+        // Шагов нет — ползунок не сбрасывает вариант; ключ показа возвращает К2.
+        vm.SelectedStepIndex = 0;
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+        vm.ShownKey = key;
+        Assert.Equal("К2", vm.SelectedCaseItem!.Name);
+
+        // Огибающая C — только дошедшие К1 и К3; снятие режима огибающих возвращает варианты.
+        var envelope = Assert.Single(vm.EnvelopeItems);
+        Assert.Equal(["К1", "К3"], envelope.Envelope!.Combinations.Select(c => c.Name));
+        Assert.Equal(1, envelope.Envelope.Unavailable);
+        vm.ShowEnvelopes = true;
+        Assert.True(vm.IsEnvelopeShown);
+        vm.ShowEnvelopes = false;
+        Assert.True(vm.ShowCombinations);
+        Assert.Equal("К2", vm.SelectedCaseItem!.Name);
+
+        // Сводка пакета, плашка и фильтр недошедших.
+        Assert.True(vm.HasBatchProblems);
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchProblems"), 1.0, 1, 4, 1), vm.BatchProblemText);
+        Assert.Equal(4, vm.VisibleBatchRows.Count);
+        int shown = 0;
+        vm.ShowBatchProblemsRequested += () => shown++;
+        vm.ShowBatchProblems();
+        Assert.Equal(1, shown);
+        Assert.Equal(["К2", "G"], vm.VisibleBatchRows.Select(r => r.Tag));
+        Assert.Equal("К2", Assert.Single(vm.BatchStoppedItems).Tag);
+        Assert.True(vm.CanNewBatchFromProblems);
+        vm.ShowBatchRow(vm.BatchRows[2]);
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+        vm.ShowBatchRow(vm.BatchRows[3]);   // не посчитан — не показывается
+        Assert.Equal("К3", vm.SelectedCaseItem!.Name);
+        Assert.NotEqual("", vm.BatchSummaryText);
+
+        // Пояснение статуса постановки в дереве.
+        Assert.Equal(string.Create(System.Globalization.CultureInfo.CurrentCulture, $"1 из 4 не дошли до λ = {1.0:0.###}; не посчитаны 1 из 4"),
+            FemCsfeaResultSummary.StatusNote(result));
+    }
+
+    [Fact]
+    public async Task CsfeaBatch_EnvelopeFromVariantFields()
+    {
+        using var t = new TempDb();
+        var (vm, _, _) = BatchResult(t);
+        vm.ShowEnvelopes = true;
+        await vm.EnvelopeTask;
+        Assert.True(vm.HasFields, vm.FieldsNote);
+        // uz узла 2: К1 = −0,01, К3 = −0,02 (К2 не дошёл — не входит).
+        var uz = vm.EnvelopeNode(2, 2)!.Value;
+        Assert.Equal((-0.01, "К1", -0.02, "К3"), (Math.Round(uz.Max, 12), uz.MaxSource, Math.Round(uz.Min, 12), uz.MinSource));
+        Assert.Equal(0.02, vm.EnvelopeDisplacementLength(2)!.Value, 12);
+    }
+
+    [Fact]
+    public async Task CsfeaBatch_EnvelopesRecording_ReadsGroupRecord()
+    {
+        using var t = new TempDb();
+        var acc = new FemCsfeaEnvelopeAccumulator();
+        var quantities = new FemCsfeaEnvelopeQuantities(new Dictionary<int, int[]>(), new Dictionary<int, (double, double, double, double)>());
+        var f1 = Fields(-0.01);
+        acc.Add(quantities.Vector(f1, FemCsfeaEnvelopeQuantities.NodeIndex(f1), norms: true), 0);
+        var f2 = Fields(-0.04);
+        acc.Add(quantities.Vector(f2, FemCsfeaEnvelopeQuantities.NodeIndex(f2), norms: true), 2);
+        int record = FemCsfeaBatchGroup.RecordBase + 1;
+        var summary = new FemCsfeaResultSummary
+        {
+            Batch = [Variant(0, "К1", true, true, 1, null), Variant(1, "К2", true, false, 0.5, null), Variant(2, "К3", true, true, 1, null)],
+            BatchRecording = OpenCS.Tasks.FemCsfeaBatchRecording.Envelopes,
+            BatchGroups = [new FemCsfeaBatchGroup("C", record, 2)],
+        };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Пакет", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(record, FemCsfeaEnvelopeCodec.Pack(acc.Result!, f1))]);
+        var vm = new FemCsfeaResultVM(result, t.Db, t.Schema, new FemAnalysis { Kind = FemCsfeaRunner.AnalysisKind, Tag = "Пакет" });
+
+        // Полей вариантов нет — варианты серые, показана огибающая.
+        Assert.False(vm.CanShowCombinations);
+        Assert.All(vm.CombinationItems, i => Assert.False(i.IsAvailable));
+        Assert.True(vm.IsEnvelopeShown);
+        await vm.EnvelopeTask;
+        Assert.True(vm.HasFields, vm.FieldsNote);
+        var uz = vm.EnvelopeNode(2, 2)!.Value;
+        Assert.Equal((-0.01, "К1", -0.04, "К3"), (Math.Round(uz.Max, 12), uz.MaxSource, Math.Round(uz.Min, 12), uz.MinSource));
+    }
+
+    [Fact]
+    public void CsfeaBatch_ResultViewParsesXaml_SummaryTabAndProblemBar()
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var t = new TempDb();
+                var (vm, _, _) = BatchResult(t);
+                var view = new OpenCS.Views.FemCsfeaResultView(vm);
+                var window = new System.Windows.Window
+                {
+                    Content = view, WindowStartupLocation = System.Windows.WindowStartupLocation.Manual, Width = 900, Height = 600,
+                    Left = -20000, Top = -20000, ShowActivated = false,
+                };
+                window.Show();
+                window.UpdateLayout();
+                var tabs = (System.Windows.Controls.TabControl)view.FindName("tabs");
+                var batchTab = (System.Windows.Controls.TabItem)view.FindName("batchTab");
+                Assert.Same(batchTab, tabs.SelectedItem);
+                var grid = (System.Windows.Controls.DataGrid)view.FindName("batchGrid");
+                Assert.Equal(4, grid.Items.Count);
+                tabs.SelectedIndex = 0;
+                vm.ShowBatchProblems();
+                Assert.Same(batchTab, tabs.SelectedItem);
+                window.UpdateLayout();
+                Assert.Equal(2, grid.Items.Count);
+                var bar = new OpenCS.Views.FemCsfeaBatchProblemBar { DataContext = vm };
+                window.Content = bar;
+                window.UpdateLayout();
+                Assert.True(bar.ActualHeight > 0);
+                window.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        Assert.Null(error);
+    }
+
     [Fact]
     public void CaseSelector_ParsesXaml_ListFollowsMode()
     {
