@@ -2966,7 +2966,13 @@
     <system:String x:Key="FemCsfeaBatchNotDone">не посчитан</system:String>
     <system:String x:Key="FemCsfeaBatchLoadCasesBadge">ЗГ</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeLoadCases">Огибающая загружений</system:String>
-    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">Не вошли {0} (не дошли до λ = {1:0.###} или не посчитаны).</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">не вошли {0}: {1}</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeOf">{0} ({1} из {2})</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedNotDone">не посчитан</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedNoFields">нет полей</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedMore">и ещё {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeAcrcShare">Ширина раскрытия в записанной огибающей — при доле длительной части {0:0.##}; при другой доле пересчитать нельзя (хранение «только огибающие»).</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeNoAcrc">Ширины раскрытия в записанной огибающей нет (пакет посчитан до её огибания) — пересчитайте пакет.</system:String>
     <system:String x:Key="FemCsfeaBatchStateNotDone">не посчитан</system:String>
     <system:String x:Key="FemCsfeaBatchStateStopped">не дошёл</system:String>
     <system:String x:Key="FemCsfeaBatchProblems">Не дошли до λ = {0:0.###}: {1} из {2} · не посчитаны: {3}</system:String>
@@ -3114,6 +3120,7 @@
     <system:String x:Key="FemCsfeaEnvelopeSkipped">Пропущено {0} комб. со слагаемым, не отмеченным в расчёте «{1}».</system:String>
     <system:String x:Key="FemCsfeaEnvelopeLabel">«{0}» по {1} комб. — {2}; деформированная схема и ΣR огибающей не показываются</system:String>
     <system:String x:Key="FemCsfeaEnvelopeProgress">Огибающая {0}: {1} из {2} комб.…</system:String>
+    <system:String x:Key="FemCsfeaEnvelopeAcrcProgress">Огибающая {0}, ширина раскрытия: {1} из {2}…</system:String>
     <system:String x:Key="FemCsfeaEnvelopeMeshMismatch">Поля загружений записаны на разных сетках — огибающую не собрать.</system:String>
     <system:String x:Key="FemCsfeaAggregateTip">Какое значение огибающей показывать в мозаике и итоге: наибольшее по модулю, наибольшее или наименьшее. Эпюры стержней — обе ветви; карточка КЭ — обе ветви с комбинациями.</system:String>
     <system:String x:Key="FemCsfeaColExt">Ветвь</system:String>

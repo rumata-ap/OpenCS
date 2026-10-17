@@ -183,6 +183,9 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Записанные огибающие групп пакета (хранение «только огибающие»).</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<FemCsfeaBatchGroup>? BatchGroups { get; set; }
+    /// <summary>Доля длительной части, при которой в записанные огибающие вошла ширина раскрытия; null — не входила.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public double? BatchCrackLongShare { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsBatch => Batch != null;
@@ -518,6 +521,12 @@ public static class FemCsfeaRunner
 
         var quantities = envelopes ? FemCsfeaEnvelopeQuantities.FromMesh(ctx.Db.GetFemMeshNodes(schema.Id), ctx.Db.GetFemMeshElements(schema.Id)) : null;
         var groups = new Dictionary<string, (FemCsfeaEnvelopeAccumulator Acc, RcSecantStepFields Reference)>(StringComparer.Ordinal);
+        // Ширина раскрытия в огибающих (N, NL) — при доле длительной части по умолчанию, как в окне результата.
+        var calc = pars.CalcType ?? CalcType.N;
+        var crackElements = envelopes && FemCsfeaCrackWidths.Applies(calc)
+            ? FemCsfeaCrackWidths.Elements(adapted, ctx.Db.Materials) : null;
+        double crackShare = FemCsfeaCrackWidths.DefaultLongShare(calc);
+        summary.BatchCrackLongShare = crackElements != null ? crackShare : null;
         void Log(string line)
         {
             if (!line.StartsWith(' ')) ctx.Log.Info($"[{tag}] {line}");
@@ -581,7 +590,8 @@ public static class FemCsfeaRunner
                 if (quantities != null && fields != null && r.Completed)
                 {
                     var f = fields;
-                    var vector = await Task.Run(() => quantities.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), norms: true), ct);
+                    var vector = await Task.Run(() => quantities.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true,
+                        crackElements != null ? FemCsfeaCrackWidths.Compute(crackElements, f, crackShare, ct) : null), ct);
                     if (!groups.TryGetValue(entry.GroupKey, out var g)) groups[entry.GroupKey] = g = (new FemCsfeaEnvelopeAccumulator(), f);
                     g.Acc.Add(vector, entry.Index);
                 }

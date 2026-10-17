@@ -126,9 +126,11 @@ public sealed class FemCsfeaCaseItem
 /// <summary>
 /// Огибающая группы: тип комбинаций (C, CL, N, NL, A; у пакета ещё <see cref="FemCsfeaBatchGroup.LoadCases"/>), доступные
 /// комбинации группы и число недоступных. <see cref="RecordN"/> — запись готовой огибающей пакета (хранение «только
-/// огибающие»); null — огибающая собирается по полям.
+/// огибающие»); null — огибающая собирается по полям. <see cref="Skipped"/> — у пакета не вошедшие словами («не вошли 7:
+/// Огибающая C 017 (λ = 0,73), …»); пусто — вошли все.
 /// </summary>
-public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCaseItem> Combinations, int Unavailable, int? RecordN = null);
+public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCaseItem> Combinations, int Unavailable, int? RecordN = null,
+    string Skipped = "");
 
 /// <summary>
 /// Что показано в результате CSfea поверх шага — для перехода окно результата ↔ 3D-вид: комбинация схемы (Id),
@@ -230,8 +232,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         var analyses = schema.Analyses.Count > 0 ? schema.Analyses.ToList() : result.Id > 0 ? db.GetFemAnalyses(schema.Id) : [];
         _analysis = analyses.FirstOrDefault(a => a.ResultId == result.Id) ?? analyses.FirstOrDefault(a => a.Tag == result.TaskTag);
         var calc = _analysis != null ? Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).CalcType ?? CalcType.N : CalcType.C;
-        HasCrackWidths = calc is CalcType.N or CalcType.NL;
-        _longShare = calc == CalcType.NL ? 1.0 : 0.9;
+        HasCrackWidths = FemCsfeaCrackWidths.Applies(calc);
+        _longShare = FemCsfeaCrackWidths.DefaultLongShare(calc);
 
         var shellFields = new List<FemCsfeaOption<FemCsfeaShellField>>
         {
@@ -386,6 +388,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     public string CurrentStepLabel => _shownEnvelope is { Envelope: { } env } shown
         ? string.Format(Loc.S("FemCsfeaEnvelopeLabel"), shown.Name, env.Combinations.Count, AggregateLabel(EnvelopeAggregate))
+            + (env.Skipped != "" ? " · " + env.Skipped : "")
         : _shownCombination is { Batch: { } b } variant
         ? string.Format(Loc.S("FemCsfeaBatchVariantLabel"), CombinationItems.ToList().IndexOf(variant) + 1, CombinationItems.Count,
             variant.Name, b.LoadFactor, b.Completed ? "✓" : Loc.S("FemCsfeaBatchNotReachedMark"))
@@ -550,49 +553,62 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>
     /// Готовая огибающая группы: значения, опорный шаг раскладки, группа и имена источников по номеру источника
-    /// значений (комбинация группы; у записанной огибающей пакета — индекс варианта).
+    /// значений (комбинация группы; у записанной огибающей пакета — индекс варианта); <see cref="AcrcShare"/> — доля
+    /// длительной части, при которой огибается ширина раскрытия (null — её в огибающей нет).
     /// </summary>
     sealed record EnvelopeData(FemCsfeaEnvelope Values, RcSecantStepFields Reference, FemCsfeaEnvelopeGroup Group,
-        IReadOnlyList<string> Names)
+        IReadOnlyList<string> Names, double? AcrcShare = null)
     {
         public int ShellOffset => Reference.NodeIds.Length * NodeQ;
         public int BeamOffset => ShellOffset + Reference.ShellIds.Length * ShellQ;
         public int ReactionOffset => BeamOffset + Reference.BeamIds.Length * RcSecantStepFields.BeamForceComponents;
+        /// <summary>Трещины пластин; у записей до среза 4 (короче) их нет.</summary>
+        public int CrackOffset => ReactionOffset + Reference.Reactions.Length;
     }
 
     readonly Dictionary<string, EnvelopeData> _envelopes = new();
     EnvelopeData? _envelope;
     CancellationTokenSource? _envelopeCts;
     string? _envelopeTaskType;
+    double? _envelopeTaskShare;
 
     /// <summary>Идущий расчёт огибающей (завершённая задача — расчёта нет).</summary>
     public Task EnvelopeTask { get; private set; } = Task.CompletedTask;
 
-    static string EnvelopeProgressNote(FemCsfeaEnvelopeGroup env, int done) =>
-        string.Format(Loc.S("FemCsfeaEnvelopeProgress"), env.Type, done, env.Combinations.Count);
+    static string EnvelopeProgressNote(FemCsfeaEnvelopeGroup env, int done, bool acrc = false) =>
+        string.Format(Loc.S(acrc ? "FemCsfeaEnvelopeAcrcProgress" : "FemCsfeaEnvelopeProgress"), env.Type, done, env.Combinations.Count);
 
-    /// <summary>Запустить расчёт огибающей пункта в фоне; по готовности, если пункт ещё показан, — показать.</summary>
-    void StartEnvelope(FemCsfeaCaseItem item)
+    /// <summary>
+    /// Запустить расчёт огибающей пункта в фоне; по готовности, если пункт ещё показан, — показать. <paramref name="acrcShare"/> —
+    /// огибать и ширину раскрытия при этой доле (пакет: a_crc каждого варианта); null — без неё.
+    /// </summary>
+    void StartEnvelope(FemCsfeaCaseItem item, double? acrcShare = null)
     {
         var env = item.Envelope!;
-        if (_envelopeTaskType == env.Type && _envelopeCts is { IsCancellationRequested: false } && !EnvelopeTask.IsCompleted) return;
+        if (_envelopeTaskType == env.Type && _envelopeTaskShare == acrcShare && _envelopeCts is { IsCancellationRequested: false }
+            && !EnvelopeTask.IsCompleted) return;
         _envelopeCts?.Cancel();
         var cts = _envelopeCts = new CancellationTokenSource();
         _envelopeTaskType = env.Type;
+        _envelopeTaskShare = acrcShare;
+        // Сечения пластин для a_crc читаются из БД — здесь, в UI-потоке.
+        var elements = acrcShare != null ? EnsureCrackElements() : null;
         var progress = new Progress<int>(done =>
         {
-            if (ReferenceEquals(_shownEnvelope, item) && _envelope == null) SetFieldsNote(EnvelopeProgressNote(env, done));
+            if (ReferenceEquals(_shownEnvelope, item) && (_envelope == null || acrcShare != null))
+                SetFieldsNote(EnvelopeProgressNote(env, done, acrcShare != null));
         });
-        EnvelopeTask = RunEnvelopeAsync(item, progress, cts);
+        EnvelopeTask = RunEnvelopeAsync(item, acrcShare, elements, progress, cts);
     }
 
-    async Task RunEnvelopeAsync(FemCsfeaCaseItem item, IProgress<int> progress, CancellationTokenSource cts)
+    async Task RunEnvelopeAsync(FemCsfeaCaseItem item, double? acrcShare, List<FemCsfeaCrackElement>? elements,
+        IProgress<int> progress, CancellationTokenSource cts)
     {
         var env = item.Envelope!;
         var ct = cts.Token;
         try
         {
-            _envelopes[env.Type] = await Task.Run(() => BuildEnvelope(env, progress, ct), ct);
+            _envelopes[env.Type] = await Task.Run(() => BuildEnvelope(env, acrcShare, elements, progress, ct), ct);
         }
         catch (OperationCanceledException) { return; }
         catch (InvalidOperationException ex)
@@ -605,13 +621,16 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             // Признак сбрасывает только последний запущенный расчёт (прерванный мог смениться новым того же типа).
             if (ReferenceEquals(_envelopeCts, cts)) _envelopeTaskType = null;
         }
-        if (ReferenceEquals(_shownEnvelope, item)) ApplyStep();
+        if (!ReferenceEquals(_shownEnvelope, item)) return;
+        ApplyStep();
+        if (acrcShare != null) CrackWidthsReady?.Invoke();
     }
 
     /// <summary>Огибающая группы по полям загружений (фон): величины загружений один раз, комбинации — суммой.</summary>
-    EnvelopeData BuildEnvelope(FemCsfeaEnvelopeGroup env, IProgress<int> progress, CancellationToken ct)
+    EnvelopeData BuildEnvelope(FemCsfeaEnvelopeGroup env, double? acrcShare, List<FemCsfeaCrackElement>? elements,
+        IProgress<int> progress, CancellationToken ct)
     {
-        if (IsBatch) return BuildBatchEnvelope(env, progress, ct);
+        if (IsBatch) return BuildBatchEnvelope(env, acrcShare, elements, progress, ct);
         var caseIndex = new Dictionary<int, int>();
         var vectors = new List<double[]>();
         RcSecantStepFields? reference = null;
@@ -644,9 +663,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>
     /// Огибающая группы пакета: записанная при расчёте (хранение «только огибающие») или по полям вариантов группы —
-    /// по одному из БД за раз (память не растёт с числом вариантов).
+    /// по одному из БД за раз (память не растёт с числом вариантов); доли трещин — всегда, ширина раскрытия — при
+    /// <paramref name="acrcShare"/> (a_crc каждого варианта при этой доле).
     /// </summary>
-    EnvelopeData BuildBatchEnvelope(FemCsfeaEnvelopeGroup env, IProgress<int> progress, CancellationToken ct)
+    EnvelopeData BuildBatchEnvelope(FemCsfeaEnvelopeGroup env, double? acrcShare, List<FemCsfeaCrackElement>? elements,
+        IProgress<int> progress, CancellationToken ct)
     {
         if (env.RecordN is int record)
         {
@@ -663,7 +684,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             var names = new string[Summary.Batch!.Select(b => b.Index + 1).DefaultIfEmpty(0).Max()];
             Array.Fill(names, "");
             foreach (var b in Summary.Batch!) names[b.Index] = b.Tag;
-            return new EnvelopeData(stored, skeleton, env, names);
+            return new EnvelopeData(stored, skeleton, env, names, Summary.BatchCrackLongShare);
         }
         var acc = new FemCsfeaEnvelopeAccumulator();
         RcSecantStepFields? reference = null;
@@ -681,11 +702,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             }
             else if (!FemCsfeaCombinationFields.SameMesh(f, reference))
                 throw new InvalidOperationException(Loc.S("FemCsfeaEnvelopeMeshMismatch"));
-            acc.Add(Quantities.Vector(f, nodeIndex!, norms: true), k);
+            var cracks = acrcShare is double share && elements != null ? FemCsfeaCrackWidths.Compute(elements, f, share, ct) : null;
+            acc.Add(Quantities.Vector(f, nodeIndex!, single: true, cracks), k);
             progress.Report(k + 1);
         }
         if (acc.Result is not { } values) throw new InvalidOperationException(Loc.S("FemCsfeaCombinationEmpty"));
-        return new EnvelopeData(values, reference!, env, env.Combinations.Select(i => i.Name).ToList());
+        return new EnvelopeData(values, reference!, env, env.Combinations.Select(i => i.Name).ToList(), acrcShare);
     }
 
     /// <summary>Поля показа огибающей: каждая величина — по выбору |max| / max / min (состояния пластин пусты).</summary>
@@ -721,7 +743,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Величина огибающей по индексу вектора ×<paramref name="scale"/>; null — огибающая не показана или значений нет.</summary>
     FemCsfeaEnvelopeValue? EnvelopeAt(int index, double scale = 1)
     {
-        if (_envelope is not { } e || e.Values.MaxSource[index] < 0) return null;
+        if (_envelope is not { } e || index >= e.Values.MaxSource.Length || e.Values.MaxSource[index] < 0) return null;
         string Name(int source) => source >= 0 && source < e.Names.Count ? e.Names[source] : "";
         return new FemCsfeaEnvelopeValue(e.Values.Max[index], Name(e.Values.MaxSource[index]),
             e.Values.Min[index], Name(e.Values.MinSource[index])).Scale(scale);
@@ -731,19 +753,54 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public FemCsfeaEnvelopeValue? EnvelopeNode(int node, int component) =>
         _envelope != null && _nodeIndex.TryGetValue(node, out int i) ? EnvelopeAt(i * NodeQ + component) : null;
 
-    /// <summary>Огибающая поля пластины в единицах мозаики (усилия, ux/uy/uz, отпор C1); null — поля нет в огибающей.</summary>
+    /// <summary>
+    /// Огибающая поля пластины в единицах мозаики (усилия, ux/uy/uz, отпор C1, доли трещин; ширина раскрытия — если
+    /// огибалась при текущей доле длительной части); null — поля нет в огибающей.
+    /// </summary>
     public FemCsfeaEnvelopeValue? EnvelopeShell(int elem, FemCsfeaShellField field)
     {
         if (_envelope is not { } e || !_shellIndex.TryGetValue(elem, out int i)) return null;
         int o = e.ShellOffset + i * ShellQ;
+        int co = e.CrackOffset + i * FemCsfeaEnvelopeQuantities.CrackQ;
         const int sc = RcSecantStepFields.ShellForceComponents;
         return field switch
         {
             >= FemCsfeaShellField.Nx and <= FemCsfeaShellField.Qy => EnvelopeAt(o + (field - FemCsfeaShellField.Nx), 1e-3),
             >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Uz => EnvelopeAt(o + sc + (field - FemCsfeaShellField.Ux), 1e3),
             FemCsfeaShellField.FoundationPressure => EnvelopeAt(o + sc + 3),
+            FemCsfeaShellField.CrackBottom => EnvelopeAt(co),
+            FemCsfeaShellField.CrackTop => EnvelopeAt(co + 1),
+            _ when IsCrack(field) && EnvelopeAcrcReady(e) => EnvelopeAt(co + field switch
+            {
+                FemCsfeaShellField.AcrcLongBottom => 2,
+                FemCsfeaShellField.AcrcLongTop => 3,
+                FemCsfeaShellField.AcrcShortBottom => 4,
+                _ => 5,
+            }),
             _ => null,
         };
+    }
+
+    /// <summary>Ширина раскрытия в огибающей — при текущей доле длительной части.</summary>
+    bool EnvelopeAcrcReady(EnvelopeData e) => e.AcrcShare is double s && Math.Abs(s - _longShare) < 1e-9;
+
+    /// <summary>
+    /// Огибающая показана, нужна ширина раскрытия: готова (true) или запущена пересборка огибающей с a_crc (false; по
+    /// готовности — <see cref="CrackWidthsReady"/>). Записанную огибающую («только огибающие») пересобрать нельзя — при
+    /// другой доле подсказка, значений нет.
+    /// </summary>
+    bool PrepareEnvelopeCracks(EnvelopeData e)
+    {
+        if (!HasCrackWidths || EnvelopeAcrcReady(e) || _shownEnvelope == null) return true;
+        if (!IsBatch) return true;   // линейная огибающая: ширины раскрытия нет
+        if (e.Group.RecordN != null)
+        {
+            SetFieldsNote(e.AcrcShare is double s ? string.Format(Loc.S("FemCsfeaBatchEnvelopeAcrcShare"), s)
+                : Loc.S("FemCsfeaBatchEnvelopeNoAcrc"));
+            return true;
+        }
+        StartEnvelope(_shownEnvelope, _longShare);
+        return false;
     }
 
     /// <summary>Огибающая концевой силы стержня (0…11 — как в <see cref="FemElementEndForces"/>, Н и Н·м); null — нет.</summary>
@@ -1107,20 +1164,25 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             var included = g.Where(i => i.Batch!.Completed && (!fields || i.IsAvailable)).ToList();
             int? record = fields ? null : records.TryGetValue(g.Key, out int n) ? n : null;
             if (included.Count == 0 || !fields && record == null) continue;
-            int skipped = g.Count() - included.Count;
+            var skipped = g.Except(included).ToList();
             bool cases = g.Key == FemCsfeaBatchGroup.LoadCases;
             string badge = cases ? Loc.S("FemCsfeaBatchLoadCasesBadge") : g.Key;
+            string name = cases ? Loc.S("FemCsfeaBatchEnvelopeLoadCases") : string.Format(Loc.S("FemCsfeaEnvelopeName"), g.Key);
+            string skippedText = SkippedText(skipped);
             string tip = string.Format(Loc.S("FemCsfeaEnvelopeTip"), badge, included.Count);
-            if (skipped > 0) tip += Environment.NewLine + string.Format(Loc.S("FemCsfeaBatchEnvelopeSkipped"), skipped, Summary.BatchMaxLoadFactor);
+            if (skipped.Count > 0)
+            {
+                name = string.Format(Loc.S("FemCsfeaBatchEnvelopeOf"), name, included.Count, g.Count());
+                tip += Environment.NewLine + skippedText;
+            }
             envelopes.Add(new FemCsfeaCaseItem
             {
                 Source = new FemLoadSource
                 {
-                    Kind = FemLoadSourceKind.Combination, TypeBadge = badge,
-                    Tag = cases ? Loc.S("FemCsfeaBatchEnvelopeLoadCases") : string.Format(Loc.S("FemCsfeaEnvelopeName"), g.Key),
+                    Kind = FemLoadSourceKind.Combination, TypeBadge = badge, Tag = name,
                     Formula = string.Format(Loc.S("FemCsfeaEnvelopeCount"), included.Count),
                 },
-                Envelope = new FemCsfeaEnvelopeGroup(g.Key, included, skipped, record),
+                Envelope = new FemCsfeaEnvelopeGroup(g.Key, included, skipped.Count, record, skippedText),
                 ToolTipText = tip,
             });
         }
@@ -1138,6 +1200,24 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 Math.Round(b.ElapsedSeconds, 1), control, rz, reason, !b.Completed, i);
         }).ToList();
         BatchStoppedItems = batch.Where(b => b.Done && !b.Completed).ToList();
+    }
+
+    /// <summary>Сколько не вошедших в огибающую перечисляется по имени (остальные — «и ещё N»).</summary>
+    public const int SkippedListed = 10;
+
+    /// <summary>
+    /// Не вошедшие в огибающую пакета словами: «не вошли 7: Огибающая C 017 (λ = 0,73), К5 (не посчитан), … и ещё N»;
+    /// пусто — вошли все.
+    /// </summary>
+    public string SkippedText(IReadOnlyList<FemCsfeaCaseItem> skipped)
+    {
+        if (skipped.Count == 0) return "";
+        string Why(FemCsfeaBatchSummary b) => !b.Done ? Loc.S("FemCsfeaBatchSkippedNotDone")
+            : !b.Completed ? string.Create(CultureInfo.CurrentCulture, $"λ = {b.LoadFactor:0.###}")
+            : Loc.S("FemCsfeaBatchSkippedNoFields");
+        var names = skipped.Take(SkippedListed).Select(i => $"{i.Name} ({Why(i.Batch!)})").ToList();
+        if (skipped.Count > SkippedListed) names.Add(string.Format(Loc.S("FemCsfeaBatchSkippedMore"), skipped.Count - SkippedListed));
+        return string.Format(Loc.S("FemCsfeaBatchEnvelopeSkipped"), skipped.Count, string.Join(", ", names));
     }
 
     // ------------------------------------------------------------ сводка пакета
@@ -1568,7 +1648,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// Значения поля на показанном шаге готовы (true) или запущен фоновый расчёт ширины раскрытия (false): по готовности —
     /// <see cref="CrackWidthsReady"/>.
     /// </summary>
-    public bool PrepareShellField(FemCsfeaShellField field) => !IsCrack(field) || Fields == null || EnsureCrackWidths() != null;
+    public bool PrepareShellField(FemCsfeaShellField field) => !IsCrack(field) || Fields == null
+        || (_envelope is { } e ? PrepareEnvelopeCracks(e) : EnsureCrackWidths() != null);
 
     /// <summary>Досчитана ширина раскрытия трещин (шаг или доля сменились).</summary>
     public event Action? CrackWidthsReady;
@@ -1588,8 +1669,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     double? ShellValue(int elem, FemCsfeaShellField field, Dictionary<int, FemCsfeaCrackWidth>? cracks)
     {
         if (Fields == null || !_shellIndex.TryGetValue(elem, out int i)) return null;
-        // Огибающая: величины, которые не сводятся к компоненте полей (средние по узлам, отпор), — из её вектора.
-        if (_envelope != null && field is >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Uz or FemCsfeaShellField.FoundationPressure)
+        // Огибающая: величины, которые не сводятся к компоненте полей (средние по узлам, отпор, трещины), — из её вектора.
+        if (_envelope != null && field is >= FemCsfeaShellField.Ux and <= FemCsfeaShellField.Uz or FemCsfeaShellField.FoundationPressure
+            or FemCsfeaShellField.CrackBottom or FemCsfeaShellField.CrackTop || _envelope != null && IsCrack(field))
             return EnvelopeShell(elem, field)?.Pick(EnvelopeAggregate);
         int fo = i * RcSecantStepFields.ShellForceComponents, so = i * RcSecantStepFields.ShellStateComponents;
         double State(int k) => Fields.ShellStates[so + k];

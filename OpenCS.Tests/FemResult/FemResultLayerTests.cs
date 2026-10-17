@@ -457,8 +457,17 @@ public class FemResultLayerTests
         var envelope = Assert.Single(vm.EnvelopeItems);
         Assert.Equal(["К1", "К3"], envelope.Envelope!.Combinations.Select(c => c.Name));
         Assert.Equal(1, envelope.Envelope.Unavailable);
+        // Не вошедшие: в имени пункта «(2 из 3)», в подсказке и в строке показа (шапке 3D) — по имени с λ.
+        string skipped = string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchEnvelopeSkipped"), 1,
+            string.Create(System.Globalization.CultureInfo.CurrentCulture, $"К2 (λ = {0.7:0.###})"));
+        Assert.Equal(skipped, envelope.Envelope.Skipped);
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchEnvelopeOf"),
+            string.Format(OpenCS.Utilites.Loc.S("FemCsfeaEnvelopeName"), "C"), 2, 3), envelope.Name);
+        Assert.Contains(skipped, envelope.ToolTip);
         vm.ShowEnvelopes = true;
         Assert.True(vm.IsEnvelopeShown);
+        Assert.EndsWith(" · " + skipped, vm.CurrentStepLabel);
+        Assert.Contains(" · " + skipped, steps.StepLabel);
         vm.ShowEnvelopes = false;
         Assert.True(vm.ShowCombinations);
         Assert.Equal("К2", vm.SelectedCaseItem!.Name);
@@ -486,6 +495,52 @@ public class FemResultLayerTests
     }
 
     [Fact]
+    public void CsfeaBatch_SkippedText_ListsFirstTenThenCount()
+    {
+        using var t = new TempDb();
+        var (vm, _, _) = BatchResult(t);
+        var items = Enumerable.Range(0, 12).Select(i => new FemCsfeaCaseItem
+        {
+            Source = new FemLoadSource { Tag = $"К{i + 1}" },
+            Batch = Variant(i, $"К{i + 1}", i != 0, false, 0.5, null),
+        }).ToList();
+        // К1 не посчитан, К2…К10 не дошли (λ = 0,5), К11 и К12 — «и ещё 2».
+        var expected = new List<string> { $"К1 ({OpenCS.Utilites.Loc.S("FemCsfeaBatchSkippedNotDone")})" };
+        expected.AddRange(Enumerable.Range(2, 9).Select(i =>
+            string.Create(System.Globalization.CultureInfo.CurrentCulture, $"К{i} (λ = {0.5:0.###})")));
+        expected.Add(string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchSkippedMore"), 2));
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchEnvelopeSkipped"), 12, string.Join(", ", expected)),
+            vm.SkippedText(items));
+        Assert.Equal("", vm.SkippedText([]));
+    }
+
+    [Fact]
+    public void CsfeaEnvelopeVector_CrackTail_OnlyForSingleState()
+    {
+        var f = new RcSecantStepFields
+        {
+            NodeIds = [1], Displacements = new double[6],
+            ShellIds = [7], ShellForces = new double[8], ShellStates = [0.25, 0.5, 1, 1, 1], ShellFlags = [1],
+            BeamIds = [], BeamForces = [], BeamFlags = [],
+        };
+        var q = new FemCsfeaEnvelopeQuantities(new Dictionary<int, int[]>(), new Dictionary<int, (double, double, double, double)>());
+        int tail = FemCsfeaEnvelopeQuantities.Offsets(f).Crack;
+        var cracks = new Dictionary<int, FemCsfeaCrackWidth> { [7] = new(0.1, 0.2, 0, 0.3, 0.4, 0) };
+
+        var single = q.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true, cracks);
+        Assert.Equal(tail + FemCsfeaEnvelopeQuantities.CrackQ, single.Length);
+        Assert.Equal([0.25, 0.5, 0.1, 0.3, 0.2, 0.4], single[tail..]);
+
+        // Слагаемое линейной суммы: трещин нет.
+        var term = q.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f));
+        Assert.All(term[tail..], v => Assert.True(double.IsNaN(v)));
+        // Состояние без ширины раскрытия: доли есть, a_crc — NaN.
+        var noAcrc = q.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true);
+        Assert.Equal([0.25, 0.5], noAcrc[tail..(tail + 2)]);
+        Assert.True(double.IsNaN(noAcrc[tail + 2]));
+    }
+
+    [Fact]
     public async Task CsfeaBatch_EnvelopeFromVariantFields()
     {
         using var t = new TempDb();
@@ -506,9 +561,9 @@ public class FemResultLayerTests
         var acc = new FemCsfeaEnvelopeAccumulator();
         var quantities = new FemCsfeaEnvelopeQuantities(new Dictionary<int, int[]>(), new Dictionary<int, (double, double, double, double)>());
         var f1 = Fields(-0.01);
-        acc.Add(quantities.Vector(f1, FemCsfeaEnvelopeQuantities.NodeIndex(f1), norms: true), 0);
+        acc.Add(quantities.Vector(f1, FemCsfeaEnvelopeQuantities.NodeIndex(f1), single: true), 0);
         var f2 = Fields(-0.04);
-        acc.Add(quantities.Vector(f2, FemCsfeaEnvelopeQuantities.NodeIndex(f2), norms: true), 2);
+        acc.Add(quantities.Vector(f2, FemCsfeaEnvelopeQuantities.NodeIndex(f2), single: true), 2);
         int record = FemCsfeaBatchGroup.RecordBase + 1;
         var summary = new FemCsfeaResultSummary
         {

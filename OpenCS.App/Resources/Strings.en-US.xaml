@@ -2966,7 +2966,13 @@
     <system:String x:Key="FemCsfeaBatchNotDone">not computed</system:String>
     <system:String x:Key="FemCsfeaBatchLoadCasesBadge">LC</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeLoadCases">Load case envelope</system:String>
-    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">Not included: {0} (did not reach λ = {1:0.###} or not computed).</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeSkipped">not included {0}: {1}</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeOf">{0} ({1} of {2})</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedNotDone">not computed</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedNoFields">no fields</system:String>
+    <system:String x:Key="FemCsfeaBatchSkippedMore">and {0} more</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeAcrcShare">Crack widths in the stored envelope use long-term share {0:0.##}; they cannot be recomputed for another share (storage "envelopes only").</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeNoAcrc">The stored envelope has no crack widths (the batch was computed before they were enveloped) — recompute the batch.</system:String>
     <system:String x:Key="FemCsfeaBatchStateNotDone">not computed</system:String>
     <system:String x:Key="FemCsfeaBatchStateStopped">stopped</system:String>
     <system:String x:Key="FemCsfeaBatchProblems">Did not reach λ = {0:0.###}: {1} of {2} · not computed: {3}</system:String>
@@ -3114,6 +3120,7 @@
     <system:String x:Key="FemCsfeaEnvelopeSkipped">Skipped {0} comb. with a load case not selected in analysis "{1}".</system:String>
     <system:String x:Key="FemCsfeaEnvelopeLabel">"{0}" over {1} comb. — {2}; deformed shape and ΣR are not shown for an envelope</system:String>
     <system:String x:Key="FemCsfeaEnvelopeProgress">Envelope {0}: {1} of {2} comb.…</system:String>
+    <system:String x:Key="FemCsfeaEnvelopeAcrcProgress">Envelope {0}, crack widths: {1} of {2}…</system:String>
     <system:String x:Key="FemCsfeaEnvelopeMeshMismatch">Load case fields were recorded on different meshes — the envelope cannot be built.</system:String>
     <system:String x:Key="FemCsfeaAggregateTip">Which envelope value to show in the contour plot and summary: largest by magnitude, largest or smallest. Bar diagrams show both branches; the element card shows both branches with combinations.</system:String>
     <system:String x:Key="FemCsfeaColExt">Branch</system:String>

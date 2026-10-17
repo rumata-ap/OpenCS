@@ -426,6 +426,48 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
                 Assert.Equal(Math.Max(ua, ub), env.Max[i * nq + 2], 1e-9 * scale);
                 if (ua != ub) Assert.Equal(ua < ub ? 0 : 1, env.MinSource[i * nq + 2]);
             }
+
+            // Трещины пластин (вид N): огибающая окна по полям вариантов (с a_crc при доле 0,9) = перебор по вариантам =
+            // записанная огибающая.
+            Assert.Equal(0.9, summary.BatchCrackLongShare);
+            var vm = new OpenCS.ViewModels.FemCsfeaResultVM(withFields, ctx.Db, schema, analysis);
+            Assert.Equal(0.9, vm.LongShare);
+            vm.ShowEnvelopes = true;
+            await vm.EnvelopeTask;
+            var envelopeItem = vm.SelectedCaseItem!;
+            Assert.Equal("C", envelopeItem.Envelope!.Type);
+            const OpenCS.ViewModels.FemCsfeaShellField acrc = OpenCS.ViewModels.FemCsfeaShellField.AcrcShortBottom,
+                crack = OpenCS.ViewModels.FemCsfeaShellField.CrackBottom;
+            Assert.False(vm.PrepareShellField(acrc));
+            await vm.EnvelopeTask;
+            Assert.True(vm.PrepareShellField(acrc));
+            var shells = reference.ShellIds;
+            var envAcrc = shells.ToDictionary(s => s, s => vm.EnvelopeShell(s, acrc)!.Value.Max);
+            var envCrack = shells.ToDictionary(s => s, s => vm.EnvelopeShell(s, crack)!.Value.Max);
+            Assert.Contains(envAcrc.Values, v => v > 0);
+
+            var maxAcrc = shells.ToDictionary(s => s, _ => 0.0);
+            var maxCrack = shells.ToDictionary(s => s, _ => double.NegativeInfinity);
+            foreach (var variant in envelopeItem.Envelope.Combinations)
+            {
+                vm.SelectedCaseItem = variant;
+                if (!vm.PrepareShellField(acrc)) await vm.CrackWidthsTask;
+                foreach (int s in shells)
+                {
+                    maxAcrc[s] = Math.Max(maxAcrc[s], vm.ShellFieldValue(s, acrc) ?? 0);
+                    maxCrack[s] = Math.Max(maxCrack[s], vm.ShellFieldValue(s, crack)!.Value);
+                }
+            }
+            int co = FemCsfeaEnvelopeQuantities.Offsets(reference).Crack;
+            for (int i = 0; i < shells.Length; i++)
+            {
+                int s = shells[i];
+                Assert.Equal(maxAcrc[s], envAcrc[s], 1e-9);
+                Assert.Equal(maxCrack[s], envCrack[s], 1e-12);
+                // Записанная огибающая — по полям в double, поля вариантов в БД — во float.
+                Assert.Equal(envAcrc[s], env.Max[co + i * FemCsfeaEnvelopeQuantities.CrackQ + 4], 1e-5);
+                Assert.Equal(envCrack[s], env.Max[co + i * FemCsfeaEnvelopeQuantities.CrackQ], 1e-6);
+            }
         });
     }
 

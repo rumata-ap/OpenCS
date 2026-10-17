@@ -30,6 +30,12 @@ public static class FemCsfeaCrackWidths
 {
     const string Kind = "shell_simpl_capri_sls";
 
+    /// <summary>Ширина раскрытия считается у видов расчёта N и NL.</summary>
+    public static bool Applies(CalcType calc) => calc is CalcType.N or CalcType.NL;
+
+    /// <summary>Доля длительной части по умолчанию: NL — все усилия длительные, N — 0,9.</summary>
+    public static double DefaultLongShare(CalcType calc) => calc == CalcType.NL ? 1.0 : 0.9;
+
     /// <summary>ЖБ-пластины адаптированной модели; пластины без сечения CScore или без материалов в проекте не входят.</summary>
     public static List<FemCsfeaCrackElement> Elements(FemRcModelResult adapted, IEnumerable<Material> materials)
     {

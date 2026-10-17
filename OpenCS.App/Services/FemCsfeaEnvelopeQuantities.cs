@@ -10,13 +10,16 @@ namespace OpenCS.Services;
 /// <summary>
 /// Вектор величин огибающей по полям шага CSfea (раскладка по опорному шагу — номера узлов и КЭ у всех полей одни):
 /// узел — 6 перемещений и |u|; пластина — 8 усилий, ux/uy/uz среднее по узлам КЭ (м), отпор C1 (кПа, NaN без основания);
-/// стержень — 12 концевых сил; опора — 6 реакций. Всё, кроме |u|, линейно по загружениям (огибающая линейного расчёта
-/// суммирует векторы загружений, |u| — после суммы); у пакета вектор варианта считается с |u| сразу.
+/// стержень — 12 концевых сил; опора — 6 реакций; в конце — трещины пластин (<see cref="CrackQ"/> на КЭ: доли треснувших
+/// слоёв низа и верха, a_crc,1 низа и верха, a_crc низа и верха, мм). Всё, кроме |u| и трещин, линейно по загружениям
+/// (огибающая линейного расчёта суммирует векторы загружений, |u| — после суммы, трещин у неё нет — NaN); у пакета
+/// вектор варианта — одно состояние: |u| и трещины сразу.
 /// </summary>
 public sealed class FemCsfeaEnvelopeQuantities
 {
     public const int NodeQ = RcSecantStepFields.NodeComponents + 1;
     public const int ShellQ = RcSecantStepFields.ShellForceComponents + 4;
+    public const int CrackQ = 6;
 
     readonly IReadOnlyDictionary<int, int[]> _contours;
     readonly IReadOnlyDictionary<int, (double C1, double Nx, double Ny, double Nz)> _foundation;
@@ -87,12 +90,13 @@ public sealed class FemCsfeaEnvelopeQuantities
         return index;
     }
 
-    /// <summary>Начала разделов вектора: пластины, стержни, опоры.</summary>
-    public static (int Shell, int Beam, int Reaction) Offsets(RcSecantStepFields reference)
+    /// <summary>Начала разделов вектора: пластины, стержни, опоры, трещины пластин.</summary>
+    public static (int Shell, int Beam, int Reaction, int Crack) Offsets(RcSecantStepFields reference)
     {
         int shell = reference.NodeIds.Length * NodeQ;
         int beam = shell + reference.ShellIds.Length * ShellQ;
-        return (shell, beam, beam + reference.BeamIds.Length * RcSecantStepFields.BeamForceComponents);
+        int reaction = beam + reference.BeamIds.Length * RcSecantStepFields.BeamForceComponents;
+        return (shell, beam, reaction, reaction + reference.ReactionNodeIds.Length * RcSecantStepFields.NodeComponents);
     }
 
     /// <summary>|u| узлов куска вектора (куски начинаются с записи узла); <paramref name="nodeEnd"/> — конец раздела узлов.</summary>
@@ -102,19 +106,24 @@ public sealed class FemCsfeaEnvelopeQuantities
             v[o + 6] = Math.Sqrt(v[o] * v[o] + v[o + 1] * v[o + 1] + v[o + 2] * v[o + 2]);
     }
 
-    /// <summary>Величины огибающей полей; <paramref name="norms"/> — сразу |u| (иначе NaN — досчитывается после суммы).</summary>
-    public double[] Vector(RcSecantStepFields f, Dictionary<int, int> nodeIndex, bool norms = false)
+    /// <summary>
+    /// Величины огибающей полей. <paramref name="single"/> — вектор одного состояния (вариант пакета): |u| и доли трещин
+    /// сразу; иначе — слагаемое суммы (загружение линейного расчёта): |u| — NaN, досчитывается после суммы, трещин нет.
+    /// <paramref name="cracks"/> — ширина раскрытия КЭ состояния; null или КЭ нет — NaN.
+    /// </summary>
+    public double[] Vector(RcSecantStepFields f, Dictionary<int, int> nodeIndex, bool single = false,
+        IReadOnlyDictionary<int, FemCsfeaCrackWidth>? cracks = null)
     {
         int nn = f.NodeIds.Length, ns = f.ShellIds.Length;
         const int sc = RcSecantStepFields.ShellForceComponents, nc = RcSecantStepFields.NodeComponents;
-        var v = new double[nn * NodeQ + ns * ShellQ + f.BeamForces.Length + f.Reactions.Length];
+        var v = new double[nn * NodeQ + ns * ShellQ + f.BeamForces.Length + f.Reactions.Length + ns * CrackQ];
         var d = f.Displacements;
         for (int i = 0; i < nn; i++)
         {
             for (int c = 0; c < nc; c++) v[i * NodeQ + c] = d[nc * i + c];
             v[i * NodeQ + nc] = double.NaN;
         }
-        if (norms) DeriveNodeNorms(v, 0, nn * NodeQ);
+        if (single) DeriveNodeNorms(v, 0, nn * NodeQ);
         int o = nn * NodeQ;
         for (int i = 0; i < ns; i++, o += ShellQ)
         {
@@ -145,6 +154,17 @@ public sealed class FemCsfeaEnvelopeQuantities
         }
         Array.Copy(f.BeamForces, 0, v, o, f.BeamForces.Length);
         Array.Copy(f.Reactions, 0, v, o + f.BeamForces.Length, f.Reactions.Length);
+        o += f.BeamForces.Length + f.Reactions.Length;
+        const int st = RcSecantStepFields.ShellStateComponents;
+        for (int i = 0; i < ns; i++, o += CrackQ)
+        {
+            v[o] = single && f.ShellStates.Length >= (i + 1) * st ? f.ShellStates[i * st] : double.NaN;
+            v[o + 1] = single && f.ShellStates.Length >= (i + 1) * st ? f.ShellStates[i * st + 1] : double.NaN;
+            if (single && cracks != null && cracks.TryGetValue(f.ShellIds[i], out var w))
+                (v[o + 2], v[o + 3], v[o + 4], v[o + 5]) = (w.LongBottom, w.LongTop, w.ShortBottom, w.ShortTop);
+            else
+                for (int c = 2; c < CrackQ; c++) v[o + c] = double.NaN;
+        }
         return v;
     }
 }
