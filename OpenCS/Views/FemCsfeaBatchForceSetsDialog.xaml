@@ -1,0 +1,69 @@
+<Window x:Class="OpenCS.Views.FemCsfeaBatchForceSetsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title}" Width="620" SizeToContent="Height" MinWidth="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <StackPanel Margin="12">
+        <!-- Группы пакета: дошедшие до предела λ из всех -->
+        <TextBlock Text="{DynamicResource FemCsfeaBatchSetsGroups}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <ItemsControl x:Name="GroupsList" ItemsSource="{Binding Groups}" Margin="8,0,0,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox Content="{Binding Text}" IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsAvailable}"
+                              MinWidth="150" Margin="0,2,12,2"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Тип расчёта наборов группы загружений -->
+        <StackPanel Orientation="Horizontal" Margin="8,4,0,0" Visibility="{Binding HasLoadCases, Converter={StaticResource BoolToVis}}"
+                    ToolTip="{DynamicResource FemCsfeaBatchSetsLoadCaseTypesTip}">
+            <TextBlock Text="{DynamicResource FemCsfeaBatchSetsLoadCaseTypes}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ItemsControl ItemsSource="{Binding LoadCaseTypes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Type}" IsChecked="{Binding IsChecked}" Margin="0,0,10,0"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!-- Охват -->
+        <TextBlock Text="{DynamicResource FemCsfeaBatchSetsScope}" FontWeight="SemiBold" Margin="0,12,0,4"/>
+        <RadioButton x:Name="SelectionRadio" GroupName="Scope" IsChecked="{Binding UseSelection}" IsEnabled="{Binding HasSelection}"
+                     Margin="8,2,0,2">
+            <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap"/>
+        </RadioButton>
+        <RadioButton x:Name="WholeRadio" GroupName="Scope" IsChecked="{Binding UseWholeSchema}" Margin="8,2,0,2">
+            <TextBlock Text="{Binding WholeSchemaText}" TextWrapping="Wrap"/>
+        </RadioButton>
+
+        <!-- Оценка и предупреждения -->
+        <TextBlock x:Name="EstimateBlock" Text="{Binding EstimateText}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+        <TextBlock Text="{DynamicResource FemCsfeaBatchSetsLarge}" TextWrapping="Wrap" Foreground="DarkOrange" Margin="0,4,0,0"
+                   Visibility="{Binding IsLarge, Converter={StaticResource BoolToVis}}"/>
+        <TextBlock Text="{DynamicResource FemCsfeaBatchSetsPairWarning}" TextWrapping="Wrap" Foreground="#806000" Margin="0,4,0,0"
+                   ToolTip="{DynamicResource FemCsfeaBatchSetsPairWarningTip}"
+                   Visibility="{Binding ShowPairWarning, Converter={StaticResource BoolToVis}}"/>
+
+        <DockPanel Margin="0,14,0,0" LastChildFill="False">
+            <Button DockPanel.Dock="Right" Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource FemCsfeaBatchSetsCreate}" IsDefault="True"
+                    IsEnabled="{Binding CanCreate}" Click="Create_Click" Padding="16,4" MinWidth="80"/>
+        </DockPanel>
+    </StackPanel>
+</Window>

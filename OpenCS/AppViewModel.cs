@@ -5979,6 +5979,7 @@ namespace OpenCS
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
          vm.CreateForceSetsRequested += r => SaveCsfeaStepForceSets(r);
          vm.CreateLoadCaseForceSetsRequested += SaveCsfeaLoadCaseForceSets;
+         vm.CreateBatchForceSetsRequested += r => CreateCsfeaBatchForceSets(r);
          if (stepIndex is int step) vm.SelectedStepIndex = Math.Clamp(step, 0, vm.MaxStepIndex);
          vm.ShownKey = caseKey;
          CurrentPage = new Views.FemCsfeaResultView(vm)
@@ -6070,6 +6071,69 @@ namespace OpenCS
          catch (Exception ex)
          {
             LogService.Error($"{analysis.Tag}: {ex.Message}");
+         }
+         finally
+         {
+            EndBusy(endMessage);
+         }
+      }
+
+      /// <summary>
+      /// «Наборы по вариантам…» пакета CSfea (окно результата и 3D-вид): диалог групп и охвата, построение в фоне по
+      /// одному варианту с прогрессом и отменой (отмена — без записи), затем запись наборов в проект.
+      /// </summary>
+      /// <param name="selection">Выбранное в 3D-виде; null — команда не из 3D-вида или выбора нет.</param>
+      public async void CreateCsfeaBatchForceSets(ViewModels.FemCsfeaResultVM result, Services.FemCsfeaForceSetScope? selection = null)
+      {
+         if (IsBusy || !result.IsBatch) return;
+         string tag = result.TaskTag;
+         if (!result.CanCreateBatchForceSets || result.BatchMesh() is not { } mesh)
+         {
+            LogService.Warning(string.Format(Loc.S("FemCsfeaBatchSetsNoFields"), tag));
+            return;
+         }
+         var vm = new ViewModels.FemCsfeaBatchForceSetsVM(result.Summary, tag, mesh.Shells.Count, mesh.Beams.Count, selection,
+            selection?.Elements.Count(mesh.Shells.Contains) ?? 0, selection?.Elements.Count(mesh.Beams.Contains) ?? 0);
+         var dialog = new Views.FemCsfeaBatchForceSetsDialog(vm)
+         {
+            Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow,
+         };
+         if (dialog.ShowDialog() != true) return;
+
+         var existing = ForceSets.ToList();
+         var groups = vm.CheckedGroups;
+         var types = vm.CheckedTypes;
+         var scope = vm.Scope;
+         var cts = BeginBusyWithCancellation(string.Format(Loc.S("FemCsfeaBatchSetsBusy"), tag), indeterminate: false);
+         var progress = new Progress<(int Done, int Count)>(p => ReportBusyProgress(p.Count == 0 ? 0 : (double)p.Done / p.Count,
+            string.Format(Loc.S("FemCsfeaBatchSetsProgress"), tag, Math.Min(p.Done + 1, p.Count), p.Count)));
+         string? endMessage = null;
+         try
+         {
+            var built = await Task.Run(() => Services.FemCsfeaBatchForceSets.Build(result.Schema, tag, result.Summary,
+               result.LoadFields, groups, types, scope, existing, progress, cts.Token));
+            foreach (var warning in built.Warnings) LogService.Warning(warning);
+            if (built.Sets.Count == 0)
+            {
+               LogService.Warning(string.Format(Loc.S("FemCsfeaBatchSetsNone"), tag));
+               return;
+            }
+            StatusMessage = string.Format(Loc.S("FemCsfeaBatchSetsSaving"), built.Sets.Count, tag);
+            await Task.Run(() => { foreach (var fs in built.Sets) db.SaveForceSet(fs); });
+            foreach (var fs in built.Sets)
+            {
+               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+               LogService.Info(string.Format(Loc.S("FemCsfeaForceSetCreated"), fs.Tag, fs.RowCount));
+            }
+            endMessage = string.Format(Loc.S("FemCsfeaBatchSetsDone"), built.Sets.Count, tag);
+         }
+         catch (OperationCanceledException)
+         {
+            LogService.Warning(string.Format(Loc.S("FemCsfeaBatchSetsCancelled"), tag));
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"{tag}: {ex.Message}");
          }
          finally
          {

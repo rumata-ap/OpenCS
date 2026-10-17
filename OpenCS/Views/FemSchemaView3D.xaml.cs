@@ -586,6 +586,7 @@ public partial class FemSchemaView3D : UserControl
         {
             menu.Items.Add(new Separator());
             menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, layer, app));
+            if (csfea.IsBatch) menu.Items.Add(CsfeaBatchForceSetsItem(csfea, layer, app, selected: true));
         }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
@@ -1933,8 +1934,30 @@ public partial class FemSchemaView3D : UserControl
             menu.Items.Add(sets);
             if (result.Selection.Elements.Count > 0)
                 menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, result, app));
+            if (csfea.IsBatch)
+                menu.Items.Add(CsfeaBatchForceSetsItem(csfea, result, app, selected: false));
         }
         menu.IsOpen = true;
+    }
+
+    /// <summary>
+    /// «Наборы по вариантам…» пакета CSfea: диалог групп и охвата; выбор результата передаётся (охват «Выбранное»
+    /// предустановлен), <paramref name="selected"/> — подпись с числом выбранных КЭ (контекстное меню выбора).
+    /// </summary>
+    static MenuItem CsfeaBatchForceSetsItem(FemCsfeaResultVM csfea, FemResultLayer layer, AppViewModel? app, bool selected)
+    {
+        var selection = layer.Selection;
+        var item = CommandIcons.Apply(new MenuItem
+        {
+            Header = selected
+                ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchForceSetsSelected"), selection.Elements.Count)
+                : Loc.S("FemCsfeaBatchForceSets"),
+            ToolTip = Loc.S("FemCsfeaBatchForceSetsTip"),
+            IsEnabled = app != null && csfea.CanCreateBatchForceSets,
+        }, "FemCsfeaBatchForceSets");
+        item.Click += (_, _) => app?.CreateCsfeaBatchForceSets(csfea,
+            Services.FemCsfeaForceSetScope.FromSelection(selection.Elements, selection.Members));
+        return item;
     }
 
     /// <summary>«Наборы усилий по выбранным (N КЭ)»: наборы показанного шага CSfea только по выбранным КЭ результата.</summary>

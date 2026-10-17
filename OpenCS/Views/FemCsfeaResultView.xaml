@@ -238,6 +238,9 @@
                 <Button Content="{DynamicResource FemCsfeaLoadCaseForceSets}" Command="{Binding CreateLoadCaseForceSetsCommand}"
                         ToolTip="{DynamicResource FemCsfeaLoadCaseForceSetsTip}" Padding="8,2" Margin="6,0,0,0"
                         Visibility="{Binding CanCreateLoadCaseForceSets, Converter={StaticResource BoolToVis}}"/>
+                <Button Content="{DynamicResource FemCsfeaBatchForceSets}" Command="{Binding CreateBatchForceSetsCommand}"
+                        ToolTip="{DynamicResource FemCsfeaBatchForceSetsTip}" Padding="8,2" Margin="6,0,0,0"
+                        Visibility="{Binding IsBatch, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding HasFieldsNote, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="{Binding FieldsNote}" Foreground="DarkOrange" VerticalAlignment="Center" TextWrapping="Wrap"/>

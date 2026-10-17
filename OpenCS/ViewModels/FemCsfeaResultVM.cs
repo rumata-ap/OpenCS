@@ -297,6 +297,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         CreateForceSetsCommand = new RelayCommand(_ => CreateForceSetsRequested?.Invoke(this), _ => CanCreateForceSets);
         CreateLoadCaseForceSetsCommand = new RelayCommand(_ => CreateLoadCaseForceSetsRequested?.Invoke(this),
             _ => CanCreateLoadCaseForceSets);
+        CreateBatchForceSetsCommand = new RelayCommand(_ => CreateBatchForceSetsRequested?.Invoke(this), _ => CanCreateBatchForceSets);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
         PrevCaseCommand = new RelayCommand(_ => StepCase(-1), _ => NeighbourCase(-1) != null);
         NextCaseCommand = new RelayCommand(_ => StepCase(+1), _ => NeighbourCase(+1) != null);
@@ -329,6 +330,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public string Status { get; }
     public int ResultId => _result.Id;
     public string Title => string.Format(Loc.S("FemCsfeaResultTitle"), _result.TaskTag, Schema.Tag);
+
+    /// <summary>Имя постановки результата (в именах наборов усилий).</summary>
+    public string TaskTag => _result.TaskTag;
 
     public IReadOnlyList<FemCsfeaStepRow> StepRows { get; }
     public IReadOnlyList<string> ReportLines { get; }
@@ -1605,6 +1609,25 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>Наборы по загружениям — только у линейного расчёта с известной постановкой.</summary>
     public bool CanCreateLoadCaseForceSets => IsLinear && Analysis != null && _result.Id > 0;
+
+    public System.Windows.Input.ICommand CreateBatchForceSetsCommand { get; }
+
+    /// <summary>Запрос «Наборы по вариантам…» пакета (обрабатывает AppViewModel, охват — вся схема).</summary>
+    public event Action<FemCsfeaResultVM>? CreateBatchForceSetsRequested;
+
+    /// <summary>Наборы по вариантам — у пакета с записанными полями хотя бы одного дошедшего варианта.</summary>
+    public bool CanCreateBatchForceSets => _result.Id > 0 && Summary.Batch?.Any(FemCsfeaBatchForceSets.IsIncluded) == true;
+
+    /// <summary>
+    /// Сетка результата пакета для оценки строк: теги пластин и стержней по полям показанного варианта или (ничего не
+    /// показано) первого дошедшего; null — полей нет.
+    /// </summary>
+    public (IReadOnlySet<int> Shells, IReadOnlySet<int> Beams)? BatchMesh()
+    {
+        var f = _shownCombination is { Batch: not null } && Fields != null ? Fields
+            : Summary.Batch?.FirstOrDefault(FemCsfeaBatchForceSets.IsIncluded) is { RecordN: int n } ? LoadFields(n) : null;
+        return f == null ? null : (f.ShellIds.ToHashSet(), f.BeamIds.ToHashSet());
+    }
 
     /// <summary>
     /// Наборы усилий шага под ползунком (пластины и стержни); пусто — поля шага не записаны. С охватом — только строки

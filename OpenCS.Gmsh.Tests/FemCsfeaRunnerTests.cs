@@ -383,6 +383,13 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var second = Fields(ctx.Db, result.Id, 2);
             Assert.Equal(second.ShellForces[3] / 1e3, set.ShellItems[3].Mx, 12);
             Assert.NotEqual(set.ShellItems[0].Mx, set.ShellItems[3].Mx);
+
+            // Окно результата: команда доступна, сетка для оценки строк — по полям показанного варианта.
+            var vm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, analysis);
+            Assert.True(vm.CanCreateBatchForceSets);
+            var mesh = vm.BatchMesh()!.Value;
+            Assert.Equal(first.ShellIds.Length, mesh.Shells.Count);
+            Assert.Equal(first.BeamIds.Length, mesh.Beams.Count);
         });
     }
 
@@ -438,6 +445,7 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
             Assert.Equal("ok", result.Status);
             Assert.All(summary.Batch!, b => Assert.Null(b.RecordN));
+            Assert.False(new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, analysis).CanCreateBatchForceSets);
             Assert.Equal(["C", FemCsfeaBatchGroup.LoadCases], summary.BatchGroups!.Select(g => g.Key));
             Assert.Equal([2, 1], summary.BatchGroups.Select(g => g.Count));
             var (env, reference) = FemCsfeaEnvelopeCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, summary.BatchGroups[0].RecordN)!);
