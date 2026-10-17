@@ -103,6 +103,12 @@ public sealed class FemAnalysisParams
     /// <summary>Параметры секущего расчёта CSfea (Kind = "csfea_secant"); null — по умолчанию.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public FemCsfeaParams? Csfea { get; set; }
+    /// <summary>
+    /// Пакетный секущий расчёт CSfea: каждый элемент — отдельный расчёт одной стадией с нуля; null — обычный
+    /// стадийный расчёт по <see cref="Stages"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FemCsfeaBatch? Batch { get; set; }
 
     /// <summary>Возвращает стадии постановки; если Stages пуст (легаси-постановка), синтезирует
     /// одну стадию из единственного LoadExpressionJson постановки (историческое поведение до
@@ -115,6 +121,26 @@ public sealed class FemAnalysisParams
         }];
 
     public string ToJson() => JsonSerializer.Serialize(this);
+
+    /// <summary>
+    /// Пакет в обеих постановках и отличается только списком вариантов — результат не сбрасывается: посчитанные
+    /// варианты остаются, новые досчитываются, убранные удаляются при следующем запуске.
+    /// </summary>
+    public static bool BatchItemsOnlyChanged(string? oldJson, string? newJson)
+    {
+        var a = Parse(oldJson);
+        var b = Parse(newJson);
+        if (a.Batch is not { } batchA || b.Batch is not { } batchB || !batchA.SameSettings(batchB)) return false;
+        var itemsA = batchA.Items;
+        var itemsB = batchB.Items;
+        batchA.Items = [];
+        batchB.Items = [];
+        bool same = a.ToJson() == b.ToJson();
+        batchA.Items = itemsA;
+        batchB.Items = itemsB;
+        return same;
+    }
+
     public static FemAnalysisParams Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return new();
@@ -241,6 +267,58 @@ public sealed class FemCsfeaParams
         }
         return result.ToList();
     }
+}
+
+/// <summary>Что хранит пакетный расчёт CSfea (<see cref="FemCsfeaBatch.Recording"/>).</summary>
+public static class FemCsfeaBatchRecording
+{
+    /// <summary>Поля конечного состояния каждого варианта.</summary>
+    public const string Fields = "Fields";
+    /// <summary>Только огибающие групп и сводка — копятся во время расчёта, полей вариантов нет.</summary>
+    public const string Envelopes = "Envelopes";
+}
+
+/// <summary>Вид элемента пакета.</summary>
+public static class FemCsfeaBatchItemKind
+{
+    public const string Combination = "combination";
+    public const string LoadCase = "load_case";
+}
+
+/// <summary>Элемент пакета: комбинация или загружение схемы.</summary>
+public sealed class FemCsfeaBatchItem
+{
+    public string Tag { get; set; } = "";
+    public string LoadExpressionJson { get; set; } = "{}";
+    /// <summary><see cref="FemCsfeaBatchItemKind"/>.</summary>
+    public string Kind { get; set; } = FemCsfeaBatchItemKind.Combination;
+    /// <summary>Тип для групп огибающих и бейджа: C/CL/N/NL/A у комбинации, G/L/Q/A у загружения.</summary>
+    public string Type { get; set; } = "";
+}
+
+/// <summary>
+/// Пакетный секущий расчёт CSfea (спека 2026-10-17): по каждому элементу — расчёт одной стадией «0 → предел λ» с общим
+/// шагом; подготовка модели — одна на пакет.
+/// </summary>
+public sealed class FemCsfeaBatch
+{
+    public List<FemCsfeaBatchItem> Items { get; set; } = [];
+    public double LoadFactorStep { get; set; } = 0.1;
+    public double MaxLoadFactor { get; set; } = 1.0;
+    /// <summary>Остановить пакет на первом варианте, не дошедшем до предела λ.</summary>
+    public bool StopAtLimit { get; set; }
+    /// <summary><see cref="FemCsfeaBatchRecording"/>.</summary>
+    public string Recording { get; set; } = FemCsfeaBatchRecording.Fields;
+
+    /// <summary>Стадии для адаптера: по стадии на элемент с общими шагом и пределом λ.</summary>
+    public IReadOnlyList<FemAnalysisStage> ToStages() => Items.Select(i => new FemAnalysisStage
+    {
+        Tag = i.Tag, LoadExpressionJson = i.LoadExpressionJson, LoadFactorStep = LoadFactorStep, MaxLoadFactor = MaxLoadFactor,
+    }).ToList();
+
+    /// <summary>Те же параметры, кроме списка элементов (правка только списка не сбрасывает результат).</summary>
+    public bool SameSettings(FemCsfeaBatch? other) => other != null && LoadFactorStep == other.LoadFactorStep
+        && MaxLoadFactor == other.MaxLoadFactor && StopAtLimit == other.StopAtLimit && Recording == other.Recording;
 }
 
 /// <summary>Имена строк постановки для показа результата.</summary>

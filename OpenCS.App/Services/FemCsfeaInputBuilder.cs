@@ -49,7 +49,7 @@ public sealed record FemCsfeaSetup
         bool elastic = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity;
         return new FemCsfeaSetup
         {
-            Calc = p.CalcType ?? CalcType.N, Stages = p.ResolveStages(analysis),
+            Calc = p.CalcType ?? CalcType.N, Stages = p.Batch?.ToStages() ?? p.ResolveStages(analysis),
             PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
             GrossBars = elastic, ReducedStiffness = elastic && c.ImportedStiffnessFactors,
         };

@@ -19,13 +19,32 @@ public partial class FemLoadSourcePickerDialog : Window
     /// <summary>Выбранный источник (валиден после DialogResult == true).</summary>
     public FemLoadSource? Result { get; private set; }
 
+    /// <summary>Отмеченные источники в режиме отметок (валидны после DialogResult == true).</summary>
+    public IReadOnlyList<FemLoadSource> Results { get; private set; } = [];
+
     /// <param name="stageTag">Имя стадии для заголовка; null — нагрузка одиночного расчёта.</param>
     /// <param name="title">Заголовок окна вместо заголовка по стадии.</param>
     public FemLoadSourcePickerDialog(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current, string? stageTag, string? title = null)
+        : this(sources, current, stageTag, title, multiSelect: false, null)
+    {
+    }
+
+    /// <summary>
+    /// Окно отметок пакетного расчёта: флажки на обеих вкладках, пробел и двойной щелчок — отметить строку,
+    /// «Принять (N)» — все отмеченные.
+    /// </summary>
+    public static FemLoadSourcePickerDialog ForBatch(IReadOnlyList<FemLoadSource> sources, IEnumerable<FemLoadSource> checkedSources) =>
+        new(sources, null, null, Loc.S("FemLoadSourcePickerTitleBatch"), multiSelect: true, checkedSources);
+
+    FemLoadSourcePickerDialog(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current, string? stageTag, string? title,
+        bool multiSelect, IEnumerable<FemLoadSource>? checkedSources)
     {
         InitializeComponent();
         Title = title ?? (stageTag is null ? Loc.S("FemLoadSourcePickerTitleSingle") : string.Format(Loc.S("FemLoadSourcePickerTitle"), stageTag));
-        _vm = new FemLoadSourcePickerVM(sources, current);
+        _vm = new FemLoadSourcePickerVM(sources, current, multiSelect, checkedSources);
+        var check = multiSelect ? Visibility.Visible : Visibility.Collapsed;
+        CombinationsCheckColumn.Visibility = check;
+        CasesCheckColumn.Visibility = check;
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;
         UpdateEmptyHints();
@@ -100,9 +119,10 @@ public partial class FemLoadSourcePickerDialog : Window
         // Только по строке, не по заголовку или полосе прокрутки.
         for (var d = e.OriginalSource as DependencyObject; d != null && d != sender; d = VisualTreeHelper.GetParent(d))
         {
-            if (d is DataGridRow)
+            if (d is DataGridRow { Item: FemLoadSource source })
             {
-                Accept();
+                if (_vm.IsMultiSelect) _vm.Toggle(source);
+                else Accept();
                 return;
             }
             if (d is System.Windows.Controls.Primitives.DataGridColumnHeader or System.Windows.Controls.Primitives.ScrollBar) return;
@@ -112,6 +132,13 @@ public partial class FemLoadSourcePickerDialog : Window
     /// <summary>Enter в списке — выбрать (DataGrid иначе переходит на следующую строку и кнопка по умолчанию не срабатывает).</summary>
     void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Пробел в режиме отметок — отметить текущую строку.
+        if (e.Key == Key.Space && _vm.IsMultiSelect)
+        {
+            if (((DataGrid)sender).CurrentItem is FemLoadSource current) _vm.Toggle(current);
+            e.Handled = true;
+            return;
+        }
         if (e.Key != Key.Enter) return;
         e.Handled = true;
         Accept();
@@ -119,8 +146,26 @@ public partial class FemLoadSourcePickerDialog : Window
 
     void Select_Click(object sender, RoutedEventArgs e) => Accept();
 
+    /// <summary>Щелчок по флажку строки — через VM (флажок привязан только на чтение).</summary>
+    void Check_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is FemLoadSource source) _vm.Toggle(source);
+    }
+
+    void CheckVisible_Click(object sender, RoutedEventArgs e) => _vm.CheckVisible();
+
+    void UncheckVisible_Click(object sender, RoutedEventArgs e) => _vm.UncheckVisible();
+
     void Accept()
     {
+        if (_vm.IsMultiSelect)
+        {
+            if (!_vm.CanAccept) return;
+            Results = _vm.CheckedSources;
+            DialogResult = true;
+            return;
+        }
         if (!_vm.CanAccept || _vm.Selected is not { } selected) return;
         Result = selected;
         DialogResult = true;

@@ -65,6 +65,73 @@ public sealed class FemLoadSourcePickerDialogTests
         Assert.Null(error);
     }
 
+    [Fact]
+    public void BatchMode_ParsesXaml_ChecksAndRestoresBatch()
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var cases = new List<FemLoadCase>
+                {
+                    new() { Id = 1, Tag = "Вес", Sp20Type = "permanent" },
+                    new() { Id = 2, Tag = "Снег", Sp20Type = "short_term" },
+                };
+                var definition = new FemLoadDefinition { Id = 7, Tag = "Огибающая C 001", CombinationType = "C", SourceKind = "envelope" };
+                definition.SetExpression(new FemLoadExpression
+                {
+                    Mode = FemLoadExpressionMode.Sum,
+                    Terms = [new FemLoadTerm { LoadCaseId = 1, Coefficient = 1.35 }, new FemLoadTerm { LoadCaseId = 2, Coefficient = 1.05 }],
+                });
+                var sources = FemLoadSources.Build([definition], cases, Sp20GammaDefaults.Standard);
+
+                var picker = FemLoadSourcePickerDialog.ForBatch(sources, [sources[0], sources[2]]);
+                var vm = (FemLoadSourcePickerVM)picker.DataContext;
+                ShowOffscreen(picker);
+                Assert.Equal(Visibility.Visible, picker.CombinationsCheckColumn.Visibility);
+                Assert.Equal(2, vm.CheckedCount);
+                picker.Close();
+
+                var single = new FemLoadSourcePickerDialog(sources, null, "Стадия 1");
+                Assert.Equal(Visibility.Collapsed, single.CombinationsCheckColumn.Visibility);
+                single.Close();
+
+                var schema = new FemSchema { Id = 1, Tag = "Схема" };
+                foreach (var lc in cases) schema.LoadCases.Add(lc);
+                schema.LoadDefinitions.Add(definition);
+                var batch = new OpenCS.Tasks.FemCsfeaBatch
+                {
+                    Items =
+                    [
+                        new() { Tag = definition.Tag, LoadExpressionJson = definition.ExpressionJson, Type = "C" },
+                        new() { Tag = "Снег", LoadExpressionJson = sources[2].ExpressionJson, Kind = OpenCS.Tasks.FemCsfeaBatchItemKind.LoadCase, Type = "Q" },
+                    ],
+                    LoadFactorStep = 0.25,
+                };
+                var analysis = new FemAnalysis
+                {
+                    SchemaId = 1, Tag = "Пакет", Kind = OpenCS.Services.FemCsfeaRunner.AnalysisKind,
+                    LoadExpressionJson = definition.ExpressionJson,
+                    ParamsJson = new OpenCS.Tasks.FemAnalysisParams { Csfea = new(), Batch = batch }.ToJson(),
+                };
+                var dialog = new FemAnalysisDialog(schema, [], analysis, Sp20GammaDefaults.Standard);
+                ShowOffscreen(dialog);
+                Assert.True(dialog.BatchRadio.IsChecked);
+                Assert.Equal(Visibility.Visible, dialog.BatchPanel.Visibility);
+                Assert.Equal(Visibility.Collapsed, dialog.StagedPanel.Visibility);
+                Assert.Equal(2, dialog.BatchGrid.Items.Count);
+                dialog.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(error);
+    }
+
     /// <summary>Показ за пределами экрана — чтобы шаблоны ячеек создались и привязки отработали.</summary>
     static void ShowOffscreen(Window window)
     {

@@ -27,9 +27,27 @@ public sealed record FemLoadSourceTerm(string Coefficient, string Code, string N
 /// Источник нагрузки стадии постановки: комбинация, загружение или выражение прежней постановки. Несёт всё, что
 /// показывают ячейка стадии и окно выбора: тип, имя, формулу «1,35·ЗГ1 + 1,05·ЗГ2», расшифровку, γf и долю загружения.
 /// </summary>
-public sealed class FemLoadSource
+public sealed class FemLoadSource : System.ComponentModel.INotifyPropertyChanged
 {
     public FemLoadSourceKind Kind { get; init; }
+
+    bool _isChecked;
+    /// <summary>
+    /// Отметка в окне выбора пакета (<see cref="FemLoadSourcePickerVM.IsMultiSelect"/>); ставит и сбрасывает только окно
+    /// при открытии и по действиям пользователя.
+    /// </summary>
+    public bool IsChecked
+    {
+        get => _isChecked;
+        internal set
+        {
+            if (_isChecked == value) return;
+            _isChecked = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsChecked)));
+        }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     public FemLoadDefinition? Definition { get; init; }
     public FemLoadCase? LoadCase { get; init; }
 
@@ -202,6 +220,21 @@ public static class FemLoadSources
         return Composite(FemLoadSourceKind.Unresolved, null, 0, Loc.S("FemLoadSourceUnresolved"), "", "", expression, numbers, byId);
     }
 
+    /// <summary>
+    /// Состав пакета: «Отмечено 136: C 110 · CL 17 · ЗГ 8» — комбинации по типам C → A, загружения, не найденные в схеме.
+    /// </summary>
+    public static string BatchSummary(IReadOnlyCollection<FemLoadSource> items)
+    {
+        var parts = FemCombinationTypes.All
+            .Select(t => (t, n: items.Count(s => s.Kind == FemLoadSourceKind.Combination && s.TypeBadge == t)))
+            .Where(p => p.n > 0).Select(p => $"{p.t} {p.n}").ToList();
+        int cases = items.Count(s => s.Kind == FemLoadSourceKind.LoadCase);
+        if (cases > 0) parts.Add($"{Loc.S("FemCombinationsCaseCode")} {cases}");
+        int unresolved = items.Count(s => s.IsUnresolved);
+        if (unresolved > 0) parts.Add(string.Format(Loc.S("FemCsfeaBatchUnresolvedCount"), unresolved));
+        return string.Format(Loc.S("FemCsfeaBatchSummary"), items.Count, string.Join(" · ", parts));
+    }
+
     /// <summary>Состав выражения «id:коэффициент;…» (6 знаков) — без ролей и режимов слагаемых.</summary>
     static string CompositionKey(FemLoadExpression e) => e.Terms.Count > 0
         ? string.Join(";", e.Terms.Select(t => $"{t.LoadCaseId}:{t.Coefficient.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture)}"))
@@ -256,8 +289,9 @@ public sealed class FemLoadSourceTypeFilter(FemLoadSourcePickerVM owner, string 
 
 /// <summary>
 /// Окно выбора нагрузки стадии нелинейного расчёта: вкладки «Комбинации» (переключатели типов, поиск по имени,
-/// формуле, имени и коду загружения) и «Загружения». Выбирается одна строка активной вкладки. Отключённые типы и
-/// последняя вкладка запоминаются на время сеанса программы.
+/// формуле, имени и коду загружения) и «Загружения». Выбирается одна строка активной вкладки; в режиме отметок
+/// (пакетный расчёт) — отмечаются строки обеих вкладок. Отключённые типы и последняя вкладка запоминаются на время
+/// сеанса программы.
 /// </summary>
 public sealed class FemLoadSourcePickerVM : ViewModelBase
 {
@@ -280,10 +314,18 @@ public sealed class FemLoadSourcePickerVM : ViewModelBase
 
     /// <param name="sources">Источники схемы (<see cref="FemLoadSources.Build"/>).</param>
     /// <param name="current">Текущий источник стадии: окно открывается на его вкладке с выделенной строкой.</param>
-    public FemLoadSourcePickerVM(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current)
+    /// <param name="multiSelect">Режим отметок пакетного расчёта.</param>
+    /// <param name="checkedSources">Отмеченные при открытии (режим отметок); прочие отметки источников сбрасываются.</param>
+    public FemLoadSourcePickerVM(IReadOnlyList<FemLoadSource> sources, FemLoadSource? current, bool multiSelect = false,
+        IEnumerable<FemLoadSource>? checkedSources = null)
     {
         _combinations = sources.Where(s => s.Kind == FemLoadSourceKind.Combination).ToList();
         _cases = sources.Where(s => s.Kind == FemLoadSourceKind.LoadCase).ToList();
+        IsMultiSelect = multiSelect;
+        var initial = checkedSources?.ToHashSet() ?? [];
+        foreach (var s in _combinations.Concat(_cases)) s.IsChecked = multiSelect && s.IsEnabled && initial.Contains(s);
+        if (multiSelect && current == null && _combinations.Concat(_cases).FirstOrDefault(s => s.IsChecked) is { } first)
+            current = first;
         TypeFilters = FemCombinationTypes.All
             .Select(t => new FemLoadSourceTypeFilter(this, t, _combinations.Count(c => c.TypeBadge == t))).ToList();
         foreach (var f in TypeFilters) f.Init(f.IsAvailable && !s_typesOff.Contains(f.Type));
@@ -431,7 +473,63 @@ public sealed class FemLoadSourcePickerVM : ViewModelBase
         ? _selectedCombination is { } c && VisibleCombinations.Contains(c) ? c : null
         : _selectedCase is { } lc && VisibleCases.Contains(lc) ? lc : null;
 
-    public bool CanAccept => Selected is { IsEnabled: true };
+    public bool CanAccept => IsMultiSelect ? CheckedCount > 0 : Selected is { IsEnabled: true };
+
+    // ── Отметки (пакетный расчёт) ─────────────────────────────────────
+
+    /// <summary>Режим отметок: флажки в строках обеих вкладок, принимаются отмеченные.</summary>
+    public bool IsMultiSelect { get; }
+
+    public int CheckedCombinationCount => _combinations.Count(s => s.IsChecked);
+    public int CheckedCaseCount => _cases.Count(s => s.IsChecked);
+    public int CheckedCount => CheckedCombinationCount + CheckedCaseCount;
+
+    /// <summary>Отмеченные — комбинации, затем загружения в порядке схемы (скрытые фильтром тоже).</summary>
+    public IReadOnlyList<FemLoadSource> CheckedSources => _combinations.Concat(_cases).Where(s => s.IsChecked).ToList();
+
+    /// <summary>«Отмечено 128 + 8» (комбинации + загружения) или «Отмечено 128».</summary>
+    public string CheckedText => CheckedCaseCount > 0 && CheckedCombinationCount > 0
+        ? string.Format(Loc.S("FemLoadSourcePickerCheckedBoth"), CheckedCombinationCount, CheckedCaseCount)
+        : string.Format(Loc.S("FemLoadSourcePickerChecked"), CheckedCount);
+
+    /// <summary>Подпись кнопки принятия: «Выбрать» или «Принять (136)».</summary>
+    public string AcceptText => IsMultiSelect
+        ? string.Format(Loc.S("FemLoadSourcePickerAcceptChecked"), CheckedCount)
+        : Loc.S("FemLoadSourcePickerSelect");
+
+    /// <summary>Отметить или снять строку; недоступную — нельзя.</summary>
+    public void SetChecked(FemLoadSource source, bool value)
+    {
+        if (!IsMultiSelect || (value && !source.IsEnabled) || source.IsChecked == value) return;
+        source.IsChecked = value;
+        OnCheckedChanged();
+    }
+
+    public void Toggle(FemLoadSource source) => SetChecked(source, !source.IsChecked);
+
+    /// <summary>Отметить видимые (фильтр и поиск) доступные строки активной вкладки.</summary>
+    public void CheckVisible() => SetVisible(true);
+
+    /// <summary>Снять отметки с видимых строк активной вкладки; скрытые фильтром остаются.</summary>
+    public void UncheckVisible() => SetVisible(false);
+
+    void SetVisible(bool value)
+    {
+        if (!IsMultiSelect) return;
+        var visible = _selectedTab == CombinationsTab ? VisibleCombinations : VisibleCases;
+        foreach (var s in visible.Where(s => !value || s.IsEnabled)) s.IsChecked = value;
+        OnCheckedChanged();
+    }
+
+    void OnCheckedChanged()
+    {
+        OnPropertyChanged(nameof(CheckedCount));
+        OnPropertyChanged(nameof(CheckedCombinationCount));
+        OnPropertyChanged(nameof(CheckedCaseCount));
+        OnPropertyChanged(nameof(CheckedText));
+        OnPropertyChanged(nameof(AcceptText));
+        OnPropertyChanged(nameof(CanAccept));
+    }
 
     /// <summary>«Состав «Огибающая C 018»:» над расшифровкой; без выбора — подсказка.</summary>
     public string SelectedCaption => Selected is { } s

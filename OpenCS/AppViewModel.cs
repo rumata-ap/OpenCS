@@ -5877,9 +5877,12 @@ namespace OpenCS
          };
          if (dlg.ShowDialog() != true) return;
          // Переименование результат не сбрасывает — только смена вида, нагрузки или параметров.
-         bool inputChanged = analysis.Kind != dlg.Result.Kind ||
+         // У пакета правка только списка вариантов результат не сбрасывает (досчёт при запуске).
+         bool batchItemsOnly = analysis.Kind == dlg.Result.Kind &&
+            Tasks.FemAnalysisParams.BatchItemsOnlyChanged(analysis.ParamsJson, dlg.Result.ParamsJson);
+         bool inputChanged = !batchItemsOnly && (analysis.Kind != dlg.Result.Kind ||
             analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
-            analysis.ParamsJson != dlg.Result.ParamsJson;
+            analysis.ParamsJson != dlg.Result.ParamsJson);
          bool changed = inputChanged || analysis.Tag != dlg.Result.Tag;
          analysis.Tag = dlg.Result.Tag;
          analysis.Kind = dlg.Result.Kind;

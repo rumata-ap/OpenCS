@@ -69,7 +69,7 @@
     <DockPanel Margin="10">
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="False">
             <Button DockPanel.Dock="Right" Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource FemLoadSourcePickerSelect}" IsDefault="True"
+            <Button DockPanel.Dock="Right" Content="{Binding AcceptText}" IsDefault="True"
                     IsEnabled="{Binding CanAccept}" Click="Select_Click" Padding="16,4" MinWidth="80"/>
         </DockPanel>
 
@@ -132,12 +132,27 @@
                                  Text="{Binding CombinationSearch, UpdateSourceTrigger=PropertyChanged, Delay=150}"
                                  ToolTip="{DynamicResource FemLoadSourcePickerSearchTip}" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
                     </DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding IsMultiSelect, Converter={StaticResource BoolToVis}}">
+                        <Button Content="{DynamicResource FemLoadSourcePickerCheckVisible}" Click="CheckVisible_Click" Padding="8,1"/>
+                        <Button Content="{DynamicResource FemLoadSourcePickerUncheckVisible}" Click="UncheckVisible_Click" Padding="8,1" Margin="4,0,0,0"/>
+                        <TextBlock Text="{Binding CheckedText}" VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold"/>
+                        <Border/>
+                    </DockPanel>
                     <Grid>
                         <DataGrid x:Name="CombinationsGrid" Style="{StaticResource PickerGrid}"
                                   ItemsSource="{Binding VisibleCombinations}" SelectedItem="{Binding SelectedCombination}"
                                   MouseDoubleClick="Grid_MouseDoubleClick" PreviewKeyDown="Grid_PreviewKeyDown"
                                   Visibility="{Binding HasCombinations, Converter={StaticResource BoolToVis}}">
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn x:Name="CombinationsCheckColumn" Width="28" CanUserResize="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" IsEnabled="{Binding IsEnabled}" Focusable="False"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      PreviewMouseLeftButtonDown="Check_PreviewMouseLeftButtonDown"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="{DynamicResource FemLoadSourcePickerNumberColumn}" Binding="{Binding Number}" Width="44"
                                                     ElementStyle="{StaticResource GrayCell}"/>
                                 <DataGridTemplateColumn Header="{DynamicResource FemLoadSourcePickerTypeColumn}" Width="48" SortMemberPath="TypeBadge"
@@ -174,11 +189,26 @@
                         <TextBox x:Name="CaseSearchBox" Height="22" VerticalContentAlignment="Center"
                                  Text="{Binding CaseSearch, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
                     </DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding IsMultiSelect, Converter={StaticResource BoolToVis}}">
+                        <Button Content="{DynamicResource FemLoadSourcePickerCheckVisible}" Click="CheckVisible_Click" Padding="8,1"/>
+                        <Button Content="{DynamicResource FemLoadSourcePickerUncheckVisible}" Click="UncheckVisible_Click" Padding="8,1" Margin="4,0,0,0"/>
+                        <TextBlock Text="{Binding CheckedText}" VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold"/>
+                        <Border/>
+                    </DockPanel>
                     <Grid>
                         <DataGrid x:Name="CasesGrid" Style="{StaticResource PickerGrid}"
                                   ItemsSource="{Binding VisibleCases}" SelectedItem="{Binding SelectedCase}"
                                   MouseDoubleClick="Grid_MouseDoubleClick" PreviewKeyDown="Grid_PreviewKeyDown">
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn x:Name="CasesCheckColumn" Width="28" CanUserResize="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" IsEnabled="{Binding IsEnabled}" Focusable="False"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      PreviewMouseLeftButtonDown="Check_PreviewMouseLeftButtonDown"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="{DynamicResource FemLoadSourcePickerCodeColumn}" Binding="{Binding Formula}" Width="52"
                                                     SortMemberPath="Number" ElementStyle="{StaticResource GrayCell}"/>
                                 <DataGridTemplateColumn Header="{DynamicResource FemLoadSourcePickerTypeColumn}" Width="56" SortMemberPath="TypeBadge">

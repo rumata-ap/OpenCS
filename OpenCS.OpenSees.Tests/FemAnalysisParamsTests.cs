@@ -26,6 +26,58 @@ public class FemAnalysisParamsTests
     }
 
     [Fact]
+    public void Batch_RoundTrips_AndIsOmittedWhenNull()
+    {
+        Assert.DoesNotContain("Batch", new FemAnalysisParams().ToJson());
+        var pars = new FemAnalysisParams
+        {
+            Batch = new FemCsfeaBatch
+            {
+                Items =
+                [
+                    new FemCsfeaBatchItem { Tag = "C 001", LoadExpressionJson = "{\"Mode\":0,\"LoadCaseIds\":[1]}", Type = "C" },
+                    new FemCsfeaBatchItem { Tag = "Снег", Kind = FemCsfeaBatchItemKind.LoadCase, Type = "Q" },
+                ],
+                LoadFactorStep = 0.2, MaxLoadFactor = 1.5, StopAtLimit = true, Recording = FemCsfeaBatchRecording.Envelopes,
+            }
+        };
+
+        var batch = FemAnalysisParams.Parse(pars.ToJson()).Batch!;
+
+        Assert.Equal(["C 001", "Снег"], batch.Items.Select(i => i.Tag));
+        Assert.Equal(FemCsfeaBatchItemKind.LoadCase, batch.Items[1].Kind);
+        Assert.Equal("Q", batch.Items[1].Type);
+        Assert.True(batch.StopAtLimit);
+        Assert.Equal(FemCsfeaBatchRecording.Envelopes, batch.Recording);
+        Assert.True(batch.SameSettings(pars.Batch));
+        Assert.False(batch.SameSettings(new FemCsfeaBatch()));
+        var stages = batch.ToStages();
+        Assert.Equal(2, stages.Count);
+        Assert.Equal(batch.Items[0].LoadExpressionJson, stages[0].LoadExpressionJson);
+        Assert.All(stages, s => { Assert.Equal(0.2, s.LoadFactorStep); Assert.Equal(1.5, s.MaxLoadFactor); });
+    }
+
+    [Fact]
+    public void BatchItemsOnlyChanged_ListYes_SettingsOrOtherParamsNo()
+    {
+        static string Json(Action<FemAnalysisParams> edit)
+        {
+            var p = new FemAnalysisParams
+            {
+                Csfea = new FemCsfeaParams(),
+                Batch = new FemCsfeaBatch { Items = [new FemCsfeaBatchItem { Tag = "A" }] },
+            };
+            edit(p);
+            return p.ToJson();
+        }
+        string baseline = Json(_ => { });
+        Assert.True(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch!.Items.Add(new FemCsfeaBatchItem { Tag = "B" }))));
+        Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch!.LoadFactorStep = 0.05)));
+        Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Csfea!.MaxIterations = 7)));
+        Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch = null)));
+    }
+
+    [Fact]
     public void ResolveStages_EmptyStages_SynthesizesSingleStageFromAnalysis()
     {
         var pars = new FemAnalysisParams();   // легаси-постановка: Stages пуст

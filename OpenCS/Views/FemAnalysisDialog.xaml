@@ -154,7 +154,15 @@
 
         <GroupBox x:Name="StagesGroup" Header="{DynamicResource FemAnalysisStagesLabel}" Visibility="Collapsed" Margin="0,4">
             <StackPanel Margin="4">
+                <!-- Секущий CSfea: нагружение по стадиям или пакет вариантов (каждый — отдельный расчёт с нуля) -->
+                <StackPanel x:Name="LoadingModePanel" Orientation="Horizontal" Margin="0,0,0,6">
+                    <RadioButton x:Name="StagedRadio" GroupName="LoadingMode" Content="{DynamicResource FemCsfeaLoadingStaged}" IsChecked="True"
+                                 Checked="LoadingMode_Changed" Margin="0,0,16,0"/>
+                    <RadioButton x:Name="BatchRadio" GroupName="LoadingMode" Content="{DynamicResource FemCsfeaLoadingBatch}"
+                                 Checked="LoadingMode_Changed" ToolTip="{DynamicResource FemCsfeaLoadingBatchTip}"/>
+                </StackPanel>
                 <TextBlock x:Name="StagesHintText" Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
+                <StackPanel x:Name="StagedPanel">
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6" PreviewKeyDown="StagesGrid_PreviewKeyDown">
                     <DataGrid.Columns>
@@ -220,6 +228,69 @@
                     <Button Content="{DynamicResource FemAnalysisStageRemove}" Click="RemoveStage_Click" Padding="8,2" Margin="0,0,4,0"/>
                     <Button Content="{DynamicResource FemAnalysisStageMoveUp}" Click="MoveStageUp_Click" Padding="8,2" Margin="0,0,4,0"/>
                     <Button Content="{DynamicResource FemAnalysisStageMoveDown}" Click="MoveStageDown_Click" Padding="8,2"/>
+                </StackPanel>
+                </StackPanel>
+
+                <StackPanel x:Name="BatchPanel" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,4">
+                        <Button DockPanel.Dock="Right" Content="{DynamicResource FemCsfeaBatchChoose}" Click="ChooseBatch_Click" Padding="8,2"/>
+                        <TextBlock x:Name="BatchSummaryText" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <DataGrid x:Name="BatchGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                              HeadersVisibility="Column" SelectionMode="Single" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEEEEE"
+                              RowHeight="22" Height="160" Margin="0,0,0,6" MouseDoubleClick="BatchGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="{DynamicResource FemLoadSourcePickerTypeColumn}" Width="48">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="Badge" CornerRadius="3" Padding="4,0" MinWidth="24" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                Background="#E8EEF7" BorderBrush="#B8C7DD" BorderThickness="1">
+                                            <TextBlock Text="{Binding TypeBadge}" FontSize="11" FontWeight="SemiBold" Foreground="#2F4A73" HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding TypeBadge}" Value="">
+                                                <Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadSourcePickerNameColumn}" Binding="{Binding Tag}" Width="2*"/>
+                            <DataGridTextColumn Header="{DynamicResource FemLoadSourcePickerFormulaColumn}" Binding="{Binding Formula}" Width="3*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#666666"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="ToolTip" Value="{Binding ToolTipText}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsUnresolved}" Value="True">
+                                        <Setter Property="Foreground" Value="#C0392B"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                    </DataGrid>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBox x:Name="BatchStepBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" VerticalAlignment="Center" Margin="16,0,6,0"/>
+                        <TextBox x:Name="BatchMaxBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
+                        <CheckBox x:Name="BatchStopAtLimitCb" Content="{DynamicResource FemCsfeaBatchStopAtLimit}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="{DynamicResource FemCsfeaBatchRecordingLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton x:Name="BatchRecordFieldsRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingFields}"
+                                     IsChecked="True" Checked="BatchRecording_Changed" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <RadioButton x:Name="BatchRecordEnvelopesRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingEnvelopes}"
+                                     Checked="BatchRecording_Changed" VerticalAlignment="Center" ToolTip="{DynamicResource FemCsfeaBatchRecordingEnvelopesTip}"/>
+                    </StackPanel>
+                    <TextBlock x:Name="BatchEstimateText" TextWrapping="Wrap" FontSize="11" Opacity="0.8"/>
                 </StackPanel>
             </StackPanel>
         </GroupBox>

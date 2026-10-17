@@ -179,4 +179,70 @@ public sealed class FemLoadSourcePickerVMTests
         Assert.Equal(gone.ToJson(), unresolved.ExpressionJson);
         Assert.Equal($"2·{Code(1)} + 1·#999", unresolved.Formula);
     }
+
+    [Fact]
+    public void MultiSelect_ChecksSurviveFilters_VisibleOnly_DisabledNeverChecked()
+    {
+        FemLoadSourcePickerVM.ResetSessionMemory();
+        var sources = Sources();
+        var c002 = sources.First(s => s.Tag == "Огибающая C 002");
+        c002.DisabledReason = "нет";
+        var n001 = sources.First(s => s.Tag == "Огибающая N 001");
+        var snow = sources.First(s => s.Tag == "Снег");
+        // Прежняя отметка источника из другого окна сбрасывается.
+        new FemLoadSourcePickerVM(sources, null, multiSelect: true, [snow]);
+        var vm = new FemLoadSourcePickerVM(sources, null, multiSelect: true, [n001, c002]);
+
+        Assert.True(vm.IsMultiSelect);
+        Assert.Equal([n001], vm.CheckedSources);
+        Assert.False(snow.IsChecked);
+        Assert.Equal(FemLoadSourcePickerVM.CombinationsTab, vm.SelectedTab);
+
+        // Отметить видимые под фильтром типа C: недоступная не отмечается, скрытая N остаётся отмеченной.
+        vm.TypeFilters.First(f => f.Type == "N").IsOn = false;
+        vm.CheckVisible();
+        Assert.Equal(["Сочетание_01", "Огибающая C 001", "Огибающая N 001"], vm.CheckedSources.Select(s => s.Tag));
+        vm.SetChecked(c002, true);
+        Assert.False(c002.IsChecked);
+
+        vm.UncheckVisible();
+        Assert.Equal([n001], vm.CheckedSources);
+
+        vm.SelectedTab = FemLoadSourcePickerVM.CasesTab;
+        vm.CaseSearch = "Снег";
+        vm.CheckVisible();
+        vm.Toggle(sources.First(s => s.Tag == "Вес"));
+        Assert.Equal(["Огибающая N 001", "Вес", "Снег"], vm.CheckedSources.Select(s => s.Tag));
+        Assert.Equal(1, vm.CheckedCombinationCount);
+        Assert.Equal(2, vm.CheckedCaseCount);
+        Assert.True(vm.CanAccept);
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemLoadSourcePickerAcceptChecked"), 3), vm.AcceptText);
+
+        foreach (var s in vm.CheckedSources) vm.Toggle(s);
+        Assert.False(vm.CanAccept);
+    }
+
+    [Fact]
+    public void SingleSelect_ClearsStaleChecks_AndIgnoresSetChecked()
+    {
+        FemLoadSourcePickerVM.ResetSessionMemory();
+        var sources = Sources();
+        new FemLoadSourcePickerVM(sources, null, multiSelect: true, [sources[0]]);
+        var vm = new FemLoadSourcePickerVM(sources, null);
+        Assert.False(sources[0].IsChecked);
+        vm.SetChecked(sources[1], true);
+        Assert.Equal(0, vm.CheckedCount);
+    }
+
+    [Fact]
+    public void BatchSummary_TypesThenCasesThenUnresolved()
+    {
+        var sources = Sources();
+        var unresolved = FemLoadSources.Resolve(sources, "{\"Mode\":1,\"Terms\":[{\"LoadCaseId\":999,\"Coefficient\":1}]}", Cases);
+        var items = new List<FemLoadSource> { sources[3], sources[1], sources[2], sources[4], sources[5], unresolved };
+        string text = FemLoadSources.BatchSummary(items);
+        Assert.Equal(string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchSummary"), 6,
+            $"C 2 · N 1 · {OpenCS.Utilites.Loc.S("FemCombinationsCaseCode")} 2 · "
+            + string.Format(OpenCS.Utilites.Loc.S("FemCsfeaBatchUnresolvedCount"), 1)), text);
+    }
 }

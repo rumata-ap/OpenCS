@@ -246,6 +246,9 @@ public static class FemCsfeaRunner
         IProgress<SecantProgress>? progress, CancellationToken ct)
     {
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        // Стадии пакета — независимые варианты; расчёт подряд накапливал бы их нагрузки.
+        if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch != null)
+            return Result(analysis, created, "error", new FemCsfeaResultSummary { Errors = ["Пакетный расчёт пока не поддерживается."] });
         var prepared = await PrepareAsync(ctx, schema, analysis, buildMesh: true, ct);
         var summary = new FemCsfeaResultSummary { Report = prepared.Report.ToList() };
         if (prepared.HasErrors)

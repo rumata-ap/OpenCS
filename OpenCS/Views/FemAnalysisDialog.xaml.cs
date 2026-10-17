@@ -24,6 +24,10 @@ public partial class FemAnalysisDialog : Window
     /// <summary>Нагрузка одиночного расчёта (линейный OpenSees) — та же ячейка, что у стадии.</summary>
     readonly StageRow _single = new();
     readonly ViewModels.FemLinearCasesVM _linearCases;
+    /// <summary>Элементы пакета секущего CSfea (комбинации и загружения, отмеченные в окне выбора).</summary>
+    readonly System.Collections.ObjectModel.ObservableCollection<ViewModels.FemLoadSource> _batch = [];
+    /// <summary>Узлы, оболочки и стержни сетки схемы для оценки объёма пакета; null — ещё не прочитаны или нет БД.</summary>
+    (int Nodes, int Shells, int Beams)? _meshCounts;
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
@@ -41,7 +45,7 @@ public partial class FemAnalysisDialog : Window
     public FemCsfeaRunContext? CsfeaContext
     {
         get => _csfeaContext;
-        set { _csfeaContext = value; UpdateNonlinearPanelVisibility(); }
+        set { _csfeaContext = value; _meshCounts = null; UpdateNonlinearPanelVisibility(); UpdateBatchSummary(); }
     }
 
     /// <summary>
@@ -86,6 +90,9 @@ public partial class FemAnalysisDialog : Window
             gammaDefaults ?? CScore.Combinations.Sp20GammaDefaults.Standard);
         LoadSourceBox.DataContext = _single;
         StagesGrid.ItemsSource = _stages;
+        BatchGrid.ItemsSource = _batch;
+        BatchStepBox.Text = 0.1.ToString(CultureInfo.CurrentCulture);
+        BatchMaxBox.Text = 1.0.ToString(CultureInfo.CurrentCulture);
         StagesPathControlColumn.ItemsSource = BuildPathControlModeOptions();
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         var materialSourceOptions = BuildMaterialSourceOptions();
@@ -140,6 +147,15 @@ public partial class FemAnalysisDialog : Window
                     _stages.Add(row);
                 }
             }
+            if (isCsfeaExisting && existing.Kind == FemCsfeaRunner.AnalysisKind && pars.Batch is { } batch)
+            {
+                foreach (var item in batch.Items) _batch.Add(ResolveSource(item.LoadExpressionJson));
+                BatchStepBox.Text = batch.LoadFactorStep.ToString(CultureInfo.CurrentCulture);
+                BatchMaxBox.Text = batch.MaxLoadFactor.ToString(CultureInfo.CurrentCulture);
+                BatchStopAtLimitCb.IsChecked = batch.StopAtLimit;
+                (batch.Recording == FemCsfeaBatchRecording.Envelopes ? BatchRecordEnvelopesRadio : BatchRecordFieldsRadio).IsChecked = true;
+                BatchRadio.IsChecked = true;
+            }
             // Устанавливается ПОСЛЕ заполнения _stages: выбор вида синхронно
             // поднимает Checked → UpdateNonlinearPanelVisibility, которая добавляет служебную
             // стадию-заглушку, если _stages ещё пуст — иначе к уже смигрированным стадиям
@@ -160,6 +176,7 @@ public partial class FemAnalysisDialog : Window
         UpdateNonlinearPanelVisibility();
         UpdateNativeMaterialPanelVisibility();
         UpdateMaterialNonlinearityPanelVisibility();
+        UpdateBatchSummary();
     }
 
     /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».
@@ -524,6 +541,10 @@ public partial class FemAnalysisDialog : Window
         // пластин и контрольный узел.
         bool csfeaLinear = csfea && SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = nonlinear || csfea;
+        bool batch = IsBatchMode;
+        LoadingModePanel.Visibility = csfea && !csfeaLinear ? Visibility.Visible : Visibility.Collapsed;
+        StagedPanel.Visibility = batch ? Visibility.Collapsed : Visibility.Visible;
+        BatchPanel.Visibility = batch ? Visibility.Visible : Visibility.Collapsed;
         NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         CsfeaPanel.Visibility = csfea ? Visibility.Visible : Visibility.Collapsed;
         CsfeaCheckInputButton.Visibility = csfea && _csfeaContext != null ? Visibility.Visible : Visibility.Collapsed;
@@ -535,7 +556,8 @@ public partial class FemAnalysisDialog : Window
         var pathControl = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         StagesPathControlColumn.Visibility = pathControl;
         StagesPathControlButtonColumn.Visibility = pathControl;
-        StagesHintText.SetResourceReference(TextBlock.TextProperty, csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
+        StagesHintText.SetResourceReference(TextBlock.TextProperty,
+            batch ? "FemCsfeaBatchHint" : csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
         var secantOnly = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
         var secantRow = new GridLength(csfeaLinear ? 0 : 28);
         CsfeaTensionRow.Height = secantRow;
@@ -544,7 +566,8 @@ public partial class FemAnalysisDialog : Window
         CsfeaFlagsPanel.Visibility = secantOnly;
         UpdateCsfeaImportedFactorsState();
         CsfeaIterationsGroup.Visibility = secantOnly;
-        CsfeaRecordingGroup.Visibility = secantOnly;
+        // Пакет пишет только конечное состояние каждого варианта — свой выбор хранения в панели пакета.
+        CsfeaRecordingGroup.Visibility = batch ? Visibility.Collapsed : secantOnly;
         if (csfea)
         {
             var loadControl = BuildPathControlModeOptions()[0];
@@ -561,6 +584,83 @@ public partial class FemAnalysisDialog : Window
                 Source = _single.Source,
                 MaxLoadFactor = csfea ? 1.0 : 10.0
             });
+    }
+
+    /// <summary>Пакет вариантов: секущий CSfea (не линейный) и выбран режим «Пакет».</summary>
+    bool IsBatchMode => BatchRadio?.IsChecked == true && SelectedKind == FemCsfeaRunner.AnalysisKind && !IsSubmodelMode;
+
+    void LoadingMode_Changed(object sender, RoutedEventArgs e) => UpdateNonlinearPanelVisibility();
+
+    void BatchRecording_Changed(object sender, RoutedEventArgs e) => UpdateBatchSummary();
+
+    void ChooseBatch_Click(object sender, RoutedEventArgs e) => ChooseBatch();
+
+    void BatchGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => ChooseBatch();
+
+    /// <summary>Окно отметок: результат заменяет состав пакета (нагрузки, которых нет в схеме, выбраны заново).</summary>
+    void ChooseBatch()
+    {
+        var dlg = FemLoadSourcePickerDialog.ForBatch(_loadSources, _batch.Where(s => !s.IsUnresolved));
+        dlg.Owner = this;
+        if (dlg.ShowDialog() != true) return;
+        _batch.Clear();
+        foreach (var s in dlg.Results) _batch.Add(s);
+        UpdateBatchSummary();
+    }
+
+    /// <summary>«Отмечено 136: C 110 · CL 17 · ЗГ 8» и оценка числа расчётов и объёма полей.</summary>
+    void UpdateBatchSummary()
+    {
+        if (BatchSummaryText == null || BatchEstimateText == null) return;
+        if (_batch.Count == 0)
+        {
+            BatchSummaryText.Text = Loc.S("FemCsfeaBatchNone");
+            BatchEstimateText.Text = "";
+            return;
+        }
+        BatchSummaryText.Text = ViewModels.FemLoadSources.BatchSummary(_batch);
+        string size = "";
+        if (BatchRecordFieldsRadio.IsChecked == true && MeshCounts() is { } m)
+            size = string.Format(Loc.S("FemCsfeaBatchEstimateFields"),
+                FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams) * _batch.Count));
+        BatchEstimateText.Text = string.Format(Loc.S("FemCsfeaBatchEstimate"), _batch.Count, size);
+    }
+
+    /// <summary>Размер сетки схемы из БД (окружение «Проверить вход»); нет БД или сетки — null.</summary>
+    (int Nodes, int Shells, int Beams)? MeshCounts()
+    {
+        if (_meshCounts == null && _csfeaContext?.Db is { } db)
+        {
+            var elements = db.GetFemMeshElements(_schema.Id);
+            _meshCounts = (db.GetFemMeshNodes(_schema.Id).Count, elements.Count(e => e.ElemType == "shell"),
+                elements.Count(e => e.ElemType == "beam"));
+        }
+        return _meshCounts is { Nodes: > 0 } ? _meshCounts : null;
+    }
+
+    /// <summary>Пакет из панели; null — значения неверны (сообщение показано с заголовком <paramref name="caption"/>).</summary>
+    FemCsfeaBatch? ReadBatch(string caption)
+    {
+        string? error = null;
+        if (_batch.Count == 0) error = Loc.S("FemCsfeaBatchEmpty");
+        else if (_batch.Any(s => s.IsUnresolved)) error = Loc.S("FemCsfeaBatchUnresolved");
+        else if (!Pars.ParseAny(BatchStepBox.Text, out var step) || !double.IsFinite(step) || step <= 0 || step > 1
+            || !Pars.ParseAny(BatchMaxBox.Text, out var max) || !double.IsFinite(max) || max < step)
+            error = Loc.S("FemCsfeaBatchFactorsInvalid");
+        else
+            return new FemCsfeaBatch
+            {
+                Items = _batch.Select(s => new FemCsfeaBatchItem
+                {
+                    Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, Type = s.TypeBadge,
+                    Kind = s.Kind == ViewModels.FemLoadSourceKind.LoadCase ? FemCsfeaBatchItemKind.LoadCase : FemCsfeaBatchItemKind.Combination,
+                }).ToList(),
+                LoadFactorStep = step, MaxLoadFactor = max,
+                StopAtLimit = BatchStopAtLimitCb.IsChecked == true,
+                Recording = BatchRecordEnvelopesRadio.IsChecked == true ? FemCsfeaBatchRecording.Envelopes : FemCsfeaBatchRecording.Fields,
+            };
+        MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+        return null;
     }
 
     void LinearCasesAll_Click(object sender, RoutedEventArgs e) => _linearCases.CheckAll();
@@ -651,18 +751,19 @@ public partial class FemAnalysisDialog : Window
         bool isCsfea = FemCsfeaRunner.IsCsfeaKind(SelectedKind);
         bool isCsfeaLinear = SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
         bool staged = isNonlinear || isCsfea;
+        bool isBatch = IsBatchMode;
 
         if (isCsfeaLinear && _linearCases.CheckedCount == 0)
         {
             MessageBox.Show(Loc.S("FemCsfeaLinearCasesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
-        if (staged && !isCsfeaLinear && _stages.Count == 0)
+        if (staged && !isCsfeaLinear && !isBatch && _stages.Count == 0)
         {
             MessageBox.Show(Loc.S("FemAnalysisStagesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
-        if (staged && !isCsfeaLinear && _stages.FirstOrDefault(s => s.Source == null) is { } missing)
+        if (staged && !isCsfeaLinear && !isBatch && _stages.FirstOrDefault(s => s.Source == null) is { } missing)
         {
             StagesGrid.SelectedItem = missing;
             StagesGrid.ScrollIntoView(missing);
@@ -692,6 +793,17 @@ public partial class FemAnalysisDialog : Window
             }
             else
                 pars = ReadNonlinearParams();
+            if (isBatch)
+            {
+                if (ReadBatch(caption) is not { } batch) return null;
+                pars.Batch = batch;
+                if (string.IsNullOrWhiteSpace(tag)) tag = string.Format(Loc.S("FemCsfeaBatchDefaultTag"), batch.Items.Count);
+                return new FemAnalysis
+                {
+                    SchemaId = _schema.Id, Tag = tag, Kind = SelectedKind,
+                    LoadExpressionJson = batch.Items[0].LoadExpressionJson, ParamsJson = pars.ToJson()
+                };
+            }
             // Линейный CSfea: отмеченные загружения целиком, без шагов и множителя.
             pars.Stages = isCsfeaLinear ? _linearCases.BuildStages() : _stages.Select(r =>
             {
