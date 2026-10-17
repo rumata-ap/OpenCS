@@ -3116,8 +3116,10 @@
     <system:String x:Key="FemCsfeaBatchSetsEstimateGroup">{0}: {1:N0} пл. + {2:N0} ст.</system:String>
     <system:String x:Key="FemCsfeaBatchSetsEstimateNone">Наборов не будет: отметьте группу с дошедшими вариантами (у загружений — и тип).</system:String>
     <system:String x:Key="FemCsfeaBatchSetsLarge">⚠ Больше 500 000 строк — проверка по КЭ будет долгой; сузьте охват.</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsLong">+ длительные части {0}: {1} из {2}</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsLongTip">Ещё набор «(NL)» («(CL)») с той же основой имени: строки — усилия длительных частей вариантов на их диаграммах (п. 6.1.26), метки — от вариантов, поэтому φ1 «авто» (п. 8.2.7) и ψ «авто» (п. 8.1.15) проверки по КЭ находят пару.</system:String>
     <system:String x:Key="FemCsfeaBatchSetsPairWarning">⚠ Связка N↔NL (φ1 «авто») и C↔CL (ψ «авто») по вариантам комбинаций не строится.</system:String>
-    <system:String x:Key="FemCsfeaBatchSetsPairWarningTip">Варианты N и NL пакета считаются независимо, парных строк у них нет: проверка по КЭ возьмёт φ1 и ψ по умолчанию. Для группы загружений при отмеченных N и NL пара есть.</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsPairWarningTip">Отмечена группа без набора длительных частей (не считались или отметка снята) или пользовательская группа NL/CL: парных строк нет, проверка по КЭ возьмёт φ1 и ψ по умолчанию. Длительные части считаются флажками постановки пакета; для группы загружений при отмеченных N и NL пара есть.</system:String>
     <system:String x:Key="FemCsfeaBatchSetsCreate">Создать</system:String>
     <system:String x:Key="FemCsfeaBatchSetsBusy">Наборы по вариантам пакета «{0}»…</system:String>
     <system:String x:Key="FemCsfeaBatchSetsProgress">Наборы по вариантам «{0}»: вариант {1} из {2}</system:String>

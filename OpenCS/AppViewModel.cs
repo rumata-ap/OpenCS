@@ -6104,6 +6104,7 @@ namespace OpenCS
          var existing = ForceSets.ToList();
          var groups = vm.CheckedGroups;
          var types = vm.CheckedTypes;
+         var longGroups = vm.LongGroups;
          var scope = vm.Scope;
          var cts = BeginBusyWithCancellation(string.Format(Loc.S("FemCsfeaBatchSetsBusy"), tag), indeterminate: false);
          var progress = new Progress<(int Done, int Count)>(p => ReportBusyProgress(p.Count == 0 ? 0 : (double)p.Done / p.Count,
@@ -6112,7 +6113,7 @@ namespace OpenCS
          try
          {
             var built = await Task.Run(() => Services.FemCsfeaBatchForceSets.Build(result.Schema, tag, result.Summary,
-               result.LoadFields, groups, types, scope, existing, progress, cts.Token));
+               result.LoadFields, groups, types, scope, existing, progress, cts.Token, longGroups));
             foreach (var warning in built.Warnings) LogService.Warning(warning);
             if (built.Sets.Count == 0)
             {

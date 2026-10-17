@@ -22,9 +22,11 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
     readonly int _shells, _beams, _selectedShells, _selectedBeams;
 
     /// <summary>Группа пакета: ключ, название, дошедшие из всех, отметка.</summary>
-    public sealed class GroupItem(FemCsfeaBatchForceSetsVM owner, string key, int included, int total) : ViewModelBase
+    public sealed class GroupItem(FemCsfeaBatchForceSetsVM owner, string key, int included, int total, string? longType = null,
+        int longIncluded = 0) : ViewModelBase
     {
         bool _isChecked;
+        bool _includeLong = true;
 
         public string Key { get; } = key;
         public string Title { get; } = FemCsfeaBatchForceSets.GroupTitle(key);
@@ -32,6 +34,30 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
         public int Total { get; } = total;
         public bool IsAvailable => Included > 0;
         public string Text => string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchSetsGroup"), Title, Included, Total);
+
+        /// <summary>Тип длительных частей группы (NL у N, CL у C); null — не считались.</summary>
+        public string? LongType { get; } = longType;
+        /// <summary>Дошедших вариантов с длительной частью (своя, равная полной или нулевая).</summary>
+        public int LongIncluded { get; } = longIncluded;
+        public bool HasLong => LongType != null;
+        public bool LongEnabled => HasLong && IsChecked;
+        public string LongText => string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchSetsLong"), LongType, LongIncluded, Included);
+
+        /// <summary>Ещё набор длительных частей с той же основой имени (связка N↔NL, C↔CL по вариантам).</summary>
+        public bool IncludeLong
+        {
+            get => _includeLong;
+            set
+            {
+                if (_includeLong == value) return;
+                _includeLong = value;
+                OnPropertyChanged();
+                owner.Refresh();
+            }
+        }
+
+        /// <summary>Длительный набор будет создан.</summary>
+        public bool WithLong => HasLong && IncludeLong && LongIncluded > 0;
 
         public bool IsChecked
         {
@@ -41,6 +67,7 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
                 if (_isChecked == value || (value && !IsAvailable)) return;
                 _isChecked = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(LongEnabled));
                 owner.Refresh();
             }
         }
@@ -83,8 +110,15 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
         var batch = summary.Batch ?? [];
         var keys = FemCsfeaBatchForceSets.GroupOrder.Concat(batch.Select(b => b.GroupKey).Distinct().Except(FemCsfeaBatchForceSets.GroupOrder))
             .Where(k => batch.Any(b => b.GroupKey == k));
-        Groups = keys.Select(k => new GroupItem(this, k, batch.Count(b => b.GroupKey == k && FemCsfeaBatchForceSets.IsIncluded(b)),
-            batch.Count(b => b.GroupKey == k))).ToList();
+        // Длительная часть дошедшего варианта есть: своя с полями, равная полной или нулевая.
+        bool HasLongRows(FemCsfeaBatchSummary b) => summary.LongOf(b.Index) is { } p && (p.IsZero || summary.LongRecordN(p) != null);
+        Groups = keys.Select(k =>
+        {
+            var included = batch.Where(b => b.GroupKey == k && FemCsfeaBatchForceSets.IsIncluded(b)).ToList();
+            bool hasLong = FemCsfeaBatchForceSets.HasLongParts(summary, k);
+            return new GroupItem(this, k, included.Count, batch.Count(b => b.GroupKey == k),
+                hasLong ? CScore.Fem.Combinations.FemLongTermPair.LongType(k) : null, hasLong ? included.Count(HasLongRows) : 0);
+        }).ToList();
         LoadCaseTypes = FemCsfeaBatchForceSets.LoadCaseTypes.Select(t => new TypeItem(this, t)).ToList();
 
         _restoring = true;
@@ -150,6 +184,9 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
 
     public IReadOnlyList<string> CheckedTypes => LoadCaseTypes.Where(t => t.IsChecked).Select(t => t.Type).ToList();
 
+    /// <summary>Отмеченные группы, у которых строится и набор длительных частей.</summary>
+    public IReadOnlyList<string> LongGroups => Groups.Where(g => g.IsChecked && g.IsAvailable && g.WithLong).Select(g => g.Key).ToList();
+
     public int SetCount { get; private set; }
 
     public long RowCount { get; private set; }
@@ -158,8 +195,12 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
 
     public string EstimateText { get; private set; } = "";
 
-    /// <summary>Отмечена группа комбинаций полного (C, N) или длительного (CL, NL) — связки N↔NL / C↔CL по вариантам нет.</summary>
-    public bool ShowPairWarning => CheckedGroups.Any(k => k is "C" or "CL" or "N" or "NL");
+    /// <summary>
+    /// Отмечена группа комбинаций, у которой связки N↔NL / C↔CL по вариантам нет: полная (C, N) без набора длительных
+    /// частей или пользовательская длительная (CL, NL).
+    /// </summary>
+    public bool ShowPairWarning => Groups.Any(g => g.IsChecked && g.IsAvailable
+        && (g.Key is "CL" or "NL" || g.Key is "C" or "N" && !g.WithLong));
 
     public bool CanCreate => SetCount > 0;
 
@@ -181,6 +222,13 @@ public sealed class FemCsfeaBatchForceSetsVM : ViewModelBase
             rows += typeCount * (shellRows + beamRows);
             parts.Add(string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchSetsEstimateGroup"), g.Title, shellRows, beamRows)
                 + (typeCount > 1 ? string.Create(CultureInfo.CurrentCulture, $" ×{typeCount}") : ""));
+            if (g.WithLong)
+            {
+                long longShells = (long)g.LongIncluded * shells, longBeams = 2L * g.LongIncluded * beams;
+                sets += (longShells > 0 ? 1 : 0) + (longBeams > 0 ? 1 : 0);
+                rows += longShells + longBeams;
+                parts.Add(string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchSetsEstimateGroup"), g.LongType, longShells, longBeams));
+            }
         }
         SetCount = sets;
         RowCount = rows;

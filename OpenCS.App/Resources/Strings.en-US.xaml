@@ -3116,8 +3116,10 @@
     <system:String x:Key="FemCsfeaBatchSetsEstimateGroup">{0}: {1:N0} pl. + {2:N0} bars</system:String>
     <system:String x:Key="FemCsfeaBatchSetsEstimateNone">No sets: check a group with completed variants (and a type for load cases).</system:String>
     <system:String x:Key="FemCsfeaBatchSetsLarge">⚠ More than 500,000 rows — the per-element check will be slow; narrow the scope.</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsLong">+ long-term parts {0}: {1} of {2}</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsLongTip">One more set "(NL)" ("(CL)") with the same base name: rows are forces of the variants' long-term parts on their diagrams (6.1.26), labels come from the variants, so φ1 "auto" (8.2.7) and ψ "auto" (8.1.15) of the per-element check find the pair.</system:String>
     <system:String x:Key="FemCsfeaBatchSetsPairWarning">⚠ N↔NL (φ1 "auto") and C↔CL (ψ "auto") pairing is not built for combination variants.</system:String>
-    <system:String x:Key="FemCsfeaBatchSetsPairWarningTip">N and NL batch variants are computed independently and have no paired rows: the per-element check uses default φ1 and ψ. For the load case group with N and NL checked the pair exists.</system:String>
+    <system:String x:Key="FemCsfeaBatchSetsPairWarningTip">A group without a long-term set (not computed or unchecked) or a user NL/CL group is checked: there are no paired rows, the per-element check uses default φ1 and ψ. Long-term parts are enabled by the batch setup checkboxes; for the load case group with N and NL checked the pair exists.</system:String>
     <system:String x:Key="FemCsfeaBatchSetsCreate">Create</system:String>
     <system:String x:Key="FemCsfeaBatchSetsBusy">Sets per variant of batch "{0}"…</system:String>
     <system:String x:Key="FemCsfeaBatchSetsProgress">Sets per variant "{0}": variant {1} of {2}</system:String>

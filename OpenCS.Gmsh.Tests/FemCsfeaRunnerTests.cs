@@ -636,6 +636,80 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         Enumerable.Range(0, f.NodeIds.Length).Max(i => Math.Abs(f.Displacements[6 * i + 2]));
 
     /// <summary>
+    /// Срез 5: наборы «строка на вариант» группы N с парами — «(N)» и «(NL)» с той же основой имени, строки NL — поля пар
+    /// (N2 — поля варианта), метки — от вариантов; rc_plate_check с φ1 «авто» находит пару — замечания нет. Диалог:
+    /// отметка длительных частей, без неё — предупреждение о связке и один набор.
+    /// </summary>
+    [Fact]
+    public async Task Batch_LongTermForceSets_PairFoundByPlateCheck()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            SetLongTermBatch(ctx.Db, schema, analysis, pairs: true, deflection: false);
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            var first = Fields(ctx.Db, result.Id, summary.Batch![0].RecordN!.Value);
+            int stride = CSfea.CScoreBridge.Structural.RcSecantStepFields.ShellForceComponents;
+            var picked = first.ShellIds.Select((id, i) => (id, Mx: Math.Abs(first.ShellForces[i * stride + 3])))
+                .OrderByDescending(x => x.Mx).Take(3).Select(x => x.id).ToArray();
+            var scopeSet = new FemCsfeaForceSetScope(picked, []);
+
+            var built = FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n), ["N"], [],
+                scopeSet, [], null, CancellationToken.None);
+
+            Assert.Empty(built.Warnings);
+            Assert.Equal(2, built.Sets.Count);
+            var (nSet, nlSet) = (built.Sets[0], built.Sets[1]);
+            Assert.EndsWith("(N)", nSet.Tag);
+            Assert.Equal(nSet.Tag[..^3] + "(NL)", nlSet.Tag);
+            Assert.Equal(nSet.ShellItems.Select(r => r.Label), nlSet.ShellItems.Select(r => r.Label));
+            var pairFields = Fields(ctx.Db, result.Id, summary.LongOf(0)!.RecordN!.Value);
+            int i0 = Array.IndexOf(pairFields.ShellIds, picked[0]);
+            Assert.Equal(pairFields.ShellForces[i0 * stride + 3] / 1e3, nlSet.ShellItems[0].Mx, 9);
+            // N2 = q: длительная часть совпадает с полной — строки те же.
+            Assert.Equal(nSet.ShellItems[3].Mx, nlSet.ShellItems[3].Mx, 12);
+            Assert.True(Math.Abs(nlSet.ShellItems[0].Mx) < Math.Abs(nSet.ShellItems[0].Mx));
+
+            nSet.Id = 1;
+            nlSet.Id = 2;
+            var data = FemCheckSchemaData.Load(ctx.Db, schema.Id);
+            var target = data.Members.Single(m => m.ElemTag == "P1");
+            var section = ctx.Db.PlateSections.Single();
+            var inputs = new FemPerElementInputs
+            {
+                PlateTemplate = section,
+                ConcreteMat = ctx.Db.Materials.First(m => m.Id == section.ConcreteMaterialId),
+                RebarMat = ctx.Db.Materials.First(m => m.Id == section.RebarMaterialId),
+            };
+            var check = new FemCheck
+            {
+                NormCode = "rc_plate_check", Tag = "sls",
+                ParamsJson = new PlateCheckParams { Kind = "shell_simpl_wa_sls", Phi1Mode = "auto", Phi1 = 1.4 }.ToJson(),
+            };
+            var sls = FemCheckRunner.RunPerElement(check, target, data.Scope(target), [nSet, nlSet], inputs,
+                (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
+            Assert.NotEqual("error", sls.Status);
+            using (var doc = JsonDocument.Parse(sls.DataJson))
+                Assert.DoesNotContain(doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray()
+                    .Select(w => w.GetString()!), w => w.Contains("φ1"));
+
+            // Диалог: у группы N — отметка длительных частей (2 из 2); снята — предупреждение и наборов без NL.
+            var vm =new OpenCS.ViewModels.FemCsfeaBatchForceSetsVM(summary, analysis.Tag, first.ShellIds.Length, 0);
+            var nGroup = vm.Groups.Single(g => g.Key == "N");
+            Assert.True(nGroup.HasLong);
+            Assert.Equal(2, nGroup.LongIncluded);
+            Assert.Equal(["N"], vm.LongGroups);
+            Assert.False(vm.ShowPairWarning);
+            Assert.Equal(2, vm.SetCount);
+            nGroup.IncludeLong = false;
+            Assert.True(vm.ShowPairWarning);
+            Assert.Equal(1, vm.SetCount);
+            Assert.Single(FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n), ["N"], [],
+                scopeSet, [], null, CancellationToken.None, vm.LongGroups).Sets);
+        });
+    }
+
+    /// <summary>
     /// Срез 3: длительная часть на диаграммах NL — вторая модель; у N1 — стадия пары, у N2 (совпадает с полной) — стадия
     /// варианта; прогиб на диаграммах NL больше, чем от той же нагрузки на диаграммах варианта (N).
     /// </summary>

@@ -18,8 +18,13 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <CheckBox Content="{Binding Text}" IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsAvailable}"
-                              MinWidth="150" Margin="0,2,12,2"/>
+                    <StackPanel MinWidth="150" Margin="0,2,12,2">
+                        <CheckBox Content="{Binding Text}" IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsAvailable}"/>
+                        <!-- Группы N и C с посчитанными длительными частями: набор NL (CL) с метками вариантов -->
+                        <CheckBox Content="{Binding LongText}" IsChecked="{Binding IncludeLong}" IsEnabled="{Binding LongEnabled}" Margin="16,2,0,0"
+                                  ToolTip="{DynamicResource FemCsfeaBatchSetsLongTip}" ToolTipService.ShowOnDisabled="True"
+                                  Visibility="{Binding HasLong, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
