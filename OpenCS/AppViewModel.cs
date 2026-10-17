@@ -1423,6 +1423,8 @@ namespace OpenCS
          PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
          CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
          CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
+         // Мозаика жёсткости стержней читает текущие настройки (после «Применить» — новые).
+         ViewModels.PlateRebarMosaicVM.BarStiffnessMeanSetting = () => CalcSettings.CsfeaBarStiffnessMean;
          LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
           AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
           GmshSettings = db.LoadGmshSettings();

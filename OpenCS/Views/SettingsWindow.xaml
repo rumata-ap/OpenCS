@@ -774,11 +774,19 @@
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CsfeaThreadsLabel}"
                                            VerticalAlignment="Center" ToolTip="{DynamicResource CsfeaThreadsTip}"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="CsfeaThreadsBox" VerticalContentAlignment="Center" Margin="0,2"
                                          ToolTip="{DynamicResource CsfeaThreadsTip}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CsfeaBarStiffnessAggregateLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource CsfeaBarStiffnessAggregateTip}"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="CsfeaBarStiffnessAggregateCombo" Margin="0,2"
+                                          ToolTip="{DynamicResource CsfeaBarStiffnessAggregateTip}">
+                                    <ComboBoxItem Content="{DynamicResource MosaicBarStiffnessMin}"/>
+                                    <ComboBoxItem Content="{DynamicResource MosaicBarStiffnessMean}"/>
+                                </ComboBox>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

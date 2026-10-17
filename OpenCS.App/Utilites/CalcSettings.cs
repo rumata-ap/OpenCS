@@ -333,6 +333,13 @@ namespace OpenCS.Utilites
       /// <summary><see cref="CsfeaThreads"/> для ParallelOptions.MaxDegreeOfParallelism: 0 и меньше — −1 (без ограничения).</summary>
       public int ResolveCsfeaMaxDegreeOfParallelism() => CsfeaThreads > 0 ? CsfeaThreads : -1;
 
+      /// <summary>
+      /// Значение КЭ стержня в мозаике жёсткости результата CSfea: среднее по длине (Симпсон по трём точкам) — true,
+      /// наименьшее по точкам — false (по умолчанию).
+      /// </summary>
+      [JsonPropertyName("csfeaBarStiffnessMean")]
+      public bool CsfeaBarStiffnessMean { get; set; }
+
       // Настройки материалов (учёт растяжения бетона, источник/модель) специфичны для конкретной
       // постановки — хранятся в FemAnalysisParams, а не здесь (задаются в диалоге постановки).
 
@@ -396,6 +403,7 @@ namespace OpenCS.Utilites
          OpenSeesRecordFiberStates = OpenSeesRecordFiberStates,
          OpenSeesFiberStatesIntegrationPoints = OpenSeesFiberStatesIntegrationPoints,
          CsfeaThreads             = CsfeaThreads,
+         CsfeaBarStiffnessMean    = CsfeaBarStiffnessMean,
       };
 
       /// <summary>Вид величин нагрузок для комбинаторики СП 20.</summary>

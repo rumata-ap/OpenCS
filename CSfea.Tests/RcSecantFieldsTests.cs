@@ -168,6 +168,7 @@ public class RcSecantFieldsTests
         TestHarness.CheckRel("A22 = E·h/2", k[1], E * h / 2, 1e-9);
         TestHarness.CheckRel("D11 = E·h³/12", k[4], E * h * h * h / 12, 1e-9);
         TestHarness.Check("упругий КЭ: секущие = начальные", Enumerable.Range(0, 8).All(i => k[i] == k[8 + i]));
+        TestHarness.CheckRel("толщина сечения в блоке жёсткостей", k[16], h, 1e-12);
         TestHarness.CheckRel("εx = F/(E·h)", plain.ShellStrains[0], f / (E * h), 1e-6);
         TestHarness.CheckRel("ось выдачи 90°: A11 = A22 сечения", rotated.ShellStiffness[0], E * h / 2, 1e-9);
         TestHarness.CheckRel("ось выдачи 90°: D22 = D11 сечения", rotated.ShellStiffness[5], E * h * h * h / 12, 1e-9);

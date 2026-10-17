@@ -27,6 +27,11 @@
             <ComboBox Width="110" ItemsSource="{Binding BarComponentOptions}" DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedBarComponent, Mode=TwoWay}"/>
         </StackPanel>
+        <!-- Жёсткости результата CSfea: начальная, секущая или их отношение (общий режим пластин и стержней) -->
+        <ComboBox Width="64" Margin="4,0,0,0" ItemsSource="{Binding StiffnessModeOptions}" DisplayMemberPath="Label"
+                  SelectedItem="{Binding SelectedStiffnessMode, Mode=TwoWay}"
+                  Visibility="{Binding HasStiffnessMode, Converter={StaticResource BoolToVis}}"
+                  ToolTip="{DynamicResource MosaicStiffnessModeTip}"/>
         <ComboBox Width="130" Margin="4,0,0,0" ItemsSource="{Binding AggregateOptions}" DisplayMemberPath="Label"
                   SelectedItem="{Binding SelectedAggregate, Mode=TwoWay}"
                   Visibility="{Binding HasAggregate, Converter={StaticResource BoolToVis}}"

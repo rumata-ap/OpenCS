@@ -67,6 +67,21 @@ public sealed record FemCsfeaBeamRow(int ElemTag,
     public string Combos => FemCsfeaEnvelopeRows.Combos(Sources);
 }
 
+/// <summary>
+/// Строка таблицы жёсткостей пластины (оси выдачи усилий): изгибные и мембранные E1, E2, G (МПа), ν12, ν21 секущей
+/// матрицы и отношения E1, E2 к начальным; null — не определено.
+/// </summary>
+public sealed record FemCsfeaShellStiffnessRow(int Elem, double? BendE1, double? BendE2, double? BendG, double? BendNu12,
+    double? BendNu21, double? MembE1, double? MembE2, double? MembG, double? MembNu12, double? MembNu21,
+    double? BendE1Ratio, double? BendE2Ratio, double? MembE1Ratio, double? MembE2Ratio);
+
+/// <summary>
+/// Строка таблицы жёсткостей стержня в точке i, ½ или j: секущие EA, GAy, GAz (МН), EIy, EIz (МН·м²) и отношения EA,
+/// EIy, EIz к начальным; null — не определено (GA без сдвиговых деформаций).
+/// </summary>
+public sealed record FemCsfeaBarStiffnessRow(int Elem, string Point, double? EA, double? EIy, double? EIz, double? GAy,
+    double? GAz, double? EARatio, double? EIyRatio, double? EIzRatio);
+
 /// <summary>Строки таблиц огибающей: столбец «Комбинации».</summary>
 public static class FemCsfeaEnvelopeRows
 {
@@ -537,6 +552,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(NodeRows));
         OnPropertyChanged(nameof(ShellRows));
         OnPropertyChanged(nameof(BeamRows));
+        OnPropertyChanged(nameof(HasStiffness));
+        OnPropertyChanged(nameof(ShellStiffnessRows));
+        OnPropertyChanged(nameof(BarStiffnessRows));
         OnPropertyChanged(nameof(ReactionRows));
         OnPropertyChanged(nameof(LineReactionRows));
         OnPropertyChanged(nameof(HasLineReactions));
@@ -1816,6 +1834,67 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         int o = i * RcSecantStepFields.BeamForceComponents;
         return new FemElementEndForces(elem, f[o], f[o + 1], f[o + 2], f[o + 3], f[o + 4], f[o + 5],
             f[o + 6], f[o + 7], f[o + 8], f[o + 9], f[o + 10], f[o + 11]);
+    }
+
+    // ------------------------------------------------------------ жёсткости КЭ
+
+    /// <summary>
+    /// На показанном шаге есть блок жёсткостей (записи с 17.10.2026); у огибающих жёсткости не огибаются — нет.
+    /// </summary>
+    public bool HasStiffness => _envelope == null && Fields?.HasStiffness == true;
+
+    /// <summary>Жёсткость пластины (<see cref="FemCsfeaStiffnessValues.Shell"/>); null — нет данных.</summary>
+    public double? ShellStiffness(int elem, FemCsfeaStiffness q, FemCsfeaStiffnessMode mode) =>
+        HasStiffness && _shellIndex.TryGetValue(elem, out int i) ? FemCsfeaStiffnessValues.Shell(Fields!, i, q, mode) : null;
+
+    /// <summary>Жёсткость стержня в точках ξ = 0, ½, 1 (<see cref="FemCsfeaStiffnessValues.Bar"/>); null — нет данных.</summary>
+    public (double I, double M, double J)? BarStiffness(int elem, FemCsfeaStiffness q, FemCsfeaStiffnessMode mode) =>
+        HasStiffness && _beamIndex.TryGetValue(elem, out int i) ? FemCsfeaStiffnessValues.Bar(Fields!, i, q, mode) : null;
+
+    RcSecantStepFields? _stiffnessRowsFields;
+    IReadOnlyList<FemCsfeaShellStiffnessRow> _shellStiffnessRows = [];
+    IReadOnlyList<FemCsfeaBarStiffnessRow> _barStiffnessRows = [];
+
+    /// <summary>Таблица «Жёсткости» — пластины: секущие модули и отношения к начальным (строится при обращении).</summary>
+    public IReadOnlyList<FemCsfeaShellStiffnessRow> ShellStiffnessRows { get { BuildStiffnessRows(); return _shellStiffnessRows; } }
+
+    /// <summary>Таблица «Жёсткости» — стержни: строка на точку i, ½, j.</summary>
+    public IReadOnlyList<FemCsfeaBarStiffnessRow> BarStiffnessRows { get { BuildStiffnessRows(); return _barStiffnessRows; } }
+
+    void BuildStiffnessRows()
+    {
+        var f = HasStiffness ? Fields : null;
+        if (ReferenceEquals(_stiffnessRowsFields, f) && (f != null || _shellStiffnessRows.Count + _barStiffnessRows.Count == 0)) return;
+        _stiffnessRowsFields = f;
+        if (f == null) { _shellStiffnessRows = []; _barStiffnessRows = []; return; }
+        const FemCsfeaStiffnessMode s = FemCsfeaStiffnessMode.Secant, r = FemCsfeaStiffnessMode.Ratio;
+        var shells = new List<FemCsfeaShellStiffnessRow>(f.ShellIds.Length);
+        for (int i = 0; i < f.ShellIds.Length; i++)
+        {
+            double? V(FemCsfeaStiffness q, FemCsfeaStiffnessMode m) => FemCsfeaStiffnessValues.Shell(f, i, q, m);
+            shells.Add(new FemCsfeaShellStiffnessRow(f.ShellIds[i],
+                V(FemCsfeaStiffness.BendE1, s), V(FemCsfeaStiffness.BendE2, s), V(FemCsfeaStiffness.BendG, s),
+                V(FemCsfeaStiffness.BendNu12, s), V(FemCsfeaStiffness.BendNu21, s),
+                V(FemCsfeaStiffness.MembE1, s), V(FemCsfeaStiffness.MembE2, s), V(FemCsfeaStiffness.MembG, s),
+                V(FemCsfeaStiffness.MembNu12, s), V(FemCsfeaStiffness.MembNu21, s),
+                V(FemCsfeaStiffness.BendE1, r), V(FemCsfeaStiffness.BendE2, r), V(FemCsfeaStiffness.MembE1, r),
+                V(FemCsfeaStiffness.MembE2, r)));
+        }
+        _shellStiffnessRows = shells;
+        var bars = new List<FemCsfeaBarStiffnessRow>(3 * f.BeamIds.Length);
+        string[] points = ["i", "½", "j"];
+        for (int i = 0; i < f.BeamIds.Length; i++)
+        {
+            var q = FemCsfeaStiffnessValues.BarQuantities.Select(x => FemCsfeaStiffnessValues.Bar(f, i, x, s)).ToArray();
+            var qr = FemCsfeaStiffnessValues.BarQuantities.Select(x => FemCsfeaStiffnessValues.Bar(f, i, x, r)).ToArray();
+            for (int p = 0; p < 3; p++)
+            {
+                double? At((double I, double M, double J)? v) => v is { } t ? p == 0 ? t.I : p == 1 ? t.M : t.J : null;
+                bars.Add(new FemCsfeaBarStiffnessRow(f.BeamIds[i], points[p], At(q[0]), At(q[1]), At(q[2]), At(q[3]), At(q[4]),
+                    At(qr[0]), At(qr[1]), At(qr[2])));
+            }
+        }
+        _barStiffnessRows = bars;
     }
 
     public System.Windows.Input.ICommand GoToFieldsStepCommand { get; }

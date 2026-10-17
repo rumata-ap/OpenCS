@@ -556,6 +556,66 @@ public sealed class FemResultLayer : ViewModelBase
 
     public void ClearBarSummary() => BarSummaryText = "";
 
+    // ------------------------------------------------------------ CSfea: жёсткости КЭ
+
+    /// <summary>На показанном шаге есть жёсткости КЭ (CSfea, записи с 17.10.2026, не огибающая).</summary>
+    public bool HasStiffness => Csfea?.HasStiffness == true;
+
+    /// <summary>Жёсткость пластины; null — нет данных.</summary>
+    public double? ShellStiffness(string elemTag, FemCsfeaStiffness q, FemCsfeaStiffnessMode mode) =>
+        Csfea != null && int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+            ? Csfea.ShellStiffness(n, q, mode) : null;
+
+    /// <summary>Жёсткость стержня в точках ξ = 0, ½, 1; null — нет данных.</summary>
+    public (double I, double M, double J)? BarStiffness(string elemTag, FemCsfeaStiffness q, FemCsfeaStiffnessMode mode) =>
+        Csfea != null && int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+            ? Csfea.BarStiffness(n, q, mode) : null;
+
+    /// <summary>Подпись величины жёсткости в режиме: «Изгиб: E1, МПа», «EIy/EIy₀».</summary>
+    public static string StiffnessLabel(FemCsfeaStiffness q, FemCsfeaStiffnessMode mode)
+    {
+        string symbol = FemCsfeaStiffnessValues.Symbol(q, mode);
+        string unit = FemCsfeaStiffnessValues.Unit(q, mode);
+        string group = q switch
+        {
+            <= FemCsfeaStiffness.BendG => Loc.S("FemStiffnessBend"),
+            <= FemCsfeaStiffness.MembG => Loc.S("FemStiffnessMemb"),
+            _ => "",
+        };
+        string s = group == "" ? symbol : $"{group}: {symbol}";
+        return unit == "" ? s : $"{s}, {Loc.S(unit)}";
+    }
+
+    /// <summary>Итог по жёсткости стержней: min и max по точкам КЭ с номером КЭ.</summary>
+    public void UpdateBarStiffnessSummary(string label, IEnumerable<KeyValuePair<string, (double I, double M, double J)>> values) =>
+        BarSummaryText = MinMaxText(string.Format(Loc.S("FemResultBarsLabel"), label),
+            values.SelectMany(kv => new[] { kv.Value.I, kv.Value.M, kv.Value.J }.Select(v => (kv.Key, v, "", v, ""))), AtElement);
+
+    /// <summary>Строки карточки КЭ: секущие жёсткости и отношение к начальным (у стержня — в точках i · ½ · j).</summary>
+    void StiffnessRows(string tag, bool bar, List<FemResultCardRow> rows)
+    {
+        if (!HasStiffness) return;
+        foreach (var q in bar ? FemCsfeaStiffnessValues.BarQuantities : FemCsfeaStiffnessValues.ShellQuantities)
+        {
+            string label = StiffnessLabel(q, FemCsfeaStiffnessMode.Secant);
+            if (bar)
+            {
+                if (BarStiffness(tag, q, FemCsfeaStiffnessMode.Secant) is not { } s) continue;
+                string text = $"{Num(s.I)} · {Num(s.M)} · {Num(s.J)}";
+                if (BarStiffness(tag, q, FemCsfeaStiffnessMode.Ratio) is { } r)
+                    text += string.Format(Loc.S("FemResultCardStiffnessRatio"), $"{Num(r.I)} · {Num(r.M)} · {Num(r.J)}");
+                rows.Add(new(label, text));
+            }
+            else if (ShellStiffness(tag, q, FemCsfeaStiffnessMode.Secant) is double s)
+            {
+                string text = Num(s);
+                if (ShellStiffness(tag, q, FemCsfeaStiffnessMode.Ratio) is double r)
+                    text += string.Format(Loc.S("FemResultCardStiffnessRatio"), Num(r));
+                rows.Add(new(label, text));
+            }
+        }
+    }
+
     // ------------------------------------------------------------ CSfea: ширина раскрытия, наборы усилий
 
     /// <summary>VM результата CSfea; null — результат OpenSees.</summary>
@@ -703,6 +763,7 @@ public sealed class FemResultLayer : ViewModelBase
             foreach (var f in ShellFields)
                 if (ShellValue(tag, f.Value) is double v)
                     rows.Add(new(f.Label, f.Value == FemCsfeaShellField.State ? StateLabel(v) : Num(v)));
+        StiffnessRows(tag, bar, rows);
         return new FemResultCard(string.Format(Loc.S(bar ? "FemResultCardBar" : "FemResultCardShell"), tag), rows);
     }
 

@@ -947,6 +947,123 @@ public class FemResultLayerTests
         Assert.Equal("", layer.BarSummaryText);
     }
 
+    /// <summary>
+    /// Поля с блоком жёсткостей: пластина 2 (h = 0,2 м, E₀ = 30 ГПа, ν = 0,2; секущая D11 вдвое меньше начальной),
+    /// стержень 1 (EA = 3 ГН, EIy в точках 5 · 2,5 · 5 МН·м² при EIy₀ = 5, сдвига нет).
+    /// </summary>
+    static RcSecantStepFields FieldsWithStiffness()
+    {
+        var f = FieldsWithForces();
+        const double e = 30e9, h = 0.2, nu = 0.2;
+        double a = e * h / (1 - nu * nu), d = e * h * h * h / 12 / (1 - nu * nu), g = e / (2 * (1 + nu));
+        double[] initial = [a, a, nu * a, g * h, d, d, nu * d, g * h * h * h / 12];
+        double[] secant = [.. initial];
+        secant[4] = d / 2;
+        double inf = double.PositiveInfinity;
+        double[] point(double eiy) => [3e9, eiy, 1e6, inf, inf];
+        return new RcSecantStepFields
+        {
+            NodeIds = f.NodeIds, Displacements = f.Displacements, ShellIds = f.ShellIds, ShellForces = f.ShellForces,
+            ShellStates = f.ShellStates, ShellFlags = f.ShellFlags, BeamIds = f.BeamIds, BeamForces = f.BeamForces,
+            BeamFlags = f.BeamFlags, HasStiffness = true,
+            ShellStiffness = [.. secant, .. initial, h],
+            BeamStiffness = [.. point(5e6), .. point(2.5e6), .. point(5e6), 3e9, 5e6, 1e6, inf, inf, 2e6],
+        };
+    }
+
+    [Fact]
+    public void Mosaic_CsfeaStiffness_ShellsBarsModeCardAndTable()
+    {
+        using var t = new TempDb();
+        var summary = new FemCsfeaResultSummary { Steps = [new FemCsfeaStepSummary(1, 0, 1, 1.0, false, true, 3, 1e-6, null, 1, true)] };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Р1", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(FieldsWithStiffness()))]);
+        var csfea = new FemCsfeaResultVM(result, t.Db, t.Schema);
+        var layer = new FemResultLayer(new FemAnalysis { Id = 1, Tag = "Р1", ResultId = result.Id }, "Р1", new CsfeaResultSteps(csfea), t.Mesh());
+        var vm = MosaicOf(layer);
+        Assert.True(layer.HasStiffness);
+
+        // Пластины — основным списком (изгибные и мембранные модули), стержни — своим (EA … GAz).
+        Assert.Equal(FemCsfeaStiffnessValues.ShellQuantities, vm.ComponentOptions.Select(o => o.Component).OfType<FemCsfeaStiffness>());
+        Assert.Equal(7 + 5, vm.BarComponentOptions.Count);
+        Assert.False(vm.HasStiffnessMode);
+
+        // Изгибная E1: секущая 12·D11/h³ = E₀/(1 − ν²)/2 (МПа), начальная — вдвое больше, отношение — 0,5.
+        double e1 = 30e3 / (1 - 0.04);
+        Select(vm, FemCsfeaStiffness.BendE1);
+        Assert.True(vm.HasStiffnessMode);
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(Extremum(vm, e1 / 2, "2"), layer.SummaryText);
+        vm.SelectedStiffnessMode = vm.StiffnessModeOptions.Single(o => o.Value == FemCsfeaStiffnessMode.Initial);
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(Extremum(vm, e1, "2"), layer.SummaryText);
+        vm.SelectedStiffnessMode = vm.StiffnessModeOptions.Single(o => o.Value == FemCsfeaStiffnessMode.Ratio);
+        Assert.Contains("E1/E1₀", FemResultLayer.StiffnessLabel(FemCsfeaStiffness.BendE1, FemCsfeaStiffnessMode.Ratio));
+        Assert.Equal(string.Format(Loc.S("MosaicResultStiffness"), FemResultLayer.StiffnessLabel(FemCsfeaStiffness.BendE1,
+            FemCsfeaStiffnessMode.Ratio)), vm.SelectedComponent!.Label);
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(Extremum(vm, 0.5, "2"), layer.SummaryText);
+        // ν12 = D12/D22 и мембранная E2 не изменились.
+        Select(vm, FemCsfeaStiffness.MembE2);
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(Extremum(vm, 1, "2"), layer.SummaryText);
+        Assert.Equal(0.2, layer.ShellStiffness("2", FemCsfeaStiffness.BendNu12, FemCsfeaStiffnessMode.Secant)!.Value, 6);   // float
+
+        // Стержни: эпюра по трём точкам вдоль местной Ez, итог — по точкам; без эпюр — раскраска наименьшим по длине.
+        vm.SelectedStiffnessMode = vm.StiffnessModeOptions.Single(o => o.Value == FemCsfeaStiffnessMode.Secant);
+        SelectBar(vm, FemCsfeaStiffness.BarEIy);
+        Assert.True(vm.HasBarDiagrams);
+        Assert.Equal(vm.BarDiagramAxis("1"), new Vector3D(0, -1, 0));
+        var profile = vm.BarProfiles(["1"], out _)!["1"];
+        Assert.Equal([(0.0, 5.0), (0.5, 2.5), (1.0, 5.0)], profile.Select(p => (p.T, Math.Round(p.V, 9))));
+        vm.Compute(["2"], ["1"]);
+        Assert.Equal(MinMax(string.Format(Loc.S("FemResultBarsLabel"), vm.SelectedBarComponent!.Label), 2.5, "1", 5, "1"),
+            layer.BarSummaryText);
+        vm.ShowBarDiagrams = false;
+        Assert.True(vm.Compute(["2"], ["1"])!.Both);
+        Assert.True(vm.HasBarLegend);
+        Assert.Equal(string.Format(Loc.S("MosaicResultBarStiffnessLegendTitle"), vm.SelectedBarComponent.Label,
+            Loc.S("MosaicBarStiffnessMin")), vm.BarLegendTitle);
+        Assert.Equal(2.5, FemCsfeaStiffnessValues.Aggregate((5, 2.5, 5), mean: false));
+        Assert.Equal(20.0 / 6, FemCsfeaStiffnessValues.Aggregate((5, 2.5, 5), mean: true), 12);
+        // GA без сдвиговых деформаций не определена.
+        Assert.Null(layer.BarStiffness("1", FemCsfeaStiffness.BarGAy, FemCsfeaStiffnessMode.Secant));
+
+        // Карточка: секущие и отношение к начальным, у стержня — по точкам.
+        layer.Selection.PickElement("1", FemResultPickMode.Elements, false);
+        var row = layer.Card!.Rows.Single(r => r.Label == FemResultLayer.StiffnessLabel(FemCsfeaStiffness.BarEIy, FemCsfeaStiffnessMode.Secant));
+        Assert.StartsWith($"{Num(5)} · {Num(2.5)} · {Num(5)}", row.Value);
+        layer.Selection.PickElement("2", FemResultPickMode.Elements, false);
+        Assert.Contains(layer.Card!.Rows, r => r.Label == FemResultLayer.StiffnessLabel(FemCsfeaStiffness.BendE1, FemCsfeaStiffnessMode.Secant));
+
+        // Таблица «Жёсткости»: строка пластины и три строки стержня.
+        var shellRow = Assert.Single(csfea.ShellStiffnessRows);
+        Assert.Equal(1, shellRow.BendE1!.Value / (e1 / 2), 6);   // блок — float
+        Assert.Equal(0.5, shellRow.BendE1Ratio!.Value, 12);
+        Assert.Equal(["i", "½", "j"], csfea.BarStiffnessRows.Select(r => r.Point));
+        Assert.Equal(0.5, csfea.BarStiffnessRows[1].EIyRatio!.Value, 12);
+        Assert.Null(csfea.BarStiffnessRows[1].GAy);
+    }
+
+    [Fact]
+    public void Csfea_OldRecordWithoutStiffness_NoStiffnessItems()
+    {
+        using var t = new TempDb();
+        var summary = new FemCsfeaResultSummary { Steps = [new FemCsfeaStepSummary(1, 0, 1, 1.0, false, true, 3, 1e-6, null, 1, true)] };
+        var result = new CalcResult { TaskKind = FemCsfeaRunner.TaskKind, TaskTag = "Р1", DataJson = summary.ToJson() };
+        t.Db.SaveCalcResult(result);
+        t.Db.SaveFemResultSteps(result.Id, [(1, FemCsfeaStepFieldsCodec.Pack(FieldsWithForces()))]);
+        var csfea = new FemCsfeaResultVM(result, t.Db, t.Schema);
+        var layer = new FemResultLayer(new FemAnalysis { Id = 1, Tag = "Р1", ResultId = result.Id }, "Р1", new CsfeaResultSteps(csfea), t.Mesh());
+        var vm = MosaicOf(layer);
+        Assert.False(layer.HasStiffness);
+        Assert.Empty(vm.ComponentOptions.Select(o => o.Component).OfType<FemCsfeaStiffness>());
+        Assert.Empty(csfea.ShellStiffnessRows);
+        layer.Selection.PickElement("1", FemResultPickMode.Elements, false);
+        Assert.DoesNotContain(layer.Card!.Rows, r => r.Label.StartsWith("EIy", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Layer_OpenSeesBarForcesAndAxes()
     {

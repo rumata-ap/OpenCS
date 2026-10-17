@@ -57,7 +57,7 @@ public sealed class RcSecantStepFields
     /// <see cref="ShellStiffness"/>, <see cref="BeamStiffness"/>, <see cref="ShellStrains"/>, <see cref="BeamStrains"/>,
     /// <see cref="ShellMatrices"/>, <see cref="BeamMatrices"/>.
     /// </summary>
-    public const int ShellStiffnessComponents = 16, BeamStiffnessComponents = 21, ShellStrainComponents = 6,
+    public const int ShellStiffnessComponents = 17, BeamStiffnessComponents = 21, ShellStrainComponents = 6,
         BeamStrainComponents = 9, ShellMatrixComponents = 31, BeamMatrixComponents = 33;
 
     /// <summary>Есть блок жёсткостей (записи до 17.10.2026 — нет).</summary>
@@ -65,7 +65,8 @@ public sealed class RcSecantStepFields
 
     /// <summary>
     /// Жёсткости пластин в осях выдачи усилий (<see cref="ShellStiffnessComponents"/> на КЭ): секущие A11, A22, A12, A66
-    /// (Н/м), D11, D22, D12, D66 (Н·м) по центру КЭ, затем те же начальные. Упругий КЭ — секущие = начальные.
+    /// (Н/м), D11, D22, D12, D66 (Н·м) по центру КЭ, затем те же начальные и толщина сечения h (м; NaN — не задана).
+    /// Упругий КЭ — секущие = начальные.
     /// </summary>
     public double[] ShellStiffness { get; init; } = [];
 
@@ -123,6 +124,7 @@ public sealed class RcSecantFieldExtractor
     private readonly IReadOnlyDictionary<int, double> _forceAngles;
     private readonly List<Dictionary<int, double[]>> _stageBeamLoads = new();
     private readonly List<double[]> _stageLoadSums = new();   // ΣF конца стадии (накопленные)
+    private readonly Dictionary<int, double> _thickness;      // номер оболочки → толщина сечения, м
 
     /// <param name="beams">Состояния стержней (null — все упругие).</param>
     /// <param name="recordStrains">Писать деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>).</param>
@@ -134,6 +136,8 @@ public sealed class RcSecantFieldExtractor
         _shells = shells;
         _beams = beams ?? new ISecantBeamState?[build.Mesh.Beams.Count];
         _strains = recordStrains;
+        _thickness = new Dictionary<int, double>();
+        foreach (var s in model.Shells) _thickness[s.Id] = s.Section.Elastic?.H ?? s.Section.Plate?.H ?? double.NaN;
         _geometric = geometric;
         _shellCr = geometric && shellInPlanePDelta;
         _forceAngles = shellForceAngles ?? new Dictionary<int, double>();
@@ -235,6 +239,7 @@ public sealed class RcSecantFieldExtractor
             int ko = e * RcSecantStepFields.ShellStiffnessComponents;
             ShellStiffnessTerms(secant, angle, shellStiffness, ko);
             ShellStiffnessTerms(initial, angle, shellStiffness, ko + 8);
+            shellStiffness[ko + 16] = _thickness.GetValueOrDefault(_build.ShellIds[e], double.NaN);
             if (_strains)
             {
                 var (er, kr) = (RotateStrains(eps, angle), RotateStrains(kappa, angle));

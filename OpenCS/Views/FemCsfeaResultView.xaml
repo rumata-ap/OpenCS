@@ -93,6 +93,58 @@
                 </DataGrid>
             </TabItem>
 
+            <!-- Жёсткости КЭ показанного шага (секущие и отношения к начальным); у огибающих — нет -->
+            <TabItem Header="{DynamicResource FemCsfeaTabStiffness}" Visibility="{Binding HasStiffness, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource FemCsfeaStiffnessShells}" FontWeight="SemiBold" Margin="6,2"
+                               ToolTip="{DynamicResource FemCsfeaStiffnessShellsTip}"
+                               Visibility="{Binding HasShells, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding ShellStiffnessRows}" Style="{StaticResource FieldGrid}"
+                              Visibility="{Binding HasShells, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding Elem}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendE1}" Binding="{Binding BendE1, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendE2}" Binding="{Binding BendE2, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendG}" Binding="{Binding BendG, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendNu12}" Binding="{Binding BendNu12, StringFormat=G4}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendNu21}" Binding="{Binding BendNu21, StringFormat=G4}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembE1}" Binding="{Binding MembE1, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembE2}" Binding="{Binding MembE2, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembG}" Binding="{Binding MembG, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembNu12}" Binding="{Binding MembNu12, StringFormat=G4}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembNu21}" Binding="{Binding MembNu21, StringFormat=G4}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendE1Ratio}" Binding="{Binding BendE1Ratio, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColBendE2Ratio}" Binding="{Binding BendE2Ratio, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembE1Ratio}" Binding="{Binding MembE1Ratio, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColMembE2Ratio}" Binding="{Binding MembE2Ratio, StringFormat=0.###}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" Text="{DynamicResource FemCsfeaStiffnessBars}" FontWeight="SemiBold" Margin="6,6,6,2"
+                               Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}"/>
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding BarStiffnessRows}" Style="{StaticResource FieldGrid}"
+                              Visibility="{Binding HasBeams, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColElem}" Binding="{Binding Elem}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColPoint}" Binding="{Binding Point}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEA}" Binding="{Binding EA, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEIy}" Binding="{Binding EIy, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEIz}" Binding="{Binding EIz, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColGAy}" Binding="{Binding GAy, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColGAz}" Binding="{Binding GAz, StringFormat=G5}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEARatio}" Binding="{Binding EARatio, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEIyRatio}" Binding="{Binding EIyRatio, StringFormat=0.###}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaColEIzRatio}" Binding="{Binding EIzRatio, StringFormat=0.###}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
             <!-- Реакции опор показанного шага -->
             <TabItem Header="{DynamicResource FemCsfeaTabReactions}">
                 <DockPanel>
