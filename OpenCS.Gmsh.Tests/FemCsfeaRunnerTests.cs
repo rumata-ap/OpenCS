@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CScore;
 using CScore.Fem;
@@ -355,6 +355,34 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             Assert.Equal(expected.NodeIds, actual.NodeIds);
             for (int i = 0; i < expected.Displacements.Length; i++)
                 Assert.Equal(expected.Displacements[i], actual.Displacements[i], 1e-9 * scale);
+        });
+    }
+
+    [Fact]
+    public async Task Batch_ForceSetsPerVariant_GroupC_TwoVariantsByThreeSelectedElements()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            MakeBatch(ctx.Db, schema, analysis);
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            var first = Fields(ctx.Db, result.Id, 1);
+            var picked = first.ShellIds.Take(3).ToArray();
+
+            var built = FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n), ["C"], [],
+                new FemCsfeaForceSetScope(picked, []), [], null, CancellationToken.None);
+
+            var set = Assert.Single(built.Sets);
+            output.WriteLine(set.Tag);
+            Assert.Empty(built.Warnings);
+            Assert.EndsWith("— C, 2 вар. — пластины [выбор: 3 КЭ] (C)", set.Tag);
+            Assert.Equal(2 * 3, set.ShellItems.Count);
+            Assert.Equal(picked.Select(e => $"{e} · C1").Concat(picked.Select(e => $"{e} · C2")),
+                set.ShellItems.Select(r => r.Label));
+            Assert.Equal(first.ShellForces[3] / 1e3, set.ShellItems[0].Mx, 12);
+            var second = Fields(ctx.Db, result.Id, 2);
+            Assert.Equal(second.ShellForces[3] / 1e3, set.ShellItems[3].Mx, 12);
+            Assert.NotEqual(set.ShellItems[0].Mx, set.ShellItems[3].Mx);
         });
     }
 
