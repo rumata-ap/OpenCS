@@ -85,6 +85,62 @@ public sealed class FemCsfeaFieldRecorder
     }
 }
 
+/// <summary>
+/// Вариант пакетного расчёта в сводке (<see cref="FemCsfeaResultSummary.Batch"/>): элемент пакета и итог его расчёта.
+/// <see cref="Done"/> — расчёт варианта завершён (дошёл до предела λ или остановился на несходимости); не посчитанный
+/// (отмена, остановка пакета) — false. <see cref="RecordN"/> — номер записи полей конечного состояния в
+/// <c>fem_result_steps</c> (null — не записаны).
+/// </summary>
+public sealed class FemCsfeaBatchSummary
+{
+    public int Index { get; set; }
+    public string Tag { get; set; } = "";
+    public string Kind { get; set; } = Tasks.FemCsfeaBatchItemKind.Combination;
+    public string Type { get; set; } = "";
+    public string ExpressionJson { get; set; } = "{}";
+    public bool Done { get; set; }
+    /// <summary>Дошёл до предела λ.</summary>
+    public bool Completed { get; set; }
+    /// <summary>Достигнутый коэффициент нагрузки λ (последний сошедшийся шаг).</summary>
+    public double LoadFactor { get; set; }
+    public int Steps { get; set; }
+    public int Iterations { get; set; }
+    public double ElapsedSeconds { get; set; }
+    /// <summary>Перемещение контрольного узла конечного шага (м или рад).</summary>
+    public double? Control { get; set; }
+    public double[]? ReactionSums { get; set; }
+    public double[]? LoadSum { get; set; }
+    /// <summary>Суммарная нагрузка варианта при λ = предел, Н.</summary>
+    public double Fx { get; set; }
+    public double Fy { get; set; }
+    public double Fz { get; set; }
+    /// <summary>Почему не дошёл до предела λ (сообщение решателя).</summary>
+    public string? Reason { get; set; }
+    public int? RecordN { get; set; }
+
+    /// <summary>Группа огибающей: тип комбинации или <see cref="FemCsfeaBatchGroup.LoadCases"/>.</summary>
+    public string GroupKey => Kind == Tasks.FemCsfeaBatchItemKind.LoadCase ? FemCsfeaBatchGroup.LoadCases
+        : string.IsNullOrEmpty(Type) ? "C" : Type;
+
+    /// <summary>«[C] Огибающая C 017».</summary>
+    public string Label => string.IsNullOrEmpty(Type) ? Tag : $"[{Type}] {Tag}";
+}
+
+/// <summary>
+/// Огибающая группы пакета, записанная при хранении «только огибающие»: ключ (тип комбинации C…A или
+/// <see cref="LoadCases"/>), номер записи (<see cref="FemCsfeaEnvelopeCodec"/>), сколько вариантов вошло.
+/// </summary>
+public sealed record FemCsfeaBatchGroup(string Key, int RecordN, int Count)
+{
+    /// <summary>Ключ группы загружений.</summary>
+    public const string LoadCases = "LC";
+    /// <summary>Номера записей огибающих — после номеров полей вариантов.</summary>
+    public const int RecordBase = 100000;
+}
+
+/// <summary>Прогресс пакетного расчёта: номер варианта (с 1) из числа считаемых, его тег, прогресс решателя.</summary>
+public sealed record FemCsfeaBatchProgress(int Number, int Count, string Tag, SecantProgress Step);
+
 /// <summary>Стадия в сводке: тег, заданное число шагов, суммарная нагрузка (Н) в глобальных осях.</summary>
 public sealed record FemCsfeaStageSummary(string Tag, int Steps, double Fx, double Fy, double Fz);
 
@@ -116,6 +172,21 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Ошибки, из-за которых расчёт не запускался (формат ошибок прочих FEM-результатов).</summary>
     public List<string> Errors { get; set; } = [];
 
+    /// <summary>Варианты пакетного расчёта; null — не пакет.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<FemCsfeaBatchSummary>? Batch { get; set; }
+    /// <summary>Хранение пакета (<see cref="Tasks.FemCsfeaBatchRecording"/>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? BatchRecording { get; set; }
+    /// <summary>Предел λ вариантов пакета.</summary>
+    public double BatchMaxLoadFactor { get; set; } = 1.0;
+    /// <summary>Записанные огибающие групп пакета (хранение «только огибающие»).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<FemCsfeaBatchGroup>? BatchGroups { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsBatch => Batch != null;
+
     public string ToJson() => JsonSerializer.Serialize(this);
 
     public static FemCsfeaResultSummary? Parse(string? json)
@@ -129,6 +200,11 @@ public sealed class FemCsfeaResultSummary
     public IEnumerable<string> Describe()
     {
         foreach (var e in Errors) yield return "Ошибка: " + e;
+        if (Batch != null)
+        {
+            foreach (var line in DescribeBatch()) yield return line;
+            yield break;
+        }
         if (Steps.Count == 0) yield break;
         bool linear = Kind == FemCsfeaRunner.LinearAnalysisKind;
         yield return linear
@@ -149,6 +225,35 @@ public sealed class FemCsfeaResultSummary
             string state = end == null ? "не начата" : Math.Abs(end.LoadFactor - 1) < 1e-12 ? "пройдена" : string.Create(CultureInfo.CurrentCulture, $"остановлена на λ = {end.LoadFactor:0.###}");
             yield return string.Create(CultureInfo.CurrentCulture,
                 $"Стадия «{stage.Tag}» (ΣFz = {stage.Fz / 1e3:0.###} кН): {state}{control}.");
+        }
+        if (Message != null) yield return Message;
+    }
+
+    /// <summary>
+    /// Итог пакета: сколько дошли до предела λ, затем по строке на каждый недошедший и непосчитанный (спека 2026-10-17,
+    /// п. 4.1 — какие варианты не вошли в огибающие).
+    /// </summary>
+    IEnumerable<string> DescribeBatch()
+    {
+        var batch = Batch!;
+        if (batch.Count == 0) yield break;
+        string max = BatchMaxLoadFactor.ToString("0.###", CultureInfo.CurrentCulture);
+        int completed = batch.Count(b => b.Completed);
+        yield return string.Create(CultureInfo.CurrentCulture,
+            $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; вариантов {batch.Count}, до λ = {max} — {completed}, {ElapsedSeconds:0.#} с.");
+        var stopped = batch.Where(b => b.Done && !b.Completed).ToList();
+        var notDone = batch.Where(b => !b.Done).ToList();
+        if (stopped.Count > 0)
+        {
+            yield return $"Не дошли до λ = {max}: {stopped.Count}:";
+            foreach (var b in stopped)
+                yield return string.Create(CultureInfo.CurrentCulture,
+                    $"  {b.Label} — λ = {b.LoadFactor:0.###}{(string.IsNullOrEmpty(b.Reason) ? "" : $" ({b.Reason})")}");
+        }
+        if (notDone.Count > 0)
+        {
+            yield return $"Не посчитаны: {notDone.Count}:";
+            foreach (var b in notDone) yield return $"  {b.Label}";
         }
         if (Message != null) yield return Message;
     }
@@ -248,7 +353,7 @@ public static class FemCsfeaRunner
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         // Стадии пакета — независимые варианты; расчёт подряд накапливал бы их нагрузки.
         if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch != null)
-            return Result(analysis, created, "error", new FemCsfeaResultSummary { Errors = ["Пакетный расчёт пока не поддерживается."] });
+            return await RunBatchAsync(ctx, schema, analysis, null, null, null, ct);
         var prepared = await PrepareAsync(ctx, schema, analysis, buildMesh: true, ct);
         var summary = new FemCsfeaResultSummary { Report = prepared.Report.ToList() };
         if (prepared.HasErrors)
@@ -313,6 +418,196 @@ public static class FemCsfeaRunner
         ctx.Db.SaveCalcResult(result);
         ctx.Db.SaveFemResultSteps(result.Id, recorder.Records.Select(kv => (kv.Key, kv.Value)));
         return result;
+    }
+
+    /// <summary>
+    /// Пакетный секущий расчёт (спека 2026-10-17): одна подготовка (адаптер получает все варианты стадиями — нагрузки и
+    /// ΣF переводятся один раз), затем по каждому варианту — расчёт одной стадией с нуля (<c>model.Stages</c> = стадия
+    /// варианта). Сводка пишется в БД после каждого варианта, поля конечного состояния — сразу (хранение «поля») или
+    /// огибающие групп дошедших до предела λ — в конце (хранение «только огибающие»). Отмена не теряет посчитанное:
+    /// результат «partial». <paramref name="resume"/> — частичный результат той же постановки с хранением «поля»:
+    /// варианты с тем же выражением и записанными полями не пересчитываются, убранные из пакета — удаляются.
+    /// <paramref name="attached"/> — результат впервые записан в БД (постановке — его номер).
+    /// </summary>
+    public static async Task<CalcResult> RunBatchAsync(FemCsfeaRunContext ctx, FemSchema schema, FemAnalysis analysis,
+        CalcResult? resume, IProgress<FemCsfeaBatchProgress>? progress, Action<CalcResult>? attached, CancellationToken ct)
+    {
+        string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        var pars = FemAnalysisParams.Parse(analysis.ParamsJson);
+        var batch = pars.Batch ?? throw new InvalidOperationException("Постановка — не пакет.");
+        var csfea = pars.Csfea ?? new FemCsfeaParams();
+        bool envelopes = batch.Recording == FemCsfeaBatchRecording.Envelopes;
+        var prepared = await PrepareAsync(ctx, schema, analysis, buildMesh: true, ct);
+        var summary = new FemCsfeaResultSummary
+        {
+            Report = prepared.Report.ToList(), Batch = [], BatchRecording = batch.Recording, BatchMaxLoadFactor = batch.MaxLoadFactor,
+        };
+        if (prepared.HasErrors)
+        {
+            summary.Errors = prepared.Diagnostics.Concat(prepared.Adapted?.Diagnostics ?? [])
+                .Where(d => d.IsError).Select(d => d.Message).ToList();
+            return Result(analysis, created, "error", summary);
+        }
+
+        var adapted = prepared.Adapted!;
+        var model = adapted.Model;
+        var stages = model.Stages.ToList();
+        string tag = analysis.Tag;
+
+        // Досчёт: посчитанные варианты с записанными полями переносятся по выражению; сетка другая — всё заново.
+        var previous = !envelopes && resume != null ? FemCsfeaResultSummary.Parse(resume.DataJson) : null;
+        var kept = new Dictionary<string, FemCsfeaBatchSummary>(StringComparer.Ordinal);
+        if (previous?.Batch is { } prevBatch)
+            foreach (var b in prevBatch.Where(b => b.Done && b.RecordN != null)) kept.TryAdd(b.ExpressionJson, b);
+        var result = previous != null ? resume! : Result(analysis, created, "partial", summary);
+        summary.ElapsedSeconds = previous?.ElapsedSeconds ?? 0;
+        summary.Nodes = previous?.Nodes ?? 0;
+        summary.Shells = previous?.Shells ?? 0;
+        summary.Beams = previous?.Beams ?? 0;
+        summary.ControlNodeTag = previous?.ControlNodeTag ?? "";
+        summary.ControlSchemaNodeTag = previous?.ControlSchemaNodeTag ?? "";
+        summary.ControlDof = csfea.ControlDof;
+        for (int i = 0; i < batch.Items.Count; i++)
+        {
+            var item = batch.Items[i];
+            var total = i < adapted.StageTotals.Count ? adapted.StageTotals[i] : new FemRcStageTotal(item.Tag, 0, 0, 0);
+            var entry = kept.Remove(item.LoadExpressionJson, out var old) ? old : new FemCsfeaBatchSummary
+            {
+                ExpressionJson = item.LoadExpressionJson,
+            };
+            entry.Index = i;
+            entry.Tag = item.Tag;
+            entry.Kind = item.Kind;
+            entry.Type = item.Type;
+            (entry.Fx, entry.Fy, entry.Fz) = (total.Fx, total.Fy, total.Fz);
+            summary.Batch.Add(entry);
+        }
+        if (previous != null && kept.Count > 0)
+            ctx.Db.DeleteFemResultSteps(result.Id, kept.Values.Select(b => b.RecordN!.Value));
+        int nextRecord = summary.Batch.Where(b => b.RecordN != null).Select(b => b.RecordN!.Value).DefaultIfEmpty(0).Max() + 1;
+
+        void Save()
+        {
+            result.DataJson = summary.ToJson();
+            bool isNew = result.Id == 0;
+            ctx.Db.SaveCalcResult(result);
+            if (isNew) attached?.Invoke(result);
+        }
+        result.Status = "partial";
+        Save();
+
+        var quantities = envelopes ? FemCsfeaEnvelopeQuantities.FromMesh(ctx.Db.GetFemMeshNodes(schema.Id), ctx.Db.GetFemMeshElements(schema.Id)) : null;
+        var groups = new Dictionary<string, (FemCsfeaEnvelopeAccumulator Acc, RcSecantStepFields Reference)>(StringComparer.Ordinal);
+        void Log(string line)
+        {
+            if (!line.StartsWith(' ')) ctx.Log.Info($"[{tag}] {line}");
+        }
+        var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism, Log, adapted.ShellForceAngles, null);
+        var todo = summary.Batch.Where(b => !b.Done).ToList();
+        int? controlDof = null;
+        bool controlResolved = false;
+        try
+        {
+            for (int k = 0; k < todo.Count; k++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var entry = todo[k];
+                model.Stages.Clear();
+                model.Stages.Add(stages[entry.Index]);
+                int number = k + 1;
+                var inner = progress == null ? null
+                    : new Progress<SecantProgress>(p => progress.Report(new FemCsfeaBatchProgress(number, todo.Count, entry.Tag, p)));
+                var clock = Stopwatch.StartNew();
+                var (run, fields, packed) = await Task.Run(() =>
+                {
+                    var solved = RcSecantAnalysis.Run(model, options, inner, ct);
+                    var f = solved.LastConvergedFields();
+                    return (solved, f, !envelopes && f != null ? FemCsfeaStepFieldsCodec.Pack(f) : null);
+                }, ct);
+                clock.Stop();
+
+                if (!controlResolved)
+                {
+                    controlDof = ControlDof(prepared, run.Build, csfea, summary);
+                    summary.ControlNodeTag = controlDof != null ? prepared.ControlNode!.Value.MeshTag : "";
+                    summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
+                    controlResolved = true;
+                }
+                if (summary.Nodes != 0 && (summary.Nodes != run.Build.Mesh.NNodes || summary.Shells != run.Build.Mesh.Shells.Count
+                    || summary.Beams != run.Build.Mesh.Beams.Count))
+                    throw new InvalidOperationException("Сетка схемы изменилась после начала пакета — запустите «Пересчитать всё».");
+                summary.Nodes = run.Build.Mesh.NNodes;
+                summary.Shells = run.Build.Mesh.Shells.Count;
+                summary.Beams = run.Build.Mesh.Beams.Count;
+
+                var r = run.Result;
+                var last = r.Steps.LastOrDefault(s => s.Converged);
+                entry.Done = true;
+                entry.Completed = r.Completed;
+                entry.LoadFactor = (last?.LoadFactor ?? 0) * batch.MaxLoadFactor;
+                entry.Steps = r.Steps.Count(s => s.Converged);
+                entry.Iterations = r.Steps.Sum(s => s.Iterations);
+                entry.ElapsedSeconds = clock.Elapsed.TotalSeconds;
+                entry.Reason = r.Completed ? null : r.Message;
+                entry.Control = last != null && controlDof is int d ? last.U[d] : null;
+                entry.ReactionSums = fields?.ReactionSums;
+                entry.LoadSum = fields?.LoadSum;
+                summary.ElapsedSeconds += clock.Elapsed.TotalSeconds;
+                if (packed != null)
+                {
+                    entry.RecordN = nextRecord++;
+                    ctx.Db.SaveFemResultStep(result.Id, entry.RecordN.Value, packed);
+                }
+                if (quantities != null && fields != null && r.Completed)
+                {
+                    var f = fields;
+                    var vector = await Task.Run(() => quantities.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), norms: true), ct);
+                    if (!groups.TryGetValue(entry.GroupKey, out var g)) groups[entry.GroupKey] = g = (new FemCsfeaEnvelopeAccumulator(), f);
+                    g.Acc.Add(vector, entry.Index);
+                }
+                ctx.Log.Info(string.Create(CultureInfo.CurrentCulture,
+                    $"[{tag}] Вариант {number} из {todo.Count} «{entry.Tag}»: λ = {entry.LoadFactor:0.###}{(r.Completed ? "" : " — не дошёл до предела")}, шагов {entry.Steps}, {entry.ElapsedSeconds:0.#} с."));
+                Save();
+                if (!r.Completed && batch.StopAtLimit)
+                {
+                    summary.Message = $"Пакет остановлен: вариант «{entry.Tag}» не дошёл до предела λ.";
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            summary.Message = "Расчёт пакета прерван — посчитанные варианты сохранены.";
+        }
+        finally
+        {
+            model.Stages.Clear();
+            model.Stages.AddRange(stages);
+        }
+
+        if (envelopes)
+        {
+            summary.BatchGroups = [];
+            int g = 0;
+            foreach (var key in FemCombinationTypesOrder(groups.Keys))
+            {
+                var (acc, reference) = groups[key];
+                int n = FemCsfeaBatchGroup.RecordBase + ++g;
+                ctx.Db.SaveFemResultStep(result.Id, n, FemCsfeaEnvelopeCodec.Pack(acc.Result!, reference));
+                summary.BatchGroups.Add(new FemCsfeaBatchGroup(key, n, acc.Count));
+            }
+        }
+        result.Status = summary.Batch.Any(b => !b.Done) ? "partial" : summary.Batch.All(b => b.Completed) ? "ok" : "not_converged";
+        summary.Completed = result.Status == "ok";
+        Save();
+        return result;
+    }
+
+    /// <summary>Ключи групп огибающих пакета по порядку: C, CL, N, NL, A, затем загружения.</summary>
+    static IEnumerable<string> FemCombinationTypesOrder(IEnumerable<string> keys)
+    {
+        var order = CScore.Fem.Combinations.FemCombinationTypes.All.Append(FemCsfeaBatchGroup.LoadCases).ToList();
+        return keys.OrderBy(k => order.IndexOf(k) is int i && i >= 0 ? i : order.Count).ThenBy(k => k, StringComparer.Ordinal);
     }
 
     /// <summary>

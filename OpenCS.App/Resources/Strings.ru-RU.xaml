@@ -2951,6 +2951,9 @@
     <system:String x:Key="FemCsfeaBatchUnresolved">В пакете есть нагрузки, которых нет в схеме (красные строки) — выберите варианты заново.</system:String>
     <system:String x:Key="FemCsfeaBatchFactorsInvalid">Шаг λ — число от 0 до 1, предел λ — не меньше шага.</system:String>
     <system:String x:Key="FemCsfeaBatchDefaultTag">Пакет ({0})</system:String>
+    <system:String x:Key="FemCsfeaBatchProgress">Пакет «{0}»: вариант {1} из {2} «{3}» — шаг {4} из {5} (λ = {6:0.###}), итерация {7}</system:String>
+    <system:String x:Key="FemCsfeaBatchPartial">Пакет «{0}»: посчитаны не все варианты.</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeText">Пакет «{0}» посчитан не полностью: без результата {1} из {2} вариантов.&#10;&#10;Да — досчитать оставшиеся, Нет — пересчитать все варианты заново.</system:String>
     <system:String x:Key="FemLoadSourceChoose">Выберите нагрузку…</system:String>
     <system:String x:Key="FemLoadSourceChooseTip">Выбрать комбинацию или загружение (двойной щелчок по ячейке, F2)</system:String>
     <system:String x:Key="FemLoadSourceUnresolved">Выражение постановки</system:String>

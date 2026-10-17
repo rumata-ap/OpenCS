@@ -49,6 +49,33 @@ namespace OpenCS.Utilites
          tx.Commit();
       }
 
+      /// <summary>Записывает или заменяет одну запись результата (пакетный расчёт пишет вариант сразу после расчёта).</summary>
+      public void SaveFemResultStep(int resultId, int stepN, byte[] data)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "INSERT OR REPLACE INTO fem_result_steps (result_id, step_n, data) VALUES (@rid, @n, @data)";
+         cmd.Parameters.AddWithValue("@rid", resultId);
+         cmd.Parameters.AddWithValue("@n", stepN);
+         cmd.Parameters.Add("@data", SqliteType.Blob).Value = data;
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Удаляет записи результата с номерами <paramref name="stepNs"/>.</summary>
+      public void DeleteFemResultSteps(int resultId, IEnumerable<int> stepNs)
+      {
+         using var tx = _connection.BeginTransaction();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_result_steps WHERE result_id = @rid AND step_n = @n";
+         cmd.Parameters.AddWithValue("@rid", resultId);
+         var n = cmd.Parameters.Add("@n", SqliteType.Integer);
+         foreach (int stepN in stepNs)
+         {
+            n.Value = stepN;
+            cmd.ExecuteNonQuery();
+         }
+         tx.Commit();
+      }
+
       /// <summary>Номера шагов результата с записанными полями, по возрастанию.</summary>
       public List<int> GetFemResultStepNumbers(int resultId)
       {

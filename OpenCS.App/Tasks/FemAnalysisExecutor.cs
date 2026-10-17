@@ -19,9 +19,11 @@ public static class FemAnalysisExecutor
     /// <summary>
     /// Полный прогон постановки с занятостью и отменой: статус «running» → расчёт → результат и статус в БД → итог
     /// и диагностика в журнал. Возвращает сохранённый результат; null — занято, схема не найдена, отмена или ошибка
-    /// (статус постановки «cancelled»/«error» сохранён).
+    /// (статус постановки «cancelled»/«error» сохранён). Пакет CSfea: результат привязывается к постановке сразу после
+    /// первой записи — отмена и сбой оставляют посчитанные варианты (статус «partial»); <paramref name="resume"/> —
+    /// досчитать варианты без результата в прежнем результате постановки.
     /// </summary>
-    public static async Task<CalcResult?> RunAndSaveAsync(Services.IProjectContext app, FemAnalysis analysis)
+    public static async Task<CalcResult?> RunAndSaveAsync(Services.IProjectContext app, FemAnalysis analysis, bool resume = false)
     {
         var busy = app.Busy;
         if (busy.IsBusy) return null;
@@ -36,7 +38,9 @@ public static class FemAnalysisExecutor
         db.SaveFemAnalysis(analysis);
         try
         {
-            var result = await RunAsync(app, schema, analysis, cts.Token);
+            var result = FemAnalysisParams.Parse(analysis.ParamsJson).Batch != null && Services.FemCsfeaRunner.IsCsfeaKind(analysis.Kind)
+                ? await RunCsfeaBatchAsync(app, schema, analysis, resume, cts.Token)
+                : await RunAsync(app, schema, analysis, cts.Token);
             db.SaveCalcResult(result);
             analysis.ResultId = result.Id;
             analysis.Status   = result.Status;
@@ -98,19 +102,23 @@ public static class FemAnalysisExecutor
         {
             "ok" => "CalcResultOk",
             "not_converged" => "CalcResultNotConverged",
+            "partial" => "FemCsfeaBatchPartial",
             _ => "CalcResultError"
         };
         string done = string.Format(Utilites.Loc.S(statusKey), tag);
         if (result.Status == "ok") log.Info(done);
-        else if (result.Status == "not_converged") log.Warning(done);
+        else if (result.Status is "not_converged" or "partial") log.Warning(done);
         else log.Error(done);
         if (Services.FemCsfeaResultSummary.Parse(result.DataJson) is { } summary)
         {
             foreach (var line in summary.Report)
                 if (line.StartsWith("Ошибка: ", StringComparison.Ordinal)) log.Error($"[{tag}] {line}");
                 else log.Warning($"[{tag}] {line}");
+            // У пакета после первой строки итога — недошедшие и непосчитанные варианты: предупреждением.
+            int n = 0;
             foreach (var line in summary.Describe().Where(l => !l.StartsWith("Ошибка: ", StringComparison.Ordinal)))
-                log.Info($"[{tag}] {line}");
+                if (summary.IsBatch && n++ > 0) log.Warning($"[{tag}] {line}");
+                else log.Info($"[{tag}] {line}");
         }
         return true;
     }
@@ -196,6 +204,40 @@ public static class FemAnalysisExecutor
         var ctx = new Services.FemCsfeaRunContext(app.Db, app.GmshSettings, app.LogService,
             app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
         return Services.FemCsfeaRunner.RunAsync(ctx, schema, analysis, progress, ct);
+    }
+
+    /// <summary>
+    /// Пакетный расчёт CSfea: прогресс «вариант k из n» — в полосу занятости, результат — в постановку при первой записи
+    /// (статус «running»), досчёт — по прежнему результату постановки.
+    /// </summary>
+    static Task<CalcResult> RunCsfeaBatchAsync(Services.IProjectContext app, FemSchema schema, FemAnalysis analysis, bool resume,
+        CancellationToken ct)
+    {
+        var progress = new Progress<Services.FemCsfeaBatchProgress>(p => app.Busy.ReportBusyProgress(
+            (p.Number - 1 + p.Step.Fraction) / p.Count, string.Format(Utilites.Loc.S("FemCsfeaBatchProgress"), analysis.Tag,
+                p.Number, p.Count, p.Tag, p.Step.Step, p.Step.StepCount, p.Step.LoadFactor, p.Step.Iteration)));
+        var ctx = new Services.FemCsfeaRunContext(app.Db, app.GmshSettings, app.LogService,
+            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
+        var previous = resume && analysis.ResultId is int rid ? app.Db.GetCalcResultById(rid) : null;
+        return Services.FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, previous, progress, result =>
+        {
+            analysis.ResultId = result.Id;
+            app.Db.SaveFemAnalysis(analysis);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Что предложить при запуске пакета с прежним результатом: число вариантов без результата для досчёта (хранение
+    /// «поля», результат того же пакета); 0 — досчитывать нечего или нельзя (считать заново).
+    /// </summary>
+    public static int BatchRemaining(Services.IProjectContext app, FemAnalysis analysis)
+    {
+        if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch is not { Recording: FemCsfeaBatchRecording.Fields } batch) return 0;
+        if (analysis.ResultId is not int rid || app.Db.GetCalcResultById(rid) is not { } result) return 0;
+        if (Services.FemCsfeaResultSummary.Parse(result.DataJson)?.Batch is not { } done) return 0;
+        var ready = done.Where(b => b.Done && b.RecordN != null).Select(b => b.ExpressionJson).ToHashSet(StringComparer.Ordinal);
+        if (ready.Count == 0) return 0;
+        return batch.Items.Count(i => !ready.Contains(i.LoadExpressionJson));
     }
 
     /// <summary>Резолвит нагрузки и способ управления траекторией по стадиям нелинейной

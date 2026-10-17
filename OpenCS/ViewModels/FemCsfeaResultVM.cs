@@ -472,11 +472,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     // ------------------------------------------------------------ огибающая группы комбинаций
 
-    // Вектор величин огибающей (раскладка по опорному шагу — номера узлов и КЭ у всех загружений одни): узел — 6
-    // перемещений и |u|; пластина — 8 усилий, ux/uy/uz среднее по узлам КЭ (м), отпор C1 (кПа, NaN без основания);
-    // стержень — 12 концевых сил; опора — 6 реакций. Всё, кроме |u|, линейно по загружениям.
-    const int NodeQ = RcSecantStepFields.NodeComponents + 1;
-    const int ShellQ = RcSecantStepFields.ShellForceComponents + 4;
+    // Вектор величин огибающей — FemCsfeaEnvelopeQuantities (общий с пакетным расчётом).
+    const int NodeQ = FemCsfeaEnvelopeQuantities.NodeQ;
+    const int ShellQ = FemCsfeaEnvelopeQuantities.ShellQ;
+
+    FemCsfeaEnvelopeQuantities? _quantities;
+    FemCsfeaEnvelopeQuantities Quantities => _quantities ??= new FemCsfeaEnvelopeQuantities(_contours,
+        _foundation.ToDictionary(kv => kv.Key, kv => (kv.Value.C1, kv.Value.Normal.X, kv.Value.Normal.Y, kv.Value.Normal.Z)));
 
     /// <summary>Готовая огибающая группы: значения, опорный шаг раскладки, группа (имена комбинаций-источников).</summary>
     sealed record EnvelopeData(FemCsfeaEnvelope Values, RcSecantStepFields Reference, FemCsfeaEnvelopeGroup Group)
@@ -549,13 +551,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             if (reference == null)
             {
                 reference = f;
-                nodeIndex = new Dictionary<int, int>();
-                for (int i = 0; i < f.NodeIds.Length; i++) nodeIndex.TryAdd(f.NodeIds[i], i);
+                nodeIndex = FemCsfeaEnvelopeQuantities.NodeIndex(f);
             }
             else if (!FemCsfeaCombinationFields.SameMesh(f, reference))
                 throw new InvalidOperationException(Loc.S("FemCsfeaEnvelopeMeshMismatch"));
             caseIndex[term.StepN] = vectors.Count;
-            vectors.Add(EnvelopeVector(f, nodeIndex!));
+            vectors.Add(Quantities.Vector(f, nodeIndex!));
         }
         if (reference == null) throw new InvalidOperationException(Loc.S("FemCsfeaCombinationEmpty"));
         var combinations = env.Combinations
@@ -563,57 +564,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             .ToList();
         // |u| — по записям узлов (куски вектора не режут записи по NodeQ величин).
         int nodeEnd = reference.NodeIds.Length * NodeQ;
-        var values = FemCsfeaCombinationEnvelope.Build(vectors, combinations, (v, offset) =>
-        {
-            for (int o = 0; o < v.Length && offset + o < nodeEnd; o += NodeQ)
-                v[o + 6] = Math.Sqrt(v[o] * v[o] + v[o + 1] * v[o + 1] + v[o + 2] * v[o + 2]);
-        }, NodeQ, progress, ct);
+        var values = FemCsfeaCombinationEnvelope.Build(vectors, combinations,
+            (v, offset) => FemCsfeaEnvelopeQuantities.DeriveNodeNorms(v, offset, nodeEnd), NodeQ, progress, ct);
         return new EnvelopeData(values, reference, env);
-    }
-
-    /// <summary>Величины огибающей одного загружения (раскладка — см. <see cref="NodeQ"/>).</summary>
-    double[] EnvelopeVector(RcSecantStepFields f, Dictionary<int, int> nodeIndex)
-    {
-        int nn = f.NodeIds.Length, ns = f.ShellIds.Length;
-        const int sc = RcSecantStepFields.ShellForceComponents, nc = RcSecantStepFields.NodeComponents;
-        var v = new double[nn * NodeQ + ns * ShellQ + f.BeamForces.Length + f.Reactions.Length];
-        var d = f.Displacements;
-        for (int i = 0; i < nn; i++)
-        {
-            for (int c = 0; c < nc; c++) v[i * NodeQ + c] = d[nc * i + c];
-            v[i * NodeQ + nc] = double.NaN;
-        }
-        int o = nn * NodeQ;
-        for (int i = 0; i < ns; i++, o += ShellQ)
-        {
-            Array.Copy(f.ShellForces, i * sc, v, o, sc);
-            int elem = f.ShellIds[i];
-            if (!_contours.TryGetValue(elem, out var contour))
-            {
-                for (int c = 0; c < 4; c++) v[o + sc + c] = double.NaN;
-                continue;
-            }
-            // Как ShellValue/FoundationPressure: среднее по узлам контура (узел вне полей — ноль).
-            for (int c = 0; c < 3; c++)
-            {
-                double sum = 0;
-                foreach (int n in contour)
-                    if (nodeIndex.TryGetValue(n, out int k)) sum += d[nc * k + c];
-                v[o + sc + c] = sum / contour.Length;
-            }
-            if (_foundation.TryGetValue(elem, out var fd))
-            {
-                double un = 0;
-                foreach (int n in contour)
-                    if (nodeIndex.TryGetValue(n, out int k))
-                        un += fd.Normal.X * d[nc * k] + fd.Normal.Y * d[nc * k + 1] + fd.Normal.Z * d[nc * k + 2];
-                v[o + sc + 3] = -fd.C1 * un / contour.Length / 1e3;
-            }
-            else v[o + sc + 3] = double.NaN;
-        }
-        Array.Copy(f.BeamForces, 0, v, o, f.BeamForces.Length);
-        Array.Copy(f.Reactions, 0, v, o + f.BeamForces.Length, f.Reactions.Length);
-        return v;
     }
 
     /// <summary>Поля показа огибающей: каждая величина — по выбору |max| / max / min (состояния пластин пусты).</summary>
@@ -1395,18 +1348,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Единичная нормаль многоугольника (по Ньюэллу), повёрнутая вверх (n_z ≥ 0; у вертикального — n_x, n_y ≥ 0).</summary>
     static Vector3D UpNormal(Point3D[] p)
     {
-        var n = new Vector3D();
-        for (int i = 0; i < p.Length; i++)
-        {
-            var a = p[i];
-            var b = p[(i + 1) % p.Length];
-            n += new Vector3D((a.Y - b.Y) * (a.Z + b.Z), (a.Z - b.Z) * (a.X + b.X), (a.X - b.X) * (a.Y + b.Y));
-        }
-        if (n.Length < 1e-300) return new Vector3D(0, 0, 1);
-        n.Normalize();
-        const double eps = 1e-9;
-        bool flip = n.Z < -eps || Math.Abs(n.Z) <= eps && (n.X < -eps || Math.Abs(n.X) <= eps && n.Y < 0);
-        return flip ? -n : n;
+        var (x, y, z) = FemCsfeaEnvelopeQuantities.UpNormal(p.Select(q => (q.X, q.Y, q.Z)).ToArray());
+        return new Vector3D(x, y, z);
     }
 
     // ------------------------------------------------------------ ширина раскрытия трещин

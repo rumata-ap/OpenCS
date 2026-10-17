@@ -2951,6 +2951,9 @@
     <system:String x:Key="FemCsfeaBatchUnresolved">The batch has loads missing from the schema (red rows) — choose the variants again.</system:String>
     <system:String x:Key="FemCsfeaBatchFactorsInvalid">λ step must be between 0 and 1, the λ limit not less than the step.</system:String>
     <system:String x:Key="FemCsfeaBatchDefaultTag">Batch ({0})</system:String>
+    <system:String x:Key="FemCsfeaBatchProgress">Batch "{0}": variant {1} of {2} "{3}" — step {4} of {5} (λ = {6:0.###}), iteration {7}</system:String>
+    <system:String x:Key="FemCsfeaBatchPartial">Batch "{0}": not all variants analysed.</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeText">Batch "{0}" is incomplete: {1} of {2} variants have no result.&#10;&#10;Yes — analyse the remaining ones, No — analyse all variants again.</system:String>
     <system:String x:Key="FemLoadSourceChoose">Choose load…</system:String>
     <system:String x:Key="FemLoadSourceChooseTip">Choose a combination or load case (double-click the cell, F2)</system:String>
     <system:String x:Key="FemLoadSourceUnresolved">Analysis expression</system:String>

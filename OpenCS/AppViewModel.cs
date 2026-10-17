@@ -5952,7 +5952,17 @@ namespace OpenCS
       async Task RunFemAnalysis(CScore.Fem.FemAnalysis? analysis)
       {
          if (analysis == null) return;
-         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis) != null)
+         // Пакет, посчитанный не полностью (отмена, правка списка вариантов), — досчитать или пересчитать всё.
+         bool resume = false;
+         if (Tasks.FemAnalysisExecutor.BatchRemaining(this, analysis) is int remaining and > 0)
+         {
+            int total = Tasks.FemAnalysisParams.Parse(analysis.ParamsJson).Batch!.Items.Count;
+            var answer = MessageBox.Show(string.Format(Loc.S("FemCsfeaBatchResumeText"), analysis.Tag, remaining, total),
+               Loc.S("FemAnalysisRun"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Cancel) return;
+            resume = answer == MessageBoxResult.Yes;
+         }
+         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis, resume) != null)
             ShowFemAnalysisResultInSchema(analysis);
       }
 

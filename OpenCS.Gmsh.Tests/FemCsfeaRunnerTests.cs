@@ -288,6 +288,147 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         });
     }
 
+    // ------------------------------------------------------------ пакет вариантов (спека 2026-10-17)
+
+    /// <summary>Пакет: q (комбинация C), q + q2 (комбинация C), q2 (загружение); шаг 0,5, предел 1.</summary>
+    static void MakeBatch(DatabaseService db, FemSchema schema, FemAnalysis analysis, string recording = FemCsfeaBatchRecording.Fields)
+    {
+        var cases = db.GetFemLoadCases(schema.Id).OrderBy(c => c.Tag, StringComparer.Ordinal).ToList();
+        string Sum(params (FemLoadCase Case, double K)[] terms) => new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = terms.Select(t => new FemLoadTerm { LoadCaseId = t.Case.Id, Coefficient = t.K }).ToList(),
+        }.ToJson();
+        var pars = FemAnalysisParams.Parse(analysis.ParamsJson);
+        pars.Batch = new FemCsfeaBatch
+        {
+            Items =
+            [
+                new() { Tag = "C1", LoadExpressionJson = Sum((cases[0], 1)), Type = "C" },
+                new() { Tag = "C2", LoadExpressionJson = Sum((cases[0], 1), (cases[1], 1)), Type = "C" },
+                new()
+                {
+                    Tag = "q2", Kind = FemCsfeaBatchItemKind.LoadCase, Type = "Q",
+                    LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [cases[1].Id] }.ToJson(),
+                },
+            ],
+            LoadFactorStep = 0.5, MaxLoadFactor = 1, Recording = recording,
+        };
+        analysis.ParamsJson = pars.ToJson();
+        db.SaveFemAnalysis(analysis);
+    }
+
+    static CSfea.CScoreBridge.Structural.RcSecantStepFields Fields(DatabaseService db, int resultId, int n) =>
+        FemCsfeaStepFieldsCodec.Unpack(db.GetFemResultStep(resultId, n)!);
+
+    [Fact]
+    public async Task Batch_EachVariantMatchesSeparateSingleStageRun()
+    {
+        await WithSchema(async (ctx, log, schema, analysis) =>
+        {
+            MakeBatch(ctx.Db, schema, analysis);
+            CalcResult? attached = null;
+
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, r => attached = r, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Describe()) output.WriteLine(line);
+            Assert.Same(result, attached);
+            Assert.Equal("ok", result.Status);
+            Assert.Equal(3, summary.Batch!.Count);
+            Assert.All(summary.Batch, b => { Assert.True(b.Done); Assert.True(b.Completed); Assert.Equal(1.0, b.LoadFactor, 12); });
+            Assert.Equal([1, 2, 3], summary.Batch.Select(b => b.RecordN!.Value));
+            Assert.Equal([1, 2, 3], ctx.Db.GetFemResultStepNumbers(result.Id));
+            Assert.Equal(16 * Q * 1.5, summary.Batch[1].Fz, 1e-6 * Math.Abs(Q * 24));
+            Assert.Contains(log.LogEntries, e => e.Message.Contains("Вариант 3 из 3 «q2»", StringComparison.Ordinal));
+
+            // Тот же вариант отдельной постановкой одной стадией — те же поля.
+            var pars = FemAnalysisParams.Parse(analysis.ParamsJson);
+            var item = pars.Batch!.Items[1];
+            pars.Batch = null;
+            pars.Stages = [new FemAnalysisStage { Tag = item.Tag, LoadExpressionJson = item.LoadExpressionJson, LoadFactorStep = 0.5, MaxLoadFactor = 1 }];
+            var single = new FemAnalysis { SchemaId = schema.Id, Tag = "single", Kind = FemCsfeaRunner.AnalysisKind, ParamsJson = pars.ToJson() };
+            var singleResult = await FemCsfeaRunner.RunAsync(ctx, schema, single, null, CancellationToken.None);
+            var expected = Fields(ctx.Db, singleResult.Id, ctx.Db.GetFemResultStepNumbers(singleResult.Id).Max());
+            var actual = Fields(ctx.Db, result.Id, 2);
+            double scale = expected.Displacements.Max(Math.Abs);
+            Assert.Equal(expected.NodeIds, actual.NodeIds);
+            for (int i = 0; i < expected.Displacements.Length; i++)
+                Assert.Equal(expected.Displacements[i], actual.Displacements[i], 1e-9 * scale);
+        });
+    }
+
+    [Fact]
+    public async Task Batch_CancelKeepsDone_ResumeComputesRest()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            MakeBatch(ctx.Db, schema, analysis);
+            using var cts = new CancellationTokenSource();
+
+            var partial = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null,
+                new SyncProgress<FemCsfeaBatchProgress>(p => { if (p.Number == 2) cts.Cancel(); }), null, cts.Token);
+
+            var summary = FemCsfeaResultSummary.Parse(partial.DataJson)!;
+            foreach (var line in summary.Describe()) output.WriteLine(line);
+            Assert.Equal("partial", partial.Status);
+            Assert.True(summary.Batch![0].Done);
+            Assert.Contains(summary.Batch, b => !b.Done);
+            Assert.Contains(summary.Describe(), l => l.StartsWith("Не посчитаны:", StringComparison.Ordinal));
+            int firstRecord = summary.Batch[0].RecordN!.Value;
+
+            var full = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, partial, null, null, CancellationToken.None);
+
+            var done = FemCsfeaResultSummary.Parse(full.DataJson)!;
+            Assert.Equal(partial.Id, full.Id);
+            Assert.Equal("ok", full.Status);
+            Assert.All(done.Batch!, b => Assert.True(b.Done));
+            Assert.Equal(firstRecord, done.Batch[0].RecordN);
+            Assert.Equal(3, ctx.Db.GetFemResultStepNumbers(full.Id).Count);
+
+            // Вариант убран из пакета — при досчёте его запись удаляется.
+            var pars = FemAnalysisParams.Parse(analysis.ParamsJson);
+            pars.Batch!.Items.RemoveAt(2);
+            analysis.ParamsJson = pars.ToJson();
+            var trimmed = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, full, null, null, CancellationToken.None);
+            Assert.Equal(2, FemCsfeaResultSummary.Parse(trimmed.DataJson)!.Batch!.Count);
+            Assert.Equal(2, ctx.Db.GetFemResultStepNumbers(trimmed.Id).Count);
+        });
+    }
+
+    [Fact]
+    public async Task Batch_EnvelopesOnly_EqualMinMaxOfVariantFields()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            MakeBatch(ctx.Db, schema, analysis);
+            var withFields = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+            MakeBatch(ctx.Db, schema, analysis, FemCsfeaBatchRecording.Envelopes);
+
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            Assert.Equal("ok", result.Status);
+            Assert.All(summary.Batch!, b => Assert.Null(b.RecordN));
+            Assert.Equal(["C", FemCsfeaBatchGroup.LoadCases], summary.BatchGroups!.Select(g => g.Key));
+            Assert.Equal([2, 1], summary.BatchGroups.Select(g => g.Count));
+            var (env, reference) = FemCsfeaEnvelopeCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, summary.BatchGroups[0].RecordN)!);
+            Assert.Equal(2, env.Count);
+            var a = Fields(ctx.Db, withFields.Id, 1);
+            var b = Fields(ctx.Db, withFields.Id, 2);
+            Assert.Equal(a.NodeIds, reference.NodeIds);
+            const int nq = FemCsfeaEnvelopeQuantities.NodeQ, nc = 6;
+            double scale = a.Displacements.Concat(b.Displacements).Max(Math.Abs);
+            for (int i = 0; i < a.NodeIds.Length; i++)
+            {
+                double ua = a.Displacements[nc * i + 2], ub = b.Displacements[nc * i + 2];
+                Assert.Equal(Math.Min(ua, ub), env.Min[i * nq + 2], 1e-9 * scale);
+                Assert.Equal(Math.Max(ua, ub), env.Max[i * nq + 2], 1e-9 * scale);
+                if (ua != ub) Assert.Equal(ua < ub ? 0 : 1, env.MinSource[i * nq + 2]);
+            }
+        });
+    }
+
     sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
     {
         public void Report(T value) => report(value);
