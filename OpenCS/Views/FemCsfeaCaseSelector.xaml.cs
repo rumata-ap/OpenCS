@@ -1,6 +1,8 @@
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -12,9 +14,27 @@ namespace OpenCS.Views;
 /// </summary>
 public partial class FemCsfeaCaseSelector : UserControl
 {
-    public FemCsfeaCaseSelector() => InitializeComponent();
+    public FemCsfeaCaseSelector()
+    {
+        InitializeComponent();
+        // Смена режима меняет ItemsSource и выбор за один проход: SelectedItem — пункт нового списка, а внутренний выбор
+        // пуст или остался от старого списка, и закрытое поле показывает пустоту или прежний пункт. Повторное
+        // присваивание того же SelectedItem ничего не меняет — выбрать пункт заново по индексу после смены пунктов.
+        ((INotifyCollectionChanged)list.Items).CollectionChanged += (_, _) =>
+            Dispatcher.BeginInvoke(RefreshSelectionBox, DispatcherPriority.DataBind);
+    }
 
     FemCsfeaResultVM? Vm => DataContext as FemCsfeaResultVM;
+
+    void RefreshSelectionBox()
+    {
+        if (list.SelectedItem is not { } item || ReferenceEquals(list.SelectionBoxItem, item)) return;
+        int index = list.Items.IndexOf(item);
+        if (index < 0) return;
+        // Сброс отправит в VM null — он его пропускает; затем тот же пункт — VM его уже показывает.
+        list.SelectedIndex = -1;
+        list.SelectedIndex = index;
+    }
 
     void Mode_Click(object sender, RoutedEventArgs e)
     {

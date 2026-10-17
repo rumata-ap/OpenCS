@@ -381,6 +381,9 @@ public class FemResultLayerTests
         {
             try
             {
+                // Как в приложении: продолжение фонового расчёта огибающей — в потоке вида.
+                SynchronizationContext.SetSynchronizationContext(
+                    new System.Windows.Threading.DispatcherSynchronizationContext(System.Windows.Threading.Dispatcher.CurrentDispatcher));
                 using var t = new TempDb();
                 var (vm, _) = CombinationResult(t);
                 var selector = new OpenCS.Views.FemCsfeaCaseSelector { DataContext = vm };
@@ -397,10 +400,29 @@ public class FemResultLayerTests
                 window.UpdateLayout();
                 Assert.Equal(3, list.Items.Count);
                 Assert.Same(vm.CombinationItems[0], list.SelectedItem);
+                // В закрытом поле — показанный пункт, а не пустота (после очереди диспетчера, как между событиями).
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.Equal(0, list.SelectedIndex);
+                Assert.Same(vm.CombinationItems[0], list.SelectionBoxItem);
                 vm.ShowEnvelopes = true;
                 window.UpdateLayout();
+                while (!vm.EnvelopeTask.IsCompleted || !vm.IsEnvelopeShown)
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
                 Assert.Equal(1, list.Items.Count);
                 Assert.Same(vm.EnvelopeItems[0], list.SelectedItem);
+                Assert.Same(vm.EnvelopeItems[0], list.SelectionBoxItem);
+                Assert.Same(vm.EnvelopeItems[0], vm.SelectedCaseItem);
+                // Список после переустановки выбора по-прежнему ведёт VM.
+                list.SelectedItem = list.Items[0];
+                Assert.Same(vm.EnvelopeItems[0], vm.SelectedCaseItem);
+                vm.ShowCombinations = true;
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.Same(vm.CombinationItems[0], list.SelectionBoxItem);
+                Assert.Same(vm.CombinationItems[0], vm.SelectedCaseItem);
+                list.SelectedItem = vm.CombinationItems[2];
+                Assert.Same(vm.CombinationItems[2], vm.SelectedCaseItem);
                 window.Close();
             }
             catch (Exception ex) { error = ex; }
