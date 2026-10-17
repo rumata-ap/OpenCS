@@ -599,6 +599,97 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         });
     }
 
+    /// <summary>
+    /// Длительные части (спека «длительные пары», срез 2): q — постоянное, q2 — кратковременное с долей 0,5. N1 = q + q2 →
+    /// пара q + 0,5·q2 своим прогоном после варианта; N2 = q — совпадает с полной, без прогона (поля — варианта).
+    /// Флажок снят — записи пар удаляются при досчёте, включён снова — досчитывается только пара.
+    /// </summary>
+    [Fact]
+    public async Task Batch_LongTermPairs_DerivedRunAndSameAsTotal_ResumeAddsOrRemoves()
+    {
+        await WithSchema(async (ctx, log, schema, analysis) =>
+        {
+            var cases = ctx.Db.GetFemLoadCases(schema.Id).OrderBy(c => c.Tag, StringComparer.Ordinal).ToList();
+            cases[0].Sp20Type = "permanent";
+            cases[1].LongTermShare = 0.5;
+            foreach (var c in cases) ctx.Db.SaveFemLoadCase(c);
+            string Sum(params (FemLoadCase Case, double K)[] terms) => new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum, CombinationType = "N",
+                Terms = terms.Select(t => new FemLoadTerm { LoadCaseId = t.Case.Id, Coefficient = t.K }).ToList(),
+            }.ToJson();
+            void SetBatch(bool pairs)
+            {
+                var pars = FemAnalysisParams.Parse(analysis.ParamsJson);
+                pars.Batch = new FemCsfeaBatch
+                {
+                    Items =
+                    [
+                        new() { Tag = "N1", LoadExpressionJson = Sum((cases[0], 1), (cases[1], 1)), Type = "N" },
+                        new() { Tag = "N2", LoadExpressionJson = Sum((cases[0], 1)), Type = "N" },
+                        new()
+                        {
+                            Tag = "q2", Kind = FemCsfeaBatchItemKind.LoadCase, Type = "Q",
+                            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [cases[1].Id] }.ToJson(),
+                        },
+                    ],
+                    LoadFactorStep = 0.5, MaxLoadFactor = 1,
+                    LongTermPairs = pairs ? ["N"] : [], LongTermDeflection = false,
+                };
+                analysis.ParamsJson = pars.ToJson();
+            }
+            SetBatch(pairs: true);
+
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Describe()) output.WriteLine(line);
+            Assert.Equal("ok", result.Status);
+            Assert.Equal(2, summary.BatchLong!.Count);
+            var derived = summary.LongOf(0)!;
+            Assert.True(derived.IsDerived);
+            Assert.True(derived.Done && derived.Completed);
+            Assert.Equal("NL", derived.Type);
+            Assert.Equal(3, derived.Stage);
+            Assert.Equal(2, derived.RecordN);   // поля пишутся по порядку прогонов: N1, его пара, N2, q2
+            Assert.Equal(16 * Q * 1.25, derived.Fz, 1e-6 * Math.Abs(Q * 24));
+            var same = summary.LongOf(1)!;
+            Assert.True(same.IsSameAsTotal);
+            Assert.Null(same.Stage);
+            Assert.Null(same.RecordN);
+            Assert.Equal(summary.Batch![1].RecordN, summary.LongRecordN(same));
+            Assert.Null(summary.LongOf(2));
+            Assert.Equal([1, 2, 3, 4], ctx.Db.GetFemResultStepNumbers(result.Id));
+            Assert.Contains(log.LogEntries, e => e.Message.Contains("[N] N1: длительная часть NL", StringComparison.Ordinal));
+            Assert.Contains(summary.Describe(), l => l.StartsWith("Длительные части: своим прогоном 1, совпадают с полной 1, нулевые 0", StringComparison.Ordinal));
+
+            // Прогиб длительной части — между q и q + q2 (центр плиты, наибольший |uz|).
+            static double MaxUz(CSfea.CScoreBridge.Structural.RcSecantStepFields f) =>
+                Enumerable.Range(0, f.NodeIds.Length).Max(i => Math.Abs(f.Displacements[6 * i + 2]));
+            double uTotal = MaxUz(Fields(ctx.Db, result.Id, summary.Batch[0].RecordN!.Value));
+            double uPermanent = MaxUz(Fields(ctx.Db, result.Id, summary.Batch[1].RecordN!.Value));
+            double uLong = MaxUz(Fields(ctx.Db, result.Id, derived.RecordN!.Value));
+            Assert.InRange(uLong, uPermanent * 1.01, uTotal * 0.99);
+
+            // Флажок снят: пары удаляются, варианты не пересчитываются.
+            SetBatch(pairs: false);
+            var trimmed = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, result, null, null, CancellationToken.None);
+            Assert.Null(FemCsfeaResultSummary.Parse(trimmed.DataJson)!.BatchLong);
+            Assert.Equal([1, 3, 4], ctx.Db.GetFemResultStepNumbers(trimmed.Id));
+
+            // Включён снова: досчитывается только пара.
+            SetBatch(pairs: true);
+            int before = log.LogEntries.Count;
+            var again = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, trimmed, null, null, CancellationToken.None);
+            var againSummary = FemCsfeaResultSummary.Parse(again.DataJson)!;
+            Assert.Equal("ok", again.Status);
+            Assert.DoesNotContain(log.LogEntries.Skip(before), e => e.Message.Contains("Вариант ", StringComparison.Ordinal));
+            Assert.True(againSummary.LongOf(0)!.Done);
+            Assert.Equal(5, againSummary.LongOf(0)!.RecordN);
+            Assert.Equal([1, 3, 4, 5], ctx.Db.GetFemResultStepNumbers(again.Id));
+        });
+    }
+
     sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
     {
         public void Report(T value) => report(value);

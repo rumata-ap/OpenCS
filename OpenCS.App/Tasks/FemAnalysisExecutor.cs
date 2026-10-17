@@ -229,16 +229,32 @@ public static class FemAnalysisExecutor
 
     /// <summary>
     /// Что предложить при запуске пакета с прежним результатом: число вариантов без результата для досчёта (хранение
-    /// «поля», результат того же пакета); 0 — досчитывать нечего или нельзя (считать заново).
+    /// «поля», результат того же пакета) и длительных частей дошедших вариантов без своего прогона; (0, 0) — досчитывать
+    /// нечего или нельзя (считать заново).
     /// </summary>
-    public static int BatchRemaining(Services.IProjectContext app, FemAnalysis analysis)
+    public static (int Variants, int LongParts) BatchRemaining(Services.IProjectContext app, FemAnalysis analysis)
     {
-        if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch is not { Recording: FemCsfeaBatchRecording.Fields } batch) return 0;
-        if (analysis.ResultId is not int rid || app.Db.GetCalcResultById(rid) is not { } result) return 0;
-        if (Services.FemCsfeaResultSummary.Parse(result.DataJson)?.Batch is not { } done) return 0;
-        var ready = done.Where(b => b.Done && b.RecordN != null).Select(b => b.ExpressionJson).ToHashSet(StringComparer.Ordinal);
-        if (ready.Count == 0) return 0;
-        return batch.Items.Count(i => !ready.Contains(i.LoadExpressionJson));
+        if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch is not { Recording: FemCsfeaBatchRecording.Fields } batch) return (0, 0);
+        if (analysis.ResultId is not int rid || app.Db.GetCalcResultById(rid) is not { } result) return (0, 0);
+        if (Services.FemCsfeaResultSummary.Parse(result.DataJson) is not { Batch: { } done } summary) return (0, 0);
+        var ready = done.Where(b => b.Done && b.RecordN != null).ToDictionary(b => b.ExpressionJson, StringComparer.Ordinal);
+        if (ready.Count == 0) return (0, 0);
+        int variants = batch.Items.Count(i => !ready.ContainsKey(i.LoadExpressionJson));
+        int longParts = 0;
+        if (batch.LongTermPairs.Count > 0)
+        {
+            var doneLong = (summary.BatchLong ?? []).Where(b => b.Done && b.RecordN != null)
+                .Select(b => done.FirstOrDefault(v => v.Index == b.PairOf) is { } v ? Services.FemCsfeaRunner.LongKey(v.ExpressionJson, b) : null)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (var plan in Services.FemCsfeaBatchLongTerm.Plans(batch, app.Db.GetFemLoadCases(analysis.SchemaId)))
+            {
+                string expr = batch.Items[plan.Item].LoadExpressionJson;
+                if (plan.Stage != null && ready.TryGetValue(expr, out var v) && v.Completed
+                    && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Part, plan.Pair.Long!.ToJson())))
+                    longParts++;
+            }
+        }
+        return (variants, longParts);
     }
 
     /// <summary>Резолвит нагрузки и способ управления траекторией по стадиям нелинейной

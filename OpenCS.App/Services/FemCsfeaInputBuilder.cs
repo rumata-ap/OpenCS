@@ -40,16 +40,20 @@ public sealed record FemCsfeaSetup
 
     /// <summary>
     /// Настройки по постановке: вид расчёта, стадии (<see cref="FemAnalysisParams.ResolveStages"/>), источник армирования
-    /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию).
+    /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию). У пакета с
+    /// <paramref name="loadCases"/> — и стадии длительных частей (<see cref="FemCsfeaBatchLongTerm.Stages"/>).
     /// </summary>
-    public static FemCsfeaSetup FromAnalysis(FemAnalysis analysis)
+    public static FemCsfeaSetup FromAnalysis(FemAnalysis analysis, IReadOnlyList<FemLoadCase>? loadCases = null)
     {
         var p = FemAnalysisParams.Parse(analysis.ParamsJson);
         var c = p.Csfea ?? new FemCsfeaParams();
         bool elastic = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity;
+        var stages = p.Batch is { } batch
+            ? loadCases != null && batch.LongTermPairs.Count > 0 ? FemCsfeaBatchLongTerm.Stages(batch, loadCases) : batch.ToStages()
+            : p.ResolveStages(analysis);
         return new FemCsfeaSetup
         {
-            Calc = p.CalcType ?? CalcType.N, Stages = p.Batch?.ToStages() ?? p.ResolveStages(analysis),
+            Calc = p.CalcType ?? CalcType.N, Stages = stages,
             PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
             GrossBars = elastic, ReducedStiffness = elastic && c.ImportedStiffnessFactors,
         };

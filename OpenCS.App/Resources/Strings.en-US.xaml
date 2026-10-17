@@ -2963,7 +2963,8 @@
     <system:String x:Key="FemCsfeaBatchDefaultTag">Batch ({0})</system:String>
     <system:String x:Key="FemCsfeaBatchProgress">Batch "{0}": variant {1} of {2} "{3}" — step {4} of {5} (λ = {6:0.###}), iteration {7}</system:String>
     <system:String x:Key="FemCsfeaBatchPartial">Batch "{0}": not all variants analysed.</system:String>
-    <system:String x:Key="FemCsfeaBatchResumeText">Batch "{0}" is incomplete: {1} of {2} variants have no result.&#10;&#10;Yes — analyse the remaining ones, No — analyse all variants again.</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeLong">, long-term parts not run — {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeText">Batch "{0}" is incomplete: {1} of {2} variants have no result{3}.&#10;&#10;Yes — analyse the remaining ones, No — analyse all variants again.</system:String>
     <system:String x:Key="FemCsfeaBatchVariantLabel">Variant {0} of {1} «{2}» · λ = {3:0.###} {4}</system:String>
     <system:String x:Key="FemCsfeaBatchNotReachedMark">— limit not reached</system:String>
     <system:String x:Key="FemCsfeaBatchVariantNotReached">Did not reach λ = {0:0.###}: the last converged state λ = {1:0.###} is shown{2}.</system:String>

@@ -2963,7 +2963,8 @@
     <system:String x:Key="FemCsfeaBatchDefaultTag">Пакет ({0})</system:String>
     <system:String x:Key="FemCsfeaBatchProgress">Пакет «{0}»: вариант {1} из {2} «{3}» — шаг {4} из {5} (λ = {6:0.###}), итерация {7}</system:String>
     <system:String x:Key="FemCsfeaBatchPartial">Пакет «{0}»: посчитаны не все варианты.</system:String>
-    <system:String x:Key="FemCsfeaBatchResumeText">Пакет «{0}» посчитан не полностью: без результата {1} из {2} вариантов.&#10;&#10;Да — досчитать оставшиеся, Нет — пересчитать все варианты заново.</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeLong">, длительных частей без прогона — {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchResumeText">Пакет «{0}» посчитан не полностью: без результата {1} из {2} вариантов{3}.&#10;&#10;Да — досчитать оставшиеся, Нет — пересчитать все варианты заново.</system:String>
     <system:String x:Key="FemCsfeaBatchVariantLabel">Вариант {0} из {1} «{2}» · λ = {3:0.###} {4}</system:String>
     <system:String x:Key="FemCsfeaBatchNotReachedMark">— не дошёл до предела</system:String>
     <system:String x:Key="FemCsfeaBatchVariantNotReached">Не дошёл до λ = {0:0.###}: показано конечное сошедшееся состояние λ = {1:0.###}{2}.</system:String>

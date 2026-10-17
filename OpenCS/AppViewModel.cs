@@ -5956,10 +5956,11 @@ namespace OpenCS
          if (analysis == null) return;
          // Пакет, посчитанный не полностью (отмена, правка списка вариантов), — досчитать или пересчитать всё.
          bool resume = false;
-         if (Tasks.FemAnalysisExecutor.BatchRemaining(this, analysis) is int remaining and > 0)
+         if (Tasks.FemAnalysisExecutor.BatchRemaining(this, analysis) is var (remaining, longParts) && remaining + longParts > 0)
          {
             int total = Tasks.FemAnalysisParams.Parse(analysis.ParamsJson).Batch!.Items.Count;
-            var answer = MessageBox.Show(string.Format(Loc.S("FemCsfeaBatchResumeText"), analysis.Tag, remaining, total),
+            string longText = longParts > 0 ? string.Format(Loc.S("FemCsfeaBatchResumeLong"), longParts) : "";
+            var answer = MessageBox.Show(string.Format(Loc.S("FemCsfeaBatchResumeText"), analysis.Tag, remaining, total, longText),
                Loc.S("FemAnalysisRun"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Cancel) return;
             resume = answer == MessageBoxResult.Yes;

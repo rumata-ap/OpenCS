@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Combinations;
 using CScore.Import;
 using CSfea.Core;
 using CSfea.CScoreBridge.Structural;
@@ -118,8 +119,29 @@ public sealed class FemCsfeaBatchSummary
     public string? Reason { get; set; }
     public int? RecordN { get; set; }
 
-    /// <summary>Группа огибающей: тип комбинации или <see cref="FemCsfeaBatchGroup.LoadCases"/>.</summary>
-    public string GroupKey => Kind == Tasks.FemCsfeaBatchItemKind.LoadCase ? FemCsfeaBatchGroup.LoadCases
+    /// <summary>Запись длительной части (<see cref="FemCsfeaResultSummary.BatchLong"/>): Index варианта; у варианта — null.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? PairOf { get; set; }
+    /// <summary>Вид длительной части (<see cref="CScore.Fem.Combinations.FemLongTermPairKind"/>); у варианта — null.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PairKind { get; set; }
+    /// <summary>Стадия адаптера прогона длительной части; null — без прогона (совпадает с полной, нулевая).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? Stage { get; set; }
+
+    /// <summary>Длительная часть равна полной нагрузке — поля и итог — у варианта.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsSameAsTotal => PairKind == nameof(CScore.Fem.Combinations.FemLongTermPairKind.SameAsTotal);
+    /// <summary>Длительная часть нулевая.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsZero => PairKind == nameof(CScore.Fem.Combinations.FemLongTermPairKind.Zero);
+    /// <summary>Длительная часть со своим прогоном.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsDerived => PairKind == nameof(CScore.Fem.Combinations.FemLongTermPairKind.Derived);
+
+    /// <summary>Группа огибающей: тип комбинации или <see cref="FemCsfeaBatchGroup.LoadCases"/>; у длительной части — группа пар.</summary>
+    public string GroupKey => PairOf != null ? FemCsfeaBatchGroup.PairsOf(Type)
+        : Kind == Tasks.FemCsfeaBatchItemKind.LoadCase ? FemCsfeaBatchGroup.LoadCases
         : string.IsNullOrEmpty(Type) ? "C" : Type;
 
     /// <summary>«[C] Огибающая C 017».</summary>
@@ -134,8 +156,19 @@ public sealed record FemCsfeaBatchGroup(string Key, int RecordN, int Count)
 {
     /// <summary>Ключ группы загружений.</summary>
     public const string LoadCases = "LC";
+    /// <summary>Ключ группы длительных частей типа NL или CL: «NL-пары» (решение 3 спеки длительных пар).</summary>
+    public static string PairsOf(string longType) => longType + "-pairs";
     /// <summary>Номера записей огибающих — после номеров полей вариантов.</summary>
     public const int RecordBase = 100000;
+}
+
+/// <summary>Вид записи длительной части в <see cref="FemCsfeaResultSummary.BatchLong"/>.</summary>
+public static class FemCsfeaBatchLongKind
+{
+    /// <summary>NL (CL)-нагрузка на диаграммах варианта: трещины, φ1 и ψ, наборы (пп. 6.1.23, 6.1.26).</summary>
+    public const string Part = "long_part";
+    /// <summary>NL-нагрузка на диаграммах NL: полный прогиб (пп. 6.1.25, 8.2.24).</summary>
+    public const string Deflection = "long_deflection";
 }
 
 /// <summary>Прогресс пакетного расчёта: номер варианта (с 1) из числа считаемых, его тег, прогресс решателя.</summary>
@@ -175,6 +208,13 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Варианты пакетного расчёта; null — не пакет.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<FemCsfeaBatchSummary>? Batch { get; set; }
+    /// <summary>
+    /// Длительные части вариантов (спека 2026-10-17 «длительные пары»): <see cref="FemCsfeaBatchSummary.PairOf"/> —
+    /// Index варианта, <see cref="FemCsfeaBatchSummary.Kind"/> — <see cref="FemCsfeaBatchLongKind"/>, Type — NL/CL;
+    /// null — не считались.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<FemCsfeaBatchSummary>? BatchLong { get; set; }
     /// <summary>Хранение пакета (<see cref="Tasks.FemCsfeaBatchRecording"/>).</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? BatchRecording { get; set; }
@@ -189,6 +229,25 @@ public sealed class FemCsfeaResultSummary
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsBatch => Batch != null;
+
+    /// <summary>Длительная часть варианта <paramref name="variantIndex"/> вида <paramref name="kind"/>; null — нет.</summary>
+    public FemCsfeaBatchSummary? LongOf(int variantIndex, string kind = FemCsfeaBatchLongKind.Part) =>
+        BatchLong?.FirstOrDefault(b => b.PairOf == variantIndex && b.Kind == kind);
+
+    /// <summary>
+    /// Номер записи полей длительной части: своя у Derived, варианта — у совпадающей с полной; null — нет полей
+    /// (нулевая, не посчитана, вариант не дошёл).
+    /// </summary>
+    public int? LongRecordN(FemCsfeaBatchSummary pair)
+    {
+        if (pair.IsDerived) return pair.Done && pair.Completed ? pair.RecordN : null;
+        if (!pair.IsSameAsTotal || Batch?.FirstOrDefault(b => b.Index == pair.PairOf) is not { Completed: true } variant) return null;
+        return variant.RecordN;
+    }
+
+    /// <summary>Длительная часть ждёт прогона: своя нагрузка, не посчитана, а вариант дошёл до предела λ.</summary>
+    public bool LongPending(FemCsfeaBatchSummary pair) => pair.Stage != null && !pair.Done
+        && Batch?.FirstOrDefault(b => b.Index == pair.PairOf) is { Completed: true };
 
     public string ToJson() => JsonSerializer.Serialize(this);
 
@@ -244,11 +303,13 @@ public sealed class FemCsfeaResultSummary
     {
         if (Batch is not { Count: > 0 } batch) return null;
         int stopped = batch.Count(b => b.Done && !b.Completed), notDone = batch.Count(b => !b.Done);
-        if (stopped == 0 && notDone == 0) return null;
+        int longPending = BatchLong?.Count(LongPending) ?? 0;
+        if (stopped == 0 && notDone == 0 && longPending == 0) return null;
         var parts = new List<string>();
         if (stopped > 0)
             parts.Add(string.Create(CultureInfo.CurrentCulture, $"{stopped} из {batch.Count} не дошли до λ = {BatchMaxLoadFactor:0.###}"));
         if (notDone > 0) parts.Add($"не посчитаны {notDone} из {batch.Count}");
+        if (longPending > 0) parts.Add($"длительных частей не посчитано {longPending}");
         return string.Join("; ", parts);
     }
 
@@ -256,6 +317,27 @@ public sealed class FemCsfeaResultSummary
     /// Итог пакета: сколько дошли до предела λ, затем по строке на каждый недошедший и непосчитанный (спека 2026-10-17,
     /// п. 4.1 — какие варианты не вошли в огибающие).
     /// </summary>
+    /// <summary>Итог длительных частей: сколько своим прогоном, совпадают с полной, нулевые; недошедшие — по строке.</summary>
+    IEnumerable<string> DescribeLong(string max)
+    {
+        if (BatchLong?.Where(b => b.Kind == FemCsfeaBatchLongKind.Part).ToList() is not { Count: > 0 } parts) yield break;
+        var variants = (Batch ?? []).ToDictionary(b => b.Index);
+        bool Reached(FemCsfeaBatchSummary p) => variants.TryGetValue(p.PairOf ?? -1, out var v) && v.Completed;
+        int derived = parts.Count(p => p.IsDerived && p.Done && p.Completed);
+        int same = parts.Count(p => p.IsSameAsTotal && Reached(p)), zero = parts.Count(p => p.IsZero && Reached(p));
+        var stopped = parts.Where(p => p.IsDerived && p.Done && !p.Completed).ToList();
+        var invalid = parts.Where(p => p.PairKind == nameof(FemLongTermPairKind.Invalid)).ToList();
+        int pending = parts.Count(LongPending);
+        var text = new List<string> { $"своим прогоном {derived}", $"совпадают с полной {same}", $"нулевые {zero}" };
+        if (stopped.Count > 0) text.Add($"не дошли {stopped.Count}");
+        if (invalid.Count > 0) text.Add($"не строятся {invalid.Count}");
+        if (pending > 0) text.Add($"не посчитаны {pending}");
+        yield return $"Длительные части: {string.Join(", ", text)}.";
+        foreach (var p in stopped)
+            yield return string.Create(CultureInfo.CurrentCulture,
+                $"  {(variants.TryGetValue(p.PairOf ?? -1, out var v) ? v.Label : p.Tag)} — длительная часть {p.Type} до λ = {p.LoadFactor:0.###} из {max}");
+    }
+
     IEnumerable<string> DescribeBatch()
     {
         var batch = Batch!;
@@ -278,6 +360,7 @@ public sealed class FemCsfeaResultSummary
             yield return $"Не посчитаны: {notDone.Count}:";
             foreach (var b in notDone) yield return $"  {b.Label}";
         }
+        foreach (var line in DescribeLong(max)) yield return line;
         if (Message != null) yield return Message;
     }
 }
@@ -355,7 +438,7 @@ public static class FemCsfeaRunner
         await EnsureMeshAsync(ctx, schema, buildMesh, diag, ct);
         if (diag.Any(d => d.IsError)) return new(null, null, diag);
 
-        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, FemCsfeaSetup.FromAnalysis(analysis));
+        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, FemCsfeaSetup.FromAnalysis(analysis, ctx.Db.GetFemLoadCases(schema.Id)));
         CheckScadTransfer(ctx.Db, schema.Id, input, diag);
         CheckLiraTransfer(schema, input, diag);
         var control = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlNode(input, csfea.ControlNodeTag);
@@ -505,9 +588,54 @@ public static class FemCsfeaRunner
             (entry.Fx, entry.Fy, entry.Fz) = (total.Fx, total.Fy, total.Fz);
             summary.Batch.Add(entry);
         }
-        if (previous != null && kept.Count > 0)
-            ctx.Db.DeleteFemResultSteps(result.Id, kept.Values.Select(b => b.RecordN!.Value));
-        int nextRecord = summary.Batch.Where(b => b.RecordN != null).Select(b => b.RecordN!.Value).DefaultIfEmpty(0).Max() + 1;
+
+        // Длительные части (спека «длительные пары», п. 2.4): по текущим загружениям; посчитанные — по выражениям
+        // варианта и пары, лишние (флажок снят, вариант убран, доля изменилась) удаляются.
+        var keptLong = new Dictionary<string, FemCsfeaBatchSummary>(StringComparer.Ordinal);
+        if (previous?.BatchLong is { } prevLong)
+            foreach (var b in prevLong.Where(b => b.Done && b.RecordN != null))
+                if (previous.Batch?.FirstOrDefault(v => v.Index == b.PairOf) is { } v)
+                    keptLong.TryAdd(LongKey(v.ExpressionJson, b), b);
+        var plans = FemCsfeaBatchLongTerm.Plans(batch, ctx.Db.GetFemLoadCases(schema.Id));
+        if (batch.LongTermPairs.Count > 0) summary.BatchLong = [];
+        var notes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var plan in plans)
+        {
+            var variant = summary.Batch[plan.Item];
+            foreach (var note in plan.Pair.Notes)
+                if (notes.Add(note)) summary.Report.Add(plan.Pair.Kind == FemLongTermPairKind.Invalid ? $"{variant.Label}: {note}" : note);
+            var pair = new FemCsfeaBatchSummary
+            {
+                Kind = FemCsfeaBatchLongKind.Part, Tag = variant.Tag,
+                Type = plan.Pair.Long?.CombinationType ?? FemLongTermPair.LongType(variant.Type) ?? "",
+                ExpressionJson = plan.Pair.Long?.ToJson() ?? "{}", PairOf = variant.Index, PairKind = plan.Pair.Kind.ToString(),
+                Stage = plan.Stage,
+            };
+            if (plan.Stage != null && keptLong.Remove(LongKey(variant.ExpressionJson, pair), out var oldPair))
+                pair = oldPair;
+            pair.Index = summary.BatchLong!.Count;
+            pair.PairOf = variant.Index;
+            pair.Stage = plan.Stage;
+            pair.Tag = variant.Tag;
+            var total = plan.Stage is int st && st < adapted.StageTotals.Count ? adapted.StageTotals[st]
+                : plan.Pair.Kind == FemLongTermPairKind.SameAsTotal ? new FemRcStageTotal("", variant.Fx, variant.Fy, variant.Fz)
+                : new FemRcStageTotal("", 0, 0, 0);
+            (pair.Fx, pair.Fy, pair.Fz) = (total.Fx, total.Fy, total.Fz);
+            if (plan.Stage == null)
+            {
+                // Без прогона: совпадающая с полной — итог варианта, нулевая — пустая, не строится — с причиной.
+                pair.Done = true;
+                pair.Completed = plan.Pair.Kind != FemLongTermPairKind.Invalid;
+                pair.Reason = plan.Pair.Kind == FemLongTermPairKind.Invalid ? plan.Pair.Notes.FirstOrDefault() : null;
+            }
+            summary.BatchLong.Add(pair);
+        }
+
+        var removed = kept.Values.Concat(keptLong.Values).Select(b => b.RecordN!.Value).ToList();
+        if (previous != null && removed.Count > 0)
+            ctx.Db.DeleteFemResultSteps(result.Id, removed);
+        int nextRecord = summary.Batch.Concat(summary.BatchLong ?? []).Where(b => b.RecordN != null)
+            .Select(b => b.RecordN!.Value).DefaultIfEmpty(0).Max() + 1;
 
         void Save()
         {
@@ -532,73 +660,117 @@ public static class FemCsfeaRunner
             if (!line.StartsWith(' ')) ctx.Log.Info($"[{tag}] {line}");
         }
         var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism, Log, adapted.ShellForceAngles, null);
-        var todo = summary.Batch.Where(b => !b.Done).ToList();
+        // Работа: непосчитанные варианты и длительные части дошедших (в т. ч. посчитанных раньше — флажок включён позже).
+        var longOf = (summary.BatchLong ?? []).Where(b => b.Kind == FemCsfeaBatchLongKind.Part)
+            .ToDictionary(b => b.PairOf!.Value);
+        bool PairPending(FemCsfeaBatchSummary v) => longOf.TryGetValue(v.Index, out var p) && p.Stage != null && !p.Done;
+        var todo = summary.Batch.Where(b => !b.Done || b.Completed && PairPending(b)).ToList();
         int? controlDof = null;
         bool controlResolved = false;
+
+        // Расчёт одной стадии с нуля: стадия адаптера, поля конечного состояния (упакованные — при хранении «поля»).
+        async Task<(RcSecantRun Run, RcSecantStepFields? Fields, byte[]? Packed, double Seconds)> Solve(int stage, int number, string progressTag)
+        {
+            model.Stages.Clear();
+            model.Stages.Add(stages[stage]);
+            var inner = progress == null ? null
+                : new Progress<SecantProgress>(p => progress.Report(new FemCsfeaBatchProgress(number, todo.Count, progressTag, p)));
+            var clock = Stopwatch.StartNew();
+            var (run, fields, packed) = await Task.Run(() =>
+            {
+                var solved = RcSecantAnalysis.Run(model, options, inner, ct);
+                var f = solved.LastConvergedFields();
+                return (solved, f, !envelopes && f != null ? FemCsfeaStepFieldsCodec.Pack(f) : null);
+            }, ct);
+            clock.Stop();
+
+            if (!controlResolved)
+            {
+                controlDof = ControlDof(prepared, run.Build, csfea, summary);
+                summary.ControlNodeTag = controlDof != null ? prepared.ControlNode!.Value.MeshTag : "";
+                summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
+                controlResolved = true;
+            }
+            if (summary.Nodes != 0 && (summary.Nodes != run.Build.Mesh.NNodes || summary.Shells != run.Build.Mesh.Shells.Count
+                || summary.Beams != run.Build.Mesh.Beams.Count))
+                throw new InvalidOperationException("Сетка схемы изменилась после начала пакета — запустите «Пересчитать всё».");
+            summary.Nodes = run.Build.Mesh.NNodes;
+            summary.Shells = run.Build.Mesh.Shells.Count;
+            summary.Beams = run.Build.Mesh.Beams.Count;
+            summary.ElapsedSeconds += clock.Elapsed.TotalSeconds;
+            return (run, fields, packed, clock.Elapsed.TotalSeconds);
+        }
+
+        // Итог прогона в запись сводки; поля — отдельной записью.
+        void Fill(FemCsfeaBatchSummary entry, RcSecantRun run, RcSecantStepFields? fields, byte[]? packed, double seconds)
+        {
+            var r = run.Result;
+            var last = r.Steps.LastOrDefault(s => s.Converged);
+            entry.Done = true;
+            entry.Completed = r.Completed;
+            entry.LoadFactor = (last?.LoadFactor ?? 0) * batch.MaxLoadFactor;
+            entry.Steps = r.Steps.Count(s => s.Converged);
+            entry.Iterations = r.Steps.Sum(s => s.Iterations);
+            entry.ElapsedSeconds = seconds;
+            entry.Reason = r.Completed ? null : r.Message;
+            entry.Control = last != null && controlDof is int d ? last.U[d] : null;
+            entry.ReactionSums = fields?.ReactionSums;
+            entry.LoadSum = fields?.LoadSum;
+            if (packed != null)
+            {
+                entry.RecordN = nextRecord++;
+                ctx.Db.SaveFemResultStep(result.Id, entry.RecordN.Value, packed);
+            }
+        }
+
+        // Огибающая группы (хранение «только огибающие») — по полям дошедшего прогона.
+        async Task AddToEnvelope(FemCsfeaBatchSummary entry, RcSecantStepFields f)
+        {
+            var vector = await Task.Run(() => quantities!.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true,
+                crackElements != null ? FemCsfeaCrackWidths.Compute(crackElements, f, crackShare, ct) : null), ct);
+            if (!groups.TryGetValue(entry.GroupKey, out var g)) groups[entry.GroupKey] = g = (new FemCsfeaEnvelopeAccumulator(), f);
+            g.Acc.Add(vector, entry.PairOf ?? entry.Index);
+        }
+
         try
         {
             for (int k = 0; k < todo.Count; k++)
             {
                 ct.ThrowIfCancellationRequested();
                 var entry = todo[k];
-                model.Stages.Clear();
-                model.Stages.Add(stages[entry.Index]);
                 int number = k + 1;
-                var inner = progress == null ? null
-                    : new Progress<SecantProgress>(p => progress.Report(new FemCsfeaBatchProgress(number, todo.Count, entry.Tag, p)));
-                var clock = Stopwatch.StartNew();
-                var (run, fields, packed) = await Task.Run(() =>
+                RcSecantStepFields? variantFields = null;
+                if (!entry.Done)
                 {
-                    var solved = RcSecantAnalysis.Run(model, options, inner, ct);
-                    var f = solved.LastConvergedFields();
-                    return (solved, f, !envelopes && f != null ? FemCsfeaStepFieldsCodec.Pack(f) : null);
-                }, ct);
-                clock.Stop();
+                    var (run, fields, packed, seconds) = await Solve(entry.Index, number, entry.Tag);
+                    Fill(entry, run, fields, packed, seconds);
+                    variantFields = fields;
+                    ctx.Log.Info(string.Create(CultureInfo.CurrentCulture,
+                        $"[{tag}] Вариант {number} из {todo.Count} «{entry.Tag}»: λ = {entry.LoadFactor:0.###}{(entry.Completed ? "" : " — не дошёл до предела")}, шагов {entry.Steps}, {entry.ElapsedSeconds:0.#} с."));
+                }
 
-                if (!controlResolved)
+                // Длительная часть — сразу после дошедшего варианта, на тех же диаграммах (п. 6.1.26).
+                if (entry.Completed && longOf.TryGetValue(entry.Index, out var pair))
                 {
-                    controlDof = ControlDof(prepared, run.Build, csfea, summary);
-                    summary.ControlNodeTag = controlDof != null ? prepared.ControlNode!.Value.MeshTag : "";
-                    summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
-                    controlResolved = true;
+                    if (pair.Stage is int pairStage && !pair.Done)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var (run, fields, packed, seconds) = await Solve(pairStage, number,
+                            FemCsfeaBatchLongTerm.PairTag(entry.Tag, pair.Type));
+                        Fill(pair, run, fields, packed, seconds);
+                        ctx.Log.Info(pair.Completed
+                            ? string.Create(CultureInfo.CurrentCulture,
+                                $"[{tag}] {entry.Label}: длительная часть {pair.Type} — шагов {pair.Steps}, {pair.ElapsedSeconds:0.#} с.")
+                            : string.Create(CultureInfo.CurrentCulture,
+                                $"[{tag}] {entry.Label}: длительная часть не дошла до λ = {batch.MaxLoadFactor:0.###} (λ = {pair.LoadFactor:0.###}) — {(pair.Type == "CL" ? "ψ" : "φ1")} по умолчанию."));
+                        if (quantities != null && fields != null && pair.Completed) await AddToEnvelope(pair, fields);
+                    }
+                    else if (quantities != null && variantFields != null && pair.IsSameAsTotal)
+                        await AddToEnvelope(pair, variantFields);
                 }
-                if (summary.Nodes != 0 && (summary.Nodes != run.Build.Mesh.NNodes || summary.Shells != run.Build.Mesh.Shells.Count
-                    || summary.Beams != run.Build.Mesh.Beams.Count))
-                    throw new InvalidOperationException("Сетка схемы изменилась после начала пакета — запустите «Пересчитать всё».");
-                summary.Nodes = run.Build.Mesh.NNodes;
-                summary.Shells = run.Build.Mesh.Shells.Count;
-                summary.Beams = run.Build.Mesh.Beams.Count;
-
-                var r = run.Result;
-                var last = r.Steps.LastOrDefault(s => s.Converged);
-                entry.Done = true;
-                entry.Completed = r.Completed;
-                entry.LoadFactor = (last?.LoadFactor ?? 0) * batch.MaxLoadFactor;
-                entry.Steps = r.Steps.Count(s => s.Converged);
-                entry.Iterations = r.Steps.Sum(s => s.Iterations);
-                entry.ElapsedSeconds = clock.Elapsed.TotalSeconds;
-                entry.Reason = r.Completed ? null : r.Message;
-                entry.Control = last != null && controlDof is int d ? last.U[d] : null;
-                entry.ReactionSums = fields?.ReactionSums;
-                entry.LoadSum = fields?.LoadSum;
-                summary.ElapsedSeconds += clock.Elapsed.TotalSeconds;
-                if (packed != null)
-                {
-                    entry.RecordN = nextRecord++;
-                    ctx.Db.SaveFemResultStep(result.Id, entry.RecordN.Value, packed);
-                }
-                if (quantities != null && fields != null && r.Completed)
-                {
-                    var f = fields;
-                    var vector = await Task.Run(() => quantities.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true,
-                        crackElements != null ? FemCsfeaCrackWidths.Compute(crackElements, f, crackShare, ct) : null), ct);
-                    if (!groups.TryGetValue(entry.GroupKey, out var g)) groups[entry.GroupKey] = g = (new FemCsfeaEnvelopeAccumulator(), f);
-                    g.Acc.Add(vector, entry.Index);
-                }
-                ctx.Log.Info(string.Create(CultureInfo.CurrentCulture,
-                    $"[{tag}] Вариант {number} из {todo.Count} «{entry.Tag}»: λ = {entry.LoadFactor:0.###}{(r.Completed ? "" : " — не дошёл до предела")}, шагов {entry.Steps}, {entry.ElapsedSeconds:0.#} с."));
+                if (quantities != null && variantFields != null && entry.Completed) await AddToEnvelope(entry, variantFields);
                 Save();
-                if (!r.Completed && batch.StopAtLimit)
+                if (!entry.Completed && batch.StopAtLimit)
                 {
                     summary.Message = $"Пакет остановлен: вариант «{entry.Tag}» не дошёл до предела λ.";
                     break;
@@ -627,11 +799,19 @@ public static class FemCsfeaRunner
                 summary.BatchGroups.Add(new FemCsfeaBatchGroup(key, n, acc.Count));
             }
         }
-        result.Status = summary.Batch.Any(b => !b.Done) ? "partial" : summary.Batch.All(b => b.Completed) ? "ok" : "not_converged";
+        result.Status = summary.Batch.Any(b => !b.Done) || summary.Batch.Any(b => b.Completed && PairPending(b)) ? "partial"
+            : summary.Batch.All(b => b.Completed) ? "ok" : "not_converged";
         summary.Completed = result.Status == "ok";
         Save();
         return result;
     }
+
+    /// <summary>Ключ посчитанной длительной части для досчёта: выражения варианта и пары, вид.</summary>
+    public static string LongKey(string variantExpressionJson, FemCsfeaBatchSummary pair) =>
+        LongKey(variantExpressionJson, pair.Kind, pair.ExpressionJson);
+
+    public static string LongKey(string variantExpressionJson, string kind, string pairExpressionJson) =>
+        variantExpressionJson + "\n" + kind + "\n" + pairExpressionJson;
 
     /// <summary>Ключи групп огибающих пакета по порядку: C, CL, N, NL, A, затем загружения.</summary>
     static IEnumerable<string> FemCombinationTypesOrder(IEnumerable<string> keys)
