@@ -667,6 +667,39 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             Assert.True(u3 > u2 * 1.05, $"u3 = {u3}, u2 = {u2}");
             double u2Same = MaxUz(Fields(ctx.Db, result.Id, summary.Batch![1].RecordN!.Value));
             Assert.True(MaxUz(Fields(ctx.Db, result.Id, d2.RecordN!.Value)) > u2Same * 1.05);
+
+            // Срез 4 — окно результата: режимы длительной части, полный прогиб u₁ − u₂ + u₃, ключ показа, огибающая пар.
+            var vm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, analysis);
+            var n1 = vm.CombinationItems.First(i => i.Batch!.Index == 0);
+            vm.SelectedCaseItem = n1;
+            Assert.Equal([OpenCS.ViewModels.FemCsfeaLongMode.Total, OpenCS.ViewModels.FemCsfeaLongMode.Long,
+                OpenCS.ViewModels.FemCsfeaLongMode.LongNL, OpenCS.ViewModels.FemCsfeaLongMode.FullDeflection],
+                vm.LongModeOptions.Select(o => o.Mode));
+            Assert.True(vm.CrackByPair);
+            vm.LongMode = OpenCS.ViewModels.FemCsfeaLongMode.FullDeflection;
+            var u1 = Fields(ctx.Db, result.Id, summary.Batch[0].RecordN!.Value).Displacements;
+            var u2f = Fields(ctx.Db, result.Id, summary.LongOf(0)!.RecordN!.Value).Displacements;
+            var u3f = Fields(ctx.Db, result.Id, d1.RecordN!.Value).Displacements;
+            for (int i = 0; i < u1.Length; i++) Assert.Equal(u1[i] - u2f[i] + u3f[i], vm.Fields!.Displacements[i], 12);
+            Assert.All(vm.Fields!.ShellForces, v => Assert.Equal(0, v));
+            Assert.False(vm.CrackByPair);
+            Assert.Equal(OpenCS.ViewModels.FemCsfeaLongMode.FullDeflection, vm.ShownKey!.LongMode);
+            vm.LongMode = OpenCS.ViewModels.FemCsfeaLongMode.Long;
+            Assert.Equal(u2f, vm.Fields!.Displacements);
+            // Загружение без длительной части — только «Полные»; возврат к N1 — режим запомнен.
+            vm.SelectedCaseItem = vm.CombinationItems.First(i => i.Batch!.Index == 2);
+            Assert.False(vm.HasLongModes);
+            Assert.Equal(u1.Length, vm.Fields!.Displacements.Length);
+            vm.SelectedCaseItem = n1;
+            Assert.Equal(OpenCS.ViewModels.FemCsfeaLongMode.Long, vm.SelectedLongModeOption!.Mode);
+            // Огибающая длительных частей NL — отдельной группой из обеих пар (N2 — поля варианта).
+            var pairsEnvelope = vm.EnvelopeItems.Single(e => e.Envelope!.Type == FemCsfeaBatchGroup.PairsOf("NL"));
+            Assert.Equal(2, pairsEnvelope.Envelope!.Combinations.Count);
+            Assert.Equal([summary.LongOf(0)!.RecordN, summary.Batch[1].RecordN],
+                pairsEnvelope.Envelope.Combinations.Select(c => c.Batch!.RecordN));
+            Assert.NotEqual("", vm.BatchRows[0].LongPart);
+            Assert.NotEqual("", vm.BatchRows[0].LongDeflection);
+            Assert.Equal("", vm.BatchRows[2].LongPart);
         });
     }
     /// <summary>

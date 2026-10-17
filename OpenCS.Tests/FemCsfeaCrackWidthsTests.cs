@@ -150,4 +150,40 @@ public class FemCsfeaCrackWidthsTests
             Assert.Equal(single, batch[i + 1]);
         }
     }
+
+    /// <summary>
+    /// Длительная часть своим расчётом (пара NL пакета): при усилиях пары, ровно равных доле от полных, — то же, что
+    /// по доле; при другом соотношении (длительная часть — другой закон) — отличается; пара = полной — как доля 1.
+    /// </summary>
+    [Fact]
+    public void LongForcesFromPair_EqualShareWhenProportional()
+    {
+        const double share = 0.6;
+        var total = Forces(30, 12, 6);
+        var proportional = total.Select(f => f * share).ToArray();
+
+        Close(FemCsfeaCrackWidths.Compute(Element(), total, share), FemCsfeaCrackWidths.Compute(Element(), total, proportional));
+        Close(FemCsfeaCrackWidths.Compute(Element(), total, 1.0), FemCsfeaCrackWidths.Compute(Element(), total, total));
+        var other = FemCsfeaCrackWidths.Compute(Element(), total, Forces(30 * share, 0, 0));
+        Assert.NotEqual(FemCsfeaCrackWidths.Compute(Element(), total, share).ShortTop, other.ShortTop);
+
+        // Набор КЭ: поля пары — по тем же номерам КЭ.
+        RcSecantStepFields F(double[] f) => new()
+        {
+            NodeIds = [], Displacements = [], ShellIds = [1], ShellForces = f,
+            ShellStates = new double[RcSecantStepFields.ShellStateComponents], ShellFlags = new byte[1],
+            BeamIds = [], BeamForces = [], BeamFlags = [],
+        };
+        var byPair = FemCsfeaCrackWidths.Compute([Element()], F(total), F(proportional));
+        Close(FemCsfeaCrackWidths.Compute(Element(), total, share), byPair[1]);
+    }
+
+    static void Close(FemCsfeaCrackWidth a, FemCsfeaCrackWidth b)
+    {
+        Assert.Equal(a.LongTop, b.LongTop, 9);
+        Assert.Equal(a.ShortTop, b.ShortTop, 9);
+        Assert.Equal(a.LongBottom, b.LongBottom, 9);
+        Assert.Equal(a.ShortBottom, b.ShortBottom, 9);
+        Assert.Equal(a.AngleTop, b.AngleTop, 6);
+    }
 }

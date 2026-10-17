@@ -136,14 +136,25 @@ public sealed record FemCsfeaEnvelopeGroup(string Type, IReadOnlyList<FemCsfeaCa
 /// Что показано в результате CSfea поверх шага — для перехода окно результата ↔ 3D-вид: комбинация схемы (Id),
 /// огибающая группы (тип) или вариант пакета (индекс) и выбор |max| / max / min.
 /// </summary>
-public sealed record FemCsfeaCaseKey(int? CombinationId, string? EnvelopeType, ForceRowAggregate Aggregate, int? BatchIndex = null);
+public sealed record FemCsfeaCaseKey(int? CombinationId, string? EnvelopeType, ForceRowAggregate Aggregate, int? BatchIndex = null,
+    FemCsfeaLongMode LongMode = FemCsfeaLongMode.Total);
+
+/// <summary>
+/// Что показано у варианта пакета с длительной частью (спека «длительные пары», п. 2.5): полная нагрузка, длительная
+/// часть на диаграммах варианта, она же на диаграммах NL, полный прогиб u₁ − u₂ + u₃ (п. 8.2.24).
+/// </summary>
+public enum FemCsfeaLongMode { Total, Long, LongNL, FullDeflection }
+
+/// <summary>Пункт выбора <see cref="FemCsfeaLongMode"/> с подписью.</summary>
+public sealed record FemCsfeaLongModeOption(FemCsfeaLongMode Mode, string Label);
 
 /// <summary>
 /// Строка вкладки «Сводка пакета»: вариант и итог его расчёта (λ, шагов, итераций, время, перемещение контрольного узла —
 /// мм или рад, ΣRz — кН; null — нет данных). <see cref="IsProblem"/> — не дошёл до предела λ или не посчитан.
 /// </summary>
 public sealed record FemCsfeaBatchRow(int N, string Type, string Tag, double LoadFactor, string State, int Steps, int Iterations,
-    double ElapsedSeconds, double? Control, double? ReactionZ, string Reason, bool IsProblem, FemCsfeaCaseItem Item);
+    double ElapsedSeconds, double? Control, double? ReactionZ, string Reason, bool IsProblem, FemCsfeaCaseItem Item,
+    string LongPart = "", string LongDeflection = "");
 
 /// <summary>Значение огибающей величины: ветви max и min с именами комбинаций-источников (в единицах показа).</summary>
 public readonly record struct FemCsfeaEnvelopeValue(double Max, string MaxSource, double Min, string MinSource)
@@ -396,6 +407,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         : _shownCombination is { Batch: { } b } variant
         ? string.Format(Loc.S("FemCsfeaBatchVariantLabel"), CombinationItems.ToList().IndexOf(variant) + 1, CombinationItems.Count,
             variant.Name, b.LoadFactor, b.Completed ? "✓" : Loc.S("FemCsfeaBatchNotReachedMark"))
+            + (EffectiveLongMode(b) != FemCsfeaLongMode.Total && SelectedLongModeOption is { } mode ? " · " + mode.Label : "")
         : _shownCombination is { Combination: { } comb } item
         ? string.Format(Loc.S("FemCsfeaCombinationLabel"), CombinationItems.ToList().IndexOf(item) + 1, CombinationItems.Count,
             item.Name, comb.Terms.Count)
@@ -469,6 +481,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 StartEnvelope(_shownEnvelope);
             }
         }
+        else if (_shownCombination is { Batch: { } bv } && EffectiveLongMode(bv) != FemCsfeaLongMode.Total)
+            ApplyLongMode(bv);
         else if (_shownCombination is { Batch: { } b })
         {
             // Вариант пакета — конечное сошедшееся состояние; сводка шага — из сводки варианта.
@@ -507,6 +521,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         else if (_recorded.Count == 0 && Summary.Steps.Count > 0) FieldsNote = Loc.S("FemCsfeaNoFieldsRecorded");
         else if (IsBatch && _shownCombination == null) FieldsNote = Loc.S("FemCsfeaBatchNothingToShow");
         IndexFields();
+        LongModeOptions = _shownCombination?.Batch is { } shown ? BuildLongModeOptions(shown) : [];
+        OnPropertyChanged(nameof(LongModeOptions));
+        OnPropertyChanged(nameof(HasLongModes));
+        OnPropertyChanged(nameof(SelectedLongModeOption));
+        OnPropertyChanged(nameof(CrackByPair));
+        OnPropertyChanged(nameof(CrackLongText));
         OnPropertyChanged(nameof(SelectedStep));
         OnPropertyChanged(nameof(CurrentStepLabel));
         OnPropertyChanged(nameof(FieldsStepIndex));
@@ -536,6 +556,140 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     /// <summary>Показанное изменилось: шаг, загружение, комбинация или огибающая (для 3D-вида — общий сигнал).</summary>
     public event Action? CaseChanged;
+
+    // ------------------------------------------------------------ длительные части вариантов пакета
+
+    FemCsfeaLongMode _longMode;
+
+    /// <summary>Режимы показа длительной части показанного варианта (только «Полные» — длительной части нет).</summary>
+    public IReadOnlyList<FemCsfeaLongModeOption> LongModeOptions { get; private set; } = [];
+
+    /// <summary>У показанного варианта есть что показать кроме полной нагрузки.</summary>
+    public bool HasLongModes => LongModeOptions.Count > 1;
+
+    /// <summary>Выбранный режим; переход к варианту без него — показ полной нагрузки (выбор запоминается).</summary>
+    public FemCsfeaLongModeOption? SelectedLongModeOption
+    {
+        get => _shownCombination?.Batch is { } b ? LongModeOptions.FirstOrDefault(o => o.Mode == EffectiveLongMode(b)) : null;
+        set
+        {
+            if (value == null || value.Mode == _longMode) return;
+            LongMode = value.Mode;
+        }
+    }
+
+    /// <summary>Запрошенный режим показа длительной части (у вариантов без него — полная нагрузка).</summary>
+    public FemCsfeaLongMode LongMode
+    {
+        get => _longMode;
+        set
+        {
+            if (value == _longMode) return;
+            _longMode = value;
+            OnPropertyChanged();
+            if (_shownCombination?.Batch != null) ApplyStep();
+        }
+    }
+
+    FemCsfeaLongMode EffectiveLongMode(FemCsfeaBatchSummary b) =>
+        BuildLongModeOptions(b).Any(o => o.Mode == _longMode) ? _longMode : FemCsfeaLongMode.Total;
+
+    /// <summary>Длительная часть варианта (на диаграммах варианта); null — не считалась.</summary>
+    FemCsfeaBatchSummary? LongPartOf(FemCsfeaBatchSummary b) => b.PairOf == null ? Summary.LongOf(b.Index) : null;
+
+    /// <summary>Та же нагрузка на диаграммах NL с полями; null — нет.</summary>
+    FemCsfeaBatchSummary? LongNLOf(FemCsfeaBatchSummary b) =>
+        b.PairOf == null && Summary.LongOf(b.Index, FemCsfeaBatchLongKind.Deflection) is { Done: true, Completed: true, RecordN: not null } d ? d : null;
+
+    List<FemCsfeaLongModeOption> BuildLongModeOptions(FemCsfeaBatchSummary b)
+    {
+        var options = new List<FemCsfeaLongModeOption> { new(FemCsfeaLongMode.Total, Loc.S("FemCsfeaLongModeTotal")) };
+        if (!b.Completed || b.RecordN == null || LongPartOf(b) is not { } pair) return options;
+        bool pairFields = Summary.LongRecordN(pair) != null;
+        if (pairFields || pair.IsZero)
+            options.Add(new(FemCsfeaLongMode.Long, string.Format(Loc.S(pair.IsZero ? "FemCsfeaLongModeLongZero" : "FemCsfeaLongModeLong"), pair.Type)));
+        if (LongNLOf(b) != null)
+        {
+            options.Add(new(FemCsfeaLongMode.LongNL, Loc.S("FemCsfeaLongModeLongNL")));
+            if (pairFields || pair.IsZero) options.Add(new(FemCsfeaLongMode.FullDeflection, Loc.S("FemCsfeaLongModeFull")));
+        }
+        return options;
+    }
+
+    /// <summary>Поля варианта в режиме длительной части: пара, она же на диаграммах NL или полный прогиб.</summary>
+    void ApplyLongMode(FemCsfeaBatchSummary b)
+    {
+        var mode = EffectiveLongMode(b);
+        var pair = LongPartOf(b)!;
+        FemCsfeaStepSummary Step(FemCsfeaBatchSummary s, RcSecantStepFields f) => new(0, -1, 1, s.LoadFactor, false, s.Completed,
+            s.Iterations, double.NaN, s.Control, null, true, f.ReactionSums.Length > 0 ? f.ReactionSums : null,
+            f.LoadSum.Length > 0 ? f.LoadSum : null);
+        switch (mode)
+        {
+            case FemCsfeaLongMode.Long when pair.IsZero:
+                FieldsNote = string.Format(Loc.S("FemCsfeaLongZeroNote"), pair.Type);
+                break;
+            case FemCsfeaLongMode.Long when Summary.LongRecordN(pair) is int n && LoadFields(n) is { } f:
+                Fields = f;
+                _fieldsRecordN = n;
+                _combinationStep = Step(pair.IsSameAsTotal ? b : pair, f);
+                if (pair.IsSameAsTotal) FieldsNote = string.Format(Loc.S("FemCsfeaLongSameNote"), pair.Type);
+                break;
+            case FemCsfeaLongMode.LongNL when LongNLOf(b) is { RecordN: int n } d && LoadFields(n) is { } f:
+                Fields = f;
+                // Ширина раскрытия — по диаграммам непродолжительного действия (п. 6.1.26), здесь не считается.
+                _combinationStep = Step(d, f);
+                FieldsNote = Loc.S("FemCsfeaLongNLNote");
+                break;
+            case FemCsfeaLongMode.FullDeflection when LongNLOf(b) is { RecordN: int n3 } && b.RecordN is int n1:
+                try
+                {
+                    var total = LoadFields(n1) ?? throw new InvalidOperationException(string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag));
+                    var longPart = pair.IsZero ? null : Summary.LongRecordN(pair) is int n2 ? LoadFields(n2) : null;
+                    if (!pair.IsZero && longPart == null) throw new InvalidOperationException(string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag));
+                    var nl = LoadFields(n3) ?? throw new InvalidOperationException(string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag));
+                    Fields = FemCsfeaCombinationFields.FullDeflection(total, longPart, nl);
+                    _combinationStep = new FemCsfeaStepSummary(0, -1, 1, b.LoadFactor, false, true, 0, double.NaN, null, null, true, null, null);
+                    FieldsNote = Loc.S("FemCsfeaFullDeflectionNote");
+                }
+                catch (InvalidOperationException ex) { FieldsNote = ex.Message; }
+                break;
+            default:
+                FieldsNote = string.Format(Loc.S("FemCsfeaBatchVariantNoFields"), b.Tag);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Откуда длительная часть для ширины раскрытия показанного: доля, своя пара (номер записи), доля 1 (показана сама
+    /// длительная часть или она совпадает с полной), 0 (нулевая); null — ширина раскрытия в этом режиме не считается.
+    /// </summary>
+    (double Share, int LongStep)? CrackSource()
+    {
+        if (_shownCombination?.Batch is not { } b) return (_longShare, 0);
+        switch (EffectiveLongMode(b))
+        {
+            case FemCsfeaLongMode.Long: return (1.0, 0);
+            case FemCsfeaLongMode.LongNL or FemCsfeaLongMode.FullDeflection: return null;
+        }
+        if (b.PairOf != null) return (1.0, 0);
+        return LongPartOf(b) switch
+        {
+            { IsDerived: true } p when Summary.LongRecordN(p) is int n => (-1.0, n),   // −1 — не доля (NaN не равен себе в ключе)
+            { IsSameAsTotal: true } => (1.0, 0),
+            { IsZero: true } => (0.0, 0),
+            _ => (_longShare, 0),
+        };
+    }
+
+    /// <summary>Длительная часть для ширины раскрытия — не доля, а расчёт пакета (пара, совпадает с полной, нулевая).</summary>
+    public bool CrackByPair => _shownCombination?.Batch is { } b && EffectiveLongMode(b) == FemCsfeaLongMode.Total
+        && LongPartOf(b) is { } p && (p.IsZero || Summary.LongRecordN(p) != null);
+
+    /// <summary>Подпись источника длительной части ширины раскрытия: «длительная часть — по паре NL»; пусто — доля.</summary>
+    public string CrackLongText => CrackByPair && LongPartOf(_shownCombination!.Batch!) is { } p
+        ? string.Format(Loc.S(p.IsZero ? "FemCsfeaCrackLongZero" : p.IsSameAsTotal ? "FemCsfeaCrackLongSame" : "FemCsfeaCrackLongByPair"), p.Type)
+        : "";
 
     void SetFieldsNote(string note)
     {
@@ -706,12 +860,29 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             }
             else if (!FemCsfeaCombinationFields.SameMesh(f, reference))
                 throw new InvalidOperationException(Loc.S("FemCsfeaEnvelopeMeshMismatch"));
-            var cracks = acrcShare is double share && elements != null ? FemCsfeaCrackWidths.Compute(elements, f, share, ct) : null;
+            var cracks = acrcShare is double share && elements != null ? BatchCracks(elements, b, f, share, ct) : null;
             acc.Add(Quantities.Vector(f, nodeIndex!, single: true, cracks), k);
             progress.Report(k + 1);
         }
         if (acc.Result is not { } values) throw new InvalidOperationException(Loc.S("FemCsfeaCombinationEmpty"));
         return new EnvelopeData(values, reference!, env, env.Combinations.Select(i => i.Name).ToList(), acrcShare);
+    }
+
+    /// <summary>
+    /// Ширина раскрытия варианта пакета в огибающей: у варианта с длительной частью — точно по п. 8.2.7 (поля пары;
+    /// совпадает с полной — доля 1, нулевая — 0), у длительной части — доля 1, иначе — <paramref name="share"/>.
+    /// </summary>
+    Dictionary<int, FemCsfeaCrackWidth> BatchCracks(List<FemCsfeaCrackElement> elements, FemCsfeaBatchSummary b,
+        RcSecantStepFields f, double share, CancellationToken ct)
+    {
+        if (b.PairOf != null) return FemCsfeaCrackWidths.Compute(elements, f, 1.0, ct);
+        return Summary.LongOf(b.Index) switch
+        {
+            { IsDerived: true } p when Summary.LongRecordN(p) is int n && LoadFields(n) is { } pf => FemCsfeaCrackWidths.Compute(elements, f, pf, ct),
+            { IsSameAsTotal: true } => FemCsfeaCrackWidths.Compute(elements, f, 1.0, ct),
+            { IsZero: true } => FemCsfeaCrackWidths.Compute(elements, f, 0.0, ct),
+            _ => FemCsfeaCrackWidths.Compute(elements, f, share, ct),
+        };
     }
 
     /// <summary>Поля показа огибающей: каждая величина — по выбору |max| / max / min (состояния пластин пусты).</summary>
@@ -800,6 +971,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (e.Group.RecordN != null)
         {
             SetFieldsNote(e.AcrcShare is double s ? string.Format(Loc.S("FemCsfeaBatchEnvelopeAcrcShare"), s)
+                + (Summary.BatchCrackByPairs ? " " + Loc.S("FemCsfeaBatchEnvelopeAcrcByPairs") : "")
                 : Loc.S("FemCsfeaBatchEnvelopeNoAcrc"));
             return true;
         }
@@ -1015,7 +1187,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public FemCsfeaCaseKey? ShownKey
     {
         get => _shownEnvelope?.Envelope is { } env ? new FemCsfeaCaseKey(null, env.Type, EnvelopeAggregate)
-            : _shownCombination?.Batch is { } b ? new FemCsfeaCaseKey(null, null, EnvelopeAggregate, b.Index)
+            : _shownCombination?.Batch is { } b ? new FemCsfeaCaseKey(null, null, EnvelopeAggregate, b.Index, EffectiveLongMode(b))
             : SelectedCombinationId is int id ? new FemCsfeaCaseKey(id, null, EnvelopeAggregate) : null;
         set
         {
@@ -1027,7 +1199,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             }
             else if (value.BatchIndex is int index)
             {
-                if (CombinationItems.FirstOrDefault(i => i.Batch?.Index == index) is { } item) SelectedCaseItem = item;
+                _longMode = value.LongMode;
+                if (CombinationItems.FirstOrDefault(i => i.Batch?.Index == index) is { } item)
+                {
+                    if (ReferenceEquals(item, SelectedCaseItem)) ApplyStep();
+                    else SelectedCaseItem = item;
+                }
             }
             else SelectedCombinationId = value.CombinationId;
         }
@@ -1190,6 +1367,43 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 ToolTipText = tip,
             });
         }
+        // Огибающие длительных частей — отдельными группами «NL-пары», «CL-пары» (решение 3 спеки длительных пар):
+        // пары дошедших вариантов с полями (совпадающая с полной — поля варианта), нулевые не входят.
+        var variantsByIndex = CombinationItems.ToDictionary(i => i.Batch!.Index);
+        foreach (var g in (Summary.BatchLong ?? []).Where(p => p.Kind == FemCsfeaBatchLongKind.Part)
+                     .GroupBy(p => p.GroupKey).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var items = new List<FemCsfeaCaseItem>();
+            int skipped = 0;
+            foreach (var pair in g)
+            {
+                if (!variantsByIndex.TryGetValue(pair.PairOf!.Value, out var v) || !v.Batch!.Completed || pair.IsZero) continue;
+                int? n = Summary.LongRecordN(pair);
+                if (fields && n == null) { skipped++; continue; }
+                items.Add(new FemCsfeaCaseItem
+                {
+                    Source = v.Source,
+                    Batch = new FemCsfeaBatchSummary
+                    {
+                        Index = v.Batch.Index, Tag = v.Name, Type = pair.Type, Kind = pair.Kind, PairOf = pair.PairOf,
+                        PairKind = pair.PairKind, Done = true, Completed = true, RecordN = n,
+                    },
+                });
+            }
+            int? record = fields ? null : records.TryGetValue(g.Key, out int rn) ? rn : null;
+            if (items.Count == 0 || !fields && record == null) continue;
+            string type = g.First().Type;
+            envelopes.Add(new FemCsfeaCaseItem
+            {
+                Source = new FemLoadSource
+                {
+                    Kind = FemLoadSourceKind.Combination, TypeBadge = type, Tag = string.Format(Loc.S("FemCsfeaBatchEnvelopePairs"), type),
+                    Formula = string.Format(Loc.S("FemCsfeaEnvelopeCount"), items.Count),
+                },
+                Envelope = new FemCsfeaEnvelopeGroup(g.Key, items, skipped, record),
+                ToolTipText = string.Format(Loc.S("FemCsfeaBatchEnvelopePairsTip"), type, items.Count),
+            });
+        }
         EnvelopeItems = envelopes;
 
         BatchRows = CombinationItems.Select(i =>
@@ -1201,10 +1415,26 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 ? Enumerable.Range(0, RcReactionSet.KindCount).Sum(k => s[3 * k + 2]) / 1e3 : null;
             string reason = !b.Done ? Loc.S("FemCsfeaBatchNotDone") : b.Reason ?? "";
             return new FemCsfeaBatchRow(b.Index + 1, b.Type, b.Tag, b.LoadFactor, state, b.Steps, b.Iterations,
-                Math.Round(b.ElapsedSeconds, 1), control, rz, reason, !b.Completed, i);
+                Math.Round(b.ElapsedSeconds, 1), control, rz, reason, !b.Completed, i,
+                LongText(b, Summary.LongOf(b.Index)), LongText(b, Summary.LongOf(b.Index, FemCsfeaBatchLongKind.Deflection)));
         }).ToList();
         BatchStoppedItems = batch.Where(b => b.Done && !b.Completed).ToList();
     }
+
+    /// <summary>
+    /// Итог длительной части варианта для сводки пакета: «✓ 4 шага, 0,6 с», «= полной», «нулевая», «λ = 0,82», «не
+    /// посчитана»; пусто — не считалась.
+    /// </summary>
+    static string LongText(FemCsfeaBatchSummary variant, FemCsfeaBatchSummary? p) => p switch
+    {
+        null => "",
+        { PairKind: nameof(CScore.Fem.Combinations.FemLongTermPairKind.Invalid) } => p.Reason ?? Loc.S("FemCsfeaBatchLongInvalid"),
+        { Kind: FemCsfeaBatchLongKind.Part, IsZero: true } => Loc.S("FemCsfeaBatchLongZero"),
+        { Kind: FemCsfeaBatchLongKind.Part, IsSameAsTotal: true } => Loc.S("FemCsfeaBatchLongSame"),
+        { Done: false } => variant.Completed ? Loc.S("FemCsfeaBatchStateNotDone") : "—",
+        { Completed: true } => string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchLongDone"), p.Steps, p.ElapsedSeconds),
+        _ => string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaBatchLongStopped"), p.LoadFactor),
+    };
 
     /// <summary>Сколько не вошедших в огибающую перечисляется по имени (остальные — «и ещё N»).</summary>
     public const int SkippedListed = 10;
@@ -1675,13 +1905,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <see cref="CrackWidthsReady"/>.
     /// </summary>
     public bool PrepareShellField(FemCsfeaShellField field) => !IsCrack(field) || Fields == null
-        || (_envelope is { } e ? PrepareEnvelopeCracks(e) : EnsureCrackWidths() != null);
+        || (_envelope is { } e ? PrepareEnvelopeCracks(e) : CrackSource() == null || EnsureCrackWidths() != null);
 
     /// <summary>Досчитана ширина раскрытия трещин (шаг или доля сменились).</summary>
     public event Action? CrackWidthsReady;
 
     Dictionary<int, FemCsfeaCrackWidth>? CurrentCrackWidths() =>
-        Fields != null && _fieldsRecordN is int n && _crackKey == (n, _longShare) ? _crackWidths : null;
+        Fields != null && _fieldsRecordN is int n && CrackSource() is { } s && _crackKey == (n, s.Share, s.LongStep) ? _crackWidths : null;
 
     /// <summary>Оси эпюр стержня (Ey, Ez местной системы расчёта с углом поворота сечения); null — стержня нет в сетке.</summary>
     public (Vector3D Ey, Vector3D Ez)? BeamAxes(int elem)
@@ -1759,7 +1989,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     readonly FemAnalysis? _analysis;
     List<FemCsfeaCrackElement>? _crackElements;
     Dictionary<int, FemCsfeaCrackElement> _crackById = new();
-    (int Step, double Share)? _crackKey, _crackPending;
+    (int Step, double Share, int LongStep)? _crackKey, _crackPending;
     Dictionary<int, FemCsfeaCrackWidth>? _crackWidths;
     CancellationTokenSource? _crackCts;
 
@@ -1796,15 +2026,18 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// </summary>
     Dictionary<int, FemCsfeaCrackWidth>? EnsureCrackWidths()
     {
-        if (Fields == null || _fieldsRecordN is not int n || _analysis == null) return null;
-        var key = (n, _longShare);
+        if (Fields == null || _fieldsRecordN is not int n || _analysis == null || CrackSource() is not { } source) return null;
+        var key = (n, source.Share, source.LongStep);
         if (_crackKey == key && _crackWidths != null) return _crackWidths;
         if (_crackPending == key) return null;
         var elements = EnsureCrackElements();
         _crackCts?.Cancel();
         _crackCts = new CancellationTokenSource();
         _crackPending = key;
-        CrackWidthsTask = RunCrackWidthsAsync(key, elements, Fields, _crackCts.Token);
+        // Поля пары — из БД здесь (в UI-потоке), расчёт — в фоне.
+        var longFields = source.LongStep > 0 ? LoadFields(source.LongStep) : null;
+        if (source.LongStep > 0 && longFields == null) { _crackPending = null; return null; }
+        CrackWidthsTask = RunCrackWidthsAsync(key, elements, Fields, longFields, _crackCts.Token);
         return null;
     }
 
@@ -1872,11 +2105,15 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return 0.5 * s.Length;
     }
 
-    async Task RunCrackWidthsAsync((int Step, double Share) key, List<FemCsfeaCrackElement> elements, RcSecantStepFields fields,
-        CancellationToken ct)
+    async Task RunCrackWidthsAsync((int Step, double Share, int LongStep) key, List<FemCsfeaCrackElement> elements, RcSecantStepFields fields,
+        RcSecantStepFields? longFields, CancellationToken ct)
     {
         Dictionary<int, FemCsfeaCrackWidth> widths;
-        try { widths = await Task.Run(() => FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), ct); }
+        try
+        {
+            widths = await Task.Run(() => longFields != null ? FemCsfeaCrackWidths.Compute(elements, fields, longFields, ct)
+                : FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), ct);
+        }
         catch (OperationCanceledException) { return; }
         if (_crackPending != key) return;
         _crackPending = null;

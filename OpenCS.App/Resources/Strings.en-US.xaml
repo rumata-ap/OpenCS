@@ -2983,6 +2983,29 @@
     <system:String x:Key="FemCsfeaBatchSkippedNoFields">no fields</system:String>
     <system:String x:Key="FemCsfeaBatchSkippedMore">and {0} more</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeAcrcShare">Crack widths in the stored envelope use long-term share {0:0.##}; they cannot be recomputed for another share (storage "envelopes only").</system:String>
+    <system:String x:Key="FemCsfeaLongModeTotal">Total</system:String>
+    <system:String x:Key="FemCsfeaLongModeLong">Long-term {0}</system:String>
+    <system:String x:Key="FemCsfeaLongModeLongZero">Long-term {0} — zero</system:String>
+    <system:String x:Key="FemCsfeaLongModeLongNL">Long-term (NL diagrams)</system:String>
+    <system:String x:Key="FemCsfeaLongModeFull">Total deflection (8.2.24)</system:String>
+    <system:String x:Key="FemCsfeaLongModeTip">Variant with a long-term part: total load; long-term part on the variant's diagrams (cracks, 6.1.26); the same on NL diagrams (deflections, 6.1.25); total deflection u₁ − u₂ + u₃ per (8.141).</system:String>
+    <system:String x:Key="FemCsfeaLongZeroNote">The long-term part {0} is zero: the combination has no permanent, long-term or short-term load cases with a long-term share.</system:String>
+    <system:String x:Key="FemCsfeaLongSameNote">The long-term part {0} equals the total load — the variant's fields are shown.</system:String>
+    <system:String x:Key="FemCsfeaLongNLNote">Long-term part on NL diagrams (6.1.25) — for deflections; crack widths are computed on the variant's diagrams (6.1.26), not here.</system:String>
+    <system:String x:Key="FemCsfeaFullDeflectionNote">Total deflection per 8.2.24: u = u₁ − u₂ + u₃ (total load − long-term part on the variant's diagrams + long-term part on NL diagrams); formula (8.141) transferred from section curvatures to model displacements. Forces, reactions and cracks are not shown in this mode.</system:String>
+    <system:String x:Key="FemCsfeaCrackLongByPair">Long-term part — from the {0} pair (8.2.7)</system:String>
+    <system:String x:Key="FemCsfeaCrackLongSame">Long-term part {0} = total</system:String>
+    <system:String x:Key="FemCsfeaCrackLongZero">Long-term part {0} is zero</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeAcrcByPairs">Variants with a long-term part — exactly from its forces (8.2.7).</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopePairs">Envelope of long-term parts {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopePairsTip">Long-term parts {0} of variants that reached the λ limit ({1}) — on the variants' diagrams.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongInvalid">not derivable</system:String>
+    <system:String x:Key="FemCsfeaBatchLongZero">zero</system:String>
+    <system:String x:Key="FemCsfeaBatchLongSame">= total</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDone">✓ {0} steps, {1:0.#} s</system:String>
+    <system:String x:Key="FemCsfeaBatchLongStopped">λ = {0:0.###}</system:String>
+    <system:String x:Key="FemCsfeaColBatchLong">Long-term part</system:String>
+    <system:String x:Key="FemCsfeaColBatchLongNL">NL diagrams</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeNoAcrc">The stored envelope has no crack widths (the batch was computed before they were enveloped) — recompute the batch.</system:String>
     <system:String x:Key="FemCsfeaBatchStateNotDone">not computed</system:String>
     <system:String x:Key="FemCsfeaBatchStateStopped">stopped</system:String>

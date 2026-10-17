@@ -181,6 +181,8 @@
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchTime}" Binding="{Binding ElapsedSeconds, StringFormat=0.#}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColControl}" Binding="{Binding Control, StringFormat=0.###}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColReactionZ}" Binding="{Binding ReactionZ, StringFormat=0.###}"/>
+                            <DataGridTextColumn x:Name="batchLongColumn" Header="{DynamicResource FemCsfeaColBatchLong}" Binding="{Binding LongPart}"/>
+                            <DataGridTextColumn x:Name="batchLongNLColumn" Header="{DynamicResource FemCsfeaColBatchLongNL}" Binding="{Binding LongDeflection}"/>
                             <DataGridTextColumn Header="{DynamicResource FemCsfeaColBatchReason}" Binding="{Binding Reason}"/>
                         </DataGrid.Columns>
                     </DataGrid>

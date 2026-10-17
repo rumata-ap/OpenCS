@@ -41,6 +41,12 @@ public sealed class FemResultLayer : ViewModelBase
             {
                 if (e.PropertyName == nameof(FemCsfeaResultVM.LongShare)) { OnPropertyChanged(nameof(LongShare)); Changed?.Invoke(); }
                 else if (e.PropertyName == nameof(FemCsfeaResultVM.LongShareNote)) OnPropertyChanged(nameof(LongShareNote));
+                else if (e.PropertyName == nameof(FemCsfeaResultVM.CrackByPair))
+                {
+                    OnPropertyChanged(nameof(CrackByPair));
+                    OnPropertyChanged(nameof(CrackByShare));
+                    OnPropertyChanged(nameof(CrackLongText));
+                }
                 // Ход расчёта огибающей — в подписи шага.
                 else if (e.PropertyName == nameof(FemCsfeaResultVM.FieldsNote))
                 {
@@ -593,6 +599,11 @@ public sealed class FemResultLayer : ViewModelBase
     }
 
     public string LongShareNote => Csfea?.LongShareNote ?? "";
+
+    /// <summary>Длительная часть ширины раскрытия — из расчёта пакета (пара NL варианта), доля не задаётся.</summary>
+    public bool CrackByPair => Csfea?.CrackByPair == true;
+    public bool CrackByShare => !CrackByPair;
+    public string CrackLongText => Csfea?.CrackLongText ?? "";
     public ICommand? LongShareFromSetsCommand => Csfea?.LongShareFromSetsCommand;
 
     /// <summary>VM результата OpenSees (пункты меню прежнего окна: 2D-эпюра, сечение, набор усилий, узел); null — CSfea.</summary>

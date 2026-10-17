@@ -72,6 +72,33 @@ public static class FemCsfeaCombinationFields
         && a.BeamIds.AsSpan().SequenceEqual(b.BeamIds) && a.ReactionNodeIds.AsSpan().SequenceEqual(b.ReactionNodeIds);
 
     /// <summary>
+    /// Полный прогиб по п. 8.2.24 (формула 8.141, перенесённая с кривизн сечения на перемещения схемы): u = u₁ − u₂ + u₃
+    /// покомпонентно (перемещения и повороты узлов); u₁ — полная нагрузка, u₂ — длительная часть на тех же диаграммах
+    /// (null — нулевая), u₃ — длительная часть на диаграммах NL. Усилия и реакции не складываются — нули, состояния
+    /// пластин пусты (NaN, флаги 0).
+    /// </summary>
+    public static RcSecantStepFields FullDeflection(RcSecantStepFields total, RcSecantStepFields? longPart, RcSecantStepFields longNL)
+    {
+        ArgumentNullException.ThrowIfNull(total);
+        ArgumentNullException.ThrowIfNull(longNL);
+        if (!SameMesh(total, longNL) || longPart != null && !SameMesh(total, longPart))
+            throw new InvalidOperationException("Поля полной нагрузки и длительной части записаны на разных сетках.");
+        var u = new double[total.Displacements.Length];
+        for (int i = 0; i < u.Length; i++)
+            u[i] = total.Displacements[i] - (longPart?.Displacements[i] ?? 0) + longNL.Displacements[i];
+        var states = new double[total.ShellStates.Length];
+        Array.Fill(states, double.NaN);
+        return new RcSecantStepFields
+        {
+            Stage = -1, Step = 1, LoadFactor = 1,
+            NodeIds = total.NodeIds, Displacements = u,
+            ShellIds = total.ShellIds, ShellForces = new double[total.ShellForces.Length], ShellStates = states,
+            ShellFlags = new byte[total.ShellFlags.Length],
+            BeamIds = total.BeamIds, BeamForces = new double[total.BeamForces.Length], BeamFlags = new byte[total.BeamFlags.Length],
+        };
+    }
+
+    /// <summary>
     /// Σ k·поля. Поля всех слагаемых — одной сетки (одинаковые номера узлов, КЭ и опор), иначе
     /// <see cref="InvalidOperationException"/>. ΣR/ΣF суммируются, если есть у всех слагаемых.
     /// </summary>

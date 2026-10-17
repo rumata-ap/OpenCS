@@ -226,6 +226,12 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Доля длительной части, при которой в записанные огибающие вошла ширина раскрытия; null — не входила.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public double? BatchCrackLongShare { get; set; }
+    /// <summary>
+    /// В записанных огибающих ширина раскрытия вариантов с длительной частью — точно по п. 8.2.7 (поля пары), у
+    /// остальных — долей <see cref="BatchCrackLongShare"/>.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool BatchCrackByPairs { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsBatch => Batch != null;
@@ -685,6 +691,7 @@ public static class FemCsfeaRunner
             ? FemCsfeaCrackWidths.Elements(adapted, ctx.Db.Materials) : null;
         double crackShare = FemCsfeaCrackWidths.DefaultLongShare(calc);
         summary.BatchCrackLongShare = crackElements != null ? crackShare : null;
+        summary.BatchCrackByPairs = crackElements != null && summary.BatchLong?.Any(b => b.Kind == FemCsfeaBatchLongKind.Part) == true;
         void Log(string line)
         {
             if (!line.StartsWith(' ')) ctx.Log.Info($"[{tag}] {line}");
@@ -782,10 +789,16 @@ public static class FemCsfeaRunner
         }
 
         // Огибающая группы (хранение «только огибающие») — по полям дошедшего прогона.
-        async Task AddToEnvelope(FemCsfeaBatchSummary entry, RcSecantStepFields f)
+        // Ширина раскрытия варианта с длительной частью — точно по п. 8.2.7 (поля пары; совпадающая с полной — доля 1,
+        // нулевая — 0), иначе — долей по умолчанию.
+        async Task AddToEnvelope(FemCsfeaBatchSummary entry, RcSecantStepFields f, FemCsfeaBatchSummary? pair = null,
+            RcSecantStepFields? pairFields = null)
         {
-            var vector = await Task.Run(() => quantities!.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true,
-                crackElements != null ? FemCsfeaCrackWidths.Compute(crackElements, f, crackShare, ct) : null), ct);
+            Dictionary<int, FemCsfeaCrackWidth>? Cracks() => crackElements == null ? null
+                : entry.PairOf != null ? FemCsfeaCrackWidths.Compute(crackElements, f, 1.0, ct)
+                : pair is { IsDerived: true } && pairFields != null ? FemCsfeaCrackWidths.Compute(crackElements, f, pairFields, ct)
+                : FemCsfeaCrackWidths.Compute(crackElements, f, pair?.IsSameAsTotal == true ? 1.0 : pair?.IsZero == true ? 0.0 : crackShare, ct);
+            var vector = await Task.Run(() => quantities!.Vector(f, FemCsfeaEnvelopeQuantities.NodeIndex(f), single: true, Cracks()), ct);
             if (!groups.TryGetValue(entry.GroupKey, out var g)) groups[entry.GroupKey] = g = (new FemCsfeaEnvelopeAccumulator(), f);
             g.Acc.Add(vector, entry.PairOf ?? entry.Index);
         }
@@ -797,7 +810,7 @@ public static class FemCsfeaRunner
                 ct.ThrowIfCancellationRequested();
                 var entry = todo[k];
                 int number = k + 1;
-                RcSecantStepFields? variantFields = null;
+                RcSecantStepFields? variantFields = null, pairFields = null;
                 if (!entry.Done)
                 {
                     var (run, fields, packed, seconds) = await Solve(entry.Index, number, entry.Tag);
@@ -816,6 +829,7 @@ public static class FemCsfeaRunner
                         var (run, fields, packed, seconds) = await Solve(pairStage, number,
                             FemCsfeaBatchLongTerm.PairTag(entry.Tag, pair.Type));
                         Fill(pair, run, fields, packed, seconds);
+                        if (pair.Completed) pairFields = fields;
                         ctx.Log.Info(pair.Completed
                             ? string.Create(CultureInfo.CurrentCulture,
                                 $"[{tag}] {entry.Label}: длительная часть {pair.Type} — шагов {pair.Steps}, {pair.ElapsedSeconds:0.#} с.")
@@ -841,7 +855,8 @@ public static class FemCsfeaRunner
                         : string.Create(CultureInfo.CurrentCulture,
                             $"[{tag}] {entry.Label}: длительная часть на диаграммах NL не дошла до λ = {batch.MaxLoadFactor:0.###} (λ = {deflection.LoadFactor:0.###}) — полного прогиба нет."));
                 }
-                if (quantities != null && variantFields != null && entry.Completed) await AddToEnvelope(entry, variantFields);
+                if (quantities != null && variantFields != null && entry.Completed)
+                    await AddToEnvelope(entry, variantFields, longOf.GetValueOrDefault(entry.Index), pairFields);
                 Save();
                 if (!entry.Completed && batch.StopAtLimit)
                 {

@@ -2983,6 +2983,29 @@
     <system:String x:Key="FemCsfeaBatchSkippedNoFields">нет полей</system:String>
     <system:String x:Key="FemCsfeaBatchSkippedMore">и ещё {0}</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeAcrcShare">Ширина раскрытия в записанной огибающей — при доле длительной части {0:0.##}; при другой доле пересчитать нельзя (хранение «только огибающие»).</system:String>
+    <system:String x:Key="FemCsfeaLongModeTotal">Полные</system:String>
+    <system:String x:Key="FemCsfeaLongModeLong">Длительные {0}</system:String>
+    <system:String x:Key="FemCsfeaLongModeLongZero">Длительные {0} — нулевые</system:String>
+    <system:String x:Key="FemCsfeaLongModeLongNL">Длительные (диаграммы NL)</system:String>
+    <system:String x:Key="FemCsfeaLongModeFull">Полный прогиб (п. 8.2.24)</system:String>
+    <system:String x:Key="FemCsfeaLongModeTip">Вариант с длительной частью: полная нагрузка; длительная часть на диаграммах варианта (трещины, п. 6.1.26); она же на диаграммах NL (прогибы, п. 6.1.25); полный прогиб u₁ − u₂ + u₃ по (8.141).</system:String>
+    <system:String x:Key="FemCsfeaLongZeroNote">Длительная часть {0} нулевая: в комбинации нет постоянных, длительных и кратковременных с долей длительной части.</system:String>
+    <system:String x:Key="FemCsfeaLongSameNote">Длительная часть {0} совпадает с полной нагрузкой — показаны поля варианта.</system:String>
+    <system:String x:Key="FemCsfeaLongNLNote">Длительная часть на диаграммах NL (п. 6.1.25) — для прогибов; ширина раскрытия трещин — по диаграммам варианта (п. 6.1.26), здесь не считается.</system:String>
+    <system:String x:Key="FemCsfeaFullDeflectionNote">Полный прогиб по п. 8.2.24: u = u₁ − u₂ + u₃ (полная нагрузка − длительная часть на диаграммах варианта + длительная часть на диаграммах NL); формула (8.141) перенесена с кривизн сечения на перемещения схемы. Усилия, реакции и трещины в этом режиме не показываются.</system:String>
+    <system:String x:Key="FemCsfeaCrackLongByPair">Длительная часть — по паре {0} (п. 8.2.7)</system:String>
+    <system:String x:Key="FemCsfeaCrackLongSame">Длительная часть {0} = полной</system:String>
+    <system:String x:Key="FemCsfeaCrackLongZero">Длительная часть {0} нулевая</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopeAcrcByPairs">У вариантов с длительной частью — точно по её усилиям (п. 8.2.7).</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopePairs">Огибающая длительных частей {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchEnvelopePairsTip">Длительные части {0} вариантов, дошедших до предела λ ({1}), — на диаграммах вариантов.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongInvalid">не строится</system:String>
+    <system:String x:Key="FemCsfeaBatchLongZero">нулевая</system:String>
+    <system:String x:Key="FemCsfeaBatchLongSame">= полной</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDone">✓ {0} шаг., {1:0.#} с</system:String>
+    <system:String x:Key="FemCsfeaBatchLongStopped">λ = {0:0.###}</system:String>
+    <system:String x:Key="FemCsfeaColBatchLong">Длительная часть</system:String>
+    <system:String x:Key="FemCsfeaColBatchLongNL">Диаграммы NL</system:String>
     <system:String x:Key="FemCsfeaBatchEnvelopeNoAcrc">Ширины раскрытия в записанной огибающей нет (пакет посчитан до её огибания) — пересчитайте пакет.</system:String>
     <system:String x:Key="FemCsfeaBatchStateNotDone">не посчитан</system:String>
     <system:String x:Key="FemCsfeaBatchStateStopped">не дошёл</system:String>

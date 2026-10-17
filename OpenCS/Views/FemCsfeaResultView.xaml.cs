@@ -23,6 +23,9 @@ public partial class FemCsfeaResultView : UserControl
         _vm = vm;
         DataContext = vm;
         reportBox.Text = string.Join(Environment.NewLine, vm.ReportLines);
+        // Столбцы длительных частей — только у пакета, где они считались.
+        if (vm.Summary.BatchLong == null) batchLongColumn.Visibility = batchLongNLColumn.Visibility = Visibility.Collapsed;
+        else if (!vm.Summary.BatchLong.Any(b => b.Kind == Services.FemCsfeaBatchLongKind.Deflection)) batchLongNLColumn.Visibility = Visibility.Collapsed;
         if (vm.IsCaseList)
         {
             // Список загружений/комбинаций (вариантов пакета) вместо ползунка шагов.

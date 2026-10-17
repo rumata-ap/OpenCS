@@ -113,6 +113,11 @@
         <Button Style="{StaticResource ArrowButton}" Content="⋯" Margin="2,0,0,0" Click="Pick_Click"
                 ToolTip="{DynamicResource FemCsfeaPickCombination}"
                 Visibility="{Binding ShowCombinations, Converter={StaticResource BoolToVis}}"/>
+        <!-- Вариант пакета с длительной частью: полные / длительные / диаграммы NL / полный прогиб -->
+        <ComboBox Width="190" Margin="6,0,0,0" VerticalAlignment="Center" ItemsSource="{Binding LongModeOptions}"
+                  SelectedItem="{Binding SelectedLongModeOption, Mode=TwoWay}" DisplayMemberPath="Label"
+                  ToolTip="{DynamicResource FemCsfeaLongModeTip}"
+                  Visibility="{Binding HasLongModes, Converter={StaticResource BoolToVis}}"/>
         <ComboBox Width="64" Margin="6,0,0,0" VerticalAlignment="Center" ItemsSource="{Binding AggregateOptions}"
                   SelectedItem="{Binding SelectedAggregateOption, Mode=TwoWay}" DisplayMemberPath="Label"
                   ToolTip="{DynamicResource FemCsfeaAggregateTip}"

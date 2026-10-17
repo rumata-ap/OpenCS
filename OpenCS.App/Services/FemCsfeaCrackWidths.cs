@@ -73,22 +73,42 @@ public static class FemCsfeaCrackWidths
     /// </summary>
     public static FemCsfeaCrackWidth Compute(FemCsfeaCrackElement e, ReadOnlySpan<double> forces, double longShare)
     {
+        var total = Item(e, forces);
+        return Compute(e, total, Scale(total, longShare), longShare >= 1.0);
+    }
+
+    /// <summary>
+    /// Ширина раскрытия по усилиям полной нагрузки и её длительной части — своим расчётом (пара NL варианта пакета,
+    /// точно по п. 8.2.7), а не долей от полных.
+    /// </summary>
+    public static FemCsfeaCrackWidth Compute(FemCsfeaCrackElement e, ReadOnlySpan<double> totalForces, ReadOnlySpan<double> longForces) =>
+        Compute(e, Item(e, totalForces), Item(e, longForces), totalForces.SequenceEqual(longForces));
+
+    static ShellLoadItem Item(FemCsfeaCrackElement e, ReadOnlySpan<double> forces)
+    {
         var item = new ShellLoadItem
         {
             Nx = forces[0] / 1e3, Ny = forces[1] / 1e3, Nxy = forces[2] / 1e3,
             Mx = forces[3] / 1e3, My = forces[4] / 1e3, Mxy = forces[5] / 1e3,
         };
         // Усилия в осях выдачи → оси сечения (армирования), как в проверке по КЭ.
-        if (e.ForceAngleDeg != 0) item = ShellForceTransform.Rotate(item, e.ForceAngleDeg);
+        return e.ForceAngleDeg != 0 ? ShellForceTransform.Rotate(item, e.ForceAngleDeg) : item;
+    }
 
-        List<ShellSimplDirectionResult> Dirs(double k, double phi1) => ShellSimplSolver.Solve(
-            new ShellSimplSolver.SolveParams(k * item.Nx, k * item.Ny, k * item.Nxy, k * item.Mx, k * item.My, k * item.Mxy,
-                Kind, Phi1: phi1), e.Section, e.Concrete, e.Rebar, CalcType.N).CapriDirs ?? [];
+    static ShellLoadItem Scale(ShellLoadItem i, double k) => new()
+    {
+        Nx = k * i.Nx, Ny = k * i.Ny, Nxy = k * i.Nxy, Mx = k * i.Mx, My = k * i.My, Mxy = k * i.Mxy,
+    };
 
-        var long14 = Dirs(longShare, 1.4);
-        bool allLong = longShare >= 1.0;
-        var full10 = allLong ? long14 : Dirs(1.0, 1.0);
-        var long10 = allLong ? long14 : Dirs(longShare, 1.0);
+    static FemCsfeaCrackWidth Compute(FemCsfeaCrackElement e, ShellLoadItem total, ShellLoadItem longPart, bool allLong)
+    {
+        List<ShellSimplDirectionResult> Dirs(ShellLoadItem f, double phi1) => ShellSimplSolver.Solve(
+            new ShellSimplSolver.SolveParams(f.Nx, f.Ny, f.Nxy, f.Mx, f.My, f.Mxy, Kind, Phi1: phi1),
+            e.Section, e.Concrete, e.Rebar, CalcType.N).CapriDirs ?? [];
+
+        var long14 = Dirs(longPart, 1.4);
+        var full10 = allLong ? long14 : Dirs(total, 1.0);
+        var long10 = allLong ? long14 : Dirs(longPart, 1.0);
 
         // [низ, верх]
         var aLong = new double[2];
@@ -118,16 +138,37 @@ public static class FemCsfeaCrackWidths
     public static Dictionary<int, FemCsfeaCrackWidth> Compute(IReadOnlyList<FemCsfeaCrackElement> elements,
         RcSecantStepFields fields, double longShare, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(fields);
+        return ComputeAll(elements, fields, ct, (e, i) => Compute(e, Forces(fields, i), longShare));
+    }
+
+    /// <summary>
+    /// Ширина раскрытия всех ЖБ-пластин по полям полной нагрузки и её длительной части (те же сетка и порядок КЭ —
+    /// пара NL варианта пакета, п. 8.2.7).
+    /// </summary>
+    public static Dictionary<int, FemCsfeaCrackWidth> Compute(IReadOnlyList<FemCsfeaCrackElement> elements,
+        RcSecantStepFields fields, RcSecantStepFields longFields, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(longFields);
+        if (!longFields.ShellIds.AsSpan().SequenceEqual(fields.ShellIds))
+            throw new InvalidOperationException("Поля полной нагрузки и длительной части записаны на разных сетках.");
+        return ComputeAll(elements, fields, ct, (e, i) => Compute(e, Forces(fields, i), Forces(longFields, i)));
+    }
+
+    static ReadOnlySpan<double> Forces(RcSecantStepFields f, int i) =>
+        f.ShellForces.AsSpan(i * RcSecantStepFields.ShellForceComponents, RcSecantStepFields.ShellForceComponents);
+
+    static Dictionary<int, FemCsfeaCrackWidth> ComputeAll(IReadOnlyList<FemCsfeaCrackElement> elements, RcSecantStepFields fields,
+        CancellationToken ct, Func<FemCsfeaCrackElement, int, FemCsfeaCrackWidth> compute)
+    {
+        ArgumentNullException.ThrowIfNull(elements);
         var index = new Dictionary<int, int>(fields.ShellIds.Length);
         for (int i = 0; i < fields.ShellIds.Length; i++) index.TryAdd(fields.ShellIds[i], i);
         var values = new FemCsfeaCrackWidth?[elements.Count];
         Parallel.For(0, elements.Count, new ParallelOptions { CancellationToken = ct }, k =>
         {
             if (!index.TryGetValue(elements[k].Id, out int i)) return;
-            var f = fields.ShellForces.AsSpan(i * RcSecantStepFields.ShellForceComponents, RcSecantStepFields.ShellForceComponents);
-            try { values[k] = Compute(elements[k], f, longShare); }
+            try { values[k] = compute(elements[k], i); }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or KeyNotFoundException) { }
         });
         var result = new Dictionary<int, FemCsfeaCrackWidth>(elements.Count);

@@ -95,6 +95,29 @@ public sealed class FemCsfeaCombinationFieldsTests
         Assert.Equal(-1, f.Stage);
     }
 
+    /// <summary>Полный прогиб п. 8.2.24: u₁ − u₂ + u₃ по перемещениям; усилия и реакции — нули, состояния пусты.</summary>
+    [Fact]
+    public void FullDeflection_TotalMinusLongPlusLongNL_ForcesZero()
+    {
+        var f = FemCsfeaCombinationFields.FullDeflection(Fields(1), Fields(0.6), Fields(1.5));
+        // 1 − 0,6 + 1,5 = 1,9 на единицу масштаба.
+        Assert.Equal(Fields(1.9).Displacements, f.Displacements, (a, b) => Math.Abs(a - b) < 1e-12);
+        Assert.All(f.ShellForces, v => Assert.Equal(0, v));
+        Assert.All(f.BeamForces, v => Assert.Equal(0, v));
+        Assert.Empty(f.Reactions);
+        Assert.All(f.ShellStates, s => Assert.True(double.IsNaN(s)));
+        // Нулевая длительная часть: u₂ = 0.
+        Assert.Equal(Fields(2.5).Displacements, FemCsfeaCombinationFields.FullDeflection(Fields(1), null, Fields(1.5)).Displacements,
+            (a, b) => Math.Abs(a - b) < 1e-12);
+        var moved = new RcSecantStepFields
+        {
+            NodeIds = [1, 3], Displacements = new double[12], ShellIds = [101], ShellForces = new double[8],
+            ShellStates = new double[5], ShellFlags = [0], BeamIds = [201], BeamForces = new double[12], BeamFlags = [0],
+            ReactionNodeIds = [1],
+        };
+        Assert.Throws<InvalidOperationException>(() => FemCsfeaCombinationFields.FullDeflection(Fields(1), null, moved));
+    }
+
     [Fact]
     public void Superpose_DifferentMesh_Throws_OldRecordWithoutSums_Empty()
     {
