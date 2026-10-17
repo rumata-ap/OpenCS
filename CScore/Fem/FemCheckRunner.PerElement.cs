@@ -198,6 +198,10 @@ public static partial class FemCheckRunner
         int total = rowsByElem.Values.Sum() * sourceKeys.Length + rowsWithoutElement;
         int step = Math.Max(1, total / 200);
         int done = 0, emitted = 0, passedRows = 0, notCheckedRows = 0;
+        // Строки без парной NL-строки (φ1 «авто») и без парной длительной (ψ «авто») — замечание в сводке
+        // (наборы пакета «строка на вариант»: метки N- и NL-вариантов не совпадают).
+        int rowsWithoutNl = 0, rowsWithoutLong = 0;
+        bool countNl = autoNl && explicitNl == null;
         bool anyFailed = false, anyUnchecked = false;
         var collected = rowSink == null ? new List<FemCheckRow>() : null;
 
@@ -335,6 +339,11 @@ public static partial class FemCheckRunner
                             ShellLoadItem? nlItem = null, longItem = null;
                             nlLookup?.TryGetValue(shell.Label, out nlItem);
                             longLookup?.TryGetValue(shell.Label, out longItem);
+                            if (si == 0)
+                            {
+                                if (countNl && calcType == CalcType.N && nlItem == null) rowsWithoutNl++;
+                                if (psiAuto && wallEta != null && !longTerm && longItem == null) rowsWithoutLong++;
+                            }
                             GroupFor(si, shell.SourceElementNum, null).Jobs.Add(
                                 new Job(count++, fs, calcType, task, null, shell, nlItem, null, longTerm, longItem));
                         }
@@ -350,6 +359,7 @@ public static partial class FemCheckRunner
                             if (item.SourceElementNum is int n && !byNum.ContainsKey(n)) continue;
                             LoadItem? longItem = null;
                             longLookup?.TryGetValue(item.Label, out longItem);
+                            if (si == 0 && psiAuto && eta != null && !longTerm && longItem == null) rowsWithoutLong++;
                             GroupFor(si, item.SourceElementNum, item.SourceSectionNum).Jobs.Add(
                                 new Job(count++, fs, calcType, task, item, null, null, longItem, longTerm));
                         }
@@ -587,6 +597,12 @@ public static partial class FemCheckRunner
             warnings.AddRange(s.Warnings(elements, inputs.ConcreteMat, inputs.RebarMat));
         if (lessThanSelected > 0)
             warnings.Add($"У {lessThanSelected} КЭ продольная арматура принятого сечения меньше подобранной.");
+        if (rowsWithoutNl > 0)
+            warnings.Add($"φ1 «авто» (п. 8.2.7): у {rowsWithoutNl} строк набора «(N)» нет парной строки в наборе «(NL)» " +
+                         "с той же основой имени и меткой строки — принято φ1 из параметров проверки.");
+        if (rowsWithoutLong > 0)
+            warnings.Add($"ψ «авто» (п. 8.1.15): у {rowsWithoutLong} строк нет парной длительной строки в наборе «(CL)»/«(NL)» " +
+                         "с той же основой имени и меткой строки — принято ψ из параметров продольного изгиба.");
 
         var dataJson = JsonSerializer.Serialize(new
         {

@@ -1,5 +1,6 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using CScore.Planar;
@@ -390,6 +391,97 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             var mesh = vm.BatchMesh()!.Value;
             Assert.Equal(first.ShellIds.Length, mesh.Shells.Count);
             Assert.Equal(first.BeamIds.Length, mesh.Beams.Count);
+        });
+    }
+
+    /// <summary>
+    /// Сквозная проверка (срез 3): rc_plate_check по КЭ по набору «строка на вариант» — строки всех вариантов
+    /// считаются, определяющая метка «КЭ · вариант»; φ1 «авто» без парного NL-набора — замечание, не ошибка, с парой
+    /// (группа загружений, типы N и NL — метки совпадают) — без замечания.
+    /// </summary>
+    [Fact]
+    public async Task Batch_ForceSetsPerVariant_PlateCheckByElements()
+    {
+        await WithSchema(async (ctx, _, schema, analysis) =>
+        {
+            MakeBatch(ctx.Db, schema, analysis);
+            var result = await FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, null, null, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            var first = Fields(ctx.Db, result.Id, 1);
+            // Три КЭ с наибольшим |Mx| — у них определяющий вариант очевиден (C2 = 1,5 × C1).
+            int stride = CSfea.CScoreBridge.Structural.RcSecantStepFields.ShellForceComponents;
+            var picked = first.ShellIds.Select((id, i) => (id, Mx: Math.Abs(first.ShellForces[i * stride + 3])))
+                .OrderByDescending(x => x.Mx).Take(3).Select(x => x.id).ToArray();
+            var scopeSet = new FemCsfeaForceSetScope(picked, []);
+            var fs = FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n), ["C"], [],
+                scopeSet, [], null, CancellationToken.None).Sets.Single();
+            fs.Id = 1;
+
+            var data = FemCheckSchemaData.Load(ctx.Db, schema.Id);
+            var target = data.Members.Single(m => m.ElemTag == "P1");
+            var scope = data.Scope(target);
+            var section = ctx.Db.PlateSections.Single();
+            var inputs = new FemPerElementInputs
+            {
+                PlateTemplate = section,
+                ConcreteMat = ctx.Db.Materials.First(m => m.Id == section.ConcreteMaterialId),
+                RebarMat = ctx.Db.Materials.First(m => m.Id == section.RebarMaterialId),
+            };
+            // LoadAll без очистки коллекций дублирует добавленные материалы — отсюда First.
+            Assert.Equal(MatType.Concrete, inputs.ConcreteMat.Type);
+            Assert.NotEqual(MatType.Concrete, inputs.RebarMat.Type);
+            FemCheck Check(string kind) => new()
+            {
+                NormCode = "rc_plate_check", Tag = kind,
+                ParamsJson = new PlateCheckParams { Kind = kind, Phi1Mode = "auto", Phi1 = 1.4 }.ToJson(),
+            };
+            CalcResult Run(FemCheck check, params ForceSet[] sets) => FemCheckRunner.RunPerElement(check, target, scope, sets,
+                inputs, (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
+            static List<string> Warnings(JsonDocument doc) => doc.RootElement.GetProperty("summary").GetProperty("warnings")
+                .EnumerateArray().Select(w => w.GetString()!).ToList();
+
+            var uls = Run(Check("shell_simpl_wa_uls"), fs);
+
+            output.WriteLine(uls.DataJson);
+            Assert.NotEqual("error", uls.Status);
+            Assert.Equal(2 * 3, uls.FemCheckRows!.Count);
+            Assert.All(uls.FemCheckRows, r => Assert.False(r.NotChecked, r.WorstDescription));
+            Assert.Equal(picked.SelectMany(e => new[] { $"{e} · C1", $"{e} · C2" }).Order(),
+                uls.FemCheckRows.Select(r => r.Label).Order());
+            using (var doc = JsonDocument.Parse(uls.DataJson))
+            {
+                var elements = doc.RootElement.GetProperty("elements").EnumerateArray()
+                    .Where(e => e.GetProperty("status").GetString() != "no_forces").ToList();
+                Assert.Equal(picked.Order(), elements.Select(e => e.GetProperty("elemNum").GetInt32()).Order());
+                Assert.All(elements, e =>
+                {
+                    Assert.Equal(2, e.GetProperty("rows").GetInt32());
+                    Assert.Equal($"{e.GetProperty("elemNum").GetInt32()} · C2", e.GetProperty("label").GetString());
+                    Assert.Equal(fs.Tag, e.GetProperty("forceSetTag").GetString());
+                });
+                Assert.DoesNotContain(Warnings(doc), w => w.Contains("φ1"));
+            }
+
+            // Трещины, φ1 «авто»: набор «(N)» без парного «(NL)» — замечание, строки посчитаны с φ1 из параметров.
+            var nOnly = FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n),
+                [FemCsfeaBatchGroup.LoadCases], ["N"], scopeSet, [], null, CancellationToken.None).Sets.Single();
+            nOnly.Id = 2;
+            var sls = Run(Check("shell_simpl_wa_sls"), nOnly);
+            Assert.NotEqual("error", sls.Status);
+            Assert.Equal(3, sls.FemCheckRows!.Count);
+            Assert.All(sls.FemCheckRows, r => Assert.False(r.NotChecked, r.WorstDescription));
+            using (var doc = JsonDocument.Parse(sls.DataJson))
+                Assert.Contains(Warnings(doc), w => w.StartsWith("φ1 «авто» (п. 8.2.7): у 3 строк", StringComparison.Ordinal));
+
+            // Те же загружения с типами N и NL: метки строк совпадают — пара находится, замечания нет.
+            var pair = FemCsfeaBatchForceSets.Build(schema, analysis.Tag, summary, n => Fields(ctx.Db, result.Id, n),
+                [FemCsfeaBatchGroup.LoadCases], ["N", "NL"], scopeSet, [], null, CancellationToken.None).Sets;
+            Assert.Equal(2, pair.Count);
+            for (int i = 0; i < pair.Count; i++) pair[i].Id = 10 + i;
+            var slsPair = Run(Check("shell_simpl_wa_sls"), [.. pair]);
+            Assert.Equal(2 * 3, slsPair.FemCheckRows!.Count);
+            using (var doc = JsonDocument.Parse(slsPair.DataJson))
+                Assert.DoesNotContain(Warnings(doc), w => w.Contains("φ1"));
         });
     }
 

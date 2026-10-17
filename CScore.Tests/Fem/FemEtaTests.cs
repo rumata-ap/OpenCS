@@ -338,5 +338,66 @@ public class FemEtaTests
         var cl1 = seen["CL/э.1 с1"];
         Assert.Equal(1.0, cl1.RowPsiX);
         Assert.Equal(1.0, cl1.RowPsiY);
+
+        // Строка без пары — замечание в сводке (не ошибка).
+        using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+        var warnings = doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray()
+            .Select(w => w.GetString()!).ToList();
+        Assert.Contains(warnings, w => w.StartsWith("ψ «авто» (п. 8.1.15): у 1 строк", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Набор пакета CSfea «строка на вариант» (срез 3): у КЭ по строке на вариант, определяющая — с наибольшим
+    /// коэффициентом, её метка «КЭ-сечение · вариант»; ψ «авто» без длительного набора — замечание на все строки.
+    /// </summary>
+    [Fact]
+    public void RunPerElement_RowPerVariant_GoverningLabelAndPsiNote()
+    {
+        var check = new FemCheck
+        {
+            NormCode = "rc_check", Tag = "колонны",
+            ParamsJson = new BarCheckParams { Eta = new FemEtaParams { Enabled = true } }.ToJson(),
+        };
+        var scope = new FemCheckScope([],
+        [
+            new FemCheckScopeElement(1, Bar(1, 1, 2), null),
+            new FemCheckScopeElement(2, Bar(2, 2, 3), null),
+        ], RefersToMeshElements: true);
+        // Утилизация заглушки = N строки: у КЭ 1 определяет C2, у КЭ 2 — C1.
+        var util = new Dictionary<(int Elem, string Variant), double>
+        {
+            [(1, "C1")] = 0.3, [(1, "C2")] = 0.8, [(2, "C1")] = 0.6, [(2, "C2")] = 0.4,
+        };
+        var items = util.SelectMany(kv => new[] { 1, 2 }.Select(s => new LoadItem
+        {
+            Label = $"{kv.Key.Elem}-{s} · {kv.Key.Variant}", N = kv.Value, SourceElementNum = kv.Key.Elem, SourceSectionNum = s,
+        })).ToList();
+        var fs = new ForceSet { Id = 1, Tag = "Нелинейный — пакет — C, 2 вар. — стержни [выбор: 2 КЭ] (C)", Items = items };
+
+        var result = FemCheckRunner.RunPerElement(check, new FemMemberGroup { Tag = "К" }, scope, [fs],
+            new FemPerElementInputs
+            {
+                TargetBarSection = new CrossSection { Tag = "цель" },
+                BarSectionById = _ => null,
+                BarBracedLength = _ => 3.0,
+            },
+            (_, _, item) => new CalcResult
+            {
+                Status = "ok", DataJson = System.Text.Json.JsonSerializer.Serialize(new { utilization = item.N }),
+            });
+
+        Assert.Equal("ok", result.Status);
+        Assert.Equal(8, result.FemCheckRows!.Count);
+        using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+        var elements = doc.RootElement.GetProperty("elements").EnumerateArray()
+            .ToDictionary(e => e.GetProperty("elemNum").GetInt32());
+        Assert.Equal(4, elements[1].GetProperty("rows").GetInt32());
+        Assert.Equal(0.8, elements[1].GetProperty("utilMax").GetDouble(), 9);
+        Assert.EndsWith(" · C2", elements[1].GetProperty("label").GetString());
+        Assert.Equal(0.6, elements[2].GetProperty("utilMax").GetDouble(), 9);
+        Assert.EndsWith(" · C1", elements[2].GetProperty("label").GetString());
+        var warnings = doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray()
+            .Select(w => w.GetString()!).ToList();
+        Assert.Contains(warnings, w => w.StartsWith("ψ «авто» (п. 8.1.15): у 8 строк", StringComparison.Ordinal));
     }
 }
