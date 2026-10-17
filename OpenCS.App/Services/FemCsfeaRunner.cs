@@ -336,6 +336,18 @@ public sealed class FemCsfeaResultSummary
         foreach (var p in stopped)
             yield return string.Create(CultureInfo.CurrentCulture,
                 $"  {(variants.TryGetValue(p.PairOf ?? -1, out var v) ? v.Label : p.Tag)} — длительная часть {p.Type} до λ = {p.LoadFactor:0.###} из {max}");
+
+        var deflections = BatchLong.Where(b => b.Kind == FemCsfeaBatchLongKind.Deflection).ToList();
+        if (deflections.Count == 0) yield break;
+        var failed = deflections.Where(d => d.Done && !d.Completed).ToList();
+        int notRun = deflections.Count(LongPending);
+        var dt = new List<string> { $"посчитаны {deflections.Count(d => d.Done && d.Completed)}" };
+        if (failed.Count > 0) dt.Add($"не дошли {failed.Count}");
+        if (notRun > 0) dt.Add($"не посчитаны {notRun}");
+        yield return $"Длительные части на диаграммах NL (полный прогиб): {string.Join(", ", dt)}.";
+        foreach (var d in failed)
+            yield return string.Create(CultureInfo.CurrentCulture,
+                $"  {(variants.TryGetValue(d.PairOf ?? -1, out var v) ? v.Label : d.Tag)} — λ = {d.LoadFactor:0.###}{(string.IsNullOrEmpty(d.Reason) ? "" : $" ({d.Reason})")}");
     }
 
     IEnumerable<string> DescribeBatch()
@@ -424,8 +436,9 @@ public static class FemCsfeaRunner
     /// Подготовка без расчёта. <paramref name="buildMesh"/> = false — «Проверить вход»: сетка не перестраивается и не
     /// пишется (устаревшая — предупреждение, вход по сохранённой).
     /// </summary>
+    /// <paramref name="calc"/> — вид расчёта для диаграмм вместо постановки (вторая модель пакета на диаграммах NL).
     public static async Task<FemCsfeaPrepared> PrepareAsync(FemCsfeaRunContext ctx, FemSchema schema, FemAnalysis analysis,
-        bool buildMesh, CancellationToken ct)
+        bool buildMesh, CancellationToken ct, CalcType? calc = null)
     {
         var diag = new List<FemValidationDiagnostic>();
         var p = FemAnalysisParams.Parse(analysis.ParamsJson);
@@ -438,7 +451,9 @@ public static class FemCsfeaRunner
         await EnsureMeshAsync(ctx, schema, buildMesh, diag, ct);
         if (diag.Any(d => d.IsError)) return new(null, null, diag);
 
-        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, FemCsfeaSetup.FromAnalysis(analysis, ctx.Db.GetFemLoadCases(schema.Id)));
+        var setup = FemCsfeaSetup.FromAnalysis(analysis, ctx.Db.GetFemLoadCases(schema.Id));
+        if (calc is { } c) setup = setup with { Calc = c };
+        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, setup);
         CheckScadTransfer(ctx.Db, schema.Id, input, diag);
         CheckLiraTransfer(schema, input, diag);
         var control = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlNode(input, csfea.ControlNodeTag);
@@ -629,6 +644,21 @@ public static class FemCsfeaRunner
                 pair.Reason = plan.Pair.Kind == FemLongTermPairKind.Invalid ? plan.Pair.Notes.FirstOrDefault() : null;
             }
             summary.BatchLong.Add(pair);
+
+            // Та же NL-нагрузка на диаграммах NL (вторая модель, п. 6.1.25): стадия пары, у совпадающей с полной — варианта.
+            if (!FemCsfeaBatchLongTerm.NeedsDeflection(batch.Items[plan.Item], plan.Pair, batch)) continue;
+            var deflection = new FemCsfeaBatchSummary
+            {
+                Kind = FemCsfeaBatchLongKind.Deflection, Tag = variant.Tag, Type = pair.Type, ExpressionJson = pair.ExpressionJson,
+                PairKind = pair.PairKind,
+            };
+            if (keptLong.Remove(LongKey(variant.ExpressionJson, deflection), out var oldDeflection)) deflection = oldDeflection;
+            deflection.Index = summary.BatchLong.Count;
+            deflection.PairOf = variant.Index;
+            deflection.Stage = plan.Stage ?? variant.Index;
+            deflection.Tag = variant.Tag;
+            (deflection.Fx, deflection.Fy, deflection.Fz) = (pair.Fx, pair.Fy, pair.Fz);
+            summary.BatchLong.Add(deflection);
         }
 
         var removed = kept.Values.Concat(keptLong.Values).Select(b => b.RecordN!.Value).ToList();
@@ -663,22 +693,50 @@ public static class FemCsfeaRunner
         // Работа: непосчитанные варианты и длительные части дошедших (в т. ч. посчитанных раньше — флажок включён позже).
         var longOf = (summary.BatchLong ?? []).Where(b => b.Kind == FemCsfeaBatchLongKind.Part)
             .ToDictionary(b => b.PairOf!.Value);
-        bool PairPending(FemCsfeaBatchSummary v) => longOf.TryGetValue(v.Index, out var p) && p.Stage != null && !p.Done;
+        var deflectionOf = (summary.BatchLong ?? []).Where(b => b.Kind == FemCsfeaBatchLongKind.Deflection)
+            .ToDictionary(b => b.PairOf!.Value);
+        bool PairPending(FemCsfeaBatchSummary v) => longOf.TryGetValue(v.Index, out var p) && p.Stage != null && !p.Done
+            || deflectionOf.TryGetValue(v.Index, out var d) && !d.Done;
         var todo = summary.Batch.Where(b => !b.Done || b.Completed && PairPending(b)).ToList();
         int? controlDof = null;
         bool controlResolved = false;
 
-        // Расчёт одной стадии с нуля: стадия адаптера, поля конечного состояния (упакованные — при хранении «поля»).
-        async Task<(RcSecantRun Run, RcSecantStepFields? Fields, byte[]? Packed, double Seconds)> Solve(int stage, int number, string progressTag)
+        // Вторая модель — те же сетка и стадии на диаграммах NL (прогибы, п. 6.1.25); готовится, только если нужна.
+        RcStructuralModel? modelNL = null;
+        List<RcStage>? stagesNL = null;
+        RcSecantOptions? optionsNL = null;
+        if (todo.Any(v => deflectionOf.TryGetValue(v.Index, out var d) && !d.Done))
         {
-            model.Stages.Clear();
-            model.Stages.Add(stages[stage]);
+            var preparedNL = await PrepareAsync(ctx, schema, analysis, buildMesh: false, ct, CalcType.NL);
+            if (preparedNL.HasErrors)
+            {
+                foreach (var d in deflectionOf.Values.Where(d => !d.Done))
+                    (d.Done, d.Completed, d.Reason) = (true, false, "модель на диаграммах NL не подготовлена");
+                summary.Report.AddRange(preparedNL.Report.Where(l => l.StartsWith("Ошибка: ", StringComparison.Ordinal))
+                    .Select(l => "Диаграммы NL — " + l));
+            }
+            else
+            {
+                modelNL = preparedNL.Adapted!.Model;
+                stagesNL = modelNL.Stages.ToList();
+                optionsNL = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism, Log, preparedNL.Adapted.ShellForceAngles, null);
+            }
+        }
+
+        // Расчёт одной стадии с нуля: стадия адаптера, поля конечного состояния (упакованные — при хранении «поля»).
+        async Task<(RcSecantRun Run, RcSecantStepFields? Fields, byte[]? Packed, double Seconds)> Solve(int stage, int number,
+            string progressTag, bool nl = false)
+        {
+            var m = nl ? modelNL! : model;
+            var opt = nl ? optionsNL! : options;
+            m.Stages.Clear();
+            m.Stages.Add((nl ? stagesNL! : stages)[stage]);
             var inner = progress == null ? null
                 : new Progress<SecantProgress>(p => progress.Report(new FemCsfeaBatchProgress(number, todo.Count, progressTag, p)));
             var clock = Stopwatch.StartNew();
             var (run, fields, packed) = await Task.Run(() =>
             {
-                var solved = RcSecantAnalysis.Run(model, options, inner, ct);
+                var solved = RcSecantAnalysis.Run(m, opt, inner, ct);
                 var f = solved.LastConvergedFields();
                 return (solved, f, !envelopes && f != null ? FemCsfeaStepFieldsCodec.Pack(f) : null);
             }, ct);
@@ -768,6 +826,21 @@ public static class FemCsfeaRunner
                     else if (quantities != null && variantFields != null && pair.IsSameAsTotal)
                         await AddToEnvelope(pair, variantFields);
                 }
+
+                // Та же нагрузка на диаграммах NL — для полного прогиба (пп. 6.1.25, 8.2.24).
+                if (entry.Completed && modelNL != null && deflectionOf.TryGetValue(entry.Index, out var deflection)
+                    && !deflection.Done && deflection.Stage is int deflectionStage)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var (run, fields, packed, seconds) = await Solve(deflectionStage, number,
+                        FemCsfeaBatchLongTerm.PairTag(entry.Tag, deflection.Type) + " (диаграммы NL)", nl: true);
+                    Fill(deflection, run, fields, packed, seconds);
+                    ctx.Log.Info(deflection.Completed
+                        ? string.Create(CultureInfo.CurrentCulture,
+                            $"[{tag}] {entry.Label}: длительная часть на диаграммах NL — шагов {deflection.Steps}, {deflection.ElapsedSeconds:0.#} с.")
+                        : string.Create(CultureInfo.CurrentCulture,
+                            $"[{tag}] {entry.Label}: длительная часть на диаграммах NL не дошла до λ = {batch.MaxLoadFactor:0.###} (λ = {deflection.LoadFactor:0.###}) — полного прогиба нет."));
+                }
                 if (quantities != null && variantFields != null && entry.Completed) await AddToEnvelope(entry, variantFields);
                 Save();
                 if (!entry.Completed && batch.StopAtLimit)
@@ -785,6 +858,11 @@ public static class FemCsfeaRunner
         {
             model.Stages.Clear();
             model.Stages.AddRange(stages);
+            if (modelNL != null)
+            {
+                modelNL.Stages.Clear();
+                modelNL.Stages.AddRange(stagesNL!);
+            }
         }
 
         if (envelopes)

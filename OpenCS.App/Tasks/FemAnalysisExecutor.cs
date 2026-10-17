@@ -249,8 +249,13 @@ public static class FemAnalysisExecutor
             foreach (var plan in Services.FemCsfeaBatchLongTerm.Plans(batch, app.Db.GetFemLoadCases(analysis.SchemaId)))
             {
                 string expr = batch.Items[plan.Item].LoadExpressionJson;
-                if (plan.Stage != null && ready.TryGetValue(expr, out var v) && v.Completed
-                    && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Part, plan.Pair.Long!.ToJson())))
+                if (!ready.TryGetValue(expr, out var v) || !v.Completed) continue;
+                string pairExpr = plan.Pair.Long?.ToJson() ?? "{}";
+                if (plan.Stage != null
+                    && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Part, pairExpr)))
+                    longParts++;
+                if (Services.FemCsfeaBatchLongTerm.NeedsDeflection(batch.Items[plan.Item], plan.Pair, batch)
+                    && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Deflection, pairExpr)))
                     longParts++;
             }
         }
