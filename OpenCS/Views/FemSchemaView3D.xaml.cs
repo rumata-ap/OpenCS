@@ -582,6 +582,11 @@ public partial class FemSchemaView3D : UserControl
                     () => openSees.RequestCreateMemberForceSet(owner), openSees.CanCreateMemberForceSet(owner));
             }
         }
+        if (layer.Csfea is { } csfea && selection.Elements.Count > 0)
+        {
+            menu.Items.Add(new Separator());
+            menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, layer, app));
+        }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
         menu.Items.Add(new Separator());
@@ -1926,8 +1931,28 @@ public partial class FemSchemaView3D : UserControl
             }, "FemCsfeaCreateForceSets");
             sets.Click += (_, _) => app?.SaveCsfeaStepForceSets(csfea);
             menu.Items.Add(sets);
+            if (result.Selection.Elements.Count > 0)
+                menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, result, app));
         }
         menu.IsOpen = true;
+    }
+
+    /// <summary>«Наборы усилий по выбранным (N КЭ)»: наборы показанного шага CSfea только по выбранным КЭ результата.</summary>
+    static MenuItem CsfeaSelectedForceSetsItem(FemCsfeaResultVM csfea, FemResultLayer layer, AppViewModel? app)
+    {
+        var selection = layer.Selection;
+        var item = CommandIcons.Apply(new MenuItem
+        {
+            Header = string.Format(CultureInfo.CurrentCulture, Loc.S("FemCsfeaCreateForceSetsSelected"), selection.Elements.Count),
+            ToolTip = Loc.S("FemCsfeaCreateForceSetsSelectedTip"),
+            IsEnabled = app != null && csfea.CanCreateForceSets,
+        }, "FemCsfeaCreateForceSetsSelected");
+        item.Click += (_, _) =>
+        {
+            if (Services.FemCsfeaForceSetScope.FromSelection(selection.Elements, selection.Members) is { } scope)
+                app?.SaveCsfeaStepForceSets(csfea, scope);
+        };
+        return item;
     }
 
     /// <summary>Группы схемы: «Показать только», «Скрыть», «Показать» для каждой (список — при открытии).</summary>

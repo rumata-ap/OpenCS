@@ -5977,7 +5977,7 @@ namespace OpenCS
          ViewModels.FemCsfeaCaseKey? caseKey = null, bool showBatchProblems = false)
       {
          var vm = new ViewModels.FemCsfeaResultVM(result, db, schema, analysis);
-         vm.CreateForceSetsRequested += SaveCsfeaStepForceSets;
+         vm.CreateForceSetsRequested += r => SaveCsfeaStepForceSets(r);
          vm.CreateLoadCaseForceSetsRequested += SaveCsfeaLoadCaseForceSets;
          if (stepIndex is int step) vm.SelectedStepIndex = Math.Clamp(step, 0, vm.MaxStepIndex);
          vm.ShownKey = caseKey;
@@ -6019,10 +6019,16 @@ namespace OpenCS
          db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
       }
 
-      /// <summary>«Шаг → наборы усилий» результата CSfea (окно результата и 3D-вид схемы): наборы сохраняются в проект.</summary>
-      public void SaveCsfeaStepForceSets(ViewModels.FemCsfeaResultVM result)
+      /// <summary>
+      /// «Шаг → наборы усилий» результата CSfea (окно результата и 3D-вид схемы): наборы сохраняются в проект. С охватом —
+      /// по выбранным в 3D-виде КЭ.
+      /// </summary>
+      public void SaveCsfeaStepForceSets(ViewModels.FemCsfeaResultVM result, Services.FemCsfeaForceSetScope? scope = null)
       {
-         foreach (var fs in result.BuildForceSets(ForceSets))
+         var sets = result.BuildForceSets(ForceSets, scope);
+         if (scope != null && sets.Count == 0)
+            LogService.Warning(Loc.S("FemCsfeaForceSetsScopeEmpty"));
+         foreach (var fs in sets)
          {
             db.SaveForceSet(fs);
             if (!ForceSets.Contains(fs)) ForceSets.Add(fs);

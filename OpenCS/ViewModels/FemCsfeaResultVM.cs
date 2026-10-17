@@ -1606,22 +1606,25 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Наборы по загружениям — только у линейного расчёта с известной постановкой.</summary>
     public bool CanCreateLoadCaseForceSets => IsLinear && Analysis != null && _result.Id > 0;
 
-    /// <summary>Наборы усилий шага под ползунком (пластины и стержни); пусто — поля шага не записаны.</summary>
-    public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing)
+    /// <summary>
+    /// Наборы усилий шага под ползунком (пластины и стержни); пусто — поля шага не записаны. С охватом — только строки
+    /// его КЭ.
+    /// </summary>
+    public List<ForceSet> BuildForceSets(IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null)
     {
         if (!CanCreateForceSets) return [];
         if (_shownCombination is { Batch: { } b } variant)
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{variant.Name} — {_result.TaskTag}",
                 string.Create(CultureInfo.CurrentCulture,
                     $"Вариант «{variant.Name}» пакетного расчёта CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: конечное состояние, λ = {b.LoadFactor:0.###}") +
-                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing);
+                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing, scope);
         if (_shownCombination is { } comb)
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{comb.Name} — {_result.TaskTag}",
                 $"Комбинация «{comb.Name}» = {comb.Formula} по линейному расчёту CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: " +
-                "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing);
+                "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing, scope);
         var step = SelectedStep!;
         string stage = step.Stage < Summary.Stages.Count ? Summary.Stages[step.Stage].Tag : "";
-        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing);
+        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing, scope);
     }
 
     // ------------------------------------------------------------ поля пластин

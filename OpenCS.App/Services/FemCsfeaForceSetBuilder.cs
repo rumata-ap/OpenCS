@@ -11,13 +11,13 @@ namespace OpenCS.Services;
 /// проверок по КЭ. Пластины — строка на КЭ (центр, усилия закона сечения в осях выдачи — как у импортированных наборов;
 /// кН/м, кН·м/м), стержни — две строки на КЭ (концы i и j, сечения 1 и 2; кН, кН·м — как наборы стержней OpenSees;
 /// при коротационном расчёте — в осях деформированного КЭ, т. е. в осях сечения, что и нужно проверкам).
-/// Номер КЭ строки — тег КЭ сетки.
+/// Номер КЭ строки — тег КЭ сетки. С охватом (<see cref="FemCsfeaForceSetScope"/>) — только строки КЭ охвата.
 /// </summary>
 public static class FemCsfeaForceSetBuilder
 {
     /// <summary>Наборы шага: пластин (если есть пластины) и стержней (если есть стержни); номера — после существующих.</summary>
     public static List<ForceSet> Build(FemSchema schema, string analysisTag, FemCsfeaStepSummary step, string stageTag,
-        RcSecantStepFields fields, IReadOnlyCollection<ForceSet> existing)
+        RcSecantStepFields fields, IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null)
     {
         ArgumentNullException.ThrowIfNull(step);
         string baseTag = string.Format(CultureInfo.CurrentCulture, "CSfea {0}, шаг {1} ({2}, λ = {3:0.###})", analysisTag, step.N,
@@ -25,15 +25,20 @@ public static class FemCsfeaForceSetBuilder
         string description = string.Format(CultureInfo.CurrentCulture,
             "Расчёт CSfea «{0}» схемы «{1}»: шаг {2}, стадия «{3}», λ = {4:0.####}.", analysisTag, schema.Tag, step.N, stageTag,
             step.LoadFactor);
-        return BuildNamed(schema, baseTag, description, fields, existing);
+        return BuildNamed(schema, baseTag, description, fields, existing, scope);
     }
 
-    /// <summary>Наборы полей с заданным именем (к нему добавляется « — пластины»/« — стержни») и описанием.</summary>
+    /// <summary>
+    /// Наборы полей с заданным именем (к нему добавляется « — пластины»/« — стержни» и пометка охвата) и описанием;
+    /// вид без строк в охвате — без набора.
+    /// </summary>
     public static List<ForceSet> BuildNamed(FemSchema schema, string baseTag, string description, RcSecantStepFields fields,
-        IReadOnlyCollection<ForceSet> existing)
+        IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(fields);
+        if (scope != null) description += " " + scope.Description;
+        string suffix = scope?.TagSuffix ?? "";
         int num = existing.Count == 0 ? 1 : existing.Max(f => f.Num) + 1;
         var sets = new List<ForceSet>();
 
@@ -44,6 +49,7 @@ public static class FemCsfeaForceSetBuilder
             {
                 int o = e * RcSecantStepFields.ShellForceComponents;
                 var f = fields.ShellForces;
+                if (scope != null && !scope.Elements.Contains(fields.ShellIds[e])) continue;
                 if (!Enumerable.Range(o, RcSecantStepFields.ShellForceComponents).All(i => double.IsFinite(f[i]))) continue;
                 rows.Add(new ShellLoadItem
                 {
@@ -54,11 +60,12 @@ public static class FemCsfeaForceSetBuilder
                     SourceElementNum = fields.ShellIds[e],
                 });
             }
-            sets.Add(new ForceSet
-            {
-                Num = num++, Tag = baseTag + " — пластины", Description = description, Kind = "shell", SourceType = "fea",
-                SourceSchemaId = schema.Id, ShellItems = rows,
-            });
+            if (scope == null || rows.Count > 0)
+                sets.Add(new ForceSet
+                {
+                    Num = num++, Tag = baseTag + " — пластины" + suffix, Description = description, Kind = "shell",
+                    SourceType = "fea", SourceSchemaId = schema.Id, ShellItems = rows,
+                });
         }
 
         if (fields.BeamIds.Length > 0)
@@ -68,6 +75,7 @@ public static class FemCsfeaForceSetBuilder
             {
                 int o = e * RcSecantStepFields.BeamForceComponents;
                 var f = fields.BeamForces;
+                if (scope != null && !scope.Elements.Contains(fields.BeamIds[e])) continue;
                 if (!Enumerable.Range(o, RcSecantStepFields.BeamForceComponents).All(i => double.IsFinite(f[i]))) continue;
                 int tag = fields.BeamIds[e];
                 var pair = FemForceEndpointConverter.Convert(new FemElementEndForces(tag, f[o], f[o + 1], f[o + 2], f[o + 3],
@@ -82,11 +90,12 @@ public static class FemCsfeaForceSetBuilder
                     rows.Add(item);
                 }
             }
-            sets.Add(new ForceSet
-            {
-                Num = num, Tag = baseTag + " — стержни", Description = description, Kind = "bar", SourceType = "fea",
-                SourceSchemaId = schema.Id, Items = rows,
-            });
+            if (scope == null || rows.Count > 0)
+                sets.Add(new ForceSet
+                {
+                    Num = num, Tag = baseTag + " — стержни" + suffix, Description = description, Kind = "bar",
+                    SourceType = "fea", SourceSchemaId = schema.Id, Items = rows,
+                });
         }
         return sets;
     }

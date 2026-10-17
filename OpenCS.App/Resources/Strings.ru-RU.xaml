@@ -3063,6 +3063,9 @@
     <system:String x:Key="FemCsfeaCreateForceSets">Шаг → наборы усилий</system:String>
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Создать наборы усилий схемы (пластины и стержни) по полям этого шага — для проверок по КЭ. Доступно на шаге с записанными полями.</system:String>
     <system:String x:Key="FemCsfeaForceSetCreated">Создан набор усилий «{0}» ({1} строк).</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSetsSelected">Наборы усилий по выбранным ({0} КЭ)</system:String>
+    <system:String x:Key="FemCsfeaCreateForceSetsSelectedTip">Создать наборы усилий (пластины и стержни) показанного шага только по выбранным в 3D-виде КЭ — для проверок по КЭ без строк всей схемы.</system:String>
+    <system:String x:Key="FemCsfeaForceSetsScopeEmpty">У выбранных КЭ нет усилий показанного шага — наборы не созданы.</system:String>
     <system:String x:Key="FemCsfeaResultTitle">Результат CSfea «{0}» — схема «{1}»</system:String>
     <system:String x:Key="FemCsfeaResultErrorPrefix" xml:space="preserve">Ошибка: </system:String>
     <system:String x:Key="FemCsfeaControlAxis">Контрольный {0}, {1}, {2}</system:String>

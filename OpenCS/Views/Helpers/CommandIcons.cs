@@ -155,6 +155,7 @@ public static class CommandIcons
         ["FemResultMenuMemberForceSet"] = "CmdIcon_ForceSetNew",
         ["FemResultMemberCreateForceSet"] = "CmdIcon_ForceSetNew",
         ["FemCsfeaCreateForceSets"] = "CmdIcon_ForceSetNew",
+        ["FemCsfeaCreateForceSetsSelected"] = "CmdIcon_ForceSetNew",
         ["FemCsfeaBatchShowVariant"] = "CmdIcon_ShowResult",
         ["FemCsfeaBatchNewFromProblems"] = "CmdIcon_AnalysisNew",
 
