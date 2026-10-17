@@ -72,6 +72,7 @@ public sealed record FemCsfeaSetup
         {
             TensionConcrete = p.TensionConcrete, Psi = p.Psi, PlateCrackRule = p.PlateCrackRule, BeamShear = p.BeamShear,
             PoissonUncracked = p.PoissonUncracked, ShellForceAngles = shellForceAngles, OnStep = onStep,
+            RecordSectionStrains = p.RecordSectionStrains,
             PhysicallyLinear = !p.PhysicalNonlinearity,
             Solver = new CSfea.Core.SecantPicardOptions
             {

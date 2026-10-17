@@ -301,6 +301,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaOmega0Box.Text = c.Omega0.ToString(culture);
         CsfeaRecordStepsBox.Text = c.RecordSteps;
         CsfeaRecordStageEndsCb.IsChecked = c.RecordStageEnds;
+        CsfeaRecordStrainsCb.IsChecked = c.RecordSectionStrains;
         (c.ResultRecording switch
         {
             FemCsfeaRecording.Selected => CsfeaRecordSelectedRadio,
@@ -363,12 +364,15 @@ public partial class FemAnalysisDialog : Window
             ResultRecording = recording,
             RecordSteps = CsfeaRecordStepsBox.Text.Trim(),
             RecordStageEnds = stageEnds,
+            RecordSectionStrains = CsfeaRecordStrainsCb.IsChecked == true,
             ControlNodeTag = CsfeaControlNodeBox.Text.Trim(),
             ControlDof = Math.Max(0, CsfeaControlDofBox.SelectedIndex),
         };
     }
 
     void CsfeaRecording_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaRecordingState();
+
+    void CsfeaRecordStrains_Click(object sender, RoutedEventArgs e) => UpdateBatchSummary();
 
     void CsfeaPhysicalNonlinearity_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaImportedFactorsState();
 
@@ -636,7 +640,8 @@ public partial class FemAnalysisDialog : Window
         string size = "";
         if (BatchRecordFieldsRadio.IsChecked == true && MeshCounts() is { } m)
             size = string.Format(Loc.S("FemCsfeaBatchEstimateFields"),
-                FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams) * (_batch.Count + longTerm.Runs)));
+                FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams,
+                    strains: CsfeaRecordStrainsCb.IsChecked == true, matrices: true) * (_batch.Count + longTerm.Runs)));
         string text = string.Format(Loc.S("FemCsfeaBatchEstimate"), _batch.Count, size);
         if (anyLong)
             text += string.Format(Loc.S("FemCsfeaBatchEstimateLong"), longTerm.Pairs, longTerm.SameAsTotal, longTerm.Zero,

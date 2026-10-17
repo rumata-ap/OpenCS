@@ -6,7 +6,10 @@ using Xunit;
 
 namespace OpenCS.Tests.FemResult;
 
-/// <summary>Запись полей шага CSfea: реакции опор (версия 2) и чтение записей версии 1 без них.</summary>
+/// <summary>
+/// Запись полей шага CSfea: реакции опор (версия 2), блоки жёсткостей, деформаций и полных матриц (версия 3), чтение
+/// записей версий 1–2.
+/// </summary>
 public class FemCsfeaStepFieldsCodecTests
 {
     static RcSecantStepFields Sample() => new()
@@ -34,6 +37,83 @@ public class FemCsfeaStepFieldsCodecTests
         Assert.Equal(s.Displacements, f.Displacements);
         Assert.True(f.IsRefinement);
         Assert.Equal(0.75, f.LoadFactor);
+    }
+
+    [Fact]
+    public void RoundTrip_KeepsStiffnessStrainsAndMatrices()
+    {
+        static double[] Seq(int n, double scale) => Enumerable.Range(1, n).Select(i => i * scale).ToArray();
+        var s = Sample();
+        var full = new RcSecantStepFields
+        {
+            NodeIds = s.NodeIds, Displacements = s.Displacements, ShellIds = s.ShellIds, ShellForces = s.ShellForces,
+            ShellStates = s.ShellStates, ShellFlags = s.ShellFlags, BeamIds = s.BeamIds, BeamForces = s.BeamForces,
+            BeamFlags = s.BeamFlags,
+            HasStiffness = true, ShellStiffness = Seq(RcSecantStepFields.ShellStiffnessComponents, 1e8),
+            BeamStiffness = Seq(RcSecantStepFields.BeamStiffnessComponents, 1e7).Select((v, i) => i == 3 ? double.PositiveInfinity : v).ToArray(),
+            HasStrains = true, ShellStrains = Seq(RcSecantStepFields.ShellStrainComponents, 1e-4),
+            BeamStrains = Seq(RcSecantStepFields.BeamStrainComponents, -1e-4),
+            HasMatrices = true, ShellMatrices = Seq(RcSecantStepFields.ShellMatrixComponents, 1e6),
+            BeamMatrices = Seq(RcSecantStepFields.BeamMatrixComponents, 1e5),
+        };
+        var f = FemCsfeaStepFieldsCodec.Unpack(FemCsfeaStepFieldsCodec.Pack(full));
+        Assert.True(f.HasStiffness && f.HasStrains && f.HasMatrices);
+        // Блоки — float: точность ~1e-7.
+        void Same(double[] a, double[] b)
+        {
+            Assert.Equal(a.Length, b.Length);
+            for (int i = 0; i < a.Length; i++)
+                Assert.True(a[i] == b[i] || Math.Abs(a[i] - b[i]) <= 1e-6 * Math.Abs(a[i]), $"[{i}] {a[i]} ≠ {b[i]}");
+        }
+        Same(full.ShellStiffness, f.ShellStiffness);
+        Same(full.BeamStiffness, f.BeamStiffness);
+        Same(full.ShellStrains, f.ShellStrains);
+        Same(full.BeamStrains, f.BeamStrains);
+        Same(full.ShellMatrices, f.ShellMatrices);
+        Same(full.BeamMatrices, f.BeamMatrices);
+        Assert.True(double.IsPositiveInfinity(f.BeamStiffness[3]));
+
+        // Только жёсткости (без галки деформаций, не конечное состояние).
+        var stiffOnly = FemCsfeaStepFieldsCodec.Unpack(FemCsfeaStepFieldsCodec.Pack(new RcSecantStepFields
+        {
+            NodeIds = s.NodeIds, Displacements = s.Displacements, ShellIds = s.ShellIds, ShellForces = s.ShellForces,
+            ShellStates = s.ShellStates, ShellFlags = s.ShellFlags, BeamIds = s.BeamIds, BeamForces = s.BeamForces,
+            BeamFlags = s.BeamFlags, HasStiffness = true, ShellStiffness = full.ShellStiffness, BeamStiffness = full.BeamStiffness,
+        }));
+        Assert.True(stiffOnly.HasStiffness);
+        Assert.False(stiffOnly.HasStrains || stiffOnly.HasMatrices);
+        Assert.Empty(stiffOnly.ShellStrains);
+        Assert.Empty(stiffOnly.BeamMatrices);
+    }
+
+    [Fact]
+    public void Version2_ReadsWithoutBlocks()
+    {
+        var s = Sample();
+        using var ms = new MemoryStream();
+        using (var gz = new GZipStream(ms, CompressionLevel.Fastest, leaveOpen: true))
+        using (var w = new BinaryWriter(gz))
+        {
+            w.Write(0x31465343);
+            w.Write(2);
+            w.Write(s.Stage); w.Write(s.Step); w.Write(s.LoadFactor); w.Write(s.IsRefinement);
+            void Ints(int[] a) { w.Write(a.Length); foreach (int v in a) w.Write(v); }
+            void Doubles(double[] a) { w.Write(a.Length); foreach (double v in a) w.Write(v); }
+            void Bytes(byte[] a) { w.Write(a.Length); w.Write(a); }
+            Ints(s.NodeIds); Doubles(s.Displacements);
+            Ints(s.ShellIds); Doubles(s.ShellForces);
+            w.Write(s.ShellStates.Length);
+            foreach (double v in s.ShellStates) w.Write((float)v);
+            Bytes(s.ShellFlags);
+            Ints(s.BeamIds); Doubles(s.BeamForces); Bytes(s.BeamFlags);
+            Ints(s.ReactionNodeIds); Doubles(s.Reactions); Bytes(s.ReactionKinds); Doubles(s.ReactionSums); Doubles(s.LoadSum);
+        }
+        var f = FemCsfeaStepFieldsCodec.Unpack(ms.ToArray());
+        Assert.Equal(s.Reactions, f.Reactions);
+        Assert.Equal(s.LoadSum, f.LoadSum);
+        Assert.False(f.HasStiffness || f.HasStrains || f.HasMatrices);
+        Assert.Empty(f.ShellStiffness);
+        Assert.Empty(f.BeamStiffness);
     }
 
     [Fact]

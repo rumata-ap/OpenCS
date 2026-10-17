@@ -43,7 +43,7 @@ public sealed class FemCsfeaParamsTests
                 PlateCrackRule = PlateCrackRule.Section, BeamShear = false, PoissonUncracked = 0.2, GeomNonlinear = true,
                 MaxIterations = 80, TolDisplacement = 1e-5, TolStiffness = 5e-4, MaxBisections = 6, Omega0 = 0.5,
                 ResultRecording = FemCsfeaRecording.Selected, RecordSteps = "5, 10", RecordStageEnds = false,
-                ControlNodeTag = "125", ControlDof = 1,
+                RecordSectionStrains = true, ControlNodeTag = "125", ControlDof = 1,
             },
         };
 
@@ -67,6 +67,7 @@ public sealed class FemCsfeaParamsTests
         Assert.Equal(FemCsfeaRecording.Selected, c.ResultRecording);
         Assert.Equal("5, 10", c.RecordSteps);
         Assert.False(c.RecordStageEnds);
+        Assert.True(c.RecordSectionStrains);
         Assert.Equal("125", c.ControlNodeTag);
         Assert.Equal(1, c.ControlDof);
     }

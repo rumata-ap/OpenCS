@@ -3093,6 +3093,8 @@
     <system:String x:Key="FemCsfeaRecordStageEnds">and stage ends</system:String>
     <system:String x:Key="FemCsfeaRecordAll">All steps</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Fields of every step — the database grows in proportion to the number of steps.</system:String>
+    <system:String x:Key="FemCsfeaRecordStrains">Record section strains</system:String>
+    <system:String x:Key="FemCsfeaRecordStrainsTip">Section strains (ε₀, κy, κz of bars; εx … κxy of plates) in every field record — for the “Section state” window; records become about twice as large. Section stiffnesses are always recorded.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">No steps to record: enter step numbers or check "and stage ends".</system:String>
     <system:String x:Key="FemCsfeaCreateForceSets">Step → force sets</system:String>
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Create schema force sets (plates and bars) from this step fields, for per-element checks. Available on steps with recorded fields.</system:String>

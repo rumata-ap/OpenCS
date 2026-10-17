@@ -3093,6 +3093,8 @@
     <system:String x:Key="FemCsfeaRecordStageEnds">и концы стадий</system:String>
     <system:String x:Key="FemCsfeaRecordAll">Все шаги</system:String>
     <system:String x:Key="FemCsfeaRecordAllTip">Поля каждого шага — объём БД растёт пропорционально числу шагов.</system:String>
+    <system:String x:Key="FemCsfeaRecordStrains">Записывать деформации сечений</system:String>
+    <system:String x:Key="FemCsfeaRecordStrainsTip">Деформации сечений (ε₀, κy, κz стержней; εx … κxy пластин) в каждой записи полей — для окна «НДС сечения»; запись примерно вдвое больше. Жёсткости сечений пишутся всегда.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">Не задано ни одного шага для записи: укажите номера шагов или отметьте «и концы стадий».</system:String>
     <system:String x:Key="FemCsfeaCreateForceSets">Шаг → наборы усилий</system:String>
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Создать наборы усилий схемы (пластины и стержни) по полям этого шага — для проверок по КЭ. Доступно на шаге с записанными полями.</system:String>

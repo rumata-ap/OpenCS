@@ -77,11 +77,14 @@ public sealed class FemCsfeaFieldRecorder
         if (Wanted(s)) Records[_accepted] = FemCsfeaStepFieldsCodec.Pack(fields());
     }
 
-    /// <summary>Конечный шаг после расчёта — поля по состояниям КЭ последнего принятого шага.</summary>
+    /// <summary>
+    /// Конечный шаг после расчёта — поля по состояниям КЭ последнего принятого шага с полными секущими матрицами КЭ
+    /// (заменяют запись этого шага, снятую при расчёте).
+    /// </summary>
     public void RecordFinal(RcSecantRun run)
     {
         int last = run.Result.Steps.FindLastIndex(s => s.Converged);
-        if (last < 0 || Records.ContainsKey(last + 1)) return;
+        if (last < 0) return;
         if (run.LastConvergedFields() is { } f) Records[last + 1] = FemCsfeaStepFieldsCodec.Pack(f);
     }
 }
@@ -925,7 +928,7 @@ public static class FemCsfeaRunner
         var options = new RcLinearOptions
         {
             MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism, ShellForceAngles = adapted.ShellForceAngles,
-            Log = line => ctx.Log.Info($"[{tag}] {line}"),
+            RecordSectionStrains = csfea.RecordSectionStrains, Log = line => ctx.Log.Info($"[{tag}] {line}"),
         };
         var clock = Stopwatch.StartNew();
         var (run, records) = await Task.Run(() =>

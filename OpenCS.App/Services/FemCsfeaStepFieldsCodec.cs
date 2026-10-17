@@ -6,13 +6,15 @@ namespace OpenCS.Services;
 
 /// <summary>
 /// Сжатая запись полей шага секущего расчёта (<see cref="RcSecantStepFields"/>) для таблицы <c>fem_result_steps</c>:
-/// двоичный поток (версия, шаг, узлы, пластины, стержни, с версии 2 — реакции опор и ΣF шага) под GZip. Перемещения,
-/// усилия и реакции — double, состояния пластин — float. Записи версии 1 читаются без реакций.
+/// двоичный поток (версия, шаг, узлы, пластины, стержни, с версии 2 — реакции опор и ΣF шага, с версии 3 — флаги и
+/// блоки жёсткостей, деформаций сечений и полных секущих матриц) под GZip. Перемещения, усилия и реакции — double,
+/// состояния пластин и блоки версии 3 — float. Записи версии 1 читаются без реакций, версий 1–2 — без блоков.
 /// </summary>
 public static class FemCsfeaStepFieldsCodec
 {
     const int Magic = 0x31465343;   // «CSF1»
-    const int Version = 2;
+    const int Version = 3;
+    const byte HasStiffness = 1, HasStrains = 2, HasMatrices = 4;
 
     public static byte[] Pack(RcSecantStepFields f)
     {
@@ -41,6 +43,10 @@ public static class FemCsfeaStepFieldsCodec
             Bytes(w, f.ReactionKinds);
             Doubles(w, f.ReactionSums);
             Doubles(w, f.LoadSum);
+            w.Write((byte)((f.HasStiffness ? HasStiffness : 0) | (f.HasStrains ? HasStrains : 0) | (f.HasMatrices ? HasMatrices : 0)));
+            if (f.HasStiffness) { Floats(w, f.ShellStiffness); Floats(w, f.BeamStiffness); }
+            if (f.HasStrains) { Floats(w, f.ShellStrains); Floats(w, f.BeamStrains); }
+            if (f.HasMatrices) { Floats(w, f.ShellMatrices); Floats(w, f.BeamMatrices); }
         }
         return ms.ToArray();
     }
@@ -77,6 +83,11 @@ public static class FemCsfeaStepFieldsCodec
             reactionSums = Doubles(r);
             loadSum = Doubles(r);
         }
+        byte blocks = version >= 3 ? r.ReadByte() : (byte)0;
+        double[] shellK = [], beamK = [], shellE = [], beamE = [], shellM = [], beamM = [];
+        if ((blocks & HasStiffness) != 0) { shellK = Floats(r); beamK = Floats(r); }
+        if ((blocks & HasStrains) != 0) { shellE = Floats(r); beamE = Floats(r); }
+        if ((blocks & HasMatrices) != 0) { shellM = Floats(r); beamM = Floats(r); }
         return new RcSecantStepFields
         {
             Stage = stage, Step = step, LoadFactor = lambda, IsRefinement = refinement,
@@ -85,7 +96,19 @@ public static class FemCsfeaStepFieldsCodec
             BeamIds = beamIds, BeamForces = beamForces, BeamFlags = beamFlags,
             ReactionNodeIds = reactionNodes, Reactions = reactions, ReactionKinds = reactionKinds,
             ReactionSums = reactionSums, LoadSum = loadSum,
+            HasStiffness = (blocks & HasStiffness) != 0, ShellStiffness = shellK, BeamStiffness = beamK,
+            HasStrains = (blocks & HasStrains) != 0, ShellStrains = shellE, BeamStrains = beamE,
+            HasMatrices = (blocks & HasMatrices) != 0, ShellMatrices = shellM, BeamMatrices = beamM,
         };
+    }
+
+    static void Floats(BinaryWriter w, double[] a) { w.Write(a.Length); foreach (double v in a) w.Write((float)v); }
+
+    static double[] Floats(BinaryReader r)
+    {
+        var a = new double[r.ReadInt32()];
+        for (int i = 0; i < a.Length; i++) a[i] = r.ReadSingle();
+        return a;
     }
 
     static void Ints(BinaryWriter w, int[] a) { w.Write(a.Length); foreach (int v in a) w.Write(v); }

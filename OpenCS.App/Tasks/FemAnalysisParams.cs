@@ -241,6 +241,11 @@ public sealed class FemCsfeaParams
     public string RecordSteps { get; set; } = "";
     /// <summary>При <see cref="FemCsfeaRecording.Selected"/> — записывать и концы стадий.</summary>
     public bool RecordStageEnds { get; set; } = true;
+    /// <summary>
+    /// Писать в поля деформации сечений (ε₀, κy, κz стержней; εx … κxy пластин) — для окна «НДС сечения»; жёсткости
+    /// пишутся всегда.
+    /// </summary>
+    public bool RecordSectionStrains { get; set; }
 
     /// <summary>Контрольный узел графика «λ — перемещение»: тег узла сетки; пусто — не задан.</summary>
     public string ControlNodeTag { get; set; } = "";

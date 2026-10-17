@@ -56,6 +56,9 @@ public sealed class RcSecantOptions
     /// </summary>
     public IReadOnlyDictionary<int, double>? ShellForceAngles { get; init; }
 
+    /// <summary>Писать в поля шага деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>).</summary>
+    public bool RecordSectionStrains { get; init; }
+
     /// <summary>
     /// Принятый шаг и снятие его полей (вызывать сразу — позже состояния КЭ уже другие). Вызывается в потоке расчёта
     /// после <see cref="SecantPicardOptions.OnStepAccepted"/> решателя.
@@ -139,10 +142,12 @@ public sealed record RcSecantRun(RcStructuralMeshBuild Build, ISecantShellState?
     internal RcSecantFieldExtractor? Extractor { get; init; }
 
     /// <summary>
-    /// Поля последнего принятого шага (состояния КЭ после расчёта отвечают ему); null — принятых шагов нет.
+    /// Поля последнего принятого шага (состояния КЭ после расчёта отвечают ему) — конечного состояния прогона, с полными
+    /// секущими матрицами КЭ; null — принятых шагов нет.
     /// </summary>
     public RcSecantStepFields? LastConvergedFields()
-        => Result.Steps.LastOrDefault(s => s.Converged) is { } last && Extractor != null ? Extractor.Extract(last) : null;
+        => Result.Steps.LastOrDefault(s => s.Converged) is { } last && Extractor != null
+            ? Extractor.Extract(last, matrices: true) : null;
 
     /// <summary>Реакции опор шага (у несошедшегося — только пружины) и ΣF его узловой нагрузки; null — без экстрактора.</summary>
     public (RcReactionSet Reactions, double[] LoadSum)? StepReactions(SecantStepResult step)
@@ -177,7 +182,7 @@ public static class RcSecantAnalysis
         }
         var extractor = new RcSecantFieldExtractor(model, build, shells,
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,
-            options.Solver.ShellInPlanePDelta);
+            options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains);
         var solverOptions = options.Solver;
         if (options.OnStep is { } onStep)
         {

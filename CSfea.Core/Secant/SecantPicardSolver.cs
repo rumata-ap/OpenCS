@@ -816,22 +816,31 @@ public sealed class SecantPicardSolver
     /// </summary>
     private ((double, double, double)[] Strains, double GammaY, double GammaZ) BeamStrains(int e, double[] u,
         SecantBeamResponse r)
+        => BeamPointStrains(_mesh, e, u, r.Matrix, r.GJ, r.Shear, Cr);
+
+    /// <summary>
+    /// Изгибные деформации (ε₀, κ_y, κ_z) стержня <paramref name="e"/> в точках ξ = 0, ½, 1 и углы сдвига КЭ при секущей
+    /// <paramref name="s"/> (оси КЭ), как в итерациях решателя; <paramref name="corotational"/> — деформационные
+    /// перемещения CR (геометрическая нелинейность с большими перемещениями). Для полей шага.
+    /// </summary>
+    public static ((double Eps0, double KappaY, double KappaZ)[] Strains, double GammaY, double GammaZ) BeamPointStrains(
+        StructuralMesh mesh, int e, double[] u, double[,] s, double gj, BeamShearStiffness shear, bool corotational)
     {
-        var (d, l) = BeamLocal(e, u);
+        var (d, l) = BeamLocal(mesh, e, u, corotational);
         // У шарнира узел поворачивается независимо от конца стержня: деформации — по перемещениям конца.
-        int rel = _mesh.Beams[e].Releases;
-        if (rel != 0) d = BeamReleases.Recover(BeamElements.Beam3dKLocal(r.Matrix, r.GJ, l, r.Shear), rel, d);
-        var (bend, gy, gz) = BeamElements.Beam3dShearSplit(r.Matrix, r.GJ, l, r.Shear, d);
-        return (new[] { 0.0, 0.5, 1.0 }.Select(xi => BeamElements.Beam3dCoupledStrains(r.Matrix, l, bend, xi)).ToArray(), gy, gz);
+        int rel = mesh.Beams[e].Releases;
+        if (rel != 0) d = BeamReleases.Recover(BeamElements.Beam3dKLocal(s, gj, l, shear), rel, d);
+        var (bend, gy, gz) = BeamElements.Beam3dShearSplit(s, gj, l, shear, d);
+        return (new[] { 0.0, 0.5, 1.0 }.Select(xi => BeamElements.Beam3dCoupledStrains(s, l, bend, xi)).ToArray(), gy, gz);
     }
 
     /// <summary>Локальные перемещения стержня: линейно — T·u, при геометрической нелинейности — деформационные CR.</summary>
-    private (double[] D, double L) BeamLocal(int e, double[] u)
+    private static (double[] D, double L) BeamLocal(StructuralMesh mesh, int e, double[] u, bool corotational)
     {
-        var b = _mesh.Beams[e];
+        var b = mesh.Beams[e];
         var ue = Gather(u, StructuralMesh.NodeDofs(new[] { b.I, b.J }));
-        var coords = _mesh.BeamCoords(e);
-        if (Cr)
+        var coords = mesh.BeamCoords(e);
+        if (corotational)
         {
             var (r, l0) = BeamElements.Beam3dFrame(coords, b.RefVec);
             return (BeamCorotational.Beam3dPLocal(coords, r, l0, ue), l0);

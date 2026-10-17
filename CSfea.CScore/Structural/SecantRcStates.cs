@@ -230,6 +230,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
     private readonly Dictionary<Fiber, double>?[] _epsCrcCommitted = new Dictionary<Fiber, double>?[3];
     private readonly BeamShearSection? _shear;
     private ShearCrack? _shearCrack, _shearCrackCommitted;
+    private double[][,] _points, _pointsCommitted;
 
     /// <summary>Наклонная трещина КЭ: Q_cr и закон после трещины по осям y и z (null — упругий сдвиг по оси).</summary>
     private sealed record ShearCrack(double QcrY, BeamShearCracked? LawY, double QcrZ, BeamShearCracked? LawZ);
@@ -245,6 +246,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
         _shear = shear;
         var (s0, _) = SecantCrossSectionBuilder.Build(section, new Kurvature(), calc, tension);
         Initial = ToElement(SecantCrossSectionBuilder.ToCsfea(s0));
+        _points = _pointsCommitted = [Initial, Initial, Initial];
         // Сдвиг: GA по оси КЭ y — по направлению сечения, лежащему на местной y.
         InitialShear = shear == null ? BeamShearStiffness.Rigid
             : _yAlongY ? new BeamShearStiffness(shear.Initial.GAvZ, shear.Initial.GAvY) : shear.Initial;
@@ -260,6 +262,12 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
 
     /// <summary>Трещины в точках ξ = 0, ½, 1 (пробное состояние).</summary>
     public IReadOnlyList<bool> Cracked => _cracked;
+
+    /// <summary>
+    /// Секущие матрицы сечений в точках ξ = 0, ½, 1 (оси КЭ, единицы CSfea) последнего <see cref="Evaluate"/> — до
+    /// средней податливости КЭ и нижней границы диагонали; до первого пересчёта — начальная.
+    /// </summary>
+    public IReadOnlyList<double[,]> PointSecants => _points;
 
     public SecantBeamEvaluation Evaluate(IReadOnlyList<(double Eps0, double KappaY, double KappaZ)> strains,
         double gammaY = 0.0, double gammaZ = 0.0)
@@ -288,6 +296,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
             yielded |= y;
             failed |= fl;
         }
+        _points = sp;
         double[,] target;
         try { target = BeamElements.MeanCompliance(sp[0], sp[1], sp[2]); }
         catch (InvalidOperationException)
@@ -385,6 +394,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
         Array.Copy(_cracked, _crackedCommitted, 3);
         Array.Copy(_epsCrc, _epsCrcCommitted, 3);
         _shearCrackCommitted = _shearCrack;
+        _pointsCommitted = _points;
     }
 
     public void Revert()
@@ -392,6 +402,7 @@ public sealed class CrossSectionSecantBeamState : ISecantBeamState
         Array.Copy(_crackedCommitted, _cracked, 3);
         Array.Copy(_epsCrcCommitted, _epsCrc, 3);
         _shearCrack = _shearCrackCommitted;
+        _points = _pointsCommitted;
     }
 
     private bool Ten(int p) => _tension && !_cracked[p];

@@ -13,6 +13,9 @@ public sealed class RcLinearOptions
     /// <summary>Угол оси x выдачи усилий пластины в осях сечения (<see cref="FemRcModelResult.ShellForceAngles"/>).</summary>
     public IReadOnlyDictionary<int, double>? ShellForceAngles { get; init; }
 
+    /// <summary>Писать в поля деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>).</summary>
+    public bool RecordSectionStrains { get; init; }
+
     /// <summary>Журнал фаз расчёта.</summary>
     public Action<string>? Log { get; init; }
 }
@@ -48,7 +51,7 @@ public static class RcLinearAnalysis
         ct.ThrowIfCancellationRequested();
 
         var extractor = new RcSecantFieldExtractor(model, build, new ISecantShellState?[build.Mesh.Shells.Count],
-            geometric: false, options.ShellForceAngles);
+            geometric: false, options.ShellForceAngles, recordStrains: options.RecordSectionStrains);
         // Реакции: K·u — одной сборкой K на все загружения.
         var k = loads.Count > 0 ? build.Mesh.AssembleK().ToCsc() : null;
         var cases = new List<RcLinearCase>(loads.Count);

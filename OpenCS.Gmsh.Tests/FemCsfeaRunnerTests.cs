@@ -126,6 +126,11 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
                 Assert.True(Math.Abs(s.ReactionTotal![2] + s.LoadSum![2]) <= 1e-6 * Math.Abs(s.LoadSum[2]), $"шаг {s.N}"));
             Assert.Equal(4, fields.ReactionNodeIds.Length);
             Assert.Equal(-fields.LoadSum[2], Enumerable.Range(0, 4).Sum(i => fields.Reactions[6 * i + 2]), 1e-6 * Math.Abs(fields.LoadSum[2]));
+            // Конечное состояние: жёсткости и полные секущие матрицы, деформаций без галки нет; у треснувших КЭ D11 < D11₀.
+            Assert.True(fields.HasStiffness && fields.HasMatrices && !fields.HasStrains);
+            const int k = CSfea.CScoreBridge.Structural.RcSecantStepFields.ShellStiffnessComponents;
+            Assert.Equal(fields.ShellIds.Length * k, fields.ShellStiffness.Length);
+            Assert.Contains(Enumerable.Range(0, fields.ShellIds.Length), e => fields.ShellStiffness[e * k + 4] < 0.9 * fields.ShellStiffness[e * k + 12]);
 
             ctx.Db.DeleteCalcResult(result);
             Assert.Empty(ctx.Db.GetFemResultStepNumbers(result.Id));

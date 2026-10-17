@@ -495,6 +495,8 @@
                     </StackPanel>
                     <RadioButton x:Name="CsfeaRecordAllRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordAll}"
                                  ToolTip="{DynamicResource FemCsfeaRecordAllTip}" Checked="CsfeaRecording_Changed"/>
+                    <CheckBox x:Name="CsfeaRecordStrainsCb" Content="{DynamicResource FemCsfeaRecordStrains}" Margin="0,6,0,0"
+                              ToolTip="{DynamicResource FemCsfeaRecordStrainsTip}" Click="CsfeaRecordStrains_Click"/>
                 </StackPanel>
             </GroupBox>
 
