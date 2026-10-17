@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Combinations;
 using OpenCS.OpenSees.CScore;
 using OpenCS.Services;
 using OpenCS.Tasks;
@@ -107,6 +108,7 @@ public partial class FemAnalysisDialog : Window
         ConsiderPhysicalNonlinearityCb.Checked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
         ConsiderPhysicalNonlinearityCb.Unchecked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
         CsfeaCalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
+        CsfeaCalcTypeBox.SelectionChanged += (_, _) => UpdateBatchSummary();
         CsfeaPlateRebarSourceBox.ItemsSource = CsfeaRebarSourceOptions;
         CsfeaTensionConcreteBox.ItemsSource = CsfeaTensionOptions;
         CsfeaPlateCrackRuleBox.ItemsSource = CsfeaCrackRuleOptions;
@@ -153,6 +155,9 @@ public partial class FemAnalysisDialog : Window
                 BatchStepBox.Text = batch.LoadFactorStep.ToString(CultureInfo.CurrentCulture);
                 BatchMaxBox.Text = batch.MaxLoadFactor.ToString(CultureInfo.CurrentCulture);
                 BatchStopAtLimitCb.IsChecked = batch.StopAtLimit;
+                BatchLongNCb.IsChecked = batch.HasLongTermPairs(FemCombinationTypes.N);
+                BatchLongDeflectionCb.IsChecked = batch.LongTermDeflection;
+                BatchLongCCb.IsChecked = batch.HasLongTermPairs(FemCombinationTypes.C);
                 (batch.Recording == FemCsfeaBatchRecording.Envelopes ? BatchRecordEnvelopesRadio : BatchRecordFieldsRadio).IsChecked = true;
                 BatchRadio.IsChecked = true;
             }
@@ -619,11 +624,50 @@ public partial class FemAnalysisDialog : Window
             return;
         }
         BatchSummaryText.Text = ViewModels.FemLoadSources.BatchSummary(_batch);
+        var draft = BatchDraft();
+        bool hasN = FemCsfeaBatchLongTerm.HasCombinations(draft.Items, FemCombinationTypes.N);
+        BatchLongNCb.IsEnabled = hasN;
+        BatchLongDeflectionCb.IsEnabled = hasN && BatchLongNCb.IsChecked == true;
+        BatchLongCCb.IsEnabled = FemCsfeaBatchLongTerm.HasCombinations(draft.Items, FemCombinationTypes.C);
+        var longTerm = FemCsfeaBatchLongTerm.Estimate(draft, _schema.LoadCases);
+        bool anyLong = draft.LongTermPairs.Count > 0
+            && longTerm is not { Pairs: 0, SameAsTotal: 0, Zero: 0, Invalid: 0 };
+
         string size = "";
         if (BatchRecordFieldsRadio.IsChecked == true && MeshCounts() is { } m)
             size = string.Format(Loc.S("FemCsfeaBatchEstimateFields"),
-                FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams) * _batch.Count));
-        BatchEstimateText.Text = string.Format(Loc.S("FemCsfeaBatchEstimate"), _batch.Count, size);
+                FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams) * (_batch.Count + longTerm.Runs)));
+        string text = string.Format(Loc.S("FemCsfeaBatchEstimate"), _batch.Count, size);
+        if (anyLong)
+            text += string.Format(Loc.S("FemCsfeaBatchEstimateLong"), longTerm.Pairs, longTerm.SameAsTotal, longTerm.Zero,
+                longTerm.Invalid > 0 ? string.Format(Loc.S("FemCsfeaBatchEstimateLongInvalid"), longTerm.Invalid) : "",
+                longTerm.Deflections > 0 ? string.Format(Loc.S("FemCsfeaBatchEstimateLongDeflection"), longTerm.Deflections) : "");
+        var calc = CsfeaCalcTypeBox.SelectedItem as CalcType? ?? CalcType.N;
+        foreach (var type in draft.LongTermPairs.Where(t => t != calc.ToString() && FemCsfeaBatchLongTerm.HasCombinations(draft.Items, t)))
+            text += " " + string.Format(Loc.S("FemCsfeaBatchCalcTypeMismatch"), type, calc);
+        BatchEstimateText.Text = text;
+    }
+
+    void BatchLongTerm_Changed(object sender, RoutedEventArgs e) => UpdateBatchSummary();
+
+    /// <summary>Пакет из панели без проверки шага и предела λ (для оценки и записи).</summary>
+    FemCsfeaBatch BatchDraft()
+    {
+        var pairs = new List<string>();
+        if (BatchLongNCb.IsChecked == true) pairs.Add(FemCombinationTypes.N);
+        if (BatchLongCCb.IsChecked == true) pairs.Add(FemCombinationTypes.C);
+        return new FemCsfeaBatch
+        {
+            Items = _batch.Where(s => !s.IsUnresolved).Select(s => new FemCsfeaBatchItem
+            {
+                Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, Type = s.TypeBadge,
+                Kind = s.Kind == ViewModels.FemLoadSourceKind.LoadCase ? FemCsfeaBatchItemKind.LoadCase : FemCsfeaBatchItemKind.Combination,
+            }).ToList(),
+            StopAtLimit = BatchStopAtLimitCb.IsChecked == true,
+            Recording = BatchRecordEnvelopesRadio.IsChecked == true ? FemCsfeaBatchRecording.Envelopes : FemCsfeaBatchRecording.Fields,
+            LongTermPairs = pairs,
+            LongTermDeflection = BatchLongDeflectionCb.IsChecked == true,
+        };
     }
 
     /// <summary>Размер сетки схемы из БД (окружение «Проверить вход»); нет БД или сетки — null.</summary>
@@ -648,17 +692,14 @@ public partial class FemAnalysisDialog : Window
             || !Pars.ParseAny(BatchMaxBox.Text, out var max) || !double.IsFinite(max) || max < step)
             error = Loc.S("FemCsfeaBatchFactorsInvalid");
         else
-            return new FemCsfeaBatch
-            {
-                Items = _batch.Select(s => new FemCsfeaBatchItem
-                {
-                    Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, Type = s.TypeBadge,
-                    Kind = s.Kind == ViewModels.FemLoadSourceKind.LoadCase ? FemCsfeaBatchItemKind.LoadCase : FemCsfeaBatchItemKind.Combination,
-                }).ToList(),
-                LoadFactorStep = step, MaxLoadFactor = max,
-                StopAtLimit = BatchStopAtLimitCb.IsChecked == true,
-                Recording = BatchRecordEnvelopesRadio.IsChecked == true ? FemCsfeaBatchRecording.Envelopes : FemCsfeaBatchRecording.Fields,
-            };
+        {
+            var batch = BatchDraft();
+            batch.LoadFactorStep = step;
+            batch.MaxLoadFactor = max;
+            // Флажок длительных частей типа, которого нет в пакете, не сохраняется.
+            batch.LongTermPairs.RemoveAll(t => !FemCsfeaBatchLongTerm.HasCombinations(batch.Items, t));
+            return batch;
+        }
         MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
         return null;
     }

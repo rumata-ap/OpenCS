@@ -131,14 +131,14 @@ public sealed class FemAnalysisParams
         var a = Parse(oldJson);
         var b = Parse(newJson);
         if (a.Batch is not { } batchA || b.Batch is not { } batchB || !batchA.SameSettings(batchB)) return false;
-        var itemsA = batchA.Items;
-        var itemsB = batchB.Items;
-        batchA.Items = [];
-        batchB.Items = [];
-        bool same = a.ToJson() == b.ToJson();
-        batchA.Items = itemsA;
-        batchB.Items = itemsB;
-        return same;
+        // Сравниваются копии из разбора — их можно не восстанавливать.
+        foreach (var batch in new[] { batchA, batchB })
+        {
+            batch.Items = [];
+            batch.LongTermPairs = [];
+            batch.LongTermDeflection = true;
+        }
+        return a.ToJson() == b.ToJson();
     }
 
     public static FemAnalysisParams Parse(string? json)
@@ -309,6 +309,20 @@ public sealed class FemCsfeaBatch
     public bool StopAtLimit { get; set; }
     /// <summary><see cref="FemCsfeaBatchRecording"/>.</summary>
     public string Recording { get; set; } = FemCsfeaBatchRecording.Fields;
+    /// <summary>
+    /// Типы комбинаций с длительными частями (спека 2026-10-17 «длительные пары», п. 2.3): "N" → NL, "C" → CL; пусто —
+    /// без длительных частей. Пары не хранятся в <see cref="Items"/> — выводятся при расчёте по текущим загружениям.
+    /// </summary>
+    public List<string> LongTermPairs { get; set; } = [];
+    /// <summary>У вариантов N с длительной частью — ещё прогон на диаграммах NL для полного прогиба (п. 8.2.24 СП 63).</summary>
+    public bool LongTermDeflection { get; set; } = true;
+
+    /// <summary>Длительные части комбинаций типа <paramref name="type"/> (N или C) считаются.</summary>
+    public bool HasLongTermPairs(string type) => LongTermPairs.Contains(type);
+
+    /// <summary>Прогон длительной части на диаграммах NL считается.</summary>
+    [JsonIgnore]
+    public bool HasLongTermDeflection => LongTermDeflection && HasLongTermPairs(CScore.Fem.Combinations.FemCombinationTypes.N);
 
     /// <summary>Стадии для адаптера: по стадии на элемент с общими шагом и пределом λ.</summary>
     public IReadOnlyList<FemAnalysisStage> ToStages() => Items.Select(i => new FemAnalysisStage
@@ -316,7 +330,10 @@ public sealed class FemCsfeaBatch
         Tag = i.Tag, LoadExpressionJson = i.LoadExpressionJson, LoadFactorStep = LoadFactorStep, MaxLoadFactor = MaxLoadFactor,
     }).ToList();
 
-    /// <summary>Те же параметры, кроме списка элементов (правка только списка не сбрасывает результат).</summary>
+    /// <summary>
+    /// Те же параметры, кроме списка элементов и длительных частей (правка только их не сбрасывает результат:
+    /// недостающее досчитывается, лишнее удаляется).
+    /// </summary>
     public bool SameSettings(FemCsfeaBatch? other) => other != null && LoadFactorStep == other.LoadFactorStep
         && MaxLoadFactor == other.MaxLoadFactor && StopAtLimit == other.StopAtLimit && Recording == other.Recording;
 }

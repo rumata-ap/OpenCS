@@ -108,6 +108,8 @@ public sealed class FemLoadSourcePickerDialogTests
                         new() { Tag = "Снег", LoadExpressionJson = sources[2].ExpressionJson, Kind = OpenCS.Tasks.FemCsfeaBatchItemKind.LoadCase, Type = "Q" },
                     ],
                     LoadFactorStep = 0.25,
+                    LongTermPairs = ["C"],
+                    LongTermDeflection = false,
                 };
                 var analysis = new FemAnalysis
                 {
@@ -121,6 +123,12 @@ public sealed class FemLoadSourcePickerDialogTests
                 Assert.Equal(Visibility.Visible, dialog.BatchPanel.Visibility);
                 Assert.Equal(Visibility.Collapsed, dialog.StagedPanel.Visibility);
                 Assert.Equal(2, dialog.BatchGrid.Items.Count);
+                // Длительные части: C отмечен; комбинаций N нет — флажки N недоступны.
+                Assert.True(dialog.BatchLongCCb.IsChecked);
+                Assert.True(dialog.BatchLongCCb.IsEnabled);
+                Assert.False(dialog.BatchLongNCb.IsChecked);
+                Assert.False(dialog.BatchLongNCb.IsEnabled);
+                Assert.False(dialog.BatchLongDeflectionCb.IsEnabled);
                 dialog.Close();
             }
             catch (Exception ex) { error = ex; }

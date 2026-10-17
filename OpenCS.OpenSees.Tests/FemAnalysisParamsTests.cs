@@ -1,4 +1,5 @@
 using CScore.Fem;
+using OpenCS.Services;
 using OpenCS.Tasks;
 using Xunit;
 
@@ -75,6 +76,64 @@ public class FemAnalysisParamsTests
         Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch!.LoadFactorStep = 0.05)));
         Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Csfea!.MaxIterations = 7)));
         Assert.False(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch = null)));
+        // Флажки длительных частей — как правка списка: недостающее досчитывается, лишнее удаляется.
+        Assert.True(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch!.LongTermPairs = ["N", "C"])));
+        Assert.True(FemAnalysisParams.BatchItemsOnlyChanged(baseline, Json(p => p.Batch!.LongTermDeflection = false)));
+    }
+
+    [Fact]
+    public void BatchLongTerm_RoundTrips_OldJsonWithoutPairs()
+    {
+        var pars = new FemAnalysisParams { Batch = new FemCsfeaBatch { LongTermPairs = ["N"], LongTermDeflection = false } };
+        var batch = FemAnalysisParams.Parse(pars.ToJson()).Batch!;
+        Assert.True(batch.HasLongTermPairs("N"));
+        Assert.False(batch.HasLongTermPairs("C"));
+        Assert.False(batch.HasLongTermDeflection);
+
+        var old = FemAnalysisParams.Parse("{\"Batch\":{\"Items\":[],\"LoadFactorStep\":0.1}}").Batch!;
+        Assert.Empty(old.LongTermPairs);
+        Assert.False(old.HasLongTermDeflection);
+    }
+
+    [Fact]
+    public void BatchLongTermEstimate_ByKindAndType()
+    {
+        FemLoadCase[] cases =
+        [
+            new() { Id = 1, Tag = "G", Sp20Type = "permanent" },
+            new() { Id = 2, Tag = "Q", Sp20Type = "short_term", LongTermShare = 0.35 },
+        ];
+        static FemCsfeaBatchItem Comb(string tag, string type, params (int Id, double K)[] terms) => new()
+        {
+            Tag = tag, Type = type,
+            LoadExpressionJson = new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum, CombinationType = type,
+                Terms = terms.Select(t => new FemLoadTerm { LoadCaseId = t.Id, Coefficient = t.K }).ToList(),
+            }.ToJson(),
+        };
+        var batch = new FemCsfeaBatch
+        {
+            Items =
+            [
+                Comb("N1", "N", (1, 1), (2, 1)),     // пара + прогиб
+                Comb("N2", "N", (1, 1)),             // совпадает с полной — только прогиб
+                Comb("N3", "N", (2, 0)),             // нулевая
+                Comb("C1", "C", (1, 1.1), (2, 1.4)), // C не отмечен
+                Comb("NL1", "NL", (1, 1)),           // пары у NL нет
+                new FemCsfeaBatchItem { Tag = "G", Kind = FemCsfeaBatchItemKind.LoadCase, Type = "G" },
+            ],
+            LongTermPairs = ["N"],
+        };
+        var e = FemCsfeaBatchLongTerm.Estimate(batch, cases);
+        Assert.Equal(new FemCsfeaBatchLongTermEstimate(1, 1, 1, 0, 2), e);
+        Assert.Equal(3, e.Runs);
+
+        batch.LongTermPairs = ["N", "C"];
+        batch.LongTermDeflection = false;
+        Assert.Equal(new FemCsfeaBatchLongTermEstimate(2, 1, 1, 0, 0),
+            FemCsfeaBatchLongTerm.Estimate(batch, cases));
+        Assert.False(FemCsfeaBatchLongTerm.HasCombinations(batch.Items, "CL"));
     }
 
     [Fact]

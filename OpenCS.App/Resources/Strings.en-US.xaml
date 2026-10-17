@@ -2944,6 +2944,16 @@
     <system:String x:Key="FemCsfeaBatchRecordingEnvelopes">envelopes and summary only</system:String>
     <system:String x:Key="FemCsfeaBatchRecordingEnvelopesTip">Group envelopes are accumulated during the analysis; fields of single variants are not stored — a variant cannot be shown and the batch cannot be resumed after cancel.</system:String>
     <system:String x:Key="FemCsfeaBatchEstimate">Each variant is analysed separately from zero: {0} analyses{1}.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongN">Long-term part NL of each N combination — cracks, φ1 "auto" (6.1.26, 8.2.7)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongNTip">Same load cases, short-term ones scaled by their long-term share; computed on the variant's diagrams right after it, if it reached the λ limit. Gives the exact crack width per 8.2.7 and paired NL rows in force sets.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDeflection">and on NL diagrams — total deflection (6.1.25, 8.2.24)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDeflectionTip">One more run of the long-term part on long-term diagrams (second section model); total deflection u₁ − u₂ + u₃ per (8.141).</system:String>
+    <system:String x:Key="FemCsfeaBatchLongC">Long-term part CL of each C combination — ψ "auto" (8.1.15)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongCTip">Same load cases, short-term ones scaled by their long-term share; on the variant's diagrams. Gives paired CL rows in force sets for ψ "auto" in the per-element check.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLong"> Long-term parts: +{0} (equal to total {1}, zero {2} — no run{3}){4}.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLongInvalid">, not derivable {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLongDeflection"> + {0} on NL diagrams, second section model</system:String>
+    <system:String x:Key="FemCsfeaBatchCalcTypeMismatch">Analysis diagrams are {1}: {0} variants and their long-term parts are computed on {1} diagrams.</system:String>
     <system:String x:Key="FemCsfeaBatchEstimateFields">, fields ≈ {0}</system:String>
     <system:String x:Key="FemCsfeaBatchSizeGb">{0:0.#} GB</system:String>
     <system:String x:Key="FemCsfeaBatchSizeMb">{0:0} MB</system:String>

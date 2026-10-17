@@ -2944,6 +2944,16 @@
     <system:String x:Key="FemCsfeaBatchRecordingEnvelopes">только огибающие и сводку</system:String>
     <system:String x:Key="FemCsfeaBatchRecordingEnvelopesTip">Огибающие групп копятся во время расчёта; поля отдельных вариантов не хранятся — посмотреть вариант и досчитать пакет после отмены нельзя.</system:String>
     <system:String x:Key="FemCsfeaBatchEstimate">Каждый вариант считается отдельно с нуля: расчётов {0}{1}.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongN">Длительная часть NL каждой комбинации N — трещины, φ1 «авто» (пп. 6.1.26, 8.2.7)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongNTip">Те же загружения, кратковременные — с долей длительной части; считается на диаграммах варианта сразу после него, если он дошёл до предела λ. Даёт точное раскрытие трещин по п. 8.2.7 и парные строки NL в наборах усилий.</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDeflection">и на диаграммах NL — полный прогиб (пп. 6.1.25, 8.2.24)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongDeflectionTip">Ещё один прогон длительной части на диаграммах продолжительного действия (вторая модель сечений); полный прогиб u₁ − u₂ + u₃ по (8.141).</system:String>
+    <system:String x:Key="FemCsfeaBatchLongC">Длительная часть CL каждой комбинации C — ψ «авто» (п. 8.1.15)</system:String>
+    <system:String x:Key="FemCsfeaBatchLongCTip">Те же загружения, кратковременные — с долей длительной части; на диаграммах варианта. Даёт парные строки CL в наборах усилий для ψ «авто» в проверке по КЭ.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLong"> Длительные части: +{0} (совпадают с полной {1}, нулевые {2} — без прогона{3}){4}.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLongInvalid">, не строятся {0}</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateLongDeflection"> + {0} на диаграммах NL, вторая модель сечений</system:String>
+    <system:String x:Key="FemCsfeaBatchCalcTypeMismatch">Диаграммы постановки — {1}: варианты {0} и их длительные части считаются на диаграммах {1}.</system:String>
     <system:String x:Key="FemCsfeaBatchEstimateFields">, поля ≈ {0}</system:String>
     <system:String x:Key="FemCsfeaBatchSizeGb">{0:0.#} ГБ</system:String>
     <system:String x:Key="FemCsfeaBatchSizeMb">{0:0} МБ</system:String>

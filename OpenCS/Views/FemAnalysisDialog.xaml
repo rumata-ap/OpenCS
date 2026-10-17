@@ -290,6 +290,12 @@
                         <RadioButton x:Name="BatchRecordEnvelopesRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingEnvelopes}"
                                      Checked="BatchRecording_Changed" VerticalAlignment="Center" ToolTip="{DynamicResource FemCsfeaBatchRecordingEnvelopesTip}"/>
                     </StackPanel>
+                    <CheckBox x:Name="BatchLongNCb" Content="{DynamicResource FemCsfeaBatchLongN}" IsChecked="True" Margin="0,2,0,2"
+                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongNTip}"/>
+                    <CheckBox x:Name="BatchLongDeflectionCb" Content="{DynamicResource FemCsfeaBatchLongDeflection}" IsChecked="True" Margin="20,0,0,2"
+                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongDeflectionTip}"/>
+                    <CheckBox x:Name="BatchLongCCb" Content="{DynamicResource FemCsfeaBatchLongC}" Margin="0,0,0,4"
+                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongCTip}"/>
                     <TextBlock x:Name="BatchEstimateText" TextWrapping="Wrap" FontSize="11" Opacity="0.8"/>
                 </StackPanel>
             </StackPanel>
