@@ -3134,6 +3134,19 @@
     <system:String x:Key="FemCsfeaColEARatio">EA/EA₀</system:String>
     <system:String x:Key="FemCsfeaColEIyRatio">EIy/EIy₀</system:String>
     <system:String x:Key="FemCsfeaColEIzRatio">EIz/EIz₀</system:String>
+    <system:String x:Key="FemCsfeaSectionStateMenu">Section state</system:String>
+    <system:String x:Key="FemCsfeaSectionPointI">At the start (i)</system:String>
+    <system:String x:Key="FemCsfeaSectionPointMid">In the middle (½)</system:String>
+    <system:String x:Key="FemCsfeaSectionPointJ">At the end (j)</system:String>
+    <system:String x:Key="FemCsfeaSectionTitle">Element {0}, point {1}</system:String>
+    <system:String x:Key="FemCsfeaSectionWindowTitle">Section state — {0} · {1}</system:String>
+    <system:String x:Key="FemCsfeaSectionEquilibrium">Equilibrium with recorded forces: discrepancy {0} %</system:String>
+    <system:String x:Key="FemCsfeaSectionRecorded">recorded {0}</system:String>
+    <system:String x:Key="FemCsfeaSectionNote">Compressed zone depth {0:0} mm; concrete εb = {1:0.00000}, σb = {2:0.0} MPa; reinforcement εs = {3:0.00000}, σs = {4:0.0} MPa.</system:String>
+    <system:String x:Key="FemCsfeaSectionCracked">The point is cracked — tensioned concrete does not work.</system:String>
+    <system:String x:Key="FemCsfeaSectionAssumption">Crack memory is not recorded: a crack is where it exists in the shown state, ψs is ignored; under unloading and with ψs the forces differ from the recorded ones. The element secant is the mean compliance of three points: at elements on the crack boundary a point section is softer or stiffer than the mean.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoStrains">The fields of the shown step have no section strains. Turn on "Record section strains" in the analysis and recalculate.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoCross">The bar has no CScore section — the section state is built only for fibre sections.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">No steps to record: enter step numbers or check "and stage ends".</system:String>
     <system:String x:Key="FemCsfeaCreateForceSets">Step → force sets</system:String>
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Create schema force sets (plates and bars) from this step fields, for per-element checks. Available on steps with recorded fields.</system:String>

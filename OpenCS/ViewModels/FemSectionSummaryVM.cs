@@ -6,7 +6,7 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Сводка состояния сечения по записанным волокнам OpenSees. Реализует все
+/// <summary>Сводка состояния сечения по записанным волокнам OpenSees или по записанным деформациям CSfea. Реализует все
 /// привязки StrainSummaryView/StrainSummaryBody; группы η/жёсткости/сходимости скрыты.</summary>
 public class FemSectionSummaryVM
 {
@@ -72,8 +72,8 @@ public class FemSectionSummaryVM
     public string IterationsText => "—";
     public string ResidualText => "—";
 
-    public bool ShowRebarAreaNote => false;
-    public string RebarAreaNote => "";
+    public bool ShowRebarAreaNote => RebarAreaNote != "";
+    public string RebarAreaNote { get; } = "";
 
     public FemSectionSummaryVM(
         FemSectionStateRequest request,
@@ -105,5 +105,41 @@ public class FemSectionSummaryVM
                 (r.Y * 1000).ToString("F1"),
                 $"{r.Eps:+0.00000;-0.00000}",
                 $"{r.SigmaMpa:+0.0;-0.0}"));
+    }
+
+    /// <summary>
+    /// Сводка сечения стержня CSfea в точке (<see cref="Services.FemCsfeaBarSectionState"/>): плоскость и усилия интеграла
+    /// фибр в осях сечения (рядом — записанные), расхождение — в состоянии, высота сжатой зоны, крайние εb, σb, εs, σs и
+    /// допущение о памяти трещин — в примечании.
+    /// </summary>
+    public FemSectionSummaryVM(string title, string stepLabel, Services.FemCsfeaBarSectionPoint s)
+    {
+        TaskTag = title;
+        CreatedText = stepLabel;
+        double d = s.Discrepancy;
+        StatusText = string.Format(Loc.S("FemCsfeaSectionEquilibrium"), (d * 100).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture));
+        StatusBrush = d < 0.05 ? Brushes.Green : Brushes.DarkOrange;
+
+        Eps0Text = $"{s.Plane.e0:+0.000000;-0.000000}";
+        KyText = $"{s.Plane.ky:+0.0000e+00;-0.0000e+00}  1/м";
+        KzText = $"{s.Plane.kz:+0.0000e+00;-0.0000e+00}  1/м";
+
+        string Pair(double v, double rec, string unit) =>
+            $"{v:+0.000;-0.000} {Loc.S(unit)}  ({string.Format(Loc.S("FemCsfeaSectionRecorded"), rec.ToString("+0.000;-0.000", System.Globalization.CultureInfo.CurrentCulture))})";
+        NText = Pair(s.N, s.RecordedN, "UnitKN");
+        MxText = Pair(s.Mx, s.RecordedMx, "UnitKNm");
+        MyText = Pair(s.My, s.RecordedMy, "UnitKNm");
+
+        HasExtremes = true;
+        EpsMinText = $"{s.EpsMin:+0.00000;-0.00000}";
+        EpsMaxText = $"{s.EpsMax:+0.00000;-0.00000}";
+
+        foreach (var r in s.Rebar)
+            RebarRows.Add(new StrainSummaryVM.RebarRow(r.Num, (r.X * 1000).ToString("F1"), (r.Y * 1000).ToString("F1"),
+                $"{r.Eps:+0.00000;-0.00000}", $"{r.SigmaMpa:+0.0;-0.0}"));
+
+        var c = System.Globalization.CultureInfo.CurrentCulture;
+        RebarAreaNote = string.Format(c, Loc.S("FemCsfeaSectionNote"), s.CompressedHeight * 1000, s.EpsB, s.SigmaB, s.EpsS, s.SigmaS)
+                        + (s.Cracked ? " " + Loc.S("FemCsfeaSectionCracked") : "") + " " + Loc.S("FemCsfeaSectionAssumption");
     }
 }

@@ -258,6 +258,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         var analyses = schema.Analyses.Count > 0 ? schema.Analyses.ToList() : result.Id > 0 ? db.GetFemAnalyses(schema.Id) : [];
         _analysis = analyses.FirstOrDefault(a => a.ResultId == result.Id) ?? analyses.FirstOrDefault(a => a.Tag == result.TaskTag);
         var calc = _analysis != null ? Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).CalcType ?? CalcType.N : CalcType.C;
+        Calc = calc;
+        BeamTension = _analysis == null || Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).Csfea?.TensionConcrete != false;
         HasCrackWidths = FemCsfeaCrackWidths.Applies(calc);
         _longShare = FemCsfeaCrackWidths.DefaultLongShare(calc);
 
@@ -1835,6 +1837,20 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return new FemElementEndForces(elem, f[o], f[o + 1], f[o + 2], f[o + 3], f[o + 4], f[o + 5],
             f[o + 6], f[o + 7], f[o + 8], f[o + 9], f[o + 10], f[o + 11]);
     }
+
+    // ------------------------------------------------------------ НДС сечений
+
+    /// <summary>Вид расчёта постановки (диаграммы сечений результата).</summary>
+    public CalcType Calc { get; }
+
+    /// <summary>Работа растянутого бетона стержней до трещины (постановка; по умолчанию — да).</summary>
+    public bool BeamTension { get; }
+
+    /// <summary>На показанном шаге записаны деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>; у огибающих — нет).</summary>
+    public bool HasSectionStrains => _envelope == null && Fields?.HasStrains == true;
+
+    /// <summary>Индекс стержня в полях показанного шага; null — нет.</summary>
+    public int? BeamFieldIndex(int elem) => Fields != null && _beamIndex.TryGetValue(elem, out int i) ? i : null;
 
     // ------------------------------------------------------------ жёсткости КЭ
 

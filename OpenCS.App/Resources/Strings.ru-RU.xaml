@@ -3134,6 +3134,19 @@
     <system:String x:Key="FemCsfeaColEARatio">EA/EA₀</system:String>
     <system:String x:Key="FemCsfeaColEIyRatio">EIy/EIy₀</system:String>
     <system:String x:Key="FemCsfeaColEIzRatio">EIz/EIz₀</system:String>
+    <system:String x:Key="FemCsfeaSectionStateMenu">НДС сечения</system:String>
+    <system:String x:Key="FemCsfeaSectionPointI">В начале (i)</system:String>
+    <system:String x:Key="FemCsfeaSectionPointMid">В середине (½)</system:String>
+    <system:String x:Key="FemCsfeaSectionPointJ">В конце (j)</system:String>
+    <system:String x:Key="FemCsfeaSectionTitle">КЭ {0}, точка {1}</system:String>
+    <system:String x:Key="FemCsfeaSectionWindowTitle">НДС сечения — {0} · {1}</system:String>
+    <system:String x:Key="FemCsfeaSectionEquilibrium">Равновесие с записанными усилиями: расхождение {0} %</system:String>
+    <system:String x:Key="FemCsfeaSectionRecorded">записано {0}</system:String>
+    <system:String x:Key="FemCsfeaSectionNote">Высота сжатой зоны {0:0} мм; бетон εb = {1:0.00000}, σb = {2:0.0} МПа; арматура εs = {3:0.00000}, σs = {4:0.0} МПа.</system:String>
+    <system:String x:Key="FemCsfeaSectionCracked">В точке трещина — растянутый бетон не работает.</system:String>
+    <system:String x:Key="FemCsfeaSectionAssumption">Память трещин не записывается: трещина — там, где она есть в показанном состоянии, ψs не учитывается; при разгрузке и с ψs усилия отличаются от записанных. Секущая КЭ — по средней податливости трёх точек: у КЭ на границе трещин сечение точки мягче или жёстче среднего.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoStrains">В полях показанного шага нет деформаций сечений. Включите в постановке «Записывать деформации сечений» и пересчитайте.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoCross">У стержня нет сечения CScore — НДС сечения строится только для фибровых сечений.</system:String>
     <system:String x:Key="FemCsfeaRecordStepsEmpty">Не задано ни одного шага для записи: укажите номера шагов или отметьте «и концы стадий».</system:String>
     <system:String x:Key="FemCsfeaCreateForceSets">Шаг → наборы усилий</system:String>
     <system:String x:Key="FemCsfeaCreateForceSetsTip">Создать наборы усилий схемы (пластины и стержни) по полям этого шага — для проверок по КЭ. Доступно на шаге с записанными полями.</system:String>

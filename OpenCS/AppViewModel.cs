@@ -6344,6 +6344,50 @@ namespace OpenCS
          _femSectionStateWindow.Activate();
       }
 
+      /// <summary>
+      /// Окно «НДС сечения» стержня по результату CSfea (спека НДС сечений, п. 2.3): фибровое сечение КЭ по записанным
+      /// деформациям точки <paramref name="point"/> (0 — i, 1 — ½, 2 — j) на диаграммах вида расчёта постановки, мозаики
+      /// σ и ε, разрез и сводка с проверкой равновесия по записанным усилиям. Нужен блок деформаций сечений.
+      /// </summary>
+      public void OpenCsfeaBarSectionState(ViewModels.FemCsfeaResultVM vm, string elemTag, int point)
+      {
+         if (!vm.HasSectionStrains) { ShowSectionStateUnavailable("FemCsfeaSectionNoStrains"); return; }
+         if (!int.TryParse(elemTag, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int elem)
+             || vm.BeamFieldIndex(elem) is not int index) return;
+         var element = db.GetFemMeshElements(vm.Schema.Id).FirstOrDefault(e => e.ElemTag == elemTag);
+         var member = element?.SourceMemberTag is { } memberTag
+            ? db.GetFemMembers(vm.Schema.Id).FirstOrDefault(m => m.ElemTag == memberTag) : null;
+         var source = (element?.CrossSectionId ?? member?.CrossSectionId) is int id ? db.CrossSections.FirstOrDefault(s => s.Id == id) : null;
+         if (element == null || source == null) { ShowSectionStateUnavailable("FemCsfeaSectionNoCross"); return; }
+
+         // Сечение готовится как во входе расчёта (FemCsfeaInputBuilder): клон с материалами и диаграммами по умолчанию.
+         var section = source.CloneForCalc();
+         foreach (var area in section.Areas)
+            if (area.Material == null && db.Materials.FirstOrDefault(m => m.Id == area.MaterialId) is { } mat) area.Material = mat;
+         section.ResolveAndBuildDiagramms();
+         // Сечение своей схемы нарисовано осью Y по местной y стержня, импортное — осью X по Y1 (FemRcModelAdapter).
+         bool yAlongY = element.Origin != CScore.Fem.FemMember.MeshSourceImported;
+         var state = Services.FemCsfeaBarSectionState.Compute(section, vm.Calc, vm.BeamTension, yAlongY, vm.Fields!, index, point);
+
+         string pointLabel = point switch { 0 => "i", 2 => "j", _ => "½" };
+         string title = string.Format(Loc.S("FemCsfeaSectionTitle"), elemTag, pointLabel);
+         var summaryVm = new ViewModels.FemSectionSummaryVM(title, vm.CurrentStepLabel, state);
+         var cutVm = new ViewModels.SectionCutVM(section, state.Plane, vm.Calc, FileDialogService, state.Tension) { WindowTitleSuffix = title };
+         var stressVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Stress, CalcSettings, state.Tension);
+         var strainVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Strain, CalcSettings, state.Tension);
+         stressVm.CutVM = cutVm;
+         strainVm.CutVM = cutVm;
+         if (_femSectionStateWindow == null || !_femSectionStateWindow.IsVisible)
+         {
+            _femSectionStateWindow = new Views.FemSectionStateWindow { Owner = System.Windows.Application.Current.MainWindow };
+            _femSectionStateWindow.Closed += (_, _) => _femSectionStateWindow = null;
+            _femSectionStateWindow.Show();
+         }
+         _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, cutVm, CalcSettings,
+            string.Format(Loc.S("FemCsfeaSectionWindowTitle"), title, vm.CurrentStepLabel));
+         _femSectionStateWindow.Activate();
+      }
+
       /// <summary>Показывает предупреждение о недоступном состоянии сечения ТИ.</summary>
       void ShowSectionStateUnavailable(string key)
          => MessageBox.Show(Loc.S(key), Loc.S("Warning"),

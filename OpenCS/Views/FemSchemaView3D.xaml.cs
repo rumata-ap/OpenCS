@@ -587,6 +587,18 @@ public partial class FemSchemaView3D : UserControl
             menu.Items.Add(new Separator());
             menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, layer, app));
             if (csfea.IsBatch) menu.Items.Add(CsfeaBatchForceSetsItem(csfea, layer, app, selected: true));
+            // НДС сечения одного стержня: точка i, ½ или j (без записанных деформаций — пояснение по щелчку).
+            if (app != null && selection.Elements.Count == 1 && selection.Elements.First() is var barTag && layer.Mesh.IsBar(barTag))
+            {
+                var state = CommandIcons.Apply(new MenuItem { Header = Loc.S("FemCsfeaSectionStateMenu"), IsEnabled = !layer.IsEnvelope }, "FemResultMenuMemberSection");
+                foreach (var (point, key) in new[] { (0, "FemCsfeaSectionPointI"), (1, "FemCsfeaSectionPointMid"), (2, "FemCsfeaSectionPointJ") })
+                {
+                    var item = new MenuItem { Header = Loc.S(key) };
+                    item.Click += (_, _) => app.OpenCsfeaBarSectionState(csfea, barTag, point);
+                    state.Items.Add(item);
+                }
+                menu.Items.Add(state);
+            }
         }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
