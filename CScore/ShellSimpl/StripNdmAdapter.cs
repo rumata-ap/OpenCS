@@ -45,6 +45,12 @@ internal sealed class StripNdmAdapter
     public StripNdmUlsTable UlsTable(double zTop, double zBot) =>
         StripNdmDesign.UlsTable(_h, zTop, zBot, _concrete, _rebar, _lim);
 
+    /// <summary>Подбор ПС2 полосы (<see cref="StripNdmDesign.RequiredSls"/>) на диаграммах и параметрах трещин задачи.</summary>
+    public StripNdmDesignResult RequiredSls(double n, double m, double zTop, double zBot, double asCompression,
+        double acrcLimMm, double ds) =>
+        StripNdmDesign.RequiredSls(n, m, _h, zTop, zBot, asCompression, acrcLimMm, _concrete, _rebar,
+            ds, ds, _es, _phi1, _phi2, _sigmaSCrc);
+
     StripNdmSection Section(double zTop, double asTop, double zBot, double asBot) =>
         new(_h, [new StripNdmRow(zTop, asTop), new StripNdmRow(zBot, asBot)], _concrete, _rebar);
 
