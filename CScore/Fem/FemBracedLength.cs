@@ -105,6 +105,15 @@ public sealed class FemBracedLength
         }
     }
 
+    /// <summary>Цепочка соосных стержневых КЭ между раскреплениями, проходящая через КЭ; null — как у <see cref="BarLength"/>.</summary>
+    public IReadOnlyList<FemElement>? BarChain(FemElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (!_byTag.TryGetValue(element.ElemTag, out int index)) return null;
+        var (length, chain) = WalkBar(index);
+        return length == null ? null : chain.Select(i => _elements[i]).ToList();
+    }
+
     /// <summary>
     /// Вертикальная полоса стены, к которой относится КЭ; null — КЭ не пластина-стена или нет координат узлов.
     /// Ось X выдачи усилий — «узел 1 → узел 2», повёрнутая на <see cref="FemElement.LocalAxisAngleDeg"/>

@@ -28,6 +28,7 @@ public class RcBucklingAnalysisTests
         RunSingleElementColumn();
         RunReleasedSingleElement();
         RunBritvinFrame();
+        RunGoverning();
     }
 
     private static RcBeamSection Section(double a, double iy, double iz) =>
@@ -183,5 +184,51 @@ public class RcBucklingAnalysisTests
         TestHarness.Check("каждый стержень — 4 подэлемента", r.SubBeams.Values.All(v => v.Length == 4),
             $"стержней сетки {r.Build.BeamIds.Length}");
         TestHarness.CheckRel("P_cr", r.Lambda[0], 1.005e7, 5e-3);
+    }
+
+    /// <summary>
+    /// Определяющее сочетание по п. 10.3.2: две стойки (101 — сжимается загружением 1, 102 — загружением 2, 3 Н
+    /// вверх растягивают обе); сочетание с наибольшим сжатием — своё у каждой стойки; без сжатия — −1.
+    /// </summary>
+    private static void RunGoverning()
+    {
+        TestHarness.Section("Определяющие сочетания (п. 10.3.2)");
+        var s = Section(1e-2, 1e-4, 1e-4);
+        var m = new RcStructuralModel();
+        foreach (var (id, x, z) in new[] { (1, 0.0, 0.0), (2, 0.0, 3.0), (3, 5.0, 0.0), (4, 5.0, 3.0) })
+            m.Nodes.Add(new RcNode(id, x, 0, z));
+        m.Beams.Add(new RcBeam(101, 1, 2, s, new[] { 1.0, 0.0, 0.0 }));
+        m.Beams.Add(new RcBeam(102, 3, 4, s, new[] { 1.0, 0.0, 0.0 }));
+        foreach (int n in new[] { 1, 3 }) m.Supports.Add(new RcSupport(n, Fixed));
+        foreach (int n in new[] { 2, 4 }) m.Supports.Add(new RcSupport(n, 0b111011));
+        var lc1 = new RcLoadCase(1, "1");
+        lc1.Nodal.Add(new RcNodalLoad(2, new[] { 0.0, 0, -1, 0, 0, 0 }));
+        var lc2 = new RcLoadCase(2, "2");
+        lc2.Nodal.Add(new RcNodalLoad(4, new[] { 0.0, 0, -1, 0, 0, 0 }));
+        var lc3 = new RcLoadCase(3, "3");
+        lc3.Nodal.Add(new RcNodalLoad(2, new[] { 0.0, 0, 3, 0, 0, 0 }));
+        lc3.Nodal.Add(new RcNodalLoad(4, new[] { 0.0, 0, 3, 0, 0, 0 }));
+        m.LoadCases.AddRange([lc1, lc2, lc3]);
+
+        IReadOnlyList<int>[] units = [[101], [102]];
+        var model = RcBucklingAnalysis.Prepare(m, units);
+        IReadOnlyList<(int, double)>[] combinations =
+        [
+            [(1, 2.0), (2, 1.0)],              // 101: −2, 102: −1
+            [(1, 1.0), (2, 4.0), (3, 0.5)],    // 101: +0,5, 102: −2,5
+            [(3, 1.0)],                         // растяжение обеих
+        ];
+        var g = RcBucklingAnalysis.Governing(model, units, combinations);
+        TestHarness.Check("101 — сочетание 0", g[0].Combination == 0, $"{g[0]}");
+        TestHarness.CheckRel("101: N", g[0].N, -2.0, 1e-9);
+        TestHarness.Check("102 — сочетание 1", g[1].Combination == 1, $"{g[1]}");
+        TestHarness.CheckRel("102: N", g[1].N, -2.5, 1e-9);
+        var none = RcBucklingAnalysis.Governing(model, units, [combinations[2]]);
+        TestHarness.Check("без сжатия — −1", none.All(x => x.Combination == -1 && x.N == 0));
+
+        var r = RcBucklingAnalysis.Solve(model, combinations[1], new RcBucklingOptions(Modes: 1));
+        double lef = 0.5 * 3.0, pcr = Math.PI * Math.PI * E * 1e-4 / (lef * lef);
+        // 4 КЭ на форму заделка — заделка: ошибка дискретизации +0,75 % (ASCE, прил. A: ≥ 3 КЭ — < 1 %).
+        TestHarness.CheckRel("по сочетанию 1 теряет устойчивость 102: λ·2,5 = P_cr (заделка — заделка)", r.Lambda[0] * 2.5, pcr, 1e-2);
     }
 }

@@ -403,8 +403,7 @@ public sealed class StructuralMesh : IFeaMesh
         var b = Beams[i];
         var (t, l) = BeamElements.Beam3dT(BeamCoords(i), b.RefVec);
         var kl = BeamElements.Beam3dKLocal(b.Section, l);
-        var d = Dense.MatVec(t, Gather(u, BeamDofs(b)));
-        double axial = Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
+        double axial = BeamAxialForce(i, u);
         var kg = new double[12, 12];
         if (axial == 0.0) return kg;
         AddBeamKGeometric(kg, axial, l);
@@ -423,6 +422,20 @@ public sealed class StructuralMesh : IFeaMesh
             kg = Dense.MatMul(Dense.MatTMul(p, kg), p);
         }
         return Dense.MatMul(Dense.MatTMul(t, kg), t);
+    }
+
+    /// <summary>
+    /// Продольная сила стержня <paramref name="beam"/> (индекс в <see cref="Beams"/>) по линейной жёсткости при
+    /// перемещениях <paramref name="u"/>, растяжение — плюс: сила конца J по местной x без пролётных нагрузок, то есть
+    /// средняя по длине. По ней собирается K_σ (<see cref="ElementKGeometric"/>).
+    /// </summary>
+    public double BeamAxialForce(int beam, double[] u)
+    {
+        var b = Beams[beam];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(beam), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = Dense.MatVec(t, Gather(u, BeamDofs(b)));
+        return Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
     }
 
     /// <summary>

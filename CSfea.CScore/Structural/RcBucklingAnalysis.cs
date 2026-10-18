@@ -7,11 +7,41 @@ namespace CSfea.CScoreBridge.Structural;
 /// <param name="MinSubdivisions">Наименьшее число КЭ на расчётный элемент (КонЭ или цепочку) после дробления.</param>
 public sealed record RcBucklingOptions(int Modes = 20, int MinSubdivisions = 4);
 
-/// <summary>Результат расчёта устойчивости по сочетанию.</summary>
-public sealed class RcBucklingResult
+/// <summary>Модель устойчивости: сетка после дробления расчётных элементов (<see cref="RcBucklingAnalysis.Prepare"/>).</summary>
+public sealed class RcBucklingModel
 {
     /// <summary>Сетка модели после дробления (индексы стержней — <see cref="RcStructuralMeshBuild.BeamIds"/>).</summary>
     public required RcStructuralMeshBuild Build { get; init; }
+
+    /// <summary>Номер стержня исходной модели → индексы стержней сетки его подэлементов по порядку от I к J.</summary>
+    public required IReadOnlyDictionary<int, int[]> SubBeams { get; init; }
+
+    /// <summary>
+    /// Продольные силы подэлементов стержня <paramref name="beamId"/> исходной модели при перемещениях
+    /// <paramref name="u"/>, растяжение — плюс.
+    /// </summary>
+    public IEnumerable<double> Axial(int beamId, double[] u) =>
+        SubBeams[beamId].Select(i => Build.Mesh.BeamAxialForce(i, u));
+}
+
+/// <summary>
+/// Определяющее сочетание расчётного элемента по п. 10.3.2 СП 16: <paramref name="Combination"/> — индекс сочетания
+/// с наибольшим сжатием подэлементов элемента (−1 — сжатия нет ни в одном), <paramref name="N"/> — эта продольная
+/// сила (сжатие — минус).
+/// </summary>
+public sealed record RcBucklingGoverning(int Combination, double N);
+
+/// <summary>Результат расчёта устойчивости по сочетанию.</summary>
+public sealed class RcBucklingResult
+{
+    /// <summary>Модель устойчивости, по которой решена задача.</summary>
+    public required RcBucklingModel Model { get; init; }
+
+    /// <summary>Сетка модели после дробления (индексы стержней — <see cref="RcStructuralMeshBuild.BeamIds"/>).</summary>
+    public RcStructuralMeshBuild Build => Model.Build;
+
+    /// <summary>Номер стержня исходной модели → индексы стержней сетки его подэлементов по порядку от I к J.</summary>
+    public IReadOnlyDictionary<int, int[]> SubBeams => Model.SubBeams;
 
     /// <summary>Перемещения линейного расчёта по сочетанию (полные DOF сетки) — состояние, по которому собрана K_σ.</summary>
     public required double[] URef { get; init; }
@@ -21,9 +51,6 @@ public sealed class RcBucklingResult
 
     /// <summary>Формы (полные DOF сетки), наибольшая по модулю компонента — 1.</summary>
     public required double[][] Modes { get; init; }
-
-    /// <summary>Номер стержня исходной модели → индексы стержней сетки его подэлементов по порядку от I к J.</summary>
-    public required IReadOnlyDictionary<int, int[]> SubBeams { get; init; }
 
     /// <summary>Итерации подпространства сошлись.</summary>
     public bool Converged { get; init; }
@@ -47,19 +74,70 @@ public static class RcBucklingAnalysis
         CancellationToken ct = default)
     {
         options ??= new RcBucklingOptions();
+        return Solve(Prepare(model, units, options, sections), combination, options, ct);
+    }
+
+    /// <summary>Модель устойчивости: дробление расчётных элементов (<see cref="Run"/>) и сборка сетки.</summary>
+    public static RcBucklingModel Prepare(RcStructuralModel model, IEnumerable<IReadOnlyList<int>> units,
+        RcBucklingOptions? options = null, IRcSectionFactory? sections = null)
+    {
+        options ??= new RcBucklingOptions();
         var (sub, map) = Subdivide(model, Divisions(units, options.MinSubdivisions));
-        ct.ThrowIfCancellationRequested();
         var build = RcStructuralMeshBuilder.Build(sub, sections ?? new LinearRcSectionFactory());
         var beamIndex = new Dictionary<int, int>();
         for (int i = 0; i < build.BeamIds.Length; i++) beamIndex[build.BeamIds[i]] = i;
+        return new RcBucklingModel
+        {
+            Build = build, SubBeams = map.ToDictionary(p => p.Key, p => p.Value.Select(id => beamIndex[id]).ToArray()),
+        };
+    }
+
+    /// <summary>Линейный расчёт по сочетанию, K_σ от его усилий и задача устойчивости.</summary>
+    public static RcBucklingResult Solve(RcBucklingModel model, IReadOnlyList<(int LoadCase, double Factor)> combination,
+        RcBucklingOptions? options = null, CancellationToken ct = default)
+    {
+        options ??= new RcBucklingOptions();
+        var build = model.Build;
         var u = build.Mesh.SolveLinear(build.Combination(combination), build.Bc);
         ct.ThrowIfCancellationRequested();
         var r = build.Mesh.SolveBuckling(u, build.Bc, options.Modes);
-        return new RcBucklingResult
+        return new RcBucklingResult { Model = model, URef = u, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged };
+    }
+
+    /// <summary>
+    /// Определяющие сочетания расчётных элементов по п. 10.3.2 СП 16 (μ — по сочетанию с наибольшей продольной силой,
+    /// для всех сочетаний): загружения решаются одной факторизацией, продольные силы подэлементов сочетаний — суммой по
+    /// загружениям; у элемента — сочетание с наименьшей (наиболее сжимающей) силой его подэлементов.
+    /// </summary>
+    /// <returns>По элементу в порядке <paramref name="units"/>.</returns>
+    public static RcBucklingGoverning[] Governing(RcBucklingModel model, IReadOnlyList<IReadOnlyList<int>> units,
+        IReadOnlyList<IReadOnlyList<(int LoadCase, double Factor)>> combinations, CancellationToken ct = default)
+    {
+        var build = model.Build;
+        var caseIds = combinations.SelectMany(c => c.Select(t => t.LoadCase)).Distinct().ToArray();
+        var loads = caseIds.Select(id => build.Combination([(id, 1.0)])).ToList();
+        double[][] u = loads.Count == 0 ? [] : build.Mesh.SolveLinear(loads, build.Bc);
+        ct.ThrowIfCancellationRequested();
+        var column = new Dictionary<int, int>();
+        for (int k = 0; k < caseIds.Length; k++) column[caseIds[k]] = k;
+
+        var result = new RcBucklingGoverning[units.Count];
+        for (int i = 0; i < units.Count; i++)
         {
-            Build = build, URef = u, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged,
-            SubBeams = map.ToDictionary(p => p.Key, p => p.Value.Select(id => beamIndex[id]).ToArray()),
-        };
+            // Силы подэлементов по загружениям: [подэлемент][загружение].
+            var axial = units[i].SelectMany(id => model.SubBeams[id])
+                .Select(b => u.Select(uk => build.Mesh.BeamAxialForce(b, uk)).ToArray()).ToList();
+            int best = -1;
+            double nMin = 0;
+            for (int c = 0; c < combinations.Count; c++)
+                foreach (var forces in axial)
+                {
+                    double n = combinations[c].Sum(t => t.Factor * forces[column[t.LoadCase]]);
+                    if (n < nMin) (best, nMin) = (c, n);
+                }
+            result[i] = new RcBucklingGoverning(best, nMin);
+        }
+        return result;
     }
 
     /// <summary>
