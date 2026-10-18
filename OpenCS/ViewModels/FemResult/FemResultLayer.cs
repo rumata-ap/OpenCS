@@ -586,8 +586,8 @@ public sealed class FemResultLayer : ViewModelBase
         return unit == "" ? s : $"{s}, {Loc.S(unit)}";
     }
 
-    /// <summary>Итог по жёсткости стержней: min и max по точкам КЭ с номером КЭ.</summary>
-    public void UpdateBarStiffnessSummary(string label, IEnumerable<KeyValuePair<string, (double I, double M, double J)>> values) =>
+    /// <summary>Итог по величине стержней в точках i, ½, j (жёсткость, ширина раскрытия): min и max с номером КЭ.</summary>
+    public void UpdateBarPointSummary(string label, IEnumerable<KeyValuePair<string, (double I, double M, double J)>> values) =>
         BarSummaryText = MinMaxText(string.Format(Loc.S("FemResultBarsLabel"), label),
             values.SelectMany(kv => new[] { kv.Value.I, kv.Value.M, kv.Value.J }.Select(v => (kv.Key, v, "", v, ""))), AtElement);
 
@@ -636,8 +636,56 @@ public sealed class FemResultLayer : ViewModelBase
         }
     }
 
-    /// <summary>Показана ширина раскрытия трещин — в строке шага доля длительной части.</summary>
-    public bool IsCrackFieldShown => _shownCrackField != null;
+    bool _barCrackShown;
+    /// <summary>Показана ширина раскрытия трещин стержней (эпюры или мозаика своего списка).</summary>
+    public bool BarCrackShown
+    {
+        get => _barCrackShown;
+        set
+        {
+            if (_barCrackShown == value) return;
+            _barCrackShown = value;
+            OnPropertyChanged(nameof(IsCrackFieldShown));
+        }
+    }
+
+    /// <summary>Показана ширина раскрытия трещин (пластин или стержней) — в строке шага доля длительной части.</summary>
+    public bool IsCrackFieldShown => _shownCrackField != null || _barCrackShown;
+
+    /// <summary>
+    /// Ширина раскрытия стержней доступна: вид расчёта N или NL, есть стержни с усилиями; у огибающей — нет (не
+    /// огибается).
+    /// </summary>
+    public bool HasBarCrackWidths => Csfea is { HasCrackWidths: true, IsEnvelopeShown: false } && HasBarForces;
+
+    /// <summary>Значения готовы; false — досчитываются в фоне (по готовности — <see cref="Changed"/>).</summary>
+    public bool PrepareBarCracks() => Csfea?.PrepareBarCracks() ?? true;
+
+    /// <summary>
+    /// Ширина раскрытия стержня в точках i, ½, j, мм: продолжительная a_crc,1 или непродолжительная a_crc (точка без
+    /// значения при значениях в других — 0: изгиба нет); null — нет данных.
+    /// </summary>
+    public (double I, double M, double J)? BarCrack(string elemTag, bool shortTerm)
+    {
+        if (Csfea == null || !int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)
+            || Csfea.BarCrackWidth(n) is not { } w) return null;
+        var v = shortTerm ? w.Short : w.Long;
+        if (v.All(x => x == null)) return null;
+        return (v[0] ?? 0, v[1] ?? 0, v[2] ?? 0);
+    }
+
+    /// <summary>Подпись ширины раскрытия стержней: «a_crc,1, мм» или «a_crc, мм».</summary>
+    public static string BarCrackLabel(bool shortTerm) =>
+        $"{(shortTerm ? "a_crc" : "a_crc,1")}, {Loc.S("UnitMm")}";
+
+    /// <summary>Строки карточки стержня: ширина раскрытия в точках i · ½ · j (если посчитана для показанного шага).</summary>
+    void BarCrackRows(string tag, List<FemResultCardRow> rows)
+    {
+        if (!HasBarCrackWidths) return;
+        foreach (bool shortTerm in new[] { false, true })
+            if (BarCrack(tag, shortTerm) is { } v)
+                rows.Add(new(BarCrackLabel(shortTerm), $"{Num(v.I)} · {Num(v.M)} · {Num(v.J)}"));
+    }
 
     /// <summary>
     /// Штрихи линий трещин (пары точек) у пластин показанной мозаики ширины раскрытия — на положениях узлов слоя;
@@ -764,6 +812,7 @@ public sealed class FemResultLayer : ViewModelBase
                 if (ShellValue(tag, f.Value) is double v)
                     rows.Add(new(f.Label, f.Value == FemCsfeaShellField.State ? StateLabel(v) : Num(v)));
         StiffnessRows(tag, bar, rows);
+        if (bar) BarCrackRows(tag, rows);
         return new FemResultCard(string.Format(Loc.S(bar ? "FemResultCardBar" : "FemResultCardShell"), tag), rows);
     }
 

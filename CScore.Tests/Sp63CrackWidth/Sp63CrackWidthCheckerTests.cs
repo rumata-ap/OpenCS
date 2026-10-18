@@ -382,6 +382,38 @@ public class Sp63CrackWidthCheckerTests
     }
 
     [Fact]
+    public void LongAndShort_ExplicitLongLoad_UsesItsOwnForces()
+    {
+        // Длительная часть своим расчётом (пара NL пакета CSfea): не пропорциональна полной — N длительной другой.
+        const double b = 0.5, asT = 20.36e-4, asC = 20.36e-4, ds = 0.036, m = 90.0, n = 60.0, ml = 50.0, nl = 10.0;
+        var (section, concrete, rebar) = BuildSection(b, 0.3, asT, asC, ds);
+
+        var result = Sp63CrackWidthChecker.Check(section, new LoadItem { N = n, Mx = m },
+            CalcType.N, LongShortOptions(0.0), new LoadItem { N = nl, Mx = ml });
+
+        double acrc1 = Direct(ml, nl, 1.4, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        double acrc2 = Direct(m, n, 1.0, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        double acrc3 = Direct(ml, nl, 1.0, b, asT, asC, ds, concrete, rebar).Acrc_mm;
+        Assert.True(acrc1 > 0 && acrc3 > 0);
+        Assert.Equal(acrc1, result.Variables["acrc1"], 9);
+        Assert.Equal(acrc1 + acrc2 - acrc3, Assert.Single(result.Details, d => d.Formula == "(8.120)").Applied, 9);
+        Assert.Equal(ml, result.Variables["Ml"], 9);
+        Assert.Equal(nl, result.Variables["Nl"], 9);
+
+        // Доля и явная длительная часть, равная доле от полных, — одно и то же.
+        var byShare = Sp63CrackWidthChecker.Check(section, new LoadItem { N = n, Mx = m }, CalcType.N, LongShortOptions(0.6));
+        var byLoad = Sp63CrackWidthChecker.Check(section, new LoadItem { N = n, Mx = m }, CalcType.N, LongShortOptions(0.0),
+            new LoadItem { N = 0.6 * n, Mx = 0.6 * m });
+        Assert.Equal(byShare.Variables["acrc1"], byLoad.Variables["acrc1"], 12);
+        Assert.Equal(byShare.Details[1].Applied, byLoad.Details[1].Applied, 12);
+
+        // Длительный момент обратного знака — продолжительного раскрытия у растянутой полной нагрузкой грани нет.
+        var opposite = Sp63CrackWidthChecker.Check(section, new LoadItem { Mx = m }, CalcType.N, LongShortOptions(0.0),
+            new LoadItem { Mx = -ml });
+        Assert.Equal(0.0, opposite.Variables["acrc1"], 12);
+    }
+
+    [Fact]
     public void LongAndShort_FullShare_ShortEqualsLong()
     {
         // ψ = 1: acrc3 = acrc2, непродолжительное раскрытие совпадает с продолжительным.

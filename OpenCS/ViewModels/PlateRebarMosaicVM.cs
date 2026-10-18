@@ -183,17 +183,34 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// (усилия стержней, подобранная арматура стержней).</summary>
    public bool HasBarDiagrams => !ShellOnly && (SelectedComponent?.Component is BarForceComponent or BarRebarComponent
       || Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c && !FemCheckContext.IsPlate(c.Check)
-      || ResultBarForce != null || ResultBarStiffness != null);
+      || ResultBarForce != null || ResultBarStiffness != null || ResultBarCrack != null);
 
    /// <summary>
    /// Направление ординат эпюры на стержне, если его задаёт мозаика (усилия результата расчёта — по местным осям
-   /// расчёта; жёсткости — вдоль местной Ez); null — по плоскости <see cref="BarProfiles"/> (местные оси ЛИРЫ).
+   /// расчёта; жёсткости и ширина раскрытия — вдоль местной Ez); null — по плоскости <see cref="BarProfiles"/> (местные
+   /// оси ЛИРЫ).
    /// </summary>
    public System.Windows.Media.Media3D.Vector3D? BarDiagramAxis(string barTag) =>
       ActiveResult is not { } result ? null
       : ResultBarForce is { } c ? result.BarDiagramAxis(barTag, c)
-      : ResultBarStiffness != null ? result.BarDiagramAxis(barTag, FemForceComponent.N)
+      : ResultBarStiffness != null || ResultBarCrack != null ? result.BarDiagramAxis(barTag, FemForceComponent.N)
       : null;
+
+   // ------------------------------------------------------------ ширина раскрытия трещин стержней результата CSfea
+
+   /// <summary>Выбранная ширина раскрытия стержней своим списком; null — не выбрана.</summary>
+   public FemCsfeaBarCrack? ResultBarCrack =>
+      !ShellOnly && Kind == PlateRebarMosaicSourceKind.Analysis && ActiveResult != null
+      && _selectedBarComponent?.Component is FemCsfeaBarCrack c ? c : null;
+
+   /// <summary>Ширина раскрытия стержней показанного фрагмента в точках i, ½, j, мм (подсказка, раскраска).</summary>
+   readonly Dictionary<string, (double I, double M, double J)> _barCrackValues = new(StringComparer.Ordinal);
+
+   /// <summary>Ширина раскрытия стержней досчитывается в фоне — пометка в легенде.</summary>
+   bool _barComputing;
+
+   // Пункты ширины раскрытия стержней в списке построены (показан шаг вида N или NL, не огибающая).
+   bool _barCrackListed;
 
    // ------------------------------------------------------------ жёсткости КЭ результата CSfea
 
@@ -282,12 +299,15 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    {
       object? previous = _selectedBarComponent?.Component;
       bool stiffness = ActiveResult is { HasStiffness: true };
+      _barCrackListed = ActiveResult is { HasBarCrackWidths: true };
       BarComponentOptions = !ShellOnly && Kind == PlateRebarMosaicSourceKind.Analysis && ActiveResult is { HasBarForces: true }
          ? [new(NoBarForce, Loc.S("MosaicResultNoBarForce")),
             .. Enum.GetValues<FemForceComponent>().Select(c => new PlateRebarMosaicComponentOption(c,
                string.Format(Loc.S("MosaicResultBarForce"), c, FemResult.FemResultLayer.Unit(c)))),
             .. (stiffness ? FemCsfeaStiffnessValues.BarQuantities : []).Select(q => new PlateRebarMosaicComponentOption(q,
-               FemResult.FemResultLayer.StiffnessLabel(q, _stiffnessMode)))]
+               FemResult.FemResultLayer.StiffnessLabel(q, _stiffnessMode))),
+            .. (_barCrackListed ? Enum.GetValues<FemCsfeaBarCrack>() : []).Select(c => new PlateRebarMosaicComponentOption(c,
+               FemResult.FemResultLayer.BarCrackLabel(c == FemCsfeaBarCrack.Short)))]
          : [];
       _selectedBarComponent = BarComponentOptions.FirstOrDefault(o => Equals(o.Component, previous)) ?? BarComponentOptions.FirstOrDefault();
       OnPropertyChanged(nameof(BarComponentOptions));
@@ -321,6 +341,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    PlateRebarMosaicColoring WithResultBarColors(PlateRebarMosaicColoring coloring)
    {
       if (!ShowBarDiagrams && ResultBarStiffness != null && _barStiffnessValues.Count > 0) return WithBarStiffnessColors(coloring);
+      if (!ShowBarDiagrams && ResultBarCrack != null && _barCrackValues.Count > 0)
+         return WithBarPointColors(coloring, _barCrackValues.ToDictionary(kv => kv.Key,
+               kv => Math.Max(kv.Value.I, Math.Max(kv.Value.M, kv.Value.J)), StringComparer.Ordinal),
+            string.Format(Loc.S("MosaicResultBarCrackLegendTitle"), _selectedBarComponent!.Label));
       if (ShowBarDiagrams || ResultBarForce == null || _barForceValues.Count == 0)
       {
          SetBarLegend([], "");
@@ -355,6 +379,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       bool mean = BarStiffnessMean;
       var values = _barStiffnessValues.ToDictionary(kv => kv.Key, kv => FemCsfeaStiffnessValues.Aggregate(kv.Value, mean),
          StringComparer.Ordinal);
+      return WithBarPointColors(coloring, values, string.Format(Loc.S("MosaicResultBarStiffnessLegendTitle"), _selectedBarComponent!.Label,
+         Loc.S(mean ? "MosaicBarStiffnessMean" : "MosaicBarStiffnessMin")));
+   }
+
+   /// <summary>Мозаика стержней по значению КЭ своего списка: шкала последовательная, своя легенда.</summary>
+   PlateRebarMosaicColoring WithBarPointColors(PlateRebarMosaicColoring coloring, Dictionary<string, double> values, string title)
+   {
       double min = values.Values.Min(), max = values.Values.Max();
       var scale = PlateRebarMosaicScale.Auto(values.Values.ToList(), diverging: false);
       var colors = BandColors(scale, Palette.Rebar);
@@ -369,8 +400,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       var legend = new List<PlateRebarMosaicLegendItem>();
       for (int i = scale.Bands.Count - 1; i >= 0; i--)
          legend.Add(new(Freeze(colors[i]), BandLabel(scale.Bands[i], min, max), counts[i]));
-      SetBarLegend(legend, string.Format(Loc.S("MosaicResultBarStiffnessLegendTitle"), _selectedBarComponent!.Label,
-         Loc.S(mean ? "MosaicBarStiffnessMean" : "MosaicBarStiffnessMin")));
+      SetBarLegend(legend, title);
       return new PlateRebarMosaicColoring(byTag, coloring.Bars) { Both = true };
    }
 
@@ -379,11 +409,24 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    {
       _barForceValues.Clear();
       _barStiffnessValues.Clear();
+      _barCrackValues.Clear();
+      result.BarCrackShown = ResultBarCrack != null;
+      _barComputing = false;
       if (ResultBarStiffness is { } q)
       {
          foreach (string tag in barTags)
             if (result.BarStiffness(tag, q, _stiffnessMode) is { } v) _barStiffnessValues[tag] = v;
-         result.UpdateBarStiffnessSummary(_selectedBarComponent!.Label, _barStiffnessValues);
+         result.UpdateBarPointSummary(_selectedBarComponent!.Label, _barStiffnessValues);
+         return;
+      }
+      if (ResultBarCrack is { } crack)
+      {
+         // Считается в фоне вместе с пластинами (шаг и доля длительной части); по готовности — Changed слоя.
+         _barComputing = !result.PrepareBarCracks();
+         if (!_barComputing)
+            foreach (string tag in barTags)
+               if (result.BarCrack(tag, crack == FemCsfeaBarCrack.Short) is { } v) _barCrackValues[tag] = v;
+         result.UpdateBarPointSummary(_selectedBarComponent!.Label, _barCrackValues);
          return;
       }
       if (ResultBarForce is not { } force) { result.ClearBarSummary(); return; }
@@ -477,6 +520,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          // Жёсткости — в трёх точках Лобатто КЭ, ломаная между ними.
          foreach (string tag in barTags)
             if (shown.BarStiffness(tag, stiffness, _stiffnessMode) is { } v) result[tag] = [(0, v.I), (0.5, v.M), (1, v.J)];
+         return result;
+      }
+      if (ResultBarCrack != null)
+      {
+         // Ширина раскрытия — в точках i, ½, j (посчитана при построении мозаики), ломаная между ними.
+         foreach (string tag in barTags)
+            if (_barCrackValues.TryGetValue(tag, out var v)) result[tag] = [(0, v.I), (0.5, v.M), (1, v.J)];
          return result;
       }
       if (ResultBarForce is { } barForce && ActiveResult is { } layer)
@@ -1283,8 +1333,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             layer.Changed += () =>
             {
                if (!ReferenceEquals(ActiveResult, layer)) return;
-               // Огибающая ↔ шаг или вариант: пункты жёсткостей появляются и пропадают.
-               if (layer.HasStiffness != _stiffnessListed) RefreshComponents();
+               // Огибающая ↔ шаг или вариант: пункты жёсткостей и ширины раскрытия стержней появляются и пропадают.
+               if (layer.HasStiffness != _stiffnessListed || layer.HasBarCrackWidths != _barCrackListed) RefreshComponents();
                OnPropertyChanged(nameof(LegendTitle));
                RaiseChanged();
             };
@@ -1315,9 +1365,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    Field? BuildField(IEnumerable<string> shellTags, IEnumerable<string> barTags)
    {
       // Мозаику ширины раскрытия (штрихи трещин, доля длительной части) отмечает только её ветка ниже.
-      if (ActiveResult is { } shown) shown.ShownCrackField = null;
+      if (ActiveResult is { } shown) { shown.ShownCrackField = null; shown.BarCrackShown = false; }
       if (SelectedComponent is not { } comp) return null;
       _resultComputing = false;
+      _barComputing = false;
       switch (Kind)
       {
          case PlateRebarMosaicSourceKind.Forces when SelectedSubject?.Subject is ForceSet set:
@@ -1547,7 +1598,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             return $"{comp}\n{SelectedSource!.Label}\n{Loc.S("MosaicSpringsNote")}";
          case PlateRebarMosaicSourceKind.Analysis:
             return $"{comp}\n{SelectedSubject?.Label}\n{ActiveResult?.StepLabel}"
-                   + (_resultComputing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "");
+                   + (_resultComputing || _barComputing ? "\n" + Loc.S("FemCsfeaCrackComputing") : "");
          default:
             string unit = Equals(SelectedComponent.Component, PlateRebarMosaicComponent.Transverse) ? "" : Loc.S("PlateRebarMosaicUnit");
             string file = Kind switch
@@ -1580,7 +1631,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                ends.J.ToString("0.###", CultureInfo.CurrentCulture));
          return;
       }
-      if (ResultBarStiffness != null && _barStiffnessValues.TryGetValue(elemTag, out var k3))
+      if (ResultBarStiffness != null && _barStiffnessValues.TryGetValue(elemTag, out var k3)
+          || ResultBarCrack != null && _barCrackValues.TryGetValue(elemTag, out k3))
       {
          string N(double x) => x.ToString("0.###", CultureInfo.CurrentCulture);
          HoverText = $"{Loc.S("MosaicElement")} {elemTag}: {_selectedBarComponent!.Label} {N(k3.I)} · {N(k3.M)} · {N(k3.J)}";

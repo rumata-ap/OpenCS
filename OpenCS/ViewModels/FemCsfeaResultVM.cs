@@ -21,6 +21,9 @@ public enum FemCsfeaShellField
     FoundationPressure,
 }
 
+/// <summary>Ширина раскрытия трещин стержней: продолжительная a_crc,1 и непродолжительная a_crc.</summary>
+public enum FemCsfeaBarCrack { Long, Short }
+
 /// <summary>Пункт выпадающего списка: значение и подпись.</summary>
 public sealed record FemCsfeaOption<T>(T Value, string Label)
 {
@@ -2110,6 +2113,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     Dictionary<int, FemCsfeaCrackElement> _crackById = new();
     (int Step, double Share, int LongStep)? _crackKey, _crackPending;
     Dictionary<int, FemCsfeaCrackWidth>? _crackWidths;
+    List<FemCsfeaBarCrackElement>? _barCrackElements;
+    Dictionary<int, FemCsfeaBarCrackWidth>? _barCrackWidths;
     CancellationTokenSource? _crackCts;
 
     /// <summary>Мозаики ширины раскрытия доступны: вид расчёта постановки — N или NL.</summary>
@@ -2150,15 +2155,38 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (_crackKey == key && _crackWidths != null) return _crackWidths;
         if (_crackPending == key) return null;
         var elements = EnsureCrackElements();
+        var bars = EnsureBarCrackElements();
         _crackCts?.Cancel();
         _crackCts = new CancellationTokenSource();
         _crackPending = key;
         // Поля пары — из БД здесь (в UI-потоке), расчёт — в фоне.
         var longFields = source.LongStep > 0 ? LoadFields(source.LongStep) : null;
         if (source.LongStep > 0 && longFields == null) { _crackPending = null; return null; }
-        CrackWidthsTask = RunCrackWidthsAsync(key, elements, Fields, longFields, _crackCts.Token);
+        CrackWidthsTask = RunCrackWidthsAsync(key, elements, bars, Fields, longFields, _crackCts.Token);
         return null;
     }
+
+    /// <summary>ЖБ-стержни постановки с сечениями CScore (как <see cref="EnsureCrackElements"/>).</summary>
+    List<FemCsfeaBarCrackElement> EnsureBarCrackElements()
+    {
+        if (_barCrackElements != null) return _barCrackElements;
+        try { _barCrackElements = AdaptedModel() is { } adapted ? FemCsfeaBarCrackWidths.Elements(adapted) : []; }
+        catch (InvalidOperationException) { _barCrackElements = []; }
+        return _barCrackElements;
+    }
+
+    /// <summary>
+    /// Ширина раскрытия стержней показанного шага готова (true) или запущен фоновый расчёт (false; по готовности —
+    /// <see cref="CrackWidthsReady"/>). У огибающих ширина раскрытия стержней не огибается — значений нет.
+    /// </summary>
+    public bool PrepareBarCracks() => Fields == null || _envelope != null || CrackSource() == null || EnsureCrackWidths() != null;
+
+    /// <summary>
+    /// Ширина раскрытия стержня в точках i, ½, j на показанном шаге при текущей доле (см. <see cref="PrepareBarCracks"/>),
+    /// мм; null — нет данных (не ЖБ, проверка неприменима, огибающая или расчёт не готов).
+    /// </summary>
+    public FemCsfeaBarCrackWidth? BarCrackWidth(int elem) =>
+        _envelope == null && CurrentCrackWidths() != null && _barCrackWidths != null && _barCrackWidths.TryGetValue(elem, out var w) ? w : null;
 
     /// <summary>ЖБ-пластины постановки с сечениями; вход читается из БД — в вызывающем (UI) потоке, как при запуске расчёта.</summary>
     List<FemCsfeaCrackElement> EnsureCrackElements()
@@ -2220,20 +2248,23 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         return 0.5 * s.Length;
     }
 
-    async Task RunCrackWidthsAsync((int Step, double Share, int LongStep) key, List<FemCsfeaCrackElement> elements, RcSecantStepFields fields,
-        RcSecantStepFields? longFields, CancellationToken ct)
+    async Task RunCrackWidthsAsync((int Step, double Share, int LongStep) key, List<FemCsfeaCrackElement> elements,
+        List<FemCsfeaBarCrackElement> bars, RcSecantStepFields fields, RcSecantStepFields? longFields, CancellationToken ct)
     {
         Dictionary<int, FemCsfeaCrackWidth> widths;
+        Dictionary<int, FemCsfeaBarCrackWidth> barWidths;
         try
         {
-            widths = await Task.Run(() => longFields != null ? FemCsfeaCrackWidths.Compute(elements, fields, longFields, ct)
-                : FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), ct);
+            (widths, barWidths) = await Task.Run(() => longFields != null
+                ? (FemCsfeaCrackWidths.Compute(elements, fields, longFields, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, longFields, ct))
+                : (FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, key.Share, ct)), ct);
         }
         catch (OperationCanceledException) { return; }
         if (_crackPending != key) return;
         _crackPending = null;
         _crackKey = key;
         _crackWidths = widths;
+        _barCrackWidths = barWidths;
         CrackWidthsReady?.Invoke();
     }
 

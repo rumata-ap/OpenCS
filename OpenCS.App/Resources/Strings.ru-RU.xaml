@@ -3100,6 +3100,7 @@
     <system:String x:Key="FemResultCardStiffnessRatio"> (к начальной: {0})</system:String>
     <system:String x:Key="MosaicResultStiffness">Жёсткость — {0}</system:String>
     <system:String x:Key="MosaicResultBarStiffnessLegendTitle">Стержни: {0} ({1})</system:String>
+    <system:String x:Key="MosaicResultBarCrackLegendTitle">Стержни: {0} (наибольшая по длине; упрощённая проверка пп. 8.2.15, 8.2.16 СП 63, по плоскостям изгиба)</system:String>
     <system:String x:Key="MosaicBarStiffnessMin">наименьшее по длине</system:String>
     <system:String x:Key="MosaicBarStiffnessMean">среднее по длине</system:String>
     <system:String x:Key="MosaicStiffnessModeTip">Жёсткость КЭ: E₀ — начальная, E — секущая (состояние показанного шага), E/E₀ — их отношение. Пластины — в осях выдачи усилий: при угле оси выдачи к арматуре E1, E2, G — диагональ повёрнутой матрицы, а не модули ортотропии. Стержни — в точках i, ½, j.</system:String>

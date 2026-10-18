@@ -21,11 +21,17 @@ public static class Sp63CrackWidthChecker
     /// <param name="load">Нормальная сила и моменты в конвенции OpenCS (N: "+" — растяжение).</param>
     /// <param name="calc">Вид расчёта (вторая группа предельных состояний) для характеристик материалов.</param>
     /// <param name="options">Типизированные настройки формульного режима.</param>
+    /// <param name="longLoad">
+    /// Длительная часть усилий своим расчётом (режим LongAndShort): вместо доли
+    /// <see cref="Sp63CrackWidthOptions.LongTermShare"/> от полных; момент берётся по оси изгиба в сторону
+    /// растяжения полной нагрузки (обратный знак — 0).
+    /// </param>
     public static Sp63CrackWidthResult Check(
         CrossSection section,
         LoadItem load,
         CalcType calc,
-        Sp63CrackWidthOptions options)
+        Sp63CrackWidthOptions options,
+        LoadItem? longLoad = null)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(load);
@@ -70,6 +76,13 @@ public static class Sp63CrackWidthChecker
         double absMoment = Math.Abs(moment);
         bool full = options.Mode == Sp63CrackWidthMode.LongAndShort;
         double share = full ? options.LongTermShare : 0.0;
+        // Длительная часть (Ml, Nl): доля от полных или своим расчётом.
+        bool hasLong = full && (longLoad != null || share > 0.0);
+        double longMoment = longLoad == null ? share * absMoment
+            : Math.Max(0.0, tensionDirection * (options.Axis == Sp63NormalAxis.Mx ? longLoad.Mx : longLoad.My));
+        double longN = longLoad == null ? share * load.N : longLoad.N;
+        if (longLoad != null && !AreFinite(longLoad.N, longMoment))
+            return InvalidInput("non_finite_load", "Sp63CrackWidth_NonFiniteLoad", "8.2");
 
         // Одна составляющая acrc,i (п. 8.2.15) от момента m и силы n с коэффициентом φ1
         // общим solver'ом по ориентированному профилю.
@@ -84,10 +97,10 @@ public static class Sp63CrackWidthChecker
         CrackTerms Evaluate(Sp63SlsSectionGeometry g, bool opposite = false)
         {
             var main = Term(g, absMoment, load.N, full ? 1.0 : options.Phi1, opposite);
-            if (!full || share <= 0.0) return new CrackTerms(main, null, null, g);
+            if (!hasLong) return new CrackTerms(main, null, null, g);
             return new CrackTerms(main,
-                Term(g, share * absMoment, share * load.N, 1.4, opposite),
-                Term(g, share * absMoment, share * load.N, 1.0, opposite), g);
+                Term(g, longMoment, longN, 1.4, opposite),
+                Term(g, longMoment, longN, 1.0, opposite), g);
         }
 
         var terms = Evaluate(geometry!);
@@ -148,9 +161,9 @@ public static class Sp63CrackWidthChecker
         {
             double acrc1 = terms.Acrc1;
             double acrcShort = terms.ShortTotal;
-            variables["psiL"] = share;
-            variables["Ml"] = share * moment;
-            variables["Nl"] = share * load.N;
+            variables["psiL"] = longLoad == null ? share : longMoment / absMoment;
+            variables["Ml"] = tensionDirection * longMoment;
+            variables["Nl"] = longN;
             variables["sigma_s_l"] = (terms.Long?.SigmaS ?? 0.0) / 1000.0;
             variables["psi_s_l"] = terms.Long?.PsiS ?? 1.0;
             variables["acrc1"] = acrc1;
@@ -169,7 +182,7 @@ public static class Sp63CrackWidthChecker
                     Variables = new Dictionary<string, double>
                     {
                         ["acrc1"] = acrc1,
-                        ["Ml"] = share * moment,
+                        ["Ml"] = tensionDirection * longMoment,
                         ["sigma_s_l"] = variables["sigma_s_l"],
                         ["psi_s_l"] = variables["psi_s_l"],
                         ["phi1"] = 1.4
@@ -220,7 +233,7 @@ public static class Sp63CrackWidthChecker
         };
         if (terms.Long is { } longTerm)
             formation.Add(FormationCheck("Sp63CrackWidth_FormationLong",
-                share * absMoment, share * load.N, longTerm.Mcrc));
+                longMoment, longN, longTerm.Mcrc));
 
         var informational = new List<Sp63CrackWidthMessage>
         {
@@ -251,7 +264,7 @@ public static class Sp63CrackWidthChecker
                     Math.Abs(concreteChars.Fc), rebarChars.E,
                     concreteChars.Class, options.Humidity),
                 new Sp63CurvatureLoad(absMoment, load.N),
-                new Sp63CurvatureLoad(share * absMoment, share * load.N),
+                new Sp63CurvatureLoad(longMoment, longN),
                 strip.Cracked, mcrcFull, mcrcLong);
             if (curvature is null)
                 informational.Add(new Sp63CrackWidthMessage("curvature_not_computed",
