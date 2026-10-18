@@ -27,6 +27,12 @@ public sealed record NewtonStepTrace(int Step, int Iteration, double Residual, d
 /// </summary>
 public sealed record StructuralBucklingResult(double[] Lambda, double[][] Modes, int Iterations, bool Converged);
 
+/// <summary>
+/// Энергии стержня в форме потери устойчивости (<see cref="StructuralMesh.BeamEnergy"/>): U — изгиба, W — работа
+/// продольной силы; Xy — плоскость xy местных осей (изгиб вокруг z, EIz), Xz — плоскость xz (вокруг y, EIy).
+/// </summary>
+public sealed record BeamModeEnergy(double Uxy, double Wxy, double Uxz, double Wxz);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -436,6 +442,31 @@ public sealed class StructuralMesh : IFeaMesh
         var kl = BeamElements.Beam3dKLocal(b.Section, l);
         var d = Dense.MatVec(t, Gather(u, BeamDofs(b)));
         return Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
+    }
+
+    /// <summary>
+    /// Энергии стержня <paramref name="beam"/> в форме <paramref name="mode"/> (полные DOF) по плоскостям изгиба местных
+    /// осей: U = ½·dᵀ·K·d — изгиба, W = ½·dᵀ·(−K_σ)·d — работа продольной силы <paramref name="axial"/> (растяжение —
+    /// плюс, у сжатого W ≥ 0). d — местные перемещения концов, у шарниров освобождённые DOF восстановлены по сохранённым
+    /// (та же конденсация, что в <see cref="ElementKGeometric"/>). По всем КЭ формы Σ(U + энергии N и кручения) = λ·ΣW.
+    /// </summary>
+    public BeamModeEnergy BeamEnergy(int beam, double[] mode, double axial)
+    {
+        var b = Beams[beam];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(beam), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = BeamReleases.Recover(kl, b.Releases, Dense.MatVec(t, Gather(mode, BeamDofs(b))));
+        var kg = new double[12, 12];
+        AddBeamKGeometric(kg, -axial, l);
+        double Quad(double[,] k, int[] idx)
+        {
+            double s = 0;
+            foreach (int p in idx)
+                foreach (int q in idx) s += d[p] * k[p, q] * d[q];
+            return 0.5 * s;
+        }
+        int[] xy = [1, 5, 7, 11], xz = [2, 4, 8, 10];
+        return new BeamModeEnergy(Quad(kl, xy), Quad(kg, xy), Quad(kl, xz), Quad(kg, xz));
     }
 
     /// <summary>
