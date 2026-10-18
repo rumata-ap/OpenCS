@@ -1,33 +1,58 @@
-using System.Text;
+using System.Collections;
 
 namespace CScore.Import;
 
 /// <summary>
-/// Парсер бинарного формата расчётной схемы ЛираСАПР (.lir).
-/// Читает узлы (Block 1 + Block 2) и элементы (Block 4).
+/// Парсер бинарного формата расчётной схемы ЛираСАПР (.lir), версия 2013 (13.x).
 /// </summary>
+/// <remarks>
+/// <para>Формат изучен на эталонах <c>hostel.lir</c> (185 440 узлов / 200 769 КЭ) и
+/// <c>6-k1.lir</c> (118 634 узла / 129 971 КЭ), сверенным с живой ЛИРОЙ через COM.</para>
+/// <para>Структура файла:</para>
+/// <list type="bullet">
+///   <item><description>заголовок — три null-terminated строки («LIRA-SAPR …», кодовая страница, «Preview=…»
+///   и, для изменённых схем, «MetaData1=…»);</description></item>
+///   <item><description>узлы — записи по 48 байт, разбросанные блоками: <c>[i32 a][i32 b][i32 №−1][i32 flag]
+///   [double x][double y][double z][i32][i32]</c>. Внутри блока записи идут вплотную (шаг 48)
+///   с последовательными номерами, номер записан в самой записи — перенумерации при загрузке нет;</description></item>
+///   <item><description>элементы — записи по 38 байт вплотную: маркер 1, затем 2–4 номера узлов
+///   (0-based, 0 — признак отсутствия), остальное — нули. Два узла — стержень, три — треугольник,
+///   четыре — четырёхугольник.</description></item>
+/// </list>
+/// <para>Координаты читаются как <c>double</c> (в некоторых старых реализациях использовался
+/// ошибочный <c>float</c>).</para>
+/// </remarks>
 public static class LiraFileParser
 {
-    static readonly Encoding Cp1251;
+    /// <summary>Размер записи узла.</summary>
+    const int NodeRecordSize = 48;
 
-    static LiraFileParser()
-    {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        Cp1251 = Encoding.GetEncoding(1251);
-    }
+    /// <summary>Размер записи элемента.</summary>
+    const int ElementRecordSize = 38;
+
+    /// <summary>Минимальная длина цепочки узлов, за которой она считается реальным блоком.</summary>
+    const int MinNodeChain = 8;
+
+    /// <summary>Минимальная длина блока элементов (записей подряд с шагом 38).</summary>
+    const int MinElementBlock = 4;
+
+    /// <summary>Верхняя граница номера узла в файле (отсекает мусорные записи).</summary>
+    const int MaxNodeNumber = 5_000_000;
+
+    /// <summary>Предел модуля координаты (отсекает мусорные записи).</summary>
+    const double CoordLimit = 1e6;
 
     /// <summary>
     /// Читает .lir файл и возвращает контейнер сырых данных схемы.
-    /// Порядок блоков: Header → Metadata → Block 1 (2D) → Block 2 (3D) → Elements
     /// </summary>
     public static LiraSchemaData Parse(string filePath)
     {
         var bytes = File.ReadAllBytes(filePath);
         var data  = new LiraSchemaData();
-        var offset = SkipHeader(bytes);
-        SkipMetadata(bytes, ref offset);
-        ParseAllNodes(bytes, ref offset, data);
-        ParseElements(bytes, ref offset, data);
+
+        var nodeNumbers = ReadNodes(bytes, data);
+        ReadElements(bytes, nodeNumbers, data);
+
         return data;
     }
 
@@ -43,297 +68,231 @@ public static class LiraFileParser
         return offset;
     }
 
-    /// <summary>Пропускает блок метаданных (52 байта после заголовка).</summary>
+    /// <summary>Смещение первого блока данных (после заголовка и служебной области).</summary>
     internal static void SkipMetadata(byte[] bytes, ref int offset)
     {
         offset += 52;
     }
 
-    // ------------------------------------------------------------------ Block 1 (2D nodes)
+    // ------------------------------------------------------------------ Узлы
 
     /// <summary>
-    /// Определяет количество записей Block 1 (2D координаты).
-    /// Block 1: 28 байт/запись, маркер 0xE4 0xBC на смещении +23/+24.
+    /// Читает узлы схемы. Возвращает множество 0-based номеров узлов, пригодных для ссылок из элементов.
     /// </summary>
-    internal static int FindBlock1Count(byte[] bytes, int startOffset)
+    /// <remarks>
+    /// Записи узлов разбросаны по файлу блоками. Одиночные «похожие» записи (мусор при
+    /// сканировании произвольных байтов) отбрасываются: принимаются только цепочки длиной
+    /// не менее <see cref="MinNodeChain"/> записей с шагом ровно 48 байт.
+    /// </remarks>
+    static HashSet<int> ReadNodes(byte[] bytes, LiraSchemaData data)
     {
-        const int recordSize = 28;
-        int offset = startOffset;
-        int count = 0;
+        var picked = new Dictionary<int, (double X, double Y, double Z)>();
+        int last = bytes.Length - NodeRecordSize;
+        if (last < 0) return [];
 
-        while (offset + recordSize <= bytes.Length)
+        // 1. Битовая маска записей-кандидатов.
+        var good = new BitArray(last + 1);
+        for (int off = 0; off <= last; off++)
         {
-            if (bytes[offset + 22] == 0xE4 && bytes[offset + 23] == 0xBC)
+            int num  = BitConverter.ToInt32(bytes, off + 8);
+            int flag = BitConverter.ToInt32(bytes, off + 12);
+            if (num < 0 || num > MaxNodeNumber || flag < 0) continue;
+
+            double x = BitConverter.ToDouble(bytes, off + 16);
+            double y = BitConverter.ToDouble(bytes, off + 24);
+            double z = BitConverter.ToDouble(bytes, off + 32);
+            if (!IsPlausible(x) || !IsPlausible(y) || !IsPlausible(z)) continue;
+
+            good[off] = true;
+        }
+
+        // 2. Кандидаты — записи, у которых есть соседняя запись через 48 байт:
+        //    это отсекает случайные совпадения полей.
+        var offsets = new List<int>(1024);
+        for (int off = 0; off + NodeRecordSize <= last; off++)
+            if (good[off] && good[off + NodeRecordSize])
+                offsets.Add(off);
+
+        // 3. Индекс для переходов по цепочкам (начало — запись без предшественника).
+        var index = new Dictionary<int, int>(offsets.Count);
+        for (int i = 0; i < offsets.Count; i++) index[offsets[i]] = i;
+
+        var chain = new List<int>(256);
+        foreach (int start in offsets)
+        {
+            if (index.ContainsKey(start - NodeRecordSize)) continue;   // не начало цепочки
+
+            chain.Clear();
+            int cur = start;
+            int prevNum = BitConverter.ToInt32(bytes, start + 8);
+            while (index.TryGetValue(cur, out _))
             {
-                count++;
-                offset += recordSize;
+                int num = BitConverter.ToInt32(bytes, cur + 8);
+                // внутри блока номера идут подряд — это отсекает служебные структуры
+                if (chain.Count > 0 && num != prevNum + 1) break;
+                chain.Add(cur);
+                prevNum = num;
+                cur += NodeRecordSize;
             }
-            else
-                break;
-        }
 
-        return count;
-    }
+            if (chain.Count < MinNodeChain) continue;
 
-    // ------------------------------------------------------------------ Block 2 (3D nodes)
-
-    /// <summary>
-    /// Определяет начало Block 2 (3D координаты) и количество записей.
-    /// Block 2: 28 байт/запись, [double X][double Y][double Z][int32=1].
-    /// </summary>
-    internal static (int offset, int count) FindBlock2(byte[] bytes, int startOffset)
-    {
-        const int recordSize = 28;
-        int offset = startOffset;
-
-        // Пропускаем байт-разделители (0x00) между Block 1 и Block 2
-        while (offset < bytes.Length && bytes[offset] == 0x00)
-            offset++;
-
-        // Считаем записи Block 2 (int32=1 на смещении +24, координаты в разумных пределах)
-        int count = 0;
-        int scan = offset;
-        while (scan + recordSize <= bytes.Length)
-        {
-            var intVal = BitConverter.ToInt32(bytes, scan + 24);
-            if (intVal != 1) break;
-
-            var z = BitConverter.ToDouble(bytes, scan + 16);
-            if (z < -100 || z > 100) break;
-
-            count++;
-            scan += recordSize;
-        }
-
-        if (count == 0)
-            throw new InvalidOperationException("Block 2 (3D координаты) не найден в файле");
-
-        return (offset, count);
-    }
-
-    // ------------------------------------------------------------------ Combined nodes
-
-    /// <summary>
-    /// Читает все узлы: Block 1 (2D) + Block 2 (3D).
-    /// LIRA нумерация: N1..N11748 = Block 1 (swap осей), N11749..N185440 = Block 2.
-    /// </summary>
-    static void ParseAllNodes(byte[] bytes, ref int offset, LiraSchemaData data)
-    {
-        // Block 1: 2D координаты
-        int block1Count = FindBlock1Count(bytes, offset);
-        int block1Start = offset;
-
-        for (int i = 0; i < block1Count; i++)
-        {
-            int baseOff = block1Start + i * 28;
-            double y = BitConverter.ToDouble(bytes, baseOff);      // Block1.Y → LIRA.X
-            double z = BitConverter.ToDouble(bytes, baseOff + 8);  // Block1.Z → LIRA.Y
-
-            if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
-            if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
-
-            data.Nodes.Add(new LiraNodeRecord(
-                Id:      i + 1,
-                X:       y,
-                Y:       z,
-                Z:       0,
-                DofMask: 0
-            ));
-        }
-
-        offset = block1Start + block1Count * 28;
-
-        // Block 2: 3D координаты
-        var (block2Offset, block2Count) = FindBlock2(bytes, offset);
-        offset = block2Offset;
-
-        for (int i = 0; i < block2Count; i++)
-        {
-            int baseOff = offset + i * 28;
-            double x = BitConverter.ToDouble(bytes, baseOff);
-            double y = BitConverter.ToDouble(bytes, baseOff + 8);
-            double z = BitConverter.ToDouble(bytes, baseOff + 16);
-
-            if (double.IsNaN(x) || double.IsInfinity(x)) x = 0;
-            if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
-            if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
-
-            data.Nodes.Add(new LiraNodeRecord(
-                Id:      block1Count + i + 1,
-                X:       x,
-                Y:       y,
-                Z:       z,
-                DofMask: 0
-            ));
-        }
-
-        offset += block2Count * 28;
-    }
-
-    // ------------------------------------------------------------------ Elements
-
-    /// <summary>
-    /// Определяет начало блока элементов (Block 4).
-    /// Ищет 12 нулевых байт + uint32 маркер (0x10000..0x10003).
-    /// </summary>
-    internal static (int offset, int count) FindElementBlock(byte[] bytes, int searchStart)
-    {
-        int offset = searchStart;
-        const int subRecordSize = 38;
-
-        // Ищем начало: 12 нулевых байт + uint32 тип (0x10000..0x10003)
-        while (offset + subRecordSize <= bytes.Length)
-        {
-            bool allZero = true;
-            for (int i = 0; i < 12; i++)
+            // Цепочка из «нулевых» записей — это не узлы (служебные структуры с похожими полями).
+            int meaningful = 0;
+            foreach (int off in chain)
             {
-                if (bytes[offset + i] != 0) { allZero = false; break; }
+                double x = BitConverter.ToDouble(bytes, off + 16);
+                double y = BitConverter.ToDouble(bytes, off + 24);
+                double z = BitConverter.ToDouble(bytes, off + 32);
+                if (x != 0.0 || y != 0.0 || z != 0.0) meaningful++;
             }
-            if (allZero)
+            if (meaningful * 2 < chain.Count) continue;
+
+            foreach (int off in chain)
             {
-                var marker = BitConverter.ToUInt32(bytes, offset + 12);
-                if (marker >= 0x10000 && marker <= 0x10003)
+                int num = BitConverter.ToInt32(bytes, off + 8);
+                double x = BitConverter.ToDouble(bytes, off + 16);
+                double y = BitConverter.ToDouble(bytes, off + 24);
+                double z = BitConverter.ToDouble(bytes, off + 32);
+
+                // Номера могут встречаться и в служебных структурах; при коллизии
+                // предпочитаем запись с ненулевыми координатами.
+                if (picked.TryGetValue(num, out var old))
                 {
-                    // Определяем размер записи: проверяем 38 и 76 байт
-                    // 76-байтные записи содержат две подзаписи по 38 байт
-                    int recordSize = subRecordSize;
-                    if (offset + 76 <= bytes.Length)
-                    {
-                        bool secondSubHasMarker = true;
-                        for (int i = 0; i < 12; i++)
-                        {
-                            if (bytes[offset + 38 + i] != 0) { secondSubHasMarker = false; break; }
-                        }
-                        if (secondSubHasMarker)
-                        {
-                            var m2 = BitConverter.ToUInt32(bytes, offset + 38 + 12);
-                            if (m2 >= 0x10000 && m2 <= 0x10003)
-                                recordSize = 76;
-                        }
-                    }
-
-                    // Считаем количество записей
-                    int count = 0;
-                    int scan = offset;
-                    while (scan + recordSize <= bytes.Length)
-                    {
-                        bool recZero = true;
-                        for (int i = 0; i < 12; i++)
-                        {
-                            if (bytes[scan + i] != 0) { recZero = false; break; }
-                        }
-                        if (!recZero) break;
-                        var m = BitConverter.ToUInt32(bytes, scan + 12);
-                        if (m < 0x10000 || m > 0x10003) break;
-                        count++;
-                        scan += recordSize;
-                    }
-                    if (count > 0)
-                        return (offset, count);
+                    bool oldEmpty = old.X == 0.0 && old.Y == 0.0 && old.Z == 0.0;
+                    bool newEmpty = x == 0.0 && y == 0.0 && z == 0.0;
+                    if (!oldEmpty || newEmpty) continue;
                 }
-            }
-            offset += 4;
-        }
 
-        throw new InvalidOperationException("Блок элементов не найден в файле");
-    }
-
-    /// <summary>
-    /// Читает один элемент из подзаписи 38 байт.
-    /// Стержни: binary ID − 152026 = LIRA ID.
-    /// Пластины: binary ID = LIRA ID (без смещения).
-    /// </summary>
-    static void ParseOneElement(byte[] bytes, int baseOff, int elemIndex, LiraSchemaData data)
-    {
-        var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
-        int binType = (int)(marker & 0xFFFF);
-
-        // ID узлов — int32 на позициях +18, +22, +26, +30
-        var rawN1 = BitConverter.ToInt32(bytes, baseOff + 18);
-        var rawN2 = BitConverter.ToInt32(bytes, baseOff + 22);
-        var rawN3 = BitConverter.ToInt32(bytes, baseOff + 26);
-        var rawN4 = BitConverter.ToInt32(bytes, baseOff + 30);
-
-        int liraType = binType switch
-        {
-            0 => 10,   // стержень
-            1 => 42,   // треугольник
-            2 => 44,   // четырехугольник
-            _ => 0
-        };
-
-        if (liraType == 0) return;
-
-        // ID узлов 0-based, приводим к 1-based (как в LIRA)
-        int n1 = rawN1 + 1;
-        int n2 = rawN2 + 1;
-        int n3 = rawN3 + 1;
-        int n4 = rawN4 + 1;
-
-        int[] nodeIds = binType switch
-        {
-            0 => new[] { n1, n2 },
-            1 => new[] { n1, n2, n3 },
-            2 => new[] { n1, n2, n3, n4 },
-            _ => []
-        };
-
-        nodeIds = nodeIds.Where(id => id > 0).ToArray();
-        if (nodeIds.Length == 0) return;
-
-        data.Elements.Add(new LiraElementRecord(
-            Id:           elemIndex,
-            FeType:       liraType,
-            SectionCount: 1,
-            StiffnessId:  0,
-            NodeIds:      nodeIds
-        ));
-    }
-
-    /// <summary>
-    /// Читает элементы из Block 4.
-    /// Записи по 76 байт (две подзаписи по 38 байт), или по 38 байт.
-    /// ID узлов — 1-based LIRA ID.
-    /// </summary>
-    internal static void ParseElements(byte[] bytes, ref int offset, LiraSchemaData data)
-    {
-        var (blockOffset, count) = FindElementBlock(bytes, offset);
-        offset = blockOffset;
-
-        // Определяем размер записи
-        int recordSize = 38;
-        if (offset + 76 <= bytes.Length)
-        {
-            bool secondSubHasMarker = true;
-            for (int i = 0; i < 12; i++)
-            {
-                if (bytes[offset + 38 + i] != 0) { secondSubHasMarker = false; break; }
-            }
-            if (secondSubHasMarker)
-            {
-                var m2 = BitConverter.ToUInt32(bytes, offset + 38 + 12);
-                if (m2 >= 0x10000 && m2 <= 0x10003)
-                    recordSize = 76;
+                picked[num] = (x, y, z);
             }
         }
 
-        int elemIndex = 1;
+        // Реальные узлы образуют плотный диапазон номеров, начиная с 0; всё, что найдено
+        // за его пределами, — совпадения полей в других структурах файла. Граница ищется
+        // по кластерам тысячных долей диапазона (устойчиво к «дырам» в нумерации).
+        int limit = ClusterLimit(picked.Keys);
+
+        var result = new HashSet<int>(limit);
+        foreach (var (num, xyz) in picked)
+        {
+            if (num >= limit) continue;
+
+            result.Add(num);
+            data.Nodes.Add(new LiraNodeRecord(
+                Id:      num + 1,          // в файле номера 0-based, в ЛИРЕ 1-based
+                X:       Sanitize(xyz.X),
+                Y:       Sanitize(xyz.Y),
+                Z:       Sanitize(xyz.Z),
+                DofMask: 0
+            ));
+        }
+
+        data.Nodes.Sort((a, b) => a.Id.CompareTo(b.Id));
+        return result;
+    }
+
+    /// <summary>
+    /// Возвращает верхнюю границу (исключительно) реального диапазона номеров узлов:
+    /// это конец самого длинного кластера «тысячных долей», начинающегося с нуля.
+    /// Устойчиво к единичным пропускам в нумерации.
+    /// </summary>
+    static int ClusterLimit(Dictionary<int, (double X, double Y, double Z)>.KeyCollection numbers)
+    {
+        const int bucketSize = 1000;
+        int max = 0;
+        foreach (var n in numbers) if (n > max) max = n;
+        if (max == 0) return 0;
+
+        var used = new bool[max / bucketSize + 2];
+        foreach (var n in numbers) used[n / bucketSize] = true;
+
+        int b = 0;
+        while (b + 1 < used.Length && used[b + 1]) b++;   // кластер, начинающийся с нуля
+        return (b + 1) * bucketSize;
+    }
+
+    static bool IsPlausible(double v) =>
+        !double.IsNaN(v) && !double.IsInfinity(v) && Math.Abs(v) < CoordLimit;
+
+    static double Sanitize(double v) => IsPlausible(v) ? v : 0.0;
+
+    // ------------------------------------------------------------------ Элементы
+
+    /// <summary>
+    /// Читает элементы (стержни и оболочки). Записи идут блоками вплотную с шагом 38 байт;
+    /// принимаются только блоки длиной не менее <see cref="MinElementBlock"/> записей, у которых
+    /// все ссылки указывают на найденные узлы.
+    /// </summary>
+    static void ReadElements(byte[] bytes, HashSet<int> nodeNumbers, LiraSchemaData data)
+    {
+        if (nodeNumbers.Count == 0) return;
+
+        int last = bytes.Length - ElementRecordSize;
+        var block = new List<int[]>(256);
+        Span<int> refs = stackalloc int[4];
+
+        for (int off = 0; off <= last; off++)
+        {
+            if (BitConverter.ToInt32(bytes, off + 4) != 1) continue;
+
+            // Блок элементов: записи идут вплотную с шагом 38 байт.
+            block.Clear();
+            int cur = off;
+            while (cur <= last && BitConverter.ToInt32(bytes, cur + 4) == 1)
+            {
+                if (!TryReadElement(bytes, cur, nodeNumbers, ref refs, block)) break;
+                cur += ElementRecordSize;
+            }
+
+            if (block.Count >= MinElementBlock)
+                foreach (var ids in block)
+                {
+                    data.Elements.Add(new LiraElementRecord(
+                        Id:           data.Elements.Count + 1,
+                        FeType:       ids.Length switch { 2 => 10, 3 => 42, _ => 44 },
+                        SectionCount: 1,
+                        StiffnessId:  0,
+                        NodeIds:      ids
+                    ));
+                }
+
+            off = Math.Max(cur - 1, off);   // начало поиска — за следующей записью блока
+        }
+    }
+
+    /// <summary>
+    /// Читает запись элемента: маркер 1, затем 2–4 номера узлов (0-based, 0 — признак отсутствия).
+    /// Все номера должны указывать на найденные узлы.
+    /// </summary>
+    static bool TryReadElement(byte[] bytes, int off, HashSet<int> nodeNumbers, ref Span<int> refs, List<int[]> block)
+    {
+        int n1 = BitConverter.ToInt32(bytes, off + 8);
+        int n2 = BitConverter.ToInt32(bytes, off + 12);
+        int n3 = BitConverter.ToInt32(bytes, off + 16);
+        int n4 = BitConverter.ToInt32(bytes, off + 20);
+
+        int count = 0;
+        if (n1 != 0) count = 1;
+        if (n2 != 0) count = 2;
+        if (n3 != 0) count = 3;
+        if (n4 != 0) count = 4;
+        if (count < 2 || count > 4) return false;
+
+        refs[0] = n1; refs[1] = n2; refs[2] = n3; refs[3] = n4;
         for (int i = 0; i < count; i++)
-        {
-            int baseOff = offset + i * recordSize;
+            if (!nodeNumbers.Contains(refs[i])) return false;
 
-            if (recordSize == 76)
-            {
-                // Две подзаписи по 38 байт
-                ParseOneElement(bytes, baseOff, elemIndex++, data);
-                ParseOneElement(bytes, baseOff + 38, elemIndex++, data);
-            }
-            else
-            {
-                ParseOneElement(bytes, baseOff, elemIndex++, data);
-            }
-        }
+        // хвост записи (после номеров узлов) — преимущественно нули
+        int tailFrom = 8 + 4 * count;
+        int nonZero = 0;
+        for (int i = tailFrom; i < ElementRecordSize; i++)
+            if (bytes[off + i] != 0) nonZero++;
+        if (nonZero > 2) return false;
 
-        offset += count * recordSize;
+        var ids = new int[count];
+        for (int i = 0; i < count; i++) ids[i] = refs[i] + 1;   // 0-based → 1-based
+        block.Add(ids);
+        return true;
     }
 }
