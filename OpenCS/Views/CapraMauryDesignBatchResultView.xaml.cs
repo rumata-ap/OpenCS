@@ -12,7 +12,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-/// <summary>Результат пакетного подбора сеток Капри-Мори (<c>shell_simpl_capri_design_uls_batch</c>).</summary>
+/// <summary>Результат пакетного подбора сеток Капри-Мори (<c>shell_simpl_capri_design_uls_batch/sls_batch</c>).</summary>
 public partial class CapraMauryDesignBatchResultView : System.Windows.Controls.UserControl
 {
     readonly AppViewModel _app;
@@ -90,6 +90,7 @@ public sealed class CapraMauryDesignBatchResultVM : ViewModelBase
 {
     public string Title { get; }
     public string Summary { get; } = "";
+    public string ModelNote { get; } = Loc.S("CapriDesignModelNote");
     public Brush StatusBrush { get; }
     public ObservableCollection<CapraMauryDesignBatchRowVM> Rows { get; } = [];
     public ObservableCollection<CapraMauryDesignEnvelopeRowVM> Envelope { get; } = [];
@@ -105,6 +106,8 @@ public sealed class CapraMauryDesignBatchResultVM : ViewModelBase
             return;
         }
         var data = JsonSerializer.Deserialize<CapraMauryDesignBatchData>(result.DataJson) ?? new CapraMauryDesignBatchData();
+        if (data.Limit == "sls")
+            ModelNote = string.Format(CultureInfo.CurrentCulture, Loc.S("CapriDesignModelNoteSls"), data.AcrcLimMm);
         foreach (var r in data.Rows) Rows.Add(new CapraMauryDesignBatchRowVM { Source = r });
         foreach (var e in data.Envelope)
         {

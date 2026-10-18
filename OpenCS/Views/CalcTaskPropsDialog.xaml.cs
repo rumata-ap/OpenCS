@@ -910,10 +910,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch" || IsShellSimplDesign;
    /// <summary>Подбор сеток Капри-Мори: модель полосы — только НДМ, площади сечения не используются.</summary>
-   public bool IsShellSimplDesign => Kind is "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch";
+   public bool IsShellSimplDesign => Kind is "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch"
+        or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch";
    public bool ShowShellSimplStripModel => IsShellSimpl && !IsShellSimplDesign;
    public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls"
-        or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch";
+        or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch"
+        or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch";
    public bool IsShellSimplBatch => IsShellSimpl && Kind.EndsWith("_batch", StringComparison.Ordinal);
    public bool IsShellStrain      => Kind is "shell_strain_state" or "shell_strain_state_batch";
    public bool IsShellStrainBatch => Kind == "shell_strain_state_batch";
@@ -1950,6 +1952,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_wa_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch"), GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "shell_simpl_capri_sls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls"),    GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "shell_simpl_capri_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_simpl_capri_design_sls", Label = Loc.S("CalcTaskKind_shell_simpl_capri_design_sls"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_simpl_capri_design_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_design_sls_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "cracking",           Label = Loc.S("CalcTaskKind_cracking"),           GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "cracking_batch",     Label = Loc.S("CalcTaskKind_cracking_batch"),     GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },

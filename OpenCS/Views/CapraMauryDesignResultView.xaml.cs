@@ -10,7 +10,7 @@ using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
-/// <summary>Результат подбора сеток Капри-Мори по ПС1 (<c>shell_simpl_capri_design_uls</c>).</summary>
+/// <summary>Результат подбора сеток Капри-Мори по ПС1 или ПС2 (<c>shell_simpl_capri_design_uls/sls</c>).</summary>
 public partial class CapraMauryDesignResultView : System.Windows.Controls.UserControl
 {
     public CapraMauryDesignResultView(CalcResult result, CalcTask task)
@@ -18,6 +18,12 @@ public partial class CapraMauryDesignResultView : System.Windows.Controls.UserCo
         InitializeComponent();
         var vm = new CapraMauryDesignResultVM(result, task);
         DataContext = vm;
+        if (vm.IsSls)
+        {
+            // ПС2: вместо η полосы — a_crc при требуемых площадях, плюс отправная As_c из ПС1.
+            ValueColumn.Header = Loc.S("CapriDesignColAcrc");
+            AsCUlsColumn.Visibility = System.Windows.Visibility.Visible;
+        }
         TopCanvas.SetData(vm.TopPoints, vm.TopAsxValue, vm.TopAsyValue);
         BotCanvas.SetData(vm.BotPoints, vm.BotAsxValue, vm.BotAsyValue);
     }
@@ -34,6 +40,7 @@ public sealed class CapraMauryDesignFacetRow
     public string ProvBot { get; init; } = "";
     public string Status { get; init; } = "";
     public string Eta { get; init; } = "";
+    public string AsCUls { get; init; } = "";
     public bool IsActive { get; init; }
 }
 
@@ -43,6 +50,9 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
     const double Cm2 = 1e4;
 
     public string Title { get; }
+    /// <summary>Подбор по ПС2 (трещины).</summary>
+    public bool IsSls { get; }
+    public string ModelNote { get; } = Loc.S("CapriDesignModelNote");
     public string StatusText { get; }
     public Brush StatusBrush { get; }
     public string ForcesText { get; } = "";
@@ -80,6 +90,9 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
             f.GetProperty("mx").GetDouble(), f.GetProperty("my").GetDouble(), f.GetProperty("mxy").GetDouble());
 
         var d = doc.GetProperty("design");
+        IsSls = d.TryGetProperty("Limit", out var lim) && lim.GetString() == "sls";
+        if (IsSls)
+            ModelNote = string.Format(ci, Loc.S("CapriDesignModelNoteSls"), d.GetProperty("AcrcLimMm").GetDouble());
         var top = d.GetProperty("Top");
         var bot = d.GetProperty("Bottom");
         TopAsxValue = top.GetProperty("Asx").GetDouble() * Cm2;
@@ -105,7 +118,8 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
             bool aTop = topActive.Contains(theta), aBot = botActive.Contains(theta);
             TopPoints[i] = new CapraMauryDemandPoint(theta, reqTop, provTop, aTop);
             BotPoints[i] = new CapraMauryDemandPoint(theta, reqBot, provBot, aBot);
-            double eta = x.GetProperty("Eta").GetDouble();
+            double eta = x.GetProperty(IsSls ? "AcrcMm" : "Eta").GetDouble();
+            double asCUls = x.TryGetProperty("AsCUls", out var acu) ? acu.GetDouble() * Cm2 : 0.0;
             Facets.Add(new CapraMauryDesignFacetRow
             {
                 Theta = theta.ToString("0.##", ci),
@@ -115,6 +129,7 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
                 ReqBot = reqBot.ToString("F2", ci), ProvBot = provBot.ToString("F2", ci),
                 Status = StatusName(x.GetProperty("Status")),
                 Eta = eta >= 1e9 ? "∞" : eta.ToString("F3", ci),
+                AsCUls = asCUls.ToString("F2", ci),
                 IsActive = aTop || aBot,
             });
         }
@@ -123,7 +138,7 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
             Diagnostics.Add(s.GetString() ?? "");
 
         bool ok = Diagnostics.Count == 0;
-        StatusText = Loc.S(ok ? "CapriDesignOk" : "CapriDesignImpossible");
+        StatusText = Loc.S(ok ? "CapriDesignOk" : IsSls ? "CapriDesignImpossibleSls" : "CapriDesignImpossible");
         StatusBrush = ok ? OkBrush : FailBrush;
 
         static double[] Thetas(JsonElement mesh) =>

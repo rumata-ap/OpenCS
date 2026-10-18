@@ -10,7 +10,7 @@
             <TextBlock FontWeight="Bold" FontSize="13" Text="{Binding StatusText}" HorizontalAlignment="Center"/>
          </Border>
 
-         <TextBlock Text="{DynamicResource CapriDesignModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+         <TextBlock Text="{Binding ModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
          <GroupBox Header="{DynamicResource CapriDesignForces}" Margin="0,0,0,8">
             <TextBlock Margin="4" Text="{Binding ForcesText}"/>
@@ -90,7 +90,8 @@
                   <DataGridTextColumn Header="{DynamicResource CapriDesignColReqBot}" Binding="{Binding ReqBot}"/>
                   <DataGridTextColumn Header="{DynamicResource CapriDesignColProvBot}" Binding="{Binding ProvBot}"/>
                   <DataGridTextColumn Header="{DynamicResource CapriDesignColStatus}" Binding="{Binding Status}"/>
-                  <DataGridTextColumn Header="{DynamicResource CapriDesignColEta}" Binding="{Binding Eta}"/>
+                  <DataGridTextColumn x:Name="AsCUlsColumn" Header="{DynamicResource CapriDesignColAsCUls}" Binding="{Binding AsCUls}" Visibility="Collapsed"/>
+                  <DataGridTextColumn x:Name="ValueColumn" Header="{DynamicResource CapriDesignColEta}" Binding="{Binding Eta}"/>
                </DataGrid.Columns>
             </DataGrid>
          </GroupBox>

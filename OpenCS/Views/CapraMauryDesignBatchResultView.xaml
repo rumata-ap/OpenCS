@@ -7,7 +7,7 @@
          <Border CornerRadius="4" Padding="8,6" Margin="0,0,0,8" Background="{Binding StatusBrush}">
             <TextBlock FontWeight="Bold" Text="{Binding Summary}" HorizontalAlignment="Center"/>
          </Border>
-         <TextBlock Text="{DynamicResource CapriDesignModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+         <TextBlock Text="{Binding ModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
          <GroupBox Header="{DynamicResource CapriDesignEnvelope}" Margin="0,0,0,8">
             <DataGrid ItemsSource="{Binding Envelope}" AutoGenerateColumns="False" IsReadOnly="True"
                       RowHeaderWidth="0" HeadersVisibility="Column">

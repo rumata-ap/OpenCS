@@ -120,6 +120,62 @@ public sealed class CapraMauryDesignHandlerTests
     }
 
     [Fact]
+    public void SingleSls_DesignsForCrackWidth()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = Seed(path);
+            var task = new CalcTask
+            {
+                Id = 3, Kind = "shell_simpl_capri_design_sls", CalcType = CalcType.N, SectionId = 7,
+                ParamsJson = JsonSerializer.Serialize(new ShellSimplParams { Mx = 30.0, My = 10.0, Mxy = 8.0, AcrcLimMm = 0.2 }),
+            };
+            var result = new CapraMauryDesignSlsHandler().Run(task, null!, new LoadItem(), CalcSettings.Default,
+                new TaskRunContext { Database = database });
+
+            Assert.True(result.Status == "ok", $"status={result.Status}, data={result.DataJson}");
+            using var doc = JsonDocument.Parse(result.DataJson);
+            var design = doc.RootElement.GetProperty("design");
+            Assert.Equal("sls", design.GetProperty("Limit").GetString());
+            Assert.Equal(0.2, design.GetProperty("AcrcLimMm").GetDouble());
+            Assert.True(design.GetProperty("Top").GetProperty("Asx").GetDouble() > 0.0);
+            foreach (var f in design.GetProperty("Facets").EnumerateArray())
+                Assert.True(f.GetProperty("AcrcMm").GetDouble() <= 0.2 + 1e-9);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public void BatchSls_RowsAndEnvelope()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = Seed(path);
+            var task = new CalcTask
+            {
+                Id = 4, Kind = "shell_simpl_capri_design_sls_batch", CalcType = CalcType.N, SectionId = 7, ForceSetId = 9,
+                ParamsJson = JsonSerializer.Serialize(new ShellSimplParams { AcrcLimMm = 0.3 }),
+            };
+            var result = new CapraMauryDesignSlsBatchHandler().Run(task, null!, new LoadItem(), CalcSettings.Default,
+                new TaskRunContext { Database = database });
+
+            Assert.True(result.Status == "ok", $"status={result.Status}, data={result.DataJson}");
+            var data = JsonSerializer.Deserialize<CapraMauryDesignBatchData>(result.DataJson)!;
+            Assert.Equal("sls", data.Limit);
+            Assert.Equal(0.3, data.AcrcLimMm);
+            Assert.Equal(3, data.Feasible);
+
+            var plate = database.PlateSections.Single();
+            var ctx = CapraMauryDesignSolver.CreateSls(plate, database.Materials.First(m => m.Id == 1), database.Materials.First(m => m.Id == 2), 0.3);
+            var single = CapraMauryDesignSolver.DesignSls(ctx, 0, 0, 0, -25.0, 15.0, -12.0);
+            Assert.Equal(single.Bottom.Asx, data.Rows[1].BotAsx, 12);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Run_WithoutDatabase_ReturnsError()
     {
         var task = new CalcTask { Id = 1, Kind = "shell_simpl_capri_design_uls", CalcType = CalcType.C };
@@ -134,5 +190,10 @@ public sealed class CapraMauryDesignHandlerTests
         Assert.Contains("shell_simpl_capri_design_uls_batch", TaskRunner.KindList);
         Assert.Equal(OpenCS.ViewModels.CalcTaskGroups.Uls, OpenCS.ViewModels.CalcTaskGroups.Classify("shell_simpl_capri_design_uls_batch"));
         Assert.True(CalcTaskForceHelper.UsesDummyForceItem(new CalcTask { Kind = "shell_simpl_capri_design_uls" }));
+        Assert.Contains("shell_simpl_capri_design_sls", TaskRunner.KindList);
+        Assert.Contains("shell_simpl_capri_design_sls_batch", TaskRunner.KindList);
+        Assert.Equal(OpenCS.ViewModels.CalcTaskGroups.Sls, OpenCS.ViewModels.CalcTaskGroups.Classify("shell_simpl_capri_design_sls"));
+        Assert.Equal(OpenCS.ViewModels.CalcTaskGroups.Sls, OpenCS.ViewModels.CalcTaskGroups.Classify("shell_simpl_capri_design_sls_batch"));
+        Assert.True(CalcTaskForceHelper.UsesDummyForceItem(new CalcTask { Kind = "shell_simpl_capri_design_sls_batch" }));
     }
 }

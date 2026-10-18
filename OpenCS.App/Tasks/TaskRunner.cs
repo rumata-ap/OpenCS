@@ -38,6 +38,8 @@ namespace OpenCS.Tasks
           ["shell_simpl_capri_uls_batch"] = new ShellSimplCapriUlsBatchHandler(),
           ["shell_simpl_capri_design_uls"]       = new CapraMauryDesignUlsHandler(),
           ["shell_simpl_capri_design_uls_batch"] = new CapraMauryDesignUlsBatchHandler(),
+          ["shell_simpl_capri_design_sls"]       = new CapraMauryDesignSlsHandler(),
+          ["shell_simpl_capri_design_sls_batch"] = new CapraMauryDesignSlsBatchHandler(),
           ["shell_strain_state"]          = new ShellStrainHandler(),
           ["shell_strain_state_batch"]    = new ShellStrainBatchHandler(),
           ["shell_layered_uls"]          = new ShellLayeredUlsHandler(),

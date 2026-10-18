@@ -83,13 +83,13 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind == "shell_simpl_capri_design_uls")
+        if (task?.Kind is "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_sls")
         {
             Content = new CapraMauryDesignResultView(result, task);
             return;
         }
 
-        if (task?.Kind == "shell_simpl_capri_design_uls_batch")
+        if (task?.Kind is "shell_simpl_capri_design_uls_batch" or "shell_simpl_capri_design_sls_batch")
         {
             Content = new CapraMauryDesignBatchResultView(result, task, app);
             return;

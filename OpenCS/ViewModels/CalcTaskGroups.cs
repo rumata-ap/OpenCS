@@ -53,6 +53,7 @@ public static class CalcTaskGroups
 
         "shell_simpl_wa_sls"    or "shell_simpl_wa_sls_batch"
             or "shell_simpl_capri_sls" or "shell_simpl_capri_sls_batch"
+            or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch"
             or "shell_layered_sls" or "shell_layered_sls_batch"
             or "cracking" or "cracking_batch"
             or "crack_width" or "crack_width_batch"
