@@ -210,13 +210,14 @@ internal sealed class KffAssembler
     /// Числовая сборка K_ff по заданным матрицам КЭ единой нумерации (например, касательным K_T(u); все КЭ — без
     /// кэша постоянного вклада) и линейным пружинам ГУ. Матрицы КЭ должны быть симметричны, если K_ff идёт в Холецкий;
     /// <paramref name="elementMatrix"/> вызывается из нескольких потоков. Возвращаемая матрица — как у <see cref="Assemble"/>.
+    /// <paramref name="springs"/> = false — без пружин (например, геометрическая матрица K_σ).
     /// </summary>
-    public CscMatrix AssembleWith(Func<int, double[,]> elementMatrix, int maxDegreeOfParallelism)
+    public CscMatrix AssembleWith(Func<int, double[,]> elementMatrix, int maxDegreeOfParallelism, bool springs = true)
     {
         var po = new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism };
         Array.Clear(_values);
         AddElements(Enumerable.Range(0, _mesh.ElementCount).ToArray(), _values, po, elementMatrix);
-        AddSprings();
+        if (springs) AddSprings();
         return new CscMatrix(Free.Length, Free.Length, _colPtr, _rowIdx, _values);
     }
 

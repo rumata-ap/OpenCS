@@ -20,6 +20,13 @@ public sealed record NewtonSolveTimings(int Solves, int FIntCalls, double Tangen
 public sealed record NewtonStepTrace(int Step, int Iteration, double Residual, double Alpha, bool Accepted,
     double FirstTrial, double LastTrial, double StepNorm, string? Stop);
 
+/// <summary>
+/// Результат линейной задачи устойчивости <see cref="StructuralMesh.SolveBuckling"/>: наименьшие положительные
+/// коэффициенты нагрузки λ (по возрастанию) и формы (полные DOF, наибольшая по модулю компонента — 1). Массивы короче
+/// запрошенного числа форм, если положительных λ меньше (нет сжатия — пустые).
+/// </summary>
+public sealed record StructuralBucklingResult(double[] Lambda, double[][] Modes, int Iterations, bool Converged);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -378,6 +385,186 @@ public sealed class StructuralMesh : IFeaMesh
             LastSolveTimings = new LinearSolveTimings(tAssemble, _lastFactorSeconds, clock.Elapsed.TotalSeconds);
             return res;
         }
+    }
+
+    /// <summary>
+    /// Геометрическая матрица КЭ единой нумерации K_σ(N) (глобальные оси), линейная по усилиям КЭ при перемещениях
+    /// <paramref name="u"/>: оболочки — <see cref="ShellKGeometric"/>; стержни — K_σ с функциями Эрмита по продольной
+    /// силе КЭ (растяжение — плюс). У стержня с шарнирами — согласованная с конденсацией матрица Pᵀ·K_σ·P, где P —
+    /// восстановление освобождённых DOF по сохранённым (<see cref="BeamReleases.Recover"/>); в отличие от
+    /// <see cref="ElementKSecondOrder"/> она не зависит от N нелинейно — для линейной задачи устойчивости.
+    /// Освобождённый поворот исключается по K без K_σ, поэтому шарнир концевого КЭ даёт P_cr немного выше, чем
+    /// свободный поворот узла (2 КЭ на стержень — +0,6 %, 6 КЭ — 2·10⁻⁶); стержни для устойчивости дробятся.
+    /// </summary>
+    public double[,] ElementKGeometric(int e, double[] u, bool shellInPlane = true)
+    {
+        if (e < Shells.Count) return ShellKGeometric(e, u, shellInPlane);
+        int i = e - Shells.Count;
+        var b = Beams[i];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(i), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = Dense.MatVec(t, Gather(u, BeamDofs(b)));
+        double axial = Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
+        var kg = new double[12, 12];
+        if (axial == 0.0) return kg;
+        AddBeamKGeometric(kg, axial, l);
+        int mask = b.Releases;
+        if (mask != 0)
+        {
+            var p = new double[12, 12];
+            for (int c = 0; c < 12; c++)
+            {
+                if ((mask & (1 << c)) != 0) continue;
+                var unit = new double[12];
+                unit[c] = 1.0;
+                var col = BeamReleases.Recover(kl, mask, unit);
+                for (int r = 0; r < 12; r++) p[r, c] = col[r];
+            }
+            kg = Dense.MatMul(Dense.MatTMul(p, kg), p);
+        }
+        return Dense.MatMul(Dense.MatTMul(t, kg), t);
+    }
+
+    /// <summary>
+    /// Линейная задача устойчивости по недеформированной схеме: (K + λ·K_σ(N))·φ = 0, N — усилия КЭ при
+    /// перемещениях <paramref name="uRef"/> (обычно линейное решение под расчётным сочетанием). K — линейная жёсткость
+    /// с пружинами ГУ, положительно определённая; −K_σ знаконеопределена (растянутые КЭ). Ищутся
+    /// <paramref name="nModes"/> наименьших положительных λ — итерации подпространства с проекцией Рэлея–Ритца
+    /// (ν = 1/λ, наибольшие положительные ν задачи −K_σ·φ = ν·K·φ). Формы — полные (с ведомыми узлами), нормированы
+    /// на наибольшую по модулю компоненту перемещений.
+    /// </summary>
+    public StructuralBucklingResult SolveBuckling(double[] uRef, BoundaryConditions bc, int nModes = 1,
+        double tol = 1e-8, int maxIter = 300, bool shellInPlane = true)
+    {
+        if (nModes < 1) throw new ArgumentOutOfRangeException(nameof(nModes));
+        if (bc.HasNonlinearSprings)
+            throw new InvalidOperationException("SolveBuckling не поддерживает нелинейные пружины.");
+        if (bc.UFixed.Any(v => v != 0))
+            throw new NotSupportedException("SolveBuckling — только с нулевыми заданными перемещениями.");
+        var fixedSys = SysFixed(bc.FixedDofs);
+        lock (_cholGate)
+        {
+            var asm = Assembler(bc, fixedSys);
+            int nf = asm.Free.Length;
+            var chol = FactorizeCached(asm.Assemble(MaxDegreeOfParallelism));
+            if (!chol.LastFactorizationSpd)
+            {
+                string where = chol.FirstNonPositivePivot is int i and >= 0 && i < nf ? " — " + DescribeDof(asm.Free[i]) : "";
+                throw new InvalidOperationException($"Матрица жёсткости не положительно определена (механизм){where}.");
+            }
+            // −K_σ: сборщик делит массив значений со следующей сборкой — копия.
+            var kg = asm.AssembleWith(e => ElementKGeometric(e, uRef, shellInPlane), MaxDegreeOfParallelism, springs: false);
+            var bValues = Array.ConvertAll(kg.Values, v => -v);
+            var bMat = new CscMatrix(nf, nf, (int[])kg.ColPtr.Clone(), (int[])kg.RowIdx.Clone(), bValues);
+
+            var (nu, x, iterations, converged) = SubspaceIteration(chol, bMat, nf, nModes, tol, maxIter, MaxDegreeOfParallelism);
+
+            var lambdas = new List<double>();
+            var modes = new List<double[]>();
+            for (int k = 0; k < nu.Length && lambdas.Count < nModes; k++)
+            {
+                if (!(nu[k] > 0)) break;
+                var mode = Full(DirichletReducer.Expand(NSys, asm.Free, x[k], fixedSys, bc.UFixed));
+                double scale = Dense.MaxAbs(mode);
+                if (scale > 0) for (int j = 0; j < mode.Length; j++) mode[j] /= scale;
+                lambdas.Add(1.0 / nu[k]);
+                modes.Add(mode);
+            }
+            return new StructuralBucklingResult(lambdas.ToArray(), modes.ToArray(), iterations, converged);
+        }
+    }
+
+    // Итерации подпространства для −K_σ·x = ν·K·x: X̄ = K⁻¹·B·X, проекции K_r = X̄ᵀ·B·X (= X̄ᵀ·K·X̄), B_r = X̄ᵀ·B·X̄,
+    // K-ортонормированный базис проекции T (K_r = U·S·Uᵀ, T = U·S^−½ без почти нулевых S — ранг B бывает меньше
+    // размера подпространства), C = Tᵀ·B_r·T (Якоби), X = X̄·T·W. Сходимость — по ν первых nModes положительных значений.
+    private static (double[] Nu, double[][] X, int Iterations, bool Converged) SubspaceIteration(
+        SupernodalCholeskySolver chol, CscMatrix b, int n, int nModes, double tol, int maxIter, int maxDop)
+    {
+        int q = Math.Min(n, Math.Max(2 * nModes, nModes + 8));
+        var rng = new Random(20261018);
+        var x = new double[q][];
+        for (int j = 0; j < q; j++)
+        {
+            x[j] = new double[n];
+            for (int i = 0; i < n; i++) x[j][i] = rng.NextDouble() - 0.5;
+        }
+        var po = new ParallelOptions { MaxDegreeOfParallelism = maxDop };
+        double[] nuPrev = [];
+        var nu = new double[q];
+        for (int it = 1; it <= maxIter; it++)
+        {
+            q = x.Length;
+            var y = new double[q][];
+            var xb = new double[q][];
+            Parallel.For(0, q, po, j =>
+            {
+                y[j] = b.Multiply(x[j]);
+                xb[j] = chol.Solve(y[j]);
+            });
+            var by = new double[q][];
+            Parallel.For(0, q, po, j => by[j] = b.Multiply(xb[j]));
+            var kr = new double[q, q];
+            var br = new double[q, q];
+            for (int i = 0; i < q; i++)
+                for (int j = 0; j <= i; j++)
+                {
+                    kr[i, j] = kr[j, i] = 0.5 * (Dense.Dot(xb[i], y[j]) + Dense.Dot(xb[j], y[i]));
+                    br[i, j] = br[j, i] = 0.5 * (Dense.Dot(xb[i], by[j]) + Dense.Dot(xb[j], by[i]));
+                }
+            var t = KOrthonormalBasis(kr);
+            int r = t.GetLength(1);
+            if (r == 0) return ([], [], it, false);
+            var c = Dense.MatMul(Dense.MatTMul(t, br), t);
+            var (values, w) = SymmetricEigen.Jacobi(c);
+            var order = Enumerable.Range(0, r).OrderByDescending(k => values[k]).ToArray();
+            var z = Dense.MatMul(t, w);   // T·W, q×r
+            var xn = new double[r][];
+            Parallel.For(0, r, po, k =>
+            {
+                int col = order[k];
+                var v = new double[n];
+                for (int j = 0; j < q; j++)
+                {
+                    double zc = z[j, col];
+                    if (zc == 0.0) continue;
+                    var xj = xb[j];
+                    for (int i = 0; i < n; i++) v[i] += zc * xj[i];
+                }
+                xn[k] = v;
+            });
+            x = xn;
+            q = r;
+            nu = new double[r];
+            for (int k = 0; k < r; k++) nu[k] = values[order[k]];
+
+            int check = 0;
+            while (check < q && check < nModes && nu[check] > 0) check++;
+            bool converged = nuPrev.Length == q && check > 0;
+            for (int k = 0; converged && k < check; k++)
+                converged = Math.Abs(nu[k] - nuPrev[k]) <= tol * Math.Abs(nu[k]);
+            // Нет положительных ν — сжатия, способного вызвать потерю устойчивости, нет.
+            if (converged || (it >= 5 && check == 0))
+                return ((double[])nu.Clone(), x, it, converged);
+            nuPrev = (double[])nu.Clone();
+        }
+        return ((double[])nu.Clone(), x, maxIter, false);
+    }
+
+    // Базис T (q×r) с Tᵀ·K_r·T = I по собственным векторам K_r; направления с S ≤ 1e-10·max S (линейная зависимость
+    // столбцов X̄, ранг B меньше q) отбрасываются.
+    private static double[,] KOrthonormalBasis(double[,] kr)
+    {
+        int q = kr.GetLength(0);
+        var (s, u) = SymmetricEigen.Jacobi(kr);
+        double max = s.Length == 0 ? 0 : s.Max();
+        var keep = Enumerable.Range(0, q).Where(k => s[k] > 1e-10 * max && max > 0).ToArray();
+        var t = new double[q, keep.Length];
+        for (int c = 0; c < keep.Length; c++)
+        {
+            double f = 1.0 / Math.Sqrt(s[keep[c]]);
+            for (int i = 0; i < q; i++) t[i, c] = u[i, keep[c]] * f;
+        }
+        return t;
     }
 
     // Пачка матриц оболочек касательной: параллельный расчёт, раскладка в COO по порядку.
