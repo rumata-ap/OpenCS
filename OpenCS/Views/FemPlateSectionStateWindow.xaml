@@ -1,0 +1,57 @@
+<Window x:Class="OpenCS.Views.FemPlateSectionStateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        MinWidth="760" MinHeight="520"
+        Width="980" Height="700"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <TabControl>
+        <TabItem Header="{DynamicResource ResultTabSummary}">
+            <DockPanel Margin="8">
+                <TextBlock x:Name="TitleText" DockPanel.Dock="Top" FontWeight="Bold" FontSize="14"/>
+                <TextBlock x:Name="StepText" DockPanel.Dock="Top" Foreground="DimGray" Margin="0,2,0,6"/>
+                <TextBlock x:Name="StatusText" DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBox x:Name="NoteText" DockPanel.Dock="Bottom" IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                         TextWrapping="Wrap" Margin="0,8,0,0"/>
+                <DataGrid x:Name="ForceGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                          CanUserSortColumns="False" HorizontalAlignment="Left">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColComponent}" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColLayers}" Binding="{Binding Value}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColRecorded}" Binding="{Binding Recorded}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColStrain}" Binding="{Binding Strain}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </TabItem>
+        <TabItem Header="{DynamicResource ResultTabStrain}">
+            <UniformGrid Columns="3" Margin="4">
+                <h:ThroughThicknessCanvas x:Name="EpsX" Margin="2"/>
+                <h:ThroughThicknessCanvas x:Name="EpsY" Margin="2"/>
+                <h:ThroughThicknessCanvas x:Name="EpsDir" Margin="2"/>
+            </UniformGrid>
+        </TabItem>
+        <TabItem Header="{DynamicResource ResultTabStress}">
+            <UniformGrid Columns="3" Margin="4">
+                <h:ThroughThicknessCanvas x:Name="SigX" Margin="2"/>
+                <h:ThroughThicknessCanvas x:Name="SigY" Margin="2"/>
+                <h:ThroughThicknessCanvas x:Name="SigDir" Margin="2"/>
+            </UniformGrid>
+        </TabItem>
+        <TabItem Header="{DynamicResource FemCsfeaPlateRebarTab}">
+            <DataGrid x:Name="RebarGrid" Margin="8" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                      CanUserSortColumns="False" HorizontalAlignment="Left">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColLayer}" Binding="{Binding Layer}"/>
+                    <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColDirection}" Binding="{Binding Direction}"/>
+                    <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColZ}" Binding="{Binding Z}"/>
+                    <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColArea}" Binding="{Binding Area}"/>
+                    <DataGridTextColumn Header="ε" Binding="{Binding Eps}"/>
+                    <DataGridTextColumn Header="{DynamicResource FemCsfeaPlateColSigma}" Binding="{Binding Sigma}"/>
+                    <DataGridTextColumn Header="ψs" Binding="{Binding Psi}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </TabItem>
+    </TabControl>
+</Window>

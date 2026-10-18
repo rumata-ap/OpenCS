@@ -400,7 +400,7 @@ public sealed class RcSecantFieldExtractor
     }
 
     /// <summary>Деформации (εx, εy, γxy) или кривизны (κx, κy, κxy; сдвиговые — инженерные) в повёрнутых осях.</summary>
-    internal static double[] RotateStrains(double[] e, double angleDeg)
+    public static double[] RotateStrains(double[] e, double angleDeg)
     {
         if (angleDeg == 0) return [e[0], e[1], e[2]];
         double a = angleDeg * Math.PI / 180.0, c = Math.Cos(a), s = Math.Sin(a);

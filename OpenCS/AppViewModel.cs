@@ -6388,6 +6388,41 @@ namespace OpenCS
          _femSectionStateWindow.Activate();
       }
 
+      Views.FemPlateSectionStateWindow? _femPlateSectionStateWindow;
+
+      /// <summary>
+      /// Окно «НДС сечения» пластины по результату CSfea (спека НДС сечений, п. 2.3): слоистое сечение КЭ постановки
+      /// (по текущему состоянию проекта, как при запуске расчёта) по записанным деформациям центра — эпюры ε и σ по
+      /// толщине, арматура по слоям, трещины, ψs, равновесие с записанными усилиями. Нужен блок деформаций сечений.
+      /// </summary>
+      public void OpenCsfeaPlateSectionState(ViewModels.FemCsfeaResultVM vm, string elemTag)
+      {
+         if (!vm.HasSectionStrains) { ShowSectionStateUnavailable("FemCsfeaSectionNoStrains"); return; }
+         if (!int.TryParse(elemTag, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int elem)
+             || vm.ShellFieldIndex(elem) is not int index) return;
+         var shell = vm.AdaptedModel()?.Model.Shells.FirstOrDefault(s => s.Id == elem);
+         if (shell?.Section is not { Plate: { } plate, PlateMaterials: { } materials }) { ShowSectionStateUnavailable("FemCsfeaPlateNoSection"); return; }
+
+         // Сечение — как в фабрике секущего расчёта (SecantRcSectionFactory): клон с работой бетона на растяжение и ν постановки.
+         var p = vm.CsfeaParams;
+         var section = plate.CloneForCalc();
+         if (p.TensionConcrete is bool t) section.TensionConcrete = t;
+         if (p.PoissonUncracked is double nu) section.PoissonUncracked = nu;
+         double angle = vm.AdaptedModel()!.ShellForceAngles.GetValueOrDefault(elem);
+         var state = Services.FemCsfeaPlateSectionState.Compute(section, materials, p.Psi, p.PlateCrackRule, angle, vm.Fields!, index);
+
+         string title = string.Format(Loc.S("FemCsfeaPlateSectionTitle"), elemTag);
+         if (_femPlateSectionStateWindow == null || !_femPlateSectionStateWindow.IsVisible)
+         {
+            _femPlateSectionStateWindow = new Views.FemPlateSectionStateWindow { Owner = System.Windows.Application.Current.MainWindow };
+            _femPlateSectionStateWindow.Closed += (_, _) => _femPlateSectionStateWindow = null;
+            _femPlateSectionStateWindow.Show();
+         }
+         _femPlateSectionStateWindow.ShowContent(state, title, vm.CurrentStepLabel,
+            string.Format(Loc.S("FemCsfeaSectionWindowTitle"), title, vm.CurrentStepLabel));
+         _femPlateSectionStateWindow.Activate();
+      }
+
       /// <summary>Показывает предупреждение о недоступном состоянии сечения ТИ.</summary>
       void ShowSectionStateUnavailable(string key)
          => MessageBox.Show(Loc.S(key), Loc.S("Warning"),

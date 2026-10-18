@@ -1852,6 +1852,30 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Индекс стержня в полях показанного шага; null — нет.</summary>
     public int? BeamFieldIndex(int elem) => Fields != null && _beamIndex.TryGetValue(elem, out int i) ? i : null;
 
+    /// <summary>Индекс пластины в полях показанного шага; null — нет.</summary>
+    public int? ShellFieldIndex(int elem) => Fields != null && _shellIndex.TryGetValue(elem, out int i) ? i : null;
+
+    /// <summary>Параметры CSfea постановки (нет постановки или параметров — по умолчанию).</summary>
+    public Tasks.FemCsfeaParams CsfeaParams =>
+        (_analysis != null ? Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).Csfea : null) ?? new Tasks.FemCsfeaParams();
+
+    FemRcModelResult? _adapted;
+    bool _adaptedBuilt;
+
+    /// <summary>
+    /// Модель CSfea постановки по текущему состоянию проекта (сечения пластин, углы осей выдачи) — как при запуске
+    /// расчёта; вход читается из БД — вызывать в UI-потоке. null — постановки нет или вход не собрался.
+    /// </summary>
+    public FemRcModelResult? AdaptedModel()
+    {
+        if (_adaptedBuilt) return _adapted;
+        _adaptedBuilt = true;
+        if (_analysis == null) return null;
+        try { _adapted = FemRcModelAdapter.Adapt(FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis))); }
+        catch (InvalidOperationException) { _adapted = null; }
+        return _adapted;
+    }
+
     // ------------------------------------------------------------ жёсткости КЭ
 
     /// <summary>
@@ -2140,11 +2164,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     List<FemCsfeaCrackElement> EnsureCrackElements()
     {
         if (_crackElements != null) return _crackElements;
-        try
-        {
-            var input = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis!));
-            _crackElements = FemCsfeaCrackWidths.Elements(FemRcModelAdapter.Adapt(input), _db.Materials);
-        }
+        try { _crackElements = AdaptedModel() is { } adapted ? FemCsfeaCrackWidths.Elements(adapted, _db.Materials) : []; }
         catch (InvalidOperationException) { _crackElements = []; }
         _crackById = _crackElements.ToDictionary(e => e.Id);
         return _crackElements;

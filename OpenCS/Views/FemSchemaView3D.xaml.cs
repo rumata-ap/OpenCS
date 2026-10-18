@@ -599,6 +599,13 @@ public partial class FemSchemaView3D : UserControl
                 }
                 menu.Items.Add(state);
             }
+            // НДС сечения одной пластины — в центре КЭ.
+            else if (app != null && selection.Elements.Count == 1 && selection.Elements.First() is var plateTag)
+            {
+                var state = CommandIcons.Apply(new MenuItem { Header = Loc.S("FemCsfeaSectionStateMenu"), IsEnabled = !layer.IsEnvelope }, "FemResultMenuMemberSection");
+                state.Click += (_, _) => app.OpenCsfeaPlateSectionState(csfea, plateTag);
+                menu.Items.Add(state);
+            }
         }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
