@@ -219,6 +219,12 @@ public sealed record SecantProgress(int Stage, int StageCount, string StageName,
     double LoadFactor, bool IsRefinement, int Iteration, double DuRel, double DStiffness, int Cracked, int Yielded,
     int Failed, bool StepDone, double Fraction);
 
+/// <summary>
+/// Секущие матрицы КЭ сошедшейся итерации (<see cref="SecantPicardSolver.SolvedMatrices"/>): оболочки — ABD и As в осях
+/// сечения, стержни — матрица КЭ и сдвиговые жёсткости; null — КЭ без секущего состояния.
+/// </summary>
+public sealed record SecantSolvedMatrices(ShellTangent?[] Shells, double[,]?[] Beams, BeamShearStiffness?[] BeamShear);
+
 /// <summary>Итог секущего расчёта.</summary>
 public sealed class SecantPicardResult
 {
@@ -251,6 +257,12 @@ public sealed class SecantPicardResult
 /// </summary>
 public sealed class SecantPicardSolver
 {
+    /// <summary>
+    /// Секущие матрицы КЭ, на которых решено u последнего сошедшегося шага (до обновления жёсткостей по этому u);
+    /// null — сошедшихся шагов нет. Индексы — КЭ сетки, null — КЭ без секущего состояния.
+    /// </summary>
+    public SecantSolvedMatrices? SolvedMatrices { get; private set; }
+
     private readonly StructuralMesh _mesh;
     private readonly BoundaryConditions _bc;
     private readonly ISecantShellState?[] _shells;
@@ -507,6 +519,11 @@ public sealed class SecantPicardSolver
                 $"текучесть {yielded}, отказ {failed}; max ΔW — {worst}; решение {tSolve:0.0} с{SolveDetail()}, сечения {tEval:0.0} с" +
                 EvalDetail());
 
+            // Матрицы, на которых решено u сошедшейся итерации (до обновления — Relax заменяет объекты матриц, массивы
+            // не меняются): K·u = f точно, по ним линейный расчёт на замороженных жёсткостях воспроизводит состояние.
+            if (converged)
+                SolvedMatrices = new SecantSolvedMatrices(_shells.Select(s => s?.Response.Matrix).ToArray(),
+                    _beams.Select(b => b?.Response.Matrix).ToArray(), _beams.Select(b => b?.Response.Shear).ToArray());
             Relax(shellTargets, beamT, beamShearT, applied);
             if (converged)
             {

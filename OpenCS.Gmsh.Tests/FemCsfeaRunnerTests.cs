@@ -214,6 +214,76 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         });
     }
 
+    /// <summary>
+    /// Инженерная нелинейность (срез 2): секущий q + q2 → линейный по загружениям q и q2 на жёсткостях его конечного
+    /// состояния — комбинация q + q2 воспроизводит перемещения секущего (самопроверка), жёсткости полей — секущие
+    /// источника при упругих начальных; e_min = 0,9 — предел срабатывает, расхождение ожидаемо; источник пересчитан —
+    /// ошибка с подсказкой; результат источника сброшен — ошибка «не найден».
+    /// </summary>
+    [Fact]
+    public async Task Linear_OnSecantStiffness_ReproducesSourceAndGuardsIt()
+    {
+        await WithSchema(async (ctx, log, schema, secant) =>
+        {
+            var source = await FemCsfeaRunner.RunAsync(ctx, schema, secant, null, CancellationToken.None);
+            Assert.Equal("ok", source.Status);
+            secant.ResultId = source.Id;
+            ctx.Db.SaveFemAnalysis(secant);
+
+            var candidate = Assert.Single(FemCsfeaStiffnessSources.List(ctx.Db, schema.Id));
+            var stiffness = FemCsfeaStiffnessSources.Fingerprint(ctx.Db, candidate, out var error);
+            Assert.Null(error);
+            var p = FemAnalysisParams.Parse(secant.ParamsJson);
+            p.Csfea!.StiffnessSource = stiffness;
+            var linear = new FemAnalysis
+            {
+                SchemaId = schema.Id, Tag = "ИН", Kind = FemCsfeaRunner.LinearAnalysisKind, ParamsJson = p.ToJson(),
+            };
+            ctx.Db.SaveFemAnalysis(linear);
+
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Errors.Concat(summary.Report).Concat(summary.Describe())) output.WriteLine(line);
+            Assert.Equal("ok", result.Status);
+            Assert.NotNull(summary.SelfCheck);
+            Assert.True(summary.SelfCheck < 1e-9, $"самопроверка {summary.SelfCheck:e2}");
+            Assert.False(summary.StiffnessApproximate);
+            Assert.Equal(0, summary.StiffnessFloored);
+            Assert.Contains(summary.Describe(), l => l.StartsWith("Жёсткости КЭ — из секущего расчёта: «csfea»", StringComparison.Ordinal));
+            Assert.Contains(summary.Describe(), l => l.Contains("воспроизведена", StringComparison.Ordinal));
+
+            // Поля загружения: секущие жёсткости — источника (у треснувших D11 < D11₀), начальные — упругие.
+            var src = FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(source.Id, candidate.RecordN)!);
+            var lf = FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, 1)!);
+            Assert.True(src.HasElementMatrices);
+            const int k = CSfea.CScoreBridge.Structural.RcSecantStepFields.ShellStiffnessComponents;
+            Assert.Contains(Enumerable.Range(0, lf.ShellIds.Length), e => lf.ShellStiffness[e * k + 4] < 0.9 * lf.ShellStiffness[e * k + 12]);
+
+            // e_min = 0,9 — предел у треснувших КЭ, расхождение самопроверки ожидаемо.
+            var floored = await FemCsfeaRunner.RunAsync(ctx with { StiffnessFloor = 0.9 }, schema, linear, null, CancellationToken.None);
+            var fs = FemCsfeaResultSummary.Parse(floored.DataJson)!;
+            Assert.True(fs.StiffnessFloored > 0);
+            Assert.True(fs.SelfCheck > FemCsfeaResultSummary.SelfCheckTolerance);
+            Assert.Contains("e_min", fs.SelfCheckExpectedReasons);
+            Assert.Contains(fs.Report, l => l.StartsWith("Нижний предел жёсткости e_min сработал", StringComparison.Ordinal));
+
+            // Источник пересчитан (другая запись) — ошибка с подсказкой подтвердить источник.
+            var changed = FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(source.Id, candidate.RecordN)!);
+            changed.Displacements[2] += 1e-6;
+            ctx.Db.SaveFemResultStep(source.Id, candidate.RecordN, FemCsfeaStepFieldsCodec.Pack(changed));
+            var stale = await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None);
+            Assert.Equal("error", stale.Status);
+            Assert.Contains(FemCsfeaResultSummary.Parse(stale.DataJson)!.Errors, e => e.Contains("пересчитан после выбора", StringComparison.Ordinal));
+
+            // Результат источника сброшен — «не найден».
+            secant.InvalidateResult();
+            ctx.Db.SaveFemAnalysis(secant);
+            var missing = await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None);
+            Assert.Equal("error", missing.Status);
+            Assert.Contains(FemCsfeaResultSummary.Parse(missing.DataJson)!.Errors, e => e.Contains("не найден", StringComparison.Ordinal));
+        });
+    }
+
     [Fact]
     public async Task ResultVM_StepsFieldsAndTables()
     {

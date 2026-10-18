@@ -16,7 +16,10 @@ public static class FemCsfeaStepFieldsCodec
     const int Version = 3;
     // HasBeamStrains — деформации стержней без пластин (пишутся всегда, с 18.10.2026): блок в конце записи, прежний
     // разбор версии 3 его не читает.
-    const byte HasStiffness = 1, HasStrains = 2, HasMatrices = 4, HasBeamStrains = 8;
+    // HasExactMatrices — полные матрицы в double с матрицами КЭ стержней (с 18.10.2026, линейный расчёт на жёсткостях
+    // секущего результата): блок в самом конце, флаг HasMatrices при этом не ставится — прежний разбор видит запись без
+    // матриц, а не читает double как float.
+    const byte HasStiffness = 1, HasStrains = 2, HasMatrices = 4, HasBeamStrains = 8, HasExactMatrices = 16;
 
     public static byte[] Pack(RcSecantStepFields f)
     {
@@ -46,12 +49,15 @@ public static class FemCsfeaStepFieldsCodec
             Doubles(w, f.ReactionSums);
             Doubles(w, f.LoadSum);
             bool beamOnly = !f.HasStrains && f.BeamStrains.Length > 0;
-            w.Write((byte)((f.HasStiffness ? HasStiffness : 0) | (f.HasStrains ? HasStrains : 0) | (f.HasMatrices ? HasMatrices : 0)
-                | (beamOnly ? HasBeamStrains : 0)));
+            bool exact = f.HasMatrices && f.HasElementMatrices
+                && f.BeamElementMatrices.Length == f.BeamIds.Length * RcSecantStepFields.BeamElementMatrixComponents;
+            w.Write((byte)((f.HasStiffness ? HasStiffness : 0) | (f.HasStrains ? HasStrains : 0)
+                | (f.HasMatrices && !exact ? HasMatrices : 0) | (beamOnly ? HasBeamStrains : 0) | (exact ? HasExactMatrices : 0)));
             if (f.HasStiffness) { Floats(w, f.ShellStiffness); Floats(w, f.BeamStiffness); }
             if (f.HasStrains) { Floats(w, f.ShellStrains); Floats(w, f.BeamStrains); }
-            if (f.HasMatrices) { Floats(w, f.ShellMatrices); Floats(w, f.BeamMatrices); }
+            if (f.HasMatrices && !exact) { Floats(w, f.ShellMatrices); Floats(w, f.BeamMatrices); }
             if (beamOnly) Floats(w, f.BeamStrains);
+            if (exact) { Doubles(w, f.ShellMatrices); Doubles(w, f.BeamMatrices); Doubles(w, f.BeamElementMatrices); }
         }
         return ms.ToArray();
     }
@@ -89,11 +95,13 @@ public static class FemCsfeaStepFieldsCodec
             loadSum = Doubles(r);
         }
         byte blocks = version >= 3 ? r.ReadByte() : (byte)0;
-        double[] shellK = [], beamK = [], shellE = [], beamE = [], shellM = [], beamM = [];
+        double[] shellK = [], beamK = [], shellE = [], beamE = [], shellM = [], beamM = [], beamEl = [];
         if ((blocks & HasStiffness) != 0) { shellK = Floats(r); beamK = Floats(r); }
         if ((blocks & HasStrains) != 0) { shellE = Floats(r); beamE = Floats(r); }
         if ((blocks & HasMatrices) != 0) { shellM = Floats(r); beamM = Floats(r); }
         if ((blocks & HasBeamStrains) != 0) beamE = Floats(r);
+        bool exact = (blocks & HasExactMatrices) != 0;
+        if (exact) { shellM = Doubles(r); beamM = Doubles(r); beamEl = Doubles(r); }
         return new RcSecantStepFields
         {
             Stage = stage, Step = step, LoadFactor = lambda, IsRefinement = refinement,
@@ -104,7 +112,8 @@ public static class FemCsfeaStepFieldsCodec
             ReactionSums = reactionSums, LoadSum = loadSum,
             HasStiffness = (blocks & HasStiffness) != 0, ShellStiffness = shellK, BeamStiffness = beamK,
             HasStrains = (blocks & HasStrains) != 0, ShellStrains = shellE, BeamStrains = beamE,
-            HasMatrices = (blocks & HasMatrices) != 0, ShellMatrices = shellM, BeamMatrices = beamM,
+            HasMatrices = (blocks & HasMatrices) != 0 || exact, ShellMatrices = shellM, BeamMatrices = beamM,
+            BeamElementMatrices = beamEl, HasElementMatrices = exact,
         };
     }
 

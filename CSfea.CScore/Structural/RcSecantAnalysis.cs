@@ -141,13 +141,16 @@ public sealed record RcSecantRun(RcStructuralMeshBuild Build, ISecantShellState?
 {
     internal RcSecantFieldExtractor? Extractor { get; init; }
 
+    /// <summary>Матрицы КЭ, на которых решено u последнего сошедшегося шага (<see cref="SecantPicardSolver.SolvedMatrices"/>).</summary>
+    internal SecantSolvedMatrices? Solved { get; init; }
+
     /// <summary>
     /// Поля последнего принятого шага (состояния КЭ после расчёта отвечают ему) — конечного состояния прогона, с полными
-    /// секущими матрицами КЭ; null — принятых шагов нет.
+    /// секущими матрицами КЭ (матрицы КЭ — те, на которых решено u шага); null — принятых шагов нет.
     /// </summary>
     public RcSecantStepFields? LastConvergedFields()
         => Result.Steps.LastOrDefault(s => s.Converged) is { } last && Extractor != null
-            ? Extractor.Extract(last, matrices: true) : null;
+            ? Extractor.Extract(last, matrices: true, solved: Solved) : null;
 
     /// <summary>Реакции опор шага (у несошедшегося — только пружины) и ΣF его узловой нагрузки; null — без экстрактора.</summary>
     public (RcReactionSet Reactions, double[] LoadSum)? StepReactions(SecantStepResult step)
@@ -193,7 +196,8 @@ public static class RcSecantAnalysis
                 onStep(step, () => extractor.Extract(step));
             });
         }
-        var result = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, solverOptions).Run(stages, progress, ct);
-        return new RcSecantRun(build, shells, beams, stages, result) { Extractor = extractor };
+        var solver = new SecantPicardSolver(build.Mesh, build.Bc, shells, beams, solverOptions);
+        var result = solver.Run(stages, progress, ct);
+        return new RcSecantRun(build, shells, beams, stages, result) { Extractor = extractor, Solved = solver.SolvedMatrices };
     }
 }

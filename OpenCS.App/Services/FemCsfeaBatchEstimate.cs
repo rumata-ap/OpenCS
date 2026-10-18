@@ -12,17 +12,18 @@ namespace OpenCS.Services;
 /// </summary>
 public static class FemCsfeaBatchEstimate
 {
-    const double BytesPerNode = 56, BytesPerShell = 110, BytesPerBeam = 110, Float = 3.5;
+    const double BytesPerNode = 56, BytesPerShell = 110, BytesPerBeam = 110, Float = 3.5, Double = 7;
 
     /// <param name="strains">С деформациями сечений (<see cref="Tasks.FemCsfeaParams.RecordSectionStrains"/>).</param>
-    /// <param name="matrices">С полными секущими матрицами (конечное состояние прогона — каждый вариант пакета).</param>
+    /// <param name="matrices">С полными секущими матрицами в double (конечное состояние прогона — каждый вариант пакета).</param>
     public static double FieldBytes(int nodes, int shells, int beams, bool strains = false, bool matrices = false)
     {
-        int shellFloats = RcSecantStepFields.ShellStiffnessComponents
-            + (strains ? RcSecantStepFields.ShellStrainComponents : 0) + (matrices ? RcSecantStepFields.ShellMatrixComponents : 0);
-        int beamFloats = RcSecantStepFields.BeamStiffnessComponents
-            + (strains ? RcSecantStepFields.BeamStrainComponents : 0) + (matrices ? RcSecantStepFields.BeamMatrixComponents : 0);
-        return nodes * BytesPerNode + shells * (BytesPerShell + Float * shellFloats) + beams * (BytesPerBeam + Float * beamFloats);
+        int shellFloats = RcSecantStepFields.ShellStiffnessComponents + (strains ? RcSecantStepFields.ShellStrainComponents : 0);
+        int beamFloats = RcSecantStepFields.BeamStiffnessComponents + (strains ? RcSecantStepFields.BeamStrainComponents : 0);
+        int shellDoubles = matrices ? RcSecantStepFields.ShellMatrixComponents : 0;
+        int beamDoubles = matrices ? RcSecantStepFields.BeamMatrixComponents + RcSecantStepFields.BeamElementMatrixComponents : 0;
+        return nodes * BytesPerNode + shells * (BytesPerShell + Float * shellFloats + Double * shellDoubles)
+            + beams * (BytesPerBeam + Float * beamFloats + Double * beamDoubles);
     }
 
     /// <summary>«0,6 ГБ», «85 МБ».</summary>

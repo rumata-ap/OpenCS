@@ -18,6 +18,12 @@ public sealed class RcLinearOptions
 
     /// <summary>Журнал фаз расчёта.</summary>
     public Action<string>? Log { get; init; }
+
+    /// <summary>
+    /// Сечения КЭ; null — упругие (<see cref="LinearRcSectionFactory"/>). Фабрика с <see cref="IRcInitialStiffness"/>
+    /// (<see cref="RecordedRcSectionFactory"/>) даёт полям начальные жёсткости — секущие при этом её матрицы.
+    /// </summary>
+    public IRcSectionFactory? Sections { get; init; }
 }
 
 /// <summary>Решение одного загружения: перемещения (длина — NDof сетки) и поля в формате шага секущего расчёта.</summary>
@@ -40,7 +46,7 @@ public static class RcLinearAnalysis
         ct.ThrowIfCancellationRequested();
         options ??= new RcLinearOptions();
         var clock = Stopwatch.StartNew();
-        var build = RcStructuralMeshBuilder.Build(model, new LinearRcSectionFactory());
+        var build = RcStructuralMeshBuilder.Build(model, options.Sections ?? new LinearRcSectionFactory());
         build.Mesh.MaxDegreeOfParallelism = options.MaxDegreeOfParallelism;
         var loads = model.Stages.Select(st => build.Combination(st.Loads)).ToList();
         double tBuild = clock.Elapsed.TotalSeconds;
@@ -51,7 +57,8 @@ public static class RcLinearAnalysis
         ct.ThrowIfCancellationRequested();
 
         var extractor = new RcSecantFieldExtractor(model, build, new ISecantShellState?[build.Mesh.Shells.Count],
-            geometric: false, options.ShellForceAngles, recordStrains: options.RecordSectionStrains);
+            geometric: false, options.ShellForceAngles, recordStrains: options.RecordSectionStrains,
+            initial: options.Sections as IRcInitialStiffness);
         // Реакции: K·u — одной сборкой K на все загружения.
         var k = loads.Count > 0 ? build.Mesh.AssembleK().ToCsc() : null;
         var cases = new List<RcLinearCase>(loads.Count);

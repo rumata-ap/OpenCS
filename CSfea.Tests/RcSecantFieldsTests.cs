@@ -184,8 +184,9 @@ public class RcSecantFieldsTests
         int mid = 2 * (20 / 2 - 1), o = mid * RcSecantStepFields.ShellStiffnessComponents;
         double ratio = strip.ShellStiffness[o + 4] / strip.ShellStiffness[o + 12];
         TestHarness.Check("полоса, середина: D11/D11₀ < 0,6", ratio is > 0 and < 0.6, $"D11/D11₀ = {ratio:0.###}");
-        TestHarness.CheckRel("полоса, середина: D11 — член полной матрицы (D[0,0])",
-            strip.ShellMatrices[mid * RcSecantStepFields.ShellMatrixComponents + 18], strip.ShellStiffness[o + 4], 1e-6);
+        // Полная матрица — та, на которой решено u шага, жёсткость мозаики — обновлённая по u: разница — в допуске итераций.
+        TestHarness.CheckRel("полоса, середина: D11 ≈ член полной матрицы (D[0,0])",
+            strip.ShellMatrices[mid * RcSecantStepFields.ShellMatrixComponents + 18], strip.ShellStiffness[o + 4], 2e-2);
     }
 
     /// <summary>

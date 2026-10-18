@@ -27,6 +27,13 @@ public sealed record FemCsfeaStiffnessCandidate(FemAnalysis Analysis, CalcType C
     public string Describe() => $"«{Analysis.Tag}», {Label}, вид {Calc}, {FemCsfeaStiffnessSources.FormatCreated(Result.Created)} — {State}";
 }
 
+/// <summary>
+/// Источник жёсткостей, проверенный для расчёта: запись конечного состояния (<see cref="Fields"/>, с полными матрицами),
+/// определяющая нагрузка (загружение → коэффициент; null — не строится) и геометрическая нелинейность источника.
+/// </summary>
+public sealed record FemCsfeaStiffnessSourceData(FemCsfeaStiffnessCandidate Candidate,
+    CSfea.CScoreBridge.Structural.RcSecantStepFields Fields, IReadOnlyDictionary<int, double>? DeterminingLoad, bool GeomNonlinear);
+
 /// <summary>Состояние выбранного источника жёсткостей относительно текущих записей БД.</summary>
 public enum FemCsfeaStiffnessSourceStatus
 {
@@ -159,6 +166,75 @@ public static class FemCsfeaStiffnessSources
         var current = Find(List(db, schemaId), source);
         var record = current is { Result.Id: > 0 } ? db.GetFemResultStep(current.Result.Id, current.RecordN) : null;
         return Status(source, current, record);
+    }
+
+    /// <summary>
+    /// Источник для расчёта: запись есть, отпечаток совпадает, в записи полные матрицы; определяющая нагрузка —
+    /// загружения схемы с коэффициентами в записанном состоянии (стадии до записанной целиком, записанная — долей λ;
+    /// у варианта пакета и длительной части — их стадия долей λ). null и понятная ошибка — иначе.
+    /// </summary>
+    public static FemCsfeaStiffnessSourceData? Load(DatabaseService db, int schemaId, FemCsfeaStiffnessSource source, out string? error)
+    {
+        error = null;
+        var current = Find(List(db, schemaId), source);
+        string name = db.GetFemAnalysis(source.AnalysisId)?.Tag is { } tag ? $"«{tag}»" : $"№ {source.AnalysisId}";
+        var record = current is { Result.Id: > 0 } ? db.GetFemResultStep(current.Result.Id, current.RecordN) : null;
+        switch (Status(source, current, record))
+        {
+            case FemCsfeaStiffnessSourceStatus.Missing:
+                error = $"Источник жёсткостей {name} не найден: секущая постановка удалена, не посчитана или её результат сброшен "
+                    + "(например, после перестройки сетки). Посчитайте её и выберите источник в постановке заново.";
+                return null;
+            case FemCsfeaStiffnessSourceStatus.Changed:
+                error = $"Источник жёсткостей {name} пересчитан после выбора. Откройте постановку и подтвердите источник (OK в диалоге) — "
+                    + "так видно, что расчёт пойдёт на новых жёсткостях.";
+                return null;
+        }
+        if (Fingerprint(current!, record, out error) == null) return null;
+        var fields = FemCsfeaStepFieldsCodec.Unpack(record!);
+        var pars = FemAnalysisParams.Parse(current!.Analysis.ParamsJson);
+        return new FemCsfeaStiffnessSourceData(current, fields, DeterminingLoad(db, schemaId, current, pars, fields),
+            pars.Csfea?.GeomNonlinear == true);
+    }
+
+    /// <summary>Определяющая нагрузка записи источника: номер загружения → коэффициент; null — не строится.</summary>
+    static Dictionary<int, double>? DeterminingLoad(DatabaseService db, int schemaId, FemCsfeaStiffnessCandidate c,
+        FemAnalysisParams pars, CSfea.CScoreBridge.Structural.RcSecantStepFields fields)
+    {
+        var loadCases = db.GetFemLoadCases(schemaId);
+        var diag = new List<FemValidationDiagnostic>();
+        IReadOnlyList<FemAnalysisStage> stages;
+        int last;
+        if (pars.Batch is not { } batch)
+        {
+            stages = pars.ResolveStages(c.Analysis);
+            last = fields.Stage;
+        }
+        else if (c.LongKind == null)
+        {
+            var all = batch.ToStages();
+            if (c.BatchIndex is not int i || i >= all.Count) return null;
+            stages = [all[i]];
+            last = 0;
+        }
+        else
+        {
+            var summary = FemCsfeaResultSummary.Parse(c.Result.DataJson);
+            var all = FemCsfeaBatchLongTerm.Stages(batch, loadCases);
+            if (summary?.LongOf(c.BatchIndex ?? -1, c.LongKind)?.Stage is not int s || s >= all.Count) return null;
+            stages = [all[s]];
+            last = 0;
+        }
+        if (last < 0 || last >= stages.Count) return null;
+        var adapted = FemCsfeaInputBuilder.Stages(stages.Take(last + 1).ToList(), loadCases, diag);
+        if (diag.Any(d => d.IsError)) return null;
+        var load = new Dictionary<int, double>();
+        for (int s = 0; s <= last; s++)
+        {
+            double k = s == last ? fields.LoadFactor : 1.0;
+            foreach (var (lc, f) in adapted[s].Terms) load[lc] = load.GetValueOrDefault(lc) + k * f;
+        }
+        return load;
     }
 
     /// <summary>«18.10.2026 14:02» из времени результата «2026-10-18 14:02:11»; не разобралось — как есть.</summary>

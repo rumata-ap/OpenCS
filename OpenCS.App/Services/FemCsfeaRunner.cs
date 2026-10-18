@@ -236,6 +236,52 @@ public sealed class FemCsfeaResultSummary
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool BatchCrackByPairs { get; set; }
 
+    /// <summary>Линейный расчёт на жёсткостях секущего результата (инженерная нелинейность): источник; null — начальные.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Tasks.FemCsfeaStiffnessSource? StiffnessSource { get; set; }
+    /// <summary>Подпись источника: «Стадии NL», конечное состояние, вид NL, дата — итог.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? StiffnessSourceLabel { get; set; }
+    /// <summary>Вид расчёта источника (набор жёсткостей).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? StiffnessCalc { get; set; }
+    /// <summary>Запись источника до 18.10.2026: стержни — по средней податливости точек, совпадение приближённое.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool StiffnessApproximate { get; set; }
+    /// <summary>Число КЭ, у которых сработал нижний предел жёсткости e_min.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int StiffnessFloored { get; set; }
+    /// <summary>Самопроверка: max |Δu| / max |u| определяющей комбинации источника; null — не выполнялась.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public double? SelfCheck { get; set; }
+    /// <summary>Почему самопроверка не выполнялась.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SelfCheckNote { get; set; }
+    /// <summary>Причины, по которым расхождение самопроверки ожидаемо (e_min, геомнелин источника, старая запись).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SelfCheckExpectedReasons { get; set; }
+
+    /// <summary>Допуск самопроверки: больше — расхождение (точная запись в double даёт ~1e-12).</summary>
+    public const double SelfCheckTolerance = 1e-6;
+
+    /// <summary>Строки итога о жёсткостях из секущего результата; пусто — начальные жёсткости.</summary>
+    public IEnumerable<string> DescribeStiffness()
+    {
+        if (StiffnessSourceLabel == null) yield break;
+        yield return $"Жёсткости КЭ — из секущего расчёта: {StiffnessSourceLabel}"
+            + (StiffnessApproximate ? " (запись до 18.10.2026: стержни — по средней податливости точек, приближённо)." : ".");
+        if (StiffnessFloored > 0) yield return $"Нижний предел жёсткости e_min сработал у {StiffnessFloored} КЭ.";
+        if (SelfCheck is { } check)
+        {
+            string value = string.Create(CultureInfo.CurrentCulture, $"{check:0.##E+0}");
+            yield return check <= SelfCheckTolerance
+                ? $"Самопроверка: определяющая комбинация источника воспроизведена (max |Δu| / max |u| = {value})."
+                : $"Самопроверка: расхождение с источником max |Δu| / max |u| = {value}"
+                  + (SelfCheckExpectedReasons != null ? $" — ожидаемо: {SelfCheckExpectedReasons}." : " — проверьте источник жёсткостей.");
+        }
+        else if (SelfCheckNote != null) yield return $"Самопроверка не выполнялась: {SelfCheckNote}.";
+    }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsBatch => Batch != null;
 
@@ -283,6 +329,7 @@ public sealed class FemCsfeaResultSummary
                 $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; загружений {Steps.Count}, {ElapsedSeconds:0.#} с.")
             : string.Create(CultureInfo.CurrentCulture,
                 $"Узлов {Nodes}, оболочек {Shells}, стержней {Beams}; шагов {Steps.Count(s => s.Converged)}, итераций {Steps.Sum(s => s.Iterations)}, {ElapsedSeconds:0.#} с.");
+        foreach (var line in DescribeStiffness()) yield return line;
         foreach (var (stage, i) in Stages.Select((s, i) => (s, i)))
         {
             var end = Steps.LastOrDefault(s => s.Stage == i && s.Converged);
@@ -386,8 +433,12 @@ public sealed class FemCsfeaResultSummary
     }
 }
 
-/// <summary>Окружение исполнителя: БД, Gmsh, журнал, параллельность пересчёта сечений.</summary>
-public sealed record FemCsfeaRunContext(DatabaseService Db, GmshSettings Gmsh, ILogService Log, int MaxDegreeOfParallelism = -1);
+/// <summary>
+/// Окружение исполнителя: БД, Gmsh, журнал, параллельность пересчёта сечений, нижний предел жёсткости e_min линейного
+/// расчёта на жёсткостях секущего результата (<see cref="OpenCS.Utilites.CalcSettings.CsfeaStiffnessFloor"/>).
+/// </summary>
+public sealed record FemCsfeaRunContext(DatabaseService Db, GmshSettings Gmsh, ILogService Log, int MaxDegreeOfParallelism = -1,
+    double StiffnessFloor = OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor);
 
 /// <summary>Подготовленный вход: модель адаптера (null — подготовка прервана) и отчёт.</summary>
 public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? Adapted, List<FemValidationDiagnostic> Diagnostics)
@@ -456,9 +507,12 @@ public static class FemCsfeaRunner
         if (csfea.ResultRecording == FemCsfeaRecording.Selected)
             FemCsfeaParams.ParseRecordSteps(csfea.RecordSteps, out stepsError);
         if (stepsError != null) diag.Add(new("record_steps", stepsError, true));
-        // TODO(ИН, срез 2): сборка линейной задачи на записанных матрицах источника.
-        if (analysis.Kind == LinearAnalysisKind && csfea.StiffnessSource != null)
-            diag.Add(new("stiffness_source", "Линейный расчёт на жёсткостях секущего результата пока не реализован — выберите начальные жёсткости.", true));
+        // Источник жёсткостей — до сетки и адаптера: «Проверить вход» сразу сообщает, что он пропал или пересчитан.
+        if (analysis.Kind == LinearAnalysisKind && csfea.StiffnessSource is { } stiffness)
+        {
+            if (FemCsfeaStiffnessSources.Load(ctx.Db, schema.Id, stiffness, out var sourceError) == null)
+                diag.Add(new("stiffness_source", sourceError!, true));
+        }
 
         await EnsureMeshAsync(ctx, schema, buildMesh, diag, ct);
         if (diag.Any(d => d.IsError)) return new(null, null, diag);
@@ -928,10 +982,26 @@ public static class FemCsfeaRunner
     {
         var adapted = prepared.Adapted!;
         string tag = analysis.Tag;
+        // Инженерная нелинейность: сечения КЭ — записанные матрицы конечного состояния секущего расчёта.
+        FemCsfeaStiffnessSourceData? source = null;
+        RecordedRcSectionFactory? sections = null;
+        if (csfea.StiffnessSource is { } stiffness)
+        {
+            source = FemCsfeaStiffnessSources.Load(ctx.Db, analysis.SchemaId, stiffness, out var sourceError);
+            string? error = sourceError ?? (source != null ? MeshMismatch(adapted.Model, source) : null);
+            if (error != null)
+            {
+                summary.Errors.Add(error);
+                return Result(analysis, created, "error", summary);
+            }
+            double floor = ctx.StiffnessFloor is > 0 and < 1 ? ctx.StiffnessFloor : OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
+            sections = new RecordedRcSectionFactory(source!.Fields, floor);
+        }
         var options = new RcLinearOptions
         {
             MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism, ShellForceAngles = adapted.ShellForceAngles,
             RecordSectionStrains = csfea.RecordSectionStrains, Log = line => ctx.Log.Info($"[{tag}] {line}"),
+            Sections = sections,
         };
         var clock = Stopwatch.StartNew();
         var (run, records) = await Task.Run(() =>
@@ -962,10 +1032,108 @@ public static class FemCsfeaRunner
         }).ToList();
         summary.Steps = run.Cases.Select((c, i) => new FemCsfeaStepSummary(i + 1, i, 1, 1.0, false, true, 1, 0.0,
             controlDof is int d ? c.U[d] : null, i + 1, true, c.Fields.ReactionSums, c.Fields.LoadSum)).ToList();
+        if (source != null && sections != null)
+            DescribeStiffnessSource(ctx, tag, csfea.StiffnessSource!, source, sections, adapted.Model, run, summary,
+                FemAnalysisParams.Parse(analysis.ParamsJson).CalcType ?? CalcType.N);
         var result = Result(analysis, created, "ok", summary);
         ctx.Db.SaveCalcResult(result);
         ctx.Db.SaveFemResultSteps(result.Id, records.Select((data, i) => (i + 1, data)));
         return result;
+    }
+
+    /// <summary>
+    /// Сетка модели не совпадает с сеткой записи источника (узлы, оболочки, стержни) — текст ошибки; совпадает — null.
+    /// </summary>
+    static string? MeshMismatch(RcStructuralModel model, FemCsfeaStiffnessSourceData source)
+    {
+        var f = source.Fields;
+        bool Same(IEnumerable<int> a, int[] b) => a.ToHashSet().SetEquals(b);
+        if (Same(model.Nodes.Select(n => n.Id), f.NodeIds) && Same(model.Shells.Select(s => s.Id), f.ShellIds)
+            && Same(model.Beams.Select(b => b.Id), f.BeamIds))
+            return null;
+        return string.Create(CultureInfo.CurrentCulture,
+            $"Сетка схемы не совпадает с сеткой источника жёсткостей «{source.Candidate.Analysis.Tag}»: узлов {model.Nodes.Count} и {f.NodeIds.Length}, "
+            + $"оболочек {model.Shells.Count} и {f.ShellIds.Length}, стержней {model.Beams.Count} и {f.BeamIds.Length}. Пересчитайте источник.");
+    }
+
+    /// <summary>
+    /// Сводка и журнал линейного расчёта на жёсткостях источника: источник, КЭ на нижнем пределе, самопроверка
+    /// (п. 2.4 спеки ИН: определяющая нагрузка источника как комбинация загружений постановки — Σ kᵢ·uᵢ против u источника).
+    /// </summary>
+    static void DescribeStiffnessSource(FemCsfeaRunContext ctx, string tag, FemCsfeaStiffnessSource stiffness,
+        FemCsfeaStiffnessSourceData source, RecordedRcSectionFactory sections, RcStructuralModel model, RcLinearRun run,
+        FemCsfeaResultSummary summary, CalcType calc)
+    {
+        summary.StiffnessSource = stiffness;
+        summary.StiffnessSourceLabel = source.Candidate.Describe();
+        summary.StiffnessCalc = source.Candidate.Calc.ToString();
+        summary.StiffnessApproximate = !sections.Exact;
+        summary.StiffnessFloored = sections.FlooredShells.Count + sections.FlooredBeams.Count;
+        if (source.Candidate.Calc != calc)
+            summary.Report.Add($"Вид расчёта источника жёсткостей {source.Candidate.Calc} не совпадает с видом постановки {calc}: "
+                + $"жёсткости — по диаграммам {source.Candidate.Calc}, ширина раскрытия и наборы усилий — {calc}.");
+        if (summary.StiffnessFloored > 0)
+        {
+            var ids = sections.FlooredShells.Select(i => $"оболочка {i}").Concat(sections.FlooredBeams.Select(i => $"стержень {i}")).ToList();
+            summary.Report.Add($"Нижний предел жёсткости e_min сработал у {ids.Count} КЭ: {string.Join(", ", ids.Take(20))}{(ids.Count > 20 ? ", …" : "")}.");
+        }
+
+        var (check, note) = SelfCheck(model, run, source);
+        summary.SelfCheck = check;
+        summary.SelfCheckNote = note;
+        var expected = new List<string>();
+        if (summary.StiffnessFloored > 0) expected.Add("сработал нижний предел e_min");
+        if (source.GeomNonlinear) expected.Add("источник считался с геометрической нелинейностью");
+        if (!sections.Exact) expected.Add("запись источника до 18.10.2026 — стержни по средней податливости точек");
+        summary.SelfCheckExpectedReasons = expected.Count > 0 ? string.Join("; ", expected) : null;
+        foreach (var line in summary.DescribeStiffness()) ctx.Log.Info($"[{tag}] {line}");
+        if (check > FemCsfeaResultSummary.SelfCheckTolerance && expected.Count == 0)
+            ctx.Log.Warning($"[{tag}] Самопроверка: определяющая комбинация источника воспроизведена с расхождением "
+                + string.Create(CultureInfo.CurrentCulture, $"{check:0.##E+0}") + " — проверьте источник жёсткостей.");
+    }
+
+    /// <summary>
+    /// Самопроверка: определяющая нагрузка источника, выраженная через отдельные загружения постановки (каждая строка —
+    /// одно загружение с коэффициентом), Σ kᵢ·uᵢ против перемещений источника — max |Δu| / max |u| по поступательным
+    /// перемещениям узлов. null и причина — нагрузку не выразить.
+    /// </summary>
+    internal static (double? Check, string? Note) SelfCheck(RcStructuralModel model, RcLinearRun run, FemCsfeaStiffnessSourceData source)
+    {
+        if (source.DeterminingLoad is not { } load) return (null, "определяющая нагрузка источника не определена");
+        var present = run.Build.LoadCases.Keys.ToHashSet();
+        var terms = load.Where(kv => kv.Value != 0 && present.Contains(kv.Key)).ToList();
+        if (terms.Count == 0) return (null, "определяющая нагрузка источника нулевая");
+        var single = new Dictionary<int, (int Stage, double Factor)>();
+        for (int i = 0; i < model.Stages.Count && i < run.Cases.Count; i++)
+        {
+            var lt = model.Stages[i].Loads.Where(t => present.Contains(t.LoadCase)).ToList();
+            if (lt.Count == 1 && lt[0].Factor != 0) single.TryAdd(lt[0].LoadCase, (i, lt[0].Factor));
+        }
+        if (terms.Any(t => !single.ContainsKey(t.Key)))
+            return (null, "определяющая нагрузка источника содержит загружения, не отмеченные в постановке");
+
+        var u = new double[run.Build.Mesh.NDof];
+        foreach (var (lc, k) in terms)
+        {
+            var (stage, f) = single[lc];
+            var ui = run.Cases[stage].U;
+            for (int j = 0; j < u.Length; j++) u[j] += k / f * ui[j];
+        }
+        var f0 = source.Fields;
+        var index = new Dictionary<int, int>();
+        for (int i = 0; i < f0.NodeIds.Length; i++) index[f0.NodeIds[i]] = i;
+        double maxDiff = 0, maxU = 0;
+        for (int n = 0; n < run.Build.NodeIds.Length; n++)
+        {
+            if (!index.TryGetValue(run.Build.NodeIds[n], out int s)) continue;
+            for (int c = 0; c < 3; c++)
+            {
+                double us = f0.Displacements[RcSecantStepFields.NodeComponents * s + c];
+                maxU = Math.Max(maxU, Math.Abs(us));
+                maxDiff = Math.Max(maxDiff, Math.Abs(u[6 * n + c] - us));
+            }
+        }
+        return maxU > 0 ? (maxDiff / maxU, null) : (null, "перемещения источника нулевые");
     }
 
     /// <summary>

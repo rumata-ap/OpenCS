@@ -203,7 +203,7 @@ public static class FemAnalysisExecutor
         var progress = new Progress<CSfea.Core.SecantProgress>(p => app.Busy.ReportBusyProgress(p.Fraction, string.Format(
             Utilites.Loc.S("FemCsfeaProgress"), analysis.Tag, p.StageName, p.Step, p.StepCount, p.LoadFactor, p.Iteration, p.Cracked)));
         var ctx = new Services.FemCsfeaRunContext(app.Db, app.GmshSettings, app.LogService,
-            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
+            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism(), app.CalcSettings.ResolveCsfeaStiffnessFloor());
         return Services.FemCsfeaRunner.RunAsync(ctx, schema, analysis, progress, ct);
     }
 
@@ -218,7 +218,7 @@ public static class FemAnalysisExecutor
             (p.Number - 1 + p.Step.Fraction) / p.Count, string.Format(Utilites.Loc.S("FemCsfeaBatchProgress"), analysis.Tag,
                 p.Number, p.Count, p.Tag, p.Step.Step, p.Step.StepCount, p.Step.LoadFactor, p.Step.Iteration)));
         var ctx = new Services.FemCsfeaRunContext(app.Db, app.GmshSettings, app.LogService,
-            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism());
+            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism(), app.CalcSettings.ResolveCsfeaStiffnessFloor());
         var previous = resume && analysis.ResultId is int rid ? app.Db.GetCalcResultById(rid) : null;
         return Services.FemCsfeaRunner.RunBatchAsync(ctx, schema, analysis, previous, progress, result =>
         {

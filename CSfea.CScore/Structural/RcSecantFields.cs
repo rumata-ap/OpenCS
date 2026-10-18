@@ -58,7 +58,7 @@ public sealed class RcSecantStepFields
     /// <see cref="ShellMatrices"/>, <see cref="BeamMatrices"/>.
     /// </summary>
     public const int ShellStiffnessComponents = 17, BeamStiffnessComponents = 21, ShellStrainComponents = 6,
-        BeamStrainComponents = 9, ShellMatrixComponents = 31, BeamMatrixComponents = 33;
+        BeamStrainComponents = 9, ShellMatrixComponents = 31, BeamMatrixComponents = 33, BeamElementMatrixComponents = 12;
 
     /// <summary>Есть блок жёсткостей (записи до 17.10.2026 — нет).</summary>
     public bool HasStiffness { get; init; }
@@ -107,6 +107,20 @@ public sealed class RcSecantStepFields
     /// </summary>
     public double[] BeamMatrices { get; init; } = [];
 
+    /// <summary>
+    /// Матрица КЭ стержня, стоявшая в матрице жёсткости системы (средняя податливость точек после релаксации и нижней
+    /// границы диагонали; оси КЭ): 3 × 3 по строкам, GAy, GAz и GJ — <see cref="BeamElementMatrixComponents"/> на КЭ.
+    /// Пишется с полными матрицами (записи с 18.10.2026); пусто — старая запись (<see cref="HasElementMatrices"/>).
+    /// </summary>
+    public double[] BeamElementMatrices { get; init; } = [];
+
+    /// <summary>
+    /// Полные матрицы точно повторяют матрицу жёсткости, на которой решено u шага: матрицы пластин и КЭ стержней —
+    /// решённые (<see cref="SecantPicardSolver.SolvedMatrices"/>), сжатая запись хранит их в double (флаг кодека).
+    /// Старые записи (до 18.10.2026) — обновлённые по u матрицы во float и матрицы точек стержней.
+    /// </summary>
+    public bool HasElementMatrices { get; init; }
+
     public static byte Flags(SecantSectionStatus s) =>
         (byte)((s.Cracked ? Cracked : 0) | (s.Yielded ? Yielded : 0) | (s.Failed ? Failed : 0));
 }
@@ -131,14 +145,16 @@ public sealed class RcSecantFieldExtractor
     private readonly List<Dictionary<int, double[]>> _stageBeamLoads = new();
     private readonly List<double[]> _stageLoadSums = new();   // ΣF конца стадии (накопленные)
     private readonly Dictionary<int, double> _thickness;      // номер оболочки → толщина сечения, м
+    private readonly IRcInitialStiffness? _initial;           // начальные жёсткости КЭ без состояния (линейный на секущих)
 
     /// <param name="beams">Состояния стержней (null — все упругие).</param>
     /// <param name="recordStrains">Писать деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>).</param>
     public RcSecantFieldExtractor(RcStructuralModel model, RcStructuralMeshBuild build, ISecantShellState?[] shells,
         bool geometric, IReadOnlyDictionary<int, double>? shellForceAngles = null, bool shellInPlanePDelta = true,
-        ISecantBeamState?[]? beams = null, bool recordStrains = false)
+        ISecantBeamState?[]? beams = null, bool recordStrains = false, IRcInitialStiffness? initial = null)
     {
         _build = build;
+        _initial = initial;
         _shells = shells;
         _beams = beams ?? new ISecantBeamState?[build.Mesh.Beams.Count];
         _strains = recordStrains;
@@ -166,12 +182,14 @@ public sealed class RcSecantFieldExtractor
 
     /// <param name="matrices">Добавить полные секущие матрицы КЭ (<see cref="RcSecantStepFields.HasMatrices"/>) —
     /// у конечного состояния прогона.</param>
-    public RcSecantStepFields Extract(SecantStepResult step, bool matrices = false)
+    /// <param name="solved">Матрицы, на которых решено u шага (<see cref="SecantPicardSolver.SolvedMatrices"/>): в блок
+    /// полных матриц пишутся они, а не обновлённые по u (жёсткости мозаик — обновлённые); null — текущие.</param>
+    public RcSecantStepFields Extract(SecantStepResult step, bool matrices = false, SecantSolvedMatrices? solved = null)
     {
         var loadsEnd = step.Stage < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage] : null;
         var loadsStart = step.Stage > 0 && step.Stage - 1 < _stageBeamLoads.Count ? _stageBeamLoads[step.Stage - 1] : null;
         return Extract(step.U, step.Stage, step.Step, step.LoadFactor, step.IsRefinement, loadsStart, loadsEnd,
-            step.Shells, step.Beams, Reactions(step), LoadSum(step), matrices);
+            step.Shells, step.Beams, Reactions(step), LoadSum(step), matrices, solved);
     }
 
     /// <summary>Реакции опор принятого шага; у несошедшегося шага — только пружины.</summary>
@@ -201,7 +219,7 @@ public sealed class RcSecantFieldExtractor
     private RcSecantStepFields Extract(double[] u, int stage, int stepNumber, double loadFactor, bool isRefinement,
         IReadOnlyDictionary<int, double[]>? loadsStart, IReadOnlyDictionary<int, double[]>? loadsEnd,
         SecantSectionStatus[] shellStatus, SecantSectionStatus[] beamStatus, RcReactionSet? reactions, double[]? loadSum,
-        bool matrices)
+        bool matrices, SecantSolvedMatrices? solved = null)
     {
         var mesh = _build.Mesh;
         int nn = mesh.NNodes;
@@ -241,7 +259,7 @@ public sealed class RcSecantFieldExtractor
             // Жёсткости: секущая — матрица сечения в сетке (после сходимости — последняя оценка), начальная — Initial;
             // у упругого КЭ обе — его матрица. Из осей сечения в оси выдачи — тензорным поворотом.
             var secant = _shells[e] is { } s0 ? s0.Response.Matrix : sec.Tangent(new double[3], new double[3], new double[2]);
-            var initial = _shells[e] is { } s1 ? s1.Initial : secant;
+            var initial = _shells[e] is { } s1 ? s1.Initial : _initial?.InitialShell(_build.ShellIds[e]) ?? secant;
             int ko = e * RcSecantStepFields.ShellStiffnessComponents;
             ShellStiffnessTerms(secant, angle, shellStiffness, ko);
             ShellStiffnessTerms(initial, angle, shellStiffness, ko + 8);
@@ -255,7 +273,8 @@ public sealed class RcSecantFieldExtractor
             if (matrices)
             {
                 int mo = e * RcSecantStepFields.ShellMatrixComponents;
-                foreach (var blk in new[] { secant.A, secant.B, secant.D, secant.As })
+                var m = e < (solved?.Shells.Length ?? 0) && solved!.Shells[e] is { } sm ? sm : secant;
+                foreach (var blk in new[] { m.A, m.B, m.D, m.As })
                     foreach (double v in blk) shellMatrices[mo++] = v;
             }
             int o = e * RcSecantStepFields.ShellForceComponents;
@@ -282,6 +301,7 @@ public sealed class RcSecantFieldExtractor
         // Деформации стержней — всегда (по ним ширина раскрытия трещин), пластин — по галке.
         var beamStrains = new double[nb * RcSecantStepFields.BeamStrainComponents];
         var beamMatrices = matrices ? new double[nb * RcSecantStepFields.BeamMatrixComponents] : [];
+        var beamElementMatrices = matrices ? new double[nb * RcSecantStepFields.BeamElementMatrixComponents] : [];
         // Матрица и внутренние силы КЭ — по текущей (зафиксированной) жёсткости сечения, только чтение.
         Parallel.For(0, nb, e =>
         {
@@ -318,8 +338,9 @@ public sealed class RcSecantFieldExtractor
                 : (b.Section.Tangent(0, 0, 0), b.Section.TorsionalStiffness(), BeamShearStiffness.Rigid);
             var state = _beams[e];
             IReadOnlyList<double[,]> points = state is CrossSectionSecantBeamState cs ? cs.PointSecants : [s, s, s];
-            var s0 = state?.Initial ?? s;
-            var shear0 = state?.InitialShear ?? shear;
+            var init = state == null ? _initial?.InitialBeam(_build.BeamIds[e]) : null;
+            var s0 = state?.Initial ?? init?.S ?? s;
+            var shear0 = state?.InitialShear ?? init?.Shear ?? shear;
             int ko = e * RcSecantStepFields.BeamStiffnessComponents;
             for (int p = 0; p < 3; p++)
             {
@@ -350,6 +371,14 @@ public sealed class RcSecantFieldExtractor
                     beamMatrices[mo++] = shear.GAvY;
                     beamMatrices[mo++] = shear.GAvZ;
                 }
+                int eo = e * RcSecantStepFields.BeamElementMatrixComponents;
+                bool has = e < (solved?.Beams.Length ?? 0);
+                var se = has && solved!.Beams[e] is { } sb ? sb : s;
+                var qe = has && solved!.BeamShear[e] is { } sq ? sq : shear;
+                foreach (double v in se) beamElementMatrices[eo++] = v;
+                beamElementMatrices[eo++] = qe.GAvY;
+                beamElementMatrices[eo++] = qe.GAvZ;
+                beamElementMatrices[eo] = gj;
             }
         });
 
@@ -364,6 +393,7 @@ public sealed class RcSecantFieldExtractor
             HasStiffness = true, ShellStiffness = shellStiffness, BeamStiffness = beamStiffness,
             HasStrains = _strains, ShellStrains = shellStrains, BeamStrains = beamStrains,
             HasMatrices = matrices, ShellMatrices = shellMatrices, BeamMatrices = beamMatrices,
+            BeamElementMatrices = beamElementMatrices, HasElementMatrices = matrices && solved != null,
         };
     }
 

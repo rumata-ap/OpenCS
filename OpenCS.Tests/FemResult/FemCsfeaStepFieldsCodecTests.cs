@@ -101,6 +101,41 @@ public class FemCsfeaStepFieldsCodecTests
         Same(full.BeamStiffness, beamOnly.BeamStiffness);
     }
 
+    /// <summary>
+    /// Точные матрицы (линейный расчёт на жёсткостях секущего результата): double без потерь, с матрицами КЭ стержней;
+    /// флаг прежних матриц не ставится — прежний разбор видит запись без матриц. Без признака — прежний float-блок.
+    /// </summary>
+    [Fact]
+    public void RoundTrip_ExactMatricesInDouble()
+    {
+        static double[] Seq(int n, double scale) => Enumerable.Range(1, n).Select(i => i * scale + 1.0 / 3).ToArray();
+        var s = Sample();
+        RcSecantStepFields Make(bool exact) => new()
+        {
+            NodeIds = s.NodeIds, Displacements = s.Displacements, ShellIds = s.ShellIds, ShellForces = s.ShellForces,
+            ShellStates = s.ShellStates, ShellFlags = s.ShellFlags, BeamIds = s.BeamIds, BeamForces = s.BeamForces,
+            BeamFlags = s.BeamFlags, BeamStrains = Seq(RcSecantStepFields.BeamStrainComponents, -1e-4),
+            HasMatrices = true, ShellMatrices = Seq(RcSecantStepFields.ShellMatrixComponents, 1e6),
+            BeamMatrices = Seq(RcSecantStepFields.BeamMatrixComponents, 1e5),
+            BeamElementMatrices = Seq(RcSecantStepFields.BeamElementMatrixComponents, 1e5).Select((v, i) => i == 9 ? double.PositiveInfinity : v).ToArray(),
+            HasElementMatrices = exact,
+        };
+        var full = Make(exact: true);
+        var data = FemCsfeaStepFieldsCodec.Pack(full);
+        var f = FemCsfeaStepFieldsCodec.Unpack(data);
+
+        Assert.True(f.HasMatrices && f.HasElementMatrices && f.HasBeamStrains);
+        Assert.Equal(full.ShellMatrices, f.ShellMatrices);
+        Assert.Equal(full.BeamMatrices, f.BeamMatrices);
+        Assert.Equal(full.BeamElementMatrices, f.BeamElementMatrices);
+
+        var old = FemCsfeaStepFieldsCodec.Unpack(FemCsfeaStepFieldsCodec.Pack(Make(exact: false)));
+        Assert.True(old.HasMatrices);
+        Assert.False(old.HasElementMatrices);
+        Assert.Empty(old.BeamElementMatrices);
+        Assert.NotEqual(full.ShellMatrices, old.ShellMatrices);   // float
+    }
+
     [Fact]
     public void Version2_ReadsWithoutBlocks()
     {
