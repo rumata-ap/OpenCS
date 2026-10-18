@@ -42,6 +42,7 @@ public static class CalcTaskGroups
             or "strength_ndm_batch" or "rc_check"
             or "shell_simpl_wa_uls"   or "shell_simpl_wa_uls_batch"
             or "shell_simpl_capri_uls" or "shell_simpl_capri_uls_batch"
+            or "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch"
             or "shell_layered_uls"     or "shell_layered_uls_batch"
             or "steel_check"
             or "steel_central_compression" or "steel_central_tension"

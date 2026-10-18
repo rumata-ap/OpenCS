@@ -712,6 +712,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplCapri));
            OnPropertyChanged(nameof(IsShellSimplSls));
            OnPropertyChanged(nameof(IsShellSimplBatch));
+           OnPropertyChanged(nameof(IsShellSimplDesign));
+           OnPropertyChanged(nameof(ShowShellSimplStripModel));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -826,6 +828,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsShellSimplCapri));
             OnPropertyChanged(nameof(IsShellSimplSls));
            OnPropertyChanged(nameof(IsShellSimplBatch));
+           OnPropertyChanged(nameof(IsShellSimplDesign));
+           OnPropertyChanged(nameof(ShowShellSimplStripModel));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -904,7 +908,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
    public bool IsShellSimpl      => Kind.StartsWith("shell_simpl_", StringComparison.Ordinal);
    public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
-        or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch";
+        or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch" || IsShellSimplDesign;
+   /// <summary>Подбор сеток Капри-Мори: модель полосы — только НДМ, площади сечения не используются.</summary>
+   public bool IsShellSimplDesign => Kind is "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch";
+   public bool ShowShellSimplStripModel => IsShellSimpl && !IsShellSimplDesign;
    public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch";
    public bool IsShellSimplBatch => IsShellSimpl && Kind.EndsWith("_batch", StringComparison.Ordinal);
@@ -1304,7 +1311,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShellSimplPhi1     { get => shellSimplPhi1;     set { shellSimplPhi1     = value; OnPropertyChanged(); } }
    public string ShellSimplPhi2     { get => shellSimplPhi2;     set { shellSimplPhi2     = value; OnPropertyChanged(); } }
    public int ShellSimplStripModelIndex { get => shellSimplStripModelIndex; set { shellSimplStripModelIndex = value; OnPropertyChanged(); } }
-   string ShellSimplStripModelKey => ShellSimplStripModelIndex == 1 ? "formulas" : "ndm";
+   string ShellSimplStripModelKey => ShellSimplStripModelIndex == 1 && !IsShellSimplDesign ? "formulas" : "ndm";
 
    public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
    public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
@@ -1917,6 +1924,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_wa_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_capri_uls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_capri_design_uls", Label = Loc.S("CalcTaskKind_shell_simpl_capri_design_uls"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_capri_design_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_design_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls",       Label = Loc.S("CalcTaskKind_shell_layered_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls_batch", Label = Loc.S("CalcTaskKind_shell_layered_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_sls",       Label = Loc.S("CalcTaskKind_shell_layered_sls"),       GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },

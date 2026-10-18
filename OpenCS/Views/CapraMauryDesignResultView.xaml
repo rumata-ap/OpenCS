@@ -1,0 +1,99 @@
+<UserControl x:Class="OpenCS.Views.CapraMauryDesignResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="8">
+         <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Title}" Margin="0,0,0,4"/>
+
+         <Border CornerRadius="4" Padding="8,6" Margin="0,0,0,8" Background="{Binding StatusBrush}">
+            <TextBlock FontWeight="Bold" FontSize="13" Text="{Binding StatusText}" HorizontalAlignment="Center"/>
+         </Border>
+
+         <TextBlock Text="{DynamicResource CapriDesignModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+         <GroupBox Header="{DynamicResource CapriDesignForces}" Margin="0,0,0,8">
+            <TextBlock Margin="4" Text="{Binding ForcesText}"/>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource CapriDesignMeshes}" Margin="0,0,0,8">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition/>
+                  <RowDefinition/>
+                  <RowDefinition/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="Asx" FontWeight="Bold" Margin="0,0,16,4"/>
+               <TextBlock Grid.Row="0" Grid.Column="2" Text="Asy" FontWeight="Bold" Margin="0,0,16,4"/>
+               <TextBlock Grid.Row="0" Grid.Column="3" Text="{DynamicResource CapriDesignActive}" FontWeight="Bold" Margin="0,0,0,4"/>
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CapriDesignTop}" Margin="0,0,16,2"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TopAsx}" FontWeight="Bold" Margin="0,0,16,2"/>
+               <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding TopAsy}" FontWeight="Bold" Margin="0,0,16,2"/>
+               <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding TopActive}" Margin="0,0,0,2"/>
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CapriDesignBottom}" Margin="0,0,16,0"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BotAsx}" FontWeight="Bold" Margin="0,0,16,0"/>
+               <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding BotAsy}" FontWeight="Bold" Margin="0,0,16,0"/>
+               <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding BotActive}"/>
+            </Grid>
+         </GroupBox>
+
+         <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition/>
+               <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <GroupBox Grid.Column="0" Header="{DynamicResource CapriDesignTop}" Margin="0,0,4,0">
+               <helpers:CapraMauryDemandCanvas x:Name="TopCanvas" Height="200" Background="White"/>
+            </GroupBox>
+            <GroupBox Grid.Column="1" Header="{DynamicResource CapriDesignBottom}" Margin="4,0,0,0">
+               <helpers:CapraMauryDemandCanvas x:Name="BotCanvas" Height="200" Background="White"/>
+            </GroupBox>
+         </Grid>
+         <TextBlock Text="{DynamicResource CapriDesignChartHint}" TextWrapping="Wrap" Foreground="Gray" Margin="0,0,0,8"/>
+
+         <GroupBox Header="{DynamicResource CapriDesignDiagnostics}" Margin="0,0,0,8"
+                   Visibility="{Binding HasDiagnostics, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="4">
+               <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding}" Foreground="Firebrick" TextWrapping="Wrap"/>
+                  </DataTemplate>
+               </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource CapriDesignFacets}">
+            <DataGrid ItemsSource="{Binding Facets}" AutoGenerateColumns="False" IsReadOnly="True"
+                      MaxHeight="360" RowHeaderWidth="0">
+               <DataGrid.RowStyle>
+                  <Style TargetType="DataGridRow">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                           <Setter Property="Background" Value="#FFFFCC"/>
+                           <Setter Property="FontWeight" Value="Bold"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGrid.RowStyle>
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColTheta}" Binding="{Binding Theta}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColN}" Binding="{Binding N}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColM}" Binding="{Binding M}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColReqTop}" Binding="{Binding ReqTop}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColProvTop}" Binding="{Binding ProvTop}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColReqBot}" Binding="{Binding ReqBot}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColProvBot}" Binding="{Binding ProvBot}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColStatus}" Binding="{Binding Status}"/>
+                  <DataGridTextColumn Header="{DynamicResource CapriDesignColEta}" Binding="{Binding Eta}"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </GroupBox>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>

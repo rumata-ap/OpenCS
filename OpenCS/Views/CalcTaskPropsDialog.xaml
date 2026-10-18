@@ -1085,8 +1085,10 @@
                              Text="{Binding ShellSimplMxy, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,0,0,4"/>
                </Grid>
+               <TextBlock Text="{DynamicResource CapriDesignDialogNote}" TextWrapping="Wrap" Margin="0,4,0,0"
+                          Visibility="{Binding IsShellSimplDesign, Converter={StaticResource BoolToVisibility}}"/>
                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
-                           Visibility="{Binding IsShellSimpl, Converter={StaticResource BoolToVisibility}}">
+                           Visibility="{Binding ShowShellSimplStripModel, Converter={StaticResource BoolToVisibility}}">
                   <TextBlock Text="{DynamicResource ShellSimplStripModel}" VerticalAlignment="Center"
                              Margin="0,0,4,0"/>
                   <ComboBox SelectedIndex="{Binding ShellSimplStripModelIndex}" MinWidth="260">
