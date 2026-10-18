@@ -89,6 +89,19 @@ public static class StirrupResolver
                 $"Материал поперечной арматуры id={group.MaterialId} не найден — группа не учтена.");
             return 0.0;
         }
+        double rsw = RswFromChars(chars, out string? warning);
+        if (warning is not null) warnings.Add(warning);
+        return rsw;
+    }
+
+    /// <summary>
+    /// Rsw по табл. 6.15 СП 63.13330 по классу арматуры (240, 400, 500), кПа; для прочих классов —
+    /// расчётное сопротивление растяжению, ограниченное <see cref="MaxRsw"/>, с оговоркой.
+    /// </summary>
+    public static double RswFromChars(MaterialChars chars, out string? warning)
+    {
+        ArgumentNullException.ThrowIfNull(chars);
+        warning = null;
         int materialClass = (int)Math.Round(chars.Class);
         double rsw = materialClass switch
         {
@@ -100,9 +113,9 @@ public static class StirrupResolver
 
         if (materialClass is not (240 or 400 or 500))
         {
-            warnings.Add(
+            warning =
                 $"Для класса арматуры {chars.Class:G} нет отдельного значения в табл. 6.15 — "
-                + $"Rsw ограничено значением {MaxRsw / 1000.0:G} МПа.");
+                + $"Rsw ограничено значением {MaxRsw / 1000.0:G} МПа.";
         }
 
         return rsw;

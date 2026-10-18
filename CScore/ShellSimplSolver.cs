@@ -148,7 +148,9 @@ namespace CScore
             SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
             WplGammaMethod WplGamma = WplGammaMethod.Sp63,
             StripModel Model = StripModel.Formulas,
-            CapriCheckMode CapriMode = CapriCheckMode.Direct
+            CapriCheckMode CapriMode = CapriCheckMode.Direct,
+            double Qx = 0.0,
+            double Qy = 0.0
         );
 
         public sealed record SolveResult(
@@ -160,7 +162,8 @@ namespace CScore
             ShellSimplDirectionResult? CriticalTop,
             ShellSimplDirectionResult? CriticalBot,
             double? EtaMax,
-            IReadOnlyList<ShellSimpl.CapraMauryConstraintFacet>? CapriConstraints = null
+            IReadOnlyList<ShellSimpl.CapraMauryConstraintFacet>? CapriConstraints = null,
+            ShellSimpl.PlateShearResult? Shear = null
         );
 
         public static SolveResult Solve(
@@ -360,10 +363,19 @@ namespace CScore
                 }
             }
 
+            // Поперечная сила (спека, раздел 8) — проверка ПС1: Кисп,Q входит в общий Кисп,max.
+            ShellSimpl.PlateShearResult? shear = null;
+            if (!isSls)
+            {
+                shear = ShellSimpl.PlateShearCheck.Check(p.Qx, p.Qy, p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy,
+                    section, concreteMat, rebarMat, calcType);
+                if (shear != null) etaMax = Math.Max(etaMax ?? 0.0, shear.Eta);
+            }
+
             return new SolveResult(
                 isWa ? "wa" : "capri",
                 isSls ? "sls" : "uls",
-                p, waStrips, capriDirs, critTop, critBot, etaMax, capriConstraints
+                p, waStrips, capriDirs, critTop, critBot, etaMax, capriConstraints, shear
             );
         }
 
