@@ -11,6 +11,12 @@ namespace OpenCS.ViewModels.FemResult;
 public enum FemResultComponent { Ux, Uy, Uz, U }
 
 /// <summary>
+/// Величины расчётных длин на стержнях (постановка «Расчётные длины — CSfea»): КЗУ элемента (наименьший по осям),
+/// μ и lef по осям СП 16, источник μ по осям (категории).
+/// </summary>
+public enum FemBucklingQuantity { Kzu, MuX, MuY, LefX, LefY, SourceX, SourceY }
+
+/// <summary>
 /// Показанный в основном 3D-виде результат расчёта постановки: шаг, деформированная схема и её масштаб, значения
 /// величин по КЭ сетки, итог-экстремум. DataContext строки шага под 3D-видом.
 /// </summary>
@@ -56,6 +62,14 @@ public sealed class FemResultLayer : ViewModelBase
             };
         }
         if (steps is OpenSeesResultSteps openSees) OpenSees = openSees.Vm;
+        if (steps is BucklingResultSteps buckling)
+        {
+            // Формы потери устойчивости — суть результата: деформированная схема сразу.
+            Buckling = buckling;
+            _showDeformed = true;
+            foreach (var u in buckling.Summary.Units)
+                foreach (string tag in u.ElemTags) _bucklingUnits[tag] = u;
+        }
         RebuildNodeMap();
         Selection = new FemResultSelection(mesh);
         Selection.Changed += RefreshCard;
@@ -749,6 +763,7 @@ public sealed class FemResultLayer : ViewModelBase
     {
         if (Selection.Node is int node) return NodeCard(node);
         var tags = Selection.Elements.OrderBy(t => int.TryParse(t, out int n) ? n : int.MaxValue).ThenBy(t => t, StringComparer.Ordinal).ToList();
+        if (Buckling != null) return tags.Count == 0 ? null : BucklingCard(tags);
         return tags.Count switch
         {
             0 => null,
@@ -832,6 +847,113 @@ public sealed class FemResultLayer : ViewModelBase
         int k = (int)v;
         return k >= 0 && k < styles.Count ? Loc.S(styles[k].Key) : Num(v);
     }
+
+    // ------------------------------------------------------------ расчётные длины
+
+    readonly Dictionary<string, FemBucklingUnitSummary> _bucklingUnits = new(StringComparer.Ordinal);
+
+    /// <summary>Результат постановки «Расчётные длины — CSfea»; null — другой результат.</summary>
+    public BucklingResultSteps? Buckling { get; }
+    public bool IsBuckling => Buckling != null;
+
+    /// <summary>Расчётный элемент (КонЭ или цепочка), в который входит КЭ; null — у КЭ нет сжатия ни в одном сочетании.</summary>
+    public FemBucklingUnitSummary? BucklingUnit(string elemTag) => _bucklingUnits.GetValueOrDefault(elemTag);
+
+    /// <summary>
+    /// Величина расчётных длин на КЭ (его расчётного элемента): КЗУ, μ, lef, м, или номер категории источника
+    /// (<see cref="BucklingSources"/>); null — нет данных.
+    /// </summary>
+    public double? BucklingValue(string elemTag, FemBucklingQuantity q)
+    {
+        if (BucklingUnit(elemTag) is not { } u) return null;
+        return q switch
+        {
+            FemBucklingQuantity.Kzu => u.Kzu(),
+            FemBucklingQuantity.MuX => u.X.Mu,
+            FemBucklingQuantity.MuY => u.Y.Mu,
+            FemBucklingQuantity.LefX => u.X.Mu * u.Length,
+            FemBucklingQuantity.LefY => u.Y.Mu * u.Length,
+            FemBucklingQuantity.SourceX => SourceIndex(u.X),
+            _ => SourceIndex(u.Y),
+        };
+    }
+
+    /// <summary>Источники μ — категории мозаики: ключ строки и цвет; последний — μ не назначен.</summary>
+    public static IReadOnlyList<(string Key, System.Windows.Media.Color Color)> BucklingSources { get; } =
+    [
+        ("FemBucklingSourceMode", System.Windows.Media.Color.FromRgb(70, 110, 190)),
+        ("FemBucklingSourceRocking", System.Windows.Media.Color.FromRgb(230, 150, 40)),
+        ("FemBucklingSourceLocal", System.Windows.Media.Color.FromRgb(60, 160, 90)),
+        ("FemBucklingSourceNotInvolved", System.Windows.Media.Color.FromRgb(150, 120, 170)),
+        ("FemBucklingSourceNone", System.Windows.Media.Color.FromRgb(200, 60, 60)),
+    ];
+
+    static double SourceIndex(FemBucklingAxisSummary a) => a.Source switch
+    {
+        nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Mode) => 0,
+        nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Rocking) => 1,
+        nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Local) => 2,
+        nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.NotInvolved) => 3,
+        _ => 4,
+    };
+
+    public static string BucklingLabel(FemBucklingQuantity q) => Loc.S("FemBucklingQuantity" + q);
+
+    /// <summary>
+    /// Стержень на деформированной схеме формы ломаной через точки дробления (от I к J); null — схема не деформирована,
+    /// это не результат расчётных длин или стержень не дробился.
+    /// </summary>
+    public IReadOnlyList<Point3D>? BarCurve(string elemTag)
+    {
+        if (Buckling == null || !DeformedShown || Mesh.NodesOf(elemTag) is not [int i, int j]
+            || !int.TryParse(elemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int elem)
+            || Buckling.BarPoints(elem) is not { Count: > 0 } points)
+            return null;
+        Point3D a = Mesh.Nodes[i], b = Mesh.Nodes[j];
+        var list = new List<Point3D>(points.Count + 2) { Position(i) };
+        for (int k = 0; k < points.Count; k++)
+        {
+            double t = (k + 1.0) / (points.Count + 1);
+            list.Add(a + (b - a) * t + points[k] * _deformScale);
+        }
+        list.Add(Position(j));
+        return list;
+    }
+
+    /// <summary>Карточка расчётных длин: по каждому расчётному элементу выбора — μ, lef, N_cr, КЗУ, источник и ход вычисления.</summary>
+    FemResultCard BucklingCard(IReadOnlyList<string> tags)
+    {
+        var units = tags.Select(BucklingUnit).OfType<FemBucklingUnitSummary>().Distinct().ToList();
+        var rows = new List<FemResultCardRow>();
+        foreach (var u in units.Take(MaxCardUnits))
+        {
+            if (units.Count > 1) rows.Add(new(Loc.S("FemBucklingCardUnit"), u.Label));
+            rows.Add(new(Loc.S("FemBucklingCardCombination"), u.Combination));
+            rows.Add(new(Loc.S("FemBucklingCardLength"), Num(u.Length)));
+            rows.Add(new($"N, {Loc.S("UnitKN")}", Num(u.N / 1e3)));
+            foreach (var (axis, a) in new[] { ("x", u.X), ("y", u.Y) })
+            {
+                string value = a.Mu is double mu
+                    ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingCardAxis"), Num(mu), Num(mu * u.Length),
+                        a.Ncr is double ncr ? Num(ncr / 1e3) : "—", u.Kzu(a) is double k ? Num(k) : "—",
+                        Loc.S(BucklingSources[(int)SourceIndex(a)].Key))
+                    : Loc.S("FemBucklingSourceNone");
+                rows.Add(new($"μ{axis}", value));
+            }
+            if (units.Count == 1)
+                foreach (var (axis, a) in new[] { ("x", u.X), ("y", u.Y) })
+                    foreach (string line in new[] { a.Note }.Concat(a.Details).Where(l => l != ""))
+                        rows.Add(new(string.Format(Loc.S("FemBucklingCardNotes"), axis), line));
+        }
+        if (units.Count > MaxCardUnits)
+            rows.Add(new("…", string.Format(Loc.S("FemBucklingCardMore"), units.Count - MaxCardUnits)));
+        if (units.Count == 0) rows.Add(new(Loc.S("FemBucklingCardUnit"), Loc.S("FemBucklingCardNoUnit")));
+        string title = units.Count == 1 ? string.Format(Loc.S("FemBucklingCardTitle"), units[0].Label)
+            : string.Format(Loc.S("FemResultCardElements"), tags.Count);
+        return new FemResultCard(title, rows);
+    }
+
+    const int MaxCardUnits = 5;
 
     /// <summary>Несколько КЭ (КонЭ): по каждой величине — наибольшая по модулю с номером КЭ.</summary>
     FemResultCard GroupCard(IReadOnlyList<string> tags)

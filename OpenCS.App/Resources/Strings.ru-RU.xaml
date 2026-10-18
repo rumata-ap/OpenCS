@@ -3009,6 +3009,28 @@
     <system:String x:Key="FemBucklingCaseLine">Сочетание «{0}»: определяющее для {1} эл., λ₁ = {2}, форм {3}.</system:String>
     <system:String x:Key="FemBucklingNotConverged">Итерации не сошлись.</system:String>
     <system:String x:Key="FemBucklingUnstable">Схема неустойчива при сочетании (λ₁ ≤ 1) — μ не назначаются.</system:String>
+    <system:String x:Key="FemBucklingStepName">«{0}» · форма {1} · λ = {2:0.###}</system:String>
+    <system:String x:Key="FemBucklingNoModes">Форм нет</system:String>
+    <system:String x:Key="FemBucklingQuantityKzu">КЗУ = N_cr/N (наименьший по осям)</system:String>
+    <system:String x:Key="FemBucklingQuantityMuX">μx</system:String>
+    <system:String x:Key="FemBucklingQuantityMuY">μy</system:String>
+    <system:String x:Key="FemBucklingQuantityLefX">lef,x, м</system:String>
+    <system:String x:Key="FemBucklingQuantityLefY">lef,y, м</system:String>
+    <system:String x:Key="FemBucklingQuantitySourceX">Источник μx</system:String>
+    <system:String x:Key="FemBucklingQuantitySourceY">Источник μy</system:String>
+    <system:String x:Key="FemBucklingSourceMode">общая форма (λ·N)</system:String>
+    <system:String x:Key="FemBucklingSourceRocking">качание</system:String>
+    <system:String x:Key="FemBucklingSourceLocal">локальная задача</system:String>
+    <system:String x:Key="FemBucklingSourceNotInvolved">не участвует, μ не назначен</system:String>
+    <system:String x:Key="FemBucklingSourceNone">не назначен</system:String>
+    <system:String x:Key="FemBucklingCardTitle">Расчётные длины: {0}</system:String>
+    <system:String x:Key="FemBucklingCardUnit">Элемент</system:String>
+    <system:String x:Key="FemBucklingCardCombination">Сочетание</system:String>
+    <system:String x:Key="FemBucklingCardLength">l, м</system:String>
+    <system:String x:Key="FemBucklingCardAxis">{0}, lef = {1} м, N_cr = {2} кН, КЗУ = {3} ({4})</system:String>
+    <system:String x:Key="FemBucklingCardNotes">Ход, ось {0}</system:String>
+    <system:String x:Key="FemBucklingCardMore">ещё элементов: {0}</system:String>
+    <system:String x:Key="FemBucklingCardNoUnit">сжатия нет ни в одном сочетании — расчётные длины не нужны</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Загружения</system:String>
     <system:String x:Key="FemCsfeaLinearCasesHint">Каждое отмеченное загружение считается отдельно; усилия затем комбинируются («Наборы по загружениям» в окне результата → сочетания СП 20 / проверки по КЭ). Все загружения решаются одной сборкой и одной факторизацией матрицы жёсткости. Сечения упругие: бетон брутто, арматура в жёсткость не входит.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesAll">Все</system:String>

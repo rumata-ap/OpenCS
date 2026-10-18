@@ -3009,6 +3009,28 @@
     <system:String x:Key="FemBucklingCaseLine">Combination “{0}”: governing for {1} elements, λ₁ = {2}, {3} modes.</system:String>
     <system:String x:Key="FemBucklingNotConverged">Iterations did not converge.</system:String>
     <system:String x:Key="FemBucklingUnstable">The model is unstable under the combination (λ₁ ≤ 1) — μ not assigned.</system:String>
+    <system:String x:Key="FemBucklingStepName">“{0}” · mode {1} · λ = {2:0.###}</system:String>
+    <system:String x:Key="FemBucklingNoModes">No modes</system:String>
+    <system:String x:Key="FemBucklingQuantityKzu">Buckling load factor N_cr/N (lowest of the axes)</system:String>
+    <system:String x:Key="FemBucklingQuantityMuX">μx</system:String>
+    <system:String x:Key="FemBucklingQuantityMuY">μy</system:String>
+    <system:String x:Key="FemBucklingQuantityLefX">lef,x, m</system:String>
+    <system:String x:Key="FemBucklingQuantityLefY">lef,y, m</system:String>
+    <system:String x:Key="FemBucklingQuantitySourceX">Source of μx</system:String>
+    <system:String x:Key="FemBucklingQuantitySourceY">Source of μy</system:String>
+    <system:String x:Key="FemBucklingSourceMode">global mode (λ·N)</system:String>
+    <system:String x:Key="FemBucklingSourceRocking">leaning</system:String>
+    <system:String x:Key="FemBucklingSourceLocal">local problem</system:String>
+    <system:String x:Key="FemBucklingSourceNotInvolved">not involved, μ not assigned</system:String>
+    <system:String x:Key="FemBucklingSourceNone">not assigned</system:String>
+    <system:String x:Key="FemBucklingCardTitle">Effective lengths: {0}</system:String>
+    <system:String x:Key="FemBucklingCardUnit">Element</system:String>
+    <system:String x:Key="FemBucklingCardCombination">Combination</system:String>
+    <system:String x:Key="FemBucklingCardLength">l, m</system:String>
+    <system:String x:Key="FemBucklingCardAxis">{0}, lef = {1} m, N_cr = {2} kN, factor = {3} ({4})</system:String>
+    <system:String x:Key="FemBucklingCardNotes">Derivation, axis {0}</system:String>
+    <system:String x:Key="FemBucklingCardMore">more elements: {0}</system:String>
+    <system:String x:Key="FemBucklingCardNoUnit">no compression in any combination — effective lengths are not needed</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Load cases</system:String>
     <system:String x:Key="FemCsfeaLinearCasesHint">Each checked load case is analysed separately; forces are then combined (“Sets by load cases” in the result window → SP 20 combinations / per-element checks). All load cases are solved with one assembly and one factorization of the stiffness matrix. Sections are elastic: gross concrete, reinforcement does not contribute to stiffness.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesAll">All</system:String>

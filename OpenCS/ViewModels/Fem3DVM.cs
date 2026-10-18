@@ -1191,9 +1191,14 @@ public class Fem3DVM : ViewModelBase
         if (analysis.ResultId is not int id || _db.GetCalcResultById(id) is not { } result) return null;
         if (_db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId) is not { } schema) return null;
         _resultMesh ??= new FemResult.FemResultMesh(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
-        FemResult.IFemResultSteps steps = result.TaskKind == Services.FemCsfeaRunner.TaskKind
-            ? new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema, analysis))
-            : new FemResult.OpenSeesResultSteps(new FemAnalysisResultVM(result, _db, schema));
+        FemResult.IFemResultSteps steps = result.TaskKind switch
+        {
+            Services.FemCsfeaRunner.TaskKind => new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema, analysis)),
+            Services.FemBucklingRunner.TaskKind => new FemResult.BucklingResultSteps(
+                Services.FemBucklingSummary.Parse(result.DataJson) ?? new Services.FemBucklingSummary(),
+                n => _db.GetFemResultStep(id, n)),
+            _ => new FemResult.OpenSeesResultSteps(new FemAnalysisResultVM(result, _db, schema)),
+        };
         return new FemResult.FemResultLayer(analysis, analysis.Tag, steps, _resultMesh);
     }
 
@@ -1239,9 +1244,11 @@ public class Fem3DVM : ViewModelBase
         SetFragmentText(shells.Count + bars.Count, allShells.Count + allBars.Count);
         var coloring = Mosaic.Compute(shells.Select(e => e.ElemTag), bars.Select(e => e.ElemTag));
         // Стержни, не окрашенные величиной (поле пластин или эпюры усилий своим списком), — ровной линией.
+        // Форма потери устойчивости: стержни — ломаной через точки дробления.
+        Func<string, IReadOnlyList<Point3D>?>? curve = result.IsBuckling && result.DeformedShown ? result.BarCurve : null;
         BarGroups = coloring is { } c && (c.Bars || c.Both)
-            ? BuildMosaicBars(coloring, nodeMap, bars)
-            : [new BarGroup("", Colors.SteelBlue, BuildLinePoints(nodeMap, bars), 1.5)];
+            ? BuildMosaicBars(coloring, nodeMap, bars, curve)
+            : [new BarGroup("", Colors.SteelBlue, BuildLinePoints(nodeMap, bars, curve), 1.5)];
         MosaicBarSegments = BarSegments(nodeMap, bars);
         // Эпюры усилий стержней — на положениях узлов слоя (деформированных, если показаны).
         if (MosaicBarSegments.Count > 0)
@@ -1417,7 +1424,8 @@ public class Fem3DVM : ViewModelBase
     }
 
     /// <summary>Стержни по цветам полос шкалы; стержни без данных — тонкой серой линией.</summary>
-    List<BarGroup> BuildMosaicBars(PlateRebarMosaicColoring coloring, Dictionary<string, Point3D> nodeMap, List<FemMember> mosaicBars)
+    List<BarGroup> BuildMosaicBars(PlateRebarMosaicColoring coloring, Dictionary<string, Point3D> nodeMap, List<FemMember> mosaicBars,
+        Func<string, IReadOnlyList<Point3D>?>? curve = null)
     {
         var rest = new List<FemMember>();
         var byColor = new Dictionary<Color, List<FemMember>>();
@@ -1428,10 +1436,10 @@ public class Fem3DVM : ViewModelBase
             list.Add(e);
         }
         var result = new List<BarGroup>();
-        if (rest.Count > 0 && BuildLinePoints(nodeMap, rest) is { Count: > 0 } restPoints)
+        if (rest.Count > 0 && BuildLinePoints(nodeMap, rest, curve) is { Count: > 0 } restPoints)
             result.Add(new BarGroup("", Colors.LightGray, restPoints, 0.8));
         foreach (var (color, bars) in byColor)
-            if (BuildLinePoints(nodeMap, bars) is { Count: > 0 } points)
+            if (BuildLinePoints(nodeMap, bars, curve) is { Count: > 0 } points)
                 result.Add(new BarGroup("", color, points, 3.0));
         return result;
     }
@@ -1789,11 +1797,18 @@ public class Fem3DVM : ViewModelBase
 
     // -------------------------------------------------------------------------
 
-    Point3DCollection BuildLinePoints(Dictionary<string, Point3D> nodeMap, IEnumerable<FemMember> elems)
+    /// <param name="curve">Ломаная стержня по тегу КЭ (форма потери устойчивости); null или null из неё — отрезок.</param>
+    Point3DCollection BuildLinePoints(Dictionary<string, Point3D> nodeMap, IEnumerable<FemMember> elems,
+        Func<string, IReadOnlyList<Point3D>?>? curve = null)
     {
         var pts = new Point3DCollection();
         foreach (var e in elems)
         {
+            if (curve?.Invoke(e.ElemTag.Trim()) is { Count: > 1 } polyline)
+            {
+                for (int k = 1; k < polyline.Count; k++) { pts.Add(polyline[k - 1]); pts.Add(polyline[k]); }
+                continue;
+            }
             var pair = GetBarPoints(nodeMap, e);
             if (pair.HasValue) { pts.Add(pair.Value.p1); pts.Add(pair.Value.p2); }
         }

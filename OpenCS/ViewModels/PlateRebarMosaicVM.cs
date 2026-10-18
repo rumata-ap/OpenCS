@@ -1159,6 +1159,12 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
                .ToList();
          }
 
+         // Расчётные длины: величины на стержнях; форма (безразмерная) — деформированной схемой, не мозаикой.
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { IsBuckling: true }:
+            return Enum.GetValues<FemResult.FemBucklingQuantity>()
+               .Select(q => new PlateRebarMosaicComponentOption(q, FemResult.FemResultLayer.BucklingLabel(q)))
+               .ToList();
+
          case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result:
          {
             var options = Enum.GetValues<FemResult.FemResultComponent>()
@@ -1421,6 +1427,24 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             result.UpdateSummary(rc, values.Keys);
             bool signed = rc != FemResult.FemResultComponent.U;
             return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = both };
+         }
+
+         case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemResult.FemBucklingQuantity bq:
+         {
+            var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
+            foreach (string tag in barTags)
+               values[tag] = result.BucklingValue(tag, bq) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
+            if (bq is FemResult.FemBucklingQuantity.SourceX or FemResult.FemBucklingQuantity.SourceY)
+            {
+               result.ClearSummary();
+               return new Field(values, Bars: true, Diverging: false, Palette.Rebar)
+               {
+                  Categories = FemResult.FemResultLayer.BucklingSources.Select(s => (s.Color, Loc.S(s.Key))).ToList(),
+               };
+            }
+            result.UpdateElementSummary(comp.Label,
+               values.Where(kv => kv.Value.Value != null).Select(kv => new KeyValuePair<string, double>(kv.Key, kv.Value.Value!.Value)));
+            return new Field(values, Bars: true, Diverging: false, Palette.Rebar);
          }
 
          case PlateRebarMosaicSourceKind.Analysis when ActiveResult is { } result && comp.Component is FemCsfeaShellField sf:
