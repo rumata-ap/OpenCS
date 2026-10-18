@@ -264,6 +264,18 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Допуск самопроверки: больше — расхождение (точная запись в double даёт ~1e-12).</summary>
     public const double SelfCheckTolerance = 1e-6;
 
+    /// <summary>
+    /// Строка шапки результата: «жёсткости — «Стадии NL», конечное состояние, вид NL, …» и пометка несовпадения вида
+    /// расчёта постановки <paramref name="calc"/> с видом источника; null — начальные жёсткости.
+    /// </summary>
+    public string? StiffnessHeader(CalcType? calc)
+    {
+        if (StiffnessSourceLabel == null) return null;
+        string mismatch = calc is { } c && StiffnessCalc != null && StiffnessCalc != c.ToString()
+            ? $" (вид постановки {c} не совпадает)" : "";
+        return $"Жёсткости КЭ — {StiffnessSourceLabel}{mismatch}";
+    }
+
     /// <summary>Строки итога о жёсткостях из секущего результата; пусто — начальные жёсткости.</summary>
     public IEnumerable<string> DescribeStiffness()
     {

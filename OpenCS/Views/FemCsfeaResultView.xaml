@@ -3,10 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
              xmlns:u="clr-namespace:OpenCS.Utilites"
+             xmlns:conv="clr-namespace:OpenCS.Converters"
              xmlns:local="clr-namespace:OpenCS.Views"
              Language="ru-RU">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:NullToCollapsedVisibilityConverter x:Key="NullToCollapsed"/>
         <u:NToKNConvert x:Key="NToKN"/>
         <!-- Таблицы полей шага: на больших схемах — десятки тысяч строк, только виртуализированно -->
         <Style x:Key="FieldGrid" TargetType="DataGrid">
@@ -30,6 +32,11 @@
                     ToolTip="{DynamicResource FemResultShowInSchemaTip}" Click="ShowInSchema_Click" Padding="8,2"/>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                <!-- Линейный на жёсткостях секущего: источник и его устаревание -->
+                <TextBlock Text="{Binding StiffnessHeader}" TextWrapping="Wrap"
+                           Visibility="{Binding StiffnessHeader, Converter={StaticResource NullToCollapsed}}"/>
+                <TextBlock Text="{Binding StiffnessStaleNote}" Foreground="#B05A00" TextWrapping="Wrap"
+                           Visibility="{Binding HasStiffnessStaleNote, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{Binding BatchSummaryText}" TextWrapping="Wrap"
                            Visibility="{Binding IsBatch, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{DynamicResource FemCsfeaTablesHint}" Foreground="Gray" TextWrapping="Wrap"/>
@@ -211,6 +218,8 @@
                                 <MenuItem helpers:CommandIcons.Header="FemCsfeaBatchShowVariant" Click="BatchShowVariant_Click"/>
                                 <MenuItem helpers:CommandIcons.Header="FemCsfeaBatchNewFromProblems" Click="BatchNewFromProblems_Click"
                                           IsEnabled="{Binding CanNewBatchFromProblems}"/>
+                                <MenuItem helpers:CommandIcons.Header="FemCsfeaLinearOnStiffness" Click="BatchLinearOnStiffness_Click"
+                                          Visibility="{Binding CanLinearOnStiffness, Converter={StaticResource BoolToVis}}"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.RowStyle>
@@ -295,6 +304,9 @@
                 <Button Content="{DynamicResource FemCsfeaBatchForceSets}" Command="{Binding CreateBatchForceSetsCommand}"
                         ToolTip="{DynamicResource FemCsfeaBatchForceSetsTip}" Padding="8,2" Margin="6,0,0,0"
                         Visibility="{Binding IsBatch, Converter={StaticResource BoolToVis}}"/>
+                <Button Content="{DynamicResource FemCsfeaLinearOnStiffness}" Command="{Binding LinearOnStiffnessCommand}"
+                        ToolTip="{Binding LinearOnStiffnessTip}" ToolTipService.ShowOnDisabled="True" Padding="8,2" Margin="6,0,0,0"
+                        Visibility="{Binding CanLinearOnStiffness, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding HasFieldsNote, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="{Binding FieldsNote}" Foreground="DarkOrange" VerticalAlignment="Center" TextWrapping="Wrap"/>

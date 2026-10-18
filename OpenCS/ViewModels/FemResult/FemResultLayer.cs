@@ -352,7 +352,11 @@ public sealed class FemResultLayer : ViewModelBase
     public string SummaryText { get => _summaryText; private set { if (_summaryText == value) return; _summaryText = value; OnPropertyChanged(); } }
 
     /// <summary>Шапка 3D-вида: расчёт и показанное (шаг, загружение, комбинация или огибающая).</summary>
-    public string HeaderText => string.Format(Loc.S("FemResultHeader"), Label, StepLabel);
+    public string HeaderText => string.Format(Loc.S("FemResultHeader"), Label, StepLabel)
+        + (Csfea?.StiffnessHeader is { } stiffness ? Environment.NewLine + stiffness : "");
+
+    /// <summary>Линейный на жёсткостях секущего: источник пересчитан или пропал после расчёта; иначе null.</summary>
+    public string? StiffnessStaleNote => Csfea?.StiffnessStaleNote;
 
     /// <summary>
     /// Наименьшее и наибольшее значение с местом: «label: min v (место) · max v (место)». Источник — комбинация

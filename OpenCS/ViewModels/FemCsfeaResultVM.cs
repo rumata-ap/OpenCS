@@ -265,6 +265,11 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         BeamTension = _analysis == null || Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).Csfea?.TensionConcrete != false;
         HasCrackWidths = FemCsfeaCrackWidths.Applies(calc);
         _longShare = FemCsfeaCrackWidths.DefaultLongShare(calc);
+        // Инженерная нелинейность: у линейного на жёсткостях секущего — шапка и устаревание источника; у секущего —
+        // записи конечного состояния для команды «Линейный расчёт на этих жёсткостях…».
+        StiffnessHeader = Summary.StiffnessHeader(_analysis != null ? calc : null);
+        StiffnessStaleNote = result.Id > 0 ? FemCsfeaStiffnessSources.StaleNote(db, schema.Id, Summary) : null;
+        _stiffnessCandidates = Analysis != null ? FemCsfeaStiffnessSources.Candidates(Analysis, result) : [];
 
         var shellFields = new List<FemCsfeaOption<FemCsfeaShellField>>
         {
@@ -329,6 +334,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         CreateLoadCaseForceSetsCommand = new RelayCommand(_ => CreateLoadCaseForceSetsRequested?.Invoke(this),
             _ => CanCreateLoadCaseForceSets);
         CreateBatchForceSetsCommand = new RelayCommand(_ => CreateBatchForceSetsRequested?.Invoke(this), _ => CanCreateBatchForceSets);
+        LinearOnStiffnessCommand = new RelayCommand(_ => LinearOnStiffnessRequested?.Invoke(this), _ => ShownStiffnessCandidate != null);
         LongShareFromSetsCommand = new RelayCommand(_ => LongShareTask = LongShareFromSetsAsync(), _ => HasCrackWidths && LongShareTask.IsCompleted);
         PrevCaseCommand = new RelayCommand(_ => StepCase(-1), _ => NeighbourCase(-1) != null);
         NextCaseCommand = new RelayCommand(_ => StepCase(+1), _ => NeighbourCase(+1) != null);
@@ -574,7 +580,52 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         OnPropertyChanged(nameof(SelectedCaseItem));
         OnPropertyChanged(nameof(SelectedCombinationId));
         OnPropertyChanged(nameof(CanCreateForceSets));
+        OnPropertyChanged(nameof(ShownStiffnessCandidate));
+        OnPropertyChanged(nameof(LinearOnStiffnessTip));
         CaseChanged?.Invoke();
+    }
+
+    // ------------------------------------------------------------ инженерная нелинейность
+
+    readonly List<FemCsfeaStiffnessCandidate> _stiffnessCandidates;
+
+    /// <summary>Линейный результат на жёсткостях секущего: «Жёсткости КЭ — «Стадии NL», конечное состояние, …»; иначе null.</summary>
+    public string? StiffnessHeader { get; }
+
+    /// <summary>Источник жёсткостей пересчитан или пропал после расчёта — пометка; иначе null.</summary>
+    public string? StiffnessStaleNote { get; }
+    public bool HasStiffnessStaleNote => StiffnessStaleNote != null;
+
+    /// <summary>Команда «Линейный расчёт на этих жёсткостях…» есть: секущий результат с записями конечного состояния.</summary>
+    public bool CanLinearOnStiffness => _stiffnessCandidates.Count > 0;
+
+    /// <summary>Источник жёсткостей — показанная запись конечного состояния (постановки, варианта, длительной части); иначе null.</summary>
+    public FemCsfeaStiffnessCandidate? ShownStiffnessCandidate => FemCsfeaStiffnessSources.ByRecord(_stiffnessCandidates, ShownRecordN());
+
+    /// <summary>Подсказка команды: что будет создано или почему недоступна на показанном.</summary>
+    public string LinearOnStiffnessTip => ShownStiffnessCandidate != null ? Loc.S("FemCsfeaLinearOnStiffnessTip")
+        : _stiffnessCandidates.FirstOrDefault(c => c.IsFinalState) is { } final
+            ? string.Format(Loc.S("FemCsfeaLinearOnStiffnessNotFinal"), final.RecordN)
+            : Loc.S("FemCsfeaLinearOnStiffnessNoRecord");
+
+    public System.Windows.Input.ICommand LinearOnStiffnessCommand { get; }
+
+    /// <summary>«Линейный расчёт на этих жёсткостях…» — создать постановку (обрабатывает приложение).</summary>
+    public event Action<FemCsfeaResultVM>? LinearOnStiffnessRequested;
+
+    /// <summary>Номер записи показанных полей конечного состояния; null — огибающая, комбинация или нет полей.</summary>
+    int? ShownRecordN()
+    {
+        if (_shownEnvelope != null) return null;
+        if (_shownCombination is { Batch: { } b })
+            return EffectiveLongMode(b) switch
+            {
+                FemCsfeaLongMode.Total => b.RecordN,
+                FemCsfeaLongMode.Long => LongPartOf(b) is { } p ? Summary.LongRecordN(p) : null,
+                FemCsfeaLongMode.LongNL => LongNLOf(b)?.RecordN,
+                _ => null,
+            };
+        return _shownCombination == null && Fields != null ? _fieldsRecordN : null;
     }
 
     /// <summary>Показанное изменилось: шаг, загружение, комбинация или огибающая (для 3D-вида — общий сигнал).</summary>

@@ -144,6 +144,20 @@ public partial class FemCsfeaResultView : UserControl
         if (batchGrid.SelectedItem is FemCsfeaBatchRow row) _vm.ShowBatchRow(row);
     }
 
+    /// <summary>«Линейный расчёт на этих жёсткостях…» у строки сводки пакета: показать вариант и создать постановку.</summary>
+    void BatchLinearOnStiffness_Click(object sender, RoutedEventArgs e)
+    {
+        if (batchGrid.SelectedItem is not FemCsfeaBatchRow row) return;
+        _vm.ShowBatchRow(row);
+        if (_vm.ShownStiffnessCandidate == null)
+        {
+            MessageBox.Show(_vm.LinearOnStiffnessTip, Utilites.Loc.S("FemCsfeaLinearOnStiffness"), MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+        if (_vm.LinearOnStiffnessCommand.CanExecute(null)) _vm.LinearOnStiffnessCommand.Execute(null);
+    }
+
     void BatchNewFromProblems_Click(object sender, RoutedEventArgs e) =>
         (Application.Current?.MainWindow?.DataContext as AppViewModel)?.NewFemBatchFromProblems(_vm);
 }

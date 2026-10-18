@@ -5983,6 +5983,7 @@ namespace OpenCS
          vm.CreateForceSetsRequested += r => SaveCsfeaStepForceSets(r);
          vm.CreateLoadCaseForceSetsRequested += SaveCsfeaLoadCaseForceSets;
          vm.CreateBatchForceSetsRequested += r => CreateCsfeaBatchForceSets(r);
+         vm.LinearOnStiffnessRequested += NewLinearOnStiffness;
          if (stepIndex is int step) vm.SelectedStepIndex = Math.Clamp(step, 0, vm.MaxStepIndex);
          vm.ShownKey = caseKey;
          CurrentPage = new Views.FemCsfeaResultView(vm)
@@ -6016,6 +6017,34 @@ namespace OpenCS
             Owner = System.Windows.Application.Current.MainWindow,
             CsfeaContext = CsfeaRunContext(),
             Title = Loc.S("FemCsfeaBatchNewFromProblems"),
+         };
+         if (dlg.ShowDialog() != true) return;
+         var analysis = dlg.Result;
+         analysis.SchemaId = schema.Id;
+         db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
+      }
+
+      /// <summary>
+      /// «Линейный расчёт на этих жёсткостях…» (инженерная нелинейность, спека 2026-10-17, п. 2.3): диалог новой
+      /// постановки «Линейный — CSfea» с источником жёсткостей — показанной записью конечного состояния секущего
+      /// результата (постановки, варианта пакета или длительной части), вид расчёта источника, все загружения схемы.
+      /// </summary>
+      public void NewLinearOnStiffness(ViewModels.FemCsfeaResultVM result)
+      {
+         if (result.ShownStiffnessCandidate is not { } candidate) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == candidate.Analysis.SchemaId);
+         if (schema == null || !ConfirmFemSchemaSavedForAnalysis(schema)) return;
+         if (Services.FemCsfeaStiffnessSources.Fingerprint(db, candidate, out var error) is not { } fingerprint)
+         {
+            MessageBox.Show(error, Loc.S("FemCsfeaLinearOnStiffness"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         var template = Services.FemCsfeaStiffnessSources.LinearTemplate(candidate, fingerprint, schema.LoadCases);
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), template, CalcSettings.ToSp20GammaDefaults())
+         {
+            Owner = System.Windows.Application.Current.MainWindow,
+            CsfeaContext = CsfeaRunContext(),
+            Title = Loc.S("FemCsfeaLinearOnStiffnessTitle"),
          };
          if (dlg.ShowDialog() != true) return;
          var analysis = dlg.Result;

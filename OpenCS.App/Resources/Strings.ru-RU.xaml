@@ -3122,6 +3122,11 @@
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Вид расчёта источника {0} не совпадает с видом постановки {1}: жёсткости — по диагоналям {0}, ширина раскрытия и наборы усилий — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">Источник пересчитан после выбора — при сохранении будет взят его текущий результат.</system:String>
     <system:String x:Key="FemCsfeaStiffnessMissing">Сохранённый источник жёсткостей не найден (постановка удалена или не посчитана) — выберите заново.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffness">Линейный расчёт на этих жёсткостях…</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessTip">Создать постановку «Линейный — CSfea» на жёсткостях КЭ показанного конечного состояния (инженерная нелинейность): вид расчёта — как у источника, загружения — все загружения схемы.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessNotFinal">Доступно на конечном состоянии расчёта (шаг {0}): у промежуточных шагов нет полных матриц жёсткостей КЭ.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessNoRecord">У показанного нет записи конечного состояния с матрицами жёсткостей КЭ (огибающая, не дошедший или не посчитанный вариант).</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessTitle">Линейный расчёт на жёсткостях секущего результата</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotSelected">Выберите секущий расчёт — источник жёсткостей КЭ.</system:String>
     <system:String x:Key="FemCsfeaStiffnessFinalState">конечное состояние</system:String>
     <system:String x:Key="UnitMN">МН</system:String>

@@ -445,7 +445,12 @@
         <StackPanel Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" Panel.ZIndex="12">
         <Border Padding="6,2" Background="#D8FFFFFF" CornerRadius="3" HorizontalAlignment="Left" IsHitTestVisible="False"
                 DataContext="{Binding Mosaic.ActiveResult}" Visibility="{Binding Converter={StaticResource NullToCollapsedConv}}">
-            <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" TextWrapping="Wrap" MaxWidth="700"/>
+            <StackPanel>
+                <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" TextWrapping="Wrap" MaxWidth="700"/>
+                <!-- Линейный на жёсткостях секущего: источник изменён после расчёта -->
+                <TextBlock Text="{Binding StiffnessStaleNote}" Foreground="#B05A00" TextWrapping="Wrap" MaxWidth="700"
+                           Visibility="{Binding StiffnessStaleNote, Converter={StaticResource NullToCollapsedConv}}"/>
+            </StackPanel>
         </Border>
         <!-- Пакет CSfea: не дошедшие до предела λ и не посчитанные варианты -->
         <local:FemCsfeaBatchProblemBar DataContext="{Binding Mosaic.ActiveResult.Csfea}" OpensResultWindow="True"

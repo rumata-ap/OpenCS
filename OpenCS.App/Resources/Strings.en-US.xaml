@@ -3122,6 +3122,11 @@
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Source calculation type {0} differs from the analysis type {1}: stiffnesses use the {0} diagrams, crack width and force sets — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">The source was recomputed after selection — its current result will be taken on save.</system:String>
     <system:String x:Key="FemCsfeaStiffnessMissing">The saved stiffness source is not found (analysis deleted or not computed) — select again.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffness">Linear analysis on these stiffnesses…</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessTip">Create a "Linear — CSfea" analysis on the element stiffnesses of the shown final state (engineering nonlinearity): calculation type as in the source, all load cases of the schema.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessNotFinal">Available on the final state of the analysis (step {0}): intermediate steps have no full element stiffness matrices.</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessNoRecord">The shown item has no final-state record with element stiffness matrices (envelope, variant not reached or not computed).</system:String>
+    <system:String x:Key="FemCsfeaLinearOnStiffnessTitle">Linear analysis on secant result stiffnesses</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotSelected">Select a secant analysis as the element stiffness source.</system:String>
     <system:String x:Key="FemCsfeaStiffnessFinalState">final state</system:String>
     <system:String x:Key="UnitMN">MN</system:String>

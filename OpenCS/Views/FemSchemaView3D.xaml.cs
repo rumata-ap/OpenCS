@@ -1963,6 +1963,17 @@ public partial class FemSchemaView3D : UserControl
                 menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, result, app));
             if (csfea.IsBatch)
                 menu.Items.Add(CsfeaBatchForceSetsItem(csfea, result, app, selected: false));
+            if (csfea.CanLinearOnStiffness)
+            {
+                var linear = CommandIcons.Apply(new MenuItem
+                {
+                    Header = Loc.S("FemCsfeaLinearOnStiffness"), ToolTip = csfea.LinearOnStiffnessTip,
+                    IsEnabled = app != null && csfea.ShownStiffnessCandidate != null,
+                }, "FemCsfeaLinearOnStiffness");
+                ToolTipService.SetShowOnDisabled(linear, true);
+                linear.Click += (_, _) => app?.NewLinearOnStiffness(csfea);
+                menu.Items.Add(linear);
+            }
         }
         menu.IsOpen = true;
     }

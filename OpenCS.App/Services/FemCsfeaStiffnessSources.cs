@@ -197,6 +197,60 @@ public static class FemCsfeaStiffnessSources
             pars.Csfea?.GeomNonlinear == true);
     }
 
+    /// <summary>
+    /// Источник среди <paramref name="candidates"/> результата по номеру показанной записи; null — показана не запись
+    /// конечного состояния (промежуточный шаг, огибающая, комбинация полей).
+    /// </summary>
+    public static FemCsfeaStiffnessCandidate? ByRecord(IEnumerable<FemCsfeaStiffnessCandidate> candidates, int? recordN) =>
+        recordN is int n ? candidates.FirstOrDefault(c => c.RecordN == n) : null;
+
+    /// <summary>
+    /// Постановка «Линейный — CSfea» на жёсткостях источника (команда «Линейный расчёт на этих жёсткостях…», спека
+    /// п. 2.3): вид расчёта — как у источника, загружения — все загружения схемы, параметры сечений — как у секущей
+    /// постановки (без геометрической нелинейности и шагов записи), имя «ИН — <источник>».
+    /// </summary>
+    public static FemAnalysis LinearTemplate(FemCsfeaStiffnessCandidate c, FemCsfeaStiffnessSource fingerprint,
+        IEnumerable<FemLoadCase> loadCases)
+    {
+        var source = FemAnalysisParams.Parse(c.Analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
+        var csfea = System.Text.Json.JsonSerializer.Deserialize<FemCsfeaParams>(System.Text.Json.JsonSerializer.Serialize(source))!;
+        csfea.StiffnessSource = fingerprint;
+        csfea.GeomNonlinear = false;
+        csfea.GeomLargeDisplacements = false;
+        csfea.PhysicalNonlinearity = true;
+        csfea.ResultRecording = FemCsfeaRecording.Final;
+        csfea.RecordSteps = "";
+        var stages = loadCases.Select(lc => new FemAnalysisStage
+        {
+            Tag = lc.Tag,
+            LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [lc.Id] }.ToJson(),
+            LoadFactorStep = 1.0, MaxLoadFactor = 1.0,
+        }).ToList();
+        var pars = new FemAnalysisParams { CalcType = c.Calc, Stages = stages, Csfea = csfea };
+        return new FemAnalysis
+        {
+            SchemaId = c.Analysis.SchemaId, Kind = FemCsfeaRunner.LinearAnalysisKind,
+            Tag = c.IsFinalState ? $"ИН — {c.Analysis.Tag}" : $"ИН — {c.Analysis.Tag}, {c.Label}",
+            LoadExpressionJson = stages.FirstOrDefault()?.LoadExpressionJson ?? "{}", ParamsJson = pars.ToJson(),
+        };
+    }
+
+    /// <summary>
+    /// Пометка устаревания линейного результата на жёсткостях секущего: источник пересчитан или пропал после расчёта;
+    /// null — источника нет (начальные жёсткости) или запись та же.
+    /// </summary>
+    public static string? StaleNote(DatabaseService db, int schemaId, FemCsfeaResultSummary summary)
+    {
+        if (summary.StiffnessSource is not { } source) return null;
+        return Status(db, schemaId, source) switch
+        {
+            FemCsfeaStiffnessSourceStatus.Changed => "Источник жёсткостей пересчитан после этого расчёта — пересчитайте линейную постановку.",
+            FemCsfeaStiffnessSourceStatus.Missing => "Источника жёсткостей больше нет (постановка удалена или её результат сброшен) — "
+                + "результат показан на прежних жёсткостях; посчитайте источник и выберите его в постановке заново.",
+            _ => null,
+        };
+    }
+
     /// <summary>Определяющая нагрузка записи источника: номер загружения → коэффициент; null — не строится.</summary>
     static Dictionary<int, double>? DeterminingLoad(DatabaseService db, int schemaId, FemCsfeaStiffnessCandidate c,
         FemAnalysisParams pars, CSfea.CScoreBridge.Structural.RcSecantStepFields fields)
