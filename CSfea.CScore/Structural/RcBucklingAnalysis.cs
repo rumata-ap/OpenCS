@@ -105,6 +105,23 @@ public static class RcBucklingAnalysis
     }
 
     /// <summary>
+    /// Локальные задачи устойчивости расчётных элементов (спека 2026-10-18, п. 3Д): остальная схема — при фактическом
+    /// сочетании задачи <paramref name="result"/>, продольные силы подэлементов элемента умножаются на α
+    /// (<see cref="StructuralMesh.SolveLocalBuckling"/>). Только для элементов <paramref name="which"/> (по умолчанию —
+    /// всех), у остальных — null; при λ₁ ≤ 1 задача не имеет смысла (схема неустойчива при сочетании).
+    /// </summary>
+    public static StructuralLocalBuckling?[] SolveLocal(RcBucklingResult result, IReadOnlyList<IReadOnlyList<int>> units,
+        IEnumerable<int>? which = null)
+    {
+        var ids = (which ?? Enumerable.Range(0, units.Count)).Distinct().ToArray();
+        var groups = ids.Select(i => units[i].SelectMany(id => result.SubBeams[id]).ToArray()).ToList();
+        var solved = result.Build.Mesh.SolveLocalBuckling(result.URef, result.Build.Bc, groups);
+        var local = new StructuralLocalBuckling?[units.Count];
+        for (int k = 0; k < ids.Length; k++) local[ids[k]] = solved[k];
+        return local;
+    }
+
+    /// <summary>
     /// Определяющие сочетания расчётных элементов по п. 10.3.2 СП 16 (μ — по сочетанию с наибольшей продольной силой,
     /// для всех сочетаний): загружения решаются одной факторизацией, продольные силы подэлементов сочетаний — суммой по
     /// загружениям; у элемента — сочетание с наименьшей (наиболее сжимающей) силой его подэлементов.

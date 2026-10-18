@@ -33,6 +33,19 @@ public sealed record StructuralBucklingResult(double[] Lambda, double[][] Modes,
 /// </summary>
 public sealed record BeamModeEnergy(double Uxy, double Wxy, double Uxz, double Wxz);
 
+/// <summary>
+/// Формы локальной задачи устойчивости группы стержней: коэффициенты α к продольным силам группы по возрастанию и
+/// энергии группы в каждой форме (сумма <see cref="BeamModeEnergy"/> её стержней).
+/// </summary>
+public sealed record StructuralLocalModes(double[] Alpha, BeamModeEnergy[] Energy);
+
+/// <summary>
+/// Локальная задача устойчивости группы стержней (<see cref="StructuralMesh.SolveLocalBuckling"/>): <paramref name="Sway"/>
+/// — концы группы свободны, их держит остальная схема; <paramref name="Braced"/> — без смещения: поперечные перемещения
+/// концов группы закреплены.
+/// </summary>
+public sealed record StructuralLocalBuckling(StructuralLocalModes Sway, StructuralLocalModes Braced);
+
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
 
@@ -451,11 +464,15 @@ public sealed class StructuralMesh : IFeaMesh
     /// (та же конденсация, что в <see cref="ElementKGeometric"/>). По всем КЭ формы Σ(U + энергии N и кручения) = λ·ΣW.
     /// </summary>
     public BeamModeEnergy BeamEnergy(int beam, double[] mode, double axial)
+        => BeamEnergyAt(beam, Gather(mode, BeamDofs(Beams[beam])), axial);
+
+    // Энергии стержня по перемещениям его концов в глобальных осях (12 DOF).
+    private BeamModeEnergy BeamEnergyAt(int beam, double[] dGlobal, double axial)
     {
         var b = Beams[beam];
         var (t, l) = BeamElements.Beam3dT(BeamCoords(beam), b.RefVec);
         var kl = BeamElements.Beam3dKLocal(b.Section, l);
-        var d = BeamReleases.Recover(kl, b.Releases, Dense.MatVec(t, Gather(mode, BeamDofs(b))));
+        var d = BeamReleases.Recover(kl, b.Releases, Dense.MatVec(t, dGlobal));
         var kg = new double[12, 12];
         AddBeamKGeometric(kg, -axial, l);
         double Quad(double[,] k, int[] idx)
@@ -516,6 +533,178 @@ public sealed class StructuralMesh : IFeaMesh
             }
             return new StructuralBucklingResult(lambdas.ToArray(), modes.ToArray(), iterations, converged);
         }
+    }
+
+    /// <summary>
+    /// Локальные задачи устойчивости групп стержней (метод Бритвина–Айзенбергера, 2025): остальная схема — с K + K_σ(N)
+    /// при перемещениях <paramref name="uRef"/> (фактическая нагрузка, λ = 1), продольные силы стержней группы
+    /// умножаются на α. Матрица A = K + K_σ(N) всей схемы (положительно определена — схема при λ = 1 устойчива)
+    /// раскладывается один раз; податливость F = (A⁻¹)_EE на DOF группы E — решениями с готовым множителем. Матрица
+    /// группы — Шуров дополнитель A на E: C = F⁻¹ = S_rest + K_гр + K_σ,гр(N), поэтому
+    /// K_гр + S_rest + α·K_σ,гр = C + (α − 1)·K_σ,гр и α = 1 + 1/ν, ν — положительные собственные значения
+    /// G·φ = ν·C·φ, G = −K_σ,гр (симметрично: F^½·G·F^½·y = ν·y, φ = F^½·y). Без смещения поперечные перемещения
+    /// концов группы (узлов, к которым примыкает один её стержень; оси — местные y, z первого стержня) закрепляются:
+    /// F′ = F − F·B·(Bᵀ·F·B)⁻¹·Bᵀ·F. Группа — индексы <see cref="Beams"/>.
+    /// </summary>
+    public StructuralLocalBuckling[] SolveLocalBuckling(double[] uRef, BoundaryConditions bc, IReadOnlyList<int[]> groups,
+        bool shellInPlane = true)
+    {
+        if (bc.HasNonlinearSprings)
+            throw new InvalidOperationException("SolveLocalBuckling не поддерживает нелинейные пружины.");
+        if (bc.UFixed.Any(v => v != 0))
+            throw new NotSupportedException("SolveLocalBuckling — только с нулевыми заданными перемещениями.");
+        var fixedSys = SysFixed(bc.FixedDofs);
+        lock (_cholGate)
+        {
+            var asm = Assembler(bc, fixedSys);
+            var a = asm.AssembleWith(e =>
+            {
+                var k = ElementK(e);
+                Dense.AddScaledInPlace(k, ElementKGeometric(e, uRef, shellInPlane), 1.0);
+                return k;
+            }, MaxDegreeOfParallelism);
+            var chol = FactorizeCached(a);
+            if (!chol.LastFactorizationSpd)
+            {
+                string where = chol.FirstNonPositivePivot is int i and >= 0 && i < asm.Free.Length ? " — " + DescribeDof(asm.Free[i]) : "";
+                throw new InvalidOperationException($"Матрица K + K_σ не положительно определена — схема неустойчива при сочетании{where}.");
+            }
+            var sysToFree = new int[NSys];
+            Array.Fill(sysToFree, -1);
+            for (int i = 0; i < asm.Free.Length; i++) sysToFree[asm.Free[i]] = i;
+            var result = new StructuralLocalBuckling[groups.Count];
+            Parallel.For(0, groups.Count, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
+                g => result[g] = LocalBuckling(groups[g], uRef, chol, asm.Free.Length, sysToFree, shellInPlane));
+            return result;
+        }
+    }
+
+    // Локальная задача одной группы (см. SolveLocalBuckling).
+    private StructuralLocalBuckling LocalBuckling(int[] group, double[] uRef, SupernodalCholeskySolver chol, int nf,
+        int[] sysToFree, bool shellInPlane)
+    {
+        // Строки T полных DOF стержней группы в свободных неизвестных: (неизвестная, коэффициент), закреплённые опущены.
+        (int Col, double Coef)[] Row(int dof)
+        {
+            if (Links == null) return sysToFree[dof] >= 0 ? [(sysToFree[dof], 1.0)] : [];
+            return Links.Row(dof).Where(r => sysToFree[r.Col] >= 0).Select(r => (sysToFree[r.Col], r.Coef)).ToArray();
+        }
+        var pos = new Dictionary<int, int>();
+        var free = new List<int>();
+        var rows = new (int Col, double Coef)[group.Length][][];
+        for (int s = 0; s < group.Length; s++)
+        {
+            var dofs = BeamDofs(Beams[group[s]]);
+            rows[s] = new (int, double)[12][];
+            for (int a = 0; a < 12; a++)
+            {
+                var r = Row(dofs[a]);
+                for (int t = 0; t < r.Length; t++)
+                {
+                    if (!pos.TryGetValue(r[t].Col, out int p)) { pos[r[t].Col] = p = free.Count; free.Add(r[t].Col); }
+                    r[t] = (p, r[t].Coef);
+                }
+                rows[s][a] = r;
+            }
+        }
+        int n = free.Count;
+        var empty = new StructuralLocalModes([], []);
+        if (n == 0) return new StructuralLocalBuckling(empty, empty);
+
+        var axial = group.Select(b => BeamAxialForce(b, uRef)).ToArray();
+        var g = new double[n, n];
+        for (int s = 0; s < group.Length; s++)
+        {
+            var kg = ElementKGeometric(Shells.Count + group[s], uRef, shellInPlane);
+            for (int a = 0; a < 12; a++)
+                foreach (var (pa, ta) in rows[s][a])
+                    for (int b = 0; b < 12; b++)
+                        foreach (var (pb, tb) in rows[s][b]) g[pa, pb] -= ta * kg[a, b] * tb;
+        }
+
+        var f = new double[n, n];
+        for (int j = 0; j < n; j++)
+        {
+            var rhs = new double[nf];
+            rhs[free[j]] = 1.0;
+            var x = chol.Solve(rhs);
+            for (int i = 0; i < n; i++) f[i, j] = x[free[i]];
+        }
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < i; j++) f[i, j] = f[j, i] = 0.5 * (f[i, j] + f[j, i]);
+
+        // Концы группы — узлы одного стержня группы; закрепления — поперечные оси первого стержня.
+        var (axes, _) = BeamElements.Beam3dFrame(BeamCoords(group[0]), Beams[group[0]].RefVec);
+        var degree = new Dictionary<int, int>();
+        foreach (int b in group)
+            foreach (int node in new[] { Beams[b].I, Beams[b].J }) degree[node] = degree.GetValueOrDefault(node) + 1;
+        var constraints = new List<double[]>();
+        for (int s = 0; s < group.Length; s++)
+            for (int end = 0; end < 2; end++)
+            {
+                int node = end == 0 ? Beams[group[s]].I : Beams[group[s]].J;
+                if (degree[node] != 1) continue;
+                foreach (int axis in new[] { 1, 2 })
+                {
+                    var c = new double[n];
+                    for (int comp = 0; comp < 3; comp++)
+                        foreach (var (p, coef) in rows[s][6 * end + comp]) c[p] += axes[axis, comp] * coef;
+                    if (c.Any(v => v != 0)) constraints.Add(c);
+                }
+            }
+
+        StructuralLocalModes Modes(double[,] flex)
+        {
+            var (sv, v) = SymmetricEigen.Jacobi(flex);
+            double sMax = sv.Length == 0 ? 0 : sv.Max();
+            var root = new double[n, n];   // F^½
+            for (int k = 0; k < n; k++)
+            {
+                if (!(sv[k] > 1e-14 * sMax)) continue;
+                double r = Math.Sqrt(sv[k]);
+                for (int i = 0; i < n; i++)
+                    for (int j = 0; j < n; j++) root[i, j] += v[i, k] * r * v[j, k];
+            }
+            var (nu, y) = SymmetricEigen.Jacobi(Dense.MatMul(Dense.MatMul(root, g), root));
+            double nuMax = nu.Length == 0 ? 0 : nu.Max();
+            var order = Enumerable.Range(0, n).Where(k => nu[k] > 1e-10 * nuMax && nuMax > 0)
+                .OrderByDescending(k => nu[k]).ToArray();
+            var alpha = new double[order.Length];
+            var energy = new BeamModeEnergy[order.Length];
+            for (int m = 0; m < order.Length; m++)
+            {
+                int k = order[m];
+                alpha[m] = 1.0 + 1.0 / nu[k];
+                var phi = new double[n];
+                for (int i = 0; i < n; i++)
+                    for (int j = 0; j < n; j++) phi[i] += root[i, j] * y[j, k];
+                double uxy = 0, wxy = 0, uxz = 0, wxz = 0;
+                for (int s = 0; s < group.Length; s++)
+                {
+                    var d = new double[12];
+                    for (int a = 0; a < 12; a++)
+                        foreach (var (p, coef) in rows[s][a]) d[a] += coef * phi[p];
+                    var e = BeamEnergyAt(group[s], d, axial[s]);
+                    (uxy, wxy, uxz, wxz) = (uxy + e.Uxy, wxy + e.Wxy, uxz + e.Uxz, wxz + e.Wxz);
+                }
+                energy[m] = new BeamModeEnergy(uxy, wxy, uxz, wxz);
+            }
+            return new StructuralLocalModes(alpha, energy);
+        }
+
+        var sway = Modes(f);
+        if (constraints.Count == 0) return new StructuralLocalBuckling(sway, sway);
+        // F′ = F − F·B·(Bᵀ·F·B)⁻¹·Bᵀ·F; B — закрепления по столбцам.
+        var bm = new double[n, constraints.Count];
+        for (int c = 0; c < constraints.Count; c++)
+            for (int i = 0; i < n; i++) bm[i, c] = constraints[c][i];
+        var fb = Dense.MatMul(f, bm);
+        var braced = (double[,])f.Clone();
+        Dense.AddScaledInPlace(braced, Dense.MatMul(fb, Dense.MatMul(DenseLinAlg.PseudoInverse(Dense.MatTMul(bm, fb)),
+            Dense.Transpose(fb))), -1.0);
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < i; j++) braced[i, j] = braced[j, i] = 0.5 * (braced[i, j] + braced[j, i]);
+        return new StructuralLocalBuckling(sway, Modes(braced));
     }
 
     // Итерации подпространства для −K_σ·x = ν·K·x: X̄ = K⁻¹·B·X, проекции K_r = X̄ᵀ·B·X (= X̄ᵀ·K·X̄), B_r = X̄ᵀ·B·X̄,

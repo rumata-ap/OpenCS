@@ -55,7 +55,7 @@ public sealed record FemSteelAutoLef(string Unit, double Length, double? MuX, do
 /// (<see cref="FemBucklingUnits"/>), сочетания — стадии постановки (пакета — его варианты без длительных пар).
 /// Каждый элемент дробится не менее чем на 4 КЭ; определяющее сочетание элемента — с наибольшим сжатием; задача
 /// устойчивости решается по каждому различному определяющему сочетанию, μ элементов — энергетическим разбором её форм
-/// (<see cref="RcBucklingLengths"/>, срез 2), в оси СП 16 — <see cref="ElementLengths"/>.
+/// (<see cref="RcBucklingLengths"/>, срез 2) и локальными задачами (срез 3), в оси СП 16 — <see cref="ElementLengths"/>.
 /// </summary>
 public static class FemSteelBuckling
 {
@@ -118,14 +118,19 @@ public static class FemSteelBuckling
             report.Add($"Сочетание «{stage.Tag}»: определяющее для {c.Units.Count} эл., λ₁ = {lambda}"
                 + (r.Converged ? "" : " (итерации не сошлись)") + (c.Unstable ? " — схема неустойчива, μ не назначаются." : "."));
             if (c.Unstable) continue;
-            // Участие — относительно всех элементов схемы, назначение — элементам, для которых сочетание определяющее.
-            var all = RcBucklingLengths.Assign(r, input.UnitBeams, lengthOptions);
+            // Участие — относительно всех элементов схемы, назначение и локальные задачи — элементам, для которых
+            // сочетание определяющее.
+            var local = RcBucklingAnalysis.SolveLocal(r, input.UnitBeams, c.Units);
+            ct.ThrowIfCancellationRequested();
+            var all = RcBucklingLengths.Assign(r, input.UnitBeams, lengthOptions, local);
             foreach (int u in c.Units) lengths[u] = all[u];
         }
-        int notInvolved = lengths.Count(x => x != null
-            && (x.AboutZ.Source == RcBucklingLengthSource.NotInvolved || x.AboutY.Source == RcBucklingLengthSource.NotInvolved));
+        int Count(RcBucklingLengthSource source) => lengths.Count(x => x != null && (x.AboutZ.Source == source || x.AboutY.Source == source));
+        int byLocal = Count(RcBucklingLengthSource.Local), notInvolved = Count(RcBucklingLengthSource.NotInvolved);
+        if (byLocal > 0)
+            report.Add($"Элементов с N_cr по локальной задаче хотя бы в одной плоскости: {byLocal} (не участвуют в {options.Modes} формах или форма без смещения ниже).");
         if (notInvolved > 0)
-            report.Add($"Элементов, не участвующих в {options.Modes} формах хотя бы в одной плоскости: {notInvolved} — μ в этой плоскости не назначен.");
+            report.Add($"Элементов без формы хотя бы в одной плоскости (ни общей, ни локальной): {notInvolved} — μ в этой плоскости не назначен.");
         return new FemSteelBucklingResult(model, governing, cases, lengths, report);
     }
 
@@ -166,7 +171,8 @@ public static class FemSteelBuckling
 
     static double? Mu(RcBucklingPlaneLength p) => double.IsFinite(p.Mu) && p.Mu > 0 ? p.Mu : null;
 
-    // Пояснение к μ по оси для отчёта проверки: форма, её λ, доля работы, ρ/λ и N_cr = λ·N.
+    // Пояснение к μ по оси для отчёта проверки: форма, её λ, доля работы, ρ/λ и N_cr = λ·N; локальная задача — α и
+    // N_cr = α·N (без смещения — в сравнении с λ·N формы).
     static string Note(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x, string combination, string unit)
     {
         var ci = CultureInfo.CurrentCulture;
@@ -174,8 +180,16 @@ public static class FemSteelBuckling
         {
             RcBucklingLengthSource.Mode => string.Format(ci, Loc.S("FemSteelAutoLefMode"), axis, p.Mu, unit, x.Length,
                 combination, p.Mode + 1, p.Lambda, p.Share * 100, p.Rho / p.Lambda, -x.N / 1e3, p.Ncr / 1e3),
+            RcBucklingLengthSource.Rocking when double.IsFinite(p.LocalNcr) => string.Format(ci,
+                Loc.S("FemSteelAutoLefRockingLocal"), axis, p.Mu, unit, x.Length, combination, p.Mode + 1, p.Lambda,
+                -x.N / 1e3, p.LocalNcr / 1e3, p.LocalAlpha),
             RcBucklingLengthSource.Rocking => string.Format(ci, Loc.S("FemSteelAutoLefRocking"), axis, unit, x.Length,
                 combination, p.Mode + 1, p.Lambda),
+            RcBucklingLengthSource.Local when p.LocalBraced => string.Format(ci, Loc.S("FemSteelAutoLefLocalBraced"), axis,
+                p.Mu, unit, x.Length, combination, -x.N / 1e3, p.Ncr / 1e3, p.LocalAlpha, -p.Lambda * x.N / 1e3,
+                p.Mode + 1, p.Lambda),
+            RcBucklingLengthSource.Local => string.Format(ci, Loc.S("FemSteelAutoLefLocal"), axis, p.Mu, unit, x.Length,
+                combination, -x.N / 1e3, p.Ncr / 1e3, p.LocalAlpha),
             _ => string.Format(ci, Loc.S("FemSteelAutoLefNotInvolved"), axis, unit, combination),
         };
     }

@@ -59,6 +59,7 @@ public sealed class FemSteelBucklingLengthsTests
         Assert.Equal(2.0, map["102"].MuX!.Value, 2);
         Assert.Equal(0.699, map["102"].MuY!.Value, 2);
         Assert.Equal(l, map["102"].Length, 12);
-        Assert.Equal("FemSteelAutoLefMode", map["101"].NoteX);
+        Assert.Equal("FemSteelAutoLefMode", map["101"].NoteX);          // без смещения — та же форма, не ниже λ·N
+        Assert.True(own101.AboutZ.LocalBraced && own101.AboutZ.LocalNcr >= own101.AboutZ.Ncr * (1 - 1e-6));
     }
 }

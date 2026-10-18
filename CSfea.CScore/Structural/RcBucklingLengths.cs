@@ -10,11 +10,18 @@ public enum RcBucklingLengthSource
 
     /// <summary>
     /// Элемент в наинизшей форме с участием поворачивается почти как жёсткое тело (U ≪ λ·W — стойка-качалка): его держат
-    /// другие, сам он теряет устойчивость только по форме без смещения — до локальной задачи μ = 1.
+    /// другие, сам он теряет устойчивость только по форме без смещения — N_cr локальной задачи без смещения (без неё
+    /// μ = 1).
     /// </summary>
     Rocking,
 
-    /// <summary>Элемент не участвует ни в одной из найденных форм — нужна локальная задача (срез 3), μ не назначен.</summary>
+    /// <summary>
+    /// N_cr — по локальной задаче: элемент не участвует в найденных формах (его концы держит остальная схема при
+    /// фактическом сочетании) или участвует, но локальная форма без смещения ниже, чем λ_k·N.
+    /// </summary>
+    Local,
+
+    /// <summary>Элемент не участвует ни в одной из найденных форм, локальной формы в плоскости нет — μ не назначен.</summary>
     NotInvolved,
 }
 
@@ -24,10 +31,14 @@ public enum RcBucklingLengthSource
 /// <see cref="RcBucklingLengthSource.Rocking"/> — форма <paramref name="Mode"/> (индекс в
 /// <see cref="RcBucklingResult.Lambda"/>), её λ, доля работы элемента в форме <paramref name="Share"/> (от работы всех
 /// сжатых КЭ), участие <paramref name="Participation"/> (средний квадрат угла поворота оси относительно наибольшего по
-/// элементам формы) и ρ = U/W.
+/// элементам формы) и ρ = U/W (у <see cref="RcBucklingLengthSource.Local"/> — форма, в которой элемент участвует, или
+/// −1). <paramref name="LocalAlpha"/>, <paramref name="LocalNcr"/> — локальная задача в плоскости (NaN — не решалась или
+/// формы в плоскости нет): без смещения (<paramref name="LocalBraced"/>) — у участников и качающихся, с остальной
+/// схемой — у неучастников.
 /// </summary>
 public sealed record RcBucklingPlaneLength(RcBucklingLengthSource Source, double Mu, double Ncr, double EI,
-    int Mode = -1, double Lambda = double.NaN, double Share = 0, double Participation = 0, double Rho = double.NaN);
+    int Mode = -1, double Lambda = double.NaN, double Share = 0, double Participation = 0, double Rho = double.NaN,
+    double LocalAlpha = double.NaN, double LocalNcr = double.NaN, bool LocalBraced = false);
 
 /// <summary>
 /// Расчётные длины элемента по сочетанию: длина <paramref name="Length"/>, м; <paramref name="N"/> — наибольшее сжатие
@@ -40,9 +51,11 @@ public sealed record RcBucklingUnitLength(double Length, double N, RcBucklingPla
 /// Пороги энергетического разбора форм: <paramref name="Participation"/> — наименьшее участие элемента в форме
 /// (средний квадрат угла поворота оси элемента относительно наибольшего по элементам формы); <paramref name="Rocking"/>
 /// — ρ/λ, ниже которого элемент качается; <paramref name="BeamShare"/> — наименьшая доля работы стержней в работе
-/// формы (меньше — форма пластин, стержням не назначается).
+/// формы (меньше — форма пластин, стержням не назначается); <paramref name="LocalPlane"/> — наименьшая доля работы
+/// плоскости в работе локальной формы, чтобы считать форму формой этой плоскости.
 /// </summary>
-public sealed record RcBucklingLengthOptions(double Participation = 0.1, double Rocking = 0.01, double BeamShare = 0.05);
+public sealed record RcBucklingLengthOptions(double Participation = 0.1, double Rocking = 0.01, double BeamShare = 0.05,
+    double LocalPlane = 0.5);
 
 /// <summary>
 /// Энергетический разбор форм и назначение расчётных длин (спека 2026-10-18, пп. 3В–3Г; обобщение этажного подхода
@@ -50,16 +63,21 @@ public sealed record RcBucklingLengthOptions(double Participation = 0.1, double 
 /// (<see cref="StructuralMesh.BeamEnergy"/>), Σ U = λ_k·Σ W. Участие — средний квадрат угла поворота оси
 /// θ² = W/Σ(|N|·l) элемента относительно наибольшего по элементам <c>units</c> в форме: не зависит от числа стержней
 /// (в этажной форме рамы все стойки участвуют одинаково) и от нормировки формы. Наинизшая форма, в которой участие не меньше порога, —
-/// форма элемента в плоскости: N_cr = λ_k·|N|; если в ней ρ = U/W &lt; порог·λ_k — элемент качается (μ = 1 до
-/// локальной задачи). Не участвует ни в одной форме — μ не назначается.
+/// форма элемента в плоскости: N_cr = min(λ_k·|N|, N_cr,лок без смещения) — минимум ловит форму без смещения слабой
+/// перегруженной стойки; если в ней ρ = U/W &lt; порог·λ_k — элемент качается: N_cr,лок без смещения. Не участвует ни
+/// в одной форме — N_cr,лок с остальной схемой при фактическом сочетании (Бритвин). N_cr,лок = α·|N| — наинизшая
+/// локальная форма, в которой на плоскость приходится не меньше <see cref="RcBucklingLengthOptions.LocalPlane"/> работы
+/// (<see cref="RcBucklingAnalysis.SolveLocal"/>); без локальных задач — μ = 1 у качающихся, μ не назначается у
+/// неучастников.
 /// </summary>
 public static class RcBucklingLengths
 {
     /// <param name="result">Задача устойчивости по сочетанию.</param>
     /// <param name="units">Расчётные элементы — номера стержней исходной модели.</param>
+    /// <param name="local">Локальные задачи элементов (<see cref="RcBucklingAnalysis.SolveLocal"/>), null — нет.</param>
     /// <returns>По элементу в порядке <paramref name="units"/>; элемент без сжатия — null.</returns>
     public static RcBucklingUnitLength?[] Assign(RcBucklingResult result, IReadOnlyList<IReadOnlyList<int>> units,
-        RcBucklingLengthOptions? options = null)
+        RcBucklingLengthOptions? options = null, IReadOnlyList<StructuralLocalBuckling?>? local = null)
     {
         options ??= new RcBucklingLengthOptions();
         var mesh = result.Build.Mesh;
@@ -115,8 +133,24 @@ public static class RcBucklingLengths
             if (!(n < 0)) continue;
             var (_, eIy, eIz, _) = BeamElements.SectionStiffness(mesh.Beams[governing].Section);
 
+            var loc = local?[i];
+            // Наинизшая локальная форма плоскости: α, N_cr = α·|N|.
+            (double Alpha, double Ncr) Local(StructuralLocalModes? modes, bool xy)
+            {
+                if (modes == null) return (double.NaN, double.NaN);
+                for (int m = 0; m < modes.Alpha.Length; m++)
+                {
+                    var e = modes.Energy[m];
+                    double w = xy ? e.Wxy : e.Wxz, total = e.Wxy + e.Wxz;
+                    if (total > 0 && w >= options.LocalPlane * total) return (modes.Alpha[m], -modes.Alpha[m] * n);
+                }
+                return (double.NaN, double.NaN);
+            }
+            double Mu(double ei, double ncr) => Math.PI / l * Math.Sqrt(ei / ncr);
+
             RcBucklingPlaneLength Plane(bool xy, double ei)
             {
+                var (ab, nb) = Local(loc?.Braced, xy);
                 for (int k = 0; k < nm; k++)
                 {
                     double total = workBeams[k] + workShells[k];
@@ -128,18 +162,30 @@ public static class RcBucklingLengths
                     if (participation < options.Participation) continue;
                     double lambda = result.Lambda[k], rho = u / w;
                     if (rho < options.Rocking * lambda)
-                        return new(RcBucklingLengthSource.Rocking, 1.0, Math.PI * Math.PI * ei / (l * l), ei,
-                            k, lambda, w / total, participation, rho);
+                    {
+                        double nr = double.IsNaN(nb) ? Math.PI * Math.PI * ei / (l * l) : nb;
+                        return new(RcBucklingLengthSource.Rocking, Mu(ei, nr), nr, ei,
+                            k, lambda, w / total, participation, rho, ab, nb, !double.IsNaN(nb));
+                    }
                     double ncr = -lambda * n;
-                    return new(RcBucklingLengthSource.Mode, Math.PI / l * Math.Sqrt(ei / ncr), ncr, ei,
-                        k, lambda, w / total, participation, rho);
+                    // Та же форма в обеих задачах (стойка, закреплённая от смещения схемой) различается округлением.
+                    bool braced = nb < (1 - LocalTolerance) * ncr;
+                    var source = braced ? RcBucklingLengthSource.Local : RcBucklingLengthSource.Mode;
+                    if (braced) ncr = nb;
+                    return new(source, Mu(ei, ncr), ncr, ei, k, lambda, w / total, participation, rho, ab, nb, !double.IsNaN(nb));
                 }
-                return new(RcBucklingLengthSource.NotInvolved, double.NaN, double.NaN, ei);
+                var (asw, nsw) = Local(loc?.Sway, xy);
+                return double.IsNaN(nsw)
+                    ? new(RcBucklingLengthSource.NotInvolved, double.NaN, double.NaN, ei)
+                    : new(RcBucklingLengthSource.Local, Mu(ei, nsw), nsw, ei, LocalAlpha: asw, LocalNcr: nsw);
             }
             lengths[i] = new RcBucklingUnitLength(l, n, Plane(true, eIz), Plane(false, eIy));
         }
         return lengths;
     }
+
+    // Относительный запас, с которым N_cr локальной задачи без смещения должна быть ниже λ·N, чтобы заменить её.
+    const double LocalTolerance = 1e-6;
 
     static double Sq(double x) => x * x;
 
