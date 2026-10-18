@@ -55,9 +55,37 @@ namespace CScore
         Radaykin2018
     }
 
+    /// <summary>
+    /// Модель полосы 1 м × h в упрощённых проверках пластин (Вуд–Армер, Капра–Мори).
+    /// </summary>
+    public enum StripModel
+    {
+        /// <summary>Формулы СП 63: ПС1 — пп. 8.1.8–8.1.19, ПС2 — пп. 8.2.10–8.2.18 с Wpl = γ·Wred.
+        /// Значение для сохранённых задач без поля модели.</summary>
+        Formulas,
+
+        /// <summary>Одноосная плоская НДМ полосы (пп. 8.1.20–8.1.30, 8.2.14–8.2.18):
+        /// <see cref="ShellSimpl.StripNdm"/>.</summary>
+        Ndm
+    }
+
     public class ShellSimplStripResult
     {
         public string Name { get; set; } = "";
+        /// <summary>Модель полосы: "formulas" | "ndm".</summary>
+        public string Model { get; set; } = "formulas";
+        /// <summary>НДМ, ПС1: шарнир предельной плоскости (A — растянутый ряд на εs,ult, B — сжатая грань
+        /// на εb2, C — однозначное сжатие); пусто — формулы.</summary>
+        public string Pivot { get; set; } = "";
+        /// <summary>НДМ: деформация наиболее сжатой грани (минимальная по граням; &gt; 0 — сжатия нет).
+        /// ПС1 — фактическое НДС при η ≤ 1, иначе предельное; ПС2 — сечение с трещиной.</summary>
+        public double EpsB { get; set; }
+        /// <summary>НДМ: деформация ряда, растянутого моментом (того, для которого записана полоса).</summary>
+        public double EpsS_t { get; set; }
+        /// <summary>НДМ: деформация второго ряда.</summary>
+        public double EpsS_c { get; set; }
+        /// <summary>НДМ, ПС1: предельный множитель нагрузки на луче (N, M), η = 1/λ.</summary>
+        public double Lambda { get; set; }
         public double M_des { get; set; }
         public double N_des { get; set; }
         public double H0 { get; set; }
@@ -107,7 +135,8 @@ namespace CScore
             double Phi1 = 1.0,
             double Phi2 = 0.5,
             SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
-            WplGammaMethod WplGamma = WplGammaMethod.Sp63
+            WplGammaMethod WplGamma = WplGammaMethod.Sp63,
+            StripModel Model = StripModel.Formulas
         );
 
         public sealed record SolveResult(
@@ -141,6 +170,12 @@ namespace CScore
                 out double As_y_bot, out double As_y_top,
                 out double ds_x, out double ds_y);
 
+            // НДМ полосы: оба ряда направления в одном сечении (верх z > 0, низ z < 0).
+            var ndm = p.Model == StripModel.Ndm
+                ? ShellSimpl.StripNdmAdapter.Create(section, concreteMat, rebarMat, calcType, isSls, p.Phi1, p.Phi2, p.SigmaSCrc)
+                : null;
+            double zTop = h / 2.0 - ct, zBot = -(h / 2.0 - cb);
+
             List<ShellSimplStripResult>? waStrips = null;
             List<ShellSimplDirectionResult>? capriDirs = null;
             ShellSimplDirectionResult? critTop = null;
@@ -157,7 +192,28 @@ namespace CScore
 
                 waStrips = new List<ShellSimplStripResult>(4);
 
-                if (isSls)
+                if (isSls && ndm != null)
+                {
+                    // НДМ: полоса грани — оба ряда направления при моменте Вуда этой грани. Сквозное
+                    // растяжение НДМ видит сама: ряд грани растянут и в полосе противоположной грани,
+                    // поэтому берётся худшая a_crc ряда из двух полос (аналог WaThroughTension).
+                    ShellSimplStripResult[] Pair(string dir, double mTop, double mBot, double n,
+                        double asTop, double asBot, double ds)
+                    {
+                        var sTop = ndm.Sls(mTop, n, zTop, asTop, ds, zBot, asBot, ds);
+                        var sBot = ndm.Sls(-mBot, n, zTop, asTop, ds, zBot, asBot, ds);
+                        var top = sBot.Rows[0].AcrcMm > sTop.Rows[0].AcrcMm
+                            ? ndm.FromSls(dir + ", верх", sBot, 0, mTop, n, ds)
+                            : ndm.FromSls(dir + ", верх", sTop, 0, mTop, n, ds);
+                        var bot = sTop.Rows[1].AcrcMm > sBot.Rows[1].AcrcMm
+                            ? ndm.FromSls(dir + ", низ", sTop, 1, mBot, n, ds)
+                            : ndm.FromSls(dir + ", низ", sBot, 1, mBot, n, ds);
+                        return [top, bot];
+                    }
+                    waStrips.AddRange(Pair("x", Mx_top, Mx_bot, nxCands[0], As_x_top, As_x_bot, ds_x));
+                    waStrips.AddRange(Pair("y", My_top, My_bot, nyCands[0], As_y_top, As_y_bot, ds_y));
+                }
+                else if (isSls)
                 {
                     // Для трещин неблагоприятно наименьшее обжатие — первый кандидат.
                     waStrips.Add(MakeStripSls("x, верх", Mx_top, nxCands[0], h, h - ct, cb,
@@ -183,12 +239,26 @@ namespace CScore
                 {
                     // Полоса грани: момент со знаком относительно этой грани ("+" — растягивает её).
                     ShellSimplStripResult Strip(bool x, bool top, double m, double[] nCands) =>
-                        MakeStripUlsSigned(
+                        ndm != null ? NdmStripUls(x, top, m, nCands) : MakeStripUlsSigned(
                             (x ? "x, " : "y, ") + (top ? "верх" : "низ"), m, nCands, h,
                             top ? ct : cb, top ? cb : ct,
                             x ? (top ? As_x_top : As_x_bot) : (top ? As_y_top : As_y_bot),
                             x ? (top ? As_x_bot : As_x_top) : (top ? As_y_bot : As_y_top),
                             concreteChars, rebarChars);
+
+                    // НДМ: худший η из кандидатов мембранного усилия, как в MakeStripUlsWorst.
+                    ShellSimplStripResult NdmStripUls(bool x, bool top, double m, double[] nCands)
+                    {
+                        string name = (x ? "x, " : "y, ") + (top ? "верх" : "низ");
+                        double asTop = x ? As_x_top : As_y_top, asBot = x ? As_x_bot : As_y_bot;
+                        ShellSimplStripResult? worst = null;
+                        foreach (double n in nCands)
+                        {
+                            var r = ndm!.Uls(name, top ? m : -m, n, m, top == (m >= 0.0), zTop, asTop, zBot, asBot);
+                            if (worst == null || r.Eta > worst.Eta) worst = r;
+                        }
+                        return worst!;
+                    }
 
                     // Пара полос x и y одной грани. Расчётные моменты Вуда — частный выбор в
                     // условии (8.100) (Mx,ult − Mx)·(My,ult − My) ≥ Mxy²: Mx* = Mx + k·|Mxy|,
@@ -239,7 +309,7 @@ namespace CScore
                         As_x_top, As_y_top, As_x_bot, As_y_bot,
                         ds_x, ds_y,
                         concreteChars, rebarChars,
-                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
+                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma, ndm));
                 }
 
                 if (isSls)
@@ -1032,7 +1102,8 @@ namespace CScore
             double ds_x, double ds_y,
             MaterialChars concreteChars, MaterialChars rebarChars,
             bool isSls, double phi1, double phi2, double acrcLimMm,
-            SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
+            SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
+            ShellSimpl.StripNdmAdapter? ndm = null)
         {
             double alpha = alphaDeg * Math.PI / 180.0;
             double c = Math.Cos(alpha), s = Math.Sin(alpha);
@@ -1049,7 +1120,24 @@ namespace CScore
 
             bool top = M_n >= 0.0;
             ShellSimplStripResult strip;
-            if (isSls)
+            if (ndm != null)
+            {
+                // НДМ: оба ряда фасетки в одном сечении. ПС2 — сквозное растяжение видно сразу,
+                // запись берётся по ряду с наибольшей a_crc (как выбор грани в формульной ветви).
+                double zT = h / 2.0 - ct, zB = -(h / 2.0 - cb);
+                if (isSls)
+                {
+                    var sls = ndm.Sls(M_n, N_n, zT, As_n_top, ds_top, zB, As_n_bot, ds_bot);
+                    int row = ShellSimpl.StripNdmAdapter.WorstRow(sls, M_n);
+                    top = row == 0;
+                    strip = ndm.FromSls("", sls, row, Math.Abs(M_n), N_n, top ? ds_top : ds_bot);
+                }
+                else
+                {
+                    strip = ndm.Uls("", M_n, N_n, Math.Abs(M_n), top, zT, As_n_top, zB, As_n_bot);
+                }
+            }
+            else if (isSls)
             {
                 strip = top
                     ? ComputeStripSls(Math.Abs(M_n), N_n, h, h - ct, cb,
