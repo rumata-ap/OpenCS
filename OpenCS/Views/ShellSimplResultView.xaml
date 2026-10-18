@@ -93,7 +93,7 @@
                                          Visibility="{Binding ShowSls, Converter={StaticResource BoolToVisibility}}"/>
                               <StackPanel Grid.Column="4" Orientation="Horizontal" Margin="4 0 8 0"
                                           Visibility="{Binding ShowUls, Converter={StaticResource BoolToVisibility}}">
-                                 <TextBlock Text="η: "/>
+                                 <TextBlock Text="Кисп: "/>
                                  <TextBlock Text="{Binding EtaDisplay}"/>
                               </StackPanel>
                            </Grid>
@@ -129,7 +129,7 @@
                   <TextBlock Text="{Binding CritTopAlpha}" Margin="0,0,4,0"/>
                   <TextBlock Text="°," Margin="0,0,4,0"/>
                   <TextBlock Text="{Binding CritTopSigmaDisplay, StringFormat='σs: {0} МПа'}" Margin="0,0,4,0"/>
-                  <TextBlock Text="{Binding CritTopEtaDisplay, StringFormat='η: {0}'}" Margin="0,0,4,0"
+                  <TextBlock Text="{Binding CritTopEtaDisplay, StringFormat='Кисп: {0}'}" Margin="0,0,4,0"
                              Visibility="{Binding HasEtaMax, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBlock Text="{Binding CritTopAcrcDisplay, StringFormat='acrc: {0} мм'}" Margin="0,0,4,0"/>
                </StackPanel>
@@ -139,12 +139,12 @@
                   <TextBlock Text="{Binding CritBotAlpha}" Margin="0,0,4,0"/>
                   <TextBlock Text="°," Margin="0,0,4,0"/>
                   <TextBlock Text="{Binding CritBotSigmaDisplay, StringFormat='σs: {0} МПа'}" Margin="0,0,4,0"/>
-                  <TextBlock Text="{Binding CritBotEtaDisplay, StringFormat='η: {0}'}" Margin="0,0,4,0"
+                  <TextBlock Text="{Binding CritBotEtaDisplay, StringFormat='Кисп: {0}'}" Margin="0,0,4,0"
                              Visibility="{Binding HasEtaMax, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBlock Text="{Binding CritBotAcrcDisplay, StringFormat='acrc: {0} мм'}" Margin="0,0,4,0"/>
                </StackPanel>
                <TextBlock Margin="4" FontWeight="Bold"
-                          Text="{Binding EtaMaxDisplay, StringFormat='η_max: {0}'}"
+                          Text="{Binding EtaMaxDisplay, StringFormat='Кисп,max: {0}'}"
                           Visibility="{Binding HasEtaMax, Converter={StaticResource BoolToVisibility}}"/>
             </StackPanel>
          </GroupBox>
@@ -214,7 +214,7 @@
                   <DataGridTextColumn Header="Растянутая грань" Binding="{Binding Face}"/>
                   <DataGridTextColumn Header="σs, МПа" Binding="{Binding SigmaDisplay}"/>
                   <DataGridTextColumn Header="acrc, мм" Binding="{Binding AcrcDisplay}"/>
-                  <DataGridTextColumn Header="η" Binding="{Binding EtaDisplay}"/>
+                  <DataGridTextColumn Header="Кисп" Binding="{Binding EtaDisplay}"/>
                   <DataGridTextColumn x:Name="PivotColumn" Header="{DynamicResource ShellSimplColPivot}"
                                       Binding="{Binding Pivot}" Visibility="Collapsed"/>
                   <DataGridTextColumn x:Name="EpsBColumn" Header="{DynamicResource ShellSimplColEpsB}"

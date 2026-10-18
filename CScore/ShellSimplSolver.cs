@@ -72,10 +72,10 @@ namespace CScore
     /// <summary>Способ проверки Капра–Мори (спека, раздел 7).</summary>
     public enum CapriCheckMode
     {
-        /// <summary>По фасеткам: η полосы при проекции заданной арматуры. Значение по умолчанию.</summary>
+        /// <summary>По фасеткам: Кисп полосы при проекции заданной арматуры. Значение по умолчанию.</summary>
         Direct,
 
-        /// <summary>Через ограничения: η = max по θ и граням r(θ)/As_n(θ), r — требуемая площадь ряда
+        /// <summary>Через ограничения: Кисп = max по θ и граням r(θ)/As_n(θ), r — требуемая площадь ряда
         /// по НДМ полосы, As_n — заданная сетка, приведённая к фасетке.</summary>
         Constraints
     }
@@ -89,13 +89,13 @@ namespace CScore
         /// на εb2, C — однозначное сжатие); пусто — формулы.</summary>
         public string Pivot { get; set; } = "";
         /// <summary>НДМ: деформация наиболее сжатой грани (минимальная по граням; &gt; 0 — сжатия нет).
-        /// ПС1 — фактическое НДС при η ≤ 1, иначе предельное; ПС2 — сечение с трещиной.</summary>
+        /// ПС1 — фактическое НДС при Кисп ≤ 1, иначе предельное; ПС2 — сечение с трещиной.</summary>
         public double EpsB { get; set; }
         /// <summary>НДМ: деформация ряда, растянутого моментом (того, для которого записана полоса).</summary>
         public double EpsS_t { get; set; }
         /// <summary>НДМ: деформация второго ряда.</summary>
         public double EpsS_c { get; set; }
-        /// <summary>НДМ, ПС1: предельный множитель нагрузки на луче (N, M), η = 1/λ.</summary>
+        /// <summary>НДМ, ПС1: предельный множитель нагрузки на луче (N, M), Кисп = 1/λ.</summary>
         public double Lambda { get; set; }
         public double M_des { get; set; }
         public double N_des { get; set; }
@@ -263,7 +263,7 @@ namespace CScore
                             x ? (top ? As_x_bot : As_x_top) : (top ? As_y_bot : As_y_top),
                             concreteChars, rebarChars);
 
-                    // НДМ: худший η из кандидатов мембранного усилия, как в MakeStripUlsWorst.
+                    // НДМ: худший Кисп из кандидатов мембранного усилия, как в MakeStripUlsWorst.
                     ShellSimplStripResult NdmStripUls(bool x, bool top, double m, double[] nCands)
                     {
                         string name = (x ? "x, " : "y, ") + (top ? "верх" : "низ");
@@ -285,7 +285,7 @@ namespace CScore
                     // учётом) полоса с M* = 0 считается как центрально растянутая и отдаёт
                     // половину N арматуре этой грани, хотя фактический момент уводит N к другой
                     // грани. Поэтому при растяжении и обнулённом моменте проверяется и пара k = 1
-                    // без обнуления, с моментом, сжимающим грань; берётся пара с меньшим η —
+                    // без обнуления, с моментом, сжимающим грань; берётся пара с меньшим Кисп —
                     // условие (8.100) достаточно выполнить при одном k.
                     (ShellSimplStripResult X, ShellSimplStripResult Y) FacePair(bool top, double mxWood, double myWood)
                     {
@@ -482,7 +482,7 @@ namespace CScore
             return least == most ? [least] : [least, most];
         }
 
-        /// <summary>Полоса ПС1 с худшим η из кандидатов мембранного усилия.</summary>
+        /// <summary>Полоса ПС1 с худшим Кисп из кандидатов мембранного усилия.</summary>
         static ShellSimplStripResult MakeStripUlsWorst(string name,
             double M_des, double[] nCands, double h, double h0, double aPrime,
             double As_t, double As_c,
@@ -1061,7 +1061,7 @@ namespace CScore
                         // не выполняется — противоположный стержень не может быть сжат. Норма
                         // этот вырожденный случай не оговаривает; сечение работает как в 8.1.19а,
                         // поэтому переходим на условие (8.21) с M'_ult по (8.23). Это же делает
-                        // η непрерывной на границе e0 = (h0−a')/2 и совпадает с равновесием
+                        // Кисп непрерывной на границе e0 = (h0−a')/2 и совпадает с равновесием
                         // двух растянутых рядов.
                         x = 0.0;
                         m_ult = Rs * As_t * arm;

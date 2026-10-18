@@ -286,7 +286,7 @@ public sealed class ShearInclinedReportStation
     public double? Qb { get; init; }
     /// <summary>Составляющая хомутов.</summary>
     public double? Qsw { get; init; }
-    /// <summary>η по поперечной силе.</summary>
+    /// <summary>Кисп по поперечной силе.</summary>
     public double? Eta { get; init; }
     /// <summary>Момент.</summary>
     public double? MomentApplied { get; init; }
@@ -296,6 +296,6 @@ public sealed class ShearInclinedReportStation
     public double? Ms { get; init; }
     /// <summary>Момент хомутов.</summary>
     public double? Msw { get; init; }
-    /// <summary>η по моменту.</summary>
+    /// <summary>Кисп по моменту.</summary>
     public double? EtaM { get; init; }
 }

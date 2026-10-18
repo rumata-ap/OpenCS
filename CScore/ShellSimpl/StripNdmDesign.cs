@@ -17,12 +17,12 @@ public enum StripNdmDesignStatus
 /// <param name="AsTension">Ряд у грани, растянутой моментом (при M ≥ 0 — верхний).</param>
 /// <param name="AsCompression">Ряд у противоположной грани.</param>
 /// <param name="TensionTop">Растянутый моментом ряд — верхний.</param>
-/// <param name="Value">ПС1 — η при найденных площадях, ПС2 — a_crc, мм.</param>
+/// <param name="Value">ПС1 — Кисп при найденных площадях, ПС2 — a_crc, мм.</param>
 public sealed record StripNdmDesignResult(double AsTension, double AsCompression, bool TensionTop,
     StripNdmDesignStatus Status, double Value, string Reason = "");
 
 /// <summary>
-/// Подбор площадей полосы по НДМ (спека, раздел 4.5): ПС1 — минимальная сумма As_t + As_c при η ≤ 1,
+/// Подбор площадей полосы по НДМ (спека, раздел 4.5): ПС1 — минимальная сумма As_t + As_c при Кисп ≤ 1,
 /// ПС2 — As_t при a_crc ≤ a_crc,ult. Точность — 0,5 % площади.
 /// </summary>
 public static class StripNdmDesign
@@ -123,7 +123,7 @@ public static class StripNdmDesign
 
     /// <summary>
     /// ПС1 при заданной площади ряда у грани, сжатой моментом (<paramref name="asOther"/>), — проверка
-    /// через ограничения: наименьшая As_t, при которой η ≤ 1. Если не хватает и наибольшей As_t, —
+    /// через ограничения: наименьшая As_t, при которой Кисп ≤ 1. Если не хватает и наибольшей As_t, —
     /// подбор обоих рядов (<see cref="RequiredUls(double, double, StripNdmUlsTable)"/>), второй ряд
     /// тогда тоже становится требованием.
     /// </summary>

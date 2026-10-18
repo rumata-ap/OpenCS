@@ -9,7 +9,7 @@ public sealed record CapraMauryMesh(double Asx, double Asy, IReadOnlyList<double
 /// <param name="AsBot">Требование к нижнему ряду.</param>
 /// <param name="AsNTop">Обеспечиваемая верхней сеткой площадь Asx·cos²θ + Asy·sin²θ.</param>
 /// <param name="Status">Исход подбора полосы фасетки.</param>
-/// <param name="Eta">η полосы фасетки при требуемых площадях (ПС1; в подборе по ПС2 — 0).</param>
+/// <param name="Eta">Кисп полосы фасетки при требуемых площадях (ПС1; в подборе по ПС2 — 0).</param>
 /// <param name="AcrcMm">a_crc полосы фасетки при требуемых площадях, мм (ПС2; в подборе по ПС1 — 0).</param>
 /// <param name="AsCUls">ПС2: площадь ряда у грани, сжатой моментом, из ПС1 той же фасетки — отправная
 /// для подбора по трещинам.</param>
@@ -216,7 +216,7 @@ public static class CapraMauryDesignSolver
     /// Проверка ПС1 через ограничения (спека, раздел 7): на каждой фасетке r ряда у грани, растянутой
     /// моментом, — наименьшая площадь при заданной площади второго ряда
     /// (<see cref="StripNdmDesign.RequiredTensionUls"/>); второй ряд — требование, только если не хватает
-    /// и наибольшей площади первого. η фасетки — max r/As_n.
+    /// и наибольшей площади первого. Кисп фасетки — max r/As_n.
     /// </summary>
     public static IReadOnlyList<CapraMauryConstraintFacet> CheckUls(Context ctx, double nx, double ny, double nxy,
         double mx, double my, double mxy, double asXTop, double asYTop, double asXBot, double asYBot, double stepDeg = 10.0)

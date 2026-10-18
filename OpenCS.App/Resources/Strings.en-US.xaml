@@ -2019,19 +2019,19 @@
     <system:String x:Key="ShellSimplStripModelNdm">Strip NDM (cl. 8.1.20–8.1.30, 8.2.14)</system:String>
     <system:String x:Key="ShellSimplStripModelFormulas">SP 63 formulas (cl. 8.1.8–8.1.19, 8.2.10–8.2.18)</system:String>
     <system:String x:Key="CapriCheckMode">Capra–Maury check</system:String>
-    <system:String x:Key="CapriCheckModeDirect">By facets — strip η with projected meshes</system:String>
-    <system:String x:Key="CapriCheckModeConstraints">By constraints — η = max r(θ)/As,n(θ)</system:String>
+    <system:String x:Key="CapriCheckModeDirect">By facets — strip Util with projected meshes</system:String>
+    <system:String x:Key="CapriCheckModeConstraints">By constraints — Util = max r(θ)/As,n(θ)</system:String>
     <system:String x:Key="CapriCheckModeTip">By constraints: on each facet the required row area r(θ) from the strip NDM (with the given opposite mesh) is compared with the mesh area projected onto the facet, As,n = Asx·cos²θ + Asy·sin²θ. Requirements are computed by NDM for any strip model.</system:String>
     <system:String x:Key="CapriConstraintsTitle">Check by constraints: required r(θ) and provided As,n(θ)</system:String>
-    <system:String x:Key="CapriConstraintsNote">r(θ) is the least row area by the strip NDM with the given area of the opposite row; η = max r/As,n over facets and faces. The facet table above is the projection check, for reference.</system:String>
-    <system:String x:Key="CapriConstraintsColEtaTop">η top</system:String>
-    <system:String x:Key="CapriConstraintsColEtaBot">η bottom</system:String>
+    <system:String x:Key="CapriConstraintsNote">r(θ) is the least row area by the strip NDM with the given area of the opposite row; Util = max r/As,n over facets and faces. The facet table above is the projection check, for reference.</system:String>
+    <system:String x:Key="CapriConstraintsColEtaTop">Util top</system:String>
+    <system:String x:Key="CapriConstraintsColEtaBot">Util bottom</system:String>
     <system:String x:Key="CapriConstraintsColStatus">Check</system:String>
     <system:String x:Key="ShellSimplColPivot">Pivot</system:String>
     <system:String x:Key="ShellSimplColLambda">λ</system:String>
     <system:String x:Key="ShellSimplColEpsB">εb, ‰</system:String>
     <system:String x:Key="ShellSimplColEpsS">εs, ‰</system:String>
-    <system:String x:Key="ShellSimplModelNdmNote">Strip model — NDM: η = 1/λ, λ is the ultimate load factor along the (N, M) ray up to the strains of cl. 8.1.30; pivot A — tension row at εs,ult, B — compressed face at εb2, C — single-sign compression.</system:String>
+    <system:String x:Key="ShellSimplModelNdmNote">Strip model — NDM: Util = 1/λ, λ is the ultimate load factor along the (N, M) ray up to the strains of cl. 8.1.30; pivot A — tension row at εs,ult, B — compressed face at εb2, C — single-sign compression.</system:String>
     <system:String x:Key="ShellSimplModelFormulasNote">Strip model — SP 63 formulas.</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_design_uls">Plate: Capri-Mori mesh design (ULS)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_design_uls_batch">Plate: Capri-Mori mesh design, ULS (batch)</system:String>
@@ -2056,7 +2056,7 @@
     <system:String x:Key="CapriDesignColReqBot">r bottom, cm²/m</system:String>
     <system:String x:Key="CapriDesignColProvBot">As,n bottom, cm²/m</system:String>
     <system:String x:Key="CapriDesignColStatus">Strip design</system:String>
-    <system:String x:Key="CapriDesignColEta">Strip η</system:String>
+    <system:String x:Key="CapriDesignColEta">Strip Util</system:String>
     <system:String x:Key="CapriDesignColAcrc">Strip a_crc, mm</system:String>
     <system:String x:Key="CapriDesignColAsCUls">As,c from ULS, cm²/m</system:String>
     <system:String x:Key="CapriDesignStatusNotRequired">not required</system:String>

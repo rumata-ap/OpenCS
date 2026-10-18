@@ -9,7 +9,7 @@ namespace CScore;
 public static class ShellStrainCapriGuess
 {
    /// <summary>
-   /// Строит [ε₀x, ε₀y, γ₀xy, κx, κy, κxy] по критическому направлению Capri (max η).
+   /// Строит [ε₀x, ε₀y, γ₀xy, κx, κy, κxy] по критическому направлению Capri (max Кисп).
    /// </summary>
    public static double[]? Build(
       double[] target,
@@ -50,7 +50,7 @@ public static class ShellStrainCapriGuess
       double eps0_n = crit.N_n / EA;
       double kappa_n = crit.M_n / EI;
 
-      // Масштаб к уровню спроса по η критического направления (Capri уже «видит» нелинейность).
+      // Масштаб к уровню спроса по Кисп критического направления (Capri уже «видит» нелинейность).
       double eta = crit.Strip.Eta;
       if (eta > 0.05 && eta < 0.99)
       {

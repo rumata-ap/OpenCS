@@ -7,7 +7,7 @@ using OpenCS.ViewModels;
 namespace OpenCS.Views.Helpers;
 
 /// <summary>
-/// График коэффициента использования вдоль элемента: η по поперечной силе и η по моменту.
+/// График коэффициента использования вдоль элемента: Кисп по поперечной силе и Кисп по моменту.
 /// Стоянки, для которых проверка не выполнялась (NaN), в линии не участвуют — линия
 /// на этих участках прерывается, чтобы не рисовать несуществующие значения.
 /// </summary>
@@ -22,7 +22,7 @@ public sealed class ShearInclinedEtaCanvas : Canvas
         set { _stations = value ?? []; InvalidateVisual(); }
     }
 
-    /// <summary>Рисует оси, предельную линию η = 1 и кривые η(s).</summary>
+    /// <summary>Рисует оси, предельную линию Кисп = 1 и кривые Кисп(s).</summary>
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
@@ -52,7 +52,7 @@ public sealed class ShearInclinedEtaCanvas : Canvas
         dc.DrawLine(axisPen, new Point(left, top + plotHeight),
                              new Point(left + plotWidth, top + plotHeight));
 
-        // Предельная линия η = 1
+        // Предельная линия Кисп = 1
         var limitPen = new Pen(Brushes.Red, 1.0) { DashStyle = DashStyles.Dash };
         double limitY = PxY(1.0);
         dc.DrawLine(limitPen, new Point(left, limitY), new Point(left + plotWidth, limitY));

@@ -20,7 +20,7 @@ public partial class CapraMauryDesignResultView : System.Windows.Controls.UserCo
         DataContext = vm;
         if (vm.IsSls)
         {
-            // ПС2: вместо η полосы — a_crc при требуемых площадях, плюс отправная As_c из ПС1.
+            // ПС2: вместо Кисп полосы — a_crc при требуемых площадях, плюс отправная As_c из ПС1.
             ValueColumn.Header = Loc.S("CapriDesignColAcrc");
             AsCUlsColumn.Visibility = System.Windows.Visibility.Visible;
         }

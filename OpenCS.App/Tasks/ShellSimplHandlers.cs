@@ -136,7 +136,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 bool ok;
                 string rowStatus;
 
-                // Через ограничения ПС2 тоже даёт η = max r/As_n.
+                // Через ограничения ПС2 тоже даёт Кисп = max r/As_n.
                 if (IsSls && result.CapriConstraints == null)
                 {
                     var dirs = result.CapriDirs ?? [];

@@ -305,7 +305,7 @@ public class ShellSimplResultVM : ViewModelBase
                 foreach (var r in paired) Directions.Add(r);
             }
 
-            // Подсветить критические направления (макс. acrc для SLS, макс. η для ULS)
+            // Подсветить критические направления (макс. acrc для SLS, макс. Кисп для ULS)
             if (isSls)
             {
                 var maxAcrc = Directions.Where(d => !d.StatusOk).DefaultIfEmpty().MaxBy(d => d?.Acrc_mm);
@@ -354,7 +354,7 @@ public class ShellSimplResultVM : ViewModelBase
         if (doc.TryGetProperty("EtaMax", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.Number)
             EtaMax = em.GetDouble();
 
-        // Через ограничения итог — η = max r/As,n (таблица фасеток по проекции — для справки).
+        // Через ограничения итог — Кисп = max r/As,n (таблица фасеток по проекции — для справки).
         if (doc.TryGetProperty("CapriConstraints", out var cons) && cons.ValueKind == JsonValueKind.Array
             && cons.GetArrayLength() > 0)
         {

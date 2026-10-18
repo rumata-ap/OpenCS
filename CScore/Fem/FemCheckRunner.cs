@@ -302,7 +302,7 @@ public static partial class FemCheckRunner
                         : $"Qb1 = {q.Qb1:F1} кН/м без поперечной арматуры, требуется Asw/sw = {q.AswPerSw * 1e4:F2} см²/м²"));
         }
 
-        // Капра–Мори через ограничения: η = max r(θ)/As_n(θ) — одна мера для ПС1 и ПС2.
+        // Капра–Мори через ограничения: Кисп = max r(θ)/As_n(θ) — одна мера для ПС1 и ПС2.
         if (r.CapriConstraints is { Count: > 0 } cons)
         {
             var w = cons.MaxBy(f => f.Eta)!;

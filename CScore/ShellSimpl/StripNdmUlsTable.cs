@@ -3,7 +3,7 @@ namespace CScore.ShellSimpl;
 /// <summary>
 /// Предельный контур полосы, затабулированный по плоскостям (<see cref="StripNdm.Tabulate"/>):
 /// бетонные усилия и напряжения рядов в каждой точке контура. Для заданных площадей контур —
-/// замкнутая ломаная в координатах (N·h/6, M); η = 1/λ по наименьшему пересечению луча (N, M) с
+/// замкнутая ломаная в координатах (N·h/6, M); Кисп = 1/λ по наименьшему пересечению луча (N, M) с
 /// ломаной — та же мера, что <see cref="StripNdm.UltimateFactor"/>, с погрешностью хорды.
 /// </summary>
 public sealed class StripNdmUlsTable
@@ -23,7 +23,7 @@ public sealed class StripNdmUlsTable
     /// <summary>Число рядов (порядок — как в полосе, по которой построена таблица).</summary>
     public int RowCount => _z.Length;
 
-    /// <summary>η = 1/λ при площадях рядов <paramref name="areas"/>; 0 — нулевая нагрузка,
+    /// <summary>Кисп = 1/λ при площадях рядов <paramref name="areas"/>; 0 — нулевая нагрузка,
     /// <see cref="double.MaxValue"/> — луч не пересекает контур.</summary>
     public double Eta(ReadOnlySpan<double> areas, double n, double m) => Eta(areas, n, m, out _);
 
