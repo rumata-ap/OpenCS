@@ -48,7 +48,8 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
         var row = SelectedRow;
         if (row == null) return;
 
-        var section = _app.CrossSections.FirstOrDefault(s => s.Id == _task.SectionId);
+        // Задачи пластин ссылаются на плитное сечение, а не на сечение стержня.
+        var section = _app.PlateSections.FirstOrDefault(s => s.Id == _task.SectionId);
         if (section == null)
         {
             MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
@@ -83,17 +84,26 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
             CalcType = _task.CalcType,
             Tag = tag,
             ForceSetId = _task.ForceSetId,
-            ParamsJson = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                nx = shellItem.Nx, ny = shellItem.Ny, nxy = shellItem.Nxy,
-                mx = shellItem.Mx, my = shellItem.My, mxy = shellItem.Mxy,
-                step_deg = 10.0, acrc_lim_mm = 0.3, phi1 = 1.0, phi2 = 0.5
-            })
+            ParamsJson = System.Text.Json.JsonSerializer.Serialize(SingleParams(_task.ParamsJson, shellItem, section.H))
         };
 
         newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
         _app.db.SaveCalcTask(newTask);
         _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), tag));
+    }
+
+    /// <summary>
+    /// Параметры одиночной задачи по строке пакета: все параметры пакета (шаг фасеток, предел и
+    /// коэффициенты трещин, модель полосы, способ проверки КМ) и усилия строки — те же, что брал пакет
+    /// (Nx/Ny/Nxy через ResolveN при «напряжения → усилия»), уже приведённые к кН/м.
+    /// </summary>
+    public static OpenCS.Tasks.ShellSimplParams SingleParams(string? batchParamsJson, ShellLoadItem shellItem, double h)
+    {
+        var p = OpenCS.Tasks.ShellSimplParams.Parse(batchParamsJson);
+        (p.Nx, p.Ny, p.Nxy) = p.AutoStressToForce ? shellItem.ResolveN(h) : (shellItem.Nx, shellItem.Ny, shellItem.Nxy);
+        p.Mx = shellItem.Mx; p.My = shellItem.My; p.Mxy = shellItem.Mxy;
+        p.AutoStressToForce = false;
+        return p;
     }
 
     private void ExportCsv_Click(object sender, RoutedEventArgs e)
