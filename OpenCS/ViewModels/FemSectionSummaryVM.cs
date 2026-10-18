@@ -140,6 +140,9 @@ public class FemSectionSummaryVM
 
         var c = System.Globalization.CultureInfo.CurrentCulture;
         RebarAreaNote = string.Format(c, Loc.S("FemCsfeaSectionNote"), s.CompressedHeight * 1000, s.EpsB, s.SigmaB, s.EpsS, s.SigmaS)
-                        + (s.Cracked ? " " + Loc.S("FemCsfeaSectionCracked") : "") + " " + Loc.S("FemCsfeaSectionAssumption");
+                        + (s.Cracked ? " " + Loc.S("FemCsfeaSectionCracked") : "")
+                        + (s.CrackFromFlag ? " " + Loc.S("FemCsfeaSectionCrackFromFlag") : "")
+                        + (s.HasPsi ? " " + string.Format(c, Loc.S("FemCsfeaSectionPsi"), s.PsiMin) : "")
+                        + " " + Loc.S("FemCsfeaSectionAssumption");
     }
 }

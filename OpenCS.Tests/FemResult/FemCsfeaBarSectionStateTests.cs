@@ -59,9 +59,11 @@ public sealed class FemCsfeaBarSectionStateTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SimpleBeam_FiberForcesMatchRecordedEndForces(bool yAlongLocalY)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void SimpleBeam_FiberForcesMatchRecordedEndForces(bool yAlongLocalY, bool psi)
     {
         const double l = 6.0, p = 20e3;
         const int n = 12;
@@ -79,8 +81,7 @@ public sealed class FemCsfeaBarSectionStateTests
         m.LoadCases.Add(lc);
         m.Stages.Add(new RcStage("P", [(1, 1.0)], 5));
 
-        // Без ψs (εs,crc не записываются): состояние окна (трещина — по показанной плоскости) совпадает с расчётом.
-        var run = RcSecantAnalysis.Run(m, new RcSecantOptions { RecordSectionStrains = true, Psi = false, BeamShear = false });
+        var run = RcSecantAnalysis.Run(m, new RcSecantOptions { RecordSectionStrains = true, Psi = psi, BeamShear = false });
         var f = run.LastConvergedFields();
         Assert.True(run.Result.Completed, run.Result.Message);
         Assert.NotNull(f);
@@ -91,10 +92,20 @@ public sealed class FemCsfeaBarSectionStateTests
         for (int e = 0; e < n; e++)
         {
             var points = Enumerable.Range(0, 3)
-                .Select(pt => FemCsfeaBarSectionState.Compute(section, CalcType.N, tension: true, yAlongLocalY, f, e, pt)).ToArray();
+                .Select(pt => FemCsfeaBarSectionState.Compute(section, CalcType.N, tension: true, yAlongLocalY, f, e, pt, psi)).ToArray();
+            var calcState = (CrossSectionSecantBeamState)run.BeamStates[e]!;
             for (int pt = 0; pt < 3; pt++)
             {
                 var s = points[pt];
+                // Трещина точки окна (по плоскости и флагу КЭ) — та же, что в расчёте; ψs — у треснувших точек.
+                Assert.True(calcState.Cracked[pt] == s.Cracked, $"КЭ {10 + e}, точка {pt}: трещина окна {s.Cracked}, расчёта {calcState.Cracked[pt]}");
+                Assert.Equal(psi && s.Cracked, s.HasPsi);
+                // Интеграл фибр окна = истинные усилия расчёта в точке (то же состояние: трещина и εs,crc).
+                int sp = e * RcSecantStepFields.BeamStrainComponents + 3 * pt;
+                var tf = calcState.TrueForces(pt / 2.0, f.BeamStrains[sp], f.BeamStrains[sp + 1], f.BeamStrains[sp + 2]);
+                var truth = FemCsfeaBarSectionState.ToSection((tf.N, tf.My, tf.Mz), yAlongLocalY);
+                Assert.True(Math.Abs(truth.N - s.N) * s.Size + Math.Abs(truth.Mx - s.Mx) + Math.Abs(truth.My - s.My) < 1e-3 * Math.Max(1, Math.Abs(s.Mx)),
+                    $"КЭ {10 + e}, точка {pt}: расчёт ({truth.N:0.###}; {truth.Mx:0.###}; {truth.My:0.###}), окно ({s.N:0.###}; {s.Mx:0.###}; {s.My:0.###})");
                 // Оси и знаки: интеграл фибр по записанной плоскости = секущая точки S_p·ε (полная матрица конечного
                 // состояния, оси КЭ), переведённая в оси сечения. Секущая точки — из последней оценки (деформации до
                 // последнего обновления матриц), поэтому допуск — 2 % от |M| точки, не меньше 10 % наибольшего момента.
@@ -117,24 +128,51 @@ public sealed class FemCsfeaBarSectionStateTests
             }
             // Равновесие с записанными силами — у КЭ, где все точки треснули и сечения близки: секущая КЭ — средняя
             // податливость трёх точек, у КЭ на границе трещин или у порога трещинообразования сечение точки мягче или
-            // жёстче среднего, и интеграл фибр отличается от S·ε КЭ (это окно и показывает).
+            // жёстче среднего, и интеграл фибр отличается от S·ε КЭ (это окно и показывает). С ψs жёсткость точек КЭ
+            // различается сильнее (ψs зависит от момента): на концах расхождение до 50 % по N — сравнивается середина.
             if (!points.All(s => s.Cracked) || Math.Abs(points[0].RecordedMx) < 20) continue;
             checkedCracked++;
-            foreach (var (s, pt) in points.Select((s, i) => (s, i)))
+            foreach (var (s, pt) in points.Select((s, i) => (s, i)).Where(x => !psi || x.i == 1))
                 Assert.True(s.Discrepancy < 0.05, $"КЭ {10 + e}, точка {pt}: N {s.N:0.##}/{s.RecordedN:0.##}, Mx {s.Mx:0.##}/{s.RecordedMx:0.##}, My {s.My:0.##}/{s.RecordedMy:0.##}");
         }
         Assert.True(checkedCracked > 0);
         // В середине пролёта трещина: растянута арматура, сжатая зона — меньше половины высоты, σs < Rs.
-        var mid = FemCsfeaBarSectionState.Compute(section, CalcType.N, true, yAlongLocalY, f, n / 2 - 1, 2);
+        var mid = FemCsfeaBarSectionState.Compute(section, CalcType.N, true, yAlongLocalY, f, n / 2 - 1, 2, psi);
         Assert.True(mid.Cracked);
         Assert.False(mid.Tension);
         Assert.True(mid.EpsS > 0 && mid.SigmaS is > 0 and < 500);
+        Assert.Equal(psi, mid.HasPsi);
+        if (psi) Assert.True(mid.PsiMin is > 0 and < 1);
         Assert.True(mid.EpsB < 0 && mid.SigmaB < 0);
         Assert.InRange(mid.CompressedHeight, 0.03, 0.25);
         Assert.Equal(6, mid.Rebar.Count);
         // У опоры трещины нет — растянутый бетон работает.
         Assert.False(FemCsfeaBarSectionState.Compute(section, CalcType.N, true, yAlongLocalY, f, 0, 0).Cracked);
     }
+    /// <summary>
+    /// Флаг трещины КЭ при плоскости без трещины (растяжение бетона 0,9·ε_bt,ult): трещина берётся, если с ней интеграл
+    /// фибр ближе к записанным усилиям; без флага — только по плоскости.
+    /// </summary>
+    [Fact]
+    public void ElementCrackFlag_ChoosesStateCloserToRecorded()
+    {
+        var section = Rect(1.0, 0.2, 0.03, 7.85e-4, 2.5e-4);
+        var plane = new Kurvature { e0 = 0, ky = -0.9 * 0.00015 / 0.1, kz = 0 };
+        var open = section.Integral(plane, CalcType.N, true, true);
+        var (oN, oMx, oMy) = (open.N, open.Mx, open.My);
+        var closed = section.Integral(plane, CalcType.N, false, true);
+        var (cN, cMx, cMy) = (closed.N, closed.Mx, closed.My);
+
+        var s = FemCsfeaBarSectionState.Compute(section, CalcType.N, true, plane, (cN, cMx, cMy), elementCracked: true);
+        Assert.True(s.Cracked && s.CrackFromFlag && !s.Tension);
+        Assert.True(s.Discrepancy < 1e-9);
+        s = FemCsfeaBarSectionState.Compute(section, CalcType.N, true, plane, (oN, oMx, oMy), elementCracked: true);
+        Assert.False(s.Cracked);
+        Assert.True(s.Discrepancy < 1e-9);
+        s = FemCsfeaBarSectionState.Compute(section, CalcType.N, true, plane, (cN, cMx, cMy), elementCracked: false);
+        Assert.False(s.Cracked || s.CrackFromFlag);
+    }
+
     [Fact]
     public void ElementForces_EndsAndMiddle()
     {

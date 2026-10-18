@@ -3144,7 +3144,9 @@
     <system:String x:Key="FemCsfeaSectionRecorded">записано {0}</system:String>
     <system:String x:Key="FemCsfeaSectionNote">Высота сжатой зоны {0:0} мм; бетон εb = {1:0.00000}, σb = {2:0.0} МПа; арматура εs = {3:0.00000}, σs = {4:0.0} МПа.</system:String>
     <system:String x:Key="FemCsfeaSectionCracked">В точке трещина — растянутый бетон не работает.</system:String>
-    <system:String x:Key="FemCsfeaSectionAssumption">Память трещин не записывается: трещина — там, где она есть в показанном состоянии, ψs не учитывается; при разгрузке и с ψs усилия отличаются от записанных. Секущая КЭ — по средней податливости трёх точек: у КЭ на границе трещин сечение точки мягче или жёстче среднего.</system:String>
+    <system:String x:Key="FemCsfeaSectionAssumption">Память трещин не записывается: трещина — по показанной плоскости, а у КЭ с записанным флагом трещины — и там, где с ней усилия ближе к записанным; εs,crc для ψs — при соотношении записанных усилий точки (в расчёте — в момент трещины). При разгрузке и непропорциональном нагружении усилия отличаются от записанных. Секущая КЭ — по средней податливости трёх точек: у КЭ на границе трещин сечение точки мягче или жёстче среднего.</system:String>
+    <system:String x:Key="FemCsfeaSectionCrackFromFlag">Трещина — по флагу КЭ: по показанной плоскости её нет (после трещины ψs ужесточает сечение), но с ней усилия ближе к записанным.</system:String>
+    <system:String x:Key="FemCsfeaSectionPsi">ψs учтён, наименьший {0:0.###}; σ арматуры — с ψs.</system:String>
     <system:String x:Key="FemCsfeaSectionNoStrains">В полях показанного шага нет деформаций сечений. Включите в постановке «Записывать деформации сечений» и пересчитайте.</system:String>
     <system:String x:Key="FemCsfeaSectionNoCross">У стержня нет сечения CScore — НДС сечения строится только для фибровых сечений.</system:String>
     <system:String x:Key="FemCsfeaPlateSectionTitle">Пластина {0}, центр КЭ</system:String>

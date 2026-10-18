@@ -3144,7 +3144,9 @@
     <system:String x:Key="FemCsfeaSectionRecorded">recorded {0}</system:String>
     <system:String x:Key="FemCsfeaSectionNote">Compressed zone depth {0:0} mm; concrete εb = {1:0.00000}, σb = {2:0.0} MPa; reinforcement εs = {3:0.00000}, σs = {4:0.0} MPa.</system:String>
     <system:String x:Key="FemCsfeaSectionCracked">The point is cracked — tensioned concrete does not work.</system:String>
-    <system:String x:Key="FemCsfeaSectionAssumption">Crack memory is not recorded: a crack is where it exists in the shown state, ψs is ignored; under unloading and with ψs the forces differ from the recorded ones. The element secant is the mean compliance of three points: at elements on the crack boundary a point section is softer or stiffer than the mean.</system:String>
+    <system:String x:Key="FemCsfeaSectionAssumption">Crack memory is not recorded: a crack is taken from the shown plane and, at elements with a recorded crack flag, also where it brings the forces closer to the recorded ones; εs,crc for ψs is at the ratio of the recorded point forces (in the analysis — at cracking). Under unloading and non-proportional loading the forces differ from the recorded ones. The element secant is the mean compliance of three points: at elements on the crack boundary a point section is softer or stiffer than the mean.</system:String>
+    <system:String x:Key="FemCsfeaSectionCrackFromFlag">The crack comes from the element flag: the shown plane has none (ψs stiffens the section after cracking), but with it the forces are closer to the recorded ones.</system:String>
+    <system:String x:Key="FemCsfeaSectionPsi">ψs is applied, smallest {0:0.###}; reinforcement stresses include ψs.</system:String>
     <system:String x:Key="FemCsfeaSectionNoStrains">The fields of the shown step have no section strains. Turn on "Record section strains" in the analysis and recalculate.</system:String>
     <system:String x:Key="FemCsfeaSectionNoCross">The bar has no CScore section — the section state is built only for fibre sections.</system:String>
     <system:String x:Key="FemCsfeaPlateSectionTitle">Plate {0}, element centre</system:String>

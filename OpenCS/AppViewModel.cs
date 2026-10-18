@@ -6367,14 +6367,22 @@ namespace OpenCS
          section.ResolveAndBuildDiagramms();
          // Сечение своей схемы нарисовано осью Y по местной y стержня, импортное — осью X по Y1 (FemRcModelAdapter).
          bool yAlongY = element.Origin != CScore.Fem.FemMember.MeshSourceImported;
-         var state = Services.FemCsfeaBarSectionState.Compute(section, vm.Calc, vm.BeamTension, yAlongY, vm.Fields!, index, point);
+         var state = Services.FemCsfeaBarSectionState.Compute(section, vm.Calc, vm.BeamTension, yAlongY, vm.Fields!, index, point,
+            psi: vm.CsfeaParams.Psi);
+         // σ арматуры с ψs — в мозаику и разрез (их построение берёт σ с диаграммы по плоскости).
+         var rebarStress = state.RebarStressKpa;
+         Func<CScore.Fiber, double>? effectiveStress = rebarStress == null ? null
+            : f => rebarStress.TryGetValue(f, out double s) ? s : f.Sig;
+         var stressSource = rebarStress == null ? null : new Services.FemCsfeaRebarStressSource(rebarStress);
 
          string pointLabel = point switch { 0 => "i", 2 => "j", _ => "½" };
          string title = string.Format(Loc.S("FemCsfeaSectionTitle"), elemTag, pointLabel);
          var summaryVm = new ViewModels.FemSectionSummaryVM(title, vm.CurrentStepLabel, state);
-         var cutVm = new ViewModels.SectionCutVM(section, state.Plane, vm.Calc, FileDialogService, state.Tension) { WindowTitleSuffix = title };
-         var stressVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Stress, CalcSettings, state.Tension);
-         var strainVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Strain, CalcSettings, state.Tension);
+         var cutVm = new ViewModels.SectionCutVM(section, state.Plane, vm.Calc, FileDialogService, state.Tension, stressSource) { WindowTitleSuffix = title };
+         var stressVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Stress, CalcSettings, state.Tension,
+            effectiveRebarStressKpa: effectiveStress);
+         var strainVm = new ViewModels.SectionPlotVM(section, state.Plane, vm.Calc, ViewModels.SectionPlotMode.Strain, CalcSettings, state.Tension,
+            effectiveRebarStressKpa: effectiveStress);
          stressVm.CutVM = cutVm;
          strainVm.CutVM = cutVm;
          if (_femSectionStateWindow == null || !_femSectionStateWindow.IsVisible)
