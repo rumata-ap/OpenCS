@@ -284,6 +284,88 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
         });
     }
 
+    /// <summary>
+    /// Инженерная нелинейность (срез 3), сквозной сценарий: секущий (все шаги записаны) → команда «Линейный расчёт на
+    /// этих жёсткостях…» доступна только на конечном состоянии → шаблон постановки → линейный воспроизводит источник →
+    /// шапка результата → наборы по загружениям → rc_plate_check по КЭ; источник пересчитан или сброшен — плашка.
+    /// </summary>
+    [Fact]
+    public async Task LinearOnStiffness_Command_EndToEnd()
+    {
+        await WithSchema(async (ctx, _, schema, secant) =>
+        {
+            var source = await FemCsfeaRunner.RunAsync(ctx, schema, secant, null, CancellationToken.None);
+            Assert.Equal("ok", source.Status);
+            secant.ResultId = source.Id;
+            ctx.Db.SaveFemAnalysis(secant);
+
+            var svm = new OpenCS.ViewModels.FemCsfeaResultVM(source, ctx.Db, schema, secant);
+            Assert.True(svm.CanLinearOnStiffness);
+            var candidate = Assert.IsType<FemCsfeaStiffnessCandidate>(svm.ShownStiffnessCandidate);
+            svm.SelectedStepIndex = 0;
+            Assert.Null(svm.ShownStiffnessCandidate);
+            svm.SelectedStepIndex = svm.MaxStepIndex;
+            Assert.NotNull(svm.ShownStiffnessCandidate);
+
+            var fp = FemCsfeaStiffnessSources.Fingerprint(ctx.Db, candidate, out var error);
+            Assert.Null(error);
+            var linear = FemCsfeaStiffnessSources.LinearTemplate(candidate, fp!, schema.LoadCases);
+            var lp = FemAnalysisParams.Parse(linear.ParamsJson);
+            Assert.Equal(FemCsfeaRunner.LinearAnalysisKind, linear.Kind);
+            Assert.Equal("ИН — csfea", linear.Tag);
+            Assert.Equal(CalcType.N, lp.CalcType);
+            Assert.Equal(2, lp.Stages.Count);
+            Assert.True(lp.Csfea!.StiffnessSource!.SameRecord(fp));
+            ctx.Db.SaveFemAnalysis(linear);
+
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            Assert.Equal("ok", result.Status);
+            Assert.True(summary.SelfCheck < 1e-9, $"самопроверка {summary.SelfCheck:e2}");
+            linear.ResultId = result.Id;
+            ctx.Db.SaveFemAnalysis(linear);
+
+            var lvm = new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, linear);
+            Assert.StartsWith("Жёсткости КЭ — «csfea», конечное состояние, вид N", lvm.StiffnessHeader);
+            Assert.DoesNotContain("не совпадает", lvm.StiffnessHeader);
+            Assert.Null(lvm.StiffnessStaleNote);
+            Assert.False(lvm.CanLinearOnStiffness);
+
+            var built = FemLinearLoadCaseForceSets.Build(schema, linear, summary, n => Fields(ctx.Db, result.Id, n), [],
+                CScore.Combinations.Sp20GammaDefaults.Standard);
+            Assert.True(built.Sets.Count >= 2);
+            var fs = built.Sets.First(s => s.LoadCase.Tag == "q").Set;
+            fs.Id = 1;
+            var data = FemCheckSchemaData.Load(ctx.Db, schema.Id);
+            var target = data.Members.Single(m => m.ElemTag == "P1");
+            var section = ctx.Db.PlateSections.Single();
+            var inputs = new FemPerElementInputs
+            {
+                PlateTemplate = section,
+                ConcreteMat = ctx.Db.Materials.First(m => m.Id == section.ConcreteMaterialId),
+                RebarMat = ctx.Db.Materials.First(m => m.Id == section.RebarMaterialId),
+            };
+            var check = new FemCheck
+            {
+                NormCode = "rc_plate_check", Tag = "uls",
+                ParamsJson = new PlateCheckParams { Kind = "shell_simpl_wa_uls" }.ToJson(),
+            };
+            var uls = FemCheckRunner.RunPerElement(check, target, data.Scope(target), [fs], inputs,
+                (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
+            Assert.NotEqual("error", uls.Status);
+            Assert.NotEmpty(uls.FemCheckRows!);
+
+            // Источник пересчитан — плашка «пересчитан»; сброшен — «больше нет».
+            var changed = Fields(ctx.Db, source.Id, candidate.RecordN);
+            changed.Displacements[2] += 1e-6;
+            ctx.Db.SaveFemResultStep(source.Id, candidate.RecordN, FemCsfeaStepFieldsCodec.Pack(changed));
+            Assert.Contains("пересчитан", new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, linear).StiffnessStaleNote);
+            secant.InvalidateResult();
+            ctx.Db.SaveFemAnalysis(secant);
+            Assert.Contains("больше нет", new OpenCS.ViewModels.FemCsfeaResultVM(result, ctx.Db, schema, linear).StiffnessStaleNote);
+        }, c => c.ResultRecording = FemCsfeaRecording.All);
+    }
+
     [Fact]
     public async Task ResultVM_StepsFieldsAndTables()
     {
