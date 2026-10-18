@@ -29,6 +29,7 @@ public class RcBucklingAnalysisTests
         RunReleasedSingleElement();
         RunBritvinFrame();
         RunGoverning();
+        RunTensionDominated();
     }
 
     private static RcBeamSection Section(double a, double iy, double iz) =>
@@ -230,5 +231,26 @@ public class RcBucklingAnalysisTests
         double lef = 0.5 * 3.0, pcr = Math.PI * Math.PI * E * 1e-4 / (lef * lef);
         // 4 КЭ на форму заделка — заделка: ошибка дискретизации +0,75 % (ASCE, прил. A: ≥ 3 КЭ — < 1 %).
         TestHarness.CheckRel("по сочетанию 1 теряет устойчивость 102: λ·2,5 = P_cr (заделка — заделка)", r.Lambda[0] * 2.5, pcr, 1e-2);
+    }
+
+    /// <summary>
+    /// Короткий сильно растянутый стержень рядом со сжатой стойкой: растяжение даёт ν = 1/λ ≈ −5, у стойки ν ≈ 10⁻⁴ —
+    /// без сдвига итерации сходились к отрицательным и форм не было; со сдвигом σ ≈ λ₁ — стойка, μ = 1.
+    /// </summary>
+    private static void RunTensionDominated()
+    {
+        TestHarness.Section("Устойчивость: короткий растянутый стержень рядом со стойкой");
+        const double l = 4.0, i = 1e-4;
+        var m = Column(l, Section(1e-2, i, i), Pin, XY);
+        m.Nodes.Add(new RcNode(3, 5, 0, 0));
+        m.Nodes.Add(new RcNode(4, 5.1, 0, 0));
+        m.Beams.Add(new RcBeam(102, 3, 4, Section(1e-2, 1e-8, 1e-8), new[] { 0.0, 1.0, 0.0 }));
+        m.Supports.Add(new RcSupport(3, Fixed & ~(1 << 4) & ~(1 << 5)));
+        m.Supports.Add(new RcSupport(4, 0b001110));
+        m.LoadCases[0].Nodal.Add(new RcNodalLoad(4, new[] { 1e7, 0, 0, 0, 0, 0 }));
+        var r = RcBucklingAnalysis.Run(m, P, [[101], [102]], new RcBucklingOptions(Modes: 2));
+        double pe = Math.PI * Math.PI * E * i / (l * l);
+        TestHarness.Check("формы найдены", r.Lambda.Length == 2, $"{r.Lambda.Length}");
+        TestHarness.CheckRel("λ₁·1 Н = P_E стойки", r.Lambda[0], pe, 3e-3);
     }
 }

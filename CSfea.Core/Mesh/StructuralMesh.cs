@@ -507,16 +507,45 @@ public sealed class StructuralMesh : IFeaMesh
         {
             var asm = Assembler(bc, fixedSys);
             int nf = asm.Free.Length;
-            var chol = FactorizeCached(asm.Assemble(MaxDegreeOfParallelism));
+            // K и −K_σ: сборщик делит массив значений со следующей сборкой — копии.
+            var kMat = asm.Assemble(MaxDegreeOfParallelism);
+            var kValues = (double[])kMat.Values.Clone();
+            var chol = FactorizeCached(kMat);
             if (!chol.LastFactorizationSpd)
             {
                 string where = chol.FirstNonPositivePivot is int i and >= 0 && i < nf ? " — " + DescribeDof(asm.Free[i]) : "";
                 throw new InvalidOperationException($"Матрица жёсткости не положительно определена (механизм){where}.");
             }
-            // −K_σ: сборщик делит массив значений со следующей сборкой — копия.
             var kg = asm.AssembleWith(e => ElementKGeometric(e, uRef, shellInPlane), MaxDegreeOfParallelism, springs: false);
+            var colPtr = (int[])kg.ColPtr.Clone();
+            var rowIdx = (int[])kg.RowIdx.Clone();
             var bValues = Array.ConvertAll(kg.Values, v => -v);
-            var bMat = new CscMatrix(nf, nf, (int[])kg.ColPtr.Clone(), (int[])kg.RowIdx.Clone(), bValues);
+            var bMat = new CscMatrix(nf, nf, colPtr, rowIdx, bValues);
+
+            // Сдвиг σ < λ₁: растянутые КЭ дают отрицательные ν = 1/λ, по модулю много больше положительных (короткие
+            // растянутые стержни), и итерации без сдвига сходятся к ним. С (K − σ·B)⁻¹ ν′ = 1/(λ − σ): у форм около λ₁
+            // ν′ велики, у отрицательных λ |ν′| < 1/σ. σ — бисекцией по положительной определённости K − σ·B (она
+            // равносильна σ < λ₁), до λ₁/σ < 1,25.
+            double Shifted(double s)
+            {
+                var v = new double[kValues.Length];
+                for (int p = 0; p < v.Length; p++) v[p] = kValues[p] - s * bValues[p];
+                chol = FactorizeCached(new CscMatrix(nf, nf, colPtr, rowIdx, v));
+                return chol.LastFactorizationSpd ? 1 : 0;
+            }
+            double lo = 0, hi = double.NaN;
+            for (double s = 1; s <= 1e12 && double.IsNaN(hi); s *= 4)
+                if (Shifted(s) > 0) lo = s; else hi = s;
+            if (double.IsNaN(hi) || lo == 0)
+                for (double s = 0.25; s >= 1e-8 && lo == 0 && !double.IsNaN(hi); s *= 0.25)
+                    if (Shifted(s) > 0) lo = s; else hi = s;
+            while (!double.IsNaN(hi) && lo > 0 && hi > 1.25 * lo)
+            {
+                double s = Math.Sqrt(lo * hi);
+                if (Shifted(s) > 0) lo = s; else hi = s;
+            }
+            double shift = double.IsNaN(hi) ? 0 : lo;
+            Shifted(shift);
 
             var (nu, x, iterations, converged) = SubspaceIteration(chol, bMat, nf, nModes, tol, maxIter, MaxDegreeOfParallelism);
 
@@ -528,7 +557,7 @@ public sealed class StructuralMesh : IFeaMesh
                 var mode = Full(DirichletReducer.Expand(NSys, asm.Free, x[k], fixedSys, bc.UFixed));
                 double scale = Dense.MaxAbs(mode);
                 if (scale > 0) for (int j = 0; j < mode.Length; j++) mode[j] /= scale;
-                lambdas.Add(1.0 / nu[k]);
+                lambdas.Add(shift + 1.0 / nu[k]);
                 modes.Add(mode);
             }
             return new StructuralBucklingResult(lambdas.ToArray(), modes.ToArray(), iterations, converged);
