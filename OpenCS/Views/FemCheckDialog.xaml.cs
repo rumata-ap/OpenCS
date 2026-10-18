@@ -59,7 +59,14 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
     public FemSchema? SelectedSchema
     {
         get => _selectedSchema;
-        set { _selectedSchema = value; OnPropertyChanged(); ReloadSchema(); RefreshMembers(); }
+        set
+        {
+            _selectedSchema = value;
+            OnPropertyChanged();
+            Buckling.SetAnalyses(value == null ? [] : value.Analyses.Count > 0 ? value.Analyses.ToList() : App.db.GetFemAnalyses(value.Id));
+            ReloadSchema();
+            RefreshMembers();
+        }
     }
 
     FemCheckTarget? _selectedMember;

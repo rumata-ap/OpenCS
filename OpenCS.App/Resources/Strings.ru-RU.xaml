@@ -1064,6 +1064,17 @@
    <system:String x:Key="FemCheckSteelGroupNoLength">У {0} КЭ стальных групп SCAD не определена длина (нет узлов сетки) — параметры из проверки.</system:String>
    <system:String x:Key="FemCheckSteelMeshLef">Расчётные длины у {0} КЭ — lef = μ·l, l — длина стержня между узлами примыкания других КЭ по сетке схемы.</system:String>
    <system:String x:Key="FemCheckSteelMeshLefNoLength">У {0} КЭ длина по сетке не определена (нет узлов сетки) — расчётные длины из параметров СП 16 группы.</system:String>
+   <system:String x:Key="FemCheckSteelAutoLef">У {0} КЭ расчётные длины по расчёту устойчивости схемы (Авто, МКЭ).</system:String>
+   <system:String x:Key="FemCheckSteelAutoLefPartial">У {0} КЭ μ по расчёту устойчивости назначен не по обеим осям — по другой оси длина по сетке или из параметров СП 16.</system:String>
+   <system:String x:Key="FemSteelAutoLefUnstable">Расчётные длины по расчёту устойчивости не назначены: схема неустойчива при сочетании «{0}» (λ₁ = {1:0.###}).</system:String>
+   <system:String x:Key="FemSteelAutoLefNoLength">Расчётные длины по расчёту устойчивости не назначены.</system:String>
+   <system:String x:Key="FemSteelAutoLefMode">μ{0} = {1:0.###} по расчёту устойчивости ({2}, l = {3:0.###} м): форма {5} сочетания «{4}», λ = {6:0.###}, доля работы элемента в форме {7:0.#} %, ρ/λ = {8:0.##}; N = {9:0.###} кН, N_cr = λ·N = {10:0.###} кН, μ = π/l·√(EI/N_cr).</system:String>
+   <system:String x:Key="FemSteelAutoLefRocking">μ{0} = 1 ({1}, l = {2:0.###} м): в форме {4} сочетания «{3}» (λ = {5:0.###}) элемент поворачивается почти как жёсткое тело (качание) — его держат другие элементы; принят μ = 1 по форме без смещения.</system:String>
+   <system:String x:Key="FemSteelAutoLefNotInvolved">μ{0} по расчёту устойчивости не назначен ({1}, сочетание «{2}»): элемент не участвует в найденных формах — lef,{0} по сетке или из параметров СП 16.</system:String>
+   <system:String x:Key="FemSteelAutoLefNoAnalysis">FemCheck «{0}»: постановка для расчётных длин «Авто (МКЭ)» не найдена — выберите её в блоке «Расчётные длины».</system:String>
+   <system:String x:Key="FemSteelAutoLefInputErrors">FemCheck «{0}»: расчёт устойчивости для расчётных длин невозможен — ошибки входа (см. журнал).</system:String>
+   <system:String x:Key="FemSteelAutoLefRunning">Расчёт устойчивости схемы для расчётных длин («{0}»)…</system:String>
+   <system:String x:Key="FemSteelAutoLefLog">Расчётные длины (МКЭ)</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} стальной группы SCAD {0} в проверке не учитывается.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">В схеме SCAD нет групп заданного армирования (меню схемы «SCAD → Обновить данные схемы из .SPR»)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">КЭ цели не входят в группы заданного армирования SCAD</system:String>
@@ -4914,6 +4925,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Sp16MeshMuB">μb для φb: lef балки = μb·l; 0 — lef балки из параметров СП 16 группы</system:String>
     <system:String x:Key="Sp16MeshMuBShort">μb</system:String>
     <system:String x:Key="FemCheckDlgSteelLef">Расчётные длины</system:String>
+   <system:String x:Key="Sp16AutoLef">Авто (МКЭ): μ по расчёту устойчивости схемы</system:String>
+   <system:String x:Key="Sp16AutoLefHint">Перед проверкой решается линейная задача устойчивости схемы по недеформированному состоянию (п. 10.3.11 СП 16): упругие сечения, сочетания — стадии выбранной постановки, у каждого элемента (КонЭ или цепочки КЭ) — сочетание с наибольшим сжатием (п. 10.3.2). μ = π/l·√(EI/N_cr), N_cr = λ·N по наинизшей форме, в которой элемент участвует; качающийся элемент — μ = 1. Где μ не назначен (элемент не в формах, схема неустойчива) — длины по сетке или из параметров СП 16. КЭ стальных групп SCAD берут длины из своих групп.</system:String>
+   <system:String x:Key="Sp16AutoLefAnalysis">Постановка:</system:String>
+   <system:String x:Key="Sp16AutoLefAnalysisHint">Постановка схемы, стадии которой задают сочетания задач устойчивости</system:String>
     <system:String x:Key="FemGroupCheckParams">Параметры проверки по КЭ</system:String>
     <system:String x:Key="FemGroupCheckLabel">Проверка</system:String>
     <system:String x:Key="FemGroupCheckSaveRun">Сохранить и выполнить</system:String>

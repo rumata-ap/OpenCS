@@ -24,6 +24,12 @@ public sealed record SteelFemCheckParams
     /// <summary>Расчётные длины lef = μ·l по сетке схемы; null — lef из параметров СП 16 цели.</summary>
     public SteelMeshLef? MeshLef { get; init; }
 
+    /// <summary>
+    /// Расчётные длины по расчёту устойчивости схемы (спека 2026-10-18); null — не определяются. КЭ, которым μ не
+    /// назначен, берут длины по <see cref="MeshLef"/> или из параметров цели.
+    /// </summary>
+    public SteelAutoLef? AutoLef { get; init; }
+
     public string ToJson() => JsonSerializer.Serialize(this, Opts);
 
     /// <summary>Параметры проверки из JSON; null — JSON не их (пусто или полный набор СП 16 старой проверки).</summary>
@@ -56,4 +62,14 @@ public sealed record SteelFemCheckParams
         if (mesh != null) root[nameof(SteelDesignParams.MeshLef)] = JsonSerializer.SerializeToNode(mesh);
         return root.ToJsonString();
     }
+}
+
+/// <summary>
+/// Режим «Авто (МКЭ)» расчётных длин проверки по КЭ: μ по формам потери устойчивости схемы (сочетания — стадии
+/// постановки <see cref="AnalysisId"/>, упругие сечения).
+/// </summary>
+public sealed record SteelAutoLef
+{
+    /// <summary>Постановка схемы, сочетания которой (стадии) задают задачи устойчивости.</summary>
+    public int AnalysisId { get; init; }
 }

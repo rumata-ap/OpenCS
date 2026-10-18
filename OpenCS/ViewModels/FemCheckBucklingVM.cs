@@ -9,7 +9,7 @@ namespace OpenCS.ViewModels;
 /// <summary>
 /// Продольный изгиб в проверке по КЭ — общий блок диалога «Нормативная проверка» и страницы группы:
 /// у ЖБ (стержни, стены) — коэффициент η (<see cref="FemEtaParams"/>), у стали — расчётные длины
-/// lef = μ·l по сетке (<see cref="SteelFemCheckParams"/>). Хранятся в параметрах проверки
+/// lef = μ·l по сетке и «Авто (МКЭ)» по расчёту устойчивости схемы (<see cref="SteelFemCheckParams"/>). Хранятся в параметрах проверки
 /// (<see cref="FemCheck.ParamsJson"/>); <see cref="Apply"/> меняет только их, прочие параметры проверки сохраняет.
 /// </summary>
 public sealed class FemCheckBucklingVM : ViewModelBase
@@ -76,6 +76,33 @@ public sealed class FemCheckBucklingVM : ViewModelBase
     public string SteelMuY { get => _steelMuY; set { _steelMuY = value; OnPropertyChanged(); } }
     public string SteelMuB { get => _steelMuB; set { _steelMuB = value; OnPropertyChanged(); } }
 
+    // ── Расчётные длины стали по расчёту устойчивости схемы (Авто, МКЭ) ──
+
+    bool _steelAutoLef;
+    FemAnalysis? _steelAutoAnalysis;
+    int? _pendingAnalysisId;
+
+    public bool SteelAutoLef { get => _steelAutoLef; set { _steelAutoLef = value; OnPropertyChanged(); } }
+
+    /// <summary>Постановки схемы проверки (<see cref="SetAnalyses"/>).</summary>
+    public IReadOnlyList<FemAnalysis> Analyses { get; private set; } = [];
+
+    /// <summary>Постановка, стадии которой задают сочетания задач устойчивости.</summary>
+    public FemAnalysis? SteelAutoAnalysis
+    {
+        get => _steelAutoAnalysis;
+        set { _steelAutoAnalysis = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Постановки схемы проверки; выбранная сохраняется, если она среди них, иначе — первая.</summary>
+    public void SetAnalyses(IEnumerable<FemAnalysis> analyses)
+    {
+        int? keep = _steelAutoAnalysis?.Id ?? _pendingAnalysisId;
+        Analyses = analyses.ToList();
+        OnPropertyChanged(nameof(Analyses));
+        SteelAutoAnalysis = Analyses.FirstOrDefault(a => a.Id == keep) ?? Analyses.FirstOrDefault();
+    }
+
     // ── Загрузка / сборка ──
 
     static string F(double v) => v.ToString("G", Inv);
@@ -93,7 +120,11 @@ public sealed class FemCheckBucklingVM : ViewModelBase
             "rc_plate_check" => PlateCheckParams.Parse(check.ParamsJson).Eta,
             _ => null,
         });
-        LoadSteel(check.NormCode == "steel_check" ? SteelFemCheckParams.TryParse(check.ParamsJson)?.MeshLef : null);
+        var steel = check.NormCode == "steel_check" ? SteelFemCheckParams.TryParse(check.ParamsJson) : null;
+        LoadSteel(steel?.MeshLef);
+        SteelAutoLef = steel?.AutoLef != null;
+        _pendingAnalysisId = steel?.AutoLef?.AnalysisId;
+        SteelAutoAnalysis = Analyses.FirstOrDefault(a => a.Id == _pendingAnalysisId) ?? Analyses.FirstOrDefault();
     }
 
     void LoadEta(FemEtaParams? eta)
@@ -140,6 +171,7 @@ public sealed class FemCheckBucklingVM : ViewModelBase
             MuY = Num(SteelMuY) is > 0 and double my ? my : 1.0,
             MuB = Num(SteelMuB) is >= 0 and double mb ? mb : 0.0,
         },
+        AutoLef = SteelAutoLef && SteelAutoAnalysis is { } a ? new SteelAutoLef { AnalysisId = a.Id } : null,
     };
 
     /// <summary>Записывает блок в параметры проверки, сохраняя прочие её параметры.</summary>

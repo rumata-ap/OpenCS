@@ -31,16 +31,31 @@ public sealed record FemSteelBucklingCase(int Combination, string Tag, IReadOnly
     public bool Unstable => Result.Lambda.Length > 0 && Result.Lambda[0] <= 1.0;
 }
 
-/// <summary>Итог расчёта устойчивости: определяющие сочетания элементов и задачи по различным из них.</summary>
+/// <summary>
+/// Итог расчёта устойчивости: определяющие сочетания элементов, задачи по различным из них и расчётные длины элементов
+/// по формам своего сочетания (<see cref="RcBucklingLengths"/>; null — сжатия нет или схема при сочетании неустойчива).
+/// </summary>
 public sealed record FemSteelBucklingResult(RcBucklingModel Model, IReadOnlyList<RcBucklingGoverning> Governing,
-    IReadOnlyList<FemSteelBucklingCase> Cases, IReadOnlyList<string> Report);
+    IReadOnlyList<FemSteelBucklingCase> Cases, IReadOnlyList<RcBucklingUnitLength?> Lengths, IReadOnlyList<string> Report)
+{
+    /// <summary>Задача по определяющему сочетанию элемента <paramref name="unit"/>; null — сжатия нет.</summary>
+    public FemSteelBucklingCase? CaseOf(int unit) =>
+        Governing[unit].Combination is int c and >= 0 ? Cases.FirstOrDefault(x => x.Combination == c) : null;
+}
+
+/// <summary>
+/// Расчётные длины КЭ в осях СП 16 по расчёту устойчивости (<see cref="FemSteelBuckling.ElementLengths"/>): l — длина
+/// расчётного элемента, м; μx, μy — null, если не назначены; пояснения — источник по каждой оси для отчёта.
+/// </summary>
+public sealed record FemSteelAutoLef(string Unit, double Length, double? MuX, double? MuY, string NoteX, string NoteY);
 
 /// <summary>
 /// Модель устойчивости схемы для автоматических расчётных длин стали (спека 2026-10-18, срез 1): вход CSfea схемы с
 /// упругими сечениями (бетон брутто, как линейный расчёт), расчётные элементы — КонЭ или цепочки КЭ
 /// (<see cref="FemBucklingUnits"/>), сочетания — стадии постановки (пакета — его варианты без длительных пар).
 /// Каждый элемент дробится не менее чем на 4 КЭ; определяющее сочетание элемента — с наибольшим сжатием; задача
-/// устойчивости решается по каждому различному определяющему сочетанию.
+/// устойчивости решается по каждому различному определяющему сочетанию, μ элементов — энергетическим разбором её форм
+/// (<see cref="RcBucklingLengths"/>, срез 2), в оси СП 16 — <see cref="ElementLengths"/>.
 /// </summary>
 public static class FemSteelBuckling
 {
@@ -77,7 +92,7 @@ public static class FemSteelBuckling
 
     /// <summary>Расчёт — в фоне.</summary>
     public static FemSteelBucklingResult Run(FemSteelBucklingInput input, RcBucklingOptions? options = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, RcBucklingLengthOptions? lengthOptions = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (input.HasErrors) throw new InvalidOperationException("Вход расчёта устойчивости содержит ошибки.");
@@ -90,6 +105,7 @@ public static class FemSteelBuckling
         int idle = governing.Count(g => g.Combination < 0);
         if (idle > 0) report.Add($"Элементов без сжатия ни в одном сочетании: {idle} — расчётные длины не нужны.");
         var cases = new List<FemSteelBucklingCase>();
+        var lengths = new RcBucklingUnitLength?[input.Units.Count];
         foreach (var group in governing.Select((g, i) => (g.Combination, Unit: i)).Where(x => x.Combination >= 0)
                      .GroupBy(x => x.Combination).OrderBy(g => g.Key))
         {
@@ -101,7 +117,66 @@ public static class FemSteelBuckling
             string lambda = r.Lambda.Length > 0 ? r.Lambda[0].ToString("0.###", CultureInfo.CurrentCulture) : "—";
             report.Add($"Сочетание «{stage.Tag}»: определяющее для {c.Units.Count} эл., λ₁ = {lambda}"
                 + (r.Converged ? "" : " (итерации не сошлись)") + (c.Unstable ? " — схема неустойчива, μ не назначаются." : "."));
+            if (c.Unstable) continue;
+            // Участие — относительно всех элементов схемы, назначение — элементам, для которых сочетание определяющее.
+            var all = RcBucklingLengths.Assign(r, input.UnitBeams, lengthOptions);
+            foreach (int u in c.Units) lengths[u] = all[u];
         }
-        return new FemSteelBucklingResult(model, governing, cases, report);
+        int notInvolved = lengths.Count(x => x != null
+            && (x.AboutZ.Source == RcBucklingLengthSource.NotInvolved || x.AboutY.Source == RcBucklingLengthSource.NotInvolved));
+        if (notInvolved > 0)
+            report.Add($"Элементов, не участвующих в {options.Modes} формах хотя бы в одной плоскости: {notInvolved} — μ в этой плоскости не назначен.");
+        return new FemSteelBucklingResult(model, governing, cases, lengths, report);
+    }
+
+    /// <summary>
+    /// Расчётные длины по тегам КЭ в осях СП 16: ось x сечения — местная z у КЭ своей схемы (сечение CScore осью Y по
+    /// местной y, <see cref="RcBeamSection.CrossYAlongLocalY"/>), местная y — у импортного (ось x ‖ Y1); lef,x — изгиб
+    /// вокруг оси x. Элементы без сжатия не попадают.
+    /// </summary>
+    public static Dictionary<string, FemSteelAutoLef> ElementLengths(FemSteelBucklingInput input, FemSteelBucklingResult result)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(result);
+        var beams = input.Adapted!.Model.Beams.ToDictionary(b => b.Id);
+        var map = new Dictionary<string, FemSteelAutoLef>(StringComparer.Ordinal);
+        for (int i = 0; i < input.Units.Count; i++)
+        {
+            if (result.CaseOf(i) is not { } c) continue;
+            var unit = input.Units[i];
+            FemSteelAutoLef auto;
+            if (result.Lengths[i] is not { } x)
+            {
+                string why = c.Unstable
+                    ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemSteelAutoLefUnstable"), c.Tag, c.Result.Lambda[0])
+                    : Loc.S("FemSteelAutoLefNoLength");
+                auto = new FemSteelAutoLef(unit.Label, 0, null, null, why, why);
+            }
+            else
+            {
+                bool xAboutZ = beams[input.UnitBeams[i][0]].Section.CrossYAlongLocalY;
+                var (px, py) = xAboutZ ? (x.AboutZ, x.AboutY) : (x.AboutY, x.AboutZ);
+                auto = new FemSteelAutoLef(unit.Label, x.Length, Mu(px), Mu(py),
+                    Note("x", px, x, c.Tag, unit.Label), Note("y", py, x, c.Tag, unit.Label));
+            }
+            foreach (string tag in unit.ElemTags) map[tag] = auto;
+        }
+        return map;
+    }
+
+    static double? Mu(RcBucklingPlaneLength p) => double.IsFinite(p.Mu) && p.Mu > 0 ? p.Mu : null;
+
+    // Пояснение к μ по оси для отчёта проверки: форма, её λ, доля работы, ρ/λ и N_cr = λ·N.
+    static string Note(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x, string combination, string unit)
+    {
+        var ci = CultureInfo.CurrentCulture;
+        return p.Source switch
+        {
+            RcBucklingLengthSource.Mode => string.Format(ci, Loc.S("FemSteelAutoLefMode"), axis, p.Mu, unit, x.Length,
+                combination, p.Mode + 1, p.Lambda, p.Share * 100, p.Rho / p.Lambda, -x.N / 1e3, p.Ncr / 1e3),
+            RcBucklingLengthSource.Rocking => string.Format(ci, Loc.S("FemSteelAutoLefRocking"), axis, unit, x.Length,
+                combination, p.Mode + 1, p.Lambda),
+            _ => string.Format(ci, Loc.S("FemSteelAutoLefNotInvolved"), axis, unit, combination),
+        };
     }
 }

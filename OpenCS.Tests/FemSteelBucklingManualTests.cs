@@ -41,7 +41,12 @@ public class FemSteelBucklingManualTests(ITestOutputHelper output)
                         string comb = g.Combination < 0 ? "без сжатия" : $"«{input.Combinations[g.Combination].Tag}»";
                         output.WriteLine(string.Create(CultureInfo.CurrentCulture,
                             $"    {input.Units[i].Label} ({input.Units[i].ElemTags.Count} КЭ): {comb}, N = {g.N / 1e3:0.###} кН"));
+                        if (r.Lengths[i] is { } x)
+                            output.WriteLine(string.Create(CultureInfo.CurrentCulture,
+                                $"      l = {x.Length:0.###} м; вокруг z: {x.AboutZ.Source} μ = {x.AboutZ.Mu:0.###} (форма {x.AboutZ.Mode + 1}, участие {x.AboutZ.Participation:0.##}, ρ/λ = {x.AboutZ.Rho / x.AboutZ.Lambda:0.##}); вокруг y: {x.AboutY.Source} μ = {x.AboutY.Mu:0.###} (форма {x.AboutY.Mode + 1})"));
                     }
+                    foreach (var (tag, a) in FemSteelBuckling.ElementLengths(input, r).Take(3))
+                        output.WriteLine($"    КЭ {tag}: {a.NoteX} | {a.NoteY}");
                     Assert.All(r.Cases, c => Assert.True(c.Result.Converged, $"сочетание «{c.Tag}» не сошлось"));
                 }
         }

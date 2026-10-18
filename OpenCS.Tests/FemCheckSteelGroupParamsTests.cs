@@ -102,6 +102,52 @@ public sealed class FemCheckSteelGroupParamsTests
     }
 
     [Fact]
+    public void AutoLef_AfterGroup_BeforeMesh_PerAxis()
+    {
+        var data = Data(ScadSteelGroupsTests.Group(2, "Балки", [1], gammaC: 0.8, muXoZ: 2, step: 0.5));
+        var scope = Scope(data);
+        string baseJson = new SteelDesignParams
+        {
+            LefX = 9, LefY = 9, MeshLef = new SteelMeshLef { MuX = 2, MuY = 0.5 },
+        }.ToJson();
+        var auto = new Dictionary<string, FemSteelAutoLef>
+        {
+            ["1"] = new("КонЭ 1", 3, 0.7, 0.7, "x1", "y1"),
+            ["2"] = new("КЭ 2–3", 6, 1.5, null, "x2", "y2"),
+            ["3"] = new("КЭ 2–3", 6, 1.5, null, "x2", "y2"),
+        };
+
+        var (paramsOf, warnings) = FemCheckContext.SteelElementParams(data, scope, baseJson, auto);
+
+        var p1 = SteelDesignParams.Parse(paramsOf!(scope.Elements[0], baseJson));
+        var p2 = SteelDesignParams.Parse(paramsOf(scope.Elements[1], baseJson));
+        Assert.Equal(6, p1.LefX, 9);                                   // КЭ 1 — группа SCAD важнее авто
+        Assert.Null(p1.LefNotes);
+        Assert.Equal(9, p2.LefX, 9);                                   // μx = 1,5 по устойчивости, l = 6
+        Assert.Equal(3, p2.LefY, 9);                                   // μy не назначен — по сетке 0,5·6
+        Assert.Null(p2.MeshLef);
+        Assert.Equal(["x2", "y2"], p2.LefNotes!);
+        Assert.Contains("FemCheckSteelAutoLefPartial", warnings);
+    }
+
+    [Fact]
+    public void AutoLef_WithoutMeshMode_OtherAxisFromCheckParams()
+    {
+        var data = Data();
+        var scope = Scope(data);
+        string baseJson = new SteelDesignParams { LefX = 9, LefY = 8 }.ToJson();
+        var auto = new Dictionary<string, FemSteelAutoLef> { ["2"] = new("КЭ 2–3", 6, null, 2, "x", "y") };
+
+        var (paramsOf, warnings) = FemCheckContext.SteelElementParams(data, scope, baseJson, auto);
+
+        var p2 = SteelDesignParams.Parse(paramsOf!(scope.Elements[1], baseJson));
+        Assert.Equal(9, p2.LefX, 9);
+        Assert.Equal(12, p2.LefY, 9);
+        Assert.Null(paramsOf(scope.Elements[0], baseJson));            // нет в авто, режима сетки нет — параметры проверки
+        Assert.Equal(["FemCheckSteelAutoLefPartial"], warnings);
+    }
+
+    [Fact]
     public void MeshLef_NoNodes_FallsBackToCheckParams()
     {
         var data = new FemCheckSchemaData { SourceType = "lira", Mesh = [Bar(1, 1, 2)] };

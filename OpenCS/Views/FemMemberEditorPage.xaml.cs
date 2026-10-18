@@ -205,7 +205,12 @@ public class FemMemberEditorVM : ViewModelBase
         {
             _selectedCheck = value;
             OnPropertyChanged();
-            if (value != null) Buckling.Load(value);
+            if (value != null)
+            {
+                var schema = _app.FemSchemas.FirstOrDefault(s => s.Id == value.SchemaId);
+                Buckling.SetAnalyses(schema is { Analyses.Count: > 0 } ? schema.Analyses.ToList() : _db.GetFemAnalyses(value.SchemaId));
+                Buckling.Load(value);
+            }
             else Buckling.NormCode = null;
         }
     }

@@ -59,6 +59,17 @@
                 <TextBox Width="50" Text="{Binding SteelMuB, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="{DynamicResource Sp16MeshMuB}"/>
             </StackPanel>
+            <!-- Авто (МКЭ): μ по расчёту устойчивости схемы; где не назначен — по сетке или из параметров группы -->
+            <CheckBox Content="{DynamicResource Sp16AutoLef}" Margin="0,6,0,0"
+                      ToolTip="{DynamicResource Sp16AutoLefHint}"
+                      IsChecked="{Binding SteelAutoLef}"/>
+            <StackPanel Orientation="Horizontal" IsEnabled="{Binding SteelAutoLef}" Margin="18,4,0,0">
+                <TextBlock Text="{DynamicResource Sp16AutoLefAnalysis}" VerticalAlignment="Center" Margin="0,0,4,0"
+                           ToolTip="{DynamicResource Sp16AutoLefAnalysisHint}"/>
+                <ComboBox MinWidth="160" ItemsSource="{Binding Analyses}" DisplayMemberPath="Tag"
+                          SelectedItem="{Binding SteelAutoAnalysis}"
+                          ToolTip="{DynamicResource Sp16AutoLefAnalysisHint}"/>
+            </StackPanel>
         </StackPanel>
     </StackPanel>
 </UserControl>

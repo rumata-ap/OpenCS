@@ -165,9 +165,13 @@ public static class FemCheckContext
     }
 
     /// <summary>Сечения и источники армирования проверки. Вызывать в UI-потоке: читает коллекции проекта.</summary>
+    /// <param name="steelAutoLef">
+    /// Расчётные длины стали по расчёту устойчивости (режим «Авто (МКЭ)», считаются при запуске — <see cref="FemSteelBuckling"/>);
+    /// null — без них (оценка готовности в диалоге или режим выключен).
+    /// </param>
     public static FemPerElementInputs BuildInputs(
         IProjectContext app, FemCheck check, IFemCheckable target, FemCheckSchemaData data, FemCheckScope scope,
-        IReadOnlyList<ForceSet> lookupForceSets)
+        IReadOnlyList<ForceSet> lookupForceSets, IReadOnlyDictionary<string, FemSteelAutoLef>? steelAutoLef = null)
     {
         if (IsPlate(check))
         {
@@ -213,7 +217,7 @@ public static class FemCheckContext
         foreach (var s in app.CrossSections) sections.TryAdd(s.Id, s);
         var targetSection = targetSectionId is int id ? sections.GetValueOrDefault(id) : null;
         var (elementParams, paramWarnings) = check.NormCode == "steel_check"
-            ? SteelElementParams(data, scope, FemCheckRunner.BuildCalcTask(check, target).ParamsJson)
+            ? SteelElementParams(data, scope, FemCheckRunner.BuildCalcTask(check, target).ParamsJson, steelAutoLef)
             : (null, []);
         var barParams = check.NormCode == "rc_check" ? BarCheckParams.Parse(check.ParamsJson) : null;
         FemBracedLength? braced = barParams?.EtaEnabled == true && barParams.Eta is { HasManualLength: false }
@@ -274,34 +278,54 @@ public static class FemCheckContext
 
     /// <summary>
     /// Параметры СП 16 стальных КЭ проверки по КЭ. Приоритет: стальная группа SCAD (<see cref="SteelGroupParams"/>);
-    /// иначе при режиме «lef = μ·l по сетке» (<see cref="CScore.Sp16.SteelDesignParams.MeshLef"/> задания —
-    /// из параметров проверки, <see cref="SteelFemCheckParams"/>) — длины по длине стержня между узлами примыкания (<see cref="FemBracedLength.BarLength"/>);
+    /// затем расчётные длины по расчёту устойчивости схемы (<paramref name="auto"/>, режим «Авто (МКЭ)» —
+    /// <see cref="SteelFemCheckParams.AutoLef"/>) по осям, где μ назначен; иначе при режиме «lef = μ·l по сетке»
+    /// (<see cref="CScore.Sp16.SteelDesignParams.MeshLef"/> задания — из параметров проверки, <see cref="SteelFemCheckParams"/>)
+    /// — длины по длине стержня между узлами примыкания (<see cref="FemBracedLength.BarLength"/>);
     /// КЭ без длины — параметры проверки и предупреждение в сводке.
     /// </summary>
+    /// <param name="auto">Расчётные длины по тегам КЭ (<see cref="FemSteelBuckling.ElementLengths"/>); null — режима нет.</param>
     public static (Func<FemCheckScopeElement, string, string?>? Params, List<string> Warnings) SteelElementParams(
-        FemCheckSchemaData data, FemCheckScope scope, string? baseParamsJson)
+        FemCheckSchemaData data, FemCheckScope scope, string? baseParamsJson,
+        IReadOnlyDictionary<string, FemSteelAutoLef>? auto = null)
     {
         var (groupParams, warnings) = SteelGroupParams(data, scope);
-        if (CScore.Sp16.SteelDesignParams.Parse(baseParamsJson).MeshLef == null) return (groupParams, warnings);
+        bool meshMode = CScore.Sp16.SteelDesignParams.Parse(baseParamsJson).MeshLef != null;
+        if (!meshMode && auto == null) return (groupParams, warnings);
 
-        var braced = new FemBracedLength(data.Mesh, data.MeshNodes);
+        var braced = meshMode ? new FemBracedLength(data.Mesh, data.MeshNodes) : null;
         var groups = data.ScadSteelGroups;
         bool InGroup(FemCheckScopeElement e) => e.ElemNum is int num && groups?.Find(num) != null;
-        int byMesh = 0, noLength = 0;
+        int byAuto = 0, autoPartial = 0, byMesh = 0, noLength = 0;
         foreach (var e in scope.Elements)
         {
             if (e.Element.ElemType == "shell" || InGroup(e)) continue;
+            var a = auto?.GetValueOrDefault(e.Element.ElemTag);
+            if (a is { MuX: not null, MuY: not null }) { byAuto++; continue; }
+            if (a is { MuX: not null } or { MuY: not null }) autoPartial++;
+            if (braced == null) continue;
             if (braced.BarLength(e.Element) is > 0) byMesh++;
             else noLength++;
         }
+        if (byAuto > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelAutoLef"), byAuto));
+        if (autoPartial > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelAutoLefPartial"), autoPartial));
         if (byMesh > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelMeshLef"), byMesh));
         if (noLength > 0) warnings.Add(string.Format(Loc.S("FemCheckSteelMeshLefNoLength"), noLength));
 
         return ((e, baseJson) =>
         {
             if (groupParams?.Invoke(e, baseJson) is { } own) return own;
-            if (braced.BarLength(e.Element) is not (> 0 and double l)) return null;
-            return CScore.Sp16.SteelDesignParams.Parse(baseJson).WithMeshLength(l).ToJson();
+            var p = CScore.Sp16.SteelDesignParams.Parse(baseJson);
+            double? meshLength = braced?.BarLength(e.Element) is > 0 and double l ? l : null;
+            if (meshLength is double ml) p = p.WithMeshLength(ml);
+            if (auto?.GetValueOrDefault(e.Element.ElemTag) is not { } a) return meshLength != null ? p.ToJson() : null;
+            return (p with
+            {
+                LefX = a.MuX is double mx ? mx * a.Length : p.LefX,
+                LefY = a.MuY is double my ? my * a.Length : p.LefY,
+                MeshLef = null,
+                LefNotes = [a.NoteX, a.NoteY],
+            }).ToJson();
         }, warnings);
     }
 

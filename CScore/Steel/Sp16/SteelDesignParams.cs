@@ -291,6 +291,12 @@ public sealed record SteelDesignParams
     /// </summary>
     public SteelMeshLef? MeshLef { get; init; }
 
+    /// <summary>
+    /// Проверка по КЭ: происхождение расчётных длин КЭ (режим «Авто (МКЭ)» — форма, λ, доля работы) — в примечания
+    /// результата; null — нет.
+    /// </summary>
+    public IReadOnlyList<string>? LefNotes { get; init; }
+
     // ── Устаревшие поля (миграция старого ParamsJson) ──
 
     /// <summary>Устар.: l0x до умножения на μ. Используется только при чтении старых задач.</summary>

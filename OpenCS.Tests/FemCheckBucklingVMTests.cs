@@ -58,6 +58,39 @@ public sealed class FemCheckBucklingVMTests
     }
 
     [Fact]
+    public void SteelCheck_AutoLef_RoundTrip_KeepsAnalysis()
+    {
+        var analyses = new[] { new FemAnalysis { Id = 4, Tag = "Линейный" }, new FemAnalysis { Id = 7, Tag = "Пакет" } };
+        var check = new FemCheck { NormCode = "steel_check" };
+        var vm = new FemCheckBucklingVM();
+        vm.SetAnalyses(analyses);
+        vm.Load(check);
+        Assert.False(vm.SteelAutoLef);
+        Assert.Equal(4, vm.SteelAutoAnalysis!.Id);                     // по умолчанию — первая постановка
+
+        vm.SteelAutoLef = true;
+        vm.SteelAutoAnalysis = analyses[1];
+        vm.Apply(check);
+        Assert.Equal(7, SteelFemCheckParams.TryParse(check.ParamsJson)!.AutoLef!.AnalysisId);
+
+        var again = new FemCheckBucklingVM();
+        again.SetAnalyses(analyses);
+        again.Load(check);
+        Assert.True(again.SteelAutoLef);
+        Assert.Equal(7, again.SteelAutoAnalysis!.Id);
+
+        // Постановки после загрузки проверки (страница: сначала проверка, затем схема) — выбор сохраняется.
+        var late = new FemCheckBucklingVM();
+        late.Load(check);
+        late.SetAnalyses(analyses);
+        Assert.Equal(7, late.SteelAutoAnalysis!.Id);
+
+        again.SteelAutoLef = false;
+        again.Apply(check);
+        Assert.Null(SteelFemCheckParams.TryParse(check.ParamsJson)!.AutoLef);
+    }
+
+    [Fact]
     public void SlsOrUnknown_NotApplicable()
     {
         var vm = new FemCheckBucklingVM { NormCode = "other" };

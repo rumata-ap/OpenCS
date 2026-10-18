@@ -43,7 +43,16 @@ public static class FemCheckExecutor
             selected = app.ForceSets.Where(f => ids.Contains(f.Id)).ToList();
         }
         var lookup = candidates.Union(selected).ToList();
-        var inputs = FemCheckContext.BuildInputs(app, check, target, data, scope, lookup);
+        bool perElement = FemCheckRunner.HasElementNumbers(check, selected) && FemCheckRunner.ScopeElements(check, scope).Count > 0;
+
+        // Режим «Авто (МКЭ)» стальной проверки: расчётные длины по расчёту устойчивости схемы — до сборки входов.
+        IReadOnlyDictionary<string, FemSteelAutoLef>? steelAutoLef = null;
+        if (perElement && check.NormCode == "steel_check" && SteelFemCheckParams.TryParse(check.ParamsJson)?.AutoLef is { } auto)
+        {
+            steelAutoLef = await SteelAutoLefAsync(app, check, auto);
+            if (steelAutoLef == null) return null;
+        }
+        var inputs = FemCheckContext.BuildInputs(app, check, target, data, scope, lookup, steelAutoLef);
         if (isPlate)
         {
             var schemaGroups = app.FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId)?.MemberGroups;
@@ -55,8 +64,7 @@ public static class FemCheckExecutor
 
         CalcResult result;
         bool saved = false;   // результат по КЭ уже в БД (строки записаны по ходу расчёта)
-        if (!FemCheckRunner.HasElementNumbers(check, selected)
-            || FemCheckRunner.ScopeElements(check, scope).Count == 0)
+        if (!perElement)
         {
             result = FemCheckRunner.RunMulti(
                 check, target, inputs.TargetBarSection, inputs.PlateTemplate, check.IsAllSets ? candidates : lookup,
@@ -128,5 +136,54 @@ public static class FemCheckExecutor
         else
             log.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
         return result;
+    }
+
+    /// <summary>
+    /// Расчёт устойчивости схемы для режима «Авто (МКЭ)»: вход — в UI-потоке, расчёт — в фоне с отменой; отчёт — в
+    /// журнал. Null — постановки нет, ошибки входа, отмена или сбой (причина в журнале).
+    /// </summary>
+    static async Task<IReadOnlyDictionary<string, FemSteelAutoLef>?> SteelAutoLefAsync(
+        IProjectContext app, FemCheck check, SteelAutoLef auto)
+    {
+        var log = app.LogService;
+        var analysis = app.Db.GetFemAnalyses(check.SchemaId).FirstOrDefault(a => a.Id == auto.AnalysisId);
+        if (analysis == null)
+        {
+            log.Warning(string.Format(Loc.S("FemSteelAutoLefNoAnalysis"), check.DisplayTag));
+            return null;
+        }
+        var input = FemSteelBuckling.Prepare(app.Db, check.SchemaId, analysis);
+        foreach (string line in input.Report) log.Info($"{Loc.S("FemSteelAutoLefLog")}: {line}");
+        if (input.HasErrors)
+        {
+            log.Warning(string.Format(Loc.S("FemSteelAutoLefInputErrors"), check.DisplayTag));
+            return null;
+        }
+
+        var busy = app.Busy;
+        var cts = busy.BeginBusyWithCancellation(string.Format(Loc.S("FemSteelAutoLefRunning"), analysis.Tag), indeterminate: true);
+        try
+        {
+            var token = cts.Token;
+            var (result, lengths) = await Task.Run(() =>
+            {
+                var r = FemSteelBuckling.Run(input, ct: token);
+                return (r, FemSteelBuckling.ElementLengths(input, r));
+            });
+            busy.EndBusy();
+            foreach (string line in result.Report) log.Info($"{Loc.S("FemSteelAutoLefLog")}: {line}");
+            return lengths;
+        }
+        catch (OperationCanceledException)
+        {
+            busy.EndBusy(Loc.S("CalcTaskCancelled"));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            busy.EndBusy();
+            log.Error($"{Loc.S("FemSteelAutoLefLog")} «{check.DisplayTag}»: {ex.Message}");
+            return null;
+        }
     }
 }

@@ -53,6 +53,7 @@ public abstract class SteelTaskHandlerBase : ITaskHandler
             if (report.Error != null) return Error(Loc.S(report.Error));
             if (parametricProfile != null)
                 report.Notes.Insert(0, string.Format(Loc.S("Sp16ProfileFromParametric"), parametricProfile.Describe()));
+            if (p.LefNotes is { Count: > 0 } lefNotes) report.Notes.InsertRange(0, lefNotes);
             double torsion = p.ManualForces?.Mz ?? item?.T ?? 0;
             if (!double.IsFinite(torsion)) return Error(Loc.S("Sp16InvalidForces"));
             if (torsion != 0) report.Notes.Add(Loc.S("Sp16TorsionIgnored"));
