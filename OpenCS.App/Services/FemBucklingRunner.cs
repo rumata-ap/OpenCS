@@ -237,6 +237,18 @@ public static class FemBucklingRunner
     public static RcBucklingOptions Options(FemAnalysis analysis) =>
         new(Modes: Math.Max(1, FemAnalysisParams.Parse(analysis.ParamsJson).Buckling?.Modes ?? 20));
 
+    /// <summary>
+    /// Сохранённый результат постановки, годный для входа <paramref name="input"/> (отпечаток совпал); null — результата
+    /// нет (<paramref name="saved"/> = null) или он устарел.
+    /// </summary>
+    public static FemBucklingSummary? Current(DatabaseService db, FemAnalysis analysis, FemSteelBucklingInput input, out CalcResult? saved)
+    {
+        saved = analysis.ResultId is int rid ? db.GetCalcResultById(rid) : null;
+        if (saved is not { TaskKind: TaskKind, Status: "ok" or "not_converged" }) saved = null;
+        return saved != null && FemBucklingSummary.Parse(saved.DataJson) is { } summary
+            && summary.Fingerprint == FemBucklingFingerprint.Compute(input, Options(analysis)) ? summary : null;
+    }
+
     /// <summary>Сетка схемы (устаревшая — перестраивается), вход и расчёт; результат и формы записываются в БД.</summary>
     public static async Task<CalcResult> RunAsync(FemCsfeaRunContext ctx, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
     {

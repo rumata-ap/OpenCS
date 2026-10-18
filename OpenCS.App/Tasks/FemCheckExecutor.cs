@@ -160,11 +160,37 @@ public static class FemCheckExecutor
             return null;
         }
 
+        // Постановка «Расчётные длины — CSfea»: её результат, если вход не изменился (отпечаток), иначе пересчёт с записью.
+        bool stored = analysis.Kind == FemBucklingRunner.AnalysisKind;
+        if (stored)
+        {
+            if (FemBucklingRunner.Current(app.Db, analysis, input, out var saved) is { } summary)
+            {
+                log.Info(string.Format(Loc.S("FemSteelAutoLefFromAnalysis"), check.DisplayTag, analysis.Tag, saved!.Created));
+                return FemSteelBuckling.ElementLengths(summary.Units);
+            }
+            log.Info(string.Format(Loc.S(saved == null ? "FemSteelAutoLefNoResult" : "FemSteelAutoLefStale"), check.DisplayTag, analysis.Tag));
+        }
+
         var busy = app.Busy;
         var cts = busy.BeginBusyWithCancellation(string.Format(Loc.S("FemSteelAutoLefRunning"), analysis.Tag), indeterminate: true);
         try
         {
             var token = cts.Token;
+            if (stored)
+            {
+                analysis.Status = "running";
+                app.Db.SaveFemAnalysis(analysis);
+                string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+                var saved = await FemBucklingRunner.SolveAsync(app.Db, analysis, input, created, token);
+                analysis.ResultId = saved.Id;
+                analysis.Status = saved.Status;
+                app.Db.SaveFemAnalysis(analysis);
+                busy.EndBusy();
+                var summary = FemBucklingSummary.Parse(saved.DataJson) ?? new FemBucklingSummary();
+                foreach (string line in summary.Describe()) log.Info($"{Loc.S("FemSteelAutoLefLog")}: {line}");
+                return FemSteelBuckling.ElementLengths(summary.Units);
+            }
             var (result, lengths) = await Task.Run(() =>
             {
                 var r = FemSteelBuckling.Run(input, ct: token);
@@ -176,14 +202,22 @@ public static class FemCheckExecutor
         }
         catch (OperationCanceledException)
         {
+            if (stored) SetStatus(app, analysis, "cancelled");
             busy.EndBusy(Loc.S("CalcTaskCancelled"));
             return null;
         }
         catch (Exception ex)
         {
+            if (stored) SetStatus(app, analysis, "error");
             busy.EndBusy();
             log.Error($"{Loc.S("FemSteelAutoLefLog")} «{check.DisplayTag}»: {ex.Message}");
             return null;
         }
+    }
+
+    static void SetStatus(IProjectContext app, FemAnalysis analysis, string status)
+    {
+        analysis.Status = status;
+        app.Db.SaveFemAnalysis(analysis);
     }
 }

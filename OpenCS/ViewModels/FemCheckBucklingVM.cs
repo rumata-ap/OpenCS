@@ -98,7 +98,8 @@ public sealed class FemCheckBucklingVM : ViewModelBase
     public void SetAnalyses(IEnumerable<FemAnalysis> analyses)
     {
         int? keep = _steelAutoAnalysis?.Id ?? _pendingAnalysisId;
-        Analyses = analyses.ToList();
+        // Постановки расчётных длин — первыми: по умолчанию проверка берёт сохранённый результат одной из них.
+        Analyses = analyses.OrderBy(a => a.Kind == Services.FemBucklingRunner.AnalysisKind ? 0 : 1).ToList();
         OnPropertyChanged(nameof(Analyses));
         SteelAutoAnalysis = Analyses.FirstOrDefault(a => a.Id == keep) ?? Analyses.FirstOrDefault();
     }

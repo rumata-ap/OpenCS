@@ -1083,6 +1083,9 @@
    <system:String x:Key="FemSteelAutoLefInputErrors">FemCheck «{0}»: расчёт устойчивости для расчётных длин невозможен — ошибки входа (см. журнал).</system:String>
    <system:String x:Key="FemSteelAutoLefRunning">Расчёт устойчивости схемы для расчётных длин («{0}»)…</system:String>
    <system:String x:Key="FemSteelAutoLefLog">Расчётные длины (МКЭ)</system:String>
+   <system:String x:Key="FemSteelAutoLefFromAnalysis">FemCheck «{0}»: расчётные длины — из результата постановки «{1}» от {2} (вход не изменился).</system:String>
+   <system:String x:Key="FemSteelAutoLefNoResult">FemCheck «{0}»: у постановки «{1}» нет результата — расчёт устойчивости выполняется и сохраняется в ней.</system:String>
+   <system:String x:Key="FemSteelAutoLefStale">FemCheck «{0}»: результат постановки «{1}» устарел (схема, сечения, нагрузки, сочетания или число форм изменились) — пересчёт с сохранением.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} стальной группы SCAD {0} в проверке не учитывается.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">В схеме SCAD нет групп заданного армирования (меню схемы «SCAD → Обновить данные схемы из .SPR»)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">КЭ цели не входят в группы заданного армирования SCAD</system:String>
@@ -4968,7 +4971,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp16AutoLef">Авто (МКЭ): μ по расчёту устойчивости схемы</system:String>
    <system:String x:Key="Sp16AutoLefHint">Перед проверкой решается линейная задача устойчивости схемы по недеформированному состоянию (п. 10.3.11 СП 16): упругие сечения, сочетания — стадии выбранной постановки, у каждого элемента (КонЭ или цепочки КЭ) — сочетание с наибольшим сжатием (п. 10.3.2). μ = π/l·√(EI/N_cr), N_cr = λ·N по наинизшей форме, в которой элемент участвует; качающийся элемент — μ = 1. Где μ не назначен (элемент не в формах, схема неустойчива) — длины по сетке или из параметров СП 16. КЭ стальных групп SCAD берут длины из своих групп.</system:String>
    <system:String x:Key="Sp16AutoLefAnalysis">Постановка:</system:String>
-   <system:String x:Key="Sp16AutoLefAnalysisHint">Постановка схемы, стадии которой задают сочетания задач устойчивости</system:String>
+   <system:String x:Key="Sp16AutoLefAnalysisHint">Постановка «Расчётные длины — CSfea» (рекомендуется): μ берутся из её сохранённого результата, при изменении схемы, нагрузок или сочетаний она пересчитывается и сохраняется. Постановка другого вида: её стадии — сочетания, расчёт устойчивости перед каждой проверкой без сохранения.</system:String>
     <system:String x:Key="FemGroupCheckParams">Параметры проверки по КЭ</system:String>
     <system:String x:Key="FemGroupCheckLabel">Проверка</system:String>
     <system:String x:Key="FemGroupCheckSaveRun">Сохранить и выполнить</system:String>

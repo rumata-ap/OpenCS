@@ -1083,6 +1083,9 @@
    <system:String x:Key="FemSteelAutoLefInputErrors">FemCheck “{0}”: stability analysis for effective lengths is impossible — input errors (see the log).</system:String>
    <system:String x:Key="FemSteelAutoLefRunning">Stability analysis of the model for effective lengths (“{0}”)…</system:String>
    <system:String x:Key="FemSteelAutoLefLog">Effective lengths (FEM)</system:String>
+   <system:String x:Key="FemSteelAutoLefFromAnalysis">FemCheck “{0}”: effective lengths taken from the result of analysis “{1}” of {2} (input unchanged).</system:String>
+   <system:String x:Key="FemSteelAutoLefNoResult">FemCheck “{0}”: analysis “{1}” has no result — the buckling analysis is run and saved in it.</system:String>
+   <system:String x:Key="FemSteelAutoLefStale">FemCheck “{0}”: the result of analysis “{1}” is out of date (model, sections, loads, combinations or number of modes changed) — recomputed and saved.</system:String>
    <system:String x:Key="FemCheckSteelGroupGammaN">γn = {1} of SCAD steel group {0} is not applied in the check.</system:String>
    <system:String x:Key="FemCheckNoScadAssigned">The SCAD schema has no assigned reinforcement groups (schema menu “SCAD → Refresh schema data from .SPR”)</system:String>
    <system:String x:Key="FemCheckScadAssignedNotInTarget">Target elements are not in SCAD assigned reinforcement groups</system:String>
@@ -4968,7 +4971,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="Sp16AutoLef">Auto (FEM): μ from the stability analysis of the model</system:String>
    <system:String x:Key="Sp16AutoLefHint">Before the check a linear buckling analysis of the undeformed model is solved (SP 16 cl. 10.3.11): elastic sections, combinations are the stages of the selected analysis, each element (structural member or chain of FEs) uses the combination with the largest compression (cl. 10.3.2). μ = π/l·√(EI/N_cr), N_cr = λ·N of the lowest mode the element takes part in; a leaning element gets μ = 1. Where μ is not assigned (element not in the modes, model unstable) lengths come from the mesh or the SP 16 parameters. Elements of SCAD steel groups take lengths from their groups.</system:String>
    <system:String x:Key="Sp16AutoLefAnalysis">Analysis:</system:String>
-   <system:String x:Key="Sp16AutoLefAnalysisHint">Model analysis whose stages define the combinations of the buckling problems</system:String>
+   <system:String x:Key="Sp16AutoLefAnalysisHint">An “Effective lengths — CSfea” analysis (recommended): μ are taken from its saved result; when the model, loads or combinations change it is recomputed and saved. An analysis of another kind: its stages are the combinations, the buckling analysis runs before every check and is not saved.</system:String>
     <system:String x:Key="FemGroupCheckParams">Per-element check parameters</system:String>
     <system:String x:Key="FemGroupCheckLabel">Check</system:String>
     <system:String x:Key="FemGroupCheckSaveRun">Save and run</system:String>

@@ -77,6 +77,49 @@ public sealed class FemBucklingRunnerTests
         Assert.Equal(points[1].X, decoded.BarPoints[101][1].X, 6);
     }
 
+    /// <summary>
+    /// Срез 5в: результат пишется в БД (сводка и формы), проверка стали берёт его, пока вход прежний; изменившиеся
+    /// нагрузки или число форм — результат устарел.
+    /// </summary>
+    [Fact]
+    public async Task SolveAsync_SavesResult_CurrentDetectsStale()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "opencs_buckling_" + Guid.NewGuid().ToString("N") + ".db");
+        try
+        {
+            using var db = new OpenCS.Utilites.DatabaseService(path);
+            var pars = new OpenCS.Tasks.FemAnalysisParams { Buckling = new OpenCS.Tasks.FemBucklingParams { Modes = 3 } };
+            var analysis = new FemAnalysis { Tag = "Длины", Kind = FemBucklingRunner.AnalysisKind, ParamsJson = pars.ToJson() };
+            Assert.Null(FemBucklingRunner.Current(db, analysis, Column(), out var none));
+            Assert.Null(none);
+
+            var result = await FemBucklingRunner.SolveAsync(db, analysis, Column(), "2026-10-18 12:00:00", CancellationToken.None);
+            Assert.Equal(FemBucklingRunner.TaskKind, result.TaskKind);
+            Assert.Equal("ok", result.Status);
+            analysis.ResultId = result.Id;
+
+            var summary = FemBucklingRunner.Current(db, analysis, Column(), out var saved)!;
+            Assert.Equal(result.Id, saved!.Id);
+            Assert.Equal(3, summary.Modes);
+            var c = Assert.Single(summary.Cases);
+            Assert.Equal(1, c.FirstRecord);
+            Assert.Equal(c.Lambda.Length, db.GetFemResultStepNumbers(result.Id).Count);
+            var mode = FemBucklingModeCodec.Decode(db.GetFemResultStep(result.Id, 1)!);
+            Assert.Equal(3, mode.BarPoints[101].Length);
+            Assert.Equal(1.0, Assert.Single(summary.Units).X.Mu!.Value, 3);
+
+            Assert.Null(FemBucklingRunner.Current(db, analysis, Column(1.5), out saved));    // нагрузка изменилась
+            Assert.NotNull(saved);
+            analysis.ParamsJson = new OpenCS.Tasks.FemAnalysisParams { Buckling = new OpenCS.Tasks.FemBucklingParams { Modes = 4 } }.ToJson();
+            Assert.Null(FemBucklingRunner.Current(db, analysis, Column(), out _));            // число форм
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try { File.Delete(path); } catch (IOException) { }
+        }
+    }
+
     [Fact]
     public void Fingerprint_ChangesWithLoadsAndModes()
     {
