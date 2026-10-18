@@ -6351,7 +6351,7 @@ namespace OpenCS
       /// </summary>
       public void OpenCsfeaBarSectionState(ViewModels.FemCsfeaResultVM vm, string elemTag, int point)
       {
-         if (!vm.HasSectionStrains) { ShowSectionStateUnavailable("FemCsfeaSectionNoStrains"); return; }
+         if (!vm.HasBeamStrains) { ShowSectionStateUnavailable("FemCsfeaSectionNoStrains"); return; }
          if (!int.TryParse(elemTag, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int elem)
              || vm.BeamFieldIndex(elem) is not int index) return;
          var element = db.GetFemMeshElements(vm.Schema.Id).FirstOrDefault(e => e.ElemTag == elemTag);
@@ -6394,6 +6394,61 @@ namespace OpenCS
          _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, cutVm, CalcSettings,
             string.Format(Loc.S("FemCsfeaSectionWindowTitle"), title, vm.CurrentStepLabel));
          _femSectionStateWindow.Activate();
+      }
+
+      /// <summary>
+      /// Детальные эпюры вдоль выбранных стержней результата CSfea (спека НДС сечений, п. 2.4): цепочки выбранных КЭ
+      /// модели постановки, НДС сечения в n точках каждого КЭ (<see cref="Services.FemCsfeaBarDetail"/>) на сечениях
+      /// постановки; щелчок по точке Лобатто — окно «НДС сечения».
+      /// </summary>
+      public void OpenCsfeaBarDetail(ViewModels.FemCsfeaResultVM vm, IReadOnlyCollection<string> elemTags)
+      {
+         if (!vm.HasBeamStrains) { ShowSectionStateUnavailable("FemCsfeaDetailNoStrains"); return; }
+         var model = vm.AdaptedModel()?.Model;
+         if (model == null) { ShowSectionStateUnavailable("FemCsfeaSectionNoCross"); return; }
+         var selected = elemTags
+            .Select(t => int.TryParse(t, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : (int?)null)
+            .OfType<int>().ToHashSet();
+         var nodes = model.Nodes.ToDictionary(n => n.Id, n => (n.X, n.Y, n.Z));
+         var beams = model.Beams
+            .Where(b => selected.Contains(b.Id) && b.Section.Cross != null && vm.BeamFieldIndex(b.Id) != null
+                        && nodes.ContainsKey(b.NodeI) && nodes.ContainsKey(b.NodeJ))
+            .ToDictionary(b => b.Id);
+         if (beams.Count == 0) { ShowSectionStateUnavailable("FemCsfeaSectionNoCross"); return; }
+         var chains = CScore.Fem.BarChains.Build(beams.Values.Select(b => new CScore.Fem.BarChainBar(b.Id, b.NodeI, b.NodeJ, nodes[b.NodeI], nodes[b.NodeJ])));
+
+         var fields = vm.Fields!;
+         var (calc, tension, psi) = (vm.Calc, vm.BeamTension, vm.CsfeaParams.Psi);
+         // Сечение модели общее с фоновыми расчётами окна результата — досчёт на клоне (мутирует фибры).
+         var clones = new Dictionary<CScore.CrossSection, CScore.CrossSection>(ReferenceEqualityComparer.Instance);
+         IReadOnlyList<Services.FemCsfeaBarDetailPoint>? Compute(int elem, int points)
+         {
+            var b = beams[elem];
+            var (pi, pj) = (nodes[b.NodeI], nodes[b.NodeJ]);
+            double length = Math.Sqrt((pj.X - pi.X) * (pj.X - pi.X) + (pj.Y - pi.Y) * (pj.Y - pi.Y) + (pj.Z - pi.Z) * (pj.Z - pi.Z));
+            if (!clones.TryGetValue(b.Section.Cross!, out var section)) clones[b.Section.Cross!] = section = b.Section.Cross!.CloneForCalc();
+            try
+            {
+               return Services.FemCsfeaBarDetail.Compute(section, calc, tension, psi, b.Section.CrossYAlongLocalY, fields,
+                  vm.BeamFieldIndex(elem)!.Value, length, points);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or KeyNotFoundException) { return null; }
+         }
+
+         ViewModels.FemCsfeaBarDetailVM detail;
+         var cursor = System.Windows.Input.Mouse.OverrideCursor;
+         System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+         try { detail = new ViewModels.FemCsfeaBarDetailVM(chains, Compute, psi); }
+         finally { System.Windows.Input.Mouse.OverrideCursor = cursor; }
+         var dialog = new Views.FemCsfeaBarDetailDialog(detail,
+            string.Format(Loc.S("FemCsfeaDetailTitle"), vm.CurrentStepLabel)) { Owner = System.Windows.Application.Current.MainWindow };
+         // Окно НДС сечения строится по показанному шагу результата — у эпюр он свой, пока окно открыто.
+         dialog.SectionStateRequested += (elem, point) =>
+         {
+            if (!ReferenceEquals(vm.Fields, fields)) { ShowSectionStateUnavailable("FemCsfeaDetailStepChanged"); return; }
+            OpenCsfeaBarSectionState(vm, elem.ToString(System.Globalization.CultureInfo.InvariantCulture), point);
+         };
+         dialog.Show();
       }
 
       Views.FemPlateSectionStateWindow? _femPlateSectionStateWindow;

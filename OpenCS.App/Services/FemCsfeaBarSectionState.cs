@@ -107,13 +107,13 @@ public static class FemCsfeaBarSectionState
 
     /// <summary>
     /// Состояние сечения в точке <paramref name="point"/> стержня с индексом <paramref name="beamIndex"/> полей: нужен блок
-    /// деформаций (<see cref="RcSecantStepFields.HasStrains"/>); флаг трещины КЭ — из полей. Сечение CScore мутирует
+    /// деформаций стержней (<see cref="RcSecantStepFields.HasBeamStrains"/>, с 18.10.2026 пишутся всегда); флаг трещины КЭ — из полей. Сечение CScore мутирует
     /// фибры — вызывать из одного потока.
     /// </summary>
     public static FemCsfeaBarSectionPoint Compute(CrossSection section, CalcType calc, bool tension, bool yAlongLocalY,
         RcSecantStepFields f, int beamIndex, int point, bool psi = false)
     {
-        if (!f.HasStrains) throw new InvalidOperationException("В полях шага нет деформаций сечений.");
+        if (!f.HasBeamStrains) throw new InvalidOperationException("В полях шага нет деформаций стержней.");
         int so = beamIndex * RcSecantStepFields.BeamStrainComponents + 3 * point;
         var plane = Plane(f.BeamStrains[so], f.BeamStrains[so + 1], f.BeamStrains[so + 2], yAlongLocalY);
         var recorded = ToSection(ElementForces(f, beamIndex, point), yAlongLocalY);

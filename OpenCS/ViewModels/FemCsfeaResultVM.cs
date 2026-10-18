@@ -1852,6 +1852,9 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>На показанном шаге записаны деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>; у огибающих — нет).</summary>
     public bool HasSectionStrains => _envelope == null && Fields?.HasStrains == true;
 
+    /// <summary>На показанном шаге записаны деформации стержней (с 18.10.2026 — всегда; у огибающих — нет).</summary>
+    public bool HasBeamStrains => _envelope == null && Fields?.HasBeamStrains == true;
+
     /// <summary>Индекс стержня в полях показанного шага; null — нет.</summary>
     public int? BeamFieldIndex(int elem) => Fields != null && _beamIndex.TryGetValue(elem, out int i) ? i : null;
 

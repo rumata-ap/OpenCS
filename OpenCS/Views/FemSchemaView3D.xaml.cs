@@ -587,6 +587,14 @@ public partial class FemSchemaView3D : UserControl
             menu.Items.Add(new Separator());
             menu.Items.Add(CsfeaSelectedForceSetsItem(csfea, layer, app));
             if (csfea.IsBatch) menu.Items.Add(CsfeaBatchForceSetsItem(csfea, layer, app, selected: true));
+            // Детальные эпюры НДС сечений вдоль выбранных стержней.
+            if (app != null && selection.Elements.All(layer.Mesh.IsBar))
+            {
+                var detail = CommandIcons.Apply(new MenuItem { Header = Loc.S("FemCsfeaDetailMenu"), IsEnabled = !layer.IsEnvelope }, "FemResultMenuMember2D");
+                var tags = selection.Elements.ToList();
+                detail.Click += (_, _) => app.OpenCsfeaBarDetail(csfea, tags);
+                menu.Items.Add(detail);
+            }
             // НДС сечения одного стержня: точка i, ½ или j (без записанных деформаций — пояснение по щелчку).
             if (app != null && selection.Elements.Count == 1 && selection.Elements.First() is var barTag && layer.Mesh.IsBar(barTag))
             {

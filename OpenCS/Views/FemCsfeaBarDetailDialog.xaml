@@ -1,0 +1,68 @@
+<Window x:Class="OpenCS.Views.FemCsfeaBarDetailDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
+        MinWidth="760" MinHeight="460"
+        Width="1200" Height="640"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <!-- DataContext — FemCsfeaBarDetailVM -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <WrapPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="6">
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4"
+                        Visibility="{Binding HasSeveralChains, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{DynamicResource FemBarDiagramChain}" VerticalAlignment="Center"/>
+                <ComboBox Width="230" Margin="6,0,0,0" ItemsSource="{Binding Chains}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedChain, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                <TextBlock Text="{DynamicResource FemCsfeaDetailQuantity}" VerticalAlignment="Center"/>
+                <ComboBox Width="260" Margin="6,0,0,0" ItemsSource="{Binding Quantities}" DisplayMemberPath="Label"
+                          SelectedItem="{Binding SelectedQuantity, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                <TextBlock Text="{DynamicResource FemCsfeaDetailPoints}" VerticalAlignment="Center"/>
+                <ComboBox Width="70" Margin="6,0,0,0" ItemsSource="{Binding PointCounts}"
+                          SelectedItem="{Binding Points, Mode=TwoWay}"/>
+            </StackPanel>
+        </WrapPanel>
+
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="6,0,6,6" TextWrapping="Wrap" Foreground="DimGray"
+                   Text="{DynamicResource FemCsfeaDetailNote}"/>
+
+        <Border Grid.Row="2" Grid.Column="0" BorderBrush="#DDD" BorderThickness="1" Margin="6,0,6,6">
+            <helpers:FemMemberForceCanvas x:Name="canvas" FitAxis="True"/>
+        </Border>
+
+        <DataGrid Grid.Row="2" Grid.Column="1" Width="520" Margin="0,0,6,6"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" SelectionMode="Extended"
+                  EnableRowVirtualization="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource MosaicElement}" Binding="{Binding ElemNum}" Width="50"/>
+                <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColPoint}" Binding="{Binding Point}" Width="45"/>
+                <DataGridTextColumn Header="{DynamicResource FemBarDiagramColS}" Binding="{Binding S}" Width="55"/>
+                <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColMx}" Binding="{Binding Mx}" Width="65"/>
+                <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColMy}" Binding="{Binding My}" Width="65"/>
+                <DataGridTextColumn x:Name="valueColumn" Header="{DynamicResource FemBarDiagramColValue}" Binding="{Binding Value}" Width="*"/>
+                <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColSource}" Binding="{Binding Source}" Width="70"/>
+                <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColCrack}" Binding="{Binding Crack}" Width="65"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>
