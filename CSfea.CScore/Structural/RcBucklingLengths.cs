@@ -34,11 +34,15 @@ public enum RcBucklingLengthSource
 /// элементам формы) и ρ = U/W (у <see cref="RcBucklingLengthSource.Local"/> — форма, в которой элемент участвует, или
 /// −1). <paramref name="LocalAlpha"/>, <paramref name="LocalNcr"/> — локальная задача в плоскости (NaN — не решалась или
 /// формы в плоскости нет): без смещения (<paramref name="LocalBraced"/>) — у участников и качающихся, с остальной
-/// схемой — у неучастников.
+/// схемой — у неучастников. <paramref name="Equivalent"/> — эквивалентная стойка с пружинами из формы, по которой
+/// назначена N_cr (общей при λ или локальной при α; у качания без локальной задачи — null);
+/// <paramref name="Surround"/> — справочно, стойка с жёсткостями остальной схемы при фактическом сочетании (диагональ
+/// сведённой матрицы, <see cref="StructuralLocalBuckling.Surround"/>), её N_cr = EI·u²/l².
 /// </summary>
 public sealed record RcBucklingPlaneLength(RcBucklingLengthSource Source, double Mu, double Ncr, double EI,
     int Mode = -1, double Lambda = double.NaN, double Share = 0, double Participation = 0, double Rho = double.NaN,
-    double LocalAlpha = double.NaN, double LocalNcr = double.NaN, bool LocalBraced = false);
+    double LocalAlpha = double.NaN, double LocalNcr = double.NaN, bool LocalBraced = false,
+    RcEquivalentColumn? Equivalent = null, RcEquivalentColumn? Surround = null);
 
 /// <summary>
 /// Расчётные длины элемента по сочетанию: длина <paramref name="Length"/>, м; <paramref name="N"/> — наибольшее сжатие
@@ -134,23 +138,34 @@ public static class RcBucklingLengths
             var (_, eIy, eIz, _) = BeamElements.SectionStiffness(mesh.Beams[governing].Section);
 
             var loc = local?[i];
-            // Наинизшая локальная форма плоскости: α, N_cr = α·|N|.
-            (double Alpha, double Ncr) Local(StructuralLocalModes? modes, bool xy)
+            // Наинизшая локальная форма плоскости: α, N_cr = α·|N|, закрепления концов в ней.
+            (double Alpha, double Ncr, PlaneRestraint? Restraint) Local(StructuralLocalModes? modes, bool xy)
             {
-                if (modes == null) return (double.NaN, double.NaN);
+                if (modes == null) return (double.NaN, double.NaN, null);
                 for (int m = 0; m < modes.Alpha.Length; m++)
                 {
                     var e = modes.Energy[m];
                     double w = xy ? e.Wxy : e.Wxz, total = e.Wxy + e.Wxz;
-                    if (total > 0 && w >= options.LocalPlane * total) return (modes.Alpha[m], -modes.Alpha[m] * n);
+                    if (total > 0 && w >= options.LocalPlane * total)
+                        return (modes.Alpha[m], -modes.Alpha[m] * n, PlaneOf(modes.Restraints[m], xy));
                 }
-                return (double.NaN, double.NaN);
+                return (double.NaN, double.NaN, null);
             }
             double Mu(double ei, double ncr) => Math.PI / l * Math.Sqrt(ei / ncr);
+            // Эквивалентная стойка — корень около найденной N_cr.
+            RcEquivalentColumn? Equivalent(PlaneRestraint? r, double ei, double ncr) =>
+                r == null ? null : RcRestrainedColumn.Solve(r, ei, l, l * Math.Sqrt(ncr / ei));
 
             RcBucklingPlaneLength Plane(bool xy, double ei)
             {
-                var (ab, nb) = Local(loc?.Braced, xy);
+                var plane = PlaneCore(xy, ei);
+                var around = PlaneOf(loc?.Surround, xy);
+                return around == null ? plane : plane with { Surround = RcRestrainedColumn.Solve(around, ei, l) };
+            }
+
+            RcBucklingPlaneLength PlaneCore(bool xy, double ei)
+            {
+                var (ab, nb, rb) = Local(loc?.Braced, xy);
                 for (int k = 0; k < nm; k++)
                 {
                     double total = workBeams[k] + workShells[k];
@@ -165,19 +180,22 @@ public static class RcBucklingLengths
                     {
                         double nr = double.IsNaN(nb) ? Math.PI * Math.PI * ei / (l * l) : nb;
                         return new(RcBucklingLengthSource.Rocking, Mu(ei, nr), nr, ei,
-                            k, lambda, w / total, participation, rho, ab, nb, !double.IsNaN(nb));
+                            k, lambda, w / total, participation, rho, ab, nb, !double.IsNaN(nb), Equivalent(rb, ei, nr));
                     }
                     double ncr = -lambda * n;
                     // Та же форма в обеих задачах (стойка, закреплённая от смещения схемой) различается округлением.
                     bool braced = nb < (1 - LocalTolerance) * ncr;
                     var source = braced ? RcBucklingLengthSource.Local : RcBucklingLengthSource.Mode;
                     if (braced) ncr = nb;
-                    return new(source, Mu(ei, ncr), ncr, ei, k, lambda, w / total, participation, rho, ab, nb, !double.IsNaN(nb));
+                    var restraint = braced ? rb : PlaneOf(mesh.GroupRestraints(sub, result.URef, result.Modes[k], lambda), xy);
+                    return new(source, Mu(ei, ncr), ncr, ei, k, lambda, w / total, participation, rho, ab, nb,
+                        !double.IsNaN(nb), Equivalent(restraint, ei, ncr));
                 }
-                var (asw, nsw) = Local(loc?.Sway, xy);
+                var (asw, nsw, rsw) = Local(loc?.Sway, xy);
                 return double.IsNaN(nsw)
                     ? new(RcBucklingLengthSource.NotInvolved, double.NaN, double.NaN, ei)
-                    : new(RcBucklingLengthSource.Local, Mu(ei, nsw), nsw, ei, LocalAlpha: asw, LocalNcr: nsw);
+                    : new(RcBucklingLengthSource.Local, Mu(ei, nsw), nsw, ei, LocalAlpha: asw, LocalNcr: nsw,
+                        Equivalent: Equivalent(rsw, ei, nsw));
             }
             lengths[i] = new RcBucklingUnitLength(l, n, Plane(true, eIz), Plane(false, eIy));
         }
@@ -188,6 +206,8 @@ public static class RcBucklingLengths
     const double LocalTolerance = 1e-6;
 
     static double Sq(double x) => x * x;
+
+    static PlaneRestraint? PlaneOf(BeamGroupRestraints? r, bool xy) => xy ? r?.Xy : r?.Xz;
 
     // Работа сжатых оболочек по формам: ½·φᵀ·(−K_σ)·φ по КЭ, положительные части (K_σ КЭ — один раз на все формы).
     static double[] ShellWork(StructuralMesh mesh, RcBucklingResult result)

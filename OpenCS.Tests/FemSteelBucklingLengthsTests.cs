@@ -61,5 +61,12 @@ public sealed class FemSteelBucklingLengthsTests
         Assert.Equal(l, map["102"].Length, 12);
         Assert.Equal("FemSteelAutoLefMode", map["101"].NoteX);          // без смещения — та же форма, не ниже λ·N
         Assert.True(own101.AboutZ.LocalBraced && own101.AboutZ.LocalNcr >= own101.AboutZ.Ncr * (1 - 1e-6));
+
+        // Ход вычисления: стойка по форме (тот же μ) и справочная по окружению (только опоры — заделка — шарнир, консоль).
+        Assert.InRange(own101.AboutZ.Equivalent!.Mu / own101.AboutZ.Mu, 1, 1.003);   // МКЭ из 4 КЭ жёстче точной стойки
+        Assert.Equal(0.699, own101.AboutZ.Surround!.Mu, 3);
+        Assert.Equal(2.0, own101.AboutY.Surround!.Mu, 3);
+        Assert.Equal(["FemSteelAutoLefMode", "FemSteelAutoLefEquivalent", "FemSteelAutoLefSurround",
+            "FemSteelAutoLefMode", "FemSteelAutoLefEquivalent", "FemSteelAutoLefSurround"], map["101"].Notes);
     }
 }

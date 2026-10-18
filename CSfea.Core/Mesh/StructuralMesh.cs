@@ -34,17 +34,33 @@ public sealed record StructuralBucklingResult(double[] Lambda, double[][] Modes,
 public sealed record BeamModeEnergy(double Uxy, double Wxy, double Uxz, double Wxz);
 
 /// <summary>
-/// Формы локальной задачи устойчивости группы стержней: коэффициенты α к продольным силам группы по возрастанию и
-/// энергии группы в каждой форме (сумма <see cref="BeamModeEnergy"/> её стержней).
+/// Упругие закрепления концов группы стержней в плоскости изгиба (эквивалентная стойка Масленникова: низ — конец I —
+/// несмещаем): <paramref name="R1"/>, <paramref name="R2"/> — повороты концов I и J, Н·м/рад; <paramref name="R3"/> —
+/// смещение конца J относительно I, Н/м; +∞ — закреплено, отрицательное — окружение не держит, а нагружает.
+/// <paramref name="Interior"/> — доля усилий в промежуточных узлах группы от наибольшего концевого (0 — примыканий
+/// нет, схема стойки точная).
 /// </summary>
-public sealed record StructuralLocalModes(double[] Alpha, BeamModeEnergy[] Energy);
+public sealed record PlaneRestraint(double R1, double R2, double R3, double Interior = 0);
+
+/// <summary>Закрепления концов группы по плоскостям местных осей первого стержня (null — в плоскости формы нет).</summary>
+public sealed record BeamGroupRestraints(PlaneRestraint? Xy, PlaneRestraint? Xz);
+
+/// <summary>
+/// Формы локальной задачи устойчивости группы стержней: коэффициенты α к продольным силам группы по возрастанию,
+/// энергии группы в каждой форме (сумма <see cref="BeamModeEnergy"/> её стержней) и закрепления концов из формы
+/// (<see cref="StructuralMesh.GroupRestraints"/>).
+/// </summary>
+public sealed record StructuralLocalModes(double[] Alpha, BeamModeEnergy[] Energy, BeamGroupRestraints[] Restraints);
 
 /// <summary>
 /// Локальная задача устойчивости группы стержней (<see cref="StructuralMesh.SolveLocalBuckling"/>): <paramref name="Sway"/>
 /// — концы группы свободны, их держит остальная схема; <paramref name="Braced"/> — без смещения: поперечные перемещения
-/// концов группы закреплены.
+/// концов группы закреплены. <paramref name="Surround"/> — жёсткости остальной схемы при фактическом сочетании
+/// (K + K_σ(N)), сведённой к концам группы: диагональ по поворотам, по смещению — относительное смещение концов под
+/// парой равных и противоположных сил; связи между DOF отброшены.
 /// </summary>
-public sealed record StructuralLocalBuckling(StructuralLocalModes Sway, StructuralLocalModes Braced);
+public sealed record StructuralLocalBuckling(StructuralLocalModes Sway, StructuralLocalModes Braced,
+    BeamGroupRestraints? Surround = null);
 
 /// <summary>Оболочечный КЭ совместной сетки: узлы контура (3 или 4, по обходу) и сечение.</summary>
 public sealed record StructuralShell(int[] Nodes, IShellSectionResponse Section);
@@ -487,6 +503,123 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     /// <summary>
+    /// Закрепления концов соосной группы стержней <paramref name="group"/> (индексы в <see cref="Beams"/>) в форме
+    /// <paramref name="mode"/> (полные DOF) при продольных силах стержней (по <paramref name="uRef"/>), умноженных на
+    /// <paramref name="factor"/> (λ формы или α локальной задачи): из равновесия узла конца f + r·δ = 0, r = −f/δ, где
+    /// f = (K + factor·K_σ)·d — усилие конца группы, δ — перемещение того же DOF; r₃ — по поперечной силе конца J и
+    /// смещению J относительно I. С такими пружинами группа в форме в равновесии — стойка Масленникова даёт ту же критическую силу
+    /// (с точностью дробления). Конец I — с меньшей координатой по местной x первого стержня.
+    /// </summary>
+    public BeamGroupRestraints GroupRestraints(IReadOnlyList<int> group, double[] uRef, double[] mode, double factor)
+        => GroupRestraintsAt(group, group.Select(b => Gather(mode, BeamDofs(Beams[b]))).ToArray(),
+            group.Select(b => BeamAxialForce(b, uRef)).ToArray(), factor);
+
+    // Концы группы — узлы, к которым примыкает один её стержень: (позиция стержня в группе, конец 0/1, узел) для I и J;
+    // null — концов не два.
+    private ((int S, int End, int Node) I, (int S, int End, int Node) J)? GroupEnds(IReadOnlyList<int> group, double[,] axes0)
+    {
+        var degree = new Dictionary<int, int>();
+        foreach (int b in group)
+            foreach (int node in new[] { Beams[b].I, Beams[b].J }) degree[node] = degree.GetValueOrDefault(node) + 1;
+        var ends = new List<(int S, int End, int Node)>();
+        for (int s = 0; s < group.Count; s++)
+            for (int end = 0; end < 2; end++)
+            {
+                int node = end == 0 ? Beams[group[s]].I : Beams[group[s]].J;
+                if (degree[node] == 1) ends.Add((s, end, node));
+            }
+        if (ends.Count != 2) return null;
+        double X(int node) => axes0[0, 0] * Nodes[node][0] + axes0[0, 1] * Nodes[node][1] + axes0[0, 2] * Nodes[node][2];
+        return X(ends[0].Node) <= X(ends[1].Node) ? (ends[0], ends[1]) : (ends[1], ends[0]);
+    }
+
+    // Закрепления группы по перемещениям концов её стержней в глобальных осях (см. GroupRestraints).
+    private BeamGroupRestraints GroupRestraintsAt(IReadOnlyList<int> group, double[][] dGlobal, double[] axial, double factor)
+    {
+        var (axes0, _) = BeamElements.Beam3dFrame(BeamCoords(group[0]), Beams[group[0]].RefVec);
+        var ends = GroupEnds(group, axes0);
+        if (ends == null) return new BeamGroupRestraints(null, null);
+        var (ei, ej) = ends.Value;
+        // Перемещения и усилия концов стержней в осях первого стержня: [u(3), θ(3)] и [F(3), M(3)]; усилия узла — сумма.
+        var disp = new Dictionary<(int, int), double[]>();
+        var force = new Dictionary<int, double[]>();
+        var parts = new List<double[]>();   // усилия концов отдельных стержней — масштаб для доли промежуточных
+        for (int s = 0; s < group.Count; s++)
+        {
+            var b = Beams[group[s]];
+            var coords = BeamCoords(group[s]);
+            var (t, l) = BeamElements.Beam3dT(coords, b.RefVec);
+            var (axes, _) = BeamElements.Beam3dFrame(coords, b.RefVec);
+            var kl = BeamElements.Beam3dKLocal(b.Section, l);
+            var d = BeamReleases.Recover(kl, b.Releases, Dense.MatVec(t, dGlobal[s]));
+            var kt = (double[,])kl.Clone();
+            AddBeamKGeometric(kt, factor * axial[s], l);
+            var f = Dense.MatVec(kt, d);
+            if (b.Releases != 0)
+            {
+                // Как в ElementKGeometric: f = Pᵀ·(K + K_σ)·P·d — усилия освобождённых DOF переносятся на сохранённые.
+                var g = f;
+                f = new double[12];
+                for (int c = 0; c < 12; c++)
+                {
+                    if ((b.Releases & (1 << c)) != 0) continue;
+                    var unit = new double[12];
+                    unit[c] = 1.0;
+                    var col = BeamReleases.Recover(kl, b.Releases, unit);
+                    for (int r = 0; r < 12; r++) f[c] += col[r] * g[r];
+                }
+            }
+            for (int end = 0; end < 2; end++)
+            {
+                int node = end == 0 ? b.I : b.J;
+                var dn = new double[6];
+                var fp = new double[6];
+                var fn = force.TryGetValue(node, out var acc) ? acc : force[node] = new double[6];
+                for (int part = 0; part < 2; part++)
+                    for (int a = 0; a < 3; a++)
+                        for (int c = 0; c < 3; c++)
+                        {
+                            // местные оси стержня → глобальные → местные оси первого стержня
+                            double m = 0;
+                            for (int g = 0; g < 3; g++) m += axes0[a, g] * axes[c, g];
+                            dn[3 * part + a] += m * d[6 * end + 3 * part + c];
+                            fp[3 * part + a] += m * f[6 * end + 3 * part + c];
+                        }
+                for (int a = 0; a < 6; a++) fn[a] += fp[a];
+                parts.Add(fp);
+                disp[(s, end)] = dn;
+            }
+        }
+        var dI = disp[(ei.S, ei.End)];
+        var dJ = disp[(ej.S, ej.End)];
+        var fI = force[ei.Node];
+        var fJ = force[ej.Node];
+        double len = Math.Sqrt(Enumerable.Range(0, 3).Sum(c => Math.Pow(Nodes[ej.Node][c] - Nodes[ei.Node][c], 2)));
+        double Scale(int lat, int rot) => Math.Max(Math.Abs(dJ[lat] - dI[lat]), len * Math.Max(Math.Abs(dI[3 + rot]), Math.Abs(dJ[3 + rot])));
+        double scaleAll = Math.Max(Scale(1, 2), Scale(2, 1));
+
+        // Плоскость xy: прогиб по y, поворот вокруг z; xz: прогиб по z, поворот вокруг y.
+        PlaneRestraint? Plane(int lat, int rot)
+        {
+            double scale = Scale(lat, rot);
+            if (!(scale > 1e-6 * scaleAll)) return null;
+            double tol = 1e-7 * scale;
+            double Rot(double m, double theta) => Math.Abs(theta) * len > tol ? -m / theta : double.PositiveInfinity;
+            double delta = dJ[lat] - dI[lat];
+            double r3 = Math.Abs(delta) > tol ? -fJ[lat] / delta : double.PositiveInfinity;
+            // Масштаб — наибольшее усилие конца стержня: концевые M, Q бывают нулевыми (шарниры без смещения).
+            double endForce = parts.Max(p => Math.Max(Math.Abs(p[lat]) * len, Math.Abs(p[3 + rot])));
+            double interior = 0;
+            foreach (var (node, fn) in force)
+                if (node != ei.Node && node != ej.Node)
+                    interior = Math.Max(interior, Math.Max(Math.Abs(fn[lat]) * len, Math.Abs(fn[3 + rot])));
+            return new PlaneRestraint(Rot(fI[3 + rot], dI[3 + rot]), Rot(fJ[3 + rot], dJ[3 + rot]), r3,
+                endForce > 0 ? interior / endForce : 0);
+        }
+        return new BeamGroupRestraints(Plane(1, 2), Plane(2, 1));
+    }
+
+    /// <summary>
     /// Линейная задача устойчивости по недеформированной схеме: (K + λ·K_σ(N))·φ = 0, N — усилия КЭ при
     /// перемещениях <paramref name="uRef"/> (обычно линейное решение под расчётным сочетанием). K — линейная жёсткость
     /// с пружинами ГУ, положительно определённая; −K_σ знаконеопределена (растянутые КЭ). Ищутся
@@ -637,7 +770,7 @@ public sealed class StructuralMesh : IFeaMesh
             }
         }
         int n = free.Count;
-        var empty = new StructuralLocalModes([], []);
+        var empty = new StructuralLocalModes([], [], []);
         if (n == 0) return new StructuralLocalBuckling(empty, empty);
 
         var axial = group.Select(b => BeamAxialForce(b, uRef)).ToArray();
@@ -700,6 +833,7 @@ public sealed class StructuralMesh : IFeaMesh
                 .OrderByDescending(k => nu[k]).ToArray();
             var alpha = new double[order.Length];
             var energy = new BeamModeEnergy[order.Length];
+            var restraints = new BeamGroupRestraints[order.Length];
             for (int m = 0; m < order.Length; m++)
             {
                 int k = order[m];
@@ -708,21 +842,25 @@ public sealed class StructuralMesh : IFeaMesh
                 for (int i = 0; i < n; i++)
                     for (int j = 0; j < n; j++) phi[i] += root[i, j] * y[j, k];
                 double uxy = 0, wxy = 0, uxz = 0, wxz = 0;
+                var ds = new double[group.Length][];
                 for (int s = 0; s < group.Length; s++)
                 {
-                    var d = new double[12];
+                    var d = ds[s] = new double[12];
                     for (int a = 0; a < 12; a++)
                         foreach (var (p, coef) in rows[s][a]) d[a] += coef * phi[p];
                     var e = BeamEnergyAt(group[s], d, axial[s]);
                     (uxy, wxy, uxz, wxz) = (uxy + e.Uxy, wxy + e.Wxy, uxz + e.Uxz, wxz + e.Wxz);
                 }
                 energy[m] = new BeamModeEnergy(uxy, wxy, uxz, wxz);
+                restraints[m] = GroupRestraintsAt(group, ds, axial, alpha[m]);
             }
-            return new StructuralLocalModes(alpha, energy);
+            return new StructuralLocalModes(alpha, energy, restraints);
         }
 
+        var surround = Surround(group, rows, f, g, axes);
+
         var sway = Modes(f);
-        if (constraints.Count == 0) return new StructuralLocalBuckling(sway, sway);
+        if (constraints.Count == 0) return new StructuralLocalBuckling(sway, sway, surround);
         // F′ = F − F·B·(Bᵀ·F·B)⁻¹·Bᵀ·F; B — закрепления по столбцам.
         var bm = new double[n, constraints.Count];
         for (int c = 0; c < constraints.Count; c++)
@@ -733,7 +871,72 @@ public sealed class StructuralMesh : IFeaMesh
             Dense.Transpose(fb))), -1.0);
         for (int i = 0; i < n; i++)
             for (int j = 0; j < i; j++) braced[i, j] = braced[j, i] = 0.5 * (braced[i, j] + braced[j, i]);
-        return new StructuralLocalBuckling(sway, Modes(braced));
+        return new StructuralLocalBuckling(sway, Modes(braced), surround);
+    }
+
+    // Жёсткости остальной схемы, сведённой к концам группы (StructuralLocalBuckling.Surround): S = F⁻¹ − K_гр − K_σ,гр
+    // на DOF группы (F⁻¹ = S_rest + K_гр + K_σ,гр), G = −K_σ,гр. Направление DOF конца c — по строкам T в осях первого
+    // стержня; r = qᵀ·S·q, q = c/(cᵀc) (единичное перемещение DOF); закреплённый DOF (c = 0) — +∞.
+    private BeamGroupRestraints? Surround(int[] group, (int Col, double Coef)[][][] rows, double[,] f, double[,] g,
+        double[,] axes0)
+    {
+        if (GroupEnds(group, axes0) is not { } ends) return null;
+        int n = f.GetLength(0);
+        var (sv, v) = SymmetricEigen.Jacobi(f);
+        double sMax = sv.Length == 0 ? 0 : sv.Max();
+        var s = new double[n, n];
+        for (int k = 0; k < n; k++)
+        {
+            if (!(sv[k] > 1e-14 * sMax)) continue;
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++) s[i, j] += v[i, k] * v[j, k] / sv[k];
+        }
+        for (int b = 0; b < group.Length; b++)
+        {
+            var ke = ElementK(Shells.Count + group[b]);
+            for (int a = 0; a < 12; a++)
+                foreach (var (pa, ta) in rows[b][a])
+                    for (int c = 0; c < 12; c++)
+                        foreach (var (pb, tb) in rows[b][c]) s[pa, pb] -= ta * ke[a, c] * tb;
+        }
+        Dense.AddScaledInPlace(s, g, 1.0);
+
+        double[] Dir((int S, int End, int Node) e, int part, int axis)
+        {
+            var c = new double[n];
+            for (int comp = 0; comp < 3; comp++)
+                foreach (var (p, coef) in rows[e.S][6 * e.End + 3 * part + comp]) c[p] += axes0[axis, comp] * coef;
+            double cc = c.Sum(x => x * x);
+            if (cc > 0) for (int i = 0; i < n; i++) c[i] /= cc;
+            return c;
+        }
+        double Quad(double[] a, double[] b)
+        {
+            double r = 0;
+            for (int i = 0; i < n; i++)
+                if (a[i] != 0)
+                    for (int j = 0; j < n; j++) r += a[i] * s[i, j] * b[j];
+            return r;
+        }
+        bool Fixed(double[] c) => c.All(x => x == 0);
+        double Stiffness(double[] c) => Fixed(c) ? double.PositiveInfinity : Quad(c, c);
+
+        PlaneRestraint Plane(int lat, int rot)
+        {
+            var cI = Dir(ends.I, 0, lat);
+            var cJ = Dir(ends.J, 0, lat);
+            double r3;
+            if (Fixed(cI) || Fixed(cJ)) r3 = Fixed(cI) ? Stiffness(cJ) : Stiffness(cI);
+            else
+            {
+                // Пара сил Q в J и −Q в I: Δ = Q·eᵀS⁻¹e, e = (−1, 1), r₃ = det/(s_II + s_JJ + 2·s_IJ).
+                double sII = Quad(cI, cI), sJJ = Quad(cJ, cJ), sIJ = Quad(cI, cJ);
+                double den = sII + sJJ + 2 * sIJ, det = sII * sJJ - sIJ * sIJ;
+                r3 = Math.Abs(den) > 1e-12 * (Math.Abs(sII) + Math.Abs(sJJ)) ? det / den : double.PositiveInfinity;
+            }
+            return new PlaneRestraint(Stiffness(Dir(ends.I, 1, rot)), Stiffness(Dir(ends.J, 1, rot)), r3);
+        }
+        return new BeamGroupRestraints(Plane(1, 2), Plane(2, 1));
     }
 
     // Итерации подпространства для −K_σ·x = ν·K·x: X̄ = K⁻¹·B·X, проекции K_r = X̄ᵀ·B·X (= X̄ᵀ·K·X̄), B_r = X̄ᵀ·B·X̄,

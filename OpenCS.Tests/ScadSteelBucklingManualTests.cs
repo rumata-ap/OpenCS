@@ -97,7 +97,9 @@ public class ScadSteelBucklingManualTests(ITestOutputHelper output)
 
         string P(RcBucklingPlaneLength p) => FormattableString.Invariant($"{p.Source,-11} μ = {p.Mu,6:0.###}") +
             (p.Mode >= 0 ? FormattableString.Invariant($" (ф.{p.Mode + 1}, λ {p.Lambda:0.##}, ρ/λ {p.Rho / p.Lambda:0.##})") : "") +
-            (double.IsFinite(p.LocalNcr) ? FormattableString.Invariant($" лок{(p.LocalBraced ? "б/с" : "")} {p.LocalNcr / 1e3:0.#} кН") : "");
+            (double.IsFinite(p.LocalNcr) ? FormattableString.Invariant($" лок{(p.LocalBraced ? "б/с" : "")} {p.LocalNcr / 1e3:0.#} кН") : "") +
+            (p.Equivalent is { } eq ? FormattableString.Invariant($" экв {eq.Mu:0.###}{(eq.Restraint.Interior > 0.01 ? "*" : "")}") : "") +
+            (p.Surround is { } su ? FormattableString.Invariant($" окр {su.Mu:0.###}") : "");
         output.WriteLine("Элемент | ж | l, м | N, кН | сочетание | вокруг z | вокруг y");
         for (int i = 0; i < units.Count; i++)
         {
@@ -108,6 +110,32 @@ public class ScadSteelBucklingManualTests(ITestOutputHelper output)
         }
         foreach (var g in lengths.Where(x => x != null).SelectMany(x => new[] { x!.AboutZ.Source, x.AboutY.Source }).GroupBy(x => x))
             output.WriteLine($"  {g.Key}: {g.Count()} (по плоскостям)");
+        // Эквивалентная стойка по форме (срез 4): μ совпадает с назначенным, кроме элементов с промежуточными
+        // примыканиями (*) и переменной N/EI.
+        var planes = lengths.Where(x => x != null).SelectMany(x => new[] { x!.AboutZ, x.AboutY }).Where(p => double.IsFinite(p.Mu)).ToList();
+        var withEq = planes.Where(p => p.Equivalent != null).ToList();
+        var exact = withEq.Where(p => p.Equivalent!.Restraint.Interior <= 0.01).ToList();
+        output.WriteLine(string.Create(ci, $"  эквивалентная стойка: {withEq.Count} из {planes.Count}; без примыканий {exact.Count}, " +
+            $"из них |μэкв/μ − 1| > 1 %: {exact.Count(p => !(Math.Abs(p.Equivalent!.Mu / p.Mu - 1) <= 0.01))}; " +
+            $"с примыканиями > 1 %: {withEq.Count - exact.Count}"));
+        foreach (var p in exact.Where(p => !(Math.Abs(p.Equivalent!.Mu / p.Mu - 1) <= 0.01)).Take(10))
+            output.WriteLine($"    {P(p)} | {p.Equivalent}");
+        // Расхождения стойки по форме с μ: перепад N и EI по подэлементам элемента.
+        var meshA = model.Build.Mesh;
+        for (int i = 0; i < units.Count; i++)
+            foreach (var p in lengths[i] is { } xi ? new[] { xi.AboutZ, xi.AboutY } : [])
+                if (p.Equivalent is { } eqi && !(Math.Abs(eqi.Mu / p.Mu - 1) <= 0.01))
+                {
+                    var subs = units[i].SelectMany(id => model.SubBeams[id]).ToArray();
+                    var r = RcBucklingAnalysis.Solve(model, combos[governing[i].Combination], new RcBucklingOptions(Modes: 1));
+                    var ns = subs.Select(b => meshA.BeamAxialForce(b, r.URef)).ToArray();
+                    output.WriteLine(string.Create(ci, $"  РАСХОЖДЕНИЕ КЭ {units[i][0]} ({units[i].Count} ст.): μ {p.Mu:0.###} / экв {eqi.Mu:0.###}; " +
+                        $"N по подэлементам {string.Join("; ", ns.Select(v => (v / 1e3).ToString("0.#", ci)))} кН"));
+                }
+        foreach (var g in withEq.Except(exact).GroupBy(p => (p.Source, p.LocalBraced)))
+            output.WriteLine(string.Create(ci, $"  примыкания {g.Key}: {g.Count()}, доля усилий: медиана " +
+                $"{g.Select(p => p.Equivalent!.Restraint.Interior).Order().ElementAt(g.Count() / 2):0.###}, " +
+                $"|μэкв/μ − 1| > 1 %: {g.Count(p => !(Math.Abs(p.Equivalent!.Mu / p.Mu - 1) <= 0.01))}"));
         Log("Готово.");
     }
 

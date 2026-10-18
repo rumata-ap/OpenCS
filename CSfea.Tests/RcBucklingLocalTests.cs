@@ -68,6 +68,11 @@ public class RcBucklingLocalTests
             var e = loc.Sway.Energy[0];
             TestHarness.Check($"{name}: форма — одной плоскости", Math.Min(e.Wxy, e.Wxz) < 1e-9 * Math.Max(e.Wxy, e.Wxz), $"{e}");
             TestHarness.CheckRel($"{name}: U = α·W", e.Uxy + e.Uxz, loc.Sway.Alpha[0] * (e.Wxy + e.Wxz), 1e-6);
+            // Окружение — только опоры: r₁ = ∞ (заделка) или 0, r₂ = 0, r₃ = ∞ при закреплённом верхе, иначе 0.
+            var x = RcBucklingLengths.Assign(r, [[101]], local: [loc])[0]!;
+            double sway = name == "консоль" ? 2.0 : braced;
+            TestHarness.CheckRel($"{name}: стойка по жёсткостям окружения", x.AboutZ.Surround!.Mu, sway, 1e-4);
+            TestHarness.CheckRel($"{name}: стойка по форме = μ", x.AboutZ.Equivalent!.Mu, x.AboutZ.Mu, 3e-3);
         }
     }
 
@@ -155,7 +160,28 @@ public class RcBucklingLocalTests
             double n = model.Axial(103, r.URef).Min();
             double ncr = -loc.Sway.Alpha[0] * n;
             TestHarness.CheckRel($"P = {p:g3} Н: μ колонны 5", Math.PI / 3 * Math.Sqrt(E * 4.8711e-4 / ncr), mu, tol);
+            // Стойка с пружинами из локальной формы — та же N_cr; пружины окружения — диагональ, μ лишь близок.
+            var rs = loc.Sway.Restraints[0];
+            var pl = rs.Xy ?? rs.Xz!;
+            var eq = RcRestrainedColumn.Solve(pl, E * 4.8711e-4, 3, 3 * Math.Sqrt(ncr / (E * 4.8711e-4)));
+            TestHarness.CheckRel($"P = {p:g3} Н: стойка по локальной форме", eq.Mu, mu, Math.Max(tol, 2e-3));
+            TestHarness.Check($"P = {p:g3} Н: промежуточных примыканий нет", pl.Interior < 1e-6, $"{pl}");
+            var around = loc.Surround!.Xy ?? loc.Surround.Xz!;
+            TestHarness.Check($"P = {p:g3} Н: r₁ окружения = ∞ (заделка), r₂ > 0",
+                double.IsPositiveInfinity(around.R1) && around.R2 > 0, $"{around}");
         }
+        // Элементы рамы в общей форме (λ): стойка с пружинами из формы даёт тот же μ.
+        var rm = RcBucklingAnalysis.Solve(model, [(1, 5e6)], new RcBucklingOptions(Modes: 1));
+        var xm = RcBucklingLengths.Assign(rm, units, local: RcBucklingAnalysis.SolveLocal(rm, units));
+        int byMode = 0;
+        for (int i = 0; i < xm.Length; i++)
+            foreach (var pm in new[] { xm[i]?.AboutZ, xm[i]?.AboutY })
+                if (pm is { Source: RcBucklingLengthSource.Mode })
+                {
+                    byMode++;
+                    TestHarness.CheckRel($"стержень {m.Beams[i].Id}: стойка по общей форме = μ", pm.Equivalent!.Mu, pm.Mu, 2e-3);
+                }
+        TestHarness.Check("есть элементы по общей форме", byMode > 0, "");
     }
 
     /// <summary>
@@ -192,6 +218,9 @@ public class RcBucklingLocalTests
         TestHarness.Check("качалка: качание", x[1]!.AboutZ is { Source: RcBucklingLengthSource.Rocking, Mode: 0 }, $"{x[1]!.AboutZ}");
         TestHarness.CheckRel("качалка: N_cr — без смещения", x[1]!.AboutZ.Ncr, x[1]!.AboutZ.LocalNcr, 1e-12);
         TestHarness.CheckRel("качалка: μ = 1 по локальной задаче", x[1]!.AboutZ.Mu, 1.0, 3e-3);
+        TestHarness.CheckRel("консоль: стойка по форме = μ", x[0]!.AboutZ.Equivalent!.Mu, x[0]!.AboutZ.Mu, 3e-3);
+        TestHarness.Check("консоль: r₃ < 0 (держит качалку)", x[0]!.AboutZ.Equivalent!.Restraint.R3 < 0, $"{x[0]!.AboutZ.Equivalent}");
+        TestHarness.CheckRel("качалка: стойка по форме без смещения = μ", x[1]!.AboutZ.Equivalent!.Mu, x[1]!.AboutZ.Mu, 3e-3);
 
         // Две несвязанные шарнирные стойки: по одной форме 102 не участвует — N_cr со схемой, μ = 1.
         const double l = 3.0;
@@ -212,6 +241,7 @@ public class RcBucklingLocalTests
         TestHarness.Check("102: локальная со схемой", x[1]!.AboutZ is { Source: RcBucklingLengthSource.Local, Mode: -1, LocalBraced: false }, $"{x[1]!.AboutZ}");
         TestHarness.CheckRel("102: μ = 1", x[1]!.AboutZ.Mu, 1.0, 3e-3);
         TestHarness.CheckRel("102: μ = 1 во второй плоскости", x[1]!.AboutY.Mu, 1.0, 3e-3);
+        TestHarness.CheckRel("102: стойка по локальной форме = μ", x[1]!.AboutZ.Equivalent!.Mu, x[1]!.AboutZ.Mu, 3e-3);
 
         // Правило min: шарнирная стойка, Iy = 2·Iz (вокруг z — форма 0, вокруг y — форма 1); заданная локальная форма
         // без смещения в плоскости xy с α = λ₀/2.
@@ -225,7 +255,7 @@ public class RcBucklingLocalTests
         lc.Nodal.Add(new RcNodalLoad(2, new[] { 0.0, 0, -1000, 0, 0, 0 }));
         m.LoadCases.Add(lc);
         r = RcBucklingAnalysis.Run(m, P, [[101]], new RcBucklingOptions(Modes: 2));
-        var half = new StructuralLocalModes([0.5 * r.Lambda[0]], [new BeamModeEnergy(1, 1, 0, 0)]);
+        var half = new StructuralLocalModes([0.5 * r.Lambda[0]], [new BeamModeEnergy(1, 1, 0, 0)], [new BeamGroupRestraints(null, null)]);
         x = RcBucklingLengths.Assign(r, [[101]], local: [new StructuralLocalBuckling(half, half)]);
         TestHarness.Check("min: вокруг z — локальная без смещения", x[0]!.AboutZ is { Source: RcBucklingLengthSource.Local, Mode: 0, LocalBraced: true }, $"{x[0]!.AboutZ}");
         TestHarness.CheckRel("min: N_cr = α·N", x[0]!.AboutZ.Ncr, 0.5 * r.Lambda[0] * 1000, 1e-9);

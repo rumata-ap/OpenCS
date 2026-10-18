@@ -45,9 +45,15 @@ public sealed record FemSteelBucklingResult(RcBucklingModel Model, IReadOnlyList
 
 /// <summary>
 /// Расчётные длины КЭ в осях СП 16 по расчёту устойчивости (<see cref="FemSteelBuckling.ElementLengths"/>): l — длина
-/// расчётного элемента, м; μx, μy — null, если не назначены; пояснения — источник по каждой оси для отчёта.
+/// расчётного элемента, м; μx, μy — null, если не назначены; пояснения — источник по каждой оси для отчёта, подробности
+/// — эквивалентная стойка по форме и справочная по жёсткостям окружения.
 /// </summary>
-public sealed record FemSteelAutoLef(string Unit, double Length, double? MuX, double? MuY, string NoteX, string NoteY);
+public sealed record FemSteelAutoLef(string Unit, double Length, double? MuX, double? MuY, string NoteX, string NoteY,
+    IReadOnlyList<string>? DetailsX = null, IReadOnlyList<string>? DetailsY = null)
+{
+    /// <summary>Пояснения для примечаний результата: ось x с подробностями, затем ось y.</summary>
+    public IReadOnlyList<string> Notes => [NoteX, .. DetailsX ?? [], NoteY, .. DetailsY ?? []];
+}
 
 /// <summary>
 /// Модель устойчивости схемы для автоматических расчётных длин стали (спека 2026-10-18, срез 1): вход CSfea схемы с
@@ -162,7 +168,8 @@ public static class FemSteelBuckling
                 bool xAboutZ = beams[input.UnitBeams[i][0]].Section.CrossYAlongLocalY;
                 var (px, py) = xAboutZ ? (x.AboutZ, x.AboutY) : (x.AboutY, x.AboutZ);
                 auto = new FemSteelAutoLef(unit.Label, x.Length, Mu(px), Mu(py),
-                    Note("x", px, x, c.Tag, unit.Label), Note("y", py, x, c.Tag, unit.Label));
+                    Note("x", px, x, c.Tag, unit.Label), Note("y", py, x, c.Tag, unit.Label),
+                    Details("x", px, x), Details("y", py, x));
             }
             foreach (string tag in unit.ElemTags) map[tag] = auto;
         }
@@ -170,6 +177,43 @@ public static class FemSteelBuckling
     }
 
     static double? Mu(RcBucklingPlaneLength p) => double.IsFinite(p.Mu) && p.Mu > 0 ? p.Mu : null;
+
+    // Ход вычисления μ по оси (спека 2026-10-18, п. 3Е): эквивалентная стойка Масленникова с пружинами из формы, по
+    // которой назначена N_cr (её корень — тот же μ с точностью дробления), и справочно — с жёсткостями окружения при
+    // фактическом сочетании (диагональ сведённой матрицы: связи между DOF отброшены, μ лишь близок).
+    static List<string> Details(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x)
+    {
+        var ci = CultureInfo.CurrentCulture;
+        var list = new List<string>();
+        double l = x.Length, n = -x.N;
+        if (p.Equivalent is { } eq && double.IsFinite(eq.U))
+        {
+            string text = string.Format(ci, Loc.S("FemSteelAutoLefEquivalent"), axis, Kilo(eq.Restraint.R1),
+                Kilo(eq.Restraint.R2), Kilo(eq.Restraint.R3), p.EI / 1e3, Rho(eq.Rho1), Rho(eq.Rho2), Rho(eq.Rho3),
+                eq.U, eq.Mu, p.Ncr / n);
+            if (eq.Restraint.Interior > InteriorTolerance)
+                text += " " + string.Format(ci, Loc.S("FemSteelAutoLefEquivalentInterior"), eq.Restraint.Interior * 100);
+            else if (Math.Abs(eq.Mu / p.Mu - 1) > MuTolerance)
+                text += " " + string.Format(ci, Loc.S("FemSteelAutoLefEquivalentDiffers"), p.Mu);
+            list.Add(text);
+        }
+        if (p.Surround is { } s)
+            list.Add(double.IsFinite(s.U)
+                ? string.Format(ci, Loc.S("FemSteelAutoLefSurround"), axis, Kilo(s.Restraint.R1), Kilo(s.Restraint.R2),
+                    Kilo(s.Restraint.R3), Rho(s.Rho1), Rho(s.Rho2), Rho(s.Rho3), s.U, s.Mu, p.EI * s.U * s.U / (l * l) / 1e3)
+                : string.Format(ci, Loc.S("FemSteelAutoLefSurroundNoRoot"), axis, Kilo(s.Restraint.R1),
+                    Kilo(s.Restraint.R2), Kilo(s.Restraint.R3)));
+        return list;
+    }
+
+    // Доля усилий промежуточных узлов, выше которой стойка — приближённая; расхождение μ стойки и μ без пояснения
+    // (переменные N, EI по длине элемента).
+    const double InteriorTolerance = 0.01, MuTolerance = 0.01;
+
+    // Жёсткость пружины в кН·м/рад или кН/м; +∞ — закрепление.
+    static string Kilo(double r) => double.IsPositiveInfinity(r) ? "∞" : (r / 1e3).ToString("0.###", CultureInfo.CurrentCulture);
+
+    static string Rho(double rho) => double.IsPositiveInfinity(rho) ? "∞" : rho.ToString("0.###", CultureInfo.CurrentCulture);
 
     // Пояснение к μ по оси для отчёта проверки: форма, её λ, доля работы, ρ/λ и N_cr = λ·N; локальная задача — α и
     // N_cr = α·N (без смещения — в сравнении с λ·N формы).

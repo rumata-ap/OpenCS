@@ -324,7 +324,7 @@ public static class FemCheckContext
                 LefX = a.MuX is double mx ? mx * a.Length : p.LefX,
                 LefY = a.MuY is double my ? my * a.Length : p.LefY,
                 MeshLef = null,
-                LefNotes = [a.NoteX, a.NoteY],
+                LefNotes = a.Notes,
             }).ToJson();
         }, warnings);
     }
