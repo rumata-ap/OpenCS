@@ -83,8 +83,14 @@ public sealed class RcSecantStepFields
     /// <summary>Деформации центра пластины в осях выдачи усилий: εx, εy, γxy, κx, κy, κxy (1/м).</summary>
     public double[] ShellStrains { get; init; } = [];
 
-    /// <summary>Деформации стержня в точках ξ = 0, ½, 1 (оси КЭ): ε₀, κy, κz (1/м).</summary>
+    /// <summary>
+    /// Деформации стержня в точках ξ = 0, ½, 1 (оси КЭ): ε₀, κy, κz (1/м). Пишутся всегда (записи с 18.10.2026), без
+    /// галки — <see cref="HasBeamStrains"/>; деформации пластин — только по галке.
+    /// </summary>
     public double[] BeamStrains { get; init; } = [];
+
+    /// <summary>Есть деформации всех стержней (записи с 18.10.2026 или с галкой деформаций сечений).</summary>
+    public bool HasBeamStrains => BeamStrains.Length == BeamIds.Length * BeamStrainComponents;
 
     /// <summary>Есть полные секущие матрицы (конечное состояние прогона).</summary>
     public bool HasMatrices { get; init; }
@@ -273,7 +279,8 @@ public sealed class RcSecantFieldExtractor
         var beamForces = new double[nb * RcSecantStepFields.BeamForceComponents];
         var beamFlags = new byte[nb];
         var beamStiffness = new double[nb * RcSecantStepFields.BeamStiffnessComponents];
-        var beamStrains = _strains ? new double[nb * RcSecantStepFields.BeamStrainComponents] : [];
+        // Деформации стержней — всегда (по ним ширина раскрытия трещин), пластин — по галке.
+        var beamStrains = new double[nb * RcSecantStepFields.BeamStrainComponents];
         var beamMatrices = matrices ? new double[nb * RcSecantStepFields.BeamMatrixComponents] : [];
         // Матрица и внутренние силы КЭ — по текущей (зафиксированной) жёсткости сечения, только чтение.
         Parallel.For(0, nb, e =>
@@ -324,7 +331,6 @@ public sealed class RcSecantFieldExtractor
             }
             beamStiffness[ko + 15] = s0[0, 0]; beamStiffness[ko + 16] = s0[1, 1]; beamStiffness[ko + 17] = s0[2, 2];
             beamStiffness[ko + 18] = shear0.GAvY; beamStiffness[ko + 19] = shear0.GAvZ; beamStiffness[ko + 20] = gj;
-            if (_strains)
             {
                 var (pts, _, _) = SecantPicardSolver.BeamPointStrains(mesh, e, u, s, gj, shear, _geometric);
                 int so = e * RcSecantStepFields.BeamStrainComponents;

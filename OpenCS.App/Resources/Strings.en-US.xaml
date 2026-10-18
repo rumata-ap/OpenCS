@@ -3100,7 +3100,8 @@
     <system:String x:Key="FemResultCardStiffnessRatio"> (to initial: {0})</system:String>
     <system:String x:Key="MosaicResultStiffness">Stiffness — {0}</system:String>
     <system:String x:Key="MosaicResultBarStiffnessLegendTitle">Bars: {0} ({1})</system:String>
-    <system:String x:Key="MosaicResultBarCrackLegendTitle">Bars: {0} (largest along the bar; simplified check SP 63 cl. 8.2.15, 8.2.16, per bending plane)</system:String>
+    <system:String x:Key="MosaicResultBarCrackLegendTitle">Bars: {0} (largest along the bar and over section rebars; SP 63 eq. (8.128) from analysis rebar strains)</system:String>
+    <system:String x:Key="MosaicResultBarCrackSimplifiedLegendTitle">Bars: {0} (largest along the bar; no bar strains in the record — simplified check SP 63 cl. 8.2.15, 8.2.16 from forces, per bending plane)</system:String>
     <system:String x:Key="MosaicBarStiffnessMin">minimum along the bar</system:String>
     <system:String x:Key="MosaicBarStiffnessMean">mean along the bar</system:String>
     <system:String x:Key="MosaicStiffnessModeTip">Element stiffness: E₀ — initial, E — secant (state of the shown step), E/E₀ — their ratio. Plates — in force output axes: when the output axis is at an angle to the reinforcement, E1, E2, G are the diagonal of the rotated matrix, not orthotropic moduli. Bars — at points i, ½, j.</system:String>

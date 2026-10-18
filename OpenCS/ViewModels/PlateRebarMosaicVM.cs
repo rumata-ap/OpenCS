@@ -344,7 +344,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       if (!ShowBarDiagrams && ResultBarCrack != null && _barCrackValues.Count > 0)
          return WithBarPointColors(coloring, _barCrackValues.ToDictionary(kv => kv.Key,
                kv => Math.Max(kv.Value.I, Math.Max(kv.Value.M, kv.Value.J)), StringComparer.Ordinal),
-            string.Format(Loc.S("MosaicResultBarCrackLegendTitle"), _selectedBarComponent!.Label));
+            string.Format(Loc.S(ActiveResult is { BarCrackByStrains: true } ? "MosaicResultBarCrackLegendTitle"
+               : "MosaicResultBarCrackSimplifiedLegendTitle"), _selectedBarComponent!.Label));
       if (ShowBarDiagrams || ResultBarForce == null || _barForceValues.Count == 0)
       {
          SetBarLegend([], "");

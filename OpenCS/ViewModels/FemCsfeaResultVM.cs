@@ -2182,6 +2182,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public bool PrepareBarCracks() => Fields == null || _envelope != null || CrackSource() == null || EnsureCrackWidths() != null;
 
     /// <summary>
+    /// Ширина раскрытия стержней показанного шага — по записанным деформациям (true) или упрощённой проверкой по усилиям
+    /// (записи без деформаций стержней, комбинации линейного расчёта).
+    /// </summary>
+    public bool BarCrackByStrains => Fields?.HasBeamStrains == true;
+
+    /// <summary>
     /// Ширина раскрытия стержня в точках i, ½, j на показанном шаге при текущей доле (см. <see cref="PrepareBarCracks"/>),
     /// мм; null — нет данных (не ЖБ, проверка неприменима, огибающая или расчёт не готов).
     /// </summary>
@@ -2255,9 +2261,10 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         Dictionary<int, FemCsfeaBarCrackWidth> barWidths;
         try
         {
+            bool psi = CsfeaParams.Psi;
             (widths, barWidths) = await Task.Run(() => longFields != null
-                ? (FemCsfeaCrackWidths.Compute(elements, fields, longFields, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, longFields, ct))
-                : (FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, key.Share, ct)), ct);
+                ? (FemCsfeaCrackWidths.Compute(elements, fields, longFields, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, longFields, Calc, ct))
+                : (FemCsfeaCrackWidths.Compute(elements, fields, key.Share, ct), FemCsfeaBarCrackWidths.Compute(bars, fields, key.Share, Calc, psi, ct)), ct);
         }
         catch (OperationCanceledException) { return; }
         if (_crackPending != key) return;

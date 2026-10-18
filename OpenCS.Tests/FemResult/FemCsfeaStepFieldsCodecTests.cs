@@ -84,6 +84,21 @@ public class FemCsfeaStepFieldsCodecTests
         Assert.False(stiffOnly.HasStrains || stiffOnly.HasMatrices);
         Assert.Empty(stiffOnly.ShellStrains);
         Assert.Empty(stiffOnly.BeamMatrices);
+        Assert.False(stiffOnly.HasBeamStrains);
+
+        // Деформации стержней без галки (пишутся всегда, с 18.10.2026) — своим блоком в конце записи.
+        var beamOnly = FemCsfeaStepFieldsCodec.Unpack(FemCsfeaStepFieldsCodec.Pack(new RcSecantStepFields
+        {
+            NodeIds = s.NodeIds, Displacements = s.Displacements, ShellIds = s.ShellIds, ShellForces = s.ShellForces,
+            ShellStates = s.ShellStates, ShellFlags = s.ShellFlags, BeamIds = s.BeamIds, BeamForces = s.BeamForces,
+            BeamFlags = s.BeamFlags, HasStiffness = true, ShellStiffness = full.ShellStiffness, BeamStiffness = full.BeamStiffness,
+            BeamStrains = full.BeamStrains,
+        }));
+        Assert.False(beamOnly.HasStrains);
+        Assert.Empty(beamOnly.ShellStrains);
+        Assert.True(beamOnly.HasBeamStrains);
+        Same(full.BeamStrains, beamOnly.BeamStrains);
+        Same(full.BeamStiffness, beamOnly.BeamStiffness);
     }
 
     [Fact]

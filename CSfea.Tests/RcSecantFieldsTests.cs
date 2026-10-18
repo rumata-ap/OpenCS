@@ -39,7 +39,7 @@ public class RcSecantFieldsTests
 
     /// <summary>
     /// Упругая консоль 3 м из 2 КЭ, на конце N и M_y: секущие жёсткости = начальные = EA, EIy, EIz сечения, GJ — задана,
-    /// сдвига нет (+∞); деформации ε₀ = N/EA и κy = M/EI во всех точках (эпюра M постоянна); без галки деформаций нет;
+    /// сдвига нет (+∞); деформации ε₀ = N/EA и κy = M/EI во всех точках (эпюра M постоянна); без галки — только деформации стержней (пишутся всегда);
     /// полные матрицы — только у конечного состояния (<see cref="RcSecantRun.LastConvergedFields"/>).
     /// </summary>
     private static void RunElasticCantileverStiffness()
@@ -86,8 +86,9 @@ public class RcSecantFieldsTests
             TestHarness.CheckRel($"КЭ {10 + e}: матрица ξ = ½ — EIy на диагонали", last.BeamMatrices[mo + 11 + 4], E * iy, 1e-9);
         }
         var noStrains = RcSecantAnalysis.Run(m, new RcSecantOptions()).LastConvergedFields();
-        TestHarness.Check("консоль: без галки деформаций нет, жёсткости есть",
-            noStrains is { HasStrains: false, HasStiffness: true } && noStrains.BeamStrains.Length == 0);
+        // Деформации стержней пишутся всегда (ширина раскрытия трещин), пластин — по галке.
+        TestHarness.Check("консоль: без галки деформаций пластин нет, деформации стержней и жёсткости есть",
+            noStrains is { HasStrains: false, HasStiffness: true, HasBeamStrains: true } && noStrains.ShellStrains.Length == 0);
     }
 
     /// <summary>

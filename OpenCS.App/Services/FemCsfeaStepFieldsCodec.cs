@@ -14,7 +14,9 @@ public static class FemCsfeaStepFieldsCodec
 {
     const int Magic = 0x31465343;   // «CSF1»
     const int Version = 3;
-    const byte HasStiffness = 1, HasStrains = 2, HasMatrices = 4;
+    // HasBeamStrains — деформации стержней без пластин (пишутся всегда, с 18.10.2026): блок в конце записи, прежний
+    // разбор версии 3 его не читает.
+    const byte HasStiffness = 1, HasStrains = 2, HasMatrices = 4, HasBeamStrains = 8;
 
     public static byte[] Pack(RcSecantStepFields f)
     {
@@ -43,10 +45,13 @@ public static class FemCsfeaStepFieldsCodec
             Bytes(w, f.ReactionKinds);
             Doubles(w, f.ReactionSums);
             Doubles(w, f.LoadSum);
-            w.Write((byte)((f.HasStiffness ? HasStiffness : 0) | (f.HasStrains ? HasStrains : 0) | (f.HasMatrices ? HasMatrices : 0)));
+            bool beamOnly = !f.HasStrains && f.BeamStrains.Length > 0;
+            w.Write((byte)((f.HasStiffness ? HasStiffness : 0) | (f.HasStrains ? HasStrains : 0) | (f.HasMatrices ? HasMatrices : 0)
+                | (beamOnly ? HasBeamStrains : 0)));
             if (f.HasStiffness) { Floats(w, f.ShellStiffness); Floats(w, f.BeamStiffness); }
             if (f.HasStrains) { Floats(w, f.ShellStrains); Floats(w, f.BeamStrains); }
             if (f.HasMatrices) { Floats(w, f.ShellMatrices); Floats(w, f.BeamMatrices); }
+            if (beamOnly) Floats(w, f.BeamStrains);
         }
         return ms.ToArray();
     }
@@ -88,6 +93,7 @@ public static class FemCsfeaStepFieldsCodec
         if ((blocks & HasStiffness) != 0) { shellK = Floats(r); beamK = Floats(r); }
         if ((blocks & HasStrains) != 0) { shellE = Floats(r); beamE = Floats(r); }
         if ((blocks & HasMatrices) != 0) { shellM = Floats(r); beamM = Floats(r); }
+        if ((blocks & HasBeamStrains) != 0) beamE = Floats(r);
         return new RcSecantStepFields
         {
             Stage = stage, Step = step, LoadFactor = lambda, IsRefinement = refinement,

@@ -661,6 +661,9 @@ public sealed class FemResultLayer : ViewModelBase
     /// <summary>Значения готовы; false — досчитываются в фоне (по готовности — <see cref="Changed"/>).</summary>
     public bool PrepareBarCracks() => Csfea?.PrepareBarCracks() ?? true;
 
+    /// <summary>Ширина раскрытия стержней — по записанным деформациям (иначе упрощённой проверкой по усилиям).</summary>
+    public bool BarCrackByStrains => Csfea?.BarCrackByStrains == true;
+
     /// <summary>
     /// Ширина раскрытия стержня в точках i, ½, j, мм: продолжительная a_crc,1 или непродолжительная a_crc (точка без
     /// значения при значениях в других — 0: изгиба нет); null — нет данных.
