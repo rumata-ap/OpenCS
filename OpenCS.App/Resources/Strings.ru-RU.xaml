@@ -2007,6 +2007,7 @@
    <system:String x:Key="PlateShearNotMet">не выполняется</system:String>
    <system:String x:Key="PlateShearStatus">Кисп,Q = {0} — {1} (поперечной арматуры в сечении пластины нет)</system:String>
    <system:String x:Key="PlateShearStatusDesign">Кисп,Q по (8.55) = {0} — {1}; поперечная арматура — по (8.62)</system:String>
+   <system:String x:Key="PlateShearStatusDesignNoStirrups">Кисп,Q по (8.55) = {0} — {1}; поперечная арматура по расчёту не требуется</system:String>
    <system:String x:Key="PlateShearAswComponent">Asw/sw, см²/м²</system:String>
    <system:String x:Key="PlateShearColEtaQ">Кисп,Q</system:String>
    <system:String x:Key="ShellSimplColEtaMax">Кисп,max</system:String>

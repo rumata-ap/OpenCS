@@ -54,7 +54,10 @@ public sealed class PlateShearBlock
 
         b.Eta = design ? etaStrip : System.Math.Max(etaStrip, etaConcrete);
         b.Ok = b.Eta <= 1.0;
-        b.StatusText = string.Format(ci, Loc.S(design ? "PlateShearStatusDesign" : "PlateShearStatus"), K(b.Eta, ci),
+        // В подборе ссылка на (8.62) — только когда поперечная арматура действительно требуется.
+        string status = !design ? "PlateShearStatus"
+            : etaConcrete > 1.0 ? "PlateShearStatusDesign" : "PlateShearStatusDesignNoStirrups";
+        b.StatusText = string.Format(ci, Loc.S(status), K(b.Eta, ci),
             Loc.S(b.Ok ? "PlateShearMet" : "PlateShearNotMet"));
         return b;
     }

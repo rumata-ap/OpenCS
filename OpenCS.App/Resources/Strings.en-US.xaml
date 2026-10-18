@@ -2007,6 +2007,7 @@
    <system:String x:Key="PlateShearNotMet">not satisfied</system:String>
    <system:String x:Key="PlateShearStatus">Util,Q = {0} — {1} (the plate section has no shear reinforcement)</system:String>
    <system:String x:Key="PlateShearStatusDesign">Util,Q by (8.55) = {0} — {1}; shear reinforcement — by (8.62)</system:String>
+   <system:String x:Key="PlateShearStatusDesignNoStirrups">Util,Q by (8.55) = {0} — {1}; no shear reinforcement required</system:String>
    <system:String x:Key="PlateShearAswComponent">Asw/sw, cm²/m²</system:String>
    <system:String x:Key="PlateShearColEtaQ">Util,Q</system:String>
    <system:String x:Key="ShellSimplColEtaMax">Util,max</system:String>
