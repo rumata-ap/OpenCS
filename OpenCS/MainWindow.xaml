@@ -2137,6 +2137,9 @@
                                     <DataTrigger Binding="{Binding Kind}" Value="csfea_linear">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_AnalysisCsfea}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_buckling">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_AnalysisCsfea}"/>
+                                    </DataTrigger>
                                  </Style.Triggers>
                               </Style>
                            </Image.Style>
@@ -2155,6 +2158,10 @@
                                        <Setter Property="Background" Value="{StaticResource FemIconIndigo}"/>
                                        <Setter Property="BorderBrush" Value="{StaticResource FemIconIndigo}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="csfea_buckling">
+                                       <Setter Property="Background" Value="{StaticResource FemIconIndigo}"/>
+                                       <Setter Property="BorderBrush" Value="{StaticResource FemIconIndigo}"/>
+                                    </DataTrigger>
                                  </Style.Triggers>
                               </Style>
                            </Border.Style>
@@ -2170,6 +2177,10 @@
                                        </DataTrigger>
                                        <DataTrigger Binding="{Binding Kind}" Value="csfea_linear">
                                           <Setter Property="Text" Value="CSfea"/>
+                                          <Setter Property="Foreground" Value="White"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Kind}" Value="csfea_buckling">
+                                          <Setter Property="Text" Value="CSfea · lef"/>
                                           <Setter Property="Foreground" Value="White"/>
                                        </DataTrigger>
                                     </Style.Triggers>

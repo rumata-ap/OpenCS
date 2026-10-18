@@ -1172,7 +1172,7 @@ public static class FemCsfeaRunner
     /// Сетка схемы актуальна — ничего; устарела — строится и записывается (<paramref name="build"/>), иначе предупреждение.
     /// Изменившаяся сетка сбрасывает результаты постановок схемы, как команда «Построить сетку схемы».
     /// </summary>
-    static async Task EnsureMeshAsync(FemCsfeaRunContext ctx, FemSchema schema, bool build, List<FemValidationDiagnostic> diag,
+    internal static async Task EnsureMeshAsync(FemCsfeaRunContext ctx, FemSchema schema, bool build, List<FemValidationDiagnostic> diag,
         CancellationToken ct)
     {
         var db = ctx.Db;

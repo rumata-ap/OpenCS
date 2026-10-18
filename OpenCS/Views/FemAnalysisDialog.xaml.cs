@@ -170,6 +170,11 @@ public partial class FemAnalysisDialog : Window
                     _stages.Add(row);
                 }
             }
+            if (existing.Kind == FemBucklingRunner.AnalysisKind)
+            {
+                foreach (var stage in pars.ResolveStages(existing)) _batch.Add(ResolveSource(stage.LoadExpressionJson));
+                BucklingModesBox.Text = (pars.Buckling?.Modes ?? 20).ToString(CultureInfo.CurrentCulture);
+            }
             if (isCsfeaExisting && existing.Kind == FemCsfeaRunner.AnalysisKind && pars.Batch is { } batch)
             {
                 foreach (var item in batch.Items) _batch.Add(ResolveSource(item.LoadExpressionJson));
@@ -665,6 +670,7 @@ public partial class FemAnalysisDialog : Window
     [
         new(FemCsfeaRunner.AnalysisKind, Loc.S("FemAnalysisKindCsfea")),
         new(FemCsfeaRunner.LinearAnalysisKind, Loc.S("FemAnalysisKindCsfeaLinear")),
+        new(FemBucklingRunner.AnalysisKind, Loc.S("FemAnalysisKindCsfeaBuckling")),
         new("linear", Loc.S("FemAnalysisKindLinearOpenSees")),
         new("nonlinear", Loc.S("FemAnalysisKindNonlinearOpenSees")),
     ];
@@ -685,11 +691,17 @@ public partial class FemAnalysisDialog : Window
         // Линейный CSfea: вместо стадий — загружения галочками, из панели — только вид расчёта, источник армирования
         // пластин и контрольный узел.
         bool csfeaLinear = csfea && SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
-        bool staged = nonlinear || csfea;
+        // Расчётные длины: сочетания отметками в списке пакета (без шага, предела λ и хранения) и число форм.
+        bool buckling = SelectedKind == FemBucklingRunner.AnalysisKind && !IsSubmodelMode;
+        bool staged = nonlinear || csfea || buckling;
         bool batch = IsBatchMode;
         LoadingModePanel.Visibility = csfea && !csfeaLinear ? Visibility.Visible : Visibility.Collapsed;
-        StagedPanel.Visibility = batch ? Visibility.Collapsed : Visibility.Visible;
-        BatchPanel.Visibility = batch ? Visibility.Visible : Visibility.Collapsed;
+        StagedPanel.Visibility = batch || buckling ? Visibility.Collapsed : Visibility.Visible;
+        BatchPanel.Visibility = batch || buckling ? Visibility.Visible : Visibility.Collapsed;
+        BatchOptionsPanel.Visibility = buckling ? Visibility.Collapsed : Visibility.Visible;
+        BucklingModesRow.Visibility = buckling ? Visibility.Visible : Visibility.Collapsed;
+        StagesGroup.SetResourceReference(HeaderedContentControl.HeaderProperty,
+            buckling ? "FemBucklingCombinationsLabel" : "FemAnalysisStagesLabel");
         NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
         CsfeaPanel.Visibility = csfea ? Visibility.Visible : Visibility.Collapsed;
         CsfeaCheckInputButton.Visibility = csfea && _csfeaContext != null ? Visibility.Visible : Visibility.Collapsed;
@@ -702,7 +714,7 @@ public partial class FemAnalysisDialog : Window
         StagesPathControlColumn.Visibility = pathControl;
         StagesPathControlButtonColumn.Visibility = pathControl;
         StagesHintText.SetResourceReference(TextBlock.TextProperty,
-            batch ? "FemCsfeaBatchHint" : csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
+            buckling ? "FemBucklingCombinationsHint" : batch ? "FemCsfeaBatchHint" : csfea ? "FemCsfeaStagesHint" : "FemAnalysisStagesHint");
         var secantOnly = csfeaLinear ? Visibility.Collapsed : Visibility.Visible;
         var secantRow = new GridLength(csfeaLinear ? 0 : 28);
         CsfeaTensionRow.Height = secantRow;
@@ -925,6 +937,40 @@ public partial class FemAnalysisDialog : Window
     }
 
     /// <summary>
+    /// Постановка «Расчётные длины — CSfea»: отмеченные сочетания — стадии (целиком, без шагов), число форм; null —
+    /// значения неверны.
+    /// </summary>
+    FemAnalysis? BuildBucklingAnalysis(string caption)
+    {
+        string? error = null;
+        if (_batch.Count == 0) error = Loc.S("FemBucklingCombinationsEmpty");
+        else if (_batch.Any(s => s.IsUnresolved)) error = Loc.S("FemCsfeaBatchUnresolved");
+        else if (!int.TryParse(BucklingModesBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int modes)
+            || modes is < 1 or > 200)
+            error = Loc.S("FemBucklingModesInvalid");
+        else
+        {
+            var pars = new FemAnalysisParams
+            {
+                Buckling = new FemBucklingParams { Modes = modes },
+                Stages = _batch.Select(s => new FemAnalysisStage
+                {
+                    Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, LoadFactorStep = 1.0, MaxLoadFactor = 1.0,
+                }).ToList(),
+            };
+            string tag = TagBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(tag)) tag = Loc.S("FemAnalysisKindCsfeaBuckling");
+            return new FemAnalysis
+            {
+                SchemaId = _schema.Id, Tag = tag, Kind = FemBucklingRunner.AnalysisKind,
+                LoadExpressionJson = pars.Stages[0].LoadExpressionJson, ParamsJson = pars.ToJson(),
+            };
+        }
+        MessageBox.Show(error, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+        return null;
+    }
+
+    /// <summary>
     /// Постановка по состоянию диалога (вне режима субмодели); null — значения неверны (сообщение уже показано с
     /// заголовком <paramref name="caption"/>).
     /// </summary>
@@ -936,6 +982,7 @@ public partial class FemAnalysisDialog : Window
         bool staged = isNonlinear || isCsfea;
         bool isBatch = IsBatchMode;
 
+        if (SelectedKind == FemBucklingRunner.AnalysisKind) return BuildBucklingAnalysis(caption);
         if (isCsfeaLinear && _linearCases.CheckedCount == 0)
         {
             MessageBox.Show(Loc.S("FemCsfeaLinearCasesEmpty"), caption, MessageBoxButton.OK, MessageBoxImage.Warning);

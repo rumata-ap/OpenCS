@@ -2999,6 +2999,16 @@
     <system:String x:Key="FemCsfeaProgress">"{0}": stage "{1}", step {2} of {3} (λ = {4:0.###}), iteration {5}, cracks {6}</system:String>
     <system:String x:Key="FemAnalysisKindCsfea">Nonlinear secant — CSfea</system:String>
     <system:String x:Key="FemAnalysisKindCsfeaLinear">Linear — CSfea</system:String>
+    <system:String x:Key="FemAnalysisKindCsfeaBuckling">Effective lengths — CSfea</system:String>
+    <system:String x:Key="FemBucklingCombinationsLabel">Combinations</system:String>
+    <system:String x:Key="FemBucklingCombinationsHint">Each combination is a buckling problem of the undeformed model (SP 16 cl. 10.3.11): elastic sections, K_σ from the linear analysis forces. An element (structural member or chain of FEs) takes μ from the combination with the largest compression (cl. 10.3.2); modes, μ and buckling load factors are shown in the 3D view of the model, the steel check in “Auto (FEM)” mode takes μ from this analysis.</system:String>
+    <system:String x:Key="FemBucklingModesLabel">Number of modes</system:String>
+    <system:String x:Key="FemBucklingModesTip">How many lowest modes are searched in each problem. Elements taking part in none of them get μ from the local problem.</system:String>
+    <system:String x:Key="FemBucklingModesInvalid">The number of modes is an integer from 1 to 200.</system:String>
+    <system:String x:Key="FemBucklingCombinationsEmpty">No combination selected.</system:String>
+    <system:String x:Key="FemBucklingCaseLine">Combination “{0}”: governing for {1} elements, λ₁ = {2}, {3} modes.</system:String>
+    <system:String x:Key="FemBucklingNotConverged">Iterations did not converge.</system:String>
+    <system:String x:Key="FemBucklingUnstable">The model is unstable under the combination (λ₁ ≤ 1) — μ not assigned.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Load cases</system:String>
     <system:String x:Key="FemCsfeaLinearCasesHint">Each checked load case is analysed separately; forces are then combined (“Sets by load cases” in the result window → SP 20 combinations / per-element checks). All load cases are solved with one assembly and one factorization of the stiffness matrix. Sections are elastic: gross concrete, reinforcement does not contribute to stiffness.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesAll">All</system:String>

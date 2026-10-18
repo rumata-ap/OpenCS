@@ -5943,6 +5943,12 @@ namespace OpenCS
             ShowCsfeaResult(result, schema, analysis, stepIndex, caseKey, showBatchProblems);
             return;
          }
+         // У расчётных длин окна таблиц нет — результат (формы, μ, КЗУ) смотрится в 3D-виде схемы.
+         if (result.TaskKind == Services.FemBucklingRunner.TaskKind)
+         {
+            ShowFemAnalysisResultInSchema(analysis, stepIndex);
+            return;
+         }
 
          var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
          AttachFemResultVmEvents(vm, schema);

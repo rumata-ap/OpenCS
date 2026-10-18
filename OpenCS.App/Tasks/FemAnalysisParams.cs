@@ -49,6 +49,15 @@ public sealed class FemAnalysisStage
     public FemAnalysisPathControl? ContinueWith { get; set; }
 }
 
+/// <summary>
+/// Параметры расчёта устойчивости для расчётных длин стали (спека 2026-10-18, срез 5): стадии постановки — сочетания,
+/// <see cref="Modes"/> — число искомых форм каждой задачи.
+/// </summary>
+public sealed class FemBucklingParams
+{
+    public int Modes { get; set; } = 20;
+}
+
 public sealed class FemAnalysisParams
 {
     /// <summary>Тип расчёта для выбора диаграмм материалов fiber-сечений (нелинейный расчёт).</summary>
@@ -109,6 +118,9 @@ public sealed class FemAnalysisParams
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public FemCsfeaBatch? Batch { get; set; }
+    /// <summary>Параметры постановки «Расчётные длины — CSfea» (Kind = "csfea_buckling"); null — по умолчанию.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FemBucklingParams? Buckling { get; set; }
 
     /// <summary>Возвращает стадии постановки; если Stages пуст (легаси-постановка), синтезирует
     /// одну стадию из единственного LoadExpressionJson постановки (историческое поведение до

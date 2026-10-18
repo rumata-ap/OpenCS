@@ -145,35 +145,71 @@ public static class FemSteelBuckling
     /// местной y, <see cref="RcBeamSection.CrossYAlongLocalY"/>), местная y — у импортного (ось x ‖ Y1); lef,x — изгиб
     /// вокруг оси x. Элементы без сжатия не попадают.
     /// </summary>
-    public static Dictionary<string, FemSteelAutoLef> ElementLengths(FemSteelBucklingInput input, FemSteelBucklingResult result)
+    public static Dictionary<string, FemSteelAutoLef> ElementLengths(FemSteelBucklingInput input, FemSteelBucklingResult result) =>
+        ElementLengths(Summarize(input, result));
+
+    /// <summary>Расчётные длины по тегам КЭ из сводки элементов (<see cref="Summarize"/>, результат постановки).</summary>
+    public static Dictionary<string, FemSteelAutoLef> ElementLengths(IEnumerable<FemBucklingUnitSummary> units)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        var map = new Dictionary<string, FemSteelAutoLef>(StringComparer.Ordinal);
+        foreach (var u in units)
+        {
+            var auto = new FemSteelAutoLef(u.Label, u.Length, u.X.Mu, u.Y.Mu, u.X.Note, u.Y.Note, u.X.Details, u.Y.Details);
+            foreach (string tag in u.ElemTags) map[tag] = auto;
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Расчётные длины элементов в осях СП 16 (см. <see cref="ElementLengths(FemSteelBucklingInput, FemSteelBucklingResult)"/>)
+    /// с N_cr, КЗУ, источником и пояснениями — для сохранения в результате постановки. Элементы без сжатия не попадают.
+    /// </summary>
+    public static List<FemBucklingUnitSummary> Summarize(FemSteelBucklingInput input, FemSteelBucklingResult result)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(result);
         var beams = input.Adapted!.Model.Beams.ToDictionary(b => b.Id);
-        var map = new Dictionary<string, FemSteelAutoLef>(StringComparer.Ordinal);
+        var list = new List<FemBucklingUnitSummary>();
         for (int i = 0; i < input.Units.Count; i++)
         {
             if (result.CaseOf(i) is not { } c) continue;
             var unit = input.Units[i];
-            FemSteelAutoLef auto;
+            var s = new FemBucklingUnitSummary
+            {
+                Label = unit.Label, ElemTags = unit.ElemTags.ToList(), Combination = c.Tag, N = result.Governing[i].N,
+            };
             if (result.Lengths[i] is not { } x)
             {
                 string why = c.Unstable
                     ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemSteelAutoLefUnstable"), c.Tag, c.Result.Lambda[0])
                     : Loc.S("FemSteelAutoLefNoLength");
-                auto = new FemSteelAutoLef(unit.Label, 0, null, null, why, why);
+                s.X = new FemBucklingAxisSummary { Note = why };
+                s.Y = new FemBucklingAxisSummary { Note = why };
             }
             else
             {
                 bool xAboutZ = beams[input.UnitBeams[i][0]].Section.CrossYAlongLocalY;
                 var (px, py) = xAboutZ ? (x.AboutZ, x.AboutY) : (x.AboutY, x.AboutZ);
-                auto = new FemSteelAutoLef(unit.Label, x.Length, Mu(px), Mu(py),
-                    Note("x", px, x, c.Tag, unit.Label), Note("y", py, x, c.Tag, unit.Label),
-                    Details("x", px, x), Details("y", py, x));
+                s.Length = x.Length;
+                s.N = x.N;
+                s.X = Axis("x", px, x, c.Tag, unit.Label);
+                s.Y = Axis("y", py, x, c.Tag, unit.Label);
             }
-            foreach (string tag in unit.ElemTags) map[tag] = auto;
+            list.Add(s);
         }
-        return map;
+        return list;
+    }
+
+    static FemBucklingAxisSummary Axis(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x, string combination, string unit)
+    {
+        bool assigned = Mu(p) != null;
+        return new FemBucklingAxisSummary
+        {
+            Mu = Mu(p), Ncr = assigned && double.IsFinite(p.Ncr) ? p.Ncr : null, Source = p.Source.ToString(),
+            Mode = p.Mode >= 0 ? p.Mode + 1 : null, Lambda = double.IsFinite(p.Lambda) ? p.Lambda : null,
+            Note = Note(axis, p, x, combination, unit), Details = Details(axis, p, x),
+        };
     }
 
     static double? Mu(RcBucklingPlaneLength p) => double.IsFinite(p.Mu) && p.Mu > 0 ? p.Mu : null;

@@ -12,6 +12,7 @@ public static class FemAnalysisResultResolver
         ArgumentNullException.ThrowIfNull(analyses);
         return analyses
             .Where(a => a.ResultId is > 0 && !OpenCS.Services.FemCsfeaRunner.IsCsfeaKind(a.Kind) &&
+                a.Kind != FemBucklingRunner.AnalysisKind &&
                 (a.Status is "ok" or "not_converged" or "partial"))
             .OrderByDescending(a => a.Id)
             .FirstOrDefault();

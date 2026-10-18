@@ -47,7 +47,7 @@ public static class FemAnalysisExecutor
             analysis.StatusNote = Services.FemCsfeaResultSummary.StatusNote(result);
             db.SaveFemAnalysis(analysis);
 
-            if (!LogCsfeaResult(log, result))
+            if (!LogCsfeaResult(log, result) && !LogBucklingResult(log, result))
                 LogOpenSeesResult(log, analysis, result);
             busy.EndBusy(string.Format(Utilites.Loc.S("FemAnalysisDone"), analysis.Tag));
             return result;
@@ -124,12 +124,42 @@ public static class FemAnalysisExecutor
         return true;
     }
 
+    /// <summary>Результат постановки расчётных длин: итог по сочетаниям и отчёт — в журнал; true — это он.</summary>
+    static bool LogBucklingResult(Services.ILogService log, CalcResult result)
+    {
+        if (result.TaskKind != Services.FemBucklingRunner.TaskKind) return false;
+        string tag = result.TaskTag;
+        string done = string.Format(Utilites.Loc.S(result.Status switch
+        {
+            "ok" => "CalcResultOk",
+            "not_converged" => "CalcResultNotConverged",
+            _ => "CalcResultError"
+        }), tag);
+        if (result.Status == "ok") log.Info(done);
+        else if (result.Status == "not_converged") log.Warning(done);
+        else log.Error(done);
+        if (Services.FemBucklingSummary.Parse(result.DataJson) is { } summary)
+        {
+            foreach (var line in summary.Errors) log.Error($"[{tag}] {line}");
+            foreach (var line in summary.Describe())
+                if (line.StartsWith("Ошибка: ", StringComparison.Ordinal)) log.Error($"[{tag}] {line}");
+                else log.Info($"[{tag}] {line}");
+        }
+        return true;
+    }
+
+    static Services.FemCsfeaRunContext CsfeaContext(Services.IProjectContext app) =>
+        new(app.Db, app.GmshSettings, app.LogService,
+            app.CalcSettings.ResolveCsfeaMaxDegreeOfParallelism(), app.CalcSettings.ResolveCsfeaStiffnessFloor());
+
     /// <summary>Выполняет расчёт постановки analysis и возвращает CalcResult
     /// (kind=fem_linear|fem_nonlinear).</summary>
     public static async Task<CalcResult> RunAsync(Services.IProjectContext app, FemSchema schema, FemAnalysis analysis, CancellationToken ct)
     {
         if (Services.FemCsfeaRunner.IsCsfeaKind(analysis.Kind))
             return await RunCsfeaAsync(app, schema, analysis, ct);
+        if (analysis.Kind == Services.FemBucklingRunner.AnalysisKind)
+            return await Services.FemBucklingRunner.RunAsync(CsfeaContext(app), schema, analysis, ct);
 
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         var db = app.Db;

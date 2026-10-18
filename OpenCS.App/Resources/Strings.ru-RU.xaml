@@ -2999,6 +2999,16 @@
     <system:String x:Key="FemCsfeaProgress">«{0}»: стадия «{1}», шаг {2} из {3} (λ = {4:0.###}), итерация {5}, трещин {6}</system:String>
     <system:String x:Key="FemAnalysisKindCsfea">Нелинейный секущий — CSfea</system:String>
     <system:String x:Key="FemAnalysisKindCsfeaLinear">Линейный — CSfea</system:String>
+    <system:String x:Key="FemAnalysisKindCsfeaBuckling">Расчётные длины — CSfea</system:String>
+    <system:String x:Key="FemBucklingCombinationsLabel">Сочетания</system:String>
+    <system:String x:Key="FemBucklingCombinationsHint">Каждое сочетание — задача устойчивости по недеформированной схеме (п. 10.3.11 СП 16): упругие сечения, K_σ от усилий линейного расчёта. Элемент (КонЭ или цепочка КЭ) берёт μ по сочетанию с наибольшим сжатием (п. 10.3.2); формы, μ и КЗУ смотрятся в 3D-виде схемы, проверка стали в режиме «Авто (МКЭ)» берёт μ из этой постановки.</system:String>
+    <system:String x:Key="FemBucklingModesLabel">Число форм</system:String>
+    <system:String x:Key="FemBucklingModesTip">Сколько наинизших форм ищется в каждой задаче. Элементы, не участвующие ни в одной из них, получают μ по локальной задаче.</system:String>
+    <system:String x:Key="FemBucklingModesInvalid">Число форм — целое от 1 до 200.</system:String>
+    <system:String x:Key="FemBucklingCombinationsEmpty">Не выбрано ни одного сочетания.</system:String>
+    <system:String x:Key="FemBucklingCaseLine">Сочетание «{0}»: определяющее для {1} эл., λ₁ = {2}, форм {3}.</system:String>
+    <system:String x:Key="FemBucklingNotConverged">Итерации не сошлись.</system:String>
+    <system:String x:Key="FemBucklingUnstable">Схема неустойчива при сочетании (λ₁ ≤ 1) — μ не назначаются.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesLabel">Загружения</system:String>
     <system:String x:Key="FemCsfeaLinearCasesHint">Каждое отмеченное загружение считается отдельно; усилия затем комбинируются («Наборы по загружениям» в окне результата → сочетания СП 20 / проверки по КЭ). Все загружения решаются одной сборкой и одной факторизацией матрицы жёсткости. Сечения упругие: бетон брутто, арматура в жёсткость не входит.</system:String>
     <system:String x:Key="FemCsfeaLinearCasesAll">Все</system:String>

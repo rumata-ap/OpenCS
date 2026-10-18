@@ -1358,6 +1358,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    {
       Services.FemCsfeaRunner.AnalysisKind => Loc.S("FemAnalysisKindCsfea"),
       Services.FemCsfeaRunner.LinearAnalysisKind => Loc.S("FemAnalysisKindCsfeaLinear"),
+      Services.FemBucklingRunner.AnalysisKind => Loc.S("FemAnalysisKindCsfeaBuckling"),
       "nonlinear" => Loc.S("FemAnalysisKindNonlinearOpenSees"),
       _ => Loc.S("FemAnalysisKindLinearOpenSees"),
    };

@@ -276,27 +276,33 @@
                             </Style>
                         </DataGrid.RowStyle>
                     </DataGrid>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                        <TextBlock Text="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBox x:Name="BatchStepBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
-                        <TextBlock Text="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" VerticalAlignment="Center" Margin="16,0,6,0"/>
-                        <TextBox x:Name="BatchMaxBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
-                        <CheckBox x:Name="BatchStopAtLimitCb" Content="{DynamicResource FemCsfeaBatchStopAtLimit}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                    <StackPanel x:Name="BucklingModesRow" Orientation="Horizontal" Margin="0,0,0,4" Visibility="Collapsed">
+                        <TextBlock Text="{DynamicResource FemBucklingModesLabel}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingModesTip}"/>
+                        <TextBox x:Name="BucklingModesBox" Width="60" Height="22" VerticalContentAlignment="Center" Text="20" ToolTip="{DynamicResource FemBucklingModesTip}"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                        <TextBlock Text="{DynamicResource FemCsfeaBatchRecordingLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <RadioButton x:Name="BatchRecordFieldsRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingFields}"
-                                     IsChecked="True" Checked="BatchRecording_Changed" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <RadioButton x:Name="BatchRecordEnvelopesRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingEnvelopes}"
-                                     Checked="BatchRecording_Changed" VerticalAlignment="Center" ToolTip="{DynamicResource FemCsfeaBatchRecordingEnvelopesTip}"/>
+                    <StackPanel x:Name="BatchOptionsPanel">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="BatchStepBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" VerticalAlignment="Center" Margin="16,0,6,0"/>
+                            <TextBox x:Name="BatchMaxBox" Width="60" Height="22" VerticalContentAlignment="Center"/>
+                            <CheckBox x:Name="BatchStopAtLimitCb" Content="{DynamicResource FemCsfeaBatchStopAtLimit}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="{DynamicResource FemCsfeaBatchRecordingLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton x:Name="BatchRecordFieldsRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingFields}"
+                                         IsChecked="True" Checked="BatchRecording_Changed" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                            <RadioButton x:Name="BatchRecordEnvelopesRadio" GroupName="BatchRecording" Content="{DynamicResource FemCsfeaBatchRecordingEnvelopes}"
+                                         Checked="BatchRecording_Changed" VerticalAlignment="Center" ToolTip="{DynamicResource FemCsfeaBatchRecordingEnvelopesTip}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="BatchLongNCb" Content="{DynamicResource FemCsfeaBatchLongN}" IsChecked="True" Margin="0,2,0,2"
+                                  Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongNTip}"/>
+                        <CheckBox x:Name="BatchLongDeflectionCb" Content="{DynamicResource FemCsfeaBatchLongDeflection}" IsChecked="True" Margin="20,0,0,2"
+                                  Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongDeflectionTip}"/>
+                        <CheckBox x:Name="BatchLongCCb" Content="{DynamicResource FemCsfeaBatchLongC}" Margin="0,0,0,4"
+                                  Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongCTip}"/>
+                        <TextBlock x:Name="BatchEstimateText" TextWrapping="Wrap" FontSize="11" Opacity="0.8"/>
                     </StackPanel>
-                    <CheckBox x:Name="BatchLongNCb" Content="{DynamicResource FemCsfeaBatchLongN}" IsChecked="True" Margin="0,2,0,2"
-                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongNTip}"/>
-                    <CheckBox x:Name="BatchLongDeflectionCb" Content="{DynamicResource FemCsfeaBatchLongDeflection}" IsChecked="True" Margin="20,0,0,2"
-                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongDeflectionTip}"/>
-                    <CheckBox x:Name="BatchLongCCb" Content="{DynamicResource FemCsfeaBatchLongC}" Margin="0,0,0,4"
-                              Checked="BatchLongTerm_Changed" Unchecked="BatchLongTerm_Changed" ToolTip="{DynamicResource FemCsfeaBatchLongCTip}"/>
-                    <TextBlock x:Name="BatchEstimateText" TextWrapping="Wrap" FontSize="11" Opacity="0.8"/>
                 </StackPanel>
             </StackPanel>
         </GroupBox>
