@@ -78,7 +78,7 @@ public sealed class StripNdmDesignTests(ITestOutputHelper output)
         Assert.False(string.IsNullOrWhiteSpace(r.Reason));
     }
 
-    // Замер, не утверждение. 18.10.2026, Debug: ≈ 2,5 с на 1000 вызовов (≈ 2,5 мс на полосу).
+    // Замер, не утверждение. 18.10.2026, Debug: ≈ 2,5 с на 1000 вызовов (≈ 2,5 мс на полосу); с таблицей\n    // контура (StripNdmUlsTable, строится заново на каждый вызов) — ≈ 0,7 с.
     [Fact]
     public void Timing_1000Calls()
     {

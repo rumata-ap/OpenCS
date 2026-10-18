@@ -47,11 +47,27 @@ public static class StripNdmDesign
     /// <param name="zTop">Координата верхнего ряда (&gt; 0), м.</param>
     /// <param name="zBot">Координата нижнего ряда (&lt; 0), м.</param>
     public static StripNdmDesignResult RequiredUls(double n, double m, double h, double zTop, double zBot,
-        Diagramm concrete, Diagramm rebar, StripNdmLimits lim)
+        Diagramm concrete, Diagramm rebar, StripNdmLimits lim) =>
+        RequiredUls(n, m, UlsTable(h, zTop, zBot, concrete, rebar, lim));
+
+    /// <summary>Таблица предельного контура полосы подбора: ряды [верх, низ]. Одна на геометрию —
+    /// переиспользуется для всех фасеток и строк усилий.</summary>
+    public static StripNdmUlsTable UlsTable(double h, double zTop, double zBot, Diagramm concrete, Diagramm rebar,
+        StripNdmLimits lim) =>
+        StripNdm.Tabulate(new StripNdmSection(h, [new StripNdmRow(zTop, 0.0), new StripNdmRow(zBot, 0.0)], concrete, rebar), lim);
+
+    /// <summary>ПС1 по готовой таблице контура (<see cref="UlsTable"/>, ряды [верх, низ]).</summary>
+    public static StripNdmDesignResult RequiredUls(double n, double m, StripNdmUlsTable table)
     {
-        var sec = Base(h, m, zTop, zBot, concrete, rebar, out bool tensionTop);
-        double asMax = MaxArea(h);
-        double Eta(double at, double ac) => StripNdm.UltimateFactor(sec.WithAreas(at, ac), n, m, lim).Eta;
+        bool tensionTop = m >= 0.0;
+        double asMax = MaxArea(table.H);
+        double Eta(double at, double ac)
+        {
+            Span<double> areas = stackalloc double[2];
+            areas[0] = tensionTop ? at : ac;
+            areas[1] = tensionTop ? ac : at;
+            return table.Eta(areas, n, m);
+        }
 
         double eta0 = Eta(0.0, 0.0);
         if (eta0 <= 1.0)

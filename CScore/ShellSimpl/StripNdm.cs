@@ -374,6 +374,41 @@ public static class StripNdm
         return new StripNdmUls(bestLambda, eta, bestPivot, bestTop, bestState);
     }
 
+    /// <summary>
+    /// Таблица предельного контура полосы для многократной оценки η при разных площадях рядов
+    /// (подбор): плоскости контура от площадей не зависят, бетонная часть усилий считается один раз,
+    /// арматура входит линейно по площадям.
+    /// </summary>
+    /// <param name="geometry">Полоса: толщина, ряды (площади не используются), диаграммы.</param>
+    public static StripNdmUlsTable Tabulate(StripNdmSection geometry, StripNdmLimits lim, int samplesPerSegment = 128)
+    {
+        var segs = Contour(geometry, lim);
+        var zero = geometry.WithAreas(new double[geometry.Rows.Count]);
+        double h = geometry.H;
+        int nRows = geometry.Rows.Count;
+        int count = segs.Length * samplesPerSegment;
+        var nc = new double[count];
+        var mc = new double[count];
+        var sig = new double[count * nRows];
+        var pivots = new StripNdmPivot[count];
+        int k = 0;
+        foreach (var seg in segs)
+        {
+            for (int i = 0; i < samplesPerSegment; i++, k++)
+            {
+                var (top, bot) = seg.Plane((double)i / samplesPerSegment);
+                double e0 = (top + bot) / 2.0, kappa = (top - bot) / h;
+                var f = zero.Integrate(e0, kappa, false);
+                nc[k] = f.N; mc[k] = f.M; pivots[k] = seg.Pivot;
+                for (int r = 0; r < nRows; r++)
+                    sig[k * nRows + r] = geometry.Rebar.Sig(e0 + kappa * geometry.Rows[r].Z, out _, true, true);
+            }
+        }
+        var z = new double[nRows];
+        for (int r = 0; r < nRows; r++) z[r] = geometry.Rows[r].Z;
+        return new StripNdmUlsTable(h, z, nc, mc, sig, pivots);
+    }
+
     // ───────────────────────────── ПС2 ─────────────────────────────
 
     /// <summary>

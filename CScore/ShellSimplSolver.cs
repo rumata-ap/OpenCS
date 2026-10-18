@@ -336,7 +336,7 @@ namespace CScore
             );
         }
 
-        static void AggregateRebar(PlateSection section, double h,
+        internal static void AggregateRebar(PlateSection section, double h,
             out double coverBot, out double coverTop,
             out double As_x_bot, out double As_x_top,
             out double As_y_bot, out double As_y_top,

@@ -41,6 +41,10 @@ internal sealed class StripNdmAdapter
         return new StripNdmAdapter(c, r, lim, rebarMat.chars[calcType].E, section.H, phi1, phi2, sigmaSCrc);
     }
 
+    /// <summary>Таблица предельного контура для подбора (ряды [верх, низ]).</summary>
+    public StripNdmUlsTable UlsTable(double zTop, double zBot) =>
+        StripNdmDesign.UlsTable(_h, zTop, zBot, _concrete, _rebar, _lim);
+
     StripNdmSection Section(double zTop, double asTop, double zBot, double asBot) =>
         new(_h, [new StripNdmRow(zTop, asTop), new StripNdmRow(zBot, asBot)], _concrete, _rebar);
 
