@@ -16,6 +16,11 @@ public partial class ShellSimplResultView : System.Windows.Controls.UserControl
         var vm = new ShellSimplResultVM(result, task);
         DataContext = vm;
         // Колонки DataGrid не наследуют DataContext — видимость колонок НДМ задаётся здесь.
+        if (vm.HasConstraints)
+        {
+            TopConstraintsCanvas.SetData(vm.TopPoints, vm.TopAsx, vm.TopAsy);
+            BotConstraintsCanvas.SetData(vm.BotPoints, vm.BotAsx, vm.BotAsy);
+        }
         if (vm.IsNdm)
         {
             EpsBColumn.Visibility = EpsSColumn.Visibility = System.Windows.Visibility.Visible;
@@ -36,7 +41,7 @@ public class ShellSimplStripRow : ViewModelBase
 
     // SLS
     public double Acrc_mm { get; set; }
-    public string AcrcDisplay => Math.Round(Acrc_mm, 2).ToString("F2");
+    public string AcrcDisplay => ShellSimplNdmFormat.Acrc(Acrc_mm);
     public double Psi_s { get; set; }
     public double B_kNm2 { get; set; }
     public bool ShowSls { get; set; }
@@ -66,6 +71,8 @@ public class ShellSimplStripRow : ViewModelBase
 static class ShellSimplNdmFormat
 {
     public static string PerMille(double eps) => (eps * 1000.0).ToString("F3");
+    /// <summary>a_crc, мм; ≥ 1e9 — сечение с трещиной не уравновешивается (∞).</summary>
+    public static string Acrc(double mm) => mm >= 1e9 ? "∞" : Math.Round(mm, 2).ToString("F2");
     public static string LambdaText(double lambda) => double.IsFinite(lambda) && lambda < 1e9 ? lambda.ToString("F3") : "∞";
 
     public static string Strip(bool uls, string pivot, double lambda, double epsB, double epsS) =>
@@ -83,7 +90,7 @@ public class ShellSimplDirectionRow : ViewModelBase
     public double Sigma_s_MPa { get; set; }
     public string SigmaDisplay => Math.Round(Sigma_s_MPa, 2).ToString("F2");
     public double Acrc_mm { get; set; }
-    public string AcrcDisplay => Math.Round(Acrc_mm, 2).ToString("F2");
+    public string AcrcDisplay => ShellSimplNdmFormat.Acrc(Acrc_mm);
     public double AcrcLimMm { get; set; }
     public double Eta { get; set; }
     public string EtaDisplay => Eta >= 1e9 ? "∞" : Math.Round(Eta, 2).ToString("F2");
@@ -104,6 +111,23 @@ public class ShellSimplDirectionRow : ViewModelBase
     public double PairAlpha => Alpha_deg % 90.0;
 }
 
+/// <summary>Фасетка проверки Капра–Мори через ограничения: площади — см²/м.</summary>
+public sealed class ShellSimplConstraintRow
+{
+    public string Theta { get; init; } = "";
+    public string N { get; init; } = "";
+    public string M { get; init; } = "";
+    public string RTop { get; init; } = "";
+    public string AsNTop { get; init; } = "";
+    public string EtaTop { get; init; } = "";
+    public string RBot { get; init; } = "";
+    public string AsNBot { get; init; } = "";
+    public string EtaBot { get; init; } = "";
+    public bool StatusOk { get; init; }
+    public string StatusText => StatusOk ? "Выполняется" : "Не выполняется";
+    public bool IsCritical { get; set; }
+}
+
 public class ShellSimplResultVM : ViewModelBase
 {
     public string Title { get; set; } = "";
@@ -120,14 +144,14 @@ public class ShellSimplResultVM : ViewModelBase
     public bool HasCriticalTop => CritTopAlpha != null;
     public string? CritTopAlpha { get; set; }
     public double? CritTopAcrc { get; set; }
-    public string? CritTopAcrcDisplay => CritTopAcrc.HasValue ? Math.Round(CritTopAcrc.Value, 2).ToString("F2") : null;
+    public string? CritTopAcrcDisplay => CritTopAcrc.HasValue ? ShellSimplNdmFormat.Acrc(CritTopAcrc.Value) : null;
     public double? CritTopSigma { get; set; }
     public string? CritTopSigmaDisplay => CritTopSigma.HasValue ? Math.Round(CritTopSigma.Value, 2).ToString("F2") : null;
 
     public bool HasCriticalBot => CritBotAlpha != null;
     public string? CritBotAlpha { get; set; }
     public double? CritBotAcrc { get; set; }
-    public string? CritBotAcrcDisplay => CritBotAcrc.HasValue ? Math.Round(CritBotAcrc.Value, 2).ToString("F2") : null;
+    public string? CritBotAcrcDisplay => CritBotAcrc.HasValue ? ShellSimplNdmFormat.Acrc(CritBotAcrc.Value) : null;
     public double? CritBotSigma { get; set; }
     public string? CritBotSigmaDisplay => CritBotSigma.HasValue ? Math.Round(CritBotSigma.Value, 2).ToString("F2") : null;
 
@@ -144,6 +168,17 @@ public class ShellSimplResultVM : ViewModelBase
     /// <summary>Хотя бы одна полоса посчитана на НДМ.</summary>
     public bool IsNdm { get; set; }
     public string ModelNote => Loc.S(IsNdm ? "ShellSimplModelNdmNote" : "ShellSimplModelFormulasNote");
+
+    /// <summary>Капра–Мори через ограничения: r(θ) и As,n(θ) по граням.</summary>
+    public bool HasConstraints => Constraints.Count > 0;
+    public ObservableCollection<ShellSimplConstraintRow> Constraints { get; } = [];
+    public OpenCS.Views.Helpers.CapraMauryDemandPoint[] TopPoints { get; private set; } = [];
+    public OpenCS.Views.Helpers.CapraMauryDemandPoint[] BotPoints { get; private set; } = [];
+    /// <summary>Сетки сечения, см²/м (для кривой As,n(θ)).</summary>
+    public double TopAsx { get; private set; }
+    public double TopAsy { get; private set; }
+    public double BotAsx { get; private set; }
+    public double BotAsy { get; private set; }
 
     public bool OverallOk { get; set; }
     public string OverallStatus { get; set; } = "";
@@ -315,6 +350,14 @@ public class ShellSimplResultVM : ViewModelBase
         if (doc.TryGetProperty("EtaMax", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.Number)
             EtaMax = em.GetDouble();
 
+        // Через ограничения итог — η = max r/As,n (таблица фасеток по проекции — для справки).
+        if (doc.TryGetProperty("CapriConstraints", out var cons) && cons.ValueKind == JsonValueKind.Array
+            && cons.GetArrayLength() > 0)
+        {
+            LoadConstraints(cons);
+            allOk = (EtaMax ?? 0.0) <= 1.0;
+        }
+
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";
 
@@ -326,5 +369,56 @@ public class ShellSimplResultVM : ViewModelBase
         OverallStatusBrush = allOk
             ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
             : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
+    }
+
+    void LoadConstraints(JsonElement cons)
+    {
+        const double Cm2 = 1e4;
+        static string A(double v) => (v * Cm2).ToString("F2");
+        static string E(double v) => v >= 1e9 ? "∞" : v.ToString("F2");
+
+        var items = cons.EnumerateArray().ToList();
+        TopPoints = new OpenCS.Views.Helpers.CapraMauryDemandPoint[items.Count];
+        BotPoints = new OpenCS.Views.Helpers.CapraMauryDemandPoint[items.Count];
+        for (int i = 0; i < items.Count; i++)
+        {
+            var x = items[i];
+            double theta = x.GetProperty("ThetaDeg").GetDouble();
+            double rTop = x.GetProperty("RTop").GetDouble(), rBot = x.GetProperty("RBot").GetDouble();
+            double pTop = x.GetProperty("AsNTop").GetDouble(), pBot = x.GetProperty("AsNBot").GetDouble();
+            double eTop = x.GetProperty("EtaTop").GetDouble(), eBot = x.GetProperty("EtaBot").GetDouble();
+            // Красные точки графика — фасетки, где требование больше заданной площади.
+            TopPoints[i] = new(theta, rTop * Cm2, pTop * Cm2, eTop > 1.0);
+            BotPoints[i] = new(theta, rBot * Cm2, pBot * Cm2, eBot > 1.0);
+            Constraints.Add(new ShellSimplConstraintRow
+            {
+                Theta = theta.ToString("0.##"),
+                N = x.GetProperty("N").GetDouble().ToString("F1"),
+                M = x.GetProperty("M").GetDouble().ToString("F2"),
+                RTop = A(rTop), AsNTop = A(pTop), EtaTop = E(eTop),
+                RBot = A(rBot), AsNBot = A(pBot), EtaBot = E(eBot),
+                StatusOk = Math.Max(eTop, eBot) <= 1.0,
+            });
+        }
+        var worst = Constraints.Zip(items, (r, x) => (r, eta: x.GetProperty("Eta").GetDouble())).MaxBy(p => p.eta);
+        worst.r.IsCritical = true;
+
+        // Сетки по приведённым площадям: As,n(0°) = Asx, Asy — из фасетки с наибольшим sin²θ.
+        static (double Asx, double Asy) Mesh(List<JsonElement> items, string name)
+        {
+            double asx = 0.0, vFar = 0.0, c2Far = 1.0, s2Far = 0.0;
+            foreach (var x in items)
+            {
+                double a = x.GetProperty("ThetaDeg").GetDouble() * Math.PI / 180.0;
+                double c2 = Math.Cos(a) * Math.Cos(a), s2 = Math.Sin(a) * Math.Sin(a);
+                double v = x.GetProperty(name).GetDouble();
+                if (Math.Abs(a) < 1e-12) asx = v;
+                if (s2 > s2Far) { s2Far = s2; c2Far = c2; vFar = v; }
+            }
+            double asy = s2Far > 1e-12 ? (vFar - asx * c2Far) / s2Far : 0.0;
+            return (asx * Cm2, Math.Max(0.0, asy) * Cm2);
+        }
+        (TopAsx, TopAsy) = Mesh(items, "AsNTop");
+        (BotAsx, BotAsy) = Mesh(items, "AsNBot");
     }
 }

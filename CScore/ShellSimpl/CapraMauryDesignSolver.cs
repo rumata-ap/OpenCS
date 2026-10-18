@@ -16,6 +16,26 @@ public sealed record CapraMauryMesh(double Asx, double Asy, IReadOnlyList<double
 public sealed record CapraMauryDesignFacet(double ThetaDeg, double N, double M, double AsTop, double AsBot,
     double AsNTop, double AsNBot, StripNdmDesignStatus Status, double Eta, double AcrcMm = 0.0, double AsCUls = 0.0);
 
+/// <summary>
+/// Фасетка проверки Капра–Мори через ограничения (спека, раздел 7): требуемые площади рядов r(θ) и
+/// обеспечиваемые заданными сетками As_n(θ) = Asx·cos²θ + Asy·sin²θ, м²/м.
+/// </summary>
+/// <param name="RTop">Требование к верхнему ряду фасетки.</param>
+/// <param name="RBot">Требование к нижнему ряду.</param>
+/// <param name="AsNTop">Площадь верхней сетки, приведённая к фасетке.</param>
+/// <param name="AsNBot">Площадь нижней сетки, приведённая к фасетке.</param>
+public sealed record CapraMauryConstraintFacet(double ThetaDeg, double N, double M, double RTop, double RBot,
+    double AsNTop, double AsNBot, StripNdmDesignStatus Status)
+{
+    /// <summary>r/As_n верхнего ряда; 0 — требования нет, 1e9 — требование при пустой сетке.</summary>
+    public double EtaTop => Ratio(RTop, AsNTop);
+    public double EtaBot => Ratio(RBot, AsNBot);
+    public double Eta => Math.Max(EtaTop, EtaBot);
+
+    static double Ratio(double r, double asN) =>
+        r <= 1e-12 ? 0.0 : asN <= 1e-12 ? 1e9 : r / asN;
+}
+
 /// <summary>Результат подбора сеток Капра–Мори.</summary>
 /// <param name="Limit">"uls" — подбор по ПС1, "sls" — по ПС2.</param>
 /// <param name="AcrcLimMm">ПС2: предельная ширина раскрытия трещин, мм.</param>
@@ -181,5 +201,65 @@ public static class CapraMauryDesignSolver
                 diagnostics.Add($"θ = {theta:0.##}°: {r.Reason} (N = {n:F1} кН/м, M = {m:F2} кН·м/м)");
         }
         return Meshes(raw, diagnostics, stepDeg, true, ctx.AcrcLimMm);
+    }
+
+    /// <summary>Площади сеток (м²/м), приведённые к фасетке θ.</summary>
+    static (double Top, double Bot) Provided(double theta, double asXTop, double asYTop, double asXBot, double asYBot,
+        out double c2, out double s2)
+    {
+        double a = theta * Math.PI / 180.0;
+        c2 = Math.Cos(a) * Math.Cos(a); s2 = Math.Sin(a) * Math.Sin(a);
+        return (asXTop * c2 + asYTop * s2, asXBot * c2 + asYBot * s2);
+    }
+
+    /// <summary>
+    /// Проверка ПС1 через ограничения (спека, раздел 7): на каждой фасетке r ряда у грани, растянутой
+    /// моментом, — наименьшая площадь при заданной площади второго ряда
+    /// (<see cref="StripNdmDesign.RequiredTensionUls"/>); второй ряд — требование, только если не хватает
+    /// и наибольшей площади первого. η фасетки — max r/As_n.
+    /// </summary>
+    public static IReadOnlyList<CapraMauryConstraintFacet> CheckUls(Context ctx, double nx, double ny, double nxy,
+        double mx, double my, double mxy, double asXTop, double asYTop, double asXBot, double asYBot, double stepDeg = 10.0)
+    {
+        var list = new List<CapraMauryConstraintFacet>();
+        foreach (var (theta, n, m) in Facets(nx, ny, nxy, mx, my, mxy, stepDeg))
+        {
+            var (pTop, pBot) = Provided(theta, asXTop, asYTop, asXBot, asYBot, out _, out _);
+            bool tensionTop = m >= 0.0;
+            var r = StripNdmDesign.RequiredTensionUls(n, m, ctx.Table, tensionTop ? pBot : pTop);
+            double other = r.Status is StripNdmDesignStatus.WithCompression or StripNdmDesignStatus.Impossible
+                ? r.AsCompression : 0.0;
+            list.Add(new CapraMauryConstraintFacet(theta, n, m,
+                tensionTop ? r.AsTension : other, tensionTop ? other : r.AsTension, pTop, pBot, r.Status));
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Проверка ПС2 через ограничения: r ряда у грани, растянутой моментом, — наименьшая площадь до
+    /// a_crc ≤ a_crc,ult (<see cref="StripNdmDesign.RequiredSls"/>) при заданной площади второго ряда;
+    /// второй ряд — требование, только если при сквозном растяжении его доля усилия требует больше
+    /// заданного. d_s ряда — средневзвешенный по сетке фасетки, как в проверке по фасеткам.
+    /// </summary>
+    /// <param name="ctx">Контекст <see cref="CreateSls"/> (отправная As_c из ПС1 не используется).</param>
+    public static IReadOnlyList<CapraMauryConstraintFacet> CheckSls(SlsContext ctx, double nx, double ny, double nxy,
+        double mx, double my, double mxy, double asXTop, double asYTop, double asXBot, double asYBot,
+        double dsX, double dsY, double stepDeg = 10.0)
+    {
+        var list = new List<CapraMauryConstraintFacet>();
+        foreach (var (theta, n, m) in Facets(nx, ny, nxy, mx, my, mxy, stepDeg))
+        {
+            var (pTop, pBot) = Provided(theta, asXTop, asYTop, asXBot, asYBot, out double c2, out double s2);
+            bool tensionTop = m >= 0.0;
+            double pOther = tensionTop ? pBot : pTop;
+            double ds = tensionTop
+                ? ShellSimplSolver.EffDs(asXTop, dsX, asYTop, dsY, c2, s2)
+                : ShellSimplSolver.EffDs(asXBot, dsX, asYBot, dsY, c2, s2);
+            var r = ctx.Adapter.RequiredSls(n, m, ctx.ZTop, ctx.ZBot, pOther, ctx.AcrcLimMm, ds);
+            double other = r.AsCompression > pOther * (1 + 1e-9) + 1e-12 ? r.AsCompression : 0.0;
+            list.Add(new CapraMauryConstraintFacet(theta, n, m,
+                tensionTop ? r.AsTension : other, tensionTop ? other : r.AsTension, pTop, pBot, r.Status));
+        }
+        return list;
     }
 }

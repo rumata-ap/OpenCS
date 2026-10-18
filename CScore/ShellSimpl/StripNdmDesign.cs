@@ -122,6 +122,39 @@ public static class StripNdmDesign
     }
 
     /// <summary>
+    /// ПС1 при заданной площади ряда у грани, сжатой моментом (<paramref name="asOther"/>), — проверка
+    /// через ограничения: наименьшая As_t, при которой η ≤ 1. Если не хватает и наибольшей As_t, —
+    /// подбор обоих рядов (<see cref="RequiredUls(double, double, StripNdmUlsTable)"/>), второй ряд
+    /// тогда тоже становится требованием.
+    /// </summary>
+    public static StripNdmDesignResult RequiredTensionUls(double n, double m, StripNdmUlsTable table, double asOther)
+    {
+        bool tensionTop = m >= 0.0;
+        double asMax = MaxArea(table.H);
+        double Eta(double at)
+        {
+            Span<double> areas = stackalloc double[2];
+            areas[0] = tensionTop ? at : asOther;
+            areas[1] = tensionTop ? asOther : at;
+            return table.Eta(areas, n, m);
+        }
+
+        double eta0 = Eta(0.0);
+        if (eta0 <= 1.0)
+            return new StripNdmDesignResult(0.0, asOther, tensionTop, StripNdmDesignStatus.NotRequired, eta0);
+        if (Eta(asMax) > 1.0)
+            return RequiredUls(n, m, table);
+
+        double lo = 0.0, hi = asMax;
+        while (hi - lo > RelTol * hi)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (Eta(mid) <= 1.0) hi = mid; else lo = mid;
+        }
+        return new StripNdmDesignResult(hi, asOther, tensionTop, StripNdmDesignStatus.TensionOnly, Eta(hi));
+    }
+
+    /// <summary>
     /// ПС2: бисекция по As_t до a_crc ≤ a_crc,ult. При сквозном растяжении (оба ряда растянуты по
     /// равновесию двух рядов) второй ряд наращивается пропорционально своей доле усилия, но не
     /// меньше заданной <paramref name="asCompression"/>.

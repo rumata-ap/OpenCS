@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Threading;
@@ -141,6 +141,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string shellSimplPhi2 = "0.5";
    // 0 — НДМ полосы (новые задачи), 1 — формулы СП 63 (сохранённые без поля strip_model).
    int shellSimplStripModelIndex = 0;
+   // 0 — по фасеткам (по умолчанию), 1 — через ограничения r(θ)/As_n(θ).
+   int shellSimplCapriCheckModeIndex = 0;
     // Crack width
     string crackWidthAcrcUltLong = "0.3";
     string crackWidthAcrcUltShort = "0.4";
@@ -714,6 +716,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplBatch));
            OnPropertyChanged(nameof(IsShellSimplDesign));
            OnPropertyChanged(nameof(ShowShellSimplStripModel));
+           OnPropertyChanged(nameof(ShowShellSimplCapriCheckMode));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -830,6 +833,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplBatch));
            OnPropertyChanged(nameof(IsShellSimplDesign));
            OnPropertyChanged(nameof(ShowShellSimplStripModel));
+           OnPropertyChanged(nameof(ShowShellSimplCapriCheckMode));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -913,6 +917,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsShellSimplDesign => Kind is "shell_simpl_capri_design_uls" or "shell_simpl_capri_design_uls_batch"
         or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch";
    public bool ShowShellSimplStripModel => IsShellSimpl && !IsShellSimplDesign;
+   /// <summary>Проверка Капри-Мори: выбор «по фасеткам / через ограничения».</summary>
+   public bool ShowShellSimplCapriCheckMode => IsShellSimplCapri && !IsShellSimplDesign;
    public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch"
         or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch";
@@ -1314,6 +1320,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShellSimplPhi2     { get => shellSimplPhi2;     set { shellSimplPhi2     = value; OnPropertyChanged(); } }
    public int ShellSimplStripModelIndex { get => shellSimplStripModelIndex; set { shellSimplStripModelIndex = value; OnPropertyChanged(); } }
    string ShellSimplStripModelKey => ShellSimplStripModelIndex == 1 && !IsShellSimplDesign ? "formulas" : "ndm";
+   public int ShellSimplCapriCheckModeIndex { get => shellSimplCapriCheckModeIndex; set { shellSimplCapriCheckModeIndex = value; OnPropertyChanged(); } }
+   string ShellSimplCapriCheckModeKey => ShellSimplCapriCheckModeIndex == 1 && ShowShellSimplCapriCheckMode ? "constraints" : "";
 
    public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
    public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
@@ -2166,6 +2174,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              ShellSimplPhi1 = sp.Phi1.ToString("G6", inv);
              ShellSimplPhi2 = sp.Phi2.ToString("G6", inv);
              ShellSimplStripModelIndex = sp.Model == CScore.StripModel.Ndm ? 0 : 1;
+             ShellSimplCapriCheckModeIndex = sp.CapriMode == CScore.CapriCheckMode.Constraints ? 1 : 0;
              SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
              if (existing.ForceSetId != 0)
              {
@@ -3176,7 +3185,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       StepDeg = stepDeg, AcrcLimMm = acrcLim,
                       Phi1 = phi1, Phi2 = phi2,
                       AutoStressToForce = AutoStressToForce,
-                      StripModel = ShellSimplStripModelKey
+                      StripModel = ShellSimplStripModelKey,
+                      CapriCheckMode = ShellSimplCapriCheckModeKey
                   })
               };
               _window.DialogResult = true;
@@ -3205,7 +3215,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
                   Phi1 = phi1, Phi2 = phi2,
                   AutoStressToForce = AutoStressToForce,
-                  StripModel = ShellSimplStripModelKey
+                  StripModel = ShellSimplStripModelKey,
+                      CapriCheckMode = ShellSimplCapriCheckModeKey
               })
           };
           _window.DialogResult = true;

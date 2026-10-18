@@ -32,6 +32,9 @@ public record PlateCheckParams
     /// <summary>Модель полосы упрощённых видов (shell_simpl_*). Записи без поля — формулы;
     /// диалог новой проверки ставит НДМ.</summary>
     public StripModel StripModel { get; init; } = StripModel.Formulas;
+    /// <summary>Способ проверки Капра–Мори (shell_simpl_capri_*): по фасеткам (по умолчанию) или через
+    /// ограничения r(θ)/As_n(θ).</summary>
+    public CapriCheckMode CapriCheckMode { get; init; } = CapriCheckMode.Direct;
 
     /// <summary>
     /// Режим вычисления φ1:

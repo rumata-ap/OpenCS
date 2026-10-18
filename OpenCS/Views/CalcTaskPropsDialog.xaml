@@ -1096,6 +1096,16 @@
                      <ComboBoxItem Content="{DynamicResource ShellSimplStripModelFormulas}"/>
                   </ComboBox>
                </StackPanel>
+               <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                           Visibility="{Binding ShowShellSimplCapriCheckMode, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource CapriCheckMode}" VerticalAlignment="Center"
+                             Margin="0,0,4,0"/>
+                  <ComboBox SelectedIndex="{Binding ShellSimplCapriCheckModeIndex}" MinWidth="260"
+                            ToolTip="{DynamicResource CapriCheckModeTip}">
+                     <ComboBoxItem Content="{DynamicResource CapriCheckModeDirect}"/>
+                     <ComboBoxItem Content="{DynamicResource CapriCheckModeConstraints}"/>
+                  </ComboBox>
+               </StackPanel>
                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                   <TextBlock Text="{DynamicResource ShellSimplStepDeg}" VerticalAlignment="Center"
                              Margin="0,0,4,0"

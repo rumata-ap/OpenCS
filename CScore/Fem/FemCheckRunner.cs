@@ -241,7 +241,7 @@ public static partial class FemCheckRunner
             var sp = new ShellSimplSolver.SolveParams(
                 shell.Nx, shell.Ny, shell.Nxy,
                 shell.Mx, shell.My, shell.Mxy,
-                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.StripModel);
+                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.StripModel, p.CapriCheckMode);
 
             var r = ShellSimplSolver.Solve(sp, section, concreteMat, rebarMat, calcType);
             return ExtractSimplResult(r, p);
@@ -289,6 +289,16 @@ public static partial class FemCheckRunner
         ShellSimplSolver.SolveResult r, PlateCheckParams p)
     {
         bool isSls = r.CalcType == "sls";
+
+        // Капра–Мори через ограничения: η = max r(θ)/As_n(θ) — одна мера для ПС1 и ПС2.
+        if (r.CapriConstraints is { Count: > 0 } cons)
+        {
+            var w = cons.MaxBy(f => f.Eta)!;
+            bool top = w.EtaTop >= w.EtaBot;
+            return (r.EtaMax ?? 0,
+                    $"θ = {w.ThetaDeg:0.##}°, {(top ? "верх" : "низ")}",
+                    $"через ограничения: r = {(top ? w.RTop : w.RBot) * 1e4:F2} см²/м, As,n = {(top ? w.AsNTop : w.AsNBot) * 1e4:F2} см²/м");
+        }
 
         if (!isSls)
         {

@@ -126,12 +126,15 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(AcrcRowVisibility));
             OnPropertyChanged(nameof(StripModelVisibility));
+            OnPropertyChanged(nameof(CapriCheckModeVisibility));
         }
     }
 
     /// <summary>Модель полосы — только у упрощённых видов (Вуд–Армер, Капра–Мори).</summary>
     public Visibility StripModelVisibility =>
         _selectedPlateKind?.Kind.StartsWith("shell_simpl") == true ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility CapriCheckModeVisibility => CapriCheckModeVisibilityOf(_selectedPlateKind?.Kind);
 
     string _acrcLimMm = "0.3";
     public string AcrcLimMm
@@ -236,6 +239,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
             SelectedPhi1Mode   = Phi1Modes.FirstOrDefault(m => m.Mode == p.Phi1Mode) ?? Phi1Modes[0];
             Phi1               = p.Phi1.ToString("G");
             StripModelIndex    = StripModelIndexOf(p.StripModel);
+            CapriCheckModeIndex = p.CapriCheckMode == CScore.CapriCheckMode.Constraints ? 1 : 0;
             LoadRebarSources(p);
         }
         else if (check.NormCode == "rc_check")
@@ -294,6 +298,7 @@ public class FemCheckDialogVM : FemCheckDialogVmBase
                 Phi1       = phi1,
                 CheckGroup = "uls",
                 StripModel = SelectedStripModel,
+                CapriCheckMode = SelectedCapriCheckMode,
                 RebarSources = SelectedRebarSources(),
                 Eta = Buckling.BuildEta(),
             }.ToJson();

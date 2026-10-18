@@ -1995,6 +1995,15 @@
     <system:String x:Key="ShellSimplStripModel">Модель полосы</system:String>
     <system:String x:Key="ShellSimplStripModelNdm">НДМ полосы (пп. 8.1.20–8.1.30, 8.2.14)</system:String>
     <system:String x:Key="ShellSimplStripModelFormulas">Формулы СП 63 (пп. 8.1.8–8.1.19, 8.2.10–8.2.18)</system:String>
+    <system:String x:Key="CapriCheckMode">Проверка Капра–Мори</system:String>
+    <system:String x:Key="CapriCheckModeDirect">По фасеткам — η полосы при проекции сеток</system:String>
+    <system:String x:Key="CapriCheckModeConstraints">Через ограничения — η = max r(θ)/As,n(θ)</system:String>
+    <system:String x:Key="CapriCheckModeTip">Через ограничения: на каждой фасетке требуемая площадь ряда r(θ) по НДМ полосы (при заданной второй сетке) сравнивается с площадью сетки, приведённой к фасетке, As,n = Asx·cos²θ + Asy·sin²θ. Требования считаются по НДМ при любой модели полосы.</system:String>
+    <system:String x:Key="CapriConstraintsTitle">Проверка через ограничения: требуемая r(θ) и заданная As,n(θ)</system:String>
+    <system:String x:Key="CapriConstraintsNote">r(θ) — наименьшая площадь ряда по НДМ полосы при заданной площади второго ряда; η = max r/As,n по фасеткам и граням. Таблица фасеток выше — проверка по проекции, для справки.</system:String>
+    <system:String x:Key="CapriConstraintsColEtaTop">η верх</system:String>
+    <system:String x:Key="CapriConstraintsColEtaBot">η низ</system:String>
+    <system:String x:Key="CapriConstraintsColStatus">Проверка</system:String>
     <system:String x:Key="ShellSimplColPivot">Шарнир</system:String>
     <system:String x:Key="ShellSimplColLambda">λ</system:String>
     <system:String x:Key="ShellSimplColEpsB">εb, ‰</system:String>

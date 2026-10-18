@@ -38,7 +38,7 @@ public abstract class ShellSimplHandlerBase : ITaskHandler
             var p = ShellSimplParams.Parse(task.ParamsJson);
             var sp = new ShellSimplSolver.SolveParams(
                 p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy,
-                KindId, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.Model
+                KindId, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.Model, p.CapriMode
             );
 
             var result = ShellSimplSolver.Solve(sp, plateSection, concreteMat, rebarMat, task.CalcType);
@@ -125,7 +125,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 var (nx, ny, nxy) = sp.AutoStressToForce ? si.ResolveN(plateSection.H) : (si.Nx, si.Ny, si.Nxy);
                 var solveParams = new ShellSimplSolver.SolveParams(
                     nx, ny, nxy, si.Mx, si.My, si.Mxy,
-                    KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2, sp.SigmaSCrc, sp.WplGamma, sp.Model
+                    KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2, sp.SigmaSCrc, sp.WplGamma, sp.Model, sp.CapriMode
                 );
                 var result = ShellSimplSolver.Solve(
                     solveParams, plateSection, concreteMat, rebarMat, task.CalcType);
@@ -134,7 +134,8 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 bool ok;
                 string rowStatus;
 
-                if (IsSls)
+                // Через ограничения ПС2 тоже даёт η = max r/As_n.
+                if (IsSls && result.CapriConstraints == null)
                 {
                     var dirs = result.CapriDirs ?? [];
                     double maxAcrc = dirs.Count > 0 ? dirs.Max(d => d.Strip.Acrc_mm) : 0;

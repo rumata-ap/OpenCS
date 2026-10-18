@@ -56,6 +56,20 @@ public sealed class ShellSimplParams
             ? CScore.StripModel.Ndm
             : CScore.StripModel.Formulas;
 
+    /// <summary>
+    /// Способ проверки Капра–Мори: "constraints" — через ограничения r(θ)/As_n(θ) (требования по НДМ
+    /// полосы); "" или "direct" — по фасеткам (по умолчанию).
+    /// </summary>
+    [JsonPropertyName("capri_check_mode")]
+    public string CapriCheckMode { get; set; } = "";
+
+    /// <summary>Разобранное значение <see cref="CapriCheckMode"/>.</summary>
+    [JsonIgnore]
+    public CScore.CapriCheckMode CapriMode =>
+        string.Equals(CapriCheckMode?.Trim(), "constraints", System.StringComparison.OrdinalIgnoreCase)
+            ? CScore.CapriCheckMode.Constraints
+            : CScore.CapriCheckMode.Direct;
+
     [JsonIgnore]
     public CScore.SigmaSCrcMethod SigmaSCrc =>
         string.Equals(SigmaSCrcMethod?.Trim(), "moment", System.StringComparison.OrdinalIgnoreCase)

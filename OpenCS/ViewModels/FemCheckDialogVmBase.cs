@@ -56,6 +56,22 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     /// <summary>Индекс комбобокса по сохранённой модели.</summary>
     protected static int StripModelIndexOf(CScore.StripModel model) => model == CScore.StripModel.Ndm ? 0 : 1;
 
+    int _capriCheckModeIndex;
+    /// <summary>Проверка Капра–Мори: 0 — по фасеткам, 1 — через ограничения.</summary>
+    public int CapriCheckModeIndex
+    {
+        get => _capriCheckModeIndex;
+        set { _capriCheckModeIndex = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Выбранный способ проверки Капра–Мори.</summary>
+    protected CScore.CapriCheckMode SelectedCapriCheckMode =>
+        CapriCheckModeIndex == 1 ? CScore.CapriCheckMode.Constraints : CScore.CapriCheckMode.Direct;
+
+    /// <summary>Видимость выбора способа проверки — только у видов Капра–Мори.</summary>
+    protected static Visibility CapriCheckModeVisibilityOf(string? kind) =>
+        kind?.StartsWith("shell_simpl_capri") == true ? Visibility.Visible : Visibility.Collapsed;
+
     /// <summary>Цель проверки: группа или конструктивный элемент.</summary>
     protected abstract IFemCheckable? Target { get; }
     /// <summary>Идентификатор выбранной схемы.</summary>

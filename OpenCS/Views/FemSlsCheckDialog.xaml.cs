@@ -90,6 +90,7 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
             OnPropertyChanged(nameof(Phi1RowVisibility));
             OnPropertyChanged(nameof(LtFractionEnabled));
             OnPropertyChanged(nameof(StripModelVisibility));
+            OnPropertyChanged(nameof(CapriCheckModeVisibility));
             AutoFillTag();
         }
     }
@@ -98,6 +99,7 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
     /// <summary>Модель полосы — только у упрощённых видов (Вуд–Армер, Капра–Мори).</summary>
     public Visibility StripModelVisibility =>
         _selectedSlsKind?.Kind.StartsWith("shell_simpl") == true ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility CapriCheckModeVisibility => CapriCheckModeVisibilityOf(_selectedSlsKind?.Kind);
     public Visibility NlRowVisibility   => IsLayered ? Visibility.Visible : Visibility.Collapsed;
     public Visibility Phi1RowVisibility => !IsLayered ? Visibility.Visible : Visibility.Collapsed;
 
@@ -215,6 +217,7 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
             SelectedPhi1Mode = Phi1Modes.FirstOrDefault(m => m.Mode == p.Phi1Mode) ?? Phi1Modes[0];
             Phi1             = p.Phi1.ToString("G");
             StripModelIndex  = StripModelIndexOf(p.StripModel);
+            CapriCheckModeIndex = p.CapriCheckMode == CScore.CapriCheckMode.Constraints ? 1 : 0;
             if (p.NlForceSetId > 0)
                 SelectedNlForceSet = NlForceSets.FirstOrDefault(f => f.Id == p.NlForceSetId);
             LoadRebarSources(p);
@@ -285,6 +288,7 @@ public class FemSlsCheckDialogVM : FemCheckDialogVmBase
             Phi1         = phi1,
             CheckGroup   = "sls",
             StripModel   = SelectedStripModel,
+            CapriCheckMode = SelectedCapriCheckMode,
             NlForceSetId = nlId,
             LtFraction   = nlId == 0 ? ltFrac : 0.0,
             RebarSources = SelectedRebarSources(),

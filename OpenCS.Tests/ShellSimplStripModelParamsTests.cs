@@ -24,4 +24,17 @@ public sealed class ShellSimplStripModelParamsTests
         var p = ShellSimplParams.Parse($"{{\"strip_model\":\"{value}\"}}");
         Assert.Equal(expected, p.Model);
     }
+
+    // capri_check_mode: без поля — по фасеткам, "constraints" — через ограничения.
+    [Theory]
+    [InlineData(null, CapriCheckMode.Direct)]
+    [InlineData("", CapriCheckMode.Direct)]
+    [InlineData("direct", CapriCheckMode.Direct)]
+    [InlineData("constraints", CapriCheckMode.Constraints)]
+    [InlineData("Constraints", CapriCheckMode.Constraints)]
+    public void CapriCheckMode_Parsed(string? value, CapriCheckMode expected)
+    {
+        var json = value == null ? "{\"mx\":10}" : $"{{\"capri_check_mode\":\"{value}\"}}";
+        Assert.Equal(expected, ShellSimplParams.Parse(json).CapriMode);
+    }
 }

@@ -69,6 +69,17 @@ namespace CScore
         Ndm
     }
 
+    /// <summary>Способ проверки Капра–Мори (спека, раздел 7).</summary>
+    public enum CapriCheckMode
+    {
+        /// <summary>По фасеткам: η полосы при проекции заданной арматуры. Значение по умолчанию.</summary>
+        Direct,
+
+        /// <summary>Через ограничения: η = max по θ и граням r(θ)/As_n(θ), r — требуемая площадь ряда
+        /// по НДМ полосы, As_n — заданная сетка, приведённая к фасетке.</summary>
+        Constraints
+    }
+
     public class ShellSimplStripResult
     {
         public string Name { get; set; } = "";
@@ -136,7 +147,8 @@ namespace CScore
             double Phi2 = 0.5,
             SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
             WplGammaMethod WplGamma = WplGammaMethod.Sp63,
-            StripModel Model = StripModel.Formulas
+            StripModel Model = StripModel.Formulas,
+            CapriCheckMode CapriMode = CapriCheckMode.Direct
         );
 
         public sealed record SolveResult(
@@ -147,7 +159,8 @@ namespace CScore
             List<ShellSimplDirectionResult>? CapriDirs,
             ShellSimplDirectionResult? CriticalTop,
             ShellSimplDirectionResult? CriticalBot,
-            double? EtaMax
+            double? EtaMax,
+            IReadOnlyList<ShellSimpl.CapraMauryConstraintFacet>? CapriConstraints = null
         );
 
         public static SolveResult Solve(
@@ -181,6 +194,7 @@ namespace CScore
             ShellSimplDirectionResult? critTop = null;
             ShellSimplDirectionResult? critBot = null;
             double? etaMax = null;
+            IReadOnlyList<ShellSimpl.CapraMauryConstraintFacet>? capriConstraints = null;
 
             if (isWa)
             {
@@ -327,12 +341,29 @@ namespace CScore
                     critBot = botDirs.Count > 0 ? botDirs.MaxBy(d => d.Strip.Eta) : null;
                     etaMax = capriDirs.Where(d => !d.Strip.NoRebar).Select(d => d.Strip.Eta).DefaultIfEmpty(0.0).Max();
                 }
+
+                // Через ограничения: требования рядов — всегда по НДМ полосы (подбор только на НДМ),
+                // фасетки по проекции (CapriDirs) остаются в результате для справки.
+                if (p.CapriMode == CapriCheckMode.Constraints)
+                {
+                    capriConstraints = isSls
+                        ? ShellSimpl.CapraMauryDesignSolver.CheckSls(
+                            ShellSimpl.CapraMauryDesignSolver.CreateSls(section, concreteMat, rebarMat,
+                                p.AcrcLimMm, p.Phi1, p.Phi2, p.SigmaSCrc, withUls: false),
+                            p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy,
+                            As_x_top, As_y_top, As_x_bot, As_y_bot, ds_x, ds_y, p.StepDeg)
+                        : ShellSimpl.CapraMauryDesignSolver.CheckUls(
+                            ShellSimpl.CapraMauryDesignSolver.CreateUls(section, concreteMat, rebarMat, calcType),
+                            p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy,
+                            As_x_top, As_y_top, As_x_bot, As_y_bot, p.StepDeg);
+                    etaMax = capriConstraints.Select(f => f.Eta).DefaultIfEmpty(0.0).Max();
+                }
             }
 
             return new SolveResult(
                 isWa ? "wa" : "capri",
                 isSls ? "sls" : "uls",
-                p, waStrips, capriDirs, critTop, critBot, etaMax
+                p, waStrips, capriDirs, critTop, critBot, etaMax, capriConstraints
             );
         }
 
@@ -1179,7 +1210,7 @@ namespace CScore
             };
         }
 
-        static double EffDs(double Ax, double dx, double Ay, double dy,
+        internal static double EffDs(double Ax, double dx, double Ay, double dy,
             double c2, double s2)
         {
             double w = Ax * c2 + Ay * s2;
