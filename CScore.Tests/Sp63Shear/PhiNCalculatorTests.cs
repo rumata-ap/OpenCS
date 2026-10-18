@@ -19,43 +19,73 @@ public sealed class PhiNCalculatorTests
     [Fact]
     public void Compute_CompressionForOtherElement_UsesNormativeReducedArea()
     {
-        // Сила подобрана так, чтобы отсечка 2,25 не срабатывала и проверялась сама формула:
-        // при N = 800 кН φn = 2,559 и результат определялся бы отсечкой.
+        // Сила подобрана так, чтобы σcp ≤ 0,25·Rb и проверялась первая ветвь 1 + σcp/Rb.
         var geometry = Geometry();
         var result = PhiNCalculator.Compute(ElementKind.Other, -300.0, geometry);
 
         double nuB = geometry.Rb / (geometry.Eb0 * geometry.Eb);
         double aRed = geometry.Ab + geometry.Es / geometry.Eb / nuB * geometry.AsTotal;
-        double expected = 1.0 + 300.0 / aRed / geometry.Rb;
+        double sigma = 300.0 / aRed;
+        double expected = 1.0 + sigma / geometry.Rb;
 
-        Assert.True(expected < PhiNCalculator.MaxCompression);
+        Assert.True(sigma <= 0.25 * geometry.Rb);
         Assert.Equal(expected, result.Value, 9);
         Assert.True(result.AppliesToStrip);
     }
 
-    [Fact]
-    public void Compute_LargeCompression_IsCappedAt225()
+    [Theory]
+    [InlineData(0.10, 1.10)]   // 1 + σcp/Rb
+    [InlineData(0.25, 1.25)]   // граница первой ветви и полки
+    [InlineData(0.40, 1.25)]   // полка 0,25·Rb < σcp ≤ 0,5·Rb
+    [InlineData(0.50, 1.25)]   // граница полки и ниспадающей ветви
+    [InlineData(0.80, 0.50)]   // 2,5·(1 − 0,8)
+    [InlineData(1.20, 0.00)]   // 2,5·(1 − σcp/Rb) ≥ 0
+    public void CompressionValue_FollowsAmendment2Branches(double ratio, double expected)
     {
+        // Изм. № 2 к СП 63.13330.2018, п. 8.1.34: три ветви по σcp/Rb, непрерывные на границах.
+        Assert.Equal(expected, PhiNCalculator.CompressionValue(ratio * 11_500.0, 11_500.0), 12);
+    }
+
+    [Theory]
+    [InlineData(0.0, 1.0)]
+    [InlineData(0.5, 0.75)]    // 1 − σtp/(2·Rbt)
+    [InlineData(2.0, 0.0)]     // граница ≥ 0
+    [InlineData(3.0, 0.0)]
+    public void TensionValue_UsesTwiceRbt_AndIsNonNegative(double ratio, double expected)
+    {
+        Assert.Equal(expected, PhiNCalculator.TensionValue(ratio * 900.0, 900.0), 12);
+    }
+
+    [Fact]
+    public void Compute_LargeCompression_DescendingBranchReachesZero()
+    {
+        // σcp ≫ Rb — ветвь 2,5·(1 − σcp/Rb) ограничена нулём, а не отсечкой 2,25 прежней редакции.
         var result = PhiNCalculator.Compute(ElementKind.Other, -100_000.0, Geometry());
 
-        Assert.Equal(2.25, result.Value, 12);
+        Assert.Equal(0.0, result.Value, 12);
+        Assert.True(result.AppliesToStrip);
     }
 
     [Fact]
     public void Compute_Tension_ReducesCapacityAndSkipsStrip()
     {
-        var result = PhiNCalculator.Compute(ElementKind.Other, 300.0, Geometry());
+        var geometry = Geometry();
+        var result = PhiNCalculator.Compute(ElementKind.Other, 300.0, geometry);
 
-        Assert.True(result.Value < 1.0);
+        double nuBt = geometry.Rbt / (geometry.Ebt0 * geometry.Eb);
+        double aRed = geometry.Ab + geometry.Es / geometry.Eb / nuBt * geometry.AsTotal;
+        double expected = 1.0 - 300.0 / aRed / (2.0 * geometry.Rbt);
+
+        Assert.Equal(expected, result.Value, 9);
         Assert.False(result.AppliesToStrip);
     }
 
     [Fact]
-    public void Compute_HugeTension_MayBecomeNonPositive()
+    public void Compute_HugeTension_IsZeroNotNegative()
     {
         var result = PhiNCalculator.Compute(ElementKind.Other, 100_000.0, Geometry());
 
-        Assert.True(result.Value <= 0.0);
+        Assert.Equal(0.0, result.Value, 12);
     }
 
     [Fact]

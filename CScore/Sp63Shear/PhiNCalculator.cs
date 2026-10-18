@@ -12,8 +12,24 @@ public readonly record struct PhiNResult(double Value, bool AppliesToStrip, stri
 /// </summary>
 public static class PhiNCalculator
 {
-    /// <summary>Предельное значение φn при сжатии.</summary>
-    public const double MaxCompression = 2.25;
+    /// <summary>Наибольшее значение φn при сжатии (полка 0,25·Rb ≤ σcp ≤ 0,5·Rb).</summary>
+    public const double MaxCompression = 1.25;
+
+    /// <summary>
+    /// φn по σcp при сжатии (п. 8.1.34 в ред. Изм. № 2): 1 + σcp/Rb при σcp ≤ 0,25·Rb;
+    /// 1,25 при 0,25·Rb &lt; σcp ≤ 0,5·Rb; 2,5·(1 − σcp/Rb) ≥ 0 при σcp &gt; 0,5·Rb.
+    /// </summary>
+    public static double CompressionValue(double sigmaCp, double rb)
+    {
+        double ratio = sigmaCp / rb;
+        if (ratio <= 0.25) return 1.0 + ratio;
+        if (ratio <= 0.5) return MaxCompression;
+        return Math.Max(2.5 * (1.0 - ratio), 0.0);
+    }
+
+    /// <summary>φn по σtp при растяжении (п. 8.1.34 в ред. Изм. № 2): 1 − σtp/(2·Rbt) ≥ 0.</summary>
+    public static double TensionValue(double sigmaTp, double rbt) =>
+        Math.Max(1.0 - sigmaTp / (2.0 * rbt), 0.0);
 
     /// <summary>Вычисляет φn для заданных типа элемента и продольной силы (сжатие — «минус»).</summary>
     public static PhiNResult Compute(ElementKind kind, double n, InclinedSectionGeometry geometry)
@@ -40,14 +56,18 @@ public static class PhiNCalculator
 
         if (compression)
         {
-            double value = Math.Min(1.0 + sigma / geometry.Rb, MaxCompression);
+            double value = CompressionValue(sigma, geometry.Rb);
+            double ratio = sigma / geometry.Rb;
+            string branch = ratio <= 0.25 ? "1 + σcp/Rb"
+                : ratio <= 0.5 ? "1,25 (0,25·Rb < σcp ≤ 0,5·Rb)"
+                : "2,5·(1 − σcp/Rb) ≥ 0";
             return new PhiNResult(value, true,
-                $"φn = 1 + σcp/Rb = {value:F3} по п. 8.1.34 (сжатие, σcp = {sigma:F1} кПа).");
+                $"φn = {branch} = {value:F3} по п. 8.1.34 (сжатие, σcp = {sigma:F1} кПа).");
         }
 
-        double tensionValue = 1.0 - sigma / geometry.Rbt;
+        double tensionValue = TensionValue(sigma, geometry.Rbt);
         return new PhiNResult(tensionValue, false,
-            $"φn = 1 − σtp/Rbt = {tensionValue:F3} по п. 8.1.34 (растяжение, σtp = {sigma:F1} кПа); "
+            $"φn = 1 − σtp/(2·Rbt) ≥ 0 = {tensionValue:F3} по п. 8.1.34 (растяжение, σtp = {sigma:F1} кПа); "
             + "к условию (8.55) не применяется.");
     }
 }

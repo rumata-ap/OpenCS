@@ -88,13 +88,16 @@ public sealed class ShearInclinedCheckerTests
     }
 
     [Fact]
-    public void Check_TensionPhiNNonPositive_GivesInfiniteUtilization()
+    public void Check_TensionPhiNZero_WithoutStirrups_GivesInfiniteUtilization()
     {
-        var input = Input() with { Kind = ElementKind.Other };
+        // По п. 8.1.34 (Изм. № 2) φn = 1 − σtp/(2·Rbt) ≥ 0: при большом растяжении φn = 0,
+        // бетон поперечную силу не воспринимает, и без хомутов несущая способность нулевая.
+        var input = Input(qsw: 0.0) with { Kind = ElementKind.Other };
         var profile = new ConstantProfile(q: 150.0, m: 0.0, n: 500_000.0, supportDistance: 0.0);
 
         var result = ShearInclinedChecker.Check(input, profile, Geometry(), direction: -1);
 
+        Assert.All(result.Stations, s => Assert.Equal(0.0, s.PhiN, 12));
         Assert.True(double.IsPositiveInfinity(result.Utilization));
     }
 
