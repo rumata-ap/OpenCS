@@ -23,7 +23,10 @@ public partial class CapraMauryDesignBatchResultView : System.Windows.Controls.U
         _app = app;
         _task = task;
         InitializeComponent();
-        DataContext = new CapraMauryDesignBatchResultVM(result, task);
+        var vm = new CapraMauryDesignBatchResultVM(result, task);
+        DataContext = vm;
+        // Колонки DataGrid не наследуют DataContext — колонка поперечной арматуры задаётся здесь.
+        if (vm.HasShear) AswColumn.Visibility = Visibility.Visible;
         RowsGrid.SelectionChanged += (_, _) => CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;
     }
 
@@ -45,6 +48,7 @@ public partial class CapraMauryDesignBatchResultView : System.Windows.Controls.U
         var p = ShellSimplParams.Parse(_task.ParamsJson);
         p.Nx = row.Source.Nx; p.Ny = row.Source.Ny; p.Nxy = row.Source.Nxy;
         p.Mx = row.Source.Mx; p.My = row.Source.My; p.Mxy = row.Source.Mxy;
+        p.Qx = row.Source.Qx; p.Qy = row.Source.Qy;
         p.AutoStressToForce = false;
         p.StripModel = "ndm";
 
@@ -75,6 +79,8 @@ public sealed class CapraMauryDesignBatchRowVM
     public string TopY => Cm(Source.TopAsy);
     public string BotX => Cm(Source.BotAsx);
     public string BotY => Cm(Source.BotAsy);
+    /// <summary>Требуемая поперечная арматура Asw/sw, см²/м²; «—» — не требуется.</summary>
+    public string Asw => Source.AswPerSw > 0.0 ? Cm(Source.AswPerSw) : "—";
 
     internal static string Cm(double m2) => (m2 * 1e4).ToString("F2", CultureInfo.CurrentCulture);
 }
@@ -94,6 +100,8 @@ public sealed class CapraMauryDesignBatchResultVM : ViewModelBase
     public Brush StatusBrush { get; }
     public ObservableCollection<CapraMauryDesignBatchRowVM> Rows { get; } = [];
     public ObservableCollection<CapraMauryDesignEnvelopeRowVM> Envelope { get; } = [];
+    /// <summary>В наборе есть строки с поперечной силой.</summary>
+    public bool HasShear { get; }
 
     public CapraMauryDesignBatchResultVM(CalcResult result, CalcTask task)
     {
@@ -124,6 +132,14 @@ public sealed class CapraMauryDesignBatchResultVM : ViewModelBase
                 Row = e.Num > 0 || !string.IsNullOrEmpty(e.Label) ? $"{e.Num} — {e.Label}" : "—",
             });
         }
+        HasShear = data.Rows.Any(r => r.Qx != 0.0 || r.Qy != 0.0);
+        if (data.EnvelopeAsw is { } asw)
+            Envelope.Add(new CapraMauryDesignEnvelopeRowVM
+            {
+                Component = Loc.S("PlateShearAswComponent"),
+                As = CapraMauryDesignBatchRowVM.Cm(asw.As),
+                Row = $"{asw.Num} — {asw.Label}",
+            });
         Summary = string.Format(Loc.S("CapriDesignBatchSummary"), data.Total, data.Feasible, data.Total - data.Feasible);
         StatusBrush = data.Feasible == data.Total ? CapraMauryDesignResultVM.OkBrush : CapraMauryDesignResultVM.FailBrush;
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -15,10 +15,17 @@ static class CapraMauryDesignTaskSupport
     public delegate CapraMauryDesignResult DesignRow(double nx, double ny, double nxy, double mx, double my, double mxy, double stepDeg);
 
     /// <summary>
+    /// Поперечная сила строки (спека, раздел 8) при подобранных сетках: A_red для φn — по площади сеток,
+    /// приведённой к фасетке θ_Q. null — Qx = Qy = 0 или подбор по ПС2 (проверка относится к ПС1).
+    /// </summary>
+    public delegate PlateShearResult? ShearRow(double qx, double qy, double nx, double ny, double nxy,
+        double mx, double my, double mxy, CapraMauryDesignResult design);
+
+    /// <summary>
     /// ПС1 — диаграммы вида расчёта задачи; ПС2 — диаграммы вида N, предел и параметры трещин из
     /// параметров задачи, отправная As_c — из ПС1 той же фасетки.
     /// </summary>
-    public static (PlateSection Section, double ZTop, double ZBot, DesignRow Design) Prepare(
+    public static (PlateSection Section, double ZTop, double ZBot, DesignRow Design, ShearRow Shear) Prepare(
         CalcTask task, TaskRunContext? ctx, bool sls, ShellSimplParams p)
     {
         if (ctx?.Database is null)
@@ -33,11 +40,18 @@ static class CapraMauryDesignTaskSupport
         {
             var c = CapraMauryDesignSolver.CreateSls(plate, concrete, rebar, p.AcrcLimMm, p.Phi1, p.Phi2, p.SigmaSCrc);
             return (plate, c.ZTop, c.ZBot,
-                (nx, ny, nxy, mx, my, mxy, step) => CapraMauryDesignSolver.DesignSls(c, nx, ny, nxy, mx, my, mxy, step));
+                (nx, ny, nxy, mx, my, mxy, step) => CapraMauryDesignSolver.DesignSls(c, nx, ny, nxy, mx, my, mxy, step),
+                (_, _, _, _, _, _, _, _, _) => null);
         }
         var u = CapraMauryDesignSolver.CreateUls(plate, concrete, rebar, task.CalcType);
         return (plate, u.ZTop, u.ZBot,
-            (nx, ny, nxy, mx, my, mxy, step) => CapraMauryDesignSolver.DesignUls(u, nx, ny, nxy, mx, my, mxy, step));
+            (nx, ny, nxy, mx, my, mxy, step) => CapraMauryDesignSolver.DesignUls(u, nx, ny, nxy, mx, my, mxy, step),
+            (qx, qy, nx, ny, nxy, mx, my, mxy, d) =>
+            {
+                double t = Math.Atan2(qy, qx), c2 = Math.Cos(t) * Math.Cos(t), s2 = 1.0 - c2;
+                double asN = (d.Top.Asx + d.Bottom.Asx) * c2 + (d.Top.Asy + d.Bottom.Asy) * s2;
+                return PlateShearCheck.Check(qx, qy, nx, ny, nxy, mx, my, mxy, plate, concrete, rebar, task.CalcType, asN);
+            });
     }
 
     public static CalcResult Error(CalcTask task, string created, Exception ex) => new()
@@ -63,18 +77,22 @@ public abstract class CapraMauryDesignHandlerBase(bool sls) : ITaskHandler
         try
         {
             var p = ShellSimplParams.Parse(task.ParamsJson);
-            var (plate, zTop, zBot, design) = CapraMauryDesignTaskSupport.Prepare(task, ctx, sls, p);
+            var (plate, zTop, zBot, design, shearRow) = CapraMauryDesignTaskSupport.Prepare(task, ctx, sls, p);
             var r = design(p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy, p.StepDeg);
+            var shear = shearRow(p.Qx, p.Qy, p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy, r);
             var data = new
             {
-                forces = new { nx = p.Nx, ny = p.Ny, nxy = p.Nxy, mx = p.Mx, my = p.My, mxy = p.Mxy },
+                forces = new { nx = p.Nx, ny = p.Ny, nxy = p.Nxy, mx = p.Mx, my = p.My, mxy = p.Mxy, qx = p.Qx, qy = p.Qy },
                 h = plate.H, z_top = zTop, z_bot = zBot,
                 design = r,
+                shear,
             };
+            // (8.55) не выполняется — поперечная арматура не помогает, подбор неполон.
+            bool ok = r.Feasible && (shear == null || shear.EtaStrip <= 1.0);
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
-                Created = created, Status = r.Feasible ? "ok" : "partial",
+                Created = created, Status = ok ? "ok" : "partial",
                 DataJson = JsonSerializer.Serialize(data)
             };
         }
@@ -112,7 +130,7 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
         try
         {
             var p = ShellSimplParams.Parse(task.ParamsJson);
-            var (plate, _, _, design) = CapraMauryDesignTaskSupport.Prepare(task, ctx, sls, p);
+            var (plate, _, _, design, shearRow) = CapraMauryDesignTaskSupport.Prepare(task, ctx, sls, p);
             var forceSet = ctx!.Database!.ForceSets.FirstOrDefault(fs => fs.Id == task.ForceSetId)
                 ?? throw new InvalidOperationException($"Набор усилий id={task.ForceSetId} не найден.");
             if (forceSet.ShellItems.Count == 0)
@@ -123,13 +141,18 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
             {
                 var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
                 var r = design(nx, ny, nxy, si.Mx, si.My, si.Mxy, p.StepDeg);
+                var shear = shearRow(si.Qx, si.Qy, nx, ny, nxy, si.Mx, si.My, si.Mxy, r);
+                var diagnostics = r.Diagnostics.ToList();
+                if (shear is { EtaStrip: > 1.0 })
+                    diagnostics.Add($"(8.55): Кисп,Q = {shear.EtaStrip:F2} > 1");
                 rows.Add(new CapraMauryDesignBatchRow
                 {
                     Num = si.Num, Label = si.Label,
-                    Nx = nx, Ny = ny, Nxy = nxy, Mx = si.Mx, My = si.My, Mxy = si.Mxy,
+                    Nx = nx, Ny = ny, Nxy = nxy, Mx = si.Mx, My = si.My, Mxy = si.Mxy, Qx = si.Qx, Qy = si.Qy,
                     TopAsx = r.Top.Asx, TopAsy = r.Top.Asy, BotAsx = r.Bottom.Asx, BotAsy = r.Bottom.Asy,
-                    Feasible = r.Feasible,
-                    Diagnostics = string.Join("; ", r.Diagnostics),
+                    AswPerSw = shear?.AswPerSw ?? 0.0, EtaQStrip = shear?.EtaStrip ?? 0.0,
+                    Feasible = r.Feasible && (shear == null || shear.EtaStrip <= 1.0),
+                    Diagnostics = string.Join("; ", diagnostics),
                 });
             }
 
@@ -142,6 +165,7 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
                 StepDeg = p.StepDeg,
                 Rows = rows,
                 Envelope = CapraMauryDesignBatchData.BuildEnvelope(rows),
+                EnvelopeAsw = CapraMauryDesignBatchData.BuildAswEnvelope(rows),
             };
             return new CalcResult
             {
@@ -179,10 +203,16 @@ public sealed class CapraMauryDesignBatchRow
     public double Mx { get; set; }
     public double My { get; set; }
     public double Mxy { get; set; }
+    public double Qx { get; set; }
+    public double Qy { get; set; }
     public double TopAsx { get; set; }
     public double TopAsy { get; set; }
     public double BotAsx { get; set; }
     public double BotAsy { get; set; }
+    /// <summary>Требуемая поперечная арматура Asw/(sw·1 м), м²/м²; 0 — не требуется или Q = 0.</summary>
+    public double AswPerSw { get; set; }
+    /// <summary>Кисп по (8.55) — бетонная полоса между наклонными сечениями; 0 — Q = 0.</summary>
+    public double EtaQStrip { get; set; }
     public bool Feasible { get; set; }
     public string Diagnostics { get; set; } = "";
 }
@@ -208,6 +238,16 @@ public sealed class CapraMauryDesignBatchData
     public double StepDeg { get; set; }
     public List<CapraMauryDesignBatchRow> Rows { get; set; } = [];
     public List<CapraMauryDesignEnvelopeItem> Envelope { get; set; } = [];
+    /// <summary>Наибольшая требуемая Asw/sw (м²/м²) с управляющей строкой; null — ни в одной строке не требуется.</summary>
+    public CapraMauryDesignEnvelopeItem? EnvelopeAsw { get; set; }
+
+    /// <summary>Огибающая поперечной арматуры по строкам с решением.</summary>
+    public static CapraMauryDesignEnvelopeItem? BuildAswEnvelope(IReadOnlyList<CapraMauryDesignBatchRow> rows)
+    {
+        var best = rows.Where(r => r.Feasible && r.AswPerSw > 0.0).MaxBy(r => r.AswPerSw);
+        return best == null ? null
+            : new CapraMauryDesignEnvelopeItem { Component = "asw", As = best.AswPerSw, Num = best.Num, Label = best.Label };
+    }
 
     /// <summary>Компоненты в порядке: верх x, верх y, низ x, низ y. Строки без решения в огибающую не входят.</summary>
     public static List<CapraMauryDesignEnvelopeItem> BuildEnvelope(IReadOnlyList<CapraMauryDesignBatchRow> rows)

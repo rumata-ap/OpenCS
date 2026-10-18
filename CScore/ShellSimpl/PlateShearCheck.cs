@@ -136,17 +136,18 @@ public static class PlateShearCheck
 
     /// <summary>
     /// Меньшая из рабочих высот направлений x и y у грани: h/2 + z̄ (верх) или h/2 − z̄ (низ), z̄ —
-    /// центр тяжести рядов направления у грани; null — у грани нет рядов ни в одном направлении.
+    /// центр тяжести рядов направления у грани (без площадей — как в подборе — среднее привязок рядов);
+    /// null — у грани нет рядов.
     /// </summary>
     static double? FaceH0(PlateSection section, bool top)
     {
         double half = section.H / 2.0;
         double? Dir(Func<PlateRebarLayer, double> area, Func<PlateRebarLayer, double> z)
         {
-            var rows = section.RebarLayers.Where(l => area(l) > 1e-14 && (top ? z(l) > 0.0 : z(l) <= 0.0)).ToList();
+            var rows = section.RebarLayers.Where(l => top ? z(l) > 0.0 : z(l) <= 0.0).ToList();
+            if (rows.Count == 0) return null;
             double a = rows.Sum(area);
-            if (a <= 1e-14) return null;
-            double zc = rows.Sum(l => area(l) * z(l)) / a;
+            double zc = a > 1e-14 ? rows.Sum(l => area(l) * z(l)) / a : rows.Average(z);
             return top ? half + zc : half - zc;
         }
         double? hx = Dir(l => l.Asx, l => l.Zsx), hy = Dir(l => l.Asy, l => l.Zsy);

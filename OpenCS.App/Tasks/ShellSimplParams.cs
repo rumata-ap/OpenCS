@@ -11,6 +11,9 @@ public sealed class ShellSimplParams
     [JsonPropertyName("mx")]   public double Mx { get; set; }
     [JsonPropertyName("my")]   public double My { get; set; }
     [JsonPropertyName("mxy")]  public double Mxy { get; set; }
+    /// <summary>Поперечные силы, кН/м: проверка (8.55), (8.60) в задачах ПС1 и подборе; 0 — без проверки.</summary>
+    [JsonPropertyName("qx")]   public double Qx { get; set; }
+    [JsonPropertyName("qy")]   public double Qy { get; set; }
     [JsonPropertyName("auto_stress_to_force")]
     public bool AutoStressToForce { get; set; } = true;
     [JsonPropertyName("step_deg")]    public double StepDeg { get; set; } = 10.0;

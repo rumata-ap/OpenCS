@@ -71,6 +71,9 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
     public ObservableCollection<CapraMauryDesignFacetRow> Facets { get; } = [];
     public ObservableCollection<string> Diagnostics { get; } = [];
     public bool HasDiagnostics => Diagnostics.Count > 0;
+    /// <summary>Поперечная сила при подобранных сетках (ПС1); null — Qx = Qy = 0 или подбор по ПС2.</summary>
+    public PlateShearBlock? Shear { get; }
+    public bool HasShear => Shear != null;
 
     public CapraMauryDesignResultVM(CalcResult result, CalcTask task)
     {
@@ -88,6 +91,9 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
         ForcesText = string.Format(ci, "Nx = {0:F2}, Ny = {1:F2}, Nxy = {2:F2};   Mx = {3:F2}, My = {4:F2}, Mxy = {5:F2}",
             f.GetProperty("nx").GetDouble(), f.GetProperty("ny").GetDouble(), f.GetProperty("nxy").GetDouble(),
             f.GetProperty("mx").GetDouble(), f.GetProperty("my").GetDouble(), f.GetProperty("mxy").GetDouble());
+        if (f.TryGetProperty("qx", out var qx) && f.TryGetProperty("qy", out var qy)
+            && (qx.GetDouble() != 0.0 || qy.GetDouble() != 0.0))
+            ForcesText += string.Format(ci, ";   Qx = {0:F2}, Qy = {1:F2}", qx.GetDouble(), qy.GetDouble());
 
         var d = doc.GetProperty("design");
         IsSls = d.TryGetProperty("Limit", out var lim) && lim.GetString() == "sls";
@@ -137,8 +143,11 @@ public sealed class CapraMauryDesignResultVM : ViewModelBase
         foreach (var s in d.GetProperty("Diagnostics").EnumerateArray())
             Diagnostics.Add(s.GetString() ?? "");
 
-        bool ok = Diagnostics.Count == 0;
-        StatusText = Loc.S(ok ? "CapriDesignOk" : IsSls ? "CapriDesignImpossibleSls" : "CapriDesignImpossible");
+        // (8.55) не выполняется — сетки подобраны, но толщины по поперечной силе не хватает.
+        Shear = PlateShearBlock.From(doc, "shear", design: true);
+        bool ok = Diagnostics.Count == 0 && Shear is not { Ok: false };
+        StatusText = Loc.S(ok ? "CapriDesignOk" : Diagnostics.Count == 0 ? "CapriDesignShearFails"
+            : IsSls ? "CapriDesignImpossibleSls" : "CapriDesignImpossible");
         StatusBrush = ok ? OkBrush : FailBrush;
 
         static double[] Thetas(JsonElement mesh) =>

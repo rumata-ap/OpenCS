@@ -45,7 +45,9 @@
          <DataGrid.Columns>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
-            <DataGridTextColumn Header="η_max" Binding="{Binding EtaMaxDisplay}"/>
+            <DataGridTextColumn Header="{DynamicResource ShellSimplColEtaMax}" Binding="{Binding EtaMaxDisplay}"/>
+            <DataGridTextColumn x:Name="EtaQColumn" Header="{DynamicResource PlateShearColEtaQ}" Binding="{Binding EtaQDisplay}"
+                                Visibility="Collapsed"/>
             <DataGridTextColumn Header="Статус" Binding="{Binding Status}"/>
          </DataGrid.Columns>
       </DataGrid>

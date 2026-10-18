@@ -180,6 +180,10 @@ public class ShellSimplResultVM : ViewModelBase
     public double BotAsx { get; private set; }
     public double BotAsy { get; private set; }
 
+    /// <summary>Поперечная сила (ПС1); null — Qx = Qy = 0 или задача ПС2.</summary>
+    public PlateShearBlock? Shear { get; }
+    public bool HasShear => Shear != null;
+
     public bool OverallOk { get; set; }
     public string OverallStatus { get; set; } = "";
     public Brush OverallStatusBrush { get; set; } = Brushes.LightGray;
@@ -357,6 +361,10 @@ public class ShellSimplResultVM : ViewModelBase
             LoadConstraints(cons);
             allOk = (EtaMax ?? 0.0) <= 1.0;
         }
+
+        // Кисп,Q входит в Кисп,max задачи ПС1.
+        Shear = PlateShearBlock.From(doc, "Shear", design: false);
+        if (Shear is { Ok: false }) allOk = false;
 
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";

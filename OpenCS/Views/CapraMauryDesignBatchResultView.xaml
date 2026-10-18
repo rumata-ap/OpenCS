@@ -41,6 +41,8 @@
             <DataGridTextColumn Header="{DynamicResource CapriDesignTopY}" Binding="{Binding TopY}"/>
             <DataGridTextColumn Header="{DynamicResource CapriDesignBotX}" Binding="{Binding BotX}"/>
             <DataGridTextColumn Header="{DynamicResource CapriDesignBotY}" Binding="{Binding BotY}"/>
+            <DataGridTextColumn x:Name="AswColumn" Header="{DynamicResource PlateShearAswComponent}" Binding="{Binding Asw}"
+                                Visibility="Collapsed"/>
             <DataGridTextColumn Header="{DynamicResource CapriDesignDiagnostics}" Binding="{Binding Diagnostics}"/>
          </DataGrid.Columns>
       </DataGrid>

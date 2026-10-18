@@ -199,6 +199,36 @@ public sealed class PlateShearCheckTests
     }
 
     [Fact]
+    public void FemPlateCheck_TakesQFromRow_AndReportsGoverningShear()
+    {
+        var check = new CScore.Fem.FemCheck
+        {
+            SchemaId = 1, ElementId = 5, NormCode = "rc_plate_check", Tag = "пластина",
+            ParamsJson = new CScore.Fem.PlateCheckParams { Kind = "shell_simpl_capri_uls", StripModel = StripModel.Ndm }.ToJson(),
+        };
+        var member = new CScore.Fem.FemMember { Id = 5, SchemaId = 1, ElemTag = "5", ElemType = "plate" };
+        var fs = new ForceSet
+        {
+            Id = 1, Kind = "shell", Tag = "РСУ (C)",
+            ShellItems =
+            [
+                new ShellLoadItem { Num = 1, Label = "без Q", Mx = 5.0 },
+                new ShellLoadItem { Num = 2, Label = "Q", Mx = 5.0, Qx = 150.0 },
+            ],
+        };
+
+        var result = CScore.Fem.FemCheckRunner.RunMulti(check, member, null, Plate(), [fs],
+            (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"), Concrete(), Rebar());
+
+        var rows = result.FemCheckRows!;
+        Assert.True(rows[0].Passed);
+        Assert.False(rows[1].Passed);
+        Assert.Equal(150.0 / 89.25, rows[1].Utilization, 6);
+        Assert.Equal("(8.60)", rows[1].WorstFormula);
+        Assert.Contains("Asw/sw", rows[1].WorstDescription);
+    }
+
+    [Fact]
     public void Result_SerializesWithoutInfinity()
     {
         var plate = Plate();

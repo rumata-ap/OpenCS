@@ -176,6 +176,70 @@ public sealed class CapraMauryDesignHandlerTests
     }
 
     [Fact]
+    public void Single_WithShear_AddsShearBlock_OnlyForUls()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = Seed(path);
+            var p = new ShellSimplParams { Mx = 30.0, My = 10.0, Mxy = 8.0, Qx = 150.0, Qy = 0.0, StripModel = "ndm" };
+            var uls = new CapraMauryDesignUlsHandler().Run(
+                new CalcTask { Id = 5, Kind = "shell_simpl_capri_design_uls", CalcType = CalcType.C, SectionId = 7, ParamsJson = JsonSerializer.Serialize(p) },
+                null!, new LoadItem(), CalcSettings.Default, new TaskRunContext { Database = database });
+
+            Assert.True(uls.Status == "ok", $"status={uls.Status}, data={uls.DataJson}");
+            using var doc = JsonDocument.Parse(uls.DataJson);
+            var shear = doc.RootElement.GetProperty("shear");
+            // h0 = 0,17 м, Qb1 = 0,5·1050·0,17 = 89,25 кН/м < 150 — нужны хомуты по (8.62).
+            Assert.Equal(150.0, shear.GetProperty("Q0").GetDouble(), 9);
+            Assert.Equal((150.0 - 89.25) / 0.17, shear.GetProperty("QswRequired").GetDouble(), 6);
+            Assert.True(shear.GetProperty("AswPerSw").GetDouble() > 0.0);
+            Assert.Equal(150.0, doc.RootElement.GetProperty("forces").GetProperty("qx").GetDouble());
+
+            var sls = new CapraMauryDesignSlsHandler().Run(
+                new CalcTask { Id = 6, Kind = "shell_simpl_capri_design_sls", CalcType = CalcType.N, SectionId = 7, ParamsJson = JsonSerializer.Serialize(p) },
+                null!, new LoadItem(), CalcSettings.Default, new TaskRunContext { Database = database });
+            using var slsDoc = JsonDocument.Parse(sls.DataJson);
+            Assert.Equal(JsonValueKind.Null, slsDoc.RootElement.GetProperty("shear").ValueKind);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public void Batch_WithShear_RowsAndAswEnvelope()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = Seed(path);
+            var rows = database.ForceSets.Single().ShellItems;
+            rows[0].Qx = 60.0;                     // < Qb1 — хомуты не нужны
+            rows[1].Qy = 150.0;                    // нужны
+            rows[2].Qx = 900.0;                    // > φb1·Rb·b·h0 = 739,5 — (8.55) не выполняется
+            var task = new CalcTask
+            {
+                Id = 7, Kind = "shell_simpl_capri_design_uls_batch", CalcType = CalcType.C, SectionId = 7, ForceSetId = 9,
+                ParamsJson = JsonSerializer.Serialize(new ShellSimplParams { StripModel = "ndm" }),
+            };
+            var result = new CapraMauryDesignUlsBatchHandler().Run(task, null!, new LoadItem(), CalcSettings.Default,
+                new TaskRunContext { Database = database });
+
+            Assert.Equal("partial", result.Status);
+            var data = JsonSerializer.Deserialize<CapraMauryDesignBatchData>(result.DataJson)!;
+            Assert.Equal(0.0, data.Rows[0].AswPerSw);
+            Assert.True(data.Rows[1].AswPerSw > 0.0);
+            Assert.Equal(150.0, data.Rows[1].Qy);
+            Assert.False(data.Rows[2].Feasible);
+            Assert.Contains("(8.55)", data.Rows[2].Diagnostics);
+            Assert.Equal(2, data.Feasible);
+            Assert.NotNull(data.EnvelopeAsw);
+            Assert.Equal(2, data.EnvelopeAsw!.Num);
+            Assert.Equal(data.Rows[1].AswPerSw, data.EnvelopeAsw.As);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Run_WithoutDatabase_ReturnsError()
     {
         var task = new CalcTask { Id = 1, Kind = "shell_simpl_capri_design_uls", CalcType = CalcType.C };

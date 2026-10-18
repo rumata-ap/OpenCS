@@ -24,7 +24,10 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
         _app = app;
         _task = task;
         InitializeComponent();
-        DataContext = new ShellSimplBatchResultVM(result, task);
+        var vm = new ShellSimplBatchResultVM(result, task);
+        DataContext = vm;
+        // Колонки DataGrid не наследуют DataContext — колонка Кисп,Q задаётся здесь.
+        if (vm.HasShear) EtaQColumn.Visibility = Visibility.Visible;
         RowsGrid.SelectionChanged += (_, _) =>
         {
             CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;
@@ -102,6 +105,7 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
         var p = OpenCS.Tasks.ShellSimplParams.Parse(batchParamsJson);
         (p.Nx, p.Ny, p.Nxy) = p.AutoStressToForce ? shellItem.ResolveN(h) : (shellItem.Nx, shellItem.Ny, shellItem.Nxy);
         p.Mx = shellItem.Mx; p.My = shellItem.My; p.Mxy = shellItem.Mxy;
+        p.Qx = shellItem.Qx; p.Qy = shellItem.Qy;
         p.AutoStressToForce = false;
         return p;
     }
@@ -126,12 +130,12 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
         };
         using var csv = new CsvWriter(writer, cfg);
 
-        csv.WriteField("#"); csv.WriteField("Label"); csv.WriteField("η_max"); csv.WriteField("Status");
+        csv.WriteField("#"); csv.WriteField("Label"); csv.WriteField(Loc.S("ShellSimplColEtaMax")); csv.WriteField(Loc.S("PlateShearColEtaQ")); csv.WriteField("Status");
         csv.NextRecord();
 
         foreach (var r in vm.Rows)
         {
-            csv.WriteField(r.Num); csv.WriteField(r.Label); csv.WriteField(r.EtaMaxDisplay); csv.WriteField(r.Status);
+            csv.WriteField(r.Num); csv.WriteField(r.Label); csv.WriteField(r.EtaMaxDisplay); csv.WriteField(r.EtaQDisplay); csv.WriteField(r.Status);
             csv.NextRecord();
         }
     }
@@ -143,6 +147,9 @@ public class ShellSimplBatchRow : ViewModelBase
     public string Label { get; set; } = "";
     public double EtaMax { get; set; }
     public string EtaMaxDisplay => EtaMax >= 1e9 ? "∞" : Math.Round(EtaMax, 2).ToString("F2");
+    /// <summary>Кисп,Q по поперечной силе; null — Qx = Qy = 0 или ПС2.</summary>
+    public double? EtaQ { get; set; }
+    public string EtaQDisplay => EtaQ is not double q ? "—" : q >= 1e9 ? "∞" : Math.Round(q, 2).ToString("F2");
     public string Status { get; set; } = "";
     public bool Ok { get; set; }
 }
@@ -153,6 +160,8 @@ public class ShellSimplBatchResultVM : ViewModelBase
     public string Summary { get; }
     public Brush StatusBrush { get; }
     public ObservableCollection<ShellSimplBatchRow> Rows { get; } = [];
+    /// <summary>Хотя бы в одной строке проверена поперечная сила.</summary>
+    public bool HasShear => Rows.Any(r => r.EtaQ.HasValue);
 
     public ShellSimplBatchResultVM(CalcResult result, CalcTask task)
     {
@@ -181,6 +190,8 @@ public class ShellSimplBatchResultVM : ViewModelBase
             };
             if (r.TryGetProperty("eta_max", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.Number)
                 row.EtaMax = em.GetDouble();
+            if (r.TryGetProperty("eta_q", out var eq) && eq.ValueKind == JsonValueKind.Number)
+                row.EtaQ = eq.GetDouble();
             Rows.Add(row);
         }
 

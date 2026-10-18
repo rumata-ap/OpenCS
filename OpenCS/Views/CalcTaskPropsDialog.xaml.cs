@@ -135,6 +135,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     bool autoStressToForce = true;
     string shellSimplNx = "0", shellSimplNy = "0", shellSimplNxy = "0";
     string shellSimplMx = "0", shellSimplMy = "0", shellSimplMxy = "0";
+    string shellSimplQx = "0", shellSimplQy = "0";
     string shellSimplStepDeg = "10";
     string shellSimplAcrcLim = "0.3";
     string shellSimplPhi1 = "1.0";
@@ -717,6 +718,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplDesign));
            OnPropertyChanged(nameof(ShowShellSimplStripModel));
            OnPropertyChanged(nameof(ShowShellSimplCapriCheckMode));
+           OnPropertyChanged(nameof(ShowShellSimplShear));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -834,6 +836,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplDesign));
            OnPropertyChanged(nameof(ShowShellSimplStripModel));
            OnPropertyChanged(nameof(ShowShellSimplCapriCheckMode));
+           OnPropertyChanged(nameof(ShowShellSimplShear));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
@@ -919,6 +922,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowShellSimplStripModel => IsShellSimpl && !IsShellSimplDesign;
    /// <summary>Проверка Капри-Мори: выбор «по фасеткам / через ограничения».</summary>
    public bool ShowShellSimplCapriCheckMode => IsShellSimplCapri && !IsShellSimplDesign;
+   /// <summary>Поля Qx/Qy: поперечная сила проверяется в задачах ПС1 (проверка и подбор).</summary>
+   public bool ShowShellSimplShear => IsShellSimpl && !IsShellSimplSls;
    public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch"
         or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch";
@@ -1297,6 +1302,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        ShellSimplMx  = value.Mx.ToString("G6", inv);
        ShellSimplMy  = value.My.ToString("G6", inv);
        ShellSimplMxy = value.Mxy.ToString("G6", inv);
+       ShellSimplQx  = value.Qx.ToString("G6", inv);
+       ShellSimplQy  = value.Qy.ToString("G6", inv);
    }
 
    public ObservableCollection<ShellLoadItem> ShellForceItems { get; } = [];
@@ -1314,6 +1321,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShellSimplMx  { get => shellSimplMx;  set { shellSimplMx  = value; OnPropertyChanged(); } }
    public string ShellSimplMy  { get => shellSimplMy;  set { shellSimplMy  = value; OnPropertyChanged(); } }
    public string ShellSimplMxy { get => shellSimplMxy; set { shellSimplMxy = value; OnPropertyChanged(); } }
+   public string ShellSimplQx  { get => shellSimplQx;  set { shellSimplQx  = value; OnPropertyChanged(); } }
+   public string ShellSimplQy  { get => shellSimplQy;  set { shellSimplQy  = value; OnPropertyChanged(); } }
    public string ShellSimplStepDeg  { get => shellSimplStepDeg;  set { shellSimplStepDeg  = value; OnPropertyChanged(); } }
    public string ShellSimplAcrcLim  { get => shellSimplAcrcLim;  set { shellSimplAcrcLim  = value; OnPropertyChanged(); } }
    public string ShellSimplPhi1     { get => shellSimplPhi1;     set { shellSimplPhi1     = value; OnPropertyChanged(); } }
@@ -2169,6 +2178,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              ShellSimplMx  = sp.Mx.ToString("G6", inv);
              ShellSimplMy  = sp.My.ToString("G6", inv);
              ShellSimplMxy = sp.Mxy.ToString("G6", inv);
+             ShellSimplQx  = sp.Qx.ToString("G6", inv);
+             ShellSimplQy  = sp.Qy.ToString("G6", inv);
              ShellSimplStepDeg = sp.StepDeg.ToString("G6", inv);
              ShellSimplAcrcLim = sp.AcrcLimMm.ToString("G6", inv);
              ShellSimplPhi1 = sp.Phi1.ToString("G6", inv);
@@ -3199,6 +3210,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
           double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
           double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
+          // Поперечная сила — только в задачах ПС1; в ПС2 поля скрыты и не сохраняются.
+          double qx = ShowShellSimplShear && double.TryParse(ShellSimplQx, System.Globalization.NumberStyles.Float, inv, out var qxv) ? qxv : 0;
+          double qy = ShowShellSimplShear && double.TryParse(ShellSimplQy, System.Globalization.NumberStyles.Float, inv, out var qyv) ? qyv : 0;
 
           Result = new CalcTask
           {
@@ -3212,6 +3226,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               {
                   Nx = nx, Ny = ny, Nxy = nxy,
                   Mx = mx, My = my, Mxy = mxy,
+                  Qx = qx, Qy = qy,
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
                   Phi1 = phi1, Phi2 = phi2,
                   AutoStressToForce = AutoStressToForce,

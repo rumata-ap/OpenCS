@@ -241,7 +241,8 @@ public static partial class FemCheckRunner
             var sp = new ShellSimplSolver.SolveParams(
                 shell.Nx, shell.Ny, shell.Nxy,
                 shell.Mx, shell.My, shell.Mxy,
-                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.StripModel, p.CapriCheckMode);
+                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.StripModel, p.CapriCheckMode,
+                shell.Qx, shell.Qy);
 
             var r = ShellSimplSolver.Solve(sp, section, concreteMat, rebarMat, calcType);
             return ExtractSimplResult(r, p);
@@ -289,6 +290,17 @@ public static partial class FemCheckRunner
         ShellSimplSolver.SolveResult r, PlateCheckParams p)
     {
         bool isSls = r.CalcType == "sls";
+
+        // Поперечная сила управляет Кисп,max (ПС1): (8.55) по бетонной полосе либо (8.60) без хомутов.
+        if (!isSls && r.Shear is { } q && q.Eta >= (r.EtaMax ?? 0) - 1e-12)
+        {
+            bool strip = q.EtaStrip >= q.EtaConcrete;
+            return (r.EtaMax ?? q.Eta,
+                    strip ? "(8.55)" : "(8.60)",
+                    $"Q₀ = {q.Q0:F1} кН/м, θ = {q.ThetaDeg:0.#}°, " + (strip
+                        ? $"φb1·Rb·b·h0 = {q.QStrip:F1} кН/м"
+                        : $"Qb1 = {q.Qb1:F1} кН/м без поперечной арматуры, требуется Asw/sw = {q.AswPerSw * 1e4:F2} см²/м²"));
+        }
 
         // Капра–Мори через ограничения: η = max r(θ)/As_n(θ) — одна мера для ПС1 и ПС2.
         if (r.CapriConstraints is { Count: > 0 } cons)
