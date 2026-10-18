@@ -73,6 +73,21 @@ public sealed class ShellSimplNdmTests(ITestOutputHelper output)
         Assert.All(x, s => Assert.True(s.Cracked && s.Acrc_mm > 0));
     }
 
+    // Обработчики задач пишут результат через JsonSerializer, а он не принимает ∞ и NaN.
+    [Theory]
+    [InlineData("shell_simpl_wa_uls")]
+    [InlineData("shell_simpl_capri_uls")]
+    [InlineData("shell_simpl_wa_sls")]
+    [InlineData("shell_simpl_capri_sls")]
+    public void Result_SerializesToJson_IncludingZeroLoad(string kind)
+    {
+        foreach (var f in new[] { new double[6], CaseA, CaseT })
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(Run(f, kind, StripModel.Ndm));
+            Assert.Contains("\"Model\":\"ndm\"", json);
+        }
+    }
+
     [Fact]
     public void FormulasRemainDefault()
     {

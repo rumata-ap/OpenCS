@@ -72,7 +72,7 @@ internal sealed class StripNdmAdapter
         var sec = Section(zTop, asTop, zBot, asBot);
         var u = StripNdm.UltimateFactor(sec, nDes, mPlate, _lim);
         r.Eta = u.Eta;
-        r.Lambda = u.Lambda;
+        r.Lambda = double.IsFinite(u.Lambda) ? u.Lambda : 0.0;   // 0 — нагрузки нет (JSON не принимает ∞)
         r.Pivot = u.Pivot == StripNdmPivot.None ? "" : u.Pivot.ToString();
         r.Demand = Math.Abs(mPlate);
         r.M_ult = double.IsFinite(u.Lambda) ? u.Lambda * Math.Abs(mPlate) : 0.0;

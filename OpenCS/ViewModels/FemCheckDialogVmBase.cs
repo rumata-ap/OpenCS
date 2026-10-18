@@ -41,6 +41,21 @@ public abstract class FemCheckDialogVmBase : ViewModelBase
     /// <summary>Наборы усилий, доступные цели.</summary>
     public ObservableCollection<FemCheckForceSetItem> FilteredForceSets { get; } = [];
 
+    int _stripModelIndex;
+    /// <summary>Модель полосы упрощённых видов: 0 — НДМ (новая проверка), 1 — формулы СП 63.</summary>
+    public int StripModelIndex
+    {
+        get => _stripModelIndex;
+        set { _stripModelIndex = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Выбранная модель полосы.</summary>
+    protected CScore.StripModel SelectedStripModel =>
+        StripModelIndex == 1 ? CScore.StripModel.Formulas : CScore.StripModel.Ndm;
+
+    /// <summary>Индекс комбобокса по сохранённой модели.</summary>
+    protected static int StripModelIndexOf(CScore.StripModel model) => model == CScore.StripModel.Ndm ? 0 : 1;
+
     /// <summary>Цель проверки: группа или конструктивный элемент.</summary>
     protected abstract IFemCheckable? Target { get; }
     /// <summary>Идентификатор выбранной схемы.</summary>

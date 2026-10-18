@@ -72,24 +72,34 @@
         <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FemCheckDlgPlateKind}"
                    VerticalAlignment="Center" Margin="0,0,8,8"
                    Visibility="{Binding PlateRowVisibility}"/>
-        <Grid Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
-              Visibility="{Binding PlateRowVisibility}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="70"/>
-            </Grid.ColumnDefinitions>
-            <ComboBox Grid.Column="0"
-                      ItemsSource="{Binding PlateKinds}"
-                      SelectedItem="{Binding SelectedPlateKind}"
-                      DisplayMemberPath="Label"/>
-            <TextBlock Grid.Column="1" Text="{DynamicResource FemCheckDlgAcrcLim}"
-                       VerticalAlignment="Center" Margin="8,0,4,0"
-                       Visibility="{Binding AcrcRowVisibility}"/>
-            <TextBox Grid.Column="2"
-                     Text="{Binding AcrcLimMm, UpdateSourceTrigger=PropertyChanged}"
-                     Visibility="{Binding AcrcRowVisibility}"/>
-        </Grid>
+        <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
+                    Visibility="{Binding PlateRowVisibility}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="70"/>
+                </Grid.ColumnDefinitions>
+                <ComboBox Grid.Column="0"
+                          ItemsSource="{Binding PlateKinds}"
+                          SelectedItem="{Binding SelectedPlateKind}"
+                          DisplayMemberPath="Label"/>
+                <TextBlock Grid.Column="1" Text="{DynamicResource FemCheckDlgAcrcLim}"
+                           VerticalAlignment="Center" Margin="8,0,4,0"
+                           Visibility="{Binding AcrcRowVisibility}"/>
+                <TextBox Grid.Column="2"
+                         Text="{Binding AcrcLimMm, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding AcrcRowVisibility}"/>
+            </Grid>
+            <DockPanel Margin="0,4,0,0" Visibility="{Binding StripModelVisibility}">
+                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource ShellSimplStripModel}"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox SelectedIndex="{Binding StripModelIndex}">
+                    <ComboBoxItem Content="{DynamicResource ShellSimplStripModelNdm}"/>
+                    <ComboBoxItem Content="{DynamicResource ShellSimplStripModelFormulas}"/>
+                </ComboBox>
+            </DockPanel>
+        </StackPanel>
 
         <!-- 6b. φ1 — только для SLS-методов -->
         <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FemCheckDlgPhi1Mode}"

@@ -1992,6 +1992,15 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, mm</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (long-term: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (profile: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellSimplStripModel">Strip model</system:String>
+    <system:String x:Key="ShellSimplStripModelNdm">Strip NDM (cl. 8.1.20–8.1.30, 8.2.14)</system:String>
+    <system:String x:Key="ShellSimplStripModelFormulas">SP 63 formulas (cl. 8.1.8–8.1.19, 8.2.10–8.2.18)</system:String>
+    <system:String x:Key="ShellSimplColPivot">Pivot</system:String>
+    <system:String x:Key="ShellSimplColLambda">λ</system:String>
+    <system:String x:Key="ShellSimplColEpsB">εb, ‰</system:String>
+    <system:String x:Key="ShellSimplColEpsS">εs, ‰</system:String>
+    <system:String x:Key="ShellSimplModelNdmNote">Strip model — NDM: η = 1/λ, λ is the ultimate load factor along the (N, M) ray up to the strains of cl. 8.1.30; pivot A — tension row at εs,ult, B — compressed face at εb2, C — single-sign compression.</system:String>
+    <system:String x:Key="ShellSimplModelFormulasNote">Strip model — SP 63 formulas.</system:String>
     <system:String x:Key="ShellLayeredSlsTabCracks">Cracks</system:String>
     <system:String x:Key="ShellLayeredSlsNoProfiles">Diagrams unavailable: result was produced by an older version — recalculate the task.</system:String>
     <system:String x:Key="ShellLayeredSlsTaskLabel">Task</system:String>

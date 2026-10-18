@@ -59,11 +59,19 @@
         <!-- Метод проверки -->
         <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FemSlsDlgPlateKind}"
                    VerticalAlignment="Center" Margin="0,0,8,8"/>
-        <ComboBox Grid.Row="4" Grid.Column="1"
-                  ItemsSource="{Binding SlsKinds}"
-                  SelectedItem="{Binding SelectedSlsKind}"
-                  DisplayMemberPath="Label"
-                  Margin="0,0,0,8"/>
+        <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
+            <ComboBox ItemsSource="{Binding SlsKinds}"
+                      SelectedItem="{Binding SelectedSlsKind}"
+                      DisplayMemberPath="Label"/>
+            <DockPanel Margin="0,4,0,0" Visibility="{Binding StripModelVisibility}">
+                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource ShellSimplStripModel}"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox SelectedIndex="{Binding StripModelIndex}">
+                    <ComboBoxItem Content="{DynamicResource ShellSimplStripModelNdm}"/>
+                    <ComboBoxItem Content="{DynamicResource ShellSimplStripModelFormulas}"/>
+                </ComboBox>
+            </DockPanel>
+        </StackPanel>
 
         <!-- NL набор усилий (shell_layered) -->
         <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FemSlsDlgNlForceSet}"

@@ -13,7 +13,14 @@ public partial class ShellSimplResultView : System.Windows.Controls.UserControl
     public ShellSimplResultView(CalcResult result, CalcTask task)
     {
         InitializeComponent();
-        DataContext = new ShellSimplResultVM(result, task);
+        var vm = new ShellSimplResultVM(result, task);
+        DataContext = vm;
+        // Колонки DataGrid не наследуют DataContext — видимость колонок НДМ задаётся здесь.
+        if (vm.IsNdm)
+        {
+            EpsBColumn.Visibility = EpsSColumn.Visibility = System.Windows.Visibility.Visible;
+            if (!task.Kind.EndsWith("sls")) PivotColumn.Visibility = System.Windows.Visibility.Visible;
+        }
     }
 }
 
@@ -45,6 +52,25 @@ public class ShellSimplStripRow : ViewModelBase
 
     public string StatusText { get; set; } = "";
     public bool StatusOk { get; set; }
+
+    // НДМ полосы
+    public bool IsNdm { get; set; }
+    public string Pivot { get; set; } = "";
+    public double Lambda { get; set; }
+    public double EpsB { get; set; }
+    public double EpsS_t { get; set; }
+    public string NdmDisplay => ShellSimplNdmFormat.Strip(ShowUls, Pivot, Lambda, EpsB, EpsS_t);
+}
+
+/// <summary>Подписи величин НДМ полосы: деформации в ‰, λ и шарнир — только для ПС1.</summary>
+static class ShellSimplNdmFormat
+{
+    public static string PerMille(double eps) => (eps * 1000.0).ToString("F3");
+    public static string LambdaText(double lambda) => double.IsFinite(lambda) && lambda < 1e9 ? lambda.ToString("F3") : "∞";
+
+    public static string Strip(bool uls, string pivot, double lambda, double epsB, double epsS) =>
+        (uls ? $"{Loc.S("ShellSimplColPivot")}: {(pivot == "" ? "—" : pivot)}   λ: {LambdaText(lambda)}   " : "")
+        + $"εb: {PerMille(epsB)} ‰   εs: {PerMille(epsS)} ‰";
 }
 
 public class ShellSimplDirectionRow : ViewModelBase
@@ -67,6 +93,15 @@ public class ShellSimplDirectionRow : ViewModelBase
     public string StatusText { get; set; } = "";
     public bool StatusOk { get; set; }
     public bool IsCritical { get; set; }
+
+    // НДМ полосы
+    public string Pivot { get; set; } = "";
+    public double EpsB { get; set; }
+    public double EpsS_t { get; set; }
+    public string EpsBDisplay => ShellSimplNdmFormat.PerMille(EpsB);
+    public string EpsSDisplay => ShellSimplNdmFormat.PerMille(EpsS_t);
+    /// <summary>Пара ортогональных фасеток (θ, θ + 90°): θ mod 90.</summary>
+    public double PairAlpha => Alpha_deg % 90.0;
 }
 
 public class ShellSimplResultVM : ViewModelBase
@@ -105,6 +140,10 @@ public class ShellSimplResultVM : ViewModelBase
 
     public string? CritTopEtaDisplay { get; set; }
     public string? CritBotEtaDisplay { get; set; }
+
+    /// <summary>Хотя бы одна полоса посчитана на НДМ.</summary>
+    public bool IsNdm { get; set; }
+    public string ModelNote => Loc.S(IsNdm ? "ShellSimplModelNdmNote" : "ShellSimplModelFormulasNote");
 
     public bool OverallOk { get; set; }
     public string OverallStatus { get; set; } = "";
@@ -146,6 +185,14 @@ public class ShellSimplResultVM : ViewModelBase
                     NoRebar = s.GetProperty("NoRebar").GetBoolean(),
                     ShowSls = isSls, ShowUls = !isSls,
                 };
+                if (IsNdmStrip(s))
+                {
+                    IsNdm = row.IsNdm = true;
+                    row.Pivot = Str(s, "Pivot");
+                    row.Lambda = Num(s, "Lambda");
+                    row.EpsB = Num(s, "EpsB");
+                    row.EpsS_t = Num(s, "EpsS_t");
+                }
                 if (isSls)
                 {
                     row.Acrc_mm = s.GetProperty("Acrc_mm").GetDouble();
@@ -191,6 +238,7 @@ public class ShellSimplResultVM : ViewModelBase
                     : (eta <= 1.0));
                 if (!ok) allOk = false;
 
+                if (IsNdmStrip(strip)) IsNdm = true;
                 Directions.Add(new ShellSimplDirectionRow
                 {
                     Alpha_deg = Math.Round(d.GetProperty("Alpha_deg").GetDouble(), 1),
@@ -204,7 +252,18 @@ public class ShellSimplResultVM : ViewModelBase
                     ShowSlsCol = showSlsCol, ShowUlsCol = showUlsCol,
                     StatusOk = ok,
                     StatusText = ok ? "Выполняется" : "Не выполняется",
+                    Pivot = Str(strip, "Pivot"),
+                    EpsB = Num(strip, "EpsB"),
+                    EpsS_t = Num(strip, "EpsS_t"),
                 });
+            }
+
+            // НДМ: фасетки парами (θ, θ + 90°) — соседними строками.
+            if (IsNdm)
+            {
+                var paired = Directions.OrderBy(r => Math.Round(r.PairAlpha, 6)).ThenBy(r => r.Alpha_deg).ToList();
+                Directions.Clear();
+                foreach (var r in paired) Directions.Add(r);
             }
 
             // Подсветить критические направления (макс. acrc для SLS, макс. η для ULS)
@@ -258,6 +317,12 @@ public class ShellSimplResultVM : ViewModelBase
 
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";
+
+        static bool IsNdmStrip(JsonElement s) => Str(s, "Model") == "ndm";
+        static string Str(JsonElement s, string name) =>
+            s.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+        static double Num(JsonElement s, string name) =>
+            s.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0.0;
         OverallStatusBrush = allOk
             ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
             : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));

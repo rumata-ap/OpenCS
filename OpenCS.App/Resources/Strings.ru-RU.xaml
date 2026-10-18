@@ -1992,6 +1992,15 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, мм</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (длит.: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (профиль: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellSimplStripModel">Модель полосы</system:String>
+    <system:String x:Key="ShellSimplStripModelNdm">НДМ полосы (пп. 8.1.20–8.1.30, 8.2.14)</system:String>
+    <system:String x:Key="ShellSimplStripModelFormulas">Формулы СП 63 (пп. 8.1.8–8.1.19, 8.2.10–8.2.18)</system:String>
+    <system:String x:Key="ShellSimplColPivot">Шарнир</system:String>
+    <system:String x:Key="ShellSimplColLambda">λ</system:String>
+    <system:String x:Key="ShellSimplColEpsB">εb, ‰</system:String>
+    <system:String x:Key="ShellSimplColEpsS">εs, ‰</system:String>
+    <system:String x:Key="ShellSimplModelNdmNote">Модель полосы — НДМ: η = 1/λ, λ — предельный множитель нагрузки по лучу (N, M) до деформаций п. 8.1.30; шарнир A — растянутый ряд на εs,ult, B — сжатая грань на εb2, C — однозначное сжатие.</system:String>
+    <system:String x:Key="ShellSimplModelFormulasNote">Модель полосы — формулы СП 63.</system:String>
     <system:String x:Key="ShellLayeredSlsTabCracks">Трещины</system:String>
     <system:String x:Key="ShellLayeredSlsNoProfiles">Эпюры недоступны: результат получен старой версией программы — пересчитайте задачу.</system:String>
     <system:String x:Key="ShellLayeredSlsTaskLabel">Задача</system:String>

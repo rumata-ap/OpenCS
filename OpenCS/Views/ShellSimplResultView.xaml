@@ -21,6 +21,8 @@
                        HorizontalAlignment="Center"/>
          </Border>
 
+         <TextBlock Text="{Binding ModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
          <GroupBox Header="Усилия" Margin="0,0,0,8">
             <Grid>
                <Grid.ColumnDefinitions>
@@ -88,6 +90,8 @@
                               <TextBlock Margin="4 0 8 0" Text="{Binding M_ult, StringFormat='M_ult: {0}'}"/>
                               <TextBlock Margin="4 0 8 0" Text="{Binding Case}"/>
                           </StackPanel>
+                           <TextBlock Margin="4 0 8 0" Text="{Binding NdmDisplay}"
+                                      Visibility="{Binding IsNdm, Converter={StaticResource BoolToVisibility}}"/>
                          </StackPanel>
                       </Border>
                   </DataTemplate>
@@ -146,6 +150,12 @@
                   <DataGridTextColumn Header="σs, МПа" Binding="{Binding SigmaDisplay}"/>
                   <DataGridTextColumn Header="acrc, мм" Binding="{Binding AcrcDisplay}"/>
                   <DataGridTextColumn Header="η" Binding="{Binding EtaDisplay}"/>
+                  <DataGridTextColumn x:Name="PivotColumn" Header="{DynamicResource ShellSimplColPivot}"
+                                      Binding="{Binding Pivot}" Visibility="Collapsed"/>
+                  <DataGridTextColumn x:Name="EpsBColumn" Header="{DynamicResource ShellSimplColEpsB}"
+                                      Binding="{Binding EpsBDisplay}" Visibility="Collapsed"/>
+                  <DataGridTextColumn x:Name="EpsSColumn" Header="{DynamicResource ShellSimplColEpsS}"
+                                      Binding="{Binding EpsSDisplay}" Visibility="Collapsed"/>
                   <DataGridTextColumn Header="Статус" Binding="{Binding StatusText}"/>
                </DataGrid.Columns>
             </DataGrid>

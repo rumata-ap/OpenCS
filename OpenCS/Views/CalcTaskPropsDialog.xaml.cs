@@ -139,6 +139,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string shellSimplAcrcLim = "0.3";
     string shellSimplPhi1 = "1.0";
     string shellSimplPhi2 = "0.5";
+   // 0 — НДМ полосы (новые задачи), 1 — формулы СП 63 (сохранённые без поля strip_model).
+   int shellSimplStripModelIndex = 0;
     // Crack width
     string crackWidthAcrcUltLong = "0.3";
     string crackWidthAcrcUltShort = "0.4";
@@ -1301,6 +1303,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShellSimplAcrcLim  { get => shellSimplAcrcLim;  set { shellSimplAcrcLim  = value; OnPropertyChanged(); } }
    public string ShellSimplPhi1     { get => shellSimplPhi1;     set { shellSimplPhi1     = value; OnPropertyChanged(); } }
    public string ShellSimplPhi2     { get => shellSimplPhi2;     set { shellSimplPhi2     = value; OnPropertyChanged(); } }
+   public int ShellSimplStripModelIndex { get => shellSimplStripModelIndex; set { shellSimplStripModelIndex = value; OnPropertyChanged(); } }
+   string ShellSimplStripModelKey => ShellSimplStripModelIndex == 1 ? "formulas" : "ndm";
 
    public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
    public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
@@ -2148,6 +2152,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              ShellSimplAcrcLim = sp.AcrcLimMm.ToString("G6", inv);
              ShellSimplPhi1 = sp.Phi1.ToString("G6", inv);
              ShellSimplPhi2 = sp.Phi2.ToString("G6", inv);
+             ShellSimplStripModelIndex = sp.Model == CScore.StripModel.Ndm ? 0 : 1;
              SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
              if (existing.ForceSetId != 0)
              {
@@ -3157,7 +3162,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   {
                       StepDeg = stepDeg, AcrcLimMm = acrcLim,
                       Phi1 = phi1, Phi2 = phi2,
-                      AutoStressToForce = AutoStressToForce
+                      AutoStressToForce = AutoStressToForce,
+                      StripModel = ShellSimplStripModelKey
                   })
               };
               _window.DialogResult = true;
@@ -3185,7 +3191,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   Mx = mx, My = my, Mxy = mxy,
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
                   Phi1 = phi1, Phi2 = phi2,
-                  AutoStressToForce = AutoStressToForce
+                  AutoStressToForce = AutoStressToForce,
+                  StripModel = ShellSimplStripModelKey
               })
           };
           _window.DialogResult = true;
