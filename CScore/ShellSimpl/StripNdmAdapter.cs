@@ -118,6 +118,9 @@ internal sealed class StripNdmAdapter
         double zBot, double asBot, double dsBot) =>
         StripNdm.CrackWidth(Section(zTop, asTop, zBot, asBot), nDes, mPlate, [dsTop, dsBot], _es, _phi1, _phi2, _sigmaSCrc);
 
+    /// <summary>a_crc, мм, когда сечение с трещиной не уравновешивается (JSON не принимает ∞).</summary>
+    public const double UnboundedAcrcMm = 1e9;
+
     /// <summary>Запись полосы ПС2 по ряду <paramref name="row"/> (0 — верх, 1 — низ).</summary>
     public ShellSimplStripResult FromSls(string name, StripNdmSls s, int row, double mDes, double nDes, double ds)
     {
@@ -144,6 +147,10 @@ internal sealed class StripNdmAdapter
             double k = Math.Abs(s.State.Kappa);
             r.B_kNm2 = k > 1e-12 ? Math.Abs(mDes) / k : 0.0;
         }
+        // Трещина есть, а равновесия сечения с трещиной нет (момент сверх несущей способности полосы):
+        // ширина не ограничена — 1e9 (вид показывает ∞), а не 0, иначе проверка проходит ложно.
+        if (s.Cracked && !s.Converged && !r.NoRebar)
+            r.Acrc_mm = UnboundedAcrcMm;
         r.Case = "НДМ полосы (пп. 8.2.14–8.2.18)" + (string.IsNullOrEmpty(s.Reason) ? "" : "; " + s.Reason);
         return r;
     }
