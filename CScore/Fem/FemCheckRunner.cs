@@ -241,7 +241,7 @@ public static partial class FemCheckRunner
             var sp = new ShellSimplSolver.SolveParams(
                 shell.Nx, shell.Ny, shell.Nxy,
                 shell.Mx, shell.My, shell.Mxy,
-                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2);
+                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2, p.SigmaSCrc, p.WplGamma, p.StripModel);
 
             var r = ShellSimplSolver.Solve(sp, section, concreteMat, rebarMat, calcType);
             return ExtractSimplResult(r, p);

@@ -29,6 +29,9 @@ public record PlateCheckParams
     public SigmaSCrcMethod SigmaSCrc { get; init; } = SigmaSCrcMethod.ReleasedConcrete8137;
     /// <summary>Источник коэффициента пластичности γ в Wpl = γ·Wred (п. 8.2.11).</summary>
     public WplGammaMethod WplGamma { get; init; } = WplGammaMethod.Sp63;
+    /// <summary>Модель полосы упрощённых видов (shell_simpl_*). Записи без поля — формулы;
+    /// диалог новой проверки ставит НДМ.</summary>
+    public StripModel StripModel { get; init; } = StripModel.Formulas;
 
     /// <summary>
     /// Режим вычисления φ1:

@@ -42,6 +42,20 @@ public sealed class ShellSimplParams
         _ => CScore.WplGammaMethod.Sp63,
     };
 
+    /// <summary>
+    /// Модель полосы: "ndm" — одноосная НДМ полосы; "" или "formulas" — формулы СП 63. Сохранённые
+    /// задачи без поля считаются по формулам; новые создаются с НДМ (диалог свойств задачи).
+    /// </summary>
+    [JsonPropertyName("strip_model")]
+    public string StripModel { get; set; } = "";
+
+    /// <summary>Разобранное значение <see cref="StripModel"/>.</summary>
+    [JsonIgnore]
+    public CScore.StripModel Model =>
+        string.Equals(StripModel?.Trim(), "ndm", System.StringComparison.OrdinalIgnoreCase)
+            ? CScore.StripModel.Ndm
+            : CScore.StripModel.Formulas;
+
     [JsonIgnore]
     public CScore.SigmaSCrcMethod SigmaSCrc =>
         string.Equals(SigmaSCrcMethod?.Trim(), "moment", System.StringComparison.OrdinalIgnoreCase)
