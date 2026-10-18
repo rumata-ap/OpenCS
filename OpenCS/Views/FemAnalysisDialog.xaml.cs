@@ -46,8 +46,29 @@ public partial class FemAnalysisDialog : Window
     public FemCsfeaRunContext? CsfeaContext
     {
         get => _csfeaContext;
-        set { _csfeaContext = value; _meshCounts = null; UpdateNonlinearPanelVisibility(); UpdateBatchSummary(); }
+        set
+        {
+            _csfeaContext = value;
+            _meshCounts = null;
+            LoadStiffnessSources();
+            UpdateNonlinearPanelVisibility();
+            UpdateBatchSummary();
+        }
     }
+
+    /// <summary>Пригодные источники жёсткостей схемы; null — БД недоступна (окружение не задано).</summary>
+    List<FemCsfeaStiffnessCandidate>? _stiffnessCandidates;
+    /// <summary>Источник жёсткостей правимой постановки.</summary>
+    FemCsfeaStiffnessSource? _savedStiffnessSource;
+    /// <summary>Состояние сохранённого источника по текущим записям; null — не проверялось.</summary>
+    FemCsfeaStiffnessSourceStatus? _savedStiffnessStatus;
+    bool _stiffnessLoading;
+
+    /// <summary>Секущая постановка в списке источников жёсткостей.</summary>
+    sealed record StiffnessAnalysisItem(int Id, string Label);
+
+    /// <summary>Запись источника в списке состояний постановки.</summary>
+    sealed record StiffnessStateItem(FemCsfeaStiffnessCandidate Candidate, string Label);
 
     /// <summary>
     /// Диалог параметров нелинейного расчёта субмодели. Начальные значения — из <paramref name="current"/>
@@ -108,7 +129,7 @@ public partial class FemAnalysisDialog : Window
         ConsiderPhysicalNonlinearityCb.Checked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
         ConsiderPhysicalNonlinearityCb.Unchecked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
         CsfeaCalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
-        CsfeaCalcTypeBox.SelectionChanged += (_, _) => UpdateBatchSummary();
+        CsfeaCalcTypeBox.SelectionChanged += (_, _) => { UpdateBatchSummary(); UpdateCsfeaStiffnessState(); };
         CsfeaPlateRebarSourceBox.ItemsSource = CsfeaRebarSourceOptions;
         CsfeaTensionConcreteBox.ItemsSource = CsfeaTensionOptions;
         CsfeaPlateCrackRuleBox.ItemsSource = CsfeaCrackRuleOptions;
@@ -310,7 +331,120 @@ public partial class FemAnalysisDialog : Window
         }).IsChecked = true;
         CsfeaControlNodeBox.Text = c.ControlNodeTag;
         CsfeaControlDofBox.SelectedIndex = c.ControlDof is >= 0 and <= 5 ? c.ControlDof : 2;
+        _savedStiffnessSource = c.StiffnessSource;
+        (c.StiffnessSource != null ? CsfeaStiffnessSecantRadio : CsfeaStiffnessInitialRadio).IsChecked = true;
         UpdateCsfeaRecordingState();
+    }
+
+    /// <summary>
+    /// Список источников жёсткостей схемы из БД окружения; выбор — сохранённый источник правимой постановки или первая
+    /// постановка. Состояние сохранённого источника (пересчитан, пропал) — для предупреждения.
+    /// </summary>
+    void LoadStiffnessSources()
+    {
+        _stiffnessCandidates = _csfeaContext?.Db is { } db ? FemCsfeaStiffnessSources.List(db, _schema.Id) : null;
+        _savedStiffnessStatus = null;
+        if (_csfeaContext?.Db is { } db2 && _savedStiffnessSource is { } saved)
+            _savedStiffnessStatus = FemCsfeaStiffnessSources.Status(db2, _schema.Id, saved);
+        _stiffnessLoading = true;
+        try
+        {
+            var analyses = (_stiffnessCandidates ?? []).GroupBy(c => c.Analysis.Id)
+                .Select(g => new StiffnessAnalysisItem(g.Key, $"{g.First().Analysis.Tag} — {g.First().Calc}")).ToList();
+            CsfeaStiffnessAnalysisBox.ItemsSource = analyses;
+            CsfeaStiffnessAnalysisBox.SelectedItem = analyses.FirstOrDefault(a => a.Id == _savedStiffnessSource?.AnalysisId)
+                ?? analyses.FirstOrDefault();
+            FillStiffnessStates();
+        }
+        finally { _stiffnessLoading = false; }
+        UpdateCsfeaStiffnessState();
+    }
+
+    /// <summary>Записи выбранной постановки: конечное состояние или варианты пакета.</summary>
+    void FillStiffnessStates()
+    {
+        int? id = (CsfeaStiffnessAnalysisBox.SelectedItem as StiffnessAnalysisItem)?.Id;
+        var states = (_stiffnessCandidates ?? []).Where(c => c.Analysis.Id == id)
+            .Select(c => new StiffnessStateItem(c, c.IsFinalState ? Loc.S("FemCsfeaStiffnessFinalState") : c.Label)).ToList();
+        CsfeaStiffnessStateBox.ItemsSource = states;
+        CsfeaStiffnessStateBox.SelectedItem = states.FirstOrDefault(s => s.Candidate.Matches(_savedStiffnessSource))
+            ?? states.FirstOrDefault();
+    }
+
+    void CsfeaStiffness_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaStiffnessState();
+
+    void CsfeaStiffnessAnalysis_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_stiffnessLoading) return;
+        FillStiffnessStates();
+        UpdateCsfeaStiffnessState();
+    }
+
+    void CsfeaStiffnessState_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_stiffnessLoading) UpdateCsfeaStiffnessState();
+    }
+
+    /// <summary>Выбранный источник жёсткостей; null — начальные жёсткости или не выбран.</summary>
+    FemCsfeaStiffnessCandidate? SelectedStiffnessCandidate => CsfeaStiffnessSecantRadio?.IsChecked == true
+        ? (CsfeaStiffnessStateBox.SelectedItem as StiffnessStateItem)?.Candidate : null;
+
+    /// <summary>
+    /// Доступность списков, подпись источника и предупреждения: не дошёл до предела λ, вид расчёта не совпадает с видом
+    /// постановки, сохранённый источник пересчитан или пропал. Флажок коэффициентов импорта — только при начальных.
+    /// </summary>
+    void UpdateCsfeaStiffnessState()
+    {
+        if (CsfeaStiffnessInfoText == null || CsfeaStiffnessWarningText == null || CsfeaStiffnessStateBox == null) return;
+        bool secant = CsfeaStiffnessSecantRadio.IsChecked == true;
+        bool any = _stiffnessCandidates is { Count: > 0 };
+        CsfeaStiffnessAnalysisBox.IsEnabled = secant && any;
+        CsfeaStiffnessStateBox.IsEnabled = secant && any;
+        UpdateCsfeaImportedFactorsState();
+
+        var warnings = new List<string>();
+        string info = "";
+        if (secant)
+        {
+            if (_stiffnessCandidates == null) info = Loc.S("FemCsfeaStiffnessNoDb");
+            else if (!any) info = Loc.S("FemCsfeaStiffnessNoSources");
+            if (SelectedStiffnessCandidate is { } c)
+            {
+                info = string.Format(Loc.S("FemCsfeaStiffnessSourceLabel"), c.Describe());
+                if (!c.Completed) warnings.Add(Loc.S("FemCsfeaStiffnessNotCompleted"));
+                var calc = CsfeaCalcTypeBox.SelectedItem as CalcType? ?? CalcType.N;
+                if (c.Calc != calc) warnings.Add(string.Format(Loc.S("FemCsfeaStiffnessCalcMismatch"), c.Calc, calc));
+                if (c.Matches(_savedStiffnessSource) && _savedStiffnessStatus == FemCsfeaStiffnessSourceStatus.Changed)
+                    warnings.Add(Loc.S("FemCsfeaStiffnessChanged"));
+            }
+            if (_savedStiffnessStatus == FemCsfeaStiffnessSourceStatus.Missing)
+                warnings.Add(Loc.S("FemCsfeaStiffnessMissing"));
+        }
+        CsfeaStiffnessInfoText.Text = info;
+        CsfeaStiffnessInfoText.Visibility = info.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CsfeaStiffnessWarningText.Text = string.Join(Environment.NewLine, warnings);
+        CsfeaStiffnessWarningText.Visibility = warnings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Источник жёсткостей линейной постановки с отпечатком текущей записи; null — начальные жёсткости. Без БД остаётся
+    /// сохранённый источник. Ошибка (не выбран, нет записи или матриц) — <paramref name="error"/>.
+    /// </summary>
+    FemCsfeaStiffnessSource? ReadStiffnessSource(out string? error)
+    {
+        error = null;
+        if (CsfeaStiffnessSecantRadio.IsChecked != true) return null;
+        if (_csfeaContext?.Db is not { } db)
+        {
+            if (_savedStiffnessSource == null) error = Loc.S("FemCsfeaStiffnessNotSelected");
+            return _savedStiffnessSource;
+        }
+        if (SelectedStiffnessCandidate is not { } c)
+        {
+            error = Loc.S("FemCsfeaStiffnessNotSelected");
+            return null;
+        }
+        return FemCsfeaStiffnessSources.Fingerprint(db, c, out error);
     }
 
     /// <summary>Параметры CSfea из панели; null и текст ошибки — если значение вне допустимого.</summary>
@@ -382,9 +516,11 @@ public partial class FemAnalysisDialog : Window
     /// </summary>
     void UpdateCsfeaImportedFactorsState()
     {
-        if (CsfeaImportedFactorsCb == null || CsfeaPhysicalNonlinearityCb == null) return;
-        CsfeaImportedFactorsCb.IsEnabled = SelectedKind == FemCsfeaRunner.LinearAnalysisKind
-            || CsfeaPhysicalNonlinearityCb.IsChecked != true;
+        if (CsfeaImportedFactorsCb == null || CsfeaPhysicalNonlinearityCb == null || CsfeaStiffnessSecantRadio == null) return;
+        bool linear = SelectedKind == FemCsfeaRunner.LinearAnalysisKind;
+        // На жёсткостях секущего результата у ЖБ-КЭ жёсткость — из матрицы источника.
+        CsfeaImportedFactorsCb.IsEnabled = linear ? CsfeaStiffnessSecantRadio.IsChecked != true
+            : CsfeaPhysicalNonlinearityCb.IsChecked != true;
     }
 
     void UpdateCsfeaRecordingState()
@@ -573,6 +709,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaCrackRuleRow.Height = secantRow;
         CsfeaPoissonRow.Height = secantRow;
         CsfeaFlagsPanel.Visibility = secantOnly;
+        CsfeaStiffnessGroup.Visibility = csfeaLinear ? Visibility.Visible : Visibility.Collapsed;
         UpdateCsfeaImportedFactorsState();
         CsfeaIterationsGroup.Visibility = secantOnly;
         // Пакет пишет только конечное состояние каждого варианта — свой выбор хранения в панели пакета.
@@ -835,6 +972,15 @@ public partial class FemAnalysisDialog : Window
                     return null;
                 }
                 pars.CalcType = CsfeaCalcTypeBox.SelectedItem as CalcType? ?? CalcType.N;
+                if (isCsfeaLinear)
+                {
+                    csfea.StiffnessSource = ReadStiffnessSource(out var stiffnessError);
+                    if (stiffnessError != null)
+                    {
+                        MessageBox.Show(stiffnessError, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return null;
+                    }
+                }
                 pars.Csfea = csfea;
             }
             else

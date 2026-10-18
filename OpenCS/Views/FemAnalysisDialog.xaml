@@ -429,6 +429,34 @@
                 <TextBox Grid.Row="4" Grid.Column="1" x:Name="CsfeaPoissonBox" Height="22" VerticalContentAlignment="Center"
                          ToolTip="{DynamicResource FemCsfeaPoissonUncrackedTip}"/>
             </Grid>
+            <!-- Линейный CSfea: жёсткости КЭ — начальные или из конечного состояния секущего расчёта (ИН) -->
+            <GroupBox x:Name="CsfeaStiffnessGroup" Header="{DynamicResource FemCsfeaStiffnessGroup}" Margin="0,6,0,0"
+                      Visibility="Collapsed" ToolTip="{DynamicResource FemCsfeaStiffnessTip}">
+                <StackPanel Margin="4">
+                    <RadioButton x:Name="CsfeaStiffnessInitialRadio" GroupName="CsfeaStiffness" IsChecked="True"
+                                 Content="{DynamicResource FemCsfeaStiffnessInitial}" Margin="0,2"
+                                 Checked="CsfeaStiffness_Changed"/>
+                    <RadioButton x:Name="CsfeaStiffnessSecantRadio" GroupName="CsfeaStiffness"
+                                 Content="{DynamicResource FemCsfeaStiffnessSecant}" Margin="0,2"
+                                 Checked="CsfeaStiffness_Changed"/>
+                    <Grid Margin="20,2,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CsfeaStiffnessAnalysisBox" Height="22" VerticalContentAlignment="Center"
+                                  DisplayMemberPath="Label" SelectionChanged="CsfeaStiffnessAnalysis_Changed"
+                                  ToolTip="{DynamicResource FemCsfeaStiffnessAnalysisTip}"/>
+                        <ComboBox Grid.Column="2" x:Name="CsfeaStiffnessStateBox" Height="22" VerticalContentAlignment="Center"
+                                  DisplayMemberPath="Label" SelectionChanged="CsfeaStiffnessState_Changed"
+                                  ToolTip="{DynamicResource FemCsfeaStiffnessStateTip}"/>
+                    </Grid>
+                    <TextBlock x:Name="CsfeaStiffnessInfoText" Margin="20,4,0,0" TextWrapping="Wrap" FontSize="11"/>
+                    <TextBlock x:Name="CsfeaStiffnessWarningText" Margin="20,2,0,0" TextWrapping="Wrap" FontSize="11"
+                               Foreground="DarkOrange" Visibility="Collapsed"/>
+                </StackPanel>
+            </GroupBox>
             <CheckBox x:Name="CsfeaImportedFactorsCb" Content="{DynamicResource FemCsfeaImportedFactorsLabel}"
                       ToolTip="{DynamicResource FemCsfeaImportedFactorsTip}" Margin="0,6,0,0"/>
             <WrapPanel x:Name="CsfeaFlagsPanel" Margin="0,6,0,2">

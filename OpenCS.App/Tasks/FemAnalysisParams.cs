@@ -201,6 +201,12 @@ public sealed class FemCsfeaParams
     /// бетона. Действуют только в линейном расчёте и в секущем без физической нелинейности (только геомнелин).
     /// </summary>
     public bool ImportedStiffnessFactors { get; set; } = true;
+    /// <summary>
+    /// Линейный расчёт (инженерная нелинейность, спека 2026-10-17): жёсткости КЭ из записанного конечного состояния
+    /// секущего расчёта схемы; null — начальные упругие.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FemCsfeaStiffnessSource? StiffnessSource { get; set; }
     /// <summary>ν бетона до трещины; null — как в сечении.</summary>
     public double? PoissonUncracked { get; set; }
     /// <summary>
@@ -272,6 +278,32 @@ public sealed class FemCsfeaParams
         }
         return result.ToList();
     }
+}
+
+/// <summary>
+/// Источник жёсткостей КЭ линейного расчёта CSfea (<see cref="FemCsfeaParams.StiffnessSource"/>): секущая постановка
+/// схемы и её запись конечного состояния — постановки, варианта пакета или длительной части варианта. Отпечаток
+/// (<see cref="ResultCreated"/>, <see cref="RecordCrc"/>) — запись, выбранная пользователем: пересчитанный источник
+/// отличается и временем, и записью.
+/// </summary>
+public sealed class FemCsfeaStiffnessSource
+{
+    /// <summary>Секущая постановка схемы.</summary>
+    public int AnalysisId { get; set; }
+    /// <summary>Индекс варианта пакета (<c>FemCsfeaBatchSummary.Index</c>); null — конечное состояние постановки.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? BatchIndex { get; set; }
+    /// <summary>Длительная часть варианта <see cref="BatchIndex"/> (<c>FemCsfeaBatchLongKind</c>); null — сам вариант.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LongKind { get; set; }
+    /// <summary>Время расчёта результата источника (<c>CalcResult.Created</c>).</summary>
+    public string ResultCreated { get; set; } = "";
+    /// <summary>CRC-32 сжатой записи полей конечного состояния.</summary>
+    public uint RecordCrc { get; set; }
+
+    /// <summary>Та же запись источника (постановка, вариант, длительная часть) без учёта отпечатка.</summary>
+    public bool SameRecord(FemCsfeaStiffnessSource? other) => other != null && AnalysisId == other.AnalysisId
+        && BatchIndex == other.BatchIndex && LongKind == other.LongKind;
 }
 
 /// <summary>Что хранит пакетный расчёт CSfea (<see cref="FemCsfeaBatch.Recording"/>).</summary>

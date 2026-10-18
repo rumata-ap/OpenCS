@@ -456,6 +456,9 @@ public static class FemCsfeaRunner
         if (csfea.ResultRecording == FemCsfeaRecording.Selected)
             FemCsfeaParams.ParseRecordSteps(csfea.RecordSteps, out stepsError);
         if (stepsError != null) diag.Add(new("record_steps", stepsError, true));
+        // TODO(ИН, срез 2): сборка линейной задачи на записанных матрицах источника.
+        if (analysis.Kind == LinearAnalysisKind && csfea.StiffnessSource != null)
+            diag.Add(new("stiffness_source", "Линейный расчёт на жёсткостях секущего результата пока не реализован — выберите начальные жёсткости.", true));
 
         await EnsureMeshAsync(ctx, schema, buildMesh, diag, ct);
         if (diag.Any(d => d.IsError)) return new(null, null, diag);

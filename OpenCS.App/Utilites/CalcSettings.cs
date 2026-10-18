@@ -340,6 +340,19 @@ namespace OpenCS.Utilites
       [JsonPropertyName("csfeaBarStiffnessMean")]
       public bool CsfeaBarStiffnessMean { get; set; }
 
+      /// <summary>
+      /// Нижний предел жёсткости e_min линейного расчёта CSfea на жёсткостях секущего результата (инженерная
+      /// нелинейность): диагональ матрицы сечения КЭ не меньше e_min от начальной. Допустимо 0 &lt; e_min &lt; 1.
+      /// </summary>
+      [JsonPropertyName("csfeaStiffnessFloor")]
+      public double CsfeaStiffnessFloor { get; set; } = DefaultCsfeaStiffnessFloor;
+
+      public const double DefaultCsfeaStiffnessFloor = 0.01;
+
+      /// <summary><see cref="CsfeaStiffnessFloor"/> в допустимых пределах; иначе — по умолчанию.</summary>
+      public double ResolveCsfeaStiffnessFloor() =>
+         CsfeaStiffnessFloor is > 0 and < 1 ? CsfeaStiffnessFloor : DefaultCsfeaStiffnessFloor;
+
       // Настройки материалов (учёт растяжения бетона, источник/модель) специфичны для конкретной
       // постановки — хранятся в FemAnalysisParams, а не здесь (задаются в диалоге постановки).
 
@@ -404,6 +417,7 @@ namespace OpenCS.Utilites
          OpenSeesFiberStatesIntegrationPoints = OpenSeesFiberStatesIntegrationPoints,
          CsfeaThreads             = CsfeaThreads,
          CsfeaBarStiffnessMean    = CsfeaBarStiffnessMean,
+         CsfeaStiffnessFloor      = CsfeaStiffnessFloor,
       };
 
       /// <summary>Вид величин нагрузок для комбинаторики СП 20.</summary>
