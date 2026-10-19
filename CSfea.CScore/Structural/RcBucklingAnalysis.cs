@@ -154,8 +154,16 @@ public static class RcBucklingAnalysis
                 }
             result[i] = new RcBucklingGoverning(best, nMin);
         }
+        // Сжатие на уровне шума округления (ригели под узловой нагрузкой: N ≈ −10⁻¹⁰ Н) — не сжатие: иначе μ ~ 10⁶.
+        double nMax = result.Select(g => -g.N).DefaultIfEmpty(0).Max();
+        for (int i = 0; i < result.Length; i++)
+            if (result[i].Combination >= 0 && -result[i].N < NegligibleCompression * nMax)
+                result[i] = new RcBucklingGoverning(-1, 0);
         return result;
     }
+
+    // Доля наибольшего по схеме сжатия, ниже которой сжатие элемента считается шумом.
+    const double NegligibleCompression = 1e-6;
 
     /// <summary>
     /// Число частей стержней: стержень элемента из k КЭ — ⌈min/k⌉ частей; стержень нескольких элементов — наибольшее.
