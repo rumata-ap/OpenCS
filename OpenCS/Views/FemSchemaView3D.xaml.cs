@@ -415,11 +415,19 @@ public partial class FemSchemaView3D : UserControl
             if (vm.IsResultShown && attached) viewport.Children.Remove(v);
             else if (!vm.IsResultShown && !attached) viewport.Children.Add(v);
         }
-        if (_resultOriginalVisual != null) viewport.Children.Remove(_resultOriginalVisual);
-        _resultOriginalVisual = vm.ResultOriginalLines is { Count: > 0 } lines
-            ? new LinesVisual3D { Points = lines, Color = Colors.Gray, Thickness = 1 }
-            : null;
-        if (_resultOriginalVisual != null) viewport.Children.Add(_resultOriginalVisual);
+        // Один объект на показ результата, меняются только точки: экранные линии Helix строят геометрию на кадре
+        // отрисовки, и пересозданный объект при неподвижной камере мог остаться пустым (исходная схема не возвращалась).
+        if (vm.IsResultShown)
+        {
+            _resultOriginalVisual ??= new LinesVisual3D { Color = Colors.Gray, Thickness = 1 };
+            if (!viewport.Children.Contains(_resultOriginalVisual)) viewport.Children.Add(_resultOriginalVisual);
+            _resultOriginalVisual.Points = vm.ResultOriginalLines is { Count: > 0 } lines ? lines : new Point3DCollection();
+        }
+        else if (_resultOriginalVisual != null)
+        {
+            viewport.Children.Remove(_resultOriginalVisual);
+            _resultOriginalVisual = null;
+        }
         // «Сетка» при показе результата — рёбра КЭ результата (на деформированной геометрии, если она показана),
         // а не элементов схемы.
         if (_resultGridVisual != null) viewport.Children.Remove(_resultGridVisual);
@@ -1938,6 +1946,14 @@ public partial class FemSchemaView3D : UserControl
     void FragmentInvert_Click(object sender, RoutedEventArgs e) => VM?.InvertFragment();
 
     void FragmentShowAll_Click(object sender, RoutedEventArgs e) => VM?.ShowAllFragment();
+
+    /// <summary>Стрелки у списка форм потери устойчивости: предыдущая (Tag = −1) или следующая (Tag = 1) форма.</summary>
+    void ModeStep_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: FemResultLayer layer } button) return;
+        int delta = button.Tag as string == "-1" ? -1 : 1;
+        layer.SelectedStepIndex = Math.Clamp(layer.SelectedStepIndex + delta, 0, layer.MaxStepIndex);
+    }
 
     /// <summary>«⋯» строки шага: действия показанного результата (таблицы и графики — на показанном шаге, наборы усилий
     /// шага CSfea).</summary>

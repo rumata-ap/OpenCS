@@ -1108,6 +1108,8 @@
    <system:String x:Key="FemSteelAutoLefNomogramEq213">Ур. (2.13): G_A·G_B/4·(π/K)² + (G_A + G_B)/2·(1 − (π/K)/tg(π/K)) + 2·tg(π/2K)/(π/K) − 1 = 0 при G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
    <system:String x:Key="FemBucklingModeLabel">Форма:</system:String>
    <system:String x:Key="FemBucklingModeTip">Форма потери устойчивости: сочетание, номер формы и её λ (все формы, заказанные в постановке, по каждому сочетанию)</system:String>
+   <system:String x:Key="FemBucklingModePrev">Предыдущая форма</system:String>
+   <system:String x:Key="FemBucklingModeNext">Следующая форма</system:String>
    <system:String x:Key="FemSteelAutoLefNomogramFormPrefix">Справочно, по формам:</system:String>
    <system:String x:Key="FemSteelAutoLefNomogramBar">стержень</system:String>
    <system:String x:Key="FemBucklingSourceNomogramSway">номограмма, со смещением</system:String>

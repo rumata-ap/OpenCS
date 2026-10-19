@@ -1423,8 +1423,8 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
             foreach (string tag in both ? shellTags.Concat(barTags) : shellTags)
                values[tag] = result.Value(tag, rc) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
-            // Экстремум — по показанным КЭ (фрагмент вида).
-            result.UpdateSummary(rc, values.Keys);
+            // Экстремум — по всем показанным КЭ (фрагмент вида), и при эпюрах: у рамы без пластин иначе пусто.
+            result.UpdateSummary(rc, shellTags.Concat(barTags));
             bool signed = rc != FemResult.FemResultComponent.U;
             return new Field(values, Bars: false, signed, signed ? Palette.Forces : Palette.Rebar) { Both = both };
          }

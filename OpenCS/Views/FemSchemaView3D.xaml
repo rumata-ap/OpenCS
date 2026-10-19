@@ -341,9 +341,15 @@
                 <!-- Расчётные длины: формы потери устойчивости всех сочетаний (заказанное в постановке число форм) -->
                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowModeList, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="{DynamicResource FemBucklingModeLabel}" VerticalAlignment="Center" Margin="4,0"/>
-                    <ComboBox Width="300" Height="22" VerticalAlignment="Center" Margin="0,0,6,0" MaxDropDownHeight="420"
+                    <Button Style="{StaticResource IconButton25}" Click="ModeStep_Click" Tag="-1" ToolTip="{DynamicResource FemBucklingModePrev}">
+                        <Path Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Fill="Black" Stretch="Uniform" Margin="4"/>
+                    </Button>
+                    <ComboBox Width="300" Height="22" VerticalAlignment="Center" Margin="1,0" MaxDropDownHeight="420"
                               ItemsSource="{Binding StepNames}" SelectedIndex="{Binding SelectedStepIndex, Mode=TwoWay}"
                               ToolTip="{DynamicResource FemBucklingModeTip}"/>
+                    <Button Style="{StaticResource IconButton25}" Click="ModeStep_Click" Tag="1" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingModeNext}">
+                        <Path Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Fill="Black" Stretch="Uniform" Margin="4"/>
+                    </Button>
                 </StackPanel>
                 <!-- Деформированная схема: иконка-переключатель, масштаб, сброс, исходная схема под ней -->
                 <ToggleButton Style="{StaticResource IconToggleButton25}" IsChecked="{Binding ShowDeformed}"

@@ -1108,6 +1108,8 @@
    <system:String x:Key="FemSteelAutoLefNomogramEq213">Eq. (2.13): G_A·G_B/4·(π/K)² + (G_A + G_B)/2·(1 − (π/K)/tan(π/K)) + 2·tan(π/2K)/(π/K) − 1 = 0 with G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
    <system:String x:Key="FemBucklingModeLabel">Mode:</system:String>
    <system:String x:Key="FemBucklingModeTip">Buckling mode: combination, mode number and its λ (all modes requested in the analysis, for each combination)</system:String>
+   <system:String x:Key="FemBucklingModePrev">Previous mode</system:String>
+   <system:String x:Key="FemBucklingModeNext">Next mode</system:String>
    <system:String x:Key="FemSteelAutoLefNomogramFormPrefix">For reference, by modes:</system:String>
    <system:String x:Key="FemSteelAutoLefNomogramBar">bar</system:String>
    <system:String x:Key="FemBucklingSourceNomogramSway">chart, sway</system:String>
