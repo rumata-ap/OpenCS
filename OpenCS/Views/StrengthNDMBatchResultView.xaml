@@ -6,6 +6,7 @@
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
       <!-- Шапка: вердикт -->
@@ -20,9 +21,10 @@
       </StackPanel>
 
       <!-- Таблица строк -->
-      <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+      <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
                 IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
-                CanUserSortColumns="True">
+                CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                MouseDoubleClick="RowsGrid_MouseDoubleClick">
          <DataGrid.RowStyle>
             <Style TargetType="DataGridRow">
                <Style.Triggers>
@@ -35,6 +37,11 @@
                </Style.Triggers>
             </Style>
          </DataGrid.RowStyle>
+         <DataGrid.ContextMenu>
+            <ContextMenu>
+               <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+            </ContextMenu>
+         </DataGrid.ContextMenu>
             <DataGrid.Columns>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
                                    Binding="{Binding Num}" Width="40"/>
@@ -63,5 +70,11 @@
                                    Binding="{Binding StatusText}" Width="65"/>
             </DataGrid.Columns>
          </DataGrid>
+
+      <!-- Кнопки внизу -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"
+                 Padding="12,4" x:Name="CreateTaskBtn" IsEnabled="False"/>
+      </StackPanel>
    </Grid>
 </UserControl>

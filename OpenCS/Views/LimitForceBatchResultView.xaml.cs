@@ -44,31 +44,8 @@ public partial class LimitForceBatchResultView : UserControl
 
     private void CreateTask()
     {
-        var row = SelectedRow;
-        if (row == null) return;
-
-        var section = _app.CrossSections.FirstOrDefault(s => s.Id == _task.SectionId);
-        if (section == null)
-        {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
-
-        var tag = $"{section.Tag} — {row.Label}";
-
-        var newTask = new CalcTask
-        {
-            Kind = _singleKind,
-            SectionId = _task.SectionId,
-            CalcType = _task.CalcType,
-            Tag = tag,
-            ParamsJson = $"{{\"N\":{row.NText.Replace(',', '.')},\"Mx\":{row.MxText.Replace(',', '.')},\"My\":{row.MyText.Replace(',', '.')},\"solver\":\"bisection\"}}"
-        };
-
-        newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
-        _app.db.SaveCalcTask(newTask);
-        _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), tag));
+        if (SelectedRow is { } row)
+            BatchRowTask.CreateAndRun(_app, _task, row.Num);
     }
 
     private void ExportCsv_Click(object sender, RoutedEventArgs e)

@@ -1,6 +1,5 @@
 using CScore;
 using OpenCS.Tasks;
-using OpenCS.Views;
 using Xunit;
 
 namespace OpenCS.Tests;
@@ -18,7 +17,7 @@ public sealed class ShellSimplBatchSingleTaskTests
         };
         var row = new ShellLoadItem { Num = 3, Nx = 1, Ny = 2, Nxy = 3, Mx = 10, My = 20, Mxy = 5, SigmaX = 1000.0 };
 
-        var p = ShellSimplBatchResultView.SingleParams(System.Text.Json.JsonSerializer.Serialize(batch), row, 0.2);
+        var p = BatchRowTaskFactory.ShellSimplSingleParams(System.Text.Json.JsonSerializer.Serialize(batch), row, 0.2);
 
         Assert.Equal(5.0, p.StepDeg);
         Assert.Equal(0.2, p.AcrcLimMm);

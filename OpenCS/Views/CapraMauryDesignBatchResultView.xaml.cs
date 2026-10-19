@@ -37,34 +37,8 @@ public partial class CapraMauryDesignBatchResultView : System.Windows.Controls.U
     /// <summary>Одиночная задача подбора по выбранной строке: параметры пакета и усилия строки (уже приведённые к кН/м).</summary>
     void CreateTask()
     {
-        if (RowsGrid.SelectedItem is not CapraMauryDesignBatchRowVM row) return;
-        var section = _app.PlateSections.FirstOrDefault(s => s.Id == _task.SectionId);
-        if (section == null)
-        {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
-
-        var p = ShellSimplParams.Parse(_task.ParamsJson);
-        p.Nx = row.Source.Nx; p.Ny = row.Source.Ny; p.Nxy = row.Source.Nxy;
-        p.Mx = row.Source.Mx; p.My = row.Source.My; p.Mxy = row.Source.Mxy;
-        p.Qx = row.Source.Qx; p.Qy = row.Source.Qy;
-        p.AutoStressToForce = false;
-        p.StripModel = "ndm";
-
-        var tag = $"{section.Tag} — {row.Label}";
-        var newTask = new CalcTask
-        {
-            Kind = _task.Kind.Replace("_batch", ""),
-            SectionId = _task.SectionId,
-            CalcType = _task.CalcType,
-            Tag = tag,
-            ForceSetId = _task.ForceSetId,
-            ParamsJson = JsonSerializer.Serialize(p),
-        };
-        newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
-        _app.db.SaveCalcTask(newTask);
-        _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), tag));
+        if (RowsGrid.SelectedItem is CapraMauryDesignBatchRowVM row)
+            BatchRowTask.CreateAndRun(_app, _task, row.Source.Num);
     }
 }
 

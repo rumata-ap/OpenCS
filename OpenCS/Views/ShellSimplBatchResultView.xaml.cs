@@ -48,66 +48,8 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
 
     private void CreateTask()
     {
-        var row = SelectedRow;
-        if (row == null) return;
-
-        // Задачи пластин ссылаются на плитное сечение, а не на сечение стержня.
-        var section = _app.PlateSections.FirstOrDefault(s => s.Id == _task.SectionId);
-        if (section == null)
-        {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
-
-        var forceSet = _app.ShellForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId)
-                    ?? _app.BarForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId);
-        if (forceSet == null)
-        {
-            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
-
-        var shellItem = forceSet.ShellItems.FirstOrDefault(si => si.Num == row.Num);
-        if (shellItem == null)
-        {
-            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
-
-        var singleKind = _task.Kind.Replace("_batch", "");
-        var tag = $"{section.Tag} — {row.Label}";
-
-        var newTask = new CalcTask
-        {
-            Kind = singleKind,
-            SectionId = _task.SectionId,
-            CalcType = _task.CalcType,
-            Tag = tag,
-            ForceSetId = _task.ForceSetId,
-            ParamsJson = System.Text.Json.JsonSerializer.Serialize(SingleParams(_task.ParamsJson, shellItem, section.H))
-        };
-
-        newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
-        _app.db.SaveCalcTask(newTask);
-        _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), tag));
-    }
-
-    /// <summary>
-    /// Параметры одиночной задачи по строке пакета: все параметры пакета (шаг фасеток, предел и
-    /// коэффициенты трещин, модель полосы, способ проверки КМ) и усилия строки — те же, что брал пакет
-    /// (Nx/Ny/Nxy через ResolveN при «напряжения → усилия»), уже приведённые к кН/м.
-    /// </summary>
-    public static OpenCS.Tasks.ShellSimplParams SingleParams(string? batchParamsJson, ShellLoadItem shellItem, double h)
-    {
-        var p = OpenCS.Tasks.ShellSimplParams.Parse(batchParamsJson);
-        (p.Nx, p.Ny, p.Nxy) = p.AutoStressToForce ? shellItem.ResolveN(h) : (shellItem.Nx, shellItem.Ny, shellItem.Nxy);
-        p.Mx = shellItem.Mx; p.My = shellItem.My; p.Mxy = shellItem.Mxy;
-        p.Qx = shellItem.Qx; p.Qy = shellItem.Qy;
-        p.AutoStressToForce = false;
-        return p;
+        if (SelectedRow is { } row)
+            BatchRowTask.CreateAndRun(_app, _task, row.Num);
     }
 
     private void ExportCsv_Click(object sender, RoutedEventArgs e)
