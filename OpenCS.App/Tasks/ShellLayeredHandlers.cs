@@ -131,11 +131,14 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                 throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
 
             var p = ShellStrainParams.Parse(task.ParamsJson);
-            var rows = new List<object>(forceSet.ShellItems.Count);
-            int passedCount = 0;
+            // Плита и материалы только читаются — строки независимы.
+            var items = forceSet.ShellItems;
+            var rows = new object[items.Count];
+            var passedArr = new bool[items.Count];
 
-            foreach (var si in forceSet.ShellItems)
+            BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
+                var si = items[i];
                 var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
                 var resolved = new ShellLoadItem
                 {
@@ -151,11 +154,11 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                     tensionOverride: settings.ConsiderConcreteTensionUls);
 
                 bool passed = chk.Converged && chk.Passed;
-                if (passed) passedCount++;
+                passedArr[i] = passed;
                 string rowStatus = !chk.Converged ? "not_converged"
                                  : passed ? "ok" : "fail";
 
-                rows.Add(new
+                rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
@@ -165,15 +168,16 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                     note = chk.Description,
                     iterations = chk.Iterations,
                     residual = Math.Round(chk.Residual, 6),
-                });
-            }
+                };
+            });
 
-            bool allOk = passedCount == rows.Count;
+            int passedCount = passedArr.Count(x => x);
+            bool allOk = passedCount == rows.Length;
             var data = new
             {
                 all_ok = allOk,
                 converged_count = passedCount,
-                total = rows.Count,
+                total = rows.Length,
                 rows,
             };
 
@@ -386,10 +390,12 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
             // сам решатель кэша не держит, но и не зависит от набора усилий.
             var crackingSolver = new ShellCrackingSolver(plate, cDiag, rDiag);
 
-            var rows = new List<object>(forceSet.ShellItems.Count);
-            int okCount = 0;
-            foreach (var si in forceSet.ShellItems)
+            var items = forceSet.ShellItems;
+            var rows = new object[items.Count];
+            var okArr = new bool[items.Count];
+            BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
+                var si = items[i];
                 var (nx, ny, nxy) = p.AutoStressToForce
                     ? si.ResolveN(plate.H)
                     : (si.Nx, si.Ny, si.Nxy);
@@ -429,8 +435,8 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                     rowStatus = passed ? "ok" : "not_passed";
                 }
 
-                if (rowStatus == "ok") okCount++;
-                rows.Add(new
+                okArr[i] = rowStatus == "ok";
+                rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
@@ -439,11 +445,12 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                     crack_angle_deg = angle,
                     direction,
                     face,
-                });
-            }
+                };
+            });
 
-            bool allOk = okCount == rows.Count;
-            var data = new { all_ok = allOk, ok_count = okCount, total = rows.Count, rows };
+            int okCount = okArr.Count(x => x);
+            bool allOk = okCount == rows.Length;
+            var data = new { all_ok = allOk, ok_count = okCount, total = rows.Length, rows };
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,

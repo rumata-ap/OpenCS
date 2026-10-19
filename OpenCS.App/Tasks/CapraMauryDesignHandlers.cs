@@ -136,16 +136,19 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
             if (forceSet.ShellItems.Count == 0)
                 throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
 
-            var rows = new List<CapraMauryDesignBatchRow>(forceSet.ShellItems.Count);
-            foreach (var si in forceSet.ShellItems)
+            // Контекст подбора неизменяем — строки считаются независимо (параллельно при включённой настройке).
+            var items = forceSet.ShellItems;
+            var rowArr = new CapraMauryDesignBatchRow[items.Count];
+            BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
+                var si = items[i];
                 var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
                 var r = design(nx, ny, nxy, si.Mx, si.My, si.Mxy, p.StepDeg);
                 var shear = shearRow(si.Qx, si.Qy, nx, ny, nxy, si.Mx, si.My, si.Mxy, r);
                 var diagnostics = r.Diagnostics.ToList();
                 if (shear is { EtaStrip: > 1.0 })
                     diagnostics.Add($"(8.55): Кисп,Q = {shear.EtaStrip:F2} > 1");
-                rows.Add(new CapraMauryDesignBatchRow
+                rowArr[i] = new CapraMauryDesignBatchRow
                 {
                     Num = si.Num, Label = si.Label,
                     Nx = nx, Ny = ny, Nxy = nxy, Mx = si.Mx, My = si.My, Mxy = si.Mxy, Qx = si.Qx, Qy = si.Qy,
@@ -153,8 +156,9 @@ public abstract class CapraMauryDesignBatchHandlerBase(bool sls) : ITaskHandler
                     AswPerSw = shear?.AswPerSw ?? 0.0, EtaQStrip = shear?.EtaStrip ?? 0.0,
                     Feasible = r.Feasible && (shear == null || shear.EtaStrip <= 1.0),
                     Diagnostics = string.Join("; ", diagnostics),
-                });
-            }
+                };
+            });
+            var rows = rowArr.ToList();
 
             var data = new CapraMauryDesignBatchData
             {

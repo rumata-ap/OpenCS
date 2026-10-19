@@ -45,13 +45,14 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
             }
 
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
-            var solver = new CrackWidthSolver(section,
+            CrackWidthSolver Solver(CrossSection s) => new(s,
                 calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin,
                 psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin);
+            var shared = Solver(section);
 
             var etaParams = LimitForceParams.Parse(task.ParamsJson);
             double etaThreshold = etaParams.EtaSlendernessThreshold
@@ -60,12 +61,15 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
 
             var items = forceSet.Items;
             int total = items.Count;
-            var rowResults = new List<object>(total);
-            int passedCount = 0;
+            var rowResults = new object[total];
+            var passedArr = new bool[total];
 
-            for (int i = 0; i < total; i++)
+            BatchProgress.ForEachRow(total, settings, ctx, i =>
             {
                 var fi = items[i];
+                // Расчёт меняет состояние сечения (фибры) — в параллели у каждой строки свой клон.
+                var sec = settings.BatchParallel ? section.CloneForCalc() : section;
+                var solver = settings.BatchParallel ? Solver(sec) : shared;
                 double nTotal = fi.N, mxTotal = fi.Mx, myTotal = fi.My;
                 double mxLong, myLong;
 
@@ -102,14 +106,14 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 {
                     double psiX = CrackWidthEta.AutoPsi(mxLongIn, mxTotalIn);
                     double psiY = CrackWidthEta.AutoPsi(myLongIn, myTotalIn);
-                    var strainSolver = new StrainSolver(section, CalcType.N,
+                    var strainSolver = new StrainSolver(sec, CalcType.N,
                         ten: ten,
                         tol: settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
                         h: settings.NewtonDeltaH,
                         centralJacobian: settings.NewtonJacobian == "central");
                     var wiring = RodEtaWiring.Apply(
-                        section, nTotal, mxTotalIn, myTotalIn,
+                        sec, nTotal, mxTotalIn, myTotalIn,
                         etaParams.EtaL0x, etaParams.EtaL0y,
                         psiX, psiY, etaParams.EtaIterative,
                         (mx, my) => strainSolver.Solve(nTotal, mx, my),
@@ -137,9 +141,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 }
 
                 var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
-                if (res.PassedLong && res.PassedShort) passedCount++;
+                passedArr[i] = res.PassedLong && res.PassedShort;
 
-                rowResults.Add(new
+                rowResults[i] = new
                 {
                     label = fi.Label,
                     num = fi.Num,
@@ -155,9 +159,10 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     passed_short = res.PassedShort,
                     status = (res.PassedLong && res.PassedShort) ? "ok" : "not_passed",
                     eta = etaRow
-                });
-            }
+                };
+            });
 
+            int passedCount = passedArr.Count(x => x);
             bool allPassed = passedCount == total;
 
             var data = new

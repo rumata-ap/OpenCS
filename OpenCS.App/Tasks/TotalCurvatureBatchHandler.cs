@@ -39,28 +39,30 @@ public sealed class TotalCurvatureBatchHandler : ITaskHandler
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL
                 ? task.CalcType
                 : CalcType.N;
-            var solver = new TotalCurvatureSolver(section, calcCrc: calcCrc,
+            TotalCurvatureSolver Solver(CrossSection s) => new(s, calcCrc: calcCrc,
                 solverTol: settings.NewtonTolerance,
                 solverMaxIter: settings.NewtonMaxIter,
                 solverH: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
+            var shared = Solver(section);
 
-            var rows = new List<object>(forceSet.Items.Count);
-            int convergedCount = 0;
-            foreach (var forceItem in forceSet.Items)
+            var items = forceSet.Items;
+            var rows = new object[items.Count];
+            var convergedArr = new bool[items.Count];
+            BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
-                ctx.CancellationToken.ThrowIfCancellationRequested();
-
+                var forceItem = items[i];
+                // Расчёт меняет состояние сечения (фибры) — в параллели у каждой строки свой клон.
+                var solver = settings.BatchParallel ? Solver(section.CloneForCalc()) : shared;
                 double nTotal = forceItem.N;
                 double mxTotal = forceItem.Mx;
                 double myTotal = forceItem.My;
                 var (mxLong, myLong) = TotalCurvatureHandler.ResolveLongMoments(
                     parameters, mxTotal, myTotal);
                 var result = solver.Compute(nTotal, mxLong, myLong, mxTotal, myTotal);
-                if (result.AllConverged)
-                    convergedCount++;
+                convergedArr[i] = result.AllConverged;
 
-                rows.Add(new
+                rows[i] = new
                 {
                     label = forceItem.Label,
                     num = forceItem.Num,
@@ -75,9 +77,10 @@ public sealed class TotalCurvatureBatchHandler : ITaskHandler
                     kz_full = Math.Round(result.KzFull, 8),
                     k_full = Math.Round(result.KFull, 8),
                     converged = result.AllConverged
-                });
-            }
+                };
+            });
 
+            int convergedCount = convergedArr.Count(c => c);
             bool allConverged = convergedCount == forceSet.Items.Count;
             var data = new
             {

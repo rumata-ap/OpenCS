@@ -38,15 +38,19 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
             int? thermalId = reference.ResultId;
             int snapshotIndex = FireThermalReference.ResolveSnapshotIndex(thermal, p.SnapshotTimeMin, p.SnapshotIndex);
 
-            var rows = new List<object>();
-            bool allPassed = true;
-            double worstMargin = double.PositiveInfinity;
+            var items = forceSet.Items;
+            var rows = new object[items.Count];
+            var passedArr = new bool[items.Count];
+            var margins = new double[items.Count];
 
-            foreach (var fi in forceSet.Items)
+            BatchProgress.ForEachRow(items.Count, settings, ctx, i =>
             {
+                var fi = items[i];
+                // Проверка строит диаграммы на сечении — в параллели у каждой строки свой клон.
+                var sec = settings.BatchParallel ? section.CloneForCalc() : section;
                 FireCheckResult check = FireRCheck.Run(
                     thermal,
-                    section,
+                    sec,
                     fi.N,
                     fi.Mx,
                     fi.My,
@@ -59,12 +63,10 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     settings.RebarDifferentialDiagram,
                     ctx?.Database?.Diagrams, settings.EkbDescEtaMin);
 
-                if (!check.Passed)
-                    allPassed = false;
-                if (check.Margin < worstMargin)
-                    worstMargin = check.Margin;
+                passedArr[i] = check.Passed;
+                margins[i] = check.Margin;
 
-                rows.Add(new
+                rows[i] = new
                 {
                     force_item_id = fi.Id,
                     num = fi.Num,
@@ -73,8 +75,13 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     margin = check.Margin,
                     factor = check.Details.GetValueOrDefault("factor"),
                     governing = check.Details.GetValueOrDefault("governing")
-                });
-            }
+                };
+            });
+
+            bool allPassed = passedArr.All(x => x);
+            double worstMargin = double.PositiveInfinity;
+            foreach (double m in margins)
+                if (m < worstMargin) worstMargin = m;
 
             var data = new
             {

@@ -74,6 +74,44 @@ public sealed class ShearInclinedBatchHandlerTests
     }
 
     [Fact]
+    public void Run_ParallelEqualsSequential()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = new DatabaseService(path);
+            database.ForceSets.Add(new ForceSet
+            {
+                Id = 5, Kind = "bar", Tag = "РСУ-1",
+                Items =
+                [
+                    new LoadItem { Num = 1, Label = "оп. A", Vy = 200.0, Mx = -120.0 },
+                    new LoadItem { Num = 2, Label = "оп. B", Vy = 90.0, Mx = -60.0 },
+                    new LoadItem { Num = 3, Label = "пролёт", Vy = 40.0, Mx = 80.0 },
+                    new LoadItem { Num = 4, Label = "сжатие", Vy = 150.0, Mx = -90.0, N = -300.0 },
+                    new LoadItem { Num = 5, Label = "растяжение", Vy = 120.0, Mx = -70.0, N = 150.0 },
+                    new LoadItem { Num = 6, Label = "перегруз", Vy = 600.0, Mx = -250.0 },
+                ]
+            });
+            var task = new CalcTask
+            {
+                Id = 1, Kind = "shear_inclined_batch", CalcType = CalcType.C, ForceSetId = 5,
+                ParamsJson = new ShearInclinedParams { ConstructiveRequirements103Confirmed = true }.ToJson()
+            };
+            var ctx = new TaskRunContext { Database = database };
+
+            var sequential = new ShearInclinedBatchHandler().Run(task, ShearInclinedFixtures.Beam(), new LoadItem(),
+                new CalcSettings { BatchParallel = false }, ctx);
+            var parallel = new ShearInclinedBatchHandler().Run(task, ShearInclinedFixtures.Beam(), new LoadItem(),
+                new CalcSettings { BatchParallel = true }, ctx);
+
+            Assert.Equal("ok", sequential.Status);
+            Assert.Equal(sequential.DataJson, parallel.DataJson);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Run_RowOutsideApplicability_MarksRowAndAggregateAsNotApplicable()
     {
         string path = TempPath();

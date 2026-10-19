@@ -118,11 +118,15 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
 
             var sp = ShellSimplParams.Parse(task.ParamsJson);
-            var rows = new List<object>(forceSet.ShellItems.Count);
-            int convergedCount = 0;
+            var items = forceSet.ShellItems;
+            int total = items.Count;
+            var rows = new object[total];
+            var passed = new bool[total];
 
-            foreach (var si in forceSet.ShellItems)
+            // Строки независимы: решатель только читает плиту и материалы (диаграммы строятся на каждый вызов).
+            void SolveRow(int i)
             {
+                var si = items[i];
                 var (nx, ny, nxy) = sp.AutoStressToForce ? si.ResolveN(plateSection.H) : (si.Nx, si.Ny, si.Nxy);
                 var solveParams = new ShellSimplSolver.SolveParams(
                     nx, ny, nxy, si.Mx, si.My, si.Mxy,
@@ -134,7 +138,6 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
 
                 double? etaMax = result.EtaMax;
                 bool ok;
-                string rowStatus;
 
                 // Через ограничения ПС2 тоже даёт Кисп = max r/As_n.
                 if (IsSls && result.CapriConstraints == null)
@@ -142,32 +145,30 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                     var dirs = result.CapriDirs ?? [];
                     double maxAcrc = dirs.Count > 0 ? dirs.Max(d => d.Strip.Acrc_mm) : 0;
                     ok = maxAcrc <= sp.AcrcLimMm;
-                    rowStatus = ok ? "ok" : "fail";
-                    if (ok) convergedCount++;
                 }
                 else
-                {
                     ok = etaMax.HasValue && etaMax.Value <= 1.0;
-                    rowStatus = ok ? "ok" : "fail";
-                    if (ok) convergedCount++;
-                }
 
-                rows.Add(new
+                passed[i] = ok;
+                rows[i] = new
                 {
                     num = si.Num,
                     label = si.Label,
-                    status = rowStatus,
+                    status = ok ? "ok" : "fail",
                     eta_max = etaMax,
                     eta_q = result.Shear?.Eta,
-                });
+                };
             }
 
-            bool allOk = convergedCount == rows.Count;
+            BatchProgress.ForEachRow(total, settings, ctx, SolveRow);
+
+            int convergedCount = passed.Count(p => p);
+            bool allOk = convergedCount == total;
             var data = new
             {
                 all_ok = allOk,
                 converged_count = convergedCount,
-                total = rows.Count,
+                total,
                 rows,
                 method = KindId.Contains("wa_") ? "wa" : "capri",
                 calc_type = IsSls ? "sls" : "uls",
