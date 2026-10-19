@@ -287,6 +287,13 @@
                                 <ComboBoxItem Tag="sp16" Content="{DynamicResource FemBucklingMethodSp16}"/>
                             </ComboBox>
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4" ToolTip="{DynamicResource FemBucklingForcesTip}">
+                            <TextBlock Text="{DynamicResource FemBucklingForcesLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="BucklingForcesCombo" Width="330" Height="22">
+                                <ComboBoxItem Tag="envelope" Content="{DynamicResource FemBucklingForcesEnvelope}"/>
+                                <ComboBoxItem Tag="governing" Content="{DynamicResource FemBucklingForcesGoverning}"/>
+                            </ComboBox>
+                        </StackPanel>
                         <StackPanel x:Name="BucklingNomogramPanel" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                 <TextBlock Text="{DynamicResource FemBucklingSwayLabel}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingSwayTip}"/>

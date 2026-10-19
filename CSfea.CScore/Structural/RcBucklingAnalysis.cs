@@ -46,6 +46,15 @@ public sealed class RcBucklingResult
     /// <summary>Перемещения линейного расчёта по сочетанию (полные DOF сетки) — состояние, по которому собрана K_σ.</summary>
     public required double[] URef { get; init; }
 
+    /// <summary>
+    /// Заданные продольные силы стержней сетки (огибающая сжатия по сочетаниям, <see cref="RcBucklingAnalysis.SolveEnvelope"/>);
+    /// null — силы по <see cref="URef"/>. Оболочки — всегда по <see cref="URef"/>.
+    /// </summary>
+    public double[]? BeamAxial { get; init; }
+
+    /// <summary>Продольная сила стержня сетки, по которой собрана K_σ (растяжение — плюс).</summary>
+    public double Axial(int beam) => BeamAxial?[beam] ?? Build.Mesh.BeamAxialForce(beam, URef);
+
     /// <summary>Наименьшие положительные коэффициенты сочетания λ по возрастанию.</summary>
     public required double[] Lambda { get; init; }
 
@@ -105,6 +114,65 @@ public static class RcBucklingAnalysis
     }
 
     /// <summary>
+    /// Задача устойчивости по огибающей сжатия: у каждого стержня сетки — наибольшее сжатие по сочетаниям (стержень,
+    /// растянутый во всех, — с наименьшим растяжением), K_σ стержней собирается по этим силам одновременно. Так
+    /// незагруженные в одном сочетании колонны не раскрепляют загруженные в другом (μ по сочетанию с наибольшим N
+    /// элемента для остальных сочетаний бывает не в запас). Оболочки — по сочетанию <paramref name="shellCombination"/>
+    /// (мембранные усилия не огибаются). λ — коэффициент к огибающей: λ₁ ≤ 1 — схема неустойчива при огибающей.
+    /// </summary>
+    public static RcBucklingResult SolveEnvelope(RcBucklingModel model,
+        IReadOnlyList<IReadOnlyList<(int LoadCase, double Factor)>> combinations, int shellCombination,
+        RcBucklingOptions? options = null, CancellationToken ct = default)
+    {
+        options ??= new RcBucklingOptions();
+        var build = model.Build;
+        var (u, column, caseIds) = SolveCases(build, combinations, ct);
+        var mesh = build.Mesh;
+        var axial = new double[mesh.Beams.Count];
+        for (int b = 0; b < axial.Length; b++)
+        {
+            var forces = u.Select(uk => mesh.BeamAxialForce(b, uk)).ToArray();
+            double env = double.PositiveInfinity;
+            foreach (var c in combinations)
+                env = Math.Min(env, c.Sum(t => t.Factor * forces[column[t.LoadCase]]));
+            axial[b] = double.IsFinite(env) ? env : 0;
+        }
+        ct.ThrowIfCancellationRequested();
+        var uShell = Sum(build, u, column, combinations[shellCombination]);
+        var r = mesh.SolveBuckling(uShell, build.Bc, options.Modes, beamAxial: axial);
+        return new RcBucklingResult
+        {
+            Model = model, URef = uShell, BeamAxial = axial, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged,
+        };
+    }
+
+    // Линейные решения загружений сочетаний одной факторизацией: перемещения по загружениям, загружение → столбец.
+    static (double[][] U, Dictionary<int, int> Column, int[] CaseIds) SolveCases(RcStructuralMeshBuild build,
+        IReadOnlyList<IReadOnlyList<(int LoadCase, double Factor)>> combinations, CancellationToken ct)
+    {
+        var caseIds = combinations.SelectMany(c => c.Select(t => t.LoadCase)).Distinct().ToArray();
+        var loads = caseIds.Select(id => build.Combination([(id, 1.0)])).ToList();
+        double[][] u = loads.Count == 0 ? [] : build.Mesh.SolveLinear(loads, build.Bc);
+        ct.ThrowIfCancellationRequested();
+        var column = new Dictionary<int, int>();
+        for (int k = 0; k < caseIds.Length; k++) column[caseIds[k]] = k;
+        return (u, column, caseIds);
+    }
+
+    // Перемещения сочетания — сумма решений загружений с коэффициентами.
+    static double[] Sum(RcStructuralMeshBuild build, double[][] u, Dictionary<int, int> column,
+        IReadOnlyList<(int LoadCase, double Factor)> combination)
+    {
+        var sum = new double[u.Length > 0 ? u[0].Length : build.Mesh.NDof];
+        foreach (var (lc, f) in combination)
+        {
+            var uk = u[column[lc]];
+            for (int i = 0; i < sum.Length; i++) sum[i] += f * uk[i];
+        }
+        return sum;
+    }
+
+    /// <summary>
     /// Локальные задачи устойчивости расчётных элементов (спека 2026-10-18, п. 3Д): остальная схема — при фактическом
     /// сочетании задачи <paramref name="result"/>, продольные силы подэлементов элемента умножаются на α
     /// (<see cref="StructuralMesh.SolveLocalBuckling"/>). Только для элементов <paramref name="which"/> (по умолчанию —
@@ -115,7 +183,7 @@ public static class RcBucklingAnalysis
     {
         var ids = (which ?? Enumerable.Range(0, units.Count)).Distinct().ToArray();
         var groups = ids.Select(i => units[i].SelectMany(id => result.SubBeams[id]).ToArray()).ToList();
-        var solved = result.Build.Mesh.SolveLocalBuckling(result.URef, result.Build.Bc, groups);
+        var solved = result.Build.Mesh.SolveLocalBuckling(result.URef, result.Build.Bc, groups, beamAxial: result.BeamAxial);
         var local = new StructuralLocalBuckling?[units.Count];
         for (int k = 0; k < ids.Length; k++) local[ids[k]] = solved[k];
         return local;
@@ -131,12 +199,7 @@ public static class RcBucklingAnalysis
         IReadOnlyList<IReadOnlyList<(int LoadCase, double Factor)>> combinations, CancellationToken ct = default)
     {
         var build = model.Build;
-        var caseIds = combinations.SelectMany(c => c.Select(t => t.LoadCase)).Distinct().ToArray();
-        var loads = caseIds.Select(id => build.Combination([(id, 1.0)])).ToList();
-        double[][] u = loads.Count == 0 ? [] : build.Mesh.SolveLinear(loads, build.Bc);
-        ct.ThrowIfCancellationRequested();
-        var column = new Dictionary<int, int>();
-        for (int k = 0; k < caseIds.Length; k++) column[caseIds[k]] = k;
+        var (u, column, _) = SolveCases(build, combinations, ct);
 
         var result = new RcBucklingGoverning[units.Count];
         for (int i = 0; i < units.Count; i++)

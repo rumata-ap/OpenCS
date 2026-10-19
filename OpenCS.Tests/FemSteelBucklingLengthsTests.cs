@@ -122,4 +122,56 @@ public sealed class FemSteelBucklingLengthsTests
         Assert.False(manual.Lengths[1]!.AboutY.Nomogram!.Sway);        // импорт: x — вокруг y
         Assert.True(manual.Lengths[1]!.AboutZ.Nomogram!.Sway);
     }
+
+    /// <summary>
+    /// Шесть консолей 4 м с шарнирами вверху, верх — шарнирные тяги; С1 — P на все, С2 — 1,2P на две крайние. По
+    /// умолчанию — одна задача по огибающей: крайняя μx = 1,886 (в С1 сама по себе — 2), определяющее сочетание в сводке —
+    /// С2. По определяющим сочетаниям (п. 10.3.2) — две задачи, у крайней μx = 1,176: незагруженные в С2 колонны её
+    /// раскрепляют — для С1 не в запас (CSfea.Tests RcBucklingLengthsTests.RunEnvelope — вывод значений).
+    /// </summary>
+    [Fact]
+    public void Run_EnvelopeByDefault_GoverningOnRequest()
+    {
+        const int My = 1 << 4, Mz = 1 << 5;
+        var col = new RcBeamSection("col") { Elastic = new BeamSection(E, 1e-2, 1e-4, 1e-4), CrossYAlongLocalY = true };
+        var link = new RcBeamSection("link") { Elastic = new BeamSection(E, 1e-1, 1e-3, 1e-3) };
+        var m = new RcStructuralModel();
+        for (int i = 0; i < 6; i++)
+        {
+            m.Nodes.Add(new RcNode(10 + i, 5.0 * i, 0, 0));
+            m.Nodes.Add(new RcNode(20 + i, 5.0 * i, 0, 4));
+            m.Beams.Add(new RcBeam(100 + i, 10 + i, 20 + i, col, [1.0, 0.0, 0.0], 0, My | Mz));
+            m.Supports.Add(new RcSupport(10 + i, 0b111111));
+            m.Supports.Add(new RcSupport(20 + i, 0b111010));
+            if (i > 0) m.Beams.Add(new RcBeam(200 + i, 19 + i, 20 + i, link, [0.0, 1.0, 0.0], My | Mz, My | Mz));
+        }
+        var all = new RcLoadCase(1, "все");
+        for (int i = 0; i < 6; i++) all.Nodal.Add(new RcNodalLoad(20 + i, [0.0, 0, -1000, 0, 0, 0]));
+        var two = new RcLoadCase(2, "две");
+        for (int i = 0; i < 2; i++) two.Nodal.Add(new RcNodalLoad(20 + i, [0.0, 0, -1200, 0, 0, 0]));
+        m.LoadCases.Add(all);
+        m.LoadCases.Add(two);
+        var input = new FemSteelBucklingInput(new FemRcModelResult(m, [], []),
+            Enumerable.Range(0, 6).Select(i => new FemBucklingUnit(null, [$"{100 + i}"])).ToList(),
+            Enumerable.Range(0, 6).Select(i => (IReadOnlyList<int>)[100 + i]).ToList(),
+            [new FemRcStage("С1", [(1, 1.0)]), new FemRcStage("С2", [(2, 1.0)])], []);
+        var options = new RcBucklingOptions(Modes: 4);
+
+        var envelope = FemSteelBuckling.Run(input, options);
+        var c = Assert.Single(envelope.Cases);
+        Assert.True(c.Envelope);
+        Assert.Equal(6, c.Units.Count);
+        Assert.Same(c, envelope.CaseOf(0));
+        Assert.Equal(1.886, FemSteelBuckling.ElementLengths(input, envelope)["100"].MuX!.Value, 0.01);
+        var summary = FemSteelBuckling.Summarize(input, envelope);
+        Assert.Equal("С2", summary[0].Combination);
+        Assert.Equal("С1", summary[3].Combination);
+        Assert.Equal(-1200, summary[0].N, 6);
+
+        var governing = FemSteelBuckling.Run(input, options,
+            method: new OpenCS.Tasks.FemBucklingParams { Forces = OpenCS.Tasks.FemBucklingParams.ForcesGoverning });
+        Assert.Equal(2, governing.Cases.Count);
+        Assert.DoesNotContain(governing.Cases, x => x.Envelope);
+        Assert.Equal(1.176, FemSteelBuckling.ElementLengths(input, governing)["100"].MuX!.Value, 0.01);
+    }
 }

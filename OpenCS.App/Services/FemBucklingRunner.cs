@@ -51,10 +51,14 @@ public sealed class FemBucklingUnitSummary
     public double? Kzu() => new[] { Kzu(X), Kzu(Y) }.Where(k => k != null).Min();
 }
 
-/// <summary>Задача устойчивости по сочетанию: λ форм по возрастанию, номер первой записи формы (с 1).</summary>
+/// <summary>
+/// Задача устойчивости по сочетанию или по огибающей сжатия (<see cref="Envelope"/>): λ форм по возрастанию, номер первой
+/// записи формы (с 1).
+/// </summary>
 public sealed class FemBucklingCaseSummary
 {
     public string Tag { get; set; } = "";
+    public bool Envelope { get; set; }
     public double[] Lambda { get; set; } = [];
     public bool Converged { get; set; }
     public bool Unstable { get; set; }
@@ -94,7 +98,7 @@ public sealed class FemBucklingSummary
     {
         var ci = CultureInfo.CurrentCulture;
         foreach (var c in Cases)
-            yield return string.Format(ci, Loc.S("FemBucklingCaseLine"), c.Tag, c.Units,
+            yield return string.Format(ci, Loc.S(c.Envelope ? "FemBucklingEnvelopeCaseLine" : "FemBucklingCaseLine"), c.Tag, c.Units,
                 c.Lambda.Length > 0 ? c.Lambda[0].ToString("0.###", ci) : "—", c.Lambda.Length)
                 + (c.Converged ? "" : " " + Loc.S("FemBucklingNotConverged"))
                 + (c.Unstable ? " " + Loc.S("FemBucklingUnstable") : "");
@@ -170,7 +174,8 @@ public static class FemBucklingModeCodec
 public static class FemBucklingFingerprint
 {
     /// <param name="method">Метод назначения μ; номограммный — со своими параметрами в отпечатке, по формам — без них
-    /// (отпечатки результатов до номограмм остаются прежними).</param>
+    /// (отпечатки результатов до номограмм остаются прежними). Огибающая сжатия — строкой в отпечатке: результаты по
+    /// определяющим сочетаниям (до огибающей) при ней устаревают.</param>
     public static string Compute(FemSteelBucklingInput input, RcBucklingOptions options, FemBucklingParams? method = null)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -181,6 +186,7 @@ public static class FemBucklingFingerprint
         void Nums(IEnumerable<double>? v) { foreach (double x in v ?? []) Num(x); sb.Append('|'); }
 
         sb.Append("modes=").Append(options.Modes).Append(";sub=").Append(options.MinSubdivisions).Append('\n');
+        if (method?.Envelope ?? true) sb.Append("forces=envelope\n");
         if (method?.Nomogram() is { } nomo)
         {
             sb.Append("nomogram=").Append(nomo.Method).Append(',').Append(nomo.Sway).Append(',').Append(method.SwayX).Append(',')
@@ -304,7 +310,7 @@ public static class FemBucklingRunner
                 ct.ThrowIfCancellationRequested();
                 s.Cases.Add(new FemBucklingCaseSummary
                 {
-                    Tag = c.Tag, Lambda = c.Result.Lambda, Converged = c.Result.Converged, Unstable = c.Unstable,
+                    Tag = c.Tag, Envelope = c.Envelope, Lambda = c.Result.Lambda, Converged = c.Result.Converged, Unstable = c.Unstable,
                     Units = c.Units.Count, FirstRecord = recs.Count + 1,
                 });
                 foreach (var mode in c.Result.Modes)

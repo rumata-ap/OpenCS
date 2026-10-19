@@ -22,11 +22,15 @@ public sealed record FemSteelBucklingInput(FemRcModelResult? Adapted, IReadOnlyL
 }
 
 /// <summary>
-/// Расчёт устойчивости по сочетанию, определяющему для части элементов: <paramref name="Units"/> — индексы элементов
-/// входа, для которых сочетание определяющее (п. 10.3.2 СП 16).
+/// Расчёт устойчивости по сочетанию, определяющему для части элементов (п. 10.3.2 СП 16), или по огибающей сжатия
+/// (<see cref="Combination"/> = −1, <see cref="RcBucklingAnalysis.SolveEnvelope"/>): <paramref name="Units"/> — индексы
+/// элементов входа, которым задача назначает μ.
 /// </summary>
 public sealed record FemSteelBucklingCase(int Combination, string Tag, IReadOnlyList<int> Units, RcBucklingResult Result)
 {
+    /// <summary>Задача по огибающей сжатия всех сочетаний.</summary>
+    public bool Envelope => Combination < 0;
+
     /// <summary>Схема неустойчива при сочетании: λ₁ ≤ 1 (μ по нему не назначаются).</summary>
     public bool Unstable => Result.Lambda.Length > 0 && Result.Lambda[0] <= 1.0;
 }
@@ -38,9 +42,9 @@ public sealed record FemSteelBucklingCase(int Combination, string Tag, IReadOnly
 public sealed record FemSteelBucklingResult(RcBucklingModel Model, IReadOnlyList<RcBucklingGoverning> Governing,
     IReadOnlyList<FemSteelBucklingCase> Cases, IReadOnlyList<RcBucklingUnitLength?> Lengths, IReadOnlyList<string> Report)
 {
-    /// <summary>Задача по определяющему сочетанию элемента <paramref name="unit"/>; null — сжатия нет.</summary>
+    /// <summary>Задача, назначившая μ элементу <paramref name="unit"/> (огибающая или его определяющее сочетание); null — сжатия нет.</summary>
     public FemSteelBucklingCase? CaseOf(int unit) =>
-        Governing[unit].Combination is int c and >= 0 ? Cases.FirstOrDefault(x => x.Combination == c) : null;
+        Governing[unit].Combination is int c and >= 0 ? Cases.FirstOrDefault(x => x.Envelope || x.Combination == c) : null;
 }
 
 /// <summary>
@@ -59,8 +63,11 @@ public sealed record FemSteelAutoLef(string Unit, double Length, double? MuX, do
 /// Модель устойчивости схемы для автоматических расчётных длин стали (спека 2026-10-18, срез 1): вход CSfea схемы с
 /// упругими сечениями (бетон брутто, как линейный расчёт), расчётные элементы — КонЭ или цепочки КЭ
 /// (<see cref="FemBucklingUnits"/>), сочетания — стадии постановки (пакета — его варианты без длительных пар).
-/// Каждый элемент дробится не менее чем на 4 КЭ; определяющее сочетание элемента — с наибольшим сжатием; задача
-/// устойчивости решается по каждому различному определяющему сочетанию, μ элементов — энергетическим разбором её форм
+/// Каждый элемент дробится не менее чем на 4 КЭ; определяющее сочетание элемента — с наибольшим сжатием. По умолчанию
+/// задача одна — по огибающей сжатия стержней (<see cref="RcBucklingAnalysis.SolveEnvelope"/>); при
+/// <see cref="FemBucklingParams.Forces"/> = «governing» — по каждому различному определяющему сочетанию (п. 10.3.2
+/// СП 16; незагруженные в нём колонны раскрепляют загруженные, для других сочетаний μ бывает не в запас). μ элементов —
+/// энергетическим разбором форм задачи
 /// (<see cref="RcBucklingLengths"/>, срез 2) и локальными задачами (срез 3), в оси СП 16 — <see cref="ElementLengths"/>.
 /// </summary>
 public static class FemSteelBuckling
@@ -115,17 +122,33 @@ public static class FemSteelBuckling
         if (idle > 0) report.Add($"Элементов без сжатия ни в одном сочетании: {idle} — расчётные длины не нужны.");
         var cases = new List<FemSteelBucklingCase>();
         var lengths = new RcBucklingUnitLength?[input.Units.Count];
-        foreach (var group in governing.Select((g, i) => (g.Combination, Unit: i)).Where(x => x.Combination >= 0)
-                     .GroupBy(x => x.Combination).OrderBy(g => g.Key))
+        var groups = governing.Select((g, i) => (g.Combination, Unit: i)).Where(x => x.Combination >= 0)
+            .GroupBy(x => x.Combination).OrderBy(g => g.Key).ToList();
+        var tasks = new List<(int Combination, string Tag, List<int> Units)>();
+        if (method?.Envelope ?? true)
+        {
+            if (groups.Count > 0)
+                tasks.Add((-1, Loc.S("FemBucklingEnvelopeTag"), groups.SelectMany(g => g.Select(x => x.Unit)).Order().ToList()));
+        }
+        else
+            tasks.AddRange(groups.Select(g => (g.Key, input.Combinations[g.Key].Tag, g.Select(x => x.Unit).ToList())));
+        foreach (var task in tasks)
         {
             ct.ThrowIfCancellationRequested();
-            var stage = input.Combinations[group.Key];
-            var r = RcBucklingAnalysis.Solve(model, stage.Terms, options, ct);
-            var c = new FemSteelBucklingCase(group.Key, stage.Tag, group.Select(x => x.Unit).ToList(), r);
+            // Оболочки огибающей — по сочетанию, определяющему для наибольшего числа элементов.
+            int shells = task.Combination < 0 ? groups.MaxBy(g => g.Count())!.Key : task.Combination;
+            var r = task.Combination < 0
+                ? RcBucklingAnalysis.SolveEnvelope(model, combinations, shells, options, ct)
+                : RcBucklingAnalysis.Solve(model, combinations[task.Combination], options, ct);
+            var c = new FemSteelBucklingCase(task.Combination, task.Tag, task.Units, r);
             cases.Add(c);
             string lambda = r.Lambda.Length > 0 ? r.Lambda[0].ToString("0.###", CultureInfo.CurrentCulture) : "—";
-            report.Add($"Сочетание «{stage.Tag}»: определяющее для {c.Units.Count} эл., λ₁ = {lambda}"
+            report.Add((c.Envelope
+                    ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingEnvelopeReport"), combinations.Count, c.Units.Count, lambda)
+                    : $"Сочетание «{task.Tag}»: определяющее для {c.Units.Count} эл., λ₁ = {lambda}")
                 + (r.Converged ? "" : " (итерации не сошлись)") + (c.Unstable ? " — схема неустойчива, μ не назначаются." : "."));
+            if (c.Envelope && model.Build.Mesh.Shells.Count > 0)
+                report.Add(string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingEnvelopeShells"), input.Combinations[shells].Tag));
             if (c.Unstable) continue;
             // Участие — относительно всех элементов схемы, назначение и локальные задачи — элементам, для которых
             // сочетание определяющее.
@@ -194,7 +217,8 @@ public static class FemSteelBuckling
             var unit = input.Units[i];
             var s = new FemBucklingUnitSummary
             {
-                Label = unit.Label, ElemTags = unit.ElemTags.ToList(), Combination = c.Tag, N = result.Governing[i].N,
+                Label = unit.Label, ElemTags = unit.ElemTags.ToList(), N = result.Governing[i].N,
+                Combination = input.Combinations[result.Governing[i].Combination].Tag,
             };
             if (result.Lengths[i] is not { } x)
             {

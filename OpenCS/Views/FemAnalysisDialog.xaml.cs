@@ -104,6 +104,7 @@ public partial class FemAnalysisDialog : Window
         // Начальный выбор — в коде: SelectionChanged из разметки пришёл бы до создания панелей ниже.
         BucklingMethodCombo.SelectedIndex = 0;
         BucklingSwayCombo.SelectedIndex = 0;
+        BucklingForcesCombo.SelectedIndex = 0;
         // Загружения линейного CSfea: у правимой линейной постановки — отмечены её стадии, иначе все.
         var linearStages = existing?.Kind == FemCsfeaRunner.LinearAnalysisKind
             ? FemAnalysisParams.Parse(existing.ParamsJson).ResolveStages(existing) : null;
@@ -179,6 +180,7 @@ public partial class FemAnalysisDialog : Window
                 var bp = pars.Buckling ?? new FemBucklingParams();
                 BucklingModesBox.Text = bp.Modes.ToString(CultureInfo.CurrentCulture);
                 SelectTag(BucklingMethodCombo, bp.Method);
+                SelectTag(BucklingForcesCombo, bp.Envelope ? FemBucklingParams.ForcesEnvelope : FemBucklingParams.ForcesGoverning);
                 SelectTag(BucklingSwayCombo, bp.Sway);
                 BucklingSwayXCb.IsChecked = bp.SwayX;
                 BucklingSwayYCb.IsChecked = bp.SwayY;
@@ -994,6 +996,7 @@ public partial class FemAnalysisDialog : Window
                 Buckling = new FemBucklingParams
                 {
                     Modes = modes, Method = SelectedTag(BucklingMethodCombo), Sway = SelectedTag(BucklingSwayCombo),
+                    Forces = (BucklingForcesCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? FemBucklingParams.ForcesEnvelope,
                     SwayX = BucklingSwayXCb.IsChecked == true, SwayY = BucklingSwayYCb.IsChecked == true,
                     SwayStiffness = swayStiffness, GFixed = gFixed, GPinned = gPinned,
                 },

@@ -181,7 +181,7 @@ public static class RcNomogramLengths
             bool column = Math.Abs(Dot(arm.Direction, t.Direction(unit))) >= CollinearCos;
             double factor = 1;
             var far = t.FarEnd(arm, axis);
-            double q = -t.Mesh.BeamAxialForce(arm.Beam, t.URef);
+            double q = -t.Axial(arm.Beam);
             if (!column && !plain)
             {
                 factor = (sway, far) switch
@@ -221,7 +221,8 @@ public static class RcNomogramLengths
     sealed class Topology
     {
         public StructuralMesh Mesh { get; }
-        public double[] URef { get; }
+        /// <summary>Продольная сила стержня сетки задачи (огибающая или по сочетанию), растяжение — плюс.</summary>
+        public double Axial(int beam) => _result.Axial(beam);
         readonly RcBucklingResult _result;
         readonly int[][] _nodes;          // узлы элемента по порядку
         readonly int[][] _beams;          // стержни сетки элемента по порядку
@@ -233,7 +234,6 @@ public static class RcNomogramLengths
         {
             _result = result;
             Mesh = result.Build.Mesh;
-            URef = result.URef;
             int n = units.Count;
             _nodes = new int[n][];
             _beams = new int[n][];

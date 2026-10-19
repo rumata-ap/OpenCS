@@ -3072,6 +3072,14 @@
     <system:String x:Key="FemBucklingModesInvalid">Число форм — целое от 1 до 200.</system:String>
     <system:String x:Key="FemBucklingCombinationsEmpty">Не выбрано ни одного сочетания.</system:String>
     <system:String x:Key="FemBucklingCaseLine">Сочетание «{0}»: определяющее для {1} эл., λ₁ = {2}, форм {3}.</system:String>
+    <system:String x:Key="FemBucklingForcesLabel">Продольные силы:</system:String>
+    <system:String x:Key="FemBucklingForcesEnvelope">огибающая сжатия по всем сочетаниям</system:String>
+    <system:String x:Key="FemBucklingForcesGoverning">определяющее сочетание элемента (п. 10.3.2)</system:String>
+    <system:String x:Key="FemBucklingForcesTip">Огибающая — одна задача устойчивости: у каждого стержня наибольшее сжатие по всем сочетаниям одновременно, растянутый во всех — с наименьшим растяжением. Незагруженные в одном сочетании колонны не раскрепляют загруженные в другом — в запас. Определяющее сочетание — задача по сочетанию с наибольшим сжатием элемента, μ применяется ко всем сочетаниям (п. 10.3.2 СП 16); при частичных загружениях с поддерживающими колоннами μ для сплошного загружения бывает занижен. Оболочки огибающей — по сочетанию, определяющему для наибольшего числа элементов.</system:String>
+    <system:String x:Key="FemBucklingEnvelopeTag">огибающая сжатия</system:String>
+    <system:String x:Key="FemBucklingEnvelopeReport">Огибающая сжатия по {0} сочетаниям: μ для {1} эл., λ₁ = {2}</system:String>
+    <system:String x:Key="FemBucklingEnvelopeShells">Оболочки в задаче по огибающей — по сочетанию «{0}» (мембранные усилия не огибаются).</system:String>
+    <system:String x:Key="FemBucklingEnvelopeCaseLine">Задача «{0}»: μ для {1} эл., λ₁ = {2}, форм {3}.</system:String>
     <system:String x:Key="FemBucklingNotConverged">Итерации не сошлись.</system:String>
     <system:String x:Key="FemBucklingUnstable">Схема неустойчива при сочетании (λ₁ ≤ 1) — μ не назначаются.</system:String>
     <system:String x:Key="FemBucklingStepName">«{0}» · форма {1} · λ = {2:0.###}</system:String>

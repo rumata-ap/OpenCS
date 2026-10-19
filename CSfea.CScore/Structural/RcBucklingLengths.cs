@@ -99,7 +99,7 @@ public static class RcBucklingLengths
         var length = new double[nb];
         for (int b = 0; b < nb; b++)
         {
-            axial[b] = mesh.BeamAxialForce(b, result.URef);
+            axial[b] = result.Axial(b);
             var c = mesh.BeamCoords(b);
             length[b] = Math.Sqrt(Sq(c[1][0] - c[0][0]) + Sq(c[1][1] - c[0][1]) + Sq(c[1][2] - c[0][2]));
         }
@@ -196,7 +196,7 @@ public static class RcBucklingLengths
                     bool braced = nb < (1 - LocalTolerance) * ncr;
                     var source = braced ? RcBucklingLengthSource.Local : RcBucklingLengthSource.Mode;
                     if (braced) ncr = nb;
-                    var restraint = braced ? rb : PlaneOf(mesh.GroupRestraints(sub, result.URef, result.Modes[k], lambda), xy);
+                    var restraint = braced ? rb : PlaneOf(mesh.GroupRestraints(sub, result.URef, result.Modes[k], lambda, result.BeamAxial), xy);
                     return new(source, Mu(ei, ncr), ncr, ei, k, lambda, w / total, participation, rho, ab, nb,
                         !double.IsNaN(nb), Equivalent(restraint, ei, ncr));
                 }

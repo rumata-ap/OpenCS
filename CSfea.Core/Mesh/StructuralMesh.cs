@@ -430,15 +430,17 @@ public sealed class StructuralMesh : IFeaMesh
     /// <see cref="ElementKSecondOrder"/> она не зависит от N нелинейно — для линейной задачи устойчивости.
     /// Освобождённый поворот исключается по K без K_σ, поэтому шарнир концевого КЭ даёт P_cr немного выше, чем
     /// свободный поворот узла (2 КЭ на стержень — +0,6 %, 6 КЭ — 2·10⁻⁶); стержни для устойчивости дробятся.
+    /// <paramref name="beamAxial"/> — заданные продольные силы стержней (индекс в <see cref="Beams"/>) вместо сил по
+    /// <paramref name="u"/> (огибающая сжатия по сочетаниям); оболочки — всегда по <paramref name="u"/>.
     /// </summary>
-    public double[,] ElementKGeometric(int e, double[] u, bool shellInPlane = true)
+    public double[,] ElementKGeometric(int e, double[] u, bool shellInPlane = true, double[]? beamAxial = null)
     {
         if (e < Shells.Count) return ShellKGeometric(e, u, shellInPlane);
         int i = e - Shells.Count;
         var b = Beams[i];
         var (t, l) = BeamElements.Beam3dT(BeamCoords(i), b.RefVec);
         var kl = BeamElements.Beam3dKLocal(b.Section, l);
-        double axial = BeamAxialForce(i, u);
+        double axial = beamAxial?[i] ?? BeamAxialForce(i, u);
         var kg = new double[12, 12];
         if (axial == 0.0) return kg;
         AddBeamKGeometric(kg, axial, l);
@@ -508,11 +510,13 @@ public sealed class StructuralMesh : IFeaMesh
     /// <paramref name="factor"/> (λ формы или α локальной задачи): из равновесия узла конца f + r·δ = 0, r = −f/δ, где
     /// f = (K + factor·K_σ)·d — усилие конца группы, δ — перемещение того же DOF; r₃ — по поперечной силе конца J и
     /// смещению J относительно I. С такими пружинами группа в форме в равновесии — стойка Масленникова даёт ту же критическую силу
-    /// (с точностью дробления). Конец I — с меньшей координатой по местной x первого стержня.
+    /// (с точностью дробления). Конец I — с меньшей координатой по местной x первого стержня. <paramref name="beamAxial"/> —
+    /// заданные продольные силы стержней вместо сил по <paramref name="uRef"/> (см. <see cref="ElementKGeometric"/>).
     /// </summary>
-    public BeamGroupRestraints GroupRestraints(IReadOnlyList<int> group, double[] uRef, double[] mode, double factor)
+    public BeamGroupRestraints GroupRestraints(IReadOnlyList<int> group, double[] uRef, double[] mode, double factor,
+        double[]? beamAxial = null)
         => GroupRestraintsAt(group, group.Select(b => Gather(mode, BeamDofs(Beams[b]))).ToArray(),
-            group.Select(b => BeamAxialForce(b, uRef)).ToArray(), factor);
+            group.Select(b => beamAxial?[b] ?? BeamAxialForce(b, uRef)).ToArray(), factor);
 
     // Концы группы — узлы, к которым примыкает один её стержень: (позиция стержня в группе, конец 0/1, узел) для I и J;
     // null — концов не два.
@@ -625,10 +629,11 @@ public sealed class StructuralMesh : IFeaMesh
     /// с пружинами ГУ, положительно определённая; −K_σ знаконеопределена (растянутые КЭ). Ищутся
     /// <paramref name="nModes"/> наименьших положительных λ — итерации подпространства с проекцией Рэлея–Ритца
     /// (ν = 1/λ, наибольшие положительные ν задачи −K_σ·φ = ν·K·φ). Формы — полные (с ведомыми узлами), нормированы
-    /// на наибольшую по модулю компоненту перемещений.
+    /// на наибольшую по модулю компоненту перемещений. <paramref name="beamAxial"/> — заданные продольные силы стержней
+    /// вместо сил по <paramref name="uRef"/> (огибающая сжатия, см. <see cref="ElementKGeometric"/>).
     /// </summary>
     public StructuralBucklingResult SolveBuckling(double[] uRef, BoundaryConditions bc, int nModes = 1,
-        double tol = 1e-8, int maxIter = 300, bool shellInPlane = true)
+        double tol = 1e-8, int maxIter = 300, bool shellInPlane = true, double[]? beamAxial = null)
     {
         if (nModes < 1) throw new ArgumentOutOfRangeException(nameof(nModes));
         if (bc.HasNonlinearSprings)
@@ -649,7 +654,7 @@ public sealed class StructuralMesh : IFeaMesh
                 string where = chol.FirstNonPositivePivot is int i and >= 0 && i < nf ? " — " + DescribeDof(asm.Free[i]) : "";
                 throw new InvalidOperationException($"Матрица жёсткости не положительно определена (механизм){where}.");
             }
-            var kg = asm.AssembleWith(e => ElementKGeometric(e, uRef, shellInPlane), MaxDegreeOfParallelism, springs: false);
+            var kg = asm.AssembleWith(e => ElementKGeometric(e, uRef, shellInPlane, beamAxial), MaxDegreeOfParallelism, springs: false);
             var colPtr = (int[])kg.ColPtr.Clone();
             var rowIdx = (int[])kg.RowIdx.Clone();
             var bValues = Array.ConvertAll(kg.Values, v => -v);
@@ -706,10 +711,11 @@ public sealed class StructuralMesh : IFeaMesh
     /// K_гр + S_rest + α·K_σ,гр = C + (α − 1)·K_σ,гр и α = 1 + 1/ν, ν — положительные собственные значения
     /// G·φ = ν·C·φ, G = −K_σ,гр (симметрично: F^½·G·F^½·y = ν·y, φ = F^½·y). Без смещения поперечные перемещения
     /// концов группы (узлов, к которым примыкает один её стержень; оси — местные y, z первого стержня) закрепляются:
-    /// F′ = F − F·B·(Bᵀ·F·B)⁻¹·Bᵀ·F. Группа — индексы <see cref="Beams"/>.
+    /// F′ = F − F·B·(Bᵀ·F·B)⁻¹·Bᵀ·F. Группа — индексы <see cref="Beams"/>. <paramref name="beamAxial"/> — заданные
+    /// продольные силы стержней вместо сил по <paramref name="uRef"/> (см. <see cref="ElementKGeometric"/>).
     /// </summary>
     public StructuralLocalBuckling[] SolveLocalBuckling(double[] uRef, BoundaryConditions bc, IReadOnlyList<int[]> groups,
-        bool shellInPlane = true)
+        bool shellInPlane = true, double[]? beamAxial = null)
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException("SolveLocalBuckling не поддерживает нелинейные пружины.");
@@ -722,7 +728,7 @@ public sealed class StructuralMesh : IFeaMesh
             var a = asm.AssembleWith(e =>
             {
                 var k = ElementK(e);
-                Dense.AddScaledInPlace(k, ElementKGeometric(e, uRef, shellInPlane), 1.0);
+                Dense.AddScaledInPlace(k, ElementKGeometric(e, uRef, shellInPlane, beamAxial), 1.0);
                 return k;
             }, MaxDegreeOfParallelism);
             var chol = FactorizeCached(a);
@@ -736,14 +742,14 @@ public sealed class StructuralMesh : IFeaMesh
             for (int i = 0; i < asm.Free.Length; i++) sysToFree[asm.Free[i]] = i;
             var result = new StructuralLocalBuckling[groups.Count];
             Parallel.For(0, groups.Count, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
-                g => result[g] = LocalBuckling(groups[g], uRef, chol, asm.Free.Length, sysToFree, shellInPlane));
+                g => result[g] = LocalBuckling(groups[g], uRef, chol, asm.Free.Length, sysToFree, shellInPlane, beamAxial));
             return result;
         }
     }
 
     // Локальная задача одной группы (см. SolveLocalBuckling).
     private StructuralLocalBuckling LocalBuckling(int[] group, double[] uRef, SupernodalCholeskySolver chol, int nf,
-        int[] sysToFree, bool shellInPlane)
+        int[] sysToFree, bool shellInPlane, double[]? beamAxial)
     {
         // Строки T полных DOF стержней группы в свободных неизвестных: (неизвестная, коэффициент), закреплённые опущены.
         (int Col, double Coef)[] Row(int dof)
@@ -773,11 +779,11 @@ public sealed class StructuralMesh : IFeaMesh
         var empty = new StructuralLocalModes([], [], []);
         if (n == 0) return new StructuralLocalBuckling(empty, empty);
 
-        var axial = group.Select(b => BeamAxialForce(b, uRef)).ToArray();
+        var axial = group.Select(b => beamAxial?[b] ?? BeamAxialForce(b, uRef)).ToArray();
         var g = new double[n, n];
         for (int s = 0; s < group.Length; s++)
         {
-            var kg = ElementKGeometric(Shells.Count + group[s], uRef, shellInPlane);
+            var kg = ElementKGeometric(Shells.Count + group[s], uRef, shellInPlane, beamAxial);
             for (int a = 0; a < 12; a++)
                 foreach (var (pa, ta) in rows[s][a])
                     for (int b = 0; b < 12; b++)

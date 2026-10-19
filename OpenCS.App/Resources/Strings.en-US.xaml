@@ -3072,6 +3072,14 @@
     <system:String x:Key="FemBucklingModesInvalid">The number of modes is an integer from 1 to 200.</system:String>
     <system:String x:Key="FemBucklingCombinationsEmpty">No combination selected.</system:String>
     <system:String x:Key="FemBucklingCaseLine">Combination “{0}”: governing for {1} elements, λ₁ = {2}, {3} modes.</system:String>
+    <system:String x:Key="FemBucklingForcesLabel">Axial forces:</system:String>
+    <system:String x:Key="FemBucklingForcesEnvelope">compression envelope over all combinations</system:String>
+    <system:String x:Key="FemBucklingForcesGoverning">governing combination of the element (cl. 10.3.2)</system:String>
+    <system:String x:Key="FemBucklingForcesTip">Envelope — one stability problem: every bar takes its largest compression over all combinations at once, a bar in tension in all of them — its smallest tension. Columns unloaded in one combination do not brace columns loaded in another — conservative. Governing combination — a problem per combination with the largest compression of the element, μ is applied to all combinations (SP 16 cl. 10.3.2); with partial loading and supporting columns μ may be underestimated for full loading. Shells in the envelope problem follow the combination governing for most elements.</system:String>
+    <system:String x:Key="FemBucklingEnvelopeTag">compression envelope</system:String>
+    <system:String x:Key="FemBucklingEnvelopeReport">Compression envelope over {0} combinations: μ for {1} elements, λ₁ = {2}</system:String>
+    <system:String x:Key="FemBucklingEnvelopeShells">Shells in the envelope problem follow combination “{0}” (membrane forces are not enveloped).</system:String>
+    <system:String x:Key="FemBucklingEnvelopeCaseLine">Problem “{0}”: μ for {1} elements, λ₁ = {2}, {3} modes.</system:String>
     <system:String x:Key="FemBucklingNotConverged">Iterations did not converge.</system:String>
     <system:String x:Key="FemBucklingUnstable">The model is unstable under the combination (λ₁ ≤ 1) — μ not assigned.</system:String>
     <system:String x:Key="FemBucklingStepName">“{0}” · mode {1} · λ = {2:0.###}</system:String>

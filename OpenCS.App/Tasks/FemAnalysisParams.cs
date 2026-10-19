@@ -54,11 +54,20 @@ public sealed class FemAnalysisStage
 /// <see cref="Modes"/> — число искомых форм каждой задачи. <see cref="Method"/> — назначение μ: «mode» — по формам,
 /// «asce» — номограммы ASCE, «sp16» — табл. 31 СП 16 (для невертикальных стержней — ASCE); <see cref="Sway"/> — смещение
 /// концов: «mode» — по общей форме, «stiffness» — по жёсткости окружения (порог <see cref="SwayStiffness"/>·12EI/l³),
-/// «manual» — <see cref="SwayX"/>, <see cref="SwayY"/> по осям СП 16; G опорных узлов — по AISC.
+/// «manual» — <see cref="SwayX"/>, <see cref="SwayY"/> по осям СП 16; G опорных узлов — по AISC. <see cref="Forces"/> —
+/// продольные силы задачи: «envelope» — одна задача по огибающей сжатия стержней по всем сочетаниям, «governing» — задача
+/// по определяющему сочетанию каждого элемента (с наибольшим его сжатием, п. 10.3.2 СП 16).
 /// </summary>
 public sealed class FemBucklingParams
 {
+    public const string ForcesEnvelope = "envelope", ForcesGoverning = "governing";
+
     public int Modes { get; set; } = 20;
+    public string Forces { get; set; } = ForcesEnvelope;
+
+    /// <summary>Огибающая сжатия (по умолчанию; неизвестное значение — тоже огибающая, в запас).</summary>
+    [JsonIgnore]
+    public bool Envelope => Forces != ForcesGoverning;
     public string Method { get; set; } = "mode";
     public string Sway { get; set; } = "mode";
     public bool SwayX { get; set; } = true;
