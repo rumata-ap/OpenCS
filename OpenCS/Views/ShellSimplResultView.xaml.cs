@@ -157,8 +157,12 @@ public class ShellSimplResultVM : ViewModelBase
 
     public bool HasEtaMax => EtaMax.HasValue;
     public double? EtaMax { get; set; }
+    // Кисп,max задачи ПС1 — наибольший из изгиба и поперечной силы; источник подписывается, иначе 1,03 от Q
+    // читается рядом с Кисп фасеток как изгибный.
+    public string? EtaMaxSource { get; set; }
     public string EtaMaxDisplay => EtaMax.HasValue
         ? (EtaMax.Value >= 1e9 ? "∞" : Math.Round(EtaMax.Value, 2).ToString("F2"))
+          + (EtaMaxSource is { } src ? $" ({src})" : "")
         : "";
     public double AcrcLimMm { get; set; }
 
@@ -365,6 +369,9 @@ public class ShellSimplResultVM : ViewModelBase
         // Кисп,Q входит в Кисп,max задачи ПС1.
         Shear = PlateShearBlock.From(doc, "Shear", design: false);
         if (Shear is { Ok: false }) allOk = false;
+        if (EtaMax is double etaMax && doc.TryGetProperty("Shear", out var sh) && sh.ValueKind == JsonValueKind.Object
+            && sh.TryGetProperty("Eta", out var shEta) && shEta.ValueKind == JsonValueKind.Number)
+            EtaMaxSource = shEta.GetDouble() >= etaMax - 1e-12 ? "поперечная сила, Кисп,Q" : "изгиб";
 
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";
