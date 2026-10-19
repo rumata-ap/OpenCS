@@ -1069,6 +1069,66 @@
    <system:String x:Key="FemSteelAutoLefUnstable">Effective lengths from the stability analysis not assigned: the model is unstable under combination “{0}” (λ₁ = {1:0.###}).</system:String>
    <system:String x:Key="FemSteelAutoLefNoLength">Effective lengths from the stability analysis not assigned.</system:String>
    <system:String x:Key="FemSteelAutoLefMode">μ{0} = {1:0.###} from the stability analysis ({2}, l = {3:0.###} m): mode {5} of combination “{4}”, λ = {6:0.###}, element share of mode work {7:0.#} %, ρ/λ = {8:0.##}; N = {9:0.###} kN, N_cr = λ·N = {10:0.###} kN, μ = π/l·√(EI/N_cr).</system:String>
+   <system:String x:Key="FemBucklingReportAsce">ASCE alignment charts (eq. 2.9 and 2.13): {0} planes, {1} sway, {2} braced; mode-based μ is given for reference in the details.</system:String>
+   <system:String x:Key="FemBucklingReportSp16">SP 16 Table 31: {0} planes, {1} sway frames, {2} braced; mode-based μ is given for reference in the details.</system:String>
+   <system:String x:Key="FemBucklingReportSp16Fallback">Non-vertical members (Table 31 not applicable, ASCE chart used): {0} planes.</system:String>
+   <system:String x:Key="FemBucklingReportNomogramNone">μ not defined by the chart (both ends free to rotate in a sway frame): {0} planes.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramAsce">μ{0} = {1:0.###} by the ASCE alignment chart ({2}, l = {3:0.###} m, combination “{4}”): {5} ({6}); G = {7} at end I, G = {8} at end J, eq. {9}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16">μ{0} = {1:0.###} by SP 16 Table 31 ({2}, l = {3:0.###} m, combination “{4}”): {5} ({6}), {7}, k = {8}; p = {9}, n = {10:0.###}, formula {11}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramTail">N = {0:0.###} kN, N_cr = π²EI/(μl)² = {1:0.###} kN.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNone">μ{0} not defined by the chart ({1}): {2} ({3}), G = {4} and {5} — both ends free to rotate (mechanism).</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSway">sway frame</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBraced">braced frame</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramByMode">by mode {0}: chord sway share {1:0.##}</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNotInModes">the member takes no part in the modes found</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramByStiffness">surrounding sway stiffness r₃ = {0:0.##}·12EI/l³</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramManual">set in the analysis</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNoSurround">no surrounding stiffness — by the global mode</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16NotColumn">SP 16 Table 31 applies to columns (vertical members); the ASCE chart is used here.</system:String>
+   <system:String x:Key="FemSp16StoreySingle">single-storey frame</system:String>
+   <system:String x:Key="FemSp16StoreyTop">top storey</system:String>
+   <system:String x:Key="FemSp16StoreyMiddle">middle storey</system:String>
+   <system:String x:Key="FemSp16StoreyBottom">bottom storey</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEnd">Node {0} ({1}): columns Σ EI/L = {2} kN·m ({3}); girders Σ k·EI/L = {4} kN·m ({5}){6}; G = {7}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEndA">end I</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEndB">end J</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBottom">bottom</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramTop">top</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramReleased">(hinged at the node)</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarFixed">far end fixed</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarPinned">far end pinned</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarFree">far end free</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramOwnReleased">member hinged at the node — G = ∞</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSupportFixed">support fixed against rotation — G per AISC</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSupportPinned">pinned support — G not above the AISC pinned value</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSpring">rotational spring as a girder {0} kN·m</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramShells">plates attached ({0}) — ignored</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16Formula">SP 16 Table 31, {0}, {1}, k = {2}: p = {3}, n = {4:0.###} (p — girders at the bottom, n — at the top, relative to I_c/l_c, reduced by k and storey), formula {5} → μ = {6:0.####}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEq29">Eq. (2.9): (G_A·G_B·(π/K)² − 36)/(6·(G_A + G_B)) − (π/K)/tan(π/K) = 0 with G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEq213">Eq. (2.13): G_A·G_B/4·(π/K)² + (G_A + G_B)/2·(1 − (π/K)/tan(π/K)) + 2·tan(π/2K)/(π/K) − 1 = 0 with G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
+   <system:String x:Key="FemBucklingModeLabel">Mode:</system:String>
+   <system:String x:Key="FemBucklingModeTip">Buckling mode: combination, mode number and its λ (all modes requested in the analysis, for each combination)</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFormPrefix">For reference, by modes:</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBar">bar</system:String>
+   <system:String x:Key="FemBucklingSourceNomogramSway">chart, sway</system:String>
+   <system:String x:Key="FemBucklingSourceNomogramBraced">chart, braced</system:String>
+   <system:String x:Key="FemBucklingMethodLabel">μ assignment:</system:String>
+   <system:String x:Key="FemBucklingMethodTip">By modes — μ from global buckling modes and local problems (N_cr = λ·N). ASCE alignment charts — member by member from end G factors, eq. (2.9)/(2.13). SP 16 Table 31 — frame column formulas (inclined and horizontal members use the ASCE chart). The buckling analysis always runs: λ₁ and mode-based μ are for reference.</system:String>
+   <system:String x:Key="FemBucklingMethodMode">by modes (λ·N)</system:String>
+   <system:String x:Key="FemBucklingMethodAsce">ASCE alignment charts</system:String>
+   <system:String x:Key="FemBucklingMethodSp16">SP 16 Table 31</system:String>
+   <system:String x:Key="FemBucklingSwayLabel">End sway:</system:String>
+   <system:String x:Key="FemBucklingSwayTip">By global mode — sway if the chord sway share in the member's mode is ≥ 0.5. By stiffness — braced if the rest of the model resists relative end sway with r₃ ≥ threshold·12EI/l³. Manual — by section axes x and y (SP 16) for all members.</system:String>
+   <system:String x:Key="FemBucklingSwayMode">by global mode</system:String>
+   <system:String x:Key="FemBucklingSwayStiffness">by surrounding stiffness</system:String>
+   <system:String x:Key="FemBucklingSwayManual">manual</system:String>
+   <system:String x:Key="FemBucklingSwayThresholdLabel">threshold r₃/(12EI/l³):</system:String>
+   <system:String x:Key="FemBucklingSwayXLabel">sway about x</system:String>
+   <system:String x:Key="FemBucklingSwayYLabel">sway about y</system:String>
+   <system:String x:Key="FemBucklingGFixedLabel">G fixed:</system:String>
+   <system:String x:Key="FemBucklingGPinnedLabel">G pinned:</system:String>
+   <system:String x:Key="FemBucklingGTip">Support node G per AISC: fixed — 1 (theoretically 0), pinned — 10 (theoretically ∞).</system:String>
+   <system:String x:Key="FemBucklingNomogramInvalid">Chart parameters: G fixed ≥ 0, G pinned &gt; 0, stiffness threshold &gt; 0.</system:String>
    <system:String x:Key="FemSteelAutoLefRocking">μ{0} = 1 ({1}, l = {2:0.###} m): in mode {4} of combination “{3}” (λ = {5:0.###}) the element rotates almost rigidly (leaning) — other elements brace it; μ = 1 of the non-sway shape is used.</system:String>
    <system:String x:Key="FemSteelAutoLefNotInvolved">μ{0} not assigned by the stability analysis ({1}, combination “{2}”): the element takes no part in the modes found and has no local mode in this plane — lef,{0} from the mesh or the SP 16 parameters.</system:String>
    <system:String x:Key="FemSteelAutoLefRockingLocal">μ{0} = {1:0.###} from the non-sway local problem ({2}, l = {3:0.###} m): in mode {5} of combination “{4}” (λ = {6:0.###}) the element rotates almost rigidly (leaning) — other elements brace it; its ends are restrained against transverse displacement, the rest of the model is at the actual combination: N = {7:0.###} kN, N_cr = α·N = {8:0.###} kN (α = {9:0.###}), μ = π/l·√(EI/N_cr).</system:String>

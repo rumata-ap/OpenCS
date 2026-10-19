@@ -1069,6 +1069,66 @@
    <system:String x:Key="FemSteelAutoLefUnstable">Расчётные длины по расчёту устойчивости не назначены: схема неустойчива при сочетании «{0}» (λ₁ = {1:0.###}).</system:String>
    <system:String x:Key="FemSteelAutoLefNoLength">Расчётные длины по расчёту устойчивости не назначены.</system:String>
    <system:String x:Key="FemSteelAutoLefMode">μ{0} = {1:0.###} по расчёту устойчивости ({2}, l = {3:0.###} м): форма {5} сочетания «{4}», λ = {6:0.###}, доля работы элемента в форме {7:0.#} %, ρ/λ = {8:0.##}; N = {9:0.###} кН, N_cr = λ·N = {10:0.###} кН, μ = π/l·√(EI/N_cr).</system:String>
+   <system:String x:Key="FemBucklingReportAsce">Номограммы ASCE (ур. 2.9 и 2.13): плоскостей {0}, со смещением {1}, без смещения {2}; μ по формам — справочно в ходе вычисления.</system:String>
+   <system:String x:Key="FemBucklingReportSp16">Табл. 31 СП 16: плоскостей {0}, свободная рама {1}, несвободная {2}; μ по формам — справочно в ходе вычисления.</system:String>
+   <system:String x:Key="FemBucklingReportSp16Fallback">Невертикальных элементов (табл. 31 неприменима, взята номограмма ASCE): {0} плоск.</system:String>
+   <system:String x:Key="FemBucklingReportNomogramNone">μ номограммой не определён (оба конца без закрепления от поворота при смещении): {0} плоск.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramAsce">μ{0} = {1:0.###} по номограмме ASCE ({2}, l = {3:0.###} м, сочетание «{4}»): {5} ({6}); G = {7} у конца I, G = {8} у конца J, ур. {9}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16">μ{0} = {1:0.###} по табл. 31 СП 16 ({2}, l = {3:0.###} м, сочетание «{4}»): {5} ({6}), {7}, k = {8}; p = {9}, n = {10:0.###}, формула {11}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramTail">N = {0:0.###} кН, N_cr = π²EI/(μl)² = {1:0.###} кН.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNone">μ{0} номограммой не определён ({1}): {2} ({3}), G = {4} и {5} — оба конца без закрепления от поворота (механизм).</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSway">рама со смещением</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBraced">рама без смещения</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramByMode">по форме {0}: доля смещения хорды {1:0.##}</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNotInModes">элемент не участвует в найденных формах</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramByStiffness">жёсткость окружения на смещение r₃ = {0:0.##}·12EI/l³</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramManual">задано в постановке</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramNoSurround">жёсткости окружения нет — по общей форме</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16NotColumn">Табл. 31 СП 16 — для колонн (вертикальных стержней); здесь номограмма ASCE.</system:String>
+   <system:String x:Key="FemSp16StoreySingle">одноэтажная рама</system:String>
+   <system:String x:Key="FemSp16StoreyTop">верхний этаж</system:String>
+   <system:String x:Key="FemSp16StoreyMiddle">средний этаж</system:String>
+   <system:String x:Key="FemSp16StoreyBottom">нижний этаж</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEnd">Узел {0} ({1}): колонны Σ EI/L = {2} кН·м ({3}); ригели Σ k·EI/L = {4} кН·м ({5}){6}; G = {7}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEndA">конец I</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEndB">конец J</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBottom">низ</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramTop">верх</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramReleased">(шарнир у узла)</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarFixed">дальний конец — заделка</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarPinned">дальний конец — шарнир</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFarFree">дальний конец свободен</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramOwnReleased">шарнир элемента у узла — G = ∞</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSupportFixed">опора закреплена от поворота — G по AISC</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSupportPinned">шарнирная опора — G не больше G шарнира по AISC</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSpring">пружина поворота как ригель {0} кН·м</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramShells">примыкают пластины ({0}) — не учитываются</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramSp16Formula">Табл. 31 СП 16, {0}, {1}, k = {2}: p = {3}, n = {4:0.###} (p — ригели у низа, n — у верха, в долях I_c/l_c, приведены по k и этажу), формула {5} → μ = {6:0.####}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEq29">Ур. (2.9): (G_A·G_B·(π/K)² − 36)/(6·(G_A + G_B)) − (π/K)/tg(π/K) = 0 при G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramEq213">Ур. (2.13): G_A·G_B/4·(π/K)² + (G_A + G_B)/2·(1 − (π/K)/tg(π/K)) + 2·tg(π/2K)/(π/K) − 1 = 0 при G_A = {0}, G_B = {1} → K = {2:0.####}.</system:String>
+   <system:String x:Key="FemBucklingModeLabel">Форма:</system:String>
+   <system:String x:Key="FemBucklingModeTip">Форма потери устойчивости: сочетание, номер формы и её λ (все формы, заказанные в постановке, по каждому сочетанию)</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramFormPrefix">Справочно, по формам:</system:String>
+   <system:String x:Key="FemSteelAutoLefNomogramBar">стержень</system:String>
+   <system:String x:Key="FemBucklingSourceNomogramSway">номограмма, со смещением</system:String>
+   <system:String x:Key="FemBucklingSourceNomogramBraced">номограмма, без смещения</system:String>
+   <system:String x:Key="FemBucklingMethodLabel">Назначение μ:</system:String>
+   <system:String x:Key="FemBucklingMethodTip">По формам — μ из форм общей устойчивости и локальных задач (N_cr = λ·N). Номограммы ASCE — поэлементно по G концов, ур. (2.9)/(2.13). Табл. 31 СП 16 — формулы для колонн рам (наклонные и горизонтальные стержни — по номограмме ASCE). Расчёт устойчивости выполняется всегда: λ₁ схемы и μ по формам — справочно.</system:String>
+   <system:String x:Key="FemBucklingMethodMode">по формам (λ·N)</system:String>
+   <system:String x:Key="FemBucklingMethodAsce">номограммы ASCE</system:String>
+   <system:String x:Key="FemBucklingMethodSp16">табл. 31 СП 16</system:String>
+   <system:String x:Key="FemBucklingSwayLabel">Смещение концов:</system:String>
+   <system:String x:Key="FemBucklingSwayTip">По общей форме — со смещением, если в форме, где элемент участвует, доля смещения хорды ≥ 0,5. По жёсткости — без смещения, если жёсткость остальной схемы на взаимное смещение концов r₃ ≥ порог·12EI/l³. Вручную — по осям x и y сечения (СП 16) для всех элементов.</system:String>
+   <system:String x:Key="FemBucklingSwayMode">по общей форме</system:String>
+   <system:String x:Key="FemBucklingSwayStiffness">по жёсткости окружения</system:String>
+   <system:String x:Key="FemBucklingSwayManual">вручную</system:String>
+   <system:String x:Key="FemBucklingSwayThresholdLabel">порог r₃/(12EI/l³):</system:String>
+   <system:String x:Key="FemBucklingSwayXLabel">со смещением по оси x</system:String>
+   <system:String x:Key="FemBucklingSwayYLabel">со смещением по оси y</system:String>
+   <system:String x:Key="FemBucklingGFixedLabel">G заделки:</system:String>
+   <system:String x:Key="FemBucklingGPinnedLabel">G шарнира:</system:String>
+   <system:String x:Key="FemBucklingGTip">G опорного узла по рекомендации AISC: заделка — 1 (теоретически 0), шарнир — 10 (теоретически ∞).</system:String>
+   <system:String x:Key="FemBucklingNomogramInvalid">Параметры номограмм: G заделки ≥ 0, G шарнира &gt; 0, порог жёсткости &gt; 0.</system:String>
    <system:String x:Key="FemSteelAutoLefRocking">μ{0} = 1 ({1}, l = {2:0.###} м): в форме {4} сочетания «{3}» (λ = {5:0.###}) элемент поворачивается почти как жёсткое тело (качание) — его держат другие элементы; принят μ = 1 по форме без смещения.</system:String>
    <system:String x:Key="FemSteelAutoLefNotInvolved">μ{0} по расчёту устойчивости не назначен ({1}, сочетание «{2}»): элемент не участвует в найденных формах, локальной формы в этой плоскости нет — lef,{0} по сетке или из параметров СП 16.</system:String>
    <system:String x:Key="FemSteelAutoLefRockingLocal">μ{0} = {1:0.###} по локальной задаче без смещения ({2}, l = {3:0.###} м): в форме {5} сочетания «{4}» (λ = {6:0.###}) элемент поворачивается почти как жёсткое тело (качание) — его держат другие элементы; концы закреплены от поперечных смещений, остальная схема — при фактическом сочетании: N = {7:0.###} кН, N_cr = α·N = {8:0.###} кН (α = {9:0.###}), μ = π/l·√(EI/N_cr).</system:String>

@@ -73,6 +73,13 @@ public sealed class BucklingResultLayerTests
     {
         var layer = Layer();
         Assert.True(layer.IsBuckling);
+        Assert.True(layer.ShowModeList);                                    // формы — выпадающим списком нижней строки
+        Assert.False(layer.ShowCaseList);                                   // селектор загружений CSfea — не для форм
+        Assert.False(layer.ShowStepSlider);
+        Assert.Equal(layer.StepNames.Count, layer.MaxStepIndex + 1);
+        layer.SelectedStepIndex = 1;
+        Assert.Equal(layer.StepNames[1], layer.StepLabel);
+        layer.SelectedStepIndex = 0;
         Assert.True(layer.DeformedShown);                                   // форма — сразу деформированной схемой
 
         var curve = layer.BarCurve("101")!;

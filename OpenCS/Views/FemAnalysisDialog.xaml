@@ -276,9 +276,41 @@
                             </Style>
                         </DataGrid.RowStyle>
                     </DataGrid>
-                    <StackPanel x:Name="BucklingModesRow" Orientation="Horizontal" Margin="0,0,0,4" Visibility="Collapsed">
-                        <TextBlock Text="{DynamicResource FemBucklingModesLabel}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingModesTip}"/>
-                        <TextBox x:Name="BucklingModesBox" Width="60" Height="22" VerticalContentAlignment="Center" Text="20" ToolTip="{DynamicResource FemBucklingModesTip}"/>
+                    <StackPanel x:Name="BucklingModesRow" Margin="0,0,0,4" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="{DynamicResource FemBucklingModesLabel}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingModesTip}"/>
+                            <TextBox x:Name="BucklingModesBox" Width="60" Height="22" VerticalContentAlignment="Center" Text="20" ToolTip="{DynamicResource FemBucklingModesTip}"/>
+                            <TextBlock Text="{DynamicResource FemBucklingMethodLabel}" VerticalAlignment="Center" Margin="16,0,6,0" ToolTip="{DynamicResource FemBucklingMethodTip}"/>
+                            <ComboBox x:Name="BucklingMethodCombo" Width="170" Height="22" SelectionChanged="BucklingMethod_Changed" ToolTip="{DynamicResource FemBucklingMethodTip}">
+                                <ComboBoxItem Tag="mode" Content="{DynamicResource FemBucklingMethodMode}"/>
+                                <ComboBoxItem Tag="asce" Content="{DynamicResource FemBucklingMethodAsce}"/>
+                                <ComboBoxItem Tag="sp16" Content="{DynamicResource FemBucklingMethodSp16}"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel x:Name="BucklingNomogramPanel" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="{DynamicResource FemBucklingSwayLabel}" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{DynamicResource FemBucklingSwayTip}"/>
+                                <ComboBox x:Name="BucklingSwayCombo" Width="170" Height="22" SelectionChanged="BucklingMethod_Changed" ToolTip="{DynamicResource FemBucklingSwayTip}">
+                                    <ComboBoxItem Tag="mode" Content="{DynamicResource FemBucklingSwayMode}"/>
+                                    <ComboBoxItem Tag="stiffness" Content="{DynamicResource FemBucklingSwayStiffness}"/>
+                                    <ComboBoxItem Tag="manual" Content="{DynamicResource FemBucklingSwayManual}"/>
+                                </ComboBox>
+                                <StackPanel x:Name="BucklingSwayStiffnessRow" Orientation="Horizontal" Visibility="Collapsed">
+                                    <TextBlock Text="{DynamicResource FemBucklingSwayThresholdLabel}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                    <TextBox x:Name="BucklingSwayStiffnessBox" Width="50" Height="22" VerticalContentAlignment="Center" Text="5"/>
+                                </StackPanel>
+                                <StackPanel x:Name="BucklingSwayManualRow" Orientation="Horizontal" Visibility="Collapsed">
+                                    <CheckBox x:Name="BucklingSwayXCb" Content="{DynamicResource FemBucklingSwayXLabel}" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                    <CheckBox x:Name="BucklingSwayYCb" Content="{DynamicResource FemBucklingSwayYLabel}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource FemBucklingGTip}">
+                                <TextBlock Text="{DynamicResource FemBucklingGFixedLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox x:Name="BucklingGFixedBox" Width="50" Height="22" VerticalContentAlignment="Center" Text="1"/>
+                                <TextBlock Text="{DynamicResource FemBucklingGPinnedLabel}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                <TextBox x:Name="BucklingGPinnedBox" Width="50" Height="22" VerticalContentAlignment="Center" Text="10"/>
+                            </StackPanel>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel x:Name="BatchOptionsPanel">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">

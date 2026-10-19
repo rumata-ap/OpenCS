@@ -90,7 +90,9 @@ public sealed class FemResultLayer : ViewModelBase
     /// <summary>Шаги нелинейного расчёта — ползунком.</summary>
     public bool ShowStepSlider => _steps.HasSteps && !_steps.IsCaseList;
     /// <summary>Загружения и комбинации линейного расчёта — списком.</summary>
-    public bool ShowCaseList => _steps.HasSteps && _steps.IsCaseList;
+    public bool ShowCaseList => _steps.HasSteps && _steps.IsCaseList && Csfea != null;
+    /// <summary>Формы потери устойчивости (расчётные длины) — выпадающим списком «сочетание · форма k · λ».</summary>
+    public bool ShowModeList => IsBuckling && _steps.StepCount > 0;
     public IReadOnlyList<string> StepNames => _steps.StepNames;
     public int MaxStepIndex => Math.Max(0, _steps.StepCount - 1);
 
@@ -885,6 +887,8 @@ public sealed class FemResultLayer : ViewModelBase
         ("FemBucklingSourceRocking", System.Windows.Media.Color.FromRgb(230, 150, 40)),
         ("FemBucklingSourceLocal", System.Windows.Media.Color.FromRgb(60, 160, 90)),
         ("FemBucklingSourceNotInvolved", System.Windows.Media.Color.FromRgb(150, 120, 170)),
+        ("FemBucklingSourceNomogramSway", System.Windows.Media.Color.FromRgb(40, 170, 190)),
+        ("FemBucklingSourceNomogramBraced", System.Windows.Media.Color.FromRgb(140, 170, 50)),
         ("FemBucklingSourceNone", System.Windows.Media.Color.FromRgb(200, 60, 60)),
     ];
 
@@ -894,7 +898,8 @@ public sealed class FemResultLayer : ViewModelBase
         nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Rocking) => 1,
         nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Local) => 2,
         nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.NotInvolved) => 3,
-        _ => 4,
+        nameof(CSfea.CScoreBridge.Structural.RcBucklingLengthSource.Nomogram) when a.Mu != null => a.Sway == true ? 4 : 5,
+        _ => 6,
     };
 
     public static string BucklingLabel(FemBucklingQuantity q) => Loc.S("FemBucklingQuantity" + q);

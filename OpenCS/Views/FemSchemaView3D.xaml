@@ -338,6 +338,13 @@
                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowCaseList, Converter={StaticResource BoolToVisibility}}">
                     <local:FemCsfeaCaseSelector DataContext="{Binding Csfea}" Margin="4,0,6,0"/>
                 </StackPanel>
+                <!-- Расчётные длины: формы потери устойчивости всех сочетаний (заказанное в постановке число форм) -->
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowModeList, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource FemBucklingModeLabel}" VerticalAlignment="Center" Margin="4,0"/>
+                    <ComboBox Width="300" Height="22" VerticalAlignment="Center" Margin="0,0,6,0" MaxDropDownHeight="420"
+                              ItemsSource="{Binding StepNames}" SelectedIndex="{Binding SelectedStepIndex, Mode=TwoWay}"
+                              ToolTip="{DynamicResource FemBucklingModeTip}"/>
+                </StackPanel>
                 <!-- Деформированная схема: иконка-переключатель, масштаб, сброс, исходная схема под ней -->
                 <ToggleButton Style="{StaticResource IconToggleButton25}" IsChecked="{Binding ShowDeformed}"
                               IsEnabled="{Binding CanShowDeformed}" ToolTip="{DynamicResource Fem3DShowDeformedSchema}">

@@ -101,6 +101,9 @@ public partial class FemAnalysisDialog : Window
         _schema = schema;
         _nodes = nodes;
         InitializeComponent();
+        // Начальный выбор — в коде: SelectionChanged из разметки пришёл бы до создания панелей ниже.
+        BucklingMethodCombo.SelectedIndex = 0;
+        BucklingSwayCombo.SelectedIndex = 0;
         // Загружения линейного CSfea: у правимой линейной постановки — отмечены её стадии, иначе все.
         var linearStages = existing?.Kind == FemCsfeaRunner.LinearAnalysisKind
             ? FemAnalysisParams.Parse(existing.ParamsJson).ResolveStages(existing) : null;
@@ -173,7 +176,16 @@ public partial class FemAnalysisDialog : Window
             if (existing.Kind == FemBucklingRunner.AnalysisKind)
             {
                 foreach (var stage in pars.ResolveStages(existing)) _batch.Add(ResolveSource(stage.LoadExpressionJson));
-                BucklingModesBox.Text = (pars.Buckling?.Modes ?? 20).ToString(CultureInfo.CurrentCulture);
+                var bp = pars.Buckling ?? new FemBucklingParams();
+                BucklingModesBox.Text = bp.Modes.ToString(CultureInfo.CurrentCulture);
+                SelectTag(BucklingMethodCombo, bp.Method);
+                SelectTag(BucklingSwayCombo, bp.Sway);
+                BucklingSwayXCb.IsChecked = bp.SwayX;
+                BucklingSwayYCb.IsChecked = bp.SwayY;
+                BucklingSwayStiffnessBox.Text = bp.SwayStiffness.ToString(CultureInfo.CurrentCulture);
+                BucklingGFixedBox.Text = bp.GFixed.ToString(CultureInfo.CurrentCulture);
+                BucklingGPinnedBox.Text = bp.GPinned.ToString(CultureInfo.CurrentCulture);
+                UpdateBucklingMethod();
             }
             if (isCsfeaExisting && existing.Kind == FemCsfeaRunner.AnalysisKind && pars.Batch is { } batch)
             {
@@ -940,19 +952,51 @@ public partial class FemAnalysisDialog : Window
     /// Постановка «Расчётные длины — CSfea»: отмеченные сочетания — стадии (целиком, без шагов), число форм; null —
     /// значения неверны.
     /// </summary>
+    static void SelectTag(ComboBox combo, string tag)
+    {
+        foreach (var item in combo.Items.OfType<ComboBoxItem>())
+            if ((string)item.Tag == tag) { combo.SelectedItem = item; return; }
+    }
+
+    static string SelectedTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string ?? "mode";
+
+    void BucklingMethod_Changed(object sender, SelectionChangedEventArgs e) => UpdateBucklingMethod();
+
+    // Номограммные параметры видны только у номограммных методов; порог — у смещения по жёсткости, оси — у ручного.
+    void UpdateBucklingMethod()
+    {
+        if (!IsInitialized || BucklingMethodCombo == null || BucklingNomogramPanel == null || BucklingSwayCombo == null
+            || BucklingSwayStiffnessRow == null || BucklingSwayManualRow == null) return;
+        bool nomogram = SelectedTag(BucklingMethodCombo) != "mode";
+        string sway = SelectedTag(BucklingSwayCombo);
+        BucklingNomogramPanel.Visibility = nomogram ? Visibility.Visible : Visibility.Collapsed;
+        BucklingSwayStiffnessRow.Visibility = sway == "stiffness" ? Visibility.Visible : Visibility.Collapsed;
+        BucklingSwayManualRow.Visibility = sway == "manual" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     FemAnalysis? BuildBucklingAnalysis(string caption)
     {
         string? error = null;
+        static bool Num(TextBox box, out double v) =>
+            double.TryParse(box.Text.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out v) && double.IsFinite(v);
         if (_batch.Count == 0) error = Loc.S("FemBucklingCombinationsEmpty");
         else if (_batch.Any(s => s.IsUnresolved)) error = Loc.S("FemCsfeaBatchUnresolved");
         else if (!int.TryParse(BucklingModesBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out int modes)
             || modes is < 1 or > 200)
             error = Loc.S("FemBucklingModesInvalid");
+        else if (!Num(BucklingGFixedBox, out double gFixed) || gFixed < 0 || !Num(BucklingGPinnedBox, out double gPinned)
+                 || gPinned <= 0 || !Num(BucklingSwayStiffnessBox, out double swayStiffness) || swayStiffness <= 0)
+            error = Loc.S("FemBucklingNomogramInvalid");
         else
         {
             var pars = new FemAnalysisParams
             {
-                Buckling = new FemBucklingParams { Modes = modes },
+                Buckling = new FemBucklingParams
+                {
+                    Modes = modes, Method = SelectedTag(BucklingMethodCombo), Sway = SelectedTag(BucklingSwayCombo),
+                    SwayX = BucklingSwayXCb.IsChecked == true, SwayY = BucklingSwayYCb.IsChecked == true,
+                    SwayStiffness = swayStiffness, GFixed = gFixed, GPinned = gPinned,
+                },
                 Stages = _batch.Select(s => new FemAnalysisStage
                 {
                     Tag = s.Tag, LoadExpressionJson = s.ExpressionJson, LoadFactorStep = 1.0, MaxLoadFactor = 1.0,

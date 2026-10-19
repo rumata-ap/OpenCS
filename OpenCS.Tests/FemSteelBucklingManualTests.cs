@@ -47,6 +47,21 @@ public class FemSteelBucklingManualTests(ITestOutputHelper output)
                     }
                     foreach (var (tag, a) in FemSteelBuckling.ElementLengths(input, r).Take(3))
                         output.WriteLine($"    КЭ {tag}: {a.NoteX} | {a.NoteY}");
+                    // Номограммы: по формам | ASCE | СП 16 по плоскостям местных осей (смещение, G концов).
+                    var asce = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 6), method: new Tasks.FemBucklingParams { Method = "asce" });
+                    var sp16 = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 6), method: new Tasks.FemBucklingParams { Method = "sp16" });
+                    static string G(double g) => double.IsPositiveInfinity(g) ? "∞" : g.ToString("0.###", CultureInfo.CurrentCulture);
+                    static string Plane(RcBucklingPlaneLength p) => p.Nomogram is { } n
+                        ? string.Create(CultureInfo.CurrentCulture, $"{p.Mu:0.###} ({(n.Sway ? "смещ." : "несмещ.")}, G {G(n.A.G)}/{G(n.B.G)}{(n.Sp16 is { } t ? $", {n.Storey}, k = {n.Spans}, p = {G(t.P)}, n = {t.N:0.###}, {t.Formula}" : "")})")
+                        : string.Create(CultureInfo.CurrentCulture, $"{p.Mu:0.###}");
+                    for (int i = 0; i < input.Units.Count; i++)
+                    {
+                        if (r.Lengths[i] is not { } f || asce.Lengths[i] is not { } a || sp16.Lengths[i] is not { } s) continue;
+                        output.WriteLine(string.Create(CultureInfo.CurrentCulture,
+                            $"    {input.Units[i].Label}: вокруг y — формы {f.AboutY.Mu:0.###} | ASCE {Plane(a.AboutY)} | СП 16 {Plane(s.AboutY)}"));
+                        output.WriteLine(string.Create(CultureInfo.CurrentCulture,
+                            $"    {input.Units[i].Label}: вокруг z — формы {f.AboutZ.Mu:0.###} | ASCE {Plane(a.AboutZ)} | СП 16 {Plane(s.AboutZ)}"));
+                    }
                     Assert.All(r.Cases, c => Assert.True(c.Result.Converged, $"сочетание «{c.Tag}» не сошлось"));
                 }
         }

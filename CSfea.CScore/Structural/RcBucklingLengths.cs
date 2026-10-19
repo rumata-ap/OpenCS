@@ -23,6 +23,12 @@ public enum RcBucklingLengthSource
 
     /// <summary>Элемент не участвует ни в одной из найденных форм, локальной формы в плоскости нет — μ не назначен.</summary>
     NotInvolved,
+
+    /// <summary>
+    /// μ — по номограмме ASCE или табл. 31 СП 16 (<see cref="RcNomogramLengths"/>): подробности — в
+    /// <see cref="RcBucklingPlaneLength.Nomogram"/>, назначение по формам — справочно в <see cref="RcBucklingPlaneLength.Form"/>.
+    /// </summary>
+    Nomogram,
 }
 
 /// <summary>
@@ -37,12 +43,15 @@ public enum RcBucklingLengthSource
 /// схемой — у неучастников. <paramref name="Equivalent"/> — эквивалентная стойка с пружинами из формы, по которой
 /// назначена N_cr (общей при λ или локальной при α; у качания без локальной задачи — null);
 /// <paramref name="Surround"/> — справочно, стойка с жёсткостями остальной схемы при фактическом сочетании (диагональ
-/// сведённой матрицы, <see cref="StructuralLocalBuckling.Surround"/>), её N_cr = EI·u²/l².
+/// сведённой матрицы, <see cref="StructuralLocalBuckling.Surround"/>), её N_cr = EI·u²/l². У
+/// <see cref="RcBucklingLengthSource.Nomogram"/> — <paramref name="Nomogram"/> (G концов, смещение, формула) и
+/// <paramref name="Form"/> — назначение по формам того же элемента (справочно).
 /// </summary>
 public sealed record RcBucklingPlaneLength(RcBucklingLengthSource Source, double Mu, double Ncr, double EI,
     int Mode = -1, double Lambda = double.NaN, double Share = 0, double Participation = 0, double Rho = double.NaN,
     double LocalAlpha = double.NaN, double LocalNcr = double.NaN, bool LocalBraced = false,
-    RcEquivalentColumn? Equivalent = null, RcEquivalentColumn? Surround = null);
+    RcEquivalentColumn? Equivalent = null, RcEquivalentColumn? Surround = null,
+    RcNomogramPlane? Nomogram = null, RcBucklingPlaneLength? Form = null);
 
 /// <summary>
 /// Расчётные длины элемента по сочетанию: длина <paramref name="Length"/>, м; <paramref name="N"/> — наибольшее сжатие

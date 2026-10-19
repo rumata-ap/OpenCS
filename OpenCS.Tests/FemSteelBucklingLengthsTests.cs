@@ -69,4 +69,57 @@ public sealed class FemSteelBucklingLengthsTests
         Assert.Equal(["FemSteelAutoLefMode", "FemSteelAutoLefEquivalent", "FemSteelAutoLefSurround",
             "FemSteelAutoLefMode", "FemSteelAutoLefEquivalent", "FemSteelAutoLefSurround"], map["101"].Notes);
     }
+
+    /// <summary>
+    /// Номограммы ASCE на тех же стойках: низ — заделка (G = 1 по AISC), верх без ригелей (G = ∞). По общей форме:
+    /// прогиб по X (верх держит связь) — без смещения, K(1; ∞) = 0,875; по Y — консоль со смещением, K(1; ∞) по ур. (2.9).
+    /// Вручную по осям СП 16 (x — без смещения, y — со смещением): у своей схемы x — изгиб вокруг z, у импортной — вокруг y.
+    /// </summary>
+    [Fact]
+    public void Nomogram_AsceByModeAndManualAxes()
+    {
+        const double l = 4.0, iz = 1e-4;
+        var own = new RcBeamSection("own") { Elastic = new BeamSection(E, 1e-2, 2 * iz, iz), CrossYAlongLocalY = true };
+        var imported = new RcBeamSection("imp") { Elastic = new BeamSection(E, 1e-2, 2 * iz, iz) };
+        var m = new RcStructuralModel();
+        for (int k = 0; k < 2; k++)
+        {
+            m.Nodes.Add(new RcNode(2 * k + 1, 5.0 * k, 0, 0));
+            m.Nodes.Add(new RcNode(2 * k + 2, 5.0 * k, 0, l));
+            m.Beams.Add(new RcBeam(101 + k, 2 * k + 1, 2 * k + 2, k == 0 ? own : imported, [1.0, 0.0, 0.0]));
+            m.Supports.Add(new RcSupport(2 * k + 1, 0b111111));
+            m.Supports.Add(new RcSupport(2 * k + 2, 0b000001));
+        }
+        var lc = new RcLoadCase(1, "P");
+        lc.Nodal.Add(new RcNodalLoad(2, [0.0, 0, -2000, 0, 0, 0]));
+        lc.Nodal.Add(new RcNodalLoad(4, [0.0, 0, -1000, 0, 0, 0]));
+        m.LoadCases.Add(lc);
+        var input = new FemSteelBucklingInput(new FemRcModelResult(m, [], []),
+            [new FemBucklingUnit("1", ["101"]), new FemBucklingUnit(null, ["102"])],
+            [[101], [102]], [new FemRcStage("С1", [(1, 1.0)])], []);
+        double sway = RcAlignmentChart.Sway(1, double.PositiveInfinity), braced = RcAlignmentChart.Braced(1, double.PositiveInfinity);
+
+        var byMode = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 6), method: new OpenCS.Tasks.FemBucklingParams { Method = "asce" });
+        foreach (var x in byMode.Lengths)
+        {
+            Assert.Equal(RcBucklingLengthSource.Nomogram, x!.AboutZ.Source);
+            Assert.False(x.AboutZ.Nomogram!.Sway);
+            Assert.Equal(braced, x.AboutZ.Mu, 9);
+            Assert.True(x.AboutY.Nomogram!.Sway);
+            Assert.Equal(sway, x.AboutY.Mu, 9);
+            Assert.Equal(RcBucklingLengthSource.Mode, x.AboutY.Form!.Source);
+        }
+        var map = FemSteelBuckling.ElementLengths(input, byMode);
+        Assert.Equal(braced, map["101"].MuX!.Value, 9);
+        Assert.Equal("FemSteelAutoLefNomogramAsce", map["101"].NoteX[..27]);
+        Assert.Contains("FemSteelAutoLefNomogramEq213", map["101"].DetailsX!);
+        Assert.Contains("FemSteelAutoLefNomogramEq29", map["101"].DetailsY!);
+
+        var manual = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 6),
+            method: new OpenCS.Tasks.FemBucklingParams { Method = "asce", Sway = "manual", SwayX = false, SwayY = true });
+        Assert.False(manual.Lengths[0]!.AboutZ.Nomogram!.Sway);        // своя: x — вокруг z
+        Assert.True(manual.Lengths[0]!.AboutY.Nomogram!.Sway);
+        Assert.False(manual.Lengths[1]!.AboutY.Nomogram!.Sway);        // импорт: x — вокруг y
+        Assert.True(manual.Lengths[1]!.AboutZ.Nomogram!.Sway);
+    }
 }

@@ -25,6 +25,9 @@ public sealed class FemBucklingAxisSummary
     public double? Lambda { get; set; }
     public string Note { get; set; } = "";
     public List<string> Details { get; set; } = [];
+
+    /// <summary>Номограммный метод: плоскость со смещением (true) или без; null — μ по формам.</summary>
+    public bool? Sway { get; set; }
 }
 
 /// <summary>
@@ -166,7 +169,9 @@ public static class FemBucklingModeCodec
 /// </summary>
 public static class FemBucklingFingerprint
 {
-    public static string Compute(FemSteelBucklingInput input, RcBucklingOptions options)
+    /// <param name="method">Метод назначения μ; номограммный — со своими параметрами в отпечатке, по формам — без них
+    /// (отпечатки результатов до номограмм остаются прежними).</param>
+    public static string Compute(FemSteelBucklingInput input, RcBucklingOptions options, FemBucklingParams? method = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(options);
@@ -176,6 +181,13 @@ public static class FemBucklingFingerprint
         void Nums(IEnumerable<double>? v) { foreach (double x in v ?? []) Num(x); sb.Append('|'); }
 
         sb.Append("modes=").Append(options.Modes).Append(";sub=").Append(options.MinSubdivisions).Append('\n');
+        if (method?.Nomogram() is { } nomo)
+        {
+            sb.Append("nomogram=").Append(nomo.Method).Append(',').Append(nomo.Sway).Append(',').Append(method.SwayX).Append(',')
+                .Append(method.SwayY).Append(':');
+            Num(nomo.GFixed); Num(nomo.GPinned); Num(nomo.SwayStiffness); Num(nomo.SwayChord);
+            sb.Append('\n');
+        }
         foreach (var n in m.Nodes) { sb.Append('n').Append(n.Id).Append(':'); Num(n.X); Num(n.Y); Num(n.Z); sb.Append('\n'); }
         foreach (var b in m.Beams)
         {
@@ -235,7 +247,11 @@ public static class FemBucklingRunner
 
     /// <summary>Параметры расчёта по постановке.</summary>
     public static RcBucklingOptions Options(FemAnalysis analysis) =>
-        new(Modes: Math.Max(1, FemAnalysisParams.Parse(analysis.ParamsJson).Buckling?.Modes ?? 20));
+        new(Modes: Math.Max(1, Params(analysis).Modes));
+
+    /// <summary>Параметры постановки (метод назначения μ, смещение, G опор).</summary>
+    public static FemBucklingParams Params(FemAnalysis analysis) =>
+        FemAnalysisParams.Parse(analysis.ParamsJson).Buckling ?? new FemBucklingParams();
 
     /// <summary>
     /// Сохранённый результат постановки, годный для входа <paramref name="input"/> (отпечаток совпал); null — результата
@@ -246,7 +262,7 @@ public static class FemBucklingRunner
         saved = analysis.ResultId is int rid ? db.GetCalcResultById(rid) : null;
         if (saved is not { TaskKind: TaskKind, Status: "ok" or "not_converged" }) saved = null;
         return saved != null && FemBucklingSummary.Parse(saved.DataJson) is { } summary
-            && summary.Fingerprint == FemBucklingFingerprint.Compute(input, Options(analysis)) ? summary : null;
+            && summary.Fingerprint == FemBucklingFingerprint.Compute(input, Options(analysis), Params(analysis)) ? summary : null;
     }
 
     /// <summary>Сетка схемы (устаревшая — перестраивается), вход и расчёт; результат и формы записываются в БД.</summary>
@@ -272,13 +288,14 @@ public static class FemBucklingRunner
         if (input.HasErrors)
             return Error(analysis, created, input.Report.Where(l => l.StartsWith("Ошибка: ", StringComparison.Ordinal)), input.Report);
         var options = Options(analysis);
+        var method = Params(analysis);
         var clock = Stopwatch.StartNew();
         var (summary, records) = await Task.Run(() =>
         {
-            var r = FemSteelBuckling.Run(input, options, ct);
+            var r = FemSteelBuckling.Run(input, options, ct, method: method);
             var s = new FemBucklingSummary
             {
-                Fingerprint = FemBucklingFingerprint.Compute(input, options), Modes = options.Modes,
+                Fingerprint = FemBucklingFingerprint.Compute(input, options, method), Modes = options.Modes,
                 Report = input.Report.Concat(r.Report).ToList(), Units = FemSteelBuckling.Summarize(input, r),
             };
             var recs = new List<(int, byte[])>();

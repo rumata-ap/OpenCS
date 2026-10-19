@@ -51,11 +51,34 @@ public sealed class FemAnalysisStage
 
 /// <summary>
 /// Параметры расчёта устойчивости для расчётных длин стали (спека 2026-10-18, срез 5): стадии постановки — сочетания,
-/// <see cref="Modes"/> — число искомых форм каждой задачи.
+/// <see cref="Modes"/> — число искомых форм каждой задачи. <see cref="Method"/> — назначение μ: «mode» — по формам,
+/// «asce» — номограммы ASCE, «sp16» — табл. 31 СП 16 (для невертикальных стержней — ASCE); <see cref="Sway"/> — смещение
+/// концов: «mode» — по общей форме, «stiffness» — по жёсткости окружения (порог <see cref="SwayStiffness"/>·12EI/l³),
+/// «manual» — <see cref="SwayX"/>, <see cref="SwayY"/> по осям СП 16; G опорных узлов — по AISC.
 /// </summary>
 public sealed class FemBucklingParams
 {
     public int Modes { get; set; } = 20;
+    public string Method { get; set; } = "mode";
+    public string Sway { get; set; } = "mode";
+    public bool SwayX { get; set; } = true;
+    public bool SwayY { get; set; }
+    public double SwayStiffness { get; set; } = 5;
+    public double GFixed { get; set; } = 1;
+    public double GPinned { get; set; } = 10;
+
+    /// <summary>Параметры номограммного расчёта; null — μ по формам.</summary>
+    public CSfea.CScoreBridge.Structural.RcNomogramOptions? Nomogram() => Method switch
+    {
+        "asce" or "sp16" => new(Method == "sp16" ? CSfea.CScoreBridge.Structural.RcLengthMethod.Sp16 : CSfea.CScoreBridge.Structural.RcLengthMethod.Asce,
+            Sway switch
+            {
+                "stiffness" => CSfea.CScoreBridge.Structural.RcSwayRule.Stiffness,
+                "manual" => CSfea.CScoreBridge.Structural.RcSwayRule.Manual,
+                _ => CSfea.CScoreBridge.Structural.RcSwayRule.ByMode,
+            }, GFixed, GPinned, SwayStiffness),
+        _ => null,
+    };
 }
 
 public sealed class FemAnalysisParams

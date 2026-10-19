@@ -96,9 +96,12 @@ public static class FemSteelBuckling
         return new FemSteelBucklingInput(adapted, kept, unitBeams, input.Stages, diag);
     }
 
-    /// <summary>Расчёт — в фоне.</summary>
+    /// <summary>
+    /// Расчёт — в фоне. <paramref name="method"/> — метод назначения μ постановки (номограммы ASCE / табл. 31 СП 16
+    /// поверх назначения по формам, <see cref="RcNomogramLengths"/>); null или «mode» — по формам.
+    /// </summary>
     public static FemSteelBucklingResult Run(FemSteelBucklingInput input, RcBucklingOptions? options = null,
-        CancellationToken ct = default, RcBucklingLengthOptions? lengthOptions = null)
+        CancellationToken ct = default, RcBucklingLengthOptions? lengthOptions = null, FemBucklingParams? method = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (input.HasErrors) throw new InvalidOperationException("Вход расчёта устойчивости содержит ошибки.");
@@ -129,6 +132,9 @@ public static class FemSteelBuckling
             var local = RcBucklingAnalysis.SolveLocal(r, input.UnitBeams, c.Units);
             ct.ThrowIfCancellationRequested();
             var all = RcBucklingLengths.Assign(r, input.UnitBeams, lengthOptions, local);
+            if (method?.Nomogram() is { } nomogram)
+                all = RcNomogramLengths.Assign(r, input.UnitBeams, c.Units, all, nomogram, local,
+                    (unit, xy) => xy == XAboutZ(input, unit) ? method.SwayX : method.SwayY);
             foreach (int u in c.Units) lengths[u] = all[u];
         }
         int Count(RcBucklingLengthSource source) => lengths.Count(x => x != null && (x.AboutZ.Source == source || x.AboutY.Source == source));
@@ -137,6 +143,17 @@ public static class FemSteelBuckling
             report.Add($"Элементов с N_cr по локальной задаче хотя бы в одной плоскости: {byLocal} (не участвуют в {options.Modes} формах или форма без смещения ниже).");
         if (notInvolved > 0)
             report.Add($"Элементов без формы хотя бы в одной плоскости (ни общей, ни локальной): {notInvolved} — μ в этой плоскости не назначен.");
+        if (method?.Nomogram() is { } used)
+        {
+            var planes = lengths.Where(x => x != null).SelectMany(x => new[] { x!.AboutZ, x.AboutY })
+                .Where(p => p.Nomogram != null).ToList();
+            int sway = planes.Count(p => p.Nomogram!.Sway), none = planes.Count(p => !double.IsFinite(p.Mu));
+            int fallback = planes.Count(p => p.Nomogram!.Sp16NotApplicable);
+            report.Add(string.Format(CultureInfo.CurrentCulture, Loc.S(used.Method == RcLengthMethod.Sp16 ? "FemBucklingReportSp16" : "FemBucklingReportAsce"),
+                planes.Count, sway, planes.Count - sway)
+                + (fallback > 0 ? " " + string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingReportSp16Fallback"), fallback) : "")
+                + (none > 0 ? " " + string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingReportNomogramNone"), none) : ""));
+        }
         return new FemSteelBucklingResult(model, governing, cases, lengths, report);
     }
 
@@ -169,7 +186,7 @@ public static class FemSteelBuckling
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(result);
-        var beams = input.Adapted!.Model.Beams.ToDictionary(b => b.Id);
+        var names = new NomogramNames(input, result.Model.Build.NodeIds);
         var list = new List<FemBucklingUnitSummary>();
         for (int i = 0; i < input.Units.Count; i++)
         {
@@ -189,27 +206,117 @@ public static class FemSteelBuckling
             }
             else
             {
-                bool xAboutZ = beams[input.UnitBeams[i][0]].Section.CrossYAlongLocalY;
+                bool xAboutZ = XAboutZ(input, i);
                 var (px, py) = xAboutZ ? (x.AboutZ, x.AboutY) : (x.AboutY, x.AboutZ);
                 s.Length = x.Length;
                 s.N = x.N;
-                s.X = Axis("x", px, x, c.Tag, unit.Label);
-                s.Y = Axis("y", py, x, c.Tag, unit.Label);
+                s.X = Axis("x", px, x, c.Tag, unit.Label, names);
+                s.Y = Axis("y", py, x, c.Tag, unit.Label, names);
             }
             list.Add(s);
         }
         return list;
     }
 
-    static FemBucklingAxisSummary Axis(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x, string combination, string unit)
+    // Ось x СП 16 элемента — местная z (своя схема) или местная y (импорт), см. ElementLengths.
+    static bool XAboutZ(FemSteelBucklingInput input, int unit)
+    {
+        int beam = input.UnitBeams[unit][0];
+        return input.Adapted!.Model.Beams.First(b => b.Id == beam).Section.CrossYAlongLocalY;
+    }
+
+    static FemBucklingAxisSummary Axis(string axis, RcBucklingPlaneLength p, RcBucklingUnitLength x, string combination,
+        string unit, NomogramNames names)
     {
         bool assigned = Mu(p) != null;
+        var form = p.Form ?? p;
         return new FemBucklingAxisSummary
         {
             Mu = Mu(p), Ncr = assigned && double.IsFinite(p.Ncr) ? p.Ncr : null, Source = p.Source.ToString(),
-            Mode = p.Mode >= 0 ? p.Mode + 1 : null, Lambda = double.IsFinite(p.Lambda) ? p.Lambda : null,
-            Note = Note(axis, p, x, combination, unit), Details = Details(axis, p, x),
+            Mode = form.Mode >= 0 ? form.Mode + 1 : null, Lambda = double.IsFinite(form.Lambda) ? form.Lambda : null,
+            Sway = p.Nomogram?.Sway,
+            Note = p.Nomogram is { } nomo ? NomogramNote(axis, p, nomo, x, combination, unit) : Note(axis, p, x, combination, unit),
+            Details = p.Nomogram is { } n
+                ? [.. NomogramDetails(n, names), Loc.S("FemSteelAutoLefNomogramFormPrefix") + " " + Note(axis, p.Form!, x, combination, unit),
+                    .. Details(axis, p.Form!, x)]
+                : Details(axis, p, x),
         };
+    }
+
+    /// <summary>Подписи для хода номограммного расчёта: расчётные элементы и узлы сетки по номерам схемы.</summary>
+    sealed class NomogramNames(FemSteelBucklingInput input, int[] nodeIds)
+    {
+        public string Unit(int unit) => unit >= 0 && unit < input.Units.Count ? input.Units[unit].Label : Loc.S("FemSteelAutoLefNomogramBar");
+
+        public string Node(int index) => index >= 0 && index < nodeIds.Length ? nodeIds[index].ToString(CultureInfo.InvariantCulture) : "—";
+    }
+
+    static string G(double g) => double.IsPositiveInfinity(g) ? "∞" : g.ToString("0.###", CultureInfo.CurrentCulture);
+
+    // Пояснение к μ по номограмме: метод, смещение и его признак, G концов (или p, n таблицы СП 16), N и N_cr.
+    static string NomogramNote(string axis, RcBucklingPlaneLength p, RcNomogramPlane n, RcBucklingUnitLength x, string combination, string unit)
+    {
+        var ci = CultureInfo.CurrentCulture;
+        string sway = Loc.S(n.Sway ? "FemSteelAutoLefNomogramSway" : "FemSteelAutoLefNomogramBraced");
+        string reason = n.SwayReason switch
+        {
+            RcSwayReason.ModeChord => string.Format(ci, Loc.S("FemSteelAutoLefNomogramByMode"), (p.Form?.Mode ?? -1) + 1, n.SwayValue),
+            RcSwayReason.NotInModes => Loc.S("FemSteelAutoLefNomogramNotInModes"),
+            RcSwayReason.Stiffness => string.Format(ci, Loc.S("FemSteelAutoLefNomogramByStiffness"), n.SwayValue),
+            RcSwayReason.Manual => Loc.S("FemSteelAutoLefNomogramManual"),
+            _ => Loc.S("FemSteelAutoLefNomogramNoSurround"),
+        };
+        if (!double.IsFinite(p.Mu))
+            return string.Format(ci, Loc.S("FemSteelAutoLefNomogramNone"), axis, unit, sway, reason, G(n.A.G), G(n.B.G));
+        string tail = string.Format(ci, Loc.S("FemSteelAutoLefNomogramTail"), -x.N / 1e3, p.Ncr / 1e3);
+        if (n.Sp16 is { } t)
+            return string.Format(ci, Loc.S("FemSteelAutoLefNomogramSp16"), axis, p.Mu, unit, x.Length, combination, sway,
+                reason, Loc.S("FemSp16Storey" + n.Storey), n.Spans, P(t.P), t.N, t.Formula) + " " + tail;
+        string text = string.Format(ci, Loc.S("FemSteelAutoLefNomogramAsce"), axis, p.Mu, unit, x.Length, combination, sway,
+            reason, G(n.A.G), G(n.B.G), n.Sway ? "(2.9)" : "(2.13)") + " " + tail;
+        return n.Sp16NotApplicable ? Loc.S("FemSteelAutoLefNomogramSp16NotColumn") + " " + text : text;
+    }
+
+    static string P(double p) => double.IsPositiveInfinity(p) ? "∞" : p.ToString("0.###", CultureInfo.CurrentCulture);
+
+    // Ход номограммного расчёта: по концам — колонны и ригели с погонными жёсткостями и коэффициентами, опоры, G;
+    // затем уравнение (ASCE) или формула таблицы (СП 16) с подстановкой.
+    static List<string> NomogramDetails(RcNomogramPlane n, NomogramNames names)
+    {
+        var ci = CultureInfo.CurrentCulture;
+        bool sp16 = n.Sp16 != null;
+        var list = new List<string>();
+        foreach (var (end, where) in new[] { (n.A, sp16 ? "FemSteelAutoLefNomogramBottom" : "FemSteelAutoLefNomogramEndA"),
+                     (n.B, sp16 ? "FemSteelAutoLefNomogramTop" : "FemSteelAutoLefNomogramEndB") })
+        {
+            string Kilo(double v) => (v / 1e3).ToString("0.###", ci);
+            var cols = end.Arms.Where(a => a.Column).Select(a => $"{names.Unit(a.Unit)} {Kilo(a.Stiffness)}"
+                + (a.Released ? " " + Loc.S("FemSteelAutoLefNomogramReleased") : ""));
+            var girders = end.Arms.Where(a => !a.Column).Select(a =>
+            {
+                string g = $"{names.Unit(a.Unit)} {Kilo(a.Stiffness)}";
+                if (a.Released) return g + " " + Loc.S("FemSteelAutoLefNomogramReleased");
+                if (!sp16 && Math.Abs(a.Factor - 1) > 1e-6) g += " × " + a.Factor.ToString("0.###", ci);
+                if (!sp16 && a.Far != RcFarEnd.Joint) g += " (" + Loc.S("FemSteelAutoLefNomogramFar" + a.Far) + ")";
+                return g;
+            });
+            var extra = new List<string>();
+            if (end.OwnReleased) extra.Add(Loc.S("FemSteelAutoLefNomogramOwnReleased"));
+            if (end.SupportFixed) extra.Add(Loc.S("FemSteelAutoLefNomogramSupportFixed"));
+            else if (end.SupportPinned) extra.Add(Loc.S("FemSteelAutoLefNomogramSupportPinned"));
+            if (end.Spring > 0) extra.Add(string.Format(ci, Loc.S("FemSteelAutoLefNomogramSpring"), Kilo(end.Spring)));
+            if (end.Shells > 0) extra.Add(string.Format(ci, Loc.S("FemSteelAutoLefNomogramShells"), end.Shells));
+            string own = string.Join(", ", cols.DefaultIfEmpty("—"));
+            list.Add(string.Format(ci, Loc.S("FemSteelAutoLefNomogramEnd"), names.Node(end.Node), Loc.S(where),
+                Kilo(end.Columns), own, Kilo(end.Girders), string.Join(", ", girders.DefaultIfEmpty("—")),
+                extra.Count > 0 ? "; " + string.Join("; ", extra) : "", G(end.G)));
+        }
+        if (n.Sp16 is { } t)
+            list.Add(string.Format(ci, Loc.S("FemSteelAutoLefNomogramSp16Formula"), Loc.S(n.Sway ? "FemSteelAutoLefNomogramSway" : "FemSteelAutoLefNomogramBraced"),
+                Loc.S("FemSp16Storey" + n.Storey), n.Spans, P(t.P), t.N, t.Formula, t.Mu));
+        else
+            list.Add(string.Format(ci, Loc.S(n.Sway ? "FemSteelAutoLefNomogramEq29" : "FemSteelAutoLefNomogramEq213"), G(n.A.G), G(n.B.G), n.K));
+        return list;
     }
 
     static double? Mu(RcBucklingPlaneLength p) => double.IsFinite(p.Mu) && p.Mu > 0 ? p.Mu : null;
