@@ -159,6 +159,7 @@ public static class CommandIcons
         ["FemCsfeaBatchForceSets"] = "CmdIcon_ForceSetNew",
         ["FemCsfeaBatchShowVariant"] = "CmdIcon_ShowResult",
         ["FemCsfeaBatchNewFromProblems"] = "CmdIcon_AnalysisNew",
+        ["FemCsfeaLinearOnStiffness"] = "CmdIcon_AnalysisNew",
 
         // Наборы усилий
         ["DuplicateForceSet"] = "CmdIcon_Duplicate",
