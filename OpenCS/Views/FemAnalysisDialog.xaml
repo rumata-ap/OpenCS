@@ -559,7 +559,7 @@
                 <StackPanel Margin="4">
                     <RadioButton x:Name="CsfeaRecordFinalRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordFinal}"
                                  Checked="CsfeaRecording_Changed" Margin="0,0,0,4"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <StackPanel x:Name="CsfeaRecordSelectedRow" Orientation="Horizontal" Margin="0,0,0,4">
                         <RadioButton x:Name="CsfeaRecordSelectedRadio" GroupName="CsfeaRecording" Content="{DynamicResource FemCsfeaRecordSelected}"
                                      Checked="CsfeaRecording_Changed" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox x:Name="CsfeaRecordStepsBox" Width="150" Height="22" VerticalContentAlignment="Center"

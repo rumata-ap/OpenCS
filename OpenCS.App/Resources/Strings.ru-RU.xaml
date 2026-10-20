@@ -3401,6 +3401,9 @@
     <system:String x:Key="FemCsfeaSectionCrackFromFlag">Трещина — по флагу КЭ: по показанной плоскости её нет (после трещины ψs ужесточает сечение), но с ней усилия ближе к записанным.</system:String>
     <system:String x:Key="FemCsfeaSectionPsi">ψs учтён, наименьший {0:0.###}; σ арматуры — с ψs.</system:String>
     <system:String x:Key="FemCsfeaSectionNoStrains">В полях показанного шага нет деформаций сечений. Включите в постановке «Записывать деформации сечений» и пересчитайте.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoShellStrainsTip">Деформации пластин не записаны: включите в постановке «Записывать деформации сечений» и пересчитайте</system:String>
+    <system:String x:Key="FemCsfeaSectionNoBeamStrainsTip">Деформации стержней не записаны (результат до 18.10.2026): пересчитайте постановку</system:String>
+    <system:String x:Key="FemCsfeaSectionEnvelopeTip">У огибающей нет одного НДС — выберите шаг, загружение или комбинацию</system:String>
     <system:String x:Key="FemCsfeaSectionNoCross">У стержня нет сечения CScore — НДС сечения строится только для фибровых сечений.</system:String>
     <system:String x:Key="FemCsfeaDetailMenu">Детальные эпюры НДС…</system:String>
     <system:String x:Key="FemCsfeaDetailTitle">Детальные эпюры НДС сечений стержней — {0}</system:String>

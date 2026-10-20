@@ -20,8 +20,9 @@ public sealed record FemCsfeaCombinationCase(FemLoadDefinition Definition, IRead
 
 /// <summary>
 /// Комбинации схемы по результату линейного CSfea без перерасчёта (спека 2026-10-16): поля комбинации — сумма
-/// k·поля загружения. Суммируются перемещения, усилия пластин и стержней, реакции и ΣR/ΣF — у упругого расчёта всё
-/// линейно; состояния сечений у линейного расчёта пусты (NaN, флаги 0).
+/// k·поля загружения. Суммируются перемещения, усилия пластин и стержней, деформации сечений (если записаны у всех
+/// слагаемых — для «НДС сечения»), реакции и ΣR/ΣF — у линейного расчёта всё линейно; состояния сечений пусты
+/// (NaN, флаги 0).
 /// </summary>
 public static class FemCsfeaCombinationFields
 {
@@ -125,6 +126,8 @@ public static class FemCsfeaCombinationFields
 
         var states = new double[first.ShellStates.Length];
         Array.Fill(states, double.NaN);
+        bool shellStrains = terms.All(t => t.Fields.HasStrains);
+        bool beamStrains = terms.All(t => t.Fields.HasBeamStrains);
         return new RcSecantStepFields
         {
             Stage = -1, Step = 1, LoadFactor = 1,
@@ -132,6 +135,8 @@ public static class FemCsfeaCombinationFields
             ShellIds = first.ShellIds, ShellForces = Sum(f => f.ShellForces), ShellStates = states,
             ShellFlags = new byte[first.ShellFlags.Length],
             BeamIds = first.BeamIds, BeamForces = Sum(f => f.BeamForces), BeamFlags = new byte[first.BeamFlags.Length],
+            HasStrains = shellStrains, ShellStrains = shellStrains ? Sum(f => f.ShellStrains) : [],
+            BeamStrains = beamStrains ? Sum(f => f.BeamStrains) : [],
             ReactionNodeIds = first.ReactionNodeIds, Reactions = Sum(f => f.Reactions), ReactionKinds = first.ReactionKinds,
             ReactionSums = Sum(f => f.ReactionSums), LoadSum = Sum(f => f.LoadSum),
         };

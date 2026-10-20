@@ -46,8 +46,12 @@ public sealed class FemCsfeaCombinationFieldsTests
         }.ToJson(),
     };
 
-    static RcSecantStepFields Fields(double scale) => new()
+    /// <param name="shellStrains">С деформациями пластин; <paramref name="beamStrains"/> — стержней.</param>
+    static RcSecantStepFields Fields(double scale, bool shellStrains = false, bool beamStrains = false) => new()
     {
+        HasStrains = shellStrains,
+        ShellStrains = shellStrains ? Enumerable.Range(0, 6).Select(i => scale * 1e-4 * (i + 1)).ToArray() : [],
+        BeamStrains = beamStrains ? Enumerable.Range(0, 9).Select(i => -scale * 1e-5 * (i + 1)).ToArray() : [],
         NodeIds = [1, 2], Displacements = Enumerable.Range(0, 12).Select(i => scale * i).ToArray(),
         ShellIds = [101], ShellForces = Enumerable.Range(0, 8).Select(i => scale * (i + 1)).ToArray(),
         ShellStates = Enumerable.Repeat(double.NaN, 5).ToArray(), ShellFlags = [0],
@@ -93,6 +97,27 @@ public sealed class FemCsfeaCombinationFieldsTests
         Assert.All(f.ShellStates, s => Assert.True(double.IsNaN(s)));
         Assert.Equal([1], f.ReactionKinds);
         Assert.Equal(-1, f.Stage);
+    }
+
+    /// <summary>
+    /// Деформации сечений линейны так же, как усилия: комбинация складывает их, если они записаны у всех слагаемых
+    /// («НДС сечения» по комбинации линейного расчёта); у одного слагаемого нет — в сумме нет.
+    /// </summary>
+    [Fact]
+    public void Superpose_SectionStrains_WhenAllTermsHaveThem()
+    {
+        RcSecantStepFields WithStrains(double scale, bool shell = true) => Fields(scale, shell, beamStrains: true);
+
+        var f = FemCsfeaCombinationFields.Superpose([(WithStrains(1), 1.1), (WithStrains(2), 0.5)]);
+        Assert.True(f.HasStrains);
+        Assert.True(f.HasBeamStrains);
+        Assert.Equal(WithStrains(2.1).ShellStrains, f.ShellStrains, (a, b) => Math.Abs(a - b) < 1e-15);
+        Assert.Equal(WithStrains(2.1).BeamStrains, f.BeamStrains, (a, b) => Math.Abs(a - b) < 1e-15);
+
+        var partial = FemCsfeaCombinationFields.Superpose([(WithStrains(1), 1), (WithStrains(1, shell: false), 1)]);
+        Assert.False(partial.HasStrains);
+        Assert.True(partial.HasBeamStrains);
+        Assert.False(FemCsfeaCombinationFields.Superpose([(WithStrains(1), 1), (Fields(1), 1)]).HasBeamStrains);
     }
 
     /// <summary>Полный прогиб п. 8.2.24: u₁ − u₂ + u₃ по перемещениям; усилия и реакции — нули, состояния пусты.</summary>

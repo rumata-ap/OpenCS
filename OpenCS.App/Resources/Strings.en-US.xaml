@@ -3401,6 +3401,9 @@
     <system:String x:Key="FemCsfeaSectionCrackFromFlag">The crack comes from the element flag: the shown plane has none (ψs stiffens the section after cracking), but with it the forces are closer to the recorded ones.</system:String>
     <system:String x:Key="FemCsfeaSectionPsi">ψs is applied, smallest {0:0.###}; reinforcement stresses include ψs.</system:String>
     <system:String x:Key="FemCsfeaSectionNoStrains">The fields of the shown step have no section strains. Turn on "Record section strains" in the analysis and recalculate.</system:String>
+    <system:String x:Key="FemCsfeaSectionNoShellStrainsTip">Plate strains are not recorded: enable “Record section strains” in the analysis and rerun</system:String>
+    <system:String x:Key="FemCsfeaSectionNoBeamStrainsTip">Bar strains are not recorded (result before 18.10.2026): rerun the analysis</system:String>
+    <system:String x:Key="FemCsfeaSectionEnvelopeTip">An envelope has no single strain state — choose a step, load case or combination</system:String>
     <system:String x:Key="FemCsfeaSectionNoCross">The bar has no CScore section — the section state is built only for fibre sections.</system:String>
     <system:String x:Key="FemCsfeaDetailMenu">Detailed state diagrams…</system:String>
     <system:String x:Key="FemCsfeaDetailTitle">Detailed section state diagrams of bars — {0}</system:String>

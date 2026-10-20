@@ -739,7 +739,9 @@ public partial class FemAnalysisDialog : Window
         UpdateCsfeaImportedFactorsState();
         CsfeaIterationsGroup.Visibility = secantOnly;
         // Пакет пишет только конечное состояние каждого варианта — свой выбор хранения в панели пакета.
-        CsfeaRecordingGroup.Visibility = batch ? Visibility.Collapsed : secantOnly;
+        CsfeaRecordingGroup.Visibility = batch ? Visibility.Collapsed : Visibility.Visible;
+        // Линейный: по полю на загружение без шагов — выбора хранения нет, только деформации сечений («НДС сечения»).
+        CsfeaRecordFinalRadio.Visibility = CsfeaRecordSelectedRow.Visibility = CsfeaRecordAllRadio.Visibility = secantOnly;
         if (csfea)
         {
             var loadControl = BuildPathControlModeOptions()[0];

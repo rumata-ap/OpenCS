@@ -606,7 +606,7 @@ public partial class FemSchemaView3D : UserControl
             // НДС сечения одного стержня: точка i, ½ или j (без записанных деформаций — пояснение по щелчку).
             if (app != null && selection.Elements.Count == 1 && selection.Elements.First() is var barTag && layer.Mesh.IsBar(barTag))
             {
-                var state = CommandIcons.Apply(new MenuItem { Header = Loc.S("FemCsfeaSectionStateMenu"), IsEnabled = !layer.IsEnvelope }, "FemResultMenuMemberSection");
+                var state = SectionStateItem(layer, csfea.HasBeamStrains, "FemCsfeaSectionNoBeamStrainsTip");
                 foreach (var (point, key) in new[] { (0, "FemCsfeaSectionPointI"), (1, "FemCsfeaSectionPointMid"), (2, "FemCsfeaSectionPointJ") })
                 {
                     var item = new MenuItem { Header = Loc.S(key) };
@@ -618,7 +618,7 @@ public partial class FemSchemaView3D : UserControl
             // НДС сечения одной пластины — в центре КЭ.
             else if (app != null && selection.Elements.Count == 1 && selection.Elements.First() is var plateTag)
             {
-                var state = CommandIcons.Apply(new MenuItem { Header = Loc.S("FemCsfeaSectionStateMenu"), IsEnabled = !layer.IsEnvelope }, "FemResultMenuMemberSection");
+                var state = SectionStateItem(layer, csfea.HasSectionStrains, "FemCsfeaSectionNoShellStrainsTip");
                 state.Click += (_, _) => app.OpenCsfeaPlateSectionState(csfea, plateTag);
                 menu.Items.Add(state);
             }
@@ -637,6 +637,24 @@ public partial class FemSchemaView3D : UserControl
         menu.IsOpen = true;
         e.Handled = true;
         return true;
+    }
+
+    /// <summary>
+    /// «НДС сечения»: без деформаций в полях показанного шага или у огибающей — неактивен, причина в подсказке
+    /// (раньше пункт был активен и по щелчку выдавал предупреждение).
+    /// </summary>
+    static MenuItem SectionStateItem(FemResultLayer layer, bool hasStrains, string noStrainsTip)
+    {
+        var item = CommandIcons.Apply(new MenuItem
+        {
+            Header = Loc.S("FemCsfeaSectionStateMenu"), IsEnabled = !layer.IsEnvelope && hasStrains,
+        }, "FemResultMenuMemberSection");
+        if (!item.IsEnabled)
+        {
+            item.ToolTip = Loc.S(layer.IsEnvelope ? "FemCsfeaSectionEnvelopeTip" : noStrainsTip);
+            ToolTipService.SetShowOnDisabled(item, true);
+        }
+        return item;
     }
 
     LinesVisual3D? _resultGridVisual;
