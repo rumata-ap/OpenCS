@@ -117,7 +117,7 @@ public sealed class LimitForceBatchVM : ViewModelBase
                         MxText:     Num(row, "Mx", 4),
                         MyText:     Num(row, "My", 4),
                         FactorText: Num(row, "factor", 4),
-                        UtilText:   Num(row, "utilization", 4),
+                        UtilText:   Num(row, "utilization", 4, nullText: "∞"),
                         GovText:    govT,
                         IterText:   row.TryGetProperty("iterations", out var iv) ? iv.GetInt32().ToString() : "—",
                         StatusText: conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
@@ -140,9 +140,11 @@ public sealed class LimitForceBatchVM : ViewModelBase
     static string Str(JsonElement row, string prop)
         => row.TryGetProperty(prop, out var v) ? v.GetString() ?? "" : "";
 
-    static string Num(JsonElement row, string prop, int dec)
+    /// <summary>Число строки; null — бесконечная величина (Кисп = ∞, если фиксированная часть усилий сечению не по силам).</summary>
+    static string Num(JsonElement row, string prop, int dec, string nullText = "—")
     {
         if (!row.TryGetProperty(prop, out var v)) return "—";
+        if (v.ValueKind == JsonValueKind.Null) return nullText;
         return v.GetDouble().ToString($"0.{new string('0', dec)}");
     }
 

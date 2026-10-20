@@ -49,10 +49,13 @@ public sealed class LimitForceSummaryVM : ViewModelBase
         string solver = root.TryGetProperty("solver_method", out var sm) ? sm.GetString() ?? "" : "";
         SolverText = solver == "fast" ? Loc.S("LimitForceSolver_Fast") : Loc.S("LimitForceSolver_Bisection");
 
-        double factor = root.TryGetProperty("factor", out var fv) ? fv.GetDouble() : 0;
-        double util   = root.TryGetProperty("utilization", out var uv) ? uv.GetDouble() : 0;
-        FactorText      = $"{factor:0.0000}";
-        UtilizationText = $"{util:0.0000}";
+        // null — бесконечная величина: неизменяемая часть усилий сечению не по силам ни при каком k, Кисп = ∞.
+        FactorText = root.TryGetProperty("factor", out var fv)
+            ? fv.ValueKind == JsonValueKind.Number ? $"{fv.GetDouble():0.0000}" : "—"
+            : $"{0.0:0.0000}";
+        UtilizationText = root.TryGetProperty("utilization", out var uv)
+            ? uv.ValueKind == JsonValueKind.Number ? $"{uv.GetDouble():0.0000}" : "∞"
+            : $"{0.0:0.0000}";
 
         string gov = root.TryGetProperty("governing", out var gv) ? gv.GetString() ?? "none" : "none";
         GoverningText = gov switch

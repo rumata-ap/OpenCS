@@ -99,8 +99,9 @@ public sealed class LimitForceReportProvider : IReportProvider
                 ]))
             .Add(new ReportKeyValueTable(
             [
-                ("Коэффициент запаса", F(data.Factor)),
-                ("Коэффициент использования", F(data.Utilization)),
+                ("Коэффициент запаса", data.Factor is double factor ? F(factor) : "—"),
+                ("Коэффициент использования", data.Utilization is double utilization ? F(utilization)
+                    : "∞ — неизменяемая часть усилий не воспринимается сечением ни при каком k"),
                 ("Определяющий критерий", Governing(data.Governing)),
                 ("Сходимость", data.Converged ? "достигнута" : "не достигнута")
             ], "Параметр", "Значение"));

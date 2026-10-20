@@ -15,10 +15,10 @@ public sealed class LimitForceReportData
     [JsonPropertyName("iterations")] public int Iterations { get; set; }
     /// <summary>Число итераций Ньютона.</summary>
     [JsonPropertyName("newton_iterations")] public int NewtonIterations { get; set; }
-    /// <summary>Коэффициент запаса.</summary>
-    [JsonPropertyName("factor")] public double Factor { get; set; }
-    /// <summary>Коэффициент использования.</summary>
-    [JsonPropertyName("utilization")] public double Utilization { get; set; }
+    /// <summary>Коэффициент запаса; null — не конечен.</summary>
+    [JsonPropertyName("factor")] public double? Factor { get; set; }
+    /// <summary>Коэффициент использования; null — ∞ (неизменяемая часть усилий сечению не по силам).</summary>
+    [JsonPropertyName("utilization")] public double? Utilization { get; set; }
     /// <summary>Определяющий критерий.</summary>
     [JsonPropertyName("governing")] public string Governing { get; set; } = "";
 

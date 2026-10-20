@@ -188,8 +188,10 @@ static class LimitForceTaskHelper
          converged         = res.Converged,
          iterations        = res.Iterations,
          newton_iterations = res.NewtonIterations,
-         factor            = Math.Round(res.Factor, 6),
-         utilization       = Math.Round(res.Utilization, 6),
+         // Фиксированная часть сечению не по силам ни при каком k (например, N = 0 в задаче по N
+         // и момент сверх несущей способности): Кисп = ∞ — в JSON пусто, ∞ JSON не допускает.
+         factor            = StrainStateJsonHelper.FiniteRounded(res.Factor, 6),
+         utilization       = StrainStateJsonHelper.FiniteRounded(res.Utilization, 6),
          governing         = res.Governing,
          N_target          = item.N,
          Mx_target         = item.Mx,
@@ -275,8 +277,10 @@ static class LimitForceTaskHelper
          N                 = fi.N,
          Mx                = fi.Mx,
          My                = fi.My,
-         factor            = Math.Round(res.Factor, 6),
-         utilization       = Math.Round(res.Utilization, 6),
+         // Фиксированная часть сечению не по силам ни при каком k (например, N = 0 в задаче по N
+         // и момент сверх несущей способности): Кисп = ∞ — в JSON пусто, ∞ JSON не допускает.
+         factor            = StrainStateJsonHelper.FiniteRounded(res.Factor, 6),
+         utilization       = StrainStateJsonHelper.FiniteRounded(res.Utilization, 6),
          governing         = res.Governing,
          N_limit           = Math.Round(res.NLimit, 4),
          Mx_limit          = Math.Round(res.MxLimit, 4),
