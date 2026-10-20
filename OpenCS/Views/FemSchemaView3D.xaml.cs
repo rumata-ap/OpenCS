@@ -623,6 +623,11 @@ public partial class FemSchemaView3D : UserControl
                 menu.Items.Add(state);
             }
         }
+        if (selection.Elements.Count > 0 && CheckRowTaskMenu(vm, [.. selection.Elements]) is { } checkTask)
+        {
+            menu.Items.Add(new Separator());
+            menu.Items.Add(checkTask);
+        }
         if (selection.Elements.Count > 0)
             AppendFragmentItems(menu, [.. selection.Elements], meshElements: true);
         menu.Items.Add(new Separator());
@@ -1595,40 +1600,73 @@ public partial class FemSchemaView3D : UserControl
     }
 
     /// <summary>
-    /// Мозаика показывает Кисп проверки по КЭ: меню КЭ под курсором — одиночная задача по определяющей строке КЭ
-    /// или его КонЭ (худшая из строк всех его КЭ). False — мозаика не про проверку или под курсором нет КЭ.
+    /// Мозаика Кисп проверки вне режима редактирования (меню редактирования нет): меню КЭ под курсором — только
+    /// «Создать задачу по проверке». False — мозаика не про проверку, под курсором нет КЭ или задач по нему нет.
     /// </summary>
     bool ShowCheckRowTaskMenu(Fem3DVM vm, MouseButtonEventArgs e)
     {
-        if (vm.Mosaic.ShownCheck is not { } shown
-            || Application.Current?.MainWindow?.DataContext is not AppViewModel app
-            || MosaicElementAt(vm, e.GetPosition(viewport)) is not { } elemTag) return false;
-
+        if (vm.Mosaic.ShownCheck == null || MosaicElementAt(vm, e.GetPosition(viewport)) is not { } elemTag
+            || CheckRowTaskMenu(vm, [elemTag]) is not { } item) return false;
         var menu = new ContextMenu { PlacementTarget = viewport };
-        menu.Items.Add(new MenuItem { Header = shown.Check.DisplayTag, IsEnabled = false, FontWeight = FontWeights.SemiBold });
-        void Add(string header, IReadOnlyList<string> elemTags)
-        {
-            var item = new MenuItem { Header = header };
-            item.Click += (_, _) =>
-            {
-                int resultId = shown.Check.ResultId ?? 0;
-                var rows = elemTags.Select(t => int.TryParse(t, out int n) ? n : (int?)null).OfType<int>()
-                    .SelectMany(n => app.db.GetFemCheckRows(resultId, n))
-                    .Where(r => r.RebarSource == shown.Source);
-                if (FemCheckRunner.GoverningRow(rows) is { } row)
-                    BatchRowTask.CreateAndRun(app, shown.Check, FemCheckRowKey.Of(row));
-                else
-                    MessageBox.Show(Loc.S("FemCheckRowTaskNoRows"), shown.Check.DisplayTag,
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-            };
-            menu.Items.Add(item);
-        }
-        Add(string.Format(Loc.S("FemCheckRowTaskGoverningElement"), elemTag), [elemTag]);
-        if (vm.MemberOfMeshElement(elemTag) is { ElemTags.Count: > 1 } member)
-            Add(string.Format(Loc.S("FemCheckRowTaskGoverningMember"), member.MemberTag, member.ElemTags.Count), member.ElemTags);
+        menu.Items.Add(new MenuItem { Header = $"{Loc.S("MosaicElement")} {elemTag}", IsEnabled = false, FontWeight = FontWeights.SemiBold });
+        menu.Items.Add(item);
         menu.IsOpen = true;
         e.Handled = true;
         return true;
+    }
+
+    const string CheckTaskItemMarker = "fem-check-task-item";
+
+    /// <summary>
+    /// Подменю «Создать задачу по проверке»: посчитанные проверки схемы, у которых есть строки выбранных КЭ, — задача
+    /// по определяющей строке КЭ (выбранных КЭ), а у одного КЭ из КонЭ с несколькими КЭ — ещё и по КонЭ целиком
+    /// (худшая строка всех его КЭ). Null — таких проверок нет.
+    /// </summary>
+    MenuItem? CheckRowTaskMenu(Fem3DVM vm, IReadOnlyList<string> elemTags)
+    {
+        if (Application.Current?.MainWindow?.DataContext is not AppViewModel app) return null;
+        static List<int> Nums(IEnumerable<string> tags) =>
+            tags.Select(t => int.TryParse(t, out int n) ? n : (int?)null).OfType<int>().Distinct().ToList();
+        var nums = Nums(elemTags);
+        if (nums.Count == 0) return null;
+        var member = elemTags.Count == 1 ? vm.MemberOfMeshElement(elemTags[0]) : null;
+
+        var root = new MenuItem { Header = Loc.S("FemCheckRowTaskMenu"), Tag = CheckTaskItemMarker };
+        foreach (var check in app.db.FemChecks.Where(c => c.SchemaId == vm.SchemaId && c.ResultId != null))
+        {
+            int resultId = check.ResultId!.Value;
+            if (!nums.Any(n => app.db.CountFemCheckRows(resultId, n) > 0)) continue;
+            void Add(string what, IReadOnlyList<int> elems)
+            {
+                var item = new MenuItem { Header = $"{check.DisplayTag}: {what}" };
+                item.Click += (_, _) =>
+                {
+                    var rows = elems.SelectMany(n => app.db.GetFemCheckRows(resultId, n));
+                    if (FemCheckRunner.GoverningRow(rows) is { } row)
+                        BatchRowTask.CreateAndRun(app, check, FemCheckRowKey.Of(row));
+                    else
+                        MessageBox.Show(Loc.S("FemCheckRowTaskNoRows"), check.DisplayTag,
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                };
+                root.Items.Add(item);
+            }
+            Add(elemTags.Count == 1
+                ? string.Format(Loc.S("FemCheckRowTaskGoverningElement"), elemTags[0])
+                : string.Format(Loc.S("FemCheckRowTaskGoverningSelected"), nums.Count), nums);
+            if (member is { ElemTags.Count: > 1 } m)
+                Add(string.Format(Loc.S("FemCheckRowTaskGoverningMember"), m.MemberTag, m.ElemTags.Count), Nums(m.ElemTags));
+        }
+        return root.Items.Count > 0 ? root : null;
+    }
+
+    /// <summary>Подменю задачи по проверке в многоразовое меню: прошлое убирается, новое — перед «Фрагментом».</summary>
+    void AppendCheckRowTaskMenu(ContextMenu menu, IReadOnlyList<string> elemTags)
+    {
+        foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, CheckTaskItemMarker)).ToList())
+            menu.Items.Remove(old);
+        if (VM is not { } vm || CheckRowTaskMenu(vm, elemTags) is not { } item) return;
+        menu.Items.Add(new Separator { Tag = CheckTaskItemMarker });
+        menu.Items.Add(item);
     }
 
     /// <summary>Стержень, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.
@@ -1827,7 +1865,7 @@ public partial class FemSchemaView3D : UserControl
         // При показанном результате — меню результата; меню редактирования не открываются.
         if (VM is { } resultVm && PickableResult is { } result) { ShowResultContextMenu(resultVm, result, e); return; }
         // Мозаика Кисп проверки по КЭ: меню КЭ — задача по определяющей строке.
-        if (VM is { } checkVm && ShowCheckRowTaskMenu(checkVm, e)) return;
+        if (VM is { EditMode: false } checkVm && ShowCheckRowTaskMenu(checkVm, e)) return;
         if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
         if (ShowEdgePickMenu(e)) return;
@@ -1902,6 +1940,7 @@ public partial class FemSchemaView3D : UserControl
             _contextMenuTargetTag = target.Tag;
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
             if (!target.IsNode) AppendMemberGroupItems(menu, target.Tag);
+            AppendCheckRowTaskMenu(menu, target.IsNode ? [] : vm.MeshElementsOf(target.Tag));
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
@@ -1926,6 +1965,7 @@ public partial class FemSchemaView3D : UserControl
         _contextMenuTargetTag = prHitTag;
         var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
         AppendMemberGroupItems(prMenu, prHitTag);
+        AppendCheckRowTaskMenu(prMenu, vm.MeshElementsOf(prHitTag));
         AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
@@ -2220,6 +2260,11 @@ public partial class FemSchemaView3D : UserControl
                 "Fem3DMeshMembersFromSelection");
             members.Click += (_, _) => editor.CreateMembersFromMeshElements(tags);
             menu.Items.Add(members);
+            menu.Items.Add(new Separator());
+        }
+        if (CheckRowTaskMenu(vm, [.. selection.SelectedMeshElemTags]) is { } checkTask)
+        {
+            menu.Items.Add(checkTask);
             menu.Items.Add(new Separator());
         }
         AppendFragmentItems(menu, [.. selection.SelectedMeshElemTags], meshElements: true, separator: false);

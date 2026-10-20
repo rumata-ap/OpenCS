@@ -2959,8 +2959,10 @@
     <system:String x:Key="FemCheckRowTaskSectionCopied">FE section saved to the project as a copy: “{0}”</system:String>
     <system:String x:Key="FemCheckRowTaskGoverning">Create task for the governing row</system:String>
     <system:String x:Key="FemCheckRowTaskTip">Single task for the selected row (Rows tab) or the governing row of the selected FE: FE section, parameters and forces as in the check</system:String>
-    <system:String x:Key="FemCheckRowTaskGoverningElement">Create task for the governing row of FE {0}</system:String>
-    <system:String x:Key="FemCheckRowTaskGoverningMember">Create task for the governing row of member {0} ({1} FE)</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningElement">governing row of FE {0}</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningMember">governing row of member {0} ({1} FE)</system:String>
+    <system:String x:Key="FemCheckRowTaskMenu">Create task from check</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningSelected">governing row of the selected FEs ({0})</system:String>
     <system:String x:Key="FemCheckRowTaskNoRows">The selected FEs have no computed check rows</system:String>
     <system:String x:Key="FemCheckNoRbt">The model has no assigned reinforcement file (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">The model has no selected reinforcement file (ASP)</system:String>

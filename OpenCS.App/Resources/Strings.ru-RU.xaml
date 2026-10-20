@@ -2959,8 +2959,10 @@
     <system:String x:Key="FemCheckRowTaskSectionCopied">Сечение КЭ сохранено в проект копией: «{0}»</system:String>
     <system:String x:Key="FemCheckRowTaskGoverning">Создать задачу по определяющей строке</system:String>
     <system:String x:Key="FemCheckRowTaskTip">Одиночная задача по выбранной строке (вкладка «Строки») или по определяющей строке выбранного КЭ: сечение КЭ, параметры и усилия — как в проверке</system:String>
-    <system:String x:Key="FemCheckRowTaskGoverningElement">Создать задачу по определяющей строке КЭ {0}</system:String>
-    <system:String x:Key="FemCheckRowTaskGoverningMember">Создать задачу по определяющей строке КонЭ {0} ({1} КЭ)</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningElement">по определяющей строке КЭ {0}</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningMember">по определяющей строке КонЭ {0} ({1} КЭ)</system:String>
+    <system:String x:Key="FemCheckRowTaskMenu">Создать задачу по проверке</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningSelected">по определяющей строке выбранных КЭ ({0})</system:String>
     <system:String x:Key="FemCheckRowTaskNoRows">У выбранных КЭ нет посчитанных строк проверки</system:String>
     <system:String x:Key="FemCheckNoRbt">У схемы нет файла типов заданного армирования (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">У схемы нет файла подобранной арматуры (ASP)</system:String>
