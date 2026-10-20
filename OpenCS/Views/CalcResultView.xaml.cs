@@ -163,7 +163,7 @@ namespace OpenCS.Views
         // Упрощённый расчёт пластин
         if (task != null && task.Kind.StartsWith("shell_simpl_"))
         {
-            Content = new ShellSimplResultView(result, task);
+            Content = new ShellSimplResultView(result, task, app.PlateSections.FirstOrDefault(s => s.Id == task.SectionId));
             return;
         }
 

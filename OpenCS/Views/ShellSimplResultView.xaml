@@ -24,23 +24,19 @@
 
          <TextBlock Text="{Binding ModelNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
+         <GroupBox Header="{DynamicResource ShellSimplInputsTitle}" Margin="0,0,0,8"
+                   Visibility="{Binding HasInputs, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl ItemsSource="{Binding InputLines}" Margin="4">
+               <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                  </DataTemplate>
+               </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </GroupBox>
+
          <GroupBox Header="Усилия" Margin="0,0,0,8">
-            <Grid>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-               </Grid.ColumnDefinitions>
-               <TextBlock Grid.Column="0" Margin="4 0 8 0" Text="{Binding Nx, StringFormat='Nx: {0}'}"/>
-               <TextBlock Grid.Column="1" Margin="4 0 8 0" Text="{Binding Ny, StringFormat='Ny: {0}'}"/>
-               <TextBlock Grid.Column="2" Margin="4 0 8 0" Text="{Binding Nxy, StringFormat='Nxy: {0}'}"/>
-               <TextBlock Grid.Column="3" Margin="4 0 8 0" Text="{Binding Mx, StringFormat='Mx: {0}'}"/>
-               <TextBlock Grid.Column="4" Margin="4 0 8 0" Text="{Binding My, StringFormat='My: {0}'}"/>
-               <TextBlock Grid.Column="5" Margin="4 0 8 0" Text="{Binding Mxy, StringFormat='Mxy: {0}'}"/>
-            </Grid>
+            <TextBlock Margin="4" Text="{Binding ForcesText}" TextWrapping="Wrap"/>
          </GroupBox>
 
          <GroupBox Header="{DynamicResource PlateShearTitle}" Margin="0,0,0,8"

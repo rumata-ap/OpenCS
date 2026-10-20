@@ -2959,6 +2959,14 @@
     <system:String x:Key="FemCheckRowTaskSectionCopied">FE section saved to the project as a copy: “{0}”</system:String>
     <system:String x:Key="FemCheckRowTaskGoverning">Create task for the governing row</system:String>
     <system:String x:Key="FemCheckRowTaskTip">Single task for the selected row (Rows tab) or the governing row of the selected FE: FE section, parameters and forces as in the check</system:String>
+    <system:String x:Key="ShellSimplInputsTitle">Input data</system:String>
+    <system:String x:Key="ShellSimplInputFromFemCheck">Task from an FE check row: {0}, set “{1}”, row “{2}”, reinforcement — {3}. Forces in the FE reinforcement axes.</system:String>
+    <system:String x:Key="ShellSimplInputFromBatch">Task from batch row No. {0}.</system:String>
+    <system:String x:Key="ShellSimplInputSection">Section “{0}”, h = {1:0.#} mm</system:String>
+    <system:String x:Key="ShellSimplInputLayer">  layer {0}: As,x = {1:0.##} cm²/m (z = {2:0.#} mm), As,y = {3:0.##} cm²/m (z = {4:0.#} mm)</system:String>
+    <system:String x:Key="ShellSimplInputNoRebar">  no reinforcement in the section</system:String>
+    <system:String x:Key="ShellSimplInputSls">φ1 = {0:0.##}, φ2 = {1:0.##}, acrc,ult = {2:0.##} mm, facet step {3:0.#}°</system:String>
+    <system:String x:Key="ShellSimplInputUls">Facet step {0:0.#}°</system:String>
     <system:String x:Key="FemCheckRowTaskGoverningElement">governing row of FE {0}</system:String>
     <system:String x:Key="FemCheckRowTaskGoverningMember">governing row of member {0} ({1} FE)</system:String>
     <system:String x:Key="FemCheckRowTaskMenu">Create task from check</system:String>

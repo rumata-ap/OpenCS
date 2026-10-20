@@ -55,13 +55,15 @@ public static class FemCheckRowTaskFactory
             "rc_check" => StrainParams(call),
             _ => PlateParams(check, call, kind),
         };
+        // У строк РСУ SCAD/ЛИРЫ метка — номер КЭ: тогда она не повторяется.
         string elem = key.ElemNum is int n ? $"КЭ {n}" : Loc.S("FemCheckRowTaskNoElement");
+        string row = key.ElemNum?.ToString() == key.Label ? "" : $", {key.Label}";
         return new CalcTask
         {
             Kind = kind,
             SectionId = sectionId,
             CalcType = call.CalcType,
-            Tag = $"{sectionTag} — {elem}, {key.Label}",
+            Tag = $"{check.DisplayTag} — {elem}{row}",
             ParamsJson = WithSource(paramsJson, check.Id, key),
         };
     }
@@ -86,7 +88,8 @@ public static class FemCheckRowTaskFactory
         string marker = SectionMarker(check, key, call);
         if (setup.IsPlate)
         {
-            string tag = $"{call.SectionLabel} — КЭ {key.ElemNum?.ToString() ?? "—"} ({RebarSourceText(call.RebarSource)})";
+            // Подпись сечения источника уже называет армирование («SCAD, заданное «…»»).
+            string tag = $"{call.SectionLabel} — КЭ {key.ElemNum?.ToString() ?? "—"}";
             var plate = EnsurePlateSection(app.Db, app.PlateSections, call.Plate!, tag, addPlate);
             return Create(check, key, call, plate.Id, plate.Tag);
         }
@@ -110,7 +113,9 @@ public static class FemCheckRowTaskFactory
     public static CrossSection EnsureBarSection(DatabaseService db, IReadOnlyList<CrossSection> project,
         CrossSection section, string marker, Action<CrossSection> add)
     {
-        if (project.FirstOrDefault(s => ReferenceEquals(s, section) || (section.Id != 0 && s.Id == section.Id)) is { } own)
+        // Сечение проекта — только сам объект проекта: собранное проверкой — клон шаблона с армированием КЭ, и Id у
+        // него шаблонный (по Id задача ссылалась бы на шаблон без армирования КЭ).
+        if (project.FirstOrDefault(s => ReferenceEquals(s, section)) is { } own)
             return own;
         if (project.FirstOrDefault(s => s.Description == marker) is { } copy)
             return copy;
@@ -144,7 +149,7 @@ public static class FemCheckRowTaskFactory
     public static PlateSection EnsurePlateSection(DatabaseService db, IReadOnlyList<PlateSection> project,
         PlateSection section, string tag, Action<PlateSection> add)
     {
-        if (project.FirstOrDefault(s => ReferenceEquals(s, section) || (section.Id != 0 && s.Id == section.Id)) is { } own)
+        if (project.FirstOrDefault(s => ReferenceEquals(s, section)) is { } own)
             return own;
         if (project.FirstOrDefault(s => s.Tag == tag) is { } copy)
             return copy;

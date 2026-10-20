@@ -2959,6 +2959,14 @@
     <system:String x:Key="FemCheckRowTaskSectionCopied">Сечение КЭ сохранено в проект копией: «{0}»</system:String>
     <system:String x:Key="FemCheckRowTaskGoverning">Создать задачу по определяющей строке</system:String>
     <system:String x:Key="FemCheckRowTaskTip">Одиночная задача по выбранной строке (вкладка «Строки») или по определяющей строке выбранного КЭ: сечение КЭ, параметры и усилия — как в проверке</system:String>
+    <system:String x:Key="ShellSimplInputsTitle">Исходные данные</system:String>
+    <system:String x:Key="ShellSimplInputFromFemCheck">Задача по строке проверки по КЭ: {0}, набор «{1}», строка «{2}», армирование — {3}. Усилия — в осях армирования КЭ.</system:String>
+    <system:String x:Key="ShellSimplInputFromBatch">Задача по строке № {0} пакетного расчёта.</system:String>
+    <system:String x:Key="ShellSimplInputSection">Сечение «{0}», h = {1:0.#} мм</system:String>
+    <system:String x:Key="ShellSimplInputLayer">  слой {0}: As,x = {1:0.##} см²/м (z = {2:0.#} мм), As,y = {3:0.##} см²/м (z = {4:0.#} мм)</system:String>
+    <system:String x:Key="ShellSimplInputNoRebar">  арматура в сечении не задана</system:String>
+    <system:String x:Key="ShellSimplInputSls">φ1 = {0:0.##}, φ2 = {1:0.##}, acrc,ult = {2:0.##} мм, шаг фасеток {3:0.#}°</system:String>
+    <system:String x:Key="ShellSimplInputUls">Шаг фасеток {0:0.#}°</system:String>
     <system:String x:Key="FemCheckRowTaskGoverningElement">по определяющей строке КЭ {0}</system:String>
     <system:String x:Key="FemCheckRowTaskGoverningMember">по определяющей строке КонЭ {0} ({1} КЭ)</system:String>
     <system:String x:Key="FemCheckRowTaskMenu">Создать задачу по проверке</system:String>

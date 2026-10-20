@@ -10,10 +10,11 @@ namespace OpenCS.Views;
 
 public partial class ShellSimplResultView : System.Windows.Controls.UserControl
 {
-    public ShellSimplResultView(CalcResult result, CalcTask task)
+    /// <param name="plate">Сечение задачи — для блока исходных данных; null — без него.</param>
+    public ShellSimplResultView(CalcResult result, CalcTask task, PlateSection? plate = null)
     {
         InitializeComponent();
-        var vm = new ShellSimplResultVM(result, task);
+        var vm = new ShellSimplResultVM(result, task, plate);
         DataContext = vm;
         // Колонки DataGrid не наследуют DataContext — видимость колонок НДМ задаётся здесь.
         if (vm.HasConstraints)
@@ -133,6 +134,17 @@ public class ShellSimplResultVM : ViewModelBase
     public string Title { get; set; } = "";
     public double Nx { get; set; } public double Ny { get; set; } public double Nxy { get; set; }
     public double Mx { get; set; } public double My { get; set; } public double Mxy { get; set; }
+    public double Qx { get; set; } public double Qy { get; set; }
+
+    /// <summary>Усилия строкой с единицами (кН/м, кН·м/м).</summary>
+    public string ForcesText => string.Join("   ",
+        $"Nx = {Nx:F2}", $"Ny = {Ny:F2}", $"Nxy = {Nxy:F2} кН/м;",
+        $"Mx = {Mx:F2}", $"My = {My:F2}", $"Mxy = {Mxy:F2} кН·м/м",
+        Qx != 0 || Qy != 0 ? $";   Qx = {Qx:F2}   Qy = {Qy:F2} кН/м" : "");
+
+    /// <summary>Исходные данные: откуда задача, сечение и армирование, параметры проверки.</summary>
+    public ObservableCollection<string> InputLines { get; } = [];
+    public bool HasInputs => InputLines.Count > 0;
 
     public string StripHeader { get; set; } = "";
     public bool HasStrips => Strips.Count > 0;
@@ -192,11 +204,12 @@ public class ShellSimplResultVM : ViewModelBase
     public string OverallStatus { get; set; } = "";
     public Brush OverallStatusBrush { get; set; } = Brushes.LightGray;
 
-    public ShellSimplResultVM(CalcResult result, CalcTask task)
+    public ShellSimplResultVM(CalcResult result, CalcTask task, PlateSection? plate = null)
     {
         bool isSls = task.Kind.EndsWith("sls");
         bool isWa = task.Kind.StartsWith("shell_simpl_wa_");
         Title = task.Tag;
+        FillInputs(task, plate, isSls);
 
         var doc = JsonSerializer.Deserialize<JsonElement>(result.DataJson);
         var forces = doc.GetProperty("Forces");
@@ -207,6 +220,8 @@ public class ShellSimplResultVM : ViewModelBase
         Mx = forces.GetProperty("Mx").GetDouble();
         My = forces.GetProperty("My").GetDouble();
         Mxy = forces.GetProperty("Mxy").GetDouble();
+        if (forces.TryGetProperty("Qx", out var qx) && qx.ValueKind == JsonValueKind.Number) Qx = qx.GetDouble();
+        if (forces.TryGetProperty("Qy", out var qy) && qy.ValueKind == JsonValueKind.Number) Qy = qy.GetDouble();
 
         AcrcLimMm = forces.TryGetProperty("AcrcLimMm", out var al)
             ? al.GetDouble() : 0.3;
@@ -275,7 +290,9 @@ public class ShellSimplResultVM : ViewModelBase
                 var strip = d.GetProperty("Strip");
                 bool noRebar = strip.GetProperty("NoRebar").GetBoolean();
                 double acrc = isSls ? strip.GetProperty("Acrc_mm").GetDouble() : 0;
-                double eta = !isSls ? strip.GetProperty("Eta").GetDouble() : 0;
+                // ПС2: Кисп фасетки — acrc / acrc,ult (как в строке проверки по КЭ); без арматуры на грани — 0.
+                double eta = !isSls ? strip.GetProperty("Eta").GetDouble()
+                    : noRebar || AcrcLimMm <= 1e-12 ? 0 : acrc >= 1e9 ? double.MaxValue : acrc / AcrcLimMm;
                 bool ok = noRebar || (isSls
                     ? (acrc <= AcrcLimMm)
                     : (eta <= 1.0));
@@ -355,6 +372,21 @@ public class ShellSimplResultVM : ViewModelBase
             }
         }
 
+        // Критическое направление грани: если решатель его не дал (всё проходит), — фасетка с наибольшим Кисп.
+        if (Directions.Count > 0)
+        {
+            void Fill(bool top)
+            {
+                if (top ? CritTopAlpha != null : CritBotAlpha != null) return;
+                if (Directions.Where(d => d.Top == top).MaxBy(d => d.Eta) is not { } w) return;
+                string eta = w.EtaDisplay;
+                if (top) { CritTopAlpha = w.Alpha_deg.ToString("F1"); CritTopSigma = w.Sigma_s_MPa; CritTopAcrc = isSls ? w.Acrc_mm : null; CritTopEtaDisplay = eta; }
+                else { CritBotAlpha = w.Alpha_deg.ToString("F1"); CritBotSigma = w.Sigma_s_MPa; CritBotAcrc = isSls ? w.Acrc_mm : null; CritBotEtaDisplay = eta; }
+            }
+            Fill(true);
+            Fill(false);
+        }
+
         if (doc.TryGetProperty("EtaMax", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.Number)
             EtaMax = em.GetDouble();
 
@@ -384,6 +416,47 @@ public class ShellSimplResultVM : ViewModelBase
         OverallStatusBrush = allOk
             ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
             : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
+    }
+
+    /// <summary>Исходные данные задачи: источник (проверка по КЭ или пакет), сечение и армирование, параметры.</summary>
+    void FillInputs(CalcTask task, PlateSection? plate, bool isSls)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(task.ParamsJson) ? "{}" : task.ParamsJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("femCheckSource", out var f) && f.ValueKind == JsonValueKind.Object)
+            {
+                string S(string name) => f.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+                string elem = f.TryGetProperty("elem", out var e) && e.ValueKind == JsonValueKind.Number ? $"КЭ {e.GetInt32()}" : "строка без КЭ";
+                string source = S("source") switch
+                {
+                    "assigned" => Loc.S("FemCheckSourceAssigned"),
+                    "selected" => Loc.S("FemCheckSourceSelected"),
+                    "layout" => Loc.S("FemCheckSourceLayout"),
+                    _ => Loc.S("FemCheckSourceSection"),
+                };
+                InputLines.Add(string.Format(Loc.S("ShellSimplInputFromFemCheck"), elem, S("set"), S("label"), source));
+            }
+            else if (root.TryGetProperty("batchSource", out var b) && b.ValueKind == JsonValueKind.Object
+                     && b.TryGetProperty("num", out var num) && num.ValueKind == JsonValueKind.Number)
+                InputLines.Add(string.Format(Loc.S("ShellSimplInputFromBatch"), num.GetInt32()));
+
+            if (plate != null)
+            {
+                InputLines.Add(string.Format(Loc.S("ShellSimplInputSection"), plate.Tag, plate.H * 1000.0));
+                foreach (var l in plate.RebarLayers)
+                    InputLines.Add(string.Format(Loc.S("ShellSimplInputLayer"), l.Name,
+                        l.Asx * 1e4, l.Zsx * 1000.0, l.Asy * 1e4, l.Zsy * 1000.0));
+                if (plate.RebarLayers.Count == 0) InputLines.Add(Loc.S("ShellSimplInputNoRebar"));
+            }
+
+            var p = OpenCS.Tasks.ShellSimplParams.Parse(task.ParamsJson);
+            InputLines.Add(isSls
+                ? string.Format(Loc.S("ShellSimplInputSls"), p.Phi1, p.Phi2, p.AcrcLimMm, p.StepDeg)
+                : string.Format(Loc.S("ShellSimplInputUls"), p.StepDeg));
+        }
+        catch (JsonException) { }
     }
 
     void LoadConstraints(JsonElement cons)

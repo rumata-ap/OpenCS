@@ -238,6 +238,33 @@ public sealed class FemCheckRowTaskFactoryTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// Сечение КЭ с армированием программы-источника — клон шаблона с его Id (так собирают источники ЛИРЫ/SCAD):
+    /// задача получает копию с армированием КЭ, а не шаблон без него; клон стержня с Id сечения проекта — тоже.
+    /// </summary>
+    [Fact]
+    public void EnsureSection_CloneWithTemplateId_SavesCopyWithRebar()
+    {
+        var template = new PlateSection { Tag = "Шаблон", Num = 1, H = 0.2, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+        _ctx.Db.SavePlateSection(template);
+        var plates = new List<PlateSection> { template };
+        var element = template.CloneForCalc();   // Id шаблона
+        element.RebarLayers.Add(new PlateRebarLayer { Name = "верх", Asx = 1.13e-3, Asy = 1.13e-3, Zsx = 0.07, Zsy = 0.06, InputMode = "direct" });
+
+        var plate = FemCheckRowTaskFactory.EnsurePlateSection(_ctx.Db, plates, element, "Шаблон — КЭ 167 (Заданное)", plates.Add);
+
+        Assert.NotSame(template, plate);
+        Assert.NotEqual(template.Id, plate.Id);
+        Assert.Equal(1.13e-3, Assert.Single(plate.RebarLayers).Asx);
+        Assert.Same(template, FemCheckRowTaskFactory.EnsurePlateSection(_ctx.Db, plates, template, "x", plates.Add));
+
+        var beam = ReportFixtures.BuildBeam();
+        beam.Id = 7;
+        var bars = new List<CrossSection> { beam };
+        var barClone = beam.CloneForCalc();
+        Assert.NotSame(beam, FemCheckRowTaskFactory.EnsureBarSection(_ctx.Db, bars, barClone, "из проверки: КЭ 1", bars.Add));
+    }
+
     FemCheckRowCall Capture(FemCheck check, FemCheckRow row)
     {
         var setup = FemCheckExecutor.PrepareAsync(_ctx, check).GetAwaiter().GetResult()!;
