@@ -24,20 +24,45 @@ public class ShellSimplSolverTests
         Ft = rsSerMPa * 1000.0,
     };
 
-    [Fact]
-    public void ComputeStripSls_NoRebar_ReturnsNotCrackedAndZeroAcrc()
+    /// <summary>
+    /// Растянутая грань без арматуры: M_crc = R_bt,ser·1,3·h²/6 − N·h/6 = 1550·1,3·0,09/6 = 30,2 кН·м/м.
+    /// M = 50 > M_crc — трещина без арматуры, acrc = ∞; M = 20 — без трещины, проходит; обжатие N = −200 кН/м
+    /// поднимает M_crc на 200·0,3/6 = 10 кН·м/м.
+    /// </summary>
+    [Theory]
+    [InlineData(50.0, 0.0, true)]
+    [InlineData(20.0, 0.0, false)]
+    [InlineData(35.0, -200.0, false)]
+    public void ComputeStripSls_NoRebar_CrackedOnlyAboveMcrc(double m, double n, bool cracked)
     {
         var concrete = ConcreteN(30000, 18.5, 1.55);
         var rebar = RebarN(200000, 500);
 
         var r = ShellSimplSolver.ComputeStripSls(
-            M_des: 50.0, N_des: 0.0, h: 0.3, h0: 0.26, a_prime: 0.04,
+            M_des: m, N_des: n, h: 0.3, h0: 0.26, a_prime: 0.04,
             As_t: 0.0, As_c: 0.0, ds: 0.016,
             concrete: concrete, rebar: rebar, phi1: 1.0, phi2: 0.5, acrcLimMm: 0.3);
 
         Assert.True(r.NoRebar);
-        Assert.False(r.Cracked);
-        Assert.Equal(0.0, r.Acrc_mm);
+        Assert.Equal(1550.0 * 1.3 * 0.09 / 6.0 - n * 0.3 / 6.0, r.Mcrc, 9);
+        Assert.Equal(cracked, r.Cracked);
+        Assert.Equal(cracked ? ShellSimplSolver.Unbounded : 0.0, r.Acrc_mm);
+    }
+
+    /// <summary>ПС1 грани без арматуры: до трещины Кисп = M/M_crc, после — ∞.</summary>
+    [Theory]
+    [InlineData(15.0, false)]
+    [InlineData(40.0, true)]
+    public void ComputeStripUls_NoRebar_ConcreteUntilCrack(double m, bool cracked)
+    {
+        var concrete = ConcreteN(30000, 18.5, 1.55);
+        var rebar = RebarN(200000, 500);
+
+        var r = ShellSimplSolver.ComputeStripUls(m, 0.0, 0.3, 0.26, 0.04, 0.0, 0.0, concrete, rebar);
+
+        double mcrc = 1550.0 * 1.3 * 0.09 / 6.0;
+        Assert.True(r.NoRebar);
+        Assert.Equal(cracked ? ShellSimplSolver.Unbounded : m / mcrc, r.Eta, 9);
     }
 
     // Прямоугольное сечение с ОДИНОЧНЫМ армированием (As'=0) — именно для этого случая

@@ -329,20 +329,21 @@ namespace CScore
                         isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma, ndm));
                 }
 
+                // Грань без арматуры участвует наравне (Unreinforced): без трещины — проходит, с трещиной — ∞.
                 if (isSls)
                 {
-                    var topDirs = capriDirs.Where(d => d.Top && !d.Strip.NoRebar).ToList();
-                    var botDirs = capriDirs.Where(d => !d.Top && !d.Strip.NoRebar).ToList();
+                    var topDirs = capriDirs.Where(d => d.Top).ToList();
+                    var botDirs = capriDirs.Where(d => !d.Top).ToList();
                     critTop = topDirs.Count > 0 ? topDirs.MaxBy(d => d.Strip.Acrc_mm) : null;
                     critBot = botDirs.Count > 0 ? botDirs.MaxBy(d => d.Strip.Acrc_mm) : null;
                 }
                 else
                 {
-                    var topDirs = capriDirs.Where(d => d.Top && !d.Strip.NoRebar).ToList();
-                    var botDirs = capriDirs.Where(d => !d.Top && !d.Strip.NoRebar).ToList();
+                    var topDirs = capriDirs.Where(d => d.Top).ToList();
+                    var botDirs = capriDirs.Where(d => !d.Top).ToList();
                     critTop = topDirs.Count > 0 ? topDirs.MaxBy(d => d.Strip.Eta) : null;
                     critBot = botDirs.Count > 0 ? botDirs.MaxBy(d => d.Strip.Eta) : null;
-                    etaMax = capriDirs.Where(d => !d.Strip.NoRebar).Select(d => d.Strip.Eta).DefaultIfEmpty(0.0).Max();
+                    etaMax = capriDirs.Select(d => d.Strip.Eta).DefaultIfEmpty(0.0).Max();
                 }
 
                 // Через ограничения: требования рядов — всегда по НДМ полосы (подбор только на НДМ),
@@ -779,7 +780,8 @@ namespace CScore
                 H0 = h0, A_prime = a_prime, As_t = As_t, As_c = As_c, Ds = ds,
                 NoRebar = noRebar
             };
-            if (noRebar) return r;
+            // Второй ряд при сквозном растяжении: момент эту грань сжимает.
+            if (noRebar) return Unreinforced(r, h, concrete, sls: true, oppositeRow ? -Math.Abs(M_des) : Math.Abs(M_des));
 
             // Все характеристики материала уже в кПа
             double Eb = concrete.E;          // кПа
@@ -918,7 +920,7 @@ namespace CScore
                 H0 = h0, A_prime = a_prime, As_t = As_t, As_c = As_c,
                 NoRebar = noRebar
             };
-            if (noRebar) return r;
+            if (noRebar) return Unreinforced(r, h, concrete, sls: false, Math.Abs(M_des));
 
             // Все характеристики материала уже в кПа
             double Rb = Math.Abs(concrete.Fc);
@@ -1220,6 +1222,41 @@ namespace CScore
             {
                 Alpha_deg = alphaDeg, M_n = M_n, N_n = N_n, Top = top, Strip = strip
             };
+        }
+
+        /// <summary>Кисп / acrc «не ограничены» (∞): JSON не принимает бесконечность.</summary>
+        public const double Unbounded = 1e9;
+
+        /// <summary>
+        /// Полоса, у которой растянутая моментом грань без арматуры: сечение работает как бетонное, пока нет трещины.
+        /// M_crc = R_bt·W_pl − N·r (W_pl = 1,3·h²/6 — п. 8.2.10 для прямоугольника, r = h/6, N «+» — растяжение);
+        /// R_bt — по виду расчёта задачи (ПС2 — R_bt,ser). M ≤ M_crc — трещины нет: ПС2 проходит (acrc = 0),
+        /// ПС1 — Кисп = M/M_crc. M > M_crc — трещина без арматуры: acrc = ∞ (ПС2), Кисп = ∞ (ПС1).
+        /// </summary>
+        /// <param name="mFace">Момент относительно этой грани, «+» — растягивает её.</param>
+        internal static ShellSimplStripResult Unreinforced(ShellSimplStripResult r, double h, MaterialChars concrete,
+            bool sls, double mFace)
+        {
+            const double gamma = 1.3;
+            double wpl = gamma * h * h / 6.0;
+            double mcrc = Math.Abs(concrete.Ft) * wpl - r.N_des * h / 6.0;
+            bool cracked = mcrc <= 0.0 || mFace > mcrc;
+            r.Gamma = gamma;
+            r.Mcrc = Math.Max(mcrc, 0.0);
+            r.Cracked = cracked;
+            // Без трещины сечение сжато хотя бы частично — ветвь «сквозного растяжения» (x_m ≤ 0) не нужна.
+            r.Xm = cracked ? 0.0 : h;
+            if (sls) r.Acrc_mm = cracked ? Unbounded : 0.0;
+            else
+            {
+                r.Demand = Math.Max(mFace, 0.0);
+                r.M_ult = r.Mcrc;
+                r.Eta = cracked ? Unbounded : mcrc > 0.0 ? Math.Max(mFace, 0.0) / mcrc : 0.0;
+            }
+            r.Case = cracked
+                ? $"растянутая грань без арматуры: M = {mFace:F2} > M_crc = {mcrc:F2} кН·м/м — трещина без арматуры"
+                : $"растянутая грань без арматуры: M = {mFace:F2} ≤ M_crc = {mcrc:F2} кН·м/м — бетонное сечение без трещины";
+            return r;
         }
 
         internal static double EffDs(double Ax, double dx, double Ay, double dy,

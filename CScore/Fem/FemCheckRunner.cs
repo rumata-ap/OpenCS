@@ -328,14 +328,14 @@ public static partial class FemCheckRunner
             double util = r.EtaMax ?? 0;
             ShellSimplStripResult? worst = null;
             if (r.WaStrips != null)
-                worst = r.WaStrips.Where(s => !s.NoRebar).MaxBy(s => s.Eta);
+                worst = r.WaStrips.MaxBy(s => s.Eta);
             else
             {
                 var ct = r.CriticalTop?.Strip;
                 var cb = r.CriticalBot?.Strip;
                 worst  = (ct?.Eta ?? 0) >= (cb?.Eta ?? 0) ? ct : cb;
             }
-            return (util,
+            return (util >= ShellSimplSolver.Unbounded ? double.PositiveInfinity : util,
                     worst?.Name ?? "",
                     worst != null ? worst.Case : "");
         }
@@ -345,7 +345,7 @@ public static partial class FemCheckRunner
             ShellSimplStripResult? worst = null;
             if (r.WaStrips != null)
             {
-                worst   = r.WaStrips.Where(s => !s.NoRebar && s.Cracked).MaxBy(s => s.Acrc_mm);
+                worst   = r.WaStrips.Where(s => s.Cracked).MaxBy(s => s.Acrc_mm);
                 acrcMax = worst?.Acrc_mm ?? 0;
             }
             else
@@ -355,6 +355,8 @@ public static partial class FemCheckRunner
                 worst  = (ct?.Acrc_mm ?? 0) >= (cb?.Acrc_mm ?? 0) ? ct : cb;
                 acrcMax = worst?.Acrc_mm ?? 0;
             }
+            if (acrcMax >= ShellSimplSolver.Unbounded)
+                return (double.PositiveInfinity, worst?.Name ?? "", worst?.Case ?? "acrc = ∞");
             double util = p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0;
             return (util,
                     worst?.Name ?? "",

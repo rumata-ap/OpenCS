@@ -256,7 +256,7 @@ public class ShellSimplResultVM : ViewModelBase
                     row.Acrc_mm = s.GetProperty("Acrc_mm").GetDouble();
                     row.Psi_s = s.GetProperty("Psi_s").GetDouble();
                     row.B_kNm2 = s.GetProperty("B_kNm2").GetDouble();
-                    bool ok = row.NoRebar || row.Acrc_mm <= AcrcLimMm;
+                    bool ok = row.Acrc_mm <= AcrcLimMm;
                     row.StatusOk = ok;
                     row.StatusText = ok ? "Выполняется" : "Не выполняется";
                     if (!ok) allOk = false;
@@ -273,7 +273,7 @@ public class ShellSimplResultVM : ViewModelBase
                     row.Eta = et.ValueKind == System.Text.Json.JsonValueKind.Number ? et.GetDouble() : double.MaxValue;
                     s.TryGetProperty("Case", out var ca);
                     row.Case = ca.ValueKind == System.Text.Json.JsonValueKind.String ? ca.GetString() ?? "" : "";
-                    bool ok = row.NoRebar || row.Eta <= 1.0;
+                    bool ok = row.Eta <= 1.0;
                     row.StatusOk = ok;
                     row.StatusText = ok ? "Выполняется" : "Не выполняется";
                     if (!ok) allOk = false;
@@ -292,10 +292,8 @@ public class ShellSimplResultVM : ViewModelBase
                 double acrc = isSls ? strip.GetProperty("Acrc_mm").GetDouble() : 0;
                 // ПС2: Кисп фасетки — acrc / acrc,ult (как в строке проверки по КЭ); без арматуры на грани — 0.
                 double eta = !isSls ? strip.GetProperty("Eta").GetDouble()
-                    : noRebar || AcrcLimMm <= 1e-12 ? 0 : acrc >= 1e9 ? double.MaxValue : acrc / AcrcLimMm;
-                bool ok = noRebar || (isSls
-                    ? (acrc <= AcrcLimMm)
-                    : (eta <= 1.0));
+                    : AcrcLimMm <= 1e-12 ? 0 : acrc >= 1e9 ? double.MaxValue : acrc / AcrcLimMm;
+                bool ok = isSls ? acrc <= AcrcLimMm : eta <= 1.0;
                 if (!ok) allOk = false;
 
                 if (IsNdmStrip(strip)) IsNdm = true;

@@ -209,6 +209,33 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
         Assert.Equal(sequential.DataJson, parallel.DataJson);
     }
 
+    /// <summary>
+    /// Пакет ПС2: грань, растянутая моментом выше M_crc (у h = 0,2 м — 1050·1,3·0,04/6 ≈ 9,1 кН·м/м), без арматуры —
+    /// строка не проходит (трещина без арматуры). Раньше такая полоса выбрасывалась, а пакет Вуда–Армера ПС2
+    /// ещё и решал по фасеткам Капра–Мори, которых у него нет, — строки всегда «ok».
+    /// </summary>
+    [Theory]
+    [InlineData("shell_simpl_wa_sls_batch")]
+    [InlineData("shell_simpl_capri_sls_batch")]
+    public async Task SlsBatch_TensionFaceWithoutRebar_Fails(string kind)
+    {
+        var bottomOnly = new PlateSection { Id = 9, Tag = "Только низ", H = 0.2, ConcreteMaterialId = 1, RebarMaterialId = 2, ConcreteDiagramType = DiagrammType.L3 };
+        bottomOnly.RebarLayers.Add(new PlateRebarLayer { Name = "низ", Asx = 7.85e-4, Asy = 7.85e-4, Zsx = -0.07, Zsy = -0.06, InputMode = "direct" });
+        _ctx.Db.PlateSections.Add(bottomOnly);
+        var batch = new CalcTask
+        {
+            Num = 1, Tag = "пакет", Kind = kind, CalcType = CalcType.N, SectionId = 9, ForceSetId = ShellSetId,
+            ParamsJson = """{"AutoStressToForce":true}""",
+        };
+        _ctx.Db.SaveCalcTask(batch);
+
+        var result = await CalcTaskExecutor.RunAsync(_ctx, batch);
+
+        using var doc = JsonDocument.Parse(result!.DataJson);
+        var row1 = BatchRow(doc.RootElement, 1);   // Mx = 30 кН·м/м растягивает верх
+        Assert.True(row1.GetProperty("status").GetString() == "fail", result.DataJson);
+    }
+
     [Fact]
     public void BarTask_ReferencesSetRow_AndKeepsBatchParams()
     {

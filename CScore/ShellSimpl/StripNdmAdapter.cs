@@ -15,12 +15,13 @@ internal sealed class StripNdmAdapter
     readonly double _h;
     readonly double _phi1, _phi2;
     readonly SigmaSCrcMethod _sigmaSCrc;
+    readonly MaterialChars _concreteChars;
 
     StripNdmAdapter(Diagramm concrete, Diagramm rebar, StripNdmLimits lim, double es, double h,
-        double phi1, double phi2, SigmaSCrcMethod sigmaSCrc)
+        double phi1, double phi2, SigmaSCrcMethod sigmaSCrc, MaterialChars concreteChars)
     {
         _concrete = concrete; _rebar = rebar; _lim = lim; _es = es; _h = h;
-        _phi1 = phi1; _phi2 = phi2; _sigmaSCrc = sigmaSCrc;
+        _phi1 = phi1; _phi2 = phi2; _sigmaSCrc = sigmaSCrc; _concreteChars = concreteChars;
     }
 
     /// <summary>
@@ -37,8 +38,10 @@ internal sealed class StripNdmAdapter
             ?? throw new InvalidOperationException("Диаграмма бетона не построена");
         var r = rebarMat.GetDiagramms(DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalc]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
-        var lim = StripNdmLimits.From(concreteMat.GetChars(calcType), rebarMat.Type);
-        return new StripNdmAdapter(c, r, lim, rebarMat.chars[calcType].E, section.H, phi1, phi2, sigmaSCrc);
+        var concreteChars = concreteMat.GetChars(calcType)
+            ?? throw new InvalidOperationException("Характеристики бетона не заданы");
+        var lim = StripNdmLimits.From(concreteChars, rebarMat.Type);
+        return new StripNdmAdapter(c, r, lim, rebarMat.chars[calcType].E, section.H, phi1, phi2, sigmaSCrc, concreteChars);
     }
 
     /// <summary>Таблица предельного контура для подбора (ряды [верх, низ]).</summary>
@@ -77,7 +80,8 @@ internal sealed class StripNdmAdapter
             H0 = _h / 2 + Math.Abs(zT), A_prime = _h / 2 - Math.Abs(zC), As_t = asT, As_c = asC,
             NoRebar = asT < 1e-12,
         };
-        if (r.NoRebar) return r;
+        // Растянутая грань без арматуры — бетонное сечение до трещины (как в формульной полосе).
+        if (r.NoRebar) return ShellSimplSolver.Unreinforced(r, _h, _concreteChars, sls: false, Math.Abs(mPlate));
 
         var sec = Section(zTop, asTop, zBot, asBot);
         var u = StripNdm.UltimateFactor(sec, nDes, mPlate, _lim);
@@ -151,6 +155,16 @@ internal sealed class StripNdmAdapter
         // ширина не ограничена — 1e9 (вид показывает ∞), а не 0, иначе проверка проходит ложно.
         if (s.Cracked && !s.Converged && !r.NoRebar)
             r.Acrc_mm = UnboundedAcrcMm;
+        // Ряд без арматуры: трещина по НДМ (M > M_crc) — раскрытие не ограничено, без трещины — проходит.
+        if (r.NoRebar)
+        {
+            r.Cracked = s.Cracked;
+            r.Acrc_mm = s.Cracked ? UnboundedAcrcMm : 0.0;
+            r.Case = s.Cracked
+                ? $"растянутая грань без арматуры: M = {Math.Abs(mDes):F2} > M_crc = {s.Mcrc:F2} кН·м/м — трещина без арматуры (НДМ полосы)"
+                : $"растянутая грань без арматуры: M = {Math.Abs(mDes):F2} ≤ M_crc = {s.Mcrc:F2} кН·м/м — без трещины (НДМ полосы)";
+            return r;
+        }
         r.Case = "НДМ полосы (пп. 8.2.14–8.2.18)" + (string.IsNullOrEmpty(s.Reason) ? "" : "; " + s.Reason);
         return r;
     }

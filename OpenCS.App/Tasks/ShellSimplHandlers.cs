@@ -90,6 +90,11 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
     protected abstract string KindId { get; }
     public string Kind => KindId;
     protected abstract bool IsSls { get; }
+    /// <summary>
+    /// Вид для решателя — вид одиночной задачи: решатель различает ПС1/ПС2 по окончанию «sls», и с «_batch»
+    /// пакеты ПС2 считались как ПС1 (с 18.06.2026 по 20.10.2026: прочность вместо трещин, ширина трещин — 0).
+    /// </summary>
+    string SolverKind => KindId.EndsWith("_batch", StringComparison.Ordinal) ? KindId[..^"_batch".Length] : KindId;
 
     public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
                           CalcSettings settings, TaskRunContext? ctx = null)
@@ -130,7 +135,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 var (nx, ny, nxy) = sp.AutoStressToForce ? si.ResolveN(plateSection.H) : (si.Nx, si.Ny, si.Nxy);
                 var solveParams = new ShellSimplSolver.SolveParams(
                     nx, ny, nxy, si.Mx, si.My, si.Mxy,
-                    KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2, sp.SigmaSCrc, sp.WplGamma, sp.Model, sp.CapriMode,
+                    SolverKind, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2, sp.SigmaSCrc, sp.WplGamma, sp.Model, sp.CapriMode,
                     si.Qx, si.Qy
                 );
                 var result = ShellSimplSolver.Solve(
@@ -142,8 +147,8 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 // Через ограничения ПС2 тоже даёт Кисп = max r/As_n.
                 if (IsSls && result.CapriConstraints == null)
                 {
-                    var dirs = result.CapriDirs ?? [];
-                    double maxAcrc = dirs.Count > 0 ? dirs.Max(d => d.Strip.Acrc_mm) : 0;
+                    double maxAcrc = result.CapriDirs is { Count: > 0 } dirs ? dirs.Max(d => d.Strip.Acrc_mm)
+                        : result.WaStrips is { Count: > 0 } strips ? strips.Max(s => s.Acrc_mm) : 0;
                     ok = maxAcrc <= sp.AcrcLimMm;
                 }
                 else
