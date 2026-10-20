@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 using CScore;
 using OpenCS.Utilites;
 
@@ -34,7 +33,7 @@ public sealed class CrackingBatchHandler : ITaskHandler
             var convergedArr = new bool[total];
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
 
-            void Solve(int i)
+            BatchProgress.ForEachRow(total, settings, ctx, i =>
             {
                 var fi = items[i];
                 var clone = settings.BatchParallel ? section.CloneForCalc() : section;
@@ -42,7 +41,10 @@ public sealed class CrackingBatchHandler : ITaskHandler
                 double dmx = mag > 1e-12 ? fi.Mx / mag : 1.0;
                 double dmy = mag > 1e-12 ? fi.My / mag : 0.0;
 
-                var solver = new CrackingSolver(clone, calcCrc);
+                // Как в одиночной задаче: трещина — только на грани, растянутой внешней нагрузкой
+                // (у обжатого сечения противоположная грань может треснуть от одного обжатия).
+                var solver = new CrackingSolver(clone, calcCrc,
+                    tensionZone: CrackingSolver.LoadedTensionZone(clone, fi.N, dmx, dmy, nAtZeroMoment: fi.N));
                 var res = solver.CrackingMoment(fi.N, dmx, dmy);
                 double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
                 convergedArr[i] = res.Converged;
@@ -58,12 +60,7 @@ public sealed class CrackingBatchHandler : ITaskHandler
                     converged = res.Converged,
                     status = res.Converged ? "ok" : "not_converged"
                 };
-            }
-
-            if (settings.BatchParallel && total > 1)
-                Parallel.For(0, total, Solve);
-            else
-                for (int i = 0; i < total; i++) Solve(i);
+            });
 
             int convergedCount = convergedArr.Count(c => c);
             bool allConverged = convergedCount == total;

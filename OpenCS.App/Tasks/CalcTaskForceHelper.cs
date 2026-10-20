@@ -40,7 +40,8 @@ public static class CalcTaskForceHelper
           or "steel_constructive"
           or "torsion_bem" or "torsion_fem"
          or "cracking_batch" or "crack_width_batch" or "total_curvature_batch"
-         or "fire_r_check_batch" or "fire_thermal_curvature" => true,
+         or "fire_r_check_batch" or "fire_thermal_curvature"
+         or "shear_inclined_batch" => true,
       "opensees_section_interaction_n_mx_my" => true,
       _ => false
    };

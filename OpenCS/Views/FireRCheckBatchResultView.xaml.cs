@@ -21,10 +21,25 @@ public partial class FireRCheckBatchResultView : UserControl
         _task = task;
         InitializeComponent();
         DataContext = new FireRCheckBatchVM(result);
+        AllRowsGrid.SelectionChanged += (_, _) => UpdateCreateTaskBtn();
+        FailedRowsGrid.SelectionChanged += (_, _) => UpdateCreateTaskBtn();
+        AllRowsGrid.IsVisibleChanged += (_, _) => UpdateCreateTaskBtn();
     }
 
-    private void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    /// <summary>Выбранная строка видимой вкладки («Все» или «Не прошедшие»).</summary>
+    FireRCheckBatchVM.BatchRow? SelectedRow =>
+        (AllRowsGrid.IsVisible ? AllRowsGrid.SelectedItem : FailedRowsGrid.SelectedItem) as FireRCheckBatchVM.BatchRow;
+
+    void UpdateCreateTaskBtn() => CreateTaskBtn.IsEnabled = SelectedRow != null;
+
+    private void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => CreateTask();
+
+    private void CreateTask_Click(object sender, RoutedEventArgs e) => CreateTask();
+
+    void CreateTask()
     {
+        if (SelectedRow is { } row)
+            BatchRowTask.CreateAndRun(_app, _task, row.Num);
     }
 
     private void ExportCsv_Click(object sender, RoutedEventArgs e)

@@ -30,6 +30,7 @@
                       MouseDoubleClick="RowsGrid_MouseDoubleClick">
                <DataGrid.ContextMenu>
                   <ContextMenu>
+                     <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
                      <MenuItem Header="{DynamicResource ExportCsvBtn}"
                                Click="ExportCsv_Click"/>
                   </ContextMenu>
@@ -47,9 +48,15 @@
 
          <TabItem Header="{DynamicResource FireRCheckBatch_TabFailed}"
                   Visibility="{Binding HasFailedRows, Converter={StaticResource BoolToVisibility}}">
-            <DataGrid ItemsSource="{Binding FailedRows}" AutoGenerateColumns="False"
+            <DataGrid x:Name="FailedRowsGrid" ItemsSource="{Binding FailedRows}" AutoGenerateColumns="False"
                       IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
-                      CanUserSortColumns="True">
+                      CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                      MouseDoubleClick="RowsGrid_MouseDoubleClick">
+               <DataGrid.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+                  </ContextMenu>
+               </DataGrid.ContextMenu>
                <DataGrid.Columns>
                   <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
                   <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
@@ -63,6 +70,8 @@
 
       <!-- Кнопки внизу -->
       <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"
+                 Padding="12,4" Margin="0,0,8,0" x:Name="CreateTaskBtn" IsEnabled="False"/>
          <Button Content="{DynamicResource ExportCsvBtn}"
                  Click="ExportCsv_Click"
                  Padding="12,4"/>

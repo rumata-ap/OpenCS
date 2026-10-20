@@ -61,7 +61,7 @@ namespace OpenCS.Views
 
         if (task?.Kind == "shear_inclined_batch")
         {
-            Content = new ShearInclinedBatchResultView(result.DataJson);
+            Content = new ShearInclinedBatchResultView(result, app, task);
             return;
         }
 

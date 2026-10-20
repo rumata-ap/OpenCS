@@ -20,10 +20,11 @@ public static class BatchRowTaskFactory
     public static bool Supports(string batchKind) => batchKind is
         "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
         or "strain_state_batch" or "strength_ndm_batch" or "two_stage_strain_batch" or "total_curvature_batch"
+        or "cracking_batch" or "crack_width_batch" or "fire_r_check_batch" or "shear_inclined_batch"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
         or "shell_simpl_capri_design_uls_batch" or "shell_simpl_capri_design_sls_batch"
-        or "shell_strain_state_batch" or "shell_layered_uls_batch";
+        or "shell_strain_state_batch" or "shell_layered_uls_batch" or "shell_layered_sls_batch";
 
     /// <summary>
     /// Вид одиночной задачи для пакета. Одиночной проверки прочности по НДМ нет — строку пакета разворачивает
@@ -70,7 +71,7 @@ public static class BatchRowTaskFactory
         {
             var item = BarItem(batch, rowNum, forceSets);
             task.ForceItemId = item.Id;
-            paramsJson = BarParams(batch, item);
+            paramsJson = BarParams(batch, item, forceSets);
             label = item.Label;
         }
 
@@ -101,8 +102,19 @@ public static class BatchRowTaskFactory
         return p;
     }
 
-    static string BarParams(CalcTask batch, LoadItem item)
+    static string BarParams(CalcTask batch, LoadItem item, IReadOnlyList<ForceSet> forceSets)
     {
+        switch (batch.Kind)
+        {
+            // Огнестойкость и наклонные сечения берут строку набора по ForceItemId — параметры пакета как есть.
+            case "fire_r_check_batch" or "shear_inclined_batch":
+                return string.IsNullOrWhiteSpace(batch.ParamsJson) ? "{}" : batch.ParamsJson;
+            case "cracking_batch":
+                return WithForces(batch.ParamsJson, item);
+            case "crack_width_batch":
+                return CrackWidthParams(batch, item, forceSets);
+        }
+
         if (batch.Kind == "total_curvature_batch")
         {
             // Режим длительной части (вся / доля / вручную) — как в пакете.
@@ -120,6 +132,15 @@ public static class BatchRowTaskFactory
 
     static string PlateParams(CalcTask batch, ShellLoadItem item, double h)
     {
+        if (batch.Kind == "shell_layered_sls_batch")
+        {
+            var l = ShellLayeredSlsParams.Parse(batch.ParamsJson);
+            (l.Nx, l.Ny, l.Nxy) = l.AutoStressToForce ? item.ResolveN(h) : (item.Nx, item.Ny, item.Nxy);
+            l.Mx = item.Mx; l.My = item.My; l.Mxy = item.Mxy;
+            l.AutoStressToForce = false;
+            return l.ToJson();
+        }
+
         if (batch.Kind is "shell_strain_state_batch" or "shell_layered_uls_batch")
         {
             var s = ShellStrainParams.Parse(batch.ParamsJson);
@@ -135,6 +156,42 @@ public static class BatchRowTaskFactory
             p.StripModel = "ndm";
         return JsonSerializer.Serialize(p);
     }
+
+    /// <summary>
+    /// Ширина трещин: параметры пакета (предельные ширины, φ2, η, доля длительной части) и усилия строки.
+    /// «Два набора» пакета превращается в строку длительного набора (force_item_long) — ту же, что брал
+    /// пакет: по метке, иначе по порядку строки в наборе.
+    /// </summary>
+    static string CrackWidthParams(CalcTask batch, LoadItem item, IReadOnlyList<ForceSet> forceSets)
+    {
+        var obj = ParseObject(WithForces(batch.ParamsJson, item));
+        var p = CrackWidthTaskParams.Parse(batch.ParamsJson);
+        if (p.ForcesMode == "two_sets" && p.ForceSetLongId is int longSetId)
+        {
+            var longSet = forceSets.FirstOrDefault(f => f.Id == longSetId)
+                ?? throw new InvalidOperationException($"Набор длительных усилий id={longSetId} не найден.");
+            int index = Set(batch, forceSets).Items.IndexOf(item);
+            var longItem = (!string.IsNullOrEmpty(item.Label) ? longSet.Items.FirstOrDefault(i => i.Label == item.Label) : null)
+                ?? (index < longSet.Items.Count ? longSet.Items[index] : null)
+                ?? throw new InvalidOperationException($"Не найдено длительное усилие для строки «{item.Label}».");
+            obj[nameof(CrackWidthTaskParams.ForcesMode)] = "force_item_long";
+            obj[nameof(CrackWidthTaskParams.ForceItemLongId)] = longItem.Id;
+        }
+        else if (p.ForcesMode == "two_sets")
+            obj[nameof(CrackWidthTaskParams.ForcesMode)] = "total_only";   // как пакет без длительного набора
+        return obj.ToJsonString();
+    }
+
+    /// <summary>Параметры пакета с точными усилиями строки (их показывает диалог одиночной задачи).</summary>
+    static string WithForces(string? json, LoadItem item)
+    {
+        var obj = ParseObject(json);
+        obj["N"] = item.N; obj["Mx"] = item.Mx; obj["My"] = item.My;
+        return obj.ToJsonString();
+    }
+
+    static JsonObject ParseObject(string? json) =>
+        (string.IsNullOrWhiteSpace(json) ? null : JsonNode.Parse(json)) as JsonObject ?? new JsonObject();
 
     static (string Json, string Label, int ForceSetId) TwoStage(CalcTask batch, int rowNum, IReadOnlyList<ForceSet> forceSets)
     {
@@ -170,7 +227,7 @@ public static class BatchRowTaskFactory
 
     static string WithSource(string json, int batchId, int rowNum)
     {
-        var obj = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+        var obj = ParseObject(json);
         obj[SourceProp] = new JsonObject { ["taskId"] = batchId, ["num"] = rowNum };
         return obj.ToJsonString();
     }

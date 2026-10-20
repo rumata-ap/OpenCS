@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using CsvHelper;
 using CsvHelper.Configuration;
+using CScore;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -12,11 +13,27 @@ namespace OpenCS.Views;
 /// <summary>Сводка пакетного расчёта наклонных сечений.</summary>
 public partial class ShearInclinedBatchResultView : UserControl
 {
+    readonly AppViewModel _app;
+    readonly CalcTask _task;
+
     /// <summary>Создаёт сводку по DataJson пакетной задачи.</summary>
-    public ShearInclinedBatchResultView(string dataJson)
+    public ShearInclinedBatchResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
-        DataContext = new ShearInclinedBatchVM(dataJson);
+        _app = app;
+        _task = task;
+        DataContext = new ShearInclinedBatchVM(result.DataJson);
+        RowsGrid.SelectionChanged += (_, _) => CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;
+    }
+
+    void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => CreateTask();
+
+    void CreateTask_Click(object sender, RoutedEventArgs e) => CreateTask();
+
+    void CreateTask()
+    {
+        if (RowsGrid.SelectedItem is ShearInclinedBatchRowVM row)
+            BatchRowTask.CreateAndRun(_app, _task, row.Num);
     }
 
     /// <summary>Выгружает сводку в CSV.</summary>

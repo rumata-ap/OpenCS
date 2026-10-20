@@ -13,7 +13,7 @@ namespace OpenCS.Tests;
 /// </summary>
 public sealed class BatchRowTaskFactoryTests : IDisposable
 {
-    const int BarSectionId = 7, PlateSectionId = 8, BarSetId = 11, ShellSetId = 12;
+    const int BarSectionId = 7, PlateSectionId = 8, BarSetId = 11, ShellSetId = 12, LongSetId = 13;
 
     readonly string _path = Path.Combine(Path.GetTempPath(), $"opencs_batchrow_{Guid.NewGuid():N}.db");
     readonly TestProjectContext _ctx;
@@ -32,9 +32,20 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
             // равновесие неоднозначно, и разные решатели законно сходятся в разные точки.
             Items =
             [
-                new LoadItem { Id = 101, Num = 1, Label = "С1", N = -100, Mx = -60 },
-                new LoadItem { Id = 102, Num = 2, Label = "С2", N = -300, Mx = -90, My = 4 },
-                new LoadItem { Id = 103, Num = 3, Label = "С3", N = -50, Mx = -45, My = -3 },
+                new LoadItem { Id = 101, Num = 1, Label = "С1", N = -100, Mx = -60, Vy = 60 },
+                new LoadItem { Id = 102, Num = 2, Label = "С2", N = -300, Mx = -90, My = 4, Vy = 90 },
+                new LoadItem { Id = 103, Num = 3, Label = "С3", N = -50, Mx = -45, My = -3, Vy = 40 },
+            ],
+        });
+        // Длительные усилия для ширины трещин «два набора»: строки в другом порядке — пакет сопоставляет по метке.
+        AddSet(new ForceSet
+        {
+            Id = LongSetId, Kind = "bar", Tag = "Длительные",
+            Items =
+            [
+                new LoadItem { Id = 202, Num = 1, Label = "С2", N = -300, Mx = -55, My = 2 },
+                new LoadItem { Id = 201, Num = 2, Label = "С1", N = -100, Mx = -35 },
+                new LoadItem { Id = 203, Num = 3, Label = "С3", N = -50, Mx = -20, My = -1 },
             ],
         });
 
@@ -104,6 +115,15 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
         { "shell_strain_state_batch", CalcType.C, "{}", "converged=converged" },
         { "shell_layered_uls_batch", CalcType.C, "{}", "status=@status" },
         { "shell_simpl_capri_design_uls_batch", CalcType.C, "{}", "TopAsx=design.Top.Asx" },
+        { "cracking_batch", CalcType.N, "{}", "Mcrc=Mcrc;Mx_crc=Mx_crc;converged=converged" },
+        { "crack_width_batch", CalcType.N, """{"ForcesMode":"share","LongShare":0.6,"AcrcUltLong":0.2}""",
+            "acrc_long=acrc_long;acrc_short=acrc_short;Mx_long=Mx_long;status=@status" },
+        { "crack_width_batch", CalcType.N, $$"""{"ForcesMode":"two_sets","ForceSetLongId":{{LongSetId}}}""",
+            "acrc_long=acrc_long;acrc_short=acrc_short;Mx_long=Mx_long;status=@status" },
+        { "crack_width_batch", CalcType.N, """{"etaEnabled":true,"etaL":6,"etaMuX":1,"etaMuY":1}""",
+            "acrc_long=acrc_long;Mx_total=Mx_total;status=@status" },
+        { "shear_inclined_batch", CalcType.C, """{"ConstructiveRequirements103Confirmed":true}""", "utilization=utilization" },
+        { "shell_layered_sls_batch", CalcType.N, """{"auto_stress_to_force":true,"acrc_lim_mm":0.2}""", "acrc_mm=AcrcMaxMm;status=@status" },
     };
 
     [Theory]
@@ -120,6 +140,8 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
         var batchResult = await CalcTaskExecutor.RunAsync(_ctx, batch);
         Assert.NotNull(batchResult);
         using var batchDoc = JsonDocument.Parse(batchResult!.DataJson);
+        // Совпадение null = null или 0 = 0 ничего не доказывает: хотя бы одно сверяемое число должно быть ненулевым.
+        bool anyNumeric = false, anyNonZero = false;
 
         foreach (int rowNum in new[] { 1, 2, 3 })
         {
@@ -145,8 +167,14 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
                 }
                 var actual = Find(singleDoc.RootElement, singleKey) ?? throw new Xunit.Sdk.XunitException($"нет «{singleKey}» в одиночном результате");
                 AssertSame(expected, actual, $"{batchKind} № {rowNum}, {rowKey}");
+                if (expected.ValueKind is JsonValueKind.Number or JsonValueKind.Null)
+                {
+                    anyNumeric = true;
+                    anyNonZero |= expected.ValueKind == JsonValueKind.Number && Math.Abs(expected.GetDouble()) > 1e-9;
+                }
             }
         }
+        Assert.True(!anyNumeric || anyNonZero, $"{batchKind}: все сверяемые числа нулевые или пустые — {batchResult.DataJson}");
     }
 
     [Theory]
@@ -200,6 +228,40 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
         Assert.True(p.EtaEnabled);
         Assert.Equal(4.5, p.EtaL);
         Assert.Equal(0.7, p.EtaMuX);
+    }
+
+    [Fact]
+    public void CrackWidth_TwoSets_TakesLongRowByLabel()
+    {
+        var batch = new CalcTask
+        {
+            Id = 7, Kind = "crack_width_batch", SectionId = BarSectionId, ForceSetId = BarSetId, CalcType = CalcType.N,
+            ParamsJson = $$"""{"ForcesMode":"two_sets","ForceSetLongId":{{LongSetId}},"Phi2":0.8,"etaEnabled":true,"etaL":3}""",
+        };
+
+        var single = BatchRowTaskFactory.Create(batch, 1, "Балка", _ctx.ForceSets, _ctx.PlateSections);
+
+        Assert.Equal(("crack_width", 101), (single.Kind, single.ForceItemId));
+        var p = CrackWidthTaskParams.Parse(single.ParamsJson);
+        Assert.Equal(("force_item_long", LongSetId, 201), (p.ForcesMode, p.ForceSetLongId, p.ForceItemLongId));
+        Assert.Equal((-100.0, -60.0, 0.0, 0.8), (p.N, p.Mx, p.My, p.Phi2));
+        Assert.Equal(3.0, LimitForceParams.Parse(single.ParamsJson).EtaL);
+    }
+
+    [Fact]
+    public void FireCheck_KeepsBatchParams_ReferencesRow()
+    {
+        var batch = new CalcTask
+        {
+            Id = 8, Kind = "fire_r_check_batch", SectionId = BarSectionId, ForceSetId = BarSetId, CalcType = CalcType.N,
+            ParamsJson = FireTaskParamsBuilder.Build("fire_r_check_batch", 5, 90, "mvp"),
+        };
+
+        var single = BatchRowTaskFactory.Create(batch, 3, "Балка", _ctx.ForceSets, _ctx.PlateSections);
+
+        Assert.Equal(("fire_r_check", BarSetId, 103, CalcType.N), (single.Kind, single.ForceSetId, single.ForceItemId, single.CalcType));
+        var p = FireTaskParamsBuilder.Parse("fire_r_check", single.ParamsJson);
+        Assert.Equal((5, 90.0, "mvp"), (p.FireSectionId, p.SnapshotTimeMin, p.Method));
     }
 
     [Fact]

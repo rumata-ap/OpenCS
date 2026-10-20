@@ -37,11 +37,21 @@
             </StackPanel>
         </Border>
 
-        <Button Grid.Row="3" Content="{DynamicResource ExportCsvBtn}" Margin="0,0,0,8"
-                HorizontalAlignment="Left" Padding="12,4" Click="ExportCsv_Click"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"
+                    Padding="12,4" Margin="0,0,8,0" x:Name="CreateTaskBtn" IsEnabled="False"/>
+            <Button Content="{DynamicResource ExportCsvBtn}" Padding="12,4" Click="ExportCsv_Click"/>
+        </StackPanel>
 
-        <DataGrid Grid.Row="4" ItemsSource="{Binding Rows}"
-                  AutoGenerateColumns="False" IsReadOnly="True">
+        <DataGrid Grid.Row="4" x:Name="RowsGrid" ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  MouseDoubleClick="RowsGrid_MouseDoubleClick">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="#" Binding="{Binding Num}"/>
                 <DataGridTextColumn Header="{DynamicResource ShearInclinedColumnLabel}"

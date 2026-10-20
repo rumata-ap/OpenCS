@@ -5,6 +5,7 @@
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
       <Grid Grid.Row="0" Margin="0,0,0,8">
          <Grid.ColumnDefinitions>
@@ -18,9 +19,15 @@
          <TextBlock Grid.Column="4" Text="{DynamicResource ShellLayeredSlsBatchAngleColumn}" FontWeight="SemiBold"/>
          <TextBlock Grid.Column="5" Text="{DynamicResource ShellLayeredSlsBatchDirFaceColumn}" FontWeight="SemiBold"/>
       </Grid>
-      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-         <ItemsControl ItemsSource="{Binding Rows}">
-            <ItemsControl.ItemTemplate>
+      <ListBox Grid.Row="1" x:Name="RowsList" ItemsSource="{Binding Rows}" SelectionMode="Single"
+               HorizontalContentAlignment="Stretch" BorderThickness="0"
+               MouseDoubleClick="RowsList_MouseDoubleClick">
+         <ListBox.ContextMenu>
+            <ContextMenu>
+               <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+            </ContextMenu>
+         </ListBox.ContextMenu>
+            <ListBox.ItemTemplate>
                <DataTemplate>
                   <Border Padding="4" Margin="0,0,0,2" BorderBrush="#E0E0E0" BorderThickness="1">
                      <Grid>
@@ -37,8 +44,13 @@
                      </Grid>
                   </Border>
                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-         </ItemsControl>
-      </ScrollViewer>
+            </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- Кнопки внизу -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"
+                 Padding="12,4" x:Name="CreateTaskBtn" IsEnabled="False"/>
+      </StackPanel>
    </Grid>
 </UserControl>
