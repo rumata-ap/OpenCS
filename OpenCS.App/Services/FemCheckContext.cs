@@ -239,9 +239,10 @@ public static class FemCheckContext
                 ? BarSources(app.Materials, BarCheckParams.Parse(check.ParamsJson).RebarSources, data,
                     sections.GetValueOrDefault, targetSection, lookupForceSets)
                 : [],
-            // rc_check меняет состояние сечения — считаем на клонах; стальная проверка опирается
-            // на привязку параметрического профиля, которую клон не несёт.
-            ParallelBars = check.NormCode == "rc_check",
+            // rc_check меняет состояние сечения — считаем на клонах; стальная проверка сечение только читает и
+            // опирается на привязку параметрического профиля, которую клон не несёт, — на общем сечении.
+            ParallelBars = check.NormCode is "rc_check" or "steel_check",
+            SharedBarSection = check.NormCode == "steel_check",
             BarSelectedAsCm2 = data.IsScad
                 ? data.ScadSelected?.Bars.Where(b => b.Value.Envelope?.LongitudinalSum != null)
                       .ToDictionary(b => b.Key, b => b.Value.Envelope!.LongitudinalSum!.Value)

@@ -23,10 +23,15 @@ public sealed class FemPerElementInputs
     /// <summary>Расчётное сечение по id (сечения КЭ сетки и конструктивных элементов).</summary>
     public Func<int, CrossSection?> BarSectionById { get; init; } = _ => null;
     /// <summary>
-    /// Считать стержневые КЭ параллельно, каждый на клоне сечения. Только для проверок, которым
-    /// хватает <see cref="CrossSection.CloneForCalc"/> (клон не несёт привязку параметрического профиля).
+    /// Считать стержневые КЭ параллельно, каждый на клоне сечения (<see cref="CrossSection.CloneForCalc"/>; клон не несёт
+    /// привязку параметрического профиля) или, с <see cref="SharedBarSection"/>, на общем сечении.
     /// </summary>
     public bool ParallelBars { get; init; }
+    /// <summary>
+    /// При <see cref="ParallelBars"/> — без клонов, на общем сечении: проверка сечение только читает (сталь СП 16 —
+    /// ей нужна привязка параметрического профиля, которой у клона нет).
+    /// </summary>
+    public bool SharedBarSection { get; init; }
     /// <summary>Подобранная продольная арматура стержней по номеру КЭ, см² (справочно).</summary>
     public IReadOnlyDictionary<int, double> BarSelectedAsCm2 { get; init; } = new Dictionary<int, double>();
     /// <summary>Источники сечения стержневых КЭ в порядке расчёта; пусто — сечение проекта
@@ -460,8 +465,9 @@ public static partial class FemCheckRunner
 
             void RunGroup(ElementGroup g)
             {
-                // rc_check меняет состояние сечения (диаграммы, фибры) — в параллели у каждого КЭ свой клон.
-                var bar = inputs.ParallelBars ? g.Bar?.Section?.CloneForCalc() : g.Bar?.Section;
+                // rc_check меняет состояние сечения (диаграммы, фибры) — в параллели у каждого КЭ свой клон;
+                // сталь сечение только читает — общее.
+                var bar = inputs.ParallelBars && !inputs.SharedBarSection ? g.Bar?.Section?.CloneForCalc() : g.Bar?.Section;
                 // Задания с параметрами КЭ: по одному на задание набора.
                 Dictionary<CalcTask, CalcTask>? ownTasks = g.ParamsJson == null ? null : [];
                 // Полоса стены КЭ (η стен); у не стен и строк без номера КЭ — null.
