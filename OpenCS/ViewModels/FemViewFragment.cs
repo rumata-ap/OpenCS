@@ -55,7 +55,8 @@ public sealed class FemViewFragment
         {
             string atom = MeshAtom(e.ElemTag);
             _meshAtoms.Add(atom);
-            if (e.SourceMemberTag is not { } owner || e.Origin == FemMember.MeshSourceImported) continue;
+            // КЭ своего КонЭ — и дискретизации, и импортной сетки, собранный в КонЭ (у импортного КЭ без КонЭ тега нет).
+            if (e.SourceMemberTag is not { } owner || string.IsNullOrWhiteSpace(owner)) continue;
             if (!_meshByMember.TryGetValue(owner.Trim(), out var list)) _meshByMember[owner.Trim()] = list = [];
             list.Add(atom);
         }

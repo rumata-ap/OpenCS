@@ -20,7 +20,10 @@ public sealed class FemResultMesh
     readonly Dictionary<string, string> _owner = new(StringComparer.Ordinal);
     readonly Dictionary<string, List<string>> _byOwner = new(StringComparer.Ordinal);
 
-    public FemResultMesh(IEnumerable<FemMeshNode> meshNodes, IEnumerable<FemElement> meshElements)
+    /// <param name="memberTags">КонЭ схемы: владелец КЭ признаётся, только если такой КонЭ есть (у КЭ импортной сетки
+    /// без КонЭ <c>SourceMemberTag</c> может указывать на элемент программы-источника); null — по происхождению КЭ.</param>
+    public FemResultMesh(IEnumerable<FemMeshNode> meshNodes, IEnumerable<FemElement> meshElements,
+        IReadOnlySet<string>? memberTags = null)
     {
         var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
         foreach (var n in meshNodes)
@@ -36,8 +39,9 @@ public sealed class FemResultMesh
             if (_elementNodes.ContainsKey(tag)) continue;
             var ids = g.NodeTags.Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
             _elementNodes[tag] = ids;
-            // КЭ дискретизации КонЭ; у импортированной сетки КЭ и есть элемент схемы — КонЭ у него нет.
-            if (e.SourceMemberTag is { } owner && !string.IsNullOrWhiteSpace(owner) && e.Origin != FemMember.MeshSourceImported)
+            // КЭ дискретизации КонЭ или КЭ импортной сетки, собранный в КонЭ (кБ ЛИРЫ, «КонЭ из выделенных КЭ»).
+            if (e.SourceMemberTag is { } owner && !string.IsNullOrWhiteSpace(owner)
+                && (memberTags?.Contains(owner.Trim()) ?? e.Origin != FemMember.MeshSourceImported))
             {
                 owner = owner.Trim();
                 _owner[tag] = owner;

@@ -1190,7 +1190,8 @@ public class Fem3DVM : ViewModelBase
     {
         if (analysis.ResultId is not int id || _db.GetCalcResultById(id) is not { } result) return null;
         if (_db.FemSchemas.FirstOrDefault(s => s.Id == _schemaId) is not { } schema) return null;
-        _resultMesh ??= new FemResult.FemResultMesh(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId));
+        _resultMesh ??= new FemResult.FemResultMesh(_db.GetFemMeshNodes(_schemaId), _db.GetFemMeshElements(_schemaId),
+            _db.GetFemMembers(_schemaId).Select(m => m.ElemTag.Trim()).ToHashSet(StringComparer.Ordinal));
         FemResult.IFemResultSteps steps = result.TaskKind switch
         {
             Services.FemCsfeaRunner.TaskKind => new FemResult.CsfeaResultSteps(new FemCsfeaResultVM(result, _db, schema, analysis)),

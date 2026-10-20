@@ -106,17 +106,36 @@ public class FemViewFragmentTests
     }
 
     [Fact]
-    public void ImportedElements_AreNotAtomsOfMember()
+    public void ImportedElementsOfMember_AreAtomsOfMember_LikeGenerated()
     {
-        // КЭ импортированной сетки под элементом из кБ ЛИРЫ принадлежат сетке, а не КонЭ.
+        // КонЭ из готовой сетки (кБ ЛИРЫ, «КонЭ из выделенных КЭ») работает как родной: его КЭ — его атомы;
+        // КЭ импортной сетки без КонЭ — сами по себе.
         var fragment = new FemViewFragment();
         fragment.SetMembers(["кБ"]);
         fragment.SetMeshSource(() => [E("10", "кБ", FemMember.MeshSourceImported), E("11", null, FemMember.MeshSourceImported)]);
 
-        Assert.Equal(["m:кБ"], fragment.AtomsOfMember("кБ"));
+        Assert.Equal(["e:10"], fragment.AtomsOfMember("кБ"));
         Assert.True(fragment.ShowOnly(FemViewFragment.AtomsOfMesh(["10"])));
-        Assert.False(fragment.IsMemberVisible("кБ"));
+        Assert.True(fragment.IsMemberVisible("кБ"));
         Assert.False(fragment.IsMeshVisible("11"));
         Assert.True(fragment.IsMeshVisible("10"));
+    }
+
+    /// <summary>Сетка результата: у КЭ импортной сетки, собранного в КонЭ, владелец — этот КонЭ (выбор «КонЭ» в
+    /// результате берёт все его КЭ); тег без такого КонЭ в схеме — без владельца.</summary>
+    [Fact]
+    public void ResultMesh_ImportedElementOfExistingMember_HasOwner()
+    {
+        FemMeshNode N(string tag, double x) => new() { NodeTag = tag, X = x };
+        FemElement Bar(string tag, string nodes, string? member) =>
+            new() { ElemTag = tag, ElemType = "beam", NodeIdsJson = nodes, SourceMemberTag = member, Origin = FemMember.MeshSourceImported };
+        var mesh = new OpenCS.ViewModels.FemResult.FemResultMesh(
+            [N("1", 0), N("2", 1), N("3", 2), N("4", 3)],
+            [Bar("1", "[1,2]", "Б1"), Bar("2", "[2,3]", "Б1"), Bar("3", "[3,4]", "чужой")],
+            new HashSet<string>(["Б1"]));
+
+        Assert.Equal("Б1", mesh.OwnerOf("1"));
+        Assert.Equal("Б1", mesh.OwnerOf("2"));
+        Assert.Null(mesh.OwnerOf("3"));
     }
 }
