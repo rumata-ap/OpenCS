@@ -1747,6 +1747,14 @@ public class Fem3DVM : ViewModelBase
     readonly System.Runtime.CompilerServices.ConditionalWeakTable<MeshGeometry3D, string[]> _shellMeshTags = new();
 
     /// <summary>Тег пластинчатого КЭ по вершине его заливки; null — сетка не из заливок пластин.</summary>
+    /// <summary>КонЭ, к которому относится КЭ сетки, и все его КЭ; null — КЭ не из конструктивного элемента.</summary>
+    public (string MemberTag, IReadOnlyList<string> ElemTags)? MemberOfMeshElement(string elemTag)
+    {
+        var mesh = _db.GetFemMeshElements(_schemaId);
+        if (mesh.FirstOrDefault(e => e.ElemTag == elemTag)?.SourceMemberTag is not { Length: > 0 } member) return null;
+        return (member, mesh.Where(e => e.SourceMemberTag == member).Select(e => e.ElemTag).ToList());
+    }
+
     public string? ShellTagAt(MeshGeometry3D mesh, int vertexIndex) =>
         _shellMeshTags.TryGetValue(mesh, out var tags) && vertexIndex >= 0 && vertexIndex < tags.Length
             ? tags[vertexIndex] : null;

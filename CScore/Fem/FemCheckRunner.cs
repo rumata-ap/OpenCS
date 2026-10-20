@@ -11,6 +11,17 @@ namespace CScore.Fem;
 /// <summary>
 /// Запускает нормативные проверки конструктивного элемента по нескольким наборам усилий.
 /// </summary>
+/// <summary>Итог <see cref="FemCheckRunner.LayeredSls"/>.</summary>
+/// <param name="AcrcMm">Раскрытие трещин, мм (при наборе N — по п. 8.2.7).</param>
+/// <param name="Acrc1">acrc1 — продолжительное от длительной части (φ1 = 1,4); у NL — само раскрытие; null — не считалось.</param>
+/// <param name="Acrc2">acrc2 — непродолжительное от полной нагрузки (φ1 = 1,0); null у NL.</param>
+/// <param name="Acrc3">acrc3 — непродолжительное от длительной части (φ1 = 1,0); null — не считалось.</param>
+/// <param name="State">НДС полной нагрузки; null — не сошлось.</param>
+/// <param name="Section">Сечение, на котором найдено НДС (с уточнёнными слоями, если понадобилось).</param>
+public sealed record LayeredSlsOutcome(
+    bool Converged, double AcrcMm, double? Acrc1, double? Acrc2, double? Acrc3, double Utilization,
+    string Formula, string Description, ShellStrainState? State, PlateSection Section);
+
 public static partial class FemCheckRunner
 {
     // ------------------------------------------------------------------ public API
@@ -362,19 +373,8 @@ public static partial class FemCheckRunner
         ShellLoadItem?   nlShell = null,
         double           ltFraction = 0.0)
     {
-        // П. 6.1.26: для SLS диаграмма бетона — всегда CalcType.N
+        // ПС2 (N, NL) — ширина раскрытия трещин на диаграммах CalcType.N (п. 6.1.26), см. LayeredSls.
         bool isSls = calcType == CalcType.N || calcType == CalcType.NL;
-        var diagCalcType = isSls ? CalcType.N : calcType;
-
-        var cDiag = concreteMat.GetDiagramms(concreteDiagType)?[diagCalcType]
-            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[diagCalcType]
-            ?? throw new InvalidOperationException("Диаграмма бетона не построена");
-
-        // Для арматуры с условным пределом текучести двухлинейной диаграммы не существует —
-        // тип приводится к допустимому (L3), см. DiagrammCompatibility.
-        var rDiag = rebarMat.GetDiagramms(
-                DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalcType]
-            ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
         // ── ULS: деформационная проверка п. 8.1.30 — в ShellLayeredCheck (НДС ищется там же) ──
         if (!isSls)
@@ -384,28 +384,50 @@ public static partial class FemCheckRunner
             return (r.Utilization, r.Formula, r.Description);
         }
 
+        var sls = LayeredSls(section, shell, nlShell, ltFraction, concreteMat, rebarMat, calcType, concreteDiagType,
+            pParams.Phi2, pParams.AcrcLimMm, pParams.SigmaSCrc, pParams.WplGamma);
+        return (sls.Utilization, sls.Formula, sls.Description);
+    }
+
+    /// <summary>
+    /// Ширина раскрытия трещин слоистой пластины так, как её считает проверка по КЭ: НДС с уточнением слоёв по
+    /// толщине при несходимости; для набора N — п. 8.2.7: acrc = acrc1 + acrc2 − acrc3 (acrc1, acrc3 — по длительной
+    /// части: строке NL или доле N), для NL — продолжительное раскрытие (φ1 = 1,4). Диаграммы — CalcType.N (п. 6.1.26).
+    /// Общая для проверки по КЭ и одиночной задачи shell_layered_sls.
+    /// </summary>
+    /// <param name="nlShell">Длительная часть строкой NL; null — доля <paramref name="ltFraction"/> или без неё.</param>
+    public static LayeredSlsOutcome LayeredSls(
+        PlateSection section, ShellLoadItem shell, ShellLoadItem? nlShell, double ltFraction,
+        Material concreteMat, Material rebarMat, CalcType calcType, DiagrammType concreteDiagType,
+        double phi2, double acrcLimMm, SigmaSCrcMethod sigmaSCrc, WplGammaMethod wplGamma)
+    {
+        var cDiag = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
+            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+            ?? throw new InvalidOperationException("Диаграмма бетона не построена");
+        var rDiag = rebarMat.GetDiagramms(
+                DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
+            ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
+
         double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
         var (result, solved) = ShellLayeredCheck.SolveWithFallback(section, cDiag, rDiag, target,
-            concreteMat, rebarMat, diagCalcType);
+            concreteMat, rebarMat, CalcType.N);
 
         if (!result.Converged)
-            return (2.0, "НДС", $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}");
+            return new LayeredSlsOutcome(false, 0, null, null, null, 2.0, "НДС",
+                $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}", null, solved);
 
-        // ── SLS: ширина раскрытия трещин (п. 8.2.15) ────────────────────────────
-        {
-            string refinedNote = ShellLayeredCheck.RefinedNote(section, solved);
-            section = solved;
-            if (!concreteMat.chars.TryGetValue(CalcType.N, out var cChSls) || cChSls == null)
-                throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены");
-            if (!rebarMat.chars.TryGetValue(CalcType.N, out var rChSls) || rChSls == null)
-                throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены");
+        string refinedNote = ShellLayeredCheck.RefinedNote(section, solved);
+        if (!concreteMat.chars.TryGetValue(CalcType.N, out var cChSls) || cChSls == null)
+            throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены");
+        if (!rebarMat.chars.TryGetValue(CalcType.N, out var rChSls) || rChSls == null)
+            throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены");
 
-            var sls = RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
-                                         calcType, pParams.Phi2, pParams.AcrcLimMm,
-                                         concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
-                                         pParams.SigmaSCrc, pParams.WplGamma);
-            return (sls.util, sls.formula, sls.desc + refinedNote);
-        }
+        var sls = RunLayeredSlsCheck(solved, shell, result.StrainState, cChSls, rChSls,
+                                     calcType, phi2, acrcLimMm,
+                                     concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
+                                     sigmaSCrc, wplGamma);
+        return new LayeredSlsOutcome(true, sls.acrc, sls.acrc1, sls.acrc2, sls.acrc3, sls.util, sls.formula,
+            sls.desc + refinedNote, result.StrainState, solved);
     }
 
     /// <summary>
@@ -414,7 +436,7 @@ public static partial class FemCheckRunner
     /// CalcType.N → непродолжительное раскрытие (acrc1 + acrc2 − acrc3, п. 8.2.7).
     /// CalcType.NL → продолжительное раскрытие (только acrc1, φ1 = 1.4).
     /// </summary>
-    static (double util, string formula, string desc) RunLayeredSlsCheck(
+    static (double util, string formula, string desc, double acrc, double? acrc1, double? acrc2, double? acrc3) RunLayeredSlsCheck(
         PlateSection     section,
         ShellLoadItem    shell,
         ShellStrainState st,
@@ -434,6 +456,7 @@ public static partial class FemCheckRunner
         string suffix = "";
         double acrcMax;
         string acrcDir;
+        double? part1 = null, part2 = null, part3 = null;   // слагаемые п. 8.2.7
 
         // П. 8.2.8/8.2.14: M_crc слоистой модели — деформационный, а не Rbt·γ·Wred; п. 8.2.18:
         // σs,crc — напряжение в арматуре в том же состоянии (M = M_crc). Обе величины даёт один
@@ -452,6 +475,7 @@ public static partial class FemCheckRunner
             // Только acrc1 (продолжительное раскрытие)
             var stripMax = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
             acrcMax = stripMax?.AcrcMm ?? 0.0;
+            part1 = acrcMax;
             acrcDir = stripMax is { AcrcMm: > 0.0 } ? $"п.8.2.15 {stripMax.Direction}" : "";
         }
         else // CalcType.N → непродолжительное, п. 8.2.7
@@ -459,6 +483,7 @@ public static partial class FemCheckRunner
             // acrc2: N-набор, φ1 = 1.0
             var strip2 = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
             double acrc2 = strip2?.AcrcMm ?? 0.0;
+            part2 = acrc2;
             string dir2 = strip2 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip2.Direction}" : "";
 
             if (nlShell != null)
@@ -490,6 +515,7 @@ public static partial class FemCheckRunner
                 double acrc3 = strip3?.AcrcMm ?? 0.0;
 
                 // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
+                (part1, part3) = (acrc1, acrc3);
                 acrcMax = acrc1 + acrc2 - acrc3;
                 acrcDir = dir1.Length > 0 ? dir1 : dir2;
             }
@@ -531,6 +557,7 @@ public static partial class FemCheckRunner
                     var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
                     double acrc3 = strip3?.AcrcMm ?? 0.0;
 
+                    (part1, part3) = (acrc1, acrc3);
                     acrcMax = acrc1 + acrc2 - acrc3;
                     acrcDir = dir1.Length > 0 ? dir1 : dir2;
                 }
@@ -550,7 +577,7 @@ public static partial class FemCheckRunner
             ? $"acrc={acrcMax:F3} мм{suffix}"
             : $"трещин нет{suffix}";
 
-        return (util, acrcDir, desc);
+        return (util, acrcDir, desc, acrcMax, part1, part2, part3);
     }
 
     /// <summary>

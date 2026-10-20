@@ -217,7 +217,11 @@ namespace CScore
             Area = Area,
             WKT = WKT,
             Eps_p = Eps_p,
-            Tag = Tag
+            Tag = Tag,
+            Num = Num,
+            // Без типа копия стержня — фибра «none»: не точечная и не сеточная, при записи в БД терялась.
+            TypeFiber = TypeFiber,
+            Diameter = Diameter
          };
       }
 

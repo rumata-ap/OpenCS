@@ -675,6 +675,12 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Мозаика включена и есть что показывать.</summary>
    public bool IsActive => Kind != PlateRebarMosaicSourceKind.None && SelectedComponent != null;
 
+   /// <summary>Показан Кисп проверки по КЭ: проверка и источник армирования (ключ в результате); null — нет.</summary>
+   public (FemCheck Check, string Source)? ShownCheck =>
+      Kind == PlateRebarMosaicSourceKind.Utilization && SelectedSubject?.Subject is CheckInfo c
+      && SelectedComponent?.Component is string source && c.Check.ResultId != null
+         ? (c.Check, source) : null;
+
    /// <summary>Данные мозаики схемы: файлы армирования и толщины КЭ (можно готовить в фоновом потоке),
    /// наборы усилий и проверки (только в UI-потоке — <see cref="WithProject"/>).</summary>
    public sealed record Data(

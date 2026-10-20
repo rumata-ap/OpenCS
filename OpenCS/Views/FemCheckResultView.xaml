@@ -45,6 +45,9 @@
             <Button Content="{DynamicResource FemCheckResultAllElements}" Padding="8,1"
                     Command="{Binding ClearElementFilterCommand}"
                     Visibility="{Binding ElementFilterVisibility}"/>
+            <Button x:Name="CreateTaskBtn" Content="{DynamicResource CalcTaskNew}" Padding="8,1" Margin="16,0,0,0"
+                    Click="CreateTask_Click" IsEnabled="False" Visibility="Collapsed"
+                    ToolTip="{DynamicResource FemCheckRowTaskTip}"/>
         </StackPanel>
 
         <TabControl Grid.Row="3" x:Name="Tabs">
@@ -55,6 +58,11 @@
                           SelectedItem="{Binding SelectedElement}" SelectionMode="Single"
                           AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
                           CanUserSortColumns="True" RowStyle="{StaticResource StateRowStyle}">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu x:Name="ElementsMenu">
+                            <MenuItem Header="{DynamicResource FemCheckRowTaskGoverning}" Click="CreateTask_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemCheckResultElem}"
                                             Binding="{Binding ElemText}" SortMemberPath="ElemNum" Width="70"/>
@@ -90,9 +98,15 @@
                 <!-- Строк больше предела: показаны худшие -->
                 <TextBlock DockPanel.Dock="Top" Text="{Binding RowsLimitText}" TextWrapping="Wrap"
                            Foreground="Gray" Margin="0,2,0,4" Visibility="{Binding RowsLimitVisibility}"/>
-                <DataGrid ItemsSource="{Binding Rows}" IsReadOnly="True"
+                <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" IsReadOnly="True"
                           AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                          SelectionMode="Single" SelectionUnit="FullRow" MouseDoubleClick="RowsGrid_MouseDoubleClick"
                           CanUserSortColumns="True" RowStyle="{StaticResource StateRowStyle}">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu x:Name="RowsMenu">
+                            <MenuItem Header="{DynamicResource CalcTaskNew}" Click="CreateTask_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn x:Name="RowElemColumn"
                                             Header="{DynamicResource FemCheckResultElem}"

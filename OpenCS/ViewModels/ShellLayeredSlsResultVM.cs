@@ -36,6 +36,10 @@ public sealed class ShellLayeredSlsResultVM : ViewModelBase
    public string VerdictText { get; }
    public string UtilizationText { get; }
    public string GoverningText { get; }
+   /// <summary>Раскрытие по п. 8.2.7 со слагаемыми; пусто — задача с ручным φ1.</summary>
+   public string CombinationText { get; } = "";
+   public System.Windows.Visibility CombinationVisibility =>
+      CombinationText.Length > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
    public Brush VerdictBrush { get; }
    public Brush VerdictBackground { get; }
    public IReadOnlyList<ShellLayeredSlsStripRowVM> Rows { get; }
@@ -58,6 +62,22 @@ public sealed class ShellLayeredSlsResultVM : ViewModelBase
          ? "—"
          : $"{(string.IsNullOrWhiteSpace(governing.LayerName) ? $"#{governing.LayerIndex}" : governing.LayerName)} / {face} / {governing.Direction}";
       UtilizationText = data.Utilization.ToString("F2", Inv);
+      if (data.Combination is { } c)
+      {
+         string Mm(double? v) => (v ?? 0).ToString("F3", Inv);
+         string source = c.LongSource switch
+         {
+            "row" => Loc.S("ShellLayeredSls827LongRow"),
+            "share" => string.Format(Loc.S("ShellLayeredSls827LongShare"), c.LtFraction.ToString("0.##", Inv)),
+            _ => Loc.S("ShellLayeredSls827LongNone"),
+         };
+         CombinationText = c.Acrc2Mm == null
+            ? string.Format(Loc.S("ShellLayeredSls827Long"), Mm(c.Acrc1Mm))
+            : c.Acrc1Mm == null
+               ? string.Format(Loc.S("ShellLayeredSls827Short"), Mm(c.Acrc2Mm), source)
+               : string.Format(Loc.S("ShellLayeredSls827"), Mm(c.Acrc1Mm), Mm(c.Acrc2Mm), Mm(c.Acrc3Mm),
+                  data.AcrcMaxMm.ToString("F3", Inv), source);
+      }
 
       Rows = data.Strips.Select(s => new ShellLayeredSlsStripRowVM
       {

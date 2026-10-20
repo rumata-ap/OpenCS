@@ -74,6 +74,8 @@ public sealed class ShellLayeredUlsHandler : ITaskHandler
                 check = new
                 {
                     passed,
+                    // Кисп — как у строки проверки по КЭ (наибольшее ε/εult, п. 8.1.30); null — не конечен.
+                    utilization = StrainStateJsonHelper.FiniteRounded(chk.Utilization, 6),
                     verdict = passed ? Loc.S("ShellStrainCheckVerdictOk")
                                      : (chk.Converged ? Loc.S("ShellStrainCheckVerdictFail")
                                                       : Loc.S("ShellStrainCheckNotConverged")),
@@ -200,6 +202,19 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
     }
 }
 
+/// <summary>Слагаемые раскрытия трещин по п. 8.2.7: acrc = acrc1 + acrc2 − acrc3 (у NL — только acrc1).</summary>
+public sealed class ShellLayeredSlsCombination
+{
+    public double? Acrc1Mm { get; set; }
+    public double? Acrc2Mm { get; set; }
+    public double? Acrc3Mm { get; set; }
+    /// <summary>Откуда длительная часть: «row» — строка NL, «share» — доля N, «none» — без неё.</summary>
+    public string LongSource { get; set; } = "none";
+    public double LtFraction { get; set; }
+    /// <summary>Пояснение расчёта (как в строке проверки по КЭ).</summary>
+    public string Note { get; set; } = "";
+}
+
 /// <summary>Данные результата shell_layered_sls в DataJson — полная картина трещин
 /// (все полосы), не только победившая.</summary>
 public sealed class ShellLayeredSlsResultData
@@ -212,6 +227,8 @@ public sealed class ShellLayeredSlsResultData
     public double Utilization { get; set; }
     public bool Passed { get; set; }
     public bool Converged { get; set; } = true;
+    /// <summary>Раскрытие по п. 8.2.7 (задача с <see cref="ShellLayeredSlsParams.Combine827"/>); null — ручной φ1.</summary>
+    public ShellLayeredSlsCombination? Combination { get; set; }
     /// <summary>Общие числовые переменные результата для отчёта.</summary>
     public Dictionary<string, double> Variables { get; set; } = [];
     /// <summary>Сошедшееся НДС (ε₀x, ε₀y, γ₀xy, κx, κy, κxy) — для эпюр по толщине;
@@ -273,11 +290,19 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
 
             var (cDiag, rDiag) = ResolveDiagrams(plate, concreteMat, rebarMat);
 
+            // П. 8.2.7, как проверка по КЭ: раскрытие и НДС — общим расчётом, полосы ниже — для картины трещин.
+            LayeredSlsOutcome? combined = p.Combine827
+                ? FemCheckRunner.LayeredSls(plate, shell, p.LongItem, p.LtFraction, concreteMat, rebarMat,
+                    task.CalcType == CalcType.NL ? CalcType.NL : CalcType.N, plate.ConcreteDiagramType,
+                    p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma)
+                : null;
+            if (combined != null) plate = combined.Section;
+
             var solver = new ShellStrainSolver(plate, cDiag, rDiag);
             double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
             var solveResult = solver.Solve(target);
 
-            if (!solveResult.Converged)
+            if (!solveResult.Converged || combined is { Converged: false })
             {
                 return new CalcResult
                 {
@@ -299,14 +324,16 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
             // σs,crc в том же сечении с трещиной при M = M_crc. Обе величины даёт один поиск.
             var crackingSolver = new ShellCrackingSolver(plate, cDiag, rDiag);
 
+            // По п. 8.2.7 картина трещин — от полной нагрузки: φ1 = 1,0 (acrc2), у NL — 1,4.
+            double phi1 = combined == null ? p.Phi1 : task.CalcType == CalcType.NL ? 1.4 : 1.0;
             var strips = ShellLayeredCrackWidth.ComputeAll(
                 plate, shell, solveResult.StrainState, cCh, rCh,
-                p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma,
+                phi1, p.Phi2, p.SigmaSCrc, p.WplGamma,
                 (t, alongX) => crackingSolver.Solve(t, alongX)).ToList();
             var governing = strips.Where(s => s.Cracked).OrderByDescending(s => s.AcrcMm).FirstOrDefault();
             int governingIndex = governing != null ? strips.IndexOf(governing) : -1;
-            double acrcMax = governing?.AcrcMm ?? 0.0;
-            double utilization = p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0.0;
+            double acrcMax = combined?.AcrcMm ?? governing?.AcrcMm ?? 0.0;
+            double utilization = combined?.Utilization ?? (p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0.0);
             bool passed = utilization <= 1.0;
 
             var st = solveResult.StrainState;
@@ -324,9 +351,16 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
                 Utilization = utilization,
                 Passed = passed,
                 Converged = true,
+                Combination = combined == null ? null : new ShellLayeredSlsCombination
+                {
+                    Acrc1Mm = combined.Acrc1, Acrc2Mm = combined.Acrc2, Acrc3Mm = combined.Acrc3,
+                    LongSource = p.Long != null ? "row" : p.LtFraction > 1e-9 ? "share" : "none",
+                    LtFraction = p.LtFraction,
+                    Note = combined.Description,
+                },
                 Variables = new Dictionary<string, double>
                 {
-                    ["phi1"] = p.Phi1,
+                    ["phi1"] = phi1,
                     ["phi2"] = p.Phi2,
                     ["acrc_lim_mm"] = p.AcrcLimMm,
                     ["acrc_max_mm"] = acrcMax,

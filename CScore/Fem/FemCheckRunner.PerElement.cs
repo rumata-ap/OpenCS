@@ -63,9 +63,82 @@ public sealed class FemPerElementInputs
     public IReadOnlyList<ForceSet> LookupForceSets { get; init; } = [];
 }
 
+/// <summary>Строка результата проверки по КЭ: набор, метка, КЭ, сечение КЭ и источник армирования.</summary>
+public sealed record FemCheckRowKey(string ForceSetTag, string Label, int? ElemNum, int? SectionNum, string RebarSource)
+{
+    /// <summary>Ключ строки результата.</summary>
+    public static FemCheckRowKey Of(FemCheckRow row) =>
+        new(row.ForceSetTag, row.Label, row.ElemNum, row.SectionNum, row.RebarSource);
+}
+
+/// <summary>
+/// Строка проверки по КЭ так, как её считает <see cref="FemCheckRunner.RunPerElement"/>: сечение КЭ, задание
+/// и усилия — для одиночной задачи по строке (<see cref="FemCheckRunner.CaptureRow"/>).
+/// </summary>
+public sealed record FemCheckRowCall
+{
+    /// <summary>Набор усилий строки.</summary>
+    public required ForceSet ForceSet { get; init; }
+    /// <summary>Тип расчёта строки (по имени набора или переопределению проверки).</summary>
+    public CalcType CalcType { get; init; }
+    /// <summary>Источник армирования (<see cref="FemCheckRebarSource"/>).</summary>
+    public string RebarSource { get; init; } = "";
+    /// <summary>Подпись сечения КЭ.</summary>
+    public string SectionLabel { get; init; } = "";
+    /// <summary>Почему строка не считалась (нет сечения, потеря устойчивости стены); null — считалась.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>Задание стержневой строки: параметры этого КЭ (длина по сетке, lef, ψ строки).</summary>
+    public CalcTask? BarTask { get; init; }
+    /// <summary>Сечение стержневого КЭ (общее с проверкой — не менять).</summary>
+    public CrossSection? BarSection { get; init; }
+    /// <summary>Строка усилий стержня.</summary>
+    public LoadItem? Bar { get; init; }
+
+    /// <summary>Сечение пластинчатого КЭ (общее с проверкой — не менять).</summary>
+    public PlateSection? Plate { get; init; }
+    /// <summary>Исходная строка усилий пластины (в осях выдачи усилий КЭ, до η стены).</summary>
+    public ShellLoadItem? ShellSource { get; init; }
+    /// <summary>Усилия пластины, с которыми считалась строка: с η стены, в осях армирования КЭ.</summary>
+    public ShellLoadItem? Shell { get; init; }
+    /// <summary>Парная длительная строка (NL) в осях армирования; null — нет.</summary>
+    public ShellLoadItem? Nl { get; init; }
+    /// <summary>φ1 строки (при «авто» — по паре N/NL).</summary>
+    public double Phi1 { get; init; }
+    /// <summary>Поворот осей выдачи усилий КЭ к осям армирования, град.</summary>
+    public double ForceAngleDeg { get; init; }
+    /// <summary>η стены из плоскости (п. 8.1.15); null — не учитывался.</summary>
+    public double? WallEta { get; init; }
+}
+
 public static partial class FemCheckRunner
 {
     const string PlateCheckCode = "rc_plate_check";
+
+    /// <summary>
+    /// Как проверка по КЭ считает строку <paramref name="key"/>: тот же разбор сечений, параметров КЭ, η и пар
+    /// N/NL, что в <see cref="RunPerElement"/>, но без расчёта. Null — строки нет среди строк проверки.
+    /// </summary>
+    public static FemCheckRowCall? CaptureRow(
+        FemCheck check, IFemCheckable target, FemCheckScope scope, IReadOnlyList<ForceSet> forceSets,
+        FemPerElementInputs inputs, FemCheckRowKey key)
+    {
+        // Только КЭ строки: сечения остальных КЭ цели не разбираются.
+        var narrowed = key.ElemNum is int n
+            ? scope with { Elements = scope.Elements.Where(e => e.ElemNum == n).ToList() }
+            : scope;
+        var capture = new RowCapture(key);
+        RunPerElementCore(check, target, narrowed, forceSets, inputs,
+            (_, _, _) => throw new InvalidOperationException("Захват строки не считает"),
+            null, default, null, DefaultChunkRows, capture);
+        return capture.Call;
+    }
+
+    sealed class RowCapture(FemCheckRowKey key)
+    {
+        public FemCheckRowKey Key => key;
+        public FemCheckRowCall? Call;
+    }
 
     /// <summary>КЭ цели того вида, к которому относится проверка: пластины или стержни.</summary>
     public static IReadOnlyList<FemCheckScopeElement> ScopeElements(FemCheck check, FemCheckScope scope)
@@ -132,6 +205,22 @@ public static partial class FemCheckRunner
         CancellationToken ct = default,
         IFemCheckRowSink? rowSink = null,
         int chunkRows = DefaultChunkRows)
+        => RunPerElementCore(check, target, scope, forceSets, inputs, barExecutor, progress, ct, rowSink, chunkRows, null);
+
+    /// <param name="capture">Захват строки (<see cref="CaptureRow"/>): строки не считаются, у совпавшей
+    /// запоминается то, с чем она считалась бы.</param>
+    static CalcResult RunPerElementCore(
+        FemCheck check,
+        IFemCheckable target,
+        FemCheckScope scope,
+        IReadOnlyList<ForceSet> forceSets,
+        FemPerElementInputs inputs,
+        Func<CalcTask, CrossSection, LoadItem, CalcResult> barExecutor,
+        IProgress<double>? progress,
+        CancellationToken ct,
+        IFemCheckRowSink? rowSink,
+        int chunkRows,
+        RowCapture? capture)
     {
         var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         bool isPlate = check.NormCode == PlateCheckCode;
@@ -383,6 +472,12 @@ public static partial class FemCheckRunner
                 foreach (var job in g.Jobs)
                 {
                     if (ct.IsCancellationRequested) return;
+                    if (capture != null)
+                    {
+                        if (Matches(capture.Key, g, job)) capture.Call = Capture(job);
+                        results[job.Index] = NotCheckedRow(job, "");
+                        continue;
+                    }
                     FemCheckRow row;
                     if (isPlate)
                     {
@@ -420,6 +515,40 @@ public static partial class FemCheckRunner
                     };
                     int d = Interlocked.Increment(ref done);
                     if (d % step == 0 || d == total) progress?.Report(Math.Min(1.0, (double)d / total));
+                }
+
+                // То, с чем строка считалась бы, — ветви расчёта выше без самого расчёта.
+                FemCheckRowCall Capture(Job job)
+                {
+                    var call = new FemCheckRowCall
+                    {
+                        ForceSet = job.ForceSet, CalcType = job.CalcType, RebarSource = g.Source,
+                        SectionLabel = isPlate ? g.Plate!.Label : g.Bar!.Label,
+                    };
+                    if (!isPlate)
+                        return g.Bar?.Section is { } section
+                            ? call with { BarTask = RowTask(job), BarSection = section, Bar = job.Bar }
+                            : call with { Reason = "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : "") };
+
+                    if (g.Plate!.Section is not { } plate)
+                        return call with { Reason = "Нет армирования: " + (g.Plate.Reason ?? "") };
+                    double angle = g.Plate.ForceAngleDeg;
+                    var source = job.Shell!;
+                    FemWallEta.Outcome? wall = null;
+                    if (wallEta != null && strip != null)
+                    {
+                        try { (source, wall) = ApplyWallEta(job, strip, plate, angle); }
+                        catch (Exception ex) { return call with { Reason = "Продольный изгиб: " + ex.Message }; }
+                        if (wall is { Stable: false })
+                            return call with { Reason = $"Потеря устойчивости стены из плоскости: |Nv| = {Math.Abs(wall.Nv):F1} ≥ Ncr = {wall.Ncr:F1} кН/м" };
+                    }
+                    var shell = angle == 0 ? source : ShellForceTransform.Rotate(source, angle);
+                    var nl = angle == 0 || job.Nl == null ? job.Nl : ShellForceTransform.Rotate(job.Nl, angle);
+                    return call with
+                    {
+                        Plate = plate, ShellSource = job.Shell, Shell = shell, Nl = nl, ForceAngleDeg = angle,
+                        Phi1 = ResolvePhi1(pParams!, shell, nl, plate.H), WallEta = wall?.Eta,
+                    };
                 }
 
                 // Задание строки: с ψ из длительного набора, если он есть.
@@ -474,7 +603,7 @@ public static partial class FemCheckRunner
                 }
             }
 
-            if (isPlate || inputs.ParallelBars)
+            if (capture == null && (isPlate || inputs.ParallelBars))
                 Parallel.ForEach(groups, RunGroup);
             else
                 foreach (var g in groups) RunGroup(g);
@@ -541,9 +670,7 @@ public static partial class FemCheckRunner
                 if (status == "")
                     status = rows.Count == 0 ? "no_forces" : elemFailed ? "failed" : rowsNotChecked > 0 ? "not_checked" : "ok";
 
-                // Определяющая строка: не пройденная без конечного коэффициента, иначе с наибольшим.
-                var governing = rows.FirstOrDefault(r => !r.Passed && !r.NotChecked && !double.IsFinite(r.Utilization))
-                             ?? rows.Where(r => double.IsFinite(r.Utilization)).MaxBy(r => r.Utilization);
+                var governing = GoverningRow(rows);
                 double? utilMax = governing != null && double.IsFinite(governing.Utilization)
                     ? Math.Round(governing.Utilization, 6) : null;
 
@@ -640,6 +767,24 @@ public static partial class FemCheckRunner
             FemCheckRows = collected,
         };
     }
+
+    /// <summary>
+    /// Определяющая строка: не пройденная без конечного коэффициента, иначе с наибольшим коэффициентом;
+    /// null — посчитанных строк нет.
+    /// </summary>
+    public static FemCheckRow? GoverningRow(IEnumerable<FemCheckRow> rows)
+    {
+        var list = rows as IReadOnlyList<FemCheckRow> ?? rows.ToList();
+        return list.FirstOrDefault(r => !r.Passed && !r.NotChecked && !double.IsFinite(r.Utilization))
+            ?? list.Where(r => double.IsFinite(r.Utilization)).MaxBy(r => r.Utilization);
+    }
+
+    static bool Matches(FemCheckRowKey key, ElementGroup g, Job job) =>
+        job.ForceSet.Tag == key.ForceSetTag
+        && (job.Bar?.Label ?? job.Shell?.Label) == key.Label
+        && g.ElemNum == key.ElemNum
+        && (job.Bar?.SourceSectionNum ?? job.Shell?.SourceSectionNum) == key.SectionNum
+        && g.Source == key.RebarSource;
 
     /// <summary>Источники армирования пластин; пусто — одно сечение цели.</summary>
     static IReadOnlyList<IPlateElementSectionSource> PlateSources(FemPerElementInputs inputs) =>

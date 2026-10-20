@@ -1,4 +1,5 @@
 using CScore;
+using CScore.Fem;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using System.Windows;
@@ -6,14 +7,14 @@ using System.Windows;
 namespace OpenCS.Views;
 
 /// <summary>
-/// «Создать задачу» по строке окна пакетного расчёта: одиночная задача строится BatchRowTaskFactory,
-/// сохраняется, сразу считается, и открывается её результат с ходом вычислений.
-/// Повторный выбор той же строки не плодит задачи: прежняя обновляется, если пакет с тех пор
-/// поменял параметры, иначе показывается её последний результат.
+/// «Создать задачу» по строке окна пакетного расчёта или проверки по КЭ: одиночная задача строится фабрикой
+/// (<see cref="BatchRowTaskFactory"/>, <see cref="FemCheckRowTaskFactory"/>), сохраняется, сразу считается,
+/// и открывается её результат с ходом вычислений. Повторный выбор той же строки не плодит задачи: прежняя
+/// обновляется, если пакет или проверка с тех пор поменяли параметры, иначе показывается её последний результат.
 /// </summary>
 static class BatchRowTask
 {
-    public static async void CreateAndRun(AppViewModel app, CalcTask batch, int rowNum)
+    public static void CreateAndRun(AppViewModel app, CalcTask batch, int rowNum)
     {
         if (app.IsBusy) return;
 
@@ -41,7 +42,46 @@ static class BatchRowTask
             return;
         }
 
-        var task = BatchRowTaskFactory.FindExisting(app.CalcTasks, batch, rowNum);
+        RunOrOpen(app, BatchRowTaskFactory.FindExisting(app.CalcTasks, batch, rowNum), built);
+    }
+
+    /// <summary>
+    /// По строке проверки по КЭ: сечение КЭ (копия собранного проверкой — в проект), параметры КЭ и усилия строки —
+    /// как в самой проверке.
+    /// </summary>
+    public static async void CreateAndRun(AppViewModel app, FemCheck check, FemCheckRowKey key)
+    {
+        if (app.IsBusy) return;
+        CalcTask? built;
+        try
+        {
+            built = await FemCheckRowTaskFactory.BuildAsync(app, check, key,
+                section =>
+                {
+                    app.CrossSections.Add(section);
+                    app.RefreshSectionLiveCollections();
+                    app.LogService.Info(string.Format(Loc.S("FemCheckRowTaskSectionCopied"), section.Tag));
+                },
+                plate =>
+                {
+                    app.PlateSections.Add(plate);
+                    app.LogService.Info(string.Format(Loc.S("FemCheckRowTaskSectionCopied"), plate.Tag));
+                });
+        }
+        catch (InvalidOperationException ex)
+        {
+            app.LogService.Error($"{check.DisplayTag}: {ex.Message}");
+            MessageBox.Show(ex.Message, Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        if (built == null) return;
+
+        RunOrOpen(app, FemCheckRowTaskFactory.FindExisting(app.CalcTasks, check, key), built);
+    }
+
+    /// <summary>Новая задача — сохранить и посчитать; прежняя — обновить и пересчитать, если изменилась, иначе открыть.</summary>
+    static async void RunOrOpen(AppViewModel app, CalcTask? task, CalcTask built)
+    {
         if (task == null)
         {
             task = built;
@@ -49,11 +89,12 @@ static class BatchRowTask
             app.db.SaveCalcTask(task);
             app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), task.Tag));
         }
-        else if (task.ParamsJson != built.ParamsJson || task.ForceSetId != built.ForceSetId
+        else if (task.Kind != built.Kind || task.ParamsJson != built.ParamsJson || task.ForceSetId != built.ForceSetId
                  || task.ForceItemId != built.ForceItemId || task.CalcType != built.CalcType
                  || task.SectionId != built.SectionId)
         {
-            // Пакет пересчитан с другими параметрами — прежний результат задачи уже не про эту строку.
+            // Пакет или проверка пересчитаны с другими параметрами — прежний результат задачи уже не про эту строку.
+            task.Kind = built.Kind;
             task.ParamsJson = built.ParamsJson;
             task.ForceSetId = built.ForceSetId;
             task.ForceItemId = built.ForceItemId;

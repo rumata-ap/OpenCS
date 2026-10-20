@@ -1928,6 +1928,12 @@
     <system:String x:Key="ShellLayeredSlsFaceBottom">низ</system:String>
     <system:String x:Key="ShellLayeredSlsNoCracks">0 (нет трещин)</system:String>
     <system:String x:Key="ShellLayeredSlsNoConvergence">Нет сходимости НДС</system:String>
+    <system:String x:Key="ShellLayeredSls827">п. 8.2.7: acrc = acrc1 + acrc2 − acrc3 = {0} + {1} − {2} = {3} мм; длительная часть — {4}</system:String>
+    <system:String x:Key="ShellLayeredSls827Short">п. 8.2.7: acrc = acrc2 = {0} мм ({1})</system:String>
+    <system:String x:Key="ShellLayeredSls827Long">Продолжительное раскрытие (набор NL, φ1 = 1,4): acrc1 = {0} мм</system:String>
+    <system:String x:Key="ShellLayeredSls827LongRow">строка набора NL</system:String>
+    <system:String x:Key="ShellLayeredSls827LongShare">доля {0} от полной нагрузки</system:String>
+    <system:String x:Key="ShellLayeredSls827LongNone">длительная часть не задана</system:String>
     <system:String x:Key="ShellLayeredSlsVerdictPassed">acrc = {0:F3} мм ≤ acrc,lim = {1:F3} мм — условие выполнено; Кисп = {2}; определяющая полоса: {3}</system:String>
     <system:String x:Key="ShellLayeredSlsVerdictNotPassed">acrc = {0:F3} мм &gt; acrc,lim = {1:F3} мм — условие не выполнено; Кисп = {2}; определяющая полоса: {3}</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_sls">Пластина: трещины (слоистая модель)</system:String>
@@ -2945,6 +2951,17 @@
     <system:String x:Key="FemCheckAssignedScadHint">SCAD: группы заданного армирования из .SPR</system:String>
     <system:String x:Key="FemCheckSelectedScadHint">SCAD: подбор арматуры — выгрузка плагина «Экспорт для OpenCS»</system:String>
     <system:String x:Key="FemCheckSourceLayout">Раскладка OpenCS (фон + зоны)</system:String>
+    <system:String x:Key="FemCheckRowTaskUnsupported">Строку этой проверки одиночной задачей не воспроизвести</system:String>
+    <system:String x:Key="FemCheckRowTaskNoElement">без КЭ</system:String>
+    <system:String x:Key="FemCheckRowTaskSectionMarker">Из проверки по КЭ «{0}»: КЭ {1}, сечение {2}, {3}</system:String>
+    <system:String x:Key="FemCheckRowTaskNoLength">Продольный изгиб: длина КЭ между раскреплениями не определена</system:String>
+    <system:String x:Key="FemCheckRowTaskRowNotFound">Строка не найдена среди строк проверки — пересчитайте проверку</system:String>
+    <system:String x:Key="FemCheckRowTaskSectionCopied">Сечение КЭ сохранено в проект копией: «{0}»</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverning">Создать задачу по определяющей строке</system:String>
+    <system:String x:Key="FemCheckRowTaskTip">Одиночная задача по выбранной строке (вкладка «Строки») или по определяющей строке выбранного КЭ: сечение КЭ, параметры и усилия — как в проверке</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningElement">Создать задачу по определяющей строке КЭ {0}</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningMember">Создать задачу по определяющей строке КонЭ {0} ({1} КЭ)</system:String>
+    <system:String x:Key="FemCheckRowTaskNoRows">У выбранных КЭ нет посчитанных строк проверки</system:String>
     <system:String x:Key="FemCheckNoRbt">У схемы нет файла типов заданного армирования (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">У схемы нет файла подобранной арматуры (ASP)</system:String>
     <system:String x:Key="FemCheckNoTza">КЭ цели не назначены ТЗА</system:String>

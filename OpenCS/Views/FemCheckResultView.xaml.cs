@@ -14,10 +14,17 @@ namespace OpenCS.Views;
 
 public partial class FemCheckResultView : UserControl
 {
+    readonly AppViewModel? _app;
+    readonly CScore.Fem.FemCheck? _check;
+
     /// <param name="db">БД с результатом — для строк, хранимых отдельно от <c>DataJson</c>.</param>
-    public FemCheckResultView(CScore.CalcResult result, DatabaseService? db = null)
+    /// <param name="app">Проект и <paramref name="check"/> — для одиночной задачи по строке; null — без неё.</param>
+    public FemCheckResultView(CScore.CalcResult result, DatabaseService? db = null,
+        AppViewModel? app = null, CScore.Fem.FemCheck? check = null)
     {
         InitializeComponent();
+        _app = app;
+        _check = check;
         FemCheckRowsLoader? loader = db != null && result.Id > 0
             ? (elemNum, onlyFailed, limit) => (db.GetFemCheckRows(result.Id, elemNum, onlyFailed, limit),
                                                db.CountFemCheckRows(result.Id, elemNum, onlyFailed))
@@ -46,6 +53,35 @@ public partial class FemCheckResultView : UserControl
                 Width = vm.SourceKeys.Count > 1 ? 120 : 80,
             });
         }
+
+        // Одиночная задача по строке: выбранная строка «Строк» или определяющая строка выбранного КЭ.
+        bool canCreate = app != null && check != null;
+        CreateTaskBtn.Visibility = canCreate ? Visibility.Visible : Visibility.Collapsed;
+        RowsMenu.IsEnabled = ElementsMenu.IsEnabled = canCreate;
+        RowsGrid.SelectionChanged += (_, _) => UpdateCreateTask();
+        ElementsGrid.SelectionChanged += (_, _) => UpdateCreateTask();
+        Tabs.SelectionChanged += (_, e) => { if (e.Source == Tabs) UpdateCreateTask(); };
+    }
+
+    bool RowsTabActive => Tabs.SelectedIndex == 1;
+
+    void UpdateCreateTask() => CreateTaskBtn.IsEnabled = _app != null && _check != null
+        && (RowsTabActive ? RowsGrid.SelectedItem is FemCheckRowVM : ElementsGrid.SelectedItem is FemCheckElementRowVM);
+
+    void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => CreateTask(rows: true);
+
+    void CreateTask_Click(object sender, RoutedEventArgs e) =>
+        // Пункт меню — по своей таблице, кнопка — по активной вкладке.
+        CreateTask(rows: sender is MenuItem item ? ReferenceEquals(item.Parent, RowsMenu) : RowsTabActive);
+
+    void CreateTask(bool rows)
+    {
+        if (_app == null || _check == null || DataContext is not FemCheckResultVM vm) return;
+        var key = rows
+            ? (RowsGrid.SelectedItem as FemCheckRowVM)?.Key
+            : ElementsGrid.SelectedItem is FemCheckElementRowVM element ? vm.GoverningKey(element) : null;
+        if (key != null)
+            BatchRowTask.CreateAndRun(_app, _check, key);
     }
 }
 
@@ -147,6 +183,7 @@ public class FemCheckResultVM : ViewModelBase
                     foreach (var r in rowsArr.EnumerateArray())
                         _rows.Add(new FemCheckRowVM
                         {
+                            RebarSource  = Str(r, "rebarSource"),
                             Label        = Str(r, "label"),
                             ForceSetTag  = Str(r, "forceSetTag"),
                             CalcType     = Str(r, "calcType"),
@@ -216,6 +253,7 @@ public class FemCheckResultVM : ViewModelBase
         var (rows, total) = _loadRows!(_selectedElement?.ElemNum, _onlyFailed, limit);
         Rows = new ListCollectionView(rows.Select(r => new FemCheckRowVM
         {
+            RebarSource  = r.RebarSource,
             Label        = r.Label,
             ForceSetTag  = r.ForceSetTag,
             CalcType     = r.CalcType,
@@ -229,6 +267,18 @@ public class FemCheckResultVM : ViewModelBase
             SectionLabel = r.SectionLabel,
         }).ToList());
         RowsLimitText = rows.Count < total ? string.Format(Loc.S("FemCheckResultRowsLimited"), rows.Count, total) : "";
+    }
+
+    /// <summary>
+    /// Определяющая строка КЭ — как в агрегате проверки: не пройденная без конечного коэффициента, иначе с наибольшим;
+    /// среди строк источника армирования, определившего итог КЭ. Null — у КЭ нет посчитанных строк.
+    /// </summary>
+    public CScore.Fem.FemCheckRowKey? GoverningKey(FemCheckElementRowVM element)
+    {
+        // Агрегат по КЭ есть только у результатов, строки которых хранятся в БД.
+        if (_loadRows == null || element.ElemNum is not int n) return null;
+        var rows = _loadRows(n, false, int.MaxValue).Rows.Where(r => r.RebarSource == element.GoverningSource);
+        return CScore.Fem.FemCheckRunner.GoverningRow(rows) is { } row ? CScore.Fem.FemCheckRowKey.Of(row) : null;
     }
 
     static readonly Brush Ok      = new SolidColorBrush(Color.FromArgb(70, 80, 180, 80));
@@ -275,6 +325,7 @@ public class FemCheckResultVM : ViewModelBase
             int rank = state == "failed" ? 3 : state == "not_checked" ? 2 : 1;
             if (rank > row.Rank || (rank == row.Rank && (double.IsNaN(row.SortUtil) ? !double.IsNaN(util) : util > row.SortUtil)))
             {
+                row.GoverningSource = Str(e, "rebarSource");
                 row.Rank = rank;
                 row.State = state;
                 row.SortUtil = util;
@@ -336,6 +387,8 @@ public class FemCheckResultVM : ViewModelBase
 
 public class FemCheckRowVM
 {
+    /// <summary>Источник армирования строки (<see cref="CScore.Fem.FemCheckRebarSource"/>).</summary>
+    public string RebarSource  { get; init; } = "";
     public string Label        { get; init; } = "";
     public string ForceSetTag  { get; init; } = "";
     public string CalcType     { get; init; } = "";
@@ -354,6 +407,9 @@ public class FemCheckRowVM
     public string UtilText       => double.IsNaN(Utilization) ? "—" : Utilization.ToString("F3");
     public string WorstCheckText => string.IsNullOrEmpty(WorstFormula) ? WorstDesc : $"{WorstFormula} {WorstDesc}";
     public string StatusText     => Passed ? "✓" : NotChecked ? "—" : "✗";
+
+    /// <summary>Ключ строки результата — для одиночной задачи по ней.</summary>
+    public CScore.Fem.FemCheckRowKey Key => new(ForceSetTag, Label, ElemNum, SectionNum, RebarSource);
 }
 
 /// <summary>Строка таблицы «По КЭ»: сводка по одному КЭ цели.</summary>
@@ -370,6 +426,8 @@ public class FemCheckElementRowVM
     public string SectionLabel => string.Join(" / ", SectionLabels);
 
     internal int Rank { get; set; }
+    /// <summary>Источник армирования определяющей строки КЭ (ключ в результате; у стержней без источников — пусто).</summary>
+    public string GoverningSource { get; set; } = "";
     /// <summary>Наибольший коэффициент определяющего источника.</summary>
     public double SortUtil { get; set; } = double.NaN;
     /// <summary>"ok" | "failed" | "not_checked" — по худшему источнику.</summary>

@@ -5818,7 +5818,7 @@ namespace OpenCS
          if (check == null) return;
          if (await Tasks.FemCheckExecutor.RunAsync(this, check) is not { } result) return;
          CurrentFemCheck = check;
-         CurrentPage = new Views.FemCheckResultView(result, db);
+         CurrentPage = new Views.FemCheckResultView(result, db, this, check);
       }
 
       /// <summary>

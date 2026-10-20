@@ -1928,6 +1928,12 @@
     <system:String x:Key="ShellLayeredSlsFaceBottom">bottom</system:String>
     <system:String x:Key="ShellLayeredSlsNoCracks">0 (no cracks)</system:String>
     <system:String x:Key="ShellLayeredSlsNoConvergence">Strain state did not converge</system:String>
+    <system:String x:Key="ShellLayeredSls827">Cl. 8.2.7: acrc = acrc1 + acrc2 − acrc3 = {0} + {1} − {2} = {3} mm; long-term part — {4}</system:String>
+    <system:String x:Key="ShellLayeredSls827Short">Cl. 8.2.7: acrc = acrc2 = {0} mm ({1})</system:String>
+    <system:String x:Key="ShellLayeredSls827Long">Long-term crack opening (NL set, φ1 = 1.4): acrc1 = {0} mm</system:String>
+    <system:String x:Key="ShellLayeredSls827LongRow">NL set row</system:String>
+    <system:String x:Key="ShellLayeredSls827LongShare">{0} of the full load</system:String>
+    <system:String x:Key="ShellLayeredSls827LongNone">long-term part not given</system:String>
     <system:String x:Key="ShellLayeredSlsVerdictPassed">acrc = {0:F3} mm ≤ acrc,lim = {1:F3} mm — check passed; utilization = {2}; governing strip: {3}</system:String>
     <system:String x:Key="ShellLayeredSlsVerdictNotPassed">acrc = {0:F3} mm &gt; acrc,lim = {1:F3} mm — check not passed; utilization = {2}; governing strip: {3}</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_sls">Plate: cracks (layered)</system:String>
@@ -2945,6 +2951,17 @@
     <system:String x:Key="FemCheckAssignedScadHint">SCAD: assigned reinforcement groups from .SPR</system:String>
     <system:String x:Key="FemCheckSelectedScadHint">SCAD: designed reinforcement — export of the "Export for OpenCS" plugin</system:String>
     <system:String x:Key="FemCheckSourceLayout">OpenCS layout (base + zones)</system:String>
+    <system:String x:Key="FemCheckRowTaskUnsupported">This check row cannot be reproduced by a single task</system:String>
+    <system:String x:Key="FemCheckRowTaskNoElement">no FE</system:String>
+    <system:String x:Key="FemCheckRowTaskSectionMarker">From FE check “{0}”: FE {1}, section {2}, {3}</system:String>
+    <system:String x:Key="FemCheckRowTaskNoLength">Buckling: FE length between restraints is undefined</system:String>
+    <system:String x:Key="FemCheckRowTaskRowNotFound">The row is not among the check rows — rerun the check</system:String>
+    <system:String x:Key="FemCheckRowTaskSectionCopied">FE section saved to the project as a copy: “{0}”</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverning">Create task for the governing row</system:String>
+    <system:String x:Key="FemCheckRowTaskTip">Single task for the selected row (Rows tab) or the governing row of the selected FE: FE section, parameters and forces as in the check</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningElement">Create task for the governing row of FE {0}</system:String>
+    <system:String x:Key="FemCheckRowTaskGoverningMember">Create task for the governing row of member {0} ({1} FE)</system:String>
+    <system:String x:Key="FemCheckRowTaskNoRows">The selected FEs have no computed check rows</system:String>
     <system:String x:Key="FemCheckNoRbt">The model has no assigned reinforcement file (RBT)</system:String>
     <system:String x:Key="FemCheckNoAsp">The model has no selected reinforcement file (ASP)</system:String>
     <system:String x:Key="FemCheckNoTza">No reinforcement types are assigned to the target elements</system:String>

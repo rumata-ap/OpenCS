@@ -6,6 +6,15 @@ using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
 
+/// <summary>Входы проверки по КЭ, собранные <see cref="FemCheckExecutor.PrepareAsync"/>.</summary>
+/// <param name="Candidates">Наборы цели (привязанные к ней и наборы схемы со строками по её КЭ).</param>
+/// <param name="Selected">Наборы, выбранные для проверки.</param>
+/// <param name="Lookup">Наборы для поиска парных (NL, длительных) строк.</param>
+/// <param name="PerElement">Проверка идёт по КЭ (в строках наборов есть номера КЭ цели).</param>
+public sealed record FemCheckRunSetup(
+    IFemCheckable Target, FemCheckScope Scope, List<ForceSet> Candidates, List<ForceSet> Selected,
+    List<ForceSet> Lookup, FemPerElementInputs Inputs, bool IsPlate, bool PerElement);
+
 /// <summary>Запуск нормативной проверки по КЭ: сбор входов, готовность, расчёт, сохранение, итог в журнал.</summary>
 public static class FemCheckExecutor
 {
@@ -23,44 +32,8 @@ public static class FemCheckExecutor
         var db = app.Db;
         var log = app.LogService;
 
-        var data = FemCheckSchemaData.Load(db, check.SchemaId);
-        IFemCheckable? target = check.TargetsElement
-            ? data.Members.FirstOrDefault(e => e.Id == check.ElementId)
-            : app.FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
-        if (target == null) { log.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return null; }
-        foreach (string error in data.Errors) log.Warning(error);
-
-        bool isPlate = FemCheckContext.IsPlate(check);
-        var scope = data.Scope(target);
-
-        // Наборы цели: привязанные к ней и наборы схемы со строками по её КЭ; явный выбор — по id.
-        var candidates = FemCheckContext.TargetForceSets(app.ForceSets, target, check.SchemaId, scope, isPlate)
-            .Select(t => t.Set).ToList();
-        List<ForceSet> selected = candidates;
-        if (!check.IsAllSets)
-        {
-            var ids = check.GetForceSetIds().ToHashSet();
-            selected = app.ForceSets.Where(f => ids.Contains(f.Id)).ToList();
-        }
-        var lookup = candidates.Union(selected).ToList();
-        bool perElement = FemCheckRunner.HasElementNumbers(check, selected) && FemCheckRunner.ScopeElements(check, scope).Count > 0;
-
-        // Режим «Авто (МКЭ)» стальной проверки: расчётные длины по расчёту устойчивости схемы — до сборки входов.
-        IReadOnlyDictionary<string, FemSteelAutoLef>? steelAutoLef = null;
-        if (perElement && check.NormCode == "steel_check" && SteelFemCheckParams.TryParse(check.ParamsJson)?.AutoLef is { } auto)
-        {
-            steelAutoLef = await SteelAutoLefAsync(app, check, auto);
-            if (steelAutoLef == null) return null;
-        }
-        var inputs = FemCheckContext.BuildInputs(app, check, target, data, scope, lookup, steelAutoLef);
-        if (isPlate)
-        {
-            var schemaGroups = app.FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId)?.MemberGroups;
-            FemCheckContext.TargetPlateSectionId(target, scope, schemaGroups ?? [], out string? inheritedFrom);
-            if (inheritedFrom != null && inputs.PlateTemplate != null)
-                log.Info(string.Format(Loc.S("FemCheckPlateSectionInherited"), check.DisplayTag,
-                    inputs.PlateTemplate.Tag, inheritedFrom));
-        }
+        if (await PrepareAsync(app, check) is not { } setup) return null;
+        var (target, scope, candidates, selected, lookup, inputs, isPlate, perElement) = setup;
 
         CalcResult result;
         bool saved = false;   // результат по КЭ уже в БД (строки записаны по ходу расчёта)
@@ -136,6 +109,56 @@ public static class FemCheckExecutor
         else
             log.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
         return result;
+    }
+
+    /// <summary>
+    /// Входы проверки цели: данные схемы, цель, наборы, сечения и армирование КЭ, расчётные длины «Авто (МКЭ)»
+    /// (расчёт устойчивости — в фоне, с отменой). Null — цель не найдена, отмена или ошибка (причина в журнале).
+    /// Вызывать из UI-потока: читает коллекции проекта.
+    /// </summary>
+    public static async Task<FemCheckRunSetup?> PrepareAsync(IProjectContext app, FemCheck check)
+    {
+        var db = app.Db;
+        var log = app.LogService;
+        var data = FemCheckSchemaData.Load(db, check.SchemaId);
+        IFemCheckable? target = check.TargetsElement
+            ? data.Members.FirstOrDefault(e => e.Id == check.ElementId)
+            : app.FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
+        if (target == null) { log.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return null; }
+        foreach (string error in data.Errors) log.Warning(error);
+
+        bool isPlate = FemCheckContext.IsPlate(check);
+        var scope = data.Scope(target);
+
+        // Наборы цели: привязанные к ней и наборы схемы со строками по её КЭ; явный выбор — по id.
+        var candidates = FemCheckContext.TargetForceSets(app.ForceSets, target, check.SchemaId, scope, isPlate)
+            .Select(t => t.Set).ToList();
+        List<ForceSet> selected = candidates;
+        if (!check.IsAllSets)
+        {
+            var ids = check.GetForceSetIds().ToHashSet();
+            selected = app.ForceSets.Where(f => ids.Contains(f.Id)).ToList();
+        }
+        var lookup = candidates.Union(selected).ToList();
+        bool perElement = FemCheckRunner.HasElementNumbers(check, selected) && FemCheckRunner.ScopeElements(check, scope).Count > 0;
+
+        // Режим «Авто (МКЭ)» стальной проверки: расчётные длины по расчёту устойчивости схемы — до сборки входов.
+        IReadOnlyDictionary<string, FemSteelAutoLef>? steelAutoLef = null;
+        if (perElement && check.NormCode == "steel_check" && SteelFemCheckParams.TryParse(check.ParamsJson)?.AutoLef is { } auto)
+        {
+            steelAutoLef = await SteelAutoLefAsync(app, check, auto);
+            if (steelAutoLef == null) return null;
+        }
+        var inputs = FemCheckContext.BuildInputs(app, check, target, data, scope, lookup, steelAutoLef);
+        if (isPlate)
+        {
+            var schemaGroups = app.FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId)?.MemberGroups;
+            FemCheckContext.TargetPlateSectionId(target, scope, schemaGroups ?? [], out string? inheritedFrom);
+            if (inheritedFrom != null && inputs.PlateTemplate != null)
+                log.Info(string.Format(Loc.S("FemCheckPlateSectionInherited"), check.DisplayTag,
+                    inputs.PlateTemplate.Tag, inheritedFrom));
+        }
+        return new FemCheckRunSetup(target, scope, candidates, selected, lookup, inputs, isPlate, perElement);
     }
 
     /// <summary>

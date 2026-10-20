@@ -1565,16 +1565,18 @@ public partial class FemSchemaView3D : UserControl
         if ((now - _lastMosaicHover).TotalMilliseconds < 40) { PlaceMosaicHoverTip(vm, e); return; }
         _lastMosaicHover = now;
 
+        vm.Mosaic.SetHover(MosaicElementAt(vm, e.GetPosition(viewport)));
+        PlaceMosaicHoverTip(vm, e);
+    }
+
+    /// <summary>КЭ мозаики под точкой экрана; null — нет.</summary>
+    string? MosaicElementAt(Fem3DVM vm, Point position)
+    {
         if (vm.MosaicBarSegments.Count > 0)
         {
             // Стержень под курсором; если его нет, а пластины тоже раскрашены (результат расчёта) — ищется пластина.
-            string? bar = SegmentTagNear(vm.MosaicBarSegments, e.GetPosition(viewport));
-            if (bar != null || vm.MosaicShellMeshes.Count == 0)
-            {
-                vm.Mosaic.SetHover(bar);
-                PlaceMosaicHoverTip(vm, e);
-                return;
-            }
+            string? bar = SegmentTagNear(vm.MosaicBarSegments, position);
+            if (bar != null || vm.MosaicShellMeshes.Count == 0) return bar;
         }
 
         string? tag = null;
@@ -1588,9 +1590,45 @@ public partial class FemSchemaView3D : UserControl
             }
             return HitTestResultBehavior.Continue;
         }
-        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(e.GetPosition(viewport)));
-        vm.Mosaic.SetHover(tag);
-        PlaceMosaicHoverTip(vm, e);
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        return tag;
+    }
+
+    /// <summary>
+    /// Мозаика показывает Кисп проверки по КЭ: меню КЭ под курсором — одиночная задача по определяющей строке КЭ
+    /// или его КонЭ (худшая из строк всех его КЭ). False — мозаика не про проверку или под курсором нет КЭ.
+    /// </summary>
+    bool ShowCheckRowTaskMenu(Fem3DVM vm, MouseButtonEventArgs e)
+    {
+        if (vm.Mosaic.ShownCheck is not { } shown
+            || Application.Current?.MainWindow?.DataContext is not AppViewModel app
+            || MosaicElementAt(vm, e.GetPosition(viewport)) is not { } elemTag) return false;
+
+        var menu = new ContextMenu { PlacementTarget = viewport };
+        menu.Items.Add(new MenuItem { Header = shown.Check.DisplayTag, IsEnabled = false, FontWeight = FontWeights.SemiBold });
+        void Add(string header, IReadOnlyList<string> elemTags)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) =>
+            {
+                int resultId = shown.Check.ResultId ?? 0;
+                var rows = elemTags.Select(t => int.TryParse(t, out int n) ? n : (int?)null).OfType<int>()
+                    .SelectMany(n => app.db.GetFemCheckRows(resultId, n))
+                    .Where(r => r.RebarSource == shown.Source);
+                if (FemCheckRunner.GoverningRow(rows) is { } row)
+                    BatchRowTask.CreateAndRun(app, shown.Check, FemCheckRowKey.Of(row));
+                else
+                    MessageBox.Show(Loc.S("FemCheckRowTaskNoRows"), shown.Check.DisplayTag,
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            menu.Items.Add(item);
+        }
+        Add(string.Format(Loc.S("FemCheckRowTaskGoverningElement"), elemTag), [elemTag]);
+        if (vm.MemberOfMeshElement(elemTag) is { ElemTags.Count: > 1 } member)
+            Add(string.Format(Loc.S("FemCheckRowTaskGoverningMember"), member.MemberTag, member.ElemTags.Count), member.ElemTags);
+        menu.IsOpen = true;
+        e.Handled = true;
+        return true;
     }
 
     /// <summary>Стержень, ближайший к курсору на экране (не дальше нескольких пикселей); null — рядом нет.
@@ -1788,6 +1826,8 @@ public partial class FemSchemaView3D : UserControl
     {
         // При показанном результате — меню результата; меню редактирования не открываются.
         if (VM is { } resultVm && PickableResult is { } result) { ShowResultContextMenu(resultVm, result, e); return; }
+        // Мозаика Кисп проверки по КЭ: меню КЭ — задача по определяющей строке.
+        if (VM is { } checkVm && ShowCheckRowTaskMenu(checkVm, e)) return;
         if (VM is not { EditMode: true } vm) return;
         if (_createBarMode) return;
         if (ShowEdgePickMenu(e)) return;
