@@ -2107,8 +2107,7 @@ public partial class FemSchemaView3D : UserControl
             ToolTip = Loc.S("FemCsfeaBatchForceSetsTip"),
             IsEnabled = app != null && csfea.CanCreateBatchForceSets,
         }, "FemCsfeaBatchForceSets");
-        item.Click += (_, _) => app?.CreateCsfeaBatchForceSets(csfea,
-            Services.FemCsfeaForceSetScope.FromSelection(selection.Elements, selection.Members));
+        item.Click += (_, _) => app?.CreateCsfeaBatchForceSets(csfea, CsfeaScope(csfea, selection, app));
         return item;
     }
 
@@ -2124,10 +2123,19 @@ public partial class FemSchemaView3D : UserControl
         }, "FemCsfeaCreateForceSetsSelected");
         item.Click += (_, _) =>
         {
-            if (Services.FemCsfeaForceSetScope.FromSelection(selection.Elements, selection.Members) is { } scope)
+            if (CsfeaScope(csfea, selection, app) is { } scope)
                 app?.SaveCsfeaStepForceSets(csfea, scope);
         };
         return item;
+    }
+
+    /// <summary>Охват наборов CSfea по выбору результата; все выбранные КЭ одного КонЭ — наборы привязываются к нему.</summary>
+    static Services.FemCsfeaForceSetScope? CsfeaScope(FemCsfeaResultVM csfea, FemResultSelection selection, AppViewModel? app)
+    {
+        var member = selection.SoleMember is { } tag && app != null
+            ? app.db.GetFemMembers(csfea.Schema.Id).FirstOrDefault(m => m.ElemTag.Trim() == tag)
+            : null;
+        return Services.FemCsfeaForceSetScope.FromSelection(selection.Elements, selection.Members, member);
     }
 
     /// <summary>Группы схемы: «Показать только», «Скрыть», «Показать» для каждой (список — при открытии).</summary>

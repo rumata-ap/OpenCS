@@ -164,6 +164,7 @@ public static class FemCsfeaBatchForceSets
                     };
                     if (kind == "shell") set.ShellItems = shells[t];
                     else set.Items = beams[t];
+                    scope?.Bind(set);
                     tags.Add(set.Tag);
                     sets.Add(set);
                 }

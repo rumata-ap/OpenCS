@@ -54,8 +54,10 @@ public class FemResultSelectionTests
         s.PickElement("2", FemResultPickMode.Members, additive: false);
         Assert.Equal(["1", "2"], s.Elements.Order());
         Assert.Equal(["Б1"], s.Members);
+        Assert.Equal("Б1", s.SoleMember);
         s.PickElement("4", FemResultPickMode.Members, additive: true);
         Assert.Equal(["1", "2", "4"], s.Elements.Order());
+        Assert.Null(s.SoleMember);   // КЭ без КонЭ в выборе — набор не привязывается
         // Ctrl по уже выбранному КонЭ — убрать его целиком.
         s.PickElement("1", FemResultPickMode.Members, additive: true);
         Assert.Equal(["4"], s.Elements);

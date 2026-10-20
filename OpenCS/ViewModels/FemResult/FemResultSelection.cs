@@ -34,6 +34,16 @@ public sealed class FemResultSelection
     public IReadOnlyList<string> Members => _elements.Select(_mesh.OwnerOf).OfType<string>()
         .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
 
+    /// <summary>КонЭ, которому принадлежат все выбранные КЭ; null — ничего не выбрано, КЭ разных КонЭ или без КонЭ.</summary>
+    public string? SoleMember
+    {
+        get
+        {
+            var owners = _elements.Select(_mesh.OwnerOf).Distinct(StringComparer.Ordinal).Take(2).ToList();
+            return owners.Count == 1 ? owners[0] : null;
+        }
+    }
+
     /// <summary>КЭ, выбираемые щелчком по КЭ в режиме: в режиме КонЭ — все КЭ его КонЭ.</summary>
     public IReadOnlyList<string> Expand(string elemTag, FemResultPickMode mode) =>
         mode == FemResultPickMode.Members && _mesh.OwnerOf(elemTag) is { } owner

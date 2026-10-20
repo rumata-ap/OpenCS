@@ -75,6 +75,20 @@ public sealed class FemCsfeaBatchForceSetsTests
         Assert.Equal(["202-1 · C1", "202-2 · C1", "202-1 · C3", "202-2 · C3"], bars.Items.Select(r => r.Label));
         Assert.Equal([1, 2, 1, 2], bars.Items.Select(r => r.SourceSectionNum));
         Assert.Contains(result.Warnings, w => w.Contains("C2 (λ = 0,73)", StringComparison.Ordinal));
+        Assert.All(result.Sets, s => Assert.Null(s.SourceElementId));
+    }
+
+    [Fact]
+    public void ScopeOfOneMember_SetsBoundToMember()
+    {
+        var member = new FemMember { Id = 5, SchemaId = Schema.Id, ElemTag = "Пл-1" };
+
+        var result = Build(["C"], scope: new FemCsfeaForceSetScope([101, 103], ["Пл-1"], member));
+
+        var shells = Assert.Single(result.Sets);
+        Assert.Equal("Пакет — C, 2 вар. — пластины [КонЭ Пл-1: 2 КЭ] (C)", shells.Tag);
+        Assert.Equal(5, shells.SourceElementId);
+        Assert.Equal("Пл-1", shells.SourceElementTag);
     }
 
     [Fact]

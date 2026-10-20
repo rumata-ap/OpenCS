@@ -11,7 +11,8 @@ namespace OpenCS.Services;
 /// проверок по КЭ. Пластины — строка на КЭ (центр, усилия закона сечения в осях выдачи — как у импортированных наборов;
 /// кН/м, кН·м/м), стержни — две строки на КЭ (концы i и j, сечения 1 и 2; кН, кН·м — как наборы стержней OpenSees;
 /// при коротационном расчёте — в осях деформированного КЭ, т. е. в осях сечения, что и нужно проверкам).
-/// Номер КЭ строки — тег КЭ сетки. С охватом (<see cref="FemCsfeaForceSetScope"/>) — только строки КЭ охвата.
+/// Номер КЭ строки — тег КЭ сетки. С охватом (<see cref="FemCsfeaForceSetScope"/>) — только строки КЭ охвата, у охвата
+/// одного КонЭ наборы привязаны к нему.
 /// </summary>
 public static class FemCsfeaForceSetBuilder
 {
@@ -65,6 +66,7 @@ public static class FemCsfeaForceSetBuilder
                     SourceType = "fea", SourceSchemaId = schema.Id, Items = rows,
                 });
         }
+        if (scope != null) foreach (var set in sets) scope.Bind(set);
         return sets;
     }
 

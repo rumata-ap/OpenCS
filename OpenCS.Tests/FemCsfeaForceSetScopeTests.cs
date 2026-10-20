@@ -43,6 +43,26 @@ public sealed class FemCsfeaForceSetScopeTests
     }
 
     [Fact]
+    public void BuildNamed_ScopeOfOneMember_BindsSetsToMember()
+    {
+        var member = new FemMember { Id = 7, SchemaId = 1, ElemTag = "Б-1" };
+        var sets = FemCsfeaForceSetBuilder.BuildNamed(Schema, "Шаг", "", Fields(), [],
+            new FemCsfeaForceSetScope([201, 202], ["Б-1"], member));
+
+        var bars = Assert.Single(sets);
+        Assert.Equal("Шаг — стержни [КонЭ Б-1: 2 КЭ]", bars.Tag);
+        Assert.Equal(7, bars.SourceElementId);
+        Assert.Equal("Б-1", bars.SourceElementTag);
+        Assert.Null(bars.SourceMemberId);
+        Assert.Equal(1, bars.SourceSchemaId);
+
+        // Охват нескольких КонЭ — общий набор схемы без привязки.
+        var free = FemCsfeaForceSetBuilder.BuildNamed(Schema, "Шаг", "", Fields(), [],
+            new FemCsfeaForceSetScope([101, 201], ["Пл-1", "Б-1"]));
+        Assert.All(free, s => Assert.Null(s.SourceElementId));
+    }
+
+    [Fact]
     public void BuildNamed_ScopeWithoutBars_NoBarSet()
     {
         var sets = FemCsfeaForceSetBuilder.BuildNamed(Schema, "Шаг", "", Fields(), [], new FemCsfeaForceSetScope([102], []));
