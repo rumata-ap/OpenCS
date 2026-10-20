@@ -447,9 +447,12 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// <summary>Индекс шага, поля которого показаны (ближайший записанный); null — полей нет.</summary>
     public int? FieldsStepIndex { get; private set; }
 
-    // Номер записи показанных полей (шаг или вариант пакета) — ключ расчёта ширины раскрытия; null — поля собраны
-    // (комбинация линейного расчёта, огибающая).
+    // Номер записи показанных полей (шаг или вариант пакета); null — поля собраны (комбинация линейного расчёта, огибающая).
     int? _fieldsRecordN;
+
+    // Ключ расчёта ширины раскрытия показанных полей: номер записи; у комбинации линейного расчёта — −id комбинации
+    // (ширина — по суммарным усилиям, как у загружения); null — не считается (огибающая).
+    int? CrackFieldsKey => _fieldsRecordN ?? (_shownCombination?.Combination is { } c ? -c.Definition.Id : null);
 
     /// <summary>Поля показанного шага; null — не записаны ни у одного шага.</summary>
     public RcSecantStepFields? Fields { get; private set; }
@@ -2087,7 +2090,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     public event Action? CrackWidthsReady;
 
     Dictionary<int, FemCsfeaCrackWidth>? CurrentCrackWidths() =>
-        Fields != null && _fieldsRecordN is int n && CrackSource() is { } s && _crackKey == (n, s.Share, s.LongStep) ? _crackWidths : null;
+        Fields != null && CrackFieldsKey is int n && CrackSource() is { } s && _crackKey == (n, s.Share, s.LongStep) ? _crackWidths : null;
 
     /// <summary>Оси эпюр стержня (Ey, Ez местной системы расчёта с углом поворота сечения); null — стержня нет в сетке.</summary>
     public (Vector3D Ey, Vector3D Ez)? BeamAxes(int elem)
@@ -2205,7 +2208,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     /// </summary>
     Dictionary<int, FemCsfeaCrackWidth>? EnsureCrackWidths()
     {
-        if (Fields == null || _fieldsRecordN is not int n || _analysis == null || CrackSource() is not { } source) return null;
+        if (Fields == null || CrackFieldsKey is not int n || _analysis == null || CrackSource() is not { } source) return null;
         var key = (n, source.Share, source.LongStep);
         if (_crackKey == key && _crackWidths != null) return _crackWidths;
         if (_crackPending == key) return null;
