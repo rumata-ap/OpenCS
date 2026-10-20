@@ -60,6 +60,14 @@ public class FemCsfeaCrackWidthsTests
     static FemCsfeaCrackElement Element(int id = 1, double angle = 0) =>
         new(id, Section(), Concrete(), Rebar(), angle, [1, 0, 0], [0, 0, 1]);
 
+    /// <summary>Та же плита только с нижней арматурой — верх растягивается положительным моментом без арматуры.</summary>
+    static FemCsfeaCrackElement BottomOnly()
+    {
+        var section = Section();
+        section.RebarLayers.RemoveAll(l => l.Name == "верх");
+        return new(1, section, Concrete(), Rebar(), 0, [1, 0, 0], [0, 0, 1]);
+    }
+
     // Усилия в СИ: Nx, Ny, Nxy, Н/м; Mx, My, Mxy, Н·м/м; Qx, Qy. Положительный момент растягивает верх.
     static double[] Forces(double mx, double my, double mxy) => [0, 0, 0, mx * 1e3, my * 1e3, mxy * 1e3, 0, 0];
 
@@ -98,6 +106,32 @@ public class FemCsfeaCrackWidthsTests
         double line = full10[worst].Alpha_deg + 90;
         while (line > 90) line -= 180;
         Assert.Equal(line, w.AngleTop, 9);
+    }
+
+    /// <summary>
+    /// Грань без арматуры участвует, как в проверке (79f67900): M_crc = R_bt,ser·1,3·h²/6 = 1,55·1,3·0,2²/6·10³ ≈
+    /// 13,4 кН·м/м. До трещины — 0, с трещиной — ∞; по п. 8.2.7 длительная часть ниже M_crc даёт a_crc,1 = 0 при a_crc = ∞.
+    /// Раньше такая грань пропускалась и всегда показывала 0.
+    /// </summary>
+    [Fact]
+    public void FaceWithoutRebar_ZeroBeforeCrack_InfinityAfter()
+    {
+        var below = FemCsfeaCrackWidths.Compute(BottomOnly(), Forces(10, 0, 0), 1.0);
+        Assert.Equal(0, below.LongTop);
+        Assert.Equal(0, below.ShortTop);
+
+        var cracked = FemCsfeaCrackWidths.Compute(BottomOnly(), Forces(30, 0, 0), 1.0);
+        Assert.Equal(double.PositiveInfinity, cracked.LongTop);
+        Assert.Equal(double.PositiveInfinity, cracked.ShortTop);
+
+        var shortOnly = FemCsfeaCrackWidths.Compute(BottomOnly(), Forces(30, 0, 0), 0.3);
+        Assert.Equal(0, shortOnly.LongTop);
+        Assert.Equal(double.PositiveInfinity, shortOnly.ShortTop);
+
+        // Армированная нижняя грань — по-прежнему число.
+        var bottom = FemCsfeaCrackWidths.Compute(BottomOnly(), Forces(-30, 0, 0), 1.0);
+        Assert.True(double.IsFinite(bottom.LongBottom) && bottom.LongBottom > 0.01, $"a_crc,1 низа = {bottom.LongBottom}");
+        Assert.Equal(0, bottom.LongTop);
     }
 
     [Fact]

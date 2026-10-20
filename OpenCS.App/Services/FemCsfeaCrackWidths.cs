@@ -15,7 +15,7 @@ public sealed record FemCsfeaCrackElement(int Id, PlateSection Section, Material
 /// <summary>
 /// Ширина раскрытия трещин пластины по граням сечения (низ — грань −z, верх — +z), мм: продолжительное a_crc,1 и
 /// непродолжительное a_crc — наибольшие по направлениям; угол линии трещины наибольшего непродолжительного раскрытия
-/// к оси x сечения, град (−90…90].
+/// к оси x сечения, град (−90…90]. Грань без арматуры с трещиной (M &gt; M_crc) — <see cref="double.PositiveInfinity"/>.
 /// </summary>
 public readonly record struct FemCsfeaCrackWidth(double LongBottom, double ShortBottom, double AngleBottom,
     double LongTop, double ShortTop, double AngleTop);
@@ -24,7 +24,8 @@ public readonly record struct FemCsfeaCrackWidth(double LongBottom, double Short
 /// Ширина раскрытия трещин пластин по усилиям шага секущего расчёта: упрощённая проверка по направлениям (Капра — Мори,
 /// пп. 8.2.15–8.2.18 СП 63) — та же, что в нормативной проверке пластин по КЭ. Длительная часть усилий — доля от полных:
 /// a_crc,1 = a(длит., φ1 = 1,4), a_crc = a(полн., φ1 = 1,0) − a(длит., φ1 = 1,0) + a_crc,1 (п. 8.2.7). Характеристики
-/// материалов — вида расчёта N (п. 6.1.26), как в нормативной проверке.
+/// материалов — вида расчёта N (п. 6.1.26), как в нормативной проверке. Грань без арматуры — как в проверке: до
+/// трещины 0, с трещиной — ∞.
 /// </summary>
 public static class FemCsfeaCrackWidths
 {
@@ -116,10 +117,13 @@ public static class FemCsfeaCrackWidths
         var angle = new double[2];
         for (int i = 0; i < full10.Count && i < long14.Count && i < long10.Count; i++)
         {
-            if (full10[i].Strip.NoRebar) continue;
-            double l = long14[i].Strip.Acrc_mm;
-            double s = allLong ? l : full10[i].Strip.Acrc_mm - long10[i].Strip.Acrc_mm + l;
-            if (!double.IsFinite(l) || !double.IsFinite(s)) continue;
+            // Грань без арматуры (ShellSimplSolver.Unreinforced): ∞ — трещина без арматуры.
+            static double Width(ShellSimplDirectionResult d) =>
+                d.Strip.Acrc_mm >= ShellSimplSolver.Unbounded ? double.PositiveInfinity : d.Strip.Acrc_mm;
+            double l = Width(long14[i]), full = Width(full10[i]), l10 = Width(long10[i]);
+            double s = allLong ? l : double.IsPositiveInfinity(full) || double.IsPositiveInfinity(l) ? double.PositiveInfinity
+                : full - l10 + l;
+            if (double.IsNaN(l) || double.IsNaN(s)) continue;
             int face = full10[i].Top ? 1 : 0;
             aLong[face] = Math.Max(aLong[face], l);
             if (s > aShort[face])

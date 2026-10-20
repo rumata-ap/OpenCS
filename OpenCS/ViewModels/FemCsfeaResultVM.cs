@@ -2131,7 +2131,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 : (Fields.ShellFlags[i] & RcSecantStepFields.Cracked) != 0 ? 1 : 0,
             _ => null,
         };
-        return v is double d && double.IsFinite(d) ? d : null;
+        // Ширина раскрытия ∞ — трещина у грани без арматуры: значение, а не «нет данных».
+        return v is double d && (double.IsFinite(d) || IsCrack(field) && double.IsPositiveInfinity(d)) ? d : null;
     }
 
     /// <summary>

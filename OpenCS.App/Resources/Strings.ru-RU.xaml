@@ -5417,6 +5417,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MosaicHoverSection" xml:space="preserve">    сечение {0}: {1}</system:String>
     <system:String x:Key="MosaicNotChecked">Не проверено</system:String>
     <system:String x:Key="MosaicFailedNoUtilization">Не проходит (без коэффициента)</system:String>
+    <system:String x:Key="MosaicCrackWithoutRebar">Трещина у грани без арматуры (a_crc = ∞)</system:String>
     <system:String x:Key="MosaicElement">КЭ</system:String>
     <system:String x:Key="MosaicAggregateMaxAbs">Наиб. по модулю</system:String>
     <system:String x:Key="MosaicAggregateMax">Наибольшее</system:String>

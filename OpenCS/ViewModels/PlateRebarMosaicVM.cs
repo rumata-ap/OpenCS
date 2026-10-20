@@ -71,7 +71,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
    /// <summary>Пороги шкалы коэффициента использования по умолчанию.</summary>
    public static IReadOnlyList<double> UtilizationThresholds { get; } = [0.25, 0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0];
 
-   const int FailedWithoutUtilization = 1, NotChecked = 2;
+   const int FailedWithoutUtilization = 1, NotChecked = 2, CrackWithoutRebar = 3;
 
    /// <summary>Компонента мозаики упругого основания (единственная).</summary>
    const string FoundationComponent = "C1";
@@ -1460,7 +1460,9 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
             _resultComputing = !result.PrepareShellField(sf);
             var values = new Dictionary<string, PlateRebarValue>(StringComparer.Ordinal);
             foreach (string tag in shellTags)
-               values[tag] = !_resultComputing && result.ShellValue(tag, sf) is double v ? PlateRebarValue.Of(v) : PlateRebarValue.Missing;
+               values[tag] = _resultComputing || result.ShellValue(tag, sf) is not double v ? PlateRebarValue.Missing
+                  // a_crc = ∞ (трещина у грани без арматуры) — особая категория вне шкалы.
+                  : double.IsPositiveInfinity(v) ? PlateRebarValue.Failure(CrackWithoutRebar) : PlateRebarValue.Of(v);
             if (sf == FemCsfeaShellField.State)
             {
                result.ClearSummary();
@@ -1647,6 +1649,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
 
    static (Color Color, string Label) FailureStyle(Palette palette, int code) => palette switch
    {
+      _ when code == CrackWithoutRebar => (FailureColor, Loc.S("MosaicCrackWithoutRebar")),
       Palette.Utilization when code == NotChecked => (NotCheckedColor, Loc.S("MosaicNotChecked")),
       Palette.Utilization => (FailureColor, Loc.S("MosaicFailedNoUtilization")),
       _ => (FailureColor, Loc.S("PlateRebarMosaicFailure")),
