@@ -5649,4 +5649,45 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <!-- Fields from point tables -->
    <system:String x:Key="FemFieldFitSummary">to nearest target: median {0:0.###} m, 95 % {1:0.###} m, max {2:0.###} m ({3} points)</system:String>
    <system:String x:Key="FemFieldPreviewSummary">Targets {0}: interpolated {1}, nearest {2}, IDW {3}, matched {4}, no value {5}; points {6}, off targets {7}</system:String>
+   <system:String x:Key="FemFieldPatchLabel">{0}: {1} FE, n = ({2:0.##}; {3:0.##}; {4:0.##})</system:String>
+   <system:String x:Key="FemFieldDialogTitle">Field from point table</system:String>
+   <system:String x:Key="FemFieldOpenCsv">Open CSV…</system:String>
+   <system:String x:Key="FemFieldPaste">Paste from clipboard</system:String>
+   <system:String x:Key="FemFieldCsvFilter">CSV, TXT|*.csv;*.txt|All files|*.*</system:String>
+   <system:String x:Key="FemFieldName">Name</system:String>
+   <system:String x:Key="FemFieldColumns">Columns</system:String>
+   <system:String x:Key="FemFieldColumnX">X</system:String>
+   <system:String x:Key="FemFieldColumnY">Y</system:String>
+   <system:String x:Key="FemFieldColumnZ">Z (optional)</system:String>
+   <system:String x:Key="FemFieldNoColumn">— none —</system:String>
+   <system:String x:Key="FemFieldLengthUnit">Length units</system:String>
+   <system:String x:Key="FemFieldUnitM">m</system:String>
+   <system:String x:Key="FemFieldUnitCm">cm</system:String>
+   <system:String x:Key="FemFieldUnitMm">mm</system:String>
+   <system:String x:Key="FemFieldValueColumn">Value column</system:String>
+   <system:String x:Key="FemFieldComponent">Component</system:String>
+   <system:String x:Key="FemFieldValueUnit">Unit</system:String>
+   <system:String x:Key="FemFieldQuantity">Quantity</system:String>
+   <system:String x:Key="FemFieldQuantityC1">Subgrade modulus C1 of plates</system:String>
+   <system:String x:Key="FemFieldQuantitySpring">Node spring stiffness</system:String>
+   <system:String x:Key="FemFieldMethod">Method</system:String>
+   <system:String x:Key="FemFieldMethodInterpolate">Interpolation</system:String>
+   <system:String x:Key="FemFieldMethodNearest">Nearest point</system:String>
+   <system:String x:Key="FemFieldMethodIdw">Inverse distance (IDW)</system:String>
+   <system:String x:Key="FemFieldMethodMatch">One to one</system:String>
+   <system:String x:Key="FemFieldMaxDistance">Max distance, m</system:String>
+   <system:String x:Key="FemFieldPlaneTolerance">Plane tolerance, m</system:String>
+   <system:String x:Key="FemFieldMatchTolerance">Node search tolerance, m</system:String>
+   <system:String x:Key="FemFieldAlignment">Alignment</system:String>
+   <system:String x:Key="FemFieldDx">dX, m</system:String>
+   <system:String x:Key="FemFieldDy">dY, m</system:String>
+   <system:String x:Key="FemFieldDz">dZ, m</system:String>
+   <system:String x:Key="FemFieldAngle">Angle, °</system:String>
+   <system:String x:Key="FemFieldMirrorX">Mirror X</system:String>
+   <system:String x:Key="FemFieldMirrorY">Mirror Y</system:String>
+   <system:String x:Key="FemFieldFitExtents">Fit by extents</system:String>
+   <system:String x:Key="FemFieldFitPoints">Fit by points</system:String>
+   <system:String x:Key="FemFieldPreview">Preview</system:String>
+   <system:String x:Key="FemFieldPatch">Patch</system:String>
+   <system:String x:Key="FemFieldNoPoints">The table has no points with numeric X, Y and values — check the column choice.</system:String>
 </ResourceDictionary>

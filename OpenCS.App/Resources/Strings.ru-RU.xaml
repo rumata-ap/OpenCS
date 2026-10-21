@@ -5649,4 +5649,45 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <!-- Поля из таблиц точек -->
    <system:String x:Key="FemFieldFitSummary">до ближайшей цели: медиана {0:0.###} м, 95 % {1:0.###} м, макс {2:0.###} м ({3} точек)</system:String>
    <system:String x:Key="FemFieldPreviewSummary">Целей {0}: интерполяцией {1}, ближайшей {2}, IDW {3}, сопоставлено {4}, без значения {5}; точек {6}, не попало на цели {7}</system:String>
+   <system:String x:Key="FemFieldPatchLabel">{0}: {1} КЭ, n = ({2:0.##}; {3:0.##}; {4:0.##})</system:String>
+   <system:String x:Key="FemFieldDialogTitle">Поле из таблицы точек</system:String>
+   <system:String x:Key="FemFieldOpenCsv">Открыть CSV…</system:String>
+   <system:String x:Key="FemFieldPaste">Вставить из буфера</system:String>
+   <system:String x:Key="FemFieldCsvFilter">CSV, TXT|*.csv;*.txt|Все файлы|*.*</system:String>
+   <system:String x:Key="FemFieldName">Имя</system:String>
+   <system:String x:Key="FemFieldColumns">Столбцы</system:String>
+   <system:String x:Key="FemFieldColumnX">X</system:String>
+   <system:String x:Key="FemFieldColumnY">Y</system:String>
+   <system:String x:Key="FemFieldColumnZ">Z (необязательно)</system:String>
+   <system:String x:Key="FemFieldNoColumn">— нет —</system:String>
+   <system:String x:Key="FemFieldLengthUnit">Единицы длины</system:String>
+   <system:String x:Key="FemFieldUnitM">м</system:String>
+   <system:String x:Key="FemFieldUnitCm">см</system:String>
+   <system:String x:Key="FemFieldUnitMm">мм</system:String>
+   <system:String x:Key="FemFieldValueColumn">Столбец значений</system:String>
+   <system:String x:Key="FemFieldComponent">Компонента</system:String>
+   <system:String x:Key="FemFieldValueUnit">Единица</system:String>
+   <system:String x:Key="FemFieldQuantity">Величина</system:String>
+   <system:String x:Key="FemFieldQuantityC1">Коэффициент постели C1 пластин</system:String>
+   <system:String x:Key="FemFieldQuantitySpring">Жёсткость пружин узлов</system:String>
+   <system:String x:Key="FemFieldMethod">Способ</system:String>
+   <system:String x:Key="FemFieldMethodInterpolate">Интерполяция</system:String>
+   <system:String x:Key="FemFieldMethodNearest">Ближайшая точка</system:String>
+   <system:String x:Key="FemFieldMethodIdw">Обратные расстояния (IDW)</system:String>
+   <system:String x:Key="FemFieldMethodMatch">Один к одному</system:String>
+   <system:String x:Key="FemFieldMaxDistance">Предельное расстояние, м</system:String>
+   <system:String x:Key="FemFieldPlaneTolerance">Допуск до плоскости, м</system:String>
+   <system:String x:Key="FemFieldMatchTolerance">Допуск поиска узла, м</system:String>
+   <system:String x:Key="FemFieldAlignment">Совмещение</system:String>
+   <system:String x:Key="FemFieldDx">dX, м</system:String>
+   <system:String x:Key="FemFieldDy">dY, м</system:String>
+   <system:String x:Key="FemFieldDz">dZ, м</system:String>
+   <system:String x:Key="FemFieldAngle">Угол, °</system:String>
+   <system:String x:Key="FemFieldMirrorX">Зеркало X</system:String>
+   <system:String x:Key="FemFieldMirrorY">Зеркало Y</system:String>
+   <system:String x:Key="FemFieldFitExtents">Подобрать по габаритам</system:String>
+   <system:String x:Key="FemFieldFitPoints">Подобрать по точкам</system:String>
+   <system:String x:Key="FemFieldPreview">Предпросмотр</system:String>
+   <system:String x:Key="FemFieldPatch">Участок</system:String>
+   <system:String x:Key="FemFieldNoPoints">В таблице нет точек с числовыми X, Y и значениями — проверьте выбор столбцов.</system:String>
 </ResourceDictionary>

@@ -87,6 +87,44 @@ public class FemFieldDialogVMTests
     }
 
     [Fact]
+    public void SetQuantity_RebuildsComponentsAndUnits()
+    {
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), tonToKn: 9.80665);
+        vm.LoadText("X;Y;V\n2;2;300\n7;2;200", "v.csv");
+        Assert.Equal(FemFieldQuantities.FoundationC1, vm.Quantity);
+        Assert.Equal("c1", vm.Columns[0].Component);
+
+        vm.SetQuantity(FemFieldQuantities.Spring);
+        Assert.Equal(FieldMethod.Match, vm.Method);
+        var row = Assert.Single(vm.Columns);
+        Assert.Equal("kz", row.Component);
+        Assert.Equal(FemFieldQuantities.SpringComponents, row.Components);
+        Assert.Equal("тс/м", row.Unit.Label);
+
+        row.Component = "kuz";                       // поворотная — единицы момента на радиан
+        Assert.Equal("тс·м/рад", row.Unit.Label);
+
+        vm.Preview();
+        Assert.Equal(2, vm.NodeTargets.Count);
+
+        vm.SetQuantity(FemFieldQuantities.FoundationC1);
+        Assert.Equal(FieldMethod.Interpolate, vm.Method);
+        Assert.Equal("c1", vm.Columns[0].Component);
+    }
+
+    [Fact]
+    public void ColumnChoice_RebuildsValueColumns()
+    {
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), tonToKn: 9.80665);
+        vm.LoadText("X;Y;A;B\n1;1;-16;300\n2;2;-16;200", "v.csv");
+        Assert.Equal([2, 3], vm.Columns.Select(c => c.ColumnIndex));
+        vm.ZColumn = 2;
+        vm.RebuildValueColumns();
+        Assert.Equal([3], vm.Columns.Select(c => c.ColumnIndex));
+        Assert.True(vm.BuildField(1).HasZ);
+    }
+
+    [Fact]
     public void ExistingField_KeepsPointsAndColumns_UntilNewTable()
     {
         var existing = new FemField

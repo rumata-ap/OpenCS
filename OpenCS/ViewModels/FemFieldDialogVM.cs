@@ -7,22 +7,59 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Строка привязки столбца значений: компонента величины и единица ввода.</summary>
+/// <summary>
+/// Строка привязки столбца значений: компонента величины и единица ввода. Смена компоненты пересобирает список единиц
+/// (у поворотных жёсткостей пружин — моментные).
+/// </summary>
 public sealed class FemFieldColumnRow : ViewModelBase
 {
+    readonly string _quantity;
+    readonly double _tonToKn;
     string _component;
     FemFieldUnit _unit;
 
-    public FemFieldColumnRow(int columnIndex, string header, string component, IReadOnlyList<FemFieldUnit> units, FemFieldUnit unit)
+    public FemFieldColumnRow(int columnIndex, string header, string quantity, string component, double tonToKn, FemFieldUnit? unit = null)
     {
-        ColumnIndex = columnIndex; Header = header; _component = component; Units = units; _unit = unit;
+        ColumnIndex = columnIndex;
+        Header = header;
+        _quantity = quantity;
+        _tonToKn = tonToKn;
+        _component = component;
+        Components = FemFieldQuantities.Get(quantity).Components;
+        Units = FemFieldQuantities.Units(quantity, component, tonToKn);
+        _unit = unit == null ? Units[0] : Units.FirstOrDefault(u => u == unit) ?? Add(unit);
     }
 
+    /// <summary>Номер столбца таблицы (у поля, открытого на правку без новой таблицы, — номер значения точки).</summary>
     public int ColumnIndex { get; }
     public string Header { get; }
-    public IReadOnlyList<FemFieldUnit> Units { get; internal set; }
-    public string Component { get => _component; set { _component = value; OnPropertyChanged(); } }
+    public IReadOnlyList<string> Components { get; }
+    public IReadOnlyList<FemFieldUnit> Units { get; private set; }
+
+    public string Component
+    {
+        get => _component;
+        set
+        {
+            if (_component == value) return;
+            _component = value;
+            string label = _unit.Label;
+            Units = FemFieldQuantities.Units(_quantity, value, _tonToKn);
+            _unit = Units.FirstOrDefault(u => u.Label == label) ?? Units[0];
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Units));
+            OnPropertyChanged(nameof(Unit));
+        }
+    }
+
     public FemFieldUnit Unit { get => _unit; set { _unit = value; OnPropertyChanged(); } }
+
+    /// <summary>Единица сохранённого поля, которой нет в реестре (другой множитель тонны-силы), — дописывается в список.</summary>
+    FemFieldUnit Add(FemFieldUnit unit)
+    {
+        Units = [unit, .. Units];
+        return unit;
+    }
 }
 
 /// <summary>
@@ -36,6 +73,11 @@ public sealed class FemFieldDialogVM : ViewModelBase
     readonly double _tonToKn;
     readonly int _existingId;
     PointTable? _table;
+
+    // Поле, открытое на правку: его точки действуют, пока не загружена новая таблица.
+    IReadOnlyList<FieldPoint>? _existingPoints;
+    readonly FemFieldDefinition? _existingDefinition;
+    readonly bool _existingHasZ;
 
     public FemFieldDialogVM(FemFieldMeshContext ctx, FemFieldTargets targets, double tonToKn, FemField? existing = null)
     {
@@ -55,13 +97,13 @@ public sealed class FemFieldDialogVM : ViewModelBase
             _existingDefinition = existing.Definition;
             _existingHasZ = existing.HasZ;
             SourceFile = existing.SourceFile;
+            for (int k = 0; k < existing.Definition.Columns.Count; k++)
+            {
+                var c = existing.Definition.Columns[k];
+                Columns.Add(new FemFieldColumnRow(k, c.Header, Quantity, c.Component, tonToKn, new FemFieldUnit(c.UnitLabel, c.UnitFactor)));
+            }
         }
     }
-
-    // Поле, открытое на правку: его точки и столбцы действуют, пока не загружена новая таблица.
-    IReadOnlyList<FieldPoint>? _existingPoints;
-    readonly FemFieldDefinition? _existingDefinition;
-    readonly bool _existingHasZ;
 
     public string Name { get; set; } = "";
     public string? SourceFile { get; private set; }
@@ -70,7 +112,7 @@ public sealed class FemFieldDialogVM : ViewModelBase
     public int YColumn { get; set; } = 1;
     public int ZColumn { get; set; } = -1;
     public double LengthScale { get; set; } = 1;
-    public string Quantity { get; set; } = FemFieldQuantities.FoundationC1;
+    public string Quantity { get; private set; } = FemFieldQuantities.FoundationC1;
     public ObservableCollection<FemFieldColumnRow> Columns { get; } = [];
     public FieldMethod Method { get; set; } = FieldMethod.Interpolate;
     public double MaxDistance { get; set; } = 1;
@@ -86,6 +128,8 @@ public sealed class FemFieldDialogVM : ViewModelBase
     public FieldFitResult? Fit { get; private set; }
     public string FitSummary { get; private set; } = "";
     public FieldEvaluation? Evaluation { get; private set; }
+    /// <summary>Узлы-цели последнего предпросмотра (для пружин); у пластин — пусто.</summary>
+    public IReadOnlyList<FieldNode> NodeTargets { get; private set; } = [];
     public string Summary { get; private set; } = "";
 
     /// <summary>Цели — узлы сетки (пружины): способ только «один к одному».</summary>
@@ -109,18 +153,42 @@ public sealed class FemFieldDialogVM : ViewModelBase
         LengthScale = Headers.Count > 0 ? PointTable.LengthScaleFromHeader(Headers[XColumn]) : 1;
         if (string.IsNullOrWhiteSpace(Name) && fileName != null) Name = Path.GetFileNameWithoutExtension(fileName);
 
-        var valueCols = Enumerable.Range(0, Headers.Count)
-            .Where(i => i != XColumn && i != YColumn && i != ZColumn && _table.ColumnHasNumbers(i)).ToList();
-        bool spring = valueCols.Any(i => SpringComponent(Headers[i]) != null);
+        bool spring = ValueColumns().Any(i => SpringComponent(Headers[i]) != null);
         Quantity = spring ? FemFieldQuantities.Spring : FemFieldQuantities.FoundationC1;
-        var q = FemFieldQuantities.Get(Quantity);
+        RebuildValueColumns();
+        SetQuantity(Quantity);
+    }
+
+    /// <summary>Столбцы значений — все числовые, кроме выбранных X, Y, Z (после ручной правки выбора координат).</summary>
+    public void RebuildValueColumns()
+    {
+        if (_table == null) return;
         Columns.Clear();
-        foreach (int i in valueCols)
-        {
-            string comp = SpringComponent(Headers[i]) ?? q.Components[0];
-            var units = FemFieldQuantities.Units(Quantity, comp, _tonToKn);
-            Columns.Add(new FemFieldColumnRow(i, Headers[i], comp, units, GuessUnit(Headers[i], units)));
-        }
+        foreach (int i in ValueColumns()) Columns.Add(Row(i, Headers[i]));
+        OnPropertyChanged(string.Empty);
+    }
+
+    IEnumerable<int> ValueColumns() => Enumerable.Range(0, Headers.Count)
+        .Where(i => i != XColumn && i != YColumn && i != ZColumn && _table!.ColumnHasNumbers(i));
+
+    /// <summary>Строка столбца значений: компонента и единица — по заголовку.</summary>
+    FemFieldColumnRow Row(int columnIndex, string header)
+    {
+        string comp = DefaultComponent(Quantity, header);
+        var unit = GuessUnit(header, FemFieldQuantities.Units(Quantity, comp, _tonToKn));
+        return new FemFieldColumnRow(columnIndex, header, Quantity, comp, _tonToKn, unit);
+    }
+
+    /// <summary>
+    /// Меняет величину: компоненты и единицы столбцов пересобираются по заголовкам; у узловых целей способ —
+    /// «один к одному», у пластин — интерполяция с допусками по размеру КЭ.
+    /// </summary>
+    public void SetQuantity(string code)
+    {
+        Quantity = code;
+        var rows = Columns.ToList();
+        Columns.Clear();
+        foreach (var r in rows) Columns.Add(Row(r.ColumnIndex, r.Header));
         if (IsNodes) Method = FieldMethod.Match;
         else
         {
@@ -129,6 +197,14 @@ public sealed class FemFieldDialogVM : ViewModelBase
             if (Method == FieldMethod.Match) Method = FieldMethod.Interpolate;
         }
         OnPropertyChanged(string.Empty);
+    }
+
+    /// <summary>Компонента по заголовку (Rz → kz…); иначе у пружины — kz (осадка свай), у C1 — c1.</summary>
+    static string DefaultComponent(string quantity, string header)
+    {
+        var components = FemFieldQuantities.Get(quantity).Components;
+        if (SpringComponent(header) is { } c && components.Contains(c)) return c;
+        return components.Contains("kz") ? "kz" : components[0];
     }
 
     static string? SpringComponent(string header)
@@ -195,14 +271,20 @@ public sealed class FemFieldDialogVM : ViewModelBase
     {
         var computed = FemFieldEvaluator.Compute(BuildField(0), _ctx);
         Evaluation = computed.Evaluation;
+        NodeTargets = IsNodes ? TargetSet().Nodes : [];
         var t = Evaluation.Targets;
         Summary = string.Format(CultureInfo.CurrentCulture, Loc.S("FemFieldPreviewSummary"),
             t.Count, t.Count(x => x.How == FieldHow.Interpolated), t.Count(x => x.How == FieldHow.Nearest),
             t.Count(x => x.How == FieldHow.Idw), t.Count(x => x.How == FieldHow.Matched), t.Count(x => x.How == FieldHow.None),
             Evaluation.PointCount, Evaluation.PointsUnused);
         OnPropertyChanged(nameof(Evaluation));
+        OnPropertyChanged(nameof(NodeTargets));
         OnPropertyChanged(nameof(Summary));
     }
+
+    /// <summary>Подписи плоских участков последнего предпросмотра: номер, число КЭ, нормаль.</summary>
+    public IReadOnlyList<string> PatchLabels => Evaluation?.Patches.Select(p => string.Format(CultureInfo.CurrentCulture,
+        Loc.S("FemFieldPatchLabel"), p.Index + 1, p.Shells.Count, p.Normal.X, p.Normal.Y, p.Normal.Z)).ToList() ?? [];
 
     /// <summary>Поле по текущим настройкам диалога (у открытого на правку — тот же Id).</summary>
     public FemField BuildField(int schemaId)
@@ -214,9 +296,7 @@ public sealed class FemFieldDialogVM : ViewModelBase
             XHeader = fromTable ? Headers.ElementAtOrDefault(XColumn) ?? "X" : _existingDefinition?.XHeader ?? "X",
             YHeader = fromTable ? Headers.ElementAtOrDefault(YColumn) ?? "Y" : _existingDefinition?.YHeader ?? "Y",
             ZHeader = fromTable ? (ZColumn >= 0 ? Headers[ZColumn] : null) : _existingDefinition?.ZHeader,
-            Columns = fromTable || _existingDefinition == null
-                ? Columns.Select(c => new FemFieldColumn(c.Header, c.Component, c.Unit.Label, c.Unit.ToSi)).ToList()
-                : _existingDefinition.Columns,
+            Columns = Columns.Select(c => new FemFieldColumn(c.Header, c.Component, c.Unit.Label, c.Unit.ToSi)).ToList(),
             Alignment = Alignment,
             Targets = _targets,
             Settings = new FieldSettings(IsNodes ? FieldMethod.Match : Method, MaxDistance, PlaneTolerance,

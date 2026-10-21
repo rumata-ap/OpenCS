@@ -1,0 +1,160 @@
+<Window x:Class="OpenCS.Views.FemFieldDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        Title="{DynamicResource FemFieldDialogTitle}" Width="1200" Height="780"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip" ShowInTaskbar="False">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                       Visibility="Collapsed"/>
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="440"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource FemFieldOpenCsv}" Click="OpenCsv_Click" Padding="8,3" Margin="0,0,6,0"/>
+                        <Button Content="{DynamicResource FemFieldPaste}" Click="Paste_Click" Padding="8,3"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding SourceFile}" Foreground="Gray" Margin="0,4,0,0"/>
+
+                    <TextBlock Text="{DynamicResource FemFieldName}" Margin="0,8,0,2"/>
+                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <TextBlock Text="{DynamicResource FemFieldQuantity}" Margin="0,8,0,2"/>
+                    <ComboBox x:Name="quantityBox" SelectionChanged="Quantity_Changed"/>
+
+                    <GroupBox Header="{DynamicResource FemFieldColumns}" Margin="0,8,0,0">
+                        <StackPanel Margin="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,4,0">
+                                    <TextBlock Text="{DynamicResource FemFieldColumnX}"/>
+                                    <ComboBox x:Name="xBox" SelectionChanged="Coordinate_Changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="0,0,4,0">
+                                    <TextBlock Text="{DynamicResource FemFieldColumnY}"/>
+                                    <ComboBox x:Name="yBox" SelectionChanged="Coordinate_Changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{DynamicResource FemFieldColumnZ}"/>
+                                    <ComboBox x:Name="zBox" SelectionChanged="Coordinate_Changed"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="{DynamicResource FemFieldLengthUnit}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox x:Name="lengthUnitBox" Width="80" SelectionChanged="LengthUnit_Changed">
+                                    <ComboBoxItem Content="{DynamicResource FemFieldUnitM}" Tag="1"/>
+                                    <ComboBoxItem Content="{DynamicResource FemFieldUnitCm}" Tag="0.01"/>
+                                    <ComboBoxItem Content="{DynamicResource FemFieldUnitMm}" Tag="0.001"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <Grid Margin="0,8,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{DynamicResource FemFieldValueColumn}" Foreground="Gray"/>
+                                <TextBlock Grid.Column="1" Text="{DynamicResource FemFieldComponent}" Foreground="Gray"/>
+                                <TextBlock Grid.Column="2" Text="{DynamicResource FemFieldValueUnit}" Foreground="Gray"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Columns}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="170"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Header}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Header}"/>
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding Components}" SelectedItem="{Binding Component}"
+                                                      Margin="0,0,4,0"/>
+                                            <ComboBox Grid.Column="2" ItemsSource="{Binding Units}" SelectedItem="{Binding Unit}"
+                                                      DisplayMemberPath="Label"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="{DynamicResource FemFieldMethod}" Margin="0,8,0,0">
+                        <StackPanel Margin="4">
+                            <ComboBox x:Name="methodBox" SelectionChanged="Method_Changed"/>
+                            <TextBlock Text="{DynamicResource FemFieldMaxDistance}" Margin="0,6,0,0"/>
+                            <TextBox Text="{Binding MaxDistance}"/>
+                            <TextBlock Text="{DynamicResource FemFieldPlaneTolerance}" Margin="0,4,0,0"/>
+                            <TextBox Text="{Binding PlaneTolerance}"/>
+                            <TextBlock Text="{DynamicResource FemFieldMatchTolerance}" Margin="0,4,0,0"/>
+                            <TextBox Text="{Binding MatchTolerance}"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="{DynamicResource FemFieldAlignment}" Margin="0,8,0,0">
+                        <StackPanel Margin="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,4,0">
+                                    <TextBlock Text="{DynamicResource FemFieldDx}"/>
+                                    <TextBox Text="{Binding Dx}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="0,0,4,0">
+                                    <TextBlock Text="{DynamicResource FemFieldDy}"/>
+                                    <TextBox Text="{Binding Dy}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="0,0,4,0">
+                                    <TextBlock Text="{DynamicResource FemFieldDz}"/>
+                                    <TextBox Text="{Binding Dz}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3">
+                                    <TextBlock Text="{DynamicResource FemFieldAngle}"/>
+                                    <TextBox Text="{Binding AngleDeg}"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <CheckBox Content="{DynamicResource FemFieldMirrorX}" IsChecked="{Binding MirrorX}" Margin="0,0,10,0"/>
+                                <CheckBox Content="{DynamicResource FemFieldMirrorY}" IsChecked="{Binding MirrorY}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Content="{DynamicResource FemFieldFitExtents}" Click="FitExtents_Click" Padding="8,3" Margin="0,0,6,0"/>
+                                <Button Content="{DynamicResource FemFieldFitPoints}" Click="FitPoints_Click" Padding="8,3"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding FitSummary}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+
+            <DockPanel Grid.Column="1">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <Button Content="{DynamicResource FemFieldPreview}" Click="Preview_Click" Padding="8,3" Margin="0,0,10,0"/>
+                    <TextBlock Text="{DynamicResource FemFieldPatch}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox x:Name="patchBox" Width="260" SelectionChanged="Patch_Changed"/>
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <ItemsControl DockPanel.Dock="Bottom" x:Name="diagnosticsList" MaxHeight="120" Margin="0,6,0,0"/>
+                <Border BorderBrush="LightGray" BorderThickness="1" Margin="0,6,0,0">
+                    <h:FieldPreviewCanvas x:Name="previewCanvas"/>
+                </Border>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>
