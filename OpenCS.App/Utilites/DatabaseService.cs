@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 88;
+      const int CurrentSchemaVersion = 89;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -108,6 +108,7 @@ namespace OpenCS.Utilites
          [85] = MigrateV86,
          [86] = MigrateV87,
          [87] = MigrateV88,
+         [88] = MigrateV89,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -277,7 +278,8 @@ namespace OpenCS.Utilites
                 source_schema_id   INTEGER,
                 source_element_tag TEXT,
                 source_member_id   INTEGER,
-                source_element_id  INTEGER
+                source_element_id  INTEGER,
+                second_order       INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS force_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1783,6 +1785,13 @@ namespace OpenCS.Utilites
             """);
       }
 
+      /// <summary>Миграция v89: second_order в force_sets — усилия второго порядка (η в проверках по КЭ не применяется).</summary>
+      void MigrateV89()
+      {
+         if (!ColumnExists("force_sets", "second_order"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN second_order INTEGER NOT NULL DEFAULT 0");
+      }
+
       /// <summary>Миграция v87: доля длительной части загружения (пониженное значение по СП 20) для групп CL/NL.</summary>
       void MigrateV87()
       {
@@ -2966,7 +2975,7 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2981,7 +2990,8 @@ namespace OpenCS.Utilites
                   SourceSchemaId   = r.IsDBNull(6) ? null : r.GetInt32(6),
                   SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7),
                   SourceMemberId   = r.IsDBNull(8) ? null : r.GetInt32(8),
-                  SourceElementId  = r.IsDBNull(9) ? null : r.GetInt32(9)
+                  SourceElementId  = r.IsDBNull(9) ? null : r.GetInt32(9),
+                  SecondOrder      = !r.IsDBNull(10) && r.GetInt32(10) != 0
                };
                sets[fs.Id] = fs;
             }
@@ -3027,8 +3037,8 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id)
-               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid, @seid);
+               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order)
+               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid, @seid, @so);
                SELECT last_insert_rowid();
             """;
          }
@@ -3037,7 +3047,7 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind,
                source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag, source_member_id=@smid,
-               source_element_id=@seid WHERE id=@id
+               source_element_id=@seid, second_order=@so WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
@@ -3050,6 +3060,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@setag", (object?)fs.SourceElementTag ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@smid",  (object?)fs.SourceMemberId   ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@seid",  (object?)fs.SourceElementId  ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@so",    fs.SecondOrder ? 1 : 0);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 

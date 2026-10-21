@@ -3359,6 +3359,7 @@
     <system:String x:Key="FemCsfeaSourcePDeltaTip">All load cases are solved with K_s + K_σ from the source's governing state displacements: the governing loading's P-Δ is carried over to all load cases</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaNoGeom">The source was analysed without geometric nonlinearity — P-Δ is unavailable</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaCr">P-Δ is approximate: large-displacement source, K_σ on the initial geometry</system:String>
+    <system:String x:Key="Sp20SecondOrderMixed">Second-order sets are mixed with first-order ones: the combinations are not marked, η will be applied in per-element checks.</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotCompleted">The source did not reach the λ limit — stiffnesses of an underloaded state.</system:String>
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Source calculation type {0} differs from the analysis type {1}: stiffnesses use the {0} diagrams, crack width and force sets — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">The source was recomputed after selection — its current result will be taken on save.</system:String>

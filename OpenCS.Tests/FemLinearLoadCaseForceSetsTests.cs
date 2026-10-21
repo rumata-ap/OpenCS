@@ -82,6 +82,18 @@ public sealed class FemLinearLoadCaseForceSetsTests
         Assert.Equal(3, result.Sets.Select(s => s.Set.Num).Distinct().Count());
     }
 
+    /// <summary>Линейный расчёт с P-Δ источника — наборы по загружениям помечены вторым порядком; без него — нет.</summary>
+    [Fact]
+    public void Build_SecondOrderSummary_MarksSets()
+    {
+        var (schema, analysis, summary) = Model();
+        Assert.All(FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard).Sets,
+            s => Assert.False(s.Set.SecondOrder));
+        summary.SecondOrder = true;
+        Assert.All(FemLinearLoadCaseForceSets.Build(schema, analysis, summary, Fields, [], Sp20GammaDefaults.Standard).Sets,
+            s => Assert.True(s.Set.SecondOrder));
+    }
+
     [Fact]
     public void EnvelopeDefinitions_FormulasWithRoles()
     {

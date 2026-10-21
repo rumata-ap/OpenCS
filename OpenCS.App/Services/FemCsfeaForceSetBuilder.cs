@@ -17,8 +17,9 @@ namespace OpenCS.Services;
 public static class FemCsfeaForceSetBuilder
 {
     /// <summary>Наборы шага: пластин (если есть пластины) и стержней (если есть стержни); номера — после существующих.</summary>
+    /// <param name="secondOrder">Результат второго порядка (<see cref="FemCsfeaResultSummary.SecondOrder"/>) — <see cref="ForceSet.SecondOrder"/>.</param>
     public static List<ForceSet> Build(FemSchema schema, string analysisTag, FemCsfeaStepSummary step, string stageTag,
-        RcSecantStepFields fields, IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null)
+        RcSecantStepFields fields, IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null, bool secondOrder = false)
     {
         ArgumentNullException.ThrowIfNull(step);
         string baseTag = string.Format(CultureInfo.CurrentCulture, "CSfea {0}, шаг {1} ({2}, λ = {3:0.###})", analysisTag, step.N,
@@ -26,7 +27,7 @@ public static class FemCsfeaForceSetBuilder
         string description = string.Format(CultureInfo.CurrentCulture,
             "Расчёт CSfea «{0}» схемы «{1}»: шаг {2}, стадия «{3}», λ = {4:0.####}.", analysisTag, schema.Tag, step.N, stageTag,
             step.LoadFactor);
-        return BuildNamed(schema, baseTag, description, fields, existing, scope);
+        return BuildNamed(schema, baseTag, description, fields, existing, scope, secondOrder);
     }
 
     /// <summary>
@@ -34,7 +35,7 @@ public static class FemCsfeaForceSetBuilder
     /// вид без строк в охвате — без набора.
     /// </summary>
     public static List<ForceSet> BuildNamed(FemSchema schema, string baseTag, string description, RcSecantStepFields fields,
-        IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null)
+        IReadOnlyCollection<ForceSet> existing, FemCsfeaForceSetScope? scope = null, bool secondOrder = false)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(fields);
@@ -51,7 +52,7 @@ public static class FemCsfeaForceSetBuilder
                 sets.Add(new ForceSet
                 {
                     Num = num++, Tag = baseTag + " — пластины" + suffix, Description = description, Kind = "shell",
-                    SourceType = "fea", SourceSchemaId = schema.Id, ShellItems = rows,
+                    SourceType = "fea", SourceSchemaId = schema.Id, ShellItems = rows, SecondOrder = secondOrder,
                 });
         }
 
@@ -63,7 +64,7 @@ public static class FemCsfeaForceSetBuilder
                 sets.Add(new ForceSet
                 {
                     Num = num, Tag = baseTag + " — стержни" + suffix, Description = description, Kind = "bar",
-                    SourceType = "fea", SourceSchemaId = schema.Id, Items = rows,
+                    SourceType = "fea", SourceSchemaId = schema.Id, Items = rows, SecondOrder = secondOrder,
                 });
         }
         if (scope != null) foreach (var set in sets) scope.Bind(set);

@@ -2050,14 +2050,14 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{variant.Name} — {_result.TaskTag}",
                 string.Create(CultureInfo.CurrentCulture,
                     $"Вариант «{variant.Name}» пакетного расчёта CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: конечное состояние, λ = {b.LoadFactor:0.###}") +
-                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing, scope);
+                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing, scope, Summary.SecondOrder);
         if (_shownCombination is { } comb)
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{comb.Name} — {_result.TaskTag}",
                 $"Комбинация «{comb.Name}» = {comb.Formula} по линейному расчёту CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: " +
-                "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing, scope);
+                "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing, scope, Summary.SecondOrder);
         var step = SelectedStep!;
         string stage = step.Stage < Summary.Stages.Count ? Summary.Stages[step.Stage].Tag : "";
-        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing, scope);
+        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing, scope, Summary.SecondOrder);
     }
 
     // ------------------------------------------------------------ поля пластин

@@ -70,7 +70,8 @@ public static class FemLinearLoadCaseForceSets
                 warnings.Add($"Загружение «{loadCase.Tag}»: нет сошедшегося шага с записанными полями.");
                 continue;
             }
-            foreach (var set in FemCsfeaForceSetBuilder.Build(schema, analysis.Tag, step, loadCase.Tag, fields, numbered))
+            foreach (var set in FemCsfeaForceSetBuilder.Build(schema, analysis.Tag, step, loadCase.Tag, fields, numbered,
+                         secondOrder: summary.SecondOrder))
             {
                 string part = set.Kind == "shell" ? "пластины" : "стержни";
                 string title = $"{loadCase.Tag} — {analysis.Tag} — {part}";

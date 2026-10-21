@@ -158,6 +158,7 @@ public static class FemCsfeaBatchForceSets
                     var set = new ForceSet
                     {
                         Num = num++, Tag = Tag(baseTag, n, t), Kind = kind, SourceType = "fea", SourceSchemaId = schema.Id,
+                        SecondOrder = summary.SecondOrder,
                         Description = key == FemCsfeaBatchGroup.LoadCases ? description + $" Тип расчёта {t} задан пользователем."
                             : t == longType ? description + $" Длительные части {t} вариантов (пары, диаграммы вариантов), метки строк — от вариантов."
                             : description,

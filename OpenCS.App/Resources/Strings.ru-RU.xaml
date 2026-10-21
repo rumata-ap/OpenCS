@@ -3359,6 +3359,7 @@
     <system:String x:Key="FemCsfeaSourcePDeltaTip">Все загружения решаются на K_s + K_σ по перемещениям определяющего состояния источника: P-Δ определяющего нагружения переносится на все загружения</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaNoGeom">Источник считался без геометрической нелинейности — P-Δ недоступен</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaCr">P-Δ приближённо: источник с большими перемещениями, K_σ — по исходной геометрии</system:String>
+    <system:String x:Key="Sp20SecondOrderMixed">Наборы второго порядка смешаны с наборами первого: у комбинаций признака нет, η в проверках по КЭ будет применён.</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotCompleted">Источник не дошёл до предела λ — жёсткости недогруженного состояния.</system:String>
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Вид расчёта источника {0} не совпадает с видом постановки {1}: жёсткости — по диагоналям {0}, ширина раскрытия и наборы усилий — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">Источник пересчитан после выбора — при сохранении будет взят его текущий результат.</system:String>

@@ -174,6 +174,17 @@ namespace CScore.Combinations
       /// <summary>
       /// Конвертировать огибающую в ForceSet (глобальные экстремумы, одна строка на max/min компоненты).
       /// </summary>
+      /// <summary>
+      /// Признак второго порядка комбинированного набора (<see cref="ForceSet.SecondOrder"/>): только если он у всех
+      /// исходных наборов; <paramref name="mixed"/> — признак есть не у всех (η в проверках по КЭ будет применён).
+      /// </summary>
+      public static bool SecondOrderOf(IReadOnlyCollection<ForceSet> sets, out bool mixed)
+      {
+         int n = sets.Count(s => s.SecondOrder);
+         mixed = n > 0 && n < sets.Count;
+         return sets.Count > 0 && n == sets.Count;
+      }
+
       public static ForceSet EnvelopeToForceSet(
          Envelope env, string kind, string tag, string labelPrefix, IList<string>? rowLabels = null)
       {

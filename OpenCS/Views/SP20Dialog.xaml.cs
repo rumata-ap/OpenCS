@@ -158,6 +158,8 @@ namespace OpenCS.ViewModels
             sb.AppendLine($"  особая:           {acc}");
             sb.AppendLine();
             sb.AppendLine($"Выбрано наборов: {sets.Count}");
+            SP20Combinations.SecondOrderOf(sets, out bool mixedOrder);
+            if (mixedOrder) sb.AppendLine(Loc.S("Sp20SecondOrderMixed"));
             sb.AppendLine($"Строк в каждом:  {SP20Combinations.RowCount(sets[0])}");
             if (warnings.Count > 0)
             {
@@ -233,11 +235,13 @@ namespace OpenCS.ViewModels
             _app.CalcSettings.ToSp20LoadValueKind(), _app.CalcSettings.ToSp20GammaDefaults());
 
          string kind = sets[0].Kind;
+         bool secondOrder = SP20Combinations.SecondOrderOf(sets, out _);
 
          if (MakeEnvelope)
          {
             var fs = SP20Combinations.EnvelopeToForceSet(
                env, kind, $"{baseName} ({suffix})", labelPrefix, rowLabels);
+            fs.SecondOrder = secondOrder;
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }
@@ -246,6 +250,7 @@ namespace OpenCS.ViewModels
          {
             var fs = SP20Combinations.CasesToForceSet(
                cases, kind, $"{baseName} ({suffix} — список)", rowLabels);
+            fs.SecondOrder = secondOrder;
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }
