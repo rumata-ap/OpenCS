@@ -51,6 +51,44 @@ public class ShellFieldInterpolatorTests
     }
 
     [Fact]
+    public void LowStep_WithinPlaneTolerance_DoesNotLeak()
+    {
+        // Ступень 0,3 м — меньше допуска до плоскости 0,5 м: точки нижней плиты ближе к своей плоскости и верхнему
+        // участку не достаются.
+        var mesh = new FieldTestMeshes()
+            .Grid("up", new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), 3, 3)
+            .Grid("riser", new(0, 3, 0), new(1, 0, 0), new(0, 0, -0.3), 3, 1)
+            .Grid("low", new(0, 3, -0.3), new(1, 0, 0), new(0, 1, 0), 3, 3);
+        var up = Lattice(new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), 3, 3).Select(p => new FieldPoint(p, [100.0]));
+        var low = Lattice(new(0, 3, -0.3), new(1, 0, 0), new(0, 1, 0), 3, 3).Select(p => new FieldPoint(p, [500.0]));
+        var r = ShellFieldInterpolator.Evaluate(up.Concat(low).ToList(), true,
+            mesh.Shells.Where(x => !x.Tag.StartsWith("riser")).ToList(), new FieldSettings(MaxDistance: 2, PlaneTolerance: 0.5));
+        Assert.All(r.Targets.Where(t => t.Tag.StartsWith("up")), t => Assert.Equal(100, t.Values![0], 9));
+        Assert.All(r.Targets.Where(t => t.Tag.StartsWith("low")), t => Assert.Equal(500, t.Values![0], 9));
+    }
+
+    [Fact]
+    public void SparseTable_SmallPatchInsideCell_Interpolated()
+    {
+        // Таблица с шагом 10 м и участок 2 × 2 м внутри ячейки: КЭ внутри оболочки облака — интерполяция, а не
+        // «нет значения».
+        var mesh = new FieldTestMeshes().Grid("p", new(4, 4, 0), new(1, 0, 0), new(0, 1, 0), 2, 2);
+        var pts = new List<FieldPoint>();
+        for (int i = 0; i <= 2; i++)
+            for (int j = 0; j <= 2; j++)
+            {
+                var p = new FieldVec3(-5 + 10 * i, -5 + 10 * j, 0);
+                pts.Add(new(p, [F(p)]));
+            }
+        var r = ShellFieldInterpolator.Evaluate(pts, true, mesh.Shells, new FieldSettings(MaxDistance: 1, PlaneTolerance: 0.5));
+        Assert.All(r.Targets, t =>
+        {
+            Assert.Equal(FieldHow.Interpolated, t.How);
+            Assert.Equal(F(mesh.Shells.Single(s => s.Tag == t.Tag).Centroid), t.Values![0], 9);
+        });
+    }
+
+    [Fact]
     public void OutsideCloud_NearestWithinLimit_ElseNone()
     {
         var mesh = new FieldTestMeshes().Grid("p", new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), 4, 1);

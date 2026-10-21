@@ -11,6 +11,13 @@ public static class ShellFieldInterpolator
         var used = new bool[points.Count];
         var results = new List<FieldTargetValue>(shells.Count);
         var noZSteep = new List<string>();
+        // Таблица с Z: точка достаётся участку с ближайшей плоскостью (совпадающие в пределах 1 мм плоскости делят её).
+        // Иначе у ступени ниже допуска до плоскости или у угла «плита — стена» точки соседней поверхности попадали бы
+        // в триангуляцию участка и значения протекали.
+        var nearestPlane = new double[points.Count];
+        if (hasZ)
+            for (int i = 0; i < points.Count; i++)
+                nearestPlane[i] = patches.Count == 0 ? double.PositiveInfinity : patches.Min(pt => pt.DistanceToPlane(points[i].P));
         foreach (var patch in patches)
         {
             if (!hasZ && patch.IsSteep)
@@ -24,10 +31,9 @@ public static class ShellFieldInterpolator
             }
             var uvNodes = patch.Shells.SelectMany(x => x.Nodes).Select(patch.Project).ToList();
             double u0 = uvNodes.Min(x => x.U), u1 = uvNodes.Max(x => x.U), v0 = uvNodes.Min(x => x.V), v1 = uvNodes.Max(x => x.V);
-            // Точка «попала на участок» — в габарите с запасом MaxDistance; в триангуляцию берётся и запас на
-            // размер участка: редкая таблица (значения только по углам) иначе теряет вершины треугольников,
-            // накрывающих КЭ.
-            double reach = s.MaxDistance + Math.Sqrt((u1 - u0) * (u1 - u0) + (v1 - v0) * (v1 - v0));
+            // В триангуляцию идут все точки плоскости участка, без обрезки по габариту: КЭ внутри оболочки облака
+            // интерполируется при любом шаге таблицы. Точка «попала на участок» (диагностика) — в габарите с запасом
+            // MaxDistance.
             var local = new List<(double U, double V)>();
             var localIdx = new List<int>();
             for (int i = 0; i < points.Count; i++)
@@ -38,9 +44,12 @@ public static class ShellFieldInterpolator
                     {
                         Z = patch.Origin.Z - (patch.Normal.X * (p.X - patch.Origin.X) + patch.Normal.Y * (p.Y - patch.Origin.Y)) / patch.Normal.Z,
                     };
-                else if (patch.DistanceToPlane(p) > s.PlaneTolerance) continue;
+                else
+                {
+                    double d = patch.DistanceToPlane(p);
+                    if (d > s.PlaneTolerance || d > nearestPlane[i] + 1e-3) continue;
+                }
                 var (u, v) = patch.Project(p);
-                if (u < u0 - reach || u > u1 + reach || v < v0 - reach || v > v1 + reach) continue;
                 local.Add((u, v));
                 localIdx.Add(i);
                 if (u >= u0 - s.MaxDistance && u <= u1 + s.MaxDistance && v >= v0 - s.MaxDistance && v <= v1 + s.MaxDistance)

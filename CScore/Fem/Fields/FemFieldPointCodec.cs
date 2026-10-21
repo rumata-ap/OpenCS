@@ -23,6 +23,8 @@ public static class FemFieldPointCodec
     public static List<FieldPoint> Decode(byte[] bytes, int valueCount)
     {
         int stride = 3 + valueCount;
+        if (bytes.Length % (stride * sizeof(double)) != 0)
+            throw new ArgumentException($"Длина блока точек ({bytes.Length} байт) не кратна точке из {stride} чисел.", nameof(bytes));
         var data = new double[bytes.Length / sizeof(double)];
         Buffer.BlockCopy(bytes, 0, data, 0, data.Length * sizeof(double));
         var result = new List<FieldPoint>(data.Length / stride);

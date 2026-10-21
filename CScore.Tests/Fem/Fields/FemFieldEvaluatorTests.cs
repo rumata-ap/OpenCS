@@ -6,7 +6,10 @@ namespace CScore.Tests.Fem.Fields;
 
 public class FemFieldEvaluatorTests
 {
-    /// <summary>Плита 3 × 1 КЭ (узлы 1…8, z = −16,3), КЭ 1–2 у КонЭ «P1», КЭ 3 — у «P2»; пружины в узлах 1 и 2.</summary>
+    /// <summary>
+    /// Плита 3 × 1 КЭ (узлы 1…8, z = −16,3), КЭ 1–2 у КонЭ «P1», КЭ 3 — у «P2»; пружины в узлах 1 и 2. Узлы КЭ — в
+    /// порядке хранения сетки «1 2 4 3» (как в ЛИРЕ/SCAD), не по контуру.
+    /// </summary>
     static FemFieldMeshContext Context(double dz = 0)
     {
         var nodes = new List<FemMeshNode>();
@@ -17,7 +20,7 @@ public class FemFieldEvaluatorTests
         }
         FemElement Shell(string tag, string member, int a, int b) => new()
         {
-            ElemTag = tag, ElemType = "shell", SourceMemberTag = member, NodeIdsJson = $"[{a},{b},{b + 4},{a + 4}]",
+            ElemTag = tag, ElemType = "shell", SourceMemberTag = member, NodeIdsJson = $"[{a},{b},{a + 4},{b + 4}]",
         };
         var elements = new List<FemElement> { Shell("1", "P1", 1, 2), Shell("2", "P1", 2, 3), Shell("3", "P2", 3, 4) };
         var springs = new List<FemSpring> { new() { NodeTag = "1", Kz = 1 }, new() { NodeTag = "2", Kz = 1 } };
@@ -48,6 +51,19 @@ public class FemFieldEvaluatorTests
             Assert.Equal(980665, v.Value!.Value, 6);
             Assert.Equal(5, v.FieldId);
         });
+    }
+
+    [Fact]
+    public void ResolveTargets_QuadStoredZigzag_ShellsGoAroundContour()
+    {
+        var shells = FemFieldEvaluator.ResolveTargets(C1Field(), Context()).Shells;
+        Assert.Equal(3, shells.Count);
+        Assert.All(shells, s =>
+        {
+            Assert.Equal(1, s.Area, 12);                // «бабочка» дала бы площадь 0
+            Assert.Equal(1, Math.Abs(s.Normal.Z), 12);
+        });
+        Assert.Equal(["1", "2", "6", "5"], shells[0].NodeTags);
     }
 
     [Fact]
@@ -98,6 +114,7 @@ public class FemFieldEvaluatorTests
         Assert.Equal(2, back.Count);
         Assert.Equal(pts[1].P, back[1].P);
         Assert.Equal([8.0, 9.0], back[1].Values);
+        Assert.Throws<ArgumentException>(() => FemFieldPointCodec.Decode(FemFieldPointCodec.Encode(pts, 2), 1));
     }
 
     [Fact]

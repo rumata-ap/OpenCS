@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using CScore.Fem.Loads;
 
 namespace CScore.Fem.Fields;
 
@@ -50,9 +51,11 @@ public static class FemFieldEvaluator
             var shells = new List<FieldShell>();
             foreach (var e in chosen.Where(e => e.ElemType == "shell"))
             {
-                var tags = NodeTags(e);
-                if (tags.Length < 3 || tags.Any(x => !nodeByTag.ContainsKey(x))) { missing.Add(e.ElemTag); continue; }
-                shells.Add(new FieldShell(e.ElemTag, tags, tags.Select(x => P(nodeByTag[x])).ToList()));
+                // Четырёхугольник хранится «1 2 4 3» (как в ЛИРЕ/SCAD) — пластина цели получает узлы по контуру.
+                var g = FemElementGeometry.Of(e, nodeByTag);
+                if (g == null || !g.IsShell) { missing.Add(e.ElemTag); continue; }
+                shells.Add(new FieldShell(e.ElemTag, g.Contour.Select(i => g.NodeTags[i]).ToList(),
+                    g.Contour.Select(i => new FieldVec3(g.Points[i].X, g.Points[i].Y, g.Points[i].Z)).ToList()));
             }
             return new FemFieldTargetSet(shells, [], missing);
         }
@@ -113,7 +116,8 @@ public static class FemFieldEvaluator
     static void Append(StringBuilder sb, FieldVec3 p) =>
         sb.Append(';').Append(R(p.X)).Append(',').Append(R(p.Y)).Append(',').Append(R(p.Z));
 
-    static string R(double v) => Math.Round(v, 6).ToString("R", CultureInfo.InvariantCulture);
+    // + 0.0 сводит −0 к 0: иначе «−0» и «0» дали бы разные подписи одной сетки.
+    static string R(double v) => (Math.Round(v, 6) + 0.0).ToString("R", CultureInfo.InvariantCulture);
 
     /// <summary>Теги узлов КЭ: в <see cref="FemElement.NodeIdsJson"/> — номера-теги, не Id.</summary>
     static string[] NodeTags(FemElement e) =>

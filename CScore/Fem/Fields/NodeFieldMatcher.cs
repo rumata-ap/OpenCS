@@ -49,6 +49,14 @@ public static class NodeFieldMatcher
                 $"Точки таблицы без узла в пределах {tolerance.ToString("0.###", CultureInfo.InvariantCulture)} м; строки", unmatched));
         if (orphans.Count > 0)
             diags.Add(new("field_node_unmatched", "Узлы без точки таблицы; узлы", orphans));
+        if (!hasZ)
+        {
+            // Без Z узлы на одной вертикали неразличимы: точка достанется одному из них произвольно.
+            var stacked = nodes.GroupBy(n => ((long)Math.Round(n.P.X * 1000), (long)Math.Round(n.P.Y * 1000)))
+                .Where(g => g.Count() > 1).SelectMany(g => g.Select(n => n.Tag)).OrderBy(t => t, StringComparer.Ordinal).ToList();
+            if (stacked.Count > 0)
+                diags.Add(new("field_nodes_stacked", "Таблица без Z: узлы-цели совпадают в плане — значение получит один из них; узлы", stacked));
+        }
         return new FieldEvaluation(targets, diags, [], points.Count, unmatched.Count);
     }
 

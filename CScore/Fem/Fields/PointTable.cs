@@ -25,7 +25,8 @@ public sealed class PointTable
         char sep = lines[0].Contains(';') ? ';' : lines[0].Contains('\t') ? '\t' : ',';
         bool decimalComma = sep != ',';
         var first = lines[0].Split(sep);
-        bool hasHeader = first.Any(c => Number(c, decimalComma) == null);
+        // Заголовок — если в первой строке есть непустая нечисловая ячейка; пустая ячейка (нет Z) — ещё данные.
+        bool hasHeader = first.Any(c => c.Trim().Trim('"').Length > 0 && Number(c, decimalComma) == null);
         var headers = hasHeader
             ? first.Select(c => c.Trim().Trim('"')).ToList()
             : Enumerable.Range(1, first.Length).Select(i => i.ToString(CultureInfo.InvariantCulture)).ToList();
@@ -44,7 +45,8 @@ public sealed class PointTable
     {
         string s = cell.Trim().Trim('"').Replace(" ", "").Replace(" ", "");
         if (decimalComma) s = s.Replace(',', '.');
-        return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : null;
+        // NaN и бесконечность — не числа таблицы: сломали бы слияние дублей и k-d дерево.
+        return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : null;
     }
 
     /// <summary>Есть ли в столбце хоть одно число (пустой столбец Z не предлагается как координата).</summary>

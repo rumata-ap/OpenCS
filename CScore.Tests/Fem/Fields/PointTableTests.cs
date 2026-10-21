@@ -34,6 +34,17 @@ public class PointTableTests
     }
 
     [Fact]
+    public void Parse_FirstRowWithEmptyCell_IsData_NonFiniteIsNotNumber()
+    {
+        var t = PointTable.Parse("1;2;;300\n4;5;NaN;Infinity");
+        Assert.Equal(["1", "2", "3", "4"], t.Headers);
+        Assert.Equal(2, t.Rows.Count);
+        Assert.Equal(300, t.Rows[0][3]);
+        Assert.Null(t.Rows[1][2]);
+        Assert.Null(t.Rows[1][3]);
+    }
+
+    [Fact]
     public void Select_SkipsRowsWithEmptySelectedCells()
     {
         var t = PointTable.Parse("X;Y;Z;V\n1;2;3;10\n4;5;;20\n7;x;9;30");

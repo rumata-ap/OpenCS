@@ -29,6 +29,16 @@ public class NodeFieldMatcherTests
     }
 
     [Fact]
+    public void Match_NoZ_StackedNodesReported()
+    {
+        var nodes = new List<FieldNode> { new("1", new(0, 0, 0)), new("2", new(0, 0, -3)), new("3", new(5, 0, 0)) };
+        var r = NodeFieldMatcher.Match([new(new(0, 0, 0), [1])], hasZ: false, nodes, 0.5);
+        Assert.Contains(r.Diagnostics, d => d.Code == "field_nodes_stacked" && d.Tags.SequenceEqual(["1", "2"]));
+        Assert.DoesNotContain(NodeFieldMatcher.Match([new(new(0, 0, 0), [1])], hasZ: true, nodes, 0.5).Diagnostics,
+            d => d.Code == "field_nodes_stacked");
+    }
+
+    [Fact]
     public void Match_WithZ_UsesSpatialDistance()
     {
         var nodes = new List<FieldNode> { new("1", new(0, 0, 0)), new("2", new(0, 0, -10)) };
