@@ -29,10 +29,12 @@ public sealed record FemCsfeaStiffnessCandidate(FemAnalysis Analysis, CalcType C
 
 /// <summary>
 /// Источник жёсткостей, проверенный для расчёта: запись конечного состояния (<see cref="Fields"/>, с полными матрицами),
-/// определяющая нагрузка (загружение → коэффициент; null — не строится) и геометрическая нелинейность источника.
+/// определяющая нагрузка (загружение → коэффициент; null — не строится) и геометрическая нелинейность источника:
+/// включена, большие перемещения (CR), P-Δ оболочек в своей плоскости.
 /// </summary>
 public sealed record FemCsfeaStiffnessSourceData(FemCsfeaStiffnessCandidate Candidate,
-    CSfea.CScoreBridge.Structural.RcSecantStepFields Fields, IReadOnlyDictionary<int, double>? DeterminingLoad, bool GeomNonlinear);
+    CSfea.CScoreBridge.Structural.RcSecantStepFields Fields, IReadOnlyDictionary<int, double>? DeterminingLoad, bool GeomNonlinear,
+    bool LargeDisplacements = false, bool ShellInPlanePDelta = true);
 
 /// <summary>Состояние выбранного источника жёсткостей относительно текущих записей БД.</summary>
 public enum FemCsfeaStiffnessSourceStatus
@@ -194,7 +196,7 @@ public static class FemCsfeaStiffnessSources
         var fields = FemCsfeaStepFieldsCodec.Unpack(record!);
         var pars = FemAnalysisParams.Parse(current!.Analysis.ParamsJson);
         return new FemCsfeaStiffnessSourceData(current, fields, DeterminingLoad(db, schemaId, current, pars, fields),
-            pars.Csfea?.GeomNonlinear == true);
+            pars.Csfea?.GeomNonlinear == true, pars.Csfea?.GeomLargeDisplacements == true, pars.Csfea?.ShellInPlanePDelta ?? true);
     }
 
     /// <summary>
@@ -215,6 +217,7 @@ public static class FemCsfeaStiffnessSources
         var source = FemAnalysisParams.Parse(c.Analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
         var csfea = System.Text.Json.JsonSerializer.Deserialize<FemCsfeaParams>(System.Text.Json.JsonSerializer.Serialize(source))!;
         csfea.StiffnessSource = fingerprint;
+        csfea.SourcePDelta = source.GeomNonlinear;
         csfea.GeomNonlinear = false;
         csfea.GeomLargeDisplacements = false;
         csfea.PhysicalNonlinearity = true;

@@ -273,6 +273,12 @@ public sealed class FemCsfeaParams
     /// итерации (дольше); false — теория второго порядка: матрица начальных напряжений в секущей матрице системы.
     /// </summary>
     public bool GeomLargeDisplacements { get; set; }
+    /// <summary>
+    /// Линейный расчёт на жёсткостях секущего источника (<see cref="StiffnessSource"/>) с геометрической нелинейностью:
+    /// все загружения решаются на K_s + K_σ по перемещениям определяющего состояния источника (P-Δ определяющего
+    /// нагружения); у источника без геометрической нелинейности не действует.
+    /// </summary>
+    public bool SourcePDelta { get; set; }
 
     /// <summary>Наибольшее число итераций Пикара на шаге.</summary>
     public int MaxIterations { get; set; } = 50;

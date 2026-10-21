@@ -251,6 +251,21 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Число КЭ, у которых сработал нижний предел жёсткости e_min.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public int StiffnessFloored { get; set; }
+    /// <summary>Результат второго порядка: секущий с геометрической нелинейностью или линейный с P-Δ источника.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SecondOrder { get; set; }
+    /// <summary>Линейный расчёт с K_σ определяющего состояния источника (P-Δ).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SourcePDelta { get; set; }
+    /// <summary>При <see cref="SourcePDelta"/>: стержней с продольной силой в K_σ.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int SourcePDeltaBeams { get; set; }
+    /// <summary>При <see cref="SourcePDelta"/>: оболочек в K_σ.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int SourcePDeltaShells { get; set; }
+    /// <summary>При <see cref="SourcePDelta"/>: K_σ оболочек и в своей плоскости.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SourcePDeltaInPlane { get; set; }
     /// <summary>Самопроверка: max |Δu| / max |u| определяющей комбинации источника; null — не выполнялась.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public double? SelfCheck { get; set; }
@@ -273,7 +288,7 @@ public sealed class FemCsfeaResultSummary
         if (StiffnessSourceLabel == null) return null;
         string mismatch = calc is { } c && StiffnessCalc != null && StiffnessCalc != c.ToString()
             ? $" (вид постановки {c} не совпадает)" : "";
-        return $"Жёсткости КЭ — {StiffnessSourceLabel}{mismatch}";
+        return $"Жёсткости КЭ — {StiffnessSourceLabel}{mismatch}" + (SourcePDelta ? ", с продольными силами источника (P-Δ)" : "");
     }
 
     /// <summary>Строки итога о жёсткостях из секущего результата; пусто — начальные жёсткости.</summary>
@@ -282,6 +297,13 @@ public sealed class FemCsfeaResultSummary
         if (StiffnessSourceLabel == null) yield break;
         yield return $"Жёсткости КЭ — из секущего расчёта: {StiffnessSourceLabel}"
             + (StiffnessApproximate ? " (запись до 18.10.2026: стержни — по средней податливости точек, приближённо)." : ".");
+        if (SourcePDelta)
+        {
+            yield return $"K_σ по определяющему состоянию источника: стержней {SourcePDeltaBeams}, оболочек {SourcePDeltaShells}"
+                + (SourcePDeltaShells > 0 ? $" (в своей плоскости — {(SourcePDeltaInPlane ? "да" : "нет")})" : "") + ".";
+            yield return "Прочие комбинации считаются с продольными силами определяющего состояния: сжатие больше определяющего — "
+                + "P-Δ недоучтён, меньше — переучтён.";
+        }
         if (StiffnessFloored > 0) yield return $"Нижний предел жёсткости e_min сработал у {StiffnessFloored} КЭ.";
         if (SelfCheck is { } check)
         {
@@ -589,6 +611,7 @@ public static class FemCsfeaRunner
         int? controlDof = ControlDof(prepared, run.Build, csfea, summary);
 
         var r = run.Result;
+        summary.SecondOrder = csfea.GeomNonlinear;
         summary.Completed = r.Completed;
         summary.LimitStage = r.LimitStage;
         summary.Message = r.Message;
@@ -640,6 +663,7 @@ public static class FemCsfeaRunner
         var summary = new FemCsfeaResultSummary
         {
             Report = prepared.Report.ToList(), Batch = [], BatchRecording = batch.Recording, BatchMaxLoadFactor = batch.MaxLoadFactor,
+            SecondOrder = csfea.GeomNonlinear,
         };
         if (prepared.HasErrors)
         {
@@ -1009,22 +1033,45 @@ public static class FemCsfeaRunner
             double floor = ctx.StiffnessFloor is > 0 and < 1 ? ctx.StiffnessFloor : OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
             sections = new RecordedRcSectionFactory(source!.Fields, floor);
         }
+        // P-Δ источника: K_σ по перемещениям его записи (спека 2026-10-21, п. 4).
+        bool pDelta = csfea.SourcePDelta && source is { GeomNonlinear: true };
+        if (csfea.SourcePDelta && source is { GeomNonlinear: false })
+            summary.Report.Add("Флажок P-Δ: источник жёсткостей считался без геометрической нелинейности — расчёт первого порядка.");
+        if (pDelta && source!.LargeDisplacements)
+            summary.Report.Add("P-Δ приближённо: источник считался с большими перемещениями, K_σ — по исходной геометрии.");
         var options = new RcLinearOptions
         {
             MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism, ShellForceAngles = adapted.ShellForceAngles,
             RecordSectionStrains = csfea.RecordSectionStrains, Log = line => ctx.Log.Info($"[{tag}] {line}"),
-            Sections = sections,
+            Sections = sections, GeometricFields = pDelta ? source!.Fields : null,
+            ShellInPlanePDelta = source?.ShellInPlanePDelta ?? true,
         };
         var clock = Stopwatch.StartNew();
-        var (run, records) = await Task.Run(() =>
+        RcLinearRun run;
+        byte[][] records;
+        try
         {
-            var r = RcLinearAnalysis.Run(adapted.Model, options, ct);
-            var packed = new byte[r.Cases.Count][];
-            Parallel.For(0, packed.Length, new ParallelOptions { MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism },
-                i => packed[i] = FemCsfeaStepFieldsCodec.Pack(r.Cases[i].Fields));
-            return (r, packed);
-        }, ct);
+            (run, records) = await Task.Run(() =>
+            {
+                var r = RcLinearAnalysis.Run(adapted.Model, options, ct);
+                var packed = new byte[r.Cases.Count][];
+                Parallel.For(0, packed.Length, new ParallelOptions { MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism },
+                    i => packed[i] = FemCsfeaStepFieldsCodec.Pack(r.Cases[i].Fields));
+                return (r, packed);
+            }, ct);
+        }
+        catch (InvalidOperationException ex) when (pDelta)
+        {
+            summary.Errors.Add("Определяющее нагружение источника близко к потере устойчивости или выше неё: " + ex.Message
+                + " Уменьшите определяющую нагрузку источника или снимите флажок P-Δ.");
+            return Result(analysis, created, "error", summary);
+        }
         clock.Stop();
+        summary.SourcePDelta = pDelta;
+        summary.SecondOrder = pDelta;
+        summary.SourcePDeltaBeams = run.GeometricBeams;
+        summary.SourcePDeltaShells = run.GeometricShells;
+        summary.SourcePDeltaInPlane = pDelta && source!.ShellInPlanePDelta;
 
         int? controlDof = ControlDof(prepared, run.Build, csfea, summary);
         summary.Kind = LinearAnalysisKind;
@@ -1095,7 +1142,12 @@ public static class FemCsfeaRunner
         summary.SelfCheckNote = note;
         var expected = new List<string>();
         if (summary.StiffnessFloored > 0) expected.Add("сработал нижний предел e_min");
-        if (source.GeomNonlinear) expected.Add("источник считался с геометрической нелинейностью");
+        if (summary.SourcePDelta)
+        {
+            expected.Add("K_σ по итоговым перемещениям источника (допуск итераций)");
+            if (source.LargeDisplacements) expected.Add("источник с большими перемещениями");
+        }
+        else if (source.GeomNonlinear) expected.Add("источник считался с геометрической нелинейностью");
         if (!sections.Exact) expected.Add("запись источника до 18.10.2026 — стержни по средней податливости точек");
         summary.SelfCheckExpectedReasons = expected.Count > 0 ? string.Join("; ", expected) : null;
         foreach (var line in summary.DescribeStiffness()) ctx.Log.Info($"[{tag}] {line}");

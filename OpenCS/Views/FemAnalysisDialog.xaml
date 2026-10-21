@@ -497,6 +497,8 @@
                                   DisplayMemberPath="Label" SelectionChanged="CsfeaStiffnessState_Changed"
                                   ToolTip="{DynamicResource FemCsfeaStiffnessStateTip}"/>
                     </Grid>
+                    <CheckBox x:Name="CsfeaSourcePDeltaCb" Content="{DynamicResource FemCsfeaSourcePDelta}" Margin="20,4,0,0"
+                              ToolTip="{DynamicResource FemCsfeaSourcePDeltaTip}" ToolTipService.ShowOnDisabled="True"/>
                     <TextBlock x:Name="CsfeaStiffnessInfoText" Margin="20,4,0,0" TextWrapping="Wrap" FontSize="11"/>
                     <TextBlock x:Name="CsfeaStiffnessWarningText" Margin="20,2,0,0" TextWrapping="Wrap" FontSize="11"
                                Foreground="DarkOrange" Visibility="Collapsed"/>

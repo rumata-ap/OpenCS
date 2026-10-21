@@ -31,6 +31,24 @@ public sealed class FemCsfeaParamsTests
         Assert.Equal(solver.Geometric, options.Solver.Geometric);
     }
 
+    /// <summary>P-Δ источника: в старом JSON поля нет — выключен; круговой JSON сохраняет; флажок меняет JSON постановки.</summary>
+    [Fact]
+    public void SourcePDelta_DefaultsOff_RoundTrips()
+    {
+        // JSON постановки до 21.10.2026 — без поля SourcePDelta.
+        string oldJson = System.Text.RegularExpressions.Regex.Replace(
+            new FemAnalysisParams { Csfea = new FemCsfeaParams { GeomNonlinear = true } }.ToJson(),
+            @"""SourcePDelta""\s*:\s*(true|false)\s*,?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        Assert.DoesNotContain("SourcePDelta", oldJson, StringComparison.OrdinalIgnoreCase);
+        var old = FemAnalysisParams.Parse(oldJson);
+        Assert.False(old.Csfea!.SourcePDelta);
+        var pars = new FemAnalysisParams { Csfea = new FemCsfeaParams { SourcePDelta = true } };
+        string json = pars.ToJson();
+        Assert.True(FemAnalysisParams.Parse(json).Csfea!.SourcePDelta);
+        pars.Csfea.SourcePDelta = false;
+        Assert.NotEqual(json, pars.ToJson());
+    }
+
     [Fact]
     public void ToJson_Parse_RoundTripsCsfea()
     {

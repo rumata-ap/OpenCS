@@ -285,6 +285,70 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// P-Δ источника (спека 2026-10-21): источник — секущий с геометрической нелинейностью; линейный с флажком решает
+    /// загружения на K_s + K_σ его состояния — второй порядок в сводке, K_σ у оболочек, самопроверка до допуска итераций
+    /// источника, шапка с пометкой; без геомнелина у источника флажок не действует (замечание в отчёте); шаблон команды
+    /// «Линейный расчёт на этих жёсткостях…» включает флажок по источнику.
+    /// </summary>
+    [Fact]
+    public async Task Linear_WithSourcePDelta_SolvesSecondOrder()
+    {
+        await WithSchema(async (ctx, log, schema, secant) =>
+        {
+            var sp = FemAnalysisParams.Parse(secant.ParamsJson);
+            sp.Csfea!.GeomNonlinear = true;
+            secant.ParamsJson = sp.ToJson();
+            ctx.Db.SaveFemAnalysis(secant);
+            var source = await FemCsfeaRunner.RunAsync(ctx, schema, secant, null, CancellationToken.None);
+            Assert.Equal("ok", source.Status);
+            Assert.True(FemCsfeaResultSummary.Parse(source.DataJson)!.SecondOrder);
+            secant.ResultId = source.Id;
+            ctx.Db.SaveFemAnalysis(secant);
+
+            var candidate = Assert.Single(FemCsfeaStiffnessSources.List(ctx.Db, schema.Id));
+            var stiffness = FemCsfeaStiffnessSources.Fingerprint(ctx.Db, candidate, out var error);
+            Assert.Null(error);
+            var linear = FemCsfeaStiffnessSources.LinearTemplate(candidate, stiffness!, schema.LoadCases);
+            var lp = FemAnalysisParams.Parse(linear.ParamsJson);
+            Assert.True(lp.Csfea!.SourcePDelta);
+            Assert.False(lp.Csfea.GeomNonlinear);
+            linear.SchemaId = schema.Id;
+            ctx.Db.SaveFemAnalysis(linear);
+
+            var result = await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None);
+            var summary = FemCsfeaResultSummary.Parse(result.DataJson)!;
+            foreach (var line in summary.Errors.Concat(summary.Report).Concat(summary.Describe())) output.WriteLine(line);
+            Assert.Equal("ok", result.Status);
+            Assert.True(summary.SourcePDelta);
+            Assert.True(summary.SecondOrder);
+            Assert.True(summary.SourcePDeltaShells > 0);
+            Assert.NotNull(summary.SelfCheck);
+            Assert.True(summary.SelfCheck < 1e-2, $"самопроверка {summary.SelfCheck:e2}");
+            if (summary.SelfCheck > FemCsfeaResultSummary.SelfCheckTolerance)
+                Assert.Contains("допуск итераций", summary.SelfCheckExpectedReasons);
+            Assert.Contains(summary.Describe(), l => l.StartsWith("K_σ по определяющему состоянию источника", StringComparison.Ordinal));
+            Assert.EndsWith(", с продольными силами источника (P-Δ)", summary.StiffnessHeader(null));
+
+            // Источник без геомнелина: флажок не действует, расчёт первого порядка с замечанием.
+            sp.Csfea.GeomNonlinear = false;
+            secant.ParamsJson = sp.ToJson();
+            ctx.Db.SaveFemAnalysis(secant);
+            var plain = await FemCsfeaRunner.RunAsync(ctx, schema, secant, null, CancellationToken.None);
+            Assert.False(FemCsfeaResultSummary.Parse(plain.DataJson)!.SecondOrder);
+            secant.ResultId = plain.Id;
+            ctx.Db.SaveFemAnalysis(secant);
+            var c2 = Assert.Single(FemCsfeaStiffnessSources.List(ctx.Db, schema.Id));
+            lp.Csfea.StiffnessSource = FemCsfeaStiffnessSources.Fingerprint(ctx.Db, c2, out _);
+            linear.ParamsJson = lp.ToJson();
+            ctx.Db.SaveFemAnalysis(linear);
+            var first = FemCsfeaResultSummary.Parse((await FemCsfeaRunner.RunAsync(ctx, schema, linear, null, CancellationToken.None)).DataJson)!;
+            Assert.False(first.SourcePDelta);
+            Assert.False(first.SecondOrder);
+            Assert.Contains(first.Report, l => l.Contains("без геометрической нелинейности", StringComparison.Ordinal));
+        });
+    }
+
+    /// <summary>
     /// Инженерная нелинейность (срез 3), сквозной сценарий: секущий (все шаги записаны) → команда «Линейный расчёт на
     /// этих жёсткостях…» доступна только на конечном состоянии → шаблон постановки → линейный воспроизводит источник →
     /// шапка результата → наборы по загружениям → rc_plate_check по КЭ; источник пересчитан или сброшен — плашка.

@@ -3355,6 +3355,10 @@
     <system:String x:Key="FemCsfeaStiffnessNoSources">The model has no computed secant analyses with a recorded final state.</system:String>
     <system:String x:Key="FemCsfeaStiffnessNoDb">The source list is unavailable without an open project.</system:String>
     <system:String x:Key="FemCsfeaStiffnessSourceLabel">Source: {0}.</system:String>
+    <system:String x:Key="FemCsfeaSourcePDelta">Account for P-Δ (source axial forces)</system:String>
+    <system:String x:Key="FemCsfeaSourcePDeltaTip">All load cases are solved with K_s + K_σ from the source's governing state displacements: the governing loading's P-Δ is carried over to all load cases</system:String>
+    <system:String x:Key="FemCsfeaSourcePDeltaNoGeom">The source was analysed without geometric nonlinearity — P-Δ is unavailable</system:String>
+    <system:String x:Key="FemCsfeaSourcePDeltaCr">P-Δ is approximate: large-displacement source, K_σ on the initial geometry</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotCompleted">The source did not reach the λ limit — stiffnesses of an underloaded state.</system:String>
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Source calculation type {0} differs from the analysis type {1}: stiffnesses use the {0} diagrams, crack width and force sets — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">The source was recomputed after selection — its current result will be taken on save.</system:String>

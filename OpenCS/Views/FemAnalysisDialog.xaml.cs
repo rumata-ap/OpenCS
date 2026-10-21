@@ -351,6 +351,7 @@ public partial class FemAnalysisDialog : Window
         CsfeaControlNodeBox.Text = c.ControlNodeTag;
         CsfeaControlDofBox.SelectedIndex = c.ControlDof is >= 0 and <= 5 ? c.ControlDof : 2;
         _savedStiffnessSource = c.StiffnessSource;
+        CsfeaSourcePDeltaCb.IsChecked = c.SourcePDelta;
         (c.StiffnessSource != null ? CsfeaStiffnessSecantRadio : CsfeaStiffnessInitialRadio).IsChecked = true;
         UpdateCsfeaRecordingState();
     }
@@ -390,19 +391,38 @@ public partial class FemAnalysisDialog : Window
             ?? states.FirstOrDefault();
     }
 
-    void CsfeaStiffness_Changed(object sender, RoutedEventArgs e) => UpdateCsfeaStiffnessState();
+    void CsfeaStiffness_Changed(object sender, RoutedEventArgs e)
+    {
+        // Новая постановка переключена на секущий источник — флажок P-Δ по умолчанию по источнику.
+        if (!_stiffnessLoading && _savedStiffnessSource == null && CsfeaSourcePDeltaCb != null) DefaultSourcePDelta();
+        UpdateCsfeaStiffnessState();
+    }
 
     void CsfeaStiffnessAnalysis_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_stiffnessLoading) return;
         FillStiffnessStates();
+        DefaultSourcePDelta();
         UpdateCsfeaStiffnessState();
     }
 
     void CsfeaStiffnessState_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (!_stiffnessLoading) UpdateCsfeaStiffnessState();
+        if (_stiffnessLoading) return;
+        DefaultSourcePDelta();
+        UpdateCsfeaStiffnessState();
     }
+
+    /// <summary>Геометрическая нелинейность и большие перемещения секущей постановки источника.</summary>
+    static (bool Geom, bool Large) SourceGeometry(FemCsfeaStiffnessCandidate c)
+    {
+        var p = FemAnalysisParams.Parse(c.Analysis.ParamsJson).Csfea;
+        return (p?.GeomNonlinear == true, p?.GeomNonlinear == true && p.GeomLargeDisplacements);
+    }
+
+    /// <summary>Пользователь сменил источник: флажок P-Δ — по геометрической нелинейности нового источника.</summary>
+    void DefaultSourcePDelta() =>
+        CsfeaSourcePDeltaCb.IsChecked = SelectedStiffnessCandidate is { } c && SourceGeometry(c).Geom;
 
     /// <summary>Выбранный источник жёсткостей; null — начальные жёсткости или не выбран.</summary>
     FemCsfeaStiffnessCandidate? SelectedStiffnessCandidate => CsfeaStiffnessSecantRadio?.IsChecked == true
@@ -420,6 +440,9 @@ public partial class FemAnalysisDialog : Window
         CsfeaStiffnessAnalysisBox.IsEnabled = secant && any;
         CsfeaStiffnessStateBox.IsEnabled = secant && any;
         UpdateCsfeaImportedFactorsState();
+        var geometry = SelectedStiffnessCandidate is { } sc ? SourceGeometry(sc) : (Geom: false, Large: false);
+        CsfeaSourcePDeltaCb.IsEnabled = geometry.Geom;
+        CsfeaSourcePDeltaCb.ToolTip = Loc.S(geometry.Geom || !secant ? "FemCsfeaSourcePDeltaTip" : "FemCsfeaSourcePDeltaNoGeom");
 
         var warnings = new List<string>();
         string info = "";
@@ -433,6 +456,7 @@ public partial class FemAnalysisDialog : Window
                 if (!c.Completed) warnings.Add(Loc.S("FemCsfeaStiffnessNotCompleted"));
                 var calc = CsfeaCalcTypeBox.SelectedItem as CalcType? ?? CalcType.N;
                 if (c.Calc != calc) warnings.Add(string.Format(Loc.S("FemCsfeaStiffnessCalcMismatch"), c.Calc, calc));
+                if (geometry.Large && CsfeaSourcePDeltaCb.IsChecked == true) warnings.Add(Loc.S("FemCsfeaSourcePDeltaCr"));
                 if (c.Matches(_savedStiffnessSource) && _savedStiffnessStatus == FemCsfeaStiffnessSourceStatus.Changed)
                     warnings.Add(Loc.S("FemCsfeaStiffnessChanged"));
             }
@@ -1071,6 +1095,7 @@ public partial class FemAnalysisDialog : Window
                 if (isCsfeaLinear)
                 {
                     csfea.StiffnessSource = ReadStiffnessSource(out var stiffnessError);
+                    csfea.SourcePDelta = csfea.StiffnessSource != null && CsfeaSourcePDeltaCb.IsChecked == true;
                     if (stiffnessError != null)
                     {
                         MessageBox.Show(stiffnessError, caption, MessageBoxButton.OK, MessageBoxImage.Warning);
