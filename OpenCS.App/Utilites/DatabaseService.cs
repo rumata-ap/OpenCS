@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 87;
+      const int CurrentSchemaVersion = 88;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -107,6 +107,7 @@ namespace OpenCS.Utilites
          [84] = MigrateV85,
          [85] = MigrateV86,
          [86] = MigrateV87,
+         [87] = MigrateV88,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -793,6 +794,7 @@ namespace OpenCS.Utilites
          EnsureFemSchemaConstructiveBlockTable();
          EnsureFemSchemaStiffnessTable();
          MigrateV86();
+         MigrateV88();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -4573,6 +4575,9 @@ namespace OpenCS.Utilites
                DELETE FROM fem_mesh_node_supports WHERE schema_id=@id;
                DELETE FROM fem_springs            WHERE schema_id=@id;
                DELETE FROM fem_line_supports      WHERE schema_id=@id;
+               DELETE FROM fem_field_values       WHERE field_id IN (SELECT id FROM fem_fields WHERE schema_id=@id);
+               DELETE FROM fem_fields             WHERE schema_id=@id;
+               DELETE FROM fem_param_overrides    WHERE schema_id=@id;
                DELETE FROM fem_rigid_bodies       WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
@@ -6018,6 +6023,8 @@ namespace OpenCS.Utilites
          var springs         = GetFemSprings(sourceSchemaId);
          var rigidBodies     = GetFemRigidBodies(sourceSchemaId);
          var lineSupports    = GetFemLineSupports(sourceSchemaId);
+         var fields          = GetFemFields(sourceSchemaId);
+         var paramOverrides  = GetFemParamOverrides(sourceSchemaId);
 
          using var tx = _connection.BeginTransaction();
          try
@@ -6273,6 +6280,7 @@ namespace OpenCS.Utilites
                updateObjects: false);
             InsertFemBoundaryCore(newSchemaId, meshSupports, springs, rigidBodies, updateObjects: false);
             ReplaceFemLineSupportsCore(newSchemaId, lineSupports.Select(x => x.Clone()).ToList());
+            CopyFemFieldsCore(fields, paramOverrides, newSchemaId, newGroupIdByOld);
 
             using (var definitionCmd = _connection.CreateCommand())
             {
@@ -6752,6 +6760,9 @@ namespace OpenCS.Utilites
                   DELETE FROM fem_mesh_node_supports WHERE schema_id=@sid;
                   DELETE FROM fem_springs          WHERE schema_id=@sid;
                   DELETE FROM fem_line_supports    WHERE schema_id=@sid;
+                  DELETE FROM fem_field_values     WHERE field_id IN (SELECT id FROM fem_fields WHERE schema_id=@sid);
+                  DELETE FROM fem_fields           WHERE schema_id=@sid;
+                  DELETE FROM fem_param_overrides  WHERE schema_id=@sid;
                   DELETE FROM fem_rigid_bodies     WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases       WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups    WHERE schema_id=@sid;
