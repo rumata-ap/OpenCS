@@ -88,6 +88,9 @@ public class FemElement
     /// <summary>Идентификатор четвёртого узла элемента (для 4-узловых оболочек). Null для 3-узловых и стержней.</summary>
     public int? Node4 => ReadNodeId(3);
 
+    /// <summary>Поверхностная копия КЭ (все поля — значения или неизменяемые строки).</summary>
+    public FemElement ShallowCopy() => (FemElement)MemberwiseClone();
+
     int? ReadNodeId(int index)
     {
         var nodeIds = JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];
