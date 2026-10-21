@@ -6,11 +6,15 @@ public static class FieldPoints
     /// <summary>
     /// Сливает точки ближе <paramref name="tolerance"/> (м, после совмещения) в одну — значения усредняются. Узлы на
     /// стыках плит в выгрузке ГТО повторяются, и без слияния триангуляция получает совпадающие вершины.
+    /// <c>MaxSpread</c> — наибольшее относительное расхождение значений внутри слитой группы ((max − min) / max|v|):
+    /// разные значения на стыке — скачок величины между плитами, который усреднение сглаживает.
     /// </summary>
-    public static (List<FieldPoint> Points, int Merged) MergeDuplicates(IReadOnlyList<FieldPoint> points, double tolerance = 1e-3)
+    public static (List<FieldPoint> Points, int Merged, double MaxSpread) MergeDuplicates(IReadOnlyList<FieldPoint> points,
+        double tolerance = 1e-3)
     {
         var result = new List<FieldPoint>(points.Count);
         var counts = new List<int>(points.Count);
+        var range = new Dictionary<int, (double[] Min, double[] Max)>();
         var cells = new Dictionary<(long, long, long), List<int>>();
         int merged = 0;
         foreach (var p in points)
@@ -34,6 +38,10 @@ public static class FieldPoints
             {
                 merged++;
                 var sum = result[found].Values;
+                if (!range.TryGetValue(found, out var r))
+                    range[found] = r = ((double[])sum.Clone(), (double[])sum.Clone());
+                for (int k = 0; k < sum.Length; k++)
+                    (r.Min[k], r.Max[k]) = (Math.Min(r.Min[k], p.Values[k]), Math.Max(r.Max[k], p.Values[k]));
                 for (int k = 0; k < sum.Length; k++) sum[k] += p.Values[k];
                 counts[found]++;
             }
@@ -41,7 +49,14 @@ public static class FieldPoints
         for (int i = 0; i < result.Count; i++)
             if (counts[i] > 1)
                 for (int k = 0; k < result[i].Values.Length; k++) result[i].Values[k] /= counts[i];
-        return (result, merged);
+        double spread = 0;
+        foreach (var (min, max) in range.Values)
+            for (int k = 0; k < min.Length; k++)
+            {
+                double scale = Math.Max(Math.Abs(min[k]), Math.Abs(max[k]));
+                if (scale > 0) spread = Math.Max(spread, (max[k] - min[k]) / scale);
+            }
+        return (result, merged, spread);
     }
 
     static (long, long, long) Key(FieldVec3 p, double tol) =>

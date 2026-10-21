@@ -84,14 +84,18 @@ public static class FemFieldEvaluator
         var set = ResolveTargets(field, ctx);
         var def = field.Definition;
         var aligned = field.Points.Select(p => new FieldPoint(def.Alignment.Apply(p.P), p.Values)).ToList();
-        var (points, merged) = FieldPoints.MergeDuplicates(aligned);
+        var (points, merged, spread) = FieldPoints.MergeDuplicates(aligned);
         var eval = quantity.Target == FemFieldTargetKind.Shell
             ? ShellFieldInterpolator.Evaluate(points, field.HasZ, set.Shells, def.Settings)
             : NodeFieldMatcher.Match(points, field.HasZ, set.Nodes, def.Settings.MatchTolerance);
 
         var diags = new List<FieldDiagnostic>(eval.Diagnostics);
         if (set.Missing.Count > 0) diags.Add(new("field_target_missing", "Цели поля, которых нет в сетке", set.Missing));
-        if (merged > 0) diags.Add(new("field_duplicates", $"Совпадающих точек таблицы слито: {merged}", []));
+        if (merged > 0)
+            diags.Add(new("field_duplicates", spread < 1e-3
+                ? $"Совпадающих точек таблицы слито: {merged} (значения в них совпадали)"
+                : $"Совпадающих точек таблицы слито: {merged}, значения усреднены; наибольшее расхождение в одной точке — "
+                  + $"{(spread * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} % (скачок на стыке сглажен)", []));
 
         var values = new List<FemFieldValue>(eval.Targets.Count * def.Columns.Count);
         foreach (var target in eval.Targets)

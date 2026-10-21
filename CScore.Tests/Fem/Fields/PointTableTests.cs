@@ -75,10 +75,14 @@ public class PointTableTests
         {
             new(new(0, 0, 0), [10]), new(new(0.0005, 0, 0), [20]), new(new(1, 0, 0), [5]),
         };
-        var (merged, count) = FieldPoints.MergeDuplicates(pts);
+        var (merged, count, spread) = FieldPoints.MergeDuplicates(pts);
         Assert.Equal(1, count);
         Assert.Equal(2, merged.Count);
         Assert.Equal(15, merged[0].Values[0], 12);
         Assert.Equal(5, merged[1].Values[0]);
+        Assert.Equal(0.5, spread, 12);   // (20 − 10) / 20
+
+        var (_, _, same) = FieldPoints.MergeDuplicates([new(new(0, 0, 0), [7]), new(new(0, 0, 0), [7])]);
+        Assert.Equal(0, same);
     }
 }
