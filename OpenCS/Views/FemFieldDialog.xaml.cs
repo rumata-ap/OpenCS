@@ -146,9 +146,36 @@ public partial class FemFieldDialog : Window
         if (!_syncing && methodBox.SelectedItem is ComboBoxItem { Tag: FieldMethod m }) _vm.Method = m;
     }
 
-    void FitExtents_Click(object sender, RoutedEventArgs e) { CommitEdits(); _vm.FitByExtents(); _vm.Preview(); RefreshPreview(); }
-    void FitPoints_Click(object sender, RoutedEventArgs e) { CommitEdits(); _vm.FitByPoints(); _vm.Preview(); RefreshPreview(); }
-    void Preview_Click(object sender, RoutedEventArgs e) { CommitEdits(); _vm.Preview(); RefreshPreview(); }
+    async void FitExtents_Click(object sender, RoutedEventArgs e) => await RunBusy(() => { _vm.FitByExtents(); _vm.Preview(); });
+    async void FitPoints_Click(object sender, RoutedEventArgs e) => await RunBusy(() => { _vm.FitByPoints(); _vm.Preview(); });
+    async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusy(_vm.Preview);
+
+    /// <summary>
+    /// Подбор и перенос на цели — в фоне: на схеме в 25 тыс. КЭ это секунды, окно не должно «не отвечать». На время
+    /// расчёта настройки и кнопки недоступны (VM не меняется параллельно).
+    /// </summary>
+    async Task RunBusy(Action work)
+    {
+        CommitEdits();
+        var root = (UIElement)Content;
+        root.IsEnabled = false;
+        Cursor = Cursors.Wait;
+        try
+        {
+            await Task.Run(work);
+            errorText.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            root.IsEnabled = true;
+            Cursor = null;
+        }
+        RefreshPreview();
+    }
     void Patch_Changed(object sender, SelectionChangedEventArgs e) => previewCanvas.PatchIndex = Math.Max(0, patchBox.SelectedIndex);
 
     void Ok_Click(object sender, RoutedEventArgs e)

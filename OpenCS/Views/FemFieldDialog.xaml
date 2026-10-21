@@ -6,7 +6,7 @@
         Title="{DynamicResource FemFieldDialogTitle}" Width="1200" Height="780"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip" ShowInTaskbar="False">
     <Window.Resources>
-        <!-- Десятичная запятая и точка в полях ввода; не число — значение не меняется. -->
+        <!-- Десятичная запятая и точка в полях ввода; не число — значение не меняется. G10 — без хвостов 0.5999999999999995. -->
         <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
     </Window.Resources>
     <DockPanel Margin="12">
@@ -100,11 +100,11 @@
                         <StackPanel Margin="4">
                             <ComboBox x:Name="methodBox" SelectionChanged="Method_Changed"/>
                             <TextBlock Text="{DynamicResource FemFieldMaxDistance}" Margin="0,6,0,0"/>
-                            <TextBox Text="{Binding MaxDistance, Converter={StaticResource AnyDoubleConverter}}"/>
+                            <TextBox Text="{Binding MaxDistance, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                             <TextBlock Text="{DynamicResource FemFieldPlaneTolerance}" Margin="0,4,0,0"/>
-                            <TextBox Text="{Binding PlaneTolerance, Converter={StaticResource AnyDoubleConverter}}"/>
+                            <TextBox Text="{Binding PlaneTolerance, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                             <TextBlock Text="{DynamicResource FemFieldMatchTolerance}" Margin="0,4,0,0"/>
-                            <TextBox Text="{Binding MatchTolerance, Converter={StaticResource AnyDoubleConverter}}"/>
+                            <TextBox Text="{Binding MatchTolerance, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -119,19 +119,19 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDx}"/>
-                                    <TextBox Text="{Binding Dx, Converter={StaticResource AnyDoubleConverter}}"/>
+                                    <TextBox Text="{Binding Dx, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDy}"/>
-                                    <TextBox Text="{Binding Dy, Converter={StaticResource AnyDoubleConverter}}"/>
+                                    <TextBox Text="{Binding Dy, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDz}"/>
-                                    <TextBox Text="{Binding Dz, Converter={StaticResource AnyDoubleConverter}}"/>
+                                    <TextBox Text="{Binding Dz, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="3">
                                     <TextBlock Text="{DynamicResource FemFieldAngle}"/>
-                                    <TextBox Text="{Binding AngleDeg, Converter={StaticResource AnyDoubleConverter}}"/>
+                                    <TextBox Text="{Binding AngleDeg, Converter={StaticResource AnyDoubleConverter}, ConverterParameter=G10}"/>
                                 </StackPanel>
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">

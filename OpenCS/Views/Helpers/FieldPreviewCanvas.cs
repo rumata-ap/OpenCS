@@ -35,6 +35,68 @@ public sealed class FieldPreviewCanvas : FrameworkElement
     /// <summary>Без Z точки показываются на любом пологом участке — проецируются вертикально.</summary>
     public bool PointsHaveZ { get => (bool)GetValue(PointsHaveZProperty); set => SetValue(PointsHaveZProperty, value); }
 
+    // Цвет значения — одна из Levels ступеней с замороженной кистью: фигуры одной ступени рисуются одной геометрией.
+    // Отдельная фигура с новой кистью на каждый КЭ (25 тыс. КЭ + 7 тыс. точек) перерисовывалась по 15 с.
+    const int Levels = 64;
+    static readonly Brush[] LevelBrushes = Enumerable.Range(0, Levels).Select(i =>
+    {
+        var b = new SolidColorBrush(ValueColor(i, 0, Levels - 1));
+        b.Freeze();
+        return (Brush)b;
+    }).ToArray();
+    static readonly Pen EdgePen = Frozen(new Pen(Brushes.DimGray, 0.3));
+    static readonly Pen PointPen = Frozen(new Pen(Brushes.Black, 0.3));
+    static readonly Pen NodePen = Frozen(new Pen(Brushes.Black, 0.5));
+    static readonly Pen TablePointPen = Frozen(new Pen(Brushes.Blue, 0.6));
+
+    static Pen Frozen(Pen pen)
+    {
+        pen.Freeze();
+        return pen;
+    }
+
+    /// <summary>Фигуры, сгруппированные по ступени цвета; ступень −1 — нет значения (серый).</summary>
+    sealed class Batches
+    {
+        readonly Dictionary<int, (StreamGeometry Geo, StreamGeometryContext Ctx)> _byLevel = [];
+
+        public StreamGeometryContext this[int level]
+        {
+            get
+            {
+                if (!_byLevel.TryGetValue(level, out var b))
+                {
+                    var geo = new StreamGeometry();
+                    _byLevel[level] = b = (geo, geo.Open());
+                }
+                return b.Ctx;
+            }
+        }
+
+        public void Draw(DrawingContext dc, Brush? noValue, Pen pen)
+        {
+            foreach (var (level, (geo, ctx)) in _byLevel.OrderBy(x => x.Key))
+            {
+                ctx.Close();
+                geo.Freeze();
+                dc.DrawGeometry(level < 0 ? noValue : LevelBrushes[level], pen, geo);
+            }
+        }
+    }
+
+    static void Polygon(StreamGeometryContext ctx, IReadOnlyList<Point> p)
+    {
+        ctx.BeginFigure(p[0], true, true);
+        ctx.PolyLineTo(p.Skip(1).ToList(), true, false);
+    }
+
+    static void Circle(StreamGeometryContext ctx, Point c, double r)
+    {
+        ctx.BeginFigure(new Point(c.X - r, c.Y), true, true);
+        ctx.ArcTo(new Point(c.X + r, c.Y), new Size(r, r), 0, false, SweepDirection.Clockwise, true, false);
+        ctx.ArcTo(new Point(c.X - r, c.Y), new Size(r, r), 0, false, SweepDirection.Clockwise, true, false);
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         dc.DrawRectangle(Brushes.White, null, new Rect(RenderSize));
@@ -43,33 +105,23 @@ public sealed class FieldPreviewCanvas : FrameworkElement
         var values = eval.Targets.Where(t => t.Values is { Length: > 0 }).Select(t => t.Values![0]).ToList();
         if (Points is { Count: > 0 } pts) values.AddRange(pts.Where(p => p.Values.Length > 0).Select(p => p.Values[0]));
         double vMin = values.Count > 0 ? values.Min() : 0, vMax = values.Count > 0 ? values.Max() : 1;
+        int Level(double v) => (int)Math.Round(Math.Clamp(vMax > vMin ? (v - vMin) / (vMax - vMin) : 0.5, 0, 1) * (Levels - 1));
         var byTag = new Dictionary<string, FieldTargetValue>(StringComparer.Ordinal);
         foreach (var t in eval.Targets) byTag.TryAdd(t.Tag, t);
-        Brush Fill(string tag) => byTag.GetValueOrDefault(tag)?.Values is { Length: > 0 } v
-            ? new SolidColorBrush(ValueColor(v[0], vMin, vMax)) : Brushes.LightGray;
+        int TargetLevel(string tag) => byTag.GetValueOrDefault(tag)?.Values is { Length: > 0 } v ? Level(v[0]) : -1;
 
         if (eval.Patches.Count > 0)
         {
             var patch = eval.Patches[Math.Clamp(PatchIndex, 0, eval.Patches.Count - 1)];
             var map = Map(patch.Shells.SelectMany(s => s.Nodes).Select(patch.Project).ToList());
-            var edge = new Pen(Brushes.DimGray, 0.3);
+            var shells = new Batches();
             foreach (var s in patch.Shells)
-            {
-                var geo = new StreamGeometry();
-                using (var ctx = geo.Open())
-                {
-                    var p = s.Nodes.Select(n => map(patch.Project(n))).ToList();
-                    ctx.BeginFigure(p[0], true, true);
-                    ctx.PolyLineTo(p.Skip(1).ToList(), true, false);
-                }
-                geo.Freeze();
-                dc.DrawGeometry(Fill(s.Tag), edge, geo);
-            }
+                Polygon(shells[TargetLevel(s.Tag)], s.Nodes.Select(n => map(patch.Project(n))).ToList());
+            shells.Draw(dc, Brushes.LightGray, EdgePen);
             if (Points == null) return;
-            var outline = new Pen(Brushes.Black, 0.3);
+            var points = new Batches();
             foreach (var p in Points)
             {
-                if (p.Values.Length == 0) continue;
                 FieldVec3 q;
                 if (PointsHaveZ)
                 {
@@ -84,19 +136,23 @@ public sealed class FieldPreviewCanvas : FrameworkElement
                     q = p.P with { Z = patch.Origin.Z - (n.X * (p.P.X - patch.Origin.X) + n.Y * (p.P.Y - patch.Origin.Y)) / n.Z };
                 }
                 // Все столбцы «не использовать» — точки без значений, серым.
-                var fill = p.Values.Length > 0 ? new SolidColorBrush(ValueColor(p.Values[0], vMin, vMax)) : Brushes.Gray;
-                dc.DrawEllipse(fill, outline, map(patch.Project(q)), 2, 2);
+                Circle(points[p.Values.Length > 0 ? Level(p.Values[0]) : -1], map(patch.Project(q)), 2);
             }
+            points.Draw(dc, Brushes.Gray, PointPen);
             return;
         }
         if (NodeTargets is { Count: > 0 } nodes)
         {
             var map = Map(nodes.Select(n => (n.P.X, n.P.Y)).Concat((Points ?? []).Select(p => (p.P.X, p.P.Y))).ToList());
-            var outline = new Pen(Brushes.Black, 0.5);
-            foreach (var n in nodes) dc.DrawEllipse(Fill(n.Tag), outline, map((n.P.X, n.P.Y)), 4, 4);
+            var targets = new Batches();
+            foreach (var n in nodes) Circle(targets[TargetLevel(n.Tag)], map((n.P.X, n.P.Y)), 4);
+            targets.Draw(dc, Brushes.LightGray, NodePen);
             if (Points == null) return;
-            var point = new Pen(Brushes.Blue, 0.6);
-            foreach (var p in Points) dc.DrawEllipse(null, point, map((p.P.X, p.P.Y)), 2.5, 2.5);
+            var table = new StreamGeometry();
+            using (var ctx = table.Open())
+                foreach (var p in Points) Circle(ctx, map((p.P.X, p.P.Y)), 2.5);
+            table.Freeze();
+            dc.DrawGeometry(null, TablePointPen, table);
         }
     }
 
