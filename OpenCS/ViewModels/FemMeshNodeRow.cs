@@ -41,7 +41,10 @@ public sealed class FemMeshNodeRow
         }
     }
 
-    public string OriginText => string.Join(", ", Origins.Select(DescribeOrigin));
+    /// <summary>Источники жёсткостей поверх записей узла: «поле «Rz свай»», «вручную» (правка величины).</summary>
+    public IReadOnlyList<string> ValueSources { get; private set; } = [];
+
+    public string OriginText => string.Join(", ", Origins.Select(DescribeOrigin).Concat(ValueSources));
 
     /// <summary>Подпись происхождения: «вручную», «SCAD», «ЛИРА».</summary>
     public static string DescribeOrigin(string origin) => origin switch
@@ -52,8 +55,13 @@ public sealed class FemMeshNodeRow
         _ => origin,
     };
 
-    /// <summary>Задаёт ГУ строки по записям узла.</summary>
-    public void Apply(IEnumerable<FemMeshNodeSupport> supports, IEnumerable<FemSpring> springs)
+    /// <summary>
+    /// Задаёт ГУ строки по записям узла (пружины — действующие, с учётом полей); <paramref name="valueSources"/> —
+    /// подписи полей и правок, задавших жёсткости. Пружина, созданная полем, своего происхождения не показывает —
+    /// его называет подпись поля.
+    /// </summary>
+    public void Apply(IEnumerable<FemMeshNodeSupport> supports, IEnumerable<FemSpring> springs,
+        IEnumerable<string>? valueSources = null)
     {
         var s = supports.ToList();
         var k = new double[6];
@@ -62,11 +70,12 @@ public sealed class FemMeshNodeRow
         {
             var add = spring.Stiffnesses;
             for (int i = 0; i < 6; i++) k[i] += add[i];
-            origins.Add(spring.Origin);
+            if (spring.Origin != CScore.Fem.Fields.FemFieldOverlay.FieldOrigin) origins.Add(spring.Origin);
         }
         SupportMask = s.Aggregate(0, (m, x) => m | (x.Mask & FemBoundaryDofs.All));
         Stiffnesses = k;
         Origins = origins.Distinct(StringComparer.Ordinal).ToList();
+        ValueSources = valueSources?.Distinct(StringComparer.Ordinal).ToList() ?? [];
     }
 
     /// <summary>ГУ после ручной правки.</summary>
@@ -75,5 +84,6 @@ public sealed class FemMeshNodeRow
         SupportMask = mask & FemBoundaryDofs.All;
         Stiffnesses = [.. stiffnesses];
         Origins = HasBoundary ? [FemLoadOrigin.Manual] : [];
+        ValueSources = [];
     }
 }

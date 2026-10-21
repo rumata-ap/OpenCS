@@ -5690,4 +5690,19 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldPreview">Preview</system:String>
    <system:String x:Key="FemFieldPatch">Patch</system:String>
    <system:String x:Key="FemFieldNoPoints">The table has no points with numeric X, Y and values — check the column choice.</system:String>
+   <system:String x:Key="FemFieldsNode">Fields from tables</system:String>
+   <system:String x:Key="FemFieldItemTitle">{0} — {1:N0} {2}, {3:N0} points</system:String>
+   <system:String x:Key="FemFieldNodesUnit">nodes</system:String>
+   <system:String x:Key="FemFieldElementsUnit">FE</system:String>
+   <system:String x:Key="FemFieldAssign">Assign from point table…</system:String>
+   <system:String x:Key="FemFieldEdit">Edit…</system:String>
+   <system:String x:Key="FemFieldRepeat">Repeat with new table…</system:String>
+   <system:String x:Key="FemFieldShow">Show on schema</system:String>
+   <system:String x:Key="FemFieldEnable">Enable</system:String>
+   <system:String x:Key="FemFieldDisable">Disable</system:String>
+   <system:String x:Key="FemFieldUp">Up (earlier in overlay)</system:String>
+   <system:String x:Key="FemFieldDown">Down (later in overlay)</system:String>
+   <system:String x:Key="FemFieldDelete">Delete</system:String>
+   <system:String x:Key="FemFieldDeleteConfirm">Delete field "{0}"? Its values will stop applying; schema analysis results will be reset.</system:String>
+   <system:String x:Key="FemFieldSourceField">field "{0}"</system:String>
 </ResourceDictionary>

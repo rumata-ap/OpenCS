@@ -159,17 +159,4 @@ public sealed class FemFieldServiceTests : IDisposable
             Assert.True(double.IsPositiveInfinity(Assert.Single(db.GetFemFieldValues(f.Id)).Distance));
         }
     }
-
-    [Fact]
-    public void InvalidateAnalyses_ResetsResults()
-    {
-        var (db, schema) = Seed();
-        using (db)
-        {
-            var analysis = new FemAnalysis { SchemaId = schema.Id, Tag = "A", ResultId = 123 };
-            db.SaveFemAnalysis(analysis);
-            db.LoadAll();
-            Assert.Equal(1, FemFieldService.InvalidateAnalyses(db, schema.Id));
-        }
-    }
 }

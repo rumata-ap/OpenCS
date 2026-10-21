@@ -200,6 +200,22 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>Число целей со значением у каждого поля схемы (по кэшу) — для подписей дерева без чтения значений.</summary>
+      public Dictionary<int, int> GetFemFieldTargetCounts(int schemaId)
+      {
+         var result = new Dictionary<int, int>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT v.field_id, COUNT(DISTINCT v.target_tag) FROM fem_field_values v
+            JOIN fem_fields f ON f.id = v.field_id
+            WHERE f.schema_id=@sid AND v.value IS NOT NULL GROUP BY v.field_id
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read()) result[r.GetInt32(0)] = r.GetInt32(1);
+         return result;
+      }
+
       /// <summary>Полная замена кэша значений поля и его подписи целей одной транзакцией.</summary>
       public void ReplaceFemFieldValues(int fieldId, IReadOnlyList<FemFieldValue> values, string signature)
       {

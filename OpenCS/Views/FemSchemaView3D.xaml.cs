@@ -1678,6 +1678,31 @@ public partial class FemSchemaView3D : UserControl
     }
 
     /// <summary>Подменю задачи по проверке в многоразовое меню: прошлое убирается, новое — перед «Фрагментом».</summary>
+    const string FieldItemMarker = "fem-field-item";
+
+    /// <summary>
+    /// «Назначить из таблицы точек…» на цели: КонЭ, КЭ и узлы сетки. Пункт прошлого показа меню убирается; без целей
+    /// или вне программы — не добавляется.
+    /// </summary>
+    void AppendFieldMenu(ContextMenu menu, IReadOnlyCollection<string> memberTags, IReadOnlyCollection<string> elemTags,
+        IReadOnlyCollection<string> nodeTags)
+    {
+        foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, FieldItemMarker)).ToList())
+            menu.Items.Remove(old);
+        if (VM is not { } vm || Application.Current?.MainWindow?.DataContext is not AppViewModel app) return;
+        if (app.db.FemSchemas.FirstOrDefault(s => s.Id == vm.SchemaId) is not { } schema) return;
+        var targets = new CScore.Fem.Fields.FemFieldTargets
+        {
+            MemberTags = [.. memberTags], ElemTags = [.. elemTags], NodeTags = [.. nodeTags],
+        };
+        if (targets.IsEmpty) return;
+        var item = CommandIcons.Item("FemFieldAssign");
+        item.Tag = FieldItemMarker;
+        item.Click += (_, _) => app.CreateFemField(schema, targets);
+        menu.Items.Add(new Separator { Tag = FieldItemMarker });
+        menu.Items.Add(item);
+    }
+
     void AppendCheckRowTaskMenu(ContextMenu menu, IReadOnlyList<string> elemTags)
     {
         foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, CheckTaskItemMarker)).ToList())
@@ -1959,6 +1984,7 @@ public partial class FemSchemaView3D : UserControl
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
             if (!target.IsNode) AppendMemberGroupItems(menu, target.Tag);
             AppendCheckRowTaskMenu(menu, target.IsNode ? [] : vm.MeshElementsOf(target.Tag));
+            AppendFieldMenu(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), [], []);
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
@@ -1984,6 +2010,7 @@ public partial class FemSchemaView3D : UserControl
         var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
         AppendMemberGroupItems(prMenu, prHitTag);
         AppendCheckRowTaskMenu(prMenu, vm.MeshElementsOf(prHitTag));
+        AppendFieldMenu(prMenu, ClickedWithSelection(prHitTag), [], []);
         AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
@@ -2293,6 +2320,8 @@ public partial class FemSchemaView3D : UserControl
             menu.Items.Add(checkTask);
             menu.Items.Add(new Separator());
         }
+        AppendFieldMenu(menu, [], [.. selection.SelectedMeshElemTags], [.. selection.SelectedMeshNodeTags]);
+        if (menu.Items.Count > 0 && menu.Items[^1] is MenuItem) menu.Items.Add(new Separator());
         AppendFragmentItems(menu, [.. selection.SelectedMeshElemTags], meshElements: true, separator: false);
         menu.Items.Add(new Separator());
         var clear = CommandIcons.Item("Fem3DClearSelection");

@@ -136,6 +136,7 @@ class FemSchemaTreeVM
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
     internal FemBoundarySubNode BoundarySubNode { get; }
+    internal FemFieldsSubNode FieldsSubNode { get; }
     internal FemLoadCasesSubNode LoadCasesSubNode { get; }
     internal FemCombinationsSubNode CombinationsSubNode { get; }
     internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
@@ -161,6 +162,7 @@ class FemSchemaTreeVM
         NodesSubNode    = new FemNodesSubNode(this);
         ElementsSubNode = new FemElementsSubNode(this);
         BoundarySubNode = new FemBoundarySubNode(schema);
+        FieldsSubNode = new FemFieldsSubNode(schema);
         LoadCasesSubNode = new FemLoadCasesSubNode(schema);
         CombinationsSubNode = new FemCombinationsSubNode(schema);
         MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
@@ -176,6 +178,7 @@ class FemSchemaTreeVM
             BoundarySubNode,
             BoundarySubNode.Releases,
             BoundarySubNode.RigidBodies,
+            FieldsSubNode,
             LoadCasesSubNode,
             CombinationsSubNode,
             MeshSnapshotSubNode,
@@ -262,6 +265,7 @@ class FemSchemaTreeVM
         MeshSnapshotSubNode.Elements.Shells.Count    = shells;
         RefreshGroupNodes();
         BoundarySubNode.Reload(_db, _nodes);
+        FieldsSubNode.Reload(_db);
         ReloadLoads();
     }
 
@@ -288,16 +292,29 @@ class FemSchemaTreeVM
         => Task.Run(() =>
         {
             var supports = _db.GetFemMeshNodeSupports(Schema.Id).ToLookup(s => s.NodeTag, StringComparer.Ordinal);
-            var springs = FemFieldService.EffectiveSprings(_db, Schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
+            // Пружины — действующие (с полями и правками); у узла — подписи полей, задавших жёсткости.
+            var effective = _db.HasFemFieldLayers(Schema.Id) ? FemFieldService.Effective(_db, Schema.Id) : null;
+            var springs = (effective?.Springs ?? _db.GetFemSprings(Schema.Id)).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
                 .ToLookup(s => s.NodeTag, StringComparer.Ordinal);
+            var sources = effective == null ? null : FieldSourceLabels(effective.Sources);
             return _db.GetFemMeshNodes(Schema.Id).Select(n =>
             {
                 var row = new FemMeshNodeRow(n);
                 if (supports.Contains(n.NodeTag) || springs.Contains(n.NodeTag))
-                    row.Apply(supports[n.NodeTag], springs[n.NodeTag]);
+                    row.Apply(supports[n.NodeTag], springs[n.NodeTag], sources?[n.NodeTag]);
                 return row;
             }).ToList();
         });
+
+    /// <summary>Подписи источников жёсткостей узлов сетки: «поле «…»» или «вручную» (правка величины).</summary>
+    ILookup<string, string> FieldSourceLabels(IReadOnlyDictionary<CScore.Fem.Fields.FemFieldValueKey, string> sources)
+    {
+        var names = _db.GetFemFields(Schema.Id).ToDictionary(f => f.Id, f => f.Name);
+        return sources.Where(s => s.Key.Kind == CScore.Fem.Fields.FemFieldTargetKind.MeshNode)
+            .ToLookup(s => s.Key.Tag, s => CScore.Fem.Fields.FemFieldOverlay.TryFieldId(s.Value, out int id)
+                ? string.Format(Loc.S("FemFieldSourceField"), names.GetValueOrDefault(id, id.ToString()))
+                : Loc.S("FemBoundaryOriginManual"), StringComparer.Ordinal);
+    }
 
     /// <summary>
     /// Ручная правка ГУ узла сетки: записи узла заменяются ручными (импортные становятся ручными), результаты

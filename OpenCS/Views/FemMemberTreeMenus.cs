@@ -32,6 +32,8 @@ internal static class FemMemberTreeMenus
 
         items.Add(new Separator());
         AddViewActions(items, app, schema, [member.ElemTag]);
+        items.Add(Item("FemFieldAssign",
+            () => app.CreateFemField(schema, new CScore.Fem.Fields.FemFieldTargets { MemberTags = [member.ElemTag] })));
 
         // Пластины плоских областей перемещаются и копируются вместе с областью — в её редакторе.
         if (member.PlanarRegionId == null)
@@ -166,6 +168,24 @@ internal static class FemMemberTreeMenus
                 () => app.ShowFemBoundaryMosaic(category.Schema, PlateRebarMosaicSourceKind.Foundation)));
         else
             items.Add(Item("FemBoundarySelect", () => app.SelectFemBoundaryInEditor(category.Schema, category.Targets())));
+    }
+
+    /// <summary>Меню ветки «Поля из таблиц»: новое поле на всю схему.</summary>
+    public static void FillFields(ItemCollection items, FemFieldsSubNode node, AppViewModel app) =>
+        items.Add(Item("FemFieldAssign", () => app.CreateFemField(node.Schema, new CScore.Fem.Fields.FemFieldTargets())));
+
+    /// <summary>Меню поля: изменить, повторить с новой таблицей, показать, включить/выключить, порядок, удалить.</summary>
+    public static void FillField(ItemCollection items, FemFieldItem field, AppViewModel app)
+    {
+        items.Add(Item("FemFieldEdit", () => app.EditFemField(field)));
+        items.Add(Item("FemFieldRepeat", () => app.RepeatFemFieldWithNewTable(field)));
+        items.Add(Item("FemFieldShow", () => app.ShowFemField(field)));
+        items.Add(new Separator());
+        items.Add(Item(field.Enabled ? "FemFieldDisable" : "FemFieldEnable", () => app.ToggleFemField(field)));
+        items.Add(Item("FemFieldUp", () => app.MoveFemField(field, -1)));
+        items.Add(Item("FemFieldDown", () => app.MoveFemField(field, +1)));
+        items.Add(new Separator());
+        items.Add(Item("FemFieldDelete", () => app.DeleteFemField(field)));
     }
 
     /// <summary>Меню узла «Узлы»: открыть редактор схемы.</summary>

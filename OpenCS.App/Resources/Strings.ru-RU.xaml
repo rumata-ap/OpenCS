@@ -5690,4 +5690,19 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldPreview">Предпросмотр</system:String>
    <system:String x:Key="FemFieldPatch">Участок</system:String>
    <system:String x:Key="FemFieldNoPoints">В таблице нет точек с числовыми X, Y и значениями — проверьте выбор столбцов.</system:String>
+   <system:String x:Key="FemFieldsNode">Поля из таблиц</system:String>
+   <system:String x:Key="FemFieldItemTitle">{0} — {1:N0} {2}, {3:N0} точек</system:String>
+   <system:String x:Key="FemFieldNodesUnit">узлов</system:String>
+   <system:String x:Key="FemFieldElementsUnit">КЭ</system:String>
+   <system:String x:Key="FemFieldAssign">Назначить из таблицы точек…</system:String>
+   <system:String x:Key="FemFieldEdit">Изменить…</system:String>
+   <system:String x:Key="FemFieldRepeat">Повторить с новой таблицей…</system:String>
+   <system:String x:Key="FemFieldShow">Показать на схеме</system:String>
+   <system:String x:Key="FemFieldEnable">Включить</system:String>
+   <system:String x:Key="FemFieldDisable">Выключить</system:String>
+   <system:String x:Key="FemFieldUp">Выше (раньше в наложении)</system:String>
+   <system:String x:Key="FemFieldDown">Ниже (позже в наложении)</system:String>
+   <system:String x:Key="FemFieldDelete">Удалить</system:String>
+   <system:String x:Key="FemFieldDeleteConfirm">Удалить поле «{0}»? Значения из него перестанут действовать, результаты постановок схемы будут сброшены.</system:String>
+   <system:String x:Key="FemFieldSourceField">поле «{0}»</system:String>
 </ResourceDictionary>

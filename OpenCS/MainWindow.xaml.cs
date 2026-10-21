@@ -296,6 +296,12 @@ namespace OpenCS
             case ViewModels.FemBoundaryCategoryNode category:
                Views.FemMemberTreeMenus.FillBoundaryCategory(menu.Items, category, vm);
                break;
+            case ViewModels.FemFieldsSubNode fields:
+               Views.FemMemberTreeMenus.FillFields(menu.Items, fields, vm);
+               break;
+            case ViewModels.FemFieldItem field:
+               Views.FemMemberTreeMenus.FillField(menu.Items, field, vm);
+               break;
             case ViewModels.FemLoadCasesSubNode loadCases:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseCreate", () => vm.CreateFemLoadCase(loadCases.Schema)));
                break;

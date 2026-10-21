@@ -1536,6 +1536,51 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
+                  <!-- Ветка «Поля из таблиц»: дочерние — поля в порядке наложения; меню — «Назначить из таблицы точек…» -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemFieldsSubNode}" ItemsSource="{Binding Fields}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_Fields}"/>
+                        <TextBlock Text="{Binding Title}" Margin="4,0,0,0"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+                  <!-- Поле: иконка величины (C1 — основание, пружины — связи), выключенное — серым -->
+                  <DataTemplate DataType="{x:Type vm:FemFieldItem}">
+                     <StackPanel Orientation="Horizontal" ContextMenuOpening="FemMembersNode_ContextMenuOpening">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image>
+                           <Image.Style>
+                              <Style TargetType="Image" BasedOn="{StaticResource FemTreeIcon}">
+                                 <Setter Property="Source" Value="{StaticResource FemIcon_Foundation}"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSpring}" Value="True">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_Supports}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Enabled}" Value="False">
+                                       <Setter Property="Opacity" Value="0.4"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </Image.Style>
+                        </Image>
+                        <TextBlock Text="{Binding Title}" Margin="4,0,0,0">
+                           <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Enabled}" Value="False">
+                                       <Setter Property="Foreground" Value="Gray"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </TextBlock.Style>
+                        </TextBlock>
+                     </StackPanel>
+                  </DataTemplate>
+
                   <!-- Ветка ГУ (узловые связи, упругое основание, шарниры стержней, жёсткие тела): иконка и подпись по
                        виду, дочерние — типы; у упругого основания дочерних нет — «Показать на схеме» включает мозаику C1 -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemBoundaryCategoryNode}"
@@ -2007,6 +2052,11 @@
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem helpers:CommandIcons.Header="FemGroupHideIn3D"
                                         Command="{Binding PlacementTarget.Tag.HideFemGroupIn3DCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem helpers:CommandIcons.Header="FemFieldAssign"
+                                        Command="{Binding PlacementTarget.Tag.AssignFemFieldToGroupCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

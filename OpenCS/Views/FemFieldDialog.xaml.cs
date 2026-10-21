@@ -80,6 +80,9 @@ public partial class FemFieldDialog : Window
         if (Keyboard.FocusedElement is TextBox box) box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
     }
 
+    /// <summary>«Повторить с новой таблицей»: выбор файла сразу при открытии окна.</summary>
+    public void OpenCsvOnLoad() => OpenCsv_Click(this, new RoutedEventArgs());
+
     void OpenCsv_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Filter = Loc.S("FemFieldCsvFilter") };

@@ -80,19 +80,4 @@ public static class FemFieldService
         db.HasFemFieldLayers(schemaId)
             ? Effective(db, schemaId).Elements.Count(e => e.FoundationC1 is > 0)
             : db.GetFemFoundationElementCount(schemaId);
-
-    /// <summary>Сбрасывает результаты постановок схемы после изменения полей. Возвращает число сброшенных.</summary>
-    public static int InvalidateAnalyses(DatabaseService db, int schemaId)
-    {
-        var schema = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId);
-        if (schema == null) return 0;
-        int invalidated = 0;
-        foreach (var analysis in schema.Analyses.Where(a => a.ResultId != null))
-        {
-            analysis.InvalidateResult();
-            db.SaveFemAnalysis(analysis);
-            invalidated++;
-        }
-        return invalidated;
-    }
 }
