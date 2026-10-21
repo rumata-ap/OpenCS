@@ -62,13 +62,33 @@ public static class FemFieldService
         {
             if (FemFieldEvaluator.Signature(f, ctx) != f.MeshSignature)
             {
-                Recompute(db, f, ctx);
+                var computed = FemFieldEvaluator.Compute(f, ctx);
+                TrySaveCache(db, f, computed);
                 diags.Add(new FieldDiagnostic("field_recomputed", $"Поле «{f.Name}» пересчитано: сетка изменилась.", []));
+                layers.Add(new FemFieldLayer(f, computed.Values));
             }
-            layers.Add(new FemFieldLayer(f, db.GetFemFieldValues(f.Id)));
+            else layers.Add(new FemFieldLayer(f, db.GetFemFieldValues(f.Id)));
         }
         var result = FemFieldOverlay.Apply(elements, springs, layers, overrides);
         return result with { Diagnostics = [.. diags, .. result.Diagnostics] };
+    }
+
+    /// <summary>
+    /// Кэш пересчитанного поля — по возможности: Effective зовётся и из фоновых задач, а соединение общее; если UI-поток
+    /// в это время держит свою транзакцию, запись не удаётся — значения берутся из пересчёта, кэш обновится при
+    /// следующем вызове.
+    /// </summary>
+    static void TrySaveCache(DatabaseService db, FemField field, FemFieldComputed computed)
+    {
+        try
+        {
+            db.ReplaceFemFieldValues(field.Id, computed.Values, computed.Signature);
+            field.MeshSignature = computed.Signature;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Кэш поля «{field.Name}» не записан: {ex.Message}");
+        }
     }
 
     /// <summary>Эффективные пружины; без полей и правок — прямое чтение пружин, без чтения КЭ сетки.</summary>

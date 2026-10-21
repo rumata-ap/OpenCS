@@ -5690,6 +5690,12 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldPreview">Предпросмотр</system:String>
    <system:String x:Key="FemFieldPatch">Участок</system:String>
    <system:String x:Key="FemFieldNoPoints">В таблице нет точек с числовыми X, Y и значениями — проверьте выбор столбцов.</system:String>
+   <system:String x:Key="FemFieldNoValueColumns">Не выбран ни один столбец значений — задайте компоненту хотя бы одному столбцу.</system:String>
+   <system:String x:Key="FemFieldDuplicateComponent">Компонента «{0}» задана двум столбцам — оставьте её одному, у другого выберите «—».</system:String>
+   <system:String x:Key="FemFieldBadTolerance">Допуски и наибольшее расстояние должны быть положительными.</system:String>
+   <system:String x:Key="FemFieldNoNodeTargets">Среди целей нет узлов сетки — пружины назначать некому. Выберите величину C1 или другие цели.</system:String>
+   <system:String x:Key="FemFieldNoShellTargets">Среди целей нет пластин — C1 назначать некому. Выберите величину «пружины» или другие цели.</system:String>
+   <system:String x:Key="FemFieldOriginField">поле из таблицы</system:String>
    <system:String x:Key="FemFieldsNode">Поля из таблиц</system:String>
    <system:String x:Key="FemFieldItemTitle">{0} — {1:N0} {2}, {3:N0} точек</system:String>
    <system:String x:Key="FemFieldNodesUnit">узлов</system:String>

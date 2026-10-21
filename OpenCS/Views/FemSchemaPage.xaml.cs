@@ -377,6 +377,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     /// <summary>Снимает линейные связи граней (в т. ч. потерявших грань) одной отменой.</summary>
     public void RemoveLineSupports(IReadOnlyCollection<CScore.Fem.FemPlateEdgeKey> keys) => _editorVm.RemoveLineSupports(keys);
 
+    /// <summary>Поля из таблиц изменились: глифы ГУ и мозаика 3D перечитываются.</summary>
+    public void ReloadBoundary() => _ = _fem3d.ReloadBoundaryAsync();
+
     /// <summary>Мозаика ГУ из дерева схемы (C1 упругого основания, переменные пружины) — на вкладке 3D.</summary>
     public void ShowMosaic(PlateRebarMosaicSourceKind kind)
     {

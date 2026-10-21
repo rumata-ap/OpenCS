@@ -87,15 +87,34 @@ public partial class FemFieldDialog : Window
     {
         var dlg = new OpenFileDialog { Filter = Loc.S("FemFieldCsvFilter") };
         if (dlg.ShowDialog(this) != true) return;
-        _vm.LoadText(File.ReadAllText(dlg.FileName), Path.GetFileName(dlg.FileName));
-        SyncFromVm();
+        Load(() => PointTable.ReadFile(dlg.FileName), Path.GetFileName(dlg.FileName));
     }
 
     void Paste_Click(object sender, RoutedEventArgs e)
     {
         if (!Clipboard.ContainsText()) return;
-        _vm.LoadText(Clipboard.GetText(), null);
+        Load(Clipboard.GetText, null);
+    }
+
+    /// <summary>Текст таблицы из файла или буфера; файл занят (открыт в Excel) или буфер недоступен — сообщение в окне.</summary>
+    void Load(Func<string> read, string? fileName)
+    {
+        string text;
+        try { text = read(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
+        {
+            ShowError(ex.Message);
+            return;
+        }
+        errorText.Visibility = Visibility.Collapsed;
+        _vm.LoadText(text, fileName);
         SyncFromVm();
+    }
+
+    void ShowError(string message)
+    {
+        errorText.Text = message;
+        errorText.Visibility = Visibility.Visible;
     }
 
     void Coordinate_Changed(object sender, SelectionChangedEventArgs e)
@@ -135,10 +154,9 @@ public partial class FemFieldDialog : Window
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         CommitEdits();
-        if (_vm.BuildField(0).Points.Count == 0)
+        if (_vm.Validate() is { } error)
         {
-            errorText.Text = Loc.S("FemFieldNoPoints");
-            errorText.Visibility = Visibility.Visible;
+            ShowError(error);
             return;
         }
         DialogResult = true;

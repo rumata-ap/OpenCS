@@ -2,8 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        xmlns:util="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource FemFieldDialogTitle}" Width="1200" Height="780"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip" ShowInTaskbar="False">
+    <Window.Resources>
+        <!-- Десятичная запятая и точка в полях ввода; не число — значение не меняется. -->
+        <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+    </Window.Resources>
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
@@ -83,7 +88,7 @@
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding Components}" SelectedItem="{Binding Component}"
                                                       Margin="0,0,4,0"/>
                                             <ComboBox Grid.Column="2" ItemsSource="{Binding Units}" SelectedItem="{Binding Unit}"
-                                                      DisplayMemberPath="Label"/>
+                                                      DisplayMemberPath="Label" IsEnabled="{Binding IsUsed}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -95,11 +100,11 @@
                         <StackPanel Margin="4">
                             <ComboBox x:Name="methodBox" SelectionChanged="Method_Changed"/>
                             <TextBlock Text="{DynamicResource FemFieldMaxDistance}" Margin="0,6,0,0"/>
-                            <TextBox Text="{Binding MaxDistance}"/>
+                            <TextBox Text="{Binding MaxDistance, Converter={StaticResource AnyDoubleConverter}}"/>
                             <TextBlock Text="{DynamicResource FemFieldPlaneTolerance}" Margin="0,4,0,0"/>
-                            <TextBox Text="{Binding PlaneTolerance}"/>
+                            <TextBox Text="{Binding PlaneTolerance, Converter={StaticResource AnyDoubleConverter}}"/>
                             <TextBlock Text="{DynamicResource FemFieldMatchTolerance}" Margin="0,4,0,0"/>
-                            <TextBox Text="{Binding MatchTolerance}"/>
+                            <TextBox Text="{Binding MatchTolerance, Converter={StaticResource AnyDoubleConverter}}"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -114,19 +119,19 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDx}"/>
-                                    <TextBox Text="{Binding Dx}"/>
+                                    <TextBox Text="{Binding Dx, Converter={StaticResource AnyDoubleConverter}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDy}"/>
-                                    <TextBox Text="{Binding Dy}"/>
+                                    <TextBox Text="{Binding Dy, Converter={StaticResource AnyDoubleConverter}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="0,0,4,0">
                                     <TextBlock Text="{DynamicResource FemFieldDz}"/>
-                                    <TextBox Text="{Binding Dz}"/>
+                                    <TextBox Text="{Binding Dz, Converter={StaticResource AnyDoubleConverter}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="3">
                                     <TextBlock Text="{DynamicResource FemFieldAngle}"/>
-                                    <TextBox Text="{Binding AngleDeg}"/>
+                                    <TextBox Text="{Binding AngleDeg, Converter={StaticResource AnyDoubleConverter}}"/>
                                 </StackPanel>
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">

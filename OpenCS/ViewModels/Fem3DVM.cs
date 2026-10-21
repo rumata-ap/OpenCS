@@ -619,6 +619,15 @@ public class Fem3DVM : ViewModelBase
     (List<FemMeshNode> Nodes, List<FemElement> Elements)? _boundaryMesh;
 
     /// <summary>
+    /// ГУ сетки изменились вне редактора (поля из таблиц): глифы ГУ и мозаика (C1, пружины) перечитываются в фоне.
+    /// </summary>
+    public async Task ReloadBoundaryAsync()
+    {
+        await LoadBoundaryAsync();
+        if (Mosaic.Reader is { } read) Mosaic.Apply(await Task.Run(read));
+    }
+
+    /// <summary>
     /// Читает ГУ сеточного уровня и строит их глифы (в фоне). Сетка читается, только если ГУ есть. В режиме
     /// конструктивного элемента ГУ не показываются.
     /// </summary>

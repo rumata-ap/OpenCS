@@ -22,6 +22,16 @@ public class PointTableTests
     }
 
     [Fact]
+    public void Decode_Utf8AndCp1251_HeadersReadable()
+    {
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        const string text = "X [см];Y [см];Rz [тс/см]\n1;2;3";
+        Assert.Equal(text, PointTable.Decode(System.Text.Encoding.UTF8.GetBytes(text)));
+        Assert.Equal(text, PointTable.Decode(System.Text.Encoding.GetEncoding(1251).GetBytes(text)));
+        Assert.Equal(text, PointTable.Decode([0xEF, 0xBB, 0xBF, .. System.Text.Encoding.UTF8.GetBytes(text)]));
+    }
+
+    [Fact]
     public void Parse_TabAndComma_NoHeader()
     {
         var tab = PointTable.Parse("1\t2,5\t3\n4\t5\t6");

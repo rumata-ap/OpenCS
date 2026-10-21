@@ -98,7 +98,7 @@ public class FemFieldDialogVMTests
         Assert.Equal(FieldMethod.Match, vm.Method);
         var row = Assert.Single(vm.Columns);
         Assert.Equal("kz", row.Component);
-        Assert.Equal(FemFieldQuantities.SpringComponents, row.Components);
+        Assert.Equal([FemFieldColumnRow.Skip, .. FemFieldQuantities.SpringComponents], row.Components);
         Assert.Equal("тс/м", row.Unit.Label);
 
         row.Component = "kuz";                       // поворотная — единицы момента на радиан
@@ -145,5 +145,73 @@ public class FemFieldDialogVMTests
         Assert.Equal(existing.Definition.Columns, rebuilt.Definition.Columns);
         Assert.Equal(5, rebuilt.Definition.Alignment.Dx);
         Assert.Equal(FieldMethod.Nearest, rebuilt.Definition.Settings.Method);
+    }
+
+    [Fact]
+    public void ExtraNumericColumn_IsSkipped_AndRecognizedColumnWins()
+    {
+        // «Номер» стоит раньше C1: компоненту c1 получает узнанный столбец, номер — «не использовать».
+        var csv = "Номер;X;Y;C1 [кН/м3]\n1;0;0;10\n2;10;0;20\n3;0;4;30\n4;10;4;40";
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), tonToKn: 9.80665);
+        vm.LoadText(csv, "c1.csv");
+        Assert.Equal([0, 3], vm.Columns.Select(c => c.ColumnIndex));
+        Assert.Equal(FemFieldColumnRow.Skip, vm.Columns[0].Component);
+        Assert.Equal("c1", vm.Columns[1].Component);
+        Assert.Equal("кН/м³", vm.Columns[1].Unit.Label);
+        var field = vm.BuildField(1);
+        Assert.Equal("C1 [кН/м3]", Assert.Single(field.Definition.Columns).Header);
+        Assert.Equal([10.0], field.Points[0].Values);
+        Assert.Null(vm.Validate());
+
+        // Две колонки на одну компоненту — ошибка; ни одной — тоже.
+        vm.Columns[0].Component = "c1";
+        Assert.NotNull(vm.Validate());
+        vm.Columns[0].Component = FemFieldColumnRow.Skip;
+        vm.Columns[1].Component = FemFieldColumnRow.Skip;
+        Assert.Equal("FemFieldNoValueColumns", vm.Validate());
+    }
+
+    [Fact]
+    public void ColumnRow_NullUnitFromComboBox_Ignored_UnitsFollowComponent()
+    {
+        var row = new FemFieldColumnRow(3, "Rz", FemFieldQuantities.Spring, "kz", 9.80665);
+        row.Component = "kux";
+        row.Unit = null!;
+        Assert.Equal("тс·м/рад", row.Unit.Label);
+    }
+
+    [Theory]
+    [InlineData("Rz [кН/м]", "кН/м")]
+    [InlineData("Rz, MN/m", "МН/м")]
+    [InlineData("Kz Н/м", "Н/м")]
+    [InlineData("Rz [тс/см]", "тс/см")]
+    [InlineData("Rz", "тс/м")]
+    public void SpringUnit_FromHeader(string header, string expected)
+    {
+        var csv = $"X;Y;{header}\n0;0;1";
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), tonToKn: 9.80665);
+        vm.LoadText(csv, null);
+        Assert.Equal(expected, vm.Columns[0].Unit.Label);
+    }
+
+    [Fact]
+    public void RepeatWithNewTable_KeepsQuantity_AndValidatesTargets()
+    {
+        var existing = new FemField
+        {
+            Id = 4, SchemaId = 1, Name = "Сваи", Quantity = FemFieldQuantities.Spring,
+            Definition = new FemFieldDefinition { Columns = [new FemFieldColumn("Rz", "kz", "тс/м", 9806.65)] },
+            Points = [new(new(2, 2, 0), [5])],
+        };
+        var vm = new FemFieldDialogVM(Plate(), new FemFieldTargets(), 9.80665, existing);
+        vm.LoadText("X;Y;Value\n2;2;7", "new.csv");
+        Assert.Equal(FemFieldQuantities.Spring, vm.Quantity);
+        Assert.Equal("kz", Assert.Single(vm.Columns).Component);
+
+        // Узлы как цели C1: пластин нет — сохранять нечего.
+        var c1 = new FemFieldDialogVM(Plate(), new FemFieldTargets { NodeTags = ["1", "2"] }, 9.80665);
+        c1.LoadText("X;Y;C1\n0;0;1\n1;0;2", null);
+        Assert.Equal(FemFieldQuantities.FoundationC1, c1.Quantity);
+        Assert.Equal("FemFieldNoShellTargets", c1.Validate());
     }
 }

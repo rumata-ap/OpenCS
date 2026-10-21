@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CScore.Fem.Fields;
@@ -39,6 +40,25 @@ public sealed class PointTable
             rows.Add(row);
         }
         return new PointTable(headers, rows, sep);
+    }
+
+    /// <summary>
+    /// Текст файла таблицы: с BOM — по нему; без BOM — UTF-8, если байты им корректны, иначе Windows-1251 (CSV из
+    /// Excel в русской Windows).
+    /// </summary>
+    public static string ReadFile(string path) => Decode(File.ReadAllBytes(path));
+
+    public static string Decode(byte[] bytes)
+    {
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+        if (bytes.Length >= 2 && (bytes[0] == 0xFF && bytes[1] == 0xFE || bytes[0] == 0xFE && bytes[1] == 0xFF))
+            return new StreamReader(new MemoryStream(bytes), detectEncodingFromByteOrderMarks: true).ReadToEnd();
+        try { return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes); }
+        catch (DecoderFallbackException)
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            return Encoding.GetEncoding(1251).GetString(bytes);
+        }
     }
 
     static double? Number(string cell, bool decimalComma)

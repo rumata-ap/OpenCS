@@ -82,12 +82,16 @@ namespace OpenCS
          AfterFemFieldsChanged(item.Schema);
       }
 
-      /// <summary>Поля изменились: результаты постановок схемы сбрасываются, ветки полей и ГУ дерева перечитываются.</summary>
+      /// <summary>
+      /// Поля изменились: результаты постановок схемы сбрасываются, ветки полей и ГУ дерева перечитываются, у открытой
+      /// страницы схемы — глифы ГУ и мозаика 3D.
+      /// </summary>
       void AfterFemFieldsChanged(FemSchema schema)
       {
          int invalidated = InvalidateFemSchemaAnalyses(schema);
          if (invalidated > 0) LogService.Info(string.Format(Loc.S("ScadBoundaryAnalysesInvalidated"), invalidated));
          ReloadFemMeshSnapshotTree(schema.Id);
+         if (currentFemSchema == schema && CurrentPage is Views.FemSchemaPage page) page.ReloadBoundary();
       }
    }
 }

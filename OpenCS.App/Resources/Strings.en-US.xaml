@@ -5690,6 +5690,12 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemFieldPreview">Preview</system:String>
    <system:String x:Key="FemFieldPatch">Patch</system:String>
    <system:String x:Key="FemFieldNoPoints">The table has no points with numeric X, Y and values — check the column choice.</system:String>
+   <system:String x:Key="FemFieldNoValueColumns">No value column is selected — set a component for at least one column.</system:String>
+   <system:String x:Key="FemFieldDuplicateComponent">Component "{0}" is set for two columns — keep it for one and choose "—" for the other.</system:String>
+   <system:String x:Key="FemFieldBadTolerance">Tolerances and the maximum distance must be positive.</system:String>
+   <system:String x:Key="FemFieldNoNodeTargets">The targets contain no mesh nodes — there is nothing to assign springs to. Choose C1 or other targets.</system:String>
+   <system:String x:Key="FemFieldNoShellTargets">The targets contain no plates — there is nothing to assign C1 to. Choose springs or other targets.</system:String>
+   <system:String x:Key="FemFieldOriginField">table field</system:String>
    <system:String x:Key="FemFieldsNode">Fields from tables</system:String>
    <system:String x:Key="FemFieldItemTitle">{0} — {1:N0} {2}, {3:N0} points</system:String>
    <system:String x:Key="FemFieldNodesUnit">nodes</system:String>

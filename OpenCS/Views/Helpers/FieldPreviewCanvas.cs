@@ -83,7 +83,9 @@ public sealed class FieldPreviewCanvas : FrameworkElement
                     var n = patch.Normal;
                     q = p.P with { Z = patch.Origin.Z - (n.X * (p.P.X - patch.Origin.X) + n.Y * (p.P.Y - patch.Origin.Y)) / n.Z };
                 }
-                dc.DrawEllipse(new SolidColorBrush(ValueColor(p.Values[0], vMin, vMax)), outline, map(patch.Project(q)), 2, 2);
+                // Все столбцы «не использовать» — точки без значений, серым.
+                var fill = p.Values.Length > 0 ? new SolidColorBrush(ValueColor(p.Values[0], vMin, vMax)) : Brushes.Gray;
+                dc.DrawEllipse(fill, outline, map(patch.Project(q)), 2, 2);
             }
             return;
         }
