@@ -213,6 +213,17 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     /// <summary>
+    /// Геометрическая матрица K_σ (COO) по усилиям КЭ при перемещениях <paramref name="u"/> (<see cref="ElementKGeometric"/>),
+    /// без пружин — например, для реакций (K + K_σ)·u линейного расчёта на замороженном состоянии.
+    /// </summary>
+    public CooMatrix AssembleKGeometric(double[] u, bool shellInPlane = true)
+    {
+        var coo = NewCoo();
+        for (int e = 0; e < ElementCount; e++) coo.AddBlock(ElementDofs(e), ElementKGeometric(e, u, shellInPlane));
+        return coo;
+    }
+
+    /// <summary>
     /// Вектор внутренних сил F_int(u). <paramref name="corotational"/>: оболочки — CR
     /// (true) или фон Карман (false); стержни — всегда CR.
     /// </summary>
@@ -1097,7 +1108,12 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     /// <summary>Линейная статика для нескольких нагрузок: одна сборка и одна факторизация K на все правые части.</summary>
-    public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc)
+    /// <param name="elementK">
+    /// Матрица КЭ единой нумерации вместо <see cref="ElementK"/> (например, K + K_σ замороженного состояния —
+    /// <see cref="ElementKGeometric"/>); с ней не положительно определённая матрица — <see cref="InvalidOperationException"/>
+    /// «потеря устойчивости» с указанием DOF, без запасного решателя (как <see cref="SolveSecondOrder"/>).
+    /// </param>
+    public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc, Func<int, double[,]>? elementK = null)
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException(
@@ -1110,8 +1126,13 @@ public sealed class StructuralMesh : IFeaMesh
         lock (_cholGate)
         {
             var asm = Assembler(bc, fixedSys);
-            var kff = asm.Assemble(MaxDegreeOfParallelism);
+            var kff = elementK == null ? asm.Assemble(MaxDegreeOfParallelism) : asm.AssembleWith(elementK, MaxDegreeOfParallelism);
             var chol = FactorizeCached(kff);
+            if (elementK != null && !chol.LastFactorizationSpd)
+            {
+                string where = chol.FirstNonPositivePivot is int p and >= 0 && p < asm.Free.Length ? " — " + DescribeDof(asm.Free[p]) : "";
+                throw new InvalidOperationException($"Матрица K + K_σ не положительно определена — потеря устойчивости{where}.");
+            }
             double[] Solve(int i)
             {
                 // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
