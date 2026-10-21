@@ -19,6 +19,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Triangle.NET нужен в рантайме (CSTriangulation.PointDelaunay для полей из таблиц точек): Reference,
+         объявленный только в CSTriangulation.csproj, копируется в bin/, но не попадает в .deps.json потребителя. -->
+    <Reference Include="Triangle">
+      <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\OpenCS.App\DataSource\Арматура стальная_*.csv"
           Link="DataSource\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
