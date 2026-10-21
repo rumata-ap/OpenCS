@@ -23,8 +23,11 @@ public static class ShellFieldInterpolator
                 continue;
             }
             var uvNodes = patch.Shells.SelectMany(x => x.Nodes).Select(patch.Project).ToList();
-            double uMin = uvNodes.Min(x => x.U) - s.MaxDistance, uMax = uvNodes.Max(x => x.U) + s.MaxDistance;
-            double vMin = uvNodes.Min(x => x.V) - s.MaxDistance, vMax = uvNodes.Max(x => x.V) + s.MaxDistance;
+            double u0 = uvNodes.Min(x => x.U), u1 = uvNodes.Max(x => x.U), v0 = uvNodes.Min(x => x.V), v1 = uvNodes.Max(x => x.V);
+            // Точка «попала на участок» — в габарите с запасом MaxDistance; в триангуляцию берётся и запас на
+            // размер участка: редкая таблица (значения только по углам) иначе теряет вершины треугольников,
+            // накрывающих КЭ.
+            double reach = s.MaxDistance + Math.Sqrt((u1 - u0) * (u1 - u0) + (v1 - v0) * (v1 - v0));
             var local = new List<(double U, double V)>();
             var localIdx = new List<int>();
             for (int i = 0; i < points.Count; i++)
@@ -37,10 +40,11 @@ public static class ShellFieldInterpolator
                     };
                 else if (patch.DistanceToPlane(p) > s.PlaneTolerance) continue;
                 var (u, v) = patch.Project(p);
-                if (u < uMin || u > uMax || v < vMin || v > vMax) continue;
+                if (u < u0 - reach || u > u1 + reach || v < v0 - reach || v > v1 + reach) continue;
                 local.Add((u, v));
                 localIdx.Add(i);
-                used[i] = true;
+                if (u >= u0 - s.MaxDistance && u <= u1 + s.MaxDistance && v >= v0 - s.MaxDistance && v <= v1 + s.MaxDistance)
+                    used[i] = true;
             }
             var tree = new KdTree3(local.Select(q => new FieldVec3(q.U, q.V, 0)).ToList());
             var tri = s.Method == FieldMethod.Interpolate ? PlaneTriangulation.Build(local) : null;
