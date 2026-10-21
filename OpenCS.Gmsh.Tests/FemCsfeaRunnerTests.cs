@@ -329,6 +329,13 @@ public sealed class FemCsfeaRunnerTests(ITestOutputHelper output)
             Assert.Contains(summary.Describe(), l => l.StartsWith("K_σ по определяющему состоянию источника", StringComparison.Ordinal));
             Assert.EndsWith(", с продольными силами источника (P-Δ)", summary.StiffnessHeader(null));
 
+            // Наборы по загружениям — второго порядка: проверки по КЭ не умножат их моменты на η.
+            var sets = FemLinearLoadCaseForceSets.Build(schema, linear, summary,
+                n => FemCsfeaStepFieldsCodec.Unpack(ctx.Db.GetFemResultStep(result.Id, n)!), [],
+                CScore.Combinations.Sp20GammaDefaults.Standard);
+            Assert.NotEmpty(sets.Sets);
+            Assert.All(sets.Sets, s => Assert.True(s.Set.SecondOrder));
+
             // Источник без геомнелина: флажок не действует, расчёт первого порядка с замечанием.
             sp.Csfea.GeomNonlinear = false;
             secant.ParamsJson = sp.ToJson();

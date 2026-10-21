@@ -295,6 +295,16 @@ public static partial class FemCheckRunner
         // Строки без парной NL-строки (φ1 «авто») и без парной длительной (ψ «авто») — замечание в сводке
         // (наборы пакета «строка на вариант»: метки N- и NL-вариантов не совпадают).
         int rowsWithoutNl = 0, rowsWithoutLong = 0;
+        // Строки наборов второго порядка при включённом η: моменты не увеличиваются (P-Δ уже в усилиях).
+        int secondOrderRows = 0;
+        var secondOrderTags = new HashSet<string>(StringComparer.Ordinal);
+        // Строка из набора второго порядка при включённом η: пометка и счёт для сводки.
+        FemCheckRow SecondOrderNote(FemCheckRow row, string forceSetTag)
+        {
+            Interlocked.Increment(ref secondOrderRows);
+            lock (secondOrderTags) secondOrderTags.Add(forceSetTag);
+            return row with { WorstDescription = $"{row.WorstDescription}; η = 1 — усилия второго порядка" };
+        }
         bool countNl = autoNl && explicitNl == null;
         bool anyFailed = false, anyUnchecked = false;
         var collected = rowSink == null ? new List<FemCheckRow>() : null;
@@ -492,7 +502,8 @@ public static partial class FemCheckRunner
                         var source = job.Shell!;
                         FemWallEta.Outcome? wall = null;
                         string? wallError = null;
-                        if (wallEta != null && g.Plate.Section is { } ws && strip != null)
+                        bool wallSecondOrder = wallEta != null && strip != null && job.ForceSet.SecondOrder;
+                        if (wallEta != null && g.Plate.Section is { } ws && strip != null && !wallSecondOrder)
                         {
                             try { (source, wall) = ApplyWallEta(job, strip, ws, angle); }
                             catch (Exception ex) { wallError = "Продольный изгиб: " + ex.Message; }
@@ -505,11 +516,15 @@ public static partial class FemCheckRunner
                             : wall is { Stable: false } ? UnstableWallRow(job, wall)
                             : WithWallNote(CheckPlateRow(check, plate, shell, job.ForceSet.Tag, job.CalcType,
                                                          inputs.ConcreteMat, inputs.RebarMat, nl), wall);
+                        if (wallSecondOrder && !row.NotChecked) row = SecondOrderNote(row, job.ForceSet.Tag);
                     }
                     else
+                    {
                         row = bar != null
                             ? CheckBarRow(barExecutor, RowTask(job), bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
                             : NotCheckedRow(job, "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : ""));
+                        if (eta != null && job.ForceSet.SecondOrder && !row.NotChecked) row = SecondOrderNote(row, job.ForceSet.Tag);
+                    }
 
                     results[job.Index] = row with
                     {
@@ -541,7 +556,7 @@ public static partial class FemCheckRunner
                     double angle = g.Plate.ForceAngleDeg;
                     var source = job.Shell!;
                     FemWallEta.Outcome? wall = null;
-                    if (wallEta != null && strip != null)
+                    if (wallEta != null && strip != null && !job.ForceSet.SecondOrder)
                     {
                         try { (source, wall) = ApplyWallEta(job, strip, plate, angle); }
                         catch (Exception ex) { return call with { Reason = "Продольный изгиб: " + ex.Message }; }
@@ -561,6 +576,16 @@ public static partial class FemCheckRunner
                 CalcTask RowTask(Job job)
                 {
                     var task = TaskOf(job.Task);
+                    // Набор второго порядка: η = 1 — задание строки без продольного изгиба.
+                    if (eta != null && job.ForceSet.SecondOrder)
+                    {
+                        var p0 = BarCheckParams.Parse(task.ParamsJson);
+                        return new CalcTask
+                        {
+                            Kind = task.Kind, Tag = task.Tag, CalcType = task.CalcType,
+                            ParamsJson = (p0 with { Eta = p0.Eta! with { Enabled = false } }).ToJson(),
+                        };
+                    }
                     if (eta == null || (job.BarLong == null && !job.LongTerm)) return task;
                     if (!parsedParams.TryGetValue(task, out var p))
                         parsedParams[task] = p = BarCheckParams.Parse(task.ParamsJson);
@@ -733,6 +758,12 @@ public static partial class FemCheckRunner
         if (rowsWithoutNl > 0)
             warnings.Add($"φ1 «авто» (п. 8.2.7): у {rowsWithoutNl} строк набора «(N)» нет парной строки в наборе «(NL)» " +
                          "с той же основой имени и меткой строки — принято φ1 из параметров проверки.");
+        if (secondOrderRows > 0)
+        {
+            var tags = secondOrderTags.Order(StringComparer.Ordinal).ToList();
+            warnings.Add($"η не применялся к {secondOrderRows} строкам: наборы второго порядка ({string.Join(", ", tags.Take(5))}"
+                + (tags.Count > 5 ? ", …" : "") + ") — P-Δ уже учтён в усилиях.");
+        }
         if (rowsWithoutLong > 0)
             warnings.Add($"ψ «авто» (п. 8.1.15): у {rowsWithoutLong} строк нет парной длительной строки в наборе «(CL)»/«(NL)» " +
                          "с той же основой имени и меткой строки — принято ψ из параметров продольного изгиба.");

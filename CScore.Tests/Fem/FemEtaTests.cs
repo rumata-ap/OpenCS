@@ -228,6 +228,45 @@ public class FemEtaTests
         Assert.Equal("п. 8.1.15", withEta["э.3 с1"].WorstFormula);
     }
 
+    /// <summary>
+    /// Набор второго порядка (CSfea с геомнелином, ИН с P-Δ): η стены не применяется — коэффициент как без η, пометка
+    /// «η = 1 — усилия второго порядка», сводка с числом строк; у КЭ без полосы пометки нет; потери устойчивости по
+    /// п. 8.1.15 тоже нет — устойчивость уже проверил расчёт второго порядка.
+    /// </summary>
+    [Fact]
+    public void RunPerElement_WallEtaSkippedForSecondOrderSet()
+    {
+        var pars = new PlateCheckParams { Kind = "shell_layered", CheckGroup = "uls" };
+        FemCheckScopeElement Elem(int num) => new(num, new FemElement { ElemTag = num.ToString(), ElemType = "shell" }, null);
+        ShellLoadItem Row(int elem, double ny) => new() { Label = $"э.{elem} с1", Ny = ny, My = 15, SourceElementNum = elem };
+        ForceSet Set(bool second) => new()
+        {
+            Id = 1, Kind = "shell", Tag = "Стены (C)", SecondOrder = second, ShellItems = [Row(1, -800), Row(2, -800), Row(3, -3000)],
+        };
+        FemCheckScopeElement[] elements = [Elem(1), Elem(2), Elem(3)];
+        CalcResult Run(FemEtaParams? eta, bool second) => FemCheckRunner.RunPerElement(
+            new FemCheck { NormCode = "rc_plate_check", Tag = "стены", ParamsJson = (pars with { Eta = eta }).ToJson() },
+            new FemMemberGroup { Tag = "Стены" }, new FemCheckScope([], elements, RefersToMeshElements: true), [Set(second)],
+            new FemPerElementInputs
+            {
+                PlateTemplate = WallSection(), ConcreteMat = WallConcrete(), RebarMat = WallRebar(),
+                WallStrip = e => e.ElemNum == 2 ? null : new FemWallStrip(e.ElemNum == 3 ? 6.0 : 3.0, 90.0),
+            },
+            (_, _, _) => throw new InvalidOperationException("стержневой исполнитель не нужен"));
+
+        var plain = Run(null, second: true).FemCheckRows!.ToDictionary(r => r.Label);
+        var result = Run(new FemEtaParams { Enabled = true, MuX = 1.0 }, second: true);
+        var rows = result.FemCheckRows!.ToDictionary(r => r.Label);
+
+        Assert.Equal(plain["э.1 с1"].Utilization, rows["э.1 с1"].Utilization, 9);
+        Assert.EndsWith("η = 1 — усилия второго порядка", rows["э.1 с1"].WorstDescription);
+        Assert.DoesNotContain("η = 1", rows["э.2 с1"].WorstDescription);
+        Assert.NotEqual("п. 8.1.15", rows["э.3 с1"].WorstFormula);
+        using var doc = System.Text.Json.JsonDocument.Parse(result.DataJson);
+        var warnings = doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray().Select(w => w.GetString()!).ToList();
+        Assert.Contains(warnings, w => w.StartsWith("η не применялся к 2 строкам: наборы второго порядка (Стены (C))", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void BarLength_NullWithoutNodeCoordinates()
     {
@@ -344,6 +383,45 @@ public class FemEtaTests
         var warnings = doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray()
             .Select(w => w.GetString()!).ToList();
         Assert.Contains(warnings, w => w.StartsWith("ψ «авто» (п. 8.1.15): у 1 строк", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Набор второго порядка: в задание строки стержня η уходит выключенным (η = 1), строка помечена, сводка считает
+    /// строки; тот же набор без признака — η включён.
+    /// </summary>
+    [Fact]
+    public void RunPerElement_BarEtaDisabledForSecondOrderSet()
+    {
+        var check = new FemCheck
+        {
+            NormCode = "rc_check", Tag = "колонны",
+            ParamsJson = new BarCheckParams { Eta = new FemEtaParams { Enabled = true, LengthM = 3.0 } }.ToJson(),
+        };
+        var scope = new FemCheckScope([], [new FemCheckScopeElement(1, Bar(1, 1, 2), null)], RefersToMeshElements: true);
+        LoadItem Row() => new() { Label = "э.1 с1", N = -1000, Mx = 50, SourceElementNum = 1, SourceSectionNum = 1 };
+
+        (BarCheckParams Params, CalcResult Result) Run(bool second)
+        {
+            var fs = new ForceSet { Id = 1, Tag = "ИН (C)", SecondOrder = second, Items = [Row()] };
+            BarCheckParams? seen = null;
+            var result = FemCheckRunner.RunPerElement(check, new FemMemberGroup { Tag = "К" }, scope, [fs],
+                new FemPerElementInputs { TargetBarSection = new CrossSection { Tag = "цель" }, BarSectionById = _ => null },
+                (task, _, _) =>
+                {
+                    seen = BarCheckParams.Parse(task.ParamsJson);
+                    return new CalcResult { Status = "ok", DataJson = "{\"utilization\":0.5}" };
+                });
+            return (seen!, result);
+        }
+
+        var (first, _) = Run(second: false);
+        Assert.True(first.EtaEnabled);
+        var (secondParams, secondResult) = Run(second: true);
+        Assert.False(secondParams.EtaEnabled);
+        Assert.EndsWith("η = 1 — усилия второго порядка", Assert.Single(secondResult.FemCheckRows!).WorstDescription);
+        using var doc = System.Text.Json.JsonDocument.Parse(secondResult.DataJson);
+        Assert.Contains(doc.RootElement.GetProperty("summary").GetProperty("warnings").EnumerateArray(),
+            w => w.GetString()!.StartsWith("η не применялся к 1 строкам", StringComparison.Ordinal));
     }
 
     /// <summary>
