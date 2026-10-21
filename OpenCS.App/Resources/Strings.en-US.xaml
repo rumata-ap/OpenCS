@@ -5646,4 +5646,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliToolsVersion">Version</system:String>
    <system:String x:Key="CliToolsMissing">no</system:String>
    <system:String x:Key="CliToolsNotFound">not found — {0}</system:String>
+   <!-- Fields from point tables -->
+   <system:String x:Key="FemFieldFitSummary">to nearest target: median {0:0.###} m, 95 % {1:0.###} m, max {2:0.###} m ({3} points)</system:String>
+   <system:String x:Key="FemFieldPreviewSummary">Targets {0}: interpolated {1}, nearest {2}, IDW {3}, matched {4}, no value {5}; points {6}, off targets {7}</system:String>
 </ResourceDictionary>

@@ -5646,4 +5646,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="CliToolsVersion">Версия</system:String>
    <system:String x:Key="CliToolsMissing">нет</system:String>
    <system:String x:Key="CliToolsNotFound">не найден — {0}</system:String>
+   <!-- Поля из таблиц точек -->
+   <system:String x:Key="FemFieldFitSummary">до ближайшей цели: медиана {0:0.###} м, 95 % {1:0.###} м, макс {2:0.###} м ({3} точек)</system:String>
+   <system:String x:Key="FemFieldPreviewSummary">Целей {0}: интерполяцией {1}, ближайшей {2}, IDW {3}, сопоставлено {4}, без значения {5}; точек {6}, не попало на цели {7}</system:String>
 </ResourceDictionary>
