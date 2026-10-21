@@ -116,7 +116,7 @@ public static class FemCsfeaInputBuilder
         // Линейные связи граней пластин — узловыми закреплениями и пружинами сетки (дальше общий путь резолвера ГУ).
         var lines = db.ResolveFemLineSupports(schemaId, data.Members, data.MeshNodes, data.Mesh, data.Regions);
         diag.AddRange(lines.Diagnostics);
-        var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), db.GetFemSprings(schemaId));
+        var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), FemFieldService.Effective(db, schemaId).Springs.ToList());
 
         return new FemRcModelInput
         {

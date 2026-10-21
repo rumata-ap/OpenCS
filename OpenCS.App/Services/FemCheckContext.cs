@@ -89,7 +89,8 @@ public sealed class FemCheckSchemaData
         {
             SchemaId = schemaId,
             Members = members,
-            Mesh = db.GetFemMeshElements(schemaId),
+            // C1 — с учётом полей из таблиц и ручных правок.
+            Mesh = FemFieldService.Effective(db, schemaId).Elements,
             MeshNodes = db.GetFemMeshNodes(schemaId),
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,

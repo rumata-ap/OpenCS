@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using CScore.Fem;
 using CScore.Planar;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -159,10 +160,11 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
     {
         int id = Schema.Id;
         _meshSupports = db.GetFemMeshNodeSupports(id);
-        _springs = db.GetFemSprings(id);
+        // Пружины и C1 — с учётом полей из таблиц и ручных правок.
+        _springs = FemFieldService.EffectiveSprings(db, id).ToList();
         ResetSupports(db, nodes, db.GetFemMembers(id), db.GetFemLineSupports(id),
             _springs.Where(s => s.TargetKind == FemSpringTargetKinds.Node).ToList());
-        Foundation.Reset([], db.GetFemFoundationElementCount(id));
+        Foundation.Reset([], FemFieldService.FoundationElementCount(db, id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
         RigidBodies.Reset(FemBoundaryTree.RigidBodyItems(Schema, db.GetFemRigidBodies(id)));

@@ -257,7 +257,7 @@ namespace OpenCS
       {
          var result = LiraBoundaryTransfer.Transfer(txt, meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal),
             ElementTypes(elements), LiraImportSettings.TonToKnFactor, foundationC1);
-         SaveBoundaryTransfer(schema, result, LiraBoundaryTransfer.Origin, meshNodes, elements, showSummary);
+         SaveBoundaryTransfer(schema, result, LiraBoundaryTransfer.Origin, meshNodes, showSummary);
       }
 
       /// <summary>

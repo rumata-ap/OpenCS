@@ -755,7 +755,7 @@ public static class FemCsfeaRunner
         result.Status = "partial";
         Save();
 
-        var quantities = envelopes ? FemCsfeaEnvelopeQuantities.FromMesh(ctx.Db.GetFemMeshNodes(schema.Id), ctx.Db.GetFemMeshElements(schema.Id)) : null;
+        var quantities = envelopes ? FemCsfeaEnvelopeQuantities.FromMesh(ctx.Db.GetFemMeshNodes(schema.Id), FemFieldService.Effective(ctx.Db, schema.Id).Elements) : null;
         var groups = new Dictionary<string, (FemCsfeaEnvelopeAccumulator Acc, RcSecantStepFields Reference)>(StringComparer.Ordinal);
         // Ширина раскрытия в огибающих (N, NL) — при доле длительной части по умолчанию, как в окне результата.
         var calc = pars.CalcType ?? CalcType.N;

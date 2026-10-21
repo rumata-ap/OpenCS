@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using CScore.Fem;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -287,7 +288,7 @@ class FemSchemaTreeVM
         => Task.Run(() =>
         {
             var supports = _db.GetFemMeshNodeSupports(Schema.Id).ToLookup(s => s.NodeTag, StringComparer.Ordinal);
-            var springs = _db.GetFemSprings(Schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
+            var springs = FemFieldService.EffectiveSprings(_db, Schema.Id).Where(s => s.TargetKind == FemSpringTargetKinds.MeshNode)
                 .ToLookup(s => s.NodeTag, StringComparer.Ordinal);
             return _db.GetFemMeshNodes(Schema.Id).Select(n =>
             {

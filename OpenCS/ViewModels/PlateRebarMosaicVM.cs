@@ -792,13 +792,19 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       string? selectedFile = null, assignedFile = null;
       var errors = new List<(string, string)>();
       var key = new System.Text.StringBuilder();
-      var elements = meshElements ?? db.GetFemMeshElements(schemaId);
+      // C1 и пружины — с учётом полей из таблиц и ручных правок; геометрия — из переданных КЭ.
+      var effective = FemFieldService.Effective(db, schemaId);
+      var effectiveC1 = new Dictionary<string, double>(StringComparer.Ordinal);
+      foreach (var e in effective.Elements)
+         if (e.FoundationC1 is double v && v > 0) effectiveC1[e.ElemTag.Trim()] = v;
+      var elements = meshElements ?? effective.Elements;
       var shells = elements.Where(e => e.ElemType == "shell").ToList();
       // Номера ТЗА КЭ обновляются отдельной командой — файл при этом тот же.
       var typeHash = new HashCode();
       foreach (var e in elements)
       {
-         typeHash.Add(e.ElemTag); typeHash.Add(e.ReinforcementTypeIds); typeHash.Add(e.LocalAxisAngleDeg); typeHash.Add(e.FoundationC1);
+         typeHash.Add(e.ElemTag); typeHash.Add(e.ReinforcementTypeIds); typeHash.Add(e.LocalAxisAngleDeg);
+         typeHash.Add(effectiveC1.GetValueOrDefault(e.ElemTag.Trim()));
       }
       key.Append(typeHash.ToHashCode()).Append('|');
       var thickness = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -806,10 +812,10 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       foreach (var e in shells)
       {
          if (e.ThicknessM is double h && h > 0) thickness[e.ElemTag.Trim()] = h;
-         if (e.FoundationC1 is double c1 && c1 > 0) foundation[e.ElemTag.Trim()] = c1 / 1000;   // Н/м³ → кН/м³
+         if (effectiveC1.TryGetValue(e.ElemTag.Trim(), out double c1)) foundation[e.ElemTag.Trim()] = c1 / 1000;   // Н/м³ → кН/м³
       }
 
-      var springsByElem = SpringsByElement(db.GetFemSprings(schemaId), shells, key);
+      var springsByElem = SpringsByElement(effective.Springs.ToList(), shells, key);
 
       // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
       if (db.GetFemSchemaSourceType(schemaId) == "scad")

@@ -5,6 +5,7 @@ using CScore;
 using CScore.Fem;
 using CScore.Fem.Combinations;
 using CScore.Planar;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -630,7 +631,7 @@ public class Fem3DVM : ViewModelBase
         {
             var supports = _db.GetFemMeshNodeSupports(_schemaId);
             // Пружины узлов КонЭ — из сессии редактора (NodeSpringGlyphs), здесь только узлов сетки.
-            var springs = _db.GetFemSprings(_schemaId).Where(s => s.TargetKind != FemSpringTargetKinds.Node).ToList();
+            var springs = FemFieldService.EffectiveSprings(_db, _schemaId).Where(s => s.TargetKind != FemSpringTargetKinds.Node).ToList();
             var bodies = _db.GetFemRigidBodies(_schemaId);
             if (supports.Count == 0 && springs.Count == 0 && bodies.Count == 0 && !_db.HasFemElementReleases(_schemaId))
                 return FemBoundaryGlyphSet.Empty;

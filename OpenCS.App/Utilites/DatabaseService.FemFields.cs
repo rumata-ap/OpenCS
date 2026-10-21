@@ -46,6 +46,18 @@ namespace OpenCS.Utilites
       /// <summary>Миграция v88: поля из таблиц точек, кэш их значений, ручные правки величин.</summary>
       void MigrateV88() => MigExec(FemFieldsDdl);
 
+      /// <summary>Есть ли у схемы включённые поля или ручные правки — без чтения точек и значений.</summary>
+      public bool HasFemFieldLayers(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT EXISTS(SELECT 1 FROM fem_fields WHERE schema_id=@sid AND enabled=1)
+                OR EXISTS(SELECT 1 FROM fem_param_overrides WHERE schema_id=@sid)
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return Convert.ToInt64(cmd.ExecuteScalar()) != 0;
+      }
+
       public List<FemField> GetFemFields(int schemaId)
       {
          var result = new List<FemField>();

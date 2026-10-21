@@ -308,7 +308,8 @@ public sealed class FemCsfeaResultVM : ViewModelBase
                 _nodes[id] = new Point3D(n.X, n.Y, n.Z);
             }
         var members = db.GetFemMembers(schema.Id).GroupBy(m => m.ElemTag).ToDictionary(g => g.Key, g => g.First());
-        foreach (var e in db.GetFemMeshElements(schema.Id))
+        // C1 (отпор основания) — с учётом полей из таблиц и ручных правок.
+        foreach (var e in FemFieldService.Effective(db, schema.Id).Elements)
         {
             if (!int.TryParse(e.ElemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int tag)) continue;
             if (FemElementGeometry.Of(e, byTag) is not { } g) continue;

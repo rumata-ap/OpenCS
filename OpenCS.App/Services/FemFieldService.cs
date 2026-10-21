@@ -56,6 +56,16 @@ public static class FemFieldService
         return result with { Diagnostics = [.. diags, .. result.Diagnostics] };
     }
 
+    /// <summary>Эффективные пружины; без полей и правок — прямое чтение пружин, без чтения КЭ сетки.</summary>
+    public static IReadOnlyList<FemSpring> EffectiveSprings(DatabaseService db, int schemaId) =>
+        db.HasFemFieldLayers(schemaId) ? Effective(db, schemaId).Springs : db.GetFemSprings(schemaId);
+
+    /// <summary>Число КЭ с действующим C1 &gt; 0; без полей и правок — подсчёт в БД без чтения КЭ.</summary>
+    public static int FoundationElementCount(DatabaseService db, int schemaId) =>
+        db.HasFemFieldLayers(schemaId)
+            ? Effective(db, schemaId).Elements.Count(e => e.FoundationC1 is > 0)
+            : db.GetFemFoundationElementCount(schemaId);
+
     /// <summary>Сбрасывает результаты постановок схемы после изменения полей. Возвращает число сброшенных.</summary>
     public static int InvalidateAnalyses(DatabaseService db, int schemaId)
     {

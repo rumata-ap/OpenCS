@@ -4567,7 +4567,7 @@ namespace OpenCS
             .ToDictionary(g => g.Key, g => g.First().ElemType, StringComparer.Ordinal);
          var result = CScore.Import.ScadBoundaryTransfer.Transfer(model,
             meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal), types);
-         SaveBoundaryTransfer(schema, result, CScore.Import.ScadBoundaryTransfer.Origin, meshNodes, elements, showSummary);
+         SaveBoundaryTransfer(schema, result, CScore.Import.ScadBoundaryTransfer.Origin, meshNodes, showSummary);
       }
 
       /// <summary>
@@ -4576,7 +4576,7 @@ namespace OpenCS
       /// </summary>
       /// <param name="showSummary">Открыть окно сводки переноса.</param>
       void SaveBoundaryTransfer(CScore.Fem.FemSchema schema, CScore.Import.FemBoundaryTransferResult result, string origin,
-         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, IReadOnlyList<CScore.Fem.FemElement> elements, bool showSummary)
+         IReadOnlyList<CScore.Fem.FemMeshNode> meshNodes, bool showSummary)
       {
          var manual = db.ManualMeshNodeTags(schema.Id);
          int keptManual = result.Supports.Select(x => x.NodeTag)
@@ -4589,10 +4589,13 @@ namespace OpenCS
          foreach (var line in result.Report.Skip(1)) LogService.Warning(line);
          if (keptManual > 0) LogService.Info(string.Format(Loc.S("FemBoundaryManualKept"), keptManual));
 
-         // ГУ КЭ (освобождения, C1) записаны в БД — резолверу нужна сетка после записи.
+         // ГУ КЭ (освобождения, C1) записаны в БД — резолверу нужна сетка после записи. C1 и пружины — с учётом полей
+         // из таблиц и ручных правок: поля переживают повторный импорт ГУ.
+         var effective = FemFieldService.Effective(db, schema.Id);
+         foreach (var d in effective.Diagnostics)
+            LogService.Warning(d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message);
          var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes,
-            result.ElementProps != null ? db.GetFemMeshElements(schema.Id) : elements,
-            db.GetFemMeshNodeSupports(schema.Id), db.GetFemSprings(schema.Id), db.GetFemRigidBodies(schema.Id));
+            effective.Elements, db.GetFemMeshNodeSupports(schema.Id), effective.Springs.ToList(), db.GetFemRigidBodies(schema.Id));
          foreach (var d in resolved.Diagnostics.Take(10))
             if (d.IsError) LogService.Error(d.Message); else LogService.Warning(d.Message);
          if (resolved.Diagnostics.Count > 10)
