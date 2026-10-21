@@ -85,6 +85,12 @@ public class FemFieldEvaluatorTests
         string s0 = FemFieldEvaluator.Signature(f, Context());
         Assert.Equal(s0, FemFieldEvaluator.Signature(f, Context()));
         Assert.NotEqual(s0, FemFieldEvaluator.Signature(f, Context(dz: 0.01)));
+        // Правка самого поля (способ, точки) тоже меняет подпись — кэш значений не переживает изменения поля.
+        f.Definition.Settings = f.Definition.Settings with { Method = FieldMethod.Nearest };
+        string s1 = FemFieldEvaluator.Signature(f, Context());
+        Assert.NotEqual(s0, s1);
+        f.Points[0] = f.Points[0] with { Values = [101] };
+        Assert.NotEqual(s1, FemFieldEvaluator.Signature(f, Context()));
     }
 
     [Fact]

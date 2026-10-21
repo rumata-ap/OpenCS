@@ -58,7 +58,7 @@ public sealed class FemField
     public bool Enabled { get; set; } = true;
     /// <summary>Порядок среди полей схемы: при наложении последнее выигрывает.</summary>
     public int SortOrder { get; set; }
-    /// <summary>Подпись целей, по которой посчитан кэш значений; null — не считано.</summary>
+    /// <summary>Подпись целей и самого поля, по которой посчитан кэш значений; null — не считано.</summary>
     public string? MeshSignature { get; set; }
 }
 

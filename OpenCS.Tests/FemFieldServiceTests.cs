@@ -113,6 +113,54 @@ public sealed class FemFieldServiceTests : IDisposable
     }
 
     [Fact]
+    public void ConcurrentEffective_AfterMeshChange_RecomputesOnce()
+    {
+        var (db, schema) = Seed();
+        using (db)
+        {
+            var c1 = ConstField(schema.Id, FemFieldQuantities.FoundationC1, "c1", 2000, FieldMethod.Interpolate);
+            db.SaveFemField(c1);
+            FemFieldService.Recompute(db, c1);
+            db.SaveFemMeshSnapshot(schema.Id, Nodes(0.2), [Shell()]);
+
+            var results = new FemFieldOverlayResult[4];
+            Parallel.For(0, results.Length, i => results[i] = FemFieldService.Effective(db, schema.Id));
+            Assert.All(results, r => Assert.Equal(2000, Assert.Single(r.Elements).FoundationC1));
+            Assert.Single(results, r => r.Diagnostics.Any(d => d.Code == "field_recomputed"));
+        }
+    }
+
+    [Fact]
+    public void FieldEdit_WithStaleSignature_StillRecomputes()
+    {
+        var (db, schema) = Seed();
+        using (db)
+        {
+            var c1 = ConstField(schema.Id, FemFieldQuantities.FoundationC1, "c1", 2000, FieldMethod.Interpolate);
+            db.SaveFemField(c1);
+            FemFieldService.Recompute(db, c1);
+
+            var edited = db.GetFemFields(schema.Id)[0];   // подпись прежняя
+            edited.Points = [.. edited.Points.Select(p => p with { Values = [3000] })];
+            db.SaveFemField(edited);
+            Assert.Equal(3000, Assert.Single(FemFieldService.Effective(db, schema.Id).Elements).FoundationC1);
+        }
+    }
+
+    [Fact]
+    public void CachedNoValue_DistanceReadsBackAsInfinity()
+    {
+        var (db, schema) = Seed();
+        using (db)
+        {
+            var f = ConstField(schema.Id, FemFieldQuantities.FoundationC1, "c1", 1, FieldMethod.Interpolate);
+            db.SaveFemField(f);
+            db.ReplaceFemFieldValues(f.Id, [new(f.Id, FemFieldTargetKind.Shell, "10", "c1", null, FieldHow.None, double.PositiveInfinity)], "S");
+            Assert.True(double.IsPositiveInfinity(Assert.Single(db.GetFemFieldValues(f.Id)).Distance));
+        }
+    }
+
+    [Fact]
     public void InvalidateAnalyses_ResetsResults()
     {
         var (db, schema) = Seed();

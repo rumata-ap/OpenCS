@@ -10,6 +10,12 @@ namespace OpenCS.Services;
 /// </summary>
 public static class FemFieldService
 {
+    // Effective пишет пересчитанный кэш в БД и зовётся из фоновых задач (глифы ГУ, строки узлов, проверки) на общем
+    // соединении: без замка два вызова после смены сетки пересчитали бы поле дважды и открыли вложенные транзакции.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DatabaseService, object> Gates = new();
+
+    static object Gate(DatabaseService db) => Gates.GetValue(db, _ => new object());
+
     public static FemFieldMeshContext LoadContext(DatabaseService db, int schemaId) =>
         Context(db, schemaId, db.GetFemMeshElements(schemaId), db.GetFemSprings(schemaId));
 
@@ -21,11 +27,14 @@ public static class FemFieldService
     /// <summary>Пересчитывает поле на текущей сетке и записывает кэш значений с подписью целей.</summary>
     public static FemFieldComputed Recompute(DatabaseService db, FemField field, FemFieldMeshContext? ctx = null)
     {
-        ctx ??= LoadContext(db, field.SchemaId);
-        var computed = FemFieldEvaluator.Compute(field, ctx);
-        db.ReplaceFemFieldValues(field.Id, computed.Values, computed.Signature);
-        field.MeshSignature = computed.Signature;
-        return computed;
+        lock (Gate(db))
+        {
+            ctx ??= LoadContext(db, field.SchemaId);
+            var computed = FemFieldEvaluator.Compute(field, ctx);
+            db.ReplaceFemFieldValues(field.Id, computed.Values, computed.Signature);
+            field.MeshSignature = computed.Signature;
+            return computed;
+        }
     }
 
     /// <summary>
@@ -33,6 +42,12 @@ public static class FemFieldService
     /// совпала с сеткой (перестроение, повторный импорт), пересчитывается с замечанием <c>field_recomputed</c>.
     /// </summary>
     public static FemFieldOverlayResult Effective(DatabaseService db, int schemaId)
+    {
+        // Под замком: второй вызов читает подписи уже после пересчёта первым и не пересчитывает повторно.
+        lock (Gate(db)) return EffectiveCore(db, schemaId);
+    }
+
+    static FemFieldOverlayResult EffectiveCore(DatabaseService db, int schemaId)
     {
         var elements = db.GetFemMeshElements(schemaId);
         var springs = db.GetFemSprings(schemaId);

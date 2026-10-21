@@ -792,12 +792,13 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
       string? selectedFile = null, assignedFile = null;
       var errors = new List<(string, string)>();
       var key = new System.Text.StringBuilder();
-      // C1 и пружины — с учётом полей из таблиц и ручных правок; геометрия — из переданных КЭ.
-      var effective = FemFieldService.Effective(db, schemaId);
+      // C1 и пружины — с учётом полей из таблиц и ручных правок; без них — из переданных КЭ и пружин БД, без
+      // повторного чтения сетки. Геометрия — из переданных КЭ.
+      var effective = db.HasFemFieldLayers(schemaId) ? FemFieldService.Effective(db, schemaId) : null;
+      var elements = meshElements ?? effective?.Elements ?? db.GetFemMeshElements(schemaId);
       var effectiveC1 = new Dictionary<string, double>(StringComparer.Ordinal);
-      foreach (var e in effective.Elements)
+      foreach (var e in effective?.Elements ?? elements)
          if (e.FoundationC1 is double v && v > 0) effectiveC1[e.ElemTag.Trim()] = v;
-      var elements = meshElements ?? effective.Elements;
       var shells = elements.Where(e => e.ElemType == "shell").ToList();
       // Номера ТЗА КЭ обновляются отдельной командой — файл при этом тот же.
       var typeHash = new HashCode();
@@ -815,7 +816,7 @@ public sealed class PlateRebarMosaicVM : ViewModelBase
          if (effectiveC1.TryGetValue(e.ElemTag.Trim(), out double c1)) foundation[e.ElemTag.Trim()] = c1 / 1000;   // Н/м³ → кН/м³
       }
 
-      var springsByElem = SpringsByElement(effective.Springs.ToList(), shells, key);
+      var springsByElem = SpringsByElement(effective?.Springs ?? db.GetFemSprings(schemaId), shells, key);
 
       // Подбор SCAD (выгрузка плагина) — у схем SCAD вместо ASP; толщин в нём нет — только свои толщины КЭ.
       if (db.GetFemSchemaSourceType(schemaId) == "scad")

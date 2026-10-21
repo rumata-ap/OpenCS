@@ -4593,7 +4593,10 @@ namespace OpenCS
          // из таблиц и ручных правок: поля переживают повторный импорт ГУ.
          var effective = FemFieldService.Effective(db, schema.Id);
          foreach (var d in effective.Diagnostics)
-            LogService.Warning(d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message);
+         {
+            string text = d.Tags.Count > 0 ? $"{d.Message}: {d.Tags.Count}" : d.Message;
+            if (d.Code == "field_recomputed") LogService.Info(text); else LogService.Warning(text);
+         }
          var resolved = CScore.Fem.FemBoundaryResolver.Resolve(db.GetFemNodes(schema.Id), meshNodes,
             effective.Elements, db.GetFemMeshNodeSupports(schema.Id), effective.Springs.ToList(), db.GetFemRigidBodies(schema.Id));
          foreach (var d in resolved.Diagnostics.Take(10))

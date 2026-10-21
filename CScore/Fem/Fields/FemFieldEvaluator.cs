@@ -72,7 +72,11 @@ public static class FemFieldEvaluator
         return new FemFieldTargetSet([], nodes, missing);
     }
 
-    public static string Signature(FemField field, FemFieldMeshContext ctx) => Signature(ResolveTargets(field, ctx));
+    /// <summary>
+    /// Подпись кэша значений: цели на сетке (теги и координаты узлов) и само поле (величина, определение, точки) —
+    /// перестроение сетки, повторный импорт и правка поля одинаково делают кэш устаревшим.
+    /// </summary>
+    public static string Signature(FemField field, FemFieldMeshContext ctx) => Signature(ResolveTargets(field, ctx), field);
 
     public static FemFieldComputed Compute(FemField field, FemFieldMeshContext ctx)
     {
@@ -97,10 +101,10 @@ public static class FemFieldEvaluator
                 double? v = target.Values is { } vals && k < vals.Length ? vals[k] * col.UnitFactor : null;
                 values.Add(new FemFieldValue(field.Id, quantity.Target, target.Tag, col.Component, v, target.How, target.Distance));
             }
-        return new FemFieldComputed(eval with { Diagnostics = diags }, values, Signature(set));
+        return new FemFieldComputed(eval with { Diagnostics = diags }, values, Signature(set, field));
     }
 
-    static string Signature(FemFieldTargetSet set)
+    static string Signature(FemFieldTargetSet set, FemField field)
     {
         var sb = new StringBuilder();
         foreach (var s in set.Shells)
@@ -110,7 +114,17 @@ public static class FemFieldEvaluator
             sb.Append('\n');
         }
         foreach (var n in set.Nodes) { sb.Append('n').Append(n.Tag); Append(sb, n.P); sb.Append('\n'); }
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
+        sb.Append('f').Append(field.Quantity).Append(field.HasZ ? "|z|" : "|-|").Append(field.Definition.ToJson()).Append('\n');
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes(sb.ToString()));
+        var buf = new byte[sizeof(double)];
+        void Add(double v) { BitConverter.TryWriteBytes(buf, v); hash.AppendData(buf); }
+        foreach (var p in field.Points)
+        {
+            Add(p.P.X); Add(p.P.Y); Add(p.P.Z);
+            foreach (double v in p.Values) Add(v);
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
     }
 
     static void Append(StringBuilder sb, FieldVec3 p) =>

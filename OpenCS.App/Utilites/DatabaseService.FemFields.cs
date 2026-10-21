@@ -43,6 +43,9 @@ namespace OpenCS.Utilites
          CREATE INDEX IF NOT EXISTS idx_fem_param_overrides_schema ON fem_param_overrides(schema_id);
          """;
 
+      /// <summary>Расстояние «точки нет» (∞) в кэше значений: REAL SQLite бесконечность не хранит.</summary>
+      const double NoDistance = 1e300;
+
       /// <summary>Миграция v88: поля из таблиц точек, кэш их значений, ручные правки величин.</summary>
       void MigrateV88() => MigExec(FemFieldsDdl);
 
@@ -146,10 +149,16 @@ namespace OpenCS.Utilites
 
       public void DeleteFemField(int fieldId)
       {
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_field_values WHERE field_id=@id; DELETE FROM fem_fields WHERE id=@id;";
-         cmd.Parameters.AddWithValue("@id", fieldId);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "DELETE FROM fem_field_values WHERE field_id=@id; DELETE FROM fem_fields WHERE id=@id;";
+            cmd.Parameters.AddWithValue("@id", fieldId);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
       }
 
       public void SetFemFieldEnabled(int fieldId, bool enabled)
@@ -186,7 +195,8 @@ namespace OpenCS.Utilites
          using var r = cmd.ExecuteReader();
          while (r.Read())
             result.Add(new FemFieldValue(fieldId, Enum.Parse<FemFieldTargetKind>(r.GetString(0)), r.GetString(1), r.GetString(2),
-               r.IsDBNull(3) ? null : r.GetDouble(3), Enum.Parse<FieldHow>(r.GetString(4)), r.GetDouble(5)));
+               r.IsDBNull(3) ? null : r.GetDouble(3), Enum.Parse<FieldHow>(r.GetString(4)),
+               r.GetDouble(5) >= NoDistance ? double.PositiveInfinity : r.GetDouble(5)));
          return result;
       }
 
@@ -220,7 +230,7 @@ namespace OpenCS.Utilites
                kind.Value = x.TargetKind.ToString(); tag.Value = x.TargetTag; comp.Value = x.Component;
                v.Value = (object?)x.Value ?? DBNull.Value; how.Value = x.How.ToString();
                // Нет значения — расстояние бесконечно; в REAL SQLite бесконечность не хранится.
-               d.Value = double.IsFinite(x.Distance) ? x.Distance : 1e300;
+               d.Value = double.IsFinite(x.Distance) ? x.Distance : NoDistance;
                cmd.ExecuteNonQuery();
             }
             tx.Commit();
