@@ -7,7 +7,7 @@ namespace CScore.Tests;
 public sealed class MaterialResistanceModelTests
 {
     [Fact]
-    public void RebarNdmDiagramUsesRsSymmetricallyAndDoesNotUseRsc()
+    public void RebarNdmDiagramByRsFallback_UsesRsSymmetricallyAndDoesNotUseRsc()
     {
         var chars = new MaterialChars(CalcType.C)
         {
@@ -20,14 +20,35 @@ public sealed class MaterialResistanceModelTests
             Et2 = 0.025,
         };
 
-        var diagram = chars.D2L();
+        var diagram = chars.D2L(compressionByRs: true);
 
         Assert.Equal(-500_000, diagram.SigValue(-0.0025), 6);
+        Assert.Equal(500_000, diagram.SigValue(0.0025), 6);
+        Assert.Equal(-300_000, chars.D2L().SigValue(-0.0025), 6);   // основной режим — срезка по Rsc
+    }
+
+    [Fact]
+    public void RebarNdmDiagramDefault_ClipsCompressionAtRsc()
+    {
+        var chars = new MaterialChars(CalcType.C)
+        {
+            Type = MatType.ReSteelF,
+            Fc = -300_000,
+            Rsc = 300_000,
+            Ft = 500_000,
+            E = 200_000_000,
+            Ec2 = -0.0035,
+            Et2 = 0.025,
+        };
+
+        var diagram = chars.D2L(compressionByRs: false);
+
+        Assert.Equal(-300_000, diagram.SigValue(-0.0025), 6);
         Assert.Equal(500_000, diagram.SigValue(0.0025), 6);
     }
 
     [Fact]
-    public void ConditionalRebarNdmDiagramUsesRsOnBothBranches()
+    public void ConditionalRebarNdmDiagramByRsFallback_UsesRsOnBothBranches()
     {
         var chars = new MaterialChars(CalcType.C)
         {
@@ -39,9 +60,10 @@ public sealed class MaterialResistanceModelTests
             Et2 = 0.015,
         };
 
-        var diagram = chars.D3L();
+        var diagram = chars.D3L(compressionByRs: true);
 
         Assert.Equal(-450_000, diagram.SigValue(-0.00225), 6);
+        Assert.Equal(-300_000, chars.D3L(compressionByRs: false).SigValue(-0.00225), 6);
         Assert.Equal(450_000, diagram.SigValue(0.00225), 6);
     }
 

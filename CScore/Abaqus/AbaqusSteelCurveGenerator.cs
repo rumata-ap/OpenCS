@@ -19,8 +19,9 @@ public static class AbaqusSteelCurveGenerator
         var diagram = chars.Type switch
         {
             MatType.Steel => chars.DSP16(options.HasYieldPlateau),
-            MatType.ReSteelF => chars.D2L(),
-            _ => chars.D3L()
+            // *Plastic симметричен (Мизес) и строится по ветви растяжения — срезка сжатия по Rsc не нужна.
+            MatType.ReSteelF => chars.D2L(compressionByRs: true),
+            _ => chars.D3L(compressionByRs: true)
         };
 
         double scale = options.UnitSystem.StressScaleFromOpenCsKpa;

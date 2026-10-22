@@ -97,6 +97,7 @@ public static class FireMaterialReducer
             c.Ry *= gamma;
             c.Ru *= gamma;
             if (c.Fc != 0) c.Fc *= gamma;
+            if (c.Rsc != 0) c.Rsc *= gamma;   // срезка сжатой ветви НДМ — по нагретому Rsc
             if (c.Ft != 0) c.Ft *= gamma;
             return c;
         }).ToList();

@@ -4241,11 +4241,18 @@ namespace OpenCS.Utilites
             SaveCalcSettings(def);
             return def;
          }
-         return JsonSerializer.Deserialize<CalcSettings>(json) ?? CalcSettings.Default;
+         var settings = JsonSerializer.Deserialize<CalcSettings>(json) ?? CalcSettings.Default;
+         ApplyCoreSettings(settings);
+         return settings;
       }
+
+      /// <summary>Переносит в ядро настройки, которые читаются при построении диаграмм на любом пути расчёта.</summary>
+      static void ApplyCoreSettings(CalcSettings s) =>
+         CScore.MaterialChars.RebarCompressionByRs = s.RebarCompressionByRs;
 
       public void SaveCalcSettings(CalcSettings s)
       {
+         ApplyCoreSettings(s);
          var json = JsonSerializer.Serialize(s);
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "INSERT OR REPLACE INTO settings (key, value_json) VALUES ('calc', $json)";

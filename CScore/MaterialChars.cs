@@ -28,16 +28,15 @@ namespace CScore
       /// <summary>
       /// Прочность на сжатие (со знаком «минус»). Для арматуры в справочнике хранится
       /// −Rsc — сниженное табличное сопротивление сжатию (табл. 6.14 СП 63); диаграммы
-      /// НДМ арматуры это поле не читают.
+      /// НДМ арматуры читают его только через <see cref="GetRscOrLegacyFc"/> (материалы без Rsc).
       /// </summary>
       public double Fc { get; set; }
 
       /// <summary>
-      /// Расчётное сопротивление арматуры сжатию Rsc, кПа.
-      /// Хранится как положительная величина и используется только в
-      /// формульных проверках первого предельного состояния. Для диаграмм
-      /// арматуры сжатие строится симметрично сопротивлению Rs из <see cref="Ft"/>:
-      /// в НДМ деформация сжатой арматуры и так ограничена деформационным критерием бетона.
+      /// Расчётное сопротивление арматуры сжатию Rsc, кПа (положительная величина).
+      /// Используется в формульных проверках первого предельного состояния и в диаграммах
+      /// НДМ L2/L3: сжатая ветвь — ветвь растяжения на Rs, срезанная по Rsc (п. 6.2.13 СП 63),
+      /// если не выбран запасной режим <see cref="RebarCompressionByRs"/>.
       /// </summary>
       public double Rsc { get; set; }
 
@@ -52,6 +51,53 @@ namespace CScore
       /// </summary>
       public double GetRscOrLegacyFc() =>
          double.IsFinite(Rsc) && Rsc > 0.0 ? Rsc : Math.Abs(Fc);
+
+      /// <summary>
+      /// Запасной режим НДМ для всего процесса: сжатая ветвь диаграмм арматуры L2/L3 симметрична
+      /// растяжению — от Rs, без срезки по Rsc (как в OpenCS до 22.10.2026). По умолчанию false —
+      /// срезка по Rsc. Задаётся из настроек приложения; явный параметр D2L/D3L имеет приоритет.
+      /// </summary>
+      public static bool RebarCompressionByRs { get; set; }
+
+      const string RscClipTagSuffix = ", сжатие до Rsc";
+
+      /// <summary>
+      /// Срезает сжатую ветвь арматуры по Rsc: σc(ε) = max(σ(ε), −Rsc) с узлом в точке пересечения
+      /// уровня −Rsc; внутренние точки получившейся площадки убираются. Ветвь (<paramref name="xc"/>,
+      /// <paramref name="yc"/>) — по возрастанию ε, до 0. Без Rsc (старые материалы) и в режиме
+      /// <see cref="RebarCompressionByRs"/> ничего не меняет.
+      /// </summary>
+      /// <returns>true — ветвь срезана.</returns>
+      bool ClipRebarCompression(ref double[] xc, ref double[] yc, bool? compressionByRs)
+      {
+         if (compressionByRs ?? RebarCompressionByRs) return false;
+         double cap = GetRscOrLegacyFc();
+         if (!double.IsFinite(cap) || cap <= 0.0 || yc.All(y => y >= -cap)) return false;
+
+         var xs = new List<double>(xc.Length + 1);
+         var ys = new List<double>(xc.Length + 1);
+         for (int i = 0; i < xc.Length; i++)
+         {
+            if (i > 0 && (yc[i - 1] + cap) * (yc[i] + cap) < 0.0)
+            {
+               double t = (-cap - yc[i - 1]) / (yc[i] - yc[i - 1]);
+               xs.Add(xc[i - 1] + t * (xc[i] - xc[i - 1]));
+               ys.Add(-cap);
+            }
+            xs.Add(xc[i]);
+            ys.Add(Math.Max(yc[i], -cap));
+         }
+         for (int i = xs.Count - 2; i > 0; i--)
+            if (ys[i - 1] == -cap && ys[i] == -cap && ys[i + 1] == -cap)
+            {
+               xs.RemoveAt(i);
+               ys.RemoveAt(i);
+            }
+
+         xc = xs.ToArray();
+         yc = ys.ToArray();
+         return true;
+      }
 
       /// <summary>
       /// Предел текучести.
@@ -185,7 +231,9 @@ namespace CScore
       /// для различных типов материалов, таких как бетон, арматура с физическим пределом текучести и конструкционная сталь.
       /// </remarks>
       /// <exception cref="ArgumentException">Выбрасывается, если тип материала не совместим с диаграммой.</exception>
-      public Diagramm D2L()
+      /// <param name="compressionByRs">Сжатие арматуры по Rs без срезки по Rsc; null — режим процесса
+      /// <see cref="RebarCompressionByRs"/>.</param>
+      public Diagramm D2L(bool? compressionByRs = null)
       {
          double[] xc = new double[3];
          double[] yc = new double[3];
@@ -204,8 +252,8 @@ namespace CScore
                tag = "Двухлинейная по СП63.13330 (бетон)";
                break;
             case MatType.ReSteelF:
-               // Для НДМ арматура работает симметрично: сжатие -Rs, растяжение +Rs.
-               // Rsc — отдельная характеристика только для формульных проверок МПУ.
+               // Ветвь сжатия строится симметрично растяжению (−Rs) и срезается по Rsc
+               // (запасной режим RebarCompressionByRs — без срезки).
                double rsF = Math.Abs(Ft);
                xc[0] = Ec2; yc[0] = -rsF;
                xc[1] = -rsF / E; yc[1] = -rsF;
@@ -214,6 +262,7 @@ namespace CScore
                xt[1] = Ft / E; yt[1] = Ft;
                xt[2] = Et2; yt[2] = Ft;
                tag = "Двухлинейная по СП63.13330 (арматура с физическим пределом текучести)";
+               if (ClipRebarCompression(ref xc, ref yc, compressionByRs)) tag += RscClipTagSuffix;
                break;
             case MatType.ReSteelU:
                throw new ArgumentException("Диаграмма и материал не совместимы");
@@ -312,7 +361,9 @@ namespace CScore
       /// для различных типов материалов, таких как бетон и арматура с условным пределом текучести.
       /// </remarks>
       /// <exception cref="ArgumentException">Выбрасывается, если тип материала не совместим с диаграммой.</exception>
-      public Diagramm D3L()
+      /// <param name="compressionByRs">Сжатие арматуры по Rs без срезки по Rsc; null — режим процесса
+      /// <see cref="RebarCompressionByRs"/>.</param>
+      public Diagramm D3L(bool? compressionByRs = null)
       {
          double[] xc = new double[4];
          double[] yc = new double[4];
@@ -344,6 +395,8 @@ namespace CScore
                xt[2] = e2; yt[2] = 1.1 * Ft;
                xt[3] = Et2; yt[3] = 1.1 * Ft;
                tag = "Трехлинейная по СП63.13330 (арматура с условным пределом текучести)";
+               // Срезка по Rsc: при Rsc < 0,9·Rs (А600+ при C) ветвь сжатия становится двухлинейной.
+               if (ClipRebarCompression(ref xc, ref yc, compressionByRs)) tag += RscClipTagSuffix;
                break;
             case MatType.Steel:
                throw new ArgumentException("Диаграмма и материал не совместимы");

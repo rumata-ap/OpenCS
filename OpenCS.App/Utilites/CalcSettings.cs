@@ -108,6 +108,15 @@ namespace OpenCS.Utilites
       public bool RebarDifferentialDiagram { get; set; } = true;
 
       /// <summary>
+      /// Запасной режим НДМ: сжатая арматура (диаграммы L2/L3) по Rs, симметрично растяжению, без
+      /// срезки по Rsc — как в OpenCS до 22.10.2026. По умолчанию false: сжатая ветвь срезается по Rsc
+      /// (п. 6.2.13 СП 63). Применяется к ядру при загрузке и сохранении настроек
+      /// (<see cref="CScore.MaterialChars.RebarCompressionByRs"/>).
+      /// </summary>
+      [JsonPropertyName("rebarCompressionByRs")]
+      public bool RebarCompressionByRs { get; set; } = false;
+
+      /// <summary>
       /// Учитывать работу бетона на растяжение при расчётах по 1-й ГПС (CalcType C/CL):
       /// поиск предельных усилий и плоскости деформаций для стержневых и пластинчатых
       /// сечений. На 2-ю ГПС (N/NL) не влияет — там растяжение бетона учитывается как раньше.
@@ -382,6 +391,7 @@ namespace OpenCS.Utilites
          ShellNewtonTolRes     = ShellNewtonTolRes,
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
+         RebarCompressionByRs  = RebarCompressionByRs,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
          FireCompressionZoneMethod = FireCompressionZoneMethod,
          ElasticStiffnessWithoutRebar = ElasticStiffnessWithoutRebar,

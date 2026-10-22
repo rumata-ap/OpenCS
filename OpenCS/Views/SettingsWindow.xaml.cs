@@ -239,6 +239,7 @@ namespace OpenCS.Views
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
+         RebarCompressionByRsCb.IsChecked = _calcSettings.RebarCompressionByRs;
          ConsiderConcreteTensionUlsCb.IsChecked = _calcSettings.ConsiderConcreteTensionUls;
          ElasticStiffnessWithoutRebarCb.IsChecked = _calcSettings.ElasticStiffnessWithoutRebar;
          SelectComboByTag(FireCompressionZoneMethodCombo, _calcSettings.FireCompressionZoneMethod);
@@ -344,6 +345,8 @@ namespace OpenCS.Views
          ShellWarmStartCb.Unchecked += (_, _) => _calcSettings.ShellWarmStart = false;
          RebarDifferentialDiagramCb.Checked   += (_, _) => _calcSettings.RebarDifferentialDiagram = true;
          RebarDifferentialDiagramCb.Unchecked += (_, _) => _calcSettings.RebarDifferentialDiagram = false;
+         RebarCompressionByRsCb.Checked   += (_, _) => _calcSettings.RebarCompressionByRs = true;
+         RebarCompressionByRsCb.Unchecked += (_, _) => _calcSettings.RebarCompressionByRs = false;
          ConsiderConcreteTensionUlsCb.Checked   += (_, _) => _calcSettings.ConsiderConcreteTensionUls = true;
          ConsiderConcreteTensionUlsCb.Unchecked += (_, _) => _calcSettings.ConsiderConcreteTensionUls = false;
          ElasticStiffnessWithoutRebarCb.Checked   += (_, _) => _calcSettings.ElasticStiffnessWithoutRebar = true;
