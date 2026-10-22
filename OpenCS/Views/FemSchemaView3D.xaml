@@ -37,6 +37,7 @@
             <MenuItem helpers:CommandIcons.Header="FemMemberPropertiesCtx" Click="MemberPropertiesCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberRotationCtx" Click="MemberRotationCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberMeshStepCtx" Click="MemberMeshStepCtx_Click"/>
+            <MenuItem helpers:CommandIcons.Header="FemMemberRigidJunctionCtx" Tag="rigidJunction" Click="MemberRigidJunctionCtx_Click"/>
             <MenuItem helpers:CommandIcons.Header="FemMemberLoadCtx" Click="MemberLoadCtx_Click"/>
             <Separator/>
             <MenuItem helpers:CommandIcons.Header="FemMemberMoveCtx" Click="MemberMoveCtx_Click"/>

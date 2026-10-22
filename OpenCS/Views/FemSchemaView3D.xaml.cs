@@ -1982,7 +1982,14 @@ public partial class FemSchemaView3D : UserControl
         {
             _contextMenuTargetTag = target.Tag;
             var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
-            if (!target.IsNode) AppendMemberGroupItems(menu, target.Tag);
+            if (!target.IsNode)
+            {
+                // «АЖТ примыкания…» — только у стержней.
+                bool isBeam = Editor?.Session.Members.FirstOrDefault(m => m.ElemTag == target.Tag)?.ElemType == "beam";
+                foreach (var item in menu.Items.OfType<MenuItem>().Where(i => Equals(i.Tag, "rigidJunction")))
+                    item.Visibility = isBeam ? Visibility.Visible : Visibility.Collapsed;
+                AppendMemberGroupItems(menu, target.Tag);
+            }
             AppendCheckRowTaskMenu(menu, target.IsNode ? [] : vm.MeshElementsOf(target.Tag));
             AppendFieldMenu(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), [], []);
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
@@ -2249,6 +2256,16 @@ public partial class FemSchemaView3D : UserControl
     {
         if (_contextMenuTargetTag is not { } tag) return;
         MemberMeshStepRequested?.Invoke(tag);
+    }
+
+    /// <summary>Пункт контекстного меню стержня «АЖТ примыкания…»: параметры щёлкнутого стержня (и выделенных вместе
+    /// с ним стержней).</summary>
+    public event Action<string>? MemberRigidJunctionRequested;
+
+    void MemberRigidJunctionCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberRigidJunctionRequested?.Invoke(tag);
     }
 
     /// <summary>КЭ сетки под курсором: стержень рядом с курсором, иначе пластина под лучом.</summary>

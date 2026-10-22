@@ -167,6 +167,7 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         view3D.MemberSectionEditRequested += OpenMemberProperties;
         view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberMeshStepRequested    += OpenMemberMeshStep;
+        view3D.MemberRigidJunctionRequested += OpenMemberRigidJunction;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.FragmentTransformRequested += TransformFragment;
         view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
@@ -592,6 +593,25 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         _editorVm.SetMembersMeshStep(members.Select(m => m.ElemTag).ToList(), dlg.StepM);
         _app.LogService.Info(string.Format(Loc.S(dlg.StepM is null ? "FemMemberMeshStepSetCommon" : "FemMemberMeshStepSet"),
             members.Count, dlg.StepM is double s ? M(s) : ""));
+    }
+
+    /// <summary>«АЖТ примыкания…»: параметры щёлкнутого стержня; если он выделен — всех выделенных стержней.</summary>
+    public void OpenMemberRigidJunction(string tag)
+    {
+        var selected = _editorVm.Selection.SelectedElemTags;
+        var tags = selected.Contains(tag) ? selected.ToList() : [tag];
+        var members = _editorVm.Session.Members.Where(m => tags.Contains(m.ElemTag) && m.ElemType == "beam").ToList();
+        if (members.Count == 0) return;
+
+        string target = members.Count == 1
+            ? string.Format(Loc.S("FemMemberMeshStepTargetBar"), members[0].ElemTag)
+            : string.Format(Loc.S("FemMemberRigidJunctionTargetMany"), members.Count);
+        var dlg = new FemMemberRigidJunctionDialog(target, members.Count, RigidJunctionParamsSummary.Of(members))
+        {
+            Owner = Window.GetWindow(this),
+        };
+        if (dlg.ShowDialog() != true) return;
+        _editorVm.SetMembersRigidJunction(members.Select(m => m.ElemTag).ToList(), dlg.Off, dlg.Coupled, dlg.Dofs, dlg.ClearTrace);
     }
 
     void OpenMemberRotation(string tag)

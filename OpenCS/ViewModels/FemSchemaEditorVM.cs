@@ -429,6 +429,20 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
+    /// <summary>
+    /// Параметры АЖТ примыкания стержней (режим, вид, маска DOF; null — у каждого своё) и сброс явного следа — одной
+    /// отменой. После правки нужна пересборка сетки схемы (подсказка в журнале).
+    /// </summary>
+    public void SetMembersRigidJunction(IReadOnlyList<string> tags, bool? off, bool? coupled, IReadOnlyList<bool?> dofs, bool clearTrace)
+    {
+        var members = Session.Members.Where(m => tags.Contains(m.ElemTag) && m.ElemType == "beam").ToList();
+        if (members.Count == 0) return;
+        if (RigidJunctionParamsSummary.BuildCommand(members, off, coupled, dofs, clearTrace) is not { } command) return;
+        Session.Execute(command);
+        RefreshCollections();
+        _logService.Info(string.Format(Loc.S("FemMemberRigidJunctionSet"), members.Count));
+    }
+
     IReadOnlyList<FemValidationDiagnostic> _lastMeshDiagnostics = [];
     public IReadOnlyList<FemValidationDiagnostic> LastMeshDiagnostics
     {
