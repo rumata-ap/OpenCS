@@ -275,4 +275,49 @@ public class LiraFileParserTests
         var data = ParseBytes(bytes);
         Assert.NotNull(data);
     }
+
+    [Fact]
+    public void Parse_Structured_StaleSlotsBeyondDefinitionNodeCount_AreIgnored()
+    {
+        // стержень (определение 0): в слотах 3 и 4 остался мусор — узлов всё равно два
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (2, 0, 0, 1), (3, 0, 0, 1)],
+            [([0, 1, 2, 3], 0, 1)]));
+
+        var e = Assert.Single(data.Elements);
+        Assert.Equal([1, 2], e.NodeIds);
+        Assert.Equal(10, e.FeType);
+    }
+
+    [Fact]
+    public void Parse_Structured_QuadWithLastNodeOne_KeepsFourNodes()
+    {
+        // четырёхугольник (определение 2), последний узел — №1 (индекс 0): нулевой слот не означает «нет узла»
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (1, 1, 0, 1), (0, 1, 0, 1)],
+            [([1, 2, 3, 0], 2, 1)]));
+
+        var e = Assert.Single(data.Elements);
+        Assert.Equal([2, 3, 4, 1], e.NodeIds);
+    }
+
+    [Fact]
+    public void Parse_Structured_SingleNodeLinkWithStaleSlots_IsNotQuad()
+    {
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (2, 0, 0, 1), (3, 0, 0, 1)],
+            [([2, 1, 3, 0], 3, 1)]));
+
+        Assert.Empty(data.Elements);
+    }
+
+    [Fact]
+    public void Parse_Structured_VolumetricDefinitions_AreSkipped()
+    {
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)],
+            [([0, 1, 2, 3], 8, 1)]));   // определение 8 — тетраэдр: число узлов не 2–4 по определению
+
+        Assert.Empty(data.Elements);
+    }
 }
