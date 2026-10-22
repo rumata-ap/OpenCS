@@ -3834,6 +3834,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshSteps">Шаги сетки…</system:String>
     <system:String x:Key="FemSchemaMeshStepsTitle">Шаги сетки схемы</system:String>
     <system:String x:Key="FemSchemaMeshStepsSaved">Шаги сетки схемы «{0}»: стержни {1} м, пластины {2} м. Применятся при «Построить сетку схемы».</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionsAuto">АЖТ в примыканиях стержней к плитам</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionAngle">Порог угла «стержень в плоскости плиты», °</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionsHint">Ведущий узел — узел стержня, ведомые — узлы плиты в следе сечения. Стержень под углом к плите меньше порога считается лежащим в её плоскости (ребро). У отдельного стержня — «АЖТ примыкания…» в контекстном меню.</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionAngleInvalid">Порог угла — число больше 0 и меньше 90, °.</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionsSaved">АЖТ примыканий схемы «{0}»: {1}, порог угла {2}°. Постройте сетку схемы.</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionsOn">включены</system:String>
+    <system:String x:Key="FemSchemaRigidJunctionsOff">выключены</system:String>
     <system:String x:Key="FemMemberMeshStepCtx">Шаг сетки…</system:String>
     <system:String x:Key="FemMemberMeshStepTitle">Шаг сетки</system:String>
     <system:String x:Key="FemMemberMeshStepLocal">Свой шаг, м:</system:String>

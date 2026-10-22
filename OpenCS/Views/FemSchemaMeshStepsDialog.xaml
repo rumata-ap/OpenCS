@@ -21,6 +21,16 @@
             <TextBox x:Name="plateBox" Grid.Row="1" Grid.Column="1" Width="72" VerticalContentAlignment="Center"/>
         </Grid>
         <TextBlock Text="{DynamicResource FemMeshStepsHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <CheckBox x:Name="rigidJunctionsBox" Content="{DynamicResource FemSchemaRigidJunctionsAuto}" Margin="0,0,0,4"/>
+        <Grid Margin="0,0,0,4" IsEnabled="{Binding IsChecked, ElementName=rigidJunctionsBox}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemSchemaRigidJunctionAngle}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+            <TextBox x:Name="angleBox" Grid.Column="1" Width="72" VerticalContentAlignment="Center"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemSchemaRigidJunctionsHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="OK" Width="72" IsDefault="True" Click="Apply_Click" Margin="0,0,6,0"/>
             <Button Content="{DynamicResource Cancel}" Width="72" IsCancel="True"/>

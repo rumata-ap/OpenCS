@@ -3409,13 +3409,21 @@ namespace OpenCS
       {
          if (schema == null) return;
          var (bar, plate) = db.GetFemSchemaMeshSteps(schema.Id);
-         var dlg = new Views.FemSchemaMeshStepsDialog(schema.Tag, bar, plate) { Owner = Application.Current?.MainWindow };
+         var (auto, angle) = db.GetFemSchemaRigidJunctions(schema.Id);
+         var dlg = new Views.FemSchemaMeshStepsDialog(schema.Tag, bar, plate, auto, angle) { Owner = Application.Current?.MainWindow };
          if (dlg.ShowDialog() != true) return;
          schema.MeshBarStepM = dlg.BarStepM;
          schema.MeshPlateStepM = dlg.PlateStepM;
          db.UpdateFemSchemaMeshSteps(schema);
          static string F(double? v) => v?.ToString("0.###", CultureInfo.CurrentCulture) ?? "—";
          LogService.Info(string.Format(Loc.S("FemSchemaMeshStepsSaved"), schema.Tag, F(dlg.BarStepM), F(dlg.PlateStepM)));
+         schema.AutoRigidJunctions = dlg.AutoRigidJunctions;
+         schema.RigidJunctionAngleDeg = dlg.RigidJunctionAngleDeg;
+         db.UpdateFemSchemaRigidJunctions(schema);
+         if (dlg.AutoRigidJunctions != auto || dlg.RigidJunctionAngleDeg != angle)
+            LogService.Info(string.Format(Loc.S("FemSchemaRigidJunctionsSaved"), schema.Tag,
+               Loc.S(dlg.AutoRigidJunctions ? "FemSchemaRigidJunctionsOn" : "FemSchemaRigidJunctionsOff"),
+               dlg.RigidJunctionAngleDeg.ToString("0.###", CultureInfo.CurrentCulture)));
       }
 
       void RenameFemSchema(CScore.Fem.FemSchema? schema)
