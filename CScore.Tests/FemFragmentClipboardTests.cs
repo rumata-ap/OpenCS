@@ -121,6 +121,24 @@ public sealed class FemFragmentClipboardTests
     }
 
     [Fact]
+    public void Paste_CopiesRigidJunctionParams_ButNotExplicitTrace()
+    {
+        var session = TwoNodeBar(out var source);
+        source.RigidJunctionMode = FemMember.RigidJunctionOff;
+        source.RigidJunctionMask = 7;
+        source.RigidJunctionKind = FemMember.RigidJunctionCoupled;
+        source.RigidJunctionTraceJson = "[[0,0,0],[1,0,0],[0,1,0]]";
+
+        var snapshot = FemFragmentClipboard.Copy(session, new HashSet<string>(), new HashSet<string> { "1" });
+        session.Execute(new PasteFragmentCommand(snapshot, 1, 0, 1));
+
+        var copy = session.Members.Single(m => m.ElemTag == "2");
+        Assert.Equal((FemMember.RigidJunctionOff, (int?)7, FemMember.RigidJunctionCoupled),
+            (copy.RigidJunctionMode, copy.RigidJunctionMask, copy.RigidJunctionKind));
+        Assert.Null(copy.RigidJunctionTraceJson);
+    }
+
+    [Fact]
     public void Paste_SeveralCopies_StepsOffsetAndUndoesAtOnce()
     {
         var session = TwoNodeBar(out _);

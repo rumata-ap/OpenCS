@@ -153,6 +153,11 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
         RotationDeg = member.RotationDeg,
         Kind = member.Kind,
         KindSource = member.KindSource,
+        RigidJunctionMode = member.RigidJunctionMode,
+        RigidJunctionMask = member.RigidJunctionMask,
+        RigidJunctionKind = member.RigidJunctionKind,
+        // Явный след АЖТ привязан к положению исходного стержня: у сдвинутой копии он был бы чужим.
+        RigidJunctionTraceJson = null,
         // Набор усилий получен для исходного элемента; область и импортированная сетка у копии свои (нет).
         ForceSetId = null,
         PlanarRegionId = null,
