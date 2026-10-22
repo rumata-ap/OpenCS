@@ -61,6 +61,18 @@ public class FemMember : IFemCheckable
     /// <summary>Сетка элемента импортирована — геометрию менять и пересеткивать нельзя.</summary>
     public bool IsMeshLocked => MeshSource == MeshSourceImported;
 
+    public const string RigidJunctionOff     = "off";
+    public const string RigidJunctionCoupled = "coupled";
+    /// <summary>АЖТ примыкания стержня к плите: null — авто, <see cref="RigidJunctionOff"/> — след стержня не строится.</summary>
+    public string? RigidJunctionMode { get; set; }
+    /// <summary>Маска DOF АЖТ примыкания в общих осях (биты как <see cref="FemNode.DofMask"/>); null — все 6.</summary>
+    public int?    RigidJunctionMask { get; set; }
+    /// <summary>Вид АЖТ примыкания: null — жёсткое тело, <see cref="RigidJunctionCoupled"/> — объединение перемещений.</summary>
+    public string? RigidJunctionKind { get; set; }
+    /// <summary>Явный след АЖТ — многоугольник <c>[[x,y,z],…]</c> в общих осях, м; важнее следа по сечению. Null — след
+    /// по сечению. Заполняет фрагмент этажа из импортного АЖТ родителя.</summary>
+    public string? RigidJunctionTraceJson { get; set; }
+
     string IFemCheckable.Tag => ElemTag;
 
     int[]? _nodeIds;
