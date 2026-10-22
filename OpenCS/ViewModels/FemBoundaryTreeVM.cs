@@ -51,6 +51,9 @@ public sealed class FemBoundaryGroupItem
     public bool IsLost { get; init; }
     /// <summary>Общая длина граней линейной связи, м.</summary>
     public double LengthM { get; init; }
+    /// <summary>Стержневые КонЭ-источники авто-АЖТ примыканий (<see cref="RigidJunctionTraceSet.Provenance"/>):
+    /// параметры тел правятся у них, а не в дереве. Пусто — тело не авто.</summary>
+    public IReadOnlyList<string> SourceMemberTags { get; init; } = [];
 
     /// <summary>Параметры можно изменить диалогом сразу для всех узлов или граней группы.</summary>
     public bool IsEditable => Kind == FemBoundaryKind.NodalSupports && !IsMosaic || Kind == FemBoundaryKind.LineSupports && !IsLost;
@@ -366,7 +369,10 @@ public static class FemBoundaryTree
                     FemBoundaryDofs.Describe(g.Key.Mask));
                 return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, label, group.Count,
                     FemMeshNodeRow.DescribeOrigin(g.Key.Origin), () => new([],
-                        group.SelectMany(b => b.SlaveNodeTags.Prepend(b.MasterNodeTag)).Distinct(StringComparer.Ordinal).ToList(), []));
+                        group.SelectMany(b => b.SlaveNodeTags.Prepend(b.MasterNodeTag)).Distinct(StringComparer.Ordinal).ToList(), []))
+                {
+                    SourceMemberTags = group.SelectMany(JunctionMemberTags).Distinct(StringComparer.Ordinal).ToList(),
+                };
             }).ToList();
     }
 
@@ -378,8 +384,14 @@ public static class FemBoundaryTree
             b.SlaveNodeTags.Count, FemBoundaryDofs.Describe(b.Mask));
         FemBoundaryTargets targets = new([], [b.MasterNodeTag, .. b.SlaveNodeTags], []);
         return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, label, 0,
-            FemMeshNodeRow.DescribeOrigin(b.Origin), () => targets);
+            FemMeshNodeRow.DescribeOrigin(b.Origin), () => targets) { SourceMemberTags = JunctionMemberTags(b) };
     }
+
+    /// <summary>Теги стержней-источников авто-АЖТ (<c>SourceElemTag</c> через запятую); у прочих тел — пусто.</summary>
+    static IReadOnlyList<string> JunctionMemberTags(FemRigidBody b) =>
+        b.Origin == RigidJunctionTraceSet.Provenance && b.SourceElemTag is { } tags
+            ? tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : [];
 
     /// <summary>Объединение объектов нескольких групп без повторов.</summary>
     public static FemBoundaryTargets Merge(IEnumerable<FemBoundaryTargets> parts)
@@ -411,8 +423,13 @@ public static class FemBoundaryTree
         ? "—"
         : string.Join(" ", ReleaseNames.Where((_, i) => (mask & (1 << i)) != 0));
 
-    /// <summary>Ручные — первыми.</summary>
-    static int OriginOrder(string origin) => origin == FemLoadOrigin.Manual ? 0 : 1;
+    /// <summary>Ручные — первыми, затем импортные, авто-АЖТ примыканий — последними.</summary>
+    static int OriginOrder(string origin) => origin switch
+    {
+        FemLoadOrigin.Manual => 0,
+        RigidJunctionTraceSet.Provenance => 2,
+        _ => 1,
+    };
 
     static string? SchemaOrigin(FemSchema schema) => schema.SourceType is "scad" or "lira"
         ? FemMeshNodeRow.DescribeOrigin(FemLoadOrigin.Import(schema.SourceType)) : null;

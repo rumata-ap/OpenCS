@@ -46,12 +46,13 @@ public sealed class FemMeshNodeRow
 
     public string OriginText => string.Join(", ", Origins.Select(DescribeOrigin).Concat(ValueSources));
 
-    /// <summary>Подпись происхождения: «вручную», «SCAD», «ЛИРА».</summary>
+    /// <summary>Подпись происхождения: «вручную», «SCAD», «ЛИРА», «авто» (АЖТ примыканий).</summary>
     public static string DescribeOrigin(string origin) => origin switch
     {
         FemLoadOrigin.Manual => Loc.S("FemBoundaryOriginManual"),
         "import:scad" => "SCAD",
         "import:lira" => Loc.S("FemBoundaryOriginLira"),
+        CScore.Fem.RigidJunctionTraceSet.Provenance => Loc.S("FemBoundaryOriginAuto"),
         CScore.Fem.Fields.FemFieldOverlay.FieldOrigin => Loc.S("FemFieldOriginField"),
         _ => origin,
     };

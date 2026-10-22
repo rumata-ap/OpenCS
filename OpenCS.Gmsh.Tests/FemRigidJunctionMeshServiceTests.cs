@@ -8,7 +8,7 @@ namespace OpenCS.Gmsh.Tests;
 
 /// <summary>Авто-АЖТ примыканий на реальном Gmsh (срез 3): плита 4×4 м на колоннах 0,4×0,4 в углах и в центре —
 /// контур следа вшит в сетку, тела записаны с происхождением «auto:junction», повтор переиспользует снимок, смена
-/// сечения пересобирает сетку, выключенный флажок удаляет тела.</summary>
+/// сечения пересобирает сетку, смена маски стержня видна проверке (срез 4), выключенный флажок удаляет тела.</summary>
 public sealed class FemRigidJunctionMeshServiceTests
 {
     const string Gmsh = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe";
@@ -68,13 +68,17 @@ public sealed class FemRigidJunctionMeshServiceTests
             };
             var service = new FemSchemaMeshService(db, gmsh);
             int centerSection = 9001;
+            int? c1Mask = null;
 
             // Сечения — только в памяти (как сессия редактора): в cross_sections их нет.
             List<FemMember> Members()
             {
                 var list = db.GetFemMembers(schema.Id);
                 foreach (var m in list.Where(m => m.ElemType == "beam"))
+                {
                     m.CrossSectionId = m.ElemTag == "C5" ? centerSection : 9001;
+                    if (m.ElemTag == "C1") m.RigidJunctionMask = c1Mask;
+                }
                 return list;
             }
             async Task<FemSchemaMeshBuildResult> BuildAndSave()
@@ -115,6 +119,19 @@ public sealed class FemRigidJunctionMeshServiceTests
             Assert.Equal(0, second.RebuiltRegionCount);
             Assert.Equal(bodies.Count, Stored().Count);
             Assert.All(Stored(), kv => Assert.Equal(bodies[kv.Key], kv.Value));
+
+            // 2б. Маска АЖТ колонны C1 без смены геометрии: проверка видит устаревшие тела, сборка — без Gmsh.
+            Task<FemSchemaMeshBuildResult> Check() => service.CheckAsync(schema.Id, nodes, Members(), null, CancellationToken.None);
+            Assert.True((await Check()).IsCurrent);
+            c1Mask = 0b000111;
+            var stale = await Check();
+            Assert.False(stale.IsCurrent);
+            Assert.Contains(stale.Diagnostics, d => d.Code == "rigid_junctions_stale");
+            var remask = await BuildAndSave();
+            Assert.Equal(0, remask.RebuiltRegionCount);
+            var c1Master = mesh.Nodes.Single(n => n.SourceNodeTag == "11").NodeTag;
+            Assert.Equal(0b000111, db.GetFemRigidBodies(schema.Id).Single(b => b.MasterNodeTag == c1Master).Mask);
+            Assert.True((await Check()).IsCurrent);
 
             // 3. Сечение центральной колонны 0,6×0,6: сетка пересобрана, след шире.
             centerSection = 9002;

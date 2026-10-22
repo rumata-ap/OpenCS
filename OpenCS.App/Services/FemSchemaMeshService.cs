@@ -118,15 +118,25 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes);
         diagnostics.AddRange(mesh.Diagnostics);
         diagnostics.AddRange(FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements));
-        if (junctionOptions != null && !checkOnly && !mesh.HasErrors)
+        // Проверка: сетка совпала с сохранённой (теги те же) — тела строятся и сравниваются с записанными, иначе смена
+        // маски или вида АЖТ без смены геометрии осталась бы незамеченной.
+        bool? current = checkOnly ? IsSameAsStored(schemaId, mesh) : null;
+        if (junctionOptions != null && !mesh.HasErrors && current != false)
         {
             var junctions = FemRigidJunctionMaterializer.Build(mesh, regionMeshes, nodes, members, BlockedSlaves(schemaId, nodes, members, mesh));
             mesh.RigidBodies.AddRange(junctions.Bodies);
-            diagnostics.AddRange(junctions.Diagnostics);
-            if (junctions.Bodies.Count > 0)
-                info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRigidJunctions"), junctions.Bodies.Count));
+            if (!checkOnly)
+            {
+                diagnostics.AddRange(junctions.Diagnostics);
+                if (junctions.Bodies.Count > 0)
+                    info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRigidJunctions"), junctions.Bodies.Count));
+            }
         }
-        bool? current = checkOnly ? IsSameAsStored(schemaId, mesh) : null;
+        if (current == true && !SameJunctionBodies(schemaId, mesh.RigidBodies))
+        {
+            current = false;
+            diagnostics.Add(new("rigid_junctions_stale", Loc.S("FemSchemaMeshRigidJunctionsStale"), false));
+        }
         return new FemSchemaMeshBuildResult
         {
             Mesh = mesh, Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt, IsCurrent = current,
@@ -250,6 +260,16 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var result = new Dictionary<int, double>();
         foreach (var section in db.PlateSections) result.TryAdd(section.Id, section.H);
         return result;
+    }
+
+    /// <summary>Авто-АЖТ примыканий в БД совпадают с телами сборки: ведущий, ведомые, маска, вид.</summary>
+    bool SameJunctionBodies(int schemaId, IEnumerable<FemRigidBody> built)
+    {
+        static List<string> Keys(IEnumerable<FemRigidBody> bodies) => bodies
+            .Select(b => $"{b.MasterNodeTag}|{string.Join(",", b.SlaveNodeTags.Order(StringComparer.Ordinal))}|{b.Mask}|{b.Kind}")
+            .Order(StringComparer.Ordinal).ToList();
+        var stored = db.GetFemRigidBodies(schemaId).Where(b => b.Origin == RigidJunctionTraceSet.Provenance);
+        return Keys(stored).SequenceEqual(Keys(built));
     }
 
     /// <summary>Сохранённая сгенерированная сетка схемы совпадает с пересобранной (теги, координаты, связность, свойства).</summary>

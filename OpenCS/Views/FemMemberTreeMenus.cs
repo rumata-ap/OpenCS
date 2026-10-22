@@ -135,7 +135,8 @@ internal static class FemMemberTreeMenus
     }
 
     /// <summary>Меню типа ГУ: изменить параметры для всех объектов типа, правка состава типа (список, назначить выделенным,
-    /// снять с выделенных), мозаика переменных пружин, выделить объекты в редакторе схемы.</summary>
+    /// снять с выделенных), у авто-АЖТ — параметры стержней-источников, мозаика переменных пружин, выделить объекты в
+    /// редакторе схемы.</summary>
     public static void FillBoundaryGroup(ItemCollection items, FemBoundaryGroupItem group, AppViewModel app)
     {
         if (group.IsEditable)
@@ -154,6 +155,12 @@ internal static class FemMemberTreeMenus
             items.Add(Item("FemBoundaryLineDelete", () => app.DeleteFemLineSupportGroup(group)));
         else if (group.Kind == FemBoundaryKind.NodalSupports && group.IsEditable)
             items.Add(Item("FemBoundaryNodalDelete", () => app.DeleteFemNodalSupportGroup(group)));
+        if (group.SourceMemberTags.Count > 0)
+            items.Add(Item("FemBoundaryRigidJunctionParams", () => app.InFemSchemaEditor(group.Schema, page =>
+            {
+                page.SelectInSchema([], group.SourceMemberTags);
+                page.OpenMemberRigidJunction(group.SourceMemberTags[0]);
+            })));
         if (group.IsMosaic)
             items.Add(Item("FemBoundaryShowOnSchema",
                 () => app.ShowFemBoundaryMosaic(group.Schema, PlateRebarMosaicSourceKind.Springs)));
