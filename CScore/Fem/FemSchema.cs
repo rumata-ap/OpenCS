@@ -26,6 +26,12 @@ public class FemSchema
     /// Локальный шаг КонЭ (<see cref="FemMember.TargetMeshLengthM"/>) важнее.</summary>
     public double? MeshPlateStepM { get; set; }
 
+    /// <summary>Создавать АЖТ в примыканиях стержней к плитам при построении сетки (по умолчанию — да).</summary>
+    public bool   AutoRigidJunctions    { get; set; } = true;
+
+    /// <summary>Порог угла оси стержня к плоскости плиты, град: не меньше — стержень входит в плиту (случай А).</summary>
+    public double RigidJunctionAngleDeg { get; set; } = 10;
+
     /// <summary>Группы конструктивных элементов схемы. Заполняются при загрузке из БД.</summary>
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
 

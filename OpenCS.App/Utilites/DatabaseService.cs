@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 89;
+      const int CurrentSchemaVersion = 90;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -109,6 +109,7 @@ namespace OpenCS.Utilites
          [86] = MigrateV87,
          [87] = MigrateV88,
          [88] = MigrateV89,
+         [89] = MigrateV90,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -519,7 +520,9 @@ namespace OpenCS.Utilites
                 created     TEXT NOT NULL DEFAULT '',
                 source_path TEXT,
                 mesh_bar_step_m   REAL,
-                mesh_plate_step_m REAL
+                mesh_plate_step_m REAL,
+                auto_rigid_junctions     INTEGER NOT NULL DEFAULT 1,
+                rigid_junction_angle_deg REAL NOT NULL DEFAULT 10
             );
             CREATE TABLE IF NOT EXISTS fem_nodes (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -577,7 +580,11 @@ namespace OpenCS.Utilites
                 planar_region_id   INTEGER REFERENCES planar_regions(id),
                 kind                TEXT,
                 kind_source         TEXT NOT NULL DEFAULT 'auto',
-                mesh_source         TEXT NOT NULL DEFAULT 'generated'
+                mesh_source         TEXT NOT NULL DEFAULT 'generated',
+                rigid_junction_mode       TEXT,
+                rigid_junction_mask       INTEGER,
+                rigid_junction_kind       TEXT,
+                rigid_junction_trace_json TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1783,6 +1790,23 @@ namespace OpenCS.Utilites
             WHERE planar_region_id IS NOT NULL AND target_mesh_length_m IS NULL
               AND EXISTS (SELECT 1 FROM planar_regions r WHERE r.id = fem_members.planar_region_id);
             """);
+      }
+
+      /// <summary>Миграция v90: параметры авто-АЖТ — флажок и порог угла схемы, режим/маска/вид/явный след стержня.</summary>
+      void MigrateV90()
+      {
+         if (!ColumnExists("fem_schemas", "auto_rigid_junctions"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN auto_rigid_junctions INTEGER NOT NULL DEFAULT 1");
+         if (!ColumnExists("fem_schemas", "rigid_junction_angle_deg"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN rigid_junction_angle_deg REAL NOT NULL DEFAULT 10");
+         if (!ColumnExists("fem_members", "rigid_junction_mode"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_mode TEXT");
+         if (!ColumnExists("fem_members", "rigid_junction_mask"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_mask INTEGER");
+         if (!ColumnExists("fem_members", "rigid_junction_kind"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_kind TEXT");
+         if (!ColumnExists("fem_members", "rigid_junction_trace_json"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_trace_json TEXT");
       }
 
       /// <summary>Миграция v89: second_order в force_sets — усилия второго порядка (η в проверках по КЭ не применяется).</summary>
@@ -4270,7 +4294,7 @@ namespace OpenCS.Utilites
          var schemas = new Dictionary<int, CScore.Fem.FemSchema>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m FROM fem_schemas ORDER BY id";
+            cmd.CommandText = "SELECT id, tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m, auto_rigid_junctions, rigid_junction_angle_deg FROM fem_schemas ORDER BY id";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -4283,6 +4307,8 @@ namespace OpenCS.Utilites
                   SourcePath = r.IsDBNull(4) ? null : r.GetString(4),
                   MeshBarStepM   = r.IsDBNull(5) ? null : r.GetDouble(5),
                   MeshPlateStepM = r.IsDBNull(6) ? null : r.GetDouble(6),
+                  AutoRigidJunctions    = r.GetInt64(7) != 0,
+                  RigidJunctionAngleDeg = r.GetDouble(8),
                };
                schemas[s.Id] = s;
             }
@@ -4510,6 +4536,28 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      /// <summary>Параметры авто-АЖТ схемы из БД: флажок и порог угла, град.</summary>
+      public (bool Auto, double AngleDeg) GetFemSchemaRigidJunctions(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT auto_rigid_junctions, rigid_junction_angle_deg FROM fem_schemas WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", schemaId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read()) return (true, 10);
+         return (r.GetInt64(0) != 0, r.GetDouble(1));
+      }
+
+      /// <summary>Записать параметры авто-АЖТ схемы (флажок, порог угла).</summary>
+      public void UpdateFemSchemaRigidJunctions(CScore.Fem.FemSchema schema)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "UPDATE fem_schemas SET auto_rigid_junctions=@auto, rigid_junction_angle_deg=@angle WHERE id=@id";
+         cmd.Parameters.AddWithValue("@auto", schema.AutoRigidJunctions ? 1 : 0);
+         cmd.Parameters.AddWithValue("@angle", schema.RigidJunctionAngleDeg);
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
+      }
+
       /// <summary>Записать только путь к файлу проекта-источника (без пересохранения групп схемы).</summary>
       public void UpdateFemSchemaSourcePath(CScore.Fem.FemSchema schema, string? path)
       {
@@ -4530,14 +4578,16 @@ namespace OpenCS.Utilites
             if (schema.Id == 0)
             {
                cmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created, source_path)
-                  VALUES (@tag, @src, @created, @path);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path, auto_rigid_junctions, rigid_junction_angle_deg)
+                  VALUES (@tag, @src, @created, @path, @auto, @angle);
                   SELECT last_insert_rowid();
                """;
                cmd.Parameters.AddWithValue("@tag",     schema.Tag);
                cmd.Parameters.AddWithValue("@src",     schema.SourceType);
                cmd.Parameters.AddWithValue("@created", schema.Created);
                cmd.Parameters.AddWithValue("@path",    (object?)schema.SourcePath ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@auto",    schema.AutoRigidJunctions ? 1 : 0);
+               cmd.Parameters.AddWithValue("@angle",   schema.RigidJunctionAngleDeg);
                schema.Id = (int)(long)cmd.ExecuteScalar()!;
                FemSchemas.Add(schema);
             }
@@ -5591,9 +5641,10 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                             target_mesh_length_m, rotation_deg, plate_section_id, force_set_id,
-                                            design_params_json, planar_region_id, kind, kind_source, mesh_source)
+                                            design_params_json, planar_region_id, kind, kind_source, mesh_source,
+                                            rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json)
                   VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @rot,
-                          @psid, @fsid, @dp, @prid, @kind, @ksrc, @msrc);
+                          @psid, @fsid, @dp, @prid, @kind, @ksrc, @msrc, @rjm, @rjk, @rjv, @rjt);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -5616,6 +5667,10 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@kind", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@ksrc", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@msrc", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@rjm",  Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@rjk",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@rjv",  Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@rjt",  Microsoft.Data.Sqlite.SqliteType.Text);
                foreach (var e in members)
                {
                   elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -5638,6 +5693,10 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@kind"].Value  = (object?)e.Kind ?? DBNull.Value;
                   elemCmd.Parameters["@ksrc"].Value  = e.KindSource;
                   elemCmd.Parameters["@msrc"].Value  = e.MeshSource;
+                  elemCmd.Parameters["@rjm"].Value   = (object?)e.RigidJunctionMode ?? DBNull.Value;
+                  elemCmd.Parameters["@rjk"].Value   = (object?)e.RigidJunctionMask ?? DBNull.Value;
+                  elemCmd.Parameters["@rjv"].Value   = (object?)e.RigidJunctionKind ?? DBNull.Value;
+                  elemCmd.Parameters["@rjt"].Value   = (object?)e.RigidJunctionTraceJson ?? DBNull.Value;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
                   newMemberIdByOld[e.Id] = newId;
                   e.Id = newId;
@@ -6055,12 +6114,15 @@ namespace OpenCS.Utilites
                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                MeshBarStepM = sourceSchema.MeshBarStepM,
                MeshPlateStepM = sourceSchema.MeshPlateStepM,
+               AutoRigidJunctions    = sourceSchema.AutoRigidJunctions,
+               RigidJunctionAngleDeg = sourceSchema.RigidJunctionAngleDeg,
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
-                  INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m)
-                  VALUES (@tag, @src, @created, @path, @bar, @plate);
+                  INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
+                                           auto_rigid_junctions, rigid_junction_angle_deg)
+                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle);
                   SELECT last_insert_rowid();
                """;
                schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
@@ -6069,6 +6131,8 @@ namespace OpenCS.Utilites
                schemaCmd.Parameters.AddWithValue("@path", (object?)newSchema.SourcePath ?? DBNull.Value);
                schemaCmd.Parameters.AddWithValue("@bar", (object?)newSchema.MeshBarStepM ?? DBNull.Value);
                schemaCmd.Parameters.AddWithValue("@plate", (object?)newSchema.MeshPlateStepM ?? DBNull.Value);
+               schemaCmd.Parameters.AddWithValue("@auto", newSchema.AutoRigidJunctions ? 1 : 0);
+               schemaCmd.Parameters.AddWithValue("@angle", newSchema.RigidJunctionAngleDeg);
                newSchema.Id = (int)(long)schemaCmd.ExecuteScalar()!;
             }
             int newSchemaId = newSchema.Id;
@@ -6107,9 +6171,10 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                             target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
-                                            kind, kind_source, mesh_source)
+                                            kind, kind_source, mesh_source,
+                                            rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json)
                   VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
-                          @kind, @ksrc, @msrc);
+                          @kind, @ksrc, @msrc, @rjm, @rjk, @rjv, @rjt);
                   SELECT last_insert_rowid();
                """;
                memberCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -6131,6 +6196,10 @@ namespace OpenCS.Utilites
                memberCmd.Parameters.Add("@kind", Microsoft.Data.Sqlite.SqliteType.Text);
                memberCmd.Parameters.Add("@ksrc", Microsoft.Data.Sqlite.SqliteType.Text);
                memberCmd.Parameters.Add("@msrc", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@rjm",  Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@rjk",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@rjv",  Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@rjt",  Microsoft.Data.Sqlite.SqliteType.Text);
                foreach (var m in members)
                {
                   memberCmd.Parameters["@sid"].Value   = newSchemaId;
@@ -6152,6 +6221,10 @@ namespace OpenCS.Utilites
                   memberCmd.Parameters["@kind"].Value  = (object?)m.Kind ?? DBNull.Value;
                   memberCmd.Parameters["@ksrc"].Value  = m.KindSource;
                   memberCmd.Parameters["@msrc"].Value  = m.MeshSource;
+                  memberCmd.Parameters["@rjm"].Value   = (object?)m.RigidJunctionMode ?? DBNull.Value;
+                  memberCmd.Parameters["@rjk"].Value   = (object?)m.RigidJunctionMask ?? DBNull.Value;
+                  memberCmd.Parameters["@rjv"].Value   = (object?)m.RigidJunctionKind ?? DBNull.Value;
+                  memberCmd.Parameters["@rjt"].Value   = (object?)m.RigidJunctionTraceJson ?? DBNull.Value;
                   int newId = (int)(long)memberCmd.ExecuteScalar()!;
                   newMemberIdByOld[m.Id] = newId;
                }
@@ -6464,7 +6537,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg, planar_region_id, kind, kind_source, mesh_source FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg, planar_region_id, kind, kind_source, mesh_source, rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -6491,6 +6564,10 @@ namespace OpenCS.Utilites
                Kind              = rdr.IsDBNull(17) ? null : rdr.GetString(17),
                KindSource        = rdr.GetString(18),
                MeshSource        = rdr.GetString(19),
+               RigidJunctionMode      = rdr.IsDBNull(20) ? null : rdr.GetString(20),
+               RigidJunctionMask      = rdr.IsDBNull(21) ? null : rdr.GetInt32(21),
+               RigidJunctionKind      = rdr.IsDBNull(22) ? null : rdr.GetString(22),
+               RigidJunctionTraceJson = rdr.IsDBNull(23) ? null : rdr.GetString(23),
             });
          return result;
       }
@@ -7456,9 +7533,10 @@ namespace OpenCS.Utilites
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                          target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
-                                         planar_region_id, kind, kind_source, mesh_source)
+                                         planar_region_id, kind, kind_source, mesh_source,
+                                         rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json)
                VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
-                       @prid, @kind, @ksrc, @msrc);
+                       @prid, @kind, @ksrc, @msrc, @rjm, @rjk, @rjv, @rjt);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -7481,6 +7559,10 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
             cmd.Parameters.AddWithValue("@msrc",  m.MeshSource);
+            cmd.Parameters.AddWithValue("@rjm",   (object?)m.RigidJunctionMode ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjk",   (object?)m.RigidJunctionMask ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjv",   (object?)m.RigidJunctionKind ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjt",   (object?)m.RigidJunctionTraceJson ?? DBNull.Value);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
@@ -7490,7 +7572,8 @@ namespace OpenCS.Utilites
                material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
                gj_torsion_task_id=@gjt, target_mesh_length_m=@tml, plate_section_id=@psid, force_set_id=@fsid,
                design_params_json=@dp, rotation_deg=@rot, planar_region_id=@prid, kind=@kind, kind_source=@ksrc,
-               mesh_source=@msrc
+               mesh_source=@msrc, rigid_junction_mode=@rjm, rigid_junction_mask=@rjk, rigid_junction_kind=@rjv,
+               rigid_junction_trace_json=@rjt
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -7512,6 +7595,10 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
             cmd.Parameters.AddWithValue("@msrc",  m.MeshSource);
+            cmd.Parameters.AddWithValue("@rjm",   (object?)m.RigidJunctionMode ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjk",   (object?)m.RigidJunctionMask ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjv",   (object?)m.RigidJunctionKind ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rjt",   (object?)m.RigidJunctionTraceJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
