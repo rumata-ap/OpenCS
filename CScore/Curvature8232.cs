@@ -140,7 +140,9 @@ public static class Curvature8232
                     // поэтому за площадкой текучести поправка сама собой затухает.
                     // dεs,crc/dεs = 1, значит касательный модуль переносится без масштаба.
                     double epsInCrack = fiber.Eps_p + eps * scale;
-                    sigCrc = dgr.Sig(epsInCrack, out e2Crc);
+                    sigCrc = dgr.Host != null
+                        ? dgr.SigDifferential(epsInCrack, eps * scale, out e2Crc)
+                        : dgr.Sig(epsInCrack, out e2Crc);
                     sigOwnCrc = dgr.Own?.Sig(epsInCrack, out _) ?? sigCrc;
                 }
                 else

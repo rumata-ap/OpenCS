@@ -50,6 +50,15 @@ namespace CScore
       public Diagramm? Own { get; set; }
 
       /// <summary>
+      /// Диаграмма бетона-носителя разностной диаграммы; null — диаграмма не разностная. Разностная σ
+      /// считается как Own − Host по правилам бетона (разрыв за εbt,ult, флаг tenB) при деформации бетона
+      /// без начальной деформации стержня: вычитается ровно то, что бетонная сетка даёт в той же точке
+      /// (<see cref="SigDifferential"/>).
+      /// </summary>
+      [JsonIgnore]
+      public Diagramm? Host { get; set; }
+
+      /// <summary>
       /// Тип диаграммы (L2, L3, SP63 и др.).
       /// </summary>
       public DiagrammType Type { get; set; }
@@ -113,6 +122,7 @@ namespace CScore
       /// <returns>Напряжение σ при заданной деформации ε [МПа].</returns>
       public virtual double Sig(double eps, out double E2, bool tenB = true, bool comprA = true)
       {
+         if (Own != null && Host != null) return SigDifferential(eps, eps, out E2, tenB, comprA);
          E2 = 0; double sig = 0;
          if (eps > 0 && tenB && MaterialType == MatType.Concrete)
          {
@@ -128,6 +138,26 @@ namespace CScore
       }
 
       /// <summary>
+      /// Разностная σ стержня в бетоне: сталь при полной деформации стержня минус бетон-носитель при
+      /// деформации бетона в той же точке, по правилам бетона (разрыв за εbt,ult, флаг tenB). У стержня
+      /// с преднапряжением бетон деформирован без εp; у остальных обе деформации совпадают.
+      /// Сплайн <see cref="It"/> разностной диаграммы так не умеет: за трещиной он продолжал площадку
+      /// Rbt и не знал tenB, и стержень недодавал Rbt·As.
+      /// </summary>
+      /// <param name="epsSteel">Полная деформация стержня (с начальной εp).</param>
+      /// <param name="epsConcrete">Деформация бетона в точке стержня (без εp).</param>
+      public double SigDifferential(double epsSteel, double epsConcrete, out double E2,
+         bool tenB = true, bool comprA = true)
+      {
+         // Сжатая арматура выключена: стержень не работает, бетон под ним остаётся в сетке.
+         if (Own == null || Host == null || (epsSteel < 0 && !comprA)) { E2 = 0; return 0; }
+         double sigSteel = Own.Sig(epsSteel, out double e2Steel, tenB, comprA);
+         double sigConcrete = Host.Sig(epsConcrete, out double e2Concrete, tenB, true);
+         E2 = e2Steel - e2Concrete;
+         return sigSteel - sigConcrete;
+      }
+
+      /// <summary>
       /// Вычисляет напряжение и усилия для отдельного волокна (конечного элемента).
       /// Задаёт поля Sig, N, My, Mz, E, E2 объекта <see cref="Fiber"/>.
       /// </summary>
@@ -137,7 +167,10 @@ namespace CScore
       public virtual void Sig(Fiber finiteArea, bool tenB = true, bool comprA = true)
       {
          double eps = finiteArea.Eps + finiteArea.Eps_p;
-         finiteArea.Sig = Sig(eps, out double e2, tenB, comprA);
+         double e2;
+         finiteArea.Sig = Own != null && Host != null
+            ? SigDifferential(eps, finiteArea.Eps, out e2, tenB, comprA)
+            : Sig(eps, out e2, tenB, comprA);
          finiteArea.SigOwn = Own?.Sig(eps, out _, tenB, comprA) ?? finiteArea.Sig;
          finiteArea.N = finiteArea.Sig * finiteArea.Area;
          finiteArea.Mx = finiteArea.Sig * finiteArea.Area * finiteArea.Y;
@@ -187,7 +220,7 @@ namespace CScore
             steel.MaterialType,
             $"diff({steel.Tag}−{concrete.Tag})"
          )
-         { Own = steel };
+         { Own = steel, Host = concrete };
       }
 
       /// <summary>

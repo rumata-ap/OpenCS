@@ -43,6 +43,47 @@ public class RebarOwnStressTests
         Assert.Equal(fiber.Sig * fiber.Area, fiber.N, 9);
     }
 
+    /// <summary>
+    /// Растянутый стержень: из стали вычитается ровно то, что даёт бетонная сетка в той же точке —
+    /// до трещины σbt, после εbt,ult и при выключенном растяжении бетона — ноль.
+    /// </summary>
+    [Theory]
+    [InlineData(CalcType.C, 0.0001, true)]
+    [InlineData(CalcType.C, 0.00005, false)]
+    [InlineData(CalcType.C, 0.0005, true)]
+    [InlineData(CalcType.C, 0.0005, false)]
+    [InlineData(CalcType.C, 0.01, true)]
+    [InlineData(CalcType.N, 0.0001, true)]
+    [InlineData(CalcType.N, 0.002, true)]
+    [InlineData(CalcType.N, 0.002, false)]
+    public void Differential_TensionedRebar_SubtractsWhatConcreteMeshCarries(CalcType ct, double eps, bool ten)
+    {
+        var section = SectionWithHostedRebar(differential: true);
+        var concrete = section.Areas.First(a => a.Category == AreaCategory.Region);
+        var dgr = section.Areas.First(a => a.Category == AreaCategory.RebarGroup).Diagramms[ct];
+
+        double steel = dgr.Own!.SigValue(eps, ten);
+        double mesh = concrete.Diagramms[ct].SigValue(eps, ten);
+        Assert.Equal(steel - mesh, dgr.SigValue(eps, ten), 6);
+
+        dgr.Sig(eps, out double e2Diff, ten);
+        dgr.Own.Sig(eps, out double e2Steel, ten);
+        concrete.Diagramms[ct].Sig(eps, out double e2Concrete, ten);
+        Assert.Equal(e2Steel - e2Concrete, e2Diff, 3);
+    }
+
+    [Fact]
+    public void Differential_CompressedRebar_UnchangedAndComprAOffGivesZero()
+    {
+        var section = SectionWithHostedRebar(differential: true);
+        var concrete = section.Areas.First(a => a.Category == AreaCategory.Region);
+        var dgr = section.Areas.First(a => a.Category == AreaCategory.RebarGroup).Diagramms[CalcType.C];
+
+        Assert.Equal(dgr.Own!.SigValue(-0.003) - concrete.Diagramms[CalcType.C].SigValue(-0.003),
+            dgr.SigValue(-0.003), 6);
+        Assert.Equal(0.0, dgr.SigValue(-0.003, ten: true, ca: false), 9);
+    }
+
     [Fact]
     public void NotDifferential_SigOwnEqualsSig()
     {

@@ -58,12 +58,15 @@ public class CrackingMomentFastSolverTests
 
     /// <summary>
     /// На сечениях, где работали оба пути, ответ обязан остаться прежним по существу: предел
-    /// достигается в зоне догружения, а расхождение с бисекцией — доли процента.
+    /// достигается в зоне догружения, а расхождение с бисекцией — около процента: сама бисекция
+    /// с solverTol = 0,1 даёт разброс ~1 % (при σsp = 300 до правки разностной диаграммы −95,12
+    /// против −96,06 у быстрого пути, после — −97,08 против −96,10). Эталоны — бисекция после
+    /// правки вычитания бетона под преднапряжённым стержнем (при его собственной деформации, без εp).
     /// </summary>
     [Theory]
     [InlineData(0.0, -47.68)]
-    [InlineData(300.0, -95.12)]
-    [InlineData(600.0, -141.45)]
+    [InlineData(300.0, -97.08)]
+    [InlineData(600.0, -141.94)]
     public void HealthySections_AgreeWithTheBisectionAnswer(double sigSp, double bisectionMx)
     {
         var (solver, _) = Build(sigSp);
@@ -72,8 +75,8 @@ public class CrackingMomentFastSolverTests
 
         Assert.True(result.Converged);
         Assert.Equal(solver.TensionLimit(), result.EpsMaxTension, 6);
-        Assert.True(Math.Abs(result.Mx - bisectionMx) <= Math.Abs(bisectionMx) * 0.01,
-            $"σsp={sigSp}: {result.Mx:F3} против {bisectionMx:F3} у прежней бисекции");
+        Assert.True(Math.Abs(result.Mx - bisectionMx) <= Math.Abs(bisectionMx) * 0.015,
+            $"σsp={sigSp}: {result.Mx:F3} против {bisectionMx:F3} у бисекции");
     }
 
     /// <summary>Результат не зависит от того, какой магнитудой передано направление момента.</summary>
@@ -106,6 +109,6 @@ public class CrackingMomentFastSolverTests
         var result = solver.CrackingMoment(N, Mx, My);
 
         Assert.True(result.Converged);
-        Assert.True(Math.Abs(result.Mx - (-95.12)) <= 1.0, $"Mx={result.Mx:F3}");
+        Assert.True(Math.Abs(result.Mx - (-97.08)) <= 1.0, $"Mx={result.Mx:F3}");
     }
 }

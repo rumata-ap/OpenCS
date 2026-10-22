@@ -338,8 +338,10 @@ internal static class PrestressActionsCalculator
     {
         if (fiber.Eps_p == 0) return 0.0;
 
+        // У разностной диаграммы бетон при нулевой деформации плоскости ничего не несёт: усилие
+        // обжатия — по стали (сплайн разностной вычитал бы площадку Rbt за εbt,ult).
         double sigKpa = area.Diagramms.TryGetValue(calc, out var diagram)
-            ? diagram.SigValue(fiber.Eps_p, ten, ca)
+            ? (diagram.Host != null ? diagram.SigDifferential(fiber.Eps_p, 0.0, out _, ten, ca) : diagram.SigValue(fiber.Eps_p, ten, ca))
             : (area.Material?.E ?? 0.0) * fiber.Eps_p;
 
         return sigKpa * fiber.Area;
