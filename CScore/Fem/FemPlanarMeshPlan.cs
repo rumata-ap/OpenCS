@@ -11,7 +11,8 @@ public sealed record FemPlanarRegionConstraints(
     IReadOnlyList<FemValidationDiagnostic> Diagnostics,
     DerivedPlanarConstraintSet Derived,
     int FreeNodeCount,
-    int JunctionCount = 0);
+    int JunctionCount = 0,
+    int RigidJunctionCount = 0);
 
 /// <summary>
 /// Общий для команды «Построить сетку схемы» и диалога области порядок построения сеток областей и вход вывода
@@ -59,6 +60,8 @@ public static class FemPlanarMeshPlan
     /// ни одному КонЭ), лежащих в области, — опоры и сосредоточенные нагрузки на плите. Области, которые строятся
     /// позже (<paramref name="laterRegions"/>), дают линии стыка по геометрии: их сеток ещё нет, а узлы на линии стыка
     /// должны быть у обеих сторон (стена сквозь плиту) — поздняя область потом встроит узлы ранней.
+    /// Следы АЖТ примыканий стержней (<paramref name="junctions"/>) вшиваются как Region-ограничения; в отпечаток входит
+    /// только их геометрия — маска и вид тела на сетку не влияют.
     /// </summary>
     public static FemPlanarRegionConstraints Constraints(
         int schemaId,
@@ -67,7 +70,8 @@ public static class FemPlanarMeshPlan
         FemPlanarMaterializationResult prefixMesh,
         PlanarRegion region,
         PlanarConstraintDerivationOptions? options = null,
-        IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null)
+        IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
+        RigidJunctionTraceSet? junctions = null)
     {
         options ??= new PlanarConstraintDerivationOptions();
         var diagnostics = new List<FemValidationDiagnostic>();
@@ -148,22 +152,48 @@ public static class FemPlanarMeshPlan
             free++;
         }
 
-        var junctions = new List<PlanarConstraintObject>();
+        var seams = new List<PlanarConstraintObject>();
         foreach (var (tag, other) in laterRegions ?? [])
-            junctions.AddRange(JunctionConstraints(region, tag, other, options));
+            seams.AddRange(JunctionConstraints(region, tag, other, options));
         var fingerprint = derived.SourceFingerprint;
-        if (junctions.Count > 0)
+        if (seams.Count > 0)
         {
-            foreach (var junction in junctions)
+            foreach (var junction in seams)
                 if (ids.Add(junction.Id)) constraints.Add(junction);
-            var text = string.Join("|", junctions.Select(j =>
+            var text = string.Join("|", seams.Select(j =>
                 j.Id + ":" + string.Join(";", j.Geometry.Points.Select(p => p.U.ToString("G17", CultureInfo.InvariantCulture) + "," +
                                                                          p.V.ToString("G17", CultureInfo.InvariantCulture)))));
             fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
                 System.Text.Encoding.UTF8.GetBytes(fingerprint + "|junctions:" + text))).ToLowerInvariant();
         }
 
-        return new FemPlanarRegionConstraints(constraints, fingerprint, diagnostics, derived, free, junctions.Count);
+        int rigid = 0;
+        if (junctions != null)
+        {
+            diagnostics.AddRange(junctions.Diagnostics);
+            var traces = junctions.ToConstraints();
+            foreach (var trace in traces)
+            {
+                if (!ids.Add(trace.Id))
+                {
+                    diagnostics.Add(new("planar_constraint_derived_id_duplicate",
+                        $"След АЖТ '{trace.Id}' совпадает с другим ограничением области."));
+                    continue;
+                }
+                constraints.Add(trace);
+            }
+            rigid = junctions.Traces.Count;
+            if (traces.Count > 0)
+            {
+                var text = string.Join("|", traces.Select(t =>
+                    t.Id + ":" + string.Join(";", t.Geometry.Points.Select(p => p.U.ToString("G17", CultureInfo.InvariantCulture) + "," +
+                                                                       p.V.ToString("G17", CultureInfo.InvariantCulture)))));
+                fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(fingerprint + "|rigid:" + text))).ToLowerInvariant();
+            }
+        }
+
+        return new FemPlanarRegionConstraints(constraints, fingerprint, diagnostics, derived, free, seams.Count, rigid);
     }
 
     /// <summary>
