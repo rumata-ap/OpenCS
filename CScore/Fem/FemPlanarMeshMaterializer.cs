@@ -4,9 +4,10 @@ using CScore.Planar;
 
 namespace CScore.Fem;
 
-/// <summary>Сетка одной области своей схемы на входе материализации: КонЭ-пластина, область, её снимок и
-/// толщина по сечению пластины (null — сечение не назначено).</summary>
-public sealed record FemPlanarRegionMesh(FemMember Member, PlanarRegion Region, PlanarMeshSnapshot Snapshot, double? ThicknessM);
+/// <summary>Сетка одной области своей схемы на входе материализации: КонЭ-пластина, область, её снимок,
+/// толщина по сечению пластины (null — сечение не назначено) и следы АЖТ примыканий, вшитые в снимок (null — нет).</summary>
+public sealed record FemPlanarRegionMesh(FemMember Member, PlanarRegion Region, PlanarMeshSnapshot Snapshot, double? ThicknessM,
+    RigidJunctionTraceSet? Junctions = null);
 
 /// <summary>Сетка схемы после материализации пластин и отчёт.</summary>
 public sealed class FemPlanarMaterializationResult
@@ -19,6 +20,11 @@ public sealed class FemPlanarMaterializationResult
     public int SplitBeamCount { get; init; }
     /// <summary>Сколько узлов пластин совпало с узлами стержней, импортной сетки или других областей.</summary>
     public int SharedNodeCount { get; init; }
+    /// <summary>Теги узлов сетки схемы по индексу узла снимка — для каждой области в порядке входа (пусто, если
+    /// снимок не материализован).</summary>
+    public IReadOnlyList<IReadOnlyList<string>> RegionNodeTags { get; init; } = [];
+    /// <summary>Автоматические АЖТ примыканий стержней к плитам (<see cref="FemRigidJunctionMaterializer"/>).</summary>
+    public List<FemRigidBody> RigidBodies { get; } = [];
 }
 
 /// <summary>
@@ -72,12 +78,14 @@ public static class FemPlanarMeshMaterializer
         var shells = new List<(FemElement Element, int RegionIndex)>();
         var shellNodeTags = new HashSet<string>(StringComparer.Ordinal);
         var regionOfNode = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+        var regionNodeTags = new List<IReadOnlyList<string>>();
         int shared = 0;
         for (int r = 0; r < regions.Count; r++)
         {
-            var (member, region, snapshot, thickness) = regions[r];
+            var (member, region, snapshot, thickness, _) = regions[r];
             if (!snapshot.IsCalculable || snapshot.Nodes.Count == 0)
             {
+                regionNodeTags.Add([]);
                 diagnostics.Add(new("planar_materialize_snapshot_invalid",
                     $"Область «{member.ElemTag}»: нет расчётной сетки — постройте её заново.", true, [member.ElemTag]));
                 continue;
@@ -115,6 +123,7 @@ public static class FemPlanarMeshMaterializer
                 owners.Add(r);
             }
 
+            regionNodeTags.Add(tags);
             CheckPointMappings(member, snapshot, tags, nodesByTag, diagnostics);
 
             var degenerate = new List<string>();
@@ -201,6 +210,7 @@ public static class FemPlanarMeshMaterializer
             Diagnostics = diagnostics,
             SplitBeamCount = split,
             SharedNodeCount = shared,
+            RegionNodeTags = regionNodeTags,
         };
     }
 
