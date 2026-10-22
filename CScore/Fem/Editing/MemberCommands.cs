@@ -153,3 +153,44 @@ public sealed class SetMembersMeshStepCommand(IReadOnlyList<FemMember> members, 
         for (int i = 0; i < members.Count; i++) members[i].TargetMeshLengthM = _old[i];
     }
 }
+
+/// <summary>Параметры АЖТ примыкания у стержневых КонЭ (режим, маска, вид); явный след — отдельно, только сброс.</summary>
+public sealed class SetRigidJunctionParamsCommand(IReadOnlyList<FemMember> members, string? mode, int? mask, string? kind)
+    : IFemEditCommand
+{
+    (string? Mode, int? Mask, string? Kind)[] _old = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old = members.Select(m => (m.RigidJunctionMode, m.RigidJunctionMask, m.RigidJunctionKind)).ToArray();
+        foreach (var m in members)
+        {
+            m.RigidJunctionMode = mode;
+            m.RigidJunctionMask = mask;
+            m.RigidJunctionKind = kind;
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        for (int i = 0; i < members.Count; i++)
+            (members[i].RigidJunctionMode, members[i].RigidJunctionMask, members[i].RigidJunctionKind) = _old[i];
+    }
+}
+
+/// <summary>Сброс явного следа АЖТ у КонЭ (след снова по сечению).</summary>
+public sealed class ClearRigidJunctionTraceCommand(IReadOnlyList<FemMember> members) : IFemEditCommand
+{
+    string?[] _old = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old = members.Select(m => m.RigidJunctionTraceJson).ToArray();
+        foreach (var m in members) m.RigidJunctionTraceJson = null;
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        for (int i = 0; i < members.Count; i++) members[i].RigidJunctionTraceJson = _old[i];
+    }
+}
