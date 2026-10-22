@@ -133,17 +133,21 @@ public static class Curvature8232
                 double scale = 1.0 / psi;
                 double sigCrc;
                 double e2Crc;
+                double sigOwnCrc;
                 if (dgr != null)
                 {
                     // εs,crc = εs/ψs — деформация стержня В ТРЕЩИНЕ; σ снимается с диаграммы,
                     // поэтому за площадкой текучести поправка сама собой затухает.
                     // dεs,crc/dεs = 1, значит касательный модуль переносится без масштаба.
-                    sigCrc = dgr.Sig(fiber.Eps_p + eps * scale, out e2Crc);
+                    double epsInCrack = fiber.Eps_p + eps * scale;
+                    sigCrc = dgr.Sig(epsInCrack, out e2Crc);
+                    sigOwnCrc = dgr.Own?.Sig(epsInCrack, out _) ?? sigCrc;
                 }
                 else
                 {
                     sigCrc = fiber.Sig * scale;
                     e2Crc = fiber.E2 * scale;
+                    sigOwnCrc = fiber.SigOwn * scale;
                 }
 
                 double dSig = sigCrc - fiber.Sig;
@@ -152,6 +156,7 @@ public static class Curvature8232
                 double addMy = addN * fiber.X;
 
                 fiber.Sig = sigCrc;
+                fiber.SigOwn = sigOwnCrc;
                 fiber.E2 = e2Crc;
                 fiber.E = Math.Abs(epsFull) > 1e-20 ? sigCrc / epsFull : 0.0;
                 fiber.N += addN;

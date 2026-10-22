@@ -90,7 +90,7 @@ public partial class TotalCurvatureStageWindow : Window
                     + (fiber.Y - yM) * (fiber.Y - yM))))
             .OrderBy(item => item.Distance)
             .FirstOrDefault();
-        return nearest.Fiber?.Sig / 1000.0 ?? 0.0;
+        return nearest.Fiber?.SigOwn / 1000.0 ?? 0.0;
     }
 
     void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)

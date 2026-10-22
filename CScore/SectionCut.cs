@@ -123,7 +123,8 @@ public static class SectionCutBuilder
                 double t = relX * dir.X + relY * dir.Y;
                 if (t < tMin - nearbyMax || t > tMax + nearbyMax) continue;
                 double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
-                double sig = stressSource?.RebarSigMpa(f, eps, calcType) ?? dgr.SigValue(eps, tenB, comprA) / 1000.0;
+                // σ по собственной диаграмме стали (dgr.Own), а не разностная σs − σb равновесия.
+                double sig = stressSource?.RebarSigMpa(f, eps, calcType) ?? (dgr.Own ?? dgr).SigValue(eps, tenB, comprA) / 1000.0;
                 // Num = 0 — стержень без номера (напр. сгенерированный параметрическим сечением).
                 var marker = new CutRebarMarker(t - tMin, f.X, f.Y, eps, sig, f.Diameter, f.Num > 0 ? f.Num : null);
                 if (dist <= rebarThresholdM)

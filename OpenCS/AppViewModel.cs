@@ -6414,7 +6414,7 @@ namespace OpenCS
          var rebarStress = state.RebarStressKpa;
          Func<CScore.Fiber, double>? effectiveStress = rebarStress == null ? null
             : f => rebarStress.TryGetValue(f, out double s) ? s : f.Sig;
-         var stressSource = rebarStress == null ? null : new Services.FemCsfeaRebarStressSource(rebarStress);
+         var stressSource = state.RebarStressOwnKpa == null ? null : new Services.FemCsfeaRebarStressSource(state.RebarStressOwnKpa);
 
          string pointLabel = point switch { 0 => "i", 2 => "j", _ => "½" };
          string title = string.Format(Loc.S("FemCsfeaSectionTitle"), elemTag, pointLabel);

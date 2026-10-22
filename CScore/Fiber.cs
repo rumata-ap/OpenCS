@@ -20,6 +20,7 @@ namespace CScore
    {
       string str = null!;
       double nu1 = 1;
+      double? sigOwn;
       double nu2 = 1;
 
       /// <summary>
@@ -36,6 +37,15 @@ namespace CScore
       /// Напряжение в волокне [МПа].
       /// </summary>
       public double Sig { get; set; }
+
+      /// <summary>
+      /// Напряжение по собственной диаграмме материала [МПа]. У стержня с разностной
+      /// диаграммой (σs − σb) — чистое σs для показа; равновесие считается по <see cref="Sig"/>.
+      /// В остальных случаях совпадает с <see cref="Sig"/>. Пока не задано (волокно из БД без
+      /// пересчёта) — возвращает <see cref="Sig"/>.
+      /// </summary>
+      [JsonIgnore]
+      public double SigOwn { get => sigOwn ?? Sig; set => sigOwn = value; }
 
       /// <summary>
       /// Полная деформация волокна (от внешней нагрузки).

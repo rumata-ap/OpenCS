@@ -337,13 +337,15 @@ namespace OpenCS.ViewModels
                     bool hasRecorded = recordedFibers?.TryGetValue(fiberIndex, out recorded) == true;
                     double fiberSigKpa = hasRecorded ? recorded.StressPa / 1000.0 : f.Sig;
                     double fiberEps = hasRecorded ? recorded.Strain : f.Eps;
-                    // f.Sig в кПа → делим на 1000 для МПа
+                    // f.Sig в кПа → делим на 1000 для МПа. Показываем σ по собственной
+                    // диаграмме стали (f.SigOwn), а не разностную σs − σb из равновесия.
                     double rSigMpa  = fiberSigKpa / 1000.0;
+                    double rShownSigMpa = (hasRecorded ? fiberSigKpa : f.SigOwn) / 1000.0;
                     double rAreaMm2 = f.Area * 1e6;
-                    double val = mode == SectionPlotMode.Stress ? rSigMpa : fiberEps;
+                    double val = mode == SectionPlotMode.Stress ? rShownSigMpa : fiberEps;
                     string tip = $"{area.Tag} ⌀{f.Diameter*1000:F0} мм\n" +
                                  $"x={f.X*1000:F1}  y={f.Y*1000:F1} мм\n" +
-                                 $"σ = {rSigMpa:+0.0;-0.0} МПа\n" +
+                                 $"σ = {rShownSigMpa:+0.0;-0.0} МПа\n" +
                                  $"ε = {fiberEps:+0.00000;-0.00000}\n" +
                                  $"A = {rAreaMm2:F0} мм²";
                     string? extraLine = extraRebarTooltip?.Invoke(f.X, f.Y);
@@ -351,8 +353,8 @@ namespace OpenCS.ViewModels
                     rebar.Add(new RebarDrawData(
                         new Point(f.X * 1000, f.Y * 1000),
                         f.Diameter / 2.0 * 1000,
-                        val, tip, rSigMpa, f.Eps, rAreaMm2, area.Tag));
-                    // Центр тяжести НДС
+                        val, tip, rShownSigMpa, f.Eps, rAreaMm2, area.Tag));
+                    // Центр тяжести НДС — по равновесной σ (бетон под стержнем учтён сеткой)
                     double centroidSigMpa = effectiveRebarStressKpa?.Invoke(f) / 1000.0 ?? rSigMpa;
                     double centroidEps = effectiveRebarStrain?.Invoke(f) ?? fiberEps;
                     double esf = Math.Abs(centroidEps) > 1e-9

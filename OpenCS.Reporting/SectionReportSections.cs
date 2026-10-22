@@ -276,8 +276,11 @@ public static class SectionReportSections
             foreach (var fiber in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
             {
                 double eps = fiber.Eps;
-                double sigmaMpa = fiber.Sig / 1000.0;
-                double eMpa = fiber.E > 0 ? fiber.E / 1000.0 : 0;
+                // σ по собственной диаграмме стали, а не разностная σs − σb равновесия.
+                double sigmaMpa = fiber.SigOwn / 1000.0;
+                double epsFull = fiber.Eps + fiber.Eps_p;
+                double eOwn = Math.Abs(epsFull) > 1e-20 ? fiber.SigOwn / epsFull : 0;
+                double eMpa = eOwn > 0 ? eOwn / 1000.0 : 0;
                 rows.Add(new ReportRebarRow(number++, area.Tag, area.Material?.Tag ?? "не задан",
                     fiber.X * 1000.0, fiber.Y * 1000.0, fiber.Diameter * 1000.0,
                     fiber.Area * 1e6, eps, sigmaMpa, eMpa));

@@ -479,7 +479,8 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
         _section!.SetEps(k, _calcType, ten, true);
 
         double eps = option.Fiber.Eps + option.Fiber.Eps_p;
-        double sigmaMPa = option.Fiber.Sig / 1000.0;
+        // σ по собственной диаграмме стали, а не разностная σs − σb равновесия.
+        double sigmaMPa = option.Fiber.SigOwn / 1000.0;
 
         bool applicable = mode != RebarStressMode.AverageStrain
             && row.PsiActive && eps > 0.0 && epsCrc > 0.0 && option.Diagram != null;
@@ -492,8 +493,8 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
 
         double epsCrack = eps / psi;   // ≡ eps + 0,8·epsCrc
         double sigma = mode == RebarStressMode.CrackStrain
-            ? option.Diagram!.SigValue(epsCrack)
-            : option.Fiber.Sig / psi;
+            ? (option.Diagram!.Own ?? option.Diagram).SigValue(epsCrack)
+            : option.Fiber.SigOwn / psi;
         return (epsCrack, sigma / 1000.0);
     }
 

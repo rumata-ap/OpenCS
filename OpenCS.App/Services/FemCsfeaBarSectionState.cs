@@ -41,6 +41,12 @@ public sealed record FemCsfeaBarSectionPoint(
     /// <summary>σ арматурных фибр с ψs, кПа (для мозаики и разреза окна); null — ψs не учтён.</summary>
     public IReadOnlyDictionary<Fiber, double>? RebarStressKpa { get; init; }
 
+    /// <summary>
+    /// σ арматурных фибр с ψs по собственной диаграмме стали, кПа (показ в разрезе); у разностной диаграммы
+    /// <see cref="RebarStressKpa"/> — равновесная σs − σb. null — ψs не учтён.
+    /// </summary>
+    public IReadOnlyDictionary<Fiber, double>? RebarStressOwnKpa { get; init; }
+
     /// <summary>Наибольший размер сечения по осям X, Y, м — приводит продольную силу к моменту в мере расхождения.</summary>
     public double Size { get; init; } = 1.0;
 
@@ -54,7 +60,7 @@ public sealed record FemCsfeaBarSectionPoint(
 }
 
 /// <summary>
-/// σ арматуры с ψs для разреза окна НДС сечения (<see cref="FemCsfeaBarSectionPoint.RebarStressKpa"/>); бетон и стержни
+/// σ арматуры с ψs для разреза окна НДС сечения (<see cref="FemCsfeaBarSectionPoint.RebarStressOwnKpa"/>); бетон и стержни
 /// без записи — с диаграммы.
 /// </summary>
 public sealed class FemCsfeaRebarStressSource(IReadOnlyDictionary<Fiber, double> stressKpa) : ISectionCutStressSource
@@ -152,13 +158,15 @@ public static class FemCsfeaBarSectionState
         double xMin = double.PositiveInfinity, xMax = double.NegativeInfinity, yMin = double.PositiveInfinity, yMax = double.NegativeInfinity;
         var rebar = new List<FemCsfeaRebarFiber>();
         var rebarStress = epsCrc != null ? new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance) : null;
+        var rebarStressOwn = epsCrc != null ? new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance) : null;
         foreach (var area in section.Areas)
         {
             if (area.Material == null || !area.Diagramms.ContainsKey(calc)) continue;
             bool concrete = area.Material.Type == MatType.Concrete;
             foreach (var fiber in area.Fibers)
             {
-                double eps = fiber.Eps, sig = fiber.Sig / 1e3;
+                // Стержень — σ по собственной диаграмме стали, а не разностная σs − σb равновесия.
+                double eps = fiber.Eps, sig = (concrete ? fiber.Sig : fiber.SigOwn) / 1e3;
                 xMin = Math.Min(xMin, fiber.X); xMax = Math.Max(xMax, fiber.X);
                 yMin = Math.Min(yMin, fiber.Y); yMax = Math.Max(yMax, fiber.Y);
                 epsMin = Math.Min(epsMin, eps);
@@ -175,6 +183,7 @@ public static class FemCsfeaBarSectionState
                     ? Curvature8232.PsiS(crc, eps + fiber.Eps_p) : 1.0;
                 rebar.Add(new FemCsfeaRebarFiber(rebar.Count + 1, fiber.X, fiber.Y, eps, sig, fiberPsi));
                 if (rebarStress != null) rebarStress[fiber] = fiber.Sig;
+                if (rebarStressOwn != null) rebarStressOwn[fiber] = fiber.SigOwn;
             }
         }
         // Сжатая зона — по нормали к нейтральной оси: от наиболее сжатой фибры бетона до нуля деформаций, не больше
@@ -187,7 +196,7 @@ public static class FemCsfeaBarSectionState
         return new FemCsfeaBarSectionPoint(plane, load.N, load.Mx, load.My, recorded.N, recorded.Mx, recorded.My, height,
             epsB, sigB, epsS, sigS, epsMin, epsMax, rebar)
         {
-            Cracked = cracked, Tension = ten, RebarStressKpa = rebarStress,
+            Cracked = cracked, Tension = ten, RebarStressKpa = rebarStress, RebarStressOwnKpa = rebarStressOwn,
             Size = double.IsFinite(xMax) ? Math.Max(1e-3, Math.Max(xMax - xMin, yMax - yMin)) : 1.0,
         };
     }

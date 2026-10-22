@@ -246,7 +246,7 @@ namespace OpenCS.ViewModels
                         $"{f.X * 1000:+0.0;-0.0}",
                         $"{f.Y * 1000:+0.0;-0.0}",
                         $"{f.Eps:+0.00000;-0.00000}",
-                        $"{f.Sig / 1000.0:+0.0;-0.0}"));
+                        $"{f.SigOwn / 1000.0:+0.0;-0.0}"));
 
             // Сходимость (только для strain_state — у limit_force свои поля в сводке)
             int iters = root.TryGetProperty("iterations", out v) ? v.GetInt32() : 0;

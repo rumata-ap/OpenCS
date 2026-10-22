@@ -226,7 +226,7 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
                         $"{xMm:+0.0;-0.0}",
                         $"{yMm:+0.0;-0.0}",
                         $"{f.Eps:+0.00000;-0.00000}",
-                        $"{f.Sig / 1000.0:+0.0;-0.0}",
+                        $"{f.SigOwn / 1000.0:+0.0;-0.0}",
                         nearest.HasValue ? $"{nearest.Value.PsiS:0.000}" : "—",
                         nearest.HasValue ? $"{nearest.Value.AcrcLongMm:0.000}" : "—",
                         nearest.HasValue ? $"{nearest.Value.PsiS2:0.000}" : "—",

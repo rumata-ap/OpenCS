@@ -42,6 +42,14 @@ namespace CScore
       public string Tag { get; set; } = "";
 
       /// <summary>
+      /// Собственная диаграмма стали, из которой построена разностная (<see cref="Differential"/>);
+      /// null — диаграмма не разностная. По ней показывается напряжение в стержне
+      /// (<see cref="Fiber.SigOwn"/>), равновесие идёт по разностной.
+      /// </summary>
+      [JsonIgnore]
+      public Diagramm? Own { get; set; }
+
+      /// <summary>
       /// Тип диаграммы (L2, L3, SP63 и др.).
       /// </summary>
       public DiagrammType Type { get; set; }
@@ -130,6 +138,7 @@ namespace CScore
       {
          double eps = finiteArea.Eps + finiteArea.Eps_p;
          finiteArea.Sig = Sig(eps, out double e2, tenB, comprA);
+         finiteArea.SigOwn = Own?.Sig(eps, out _, tenB, comprA) ?? finiteArea.Sig;
          finiteArea.N = finiteArea.Sig * finiteArea.Area;
          finiteArea.Mx = finiteArea.Sig * finiteArea.Area * finiteArea.Y;
          finiteArea.My = finiteArea.Sig * finiteArea.Area * finiteArea.X;
@@ -177,7 +186,8 @@ namespace CScore
             steel.Type,
             steel.MaterialType,
             $"diff({steel.Tag}−{concrete.Tag})"
-         );
+         )
+         { Own = steel };
       }
 
       /// <summary>

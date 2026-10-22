@@ -122,8 +122,10 @@ namespace OpenCS.Tasks
                      diameter_mm = SafeRound(fiber.Diameter * 1000.0, 6),
                      area_mm2 = SafeRound(fiber.Area * 1e6, 6),
                      eps = SafeRound(fiber.Eps, 12),
-                     sigma_mpa = SafeRound(fiber.Sig / 1000.0, 6),
-                     e_sec_mpa = SafeRound(fiber.E / 1000.0, 6)
+                     sigma_mpa = SafeRound(fiber.SigOwn / 1000.0, 6),
+                     // σ и секущий модуль — по собственной диаграмме стали, не разностные σs − σb.
+                     e_sec_mpa = SafeRound(Math.Abs(fiber.Eps + fiber.Eps_p) > 1e-20
+                        ? fiber.SigOwn / (fiber.Eps + fiber.Eps_p) / 1000.0 : 0.0, 6)
                   }))
                .Select((fiber, index) => new
                {
