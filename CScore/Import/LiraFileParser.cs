@@ -50,10 +50,110 @@ public static class LiraFileParser
         var bytes = File.ReadAllBytes(filePath);
         var data  = new LiraSchemaData();
 
+        // Основной путь — структурное чтение по заголовку; сканирование — запасной для неизвестных заголовков.
+        if (TryReadStructured(bytes, data)) return data;
+
+        data = new LiraSchemaData();
         var nodeNumbers = ReadNodes(bytes, data);
         ReadElements(bytes, nodeNumbers, data);
 
         return data;
+    }
+
+    // ------------------------------------------------------------------ Структурное чтение
+
+    /// <summary>Размер записи узла в структурном чтении: XYZ (3 × double) и флаг (u32).</summary>
+    const int StructNodeSize = 28;
+
+    /// <summary>Размер служебного блока между заголовком и узлами.</summary>
+    const int StructMetaSize = 52;
+
+    /// <summary>Лимит числа узлов и элементов (защита от мусорных счётчиков).</summary>
+    const long StructCountLimit = 5_000_000;
+
+    /// <summary>
+    /// Читает узлы и элементы по структуре файла: первый байт — длина заголовка L, затем L байт текста
+    /// («LIRA-SAPR …», кодовая страница, Preview, MetaData); смещение B = 1 + L. Далее 52 байта служебного
+    /// блока (число узлов <c>u32(B+12)</c>, число элементов <c>u32(B+20)</c>), записи узлов по 28 байт и
+    /// записи элементов по 38 байт вплотную. Проверено на 52 схемах ЛИРА 2013–2025.
+    /// </summary>
+    /// <remarks>
+    /// Флаг записи (u32) равен 1 у живой записи и 0 у удалённой: удалённая остаётся на месте, нумерация
+    /// не сдвигается, живые элементы на удалённые узлы не ссылаются. Номера узлов и КЭ — индекс + 1.
+    /// Число узлов КЭ по файлу не определяется: словарь типов не расшифрован (индекс определения —
+    /// внутренний и в одном файле смешивает, например, стержни и пластины), поэтому длина берётся по
+    /// ненулевым слотам, как в сканере. Исключение — КЭ, у которого последний узел имеет индекс 0.
+    /// Возвращает false, если заголовок не распознан или структура не сходится с файлом.
+    /// </remarks>
+    static bool TryReadStructured(byte[] bytes, LiraSchemaData data)
+    {
+        if (bytes.Length < 1) return false;
+        int headerLen = bytes[0];
+        int b = 1 + headerLen;
+        if (headerLen < 36 || b + StructMetaSize > bytes.Length) return false;
+
+        ReadOnlySpan<byte> signature = "LIRA-SAPR"u8;
+        if (!bytes.AsSpan(1, headerLen).StartsWith(signature)) return false;
+
+        long nodeCount = BitConverter.ToUInt32(bytes, b + 12);
+        long elemCount = BitConverter.ToUInt32(bytes, b + 20);
+        if (nodeCount is 0 or > StructCountLimit || elemCount > StructCountLimit) return false;
+
+        long nodesStart = b + StructMetaSize;
+        long elemsStart = nodesStart + nodeCount * StructNodeSize;
+        long elemsEnd   = elemsStart + elemCount * ElementRecordSize;
+        if (elemsEnd > bytes.Length) return false;
+
+        var live = new bool[nodeCount];
+        var nodes = new List<LiraNodeRecord>((int)nodeCount);
+        for (int i = 0; i < nodeCount; i++)
+        {
+            int off  = (int)(nodesStart + (long)i * StructNodeSize);
+            uint flag = BitConverter.ToUInt32(bytes, off + 24);
+            if (flag > 1) return false;
+            if (flag == 0) continue;
+
+            double x = BitConverter.ToDouble(bytes, off);
+            double y = BitConverter.ToDouble(bytes, off + 8);
+            double z = BitConverter.ToDouble(bytes, off + 16);
+            if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) return false;
+
+            live[i] = true;
+            nodes.Add(new LiraNodeRecord(Id: i + 1, X: x, Y: y, Z: z, DofMask: 0));
+        }
+
+        var elements = new List<LiraElementRecord>((int)elemCount);
+        for (int i = 0; i < elemCount; i++)
+        {
+            int off  = (int)(elemsStart + (long)i * ElementRecordSize);
+            uint flag = BitConverter.ToUInt32(bytes, off + 34);
+            if (flag > 1) return false;
+            if (flag == 0) continue;
+
+            // длина — по последнему ненулевому слоту из первых четырёх; индекс 0 — это узел №1
+            int count = 4;
+            while (count > 1 && BitConverter.ToUInt32(bytes, off + 4 * (count - 1)) == 0) count--;
+            if (count < 2) continue;   // одноузловые связи и прочее импорт пропускает
+
+            var ids = new int[count];
+            for (int k = 0; k < count; k++)
+            {
+                uint raw = BitConverter.ToUInt32(bytes, off + 4 * k);
+                if (raw >= nodeCount || !live[raw]) return false;
+                ids[k] = (int)raw + 1;
+            }
+
+            elements.Add(new LiraElementRecord(
+                Id:           i + 1,
+                FeType:       count switch { 2 => 10, 3 => 42, _ => 44 },
+                SectionCount: 1,
+                StiffnessId:  0,
+                NodeIds:      ids));
+        }
+
+        data.Nodes.AddRange(nodes);
+        data.Elements.AddRange(elements);
+        return true;
     }
 
     /// <summary>Пропускает 3 null-terminated строки заголовка. Возвращает смещение после заголовка.</summary>

@@ -178,4 +178,101 @@ public class LiraFileParserTests
             Assert.All(e.NodeIds, nid => Assert.InRange(nid, 1, nodeCount));
         });
     }
+
+    // ------------------------------------------------------------------ Структурное чтение (синтетика)
+
+    /// <summary>Синтетический .lir: заголовок длиной 36, служебный блок, узлы по 28 байт, элементы по 38 байт.</summary>
+    static byte[] BuildLir(
+        (double X, double Y, double Z, uint Flag)[] nodes,
+        (uint[] Slots, ushort Def, uint Flag)[] elems)
+    {
+        const string text = "LIRA-SAPR 2013 software ver.13.0.0.a";   // 36 символов
+        var ms = new MemoryStream();
+        var w  = new BinaryWriter(ms);
+        w.Write((byte)text.Length);
+        w.Write(System.Text.Encoding.ASCII.GetBytes(text));
+        var meta = new byte[52];
+        BitConverter.GetBytes((uint)nodes.Length).CopyTo(meta, 12);
+        BitConverter.GetBytes((uint)elems.Length).CopyTo(meta, 20);
+        w.Write(meta);
+        foreach (var n in nodes) { w.Write(n.X); w.Write(n.Y); w.Write(n.Z); w.Write(n.Flag); }
+        foreach (var e in elems)
+        {
+            var rec = new byte[38];
+            for (int i = 0; i < e.Slots.Length; i++) BitConverter.GetBytes(e.Slots[i]).CopyTo(rec, 4 * i);
+            BitConverter.GetBytes(e.Def).CopyTo(rec, 32);
+            BitConverter.GetBytes(e.Flag).CopyTo(rec, 34);
+            w.Write(rec);
+        }
+        w.Write(new byte[64]);   // хвост файла (не расшифрован)
+        return ms.ToArray();
+    }
+
+    static LiraSchemaData ParseBytes(byte[] bytes)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-lir-{Guid.NewGuid():N}.lir");
+        File.WriteAllBytes(path, bytes);
+        try { return LiraFileParser.Parse(path); }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Parse_Structured_ReadsNodesAndElements_ZeroIndexIsNodeOne()
+    {
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (1, 1, 0, 1), (0, 1, 0, 1)],
+            [([0, 1, 2, 3], 2, 1), ([0, 1], 0, 1)]));
+
+        Assert.Equal(4, data.Nodes.Count);
+        Assert.Equal([1, 2, 3, 4], data.Elements[0].NodeIds);   // первый индекс 0 — узел №1, не «отсутствует»
+        Assert.Equal(44, data.Elements[0].FeType);
+        Assert.Equal([1, 2], data.Elements[1].NodeIds);
+        Assert.Equal(10, data.Elements[1].FeType);
+    }
+
+    [Fact]
+    public void Parse_Structured_DeletedRecordsAreSkipped_NumberingKept()
+    {
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (5, 5, 5, 0), (1, 0, 0, 1), (2, 0, 0, 1)],
+            [([0, 2], 0, 0), ([2, 3], 0, 1)]));
+
+        Assert.Equal([1, 3, 4], data.Nodes.Select(n => n.Id).ToArray());   // узел 2 удалён, остальные не сдвинуты
+        var e = Assert.Single(data.Elements);
+        Assert.Equal(2, e.Id);                                              // КЭ 1 удалён, номер КЭ 2 сохранён
+        Assert.Equal([3, 4], e.NodeIds);
+    }
+
+    [Fact]
+    public void Parse_Structured_SingleNodeLinksAreSkipped()
+    {
+        var data = ParseBytes(BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 1), (2, 0, 0, 1)],
+            [([2], 3, 1), ([0, 1, 2], 1, 1)]));
+
+        var e = Assert.Single(data.Elements);
+        Assert.Equal(2, e.Id);
+        Assert.Equal(42, e.FeType);
+    }
+
+    [Fact]
+    public void Parse_UnknownHeader_FallsBackToScanner_DoesNotThrow()
+    {
+        var bytes = new byte[2048];
+        bytes[0] = 40;                     // длина заголовка не совпадает с сигнатурой
+        var data = ParseBytes(bytes);
+        Assert.Empty(data.Nodes);
+        Assert.Empty(data.Elements);
+    }
+
+    [Fact]
+    public void Parse_Structured_ElementReferencingDeletedNode_FallsBackNotCrashes()
+    {
+        // противоречивая структура: живой КЭ ссылается на удалённый узел — структурный путь отказывается
+        var bytes = BuildLir(
+            [(0, 0, 0, 1), (1, 0, 0, 0)],
+            [([0, 1], 0, 1)]);
+        var data = ParseBytes(bytes);
+        Assert.NotNull(data);
+    }
 }
