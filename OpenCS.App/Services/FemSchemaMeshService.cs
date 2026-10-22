@@ -28,6 +28,8 @@ public sealed class FemSchemaMeshBuildResult
 /// <summary>
 /// «Построить сетку схемы» (CSfea 4г): стержни — <see cref="FemMeshDiscretizer"/>, области своей схемы — снимки Gmsh
 /// (сохранённый снимок переиспользуется, если совпал отпечаток входа), затем <see cref="FemPlanarMeshMaterializer"/>.
+/// При флажке схемы <see cref="FemSchema.AutoRigidJunctions"/> следы сечений стержней, примыкающих к плитам, вшиваются
+/// в сетки областей, а по ним строятся АЖТ (<see cref="FemRigidJunctionMaterializer"/>), записываемые в <see cref="Save"/>.
 /// Вход вывода ограничений областей — <see cref="FemPlanarMeshPlan"/>, общий с диалогом области. Работа с БД — в
 /// вызывающем (UI) потоке: после <c>await</c> продолжение возвращается в него; Gmsh — внешний процесс.
 /// </summary>
@@ -57,6 +59,8 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
 
         double? plateStep = PlateStep(schemaId);
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, db.GetPlanarRegions(schemaId), plateStep);
+        var junctionOptions = JunctionOptions(schemaId, keepImported);
+        var outlines = SectionOutlines();
         // Явные сопряжения областей (фрагменты) с независимыми сетками и MPC в схеме не поддерживаются: стыки сетки
         // схемы — только общими узлами.
         foreach (var connection in db.GetPlanarConnections(schemaId).Where(c => c.MeshMode == PlanarConnectionMeshMode.IndependentMpc))
@@ -78,8 +82,10 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                 var (member, region) = ordered[k];
                 cancellationToken.ThrowIfCancellationRequested();
                 var prefix = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, regionMeshes);
+                var traces = junctionOptions != null ? FemRigidJunctions.Build(region, nodes, members, outlines, junctionOptions) : null;
+                if (traces != null && !checkOnly) diagnostics.AddRange(traces.Diagnostics);
                 var constraints = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, region,
-                    laterRegions: Later(ordered, k));
+                    laterRegions: Later(ordered, k), junctions: traces);
                 var settings = new PlanarMeshSettings(FemPlanarMeshPlan.MeshSize(member, region, plateStep), gmsh.Algorithm, gmsh.ElementMode);
                 var fingerprint = PlanarMeshFingerprint.Compute(region, settings, provenance, constraints.SourceFingerprint);
                 var snapshot = db.GetPlanarMeshSnapshots(region.Id).LastOrDefault();
@@ -105,13 +111,21 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                     }
                 }
                 regionMeshes.Add(new FemPlanarRegionMesh(member, region, snapshot,
-                    member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : null));
+                    member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : null, traces));
             }
         }
 
         var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes);
         diagnostics.AddRange(mesh.Diagnostics);
         diagnostics.AddRange(FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements));
+        if (junctionOptions != null && !checkOnly && !mesh.HasErrors)
+        {
+            var junctions = FemRigidJunctionMaterializer.Build(mesh, regionMeshes, nodes, members, BlockedSlaves(schemaId, nodes, members, mesh));
+            mesh.RigidBodies.AddRange(junctions.Bodies);
+            diagnostics.AddRange(junctions.Diagnostics);
+            if (junctions.Bodies.Count > 0)
+                info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRigidJunctions"), junctions.Bodies.Count));
+        }
         bool? current = checkOnly ? IsSameAsStored(schemaId, mesh) : null;
         return new FemSchemaMeshBuildResult
         {
@@ -137,8 +151,40 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                 prefix.Add(new FemPlanarRegionMesh(member, region, snapshot, null));
         }
         var prefixMesh = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, prefix);
+        var options = JunctionOptions(schemaId, db.HasImportedMesh(schemaId));
+        var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, SectionOutlines(), options) : null;
         return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
-            laterRegions: index >= 0 ? Later(ordered, index) : null);
+            laterRegions: index >= 0 ? Later(ordered, index) : null, junctions: traces);
+    }
+
+    /// <summary>Параметры следов АЖТ схемы; null — флажок выключен или у схемы импортная сетка (свои АЖТ источника).</summary>
+    RigidJunctionOptions? JunctionOptions(int schemaId, bool keepImported)
+    {
+        var (auto, angle) = db.GetFemSchemaRigidJunctions(schemaId);
+        return auto && !keepImported ? new RigidJunctionOptions(angle) : null;
+    }
+
+    /// <summary>Контуры сечений стержней для следов АЖТ по Id сечения (с кэшем на одну сборку).</summary>
+    Func<int, IReadOnlyList<(double Y, double Z)>?> SectionOutlines()
+    {
+        var cache = new Dictionary<int, IReadOnlyList<(double Y, double Z)>?>();
+        return id =>
+        {
+            if (!cache.TryGetValue(id, out var outline))
+                cache[id] = outline = db.CrossSections.FirstOrDefault(s => s.Id == id) is { } section
+                    ? RigidJunctionSectionOutline.From(section) : null;
+            return outline;
+        };
+    }
+
+    /// <summary>Узлы сетки, которые не становятся ведомыми АЖТ примыканий: закрепления (в том числе линейных связей),
+    /// пружины, ручные и импортные тела.</summary>
+    HashSet<string> BlockedSlaves(int schemaId, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMember> members,
+        FemPlanarMaterializationResult mesh)
+    {
+        var line = db.ResolveFemLineSupports(schemaId, members, mesh.Nodes, mesh.Elements);
+        var (supports, springs) = line.AppendTo(db.GetFemMeshNodeSupports(schemaId), db.GetFemSprings(schemaId));
+        return FemRigidJunctionMaterializer.BlockedNodes(nodes, mesh.Nodes, supports, springs, db.GetFemRigidBodies(schemaId));
     }
 
     /// <summary>Общий шаг пластин схемы, м (null — не задан).</summary>
@@ -152,13 +198,16 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     static List<(string Tag, PlanarRegion Region)> Later(List<(FemMember Member, PlanarRegion Region)> ordered, int k) =>
         ordered.Skip(k + 1).Select(p => (p.Member.ElemTag, p.Region)).ToList();
 
-    /// <summary>Записывает сетку схемы (импортные строки сохраняются).</summary>
+    /// <summary>Записывает сетку схемы (импортные строки сохраняются) и заменяет автоматические АЖТ примыканий
+    /// (<see cref="RigidJunctionTraceSet.Provenance"/>) телами сборки — пустой список удаляет прежние; ручные и
+    /// импортные тела не трогаются.</summary>
     public void Save(int schemaId, FemPlanarMaterializationResult mesh)
     {
         if (db.HasImportedMesh(schemaId))
             db.SaveFemMeshSnapshotKeepingImported(schemaId, mesh.Nodes, mesh.Elements);
         else
             db.SaveFemMeshSnapshot(schemaId, mesh.Nodes, mesh.Elements);
+        db.SaveFemBoundary(schemaId, RigidJunctionTraceSet.Provenance, [], [], mesh.RigidBodies);
     }
 
     /// <summary>Сетка схемы изменилась: результаты постановок сбрасываются, наборы усилий схемы (номера КЭ прежней
