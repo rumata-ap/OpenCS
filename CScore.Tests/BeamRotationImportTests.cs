@@ -74,8 +74,7 @@ public sealed class BeamRotationImportTests
     [Theory]
     [InlineData(0, 0, 0, 4, 0, 0)]
     [InlineData(0, 0, 0, 3, 1, 2)]
-    [InlineData(0, 0, 0, 0, 0, 3)]
-    public void Lira_DefaultRule_SameAsScadDefault(double ax, double ay, double az, double bx, double by, double bz)
+    public void Lira_DefaultRule_NonVertical_SameAsScadDefault(double ax, double ay, double az, double bx, double by, double bz)
     {
         var data = new LiraSchemaData();
         data.Nodes.Add(new LiraNodeRecord(1, ax, ay, az, 0));
@@ -88,6 +87,32 @@ public sealed class BeamRotationImportTests
         Assert.Equal(expected[0], y.X, 9);
         Assert.Equal(expected[1], y.Y, 9);
         Assert.Equal(expected[2], y.Z, 9);
+    }
+
+    /// <summary>
+    /// Оси ЛИРЫ-САПФИР 2025, найденные 23.10.2026 по прогибам консолей с местной нагрузкой q = 1 по Y1 и по Z1
+    /// (положительная — против оси, конец консоли смещается против оси): Y1 и Z1 после поворота таблицы 17.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0)]                 // вертикальный вверх
+    [InlineData(10, 0, 1, 10, 0, 0, 0, 0, -1, 0, -1, 0, 0)]              // вертикальный вниз
+    [InlineData(0, 0, 0, 0, 0, 1, 30, 0.5, -0.866025, 0, 0.866025, 0.5, 0)] // вертикальный, угол 30°
+    [InlineData(2, 0, 0, 3, 0, 0, 0, 0, 1, 0, 0, 0, 1)]                  // горизонтальный по X
+    [InlineData(2, 0, 0, 3, 0, 0, 30, 0, 0.866025, 0.5, 0, -0.5, 0.866025)] // по X, угол 30°
+    [InlineData(8, 0, 0, 8, 1, 0, 0, -1, 0, 0, 0, 0, 1)]                 // горизонтальный по Y
+    public void Lira_Axes_MatchLiraProbe(double ax, double ay, double az, double bx, double by, double bz, double angle,
+        double y1x, double y1y, double y1z, double z1x, double z1y, double z1z)
+    {
+        var data = new LiraSchemaData();
+        data.Nodes.Add(new LiraNodeRecord(1, ax, ay, az, 0));
+        data.Nodes.Add(new LiraNodeRecord(2, bx, by, bz, 0));
+        data.Elements.Add(new LiraElementRecord(1, 10, 1, 1, [1, 2]));
+        if (angle != 0) data.BarAxisAngles[1] = angle;
+        var bar = Assert.Single(LiraSchemaConverter.ToFemMeshBarElements(data, 1));
+
+        var (_, y, z) = BeamLocalAxisConvention.Frame(new(ax, ay, az), new(bx, by, bz), bar.BeamRotationDeg!.Value);
+        Assert.Equal(y1x, y.X, 4); Assert.Equal(y1y, y.Y, 4); Assert.Equal(y1z, y.Z, 4);
+        Assert.Equal(z1x, z.X, 4); Assert.Equal(z1y, z.Y, 4); Assert.Equal(z1z, z.Z, 4);
     }
 
     [Fact]

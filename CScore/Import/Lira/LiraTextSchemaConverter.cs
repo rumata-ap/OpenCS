@@ -65,6 +65,7 @@ public static class LiraTextSchemaConverter
         data.ApplyStiffnesses(new Dictionary<int, int>());
 
         foreach (var (elem, angle) in text.PlateAxisAngles) data.PlateAxisAngles[elem] = angle;
+        foreach (var (elem, angle) in text.ElementAngles) data.BarAxisAngles[elem] = angle;
 
         if (ald != null)
         {

@@ -1041,6 +1041,7 @@
    <system:String x:Key="LiraTextFilter">LIRA schema text file (*.txt)|*.txt|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraTextOpenTitle">LIRA text file for schema "{0}"</system:String>
    <system:String x:Key="LiraTextRead">LIRA text file {0} read: {1} nodes, {2} elements, {3} loads.</system:String>
+   <system:String x:Key="LiraBarAxesUpdated">Local axes of imported bars updated from the LIRA text file (rotation angle, vertical-bar rule): {0} changed.</system:String>
    <system:String x:Key="LiraTextMoreWarnings">{0}: … and {1} more parsing remarks.</system:String>
    <system:String x:Key="LiraTextReadError">LIRA text file {0} could not be read: {1}</system:String>
    <system:String x:Key="LiraTextStale">Text file {0} ({1}) is older than the schema file {2} ({3}): boundary conditions and loads may be outdated — save the schema in LIRA and read them again.</system:String>
@@ -1221,6 +1222,8 @@
    <system:String x:Key="LiraInvertBarMxMy">Invert bending moment signs Mx and My</system:String>
    <system:String x:Key="LiraImportShellMomentsGroup">Plates</system:String>
    <system:String x:Key="LiraInvertShellMxMy">Invert moment signs Mx, My and Mxy</system:String>
+   <system:String x:Key="LiraTextDirGroup">Schema text files folder (.txt)</system:String>
+   <system:String x:Key="LiraTextDirTip">The schema text file (&lt;schema name&gt;.txt) is looked up in this folder first, then in the Data folders of installed LIRA versions. Empty — Data folders only.</system:String>
    <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>
    <system:String x:Key="SP20DialogTitle">SP 20.13330 Combinations</system:String>
    <system:String x:Key="SP20SelectSets">Force Sets:</system:String>

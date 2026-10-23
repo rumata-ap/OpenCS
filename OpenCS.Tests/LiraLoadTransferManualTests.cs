@@ -49,7 +49,8 @@ public class LiraLoadTransferManualTests(ITestOutputHelper output)
                 ElemTag = e.Number.ToString(), ElemType = e.Nodes.Length == 2 ? "beam" : "shell",
                 NodeIdsJson = System.Text.Json.JsonSerializer.Serialize(e.Nodes), StiffnessNum = 1,
                 Origin = FemMember.MeshSourceImported,
-                BeamRotationDeg = e.Nodes.Length == 2 ? Rotation(meshNodes[e.Nodes[0] - 1], meshNodes[e.Nodes[1] - 1]) : null,
+                BeamRotationDeg = e.Nodes.Length == 2
+                    ? Rotation(meshNodes[e.Nodes[0] - 1], meshNodes[e.Nodes[1] - 1], s.ElementAngles.GetValueOrDefault(e.Number)) : null,
             }).ToList();
             var nodeTags = meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
             var types = elements.ToDictionary(e => e.ElemTag, e => e.ElemType, StringComparer.Ordinal);
@@ -168,8 +169,8 @@ public class LiraLoadTransferManualTests(ITestOutputHelper output)
 
     static bool IsLink(int type) => type is (>= 50 and <= 59) or (>= 250 and <= 259);
 
-    static double? Rotation(FemMeshNode a, FemMeshNode b) =>
-        LiraSchemaConverter.DefaultBarRotationDeg(new LiraNodeRecord(0, a.X, a.Y, a.Z, 0), new LiraNodeRecord(0, b.X, b.Y, b.Z, 0));
+    static double? Rotation(FemMeshNode a, FemMeshNode b, double angle) =>
+        LiraSchemaConverter.BarRotationDeg(new LiraNodeRecord(0, a.X, a.Y, a.Z, 0), new LiraNodeRecord(0, b.X, b.Y, b.Z, 0), angle);
 
     /// <summary>Условные упругие свойства: для ΣR = ΣF жёсткости не важны.</summary>
     sealed class ConventionalProps : IFemElementStiffnessSource

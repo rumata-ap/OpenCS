@@ -19,6 +19,7 @@ static class LiraApiSchemaReader
     const int kConstructiveBlocksTable = 31;  // конструктивные блоки
     const int kLoadCasesTable          = 25;  // номер загружения + имя + тип
     const int kPlateLocalAxesTable     = 18;  // kLiraTable_Plates_LocalAxes: КЭ → угол согласования осей
+    const int kBarLocalAxesTable       = 17;  // kLiraTable_Bars_LocalAxes: КЭ → угол разворота местных осей
     const int kElementsPRTypesTable    = 33;  // kLiraTable_Elements_PRTypes: КЭ → ТЗА (только 2025+)
 
     /// <summary>Первая версия ЛИРЫ с таблицей «Элементы - ТЗА».</summary>
@@ -65,6 +66,7 @@ static class LiraApiSchemaReader
     {
         var result = new Dictionary<int, string>();
         var diag = new List<string>();
+        using var tables = new TemporaryTables((object)doc);
         var raw = TryReadTable(doc.AllTables.CreateNewItem(kLoadCasesTable), diag, "LoadCases");
         if (raw == null) return result;
         int rows = raw.GetLength(0);
@@ -91,6 +93,7 @@ static class LiraApiSchemaReader
             ?? throw new InvalidOperationException(
                 "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
         documentTitle = ReadDocumentTitle(doc);
+        using var tables = new TemporaryTables((object)doc);
 
         var data = new LiraSchemaData();
         var diag = new List<string>();
@@ -140,6 +143,10 @@ static class LiraApiSchemaReader
         var axesRaw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "S1-PlateAxes");
         if (axesRaw != null) ParsePlateAxisAngles(axesRaw, data);
 
+        // Углы разворота местных осей стержней (без таблицы — оси ЛИРЫ по умолчанию)
+        var barAxesRaw = TryReadTable(doc.AllTables.CreateNewItem(kBarLocalAxesTable), diag, "S1-BarAxes");
+        if (barAxesRaw != null) ParseAngles(barAxesRaw, data.BarAxisAngles);
+
         // ТЗА КЭ — только в 2025+; в старых версиях таблицы нет, не запрашиваем
         if (liraVersion >= FirstVersionWithReinforcementTypes)
         {
@@ -176,6 +183,7 @@ static class LiraApiSchemaReader
                 $"Таблица «Элементы - ТЗА» есть только в ЛИРА-САПФИР {FirstVersionWithReinforcementTypes} и новее.");
 
         var diag = new List<string>();
+        using var tables = new TemporaryTables((object)doc);
         var raw = TryReadTable(doc.AllTables.CreateNewItem(kElementsPRTypesTable), diag, "PRTypes");
         if (raw == null)
             throw new InvalidOperationException("Не удалось прочитать таблицу «Элементы - ТЗА».\n" + string.Join("\n", diag));
@@ -200,6 +208,7 @@ static class LiraApiSchemaReader
                 "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
 
         var diag = new List<string>();
+        using var tables = new TemporaryTables((object)doc);
         var data = new LiraSchemaData();
         Dictionary<int, int> byElement = ReadStiffnessTables((object)lira, (object)doc, data, diag, tonToKn);
         if (data.Stiffnesses.Count == 0 || byElement.Count == 0)
@@ -279,6 +288,7 @@ static class LiraApiSchemaReader
                 "В ЛИРЕ нет открытого документа. Откройте расчётную схему и повторите.");
 
         var diag = new List<string>();
+        using var tables = new TemporaryTables((object)doc);
         var raw = TryReadTable(doc.AllTables.CreateNewItem(kPlateLocalAxesTable), diag, "PlateAxes");
         if (raw == null)
             throw new InvalidOperationException("Не удалось прочитать таблицу местных осей пластин.\n" + string.Join("\n", diag));
@@ -288,6 +298,26 @@ static class LiraApiSchemaReader
     }
 
     // ------------------------------------------------------------------ доступ к таблице
+
+    /// <summary>
+    /// Таблицы ввода, которые создаёт чтение: <c>CreateNewItem</c> добавляет таблицу в документ, и при сохранении она
+    /// остаётся в .lir (схема на 4 МБ после импорта разрослась до 190 МБ). Запоминает число таблиц документа и при
+    /// выходе удаляет добавленные после него (индексы с 0, удаление с конца); таблицы пользователя не трогает.
+    /// </summary>
+    sealed class TemporaryTables(object document) : IDisposable
+    {
+        readonly dynamic _tables = ((dynamic)document).AllTables;
+        readonly int _count = (int)((dynamic)document).AllTables.ItemCount;
+
+        public void Dispose()
+        {
+            try
+            {
+                for (int i = (int)_tables.ItemCount - 1; i >= _count; i--) _tables.Delete(i);
+            }
+            catch (Exception) { }  // не удалось — таблицы останутся в документе, на прочитанное это не влияет
+        }
+    }
 
     static object? GetItem(dynamic collection, int key, List<string> diag, string tag)
     {
@@ -551,14 +581,17 @@ static class LiraApiSchemaReader
     /// <summary>
     /// Парсит таблицу 18 «местные оси пластин»: [0] = номер КЭ, [1] = угол согласования осей, град.
     /// </summary>
-    static void ParsePlateAxisAngles(object[,] rows, LiraSchemaData data)
+    static void ParsePlateAxisAngles(object[,] rows, LiraSchemaData data) => ParseAngles(rows, data.PlateAxisAngles);
+
+    /// <summary>Таблица «КЭ, угол°» (18 — пластины, 17 — стержни): [0] = номер КЭ, [1] = угол, град.</summary>
+    static void ParseAngles(object[,] rows, Dictionary<int, double> target)
     {
         if (rows.GetLength(1) < 2) return;
         for (int i = 0; i < rows.GetLength(0); i++)
         {
             if (!TryInt(rows[i, 0], out int id)) continue;
             double angle = ToDouble(rows[i, 1]);
-            if (double.IsFinite(angle)) data.PlateAxisAngles[id] = angle;
+            if (double.IsFinite(angle)) target[id] = angle;
         }
     }
 

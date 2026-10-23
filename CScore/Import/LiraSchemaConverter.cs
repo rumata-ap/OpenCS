@@ -113,8 +113,8 @@ public static class LiraSchemaConverter
     }
 
     /// <summary>
-    /// Создаёт 2-узловые стержневые элементы КЭ-сетки напрямую из данных ЛираСАПР. Поворот сечения — по правилу
-    /// местных осей ЛИРЫ по умолчанию (<see cref="DefaultBarRotationDeg"/>): угол разворота стержня не читается.
+    /// Создаёт 2-узловые стержневые элементы КЭ-сетки напрямую из данных ЛираСАПР. Поворот сечения — местные оси
+    /// ЛИРЫ по умолчанию с углом разворота таблицы 17 (<see cref="BarRotationDeg"/>).
     /// </summary>
     public static FemElement[] ToFemMeshBarElements(LiraSchemaData data, int schemaId)
     {
@@ -135,7 +135,7 @@ public static class LiraSchemaConverter
                     StiffnessNum = e.StiffnessId > 0 ? e.StiffnessId : null,
                     ReinforcementTypeIds = ReinforcementKey(data, e.Id),
                     BeamRotationDeg = nodes.TryGetValue(e.NodeIds[0], out var a) && nodes.TryGetValue(e.NodeIds[1], out var b)
-                        ? DefaultBarRotationDeg(a, b) : null,
+                        ? BarRotationDeg(a, b, data.BarAxisAngles.GetValueOrDefault(e.Id)) : null,
                     Origin      = FemMember.MeshSourceImported,
                 };
             })
@@ -143,16 +143,25 @@ public static class LiraSchemaConverter
     }
 
     /// <summary>
-    /// Поворот сечения стержня ЛИРЫ от осей <see cref="BeamLocalAxisConvention"/>, град, при местных осях по умолчанию:
-    /// Z1 невертикального стержня — в вертикальной плоскости вверх, Y1 = Z1 × X1 горизонтальна; у вертикального Y1 —
-    /// вдоль глобальной Y (то же правило, что у SCAD, <see cref="ScadRodAxes.LocalY"/>). Местная Y = Y1 ЛИРЫ (B
-    /// сечения вдоль Y1, H — вдоль Z1). Не подтверждено пробником (4ж). Null — стержень нулевой длины.
+    /// Поворот сечения стержня ЛИРЫ от осей <see cref="BeamLocalAxisConvention"/>, град. Местные оси ЛИРЫ по
+    /// умолчанию: Z1 невертикального стержня — в вертикальной плоскости вверх, Y1 = Z1 × X1 горизонтальна (как у SCAD,
+    /// <see cref="ScadRodAxes.LocalY"/>); у вертикального Y1 — против глобальной Y при любом направлении стержня (у SCAD
+    /// по Y). Угол <paramref name="angleDeg"/> (таблица/документ 17) поворачивает Y1/Z1 вокруг X1 по правилу правой
+    /// руки. Местная Y = Y1 ЛИРЫ (B сечения вдоль Y1, H — вдоль Z1). Оси и знак угла сверены 23.10.2026 по прогибам
+    /// консолей с местной нагрузкой в ЛИРЕ-САПФИР 2025 (вертикальные вверх/вниз, горизонтальные по X/Y, наклонный;
+    /// углы 0 и 30°). Null — стержень нулевой длины.
     /// </summary>
-    public static double? DefaultBarRotationDeg(LiraNodeRecord a, LiraNodeRecord b)
+    public static double? BarRotationDeg(LiraNodeRecord a, LiraNodeRecord b, double angleDeg = 0)
     {
         var y = ScadRodAxes.LocalY(null, (a.X, a.Y, a.Z), (b.X, b.Y, b.Z));
-        return y == null ? null
-            : BeamLocalAxisConvention.RotationDeg(new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), new(y[0], y[1], y[2]));
+        if (y == null) return null;
+        double dx = b.X - a.X, dy = b.Y - a.Y, dz = b.Z - a.Z;
+        // Порог вертикальности — как в ScadRodAxes.LocalY (горизонтальная проекция единичного X1 < 1e-6)
+        if (Math.Sqrt(dx * dx + dy * dy) < 1e-6 * Math.Sqrt(dx * dx + dy * dy + dz * dz)) y = [0, -1, 0];
+        double? deg = BeamLocalAxisConvention.RotationDeg(new(a.X, a.Y, a.Z), new(b.X, b.Y, b.Z), new(y[0], y[1], y[2]));
+        if (deg is not { } d || angleDeg == 0) return deg;
+        d = Math.IEEERemainder(d + angleDeg, 360);
+        return d <= -180 ? d + 360 : d;
     }
 
     /// <summary>Создаёт 3/4-узловые пластинчатые элементы КЭ-сетки напрямую из данных ЛираСАПР.</summary>

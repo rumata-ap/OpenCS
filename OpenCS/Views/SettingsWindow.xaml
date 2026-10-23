@@ -526,10 +526,21 @@
                                               Content="{DynamicResource LiraInvertBarMxMy}"
                                               Margin="4,6"/>
                                 </GroupBox>
-                                <GroupBox Header="{DynamicResource LiraImportShellMomentsGroup}">
+                                <GroupBox Header="{DynamicResource LiraImportShellMomentsGroup}" Margin="0,0,0,6">
                                     <CheckBox x:Name="LiraInvertShellMxMyCb"
                                               Content="{DynamicResource LiraInvertShellMxMy}"
                                               Margin="4,6"/>
+                                </GroupBox>
+                                <GroupBox Header="{DynamicResource LiraTextDirGroup}">
+                                    <Grid Margin="2" ToolTip="{DynamicResource LiraTextDirTip}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="LiraTextDirBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                        <Button Grid.Column="1" Content="{DynamicResource BrowseEllipsis}" Click="LiraTextDirBrowse_Click"
+                                                Width="30" Height="22" Margin="4,2,0,2"/>
+                                    </Grid>
                                 </GroupBox>
                             </StackPanel>
                         </GroupBox>

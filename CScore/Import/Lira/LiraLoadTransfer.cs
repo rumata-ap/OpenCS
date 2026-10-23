@@ -23,8 +23,8 @@ namespace CScore.Import;
 /// <see cref="FemElementLoadKinds.Edge"/>.</item>
 /// </list>
 /// Знак ЛИРЫ: положительные силы — против осей, моменты — по часовой стрелке с конца оси, поэтому силы и моменты
-/// переносятся с обратным знаком. Единицы — документ 0 (строка 33). Местные оси стержня — оси сетки (правило ЛИРЫ по
-/// умолчанию); местные по Y1/Z1 на стержнях с углом разворота документа 17 не переносятся (знак угла не подтверждён;
+/// переносятся с обратным знаком. Единицы — документ 0 (строка 33). Местные оси стержня — оси сетки: правило ЛИРЫ по
+/// умолчанию с углом разворота документа 17, заданные при импорте схемы (<see cref="LiraSchemaConverter.BarRotationDeg"/>;
 /// углы пластин на привязки не влияют — 32 526 точек образцов на пластинах с углом внутри КЭ в неповёрнутых осях).
 /// Не переносятся (в журнал): температура, заданные смещения,
 /// синусоидальные, динамические параметры узловых, моменты на КЭ, виды 4 и 60 (в описании формата их нет), записи с
@@ -123,16 +123,7 @@ public static class LiraLoadTransfer
             bool local = r.Kind is PointLocal or EvenlyLocal or TrapezLocal;
             string cs = local ? "local" : "global";
             string axis = r.Direction switch { 1 => "x", 2 => "y", _ => "z" };
-            if (bar && local && r.Direction > 1)
-            {
-                // Оси сетки — правило ЛИРЫ по умолчанию: у развёрнутого стержня Y1/Z1 другие (знак угла не подтверждён).
-                if (schema.ElementAngles.TryGetValue(r.Target, out double angle) && Math.IEEERemainder(angle, 360) != 0)
-                {
-                    Skip($"местные по Y1/Z1 (вид {r.Kind}) на стержнях, развёрнутых углом документа 17");
-                    continue;
-                }
-                localBarTransverse++;
-            }
+            if (bar && local && r.Direction > 1) localBarTransverse++;
             double perArea = fu / (lu * lu), perLength = fu / lu;
 
             switch (r.Kind)
@@ -182,8 +173,8 @@ public static class LiraLoadTransfer
                 report.Add($"Загружение {num} «{st.Target.Tag}»: не перенесено — {what}, записей {count}.");
         }
         if (localBarTransverse > 0)
-            report.Add($"Местные нагрузки по Y1/Z1 стержней ({localBarTransverse}) приложены в местных осях сетки — по правилу " +
-                "ЛИРЫ по умолчанию (стержни без угла разворота документа 17).");
+            report.Add($"Местные нагрузки по Y1/Z1 стержней ({localBarTransverse}) приложены в местных осях сетки — оси ЛИРЫ " +
+                "с углом разворота стержня, прочитанным при импорте схемы.");
         foreach (var orphan in cases.Where(c => c.Origin == Origin && c.SourceLoadNum is { } n && !states.ContainsKey(n)))
             report.Add($"Загружение «{orphan.Tag}» (ЛИРА {orphan.SourceLoadNum}) в файле отсутствует — перенесённые в него нагрузки удалены.");
 

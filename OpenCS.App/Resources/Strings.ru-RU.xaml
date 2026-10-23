@@ -1041,6 +1041,7 @@
    <system:String x:Key="LiraTextFilter">Текстовый файл схемы ЛИРЫ (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraTextOpenTitle">Текстовый файл ЛИРЫ для схемы «{0}»</system:String>
    <system:String x:Key="LiraTextRead">Прочитан текстовый файл ЛИРЫ {0}: узлов {1}, КЭ {2}, нагрузок {3}.</system:String>
+   <system:String x:Key="LiraBarAxesUpdated">Местные оси импортных стержней уточнены по текстовому файлу ЛИРЫ (угол разворота, правило для вертикальных): изменено {0}.</system:String>
    <system:String x:Key="LiraTextMoreWarnings">{0}: … и ещё замечаний разбора: {1}.</system:String>
    <system:String x:Key="LiraTextReadError">Текстовый файл ЛИРЫ {0} не прочитан: {1}</system:String>
    <system:String x:Key="LiraTextStale">Текстовый файл {0} ({1}) старше файла схемы {2} ({3}): граничные условия и нагрузки могут быть устаревшими — сохраните схему в ЛИРЕ и дочитайте их заново.</system:String>
@@ -1221,6 +1222,8 @@
    <system:String x:Key="LiraInvertBarMxMy">Инвертировать знаки изгибающих моментов Mx и My</system:String>
    <system:String x:Key="LiraImportShellMomentsGroup">Плиты</system:String>
    <system:String x:Key="LiraInvertShellMxMy">Инвертировать знаки моментов Mx, My и Mxy</system:String>
+   <system:String x:Key="LiraTextDirGroup">Каталог текстовых файлов схем (.txt)</system:String>
+   <system:String x:Key="LiraTextDirTip">Текстовый файл схемы (&lt;имя схемы&gt;.txt) сначала ищется в этом каталоге, затем в каталогах Data установленных версий ЛИРЫ. Пусто — только каталоги Data.</system:String>
    <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
    <system:String x:Key="SP20DialogTitle">Сочетания по СП 20.13330</system:String>
    <system:String x:Key="SP20SelectSets">Наборы усилий:</system:String>

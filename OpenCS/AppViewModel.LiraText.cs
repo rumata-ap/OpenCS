@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
@@ -34,8 +35,8 @@ namespace OpenCS
       async Task<string?> TransferLiraTextAfterImport(FemSchema schema, LiraSchemaData raw, string? title, int? version,
          string? lirPath)
       {
-         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
-         string? path = LiraTextFileLocator.Find(title, dirs, version);
+         var dirs = LiraTextDirectories();
+         string? path = FindLiraText(title, dirs, version);
          if (path == null)
          {
             LogService.Warning(string.Format(Loc.S("LiraTextNotFound"), LiraTextFileLocator.FileName(title) ?? title ?? "?",
@@ -78,9 +79,9 @@ namespace OpenCS
       async void ImportLiraSchemaFromText()
       {
          if (IsBusy) return;
-         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
+         var dirs = LiraTextDirectories();
          string? path = FileDialogService.OpenFile(Loc.S("LiraTextFilter"), Loc.S("ImportLiraSchemaFromTextTitle"),
-            dirs.LastOrDefault()?.Path);
+            OwnLiraTextDirectory() ?? dirs.LastOrDefault()?.Path);
          if (path == null) return;
 
          BeginBusy(Loc.S("StatusImportingSchema"));
@@ -195,9 +196,9 @@ namespace OpenCS
          try { open = await RunOnStaThread(Services.LiraApiSchemaReader.ReadDocumentInfo); }
          catch (Exception) { }  // ЛИРА не запущена — ищем по имени схемы
 
-         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
-         string? openFile = LiraTextFileLocator.Find(open?.Title, dirs, open?.Version);
-         string? found = LiraTextFileLocator.Find(schema.Tag, dirs, open?.Version)
+         var dirs = LiraTextDirectories();
+         string? openFile = FindLiraText(open?.Title, dirs, open?.Version);
+         string? found = FindLiraText(schema.Tag, dirs, open?.Version)
             ?? (schema.SourcePath is { } sp && sp.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && File.Exists(sp) ? sp : null)
             ?? openFile;
          string? LirFor(string path) => openFile != null && string.Equals(Path.GetFullPath(openFile), Path.GetFullPath(path),
@@ -213,10 +214,28 @@ namespace OpenCS
          }
 
          string? initial = found != null ? Path.GetDirectoryName(found)
-            : dirs.FirstOrDefault(d => d.Version == open?.Version)?.Path ?? dirs.LastOrDefault()?.Path;
+            : OwnLiraTextDirectory() ?? dirs.FirstOrDefault(d => d.Version == open?.Version)?.Path ?? dirs.LastOrDefault()?.Path;
          string? chosen = FileDialogService.OpenFile(Loc.S("LiraTextFilter"), string.Format(Loc.S("LiraTextOpenTitle"), schema.Tag), initial);
          return chosen == null ? (null, null) : (chosen, LirFor(chosen));
       }
+
+      /// <summary>Свой каталог текстовых файлов из настроек импорта ЛИРЫ; не задан или не существует — null.</summary>
+      string? OwnLiraTextDirectory() =>
+         LiraImportSettings.TextFileDirectory is { } d && Directory.Exists(d) ? d : null;
+
+      /// <summary>Каталоги поиска текстового файла: свой каталог из настроек (первым) и каталоги Data версий ЛИРЫ.</summary>
+      List<LiraDataDirectory> LiraTextDirectories()
+      {
+         var dirs = LiraTextFileLocator.DataDirectories(LiraTextFileLocator.PublicDocuments);
+         if (OwnLiraTextDirectory() is { } own) dirs.Insert(0, new LiraDataDirectory(own, null));
+         return dirs;
+      }
+
+      /// <summary>Текстовый файл схемы <paramref name="title"/>: в своём каталоге — он и берётся, иначе — по каталогам Data
+      /// (версия открытой ЛИРЫ, затем самый свежий).</summary>
+      string? FindLiraText(string? title, List<LiraDataDirectory> dirs, int? version) =>
+         (OwnLiraTextDirectory() is { } own ? LiraTextFileLocator.Find(title, [new LiraDataDirectory(own, null)], null) : null)
+         ?? LiraTextFileLocator.Find(title, dirs, version);
 
       /// <summary>Читает текстовый файл ЛИРЫ в фоне; замечания разбора — в журнал; ошибка чтения — в журнал, null.</summary>
       async Task<LiraTextSchema?> ReadLiraText(string path)
@@ -267,6 +286,7 @@ namespace OpenCS
       async Task TransferLiraLoads(FemSchema schema, LiraTextSchema txt, IReadOnlyList<FemMeshNode> meshNodes,
          IReadOnlyList<FemElement> elements)
       {
+         ApplyLiraBarAxes(schema, txt, meshNodes, elements);
          var tags = meshNodes.Select(n => n.NodeTag).ToHashSet(StringComparer.Ordinal);
          var types = ElementTypes(elements);
          var cases = schema.LoadCases.ToList();
@@ -281,6 +301,35 @@ namespace OpenCS
          SaveLoadTransferResult(schema, result);
          var resolve = LoadTotalsResolver(schema, result, LiraLoadTransfer.Origin, meshNodes, elements);
          FinishLoadTransfer(schema, "LiraLoadsTotal", await Task.Run(resolve));
+      }
+
+      /// <summary>
+      /// Повороты сечений импортных стержней — по осям ЛИРЫ с углами документа 17: местные нагрузки по Y1/Z1
+      /// прикладываются в осях сетки. Схемы, импортированные до 23.10.2026, углов не имели (и у вертикальных стержней
+      /// Y1 была развёрнута на 180°) — исправляются здесь; число изменённых — в журнал.
+      /// </summary>
+      void ApplyLiraBarAxes(FemSchema schema, LiraTextSchema txt, IReadOnlyList<FemMeshNode> meshNodes,
+         IReadOnlyList<FemElement> elements)
+      {
+         var nodes = meshNodes.GroupBy(n => n.NodeTag, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+         var rotations = new Dictionary<string, double>(StringComparer.Ordinal);
+         var changed = new List<(FemElement Element, double Deg)>();
+         foreach (var e in elements.Where(e => e.ElemType == "beam" && e.Origin == FemMember.MeshSourceImported))
+         {
+            if (e.Node1 is not { } n1 || e.Node2 is not { } n2
+                || !nodes.TryGetValue(n1.ToString(CultureInfo.InvariantCulture), out var a)
+                || !nodes.TryGetValue(n2.ToString(CultureInfo.InvariantCulture), out var b)
+                || !int.TryParse(e.ElemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int number)) continue;
+            double? deg = LiraSchemaConverter.BarRotationDeg(new LiraNodeRecord(0, a.X, a.Y, a.Z, 0),
+               new LiraNodeRecord(0, b.X, b.Y, b.Z, 0), txt.ElementAngles.GetValueOrDefault(number));
+            if (deg is not { } d) continue;
+            rotations[e.ElemTag] = d;
+            if (e.BeamRotationDeg is not { } old || Math.Abs(Math.IEEERemainder(old - d, 360)) > 1e-6) changed.Add((e, d));
+         }
+         if (changed.Count == 0) return;
+         db.ReplaceFemElementBeamRotations(schema.Id, rotations);
+         foreach (var (e, d) in changed) e.BeamRotationDeg = d;
+         LogService.Info(string.Format(Loc.S("LiraBarAxesUpdated"), changed.Count));
       }
 
       static Dictionary<string, string> ElementTypes(IEnumerable<FemElement> elements) =>

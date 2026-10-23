@@ -416,6 +416,7 @@ namespace OpenCS.Views
          LiraTon10.IsChecked  = Math.Abs(_liraSettings.TonToKnFactor - ten) <= 0.01;
          LiraInvertBarMxMyCb.IsChecked   = _liraSettings.InvertBarBendingMoments;
          LiraInvertShellMxMyCb.IsChecked = _liraSettings.InvertShellBendingMoments;
+         LiraTextDirBox.Text = _liraSettings.TextFileDirectory ?? "";
       }
 
       void HookLiraControls()
@@ -426,6 +427,8 @@ namespace OpenCS.Views
          LiraInvertBarMxMyCb.Unchecked += (_, _) => _liraSettings.InvertBarBendingMoments = false;
          LiraInvertShellMxMyCb.Checked   += (_, _) => _liraSettings.InvertShellBendingMoments = true;
          LiraInvertShellMxMyCb.Unchecked += (_, _) => _liraSettings.InvertShellBendingMoments = false;
+         LiraTextDirBox.TextChanged += (_, _) =>
+            _liraSettings.TextFileDirectory = string.IsNullOrWhiteSpace(LiraTextDirBox.Text) ? null : LiraTextDirBox.Text.Trim();
       }
 
       void UpdateCalcSwatches()
@@ -579,6 +582,13 @@ namespace OpenCS.Views
             if (Pars.ParseAny(CsfeaStiffnessFloorBox.Text, out var v) && v is > 0 and < 1)
                _calcSettings.CsfeaStiffnessFloor = v;
          };
+      }
+
+      void LiraTextDirBrowse_Click(object sender, RoutedEventArgs e)
+      {
+         var initial = string.IsNullOrWhiteSpace(LiraTextDirBox.Text) ? null : LiraTextDirBox.Text.Trim();
+         var folder = _mvm.FileDialogService.SelectFolder(Loc.S("LiraTextDirGroup"), initial);
+         if (folder is not null) LiraTextDirBox.Text = folder;
       }
 
       void OpenSeesExeBrowse_Click(object sender, RoutedEventArgs e)

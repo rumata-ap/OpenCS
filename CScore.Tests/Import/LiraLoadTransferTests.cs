@@ -136,7 +136,7 @@ public sealed class LiraLoadTransferTests
     }
 
     [Fact]
-    public void LocalTransverseOnRotatedBar_IsSkipped_AxialAndPlateAngleAreNot()
+    public void LocalTransverseOnRotatedBar_IsTransferred_AngleGoesToMeshAxes()
     {
         var s = Parse("""
             ( 0/ 1; a/ 39; 1: A ; / )
@@ -150,11 +150,13 @@ public sealed class LiraLoadTransferTests
         Assert.Contains(s.SkippedDocuments, d => d.Number == 17 && d.Records == 1);
 
         var r = Run(s);
-        Assert.Equal(2, r.SkippedRecords);
-        Assert.Contains(r.Report, l => l.Contains("местные по Y1/Z1 (вид 6) на стержнях, развёрнутых углом документа 17, записей 1"));
-        Assert.Contains(r.Report, l => l.Contains("местные по Y1/Z1 (вид 5)"));
+        Assert.Equal(0, r.SkippedRecords);
+        Assert.Contains(r.Report, l => l.Contains("Местные нагрузки по Y1/Z1 стержней (2)"));
         Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "x" && l.TargetTags.SequenceEqual(["1"]));
-        Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "z" && l.TargetTags.SequenceEqual(["2"]));
+        // q по Z1 на стержне 1 и на пластине 2 одинаковы (единицы — метры) — одна запись на оба КЭ
+        Assert.Contains(r.ElementLoads, l => l.LoadKind == "uniform" && l.Axis == "z" && l.CoordinateSystem == "local" &&
+            l.TargetTags.SequenceEqual(["1", "2"]));
+        Assert.Contains(r.ElementLoads, l => l.LoadKind == "point" && l.Axis == "y" && l.TargetTags.SequenceEqual(["1"]));
     }
 
     [Fact]
