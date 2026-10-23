@@ -55,6 +55,7 @@ public static partial class StoreyFragmentBuilder
         }
 
         var sources = Resolve(c, parent);
+        sources.AddRange(Uncovered(c, parent));
         foreach (var s in sources.Where(IsHorizontalShell)) AddSlab(c, s);
         if (draft.HasErrors) return draft;
         if (c.Slabs.Count == 0)
@@ -66,6 +67,7 @@ public static partial class StoreyFragmentBuilder
         foreach (var s in sources.Where(s => s.Region is not null && !IsHorizontalShell(s))) CutWall(c, s);
         if (draft.HasErrors) return draft;
         AddSupportNodes(c, parent);
+        ReportNotTransferred(c, parent);
         return draft;
     }
 
