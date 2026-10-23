@@ -276,6 +276,11 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     public bool IsSameAsStored(int schemaId, FemPlanarMaterializationResult mesh) =>
         Hash(db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId)) == Hash(mesh.Nodes, mesh.Elements);
 
+    /// <summary>Отличается ли сборка от записанной: сетка или авто-АЖТ примыканий. Смена одних тел (маска, вид, режим
+    /// стержня при той же сетке) тоже меняет расчёт — результаты постановок нужно сбросить.</summary>
+    public bool DiffersFromStored(int schemaId, FemPlanarMaterializationResult mesh) =>
+        !IsSameAsStored(schemaId, mesh) || !SameJunctionBodies(schemaId, mesh.RigidBodies);
+
     static string Hash(IEnumerable<FemMeshNode> nodes, IEnumerable<FemElement> elements)
     {
         var text = new StringBuilder();

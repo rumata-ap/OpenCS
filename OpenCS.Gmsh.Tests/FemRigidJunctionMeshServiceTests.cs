@@ -117,6 +117,7 @@ public sealed class FemRigidJunctionMeshServiceTests
             // 2. Повтор без изменений: снимок переиспользован, тела те же.
             var second = await BuildAndSave();
             Assert.Equal(0, second.RebuiltRegionCount);
+            Assert.False(service.DiffersFromStored(schema.Id, second.Mesh!));
             Assert.Equal(bodies.Count, Stored().Count);
             Assert.All(Stored(), kv => Assert.Equal(bodies[kv.Key], kv.Value));
 
@@ -127,8 +128,14 @@ public sealed class FemRigidJunctionMeshServiceTests
             var stale = await Check();
             Assert.False(stale.IsCurrent);
             Assert.Contains(stale.Diagnostics, d => d.Code == "rigid_junctions_stale");
-            var remask = await BuildAndSave();
+            // Сетка та же, тела другие — результаты постановок сбрасываются (DiffersFromStored), после записи — совпадает.
+            var remask = await service.BuildAsync(schema.Id, nodes, Members(), null, null, CancellationToken.None);
+            Assert.False(remask.HasErrors, string.Join("\n", remask.Diagnostics));
             Assert.Equal(0, remask.RebuiltRegionCount);
+            Assert.True(service.IsSameAsStored(schema.Id, remask.Mesh!));
+            Assert.True(service.DiffersFromStored(schema.Id, remask.Mesh!));
+            service.Save(schema.Id, remask.Mesh!);
+            Assert.False(service.DiffersFromStored(schema.Id, remask.Mesh!));
             var c1Master = mesh.Nodes.Single(n => n.SourceNodeTag == "11").NodeTag;
             Assert.Equal(0b000111, db.GetFemRigidBodies(schema.Id).Single(b => b.MasterNodeTag == c1Master).Mask);
             Assert.True((await Check()).IsCurrent);

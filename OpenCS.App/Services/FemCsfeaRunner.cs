@@ -1254,7 +1254,7 @@ public static class FemCsfeaRunner
             return;
         }
         diag.AddRange(result.Diagnostics);
-        bool changed = !service.IsSameAsStored(schema.Id, mesh);
+        bool changed = service.DiffersFromStored(schema.Id, mesh);
         service.Save(schema.Id, mesh);
         if (changed) service.ReportMeshChanged(schema, ctx.Log);
         ctx.Log.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,

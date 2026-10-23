@@ -1226,7 +1226,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 return;
             }
 
-            bool changed = !service.IsSameAsStored(schema.Id, mesh);
+            bool changed = service.DiffersFromStored(schema.Id, mesh);
             service.Save(schema.Id, mesh);
             if (planar)
                 _logService.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
