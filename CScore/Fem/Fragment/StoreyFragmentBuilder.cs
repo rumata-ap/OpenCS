@@ -63,6 +63,7 @@ public static partial class StoreyFragmentBuilder
             return draft;
         }
         foreach (var s in sources.Where(s => s.Member.ElemType == "beam")) CutBar(c, s);
+        foreach (var s in sources.Where(s => s.Region is not null && !IsHorizontalShell(s))) CutWall(c, s);
         if (draft.HasErrors) return draft;
         AddSupportNodes(c, parent);
         return draft;
