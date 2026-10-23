@@ -52,6 +52,16 @@ public class SurfaceMeshGeometryTests
         Assert.Equal(1.0, G.PointTriangleDistance(new(1, 1, 0), a, b, c), 12);
     }
 
+    /// <summary>Совпавшие вершины давали 0/0 → NaN, и адаптация по φ молча прекращала дробить интервал.</summary>
+    [Fact]
+    public void PointTriangleDistance_CoincidentVertices_Finite()
+    {
+        ForcePoint a = new(0, 0, 0), c = new(0, 1, 0);
+        Assert.Equal(1.0, G.PointTriangleDistance(new(0.5, 0, 1), a, a, c), 12);
+        Assert.Equal(1.0, G.PointTriangleDistance(new(0, 0.5, 1), a, c, c), 12);
+        Assert.Equal(Math.Sqrt(2), G.PointTriangleDistance(new(1, 1, 0), a, a, a), 12);
+    }
+
     [Fact]
     public void SignedVolume_UnitTetrahedronOutward()
     {

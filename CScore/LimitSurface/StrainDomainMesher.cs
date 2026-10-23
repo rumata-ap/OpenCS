@@ -79,7 +79,7 @@ public sealed class StrainDomainMesher
                 var (a, b) = intervals[k];
                 double dev = StripDeviation(top, bot, mer[a], mer[b >= TwoPi ? 0.0 : b], fresh[k], scale);
                 maxDev = Math.Max(maxDev, dev);
-                if (dev > _opt.RefineTol) { next.Add((dev, a, mids[k])); next.Add((dev, mids[k], b)); }
+                if (!(dev <= _opt.RefineTol)) { next.Add((dev, a, mids[k])); next.Add((dev, mids[k], b)); }
             }
             log.Add((mids.Length, maxDev));
             // при нехватке лимита первыми дробятся участки с наибольшим отклонением

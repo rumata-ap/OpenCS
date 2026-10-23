@@ -97,6 +97,9 @@ public static class SurfaceMeshGeometry
     /// <summary>Расстояние от точки до треугольника (Эриксон, Real-Time Collision Detection, 5.1.5).</summary>
     public static double PointTriangleDistance(ForcePoint p, ForcePoint a, ForcePoint b, ForcePoint c)
     {
+        // Совпавшие вершины (усилия на площадках диаграмм) — знаменатели ниже равны |ребро|² = 0 → NaN
+        if (a == b || b == c || c == a)
+            return Math.Min(PointSegmentDistance(p, a, b), Math.Min(PointSegmentDistance(p, b, c), PointSegmentDistance(p, c, a)));
         var ab = b - a; var ac = c - a; var ap = p - a;
         double d1 = ab.Dot(ap), d2 = ac.Dot(ap);
         if (d1 <= 0 && d2 <= 0) return (p - a).Length;
