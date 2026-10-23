@@ -134,7 +134,7 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
     }
 
     /// <summary>Копия КонЭ с новыми тегом и узлами.</summary>
-    static FemMember CopyOf(FemMember member, int schemaId, string tag, int[] nodeIds) => new()
+    internal static FemMember CopyOf(FemMember member, int schemaId, string tag, int[] nodeIds) => new()
     {
         SchemaId = schemaId,
         ElemTag = tag,
