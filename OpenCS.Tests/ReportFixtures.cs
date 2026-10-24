@@ -10,7 +10,8 @@ internal static class ReportFixtures
     /// Своя фикстура, а не ShearInclinedFixtures.Beam(): та задаёт характеристики через
     /// сеттер Material.C, который наполняет только внутренний словарь, оставляя список
     /// materialChars пустым, — а карте нужны построенные диаграммы всех видов расчёта.</summary>
-    internal static CrossSection BuildBeam()
+    /// <param name="topBars">Добавить два верхних стержня ⌀16 (см. <see cref="BuildSurfaceBeam"/>).</param>
+    internal static CrossSection BuildBeam(bool topBars = false)
     {
         var concrete = new Material
         {
@@ -69,10 +70,26 @@ internal static class ReportFixtures
         };
         rebar.Fibers.Add(new Fiber { TypeFiber = FiberType.point, X = -0.08, Y = -0.25, Area = 0.000616 });
         rebar.Fibers.Add(new Fiber { TypeFiber = FiberType.point, X = 0.08, Y = -0.25, Area = 0.000616 });
+        if (topBars)
+        {
+            rebar.Fibers.Add(new Fiber { TypeFiber = FiberType.point, X = -0.08, Y = 0.25, Area = 0.000201 });
+            rebar.Fibers.Add(new Fiber { TypeFiber = FiberType.point, X = 0.08, Y = 0.25, Area = 0.000201 });
+        }
 
         var section = new CrossSection { Tag = "Б-1" };
         section.Areas.Add(region);
         section.Areas.Add(rebar);
+        section.ResolveAndBuildDiagramms();
+        return section;
+    }
+
+    /// <summary>Балка <see cref="BuildBeam"/> для поверхности предельных усилий: с верхними стержнями
+    /// и εb0 = −0,002 у бетона. Без верхних стержней растяжение верха ничем не ограничено, без εb0
+    /// правило (8.53) не ограничивает однозначную эпюру сжатия — поверхность не замыкается.</summary>
+    internal static CrossSection BuildSurfaceBeam()
+    {
+        var section = BuildBeam(topBars: true);
+        foreach (var chars in section.Areas[0].Material!.MaterialChars) chars.Ec0 = -0.002;
         section.ResolveAndBuildDiagramms();
         return section;
     }
