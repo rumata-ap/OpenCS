@@ -124,16 +124,11 @@ public sealed class CrackWidthCore
             if (!convTotal) planeTotal = planeLong; // фолбэк для σs,total
         }
 
-        var (sigmaLongKPa, epsLong, asTens, dsEq, aCoverEff, yTensCg) = TensileRebarProps(_section, planeLong, _calcServiceLong);
+        var (sigmaLongKPa, epsLong, asTens, dsEq, tensCentroid) = TensileRebarProps(_section, planeLong, _calcServiceLong);
         if (asTens < 1e-15 || dsEq < 1e-15) return zero;
 
-        var concreteVertices = ConcreteVertices();
-        double yExtremeComp = planeLong.ky >= 0
-            ? concreteVertices.Min(p => p.Y)
-            : concreteVertices.Max(p => p.Y);
-        double h0 = Math.Abs(yTensCg - yExtremeComp);
-
-        double abt = ComputeAbt(onset.CrackPlane, aCoverEff, h0);
+        var geom = CrackSectionGeometry.Compute(_section, onset.CrackPlane, planeLong, tensCentroid);
+        double abt = geom.Abt;
         if (abt < 1e-15) return zero;
 
         double lsM = 0.5 * abt / asTens * dsEq;
@@ -168,7 +163,9 @@ public sealed class CrackWidthCore
             PassedShort = acrcShort <= _acrcUltShort,
             UtilLong = _acrcUltLong > 0 ? acrcLong / _acrcUltLong : 0.0,
             UtilShort = _acrcUltShort > 0 ? acrcShort / _acrcUltShort : 0.0,
-            H0 = h0,
+            H0 = geom.H0,
+            H = geom.H,
+            Xt = geom.Xt,
             PlaneLong = planeLong,
             PlaneTotal = planeTotal,
             SigmaS = sigmaLongKPa,
@@ -388,11 +385,11 @@ public sealed class CrackWidthCore
     /// растянутой арматуры"), актуальное при косом изгибе: стержень у самой нейтральной оси
     /// формально в растяжении, но почти не работает, и учёт его площади наравне со стержнем
     /// у растянутой грани занижал бы ls (и, как следствие, acrc) без физических оснований.
-    /// Центр тяжести растянутой арматуры (yTensCentroid, для a_cover/h0) — геометрическая
-    /// величина, взвешиванию не подлежит, считается по полной площади.
+    /// Центр тяжести растянутой арматуры (для a и h0, см. <see cref="CrackSectionGeometry"/>) —
+    /// геометрическая величина, взвешиванию не подлежит, считается по полной площади.
     /// </para>
     /// </summary>
-    (double sigmaMaxKPa, double epsAtSigmaMax, double asTens, double dsEq, double aCoverEff, double yTensCentroid)
+    (double sigmaMaxKPa, double epsAtSigmaMax, double asTens, double dsEq, (double X, double Y) centroid)
         TensileRebarProps(CrossSection section, Kurvature k, CalcType calcType)
     {
         double sigmaMax = 0.0, epsAtSigmaMax = 0.0;
@@ -415,12 +412,12 @@ public sealed class CrackWidthCore
             }
         }
 
-        if (sigmaMax < 1e-9) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        if (sigmaMax < 1e-9) return (0.0, 0.0, 0.0, 0.0, (0.0, 0.0));
 
         // Второй проход: взвешенные As_tens/ds_eq (вес σi/σ_max) и "чистый" (без
         // взвешивания) центр тяжести растянутой арматуры.
         double asWeighted = 0.0, asDWeighted = 0.0;
-        double asPlain = 0.0, ayPlain = 0.0;
+        double asPlain = 0.0, axPlain = 0.0, ayPlain = 0.0;
 
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
@@ -441,23 +438,15 @@ public sealed class CrackWidthCore
                 asWeighted += f.Area * w;
                 asDWeighted += f.Area * w * f.Diameter;
                 asPlain += f.Area;
+                axPlain += f.Area * f.X;
                 ayPlain += f.Area * f.Y;
             }
         }
 
-        if (asWeighted < 1e-15) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        if (asWeighted < 1e-15) return (0.0, 0.0, 0.0, 0.0, (0.0, 0.0));
 
         double dsEq = asDWeighted / asWeighted;
-        double yTensCentroid = ayPlain / asPlain;
-
-        var concreteVertices = ConcreteVertices();
-        double aCoverEff;
-        if (k.ky >= 0)
-            aCoverEff = Math.Abs(concreteVertices.Max(p => p.Y) - yTensCentroid);
-        else
-            aCoverEff = Math.Abs(yTensCentroid - concreteVertices.Min(p => p.Y));
-
-        return (sigmaMax, epsAtSigmaMax, asTens: asWeighted, dsEq, aCoverEff, yTensCentroid);
+        return (sigmaMax, epsAtSigmaMax, asTens: asWeighted, dsEq, (axPlain / asPlain, ayPlain / asPlain));
     }
 
     (double sigmaMaxKPa, double epsAtSigmaMax) SigmaSFromPlane(Kurvature k, CalcType calcType)
@@ -479,59 +468,6 @@ public sealed class CrackWidthCore
             }
         }
         return (sigmaMax, epsAtSigmaMax);
-    }
-
-    List<(double X, double Y)> ConcreteVertices() =>
-        _section.Areas
-            .Where(a => a.Material?.Type == MatType.Concrete && a.Hull != null)
-            .SelectMany(a => Enumerable.Range(0, a.Hull!.X.Count).Select(i => (a.Hull.X[i], a.Hull.Y[i])))
-            .ToList();
-
-    /// <summary>Площадь растянутого бетона Abt (м²) с ограничениями СП63 п.8.2.17 (2a ≤ xt ≤ 0.5h0).</summary>
-    double ComputeAbt(Kurvature crcPlane, double aCoverEff, double h0)
-    {
-        double kx = crcPlane.ky;
-        if (Math.Abs(kx) < 1e-12) return 0.0;
-
-        double yNeutral = -crcPlane.e0 / kx;
-        int direction = kx > 0 ? +1 : -1;
-
-        double xtMin = 2.0 * aCoverEff;
-        double xtMax = 0.5 * h0;
-
-        double abtTotal = 0.0;
-        foreach (var area in _section.Areas)
-        {
-            if (area.Material?.Type != MatType.Concrete || area.Hull == null) continue;
-            var verts = Enumerable.Range(0, area.Hull.X.Count)
-                .Select(i => (area.Hull.X[i], area.Hull.Y[i])).ToList();
-            if (verts.Count < 3) continue;
-
-            double yExtreme = direction == +1 ? verts.Max(p => p.Item2) : verts.Min(p => p.Item2);
-            double xtActual = direction == +1 ? yExtreme - yNeutral : yNeutral - yExtreme;
-            xtActual = Math.Max(xtActual, 0.0);
-            double xtEff = Math.Max(xtMin, Math.Min(xtActual, xtMax));
-            if (xtEff <= 1e-12) continue;
-
-            List<(double X, double Y)> clipped;
-            if (direction == +1)
-            {
-                // Оставить полосу [y_extreme - xtEff, y_extreme] => y >= (y_extreme - xtEff)
-                clipped = GridSplit.ClipByHalfPlane(verts, 0.0, yExtreme - xtEff, 0.0, 1.0);
-            }
-            else
-            {
-                // Оставить полосу [y_extreme, y_extreme + xtEff] => y <= (y_extreme + xtEff)
-                clipped = GridSplit.ClipByHalfPlane(verts, 0.0, yExtreme + xtEff, 0.0, -1.0);
-            }
-
-            if (clipped.Count < 3) continue;
-            abtTotal += WktHelper.PolygonArea(
-                clipped.Select(p => p.X).ToList(),
-                clipped.Select(p => p.Y).ToList());
-        }
-
-        return abtTotal;
     }
 
     (double acrcMm, double psiS) SingleAcrc(double sigmaSKPa, double sigmaCrcKPa,

@@ -190,8 +190,11 @@ public sealed class CrackWidthSolver
         double mxTot = mxTotal ?? mxLong;
         double myTot = myTotal ?? myLong;
 
-        double mxDir = Math.Abs(mxLong) > 1e-12 ? mxLong : (Math.Abs(mxTot) > 1e-12 ? mxTot : 1.0);
-        double myDir = Math.Abs(mxLong) > 1e-12 || Math.Abs(myLong) > 1e-12 ? myLong : myTot;
+        // Направление Mcrc — по длительному моменту, при нулевом — по полному.
+        bool longIsZero = Math.Abs(mxLong) <= 1e-12 && Math.Abs(myLong) <= 1e-12;
+        bool totalIsZero = Math.Abs(mxTot) <= 1e-12 && Math.Abs(myTot) <= 1e-12;
+        double mxDir = !longIsZero ? mxLong : !totalIsZero ? mxTot : 1.0;
+        double myDir = !longIsZero ? myLong : !totalIsZero ? myTot : 0.0;
 
         // Трещинообразование ищется только по грани, растянутой внешней нагрузкой: у сильно
         // обжатого сечения противоположная грань может треснуть от одного обжатия, и без

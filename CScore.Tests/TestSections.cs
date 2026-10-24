@@ -204,6 +204,45 @@ internal static class TestSections
         return section;
     }
 
+    /// <summary>Прямоугольник b×h (B25, L2) с центром в начале координат и заданными стержнями (X, Y, диаметр).</summary>
+    public static CrossSection Rect(double b, double h, int nx, int ny, Material? steel = null,
+        DiagrammType steelDiagram = DiagrammType.L2, params (double X, double Y, double D)[] bars)
+    {
+        var concreteMaterial = TestMaterials.Concrete("B25");
+        var rebarMaterial = steel ?? TestMaterials.Rebar("A500");
+        double x0 = -b / 2.0, x1 = b / 2.0, y0 = -h / 2.0, y1 = h / 2.0;
+
+        var concrete = new MaterialArea
+        {
+            Tag = "concrete",
+            Category = AreaCategory.Region,
+            Material = concreteMaterial,
+            MaterialId = concreteMaterial.Id,
+            DiagrammType = DiagrammType.L2,
+            Hull = new Contour([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0], "outer"),
+        };
+        concrete.SetWKT();
+        concrete.SliceXY(nx: nx, ny: ny);
+
+        var rebar = new MaterialArea
+        {
+            Tag = "rebar",
+            Category = AreaCategory.RebarGroup,
+            Material = rebarMaterial,
+            MaterialId = rebarMaterial.Id,
+            DiagrammType = steelDiagram,
+            Fibers = bars.Select(p => Fiber.CreatePoint(p.D, p.X, p.Y)).ToList(),
+        };
+
+        var section = new CrossSection { Areas = [concrete, rebar] };
+        section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+        return section;
+    }
+
+    /// <summary>Симметрично армированный прямоугольник 0,3×0,5 (4Ø25 по углам) — для растяжения.</summary>
+    public static CrossSection SymmetricRect() =>
+        Rect(0.3, 0.5, 12, 20, bars: [(-0.10, -0.21, 0.025), (0.10, -0.21, 0.025), (-0.10, 0.21, 0.025), (0.10, 0.21, 0.025)]);
+
     /// <summary>
     /// Уникальное сечение "Пример 47" (1150×300 мм, 6Ø14 понизу) — общая fixture, ранее
     /// продублированная как приватный <c>BuildUniaxialSection</c> внутри
