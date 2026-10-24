@@ -7,7 +7,7 @@ using OpenCS.LimitSurface;
 namespace OpenCS.Tasks;
 
 /// <summary>
-/// Одиночная задача предельного усилия по точке окна поверхности: режим луча Кисп → вид задачи, усилия — из
+/// Одиночная задача по точке окна поверхности: (вид поверхности, режим луча Кисп) → вид задачи, усилия — из
 /// снимка строки (набор мог измениться после расчёта), поэтому ручные усилия в параметрах, без ссылки на строку.
 /// Источник (поверхность + строка) записывается в параметры: повторный выбор находит ту же задачу.
 /// </summary>
@@ -15,25 +15,32 @@ public static class LimitSurfaceRowTaskFactory
 {
    const string SourceProp = "surfaceSource";
 
-   /// <summary>Вид одиночной задачи для режима луча.</summary>
-   public static string SingleKind(UtilizationMode mode) => mode switch
+   /// <summary>
+   /// Вид одиночной задачи для поверхности и режима луча или null, если её нет: у ПС2 (образование трещин) есть
+   /// только задача M_crc при N = const (п. 8.2.4) — режим Moment.
+   /// </summary>
+   public static string? SingleKind(string surfaceKind, UtilizationMode mode) => (surfaceKind, mode) switch
    {
-      UtilizationMode.Moment => "limit_moment",
-      UtilizationMode.Axial => "limit_axial",
-      _ => "limit_force",
+      ("limit_surface", UtilizationMode.Moment) => "limit_moment",
+      ("limit_surface", UtilizationMode.Axial) => "limit_axial",
+      ("limit_surface", _) => "limit_force",
+      ("crack_surface", UtilizationMode.Moment) => "cracking",
+      _ => null,
    };
 
-   /// <summary>Поверхности, у которых есть одиночная задача по точке (ПС2 — позже).</summary>
-   public static bool Supports(string surfaceKind) => surfaceKind == "limit_surface";
+   /// <summary>Есть ли одиночная задача по точке для поверхности и режима.</summary>
+   public static bool Supports(string surfaceKind, UtilizationMode mode) => SingleKind(surfaceKind, mode) != null;
 
    /// <summary>Собрать одиночную задачу (без Id и Num).</summary>
    public static CalcTask Create(CalcTask surface, LimitSurfacePointRecord p, UtilizationMode mode, string sectionTag)
    {
+      string kind = SingleKind(surface.Kind, mode)
+         ?? throw new InvalidOperationException($"Для поверхности «{surface.Kind}» в режиме {mode} одиночной задачи нет.");
       var obj = JsonNode.Parse(new LimitForceParams { N = p.N, Mx = p.Mx, My = p.My }.ToJson())!.AsObject();
       obj[SourceProp] = new JsonObject { ["taskId"] = surface.Id, ["num"] = p.Num };
       return new CalcTask
       {
-         Kind = SingleKind(mode),
+         Kind = kind,
          SectionId = surface.SectionId,
          CalcType = surface.CalcType,
          ForceSetId = 0,
@@ -46,8 +53,8 @@ public static class LimitSurfaceRowTaskFactory
    /// <summary>Ранее созданная задача по той же строке той же поверхности в том же режиме или null.</summary>
    public static CalcTask? FindExisting(IEnumerable<CalcTask> tasks, CalcTask surface, int num, UtilizationMode mode)
    {
-      string kind = SingleKind(mode);
-      return tasks.FirstOrDefault(t => t.Kind == kind && ReadSource(t.ParamsJson) == (surface.Id, num));
+      string? kind = SingleKind(surface.Kind, mode);
+      return kind == null ? null : tasks.FirstOrDefault(t => t.Kind == kind && ReadSource(t.ParamsJson) == (surface.Id, num));
    }
 
    static (int TaskId, int Num)? ReadSource(string? json)

@@ -39,7 +39,7 @@
          </Border>
          <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
                  Visibility="{Binding HasAmbiguous, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{DynamicResource LimitSurfaceWarnAmbiguous}" TextWrapping="Wrap"/>
+            <TextBlock x:Name="AmbiguousText" Text="{DynamicResource LimitSurfaceWarnAmbiguous}" TextWrapping="Wrap"/>
          </Border>
       </StackPanel>
 

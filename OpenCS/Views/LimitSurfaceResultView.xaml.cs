@@ -44,9 +44,10 @@ public partial class LimitSurfaceResultView : UserControl
             Header.Visibility = Warnings.Visibility = Tabs.Visibility = Visibility.Collapsed;
             return;
         }
-        ModeAll.IsChecked = true;
+        (_vm.Mode switch { UtilizationMode.Moment => ModeMoment, UtilizationMode.Axial => ModeAxial, _ => ModeAll }).IsChecked = true;
         AxesRel.IsChecked = true;
-        ColoringBox.ItemsSource = _vm.ColoringItems.Select(c => Loc.S($"LimitSurfaceColoring_{c}")).ToList();
+        if (_vm.Scene.IsCrack) AmbiguousText.SetResourceReference(TextBlock.TextProperty, "LimitSurfaceWarnAmbiguousCrack");
+        ColoringBox.ItemsSource = _vm.ColoringItems.Select(c => Loc.S(_vm.Scene.ColoringKey(c))).ToList();
         ColoringBox.SelectedIndex = 0;
         SliceKindBox.ItemsSource = SliceKinds.Select(k => Loc.S($"LimitSurfaceSlice_{k}")).ToList();
         SliceKindBox.SelectedIndex = 0;
@@ -373,15 +374,20 @@ public partial class LimitSurfaceResultView : UserControl
                 FormatRatio(p.Ratio) + (p.State == PointState.Ambiguous ? " ?" : ""),
                 double.IsFinite(p.Ratio) ? p.Ratio : double.MaxValue,
                 Loc.S($"LimitSurfaceState_{p.State}"),
-                p.Active == ActiveCategory.None ? "" : Loc.S($"LimitSurfaceLegend_{p.Active}") + (p.SingleSign ? " (8.53)" : ""))).ToList();
+                p.Active == ActiveCategory.None ? "" : Loc.S(_vm.Scene!.ActiveLegendKey(p.Active)) + _vm.Scene.SingleSignNote(p.Active, p.SingleSign))).ToList();
             PointsGrid.ItemsSource = _rows;
         }
         PointsGrid.SelectedItem = _rows.FirstOrDefault(r => r.Point == _vm.SelectedPoint);
         _syncingGrid = false;
         PointsSummary.Text = SummaryText.Text;
-        ToSingleTask.Visibility = _app != null && _task != null && LimitSurfaceRowTaskFactory.Supports(_task.Kind)
-            ? Visibility.Visible : Visibility.Collapsed;
-        ToSingleTask.IsEnabled = _vm.SelectedPoint != null;
+        // Кнопка видна, если у поверхности есть одиночная задача хоть в одном режиме; в режиме без неё — недоступна
+        // с подсказкой (у ПС2 задача cracking есть только для N = const).
+        bool anyMode = _task != null && Enum.GetValues<UtilizationMode>().Any(m => LimitSurfaceRowTaskFactory.Supports(_task.Kind, m));
+        bool thisMode = _task != null && LimitSurfaceRowTaskFactory.Supports(_task.Kind, _vm.Mode);
+        ToSingleTask.Visibility = _app != null && anyMode ? Visibility.Visible : Visibility.Collapsed;
+        ToSingleTask.IsEnabled = thisMode && _vm.SelectedPoint != null;
+        ToSingleTask.ToolTip = thisMode ? null : Loc.S("LimitSurfaceNoSingleTask");
+        ToolTipService.SetShowOnDisabled(ToSingleTask, true);
     }
 
     void OnPointsSelectionChanged(object sender, SelectionChangedEventArgs e)

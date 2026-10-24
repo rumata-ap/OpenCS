@@ -40,10 +40,40 @@ public class LimitSurfaceRowTaskFactoryTests
         Assert.Null(LimitSurfaceRowTaskFactory.FindExisting(tasks, Surface, 5, UtilizationMode.Moment));
     }
 
-    [Fact]
-    public void Supports_OnlyLimitSurface()
+    [Theory]
+    [InlineData("limit_surface", UtilizationMode.All, "limit_force")]
+    [InlineData("limit_surface", UtilizationMode.Moment, "limit_moment")]
+    [InlineData("limit_surface", UtilizationMode.Axial, "limit_axial")]
+    [InlineData("crack_surface", UtilizationMode.All, null)]
+    [InlineData("crack_surface", UtilizationMode.Moment, "cracking")]
+    [InlineData("crack_surface", UtilizationMode.Axial, null)]
+    [InlineData("acrc_surface", UtilizationMode.Moment, null)]
+    public void SingleKind_BySurfaceAndMode(string surfaceKind, UtilizationMode mode, string? expected)
     {
-        Assert.True(LimitSurfaceRowTaskFactory.Supports("limit_surface"));
-        Assert.False(LimitSurfaceRowTaskFactory.Supports("crack_surface"));
+        Assert.Equal(expected, LimitSurfaceRowTaskFactory.SingleKind(surfaceKind, mode));
+        Assert.Equal(expected != null, LimitSurfaceRowTaskFactory.Supports(surfaceKind, mode));
+    }
+
+    static readonly CalcTask CrackSurface = new() { Id = 6, Kind = "crack_surface", SectionId = 3, CalcType = CalcType.NL, ForceSetId = 2 };
+
+    [Fact]
+    public void Crack_Moment_CrackingWithPointForces()
+    {
+        var t = LimitSurfaceRowTaskFactory.Create(CrackSurface, Point, UtilizationMode.Moment, "Балка");
+        Assert.Equal("cracking", t.Kind);
+        Assert.Equal(CalcType.NL, t.CalcType);
+        var item = CalcTaskForceHelper.ResolveSingleForces(t, [])!;
+        Assert.Equal<(double, double, double)>((-250.0, -30.0, 2.0), (item.N, item.Mx, item.My));
+        t.Id = 12;
+        Assert.Same(t, LimitSurfaceRowTaskFactory.FindExisting([t], CrackSurface, 4, UtilizationMode.Moment));
+        Assert.Null(LimitSurfaceRowTaskFactory.FindExisting([t], Surface, 4, UtilizationMode.Moment));
+    }
+
+    [Fact]
+    public void Crack_All_NoSingleTask()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            LimitSurfaceRowTaskFactory.Create(CrackSurface, Point, UtilizationMode.All, "Балка"));
+        Assert.Null(LimitSurfaceRowTaskFactory.FindExisting([], CrackSurface, 4, UtilizationMode.All));
     }
 }

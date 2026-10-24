@@ -16,8 +16,23 @@ public sealed partial class LimitSurfaceScene
       _ => "#BFBFBF",
    };
 
-   /// <summary>Раскраска «зона (8.53)» есть только у критерия ПС1.</summary>
-   public bool SupportsSingleSign => Data.Criterion == "uls";
+   /// <summary>Поверхность образования трещин (ПС2).</summary>
+   public bool IsCrack => Data.Criterion == LimitSurfaceResultData.CriterionCrack;
+
+   /// <summary>Раскраска «однозначная эпюра»: (8.53) у ПС1, (8.53)/(8.54) у ПС2.</summary>
+   public bool SupportsSingleSign => Data.Criterion is LimitSurfaceResultData.CriterionUls or LimitSurfaceResultData.CriterionCrack;
+
+   /// <summary>Ключ строки пункта раскраски (у ПС2 «однозначная эпюра» охватывает и (8.54)).</summary>
+   public string ColoringKey(SurfaceColoring c) =>
+      c == SurfaceColoring.SingleSign && IsCrack ? "LimitSurfaceColoring_SingleSign_Crack" : $"LimitSurfaceColoring_{c}";
+
+   /// <summary>Ключ подписи категории активного ограничения; у ПС2 растяжение бетона — это трещина.</summary>
+   public string ActiveLegendKey(ActiveCategory c) =>
+      c == ActiveCategory.ConcreteTension && IsCrack ? "LimitSurfaceLegend_ConcreteTension_Crack" : $"LimitSurfaceLegend_{c}";
+
+   /// <summary>Пометка правила однозначной эпюры к подписи ограничения: растяжение — (8.54), иначе (8.53).</summary>
+   public string SingleSignNote(ActiveCategory c, bool singleSign) =>
+      !singleSign ? "" : c == ActiveCategory.ConcreteTension ? " (8.54)" : " (8.53)";
 
    /// <summary>Треугольники сетки, разбитые на группы одного цвета (каждый треугольник — ровно в одной группе).</summary>
    public IReadOnlyList<ColorGroup> SurfaceGroups(SurfaceColoring coloring)
@@ -30,14 +45,14 @@ public sealed partial class LimitSurfaceScene
             return Enumerable.Range(0, tris.Count)
                .GroupBy(t => Majority(tris[t], v => CategoryOf(Mesh.Active[v])))
                .OrderBy(g => g.Key)
-               .Select(g => new ColorGroup(ActiveColor(g.Key), $"LimitSurfaceLegend_{g.Key}", null, g.ToList()))
+               .Select(g => new ColorGroup(ActiveColor(g.Key), ActiveLegendKey(g.Key), null, g.ToList()))
                .ToList();
          case SurfaceColoring.SingleSign when hasActive:
             return Enumerable.Range(0, tris.Count)
                .GroupBy(t => Majority(tris[t], v => Mesh.Active[v].SingleSign))
                .OrderBy(g => g.Key)
                .Select(g => g.Key
-                  ? new ColorGroup("#C00000", "LimitSurfaceLegend_SingleSign", null, g.ToList())
+                  ? new ColorGroup("#C00000", IsCrack ? "LimitSurfaceLegend_SingleSign_Crack" : "LimitSurfaceLegend_SingleSign", null, g.ToList())
                   : new ColorGroup("#9DC3E6", "LimitSurfaceLegend_TwoSign", null, g.ToList()))
                .ToList();
          case SurfaceColoring.ByN:

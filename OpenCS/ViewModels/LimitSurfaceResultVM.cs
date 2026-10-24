@@ -34,6 +34,7 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
             ErrorText = Loc.S("LimitSurfaceFormatOutdated");
             return;
         }
+        _mode = Scene.DefaultMode;
         ColoringItems = Scene.SupportsSingleSign
             ? [SurfaceColoring.Active, SurfaceColoring.SingleSign, SurfaceColoring.ByN, SurfaceColoring.Mono]
             : [SurfaceColoring.Active, SurfaceColoring.ByN, SurfaceColoring.Mono];

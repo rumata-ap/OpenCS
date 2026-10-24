@@ -27,6 +27,12 @@ public sealed partial class LimitSurfaceScene
    /// <summary>Верхний угол габарита сетки.</summary>
    public ForcePoint Max { get; }
 
+   /// <summary>
+   /// Режим луча при открытии окна: у ПС2 — N = const (п. 8.2.4, M &gt; M_crc при данном N, как задача cracking),
+   /// у ПС1 — пропорциональный.
+   /// </summary>
+   public UtilizationMode DefaultMode => IsCrack ? UtilizationMode.Moment : UtilizationMode.All;
+
    /// <summary>Кисп и положение каждой точки набора для режима луча.</summary>
    public IReadOnlyList<ScenePoint> EvaluatePoints(UtilizationMode mode) => Data.Points.Select((p, i) =>
    {
