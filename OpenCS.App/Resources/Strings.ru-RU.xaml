@@ -1597,6 +1597,7 @@
    <system:String x:Key="CalcTaskKind_fire_r_check_batch">R-проверка (весь набор)</system:String>
    <system:String x:Key="CalcTaskKind_strain_state_batch">Состояние деформаций (весь набор)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force">Предельное усилие (k·N, k·Mx, k·My)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_surface">Поверхность предельных усилий N–Mx–My</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Предельный момент (N фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Предельная сила (Mx, My фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Предельное усилие (весь набор)</system:String>

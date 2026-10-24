@@ -18,6 +18,7 @@ public class CalcTaskGroupTests
     [InlineData("shear_inclined", CalcTaskGroups.Uls)]
     [InlineData("shear_inclined_batch", CalcTaskGroups.Uls)]
     [InlineData("sp63_normal", CalcTaskGroups.Uls)]
+    [InlineData("limit_surface", CalcTaskGroups.Uls)]
     [InlineData("crack_width", CalcTaskGroups.Sls)]
     [InlineData("sp63_crack_width", CalcTaskGroups.Sls)]
     [InlineData("shell_layered_sls", CalcTaskGroups.Sls)]
