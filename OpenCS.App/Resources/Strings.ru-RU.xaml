@@ -1598,6 +1598,13 @@
    <system:String x:Key="CalcTaskKind_strain_state_batch">Состояние деформаций (весь набор)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force">Предельное усилие (k·N, k·Mx, k·My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_surface">Поверхность предельных усилий N–Mx–My</system:String>
+   <system:String x:Key="LimitSurfaceParamsHeader">Параметры поверхности</system:String>
+   <system:String x:Key="LimitSurfaceUseForceSet">Нанести точки набора усилий</system:String>
+   <system:String x:Key="LimitSurfaceAccuracy">Точность</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyHint">Обычная — допуск 0,2 % размаха, высокая — 0,1 % (дольше построение)</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyNormal">обычная</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyHigh">высокая</system:String>
+   <system:String x:Key="LimitSurfaceNeedForceSet">Выберите набор усилий или снимите флажок «Нанести точки набора усилий»</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Предельный момент (N фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Предельная сила (Mx, My фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Предельное усилие (весь набор)</system:String>

@@ -598,6 +598,36 @@
       </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsLimitSurface, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource LimitSurfaceParamsHeader}" Margin="0,8,0,0">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="170"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <CheckBox Grid.Row="0" Grid.ColumnSpan="2" Content="{DynamicResource LimitSurfaceUseForceSet}"
+                         IsChecked="{Binding LimitSurfaceUseForceSet}" Margin="0,0,0,4"/>
+               <TextBlock Grid.Row="1" Text="{DynamicResource CalcTaskForceSet}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding ForceSets}"
+                         SelectedItem="{Binding SelectedForceSet}" DisplayMemberPath="Tag"
+                         IsEnabled="{Binding LimitSurfaceUseForceSet}" Margin="0,0,0,4"/>
+               <TextBlock Grid.Row="2" Text="{DynamicResource LimitSurfaceAccuracy}"
+                          ToolTip="{DynamicResource LimitSurfaceAccuracyHint}"
+                          VerticalAlignment="Center" Margin="0,0,4,0"/>
+               <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LimitSurfaceAccuracyItems}"
+                         DisplayMemberPath="Label" SelectedValuePath="Id"
+                         SelectedValue="{Binding LimitSurfaceAccuracy}"/>
+            </Grid>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsOpenSeesSpatialInteraction, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource OpenSeesSpatialParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">

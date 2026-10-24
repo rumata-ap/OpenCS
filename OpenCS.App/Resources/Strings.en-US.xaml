@@ -1598,6 +1598,13 @@
    <system:String x:Key="CalcTaskKind_strain_state_batch">Strain state (full set)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force">Limit load (k·N, k·Mx, k·My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_surface">Limit force surface N–Mx–My</system:String>
+   <system:String x:Key="LimitSurfaceParamsHeader">Surface parameters</system:String>
+   <system:String x:Key="LimitSurfaceUseForceSet">Plot force set points</system:String>
+   <system:String x:Key="LimitSurfaceAccuracy">Accuracy</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyHint">Normal — 0.2 % of range, high — 0.1 % (slower)</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyNormal">normal</system:String>
+   <system:String x:Key="LimitSurfaceAccuracyHigh">high</system:String>
+   <system:String x:Key="LimitSurfaceNeedForceSet">Select a force set or clear “Plot force set points”</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Limit moment (fixed N)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Limit axial force (fixed Mx, My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Limit load (full set)</system:String>

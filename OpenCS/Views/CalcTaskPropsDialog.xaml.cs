@@ -12,6 +12,7 @@ using CScore.Sp63.Normal;
 using CScore.Sp63.CrackWidth;
 using CScore.Sp63.Deflection;
 using CSfea.Torsion;
+using OpenCS.LimitSurface;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -749,9 +750,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsTotalCurvatureAny));
          OnPropertyChanged(nameof(IsMomentCurvatureBiaxial));
            OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
+           OnPropertyChanged(nameof(IsLimitSurface));
            OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
            OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
             OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
+            OnPropertyChanged(nameof(IsLimitSurface));
          OnPropertyChanged(nameof(CrackWidthForcesModeItems));
          if (CrackWidthForcesModeItems.TrueForAll(i => i.Id != CrackWidthForcesMode))
             CrackWidthForcesMode = "total_only";
@@ -867,6 +870,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsTotalCurvatureAny));
          OnPropertyChanged(nameof(IsMomentCurvatureBiaxial));
             OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
+            OnPropertyChanged(nameof(IsLimitSurface));
             OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
             OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
             OnPropertyChanged(nameof(CrackWidthForcesModeItems));
@@ -912,7 +916,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowFireSnapshot => IsFireKind && Kind != "fire_r_time";
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
-   public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
+   /// <summary>Одиночные и пакетные limit_*; поверхность — отдельный вид без выбора решателя.</summary>
+   public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal) && Kind != "limit_surface";
    public bool IsShellSimpl      => Kind.StartsWith("shell_simpl_", StringComparison.Ordinal);
    public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch" || IsShellSimplDesign;
@@ -1058,8 +1063,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
    public bool IsMomentCurvatureBiaxial => Kind == "moment_curvature_biaxial";
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
+   public bool IsLimitSurface => Kind == "limit_surface";
+
+   bool limitSurfaceUseForceSet = true;
+   /// <summary>Наносить на поверхность точки выбранного набора усилий.</summary>
+   public bool LimitSurfaceUseForceSet
+   {
+      get => limitSurfaceUseForceSet;
+      set { limitSurfaceUseForceSet = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Точность построения поверхности: «normal» | «high».</summary>
+   public string LimitSurfaceAccuracy { get; set; } = "normal";
+
+   public IReadOnlyList<CalcTaskSolverItem> LimitSurfaceAccuracyItems { get; } =
+   [
+      new() { Id = "normal", Label = Loc.S("LimitSurfaceAccuracyNormal") },
+      new() { Id = "high",   Label = Loc.S("LimitSurfaceAccuracyHigh") },
+   ];
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
-      && !IsOpenSeesSpatialInteraction
+      && !IsOpenSeesSpatialInteraction && !IsLimitSurface
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
@@ -1070,7 +1093,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
    public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
-      && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind
+      && !IsOpenSeesSpatialInteraction && !IsLimitSurface && !IsFireNoForceKind
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
       && (!IsSp63Deflection || !Sp63DeflectionUseManualForces)
@@ -1938,6 +1961,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "limit_moment_batch",       Label = Loc.S("CalcTaskKind_limit_moment_batch"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "limit_axial",              Label = Loc.S("CalcTaskKind_limit_axial"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "limit_axial_batch",        Label = Loc.S("CalcTaskKind_limit_axial_batch"),        GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_surface",            Label = Loc.S("CalcTaskKind_limit_surface"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "strength_ndm_batch",       Label = Loc.S("CalcTaskKind_strength_ndm_batch"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_wa_uls",       Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_wa_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
@@ -2078,6 +2102,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              OpenSeesMaxSteps = spatial.MaxSteps.ToString(inv);
             OpenSeesTimeoutSeconds = spatial.TimeoutSeconds.ToString(inv);
             OpenSeesExecutablePath = spatial.ExecutablePath ?? "";
+            SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
+            SelectedForceItem = null;
+         }
+
+         if (existing.Kind == "limit_surface")
+         {
+            LimitSurfaceAccuracy = LimitSurfaceTaskParams.Parse(existing.ParamsJson).Accuracy;
+            LimitSurfaceUseForceSet = existing.ForceSetId != 0;
             SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
             SelectedForceItem = null;
          }
@@ -2597,6 +2629,36 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    void Commit()
    {
+      if (IsLimitSurface)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (LimitSurfaceUseForceSet && SelectedForceSet == null)
+         {
+            MessageBox.Show(Loc.S("LimitSurfaceNeedForceSet"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = LimitSurfaceUseForceSet ? SelectedForceSet!.Id : 0,
+            ForceItemId = 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = new LimitSurfaceTaskParams { Accuracy = LimitSurfaceAccuracy }.ToJson()
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
       if (IsOpenSeesSpatialInteraction)
       {
          if (SelectedSection == null)
