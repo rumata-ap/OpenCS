@@ -41,12 +41,7 @@ public static class PinnedEquilibriumNewton
         double h = hDiff;
         Kurvature sp = MakeSp(kx0, ky0, xA, yA, epsPin);
 
-        double ResidualTol(double k)
-        {
-            double nT = nFn(k), mxT = mxFn(k), myT = myFn(k);
-            double mag = Math.Sqrt(nT * nT + mxT * mxT + myT * myT);
-            return Math.Max(relTol * Math.Max(mag, 1e-9), 1e-9);
-        }
+        double lRef = Math.Max(yr, xr);
 
         for (int iter = 1; iter <= maxIter; iter++)
         {
@@ -56,8 +51,11 @@ public static class PinnedEquilibriumNewton
             double g0 = f0.N - nFn(k);
             double g1 = f0.Mx - mxFn(k);
             double g2 = f0.My - myFn(k);
-            double norm = Math.Sqrt(g0 * g0 + g1 * g1 + g2 * g2);
-            if (norm <= ResidualTol(k))
+            // Допуски замораживаются на итерацию: они зависят от k, и с плавающими весами
+            // направление Ньютона перестаёт быть направлением спуска для линейного поиска.
+            var tol = Tolerances(nFn(k), mxFn(k), myFn(k), lRef, relTol);
+            double norm = Scaled(g0, g1, g2, tol);
+            if (norm <= 1)
                 return new PinnedNewtonResult(kx, ky, k, sp, true, iter);
 
             double hKx = Kx != 0 ? Math.Max(h, Math.Abs(Kx) * 1e-4) : h;
@@ -89,11 +87,7 @@ public static class PinnedEquilibriumNewton
                 Unscale(Kx + alpha * delta[0], Ky + alpha * delta[1], Ktry, yr, xr, ke,
                     out double kxn, out double kyn, out double kn);
                 var fn = forces(MakeSp(kxn, kyn, xA, yA, epsPin));
-                double normNew = Math.Sqrt(
-                    Math.Pow(fn.N - nFn(kn), 2) +
-                    Math.Pow(fn.Mx - mxFn(kn), 2) +
-                    Math.Pow(fn.My - myFn(kn), 2));
-                if (normNew < norm) break;
+                if (Scaled(fn.N - nFn(kn), fn.Mx - mxFn(kn), fn.My - myFn(kn), tol) < norm) break;
                 alpha *= 0.5;
             }
 
@@ -105,6 +99,32 @@ public static class PinnedEquilibriumNewton
         Unscale(Kx, Ky, K, yr, xr, ke, out double kxf, out double kyf, out double kf);
         sp = MakeSp(kxf, kyf, xA, yA, epsPin);
         return new PinnedNewtonResult(kxf, kyf, kf, sp, false, maxIter);
+    }
+
+    /// <summary>
+    /// Невязка равновесия в долях допуска (≤ 1 — сошлось): N сравнивается с целевым N, вектор момента —
+    /// с целевым моментом, каждый со своим допуском <paramref name="relTol"/>. Общая норма |(ΔN, ΔMx, ΔMy)|
+    /// не годится: при |N| ≫ |M| допуск задаёт N, и ошибка момента (направления) теряется. Полы допусков
+    /// переводят одну величину в другую через <paramref name="lRef"/> — полуразмер сечения: ΔN·lRef
+    /// сопоставимо с ΔM, а для почти нулевого момента хватает точности 1 % от |N|·lRef (эксцентриситет).
+    /// </summary>
+    public static double ScaledResidual(
+        (double N, double Mx, double My) f, double nT, double mxT, double myT, double lRef, double relTol)
+        => Scaled(f.N - nT, f.Mx - mxT, f.My - myT, Tolerances(nT, mxT, myT, lRef, relTol));
+
+    /// <summary>Допуски по N и по вектору момента для целевых усилий (см. <see cref="ScaledResidual"/>).</summary>
+    public static (double N, double M) Tolerances(double nT, double mxT, double myT, double lRef, double relTol)
+    {
+        double mT = Math.Sqrt(mxT * mxT + myT * myT);
+        return (Math.Max(relTol * Math.Max(Math.Abs(nT), mT / lRef), 1e-9),
+                Math.Max(relTol * Math.Max(mT, 0.01 * Math.Abs(nT) * lRef), 1e-9));
+    }
+
+    /// <summary>Невязка (gN, gMx, gMy) в долях допусков <paramref name="tol"/>.</summary>
+    public static double Scaled(double gN, double gMx, double gMy, (double N, double M) tol)
+    {
+        double rN = gN / tol.N, rM = Math.Sqrt(gMx * gMx + gMy * gMy) / tol.M;
+        return Math.Sqrt(rN * rN + rM * rM);
     }
 
     /// <summary>Строит плоскость деформаций с подстановкой pin-условия (см. класс).</summary>

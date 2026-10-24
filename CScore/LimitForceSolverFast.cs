@@ -262,16 +262,14 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
       if (!IsValidSolution(kx, ky, k, spFinal, nFn, mxFn, myFn))
       {
-         var f = Forces(spFinal);
-         double nT = nFn(k), mxT = mxFn(k), myT = myFn(k);
-         double res = Math.Sqrt(Math.Pow(f.N - nT, 2) + Math.Pow(f.Mx - mxT, 2) + Math.Pow(f.My - myT, 2));
+         double res = Residual(Forces(spFinal), k, nFn, mxFn, myFn);
          double epsMin = _contourPts.Min(p => Eps(spFinal, p.X, p.Y));
-         DebugTrace?.Invoke($"SolveCompression: IsValidSolution failed k={k:G6} res={res:G6} resTol={ResidualTol(k, nFn, mxFn, myFn):G6} epsMin={epsMin:G6} epsCu={_epsCu:G6}");
+         DebugTrace?.Invoke($"SolveCompression: IsValidSolution failed k={k:G6} res/tol={res:G6} epsMin={epsMin:G6} epsCu={_epsCu:G6}");
 
          // Равновесие выполнено, но крайнее волокно перегружено — значит пин стоит не на той
          // вершине. Отдать плоскость наверх для перепина; во всех прочих случаях (не сошлось
          // равновесие, вырожденный k) перепин не поможет.
-         if (res <= ResidualTol(k, nFn, mxFn, myFn) && k > 0 && double.IsFinite(k)
+         if (res <= 1 && k > 0 && double.IsFinite(k)
              && epsMin < _epsCu - Math.Max(1e-5, Math.Abs(_epsCu) * 0.02))
             overstrained = spFinal;
 
@@ -607,14 +605,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       if (k <= 0 || !double.IsFinite(k))
          return false;
 
-      var f = Forces(sp);
-      double nT = nFn(k), mxT = mxFn(k), myT = myFn(k);
-      double res = Math.Sqrt(
-         Math.Pow(f.N - nT, 2) +
-         Math.Pow(f.Mx - mxT, 2) +
-         Math.Pow(f.My - myT, 2));
-      double tgt = Math.Sqrt(nT * nT + mxT * mxT + myT * myT);
-      if (res > ResidualTol(k, nFn, mxFn, myFn))
+      if (Residual(Forces(sp), k, nFn, mxFn, myFn) > 1)
          return false;
 
       double epsMin = _contourPts.Min(p => Eps(sp, p.X, p.Y));
@@ -630,12 +621,10 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       return true;
    }
 
-   double ResidualTol(double k, Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn)
-   {
-      double nT = nFn(k), mxT = mxFn(k), myT = myFn(k);
-      double mag = Math.Sqrt(nT * nT + mxT * mxT + myT * myT);
-      return Math.Max(_relTol * Math.Max(mag, 1e-9), 1e-9);
-   }
+   /// <summary>Невязка равновесия в долях допуска (≤ 1 — сошлось), см. <see cref="PinnedEquilibriumNewton.ScaledResidual"/>.</summary>
+   double Residual((double N, double Mx, double My) f, double k,
+      Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn)
+      => PinnedEquilibriumNewton.ScaledResidual(f, nFn(k), mxFn(k), myFn(k), Math.Max(_yRef, _xRef), _relTol);
 
    LimitForceResult? SolveTension(
       Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn,
@@ -867,8 +856,10 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          double g0 = f0.N - nFn(k);
          double g1 = f0.Mx - mxFn(k);
          double g2 = f0.My - myFn(k);
-         double norm = Math.Sqrt(g0 * g0 + g1 * g1 + g2 * g2);
-         if (norm <= ResidualTol(k, nFn, mxFn, myFn))
+         // Допуски заморожены на итерацию — см. PinnedEquilibriumNewton.Solve.
+         var tol = PinnedEquilibriumNewton.Tolerances(nFn(k), mxFn(k), myFn(k), Math.Max(_yRef, _xRef), _relTol);
+         double norm = PinnedEquilibriumNewton.Scaled(g0, g1, g2, tol);
+         if (norm <= 1)
             return (kx, ky, k, nIter, true, sp);
 
          double hVar;
@@ -902,11 +893,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
                if (Ktry <= 0) { alpha *= 0.5; continue; }
                Unscale(Kx + alpha * dVar, KyFixed, Ktry, yr, xr, ke, out double kxn, out double kyn, out double kn);
                var fn = Forces(MakeSp(kxn, kyn, xA, yA, _epsCu));
-               double normNew = Math.Sqrt(
-                  Math.Pow(fn.N - nFn(kn), 2) +
-                  Math.Pow(fn.Mx - mxFn(kn), 2) +
-                  Math.Pow(fn.My - myFn(kn), 2));
-               if (normNew < norm) break;
+               if (PinnedEquilibriumNewton.Scaled(fn.N - nFn(kn), fn.Mx - mxFn(kn), fn.My - myFn(kn), tol) < norm) break;
                alpha *= 0.5;
             }
             Kx += alpha * dVar;
@@ -938,11 +925,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
                if (Ktry <= 0) { alpha *= 0.5; continue; }
                Unscale(KxFixed, Ky + alpha * dVar, Ktry, yr, xr, ke, out double kxn, out double kyn, out double kn);
                var fn = Forces(MakeSp(kxn, kyn, xA, yA, _epsCu));
-               double normNew = Math.Sqrt(
-                  Math.Pow(fn.N - nFn(kn), 2) +
-                  Math.Pow(fn.Mx - mxFn(kn), 2) +
-                  Math.Pow(fn.My - myFn(kn), 2));
-               if (normNew < norm) break;
+               if (PinnedEquilibriumNewton.Scaled(fn.N - nFn(kn), fn.Mx - mxFn(kn), fn.My - myFn(kn), tol) < norm) break;
                alpha *= 0.5;
             }
             Ky += alpha * dVar;

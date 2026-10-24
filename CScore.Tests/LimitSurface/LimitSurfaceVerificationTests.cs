@@ -9,8 +9,8 @@ namespace CScore.Tests.LimitSurface;
 /// Сверка сетки с LimitForceSolverFast (режим Moment). Мера — абсолютная: ΔM = |Mпред сетки − Mпред решателя|,
 /// отнесённая к M_max поверхности (относительная |Δη| при малом Mпред раздувается и только выводится).
 /// Эталон принимается, если его плоскость на границе области (λ = 1 ± 5e-3 по модели решателя — без (8.53))
-/// и сама даёт заявленные усилия (невязка ≤ 0,1 %; иначе точка исключается и выводится);
-/// λ &lt; 1 − 5e-3 — FAIL «решатель нарушает предельные деформации». Точки, где начало луча вне тела
+/// и сама даёт заявленные усилия; λ &lt; 1 − 5e-3 или невязка усилий > 0,1 % — FAIL (дефект решателя,
+/// см. LimitForceSolverFastResidualTests). Точки, где начало луча вне тела
 /// (преднапряжение, растяжение), неоднозначны — луч пересекает поверхность дважды — и только подсчитываются.
 /// </summary>
 public class LimitSurfaceVerificationTests(ITestOutputHelper output)
@@ -44,7 +44,6 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
         var rnd = new Random(seed);
         var res = new List<RefPoint>();
         var violations = new List<string>();
-        int offTarget = 0;
         for (int i = 0; i < count; i++)
         {
             double n = 0.95 * (nMin + (nMax - nMin) * rnd.NextDouble());
@@ -55,22 +54,16 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
             string desc = $"N={n:F1} M=({mx:F1};{my:F1}) λ={lam:F4} e0={k.e0:G4} ky={k.ky:G4} kz={k.kz:G4}";
             if (lam < 1 - LambdaTol) { violations.Add(desc); continue; }
             if (lam > 1 + LambdaTol) continue;   // не на границе — не эталон
-            // Плоскость решателя должна давать заявленные усилия, иначе эталон неверен (сходимость по направлению M).
+            // Плоскость решателя должна давать заявленные усилия, иначе эталон неверен.
             var f = calc.Compute(k, CalcType.C, false, computeStiffness: false);
             double miss = Math.Max(Math.Abs(f.N - n) / (nMax - nMin),
                 Math.Sqrt(Math.Pow(f.Mx - mx * r.Factor, 2) + Math.Pow(f.My - my * r.Factor, 2)) / mMax);
-            if (miss > 1e-3)
-            {
-                offTarget++;
-                output.WriteLine($"  плоскость решателя не даёт заявленных усилий (невязка {100 * miss:F2} %): {desc}");
-                continue;
-            }
+            if (miss > 1e-3) { violations.Add($"невязка усилий {100 * miss:F2} %: {desc}"); continue; }
             if (lam < 1 - 1e-3) output.WriteLine($"  решатель чуть за границей (сходимость): {desc}");
             bool single = domainNorm.Boundary(k.e0, k.ky, k.kz).Active.SingleSign;
             res.Add(new RefPoint(n, mx, my, 1 / r.Factor, single));
         }
-        if (offTarget > 0) output.WriteLine($"  исключено из эталона по невязке усилий: {offTarget}");
-        Assert.True(violations.Count == 0, "Решатель нарушает предельные деформации:\n" + string.Join("\n", violations));
+        Assert.True(violations.Count == 0, "Плоскость решателя за границей области или не даёт заявленных усилий:\n" + string.Join("\n", violations));
         return res;
     }
 
