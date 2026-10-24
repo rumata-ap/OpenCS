@@ -1653,7 +1653,7 @@
    <system:String x:Key="LimitSurfaceAxisMx">Mx, кН·м</system:String>
    <system:String x:Key="LimitSurfaceAxisMy">My, кН·м</system:String>
    <system:String x:Key="LimitSurfaceAxisM">M по α, кН·м</system:String>
-   <system:String x:Key="LimitSurfaceAxisRelativeSuffix"> — доля размаха 0…1</system:String>
+   <system:String x:Key="LimitSurfaceAxisRelativeSuffix">— доля размаха 0…1</system:String>
    <system:String x:Key="LimitSurfaceTabPoints">Точки</system:String>
    <system:String x:Key="LimitSurfaceToSingleTask">→ одиночная задача</system:String>
    <system:String x:Key="LimitSurfaceColNum">№</system:String>

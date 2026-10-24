@@ -1653,7 +1653,7 @@
    <system:String x:Key="LimitSurfaceAxisMx">Mx, kN·m</system:String>
    <system:String x:Key="LimitSurfaceAxisMy">My, kN·m</system:String>
    <system:String x:Key="LimitSurfaceAxisM">M along α, kN·m</system:String>
-   <system:String x:Key="LimitSurfaceAxisRelativeSuffix"> — share of range 0…1</system:String>
+   <system:String x:Key="LimitSurfaceAxisRelativeSuffix">— share of range 0…1</system:String>
    <system:String x:Key="LimitSurfaceTabPoints">Points</system:String>
    <system:String x:Key="LimitSurfaceToSingleTask">→ single task</system:String>
    <system:String x:Key="LimitSurfaceColNum">No.</system:String>

@@ -233,11 +233,11 @@ public partial class LimitSurfaceResultView : UserControl
 
         _slicePlot.Clear();
         var (xKey, yKey) = LimitSurfaceScene.SliceAxisKeys(_vm.SliceKind);
-        string rel = _vm.Axes == AxisMode.Relative ? Loc.S("LimitSurfaceAxisRelativeSuffix") : "";
+        string rel = _vm.Axes == AxisMode.Relative ? " " + Loc.S("LimitSurfaceAxisRelativeSuffix") : "";
         _slicePlot.SetXLabel(Loc.S(xKey) + rel);
         _slicePlot.SetYLabel(Loc.S(yKey) + rel);
         if (_vm.SliceKind == SliceKind.AtN && _vm.Axes == AxisMode.Absolute) _slicePlot.EnableSquareAxes();
-        _slicePlot.SetOriginReferenceAxesVisibility(showXAxis: true, showYAxis: true);
+        _slicePlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
 
         // Семейство рисуется первым, текущий уровень — поверх.
         var curves = scene.Slice(_vm.SliceKind, _vm.SliceLevels);
