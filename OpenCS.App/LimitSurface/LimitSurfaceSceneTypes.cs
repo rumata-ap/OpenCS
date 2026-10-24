@@ -28,3 +28,25 @@ public sealed record SceneSummary(double MaxRatio, int Outside, int Ambiguous);
 
 /// <summary>Точка в осях сцены: X = Mx, Y = My, Z = N.</summary>
 public readonly record struct Vec3(double X, double Y, double Z);
+
+/// <summary>Раскраска поверхности в 3D.</summary>
+public enum SurfaceColoring
+{
+   /// <summary>По активному ограничению (материал и сторона предела).</summary>
+   Active,
+   /// <summary>Зона однозначной эпюры (8.53) — только ПС1.</summary>
+   SingleSign,
+   /// <summary>Полосы по N.</summary>
+   ByN,
+   /// <summary>Однотонная.</summary>
+   Mono,
+}
+
+/// <summary>Группа треугольников одного цвета; подпись легенды — ключ строки или готовый текст (полосы N).</summary>
+public sealed record ColorGroup(string ColorHex, string LegendKey, string? LegendText, IReadOnlyList<int> Triangles);
+
+/// <summary>Вид среза: Mx–My при N; N–My при Mx; N–Mx при My; N–M по направлению α.</summary>
+public enum SliceKind { AtN, AtMx, AtMy, NM }
+
+/// <summary>Контуры среза на одном уровне в 2D-координатах среза.</summary>
+public sealed record SliceCurve(double Level, IReadOnlyList<IReadOnlyList<(double X, double Y)>> Loops);

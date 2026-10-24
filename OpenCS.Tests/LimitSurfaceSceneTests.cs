@@ -86,4 +86,47 @@ public class LimitSurfaceSceneTests(LimitSurfaceSceneFixture fx) : IClassFixture
         Assert.Equal(ActiveCategory.ConcreteCompression, scene.CategoryOf(new ActiveConstraint(concrete, -1, false)));
         Assert.Equal(ActiveCategory.None, scene.CategoryOf(new ActiveConstraint(-1, 0, false)));
     }
+
+    [Theory]
+    [InlineData(SurfaceColoring.Active)]
+    [InlineData(SurfaceColoring.SingleSign)]
+    [InlineData(SurfaceColoring.ByN)]
+    [InlineData(SurfaceColoring.Mono)]
+    public void SurfaceGroups_CoverEveryTriangleOnce(SurfaceColoring coloring)
+    {
+        var scene = new LimitSurfaceScene(fx.Data);
+        var all = scene.SurfaceGroups(coloring).SelectMany(g => g.Triangles).OrderBy(t => t).ToList();
+        Assert.Equal(Enumerable.Range(0, scene.Mesh.Triangles.Count), all);
+    }
+
+    [Fact]
+    public void ActiveGroups_MatchVertexCategory()
+    {
+        var scene = new LimitSurfaceScene(fx.Data);
+        var groups = scene.SurfaceGroups(SurfaceColoring.Active);
+        Assert.True(groups.Count >= 2, "ожидаются хотя бы бетон-сжатие и арматура-растяжение");
+        foreach (var g in groups)
+        foreach (int t in g.Triangles.Take(20))
+        {
+            var cat = LimitSurfaceScene.Majority(scene.Mesh.Triangles[t], v => scene.CategoryOf(scene.Mesh.Active[v]));
+            Assert.Equal($"LimitSurfaceLegend_{cat}", g.LegendKey);
+        }
+    }
+
+    [Fact]
+    public void SliceThroughBoundaryVertex_PassesThroughIt()
+    {
+        var scene = new LimitSurfaceScene(fx.Data);
+        var v = scene.Mesh.Vertices[scene.Mesh.Vertices.Count / 2];
+        var p = new LimitSurfacePointRecord(1, "", v.N, v.Mx, v.My);
+        foreach (var kind in new[] { SliceKind.AtN, SliceKind.AtMx, SliceKind.AtMy, SliceKind.NM })
+        {
+            double level = LimitSurfaceScene.LevelThrough(kind, p);
+            var (px, py) = scene.Project(kind, level, v);
+            var loops = scene.Slice(kind, [level])[0].Loops;
+            double d = loops.SelectMany(l => l).Min(q => Math.Sqrt(Math.Pow(q.X - px, 2) + Math.Pow(q.Y - py, 2)));
+            double size = Math.Max(scene.Max.Mx - scene.Min.Mx, scene.Max.N - scene.Min.N);
+            Assert.True(d <= 0.02 * size, $"{kind}: {d} при размере {size}");
+        }
+    }
 }
