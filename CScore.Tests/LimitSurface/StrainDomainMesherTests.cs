@@ -90,12 +90,12 @@ public class StrainDomainMesherTests
             if (r < 1e-3 * Math.Max(1, Math.Abs(v.N)) || v.N <= nMin || v.N >= nMax) continue;
             var u = m.Utilization(v.N, 0.999 * v.Mx, 0.999 * v.My, UtilizationMode.Moment);
             // Арматура только снизу: при растяжении (N, 0, 0) вне тела (Mx ≈ −0,21·N), и для вершин
-            // ближней стороны луч до точки поверхность не пересекает — η = ∞ верно по построению.
+            // ближней стороны луч до точки поверхность не пересекает — Кисп = ∞ верно по построению.
             if (!u.RayOriginInside) continue;
             total++;
-            if (u.Inside && Math.Abs(u.Eta - 0.999) <= 1e-6) { exact++; continue; }
-            Assert.True(double.IsFinite(u.Eta) && u.Eta > 0);
-            Assert.True(Math.Abs(1 - 0.999 / u.Eta) * r < 0.02 * mRef, $"N={v.N} M=({v.Mx};{v.My}) η={u.Eta}");
+            if (u.Inside && Math.Abs(u.Ratio - 0.999) <= 1e-6) { exact++; continue; }
+            Assert.True(double.IsFinite(u.Ratio) && u.Ratio > 0);
+            Assert.True(Math.Abs(1 - 0.999 / u.Ratio) * r < 0.02 * mRef, $"N={v.N} M=({v.Mx};{v.My}) Кисп={u.Ratio}");
         }
         Assert.True(exact >= 0.9 * total, $"{exact}/{total}");
     }

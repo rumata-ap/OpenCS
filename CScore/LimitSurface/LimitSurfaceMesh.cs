@@ -12,12 +12,13 @@ public enum UtilizationMode
 }
 
 /// <summary>
-/// Результат проверки точки по сетке: внутри ли точка (чётность пересечений), η, лежит ли начало
+/// Результат проверки точки по сетке: внутри ли точка (чётность пересечений), Кисп — коэффициент
+/// использования (η в СП 63 — продольный изгиб), лежит ли начало
 /// луча внутри тела, точка поверхности на луче, интерполированная плоскость деформаций и активное
 /// ограничение (вершина с наибольшим барицентрическим весом).
 /// </summary>
 public sealed record SurfaceUtilization(
-    bool Inside, double Eta, bool RayOriginInside,
+    bool Inside, double Ratio, bool RayOriginInside,
     ForcePoint? Capacity, Kurvature? StrainPlane, ActiveConstraint? Active);
 
 /// <summary>
@@ -135,8 +136,8 @@ public sealed class LimitSurfaceMesh
 
     /// <summary>
     /// Коэффициент использования по лучу B + t·D (режимы — <see cref="UtilizationMode"/>); F — при t = 1.
-    /// Внутри (нечётно пересечений с t &gt; 1) — η = 1/t ближайшего за точкой; снаружи — η = 1/t
-    /// последнего перед точкой; если до точки луч поверхность не пересекал — η = ∞.
+    /// Внутри (нечётно пересечений с t &gt; 1) — Кисп = 1/t ближайшего за точкой; снаружи — Кисп = 1/t
+    /// последнего перед точкой; если до точки луч поверхность не пересекал — Кисп = ∞.
     /// </summary>
     public SurfaceUtilization Utilization(double n, double mx, double my, UtilizationMode mode)
     {

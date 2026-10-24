@@ -71,7 +71,7 @@ public class LimitSurfaceMeshTests
     {
         var u = Box().Utilization(0.5, 0, 0, UtilizationMode.All);
         Assert.True(u.Inside); Assert.True(u.RayOriginInside);
-        Assert.Equal(0.5, u.Eta, 12);
+        Assert.Equal(0.5, u.Ratio, 12);
         Assert.Equal(1.0, u.Capacity!.Value.N, 12);
     }
 
@@ -81,7 +81,7 @@ public class LimitSurfaceMeshTests
         // Луч из (0.5,0,0) по (0,1,1) упирается в ребро Mx=My=1 при t=2
         var u = Box().Utilization(0.5, 0.5, 0.5, UtilizationMode.Moment);
         Assert.True(u.Inside);
-        Assert.Equal(0.5, u.Eta, 12);
+        Assert.Equal(0.5, u.Ratio, 12);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class LimitSurfaceMeshTests
     {
         var u = Box().Utilization(0.5, 0.5, 0.5, UtilizationMode.All);   // вершина (1,1,1) при t=2
         Assert.True(u.Inside);
-        Assert.Equal(0.5, u.Eta, 12);
+        Assert.Equal(0.5, u.Ratio, 12);
     }
 
     [Fact]
@@ -97,13 +97,13 @@ public class LimitSurfaceMeshTests
     {
         var box = Box(nLo: 0.5, nHi: 2);
         var a = box.Utilization(1, 0, 0, UtilizationMode.All);
-        Assert.True(a.Inside); Assert.False(a.RayOriginInside); Assert.Equal(0.5, a.Eta, 12);
+        Assert.True(a.Inside); Assert.False(a.RayOriginInside); Assert.Equal(0.5, a.Ratio, 12);
         var b = box.Utilization(3, 0, 0, UtilizationMode.All);
-        Assert.False(b.Inside); Assert.Equal(1.5, b.Eta, 12);
+        Assert.False(b.Inside); Assert.Equal(1.5, b.Ratio, 12);
         var c = box.Utilization(0.25, 0, 0, UtilizationMode.All);
-        Assert.False(c.Inside); Assert.True(double.IsPositiveInfinity(c.Eta)); Assert.Null(c.Capacity);
+        Assert.False(c.Inside); Assert.True(double.IsPositiveInfinity(c.Ratio)); Assert.Null(c.Capacity);
         var d = box.Utilization(-1, 0, 0, UtilizationMode.All);
-        Assert.False(d.Inside); Assert.True(double.IsPositiveInfinity(d.Eta));
+        Assert.False(d.Inside); Assert.True(double.IsPositiveInfinity(d.Ratio));
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class LimitSurfaceMeshTests
     {
         var u = Box().Utilization(-0.25, 0.3, 0.3, UtilizationMode.Axial);   // из (0,0.3,0.3) вдоль −N до N=−1
         Assert.True(u.Inside);
-        Assert.Equal(0.25, u.Eta, 12);
+        Assert.Equal(0.25, u.Ratio, 12);
     }
 
     [Fact]
@@ -119,9 +119,9 @@ public class LimitSurfaceMeshTests
     {
         var star = Prism([(2, 0), (0.5, 0.5), (0, 2), (-2, 0), (0, -2), (0.5, -0.5)]);
         var a = star.Utilization(0, 1, 0, UtilizationMode.Moment);   // через выпуклую вершину (2,0)
-        Assert.True(a.Inside); Assert.Equal(0.5, a.Eta, 12);
+        Assert.True(a.Inside); Assert.Equal(0.5, a.Ratio, 12);
         var b = star.Utilization(0, 1, 1, UtilizationMode.Moment);   // через вогнутую вершину (0.5,0.5)
-        Assert.False(b.Inside); Assert.Equal(2.0, b.Eta, 12);
+        Assert.False(b.Inside); Assert.Equal(2.0, b.Ratio, 12);
         var loops = star.SliceAtN(0.1);
         Assert.Single(loops);
         Assert.Equal(12, loops[0].Count);   // 6 вертикальных рёбер + 6 диагоналей боковых граней
@@ -131,6 +131,6 @@ public class LimitSurfaceMeshTests
     public void Utilization_ZeroDirection()
     {
         var u = Box().Utilization(0.5, 0, 0, UtilizationMode.Moment);
-        Assert.True(u.Inside); Assert.Equal(0, u.Eta);
+        Assert.True(u.Inside); Assert.Equal(0, u.Ratio);
     }
 }

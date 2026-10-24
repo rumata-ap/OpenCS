@@ -7,7 +7,7 @@ namespace CScore.Tests.LimitSurface;
 
 /// <summary>
 /// Сверка сетки с LimitForceSolverFast (режим Moment). Мера — абсолютная: ΔM = |Mпред сетки − Mпред решателя|,
-/// отнесённая к M_max поверхности (относительная |Δη| при малом Mпред раздувается и только выводится).
+/// отнесённая к M_max поверхности (относительная |ΔКисп| при малом Mпред раздувается и только выводится).
 /// Эталон принимается, если его плоскость на границе области (λ = 1 ± 5e-3 по модели решателя — без (8.53))
 /// и сама даёт заявленные усилия; λ &lt; 1 − 5e-3 или невязка усилий > 0,1 % — FAIL (дефект решателя,
 /// см. LimitForceSolverFastResidualTests). Точки, где начало луча вне тела
@@ -27,10 +27,10 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
         _ => TestSections.RectWithEccentricPrestressedRebar(),
     };
 
-    sealed record RefPoint(double N, double Mx, double My, double Eta, bool SingleSign);
+    sealed record RefPoint(double N, double Mx, double My, double Ratio, bool SingleSign);
 
-    /// <summary>Сравнение точки: ΔM/M_max, относительная |Δη|, знак (сетка консервативна — Mпред сетки ниже).</summary>
-    sealed record Compared(RefPoint P, SurfaceUtilization U, double DmRel, double EtaRel, bool MeshConservative);
+    /// <summary>Сравнение точки: ΔM/M_max, относительная |ΔКисп|, знак (сетка консервативна — Mпред сетки ниже).</summary>
+    sealed record Compared(RefPoint P, SurfaceUtilization U, double DmRel, double RatioRel, bool MeshConservative);
 
     static double MaxMoment(LimitSurfaceMesh mesh) => mesh.Vertices.Max(v => Math.Sqrt(v.Mx * v.Mx + v.My * v.My));
 
@@ -77,21 +77,21 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
         {
             var u = mesh.Utilization(p.N, p.Mx, p.My, UtilizationMode.Moment);
             if (!u.RayOriginInside) { outside++; continue; }
-            double capMesh = MomentLoad / u.Eta, capSolver = MomentLoad / p.Eta;
-            res.Add(new Compared(p, u, Math.Abs(capMesh - capSolver) / mMax, Math.Abs(u.Eta / p.Eta - 1), capMesh <= capSolver));
+            double capMesh = MomentLoad / u.Ratio, capSolver = MomentLoad / p.Ratio;
+            res.Add(new Compared(p, u, Math.Abs(capMesh - capSolver) / mMax, Math.Abs(u.Ratio / p.Ratio - 1), capMesh <= capSolver));
         }
         output.WriteLine($"{name}: {refs.Count} эталонных точек, в сверке {res.Count}, начало луча вне тела {outside}");
         if (res.Count > 0)
         {
             var worst = res.MaxBy(c => c.DmRel)!;
-            output.WriteLine($"{name}: max ΔM/M_max = {100 * worst.DmRel:F3} %, max |Δη| = {100 * res.Max(c => c.EtaRel):F3} %");
+            output.WriteLine($"{name}: max ΔM/M_max = {100 * worst.DmRel:F3} %, max |ΔКисп| = {100 * res.Max(c => c.RatioRel):F3} %");
             output.WriteLine($"  худшая: {Describe(name, worst)}, плоскость решателя {(worst.P.SingleSign ? "однозначная" : "двузначная")}");
         }
         return res;
     }
 
     static string Describe(string name, Compared c) =>
-        $"{name}: N={c.P.N:F1} M=({c.P.Mx:F1};{c.P.My:F1}) η сетки {c.U.Eta:F4}, решателя {c.P.Eta:F4}, ΔM/M_max {100 * c.DmRel:F3} %";
+        $"{name}: N={c.P.N:F1} M=({c.P.Mx:F1};{c.P.My:F1}) Кисп сетки {c.U.Ratio:F4}, решателя {c.P.Ratio:F4}, ΔM/M_max {100 * c.DmRel:F3} %";
 
     [Theory]
     [MemberData(nameof(Sections))]
