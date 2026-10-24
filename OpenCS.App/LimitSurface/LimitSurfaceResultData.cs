@@ -106,6 +106,12 @@ public sealed class LimitSurfaceResultData
          foreach (int m in mesh.MeridianOf) w.Write(m);
          w.Write(mesh.Angles.Count);
          foreach (var (t, p) in mesh.Angles) { w.Write(t); w.Write(p); }
+         // Вид ограничения — необязательный хвост: у поверхностей по деформациям (все Strain) не пишется.
+         if (mesh.Active.Any(a => a.Kind != ConstraintKind.Strain))
+         {
+            w.Write(mesh.Active.Count);
+            foreach (var a in mesh.Active) w.Write((byte)a.Kind);
+         }
       }
       return Convert.ToBase64String(ms.ToArray());
    }
@@ -127,6 +133,9 @@ public sealed class LimitSurfaceResultData
       for (int i = 0; i < meridianOf.Length; i++) meridianOf[i] = r.ReadInt32();
       var angles = new (double, double)[ReadOptionalCount(r)];
       for (int i = 0; i < angles.Length; i++) angles[i] = (r.ReadDouble(), r.ReadDouble());
+      int kinds = ReadOptionalCount(r);
+      if (kinds == active.Length)
+         for (int i = 0; i < kinds; i++) active[i] = active[i] with { Kind = (ConstraintKind)r.ReadByte() };
       return new LimitSurfaceMesh(vertices, triangles, planes, active, meridianOf: meridianOf, angles: angles);
    }
 

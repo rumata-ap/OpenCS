@@ -41,6 +41,34 @@ public class LimitSurfaceResultDataTests
         Assert.Empty(back.Angles);
     }
 
+    [Fact]
+    public void Mesh_WithConstraintKinds_RoundTrip()
+    {
+        var mesh = BuildMesh();
+        var kinds = Enum.GetValues<ConstraintKind>();
+        var active = mesh.Active.Select((a, i) => a with { Kind = kinds[i % kinds.Length] }).ToList();
+        var withKinds = new LimitSurfaceMesh(mesh.Vertices, mesh.Triangles, mesh.StrainPlanes, active,
+            meridianOf: mesh.MeridianOf, angles: mesh.Angles);
+
+        var back = LimitSurfaceResultData.DecodeMesh(LimitSurfaceResultData.EncodeMesh(withKinds));
+
+        Assert.Equal(active, back.Active);
+        Assert.Equal(mesh.Angles, back.Angles);
+    }
+
+    [Fact]
+    public void Mesh_StrainOnly_WritesNoKindSection()
+    {
+        // Поверхности по деформациям пишутся как раньше — блок прежней длины.
+        var mesh = BuildMesh();
+        var withKind = new LimitSurfaceMesh(mesh.Vertices, mesh.Triangles, mesh.StrainPlanes,
+            mesh.Active.Select(a => a with { Kind = ConstraintKind.AcrcLong }).ToList(),
+            meridianOf: mesh.MeridianOf, angles: mesh.Angles);
+        Assert.True(LimitSurfaceResultData.EncodeMesh(mesh).Length < LimitSurfaceResultData.EncodeMesh(withKind).Length);
+        Assert.All(LimitSurfaceResultData.DecodeMesh(LimitSurfaceResultData.EncodeMesh(mesh)).Active,
+            a => Assert.Equal(ConstraintKind.Strain, a.Kind));
+    }
+
     [Theory]
     [InlineData(UtilizationMode.All)]
     [InlineData(UtilizationMode.Moment)]

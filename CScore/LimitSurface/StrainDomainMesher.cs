@@ -27,8 +27,6 @@ public sealed class StrainDomainMesher
         _opt = options ?? new LimitSurfaceOptions();
     }
 
-    sealed record Node(double Theta, Kurvature Plane, ForcePoint Force, ActiveConstraint Active, KinkTransition? Transition);
-
     /// <summary>Масштабы направления луча: выравнивают вытянутую область, на результат не влияют.</summary>
     sealed record Scales(double STen, double SComp, double SK, double L)
     {
@@ -58,7 +56,7 @@ public sealed class StrainDomainMesher
 
         int n0 = Math.Max(_opt.InitialMeridians, 4);
         var phis0 = Enumerable.Range(0, n0).Select(k => TwoPi * k / n0).ToArray();
-        var mer = new SortedDictionary<double, List<Node>>();
+        var mer = new SortedDictionary<double, List<MeridianNode>>();
         var first = Run(domain, g, phis0, scale, ct);
         for (int k = 0; k < n0; k++) mer[phis0[k]] = first[k];
 
@@ -77,7 +75,7 @@ public sealed class StrainDomainMesher
             {
                 mer[mids[k]] = fresh[k];
                 var (a, b) = intervals[k];
-                double dev = StripDeviation(top, bot, mer[a], mer[b >= TwoPi ? 0.0 : b], fresh[k], scale);
+                double dev = MeridianStitcher.StripDeviation(top, bot, mer[a], mer[b >= TwoPi ? 0.0 : b], fresh[k], scale);
                 maxDev = Math.Max(maxDev, dev);
                 if (!(dev <= _opt.RefineTol)) { next.Add((dev, a, mids[k])); next.Add((dev, mids[k], b)); }
             }
@@ -86,7 +84,7 @@ public sealed class StrainDomainMesher
             intervals = next.OrderByDescending(e => e.Dev).Select(e => (e.A, e.B)).ToList();
         }
 
-        return Assemble(top, bot, mer.Keys.ToList(), mer.Values.ToList(), log);
+        return MeridianStitcher.Assemble(top, bot, mer.Keys.ToList(), mer.Values.ToList(), log);
     }
 
     Scales MakeScales(StrainDomain d)
@@ -103,7 +101,7 @@ public sealed class StrainDomainMesher
         return new Scales(sTen, sComp, 0.5 * (sTen + sComp), l > 0 ? l : 1);
     }
 
-    Node MakeNode(CrossSection sec, StrainDomain d, Scales g, double theta, double phi, KinkTransition? tr)
+    MeridianNode MakeNode(CrossSection sec, StrainDomain d, Scales g, double theta, double phi, KinkTransition? tr)
     {
         var (a, by, bz) = g.Direction(theta, phi);
         var (lam, act) = d.Boundary(a, by, bz);
@@ -113,12 +111,12 @@ public sealed class StrainDomainMesher
                 "(нет арматуры, ограничивающей растяжение).");
         var k = new Kurvature { e0 = lam * a, ky = lam * by, kz = lam * bz };
         var r = sec.Compute(k, _criterion.Calc, _criterion.Ten, computeStiffness: false);
-        return new Node(theta, k, new ForcePoint(r.N, r.Mx, r.My), act, tr);
+        return new MeridianNode(theta, k, new ForcePoint(r.N, r.Mx, r.My), act, tr);
     }
 
-    List<List<Node>> Run(StrainDomain d, Scales g, IReadOnlyList<double> phis, ForcePoint? scale, CancellationToken ct)
+    List<List<MeridianNode>> Run(StrainDomain d, Scales g, IReadOnlyList<double> phis, ForcePoint? scale, CancellationToken ct)
     {
-        var res = new List<Node>[phis.Count];
+        var res = new List<MeridianNode>[phis.Count];
         if (_opt.Parallel && phis.Count > 1)
         {
             try
@@ -143,7 +141,7 @@ public sealed class StrainDomainMesher
         return res.ToList();
     }
 
-    List<Node> Meridian(CrossSection sec, StrainDomain d, Scales g, double phi, ForcePoint? scale)
+    List<MeridianNode> Meridian(CrossSection sec, StrainDomain d, Scales g, double phi, ForcePoint? scale)
     {
         ActiveConstraint Key(double th)
         {
@@ -181,10 +179,10 @@ public sealed class StrainDomainMesher
         if (scale is not { } s || _opt.RefineTol <= 0) return nodes;
 
         // Адаптация по θ: середина интервала против хорды в нормированных усилиях
-        IEnumerable<Node> Refine(Node a, Node b, int depth)
+        IEnumerable<MeridianNode> Refine(MeridianNode a, MeridianNode b, int depth)
         {
             if (depth >= _opt.MaxThetaDepth) return [];
-            var m = MakeNode(sec, d, g, 0.5 * (a.Theta + b.Theta), phi, null);
+            var m = MakeNode(sec, d, g, 0.5 * (a.T + b.T), phi, null);
             double dev = SurfaceMeshGeometry.PointSegmentDistance(m.Force.Scale(s), a.Force.Scale(s), b.Force.Scale(s));
             if (dev <= _opt.RefineTol) return [m];
             return Refine(a, m, depth + 1).Append(m).Concat(Refine(m, b, depth + 1)).ToList();
@@ -206,62 +204,4 @@ public sealed class StrainDomainMesher
         return refined;
     }
 
-    /// <summary>Наибольшее расстояние вершин среднего меридиана до полосы (a, b), нормированные усилия.</summary>
-    static double StripDeviation(Node top, Node bot, List<Node> ma, List<Node> mb, List<Node> mm, ForcePoint s)
-    {
-        var pts = new List<ForcePoint> { top.Force.Scale(s), bot.Force.Scale(s) };
-        pts.AddRange(ma.Select(x => x.Force.Scale(s)));
-        pts.AddRange(mb.Select(x => x.Force.Scale(s)));
-        var (ia, ta, ra) = Strip(ma, 2);
-        var (ib, tb, rb) = Strip(mb, 2 + ma.Count);
-        var tris = SurfaceMeshGeometry.LoftAnchored(ia, ta, ra, ib, tb, rb);
-        double worst = 0;
-        foreach (var q in mm.Select(x => x.Force.Scale(s)))
-        {
-            double best = double.PositiveInfinity;
-            foreach (var (a, b, c) in tris)
-                best = Math.Min(best, SurfaceMeshGeometry.PointTriangleDistance(q, pts[a], pts[b], pts[c]));
-            worst = Math.Max(worst, best);
-        }
-        return worst;
-    }
-
-    /// <summary>Индексы, параметры и переходы меридиана с полюсами 0 и 1 по краям.</summary>
-    static (List<int> Idx, List<double> T, List<KinkTransition?> Tr) Strip(List<Node> m, int offset)
-    {
-        var idx = new List<int> { 0 }; var t = new List<double> { 0 }; var tr = new List<KinkTransition?> { null };
-        for (int i = 0; i < m.Count; i++) { idx.Add(offset + i); t.Add(m[i].Theta); tr.Add(m[i].Transition); }
-        idx.Add(1); t.Add(Math.PI); tr.Add(null);
-        return (idx, t, tr);
-    }
-
-    static LimitSurfaceMesh Assemble(Node top, Node bot, List<double> phis, List<List<Node>> mers, List<(int, double)> log)
-    {
-        var v = new List<ForcePoint> { top.Force, bot.Force };
-        var planes = new List<Kurvature> { top.Plane, bot.Plane };
-        var act = new List<ActiveConstraint> { top.Active, bot.Active };
-        var trs = new List<KinkTransition?> { null, null };
-        var merOf = new List<int> { -1, -1 };
-        var angles = new List<(double Theta, double Phi)> { (top.Theta, 0), (bot.Theta, 0) };
-        var strips = new List<(List<int>, List<double>, List<KinkTransition?>)>();
-        for (int k = 0; k < mers.Count; k++)
-        {
-            strips.Add(Strip(mers[k], v.Count));
-            foreach (var nd in mers[k])
-            {
-                v.Add(nd.Force); planes.Add(nd.Plane); act.Add(nd.Active); trs.Add(nd.Transition); merOf.Add(k);
-                angles.Add((nd.Theta, phis[k]));
-            }
-        }
-        var tris = new List<(int A, int B, int C)>();
-        for (int k = 0; k < strips.Count; k++)
-        {
-            var (ia, ta, ra) = strips[k];
-            var (ib, tb, rb) = strips[(k + 1) % strips.Count];
-            tris.AddRange(SurfaceMeshGeometry.LoftAnchored(ia, ta, ra, ib, tb, rb));
-        }
-        if (SurfaceMeshGeometry.SignedVolume(v, tris) < 0)
-            tris = tris.Select(t => (t.A, t.C, t.B)).ToList();
-        return new LimitSurfaceMesh(v, tris, planes, act, trs, merOf, log, angles);
-    }
 }
