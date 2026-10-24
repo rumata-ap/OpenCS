@@ -20,6 +20,7 @@ public class CalcTaskGroupTests
     [InlineData("sp63_normal", CalcTaskGroups.Uls)]
     [InlineData("limit_surface", CalcTaskGroups.Uls)]
     [InlineData("crack_width", CalcTaskGroups.Sls)]
+    [InlineData("crack_surface", CalcTaskGroups.Sls)]
     [InlineData("sp63_crack_width", CalcTaskGroups.Sls)]
     [InlineData("shell_layered_sls", CalcTaskGroups.Sls)]
     [InlineData("shell_layered_sls_batch", CalcTaskGroups.Sls)]

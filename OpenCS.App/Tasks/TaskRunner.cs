@@ -73,6 +73,7 @@ namespace OpenCS.Tasks
          ["sp63_crack_width"]      = new Sp63CrackWidthHandler(),
          ["sp63_deflection"]       = new Sp63DeflectionHandler(),
          ["limit_surface"]         = new StrainSurfaceHandler(),
+         ["crack_surface"]         = new StrainSurfaceHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

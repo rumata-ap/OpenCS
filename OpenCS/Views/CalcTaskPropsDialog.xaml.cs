@@ -1063,7 +1063,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
    public bool IsMomentCurvatureBiaxial => Kind == "moment_curvature_biaxial";
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
-   public bool IsLimitSurface => Kind == "limit_surface";
+   /// <summary>Поверхность усилий (ПС1 или ПС2, образование трещин) — общий блок параметров.</summary>
+   public bool IsLimitSurface => Kind is "limit_surface" or "crack_surface";
+   /// <summary>Поверхность образования трещин: только характеристики 2-й группы.</summary>
+   public bool IsCrackSurface => Kind == "crack_surface";
 
    bool limitSurfaceUseForceSet = true;
    /// <summary>Наносить на поверхность точки выбранного набора усилий.</summary>
@@ -1997,6 +2000,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_capri_design_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_design_sls_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "cracking",           Label = Loc.S("CalcTaskKind_cracking"),           GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "cracking_batch",     Label = Loc.S("CalcTaskKind_cracking_batch"),     GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "crack_surface",      Label = Loc.S("CalcTaskKind_crack_surface"),      GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "sp63_crack_width",   Label = Loc.S("CalcTaskKind_sp63_crack_width"),   GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
@@ -2047,7 +2051,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                return IsShellLayeredSls
                    ? [CalcType.N, CalcType.NL]
                    : [CalcType.C, CalcType.CL];
-           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny || IsSp63Deflection)
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny || IsSp63Deflection || IsCrackSurface)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }
@@ -2106,7 +2110,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SelectedForceItem = null;
          }
 
-         if (existing.Kind == "limit_surface")
+         if (existing.Kind is "limit_surface" or "crack_surface")
          {
             LimitSurfaceAccuracy = LimitSurfaceTaskParams.Parse(existing.ParamsJson).Accuracy;
             LimitSurfaceUseForceSet = existing.ForceSetId != 0;

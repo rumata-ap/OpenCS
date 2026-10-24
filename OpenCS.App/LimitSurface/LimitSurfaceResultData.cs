@@ -38,8 +38,13 @@ public sealed class LimitSurfaceResultData
 
    /// <summary>Версия формата; чужая при разборе — <see cref="LimitSurfaceFormatException"/>.</summary>
    public int FormatVersion { get; set; } = CurrentFormatVersion;
-   /// <summary>Критерий поверхности: «uls» — ПС1 (подпроекты 3, 4 добавят свои).</summary>
-   public string Criterion { get; set; } = "uls";
+   /// <summary>Код критерия ПС1 (п. 8.1.30).</summary>
+   public const string CriterionUls = "uls";
+   /// <summary>Код критерия ПС2, образование трещин (п. 8.2.14).</summary>
+   public const string CriterionCrack = "crack";
+
+   /// <summary>Критерий поверхности: <see cref="CriterionUls"/> или <see cref="CriterionCrack"/>.</summary>
+   public string Criterion { get; set; } = CriterionUls;
    /// <summary>Набор расчётных характеристик задачи.</summary>
    public CalcType CalcType { get; set; }
    /// <summary>Учитывалась ли работа бетона на растяжение.</summary>

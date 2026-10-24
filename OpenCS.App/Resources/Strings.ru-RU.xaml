@@ -1598,6 +1598,12 @@
    <system:String x:Key="CalcTaskKind_strain_state_batch">Состояние деформаций (весь набор)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force">Предельное усилие (k·N, k·Mx, k·My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_surface">Поверхность предельных усилий N–Mx–My</system:String>
+   <system:String x:Key="CalcTaskKind_crack_surface">Поверхность образования трещин N–Mx–My</system:String>
+   <system:String x:Key="LimitSurfaceColoring_SingleSign_Crack">зона (8.53)/(8.54)</system:String>
+   <system:String x:Key="LimitSurfaceLegend_SingleSign_Crack">однозначная эпюра (8.53)/(8.54)</system:String>
+   <system:String x:Key="LimitSurfaceLegend_ConcreteTension_Crack">трещина: бетон, растяжение εbt</system:String>
+   <system:String x:Key="LimitSurfaceNoSingleTask">Для этого режима Кисп одиночной задачи нет — переключите на «N = const, k·M»</system:String>
+   <system:String x:Key="LimitSurfaceWarnAmbiguousCrack">Есть точки, у которых начало луча вне тела поверхности: сечение растрескано уже без момента (растяжение N или обжатие преднапряжением) — их Кисп неоднозначен.</system:String>
    <system:String x:Key="LimitSurfaceParamsHeader">Параметры поверхности</system:String>
    <system:String x:Key="LimitSurfaceUseForceSet">Нанести точки набора усилий</system:String>
    <system:String x:Key="LimitSurfaceAccuracy">Точность</system:String>

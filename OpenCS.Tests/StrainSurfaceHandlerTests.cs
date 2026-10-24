@@ -80,4 +80,57 @@ public sealed class StrainSurfaceHandlerTests : IDisposable
 
     [Fact]
     public void Kind_IsUls() => Assert.Equal(CalcTaskGroups.Uls, CalcTaskGroups.Classify("limit_surface"));
+
+    CalcResult RunCrack(CalcType calc, int forceSetId = 0, bool withEpsBt0 = true)
+    {
+        var section = ReportFixtures.BuildSurfaceBeam();
+        if (withEpsBt0)
+        {
+            // В фикстуре только двухлинейная диаграмма; справочные εb0, εbt0 (DataSource, B25) — для (8.53)/(8.54).
+            var ch = section.Areas.First(a => a.Material?.Type == MatType.Concrete).Material!.GetChars(calc)!;
+            ch.Ec0 = -0.002;
+            ch.Et0 = 0.0001;
+        }
+        return TaskRunner.Run(new CalcTask { Id = 2, Kind = "crack_surface", CalcType = calc, ForceSetId = forceSetId,
+                                             ParamsJson = """{"Accuracy":"normal"}""" },
+            section, new LoadItem(), CalcSettings.Default, new TaskRunContext { Database = _db });
+    }
+
+    [Fact]
+    public void Crack_NoEpsBt0_ErrorNamesArea()
+    {
+        var r = RunCrack(CalcType.N, withEpsBt0: false);
+        Assert.Equal("error", r.Status);
+        using var doc = System.Text.Json.JsonDocument.Parse(r.DataJson);
+        Assert.Contains("εbt0", doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Theory]
+    [InlineData(CalcType.N)]
+    [InlineData(CalcType.NL)]
+    public void Crack_SecondGroup_MeshWithCrackCriterion(CalcType calc)
+    {
+        var r = RunCrack(calc, 1);
+        Assert.True(r.Status == "ok", r.DataJson);
+        var data = LimitSurfaceResultData.Parse(r.DataJson);
+        Assert.Equal("crack", data.Criterion);
+        Assert.True(data.Ten);
+        Assert.Equal(calc, data.CalcType);
+        Assert.All(data.ControlPoints, p => Assert.Equal(CScore.LimitSurface.StrainPointKind.Concrete, p.Kind));
+        Assert.Equal(2, data.Points.Count);
+    }
+
+    [Theory]
+    [InlineData(CalcType.C)]
+    [InlineData(CalcType.CL)]
+    public void Crack_FirstGroup_Error(CalcType calc)
+    {
+        var r = RunCrack(calc);
+        Assert.Equal("error", r.Status);
+        using var doc = System.Text.Json.JsonDocument.Parse(r.DataJson);
+        Assert.Contains("2-й группы", doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public void CrackKind_IsSls() => Assert.Equal(CalcTaskGroups.Sls, CalcTaskGroups.Classify("crack_surface"));
 }
