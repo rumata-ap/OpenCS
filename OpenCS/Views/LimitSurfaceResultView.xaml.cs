@@ -52,9 +52,10 @@ public partial class LimitSurfaceResultView : UserControl
         SliceKindBox.SelectedIndex = 0;
         FamilyBox.ItemsSource = Enumerable.Range(1, 9).ToList();
         FamilyBox.SelectedIndex = 0;
-        Viewport.Children.Add(_surface);
-        Viewport.Children.Add(_edges);
+        // Непрозрачное — раньше полупрозрачного: иначе буфер глубины прячет точки внутри полупрозрачной поверхности.
         Viewport.Children.Add(_points);
+        Viewport.Children.Add(_edges);
+        Viewport.Children.Add(_surface);
         Viewport.Children.Add(_slicePlane);
         _vm.SceneChanged += (_, _) => Redraw();
         _vm.SliceChanged += (_, _) => { RedrawSlice(); _slicePlane.Content = SlicePlaneModel(_vm.Scene); };

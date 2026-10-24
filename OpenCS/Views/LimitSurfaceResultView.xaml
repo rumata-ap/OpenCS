@@ -73,7 +73,7 @@
                   </Border>
                   <TextBlock x:Name="AxesText" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
                              Background="#CCFFFFFF" Padding="4"/>
-                  <TextBlock x:Name="HoverText" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8"
+                  <TextBlock x:Name="HoverText" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="8"
                              Background="#CCFFFFFF" Padding="4"/>
                </Grid>
             </Grid>
