@@ -8,6 +8,7 @@ using CScore;
 using CScore.LimitSurface;
 using HelixToolkit.Wpf;
 using OpenCS.LimitSurface;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using GeoMeshBuilder = HelixToolkit.Geometry.MeshBuilder;
@@ -23,6 +24,10 @@ public partial class LimitSurfaceResultView : UserControl
     readonly ModelVisual3D _surface = new(), _points = new(), _slicePlane = new();
     readonly LinesVisual3D _edges = new() { Thickness = 0.5, Color = Colors.DimGray };
     readonly List<(Point3D Pos, ScenePoint Point)> _pointHits = [];
+    readonly WpfPlotService _slicePlot;
+    bool _syncingSlice;
+    static readonly SliceKind[] SliceKinds = [SliceKind.AtN, SliceKind.AtMx, SliceKind.AtMy, SliceKind.NM];
+    static readonly string[] FamilyColors = ["#7F7F7F", "#A5A5A5", "#BFBFBF"];
 
     public LimitSurfaceResultView(CalcResult result, AppViewModel? app = null, CalcTask? task = null)
     {
@@ -30,6 +35,7 @@ public partial class LimitSurfaceResultView : UserControl
         _app = app;
         _task = task;
         _vm = new LimitSurfaceResultVM(result);
+        _slicePlot = new WpfPlotService(SlicePlot);
         DataContext = _vm;
         if (_vm.Scene is null)
         {
@@ -41,11 +47,16 @@ public partial class LimitSurfaceResultView : UserControl
         AxesRel.IsChecked = true;
         ColoringBox.ItemsSource = _vm.ColoringItems.Select(c => Loc.S($"LimitSurfaceColoring_{c}")).ToList();
         ColoringBox.SelectedIndex = 0;
+        SliceKindBox.ItemsSource = SliceKinds.Select(k => Loc.S($"LimitSurfaceSlice_{k}")).ToList();
+        SliceKindBox.SelectedIndex = 0;
+        FamilyBox.ItemsSource = Enumerable.Range(1, 9).ToList();
+        FamilyBox.SelectedIndex = 0;
         Viewport.Children.Add(_surface);
         Viewport.Children.Add(_edges);
         Viewport.Children.Add(_points);
         Viewport.Children.Add(_slicePlane);
         _vm.SceneChanged += (_, _) => Redraw();
+        _vm.SliceChanged += (_, _) => { RedrawSlice(); _slicePlane.Content = SlicePlaneModel(_vm.Scene); };
         Redraw();
     }
 
@@ -150,7 +161,7 @@ public partial class LimitSurfaceResultView : UserControl
             pts.Children.Add(new GeometryModel3D(mb.ToMesh().ToWndMeshGeometry3D(true), new DiffuseMaterial(Brushes.Black)));
         }
         _points.Content = pts;
-        _slicePlane.Content = null;
+        _slicePlane.Content = SlicePlaneModel(scene);
 
         AxesText.Text = string.Format(Loc.S(_vm.Axes == AxisMode.Relative ? "LimitSurfaceAxesRelativeInfo" : "LimitSurfaceAxesAbsoluteInfo"),
             scene.Min.Mx, scene.Max.Mx, scene.Min.My, scene.Max.My, scene.Min.N, scene.Max.N);
@@ -176,6 +187,164 @@ public partial class LimitSurfaceResultView : UserControl
 
     static string FormatRatio(double k) => double.IsFinite(k) ? k.ToString("F3") : "∞";
 
-    void RedrawSlice() { }
+    /// <summary>Полупрозрачный прямоугольник плоскости среза в пределах габарита сетки.</summary>
+    Model3D? SlicePlaneModel(LimitSurfaceScene? s)
+    {
+        if (s is null || !_vm.ShowSlicePlane) return null;
+        double l = _vm.SliceLevel;
+        ForcePoint[] c = _vm.SliceKind switch
+        {
+            SliceKind.AtN => [new(l, s.Min.Mx, s.Min.My), new(l, s.Max.Mx, s.Min.My), new(l, s.Max.Mx, s.Max.My), new(l, s.Min.Mx, s.Max.My)],
+            SliceKind.AtMx => [new(s.Min.N, l, s.Min.My), new(s.Max.N, l, s.Min.My), new(s.Max.N, l, s.Max.My), new(s.Min.N, l, s.Max.My)],
+            SliceKind.AtMy => [new(s.Min.N, s.Min.Mx, l), new(s.Max.N, s.Min.Mx, l), new(s.Max.N, s.Max.Mx, l), new(s.Min.N, s.Max.Mx, l)],
+            _ => NmPlane(s, l * Math.PI / 180),
+        };
+        var mesh = new MeshGeometry3D();
+        foreach (var p in c) mesh.Positions.Add(P(p));
+        foreach (int i in new[] { 0, 1, 2, 0, 2, 3 }) mesh.TriangleIndices.Add(i);
+        var mat = new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(70, 0xC0, 0x00, 0x00)));
+        return new GeometryModel3D(mesh, mat) { BackMaterial = mat };
+    }
+
+    /// <summary>Плоскость N–M по направлению α: через ось N, полуразмах — наибольший |M| габарита.</summary>
+    static ForcePoint[] NmPlane(LimitSurfaceScene s, double a)
+    {
+        double m = MaxAbsM(s);
+        double cx = Math.Cos(a) * m, cy = Math.Sin(a) * m;
+        return [new(s.Min.N, -cx, -cy), new(s.Min.N, cx, cy), new(s.Max.N, cx, cy), new(s.Max.N, -cx, -cy)];
+    }
+
+    static double MaxAbsM(LimitSurfaceScene s) =>
+        Math.Max(Math.Max(Math.Abs(s.Min.Mx), Math.Abs(s.Max.Mx)), Math.Max(Math.Abs(s.Min.My), Math.Abs(s.Max.My)));
+
+    void RedrawSlice()
+    {
+        if (_vm.Scene is not { } scene) return;
+        _syncingSlice = true;
+        var (lo, hi) = scene.LevelRange(_vm.SliceKind);
+        SliceSlider.Minimum = lo;
+        SliceSlider.Maximum = hi;
+        SliceSlider.Value = Math.Clamp(_vm.SliceLevel, lo, hi);
+        SliceLevelBox.Text = _vm.SliceLevel.ToString("G6");
+        SliceLevelLabel.Text = Loc.S($"LimitSurfaceSliceLevel_{_vm.SliceKind}");
+        _syncingSlice = false;
+
+        _slicePlot.Clear();
+        var (xKey, yKey) = LimitSurfaceScene.SliceAxisKeys(_vm.SliceKind);
+        string rel = _vm.Axes == AxisMode.Relative ? Loc.S("LimitSurfaceAxisRelativeSuffix") : "";
+        _slicePlot.SetXLabel(Loc.S(xKey) + rel);
+        _slicePlot.SetYLabel(Loc.S(yKey) + rel);
+        if (_vm.SliceKind == SliceKind.AtN && _vm.Axes == AxisMode.Absolute) _slicePlot.EnableSquareAxes();
+        _slicePlot.SetOriginReferenceAxesVisibility(showXAxis: true, showYAxis: true);
+
+        // Семейство рисуется первым, текущий уровень — поверх.
+        var curves = scene.Slice(_vm.SliceKind, _vm.SliceLevels);
+        for (int c = curves.Count - 1; c >= 0; c--)
+            foreach (var loop in curves[c].Loops.Where(l => l.Count > 1))
+            {
+                double[] xs = loop.Select(q => Ax(q.X, true)).Append(Ax(loop[0].X, true)).ToArray();
+                double[] ys = loop.Select(q => Ax(q.Y, false)).Append(Ax(loop[0].Y, false)).ToArray();
+                _slicePlot.AddScatter(xs, ys, lineWidth: c == 0 ? 2 : 1,
+                    color: c == 0 ? "#2F5597" : FamilyColors[Math.Min(c - 1, FamilyColors.Length - 1)]);
+            }
+
+        // Точки: прочие — серые проекции, выбранная — красная поверх + луч Кисп, если он лежит в плоскости среза.
+        foreach (var sp in _vm.Points.Where(p => p != _vm.SelectedPoint && !_vm.HideOtherPoints))
+        {
+            var (x, y) = scene.Project(_vm.SliceKind, _vm.SliceLevel, F(sp));
+            _slicePlot.AddMarkers([Ax(x, true)], [Ax(y, false)], markerSize: 4, color: "#9E9E9E");
+        }
+        if (_vm.SelectedPoint is { } sel)
+        {
+            var f = F(sel);
+            if (sel.Capacity is { } cap && RayInSlice(sel))
+            {
+                var (ox, oy) = scene.Project(_vm.SliceKind, _vm.SliceLevel, RayOrigin(f));
+                var (cx, cy) = scene.Project(_vm.SliceKind, _vm.SliceLevel, cap);
+                _slicePlot.AddScatter([Ax(ox, true), Ax(cx, true)], [Ax(oy, false), Ax(cy, false)], lineWidth: 1, color: "#C00000");
+            }
+            var (x, y) = scene.Project(_vm.SliceKind, _vm.SliceLevel, f);
+            _slicePlot.AddMarkers([Ax(x, true)], [Ax(y, false)], markerSize: 8, color: "#C00000");
+        }
+        _slicePlot.Refresh();
+    }
+
+    static ForcePoint F(ScenePoint sp) => new(sp.Source.N, sp.Source.Mx, sp.Source.My);
+
+    /// <summary>Начало луча Кисп в текущем режиме.</summary>
+    ForcePoint RayOrigin(ForcePoint f) => _vm.Mode switch
+    {
+        UtilizationMode.Moment => new ForcePoint(f.N, 0, 0),
+        UtilizationMode.Axial => new ForcePoint(0, f.Mx, f.My),
+        _ => new ForcePoint(0, 0, 0),
+    };
+
+    /// <summary>
+    /// Луч Кисп лежит в плоскости среза, если и точка, и начало луча на её уровне — тогда отрезок
+    /// «начало → поверхность» на графике честен. NM: плоскость содержит ось N, поэтому нужно, чтобы
+    /// моменты точки и начала луча лежали на прямой направления α.
+    /// </summary>
+    bool RayInSlice(ScenePoint sp)
+    {
+        var f = F(sp);
+        var o = RayOrigin(f);
+        if (_vm.SliceKind == SliceKind.NM)
+        {
+            double a = _vm.SliceLevel * Math.PI / 180, ca = Math.Cos(a), sa = Math.Sin(a);
+            double tol = 1e-6 * Math.Max(1, MaxAbsM(_vm.Scene!));
+            return Math.Abs(f.My * ca - f.Mx * sa) <= tol && Math.Abs(o.My * ca - o.Mx * sa) <= tol;
+        }
+        double lf = LimitSurfaceScene.LevelThrough(_vm.SliceKind, sp.Source);
+        double lo = LimitSurfaceScene.LevelThrough(_vm.SliceKind, new LimitSurfacePointRecord(0, "", o.N, o.Mx, o.My));
+        double t = 1e-6 * Math.Max(1, Math.Abs(lf));
+        return Math.Abs(lf - lo) <= t && Math.Abs(lf - _vm.SliceLevel) <= t;
+    }
+
+    /// <summary>Значение по оси 2D-графика в выбранных осях (относительные — доля размаха сетки по этой оси).</summary>
+    double Ax(double v, bool horizontal)
+    {
+        if (_vm.Axes == AxisMode.Absolute) return v;
+        var s = _vm.Scene!;
+        double m = MaxAbsM(s);
+        (double lo, double hi) = (_vm.SliceKind, horizontal) switch
+        {
+            (SliceKind.AtN, true) or (SliceKind.AtMy, true) => (s.Min.Mx, s.Max.Mx),
+            (SliceKind.AtN, false) or (SliceKind.AtMx, true) => (s.Min.My, s.Max.My),
+            (SliceKind.NM, true) => (-m, m),
+            _ => (s.Min.N, s.Max.N),
+        };
+        return hi > lo ? (v - lo) / (hi - lo) : 0.5;
+    }
+
+    void OnSliceKindChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SliceKindBox.SelectedIndex >= 0) _vm.SliceKind = SliceKinds[SliceKindBox.SelectedIndex];
+    }
+
+    void OnSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_syncingSlice) _vm.SliceLevel = e.NewValue;
+    }
+
+    void OnSliceLevelEdited(object sender, RoutedEventArgs e)
+    {
+        if (double.TryParse(SliceLevelBox.Text.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double v))
+            _vm.SliceLevel = v;
+        else
+            SliceLevelBox.Text = _vm.SliceLevel.ToString("G6");
+    }
+
+    void OnSliceLevelKey(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) OnSliceLevelEdited(sender, e);
+    }
+
+    void OnSliceThroughPoint(object sender, RoutedEventArgs e) => _vm.SliceThroughSelected();
+
+    void OnFamilyChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (FamilyBox.SelectedIndex >= 0) _vm.SliceFamilyCount = FamilyBox.SelectedIndex + 1;
+    }
     void RefreshPointsGrid() { }
 }

@@ -31,6 +31,30 @@ public class LimitSurfaceResultVMTests(LimitSurfaceSceneFixture fx) : IClassFixt
     }
 
     [Fact]
+    public void SliceThroughSelected_SetsLevelFromPoint()
+    {
+        var vm = Ok();
+        vm.SelectedPoint = vm.Points[0];
+        vm.SliceKind = SliceKind.AtN;
+        vm.SliceThroughSelected();
+        Assert.Equal(vm.Points[0].Source.N, vm.SliceLevel);
+        vm.SliceFamilyCount = 5;
+        Assert.Equal(6, vm.SliceLevels.Count);       // уровень + 5 равных шагов
+        Assert.Equal(vm.SliceLevel, vm.SliceLevels[0]);
+        vm.SliceFamilyCount = 50;
+        Assert.Equal(9, vm.SliceFamilyCount);
+    }
+
+    [Fact]
+    public void SliceKindChange_ResetsLevelIntoRange()
+    {
+        var vm = Ok();
+        vm.SliceKind = SliceKind.AtMx;
+        var (lo, hi) = vm.Scene!.LevelRange(SliceKind.AtMx);
+        Assert.InRange(vm.SliceLevel, lo, hi);
+    }
+
+    [Fact]
     public void ErrorResult_ShowsMessage()
     {
         var vm = new LimitSurfaceResultVM(new CalcResult { Status = "error", DataJson = """{"error":"нет бетона"}""" });

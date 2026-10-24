@@ -15,6 +15,10 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
     SurfaceColoring _coloring = SurfaceColoring.Active;
     bool _showEdges, _translucent, _showSlicePlane = true;
     ScenePoint? _selected;
+    SliceKind _sliceKind = SliceKind.AtN;
+    double _sliceLevel;
+    int _family = 1;
+    bool _hideOthers;
 
     public LimitSurfaceResultVM(CalcResult result)
     {
@@ -34,6 +38,7 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
             ? [SurfaceColoring.Active, SurfaceColoring.SingleSign, SurfaceColoring.ByN, SurfaceColoring.Mono]
             : [SurfaceColoring.Active, SurfaceColoring.ByN, SurfaceColoring.Mono];
         EtaWarning = Scene.Data.Warnings.Contains(LimitSurfaceWarnings.EtaNotApplied);
+        _sliceLevel = MidLevel(_sliceKind);
         Recompute();
     }
 
@@ -53,6 +58,8 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
     public bool HasAmbiguous => Summary.Ambiguous > 0;
     /// <summary>Нужно перерисовать 3D, срез и таблицу.</summary>
     public event EventHandler? SceneChanged;
+    /// <summary>Изменился только срез: перерисовать 2D-график и секущую плоскость.</summary>
+    public event EventHandler? SliceChanged;
 
     /// <summary>Режим луча Кисп.</summary>
     public UtilizationMode Mode
@@ -74,6 +81,71 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
 
     /// <summary>Выбранная точка — общая для всех вкладок.</summary>
     public ScenePoint? SelectedPoint { get => _selected; set { _selected = value; OnPropertyChanged(); Raise(); } }
+
+    /// <summary>Вид среза.</summary>
+    public SliceKind SliceKind
+    {
+        get => _sliceKind;
+        set
+        {
+            if (_sliceKind == value) return;
+            _sliceKind = value;
+            _sliceLevel = MidLevel(value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SliceLevel));
+            RaiseSlice();
+        }
+    }
+
+    /// <summary>Уровень среза: кН (AtN), кН·м (AtMx, AtMy), ° (NM).</summary>
+    public double SliceLevel
+    {
+        get => _sliceLevel;
+        set { if (_sliceLevel == value) return; _sliceLevel = value; OnPropertyChanged(); RaiseSlice(); }
+    }
+
+    /// <summary>1 — только уровень; 2…9 — плюс столько уровней с равным шагом по диапазону.</summary>
+    public int SliceFamilyCount
+    {
+        get => _family;
+        set { _family = Math.Clamp(value, 1, 9); OnPropertyChanged(); RaiseSlice(); }
+    }
+
+    /// <summary>Скрыть на срезе все точки, кроме выбранной.</summary>
+    public bool HideOtherPoints { get => _hideOthers; set { _hideOthers = value; OnPropertyChanged(); RaiseSlice(); } }
+
+    /// <summary>Текущий уровень и семейство (первым — текущий).</summary>
+    public IReadOnlyList<double> SliceLevels
+    {
+        get
+        {
+            if (Scene is null) return [];
+            var list = new List<double> { _sliceLevel };
+            if (_family > 1)
+            {
+                var (lo, hi) = Scene.LevelRange(_sliceKind);
+                for (int i = 1; i <= _family; i++) list.Add(lo + (hi - lo) * i / (_family + 1));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>Уровень среза — через выбранную точку.</summary>
+    public void SliceThroughSelected()
+    {
+        if (_selected is null) return;
+        SliceLevel = LimitSurfaceScene.LevelThrough(_sliceKind, _selected.Source);
+    }
+
+    double MidLevel(SliceKind kind)
+    {
+        if (Scene is null) return 0;
+        if (kind == SliceKind.NM) return 0;
+        var (lo, hi) = Scene.LevelRange(kind);
+        return 0.5 * (lo + hi);
+    }
+
+    void RaiseSlice() => SliceChanged?.Invoke(this, EventArgs.Empty);
 
     void Recompute()
     {

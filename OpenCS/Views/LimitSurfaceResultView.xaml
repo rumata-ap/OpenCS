@@ -78,7 +78,31 @@
                </Grid>
             </Grid>
          </TabItem>
-         <!-- Вкладки «Срезы» и «Точки» -->
+         <TabItem Header="{DynamicResource LimitSurfaceTabSlices}">
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <WrapPanel Margin="0,4">
+                  <TextBlock Text="{DynamicResource LimitSurfaceSliceKindLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox x:Name="SliceKindBox" Width="170" Margin="0,0,12,0" SelectionChanged="OnSliceKindChanged"/>
+                  <TextBlock x:Name="SliceLevelLabel" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <TextBox x:Name="SliceLevelBox" Width="80" Margin="0,0,6,0" VerticalContentAlignment="Center"
+                           LostFocus="OnSliceLevelEdited" KeyDown="OnSliceLevelKey"/>
+                  <Slider x:Name="SliceSlider" Width="200" Margin="0,0,12,0" VerticalAlignment="Center"
+                          ValueChanged="OnSliderChanged"/>
+                  <Button Content="{DynamicResource LimitSurfaceSliceThroughPoint}" Click="OnSliceThroughPoint"
+                          Margin="0,0,12,0" Padding="6,1"/>
+                  <TextBlock Text="{DynamicResource LimitSurfaceSliceFamily}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox x:Name="FamilyBox" Width="50" Margin="0,0,12,0" SelectionChanged="OnFamilyChanged"/>
+                  <CheckBox Content="{DynamicResource LimitSurfaceHideOtherPoints}" IsChecked="{Binding HideOtherPoints}"
+                            VerticalAlignment="Center"/>
+               </WrapPanel>
+               <h:PlotCanvas Grid.Row="1" x:Name="SlicePlot"/>
+            </Grid>
+         </TabItem>
+         <!-- Вкладка «Точки» -->
       </TabControl>
    </Grid>
 </UserControl>

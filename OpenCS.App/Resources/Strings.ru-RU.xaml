@@ -1636,6 +1636,24 @@
    <system:String x:Key="LimitSurfaceLegend_TwoSign">двузначная эпюра</system:String>
    <system:String x:Key="LimitSurfaceLegend_Mono">поверхность</system:String>
    <system:String x:Key="LimitSurfacePointTooltip">{0}: N = {1:F1} кН, Mx = {2:F2}, My = {3:F2} кН·м, Кисп = {4}</system:String>
+   <system:String x:Key="LimitSurfaceTabSlices">Срезы</system:String>
+   <system:String x:Key="LimitSurfaceSliceKindLabel">Вид:</system:String>
+   <system:String x:Key="LimitSurfaceSlice_AtN">Mx–My при N</system:String>
+   <system:String x:Key="LimitSurfaceSlice_AtMx">N–My при Mx</system:String>
+   <system:String x:Key="LimitSurfaceSlice_AtMy">N–Mx при My</system:String>
+   <system:String x:Key="LimitSurfaceSlice_NM">N–M по направлению α</system:String>
+   <system:String x:Key="LimitSurfaceSliceLevel_AtN">N, кН =</system:String>
+   <system:String x:Key="LimitSurfaceSliceLevel_AtMx">Mx, кН·м =</system:String>
+   <system:String x:Key="LimitSurfaceSliceLevel_AtMy">My, кН·м =</system:String>
+   <system:String x:Key="LimitSurfaceSliceLevel_NM">α, ° =</system:String>
+   <system:String x:Key="LimitSurfaceSliceThroughPoint">через выбранную точку</system:String>
+   <system:String x:Key="LimitSurfaceSliceFamily">семейство:</system:String>
+   <system:String x:Key="LimitSurfaceHideOtherPoints">скрыть прочие точки</system:String>
+   <system:String x:Key="LimitSurfaceAxisN">N, кН</system:String>
+   <system:String x:Key="LimitSurfaceAxisMx">Mx, кН·м</system:String>
+   <system:String x:Key="LimitSurfaceAxisMy">My, кН·м</system:String>
+   <system:String x:Key="LimitSurfaceAxisM">M по α, кН·м</system:String>
+   <system:String x:Key="LimitSurfaceAxisRelativeSuffix"> — доля размаха 0…1</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Предельный момент (N фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Предельная сила (Mx, My фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Предельное усилие (весь набор)</system:String>
