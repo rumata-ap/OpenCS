@@ -22,7 +22,8 @@ public sealed class CrackWidthBatchVM : ViewModelBase
     public sealed record BatchRow(
         int Num, string Label, string NText, string MxLongText, string MxTotalText,
         string AcrcLongText, string AcrcShortText,
-        string PassedLongText, string PassedShortText, bool IsPassed, bool IsCracked);
+        string PassedLongText, string PassedShortText, bool IsPassed, bool IsCracked,
+        string UtilSteelText = "—");
 
     public CrackWidthBatchVM(CalcResult result)
     {
@@ -66,6 +67,8 @@ public sealed class CrackWidthBatchVM : ViewModelBase
                     bool passedLong = row.TryGetProperty("passed_long", out var pl) && pl.GetBoolean();
                     bool passedShort = row.TryGetProperty("passed_short", out var ps) && ps.GetBoolean();
                     bool cracked = row.TryGetProperty("cracked", out var cr) && cr.GetBoolean();
+                    // Старые результаты без проверки σs ≤ Rs,ser считаются выполнившими её.
+                    bool passedSteel = !row.TryGetProperty("passed_steel", out var pst) || pst.GetBoolean();
 
                     Rows.Add(new BatchRow(
                         Num: BatchResultRowHelper.RowNum(row, idx),
@@ -77,8 +80,9 @@ public sealed class CrackWidthBatchVM : ViewModelBase
                         AcrcShortText: Num(row, "acrc_short", 4),
                         PassedLongText: passedLong ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"),
                         PassedShortText: passedShort ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"),
-                        IsPassed: passedLong && passedShort,
-                        IsCracked: cracked));
+                        IsPassed: passedLong && passedShort && passedSteel,
+                        IsCracked: cracked,
+                        UtilSteelText: Num(row, "util_steel", 3)));
                 }
             }
         }

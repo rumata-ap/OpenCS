@@ -56,6 +56,21 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public string AsTensText { get; } = "—";
     public string AbtText { get; } = "—";
     public string H0Text { get; } = "—";
+    public string HText { get; } = "—";
+    public string XtText { get; } = "—";
+
+    public string SigmaSTotalText { get; } = "—";
+    public string RsSerText { get; } = "—";
+    public string UtilSteelText { get; } = "—";
+    /// <summary>σs ≤ Rs,ser (п. 8.2.16); у старых результатов без проверки — выполнено.</summary>
+    public bool PassedSteel { get; } = true;
+    public string PassedSteelText { get; } = "—";
+    public Brush PassedSteelBrush { get; } = Brushes.Gray;
+    public bool HasSteelCheck { get; }
+    public string UtilConcreteText { get; } = "—";
+    public bool OnsetByAxialForce { get; }
+    /// <summary>Трещины образует только полная нагрузка (длительная ниже Mcrc).</summary>
+    public bool LongUncracked { get; }
 
     public bool EtaEnabled { get; }
     public string EtaModeText { get; } = "";
@@ -156,7 +171,10 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
 
         double mxLong = GetD(root, "Mx_long");
         double myLong = GetD(root, "My_long");
-        double mLong = Math.Sqrt(mxLong * mxLong + myLong * myLong);
+        // Трещины образуются, если Mcrc превышает полный момент (длительный может быть и ниже).
+        double mxTotal = GetD(root, "Mx_total");
+        double myTotal = GetD(root, "My_total");
+        double mLong = Math.Max(Math.Sqrt(mxLong * mxLong + myLong * myLong), Math.Sqrt(mxTotal * mxTotal + myTotal * myTotal));
         double mxCrc = GetD(root, "Mx_crc");
         double myCrc = GetD(root, "My_crc");
         double mcrc = GetD(root, "Mcrc");
@@ -195,6 +213,22 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         AsTensText = NumUnit(root, "As_tens", "см²");
         AbtText = NumUnit(root, "Abt", "см²");
         H0Text = NumUnit(root, "h0", "мм");
+        HText = NumUnit(root, "h", "мм");
+        XtText = NumUnit(root, "xt", "мм");
+
+        HasSteelCheck = root.TryGetProperty("passed_steel", out var pst) && pst.ValueKind is JsonValueKind.True or JsonValueKind.False;
+        if (HasSteelCheck)
+        {
+            PassedSteel = pst.GetBoolean();
+            SigmaSTotalText = NumUnit(root, "sigma_s_total", "МПа");
+            RsSerText = NumUnit(root, "rs_ser", "МПа");
+            UtilSteelText = NumRaw(root, "util_steel");
+            PassedSteelText = PassedSteel ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed");
+            PassedSteelBrush = PassedSteel ? Brushes.Green : Brushes.Red;
+            UtilConcreteText = NumRaw(root, "util_concrete");
+        }
+        OnsetByAxialForce = root.TryGetProperty("onset_by_axial_force", out var oaf) && oaf.ValueKind == JsonValueKind.True;
+        LongUncracked = Cracked && root.TryGetProperty("plane_is_total", out var pit) && pit.ValueKind == JsonValueKind.True;
 
         EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind == JsonValueKind.Object;
         if (EtaEnabled)
@@ -238,10 +272,10 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
             ? Loc.S("ResultConvergedNo")
             : !Cracked
                 ? Loc.S("CrackWidth_NoCracks")
-                : (PassedLong && PassedShort ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"));
+                : (PassedLong && PassedShort && PassedSteel ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"));
         StatusBrush = !PlaneConverged && Cracked
             ? Brushes.Red
-            : (!Cracked || (PassedLong && PassedShort)) ? Brushes.Green : Brushes.OrangeRed;
+            : (!Cracked || (PassedLong && PassedShort && PassedSteel)) ? Brushes.Green : Brushes.OrangeRed;
     }
 
     static double GetD(JsonElement el, string key) =>

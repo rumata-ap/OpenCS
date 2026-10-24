@@ -4629,6 +4629,18 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_ShortLabel">Short-term opening</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Tension reinforcement</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Strain plane did not converge — plots and rebar table are unavailable.</system:String>
+    <system:String x:Key="CrackWidth_SteelHeader">Rebar stress: σs ≤ Rs,ser (cl. 8.2.16)</system:String>
+    <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, long-term</system:String>
+    <system:String x:Key="CrackWidth_SigmaSTotalRowLabel">σs, total</system:String>
+    <system:String x:Key="CrackWidth_RsSerRowLabel">Rs,ser</system:String>
+    <system:String x:Key="CrackWidth_UtilSteelRowLabel">Utilization</system:String>
+    <system:String x:Key="CrackWidth_UtilConcreteRowLabel">Concrete compression utilization</system:String>
+    <system:String x:Key="CrackWidth_UtilConcreteHint">For reference: εb / εb,ult per cl. 8.1.30 in the cracked section; does not affect "Passed" (the compression zone is checked by the ULS analysis).</system:String>
+    <system:String x:Key="CrackWidth_ColUtilSteel">Util. σs/Rs,ser</system:String>
+    <system:String x:Key="CrackWidth_OnsetByAxialForceNote">The section is cracked by the axial force: the cracking point is taken on the total load ray (N, M); σs,crc is taken at that point.</system:String>
+    <system:String x:Key="CrackWidth_LongUncrackedNote">The long-term load does not crack the section (M long ≤ Mcrc): acrc1 = acrc3 = 0, the short-term crack width equals acrc2 (8.120).</system:String>
+    <system:String x:Key="CrackWidth_HRowLabel">h (along the direction)</system:String>
+    <system:String x:Key="CrackWidth_XtRowLabel">xt</system:String>
     <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
     <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
     <system:String x:Key="CrackWidth_PassedRowLabel">Passed</system:String>

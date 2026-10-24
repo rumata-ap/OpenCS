@@ -124,7 +124,21 @@ public sealed class CrackWidthReportProvider : IReportProvider
             .Add(new ReportFormula("(8.2.6)", "a<sub>crc,long</sub> ≤ a<sub>crc,ult,long</sub>",
                 $"{F(data.AcrcLong)} ≤ {F(data.AcrcUltLong)} мм", data.PassedLong ? "проверка пройдена" : "проверка не пройдена"))
             .Add(new ReportFormula("(8.2.6)", "a<sub>crc,short</sub> ≤ a<sub>crc,ult,short</sub>",
-                $"{F(data.AcrcShort)} ≤ {F(data.AcrcUltShort)} мм", data.PassedShort ? "проверка пройдена" : "проверка не пройдена"))
+                $"{F(data.AcrcShort)} ≤ {F(data.AcrcUltShort)} мм", data.PassedShort ? "проверка пройдена" : "проверка не пройдена"));
+
+        if (data.PlaneIsTotal)
+            document.Add(new ReportParagraph("Длительная нагрузка трещин не образует (M длит. ≤ Mcrc): acrc1 = acrc3 = 0, непродолжительное раскрытие по (8.120) равно acrc2."));
+        if (data.OnsetByAxialForce)
+            document.Add(new ReportParagraph($"Сечение трещиновато от продольной силы: точка трещинообразования взята на луче полной нагрузки (N, M) при N = {F(data.NCrc ?? 0.0)} кН; σs,cr — в этой точке."));
+        if (data.PassedSteel is bool passedSteel && data.RsSer is double rsSer && rsSer > 0)
+        {
+            double sigmaMax = Math.Max(data.SigmaS, data.SigmaSTotal ?? 0.0);
+            document.Add(new ReportFormula("п. 8.2.16", "σ<sub>s</sub> ≤ R<sub>s,ser</sub>",
+                $"max({F(data.SigmaS)}; {F(data.SigmaSTotal ?? 0.0)}) = {F(sigmaMax)} ≤ {F(rsSer)} МПа; Кисп = {F(data.UtilSteel ?? 0.0)}",
+                passedSteel ? "проверка пройдена" : "проверка не пройдена"));
+        }
+
+        document
             .Add(new ReportParagraph("Таблица по стержням — внормативное уточнение: норма даёт одно значение по представительному стержню, здесь ψs и ширина рассчитаны в точке каждого растянутого стержня при общем ls."))
             .Add(new ReportTable(
                 ["x, мм", "y, мм", "ψs", "a_crc,long, мм", "ψs2", "a_crc,short, мм"],
@@ -134,6 +148,8 @@ public sealed class CrackWidthReportProvider : IReportProvider
             .Add(new ReportKeyValueTable(
             [
                 ("h0", $"{F(data.H0)} мм"),
+                ("h / xt (по направлению плоскости)", $"{F(data.H ?? 0.0)} / {(data.Xt is double xt ? F(xt) : "всё сечение растянуто")} мм"),
+                ("Кисп сжатия бетона (справочно, п. 8.1.30)", F(data.UtilConcrete ?? 0.0)),
                 ("σs / σs,cr / σs,cr2", $"{F(data.SigmaS)} / {F(data.SigmaSCrc)} / {F(data.SigmaSCrc2)} МПа"),
                 ("As,tens / Abt", $"{F(data.AsTens)} / {F(data.Abt)} см²"),
                 ("ls / ds,eq", $"{F(data.Ls)} / {F(data.DsEq)} мм")
@@ -144,6 +160,8 @@ public sealed class CrackWidthReportProvider : IReportProvider
             document.Add(new ReportWarning("Длительная ширина раскрытия превышает предельное значение."));
         if (!data.PassedShort)
             document.Add(new ReportWarning("Кратковременная ширина раскрытия превышает предельное значение."));
+        if (data.PassedSteel == false)
+            document.Add(new ReportWarning("Напряжение в арматуре превышает Rs,ser (п. 8.2.16)."));
         if (!data.CrcConverged)
             document.Add(new ReportWarning("Определение момента образования трещин не сошлось."));
         if (!data.PlaneConverged)

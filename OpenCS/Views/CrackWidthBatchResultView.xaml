@@ -44,6 +44,7 @@
             <DataGridTextColumn Header="{DynamicResource CrackWidth_ColAcrcShort}" Binding="{Binding AcrcShortText}" Width="80"/>
             <DataGridTextColumn Header="{DynamicResource CrackWidth_ColPassedLong}" Binding="{Binding PassedLongText}" Width="75"/>
             <DataGridTextColumn Header="{DynamicResource CrackWidth_ColPassedShort}" Binding="{Binding PassedShortText}" Width="75"/>
+            <DataGridTextColumn Header="{DynamicResource CrackWidth_ColUtilSteel}" Binding="{Binding UtilSteelText}" Width="85"/>
          </DataGrid.Columns>
       </DataGrid>
 

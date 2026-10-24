@@ -4629,6 +4629,18 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_ShortLabel">Кратковременное раскрытие</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Растянутая арматура</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Плоскость деформаций не сошлась — эпюры и таблица арматуры недоступны.</system:String>
+    <system:String x:Key="CrackWidth_SteelHeader">Напряжения в арматуре: σs ≤ Rs,ser (п. 8.2.16)</system:String>
+    <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, длит.</system:String>
+    <system:String x:Key="CrackWidth_SigmaSTotalRowLabel">σs, полн.</system:String>
+    <system:String x:Key="CrackWidth_RsSerRowLabel">Rs,ser</system:String>
+    <system:String x:Key="CrackWidth_UtilSteelRowLabel">Кисп</system:String>
+    <system:String x:Key="CrackWidth_UtilConcreteRowLabel">Кисп сжатия бетона</system:String>
+    <system:String x:Key="CrackWidth_UtilConcreteHint">Справочно: εb / εb,ult по п. 8.1.30 в сечении с трещиной; на «Пройдено» не влияет (сжатую зону проверяет расчёт по I группе).</system:String>
+    <system:String x:Key="CrackWidth_ColUtilSteel">Кисп σs/Rs,ser</system:String>
+    <system:String x:Key="CrackWidth_OnsetByAxialForceNote">Сечение трещиновато от продольной силы: точка трещинообразования взята на луче полной нагрузки (N, M), σs,crc — в этой точке.</system:String>
+    <system:String x:Key="CrackWidth_LongUncrackedNote">Длительная нагрузка трещин не образует (M длит. ≤ Mcrc): acrc1 = acrc3 = 0, непродолжительное раскрытие равно acrc2 (8.120).</system:String>
+    <system:String x:Key="CrackWidth_HRowLabel">h (по направлению)</system:String>
+    <system:String x:Key="CrackWidth_XtRowLabel">xt</system:String>
     <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
     <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
     <system:String x:Key="CrackWidth_PassedRowLabel">Прошло</system:String>

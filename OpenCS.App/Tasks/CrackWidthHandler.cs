@@ -148,6 +148,7 @@ public sealed class CrackWidthHandler : ITaskHandler
                 psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin);
 
             var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
+            var plane = res.PlaneLong ?? res.PlaneTotal;
 
             var data = new
             {
@@ -174,6 +175,15 @@ public sealed class CrackWidthHandler : ITaskHandler
                 eps_max_tension = Math.Round(res.EpsMaxTension, 8),
                 eps_tension_limit = Math.Round(res.EpsTensionLimit, 8),
                 h0 = Math.Round(res.H0 * 1000.0, 1),
+                h = Math.Round(res.H * 1000.0, 1),
+                xt = StrainStateJsonHelper.FiniteRounded(res.Xt * 1000.0, 1),
+                onset_by_axial_force = res.OnsetByAxialForce,
+                N_crc = Math.Round(res.NCrc, 4),
+                sigma_s_total = Math.Round(res.SigmaSTotal / 1000.0, 2),
+                rs_ser = Math.Round(res.RsSer / 1000.0, 2),
+                util_steel = Math.Round(res.UtilSteel, 4),
+                passed_steel = res.PassedSteel,
+                util_concrete = Math.Round(res.UtilConcrete, 4),
                 sigma_s = Math.Round(res.SigmaS / 1000.0, 2),
                 sigma_s_crc = Math.Round(res.SigmaSCrc / 1000.0, 2),
                 sigma_s_crc2 = Math.Round(res.SigmaSCrc2 / 1000.0, 2),
@@ -186,10 +196,12 @@ public sealed class CrackWidthHandler : ITaskHandler
                 ds_eq = Math.Round(res.DsEq * 1000.0, 2),
                 As_tens = Math.Round(res.AsTens * 1e4, 4),
                 Abt = Math.Round(res.Abt * 1e4, 2),
-                e0 = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.e0, 8) : (double?)null,
-                ky = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.ky, 8) : (double?)null,
-                kz = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.kz, 8) : (double?)null,
-                plane_converged = res.PlaneLong.HasValue,
+                // Плоскость длительной нагрузки; если трещины образует только полная — полной.
+                e0 = plane.HasValue ? Math.Round(plane.Value.e0, 8) : (double?)null,
+                ky = plane.HasValue ? Math.Round(plane.Value.ky, 8) : (double?)null,
+                kz = plane.HasValue ? Math.Round(plane.Value.kz, 8) : (double?)null,
+                plane_is_total = !res.PlaneLong.HasValue && res.PlaneTotal.HasValue,
+                plane_converged = plane.HasValue,
                 acrc_by_rebar = res.AcrcByRebar.Select(e => new
                 {
                     x = Math.Round(e.X * 1000.0, 2),
@@ -209,7 +221,7 @@ public sealed class CrackWidthHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag = task.Tag,
                 Created = created,
-                Status = (res.PassedLong && res.PassedShort) ? "ok" : "not_passed",
+                Status = (res.PassedLong && res.PassedShort && res.PassedSteel) ? "ok" : "not_passed",
                 DataJson = JsonSerializer.Serialize(data)
             };
         }

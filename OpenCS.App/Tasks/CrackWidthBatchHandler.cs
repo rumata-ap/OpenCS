@@ -141,7 +141,8 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 }
 
                 var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
-                passedArr[i] = res.PassedLong && res.PassedShort;
+                bool passed = res.PassedLong && res.PassedShort && res.PassedSteel;
+                passedArr[i] = passed;
 
                 rowResults[i] = new
                 {
@@ -157,7 +158,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     acrc_short = Math.Round(res.AcrcShort, 4),
                     passed_long = res.PassedLong,
                     passed_short = res.PassedShort,
-                    status = (res.PassedLong && res.PassedShort) ? "ok" : "not_passed",
+                    util_steel = Math.Round(res.UtilSteel, 4),
+                    passed_steel = res.PassedSteel,
+                    status = passed ? "ok" : "not_passed",
                     eta = etaRow
                 };
             });

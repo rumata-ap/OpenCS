@@ -53,6 +53,26 @@ public sealed class CrackWidthReportData
     [JsonPropertyName("eps_tension_limit")] public double EpsTensionLimit { get; set; }
     /// <summary>Эффективная высота сечения h0, мм.</summary>
     [JsonPropertyName("h0")] public double H0 { get; set; }
+    /// <summary>Высота сечения по направлению градиента плоскости трещинообразования, мм.</summary>
+    [JsonPropertyName("h")] public double? H { get; set; }
+    /// <summary>Высота растянутой зоны xt до ограничений п. 8.2.17, мм (null — сечение растянуто целиком).</summary>
+    [JsonPropertyName("xt")] public double? Xt { get; set; }
+    /// <summary>Трещинообразование от продольной силы — точка на луче полной нагрузки.</summary>
+    [JsonPropertyName("onset_by_axial_force")] public bool OnsetByAxialForce { get; set; }
+    /// <summary>Продольная сила точки трещинообразования, кН.</summary>
+    [JsonPropertyName("N_crc")] public double? NCrc { get; set; }
+    /// <summary>Напряжение арматуры от полной нагрузки, МПа.</summary>
+    [JsonPropertyName("sigma_s_total")] public double? SigmaSTotal { get; set; }
+    /// <summary>Rs,ser наиболее растянутой арматуры, МПа.</summary>
+    [JsonPropertyName("rs_ser")] public double? RsSer { get; set; }
+    /// <summary>Кисп по условию σs ≤ Rs,ser (п. 8.2.16).</summary>
+    [JsonPropertyName("util_steel")] public double? UtilSteel { get; set; }
+    /// <summary>Выполнено σs ≤ Rs,ser; null — результат до введения проверки.</summary>
+    [JsonPropertyName("passed_steel")] public bool? PassedSteel { get; set; }
+    /// <summary>Кисп сжатия бетона в сечении с трещиной (справочно).</summary>
+    [JsonPropertyName("util_concrete")] public double? UtilConcrete { get; set; }
+    /// <summary>Плоскость (e0, ky, kz) — от полной нагрузки: длительная трещин не образует.</summary>
+    [JsonPropertyName("plane_is_total")] public bool PlaneIsTotal { get; set; }
     /// <summary>Напряжение арматуры σs, МПа.</summary>
     [JsonPropertyName("sigma_s")] public double SigmaS { get; set; }
     /// <summary>Напряжение σs,cr для длительной ширины, МПа.</summary>
