@@ -1654,6 +1654,16 @@
    <system:String x:Key="LimitSurfaceAxisMy">My, kN·m</system:String>
    <system:String x:Key="LimitSurfaceAxisM">M along α, kN·m</system:String>
    <system:String x:Key="LimitSurfaceAxisRelativeSuffix"> — share of range 0…1</system:String>
+   <system:String x:Key="LimitSurfaceTabPoints">Points</system:String>
+   <system:String x:Key="LimitSurfaceToSingleTask">→ single task</system:String>
+   <system:String x:Key="LimitSurfaceColNum">No.</system:String>
+   <system:String x:Key="LimitSurfaceColLabel">Row</system:String>
+   <system:String x:Key="LimitSurfaceColRatio">Utilization</system:String>
+   <system:String x:Key="LimitSurfaceColState">Position</system:String>
+   <system:String x:Key="LimitSurfaceColActive">Active constraint</system:String>
+   <system:String x:Key="LimitSurfaceState_Inside">inside</system:String>
+   <system:String x:Key="LimitSurfaceState_Outside">outside</system:String>
+   <system:String x:Key="LimitSurfaceState_Ambiguous">ambiguous</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Limit moment (fixed N)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Limit axial force (fixed Mx, My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Limit load (full set)</system:String>

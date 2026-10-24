@@ -1,5 +1,7 @@
 using CScore;
 using CScore.Fem;
+using CScore.LimitSurface;
+using OpenCS.LimitSurface;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using System.Windows;
@@ -43,6 +45,21 @@ static class BatchRowTask
         }
 
         RunOrOpen(app, BatchRowTaskFactory.FindExisting(app.CalcTasks, batch, rowNum), built);
+    }
+
+    /// <summary>По точке окна поверхности: одиночная задача предельного усилия в режиме луча Кисп.</summary>
+    public static void CreateAndRun(AppViewModel app, CalcTask surface, LimitSurfacePointRecord point, UtilizationMode mode)
+    {
+        if (app.IsBusy) return;
+        string? sectionTag = app.CrossSections.FirstOrDefault(s => s.Id == surface.SectionId)?.Tag;
+        if (sectionTag == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        var built = LimitSurfaceRowTaskFactory.Create(surface, point, mode, sectionTag);
+        RunOrOpen(app, LimitSurfaceRowTaskFactory.FindExisting(app.CalcTasks, surface, point.Num, mode), built);
     }
 
     /// <summary>

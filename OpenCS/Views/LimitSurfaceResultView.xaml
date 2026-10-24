@@ -102,7 +102,33 @@
                <h:PlotCanvas Grid.Row="1" x:Name="SlicePlot"/>
             </Grid>
          </TabItem>
-         <!-- Вкладка «Точки» -->
+         <TabItem Header="{DynamicResource LimitSurfaceTabPoints}">
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <WrapPanel Margin="0,4">
+                  <TextBlock x:Name="PointsSummary" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                  <Button x:Name="ToSingleTask" Content="{DynamicResource LimitSurfaceToSingleTask}"
+                          Click="OnToSingleTask" Padding="6,1"/>
+               </WrapPanel>
+               <DataGrid Grid.Row="1" x:Name="PointsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                         SelectionMode="Single" CanUserSortColumns="True" SelectionChanged="OnPointsSelectionChanged">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceColNum}" Binding="{Binding Num}"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceColLabel}" Binding="{Binding Label}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceAxisN}" Binding="{Binding N, StringFormat=F1}"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceAxisMx}" Binding="{Binding Mx, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceAxisMy}" Binding="{Binding My, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceColRatio}" Binding="{Binding RatioText}"
+                                         SortMemberPath="RatioSort"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceColState}" Binding="{Binding StateText}"/>
+                     <DataGridTextColumn Header="{DynamicResource LimitSurfaceColActive}" Binding="{Binding ActiveText}"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </Grid>
+         </TabItem>
       </TabControl>
    </Grid>
 </UserControl>

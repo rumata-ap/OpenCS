@@ -1654,6 +1654,16 @@
    <system:String x:Key="LimitSurfaceAxisMy">My, кН·м</system:String>
    <system:String x:Key="LimitSurfaceAxisM">M по α, кН·м</system:String>
    <system:String x:Key="LimitSurfaceAxisRelativeSuffix"> — доля размаха 0…1</system:String>
+   <system:String x:Key="LimitSurfaceTabPoints">Точки</system:String>
+   <system:String x:Key="LimitSurfaceToSingleTask">→ одиночная задача</system:String>
+   <system:String x:Key="LimitSurfaceColNum">№</system:String>
+   <system:String x:Key="LimitSurfaceColLabel">Строка</system:String>
+   <system:String x:Key="LimitSurfaceColRatio">Кисп</system:String>
+   <system:String x:Key="LimitSurfaceColState">Положение</system:String>
+   <system:String x:Key="LimitSurfaceColActive">Активное ограничение</system:String>
+   <system:String x:Key="LimitSurfaceState_Inside">внутри</system:String>
+   <system:String x:Key="LimitSurfaceState_Outside">снаружи</system:String>
+   <system:String x:Key="LimitSurfaceState_Ambiguous">неоднозначно</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment">Предельный момент (N фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial">Предельная сила (Mx, My фикс.)</system:String>
    <system:String x:Key="CalcTaskKind_limit_force_batch">Предельное усилие (весь набор)</system:String>

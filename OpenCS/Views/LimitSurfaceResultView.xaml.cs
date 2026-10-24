@@ -9,6 +9,7 @@ using CScore.LimitSurface;
 using HelixToolkit.Wpf;
 using OpenCS.LimitSurface;
 using OpenCS.Services;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using GeoMeshBuilder = HelixToolkit.Geometry.MeshBuilder;
@@ -346,5 +347,46 @@ public partial class LimitSurfaceResultView : UserControl
     {
         if (FamilyBox.SelectedIndex >= 0) _vm.SliceFamilyCount = FamilyBox.SelectedIndex + 1;
     }
-    void RefreshPointsGrid() { }
+    /// <summary>Строка таблицы точек (WPF-обёртка ScenePoint с текстами).</summary>
+    sealed record PointRow(ScenePoint Point, int Num, string Label, double N, double Mx, double My,
+        string RatioText, double RatioSort, string StateText, string ActiveText);
+
+    bool _syncingGrid;
+    IReadOnlyList<ScenePoint>? _rowsFor;
+    List<PointRow> _rows = [];
+
+    void RefreshPointsGrid()
+    {
+        _syncingGrid = true;
+        // Строки пересобираются только при смене списка точек (режим Кисп) — иначе сохраняются сортировка и прокрутка.
+        if (!ReferenceEquals(_rowsFor, _vm.Points))
+        {
+            _rowsFor = _vm.Points;
+            _rows = _vm.Points.Select(p => new PointRow(p, p.Source.Num, p.Source.Label, p.Source.N, p.Source.Mx, p.Source.My,
+                FormatRatio(p.Ratio) + (p.State == PointState.Ambiguous ? " ?" : ""),
+                double.IsFinite(p.Ratio) ? p.Ratio : double.MaxValue,
+                Loc.S($"LimitSurfaceState_{p.State}"),
+                p.Active == ActiveCategory.None ? "" : Loc.S($"LimitSurfaceLegend_{p.Active}") + (p.SingleSign ? " (8.53)" : ""))).ToList();
+            PointsGrid.ItemsSource = _rows;
+        }
+        PointsGrid.SelectedItem = _rows.FirstOrDefault(r => r.Point == _vm.SelectedPoint);
+        _syncingGrid = false;
+        PointsSummary.Text = SummaryText.Text;
+        ToSingleTask.Visibility = _app != null && _task != null && LimitSurfaceRowTaskFactory.Supports(_task.Kind)
+            ? Visibility.Visible : Visibility.Collapsed;
+        ToSingleTask.IsEnabled = _vm.SelectedPoint != null;
+    }
+
+    void OnPointsSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingGrid || PointsGrid.SelectedItem is not PointRow row) return;
+        _vm.SelectedPoint = row.Point;
+        _vm.SliceThroughSelected();
+    }
+
+    void OnToSingleTask(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || _task is null || _vm.SelectedPoint is null) return;
+        BatchRowTask.CreateAndRun(_app, _task, _vm.SelectedPoint.Source, _vm.Mode);
+    }
 }
