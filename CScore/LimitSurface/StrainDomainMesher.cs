@@ -190,12 +190,19 @@ public sealed class StrainDomainMesher
             return Refine(a, m, depth + 1).Append(m).Concat(Refine(m, b, depth + 1)).ToList();
         }
 
-        var refined = new List<Node> { nodes[0] };
+        // Интервалы у полюсов дробятся тоже: у ПС2 на интервале «растянутый полюс — первый узел» лежит почти вся
+        // область трещинообразования при растяжении, и хорда до первого кольца срезала её (до 0,8 % M_max, не
+        // убывая с RefineTol). Сами полюса в меридиан не входят — они общие вершины сетки.
+        var top = MakeNode(sec, d, g, 0.0, phi, null);
+        var bot = MakeNode(sec, d, g, Math.PI, phi, null);
+        var refined = Refine(top, nodes[0], 0).ToList();
+        refined.Add(nodes[0]);
         for (int i = 0; i + 1 < nodes.Count; i++)
         {
             refined.AddRange(Refine(nodes[i], nodes[i + 1], 0));
             refined.Add(nodes[i + 1]);
         }
+        refined.AddRange(Refine(nodes[^1], bot, 0));
         return refined;
     }
 

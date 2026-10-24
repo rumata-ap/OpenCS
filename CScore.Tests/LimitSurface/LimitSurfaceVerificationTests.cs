@@ -9,13 +9,16 @@ namespace CScore.Tests.LimitSurface;
 /// Сверка сетки с LimitForceSolverFast (режим Moment). Мера — абсолютная: ΔM = |Mпред сетки − Mпред решателя|,
 /// отнесённая к M_max поверхности (относительная |ΔКисп| при малом Mпред раздувается и только выводится).
 /// Эталон принимается, если его плоскость на границе области (λ = 1 ± 5e-3 по модели решателя — без (8.53))
-/// и сама даёт заявленные усилия; λ &lt; 1 − 5e-3 или невязка усилий > 0,1 % — FAIL (дефект решателя,
+/// и сама даёт заявленные усилия; λ &lt; 0,98 (за собственным допуском решателя на деформации — 2 %)
+/// или невязка усилий > 0,1 % — FAIL (дефект решателя; 0,98 ≤ λ &lt; 0,995 — не эталон),
 /// см. LimitForceSolverFastResidualTests). Точки, где начало луча вне тела
 /// (преднапряжение, растяжение), неоднозначны — луч пересекает поверхность дважды — и только подсчитываются.
 /// </summary>
 public class LimitSurfaceVerificationTests(ITestOutputHelper output)
 {
     const double LambdaTol = 5e-3;
+    /// <summary>Собственный допуск решателя на превышение предельных деформаций (LimitForceSolverFast.IsValidSolution, 2 %).</summary>
+    const double SolverStrainTol = 0.02;
     const double MomentLoad = 100;
 
     public static TheoryData<string> Sections => new() { "symmetric", "asymmetric", "prestressed" };
@@ -40,7 +43,10 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
         var domainNorm = new UlsStrainCriterion(CalcType.C, ten: false).BuildDomain(section);
         var solver = new LimitForceSolverFast(section, CalcType.C, ten: false);
         var calc = section.CloneForCalc();
-        double nMin = mesh.Vertices.Min(v => v.N), nMax = mesh.Vertices.Max(v => v.N), mMax = MaxMoment(mesh);
+        // Диапазон выборки — по полюсам, а не по крайним вершинам: он не должен зависеть от деталей сетки
+        // (по (8.53) вершины рядом со сжатым полюсом сжаты сильнее самого полюса).
+        double nMin = Math.Min(mesh.Vertices[0].N, mesh.Vertices[1].N), nMax = Math.Max(mesh.Vertices[0].N, mesh.Vertices[1].N);
+        double mMax = MaxMoment(mesh);
         var rnd = new Random(seed);
         var res = new List<RefPoint>();
         var violations = new List<string>();
@@ -52,8 +58,8 @@ public class LimitSurfaceVerificationTests(ITestOutputHelper output)
             if (!r.Converged || r.StrainPlane is not { } k) continue;
             double lam = domainSolverModel.Boundary(k.e0, k.ky, k.kz).Lambda;
             string desc = $"N={n:F1} M=({mx:F1};{my:F1}) λ={lam:F4} e0={k.e0:G4} ky={k.ky:G4} kz={k.kz:G4}";
-            if (lam < 1 - LambdaTol) { violations.Add(desc); continue; }
-            if (lam > 1 + LambdaTol) continue;   // не на границе — не эталон
+            if (lam < 1 - SolverStrainTol) { violations.Add(desc); continue; }
+            if (Math.Abs(lam - 1) > LambdaTol) continue;   // не на границе в пределах допуска сетки — не эталон
             // Плоскость решателя должна давать заявленные усилия, иначе эталон неверен.
             var f = calc.Compute(k, CalcType.C, false, computeStiffness: false);
             double miss = Math.Max(Math.Abs(f.N - n) / (nMax - nMin),
