@@ -101,6 +101,29 @@ public class StrainDomainMesherTests
     }
 
     [Fact]
+    public void Angles_PolesMeridiansAndBaseParallels()
+    {
+        var m = Build(new LimitSurfaceOptions { InitialMeridians = 12, ThetaIntervals = 12, RefineTol = 0.002 });
+        Assert.Equal(m.Vertices.Count, m.Angles.Count);
+        Assert.Equal(0.0, m.Angles[0].Theta);
+        Assert.Equal(Math.PI, m.Angles[1].Theta);
+        for (int k = 0; k < m.MeridianCount; k++)
+        {
+            var ang = Enumerable.Range(0, m.Vertices.Count).Where(i => m.MeridianOf[i] == k).Select(i => m.Angles[i]).ToList();
+            Assert.All(ang, a => Assert.Equal(ang[0].Phi, a.Phi));
+            Assert.True(ang.Zip(ang.Skip(1)).All(p => p.First.Theta < p.Second.Theta), $"меридиан {k}: θ не возрастает");
+            // базовые θ = π·j/n есть на каждом меридиане — по ним проводятся параллели
+            for (int j = 1; j < 12; j++)
+                Assert.Contains(ang, a => a.Theta == Math.PI * j / 12);
+        }
+        var phis = Enumerable.Range(0, m.MeridianCount)
+            .Select(k => m.Angles[m.MeridianOf.ToList().IndexOf(k)].Phi).ToList();
+        Assert.True(phis.Zip(phis.Skip(1)).All(p => p.First < p.Second), "меридианы не по возрастанию φ");
+        for (int k = 0; k < 12; k++)
+            Assert.Contains(phis, p => Math.Abs(p - 2 * Math.PI * k / 12) < 1e-12);
+    }
+
+    [Fact]
     public void ThetaAndPhiRefinement_AddNodes()
     {
         var plain = Build(Coarse);

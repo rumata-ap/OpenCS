@@ -36,7 +36,8 @@ public sealed class LimitSurfaceMesh
         IReadOnlyList<ActiveConstraint>? active = null,
         IReadOnlyList<KinkTransition?>? transitions = null,
         IReadOnlyList<int>? meridianOf = null,
-        IReadOnlyList<(int Count, double MaxDeviation)>? refineLog = null)
+        IReadOnlyList<(int Count, double MaxDeviation)>? refineLog = null,
+        IReadOnlyList<(double Theta, double Phi)>? angles = null)
     {
         Vertices = vertices;
         Triangles = triangles;
@@ -45,6 +46,7 @@ public sealed class LimitSurfaceMesh
         Transitions = transitions ?? [];
         MeridianOf = meridianOf ?? [];
         RefineLog = refineLog ?? [];
+        Angles = angles ?? [];
         MeridianCount = MeridianOf.Count == 0 ? 0 : MeridianOf.Max() + 1;
     }
 
@@ -64,6 +66,11 @@ public sealed class LimitSurfaceMesh
     public IReadOnlyList<(int Count, double MaxDeviation)> RefineLog { get; }
     /// <summary>Число меридианов.</summary>
     public int MeridianCount { get; }
+    /// <summary>
+    /// Параметры вершины в области деформаций: θ (0 — полюс растяжения… π) и φ меридиана (у полюсов — 0).
+    /// Пусто у тестовых сеток и сохранённых без углов. Нужны для линий меридианов и параллелей.
+    /// </summary>
+    public IReadOnlyList<(double Theta, double Phi)> Angles { get; }
 
     /// <summary>Срез Mx–My при N = const.</summary>
     public IReadOnlyList<IReadOnlyList<ForcePoint>> SliceAtN(double n) => SliceLoops(new(1, 0, 0), n);

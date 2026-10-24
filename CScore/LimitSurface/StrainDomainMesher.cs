@@ -86,7 +86,7 @@ public sealed class StrainDomainMesher
             intervals = next.OrderByDescending(e => e.Dev).Select(e => (e.A, e.B)).ToList();
         }
 
-        return Assemble(top, bot, mer.Values.ToList(), log);
+        return Assemble(top, bot, mer.Keys.ToList(), mer.Values.ToList(), log);
     }
 
     Scales MakeScales(StrainDomain d)
@@ -226,13 +226,14 @@ public sealed class StrainDomainMesher
         return (idx, t, tr);
     }
 
-    static LimitSurfaceMesh Assemble(Node top, Node bot, List<List<Node>> mers, List<(int, double)> log)
+    static LimitSurfaceMesh Assemble(Node top, Node bot, List<double> phis, List<List<Node>> mers, List<(int, double)> log)
     {
         var v = new List<ForcePoint> { top.Force, bot.Force };
         var planes = new List<Kurvature> { top.Plane, bot.Plane };
         var act = new List<ActiveConstraint> { top.Active, bot.Active };
         var trs = new List<KinkTransition?> { null, null };
         var merOf = new List<int> { -1, -1 };
+        var angles = new List<(double Theta, double Phi)> { (top.Theta, 0), (bot.Theta, 0) };
         var strips = new List<(List<int>, List<double>, List<KinkTransition?>)>();
         for (int k = 0; k < mers.Count; k++)
         {
@@ -240,6 +241,7 @@ public sealed class StrainDomainMesher
             foreach (var nd in mers[k])
             {
                 v.Add(nd.Force); planes.Add(nd.Plane); act.Add(nd.Active); trs.Add(nd.Transition); merOf.Add(k);
+                angles.Add((nd.Theta, phis[k]));
             }
         }
         var tris = new List<(int A, int B, int C)>();
@@ -251,6 +253,6 @@ public sealed class StrainDomainMesher
         }
         if (SurfaceMeshGeometry.SignedVolume(v, tris) < 0)
             tris = tris.Select(t => (t.A, t.C, t.B)).ToList();
-        return new LimitSurfaceMesh(v, tris, planes, act, trs, merOf, log);
+        return new LimitSurfaceMesh(v, tris, planes, act, trs, merOf, log, angles);
     }
 }
