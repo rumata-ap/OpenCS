@@ -92,7 +92,9 @@ public sealed class StrainDomainMesher
     Scales MakeScales(StrainDomain d)
     {
         double l = d.Points.Max(p => Math.Sqrt(p.X * p.X + p.Y * p.Y));
-        var ten = d.Points.Where(p => p.Kind == StrainPointKind.Rebar && double.IsFinite(p.EpsMax) && p.EpsMax > 0).Select(p => p.EpsMax).ToList();
+        // Масштаб растяжения — наименьший конечный верхний предел: у ПС1 его дают стержни (бетон трещиноват),
+        // у ПС2 — бетон (εbt2).
+        var ten = d.Points.Where(p => double.IsFinite(p.EpsMax) && p.EpsMax > 0).Select(p => p.EpsMax).ToList();
         if (ten.Count == 0)
             throw new InvalidOperationException(
                 $"Поверхность «{_criterion.Name}» не замкнута: в сечении нет арматуры, ограничивающей растяжение.");

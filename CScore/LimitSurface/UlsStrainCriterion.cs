@@ -32,12 +32,12 @@ public sealed class UlsStrainCriterion : IStrainSurfaceCriterion
         for (int ai = 0; ai < section.Areas.Count; ai++)
         {
             var area = section.Areas[ai];
-            if (IsConcrete(area))
+            if (StrainCriterionGeometry.IsConcrete(area))
             {
                 var ch = area.Material!.GetChars(Calc)
                     ?? throw new InvalidOperationException($"Область «{area.Tag}»: нет характеристик бетона для {Calc}.");
-                foreach (var c in Contours(area))
-                    foreach (var (x, y) in OpenVertices(c))
+                foreach (var c in StrainCriterionGeometry.Contours(area))
+                    foreach (var (x, y) in StrainCriterionGeometry.OpenVertices(c))
                         pts.Add(new StrainControlPoint(x, y, StrainPointKind.Concrete,
                             ch.Ec2, double.PositiveInfinity, ch.Ec0, ch.Ec2, ai));
             }
@@ -50,33 +50,6 @@ public sealed class UlsStrainCriterion : IStrainSurfaceCriterion
             }
         }
         return new StrainDomain(pts);
-    }
-
-    static bool IsConcrete(MaterialArea area) =>
-        area.Material?.Type == MatType.Concrete ||
-        (area.Material?.Type == MatType.Custom && area.Material.BaseType == MatType.Concrete);
-
-    static IEnumerable<Contour> Contours(MaterialArea area)
-    {
-        if (area.Hull is not null) yield return area.Hull;
-        foreach (var h in area.Holes) yield return h;
-    }
-
-    /// <summary>Вершины контура без замыкающего повтора и без подряд идущих дублей.</summary>
-    static IEnumerable<(double X, double Y)> OpenVertices(Contour c)
-    {
-        int n = Math.Min(c.X.Count, c.Y.Count);
-        if (n == 0) yield break;
-        double x0 = c.X[0], y0 = c.Y[0];
-        double px = double.NaN, py = double.NaN;
-        for (int i = 0; i < n; i++)
-        {
-            double x = c.X[i], y = c.Y[i];
-            if (x == px && y == py) continue;
-            if (i == n - 1 && x == x0 && y == y0) break;
-            yield return (x, y);
-            px = x; py = y;
-        }
     }
 
     double RebarEpsSu(MaterialArea area)
