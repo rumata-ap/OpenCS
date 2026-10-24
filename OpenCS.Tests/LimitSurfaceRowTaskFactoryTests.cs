@@ -47,7 +47,9 @@ public class LimitSurfaceRowTaskFactoryTests
     [InlineData("crack_surface", UtilizationMode.All, null)]
     [InlineData("crack_surface", UtilizationMode.Moment, "cracking")]
     [InlineData("crack_surface", UtilizationMode.Axial, null)]
-    [InlineData("acrc_surface", UtilizationMode.Moment, null)]
+    [InlineData("acrc_surface", UtilizationMode.All, null)]
+    [InlineData("acrc_surface", UtilizationMode.Moment, "crack_width")]
+    [InlineData("acrc_surface", UtilizationMode.Axial, null)]
     public void SingleKind_BySurfaceAndMode(string surfaceKind, UtilizationMode mode, string? expected)
     {
         Assert.Equal(expected, LimitSurfaceRowTaskFactory.SingleKind(surfaceKind, mode));
@@ -67,6 +69,28 @@ public class LimitSurfaceRowTaskFactoryTests
         t.Id = 12;
         Assert.Same(t, LimitSurfaceRowTaskFactory.FindExisting([t], CrackSurface, 4, UtilizationMode.Moment));
         Assert.Null(LimitSurfaceRowTaskFactory.FindExisting([t], Surface, 4, UtilizationMode.Moment));
+    }
+
+    static readonly CalcTask AcrcSurface = new()
+    {
+        Id = 7, Kind = "acrc_surface", SectionId = 3, CalcType = CalcType.N, ForceSetId = 2,
+        ParamsJson = """{"Accuracy":"normal","AcrcUltLong":0.2,"AcrcUltShort":0.3,"Phi2":0.8,"ForcesMode":"share","LongShare":0.55,"LongPartUseNL":true}""",
+    };
+
+    [Fact]
+    public void Acrc_Moment_CrackWidthShareWithSurfaceParams()
+    {
+        var t = LimitSurfaceRowTaskFactory.Create(AcrcSurface, Point, UtilizationMode.Moment, "Балка");
+        Assert.Equal("crack_width", t.Kind);
+        Assert.Equal(CalcType.N, t.CalcType);
+        var p = CrackWidthTaskParams.Parse(t.ParamsJson);
+        Assert.Equal("share", p.ForcesMode);
+        Assert.Equal(0.55, p.LongShare);
+        Assert.Equal((0.2, 0.3, 0.8, true), (p.AcrcUltLong, p.AcrcUltShort, p.Phi2, p.LongPartUseNL));
+        var item = CalcTaskForceHelper.ResolveSingleForces(t, [])!;
+        Assert.Equal<(double, double, double)>((-250.0, -30.0, 2.0), (item.N, item.Mx, item.My));
+        t.Id = 13;
+        Assert.Same(t, LimitSurfaceRowTaskFactory.FindExisting([t], AcrcSurface, 4, UtilizationMode.Moment));
     }
 
     [Fact]

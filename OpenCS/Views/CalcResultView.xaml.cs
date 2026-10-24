@@ -29,7 +29,7 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind is "limit_surface" or "crack_surface")
+        if (task?.Kind is "limit_surface" or "crack_surface" or "acrc_surface")
         {
             Content = new LimitSurfaceResultView(result, app, task);
             return;

@@ -39,6 +39,14 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
             ? [SurfaceColoring.Active, SurfaceColoring.SingleSign, SurfaceColoring.ByN, SurfaceColoring.Mono]
             : [SurfaceColoring.Active, SurfaceColoring.ByN, SurfaceColoring.Mono];
         EtaWarning = Scene.Data.Warnings.Contains(LimitSurfaceWarnings.EtaNotApplied);
+        if (Scene.Data.Acrc is { } acrc)
+        {
+            var inv = System.Globalization.CultureInfo.CurrentCulture;
+            AcrcNote = string.Format(inv, Loc.S("LimitSurfaceAcrcNote"), acrc.LongShare, acrc.AcrcUltLong, acrc.AcrcUltShort);
+            if (Scene.Data.NotConvergedCount > 0)
+                AcrcNotConverged = string.Format(inv, Loc.S("LimitSurfaceAcrcNotConverged"), Scene.Data.NotConvergedCount);
+        }
+        NoTensileRebarWarning = Scene.Data.Warnings.Contains(LimitSurfaceWarnings.NoTensileRebar);
         _sliceLevel = MidLevel(_sliceKind);
         Recompute();
     }
@@ -55,6 +63,16 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
     public SceneSummary Summary { get; private set; } = new(0, 0, 0);
     /// <summary>Точки набора первого порядка нанесены без η продольного изгиба.</summary>
     public bool EtaWarning { get; }
+    /// <summary>Ширина раскрытия: плашка «тело для доли k»; null у других поверхностей.</summary>
+    public string? AcrcNote { get; }
+    /// <summary>Ширина раскрытия: число узлов без сходимости (нижняя оценка границы); null — все сошлись.</summary>
+    public string? AcrcNotConverged { get; }
+    /// <summary>Показывать плашку доли k.</summary>
+    public bool HasAcrcNote => AcrcNote != null;
+    /// <summary>Показывать плашку несошедшихся узлов.</summary>
+    public bool HasAcrcNotConverged => AcrcNotConverged != null;
+    /// <summary>Ширина раскрытия: в части узлов нет растянутой арматуры, граница — тело ПС2.</summary>
+    public bool NoTensileRebarWarning { get; }
     /// <summary>Есть точки с началом луча вне тела поверхности.</summary>
     public bool HasAmbiguous => Summary.Ambiguous > 0;
     /// <summary>Нужно перерисовать 3D, срез и таблицу.</summary>

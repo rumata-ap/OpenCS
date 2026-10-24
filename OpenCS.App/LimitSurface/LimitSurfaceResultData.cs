@@ -13,6 +13,10 @@ public sealed record LimitSurfacePointRecord(int Num, string Label, double N, do
 /// <summary>Контрольная точка области деформаций — для подписей активного ограничения.</summary>
 public sealed record LimitSurfaceControlPointRecord(StrainPointKind Kind, double X, double Y, int AreaIndex);
 
+/// <summary>Параметры тела ширины раскрытия трещин: доля длительной нагрузки k, φ2, пределы, диаграмма длительной части.</summary>
+public sealed record LimitSurfaceAcrcParams(double LongShare, double Phi2, double AcrcUltLong, double AcrcUltShort,
+   bool LongPartUseNL);
+
 /// <summary>DataJson чужой версии формата — результат надо пересчитать.</summary>
 public sealed class LimitSurfaceFormatException(string message) : Exception(message);
 
@@ -21,6 +25,8 @@ public static class LimitSurfaceWarnings
 {
    /// <summary>Точки набора первого порядка нанесены без увеличения моментов на η продольного изгиба.</summary>
    public const string EtaNotApplied = "etaNotApplied";
+   /// <summary>Ширина раскрытия: в части узлов в сечении с трещиной нет растянутой арматуры — граница взята по телу ПС2.</summary>
+   public const string NoTensileRebar = "noTensileRebar";
 }
 
 /// <summary>
@@ -43,8 +49,15 @@ public sealed class LimitSurfaceResultData
    /// <summary>Код критерия ПС2, образование трещин (п. 8.2.14).</summary>
    public const string CriterionCrack = "crack";
 
-   /// <summary>Критерий поверхности: <see cref="CriterionUls"/> или <see cref="CriterionCrack"/>.</summary>
+   /// <summary>Код критерия ПС2, ширина раскрытия трещин (пп. 8.2.6–8.2.18).</summary>
+   public const string CriterionAcrc = "acrc";
+
+   /// <summary>Критерий поверхности: <see cref="CriterionUls"/>, <see cref="CriterionCrack"/> или <see cref="CriterionAcrc"/>.</summary>
    public string Criterion { get; set; } = CriterionUls;
+   /// <summary>Ширина раскрытия: параметры построения тела; null у других критериев.</summary>
+   public LimitSurfaceAcrcParams? Acrc { get; set; }
+   /// <summary>Число узлов, где Ньютон не сошёлся и взята нижняя оценка (ширина раскрытия).</summary>
+   public int NotConvergedCount { get; set; }
    /// <summary>Набор расчётных характеристик задачи.</summary>
    public CalcType CalcType { get; set; }
    /// <summary>Учитывалась ли работа бетона на растяжение.</summary>

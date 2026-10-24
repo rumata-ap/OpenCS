@@ -37,6 +37,18 @@
                  Visibility="{Binding EtaWarning, Converter={StaticResource BoolToVisibility}}">
             <TextBlock Text="{DynamicResource LimitSurfaceWarnEta}" TextWrapping="Wrap"/>
          </Border>
+         <Border Background="#DEEBF7" Padding="6,3" Margin="0,0,0,4"
+                 Visibility="{Binding HasAcrcNote, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding AcrcNote}" TextWrapping="Wrap"/>
+         </Border>
+         <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
+                 Visibility="{Binding HasAcrcNotConverged, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding AcrcNotConverged}" TextWrapping="Wrap"/>
+         </Border>
+         <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
+                 Visibility="{Binding NoTensileRebarWarning, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{DynamicResource LimitSurfaceWarnNoTensileRebar}" TextWrapping="Wrap"/>
+         </Border>
          <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
                  Visibility="{Binding HasAmbiguous, Converter={StaticResource BoolToVisibility}}">
             <TextBlock x:Name="AmbiguousText" Text="{DynamicResource LimitSurfaceWarnAmbiguous}" TextWrapping="Wrap"/>

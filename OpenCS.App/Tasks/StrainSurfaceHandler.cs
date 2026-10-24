@@ -10,7 +10,8 @@ namespace OpenCS.Tasks;
 /// <summary>
 /// Задачи поверхностей усилий (N, Mx, My) из области деформаций: строит сетку ядром, снимает точки набора и
 /// сохраняет всё в DataJson. Общий для всех видов поверхностей; критерий — по виду задачи
-/// (ПС1 — limit_surface; ПС2, образование трещин — crack_surface; ширина раскрытия — подпроект 4).
+/// (ПС1 — limit_surface; ПС2, образование трещин — crack_surface; ширина раскрытия — acrc_surface,
+/// построитель колонн <see cref="AcrcColumnMesher"/>; контрольные точки — тела образования трещин).
 /// </summary>
 public sealed class StrainSurfaceHandler : ITaskHandler
 {
@@ -46,19 +47,42 @@ public sealed class StrainSurfaceHandler : ITaskHandler
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
             pool: ctx?.Database?.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
-         var criterion = CriterionFor(task.Kind, task.CalcType, settings.ResolveConcreteTension(task.CalcType));
-         bool ten = criterion.Ten;
          var parameters = LimitSurfaceTaskParams.Parse(task.ParamsJson);
          var options = parameters.ToOptions();
+         var ct = ctx?.CancellationToken ?? default;
 
+         IStrainSurfaceCriterion criterion;
+         LimitSurfaceMesh mesh;
+         LimitSurfaceAcrcParams? acrcParams = null;
+         int notConverged = 0, noTensileRebar = 0;
          var sw = Stopwatch.StartNew();
-         var mesh = new StrainDomainMesher(section, criterion, options)
-            .Build(ctx?.CancellationToken ?? default);
+         if (task.Kind == "acrc_surface")
+         {
+            // Ширина раскрытия: тело ПС2 → колонны (N, ψ); параметры — те же, что у crack_width (доля k).
+            var cw = CrackWidthTaskParams.Parse(task.ParamsJson);
+            var acrc = new AcrcSurfaceCriterion(task.CalcType, cw.LongPartUseNL, cw.LongShare, cw.Phi2,
+               cw.AcrcUltLong, cw.AcrcUltShort, settings.ResolvePsiSMethod(),
+               settings.Sp63DescEtaMin, settings.EkbDescEtaMin);
+            var mesher = new AcrcColumnMesher(section, acrc, options, ct: ct);
+            mesh = mesher.Build(ct);
+            notConverged = mesher.NotConvergedCount;
+            noTensileRebar = mesher.NoTensileRebarCount;
+            criterion = acrc.CrackCriterion;
+            acrcParams = new LimitSurfaceAcrcParams(cw.LongShare, cw.Phi2, cw.AcrcUltLong, cw.AcrcUltShort, cw.LongPartUseNL);
+         }
+         else
+         {
+            criterion = CriterionFor(task.Kind, task.CalcType, settings.ResolveConcreteTension(task.CalcType));
+            mesh = new StrainDomainMesher(section, criterion, options).Build(ct);
+         }
          sw.Stop();
+         bool ten = criterion.Ten;
 
          var data = new LimitSurfaceResultData
          {
-            Criterion = CriterionCode(criterion),
+            Criterion = acrcParams is null ? CriterionCode(criterion) : LimitSurfaceResultData.CriterionAcrc,
+            Acrc = acrcParams,
+            NotConvergedCount = notConverged,
             CalcType = task.CalcType,
             Ten = ten,
             Accuracy = parameters.Accuracy,
@@ -76,6 +100,8 @@ public sealed class StrainSurfaceHandler : ITaskHandler
          };
          if (forceSet is { SecondOrder: false } && data.Points.Count > 0)
             data.Warnings.Add(LimitSurfaceWarnings.EtaNotApplied);
+         if (noTensileRebar > 0)
+            data.Warnings.Add(LimitSurfaceWarnings.NoTensileRebar);
 
          return new CalcResult
          {

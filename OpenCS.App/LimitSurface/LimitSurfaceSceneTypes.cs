@@ -5,8 +5,15 @@ namespace OpenCS.LimitSurface;
 /// <summary>Система осей сцены: значения как есть или доли размаха сетки 0…1 по каждой оси.</summary>
 public enum AxisMode { Absolute, Relative }
 
-/// <summary>Категория активного ограничения: материал контрольной точки и сторона предела.</summary>
-public enum ActiveCategory { None, ConcreteCompression, ConcreteTension, RebarCompression, RebarTension }
+/// <summary>
+/// Категория активного ограничения: материал контрольной точки и сторона предела; у ширины раскрытия —
+/// условие (продолжительное/непродолжительное раскрытие, σs ≤ Rs,ser, сжатие бетона, граница тела ПС2).
+/// </summary>
+public enum ActiveCategory
+{
+   None, ConcreteCompression, ConcreteTension, RebarCompression, RebarTension,
+   AcrcLong, AcrcShort, SteelStress, CrackBody,
+}
 
 /// <summary>Положение точки набора относительно поверхности.</summary>
 public enum PointState

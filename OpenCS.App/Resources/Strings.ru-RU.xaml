@@ -1599,6 +1599,18 @@
    <system:String x:Key="CalcTaskKind_limit_force">Предельное усилие (k·N, k·Mx, k·My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_surface">Поверхность предельных усилий N–Mx–My</system:String>
    <system:String x:Key="CalcTaskKind_crack_surface">Поверхность образования трещин N–Mx–My</system:String>
+   <system:String x:Key="CalcTaskKind_acrc_surface">Поверхность ширины раскрытия трещин (ПС2)</system:String>
+   <system:String x:Key="AcrcSurface_LongShareHint">Доля длительной нагрузки k — одна на всё тело: длительные усилия (N, k·Mx, k·My). Строки набора с другой долей проверяйте задачей «Ширина раскрытия трещин».</system:String>
+   <system:String x:Key="AcrcSurface_LongShareInvalid">Доля длительной нагрузки k должна быть в пределах (0; 1].</system:String>
+   <system:String x:Key="AcrcSurface_UltInvalid">Предельная ширина раскрытия должна быть положительной.</system:String>
+   <system:String x:Key="LimitSurfaceAcrcNote">Тело построено для доли длительной нагрузки k = {0:G3} (acrc,ult: продолжительное {1:G3} мм, непродолжительное {2:G3} мм). Строки набора с другой долей проверяйте задачей «Ширина раскрытия трещин».</system:String>
+   <system:String x:Key="LimitSurfaceAcrcNotConverged">Узлов без сходимости: {0} — в них граница взята по последней сошедшейся пробе (нижняя оценка).</system:String>
+   <system:String x:Key="LimitSurfaceWarnNoTensileRebar">В части узлов в сечении с трещиной нет растянутой арматуры — ширина раскрытия не определена, граница взята по телу образования трещин.</system:String>
+   <system:String x:Key="LimitSurfaceLegend_AcrcLong">продолжительное раскрытие acrc,1</system:String>
+   <system:String x:Key="LimitSurfaceLegend_AcrcShort">непродолжительное раскрытие acrc</system:String>
+   <system:String x:Key="LimitSurfaceLegend_SteelStress">σs ≤ Rs,ser (п. 8.2.16)</system:String>
+   <system:String x:Key="LimitSurfaceLegend_CrackBody">граница образования трещин</system:String>
+   <system:String x:Key="LimitSurfaceLegend_ConcreteCompression_Acrc">сжатие бетона в сечении с трещиной</system:String>
    <system:String x:Key="LimitSurfaceColoring_SingleSign_Crack">зона (8.53)/(8.54)</system:String>
    <system:String x:Key="LimitSurfaceLegend_SingleSign_Crack">однозначная эпюра (8.53)/(8.54)</system:String>
    <system:String x:Key="LimitSurfaceLegend_ConcreteTension_Crack">трещина: бетон, растяжение εbt</system:String>

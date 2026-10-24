@@ -745,6 +745,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsCrackWidth));
          OnPropertyChanged(nameof(IsCrackWidthBatch));
          OnPropertyChanged(nameof(IsCrackWidthAny));
+         OnPropertyChanged(nameof(IsAcrcSurface));
+         OnPropertyChanged(nameof(ShowCrackWidthParams));
          OnPropertyChanged(nameof(IsTotalCurvature));
          OnPropertyChanged(nameof(IsTotalCurvatureBatch));
          OnPropertyChanged(nameof(IsTotalCurvatureAny));
@@ -865,6 +867,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsCrackWidth));
             OnPropertyChanged(nameof(IsCrackWidthBatch));
             OnPropertyChanged(nameof(IsCrackWidthAny));
+            OnPropertyChanged(nameof(IsAcrcSurface));
+            OnPropertyChanged(nameof(ShowCrackWidthParams));
             OnPropertyChanged(nameof(IsTotalCurvature));
             OnPropertyChanged(nameof(IsTotalCurvatureBatch));
             OnPropertyChanged(nameof(IsTotalCurvatureAny));
@@ -1063,10 +1067,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
    public bool IsMomentCurvatureBiaxial => Kind == "moment_curvature_biaxial";
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
-   /// <summary>Поверхность усилий (ПС1 или ПС2, образование трещин) — общий блок параметров.</summary>
-   public bool IsLimitSurface => Kind is "limit_surface" or "crack_surface";
-   /// <summary>Поверхность образования трещин: только характеристики 2-й группы.</summary>
-   public bool IsCrackSurface => Kind == "crack_surface";
+   /// <summary>Поверхность усилий (ПС1, ПС2 образование трещин или ширина раскрытия) — общий блок параметров.</summary>
+   public bool IsLimitSurface => Kind is "limit_surface" or "crack_surface" or "acrc_surface";
+   /// <summary>Поверхность ПС2 (образование трещин или ширина раскрытия): только характеристики 2-й группы.</summary>
+   public bool IsCrackSurface => Kind is "crack_surface" or "acrc_surface";
+   /// <summary>Поверхность ширины раскрытия: параметры crack_width с долей длительной нагрузки k, без выбора режима усилий.</summary>
+   public bool IsAcrcSurface => Kind == "acrc_surface";
+   /// <summary>Блок параметров ширины раскрытия (crack_width, пакет, поверхность acrc_surface).</summary>
+   public bool ShowCrackWidthParams => IsCrackWidthAny || IsAcrcSurface;
 
    bool limitSurfaceUseForceSet = true;
    /// <summary>Наносить на поверхность точки выбранного набора усилий.</summary>
@@ -1402,7 +1410,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            new() { Id = "force_item_long",  Label = Loc.S("CrackWidth_Mode_force_item_long") },
         ];
 
-   public bool ShowCrackWidthShare         => CrackWidthForcesMode == "share";
+   public bool ShowCrackWidthShare         => IsAcrcSurface || CrackWidthForcesMode == "share";
    public bool ShowCrackWidthManual        => IsCrackWidth && CrackWidthForcesMode == "manual";
    public bool ShowCrackWidthForceItemLong => IsCrackWidth && CrackWidthForcesMode == "force_item_long";
    public bool ShowCrackWidthTwoSets       => IsCrackWidthBatch && CrackWidthForcesMode == "two_sets";
@@ -2003,6 +2011,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "crack_surface",      Label = Loc.S("CalcTaskKind_crack_surface"),      GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "acrc_surface",       Label = Loc.S("CalcTaskKind_acrc_surface"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "sp63_crack_width",   Label = Loc.S("CalcTaskKind_sp63_crack_width"),   GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "sp63_deflection",    Label = Loc.S("CalcTaskKind_sp63_deflection"),    GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
@@ -2110,7 +2119,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SelectedForceItem = null;
          }
 
-         if (existing.Kind is "limit_surface" or "crack_surface")
+         if (existing.Kind is "limit_surface" or "crack_surface" or "acrc_surface")
          {
             LimitSurfaceAccuracy = LimitSurfaceTaskParams.Parse(existing.ParamsJson).Accuracy;
             LimitSurfaceUseForceSet = existing.ForceSetId != 0;
@@ -2286,7 +2295,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               }
           }
 
-          if (existing.Kind is "crack_width" or "crack_width_batch")
+          if (existing.Kind is "crack_width" or "crack_width_batch" or "acrc_surface")
           {
              var cwp = CrackWidthTaskParams.Parse(existing.ParamsJson);
              var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -2649,6 +2658,37 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             return;
          }
 
+         string surfaceJson = new LimitSurfaceTaskParams { Accuracy = LimitSurfaceAccuracy }.ToJson();
+         if (IsAcrcSurface)
+         {
+            // Ширина раскрытия: параметры crack_width (режим «доля», k ∈ (0; 1]) и точность — в одном ParamsJson.
+            var invAc = System.Globalization.CultureInfo.InvariantCulture;
+            if (!double.TryParse(CrackWidthLongShare, System.Globalization.NumberStyles.Float, invAc, out var k)
+                || !(k > 0 && k <= 1))
+            {
+               MessageBox.Show(Loc.S("AcrcSurface_LongShareInvalid"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            if (!double.TryParse(CrackWidthAcrcUltLong, System.Globalization.NumberStyles.Float, invAc, out var ultLong)
+                || !double.TryParse(CrackWidthAcrcUltShort, System.Globalization.NumberStyles.Float, invAc, out var ultShort)
+                || !(ultLong > 0) || !(ultShort > 0))
+            {
+               MessageBox.Show(Loc.S("AcrcSurface_UltInvalid"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            double.TryParse(CrackWidthPhi2, System.Globalization.NumberStyles.Float, invAc, out var phi2Ac);
+            var node = System.Text.Json.Nodes.JsonNode.Parse(new CrackWidthTaskParams
+            {
+               AcrcUltLong = ultLong, AcrcUltShort = ultShort, Phi2 = phi2Ac,
+               ForcesMode = "share", LongShare = k, LongPartUseNL = CrackWidthLongPartUseNL,
+            }.ToJson())!.AsObject();
+            foreach (var (key, value) in System.Text.Json.Nodes.JsonNode.Parse(surfaceJson)!.AsObject())
+               node[key] = value?.DeepClone();
+            surfaceJson = node.ToJsonString();
+         }
+
          Result = new CalcTask
          {
             Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
@@ -2657,7 +2697,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceSetId = LimitSurfaceUseForceSet ? SelectedForceSet!.Id : 0,
             ForceItemId = 0,
             CalcType = SelectedCalcType,
-            ParamsJson = new LimitSurfaceTaskParams { Accuracy = LimitSurfaceAccuracy }.ToJson()
+            ParamsJson = surfaceJson
          };
          _window.DialogResult = true;
          return;

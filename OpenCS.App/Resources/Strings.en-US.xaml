@@ -1599,6 +1599,18 @@
    <system:String x:Key="CalcTaskKind_limit_force">Limit load (k·N, k·Mx, k·My)</system:String>
    <system:String x:Key="CalcTaskKind_limit_surface">Limit force surface N–Mx–My</system:String>
    <system:String x:Key="CalcTaskKind_crack_surface">Crack formation surface N–Mx–My</system:String>
+   <system:String x:Key="CalcTaskKind_acrc_surface">Crack width surface (SLS)</system:String>
+   <system:String x:Key="AcrcSurface_LongShareHint">Long-term load share k is one for the whole body: long-term forces (N, k·Mx, k·My). Check rows of the set with a different share with the "Crack width" task.</system:String>
+   <system:String x:Key="AcrcSurface_LongShareInvalid">Long-term load share k must be within (0; 1].</system:String>
+   <system:String x:Key="AcrcSurface_UltInvalid">Crack width limit must be positive.</system:String>
+   <system:String x:Key="LimitSurfaceAcrcNote">The body is built for the long-term load share k = {0:G3} (acrc,ult: long-term {1:G3} mm, short-term {2:G3} mm). Check rows with a different share with the "Crack width" task.</system:String>
+   <system:String x:Key="LimitSurfaceAcrcNotConverged">Nodes without convergence: {0} — the boundary there is the last converged probe (lower estimate).</system:String>
+   <system:String x:Key="LimitSurfaceWarnNoTensileRebar">At some nodes the cracked section has no tensile rebar — crack width is undefined, the boundary is taken from the crack formation body.</system:String>
+   <system:String x:Key="LimitSurfaceLegend_AcrcLong">long-term crack width acrc,1</system:String>
+   <system:String x:Key="LimitSurfaceLegend_AcrcShort">short-term crack width acrc</system:String>
+   <system:String x:Key="LimitSurfaceLegend_SteelStress">σs ≤ Rs,ser (cl. 8.2.16)</system:String>
+   <system:String x:Key="LimitSurfaceLegend_CrackBody">crack formation boundary</system:String>
+   <system:String x:Key="LimitSurfaceLegend_ConcreteCompression_Acrc">concrete compression in cracked section</system:String>
    <system:String x:Key="LimitSurfaceColoring_SingleSign_Crack">zone (8.53)/(8.54)</system:String>
    <system:String x:Key="LimitSurfaceLegend_SingleSign_Crack">single-sign diagram (8.53)/(8.54)</system:String>
    <system:String x:Key="LimitSurfaceLegend_ConcreteTension_Crack">crack: concrete, tension εbt</system:String>

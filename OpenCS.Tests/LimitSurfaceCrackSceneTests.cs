@@ -58,6 +58,25 @@ public class LimitSurfaceCrackSceneTests
     }
 
     [Fact]
+    public void Acrc_MomentDefault_ConditionCategories_NoSingleSign()
+    {
+        // Сетка тела ПС2 с кодом критерия acrc: проверяются правила сцены, а не построитель.
+        var data = Build(LimitSurfaceResultData.CriterionCrack);
+        data.Criterion = LimitSurfaceResultData.CriterionAcrc;
+        var scene = new LimitSurfaceScene(data);
+        Assert.True(scene.IsAcrc);
+        Assert.Equal(UtilizationMode.Moment, scene.DefaultMode);
+        Assert.False(scene.SupportsSingleSign);
+        Assert.Equal(ActiveCategory.AcrcLong, scene.CategoryOf(new ActiveConstraint(-1, 1, false, ConstraintKind.AcrcLong)));
+        Assert.Equal(ActiveCategory.AcrcShort, scene.CategoryOf(new ActiveConstraint(-1, 1, false, ConstraintKind.AcrcShort)));
+        Assert.Equal(ActiveCategory.SteelStress, scene.CategoryOf(new ActiveConstraint(-1, 1, false, ConstraintKind.SteelStress)));
+        Assert.Equal(ActiveCategory.ConcreteCompression, scene.CategoryOf(new ActiveConstraint(-1, -1, false, ConstraintKind.ConcreteCompression)));
+        Assert.Equal(ActiveCategory.CrackBody, scene.CategoryOf(new ActiveConstraint(0, 1, false, ConstraintKind.CrackBody)));
+        Assert.Equal("LimitSurfaceLegend_ConcreteCompression_Acrc", scene.ActiveLegendKey(ActiveCategory.ConcreteCompression));
+        Assert.Equal("LimitSurfaceLegend_AcrcShort", scene.ActiveLegendKey(ActiveCategory.AcrcShort));
+    }
+
+    [Fact]
     public void ActiveNote_ByRule()
     {
         var scene = Crack.Value;

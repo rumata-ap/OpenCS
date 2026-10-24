@@ -28,10 +28,10 @@ public sealed partial class LimitSurfaceScene
    public ForcePoint Max { get; }
 
    /// <summary>
-   /// Режим луча при открытии окна: у ПС2 — N = const (п. 8.2.4, M &gt; M_crc при данном N, как задача cracking),
-   /// у ПС1 — пропорциональный.
+   /// Режим луча при открытии окна: у ПС2 — N = const (п. 8.2.4, M &gt; M_crc при данном N, как задачи cracking и
+   /// crack_width), у ПС1 — пропорциональный.
    /// </summary>
-   public UtilizationMode DefaultMode => IsCrack ? UtilizationMode.Moment : UtilizationMode.All;
+   public UtilizationMode DefaultMode => IsCrack || IsAcrc ? UtilizationMode.Moment : UtilizationMode.All;
 
    /// <summary>Кисп и положение каждой точки набора для режима луча.</summary>
    public IReadOnlyList<ScenePoint> EvaluatePoints(UtilizationMode mode) => Data.Points.Select((p, i) =>
@@ -58,6 +58,14 @@ public sealed partial class LimitSurfaceScene
    /// <summary>Категория активного ограничения: материал контрольной точки и сторона предела.</summary>
    public ActiveCategory CategoryOf(ActiveConstraint a)
    {
+      switch (a.Kind)
+      {
+         case ConstraintKind.AcrcLong: return ActiveCategory.AcrcLong;
+         case ConstraintKind.AcrcShort: return ActiveCategory.AcrcShort;
+         case ConstraintKind.SteelStress: return ActiveCategory.SteelStress;
+         case ConstraintKind.ConcreteCompression: return ActiveCategory.ConcreteCompression;
+         case ConstraintKind.CrackBody: return ActiveCategory.CrackBody;
+      }
       if (a.PointIndex < 0 || a.PointIndex >= Data.ControlPoints.Count) return ActiveCategory.None;
       bool rebar = Data.ControlPoints[a.PointIndex].Kind == StrainPointKind.Rebar;
       return (rebar, a.Side < 0) switch

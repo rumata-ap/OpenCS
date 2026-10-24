@@ -56,7 +56,7 @@ public static class CalcTaskGroups
             or "shell_simpl_capri_design_sls" or "shell_simpl_capri_design_sls_batch"
             or "shell_layered_sls" or "shell_layered_sls_batch"
             or "cracking" or "cracking_batch" or "crack_surface"
-            or "crack_width" or "crack_width_batch"
+            or "crack_width" or "crack_width_batch" or "acrc_surface"
             or "sp63_crack_width"
             or "sp63_deflection"
             or "total_curvature" or "total_curvature_batch"           => Sls,

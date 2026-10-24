@@ -17,7 +17,8 @@ public static class LimitSurfaceRowTaskFactory
 
    /// <summary>
    /// Вид одиночной задачи для поверхности и режима луча или null, если её нет: у ПС2 (образование трещин) есть
-   /// только задача M_crc при N = const (п. 8.2.4) — режим Moment.
+   /// только задача M_crc при N = const (п. 8.2.4) — режим Moment; у ширины раскрытия — crack_width при
+   /// N = const (Mcrc по направлению момента) — тоже только Moment.
    /// </summary>
    public static string? SingleKind(string surfaceKind, UtilizationMode mode) => (surfaceKind, mode) switch
    {
@@ -25,6 +26,7 @@ public static class LimitSurfaceRowTaskFactory
       ("limit_surface", UtilizationMode.Axial) => "limit_axial",
       ("limit_surface", _) => "limit_force",
       ("crack_surface", UtilizationMode.Moment) => "cracking",
+      ("acrc_surface", UtilizationMode.Moment) => "crack_width",
       _ => null,
    };
 
@@ -36,7 +38,10 @@ public static class LimitSurfaceRowTaskFactory
    {
       string kind = SingleKind(surface.Kind, mode)
          ?? throw new InvalidOperationException($"Для поверхности «{surface.Kind}» в режиме {mode} одиночной задачи нет.");
-      var obj = JsonNode.Parse(new LimitForceParams { N = p.N, Mx = p.Mx, My = p.My }.ToJson())!.AsObject();
+      string json = kind == "crack_width"
+         ? CrackWidthParams(surface, p).ToJson()
+         : new LimitForceParams { N = p.N, Mx = p.Mx, My = p.My }.ToJson();
+      var obj = JsonNode.Parse(json)!.AsObject();
       obj[SourceProp] = new JsonObject { ["taskId"] = surface.Id, ["num"] = p.Num };
       return new CalcTask
       {
@@ -47,6 +52,18 @@ public static class LimitSurfaceRowTaskFactory
          ForceItemId = 0,
          Tag = $"{sectionTag} — {(string.IsNullOrEmpty(p.Label) ? p.Num.ToString() : p.Label)}",
          ParamsJson = obj.ToJsonString(),
+      };
+   }
+
+   /// <summary>Ширина раскрытия по строке: усилия строки как полные, длительные — доля k тела (режим «доля»).</summary>
+   static CrackWidthTaskParams CrackWidthParams(CalcTask surface, LimitSurfacePointRecord p)
+   {
+      var s = CrackWidthTaskParams.Parse(surface.ParamsJson);
+      return new CrackWidthTaskParams
+      {
+         N = p.N, Mx = p.Mx, My = p.My,
+         AcrcUltLong = s.AcrcUltLong, AcrcUltShort = s.AcrcUltShort, Phi2 = s.Phi2,
+         ForcesMode = "share", LongShare = s.LongShare, LongPartUseNL = s.LongPartUseNL,
       };
    }
 

@@ -133,4 +133,42 @@ public sealed class StrainSurfaceHandlerTests : IDisposable
 
     [Fact]
     public void CrackKind_IsSls() => Assert.Equal(CalcTaskGroups.Sls, CalcTaskGroups.Classify("crack_surface"));
+
+    CalcResult RunAcrc(CalcType calc, int forceSetId = 0)
+    {
+        var section = ReportFixtures.BuildSurfaceBeam();
+        var ch = section.Areas.First(a => a.Material?.Type == MatType.Concrete).Material!.GetChars(calc)!;
+        ch.Ec0 = -0.002;
+        ch.Et0 = 0.0001;
+        return TaskRunner.Run(new CalcTask { Id = 3, Kind = "acrc_surface", CalcType = calc, ForceSetId = forceSetId,
+                                             ParamsJson = """{"Accuracy":"normal","LongShare":0.6,"Phi2":0.5,"AcrcUltLong":0.3,"AcrcUltShort":0.4,"LongPartUseNL":true}""" },
+            section, new LoadItem(), CalcSettings.Default, new TaskRunContext { Database = _db });
+    }
+
+    [Fact]
+    public void Acrc_SecondGroup_MeshWithAcrcParams()
+    {
+        var r = RunAcrc(CalcType.N, 1);
+        Assert.True(r.Status == "ok", r.DataJson);
+        var data = LimitSurfaceResultData.Parse(r.DataJson);
+        Assert.Equal(LimitSurfaceResultData.CriterionAcrc, data.Criterion);
+        Assert.Equal(new LimitSurfaceAcrcParams(0.6, 0.5, 0.3, 0.4, true), data.Acrc);
+        Assert.True(data.Ten);
+        Assert.Equal(data.VertexCount, LimitSurfaceResultData.DecodeMesh(data.Mesh).Vertices.Count);
+        Assert.Equal(2, data.Points.Count);
+    }
+
+    [Theory]
+    [InlineData(CalcType.C)]
+    [InlineData(CalcType.CL)]
+    public void Acrc_FirstGroup_Error(CalcType calc)
+    {
+        var r = RunAcrc(calc);
+        Assert.Equal("error", r.Status);
+        using var doc = System.Text.Json.JsonDocument.Parse(r.DataJson);
+        Assert.Contains("2-й группы", doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public void AcrcKind_IsSls() => Assert.Equal(CalcTaskGroups.Sls, CalcTaskGroups.Classify("acrc_surface"));
 }

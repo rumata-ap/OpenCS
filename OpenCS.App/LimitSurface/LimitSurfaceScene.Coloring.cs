@@ -13,11 +13,18 @@ public sealed partial class LimitSurfaceScene
       ActiveCategory.ConcreteTension => "#A5A5A5",
       ActiveCategory.RebarCompression => "#70AD47",
       ActiveCategory.RebarTension => "#ED7D31",
+      ActiveCategory.AcrcLong => "#7030A0",
+      ActiveCategory.AcrcShort => "#C55A11",
+      ActiveCategory.SteelStress => "#FFC000",
+      ActiveCategory.CrackBody => "#A5A5A5",
       _ => "#BFBFBF",
    };
 
    /// <summary>Поверхность образования трещин (ПС2).</summary>
    public bool IsCrack => Data.Criterion == LimitSurfaceResultData.CriterionCrack;
+
+   /// <summary>Поверхность ширины раскрытия трещин (ПС2).</summary>
+   public bool IsAcrc => Data.Criterion == LimitSurfaceResultData.CriterionAcrc;
 
    /// <summary>Раскраска «однозначная эпюра»: (8.53) у ПС1, (8.53)/(8.54) у ПС2.</summary>
    public bool SupportsSingleSign => Data.Criterion is LimitSurfaceResultData.CriterionUls or LimitSurfaceResultData.CriterionCrack;
@@ -28,7 +35,9 @@ public sealed partial class LimitSurfaceScene
 
    /// <summary>Ключ подписи категории активного ограничения; у ПС2 растяжение бетона — это трещина.</summary>
    public string ActiveLegendKey(ActiveCategory c) =>
-      c == ActiveCategory.ConcreteTension && IsCrack ? "LimitSurfaceLegend_ConcreteTension_Crack" : $"LimitSurfaceLegend_{c}";
+      c == ActiveCategory.ConcreteTension && IsCrack ? "LimitSurfaceLegend_ConcreteTension_Crack"
+      : c == ActiveCategory.ConcreteCompression && IsAcrc ? "LimitSurfaceLegend_ConcreteCompression_Acrc"
+      : $"LimitSurfaceLegend_{c}";
 
    /// <summary>Пометка правила однозначной эпюры к подписи ограничения: растяжение — (8.54), иначе (8.53).</summary>
    public string SingleSignNote(ActiveCategory c, bool singleSign) =>
