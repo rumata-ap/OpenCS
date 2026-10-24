@@ -206,7 +206,9 @@ public sealed class CrackWidthSolver
         double mcrc = Math.Sqrt(crcRes.Mx * crcRes.Mx + crcRes.My * crcRes.My);
         double epsTensionLimit = crcSolver.TensionLimit();
 
-        double mLong = Math.Sqrt(mxLong * mxLong + myLong * myLong);
+        // Трещин нет, только если их не образует и ПОЛНАЯ нагрузка: длительная ниже Mcrc при
+        // полной выше даёт непродолжительное раскрытие acrc2 (см. CrackWidthCore.Evaluate).
+        double mTotal = Math.Sqrt(mxTot * mxTot + myTot * myTot);
 
         CrackWidthResult WithCrackingFields(CrackWidthResult r)
         {
@@ -221,7 +223,7 @@ public sealed class CrackWidthSolver
 
         var zero = new CrackWidthResult { Cracked = false, AcrcUltLong = _acrcUltLong, AcrcUltShort = _acrcUltShort };
 
-        if (mLong <= mcrc || !crcRes.StrainPlane.HasValue) return WithCrackingFields(zero);
+        if (mTotal <= mcrc || !crcRes.StrainPlane.HasValue) return WithCrackingFields(zero);
 
         var onset = _core.Onset(N, crcRes.Mx, crcRes.My, crcRes.StrainPlane.Value, byAxialForce: false);
         if (onset == null) return WithCrackingFields(zero);

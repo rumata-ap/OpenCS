@@ -104,30 +104,50 @@ public sealed class CrackWidthCore
         double phi3Eff = phi3 ?? (n > 1e-3 ? 1.2 : 1.0);
         var zero = new CrackWidthResult { Cracked = false, AcrcUltLong = _acrcUltLong, AcrcUltShort = _acrcUltShort };
 
+        // Длительная нагрузка ниже Mcrc (трещины образует только полная): по (8.120) при
+        // acrc1 = acrc3 = 0 непродолжительное раскрытие равно acrc2. Трещина от продольной силы
+        // (ByAxialForce) растрескивает сечение при любом моменте той же N.
+        double mcrcOnset = Math.Sqrt(onset.MxCrc * onset.MxCrc + onset.MyCrc * onset.MyCrc);
+        bool longCracked = onset.ByAxialForce || Math.Sqrt(mxLong * mxLong + myLong * myLong) > mcrcOnset;
+
         // Упругая начальная догадка (учитывает армирование — приведённое сечение, см.
         // CrossSection.ElasticProps), затем один демпфированный Ньютон прямо к цели с
         // ten=false — так же, как это делает референсный python-солвер (solve_biaxial):
         // без промежуточной рампы, полагаясь на backtracking line search.
-        var planeLong = SolveDamped(n, mxLong, myLong, seedLong ?? SafeGuess(n, mxLong, myLong),
-            _calcServiceLong, out bool convLong);
-        if (!convLong) return zero;
+        Kurvature? planeLong = null;
+        if (longCracked)
+        {
+            planeLong = SolveDamped(n, mxLong, myLong, seedLong ?? SafeGuess(n, mxLong, myLong),
+                _calcServiceLong, out bool convLong);
+            if (!convLong) return zero;
+        }
 
         Kurvature planeTotal;
-        if (Math.Abs(mxTotal - mxLong) < 1e-12 && Math.Abs(myTotal - myLong) < 1e-12)
+        if (planeLong.HasValue && Math.Abs(mxTotal - mxLong) < 1e-12 && Math.Abs(myTotal - myLong) < 1e-12)
         {
-            planeTotal = planeLong;
+            planeTotal = planeLong.Value;
         }
         else
         {
             planeTotal = SolveDamped(n, mxTotal, myTotal, seedTotal ?? SafeGuess(n, mxTotal, myTotal),
                 _calcService, out var convTotal);
-            if (!convTotal) planeTotal = planeLong; // фолбэк для σs,total
+            if (!convTotal)
+            {
+                if (!planeLong.HasValue) return zero;
+                planeTotal = planeLong.Value; // фолбэк для σs,total
+            }
         }
 
-        var (sigmaLongKPa, epsLong, asTens, dsEq, tensCentroid) = TensileRebarProps(_section, planeLong, _calcServiceLong);
+        // Растянутая арматура, ls и Abt — по длительной плоскости, а без трещин от длительной
+        // нагрузки — по полной.
+        var tensPlane = planeLong ?? planeTotal;
+        var tensCalc = planeLong.HasValue ? _calcServiceLong : _calcService;
+        var (sigmaTensKPa, epsTens, asTens, dsEq, tensCentroid) = TensileRebarProps(_section, tensPlane, tensCalc);
         if (asTens < 1e-15 || dsEq < 1e-15) return zero;
+        double sigmaLongKPa = planeLong.HasValue ? sigmaTensKPa : 0.0;
+        double epsLong = planeLong.HasValue ? epsTens : 0.0;
 
-        var geom = CrackSectionGeometry.Compute(_section, onset.CrackPlane, planeLong, tensCentroid);
+        var geom = CrackSectionGeometry.Compute(_section, onset.CrackPlane, tensPlane, tensCentroid);
         double abt = geom.Abt;
         if (abt < 1e-15) return zero;
 
@@ -140,8 +160,12 @@ public sealed class CrackWidthCore
 
         double esKPa = RebarEsKPa(_section);
 
-        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, onset.SigmaCrcLong, epsLong, onset.EpsCrcLong, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa);
-        var (acrc3, _) = SingleAcrc(sigmaLongKPa, onset.SigmaCrcLong, epsLong, onset.EpsCrcLong, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc1, psiS) = planeLong.HasValue
+            ? SingleAcrc(sigmaLongKPa, onset.SigmaCrcLong, epsLong, onset.EpsCrcLong, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa)
+            : (0.0, 0.0);
+        var (acrc3, _) = planeLong.HasValue
+            ? SingleAcrc(sigmaLongKPa, onset.SigmaCrcLong, epsLong, onset.EpsCrcLong, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa)
+            : (0.0, 0.0);
         var (acrc2, psiS2) = SingleAcrc(sigmaTotalKPa, onset.SigmaCrcShort, epsTotal, onset.EpsCrcShort, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
 
         var acrcByRebar = ComputeAcrcByRebar(
@@ -526,16 +550,19 @@ public sealed class CrackWidthCore
     /// каждая из 4 плоскостей требует своего прохода — ε сопоставляются по ссылке на Fiber.
     /// </summary>
     List<RebarAcrcEntry> ComputeAcrcByRebar(
-        Kurvature planeLong, Kurvature planeCrcLong, CalcType calcServiceLong,
+        Kurvature? planeLong, Kurvature planeCrcLong, CalcType calcServiceLong,
         Kurvature planeTotal, Kurvature planeCrcShort, CalcType calcService,
         double lsM, double phi3, double esKPa)
     {
+        if (!planeLong.HasValue)
+            return ComputeShortAcrcByRebar(planeTotal, planeCrcShort, calcService, lsM, phi3, esKPa);
+
         var epsCrcLongByFiber = EpsByFiber(planeCrcLong);
         var epsTotalByFiber = EpsByFiber(planeTotal);
         var epsCrcShortByFiber = EpsByFiber(planeCrcShort);
 
         var result = new List<RebarAcrcEntry>();
-        foreach (var (area, ka) in _section.EnumerateAreas(planeLong))
+        foreach (var (area, ka) in _section.EnumerateAreas(planeLong.Value))
         {
             if (!IsRebar(area)) continue;
             var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
@@ -578,6 +605,38 @@ public sealed class CrackWidthCore
                 double acrcShortMm = acrcLongMm + acrc2Mm - acrc3Mm;
                 result.Add(new RebarAcrcEntry(f.X, f.Y, f.Diameter, epsLong, epsCrcLong, sigLong, sigCrcLong,
                     psiSj, acrcLongMm, psiS2j, acrcShortMm));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// По-стержневая ширина раскрытия, когда трещины образует только полная нагрузка: длительная
+    /// часть нулевая (σ, ε, ψs длительной — 0), непродолжительная — acrc2 стержня.
+    /// </summary>
+    List<RebarAcrcEntry> ComputeShortAcrcByRebar(Kurvature planeTotal, Kurvature planeCrcShort, CalcType calcService,
+        double lsM, double phi3, double esKPa)
+    {
+        var epsCrcShortByFiber = EpsByFiber(planeCrcShort);
+        var result = new List<RebarAcrcEntry>();
+        foreach (var (area, ka) in _section.EnumerateAreas(planeTotal))
+        {
+            if (!IsRebar(area)) continue;
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcService, out var ownDgrShort)) continue;
+
+            foreach (var f in area.Fibers)
+            {
+                if (f.TypeFiber != FiberType.point) continue;
+                double epsTotal = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
+                if (epsTotal <= 0.0) continue;
+                double sigTotal = ownDgrShort.Sig(epsTotal, out _);
+                if (sigTotal <= 0.0) continue;
+
+                double epsCrcShort = Math.Max(epsCrcShortByFiber.TryGetValue(f, out var ecs) ? ecs : 0.0, 0.0);
+                double sigCrcShort = epsCrcShort > 0.0 ? ownDgrShort.Sig(epsCrcShort, out _) : 0.0;
+                var (acrc2Mm, psiS2j) = SingleAcrc(sigTotal, sigCrcShort, epsTotal, epsCrcShort, lsM, phi1: 1.0, phi3, esKPa);
+                result.Add(new RebarAcrcEntry(f.X, f.Y, f.Diameter, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, psiS2j, acrc2Mm));
             }
         }
         return result;
