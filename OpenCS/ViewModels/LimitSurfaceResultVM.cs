@@ -13,7 +13,7 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
     UtilizationMode _mode = UtilizationMode.All;
     AxisMode _axes = AxisMode.Relative;
     SurfaceColoring _coloring = SurfaceColoring.Active;
-    bool _showEdges, _translucent, _showSlicePlane = true;
+    bool _showEdges = true, _translucent, _showSlicePlane = true;
     ScenePoint? _selected;
     SliceKind _sliceKind = SliceKind.AtN;
     double _sliceLevel;
@@ -72,7 +72,7 @@ public sealed class LimitSurfaceResultVM : ViewModelBase
     public AxisMode Axes { get => _axes; set { _axes = value; OnPropertyChanged(); Raise(); } }
     /// <summary>Раскраска поверхности.</summary>
     public SurfaceColoring Coloring { get => _coloring; set { _coloring = value; OnPropertyChanged(); Raise(); } }
-    /// <summary>Показывать рёбра сетки.</summary>
+    /// <summary>Показывать меридианы и параллели (у старых результатов без углов — рёбра треугольников).</summary>
     public bool ShowEdges { get => _showEdges; set { _showEdges = value; OnPropertyChanged(); Raise(); } }
     /// <summary>Полупрозрачная поверхность.</summary>
     public bool Translucent { get => _translucent; set { _translucent = value; OnPropertyChanged(); Raise(); } }

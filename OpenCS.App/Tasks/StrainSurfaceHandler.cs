@@ -44,9 +44,10 @@ public sealed class StrainSurfaceHandler : ITaskHandler
          bool ten = settings.ResolveConcreteTension(task.CalcType);
          var criterion = CriterionFor(task.Kind, task.CalcType, ten);
          var parameters = LimitSurfaceTaskParams.Parse(task.ParamsJson);
+         var options = parameters.ToOptions();
 
          var sw = Stopwatch.StartNew();
-         var mesh = new StrainDomainMesher(section, criterion, parameters.ToOptions())
+         var mesh = new StrainDomainMesher(section, criterion, options)
             .Build(ctx?.CancellationToken ?? default);
          sw.Stop();
 
@@ -65,6 +66,8 @@ public sealed class StrainSurfaceHandler : ITaskHandler
             VertexCount = mesh.Vertices.Count,
             MeridianCount = mesh.MeridianCount,
             BuildSeconds = sw.Elapsed.TotalSeconds,
+            InitialMeridians = options.InitialMeridians,
+            ThetaIntervals = options.ThetaIntervals,
          };
          if (forceSet is { SecondOrder: false } && data.Points.Count > 0)
             data.Warnings.Add(LimitSurfaceWarnings.EtaNotApplied);

@@ -48,5 +48,9 @@ public sealed record ColorGroup(string ColorHex, string LegendKey, string? Legen
 /// <summary>Вид среза: Mx–My при N; N–My при Mx; N–Mx при My; N–M по направлению α.</summary>
 public enum SliceKind { AtN, AtMx, AtMy, NM }
 
+/// <summary>Линии сетки параметров на поверхности: меридианы (полюс → полюс) и замкнутые параллели.</summary>
+public sealed record SurfaceGridLines(IReadOnlyList<IReadOnlyList<ForcePoint>> Meridians,
+   IReadOnlyList<IReadOnlyList<ForcePoint>> Parallels);
+
 /// <summary>Контуры среза на одном уровне в 2D-координатах среза.</summary>
 public sealed record SliceCurve(double Level, IReadOnlyList<IReadOnlyList<(double X, double Y)>> Loops);

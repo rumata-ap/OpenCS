@@ -23,7 +23,7 @@ public partial class LimitSurfaceResultView : UserControl
     readonly AppViewModel? _app;
     readonly CalcTask? _task;
     readonly ModelVisual3D _surface = new(), _points = new(), _slicePlane = new();
-    readonly LinesVisual3D _edges = new() { Thickness = 0.5, Color = Colors.DimGray };
+    readonly LinesVisual3D _edges = new() { Thickness = 1, Color = Colors.DimGray };
     readonly List<(Point3D Pos, ScenePoint Point)> _pointHits = [];
     readonly WpfPlotService _slicePlot;
     bool _syncingSlice;
@@ -118,9 +118,15 @@ public partial class LimitSurfaceResultView : UserControl
         _surface.Content = group;
         Legend.ItemsSource = legend;
 
-        // Рёбра сетки.
+        // Меридианы и параллели; у старых результатов без углов — рёбра треугольников.
         var edges = new Point3DCollection();
-        if (_vm.ShowEdges)
+        if (_vm.ShowEdges && scene.HasGridLines)
+        {
+            var grid = scene.GridLines();
+            foreach (var line in grid.Meridians.Concat(grid.Parallels))
+                for (int i = 0; i + 1 < line.Count; i++) { edges.Add(P(line[i])); edges.Add(P(line[i + 1])); }
+        }
+        else if (_vm.ShowEdges)
             foreach (var (a, b, c) in scene.Mesh.Triangles)
             {
                 Point3D pa = P(scene.Mesh.Vertices[a]), pb = P(scene.Mesh.Vertices[b]), pc = P(scene.Mesh.Vertices[c]);

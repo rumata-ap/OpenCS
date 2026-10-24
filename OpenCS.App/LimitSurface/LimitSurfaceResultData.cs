@@ -25,7 +25,8 @@ public static class LimitSurfaceWarnings
 
 /// <summary>
 /// Результат задачи поверхности предельных усилий в CalcResult.DataJson. Сетка — бинарный блок
-/// (gzip + base64): вершины, треугольники, плоскости деформаций, активные ограничения, меридианы.
+/// (gzip + base64): вершины, треугольники, плоскости деформаций, активные ограничения, меридианы и
+/// (в конце блока, может отсутствовать) углы (θ, φ) вершин.
 /// Изломы и журнал адаптации не сохраняются — они нужны только для отладки построителя.
 /// </summary>
 public sealed class LimitSurfaceResultData
@@ -63,6 +64,10 @@ public sealed class LimitSurfaceResultData
    public int MeridianCount { get; set; }
    /// <summary>Время построения сетки, с.</summary>
    public double BuildSeconds { get; set; }
+   /// <summary>Начальное число меридианов построителя — по ним рисуются линии меридианов; 0 — неизвестно.</summary>
+   public int InitialMeridians { get; set; }
+   /// <summary>Число базовых интервалов по θ — по ним рисуются параллели; 0 — неизвестно.</summary>
+   public int ThetaIntervals { get; set; }
 
    /// <summary>Сериализация в DataJson.</summary>
    public string ToJson() => JsonSerializer.Serialize(this, Json);
@@ -94,6 +99,8 @@ public sealed class LimitSurfaceResultData
          foreach (var a in mesh.Active) { w.Write(a.PointIndex); w.Write((sbyte)a.Side); w.Write(a.SingleSign); }
          w.Write(mesh.MeridianOf.Count);
          foreach (int m in mesh.MeridianOf) w.Write(m);
+         w.Write(mesh.Angles.Count);
+         foreach (var (t, p) in mesh.Angles) { w.Write(t); w.Write(p); }
       }
       return Convert.ToBase64String(ms.ToArray());
    }
@@ -113,6 +120,15 @@ public sealed class LimitSurfaceResultData
       for (int i = 0; i < active.Length; i++) active[i] = new(r.ReadInt32(), r.ReadSByte(), r.ReadBoolean());
       var meridianOf = new int[r.ReadInt32()];
       for (int i = 0; i < meridianOf.Length; i++) meridianOf[i] = r.ReadInt32();
-      return new LimitSurfaceMesh(vertices, triangles, planes, active, meridianOf: meridianOf);
+      var angles = new (double, double)[ReadOptionalCount(r)];
+      for (int i = 0; i < angles.Length; i++) angles[i] = (r.ReadDouble(), r.ReadDouble());
+      return new LimitSurfaceMesh(vertices, triangles, planes, active, meridianOf: meridianOf, angles: angles);
+   }
+
+   /// <summary>Длина необязательного хвостового раздела; конец потока — раздела нет (блок старой записи).</summary>
+   static int ReadOptionalCount(BinaryReader r)
+   {
+      try { return r.ReadInt32(); }
+      catch (EndOfStreamException) { return 0; }
    }
 }

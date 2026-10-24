@@ -1624,7 +1624,7 @@
    <system:String x:Key="LimitSurfaceColoring_SingleSign">zone (8.53)</system:String>
    <system:String x:Key="LimitSurfaceColoring_ByN">by N</system:String>
    <system:String x:Key="LimitSurfaceColoring_Mono">single colour</system:String>
-   <system:String x:Key="LimitSurfaceShowEdges">mesh edges</system:String>
+   <system:String x:Key="LimitSurfaceShowEdges">meridians and parallels</system:String>
    <system:String x:Key="LimitSurfaceTranslucent">translucent</system:String>
    <system:String x:Key="LimitSurfaceShowSlicePlane">slice plane</system:String>
    <system:String x:Key="LimitSurfaceLegend_ConcreteCompression">concrete, compression εb</system:String>

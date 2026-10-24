@@ -28,6 +28,17 @@ public class LimitSurfaceResultDataTests
         Assert.Equal(mesh.Active, back.Active);
         Assert.Equal(mesh.MeridianOf, back.MeridianOf);
         Assert.Equal(mesh.StrainPlanes.Select(k => (k.e0, k.ky, k.kz)), back.StrainPlanes.Select(k => (k.e0, k.ky, k.kz)));
+        Assert.Equal(mesh.Angles, back.Angles);
+    }
+
+    [Fact]
+    public void Mesh_WithoutAngles_StillDecodes()
+    {
+        var mesh = BuildMesh();
+        var bare = new LimitSurfaceMesh(mesh.Vertices, mesh.Triangles, mesh.StrainPlanes, mesh.Active, meridianOf: mesh.MeridianOf);
+        var back = LimitSurfaceResultData.DecodeMesh(LimitSurfaceResultData.EncodeMesh(bare));
+        Assert.Equal(mesh.Vertices, back.Vertices);
+        Assert.Empty(back.Angles);
     }
 
     [Theory]

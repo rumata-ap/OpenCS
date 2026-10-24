@@ -28,6 +28,8 @@ public sealed class LimitSurfaceSceneFixture
                 new(2, "снаружи", -100, -10_000, 0),
             ],
             VertexCount = mesh.Vertices.Count,
+            InitialMeridians = 12,
+            ThetaIntervals = 12,
         };
     }
 }
@@ -111,6 +113,38 @@ public class LimitSurfaceSceneTests(LimitSurfaceSceneFixture fx) : IClassFixture
             var cat = LimitSurfaceScene.Majority(scene.Mesh.Triangles[t], v => scene.CategoryOf(scene.Mesh.Active[v]));
             Assert.Equal($"LimitSurfaceLegend_{cat}", g.LegendKey);
         }
+    }
+
+    [Fact]
+    public void GridLines_BaseMeridiansAndParallels()
+    {
+        var scene = new LimitSurfaceScene(fx.Data);
+        var lines = scene.GridLines();
+        Assert.Equal(12, lines.Meridians.Count);
+        Assert.Equal(11, lines.Parallels.Count);
+        var v = scene.Mesh.Vertices;
+        foreach (var m in lines.Meridians)
+        {
+            Assert.Equal(v[0], m[0]);           // от полюса растяжения
+            Assert.Equal(v[1], m[^1]);          // к полюсу сжатия
+        }
+        // параллель замкнута и проходит по одному узлу на каждом меридиане
+        Assert.All(lines.Parallels, p => Assert.Equal(scene.Mesh.MeridianCount + 1, p.Count));
+        Assert.All(lines.Parallels, p => Assert.Equal(p[0], p[^1]));
+    }
+
+    [Fact]
+    public void GridLines_EmptyWithoutAngles()
+    {
+        var mesh = new LimitSurfaceScene(fx.Data).Mesh;
+        var bare = new LimitSurfaceMesh(mesh.Vertices, mesh.Triangles, mesh.StrainPlanes, mesh.Active, meridianOf: mesh.MeridianOf);
+        var scene = new LimitSurfaceScene(new LimitSurfaceResultData
+        {
+            Mesh = LimitSurfaceResultData.EncodeMesh(bare), ControlPoints = fx.Data.ControlPoints,
+            InitialMeridians = 12, ThetaIntervals = 12,
+        });
+        Assert.False(scene.HasGridLines);
+        Assert.Empty(scene.GridLines().Meridians);
     }
 
     [Fact]

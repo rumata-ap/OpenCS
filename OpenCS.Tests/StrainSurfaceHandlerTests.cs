@@ -51,6 +51,7 @@ public sealed class StrainSurfaceHandlerTests : IDisposable
         Assert.Equal(-400, data.Points[1].N);
         Assert.NotEmpty(data.ControlPoints);
         Assert.Contains(LimitSurfaceWarnings.EtaNotApplied, data.Warnings);
+        Assert.Equal((24, 24), (data.InitialMeridians, data.ThetaIntervals));
     }
 
     [Fact]

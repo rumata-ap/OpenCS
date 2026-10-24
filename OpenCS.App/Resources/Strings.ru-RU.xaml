@@ -1624,7 +1624,7 @@
    <system:String x:Key="LimitSurfaceColoring_SingleSign">зона (8.53)</system:String>
    <system:String x:Key="LimitSurfaceColoring_ByN">по N</system:String>
    <system:String x:Key="LimitSurfaceColoring_Mono">однотонная</system:String>
-   <system:String x:Key="LimitSurfaceShowEdges">рёбра сетки</system:String>
+   <system:String x:Key="LimitSurfaceShowEdges">меридианы и параллели</system:String>
    <system:String x:Key="LimitSurfaceTranslucent">полупрозрачная</system:String>
    <system:String x:Key="LimitSurfaceShowSlicePlane">секущая плоскость</system:String>
    <system:String x:Key="LimitSurfaceLegend_ConcreteCompression">бетон, сжатие εb</system:String>
