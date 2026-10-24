@@ -2,8 +2,9 @@ namespace CScore.LimitSurface;
 
 /// <summary>
 /// Область допустимых плоскостей деформаций сечения: каждая контрольная точка в своих пределах,
-/// для бетона — с правилом п. 8.1.30 СП 63 (ф. (8.53)) при однозначной эпюре. Граница по лучу
-/// находится в замкнутом виде: отношение ε1/ε2 от масштаба луча не зависит.
+/// для бетона — с правилом п. 8.1.30 СП 63 при однозначной эпюре: (8.53) для сжатия, (8.54) для
+/// растяжения (если у бетона есть предел растяжения — ПС2). Граница по лучу находится в замкнутом
+/// виде: отношение ε1/ε2 от масштаба луча не зависит.
 /// </summary>
 public sealed class StrainDomain
 {
@@ -27,7 +28,11 @@ public sealed class StrainDomain
                     $"Стержень ({p.X:G4}; {p.Y:G4}): предварительная деформация не меньше предельной (εs,ult − εp = {p.EpsMax:G4}).",
                     nameof(points));
         Points = points;
+        _hasConcreteTensionLimit = points.Any(p => p.Kind == StrainPointKind.Concrete && double.IsFinite(p.EpsMax));
     }
+
+    /// <summary>Есть бетон с конечным пределом растяжения — правило (8.54) применимо (ПС2).</summary>
+    readonly bool _hasConcreteTensionLimit;
 
     /// <summary>Копия области с включённым/выключенным правилом (8.53).</summary>
     internal StrainDomain WithSingleSignRule(bool apply) => new(Points) { ApplySingleSignRule = apply };
@@ -46,8 +51,10 @@ public sealed class StrainDomain
             if (v > vmax) vmax = v;
             if (v < vmin) vmin = v;
         }
-        bool single = ApplySingleSignRule && vmax <= 0 && vmin < -Tiny;
-        double r = single ? vmax / vmin : 0.0;
+        bool singleC = ApplySingleSignRule && vmax <= 0 && vmin < -Tiny;
+        bool singleT = ApplySingleSignRule && _hasConcreteTensionLimit && vmin >= 0 && vmax > Tiny;
+        bool single = singleC || singleT;
+        double r = singleC ? vmax / vmin : singleT ? vmin / vmax : 0.0;
 
         double lamMin = double.PositiveInfinity;
         var active = new ActiveConstraint(-1, 0, single);
@@ -58,8 +65,8 @@ public sealed class StrainDomain
             double lo, hi;
             if (p.Kind == StrainPointKind.Concrete)
             {
-                lo = single ? p.EpsB2 - (p.EpsB2 - p.EpsB0) * r : p.EpsB2;
-                hi = double.PositiveInfinity;
+                lo = singleC ? p.EpsB2 - (p.EpsB2 - p.EpsB0) * r : p.EpsB2;
+                hi = singleT && double.IsFinite(p.EpsMax) ? p.EpsMax - (p.EpsMax - p.EpsBt0) * r : p.EpsMax;
             }
             else
             {

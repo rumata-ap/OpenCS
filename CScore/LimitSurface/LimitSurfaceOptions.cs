@@ -15,6 +15,6 @@ public sealed class LimitSurfaceOptions
     public int MaxThetaDepth { get; init; } = 6;
     /// <summary>Считать меридианы параллельно.</summary>
     public bool Parallel { get; init; } = true;
-    /// <summary>Применять (8.53); выключение — только для сверки с решателями ПС1.</summary>
+    /// <summary>Применять (8.53) и (8.54); выключение — только для сверки с решателями.</summary>
     internal bool ApplySingleSignRule { get; init; } = true;
 }

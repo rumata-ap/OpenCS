@@ -19,6 +19,76 @@ public class StrainDomainTests
         Bar(-0.1, -0.2, 0.025), Bar(0.1, -0.2, 0.025),
     ]);
 
+    const double Ebt0 = 0.0001, Ebt2 = 0.00015;
+
+    static StrainControlPoint CrackConc(double x, double y) =>
+        new(x, y, StrainPointKind.Concrete, Eb2, Ebt2, Eb0, Eb2, 0, Ebt0);
+
+    /// <summary>Область ПС2: только бетон 0,3×0,5 с пределами растяжения.</summary>
+    static StrainDomain CrackRect() => new(
+    [
+        CrackConc(-0.15, -0.25), CrackConc(0.15, -0.25), CrackConc(0.15, 0.25), CrackConc(-0.15, 0.25),
+    ]);
+
+    [Fact]
+    public void Crack_UniformTension_LimitIsEpsBt0()
+    {
+        var (lam, act) = CrackRect().Boundary(1, 0, 0);
+        Assert.Equal(Ebt0, lam, 12);
+        Assert.Equal(1, act.Side);
+        Assert.True(act.SingleSign);
+    }
+
+    [Fact]
+    public void Crack_ZeroAtOppositeFace_LimitIsEpsBt2()
+    {
+        // v = 0.25 + y: y=−0.25 → 0, y=+0.25 → 0.5 ⇒ r = 0 ⇒ εbt,ult = εbt2
+        var (lam, act) = CrackRect().Boundary(0.25, 1, 0);
+        Assert.Equal(Ebt2 / 0.5, lam, 12);
+        Assert.Equal(1, act.Side);
+    }
+
+    [Fact]
+    public void Crack_IntermediateRatio_Interpolates854()
+    {
+        // v = 0.75 + y: 0.5 и 1.0 ⇒ r = 0.5 ⇒ εbt,ult = 1,5e-4 − 0,5e-4·0,5 = 1,25e-4
+        var (lam, act) = CrackRect().Boundary(0.75, 1, 0);
+        Assert.Equal(1.25e-4, lam * 1.0, 12);
+        Assert.True(act.SingleSign);
+    }
+
+    [Fact]
+    public void Crack_TwoSign_UsesEpsBt2()
+    {
+        var (lam, act) = CrackRect().Boundary(0, 1, 0);
+        Assert.Equal(Ebt2 / 0.25, lam, 12);
+        Assert.False(act.SingleSign);
+        Assert.Equal(1, act.Side);
+    }
+
+    [Fact]
+    public void Crack_RuleOff_UsesEpsBt2Everywhere()
+    {
+        var (lam, _) = CrackRect().WithSingleSignRule(false).Boundary(1, 0, 0);
+        Assert.Equal(Ebt2, lam, 12);
+    }
+
+    [Fact]
+    public void Crack_UniformCompression_ClosedBy853()
+    {
+        var (lam, act) = CrackRect().Boundary(-1, 0, 0);
+        Assert.Equal(0.002, lam, 12);
+        Assert.Equal(-1, act.Side);
+    }
+
+    [Fact]
+    public void Uls_TensionSingleSign_FlagUnchanged()
+    {
+        var (_, act) = Rect().Boundary(1, 0, 0);
+        Assert.False(act.SingleSign);
+        Assert.Equal(StrainPointKind.Rebar, Rect().Points[act.PointIndex].Kind);
+    }
+
     [Fact]
     public void UniformCompression_UsesEpsB0()
     {
