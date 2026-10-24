@@ -29,6 +29,12 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "limit_surface")
+        {
+            Content = new LimitSurfaceResultView(result, app, task);
+            return;
+        }
+
         if (task?.Kind == "prestress_loss")
         {
             Content = new PrestressLossResultView(result, app);

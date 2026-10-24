@@ -1,0 +1,84 @@
+<UserControl x:Class="OpenCS.Views.LimitSurfaceResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:h="clr-namespace:OpenCS.Views"
+             xmlns:hx="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
+   <Grid Margin="8">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <!-- Ошибка расчёта / устаревший формат -->
+      <TextBlock x:Name="ErrorBlock" Grid.Row="0" Grid.RowSpan="3" Text="{Binding ErrorText}" TextWrapping="Wrap"
+                 Foreground="DarkRed" Visibility="Collapsed"/>
+
+      <!-- Шапка: режим Кисп, оси, сводка -->
+      <WrapPanel x:Name="Header" Grid.Row="0" Margin="0,0,0,6">
+         <TextBlock Text="{DynamicResource LimitSurfaceModeLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+         <RadioButton x:Name="ModeAll" Content="{DynamicResource LimitSurfaceModeAll}" GroupName="mode"
+                      Margin="0,0,8,0" VerticalAlignment="Center" Checked="OnModeChecked"/>
+         <RadioButton x:Name="ModeMoment" Content="{DynamicResource LimitSurfaceModeMoment}" GroupName="mode"
+                      Margin="0,0,8,0" VerticalAlignment="Center" Checked="OnModeChecked"/>
+         <RadioButton x:Name="ModeAxial" Content="{DynamicResource LimitSurfaceModeAxial}" GroupName="mode"
+                      Margin="0,0,16,0" VerticalAlignment="Center" Checked="OnModeChecked"/>
+         <TextBlock Text="{DynamicResource LimitSurfaceAxesLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+         <RadioButton x:Name="AxesRel" Content="{DynamicResource LimitSurfaceAxesRelative}" GroupName="axes"
+                      Margin="0,0,8,0" VerticalAlignment="Center" Checked="OnAxesChecked"/>
+         <RadioButton x:Name="AxesAbs" Content="{DynamicResource LimitSurfaceAxesAbsolute}" GroupName="axes"
+                      Margin="0,0,16,0" VerticalAlignment="Center" Checked="OnAxesChecked"/>
+         <TextBlock x:Name="SummaryText" VerticalAlignment="Center"/>
+      </WrapPanel>
+
+      <!-- Предупреждения -->
+      <StackPanel x:Name="Warnings" Grid.Row="1">
+         <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
+                 Visibility="{Binding EtaWarning, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{DynamicResource LimitSurfaceWarnEta}" TextWrapping="Wrap"/>
+         </Border>
+         <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
+                 Visibility="{Binding HasAmbiguous, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{DynamicResource LimitSurfaceWarnAmbiguous}" TextWrapping="Wrap"/>
+         </Border>
+      </StackPanel>
+
+      <TabControl x:Name="Tabs" Grid.Row="2">
+         <TabItem Header="{DynamicResource LimitSurfaceTab3D}">
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <WrapPanel Margin="0,4">
+                  <TextBlock Text="{DynamicResource LimitSurfaceColoringLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox x:Name="ColoringBox" Width="200" Margin="0,0,12,0" SelectionChanged="OnColoringChanged"/>
+                  <CheckBox Content="{DynamicResource LimitSurfaceShowEdges}" IsChecked="{Binding ShowEdges}"
+                            Margin="0,0,12,0" VerticalAlignment="Center"/>
+                  <CheckBox Content="{DynamicResource LimitSurfaceTranslucent}" IsChecked="{Binding Translucent}"
+                            Margin="0,0,12,0" VerticalAlignment="Center"/>
+                  <CheckBox Content="{DynamicResource LimitSurfaceShowSlicePlane}" IsChecked="{Binding ShowSlicePlane}"
+                            VerticalAlignment="Center"/>
+               </WrapPanel>
+               <Grid Grid.Row="1">
+                  <hx:HelixViewport3D x:Name="Viewport" Background="White"
+                                      ShowCoordinateSystem="True" ShowViewCube="True"
+                                      ZoomAroundMouseDownPoint="True" ZoomExtentsWhenLoaded="True"
+                                      MouseMove="OnViewportMouseMove">
+                     <hx:DefaultLights/>
+                  </hx:HelixViewport3D>
+                  <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8"
+                          Background="#CCFFFFFF" Padding="4">
+                     <ItemsControl x:Name="Legend"/>
+                  </Border>
+                  <TextBlock x:Name="AxesText" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
+                             Background="#CCFFFFFF" Padding="4"/>
+                  <TextBlock x:Name="HoverText" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8"
+                             Background="#CCFFFFFF" Padding="4"/>
+               </Grid>
+            </Grid>
+         </TabItem>
+         <!-- Вкладки «Срезы» и «Точки» -->
+      </TabControl>
+   </Grid>
+</UserControl>
