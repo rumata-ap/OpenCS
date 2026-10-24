@@ -98,8 +98,11 @@ public sealed class CrackWidthCore
     /// <param name="phi3">Коэффициент φ3 (п. 8.2.15); null — по знаку N (N &gt; 0 — растяжение, 1,2).</param>
     /// <param name="seedLong">Начальное приближение длительной плоскости (продолжение по нагрузке); null — упругое.</param>
     /// <param name="seedTotal">То же для полной плоскости.</param>
+    /// <param name="longCracked">Образует ли трещины длительная нагрузка; null — по модулю момента против Mcrc
+    /// (точно при одном направлении длительного момента и Mcrc).</param>
     public CrackWidthResult Evaluate(CrackOnset onset, double n, double mxLong, double myLong,
-        double mxTotal, double myTotal, double? phi3 = null, Kurvature? seedLong = null, Kurvature? seedTotal = null)
+        double mxTotal, double myTotal, double? phi3 = null, Kurvature? seedLong = null, Kurvature? seedTotal = null,
+        bool? longCracked = null)
     {
         ArgumentNullException.ThrowIfNull(onset);
         double phi3Eff = phi3 ?? (n > 1e-3 ? 1.2 : 1.0);
@@ -109,14 +112,14 @@ public sealed class CrackWidthCore
         // acrc1 = acrc3 = 0 непродолжительное раскрытие равно acrc2. Трещина от продольной силы
         // (ByAxialForce) растрескивает сечение при любом моменте той же N.
         double mcrcOnset = Math.Sqrt(onset.MxCrc * onset.MxCrc + onset.MyCrc * onset.MyCrc);
-        bool longCracked = onset.ByAxialForce || Math.Sqrt(mxLong * mxLong + myLong * myLong) > mcrcOnset;
+        bool cracksLong = longCracked ?? (onset.ByAxialForce || Math.Sqrt(mxLong * mxLong + myLong * myLong) > mcrcOnset);
 
         // Упругая начальная догадка (учитывает армирование — приведённое сечение, см.
         // CrossSection.ElasticProps), затем один демпфированный Ньютон прямо к цели с
         // ten=false — так же, как это делает референсный python-солвер (solve_biaxial):
         // без промежуточной рампы, полагаясь на backtracking line search.
         Kurvature? planeLong = null;
-        if (longCracked)
+        if (cracksLong)
         {
             planeLong = SolveDamped(n, mxLong, myLong, seedLong ?? SafeGuess(n, mxLong, myLong),
                 _calcServiceLong, out bool convLong);
@@ -124,6 +127,7 @@ public sealed class CrackWidthCore
         }
 
         Kurvature planeTotal;
+        bool totalConverged = true;
         if (planeLong.HasValue && Math.Abs(mxTotal - mxLong) < 1e-12 && Math.Abs(myTotal - myLong) < 1e-12)
         {
             planeTotal = planeLong.Value;
@@ -131,11 +135,14 @@ public sealed class CrackWidthCore
         else
         {
             planeTotal = SolveDamped(n, mxTotal, myTotal, seedTotal ?? SafeGuess(n, mxTotal, myTotal),
-                _calcService, out var convTotal);
-            if (!convTotal)
+                _calcService, out totalConverged);
+            if (!totalConverged)
             {
                 if (!planeLong.HasValue) return zero;
-                planeTotal = planeLong.Value; // фолбэк для σs,total
+                // Фолбэк для σs,total — только чтобы показать длительную часть; непродолжительное
+                // раскрытие и σs ≤ Rs,ser при этом не определены (полная нагрузка, как правило, выше
+                // несущей способности сечения с трещиной) и считаются невыполненными.
+                planeTotal = planeLong.Value;
             }
         }
 
@@ -144,7 +151,11 @@ public sealed class CrackWidthCore
         var tensPlane = planeLong ?? planeTotal;
         var tensCalc = planeLong.HasValue ? _calcServiceLong : _calcService;
         var (sigmaTensKPa, epsTens, asTens, dsEq, tensCentroid) = TensileRebarProps(_section, tensPlane, tensCalc);
-        if (asTens < 1e-15 || dsEq < 1e-15) return zero;
+        if (asTens < 1e-15 || dsEq < 1e-15)
+        {
+            zero.NoTensileRebar = true;
+            return zero;
+        }
         double sigmaLongKPa = planeLong.HasValue ? sigmaTensKPa : 0.0;
         double epsLong = planeLong.HasValue ? epsTens : 0.0;
 
@@ -199,13 +210,14 @@ public sealed class CrackWidthCore
             AcrcUltLong = _acrcUltLong,
             AcrcUltShort = _acrcUltShort,
             PassedLong = acrcLong <= _acrcUltLong,
-            PassedShort = acrcShort <= _acrcUltShort,
+            PassedShort = totalConverged && acrcShort <= _acrcUltShort,
+            TotalConverged = totalConverged,
             UtilLong = _acrcUltLong > 0 ? acrcLong / _acrcUltLong : 0.0,
             UtilShort = _acrcUltShort > 0 ? acrcShort / _acrcUltShort : 0.0,
             SigmaSTotal = sigmaTotalKPa,
             RsSer = rsSerTotal > 0.0 ? rsSerTotal : rsSerLong,
             UtilSteel = utilSteel,
-            PassedSteel = utilSteel <= 1.0 + 1e-9,
+            PassedSteel = totalConverged && utilSteel <= 1.0 + 1e-9,
             UtilConcrete = utilConcrete,
             H0 = geom.H0,
             H = geom.H,
@@ -414,6 +426,16 @@ public sealed class CrackWidthCore
         return true;
     }
 
+    readonly Dictionary<MaterialArea, Dictionary<CalcType, Diagramm>?> _ownDiagrams = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Собственные (не разностные) диаграммы материала стержня; Material.GetDiagramms строит их заново при каждом вызове.</summary>
+    Dictionary<CalcType, Diagramm>? OwnDiagrams(MaterialArea area)
+    {
+        if (!_ownDiagrams.TryGetValue(area, out var d))
+            _ownDiagrams[area] = d = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+        return d;
+    }
+
     internal static bool IsRebar(MaterialArea area) =>
         area.Material != null &&
         (area.Material.Type == MatType.ReSteelF || area.Material.Type == MatType.ReSteelU);
@@ -442,7 +464,7 @@ public sealed class CrackWidthCore
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            var ownDiagrams = OwnDiagrams(area);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -466,7 +488,7 @@ public sealed class CrackWidthCore
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            var ownDiagrams = OwnDiagrams(area);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -504,7 +526,7 @@ public sealed class CrackWidthCore
         foreach (var (area, ka) in _section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            var ownDiagrams = OwnDiagrams(area);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -628,7 +650,7 @@ public sealed class CrackWidthCore
         foreach (var (area, ka) in _section.EnumerateAreas(planeLong.Value))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            var ownDiagrams = OwnDiagrams(area);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcServiceLong, out var ownDgrLong)) continue;
             bool hasShortDgr = ownDiagrams.TryGetValue(calcService, out var ownDgrShort);
 
@@ -685,7 +707,7 @@ public sealed class CrackWidthCore
         foreach (var (area, ka) in _section.EnumerateAreas(planeTotal))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
+            var ownDiagrams = OwnDiagrams(area);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcService, out var ownDgrShort)) continue;
 
             foreach (var f in area.Fibers)

@@ -155,7 +155,15 @@ public sealed class LimitSurfaceMesh
             UtilizationMode.Axial => (new ForcePoint(0, mx, my), new ForcePoint(n, 0, 0)),
             _ => throw new ArgumentOutOfRangeException(nameof(mode)),
         };
+        return Utilization(b, dir);
+    }
 
+    /// <summary>
+    /// Коэффициент использования по произвольному лучу B + t·D, F = B + D (те же правила, что у режимов;
+    /// <see cref="SurfaceUtilization.RayOriginInside"/> — лежит ли B внутри тела).
+    /// </summary>
+    public SurfaceUtilization Utilization(ForcePoint b, ForcePoint dir)
+    {
         if (dir.Length == 0)
         {
             bool ins = RayHits(b, new ForcePoint(0.31, 0.53, 0.79)).Count(h => h.T > 0) % 2 == 1;

@@ -106,6 +106,13 @@ public sealed class CrackWidthResult
     public double NCrc { get; set; }
     /// <summary>Пост-трещинная плоскость деформаций (ten=false) от длительной нагрузки, если Newton сошёлся.</summary>
     public Kurvature? PlaneLong { get; set; }
+    /// <summary>
+    /// Сошлась ли пост-трещинная плоскость полной нагрузки. Нет — σs,total и acrc2 взяты по длительной
+    /// плоскости только для вывода, а <see cref="PassedShort"/> и <see cref="PassedSteel"/> = false.
+    /// </summary>
+    public bool TotalConverged { get; set; } = true;
+    /// <summary>В сечении с трещиной нет растянутой арматуры — ширина раскрытия не определена (Cracked = false).</summary>
+    public bool NoTensileRebar { get; set; }
     /// <summary>Пост-трещинная плоскость деформаций от полной нагрузки (кратковременная диаграмма).</summary>
     public Kurvature? PlaneTotal { get; set; }
     /// <summary>

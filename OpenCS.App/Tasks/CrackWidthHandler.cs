@@ -202,6 +202,7 @@ public sealed class CrackWidthHandler : ITaskHandler
                 kz = plane.HasValue ? Math.Round(plane.Value.kz, 8) : (double?)null,
                 plane_is_total = !res.PlaneLong.HasValue && res.PlaneTotal.HasValue,
                 plane_converged = plane.HasValue,
+                total_converged = res.TotalConverged,
                 acrc_by_rebar = res.AcrcByRebar.Select(e => new
                 {
                     x = Math.Round(e.X * 1000.0, 2),
