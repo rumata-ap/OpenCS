@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CScore.LimitSurface;
 
 namespace CScore;
 
@@ -82,8 +83,8 @@ public sealed class CrackWidthCore
         // σs,crc считается дважды — на той же диаграмме, что и σs, с которой её сравнивают
         // в формуле ψs = 1 − 0.8·σs,crc/σs (acrc1/acrc3 — длительная диаграмма,
         // acrc2 — кратковременная), иначе ψs сравнивало бы напряжения на разных базисах.
-        var (sigmaCrcLong, epsCrcLong) = SigmaSFromPlane(planeCrcLong, _calcServiceLong);
-        var (sigmaCrcShort, epsCrcShort) = SigmaSFromPlane(planeCrcShort, _calcService);
+        var (sigmaCrcLong, epsCrcLong, _) = SigmaSFromPlane(planeCrcLong, _calcServiceLong);
+        var (sigmaCrcShort, epsCrcShort, _) = SigmaSFromPlane(planeCrcShort, _calcService);
 
         return new CrackOnset(n, mxCrc, myCrc, crackPlane, planeCrcLong, planeCrcShort,
             sigmaCrcLong, epsCrcLong, sigmaCrcShort, epsCrcShort, byAxialForce, converged);
@@ -156,7 +157,21 @@ public sealed class CrackWidthCore
         double lsMax = Math.Min(40.0 * dsEq, 0.40);
         lsM = Math.Max(lsMin, Math.Min(lsMax, lsM));
 
-        var (sigmaTotalKPa, epsTotal) = SigmaSFromPlane(planeTotal, _calcService);
+        var (sigmaTotalKPa, epsTotal, rsSerTotal) = SigmaSFromPlane(planeTotal, _calcService);
+
+        // П. 8.2.16: σs ≤ Rs,ser (последняя фраза пункта) — по длительной и полной нагрузке.
+        // σs — от внешней нагрузки (приращение, как в формулах (8.134)–(8.135)); у напрягаемой
+        // арматуры полное напряжение σsp + σs с Rs,ser не сравнивается.
+        double rsSerLong = planeLong.HasValue ? SigmaSFromPlane(planeLong.Value, _calcServiceLong).rsSerKPa : 0.0;
+        double utilSteel = Math.Max(
+            rsSerLong > 0.0 ? sigmaLongKPa / rsSerLong : 0.0,
+            rsSerTotal > 0.0 ? sigmaTotalKPa / rsSerTotal : 0.0);
+
+        // Сжатие бетона в сечении с трещиной (п. 8.1.30) — справочно, в Passed* не входит:
+        // нормативно сжатую зону проверяет ПС1; на поверхности ширины раскрытия — граница.
+        double utilConcrete = Math.Max(
+            planeLong.HasValue ? ConcreteCompressionUtil(planeLong.Value, _calcServiceLong) : 0.0,
+            ConcreteCompressionUtil(planeTotal, _calcService));
 
         double esKPa = RebarEsKPa(_section);
 
@@ -187,6 +202,11 @@ public sealed class CrackWidthCore
             PassedShort = acrcShort <= _acrcUltShort,
             UtilLong = _acrcUltLong > 0 ? acrcLong / _acrcUltLong : 0.0,
             UtilShort = _acrcUltShort > 0 ? acrcShort / _acrcUltShort : 0.0,
+            SigmaSTotal = sigmaTotalKPa,
+            RsSer = rsSerTotal > 0.0 ? rsSerTotal : rsSerLong,
+            UtilSteel = utilSteel,
+            PassedSteel = utilSteel <= 1.0 + 1e-9,
+            UtilConcrete = utilConcrete,
             H0 = geom.H0,
             H = geom.H,
             Xt = geom.Xt,
@@ -473,9 +493,14 @@ public sealed class CrackWidthCore
         return (sigmaMax, epsAtSigmaMax, asTens: asWeighted, dsEq, (axPlain / asPlain, ayPlain / asPlain));
     }
 
-    (double sigmaMaxKPa, double epsAtSigmaMax) SigmaSFromPlane(Kurvature k, CalcType calcType)
+    /// <summary>
+    /// σs и εs наиболее растянутого стержня по плоскости и Rs,ser этого стержня — |Ft| стали по
+    /// характеристикам N (как в <see cref="ShellSimplSolver"/>). σs — от внешней нагрузки, без
+    /// начального напряжения преднапряжения.
+    /// </summary>
+    (double sigmaMaxKPa, double epsAtSigmaMax, double rsSerKPa) SigmaSFromPlane(Kurvature k, CalcType calcType)
     {
-        double sigmaMax = 0.0, epsAtSigmaMax = 0.0;
+        double sigmaMax = 0.0, epsAtSigmaMax = 0.0, rsSer = 0.0;
         foreach (var (area, ka) in _section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
@@ -488,10 +513,48 @@ public sealed class CrackWidthCore
                 double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
                 if (eps <= 0.0) continue;
                 double sig = ownDgr.Sig(eps, out _);
-                if (sig > sigmaMax) { sigmaMax = sig; epsAtSigmaMax = eps; }
+                if (sig > sigmaMax)
+                {
+                    sigmaMax = sig;
+                    epsAtSigmaMax = eps;
+                    rsSer = Math.Abs(area.Material.GetChars(CalcType.N)?.Ft ?? 0.0);
+                }
             }
         }
-        return (sigmaMax, epsAtSigmaMax);
+        return (sigmaMax, epsAtSigmaMax, rsSer);
+    }
+
+    readonly Dictionary<CalcType, StrainDomain?> _compressionDomains = [];
+
+    /// <summary>
+    /// Кисп сжатого бетона на пост-трещинной плоскости: εb / εb,ult по п. 8.1.30 ((8.53) при
+    /// однозначной эпюре) с характеристиками диаграммы <paramref name="calc"/>; растянутый бетон
+    /// трещиноват и предела не имеет. 0 — сжатия нет или у бетона нет характеристик.
+    /// </summary>
+    internal double ConcreteCompressionUtil(Kurvature plane, CalcType calc)
+    {
+        if (!_compressionDomains.TryGetValue(calc, out var domain))
+            _compressionDomains[calc] = domain = BuildCompressionDomain(calc);
+        if (domain == null) return 0.0;
+        var (lambda, _) = domain.Boundary(plane.e0, plane.ky, plane.kz);
+        return double.IsFinite(lambda) && lambda > 0.0 ? 1.0 / lambda : 0.0;
+    }
+
+    StrainDomain? BuildCompressionDomain(CalcType calc)
+    {
+        var pts = new List<StrainControlPoint>();
+        for (int ai = 0; ai < _section.Areas.Count; ai++)
+        {
+            var area = _section.Areas[ai];
+            if (!StrainCriterionGeometry.IsConcrete(area)) continue;
+            var ch = area.Material!.GetChars(calc);
+            if (ch == null || !(ch.Ec2 < 0.0)) continue;
+            foreach (var c in StrainCriterionGeometry.Contours(area))
+                foreach (var (x, y) in StrainCriterionGeometry.OpenVertices(c))
+                    pts.Add(new StrainControlPoint(x, y, StrainPointKind.Concrete,
+                        ch.Ec2, double.PositiveInfinity, ch.Ec0, ch.Ec2, ai));
+        }
+        return pts.Count > 0 ? new StrainDomain(pts) : null;
     }
 
     (double acrcMm, double psiS) SingleAcrc(double sigmaSKPa, double sigmaCrcKPa,
