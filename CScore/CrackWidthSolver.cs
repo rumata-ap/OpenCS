@@ -102,6 +102,8 @@ public sealed class CrackWidthResult
     /// трещинообразования взята на луче полной нагрузки (N, M), а не при постоянной N.
     /// </summary>
     public bool OnsetByAxialForce { get; set; }
+    /// <summary>Продольная сила точки трещинообразования, кН (при <see cref="OnsetByAxialForce"/> — на луче нагрузки, иначе N нагрузки).</summary>
+    public double NCrc { get; set; }
     /// <summary>Пост-трещинная плоскость деформаций (ten=false) от длительной нагрузки, если Newton сошёлся.</summary>
     public Kurvature? PlaneLong { get; set; }
     /// <summary>Пост-трещинная плоскость деформаций от полной нагрузки (кратковременная диаграмма).</summary>
@@ -223,11 +225,38 @@ public sealed class CrackWidthSolver
 
         var zero = new CrackWidthResult { Cracked = false, AcrcUltLong = _acrcUltLong, AcrcUltShort = _acrcUltShort };
 
-        if (mTotal <= mcrc || !crcRes.StrainPlane.HasValue) return WithCrackingFields(zero);
-
-        var onset = _core.Onset(N, crcRes.Mx, crcRes.My, crcRes.StrainPlane.Value, byAxialForce: false);
+        // Сечение трещиновато уже от продольной силы (CrackingMoment вернул Mcrc = 0 с плоскостью
+        // при M = 0): σs,crc при M = 0 и той же N завысило бы σs,crc (ψs → 0,2 при малом M, а при
+        // центральном растяжении N ≫ Ncrc — заниженная acrc). Точка трещинообразования берётся на
+        // ПРОПОРЦИОНАЛЬНОМ луче полной нагрузки λ·(N, Mx, My) — непрерывно с изгибом у полюса.
+        bool byAxialForce = crcRes.Converged && crcRes.StrainPlane.HasValue && mcrc <= 1e-12;
+        CrackOnset? onset;
+        if (byAxialForce)
+        {
+            // Зона догружения — от состояния без нагрузки (N растёт вместе с моментом): у обжатого
+            // сечения грань, треснувшая от одного обжатия, не считается растянутой нагрузкой.
+            var rayCrc = new CrackingSolver(_section, _calcCrc, solverTol: 0.5,
+                tensionZone: CrackingSolver.LoadedTensionZone(_section, N, mxTot, myTot, nAtZeroMoment: 0.0));
+            var lf = rayCrc.CrackingLoadFactor(N, mxTot, myTot);
+            if (!lf.Converged || !lf.StrainPlane.HasValue || lf.Lambda > 1.0) return WithCrackingFields(zero);
+            mcrc = Math.Sqrt(lf.Mx * lf.Mx + lf.My * lf.My);
+            crcRes = new CrackingSolverResult
+            {
+                N = lf.N, Mx = lf.Mx, My = lf.My, Converged = lf.Converged,
+                StrainPlane = lf.StrainPlane, EpsMaxTension = lf.EpsMaxTension, Iterations = lf.Iterations
+            };
+            onset = _core.Onset(lf.N, lf.Mx, lf.My, lf.StrainPlane.Value, byAxialForce: true);
+        }
+        else
+        {
+            if (mTotal <= mcrc || !crcRes.StrainPlane.HasValue) return WithCrackingFields(zero);
+            onset = _core.Onset(N, crcRes.Mx, crcRes.My, crcRes.StrainPlane.Value, byAxialForce: false);
+        }
         if (onset == null) return WithCrackingFields(zero);
 
-        return WithCrackingFields(_core.Evaluate(onset, N, mxLong, myLong, mxTot, myTot, phi3));
+        var result = WithCrackingFields(_core.Evaluate(onset, N, mxLong, myLong, mxTot, myTot, phi3));
+        result.OnsetByAxialForce = byAxialForce;
+        result.NCrc = onset.N;
+        return result;
     }
 }
