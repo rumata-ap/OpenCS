@@ -35,6 +35,7 @@ public sealed class AcrcColumnMesher
     const int BisectIters = 60;
     const int ExpandIters = 40;
     const int KinkBisectIters = 10;
+    const int StallIters = 20;
     const int MaxKinksPerInterval = 6;
     const double TwoPi = 2 * Math.PI;
     /// <summary>Полуширина ступени N = 0 по параметру колонны.</summary>
@@ -326,7 +327,9 @@ public sealed class AcrcColumnMesher
     /// <summary>Расчёт колонн на одном экземпляре сечения (не потокобезопасен).</summary>
     sealed class ColumnSolver(AcrcColumnMesher owner, CrossSection section)
     {
-        readonly CrackWidthCore _core = owner._criterion.CreateCore(section);
+        // Застой Ньютона: у сошедшихся решений пауза без улучшения невязки — не дольше 17 итераций
+        // (замер 25.10 на тестовых сечениях), несошедшиеся стоят с ~10-й итерации до 60-й.
+        readonly CrackWidthCore _core = owner._criterion.CreateCore(section, stallIters: StallIters);
 
         /// <summary>Проба g(m): результат ядра и вид наибольшего условия.</summary>
         readonly record struct Probe(bool Ok, double G, ConstraintKind Kind, CrackWidthResult? Result,

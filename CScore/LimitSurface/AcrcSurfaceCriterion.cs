@@ -70,7 +70,8 @@ public sealed class AcrcSurfaceCriterion
     /// Ньютона по умолчанию — 0,01 кН (кН·м), а не 0,5 как у crack_width: при 0,5 разброс σs от затравки
     /// доходит до 1 % и ломает бисекцию границы.
     /// </summary>
-    public CrackWidthCore CreateCore(CrossSection section, double solverTol = 0.01) =>
+    /// <param name="stallIters">Досрочный выход Ньютона при застое (<see cref="CrackWidthCore.StallIters"/>).</param>
+    public CrackWidthCore CreateCore(CrossSection section, double solverTol = 0.01, int stallIters = 0) =>
         new(section, CalcType.N, LongUseNL ? CalcType.NL : CalcType.N, Phi2, AcrcUltLong, AcrcUltShort,
-            PsiSMethod, Sp63EtaMin, EkbEtaMin, solverTol);
+            PsiSMethod, Sp63EtaMin, EkbEtaMin, solverTol) { StallIters = stallIters };
 }

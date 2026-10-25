@@ -42,6 +42,12 @@ public sealed class CrackWidthCore
         _solverTol = solverTol;
     }
 
+    /// <summary>
+    /// Досрочный выход Ньютона при застое: столько итераций подряд без улучшения лучшей невязки хотя бы
+    /// на 1 % — решение не сошлось. 0 — выключено (как у crack_width): итерации до maxIter.
+    /// </summary>
+    public int StallIters { get; init; }
+
     /// <summary>Предельная ширина продолжительного раскрытия, мм.</summary>
     public double AcrcUltLong => _acrcUltLong;
     /// <summary>Предельная ширина непродолжительного раскрытия, мм.</summary>
@@ -279,6 +285,7 @@ public sealed class CrackWidthCore
         Kurvature bestK = seed;
         // Усилия и якобиан принятой пробы line search — это точка следующей итерации, второй раз не считаются.
         (Load Load, double[,] Jac)? accepted = null;
+        int lastImprove = 0;
 
         for (int iter = 0; iter < maxIter; iter++)
         {
@@ -287,8 +294,14 @@ public sealed class CrackWidthCore
 
             double r0 = f0.N - nTarget, r1 = f0.Mx - mxTarget, r2 = f0.My - myTarget;
             double residual = Math.Sqrt(r0 * r0 + r1 * r1 + r2 * r2);
+            if (residual < 0.99 * bestResidual) lastImprove = iter;
             if (residual < bestResidual) { bestResidual = residual; bestK = k; }
             if (residual < _solverTol) { converged = true; return k; }
+            if (StallIters > 0 && iter - lastImprove >= StallIters)
+            {
+                converged = false;
+                return bestK;
+            }
 
             if (!GaussSolve3(jac, [r0, r1, r2], out var dk))
             {
