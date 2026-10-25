@@ -4637,10 +4637,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_CrackWidthHeader">Ширина раскрытия трещин</system:String>
     <system:String x:Key="CrackWidth_ParamsHeader">Параметры расчёта</system:String>
     <system:String x:Key="CrackWidth_UtilizationLabel">Использование</system:String>
-    <system:String x:Key="CrackWidth_LongLabel">Длительное раскрытие</system:String>
-    <system:String x:Key="CrackWidth_ShortLabel">Кратковременное раскрытие</system:String>
+    <system:String x:Key="CrackWidth_LongLabel">Продолжительное раскрытие</system:String>
+    <system:String x:Key="CrackWidth_ShortLabel">Непродолжительное раскрытие</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Растянутая арматура</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Плоскость деформаций не сошлась — эпюры и таблица арматуры недоступны.</system:String>
+    <system:String x:Key="CrackWidth_TotalNotConverged">Полная нагрузка: решение не сошлось</system:String>
+    <system:String x:Key="CrackWidth_TotalNotConvergedNote">Полная нагрузка не сошлась (обычно она выше несущей способности сечения с трещиной): непродолжительное раскрытие и σs ≤ Rs,ser не определены. Продолжительная часть посчитана по плоскости длительной нагрузки.</system:String>
+    <system:String x:Key="CrackWidth_Undetermined">не определено</system:String>
     <system:String x:Key="CrackWidth_SteelHeader">Напряжения в арматуре: σs ≤ Rs,ser (п. 8.2.16)</system:String>
     <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, длит.</system:String>
     <system:String x:Key="CrackWidth_SigmaSTotalRowLabel">σs, полн.</system:String>

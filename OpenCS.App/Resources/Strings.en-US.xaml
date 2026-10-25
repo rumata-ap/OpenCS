@@ -4641,6 +4641,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="CrackWidth_ShortLabel">Short-term opening</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Tension reinforcement</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Strain plane did not converge — plots and rebar table are unavailable.</system:String>
+    <system:String x:Key="CrackWidth_TotalNotConverged">Full load: solution did not converge</system:String>
+    <system:String x:Key="CrackWidth_TotalNotConvergedNote">The full load did not converge (usually it exceeds the bearing capacity of the cracked section): the short-term opening and σs ≤ Rs,ser are undetermined. The long-term part is computed on the long-term strain plane.</system:String>
+    <system:String x:Key="CrackWidth_Undetermined">undetermined</system:String>
     <system:String x:Key="CrackWidth_SteelHeader">Rebar stress: σs ≤ Rs,ser (cl. 8.2.16)</system:String>
     <system:String x:Key="CrackWidth_SigmaSLongRowLabel">σs, long-term</system:String>
     <system:String x:Key="CrackWidth_SigmaSTotalRowLabel">σs, total</system:String>

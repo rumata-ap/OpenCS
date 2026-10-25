@@ -13,6 +13,8 @@
                        Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
          </StackPanel>
          <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+         <TextBlock Text="{Binding TotalNotConvergedText}" TextWrapping="Wrap" Foreground="DarkOrange" FontStyle="Italic" Margin="0,0,0,8"
+                    Visibility="{Binding TotalNotConverged, Converter={StaticResource BoolToVisibility}}"/>
 
          <GroupBox Header="{DynamicResource CrackWidth_ForcesHeader}" Margin="0,0,0,6" Padding="8,4">
             <Grid>

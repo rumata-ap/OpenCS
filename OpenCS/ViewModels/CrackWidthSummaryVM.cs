@@ -71,6 +71,11 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public bool OnsetByAxialForce { get; }
     /// <summary>Трещины образует только полная нагрузка (длительная ниже Mcrc).</summary>
     public bool LongUncracked { get; }
+    /// <summary>Полная нагрузка не сошлась (total_converged = false): непродолжительное раскрытие и σs ≤ Rs,ser не определены.</summary>
+    public bool TotalNotConverged { get; }
+    public string TotalNotConvergedText { get; } = "";
+    /// <summary>Вместо значений, которые не определены при несошедшейся полной нагрузке.</summary>
+    public string UndeterminedText { get; } = "—";
 
     public bool EtaEnabled { get; }
     public string EtaModeText { get; } = "";
@@ -162,6 +167,10 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         PassedLong = root.TryGetProperty("passed_long", out var pl) && pl.GetBoolean();
         PassedShort = root.TryGetProperty("passed_short", out var ps) && ps.GetBoolean();
         PlaneConverged = root.TryGetProperty("plane_converged", out var pc) && pc.GetBoolean();
+        // Старые результаты без ключа total_converged считаются сошедшимися.
+        TotalNotConverged = Cracked && root.TryGetProperty("total_converged", out var tcv) && tcv.ValueKind == JsonValueKind.False;
+        UndeterminedText = Loc.S("CrackWidth_Undetermined");
+        TotalNotConvergedText = Loc.S("CrackWidth_TotalNotConvergedNote");
 
         NText = NumUnit(root, "N", "кН");
         MxLongText = NumUnit(root, "Mx_long", "кН·м");
@@ -263,20 +272,42 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
                         $"{f.SigOwn / 1000.0:+0.0;-0.0}",
                         nearest.HasValue ? $"{nearest.Value.PsiS:0.000}" : "—",
                         nearest.HasValue ? $"{nearest.Value.AcrcLongMm:0.000}" : "—",
-                        nearest.HasValue ? $"{nearest.Value.PsiS2:0.000}" : "—",
-                        nearest.HasValue ? $"{nearest.Value.AcrcShortMm:0.000}" : "—"));
+                        nearest.HasValue ? ShortOrUndetermined($"{nearest.Value.PsiS2:0.000}") : "—",
+                        nearest.HasValue ? ShortOrUndetermined($"{nearest.Value.AcrcShortMm:0.000}") : "—"));
                 }
+        }
+
+        if (TotalNotConverged)
+        {
+            // Непродолжительное раскрытие и σs (полная нагрузка) не определены: фолбэк решателя
+            // подставил длительную плоскость, поэтому значения не выводим как результат.
+            AcrcShortText = UndeterminedText;
+            UtilShortText = UndeterminedText;
+            PassedShortText = UndeterminedText;
+            PassedShortBrush = Brushes.DarkOrange;
+            Acrc2Text = UndeterminedText;
+            SigmaSCrcShortText = UndeterminedText;
+            PsiSShortText = UndeterminedText;
+            SigmaSTotalText = UndeterminedText;
+            UtilSteelText = UndeterminedText;
+            PassedSteelText = UndeterminedText;
+            PassedSteelBrush = Brushes.DarkOrange;
         }
 
         StatusText = !PlaneConverged && Cracked
             ? Loc.S("ResultConvergedNo")
             : !Cracked
                 ? Loc.S("CrackWidth_NoCracks")
-                : (PassedLong && PassedShort && PassedSteel ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"));
+                : TotalNotConverged
+                    ? Loc.S("CrackWidth_TotalNotConverged")
+                    : (PassedLong && PassedShort && PassedSteel ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"));
         StatusBrush = !PlaneConverged && Cracked
             ? Brushes.Red
+            : TotalNotConverged ? Brushes.DarkOrange
             : (!Cracked || (PassedLong && PassedShort && PassedSteel)) ? Brushes.Green : Brushes.OrangeRed;
     }
+
+    string ShortOrUndetermined(string value) => TotalNotConverged ? UndeterminedText : value;
 
     static double GetD(JsonElement el, string key) =>
         el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0.0;
