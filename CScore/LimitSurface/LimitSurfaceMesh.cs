@@ -48,6 +48,7 @@ public sealed class LimitSurfaceMesh
         RefineLog = refineLog ?? [];
         Angles = angles ?? [];
         MeridianCount = MeridianOf.Count == 0 ? 0 : MeridianOf.Max() + 1;
+        _bvh = new Lazy<TriangleBvh>(() => new TriangleBvh(Vertices, Triangles));
     }
 
     /// <summary>Вершины (N, Mx, My).</summary>
@@ -218,12 +219,13 @@ public sealed class LimitSurfaceMesh
         var e2 = dn.Cross(e1);
         double d2 = dir.Dot(dir);
 
-        int nv = Vertices.Count;
-        var qx = new double[nv]; var qy = new double[nv]; var ht = new double[nv];
-        for (int i = 0; i < nv; i++)
+        // Проекции считаются только у вершин треугольников, чьи габариты задевает прямая (BVH), — те же
+        // выражения, что и при полном проходе, и тот же порядок треугольников: результат не меняется.
+        var qx = new double[3]; var qy = new double[3]; var ht = new double[3]; var id = new int[3];
+        void Project(int slot, int v)
         {
-            var r = Vertices[i] - b;
-            qx[i] = r.Dot(e1); qy[i] = r.Dot(e2); ht[i] = r.Dot(dir) / d2;
+            var r = Vertices[v] - b;
+            qx[slot] = r.Dot(e1); qy[slot] = r.Dot(e2); ht[slot] = r.Dot(dir) / d2; id[slot] = v;
         }
 
         double E(int i, int j) => qx[i] * qy[j] - qy[i] * qx[j];
@@ -236,19 +238,23 @@ public sealed class LimitSurfaceMesh
             if (d1 != 0) return d1 > 0 ? 1 : -1;
             double d2 = qx[j] - qx[i];
             if (d2 != 0) return d2 > 0 ? 1 : -1;
-            return i < j ? 1 : -1;   // совпавшие проекции вершин — вырожденное ребро
+            return id[i] < id[j] ? 1 : -1;   // совпавшие проекции вершин — вырожденное ребро
         }
 
         var hits = new List<Hit>();
-        for (int k = 0; k < Triangles.Count; k++)
+        foreach (int k in _bvh.Value.LineCandidates(b, dir))
         {
             var (a, bb, c) = Triangles[k];
-            int sa = Sgn(bb, c), sb = Sgn(c, a), sc = Sgn(a, bb);
+            Project(0, a); Project(1, bb); Project(2, c);
+            int sa = Sgn(1, 2), sb = Sgn(2, 0), sc = Sgn(0, 1);
             if (sa != sb || sb != sc) continue;
-            double wa = E(bb, c), wb = E(c, a), wc = E(a, bb), sum = wa + wb + wc;
+            double wa = E(1, 2), wb = E(2, 0), wc = E(0, 1), sum = wa + wb + wc;
             if (sum == 0) { wa = wb = wc = 1.0 / 3; } else { wa /= sum; wb /= sum; wc /= sum; }
-            hits.Add(new Hit(wa * ht[a] + wb * ht[bb] + wc * ht[c], k, wa, wb, wc));
+            hits.Add(new Hit(wa * ht[0] + wb * ht[1] + wc * ht[2], k, wa, wb, wc));
         }
         return hits;
     }
+
+    /// <summary>Иерархия габаритов треугольников для запросов прямой; строится при первом запросе.</summary>
+    readonly Lazy<TriangleBvh> _bvh;
 }
