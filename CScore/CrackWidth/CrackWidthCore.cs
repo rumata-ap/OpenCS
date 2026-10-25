@@ -277,10 +277,13 @@ public sealed class CrackWidthCore
         Kurvature k = seed;
         double bestResidual = double.MaxValue;
         Kurvature bestK = seed;
+        // Усилия и якобиан принятой пробы line search — это точка следующей итерации, второй раз не считаются.
+        (Load Load, double[,] Jac)? accepted = null;
 
         for (int iter = 0; iter < maxIter; iter++)
         {
-            var (f0, jac) = EvalWithTangent(k, calcType);
+            var (f0, jac) = accepted ?? EvalWithTangent(k, calcType);
+            accepted = null;
 
             double r0 = f0.N - nTarget, r1 = f0.Mx - mxTarget, r2 = f0.My - myTarget;
             double residual = Math.Sqrt(r0 * r0 + r1 * r1 + r2 * r2);
@@ -299,7 +302,6 @@ public sealed class CrackWidthCore
 
             // Backtracking line search: половиним шаг, пока невязка не перестанет расти.
             double lambda = 1.0;
-            bool accepted = false;
             for (int ls = 0; ls < 20; ls++)
             {
                 var kNext = new Kurvature
@@ -308,18 +310,18 @@ public sealed class CrackWidthCore
                     ky = k.ky - lambda * dk[1],
                     kz = k.kz - lambda * dk[2]
                 };
-                var (fNext, _) = EvalWithTangent(kNext, calcType);
-                double rn0 = fNext.N - nTarget, rn1 = fNext.Mx - mxTarget, rn2 = fNext.My - myTarget;
+                var next = EvalWithTangent(kNext, calcType);
+                double rn0 = next.load.N - nTarget, rn1 = next.load.Mx - mxTarget, rn2 = next.load.My - myTarget;
                 double residualNext = Math.Sqrt(rn0 * rn0 + rn1 * rn1 + rn2 * rn2);
                 if (residualNext < residual)
                 {
                     k = kNext;
-                    accepted = true;
+                    accepted = next;
                     break;
                 }
                 lambda *= 0.5;
             }
-            if (!accepted)
+            if (accepted is null)
             {
                 converged = bestResidual < _solverTol;
                 return bestK;
