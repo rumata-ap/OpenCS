@@ -13,6 +13,7 @@ public class CalcTaskGroupTests
 {
     [Theory]
     [InlineData("strain_state", CalcTaskGroups.Nds)]
+    [InlineData("load_history", CalcTaskGroups.Nds)]
     [InlineData("shell_strain_state_batch", CalcTaskGroups.Nds)]
     [InlineData("limit_moment", CalcTaskGroups.Uls)]
     [InlineData("shear_inclined", CalcTaskGroups.Uls)]

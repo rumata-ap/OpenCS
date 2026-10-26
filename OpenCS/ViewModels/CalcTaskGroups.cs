@@ -31,6 +31,7 @@ public static class CalcTaskGroups
     {
         "strain_state"
             or "strain_state_batch"
+            or "load_history"
             or "shell_strain_state"
             or "shell_strain_state_batch"                             => Nds,
 

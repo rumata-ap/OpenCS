@@ -18,6 +18,7 @@ namespace OpenCS.Tasks
          ["fire_r_time"]          = new FireRTimeHandler(),
          ["fire_thermal_curvature"] = new FireThermalCurvatureHandler(),
          ["strain_state_batch"]   = new StrainStateBatchHandler(),
+         ["load_history"]         = new LoadHistoryHandler(),
          ["limit_force"]          = new LimitForceHandler(),
          ["limit_moment"]         = new LimitMomentHandler(),
          ["limit_axial"]          = new LimitAxialHandler(),
