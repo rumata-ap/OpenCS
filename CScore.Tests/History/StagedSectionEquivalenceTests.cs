@@ -8,32 +8,20 @@ public class StagedSectionEquivalenceTests
     static readonly Kurvature Inc = new() { e0 = -1.5e-4, ky = 9.0e-4, kz = 2.0e-5 };
 
     /// <summary>
-    /// Тест 4 спеки: при двух частях формула K − K_1 совпадает с прежней baseK + Stage1Kurvature
-    /// (baseK — приращение, полная плоскость части 0 — baseK + κ1).
-    /// Эталон живой, пока TwoStageSection существует; в срезе 4 заменяется зафиксированными числами.
+    /// Тест 4 спеки: при двух частях формула K − K_1 совпадает с прежней TwoStageSection
+    /// (baseK + Stage1Kurvature). Эталон снят с живого TwoStageSection 26.10 до его удаления.
     /// </summary>
     [Theory]
-    [InlineData(CalcType.C, false)]
-    [InlineData(CalcType.N, true)]
-    public void TwoParts_MatchLegacyTwoStageSection(CalcType calc, bool ten)
+    [InlineData(CalcType.C, false, -625.2005080512656, 71.2971624777695, 0.2444305280710602)]
+    [InlineData(CalcType.N, true, -722.944160902291, 96.18296774217215, 0.31262461127513236)]
+    public void TwoParts_MatchLegacyTwoStageSection(CalcType calc, bool ten, double n, double mx, double my)
     {
         var staged = StagedTestSections.TwoPartBeam();
-        var legacy = new TwoStageSection
-        {
-            Stage1 = new CrossSection { Areas = staged.Parts[0].Areas.Select(a => a.CloneForCalc()).ToList() },
-            Areas = staged.Parts[1].Areas.Select(a => a.CloneForCalc()).ToList(),
-            Stage1Kurvature = K1,
-        };
-        legacy.Stage1.ResolveAndBuildDiagramms(0.85, null, rebarDifferentialDiagram: false);
-        legacy.ResolveAndBuildDiagramms(0.85, null, rebarDifferentialDiagram: false);
-
         staged.ActivatePart(1, K1);
-        var fStaged = staged.Integral(Inc + K1, calc, ten);
-        var fLegacy = legacy.Integral(Inc, calc, ten);
-
-        Assert.Equal(fLegacy.N, fStaged.N, 6);
-        Assert.Equal(fLegacy.Mx, fStaged.Mx, 6);
-        Assert.Equal(fLegacy.My, fStaged.My, 6);
+        var f = staged.Integral(Inc + K1, calc, ten);
+        Assert.Equal(n, f.N, 6);
+        Assert.Equal(mx, f.Mx, 6);
+        Assert.Equal(my, f.My, 6);
     }
 
     /// <summary>Тест 3 спеки: включение части не меняет усилий, напряжения новой части нулевые.</summary>
