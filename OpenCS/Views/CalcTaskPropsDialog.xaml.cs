@@ -8,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
+using CScore.History;
 using CScore.Sp63.Normal;
 using CScore.Sp63.CrackWidth;
 using CScore.Sp63.Deflection;
@@ -705,6 +706,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
+           OnPropertyChanged(nameof(IsLoadHistory));
            OnPropertyChanged(nameof(IsShellSimpl));
            OnPropertyChanged(nameof(IsShellSimplCapri));
            OnPropertyChanged(nameof(IsShellSimplSls));
@@ -821,6 +823,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
+           OnPropertyChanged(nameof(IsLoadHistory));
             OnPropertyChanged(nameof(IsShellSimpl));
             OnPropertyChanged(nameof(IsShellSimplCapri));
             OnPropertyChanged(nameof(IsShellSimplSls));
@@ -934,6 +937,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    /// <summary>Пакетный режим плитной задачи (simpl, strain или layered).</summary>
    public bool IsPlateBatch => IsShellSimplBatch || IsShellStrainBatch || IsShellLayeredBatch;
    public bool IsPrestressLoss => Kind == "prestress_loss";
+   /// <summary>История нагружения стадийного сечения.</summary>
+   public bool IsLoadHistory => Kind == "load_history";
+   /// <summary>Параметры истории нагружения (этапы, разрушение, роли).</summary>
+   public LoadHistoryParamsVM LoadHistory { get; }
     public bool IsSteelCheck => Kind is "steel_check" or
         "steel_central_compression" or "steel_central_tension" or
         "steel_bending" or "steel_compression_bending" or
@@ -1073,7 +1080,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "normal", Label = Loc.S("LimitSurfaceAccuracyNormal") },
       new() { Id = "high",   Label = Loc.S("LimitSurfaceAccuracyHigh") },
    ];
-   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsPlatePanel && !IsPrestressLoss
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch
@@ -1084,7 +1091,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для пластин и потерь).</summary>
-   public bool ShowStandardForce => !IsPlatePanel && !IsPrestressLoss
+   public bool ShowStandardForce => !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface && !IsFireNoForceKind
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
@@ -1098,6 +1105,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       if (IsSteelCheck)
          filtered = _allSections.Where(s => s.Areas.Any(a =>
             a.Material?.Type is MatType.Steel or MatType.Custom));
+      else if (IsLoadHistory)
+         filtered = _allSections.Where(s => s is StagedSection);
       else
          filtered = _allSections.Where(s => s is not StagedSection);
 
@@ -1132,7 +1141,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public CrossSection? SelectedSection
    {
       get => selectedSection;
-      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); RefreshTorsionLmin(); }
+      set
+      {
+         selectedSection = value;
+         OnPropertyChanged();
+         RefreshTorsionMeshPreview();
+         RefreshTorsionLmin();
+         LoadHistory.SetSection(value as StagedSection);
+      }
    }
 
     public FireSectionDef? SelectedFireSection
@@ -1869,6 +1885,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       // НДС
       new() { Id = "strain_state",             Label = Loc.S("CalcTaskKind_strain_state"),             GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "strain_state_batch",       Label = Loc.S("CalcTaskKind_strain_state_batch"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "load_history",             Label = Loc.S("CalcTaskKind_load_history"),             GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "shell_strain_state",       Label = Loc.S("CalcTaskKind_shell_strain_state"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch"), GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       // 1-я ГПС
@@ -1982,6 +1999,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       _allSections = [..app.CrossSections];
       FireSections = new ObservableCollection<FireSectionDef>(app.FireSections);
       ForceSets = new ObservableCollection<ForceSet>(app.BarForceSets);
+      LoadHistory = new LoadHistoryParamsVM(ForceSets);
       Sections = new ObservableCollection<CrossSection>();
       ShellSimplSections = new ObservableCollection<PlateSection>(app.PlateSections);
       ShellForceSets = new ObservableCollection<ForceSet>(app.ShellForceSets);
@@ -2020,6 +2038,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
             SelectedForceItem = null;
          }
+
+         if (existing.Kind == "load_history")
+            LoadHistory.Load(LoadHistoryParams.Parse(existing.ParamsJson));
 
          if (existing.Kind is "limit_surface" or "crack_surface" or "acrc_surface")
          {
@@ -2477,7 +2498,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           : CSTriangulation.TriangulationMethod.Ruppert);
    }
 
-   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : 480;
+   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : IsLoadHistory ? 640 : 480;
 
    /// <summary>Разбирает число из поля нормальной проверки с поддержкой русской запятой.</summary>
    static bool TryParseSp63NormalNumber(string text, bool optional, bool positive, out double? value)
@@ -2862,6 +2883,35 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceItemId = Sp63CrackWidthUseManualForces ? 0 : SelectedForceItem!.Id,
             CalcType = SelectedCalcType,
             ParamsJson = crackWidthParams.ToJson()
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
+      if (IsLoadHistory)
+      {
+         if (SelectedSection is not StagedSection)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         var historyParams = LoadHistory.Build(out var historyErrors);
+         if (historyErrors.Count > 0)
+         {
+            MessageBox.Show(string.Join(Environment.NewLine, historyErrors.Select(c => Loc.S("LoadHistoryErr_" + c))), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = 0,
+            ForceItemId = 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = historyParams.ToJson()
          };
          _window.DialogResult = true;
          return;

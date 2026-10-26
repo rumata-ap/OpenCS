@@ -902,6 +902,10 @@
                  Margin="0,8,0,8"
                  Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
 
+      <local:LoadHistoryParamsPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0"
+                                    DataContext="{Binding LoadHistory}"
+                                    Visibility="{Binding DataContext.IsLoadHistory, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}"/>
+
       <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CalcTaskPlatePanelHeader}" Margin="0,8,0,0">
