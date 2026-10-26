@@ -2498,7 +2498,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           : CSTriangulation.TriangulationMethod.Ruppert);
    }
 
-   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : IsLoadHistory ? 640 : 480;
+   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : IsLoadHistory ? 1040 : 480;
 
    /// <summary>Разбирает число из поля нормальной проверки с поддержкой русской запятой.</summary>
    static bool TryParseSp63NormalNumber(string text, bool optional, bool positive, out double? value)

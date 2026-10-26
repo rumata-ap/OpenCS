@@ -1604,6 +1604,7 @@
    <system:String x:Key="CalcTaskKind_load_history">Load history (staged section)</system:String>
    <system:String x:Key="LoadHistory_Stages">Stages</system:String>
    <system:String x:Key="LoadHistory_StageTag">Stage</system:String>
+   <system:String x:Key="LoadHistory_Part">Part</system:String>
    <system:String x:Key="LoadHistory_StageKind">Type</system:String>
    <system:String x:Key="LoadHistory_KindLoad">load</system:String>
    <system:String x:Key="LoadHistory_KindFailure">to failure</system:String>

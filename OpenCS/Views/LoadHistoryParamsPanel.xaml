@@ -9,149 +9,158 @@
          <Setter Property="Margin" Value="0,2,0,4"/>
       </Style>
    </UserControl.Resources>
-   <StackPanel>
-      <!-- 1. Этапы по нагрузке -->
-      <GroupBox Header="{DynamicResource LoadHistory_Stages}">
-         <StackPanel Margin="4">
-            <DataGrid ItemsSource="{Binding Stages}" SelectedItem="{Binding SelectedStage}"
-                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                      CanUserSortColumns="False" HeadersVisibility="Column" SelectionMode="Single"
-                      MinHeight="80" MaxHeight="200">
-               <DataGrid.Columns>
-                  <DataGridTextColumn Header="{DynamicResource LoadHistory_StageTag}"
-                                      Binding="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                  <DataGridTemplateColumn Header="{DynamicResource LoadHistory_ActivatePart}" Width="Auto">
-                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                           <ComboBox ItemsSource="{Binding PartChoiceItems}" DisplayMemberPath="Label" SelectedValuePath="Value"
-                                     SelectedValue="{Binding ActivatePartChoice, UpdateSourceTrigger=PropertyChanged}"
-                                     MinWidth="90"/>
-                        </DataTemplate>
-                     </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="{DynamicResource LoadHistory_Force}" Binding="{Binding ForceText}"
-                                      IsReadOnly="True" Width="2*"/>
-                  <DataGridTextColumn Header="{DynamicResource LoadHistory_Steps}"
-                                      Binding="{Binding Steps, UpdateSourceTrigger=PropertyChanged}" Width="50"/>
-               </DataGrid.Columns>
-            </DataGrid>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-               <Button Content="{DynamicResource Add}" Command="{Binding AddStageCommand}" Padding="8,2" Margin="0,0,4,0"/>
-               <Button Content="{DynamicResource Delete}" Command="{Binding RemoveStageCommand}" Padding="8,2" Margin="0,0,4,0"/>
-               <Button Content="{DynamicResource FemAnalysisStageMoveUp}" Command="{Binding MoveUpCommand}" Padding="8,2" Margin="0,0,4,0"/>
-               <Button Content="{DynamicResource FemAnalysisStageMoveDown}" Command="{Binding MoveDownCommand}" Padding="8,2"/>
-            </StackPanel>
-
-            <!-- Усилие выбранного этапа -->
-            <StackPanel DataContext="{Binding SelectedStage}" Margin="0,6,0,0"
-                        Visibility="{Binding DataContext.HasSelectedStage, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
-               <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                  <TextBlock Text="{DynamicResource LoadHistory_Force}" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                  <RadioButton Content="{DynamicResource CalcTask_StageModeItem}" IsChecked="{Binding UseSet, Mode=TwoWay}"
-                               GroupName="LhForceMode" Margin="0,0,12,0"/>
-                  <RadioButton Content="{DynamicResource CalcTask_StageModeManual}" IsChecked="{Binding UseManual, Mode=TwoWay}"
-                               GroupName="LhForceMode"/>
+   <!-- Две колонки: слева этапы, справа разрушение, роли и способ продолжения — диалог не выше экрана -->
+   <Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="*"/>
+         <ColumnDefinition Width="12"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0">
+         <!-- 1. Этапы по нагрузке -->
+         <GroupBox Header="{DynamicResource LoadHistory_Stages}">
+            <StackPanel Margin="4">
+               <DataGrid ItemsSource="{Binding Stages}" SelectedItem="{Binding SelectedStage}"
+                         AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                         CanUserSortColumns="False" HeadersVisibility="Column" SelectionMode="Single"
+                         MinHeight="120" MaxHeight="320">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_StageTag}"
+                                         Binding="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                     <DataGridTemplateColumn Header="{DynamicResource LoadHistory_ActivatePart}" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                           <DataTemplate>
+                              <ComboBox ItemsSource="{Binding PartChoiceItems}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                        SelectedValue="{Binding ActivatePartChoice, UpdateSourceTrigger=PropertyChanged}"
+                                        MinWidth="90"/>
+                           </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                     </DataGridTemplateColumn>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_Force}" Binding="{Binding ForceText}"
+                                         IsReadOnly="True" Width="2*"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_Steps}"
+                                         Binding="{Binding Steps, UpdateSourceTrigger=PropertyChanged}" Width="50"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+               <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <Button Content="{DynamicResource Add}" Command="{Binding AddStageCommand}" Padding="8,2" Margin="0,0,4,0"/>
+                  <Button Content="{DynamicResource Delete}" Command="{Binding RemoveStageCommand}" Padding="8,2" Margin="0,0,4,0"/>
+                  <Button Content="{DynamicResource FemAnalysisStageMoveUp}" Command="{Binding MoveUpCommand}" Padding="8,2" Margin="0,0,4,0"/>
+                  <Button Content="{DynamicResource FemAnalysisStageMoveDown}" Command="{Binding MoveDownCommand}" Padding="8,2"/>
                </StackPanel>
-               <StackPanel Visibility="{Binding UseSet, Converter={StaticResource BoolToVis}}">
-                  <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Set}" DisplayMemberPath="Tag" Margin="0,0,0,4"/>
-                  <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding Item}" DisplayMemberPath="Label"/>
+
+               <!-- Усилие выбранного этапа -->
+               <StackPanel DataContext="{Binding SelectedStage}" Margin="0,6,0,0"
+                           Visibility="{Binding DataContext.HasSelectedStage, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                     <TextBlock Text="{DynamicResource LoadHistory_Force}" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                     <RadioButton Content="{DynamicResource CalcTask_StageModeItem}" IsChecked="{Binding UseSet, Mode=TwoWay}"
+                                  GroupName="LhForceMode" Margin="0,0,12,0"/>
+                     <RadioButton Content="{DynamicResource CalcTask_StageModeManual}" IsChecked="{Binding UseManual, Mode=TwoWay}"
+                                  GroupName="LhForceMode"/>
+                  </StackPanel>
+                  <StackPanel Visibility="{Binding UseSet, Converter={StaticResource BoolToVis}}">
+                     <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Set}" DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+                     <ComboBox ItemsSource="{Binding Items}" SelectedItem="{Binding Item}" DisplayMemberPath="Label"/>
+                  </StackPanel>
+                  <Grid Visibility="{Binding UseManual, Converter={StaticResource BoolToVis}}">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Text="N" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="1" Text="{Binding N, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                     <TextBlock Grid.Column="2" Text="Mx" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="3" Text="{Binding Mx, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                     <TextBlock Grid.Column="4" Text="My" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="5" Text="{Binding My, UpdateSourceTrigger=PropertyChanged}"/>
+                  </Grid>
                </StackPanel>
-               <Grid Visibility="{Binding UseManual, Converter={StaticResource BoolToVis}}">
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="N" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Grid.Column="1" Text="{Binding N, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
-                  <TextBlock Grid.Column="2" Text="Mx" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Grid.Column="3" Text="{Binding Mx, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
-                  <TextBlock Grid.Column="4" Text="My" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Grid.Column="5" Text="{Binding My, UpdateSourceTrigger=PropertyChanged}"/>
-               </Grid>
             </StackPanel>
-         </StackPanel>
-      </GroupBox>
+         </GroupBox>
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+         <!-- 2. Доведение до разрушения -->
+         <GroupBox>
+            <GroupBox.Header>
+               <CheckBox Content="{DynamicResource LoadHistory_Failure}" IsChecked="{Binding HasFailure}"/>
+            </GroupBox.Header>
+            <Grid Margin="4" Visibility="{Binding HasFailure, Converter={StaticResource BoolToVis}}">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="120"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Text="Mx" VerticalAlignment="Center"/>
+               <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding FailureMx, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               <TextBlock Grid.Row="1" Text="My" VerticalAlignment="Center"/>
+               <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FailureMy, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{DynamicResource LoadHistory_FailureDirectionHint}" Style="{StaticResource Hint}"/>
+               <TextBlock Grid.Row="3" Text="{DynamicResource LoadHistory_Steps}" VerticalAlignment="Center"/>
+               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding FailureSteps, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               <TextBlock Grid.Row="4" Text="{DynamicResource LoadHistory_DropRatio}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DropRatio, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               <TextBlock Grid.Row="5" Text="{DynamicResource LoadHistory_CMax}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding CMax, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+               <TextBlock Grid.Row="6" Text="{DynamicResource LoadHistory_Softening}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+               <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding SofteningStrain, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+            </Grid>
+         </GroupBox>
 
-      <!-- 2. Доведение до разрушения -->
-      <GroupBox Margin="0,8,0,0">
-         <GroupBox.Header>
-            <CheckBox Content="{DynamicResource LoadHistory_Failure}" IsChecked="{Binding HasFailure}"/>
-         </GroupBox.Header>
-         <Grid Margin="4" Visibility="{Binding HasFailure, Converter={StaticResource BoolToVis}}">
-            <Grid.ColumnDefinitions>
-               <ColumnDefinition Width="*"/>
-               <ColumnDefinition Width="120"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-               <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="Mx" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding FailureMx, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-            <TextBlock Grid.Row="1" Text="My" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FailureMy, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{DynamicResource LoadHistory_FailureDirectionHint}" Style="{StaticResource Hint}"/>
-            <TextBlock Grid.Row="3" Text="{DynamicResource LoadHistory_Steps}" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding FailureSteps, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-            <TextBlock Grid.Row="4" Text="{DynamicResource LoadHistory_DropRatio}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DropRatio, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-            <TextBlock Grid.Row="5" Text="{DynamicResource LoadHistory_CMax}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding CMax, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-            <TextBlock Grid.Row="6" Text="{DynamicResource LoadHistory_Softening}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding SofteningStrain, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-         </Grid>
-      </GroupBox>
+         <!-- 3. Роли частей -->
+         <GroupBox Header="{DynamicResource LoadHistory_Roles}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <DataGrid x:Name="RolesGrid" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" CanUserAddRows="False"
+                         CanUserDeleteRows="False" CanUserSortColumns="False" HeadersVisibility="Column" MaxHeight="160">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="№" Binding="{Binding Number}" IsReadOnly="True" Width="30"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_Part}" Binding="{Binding PartTag}" IsReadOnly="True" Width="*"/>
+                     <DataGridTemplateColumn Header="{DynamicResource LoadHistory_Concrete}" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                           <DataTemplate>
+                              <ComboBox ItemsSource="{Binding DataContext.RoleChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        DisplayMemberPath="Label" SelectedValuePath="Value"
+                                        SelectedValue="{Binding Concrete, UpdateSourceTrigger=PropertyChanged}" MinWidth="110"/>
+                           </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                     </DataGridTemplateColumn>
+                     <DataGridTemplateColumn Header="{DynamicResource LoadHistory_Rebar}" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                           <DataTemplate>
+                              <ComboBox ItemsSource="{Binding DataContext.RoleChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        DisplayMemberPath="Label" SelectedValuePath="Value"
+                                        SelectedValue="{Binding Rebar, UpdateSourceTrigger=PropertyChanged}" MinWidth="110"/>
+                           </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                     </DataGridTemplateColumn>
+                  </DataGrid.Columns>
+               </DataGrid>
+               <TextBlock Text="{DynamicResource LoadHistory_RolesNote}" Style="{StaticResource Hint}"/>
+            </StackPanel>
+         </GroupBox>
 
-      <!-- 3. Роли частей -->
-      <GroupBox Header="{DynamicResource LoadHistory_Roles}" Margin="0,8,0,0">
-         <StackPanel Margin="4">
-            <DataGrid x:Name="RolesGrid" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" CanUserAddRows="False"
-                      CanUserDeleteRows="False" CanUserSortColumns="False" HeadersVisibility="Column" MaxHeight="160">
-               <DataGrid.Columns>
-                  <DataGridTextColumn Header="№" Binding="{Binding Number}" IsReadOnly="True" Width="30"/>
-                  <DataGridTextColumn Header="{DynamicResource LoadHistory_StageTag}" Binding="{Binding PartTag}" IsReadOnly="True" Width="*"/>
-                  <DataGridTemplateColumn Header="{DynamicResource LoadHistory_Concrete}" Width="Auto">
-                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                           <ComboBox ItemsSource="{Binding DataContext.RoleChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                     DisplayMemberPath="Label" SelectedValuePath="Value"
-                                     SelectedValue="{Binding Concrete, UpdateSourceTrigger=PropertyChanged}" MinWidth="110"/>
-                        </DataTemplate>
-                     </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="{DynamicResource LoadHistory_Rebar}" Width="Auto">
-                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                           <ComboBox ItemsSource="{Binding DataContext.RoleChoices, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                     DisplayMemberPath="Label" SelectedValuePath="Value"
-                                     SelectedValue="{Binding Rebar, UpdateSourceTrigger=PropertyChanged}" MinWidth="110"/>
-                        </DataTemplate>
-                     </DataGridTemplateColumn.CellTemplate>
-                  </DataGridTemplateColumn>
-               </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Text="{DynamicResource LoadHistory_RolesNote}" Style="{StaticResource Hint}"/>
-         </StackPanel>
-      </GroupBox>
-
-      <!-- 4. Сравнение и продолжение несошедшегося шага -->
-      <CheckBox Content="{DynamicResource LoadHistory_Compare}" IsChecked="{Binding CompareWithoutHistory}" Margin="0,8,0,0"/>
-      <GroupBox Header="{DynamicResource LoadHistory_Fallback}" Margin="0,8,0,0">
-         <StackPanel Margin="4">
-            <RadioButton Content="{DynamicResource LoadHistory_FallbackCurvature}" IsChecked="{Binding FallbackCurvature}"
-                         GroupName="LhFallback" Margin="0,0,0,2"/>
-            <RadioButton Content="{DynamicResource LoadHistory_FallbackNoTension}" IsChecked="{Binding FallbackNoTension}"
-                         GroupName="LhFallback"/>
-         </StackPanel>
-      </GroupBox>
-   </StackPanel>
+         <!-- 4. Сравнение и продолжение несошедшегося шага -->
+         <CheckBox Content="{DynamicResource LoadHistory_Compare}" IsChecked="{Binding CompareWithoutHistory}" Margin="0,8,0,0"/>
+         <GroupBox Header="{DynamicResource LoadHistory_Fallback}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <RadioButton Content="{DynamicResource LoadHistory_FallbackCurvature}" IsChecked="{Binding FallbackCurvature}"
+                            GroupName="LhFallback" Margin="0,0,0,2"/>
+               <RadioButton Content="{DynamicResource LoadHistory_FallbackNoTension}" IsChecked="{Binding FallbackNoTension}"
+                            GroupName="LhFallback"/>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+   </Grid>
 </UserControl>

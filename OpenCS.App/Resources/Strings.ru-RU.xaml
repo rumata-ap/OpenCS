@@ -1604,6 +1604,7 @@
    <system:String x:Key="CalcTaskKind_load_history">История нагружения (стадийное сечение)</system:String>
    <system:String x:Key="LoadHistory_Stages">Этапы</system:String>
    <system:String x:Key="LoadHistory_StageTag">Этап</system:String>
+   <system:String x:Key="LoadHistory_Part">Часть</system:String>
    <system:String x:Key="LoadHistory_StageKind">Тип</system:String>
    <system:String x:Key="LoadHistory_KindLoad">нагрузка</system:String>
    <system:String x:Key="LoadHistory_KindFailure">до разрушения</system:String>
