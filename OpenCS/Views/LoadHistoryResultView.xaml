@@ -6,22 +6,24 @@
       <BooleanToVisibilityConverter x:Key="BoolToVis"/>
    </UserControl.Resources>
    <DockPanel>
-      <!-- Сводка -->
-      <StackPanel DockPanel.Dock="Top" Margin="8,6">
-         <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap"/>
-         <TextBlock Text="{Binding RolesNote}" TextWrapping="Wrap" Foreground="DarkOrange" Margin="0,4,0,0">
-            <TextBlock.Style>
-               <Style TargetType="TextBlock">
-                  <Style.Triggers>
-                     <DataTrigger Binding="{Binding RolesNote}" Value="{x:Null}">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                     </DataTrigger>
-                  </Style.Triggers>
-               </Style>
-            </TextBlock.Style>
-         </TextBlock>
-         <TextBlock Text="{DynamicResource LoadHistory_UnloadNote}" Foreground="Gray" Margin="0,4,0,0"/>
-      </StackPanel>
+      <!-- Сводка — в свёрнутом блоке, чтобы не отнимать место у таблицы и графика -->
+      <Expander DockPanel.Dock="Top" Header="{DynamicResource ResultTabSummary}" IsExpanded="False" Margin="4,2,4,4">
+         <StackPanel Margin="8,4,8,6">
+            <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding RolesNote}" TextWrapping="Wrap" Foreground="DarkOrange" Margin="0,4,0,0">
+               <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding RolesNote}" Value="{x:Null}">
+                           <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="{DynamicResource LoadHistory_UnloadNote}" Foreground="Gray" Margin="0,4,0,0"/>
+         </StackPanel>
+      </Expander>
 
       <TabControl x:Name="MainTabs">
          <!-- 1. Шаги -->
