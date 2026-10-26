@@ -1501,6 +1501,7 @@ namespace OpenCS
            };
 
           db = new DatabaseService(this.databasePath);
+          foreach (var notice in db.MigrationNotices) LogService.Warning(notice);
           InitNewDatabase();
           LoadSettingsFromDb();
           InitializeCollections();
@@ -2607,6 +2608,7 @@ namespace OpenCS
             db.ChangeDatabase(path);
             db.ClearCollections();
             db.LoadAll();
+            foreach (var notice in db.MigrationNotices) LogService.Warning(notice);
             RefreshAfterLoad();
             LoadSettingsFromDb();
             CurrentProjectPath = path;
@@ -2936,6 +2938,13 @@ namespace OpenCS
       void DeleteCrossSection()
       {
          if (currentCrossSection == null) return;
+         var users = db.SectionsUsingAsPart(currentCrossSection.Id);
+         if (users.Count > 0)
+         {
+            System.Windows.MessageBox.Show(string.Format(Loc.S("SectionUsedAsStagedPart"), users[0].Tag),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
          var res = System.Windows.MessageBox.Show(

@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 90;
+      const int CurrentSchemaVersion = 91;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -110,6 +110,7 @@ namespace OpenCS.Utilites
          [87] = MigrateV88,
          [88] = MigrateV89,
          [89] = MigrateV90,
+         [90] = MigrateV91,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -253,15 +254,18 @@ namespace OpenCS.Utilites
                 description TEXT,
                 type        TEXT NOT NULL DEFAULT 'simple'
             );
-            CREATE TABLE IF NOT EXISTS cross_section_stages (
+            CREATE TABLE IF NOT EXISTS cross_section_parts (
                 section_id        INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
-                stage1_section_id INTEGER NOT NULL REFERENCES cross_sections(id)
+                part_index        INTEGER NOT NULL,
+                tag               TEXT NOT NULL DEFAULT '',
+                source_section_id INTEGER NULL REFERENCES cross_sections(id),
+                PRIMARY KEY (section_id, part_index)
             );
-            CREATE TABLE IF NOT EXISTS cross_section_stage_kurvature (
-                section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
-                e0         REAL NOT NULL DEFAULT 0,
-                ky         REAL NOT NULL DEFAULT 0,
-                kz         REAL NOT NULL DEFAULT 0
+            CREATE TABLE IF NOT EXISTS cross_section_part_areas (
+                section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                part_index INTEGER NOT NULL,
+                area_id    INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS cross_section_areas (
                 section_id  INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
@@ -833,6 +837,7 @@ namespace OpenCS.Utilites
       /// </summary>
       void Migrate()
       {
+         _migrationNotices.Clear();
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT value_json FROM settings WHERE key = 'schema_version'";
          var row = cmd.ExecuteScalar() as string;
@@ -1792,6 +1797,48 @@ namespace OpenCS.Utilites
             """);
       }
 
+      readonly List<string> _migrationNotices = [];
+
+      /// <summary>Сообщения пользователю от миграций при последнем открытии базы.</summary>
+      public IReadOnlyList<string> MigrationNotices => _migrationNotices;
+
+      /// <summary>
+      /// Миграция v91: двухстадийные сечения заменены стадийными (части + история в задаче). Миграции
+      /// данных нет — удаляются двухстадийные сечения, задачи two_stage_strain(_batch) и задачи на этих
+      /// сечениях вместе с результатами; таблицы стадий удаляются. Сечения-«этап 1» остаются.
+      /// </summary>
+      void MigrateV91()
+      {
+         const string twoStageTasks = """
+            SELECT id FROM calc_tasks
+            WHERE kind IN ('two_stage_strain', 'two_stage_strain_batch')
+               OR section_id IN (SELECT id FROM cross_sections WHERE type = 'two_stage')
+            """;
+         MigExec($"DELETE FROM calc_results WHERE task_id IN ({twoStageTasks})");
+         MigExec($"DELETE FROM calc_tasks WHERE id IN ({twoStageTasks})");
+
+         using var count = _connection.CreateCommand();
+         count.CommandText = "SELECT COUNT(*) FROM cross_sections WHERE type = 'two_stage'";
+         long removed = (long)count.ExecuteScalar()!;
+
+         MigExec("DELETE FROM cross_section_areas WHERE section_id IN (SELECT id FROM cross_sections WHERE type = 'two_stage')");
+         MigExec("DELETE FROM cross_sections WHERE type = 'two_stage'");
+         MigExec("DROP TABLE IF EXISTS cross_section_stages");
+         MigExec("DROP TABLE IF EXISTS cross_section_stage_kurvature");
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS cross_section_parts (
+                section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                part_index INTEGER NOT NULL, tag TEXT NOT NULL DEFAULT '',
+                source_section_id INTEGER NULL REFERENCES cross_sections(id),
+                PRIMARY KEY (section_id, part_index));
+            CREATE TABLE IF NOT EXISTS cross_section_part_areas (
+                section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                part_index INTEGER NOT NULL, area_id INTEGER NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0);
+            """);
+         if (removed > 0)
+            _migrationNotices.Add(string.Format(Loc.S("StagedSectionsRemovedNotice"), removed));
+      }
+
       /// <summary>Миграция v90: параметры авто-АЖТ — флажок и порог угла схемы, режим/маска/вид/явный след стержня.</summary>
       void MigrateV90()
       {
@@ -2580,9 +2627,7 @@ namespace OpenCS.Utilites
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
-               CrossSection cs = r.GetString(4) == "two_stage"
-                  ? new TwoStageSection()
-                  : new CrossSection();
+               CrossSection cs = r.GetString(4) == "staged" ? new StagedSection() : new CrossSection();
                cs.Id = r.GetInt32(0);
                cs.Num = r.GetInt32(1);
                cs.Tag = r.GetString(2);
@@ -2608,23 +2653,38 @@ namespace OpenCS.Utilites
             }
          }
 
+         // Части стадийных сечений: ссылка на сечение-источник (живой список его областей) или свои области.
+         var parts = new Dictionary<(int Section, int Part), SectionPart>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT section_id, stage1_section_id FROM cross_section_stages";
+            cmd.CommandText = "SELECT section_id, part_index, tag, source_section_id FROM cross_section_parts ORDER BY section_id, part_index";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
-               int sId = r.GetInt32(0); int s1Id = r.GetInt32(1);
-               if (sections.TryGetValue(sId, out var sec) && sec is TwoStageSection tss
-                  && sections.TryGetValue(s1Id, out var stage1))
+               if (!sections.TryGetValue(r.GetInt32(0), out var sec) || sec is not StagedSection st) continue;
+               var part = new SectionPart
                {
-                  tss.Stage1 = stage1;
-                  tss.Stage1SectionId = s1Id;
-               }
+                  Index = r.GetInt32(1),
+                  Tag = r.GetString(2),
+                  SourceSectionId = r.IsDBNull(3) ? null : r.GetInt32(3),
+               };
+               if (part.SourceSectionId is int srcId && sections.TryGetValue(srcId, out var src))
+                  part.Areas = src.Areas;
+               st.Parts.Add(part);
+               parts[(st.Id, part.Index)] = part;
             }
          }
-
-         // κ1 этапа 1 более не хранится в БД: вычисляется при выполнении расчётной задачи.
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT section_id, part_index, area_id FROM cross_section_part_areas ORDER BY section_id, part_index, sort_order";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+               if (parts.TryGetValue((r.GetInt32(0), r.GetInt32(1)), out var part) && part.SourceSectionId is null
+                   && poolAreaDict.TryGetValue(r.GetInt32(2), out var area))
+                  part.Areas.Add(area);
+         }
+         foreach (var st in sections.Values.OfType<StagedSection>())
+            st.SyncAreas();
 
          foreach (var sec in sections.Values)
             CrossSections.Add(sec);
@@ -2639,9 +2699,6 @@ namespace OpenCS.Utilites
          {
             sec.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
                rebarDifferentialDiagram: calc.RebarDifferentialDiagram, ekbEtaMin: calc.EkbDescEtaMin);
-            if (sec is TwoStageSection tss)
-               tss.Stage1.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
-                  rebarDifferentialDiagram: calc.RebarDifferentialDiagram, ekbEtaMin: calc.EkbDescEtaMin);
          }
       }
 
@@ -2915,27 +2972,51 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@num", section.Num);
          cmd.Parameters.AddWithValue("@tag", section.Tag);
          cmd.Parameters.AddWithValue("@desc", (object?)section.Description ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("@type", section is TwoStageSection ? "two_stage" : "simple");
+         cmd.Parameters.AddWithValue("@type", section is StagedSection ? "staged" : "simple");
          if (isNew) section.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
-         // Сохраняем список ссылок на области через junction-таблицу
-         SaveSectionAreaJunction(section);
+         if (section is StagedSection staged)
+            SaveStagedParts(staged);
+         else
+            SaveSectionAreaJunction(section); // список ссылок на области через junction-таблицу
+      }
 
-         if (section is TwoStageSection tss)
+      /// <summary>Части стадийного сечения: ссылка на сечение-источник или собственные области пула.
+      /// Объединённый список Areas в cross_section_areas не пишется — он собирается из частей.</summary>
+      void SaveStagedParts(StagedSection staged)
+      {
+         using var del = _connection.CreateCommand();
+         del.CommandText = """
+            DELETE FROM cross_section_areas      WHERE section_id = @sid;
+            DELETE FROM cross_section_part_areas WHERE section_id = @sid;
+            DELETE FROM cross_section_parts      WHERE section_id = @sid;
+         """;
+         del.Parameters.AddWithValue("@sid", staged.Id);
+         del.ExecuteNonQuery();
+         for (int p = 0; p < staged.Parts.Count; p++)
          {
-            SaveCrossSectionCore(tss.Stage1);
-
-            using var stageCmd = _connection.CreateCommand();
-            stageCmd.CommandText = """
-               DELETE FROM cross_section_stages WHERE section_id = @sid;
-               INSERT INTO cross_section_stages (section_id, stage1_section_id)
-               VALUES (@sid, @s1id);
-            """;
-            stageCmd.Parameters.AddWithValue("@sid", tss.Id);
-            stageCmd.Parameters.AddWithValue("@s1id", tss.Stage1.Id);
-            // κ1 этапа 1 не сохраняем — она вычисляется при расчёте.
-            stageCmd.ExecuteNonQuery();
+            var part = staged.Parts[p];
+            part.Index = p;
+            using var ins = _connection.CreateCommand();
+            ins.CommandText = "INSERT INTO cross_section_parts (section_id, part_index, tag, source_section_id) VALUES (@sid, @pi, @tag, @src)";
+            ins.Parameters.AddWithValue("@sid", staged.Id);
+            ins.Parameters.AddWithValue("@pi", p);
+            ins.Parameters.AddWithValue("@tag", part.Tag ?? "");
+            ins.Parameters.AddWithValue("@src", (object?)part.SourceSectionId ?? DBNull.Value);
+            ins.ExecuteNonQuery();
+            if (part.SourceSectionId != null) continue;
+            for (int i = 0; i < part.Areas.Count; i++)
+            {
+               if (part.Areas[i].Id == 0) continue; // область не сохранена в пуле — пропускаем
+               using var pa = _connection.CreateCommand();
+               pa.CommandText = "INSERT INTO cross_section_part_areas (section_id, part_index, area_id, sort_order) VALUES (@sid, @pi, @aid, @ord)";
+               pa.Parameters.AddWithValue("@sid", staged.Id);
+               pa.Parameters.AddWithValue("@pi", p);
+               pa.Parameters.AddWithValue("@aid", part.Areas[i].Id);
+               pa.Parameters.AddWithValue("@ord", i);
+               pa.ExecuteNonQuery();
+            }
          }
       }
 
@@ -2962,6 +3043,11 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>Стадийные сечения, у которых часть ссылается на сечение <paramref name="sectionId"/>.</summary>
+      public IReadOnlyList<StagedSection> SectionsUsingAsPart(int sectionId) =>
+         CrossSections.OfType<StagedSection>()
+            .Where(s => s.Parts.Any(p => p.SourceSectionId == sectionId)).ToList();
+
       /// <summary>Удаляет сечение и его дочерние строки (те же ON DELETE CASCADE в схеме, что
       /// не выполняются при PRAGMA foreign_keys=OFF — см. DeleteFemSchema).</summary>
       public void DeleteCrossSection(CrossSection section)
@@ -2972,8 +3058,8 @@ namespace OpenCS.Utilites
          {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-               DELETE FROM cross_section_stages           WHERE section_id=@id;
-               DELETE FROM cross_section_stage_kurvature   WHERE section_id=@id;
+               DELETE FROM cross_section_part_areas        WHERE section_id=@id;
+               DELETE FROM cross_section_parts             WHERE section_id=@id;
                DELETE FROM cross_section_areas             WHERE section_id=@id;
                DELETE FROM parametric_rc_generated_areas    WHERE section_id=@id;
                DELETE FROM parametric_rc_sections           WHERE section_id=@id;

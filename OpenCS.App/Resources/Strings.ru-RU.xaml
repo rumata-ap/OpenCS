@@ -726,6 +726,8 @@
    <system:String x:Key="RebarGroups">Группы арматуры</system:String>
    <system:String x:Key="FiberSections">Фибровые</system:String>
    <system:String x:Key="TwoStageSections">Усиление</system:String>
+   <system:String x:Key="StagedSectionsRemovedNotice">Удалено {0} двухстадийных сечений; создайте их заново как стадийные</system:String>
+   <system:String x:Key="SectionUsedAsStagedPart">Сечение используется как часть стадийного сечения «{0}» — удаление невозможно</system:String>
    <system:String x:Key="NewArea">Новая область</system:String>
    <system:String x:Key="Hull">Внешний контур (Hull)</system:String>
    <system:String x:Key="Holes">Отверстия</system:String>

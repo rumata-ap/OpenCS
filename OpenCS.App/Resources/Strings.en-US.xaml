@@ -726,6 +726,8 @@
    <system:String x:Key="RebarGroups">Rebar Groups</system:String>
    <system:String x:Key="FiberSections">Fiber Sections</system:String>
    <system:String x:Key="TwoStageSections">Strengthening</system:String>
+   <system:String x:Key="StagedSectionsRemovedNotice">Removed {0} two-stage sections; recreate them as staged sections</system:String>
+   <system:String x:Key="SectionUsedAsStagedPart">The section is used as a part of staged section «{0}» and cannot be deleted</system:String>
    <system:String x:Key="NewArea">New Area</system:String>
    <system:String x:Key="Hull">Outer Contour (Hull)</system:String>
    <system:String x:Key="Holes">Holes</system:String>
