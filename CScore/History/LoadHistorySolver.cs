@@ -95,10 +95,26 @@ public sealed class LoadHistorySolver
                 };
                 bool first = run.Steps.Count == 0;
                 var kNew = solver.Solve(target.N, target.Mx, target.My, first ? null : k);
-                var step = MakeStep(si, st.Kind, i, target, kNew, phi, solver.Converged, solver.Iterations, solver.Residual);
+                bool ok = solver.Converged;
+                int it = solver.Iterations;
+                double res = solver.Residual;
+                bool tenStep = _o.Ten;
+                string? fallback = null;
+                if (!ok)
+                {
+                    fallback = _o.Fallback == LoadStepFallback.WithoutConcreteTension
+                        ? "without_concrete_tension" : "curvature_control";
+                    if (TryFallback(target, k, first, out var kf, out it, out res, out tenStep))
+                    {
+                        kNew = kf;
+                        ok = true;
+                    }
+                }
+                var step = MakeStep(si, st.Kind, i, target, kNew, phi, ok, it, res, ten: tenStep);
+                if (fallback is not null) step.Warnings.Add(fallback);
                 run.Steps.Add(step);
                 Tick();
-                if (!solver.Converged)
+                if (!ok)
                 {
                     run.Status = "partial";
                     run.StopReason = "load_not_converged";
@@ -116,9 +132,9 @@ public sealed class LoadHistorySolver
     }
 
     HistoryStep MakeStep(int stageIndex, StageKind kind, int step, Load target, Kurvature k, double phi,
-        bool converged, int iterations, double residual, bool isLimitPoint = false)
+        bool converged, int iterations, double residual, bool isLimitPoint = false, bool? ten = null)
     {
-        var f = _section.Integral(k, _o.Calc, _o.Ten);
+        var f = _section.Integral(k, _o.Calc, ten ?? _o.Ten);
         double cos = Math.Cos(phi), sin = Math.Sin(phi);
         var parts = Enumerable.Range(0, _section.ActivePartCount)
             .Select(p => PartUtilization.Evaluate(_section, p, k, _o.Calc)).ToList();
@@ -137,6 +153,98 @@ public sealed class LoadHistorySolver
             Warnings = warnings,
             Parts = parts,
         };
+    }
+
+    /// <summary>
+    /// Продолжение несошедшегося шага по нагрузке способом <see cref="LoadHistoryOptions.Fallback"/>.
+    /// <paramref name="ten"/> — учёт растяжения бетона, при котором получено решение.
+    /// </summary>
+    bool TryFallback(Load target, Kurvature kPrev, bool first,
+        out Kurvature k, out int iterations, out double residual, out bool ten)
+    {
+        ten = _o.Ten;
+        if (_o.Fallback == LoadStepFallback.WithoutConcreteTension)
+        {
+            k = kPrev; iterations = 0; residual = double.NaN;
+            if (!_o.Ten) return false;
+            var s = new StrainSolver(_section, _o.Calc, ten: false, tol: _o.Tol,
+                maxIter: _o.MaxIter, h: _o.H, centralJacobian: _o.CentralJacobian);
+            k = s.Solve(target.N, target.Mx, target.My, first ? null : kPrev);
+            iterations = s.Iterations;
+            residual = s.Residual;
+            ten = false;
+            return s.Converged;
+        }
+        return TryCurvatureBridge(target, kPrev, out k, out iterations, out residual);
+    }
+
+    /// <summary>
+    /// Проход несошедшегося шага по кривизне: при N шага и направлении его момента u кривизна вдоль u
+    /// шагами c_max/100 (с дроблением) меняется от текущей до пересечения проекции момента с заданной,
+    /// затем бисекция по c. Так проходится провал момента после трещинообразования. Промежуточные точки
+    /// в историю не пишутся. Нет пересечения до ±c_max — шаг не сошёлся.
+    /// </summary>
+    bool TryCurvatureBridge(Load target, Kurvature kPrev, out Kurvature k, out int iterations, out double residual)
+    {
+        k = kPrev; iterations = 0; residual = double.NaN;
+        double mTarget = Math.Sqrt(target.Mx * target.Mx + target.My * target.My);
+        if (mTarget < 1e-12) return false;
+        double phiT = Math.Atan2(target.My, target.Mx);
+        double cos = Math.Cos(phiT), sin = Math.Sin(phiT);
+        var ctrl = new CurvatureControlSolver(_section, _o);
+
+        double Mu(Kurvature kk)
+        {
+            var f = _section.Integral(kk, _o.Calc, _o.Ten);
+            return f.Mx * cos + f.My * sin;
+        }
+
+        double c = kPrev.ky * cos + kPrev.kz * sin;
+        if (!ctrl.TrySolve(target.N, phiT, c, kPrev, out var kc, out int it, out _)) return false;
+        iterations += it;
+        double mu = Mu(kc);
+        double dir = mTarget > mu ? 1 : -1;
+        double cLimit = EstimateCMax(phiT);
+        double dc = cLimit / 100;
+
+        for (int n = 0; n < 400; n++)
+        {
+            _o.Token.ThrowIfCancellationRequested();
+            double step = dc;
+            Kurvature kNew = default; bool ok = false;
+            for (int halving = 0; halving <= 5 && !ok; halving++, step /= 2)
+                ok = ctrl.TrySolve(target.N, phiT, c + dir * step, kc, out kNew, out it, out _);
+            if (!ok) return false;
+            iterations += it;
+            step *= 2; // последнее деление не применялось
+            double cNew = c + dir * step;
+            double muNew = Mu(kNew);
+
+            if ((muNew - mTarget) * (mu - mTarget) <= 0)
+            {
+                // бисекция по c между (c, mu) и (cNew, muNew)
+                double cLo = c, cHi = cNew, fLo = mu - mTarget;
+                Kurvature kLo = kc, kMid = kNew;
+                double fMid = muNew - mTarget;
+                for (int b = 0; b < 60 && Math.Abs(fMid) >= 0.5 * _o.Tol; b++)
+                {
+                    double cMid = 0.5 * (cLo + cHi);
+                    if (!ctrl.TrySolve(target.N, phiT, cMid, kLo, out kMid, out it, out _)) return false;
+                    iterations += it;
+                    fMid = Mu(kMid) - mTarget;
+                    if (fMid * fLo > 0) { cLo = cMid; kLo = kMid; fLo = fMid; } else cHi = cMid;
+                }
+                k = kMid;
+                var f = _section.Integral(k, _o.Calc, _o.Ten);
+                double rN = f.N - target.N, rX = f.Mx - target.Mx, rY = f.My - target.My;
+                residual = Math.Sqrt(rN * rN + rX * rX + rY * rY);
+                return residual < 2 * _o.Tol;
+            }
+
+            c = cNew; kc = kNew; mu = muNew;
+            if (Math.Abs(c) > cLimit) return false;
+        }
+        return false;
     }
 
     /// <summary>Оборачивает диаграммы областей с ролью «Разрушается» в <see cref="SofteningDiagramm"/>.

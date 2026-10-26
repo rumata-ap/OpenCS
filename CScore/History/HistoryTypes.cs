@@ -22,6 +22,18 @@ public enum PartLimitRole
     Fails,
 }
 
+/// <summary>
+/// Что делать, если шаг по нагрузке не сошёлся (обычно — провал момента после трещинообразования при учёте
+/// растяжения бетона: управление по нагрузке такой участок не проходит). Выбирается в диалоге задачи.
+/// </summary>
+public enum LoadStepFallback
+{
+    /// <summary>Перерешать шаг без растяжения бетона (как в rc_check); следующие шаги — снова с растяжением.</summary>
+    WithoutConcreteTension,
+    /// <summary>Пройти участок по кривизне при N шага и направлении его момента до заданного момента.</summary>
+    CurvatureControl,
+}
+
 /// <summary>Этап истории. Для <see cref="StageKind.Failure"/> из <see cref="Target"/> берётся только направление момента.</summary>
 public sealed record HistoryStage(string Tag, StageKind Kind, int? ActivatePart, Load Target, int Steps);
 
@@ -50,6 +62,8 @@ public sealed class LoadHistoryOptions
     public int MaxIter { get; set; } = 60;
     public double H { get; set; } = 1e-7;
     public bool CentralJacobian { get; set; }
+    /// <summary>Способ продолжения при несошедшемся шаге по нагрузке.</summary>
+    public LoadStepFallback Fallback { get; set; } = LoadStepFallback.CurvatureControl;
     public FailureOptions Failure { get; set; } = new();
     public IReadOnlyList<PartRoles> Roles { get; set; } = [];
     public CancellationToken Token { get; set; }
