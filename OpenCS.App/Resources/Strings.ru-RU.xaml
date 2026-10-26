@@ -724,6 +724,17 @@
    <system:String x:Key="RebarGroups">Группы арматуры</system:String>
    <system:String x:Key="FiberSections">Фибровые</system:String>
    <system:String x:Key="StagedSections">Стадийные сечения</system:String>
+   <system:String x:Key="NewStagedSection">Новое стадийное сечение</system:String>
+   <system:String x:Key="VT_StagedSection">Стадийное сечение</system:String>
+   <system:String x:Key="StagedParts">Части (в порядке включения)</system:String>
+   <system:String x:Key="StagedPartAddOwn">Добавить часть (свои области)</system:String>
+   <system:String x:Key="StagedPartAddLinked">Добавить часть — ссылку на сечение</system:String>
+   <system:String x:Key="StagedPartDetach">Отвязать от сечения (скопировать области)</system:String>
+   <system:String x:Key="StagedPartSource">Источник</system:String>
+   <system:String x:Key="StagedPartOwnAreas">собственные области</system:String>
+   <system:String x:Key="StagedPartLinkedTo">сечение «{0}»</system:String>
+   <system:String x:Key="StagedPartLinkedReadOnly">Области части берутся из сечения-источника; правьте их в нём или отвяжите часть</system:String>
+   <system:String x:Key="StagedPartDefaultTag">Часть {0}</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Удалено {0} двухстадийных сечений; создайте их заново как стадийные</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">Сечение используется как часть стадийного сечения «{0}» — удаление невозможно</system:String>
    <system:String x:Key="NewArea">Новая область</system:String>

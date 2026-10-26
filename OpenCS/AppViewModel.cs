@@ -325,8 +325,8 @@ namespace OpenCS
          set
          {
             currentCrossSection = value;
-            if (value is StagedSection)
-               CurrentPage = null!; // редактор стадийных сечений — StagedSectionEditorPage
+            if (value is StagedSection staged)
+               CurrentPage = new Views.StagedSectionEditorPage(staged, this);
             else if (value != null)
                CurrentPage = new Views.CrossSectionPage(value, this);
             else
@@ -1120,6 +1120,9 @@ namespace OpenCS
       /// <summary>Команда удаления выбранного поперечного сечения.</summary>
       public ICommand DeleteCrossSectionCommand { get; set; } = null!;
 
+      /// <summary>Команда создания нового стадийного сечения.</summary>
+      public ICommand NewStagedSectionCommand { get; set; } = null!;
+
       /// <summary>Команда создания нового набора усилий стержня.</summary>
       public ICommand NewBarForceSetCommand { get; set; } = null!;
 
@@ -1186,6 +1189,7 @@ namespace OpenCS
           Views.RebarGroupEditorPage      => Loc.S("VT_RebarGroup"),
           Views.StirrupGroupPage          => Loc.S("VT_StirrupGroup"),
           Views.CrossSectionPage          => Loc.S("VT_CrossSection"),
+          Views.StagedSectionEditorPage   => Loc.S("VT_StagedSection"),
           Views.PlateSectionPage          => Loc.S("VT_PlateSection"),
           Views.BarForceSetPage           => Loc.S("VT_BarForceSet"),
           Views.ShellForceSetPage         => Loc.S("VT_ShellForceSet"),
@@ -1770,6 +1774,11 @@ namespace OpenCS
             if (p is ParametricSteelSectionTreeItem item) CurrentCrossSection = item.Section;
          });
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
+         NewStagedSectionCommand = new RelayCommand(_ =>
+         {
+            currentCrossSection = null;
+            CurrentPage = new Views.StagedSectionEditorPage(this);
+         });
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
@@ -2918,8 +2927,10 @@ namespace OpenCS
 
       void EditCrossSection()
       {
-         if (currentCrossSection == null || currentCrossSection is StagedSection) return;
-         CurrentPage = new Views.CrossSectionPage(currentCrossSection, this);
+         if (currentCrossSection == null) return;
+         CurrentPage = currentCrossSection is StagedSection staged
+            ? new Views.StagedSectionEditorPage(staged, this)
+            : new Views.CrossSectionPage(currentCrossSection, this);
       }
 
       void DeleteCrossSection()

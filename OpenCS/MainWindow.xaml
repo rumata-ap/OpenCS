@@ -816,6 +816,9 @@
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                            <StackPanel.ContextMenu>
                               <ContextMenu>
+                                 <MenuItem Header="{DynamicResource NewStagedSection}"
+                                           Command="{Binding PlacementTarget.Tag.NewStagedSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource DeleteCrossSection}"
                                            Command="{Binding PlacementTarget.Tag.DeleteCrossSectionCommand,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

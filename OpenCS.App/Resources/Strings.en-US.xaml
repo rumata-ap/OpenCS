@@ -724,6 +724,17 @@
    <system:String x:Key="RebarGroups">Rebar Groups</system:String>
    <system:String x:Key="FiberSections">Fiber Sections</system:String>
    <system:String x:Key="StagedSections">Staged sections</system:String>
+   <system:String x:Key="NewStagedSection">New staged section</system:String>
+   <system:String x:Key="VT_StagedSection">Staged section</system:String>
+   <system:String x:Key="StagedParts">Parts (in activation order)</system:String>
+   <system:String x:Key="StagedPartAddOwn">Add part (own areas)</system:String>
+   <system:String x:Key="StagedPartAddLinked">Add part — link to a section</system:String>
+   <system:String x:Key="StagedPartDetach">Detach from section (copy areas)</system:String>
+   <system:String x:Key="StagedPartSource">Source</system:String>
+   <system:String x:Key="StagedPartOwnAreas">own areas</system:String>
+   <system:String x:Key="StagedPartLinkedTo">section «{0}»</system:String>
+   <system:String x:Key="StagedPartLinkedReadOnly">Part areas come from the source section; edit them there or detach the part</system:String>
+   <system:String x:Key="StagedPartDefaultTag">Part {0}</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Removed {0} two-stage sections; recreate them as staged sections</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">The section is used as a part of staged section «{0}» and cannot be deleted</system:String>
    <system:String x:Key="NewArea">New Area</system:String>

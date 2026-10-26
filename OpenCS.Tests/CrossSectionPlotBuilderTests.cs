@@ -2,6 +2,7 @@ using CScore;
 using OpenCS.Converters;
 using OpenCS.Views;
 using OpenCS.Views.Helpers;
+using System.Windows.Media;
 using Xunit;
 
 namespace OpenCS.Tests;
@@ -47,6 +48,16 @@ public class CrossSectionPlotBuilderTests
         Assert.Equal(2, data.XMax);
         Assert.Equal(-1, data.YMin);
         Assert.Equal(3, data.YMax);
+    }
+
+    [Fact]
+    public void Build_WithHighlight_DimsOtherAreas()
+    {
+        var beam = ReportFixtures.BuildBeam();
+        var data = CrossSectionPlotBuilder.Build(beam, new HashSet<MaterialArea> { beam.Areas[0] });
+        var polygons = data.Elements.OfType<PolygonElement>().ToList();
+        Assert.Contains(polygons, p => ((SolidColorBrush)p.Fill!).Color.A == 120);
+        Assert.DoesNotContain(polygons, p => ((SolidColorBrush)p.Fill!).Color.A == 40 && p.Stroke != Brushes.Gray);
     }
 
     [Fact]
