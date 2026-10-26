@@ -19,6 +19,7 @@ public sealed class LoadHistoryStageRowVM : ViewModelBase
     string _n = "0", _mx = "0", _my = "0";
     int _steps = 5;
     IReadOnlyList<int?> _partChoices = [null];
+    IReadOnlyList<PartChoiceItem> _partChoiceItems = [new(0, "—")];
 
     internal LoadHistoryStageRowVM(IReadOnlyList<ForceSet> forceSets, Action activationChanged)
     {
@@ -44,6 +45,7 @@ public sealed class LoadHistoryStageRowVM : ViewModelBase
             if (_activatePart == value) return;
             _activatePart = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(ActivatePartChoice));
             _activationChanged();
         }
     }
@@ -53,6 +55,20 @@ public sealed class LoadHistoryStageRowVM : ViewModelBase
     {
         get => _partChoices;
         internal set { _partChoices = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Те же варианты для списка: номер части с 1 и её имя, как в редакторе; 0 — «—» (без включения).</summary>
+    public IReadOnlyList<PartChoiceItem> PartChoiceItems
+    {
+        get => _partChoiceItems;
+        internal set { _partChoiceItems = value; OnPropertyChanged(); }
+    }
+
+    /// <summary><see cref="ActivatePart"/> для списка: 0 — без включения (часть 0 не включается).</summary>
+    public int ActivatePartChoice
+    {
+        get => _activatePart ?? 0;
+        set => ActivatePart = value == 0 ? null : value;
     }
 
     /// <summary>Усилие задаётся вручную (иначе — строкой набора).</summary>
@@ -110,6 +126,9 @@ public sealed class LoadHistoryStageRowVM : ViewModelBase
         : _item == null ? "—" : $"{_set?.Tag}: {_item.Label}";
 }
 
+/// <summary>Вариант «включить часть»: индекс части (0 — без включения) и подпись.</summary>
+public sealed record PartChoiceItem(int Value, string Label);
+
 /// <summary>Роли бетона и арматуры части в критерии предела.</summary>
 public sealed class PartRoleRowVM : ViewModelBase
 {
@@ -117,6 +136,8 @@ public sealed class PartRoleRowVM : ViewModelBase
 
     /// <summary>Индекс части.</summary>
     public int PartIndex { get; init; }
+    /// <summary>Номер части с 1 — как в редакторе стадийного сечения.</summary>
+    public int Number => PartIndex + 1;
     /// <summary>Наименование части.</summary>
     public string PartTag { get; init; } = "";
     /// <summary>Роль бетона части.</summary>
@@ -401,6 +422,8 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
                 for (int k = 1; k < PartCount; k++)
                     if (!used.Contains(k)) choices.Add(k);
                 row.PartChoices = choices;
+                row.PartChoiceItems = choices.Select(v => new PartChoiceItem(v ?? 0,
+                    v is int k && _section != null ? $"{k + 1}. {_section.Parts[k].Tag}" : "—")).ToList();
                 // Недопустимый выбор не сбрасывается (сечение могло ещё не быть задано) — его отметит Validate.
                 if (row.ActivatePart is int p) used.Add(p);
             }

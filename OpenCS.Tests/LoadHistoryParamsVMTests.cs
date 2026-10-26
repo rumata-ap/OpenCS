@@ -51,6 +51,8 @@ public sealed class LoadHistoryParamsVMTests
         vm.AddStageCommand.Execute(null);
         vm.Stages[0].ActivatePart = 1;
         Assert.Equal(new int?[] { null, 2 }, vm.Stages[1].PartChoices);
+        Assert.Equal(["—", "3. ч2"], vm.Stages[1].PartChoiceItems.Select(i => i.Label)); // номер с 1, как в редакторе
+        Assert.Equal(1, vm.Stages[0].ActivatePartChoice);
     }
 
     [Fact]

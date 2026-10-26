@@ -8,10 +8,6 @@
          <Setter Property="TextWrapping" Value="Wrap"/>
          <Setter Property="Margin" Value="0,2,0,4"/>
       </Style>
-      <!-- «Включить часть»: null показывается прочерком -->
-      <DataTemplate x:Key="PartChoiceTemplate">
-         <TextBlock Text="{Binding TargetNullValue=—}"/>
-      </DataTemplate>
    </UserControl.Resources>
    <StackPanel>
       <!-- 1. Этапы по нагрузке -->
@@ -27,9 +23,9 @@
                   <DataGridTemplateColumn Header="{DynamicResource LoadHistory_ActivatePart}" Width="Auto">
                      <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                           <ComboBox ItemsSource="{Binding PartChoices}" ItemTemplate="{StaticResource PartChoiceTemplate}"
-                                     SelectedItem="{Binding ActivatePart, UpdateSourceTrigger=PropertyChanged}"
-                                     MinWidth="50"/>
+                           <ComboBox ItemsSource="{Binding PartChoiceItems}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                     SelectedValue="{Binding ActivatePartChoice, UpdateSourceTrigger=PropertyChanged}"
+                                     MinWidth="90"/>
                         </DataTemplate>
                      </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -121,7 +117,7 @@
             <DataGrid x:Name="RolesGrid" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" CanUserAddRows="False"
                       CanUserDeleteRows="False" CanUserSortColumns="False" HeadersVisibility="Column" MaxHeight="160">
                <DataGrid.Columns>
-                  <DataGridTextColumn Header="№" Binding="{Binding PartIndex}" IsReadOnly="True" Width="30"/>
+                  <DataGridTextColumn Header="№" Binding="{Binding Number}" IsReadOnly="True" Width="30"/>
                   <DataGridTextColumn Header="{DynamicResource LoadHistory_StageTag}" Binding="{Binding PartTag}" IsReadOnly="True" Width="*"/>
                   <DataGridTemplateColumn Header="{DynamicResource LoadHistory_Concrete}" Width="Auto">
                      <DataGridTemplateColumn.CellTemplate>
