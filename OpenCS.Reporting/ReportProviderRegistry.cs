@@ -35,7 +35,8 @@ public sealed class ReportProviderRegistry
             new ShearInclinedReportProvider(),
             new Sp63CrackWidthReportProvider(),
             new Sp63DeflectionReportProvider(),
-            new ShellLayeredCrackWidthReportProvider()
+            new ShellLayeredCrackWidthReportProvider(),
+            new LoadHistoryReportProvider()
         ]);
 
     /// <summary>Пытается подобрать поставщика; false, если для задачи его нет.</summary>
