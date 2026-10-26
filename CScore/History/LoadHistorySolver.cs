@@ -187,6 +187,7 @@ public sealed class LoadHistorySolver
     bool TryCurvatureBridge(Load target, Kurvature kPrev, out Kurvature k, out int iterations, out double residual)
     {
         k = kPrev; iterations = 0; residual = double.NaN;
+        int its = 0; // счётчик итераций (out-параметр недоступен локальной функции)
         double mTarget = Math.Sqrt(target.Mx * target.Mx + target.My * target.My);
         if (mTarget < 1e-12) return false;
         double phiT = Math.Atan2(target.My, target.Mx);
@@ -201,50 +202,73 @@ public sealed class LoadHistorySolver
 
         double c = kPrev.ky * cos + kPrev.kz * sin;
         if (!ctrl.TrySolve(target.N, phiT, c, kPrev, out var kc, out int it, out _)) return false;
-        iterations += it;
+        its += it;
         double mu = Mu(kc);
         double dir = mTarget > mu ? 1 : -1;
         double cLimit = EstimateCMax(phiT);
         double dc = cLimit / 100;
+
+        // После трещин при учёте растяжения бетона M(c) пилообразна, и в отдельных точках по c равновесия
+        // нет (N перескакивает через ноль). Такие точки перешагиваются: сначала шаг дробится, затем — удлиняется.
+        double[] stepFactors = [1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 1.5, 2, 3, 4];
 
         for (int n = 0; n < 400; n++)
         {
             _o.Token.ThrowIfCancellationRequested();
             double step = dc;
             Kurvature kNew = default; bool ok = false;
-            for (int halving = 0; halving <= 5 && !ok; halving++, step /= 2)
-                ok = ctrl.TrySolve(target.N, phiT, c + dir * step, kc, out kNew, out it, out _);
+            foreach (double factor in stepFactors)
+            {
+                step = dc * factor;
+                if (ok = ctrl.TrySolve(target.N, phiT, c + dir * step, kc, out kNew, out it, out _)) break;
+            }
             if (!ok) return false;
-            iterations += it;
-            step *= 2; // последнее деление не применялось
+            its += it;
             double cNew = c + dir * step;
             double muNew = Mu(kNew);
 
-            if ((muNew - mTarget) * (mu - mTarget) <= 0)
+            if ((muNew - mTarget) * (mu - mTarget) <= 0
+                && TryBisect(c, mu, kc, cNew, muNew, kNew, out var kHit))
             {
-                // бисекция по c между (c, mu) и (cNew, muNew)
-                double cLo = c, cHi = cNew, fLo = mu - mTarget;
-                Kurvature kLo = kc, kMid = kNew;
-                double fMid = muNew - mTarget;
-                for (int b = 0; b < 60 && Math.Abs(fMid) >= 0.5 * _o.Tol; b++)
-                {
-                    double cMid = 0.5 * (cLo + cHi);
-                    if (!ctrl.TrySolve(target.N, phiT, cMid, kLo, out kMid, out it, out _)) return false;
-                    iterations += it;
-                    fMid = Mu(kMid) - mTarget;
-                    if (fMid * fLo > 0) { cLo = cMid; kLo = kMid; fLo = fMid; } else cHi = cMid;
-                }
-                k = kMid;
+                k = kHit;
                 var f = _section.Integral(k, _o.Calc, _o.Ten);
                 double rN = f.N - target.N, rX = f.Mx - target.Mx, rY = f.My - target.My;
                 residual = Math.Sqrt(rN * rN + rX * rX + rY * rY);
-                return residual < 2 * _o.Tol;
+                iterations = its;
+                return true;
             }
+            // Пересечения нет или оно на скачке M (бисекция не дала равновесия) — ищем дальше.
 
             c = cNew; kc = kNew; mu = muNew;
             if (Math.Abs(c) > cLimit) return false;
         }
         return false;
+
+        // Бисекция по c между (cLo, muLo) и (cHi, muHi); точку без равновесия обходит, сдвигая середину.
+        bool TryBisect(double cLo, double muLo, Kurvature kLo, double cHi, double muHi, Kurvature kHi, out Kurvature kHit)
+        {
+            kHit = kHi;
+            double fLo = muLo - mTarget, fMid = muHi - mTarget;
+            for (int b = 0; b < 60 && Math.Abs(fMid) >= 0.5 * _o.Tol; b++)
+            {
+                bool solved = false;
+                Kurvature kMid = default;
+                double cMid = cLo;
+                foreach (double w in (double[])[0.5, 0.25, 0.75])
+                {
+                    cMid = cLo + w * (cHi - cLo);
+                    if (solved = ctrl.TrySolve(target.N, phiT, cMid, kLo, out kMid, out it, out _)) break;
+                }
+                if (!solved) return false;
+                its += it;
+                fMid = Mu(kMid) - mTarget;
+                kHit = kMid;
+                if (fMid * fLo > 0) { cLo = cMid; kLo = kMid; fLo = fMid; } else cHi = cMid;
+            }
+            var f = _section.Integral(kHit, _o.Calc, _o.Ten);
+            double rN = f.N - target.N, rX = f.Mx - target.Mx, rY = f.My - target.My;
+            return Math.Sqrt(rN * rN + rX * rX + rY * rY) < 2 * _o.Tol;
+        }
     }
 
     /// <summary>Оборачивает диаграммы областей с ролью «Разрушается» в <see cref="SofteningDiagramm"/>.
@@ -324,11 +348,16 @@ public sealed class LoadHistorySolver
             step *= 2; // последнее деление не применялось
 
             double cNew = c + step;
-            var st = MakeStep(stageIndex, StageKind.Failure, ++stepNo, new Load { N = n0 }, kNew, phi, true, it, res);
+            var st = MakeStep(stageIndex, StageKind.Failure, stepNo + 1, new Load { N = n0 }, kNew, phi, true, it, res);
             var gov = Governing(st.Parts);
 
             if (run.MLim is null && prevEta < 1 && gov.eta >= 1)
+            {
+                // Точка предела лежит перед шагом — она и получает очередной номер.
                 RefineLimit(run, ctrl, stageIndex, phi, n0, c, k, cNew, ref stepNo);
+                st = MakeStep(stageIndex, StageKind.Failure, stepNo + 1, new Load { N = n0 }, kNew, phi, true, it, res);
+            }
+            stepNo++;
 
             run.Steps.Add(st);
             Tick();

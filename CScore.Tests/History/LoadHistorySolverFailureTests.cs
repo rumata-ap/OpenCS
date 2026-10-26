@@ -43,6 +43,10 @@ public class LoadHistorySolverFailureTests
         Assert.NotNull(res.WithHistory.MPeak);
         Assert.True(res.WithHistory.MPeak >= res.WithHistory.MLim);
         Assert.Single(res.WithHistory.Steps, st => st.IsLimitPoint);
+        // Шаги этапа разрушения (вместе с точкой предела) идут по порядку: номера 1..n, кривизна растёт.
+        var failure = res.WithHistory.Steps.Where(st => st.Kind == StageKind.Failure).ToList();
+        Assert.Equal(Enumerable.Range(1, failure.Count), failure.Select(st => st.Step));
+        Assert.True(failure.Zip(failure.Skip(1)).All(p => p.Second.C > p.First.C));
     }
 
     /// <summary>Тест 6 спеки: «Разрушается» у бетона части 0 не уменьшает M_lim.</summary>
