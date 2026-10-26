@@ -2,8 +2,8 @@ using CScore;
 
 namespace OpenCS.Tasks;
 
-/// <summary>Разрешение усилия этапа двухстадийной задачи в список строк нагрузки.</summary>
-internal static class TwoStageForceResolver
+/// <summary>Разрешение усилия этапа истории нагружения в список строк нагрузки.</summary>
+internal static class StageForceResolver
 {
    /// <summary>
    /// Возвращает строки нагрузки для этапа: одну для "manual"/"item",

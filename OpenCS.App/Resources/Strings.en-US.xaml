@@ -711,8 +711,6 @@
    <system:String x:Key="NewCrossSection">New Section</system:String>
    <system:String x:Key="EditCrossSection">Edit Section</system:String>
    <system:String x:Key="DeleteCrossSection">Delete Section</system:String>
-   <system:String x:Key="CrossSectionStage1">Stage 1</system:String>
-   <system:String x:Key="CrossSectionStage2">Stage 2</system:String>
    <system:String x:Key="MaterialAreaLabel">Material Area</system:String>
    <system:String x:Key="AddConcreteArea">Add Concrete Area</system:String>
    <system:String x:Key="AddRebarArea">Add Rebar Area</system:String>
@@ -725,7 +723,7 @@
    <system:String x:Key="Areas">Areas</system:String>
    <system:String x:Key="RebarGroups">Rebar Groups</system:String>
    <system:String x:Key="FiberSections">Fiber Sections</system:String>
-   <system:String x:Key="TwoStageSections">Strengthening</system:String>
+   <system:String x:Key="StagedSections">Staged sections</system:String>
    <system:String x:Key="StagedSectionsRemovedNotice">Removed {0} two-stage sections; recreate them as staged sections</system:String>
    <system:String x:Key="SectionUsedAsStagedPart">The section is used as a part of staged section «{0}» and cannot be deleted</system:String>
    <system:String x:Key="NewArea">New Area</system:String>
@@ -745,12 +743,10 @@
    <system:String x:Key="EpsSpLabel">ε_sp (computed):</system:String>
    <system:String x:Key="CurrentHull">Current:</system:String>
    <system:String x:Key="DiagramType">Diagram Type</system:String>
-   <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>
    <system:String x:Key="CrossSectionAreas">In Section</system:String>
    <system:String x:Key="CrossSectionPool">From Pool</system:String>
    <system:String x:Key="CrossSectionSelectArea">Select area to edit</system:String>
    <system:String x:Key="AddToSection">+</system:String>
-   <system:String x:Key="Stage1Kurvature">Stage 1 Curvature</system:String>
    <system:String x:Key="KurvatureE0">ε₀:</system:String>
    <system:String x:Key="KurvatureKy">κy:</system:String>
    <system:String x:Key="KurvatureKz">κz:</system:String>
@@ -1545,7 +1541,6 @@
    <system:String x:Key="VT_RebarGroup">Rebar Group</system:String>
    <system:String x:Key="VT_StirrupGroup">Stirrup group</system:String>
    <system:String x:Key="VT_CrossSection">Cross Section</system:String>
-   <system:String x:Key="VT_TwoStageSection">Two-Stage Section</system:String>
    <system:String x:Key="VT_PlateSection">Plate</system:String>
    <system:String x:Key="VT_BarForceSet">Forces (Bar)</system:String>
    <system:String x:Key="VT_ShellForceSet">Forces (Shell)</system:String>
@@ -1689,16 +1684,9 @@
    <system:String x:Key="CalcTaskKind_limit_force_batch">Limit load (full set)</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment_batch">Limit moment (full set)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial_batch">Limit axial force (full set)</system:String>
-   <system:String x:Key="CalcTaskKind_two_stage_strain">Two-stage strain state</system:String>
-   <system:String x:Key="CalcTaskKind_two_stage_strain_batch">Two-stage strain state (set)</system:String>
-   <system:String x:Key="CalcTask_Stage1Force">Stage 1 force</system:String>
-   <system:String x:Key="CalcTask_Stage2Force">Stage 2 force</system:String>
    <system:String x:Key="CalcTask_StageModeItem">From force set</system:String>
    <system:String x:Key="CalcTask_StageModeManual">Manual input</system:String>
    <system:String x:Key="CalcTask_WholeSet">— whole set —</system:String>
-   <system:String x:Key="TwoStageNeedEqualRows">Stage 1 and stage 2 force sets must have an equal number of rows.</system:String>
-   <system:String x:Key="TwoStageSummary_Stage1">Stage 1 (before strengthening)</system:String>
-   <system:String x:Key="TwoStageSummary_Stage2">Stage 2 (composite section)</system:String>
    <system:String x:Key="CalcTaskNeedForceSet">No force set selected.</system:String>
    <system:String x:Key="LimitForce_BlockTitle">Limit loading</system:String>
    <system:String x:Key="LimitForce_Factor">Safety factor k</system:String>

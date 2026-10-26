@@ -19,7 +19,7 @@ public static class BatchRowTaskFactory
     /// <summary>Пакеты, для строк которых строится одиночная задача.</summary>
     public static bool Supports(string batchKind) => batchKind is
         "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-        or "strain_state_batch" or "strength_ndm_batch" or "two_stage_strain_batch" or "total_curvature_batch"
+        or "strain_state_batch" or "strength_ndm_batch" or "total_curvature_batch"
         or "cracking_batch" or "crack_width_batch" or "fire_r_check_batch" or "shear_inclined_batch"
         or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
@@ -57,9 +57,7 @@ public static class BatchRowTaskFactory
 
         string label;
         string paramsJson;
-        if (batch.Kind == "two_stage_strain_batch")
-            (paramsJson, label, task.ForceSetId) = TwoStage(batch, rowNum, forceSets);
-        else if (batch.Kind.StartsWith("shell_", StringComparison.Ordinal))
+        if (batch.Kind.StartsWith("shell_", StringComparison.Ordinal))
         {
             var item = ShellItem(batch, rowNum, forceSets);
             double h = plateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.H
@@ -192,26 +190,6 @@ public static class BatchRowTaskFactory
 
     static JsonObject ParseObject(string? json) =>
         (string.IsNullOrWhiteSpace(json) ? null : JsonNode.Parse(json)) as JsonObject ?? new JsonObject();
-
-    static (string Json, string Label, int ForceSetId) TwoStage(CalcTask batch, int rowNum, IReadOnlyList<ForceSet> forceSets)
-    {
-        var p = TwoStageParams.Parse(batch.ParamsJson);
-        var s1 = TwoStageForceResolver.Resolve(p.Stage1, forceSets);
-        var s2 = TwoStageForceResolver.Resolve(p.Stage2, forceSets);
-        int i = s2.FindIndex(fi => fi.Num == rowNum);
-        if (i < 0 && s2.Count == 1) i = 0;
-        if (i < 0)
-            throw new InvalidOperationException($"Строка усилий № {rowNum} этапа 2 не найдена.");
-        // Как в пакете: одна строка этапа 1 общая для всех строк этапа 2, иначе — построчно.
-        var f1 = s1.Count == 1 ? s1[0] : s1[i];
-        p.Stage1 = ItemStage(p.Stage1, f1);
-        p.Stage2 = ItemStage(p.Stage2, s2[i]);
-        return (p.ToJson(), s2[i].Label, p.Stage2.ForceSetId);
-    }
-
-    static StageForce ItemStage(StageForce stage, LoadItem item) => stage.Mode == "manual"
-        ? stage
-        : new StageForce { Mode = "item", ForceSetId = stage.ForceSetId, ForceItemId = item.Id };
 
     static LoadItem BarItem(CalcTask batch, int rowNum, IReadOnlyList<ForceSet> forceSets) =>
         Set(batch, forceSets).Items.FirstOrDefault(i => i.Num == rowNum)

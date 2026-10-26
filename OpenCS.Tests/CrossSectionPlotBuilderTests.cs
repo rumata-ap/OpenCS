@@ -28,13 +28,17 @@ public class CrossSectionPlotBuilderTests
     }
 
     [Fact]
-    public void Build_TwoStageSection_IncludesBothStagesInOnePreview()
+    public void Build_StagedSection_IncludesAllPartsInOnePreview()
     {
-        var section = new TwoStageSection
+        var section = new StagedSection
         {
-            Stage1 = new CrossSection { Areas = [new MaterialArea { Hull = Rectangle(-2, -1, -1, 0) }] },
-            Areas = [new MaterialArea { Hull = Rectangle(1, 2, 2, 3) }]
+            Parts =
+            [
+                new SectionPart { Index = 0, Areas = [new MaterialArea { Hull = Rectangle(-2, -1, -1, 0) }] },
+                new SectionPart { Index = 1, Areas = [new MaterialArea { Hull = Rectangle(1, 2, 2, 3) }] },
+            ]
         };
+        section.SyncAreas();
 
         var data = CrossSectionPlotBuilder.Build(section);
 

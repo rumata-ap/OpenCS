@@ -158,10 +158,11 @@ public class SectionCutTests
     }
 
     [Fact]
-    public void Build_TwoStageSection_UsesDifferentKurvaturePerStage()
+    public void Build_StagedSection_UsesRelativePlanePerPart()
     {
-        var section = SectionCutFixtures.BuildTwoStageSection(0.3, 0.2);
-        var baseK = new Kurvature { e0 = 0.0, ky = 0.0, kz = 0.0 };
+        var section = SectionCutFixtures.BuildStagedSection(0.3, 0.2);
+        // Полная плоскость равна плоскости включения части 1: часть 0 видит её целиком, часть 1 — ноль.
+        var baseK = SectionCutFixtures.StagedActivationPlane;
 
         var result = SectionCutBuilder.Build(
             section, baseK, CalcType.C, CutMode.Free,

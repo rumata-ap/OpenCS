@@ -22,7 +22,6 @@ public static class CalcTaskForceHelper
    public static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
    {
       "strain_state_batch" or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-         or "two_stage_strain" or "two_stage_strain_batch"
          or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
          or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
          or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"

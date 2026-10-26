@@ -18,15 +18,11 @@ public sealed record CrossSectionPlotData(
 /// <summary>Строит элементы и границы графического preview поперечного сечения.</summary>
 public static class CrossSectionPlotBuilder
 {
-    /// <summary>Строит preview обычного или двухстадийного поперечного сечения.</summary>
+    /// <summary>Строит preview поперечного сечения (у стадийного Areas — объединение частей).</summary>
     public static CrossSectionPlotData Build(CrossSection section)
     {
-        IEnumerable<MaterialArea> areas = section is TwoStageSection twoStage
-            ? twoStage.Stage1.Areas.Concat(twoStage.Areas)
-            : section.Areas;
-
         var elements = new List<PlotElement>();
-        foreach (var area in areas)
+        foreach (var area in section.Areas)
             AddAreaElements(elements, area);
 
         var bounds = FindBounds(elements);
