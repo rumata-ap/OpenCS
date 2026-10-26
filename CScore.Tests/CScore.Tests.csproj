@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- Долгие сверки поверхностей (ширина раскрытия, ПС1/трещины против решателей) — ~16 из 19 мин полного
+         прогона. По умолчанию dotnet test их пропускает; полный прогон: dotnet test CScore.Tests -p:VSTestTestCaseFilter=,
+         только они: filter Category=Slow. Явный filter заменяет этот фильтр. -->
+    <VSTestTestCaseFilter Condition="'$(VSTestTestCaseFilter)' == ''">Category!=Slow</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>

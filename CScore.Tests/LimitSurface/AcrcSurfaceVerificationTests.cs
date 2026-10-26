@@ -9,6 +9,7 @@ namespace CScore.Tests.LimitSurface;
 // допуск сетки; эталон 2 — CrackWidthSolver (трещинообразование — CrackingSolver без (8.54)): в двузначной
 // зоне то же, при растяжении одного знака поверхность не дальше решателя. Эталон принимается, только если
 // он сошёлся; несошедшийся — отдельный FAIL.
+[Trait("Category", "Slow")]
 public class AcrcSurfaceVerificationTests(ITestOutputHelper output)
 {
     const double GridTol = 0.006;
