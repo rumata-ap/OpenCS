@@ -528,42 +528,65 @@ namespace OpenCS.Views
             return;
          }
 
-         if (!_settings.ShowTooltips || !_hasBounds || _elements == null) return;
+         if (!_hasBounds || _elements == null) return;
 
-         var pos = e.GetPosition(this);
+         var hit = FindNearest(e.GetPosition(this));
+         if (hit is null) return;
+         PointPicked?.Invoke(hit.Value.Element, hit.Value.Index);
+         if (_settings.ShowTooltips)
+         {
+            _picked = (hit.Value.X, hit.Value.Y, hit.Value.Px, hit.Value.Py);
+            InvalidateVisual();
+         }
+      }
+
+      /// <summary>
+      /// Щелчок по точке маркеров или ломаной (в пределах 20 px): элемент и индекс точки в нём.
+      /// Срабатывает независимо от показа подсказок.
+      /// </summary>
+      public event Action<PlotElement, int>? PointPicked;
+
+      /// <summary>Ближайшая к экранной точке вершина маркеров/ломаных в пределах 20 px; null — нет такой.</summary>
+      internal (PlotElement Element, int Index, double X, double Y, double Px, double Py)? FindNearest(Point pos)
+      {
+         if (!_hasBounds || _elements == null) return null;
+         UpdateTransform();
 
          double bestDist = 20 * 20;
-         double bestX = 0, bestY = 0, bestPx = 0, bestPy = 0;
+         (PlotElement Element, int Index, double X, double Y, double Px, double Py)? best = null;
 
          foreach (var el in _elements)
          {
-            if (el is MarkerElement m)
-            {
-               int n = Math.Min(m.Xs.Length, m.Ys.Length);
-               for (int i = 0; i < n; i++)
-               {
-                  var pt = ToScreen(m.Xs[i], m.Ys[i]);
-                  double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
-                  if (d < bestDist) { bestDist = d; bestX = m.Xs[i]; bestY = m.Ys[i]; bestPx = pt.X; bestPy = pt.Y; }
-               }
-            }
-            else if (el is ScatterElement s)
-            {
-               int n = Math.Min(s.Xs.Length, s.Ys.Length);
-               for (int i = 0; i < n; i++)
-               {
-                  var pt = ToScreen(s.Xs[i], s.Ys[i]);
-                  double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
-                  if (d < bestDist) { bestDist = d; bestX = s.Xs[i]; bestY = s.Ys[i]; bestPx = pt.X; bestPy = pt.Y; }
-               }
-            }
-         }
+            double[] xs, ys;
+            if (el is MarkerElement m) { xs = m.Xs; ys = m.Ys; }
+            else if (el is ScatterElement s) { xs = s.Xs; ys = s.Ys; }
+            else continue;
 
-         if (bestDist < 20 * 20)
-         {
-            _picked = (bestX, bestY, bestPx, bestPy);
-            InvalidateVisual();
+            int n = Math.Min(xs.Length, ys.Length);
+            for (int i = 0; i < n; i++)
+            {
+               var pt = ToScreen(xs[i], ys[i]);
+               double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
+               if (d < bestDist) { bestDist = d; best = (el, i, xs[i], ys[i], pt.X, pt.Y); }
+            }
          }
+         return best;
+      }
+
+      /// <summary>Экранная точка модельной (для тестов выбора точки).</summary>
+      internal Point ToScreenForTest(double x, double y)
+      {
+         UpdateTransform();
+         return ToScreen(x, y);
+      }
+
+      /// <summary>Область построения и масштаб по текущему размеру — как в OnRender (до первой отрисовки их нет).</summary>
+      void UpdateTransform()
+      {
+         double w = RenderSize.Width, h = RenderSize.Height;
+         if (!_hasBounds || w < 2 || h < 2) return;
+         _plotRect = ComputePlotRect(w, h);
+         ComputeFit();
       }
 
       protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
