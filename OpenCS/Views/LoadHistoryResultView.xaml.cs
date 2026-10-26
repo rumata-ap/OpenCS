@@ -27,6 +27,7 @@ public partial class LoadHistoryResultView : UserControl
                 StepsGrid.ScrollIntoView(_vm.SelectedRow);
         };
         curve.PointPicked += OnPointPicked;
+        curve.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false); // опорные оси X/Y сечения графику M(c) не нужны
         DrawCurves();
     }
 
