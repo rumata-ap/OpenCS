@@ -65,6 +65,8 @@ namespace CScore
       /// </param>
       public Kurvature Solve(double nTarget, double mxTarget, double myTarget, Kurvature? initialGuess = null)
       {
+         // Флаг сбрасывается при каждом вызове: решатель переиспользуется между шагами пути.
+         Converged = false;
          var target = new Load { N = nTarget, Mx = mxTarget, My = myTarget };
          Kurvature k = initialGuess ?? _section.Guess(target);
          if (!double.IsFinite(k.e0)) k.e0 = 0;
