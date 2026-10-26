@@ -165,7 +165,7 @@ public sealed class LoadHistoryReportProvider : IReportProvider
             ];
         }).ToList();
         document.Add(new ReportHeading(1, "Ключевые шаги (с историей)"));
-        document.Add(new ReportTable(["Этап", "Шаг", "Частей", "N, кН", "Mx, кН·м", "My, кН·м", "c, 1/м", "M_u, кН·м", "ηb max", "ηs max"], rows));
+        document.Add(new ReportTable(["Этап", "Шаг", "Частей", "N, кН", "Mx, кН·м", "My, кН·м", "c, 1/м", "M_u, кН·м", "Кисп бетона", "Кисп арматуры"], rows));
     }
 
     static IReadOnlyList<(double X, double Y)> Curve(IReadOnlyList<HistoryStepDto> steps) =>

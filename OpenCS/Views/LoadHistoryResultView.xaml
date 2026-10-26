@@ -61,8 +61,8 @@
                      <DataGridTextColumn Header="My" Binding="{Binding My, StringFormat=F2}"/>
                      <DataGridTextColumn Header="c" Binding="{Binding C, StringFormat=E3}"/>
                      <DataGridTextColumn Header="M_u" Binding="{Binding Mu, StringFormat=F2}"/>
-                     <DataGridTextColumn Header="ηb" Binding="{Binding EtaB, StringFormat=F3}"/>
-                     <DataGridTextColumn Header="ηs" Binding="{Binding EtaS, StringFormat=F3}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKb}" Binding="{Binding EtaB, StringFormat=F3}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKs}" Binding="{Binding EtaS, StringFormat=F3}"/>
                      <DataGridCheckBoxColumn Header="{DynamicResource LoadHistory_ColConverged}" Binding="{Binding Converged}"/>
                      <DataGridTextColumn Header="{DynamicResource LoadHistory_ColWarnings}" Binding="{Binding Warnings}" Width="*"/>
                   </DataGrid.Columns>

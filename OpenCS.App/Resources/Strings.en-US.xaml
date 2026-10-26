@@ -1669,6 +1669,8 @@
    <system:String x:Key="LoadHistory_ColParts">Parts</system:String>
    <system:String x:Key="LoadHistory_ColConverged">Converged</system:String>
    <system:String x:Key="LoadHistory_ColWarnings">Warnings</system:String>
+   <system:String x:Key="LoadHistory_ColKb">Utilization (concrete)</system:String>
+   <system:String x:Key="LoadHistory_ColKs">Utilization (rebar)</system:String>
    <system:String x:Key="CalcSettingsStageStrainMode">Stage strains</system:String>
    <system:String x:Key="CalcSettingsStageStrainPlane">by activation plane</system:String>
    <system:String x:Key="CalcSettingsStageStrainFibers">by fibers</system:String>
