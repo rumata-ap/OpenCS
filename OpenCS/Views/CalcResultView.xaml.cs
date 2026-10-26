@@ -172,6 +172,15 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "load_history")
+        {
+            var staged = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId) as StagedSection;
+            staged?.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
+                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
+            Content = new LoadHistoryResultView(result, staged, task.CalcType, app.CalcSettings);
+            return;
+        }
+
         InitializeComponent();
 
         var section = task != null

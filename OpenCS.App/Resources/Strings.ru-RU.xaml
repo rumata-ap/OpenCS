@@ -1669,8 +1669,6 @@
    <system:String x:Key="LoadHistory_ColParts">Частей</system:String>
    <system:String x:Key="LoadHistory_ColConverged">Сошёлся</system:String>
    <system:String x:Key="LoadHistory_ColWarnings">Предупреждения</system:String>
-   <system:String x:Key="LoadHistory_Stress">σ</system:String>
-   <system:String x:Key="LoadHistory_Strain">ε</system:String>
    <system:String x:Key="CalcSettingsStageStrainMode">Деформации стадий</system:String>
    <system:String x:Key="CalcSettingsStageStrainPlane">по плоскости включения</system:String>
    <system:String x:Key="CalcSettingsStageStrainFibers">по волокнам</system:String>
