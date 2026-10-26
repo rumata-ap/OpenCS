@@ -62,6 +62,7 @@ public sealed class LoadHistorySolver
     {
         var run = new LoadHistoryRun();
         if (withHistory) _section.ResetHistory(); else _section.ActivateAll();
+        ApplyFailsRoles();
 
         var solver = new StrainSolver(_section, _o.Calc, ten: _o.Ten, tol: _o.Tol,
             maxIter: _o.MaxIter, h: _o.H, centralJacobian: _o.CentralJacobian);
@@ -72,7 +73,12 @@ public sealed class LoadHistorySolver
         {
             var st = stages[si];
             if (st.Kind == StageKind.Failure)
-                throw new NotSupportedException("Этап разрушения реализуется в срезе 2.");
+            {
+                RunFailure(run, si, phi, fPrev.N, k);
+                run.ActivationPlanes = _section.ActivationPlanes.ToArray();
+                run.MPeak = run.Steps.Max(s => Math.Abs(s.Mu));
+                return run;
+            }
 
             if (withHistory && st.ActivatePart is int part)
                 _section.ActivatePart(part, k);
@@ -116,6 +122,9 @@ public sealed class LoadHistorySolver
         double cos = Math.Cos(phi), sin = Math.Sin(phi);
         var parts = Enumerable.Range(0, _section.ActivePartCount)
             .Select(p => PartUtilization.Evaluate(_section, p, k, _o.Calc)).ToList();
+        var warnings = new List<string>();
+        if (kind == StageKind.Load && parts.Any(p => Exceeds(p, PartLimitRole.Fails)))
+            warnings.Add("fails_beyond_limit");
         return new HistoryStep
         {
             StageIndex = stageIndex, Kind = kind, Step = step,
@@ -125,8 +134,160 @@ public sealed class LoadHistorySolver
             Mu = f.Mx * cos + f.My * sin,
             Converged = converged, Iterations = iterations, Residual = residual,
             IsLimitPoint = isLimitPoint,
+            Warnings = warnings,
             Parts = parts,
         };
+    }
+
+    /// <summary>Оборачивает диаграммы областей с ролью «Разрушается» в <see cref="SofteningDiagramm"/>.
+    /// Словарь диаграмм заменяется целиком: у клонов CloneForCalc он общий с оригиналом.</summary>
+    void ApplyFailsRoles()
+    {
+        foreach (var part in _section.Parts)
+        {
+            var roles = _o.RoleOf(part.Index);
+            foreach (var area in part.Areas)
+            {
+                if (!MaterialArea.IsCalcActive(area) || !area.Diagramms.TryGetValue(_o.Calc, out var d)) continue;
+                if (d is SofteningDiagramm) continue;
+                bool concrete = LimitSurface.StrainCriterionGeometry.IsConcrete(area);
+                var role = concrete ? roles.Concrete : roles.Rebar;
+                if (role != PartLimitRole.Fails) continue;
+                double limit = concrete
+                    ? PartUtilization.LimitConcrete(area, _o.Calc)
+                    : LimitSurface.UlsStrainCriterion.RebarEpsSu(area, _o.Calc);
+                area.Diagramms = new Dictionary<CalcType, Diagramm>(area.Diagramms)
+                {
+                    [_o.Calc] = new SofteningDiagramm(d, limit, _o.Failure.SofteningStrain),
+                };
+            }
+        }
+    }
+
+    bool Exceeds(PartStepState p, PartLimitRole role)
+    {
+        var r = _o.RoleOf(p.PartIndex);
+        return (r.Concrete == role && p.EtaConcrete >= 1) || (r.Rebar == role && p.EtaRebar >= 1);
+    }
+
+    /// <summary>Наибольшее использование по частям с ролью «Ограничивает» и его источник.</summary>
+    (double eta, int part, string material, (double X, double Y) point) Governing(IReadOnlyList<PartStepState> parts)
+    {
+        (double, int, string, (double, double)) best = (0, -1, "", default);
+        foreach (var p in parts)
+        {
+            var r = _o.RoleOf(p.PartIndex);
+            if (r.Concrete == PartLimitRole.Limits && p.EtaConcrete > best.Item1)
+                best = (p.EtaConcrete, p.PartIndex, "concrete", p.ConcreteMinPoint);
+            if (r.Rebar == PartLimitRole.Limits && p.EtaRebar > best.Item1)
+                best = (p.EtaRebar, p.PartIndex, "rebar", p.RebarMaxPoint);
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Этап разрушения: шаги по проекции кривизны c от конца предыдущего этапа до c_max при N = N₀;
+    /// остановка по падению момента, по c_max или по потере сходимости. Переход использования через 1
+    /// уточняется бисекцией (точка M_lim).
+    /// </summary>
+    void RunFailure(LoadHistoryRun run, int stageIndex, double phi, double n0, Kurvature kStart)
+    {
+        var ctrl = new CurvatureControlSolver(_section, _o);
+        double cos = Math.Cos(phi), sin = Math.Sin(phi);
+        double c0 = kStart.ky * cos + kStart.kz * sin;
+        double cMax = _o.Failure.CMax ?? EstimateCMax(phi);
+        if (cMax <= c0) throw new InvalidOperationException(
+            $"Предельная кривизна {cMax:G4} не больше текущей {c0:G4}: этап разрушения не выполнить.");
+        double dc = (cMax - c0) / _o.Failure.Steps;
+
+        var k = kStart;
+        double c = c0, mPeak = run.Steps.Count > 0 ? run.Steps.Max(s => Math.Abs(s.Mu)) : 0;
+        double prevEta = Governing(run.Steps.Count > 0 ? run.Steps[^1].Parts : []).eta;
+        int stepNo = 0;
+
+        while (c < cMax - 1e-15)
+        {
+            _o.Token.ThrowIfCancellationRequested();
+            double step = Math.Min(dc, cMax - c);
+            Kurvature kNew = default; int it = 0; double res = 0; bool ok = false;
+            for (int halving = 0; halving <= 5 && !ok; halving++, step /= 2)
+                ok = ctrl.TrySolve(n0, phi, c + step, k, out kNew, out it, out res);
+            if (!ok) { run.StopReason = "failure_not_converged"; return; }
+            step *= 2; // последнее деление не применялось
+
+            double cNew = c + step;
+            var st = MakeStep(stageIndex, StageKind.Failure, ++stepNo, new Load { N = n0 }, kNew, phi, true, it, res);
+            var gov = Governing(st.Parts);
+
+            if (run.MLim is null && prevEta < 1 && gov.eta >= 1)
+                RefineLimit(run, ctrl, stageIndex, phi, n0, c, k, cNew, ref stepNo);
+
+            run.Steps.Add(st);
+            Tick();
+            mPeak = Math.Max(mPeak, Math.Abs(st.Mu));
+            c = cNew; k = kNew; prevEta = gov.eta;
+
+            if (Math.Abs(st.Mu) < _o.Failure.DropRatio * mPeak) { run.StopReason = "drop"; return; }
+        }
+        run.StopReason = "c_max";
+    }
+
+    /// <summary>Бисекция по c между последней точкой ниже предела и первой за пределом (отн. точность 1e-4).</summary>
+    void RefineLimit(LoadHistoryRun run, CurvatureControlSolver ctrl, int stageIndex, double phi, double n0,
+        double cLo, Kurvature kLo, double cHi, ref int stepNo)
+    {
+        Kurvature kMid = kLo; int it = 0; double res = 0;
+        for (int i = 0; i < 60 && Math.Abs(cHi - cLo) > 1e-4 * Math.Abs(cHi); i++)
+        {
+            double cMid = 0.5 * (cLo + cHi);
+            if (!ctrl.TrySolve(n0, phi, cMid, kLo, out kMid, out it, out res)) break;
+            var parts = Enumerable.Range(0, _section.ActivePartCount)
+                .Select(p => PartUtilization.Evaluate(_section, p, kMid, _o.Calc)).ToList();
+            if (Governing(parts).eta >= 1) cHi = cMid; else { cLo = cMid; kLo = kMid; }
+        }
+        ctrl.TrySolve(n0, phi, cHi, kLo, out var kLim, out it, out res);
+        var st = MakeStep(stageIndex, StageKind.Failure, ++stepNo, new Load { N = n0 }, kLim, phi, true, it, res, isLimitPoint: true);
+        var gov = Governing(st.Parts);
+        run.Steps.Add(st);
+        run.MLim = Math.Abs(st.Mu);
+        run.GoverningPart = gov.part;
+        run.GoverningMaterial = gov.material;
+        run.GoverningPoint = gov.point;
+    }
+
+    /// <summary>c_max = 1,5·(|εb2| + εs2)/h_u по включённым частям; пределы — по частям с ролью «Ограничивает» (если их нет — по всем).</summary>
+    double EstimateCMax(double phi)
+    {
+        double cos = Math.Cos(phi), sin = Math.Sin(phi);
+        double lo = double.PositiveInfinity, hi = double.NegativeInfinity, eb2 = 0, es2 = 0;
+        bool anyLimits = Enumerable.Range(0, _section.ActivePartCount).Any(p =>
+            _o.RoleOf(p).Concrete == PartLimitRole.Limits || _o.RoleOf(p).Rebar == PartLimitRole.Limits);
+        for (int p = 0; p < _section.ActivePartCount; p++)
+        {
+            var roles = _o.RoleOf(p);
+            foreach (var area in _section.Parts[p].Areas.Where(MaterialArea.IsCalcActive))
+            {
+                bool concrete = LimitSurface.StrainCriterionGeometry.IsConcrete(area);
+                if (concrete)
+                {
+                    foreach (var cont in LimitSurface.StrainCriterionGeometry.Contours(area))
+                        foreach (var (x, y) in LimitSurface.StrainCriterionGeometry.OpenVertices(cont))
+                        { double u = y * cos + x * sin; lo = Math.Min(lo, u); hi = Math.Max(hi, u); }
+                    if (!anyLimits || roles.Concrete == PartLimitRole.Limits)
+                        eb2 = Math.Max(eb2, Math.Abs(PartUtilization.LimitConcrete(area, _o.Calc)));
+                }
+                else
+                {
+                    foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+                    { double u = f.Y * cos + f.X * sin; lo = Math.Min(lo, u); hi = Math.Max(hi, u); }
+                    if (!anyLimits || roles.Rebar == PartLimitRole.Limits)
+                        es2 = Math.Max(es2, LimitSurface.UlsStrainCriterion.RebarEpsSu(area, _o.Calc));
+                }
+            }
+        }
+        double h = hi - lo;
+        if (!(h > 0)) throw new InvalidOperationException("Не удалось определить размер сечения вдоль направления изгиба.");
+        return 1.5 * (eb2 + es2) / h;
     }
 
     void Tick()
