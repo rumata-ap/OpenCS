@@ -108,6 +108,13 @@ namespace OpenCS.Utilites
       public bool RebarDifferentialDiagram { get; set; } = true;
 
       /// <summary>
+      /// Учёт деформаций стадий в стадийном сечении: "plane" — плоскость включения части (по умолчанию),
+      /// "fibers" — начальная деформация волокон (контурные области разбиваются на волокна).
+      /// </summary>
+      [JsonPropertyName("stageStrainMode")]
+      public string StageStrainMode { get; set; } = "plane";
+
+      /// <summary>
       /// Запасной режим НДМ: сжатая арматура (диаграммы L2/L3) по Rs, симметрично растяжению, без
       /// срезки по Rsc — как в OpenCS до 22.10.2026. По умолчанию false: сжатая ветвь срезается по Rsc
       /// (п. 6.2.13 СП 63). Применяется к ядру при загрузке и сохранении настроек
@@ -391,6 +398,7 @@ namespace OpenCS.Utilites
          ShellNewtonTolRes     = ShellNewtonTolRes,
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
+         StageStrainMode       = StageStrainMode,
          RebarCompressionByRs  = RebarCompressionByRs,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
          FireCompressionZoneMethod = FireCompressionZoneMethod,

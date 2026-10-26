@@ -5,7 +5,7 @@ public enum StageStrainMode
 {
     /// <summary>Часть видит плоскость K − K_k (K_k — плоскость в момент включения).</summary>
     Plane,
-    /// <summary>Волокна части несут начальную деформацию стадии; контурные области разбиваются на волокна.</summary>
+    /// <summary>Волокна части несут начальную деформацию <see cref="Fiber.Eps_stage"/>; контурные области разбиваются на волокна.</summary>
     Fibers,
 }
 
@@ -45,6 +45,8 @@ public class StagedSection : CrossSection
     {
         ActivePartCount = Parts.Count > 0 ? 1 : 0;
         _planes = new Kurvature[Parts.Count];
+        foreach (var f in Parts.SelectMany(p => p.Areas).SelectMany(a => a.Fibers))
+            f.Eps_stage = 0;
     }
 
     /// <summary>Включает часть <paramref name="index"/> при текущей плоскости <paramref name="current"/>.</summary>
@@ -57,6 +59,33 @@ public class StagedSection : CrossSection
                 $"Часть {index} нельзя включить: включено частей {ActivePartCount} из {Parts.Count}.");
         _planes[index] = current;
         ActivePartCount = index + 1;
+        if (StrainMode == StageStrainMode.Fibers)
+            StampActivationStrain(index);
+    }
+
+    /// <summary>
+    /// Подготовка режима «по волокнам»: контурные области без сетки разбиваются на волокна по своим
+    /// настройкам сетки (Grid — SliceXY, иначе триангуляция). Вызывать на копии CloneForCalc.
+    /// </summary>
+    public void PrepareFiberMode()
+    {
+        foreach (var area in Parts.SelectMany(p => p.Areas))
+        {
+            if (!MaterialArea.IsCalcActive(area) || area.Hull == null) continue;
+            if (area.Fibers.Any(f => f.TypeFiber != FiberType.point)) continue;
+            if (area.MeshMethod == MeshMethod.Grid)
+                area.SliceXY(area.NX > 0 ? area.NX : 12, area.NY > 0 ? area.NY : 20);
+            else area.Triangulate(area.MeshMaxArea, area.MeshMinAngle, area.MeshMethod,
+                                  area.MeshMaxEdgeLen, area.MeshSmoothIter);
+        }
+    }
+
+    /// <summary>Записывает волокнам части деформацию плоскости её включения.</summary>
+    void StampActivationStrain(int index)
+    {
+        var k = _planes[index];
+        foreach (var f in Parts[index].Areas.SelectMany(a => a.Fibers))
+            f.Eps_stage = k.e0 + k.ky * f.Y + k.kz * f.X;
     }
 
     /// <summary>Включает все части с нулевыми плоскостями (расчёт «без истории»).</summary>
@@ -120,6 +149,8 @@ public class StagedSection : CrossSection
         c.SyncAreas();
         c._planes = ActivationPlanes.ToArray();
         c.ActivePartCount = ActivePartCount;
+        if (StrainMode == StageStrainMode.Fibers)
+            for (int i = 1; i < c.ActivePartCount; i++) c.StampActivationStrain(i);
         return c;
     }
 
