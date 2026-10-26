@@ -87,7 +87,11 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
     {
         var (materials, beam, staged) = CreateSections();
         foreach (var m in materials) db.SaveMaterial(m);
-        foreach (var a in staged.Areas) db.SaveMaterialArea(a);
+        foreach (var a in staged.Areas)
+        {
+            a.MaterialId = a.Material!.Id; // материалы сохранены после создания областей
+            db.SaveMaterialArea(a);
+        }
         db.SaveCrossSection(beam);
         staged.Parts[0].SourceSectionId = beam.Id;
         db.SaveCrossSection(staged);
