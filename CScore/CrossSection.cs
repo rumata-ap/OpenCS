@@ -359,19 +359,29 @@ namespace CScore
       /// <param name="pool">Пул диаграмм проекта — пробрасывается в MaterialArea для Custom-материалов.</param>
       /// <param name="rebarDifferentialDiagram">Разностная диаграмма σ_st − σ_bc для арматуры в бетоне.</param>
       /// <param name="ekbEtaMin">Нижняя граница нисходящей ветви EKB (η_min, по умолчанию 0.05).</param>
-      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
+      public virtual void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
                                             IReadOnlyList<Diagramm>? pool = null,
                                             bool rebarDifferentialDiagram = true,
                                             double ekbEtaMin = 0.05)
+         => BuildDiagramms(Areas, sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
+
+      /// <summary>
+      /// Строит диаграммы областей набора <paramref name="scope"/>: сначала бетонные (без HostArea),
+      /// затем арматурные. Бетон-носитель ищется только внутри набора; если его там нет —
+      /// HostArea сбрасывается и арматура получает собственную (не разностную) диаграмму.
+      /// </summary>
+      protected static void BuildDiagramms(IReadOnlyList<MaterialArea> scope, double sp63EtaMin,
+                                           IReadOnlyList<Diagramm>? pool, bool rebarDifferentialDiagram,
+                                           double ekbEtaMin)
       {
-         foreach (var area in Areas)
+         foreach (var area in scope)
             if (MaterialArea.IsCalcActive(area) && area.HostAreaId == null)
                area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
 
-         foreach (var area in Areas)
+         foreach (var area in scope)
             if (MaterialArea.IsCalcActive(area) && area.HostAreaId != null)
             {
-               area.HostArea = Areas.Find(a => a.Id == area.HostAreaId);
+               area.HostArea = scope.FirstOrDefault(a => a.Id == area.HostAreaId);
                area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
             }
       }
