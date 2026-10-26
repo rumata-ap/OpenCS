@@ -96,6 +96,26 @@ namespace OpenCS
          new AbaqusCdpExportWindow(material) { Owner = this }.ShowDialog();
       }
 
+      /// <summary>
+      /// Правый щелчок по сечению сначала выделяет его: команды контекстного меню группы сечений
+      /// («Изменить», «Удалить сечение») работают с текущим сечением, а без выделения оно не то или пустое.
+      /// </summary>
+      void structureTree_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+      {
+         var node = e.OriginalSource as DependencyObject;
+         while (node != null && node is not TreeViewItem)
+            node = node is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+               ? System.Windows.Media.VisualTreeHelper.GetParent(node)
+               : LogicalTreeHelper.GetParent(node);
+         if (node is TreeViewItem item
+             && item.DataContext is CrossSection or ParametricCrossSectionTreeItem or ParametricSteelSectionTreeItem
+             && !item.IsSelected)
+         {
+            item.IsSelected = true;
+            item.Focus();
+         }
+      }
+
       private void structureTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
       {
          if (e.NewValue is Material materialItem)

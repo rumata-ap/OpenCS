@@ -328,7 +328,7 @@
       <!-- Вкладка 1: Дерево проекта -->
       <TabItem Header="{DynamicResource ProjectTab}">
       <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged"
-                KeyDown="structureTree_KeyDown">
+                KeyDown="structureTree_KeyDown" PreviewMouseRightButtonDown="structureTree_PreviewMouseRightButtonDown">
 
                <TreeViewItem x:Name="geometryNode" IsExpanded="True">
                   <TreeViewItem.Header>
