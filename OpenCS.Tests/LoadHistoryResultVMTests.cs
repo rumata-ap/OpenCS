@@ -81,4 +81,16 @@ public sealed class LoadHistoryResultVMTests
         Assert.False(vm.HasSection);
         Assert.Null(vm.StressPlot);
     }
+
+    [Fact]
+    public void FieldPlots_HaveSectionCutTool()
+    {
+        var (result, section) = Run();
+        var vm = new LoadHistoryResultVM(result, section, CalcType.C, CalcSettings.Default, new NullFileDialogService());
+        Assert.NotNull(vm.StressPlot!.CutVM);
+        Assert.Same(vm.StressPlot.CutVM, vm.StrainPlot!.CutVM);
+        vm.FieldsRelative = false;
+        Assert.NotNull(vm.StrainPlot!.CutVM);
+        Assert.Null(new LoadHistoryResultVM(result, section, CalcType.C, CalcSettings.Default).StressPlot!.CutVM);
+    }
 }

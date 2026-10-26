@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using CScore;
 using OpenCS.LoadHistory;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -12,23 +13,43 @@ namespace OpenCS.Views;
 public partial class LoadHistoryResultView : UserControl
 {
     readonly LoadHistoryResultVM _vm;
+    readonly SectionCutWindowService _cutWindow;
     readonly Dictionary<PlotElement, (bool NoHistory, IReadOnlyList<CurvePoint> Points)> _pickable =
         new(ReferenceEqualityComparer.Instance);
 
-    public LoadHistoryResultView(CalcResult result, StagedSection? section, CalcType calc, CalcSettings settings)
+    public LoadHistoryResultView(CalcResult result, StagedSection? section, CalcType calc, CalcSettings settings,
+        IFileDialogService? fileDialogService = null)
     {
         InitializeComponent();
-        _vm = new LoadHistoryResultVM(result, section, calc, settings);
+        _vm = new LoadHistoryResultVM(result, section, calc, settings, fileDialogService);
         DataContext = _vm;
+        _cutWindow = new SectionCutWindowService(settings);
+        Unloaded += (_, _) => _cutWindow.Dispose();
         NoSectionText.Visibility = _vm.HasSection ? Visibility.Collapsed : Visibility.Visible;
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(LoadHistoryResultVM.SelectedRow) && _vm.SelectedRow != null)
                 StepsGrid.ScrollIntoView(_vm.SelectedRow);
+            if (e.PropertyName is nameof(LoadHistoryResultVM.StressPlot) or nameof(LoadHistoryResultVM.StrainPlot))
+                RebindCutWindow();
         };
         curve.PointPicked += OnPointPicked;
         curve.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false); // опорные оси X/Y сечения графику M(c) не нужны
         DrawCurves();
+    }
+
+    void OnTabChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.Source == sender) RebindCutWindow();
+    }
+
+    /// <summary>Окно эпюры разреза следует за открытой картой полей (σ или ε) выбранного шага.</summary>
+    void RebindCutWindow()
+    {
+        if (MainTabs.SelectedIndex != 2) { _cutWindow.Bind(null, SectionPlotMode.Stress); return; }
+        bool strain = FieldTabs.SelectedIndex == 1;
+        var plot = strain ? _vm.StrainPlot : _vm.StressPlot;
+        _cutWindow.Bind(plot?.CutVM, strain ? SectionPlotMode.Strain : SectionPlotMode.Stress);
     }
 
     void OnPointPicked(PlotElement element, int index)

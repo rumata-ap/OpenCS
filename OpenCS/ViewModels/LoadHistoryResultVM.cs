@@ -3,6 +3,7 @@ using System.Text;
 using CScore;
 using CScore.History;
 using OpenCS.LoadHistory;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -52,15 +53,21 @@ public sealed class LoadHistoryResultVM : ViewModelBase
     readonly StagedSection? _section;
     readonly CalcType _calc;
     readonly CalcSettings _settings;
+    readonly IFileDialogService? _fileDialogService;
+    readonly string _titleSuffix;
     bool _showNoHistory, _fieldsRelative = true;
     LoadHistoryStepRowVM? _selectedRow;
     SectionPlotVM? _stressPlot, _strainPlot;
 
-    public LoadHistoryResultVM(CalcResult result, StagedSection? section, CalcType calc, CalcSettings settings)
+    /// <param name="fileDialogService">Для экспорта эпюр разреза; null — инструмент разреза недоступен.</param>
+    public LoadHistoryResultVM(CalcResult result, StagedSection? section, CalcType calc, CalcSettings settings,
+        IFileDialogService? fileDialogService = null)
     {
         _section = section;
         _calc = calc;
         _settings = settings;
+        _fileDialogService = fileDialogService;
+        _titleSuffix = section is null ? result.TaskTag : $"{result.TaskTag} — {section.Tag}";
         Data = LoadHistoryResultData.Parse(result.DataJson);
         Curves = LoadHistoryCurveBuilder.Build(Data);
         Rows = BuildRows(Data.Steps, noHistory: false);
@@ -237,10 +244,13 @@ public sealed class LoadHistoryResultVM : ViewModelBase
 
         var copy = PrepareCopy(row, fibers);
         copy.SetEps(row.K, _calc, ten);
-        StressPlot = new SectionPlotVM(copy, row.K, _calc, SectionPlotMode.Stress, _settings, ten);
+        var stress = new SectionPlotVM(copy, row.K, _calc, SectionPlotMode.Stress, _settings, ten);
+        var cut = Cut(copy, row, ten);
+        stress.CutVM = cut;
+        StressPlot = stress;
 
         if (_fieldsRelative)
-            StrainPlot = new SectionPlotVM(copy, row.K, _calc, SectionPlotMode.Strain, _settings, ten);
+            StrainPlot = new SectionPlotVM(copy, row.K, _calc, SectionPlotMode.Strain, _settings, ten) { CutVM = cut };
         else
         {
             // Полные деформации: те же включённые части без плоскостей включения и начальных деформаций.
@@ -248,9 +258,16 @@ public sealed class LoadHistoryResultVM : ViewModelBase
             plain.ResetHistory();
             var total = new CrossSection { Areas = plain.Parts.Take(Math.Max(1, row.Parts)).SelectMany(p => p.Areas).ToList() };
             total.SetEps(row.K, _calc, ten);
-            StrainPlot = new SectionPlotVM(total, row.K, _calc, SectionPlotMode.Strain, _settings, ten);
+            StrainPlot = new SectionPlotVM(total, row.K, _calc, SectionPlotMode.Strain, _settings, ten)
+                { CutVM = Cut(total, row, ten) };
         }
     }
+
+    /// <summary>Инструмент разреза по сечению шага (эпюры σ/ε вдоль линии на карте).</summary>
+    SectionCutVM? Cut(CrossSection section, LoadHistoryStepRowVM row, bool ten) =>
+        _fileDialogService is null ? null
+            : new SectionCutVM(section, row.K, _calc, _fileDialogService, ten)
+                { WindowTitleSuffix = $"{_titleSuffix} ({row.Stage}, {row.Step})" };
 
     StagedSection PrepareCopy(LoadHistoryStepRowVM row, bool fibers)
     {
