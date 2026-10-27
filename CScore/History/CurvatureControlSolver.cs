@@ -4,8 +4,8 @@ namespace CScore.History;
 /// Равновесие при заданной проекции кривизны c = ky·cos φ + kz·sin φ: неизвестные e0 и
 /// κ⊥ = −ky·sin φ + kz·cos φ; уравнения N(K) = N₀ и M⊥ = −Mx·sin φ + My·cos φ = 0.
 /// Ньютон 2×2 с якобианом из <see cref="StrainSolver.EvaluateJacobian(Kurvature)"/> и демпфированием шага.
-/// При гистерезисе застрявший Ньютон продолжается брекетингом (<see cref="TryBracket"/>): в режиме «по волокнам»
-/// с ролью «Разрушается» N(e0) пилообразна (ряды волокон по очереди проходят короткий спад) и Ньютон на ней
+/// Застрявший Ньютон продолжается брекетингом (<see cref="TryBracket"/>): в режиме «по волокнам»
+/// с ролью «Разрушается» (с гистерезисом и без) N(e0) пилообразна (ряды волокон по очереди проходят короткий спад) и Ньютон на ней
 /// останавливается, хотя корень есть.
 /// </summary>
 internal sealed class CurvatureControlSolver
@@ -34,7 +34,6 @@ internal sealed class CurvatureControlSolver
         out Kurvature k, out int iterations, out double residual)
     {
         if (TryNewton(n0, phi, c, guess, out k, out iterations, out residual)) return true;
-        if (_o.Hysteresis is null) return false;
         double sin = Math.Sin(phi), cos = Math.Cos(phi);
         double a0 = k.e0, b0 = -k.ky * sin + k.kz * cos;
         if (!TryBracket(n0, phi, c, a0, b0, out var kb, out int itb, out double rb)) return false;

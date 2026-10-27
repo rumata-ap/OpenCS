@@ -46,6 +46,28 @@ public class LoadHistoryHysteresisTests
         Assert.All(h.Steps.SelectMany(x => x.Parts), p => Assert.InRange(p.RebarResidual, 0, 0.01));
     }
 
+    /// <summary>Бетон без памяти при гистерезисной стали: остаточная деформация бетона нулевая, у стали остаётся,
+    /// и остаточная кривизна меньше, чем при Karsan–Jirsa (вклад бетона отделён).</summary>
+    [Fact]
+    public void ElasticConcrete_SteelResidualOnly()
+    {
+        HistoryStage[] st =
+        [
+            new("нагрузка", StageKind.Load, null, new Load { Mx = -158 }, 10),
+            new("разгрузка", StageKind.Load, null, new Load { Mx = 0 }, 8),
+        ];
+        var kj = new LoadHistorySolver(Beam(), Opt(true)).Run(st, false).WithHistory;
+        var o = Opt(true);
+        o.Hysteresis!.Concrete = ConcreteHysteresisModel.NonlinearElastic;
+        var el = new LoadHistorySolver(Beam(), o).Run(st, false).WithHistory;
+        Assert.Equal("ok", el.Status);
+        Assert.All(el.Steps.SelectMany(x => x.Parts), p => Assert.Equal(0, p.ConcreteResidual));
+        Assert.True(el.Steps[^1].Parts[0].RebarResidual > 0);
+        Assert.True(Math.Abs(el.Steps[^1].K.ky) > 1e-6, $"остаточная кривизна {el.Steps[^1].K.ky}");
+        Assert.True(Math.Abs(el.Steps[^1].K.ky) < Math.Abs(kj.Steps[^1].K.ky),
+            $"без памяти бетона {el.Steps[^1].K.ky}, Karsan–Jirsa {kj.Steps[^1].K.ky}");
+    }
+
     /// <summary>Частичная разгрузка в пределах упругого ядра билинейной стали и линии разгрузки бетона:
     /// повторное нагружение возвращает в ту же точку (у Menegotto–Pinto кривая скруглена — для этой проверки не годится).</summary>
     [Fact]
@@ -105,12 +127,14 @@ public class LoadHistoryHysteresisTests
 
     /// <summary>
     /// По волокнам с ролью «Разрушается» N(e0) при фиксированной c пилообразна, и Ньютон этапа разрушения
-    /// останавливается, хотя равновесие есть; при гистерезисе его продолжает брекетинг по e0.
+    /// останавливается, хотя равновесие есть; его продолжает брекетинг по e0 — с гистерезисом и без.
     /// </summary>
     [Theory]
-    [InlineData(40)]
-    [InlineData(120)]
-    public void Failure_WithFailsRoleInFibers_ReachesDropOrLimit(int failureSteps)
+    [InlineData(40, true)]
+    [InlineData(120, true)]
+    [InlineData(40, false)]
+    [InlineData(120, false)]
+    public void Failure_WithFailsRoleInFibers_ReachesDropOrLimit(int failureSteps, bool hyst)
     {
         var roles = new PartRoles(1, PartLimitRole.Fails, PartLimitRole.Limits);
         HistoryStage[] st =
@@ -119,11 +143,37 @@ public class LoadHistoryHysteresisTests
             new("2", StageKind.Load, 1, new Load { Mx = -110 }, 5),
             new("р", StageKind.Failure, null, new Load { Mx = -1 }, 1),
         ];
-        var o = Opt(true, roles);
+        var o = Opt(hyst, roles);
         o.Tol = 0.1;
         o.Failure.Steps = failureSteps;
-        var run = new LoadHistorySolver(Beam(), o).Run(st, false).WithHistory;
+        var s = Beam();
+        if (!hyst) { s.StrainMode = StageStrainMode.Fibers; s.PrepareFiberMode(); } // при гистерезисе — принудительно
+        var run = new LoadHistorySolver(s, o).Run(st, false).WithHistory;
         Assert.NotEqual("failure_not_converged", run.StopReason);
+    }
+
+    /// <summary>
+    /// Разгрузка вдвое и доведение до разрушения с включением части: часть включается в начале этапа разрушения;
+    /// момент первого шага разрушения ниже пика этапа нагружения, но это не падение — пик критерия считается
+    /// с начала этапа разрушения.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Failure_AfterUnloading_DropCountsFromStageStart(bool hyst)
+    {
+        HistoryStage[] st =
+        [
+            new("нагрузка", StageKind.Load, null, new Load { Mx = -158 }, 10),
+            new("разгрузка", StageKind.Load, null, new Load { Mx = -79 }, 6),
+            new("р", StageKind.Failure, 1, new Load { Mx = -1 }, 1),
+        ];
+        var run = new LoadHistorySolver(Beam(), Opt(hyst)).Run(st, false).WithHistory;
+        var failure = run.Steps.Where(x => x.Kind == StageKind.Failure).ToList();
+        Assert.True(failure.Count > 1, $"шагов разрушения {failure.Count}, стоп {run.StopReason}");
+        Assert.All(failure, x => Assert.Equal(2, x.ActivePartCount));
+        Assert.Equal(2, run.ActivationPlanes.Length);
+        Assert.True(failure.Max(x => Math.Abs(x.Mu)) > 158, $"пик разрушения {failure.Max(x => Math.Abs(x.Mu))}");
     }
 
     [Fact]

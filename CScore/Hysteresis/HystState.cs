@@ -24,9 +24,21 @@ public interface IHysteresisModel
 /// <summary>Модель стали при гистерезисе.</summary>
 public enum SteelHysteresisModel { MenegottoPinto, Bilinear }
 
-/// <summary>Параметры гистерезиса задачи (бетон всегда Karsan–Jirsa над диаграммой области).</summary>
+/// <summary>Модель бетона при гистерезисе.</summary>
+public enum ConcreteHysteresisModel
+{
+    /// <summary>Karsan–Jirsa над диаграммой области: остаточная деформация, разгрузка по прямой.</summary>
+    KarsanJirsa,
+    /// <summary>Без памяти — разгрузка по диаграмме; чтобы отделить вклад стали в остаточные деформации.</summary>
+    NonlinearElastic,
+}
+
+/// <summary>Параметры гистерезиса задачи.</summary>
 public sealed class HysteresisOptions
 {
+    /// <summary>Модель бетона.</summary>
+    public ConcreteHysteresisModel Concrete { get; set; } = ConcreteHysteresisModel.KarsanJirsa;
+
     /// <summary>Модель стали.</summary>
     public SteelHysteresisModel Steel { get; set; } = SteelHysteresisModel.MenegottoPinto;
     /// <summary>Начальный показатель кривизны перехода Menegotto–Pinto.</summary>

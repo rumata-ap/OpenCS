@@ -8,7 +8,7 @@ public sealed record AreaModels(IHysteresisModel Main, IHysteresisModel? Host, b
 public static class HysteresisModelFactory
 {
     /// <summary>
-    /// Бетон — Karsan–Jirsa над диаграммой области (с обёрткой спада, если она уже стоит); сталь — по опциям, параметры
+    /// Бетон — по опциям (Karsan–Jirsa или без памяти) над диаграммой области (с обёрткой спада, если она уже стоит); сталь — по опциям, параметры
     /// из диаграммы. Стержень с разностной диаграммой получает второе состояние — бетон-носитель (Karsan–Jirsa над Host).
     /// </summary>
     /// <param name="rebarRuptureLimit">εs2 при роли «Разрушается» у арматуры; null — без отказа.</param>
@@ -18,7 +18,7 @@ public static class HysteresisModelFactory
         if (!area.Diagramms.TryGetValue(calc, out var d))
             throw new InvalidOperationException($"Область «{area.Tag}»: нет диаграммы для {calc}.");
         if (StrainCriterionGeometry.IsConcrete(area))
-            return new AreaModels(new KarsanJirsaConcrete(d), null, true);
+            return new AreaModels(Concrete(d, o), null, true);
 
         var steelDiagram = d.Own ?? d;
         var (e, fyT, fyC, b) = SteelParams(steelDiagram);
@@ -26,9 +26,14 @@ public static class HysteresisModelFactory
             ? new BilinearSteel(e, fyT, fyC, b)
             : new MenegottoPintoSteel(e, fyT, fyC, b, o.R0, o.CR1, o.CR2);
         if (rebarRuptureLimit is double lim) steel = new RuptureDamage(steel, lim, softening);
-        var host = d.Own != null && d.Host != null ? new KarsanJirsaConcrete(d.Host) : null;
+        var host = d.Own != null && d.Host != null ? Concrete(d.Host, o) : null;
         return new AreaModels(steel, host, false);
     }
+
+    static IHysteresisModel Concrete(Diagramm d, HysteresisOptions o) =>
+        o.Concrete == ConcreteHysteresisModel.NonlinearElastic
+            ? new NonlinearElasticConcrete(d)
+            : new KarsanJirsaConcrete(d);
 
     /// <summary>
     /// Билинейная аппроксимация диаграммы стали по первому излому: E = σ/ε первого узла растяжения после нуля,

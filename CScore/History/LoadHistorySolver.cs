@@ -76,6 +76,10 @@ public sealed class LoadHistorySolver
         for (int si = 0; si < stages.Count; si++)
         {
             var st = stages[si];
+            // Часть включается в начале этапа любого вида, в том числе доведения до разрушения.
+            if (withHistory && st.ActivatePart is int part)
+                _section.ActivatePart(part, k);
+
             if (st.Kind == StageKind.Failure)
             {
                 RunFailure(run, si, phi, fPrev.N, k);
@@ -83,9 +87,6 @@ public sealed class LoadHistorySolver
                 run.MPeak = run.Steps.Max(s => Math.Abs(s.Mu));
                 return run;
             }
-
-            if (withHistory && st.ActivatePart is int part)
-                _section.ActivatePart(part, k);
 
             for (int i = 1; i <= st.Steps; i++)
             {
@@ -387,7 +388,8 @@ public sealed class LoadHistorySolver
         double dc = (cMax - c0) / _o.Failure.Steps;
 
         var k = kStart;
-        double c = c0, mPeak = run.Steps.Count > 0 ? run.Steps.Max(s => Math.Abs(s.Mu)) : 0;
+        // Пик для критерия падения — с начала этапа: после разгрузки момент ниже пика прежних этапов, но это не падение.
+        double c = c0, mPeak = run.Steps.Count > 0 ? Math.Abs(run.Steps[^1].Mu) : 0;
         double prevEta = Governing(run.Steps.Count > 0 ? run.Steps[^1].Parts : []).eta;
         int stepNo = 0;
 

@@ -53,6 +53,14 @@ public class HysteresisModelFactoryTests
         var m = HysteresisModelFactory.Create(c, CalcType.C, new HysteresisOptions(), null, 0.0005);
         Assert.IsType<KarsanJirsaConcrete>(m.Main);
         Assert.True(m.IsConcrete);
+        var e = HysteresisModelFactory.Create(c, CalcType.C,
+            new HysteresisOptions { Concrete = ConcreteHysteresisModel.NonlinearElastic }, null, 0.0005);
+        Assert.IsType<NonlinearElasticConcrete>(e.Main);
+        // без памяти: после сжатия до −0,003 и разгрузки σ при −0,001 — как у диаграммы
+        var d = c.Diagramms[CalcType.C];
+        e.Main.Trial(e.Main.Initial, -0.003, false, out _, out var s1);
+        double sig = e.Main.Trial(s1, -0.001, false, out _, out _);
+        Assert.Equal(d.Sig(-0.001, out _, false), sig, 9);
     }
 
     [Fact]
