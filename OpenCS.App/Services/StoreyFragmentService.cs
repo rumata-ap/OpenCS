@@ -39,4 +39,21 @@ public static class StoreyFragmentService
         var schema = db.CreateStoreyFragmentSchema(parentId, request, draft, StoreyFragmentFingerprint.Compute(snapshot));
         return new(schema, draft);
     }
+
+    /// <summary>
+    /// Сверка родителя фрагмента: снимок полосы перечитывается тем же отбором и сравнивается с отпечатком сборки.
+    /// Ничего не меняет — только сигнал «родитель изменён после сборки» или «родитель удалён».
+    /// </summary>
+    public static FragmentParentStatus CheckParent(DatabaseService db, FemSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(schema);
+        if (schema.ParentSchemaId is not int parentId || schema.FragmentZ1 is not double z1 || schema.FragmentZ2 is not double z2)
+            return FragmentParentStatus.NotFragment;
+        if (db.GetFemSchemaSourceType(parentId) is null) return FragmentParentStatus.ParentDeleted;
+        var snapshot = db.ReadStoreyFragmentSnapshot(parentId, new StoreyFragmentRequest(z1, z2, schema.Tag));
+        return StoreyFragmentFingerprint.Compute(snapshot) == schema.ParentFingerprint
+            ? FragmentParentStatus.Unchanged
+            : FragmentParentStatus.Changed;
+    }
 }

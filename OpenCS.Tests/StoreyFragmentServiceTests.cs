@@ -106,6 +106,36 @@ public sealed class StoreyFragmentServiceTests : IDisposable
         Assert.Equal(cached, db.FemSchemas.Count);
     }
 
+    [Fact]
+    public void CheckParent_TracksBandChangesAndDeletion()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var fragment = StoreyFragmentService.Build(db, parent.Id, Band).Schema!;
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, fragment));
+        Assert.Equal(FragmentParentStatus.NotFragment, StoreyFragmentService.CheckParent(db, parent));
+
+        Exec($"UPDATE fem_element_loads SET values_json='[-1500,0.5,0.5]' WHERE schema_id={parent.Id} AND load_kind='point'");
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, fragment));
+
+        Exec($"UPDATE fem_element_loads SET values_json='[-6000]' WHERE schema_id={parent.Id} AND load_kind='uniform'");
+        Assert.Equal(FragmentParentStatus.Changed, StoreyFragmentService.CheckParent(db, fragment));
+
+        db.DeleteFemSchema(parent);
+        Assert.Equal(FragmentParentStatus.ParentDeleted, StoreyFragmentService.CheckParent(db, fragment));
+        Assert.NotEmpty(db.GetFemMembers(fragment.Id));
+        Assert.NotEmpty(db.GetFragmentRefElements(fragment.Id));
+    }
+
+    void Exec(string sql)
+    {
+        using var c = new SqliteConnection($"Data Source={_path};Pooling=False");
+        c.Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
     long Count(string table)
     {
         using var c = new SqliteConnection($"Data Source={_path};Pooling=False");
