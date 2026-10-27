@@ -50,6 +50,8 @@ public static partial class StoreyFragmentBuilder
     sealed class LoadCtx
     {
         readonly Dictionary<(int LoadCase, string NodeTag, string Category), FemNodeLoad> _nodeLoads = [];
+        readonly Dictionary<string, (List<PlanarVector3> Polygon, string? Part)> _shellClip = new(StringComparer.Ordinal);
+        readonly Dictionary<string, string?> _barPart = new(StringComparer.Ordinal);
 
         public LoadCtx(Ctx c, StoreyFragmentParentSnapshot parent)
         {
@@ -104,6 +106,49 @@ public static partial class StoreyFragmentBuilder
         /// <summary>Линейная погонная нагрузка родителя на отрезке a → b.</summary>
         public void AddParentLine(int lc, string category, PlanarVector3 a, PlanarVector3 b, PlanarVector3 qa, PlanarVector3 qb) =>
             Sum(lc, category).AddLine(a - Origin, b - Origin, qa, qb);
+
+        /// <summary>
+        /// Часть КЭ-пластины в полосе (клип по z₁, z₂; пусто — КЭ вне полосы) и КонЭ фрагмента, содержащий её центр
+        /// (сначала части своего КонЭ родителя, затем любые).
+        /// </summary>
+        public (List<PlanarVector3> Polygon, string? Part) ShellClip(FemElement e, FemElementGeometry g)
+        {
+            if (_shellClip.TryGetValue(e.ElemTag, out var cached)) return cached;
+            var polygon = ClipZ(ClipZ(g.Contour.Select(i => g.Points[i]).ToList(), C.Z1, above: true), C.Z2, above: false);
+            string? part = null;
+            var (area, centroid) = polygon.Count >= 3 ? AreaCentroid(polygon) : (0, PlanarVector3.Zero);
+            if (area > C.Tol * C.Tol)
+            {
+                var shells = C.Draft.Members.Where(m => m.Region is not null).ToList();
+                string? Find(IEnumerable<StoreyFragmentMember> list) =>
+                    list.FirstOrDefault(m => RegionContains(m.Region!, centroid, C.Tol))?.Member.ElemTag;
+                part = Find(shells.Where(m => m.ParentMemberTag == e.SourceMemberTag)) ?? Find(shells);
+            }
+            else polygon = [];
+            return _shellClip[e.ElemTag] = (polygon, part);
+        }
+
+        /// <summary>КонЭ фрагмента для КЭ родителя: пластина — по центру части в полосе, стержень — по середине участка в полосе.</summary>
+        public string? PartOf(FemElement e, FemElementGeometry g)
+        {
+            if (g.IsShell) return ShellClip(e, g).Part;
+            if (_barPart.TryGetValue(e.ElemTag, out var cached)) return cached;
+            string? part = null;
+            double len = g.Length;
+            if (len > 1e-9)
+            {
+                var axis = (g.Points[1] - g.Points[0]) * (1 / len);
+                var (lo, hi) = BandRange(C, g.Points[0], axis, 0, len);
+                if (hi - lo > 1e-9)
+                {
+                    var mid = g.Points[0] + axis * ((lo + hi) / 2);
+                    bool On(BarPart p) => (mid - p.A).Dot(p.Axis) is var s && s >= -C.Tol && s <= p.Length + C.Tol
+                                          && (mid - (p.A + p.Axis * s)).Length <= C.Tol;
+                    part = (Bars.FirstOrDefault(p => p.ParentTag == e.SourceMemberTag && On(p)) ?? Bars.FirstOrDefault(On))?.Tag;
+                }
+            }
+            return _barPart[e.ElemTag] = part;
+        }
 
         /// <summary>Узловая нагрузка фрагмента в точке: узел схемы фрагмента (новый — свободный), сумма по загружению и виду.</summary>
         public void AddNodeLoad(int lc, string category, PlanarVector3 at, PlanarVector3 f, PlanarVector3 m)

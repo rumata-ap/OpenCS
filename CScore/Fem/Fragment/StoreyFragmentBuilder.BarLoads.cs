@@ -237,17 +237,18 @@ public static partial class StoreyFragmentBuilder
         return (run.Q0 + (run.Q1 - run.Q0) * ratio - q1).Length <= eps * Math.Max(1, ratio);
     }
 
-    /// <summary>Нагрузки на КЭ родителя полосы: цели разрешаются в КЭ сетки родителя, дальше — по типу КЭ.</summary>
+    /// <summary>Нагрузки на КЭ родителя полосы: цели разрешаются в КЭ сетки родителя, дальше — по типу КЭ и виду.</summary>
     static void TransferElementLoads(LoadCtx l, List<BarPiece> pieces)
     {
+        var shells = new ShellLoads(l);
         foreach (var load in l.Parent.ElementLoads)
-        {
-            if (load.LoadKind == FemElementLoadKinds.SelfWeight) continue;
             foreach (var e in FemLoadTargets.Resolve(load, l.Mesh, []))
             {
                 if (!l.BandTags.Contains(e.ElemTag) || l.Mesh.Geometry(e) is not { } g) continue;
-                if (g.IsBar) BarElementLoad(l, load, e, g, l.Mesh.BarRotationDeg(e), pieces);
+                if (load.LoadKind == FemElementLoadKinds.SelfWeight) shells.SelfWeight(load, e, g);
+                else if (g.IsBar) BarElementLoad(l, load, e, g, l.Mesh.BarRotationDeg(e), pieces);
+                else if (g.IsShell) shells.Add(load, e, g);
             }
-        }
+        shells.Flush();
     }
 }
