@@ -8,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
+using CScore.History;
 using CScore.Sp63.Normal;
 using CScore.Sp63.CrackWidth;
 using CScore.Sp63.Deflection;
@@ -166,11 +167,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string totalCurvatureLongShare = "0.7";
    string totalCurvatureManualMxLong = "0";
    string totalCurvatureManualMyLong = "0";
-   ForceSet? stage1Set, stage2Set;
-   LoadItem? stage1Item, stage2Item;
-   bool stage1UseManual, stage2UseManual;
-   string stage1ManualN = "0", stage1ManualMx = "0", stage1ManualMy = "0";
-   string stage2ManualN = "0", stage2ManualMx = "0", stage2ManualMy = "0";
    // Steel check
    bool steelUseManualForces;
    string steelManualVx = "0", steelManualVy = "0", steelManualT = "0";
@@ -189,7 +185,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string shearManualN = "0", shearManualMx = "0", shearManualMy = "0", shearManualT = "0";
    string shearManualVy = "0", shearManualVx = "0";
    string shearOverrideVyB = "", shearOverrideVxB = "";
-   string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
+   string _forceItemFilter = "", _shellForceItemFilter = "";
    CancellationTokenSource? _torsionPreviewDebounceCts;
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
@@ -710,8 +706,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
-           OnPropertyChanged(nameof(IsTwoStage));
-           OnPropertyChanged(nameof(IsTwoStageBatch));
+           OnPropertyChanged(nameof(IsLoadHistory));
            OnPropertyChanged(nameof(IsShellSimpl));
            OnPropertyChanged(nameof(IsShellSimplCapri));
            OnPropertyChanged(nameof(IsShellSimplSls));
@@ -733,10 +728,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
            OnPropertyChanged(nameof(ShowStandardForce));
-           OnPropertyChanged(nameof(Stage1ShowSet));
-           OnPropertyChanged(nameof(Stage1ShowManual));
-           OnPropertyChanged(nameof(Stage2ShowSet));
-           OnPropertyChanged(nameof(Stage2ShowManual));
          OnPropertyChanged(nameof(IsPrestressLoss));
          OnPropertyChanged(nameof(IsSteelCheck));
          OnPropertyChanged(nameof(ShowSteelManualForces));
@@ -832,8 +823,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
-           OnPropertyChanged(nameof(IsTwoStage));
-           OnPropertyChanged(nameof(IsTwoStageBatch));
+           OnPropertyChanged(nameof(IsLoadHistory));
             OnPropertyChanged(nameof(IsShellSimpl));
             OnPropertyChanged(nameof(IsShellSimplCapri));
             OnPropertyChanged(nameof(IsShellSimplSls));
@@ -855,10 +845,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
            OnPropertyChanged(nameof(ShowStandardForce));
-           OnPropertyChanged(nameof(Stage1ShowSet));
-           OnPropertyChanged(nameof(Stage1ShowManual));
-           OnPropertyChanged(nameof(Stage2ShowSet));
-           OnPropertyChanged(nameof(Stage2ShowManual));
             OnPropertyChanged(nameof(IsPrestressLoss));
             OnPropertyChanged(nameof(IsSteelCheck));
             OnPropertyChanged(nameof(ShowSteelManualForces));
@@ -950,9 +936,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsPlatePanel => IsShellSimpl || IsShellStrain || IsShellLayered;
    /// <summary>Пакетный режим плитной задачи (simpl, strain или layered).</summary>
    public bool IsPlateBatch => IsShellSimplBatch || IsShellStrainBatch || IsShellLayeredBatch;
-   public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
-   public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool IsPrestressLoss => Kind == "prestress_loss";
+   /// <summary>История нагружения стадийного сечения.</summary>
+   public bool IsLoadHistory => Kind == "load_history";
+   /// <summary>Параметры истории нагружения (этапы, разрушение, роли).</summary>
+   public LoadHistoryParamsVM LoadHistory { get; }
     public bool IsSteelCheck => Kind is "steel_check" or
         "steel_central_compression" or "steel_central_tension" or
         "steel_bending" or "steel_compression_bending" or
@@ -1092,7 +1080,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "normal", Label = Loc.S("LimitSurfaceAccuracyNormal") },
       new() { Id = "high",   Label = Loc.S("LimitSurfaceAccuracyHigh") },
    ];
-   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch
@@ -1102,8 +1090,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       && (!IsSteelCheck || !SteelUseManualForces);
    public bool ShowSolverMethod => IsLimitKind;
 
-   /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
-   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+   /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для пластин и потерь).</summary>
+   public bool ShowStandardForce => !IsPlatePanel && !IsPrestressLoss && !IsLoadHistory
       && !IsOpenSeesSpatialInteraction && !IsLimitSurface && !IsFireNoForceKind
       && (!IsSp63Normal || !Sp63NormalUseManualForces)
       && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces)
@@ -1117,10 +1105,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       if (IsSteelCheck)
          filtered = _allSections.Where(s => s.Areas.Any(a =>
             a.Material?.Type is MatType.Steel or MatType.Custom));
-      else if (IsTwoStage)
-         filtered = _allSections.Where(s => s is TwoStageSection);
+      else if (IsLoadHistory)
+         filtered = _allSections.Where(s => s is StagedSection);
       else
-         filtered = _allSections.Where(s => s is not TwoStageSection);
+         filtered = _allSections.Where(s => s is not StagedSection);
 
       foreach (var s in filtered)
          Sections.Add(s);
@@ -1153,7 +1141,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public CrossSection? SelectedSection
    {
       get => selectedSection;
-      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); RefreshTorsionLmin(); }
+      set
+      {
+         selectedSection = value;
+         OnPropertyChanged();
+         RefreshTorsionMeshPreview();
+         RefreshTorsionLmin();
+         LoadHistory.SetSection(value as StagedSection);
+      }
    }
 
     public FireSectionDef? SelectedFireSection
@@ -1695,77 +1690,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { selectedCalcType = value; OnPropertyChanged(); }
    }
 
-   // ── Усилия этапов двухстадийной задачи ──────────────────────────────
-   // Stage*Item == null трактуется как «весь набор» (режим "set", только пакетная).
-   public ObservableCollection<LoadItem> Stage1Items { get; } = [];
-   public ListCollectionView Stage1ItemsView { get; private set; } = null!;
-   public string Stage1ItemFilter
-   {
-      get => _stage1ItemFilter;
-      set { _stage1ItemFilter = value; OnPropertyChanged(); Stage1ItemsView?.Refresh(); }
-   }
-   public ObservableCollection<LoadItem> Stage2Items { get; } = [];
-   public ListCollectionView Stage2ItemsView { get; private set; } = null!;
-   public string Stage2ItemFilter
-   {
-      get => _stage2ItemFilter;
-      set { _stage2ItemFilter = value; OnPropertyChanged(); Stage2ItemsView?.Refresh(); }
-   }
-
-    public ForceSet? Stage1Set
-    {
-       get => stage1Set;
-       set
-       {
-          stage1Set = value;
-          Stage1Items.Clear();
-          if (value != null) foreach (var it in value.Items) Stage1Items.Add(it);
-          Stage1ItemFilter = "";
-          Stage1Item = Stage1Items.FirstOrDefault();
-          OnPropertyChanged();
-       }
-    }
-    public LoadItem? Stage1Item { get => stage1Item; set { stage1Item = value; OnPropertyChanged(); } }
-
-    public bool Stage1UseManual
-    {
-       get => stage1UseManual;
-       set { stage1UseManual = value; OnPropertyChanged(); OnPropertyChanged(nameof(Stage1ShowSet)); OnPropertyChanged(nameof(Stage1ShowManual)); }
-    }
-    public bool Stage1UseSet { get => !stage1UseManual; set { Stage1UseManual = !value; } }
-    public bool Stage1ShowSet    => IsTwoStage && !stage1UseManual;
-    public bool Stage1ShowManual => IsTwoStage && stage1UseManual;
-    public string Stage1ManualN  { get => stage1ManualN;  set { stage1ManualN  = value; OnPropertyChanged(); } }
-    public string Stage1ManualMx { get => stage1ManualMx; set { stage1ManualMx = value; OnPropertyChanged(); } }
-    public string Stage1ManualMy { get => stage1ManualMy; set { stage1ManualMy = value; OnPropertyChanged(); } }
-
-    public ForceSet? Stage2Set
-    {
-       get => stage2Set;
-       set
-       {
-          stage2Set = value;
-          Stage2Items.Clear();
-          if (value != null) foreach (var it in value.Items) Stage2Items.Add(it);
-          Stage2ItemFilter = "";
-          Stage2Item = Stage2Items.FirstOrDefault();
-          OnPropertyChanged();
-       }
-    }
-    public LoadItem? Stage2Item { get => stage2Item; set { stage2Item = value; OnPropertyChanged(); } }
-
-    public bool Stage2UseManual
-    {
-       get => stage2UseManual;
-       set { stage2UseManual = value; OnPropertyChanged(); OnPropertyChanged(nameof(Stage2ShowSet)); OnPropertyChanged(nameof(Stage2ShowManual)); }
-    }
-    public bool Stage2UseSet { get => !stage2UseManual; set { Stage2UseManual = !value; } }
-    public bool Stage2ShowSet    => IsTwoStage && !stage2UseManual;
-    public bool Stage2ShowManual => IsTwoStage && stage2UseManual;
-    public string Stage2ManualN  { get => stage2ManualN;  set { stage2ManualN  = value; OnPropertyChanged(); } }
-    public string Stage2ManualMx { get => stage2ManualMx; set { stage2ManualMx = value; OnPropertyChanged(); } }
-    public string Stage2ManualMy { get => stage2ManualMy; set { stage2ManualMy = value; OnPropertyChanged(); } }
-
     // Steel check parameters
     /// <summary>Редактор параметров СП 16.</summary>
     public SteelDesignParamsEditorVM SteelEditor { get; } = new();
@@ -1961,8 +1885,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       // НДС
       new() { Id = "strain_state",             Label = Loc.S("CalcTaskKind_strain_state"),             GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "strain_state_batch",       Label = Loc.S("CalcTaskKind_strain_state_batch"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
-      new() { Id = "two_stage_strain",         Label = Loc.S("CalcTaskKind_two_stage_strain"),         GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
-      new() { Id = "two_stage_strain_batch",   Label = Loc.S("CalcTaskKind_two_stage_strain_batch"),   GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "load_history",             Label = Loc.S("CalcTaskKind_load_history"),             GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "shell_strain_state",       Label = Loc.S("CalcTaskKind_shell_strain_state"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch"), GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
       // 1-я ГПС
@@ -2076,6 +1999,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       _allSections = [..app.CrossSections];
       FireSections = new ObservableCollection<FireSectionDef>(app.FireSections);
       ForceSets = new ObservableCollection<ForceSet>(app.BarForceSets);
+      LoadHistory = new LoadHistoryParamsVM(ForceSets);
       Sections = new ObservableCollection<CrossSection>();
       ShellSimplSections = new ObservableCollection<PlateSection>(app.PlateSections);
       ShellForceSets = new ObservableCollection<ForceSet>(app.ShellForceSets);
@@ -2085,12 +2009,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       AvailableKindsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CalcTaskKindItem.Group)));
 
       ForceItemsView      = new ListCollectionView(ForceItems);
-      Stage1ItemsView     = new ListCollectionView(Stage1Items);
-      Stage2ItemsView     = new ListCollectionView(Stage2Items);
       ShellForceItemsView = new ListCollectionView(ShellForceItems);
       ForceItemsView.Filter      = o => Pass(_forceItemFilter,      ((LoadItem)o).Label);
-      Stage1ItemsView.Filter     = o => Pass(_stage1ItemFilter,     ((LoadItem)o).Label);
-      Stage2ItemsView.Filter     = o => Pass(_stage2ItemFilter,     ((LoadItem)o).Label);
       ShellForceItemsView.Filter = o => Pass(_shellForceItemFilter, ((ShellLoadItem)o).Label);
 
       CrackWidthLongForceItemsView = new ListCollectionView(CrackWidthLongForceItems);
@@ -2118,6 +2038,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
             SelectedForceItem = null;
          }
+
+         if (existing.Kind == "load_history")
+            LoadHistory.Load(LoadHistoryParams.Parse(existing.ParamsJson));
 
          if (existing.Kind is "limit_surface" or "crack_surface" or "acrc_surface")
          {
@@ -2183,34 +2106,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              if (ep.EtaPsiY.HasValue) EtaPsiY = ep.EtaPsiY.Value.ToString("G6", inv);
              if (ep.EtaSlendernessThreshold.HasValue)
                 EtaSlendernessThreshold = ep.EtaSlendernessThreshold.Value.ToString("G6", inv);
-          }
-
-          if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
-          {
-             var tp = TwoStageParams.Parse(existing.ParamsJson);
-             var inv = System.Globalization.CultureInfo.InvariantCulture;
-             Stage1UseManual = tp.Stage1.Mode == "manual";
-             Stage1Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage1.ForceSetId);
-             Stage1Item = tp.Stage1.Mode == "set"
-                ? null
-                : Stage1Items.FirstOrDefault(i => i.Id == tp.Stage1.ForceItemId);
-             if (Stage1UseManual)
-             {
-                Stage1ManualN  = tp.Stage1.N .ToString("G6", inv);
-                Stage1ManualMx = tp.Stage1.Mx.ToString("G6", inv);
-                Stage1ManualMy = tp.Stage1.My.ToString("G6", inv);
-             }
-             Stage2UseManual = tp.Stage2.Mode == "manual";
-             Stage2Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage2.ForceSetId);
-             Stage2Item = tp.Stage2.Mode == "set"
-                ? null
-                : Stage2Items.FirstOrDefault(i => i.Id == tp.Stage2.ForceItemId);
-             if (Stage2UseManual)
-             {
-                Stage2ManualN  = tp.Stage2.N .ToString("G6", inv);
-                Stage2ManualMx = tp.Stage2.Mx.ToString("G6", inv);
-                Stage2ManualMy = tp.Stage2.My.ToString("G6", inv);
-             }
           }
 
           if (existing.Kind.StartsWith("shell_simpl_"))
@@ -2518,8 +2413,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           SelectedCalcType = CalcType.C;
           SelectedShellSimplSection = ShellSimplSections.FirstOrDefault();
           SelectedShellForceSet = ShellForceSets.FirstOrDefault();
-          Stage1Set = ForceSets.FirstOrDefault();
-          Stage2Set = ForceSets.FirstOrDefault();
        }
 
       OkCommand = new RelayCommand(_ => Commit());
@@ -2605,22 +2498,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           : CSTriangulation.TriangulationMethod.Ruppert);
    }
 
-   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : 480;
-
-    static StageForce BuildStageForceManual(string n, string mx, string my)
-    {
-       var inv = System.Globalization.CultureInfo.InvariantCulture;
-       double Parse(string s) =>
-          double.TryParse(s, System.Globalization.NumberStyles.Float, inv, out var v) ? v : 0;
-       return new StageForce { Mode = "manual", N = Parse(n), Mx = Parse(mx), My = Parse(my) };
-    }
-
-   static StageForce BuildStageForce(ForceSet set, LoadItem? item, bool allowSet)
-   {
-      if (item == null && allowSet)
-         return new StageForce { Mode = "set", ForceSetId = set.Id };
-      return new StageForce { Mode = "item", ForceSetId = set.Id, ForceItemId = item?.Id ?? 0 };
-   }
+   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : IsLoadHistory ? 1040 : 480;
 
    /// <summary>Разбирает число из поля нормальной проверки с поддержкой русской запятой.</summary>
    static bool TryParseSp63NormalNumber(string text, bool optional, bool positive, out double? value)
@@ -3010,78 +2888,30 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          return;
       }
 
-      if (IsTwoStage)
+      if (IsLoadHistory)
       {
-         if (SelectedSection == null)
+         if (SelectedSection is not StagedSection)
          {
             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
-
-         // Этап 1
-         StageForce stage1;
-         if (Stage1UseManual)
-            stage1 = BuildStageForceManual(Stage1ManualN, Stage1ManualMx, Stage1ManualMy);
-         else
+         var historyParams = LoadHistory.Build(out var historyErrors);
+         if (historyErrors.Count > 0)
          {
-            if (Stage1Set == null)
-            {
-               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-            }
-            stage1 = BuildStageForce(Stage1Set, Stage1Item, allowSet: IsTwoStageBatch);
-         }
-
-         // Этап 2
-         StageForce stage2;
-         if (Stage2UseManual)
-            stage2 = BuildStageForceManual(Stage2ManualN, Stage2ManualMx, Stage2ManualMy);
-         else
-         {
-            if (Stage2Set == null)
-            {
-               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-            }
-            stage2 = BuildStageForce(Stage2Set, Stage2Item, allowSet: IsTwoStageBatch);
-         }
-
-         if (IsTwoStageBatch)
-         {
-            // Этап 2 — всегда весь набор; попарно — равное число строк.
-            // Ручной ввод этапа 2 в пакетном режиме трактуется как одно усилие
-            // для всех строк (κ1 считается один раз — в Batch-хендлере).
-            if (!Stage2UseManual)
-               stage2 = new StageForce { Mode = "set", ForceSetId = Stage2Set!.Id };
-            if (stage1.Mode == "set" && stage2.Mode == "set"
-                && Stage1Set!.Items.Count != Stage2Set!.Items.Count)
-            {
-               MessageBox.Show(Loc.S("TwoStageNeedEqualRows"), Loc.S("Warning"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-            }
-         }
-         else if (!Stage1UseManual && !Stage2UseManual
-                  && (Stage1Item == null || Stage2Item == null))
-         {
-            // Детальная: при выборе из набора оба этапа — конкретная строка
-            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+            MessageBox.Show(string.Join(Environment.NewLine, historyErrors.Select(c => Loc.S("LoadHistoryErr_" + c))), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
-
          Result = new CalcTask
          {
-             Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
-             Kind = Kind,
-             SectionId = SelectedSection.Id,
-             ForceSetId = 0,
-             ForceItemId = 0,
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = 0,
+            ForceItemId = 0,
             CalcType = SelectedCalcType,
-            ParamsJson = new TwoStageParams { Stage1 = stage1, Stage2 = stage2 }.ToJson()
+            ParamsJson = historyParams.ToJson()
          };
          _window.DialogResult = true;
          return;

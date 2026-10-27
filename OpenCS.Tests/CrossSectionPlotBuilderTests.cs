@@ -2,6 +2,7 @@ using CScore;
 using OpenCS.Converters;
 using OpenCS.Views;
 using OpenCS.Views.Helpers;
+using System.Windows.Media;
 using Xunit;
 
 namespace OpenCS.Tests;
@@ -28,13 +29,17 @@ public class CrossSectionPlotBuilderTests
     }
 
     [Fact]
-    public void Build_TwoStageSection_IncludesBothStagesInOnePreview()
+    public void Build_StagedSection_IncludesAllPartsInOnePreview()
     {
-        var section = new TwoStageSection
+        var section = new StagedSection
         {
-            Stage1 = new CrossSection { Areas = [new MaterialArea { Hull = Rectangle(-2, -1, -1, 0) }] },
-            Areas = [new MaterialArea { Hull = Rectangle(1, 2, 2, 3) }]
+            Parts =
+            [
+                new SectionPart { Index = 0, Areas = [new MaterialArea { Hull = Rectangle(-2, -1, -1, 0) }] },
+                new SectionPart { Index = 1, Areas = [new MaterialArea { Hull = Rectangle(1, 2, 2, 3) }] },
+            ]
         };
+        section.SyncAreas();
 
         var data = CrossSectionPlotBuilder.Build(section);
 
@@ -43,6 +48,16 @@ public class CrossSectionPlotBuilderTests
         Assert.Equal(2, data.XMax);
         Assert.Equal(-1, data.YMin);
         Assert.Equal(3, data.YMax);
+    }
+
+    [Fact]
+    public void Build_WithHighlight_DimsOtherAreas()
+    {
+        var beam = ReportFixtures.BuildBeam();
+        var data = CrossSectionPlotBuilder.Build(beam, new HashSet<MaterialArea> { beam.Areas[0] });
+        var polygons = data.Elements.OfType<PolygonElement>().ToList();
+        Assert.Contains(polygons, p => ((SolidColorBrush)p.Fill!).Color.A == 120);
+        Assert.DoesNotContain(polygons, p => ((SolidColorBrush)p.Fill!).Color.A == 40 && p.Stroke != Brushes.Gray);
     }
 
     [Fact]

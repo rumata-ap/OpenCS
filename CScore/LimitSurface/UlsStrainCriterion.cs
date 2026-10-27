@@ -43,7 +43,7 @@ public sealed class UlsStrainCriterion : IStrainSurfaceCriterion
             }
             else
             {
-                double epsSu = RebarEpsSu(area);
+                double epsSu = RebarEpsSu(area, Calc);
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                     pts.Add(new StrainControlPoint(f.X, f.Y, StrainPointKind.Rebar,
                         double.NegativeInfinity, epsSu - f.Eps_p, double.NaN, double.NaN, ai));
@@ -52,9 +52,10 @@ public sealed class UlsStrainCriterion : IStrainSurfaceCriterion
         return new StrainDomain(pts);
     }
 
-    double RebarEpsSu(MaterialArea area)
+    /// <summary>Предельная деформация растяжения арматуры εs2 (Et2 материала; иначе 0,025).</summary>
+    internal static double RebarEpsSu(MaterialArea area, CalcType calc)
     {
-        var ch = area.Material?.GetChars(Calc);
+        var ch = area.Material?.GetChars(calc);
         return ch is not null && double.IsFinite(ch.Et2) && ch.Et2 > 0 ? ch.Et2 : 0.025;
     }
 }

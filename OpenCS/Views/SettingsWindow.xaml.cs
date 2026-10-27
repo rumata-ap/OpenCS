@@ -244,6 +244,7 @@ namespace OpenCS.Views
          ElasticStiffnessWithoutRebarCb.IsChecked = _calcSettings.ElasticStiffnessWithoutRebar;
          SelectComboByTag(FireCompressionZoneMethodCombo, _calcSettings.FireCompressionZoneMethod);
          PsiSMethodCombo.SelectedIndex = _calcSettings.CrackWidthPsiSMethod == "strain8232" ? 1 : 0;
+         StageStrainModeCombo.SelectedIndex = _calcSettings.StageStrainMode == "fibers" ? 1 : 0;
          ShearStationStepBox.Text    = _calcSettings.ShearStationStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          ShearProjectionStepBox.Text = _calcSettings.ShearProjectionStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          ShearMomentZoneBox.Text     = _calcSettings.ShearMomentZoneLength.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
@@ -356,6 +357,8 @@ namespace OpenCS.Views
             _calcSettings.FireCompressionZoneMethod =
                ComboTag(FireCompressionZoneMethodCombo) ?? "auto";
          };
+         StageStrainModeCombo.SelectionChanged += (_, _) =>
+            _calcSettings.StageStrainMode = StageStrainModeCombo.SelectedIndex == 1 ? "fibers" : "plane";
          PsiSMethodCombo.SelectionChanged += (_, _) =>
          {
             _calcSettings.CrackWidthPsiSMethod =

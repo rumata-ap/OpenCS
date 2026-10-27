@@ -85,12 +85,8 @@ public sealed class CrossSectionReportSvgRenderer
         return svg.ToString();
     }
 
-    static IEnumerable<MaterialArea> Areas(CrossSection section)
-    {
-        if (section is TwoStageSection twoStage)
-            return twoStage.Stage1.Areas.Concat(twoStage.Areas).Where(MaterialArea.IsCalcActive);
-        return section.Areas.Where(MaterialArea.IsCalcActive);
-    }
+    static IEnumerable<MaterialArea> Areas(CrossSection section) =>
+        section.Areas.Where(MaterialArea.IsCalcActive);
 
     static IEnumerable<(double X, double Y)> GeometryPoints(IEnumerable<MaterialArea> areas)
     {

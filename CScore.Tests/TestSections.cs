@@ -309,10 +309,10 @@ internal static class TestSections
     }
 
     /// <summary>
-    /// Двухстадийное сечение: этап 1 — прямоугольник 0.3×0.5 с нижней арматурой,
-    /// этап 2 — полка 0.6×0.15 поверх него.
+    /// Стадийное сечение: часть 0 — прямоугольник 0.3×0.5 с нижней арматурой,
+    /// часть 1 — полка 0.6×0.15 поверх него, включённая при нулевой плоскости.
     /// </summary>
-    public static TwoStageSection TwoStageRectWithFlange()
+    public static StagedSection StagedRectWithFlange()
     {
         var stage1 = RectWithBottomRebar();
         var concreteMaterial = TestMaterials.Concrete("B25");
@@ -330,13 +330,16 @@ internal static class TestSections
         flange.SetWKT();
         flange.SliceXY(nx: 12, ny: 6);
 
-        var section = new TwoStageSection
+        var section = new StagedSection
         {
-            Stage1 = stage1,
-            Areas = [flange],
-            Stage1Kurvature = new Kurvature { e0 = 0.0, ky = 0.0, kz = 0.0 }
+            Parts =
+            [
+                new SectionPart { Index = 0, Tag = "stage1", Areas = stage1.Areas },
+                new SectionPart { Index = 1, Tag = "flange", Areas = [flange] },
+            ],
         };
         section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+        section.ActivatePart(1, new Kurvature { e0 = 0.0, ky = 0.0, kz = 0.0 });
         return section;
     }
 

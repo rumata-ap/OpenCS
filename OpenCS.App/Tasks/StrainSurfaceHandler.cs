@@ -36,8 +36,8 @@ public sealed class StrainSurfaceHandler : ITaskHandler
       string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
       try
       {
-         if (section is TwoStageSection)
-            throw new InvalidOperationException("Поверхность для сечения двух стадий не строится.");
+         if (section is StagedSection)
+            throw new InvalidOperationException("Поверхность для стадийного сечения не строится.");
 
          ForceSet? forceSet = null;
          if (task.ForceSetId != 0)

@@ -41,6 +41,15 @@ namespace OpenCS.Views
 
       private (double x, double y, double px, double py)? _picked;
 
+      private IReadOnlyList<PlotLegendItem>? _legend;
+
+      /// <summary>Легенда в правом нижнем углу области данных; null или пустой список — без легенды.</summary>
+      public IReadOnlyList<PlotLegendItem>? Legend
+      {
+         get => _legend;
+         set { _legend = value; InvalidateVisual(); }
+      }
+
       public PlotCanvas()
       {
          ClipToBounds = true;
@@ -169,6 +178,10 @@ namespace OpenCS.Views
          if (_hasBounds)
             DrawAxes(dc, w, h);
 
+         // после осей — поверх подписей опорных осей
+         if (_hasBounds && _legend is { Count: > 0 })
+            DrawLegend(dc);
+
          if (_title != null) DrawTitle(dc, w);
       }
 
@@ -234,6 +247,36 @@ namespace OpenCS.Views
          double modelH = _plotRect.Height / _scaleY;
          _originX = xMin - (modelW - (xMax - xMin)) / 2;
          _originY = yMin - (modelH - (yMax - yMin)) / 2;
+      }
+
+      /// <summary>Рамка с образцами линий и подписями в правом нижнем углу области данных.</summary>
+      private void DrawLegend(DrawingContext dc)
+      {
+         // снизу отступ больше: у нижнего края часто идёт опорная ось с подписью
+         const double pad = 6, sample = 22, gap = 6, margin = 8, marginBottom = 26;
+         var typeface = new Typeface("Segoe UI");
+         var texts = new List<FormattedText>();
+         double textW = 0, rowH = 10;
+         foreach (var item in _legend!)
+         {
+            var ft = new FormattedText(item.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+               typeface, _settings.AxesFontSize, Brushes.Black, 96);
+            texts.Add(ft);
+            textW = Math.Max(textW, ft.Width);
+            rowH = Math.Max(rowH, ft.Height);
+         }
+         double bw = pad + sample + gap + textW + pad, bh = pad * 2 + rowH * texts.Count;
+         var box = new Rect(_plotRect.Right - bw - margin, _plotRect.Bottom - bh - marginBottom, bw, bh);
+         var bg = ParseBrush(_settings.Background).Clone();
+         bg.Opacity = 0.85;
+         dc.DrawRoundedRectangle(bg, new Pen(Brushes.Gray, 0.5), box, 3, 3);
+         for (int i = 0; i < texts.Count; i++)
+         {
+            double y = box.Top + pad + rowH * (i + 0.5);
+            var item = _legend![i];
+            dc.DrawLine(new Pen(item.Stroke, item.StrokeThickness), new Point(box.Left + pad, y), new Point(box.Left + pad + sample, y));
+            dc.DrawText(texts[i], new Point(box.Left + pad + sample + gap, y - texts[i].Height / 2));
+         }
       }
 
       private void DrawPointLabels(DrawingContext dc)
@@ -528,42 +571,65 @@ namespace OpenCS.Views
             return;
          }
 
-         if (!_settings.ShowTooltips || !_hasBounds || _elements == null) return;
+         if (!_hasBounds || _elements == null) return;
 
-         var pos = e.GetPosition(this);
+         var hit = FindNearest(e.GetPosition(this));
+         if (hit is null) return;
+         PointPicked?.Invoke(hit.Value.Element, hit.Value.Index);
+         if (_settings.ShowTooltips)
+         {
+            _picked = (hit.Value.X, hit.Value.Y, hit.Value.Px, hit.Value.Py);
+            InvalidateVisual();
+         }
+      }
+
+      /// <summary>
+      /// Щелчок по точке маркеров или ломаной (в пределах 20 px): элемент и индекс точки в нём.
+      /// Срабатывает независимо от показа подсказок.
+      /// </summary>
+      public event Action<PlotElement, int>? PointPicked;
+
+      /// <summary>Ближайшая к экранной точке вершина маркеров/ломаных в пределах 20 px; null — нет такой.</summary>
+      internal (PlotElement Element, int Index, double X, double Y, double Px, double Py)? FindNearest(Point pos)
+      {
+         if (!_hasBounds || _elements == null) return null;
+         UpdateTransform();
 
          double bestDist = 20 * 20;
-         double bestX = 0, bestY = 0, bestPx = 0, bestPy = 0;
+         (PlotElement Element, int Index, double X, double Y, double Px, double Py)? best = null;
 
          foreach (var el in _elements)
          {
-            if (el is MarkerElement m)
-            {
-               int n = Math.Min(m.Xs.Length, m.Ys.Length);
-               for (int i = 0; i < n; i++)
-               {
-                  var pt = ToScreen(m.Xs[i], m.Ys[i]);
-                  double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
-                  if (d < bestDist) { bestDist = d; bestX = m.Xs[i]; bestY = m.Ys[i]; bestPx = pt.X; bestPy = pt.Y; }
-               }
-            }
-            else if (el is ScatterElement s)
-            {
-               int n = Math.Min(s.Xs.Length, s.Ys.Length);
-               for (int i = 0; i < n; i++)
-               {
-                  var pt = ToScreen(s.Xs[i], s.Ys[i]);
-                  double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
-                  if (d < bestDist) { bestDist = d; bestX = s.Xs[i]; bestY = s.Ys[i]; bestPx = pt.X; bestPy = pt.Y; }
-               }
-            }
-         }
+            double[] xs, ys;
+            if (el is MarkerElement m) { xs = m.Xs; ys = m.Ys; }
+            else if (el is ScatterElement s) { xs = s.Xs; ys = s.Ys; }
+            else continue;
 
-         if (bestDist < 20 * 20)
-         {
-            _picked = (bestX, bestY, bestPx, bestPy);
-            InvalidateVisual();
+            int n = Math.Min(xs.Length, ys.Length);
+            for (int i = 0; i < n; i++)
+            {
+               var pt = ToScreen(xs[i], ys[i]);
+               double d = (pos.X - pt.X) * (pos.X - pt.X) + (pos.Y - pt.Y) * (pos.Y - pt.Y);
+               if (d < bestDist) { bestDist = d; best = (el, i, xs[i], ys[i], pt.X, pt.Y); }
+            }
          }
+         return best;
+      }
+
+      /// <summary>Экранная точка модельной (для тестов выбора точки).</summary>
+      internal Point ToScreenForTest(double x, double y)
+      {
+         UpdateTransform();
+         return ToScreen(x, y);
+      }
+
+      /// <summary>Область построения и масштаб по текущему размеру — как в OnRender (до первой отрисовки их нет).</summary>
+      void UpdateTransform()
+      {
+         double w = RenderSize.Width, h = RenderSize.Height;
+         if (!_hasBounds || w < 2 || h < 2) return;
+         _plotRect = ComputePlotRect(w, h);
+         ComputeFit();
       }
 
       protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)

@@ -1,0 +1,122 @@
+<UserControl x:Class="OpenCS.Views.LoadHistoryResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+   <UserControl.Resources>
+      <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+   </UserControl.Resources>
+   <DockPanel>
+      <!-- Сводка — в свёрнутом блоке, чтобы не отнимать место у таблицы и графика -->
+      <Expander DockPanel.Dock="Top" Header="{DynamicResource ResultTabSummary}" IsExpanded="False" Margin="4,2,4,4">
+         <StackPanel Margin="8,4,8,6">
+            <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding RolesNote}" TextWrapping="Wrap" Foreground="DarkOrange" Margin="0,4,0,0">
+               <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding RolesNote}" Value="{x:Null}">
+                           <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="{DynamicResource LoadHistory_UnloadNote}" Foreground="Gray" Margin="0,4,0,0"
+                       Visibility="{Binding ShowUnloadNote, Converter={StaticResource BoolToVis}}"/>
+         </StackPanel>
+      </Expander>
+
+      <TabControl x:Name="MainTabs" SelectionChanged="OnTabChanged">
+         <!-- 1. Шаги -->
+         <TabItem Header="{DynamicResource LoadHistory_TabSteps}">
+            <DockPanel>
+               <CheckBox DockPanel.Dock="Top" Content="{DynamicResource LoadHistory_ShowNoHistory}" Margin="4"
+                         IsChecked="{Binding ShowNoHistory}"
+                         Visibility="{Binding HasNoHistory, Converter={StaticResource BoolToVis}}"/>
+               <DataGrid x:Name="StepsGrid" ItemsSource="{Binding CurrentRows}" SelectedItem="{Binding SelectedRow}"
+                         AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single"
+                         HeadersVisibility="Column">
+                  <DataGrid.RowStyle>
+                     <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                           <DataTrigger Binding="{Binding IsStageStart}" Value="True">
+                              <Setter Property="Background" Value="#E3F2FD"/>
+                           </DataTrigger>
+                           <DataTrigger Binding="{Binding IsStageEnd}" Value="True">
+                              <Setter Property="Background" Value="#E8F5E9"/>
+                           </DataTrigger>
+                           <DataTrigger Binding="{Binding HasProblem}" Value="True">
+                              <Setter Property="Background" Value="#FDECEA"/>
+                           </DataTrigger>
+                           <DataTrigger Binding="{Binding LimitPoint}" Value="True">
+                              <Setter Property="FontWeight" Value="Bold"/>
+                           </DataTrigger>
+                        </Style.Triggers>
+                     </Style>
+                  </DataGrid.RowStyle>
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColStage}" Binding="{Binding Stage}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKind}" Binding="{Binding Kind}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColStep}" Binding="{Binding Step}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColParts}" Binding="{Binding Parts}"/>
+                     <DataGridTextColumn Header="N" Binding="{Binding N, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="Mx" Binding="{Binding Mx, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="My" Binding="{Binding My, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="c" Binding="{Binding C, StringFormat=E3}"/>
+                     <DataGridTextColumn Header="M_u" Binding="{Binding Mu, StringFormat=F2}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKb}" Binding="{Binding EtaB, StringFormat=F3}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKs}" Binding="{Binding EtaS, StringFormat=F3}"/>
+                     <DataGridTextColumn x:Name="ResBColumn" Header="{DynamicResource LoadHistory_ColResB}" Binding="{Binding ResB, StringFormat=E3}"/>
+                     <DataGridTextColumn x:Name="ResSColumn" Header="{DynamicResource LoadHistory_ColResS}" Binding="{Binding ResS, StringFormat=E3}"/>
+                     <DataGridCheckBoxColumn Header="{DynamicResource LoadHistory_ColConverged}" Binding="{Binding Converged}"/>
+                     <DataGridTextColumn Header="{DynamicResource LoadHistory_ColWarnings}" Binding="{Binding Warnings}" Width="*"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </DockPanel>
+         </TabItem>
+
+         <!-- 2. Момент–кривизна -->
+         <TabItem Header="{DynamicResource LoadHistory_TabCurve}">
+            <local:PlotCanvas x:Name="curve"/>
+         </TabItem>
+
+         <!-- 3. Поля выбранного шага -->
+         <TabItem Header="{DynamicResource LoadHistory_TabFields}">
+            <Grid>
+               <DockPanel Visibility="{Binding HasSection, Converter={StaticResource BoolToVis}}">
+                  <Grid DockPanel.Dock="Top" Margin="4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" MinWidth="120"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <!-- Без GroupName: группа по общему родителю. С общим именем переключатели окон результата
+                          разных задач в одном главном окне снимали отметки друг у друга (оба оставались пустыми). -->
+                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <RadioButton Content="{DynamicResource LoadHistory_FieldsRelative}" IsChecked="{Binding FieldsRelative}"
+                                     Margin="0,0,12,0"/>
+                        <RadioButton Content="{DynamicResource LoadHistory_FieldsTotal}" IsChecked="{Binding FieldsTotal}"/>
+                     </StackPanel>
+                     <!-- Шаг истории; Delay — поля при гистерезисе восстанавливаются воспроизведением шагов 0…i -->
+                     <Slider Grid.Column="1" Margin="16,0,8,0" VerticalAlignment="Center"
+                             Minimum="0" Maximum="{Binding MaxIndex}" Value="{Binding StepPosition, Delay=150}"
+                             SmallChange="1" LargeChange="5" Ticks="{Binding StageTicks}" TickPlacement="BottomRight"
+                             ToolTip="{DynamicResource LoadHistory_SliderTip}"/>
+                     <TextBlock Grid.Column="2" Text="{Binding SelectedStepText}" VerticalAlignment="Center" MinWidth="220"/>
+                  </Grid>
+                  <TabControl x:Name="FieldTabs" SelectionChanged="OnTabChanged">
+                     <TabItem Header="{DynamicResource ResultTabStress}">
+                        <local:SectionPlotView DataContext="{Binding StressPlot}"/>
+                     </TabItem>
+                     <TabItem Header="{DynamicResource ResultTabStrain}">
+                        <local:SectionPlotView DataContext="{Binding StrainPlot}"/>
+                     </TabItem>
+                  </TabControl>
+               </DockPanel>
+               <TextBlock x:Name="NoSectionText" Text="{DynamicResource LoadHistory_NoSection}" Foreground="Gray"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+         </TabItem>
+      </TabControl>
+   </DockPanel>
+</UserControl>

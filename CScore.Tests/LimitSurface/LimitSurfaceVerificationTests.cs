@@ -14,6 +14,7 @@ namespace CScore.Tests.LimitSurface;
 /// см. LimitForceSolverFastResidualTests). Точки, где начало луча вне тела
 /// (преднапряжение, растяжение), неоднозначны — луч пересекает поверхность дважды — и только подсчитываются.
 /// </summary>
+[Trait("Category", "Slow")]
 public class LimitSurfaceVerificationTests(ITestOutputHelper output)
 {
     const double LambdaTol = 5e-3;

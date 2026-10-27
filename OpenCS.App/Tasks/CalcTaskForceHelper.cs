@@ -22,7 +22,6 @@ public static class CalcTaskForceHelper
    public static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
    {
       "strain_state_batch" or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-         or "two_stage_strain" or "two_stage_strain_batch"
          or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
          or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
          or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
@@ -42,7 +41,8 @@ public static class CalcTaskForceHelper
          or "cracking_batch" or "crack_width_batch" or "total_curvature_batch"
          or "fire_r_check_batch" or "fire_thermal_curvature"
          or "shear_inclined_batch" => true,
-      "opensees_section_interaction_n_mx_my" or "limit_surface" or "crack_surface" or "acrc_surface" => true,
+      "opensees_section_interaction_n_mx_my" or "limit_surface" or "crack_surface" or "acrc_surface"
+         or "load_history" => true,
       _ => false
    };
 

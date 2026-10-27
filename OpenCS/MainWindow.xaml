@@ -328,7 +328,7 @@
       <!-- Вкладка 1: Дерево проекта -->
       <TabItem Header="{DynamicResource ProjectTab}">
       <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged"
-                KeyDown="structureTree_KeyDown">
+                KeyDown="structureTree_KeyDown" PreviewMouseRightButtonDown="structureTree_PreviewMouseRightButtonDown">
 
                <TreeViewItem x:Name="geometryNode" IsExpanded="True">
                   <TreeViewItem.Header>
@@ -809,22 +809,22 @@
                         </HierarchicalDataTemplate.ItemTemplate>
                      </HierarchicalDataTemplate>
 
-                     <!-- Группа «Усиление»: папка с двухстадийными сечениями -->
+                     <!-- Группа «Стадийные сечения» -->
                      <HierarchicalDataTemplate DataType="{x:Type local:SectionTreeGroup}"
                                                ItemsSource="{Binding Items}">
                         <StackPanel Orientation="Horizontal" Margin="2"
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                            <StackPanel.ContextMenu>
                               <ContextMenu>
-                                 <MenuItem Header="{DynamicResource NewTwoStageSection}"
-                                           Command="{Binding PlacementTarget.Tag.NewTwoStageSectionCommand,
+                                 <MenuItem Header="{DynamicResource NewStagedSection}"
+                                           Command="{Binding PlacementTarget.Tag.NewStagedSectionCommand,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <MenuItem Header="{DynamicResource DeleteCrossSection}"
                                            Command="{Binding PlacementTarget.Tag.DeleteCrossSectionCommand,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </ContextMenu>
                            </StackPanel.ContextMenu>
-                           <!-- Иконка «Усиление»: две зеркальные копии иконки простого
+                           <!-- Иконка стадийных сечений: две зеркальные копии иконки простого
                                 сечения в двух цветах (исходное + усиливающее сечение) -->
                            <Viewbox Width="14" Height="14" Margin="0,0,4,0">
                               <Canvas Width="16" Height="16">
@@ -832,12 +832,12 @@
                                  <Path Fill="DarkOrange" Data="M15.5,1 H12.5 L8.5,8 L12.5,15 H15.5 Z"/>
                               </Canvas>
                            </Viewbox>
-                           <TextBlock Text="{DynamicResource TwoStageSections}"/>
+                           <TextBlock Text="{DynamicResource StagedSections}"/>
                         </StackPanel>
                         <HierarchicalDataTemplate.ItemTemplate>
-                           <DataTemplate DataType="{x:Type core:TwoStageSection}">
+                           <DataTemplate DataType="{x:Type core:StagedSection}">
                               <StackPanel Orientation="Horizontal">
-                                 <!-- Иконка двухстадийного сечения: две зеркальные копии
+                                 <!-- Иконка стадийного сечения: две зеркальные копии
                                       иконки простого сечения в двух цветах -->
                                  <Viewbox Width="14" Height="14" Margin="0,0,4,0">
                                     <Canvas Width="16" Height="16">

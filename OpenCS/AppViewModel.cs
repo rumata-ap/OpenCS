@@ -325,8 +325,8 @@ namespace OpenCS
          set
          {
             currentCrossSection = value;
-            if (value is TwoStageSection tss)
-               CurrentPage = new Views.TwoStageSectionEditorPage(tss, this);
+            if (value is StagedSection staged)
+               CurrentPage = new Views.StagedSectionEditorPage(staged, this);
             else if (value != null)
                CurrentPage = new Views.CrossSectionPage(value, this);
             else
@@ -347,7 +347,7 @@ namespace OpenCS
       /// <summary>Области поперечного армирования проекта.</summary>
       public ObservableCollection<MaterialArea> StirrupGroupsLive { get; private set; } = [];
 
-      /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
+      /// <summary>Простые фибровые сечения (не StagedSection).</summary>
       public ObservableCollection<CrossSection> FiberSectionsLive { get; } = [];
 
       /// <summary>Обычные и stale фибровые сечения для существующего дерева.</summary>
@@ -359,8 +359,8 @@ namespace OpenCS
       /// <summary>Поддержанные неустаревшие параметрические МК-сечения; CrossSection остаётся общим.</summary>
       public ObservableCollection<ParametricSteelSectionTreeItem> ParametricSteelSectionsLive => parametricSteelSectionsLive;
 
-      /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
-      public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
+      /// <summary>Стадийные сечения (StagedSection).</summary>
+      public ObservableCollection<CrossSection> StagedSectionsLive { get; } = [];
 
        /// <summary>Плитные сечения для дерева (синхронизируется с PlateSections).</summary>
        public ObservableCollection<PlateSection> PlateSectionsLive { get; } = [];
@@ -1120,8 +1120,8 @@ namespace OpenCS
       /// <summary>Команда удаления выбранного поперечного сечения.</summary>
       public ICommand DeleteCrossSectionCommand { get; set; } = null!;
 
-      /// <summary>Команда создания нового двухстадийного сечения.</summary>
-      public ICommand NewTwoStageSectionCommand { get; set; } = null!;
+      /// <summary>Команда создания нового стадийного сечения.</summary>
+      public ICommand NewStagedSectionCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового набора усилий стержня.</summary>
       public ICommand NewBarForceSetCommand { get; set; } = null!;
@@ -1189,7 +1189,7 @@ namespace OpenCS
           Views.RebarGroupEditorPage      => Loc.S("VT_RebarGroup"),
           Views.StirrupGroupPage          => Loc.S("VT_StirrupGroup"),
           Views.CrossSectionPage          => Loc.S("VT_CrossSection"),
-          Views.TwoStageSectionEditorPage => Loc.S("VT_TwoStageSection"),
+          Views.StagedSectionEditorPage   => Loc.S("VT_StagedSection"),
           Views.PlateSectionPage          => Loc.S("VT_PlateSection"),
           Views.BarForceSetPage           => Loc.S("VT_BarForceSet"),
           Views.ShellForceSetPage         => Loc.S("VT_ShellForceSet"),
@@ -1495,12 +1495,13 @@ namespace OpenCS
               new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
               new ParametricCrossSectionTreeGroup(parametricFiberSectionsLive),
               new ParametricSteelSectionTreeGroup(parametricSteelSectionsLive),
-              new SectionTreeGroup(TwoStageSectionsLive),
+              new SectionTreeGroup(StagedSectionsLive),
               new PlateSectionTreeGroup(PlateSectionsLive),
               new EquivalentSectionTreeGroup(EquivalentSectionsLive),
            };
 
           db = new DatabaseService(this.databasePath);
+          foreach (var notice in db.MigrationNotices) LogService.Warning(notice);
           InitNewDatabase();
           LoadSettingsFromDb();
           InitializeCollections();
@@ -1773,8 +1774,12 @@ namespace OpenCS
             if (p is ParametricSteelSectionTreeItem item) CurrentCrossSection = item.Section;
          });
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
+         NewStagedSectionCommand = new RelayCommand(_ =>
+         {
+            currentCrossSection = null;
+            CurrentPage = new Views.StagedSectionEditorPage(this);
+         });
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
-         NewTwoStageSectionCommand = new RelayCommand(_ => NewTwoStageSection());
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
@@ -2607,6 +2612,7 @@ namespace OpenCS
             db.ChangeDatabase(path);
             db.ClearCollections();
             db.LoadAll();
+            foreach (var notice in db.MigrationNotices) LogService.Warning(notice);
             RefreshAfterLoad();
             LoadSettingsFromDb();
             CurrentProjectPath = path;
@@ -2919,23 +2925,24 @@ namespace OpenCS
          MarkDirty(SaveCategory.CrossSections);
       }
 
-      void NewTwoStageSection()
-      {
-         currentCrossSection = null;
-         CurrentPage = new Views.TwoStageSectionEditorPage(this);
-      }
-
       void EditCrossSection()
       {
          if (currentCrossSection == null) return;
-         CurrentPage = currentCrossSection is TwoStageSection tss
-            ? (System.Windows.Controls.UserControl)new Views.TwoStageSectionEditorPage(tss, this)
+         CurrentPage = currentCrossSection is StagedSection staged
+            ? new Views.StagedSectionEditorPage(staged, this)
             : new Views.CrossSectionPage(currentCrossSection, this);
       }
 
       void DeleteCrossSection()
       {
          if (currentCrossSection == null) return;
+         var users = db.SectionsUsingAsPart(currentCrossSection.Id);
+         if (users.Count > 0)
+         {
+            System.Windows.MessageBox.Show(string.Format(Loc.S("SectionUsedAsStagedPart"), users[0].Tag),
+               Loc.S("Warning"), System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
          var res = System.Windows.MessageBox.Show(
@@ -3058,7 +3065,7 @@ namespace OpenCS
          steelService.ApplyBindings(CrossSections);
          var parametricService = new ParametricRcSectionProjectService(db);
          // Три списка: параметрические ЖБ, параметрические МК (поддержанные и неустаревшие), обычные.
-         foreach (var s in CrossSections.Where(s => s is not TwoStageSection))
+         foreach (var s in CrossSections.Where(s => s is not StagedSection))
          {
             var state = parametricService.GetState(s);
             if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported && !state.IsStale)
@@ -3075,9 +3082,9 @@ namespace OpenCS
          foreach (var s in OrdinaryFiberSectionsLive)
             FiberSectionsLive.Add(s);
 
-         TwoStageSectionsLive.Clear();
-         foreach (var s in CrossSections.OfType<TwoStageSection>())
-            TwoStageSectionsLive.Add(s);
+         StagedSectionsLive.Clear();
+         foreach (var s in CrossSections.OfType<StagedSection>())
+            StagedSectionsLive.Add(s);
       }
 
        void RefreshPlateSectionsLive()

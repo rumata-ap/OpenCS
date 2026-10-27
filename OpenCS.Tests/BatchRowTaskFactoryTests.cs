@@ -292,46 +292,6 @@ public sealed class BatchRowTaskFactoryTests : IDisposable
     }
 
     [Fact]
-    public void TwoStage_FixedStage1_RowOfStage2()
-    {
-        var batch = new CalcTask
-        {
-            Id = 6, Kind = "two_stage_strain_batch", SectionId = BarSectionId, CalcType = CalcType.C,
-            ParamsJson = new TwoStageParams
-            {
-                Stage1 = new StageForce { Mode = "item", ForceSetId = BarSetId, ForceItemId = 101 },
-                Stage2 = new StageForce { Mode = "set", ForceSetId = BarSetId },
-            }.ToJson(),
-        };
-
-        var single = BatchRowTaskFactory.Create(batch, 3, "Сборно-монолитная", _ctx.ForceSets, _ctx.PlateSections);
-
-        Assert.Equal("two_stage_strain", single.Kind);
-        Assert.Equal(BarSetId, single.ForceSetId);
-        var p = TwoStageParams.Parse(single.ParamsJson);
-        Assert.Equal(("item", 101), (p.Stage1.Mode, p.Stage1.ForceItemId));
-        Assert.Equal(("item", BarSetId, 103), (p.Stage2.Mode, p.Stage2.ForceSetId, p.Stage2.ForceItemId));
-    }
-
-    [Fact]
-    public void TwoStage_SetPerRow_TakesSameRowOfStage1()
-    {
-        var batch = new CalcTask
-        {
-            Id = 6, Kind = "two_stage_strain_batch", SectionId = BarSectionId, CalcType = CalcType.C,
-            ParamsJson = new TwoStageParams
-            {
-                Stage1 = new StageForce { Mode = "set", ForceSetId = BarSetId },
-                Stage2 = new StageForce { Mode = "set", ForceSetId = BarSetId },
-            }.ToJson(),
-        };
-
-        var p = TwoStageParams.Parse(BatchRowTaskFactory.Create(batch, 2, "С", _ctx.ForceSets, _ctx.PlateSections).ParamsJson);
-
-        Assert.Equal((102, 102), (p.Stage1.ForceItemId, p.Stage2.ForceItemId));
-    }
-
-    [Fact]
     public void FindExisting_ByBatchAndRow()
     {
         var batch = new CalcTask { Id = 9, Kind = "limit_force_batch", SectionId = BarSectionId, ForceSetId = BarSetId };

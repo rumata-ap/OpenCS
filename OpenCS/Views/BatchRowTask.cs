@@ -22,8 +22,7 @@ static class BatchRowTask
 
         string? sectionTag = batch.Kind.StartsWith("shell_", StringComparison.Ordinal)
             ? app.PlateSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag
-            : (app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)
-               ?? app.TwoStageSectionsLive.FirstOrDefault(s => s.Id == batch.SectionId))?.Tag;
+            : app.CrossSections.FirstOrDefault(s => s.Id == batch.SectionId)?.Tag;
         if (sectionTag == null)
         {
             MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),

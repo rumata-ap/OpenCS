@@ -36,12 +36,12 @@ public sealed class StirrupCalcExclusionTests
     }
 
     [Fact]
-    public void TwoStageSection_EnumerateAreas_SkipsStirrupAreaInBothStages()
+    public void StagedSection_EnumerateAreas_SkipsStirrupAreaInAllParts()
     {
-        var section = TestSections.TwoStageRectWithFlange();
+        var section = TestSections.StagedRectWithFlange();
         int before = section.EnumerateAreas(new Kurvature()).Count();
-        section.Stage1.Areas.Add(StirrupArea());
-        section.Areas.Add(StirrupArea());
+        foreach (var part in section.Parts) part.Areas.Add(StirrupArea());
+        section.SyncAreas();
 
         Assert.Equal(before, section.EnumerateAreas(new Kurvature()).Count());
     }

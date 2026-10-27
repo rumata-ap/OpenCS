@@ -257,7 +257,7 @@ namespace CScore
          if (!Diagramms.TryGetValue(calc, out var dgr)) return;
 
          foreach (var f in Fibers)
-            f.Eps = k.e0 + k.ky * f.Y + k.kz * f.X;
+            f.Eps = k.e0 + k.ky * f.Y + k.kz * f.X - f.Eps_stage;
 
          for (int i = 0; i < Fibers.Count; i++)
             dgr.Sig(Fibers[i], ten, ca);

@@ -193,23 +193,32 @@ internal static class SectionCutFixtures
         return new CrossSection { Tag = "two-material-stack", Areas = [areaLower, areaUpper] };
     }
 
-    /// <summary>TwoStageSection: Stage1 (0..h) + базовая область Stage2 (h..2h), разные Kurvature.</summary>
-    public static TwoStageSection BuildTwoStageSection(double width, double heightEach)
+    /// <summary>
+    /// Стадийное сечение: часть 0 (0..h) и часть 1 (h..2h), включённая при плоскости
+    /// <see cref="StagedActivationPlane"/>.
+    /// </summary>
+    public static StagedSection BuildStagedSection(double width, double heightEach)
     {
         double x0 = -width / 2, x1 = width / 2;
         var concrete = BuildConcreteMaterial();
 
         var stage1Area = BuildRectArea(1, "stage1", x0, x1, 0, heightEach, concrete);
-        var stage1Section = new CrossSection { Tag = "stage1", Areas = [stage1Area] };
-
         var stage2Area = BuildRectArea(2, "stage2", x0, x1, heightEach, 2 * heightEach, concrete);
 
-        return new TwoStageSection
+        var section = new StagedSection
         {
-            Tag = "two-stage",
-            Stage1 = stage1Section,
-            Stage1Kurvature = new Kurvature { e0 = -0.0001, ky = 0, kz = 0 },
-            Areas = [stage2Area]
+            Tag = "staged",
+            Parts =
+            [
+                new SectionPart { Index = 0, Tag = "stage1", Areas = [stage1Area] },
+                new SectionPart { Index = 1, Tag = "stage2", Areas = [stage2Area] },
+            ],
         };
+        section.SyncAreas();
+        section.ActivatePart(1, StagedActivationPlane);
+        return section;
     }
+
+    /// <summary>Плоскость включения части 1 в <see cref="BuildStagedSection"/>.</summary>
+    public static Kurvature StagedActivationPlane => new() { e0 = -0.0001, ky = 0, kz = 0 };
 }

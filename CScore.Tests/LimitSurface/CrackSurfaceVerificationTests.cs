@@ -10,6 +10,7 @@ namespace CScore.Tests.LimitSurface;
 /// (εbt2 при любой эпюре — без (8.54)): λ = 1 ± LambdaTol и активна трещина. Плоскость за пределом растяжения —
 /// FAIL (дефект решателя); за пределом сжатия — пропуск (у решателя этого предела нет).
 /// </summary>
+[Trait("Category", "Slow")]
 public class CrackSurfaceVerificationTests(ITestOutputHelper output)
 {
     const double LambdaTol = 1e-2;

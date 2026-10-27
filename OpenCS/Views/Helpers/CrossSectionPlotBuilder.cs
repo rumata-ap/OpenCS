@@ -18,16 +18,13 @@ public sealed record CrossSectionPlotData(
 /// <summary>Строит элементы и границы графического preview поперечного сечения.</summary>
 public static class CrossSectionPlotBuilder
 {
-    /// <summary>Строит preview обычного или двухстадийного поперечного сечения.</summary>
-    public static CrossSectionPlotData Build(CrossSection section)
+    /// <summary>Строит preview поперечного сечения (у стадийного Areas — объединение частей).</summary>
+    /// <param name="highlight">Области, рисуемые обычным цветом; прочие — бледнее. null — все обычным.</param>
+    public static CrossSectionPlotData Build(CrossSection section, IReadOnlySet<MaterialArea>? highlight = null)
     {
-        IEnumerable<MaterialArea> areas = section is TwoStageSection twoStage
-            ? twoStage.Stage1.Areas.Concat(twoStage.Areas)
-            : section.Areas;
-
         var elements = new List<PlotElement>();
-        foreach (var area in areas)
-            AddAreaElements(elements, area);
+        foreach (var area in section.Areas)
+            AddAreaElements(elements, area, dim: highlight != null && !highlight.Contains(area));
 
         var bounds = FindBounds(elements);
         return new CrossSectionPlotData(
@@ -38,18 +35,18 @@ public static class CrossSectionPlotBuilder
             bounds.YMax);
     }
 
-    static void AddAreaElements(List<PlotElement> elements, MaterialArea area)
+    static void AddAreaElements(List<PlotElement> elements, MaterialArea area, bool dim = false)
     {
         var hull = area.Hull;
         var brush = MatTypeToBrushConverter.GetBrush(area.Material?.Type ?? MatType.None);
-        var fill = new SolidColorBrush(Color.FromArgb(120, brush.Color.R, brush.Color.G, brush.Color.B));
+        var fill = new SolidColorBrush(Color.FromArgb((byte)(dim ? 40 : 120), brush.Color.R, brush.Color.G, brush.Color.B));
         if (hull != null && hull.X.Count > 0)
             elements.Add(new PolygonElement
             {
                 Xs = [.. hull.X],
                 Ys = [.. hull.Y],
                 Fill = fill,
-                Stroke = brush,
+                Stroke = dim ? Brushes.Gray : brush,
                 StrokeThickness = 1.5
             });
 
@@ -70,14 +67,15 @@ public static class CrossSectionPlotBuilder
                     StrokeThickness = 1
                 });
 
-        AddRebarElements(elements, area);
+        AddRebarElements(elements, area, dim);
         AddStirrupElements(elements, area);
     }
 
     /// <summary>Добавляет точечную арматуру с цветом материала и признаком преднапряжения.</summary>
-    internal static void AddRebarElements(List<PlotElement> elements, MaterialArea area)
+    /// <param name="dim">Бледная отрисовка (область вне подсвеченной части).</param>
+    internal static void AddRebarElements(List<PlotElement> elements, MaterialArea area, bool dim = false)
     {
-        var materialBrush = MatTypeToBrushConverter.GetBrush(area.Material?.Type ?? MatType.None);
+        Brush materialBrush = dim ? Brushes.Gray : MatTypeToBrushConverter.GetBrush(area.Material?.Type ?? MatType.None);
         bool hasPrestress = double.IsFinite(area.SigSp) && Math.Abs(area.SigSp) > 1e-12;
 
         foreach (var fiber in area.Fibers.Where(f => f.TypeFiber == FiberType.point))

@@ -116,6 +116,7 @@ public class AcrcSurfaceTests(ITestOutputHelper output)
         return (mesher, mesher.Build());
     }
 
+    [Trait("Category", "Slow")]
     [Theory]
     [InlineData("symmetric")]
     [InlineData("asymmetric")]
@@ -127,6 +128,7 @@ public class AcrcSurfaceTests(ITestOutputHelper output)
         output.WriteLine($"{name}: вершин {mesh.Vertices.Count}, колонн {mesh.MeridianCount}, не сошлось {mesher.NotConvergedCount}");
     }
 
+    [Trait("Category", "Slow")]
     [Fact]
     public void Mesh_ContainsCrackBody()
     {
@@ -159,6 +161,7 @@ public class AcrcSurfaceTests(ITestOutputHelper output)
         Assert.True(worst <= 2 * 0.006, $"тело ПС2 выступает за тело acrc на {worst:P3} от M_max");
     }
 
+    [Trait("Category", "Slow")]
     [Fact]
     public void Mesh_StepAtZeroN()
     {
@@ -176,6 +179,7 @@ public class AcrcSurfaceTests(ITestOutputHelper output)
         }
     }
 
+    [Trait("Category", "Slow")]
     [Fact]
     public void Mesh_Poles()
     {
@@ -192,6 +196,7 @@ public class AcrcSurfaceTests(ITestOutputHelper output)
             Assert.InRange(mesher.ConditionAt(top.N, 0.0, 0.0), 1.0 - 1e-3, 1.0 + 1e-3);
     }
 
+    [Trait("Category", "Slow")]
     [Fact]
     public void Measure_Defaults()
     {

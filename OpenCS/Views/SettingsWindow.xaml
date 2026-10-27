@@ -390,6 +390,17 @@
                                           Content="{DynamicResource CalcSettingsConsiderConcreteTensionUls}"
                                           ToolTip="{DynamicResource CalcSettingsConsiderConcreteTensionUlsTip}"
                                           Margin="4,2,4,6"/>
+                                <Grid Margin="4,2,4,6" ToolTip="{DynamicResource CalcSettingsStageStrainModeTip}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="220"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource CalcSettingsStageStrainMode}" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="StageStrainModeCombo" Grid.Column="1">
+                                        <ComboBoxItem Tag="plane"  Content="{DynamicResource CalcSettingsStageStrainPlane}"/>
+                                        <ComboBoxItem Tag="fibers" Content="{DynamicResource CalcSettingsStageStrainFibers}"/>
+                                    </ComboBox>
+                                </Grid>
                                 <CheckBox x:Name="ElasticStiffnessWithoutRebarCb"
                                           Content="{DynamicResource CalcSettingsElasticStiffnessWithoutRebar}"
                                           ToolTip="{DynamicResource CalcSettingsElasticStiffnessWithoutRebarTip}"
