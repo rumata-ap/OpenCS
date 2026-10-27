@@ -6,6 +6,9 @@ namespace CScore.Hysteresis;
 /// R = R0·(1 − cR1·ξ/(cR2 + ξ)), ξ = |εm − ε0|/εy. Асимптоты — упругая из точки разворота и неподвижная линия текучести
 /// направления нагружения (кинематическое упрочнение). Поля: P0 εr, P1 σr, P2 ε0, P3 σ0, P4 εmax, P5 εmin, P6 ξ;
 /// Flags: 1 — нагружение в растяжение, 2 — в сжатие, 0 — ещё не нагружалась.
+/// εm — наибольшая (для ветви растяжения) или наименьшая (сжатия) деформация за историю, ε0 — новой асимптоты;
+/// начальные εmax = fyT/E, εmin = −fyC/E (так ведёт себя Steel02 OpenSees: с εmin = 0 первый разворот из текучести
+/// давал ξ ≈ 1 и R ≈ 4 вместо R ≈ R0, расхождение до 90 МПа; с ±εy петли совпадают до 1e-12).
 /// </summary>
 public sealed class MenegottoPintoSteel : IHysteresisModel
 {
@@ -19,7 +22,7 @@ public sealed class MenegottoPintoSteel : IHysteresisModel
         _e = e; _fyT = fyT; _fyC = fyC; _b = b; _r0 = r0; _cr1 = cr1; _cr2 = cr2; _ey = fyT / e;
     }
 
-    public HystState Initial => default;
+    public HystState Initial => default(HystState) with { P4 = _fyT / _e, P5 = -_fyC / _e };
 
     /// <summary>Пересечение упругой линии из (εr, σr) с линией текучести растяжения (dir = 1) или сжатия (dir = 2).</summary>
     (double eps0, double sig0) Asymptote(double er, double sr, int dir)
