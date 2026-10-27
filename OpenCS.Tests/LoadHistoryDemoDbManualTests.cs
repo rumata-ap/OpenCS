@@ -1,5 +1,6 @@
 using CScore;
 using CScore.History;
+using CScore.Hysteresis;
 using Microsoft.Data.Sqlite;
 using OpenCS.LoadHistory;
 using OpenCS.Services;
@@ -13,7 +14,7 @@ namespace OpenCS.Tests;
 /// <summary>
 /// Демопроект для снимков окон истории нагружения: балка 300×500 (B25, 3⌀20 А500С понизу), стадийное сечение
 /// «Балка с надбетонкой» (часть 1 — ссылка на балку, часть 2 — надбетонка 300×100 из B30 с 2⌀12), набор усилий
-/// и три задачи load_history с посчитанными результатами. Запуск:
+/// и пять задач load_history с посчитанными результатами (две последние — с гистерезисом). Запуск:
 /// <c>OPENCS_LOAD_HISTORY_DEMO_DB=путь\к\файлу.db dotnet test OpenCS.Tests --filter FullyQualifiedName~LoadHistoryDemoDbManualTests</c>.
 /// Без переменной тест выходит.
 /// </summary>
@@ -141,6 +142,16 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             Failure = new FailureOptions { Steps = 40 },
             Fallback = LoadStepFallback.CurvatureControl,
         };
+        // 4. Задача 2 с материалом с состоянием: необратимая разгрузка, остаточные деформации.
+        var rolesHyst = LoadHistoryParams.Parse(roles.ToJson());
+        rolesHyst.Hysteresis = new HysteresisOptions();
+        // 5. Цикл знака момента на балке (без надбетонки): до текучести низа, обратный знак, повторно — петля
+        //    «момент–кривизна» с остаточной кривизной.
+        var cycle = new LoadHistoryParams
+        {
+            Stages = [Stage("−", null, Manual(-160), 6), Stage("+", null, Manual(+25), 8), Stage("− повторно", null, Manual(-160), 8)],
+            Hysteresis = new HysteresisOptions(),
+        };
 
         int num = 1;
         foreach (var (tag, calc, p) in new[]
@@ -148,6 +159,8 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             ("История: монтаж, надбетонка, разрушение", CalcType.C, basic),
             ("История: разгрузка и роль «Разрушается»", CalcType.C, roles),
             ("История N: с растяжением бетона", CalcType.N, serviceN),
+            ("История с гистерезисом: разгрузка", CalcType.C, rolesHyst),
+            ("Цикл знака (гистерезис)", CalcType.C, cycle),
         })
         {
             var errors = p.Validate(staged.Parts.Count);
@@ -171,6 +184,15 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             output.WriteLine($"{task.Tag}: {r.Status}; шагов {d.Steps.Count}/{d.StepsNoHistory?.Count}; " +
                 $"M_lim {d.With.MLim:F1}/{d.Without?.MLim:F1}; M_peak {d.With.MPeak:F1}/{d.Without?.MPeak:F1}; " +
                 $"стоп {d.With.StopReason}; предупреждений {d.Steps.Count(s => s.Warnings.Count > 0)}; {d.Error}");
+            if (d.Hysteresis != null)
+            {
+                // кривизна в концах этапов: после разгрузки при гистерезисе остаётся
+                var ends = d.Steps.Where((s, i) => i == d.Steps.Count - 1 || d.Steps[i + 1].Stage != s.Stage)
+                    .Select(s => $"{s.Mx:F1} кН·м → c = {s.C:E3}");
+                output.WriteLine("  концы этапов: " + string.Join("; ", ends));
+                output.WriteLine($"  εост наиб.: бетон {d.Steps.Max(s => s.PartStates.Max(p => p.EbRes)):E3}, " +
+                    $"арматура {d.Steps.Max(s => s.PartStates.Max(p => p.EsRes)):E3}");
+            }
             Assert.NotEqual("error", r.Status);
         }
     }
