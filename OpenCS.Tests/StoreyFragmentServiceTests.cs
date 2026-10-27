@@ -25,6 +25,8 @@ public sealed class StoreyFragmentServiceTests : IDisposable
         using var db = new DatabaseService(_path);
         var parent = StoreyFragmentDbFixture.CreateParent(db);
         db.SaveFemSchemaReinforcementFile(parent.Id, "каркас.rbt", [1, 2, 3]);
+        parent.SourceType = "lira";
+        db.SaveFemSchema(parent);
         var parentLc = db.GetFemLoadCases(parent.Id).Select(c => c.Id).ToHashSet();
 
         var result = StoreyFragmentService.Build(db, parent.Id, Band);
@@ -34,6 +36,8 @@ public sealed class StoreyFragmentServiceTests : IDisposable
         Assert.Equal("Этаж 2", schema.Tag);
         Assert.Equal(parent.Id, schema.ParentSchemaId);
         Assert.Equal((1.5, 4.5), (schema.FragmentZ1!.Value, schema.FragmentZ2!.Value));
+        Assert.Equal("internal", schema.SourceType);
+        Assert.Equal("lira", schema.ParentSourceType);
         Assert.Equal(StoreyFragmentFingerprint.Compute(db.ReadStoreyFragmentSnapshot(parent.Id, Band)), schema.ParentFingerprint);
         Assert.Equal(result.Draft.Diagnostics.Count, StoreyFragmentBuildReport.FromJson(schema.FragmentBuildReportJson).Count);
         Assert.Contains(db.FemSchemas, s => s.Id == sid);

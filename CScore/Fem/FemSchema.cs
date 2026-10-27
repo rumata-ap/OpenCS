@@ -42,6 +42,9 @@ public class FemSchema
     public string? ParentFingerprint       { get; set; }
     /// <summary>Отчёт сборки фрагмента — JSON диагностики (<see cref="Fragment.StoreyFragmentBuildReport"/>).</summary>
     public string? FragmentBuildReportJson { get; set; }
+    /// <summary>Программа-источник родителя на момент сборки фрагмента (lira, scad …): по ней выбираются источники
+    /// армирования копий вложений; null — схема не фрагмент или собрана до v93.</summary>
+    public string? ParentSourceType        { get; set; }
     /// <summary>Схема — фрагмент этажа другой схемы.</summary>
     public bool IsFragment => ParentSchemaId is not null;
 

@@ -7,7 +7,7 @@ using Xunit;
 
 namespace OpenCS.Tests;
 
-/// <summary>Фрагмент этажа в БД (v92): миграция, поля схемы-фрагмента.</summary>
+/// <summary>Фрагмент этажа в БД (v92–v93): миграция, поля схемы-фрагмента.</summary>
 public sealed class StoreyFragmentDbTests : IDisposable
 {
     readonly string _path = Path.Combine(Path.GetTempPath(), $"opencs-fragment-{Guid.NewGuid():N}.db");
@@ -22,14 +22,14 @@ public sealed class StoreyFragmentDbTests : IDisposable
         ["fem_fragment_cuts", "fem_fragment_ref_elements", "fem_fragment_field_loads", "fem_fragment_rebar_sources"];
 
     static readonly string[] FragmentColumns =
-        ["parent_schema_id", "fragment_z1", "fragment_z2", "parent_fingerprint", "fragment_build_report_json"];
+        ["parent_schema_id", "fragment_z1", "fragment_z2", "parent_fingerprint", "fragment_build_report_json", "parent_source_type"];
 
     [Fact]
-    public void NewDatabase_HasV92TablesAndColumns()
+    public void NewDatabase_HasV93TablesAndColumns()
     {
         using (new DatabaseService(_path)) { }
-        Assert.Equal(92, DatabaseService.SchemaVersion);
-        Assert.Equal("92", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.Equal(93, DatabaseService.SchemaVersion);
+        Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
         foreach (var t in FragmentTables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
         foreach (var c in FragmentColumns)
@@ -44,10 +44,36 @@ public sealed class StoreyFragmentDbTests : IDisposable
         Exec(string.Join(";", FragmentTables.Select(t => $"DROP TABLE {t}"))
              + ";UPDATE settings SET value_json='91' WHERE key='schema_version'");
         using (new DatabaseService(_path)) { }
-        Assert.Equal("92", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
         foreach (var t in FragmentTables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
         using (new DatabaseService(_path)) { }
+    }
+
+    [Fact]
+    public void V92Database_MigratesToV93_KeepsRefElements()
+    {
+        using (new DatabaseService(_path)) { }
+        Exec("""
+            DROP TABLE fem_fragment_ref_elements;
+            CREATE TABLE fem_fragment_ref_elements (id INTEGER PRIMARY KEY AUTOINCREMENT, schema_id INTEGER NOT NULL,
+                tag TEXT NOT NULL, elem_type TEXT NOT NULL, points_blob BLOB NOT NULL, stiffness_num INTEGER,
+                foundation_c1 REAL, source_member_tag TEXT);
+            INSERT INTO fem_schemas (tag, source_type, created) VALUES ('Ф', 'internal', '');
+            ALTER TABLE fem_schemas DROP COLUMN parent_source_type;
+            UPDATE settings SET value_json='92' WHERE key='schema_version';
+            """);
+        Exec("INSERT INTO fem_fragment_ref_elements (schema_id, tag, elem_type, points_blob) VALUES (1, '501', 'beam', " +
+             $"X'{Convert.ToHexString(FragmentStoreCodec.EncodePoints([new(0, 0, 0), new(0, 0, 3)]))}')");
+        using (var db = new DatabaseService(_path))
+        {
+            Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            var r = db.GetFragmentRefElements(1).Single();
+            Assert.Equal("501", r.Tag);
+            Assert.Null(r.ReinforcementTypeIds);
+            Assert.Null(r.ThicknessM);
+        }
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_schemas') WHERE name='parent_source_type'"));
     }
 
     [Fact]
@@ -61,7 +87,7 @@ public sealed class StoreyFragmentDbTests : IDisposable
             var schema = new FemSchema
             {
                 Tag = "Этаж 2", ParentSchemaId = plain.Id, FragmentZ1 = 1.5, FragmentZ2 = 4.5,
-                ParentFingerprint = "ABC", FragmentBuildReportJson = "[]",
+                ParentFingerprint = "ABC", FragmentBuildReportJson = "[]", ParentSourceType = "scad",
             };
             db.SaveFemSchema(schema);
             id = schema.Id;
@@ -75,6 +101,7 @@ public sealed class StoreyFragmentDbTests : IDisposable
             Assert.Equal(4.5, s.FragmentZ2);
             Assert.Equal("ABC", s.ParentFingerprint);
             Assert.Equal("[]", s.FragmentBuildReportJson);
+            Assert.Equal("scad", s.ParentSourceType);
             Assert.False(db.FemSchemas.Single(x => x.Tag == "Родитель").IsFragment);
         }
     }
@@ -94,7 +121,8 @@ public sealed class StoreyFragmentDbTests : IDisposable
         FragmentRefElement[] refs =
         [
             new("501", "beam", [new(0, 0, 1.5), new(0, 0, 3)], stiffnessNum: 3, sourceMemberTag: "C1"),
-            new("1", "shell", [new(-3, -3, 3), new(-1.5, -3, 3), new(-3, -1.5, 3), new(-1.5, -1.5, 3)], foundationC1: 2e7),
+            new("1", "shell", [new(-3, -3, 3), new(-1.5, -3, 3), new(-3, -1.5, 3), new(-1.5, -1.5, 3)], foundationC1: 2e7,
+                reinforcementTypeIds: "1 2 4", thicknessM: 0.2),
         ];
         FragmentFieldLoad[] fields =
         [
@@ -117,6 +145,10 @@ public sealed class StoreyFragmentDbTests : IDisposable
         Assert.Equal("C1", r[0].SourceMemberTag);
         Assert.Equal(refs[1].Points, r[1].Points);
         Assert.Equal(2e7, r[1].FoundationC1);
+        Assert.Equal("1 2 4", r[1].ReinforcementTypeIds);
+        Assert.Equal(0.2, r[1].ThicknessM);
+        Assert.Null(r[0].ReinforcementTypeIds);
+        Assert.Null(r[0].ThicknessM);
 
         var f = db.GetFragmentFieldLoads(schema.Id);
         Assert.Equal([7, 8], f.Select(x => x.LoadCaseId));

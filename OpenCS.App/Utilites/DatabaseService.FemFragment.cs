@@ -30,7 +30,9 @@ namespace OpenCS.Utilites
              points_blob BLOB NOT NULL,
              stiffness_num INTEGER,
              foundation_c1 REAL,
-             source_member_tag TEXT
+             source_member_tag TEXT,
+             reinforcement_type_ids TEXT,
+             thickness_m REAL
          );
          CREATE INDEX IF NOT EXISTS idx_fem_fragment_ref_elements_schema ON fem_fragment_ref_elements(schema_id);
          CREATE TABLE IF NOT EXISTS fem_fragment_field_loads (
@@ -69,6 +71,18 @@ namespace OpenCS.Utilites
          if (!ColumnExists("fem_schemas", "fragment_build_report_json"))
             MigExec("ALTER TABLE fem_schemas ADD COLUMN fragment_build_report_json TEXT");
          MigExec(FemFragmentDdl);
+      }
+
+      /// <summary>Миграция v93: ТЗА и толщина КЭ опорной сетки фрагмента, программа-источник родителя (срез 4).</summary>
+      void MigrateV93()
+      {
+         MigrateV92();
+         if (!ColumnExists("fem_fragment_ref_elements", "reinforcement_type_ids"))
+            MigExec("ALTER TABLE fem_fragment_ref_elements ADD COLUMN reinforcement_type_ids TEXT");
+         if (!ColumnExists("fem_fragment_ref_elements", "thickness_m"))
+            MigExec("ALTER TABLE fem_fragment_ref_elements ADD COLUMN thickness_m REAL");
+         if (!ColumnExists("fem_schemas", "parent_source_type"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN parent_source_type TEXT");
       }
 
       /// <summary>Виды вложений родителя, копируемые во фрагмент как источники армирования (решение 2 плана среза 3):
@@ -140,8 +154,9 @@ namespace OpenCS.Utilites
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
-               INSERT INTO fem_fragment_ref_elements (schema_id, tag, elem_type, points_blob, stiffness_num, foundation_c1, source_member_tag)
-               VALUES (@sid, @tag, @type, @pts, @snum, @c1, @smt)
+               INSERT INTO fem_fragment_ref_elements (schema_id, tag, elem_type, points_blob, stiffness_num, foundation_c1, source_member_tag,
+                                                      reinforcement_type_ids, thickness_m)
+               VALUES (@sid, @tag, @type, @pts, @snum, @c1, @smt, @rti, @h)
                """;
             cmd.Parameters.AddWithValue("@sid", schemaId);
             var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
@@ -150,8 +165,12 @@ namespace OpenCS.Utilites
             var snum = cmd.Parameters.Add("@snum", SqliteType.Integer);
             var c1 = cmd.Parameters.Add("@c1", SqliteType.Real);
             var smt = cmd.Parameters.Add("@smt", SqliteType.Text);
+            var rti = cmd.Parameters.Add("@rti", SqliteType.Text);
+            var h = cmd.Parameters.Add("@h", SqliteType.Real);
             foreach (var e in refElements)
             {
+               rti.Value = (object?)e.ReinforcementTypeIds ?? DBNull.Value;
+               h.Value = (object?)e.ThicknessM ?? DBNull.Value;
                tag.Value = e.Tag;
                type.Value = e.ElemType;
                pts.Value = FragmentStoreCodec.EncodePoints(e.Points);
@@ -208,14 +227,15 @@ namespace OpenCS.Utilites
          var result = new List<FragmentRefElement>();
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
-            SELECT tag, elem_type, points_blob, stiffness_num, foundation_c1, source_member_tag
+            SELECT tag, elem_type, points_blob, stiffness_num, foundation_c1, source_member_tag, reinforcement_type_ids, thickness_m
             FROM fem_fragment_ref_elements WHERE schema_id=@sid ORDER BY id
             """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
          while (r.Read())
             result.Add(new FragmentRefElement(r.GetString(0), r.GetString(1), FragmentStoreCodec.DecodePoints((byte[])r[2]),
-               r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetDouble(4), r.IsDBNull(5) ? null : r.GetString(5)));
+               r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetDouble(4), r.IsDBNull(5) ? null : r.GetString(5),
+               r.IsDBNull(6) ? null : r.GetString(6), r.IsDBNull(7) ? null : r.GetDouble(7)));
          return result;
       }
 
@@ -395,6 +415,7 @@ namespace OpenCS.Utilites
             MeshBarStepM = barStep, MeshPlateStepM = plateStep, AutoRigidJunctions = true, RigidJunctionAngleDeg = angle,
             ParentSchemaId = parentId, FragmentZ1 = request.Z1, FragmentZ2 = request.Z2, ParentFingerprint = fingerprint,
             FragmentBuildReportJson = StoreyFragmentBuildReport.ToJson(draft.Diagnostics),
+            ParentSourceType = GetFemSchemaSourceType(parentId),
          };
 
          using var tx = _connection.BeginTransaction();
@@ -405,8 +426,9 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
                                            auto_rigid_junctions, rigid_junction_angle_deg,
-                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json)
-                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report);
+                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json,
+                                           parent_source_type)
+                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst);
                   SELECT last_insert_rowid();
                   """;
                cmd.Parameters.AddWithValue("@tag", schema.Tag);
@@ -610,9 +632,10 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
-      /// <summary>Параметры @parent, @z1, @z2, @fp, @report — поля фрагмента строки <c>fem_schemas</c>.</summary>
+      /// <summary>Параметры @parent, @z1, @z2, @fp, @report, @pst — поля фрагмента строки <c>fem_schemas</c>.</summary>
       static void AddFemSchemaFragmentParameters(SqliteCommand cmd, FemSchema schema)
       {
+         cmd.Parameters.AddWithValue("@pst", (object?)schema.ParentSourceType ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@parent", (object?)schema.ParentSchemaId ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@z1", (object?)schema.FragmentZ1 ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@z2", (object?)schema.FragmentZ2 ?? DBNull.Value);
