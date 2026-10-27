@@ -14,7 +14,7 @@ namespace OpenCS.Tests;
 /// <summary>
 /// Демопроект для снимков окон истории нагружения: балка 300×500 (B25, 3⌀20 А500С понизу), стадийное сечение
 /// «Балка с надбетонкой» (часть 1 — ссылка на балку, часть 2 — надбетонка 300×100 из B30 с 2⌀12), набор усилий
-/// и пять задач load_history с посчитанными результатами (две последние — с гистерезисом). Запуск:
+/// и шесть задач load_history с посчитанными результатами (три последние — с гистерезисом). Запуск:
 /// <c>OPENCS_LOAD_HISTORY_DEMO_DB=путь\к\файлу.db dotnet test OpenCS.Tests --filter FullyQualifiedName~LoadHistoryDemoDbManualTests</c>.
 /// Без переменной тест выходит.
 /// </summary>
@@ -153,6 +153,21 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             Hysteresis = new HysteresisOptions(),
         };
 
+        // 6. Усиление после пластики: балка до площадки бетона и текучести низа, разгрузка вдвое, надбетонка
+        //    включается при половинной нагрузке и работает только на приращение; затем нагружение и разрушение.
+        // −170 кН·м — 99 % пика балки (171,9): бетон на площадке (εb ≈ −0,0024), арматура течёт (εs ≈ 0,0074).
+        const double mPlastic = -170;
+        var strengthening = new LoadHistoryParams
+        {
+            Stages =
+            [
+                Stage("Нагружение балки", null, Manual(mPlastic), 10), Stage("Разгрузка вдвое", null, Manual(mPlastic / 2), 6),
+                Stage("Надбетонка и нагружение", 1, Manual(mPlastic), 8), failure,
+            ],
+            Failure = new FailureOptions { Steps = 40 },
+            Hysteresis = new HysteresisOptions(),
+        };
+
         int num = 1;
         foreach (var (tag, calc, p) in new[]
         {
@@ -161,6 +176,7 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             ("История N: с растяжением бетона", CalcType.N, serviceN),
             ("История с гистерезисом: разгрузка", CalcType.C, rolesHyst),
             ("Цикл знака (гистерезис)", CalcType.C, cycle),
+            ("Усиление после пластики (гистерезис)", CalcType.C, strengthening),
         })
         {
             var errors = p.Validate(staged.Parts.Count);
@@ -188,7 +204,7 @@ public sealed class LoadHistoryDemoDbManualTests(ITestOutputHelper output)
             {
                 // кривизна в концах этапов: после разгрузки при гистерезисе остаётся
                 var ends = d.Steps.Where((s, i) => i == d.Steps.Count - 1 || d.Steps[i + 1].Stage != s.Stage)
-                    .Select(s => $"{s.Mx:F1} кН·м → c = {s.C:E3}");
+                    .Select(s => $"{s.Mx:F1} кН·м → c = {s.C:E3}, балка εb {s.PartStates[0].EbMin:E3} εs {s.PartStates[0].EsMax:E3}");
                 output.WriteLine("  концы этапов: " + string.Join("; ", ends));
                 output.WriteLine($"  εост наиб.: бетон {d.Steps.Max(s => s.PartStates.Max(p => p.EbRes)):E3}, " +
                     $"арматура {d.Steps.Max(s => s.PartStates.Max(p => p.EsRes)):E3}");
