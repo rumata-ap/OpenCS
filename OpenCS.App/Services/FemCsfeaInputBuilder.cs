@@ -131,7 +131,7 @@ public static class FemCsfeaInputBuilder
             LoadCases = loadCases,
             NodeLoads = db.GetFemNodeLoads(schemaId),
             MemberLoads = db.GetFemMemberLoads(schemaId),
-            ElementLoads = db.GetFemElementLoads(schemaId),
+            ElementLoads = FragmentLoadService.ElementLoads(db, schemaId, data.MeshNodes, data.Mesh, groups, diag),
             MeshNodeLoads = db.GetFemMeshNodeLoads(schemaId),
             KinematicLoads = db.GetFemKinematicLoads(schemaId),
             Properties = properties,

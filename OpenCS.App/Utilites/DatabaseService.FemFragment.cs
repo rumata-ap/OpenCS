@@ -251,6 +251,15 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>Есть ли у схемы нагрузки-поля фрагмента (без чтения значений).</summary>
+      public bool HasFragmentFieldLoads(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM fem_fragment_field_loads WHERE schema_id=@sid)";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return (long)cmd.ExecuteScalar()! != 0;
+      }
+
       /// <summary>Копии источников армирования родителя у фрагмента: вид, имя файла, данные.</summary>
       public List<(string Kind, string FileName, byte[] Data)> GetFragmentRebarSources(int schemaId)
       {
