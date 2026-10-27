@@ -69,6 +69,7 @@ public static partial class StoreyFragmentBuilder
         AddSupportNodes(c, parent);
         TransferRigidBodies(c, parent);
         ReportNotTransferred(c, parent);
+        TransferLoads(c, parent);
         return draft;
     }
 
