@@ -47,6 +47,7 @@ public class StagedSection : CrossSection
         _planes = new Kurvature[Parts.Count];
         foreach (var f in Parts.SelectMany(p => p.Areas).SelectMany(a => a.Fibers))
             f.Eps_stage = 0;
+        _field?.Reset();
     }
 
     /// <summary>Включает часть <paramref name="index"/> при текущей плоскости <paramref name="current"/>.</summary>
@@ -152,6 +153,58 @@ public class StagedSection : CrossSection
         if (StrainMode == StageStrainMode.Fibers)
             for (int i = 1; i < c.ActivePartCount; i++) c.StampActivationStrain(i);
         return c;
+    }
+
+    Hysteresis.FiberStateField? _field;
+    CalcType _fieldCalc;
+
+    /// <summary>Включён материал с состоянием (гистерезис, транзитно).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HysteresisEnabled => _field is not null;
+
+    /// <summary>
+    /// Включает гистерезис: режим «по волокнам» (контурные области разбиваются на волокна), модели материала для всех
+    /// областей частей, начальные состояния. Вызывать на копии CloneForCalc после ResetHistory/ActivateAll;
+    /// CloneForCalc гистерезис не копирует.
+    /// </summary>
+    /// <param name="rebarRupture">εs2 арматурной области с ролью «Разрушается», иначе null.</param>
+    /// <param name="softening">Длина спада для ролей «Разрушается».</param>
+    public void EnableHysteresis(Hysteresis.HysteresisOptions o, CalcType calc,
+        Func<MaterialArea, double?> rebarRupture, double softening)
+    {
+        StrainMode = StageStrainMode.Fibers;
+        PrepareFiberMode();
+        EnsurePlanes();
+        for (int i = 1; i < ActivePartCount; i++) StampActivationStrain(i);
+        _fieldCalc = calc;
+        _field = new Hysteresis.FiberStateField(Parts.SelectMany(p => p.Areas), calc, o, rebarRupture, softening);
+    }
+
+    /// <summary>Выключает гистерезис (возврат к нелинейно-упругому материалу).</summary>
+    public void DisableHysteresis() => _field = null;
+
+    /// <summary>Фиксирует состояния волокон включённых частей при плоскости k.</summary>
+    public void CommitState(Kurvature k, bool ten) => _field?.Commit(EnumerateAreas(k), ten);
+
+    /// <summary>Остаточные деформации части после пробы плоскости k (без фиксации); (0, 0) без гистерезиса.</summary>
+    public (double Concrete, double Rebar) ResidualStrains(int partIndex, Kurvature k, bool ten) =>
+        _field is null ? (0, 0)
+            : _field.Residual(EnumerateAreas(k).Where(p => Parts[partIndex].Areas.Contains(p.area)), ten);
+
+    /// <inheritdoc/>
+    /// <remarks>При гистерезисе — пробный интеграл от зафиксированных состояний волокон (<paramref name="ca"/> не
+    /// используется: в истории нагружения сжатая арматура всегда работает).</remarks>
+    public override Load Integral(Kurvature k, CalcType calc = CalcType.C, bool ten = true, bool ca = true) =>
+        _field is not null && calc == _fieldCalc ? _field.Integrate(EnumerateAreas(k), ten, writeFibers: false)
+            : base.Integral(k, calc, ten, ca);
+
+    /// <inheritdoc/>
+    /// <remarks>При гистерезисе волокнам пишутся пробные σ от зафиксированных состояний (точки контура не
+    /// обновляются).</remarks>
+    public override void SetEps(Kurvature k, CalcType calc, bool ten = true, bool ca = true)
+    {
+        if (_field is not null && calc == _fieldCalc) _field.Integrate(EnumerateAreas(k), ten, writeFibers: true);
+        else base.SetEps(k, calc, ten, ca);
     }
 
     void EnsurePlanes()
