@@ -28,7 +28,7 @@ public static class FragmentFieldLoadResolver
         {
             if (!mapped.TryGetValue(e.ElemTag, out var r))
             {
-                mapped[e.ElemTag] = r = mapper.MapShell(g.Centroid, g.ShellFrame().Z, Math.Sqrt(g.Area) / 2);
+                mapped[e.ElemTag] = r = FragmentParentMap.MapElement(mapper, g);
                 if (r is null) unmapped.Add(e.ElemTag);
             }
             return r;
