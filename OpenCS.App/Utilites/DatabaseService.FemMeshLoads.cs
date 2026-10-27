@@ -1,4 +1,4 @@
-using CScore.Fem;
+﻿using CScore.Fem;
 using Microsoft.Data.Sqlite;
 
 namespace OpenCS.Utilites
@@ -7,15 +7,19 @@ namespace OpenCS.Utilites
    public partial class DatabaseService
    {
       /// <summary>Нагрузки на КЭ схемы (все загружения или одно).</summary>
-      public List<FemElementLoad> GetFemElementLoads(int schemaId, int? loadCaseId = null)
+      public List<FemElementLoad> GetFemElementLoads(int schemaId, int? loadCaseId = null) =>
+         QueryFemElementLoads(schemaId, "@lc IS NULL OR load_case_id=@lc", loadCaseId);
+
+      /// <summary>Нагрузки на КЭ схемы с условием SQL <paramref name="where"/> (параметры @sid, @lc заданы).</summary>
+      List<FemElementLoad> QueryFemElementLoads(int schemaId, string where, int? loadCaseId = null)
       {
          var result = new List<FemElementLoad>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
+         cmd.CommandText = $"""
             SELECT id, load_case_id, origin, target_kind, target_tags_json, group_id, load_kind,
                    coordinate_system, axis, values_json
             FROM fem_element_loads
-            WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
+            WHERE schema_id=@sid AND ({where})
             ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -36,14 +40,18 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Узловые нагрузки на узлы сетки схемы (все загружения или одно).</summary>
-      public List<FemMeshNodeLoad> GetFemMeshNodeLoads(int schemaId, int? loadCaseId = null)
+      public List<FemMeshNodeLoad> GetFemMeshNodeLoads(int schemaId, int? loadCaseId = null) =>
+         QueryFemMeshNodeLoads(schemaId, "@lc IS NULL OR load_case_id=@lc", loadCaseId);
+
+      /// <summary>Нагрузки на узлы сетки схемы с условием SQL <paramref name="where"/> (параметры @sid, @lc заданы).</summary>
+      List<FemMeshNodeLoad> QueryFemMeshNodeLoads(int schemaId, string where, int? loadCaseId = null)
       {
          var result = new List<FemMeshNodeLoad>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
+         cmd.CommandText = $"""
             SELECT id, load_case_id, mesh_node_tag, origin, fx, fy, fz, mx, my, mz
             FROM fem_mesh_node_loads
-            WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
+            WHERE schema_id=@sid AND ({where})
             ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);

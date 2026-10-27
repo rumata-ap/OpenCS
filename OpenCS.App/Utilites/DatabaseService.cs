@@ -7185,14 +7185,17 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>
-      public List<CScore.Fem.FemMeshNode> GetFemMeshNodes(int schemaId)
+      public List<CScore.Fem.FemMeshNode> GetFemMeshNodes(int schemaId) => QueryFemMeshNodes(schemaId, "1");
+
+      /// <summary>Узлы сетки схемы с дополнительным условием SQL <paramref name="where"/> (параметр @sid задан).</summary>
+      List<CScore.Fem.FemMeshNode> QueryFemMeshNodes(int schemaId, string where)
       {
          var result = new List<CScore.Fem.FemMeshNode>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
+         cmd.CommandText = $"""
             SELECT id, node_tag, x, y, z, source_node_tag, source_member_tag, origin
             FROM fem_mesh_nodes
-            WHERE schema_id=@sid
+            WHERE schema_id=@sid AND ({where})
             ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -7214,17 +7217,20 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Возвращает сохранённые конечные элементы mesh-слепка FEM-схемы.</summary>
-      public List<CScore.Fem.FemElement> GetFemMeshElements(int schemaId)
+      public List<CScore.Fem.FemElement> GetFemMeshElements(int schemaId) => QueryFemMeshElements(schemaId, "1");
+
+      /// <summary>КЭ сетки схемы с дополнительным условием SQL <paramref name="where"/> (параметр @sid задан).</summary>
+      List<CScore.Fem.FemElement> QueryFemMeshElements(int schemaId, string where)
       {
          var result = new List<CScore.Fem.FemElement>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
+         cmd.CommandText = $"""
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
                    gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
                    material_tag, thickness_m, reinforcement_type_ids, origin, local_axis_angle_deg, stiffness_num,
                    release_i, release_j, foundation_c1, beam_rotation_deg
             FROM fem_elements
-            WHERE schema_id=@sid
+            WHERE schema_id=@sid AND ({where})
             ORDER BY id
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);

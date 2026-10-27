@@ -279,6 +279,105 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      /// <summary>
+      /// Снимок полосы родителя для построителя (план среза 3, решение 3). Схемный уровень читается целиком и
+      /// отсекается <see cref="StoreyFragmentBand.Trim"/>; сетка — КЭ, заходящие в полосу (тот же критерий, что у
+      /// построителя: max z &gt; z₁ + tol и min z &lt; z₂ − tol), их узлы, нагрузки на эти КЭ/узлы и на оставшиеся КонЭ,
+      /// нагрузки на группы — фильтром в SQL через временные таблицы.
+      /// </summary>
+      public StoreyFragmentParentSnapshot ReadStoreyFragmentSnapshot(int parentId, StoreyFragmentRequest request)
+      {
+         var holder = new FemSchema { Id = parentId };
+         LoadFemSchemaCollections(new Dictionary<int, FemSchema> { [parentId] = holder }, parentId);
+         var schemaLevel = StoreyFragmentBand.Trim(new StoreyFragmentParentSnapshot
+         {
+            Nodes = GetFemNodes(parentId),
+            Members = GetFemMembers(parentId),
+            Regions = GetPlanarRegions(parentId),
+            LoadCases = GetFemLoadCases(parentId),
+            LoadDefinitions = GetFemLoadDefinitions(parentId),
+            MemberLoads = GetFemMemberLoads(parentId),
+            NodeLoads = GetFemNodeLoads(parentId),
+            KinematicLoads = GetFemKinematicLoads(parentId),
+            RigidBodies = GetFemRigidBodies(parentId),
+            Groups = holder.MemberGroups.ToList(),
+         }, request);
+
+         try
+         {
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = """
+                  DROP TABLE IF EXISTS temp.frag_elems;
+                  DROP TABLE IF EXISTS temp.frag_nodes;
+                  DROP TABLE IF EXISTS temp.frag_members;
+                  CREATE TEMP TABLE frag_elems (id INTEGER PRIMARY KEY, tag TEXT NOT NULL);
+                  CREATE TEMP TABLE frag_nodes (tag TEXT PRIMARY KEY);
+                  CREATE TEMP TABLE frag_members (tag TEXT PRIMARY KEY);
+                  INSERT INTO temp.frag_elems (id, tag)
+                     SELECT e.id, e.elem_tag
+                     FROM fem_elements e, json_each(e.node_ids_json) j
+                     JOIN fem_mesh_nodes n ON n.schema_id=@sid AND n.node_tag=CAST(j.value AS TEXT)
+                     WHERE e.schema_id=@sid
+                     GROUP BY e.id
+                     HAVING MAX(n.z) > @lo AND MIN(n.z) < @hi;
+                  CREATE INDEX temp.ix_frag_elems_tag ON frag_elems(tag);
+                  INSERT OR IGNORE INTO temp.frag_nodes (tag)
+                     SELECT CAST(j.value AS TEXT)
+                     FROM fem_elements e JOIN temp.frag_elems f ON f.id=e.id, json_each(e.node_ids_json) j;
+                  """;
+               cmd.Parameters.AddWithValue("@sid", parentId);
+               cmd.Parameters.AddWithValue("@lo", request.Z1 + request.ToleranceM);
+               cmd.Parameters.AddWithValue("@hi", request.Z2 - request.ToleranceM);
+               cmd.ExecuteNonQuery();
+            }
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = "INSERT OR IGNORE INTO temp.frag_members (tag) VALUES (@tag)";
+               var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+               foreach (var m in schemaLevel.Members)
+               {
+                  tag.Value = m.ElemTag;
+                  cmd.ExecuteNonQuery();
+               }
+            }
+
+            return new StoreyFragmentParentSnapshot
+            {
+               Nodes = schemaLevel.Nodes,
+               Members = schemaLevel.Members,
+               Regions = schemaLevel.Regions,
+               MeshNodes = QueryFemMeshNodes(parentId, "node_tag IN (SELECT tag FROM temp.frag_nodes)"),
+               MeshElements = QueryFemMeshElements(parentId, "id IN (SELECT id FROM temp.frag_elems)"),
+               RigidBodies = schemaLevel.RigidBodies,
+               LoadCases = schemaLevel.LoadCases,
+               LoadDefinitions = schemaLevel.LoadDefinitions,
+               MemberLoads = schemaLevel.MemberLoads,
+               ElementLoads = QueryFemElementLoads(parentId, $"""
+                  target_kind='{FemLoadTargetKinds.Group}'
+                  OR (target_kind='{FemLoadTargetKinds.Elements}' AND EXISTS (SELECT 1 FROM json_each(target_tags_json) j
+                      WHERE CAST(j.value AS TEXT) IN (SELECT tag FROM temp.frag_elems)))
+                  OR (target_kind='{FemLoadTargetKinds.Members}' AND EXISTS (SELECT 1 FROM json_each(target_tags_json) j
+                      WHERE CAST(j.value AS TEXT) IN (SELECT tag FROM temp.frag_members)))
+                  """),
+               MeshNodeLoads = QueryFemMeshNodeLoads(parentId, "mesh_node_tag IN (SELECT tag FROM temp.frag_nodes)"),
+               NodeLoads = schemaLevel.NodeLoads,
+               KinematicLoads = schemaLevel.KinematicLoads,
+               Groups = schemaLevel.Groups,
+            };
+         }
+         finally
+         {
+            using var drop = _connection.CreateCommand();
+            drop.CommandText = """
+               DROP TABLE IF EXISTS temp.frag_elems;
+               DROP TABLE IF EXISTS temp.frag_nodes;
+               DROP TABLE IF EXISTS temp.frag_members;
+               """;
+            drop.ExecuteNonQuery();
+         }
+      }
+
       /// <summary>Параметры @parent, @z1, @z2, @fp, @report — поля фрагмента строки <c>fem_schemas</c>.</summary>
       static void AddFemSchemaFragmentParameters(SqliteCommand cmd, FemSchema schema)
       {
