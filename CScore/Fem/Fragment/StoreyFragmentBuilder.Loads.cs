@@ -120,5 +120,39 @@ public static partial class StoreyFragmentBuilder
         c.Draft.LoadDefinitions.AddRange(parent.LoadDefinitions.Select(FragmentLoadCopy.Copy));
         var l = new LoadCtx(c, parent);
         c.Draft.RefElements.AddRange(FragmentRefElement.From(l.Band.Where(e => e.ElemType is "beam" or "shell"), l.MeshNodes));
+        TransferNodeLoads(l);
+    }
+
+    /// <summary>
+    /// Узловые нагрузки сетки и схемы родителя в полосе → <see cref="FemNodeLoad"/> в узле схемы фрагмента в той же
+    /// точке (внутри плиты или стены — свободный узел, мешер вставит точку); заданные перемещения — в тот же узел.
+    /// </summary>
+    static void TransferNodeLoads(LoadCtx l)
+    {
+        foreach (var load in l.Parent.MeshNodeLoads)
+        {
+            if (!l.MeshNodes.TryGetValue(load.MeshNodeTag, out var n) || !l.C.InBand(n.Z)) continue;
+            NodeLoad(l, load.LoadCaseId, new PlanarVector3(n.X, n.Y, n.Z),
+                new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
+        }
+        var byId = l.Parent.Nodes.Where(n => n.Id > 0).GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
+        foreach (var load in l.Parent.NodeLoads)
+        {
+            if (!byId.TryGetValue(load.NodeId, out var n) || !l.C.InBand(n.Z)) continue;
+            NodeLoad(l, load.LoadCaseId, P(n), new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
+        }
+        foreach (var k in l.Parent.KinematicLoads)
+        {
+            if (!byId.TryGetValue(k.NodeId, out var n) || !l.C.InBand(n.Z)) continue;
+            var node = l.C.Nodes.Get(P(n));
+            l.C.Draft.KinematicLoads.Add(new FragmentKinematicLoad(node.NodeTag,
+                new FemKinematicLoad { LoadCaseId = k.LoadCaseId, Dof = k.Dof, Value = k.Value }));
+        }
+    }
+
+    static void NodeLoad(LoadCtx l, int lc, PlanarVector3 at, PlanarVector3 f, PlanarVector3 m)
+    {
+        l.AddParent(lc, LoadCategory.Nodes, at, f, m);
+        l.AddNodeLoad(lc, LoadCategory.Nodes, at, f, m);
     }
 }
