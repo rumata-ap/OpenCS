@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CScore.Fem;
+using CScore.Fem.Fields;
 using CScore.Fem.Fragment;
 using CScore.Planar;
 using OpenCS.Services;
@@ -67,6 +68,36 @@ public sealed class StoreyFragmentAnalysisTests : IDisposable
         Assert.All(field, l => Assert.Equal((f.LoadCase.Id, "z", "global"), (l.LoadCaseId, l.Axis, l.CoordinateSystem)));
         Assert.Equal(-1000, field.Single(l => l.TargetTags.SequenceEqual(["1"])).Values[0]);
         Assert.Equal(-3000, field.Single(l => l.TargetTags.SequenceEqual(["2"])).Values[0]);
+    }
+
+    [Fact]
+    public void Effective_ParentC1OnFragmentMesh_ManualOverrideWins()
+    {
+        var f = Create("lira", Ref("101", 0, 2, c1: 5000), Ref("102", 2, 4));
+        int sid = f.Schema.Id;
+
+        var e = FemFieldService.Effective(f.Db, sid).Elements.ToDictionary(x => x.ElemTag);
+        Assert.Equal(5000, e["1"].FoundationC1);
+        Assert.Null(e["2"].FoundationC1);
+        Assert.Equal(1, FemFieldService.FoundationElementCount(f.Db, sid));
+        Assert.Null(f.Db.GetFemMeshElements(sid).Single(x => x.ElemTag == "1").FoundationC1);
+
+        f.Db.ReplaceFemParamOverrides(sid,
+        [
+            new FemParamOverride(FemFieldTargetKind.Shell, "1", FemFieldQuantities.FoundationC1, "c1", 100),
+            new FemParamOverride(FemFieldTargetKind.Shell, "2", FemFieldQuantities.FoundationC1, "c1", 7000),
+        ]);
+        e = FemFieldService.Effective(f.Db, sid).Elements.ToDictionary(x => x.ElemTag);
+        Assert.Equal(100, e["1"].FoundationC1);
+        Assert.Equal(7000, e["2"].FoundationC1);
+    }
+
+    [Fact]
+    public void Effective_FragmentWithoutParentC1_RawElements()
+    {
+        var f = Create();
+        Assert.False(f.Db.HasFemFieldLayers(f.Schema.Id));
+        Assert.All(FemFieldService.Effective(f.Db, f.Schema.Id).Elements, x => Assert.Null(x.FoundationC1));
     }
 
     [Fact]

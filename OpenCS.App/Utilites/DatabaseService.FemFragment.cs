@@ -260,6 +260,15 @@ namespace OpenCS.Utilites
          return (long)cmd.ExecuteScalar()! != 0;
       }
 
+      /// <summary>Есть ли в опорной сетке фрагмента КЭ родителя с c1 &gt; 0 (без чтения опорной сетки).</summary>
+      public bool HasFragmentRefFoundationC1(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM fem_fragment_ref_elements WHERE schema_id=@sid AND foundation_c1 > 0)";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         return (long)cmd.ExecuteScalar()! != 0;
+      }
+
       /// <summary>Копии источников армирования родителя у фрагмента: вид, имя файла, данные.</summary>
       public List<(string Kind, string FileName, byte[] Data)> GetFragmentRebarSources(int schemaId)
       {

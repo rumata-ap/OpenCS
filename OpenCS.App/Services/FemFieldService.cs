@@ -1,5 +1,6 @@
 using CScore.Fem;
 using CScore.Fem.Fields;
+using CScore.Fem.Fragment;
 using OpenCS.Utilites;
 
 namespace OpenCS.Services;
@@ -49,13 +50,14 @@ public static class FemFieldService
 
     static FemFieldOverlayResult EffectiveCore(DatabaseService db, int schemaId)
     {
-        var elements = db.GetFemMeshElements(schemaId);
+        var raw = db.GetFemMeshElements(schemaId);
+        var elements = WithParentC1(db, schemaId, raw);
         var springs = db.GetFemSprings(schemaId);
         var fields = db.GetFemFields(schemaId).Where(f => f.Enabled).ToList();
         var overrides = db.GetFemParamOverrides(schemaId);
         if (fields.Count == 0 && overrides.Count == 0) return FemFieldOverlay.Apply(elements, springs, [], []);
 
-        var ctx = Context(db, schemaId, elements, springs);
+        var ctx = Context(db, schemaId, raw, springs);
         var layers = new List<FemFieldLayer>(fields.Count);
         var diags = new List<FieldDiagnostic>();
         foreach (var f in fields)
@@ -71,6 +73,20 @@ public static class FemFieldService
         }
         var result = FemFieldOverlay.Apply(elements, springs, layers, overrides);
         return result with { Diagnostics = [.. diags, .. result.Diagnostics] };
+    }
+
+    /// <summary>
+    /// Нижний слой c1 фрагмента этажа: пластина без своего c1 берёт c1 КЭ родителя по опорной сетке
+    /// (<see cref="FragmentParentMap"/>); поля и ручные правки — поверх. Не фрагмент или у родителя нет c1 — как есть.
+    /// </summary>
+    static IReadOnlyList<FemElement> WithParentC1(DatabaseService db, int schemaId, IReadOnlyList<FemElement> elements)
+    {
+        if (elements.Count == 0 || !db.HasFragmentRefFoundationC1(schemaId)) return elements;
+        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in db.GetFemMeshNodes(schemaId)) nodes.TryAdd(n.NodeTag, n);
+        var map = FragmentParentMap.Build(elements.Where(e => e.ElemType == "shell"), nodes,
+            new ParentMeshMapper(db.GetFragmentRefElements(schemaId)));
+        return map.ApplyFoundationC1(elements);
     }
 
     /// <summary>

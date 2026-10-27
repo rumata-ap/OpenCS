@@ -38,6 +38,26 @@ public sealed class FragmentParentMap
         return new FragmentParentMap(byTag, unmapped);
     }
 
+    /// <summary>
+    /// КЭ с c1 КЭ родителя (спека разд. 5): пластина без своего c1, сопоставленная с КЭ родителя с c1 &gt; 0, — копия с
+    /// этим c1; прочие КЭ — как есть. Входные объекты не меняются.
+    /// </summary>
+    public List<FemElement> ApplyFoundationC1(IEnumerable<FemElement> elements)
+    {
+        var result = new List<FemElement>();
+        foreach (var e in elements)
+        {
+            if (e.ElemType == "shell" && e.FoundationC1 is null && ByTag.TryGetValue(e.ElemTag, out var r) && r.FoundationC1 is > 0)
+            {
+                var copy = e.ShallowCopy();
+                copy.FoundationC1 = r.FoundationC1;
+                result.Add(copy);
+            }
+            else result.Add(e);
+        }
+        return result;
+    }
+
     /// <summary>КЭ родителя для КЭ фрагмента с геометрией <paramref name="g"/>; null — пары нет.</summary>
     public static FragmentRefElement? MapElement(ParentMeshMapper mapper, FemElementGeometry g)
     {
