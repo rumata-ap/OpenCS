@@ -13,6 +13,10 @@ public sealed class PartStateDto
     public double EsMax { get; set; }
     public double EtaB { get; set; }
     public double EtaS { get; set; }
+    /// <summary>Наибольшая остаточная деформация бетона |εp| (0 без гистерезиса).</summary>
+    public double EbRes { get; set; }
+    /// <summary>Наибольшая остаточная деформация арматуры (0 без гистерезиса).</summary>
+    public double EsRes { get; set; }
 }
 
 /// <summary>Шаг истории в результате задачи.</summary>
@@ -73,6 +77,12 @@ public sealed class LoadHistoryResultData
     public RunSummaryDto With { get; set; } = new();
     public RunSummaryDto? Without { get; set; }
     public List<PartRolesParams> NonStandardRoles { get; set; } = [];
+    /// <summary>Параметры гистерезиса задачи; null — нелинейно-упругий материал.</summary>
+    public Hysteresis.HysteresisOptions? Hysteresis { get; set; }
+    /// <summary>Учёт растяжения бетона задачи (для воспроизведения пути).</summary>
+    public bool ConcreteTension { get; set; }
+    /// <summary>Длина спада ролей «Разрушается» (для воспроизведения пути).</summary>
+    public double SofteningStrain { get; set; }
     public string? Error { get; set; }
 
     /// <summary>"ok", если оба пути завершены; иначе "partial".</summary>
@@ -106,6 +116,9 @@ public sealed class LoadHistoryResultData
             With = Summary(r.WithHistory),
             Without = r.WithoutHistory is null ? null : Summary(r.WithoutHistory),
             NonStandardRoles = roles,
+            Hysteresis = o.Hysteresis,
+            ConcreteTension = o.Ten,
+            SofteningStrain = o.Failure.SofteningStrain,
         };
     }
 
@@ -123,6 +136,7 @@ public sealed class LoadHistoryResultData
         {
             Part = p.PartIndex, EbMin = p.ConcreteEpsMin, EbMax = p.ConcreteEpsMax,
             EsMin = p.RebarEpsMin, EsMax = p.RebarEpsMax, EtaB = p.EtaConcrete, EtaS = p.EtaRebar,
+            EbRes = p.ConcreteResidual, EsRes = p.RebarResidual,
         }).ToList(),
     };
 

@@ -34,7 +34,7 @@ public static class LoadHistoryParamErrors
 {
     public const string NoStages = "no_stages", FailureNotLast = "failure_not_last", BadActivation = "bad_activation",
         Steps = "steps", ForceMode = "force_mode", DropRatio = "drop_ratio", Softening = "softening",
-        FailureSteps = "failure_steps", CMax = "c_max";
+        FailureSteps = "failure_steps", CMax = "c_max", Hysteresis = "hysteresis";
 }
 
 /// <summary>Параметры задачи load_history (CalcTask.ParamsJson).</summary>
@@ -50,6 +50,8 @@ public sealed class LoadHistoryParams
     public bool CompareWithoutHistory { get; set; } = true;
     /// <summary>Продолжение несошедшегося шага по нагрузке.</summary>
     public LoadStepFallback Fallback { get; set; } = LoadStepFallback.CurvatureControl;
+    /// <summary>Материал с состоянием (гистерезис); null — нелинейно-упругая модель.</summary>
+    public Hysteresis.HysteresisOptions? Hysteresis { get; set; }
 
     static readonly JsonSerializerOptions Opts = new()
     {
@@ -92,6 +94,7 @@ public sealed class LoadHistoryParams
         if (!(Failure.SofteningStrain > 0)) Add(LoadHistoryParamErrors.Softening);
         if (Failure.Steps < 1) Add(LoadHistoryParamErrors.FailureSteps);
         if (Failure.CMax is double c && !(c > 0)) Add(LoadHistoryParamErrors.CMax);
+        if (Hysteresis is { } h && !(h.R0 > 0 && h.CR1 >= 0 && h.CR1 < 1 && h.CR2 > 0)) Add(LoadHistoryParamErrors.Hysteresis);
         return errors;
     }
 

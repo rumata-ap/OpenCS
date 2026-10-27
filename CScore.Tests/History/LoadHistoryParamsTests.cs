@@ -31,6 +31,21 @@ public class LoadHistoryParamsTests
     }
 
     [Fact]
+    public void Json_RoundTrip_Hysteresis()
+    {
+        var p = new LoadHistoryParams
+        {
+            Stages = [Load()],
+            Hysteresis = new CScore.Hysteresis.HysteresisOptions { Steel = CScore.Hysteresis.SteelHysteresisModel.Bilinear, R0 = 15 },
+        };
+        Assert.Contains("\"Bilinear\"", p.ToJson());
+        var q = LoadHistoryParams.Parse(p.ToJson());
+        Assert.Equal(CScore.Hysteresis.SteelHysteresisModel.Bilinear, q.Hysteresis!.Steel);
+        Assert.Equal(15, q.Hysteresis.R0);
+        Assert.Null(LoadHistoryParams.Parse(new LoadHistoryParams { Stages = [Load()] }.ToJson()).Hysteresis);
+    }
+
+    [Fact]
     public void Parse_EmptyOrBroken_Defaults()
     {
         Assert.Empty(LoadHistoryParams.Parse(null).Stages);
@@ -47,6 +62,7 @@ public class LoadHistoryParamsTests
     [InlineData(LoadHistoryParamErrors.Softening)]
     [InlineData(LoadHistoryParamErrors.FailureSteps)]
     [InlineData(LoadHistoryParamErrors.CMax)]
+    [InlineData(LoadHistoryParamErrors.Hysteresis)]
     public void Validate_ReportsEachError(string code)
     {
         var p = new LoadHistoryParams { Stages = [Load(), Load(1)] };
@@ -61,6 +77,7 @@ public class LoadHistoryParamsTests
             case LoadHistoryParamErrors.Softening: p.Failure.SofteningStrain = 0; break;
             case LoadHistoryParamErrors.FailureSteps: p.Failure.Steps = 0; break;
             case LoadHistoryParamErrors.CMax: p.Failure.CMax = -0.01; break;
+            case LoadHistoryParamErrors.Hysteresis: p.Hysteresis = new() { R0 = 0 }; break;
         }
         Assert.Contains(code, p.Validate(partCount: 2));
     }

@@ -43,7 +43,8 @@ public sealed class LoadHistoryHandler : ITaskHandler
             var s = (StagedSection)source.CloneForCalc();
             s.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
-            if (settings.StageStrainMode == "fibers")
+            // гистерезису нужны волокна для состояния — режим «по волокнам» независимо от настройки
+            if (p.Hysteresis is not null || settings.StageStrainMode == "fibers")
             {
                 s.StrainMode = StageStrainMode.Fibers;
                 s.PrepareFiberMode();
@@ -60,6 +61,7 @@ public sealed class LoadHistoryHandler : ITaskHandler
                 Failure = p.Failure,
                 Roles = p.ToRoles(),
                 Fallback = p.Fallback,
+                Hysteresis = p.Hysteresis,
                 Token = ctx?.CancellationToken ?? default,
                 Progress = f => ctx?.Progress?.Report(new CalcTaskProgress { Fraction = f }),
             };

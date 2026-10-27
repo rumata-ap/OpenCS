@@ -91,6 +91,21 @@ public sealed class LoadHistoryHandlerTests : IDisposable
     }
 
     [Fact]
+    public void Runs_WithHysteresis_InFibersMode()
+    {
+        var p = Params();
+        p.Hysteresis = new CScore.Hysteresis.HysteresisOptions();
+        var settings = CalcSettings.Default.Clone();
+        settings.StageStrainMode = "plane";
+        var r = Run(p, settings);
+        Assert.Contains(r.Status, new[] { "ok", "partial" });
+        var d = LoadHistoryResultData.Parse(r.DataJson);
+        Assert.Null(d.Error);
+        Assert.NotNull(d.Hysteresis);
+        Assert.Equal("fibers", d.StrainMode);
+    }
+
+    [Fact]
     public void OriginalSectionNotMutated()
     {
         var s = Section();

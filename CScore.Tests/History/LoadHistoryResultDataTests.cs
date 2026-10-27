@@ -41,6 +41,28 @@ public class LoadHistoryResultDataTests
     }
 
     [Fact]
+    public void Build_Hysteresis_KeepsReplayInputs()
+    {
+        var s = StagedTestSections.TwoPartBeam(nx: 6, ny: 20);
+        HistoryStage[] stages =
+        [
+            new("1", StageKind.Load, null, new Load { Mx = -158 }, 4),
+            new("2", StageKind.Load, null, new Load { Mx = -20 }, 3),
+        ];
+        var o = new LoadHistoryOptions { Calc = CalcType.C, Ten = false, Tol = 0.01, MaxIter = 100,
+            Failure = new FailureOptions { SofteningStrain = 0.0007 },
+            Hysteresis = new CScore.Hysteresis.HysteresisOptions() };
+        var r = new LoadHistorySolver(s, o).Run(stages, compareWithoutHistory: false);
+        var back = LoadHistoryResultData.Parse(LoadHistoryResultData.Build(r, s, stages, o).ToJson());
+        Assert.Equal(20, back.Hysteresis!.R0);
+        Assert.Equal(o.Ten, back.ConcreteTension);
+        Assert.Equal(0.0007, back.SofteningStrain);
+        Assert.Equal("fibers", back.StrainMode);
+        Assert.All(back.Steps, st => Assert.True(st.PartStates[0].EsRes >= 0));
+        Assert.True(back.Steps[^1].PartStates[0].EbRes > 0 || back.Steps[^1].PartStates[0].EsRes > 0);
+    }
+
+    [Fact]
     public void Parse_Broken_ReturnsErrorObject() =>
         Assert.NotNull(LoadHistoryResultData.Parse("{ broken").Error);
 }
