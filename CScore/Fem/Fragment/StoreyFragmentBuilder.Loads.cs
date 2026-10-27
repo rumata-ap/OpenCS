@@ -1,3 +1,4 @@
+using CScore.Fem.Loads;
 using CScore.Planar;
 
 namespace CScore.Fem.Fragment;
@@ -57,6 +58,9 @@ public static partial class StoreyFragmentBuilder
             MeshNodes = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
             Band = BandElements(c, parent);
             BandTags = Band.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+            Mesh = new FemLoadMeshContext(parent.MeshNodes, parent.MeshElements, parent.Groups, null,
+                parent.Members.GroupBy(m => m.ElemTag).ToDictionary(g => g.Key, g => g.First().RotationDeg, StringComparer.Ordinal));
+            Bars = BarParts(c);
             var xy = Band.SelectMany(e => FemMeshTopology.ReadNodeTags(e) ?? [])
                 .Select(t => MeshNodes.GetValueOrDefault(t)).Where(n => n is not null).Select(n => (n!.X, n.Y))
                 .Concat(c.Draft.Nodes.Select(n => (n.X, n.Y))).ToList();
@@ -72,6 +76,12 @@ public static partial class StoreyFragmentBuilder
         /// <summary>КЭ сетки родителя, заходящие в полосу.</summary>
         public List<FemElement> Band { get; }
         public HashSet<string> BandTags { get; }
+        /// <summary>Сетка родителя для разрешения целей нагрузок на КЭ.</summary>
+        public FemLoadMeshContext Mesh { get; }
+        /// <summary>Части-стержни фрагмента.</summary>
+        public List<BarPart> Bars { get; }
+        /// <summary>КЭ и КонЭ родителя, нагрузки которых не нашли части фрагмента или вид не поддержан.</summary>
+        public List<string> Lost { get; } = [];
         /// <summary>Точка приведения: центр габарита полосы в плане на средней отметке.</summary>
         public PlanarVector3 Origin { get; }
         /// <summary>Полудиагональ габарита полосы в плане (не меньше 1 м) — плечо масштаба при сравнении моментов.</summary>
@@ -121,6 +131,15 @@ public static partial class StoreyFragmentBuilder
         var l = new LoadCtx(c, parent);
         c.Draft.RefElements.AddRange(FragmentRefElement.From(l.Band.Where(e => e.ElemType is "beam" or "shell"), l.MeshNodes));
         TransferNodeLoads(l);
+        var pieces = new List<BarPiece>();
+        TransferMemberLoads(l, pieces);
+        TransferElementLoads(l, pieces);
+        FlushBarPieces(l, pieces);
+        if (l.Lost.Count > 0)
+        {
+            var lost = l.Lost.Distinct().ToList();
+            c.Warn("fragment_load_lost", $"Нагрузки не перенесены — нет части фрагмента или вид не поддержан: {Head(lost)}.", [.. lost]);
+        }
     }
 
     /// <summary>
