@@ -587,6 +587,29 @@ namespace OpenCS.Utilites
          return schema;
       }
 
+      /// <summary>Копия данных фрагмента в схему-копию (внутри транзакции <see cref="DuplicateFemSchema"/>): рассечения,
+      /// опорная сетка, нагрузки-поля (Id загружений — через <paramref name="mapLoadCase"/>), источники армирования; у
+      /// фрагмента — и жёсткости родителя (часть того же снимка).</summary>
+      void CopyStoreyFragmentDataCore(int fromSchemaId, int toSchemaId, Func<int, int> mapLoadCase, bool isFragment)
+      {
+         InsertStoreyFragmentDataCore(toSchemaId, GetFragmentCuts(fromSchemaId), GetFragmentRefElements(fromSchemaId),
+            GetFragmentFieldLoads(fromSchemaId), mapLoadCase);
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO fem_fragment_rebar_sources (schema_id, kind, file_name, data)
+               SELECT @to, kind, file_name, data FROM fem_fragment_rebar_sources WHERE schema_id=@from;
+            """;
+         if (isFragment)
+            cmd.CommandText += """
+               DELETE FROM fem_schema_stiffnesses WHERE schema_id=@to;
+               INSERT INTO fem_schema_stiffnesses (schema_id, num, kind_code, name, params, section_unit_m)
+                  SELECT @to, num, kind_code, name, params, section_unit_m FROM fem_schema_stiffnesses WHERE schema_id=@from;
+               """;
+         cmd.Parameters.AddWithValue("@to", toSchemaId);
+         cmd.Parameters.AddWithValue("@from", fromSchemaId);
+         cmd.ExecuteNonQuery();
+      }
+
       /// <summary>Параметры @parent, @z1, @z2, @fp, @report — поля фрагмента строки <c>fem_schemas</c>.</summary>
       static void AddFemSchemaFragmentParameters(SqliteCommand cmd, FemSchema schema)
       {

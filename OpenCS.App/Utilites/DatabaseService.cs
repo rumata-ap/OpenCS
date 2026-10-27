@@ -4764,6 +4764,17 @@ namespace OpenCS.Utilites
                DELETE FROM fem_schema_selected_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_schema_source_files WHERE schema_id=@id;
                DELETE FROM fem_schema_stiffnesses WHERE schema_id=@id;
+               DELETE FROM fem_fragment_cuts         WHERE schema_id=@id;
+               DELETE FROM fem_fragment_ref_elements WHERE schema_id=@id;
+               DELETE FROM fem_fragment_field_loads  WHERE schema_id=@id;
+               DELETE FROM fem_fragment_rebar_sources WHERE schema_id=@id;
+               DELETE FROM planar_connection_mappings WHERE connection_id IN (SELECT id FROM planar_connections
+                 WHERE region_a_id IN (SELECT id FROM planar_regions WHERE schema_id=@id)
+                    OR region_b_id IN (SELECT id FROM planar_regions WHERE schema_id=@id));
+               DELETE FROM planar_connections
+                 WHERE region_a_id IN (SELECT id FROM planar_regions WHERE schema_id=@id)
+                    OR region_b_id IN (SELECT id FROM planar_regions WHERE schema_id=@id);
+               DELETE FROM planar_regions         WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
                DELETE FROM fem_nodes              WHERE schema_id=@id;
@@ -6202,6 +6213,7 @@ namespace OpenCS.Utilites
          var lineSupports    = GetFemLineSupports(sourceSchemaId);
          var fields          = GetFemFields(sourceSchemaId);
          var paramOverrides  = GetFemParamOverrides(sourceSchemaId);
+         var regions         = GetPlanarRegions(sourceSchemaId);
 
          using var tx = _connection.BeginTransaction();
          try
@@ -6216,15 +6228,22 @@ namespace OpenCS.Utilites
                MeshPlateStepM = sourceSchema.MeshPlateStepM,
                AutoRigidJunctions    = sourceSchema.AutoRigidJunctions,
                RigidJunctionAngleDeg = sourceSchema.RigidJunctionAngleDeg,
+               ParentSchemaId          = sourceSchema.ParentSchemaId,
+               FragmentZ1              = sourceSchema.FragmentZ1,
+               FragmentZ2              = sourceSchema.FragmentZ2,
+               ParentFingerprint       = sourceSchema.ParentFingerprint,
+               FragmentBuildReportJson = sourceSchema.FragmentBuildReportJson,
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
-                                           auto_rigid_junctions, rigid_junction_angle_deg)
-                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle);
+                                           auto_rigid_junctions, rigid_junction_angle_deg,
+                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json)
+                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report);
                   SELECT last_insert_rowid();
                """;
+               AddFemSchemaFragmentParameters(schemaCmd, newSchema);
                schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
                schemaCmd.Parameters.AddWithValue("@src", newSchema.SourceType);
                schemaCmd.Parameters.AddWithValue("@created", newSchema.Created);
@@ -6264,6 +6283,14 @@ namespace OpenCS.Utilites
                }
             }
 
+            // Области КонЭ-пластин — своими копиями; КонЭ копии ссылаются на них.
+            var newRegionIdByOld = new Dictionary<int, int>();
+            foreach (var region in regions)
+            {
+               int oldRegionId = region.Id;
+               newRegionIdByOld[oldRegionId] = AddPlanarRegion(region, newSchemaId);
+            }
+
             var newMemberIdByOld = new Dictionary<int, int>();
             using (var memberCmd = _connection.CreateCommand())
             {
@@ -6272,11 +6299,13 @@ namespace OpenCS.Utilites
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                             target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
                                             kind, kind_source, mesh_source,
-                                            rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json)
+                                            rigid_junction_mode, rigid_junction_mask, rigid_junction_kind, rigid_junction_trace_json,
+                                            planar_region_id)
                   VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
-                          @kind, @ksrc, @msrc, @rjm, @rjk, @rjv, @rjt);
+                          @kind, @ksrc, @msrc, @rjm, @rjk, @rjv, @rjt, @prid);
                   SELECT last_insert_rowid();
                """;
+               memberCmd.Parameters.Add("@prid", Microsoft.Data.Sqlite.SqliteType.Integer);
                memberCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
                memberCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
                memberCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
@@ -6325,6 +6354,8 @@ namespace OpenCS.Utilites
                   memberCmd.Parameters["@rjk"].Value   = (object?)m.RigidJunctionMask ?? DBNull.Value;
                   memberCmd.Parameters["@rjv"].Value   = (object?)m.RigidJunctionKind ?? DBNull.Value;
                   memberCmd.Parameters["@rjt"].Value   = (object?)m.RigidJunctionTraceJson ?? DBNull.Value;
+                  memberCmd.Parameters["@prid"].Value  = m.PlanarRegionId is int rid && newRegionIdByOld.TryGetValue(rid, out int newRid)
+                     ? newRid : DBNull.Value;
                   int newId = (int)(long)memberCmd.ExecuteScalar()!;
                   newMemberIdByOld[m.Id] = newId;
                }
@@ -6482,20 +6513,8 @@ namespace OpenCS.Utilites
                """;
                foreach (var def in loadDefinitions)
                {
-                  var expression = def.GetExpression();
-                  var rewritten = new CScore.Fem.FemLoadExpression
-                  {
-                     Mode = expression.Mode,
-                     LoadCaseIds = expression.LoadCaseIds
-                        .Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
-                     Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
-                     {
-                        LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
-                        Coefficient = term.Coefficient
-                     }).ToList(),
-                     CombinationType = expression.CombinationType
-                  };
-                  string rewrittenJson = rewritten.ToJson();
+                  // Роль и режим слагаемых (авто-коэффициенты СП 20) сохраняются.
+                  string rewrittenJson = CScore.Fem.Fragment.FragmentLoadCopy.RemapLoadCases(def, newLoadCaseIdByOld).ExpressionJson;
                   definitionCmd.Parameters.Clear();
                   definitionCmd.Parameters.AddWithValue("@sid", newSchemaId);
                   definitionCmd.Parameters.AddWithValue("@tag", def.Tag);
@@ -6567,6 +6586,11 @@ namespace OpenCS.Utilites
                   meshElemCmd.ExecuteNonQuery();
                }
             }
+
+            CopyStoreyFragmentDataCore(sourceSchemaId, newSchemaId,
+               id => newLoadCaseIdByOld.TryGetValue(id, out int lcId) ? lcId
+                  : throw new InvalidOperationException($"Нагрузка-поле фрагмента ссылается на отсутствующий случай нагружения {id}."),
+               sourceSchema.IsFragment);
 
             FemSchemas.Add(newSchema);
             tx.Commit();
