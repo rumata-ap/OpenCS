@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using CScore;
 using CScore.History;
+using CScore.Hysteresis;
 using OpenCS.LoadHistory;
 using OpenCS.Services;
 using OpenCS.Utilites;
@@ -29,6 +30,10 @@ public sealed class LoadHistoryStepRowVM
     public double EtaB { get; init; }
     /// <summary>Наибольшее по частям использование арматуры.</summary>
     public double EtaS { get; init; }
+    /// <summary>Наибольшая по частям остаточная деформация бетона (0 без гистерезиса).</summary>
+    public double ResB { get; init; }
+    /// <summary>Наибольшая по частям остаточная деформация арматуры (0 без гистерезиса).</summary>
+    public double ResS { get; init; }
     /// <summary>Последний шаг этапа.</summary>
     public bool IsStageEnd { get; init; }
     /// <summary>Первый шаг этапа.</summary>
@@ -46,7 +51,8 @@ public sealed class LoadHistoryStepRowVM
 
 /// <summary>
 /// Окно результата задачи load_history: сводка, таблица шагов (с историей / без), кривые «момент–кривизна»
-/// и поля σ/ε по выбранному шагу (восстанавливаются из K шага и плоскостей включения частей).
+/// и поля σ/ε по выбранному шагу (восстанавливаются из K шага и плоскостей включения частей; при гистерезисе —
+/// воспроизведением пути до шага, <see cref="LoadHistoryReplay"/>).
 /// </summary>
 public sealed class LoadHistoryResultVM : ViewModelBase
 {
@@ -72,6 +78,7 @@ public sealed class LoadHistoryResultVM : ViewModelBase
         Curves = LoadHistoryCurveBuilder.Build(Data);
         Rows = BuildRows(Data.Steps, noHistory: false);
         RowsNoHistory = Data.StepsNoHistory is null ? [] : BuildRows(Data.StepsNoHistory, noHistory: true);
+        HysteresisText = BuildHysteresisText();
         SummaryText = BuildSummary();
         RolesNote = BuildRolesNote();
         _selectedRow = Rows.LastOrDefault();
@@ -141,6 +148,12 @@ public sealed class LoadHistoryResultVM : ViewModelBase
     public string SummaryText { get; }
     public string? RolesNote { get; }
 
+    /// <summary>Строка модели материала при гистерезисе; null — нелинейно-упругий материал.</summary>
+    public string? HysteresisText { get; }
+
+    /// <summary>Показывать оговорку о разгрузке по кривой нагружения (только без гистерезиса).</summary>
+    public bool ShowUnloadNote => HysteresisText is null;
+
     /// <summary>Выбирает шаг пути по индексу (щелчок по кривой).</summary>
     public void SelectStep(bool noHistory, int index)
     {
@@ -168,6 +181,8 @@ public sealed class LoadHistoryResultVM : ViewModelBase
                 Converged = s.Converged,
                 EtaB = s.PartStates.Count == 0 ? 0 : s.PartStates.Max(p => p.EtaB),
                 EtaS = s.PartStates.Count == 0 ? 0 : s.PartStates.Max(p => p.EtaS),
+                ResB = s.PartStates.Count == 0 ? 0 : s.PartStates.Max(p => p.EbRes),
+                ResS = s.PartStates.Count == 0 ? 0 : s.PartStates.Max(p => p.EsRes),
                 IsStageStart = i == 0 || steps[i - 1].Stage != s.Stage,
                 IsStageEnd = i == steps.Count - 1 || steps[i + 1].Stage != s.Stage,
                 HasProblem = !s.Converged || s.Warnings.Count > 0,
@@ -184,6 +199,7 @@ public sealed class LoadHistoryResultVM : ViewModelBase
     {
         if (Data.Error != null) return Data.Error;
         var sb = new StringBuilder();
+        if (HysteresisText != null) sb.AppendLine(HysteresisText);
         string F(double? v) => v is double d ? d.ToString("F2", CultureInfo.CurrentCulture) : "—";
         string Pair(double? with, double? without) => Data.Without is null
             ? F(with)
@@ -208,6 +224,16 @@ public sealed class LoadHistoryResultVM : ViewModelBase
         if (Data.Without is { } wo)
             sb.Append($" / {StopReasonText(wo.StopReason)} ({Loc.S("LoadHistory_WithoutHistory")})");
         return sb.ToString();
+    }
+
+    string? BuildHysteresisText()
+    {
+        if (Data.Hysteresis is not { } h) return null;
+        var c = CultureInfo.CurrentCulture;
+        string steel = h.Steel == SteelHysteresisModel.Bilinear
+            ? Loc.S("LoadHistory_SteelBilinear")
+            : string.Format(c, "{0} (R0 = {1:G4}; cR1 = {2:G4}; cR2 = {3:G4})", Loc.S("LoadHistory_SteelMP"), h.R0, h.CR1, h.CR2);
+        return string.Format(c, Loc.S("LoadHistory_HysteresisSummary"), steel);
     }
 
     static string StopReasonText(string code) => Loc.S("LoadHistory_StopReason_" + code, code);
@@ -239,10 +265,14 @@ public sealed class LoadHistoryResultVM : ViewModelBase
             StrainPlot = null;
             return;
         }
-        bool ten = _settings.ResolveConcreteTension(_calc) && !row.WithoutConcreteTension;
+        bool hysteresis = Data.Hysteresis is not null;
+        bool ten = (hysteresis ? Data.ConcreteTension : _settings.ResolveConcreteTension(_calc)) && !row.WithoutConcreteTension;
         bool fibers = Data.StrainMode == "fibers";
 
-        var copy = PrepareCopy(row, fibers);
+        // При гистерезисе σ зависят от пути — состояние волокон восстанавливается воспроизведением шагов 0…i.
+        var copy = hysteresis
+            ? LoadHistoryReplay.Section(_section, Data, _calc, row.NoHistory, row.Index)
+            : PrepareCopy(row, fibers);
         copy.SetEps(row.K, _calc, ten);
         var stress = new SectionPlotVM(copy, row.K, _calc, SectionPlotMode.Stress, _settings, ten);
         var cut = Cut(copy, row, ten);

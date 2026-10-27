@@ -1680,6 +1680,9 @@
    <system:String x:Key="LoadHistory_ColWarnings">Предупреждения</system:String>
    <system:String x:Key="LoadHistory_ColKb">Кисп бетона</system:String>
    <system:String x:Key="LoadHistory_ColKs">Кисп арматуры</system:String>
+   <system:String x:Key="LoadHistory_HysteresisSummary">Гистерезис: бетон Karsan–Jirsa, сталь {0}</system:String>
+   <system:String x:Key="LoadHistory_ColResB">εост бетона</system:String>
+   <system:String x:Key="LoadHistory_ColResS">εост арматуры</system:String>
    <system:String x:Key="CalcSettingsStageStrainMode">Деформации стадий</system:String>
    <system:String x:Key="CalcSettingsStageStrainPlane">по плоскости включения</system:String>
    <system:String x:Key="CalcSettingsStageStrainFibers">по волокнам</system:String>

@@ -26,6 +26,10 @@ public partial class LoadHistoryResultView : UserControl
         _cutWindow = new SectionCutWindowService(settings);
         Unloaded += (_, _) => _cutWindow.Dispose();
         NoSectionText.Visibility = _vm.HasSection ? Visibility.Collapsed : Visibility.Visible;
+        // столбцы остаточных деформаций — только при гистерезисе
+        var resVisibility = _vm.HysteresisText != null ? Visibility.Visible : Visibility.Collapsed;
+        ResBColumn.Visibility = resVisibility;
+        ResSColumn.Visibility = resVisibility;
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(LoadHistoryResultVM.SelectedRow) && _vm.SelectedRow != null)

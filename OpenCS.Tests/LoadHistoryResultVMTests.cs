@@ -74,6 +74,54 @@ public sealed class LoadHistoryResultVMTests
     }
 
     [Fact]
+    public void Hysteresis_SummaryResidualsAndReplayedFields()
+    {
+        var p = new LoadHistoryParams
+        {
+            Stages =
+            [
+                new() { Tag = "1", Steps = 3, Force = new StageForce { Mode = "manual", Mx = -60 } },
+                new() { Tag = "2", ActivatePart = 1, Steps = 3, Force = new StageForce { Mode = "manual", Mx = -110 } },
+                new() { Tag = "3", Steps = 3, Force = new StageForce { Mode = "manual", Mx = -20 } },
+            ],
+            Hysteresis = new CScore.Hysteresis.HysteresisOptions(),
+        };
+        var section = Section();
+        var settings = CalcSettings.Default;
+        var result = TaskRunner.Run(new CalcTask { Id = 1, Kind = "load_history", CalcType = CalcType.C, SectionId = 5, ParamsJson = p.ToJson() },
+            section, new LoadItem(), settings);
+        section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, rebarDifferentialDiagram: settings.RebarDifferentialDiagram,
+            ekbEtaMin: settings.EkbDescEtaMin);
+        var vm = new LoadHistoryResultVM(result, section, CalcType.C, settings);
+
+        Assert.Equal("ok", result.Status);
+        Assert.NotNull(vm.HysteresisText);
+        Assert.Contains(vm.HysteresisText!, vm.SummaryText);
+        Assert.False(vm.ShowUnloadNote);
+        var last = vm.Rows[^1];
+        Assert.True(last.ResS > 0 || last.ResB > 0);
+        vm.SelectedRow = last;
+        Assert.NotNull(vm.StressPlot);
+        Assert.NotNull(vm.StrainPlot);
+
+        // σ волокон после воспроизведения пути отличаются от нелинейно-упругих на той же плоскости
+        var d = vm.Data;
+        var replay = OpenCS.LoadHistory.LoadHistoryReplay.Section(section, d, CalcType.C, false, last.Index);
+        replay.SetEps(last.K, CalcType.C, d.ConcreteTension);
+        var plain = (StagedSection)section.CloneForCalc();
+        plain.ResetHistory();
+        plain.StrainMode = StageStrainMode.Fibers;
+        plain.PrepareFiberMode();
+        var a1 = d.ActivationPlanes[1];
+        plain.ActivatePart(1, new Kurvature { e0 = a1[0], ky = a1[1], kz = a1[2] });
+        plain.SetEps(last.K, CalcType.C, d.ConcreteTension);
+        var fr = replay.Parts.SelectMany(x => x.Areas).SelectMany(x => x.Fibers).ToList();
+        var fp = plain.Parts.SelectMany(x => x.Areas).SelectMany(x => x.Fibers).ToList();
+        Assert.Equal(fp.Count, fr.Count);
+        Assert.True(fr.Zip(fp).Max(t => Math.Abs(t.First.Sig - t.Second.Sig)) > 100, "σ после разгрузки не отличаются");
+    }
+
+    [Fact]
     public void NoSection_FieldsEmpty()
     {
         var (result, _) = Run();

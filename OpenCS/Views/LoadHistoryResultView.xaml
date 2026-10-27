@@ -21,7 +21,8 @@
                   </Style>
                </TextBlock.Style>
             </TextBlock>
-            <TextBlock Text="{DynamicResource LoadHistory_UnloadNote}" Foreground="Gray" Margin="0,4,0,0"/>
+            <TextBlock Text="{DynamicResource LoadHistory_UnloadNote}" Foreground="Gray" Margin="0,4,0,0"
+                       Visibility="{Binding ShowUnloadNote, Converter={StaticResource BoolToVis}}"/>
          </StackPanel>
       </Expander>
 
@@ -65,6 +66,8 @@
                      <DataGridTextColumn Header="M_u" Binding="{Binding Mu, StringFormat=F2}"/>
                      <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKb}" Binding="{Binding EtaB, StringFormat=F3}"/>
                      <DataGridTextColumn Header="{DynamicResource LoadHistory_ColKs}" Binding="{Binding EtaS, StringFormat=F3}"/>
+                     <DataGridTextColumn x:Name="ResBColumn" Header="{DynamicResource LoadHistory_ColResB}" Binding="{Binding ResB, StringFormat=E3}"/>
+                     <DataGridTextColumn x:Name="ResSColumn" Header="{DynamicResource LoadHistory_ColResS}" Binding="{Binding ResS, StringFormat=E3}"/>
                      <DataGridCheckBoxColumn Header="{DynamicResource LoadHistory_ColConverged}" Binding="{Binding Converged}"/>
                      <DataGridTextColumn Header="{DynamicResource LoadHistory_ColWarnings}" Binding="{Binding Warnings}" Width="*"/>
                   </DataGrid.Columns>

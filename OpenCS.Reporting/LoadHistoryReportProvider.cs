@@ -43,8 +43,9 @@ public sealed class LoadHistoryReportProvider : IReportProvider
         AddSummary(document, data);
         AddChart(document, data);
         AddShortTable(document, data);
-        document.Add(new ReportParagraph(
-            "Материал принят нелинейно-упругим: разгрузка идёт по кривой нагружения, остаточные деформации не учитываются."));
+        if (data.Hysteresis is null)
+            document.Add(new ReportParagraph(
+                "Материал принят нелинейно-упругим: разгрузка идёт по кривой нагружения, остаточные деформации не учитываются."));
         return document;
     }
 
@@ -74,9 +75,19 @@ public sealed class LoadHistoryReportProvider : IReportProvider
             ("Длина спада Δε (роль «Разрушается»)", F(p.Failure.SofteningStrain)),
             ("При несходимости шага по нагрузке", data.Fallback == nameof(LoadStepFallback.WithoutConcreteTension)
                 ? "шаг решается без растяжения бетона" : "шаг проходится по кривизне"),
+            ("Модель материала", MaterialModel(data)),
             ("Деформации стадий", data.StrainMode == "fibers" ? "по волокнам" : "по плоскости включения"),
             ("Сравнение с расчётом без истории", data.StepsNoHistory != null ? "да" : "нет"),
         ], "Параметр", "Значение"));
+    }
+
+    static string MaterialModel(LoadHistoryResultData data)
+    {
+        if (data.Hysteresis is not { } h) return "нелинейно-упругая";
+        string steel = h.Steel == CScore.Hysteresis.SteelHysteresisModel.Bilinear
+            ? "билинейная"
+            : $"Menegotto–Pinto (R0 = {F(h.R0)}; cR1 = {F(h.CR1)}; cR2 = {F(h.CR2)})";
+        return $"гистерезис: бетон Karsan–Jirsa, сталь {steel}";
     }
 
     static void AddRoles(ReportDocument document, LoadHistoryResultData data)

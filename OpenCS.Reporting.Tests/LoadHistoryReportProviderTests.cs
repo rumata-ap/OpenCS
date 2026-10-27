@@ -43,5 +43,29 @@ public sealed class LoadHistoryReportProviderTests
         Assert.Contains(doc.Blocks, b => b is ReportWarning w && w.Text.Contains("8.1.30"));
         var table = doc.Blocks.OfType<ReportTable>().Last();
         Assert.Equal(3, table.Rows.Count);                    // концы двух этапов + точка M_lim
+        Assert.Contains("нелинейно-упругая", text);
+        Assert.Contains("разгрузка идёт по кривой нагружения", text);
+    }
+
+    [Fact]
+    public void Build_Hysteresis_MaterialModelRow_NoElasticNote()
+    {
+        var p = new LoadHistoryParams
+        {
+            Stages = [new() { Tag = "1", Steps = 2, Force = new StageForce { Mode = "manual", Mx = -60 } }],
+        };
+        var data = new LoadHistoryResultData
+        {
+            PartTags = ["балка"], StageTags = ["1"], StrainMode = "fibers",
+            Steps = [new() { Stage = 0, Kind = "load", Step = 2, Parts = 1, Mx = -60, C = 2e-3, Mu = 60, Converged = true }],
+            Hysteresis = new CScore.Hysteresis.HysteresisOptions(),
+        };
+        var task = new CalcTask { Kind = "load_history", Tag = "Т2", CalcType = CalcType.C, ParamsJson = p.ToJson() };
+        var result = new CalcResult { TaskKind = "load_history", Status = "ok", DataJson = data.ToJson() };
+        Assert.True(ReportProviderRegistry.CreateDefault().TryResolve(task, out var provider));
+        var text = new MarkdownReportRenderer().Render(provider.Build(new ReportContext(task, result)));
+        Assert.Contains("Karsan–Jirsa", text);
+        Assert.Contains("Menegotto–Pinto", text);
+        Assert.DoesNotContain("разгрузка идёт по кривой нагружения", text);
     }
 }
