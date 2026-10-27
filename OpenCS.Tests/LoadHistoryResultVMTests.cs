@@ -25,7 +25,7 @@ public sealed class LoadHistoryResultVMTests
         return s;
     }
 
-    static (CalcResult Result, StagedSection Section) Run()
+    internal static (CalcResult Result, StagedSection Section) Run()
     {
         var p = new LoadHistoryParams
         {
