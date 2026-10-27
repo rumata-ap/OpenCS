@@ -44,6 +44,13 @@ public sealed class FemElementGeometry
         return new FemElementGeometry(tags, points);
     }
 
+    /// <summary>Геометрия по точкам в порядке хранения (теги узлов — «1»…«n»); null — не 2–4 точки.</summary>
+    public static FemElementGeometry? FromPoints(IReadOnlyList<PlanarVector3> points) =>
+        points.Count is < 2 or > 4 ? null
+        : new FemElementGeometry(
+            Enumerable.Range(1, points.Count).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
+            points.ToArray());
+
     /// <summary>Длина стержня, м.</summary>
     public double Length => (Points[1] - Points[0]).Length;
 
