@@ -32,6 +32,19 @@ public class FemSchema
     /// <summary>Порог угла оси стержня к плоскости плиты, град: не меньше — стержень входит в плиту (случай А).</summary>
     public double RigidJunctionAngleDeg { get; set; } = 10;
 
+    /// <summary>Схема-родитель фрагмента этажа; null — схема не фрагмент. Родитель мог быть удалён (ссылка висячая).</summary>
+    public int?    ParentSchemaId          { get; set; }
+    /// <summary>Нижняя отметка полосы фрагмента, м.</summary>
+    public double? FragmentZ1              { get; set; }
+    /// <summary>Верхняя отметка полосы фрагмента, м.</summary>
+    public double? FragmentZ2              { get; set; }
+    /// <summary>Отпечаток снимка полосы родителя при сборке (<see cref="Fragment.StoreyFragmentFingerprint"/>).</summary>
+    public string? ParentFingerprint       { get; set; }
+    /// <summary>Отчёт сборки фрагмента — JSON диагностики (<see cref="Fragment.StoreyFragmentBuildReport"/>).</summary>
+    public string? FragmentBuildReportJson { get; set; }
+    /// <summary>Схема — фрагмент этажа другой схемы.</summary>
+    public bool IsFragment => ParentSchemaId is not null;
+
     /// <summary>Группы конструктивных элементов схемы. Заполняются при загрузке из БД.</summary>
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
 
