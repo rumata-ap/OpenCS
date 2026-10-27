@@ -73,6 +73,30 @@ public sealed class LoadHistoryResultVMTests
         Assert.Same(vm.RowsNoHistory[0], vm.SelectedRow);
     }
 
+    /// <summary>Ползунок вкладки «Поля»: позиция — индекс шага текущего пути, дробная округляется,
+    /// отметки — начала этапов, переключение пути меняет диапазон.</summary>
+    [Fact]
+    public void StepSlider_SelectsStepOfCurrentPath()
+    {
+        var (result, section) = Run();
+        var vm = new LoadHistoryResultVM(result, section, CalcType.C, CalcSettings.Default);
+
+        Assert.Equal(vm.Rows.Count - 1, vm.MaxIndex);
+        Assert.Equal(vm.Rows.Count - 1, vm.StepPosition); // по умолчанию — последний шаг
+        Assert.Equal([0.0, 3.0, 6.0], vm.StageTicks);    // этапы 1, 2 и разрушение
+
+        vm.StepPosition = 3.6;
+        Assert.Same(vm.Rows[4], vm.SelectedRow);
+        Assert.Equal(4, vm.StepPosition);
+        Assert.NotNull(vm.StressPlot);
+        Assert.NotEmpty(vm.SelectedStepText);
+
+        vm.ShowNoHistory = true;
+        Assert.Equal(vm.RowsNoHistory.Count - 1, vm.MaxIndex);
+        vm.StepPosition = 1;
+        Assert.Same(vm.RowsNoHistory[1], vm.SelectedRow);
+    }
+
     [Fact]
     public void Hysteresis_SummaryResidualsAndReplayedFields()
     {

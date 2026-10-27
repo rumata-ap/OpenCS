@@ -207,4 +207,7 @@ namespace OpenCS.Views
          }
       }
    }
+
+   /// <summary>Строка легенды <see cref="PlotCanvas.Legend"/>: образец линии и подпись.</summary>
+   public sealed record PlotLegendItem(string Text, Brush Stroke, double StrokeThickness = 2);
 }

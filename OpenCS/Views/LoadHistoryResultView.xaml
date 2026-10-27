@@ -84,12 +84,26 @@
          <TabItem Header="{DynamicResource LoadHistory_TabFields}">
             <Grid>
                <DockPanel Visibility="{Binding HasSection, Converter={StaticResource BoolToVis}}">
-                  <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
-                     <RadioButton Content="{DynamicResource LoadHistory_FieldsRelative}" IsChecked="{Binding FieldsRelative}"
-                                  GroupName="LhFields" Margin="0,0,12,0"/>
-                     <RadioButton Content="{DynamicResource LoadHistory_FieldsTotal}" IsChecked="{Binding FieldsTotal}"
-                                  GroupName="LhFields"/>
-                  </StackPanel>
+                  <Grid DockPanel.Dock="Top" Margin="4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" MinWidth="120"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <!-- Без GroupName: группа по общему родителю. С общим именем переключатели окон результата
+                          разных задач в одном главном окне снимали отметки друг у друга (оба оставались пустыми). -->
+                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <RadioButton Content="{DynamicResource LoadHistory_FieldsRelative}" IsChecked="{Binding FieldsRelative}"
+                                     Margin="0,0,12,0"/>
+                        <RadioButton Content="{DynamicResource LoadHistory_FieldsTotal}" IsChecked="{Binding FieldsTotal}"/>
+                     </StackPanel>
+                     <!-- Шаг истории; Delay — поля при гистерезисе восстанавливаются воспроизведением шагов 0…i -->
+                     <Slider Grid.Column="1" Margin="16,0,8,0" VerticalAlignment="Center"
+                             Minimum="0" Maximum="{Binding MaxIndex}" Value="{Binding StepPosition, Delay=150}"
+                             SmallChange="1" LargeChange="5" Ticks="{Binding StageTicks}" TickPlacement="BottomRight"
+                             ToolTip="{DynamicResource LoadHistory_SliderTip}"/>
+                     <TextBlock Grid.Column="2" Text="{Binding SelectedStepText}" VerticalAlignment="Center" MinWidth="220"/>
+                  </Grid>
                   <TabControl x:Name="FieldTabs" SelectionChanged="OnTabChanged">
                      <TabItem Header="{DynamicResource ResultTabStress}">
                         <local:SectionPlotView DataContext="{Binding StressPlot}"/>

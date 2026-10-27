@@ -1629,9 +1629,14 @@
    <system:String x:Key="LoadHistory_MaterialElastic">nonlinear elastic (unloading along the loading curve)</system:String>
    <system:String x:Key="LoadHistory_MaterialHysteresis">with unloading (hysteresis)</system:String>
    <system:String x:Key="LoadHistory_SteelModel">Steel</system:String>
+   <system:String x:Key="LoadHistory_ConcreteModel">Concrete</system:String>
+   <system:String x:Key="LoadHistory_ConcreteKJ">Karsan–Jirsa</system:String>
+   <system:String x:Key="LoadHistory_ConcreteKJTip">Compression leaves a residual strain; unloading and reloading follow a straight line</system:String>
+   <system:String x:Key="LoadHistory_ConcreteElastic">nonlinear elastic</system:String>
+   <system:String x:Key="LoadHistory_ConcreteElasticTip">Unloading along the diagram, no residual concrete strain — to assess the steel contribution alone</system:String>
    <system:String x:Key="LoadHistory_SteelMP">Menegotto–Pinto</system:String>
    <system:String x:Key="LoadHistory_SteelBilinear">bilinear</system:String>
-   <system:String x:Key="LoadHistory_HysteresisHint">Concrete — Karsan–Jirsa over the area diagram; analysis is fiber-based (contour areas are meshed)</system:String>
+   <system:String x:Key="LoadHistory_HysteresisHint">Analysis is fiber-based (contour areas are meshed)</system:String>
    <system:String x:Key="LoadHistory_FailureDirectionHint">N is not set for the failure stage (kept from the previous stage); only the direction is taken from the moment</system:String>
    <system:String x:Key="LoadHistory_RolesNote">Roles other than «Limits» change the limit state criterion compared to cl. 8.1.30 of SP 63</system:String>
    <system:String x:Key="LoadHistoryErr_no_stages">No stages defined</system:String>
@@ -1672,6 +1677,8 @@
    <system:String x:Key="LoadHistory_UnloadNote">The material is nonlinear elastic: unloading follows the loading curve</system:String>
    <system:String x:Key="LoadHistory_NoSection">Task section not found — fields are unavailable</system:String>
    <system:String x:Key="LoadHistory_ShowNoHistory">Show steps without history</system:String>
+   <system:String x:Key="LoadHistory_SliderStep">Step {0} of {1}: {2}, step {3}; M_u = {4:F2}</system:String>
+   <system:String x:Key="LoadHistory_SliderTip">Load history step; ticks mark stage starts. Arrows — one step, Page Up/Down — 5 steps</system:String>
    <system:String x:Key="LoadHistory_ColStage">Stage</system:String>
    <system:String x:Key="LoadHistory_ColKind">Type</system:String>
    <system:String x:Key="LoadHistory_ColStep">Step</system:String>
@@ -1680,7 +1687,7 @@
    <system:String x:Key="LoadHistory_ColWarnings">Warnings</system:String>
    <system:String x:Key="LoadHistory_ColKb">Utilization (concrete)</system:String>
    <system:String x:Key="LoadHistory_ColKs">Utilization (rebar)</system:String>
-   <system:String x:Key="LoadHistory_HysteresisSummary">Hysteresis: concrete Karsan–Jirsa, steel {0}</system:String>
+   <system:String x:Key="LoadHistory_HysteresisSummary">Hysteresis: concrete {0}, steel {1}</system:String>
    <system:String x:Key="LoadHistory_ColResB">Residual ε concrete</system:String>
    <system:String x:Key="LoadHistory_ColResS">Residual ε rebar</system:String>
    <system:String x:Key="CalcSettingsStageStrainMode">Stage strains</system:String>

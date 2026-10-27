@@ -173,6 +173,7 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
     LoadStepFallback _fallback = LoadStepFallback.CurvatureControl;
     bool _hysteresis;
     SteelHysteresisModel _steel = SteelHysteresisModel.MenegottoPinto;
+    ConcreteHysteresisModel _concrete = ConcreteHysteresisModel.KarsanJirsa;
     string _r0 = "20", _cr1 = "0.925", _cr2 = "0.15";
 
     public LoadHistoryParamsVM(IReadOnlyList<ForceSet> forceSets)
@@ -265,6 +266,33 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
     {
         get => !_hysteresis;
         set { if (value) HysteresisEnabled = false; }
+    }
+
+    /// <summary>Модель бетона при гистерезисе.</summary>
+    public ConcreteHysteresisModel Concrete
+    {
+        get => _concrete;
+        set
+        {
+            _concrete = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ConcreteKarsanJirsa));
+            OnPropertyChanged(nameof(ConcreteElastic));
+        }
+    }
+
+    /// <summary>Бетон Karsan–Jirsa (для переключателя).</summary>
+    public bool ConcreteKarsanJirsa
+    {
+        get => _concrete == ConcreteHysteresisModel.KarsanJirsa;
+        set { if (value) Concrete = ConcreteHysteresisModel.KarsanJirsa; }
+    }
+
+    /// <summary>Бетон без памяти (для переключателя).</summary>
+    public bool ConcreteElastic
+    {
+        get => _concrete == ConcreteHysteresisModel.NonlinearElastic;
+        set { if (value) Concrete = ConcreteHysteresisModel.NonlinearElastic; }
     }
 
     /// <summary>Модель стали при гистерезисе.</summary>
@@ -368,8 +396,9 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
         Fallback = p.Fallback;
         var h = p.Hysteresis ?? new HysteresisOptions();
         HysteresisEnabled = p.Hysteresis is not null;
+        Concrete = h.Concrete;
         Steel = h.Steel;
-        R0 = h.R0.ToString("G6", Inv);
+        R0 =h.R0.ToString("G6", Inv);
         CR1 = h.CR1.ToString("G6", Inv);
         CR2 = h.CR2.ToString("G6", Inv);
 
@@ -406,7 +435,7 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
                 SofteningStrain = Num(SofteningStrain),
             },
             Hysteresis = HysteresisEnabled
-                ? new HysteresisOptions { Steel = Steel, R0 = Num(R0), CR1 = Num(CR1), CR2 = Num(CR2) }
+                ? new HysteresisOptions { Concrete = Concrete, Steel = Steel, R0 = Num(R0), CR1 = Num(CR1), CR2 = Num(CR2) }
                 : null,
         };
         foreach (var row in Stages)

@@ -1629,9 +1629,14 @@
    <system:String x:Key="LoadHistory_MaterialElastic">нелинейно-упругая (разгрузка по кривой нагружения)</system:String>
    <system:String x:Key="LoadHistory_MaterialHysteresis">с разгрузкой (гистерезис)</system:String>
    <system:String x:Key="LoadHistory_SteelModel">Сталь</system:String>
+   <system:String x:Key="LoadHistory_ConcreteModel">Бетон</system:String>
+   <system:String x:Key="LoadHistory_ConcreteKJ">Karsan–Jirsa</system:String>
+   <system:String x:Key="LoadHistory_ConcreteKJTip">После сжатия остаётся остаточная деформация; разгрузка и повторное нагружение идут по прямой</system:String>
+   <system:String x:Key="LoadHistory_ConcreteElastic">нелинейно-упругий</system:String>
+   <system:String x:Key="LoadHistory_ConcreteElasticTip">Разгрузка по диаграмме, без остаточных деформаций бетона — чтобы оценить вклад одной стали</system:String>
    <system:String x:Key="LoadHistory_SteelMP">Menegotto–Pinto</system:String>
    <system:String x:Key="LoadHistory_SteelBilinear">билинейная</system:String>
-   <system:String x:Key="LoadHistory_HysteresisHint">Бетон — Karsan–Jirsa над диаграммой области; расчёт идёт по волокнам (контурные области разбиваются на волокна)</system:String>
+   <system:String x:Key="LoadHistory_HysteresisHint">Расчёт идёт по волокнам (контурные области разбиваются на волокна)</system:String>
    <system:String x:Key="LoadHistory_FailureDirectionHint">У этапа разрушения N не задаётся (сохраняется с предыдущего этапа); из момента берётся только направление</system:String>
    <system:String x:Key="LoadHistory_RolesNote">Роли, отличные от «Ограничивает», меняют критерий предельного состояния по сравнению с п. 8.1.30 СП 63</system:String>
    <system:String x:Key="LoadHistoryErr_no_stages">Не задано ни одного этапа</system:String>
@@ -1672,6 +1677,8 @@
    <system:String x:Key="LoadHistory_UnloadNote">Материал нелинейно-упругий: разгрузка идёт по кривой нагружения</system:String>
    <system:String x:Key="LoadHistory_NoSection">Сечение задачи не найдено — поля недоступны</system:String>
    <system:String x:Key="LoadHistory_ShowNoHistory">Показать шаги без истории</system:String>
+   <system:String x:Key="LoadHistory_SliderStep">Шаг {0} из {1}: {2}, шаг {3}; M_u = {4:F2}</system:String>
+   <system:String x:Key="LoadHistory_SliderTip">Шаг истории нагружения; отметки — начала этапов. Стрелки — на шаг, Page Up/Down — на 5 шагов</system:String>
    <system:String x:Key="LoadHistory_ColStage">Этап</system:String>
    <system:String x:Key="LoadHistory_ColKind">Тип</system:String>
    <system:String x:Key="LoadHistory_ColStep">Шаг</system:String>
@@ -1680,7 +1687,7 @@
    <system:String x:Key="LoadHistory_ColWarnings">Предупреждения</system:String>
    <system:String x:Key="LoadHistory_ColKb">Кисп бетона</system:String>
    <system:String x:Key="LoadHistory_ColKs">Кисп арматуры</system:String>
-   <system:String x:Key="LoadHistory_HysteresisSummary">Гистерезис: бетон Karsan–Jirsa, сталь {0}</system:String>
+   <system:String x:Key="LoadHistory_HysteresisSummary">Гистерезис: бетон {0}, сталь {1}</system:String>
    <system:String x:Key="LoadHistory_ColResB">εост бетона</system:String>
    <system:String x:Key="LoadHistory_ColResS">εост арматуры</system:String>
    <system:String x:Key="CalcSettingsStageStrainMode">Деформации стадий</system:String>

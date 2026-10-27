@@ -106,6 +106,44 @@ public sealed class LoadHistoryResultVM : ViewModelBase
             _showNoHistory = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CurrentRows));
+            OnPropertyChanged(nameof(MaxIndex));
+            OnPropertyChanged(nameof(StageTicks));
+            OnPropertyChanged(nameof(StepPosition));
+            OnPropertyChanged(nameof(SelectedStepText));
+        }
+    }
+
+    /// <summary>
+    /// Позиция ползунка вкладки «Поля» — индекс выбранного шага в <see cref="CurrentRows"/>; дробное значение
+    /// округляется до шага (прилипание к делениям у ползунка с отметками этапов работало бы только по ним).
+    /// </summary>
+    public double StepPosition
+    {
+        get => _selectedRow is { } r && r.NoHistory == _showNoHistory ? r.Index : 0;
+        set
+        {
+            SelectStep(_showNoHistory, (int)Math.Round(value));
+            OnPropertyChanged(); // вернуть ползунок точно на шаг
+        }
+    }
+
+    /// <summary>Наибольший индекс шага текущего пути.</summary>
+    public int MaxIndex => Math.Max(0, CurrentRows.Count - 1);
+
+    /// <summary>Отметки ползунка — начала этапов текущего пути.</summary>
+    public System.Windows.Media.DoubleCollection StageTicks =>
+        new(CurrentRows.Where(r => r.IsStageStart).Select(r => (double)r.Index));
+
+    /// <summary>Подпись выбранного шага рядом с ползунком.</summary>
+    public string SelectedStepText
+    {
+        get
+        {
+            if (_selectedRow is not { } r) return "";
+            var rows = r.NoHistory ? RowsNoHistory : Rows;
+            string text = string.Format(CultureInfo.CurrentCulture, Loc.S("LoadHistory_SliderStep"),
+                r.Index + 1, rows.Count, r.Stage, r.Step, r.Mu);
+            return r.NoHistory ? $"{text} ({Loc.S("LoadHistory_WithoutHistory")})" : text;
         }
     }
 
@@ -121,6 +159,8 @@ public sealed class LoadHistoryResultVM : ViewModelBase
             if (ReferenceEquals(_selectedRow, value)) return;
             _selectedRow = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(StepPosition));
+            OnPropertyChanged(nameof(SelectedStepText));
             RefreshFields();
         }
     }
@@ -233,7 +273,9 @@ public sealed class LoadHistoryResultVM : ViewModelBase
         string steel = h.Steel == SteelHysteresisModel.Bilinear
             ? Loc.S("LoadHistory_SteelBilinear")
             : string.Format(c, "{0} (R0 = {1:G4}; cR1 = {2:G4}; cR2 = {3:G4})", Loc.S("LoadHistory_SteelMP"), h.R0, h.CR1, h.CR2);
-        return string.Format(c, Loc.S("LoadHistory_HysteresisSummary"), steel);
+        string concrete = Loc.S(h.Concrete == ConcreteHysteresisModel.NonlinearElastic
+            ? "LoadHistory_ConcreteElastic" : "LoadHistory_ConcreteKJ");
+        return string.Format(c, Loc.S("LoadHistory_HysteresisSummary"), concrete, steel);
     }
 
     static string StopReasonText(string code) => Loc.S("LoadHistory_StopReason_" + code, code);

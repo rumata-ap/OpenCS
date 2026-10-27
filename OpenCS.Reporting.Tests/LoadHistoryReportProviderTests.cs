@@ -67,5 +67,10 @@ public sealed class LoadHistoryReportProviderTests
         Assert.Contains("Karsan–Jirsa", text);
         Assert.Contains("Menegotto–Pinto", text);
         Assert.DoesNotContain("разгрузка идёт по кривой нагружения", text);
+
+        data.Hysteresis.Concrete = CScore.Hysteresis.ConcreteHysteresisModel.NonlinearElastic;
+        result.DataJson = data.ToJson();
+        text = new MarkdownReportRenderer().Render(provider.Build(new ReportContext(task, result)));
+        Assert.Contains("бетон нелинейно-упругий", text);
     }
 }

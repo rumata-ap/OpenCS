@@ -97,6 +97,11 @@ public partial class LoadHistoryResultView : UserControl
         Mark(c.PeakWith, Brushes.Black, 6, "M_peak");
         Mark(c.PeakWithout, Brushes.Black, 6, "M_peak");
 
+        // Легенда — только у кривых: точки M_lim, M_peak и включения частей подписаны на графике.
+        var legend = new List<PlotLegendItem> { new(Loc.S("LoadHistory_WithHistory"), Brushes.SteelBlue, 2) };
+        if (c.WithoutHistory.Count > 0) legend.Add(new(Loc.S("LoadHistory_WithoutHistory"), Brushes.DarkOrange, 1.5));
+        curve.Legend = legend;
+
         var all = c.WithHistory.Concat(c.WithoutHistory).ToList();
         if (all.Count < 2) { curve.Clear(); return; }
         double xMin = all.Min(p => p.C), xMax = all.Max(p => p.C);

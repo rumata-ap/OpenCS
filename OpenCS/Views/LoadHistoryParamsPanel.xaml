@@ -92,13 +92,30 @@
                <RadioButton Content="{DynamicResource LoadHistory_MaterialHysteresis}" IsChecked="{Binding HysteresisEnabled}"
                             GroupName="LhMaterial"/>
                <StackPanel Margin="18,4,0,0" Visibility="{Binding HysteresisEnabled, Converter={StaticResource BoolToVis}}">
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                     <TextBlock Text="{DynamicResource LoadHistory_SteelModel}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                     <RadioButton Content="{DynamicResource LoadHistory_SteelMP}" IsChecked="{Binding SteelMenegottoPinto}"
-                                  GroupName="LhSteel" Margin="0,0,12,0"/>
-                     <RadioButton Content="{DynamicResource LoadHistory_SteelBilinear}" IsChecked="{Binding SteelBilinear}"
-                                  GroupName="LhSteel"/>
-                  </StackPanel>
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Text="{DynamicResource LoadHistory_ConcreteModel}" Margin="0,0,8,4" VerticalAlignment="Center"/>
+                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                        <RadioButton Content="{DynamicResource LoadHistory_ConcreteKJ}" IsChecked="{Binding ConcreteKarsanJirsa}"
+                                     ToolTip="{DynamicResource LoadHistory_ConcreteKJTip}" GroupName="LhConcrete" Margin="0,0,12,0"/>
+                        <RadioButton Content="{DynamicResource LoadHistory_ConcreteElastic}" IsChecked="{Binding ConcreteElastic}"
+                                     ToolTip="{DynamicResource LoadHistory_ConcreteElasticTip}" GroupName="LhConcrete"/>
+                     </StackPanel>
+                     <TextBlock Grid.Row="1" Text="{DynamicResource LoadHistory_SteelModel}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                        <RadioButton Content="{DynamicResource LoadHistory_SteelMP}" IsChecked="{Binding SteelMenegottoPinto}"
+                                     GroupName="LhSteel" Margin="0,0,12,0"/>
+                        <RadioButton Content="{DynamicResource LoadHistory_SteelBilinear}" IsChecked="{Binding SteelBilinear}"
+                                     GroupName="LhSteel"/>
+                     </StackPanel>
+                  </Grid>
                   <Grid Visibility="{Binding ShowMpParams, Converter={StaticResource BoolToVis}}" Margin="0,0,0,4">
                      <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

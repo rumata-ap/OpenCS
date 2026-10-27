@@ -41,6 +41,15 @@ namespace OpenCS.Views
 
       private (double x, double y, double px, double py)? _picked;
 
+      private IReadOnlyList<PlotLegendItem>? _legend;
+
+      /// <summary>Легенда в правом нижнем углу области данных; null или пустой список — без легенды.</summary>
+      public IReadOnlyList<PlotLegendItem>? Legend
+      {
+         get => _legend;
+         set { _legend = value; InvalidateVisual(); }
+      }
+
       public PlotCanvas()
       {
          ClipToBounds = true;
@@ -169,6 +178,10 @@ namespace OpenCS.Views
          if (_hasBounds)
             DrawAxes(dc, w, h);
 
+         // после осей — поверх подписей опорных осей
+         if (_hasBounds && _legend is { Count: > 0 })
+            DrawLegend(dc);
+
          if (_title != null) DrawTitle(dc, w);
       }
 
@@ -234,6 +247,36 @@ namespace OpenCS.Views
          double modelH = _plotRect.Height / _scaleY;
          _originX = xMin - (modelW - (xMax - xMin)) / 2;
          _originY = yMin - (modelH - (yMax - yMin)) / 2;
+      }
+
+      /// <summary>Рамка с образцами линий и подписями в правом нижнем углу области данных.</summary>
+      private void DrawLegend(DrawingContext dc)
+      {
+         // снизу отступ больше: у нижнего края часто идёт опорная ось с подписью
+         const double pad = 6, sample = 22, gap = 6, margin = 8, marginBottom = 26;
+         var typeface = new Typeface("Segoe UI");
+         var texts = new List<FormattedText>();
+         double textW = 0, rowH = 10;
+         foreach (var item in _legend!)
+         {
+            var ft = new FormattedText(item.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+               typeface, _settings.AxesFontSize, Brushes.Black, 96);
+            texts.Add(ft);
+            textW = Math.Max(textW, ft.Width);
+            rowH = Math.Max(rowH, ft.Height);
+         }
+         double bw = pad + sample + gap + textW + pad, bh = pad * 2 + rowH * texts.Count;
+         var box = new Rect(_plotRect.Right - bw - margin, _plotRect.Bottom - bh - marginBottom, bw, bh);
+         var bg = ParseBrush(_settings.Background).Clone();
+         bg.Opacity = 0.85;
+         dc.DrawRoundedRectangle(bg, new Pen(Brushes.Gray, 0.5), box, 3, 3);
+         for (int i = 0; i < texts.Count; i++)
+         {
+            double y = box.Top + pad + rowH * (i + 0.5);
+            var item = _legend![i];
+            dc.DrawLine(new Pen(item.Stroke, item.StrokeThickness), new Point(box.Left + pad, y), new Point(box.Left + pad + sample, y));
+            dc.DrawText(texts[i], new Point(box.Left + pad + sample + gap, y - texts[i].Height / 2));
+         }
       }
 
       private void DrawPointLabels(DrawingContext dc)

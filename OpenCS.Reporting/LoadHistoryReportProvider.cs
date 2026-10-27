@@ -87,7 +87,10 @@ public sealed class LoadHistoryReportProvider : IReportProvider
         string steel = h.Steel == CScore.Hysteresis.SteelHysteresisModel.Bilinear
             ? "билинейная"
             : $"Menegotto–Pinto (R0 = {F(h.R0)}; cR1 = {F(h.CR1)}; cR2 = {F(h.CR2)})";
-        return $"гистерезис: бетон Karsan–Jirsa, сталь {steel}";
+        string concrete = h.Concrete == CScore.Hysteresis.ConcreteHysteresisModel.NonlinearElastic
+            ? "нелинейно-упругий"
+            : "Karsan–Jirsa";
+        return $"гистерезис: бетон {concrete}, сталь {steel}";
     }
 
     static void AddRoles(ReportDocument document, LoadHistoryResultData data)
