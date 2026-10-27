@@ -42,6 +42,8 @@ public class LoadHistoryHysteresisTests
         Assert.True(Math.Abs(h.Steps[^1].K.ky) > 5e-5, $"остаточная кривизна {h.Steps[^1].K.ky}");
         Assert.True(Math.Abs(e.Steps[^1].K.ky) < 1e-6);
         Assert.True(h.Steps[^1].Parts[0].RebarResidual > 0 || h.Steps[^1].Parts[0].ConcreteResidual > 0);
+        // сжатая арматура: разгрузка — в сторону уменьшения |σ| (шаг «назад» давал σ/(b·E) и εост ~ 1e5)
+        Assert.All(h.Steps.SelectMany(x => x.Parts), p => Assert.InRange(p.RebarResidual, 0, 0.01));
     }
 
     /// <summary>Частичная разгрузка в пределах упругого ядра билинейной стали и линии разгрузки бетона:
@@ -99,6 +101,29 @@ public class LoadHistoryHysteresisTests
         var f = a.Integral(res.Steps[i].K, CalcType.C, false);
         Assert.Equal(res.Steps[i].Result.Mx, f.Mx, 6);
         Assert.Equal(res.Steps[i].Result.N, f.N, 6);
+    }
+
+    /// <summary>
+    /// По волокнам с ролью «Разрушается» N(e0) при фиксированной c пилообразна, и Ньютон этапа разрушения
+    /// останавливается, хотя равновесие есть; при гистерезисе его продолжает брекетинг по e0.
+    /// </summary>
+    [Theory]
+    [InlineData(40)]
+    [InlineData(120)]
+    public void Failure_WithFailsRoleInFibers_ReachesDropOrLimit(int failureSteps)
+    {
+        var roles = new PartRoles(1, PartLimitRole.Fails, PartLimitRole.Limits);
+        HistoryStage[] st =
+        [
+            new("1", StageKind.Load, null, new Load { Mx = -60 }, 4),
+            new("2", StageKind.Load, 1, new Load { Mx = -110 }, 5),
+            new("р", StageKind.Failure, null, new Load { Mx = -1 }, 1),
+        ];
+        var o = Opt(true, roles);
+        o.Tol = 0.1;
+        o.Failure.Steps = failureSteps;
+        var run = new LoadHistorySolver(Beam(), o).Run(st, false).WithHistory;
+        Assert.NotEqual("failure_not_converged", run.StopReason);
     }
 
     [Fact]

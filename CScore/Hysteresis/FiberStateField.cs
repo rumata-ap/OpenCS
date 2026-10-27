@@ -111,7 +111,8 @@ public sealed class FiberStateField
 
     /// <summary>
     /// Остаточные деформации после пробного шага при плоскостях trialAt: бетон — наибольшая |εp| (P2 Karsan–Jirsa),
-    /// арматура — наибольшая |ε − σ/Eразгр|, Eразгр — касательный модуль пробы малого шага назад от нового состояния.
+    /// арматура — наибольшая |ε − σ/Eразгр|, Eразгр — касательный модуль пробы малого шага от нового состояния
+    /// в сторону уменьшения |σ| (разгрузка; шаг «назад» у сжатого стержня продолжал бы текучесть).
     /// </summary>
     public (double Concrete, double Rebar) Residual(IEnumerable<(MaterialArea area, Kurvature k)> trialAt, bool ten)
     {
@@ -121,12 +122,16 @@ public sealed class FiberStateField
             if (!_slots.TryGetValue(area, out var s)) continue;
             for (int i = 0; i < area.Fibers.Count; i++)
             {
-                Fiber(s, area.Fibers[i], i, ka, ten, out _, out _, out _, out var nm, out _);
+                Fiber(s, area.Fibers[i], i, ka, ten, out _, out _, out double sigSteel, out var nm, out _);
                 if (s.Models.IsConcrete) rc = Math.Max(rc, Math.Abs(nm.P2));
                 else
                 {
-                    s.Models.Main.Trial(nm, nm.Eps - 1e-7, ten, out double eUnload, out _);
-                    double res = eUnload > 0 ? nm.Eps - nm.Sig / eUnload : 0;
+                    double res = nm.Eps;
+                    if (Math.Abs(sigSteel) > 1e-6)
+                    {
+                        s.Models.Main.Trial(nm, nm.Eps - Math.Sign(sigSteel) * 1e-7, ten, out double eUnload, out _);
+                        res = eUnload > 0 ? nm.Eps - sigSteel / eUnload : 0;
+                    }
                     rs = Math.Max(rs, Math.Abs(res));
                 }
             }
