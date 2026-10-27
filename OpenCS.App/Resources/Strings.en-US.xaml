@@ -1625,6 +1625,13 @@
    <system:String x:Key="LoadHistory_Fallback">When a load step does not converge</system:String>
    <system:String x:Key="LoadHistory_FallbackCurvature">by curvature (concrete tension kept)</system:String>
    <system:String x:Key="LoadHistory_FallbackNoTension">without concrete tension on this step</system:String>
+   <system:String x:Key="LoadHistory_Material">Material model</system:String>
+   <system:String x:Key="LoadHistory_MaterialElastic">nonlinear elastic (unloading along the loading curve)</system:String>
+   <system:String x:Key="LoadHistory_MaterialHysteresis">with unloading (hysteresis)</system:String>
+   <system:String x:Key="LoadHistory_SteelModel">Steel</system:String>
+   <system:String x:Key="LoadHistory_SteelMP">Menegotto–Pinto</system:String>
+   <system:String x:Key="LoadHistory_SteelBilinear">bilinear</system:String>
+   <system:String x:Key="LoadHistory_HysteresisHint">Concrete — Karsan–Jirsa over the area diagram; analysis is fiber-based (contour areas are meshed)</system:String>
    <system:String x:Key="LoadHistory_FailureDirectionHint">N is not set for the failure stage (kept from the previous stage); only the direction is taken from the moment</system:String>
    <system:String x:Key="LoadHistory_RolesNote">Roles other than «Limits» change the limit state criterion compared to cl. 8.1.30 of SP 63</system:String>
    <system:String x:Key="LoadHistoryErr_no_stages">No stages defined</system:String>
@@ -1636,6 +1643,7 @@
    <system:String x:Key="LoadHistoryErr_softening">Softening length Δε must be positive</system:String>
    <system:String x:Key="LoadHistoryErr_failure_steps">Failure step count must be at least 1</system:String>
    <system:String x:Key="LoadHistoryErr_c_max">Curvature limit must be positive</system:String>
+   <system:String x:Key="LoadHistoryErr_hysteresis">Hysteresis parameters: R0 &gt; 0, 0 ≤ cR1 &lt; 1, cR2 &gt; 0</system:String>
    <system:String x:Key="LoadHistoryErr_number">Invalid number in parameters</system:String>
    <system:String x:Key="LoadHistoryErr_force_item">No force set row selected</system:String>
    <system:String x:Key="LoadHistory_TabSteps">Steps</system:String>

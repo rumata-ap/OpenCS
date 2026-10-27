@@ -1625,6 +1625,13 @@
    <system:String x:Key="LoadHistory_Fallback">При несходимости шага по нагрузке</system:String>
    <system:String x:Key="LoadHistory_FallbackCurvature">по кривизне (растяжение бетона сохраняется)</system:String>
    <system:String x:Key="LoadHistory_FallbackNoTension">без растяжения бетона на этом шаге</system:String>
+   <system:String x:Key="LoadHistory_Material">Модель материала</system:String>
+   <system:String x:Key="LoadHistory_MaterialElastic">нелинейно-упругая (разгрузка по кривой нагружения)</system:String>
+   <system:String x:Key="LoadHistory_MaterialHysteresis">с разгрузкой (гистерезис)</system:String>
+   <system:String x:Key="LoadHistory_SteelModel">Сталь</system:String>
+   <system:String x:Key="LoadHistory_SteelMP">Menegotto–Pinto</system:String>
+   <system:String x:Key="LoadHistory_SteelBilinear">билинейная</system:String>
+   <system:String x:Key="LoadHistory_HysteresisHint">Бетон — Karsan–Jirsa над диаграммой области; расчёт идёт по волокнам (контурные области разбиваются на волокна)</system:String>
    <system:String x:Key="LoadHistory_FailureDirectionHint">У этапа разрушения N не задаётся (сохраняется с предыдущего этапа); из момента берётся только направление</system:String>
    <system:String x:Key="LoadHistory_RolesNote">Роли, отличные от «Ограничивает», меняют критерий предельного состояния по сравнению с п. 8.1.30 СП 63</system:String>
    <system:String x:Key="LoadHistoryErr_no_stages">Не задано ни одного этапа</system:String>
@@ -1636,6 +1643,7 @@
    <system:String x:Key="LoadHistoryErr_softening">Длина спада Δε должна быть больше нуля</system:String>
    <system:String x:Key="LoadHistoryErr_failure_steps">Число шагов доведения до разрушения должно быть не меньше 1</system:String>
    <system:String x:Key="LoadHistoryErr_c_max">Предельная кривизна должна быть больше нуля</system:String>
+   <system:String x:Key="LoadHistoryErr_hysteresis">Параметры гистерезиса: R0 &gt; 0, 0 ≤ cR1 &lt; 1, cR2 &gt; 0</system:String>
    <system:String x:Key="LoadHistoryErr_number">Неверное число в параметрах</system:String>
    <system:String x:Key="LoadHistoryErr_force_item">Не выбрана строка набора усилий</system:String>
    <system:String x:Key="LoadHistory_TabSteps">Шаги</system:String>

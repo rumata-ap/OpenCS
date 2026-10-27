@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows.Input;
 using CScore;
 using CScore.History;
+using CScore.Hysteresis;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -170,6 +171,9 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
     int _failureSteps = 50;
     string _failureMx = "-1", _failureMy = "0", _dropRatio = "0.85", _cMax = "", _softening = "0.0005";
     LoadStepFallback _fallback = LoadStepFallback.CurvatureControl;
+    bool _hysteresis;
+    SteelHysteresisModel _steel = SteelHysteresisModel.MenegottoPinto;
+    string _r0 = "20", _cr1 = "0.925", _cr2 = "0.15";
 
     public LoadHistoryParamsVM(IReadOnlyList<ForceSet> forceSets)
     {
@@ -249,6 +253,58 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
         set { if (value) Fallback = LoadStepFallback.WithoutConcreteTension; }
     }
 
+    /// <summary>Материал с состоянием (гистерезис) вместо нелинейно-упругого.</summary>
+    public bool HysteresisEnabled
+    {
+        get => _hysteresis;
+        set { _hysteresis = value; OnPropertyChanged(); OnPropertyChanged(nameof(HysteresisDisabled)); OnPropertyChanged(nameof(ShowMpParams)); }
+    }
+
+    /// <summary>Нелинейно-упругий материал (для переключателя).</summary>
+    public bool HysteresisDisabled
+    {
+        get => !_hysteresis;
+        set { if (value) HysteresisEnabled = false; }
+    }
+
+    /// <summary>Модель стали при гистерезисе.</summary>
+    public SteelHysteresisModel Steel
+    {
+        get => _steel;
+        set
+        {
+            _steel = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SteelMenegottoPinto));
+            OnPropertyChanged(nameof(SteelBilinear));
+            OnPropertyChanged(nameof(ShowMpParams));
+        }
+    }
+
+    /// <summary>Сталь Menegotto–Pinto (для переключателя).</summary>
+    public bool SteelMenegottoPinto
+    {
+        get => _steel == SteelHysteresisModel.MenegottoPinto;
+        set { if (value) Steel = SteelHysteresisModel.MenegottoPinto; }
+    }
+
+    /// <summary>Билинейная сталь (для переключателя).</summary>
+    public bool SteelBilinear
+    {
+        get => _steel == SteelHysteresisModel.Bilinear;
+        set { if (value) Steel = SteelHysteresisModel.Bilinear; }
+    }
+
+    /// <summary>Показывать параметры Menegotto–Pinto (гистерезис включён и выбрана MP).</summary>
+    public bool ShowMpParams => _hysteresis && _steel == SteelHysteresisModel.MenegottoPinto;
+
+    /// <summary>R0 Menegotto–Pinto.</summary>
+    public string R0 { get => _r0; set { _r0 = value; OnPropertyChanged(); } }
+    /// <summary>cR1 Menegotto–Pinto.</summary>
+    public string CR1 { get => _cr1; set { _cr1 = value; OnPropertyChanged(); } }
+    /// <summary>cR2 Menegotto–Pinto.</summary>
+    public string CR2 { get => _cr2; set { _cr2 = value; OnPropertyChanged(); } }
+
     public ICommand AddStageCommand { get; }
     public ICommand RemoveStageCommand { get; }
     public ICommand MoveUpCommand { get; }
@@ -310,6 +366,12 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
         SofteningStrain = p.Failure.SofteningStrain.ToString("G6", Inv);
         CompareWithoutHistory = p.CompareWithoutHistory;
         Fallback = p.Fallback;
+        var h = p.Hysteresis ?? new HysteresisOptions();
+        HysteresisEnabled = p.Hysteresis is not null;
+        Steel = h.Steel;
+        R0 = h.R0.ToString("G6", Inv);
+        CR1 = h.CR1.ToString("G6", Inv);
+        CR2 = h.CR2.ToString("G6", Inv);
 
         _roles.Clear();
         foreach (var r in p.PartRoles) _roles[r.PartIndex] = (r.Concrete, r.Rebar);
@@ -343,6 +405,9 @@ public sealed class LoadHistoryParamsVM : ViewModelBase
                 CMax = string.IsNullOrWhiteSpace(CMax) ? null : Num(CMax),
                 SofteningStrain = Num(SofteningStrain),
             },
+            Hysteresis = HysteresisEnabled
+                ? new HysteresisOptions { Steel = Steel, R0 = Num(R0), CR1 = Num(CR1), CR2 = Num(CR2) }
+                : null,
         };
         foreach (var row in Stages)
         {

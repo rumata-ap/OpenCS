@@ -84,7 +84,43 @@
          </GroupBox>
       </StackPanel>
       <StackPanel Grid.Column="2">
-         <!-- 2. Доведение до разрушения -->
+         <!-- 2. Модель материала -->
+         <GroupBox Header="{DynamicResource LoadHistory_Material}" Margin="0,0,0,8">
+            <StackPanel Margin="4">
+               <RadioButton Content="{DynamicResource LoadHistory_MaterialElastic}" IsChecked="{Binding HysteresisDisabled}"
+                            GroupName="LhMaterial" Margin="0,0,0,2"/>
+               <RadioButton Content="{DynamicResource LoadHistory_MaterialHysteresis}" IsChecked="{Binding HysteresisEnabled}"
+                            GroupName="LhMaterial"/>
+               <StackPanel Margin="18,4,0,0" Visibility="{Binding HysteresisEnabled, Converter={StaticResource BoolToVis}}">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                     <TextBlock Text="{DynamicResource LoadHistory_SteelModel}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                     <RadioButton Content="{DynamicResource LoadHistory_SteelMP}" IsChecked="{Binding SteelMenegottoPinto}"
+                                  GroupName="LhSteel" Margin="0,0,12,0"/>
+                     <RadioButton Content="{DynamicResource LoadHistory_SteelBilinear}" IsChecked="{Binding SteelBilinear}"
+                                  GroupName="LhSteel"/>
+                  </StackPanel>
+                  <Grid Visibility="{Binding ShowMpParams, Converter={StaticResource BoolToVis}}" Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Text="R0" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="1" Text="{Binding R0, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                     <TextBlock Grid.Column="2" Text="cR1" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="3" Text="{Binding CR1, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                     <TextBlock Grid.Column="4" Text="cR2" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Grid.Column="5" Text="{Binding CR2, UpdateSourceTrigger=PropertyChanged}"/>
+                  </Grid>
+                  <TextBlock Text="{DynamicResource LoadHistory_HysteresisHint}" Style="{StaticResource Hint}"/>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+
+         <!-- 3. Доведение до разрушения -->
          <GroupBox>
             <GroupBox.Header>
                <CheckBox Content="{DynamicResource LoadHistory_Failure}" IsChecked="{Binding HasFailure}"/>
@@ -119,7 +155,7 @@
             </Grid>
          </GroupBox>
 
-         <!-- 3. Роли частей -->
+         <!-- 4. Роли частей -->
          <GroupBox Header="{DynamicResource LoadHistory_Roles}" Margin="0,8,0,0">
             <StackPanel Margin="4">
                <DataGrid x:Name="RolesGrid" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -151,7 +187,7 @@
             </StackPanel>
          </GroupBox>
 
-         <!-- 4. Сравнение и продолжение несошедшегося шага -->
+         <!-- 5. Сравнение и продолжение несошедшегося шага -->
          <CheckBox Content="{DynamicResource LoadHistory_Compare}" IsChecked="{Binding CompareWithoutHistory}" Margin="0,8,0,0"/>
          <GroupBox Header="{DynamicResource LoadHistory_Fallback}" Margin="0,8,0,0">
             <StackPanel Margin="4">

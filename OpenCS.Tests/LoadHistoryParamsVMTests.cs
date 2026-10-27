@@ -43,6 +43,39 @@ public sealed class LoadHistoryParamsVMTests
     }
 
     [Fact]
+    public void Load_Build_Hysteresis()
+    {
+        var vm = new LoadHistoryParamsVM([]);
+        vm.SetSection(Staged(1));
+        var p = new LoadHistoryParams
+        {
+            Stages = [new() { Tag = "1", Steps = 2, Force = new StageForce { Mode = "manual", Mx = -50 } }],
+            Hysteresis = new CScore.Hysteresis.HysteresisOptions { Steel = CScore.Hysteresis.SteelHysteresisModel.Bilinear, R0 = 15 },
+        };
+        vm.Load(p);
+        Assert.True(vm.HysteresisEnabled);
+        Assert.True(vm.SteelBilinear);
+        Assert.False(vm.ShowMpParams);
+        Assert.Equal("15", vm.R0);
+        var q = vm.Build(out var errors);
+        Assert.Empty(errors);
+        Assert.Equal(CScore.Hysteresis.SteelHysteresisModel.Bilinear, q.Hysteresis!.Steel);
+        Assert.Equal(15, q.Hysteresis.R0);
+
+        vm.HysteresisDisabled = true;
+        Assert.Null(vm.Build(out _).Hysteresis);
+
+        vm.HysteresisEnabled = true;
+        vm.SteelMenegottoPinto = true;
+        vm.R0 = "abc";
+        vm.Build(out errors);
+        Assert.Contains(LoadHistoryParamsVM.NumberError, errors);
+        vm.R0 = "0";
+        vm.Build(out errors);
+        Assert.Contains(LoadHistoryParamErrors.Hysteresis, errors);
+    }
+
+    [Fact]
     public void PartChoices_OnlyNotYetActivated()
     {
         var vm = new LoadHistoryParamsVM([]);
