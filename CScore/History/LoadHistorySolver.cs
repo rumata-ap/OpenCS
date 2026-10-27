@@ -3,7 +3,9 @@ namespace CScore.History;
 /// <summary>
 /// Решатель истории нагружения стадийного сечения. Этапы <see cref="StageKind.Load"/> — управление по
 /// нагрузке с тёплым стартом от предыдущего шага того же пути; несошедшийся шаг останавливает путь.
-/// Материал нелинейно-упругий: разгрузка идёт по кривой нагружения.
+/// Без <see cref="LoadHistoryOptions.Hysteresis"/> материал нелинейно-упругий: разгрузка идёт по кривой нагружения.
+/// С гистерезисом состояния волокон фиксируются после каждого принятого шага (пробные решения — от последнего
+/// зафиксированного состояния).
 /// </summary>
 public sealed class LoadHistorySolver
 {
@@ -63,6 +65,8 @@ public sealed class LoadHistorySolver
         var run = new LoadHistoryRun();
         if (withHistory) _section.ResetHistory(); else _section.ActivateAll();
         ApplyFailsRoles();
+        if (_o.Hysteresis is not null)
+            _section.EnableHysteresis(_o.Hysteresis, _o.Calc, RebarRupture, _o.Failure.SofteningStrain);
 
         var solver = new StrainSolver(_section, _o.Calc, ten: _o.Ten, tol: _o.Tol,
             maxIter: _o.MaxIter, h: _o.H, centralJacobian: _o.CentralJacobian);
@@ -121,6 +125,7 @@ public sealed class LoadHistorySolver
                     run.ActivationPlanes = _section.ActivationPlanes.ToArray();
                     return run;
                 }
+                _section.CommitState(kNew, tenStep);
                 k = kNew;
             }
             fPrev = st.Target;
@@ -136,10 +141,22 @@ public sealed class LoadHistorySolver
     {
         var f = _section.Integral(k, _o.Calc, ten ?? _o.Ten);
         double cos = Math.Cos(phi), sin = Math.Sin(phi);
-        var parts = Enumerable.Range(0, _section.ActivePartCount)
-            .Select(p => PartUtilization.Evaluate(_section, p, k, _o.Calc)).ToList();
+        var parts = Enumerable.Range(0, _section.ActivePartCount).Select(p =>
+        {
+            var u = PartUtilization.Evaluate(_section, p, k, _o.Calc);
+            if (!_section.HysteresisEnabled) return u;
+            var (rc, rs) = _section.ResidualStrains(p, k, ten ?? _o.Ten);
+            return new PartStepState
+            {
+                PartIndex = u.PartIndex, ConcreteEpsMin = u.ConcreteEpsMin, ConcreteEpsMax = u.ConcreteEpsMax,
+                RebarEpsMin = u.RebarEpsMin, RebarEpsMax = u.RebarEpsMax, EtaConcrete = u.EtaConcrete,
+                EtaRebar = u.EtaRebar, ConcreteMinPoint = u.ConcreteMinPoint, RebarMaxPoint = u.RebarMaxPoint,
+                ConcreteResidual = rc, RebarResidual = rs,
+            };
+        }).ToList();
         var warnings = new List<string>();
-        if (kind == StageKind.Load && parts.Any(p => Exceeds(p, PartLimitRole.Fails)))
+        // При гистерезисе отказ необратим — это свойство модели, а не оговорка.
+        if (kind == StageKind.Load && !_section.HysteresisEnabled && parts.Any(p => Exceeds(p, PartLimitRole.Fails)))
             warnings.Add("fails_beyond_limit");
         return new HistoryStep
         {
@@ -272,7 +289,8 @@ public sealed class LoadHistorySolver
     }
 
     /// <summary>Оборачивает диаграммы областей с ролью «Разрушается» в <see cref="SofteningDiagramm"/>.
-    /// Словарь диаграмм заменяется целиком: у клонов CloneForCalc он общий с оригиналом.</summary>
+    /// Словарь диаграмм заменяется целиком: у клонов CloneForCalc он общий с оригиналом.
+    /// При гистерезисе арматура не оборачивается: её отказ — <see cref="Hysteresis.RuptureDamage"/> в модели стали.</summary>
     void ApplyFailsRoles()
     {
         foreach (var part in _section.Parts)
@@ -285,6 +303,7 @@ public sealed class LoadHistorySolver
                 bool concrete = LimitSurface.StrainCriterionGeometry.IsConcrete(area);
                 var role = concrete ? roles.Concrete : roles.Rebar;
                 if (role != PartLimitRole.Fails) continue;
+                if (!concrete && _o.Hysteresis is not null) continue;
                 double limit = concrete
                     ? PartUtilization.LimitConcrete(area, _o.Calc)
                     : LimitSurface.UlsStrainCriterion.RebarEpsSu(area, _o.Calc);
@@ -294,6 +313,41 @@ public sealed class LoadHistorySolver
                 };
             }
         }
+    }
+
+    /// <summary>εs2 арматуры части с ролью «Разрушается» (отказ в модели стали); иначе null.</summary>
+    double? RebarRupture(MaterialArea area)
+    {
+        var part = _section.Parts.FirstOrDefault(p => p.Areas.Contains(area));
+        if (part is null || LimitSurface.StrainCriterionGeometry.IsConcrete(area)) return null;
+        return _o.RoleOf(part.Index).Rebar == PartLimitRole.Fails
+            ? LimitSurface.UlsStrainCriterion.RebarEpsSu(area, _o.Calc) : null;
+    }
+
+    /// <summary>Шаг пути для воспроизведения: плоскость, число включённых частей, учёт растяжения бетона.</summary>
+    public sealed record ReplayStep(Kurvature K, int Parts, bool Ten);
+
+    /// <summary>
+    /// Копия источника с состояниями волокон после шагов 0…upTo пути (без Ньютона, те же обёртки ролей и тот же
+    /// порядок фиксаций, что у решателя). Без гистерезиса — копия с включёнными частями.
+    /// Часть включается перед первым шагом с бо́льшим числом частей при своей плоскости включения — как в решателе.
+    /// </summary>
+    public static StagedSection Replay(StagedSection source, LoadHistoryOptions o, IReadOnlyList<ReplayStep> steps,
+        IReadOnlyList<Kurvature> activationPlanes, bool withHistory, int upTo)
+    {
+        var s = (StagedSection)source.CloneForCalc();
+        var solver = new LoadHistorySolver(s, o);
+        if (withHistory) s.ResetHistory(); else s.ActivateAll();
+        solver.ApplyFailsRoles();
+        if (o.Hysteresis is not null)
+            s.EnableHysteresis(o.Hysteresis, o.Calc, solver.RebarRupture, o.Failure.SofteningStrain);
+        for (int j = 0; j <= upTo && j < steps.Count; j++)
+        {
+            while (withHistory && s.ActivePartCount < steps[j].Parts)
+                s.ActivatePart(s.ActivePartCount, activationPlanes[s.ActivePartCount]);
+            s.CommitState(steps[j].K, steps[j].Ten);
+        }
+        return s;
     }
 
     bool Exceeds(PartStepState p, PartLimitRole role)
@@ -361,6 +415,7 @@ public sealed class LoadHistorySolver
 
             run.Steps.Add(st);
             Tick();
+            _section.CommitState(kNew, _o.Ten);
             mPeak = Math.Max(mPeak, Math.Abs(st.Mu));
             c = cNew; k = kNew; prevEta = gov.eta;
 
@@ -386,6 +441,7 @@ public sealed class LoadHistorySolver
         var st = MakeStep(stageIndex, StageKind.Failure, ++stepNo, new Load { N = n0 }, kLim, phi, true, it, res, isLimitPoint: true);
         var gov = Governing(st.Parts);
         run.Steps.Add(st);
+        _section.CommitState(kLim, _o.Ten);
         run.MLim = Math.Abs(st.Mu);
         run.GoverningPart = gov.part;
         run.GoverningMaterial = gov.material;

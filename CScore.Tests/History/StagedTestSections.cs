@@ -54,6 +54,28 @@ internal static class StagedTestSections
         return s;
     }
 
+    /// <summary>Одна часть 0,3×0,5 (B25 L3) с 3⌀20 A500 сверху и снизу (y = ±0,2) — для циклов знака момента.</summary>
+    public static StagedSection SymmetricBeam(int nx = 0, int ny = 0)
+    {
+        var b25 = TestMaterials.Concrete("B25");
+        var a500 = TestMaterials.Rebar("A500");
+        var concrete = ConcreteRect(1, -0.15, 0.15, -0.25, 0.25, b25, nx, ny);
+        concrete.DiagrammType = DiagrammType.L3;
+        var part = new SectionPart
+        {
+            Index = 0, Tag = "балка",
+            Areas =
+            [
+                concrete,
+                Bars(2, a500, (-0.1, -0.2, 0.020), (0.0, -0.2, 0.020), (0.1, -0.2, 0.020)),
+                Bars(3, a500, (-0.1, 0.2, 0.020), (0.0, 0.2, 0.020), (0.1, 0.2, 0.020)),
+            ],
+        };
+        var s = new StagedSection { Id = 102, Tag = "symmetric", Parts = [part] };
+        s.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+        return s;
+    }
+
     /// <summary>Одночастное стадийное сечение из прямоугольника 0,3×0,5 с нижней арматурой.</summary>
     public static StagedSection SinglePart()
     {

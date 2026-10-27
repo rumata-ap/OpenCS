@@ -66,6 +66,8 @@ public sealed class LoadHistoryOptions
     public LoadStepFallback Fallback { get; set; } = LoadStepFallback.CurvatureControl;
     public FailureOptions Failure { get; set; } = new();
     public IReadOnlyList<PartRoles> Roles { get; set; } = [];
+    /// <summary>Материал с состоянием (гистерезис); null — нелинейно-упругий.</summary>
+    public Hysteresis.HysteresisOptions? Hysteresis { get; set; }
     public CancellationToken Token { get; set; }
     /// <summary>Доля выполненных шагов, 0…1.</summary>
     public Action<double>? Progress { get; set; }
@@ -90,6 +92,10 @@ public sealed class PartStepState
     public double EtaRebar { get; init; }
     public (double X, double Y) ConcreteMinPoint { get; init; }
     public (double X, double Y) RebarMaxPoint { get; init; }
+    /// <summary>Наибольшая остаточная деформация бетона части |εp| (0 без гистерезиса).</summary>
+    public double ConcreteResidual { get; init; }
+    /// <summary>Наибольшая остаточная деформация арматуры части (0 без гистерезиса).</summary>
+    public double RebarResidual { get; init; }
 }
 
 /// <summary>Шаг истории.</summary>
