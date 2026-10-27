@@ -67,6 +67,7 @@ public static partial class StoreyFragmentBuilder
         foreach (var s in sources.Where(s => s.Region is not null && !IsHorizontalShell(s))) CutWall(c, s);
         if (draft.HasErrors) return draft;
         AddSupportNodes(c, parent);
+        TransferBoundary(c, parent);
         TransferRigidBodies(c, parent);
         ReportNotTransferred(c, parent);
         TransferLoads(c, parent);

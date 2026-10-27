@@ -6,7 +6,7 @@ namespace CScore.Fem.Fragment;
 
 /// <summary>
 /// Отпечаток снимка полосы родителя (спека разд. 6): SHA-256 по каноническим строкам узлов, КонЭ, сетки, загружений,
-/// определений, нагрузок и АЖТ. Id БД не входят — загружение, узел, КонЭ и группа представлены тегами, строки
+/// определений, нагрузок, АЖТ, пружин и закреплений узлов сетки. Id БД не входят — загружение, узел, КонЭ и группа представлены тегами, строки
 /// каждого вида упорядочены, поэтому перечитывание той же схемы даёт тот же отпечаток.
 /// </summary>
 public static class StoreyFragmentFingerprint
@@ -57,6 +57,9 @@ public static class StoreyFragmentFingerprint
             l.GroupId is int g ? groupTag.GetValueOrDefault(g, "?") : "", l.LoadKind, l.CoordinateSystem, l.Axis, l.ValuesJson)));
         Section("mesh_node_loads", s.MeshNodeLoads.Select(l => J(Lc(l.LoadCaseId), l.MeshNodeTag,
             D(l.Fx), D(l.Fy), D(l.Fz), D(l.Mx), D(l.My), D(l.Mz))));
+        Section("springs", s.Springs.Select(p => J(p.TargetKind, p.NodeTag,
+            D(p.Kx), D(p.Ky), D(p.Kz), D(p.Kux), D(p.Kuy), D(p.Kuz), p.Origin, p.SourceElemTag)));
+        Section("mesh_node_supports", s.MeshNodeSupports.Select(p => J(p.NodeTag, I(p.Mask), p.Origin)));
         return Convert.ToHexString(hash.GetHashAndReset());
     }
 

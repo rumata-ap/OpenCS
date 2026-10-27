@@ -111,6 +111,31 @@ public sealed class StoreyFragmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void Build_TransfersMeshNodeSpringsAndSupports()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        // 1007 — узел сетки S1 (−1,5; −1,5; 3), 2001 — S2 на z = 9 (вне полосы), 1013 — (0; 0; 3).
+        var spring = new FemSpring { TargetKind = FemSpringTargetKinds.MeshNode, NodeTag = "1007", Kz = 2e6, SourceElemTag = "51" };
+        var outside = new FemSpring { TargetKind = FemSpringTargetKinds.MeshNode, NodeTag = "2001", Kz = 1e9 };
+        db.SaveFemBoundary(parent.Id, "import:scad", [new FemMeshNodeSupport { NodeTag = "1013", Mask = 7 }], [spring, outside], []);
+
+        var fragment = StoreyFragmentService.Build(db, parent.Id, Band).Schema!;
+
+        var s = Assert.Single(db.GetFemSprings(fragment.Id));
+        Assert.Equal((FemSpringTargetKinds.Node, 2e6, "import:scad", "51"), (s.TargetKind, s.Kz, s.Origin, s.SourceElemTag));
+        var nodes = db.GetFemNodes(fragment.Id);
+        var node = nodes.Single(n => n.NodeTag == s.NodeTag);
+        Assert.Equal((-1.5, -1.5, 3.0), (node.X, node.Y, node.Z));
+        Assert.Equal(7, nodes.Single(n => n.X == 0 && n.Y == 0 && n.Z == 3).DofMask & 7);
+        Assert.Single(FemFieldService.EffectiveSprings(db, fragment.Id));
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, fragment));
+
+        Exec($"UPDATE fem_springs SET kz=3e6 WHERE schema_id={parent.Id} AND node_tag='1007'");
+        Assert.Equal(FragmentParentStatus.Changed, StoreyFragmentService.CheckParent(db, fragment));
+    }
+
+    [Fact]
     public void CheckParent_TracksBandChangesAndDeletion()
     {
         using var db = new DatabaseService(_path);

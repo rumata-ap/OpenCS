@@ -331,7 +331,8 @@ namespace OpenCS.Utilites
       /// Снимок полосы родителя для построителя (план среза 3, решение 3). Схемный уровень читается целиком и
       /// отсекается <see cref="StoreyFragmentBand.Trim"/>; сетка — КЭ, заходящие в полосу (тот же критерий, что у
       /// построителя: max z &gt; z₁ + tol и min z &lt; z₂ − tol), их узлы, нагрузки на эти КЭ/узлы и на оставшиеся КонЭ,
-      /// нагрузки на группы — фильтром в SQL через временные таблицы.
+      /// нагрузки на группы, пружины и закрепления этих узлов (пружины узлов схемы — все) — фильтром в SQL через
+      /// временные таблицы.
       /// </summary>
       public StoreyFragmentParentSnapshot ReadStoreyFragmentSnapshot(int parentId, StoreyFragmentRequest request)
       {
@@ -412,6 +413,11 @@ namespace OpenCS.Utilites
                NodeLoads = schemaLevel.NodeLoads,
                KinematicLoads = schemaLevel.KinematicLoads,
                Groups = schemaLevel.Groups,
+               Springs = QueryFemSprings(parentId, $"""
+                  target_kind='{FemSpringTargetKinds.Node}'
+                  OR (target_kind='{FemSpringTargetKinds.MeshNode}' AND node_tag IN (SELECT tag FROM temp.frag_nodes))
+                  """),
+               MeshNodeSupports = QueryFemMeshNodeSupports(parentId, "node_tag IN (SELECT tag FROM temp.frag_nodes)"),
             };
          }
          finally
@@ -627,6 +633,8 @@ namespace OpenCS.Utilites
                }
             }
 
+            foreach (var s in draft.Springs) Node(s.NodeTag);
+            InsertFemBoundaryCore(sid, [], draft.Springs, [], updateObjects: false);
             InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, [], Lc, _ => null, updateObjects: false);
             InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
             CopyFragmentRebarSourcesCore(parentId, sid);

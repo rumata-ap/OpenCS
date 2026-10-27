@@ -58,6 +58,8 @@ public static class StoreyFragmentBand
             NodeLoads = s.NodeLoads.Where(l => nodeIds.Contains(l.NodeId)).ToList(),
             KinematicLoads = s.KinematicLoads.Where(l => nodeIds.Contains(l.NodeId)).ToList(),
             Groups = s.Groups,
+            Springs = s.Springs,
+            MeshNodeSupports = s.MeshNodeSupports,
         };
     }
 

@@ -27,6 +27,10 @@ public sealed class StoreyFragmentParentSnapshot
     public IReadOnlyList<FemKinematicLoad> KinematicLoads { get; init; } = [];
     /// <summary>Группы — для нагрузок с целью «группа».</summary>
     public IReadOnlyList<FemMemberGroup> Groups { get; init; } = [];
+    /// <summary>Пружины на узлах сетки полосы и на узлах схемы.</summary>
+    public IReadOnlyList<FemSpring> Springs { get; init; } = [];
+    /// <summary>Закрепления узлов сетки полосы.</summary>
+    public IReadOnlyList<FemMeshNodeSupport> MeshNodeSupports { get; init; } = [];
 }
 
 /// <summary>Вид сечения рассечения: конец стержня или кромка стены.</summary>
@@ -63,6 +67,8 @@ public sealed class StoreyFragmentDraft
     public List<FragmentMemberLoad> MemberLoads { get; } = [];
     public List<FragmentNodeLoad> NodeLoads { get; } = [];
     public List<FragmentKinematicLoad> KinematicLoads { get; } = [];
+    /// <summary>Пружины на узлах схемы фрагмента (<see cref="FemSpringTargetKinds.Node"/>, тег узла фрагмента).</summary>
+    public List<FemSpring> Springs { get; } = [];
     public List<FragmentFieldLoad> FieldLoads { get; } = [];
     /// <summary>Опорная сетка: КЭ родителя полосы.</summary>
     public List<FragmentRefElement> RefElements { get; } = [];

@@ -7,11 +7,15 @@ namespace OpenCS.Utilites
    public partial class DatabaseService
    {
       /// <summary>Закрепления узлов сетки схемы.</summary>
-      public List<FemMeshNodeSupport> GetFemMeshNodeSupports(int schemaId)
+      public List<FemMeshNodeSupport> GetFemMeshNodeSupports(int schemaId) => QueryFemMeshNodeSupports(schemaId, null);
+
+      /// <summary>Закрепления узлов сетки схемы с доп. условием SQL <paramref name="where"/> (null — все).</summary>
+      List<FemMeshNodeSupport> QueryFemMeshNodeSupports(int schemaId, string? where)
       {
          var result = new List<FemMeshNodeSupport>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, node_tag, mask, origin FROM fem_mesh_node_supports WHERE schema_id=@sid ORDER BY id";
+         cmd.CommandText = "SELECT id, node_tag, mask, origin FROM fem_mesh_node_supports WHERE schema_id=@sid"
+                           + (where == null ? "" : " AND (" + where + ")") + " ORDER BY id";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
          while (r.Read())
@@ -69,14 +73,15 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Пружины схемы (на узлах обоих уровней).</summary>
-      public List<FemSpring> GetFemSprings(int schemaId)
+      public List<FemSpring> GetFemSprings(int schemaId) => QueryFemSprings(schemaId, null);
+
+      /// <summary>Пружины схемы с доп. условием SQL <paramref name="where"/> (null — все).</summary>
+      List<FemSpring> QueryFemSprings(int schemaId, string? where)
       {
          var result = new List<FemSpring>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
-            SELECT id, target_kind, node_tag, kx, ky, kz, kux, kuy, kuz, origin, source_elem_tag
-            FROM fem_springs WHERE schema_id=@sid ORDER BY id
-            """;
+         cmd.CommandText = "SELECT id, target_kind, node_tag, kx, ky, kz, kux, kuy, kuz, origin, source_elem_tag FROM fem_springs"
+                           + " WHERE schema_id=@sid" + (where == null ? "" : " AND (" + where + ")") + " ORDER BY id";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
          while (r.Read())
