@@ -1074,6 +1074,7 @@
    <system:String x:Key="FemCheckNoScadSelected">The schema has no SCAD selected reinforcement (schema menu “SCAD → SCAD selected reinforcement (plugin)…”)</system:String>
    <system:String x:Key="FemCheckSteelGroupParams">SP 16 parameters (γc, effective lengths μ·l, lateral restraint spacing, limiting slenderness) of {0} elements are taken from SCAD steel groups; other elements use the check parameters.</system:String>
    <system:String x:Key="FemCheckSteelGroupNoLength">{0} elements of SCAD steel groups have no length (mesh nodes missing) — check parameters are used.</system:String>
+    <system:String x:Key="FemCheckFragmentSteelGroups">Storey fragment: SCAD steel groups of the parent schema are not applied (fragment elements are parts of parent elements) — check parameters are used.</system:String>
    <system:String x:Key="FemCheckSteelMeshLef">Effective lengths of {0} elements — lef = μ·l, l is the bar length between joints with other elements in the schema mesh.</system:String>
    <system:String x:Key="FemCheckSteelMeshLefNoLength">{0} elements have no mesh length (mesh nodes missing) — effective lengths from the group SP 16 parameters.</system:String>
    <system:String x:Key="FemCheckSteelAutoLef">{0} elements take effective lengths from the stability analysis of the model (Auto, FEM).</system:String>

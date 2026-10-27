@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Fragment;
 using CScore.Import;
 using OpenCS.Utilites;
 
@@ -42,42 +43,71 @@ public sealed class FemCheckSchemaData
     public IReadOnlyDictionary<int, LiraStiffnessRecord> Stiffnesses { get; init; } = new Dictionary<int, LiraStiffnessRecord>();
     /// <summary>Ошибки чтения файлов армирования.</summary>
     public IReadOnlyList<string> Errors { get; init; } = [];
+    /// <summary>
+    /// Фрагмент этажа: КЭ сетки → КЭ родителя по опорной сетке; файлы армирования (<see cref="Rbt"/>, <see cref="Asp"/>,
+    /// SCAD) — по номерам КЭ родителя, источники над ними оборачиваются (<see cref="ParentMappedPlateSectionSource"/>).
+    /// Null — схема не фрагмент.
+    /// </summary>
+    public FragmentParentMap? ParentMap { get; init; }
 
-    /// <summary>Прочитать данные схемы из БД (в UI-потоке: соединение SQLite одно).</summary>
+    /// <summary>Программа фрагмента, собранного до v93 (программа родителя не сохранена), — по видам копий вложений.</summary>
+    static string GuessParentSourceType(IEnumerable<string> kinds) =>
+        kinds.Any(k => k.StartsWith("scad_", StringComparison.Ordinal)) ? "scad" : "lira";
+
+    /// <summary>Сопоставление сетки фрагмента с опорной сеткой родителя; нет сетки — пустое.</summary>
+    static FragmentParentMap ParentMapOf(DatabaseService db, int schemaId, IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> nodes)
+    {
+        var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in nodes) byTag.TryAdd(n.NodeTag, n);
+        List<FragmentRefElement> refs = mesh.Count == 0 ? [] : db.GetFragmentRefElements(schemaId);
+        return FragmentParentMap.Build(mesh, byTag, new ParentMeshMapper(refs));
+    }
+
+    /// <summary>
+    /// Прочитать данные схемы из БД (в UI-потоке: соединение SQLite одно). У фрагмента этажа файлы армирования — копии
+    /// вложений родителя (<c>fem_fragment_rebar_sources</c>), программа — родителя, а КЭ сопоставлены с КЭ родителя
+    /// (<see cref="ParentMap"/>).
+    /// </summary>
     public static FemCheckSchemaData Load(DatabaseService db, int schemaId)
     {
         var errors = new List<string>();
+        var (isFragment, parentSourceType) = db.GetFemSchemaFragmentSource(schemaId);
+        List<(string Kind, string FileName, byte[] Data)> copies = isFragment ? db.GetFragmentRebarSources(schemaId) : [];
+        (string FileName, byte[] Data)? Copy(string kind) =>
+            copies.FirstOrDefault(c => c.Kind == kind) is { Data: not null } c ? (c.FileName, c.Data) : null;
+        (string FileName, byte[] Data)? Source(string kind) => isFragment ? Copy(kind)
+            : db.GetFemSchemaSourceFile(schemaId, kind) is { } f ? (f.FileName, f.Data) : null;
+
         LiraRbtFile? rbt = null;
         LiraAspFile? asp = null;
-        if (db.GetFemSchemaReinforcementFile(schemaId) is { } rbtFile)
+        if ((isFragment ? Copy(DatabaseService.FragmentRebarSourceLiraRbt) : db.GetFemSchemaReinforcementFile(schemaId)) is { } rbtFile)
             try { rbt = LiraRbtReader.Read(rbtFile.Data); }
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             { errors.Add($"{rbtFile.FileName}: {ex.Message}"); }
-        if (db.GetFemSchemaSelectedReinforcementFile(schemaId) is { } aspFile)
+        if ((isFragment ? Copy(DatabaseService.FragmentRebarSourceLiraAsp) : db.GetFemSchemaSelectedReinforcementFile(schemaId)) is { } aspFile)
             try { asp = LiraAspReader.Read(aspFile.Data); }
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             { errors.Add($"{aspFile.FileName}: {ex.Message}"); }
 
         ScadSelectedRebarFile? scadSelected = null;
         ScadConcreteGroupIndex? scadGroups = null;
-        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSelectedRebar) is { } scadFile)
+        if (Source(FemSchemaSourceFileKind.ScadSelectedRebar) is { } scadFile)
             try { scadSelected = ScadRebarExportReader.Read(scadFile.Data); }
             catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException)
             { errors.Add($"{scadFile.FileName}: {ex.Message}"); }
-        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadConcreteGroups) is { } groupsFile)
+        if (Source(FemSchemaSourceFileKind.ScadConcreteGroups) is { } groupsFile)
             try { scadGroups = ScadConcreteGroupIndex.FromJson(Encoding.UTF8.GetString(groupsFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
         ScadAssignedRebarFile? scadAssigned = null;
-        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadAssignedRebar) is { } assignedFile)
+        if (Source(FemSchemaSourceFileKind.ScadAssignedRebar) is { } assignedFile)
             try { scadAssigned = ScadAssignedRebarFile.FromJson(Encoding.UTF8.GetString(assignedFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
         SteelProfileIndex? steelProfiles = null;
-        if ((db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelProfiles)
-             ?? db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.LiraSteelProfiles)) is { } steelFile)
+        if ((Source(FemSchemaSourceFileKind.ScadSteelProfiles) ?? Source(FemSchemaSourceFileKind.LiraSteelProfiles)) is { } steelFile)
             try { steelProfiles = SteelProfileIndex.FromJson(Encoding.UTF8.GetString(steelFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
         ScadSteelGroupIndex? scadSteelGroups = null;
-        if (db.GetFemSchemaSourceFile(schemaId, FemSchemaSourceFileKind.ScadSteelGroups) is { } steelGroupsFile)
+        if (Source(FemSchemaSourceFileKind.ScadSteelGroups) is { } steelGroupsFile)
             try { scadSteelGroups = ScadSteelGroupIndex.FromJson(Encoding.UTF8.GetString(steelGroupsFile.Data)); }
             catch (InvalidDataException ex) { errors.Add(ex.Message); }
 
@@ -85,17 +115,21 @@ public sealed class FemCheckSchemaData
         // Регионы нужны раскладке OpenCS; узлы — ей же, длинам КЭ стальных групп и длинам между раскреплениями
         // при учёте продольного изгиба (настройка проверки, а не схемы) — читаются всегда.
         bool planar = members.Any(m => m.PlanarRegionId != null);
+        // C1 — с учётом полей из таблиц и ручных правок.
+        var mesh = FemFieldService.Effective(db, schemaId).Elements;
+        var meshNodes = db.GetFemMeshNodes(schemaId);
         return new FemCheckSchemaData
         {
             SchemaId = schemaId,
             Members = members,
-            // C1 — с учётом полей из таблиц и ручных правок.
-            Mesh = FemFieldService.Effective(db, schemaId).Elements,
-            MeshNodes = db.GetFemMeshNodes(schemaId),
+            Mesh = mesh,
+            MeshNodes = meshNodes,
             Regions = planar ? db.GetPlanarRegions(schemaId) : [],
             Rbt = rbt,
             Asp = asp,
-            SourceType = db.GetFemSchemaSourceType(schemaId),
+            SourceType = isFragment ? parentSourceType ?? GuessParentSourceType(copies.Select(c => c.Kind))
+                : db.GetFemSchemaSourceType(schemaId),
+            ParentMap = isFragment ? ParentMapOf(db, schemaId, mesh, meshNodes) : null,
             ScadSelected = scadSelected,
             ScadConcreteGroups = scadGroups,
             ScadAssigned = scadAssigned,
@@ -244,12 +278,7 @@ public static class FemCheckContext
             // опирается на привязку параметрического профиля, которую клон не несёт, — на общем сечении.
             ParallelBars = check.NormCode is "rc_check" or "steel_check",
             SharedBarSection = check.NormCode == "steel_check",
-            BarSelectedAsCm2 = data.IsScad
-                ? data.ScadSelected?.Bars.Where(b => b.Value.Envelope?.LongitudinalSum != null)
-                      .ToDictionary(b => b.Key, b => b.Value.Envelope!.LongitudinalSum!.Value)
-                  ?? new Dictionary<int, double>()
-                : data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
-                  ?? new Dictionary<int, double>(),
+            BarSelectedAsCm2 = BarSelectedAsCm2(data),
         };
     }
 
@@ -258,7 +287,18 @@ public static class FemCheckContext
     /// подобранное — SCAD или ЛИРЫ по программе-источнику схемы; нет файла — источник с причиной; неизвестный ключ — null.
     /// </summary>
     /// <param name="sections">Пластинчатые сечения проекта (для раскладки OpenCS).</param>
+    /// <remarks>У фрагмента этажа заданное и подобранное берутся у КЭ родителя (<see cref="FemCheckSchemaData.ParentMap"/>).</remarks>
     public static IPlateElementSectionSource? PlateSource(
+        string key, PlateSection template, FemCheckSchemaData data, IEnumerable<PlateSection> sections)
+    {
+        var source = PlateSourceCore(key, template, data, sections);
+        return data.ParentMap is { } map && key is FemCheckRebarSource.Assigned or FemCheckRebarSource.Selected
+               && source is not null and not UnavailablePlateSectionSource
+            ? new ParentMappedPlateSectionSource(source, map)
+            : source;
+    }
+
+    static IPlateElementSectionSource? PlateSourceCore(
         string key, PlateSection template, FemCheckSchemaData data, IEnumerable<PlateSection> sections) => key switch
     {
         FemCheckRebarSource.Section => new TemplatePlateSectionSource(template),
@@ -340,6 +380,8 @@ public static class FemCheckContext
         FemCheckSchemaData data, FemCheckScope scope)
     {
         if (data.ScadSteelGroups is not { Groups.Count: > 0 } groups) return (null, []);
+        // Стальные группы — по номерам и длинам КЭ родителя; КЭ фрагмента — части КЭ родителя: не применяются.
+        if (data.ParentMap != null) return (null, [Loc.S("FemCheckFragmentSteelGroups")]);
 
         var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
         foreach (var n in data.MeshNodes) nodes.TryAdd(n.NodeTag, n);
@@ -429,7 +471,32 @@ public static class FemCheckContext
                         : new UnavailableBarSectionSource(key, Loc.S("FemCheckNoAsp")));
                     break;
             }
+        // Фрагмент этажа: данные ЛИРЫ/SCAD — по КЭ родителя.
+        if (data.ParentMap is { } map)
+            for (int i = 0; i < sources.Count; i++)
+                if (sources[i] is not ProjectBarSectionSource and not UnavailableBarSectionSource)
+                    sources[i] = new ParentMappedBarSectionSource(sources[i], map);
         return sources;
+    }
+
+    /// <summary>
+    /// Подобранная продольная арматура стержней, см², по номеру КЭ; у фрагмента этажа — по номерам КЭ фрагмента из
+    /// значений их КЭ родителя.
+    /// </summary>
+    static IReadOnlyDictionary<int, double> BarSelectedAsCm2(FemCheckSchemaData data)
+    {
+        var byNum = data.IsScad
+            ? data.ScadSelected?.Bars.Where(b => b.Value.Envelope?.LongitudinalSum != null)
+                  .ToDictionary(b => b.Key, b => b.Value.Envelope!.LongitudinalSum!.Value)
+              ?? new Dictionary<int, double>()
+            : data.Asp?.Bars.ToDictionary(b => b.Key, b => b.Value.Envelope.LongitudinalSum)
+              ?? new Dictionary<int, double>();
+        if (data.ParentMap is not { } map || byNum.Count == 0) return byNum;
+        var result = new Dictionary<int, double>();
+        foreach (var (tag, r) in map.ByTag)
+            if (int.TryParse(tag, out int num) && int.TryParse(r.Tag, out int parent) && byNum.TryGetValue(parent, out double v))
+                result[num] = v;
+        return result;
     }
 
     /// <summary>

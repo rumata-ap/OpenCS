@@ -100,6 +100,109 @@ public sealed class StoreyFragmentAnalysisTests : IDisposable
         Assert.All(FemFieldService.Effective(f.Db, f.Schema.Id).Elements, x => Assert.Null(x.FoundationC1));
     }
 
+    /// <summary>Выгрузка SCAD «подобранное»: пластина родителя 101 (КЭ 102 в файле нет).</summary>
+    static byte[] ScadSelected() => System.Text.Encoding.UTF8.GetBytes(
+        "{\"format\":\"opencs-scad-rebar\",\"version\":1,\"project\":\"p.SPR\",\"name\":\"p\",\"exported\":\"Thu, 1 Oct 2026 12:00:00 UTC\"," +
+        "\"units\":[{\"id\":\"theResultArmSquare\",\"name\":\"см2\",\"title\":\"Площадь\",\"factor\":0.0001}]," +
+        "\"plates\":[{\"e\":101,\"as\":[0.0002,0.0003,0.0004,0.0005],\"asw\":[0,0]}],\"bars\":[]}");
+
+    static string CatalogDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
+        return Path.Combine(dir!.FullName, "OpenCS.App", "DataSource");
+    }
+
+    /// <summary>Сечение-шаблон с армированием у обеих граней (привязки для подобранного), материалы — в БД.</summary>
+    static CScore.PlateSection Template(DatabaseService db)
+    {
+        var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
+        var rebar = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
+        db.AddMaterial(concrete);
+        db.AddMaterial(rebar);
+        var plate = new CScore.PlateSection
+        {
+            Tag = "Пл200", H = 0.2, ConcreteMaterialId = concrete.Id, RebarMaterialId = rebar.Id,
+            RebarLayers =
+            [
+                new CScore.PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = -0.065, Zsy = -0.065,
+                    DiameterX = 0.012, DiameterY = 0.012, Face = CScore.PlateRebar.RebarFace.MinusN },
+                new CScore.PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = 0.065, Zsy = 0.065,
+                    DiameterX = 0.012, DiameterY = 0.012, Face = CScore.PlateRebar.RebarFace.PlusN },
+            ],
+        };
+        db.SavePlateSection(plate);
+        return plate;
+    }
+
+    [Fact]
+    public void ScadSelected_FromParentCopies_ByParentElement()
+    {
+        var f = Create("scad");
+        var parent = new FemSchema { Tag = "Родитель", SourceType = "scad" };
+        f.Db.SaveFemSchema(parent);
+        f.Db.SaveFemSchemaSourceFile(parent.Id, FemSchemaSourceFileKind.ScadSelectedRebar, "rebar.json", ScadSelected());
+        f.Db.CopyFragmentRebarSources(parent.Id, f.Schema.Id);
+        var template = Template(f.Db);
+
+        var data = FemCheckSchemaData.Load(f.Db, f.Schema.Id);
+        Assert.True(data.IsScad);
+        Assert.NotNull(data.ScadSelected);
+        Assert.Equal("101", data.ParentMap!.ByTag["1"].Tag);
+        Assert.Equal("102", data.ParentMap.ByTag["2"].Tag);
+
+        var source = Assert.IsType<ParentMappedPlateSectionSource>(
+            FemCheckContext.PlateSource(FemCheckRebarSource.Selected, template, data, f.Db.PlateSections));
+        var mesh = data.Mesh.ToDictionary(e => e.ElemTag);
+        var s1 = source.Resolve(new FemCheckScopeElement(1, mesh["1"], null));
+        Assert.NotNull(s1.Section);
+        Assert.Equal(2e-4 + 3e-4, s1.Section!.RebarLayers.Sum(l => l.Asx), 9);
+        var s2 = source.Resolve(new FemCheckScopeElement(2, mesh["2"], null));
+        Assert.Null(s2.Section);
+        Assert.NotEqual(ParentMappedElement.UnmappedReason, s2.Reason);
+
+        Assert.IsType<TemplatePlateSectionSource>(FemCheckContext.PlateSource(FemCheckRebarSource.Section, template, data, f.Db.PlateSections));
+    }
+
+    [Fact]
+    public void CsfeaInput_SelectedRebar_FromParent()
+    {
+        var f = Create("scad");
+        var parent = new FemSchema { Tag = "Родитель", SourceType = "scad" };
+        f.Db.SaveFemSchema(parent);
+        f.Db.SaveFemSchemaSourceFile(parent.Id, FemSchemaSourceFileKind.ScadSelectedRebar, "rebar.json", ScadSelected());
+        f.Db.CopyFragmentRebarSources(parent.Id, f.Schema.Id);
+        var template = Template(f.Db);
+        f.Db.SaveFemMemberGroup(new FemMemberGroup
+        {
+            SchemaId = f.Schema.Id, Tag = "Плита", Kind = FemMemberGroup.KindMesh, MemberTagsJson = "[1,2]", PlateSectionId = template.Id,
+        });
+        f.Db.LoadAll();
+
+        var input = FemCsfeaInputBuilder.Build(f.Db, f.Schema.Id, new FemCsfeaSetup { PlateRebarSource = FemCheckRebarSource.Selected });
+
+        var mesh = f.Db.GetFemMeshElements(f.Schema.Id).ToDictionary(e => e.ElemTag);
+        Assert.NotNull(input.PlateSection!(mesh["1"])!.Section.Section);
+        Assert.Null(input.PlateSection(mesh["2"])!.Section.Section);
+    }
+
+    [Fact]
+    public void PlainSchema_NoParentMap_OwnAttachments()
+    {
+        var f = Create();
+        var plain = new FemSchema { Tag = "Обычная", SourceType = "scad" };
+        f.Db.SaveFemSchema(plain);
+        f.Db.SaveFemSchemaSourceFile(plain.Id, FemSchemaSourceFileKind.ScadSelectedRebar, "rebar.json", ScadSelected());
+
+        var data = FemCheckSchemaData.Load(f.Db, plain.Id);
+        Assert.Null(data.ParentMap);
+        Assert.NotNull(data.ScadSelected);
+
+        var fragment = FemCheckSchemaData.Load(f.Db, f.Schema.Id);
+        Assert.Null(fragment.ScadSelected);
+        Assert.False(fragment.IsScad);
+    }
+
     [Fact]
     public void ElementLoads_PlainSchema_OnlyStoredLoads()
     {

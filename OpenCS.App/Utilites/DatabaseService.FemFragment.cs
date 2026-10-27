@@ -251,6 +251,16 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>Схема — фрагмент этажа и программа-источник её родителя (null — собран до v93 или не фрагмент).</summary>
+      public (bool IsFragment, string? ParentSourceType) GetFemSchemaFragmentSource(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT parent_schema_id, parent_source_type FROM fem_schemas WHERE id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         return r.Read() ? (!r.IsDBNull(0), r.IsDBNull(1) ? null : r.GetString(1)) : (false, null);
+      }
+
       /// <summary>Есть ли у схемы нагрузки-поля фрагмента (без чтения значений).</summary>
       public bool HasFragmentFieldLoads(int schemaId)
       {
