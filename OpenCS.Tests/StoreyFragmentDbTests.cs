@@ -1,4 +1,6 @@
 using CScore.Fem;
+using CScore.Fem.Fragment;
+using CScore.Planar;
 using Microsoft.Data.Sqlite;
 using OpenCS.Utilites;
 using Xunit;
@@ -75,6 +77,83 @@ public sealed class StoreyFragmentDbTests : IDisposable
             Assert.Equal("[]", s.FragmentBuildReportJson);
             Assert.False(db.FemSchemas.Single(x => x.Tag == "Родитель").IsFragment);
         }
+    }
+
+    [Fact]
+    public void FragmentData_RoundTrip()
+    {
+        using var db = new DatabaseService(_path);
+        var schema = new FemSchema { Tag = "Фрагмент" };
+        db.SaveFemSchema(schema);
+        FragmentCut[] cuts =
+        [
+            new("C1 · низ", FragmentCutKind.End, FragmentCutSide.Bottom, 1.5, "17", []),
+            new("W1", FragmentCutKind.Edge, FragmentCutSide.Top, 4.5, null,
+                [(new PlanarVector3(0, 0, 4.5), new PlanarVector3(1, 0, 4.5)), (new PlanarVector3(2, 0, 4.5), new PlanarVector3(3, 0, 4.5))]),
+        ];
+        FragmentRefElement[] refs =
+        [
+            new("501", "beam", [new(0, 0, 1.5), new(0, 0, 3)], stiffnessNum: 3, sourceMemberTag: "C1"),
+            new("1", "shell", [new(-3, -3, 3), new(-1.5, -3, 3), new(-3, -1.5, 3), new(-1.5, -1.5, 3)], foundationC1: 2e7),
+        ];
+        FragmentFieldLoad[] fields =
+        [
+            new(7, FemElementLoadKinds.Nodal, "z", [new("1", [1, 2, 3, 4])]),
+            new(8, FemElementLoadKinds.Edge, "x", [new("1", [1, 2, -5, -6]), new("2", [2, 4, 1, 1])]),
+        ];
+        db.ReplaceStoreyFragmentData(schema.Id, cuts, refs, fields);
+
+        var c = db.GetFragmentCuts(schema.Id);
+        Assert.Equal(2, c.Count);
+        Assert.Equal(("C1 · низ", FragmentCutKind.End, FragmentCutSide.Bottom, 1.5, "17"), (c[0].MemberTag, c[0].Kind, c[0].Side, c[0].Z, c[0].NodeTag));
+        Assert.Empty(c[0].Segments);
+        Assert.Equal(cuts[1].Segments, c[1].Segments);
+        Assert.Null(c[1].NodeTag);
+
+        var r = db.GetFragmentRefElements(schema.Id);
+        Assert.Equal(["501", "1"], r.Select(e => e.Tag));
+        Assert.True(r[0].IsBar);
+        Assert.Equal(3, r[0].StiffnessNum);
+        Assert.Equal("C1", r[0].SourceMemberTag);
+        Assert.Equal(refs[1].Points, r[1].Points);
+        Assert.Equal(2e7, r[1].FoundationC1);
+
+        var f = db.GetFragmentFieldLoads(schema.Id);
+        Assert.Equal([7, 8], f.Select(x => x.LoadCaseId));
+        Assert.Equal("x", f[1].Axis);
+        Assert.Equal(FemElementLoadKinds.Edge, f[1].LoadKind);
+        Assert.Equal([2.0, 4, 1, 1], f[1].Entries[1].Values);
+
+        db.ReplaceStoreyFragmentData(schema.Id, [], [], []);
+        Assert.Empty(db.GetFragmentCuts(schema.Id));
+        Assert.Empty(db.GetFragmentRefElements(schema.Id));
+        Assert.Empty(db.GetFragmentFieldLoads(schema.Id));
+    }
+
+    [Fact]
+    public void RebarSources_CopiedFromParent_WithoutAnalysisModel()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = new FemSchema { Tag = "Родитель" };
+        var fragment = new FemSchema { Tag = "Фрагмент" };
+        db.SaveFemSchema(parent);
+        db.SaveFemSchema(fragment);
+        db.SaveFemSchemaReinforcementFile(parent.Id, "a.rbt", [1, 2]);
+        db.SaveFemSchemaSelectedReinforcementFile(parent.Id, "a.asp", [3]);
+        db.SaveFemSchemaSourceFile(parent.Id, FemSchemaSourceFileKind.ScadAssignedRebar, "assigned.json", [4]);
+        db.SaveFemSchemaSourceFile(parent.Id, FemSchemaSourceFileKind.ScadAnalysisModel, "model.spr", [5]);
+        db.SaveFemSchemaStiffnesses(parent.Id, [new CScore.Import.LiraStiffnessRecord(3, 10, "Колонна", "40x40", 0.01)]);
+
+        db.CopyFragmentRebarSources(parent.Id, fragment.Id);
+        db.CopyFragmentRebarSources(parent.Id, fragment.Id);
+
+        var sources = db.GetFragmentRebarSources(fragment.Id);
+        Assert.Equal([DatabaseService.FragmentRebarSourceLiraAsp, DatabaseService.FragmentRebarSourceLiraRbt,
+                      FemSchemaSourceFileKind.ScadAssignedRebar], sources.Select(s => s.Kind));
+        Assert.Equal([1, 2], sources.Single(s => s.Kind == DatabaseService.FragmentRebarSourceLiraRbt).Data);
+        Assert.Equal("assigned.json", sources[2].FileName);
+        Assert.Equal("Колонна", db.GetFemSchemaStiffnesses(fragment.Id)[3].Name);
+        Assert.Null(db.GetFemSchemaReinforcementFile(fragment.Id));
     }
 
     object? Scalar(string sql)
