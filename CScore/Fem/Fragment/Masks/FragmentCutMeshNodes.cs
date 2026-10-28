@@ -9,10 +9,13 @@ public sealed record FragmentCutNode(string Tag, double S, PlanarVector3 X);
 /// <summary>
 /// Узлы сетки фрагмента на одном разрезе (спека 5.2): конец стержня — один узел (<see cref="EndNode"/>); кромка — узлы
 /// каждого отрезка по возрастанию <see cref="FragmentCutNode.S"/> (<see cref="Segments"/>; узел на стыке отрезков входит
-/// в оба). <see cref="Error"/> — разрез не лёг на сетку.
+/// в оба), <see cref="SegmentIndices"/> — номера этих отрезков в <see cref="FragmentCut.Segments"/> (отрезки нулевой длины
+/// пропускаются). <see cref="Error"/> — разрез не лёг на сетку.
 /// </summary>
 public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOnlyList<FragmentCutNode>> Segments, string? Error)
 {
+    public IReadOnlyList<int> SegmentIndices { get; init; } = [];
+
     /// <summary>Все узлы разреза без повторов.</summary>
     public IEnumerable<string> Tags => EndNode != null ? [EndNode] : Segments.SelectMany(s => s).Select(n => n.Tag).Distinct();
 
@@ -39,9 +42,11 @@ public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOn
         }
 
         var segments = new List<IReadOnlyList<FragmentCutNode>>();
+        var indices = new List<int>();
         double offset = 0;
-        foreach (var (a, b) in c.Segments)
+        for (int i = 0; i < c.Segments.Count; i++)
         {
+            var (a, b) = c.Segments[i];
             double len = (b - a).Length;
             if (len <= tol) { offset += len; continue; }
             var axis = (b - a) * (1 / len);
@@ -65,10 +70,11 @@ public sealed record FragmentCutMeshNodes(string? EndNode, IReadOnlyList<IReadOn
             unique[0] = unique[0] with { S = offset };
             unique[^1] = unique[^1] with { S = offset + len };
             segments.Add(unique);
+            indices.Add(i);
             offset += len;
         }
         if (segments.Count == 0) return new(null, [], "у кромки нет отрезков");
-        return new(null, segments, null);
+        return new(null, segments, null) { SegmentIndices = indices };
     }
 
     static PlanarVector3 Point(FemMeshNode n) => new(n.X, n.Y, n.Z);

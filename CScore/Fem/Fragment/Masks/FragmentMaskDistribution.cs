@@ -56,23 +56,13 @@ public static class FragmentMaskDistribution
         if (samples.Count == 0 || samples.Any(x => x.F == null)) return null;
         var bySegment = SplitBySegments(cut.Segments, samples);
         var result = new Dictionary<string, Dof6>(StringComparer.Ordinal);
-        int seg = 0;
-        double offset = 0;
-        for (int i = 0; i < cut.Segments.Count; i++)
+        for (int i = 0; i < nodes.Segments.Count; i++)
         {
-            var (a, b) = cut.Segments[i];
-            double len = (b - a).Length;
-            var part = bySegment[i];
-            // Отрезки нулевой длины узлов не имеют (FragmentCutMeshNodes их пропускает).
-            if (seg >= nodes.Segments.Count || len <= Eps) { offset += len; continue; }
-            var segmentNodes = nodes.Segments[seg];
-            if (Math.Abs(segmentNodes[0].S - offset) > 1e-6) { offset += len; continue; }
-            seg++;
-            offset += len;
+            var part = bySegment[nodes.SegmentIndices[i]];
             if (part.Count == 0) return null;
-            AddSegment(result, segmentNodes, part);
+            AddSegment(result, nodes.Segments[i], part);
         }
-        return seg == nodes.Segments.Count ? result : null;
+        return result;
     }
 
     /// <summary>
