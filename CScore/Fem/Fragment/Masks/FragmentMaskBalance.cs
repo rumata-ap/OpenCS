@@ -1,0 +1,53 @@
+using CScore.Planar;
+using CScore.Submodel;
+
+namespace CScore.Fem.Fragment.Masks;
+
+/// <summary>Равнодействующие масок и равновесие масок с нагрузками полосы (спека разд. 4.4).</summary>
+public static class FragmentMaskBalance
+{
+    /// <summary>
+    /// Равнодействующая действия маски сечения: сила и момент относительно <paramref name="origin"/>. Кромка —
+    /// интеграл кусочно-линейной функции по сэмплам внутри каждого отрезка (Симпсон для момента силы — точен); конец
+    /// стержня — сила и момент сэмпла. null — нет ни одного сэмпла с силой.
+    /// </summary>
+    public static (PlanarVector3 F, PlanarVector3 M)? Resultant(FragmentMaskCutInput cut,
+        IReadOnlyList<FragmentMaskSample> samples, PlanarVector3 origin)
+    {
+        if (samples.All(s => s.F == null)) return null;
+        if (cut.Cut.Kind == FragmentCutKind.End)
+        {
+            var f = samples[0].F;
+            if (f == null || cut.EndPoint is not { } p) return null;
+            return (f.Force, f.Moment + (p - origin).Cross(f.Force));
+        }
+        var sumF = PlanarVector3.Zero;
+        var sumM = PlanarVector3.Zero;
+        double offset = 0;
+        int k = 0;
+        foreach (var (a, b) in cut.Cut.Segments)
+        {
+            double len = (b - a).Length;
+            var axis = (b - a).Normalize();
+            var segment = new List<FragmentMaskSample>();
+            while (k < samples.Count && samples[k].S <= offset + len + 1e-9)
+            {
+                segment.Add(samples[k]);
+                k++;
+                if (segment.Count > 1 && samples[k - 1].S >= offset + len - 1e-9) break;
+            }
+            for (int i = 0; i + 1 < segment.Count; i++)
+            {
+                if (segment[i].F is not { } f0 || segment[i + 1].F is not { } f1) continue;
+                double s0 = segment[i].S - offset, s1 = segment[i + 1].S - offset, h = s1 - s0;
+                PlanarVector3 X(double s) => a + axis * s - origin;
+                var fm = (f0.Force + f1.Force) * 0.5;
+                sumF += fm * h;
+                sumM += (f0.Moment + f1.Moment) * (h / 2);
+                sumM += (X(s0).Cross(f0.Force) + X((s0 + s1) / 2).Cross(fm) * 4 + X(s1).Cross(f1.Force)) * (h / 6);
+            }
+            offset += len;
+        }
+        return (sumF, sumM);
+    }
+}
