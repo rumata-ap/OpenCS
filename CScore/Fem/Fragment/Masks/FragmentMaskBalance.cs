@@ -50,4 +50,52 @@ public static class FragmentMaskBalance
         }
         return (sumF, sumM);
     }
+
+    /// <summary>Допуск равновесия масок с нагрузками полосы (спека 4.4).</summary>
+    public const double BalanceTolerance = 0.02;
+
+    /// <summary>
+    /// Равновесие по ключам: ΣF, ΣM масок всех сечений + нагрузки полосы (<paramref name="loads"/>, относительно
+    /// <paramref name="origin"/>) ≈ 0. Расхождение больше <see cref="BalanceTolerance"/> — предупреждение
+    /// <c>fragment_mask_balance</c> с разбивкой по сечениям. Подгонки нет.
+    /// </summary>
+    public static List<FemValidationDiagnostic> Check(IReadOnlyList<FragmentMaskCutInput> cuts,
+        IReadOnlyList<FragmentCutMask> masks, IReadOnlyDictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)> loads,
+        PlanarVector3 origin)
+    {
+        var result = new List<FemValidationDiagnostic>();
+        foreach (var group in masks.GroupBy(m => m.Key))
+        {
+            var sumF = PlanarVector3.Zero;
+            var sumM = PlanarVector3.Zero;
+            double absF = 0, radius = 0;
+            var parts = new List<string>();
+            foreach (var m in group)
+            {
+                var cut = cuts[m.CutIndex];
+                if (Resultant(cut, m.Samples, origin) is not { } r) continue;
+                var (f, mo) = r;
+                sumF += f;
+                sumM += mo;
+                absF += f.Length;
+                var at = cut.EndPoint ?? cut.Cut.Segments[0].P;
+                radius = Math.Max(radius, (at - origin).Length);
+                parts.Add(string.Create(System.Globalization.CultureInfo.CurrentCulture,
+                    $"{cut.Cut.MemberTag} {(cut.Cut.Side == FragmentCutSide.Bottom ? "низ" : "верх")}: Fz {f.Z / 1e3:0.##} кН"));
+            }
+            var (lf, lm) = loads.TryGetValue(group.Key, out var l) ? l : (PlanarVector3.Zero, PlanarVector3.Zero);
+            double scaleF = lf.Length > 0 ? lf.Length : absF;
+            if (scaleF <= 1e-9) continue;
+            double dF = (sumF + lf).Length / scaleF;
+            double dM = (sumM + lm).Length / (lm.Length + scaleF * Math.Max(radius, 1e-9));
+            if (dF <= BalanceTolerance && dM <= BalanceTolerance) continue;
+            string key = group.Key.Kind == FragmentMaskKeyKind.LoadCase
+                ? $"загружение #{group.Key.LoadCaseId}" : $"сочетание {group.Key.StageExpressionJson}";
+            result.Add(new FemValidationDiagnostic("fragment_mask_balance", string.Create(
+                System.Globalization.CultureInfo.CurrentCulture,
+                $"{key}: маски сечений не уравновешивают нагрузки полосы — по силе {dF:P1}, по моменту {dM:P1} ({string.Join("; ", parts)})."),
+                false));
+        }
+        return result;
+    }
 }
