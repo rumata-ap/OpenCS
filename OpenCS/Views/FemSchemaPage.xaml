@@ -190,6 +190,11 @@
             </StackPanel>
         </TabItem>
 
+        <!-- Вкладка ГУ разрезов: только у фрагмента этажа -->
+        <TabItem x:Name="fragmentBcTab" Header="{DynamicResource FragmentCutBcTab}">
+            <local:FragmentCutBcPanel x:Name="fragmentBcPanel"/>
+        </TabItem>
+
         <!-- Вкладка субмодели: только у извлечённой субмодели -->
         <TabItem x:Name="submodelTab" Header="{DynamicResource SubmodelTab}"
                  Visibility="{Binding IsSubmodel, Converter={StaticResource BooleanToVisibilityConverter}}">

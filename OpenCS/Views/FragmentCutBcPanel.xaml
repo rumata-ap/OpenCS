@@ -1,0 +1,31 @@
+<UserControl x:Class="OpenCS.Views.FragmentCutBcPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+    <!-- ГУ разрезов фрагмента (DataContext — FragmentCutBcVM): пресет и режимы DOF по разрезам; изменения — сразу в БД -->
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="{DynamicResource FragmentCutBcPreset}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Label"
+                      MinWidth="320"/>
+            <Button Content="{DynamicResource FragmentCutBcReset}" Command="{Binding ResetCommand}" Padding="8,0"
+                    Margin="12,0,0,0"/>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Hint}" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,0,0,6"
+                   Visibility="{Binding HasHint, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FragmentCutBcLegend}" Foreground="Gray" TextWrapping="Wrap"
+                   Margin="0,0,0,6"/>
+        <DataGrid x:Name="grid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                  CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource FragmentCutBcColMember}" Binding="{Binding MemberTag}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="{DynamicResource FragmentCutBcColSide}" Binding="{Binding SideText}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="{DynamicResource FragmentCutBcColZ}" Binding="{Binding ZText}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="{DynamicResource FragmentCutBcColKind}" Binding="{Binding KindText}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="{DynamicResource FragmentCutBcColMask}" Binding="{Binding MaskText}" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

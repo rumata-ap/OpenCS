@@ -1,4 +1,5 @@
 using CScore.Fem;
+using CScore.Fem.Fragment;
 using CScore.Fem.Fragment.Masks;
 using OpenCS.Services;
 using OpenCS.Utilites;
@@ -101,5 +102,56 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.Equal(FragmentMaskStatus.SourceDeleted, vm.MaskStatus);
         Assert.True(vm.IsMaskWarning);
         Assert.Equal(Loc.S("StoreyFragmentMasksBannerSourceDeleted"), vm.MaskText);
+    }
+    /// <summary>
+    /// Вкладка «ГУ разрезов»: пресет → режимы по разрезам (и в экземпляр схемы, который читает сборка входа CSfea),
+    /// правка → байты БД, смена пресета правки не трогает, сброс — всё «по пресету»; подсказка о масках пропадает после
+    /// снятия.
+    /// </summary>
+    [Fact]
+    public void CutBc_Preset_Override_Reset_MasksHint()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var vm = new FragmentCutBcVM(db, p.Fragment);
+        Assert.True(vm.IsVisible);
+        Assert.Equal(8, vm.Rows.Count);
+        Assert.Equal(FragmentBcPreset.Kinematic, vm.SelectedPreset.Preset);
+        Assert.All(vm.Rows, r => Assert.All(r.Dofs, d => Assert.Equal(FragmentDofMode.MaskDisplacement, d.Effective)));
+        Assert.False(vm.ResetCommand.CanExecute(null));
+        Assert.Equal(Loc.S("FragmentCutBcMasksMissingHint"), vm.Hint);
+
+        vm.SelectedPreset = vm.Presets.Single(o => o.Preset == FragmentBcPreset.Isolation);
+        Assert.Equal("Isolation", db.FemSchemas.Single(s => s.Id == p.Fragment.Id).FragmentBcPreset);
+        Assert.All(vm.Rows, r => Assert.Equal(r.Cut.Side == FragmentCutSide.Bottom ? FragmentDofMode.Fixed : FragmentDofMode.Free,
+            r.Uz.Effective));
+        Assert.Null(vm.Hint);
+
+        var row = vm.Rows[0];
+        row.Rz.Selected = row.Rz.Options.Single(o => o.Mode == FragmentDofMode.Fixed);
+        Assert.True(row.Rz.IsOverride);
+        Assert.True(vm.ResetCommand.CanExecute(null));
+        var stored = Assert.Single(db.GetFragmentCutBc(p.Fragment.Id));
+        Assert.Equal(row.CutId, stored.Key);
+        Assert.Equal([255, 255, 255, 255, 255, 0], stored.Value);
+
+        vm.SelectedPreset = vm.Presets.Single(o => o.Preset == FragmentBcPreset.Static);
+        Assert.Equal([255, 255, 255, 255, 255, 0], db.GetFragmentCutBc(p.Fragment.Id)[row.CutId]);
+        Assert.Equal(FragmentDofMode.Fixed, vm.Rows[0].Rz.Effective);
+        Assert.Equal(FragmentDofMode.MaskForce, vm.Rows[0].Ux.Effective);
+        Assert.Equal(Loc.S("FragmentCutBcMasksMissingHint"), vm.Hint);
+
+        vm.ResetCommand.Execute(null);
+        Assert.Empty(db.GetFragmentCutBc(p.Fragment.Id));
+        Assert.All(vm.Rows, r => Assert.All(r.Dofs, d => Assert.False(d.IsOverride)));
+        Assert.Equal(FragmentBcPreset.Static, new FragmentCutBcVM(db, p.Fragment).SelectedPreset.Preset);
+
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var stages = new[] { Single("Пост.", lc[0].Id) };
+        SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages);
+        Assert.False(StoreyFragmentMaskFlow.Extract(db, p.Fragment, StoreyFragmentMaskFlow.Sources(db, p.Fragment, out _)[0]).IsError);
+        vm.Reload();
+        Assert.Null(vm.Hint);
+        Assert.All(vm.Rows, r => Assert.True(r.HasMask));
     }
 }

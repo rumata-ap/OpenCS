@@ -195,6 +195,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
 
         PreviewKeyDown += OnPreviewKeyDown;
         LoadFragmentBanner();
+        var bc = new FragmentCutBcVM(app.db, schema);
+        fragmentBcPanel.DataContext = bc;
+        fragmentBcTab.Visibility = bc.IsVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Шапка фрагмента: сверка родителя в фоне; «изменён/удалён» — ещё и строкой журнала.</summary>
@@ -216,7 +219,11 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
     }
 
     /// <summary>Маски сняты или удалены — шапка (и ГУ разрезов) перечитываются.</summary>
-    public void ReloadFragmentState() => LoadFragmentBanner();
+    public void ReloadFragmentState()
+    {
+        LoadFragmentBanner();
+        if (fragmentBcPanel.DataContext is FragmentCutBcVM { IsVisible: true } bc) bc.Reload();
+    }
 
     void FragmentMasks_Click(object sender, RoutedEventArgs e) => _app.TakeStoreyFragmentMasks(_schema);
 
