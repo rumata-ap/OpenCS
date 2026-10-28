@@ -69,6 +69,19 @@ public sealed class BoundaryConditions
         return this;
     }
 
+    /// <summary>
+    /// Заменить значения заданных перемещений на <see cref="FixedDofs"/> (в их порядке) без смены множества закреплённых DOF —
+    /// шаги расчёта с заданными перемещениями, меняющимися по пути нагружения.
+    /// </summary>
+    public BoundaryConditions SetPrescribedValues(double[] values)
+    {
+        var fd = FixedDofs;
+        if (values.Length != fd.Length)
+            throw new ArgumentException($"Значений {values.Length}, закреплённых DOF {fd.Length}.", nameof(values));
+        for (int i = 0; i < fd.Length; i++) _dirichlet[fd[i]] = values[i];
+        return this;
+    }
+
     // ----- линейные пружины -----
 
     /// <summary>Скалярная пружина жёсткостью k по DOF узла (опц. ЛСК).</summary>

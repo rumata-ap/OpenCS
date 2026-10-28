@@ -67,8 +67,13 @@ public interface ISecantBeamState
     void Revert();
 }
 
-/// <summary>Стадия нагружения: полная нагрузка в конце стадии (Н, Н·м; длина — NDof сетки) и число шагов.</summary>
-public sealed record SecantLoadStage(string Name, double[] FEnd, int Steps = 1);
+/// <summary>
+/// Стадия нагружения: полная нагрузка в конце стадии (Н, Н·м; длина — NDof сетки) и число шагов. <paramref name="UEnd"/> —
+/// заданные перемещения на <see cref="BoundaryConditions.FixedDofs"/> (в их порядке) в конце стадии, накопленные, как
+/// <paramref name="FEnd"/>; на шаге — линейно от конца предыдущей стадии. null — без изменения (у первой стадии — значения
+/// условий, переданных решателю).
+/// </summary>
+public sealed record SecantLoadStage(string Name, double[] FEnd, int Steps = 1, double[]? UEnd = null);
 
 /// <summary>Параметры секущего расчёта (спека, раздел 4).</summary>
 public sealed class SecantPicardOptions
@@ -265,6 +270,7 @@ public sealed class SecantPicardSolver
 
     private readonly StructuralMesh _mesh;
     private readonly BoundaryConditions _bc;
+    private readonly double[] _uFixed0;   // заданные перемещения условий при создании — начало пути (SecantLoadStage.UEnd)
     private readonly ISecantShellState?[] _shells;
     private readonly ISecantBeamState?[] _beams;
     private readonly double[]?[] _shellAngle;   // угол поворота сечения (null — без поворота)
@@ -277,6 +283,7 @@ public sealed class SecantPicardSolver
     {
         _mesh = mesh;
         _bc = bc;
+        _uFixed0 = bc.UFixed;
         if (shells.Count != mesh.Shells.Count) throw new ArgumentException("Число состояний оболочек ≠ числу оболочек сетки.");
         if (beams.Count != mesh.Beams.Count) throw new ArgumentException("Число состояний стержней ≠ числу стержней сетки.");
         _shells = shells.ToArray();
@@ -329,6 +336,9 @@ public sealed class SecantPicardSolver
         int stepsBefore = 0;
         var u = new double[_mesh.NDof];
         var fPrev = new double[_mesh.NDof];
+        bool prescribedPath = stages.Any(s => s.UEnd != null);
+        var uFixedPrev = _uFixed0;
+        if (prescribedPath) _bc.SetPrescribedValues(_uFixed0);
         var shellStatus = new SecantSectionStatus[_shells.Length];
         var beamStatus = new SecantSectionStatus[_beams.Length];
 
@@ -336,8 +346,12 @@ public sealed class SecantPicardSolver
         {
             var stage = stages[si];
             if (stage.FEnd.Length != _mesh.NDof) throw new ArgumentException($"Стадия «{stage.Name}»: длина вектора нагрузки ≠ NDof.");
+            if (stage.UEnd != null && stage.UEnd.Length != _uFixed0.Length)
+                throw new ArgumentException($"Стадия «{stage.Name}»: длина заданных перемещений ≠ числу закреплённых DOF.");
             int nSteps = Math.Max(1, stage.Steps);
             var fStart = fPrev;
+            var uFixedStart = uFixedPrev;
+            var uFixedEnd = stage.UEnd ?? uFixedPrev;
             int stepNo = 0;
             bool ok = true;
 
@@ -345,6 +359,8 @@ public sealed class SecantPicardSolver
             bool SolveRange(double a, double b, int depth)
             {
                 var f = Lerp(fStart, stage.FEnd, b);
+                // Заданные перемещения шага — в условиях до решения: их же берут невязка и реакции шага.
+                if (prescribedPath) _bc.SetPrescribedValues(Lerp(uFixedStart, uFixedEnd, b));
                 bool allowAbort = depth < _o.MaxBisections;
                 bool refinement = depth > 0 && Math.Abs(b * nSteps - Math.Round(b * nSteps)) > 1e-9;
                 SecantProgress Report(SecantIterationRecord r, bool done, double share) => new(si, stages.Count, stage.Name,
@@ -393,6 +409,7 @@ public sealed class SecantPicardSolver
                 return result;
             }
             fPrev = stage.FEnd;
+            uFixedPrev = uFixedEnd;
             stepsBefore += nSteps;
         }
         result.Completed = true;
@@ -589,7 +606,12 @@ public sealed class SecantPicardSolver
         why = null;
         try
         {
-            if (!_o.Geometric) return _mesh.SolveLinear(f, _bc);
+            if (!_o.Geometric)
+            {
+                // Ненулевые заданные перемещения — тем же путём с кешем портрета K_ff, что и нулевые (перенос K·ū в правую часть).
+                var uFixed = _bc.UFixed;
+                return uFixed.Any(v => v != 0) ? _mesh.SolveLinear([f], _bc, null, [uFixed])[0] : _mesh.SolveLinear(f, _bc);
+            }
             if (SecondOrder) return _mesh.SolveSecondOrder(f, _bc, uFrom, _o.ShellInPlanePDelta);
             bool inexact = _o.GeometricNewtonSteps > 0;
             bool full = !inexact || _fullNewton;

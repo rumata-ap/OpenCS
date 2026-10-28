@@ -19,6 +19,66 @@ public class PrescribedDisplacementTests
         RunTwoRightHandSides();
         RunRigidBodyMasterSettlement();
         RunValidation();
+        RunSecantStages();
+    }
+
+    /// <summary>
+    /// Упругая рама в секущем решателе: стадия 1 — боковая сила, стадия 2 — та же сила и осадка опоры (UEnd). Состояние
+    /// линейной системы зависит только от конца пути: конец стадии 2 = SolveLinear(F, ū) при 1 и 4 шагах, середина
+    /// стадии 2 (λ = ½) = SolveLinear(F, ū/2); конец стадии 1 (UEnd = null — значения bc без изменений) = без осадки.
+    /// </summary>
+    private static void RunSecantStages()
+    {
+        TestHarness.Section("Заданные перемещения: стадии секущего решателя");
+        var nodes = new[]
+        {
+            new[] { 0.0, 0.0, 0.0 }, new[] { 0.0, 0.0, 3.0 }, new[] { 4.0, 0.0, 3.0 }, new[] { 4.0, 0.0, 0.0 },
+        };
+        var resp = new LinearBeamResponse(Sec);
+        var refX = new[] { 1.0, 0.0, 0.0 };
+        var mesh = new StructuralMesh(nodes, null, new[]
+        {
+            new StructuralBeam(0, 1, resp, refX), new StructuralBeam(1, 2, resp, RefY), new StructuralBeam(2, 3, resp, refX),
+        });
+        var f = new double[mesh.NDof];
+        f[6 * 1 + 0] = 2e4; f[6 * 2 + 2] = -3e4;
+        var settle = new Dictionary<int, double> { [6 * 3 + 2] = -0.01, [6 * 3 + 4] = 0.001 };
+
+        BoundaryConditions Bc(double scale)
+        {
+            var bc = new BoundaryConditions(mesh).Fix(new[] { 0, 3 });
+            foreach (var (d, v) in settle) bc.Prescribe(d / 6, d % 6, scale * v);
+            return bc;
+        }
+        var u0 = mesh.SolveLinear(f, Bc(0));
+        var uHalf = mesh.SolveLinear(f, Bc(0.5));
+        var bcFull = Bc(1);
+        var uFull = mesh.SolveLinear(f, bcFull);
+        var rFull = mesh.ComputeReactions(uFull, bcFull, null, f);
+
+        foreach (int steps in new[] { 1, 4 })
+        {
+            var bc = Bc(0);
+            var uEnd = OnFixed(bc, settle);
+            var res = new SecantPicardSolver(mesh, bc, new ISecantShellState?[0], new ISecantBeamState?[3])
+                .Run([new SecantLoadStage("F", f, 2), new SecantLoadStage("F + осадка", f, steps, uEnd)]);
+            TestHarness.Check($"{steps} шаг.: расчёт завершён", res.Completed, res.Message ?? "");
+            var end1 = res.StageEnd(0);
+            var end2 = res.StageEnd(1);
+            if (end1 == null || end2 == null) continue;
+            TestHarness.Check($"{steps} шаг.: конец стадии 1 = без осадки", MaxRelDiff(u0, end1.U) < 1e-10,
+                $"max|Δu|/max|u|={MaxRelDiff(u0, end1.U):e2}");
+            TestHarness.Check($"{steps} шаг.: конец стадии 2 = SolveLinear(F, ū)", MaxRelDiff(uFull, end2.U) < 1e-10,
+                $"max|Δu|/max|u|={MaxRelDiff(uFull, end2.U):e2}");
+            TestHarness.Check($"{steps} шаг.: реакции конца стадии 2 = K·u − F", MaxRelDiff(rFull, end2.Reactions!) < 1e-9,
+                $"max|ΔR|/max|R|={MaxRelDiff(rFull, end2.Reactions!):e2}");
+            if (steps == 4)
+            {
+                var mid = res.Steps.Single(s => s.Stage == 1 && s.Converged && Math.Abs(s.LoadFactor - 0.5) < 1e-12);
+                TestHarness.Check("4 шаг.: λ = ½ стадии 2 = SolveLinear(F, ū/2)", MaxRelDiff(uHalf, mid.U) < 1e-10,
+                    $"max|Δu|/max|u|={MaxRelDiff(uHalf, mid.U):e2}");
+            }
+        }
     }
 
     /// <summary>Балка вдоль X из <paramref name="n"/> КЭ длиной <paramref name="l"/>; узлы 0…n.</summary>
