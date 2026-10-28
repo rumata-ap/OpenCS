@@ -171,6 +171,26 @@ public class Fem3DVM : ViewModelBase
         set { if (_showRigidBodyGlyphs == value) return; _showRigidBodyGlyphs = value; OnPropertyChanged(); }
     }
 
+    bool _showFragmentCutGlyphs = true;
+    /// <summary>Показывать разрезы фрагмента этажа (концы стержней — точками, кромки стен — линиями).</summary>
+    public bool ShowFragmentCutGlyphs
+    {
+        get => _showFragmentCutGlyphs;
+        set { if (_showFragmentCutGlyphs == value) return; _showFragmentCutGlyphs = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Разрезы фрагмента этажа с подсказками режимов DOF (пусто — не фрагмент).</summary>
+    public IReadOnlyList<FragmentCutGlyph> FragmentCutGlyphs { get; private set; } = [];
+    public bool HasFragmentCuts => FragmentCutGlyphs.Count > 0;
+
+    /// <summary>Разрезы фрагмента изменились (ГУ разрезов, маски) — вид перерисовывает их слой.</summary>
+    public void SetFragmentCuts(IReadOnlyList<FragmentCutGlyph> glyphs)
+    {
+        FragmentCutGlyphs = glyphs;
+        OnPropertyChanged(nameof(FragmentCutGlyphs));
+        OnPropertyChanged(nameof(HasFragmentCuts));
+    }
+
     /// <summary>Глифы ГУ сеточного уровня (закрепления узлов сетки, пружины, шарниры, жёсткие тела). Закрепления
     /// показываются вместе со знаками опор узлов схемы (<see cref="ShowSupportGlyphs"/>).</summary>
     public FemBoundaryGlyphSet BoundaryGlyphs { get; private set; } = FemBoundaryGlyphSet.Empty;
@@ -240,7 +260,7 @@ public class Fem3DVM : ViewModelBase
     /// <summary>Показать или скрыть все глифы разом (опоры, пружины, шарниры, жёсткие тела, нагрузки, сечения, значения нагрузок).</summary>
     public void SetAllGlyphs(bool show)
     {
-        ShowSupportGlyphs = ShowSpringGlyphs = ShowHingeGlyphs = ShowRigidBodyGlyphs = show;
+        ShowSupportGlyphs = ShowSpringGlyphs = ShowHingeGlyphs = ShowRigidBodyGlyphs = ShowFragmentCutGlyphs = show;
         ShowLoadGlyphs = ShowSectionGlyphs = ShowLoadValues = show;
     }
 

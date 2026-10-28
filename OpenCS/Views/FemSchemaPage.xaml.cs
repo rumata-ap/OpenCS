@@ -198,6 +198,11 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         var bc = new FragmentCutBcVM(app.db, schema);
         fragmentBcPanel.DataContext = bc;
         fragmentBcTab.Visibility = bc.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+        if (bc.IsVisible)
+        {
+            _fem3d.SetFragmentCuts(bc.Glyphs());
+            bc.Changed += () => _fem3d.SetFragmentCuts(bc.Glyphs());
+        }
     }
 
     /// <summary>Шапка фрагмента: сверка родителя в фоне; «изменён/удалён» — ещё и строкой журнала.</summary>

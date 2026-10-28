@@ -18,6 +18,9 @@
                       IsChecked="{Binding ShowHingeGlyphs, Mode=TwoWay}"/>
             <MenuItem Header="{Binding RigidBodyGlyphsHeader}" IsCheckable="True"
                       IsChecked="{Binding ShowRigidBodyGlyphs, Mode=TwoWay}"/>
+            <MenuItem Header="{DynamicResource Fem3DShowFragmentCuts}" IsCheckable="True"
+                      IsChecked="{Binding ShowFragmentCutGlyphs, Mode=TwoWay}"
+                      Visibility="{Binding HasFragmentCuts, Converter={StaticResource BoolToVisibility}}"/>
             <MenuItem Header="{DynamicResource Fem3DShowLoads}" IsCheckable="True"
                       IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
             <MenuItem Header="{DynamicResource Fem3DShowSectionGlyphs}" IsCheckable="True"

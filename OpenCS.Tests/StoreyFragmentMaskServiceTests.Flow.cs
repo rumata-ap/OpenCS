@@ -154,4 +154,31 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.Null(vm.Hint);
         Assert.All(vm.Rows, r => Assert.True(r.HasMask));
     }
+    /// <summary>
+    /// Разрезы в 3D: концы колонн — точками в узлах схемы фрагмента на z₁/z₂, подсказка — КонЭ и действующие режимы;
+    /// правка помечается «*» и сообщает виду об изменении.
+    /// </summary>
+    [Fact]
+    public void CutBc_Glyphs_PointsAndTips_FollowOverrides()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var vm = new FragmentCutBcVM(db, p.Fragment);
+        int changed = 0;
+        vm.Changed += () => changed++;
+
+        var glyphs = vm.Glyphs();
+        Assert.Equal(8, glyphs.Count);
+        Assert.All(glyphs, g => Assert.False(g.IsEdge));
+        Assert.Equal(4, glyphs.Count(g => g.IsBottom));
+        Assert.All(glyphs, g => Assert.Equal(g.IsBottom ? Band.Z1 : Band.Z2, Assert.Single(g.Points).Z, 9));
+        Assert.Contains(vm.Rows[0].MemberTag, glyphs[0].Tip);
+        Assert.Contains("Ux: " + Loc.S("FragmentDofModeMaskDisplacement"), glyphs[0].Tip);
+        Assert.DoesNotContain(" *", glyphs[0].Tip);
+
+        var ux = vm.Rows[0].Ux;
+        ux.Selected = ux.Options.Single(o => o.Mode == FragmentDofMode.Free);
+        Assert.Equal(1, changed);
+        Assert.Contains("Ux: " + Loc.S("FragmentDofModeFree") + " *", vm.Glyphs()[0].Tip);
+    }
 }

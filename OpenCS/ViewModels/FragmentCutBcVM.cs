@@ -1,14 +1,20 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows.Media.Media3D;
 using System.Windows.Input;
 using CScore.Fem;
 using CScore.Fem.Fragment;
 using CScore.Fem.Fragment.Masks;
-using CScore.Planar;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
+
+/// <summary>
+/// Разрез фрагмента в 3D-виде: точка конца стержня или отрезки кромки (пары точек), сторона, подсказка «КонЭ ·
+/// сторона · z» и действующие режимы DOF.
+/// </summary>
+public sealed record FragmentCutGlyph(IReadOnlyList<Point3D> Points, bool IsEdge, bool IsBottom, string Tip);
 
 /// <summary>Пункт выбора пресета ГУ разрезов.</summary>
 public sealed record FragmentBcPresetOption(FragmentBcPreset Preset, string Label);
@@ -97,7 +103,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
     readonly DatabaseService _db;
     readonly FemSchema _schema;
     List<(int Id, FragmentCut Cut)> _cuts = [];
-    List<PlanarVector3?> _normals = [];
+    List<FragmentMaskCutInput> _inputs = [];
     HashSet<int> _maskedCuts = [];
     bool _hasMasks, _oblique, _loading;
 
@@ -143,8 +149,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
     public void Reload()
     {
         _cuts = _db.GetFragmentCutsWithIds(_schema.Id);
-        _normals = StoreyFragmentMaskService.CutInputs(_db, _schema.Id, _cuts.Select(c => c.Cut).ToList())
-            .Select(c => c.WallNormal).ToList();
+        _inputs = StoreyFragmentMaskService.CutInputs(_db, _schema.Id, _cuts.Select(c => c.Cut).ToList());
         var masks = _db.GetFragmentMasks(_schema.Id);
         _hasMasks = masks is { Items.Count: > 0 };
         _maskedCuts = masks?.Items.Select(i => i.CutId).ToHashSet() ?? [];
@@ -161,7 +166,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
         for (int i = 0; i < _cuts.Count; i++)
         {
             var (id, cut) = _cuts[i];
-            var presetModes = FragmentCutBc.Resolve(preset, cut, null, _normals[i], out bool o);
+            var presetModes = FragmentCutBc.Resolve(preset, cut, null, _inputs[i].WallNormal, out bool o);
             _oblique |= o;
             var stored = overrides.GetValueOrDefault(id);
             var cells = Enumerable.Range(0, 6).Select(d => new FragmentCutDofCell(presetModes[d],
@@ -170,6 +175,31 @@ public sealed class FragmentCutBcVM : ViewModelBase
         }
         _loading = false;
         UpdateHint();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Пресет, правки или маски изменились — 3D-вид перерисовывает разрезы.</summary>
+    public event Action? Changed;
+
+    /// <summary>Разрезы для 3D-вида с действующими режимами DOF в подсказке.</summary>
+    public IReadOnlyList<FragmentCutGlyph> Glyphs()
+    {
+        var result = new List<FragmentCutGlyph>();
+        string[] dofs = ["Ux", "Uy", "Uz", "Rx", "Ry", "Rz"];
+        for (int i = 0; i < Rows.Count && i < _inputs.Count; i++)
+        {
+            var row = Rows[i];
+            var input = _inputs[i];
+            IReadOnlyList<Point3D> points = row.Cut.Kind == FragmentCutKind.End
+                ? input.EndPoint is { } e ? [new Point3D(e.X, e.Y, e.Z)] : []
+                : row.Cut.Segments.SelectMany(s => new[] { new Point3D(s.P.X, s.P.Y, s.P.Z), new Point3D(s.Q.X, s.Q.Y, s.Q.Z) }).ToList();
+            if (points.Count == 0) continue;
+            string modes = string.Join(Environment.NewLine,
+                row.Dofs.Select((d, k) => $"{dofs[k]}: {ModeLabel(d.Effective)}{(d.IsOverride ? " *" : "")}"));
+            string tip = $"{row.MemberTag} · {row.SideText} · z = {row.ZText} · {row.KindText}{Environment.NewLine}{modes}";
+            result.Add(new(points, row.Cut.Kind == FragmentCutKind.Edge, row.Cut.Side == FragmentCutSide.Bottom, tip));
+        }
+        return result;
     }
 
     void OnCellChanged()
@@ -184,6 +214,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
         var modes = Rows.Where(r => r.Dofs.Any(d => d.IsOverride)).ToDictionary(r => r.CutId, r => r.Encode());
         _db.ReplaceFragmentCutBc(_schema.Id, modes);
         CommandManager.InvalidateRequerySuggested();
+        Changed?.Invoke();
     }
 
     void ResetOverrides()

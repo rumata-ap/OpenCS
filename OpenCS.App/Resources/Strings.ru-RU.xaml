@@ -4151,6 +4151,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowSupports">Закрепления</system:String>
     <system:String x:Key="Fem3DShowSprings">Пружины</system:String>
     <system:String x:Key="Fem3DShowHinges">Шарниры стержней</system:String>
+    <system:String x:Key="Fem3DShowFragmentCuts">Разрезы фрагмента</system:String>
     <system:String x:Key="Fem3DShowRigidBodies">Жёсткие тела</system:String>
     <system:String x:Key="Fem3DShowRigidBodiesThinned">Жёсткие тела (связей показано {0} из {1})</system:String>
     <system:String x:Key="FemBoundaryOriginManual">вручную</system:String>

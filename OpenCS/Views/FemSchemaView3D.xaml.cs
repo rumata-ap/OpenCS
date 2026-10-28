@@ -341,6 +341,8 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.ShowSpringGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowHingeGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowRigidBodyGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.FragmentCutGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowFragmentCutGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
@@ -902,6 +904,7 @@ public partial class FemSchemaView3D : UserControl
         BuildEditProxies();
         BuildDiagramGlyphs();
         BuildBoundaryGlyphs();
+        BuildFragmentCutGlyphs();
         UpdateEdgeSelectionVisual();
         BuildMemberLoadGlyphs();
         BuildElementLoadGlyphs();
@@ -1021,6 +1024,70 @@ public partial class FemSchemaView3D : UserControl
         if (VM.ShowSupportGlyphs || VM.ShowSpringGlyphs) Add(lines.Edges, Colors.RoyalBlue, 3.5);
         if (VM.ShowSupportGlyphs) Add(lines.Supports, Colors.RoyalBlue, 1.5);
         if (VM.ShowSpringGlyphs) Add(lines.Springs, SpringColor, 1.3);
+    }
+
+    /// <summary>Разрезы фрагмента: низ и верх — разными цветами; концы стержней — точками, кромки — толстыми линиями.</summary>
+    void BuildFragmentCutGlyphs()
+    {
+        if (VM is not { ShowFragmentCutGlyphs: true, HasFragmentCuts: true } vm) return;
+        foreach (bool bottom in new[] { true, false })
+        {
+            var color = bottom ? FragmentCutBottomColor : FragmentCutTopColor;
+            var ends = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => !g.IsEdge && g.IsBottom == bottom).SelectMany(g => g.Points));
+            var edges = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => g.IsEdge && g.IsBottom == bottom).SelectMany(g => g.Points));
+            if (ends.Count > 0) viewport.Children.Add(new PointsVisual3D { Points = ends, Color = color, Size = 9 });
+            if (edges.Count > 0) viewport.Children.Add(new LinesVisual3D { Points = edges, Color = color, Thickness = 4 });
+        }
+    }
+
+    static readonly Color FragmentCutBottomColor = Color.FromRgb(0xE6, 0x7E, 0x22);
+    static readonly Color FragmentCutTopColor = Color.FromRgb(0x8E, 0x24, 0xAA);
+
+    /// <summary>Расстояние от курсора до разреза на экране, при котором показывается подсказка, px.</summary>
+    const double FragmentCutHoverPx = 8;
+
+    /// <summary>Подсказка разреза под курсором: ближайшая точка конца стержня или отрезок кромки на экране.</summary>
+    void UpdateFragmentCutHover(MouseEventArgs e)
+    {
+        if (VM is not { ShowFragmentCutGlyphs: true, HasFragmentCuts: true } vm)
+        {
+            fragmentCutTip.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var cursor = e.GetPosition(viewport);
+        Point Screen(Point3D p) => Viewport3DHelper.Point3DtoPoint2D(viewport.Viewport, p);
+        static double ToSegment(Point c, Point a, Point b)
+        {
+            var ab = b - a;
+            double len2 = ab.X * ab.X + ab.Y * ab.Y;
+            double t = len2 > 0 ? Math.Clamp(((c - a).X * ab.X + (c - a).Y * ab.Y) / len2, 0, 1) : 0;
+            return (c - (a + ab * t)).Length;
+        }
+        FragmentCutGlyph? best = null;
+        double bestDistance = FragmentCutHoverPx;
+        foreach (var g in vm.FragmentCutGlyphs)
+        {
+            double d = double.MaxValue;
+            if (!g.IsEdge) d = (Screen(g.Points[0]) - cursor).Length;
+            else
+                for (int i = 0; i + 1 < g.Points.Count; i += 2)
+                    d = Math.Min(d, ToSegment(cursor, Screen(g.Points[i]), Screen(g.Points[i + 1])));
+            if (double.IsNaN(d) || d > bestDistance) continue;
+            bestDistance = d;
+            best = g;
+        }
+        if (best == null)
+        {
+            fragmentCutTip.Visibility = Visibility.Collapsed;
+            return;
+        }
+        fragmentCutTipText.Text = best.Tip;
+        fragmentCutTip.Visibility = Visibility.Visible;
+        fragmentCutTip.UpdateLayout();
+        double x = cursor.X + 14, y = cursor.Y + 18;
+        if (x + fragmentCutTip.ActualWidth > viewport.ActualWidth) x = cursor.X - 6 - fragmentCutTip.ActualWidth;
+        if (y + fragmentCutTip.ActualHeight > viewport.ActualHeight) y = cursor.Y - 6 - fragmentCutTip.ActualHeight;
+        fragmentCutTip.Margin = new Thickness(Math.Max(0, x), Math.Max(0, y), 0, 0);
     }
 
     static readonly Color SpringColor = Color.FromRgb(0x2E, 0x8B, 0x57);
@@ -1756,11 +1823,13 @@ public partial class FemSchemaView3D : UserControl
     {
         VM?.Mosaic.SetHover(null);
         mosaicHoverTip.Visibility = Visibility.Collapsed;
+        fragmentCutTip.Visibility = Visibility.Collapsed;
     }
 
     void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
         UpdateMosaicHover(e);
+        UpdateFragmentCutHover(e);
         if (HandleTransformMove(e.GetPosition(viewport))) return;
         if (HandleEdgePickMove(e.GetPosition(viewport))) return;
 

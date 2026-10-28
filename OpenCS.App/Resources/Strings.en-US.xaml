@@ -4151,6 +4151,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowSupports">Supports</system:String>
     <system:String x:Key="Fem3DShowSprings">Springs</system:String>
     <system:String x:Key="Fem3DShowHinges">Bar end releases</system:String>
+    <system:String x:Key="Fem3DShowFragmentCuts">Fragment cuts</system:String>
     <system:String x:Key="Fem3DShowRigidBodies">Rigid bodies</system:String>
     <system:String x:Key="Fem3DShowRigidBodiesThinned">Rigid bodies ({0} of {1} links shown)</system:String>
     <system:String x:Key="FemBoundaryOriginManual">manual</system:String>
