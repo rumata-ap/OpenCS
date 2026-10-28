@@ -50,6 +50,8 @@ public sealed class FemRcModelInput
     public IReadOnlyList<FemElementLoad> ElementLoads { get; init; } = [];
     public IReadOnlyList<FemMeshNodeLoad> MeshNodeLoads { get; init; } = [];
     public IReadOnlyList<FemKinematicLoad> KinematicLoads { get; init; } = [];
+    /// <summary>Заданные перемещения узлов сетки (ГУ разрезов фрагмента) — тем же каналом, что <see cref="KinematicLoads"/>.</summary>
+    public IReadOnlyList<FemMeshNodeKinematicLoad> MeshNodeKinematicLoads { get; init; } = [];
 
     /// <summary>Упругие свойства КЭ без нелинейного сечения и данные собственного веса; null — нет.</summary>
     public IFemElementStiffnessSource? Properties { get; init; }
@@ -444,6 +446,17 @@ public static class FemRcModelAdapter
                     continue;
                 }
                 if (!kinematicDofs.Add((id, l.Dof - 1))) { twice.Add(nodeTag); continue; }
+                rc.Prescribed.Add(new RcPrescribed(id, l.Dof - 1, l.Value));
+            }
+            foreach (var l in input.MeshNodeKinematicLoads.Where(l => l.LoadCaseId == caseId))
+            {
+                if (l.Dof is < 1 or > 6) { badDof.Add(l.MeshNodeTag); continue; }
+                if (!int.TryParse(l.MeshNodeTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id) || !used.Contains(id))
+                {
+                    freeKinematic.Add(l.MeshNodeTag);
+                    continue;
+                }
+                if (!kinematicDofs.Add((id, l.Dof - 1))) { twice.Add(l.MeshNodeTag); continue; }
                 rc.Prescribed.Add(new RcPrescribed(id, l.Dof - 1, l.Value));
             }
             Add(diag, "kinematic_dof_invalid", $"Загружение «{lc.Tag}»: кинематические нагрузки с номером DOF вне 1…6", badDof, true);

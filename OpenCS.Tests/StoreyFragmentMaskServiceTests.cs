@@ -25,7 +25,7 @@ namespace OpenCS.Tests;
 /// −20 кН по X в сумме; верх C1 — −30 кН по Z без момента (консоль над полосой). Низ C1 сверяется с реакцией заделки:
 /// кусок колонны под разрезом без нагрузок.
 /// </summary>
-public sealed class StoreyFragmentMaskServiceTests : IDisposable
+public sealed partial class StoreyFragmentMaskServiceTests : IDisposable
 {
     readonly string _path = Path.Combine(Path.GetTempPath(), $"opencs-fragment-maskservice-{Guid.NewGuid():N}.db");
     static readonly StoreyFragmentRequest Band = new(1.5, 4.5, "Этаж 2");

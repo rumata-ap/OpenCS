@@ -14,7 +14,7 @@ namespace OpenCS.Gmsh.Tests;
 
 /// <summary>
 /// Фрагмент этажа в линейном CSfea (спека 2026-10-23, разд. 7): родитель — только сетка (как после импорта), фрагмент по
-/// отметкам 1,5…4,5 м → сечения КонЭ → «Построить сетку» (Gmsh) → заделка узлов сетки на отметках рассечения → линейное
+/// отметкам 1,5…4,5 м → сечения КонЭ → «Построить сетку» (Gmsh) → ГУ разрезов пресетом «Изоляция» → линейное
 /// решение по каждому загружению. Сумма реакций равна сумме нагрузок полосы, посчитанной вручную по нагрузкам родителя.
 /// </summary>
 public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
@@ -184,17 +184,13 @@ public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
             Assert.False(meshed.HasErrors, string.Join("\n", meshed.Diagnostics));
             service.Save(sid, meshed.Mesh!);
 
-            // Временные ГУ до подпроекта D: заделка всех узлов сетки фрагмента на отметках рассечения.
-            int fixedNodes = 0;
-            foreach (var n in db.GetFemMeshNodes(sid).Where(n => Math.Abs(n.Z - Z1) < Tol || Math.Abs(n.Z - Z2) < Tol))
-            {
-                db.SetFemMeshNodeBoundary(sid, n.NodeTag, 63, new double[6]);
-                fixedNodes++;
-            }
+            // ГУ разрезов без масок родителя — пресет «Изоляция»: низ — шарнир, верх — шарнир со свободным Uz.
+            db.SetFragmentBcPreset(fragment, "Isolation");
+            int cutNodes = db.GetFemMeshNodes(sid).Count(n => Math.Abs(n.Z - Z1) < Tol || Math.Abs(n.Z - Z2) < Tol);
             db.LoadAll();
             // Сечение колонн — только в памяти (как в соседних тестах сетки): в cross_sections его нет, LoadAll его сбрасывает.
             if (!db.CrossSections.Contains(column)) db.CrossSections.Add(column);
-            output.WriteLine($"Сетка фрагмента: узлов {meshed.Mesh!.Nodes.Count}, КЭ {meshed.Mesh.Elements.Count}, заделано узлов {fixedNodes}");
+            output.WriteLine($"Сетка фрагмента: узлов {meshed.Mesh!.Nodes.Count}, КЭ {meshed.Mesh.Elements.Count}, узлов на разрезах {cutNodes}");
 
             foreach (var lc in db.GetFemLoadCases(sid))
             {
@@ -205,6 +201,7 @@ public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
                 };
                 var input = FemCsfeaInputBuilder.Build(db, sid, new FemCsfeaSetup { Stages = [stage] });
                 Assert.DoesNotContain(input.Diagnostics, x => x.IsError);
+                Assert.Equal(cutNodes, input.Supports.Count(x => x.Origin == FemCsfeaInputBuilder.FragmentCutOrigin));
                 var adapted = FemRcModelAdapter.Adapt(input);
                 Assert.DoesNotContain(adapted.Diagnostics, x => x.IsError);
                 var build = RcStructuralMeshBuilder.Build(adapted.Model, new LinearRcSectionFactory());

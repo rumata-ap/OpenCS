@@ -4,6 +4,7 @@ using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using CScore.Fem.Combinations;
+using CScore.Fem.Fragment.Masks;
 using CScore.Import;
 using CSfea.Core;
 using CSfea.CScoreBridge.Structural;
@@ -482,6 +483,9 @@ public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? 
     /// <summary>Контрольный узел: тег узла схемы (пусто — задан узлом сетки) и тег узла сетки; null — не задан или не найден.</summary>
     public (string SchemaTag, string MeshTag)? ControlNode { get; init; }
 
+    /// <summary>ГУ разрезов схемы-фрагмента (автозакрепления — для сверки реакций); null — схема не фрагмент.</summary>
+    public FragmentCutBoundaryResult? FragmentBoundary { get; init; }
+
     /// <summary>Сводка подготовленной модели для отчёта «Проверить вход»: размеры, стадии с ΣF, контрольный узел.</summary>
     public IEnumerable<string> Describe()
     {
@@ -553,7 +557,7 @@ public static class FemCsfeaRunner
 
         var setup = FemCsfeaSetup.FromAnalysis(analysis, ctx.Db.GetFemLoadCases(schema.Id));
         if (calc is { } c) setup = setup with { Calc = c };
-        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, setup);
+        var input = FemCsfeaInputBuilder.Build(ctx.Db, schema.Id, setup, out var fragmentBc);
         CheckScadTransfer(ctx.Db, schema.Id, input, diag);
         CheckLiraTransfer(schema, input, diag);
         var control = string.IsNullOrWhiteSpace(csfea.ControlNodeTag) ? null : ControlNode(input, csfea.ControlNodeTag);
@@ -561,10 +565,10 @@ public static class FemCsfeaRunner
             diag.Add(new("control_node", $"Контрольный узел «{csfea.ControlNodeTag}» не найден ни среди узлов схемы, ни в сетке.", true));
         if (csfea.ControlDof is < 0 or > 5)
             diag.Add(new("control_dof", $"DOF контрольного узла {csfea.ControlDof} — вне 0…5.", true));
-        if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control };
+        if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
 
         var adapted = await Task.Run(() => FemRcModelAdapter.Adapt(input), ct);
-        return new(input, adapted, diag) { ControlNode = control };
+        return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
     }
 
     /// <summary>Подготовка и расчёт; <paramref name="progress"/> — отчёты решателя (создавать в UI-потоке).</summary>
@@ -635,6 +639,23 @@ public static class FemCsfeaRunner
                 recorder.Planned(s.Stage, s.LoadFactor, s.IsRefinement), recorder.Records.ContainsKey(i + 1),
                 reactions?.Reactions.Sums, reactions?.LoadSum);
         }).ToList();
+        if (prepared.FragmentBoundary is { Gauge.Count: > 0 } bc)
+        {
+            // Стадии копятся: сочетание шага — предыдущие стадии целиком и λ·текущая.
+            var before = new Dictionary<int, double>();
+            for (int k = 0; k < adapted.Model.Stages.Count && k < prepared.Input!.Stages.Count; k++)
+            {
+                var stageTerms = prepared.Input.Stages[k].Terms;
+                var last = r.Steps.Where(s => s.Stage == k && s.Converged).MaxBy(s => s.LoadFactor);
+                if (last != null && run.StepReactions(last) is { } reactions)
+                {
+                    var terms = before.Select(kv => (kv.Key, kv.Value)).Concat(stageTerms.Select(t => (t.LoadCaseId, t.Factor * last.LoadFactor)));
+                    CheckFragmentGauge(bc, terms.ToList(), reactions.Reactions.NodeIds, reactions.Reactions.Values,
+                        $"Стадия «{adapted.Model.Stages[k].Name}»", summary);
+                }
+                foreach (var (lc, f) in stageTerms) before[lc] = before.GetValueOrDefault(lc) + f;
+            }
+        }
         var result = Result(analysis, created, r.Completed ? "ok" : "not_converged", summary);
         // Поля шагов — отдельными записями к результату, поэтому результат сохраняется здесь.
         ctx.Db.SaveCalcResult(result);
@@ -1091,6 +1112,10 @@ public static class FemCsfeaRunner
         }).ToList();
         summary.Steps = run.Cases.Select((c, i) => new FemCsfeaStepSummary(i + 1, i, 1, 1.0, false, true, 1, 0.0,
             controlDof is int d ? c.U[d] : null, i + 1, true, c.Fields.ReactionSums, c.Fields.LoadSum)).ToList();
+        if (prepared.FragmentBoundary is { Gauge.Count: > 0 } bc)
+            for (int i = 0; i < run.Cases.Count && i < prepared.Input!.Stages.Count; i++)
+                CheckFragmentGauge(bc, prepared.Input.Stages[i].Terms, run.Cases[i].Fields.ReactionNodeIds,
+                    run.Cases[i].Fields.Reactions, $"Загружение «{run.Cases[i].Name}»", summary);
         if (source != null && sections != null)
             DescribeStiffnessSource(ctx, tag, csfea.StiffnessSource!, source, sections, adapted.Model, run, summary,
                 FemAnalysisParams.Parse(analysis.ParamsJson).CalcType ?? CalcType.N);
@@ -1098,6 +1123,22 @@ public static class FemCsfeaRunner
         ctx.Db.SaveCalcResult(result);
         ctx.Db.SaveFemResultSteps(result.Id, records.Select((data, i) => (i + 1, data)));
         return result;
+    }
+
+    /// <summary>
+    /// Сверка реакций автозакреплений фрагмента (спека масок 5.3) по реакциям узлов (<paramref name="nodeIds"/>, по 6
+    /// компонент в <paramref name="values"/>): маска не уравновешена — предупреждение в отчёт.
+    /// </summary>
+    static void CheckFragmentGauge(FragmentCutBoundaryResult bc, IReadOnlyList<(int LoadCaseId, double Factor)> terms,
+        int[] nodeIds, double[] values, string label, FemCsfeaResultSummary summary)
+    {
+        var index = new Dictionary<int, int>(nodeIds.Length);
+        for (int i = 0; i < nodeIds.Length; i++) index.TryAdd(nodeIds[i], i);
+        double? Reaction(string tag, int dof) =>
+            int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id) && index.TryGetValue(id, out int i)
+                ? values[6 * i + dof] : null;
+        if (FragmentCutBoundary.CheckGaugeReactions(bc, terms, Reaction, label) is { } warning)
+            summary.Report.Add(warning.Message);
     }
 
     /// <summary>

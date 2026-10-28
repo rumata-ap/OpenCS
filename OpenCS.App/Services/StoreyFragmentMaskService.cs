@@ -170,7 +170,7 @@ public static class StoreyFragmentMaskService
     /// Сечения на входе экстрактора: у конца стержня — точка узла схемы фрагмента <see cref="FragmentCut.NodeTag"/>, у
     /// кромки — нормаль области КонЭ фрагмента (нет области — горизонталь ⟂ отрезку, стена вертикальна).
     /// </summary>
-    static List<FragmentMaskCutInput> CutInputs(DatabaseService db, int fragmentId, IReadOnlyList<FragmentCut> cuts)
+    internal static List<FragmentMaskCutInput> CutInputs(DatabaseService db, int fragmentId, IReadOnlyList<FragmentCut> cuts)
     {
         var nodes = new Dictionary<string, FemNode>(StringComparer.Ordinal);
         foreach (var n in db.GetFemNodes(fragmentId)) nodes.TryAdd(n.NodeTag, n);

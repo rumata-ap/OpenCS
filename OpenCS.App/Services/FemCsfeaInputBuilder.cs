@@ -2,8 +2,10 @@ using System.Globalization;
 using CScore;
 using CScore.Fem;
 using CScore.Fem.Combinations;
+using CScore.Fem.Fragment.Masks;
 using CScore.Fem.Loads;
 using CScore.Planar;
+using CScore.Submodel;
 using CSfea.CScoreBridge;
 using CSfea.CScoreBridge.Structural;
 using OpenCS.Tasks;
@@ -97,7 +99,13 @@ public static class FemCsfeaInputBuilder
 {
     /// <param name="sections">false — без сечений CScore пластин и стержней (упругие по свойствам КЭ): вход для
     /// нагрузок и геометрии, без подготовки диаграмм.</param>
-    public static FemRcModelInput Build(DatabaseService db, int schemaId, FemCsfeaSetup setup, bool sections = true)
+    public static FemRcModelInput Build(DatabaseService db, int schemaId, FemCsfeaSetup setup, bool sections = true) =>
+        Build(db, schemaId, setup, out _, sections);
+
+    /// <param name="fragmentBc">ГУ разрезов схемы-фрагмента (автозакрепления — для сверки реакций после расчёта);
+    /// null — схема не фрагмент.</param>
+    public static FemRcModelInput Build(DatabaseService db, int schemaId, FemCsfeaSetup setup,
+        out FragmentCutBoundaryResult? fragmentBc, bool sections = true)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(setup);
@@ -105,7 +113,8 @@ public static class FemCsfeaInputBuilder
         var data = FemCheckSchemaData.Load(db, schemaId);
         foreach (var error in data.Errors) diag.Add(new("rebar_file", error, false));
 
-        var groups = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId)?.MemberGroups.ToList() ?? [];
+        var schema = db.FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+        var groups = schema?.MemberGroups.ToList() ?? [];
         var loadCases = db.GetFemLoadCases(schemaId);
         var properties = FemSelfWeightSourceFactory.Create(db, schemaId, out var notes, setup.GrossBars, setup.ReducedStiffness);
         foreach (var note in notes) diag.Add(new("properties_default", note, false));
@@ -120,32 +129,139 @@ public static class FemCsfeaInputBuilder
         diag.AddRange(lines.Diagnostics);
         var (supports, springs) = lines.AppendTo(db.GetFemMeshNodeSupports(schemaId), FemFieldService.Effective(db, schemaId).Springs.ToList());
 
+        var nodes = db.GetFemNodes(schemaId);
+        var kinematic = db.GetFemKinematicLoads(schemaId);
+        var stages = Stages(setup.Stages, loadCases, diag);
+        IReadOnlyList<FemLoadCase> cases = loadCases;
+        IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
+        IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
+        fragmentBc = null;
+        if (schema is { IsFragment: true })
+        {
+            fragmentBc = FragmentBoundary(db, schema, data.MeshNodes, nodes, supports, springs, kinematic, stages, loadCases);
+            diag.AddRange(fragmentBc.Diagnostics);
+            if (!fragmentBc.HasErrors)
+                (supports, meshNodeLoads, meshKinematic, cases, stages) =
+                    ApplyFragmentBoundary(fragmentBc, supports, meshNodeLoads, loadCases, stages);
+        }
+
         return new FemRcModelInput
         {
             MeshNodes = data.MeshNodes,
             MeshElements = data.Mesh,
-            Nodes = db.GetFemNodes(schemaId),
+            Nodes = nodes,
             Members = data.Members,
             Groups = groups,
             Supports = supports,
             Springs = springs,
             RigidBodies = db.GetFemRigidBodies(schemaId),
-            LoadCases = loadCases,
+            LoadCases = cases,
             NodeLoads = db.GetFemNodeLoads(schemaId),
             MemberLoads = db.GetFemMemberLoads(schemaId),
             ElementLoads = FragmentLoadService.ElementLoads(db, schemaId, data.MeshNodes, data.Mesh, groups, diag),
-            MeshNodeLoads = db.GetFemMeshNodeLoads(schemaId),
-            KinematicLoads = db.GetFemKinematicLoads(schemaId),
+            MeshNodeLoads = meshNodeLoads,
+            KinematicLoads = kinematic,
+            MeshNodeKinematicLoads = meshKinematic,
             Properties = properties,
             PlateSection = plates.Count == 0 ? null : e => plates.GetValueOrDefault(e.ElemTag),
             BeamSection = beams.Count == 0 ? null : e => beams.GetValueOrDefault(e.ElemTag),
             Calc = setup.Calc,
             RegionAxisX = RegionAxes(data),
             BeamShear = setup.BeamShear,
-            Stages = Stages(setup.Stages, loadCases, diag),
+            Stages = stages,
             Diagnostics = diag,
         };
     }
+
+    // ---------------------------------------------------------------- ГУ разрезов фрагмента
+
+    /// <summary>
+    /// ГУ разрезов фрагмента (спека масок 5.1–5.3): пресет схемы, правки разрезов, действующие маски; прочие связи схемы
+    /// (опоры и пружины сетки, закрепления и кинематика узлов схемы) — для проверки жёстких смещений.
+    /// </summary>
+    static FragmentCutBoundaryResult FragmentBoundary(DatabaseService db, FemSchema schema, IReadOnlyList<FemMeshNode> meshNodes,
+        IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMeshNodeSupport> supports, IReadOnlyList<FemSpring> springs,
+        IReadOnlyList<FemKinematicLoad> kinematic, IReadOnlyList<FemRcStage> stages, IReadOnlyList<FemLoadCase> loadCases)
+    {
+        var withIds = db.GetFragmentCutsWithIds(schema.Id);
+        var inputs = StoreyFragmentMaskService.CutInputs(db, schema.Id, withIds.Select(c => c.Cut).ToList());
+        var meshByTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in meshNodes) meshByTag.TryAdd(n.NodeTag, n);
+        var nodeByTag = new Dictionary<string, FemNode>(StringComparer.Ordinal);
+        foreach (var n in nodes) nodeByTag.TryAdd(n.NodeTag, n);
+        var nodeById = nodes.GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
+
+        var other = new List<KinematicDofRef>();
+        void Mask(PlanarVector3? p, int mask)
+        {
+            if (p is not { } x) return;
+            for (int d = 0; d < 6; d++)
+                if ((mask & 1 << d) != 0) other.Add(new KinematicDofRef(x, d));
+        }
+        PlanarVector3? MeshPoint(string tag) => meshByTag.TryGetValue(tag, out var n) ? new PlanarVector3(n.X, n.Y, n.Z) : null;
+        PlanarVector3 NodePoint(FemNode n) => new(n.X, n.Y, n.Z);
+        foreach (var s in supports) Mask(MeshPoint(s.NodeTag), s.Mask);
+        foreach (var n in nodes) Mask(NodePoint(n), n.DofMask);
+        foreach (var s in springs)
+        {
+            var p = s.TargetKind == FemSpringTargetKinds.Node
+                ? nodeByTag.TryGetValue(s.NodeTag, out var n) ? NodePoint(n) : (PlanarVector3?)null
+                : MeshPoint(s.NodeTag);
+            var k = s.Stiffnesses;
+            Mask(p, Enumerable.Range(0, 6).Where(d => k[d] != 0).Aggregate(0, (m, d) => m | 1 << d));
+        }
+        foreach (var l in kinematic)
+            if (nodeById.TryGetValue(l.NodeId, out var n) && l.Dof is >= 1 and <= 6) Mask(NodePoint(n), 1 << (l.Dof - 1));
+
+        return FragmentCutBoundary.Resolve(new FragmentCutBoundaryInput
+        {
+            Cuts = withIds.Select((c, i) => (c.Id, inputs[i])).ToList(),
+            Preset = FragmentCutBc.ParsePreset(schema.FragmentBcPreset),
+            Overrides = db.GetFragmentCutBc(schema.Id),
+            Masks = db.GetFragmentMasks(schema.Id),
+            MeshNodes = meshNodes,
+            OtherConstraints = other,
+            Stages = stages.Select(s => new FragmentBcStage(s.Tag, s.Terms)).ToList(),
+            LoadCaseTags = loadCases.GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First().Tag),
+        });
+    }
+
+    /// <summary>
+    /// ГУ разрезов во вход адаптера: закрепления (с автозакреплениями) — к опорам сетки, силы масок — узловыми нагрузками
+    /// сетки, перемещения — заданными перемещениями узлов сетки; загружения-приращения масок стадий — к загружениям и в
+    /// свои стадии с коэффициентом 1. В БД ничего не пишется.
+    /// </summary>
+    static (List<FemMeshNodeSupport>, IReadOnlyList<FemMeshNodeLoad>, IReadOnlyList<FemMeshNodeKinematicLoad>,
+        IReadOnlyList<FemLoadCase>, List<FemRcStage>) ApplyFragmentBoundary(FragmentCutBoundaryResult bc,
+        IReadOnlyList<FemMeshNodeSupport> supports, IReadOnlyList<FemMeshNodeLoad> meshNodeLoads,
+        IReadOnlyList<FemLoadCase> loadCases, IReadOnlyList<FemRcStage> stages)
+    {
+        var merged = new List<FemMeshNodeSupport>(supports.Count + bc.Supports.Count);
+        var pending = new Dictionary<string, int>(bc.Supports, StringComparer.Ordinal);
+        foreach (var s in supports)
+        {
+            if (!pending.Remove(s.NodeTag, out int mask)) { merged.Add(s); continue; }
+            merged.Add(new FemMeshNodeSupport { Id = s.Id, SchemaId = s.SchemaId, NodeTag = s.NodeTag, Mask = s.Mask | mask, Origin = s.Origin });
+        }
+        foreach (var (tag, mask) in pending.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            merged.Add(new FemMeshNodeSupport { NodeTag = tag, Mask = mask, Origin = FragmentCutOrigin });
+
+        var loads = meshNodeLoads.Concat(bc.Loads.Select(l => new FemMeshNodeLoad
+        {
+            LoadCaseId = l.LoadCaseId, MeshNodeTag = l.MeshNodeTag, Origin = FragmentCutOrigin,
+            Fx = l.Force.X, Fy = l.Force.Y, Fz = l.Force.Z, Mx = l.Force.Rx, My = l.Force.Ry, Mz = l.Force.Rz,
+        })).ToList();
+        var kinematic = bc.Prescribed.Select(p => new FemMeshNodeKinematicLoad(p.LoadCaseId, p.MeshNodeTag, p.Dof + 1, p.Value)).ToList();
+
+        var cases = loadCases.Concat(bc.StageCases.Select(c => new FemLoadCase { Id = c.LoadCaseId, Tag = c.Tag, Origin = FragmentCutOrigin })).ToList();
+        var result = stages.ToList();
+        foreach (var c in bc.StageCases)
+            result[c.StageIndex] = result[c.StageIndex] with { Terms = [.. result[c.StageIndex].Terms, (c.LoadCaseId, 1.0)] };
+        return (merged, loads, kinematic, cases, result);
+    }
+
+    /// <summary>Происхождение ГУ и нагрузок, собранных из разрезов фрагмента (только во входе расчёта).</summary>
+    public const string FragmentCutOrigin = "fragment:cut";
 
     /// <summary>
     /// Стадии постановки → стадии адаптера: загружения выражения с коэффициентами, умноженными на максимум коэффициента
