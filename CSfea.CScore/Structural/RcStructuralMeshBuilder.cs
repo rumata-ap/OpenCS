@@ -80,8 +80,18 @@ public sealed class RcStructuralMeshBuild
     /// <summary>Замечания построения (автоматические закрепления и т. п.).</summary>
     public required IReadOnlyList<string> Report { get; init; }
 
-    /// <summary>Закреплённые DOF опор модели; прочие закреплённые DOF <see cref="Bc"/> — автоматические.</summary>
+    /// <summary>
+    /// Закреплённые DOF опор модели и DOF с заданными перемещениями (<see cref="PrescribedDofs"/>); прочие закреплённые DOF
+    /// <see cref="Bc"/> — автоматические.
+    /// </summary>
     public IReadOnlySet<int> SupportDofs { get; init; } = new HashSet<int>();
+
+    /// <summary>DOF с заданными перемещениями хотя бы в одном загружении (закреплены в <see cref="Bc"/>).</summary>
+    public IReadOnlySet<int> PrescribedDofs { get; init; } = new HashSet<int>();
+
+    /// <summary>Заданные перемещения по загружениям: загружение → глобальный DOF → значение (м, рад).</summary>
+    public IReadOnlyDictionary<int, IReadOnlyDictionary<int, double>> PrescribedLoadCases { get; init; } =
+        new Dictionary<int, IReadOnlyDictionary<int, double>>();
 
     /// <summary>Пружины опор модели (узел–земля): индекс узла сетки, DOF узла, жёсткость.</summary>
     public IReadOnlyList<(int Node, int Dof, double K)> NodeSprings { get; init; } = [];
@@ -102,6 +112,28 @@ public sealed class RcStructuralMeshBuild
             for (int i = 0; i < f.Length; i++) f[i] += k * v[i];
         }
         return f;
+    }
+
+    /// <summary>
+    /// Заданные перемещения сочетания загружений с коэффициентами — значения на <see cref="BoundaryConditions.FixedDofs"/>
+    /// условий <see cref="Bc"/> (в их порядке), как ждёт <see cref="StructuralMesh.SolveLinear(IReadOnlyList{double[]},
+    /// BoundaryConditions, Func{int, double[,]}?, IReadOnlyList{double[]?}?)"/>; null — все значения нулевые.
+    /// </summary>
+    public double[]? PrescribedCombination(IEnumerable<(int LoadCase, double Factor)> loads)
+    {
+        var fixedDofs = Bc.FixedDofs;
+        double[]? r = null;
+        foreach (var (lc, k) in loads)
+        {
+            if (k == 0 || !PrescribedLoadCases.TryGetValue(lc, out var values)) continue;
+            foreach (var (d, v) in values)
+            {
+                int t = Array.BinarySearch(fixedDofs, d);
+                if (t < 0) throw new InvalidOperationException($"DOF {d} с заданным перемещением не закреплён в условиях сборки.");
+                (r ??= new double[fixedDofs.Length])[t] += k * v;
+            }
+        }
+        return r != null && r.Any(v => v != 0) ? r : null;
     }
 
     /// <summary>Сумма пролётных нагрузок стержней загружений с коэффициентами: индекс стержня → 12 сил (глобальные).</summary>
@@ -181,6 +213,8 @@ public static class RcStructuralMeshBuilder
             bc.Spring(n, sp.Dof, sp.Stiffness);
             nodeSprings.Add((n, sp.Dof, sp.Stiffness));
         }
+        var (prescribedDofs, prescribedCases) = AddPrescribed(model, mesh, links, bc, index, nodeSprings, report);
+        supportDofs.UnionWith(prescribedDofs);
         var foundation = AddFoundation(model, mesh, coords, bc, report);
         FixUnconnectedDofs(mesh, links, bc, nodeIds, report);
         FixReleasedDofs(mesh, links, bc, nodeIds, report);
@@ -200,7 +234,53 @@ public static class RcStructuralMeshBuilder
             ShellIds = model.Shells.Select(s => s.Id).ToArray(), BeamIds = model.Beams.Select(b => b.Id).ToArray(),
             LoadCases = loadCases, BeamLoadCases = beamLoadCases, Report = report,
             SupportDofs = supportDofs, NodeSprings = nodeSprings, FoundationSprings = foundation,
+            PrescribedDofs = prescribedDofs, PrescribedLoadCases = prescribedCases,
         };
+    }
+
+    /// <summary>
+    /// Заданные перемещения загружений: DOF закрепляются в <paramref name="bc"/> (значения — по загружениям, в
+    /// <see cref="RcStructuralMeshBuild.PrescribedCombination"/>). Ошибки — DOF вне 0…5, повтор DOF в загружении, узел без
+    /// КЭ (кроме ведущего жёсткого тела), DOF ведомого узла жёсткого тела; пружина на том же DOF — предупреждение.
+    /// </summary>
+    private static (HashSet<int> Dofs, Dictionary<int, IReadOnlyDictionary<int, double>> Cases) AddPrescribed(
+        RcStructuralModel model, StructuralMesh mesh, List<RigidLink> links, BoundaryConditions bc,
+        Dictionary<int, int> index, List<(int Node, int Dof, double K)> nodeSprings, List<string> report)
+    {
+        var dofs = new HashSet<int>();
+        var cases = new Dictionary<int, IReadOnlyDictionary<int, double>>();
+        if (model.LoadCases.All(lc => lc.Prescribed.Count == 0)) return (dofs, cases);
+        var hasElement = new bool[mesh.NNodes];
+        foreach (var s in mesh.Shells) foreach (int n in s.Nodes) hasElement[n] = true;
+        foreach (var b in mesh.Beams) { hasElement[b.I] = true; hasElement[b.J] = true; }
+        foreach (var l in links) hasElement[l.Master] = true;
+        var slaveMask = new int[mesh.NNodes];
+        foreach (var l in links) slaveMask[l.Slave] |= l.Mask;
+        foreach (var lc in model.LoadCases)
+        {
+            if (lc.Prescribed.Count == 0) continue;
+            var values = new Dictionary<int, double>();
+            foreach (var p in lc.Prescribed)
+            {
+                string owner = $"Загружение {lc.Id}, заданное перемещение узла {p.NodeId}";
+                if (p.Dof is < 0 or > 5) throw new ArgumentException($"{owner}: DOF {p.Dof} вне 0…5.");
+                if (!index.TryGetValue(p.NodeId, out int n)) throw new ArgumentException($"{owner}: нет узла {p.NodeId}.");
+                if ((slaveMask[n] & (1 << p.Dof)) != 0)
+                    throw new ArgumentException(
+                        $"{owner}: DOF {p.Dof} подчинён жёсткому телу — задайте перемещение ведущего узла.");
+                if (!hasElement[n]) throw new ArgumentException($"{owner}: узел {p.NodeId} не примыкает ни к одному КЭ.");
+                int d = 6 * n + p.Dof;
+                if (!values.TryAdd(d, p.Value)) throw new ArgumentException($"{owner}: DOF {p.Dof} задан повторно.");
+                if (dofs.Add(d)) bc.Fix(new[] { n }, new[] { p.Dof });
+            }
+            cases[lc.Id] = values;
+        }
+        var springNodes = nodeSprings.Where(s => dofs.Contains(6 * s.Node + s.Dof)).Select(s => model.Nodes[s.Node].Id)
+            .Distinct().ToList();
+        if (springNodes.Count > 0)
+            report.Add($"На DOF с заданными перемещениями стоят пружины — на перемещения они не влияют ({springNodes.Count}): " +
+                       $"{Preview(springNodes)}.");
+        return (dofs, cases);
     }
 
     /// <summary>

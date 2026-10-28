@@ -91,6 +91,12 @@ public sealed record RcBeamLoad(int BeamId, double[] Force);
 /// </summary>
 public sealed record RcBeamEndLoad(int BeamId, double[] Forces);
 
+/// <summary>
+/// Заданное перемещение узла в загружении (м или рад) по глобальному DOF 0…5 (ux, uy, uz, θx, θy, θz). DOF с заданным
+/// значением хотя бы в одном загружении закрепляется на весь расчёт; у загружений без значения на нём — 0.
+/// </summary>
+public sealed record RcPrescribed(int NodeId, int Dof, double Value);
+
 /// <summary>Загружение.</summary>
 public sealed record RcLoadCase(int Id, string Name)
 {
@@ -98,6 +104,7 @@ public sealed record RcLoadCase(int Id, string Name)
     public List<RcShellLoad> Shells { get; } = new();
     public List<RcBeamLoad> Beams { get; } = new();
     public List<RcBeamEndLoad> BeamEnds { get; } = new();
+    public List<RcPrescribed> Prescribed { get; } = new();
 }
 
 /// <summary>
