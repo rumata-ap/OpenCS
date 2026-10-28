@@ -4033,6 +4033,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentReportBuilt">Фрагмент собран. Замечания сборки — предупреждения и то, что не перенесено:</system:String>
     <system:String x:Key="StoreyFragmentReportRefused">Фрагмент не собран, схема не создана:</system:String>
     <system:String x:Key="StoreyFragmentReportCopy">Копировать</system:String>
+    <system:String x:Key="StoreyFragmentBannerTitle">Фрагмент схемы «{0}» по отметкам {1}…{2} м</system:String>
+    <system:String x:Key="StoreyFragmentParentChecking">сверка с родителем…</system:String>
+    <system:String x:Key="StoreyFragmentParentUnchanged">полоса родителя не менялась после сборки</system:String>
+    <system:String x:Key="StoreyFragmentParentChanged">родитель изменён после сборки: если изменения касаются полосы, соберите фрагмент заново</system:String>
+    <system:String x:Key="StoreyFragmentParentDeleted">родитель удалён: фрагмент — самостоятельная схема</system:String>
+    <system:String x:Key="StoreyFragmentParentCheckFailed">сверка с родителем не выполнена: {0}</system:String>
+    <system:String x:Key="StoreyFragmentReportButton">Отчёт сборки…</system:String>
     <system:String x:Key="StoreyFragmentLevelInvalid">Отметки z₁ и z₂ — числа в метрах.</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Отметка z₁ должна быть ниже z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Задайте имя новой схемы.</system:String>

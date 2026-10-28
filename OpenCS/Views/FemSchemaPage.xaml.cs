@@ -194,6 +194,26 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
 
         PreviewKeyDown += OnPreviewKeyDown;
+        LoadFragmentBanner();
+    }
+
+    /// <summary>Шапка фрагмента: сверка родителя в фоне; «изменён/удалён» — ещё и строкой журнала.</summary>
+    async void LoadFragmentBanner()
+    {
+        var banner = new StoreyFragmentBannerVM(_app.db, _schema);
+        fragmentBanner.DataContext = banner;
+        if (!banner.IsVisible) return;
+        await banner.LoadAsync();
+        if (banner.IsWarning) _app.LogService.Warning($"{_schema.Tag}: {banner.StatusText}");
+    }
+
+    void FragmentReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (fragmentBanner.DataContext is not StoreyFragmentBannerVM banner) return;
+        new StoreyFragmentReportDialog(banner.SchemaTag, Loc.S("StoreyFragmentReportBuilt"), banner.ReportRows)
+        {
+            Owner = Window.GetWindow(this),
+        }.ShowDialog();
     }
 
     /// <summary>Выполняет шаг команды «Переместить» (copies = 0) или «Копировать» из 3D-вида; одна отмена на шаг.</summary>

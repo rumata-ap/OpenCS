@@ -4033,6 +4033,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentReportBuilt">Fragment built. Build remarks — warnings and what was not transferred:</system:String>
     <system:String x:Key="StoreyFragmentReportRefused">Fragment not built, no schema created:</system:String>
     <system:String x:Key="StoreyFragmentReportCopy">Copy</system:String>
+    <system:String x:Key="StoreyFragmentBannerTitle">Fragment of schema "{0}" by levels {1}…{2} m</system:String>
+    <system:String x:Key="StoreyFragmentParentChecking">checking the parent…</system:String>
+    <system:String x:Key="StoreyFragmentParentUnchanged">the parent band has not changed since the build</system:String>
+    <system:String x:Key="StoreyFragmentParentChanged">the parent changed after the build: rebuild the fragment if the changes concern the band</system:String>
+    <system:String x:Key="StoreyFragmentParentDeleted">the parent was deleted: the fragment is a standalone schema</system:String>
+    <system:String x:Key="StoreyFragmentParentCheckFailed">parent check failed: {0}</system:String>
+    <system:String x:Key="StoreyFragmentReportButton">Build report…</system:String>
     <system:String x:Key="StoreyFragmentLevelInvalid">Levels z₁ and z₂ must be numbers in metres.</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>

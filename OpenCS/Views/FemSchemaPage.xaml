@@ -7,6 +7,23 @@
         <helpers:DiagnosticColorConverter x:Key="DiagnosticColorConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
+    <DockPanel>
+    <!-- Шапка фрагмента этажа: родитель, отметки, состояние родителя, отчёт сборки (у обычной схемы скрыта) -->
+    <Border x:Name="fragmentBanner" DockPanel.Dock="Top" Padding="8,4" BorderThickness="0,0,0,1"
+            BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
+            Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
+                    Click="FragmentReport_Click"
+                    Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
+                <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
+                <Run Text=" — "/>
+                <Run Text="{Binding StatusText, Mode=OneWay}"
+                     Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
+            </TextBlock>
+        </DockPanel>
+    </Border>
     <TabControl x:Name="tabs">
         <!-- Вкладка 3D-схема -->
         <TabItem Header="{DynamicResource FemSchema3DTab}">
@@ -170,4 +187,5 @@
             <local:SubmodelPanel x:Name="submodelPanel"/>
         </TabItem>
     </TabControl>
+    </DockPanel>
 </UserControl>
