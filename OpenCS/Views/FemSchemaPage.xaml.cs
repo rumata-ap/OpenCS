@@ -207,6 +207,11 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         if (banner.IsWarning) _app.LogService.Warning($"{_schema.Tag}: {banner.StatusText}");
     }
 
+    /// <summary>Маски сняты или удалены — шапка (и ГУ разрезов) перечитываются.</summary>
+    public void ReloadFragmentState() => LoadFragmentBanner();
+
+    void FragmentMasks_Click(object sender, RoutedEventArgs e) => _app.TakeStoreyFragmentMasks(_schema);
+
     void FragmentReport_Click(object sender, RoutedEventArgs e)
     {
         if (fragmentBanner.DataContext is not StoreyFragmentBannerVM banner) return;

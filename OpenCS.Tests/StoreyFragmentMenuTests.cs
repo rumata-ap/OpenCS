@@ -96,6 +96,47 @@ public sealed class StoreyFragmentMenuTests : IDisposable
         Assert.Null(error);
     }
 
+    /// <summary>«Маски из родителя…»: без источников «Снять» недоступна и видна причина; с источником — выбран.</summary>
+    [Fact]
+    public void MasksDialog_NoSources_Disabled_WithSource_Selected()
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var empty = new StoreyFragmentMasksDialog("Этаж", [], null, "причина", "не сняты");
+                ShowOffscreen(empty);
+                Assert.False(empty.takeButton.IsEnabled);
+                Assert.Equal(Visibility.Visible, empty.reasonText.Visibility);
+                Assert.Equal("не сняты", empty.currentText.Text);
+                empty.Close();
+
+                FragmentMaskSourceItem a = new(1, "csfea_linear", "Лин", "Лин · Линейный · 2026-10-28 10:00");
+                FragmentMaskSourceItem b = new(2, "csfea", "Сек", "Сек · Секущий · 2026-10-28 11:00");
+                var dialog = new StoreyFragmentMasksDialog("Этаж", [a, b], b, null, "из «Сек»");
+                ShowOffscreen(dialog);
+                Assert.True(dialog.takeButton.IsEnabled);
+                Assert.Same(b, dialog.sourceBox.SelectedItem);
+                Assert.Equal(Visibility.Collapsed, dialog.reasonText.Visibility);
+                dialog.Close();
+
+                var report = new StoreyFragmentReportDialog("Этаж", "заголовок",
+                    StoreyFragmentMaskFlow.Rows([new FemValidationDiagnostic("fragment_mask_summary", "итог", false)]),
+                    "StoreyFragmentMasksReportTitle");
+                ShowOffscreen(report);
+                Assert.Equal(1, report.rowsList.Items.Count);
+                report.Close();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(error);
+    }
+
     static void ShowOffscreen(Window window)
     {
         window.WindowStartupLocation = WindowStartupLocation.Manual;

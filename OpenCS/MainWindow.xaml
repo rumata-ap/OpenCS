@@ -1341,6 +1341,22 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem helpers:CommandIcons.Header="StoreyFragmentMasksMenu"
+                                        Command="{Binding PlacementTarget.Tag.StoreyFragmentMasksCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        Visibility="{Binding PlacementTarget.DataContext.Schema,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu},
+                                                     Converter={StaticResource FemFragmentVisibilityConverter}}"/>
+                              <MenuItem helpers:CommandIcons.Header="StoreyFragmentMasksDelete"
+                                        Command="{Binding PlacementTarget.Tag.DeleteStoreyFragmentMasksCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        Visibility="{Binding PlacementTarget.DataContext.Schema,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu},
+                                                     Converter={StaticResource FemFragmentVisibilityConverter}}"/>
                               <MenuItem helpers:CommandIcons.Header="FemSchemaRename"
                                         Command="{Binding PlacementTarget.Tag.RenameFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

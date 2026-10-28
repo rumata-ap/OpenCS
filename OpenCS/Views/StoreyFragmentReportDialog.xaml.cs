@@ -8,9 +8,12 @@ public partial class StoreyFragmentReportDialog : Window
 {
     readonly IReadOnlyList<StoreyFragmentReportRow> _rows;
 
-    public StoreyFragmentReportDialog(string schemaTag, string header, IReadOnlyList<StoreyFragmentReportRow> rows)
+    /// <param name="titleKey">Ключ строки заголовка окна; null — «Отчёт сборки фрагмента».</param>
+    public StoreyFragmentReportDialog(string schemaTag, string header, IReadOnlyList<StoreyFragmentReportRow> rows,
+        string? titleKey = null)
     {
         InitializeComponent();
+        if (titleKey != null) SetResourceReference(TitleProperty, titleKey);
         _rows = rows;
         schemaText.Text = schemaTag;
         headerText.Text = header;

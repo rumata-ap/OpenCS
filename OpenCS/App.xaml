@@ -19,6 +19,7 @@
 
          <conv:ReportSupportedConverter x:Key="ReportSupportedConverter"/>
          <conv:FemSourceVisibilityConverter x:Key="FemSourceVisibilityConverter"/>
+         <conv:FemFragmentVisibilityConverter x:Key="FemFragmentVisibilityConverter"/>
          <conv:FemMemberTypeNameConverter x:Key="FemMemberTypeNameConverter"/>
 
          <DataTemplate DataType="{x:Type core:Fiber}">

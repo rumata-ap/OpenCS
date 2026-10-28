@@ -881,6 +881,10 @@ namespace OpenCS
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
       public ICommand FemSchemaMeshStepsCommand { get; set; } = null!;
       public ICommand StoreyFragmentCommand { get; set; } = null!;
+      /// <summary>«Маски из родителя…» у схемы-фрагмента.</summary>
+      public ICommand StoreyFragmentMasksCommand { get; set; } = null!;
+      /// <summary>«Удалить маски» у схемы-фрагмента.</summary>
+      public ICommand DeleteStoreyFragmentMasksCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
       public ICommand LoadLiraAspCommand { get; set; } = null!;
       /// <summary>Создать сечения пластинчатых целей схемы по данным ЛИРЫ (ASP + ТЗА).</summary>
@@ -1840,6 +1844,8 @@ namespace OpenCS
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          FemSchemaMeshStepsCommand = new RelayCommand(p => EditFemSchemaMeshSteps(p as CScore.Fem.FemSchema));
          StoreyFragmentCommand     = new RelayCommand(p => BuildStoreyFragment(p as CScore.Fem.FemSchema));
+         StoreyFragmentMasksCommand = new RelayCommand(p => TakeStoreyFragmentMasks(p as CScore.Fem.FemSchema));
+         DeleteStoreyFragmentMasksCommand = new RelayCommand(p => DeleteStoreyFragmentMasks(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          CreateImportedBarSectionsCommand = new RelayCommand(p => CreateImportedBarSections(p as CScore.Fem.FemSchema));
@@ -3444,6 +3450,66 @@ namespace OpenCS
                Loc.S(result.IsError ? "StoreyFragmentReportRefused" : "StoreyFragmentReportBuilt"), result.Rows) { Owner = owner }
                .ShowDialog();
          if (result.Schema is { } schema) CurrentFemSchema = schema;
+      }
+
+      /// <summary>
+      /// «Маски из родителя…» (спека масок, разд. 1, шаг 3): выбор постановки CSfea родителя, снятие масок, отчёт.
+      /// Снятие пишет набор масок — в UI-потоке (одно соединение БД); отказ прежние маски не трогает.
+      /// </summary>
+      public async void TakeStoreyFragmentMasks(CScore.Fem.FemSchema? fragment)
+      {
+         if (fragment?.ParentSchemaId == null) return;
+         var owner = Application.Current?.MainWindow;
+         var sources = ViewModels.StoreyFragmentMaskFlow.Sources(db, fragment, out string? reason);
+         var dlg = new Views.StoreyFragmentMasksDialog(fragment.Tag, sources,
+            ViewModels.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
+            ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment)) { Owner = owner };
+         if (dlg.ShowDialog() != true || dlg.Source is not { } source) return;
+
+         BeginBusy(Loc.S("StoreyFragmentMasksBusy"));
+         ViewModels.StoreyFragmentMaskFlowResult result;
+         try
+         {
+            // Строка занятости успевает отрисоваться до синхронного снятия.
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+            result = ViewModels.StoreyFragmentMaskFlow.Extract(db, fragment, source);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("StoreyFragmentMasksTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         EndBusy(result.LogMessage);
+         if (result.IsError) LogService.Error(result.LogMessage); else LogService.Info(result.LogMessage);
+         new Views.StoreyFragmentReportDialog(fragment.Tag,
+            Loc.S(result.IsError ? "StoreyFragmentMasksReportRefused" : "StoreyFragmentMasksReportTaken"), result.Rows,
+            "StoreyFragmentMasksReportTitle") { Owner = owner }.ShowDialog();
+         if (!result.IsError) ReloadFragmentState(fragment);
+      }
+
+      /// <summary>«Удалить маски» фрагмента — с подтверждением; ГУ разрезов и пресет остаются.</summary>
+      void DeleteStoreyFragmentMasks(CScore.Fem.FemSchema? fragment)
+      {
+         if (fragment?.ParentSchemaId == null) return;
+         if (db.GetFragmentMasks(fragment.Id, items: false) == null)
+         {
+            MessageBox.Show(string.Format(Loc.S("StoreyFragmentMasksNoneToDelete"), fragment.Tag),
+               Loc.S("StoreyFragmentMasksTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+         if (MessageBox.Show(string.Format(Loc.S("StoreyFragmentMasksDeleteConfirm"), fragment.Tag),
+               Loc.S("Confirmation"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+         db.DeleteFragmentMasks(fragment.Id);
+         LogService.Info(string.Format(Loc.S("StoreyFragmentMasksDeleted"), fragment.Tag));
+         ReloadFragmentState(fragment);
+      }
+
+      /// <summary>Открытая страница фрагмента перечитывает шапку и ГУ разрезов (маски сняты или удалены).</summary>
+      void ReloadFragmentState(CScore.Fem.FemSchema fragment)
+      {
+         if (currentFemSchema?.Id == fragment.Id && CurrentPage is Views.FemSchemaPage page) page.ReloadFragmentState();
       }
 
       /// <summary>Общие шаги сетки схемы (стержни, пластины) — хранятся в схеме; применяются при «Построить сетку схемы».</summary>

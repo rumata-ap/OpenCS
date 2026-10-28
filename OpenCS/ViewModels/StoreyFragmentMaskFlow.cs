@@ -48,7 +48,7 @@ public static class StoreyFragmentMaskFlow
             bool linear = a.Kind == FemCsfeaRunner.LinearAnalysisKind;
             if (!linear && a.Kind != FemCsfeaRunner.AnalysisKind) continue;
             if (a.Status != "ok" || a.ResultId is not int resultId || db.GetCalcResultById(resultId) is not { } result) continue;
-            string created = result.Created.Length > 16 ? result.Created[..16] : result.Created;
+            string created = Short(result.Created);
             items.Add(new(a.Id, linear ? FragmentMaskSet.SourceCsfeaLinear : FragmentMaskSet.SourceCsfeaSecant, a.Tag,
                 string.Format(Loc.S("StoreyFragmentMaskSourceLabel"), a.Tag,
                     Loc.S(linear ? "FemAnalysisKindCsfeaLinear" : "FemAnalysisKindCsfea"), created)));
@@ -65,6 +65,15 @@ public static class StoreyFragmentMaskFlow
         return sources.FirstOrDefault(s => set != null && s.SourceKind == set.SourceKind
             && s.AnalysisId.ToString(CultureInfo.InvariantCulture) == set.SourceRef) ?? sources[0];
     }
+
+    /// <summary>Строка о действующих масках: «не сняты» или «из «источник» от дата».</summary>
+    public static string CurrentText(DatabaseService db, FemSchema fragment) =>
+        db.GetFragmentMasks(fragment.Id, items: false) is { } set
+            ? string.Format(Loc.S("StoreyFragmentMasksCurrent"), set.SourceLabel, Short(set.CreatedAt))
+            : Loc.S("StoreyFragmentMasksNotTaken");
+
+    /// <summary>Дата «гггг-ММ-дд чч:мм» без секунд.</summary>
+    internal static string Short(string created) => created.Length > 16 ? created[..16] : created;
 
     /// <summary>Снять маски из <paramref name="source"/>; отказ БД не меняет.</summary>
     public static StoreyFragmentMaskFlowResult Extract(DatabaseService db, FemSchema fragment, FragmentMaskSourceItem source)

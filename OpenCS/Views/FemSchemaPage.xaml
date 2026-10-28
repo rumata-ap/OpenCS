@@ -16,6 +16,8 @@
             <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
                     Click="FragmentReport_Click"
                     Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksMenu}" Padding="8,0" Margin="0,0,6,0"
+                    Click="FragmentMasks_Click"/>
             <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
                 <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
                 <Run Text=" — "/>
