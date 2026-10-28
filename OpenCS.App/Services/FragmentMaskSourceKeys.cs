@@ -103,10 +103,40 @@ public static class FragmentMaskSourceKeys
     public static FragmentMaskKey StageKey(IEnumerable<(int LoadCaseId, double Factor)> terms) => FragmentMaskKey.OfStageTerms(terms);
 
     /// <summary>
-    /// Карта загружений родителя → фрагмента. Построитель копирует все загружения родителя по порядку (Id не хранятся):
-    /// при том же числе и тех же тегах по порядку — по позиции; иначе по однозначному тегу (двойники — предупреждение).
+    /// Карта загружений родителя → фрагмента. С v95 загружение фрагмента хранит ссылку на загружение родителя
+    /// (<see cref="FemLoadCase.ParentLoadCaseId"/>) — она главная и переживает переименование. Без ссылок (фрагмент до
+    /// v95, удалённое и заново созданное загружение) — прежнее восстановление: при том же числе и тех же тегах по порядку —
+    /// по позиции; иначе по однозначному тегу (двойники — предупреждение).
     /// </summary>
     public static Dictionary<int, int> LoadCaseMap(IReadOnlyList<FemLoadCase> parent, IReadOnlyList<FemLoadCase> fragment,
+        List<string> warnings)
+    {
+        var parentIds = parent.Select(c => c.Id).ToHashSet();
+        var linked = fragment.Where(c => c.ParentLoadCaseId is int id && parentIds.Contains(id)).ToList();
+        if (linked.Count > 0)
+        {
+            var byLink = new Dictionary<int, int>();
+            foreach (var g in linked.GroupBy(c => c.ParentLoadCaseId!.Value))
+            {
+                byLink[g.Key] = g.First().Id;
+                if (g.Count() > 1)
+                    warnings.Add($"Загружение родителя «{parent.First(c => c.Id == g.Key).Tag}» скопировано во фрагмент " +
+                        "несколько раз — взята первая копия.");
+            }
+            // Загружения без ссылки — прежним способом среди оставшихся.
+            var restParent = parent.Where(c => !byLink.ContainsKey(c.Id)).ToList();
+            var restFragment = fragment.Where(c => c.ParentLoadCaseId is not int id || !parentIds.Contains(id)).ToList();
+            if (restParent.Count == 0) return byLink;
+            if (restFragment.Count == 0)
+                foreach (var lc in restParent) warnings.Add($"Загружения «{lc.Tag}» родителя нет во фрагменте.");
+            else
+                foreach (var (k, v) in ByOrderOrTag(restParent, restFragment, warnings)) byLink[k] = v;
+            return byLink;
+        }
+        return ByOrderOrTag(parent, fragment, warnings);
+    }
+
+    static Dictionary<int, int> ByOrderOrTag(IReadOnlyList<FemLoadCase> parent, IReadOnlyList<FemLoadCase> fragment,
         List<string> warnings)
     {
         var map = new Dictionary<int, int>();

@@ -23,6 +23,12 @@ public class FemLoadCase
     /// </summary>
     public double? LongTermShare { get; set; }
 
+    /// <summary>
+    /// Загружение схемы-родителя, копией которого создано это загружение фрагмента этажа (карта масок); null — схема не
+    /// фрагмент или собрана до v95. Пользователем не редактируется.
+    /// </summary>
+    public int? ParentLoadCaseId { get; set; }
+
     /// <summary>Коэффициент к собственному весу всей схемы (по плотности материалов); null — без собственного веса.</summary>
     public double? SelfWeightFactor { get; set; }
 

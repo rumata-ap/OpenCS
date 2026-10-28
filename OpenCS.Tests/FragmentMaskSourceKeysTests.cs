@@ -125,4 +125,30 @@ public sealed class FragmentMaskSourceKeysTests
         Assert.Contains(warnings, w => w.Contains("«Пост.»") && w.Contains("неоднозначно"));
         Assert.Contains(warnings, w => w.Contains("«Ветер»") && w.Contains("нет во фрагменте"));
     }
+
+    /// <summary>
+    /// Ссылки v95 главнее порядка и имён: фрагмент переставил и переименовал загружения — карта по ссылкам. Загружение без
+    /// ссылки (создано во фрагменте заново) сопоставляется прежним способом среди оставшихся; ссылка на чужое загружение
+    /// не считается.
+    /// </summary>
+    [Fact]
+    public void LoadCaseMap_ByParentLinkFirst()
+    {
+        var warnings = new List<string>();
+        FemLoadCase[] renamed =
+        [
+            new() { Id = 130, Tag = "Ветер X", ParentLoadCaseId = 12 }, new() { Id = 131, Tag = "G", ParentLoadCaseId = 10 },
+            new() { Id = 132, Tag = "Полезная" }, new() { Id = 133, Tag = "Чужое", ParentLoadCaseId = 999 },
+        ];
+
+        var map = FragmentMaskSourceKeys.LoadCaseMap(Parent, renamed, warnings);
+
+        Assert.Equal(new Dictionary<int, int> { [10] = 131, [11] = 132, [12] = 130 }, map);
+        Assert.Empty(warnings);
+
+        FemLoadCase[] twice = [new() { Id = 140, Tag = "a", ParentLoadCaseId = 10 }, new() { Id = 141, Tag = "b", ParentLoadCaseId = 10 }];
+        Assert.Equal(new Dictionary<int, int> { [10] = 140 }, FragmentMaskSourceKeys.LoadCaseMap(Parent, twice, warnings));
+        Assert.Contains(warnings, w => w.Contains("«Пост.»") && w.Contains("несколько раз"));
+        Assert.Contains(warnings, w => w.Contains("«Полезная»") && w.Contains("нет во фрагменте"));
+    }
 }

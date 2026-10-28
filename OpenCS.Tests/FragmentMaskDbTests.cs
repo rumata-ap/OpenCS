@@ -9,7 +9,7 @@ using Xunit;
 
 namespace OpenCS.Tests;
 
-/// <summary>Маски фрагмента в БД (v94): миграция, круговая запись, копия схемы, каскадное удаление.</summary>
+/// <summary>Маски фрагмента в БД (v94–v95): миграция, круговая запись, копия схемы, каскадное удаление, карта загружений.</summary>
 public sealed class FragmentMaskDbTests : IDisposable
 {
     readonly string _path = Path.Combine(Path.GetTempPath(), $"opencs-fragment-masks-{Guid.NewGuid():N}.db");
@@ -23,25 +23,28 @@ public sealed class FragmentMaskDbTests : IDisposable
     }
 
     [Fact]
-    public void NewDatabase_HasV94TablesAndColumn()
+    public void NewDatabase_HasV95TablesAndColumns()
     {
         using (new DatabaseService(_path)) { }
-        Assert.Equal(94, DatabaseService.SchemaVersion);
-        Assert.Equal("94", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.Equal(95, DatabaseService.SchemaVersion);
+        Assert.Equal("95", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_load_cases') WHERE name='parent_load_case_id'"));
         foreach (var t in Tables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
         Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_schemas') WHERE name='fragment_bc_preset'"));
     }
 
     [Fact]
-    public void V93Database_MigratesToV94()
+    public void V93Database_MigratesToV95()
     {
         using (var db = new DatabaseService(_path)) StoreyFragmentDbFixture.CreateParent(db);
         Exec(string.Join(";", Tables.Select(t => $"DROP TABLE {t}"))
-             + ";ALTER TABLE fem_schemas DROP COLUMN fragment_bc_preset;UPDATE settings SET value_json='93' WHERE key='schema_version'");
+             + ";ALTER TABLE fem_schemas DROP COLUMN fragment_bc_preset;ALTER TABLE fem_load_cases DROP COLUMN parent_load_case_id"
+             + ";UPDATE settings SET value_json='93' WHERE key='schema_version'");
         using (var db = new DatabaseService(_path))
         {
-            Assert.Equal("94", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            Assert.Equal("95", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_load_cases') WHERE name='parent_load_case_id'"));
             foreach (var t in Tables)
                 Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
             db.LoadAll();
@@ -133,6 +136,46 @@ public sealed class FragmentMaskDbTests : IDisposable
         db.ReplaceStoreyFragmentData(fragment.Id, db.GetFragmentCuts(fragment.Id), db.GetFragmentRefElements(fragment.Id), []);
         Assert.Null(db.GetFragmentMasks(fragment.Id));
         Assert.Empty(db.GetFragmentCutBc(fragment.Id));
+    }
+
+    /// <summary>
+    /// Карта загружений v95: копия во фрагменте помнит загружение родителя; полное сохранение родителя (новые Id
+    /// загружений) переносит ссылки, удалённое загружение — сброс ссылки; переименование во фрагменте ссылку не трогает.
+    /// </summary>
+    [Fact]
+    public void FragmentLoadCases_KeepParentLink_ThroughParentFullSave()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var fragment = StoreyFragmentService.Build(db, parent.Id, Band).Schema!;
+        var parentCases = db.GetFemLoadCases(parent.Id);
+
+        Assert.Equal(parentCases.Select(c => (int?)c.Id), db.GetFemLoadCases(fragment.Id).Select(c => c.ParentLoadCaseId));
+        Assert.Equal(parentCases.Select(c => (int?)c.Id), fragment.LoadCases.Select(c => c.ParentLoadCaseId));
+        Assert.All(parentCases, c => Assert.Null(c.ParentLoadCaseId));
+
+        // Родитель сохранён целиком без «Полезной»: «Пост.» получает новый Id.
+        var kept = parentCases.Where(c => c.Tag == "Пост.").ToList();
+        int oldPermanent = kept[0].Id;
+        db.SaveFemSchemaEdit(parent.Id, db.GetFemNodes(parent.Id), db.GetFemMembers(parent.Id), [], kept, [], []);
+        int newPermanent = Assert.Single(db.GetFemLoadCases(parent.Id)).Id;
+        Assert.NotEqual(oldPermanent, newPermanent);
+
+        var links = db.GetFemLoadCases(fragment.Id).ToDictionary(c => c.Tag, c => c.ParentLoadCaseId);
+        Assert.Equal(newPermanent, links["Пост."]);
+        Assert.Null(links["Полезная"]);
+        var inMemory = db.FemSchemas.Single(s => s.Id == fragment.Id).LoadCases.ToDictionary(c => c.Tag, c => c.ParentLoadCaseId);
+        Assert.Equal(newPermanent, inMemory["Пост."]);
+        Assert.Null(inMemory["Полезная"]);
+
+        // Переименование загружения во фрагменте (обновление по Id) ссылку сохраняет; копия фрагмента — тоже.
+        var permanent = db.GetFemLoadCases(fragment.Id).Single(c => c.Tag == "Пост.");
+        permanent.Tag = "G";
+        db.SaveFemLoadCase(permanent);
+        Assert.Equal(newPermanent, db.GetFemLoadCases(fragment.Id).Single(c => c.Tag == "G").ParentLoadCaseId);
+        db.LoadAll();
+        var copy = db.DuplicateFemSchema(fragment.Id, "Копия");
+        Assert.Equal(newPermanent, db.GetFemLoadCases(copy.Id).Single(c => c.Tag == "G").ParentLoadCaseId);
     }
 
     [Fact]

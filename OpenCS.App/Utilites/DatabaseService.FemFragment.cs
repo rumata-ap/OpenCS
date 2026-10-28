@@ -538,8 +538,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO fem_load_cases
                      (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2,
-                      self_weight_factor, origin, source_load_num, long_term_share)
-                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts);
+                      self_weight_factor, origin, source_load_num, long_term_share, parent_load_case_id)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2, @swf, @origin, @sln, @lts, @plc);
                   SELECT last_insert_rowid();
                   """;
                foreach (var lc in draft.LoadCases)
@@ -554,6 +554,8 @@ namespace OpenCS.Utilites
                   cmd.Parameters.AddWithValue("@gf", (object?)lc.GammaFFav ?? DBNull.Value);
                   cmd.Parameters.AddWithValue("@p1", (object?)lc.Psi1 ?? DBNull.Value);
                   cmd.Parameters.AddWithValue("@p2", (object?)lc.Psi2 ?? DBNull.Value);
+                  // Копия ссылается на загружение родителя (lc.Id черновика — Id родителя): карта для масок.
+                  lc.ParentLoadCaseId = lc.Id;
                   AddFemLoadCaseExtraParameters(cmd, lc);
                   int id = (int)(long)cmd.ExecuteScalar()!;
                   lcMap[lc.Id] = id;
@@ -562,7 +564,7 @@ namespace OpenCS.Utilites
                      Id = id, SchemaId = sid, Tag = lc.Tag, LoadType = lc.LoadType, Sp20Type = lc.Sp20Type,
                      Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav, GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1,
                      Psi2 = lc.Psi2, LongTermShare = lc.LongTermShare, SelfWeightFactor = lc.SelfWeightFactor,
-                     Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum,
+                     Origin = lc.Origin, SourceLoadNum = lc.SourceLoadNum, ParentLoadCaseId = lc.Id,
                   });
                }
             }

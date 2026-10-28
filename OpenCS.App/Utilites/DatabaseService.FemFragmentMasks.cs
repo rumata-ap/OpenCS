@@ -46,6 +46,54 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_schemas ADD COLUMN fragment_bc_preset TEXT");
       }
 
+      /// <summary>
+      /// Миграция v95: у загружения фрагмента — Id загружения родителя, копией которого оно создано (карта масок; у
+      /// фрагментов до v95 — null, карта восстанавливается по порядку и тегам).
+      /// </summary>
+      void MigrateV95()
+      {
+         MigrateV94();
+         if (!ColumnExists("fem_load_cases", "parent_load_case_id"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN parent_load_case_id INTEGER");
+      }
+
+      /// <summary>
+      /// Полное сохранение схемы <paramref name="parentId"/> переписало Id её загружений (<paramref name="newIdByOld"/>):
+      /// ссылки загружений её фрагментов идут за ними, ссылки на удалённые загружения сбрасываются (внутри транзакции
+      /// сохранения). Объекты в памяти обновляются так же.
+      /// </summary>
+      void RemapFragmentParentLoadCases(int parentId, IReadOnlyDictionary<int, int> newIdByOld)
+      {
+         const string Children = "schema_id IN (SELECT id FROM fem_schemas WHERE parent_schema_id=@pid)";
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = $"UPDATE fem_load_cases SET parent_load_case_id=@new WHERE parent_load_case_id=@old AND {Children}";
+            cmd.Parameters.AddWithValue("@pid", parentId);
+            var oldId = cmd.Parameters.Add("@old", SqliteType.Integer);
+            var newId = cmd.Parameters.Add("@new", SqliteType.Integer);
+            // Новые Id (AUTOINCREMENT) больше любых прежних, поэтому замены не наложатся одна на другую.
+            foreach (var (o, n) in newIdByOld.Where(kv => kv.Key != kv.Value))
+            {
+               oldId.Value = o;
+               newId.Value = n;
+               cmd.ExecuteNonQuery();
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = $"""
+               UPDATE fem_load_cases SET parent_load_case_id=NULL WHERE parent_load_case_id IS NOT NULL AND {Children}
+                 AND parent_load_case_id NOT IN (SELECT id FROM fem_load_cases WHERE schema_id=@pid)
+               """;
+            cmd.Parameters.AddWithValue("@pid", parentId);
+            cmd.ExecuteNonQuery();
+         }
+         var alive = newIdByOld.Values.ToHashSet();
+         foreach (var lc in FemSchemas.Where(s => s.ParentSchemaId == parentId).SelectMany(s => s.LoadCases))
+            if (lc.ParentLoadCaseId is int id)
+               lc.ParentLoadCaseId = newIdByOld.TryGetValue(id, out int mapped) ? mapped : alive.Contains(id) ? id : null;
+      }
+
       const string LoadCaseKeyKind = "load_case", StageKeyKind = "stage";
 
       /// <summary>
