@@ -14,6 +14,65 @@ public sealed record FragmentMaskKey(FragmentMaskKeyKind Kind, int LoadCaseId, s
 {
     public static FragmentMaskKey OfLoadCase(int loadCaseId) => new(FragmentMaskKeyKind.LoadCase, loadCaseId, null);
     public static FragmentMaskKey OfStage(string expressionJson) => new(FragmentMaskKeyKind.Stage, 0, expressionJson);
+
+    /// <summary>
+    /// Ключ сочетания в каноническом виде (равные сочетания — равные ключи): сумма слагаемых по возрастанию Id (повторы
+    /// складываются), коэффициенты округлены до 1e−10, нулевые отброшены.
+    /// </summary>
+    public static FragmentMaskKey OfStageTerms(IEnumerable<(int LoadCaseId, double Factor)> terms)
+    {
+        var sum = new SortedDictionary<int, double>();
+        foreach (var (id, k) in terms) sum[id] = sum.GetValueOrDefault(id) + k;
+        var expression = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = sum.Select(kv => (kv.Key, K: Math.Round(kv.Value, 10))).Where(t => t.K != 0)
+                .Select(t => new FemLoadTerm { LoadCaseId = t.Key, Coefficient = t.K }).ToList(),
+        };
+        return OfStage(expression.ToJson());
+    }
+
+    /// <summary>Слагаемые сочетания (Id, коэффициент); у ключа загружения — само загружение с 1.</summary>
+    public IReadOnlyList<(int LoadCaseId, double Factor)> Terms() => Kind == FragmentMaskKeyKind.LoadCase
+        ? [(LoadCaseId, 1.0)]
+        : FemLoadExpression.Parse(StageExpressionJson).Terms.Select(t => (t.LoadCaseId, t.Coefficient)).ToList();
+
+    /// <summary>Тот же ключ с Id загружений через <paramref name="map"/> (копия схемы, карта родителя → фрагмента).</summary>
+    public FragmentMaskKey MapLoadCases(Func<int, int> map) => Kind == FragmentMaskKeyKind.LoadCase
+        ? OfLoadCase(map(LoadCaseId))
+        : OfStageTerms(Terms().Select(t => (map(t.LoadCaseId), t.Factor)));
+}
+
+/// <summary>Маска одного разреза фрагмента в БД (<c>fem_fragment_mask_items</c>): Id разреза, ключ, сэмплы.</summary>
+public sealed record FragmentMaskItem(int CutId, FragmentMaskKey Key, IReadOnlyList<FragmentMaskSample> Samples)
+{
+    /// <summary>Хотя бы в одном сэмпле нет перемещений источника.</summary>
+    public bool NoDisplacements => Samples.Count == 0 || Samples.Any(s => s.U == null);
+
+    /// <summary>Хотя бы в одном сэмпле нет сил источника.</summary>
+    public bool NoForces => Samples.Count == 0 || Samples.Any(s => s.F == null);
+}
+
+/// <summary>
+/// Действующий набор масок фрагмента (спека разд. 3, 6; БД v94 <c>fem_fragment_masks</c>): источник, отпечаток
+/// источника для сверки устаревания, отчёт снятия и маски по разрезам и ключам. У фрагмента один набор.
+/// </summary>
+public sealed class FragmentMaskSet
+{
+    /// <summary>Виды источника (<see cref="SourceKind"/>).</summary>
+    public const string SourceCsfeaLinear = "csfea_linear", SourceCsfeaSecant = "csfea", SourceScad = "scad", SourceLira = "lira";
+
+    public required string SourceKind { get; init; }
+    /// <summary>Ссылка на источник: Id постановки родителя или вид вложения импорта.</summary>
+    public string SourceRef { get; init; } = "";
+    /// <summary>Подпись источника для пользователя (имя постановки).</summary>
+    public string SourceLabel { get; init; } = "";
+    /// <summary>Отпечаток источника: результат постановки и полоса родителя.</summary>
+    public string SourceFingerprint { get; init; } = "";
+    public string CreatedAt { get; init; } = "";
+    /// <summary>Отчёт снятия — JSON диагностики (как <see cref="StoreyFragmentBuildReport"/>).</summary>
+    public string ReportJson { get; init; } = "[]";
+    public List<FragmentMaskItem> Items { get; init; } = [];
 }
 
 /// <summary>

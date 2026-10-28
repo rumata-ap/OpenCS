@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 93;
+      const int CurrentSchemaVersion = 94;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -113,6 +113,7 @@ namespace OpenCS.Utilites
          [90] = MigrateV91,
          [91] = MigrateV92,
          [92] = MigrateV93,
+         [93] = MigrateV94,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -810,7 +811,7 @@ namespace OpenCS.Utilites
          EnsureFemSchemaStiffnessTable();
          MigrateV86();
          MigrateV88();
-         MigrateV93();
+         MigrateV94();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -4386,7 +4387,7 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                SELECT id, tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m, auto_rigid_junctions,
                       rigid_junction_angle_deg, parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint,
-                      fragment_build_report_json, parent_source_type
+                      fragment_build_report_json, parent_source_type, fragment_bc_preset
                FROM fem_schemas ORDER BY id
                """;
             using var r = cmd.ExecuteReader();
@@ -4409,6 +4410,7 @@ namespace OpenCS.Utilites
                   ParentFingerprint       = r.IsDBNull(12) ? null : r.GetString(12),
                   FragmentBuildReportJson = r.IsDBNull(13) ? null : r.GetString(13),
                   ParentSourceType        = r.IsDBNull(14) ? null : r.GetString(14),
+                  FragmentBcPreset        = r.IsDBNull(15) ? null : r.GetString(15),
                };
                schemas[s.Id] = s;
             }
@@ -4679,8 +4681,9 @@ namespace OpenCS.Utilites
             {
                cmd.CommandText = """
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, auto_rigid_junctions, rigid_junction_angle_deg,
-                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type)
-                  VALUES (@tag, @src, @created, @path, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst);
+                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type,
+                                           fragment_bc_preset)
+                  VALUES (@tag, @src, @created, @path, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp);
                   SELECT last_insert_rowid();
                """;
                AddFemSchemaFragmentParameters(cmd, schema);
@@ -4766,6 +4769,9 @@ namespace OpenCS.Utilites
                DELETE FROM fem_schema_selected_reinforcement_files WHERE schema_id=@id;
                DELETE FROM fem_schema_source_files WHERE schema_id=@id;
                DELETE FROM fem_schema_stiffnesses WHERE schema_id=@id;
+               DELETE FROM fem_fragment_mask_items   WHERE mask_id IN (SELECT id FROM fem_fragment_masks WHERE schema_id=@id);
+               DELETE FROM fem_fragment_masks        WHERE schema_id=@id;
+               DELETE FROM fem_fragment_cut_bc       WHERE cut_id IN (SELECT id FROM fem_fragment_cuts WHERE schema_id=@id);
                DELETE FROM fem_fragment_cuts         WHERE schema_id=@id;
                DELETE FROM fem_fragment_ref_elements WHERE schema_id=@id;
                DELETE FROM fem_fragment_field_loads  WHERE schema_id=@id;
@@ -6236,14 +6242,16 @@ namespace OpenCS.Utilites
                ParentFingerprint       = sourceSchema.ParentFingerprint,
                FragmentBuildReportJson = sourceSchema.FragmentBuildReportJson,
                ParentSourceType        = sourceSchema.ParentSourceType,
+               FragmentBcPreset        = sourceSchema.FragmentBcPreset,
             };
             using (var schemaCmd = _connection.CreateCommand())
             {
                schemaCmd.CommandText = """
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
                                            auto_rigid_junctions, rigid_junction_angle_deg,
-                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type)
-                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst);
+                                           parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json, parent_source_type,
+                                           fragment_bc_preset)
+                  VALUES (@tag, @src, @created, @path, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @bcp);
                   SELECT last_insert_rowid();
                """;
                AddFemSchemaFragmentParameters(schemaCmd, newSchema);

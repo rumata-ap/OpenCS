@@ -28,8 +28,8 @@ public sealed class StoreyFragmentDbTests : IDisposable
     public void NewDatabase_HasV93TablesAndColumns()
     {
         using (new DatabaseService(_path)) { }
-        Assert.Equal(93, DatabaseService.SchemaVersion);
-        Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.True(DatabaseService.SchemaVersion >= 93);
+        Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
         foreach (var t in FragmentTables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
         foreach (var c in FragmentColumns)
@@ -44,7 +44,7 @@ public sealed class StoreyFragmentDbTests : IDisposable
         Exec(string.Join(";", FragmentTables.Select(t => $"DROP TABLE {t}"))
              + ";UPDATE settings SET value_json='91' WHERE key='schema_version'");
         using (new DatabaseService(_path)) { }
-        Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
         foreach (var t in FragmentTables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
         using (new DatabaseService(_path)) { }
@@ -67,7 +67,7 @@ public sealed class StoreyFragmentDbTests : IDisposable
              $"X'{Convert.ToHexString(FragmentStoreCodec.EncodePoints([new(0, 0, 0), new(0, 0, 3)]))}')");
         using (var db = new DatabaseService(_path))
         {
-            Assert.Equal("93", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
             var r = db.GetFragmentRefElements(1).Single();
             Assert.Equal("501", r.Tag);
             Assert.Null(r.ReinforcementTypeIds);

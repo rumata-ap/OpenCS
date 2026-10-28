@@ -99,22 +99,8 @@ public static class FragmentMaskSourceKeys
         return result;
     }
 
-    /// <summary>
-    /// Ключ сочетания в каноническом виде: сумма слагаемых по возрастанию Id (повторы складываются), коэффициенты
-    /// округлены до 1e−10, нулевые отброшены.
-    /// </summary>
-    public static FragmentMaskKey StageKey(IEnumerable<(int LoadCaseId, double Factor)> terms)
-    {
-        var sum = new SortedDictionary<int, double>();
-        foreach (var (id, k) in terms) sum[id] = sum.GetValueOrDefault(id) + k;
-        var expression = new FemLoadExpression
-        {
-            Mode = FemLoadExpressionMode.Sum,
-            Terms = sum.Select(kv => (kv.Key, K: Math.Round(kv.Value, 10))).Where(t => t.K != 0)
-                .Select(t => new FemLoadTerm { LoadCaseId = t.Key, Coefficient = t.K }).ToList(),
-        };
-        return FragmentMaskKey.OfStage(expression.ToJson());
-    }
+    /// <summary>Ключ сочетания в каноническом виде (<see cref="FragmentMaskKey.OfStageTerms"/>).</summary>
+    public static FragmentMaskKey StageKey(IEnumerable<(int LoadCaseId, double Factor)> terms) => FragmentMaskKey.OfStageTerms(terms);
 
     /// <summary>
     /// Карта загружений родителя → фрагмента. Построитель копирует все загружения родителя по порядку (Id не хранятся):

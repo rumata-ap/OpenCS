@@ -99,7 +99,8 @@ namespace OpenCS.Utilites
       /// <summary>Вид источника «подобранная арматура ЛИРЫ (ASP)» в <c>fem_fragment_rebar_sources</c>.</summary>
       public const string FragmentRebarSourceLiraAsp = "lira_asp";
 
-      /// <summary>Заменяет рассечения, опорную сетку и нагрузки-поля фрагмента (одной транзакцией).</summary>
+      /// <summary>Заменяет рассечения, опорную сетку и нагрузки-поля фрагмента (одной транзакцией); маски и ГУ
+      /// прежних разрезов удаляются.</summary>
       public void ReplaceStoreyFragmentData(int schemaId, IEnumerable<FragmentCut> cuts, IEnumerable<FragmentRefElement> refElements,
          IEnumerable<FragmentFieldLoad> fieldLoads)
       {
@@ -109,6 +110,9 @@ namespace OpenCS.Utilites
             using (var del = _connection.CreateCommand())
             {
                del.CommandText = """
+                  DELETE FROM fem_fragment_mask_items   WHERE mask_id IN (SELECT id FROM fem_fragment_masks WHERE schema_id=@sid);
+                  DELETE FROM fem_fragment_masks        WHERE schema_id=@sid;
+                  DELETE FROM fem_fragment_cut_bc       WHERE cut_id IN (SELECT id FROM fem_fragment_cuts WHERE schema_id=@sid);
                   DELETE FROM fem_fragment_cuts         WHERE schema_id=@sid;
                   DELETE FROM fem_fragment_ref_elements WHERE schema_id=@sid;
                   DELETE FROM fem_fragment_field_loads  WHERE schema_id=@sid;
@@ -123,15 +127,17 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Вставляет рассечения, опорную сетку и нагрузки-поля (внутри транзакции вызывающего);
-      /// <paramref name="mapLoadCase"/> переводит Id загружений нагрузок-полей.</summary>
-      void InsertStoreyFragmentDataCore(int schemaId, IEnumerable<FragmentCut> cuts, IEnumerable<FragmentRefElement> refElements,
+      /// <paramref name="mapLoadCase"/> переводит Id загружений нагрузок-полей. Возвращает Id вставленных разрезов по порядку.</summary>
+      List<int> InsertStoreyFragmentDataCore(int schemaId, IEnumerable<FragmentCut> cuts, IEnumerable<FragmentRefElement> refElements,
          IEnumerable<FragmentFieldLoad> fieldLoads, Func<int, int> mapLoadCase)
       {
+         var cutIds = new List<int>();
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
                INSERT INTO fem_fragment_cuts (schema_id, member_tag, kind, side, z, node_tag, segments_json)
-               VALUES (@sid, @tag, @kind, @side, @z, @node, @seg)
+               VALUES (@sid, @tag, @kind, @side, @z, @node, @seg);
+               SELECT last_insert_rowid();
                """;
             cmd.Parameters.AddWithValue("@sid", schemaId);
             var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
@@ -148,7 +154,7 @@ namespace OpenCS.Utilites
                z.Value = c.Z;
                node.Value = (object?)c.NodeTag ?? DBNull.Value;
                seg.Value = JsonSerializer.Serialize(c.Segments.Select(s => new[] { s.P.X, s.P.Y, s.P.Z, s.Q.X, s.Q.Y, s.Q.Z }));
-               cmd.ExecuteNonQuery();
+               cutIds.Add((int)(long)cmd.ExecuteScalar()!);
             }
          }
          using (var cmd = _connection.CreateCommand())
@@ -202,22 +208,26 @@ namespace OpenCS.Utilites
                cmd.ExecuteNonQuery();
             }
          }
+         return cutIds;
       }
 
-      public List<FragmentCut> GetFragmentCuts(int schemaId)
+      public List<FragmentCut> GetFragmentCuts(int schemaId) => GetFragmentCutsWithIds(schemaId).Select(c => c.Cut).ToList();
+
+      /// <summary>Рассечения фрагмента с Id строк (ссылки масок и ГУ разрезов), по порядку записи.</summary>
+      public List<(int Id, FragmentCut Cut)> GetFragmentCutsWithIds(int schemaId)
       {
-         var result = new List<FragmentCut>();
+         var result = new List<(int, FragmentCut)>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT member_tag, kind, side, z, node_tag, segments_json FROM fem_fragment_cuts WHERE schema_id=@sid ORDER BY id";
+         cmd.CommandText = "SELECT member_tag, kind, side, z, node_tag, segments_json, id FROM fem_fragment_cuts WHERE schema_id=@sid ORDER BY id";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
          while (r.Read())
          {
             var segments = (JsonSerializer.Deserialize<double[][]>(r.GetString(5)) ?? [])
                .Select(a => (new PlanarVector3(a[0], a[1], a[2]), new PlanarVector3(a[3], a[4], a[5]))).ToList();
-            result.Add(new FragmentCut(r.GetString(0), r.GetString(1) == "end" ? FragmentCutKind.End : FragmentCutKind.Edge,
+            result.Add((r.GetInt32(6), new FragmentCut(r.GetString(0), r.GetString(1) == "end" ? FragmentCutKind.End : FragmentCutKind.Edge,
                r.GetString(2) == "bottom" ? FragmentCutSide.Bottom : FragmentCutSide.Top, r.GetDouble(3),
-               r.IsDBNull(4) ? null : r.GetString(4), segments));
+               r.IsDBNull(4) ? null : r.GetString(4), segments)));
          }
          return result;
       }
@@ -660,8 +670,12 @@ namespace OpenCS.Utilites
       /// фрагмента — и жёсткости родителя (часть того же снимка).</summary>
       void CopyStoreyFragmentDataCore(int fromSchemaId, int toSchemaId, Func<int, int> mapLoadCase, bool isFragment)
       {
-         InsertStoreyFragmentDataCore(toSchemaId, GetFragmentCuts(fromSchemaId), GetFragmentRefElements(fromSchemaId),
+         var cuts = GetFragmentCutsWithIds(fromSchemaId);
+         var newCutIds = InsertStoreyFragmentDataCore(toSchemaId, cuts.Select(c => c.Cut), GetFragmentRefElements(fromSchemaId),
             GetFragmentFieldLoads(fromSchemaId), mapLoadCase);
+         var cutMap = new Dictionary<int, int>();
+         for (int i = 0; i < cuts.Count; i++) cutMap[cuts[i].Id] = newCutIds[i];
+         CopyFragmentMasksCore(fromSchemaId, toSchemaId, cutMap, mapLoadCase);
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             INSERT INTO fem_fragment_rebar_sources (schema_id, kind, file_name, data)
@@ -678,9 +692,10 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
-      /// <summary>Параметры @parent, @z1, @z2, @fp, @report, @pst — поля фрагмента строки <c>fem_schemas</c>.</summary>
+      /// <summary>Параметры @parent, @z1, @z2, @fp, @report, @pst, @bcp — поля фрагмента строки <c>fem_schemas</c>.</summary>
       static void AddFemSchemaFragmentParameters(SqliteCommand cmd, FemSchema schema)
       {
+         cmd.Parameters.AddWithValue("@bcp", (object?)schema.FragmentBcPreset ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@pst", (object?)schema.ParentSourceType ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@parent", (object?)schema.ParentSchemaId ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@z1", (object?)schema.FragmentZ1 ?? DBNull.Value);
