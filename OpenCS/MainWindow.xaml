@@ -1336,6 +1336,11 @@
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem helpers:CommandIcons.Header="StoreyFragmentMenu"
+                                        Command="{Binding PlacementTarget.Tag.StoreyFragmentCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem helpers:CommandIcons.Header="FemSchemaRename"
                                         Command="{Binding PlacementTarget.Tag.RenameFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

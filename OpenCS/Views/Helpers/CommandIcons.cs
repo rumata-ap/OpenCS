@@ -20,6 +20,7 @@ public static class CommandIcons
         ["FemSchemaRename"] = "CmdIcon_Rename",
         ["FemSchemaDelete"] = "CmdIcon_Delete",
         ["FemSchemaMeshSteps"] = "CmdIcon_MeshStep",
+        ["StoreyFragmentMenu"] = "CmdIcon_Split",
         ["FemMemberNew"] = "CmdIcon_MemberNew",
         ["FemNodeTreeOpenEditor"] = "CmdIcon_OpenEditor",
 

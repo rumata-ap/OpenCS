@@ -880,6 +880,7 @@ namespace OpenCS
       /// <summary>Команда переименования МКЭ-схемы.</summary>
       public ICommand RenameFemSchemaCommand { get; set; } = null!;
       public ICommand FemSchemaMeshStepsCommand { get; set; } = null!;
+      public ICommand StoreyFragmentCommand { get; set; } = null!;
       /// <summary>Дозагрузить к схеме файл подобранной ЛИРОЙ арматуры (*.asp).</summary>
       public ICommand LoadLiraAspCommand { get; set; } = null!;
       /// <summary>Создать сечения пластинчатых целей схемы по данным ЛИРЫ (ASP + ТЗА).</summary>
@@ -1838,6 +1839,7 @@ namespace OpenCS
          DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          FemSchemaMeshStepsCommand = new RelayCommand(p => EditFemSchemaMeshSteps(p as CScore.Fem.FemSchema));
+         StoreyFragmentCommand     = new RelayCommand(p => BuildStoreyFragment(p as CScore.Fem.FemSchema));
          LoadLiraAspCommand        = new RelayCommand(p => LoadLiraAsp(p as CScore.Fem.FemSchema));
          CreateLiraPlateSectionsCommand = new RelayCommand(p => CreateLiraPlateSections(p as CScore.Fem.FemSchema));
          CreateImportedBarSectionsCommand = new RelayCommand(p => CreateImportedBarSections(p as CScore.Fem.FemSchema));
@@ -3409,6 +3411,39 @@ namespace OpenCS
       {
          if (schema == null) return;
          db.DuplicateFemSchema(schema.Id, schema.Tag + " (копия)");
+      }
+
+      /// <summary>
+      /// «Фрагмент по отметкам…» (фрагмент этажа, спека 2026-10-23): отметки и имя в диалоге, сборка новой схемы из
+      /// полосы родителя, отчёт сборки. При отказе схема не создаётся; собранный фрагмент открывается в редакторе.
+      /// </summary>
+      async void BuildStoreyFragment(CScore.Fem.FemSchema? parent)
+      {
+         if (parent == null) return;
+         var owner = Application.Current?.MainWindow;
+         var dlg = new Views.StoreyFragmentDialog(parent.Tag, db.GetFemMeshZRange(parent.Id)) { Owner = owner };
+         if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
+
+         BeginBusy(Loc.S("StoreyFragmentBusy"));
+         ViewModels.StoreyFragmentFlowResult result;
+         try
+         {
+            result = await ViewModels.StoreyFragmentMenuFlow.RunAsync(db, parent, request);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("StoreyFragmentTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         EndBusy(result.LogMessage);
+         if (result.IsError) LogService.Error(result.LogMessage); else LogService.Info(result.LogMessage);
+         if (result.Rows.Count > 0)
+            new Views.StoreyFragmentReportDialog(result.Schema?.Tag ?? request.Name,
+               Loc.S(result.IsError ? "StoreyFragmentReportRefused" : "StoreyFragmentReportBuilt"), result.Rows) { Owner = owner }
+               .ShowDialog();
+         if (result.Schema is { } schema) CurrentFemSchema = schema;
       }
 
       /// <summary>Общие шаги сетки схемы (стержни, пластины) — хранятся в схеме; применяются при «Построить сетку схемы».</summary>

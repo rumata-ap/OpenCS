@@ -7,6 +7,9 @@ namespace OpenCS.Services;
 /// <summary>Итог сборки фрагмента: новая схема (null — отказ построителя) и черновик с диагностикой.</summary>
 public sealed record StoreyFragmentBuildResult(FemSchema? Schema, StoreyFragmentDraft Draft);
 
+/// <summary>Черновик фрагмента и отпечаток полосы родителя — до записи схемы.</summary>
+public sealed record StoreyFragmentPrepared(StoreyFragmentDraft Draft, string Fingerprint);
+
 /// <summary>Состояние родителя фрагмента относительно отпечатка, снятого при сборке.</summary>
 public enum FragmentParentStatus
 {
@@ -31,13 +34,32 @@ public static class StoreyFragmentService
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(request);
+        return Commit(db, parentId, request, Prepare(db, parentId, request));
+    }
+
+    /// <summary>
+    /// Первая часть <see cref="Build"/> — снимок полосы и построитель, без записи: её можно выполнять в фоне.
+    /// </summary>
+    public static StoreyFragmentPrepared Prepare(DatabaseService db, int parentId, StoreyFragmentRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(request);
         if (db.GetFemSchemaSourceType(parentId) is null)
             throw new InvalidOperationException($"Схема-родитель {parentId} не найдена.");
         var snapshot = db.ReadStoreyFragmentSnapshot(parentId, request);
-        var draft = StoreyFragmentBuilder.Build(snapshot, request);
-        if (draft.HasErrors) return new(null, draft);
-        var schema = db.CreateStoreyFragmentSchema(parentId, request, draft, StoreyFragmentFingerprint.Compute(snapshot));
-        return new(schema, draft);
+        return new(StoreyFragmentBuilder.Build(snapshot, request), StoreyFragmentFingerprint.Compute(snapshot));
+    }
+
+    /// <summary>
+    /// Вторая часть <see cref="Build"/> — запись схемы одной транзакцией (в потоке коллекций БД: схема добавляется в
+    /// <see cref="DatabaseService.FemSchemas"/>). При отказе построителя схема не создаётся.
+    /// </summary>
+    public static StoreyFragmentBuildResult Commit(DatabaseService db, int parentId, StoreyFragmentRequest request,
+        StoreyFragmentPrepared prepared)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
+        if (prepared.Draft.HasErrors) return new(null, prepared.Draft);
+        return new(db.CreateStoreyFragmentSchema(parentId, request, prepared.Draft, prepared.Fingerprint), prepared.Draft);
     }
 
     /// <summary>
