@@ -1113,15 +1113,34 @@ public sealed class StructuralMesh : IFeaMesh
     /// <see cref="ElementKGeometric"/>); с ней не положительно определённая матрица — <see cref="InvalidOperationException"/>
     /// «потеря устойчивости» с указанием DOF, без запасного решателя (как <see cref="SolveSecondOrder"/>).
     /// </param>
-    public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc, Func<int, double[,]>? elementK = null)
+    /// <param name="prescribed">
+    /// Заданные перемещения по правым частям: <c>prescribed[i]</c> — значения на <see cref="BoundaryConditions.FixedDofs"/>
+    /// (в их порядке) для нагрузки i, null — нули. Правая часть <c>f − K·ū</c> (с <paramref name="elementK"/>, пружинами и
+    /// жёсткими связями: ведомые узлы сдвигаются вместе с ведущим), в ответе на закреплённых DOF — ū. Без этого параметра
+    /// ненулевые <see cref="BoundaryConditions.UFixed"/> — <see cref="NotSupportedException"/>.
+    /// </param>
+    public double[][] SolveLinear(IReadOnlyList<double[]> loads, BoundaryConditions bc, Func<int, double[,]>? elementK = null,
+                                  IReadOnlyList<double[]?>? prescribed = null)
     {
         if (bc.HasNonlinearSprings)
             throw new InvalidOperationException(
                 "SolveLinear не поддерживает нелинейные пружины — используйте SolveNonlinear.");
-        if (bc.UFixed.Any(v => v != 0))
-            throw new NotSupportedException("SolveLinear для нескольких нагрузок — только с нулевыми заданными перемещениями.");
+        if (prescribed == null && bc.UFixed.Any(v => v != 0))
+            throw new NotSupportedException("SolveLinear для нескольких нагрузок — заданные перемещения передаются через prescribed.");
+        var fixedFull = bc.FixedDofs;
+        if (prescribed != null)
+        {
+            if (prescribed.Count != loads.Count)
+                throw new ArgumentException($"Заданных перемещений {prescribed.Count}, правых частей {loads.Count}.", nameof(prescribed));
+            for (int i = 0; i < prescribed.Count; i++)
+                if (prescribed[i] is { } p && p.Length != fixedFull.Length)
+                    throw new ArgumentException(
+                        $"Заданные перемещения правой части {i}: {p.Length} значений, закреплённых DOF {fixedFull.Length}.", nameof(prescribed));
+        }
         if (loads.Count == 0) return [];
-        var fixedSys = SysFixed(bc.FixedDofs);
+        var fixedSys = SysFixed(fixedFull);
+        var zeros = new double[fixedFull.Length];
+        double[]? Values(int i) => prescribed?[i] is { } p && p.Any(v => v != 0) ? p : null;
         var result = new double[loads.Count][];
         lock (_cholGate)
         {
@@ -1133,13 +1152,32 @@ public sealed class StructuralMesh : IFeaMesh
                 string where = chol.FirstNonPositivePivot is int p and >= 0 && p < asm.Free.Length ? " — " + DescribeDof(asm.Free[p]) : "";
                 throw new InvalidOperationException($"Матрица K + K_σ не положительно определена — потеря устойчивости{where}.");
             }
+            // Полная K (с пружинами) — один раз и только при ненулевых заданных перемещениях: перенос K·ū в правую часть.
+            CscMatrix? kFull = null;
+            if (Enumerable.Range(0, loads.Count).Any(i => Values(i) != null))
+            {
+                var coo = NewCoo();
+                for (int e = 0; e < ElementCount; e++) coo.AddBlock(ElementDofs(e), elementK?.Invoke(e) ?? ElementK(e));
+                var kSpring = bc.AssembleKSpring();
+                if (kSpring.Count > 0) AppendInto(coo, kSpring);
+                kFull = coo.ToCsc();
+            }
             double[] Solve(int i)
             {
-                // Заданные перемещения нулевые — правая часть есть нагрузка на свободных DOF.
-                var fSys = SysVector(loads[i]);
+                var ub = Values(i);
+                var f = loads[i];
+                if (ub != null)
+                {
+                    // ū в пространстве решения → полный вектор (ведомые узлы жёстких тел сдвигаются с ведущим).
+                    var uBarSys = new double[NSys];
+                    for (int t = 0; t < fixedSys.Length; t++) uBarSys[fixedSys[t]] = ub[t];
+                    var ku = kFull!.Multiply(Full(uBarSys));
+                    f = Dense.SubV(f, ku);
+                }
+                var fSys = SysVector(f);
                 var fi = Array.ConvertAll(asm.Free, d => fSys[d]);
                 var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SolveNotSpd(chol, kff, fi, asm.Free);
-                return Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, bc.UFixed));
+                return Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, ub ?? zeros));
             }
             // Прямой и обратный ходы по готовому множителю независимы (только чтение L) — правые части параллельно.
             if (chol.LastFactorizationSpd && loads.Count > 1)
