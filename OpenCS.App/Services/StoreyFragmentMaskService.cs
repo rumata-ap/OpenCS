@@ -33,7 +33,8 @@ public sealed record FragmentMaskExtractResult(FragmentMaskSet? Set, IReadOnlyLi
 /// (<see cref="FragmentMaskSourceKeys"/>) → поля шагов → <see cref="CsfeaFieldsParentResult"/> → снятие по разрезам
 /// (<see cref="FragmentMaskExtractor"/>) → равновесие с нагрузками полосы (<see cref="FragmentBandLoads"/>,
 /// <see cref="FragmentMaskBalance"/>) → запись набора (БД v94) с отчётом и отпечатком источника. Источники ЛИРЫ/SCAD —
-/// срез 7. Всё читается из БД здесь — вызывать в потоке соединения.
+/// снимок результатов программы во вложении родителя (<see cref="ExtractImported"/>, срез 7).
+/// Всё читается из БД здесь — вызывать в потоке соединения.
 /// </summary>
 public static class StoreyFragmentMaskService
 {
@@ -57,9 +58,11 @@ public static class StoreyFragmentMaskService
             return Fail("fragment_mask_not_fragment", $"Схема «{fragment.Tag}» — не фрагмент этажа: маски снимаются только во фрагменте.");
         if (db.GetFemSchemaSourceType(parentId) is null)
             return Fail("fragment_mask_parent_deleted", "Схема-родитель фрагмента удалена — снять маски не из чего.");
+        if (sourceKind is FragmentMaskSet.SourceScad or FragmentMaskSet.SourceLira)
+            return ExtractImported(db, fragment, parentId, z1, z2, sourceKind, diag);
         bool linear = sourceKind == FragmentMaskSet.SourceCsfeaLinear;
         if (!linear && sourceKind != FragmentMaskSet.SourceCsfeaSecant)
-            return Fail("fragment_mask_source_unsupported", $"Источник масок «{sourceKind}» пока не поддерживается (ЛИРА и SCAD — позже).");
+            return Fail("fragment_mask_source_unsupported", $"Источник масок «{sourceKind}» не поддерживается.");
         if (!int.TryParse(sourceRef, NumberStyles.Integer, CultureInfo.InvariantCulture, out int analysisId)
             || db.GetFemAnalysis(analysisId) is not { } analysis || analysis.SchemaId != parentId)
             return Fail("fragment_mask_source_missing", "Постановка-источник масок не найдена у схемы-родителя.");
@@ -92,17 +95,8 @@ public static class StoreyFragmentMaskService
         if (cuts.Count == 0)
             return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
 
-        // Сетка родителя у полосы: КЭ, касающиеся замкнутой полосы (КЭ отброшенной стороны у узла на разрезе — тоже).
-        const double tol = 1e-3;
-        var meshNodes = db.GetFemMeshNodes(parentId);
-        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
-        foreach (var n in meshNodes) nodes.TryAdd(n.NodeTag, n);
+        var band = Band(db, parentId, z1, z2, out var nodes);
         var parentMembers = db.GetFemMembers(parentId);
-        var band = db.GetFemMeshElements(parentId).Where(e =>
-        {
-            var g = CScore.Fem.Loads.FemElementGeometry.Of(e, nodes);
-            return g != null && g.Points.Max(p => p.Z) >= z1 - tol && g.Points.Min(p => p.Z) <= z2 + tol;
-        }).ToList();
         var regionAxes = FemCsfeaInputBuilder.RegionAxes(parentMembers, db.GetPlanarRegions(parentId));
         var parentResult = new CsfeaFieldsParentResult(steps, nodes, band, parentMembers, regionAxes);
 
@@ -110,16 +104,18 @@ public static class StoreyFragmentMaskService
         var extraction = FragmentMaskExtractor.Extract(new FragmentMaskInput
         {
             Cuts = cutInputs, ParentNodes = nodes, ParentElements = CsfeaFieldsParentResult.WithBeamRotation(band, parentMembers),
-            Result = parentResult, ToleranceM = tol,
+            Result = parentResult, ToleranceM = Tol,
         });
         diag.AddRange(extraction.Diagnostics);
         if (extraction.Masks.Count == 0)
             return Fail("fragment_mask_empty", "Ни по одному сечению маска не снята (см. предупреждения).");
 
         // Равновесие масок с нагрузками и реакциями полосы родителя.
-        var bandNodes = band.SelectMany(e => CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!.Points).ToList();
-        var origin = bandNodes.Aggregate(PlanarVector3.Zero, (a, p) => a + p) * (1.0 / bandNodes.Count);
-        var loads = BandActions(db, parentId, analysis, steps, map, z1, z2, tol, origin, nodes, diag);
+        var origin = BandOrigin(band, nodes);
+        var fieldsByKey = steps.ToDictionary(s => s.Item1, s => s.Item2);
+        var setup = FemCsfeaSetup.FromAnalysis(analysis, parentLoadCases);
+        var loads = BandActions(db, parentId, setup, fieldsByKey.Keys, map, z1, z2, origin, diag,
+            key => Reactions(fieldsByKey[key], nodes, z1, z2, origin));
         if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
 
         diag.Add(new("fragment_mask_summary", string.Create(CultureInfo.CurrentCulture,
@@ -148,6 +144,10 @@ public static class StoreyFragmentMaskService
         if (db.GetFragmentMasks(fragment.Id, items: false) is not { } set) return FragmentMaskStatus.None;
         if (fragment.ParentSchemaId is not int parentId || db.GetFemSchemaSourceType(parentId) is null)
             return FragmentMaskStatus.SourceDeleted;
+        if (set.SourceKind is FragmentMaskSet.SourceScad or FragmentMaskSet.SourceLira)
+            return db.GetFemSchemaSourceFile(parentId, SnapshotFileKind(set.SourceKind)) is not { } file
+                ? FragmentMaskStatus.SourceDeleted
+                : ImportedFingerprint(db, fragment, file.Data) == set.SourceFingerprint ? FragmentMaskStatus.Current : FragmentMaskStatus.Stale;
         if (set.SourceKind is not (FragmentMaskSet.SourceCsfeaLinear or FragmentMaskSet.SourceCsfeaSecant))
             return FragmentMaskStatus.Stale;
         if (!int.TryParse(set.SourceRef, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id)
@@ -199,12 +199,10 @@ public static class StoreyFragmentMaskService
     /// собрался (сверка пропущена, предупреждение).
     /// </summary>
     static Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? BandActions(DatabaseService db, int parentId,
-        FemAnalysis analysis, IReadOnlyList<(FragmentMaskKey Key, RcSecantStepFields Fields)> steps, IReadOnlyDictionary<int, int> map,
-        double z1, double z2, double tol, PlanarVector3 origin, IReadOnlyDictionary<string, FemMeshNode> nodes,
-        List<FemValidationDiagnostic> diag)
+        FemCsfeaSetup setup, IEnumerable<FragmentMaskKey> keys, IReadOnlyDictionary<int, int> map, double z1, double z2,
+        PlanarVector3 origin, List<FemValidationDiagnostic> diag, Func<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? reactions)
     {
-        var setup = FemCsfeaSetup.FromAnalysis(analysis, db.GetFemLoadCases(parentId)) with { Stages = [] };
-        var input = FemCsfeaInputBuilder.Build(db, parentId, setup, sections: false);
+        var input = FemCsfeaInputBuilder.Build(db, parentId, setup with { Stages = [] }, sections: false);
         var adapted = FemRcModelAdapter.Adapt(new FemRcModelInput
         {
             MeshNodes = input.MeshNodes, MeshElements = input.MeshElements, Nodes = input.Nodes, Members = input.Members,
@@ -218,10 +216,10 @@ public static class StoreyFragmentMaskService
             diag.Add(new("fragment_mask_balance_skipped", "Нагрузки родителя не собраны — равновесие масок не проверено.", false));
             return null;
         }
-        var perCase = FragmentBandLoads.Compute(input, adapted, z1, z2, tol, origin);
+        var perCase = FragmentBandLoads.Compute(input, adapted, z1, z2, Tol, origin);
         var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
         var result = new Dictionary<FragmentMaskKey, (PlanarVector3, PlanarVector3)>();
-        foreach (var (key, fields) in steps)
+        foreach (var key in keys)
         {
             var f = PlanarVector3.Zero;
             var m = PlanarVector3.Zero;
@@ -231,17 +229,169 @@ public static class StoreyFragmentMaskService
                     f += l.F * k;
                     m += l.M * k;
                 }
-            for (int i = 0; i < fields.ReactionNodeIds.Length; i++)
+            if (reactions != null)
             {
-                if (!nodes.TryGetValue(fields.ReactionNodeIds[i].ToString(CultureInfo.InvariantCulture), out var n)
-                    || n.Z < z1 - tol || n.Z > z2 + tol) continue;
-                var r = fields.Reactions.AsSpan(RcSecantStepFields.NodeComponents * i, 6);
-                var rf = new PlanarVector3(r[0], r[1], r[2]);
+                var (rf, rm) = reactions(key);
                 f += rf;
-                m += new PlanarVector3(r[3], r[4], r[5]) + (new PlanarVector3(n.X, n.Y, n.Z) - origin).Cross(rf);
+                m += rm;
             }
             result[key] = (f, m);
         }
         return result;
+    }
+
+    /// <summary>Реакции опор полосы из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
+    static (PlanarVector3 F, PlanarVector3 M) Reactions(RcSecantStepFields fields, IReadOnlyDictionary<string, FemMeshNode> nodes,
+        double z1, double z2, PlanarVector3 origin)
+    {
+        var f = PlanarVector3.Zero;
+        var m = PlanarVector3.Zero;
+        for (int i = 0; i < fields.ReactionNodeIds.Length; i++)
+        {
+            if (!nodes.TryGetValue(fields.ReactionNodeIds[i].ToString(CultureInfo.InvariantCulture), out var n)
+                || n.Z < z1 - Tol || n.Z > z2 + Tol) continue;
+            var r = fields.Reactions.AsSpan(RcSecantStepFields.NodeComponents * i, 6);
+            var rf = new PlanarVector3(r[0], r[1], r[2]);
+            f += rf;
+            m += new PlanarVector3(r[3], r[4], r[5]) + (new PlanarVector3(n.X, n.Y, n.Z) - origin).Cross(rf);
+        }
+        return (f, m);
+    }
+
+    /// <summary>Допуск по отметкам полосы, м.</summary>
+    const double Tol = 1e-3;
+
+    /// <summary>
+    /// Сетка родителя у полосы: КЭ, касающиеся замкнутой полосы [z1, z2] (КЭ отброшенной стороны у узла на разрезе —
+    /// тоже); <paramref name="nodes"/> — все узлы сетки родителя по тегу.
+    /// </summary>
+    static List<FemElement> Band(DatabaseService db, int parentId, double z1, double z2, out Dictionary<string, FemMeshNode> nodes)
+    {
+        var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in db.GetFemMeshNodes(parentId)) byTag.TryAdd(n.NodeTag, n);
+        nodes = byTag;
+        return db.GetFemMeshElements(parentId).Where(e =>
+        {
+            var g = CScore.Fem.Loads.FemElementGeometry.Of(e, byTag);
+            return g != null && g.Points.Max(p => p.Z) >= z1 - Tol && g.Points.Min(p => p.Z) <= z2 + Tol;
+        }).ToList();
+    }
+
+    /// <summary>Точка приведения моментов сверки — среднее узлов КЭ полосы.</summary>
+    static PlanarVector3 BandOrigin(IReadOnlyList<FemElement> band, IReadOnlyDictionary<string, FemMeshNode> nodes)
+    {
+        var points = band.SelectMany(e => CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!.Points).ToList();
+        return points.Count == 0 ? PlanarVector3.Zero : points.Aggregate(PlanarVector3.Zero, (a, p) => a + p) * (1.0 / points.Count);
+    }
+
+    /// <summary>Вид вложения снимка результатов программы для источника масок.</summary>
+    public static string SnapshotFileKind(string sourceKind) => sourceKind == FragmentMaskSet.SourceLira
+        ? FemSchemaSourceFileKind.LiraMaskResults : FemSchemaSourceFileKind.ScadMaskResults;
+
+    /// <summary>Название программы источника для отчёта и подписи.</summary>
+    static string ProgramName(string sourceKind) => sourceKind == FragmentMaskSet.SourceLira ? "ЛИРА" : "SCAD";
+
+    /// <summary>
+    /// Маски из снимка результатов программы (SCAD, ЛИРА; спека разд. 4.1, 4.5; план среза 7, задача 5): вложение схемы-
+    /// родителя → <see cref="ImportedParentResult"/> → снятие и сверка, как у CSfea (реакций в снимке нет). Есть перемещения,
+    /// но нет усилий КЭ полосы — маски кинематические с предупреждением.
+    /// </summary>
+    static FragmentMaskExtractResult ExtractImported(DatabaseService db, FemSchema fragment, int parentId, double z1, double z2,
+        string sourceKind, List<FemValidationDiagnostic> diag)
+    {
+        FragmentMaskExtractResult Fail(string code, string message)
+        {
+            diag.Add(new(code, message, true));
+            return new(null, diag);
+        }
+        string program = ProgramName(sourceKind);
+        string fileKind = SnapshotFileKind(sourceKind);
+        if (db.GetFemSchemaSourceFile(parentId, fileKind) is not { } file)
+            return Fail("fragment_mask_no_snapshot", $"У схемы-родителя нет снимка результатов {program}: меню схемы-родителя " +
+                $"«{program} → Результаты для фрагментов…».");
+        ImportedResultSnapshot snapshot;
+        try { snapshot = ImportedResultSnapshotCodec.Decode(file.Data); }
+        catch (InvalidDataException ex) { return Fail("fragment_mask_snapshot_broken", $"Снимок результатов {program} не читается: {ex.Message}"); }
+
+        var parentLoadCases = db.GetFemLoadCases(parentId);
+        var warnings = new List<string>();
+        var map = FragmentMaskSourceKeys.LoadCaseMap(parentLoadCases, db.GetFemLoadCases(fragment.Id), warnings);
+        var byNum = FragmentMaskSourceKeys.ImportedLoadCaseMap(snapshot.Loads, parentLoadCases,
+            FemLoadOrigin.Import(sourceKind), map, warnings);
+        foreach (var w in warnings) diag.Add(new("fragment_mask_source", w, false));
+        if (byNum.Count == 0)
+            return Fail("fragment_mask_no_keys", $"Ни одно загружение снимка {program} не сопоставлено загружениям фрагмента.");
+        var cuts = db.GetFragmentCutsWithIds(fragment.Id);
+        if (cuts.Count == 0)
+            return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
+
+        var band = Band(db, parentId, z1, z2, out var nodes);
+        var parentResult = new ImportedParentResult(snapshot, byNum, nodes, band);
+        if (parentResult.BarsWithoutAxes.Count > 0)
+            diag.Add(new("fragment_mask_bar_axes", $"Стержней полосы без местных осей программы: {parentResult.BarsWithoutAxes.Count} " +
+                "— их усилия не взяты (обновите схему из программы).", false, parentResult.BarsWithoutAxes));
+        if (parentResult.ShellsWithoutAxes.Count > 0)
+            diag.Add(new("fragment_mask_shell_axes", $"Пластин полосы без осей выдачи усилий: {parentResult.ShellsWithoutAxes.Count} " +
+                "— их усилия не взяты (обновите схему из программы).", false, parentResult.ShellsWithoutAxes));
+        var bandTags = band.Select(e => int.TryParse(e.ElemTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : 0)
+            .ToHashSet();
+        bool hasForces = snapshot.Loads.Any(l => l.BarNums.Any(bandTags.Contains) || l.ShellNums.Any(bandTags.Contains));
+        if (!hasForces)
+            diag.Add(new("fragment_mask_kinematic_only", $"В снимке {program} нет усилий КЭ полосы — маски только кинематические " +
+                "(силовые режимы ГУ разрезов работать не будут).", false));
+        if (parentResult.ShearConsistency() is var (ry, rz, n) && n > 0)
+            foreach (var (plane, r) in new[] { ("XY", ry), ("XZ", rz) })
+                if (r is double v && Math.Abs(v - 1) > 0.2)
+                    diag.Add(new("fragment_mask_shear_sign", string.Create(CultureInfo.CurrentCulture,
+                        $"Поперечные силы стержней {program} в плоскости {plane} не согласуются с градиентом моментов " +
+                        $"(множитель {v:0.00} вместо 1) — силы масок концов стержней могут быть с неверным знаком."), false));
+
+        var cutInputs = CutInputs(db, fragment.Id, cuts.Select(c => c.Cut).ToList());
+        var extraction = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = cutInputs, ParentNodes = nodes, ParentElements = band, Result = parentResult, ToleranceM = Tol,
+        });
+        diag.AddRange(extraction.Diagnostics);
+        if (extraction.Masks.Count == 0)
+            return Fail("fragment_mask_empty", "Ни по одному сечению маска не снята (см. предупреждения).");
+
+        if (hasForces)
+        {
+            var origin = BandOrigin(band, nodes);
+            diag.Add(new("fragment_mask_no_reactions", $"В снимке {program} нет реакций опор: если опоры внутри полосы, сверка " +
+                "равновесия покажет расхождение.", false));
+            try
+            {
+                var loads = BandActions(db, parentId, new FemCsfeaSetup(), parentResult.Keys, map, z1, z2, origin, diag, null);
+                if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+            {
+                diag.Add(new("fragment_mask_balance_skipped", $"Нагрузки родителя не собраны ({ex.Message}) — равновесие масок не проверено.", false));
+            }
+        }
+
+        string label = $"{program} — снимок {snapshot.TakenAt.Replace('T', ' ')}";
+        diag.Add(new("fragment_mask_summary", string.Create(CultureInfo.CurrentCulture,
+            $"Маски из «{label}»: сечений {extraction.Masks.Select(m => m.CutIndex).Distinct().Count()} из {cuts.Count}, " +
+            $"загружений {parentResult.Keys.Count}, масок {extraction.Masks.Count}."), false));
+        var set = new FragmentMaskSet
+        {
+            SourceKind = sourceKind, SourceRef = fileKind, SourceLabel = label,
+            SourceFingerprint = ImportedFingerprint(db, fragment, file.Data),
+            CreatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            ReportJson = StoreyFragmentBuildReport.ToJson(diag),
+            Items = extraction.Masks.Select(m => new FragmentMaskItem(cuts[m.CutIndex].Id, m.Key, m.Samples)).ToList(),
+        };
+        db.ReplaceFragmentMasks(fragment.Id, set);
+        return new(set, diag);
+    }
+
+    /// <summary>Отпечаток снимка программы: SHA-256 вложения и отпечаток полосы родителя.</summary>
+    static string ImportedFingerprint(DatabaseService db, FemSchema fragment, byte[] data)
+    {
+        var snapshot = db.ReadStoreyFragmentSnapshot(fragment.ParentSchemaId!.Value,
+            new StoreyFragmentRequest(fragment.FragmentZ1!.Value, fragment.FragmentZ2!.Value, fragment.Tag));
+        return $"{ImportedResultSnapshotCodec.Fingerprint(data)}|{StoreyFragmentFingerprint.Compute(snapshot)}";
     }
 }

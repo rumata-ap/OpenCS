@@ -99,6 +99,41 @@ public static class FragmentMaskSourceKeys
         return result;
     }
 
+    /// <summary>
+    /// Загружения снимка программы (спека разд. 4.5) → Id загружений фрагмента: номер программы → загружение родителя
+    /// импорта (<see cref="FemLoadCase.Origin"/> = <paramref name="origin"/>, <see cref="FemLoadCase.SourceLoadNum"/>), без
+    /// такого — по однозначному имени; затем карта родителя → фрагмента (<paramref name="loadCaseMap"/>). Пропуски —
+    /// предупреждениями.
+    /// </summary>
+    public static Dictionary<int, int> ImportedLoadCaseMap(IReadOnlyList<ImportedResultLoad> loads,
+        IReadOnlyList<FemLoadCase> parentLoadCases, string origin, IReadOnlyDictionary<int, int> loadCaseMap, List<string> warnings)
+    {
+        var byNum = parentLoadCases.Where(c => c.Origin == origin && c.SourceLoadNum != null)
+            .GroupBy(c => c.SourceLoadNum!.Value).ToDictionary(g => g.Key, g => g.First());
+        var byName = parentLoadCases.GroupBy(c => c.Tag, StringComparer.Ordinal)
+            .Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var result = new Dictionary<int, int>();
+        foreach (var l in loads)
+        {
+            string label = string.IsNullOrEmpty(l.Name) ? $"№ {l.Num}" : $"№ {l.Num} «{l.Name}»";
+            if (!byNum.TryGetValue(l.Num, out var parent) && (string.IsNullOrEmpty(l.Name) || !byName.TryGetValue(l.Name, out parent)))
+            {
+                warnings.Add($"Загружение программы {label}: у схемы-родителя нет загружения с этим номером или именем — пропущено " +
+                    "(перенесите нагрузки из программы).");
+                continue;
+            }
+            if (!loadCaseMap.TryGetValue(parent.Id, out int fragmentLc))
+            {
+                warnings.Add($"Загружение программы {label}: загружения «{parent.Tag}» нет во фрагменте — пропущено.");
+                continue;
+            }
+            if (l.Step > 0)
+                warnings.Add($"Загружение программы {label} нелинейное — маски по последнему шагу ({l.Step}).");
+            result[l.Num] = fragmentLc;
+        }
+        return result;
+    }
+
     /// <summary>Ключ сочетания в каноническом виде (<see cref="FragmentMaskKey.OfStageTerms"/>).</summary>
     public static FragmentMaskKey StageKey(IEnumerable<(int LoadCaseId, double Factor)> terms) => FragmentMaskKey.OfStageTerms(terms);
 

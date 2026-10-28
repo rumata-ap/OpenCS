@@ -151,4 +151,32 @@ public sealed class FragmentMaskSourceKeysTests
         Assert.Contains(warnings, w => w.Contains("«Пост.»") && w.Contains("несколько раз"));
         Assert.Contains(warnings, w => w.Contains("«Полезная»") && w.Contains("нет во фрагменте"));
     }
+
+    /// <summary>
+    /// Снимок программы (срез 7): № 1 — по номеру импорта, № 5 «Полезная» — по имени, № 3 «Ветер» — нет во фрагменте,
+    /// № 4 — ни номера, ни имени; нелинейное — предупреждение о последнем шаге.
+    /// </summary>
+    [Fact]
+    public void ImportedLoadCaseMap_ByNumberThenName()
+    {
+        FemLoadCase[] parent =
+        [
+            new() { Id = 10, Tag = "Пост.", Origin = "import:scad", SourceLoadNum = 1 }, new() { Id = 11, Tag = "Полезная" },
+            new() { Id = 12, Tag = "Ветер", Origin = "import:scad", SourceLoadNum = 3 },
+            new() { Id = 13, Tag = "Чужое", Origin = "import:lira", SourceLoadNum = 4 },
+        ];
+        ImportedResultLoad[] loads =
+        [
+            new() { Num = 1, Name = "Другое имя", Step = 7 }, new() { Num = 5, Name = "Полезная" }, new() { Num = 3 },
+            new() { Num = 4, Name = "" },
+        ];
+        var warnings = new List<string>();
+
+        var map = FragmentMaskSourceKeys.ImportedLoadCaseMap(loads, parent, "import:scad", Map, warnings);
+
+        Assert.Equal(new Dictionary<int, int> { [1] = 110, [5] = 111 }, map);
+        Assert.Contains(warnings, w => w.Contains("№ 1") && w.Contains("последнему шагу (7)"));
+        Assert.Contains(warnings, w => w.Contains("№ 3") && w.Contains("нет во фрагменте"));
+        Assert.Contains(warnings, w => w.Contains("№ 4") && w.Contains("нет загружения"));
+    }
 }
