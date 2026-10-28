@@ -33,4 +33,105 @@ public static class FragmentBarCutSampler
         double ry = -(d1 * ti.Z - d2 * ri.Y + d3 * tj.Z - d4 * rj.Y);
         return Dof6.FromParts(Glob(ux, uy, uz), Glob(rx, ry, rz));
     }
+
+    /// <summary>
+    /// Действие части КЭ за точкой <paramref name="xi"/> (к узлу J) на часть до неё (к узлу I), общие оси, момент —
+    /// относительно точки: из равновесия куска [0, ξ] — силы узла I на КЭ и нагрузки участка.
+    /// </summary>
+    public static Dof6 SectionAction(PlanarVector3 pi, PlanarVector3 pj, double rotationDeg, BeamEndForces f,
+        IReadOnlyList<FragmentBeamSpanLoad> loads, double xi)
+    {
+        var (ex, ey, ez) = BeamLocalAxisConvention.Frame(pi, pj, rotationDeg);
+        var d = pj - pi;
+        double l = d.Length;
+        var p = pi + d * xi;
+        var fI = ex * f.I.X + ey * f.I.Y + ez * f.I.Z;
+        var mI = ex * f.I.Rx + ey * f.I.Ry + ez * f.I.Rz;
+        var sumF = fI;
+        var sumM = mI + (pi - p).Cross(fI);
+        const double eps = 1e-12;
+        foreach (var q in loads)
+        {
+            if (q.IsPoint)
+            {
+                if (q.A > xi - eps) continue;
+                var r = pi + d * q.A;
+                sumF += q.Force;
+                sumM += q.Moment + (r - p).Cross(q.Force);
+                continue;
+            }
+            double a = q.A, b = Math.Min(q.B, xi);
+            if (b <= a + eps) continue;
+            PlanarVector3 Q(double t) => q.B - q.A < eps ? q.QA : q.QA + (q.QB - q.QA) * ((t - q.A) / (q.B - q.A));
+            // Симпсон точен: q линейна, плечо линейно — подынтегральная функция момента квадратична.
+            double len = (b - a) * l, m = (a + b) / 2;
+            PlanarVector3 Arm(double t) => pi + d * t - p;
+            sumF += (Q(a) + Q(m) * 4 + Q(b)) * (len / 6);
+            sumM += (Arm(a).Cross(Q(a)) + Arm(m).Cross(Q(m)) * 4 + Arm(b).Cross(Q(b))) * (len / 6);
+        }
+        return Dof6.FromParts(sumF * -1, sumM * -1);
+    }
+
+    /// <summary>
+    /// КЭ родителя, на оси которого лежит <paramref name="point"/> (в пределах <paramref name="tol"/>); точка в узле двух
+    /// КЭ — КЭ на отброшенной стороне. <paramref name="discardedBelow"/> — отброшено ниже точки (рассечение низа).
+    /// null — такого КЭ нет.
+    /// </summary>
+    public static FragmentBarCutHit? Locate(PlanarVector3 point, bool discardedBelow, IEnumerable<FragmentBarElement> bars,
+        double tol)
+    {
+        FragmentBarCutHit? best = null;
+        foreach (var b in bars)
+        {
+            var d = b.PJ - b.PI;
+            double l = d.Length;
+            if (l < 1e-12) continue;
+            double xi = (point - b.PI).Dot(d) / (l * l);
+            if (xi < -tol / l || xi > 1 + tol / l) continue;
+            xi = Math.Clamp(xi, 0, 1);
+            if ((b.PI + d * xi - point).Length > tol) continue;
+            bool towardJ = discardedBelow ? b.PJ.Z < b.PI.Z : b.PJ.Z > b.PI.Z;
+            // В узле: КЭ должен уходить в отброшенную сторону.
+            bool atI = xi * l <= tol, atJ = (1 - xi) * l <= tol;
+            if ((atI && !towardJ) || (atJ && towardJ)) continue;
+            var hit = new FragmentBarCutHit(b, atI ? 0 : atJ ? 1 : xi, towardJ);
+            if (best == null || !(atI || atJ)) best = hit;
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Сэмпл маски конца стержня (s = 0): перемещения в точке и действие отброшенной части на фрагмент.
+    /// <paramref name="loadsUnknown"/> — источник не знает нагрузок КЭ, а КЭ рассечён внутри (усилие — линейно).
+    /// </summary>
+    public static FragmentMaskSample Sample(FragmentBarCutHit hit, IFragmentParentResult r, FragmentMaskKey key,
+        out bool loadsUnknown)
+    {
+        var e = hit.Element;
+        Dof6? u = r.TryNodeDisplacement(key, e.NodeI, out var ui) && r.TryNodeDisplacement(key, e.NodeJ, out var uj)
+            ? Displacement(e.PI, e.PJ, e.RotationDeg, ui, uj, hit.Xi)
+            : null;
+        Dof6? f = null;
+        loadsUnknown = false;
+        if (r.TryBeamEndForces(key, e.Tag, out var ends))
+        {
+            loadsUnknown = !r.KnowsBeamLoads && hit.Xi is > 0 and < 1;
+            var action = SectionAction(e.PI, e.PJ, e.RotationDeg, ends, r.BeamLoads(key, e.Tag), hit.Xi);
+            f = hit.DiscardedTowardJ ? action : -action;
+        }
+        return new FragmentMaskSample(0, u, f);
+    }
+}
+
+/// <summary>КЭ стержня сетки родителя: узлы, координаты концов, угол поворота сечения (град).</summary>
+public sealed record FragmentBarElement(string Tag, string NodeI, string NodeJ, PlanarVector3 PI, PlanarVector3 PJ,
+    double RotationDeg);
+
+/// <summary>
+/// КЭ родителя у точки рассечения: доля <see cref="Xi"/> по длине от I; <see cref="DiscardedTowardJ"/> — отброшенная
+/// часть лежит со стороны узла J.
+/// </summary>
+public sealed record FragmentBarCutHit(FragmentBarElement Element, double Xi, bool DiscardedTowardJ)
+{
+    public string ElemTag => Element.Tag;
 }
