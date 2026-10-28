@@ -23,6 +23,7 @@ public class FemRcModelAdapterTests
         RunFixedBeamSpanLoadEndForces();
         RunMeshLoadsAndSelfWeight();
         RunKinematicAndMissingCases();
+        RunKinematicSettlement();
     }
 
     /// <summary>Упругие свойства: стержни — прямоугольник 0,3 × 0,5, пластины — E, ν 0,2, h 0,2; удельный вес 25 кН/м³.</summary>
@@ -295,18 +296,66 @@ public class FemRcModelAdapterTests
 
     private static void RunKinematicAndMissingCases()
     {
-        TestHarness.Section("FemRcModelAdapter: кинематика и отсутствующие загружения — ошибки");
+        TestHarness.Section("FemRcModelAdapter: кинематика — ошибки; отсутствующие загружения");
+        var input = Cantilever([]);
+        var r = FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = input.MeshNodes, MeshElements = input.MeshElements,
+            Nodes = [.. input.Nodes, new FemNode { Id = 3, NodeTag = "3", X = 10 }], Members = input.Members,
+            Properties = input.Properties, LoadCases = input.LoadCases,
+            KinematicLoads =
+            [
+                new FemKinematicLoad { LoadCaseId = 1, NodeId = 3, Dof = 3, Value = 0.01 },
+                new FemKinematicLoad { LoadCaseId = 1, NodeId = 2, Dof = 7, Value = 0.01 },
+                new FemKinematicLoad { LoadCaseId = 1, NodeId = 2, Dof = 1, Value = 0.01 },
+                new FemKinematicLoad { LoadCaseId = 1, NodeId = 2, Dof = 1, Value = 0.02 },
+            ],
+            Stages = [Stage(1), Stage(9), new FemRcStage("пусто", [])],
+        });
+        var codes = r.Diagnostics.Where(d => d.IsError).Select(d => d.Code).ToHashSet();
+        TestHarness.Check("кинематика больше не «не поддерживается»", !codes.Contains("kinematic_not_supported"));
+        TestHarness.Check("узел схемы без узла сетки", codes.Contains("kinematic_node_not_in_mesh"), string.Join(", ", codes));
+        TestHarness.Check("DOF вне 1…6", codes.Contains("kinematic_dof_invalid"), string.Join(", ", codes));
+        TestHarness.Check("повтор DOF узла в загружении", codes.Contains("kinematic_duplicate"), string.Join(", ", codes));
+        TestHarness.Check("нет загружения", codes.Contains("stage_load_case_missing"));
+        TestHarness.Check("пустая стадия", codes.Contains("stage_empty"));
+    }
+
+    /// <summary>
+    /// Консоль L = 4 с заданным прогибом конца δ (узел схемы 2 → узел сетки 5, Dof 3 → DOF 2): RcPrescribed с DOF − 1;
+    /// линейный расчёт — сила в конце R_z = 3EIδ/L³ и момент заделки M_y = L·R_z = 3EIδ/L² (равновесие моментов вокруг y),
+    /// вертикальный изгиб — вокруг местной Z (EIz, как в <see cref="RunCantileverMemberLoads"/>).
+    /// </summary>
+    private static void RunKinematicSettlement()
+    {
+        TestHarness.Section("FemRcModelAdapter: кинематика → заданное перемещение и линейный расчёт");
+        const double l = 4, delta = -0.012;
         var input = Cantilever([]);
         var r = FemRcModelAdapter.Adapt(new FemRcModelInput
         {
             MeshNodes = input.MeshNodes, MeshElements = input.MeshElements, Nodes = input.Nodes, Members = input.Members,
-            Properties = input.Properties, LoadCases = input.LoadCases,
-            KinematicLoads = [new FemKinematicLoad { LoadCaseId = 1, NodeId = 2, Dof = 2, Value = 0.01 }],
-            Stages = [Stage(1), Stage(9), new FemRcStage("пусто", [])],
+            Properties = input.Properties, LoadCases = input.LoadCases, Stages = input.Stages,
+            KinematicLoads = [new FemKinematicLoad { LoadCaseId = 1, NodeId = 2, Dof = 3, Value = delta }],
         });
-        var codes = r.Diagnostics.Where(d => d.IsError).Select(d => d.Code).ToHashSet();
-        TestHarness.Check("кинематика", codes.Contains("kinematic_not_supported"));
-        TestHarness.Check("нет загружения", codes.Contains("stage_load_case_missing"));
-        TestHarness.Check("пустая стадия", codes.Contains("stage_empty"));
+        TestHarness.Check("нет ошибок", !r.HasErrors, string.Join("; ", r.Report));
+        var pre = r.Model.LoadCases.Single(c => c.Id == 1).Prescribed;
+        TestHarness.Check("RcPrescribed(5, 2, δ)", pre.Count == 1 && pre[0] == new RcPrescribed(5, 2, delta),
+            string.Join(", ", pre));
+        if (r.HasErrors) return;
+        var run = RcLinearAnalysis.Run(r.Model);
+        var build = run.Build;
+        var u = run.Cases[0].U;
+        TestHarness.CheckRel("uz конца = δ", u[build.Dof(5, 2)], delta, 1e-12);
+        TestHarness.CheckRel("uz середины = δ·(3ξ² − ξ³)/2 при ξ = ½", u[build.Dof(3, 2)], delta * (3 * 0.25 - 0.125) / 2, 1e-9);
+        var f = run.Cases[0].Fields;
+        double[] Reaction(int node)
+        {
+            int k = Array.IndexOf(f.ReactionNodeIds, node);
+            return k < 0 ? new double[6] : f.Reactions.Skip(6 * k).Take(6).ToArray();
+        }
+        double ei = E * Iz;
+        TestHarness.CheckRel("R_z конца = 3EIδ/L³", Reaction(5)[2], 3 * ei * delta / (l * l * l), 1e-9);
+        TestHarness.CheckRel("R_z заделки = −3EIδ/L³", Reaction(1)[2], -3 * ei * delta / (l * l * l), 1e-9);
+        TestHarness.CheckRel("M_y заделки = 3EIδ/L²", Reaction(1)[4], 3 * ei * delta / (l * l), 1e-9);
     }
 }

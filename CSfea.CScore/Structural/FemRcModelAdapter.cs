@@ -420,12 +420,39 @@ public static class FemRcModelAdapter
             if (memberLoads.Count > 0)
                 AddMemberLoads(lc, memberLoads, input, mesh, members, nodeByTag, forces, Sink, diag);
 
-            var kinematic = input.KinematicLoads.Where(l => l.LoadCaseId == caseId).ToList();
-            if (kinematic.Count > 0)
-                diag.Add(new("kinematic_not_supported",
-                    $"Загружение «{lc.Tag}»: кинематические нагрузки ({kinematic.Count}) в расчёте CSfea не поддерживаются.", true));
-
             var rc = new RcLoadCase(lc.Id, lc.Tag);
+
+            // Кинематические нагрузки — заданные перемещения узла сетки (тем же путём, что узловые нагрузки).
+            var lostKinematic = new List<string>();
+            var freeKinematic = new List<string>();
+            var badDof = new List<string>();
+            var twice = new List<string>();
+            var kinematicDofs = new HashSet<(int, int)>();
+            foreach (var l in input.KinematicLoads.Where(l => l.LoadCaseId == caseId))
+            {
+                string nodeTag = nodeById.GetValueOrDefault(l.NodeId)?.NodeTag ?? $"#{l.NodeId}";
+                if (l.Dof is < 1 or > 6) { badDof.Add(nodeTag); continue; }
+                if (!nodeById.TryGetValue(l.NodeId, out var n) || !meshNodeBySource.TryGetValue(n.NodeTag, out var tag))
+                {
+                    lostKinematic.Add(nodeTag);
+                    continue;
+                }
+                if (!int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id) || !used.Contains(id))
+                {
+                    freeKinematic.Add(nodeTag);
+                    continue;
+                }
+                if (!kinematicDofs.Add((id, l.Dof - 1))) { twice.Add(nodeTag); continue; }
+                rc.Prescribed.Add(new RcPrescribed(id, l.Dof - 1, l.Value));
+            }
+            Add(diag, "kinematic_dof_invalid", $"Загружение «{lc.Tag}»: кинематические нагрузки с номером DOF вне 1…6", badDof, true);
+            Add(diag, "kinematic_node_not_in_mesh", $"Загружение «{lc.Tag}»: кинематические нагрузки на узлы без узла сетки",
+                lostKinematic, true);
+            Add(diag, "kinematic_node_without_element", $"Загружение «{lc.Tag}»: кинематические нагрузки на узлы без КЭ модели",
+                freeKinematic, true);
+            Add(diag, "kinematic_duplicate", $"Загружение «{lc.Tag}»: повтор кинематической нагрузки по одному DOF узла",
+                twice, true);
+
             var hanging = new List<string>();
             foreach (var (tag, v) in forces.OrderBy(kv => int.TryParse(kv.Key, out int x) ? x : int.MaxValue))
             {
