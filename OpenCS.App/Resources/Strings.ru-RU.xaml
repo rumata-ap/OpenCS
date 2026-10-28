@@ -4067,6 +4067,12 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentMasksNoneToDelete">У фрагмента «{0}» нет масок.</system:String>
     <system:String x:Key="StoreyFragmentMasksDeleteConfirm">Удалить маски фрагмента «{0}»? Пресеты ГУ с масками не посчитаются до нового снятия.</system:String>
     <system:String x:Key="StoreyFragmentMasksDeleted">Маски фрагмента «{0}» удалены.</system:String>
+    <system:String x:Key="StoreyFragmentMasksReportButton">Отчёт масок…</system:String>
+    <system:String x:Key="StoreyFragmentMasksChecking">Маски: сверка с источником…</system:String>
+    <system:String x:Key="StoreyFragmentMasksBannerNone">Маски не сняты: пресеты с масками не посчитаются — «Маски из родителя…» или пресет «Изоляция».</system:String>
+    <system:String x:Key="StoreyFragmentMasksBannerCurrent">Маски из «{0}» от {1}.</system:String>
+    <system:String x:Key="StoreyFragmentMasksBannerStale">Маски из «{0}» от {1} устарели — родитель или его расчёт изменились: снимите заново.</system:String>
+    <system:String x:Key="StoreyFragmentMasksBannerSourceDeleted">Источник масок «{0}» (сняты {1}) удалён: маски — снимок, расчёт идёт по ним.</system:String>
     <system:String x:Key="FemSchemaMeshStepsSaved">Шаги сетки схемы «{0}»: стержни {1} м, пластины {2} м. Применятся при «Построить сетку схемы».</system:String>
     <system:String x:Key="FemSchemaRigidJunctionsAuto">АЖТ в примыканиях стержней к плитам</system:String>
     <system:String x:Key="FemSchemaRigidJunctionAngle">Порог угла «стержень в плоскости плиты», °</system:String>

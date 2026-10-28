@@ -58,4 +58,48 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.Empty(StoreyFragmentMaskFlow.Sources(db, p.Fragment, out string? deleted));
         Assert.Equal(Loc.S("StoreyFragmentMasksParentDeleted"), deleted);
     }
+    /// <summary>
+    /// Шапка фрагмента — строка масок: не сняты (без предупреждения), действующие, устарели после пересчёта родителя,
+    /// источник удалён; отчёт снятия — с итогом первым.
+    /// </summary>
+    [Fact]
+    public async Task Banner_MaskStatus_None_Current_Stale_SourceDeleted()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var vm = new StoreyFragmentBannerVM(db, p.Fragment);
+        await vm.LoadAsync();
+        Assert.Equal(FragmentMaskStatus.None, vm.MaskStatus);
+        Assert.False(vm.IsMaskWarning);
+        Assert.False(vm.HasMaskReport);
+        Assert.Equal(Loc.S("StoreyFragmentMasksBannerNone"), vm.MaskText);
+
+        var stages = new[] { Single("Пост.", lc[0].Id) };
+        var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages);
+        var source = StoreyFragmentMaskFlow.Sources(db, p.Fragment, out _).Single();
+        Assert.False(StoreyFragmentMaskFlow.Extract(db, p.Fragment, source).IsError);
+        vm = new StoreyFragmentBannerVM(db, p.Fragment);
+        Assert.Equal(Loc.S("StoreyFragmentMasksChecking"), vm.MaskText);
+        await vm.LoadAsync();
+        Assert.Equal(FragmentMaskStatus.Current, vm.MaskStatus);
+        Assert.False(vm.IsMaskWarning);
+        Assert.Equal(Loc.S("StoreyFragmentMasksBannerCurrent"), vm.MaskText);
+        Assert.True(vm.HasMaskReport);
+        Assert.True(vm.MaskReportRows[0].IsSummary);
+
+        SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages, analysis);
+        vm = new StoreyFragmentBannerVM(db, p.Fragment);
+        await vm.LoadAsync();
+        Assert.Equal(FragmentMaskStatus.Stale, vm.MaskStatus);
+        Assert.True(vm.IsMaskWarning);
+        Assert.Equal(Loc.S("StoreyFragmentMasksBannerStale"), vm.MaskText);
+
+        db.DeleteFemAnalysis(analysis);
+        vm = new StoreyFragmentBannerVM(db, p.Fragment);
+        await vm.LoadAsync();
+        Assert.Equal(FragmentMaskStatus.SourceDeleted, vm.MaskStatus);
+        Assert.True(vm.IsMaskWarning);
+        Assert.Equal(Loc.S("StoreyFragmentMasksBannerSourceDeleted"), vm.MaskText);
+    }
 }

@@ -16,14 +16,21 @@
             <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
                     Click="FragmentReport_Click"
                     Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksReportButton}" Padding="8,0" Margin="0,0,6,0"
+                    Click="FragmentMaskReport_Click"
+                    Visibility="{Binding HasMaskReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksMenu}" Padding="8,0" Margin="0,0,6,0"
                     Click="FragmentMasks_Click"/>
-            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
-                <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
-                <Run Text=" — "/>
-                <Run Text="{Binding StatusText, Mode=OneWay}"
-                     Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
-            </TextBlock>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock TextWrapping="Wrap">
+                    <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
+                    <Run Text=" — "/>
+                    <Run Text="{Binding StatusText, Mode=OneWay}"
+                         Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
+                </TextBlock>
+                <TextBlock TextWrapping="Wrap" Text="{Binding MaskText}"
+                           Foreground="{Binding IsMaskWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
+            </StackPanel>
         </DockPanel>
     </Border>
     <TabControl x:Name="tabs">

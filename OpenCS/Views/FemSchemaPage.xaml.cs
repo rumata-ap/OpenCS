@@ -205,6 +205,14 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         if (!banner.IsVisible) return;
         await banner.LoadAsync();
         if (banner.IsWarning) _app.LogService.Warning($"{_schema.Tag}: {banner.StatusText}");
+        if (banner.IsMaskWarning) _app.LogService.Warning($"{_schema.Tag}: {banner.MaskText}");
+    }
+
+    void FragmentMaskReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (fragmentBanner.DataContext is not StoreyFragmentBannerVM banner) return;
+        new StoreyFragmentReportDialog(banner.SchemaTag, Loc.S("StoreyFragmentMasksReportTaken"), banner.MaskReportRows,
+            "StoreyFragmentMasksReportTitle") { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
     /// <summary>Маски сняты или удалены — шапка (и ГУ разрезов) перечитываются.</summary>

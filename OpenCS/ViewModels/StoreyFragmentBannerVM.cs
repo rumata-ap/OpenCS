@@ -1,14 +1,16 @@
 using System.Globalization;
 using CScore.Fem;
 using CScore.Fem.Fragment;
+using CScore.Fem.Fragment.Masks;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
 /// <summary>
-/// Шапка схемы-фрагмента на странице схемы: откуда и по каким отметкам собран, состояние родителя (сверка отпечатка
-/// при открытии — в фоне, без автодействий) и отчёт сборки. У обычной схемы не показывается.
+/// Шапка схемы-фрагмента на странице схемы: откуда и по каким отметкам собран, состояние родителя и масок (сверка
+/// отпечатков при открытии — в фоне, без автодействий; расчёт не блокируется), отчёты сборки и снятия масок. У обычной
+/// схемы не показывается.
 /// </summary>
 public sealed class StoreyFragmentBannerVM : ViewModelBase
 {
@@ -28,13 +30,35 @@ public sealed class StoreyFragmentBannerVM : ViewModelBase
         ReportRows = StoreyFragmentReportRows.From(StoreyFragmentBuildReport.FromJson(schema.FragmentBuildReportJson));
         _isChecking = true;
         _statusText = Loc.S("StoreyFragmentParentChecking");
+        _masks = db.GetFragmentMasks(schema.Id, items: false);
+        if (_masks != null)
+        {
+            MaskReportRows = StoreyFragmentMaskFlow.Rows(StoreyFragmentBuildReport.FromJson(_masks.ReportJson));
+            _maskText = Loc.S("StoreyFragmentMasksChecking");
+        }
+        else _maskText = Loc.S("StoreyFragmentMasksBannerNone");
     }
+
+    readonly FragmentMaskSet? _masks;
 
     public bool IsVisible { get; }
     public string Title { get; } = "";
     public string SchemaTag => _schema.Tag;
     public IReadOnlyList<StoreyFragmentReportRow> ReportRows { get; } = [];
     public bool HasReport => ReportRows.Count > 0;
+    /// <summary>Отчёт снятия действующих масок.</summary>
+    public IReadOnlyList<StoreyFragmentReportRow> MaskReportRows { get; } = [];
+    public bool HasMaskReport => MaskReportRows.Count > 0;
+
+    FragmentMaskStatus _maskStatus = FragmentMaskStatus.None;
+    public FragmentMaskStatus MaskStatus { get => _maskStatus; private set { _maskStatus = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsMaskWarning)); } }
+
+    /// <summary>Маски устарели или их источник удалён.</summary>
+    public bool IsMaskWarning => MaskStatus is FragmentMaskStatus.Stale or FragmentMaskStatus.SourceDeleted;
+
+    string _maskText = "";
+    /// <summary>Строка масок: не сняты / из «источник» от дата / устарели / источник удалён.</summary>
+    public string MaskText { get => _maskText; private set { _maskText = value; OnPropertyChanged(); } }
 
     FragmentParentStatus _status = FragmentParentStatus.NotFragment;
     public FragmentParentStatus Status { get => _status; private set { _status = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsWarning)); } }
@@ -48,13 +72,26 @@ public sealed class StoreyFragmentBannerVM : ViewModelBase
     string? _statusText;
     public string? StatusText { get => _statusText; private set { _statusText = value; OnPropertyChanged(); } }
 
-    /// <summary>Сверка родителя (<see cref="StoreyFragmentService.CheckParent"/>) в фоне; не фрагмент — без запроса.</summary>
+    /// <summary>
+    /// Сверка родителя (<see cref="StoreyFragmentService.CheckParent"/>) и масок
+    /// (<see cref="StoreyFragmentMaskService.CheckMasks"/>) в фоне; не фрагмент — без запроса.
+    /// </summary>
     public async Task<FragmentParentStatus> LoadAsync()
     {
         if (!IsVisible) return FragmentParentStatus.NotFragment;
         try
         {
-            Status = await Task.Run(() => StoreyFragmentService.CheckParent(_db, _schema));
+            var (parent, masks) = await Task.Run(() => (StoreyFragmentService.CheckParent(_db, _schema),
+                _masks != null ? StoreyFragmentMaskService.CheckMasks(_db, _schema) : FragmentMaskStatus.None));
+            Status = parent;
+            MaskStatus = masks;
+            if (_masks != null)
+                MaskText = string.Format(Loc.S(masks switch
+                {
+                    FragmentMaskStatus.Stale => "StoreyFragmentMasksBannerStale",
+                    FragmentMaskStatus.SourceDeleted => "StoreyFragmentMasksBannerSourceDeleted",
+                    _ => "StoreyFragmentMasksBannerCurrent",
+                }), _masks.SourceLabel, StoreyFragmentMaskFlow.Short(_masks.CreatedAt));
             StatusText = Loc.S(Status switch
             {
                 FragmentParentStatus.Changed => "StoreyFragmentParentChanged",
@@ -65,6 +102,7 @@ public sealed class StoreyFragmentBannerVM : ViewModelBase
         catch (Exception ex)
         {
             StatusText = string.Format(Loc.S("StoreyFragmentParentCheckFailed"), ex.Message);
+            if (_masks != null) MaskText = "";
         }
         finally
         {
