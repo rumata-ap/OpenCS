@@ -63,6 +63,9 @@ public sealed class RcBucklingResult
 
     /// <summary>Итерации подпространства сошлись.</summary>
     public bool Converged { get; init; }
+
+    /// <summary>Замечания расчёта (например, заданные перемещения сочетаний, не вошедшие в нагрузку).</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>
@@ -110,7 +113,20 @@ public static class RcBucklingAnalysis
         var u = build.Mesh.SolveLinear(build.Combination(combination), build.Bc);
         ct.ThrowIfCancellationRequested();
         var r = build.Mesh.SolveBuckling(u, build.Bc, options.Modes);
-        return new RcBucklingResult { Model = model, URef = u, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged };
+        return new RcBucklingResult
+        {
+            Model = model, URef = u, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged,
+            Warnings = PrescribedWarnings(build, [combination]),
+        };
+    }
+
+    // Заданные перемещения сочетаний в нагрузку устойчивости не входят: их DOF закреплены с нулевыми значениями.
+    static IReadOnlyList<string> PrescribedWarnings(RcStructuralMeshBuild build,
+        IReadOnlyList<IReadOnlyList<(int LoadCase, double Factor)>> combinations)
+    {
+        int n = combinations.Count(c => build.PrescribedCombination(c) != null);
+        return n == 0 ? [] :
+            [$"Заданные перемещения ({n} сочет.) в нагрузку устойчивости не входят: их DOF закреплены с нулевыми значениями."];
     }
 
     /// <summary>
@@ -143,6 +159,7 @@ public static class RcBucklingAnalysis
         return new RcBucklingResult
         {
             Model = model, URef = uShell, BeamAxial = axial, Lambda = r.Lambda, Modes = r.Modes, Converged = r.Converged,
+            Warnings = PrescribedWarnings(build, combinations),
         };
     }
 
@@ -303,6 +320,7 @@ public static class RcBucklingAnalysis
         {
             var nlc = new RcLoadCase(lc.Id, lc.Name);
             nlc.Nodal.AddRange(lc.Nodal);
+            nlc.Prescribed.AddRange(lc.Prescribed);
             nlc.Shells.AddRange(lc.Shells);
             foreach (var bl in lc.Beams)
                 foreach (int id in map.GetValueOrDefault(bl.BeamId, [bl.BeamId]))

@@ -177,12 +177,19 @@ public static class RcSecantAnalysis
         var (shells, beams) = factory.StatesFor(build.Mesh);
         var stages = new List<SecantLoadStage>();
         var f = new double[build.Mesh.NDof];
+        double[]? uEnd = null;   // заданные перемещения конца стадии — накапливаются, как нагрузка; null — их ещё не было
         foreach (var st in model.Stages)
         {
             var df = build.Combination(st.Loads);
             f = f.Zip(df, (a, b) => a + b).ToArray();
-            stages.Add(new SecantLoadStage(st.Name, f, st.Steps));
+            if (build.PrescribedCombination(st.Loads) is { } du)
+                uEnd = uEnd == null ? du : uEnd.Zip(du, (a, b) => a + b).ToArray();
+            stages.Add(new SecantLoadStage(st.Name, f, st.Steps, uEnd));
         }
+        if (uEnd != null && options.Solver.Geometric && options.Solver.GeometricSecondOrder)
+            throw new NotSupportedException(
+                "Заданные перемещения в секущем расчёте по теории второго порядка пока не поддержаны — " +
+                "выберите геометрическую нелинейность по Ньютону или расчёт без неё.");
         var extractor = new RcSecantFieldExtractor(model, build, shells,
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,
             options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains);

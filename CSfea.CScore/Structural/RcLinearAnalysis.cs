@@ -76,7 +76,9 @@ public static class RcLinearAnalysis
             Dense.AddScaledInPlace(k, mesh.ElementKGeometric(e, uDet, inPlane), 1.0);
             return k;
         };
-        var u = mesh.SolveLinear(loads, build.Bc, elementK);
+        // Заданные перемещения стадии — значения на закреплённых DOF (RcPrescribed загружений с коэффициентами).
+        var prescribed = model.Stages.Select(st => build.PrescribedCombination(st.Loads)).ToList();
+        var u = mesh.SolveLinear(loads, build.Bc, elementK, prescribed.Any(p => p != null) ? prescribed : null);
         double tSolve = clock.Elapsed.TotalSeconds - tBuild;
         ct.ThrowIfCancellationRequested();
 

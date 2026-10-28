@@ -142,6 +142,7 @@ public static class FemSteelBuckling
                 : RcBucklingAnalysis.Solve(model, combinations[task.Combination], options, ct);
             var c = new FemSteelBucklingCase(task.Combination, task.Tag, task.Units, r);
             cases.Add(c);
+            foreach (var w in r.Warnings) if (!report.Contains(w)) report.Add(w);
             string lambda = r.Lambda.Length > 0 ? r.Lambda[0].ToString("0.###", CultureInfo.CurrentCulture) : "—";
             report.Add((c.Envelope
                     ? string.Format(CultureInfo.CurrentCulture, Loc.S("FemBucklingEnvelopeReport"), combinations.Count, c.Units.Count, lambda)

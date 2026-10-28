@@ -79,6 +79,7 @@ public static class RcSymmetry
             var c = new RcLoadCase(lc.Id, lc.Name);
             c.Nodal.AddRange(lc.Nodal.Where(p => !removed.Contains(p.NodeId))
                 .Select(p => p with { Force = p.Force.Select(f => f * Share(p.NodeId)).ToArray() }));
+            c.Prescribed.AddRange(lc.Prescribed.Where(p => !removed.Contains(p.NodeId)));
             c.Shells.AddRange(lc.Shells.Where(s => keptShells.Contains(s.ShellId)));
             c.Beams.AddRange(lc.Beams.Where(b => keptBeams.Contains(b.BeamId)));
             c.BeamEnds.AddRange(lc.BeamEnds.Where(b => keptBeams.Contains(b.BeamId)));
@@ -150,6 +151,7 @@ public static class RcSymmetry
         {
             var c = new RcLoadCase(lc.Id, lc.Name);
             c.Nodal.AddRange(lc.Nodal);
+            c.Prescribed.AddRange(lc.Prescribed);
             foreach (var l in lc.Shells)
             {
                 c.Shells.Add(l);
