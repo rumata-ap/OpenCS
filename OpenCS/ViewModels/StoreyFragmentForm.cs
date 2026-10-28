@@ -31,8 +31,8 @@ public static class StoreyFragmentForm
         Pars.ParseAny(text?.Trim() ?? "", out z) && double.IsFinite(z);
 }
 
-/// <summary>Строка отчёта сборки фрагмента для окна отчёта.</summary>
-public sealed record StoreyFragmentReportRow(string Level, string Message, bool IsError);
+/// <summary>Строка отчёта сборки фрагмента (и снятия масок) для окна отчёта; <paramref name="IsSummary"/> — итог.</summary>
+public sealed record StoreyFragmentReportRow(string Level, string Message, bool IsError, bool IsSummary = false);
 
 /// <summary>Диагностика сборки → строки окна отчёта: сначала ошибки, затем предупреждения.</summary>
 public static class StoreyFragmentReportRows

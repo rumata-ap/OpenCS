@@ -4045,6 +4045,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Задайте имя новой схемы.</system:String>
     <system:String x:Key="StoreyFragmentReportError">Ошибка</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Предупреждение</system:String>
+    <system:String x:Key="StoreyFragmentReportSummary">Итог</system:String>
+    <system:String x:Key="StoreyFragmentMasksNotFragment">Схема — не фрагмент этажа: маски снимаются только во фрагменте.</system:String>
+    <system:String x:Key="StoreyFragmentMasksParentDeleted">Схема-родитель удалена — снять маски не из чего.</system:String>
+    <system:String x:Key="StoreyFragmentMasksNoSources">У родителя нет посчитанного расчёта CSfea (линейного или секущего): посчитайте родителя.</system:String>
+    <system:String x:Key="StoreyFragmentMaskSourceLabel">{0} · {1} · {2}</system:String>
+    <system:String x:Key="StoreyFragmentMasksFailed">Маски фрагмента «{0}» из «{1}» не сняты: ошибок {2} — прежние маски сохранены.</system:String>
+    <system:String x:Key="StoreyFragmentMasksTaken">Маски фрагмента «{0}» сняты из «{1}»: сечений {2}, замечаний {3}.</system:String>
     <system:String x:Key="FemSchemaMeshStepsSaved">Шаги сетки схемы «{0}»: стержни {1} м, пластины {2} м. Применятся при «Построить сетку схемы».</system:String>
     <system:String x:Key="FemSchemaRigidJunctionsAuto">АЖТ в примыканиях стержней к плитам</system:String>
     <system:String x:Key="FemSchemaRigidJunctionAngle">Порог угла «стержень в плоскости плиты», °</system:String>
