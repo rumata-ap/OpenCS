@@ -19,10 +19,9 @@ namespace OpenCS.Gmsh.Tests;
 /// </summary>
 public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
 {
-    const string Gmsh = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe";
     const double Z1 = 1.5, Z2 = 4.5, Tol = 1e-6;
 
-    static string S(int v) => v.ToString(CultureInfo.InvariantCulture);
+    static string S(int v) => StoreyFragmentGmshFixture.S(v);
 
     /// <summary>Узел плиты z = 3 (сетка 1 м, x, y = 0…6).</summary>
     static int Slab(int i, int j) => 1000 + j * 7 + i;
@@ -102,9 +101,7 @@ public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
     [Fact]
     public async Task ImportedStorey_Fragment_ReactionsBalanceBandLoads()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"opencs-fragment-reactions-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        try
+        await StoreyFragmentGmshFixture.InTempRoot("opencs-fragment-reactions", async root =>
         {
             using var db = new DatabaseService(Path.Combine(root, "test.db"));
             var parent = new FemSchema { Tag = "Каркас", SourceType = "lira" };
@@ -145,60 +142,30 @@ public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
             int sid = fragment.Id;
 
             // Сечения КонЭ — как назначил бы пользователь (у КонЭ из импортной сетки их нет).
-            var concrete = MaterialCatalog.CreateHeavyConcrete("B25", CatalogDirectory())!;
-            var rebar = MaterialCatalog.CreateRebar("А500С", CatalogDirectory())!;
-            db.AddMaterial(concrete);
-            db.AddMaterial(rebar);
-            var plate = new PlateSection
-            {
-                Tag = "П200", H = 0.2, ConcreteMaterialId = concrete.Id, RebarMaterialId = rebar.Id,
-                RebarLayers =
-                [
-                    new PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = -0.07, Zsy = -0.07, Face = RebarFace.MinusN },
-                    new PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = 5e-4, Asy = 5e-4, Zsx = 0.07, Zsy = 0.07, Face = RebarFace.PlusN },
-                ],
-            };
-            db.SavePlateSection(plate);
-            var column = Square(9001, 0.4, concrete);
-            db.CrossSections.Add(column);
+            var sections = StoreyFragmentGmshFixture.AddSections(db);
             var members = db.GetFemMembers(sid);
             foreach (var m in members)
             {
-                if (m.ElemType == "beam") m.CrossSectionId = 9001;
-                else m.PlateSectionId = plate.Id;
+                if (m.ElemType == "beam") m.CrossSectionId = sections.Column.Id;
+                else m.PlateSectionId = sections.Plate.Id;
                 db.SaveFemMember(m);
             }
             Assert.Contains(members, m => m.ElemType == "beam");
             Assert.Contains(members, m => m.ElemType == "shell" && m.Kind == "wall");
             Assert.Contains(members, m => m.ElemType == "shell" && m.Kind == "plate");
 
-            fragment.MeshPlateStepM = 0.5;
-            fragment.MeshBarStepM = 0.5;
-            db.UpdateFemSchemaMeshSteps(fragment);
-            var service = new FemSchemaMeshService(db, new GmshSettings
-            {
-                ExecutablePath = Gmsh, ArtifactsPath = Path.Combine(root, "gmsh"), KeepArtifacts = false,
-                ElementMode = PlanarMeshElementMode.Quads, Algorithm = 8,
-            });
-            var meshed = await service.BuildAsync(sid, db.GetFemNodes(sid), db.GetFemMembers(sid), 0.5, null, CancellationToken.None);
-            Assert.False(meshed.HasErrors, string.Join("\n", meshed.Diagnostics));
-            service.Save(sid, meshed.Mesh!);
+            var meshed = await StoreyFragmentGmshFixture.Mesh(db, fragment, 0.5, root);
 
             // ГУ разрезов без масок родителя — пресет «Изоляция»: низ — шарнир, верх — шарнир со свободным Uz.
             db.SetFragmentBcPreset(fragment, "Isolation");
             int cutNodes = db.GetFemMeshNodes(sid).Count(n => Math.Abs(n.Z - Z1) < Tol || Math.Abs(n.Z - Z2) < Tol);
             db.LoadAll();
-            // Сечение колонн — только в памяти (как в соседних тестах сетки): в cross_sections его нет, LoadAll его сбрасывает.
-            if (!db.CrossSections.Contains(column)) db.CrossSections.Add(column);
+            StoreyFragmentGmshFixture.Restore(db, sections);
             output.WriteLine($"Сетка фрагмента: узлов {meshed.Mesh!.Nodes.Count}, КЭ {meshed.Mesh.Elements.Count}, узлов на разрезах {cutNodes}");
 
             foreach (var lc in db.GetFemLoadCases(sid))
             {
-                var stage = new FemAnalysisStage
-                {
-                    Tag = lc.Tag, LoadFactorStep = 1, MaxLoadFactor = 1,
-                    LoadExpressionJson = new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [lc.Id] }.ToJson(),
-                };
+                var stage = StoreyFragmentGmshFixture.Single(lc.Tag, lc.Id);
                 var input = FemCsfeaInputBuilder.Build(db, sid, new FemCsfeaSetup { Stages = [stage] });
                 Assert.DoesNotContain(input.Diagnostics, x => x.IsError);
                 Assert.Equal(cutNodes, input.Supports.Count(x => x.Origin == FemCsfeaInputBuilder.FragmentCutOrigin));
@@ -227,32 +194,6 @@ public sealed class StoreyFragmentReactionsTests(ITestOutputHelper output)
                 for (int dof = 0; dof < 3; dof++)
                     Assert.Equal(-F(dof), R(dof), 1e-6 * scale);
             }
-        }
-        finally
-        {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
-            catch (IOException) { }
-        }
-    }
-
-    static CrossSection Square(int id, double a, Material concrete) => new()
-    {
-        Id = id, Tag = "К400",
-        Areas =
-        [
-            new MaterialArea
-            {
-                Tag = "concrete", Category = AreaCategory.Region, MaterialId = concrete.Id,
-                Hull = new Contour(new[] { -a / 2, a / 2, a / 2, -a / 2, -a / 2 }, new[] { -a / 2, -a / 2, a / 2, a / 2, -a / 2 }, "outer"),
-            },
-        ],
-    };
-
-    static string CatalogDirectory()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "OpenCS.sln"))) dir = dir.Parent;
-        return Path.Combine(dir!.FullName, "OpenCS.App", "DataSource");
+        });
     }
 }
