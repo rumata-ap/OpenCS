@@ -4017,6 +4017,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshStepsHint">A member's own step ("Mesh step…" in the context menu; for a plate also in its editor) overrides the common one. Empty: bars are split only at nodes, plates use the region's size.</system:String>
     <system:String x:Key="FemSchemaMeshSteps">Mesh steps…</system:String>
     <system:String x:Key="FemSchemaMeshStepsTitle">Schema mesh steps</system:String>
+    <system:String x:Key="StoreyFragmentLevelInvalid">Levels z₁ and z₂ must be numbers in metres.</system:String>
+    <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
+    <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>
+    <system:String x:Key="StoreyFragmentReportError">Error</system:String>
+    <system:String x:Key="StoreyFragmentReportWarning">Warning</system:String>
     <system:String x:Key="FemSchemaMeshStepsSaved">Mesh steps of schema "{0}": bars {1} m, plates {2} m. Applied by "Build schema mesh".</system:String>
     <system:String x:Key="FemSchemaRigidJunctionsAuto">Rigid bodies at bar-to-slab junctions</system:String>
     <system:String x:Key="FemSchemaRigidJunctionAngle">"Bar in slab plane" angle threshold, °</system:String>

@@ -279,6 +279,16 @@ namespace OpenCS.Utilites
          return (long)cmd.ExecuteScalar()! != 0;
       }
 
+      /// <summary>Диапазон z узлов сетки схемы (подсказка отметок фрагмента); нет сетки — null.</summary>
+      public (double Min, double Max)? GetFemMeshZRange(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT MIN(z), MAX(z) FROM fem_mesh_nodes WHERE schema_id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         return r.Read() && !r.IsDBNull(0) ? (r.GetDouble(0), r.GetDouble(1)) : null;
+      }
+
       /// <summary>Копии источников армирования родителя у фрагмента: вид, имя файла, данные.</summary>
       public List<(string Kind, string FileName, byte[] Data)> GetFragmentRebarSources(int schemaId)
       {
