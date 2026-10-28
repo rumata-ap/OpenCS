@@ -40,6 +40,25 @@ public sealed class StoreyFragmentMeshTests
         Assert.Equal(2, d.Members.Count(m => m.Member.ElemType == "beam"));
     }
 
+    /// <summary>
+    /// КЭ ссылаются на КонЭ C1, которого нет в снимке (у КонЭ не нашлось узлов схемы): КЭ собраны без КонЭ, а пропажа КонЭ
+    /// названа отдельно — иначе потеря его сечения не видна. КЭ без ссылки на КонЭ в этот список не входят.
+    /// </summary>
+    [Fact]
+    public void ElementsOfMissingMember_ReportedUnresolved()
+    {
+        var d = Build(1.5, 4.5, [], [Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102", "C1"), B("2", "102", "103", "C1"), B("3", "103", "104")]);
+        var clean = Build(1.5, 4.5, [], [Slab("S1", 1, 3)], ColumnNodes,
+            [CoveredElement("S1"), B("1", "101", "102"), B("2", "102", "103"), B("3", "103", "104")]);
+
+        var w = Assert.Single(d.Diagnostics, x => x.Code == "fragment_member_unresolved");
+        Assert.False(w.IsError);
+        Assert.Equal(["C1"], w.SourceKeys!);
+        Assert.Contains(d.Diagnostics, x => x.Code == "fragment_uncovered_members");
+        Assert.DoesNotContain(clean.Diagnostics, x => x.Code == "fragment_member_unresolved");
+    }
+
     [Fact]
     public void ReleasesAndOtherTypes_ReportedNotTransferred()
     {

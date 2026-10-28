@@ -20,11 +20,9 @@ public sealed partial class StoreyFragmentMaskServiceTests
 {
     /// <summary>
     /// Сетка фрагмента: плита — те же узлы и КЭ, что у родителя (SourceMemberTag — плита фрагмента), каждый КонЭ-стержень
-    /// — один КЭ с сечением колонн <paramref name="columnId"/> (части колонн синтетического родителя построитель называет
-    /// «КЭ без КонЭ · n» и сечения не переносит — пробел среза 3, здесь не проверяется); узлы схемы фрагмента привязаны к
-    /// узлам сетки по координате.
+    /// — один КЭ (сечение — от КонЭ); узлы схемы фрагмента привязаны к узлам сетки по координате.
     /// </summary>
-    static void MeshFragment(DatabaseService db, FemSchema fragment, int columnId)
+    static void MeshFragment(DatabaseService db, FemSchema fragment)
     {
         var nodes = db.GetFemNodes(fragment.Id);
         var members = db.GetFemMembers(fragment.Id);
@@ -58,7 +56,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
             var (a, b) = (At(Node(ids[0])), At(Node(ids[1])));
             elements.Add(new FemElement
             {
-                ElemTag = S(next++), ElemType = "beam", SourceMemberTag = m.ElemTag, CrossSectionId = columnId,
+                ElemTag = S(next++), ElemType = "beam", SourceMemberTag = m.ElemTag,
                 NodeIdsJson = $"[{a.NodeTag},{b.NodeTag}]",
             });
         }
@@ -76,7 +74,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
         var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, parentStages, parentStages);
         var extracted = StoreyFragmentMaskService.Extract(db, p.Fragment, FragmentMaskSet.SourceCsfeaLinear, S(analysis.Id));
         Assert.False(extracted.HasErrors, string.Join("\n", extracted.Diagnostics.Select(d => d.Message)));
-        MeshFragment(db, p.Fragment, p.Column.Id);
+        MeshFragment(db, p.Fragment);
         db.LoadAll();
         db.CrossSections.Add(p.Column);
         var flc = db.GetFemLoadCases(p.Fragment.Id);
@@ -165,7 +163,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
     {
         var p = Create();
         using var db = p.Db;
-        MeshFragment(db, p.Fragment, p.Column.Id);
+        MeshFragment(db, p.Fragment);
         db.LoadAll();
         db.CrossSections.Add(p.Column);
         var fragment = db.FemSchemas.Single(s => s.Id == p.Fragment.Id);

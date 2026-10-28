@@ -27,12 +27,19 @@ public static partial class StoreyFragmentBuilder
     static List<SourceMember> Uncovered(Ctx c, StoreyFragmentParentSnapshot parent)
     {
         var memberTags = parent.Members.Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
-        var tags = BandElements(c, parent)
+        var uncovered = BandElements(c, parent)
             .Where(e => e.ElemType is "beam" or "shell")
             .Where(e => e.SourceMemberTag is null || !memberTags.Contains(e.SourceMemberTag))
-            .Select(e => e.ElemTag).ToList();
+            .ToList();
+        var tags = uncovered.Select(e => e.ElemTag).ToList();
         var result = new List<SourceMember>();
         if (tags.Count == 0) return result;
+        // КЭ ссылается на КонЭ, которого в снимке нет: у КонЭ нет узлов схемы (битые ссылки NodeIdsJson) — его сечение и
+        // параметры теряются, а КЭ собираются как КЭ без КонЭ.
+        var lost = uncovered.Select(e => e.SourceMemberTag).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        if (lost.Count > 0)
+            c.Warn("fragment_member_unresolved", $"КЭ полосы ссылаются на КонЭ родителя без узлов схемы: {Head(lost)} — сечения " +
+                $"и параметры этих КонЭ не переносятся, КЭ собраны в КонЭ «{UncoveredTag}». Проверьте узлы КонЭ в родителе.", [.. lost]);
 
         var build = MeshMemberBuilder.Build(new MeshMemberRequest(UncoveredTag, null, tags, "auto"), parent.MeshNodes, parent.MeshElements);
         foreach (var d in build.Diagnostics) c.Warn(d.Code, d.Message, [.. d.SourceKeys ?? []]);

@@ -79,7 +79,7 @@ public sealed partial class StoreyFragmentMaskServiceTests : IDisposable
             nodes.Add(new FemNode { Id = -2 * c, NodeTag = S(2 * c), X = x, Y = y, Z = 6 });
             members.Add(new FemMember
             {
-                Id = -c, ElemTag = $"C{c}", ElemType = "beam", NodeIdsJson = $"[{-2 * c + 1},{-2 * c}]", CrossSectionId = column.Id,
+                Id = -c, ElemTag = $"C{c}", ElemType = "beam", NodeIdsJson = $"[{2 * c - 1},{2 * c}]", CrossSectionId = column.Id,
             });
         }
         members.Add(new FemMember
