@@ -7483,6 +7483,18 @@ namespace OpenCS.Utilites
          return (rdr.GetString(0), (byte[])rdr.GetValue(1), rdr.GetString(2));
       }
 
+      /// <summary>Имя и дата вложения FEM-схемы вида <paramref name="kind"/> без данных; null — нет.</summary>
+      public (string FileName, string ImportedAt)? GetFemSchemaSourceFileInfo(int schemaId, string kind)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT file_name, imported_at FROM fem_schema_source_files WHERE schema_id=@sid AND kind=@kind";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@kind", kind);
+         using var rdr = cmd.ExecuteReader();
+         if (!rdr.Read()) return null;
+         return (rdr.GetString(0), rdr.GetString(1));
+      }
+
       /// <summary>Возвращает (nodeCount, barCount, shellCount) для быстрого отображения в дереве.</summary>
       public (int nodes, int bars, int shells) GetFemTopologyCounts(int schemaId)
       {

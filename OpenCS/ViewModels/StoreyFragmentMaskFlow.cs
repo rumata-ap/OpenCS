@@ -6,8 +6,14 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
-/// <summary>Источник масок в окне «Маски из родителя…»: постановка CSfea родителя с сохранённым результатом.</summary>
-/// <param name="SourceKind"><see cref="FragmentMaskSet.SourceCsfeaLinear"/> или <see cref="FragmentMaskSet.SourceCsfeaSecant"/>.</param>
+/// <summary>
+/// Источник масок в окне «Маски из родителя…»: постановка CSfea родителя с сохранённым результатом или снимок
+/// результатов программы (SCAD, ЛИРА) у импортной схемы-родителя.
+/// </summary>
+/// <param name="AnalysisId">Id постановки; у снимка программы — 0.</param>
+/// <param name="SourceKind"><see cref="FragmentMaskSet.SourceCsfeaLinear"/>, <see cref="FragmentMaskSet.SourceCsfeaSecant"/>,
+/// <see cref="FragmentMaskSet.SourceScad"/> или <see cref="FragmentMaskSet.SourceLira"/>.</param>
+/// <param name="AnalysisTag">Имя постановки или программы — для журнала.</param>
 public sealed record FragmentMaskSourceItem(int AnalysisId, string SourceKind, string AnalysisTag, string Label);
 
 /// <summary>Итог снятия масок из окна: отказ (прежние маски целы), строки отчёта, строка журнала.</summary>
@@ -53,6 +59,11 @@ public static class StoreyFragmentMaskFlow
                 string.Format(Loc.S("StoreyFragmentMaskSourceLabel"), a.Tag,
                     Loc.S(linear ? "FemAnalysisKindCsfeaLinear" : "FemAnalysisKindCsfea"), created)));
         }
+        // Снимки результатов программ у импортной схемы-родителя (срез 7).
+        foreach (var (kind, program) in new[] { (FragmentMaskSet.SourceScad, "SCAD"), (FragmentMaskSet.SourceLira, Loc.S("FemSchemaMenuLira")) })
+            if (db.GetFemSchemaSourceFileInfo(parentId, StoreyFragmentMaskService.SnapshotFileKind(kind)) is { } file)
+                items.Add(new(0, kind, program,
+                    string.Format(Loc.S("StoreyFragmentMaskSourceSnapshot"), program, file.FileName, LocalTime(file.ImportedAt))));
         if (items.Count == 0) reason = Loc.S("StoreyFragmentMasksNoSources");
         return items;
     }
@@ -63,7 +74,8 @@ public static class StoreyFragmentMaskFlow
         if (sources.Count == 0) return null;
         var set = db.GetFragmentMasks(fragment.Id, items: false);
         return sources.FirstOrDefault(s => set != null && s.SourceKind == set.SourceKind
-            && s.AnalysisId.ToString(CultureInfo.InvariantCulture) == set.SourceRef) ?? sources[0];
+            && (s.SourceKind is FragmentMaskSet.SourceScad or FragmentMaskSet.SourceLira
+                || s.AnalysisId.ToString(CultureInfo.InvariantCulture) == set.SourceRef)) ?? sources[0];
     }
 
     /// <summary>Строка о действующих масках: «не сняты» или «из «источник» от дата».</summary>
@@ -74,6 +86,12 @@ public static class StoreyFragmentMaskFlow
 
     /// <summary>Дата «гггг-ММ-дд чч:мм» без секунд.</summary>
     internal static string Short(string created) => created.Length > 16 ? created[..16] : created;
+
+    /// <summary>Дата вложения (UTC, ISO 8601) → местное «гггг-ММ-дд чч:мм»; не разбирается — как есть.</summary>
+    internal static string LocalTime(string utc) =>
+        DateTime.TryParse(utc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var t)
+            ? t.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+            : Short(utc);
 
     /// <summary>Снять маски из <paramref name="source"/>; отказ БД не меняет.</summary>
     public static StoreyFragmentMaskFlowResult Extract(DatabaseService db, FemSchema fragment, FragmentMaskSourceItem source)

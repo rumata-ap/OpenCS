@@ -5,6 +5,7 @@ using CSfea.CScoreBridge.Structural;
 using OpenCS.Services;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 using Xunit;
 
 namespace OpenCS.Tests;
@@ -121,5 +122,32 @@ public sealed partial class StoreyFragmentMaskServiceTests
         db.SaveFemSchemaSourceFile(p.Schema.Id, FemSchemaSourceFileKind.ScadMaskResults, "каркас.SPR",
             ImportedResultSnapshotCodec.Encode(snapshot));
         Assert.Equal(FragmentMaskStatus.Stale, StoreyFragmentMaskService.CheckMasks(db, p.Fragment));
+    }
+
+    /// <summary>Окно «Маски из родителя…»: снимок SCAD — источник после постановок CSfea; по умолчанию — источник масок.</summary>
+    [Fact]
+    public void Flow_ScadSnapshotSource()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var stages = new[] { Single("Пост.", lc[0].Id), Single("Ветер", lc[1].Id) };
+        var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages);
+        var snapshot = ScadSnapshotFromCsfea(db, p.Schema, analysis, 2);
+        for (int i = 0; i < 2; i++)
+            Exec($"UPDATE fem_load_cases SET origin='import:scad', source_load_num={i + 1} WHERE id={lc[i].Id}");
+        db.SaveFemSchemaSourceFile(p.Schema.Id, FemSchemaSourceFileKind.ScadMaskResults, "каркас.SPR",
+            ImportedResultSnapshotCodec.Encode(snapshot));
+
+        var sources = StoreyFragmentMaskFlow.Sources(db, p.Fragment, out string? reason);
+
+        Assert.Null(reason);
+        Assert.Equal([FragmentMaskSet.SourceCsfeaLinear, FragmentMaskSet.SourceScad], sources.Select(s => s.SourceKind));
+        Assert.Equal((0, "SCAD"), (sources[1].AnalysisId, sources[1].AnalysisTag));
+        Assert.Same(sources[0], StoreyFragmentMaskFlow.DefaultSource(db, p.Fragment, sources));
+        var r = StoreyFragmentMaskFlow.Extract(db, p.Fragment, sources[1]);
+        Assert.False(r.IsError, string.Join("\n", r.Rows.Select(x => x.Message)));
+        Assert.True(r.Rows[0].IsSummary);
+        Assert.Same(sources[1], StoreyFragmentMaskFlow.DefaultSource(db, p.Fragment, sources));
     }
 }

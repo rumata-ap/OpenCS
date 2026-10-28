@@ -4055,8 +4055,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Summary</system:String>
     <system:String x:Key="StoreyFragmentMasksNotFragment">The schema is not a storey fragment: masks are taken only in a fragment.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentDeleted">The parent schema is deleted — there is nothing to take masks from.</system:String>
-    <system:String x:Key="StoreyFragmentMasksNoSources">The parent has no computed CSfea analysis (linear or secant): run the parent first.</system:String>
+    <system:String x:Key="StoreyFragmentMasksNoSources">The parent has neither a computed CSfea analysis (linear or secant) nor a program result snapshot: run the parent or take the results (parent schema menu “SCAD → Results for fragments…”).</system:String>
     <system:String x:Key="StoreyFragmentMaskSourceLabel">{0} · {1} · {2}</system:String>
+    <system:String x:Key="StoreyFragmentMaskSourceSnapshot">{0} · result snapshot “{1}” · {2}</system:String>
     <system:String x:Key="StoreyFragmentMasksFailed">Masks of fragment “{0}” from “{1}” were not taken: {2} errors — previous masks are kept.</system:String>
     <system:String x:Key="StoreyFragmentMasksTaken">Masks of fragment “{0}” taken from “{1}”: cuts {2}, remarks {3}.</system:String>
     <system:String x:Key="StoreyFragmentMasksMenu">Masks from parent…</system:String>
