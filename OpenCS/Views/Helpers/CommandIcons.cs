@@ -49,6 +49,7 @@ public static class CommandIcons
         ["ScadForcesLoadCasesFromApi"] = "CmdIcon_Import",
         ["ScadForcesCombinationsFromApi"] = "CmdIcon_Import",
         ["ScadForcesRsuFromApi"] = "CmdIcon_Import",
+        ["ScadMaskSnapshotTake"] = "CmdIcon_Import",
         ["ScadRebarLoad"] = "CmdIcon_RebarImport",
         ["ScadRebarRefreshFromSpr"] = "CmdIcon_Refresh",
         ["ScadLoadsTransfer"] = "CmdIcon_LoadsImport",

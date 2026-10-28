@@ -1167,6 +1167,13 @@
    <system:String x:Key="ScadForcesImporting">Importing SCAD forces: {0} elements, “{1}”…</system:String>
    <system:String x:Key="ScadForcesCancelled">SCAD force import cancelled.</system:String>
    <system:String x:Key="ScadForcesSuccess">SCAD force sets imported: {0} (“{1}”), {2} rows.</system:String>
+   <system:String x:Key="ScadMaskSnapshotTake">Results for fragments…</system:String>
+   <system:String x:Key="ScadMaskSnapshotReading">SCAD result snapshot for fragments: {0} nodes, {1} elements…</system:String>
+   <system:String x:Key="ScadMaskSnapshotCancelled">SCAD result snapshot cancelled.</system:String>
+   <system:String x:Key="ScadMaskSnapshotSuccess">SCAD result snapshot for fragments (“{0}”): {1} load cases, {2} nodes, {3} bars, {4} plates.</system:String>
+   <system:String x:Key="MaskSnapshotShortBars">Bars with a single section (no end forces): {0} — their masks are kinematic only.</system:String>
+   <system:String x:Key="MaskSnapshotShellsNoThickness">Plates without thickness in the schema: {0} — forces not taken.</system:String>
+   <system:String x:Key="MaskSnapshotLoadMismatch">Elements whose load case count does not match the displacements: {0} — forces not taken.</system:String>
    <system:String x:Key="ScadForcesNotInMesh">Target elements missing from the schema mesh: {0} — skipped.</system:String>
    <system:String x:Key="ScadForcesMissing">Elements missing from the SCAD project (or deleted): {0} — skipped.</system:String>
    <system:String x:Key="ScadForcesWrongKind">Elements of another kind in the SCAD project (bar ↔ plate): {0} — skipped.</system:String>

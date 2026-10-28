@@ -987,6 +987,9 @@ namespace OpenCS
       /// <summary>Усилия комбинаций загружений (РСН) из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
       public ICommand ImportScadCombinationsFromApiCommand { get; set; } = null!;
 
+      /// <summary>Снимок результатов SCAD для масок фрагментов (параметр — схема SCAD).</summary>
+      public ICommand TakeScadMaskSnapshotCommand { get; set; } = null!;
+
       /// <summary>РСУ из проекта SCAD (.SPR) через SCADAPIX.dll.</summary>
       public ICommand ImportScadRsuFromApiCommand { get; set; } = null!;
 
@@ -1907,6 +1910,7 @@ namespace OpenCS
             p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Combinations), _ => !IsBusy);
          ImportScadRsuFromApiCommand = new RelayCommand(
             p => ImportScadForcesFromApi(p, Services.Scad.ScadForceReadKind.Rsu), _ => !IsBusy);
+         TakeScadMaskSnapshotCommand = new RelayCommand(p => TakeScadMaskSnapshot(p as CScore.Fem.FemSchema), _ => !IsBusy);
          LoadScadSelectedRebarCommand = new RelayCommand(p => LoadScadSelectedRebar(p as CScore.Fem.FemSchema), _ => !IsBusy);
          InstallScadPluginCommand = new RelayCommand(_ => InstallScadPlugin());
          RefreshScadRebarDataCommand = new RelayCommand(async p =>
@@ -3966,6 +3970,115 @@ namespace OpenCS
          catch (OperationCanceledException)
          {
             EndBusy(Loc.S("ScadForcesCancelled"));
+         }
+         catch (Services.Scad.ScadApiException ex)
+         {
+            EndBusy();
+            string msg = ex.Format(Loc.S);
+            LogService.Error(msg);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            string msg = string.Format(Loc.S("ScadApiUnexpectedError"), ex.Message);
+            LogService.Error(msg + Environment.NewLine + ex);
+            MessageBox.Show(msg, Loc.S("ImportScadErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+      }
+
+      /// <summary>
+      /// Снимок результатов SCAD для масок фрагментов (план среза 7 «Фрагмента этажа», задача 3): перемещения всех
+      /// узлов и усилия загружений всех КЭ сетки схемы → вложение <see cref="FemSchemaSourceFileKind.ScadMaskResults"/>.
+      /// Чтение — в фоне под <see cref="Services.Scad.ScadApiNative.Gate"/>, с отменой; запись в БД — в потоке UI.
+      /// </summary>
+      async void TakeScadMaskSnapshot(CScore.Fem.FemSchema? schema)
+      {
+         if (IsBusy || schema == null) return;
+         if (schema.SourceType != "scad")
+         {
+            MessageBox.Show(string.Format(Loc.S("ScadForcesNotScadSchema"), schema.Tag), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         var nodes = db.GetFemMeshNodes(schema.Id)
+            .Select(n => int.TryParse(n.NodeTag, out int id) ? id : 0).Where(id => id > 0).Distinct().Order().ToList();
+         var targets = new Dictionary<int, CScore.Import.ScadElementKind>();
+         var thickness = new Dictionary<int, double>();
+         foreach (var e in db.GetFemMeshElements(schema.Id))
+         {
+            if (!int.TryParse(e.ElemTag, out int id)) continue;
+            bool shell = e.ElemType == "shell";
+            targets[id] = shell ? CScore.Import.ScadElementKind.Shell : CScore.Import.ScadElementKind.Beam;
+            if (shell && e.ThicknessM is double h) thickness[id] = h;
+         }
+         if (targets.Count == 0)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoElements"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         string? spr = ResolveScadProjectPath(schema);
+         if (spr == null) return;
+         var settings = db.LoadScadApiSettings();
+         string? dllDir = Services.Scad.ScadInstallLocator.ContainsDll(settings.DllDirectory)
+            ? settings.DllDirectory
+            : Services.Scad.ScadInstallLocator.FindDllDirectory();
+         if (dllDir == null)
+         {
+            MessageBox.Show(Loc.S("ScadForcesNoDll"), Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         string? work = !string.IsNullOrWhiteSpace(settings.WorkDirectory) && Directory.Exists(settings.WorkDirectory)
+            ? settings.WorkDirectory
+            : Services.Scad.ScadInstallLocator.FindWorkDirectory();
+
+         double tonToKn = LiraImportSettings.TonToKnFactor;
+         var cts = BeginBusyWithCancellation(string.Format(Loc.S("ScadMaskSnapshotReading"), nodes.Count, targets.Count),
+            indeterminate: false);
+         var progress = new Progress<double>(f => ReportBusyProgress(f));
+         try
+         {
+            var (build, data) = await Task.Run(() =>
+            {
+               Services.Scad.ScadApiNative.Gate.Wait(cts.Token);
+               Services.Scad.ScadApiForceReadResult read;
+               CScore.Import.ScadDisplacementSet disp;
+               try
+               {
+                  var native = Services.Scad.ScadApiNative.Load(dllDir);
+                  using var session = new Services.Scad.ScadApiSession(native);
+                  session.Open(spr);
+                  // Усилия первыми, перемещения — после (как в ручных тестах SCAD).
+                  read = Services.Scad.ScadApiForceReader.Read(session, work, targets,
+                     Services.Scad.ScadForceReadKind.LoadCases, progress, cts.Token);
+                  disp = Services.Scad.ScadApiDisplacementReader.Read(session, work, nodes, cts.Token);
+               }
+               finally { Services.Scad.ScadApiNative.Gate.Release(); }
+               var b = CScore.Import.ScadResultSnapshotBuilder.Build(disp, read.Forces, read.Catalog, thickness, tonToKn,
+                  Path.GetFileName(spr), DateTime.Now.ToString("s", System.Globalization.CultureInfo.InvariantCulture));
+               return (b, CScore.Fem.Fragment.Masks.ImportedResultSnapshotCodec.Encode(b.Snapshot));
+            }, cts.Token);
+
+            db.SaveFemSchemaSourceFile(schema.Id, FemSchemaSourceFileKind.ScadMaskResults, Path.GetFileName(spr), data);
+
+            if (build.ShortBars > 0) LogService.Warning(string.Format(Loc.S("MaskSnapshotShortBars"), build.ShortBars));
+            if (build.ShellsWithoutThickness > 0)
+               LogService.Warning(string.Format(Loc.S("MaskSnapshotShellsNoThickness"), build.ShellsWithoutThickness));
+            if (build.LoadMismatch > 0) LogService.Warning(string.Format(Loc.S("MaskSnapshotLoadMismatch"), build.LoadMismatch));
+            var loads = build.Snapshot.Loads;
+            string done = string.Format(Loc.S("ScadMaskSnapshotSuccess"), schema.Tag, loads.Count,
+               loads.Count > 0 ? loads.Max(l => l.NodeNums.Length) : 0,
+               loads.Count > 0 ? loads.Max(l => l.BarNums.Length) : 0,
+               loads.Count > 0 ? loads.Max(l => l.ShellNums.Length) : 0);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (OperationCanceledException)
+         {
+            EndBusy(Loc.S("ScadMaskSnapshotCancelled"));
          }
          catch (Services.Scad.ScadApiException ex)
          {

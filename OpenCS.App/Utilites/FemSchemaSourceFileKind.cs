@@ -1,4 +1,4 @@
-namespace OpenCS.Utilites
+﻿namespace OpenCS.Utilites
 {
    /// <summary>Виды вложений FEM-схемы (столбец <c>kind</c> таблицы <c>fem_schema_source_files</c>).</summary>
    public static class FemSchemaSourceFileKind
@@ -38,5 +38,14 @@ namespace OpenCS.Utilites
 
       /// <summary>Перемещения узлов из результатов SCAD — JSON <see cref="CScore.Import.ScadDisplacementSet.ToJson"/>.</summary>
       public const string ScadDisplacements = "scad_displacements";
+
+      /// <summary>
+      /// Снимок результатов SCAD для масок фрагмента (перемещения, усилия концов стержней и центров пластин по
+      /// загружениям) — двоичный <see cref="CScore.Fem.Fragment.Masks.ImportedResultSnapshotCodec"/>.
+      /// </summary>
+      public const string ScadMaskResults = "scad_mask_results";
+
+      /// <summary>Снимок результатов ЛИРЫ для масок фрагмента — как <see cref="ScadMaskResults"/>.</summary>
+      public const string LiraMaskResults = "lira_mask_results";
    }
 }

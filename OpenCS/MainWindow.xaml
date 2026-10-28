@@ -1448,6 +1448,11 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                            CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem helpers:CommandIcons.Header="ScadMaskSnapshotTake"
+                                           Command="{Binding PlacementTarget.Tag.TakeScadMaskSnapshotCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
                                  <MenuItem helpers:CommandIcons.Header="ScadRebarLoad"
                                            Command="{Binding PlacementTarget.Tag.LoadScadSelectedRebarCommand,

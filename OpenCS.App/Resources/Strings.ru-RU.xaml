@@ -1167,6 +1167,13 @@
    <system:String x:Key="ScadForcesImporting">Импорт усилий SCAD: {0} КЭ, «{1}»…</system:String>
    <system:String x:Key="ScadForcesCancelled">Импорт усилий SCAD отменён.</system:String>
    <system:String x:Key="ScadForcesSuccess">Импортировано наборов усилий SCAD: {0} («{1}»), строк {2}.</system:String>
+   <system:String x:Key="ScadMaskSnapshotTake">Результаты для фрагментов…</system:String>
+   <system:String x:Key="ScadMaskSnapshotReading">Снимок результатов SCAD для фрагментов: {0} узлов, {1} КЭ…</system:String>
+   <system:String x:Key="ScadMaskSnapshotCancelled">Снимок результатов SCAD отменён.</system:String>
+   <system:String x:Key="ScadMaskSnapshotSuccess">Снимок результатов SCAD для фрагментов («{0}»): загружений {1}, узлов {2}, стержней {3}, пластин {4}.</system:String>
+   <system:String x:Key="MaskSnapshotShortBars">Стержней с одним сечением (нет сил концов): {0} — маски по ним только кинематические.</system:String>
+   <system:String x:Key="MaskSnapshotShellsNoThickness">Пластин без толщины в схеме: {0} — усилия не сняты.</system:String>
+   <system:String x:Key="MaskSnapshotLoadMismatch">КЭ с числом загружений, не совпадающим с перемещениями: {0} — усилия не сняты.</system:String>
    <system:String x:Key="ScadForcesNotInMesh">КЭ цели, которых нет в сетке схемы: {0} — пропущены.</system:String>
    <system:String x:Key="ScadForcesMissing">КЭ, которых нет в проекте SCAD (или удалены): {0} — пропущены.</system:String>
    <system:String x:Key="ScadForcesWrongKind">КЭ другого вида в проекте SCAD (стержень ↔ пластина): {0} — пропущены.</system:String>
