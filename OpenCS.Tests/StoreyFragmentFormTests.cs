@@ -12,7 +12,7 @@ public sealed class StoreyFragmentFormTests : IDisposable
 {
     static readonly CultureInfo Ru = Comma();
 
-    /// <summary>Запятая — десятичный разделитель (тесты могут идти в инвариантной глобализации).</summary>
+    /// <summary>Запятая — десятичный разделитель (не зависит от региональных настроек Windows).</summary>
     static CultureInfo Comma()
     {
         var c = (CultureInfo)CultureInfo.InvariantCulture.Clone();

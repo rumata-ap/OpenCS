@@ -12,7 +12,8 @@ public sealed class FemCsfeaBatchForceSetsTests
 {
     static readonly FemSchema Schema = new() { Id = 1, Tag = "Схема" };
 
-    public FemCsfeaBatchForceSetsTests() => System.Globalization.CultureInfo.CurrentCulture = new("ru-RU");
+    // Без пользовательских переопределений Windows: у ru-RU на машине может стоять точка вместо запятой.
+    public FemCsfeaBatchForceSetsTests() => System.Globalization.CultureInfo.CurrentCulture = new("ru-RU", useUserOverride: false);
 
     /// <summary>Пластины 101–103 (Mx = k·(1, 2, 3) кН·м/м), стержни 201–202.</summary>
     static RcSecantStepFields Fields(double k)
