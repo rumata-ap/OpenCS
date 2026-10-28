@@ -95,7 +95,9 @@ public sealed record FemCsfeaSetup
 /// </summary>
 public static class FemCsfeaInputBuilder
 {
-    public static FemRcModelInput Build(DatabaseService db, int schemaId, FemCsfeaSetup setup)
+    /// <param name="sections">false — без сечений CScore пластин и стержней (упругие по свойствам КЭ): вход для
+    /// нагрузок и геометрии, без подготовки диаграмм.</param>
+    public static FemRcModelInput Build(DatabaseService db, int schemaId, FemCsfeaSetup setup, bool sections = true)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(setup);
@@ -110,8 +112,8 @@ public static class FemCsfeaInputBuilder
 
         var materials = new Dictionary<int, Material>();
         foreach (var m in db.Materials) materials.TryAdd(m.Id, m);
-        var plates = PlateSections(db, data, groups, materials, setup, diag);
-        var beams = BeamSections(db, data, materials, diag);
+        var plates = sections ? PlateSections(db, data, groups, materials, setup, diag) : [];
+        var beams = sections ? BeamSections(db, data, materials, diag) : [];
 
         // Линейные связи граней пластин — узловыми закреплениями и пружинами сетки (дальше общий путь резолвера ГУ).
         var lines = db.ResolveFemLineSupports(schemaId, data.Members, data.MeshNodes, data.Mesh, data.Regions);

@@ -68,8 +68,9 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
-      /// <summary>Набор масок фрагмента; null — маски не снимались.</summary>
-      public FragmentMaskSet? GetFragmentMasks(int schemaId)
+      /// <summary>Набор масок фрагмента; null — маски не снимались. <paramref name="items"/> = false — только заголовок
+      /// (источник, отпечаток, отчёт) без чтения блоков сэмплов.</summary>
+      public FragmentMaskSet? GetFragmentMasks(int schemaId, bool items = true)
       {
          int maskId;
          FragmentMaskSet set;
@@ -89,6 +90,7 @@ namespace OpenCS.Utilites
                SourceFingerprint = r.GetString(4), CreatedAt = r.GetString(5), ReportJson = r.GetString(6),
             };
          }
+         if (!items) return set;
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
