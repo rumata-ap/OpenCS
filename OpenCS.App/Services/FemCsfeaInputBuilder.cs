@@ -251,13 +251,16 @@ public static class FemCsfeaInputBuilder
         string.Create(CultureInfo.InvariantCulture, $"{template.Id}|{template.ConcreteMaterialId}|{template.RebarMaterialId}|{template.ConcreteDiagramType}|{calc}");
 
     /// <summary>Ось x области (<see cref="Frame3D.LocalX"/>) по тегу планарного конструктивного элемента.</summary>
-    static Dictionary<string, PlanarVector3>? RegionAxes(FemCheckSchemaData data)
+    static Dictionary<string, PlanarVector3>? RegionAxes(FemCheckSchemaData data) => RegionAxes(data.Members, data.Regions);
+
+    /// <summary>Ось x выдачи усилий пластин по тегу КонЭ — ось X области (<see cref="FemRcModelInput.RegionAxisX"/>).</summary>
+    public static Dictionary<string, PlanarVector3>? RegionAxes(IReadOnlyList<FemMember> members, IReadOnlyList<PlanarRegion> regionList)
     {
-        if (data.Regions.Count == 0) return null;
+        if (regionList.Count == 0) return null;
         var regions = new Dictionary<int, PlanarRegion>();
-        foreach (var r in data.Regions) regions.TryAdd(r.Id, r);
+        foreach (var r in regionList) regions.TryAdd(r.Id, r);
         var result = new Dictionary<string, PlanarVector3>(StringComparer.Ordinal);
-        foreach (var m in data.Members)
+        foreach (var m in members)
             if (m.PlanarRegionId is int id && regions.TryGetValue(id, out var region))
                 result.TryAdd(m.ElemTag, region.Frame.LocalX);
         return result;

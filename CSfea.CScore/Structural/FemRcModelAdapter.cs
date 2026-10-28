@@ -235,7 +235,7 @@ public static class FemRcModelAdapter
             }
             if (section == null) { noSection.Add(e.ElemTag); continue; }
 
-            var axis = ForceAxis(e, g, members, input.RegionAxisX);
+            var axis = ShellForceAxis(e, g, members, input.RegionAxisX);
             if (forceAngle != 0)
             {
                 axis = Rotate(axis, g.ShellFrame().Z, -forceAngle);
@@ -257,9 +257,10 @@ public static class FemRcModelAdapter
 
     /// <summary>
     /// Ось x выдачи усилий пластины: «узел 1 → узел 2», повёрнутая на <see cref="FemElement.LocalAxisAngleDeg"/>
-    /// вокруг нормали; без угла — ось области конструктивного элемента, спроецированная на плоскость КЭ.
+    /// вокруг нормали; без угла — ось области конструктивного элемента, спроецированная на плоскость КЭ. Ось y выдачи —
+    /// нормаль контура × ось x (<see cref="FemElementGeometry.ShellFrame"/>), поворот в оси армирования сюда не входит.
     /// </summary>
-    static PlanarVector3 ForceAxis(FemElement e, FemElementGeometry g, IReadOnlyDictionary<string, FemMember> members,
+    public static PlanarVector3 ShellForceAxis(FemElement e, FemElementGeometry g, IReadOnlyDictionary<string, FemMember> members,
         IReadOnlyDictionary<string, PlanarVector3>? regionAxes)
     {
         var (x1, _, n) = g.ShellFrame();
@@ -302,7 +303,7 @@ public static class FemRcModelAdapter
             }
             if (e.BeamRotationDeg == null && e.Origin == FemMember.MeshSourceImported) noAxes.Add(e.ElemTag);
             PlanarVector3 refVec;
-            try { refVec = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], Rotation(e, members)).Y; }
+            try { refVec = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], BeamRotationDeg(e, members)).Y; }
             catch (InvalidOperationException) { degenerate.Add(e.ElemTag); continue; }
 
             var cross = input.BeamSection?.Invoke(e);
@@ -353,7 +354,7 @@ public static class FemRcModelAdapter
 
     /// <summary>Поворот сечения стержня вокруг оси, град: у импортного КЭ — свой (<see cref="FemElement.BeamRotationDeg"/>),
     /// у КЭ своей схемы — поворот конструктивного элемента; не задан — 0.</summary>
-    static double Rotation(FemElement e, IReadOnlyDictionary<string, FemMember> members) =>
+    public static double BeamRotationDeg(FemElement e, IReadOnlyDictionary<string, FemMember> members) =>
         e.BeamRotationDeg ?? (e.SourceMemberTag is { } tag && members.TryGetValue(tag, out var m) ? m.RotationDeg : 0);
 
     // ---------------------------------------------------------------- нагрузки
