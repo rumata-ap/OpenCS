@@ -234,9 +234,11 @@ public sealed class StoreyFragmentRoundTripTests(ITestOutputHelper output)
 
     /// <summary>
     /// Прогибы плиты фрагмента в узлах плиты родителя (кроме кромки у стены y = 6): uz фрагмента — интерполяция по его
-    /// КЭ плиты; по загружениям — max |uz| родителя и наибольшее расхождение.
+    /// КЭ плиты; по загружениям — max |uz| родителя и наибольшее расхождение. <paramref name="rigid"/> — сначала вычесть
+    /// из разности жёсткое смещение плиты (uz = a + b·x + c·y по МНК): у силовых ГУ фрагмент держат автозакрепления в нуле.
     /// </summary>
-    List<(string Tag, double Scale, double MaxDiff)> CompareSlab(DatabaseService db, Parent parent, FemSchema fragment, CalcResult result, string label)
+    List<(string Tag, double Scale, double MaxDiff)> CompareSlab(DatabaseService db, Parent parent, FemSchema fragment, CalcResult result, string label,
+        bool rigid = false)
     {
         var parentNodes = db.GetFemMeshNodes(parent.Schema.Id);
         var points = parentNodes.Where(n => Math.Abs(n.Z - 3) < Tol && n.Y < 6 - Tol).ToList();
@@ -252,25 +254,62 @@ public sealed class StoreyFragmentRoundTripTests(ITestOutputHelper output)
             var up = Displacements(FemCsfeaStepFieldsCodec.Unpack(db.GetFemResultStep(parent.Analysis.ResultId!.Value, i + 1)!));
             var uf = Displacements(FemCsfeaStepFieldsCodec.Unpack(db.GetFemResultStep(result.Id, i + 1)!));
             double scale = points.Max(n => Math.Abs(up[int.Parse(n.NodeTag, CultureInfo.InvariantCulture)][2]));
-            double maxDiff = 0;
-            string worst = "";
-            foreach (var n in points)
+            var values = points.Select(n =>
             {
                 var p = new PlanarVector3(n.X, n.Y, n.Z);
                 var (g, shape) = slab.Select(g => (g, shape: g.ShellShapeAt(p))).First(x => x.shape != null);
                 double wf = shape!.Select((w, k) => w * uf[int.Parse(g.NodeTags[k], CultureInfo.InvariantCulture)][2]).Sum();
-                double wp = up[int.Parse(n.NodeTag, CultureInfo.InvariantCulture)][2];
-                if (Math.Abs(wf - wp) > maxDiff)
+                return (n.X, n.Y, Wp: up[int.Parse(n.NodeTag, CultureInfo.InvariantCulture)][2], Wf: wf);
+            }).ToList();
+            var (a, b, c) = rigid ? PlaneFit(values.Select(v => (v.X, v.Y, v.Wf - v.Wp)).ToList()) : (0, 0, 0);
+            double maxDiff = 0;
+            string worst = "";
+            foreach (var (x, y, wp, wf) in values)
+            {
+                double d = Math.Abs(wf - wp - (a + b * x + c * y));
+                if (d > maxDiff)
                 {
-                    maxDiff = Math.Abs(wf - wp);
-                    worst = string.Create(CultureInfo.InvariantCulture, $"({n.X:0.##}, {n.Y:0.##}): родитель {wp * 1e3:0.####} мм, фрагмент {wf * 1e3:0.####} мм");
+                    maxDiff = d;
+                    worst = string.Create(CultureInfo.InvariantCulture, $"({x:0.##}, {y:0.##}): родитель {wp * 1e3:0.####} мм, фрагмент {wf * 1e3:0.####} мм");
                 }
             }
+            if (rigid)
+                output.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"{label} «{stages[i].Tag}»: жёсткое смещение плиты фрагмента относительно родителя uz = {a * 1e3:0.####} мм + {b * 1e3:0.####}·x + {c * 1e3:0.####}·y (мм/м)"));
             output.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"{label} «{stages[i].Tag}»: точек {points.Count}, max |uz| родителя {scale * 1e3:0.####} мм, наибольшее расхождение {maxDiff * 1e3:0.####} мм ({maxDiff / scale:P2}) в {worst}"));
             rows.Add((stages[i].Tag, scale, maxDiff));
         }
         return rows;
+    }
+
+    /// <summary>МНК-плоскость d = a + b·x + c·y.</summary>
+    static (double A, double B, double C) PlaneFit(IReadOnlyList<(double X, double Y, double D)> data)
+    {
+        var m = new double[3, 4];
+        foreach (var (x, y, d) in data)
+        {
+            double[] r = [1, x, y];
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++) m[i, j] += r[i] * r[j];
+                m[i, 3] += r[i] * d;
+            }
+        }
+        for (int k = 0; k < 3; k++)
+            for (int i = k + 1; i < 3; i++)
+            {
+                double f = m[i, k] / m[k, k];
+                for (int j = k; j < 4; j++) m[i, j] -= f * m[k, j];
+            }
+        var s = new double[3];
+        for (int i = 2; i >= 0; i--)
+        {
+            double v = m[i, 3];
+            for (int j = i + 1; j < 3; j++) v -= m[i, j] * s[j];
+            s[i] = v / m[i, i];
+        }
+        return (s[0], s[1], s[2]);
     }
 
     /// <summary>ΣF реакций узлов сетки на отметке разреза стороны и ΣF масок разрезов этой стороны по загружению фрагмента.</summary>
@@ -370,6 +409,32 @@ public sealed class StoreyFragmentRoundTripTests(ITestOutputHelper output)
                 Assert.True(rows[i].MaxDiff <= mesh[i].MaxDiff + 0.02 * rows[i].Scale,
                     $"«{rows[i].Tag}»: фрагмент {rows[i].MaxDiff / rows[i].Scale:P2}, сетка родителя {mesh[i].MaxDiff / mesh[i].Scale:P2}");
             AssertReactionsMatchMasks(db, fragment, result, summary);
+        });
+    }
+
+    /// <summary>
+    /// «Усилия из родителя» и «Перемещения из родителя, повороты свободны» на том же шаге 0,5 м: расчёт идёт; прогибы
+    /// плиты против родителя — только вывод (у Static — и после вычитания жёсткого смещения), это вход к выбору пресета
+    /// по умолчанию в UI. У Static при сетке родителя 0,5 м реакции автозакреплений — 3,1 % и 1,6 % Σ|F| масок
+    /// («маска не уравновешена», порог 1 %) от неточности масок кромок стены; при сетке родителя 0,25 м предупреждения нет.
+    /// </summary>
+    [Fact]
+    public async Task StaticAndTranslations_Run_Reported()
+    {
+        await InTempRoot("opencs-fragment-roundtrip", async root =>
+        {
+            using var db = new DatabaseService(Path.Combine(root, "test.db"));
+            var ctx = new FemCsfeaRunContext(db, GmshSettings(root), new ListLog(output));
+            var parent = await CreateParent(ctx, root);
+            var fragment = await CreateFragment(db, parent, root, ParentStep);
+
+            var (stat, statSummary) = await RunFragment(ctx, fragment, FragmentBcPreset.Static);
+            Assert.Contains(statSummary.Report, l => l.StartsWith("Силовые ГУ разрезов", StringComparison.Ordinal));
+            CompareSlab(db, parent, fragment, stat, "Static");
+            CompareSlab(db, parent, fragment, stat, "Static без жёсткого смещения", rigid: true);
+
+            var (trans, _) = await RunFragment(ctx, fragment, FragmentBcPreset.KinematicTranslations);
+            CompareSlab(db, parent, fragment, trans, "KinematicTranslations");
         });
     }
 }
