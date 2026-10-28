@@ -142,9 +142,16 @@ public sealed class FemElementGeometry
         }
         if (Math.Abs(xi) > 1 + 2 * tol || Math.Abs(eta) > 1 + 2 * tol) return null;
         var shape = Bilinear(Math.Clamp(xi, -1, 1), Math.Clamp(eta, -1, 1), out _, out _);
+        // Невязка: Ньютон для точки далеко за КЭ может не сойтись и остановиться на ξ, η в пределах [−1, 1].
+        double mu = 0, mv = 0;
+        for (int k = 0; k < 4; k++) { mu += shape[k] * c[k].U; mv += shape[k] * c[k].V; }
+        double size = Math.Max(Dist(c[0], c[2]), Dist(c[1], c[3]));
+        if (Dist((mu, mv), q) > tol * size) return null;
         for (int k = 0; k < 4; k++) result[Contour[k]] = shape[k];
         return result;
     }
+
+    static double Dist((double U, double V) a, (double U, double V) b) => Math.Sqrt((a.U - b.U) * (a.U - b.U) + (a.V - b.V) * (a.V - b.V));
 
     /// <summary>Точки интегрирования: функции формы по узлам хранения и вес·якобиан.</summary>
     IEnumerable<(double[] N, double WJ)> Quadrature()
