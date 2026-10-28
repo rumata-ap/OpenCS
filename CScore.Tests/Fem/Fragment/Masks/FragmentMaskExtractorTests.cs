@@ -95,4 +95,40 @@ public sealed class FragmentMaskExtractorTests
         Assert.All(Assert.Single(x.Masks).Samples, s => Assert.Null(s.U));
         Assert.Single(x.Diagnostics, d => d.Code == "fragment_mask_no_displacement");
     }
+    /// <summary>
+    /// Порог сверки равнодействующей — от ΣF масок ключа: верх стены почти не нагружен (Ny = 0,5 ± 2 Н/м «шахматкой»
+    /// по столбцам — патч расходится с прямой суммой на десятки процентов), низ несёт 20 кН/м. Один верх — предупреждение;
+    /// вместе с низом расхождение верха ничтожно против ΣF ключа — молчит.
+    /// </summary>
+    [Fact]
+    public void Wall_CutResultantWarning_IgnoresNoiseAgainstKeyTotal()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = new FragmentParentResultTable();
+        t.AddKey(K1);
+        foreach (var (tag, n) in nodes) t.SetDisplacement(K1, tag, Dof6.Zero);
+        foreach (var e in elements)
+        {
+            var g = CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!;
+            var (ax, ay, _) = g.ShellFrame();
+            var c = g.Points.Aggregate(V(0, 0, 0), (a, p) => a + p) * (1.0 / g.Points.Count);
+            int column = (int)Math.Floor(c.X / 0.5);
+            double ny = c.Z < 1.5 ? -20000 : 0.5 + (column % 2 == 0 ? 2 : -2);
+            t.SetShellForces(K1, e.ElemTag, new FragmentShellForces(ax, ay, [0, ny, 0, 0, 0, 0, 0, 0]));
+        }
+        var top = WallCut(FragmentCutSide.Top, 2.2, (0, 3));
+        var bottom = WallCut(FragmentCutSide.Bottom, 0.8, (0, 3));
+
+        var alone = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [top], ParentNodes = nodes, ParentElements = elements, Result = t,
+        });
+        var both = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [bottom, top], ParentNodes = nodes, ParentElements = elements, Result = t,
+        });
+
+        Assert.Contains(alone.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
+        Assert.DoesNotContain(both.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
+    }
 }

@@ -31,6 +31,18 @@ public static class FragmentMaskExtractor
     /// <summary>Допуск сверки равнодействующей сечения (спека 4.4).</summary>
     public const double CutResultantTolerance = 0.02;
 
+    /// <summary>
+    /// Нижняя граница масштаба сверки равнодействующей — доля Σ|F| масок того же ключа по всем сечениям: на почти
+    /// ненагруженном сечении (верх стены) относительное расхождение патча с прямой суммой велико, но ничтожно для
+    /// равновесия фрагмента. При 0,5 порог — 1 % Σ|F|, половина допуска равновесия масок
+    /// (<see cref="FragmentMaskBalance.BalanceTolerance"/> от нагрузки полосы ≈ Σ|F| / 2).
+    /// </summary>
+    public const double CutResultantKeyShare = 0.5;
+
+    /// <summary>Отложенная сверка кромки: сравнивается, когда известна Σ|F| масок ключа.</summary>
+    sealed record ResultantCheck(FragmentMaskCutInput Cut, FragmentMaskKey Key, string Where, double Length,
+        PlanarVector3 MaskF, PlanarVector3 MaskM, PlanarVector3 DirectF, PlanarVector3 DirectM);
+
     public static FragmentMaskExtraction Extract(FragmentMaskInput input)
     {
         var x = new FragmentMaskExtraction();
@@ -44,6 +56,7 @@ public static class FragmentMaskExtractor
             else if (g.IsShell) shells.Add((e.ElemTag, g));
         }
 
+        var checks = new List<ResultantCheck>();
         for (int i = 0; i < input.Cuts.Count; i++)
         {
             var c = input.Cuts[i];
@@ -52,9 +65,34 @@ public static class FragmentMaskExtractor
             if (c.Cut.Kind == FragmentCutKind.End)
                 ExtractEnd(input, x, i, c, below, where, bars);
             else
-                ExtractEdge(input, x, i, c, below, where, shells);
+                ExtractEdge(input, x, i, c, below, where, shells, checks);
         }
+        CheckResultants(input, x, checks);
         return x;
+    }
+
+    /// <summary>
+    /// Сверка равнодействующей кромки с прямой суммой по КЭ (спека 4.4): масштаб — сила сечения, но не меньше
+    /// <see cref="CutResultantKeyShare"/> от Σ|F| масок ключа.
+    /// </summary>
+    static void CheckResultants(FragmentMaskInput input, FragmentMaskExtraction x, List<ResultantCheck> checks)
+    {
+        if (checks.Count == 0) return;
+        var keyTotal = new Dictionary<FragmentMaskKey, double>();
+        foreach (var m in x.Masks)
+            if (FragmentMaskBalance.Resultant(input.Cuts[m.CutIndex], m.Samples, PlanarVector3.Zero) is { } r)
+                keyTotal[m.Key] = keyTotal.GetValueOrDefault(m.Key) + r.F.Length;
+        foreach (var k in checks)
+        {
+            if (k.DirectF.Length <= 1e-6) continue;
+            double floor = CutResultantKeyShare * keyTotal.GetValueOrDefault(k.Key);
+            double scaleF = Math.Max(Math.Max(k.DirectF.Length, floor), 1e-9);
+            double scaleM = Math.Max(k.DirectM.Length + Math.Max(k.DirectF.Length, floor) * k.Length / 2, 1e-9);
+            double dF = (k.MaskF - k.DirectF).Length / scaleF, dM = (k.MaskM - k.DirectM).Length / scaleM;
+            if (dF > CutResultantTolerance || dM > CutResultantTolerance)
+                Warn(x, "fragment_mask_cut_resultant", string.Create(CultureInfo.CurrentCulture,
+                    $"Сечение {k.Where}, {KeyText(k.Key)}: равнодействующая маски расходится с суммой по КЭ на {Math.Max(dF, dM):P1}."), k.Cut);
+        }
     }
 
     static void ExtractEnd(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, bool below,
@@ -78,7 +116,7 @@ public static class FragmentMaskExtractor
     }
 
     static void ExtractEdge(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, bool below,
-        string where, List<(string, FemElementGeometry)> shells)
+        string where, List<(string, FemElementGeometry)> shells, List<ResultantCheck> checks)
     {
         if (c.WallNormal is not { } normal || c.Cut.Segments.Count == 0)
         {
@@ -129,16 +167,7 @@ public static class FragmentMaskExtractor
             if (degenerate > 0) Warn(x, "fragment_mask_patch_degenerate",
                 $"Сечение {where}, {KeyText(key)}: в {degenerate} точках патч КЭ вырожден — усилия по ближайшим центрам.", c);
             if (!noF && FragmentMaskBalance.Resultant(c, samples, PlanarVector3.Zero) is { } res)
-            {
-                var (rf, rm) = res;
-                double length = geometries.Sum(g => g.Length);
-                double scaleF = Math.Max(direct.F.Length, 1e-9);
-                double scaleM = Math.Max(direct.M.Length + direct.F.Length * length / 2, 1e-9);
-                double dF = (rf - direct.F).Length / scaleF, dM = (rm - direct.M).Length / scaleM;
-                if (direct.F.Length > 1e-6 && (dF > CutResultantTolerance || dM > CutResultantTolerance))
-                    Warn(x, "fragment_mask_cut_resultant", string.Create(CultureInfo.CurrentCulture,
-                        $"Сечение {where}, {KeyText(key)}: равнодействующая маски расходится с суммой по КЭ на {Math.Max(dF, dM):P1}."), c);
-            }
+                checks.Add(new(c, key, where, geometries.Sum(g => g.Length), res.F, res.M, direct.F, direct.M));
         }
     }
 
