@@ -24,18 +24,13 @@ public static class FragmentMaskBalance
         var sumF = PlanarVector3.Zero;
         var sumM = PlanarVector3.Zero;
         double offset = 0;
-        int k = 0;
-        foreach (var (a, b) in cut.Cut.Segments)
+        var bySegment = FragmentMaskDistribution.SplitBySegments(cut.Cut.Segments, samples);
+        for (int j = 0; j < cut.Cut.Segments.Count; j++)
         {
+            var (a, b) = cut.Cut.Segments[j];
             double len = (b - a).Length;
             var axis = (b - a).Normalize();
-            var segment = new List<FragmentMaskSample>();
-            while (k < samples.Count && samples[k].S <= offset + len + 1e-9)
-            {
-                segment.Add(samples[k]);
-                k++;
-                if (segment.Count > 1 && samples[k - 1].S >= offset + len - 1e-9) break;
-            }
+            var segment = bySegment[j];
             for (int i = 0; i + 1 < segment.Count; i++)
             {
                 if (segment[i].F is not { } f0 || segment[i + 1].F is not { } f1) continue;
