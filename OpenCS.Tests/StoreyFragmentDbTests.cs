@@ -2,6 +2,7 @@ using CScore.Fem;
 using CScore.Fem.Fragment;
 using CScore.Planar;
 using Microsoft.Data.Sqlite;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using Xunit;
 
@@ -186,6 +187,36 @@ public sealed class StoreyFragmentDbTests : IDisposable
         Assert.Equal("assigned.json", sources[2].FileName);
         Assert.Equal("Колонна", db.GetFemSchemaStiffnesses(fragment.Id)[3].Name);
         Assert.Null(db.GetFemSchemaReinforcementFile(fragment.Id));
+    }
+
+    /// <summary>Импортное АЖТ «по точкам» (ведущий на колонне, ведомые в плите) пишется во фрагмент тегами его узлов,
+    /// копируется с копией схемы и удаляется со схемой; v95 → v96 создаёт таблицу.</summary>
+    [Fact]
+    public void NodeRigidBodies_WrittenWithFragment_CopiedAndDeleted()
+    {
+        using (var db = new DatabaseService(_path))
+        {
+            var parent = StoreyFragmentDbFixture.CreateParent(db);
+            var body = new FemRigidBody { MasterNodeTag = "102", SourceElemTag = "125938" };
+            body.SetSlaveNodeTags(["1012", "1014"]);
+            db.SaveFemBoundary(parent.Id, "import:scad", [], [], [body]);
+
+            var fragment = StoreyFragmentService.Build(db, parent.Id, new StoreyFragmentRequest(1.0, 5.0, "Этаж")).Schema!;
+            var stored = Assert.Single(db.GetFemNodeRigidBodies(fragment.Id));
+            Assert.Equal(("import:scad", "125938"), (stored.Origin, stored.SourceElemTag));
+            var nodes = db.GetFemNodes(fragment.Id).ToDictionary(n => n.NodeTag);
+            Assert.Equal((0.0, 0.0, 1.5), (nodes[stored.MasterNodeTag].X, nodes[stored.MasterNodeTag].Y, nodes[stored.MasterNodeTag].Z));
+            Assert.Equal([-1.5, 1.5], stored.SlaveNodeTags.Select(t => nodes[t].X).Order());
+
+            var copy = db.DuplicateFemSchema(fragment.Id, "Копия");
+            Assert.Equal(stored.SlaveNodeTagsJson, Assert.Single(db.GetFemNodeRigidBodies(copy.Id)).SlaveNodeTagsJson);
+            db.DeleteFemSchema(copy);
+        }
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM fem_node_rigid_bodies"));
+
+        Exec("DROP TABLE fem_node_rigid_bodies; UPDATE settings SET value_json='95' WHERE key='schema_version'");
+        using (new DatabaseService(_path)) { }
+        Assert.Equal(0L, Scalar("SELECT COUNT(*) FROM fem_node_rigid_bodies"));
     }
 
     object? Scalar(string sql)

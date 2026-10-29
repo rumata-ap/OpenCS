@@ -96,13 +96,16 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Жёсткие тела схемы.</summary>
-      public List<FemRigidBody> GetFemRigidBodies(int schemaId)
+      public List<FemRigidBody> GetFemRigidBodies(int schemaId) => QueryRigidBodies("fem_rigid_bodies", schemaId);
+
+      /// <summary>Жёсткие тела таблицы <paramref name="table"/> (<c>fem_rigid_bodies</c> или <c>fem_node_rigid_bodies</c>).</summary>
+      List<FemRigidBody> QueryRigidBodies(string table, int schemaId)
       {
          var result = new List<FemRigidBody>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
+         cmd.CommandText = $"""
             SELECT id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag, kind
-            FROM fem_rigid_bodies WHERE schema_id=@sid ORDER BY id
+            FROM {table} WHERE schema_id=@sid ORDER BY id
             """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
@@ -241,10 +244,17 @@ namespace OpenCS.Utilites
                if (updateObjects) { s.Id = id; s.SchemaId = schemaId; }
             }
          }
+         InsertRigidBodiesCore("fem_rigid_bodies", schemaId, rigidBodies, updateObjects);
+      }
+
+      /// <summary>Вставляет жёсткие тела в таблицу <paramref name="table"/> (<c>fem_rigid_bodies</c> или
+      /// <c>fem_node_rigid_bodies</c>) без своей транзакции.</summary>
+      void InsertRigidBodiesCore(string table, int schemaId, IEnumerable<FemRigidBody> rigidBodies, bool updateObjects)
+      {
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = """
-               INSERT INTO fem_rigid_bodies (schema_id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag, kind)
+            cmd.CommandText = $"""
+               INSERT INTO {table} (schema_id, master_node_tag, slave_node_tags_json, mask, origin, source_elem_tag, kind)
                VALUES (@sid, @master, @slaves, @mask, @origin, @src, @kind);
                SELECT last_insert_rowid();
                """;

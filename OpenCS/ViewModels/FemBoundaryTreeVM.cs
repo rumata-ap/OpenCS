@@ -170,7 +170,12 @@ public sealed class FemBoundarySubNode : FemSubNode, INotifyPropertyChanged
         Foundation.Reset([], FemFieldService.FoundationElementCount(db, id));
         Releases.Reset(db.GetFemElementReleaseGroups(id).Select(g => FemBoundaryTree.ReleaseGroup(Schema, g.ReleaseI, g.ReleaseJ,
             g.Count, () => new([], [], db.GetFemElementTagsByReleases(id, g.ReleaseI, g.ReleaseJ)))).ToList());
-        RigidBodies.Reset(FemBoundaryTree.RigidBodyItems(Schema, db.GetFemRigidBodies(id)));
+        var bodies = db.GetFemRigidBodies(id);
+        var bodyItems = FemBoundaryTree.RigidBodyItems(Schema, bodies);
+        // АЖТ фрагмента «по точкам» до построения сетки — одной строкой.
+        if (!bodies.Any(b => b.Origin == FemNodeRigidBodies.Provenance) && db.GetFemNodeRigidBodies(id) is { Count: > 0 } pending)
+            bodyItems.Insert(0, FemBoundaryTree.PendingNodeRigidItem(Schema, pending));
+        RigidBodies.Reset(bodyItems);
         UpdateVisible();
     }
 
@@ -374,6 +379,15 @@ public static class FemBoundaryTree
                     SourceMemberTags = group.SelectMany(JunctionMemberTags).Distinct(StringComparer.Ordinal).ToList(),
                 };
             }).ToList();
+    }
+
+    /// <summary>Строка-заглушка тел на узлах схемы, пока по ним не построена сетка: число тел, выбор — их узлы схемы.</summary>
+    public static FemBoundaryGroupItem PendingNodeRigidItem(FemSchema schema, IReadOnlyList<FemRigidBody> bodies)
+    {
+        var nodes = bodies.SelectMany(b => b.SlaveNodeTags.Prepend(b.MasterNodeTag)).Distinct(StringComparer.Ordinal).ToList();
+        var origin = string.Join(", ", bodies.Select(b => b.Origin).Distinct().Select(FemMeshNodeRow.DescribeOrigin));
+        return new FemBoundaryGroupItem(FemBoundaryKind.RigidBodies, schema, Loc.S("FemBoundaryNodeRigidPending"), bodies.Count,
+            origin, () => new(nodes, [], []));
     }
 
     static FemBoundaryGroupItem RigidBodyItem(FemSchema schema, FemRigidBody b)

@@ -4013,6 +4013,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshRegionBuilding">Region "{0}" mesh — Gmsh ({1} points, {2} curves, {3} free nodes)</system:String>
     <system:String x:Key="FemSchemaMeshRegionFailed">Region "{0}" mesh failed — see the log and the region dialog</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctions">Bar-to-slab rigid junctions: {0}</system:String>
+    <system:String x:Key="FemSchemaMeshNodeRigidBodies">Rigid bodies by schema nodes: {0} of {1}</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctionsStale">Junction rigid bodies are out of date (schema or bar parameters changed) — build the schema mesh</system:String>
     <system:String x:Key="FemSchemaMeshDone">Schema mesh: {0} nodes, {1} bars, {2} plates; {3} regions ({4} meshed by Gmsh), {5} nodes shared with bars and regions, {6} bars split</system:String>
     <system:String x:Key="FemSchemaMeshNotSaved">Schema mesh not saved: there are errors</system:String>
@@ -4182,6 +4183,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowRigidBodiesThinned">Rigid bodies ({0} of {1} links shown)</system:String>
     <system:String x:Key="FemBoundaryOriginManual">manual</system:String>
     <system:String x:Key="FemBoundaryOriginAuto">auto</system:String>
+    <system:String x:Key="FemBoundaryOriginNodePoints">by schema nodes</system:String>
+    <system:String x:Key="FemBoundaryNodeRigidPending">By schema nodes — bodies appear after the mesh is built</system:String>
     <system:String x:Key="FemBoundaryRigidJunctionParams">Bar junction parameters…</system:String>
     <system:String x:Key="FemBoundaryOriginLira">LIRA</system:String>
     <system:String x:Key="FemMeshNodeSupportColumn">Restraint</system:String>

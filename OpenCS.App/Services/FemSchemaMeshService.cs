@@ -132,6 +132,21 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                     info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRigidJunctions"), junctions.Bodies.Count));
             }
         }
+        // Тела на узлах схемы (АЖТ фрагмента «по точкам») — после тел примыканий: их узлы уже заняты.
+        var nodeBodies = db.GetFemNodeRigidBodies(schemaId);
+        if (nodeBodies.Count > 0 && !mesh.HasErrors && current != false)
+        {
+            var others = db.GetFemRigidBodies(schemaId)
+                .Where(b => b.Origin != RigidJunctionTraceSet.Provenance && b.Origin != FemNodeRigidBodies.Provenance)
+                .Concat(mesh.RigidBodies).ToList();
+            var byPoints = FemNodeRigidBodies.Materialize(mesh.Nodes, nodes, nodeBodies, BlockedSlaves(schemaId, nodes, members, mesh), others);
+            mesh.RigidBodies.AddRange(byPoints.Bodies);
+            if (!checkOnly)
+            {
+                diagnostics.AddRange(byPoints.Diagnostics);
+                info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshNodeRigidBodies"), byPoints.Bodies.Count, nodeBodies.Count));
+            }
+        }
         if (current == true && !SameJunctionBodies(schemaId, mesh.RigidBodies))
         {
             current = false;
@@ -209,16 +224,20 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         ordered.Skip(k + 1).Select(p => (p.Member.ElemTag, p.Region)).ToList();
 
     /// <summary>Записывает сетку схемы (импортные строки сохраняются) и заменяет автоматические АЖТ примыканий
-    /// (<see cref="RigidJunctionTraceSet.Provenance"/>) телами сборки — пустой список удаляет прежние; ручные и
-    /// импортные тела не трогаются.</summary>
+    /// (<see cref="RigidJunctionTraceSet.Provenance"/>) и тела по узлам схемы (<see cref="FemNodeRigidBodies.Provenance"/>)
+    /// телами сборки — пустой список удаляет прежние; ручные и импортные тела не трогаются.</summary>
     public void Save(int schemaId, FemPlanarMaterializationResult mesh)
     {
         if (db.HasImportedMesh(schemaId))
             db.SaveFemMeshSnapshotKeepingImported(schemaId, mesh.Nodes, mesh.Elements);
         else
             db.SaveFemMeshSnapshot(schemaId, mesh.Nodes, mesh.Elements);
-        db.SaveFemBoundary(schemaId, RigidJunctionTraceSet.Provenance, [], [], mesh.RigidBodies);
+        foreach (var origin in BuiltOrigins)
+            db.SaveFemBoundary(schemaId, origin, [], [], mesh.RigidBodies.Where(b => b.Origin == origin).ToList());
     }
+
+    /// <summary>Происхождения тел, которые строит сборка сетки.</summary>
+    static readonly string[] BuiltOrigins = [RigidJunctionTraceSet.Provenance, FemNodeRigidBodies.Provenance];
 
     /// <summary>Сетка схемы изменилась: результаты постановок сбрасываются, наборы усилий схемы (номера КЭ прежней
     /// сетки) перечисляются в журнале — не удаляются.</summary>
@@ -262,13 +281,14 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         return result;
     }
 
-    /// <summary>Авто-АЖТ примыканий в БД совпадают с телами сборки: ведущий, ведомые, маска, вид.</summary>
+    /// <summary>Тела сборки в БД (авто-АЖТ примыканий и по узлам схемы) совпадают с телами сборки: происхождение,
+    /// ведущий, ведомые, маска, вид.</summary>
     bool SameJunctionBodies(int schemaId, IEnumerable<FemRigidBody> built)
     {
         static List<string> Keys(IEnumerable<FemRigidBody> bodies) => bodies
-            .Select(b => $"{b.MasterNodeTag}|{string.Join(",", b.SlaveNodeTags.Order(StringComparer.Ordinal))}|{b.Mask}|{b.Kind}")
+            .Select(b => $"{b.Origin}|{b.MasterNodeTag}|{string.Join(",", b.SlaveNodeTags.Order(StringComparer.Ordinal))}|{b.Mask}|{b.Kind}")
             .Order(StringComparer.Ordinal).ToList();
-        var stored = db.GetFemRigidBodies(schemaId).Where(b => b.Origin == RigidJunctionTraceSet.Provenance);
+        var stored = db.GetFemRigidBodies(schemaId).Where(b => BuiltOrigins.Contains(b.Origin));
         return Keys(stored).SequenceEqual(Keys(built));
     }
 

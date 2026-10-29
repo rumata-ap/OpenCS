@@ -26,8 +26,8 @@ public sealed class FragmentMaskDbTests : IDisposable
     public void NewDatabase_HasV95TablesAndColumns()
     {
         using (new DatabaseService(_path)) { }
-        Assert.Equal(95, DatabaseService.SchemaVersion);
-        Assert.Equal("95", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+        Assert.True(DatabaseService.SchemaVersion >= 95);
+        Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
         Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_load_cases') WHERE name='parent_load_case_id'"));
         foreach (var t in Tables)
             Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));
@@ -43,7 +43,7 @@ public sealed class FragmentMaskDbTests : IDisposable
              + ";UPDATE settings SET value_json='93' WHERE key='schema_version'");
         using (var db = new DatabaseService(_path))
         {
-            Assert.Equal("95", Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), Scalar("SELECT value_json FROM settings WHERE key='schema_version'"));
             Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM pragma_table_info('fem_load_cases') WHERE name='parent_load_case_id'"));
             foreach (var t in Tables)
                 Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{t}'"));

@@ -1019,6 +1019,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM.ShowSpringGlyphs) Add(nodeSprings.Springs, SpringColor, 1.3);
         if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
         if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
+        if (VM.ShowRigidBodyGlyphs) Add(nodeSprings.RigidBodies, RigidBodyColor, 0.8);
 
         // Линейные связи: сама грань — толще, знаки — теми же слоями, что у узлов.
         if (VM.ShowSupportGlyphs || VM.ShowSpringGlyphs) Add(lines.Edges, Colors.RoyalBlue, 3.5);

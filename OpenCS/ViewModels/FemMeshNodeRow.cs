@@ -53,6 +53,7 @@ public sealed class FemMeshNodeRow
         "import:scad" => "SCAD",
         "import:lira" => Loc.S("FemBoundaryOriginLira"),
         CScore.Fem.RigidJunctionTraceSet.Provenance => Loc.S("FemBoundaryOriginAuto"),
+        CScore.Fem.FemNodeRigidBodies.Provenance => Loc.S("FemBoundaryOriginNodePoints"),
         CScore.Fem.Fields.FemFieldOverlay.FieldOrigin => Loc.S("FemFieldOriginField"),
         _ => origin,
     };

@@ -684,6 +684,8 @@ namespace OpenCS.Utilites
 
             foreach (var s in draft.Springs) Node(s.NodeTag);
             InsertFemBoundaryCore(sid, [], draft.Springs, [], updateObjects: false);
+            foreach (var b in draft.NodeRigidBodies) { Node(b.MasterNodeTag); foreach (var t in b.SlaveNodeTags) Node(t); }
+            InsertRigidBodiesCore("fem_node_rigid_bodies", sid, draft.NodeRigidBodies, updateObjects: false);
             InsertFemMeshLevelLoadsCore(sid, draft.ElementLoads, [], Lc, _ => null, updateObjects: false);
             InsertStoreyFragmentDataCore(sid, draft.Cuts, draft.RefElements, draft.FieldLoads, Lc);
             CopyFragmentRebarSourcesCore(parentId, sid);

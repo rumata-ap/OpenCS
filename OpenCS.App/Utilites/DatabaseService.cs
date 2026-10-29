@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 95;
+      const int CurrentSchemaVersion = 96;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -115,6 +115,7 @@ namespace OpenCS.Utilites
          [92] = MigrateV93,
          [93] = MigrateV94,
          [94] = MigrateV95,
+         [95] = MigrateV96,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -813,7 +814,7 @@ namespace OpenCS.Utilites
          EnsureFemSchemaStiffnessTable();
          MigrateV86();
          MigrateV88();
-         MigrateV95();
+         MigrateV96();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -4756,6 +4757,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_fields             WHERE schema_id=@id;
                DELETE FROM fem_param_overrides    WHERE schema_id=@id;
                DELETE FROM fem_rigid_bodies       WHERE schema_id=@id;
+               DELETE FROM fem_node_rigid_bodies  WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
                DELETE FROM submodel_materializations
@@ -6226,6 +6228,7 @@ namespace OpenCS.Utilites
          var meshSupports    = GetFemMeshNodeSupports(sourceSchemaId);
          var springs         = GetFemSprings(sourceSchemaId);
          var rigidBodies     = GetFemRigidBodies(sourceSchemaId);
+         var nodeRigidBodies = GetFemNodeRigidBodies(sourceSchemaId);
          var lineSupports    = GetFemLineSupports(sourceSchemaId);
          var fields          = GetFemFields(sourceSchemaId);
          var paramOverrides  = GetFemParamOverrides(sourceSchemaId);
@@ -6520,6 +6523,7 @@ namespace OpenCS.Utilites
                group => group is { } g && newGroupIdByOld.TryGetValue(g, out int mapped) ? mapped : null,
                updateObjects: false);
             InsertFemBoundaryCore(newSchemaId, meshSupports, springs, rigidBodies, updateObjects: false);
+            InsertRigidBodiesCore("fem_node_rigid_bodies", newSchemaId, nodeRigidBodies, updateObjects: false);
             ReplaceFemLineSupportsCore(newSchemaId, lineSupports.Select(x => x.Clone()).ToList());
             CopyFemFieldsCore(fields, paramOverrides, newSchemaId, newGroupIdByOld);
 

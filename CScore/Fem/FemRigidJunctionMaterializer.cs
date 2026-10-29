@@ -216,7 +216,7 @@ public static class FemRigidJunctionMaterializer
     /// <summary>
     /// Узлы сетки, которые не могут быть ведомыми АЖТ примыканий: закреплённые (<see cref="FemNode.DofMask"/> через
     /// <see cref="FemMeshNode.SourceNodeTag"/>, закрепления сетки, в том числе от линейных связей), с пружинами и
-    /// входящие в жёсткие тела другого происхождения (ручные, импортные).
+    /// входящие в жёсткие тела другого происхождения (ручные, импортные; не по узлам схемы).
     /// </summary>
     public static HashSet<string> BlockedNodes(
         IReadOnlyList<FemNode> nodes,
@@ -236,7 +236,8 @@ public static class FemRigidJunctionMaterializer
             if (s.TargetKind == FemSpringTargetKinds.Node) result.UnionWith(bySource[s.NodeTag]);
             else result.Add(s.NodeTag);
         }
-        foreach (var b in rigidBodies.Where(b => b.Origin != RigidJunctionTraceSet.Provenance))
+        // Тела, которые пересобирает сама сборка сетки (примыкания и по узлам схемы), не блокируют.
+        foreach (var b in rigidBodies.Where(b => b.Origin != RigidJunctionTraceSet.Provenance && b.Origin != FemNodeRigidBodies.Provenance))
         {
             result.Add(b.MasterNodeTag);
             result.UnionWith(b.SlaveNodeTags);

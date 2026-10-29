@@ -225,14 +225,20 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(LineSupportGlyphs));
     }
 
-    /// <summary>Глифы пружин узлов КонЭ (из сессии редактора — видны до сохранения).</summary>
+    /// <summary>Глифы ГУ узлов КонЭ: пружины (из сессии редактора — видны до сохранения) и жёсткие тела на узлах схемы
+    /// (АЖТ фрагмента «по точкам», из БД — правке в редакторе не подлежат).</summary>
     public FemBoundaryGlyphSet NodeSpringGlyphs { get; private set; } = FemBoundaryGlyphSet.Empty;
 
-    /// <summary>Перестраивает глифы пружин узлов КонЭ по сессии (без БД).</summary>
+    List<FemRigidBody>? _nodeRigidBodies;
+
+    /// <summary>Перестраивает глифы пружин и тел узлов КонЭ по сессии (тела читаются из БД один раз).</summary>
     public void RefreshNodeSprings(CScore.Fem.Editing.FemSchemaEditSession session)
     {
-        NodeSpringGlyphs = session.NodeSprings.Count == 0 ? FemBoundaryGlyphSet.Empty
-            : FemBoundaryGlyphs.Build(session.Nodes, [], [], [], session.NodeSprings, [], LineGlyphSize);
+        var bodies = _nodeRigidBodies ??= _memberOnly == null ? _db.GetFemNodeRigidBodies(_schemaId) : [];
+        // Тела на узлах схемы рисуются как тела сетки: узлы схемы подставляются узлами сетки с теми же тегами.
+        var asMesh = bodies.Count == 0 ? [] : session.Nodes.Select(n => new FemMeshNode { NodeTag = n.NodeTag, X = n.X, Y = n.Y, Z = n.Z }).ToList();
+        NodeSpringGlyphs = session.NodeSprings.Count == 0 && bodies.Count == 0 ? FemBoundaryGlyphSet.Empty
+            : FemBoundaryGlyphs.Build(session.Nodes, asMesh, [], [], session.NodeSprings, bodies, LineGlyphSize);
         OnPropertyChanged(nameof(NodeSpringGlyphs));
     }
 

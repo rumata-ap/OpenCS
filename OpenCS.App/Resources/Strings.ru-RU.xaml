@@ -4013,6 +4013,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshRegionBuilding">Сетка области «{0}» — Gmsh (точек {1}, линий {2}, свободных узлов {3})</system:String>
     <system:String x:Key="FemSchemaMeshRegionFailed">Сетка области «{0}» не построена — подробности в журнале и в диалоге области</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctions">АЖТ примыканий стержней к плитам: {0}</system:String>
+    <system:String x:Key="FemSchemaMeshNodeRigidBodies">АЖТ по узлам схемы: {0} из {1}</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctionsStale">АЖТ примыканий устарели (изменены параметры АЖТ схемы или стержней) — постройте сетку схемы</system:String>
     <system:String x:Key="FemSchemaMeshDone">Сетка схемы: {0} узлов, {1} стержней, {2} пластин; областей {3} (построено Gmsh — {4}), общих узлов со стержнями и областями {5}, разделено стержней {6}</system:String>
     <system:String x:Key="FemSchemaMeshNotSaved">Сетка схемы не записана: есть ошибки</system:String>
@@ -4182,6 +4183,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowRigidBodiesThinned">Жёсткие тела (связей показано {0} из {1})</system:String>
     <system:String x:Key="FemBoundaryOriginManual">вручную</system:String>
     <system:String x:Key="FemBoundaryOriginAuto">авто</system:String>
+    <system:String x:Key="FemBoundaryOriginNodePoints">по узлам схемы</system:String>
+    <system:String x:Key="FemBoundaryNodeRigidPending">По узлам схемы — тела появятся после построения сетки</system:String>
     <system:String x:Key="FemBoundaryRigidJunctionParams">Параметры АЖТ стержня…</system:String>
     <system:String x:Key="FemBoundaryOriginLira">ЛИРА</system:String>
     <system:String x:Key="FemMeshNodeSupportColumn">Закрепление</system:String>

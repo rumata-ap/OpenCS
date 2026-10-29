@@ -70,6 +70,8 @@ public sealed class StoreyFragmentDraft
     /// <summary>Пружины на узлах схемы фрагмента (<see cref="FemSpringTargetKinds.Node"/>, тег узла фрагмента).</summary>
     public List<FemSpring> Springs { get; } = [];
     public List<FragmentFieldLoad> FieldLoads { get; } = [];
+    /// <summary>Импортные АЖТ «по точкам»: ведущий и ведомые — теги узлов фрагмента (<see cref="FemNodeRigidBodies"/>).</summary>
+    public List<FemRigidBody> NodeRigidBodies { get; } = [];
     /// <summary>Опорная сетка: КЭ родителя полосы.</summary>
     public List<FragmentRefElement> RefElements { get; } = [];
     public List<FemValidationDiagnostic> Diagnostics { get; } = [];
