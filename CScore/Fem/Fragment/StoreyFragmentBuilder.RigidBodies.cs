@@ -102,18 +102,19 @@ public static partial class StoreyFragmentBuilder
         Row("fragment_rigid_body_degenerate", degenerate, "АЖТ у колонн, узлы тела в плите не образуют площадки — след по сечению: {0} ({1}).");
     }
 
-    /// <summary>Наибольшее смещение точки АЖТ на ось стержня или в плоскость пластины фрагмента, м: импортные КонЭ
-    /// расходятся с узлами сетки источника на миллиметры (у «Музея» ось колонны наклонена на 2,6 мм на 13,5 м).</summary>
-    public const double RigidPointSnapM = 0.01;
+    /// <summary>Наибольшее расхождение сетки источника с КонЭ фрагмента, м, при котором точка АЖТ (проекцией) и
+    /// нагрузка КЭ стержня относятся к оси стержня или плоскости пластины: импортные КонЭ расходятся с узлами сетки
+    /// источника на миллиметры (у «Музея» ось колонны наклонена на 2,6 мм на 13,5 м).</summary>
+    public const double SourceSnapM = 0.01;
 
     /// <summary>
     /// Точка на оси стержня фрагмента или в области его пластины (кромки включительно): ближе допуска — как есть,
-    /// ближе <see cref="RigidPointSnapM"/> — проекция на ближайшие ось или плоскость; иначе null.
+    /// ближе <see cref="SourceSnapM"/> — проекция на ближайшие ось или плоскость; иначе null.
     /// </summary>
     static PlanarVector3? SnapToFragment(Ctx c, PlanarVector3 p)
     {
         PlanarVector3? best = null;
-        double bestD = RigidPointSnapM;
+        double bestD = SourceSnapM;
         foreach (var x in c.Draft.Members)
         {
             PlanarVector3 q;

@@ -71,6 +71,21 @@ public sealed class StoreyFragmentBarLoadTests
         Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_load_lost");
     }
 
+    /// <summary>Сетка колонны источника в миллиметрах от оси КонЭ (музей: 2,6 мм) — нагрузки КЭ переносятся; дальше
+    /// <see cref="CScore.Fem.Fragment.StoreyFragmentBuilder.SourceSnapM"/> — теряются.</summary>
+    [Theory]
+    [InlineData(0.003, false)]
+    [InlineData(0.02, true)]
+    public void ElementLoad_ColumnMeshMillimetresOffAxis(double offset, bool lost)
+    {
+        var parent = Snapshot(elementLoads: [ElementLoad(7, "uniform", "x", [500], "502", "503")]);
+        foreach (var n in parent.MeshNodes.Where(n => n.NodeTag is "101" or "102" or "103" or "104" or "105")) n.X = offset;
+        var d = Build(parent);
+
+        Assert.Equal(lost, d.Diagnostics.Any(x => x.Code == "fragment_load_lost"));
+        Assert.Equal(lost ? 0 : 2, d.MemberLoads.Count(m => m.Load.LoadCaseId == 7));
+    }
+
     [Fact]
     public void ElementLocalLoad_StaysLocal_WhenAxesMatch()
     {

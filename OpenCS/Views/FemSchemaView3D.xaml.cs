@@ -1019,7 +1019,16 @@ public partial class FemSchemaView3D : UserControl
         if (VM.ShowSpringGlyphs) Add(nodeSprings.Springs, SpringColor, 1.3);
         if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
         if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
-        if (VM.ShowRigidBodyGlyphs) Add(nodeSprings.RigidBodies, RigidBodyColor, 0.8);
+        if (VM.ShowRigidBodyGlyphs && nodeSprings.RigidBodies.Count > 0)
+        {
+            // Тела на узлах схемы (АЖТ фрагмента «по точкам»): короткие связи внутри колонн и стен — толще и с точками
+            // на концах, иначе их закрывают тела КонЭ и сферы узлов.
+            Add(nodeSprings.RigidBodies, RigidBodyColor, 2.5);
+            var ends = new Point3DCollection(nodeSprings.RigidBodies.SelectMany(s => new[] { s.A, s.B })
+                .Select(p => new Point3D(p.X, p.Y, p.Z)));
+            ends.Freeze();
+            viewport.Children.Add(new PointsVisual3D { Points = ends, Color = RigidBodyColor, Size = 6 });
+        }
 
         // Линейные связи: сама грань — толще, знаки — теми же слоями, что у узлов.
         if (VM.ShowSupportGlyphs || VM.ShowSpringGlyphs) Add(lines.Edges, Colors.RoyalBlue, 3.5);

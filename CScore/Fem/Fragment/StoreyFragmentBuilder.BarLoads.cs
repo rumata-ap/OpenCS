@@ -155,7 +155,7 @@ public static partial class StoreyFragmentBuilder
         {
             if (1 - Math.Abs(axis.Dot(part.Axis)) > 1e-6) continue;
             double si = (p0 - part.A).Dot(part.Axis);
-            if ((p0 - (part.A + part.Axis * si)).Length > l.C.Tol) continue;
+            if ((p0 - (part.A + part.Axis * si)).Length > SourceSnapM) continue;
             double sign = axis.Dot(part.Axis) > 0 ? 1 : -1;
             bool local = load.IsLocal && sign > 0 && rotation is { } r && Math.Abs(r - part.RotationDeg) < 1e-9;
             PlanarVector3 Vec(double q) => local ? Unit(load.AxisIndex) * q : dir * q;

@@ -114,7 +114,7 @@ public sealed class StoreyFragmentRigidBodyTests
     }
 
     /// <summary>Узлы сетки источника в миллиметрах от оси КонЭ/плоскости стены — привязываются проекцией; дальше
-    /// <see cref="CScore.Fem.Fragment.StoreyFragmentBuilder.RigidPointSnapM"/> — нет.</summary>
+    /// <see cref="CScore.Fem.Fragment.StoreyFragmentBuilder.SourceSnapM"/> — нет.</summary>
     [Fact]
     public void PointsMillimetresOff_SnappedOntoAxisAndWallPlane()
     {

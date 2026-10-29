@@ -143,7 +143,7 @@ public static partial class StoreyFragmentBuilder
                 {
                     var mid = g.Points[0] + axis * ((lo + hi) / 2);
                     bool On(BarPart p) => (mid - p.A).Dot(p.Axis) is var s && s >= -C.Tol && s <= p.Length + C.Tol
-                                          && (mid - (p.A + p.Axis * s)).Length <= C.Tol;
+                                          && (mid - (p.A + p.Axis * s)).Length <= SourceSnapM;
                     part = (Bars.FirstOrDefault(p => p.ParentTag == e.SourceMemberTag && On(p)) ?? Bars.FirstOrDefault(On))?.Tag;
                 }
             }
