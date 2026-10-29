@@ -397,7 +397,7 @@ public class LiraBinaryExtrasReaderTests
         string? path = Environment.GetEnvironmentVariable(SampleVariable);
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
 
-        var data = LiraFileParser.Parse(path);
+        var data = LiraFileParser.Parse(path, LiraBinaryExtrasMode.StiffnessAndLoads);
 
         Assert.Equal(114309, data.Nodes.Count);
         Assert.Equal(125512, data.Elements.Count);       // без одноузловых связей (36 311)

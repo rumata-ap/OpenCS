@@ -61,8 +61,9 @@ public static class LiraFileParser
     /// Читает .lir файл и возвращает контейнер сырых данных схемы.
     /// </summary>
     /// <param name="filePath">Путь к файлу <c>.lir</c>.</param>
-    /// <param name="extras">Что читать дополнительно к геометрии (по умолчанию — жёсткости, загружения и нагрузки).</param>
-    public static LiraSchemaData Parse(string filePath, LiraBinaryExtrasMode extras = LiraBinaryExtrasMode.StiffnessAndLoads)
+    /// <param name="extras">Что читать дополнительно к геометрии (по умолчанию — только номера жёсткостей;
+    /// записи нагрузок — явным <see cref="LiraBinaryExtrasMode.StiffnessAndLoads"/>).</param>
+    public static LiraSchemaData Parse(string filePath, LiraBinaryExtrasMode extras = LiraBinaryExtrasMode.Stiffness)
     {
         var bytes = File.ReadAllBytes(filePath);
         var data  = new LiraSchemaData();
