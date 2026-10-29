@@ -1813,7 +1813,12 @@
    <system:String x:Key="LimitForceGov_Rebar">rebar</system:String>
    <system:String x:Key="LimitForceGov_Both">concrete + rebar</system:String>
    <system:String x:Key="LimitForceBatch_TabRows">Set rows</system:String>
-   <system:String x:Key="LimitForceBatch_SummaryFormat">Total: {0}, converged: {1}, failed: {2}</system:String>
+   <system:String x:Key="LimitForceBatch_SummaryFormat">Total: {0}, passed: {1}, at limit: {2}, failed: {3}; converged: {4}, not converged: {5}</system:String>
+   <system:String x:Key="LimitForceBatch_ColNLim">N lim, kN</system:String>
+   <system:String x:Key="LimitForceBatch_ColMxLim">Mx lim, kN·m</system:String>
+   <system:String x:Key="LimitForceBatch_ColMyLim">My lim, kN·m</system:String>
+   <system:String x:Key="LimitForceBatch_ColActingTip">Acting force of the set row — the starting point of the limit search</system:String>
+   <system:String x:Key="LimitForceBatch_ColLimitTip">Limit force reached from the starting point (k·force for the scaled components)</system:String>
    <system:String x:Key="CalcTaskFireSection">Fire section</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">No fire section selected.</system:String>
    <system:String x:Key="CalcTaskKind_fire_r_time">Fire resistance rating R</system:String>

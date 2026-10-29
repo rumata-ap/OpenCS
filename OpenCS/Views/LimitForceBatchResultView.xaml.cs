@@ -69,8 +69,10 @@ public partial class LimitForceBatchResultView : UserControl
         using var csv = new CsvWriter(writer, cfg);
 
         csv.WriteField("#"); csv.WriteField("Label"); csv.WriteField("N");
-        csv.WriteField("Mx"); csv.WriteField("My"); csv.WriteField("k");
-        csv.WriteField("Utilization"); csv.WriteField("Governing");
+        csv.WriteField("Mx"); csv.WriteField("My");
+        csv.WriteField("N_limit"); csv.WriteField("Mx_limit"); csv.WriteField("My_limit");
+        csv.WriteField("k");
+        csv.WriteField("Utilization"); csv.WriteField("Verdict"); csv.WriteField("Governing");
         csv.WriteField("Iter"); csv.WriteField("Status");
         csv.WriteField("etaX"); csv.WriteField("etaY");
         csv.NextRecord();
@@ -79,7 +81,9 @@ public partial class LimitForceBatchResultView : UserControl
         {
             csv.WriteField(r.Num); csv.WriteField(r.Label);
             csv.WriteField(r.NText); csv.WriteField(r.MxText); csv.WriteField(r.MyText);
-            csv.WriteField(r.FactorText); csv.WriteField(r.UtilText); csv.WriteField(r.GovText);
+            csv.WriteField(r.NLimText); csv.WriteField(r.MxLimText); csv.WriteField(r.MyLimText);
+            csv.WriteField(r.FactorText); csv.WriteField(r.UtilText); csv.WriteField(r.Verdict);
+            csv.WriteField(r.GovText);
             csv.WriteField(r.IterText); csv.WriteField(r.StatusText);
             csv.WriteField(r.EtaXText); csv.WriteField(r.EtaYText);
             csv.NextRecord();

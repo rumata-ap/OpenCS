@@ -31,10 +31,17 @@
          <DataGrid.RowStyle>
             <Style TargetType="DataGridRow">
                <Style.Triggers>
-                  <DataTrigger Binding="{Binding IsConverged}" Value="True">
+                  <!-- Кисп < 0,99 — обычная; 0,99…1 — на пределе (жёлтая); > 1 — не проходит (красная) -->
+                  <DataTrigger Binding="{Binding Verdict}" Value="Pass">
                      <Setter Property="Background" Value="#1A2D7A3E"/>
                   </DataTrigger>
-                  <DataTrigger Binding="{Binding IsConverged}" Value="False">
+                  <DataTrigger Binding="{Binding Verdict}" Value="NearLimit">
+                     <Setter Property="Background" Value="#66F1C40F"/>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Verdict}" Value="Fail">
+                     <Setter Property="Background" Value="#55E74C3C"/>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Verdict}" Value="NotConverged">
                      <Setter Property="Background" Value="#1AC0392B"/>
                   </DataTrigger>
                </Style.Triggers>
@@ -54,9 +61,39 @@
                                 Binding="{Binding Num}" Width="40"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}"
                                 Binding="{Binding Label}" Width="*"/>
-            <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="75"/>
-            <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="82"/>
-            <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="82"/>
+            <DataGridTextColumn Binding="{Binding NText}" Width="75">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="N, кН" ToolTip="{DynamicResource LimitForceBatch_ColActingTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding MxText}" Width="82">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="Mx, кН·м" ToolTip="{DynamicResource LimitForceBatch_ColActingTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding MyText}" Width="82">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="My, кН·м" ToolTip="{DynamicResource LimitForceBatch_ColActingTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding NLimText}" Width="85">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource LimitForceBatch_ColNLim}"
+                             ToolTip="{DynamicResource LimitForceBatch_ColLimitTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding MxLimText}" Width="95">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource LimitForceBatch_ColMxLim}"
+                             ToolTip="{DynamicResource LimitForceBatch_ColLimitTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding MyLimText}" Width="95">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource LimitForceBatch_ColMyLim}"
+                             ToolTip="{DynamicResource LimitForceBatch_ColLimitTip}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
             <DataGridTextColumn Header="Использ." Binding="{Binding UtilText}" Width="70"/>
             <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"

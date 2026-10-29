@@ -23,20 +23,45 @@ public sealed class LimitForceBatchVM : ViewModelBase
 
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
+    /// <summary>
+    /// Нижняя граница Кисп «на пределе»: запас меньше 1 %. Сверху граница — 1 по четырём
+    /// знакам, как в таблице: всё, что показано больше 1,0000, — «не проходит».
+    /// </summary>
+    public const double NearLimitUtilization = 0.99;
+
+    /// <summary>Вердикт строки по Кисп — для окраски строки и счётчиков шапки.</summary>
+    public enum RowVerdict { Pass, NearLimit, Fail, NotConverged }
+
     public sealed record BatchRow(
         int Num,
         string Label,
         string NText,
         string MxText,
         string MyText,
+        string NLimText,
+        string MxLimText,
+        string MyLimText,
         string FactorText,
         string UtilText,
         string GovText,
         string IterText,
         string StatusText,
         bool   IsConverged,
+        RowVerdict Verdict,
         string EtaXText,
         string EtaYText);
+
+    /// <summary>
+    /// Вердикт по Кисп: null — Кисп = ∞ (фиксированная часть сечению не по силам) — не проходит.
+    /// </summary>
+    public static RowVerdict Classify(bool converged, double? utilization)
+    {
+        if (!converged) return RowVerdict.NotConverged;
+        if (utilization is not { } u) return RowVerdict.Fail;
+        u = Math.Round(u, 4);
+        if (u > 1.0) return RowVerdict.Fail;
+        return u >= NearLimitUtilization ? RowVerdict.NearLimit : RowVerdict.Pass;
+    }
 
     public LimitForceBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
@@ -72,11 +97,6 @@ public sealed class LimitForceBatchVM : ViewModelBase
             string solver  = root.TryGetProperty("solver", out var sv) ? sv.GetString() ?? "" : "";
 
             SolverText  = solver == "fast" ? Loc.S("LimitForceSolver_Fast") : Loc.S("LimitForceSolver_Bisection");
-            StatusBrush = allOk
-                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
-                : Brushes.OrangeRed;
-            SummaryText = string.Format(Loc.S("LimitForceBatch_SummaryFormat"),
-                total, converged, total - converged);
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
@@ -110,22 +130,46 @@ public sealed class LimitForceBatchVM : ViewModelBase
                         etaYText = FormatEta(etaYv, slenderY, stableY);
                     }
 
+                    double? util = row.TryGetProperty("utilization", out var uEl)
+                        && uEl.ValueKind == JsonValueKind.Number ? uEl.GetDouble() : null;
+
                     Rows.Add(new BatchRow(
                         Num:        BatchResultRowHelper.RowNum(row, idx),
                         Label:      Str(row, "label"),
                         NText:      Num(row, "N", 4),
                         MxText:     Num(row, "Mx", 4),
                         MyText:     Num(row, "My", 4),
+                        NLimText:   conv ? Num(row, "N_limit", 4) : "—",
+                        MxLimText:  conv ? Num(row, "Mx_limit", 4) : "—",
+                        MyLimText:  conv ? Num(row, "My_limit", 4) : "—",
                         FactorText: Num(row, "factor", 4),
                         UtilText:   Num(row, "utilization", 4, nullText: "∞"),
                         GovText:    govT,
                         IterText:   row.TryGetProperty("iterations", out var iv) ? iv.GetInt32().ToString() : "—",
                         StatusText: conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
                         IsConverged: conv,
+                        Verdict:    Classify(conv, util),
                         EtaXText: etaXText,
                         EtaYText: etaYText));
                 }
             }
+
+            int pass = 0, near = 0, fail = 0;
+            foreach (var r in Rows)
+            {
+                if (r.Verdict == RowVerdict.Pass) pass++;
+                else if (r.Verdict == RowVerdict.NearLimit) near++;
+                else if (r.Verdict == RowVerdict.Fail) fail++;
+            }
+            // Шапка как у пакетной проверки прочности: зелёная, только если все строки сошлись
+            // и прошли; «на пределе» — жёлтая; хоть одно превышение или несходимость — красная.
+            StatusBrush = !allOk || fail > 0
+                ? Brushes.OrangeRed
+                : near > 0
+                    ? new SolidColorBrush(Color.FromArgb(110, 241, 196, 15))
+                    : new SolidColorBrush(Color.FromArgb(70, 80, 180, 80));
+            SummaryText = string.Format(Loc.S("LimitForceBatch_SummaryFormat"),
+                total, pass, near, fail, converged, total - converged);
         }
         catch (Exception ex)
         {
