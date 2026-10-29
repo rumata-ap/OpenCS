@@ -78,11 +78,19 @@ public static class PlanarConstraintDeriver
             var memberElements = elementsByMemberTag.TryGetValue(member.ElemTag, out var grouped)
                 ? grouped
                 : [];
-            var allElementNodeIds = memberElements
-                .SelectMany(element => ReadNodeIds(element.NodeIdsJson, $"element {element.ElemTag}", diagnostics))
-                .Distinct()
+            var elementNodeIds = memberElements
+                .Select(element => ReadNodeIds(element.NodeIdsJson, $"element {element.ElemTag}", diagnostics))
                 .ToArray();
-            var allNodeIds = memberNodeIds.Concat(allElementNodeIds).Distinct().ToArray();
+            // КЭ у каждого узла: источник точки узла — его КЭ, а не все КЭ КонЭ (у плиты из готовой сетки — десятки
+            // тысяч на каждую точку стыка).
+            var incident = new Dictionary<int, List<FemElement>>();
+            for (var i = 0; i < memberElements.Count; i++)
+                foreach (var id in elementNodeIds[i])
+                {
+                    if (!incident.TryGetValue(id, out var list)) incident[id] = list = [];
+                    list.Add(memberElements[i]);
+                }
+            var allNodeIds = memberNodeIds.Concat(elementNodeIds.SelectMany(ids => ids)).Distinct().ToArray();
             var memberNodes = ResolveNodes(allNodeIds, nodesByTag, member.ElemTag, diagnostics);
             foreach (var node in memberNodes)
             {
@@ -91,19 +99,22 @@ public static class PlanarConstraintDeriver
                 if (!IsValidRegionPoint(local, region, options))
                     continue;
 
+                var nodeElements = int.TryParse(node.NodeTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out var nodeTag) &&
+                                   incident.TryGetValue(nodeTag, out var touching)
+                    ? touching
+                    : (IReadOnlyList<FemElement>)[];
                 AddCandidate(candidates, new Candidate(
                     PlanarConstraintGeometryKind.Point,
                     [new PlanarPoint2D(local.U, local.V)],
-                    new SourceData(member, memberElements, [node], options.CommonNodeDofMask),
+                    new SourceData(member, nodeElements, [node], options.CommonNodeDofMask),
                     isNodePoint: true,
                     nodeId: node.Id));
             }
 
             if (memberElements.Count > 0)
             {
-                foreach (var element in memberElements.OrderBy(element => element.Id))
+                foreach (var (element, ids) in memberElements.Zip(elementNodeIds).OrderBy(pair => pair.First.Id))
                 {
-                    var ids = ReadNodeIds(element.NodeIdsJson, $"element {element.ElemTag}", diagnostics);
                     var elementNodes = ResolveNodes(ids, nodesByTag, element.ElemTag, diagnostics);
                     if (elementNodes.Count != ids.Length || ids.Length < 2)
                         continue;

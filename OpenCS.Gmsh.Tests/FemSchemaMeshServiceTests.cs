@@ -116,6 +116,7 @@ public sealed class FemSchemaMeshServiceTests
     [InlineData("wall-under-slab-middle", 0.35, 0.5)]
     [InlineData("corner-walls", 0.4, 0.5)]
     [InlineData("adjacent-slabs", 0.3, 0.5)]
+    [InlineData("wall-microns-off-slab-edge", 0.3, 0.5)]
     public async Task Junctions_NoHangingNodes(string layout, double sizeA, double sizeB)
     {
         var root = Path.Combine(Path.GetTempPath(), $"opencs-junction-{Guid.NewGuid():N}");
@@ -143,6 +144,8 @@ public sealed class FemSchemaMeshServiceTests
                 "wall-under-slab-middle" => [("A", WallY(2), 6.0, 3.0, sizeA), ("B", Horizontal(3), 6.0, 4.0, sizeB)],
                 "corner-walls" => [("A", WallY(0), 6.0, 3.0, sizeA), ("B", WallX(6), 4.0, 3.0, sizeB)],
                 "adjacent-slabs" => [("A", Horizontal(3), 3.0, 4.0, sizeA), ("B", Horizontal(3, 3), 3.0, 4.0, sizeB)],
+                // Импортные контуры (фрагмент «Музея»): стена в 4 мкм за кромкой плиты; у плиты нет сечения — толщина КонЭ.
+                "wall-microns-off-slab-edge" => [("A", WallY(2.000004), 6.0, 6.0, sizeA), ("B", Horizontal(3), 6.0, 2.0, sizeB)],
                 _ => throw new ArgumentOutOfRangeException(nameof(layout)),
             };
             foreach (var (tag, frame, width, height, size) in regions)
@@ -154,7 +157,8 @@ public sealed class FemSchemaMeshServiceTests
                 db.SaveFemMember(new FemMember
                 {
                     SchemaId = schema.Id, ElemTag = tag, ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = region.Id,
-                    PlateSectionId = section.Id,
+                    PlateSectionId = layout == "wall-microns-off-slab-edge" && tag == "B" ? null : section.Id,
+                    ThicknessM = layout == "wall-microns-off-slab-edge" && tag == "B" ? 0.25 : null,
                 });
             }
 
@@ -169,6 +173,11 @@ public sealed class FemSchemaMeshServiceTests
             Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
             Assert.Equal(2, result.RegionCount);
             Assert.True(result.Mesh!.SharedNodeCount >= 3, $"общих узлов {result.Mesh.SharedNodeCount}");
+            if (layout == "wall-microns-off-slab-edge")
+            {
+                Assert.DoesNotContain(result.Diagnostics, d => d.Code == "planar_materialize_thickness_missing");
+                Assert.All(result.Mesh.Elements.Where(e => e.SourceMemberTag == "B"), e => Assert.Equal(0.25, e.ThicknessM));
+            }
         }
         finally
         {

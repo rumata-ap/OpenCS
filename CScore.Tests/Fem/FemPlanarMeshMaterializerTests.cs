@@ -56,6 +56,29 @@ public class FemPlanarMeshMaterializerTests
         Assert.Equal(Enumerable.Range(1, 24).Select(i => i.ToString()), result.Elements.Select(e => e.ElemTag));
     }
 
+    /// <summary>Пошаговый префикс после каждой области — то же, что материализация этих областей целиком (без проверки
+    /// висящих узлов); прежний результат не меняется при добавлении следующей области.</summary>
+    [Fact]
+    public void Prefix_MatchesMaterializeAfterEachRegion()
+    {
+        var (nodes, meshNodes, elements) = Frame();
+        FemPlanarRegionMesh[] regions = [Region("P1", 0, 0, H, 4, 4, 1.0, 0.2), Region("P2", 4, 0, H, 2, 4, 1.0, 0.3)];
+        static string Key(FemPlanarMaterializationResult r) =>
+            string.Join("|", r.Nodes.Select(n => $"{n.NodeTag}:{n.X},{n.Y},{n.Z}:{n.SourceNodeTag}")) + "#" +
+            string.Join("|", r.Elements.Select(e => $"{e.ElemTag}:{e.ElemType}:{e.NodeIdsJson}:{e.SourceMemberTag}:{e.ThicknessM}")) + "#" +
+            r.SharedNodeCount + "," + r.SplitBeamCount;
+
+        var prefix = new FemPlanarMeshMaterializer.Prefix(1, meshNodes, elements, nodes);
+        Assert.Equal(Key(FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, nodes, [])), Key(prefix.Build()));
+        prefix.Add(regions[0]);
+        var first = prefix.Build();
+        var firstKey = Key(first);
+        Assert.Equal(Key(FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, nodes, regions[..1])), firstKey);
+        prefix.Add(regions[1]);
+        Assert.Equal(Key(FemPlanarMeshMaterializer.Materialize(1, meshNodes, elements, nodes, regions)), Key(prefix.Build()));
+        Assert.Equal(firstKey, Key(first));
+    }
+
     [Fact]
     public void Quad_StoredAsLiraOrder_1243()
     {

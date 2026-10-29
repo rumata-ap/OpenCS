@@ -73,11 +73,18 @@ public static class FemPlanarMeshPlan
         IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
         RigidJunctionTraceSet? junctions = null)
     {
-        options ??= new PlanarConstraintDerivationOptions();
+        // Допуски плоскости и геометрии — как у швов: узлы готовой сетки соседней области на стыке отходят от плоскости и кромки этой на
+        // микроны (импортные контуры «Музея»: плита и стоящая на её кромке стена — до 6 мкм), и при 10⁻⁸ из 42 м стыка
+        // выводилось 2,6 мм — сетки расходились (висящие узлы).
+        options ??= new PlanarConstraintDerivationOptions { PlaneToleranceM = SeamToleranceM, GeometryToleranceM = SeamToleranceM };
         var diagnostics = new List<FemValidationDiagnostic>();
 
         // Id узлов, КонЭ и КЭ — синтетические, по порядку тегов: выведенные ограничения именуются по Id, а отпечаток не
         // должен зависеть от Id строк в БД (меняются при пересохранении схемы) и от того, сохранена ли сессия редактора.
+        // КЭ префикса, которые могут дать ограничение области: касаются её плоскости и габарита (с допусками вывода).
+        // Остальные ничего не выводят, но разбирались бы и входили в отпечаток — у фрагмента «Музея» 80 тыс. КЭ на
+        // каждую из 88 областей, и правка далёкой области устаревала бы сетки всех.
+        var relevant = RelevantElements(prefixMesh, region, options, out var relevantNodeTags);
         int synthetic = 0;
         var topologyNodes = new Dictionary<string, FemNode>(StringComparer.Ordinal);
         foreach (var node in nodes.OrderBy(n => n.NodeTag, StringComparer.Ordinal))
@@ -95,13 +102,14 @@ public static class FemPlanarMeshPlan
                         $"Тег узла сетки '{meshNode.NodeTag}' совпадает с тегом узла схемы с другими координатами."));
                 continue;
             }
+            if (!relevantNodeTags.Contains(meshNode.NodeTag)) continue;
             topologyNodes.Add(meshNode.NodeTag, new FemNode
             {
                 Id = ++synthetic, SchemaId = schemaId, NodeTag = meshNode.NodeTag, X = meshNode.X, Y = meshNode.Y, Z = meshNode.Z,
             });
         }
         int elementId = 0;
-        var elements = prefixMesh.Elements.Select(e => new FemElement
+        var elements = relevant.Select(e => new FemElement
         {
             Id = ++elementId, SchemaId = schemaId, ElemTag = e.ElemTag, ElemType = e.ElemType,
             NodeIdsJson = e.NodeIdsJson, SourceMemberTag = e.SourceMemberTag, Origin = e.Origin,
@@ -127,7 +135,8 @@ public static class FemPlanarMeshPlan
                     $"Выведенное ограничение '{constraint.Id}' совпадает с ручным объектом области."));
                 continue;
             }
-            constraints.Add(constraint);
+            if (SnapDerivedToContour(constraint, region, options.GeometryToleranceM))
+                constraints.Add(constraint);
         }
 
         int free = 0;
@@ -142,7 +151,10 @@ public static class FemPlanarMeshPlan
                 continue;
             var delta = new PlanarVector3(node.X, node.Y, node.Z) - region.Frame.Origin;
             double u = delta.Dot(region.Frame.LocalX), v = delta.Dot(region.Frame.LocalY), w = delta.Dot(region.Frame.LocalZ);
-            if (Math.Abs(w) > options.PlaneToleranceM || !InsideRegion(u, v, region, options.GeometryToleranceM)) continue;
+            // Узел на стыке может стоять в микронах за кромкой (импортные контуры «Музея»: до 6 мкм) — соседняя область
+            // его берёт, и эта должна, иначе сетки на стыке разойдутся; точка потом привязывается к кромке.
+            if (Math.Abs(w) > options.PlaneToleranceM ||
+                !InsideRegion(u, v, region, Math.Max(options.GeometryToleranceM, SeamToleranceM))) continue;
             var id = $"free-node:{node.NodeTag}";
             if (!ids.Add(id)) continue;
             freeNodes.Add((id, node, u, v));
@@ -206,6 +218,9 @@ public static class FemPlanarMeshPlan
         if (snapped.Count > 0)
             fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
                 System.Text.Encoding.UTF8.GetBytes(fingerprint + "|free-snap:" + string.Join("|", snapped)))).ToLowerInvariant();
+        // Допуск слияния вершин меняет сетку при той же геометрии: снимки с прежним допуском устаревают.
+        fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            fingerprint + "|merge:" + MergeToleranceM.ToString("G17", CultureInfo.InvariantCulture)))).ToLowerInvariant();
 
         return new FemPlanarRegionConstraints(constraints, fingerprint, diagnostics, derived, free, seams.Count, rigid);
     }
@@ -282,18 +297,27 @@ public static class FemPlanarMeshPlan
         var result = new List<PlanarConstraintObject>();
         void AddPoint(double u, double v)
         {
-            if (!InsideRegion(u, v, region, tol)) return;
+            if (!InsideRegion(u, v, region, Math.Max(tol, MergeToleranceM))) return;
             (u, v) = SnapToContour((u, v), region, tol);
             var id = $"region-junction:{tag}:p{result.Count}";
             var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
                 new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
             point.IsDerived = true;
-            point.ToleranceM = Math.Max(tol, SeamToleranceM);
+            point.ToleranceM = Math.Max(tol, MergeToleranceM);
             result.Add(point);
         }
         void AddSegment((double U, double V) a, (double U, double V) b)
         {
-            foreach (var (p0, q0) in Clip(a, b, region, tol))
+            var pieces = Clip(a, b, region, tol);
+            if (pieces.Count == 0)
+            {
+                // Соседка касается области только концом следа (стена, упёртая в кромку плиты, — «Музей», · 55 у · 84):
+                // узел там есть у неё — должен быть и здесь.
+                AddPoint(a.U, a.V);
+                AddPoint(b.U, b.V);
+                return;
+            }
+            foreach (var (p0, q0) in pieces)
             {
                 var (p, q) = (SnapToContour(p0, region, tol), SnapToContour(q0, region, tol));
                 // Обрезок за кромкой длиной в доли микрона после привязки вырождается в точку.
@@ -302,7 +326,7 @@ public static class FemPlanarMeshPlan
                 var curve = PlanarConstraintObject.Curve(id, [new PlanarPoint2D(p.U, p.V), new PlanarPoint2D(q.U, q.V)],
                     new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.ConformingPartition), id);
                 curve.IsDerived = true;
-                curve.ToleranceM = Math.Max(tol, SeamToleranceM);
+                curve.ToleranceM = Math.Max(tol, MergeToleranceM);
                 result.Add(curve);
             }
         }
@@ -399,14 +423,15 @@ public static class FemPlanarMeshPlan
     }
 
     /// <summary>
-    /// Точка ближе max(<paramref name="tol"/>, <see cref="SeamToleranceM"/>) к контуру области (внешнему или отверстию) — на контур: вершина,
-    /// иначе проекция на ребро. Импортные контуры соседних областей расходятся на доли микрона (у «Музея» конец шва
-    /// стены на 1,7·10⁻⁸ м за кромкой плиты при допуске вывода 10⁻⁸), а проверка ограничений области точная.
+    /// Точка ближе max(<paramref name="tol"/>, <see cref="MergeToleranceM"/>) к контуру области (внешнему или отверстию) — на контур: вершина,
+    /// иначе проекция на ребро. Импортные контуры соседних областей расходятся от долей микрона (у «Музея» конец шва
+    /// стены на 1,7·10⁻⁸ м за кромкой плиты при допуске вывода 10⁻⁸ — проверка ограничений области точная) до десятых
+    /// миллиметра (конец шва в 0,18 мм от угла — КЭ со стороной 0,18 мм, вырожденный после слияния узлов).
     /// </summary>
     static (double U, double V) SnapToContour((double U, double V) p, PlanarRegion region, double tol)
     {
         (double U, double V) best = p;
-        double snap = Math.Max(tol, SeamToleranceM), bestD = snap * snap;
+        double snap = Math.Max(tol, MergeToleranceM), bestD = snap * snap;
         foreach (var contour in region.Contours)
         {
             var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
@@ -429,12 +454,77 @@ public static class FemPlanarMeshPlan
     }
 
     /// <summary>
-    /// Допуск линий и точек стыка, м: импортные контуры соседних областей расходятся на микроны, и концы швов двух стен
-    /// и кромка плиты в одном углу дают отрезки длиной в доли микрона — Gmsh на них виснет на десятки минут и выдаёт
-    /// вырожденные КЭ (фрагмент «Музея», плита +10,090: 0,76 мкм при шаге 0,5 м). С этим допуском построитель .geo
-    /// сливает такие вершины, а сопоставление узлов сетки с ограничением идёт в том же допуске.
+    /// Выведенное ограничение (узлы и КЭ схемы и ранних областей) — к контуру области, как швы (<see cref="SnapToContour"/>):
+    /// узел соседней сетки в 1,3 мкм от угла контура (фрагмент «Музея», стена · 89) валидатор считал «вне области», а
+    /// Gmsh дал бы отрезок в микроны. Допуск ограничения — не меньше <see cref="MergeToleranceM"/>: построитель .geo
+    /// сливает близкие вершины, сопоставление с сеткой идёт в том же допуске. Совпавшие после привязки соседние вершины
+    /// кривой — одна; кривая, ставшая точкой, отбрасывается (false).
     /// </summary>
-    public const double SeamToleranceM = 1e-5;
+    static bool SnapDerivedToContour(PlanarConstraintObject constraint, PlanarRegion region, double tol)
+    {
+        var points = new List<PlanarPoint2D>();
+        foreach (var p in constraint.Geometry.Points)
+        {
+            var (u, v) = SnapToContour((p.U, p.V), region, tol);
+            var q = u == p.U && v == p.V ? p : new PlanarPoint2D(u, v);
+            if (points.Count == 0 || points[^1].U != q.U || points[^1].V != q.V) points.Add(q);
+        }
+        if (constraint.Geometry.Kind == PlanarConstraintGeometryKind.Curve && points.Count < 2) return false;
+        constraint.Geometry = constraint.Geometry with { Points = points };
+        constraint.ToleranceM = Math.Max(constraint.ToleranceM, MergeToleranceM);
+        return true;
+    }
+
+    /// <summary>
+    /// Допуск плоскости стыка, м: узлы готовой сетки соседней области и свободные узлы на стыке отходят от плоскости и
+    /// кромки этой области на микроны (импортные контуры «Музея» — до 6 мкм); 0,1 мм — с запасом.
+    /// </summary>
+    public const double SeamToleranceM = 1e-4;
+
+    /// <summary>
+    /// Допуск слияния вершин швов и выведенных ограничений, м, — тот же, что у слияния узлов сетки схемы
+    /// (<see cref="FemMeshDiscretizer.CollinearToleranceM"/>): вершины ближе него всё равно станут одним узлом, и КЭ
+    /// между ними выродится. Концы швов двух стен и кромка плиты в одном углу расходятся от долей микрона (Gmsh висел
+    /// на отрезке 0,76 мкм десятки минут, плита +10,090 «Музея») до 0,18 мм; с этим допуском построитель .geo сливает
+    /// такие вершины, а сопоставление узлов сетки с ограничением идёт в том же допуске.
+    /// </summary>
+    public const double MergeToleranceM = FemMeshDiscretizer.CollinearToleranceM;
+
+    /// <summary>КЭ сетки, узлы которых лежат по обе стороны плоскости области или в ней (± допуск плоскости), а габарит
+    /// в осях области пересекает габарит её внешнего контура (± допуск геометрии); КЭ с неизвестными узлами — тоже
+    /// (их разберёт вывод). <paramref name="nodeTags"/> — узлы отобранных КЭ.</summary>
+    static List<FemElement> RelevantElements(FemPlanarMaterializationResult mesh, PlanarRegion region,
+        PlanarConstraintDerivationOptions options, out HashSet<string> nodeTags)
+    {
+        nodeTags = new HashSet<string>(StringComparer.Ordinal);
+        var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var node in mesh.Nodes) byTag.TryAdd(node.NodeTag, node);
+        double planeTol = options.PlaneToleranceM, tol = options.GeometryToleranceM;
+        double u0 = double.NegativeInfinity, u1 = double.PositiveInfinity, v0 = double.NegativeInfinity, v1 = double.PositiveInfinity;
+        if (region.Hull is { } hull && hull.X.Count > 0)
+            (u0, u1, v0, v1) = (hull.X.Min() - tol, hull.X.Max() + tol, hull.Y.Min() - tol, hull.Y.Max() + tol);
+        var frame = region.Frame;
+        var result = new List<FemElement>();
+        foreach (var element in mesh.Elements)
+        {
+            var ids = ReadIds(element.NodeIdsJson);
+            bool keep = ids.Length == 0;
+            double wMin = double.PositiveInfinity, wMax = double.NegativeInfinity;
+            double uMin = double.PositiveInfinity, uMax = double.NegativeInfinity, vMin = double.PositiveInfinity, vMax = double.NegativeInfinity;
+            foreach (var id in ids)
+            {
+                if (!byTag.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var node)) { keep = true; break; }
+                var d = new PlanarVector3(node.X, node.Y, node.Z) - frame.Origin;
+                double u = d.Dot(frame.LocalX), v = d.Dot(frame.LocalY), w = d.Dot(frame.LocalZ);
+                (wMin, wMax) = (Math.Min(wMin, w), Math.Max(wMax, w));
+                (uMin, uMax, vMin, vMax) = (Math.Min(uMin, u), Math.Max(uMax, u), Math.Min(vMin, v), Math.Max(vMax, v));
+            }
+            if (!keep && (wMin > planeTol || wMax < -planeTol || uMax < u0 || uMin > u1 || vMax < v0 || vMin > v1)) continue;
+            result.Add(element);
+            foreach (var id in ids) nodeTags.Add(id.ToString(CultureInfo.InvariantCulture));
+        }
+        return result;
+    }
 
     static int[] ReadIds(string json)
     {

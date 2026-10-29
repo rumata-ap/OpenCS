@@ -50,81 +50,117 @@ public static class FemPlanarMeshMaterializer
         IReadOnlyList<FemNode> femNodes,
         IReadOnlyList<FemPlanarRegionMesh> regions)
     {
-        ArgumentNullException.ThrowIfNull(baseNodes);
-        ArgumentNullException.ThrowIfNull(baseElements);
-        ArgumentNullException.ThrowIfNull(femNodes);
         ArgumentNullException.ThrowIfNull(regions);
+        var builder = new Builder(schemaId, baseNodes, baseElements, femNodes);
+        foreach (var region in regions) builder.Add(region);
+        return builder.Build(checkHangingNodes: true);
+    }
 
-        var diagnostics = new List<FemValidationDiagnostic>();
-        var nodes = new List<FemMeshNode>(baseNodes);
-        var nodesByTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
-        foreach (var node in baseNodes) nodesByTag.TryAdd(node.NodeTag, node);
-        var fine = new PointGrid(Tolerance);
-        foreach (var node in baseNodes) fine.Add(node);
-        var femGrid = new PointGrid(Tolerance);
-        var femByKey = new Dictionary<FemMeshNode, FemNode>(ReferenceEqualityComparer.Instance);
-        foreach (var femNode in femNodes)
+    /// <summary>
+    /// Пошаговая материализация для вывода ограничений областей по порядку сборки: перед областью k — пластины 1…k−1.
+    /// <see cref="Build"/> даёт то же, что <see cref="Materialize"/> добавленных областей, без проверки висящих узлов
+    /// (префиксу она не нужна); каждая область материализуется один раз, а не заново для каждой следующей (фрагмент
+    /// «Музея»: 88 областей, 80 тыс. узлов — минуты).
+    /// </summary>
+    public sealed class Prefix(int schemaId, IReadOnlyList<FemMeshNode> baseNodes, IReadOnlyList<FemElement> baseElements,
+        IReadOnlyList<FemNode> femNodes)
+    {
+        readonly Builder _builder = new(schemaId, baseNodes, baseElements, femNodes);
+
+        public void Add(FemPlanarRegionMesh region) => _builder.Add(region);
+
+        public FemPlanarMaterializationResult Build() => _builder.Build(checkHangingNodes: false);
+    }
+
+    /// <summary>Состояние материализации: узлы и КЭ пластин добавленных областей.</summary>
+    sealed class Builder
+    {
+        readonly int _schemaId;
+        readonly IReadOnlyList<FemElement> _baseElements;
+        readonly List<FemPlanarRegionMesh> _regions = [];
+        readonly List<FemValidationDiagnostic> _diagnostics = [];
+        readonly List<FemMeshNode> _nodes;
+        readonly Dictionary<string, FemMeshNode> _nodesByTag = new(StringComparer.Ordinal);
+        readonly PointGrid _fine = new(Tolerance);
+        readonly PointGrid _femGrid = new(Tolerance);
+        readonly Dictionary<FemMeshNode, FemNode> _femByKey = new(ReferenceEqualityComparer.Instance);
+        readonly List<(FemElement Element, int RegionIndex)> _shells = [];
+        readonly HashSet<string> _shellNodeTags = new(StringComparer.Ordinal);
+        readonly Dictionary<string, HashSet<int>> _regionOfNode = new(StringComparer.Ordinal);
+        readonly List<IReadOnlyList<string>> _regionNodeTags = [];
+        int _nextNodeTag;
+        int _shared;
+
+        public Builder(int schemaId, IReadOnlyList<FemMeshNode> baseNodes, IReadOnlyList<FemElement> baseElements,
+            IReadOnlyList<FemNode> femNodes)
         {
-            var probe = new FemMeshNode { NodeTag = femNode.NodeTag, X = femNode.X, Y = femNode.Y, Z = femNode.Z };
-            femGrid.Add(probe);
-            femByKey[probe] = femNode;
+            ArgumentNullException.ThrowIfNull(baseNodes);
+            ArgumentNullException.ThrowIfNull(baseElements);
+            ArgumentNullException.ThrowIfNull(femNodes);
+            _schemaId = schemaId;
+            _baseElements = baseElements;
+            _nodes = new List<FemMeshNode>(baseNodes);
+            foreach (var node in baseNodes) _nodesByTag.TryAdd(node.NodeTag, node);
+            foreach (var node in baseNodes) _fine.Add(node);
+            foreach (var femNode in femNodes)
+            {
+                var probe = new FemMeshNode { NodeTag = femNode.NodeTag, X = femNode.X, Y = femNode.Y, Z = femNode.Z };
+                _femGrid.Add(probe);
+                _femByKey[probe] = femNode;
+            }
+            _nextNodeTag = baseNodes.Select(n => PositiveTag(n.NodeTag))
+                .Concat(femNodes.Select(n => PositiveTag(n.NodeTag)))
+                .DefaultIfEmpty(0).Max() + 1;
         }
 
-        int nextNodeTag = baseNodes.Select(n => PositiveTag(n.NodeTag))
-            .Concat(femNodes.Select(n => PositiveTag(n.NodeTag)))
-            .DefaultIfEmpty(0).Max() + 1;
-
-        // Узлы и КЭ пластин по областям.
-        var shells = new List<(FemElement Element, int RegionIndex)>();
-        var shellNodeTags = new HashSet<string>(StringComparer.Ordinal);
-        var regionOfNode = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
-        var regionNodeTags = new List<IReadOnlyList<string>>();
-        int shared = 0;
-        for (int r = 0; r < regions.Count; r++)
+        /// <summary>Узлы и КЭ пластин одной области.</summary>
+        public void Add(FemPlanarRegionMesh regionMesh)
         {
-            var (member, region, snapshot, thickness, _) = regions[r];
+            int r = _regions.Count;
+            _regions.Add(regionMesh);
+            var (member, _, snapshot, thickness, _) = regionMesh;
             if (!snapshot.IsCalculable || snapshot.Nodes.Count == 0)
             {
-                regionNodeTags.Add([]);
-                diagnostics.Add(new("planar_materialize_snapshot_invalid",
+                _regionNodeTags.Add([]);
+                _diagnostics.Add(new("planar_materialize_snapshot_invalid",
                     $"Область «{member.ElemTag}»: нет расчётной сетки — постройте её заново.", true, [member.ElemTag]));
-                continue;
+                return;
             }
             if (thickness is null)
-                diagnostics.Add(new("planar_materialize_thickness_missing",
+                _diagnostics.Add(new("planar_materialize_thickness_missing",
                     $"Область «{member.ElemTag}»: не назначено сечение пластины — толщина КЭ не задана.", false, [member.ElemTag]));
 
             var tags = new string[snapshot.Nodes.Count];
             foreach (var sn in snapshot.Nodes)
             {
                 var probe = new FemMeshNode { X = sn.X, Y = sn.Y, Z = sn.Z };
-                if (fine.Find(probe) is { } existing)
+                if (_fine.Find(probe) is { } existing)
                 {
                     tags[sn.Index] = existing.NodeTag;
-                    shared++;
+                    _shared++;
                 }
                 else
                 {
                     var created = new FemMeshNode
                     {
-                        SchemaId = schemaId,
-                        NodeTag = (nextNodeTag++).ToString(CultureInfo.InvariantCulture),
+                        SchemaId = _schemaId,
+                        NodeTag = (_nextNodeTag++).ToString(CultureInfo.InvariantCulture),
                         X = sn.X, Y = sn.Y, Z = sn.Z,
                         SourceMemberTag = member.ElemTag,
-                        SourceNodeTag = femGrid.Find(probe) is { } femProbe ? femByKey[femProbe].NodeTag : null,
+                        SourceNodeTag = _femGrid.Find(probe) is { } femProbe ? _femByKey[femProbe].NodeTag : null,
                     };
-                    nodes.Add(created);
-                    nodesByTag[created.NodeTag] = created;
-                    fine.Add(created);
+                    _nodes.Add(created);
+                    _nodesByTag[created.NodeTag] = created;
+                    _fine.Add(created);
                     tags[sn.Index] = created.NodeTag;
                 }
-                shellNodeTags.Add(tags[sn.Index]);
-                if (!regionOfNode.TryGetValue(tags[sn.Index], out var owners)) regionOfNode[tags[sn.Index]] = owners = [];
+                _shellNodeTags.Add(tags[sn.Index]);
+                if (!_regionOfNode.TryGetValue(tags[sn.Index], out var owners)) _regionOfNode[tags[sn.Index]] = owners = [];
                 owners.Add(r);
             }
 
-            regionNodeTags.Add(tags);
-            CheckPointMappings(member, snapshot, tags, nodesByTag, diagnostics);
+            _regionNodeTags.Add(tags);
+            CheckPointMappings(member, snapshot, tags, _nodesByTag, _diagnostics);
 
             var degenerate = new List<string>();
             foreach (var se in snapshot.Elements)
@@ -138,9 +174,9 @@ public static class FemPlanarMeshMaterializer
                 // Снимок обходит КЭ против часовой в осях области (нормаль — ось Z области); сетка схемы хранит
                 // Q4 как импорт ЛИРЫ/SCAD — «1 2 4 3».
                 var stored = ids.Length == 4 ? new[] { ids[0], ids[1], ids[3], ids[2] } : ids;
-                shells.Add((new FemElement
+                _shells.Add((new FemElement
                 {
-                    SchemaId = schemaId,
+                    SchemaId = _schemaId,
                     ElemType = "shell",
                     NodeIdsJson = JsonSerializer.Serialize(stored.Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray()),
                     SourceMemberTag = member.ElemTag,
@@ -149,69 +185,81 @@ public static class FemPlanarMeshMaterializer
                 }, r));
             }
             if (degenerate.Count > 0)
-                diagnostics.Add(new("planar_materialize_element_degenerate",
+                _diagnostics.Add(new("planar_materialize_element_degenerate",
                     $"Область «{member.ElemTag}»: КЭ {Short(degenerate)} вырождены после слияния узлов (сетка мельче 1 мм?).",
                     true, [member.ElemTag]));
         }
 
-        // Дробление стержней узлами пластин.
-        var coarse = new PointGrid(CoarseCellM);
-        foreach (var tag in shellNodeTags) coarse.Add(nodesByTag[tag]);
-        var beams = new List<FemElement>();
-        int split = 0;
-        var importedInner = new List<string>();
-        foreach (var element in baseElements)
+        /// <summary>Сетка схемы по добавленным областям: дробление стержней, теги КЭ. Узлы и КЭ пластин построителя
+        /// не меняются — можно добавлять области дальше.</summary>
+        public FemPlanarMaterializationResult Build(bool checkHangingNodes)
         {
-            if (element.ElemType != "beam" || !TryNodes(element, nodesByTag, out var ends) || ends.Length != 2)
+            var diagnostics = new List<FemValidationDiagnostic>(_diagnostics);
+
+            // Дробление стержней узлами пластин.
+            var coarse = new PointGrid(CoarseCellM);
+            foreach (var tag in _shellNodeTags) coarse.Add(_nodesByTag[tag]);
+            var beams = new List<FemElement>();
+            int split = 0;
+            var importedInner = new List<string>();
+            foreach (var element in _baseElements)
             {
-                beams.Add(element);
-                continue;
+                if (element.ElemType != "beam" || !TryNodes(element, _nodesByTag, out var ends) || ends.Length != 2)
+                {
+                    beams.Add(element);
+                    continue;
+                }
+                var inner = InnerNodes(ends[0], ends[1], coarse);
+                if (inner.Count == 0) { beams.Add(element); continue; }
+                if (element.Origin == FemMember.MeshSourceImported)
+                {
+                    importedInner.Add(element.ElemTag);
+                    beams.Add(element);
+                    continue;
+                }
+                split++;
+                var chain = new List<FemMeshNode> { ends[0] };
+                chain.AddRange(inner);
+                chain.Add(ends[1]);
+                for (int i = 0; i + 1 < chain.Count; i++)
+                {
+                    var piece = CopyBeam(element);
+                    piece.NodeIdsJson = JsonSerializer.Serialize(new[] { int.Parse(chain[i].NodeTag, CultureInfo.InvariantCulture), int.Parse(chain[i + 1].NodeTag, CultureInfo.InvariantCulture) });
+                    piece.ReleaseI = i == 0 ? element.ReleaseI : null;
+                    piece.ReleaseJ = i + 2 == chain.Count ? element.ReleaseJ : null;
+                    beams.Add(piece);
+                }
             }
-            var inner = InnerNodes(ends[0], ends[1], coarse);
-            if (inner.Count == 0) { beams.Add(element); continue; }
-            if (element.Origin == FemMember.MeshSourceImported)
+            if (importedInner.Count > 0)
+                diagnostics.Add(new("planar_materialize_imported_beam_inner_node",
+                    $"Узлы пластин лежат внутри импортных стержней (КЭ {Short(importedInner)}) — стержни не дробятся, связи с пластиной в этих узлах нет.",
+                    false, importedInner));
+
+            if (checkHangingNodes)
+                CheckHangingNodes(_shells, _regions, _nodesByTag, _regionOfNode, diagnostics);
+
+            // Теги КЭ: импортные — как были; сгенерированные стержни подряд, затем пластины (копии КЭ построителя).
+            int nextElementTag = _baseElements.Where(e => e.Origin == FemMember.MeshSourceImported)
+                .Select(e => PositiveTag(e.ElemTag)).DefaultIfEmpty(0).Max() + 1;
+            foreach (var beam in beams.Where(e => e.Origin != FemMember.MeshSourceImported))
+                beam.ElemTag = (nextElementTag++).ToString(CultureInfo.InvariantCulture);
+            var shells = _shells.Select(s => new FemElement
             {
-                importedInner.Add(element.ElemTag);
-                beams.Add(element);
-                continue;
-            }
-            split++;
-            var chain = new List<FemMeshNode> { ends[0] };
-            chain.AddRange(inner);
-            chain.Add(ends[1]);
-            for (int i = 0; i + 1 < chain.Count; i++)
+                SchemaId = s.Element.SchemaId, ElemType = s.Element.ElemType, NodeIdsJson = s.Element.NodeIdsJson,
+                SourceMemberTag = s.Element.SourceMemberTag, Origin = s.Element.Origin, ThicknessM = s.Element.ThicknessM,
+                ElemTag = (nextElementTag++).ToString(CultureInfo.InvariantCulture),
+            }).ToList();
+
+            return new FemPlanarMaterializationResult
             {
-                var piece = CopyBeam(element);
-                piece.NodeIdsJson = JsonSerializer.Serialize(new[] { int.Parse(chain[i].NodeTag, CultureInfo.InvariantCulture), int.Parse(chain[i + 1].NodeTag, CultureInfo.InvariantCulture) });
-                piece.ReleaseI = i == 0 ? element.ReleaseI : null;
-                piece.ReleaseJ = i + 2 == chain.Count ? element.ReleaseJ : null;
-                beams.Add(piece);
-            }
+                Nodes = [.. _nodes],
+                Elements = [.. beams, .. shells],
+                Diagnostics = diagnostics,
+                SplitBeamCount = split,
+                SharedNodeCount = _shared,
+                RegionNodeTags = [.. _regionNodeTags],
+            };
         }
-        if (importedInner.Count > 0)
-            diagnostics.Add(new("planar_materialize_imported_beam_inner_node",
-                $"Узлы пластин лежат внутри импортных стержней (КЭ {Short(importedInner)}) — стержни не дробятся, связи с пластиной в этих узлах нет.",
-                false, importedInner));
-
-        CheckHangingNodes(shells, regions, nodesByTag, regionOfNode, diagnostics);
-
-        // Теги КЭ: импортные — как были; сгенерированные стержни подряд, затем пластины.
-        int nextElementTag = baseElements.Where(e => e.Origin == FemMember.MeshSourceImported)
-            .Select(e => PositiveTag(e.ElemTag)).DefaultIfEmpty(0).Max() + 1;
-        foreach (var beam in beams.Where(e => e.Origin != FemMember.MeshSourceImported))
-            beam.ElemTag = (nextElementTag++).ToString(CultureInfo.InvariantCulture);
-        foreach (var (shell, _) in shells)
-            shell.ElemTag = (nextElementTag++).ToString(CultureInfo.InvariantCulture);
-
-        return new FemPlanarMaterializationResult
-        {
-            Nodes = nodes,
-            Elements = [.. beams, .. shells.Select(s => s.Element)],
-            Diagnostics = diagnostics,
-            SplitBeamCount = split,
-            SharedNodeCount = shared,
-            RegionNodeTags = regionNodeTags,
-        };
     }
 
     /// <summary>Точка снимка, выведенная из узла стержня, должна слиться с этим узлом.</summary>

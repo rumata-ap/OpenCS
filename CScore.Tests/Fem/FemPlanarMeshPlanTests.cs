@@ -144,4 +144,84 @@ public class FemPlanarMeshPlanTests
 
         Assert.Empty(PlanarConstraintValidator.Validate(slab, result.Constraints));
     }
+
+    /// <summary>Стена стоит на кромке y = 2 ранней плиты, узлы сетки плиты на кромке отходят от плоскости стены на
+    /// ±3 мкм (импортные контуры «Музея») — кривая стыка по ним выводится целиком и сохраняет вершины.</summary>
+    [Fact]
+    public void EarlierSlabMeshMicronsOffWallPlane_CurveAlongWholeJunction()
+    {
+        var (_, wall) = SlabAndWallThrough();
+        var nodes = new List<PlanarMeshNode>();
+        for (int j = 0; j <= 2; j++)
+            for (int i = 0; i <= 6; i++)
+            {
+                double y = j == 2 ? 2 + (i % 2 == 0 ? 3e-6 : -3e-6) : j;
+                nodes.Add(new PlanarMeshNode(nodes.Count, i, y, i, y, 3));
+            }
+        var quads = new List<PlanarMeshElement>();
+        for (int j = 0; j < 2; j++)
+            for (int i = 0; i < 6; i++)
+            {
+                int n0 = j * 7 + i;
+                quads.Add(new PlanarMeshElement(quads.Count, PlanarMeshElementKind.Quadrangle4, [n0, n0 + 1, n0 + 8, n0 + 7]));
+            }
+        var slabMember = Members()[0];
+        var prefix = FemPlanarMeshMaterializer.Materialize(1, [], [], [],
+            [new FemPlanarRegionMesh(slabMember, new PlanarRegion { Id = 1 }, new PlanarMeshSnapshot
+                { RegionId = 1, IsCalculable = true, Nodes = nodes, Elements = quads }, 0.2)]);
+
+        var result = FemPlanarMeshPlan.Constraints(1, [], Members(), prefix, wall);
+
+        var curve = Assert.Single(result.Constraints, c => c.Geometry.Kind == PlanarConstraintGeometryKind.Curve && c.KeepVertices);
+        Assert.Equal(7, curve.Geometry.Points.Count);
+        Assert.Equal([0.0, 6.0], new[] { curve.Geometry.Points.Min(p => p.U), curve.Geometry.Points.Max(p => p.U) }.Select(u => Math.Round(u, 9)));
+        Assert.Empty(PlanarConstraintValidator.Validate(wall, result.Constraints));
+    }
+
+    /// <summary>Свободный узел в 5 мкм за кромкой плиты (на стыке со стеной соседняя область его берёт) — в плите, на кромке.</summary>
+    [Fact]
+    public void FreeNodeMicronsOutsideEdge_IncludedOnEdge()
+    {
+        var (slab, _) = SlabAndWallThrough();
+
+        var result = FemPlanarMeshPlan.Constraints(1, [new() { NodeTag = "1", X = 3, Y = -5e-6, Z = 3 }], Members(), Empty, slab);
+
+        var point = Assert.Single(result.Constraints, c => c.Id == "free-node:1").Geometry.Points[0];
+        Assert.Equal((3.0, 0.0), (point.U, point.V));
+        Assert.Empty(PlanarConstraintValidator.Validate(slab, result.Constraints));
+    }
+
+    /// <summary>Стена упирается торцом в кромку x = 6 плиты: её след на плоскости плиты выходит за плиту и касается
+    /// её одной точкой — точка стыка (узел там есть у стены).</summary>
+    [Fact]
+    public void LaterWallTouchingByTraceEnd_JunctionPoint()
+    {
+        var (slab, _) = SlabAndWallThrough();
+        var wall = PlanarRegion.CreateFromContour(new Contour { X = [0, 3, 3, 0], Y = [0, 0, 6, 6] },
+            frame: new Frame3D(new PlanarVector3(6, 2, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0)));
+        wall.Id = 2;
+
+        var result = FemPlanarMeshPlan.Constraints(1, [], Members(), Empty, slab, laterRegions: [("С", wall)]);
+
+        var point = Assert.Single(result.Constraints, c => c.Id.StartsWith("region-junction:С:")).Geometry;
+        Assert.Equal(PlanarConstraintGeometryKind.Point, point.Kind);
+        Assert.Equal((6.0, 2.0), (Math.Round(point.Points[0].U, 9), Math.Round(point.Points[0].V, 9)));
+    }
+
+    /// <summary>Конец линии стыка в 0,18 мм от кромки плиты (импортные контуры) — на кромке: иначе КЭ со стороной
+    /// 0,18 мм вырождается при слиянии узлов (1 мм).</summary>
+    [Fact]
+    public void JunctionEndFractionOfMillimetreInside_SnappedOntoHull()
+    {
+        var (slab, _) = SlabAndWallThrough();
+        var wall = PlanarRegion.CreateFromContour(new Contour { X = [0, 5.99982, 5.99982, 0], Y = [0, 0, 6, 6] },
+            frame: new Frame3D(new PlanarVector3(0, 2, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0)));
+        wall.Id = 2;
+
+        var result = FemPlanarMeshPlan.Constraints(1, [], Members(), Empty, slab, laterRegions: [("С", wall)]);
+
+        var curve = Assert.Single(result.Constraints, c => c.Id.StartsWith("region-junction:С:"));
+        Assert.Equal(6.0, curve.Geometry.Points.Max(p => p.U), 12);
+        Assert.Equal(FemPlanarMeshPlan.MergeToleranceM, curve.ToleranceM);
+    }
 }

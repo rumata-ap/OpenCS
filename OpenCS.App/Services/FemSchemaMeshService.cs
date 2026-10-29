@@ -77,11 +77,12 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), cancellationToken);
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
             var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
+            var prefixBuilder = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
             for (int k = 0; k < ordered.Count; k++)
             {
                 var (member, region) = ordered[k];
                 cancellationToken.ThrowIfCancellationRequested();
-                var prefix = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, regionMeshes);
+                var prefix = prefixBuilder.Build();
                 var traces = junctionOptions != null ? FemRigidJunctions.Build(region, nodes, members, outlines, junctionOptions) : null;
                 if (traces != null && !checkOnly) diagnostics.AddRange(traces.Diagnostics);
                 var constraints = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, region,
@@ -110,8 +111,11 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
                         return new FemSchemaMeshBuildResult { Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt };
                     }
                 }
+                // Толщина — из сечения пластины, иначе собственная толщина КонЭ (КонЭ из импортной сетки: «КЭ без КонЭ»
+                // фрагмента, группы КЭ SCAD/ЛИРЫ без сечения).
                 regionMeshes.Add(new FemPlanarRegionMesh(member, region, snapshot,
-                    member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : null, traces));
+                    member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : member.ThicknessM, traces));
+                prefixBuilder.Add(regionMeshes[^1]);
             }
         }
 
@@ -167,7 +171,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var regions = db.GetPlanarRegions(schemaId);
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions, PlateStep(schemaId));
         var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
-        var prefix = new List<FemPlanarRegionMesh>();
+        var prefix = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
         int index = ordered.FindIndex(p => p.Region.Id == target.Id);
         foreach (var (member, region) in ordered)
         {
@@ -175,7 +179,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             if (db.GetPlanarMeshSnapshots(region.Id).LastOrDefault() is { IsCalculable: true } snapshot)
                 prefix.Add(new FemPlanarRegionMesh(member, region, snapshot, null));
         }
-        var prefixMesh = FemPlanarMeshMaterializer.Materialize(schemaId, derivationNodes, derivationElements, nodes, prefix);
+        var prefixMesh = prefix.Build();
         var options = JunctionOptions(schemaId, db.HasImportedMesh(schemaId));
         var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, SectionOutlines(), options) : null;
         return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
