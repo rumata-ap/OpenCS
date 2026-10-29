@@ -378,7 +378,9 @@ namespace OpenCS.Utilites
       /// отсекается <see cref="StoreyFragmentBand.Trim"/>; сетка — КЭ, заходящие в полосу (тот же критерий, что у
       /// построителя: max z &gt; z₁ + tol и min z &lt; z₂ − tol), их узлы, нагрузки на эти КЭ/узлы и на оставшиеся КонЭ,
       /// нагрузки на группы, пружины и закрепления этих узлов (пружины узлов схемы — все) — фильтром в SQL через
-      /// временные таблицы.
+      /// временные таблицы. Порядок соединения в отборе КЭ задан CROSS JOIN: КЭ → его узлы → узел сетки по тегу; без
+      /// него планировщик брал индекс узлов по (schema_id, z) и перебирал все узлы схемы на каждый КЭ (импорт на 120 тыс.
+      /// КЭ — десятки минут вместо секунды).
       /// </summary>
       public StoreyFragmentParentSnapshot ReadStoreyFragmentSnapshot(int parentId, StoreyFragmentRequest request)
       {
@@ -411,9 +413,8 @@ namespace OpenCS.Utilites
                   CREATE TEMP TABLE frag_members (tag TEXT PRIMARY KEY);
                   INSERT INTO temp.frag_elems (id, tag)
                      SELECT e.id, e.elem_tag
-                     FROM fem_elements e, json_each(e.node_ids_json) j
-                     JOIN fem_mesh_nodes n ON n.schema_id=@sid AND n.node_tag=CAST(j.value AS TEXT)
-                     WHERE e.schema_id=@sid
+                     FROM fem_elements e CROSS JOIN json_each(e.node_ids_json) j CROSS JOIN fem_mesh_nodes n
+                     WHERE e.schema_id=@sid AND n.schema_id=@sid AND n.node_tag=CAST(j.value AS TEXT)
                      GROUP BY e.id
                      HAVING MAX(n.z) > @lo AND MIN(n.z) < @hi;
                   CREATE INDEX temp.ix_frag_elems_tag ON frag_elems(tag);
