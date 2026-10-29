@@ -39,6 +39,7 @@ public class LiraBinaryExtrasReaderTests
         bool _writeStiffness = true;
         bool _writeNodeObjects = true;
         bool _breakConnectivity;
+        bool _wideEmptyLabel;
 
         public int AddNode(double x, double y, double z)
         {
@@ -50,6 +51,14 @@ public class LiraBinaryExtrasReaderTests
         {
             _elements.Add((slots, definition, 1));
             _stiffness.Add(stiffness);
+            return _elements.Count - 1;
+        }
+
+        /// <summary>Удалённая запись КЭ: остаётся в файле (номер и слоты сохраняются), в схему не переносится.</summary>
+        public int AddDeletedElement(int[] slots, ushort definition)
+        {
+            _elements.Add((slots, definition, 0));
+            _stiffness.Add(0);
             return _elements.Count - 1;
         }
 
@@ -69,6 +78,9 @@ public class LiraBinaryExtrasReaderTests
 
         /// <summary>Портит хвостовую связность объектов элементов (сверка должна отказать).</summary>
         public void BreakConnectivity() => _breakConnectivity = true;
+
+        /// <summary>Пустая метка объекта элемента в «широком» варианте (FF FE FF 00), как в части файлов ЛИРЫ.</summary>
+        public void UseWideEmptyLabel() => _wideEmptyLabel = true;
 
         public byte[] Build()
         {
@@ -153,7 +165,8 @@ public class LiraBinaryExtrasReaderTests
                 w.Write((ushort)type);         // тип КЭ
                 w.Write((ushort)slots.Length); // число вершин
                 w.Write(0u);                   // неинтерпретированное поле
-                WriteString(w, label);
+                if (_wideEmptyLabel && label.Length == 0) w.Write([0xFF, 0xFE, 0xFF, 0x00]);
+                else WriteString(w, label);
                 w.Write(1.0f);                 // общий множитель
                 w.Write((ushort)loads.Count);
 
@@ -342,6 +355,35 @@ public class LiraBinaryExtrasReaderTests
     }
 
     // ------------------------------------------------------------------ Загружения
+
+    [Fact]
+    public void Extra_ElementLoads_WideEmptyLabelAreRead()
+    {
+        var builder = GridSchema();
+        builder.UseWideEmptyLabel();
+        builder.AddElementLoad(1, 12, 163, 1, 0, [1.5f, 1.0f]);
+        var data = Parse(builder.Build());
+
+        var load = Assert.Single(data.BinaryLoads);
+        Assert.Equal(LiraLoadTargetKind.Element, load.TargetKind);
+        Assert.Equal(2, load.TargetId);
+        Assert.Equal(1.5, load.P0, 6);
+    }
+
+    [Fact]
+    public void Extra_ElementLoads_DeletedRecordsKeepNumbering()
+    {
+        var builder = GridSchema();
+        builder.AddDeletedElement([0, 1], 0);          // запись №9: удалена, но объект в файле есть
+        builder.AddElement([1, 4, 5, 8], 2, 2);        // запись №10
+        builder.AddElementLoad(9, 12, 163, 1, 0, [2.5f, 1.0f]);
+        var data = Parse(builder.Build());
+
+        Assert.Equal(9, data.Elements.Count);          // десятая запись импортирована под своим номером
+        var load = Assert.Single(data.BinaryLoads);
+        Assert.Equal(10, load.TargetId);
+        Assert.Equal(2.5, load.P0, 6);
+    }
 
     [Fact]
     public void Extra_LoadCaseNames_AreReadInFileOrder()

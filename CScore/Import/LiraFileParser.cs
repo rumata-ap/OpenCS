@@ -164,13 +164,15 @@ public static class LiraFileParser
             int off  = (int)(elemsStart + (long)i * ElementRecordSize);
             uint flag = BitConverter.ToUInt32(bytes, off + 34);
             if (flag > 1) return false;
-            if (flag == 0) continue;
 
-            // число узлов — по индексу определения; объёмные и неизвестные определения импорт пропускает
+            // Число узлов — по индексу определения; нужно и удалённым записям: по ним ищутся объекты
+            // элементов (у удалённой записи сохраняются и определение, и слоты узлов).
             ushort definition = BitConverter.ToUInt16(bytes, off + 32);
             int count = definition < DefinitionNodeCount.Length ? DefinitionNodeCount[definition] : 0;
             vertexCount[i] = count;
-            if (count < 2) continue;   // одноузловые связи, объёмные КЭ и неизвестные определения
+
+            if (flag == 0) continue;            // удалённая запись: в схему не переносится
+            if (count < 2) continue;            // одноузловые связи, объёмные КЭ и неизвестные определения
 
             var ids = new int[count];
             for (int k = 0; k < count; k++)

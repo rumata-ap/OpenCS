@@ -114,6 +114,12 @@ public static class LiraBinaryExtrasReader
     /// <summary>Верхняя граница длины строки (метка элемента, имя загружения).</summary>
     const int MaxStringLength = 4096;
 
+    /// <summary>
+    /// Побайтовый признак пустой метки объекта элемента в части файлов ЛИРЫ: четыре байта
+    /// <c>FF FE FF 00</c> вместо привычного <c>00</c> (нулевой длины строки).
+    /// </summary>
+    static ReadOnlySpan<byte> EmptyWideLabel => [0xFF, 0xFE, 0xFF, 0x00];
+
     /// <summary>Размер записи нагрузки по её тегу (всего байт, включая 8 байт заголовка).</summary>
     static readonly Dictionary<int, int> LoadTagSize = new()
     {
@@ -396,7 +402,7 @@ public static class LiraBinaryExtrasReader
         {
             if (vertexCount[i] is < 1 or > 4)
             {
-                notes.Add($"элементные нагрузки не прочитаны: у записи КЭ №{i + 1} удалена или неизвестна связность");
+                notes.Add($"элементные нагрузки не прочитаны: у записи КЭ №{i + 1} неизвестно число узлов (объёмный КЭ?)");
                 return false;
             }
         }
@@ -461,7 +467,7 @@ public static class LiraBinaryExtrasReader
             if ((BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 6)) & 1) == 0) return false;
             if (ReadU16(bytes, o + 12) != nv) return false;
 
-            if (!TryReadPrefixedString(bytes, o + 18, out _, out int p)) return false;
+            if (!TryReadElementLabel(bytes, o + 18, out _, out int p)) return false;
             if (p + 6 > bytes.Length) return false;
             if (!double.IsFinite(ReadF32(bytes, p))) return false;
 
@@ -578,11 +584,28 @@ public static class LiraBinaryExtrasReader
     // ------------------------------------------------------------------ Загружения
 
     /// <summary>
-    /// Ищет серию из <paramref name="count"/> строк «длина + текст» — имена загружений.
-    /// Принимается только единственная серия во всём файле.
+    /// Ищет серию строк «длина + текст» — имена загружений.
     /// </summary>
+    /// <remarks>
+    /// <para>Номер загружения известен из прочитанных нагрузок: ищется серия длиной от
+    /// <paramref name="count"/> до удвоенного числа загружений (в схеме бывают неиспользованные
+    /// загружения и наоборот — имена длиннее использованных номеров).</para>
+    /// <para>Отбираются только серии, все строки которых «похожи на имена»: есть буквы, нет повторов
+    /// вроде «ЕяяgЕяяg…», нет имён файлов сортамента и нет слов, смешивающих латиницу с кириллицей
+    /// (так выглядит служебный текст ЛИРЫ, прочитанный не в той кодировке). Из подходящих берётся самая
+    /// длинная серия; если таких несколько с разными именами — имена не читаются (номера загружений
+    /// от этого не страдают).</para>
+    /// </remarks>
     static List<LiraLoadCaseRecord> FindLoadCases(byte[] bytes, int searchFrom, int count, List<string> notes)
     {
+        // Одно загружение не имеет смысла восстанавливать по одной строке: слишком много ложных серий.
+        if (count < 2)
+        {
+            notes.Add($"имена загружений не читались: загружений {count} (нужно не меньше двух)");
+            return [];
+        }
+
+        const int MaxRun = 512;
         var candidates = new List<(int Start, List<string> Names)>();
 
         for (int p = Math.Max(0, searchFrom); p < bytes.Length; p++)
@@ -590,38 +613,101 @@ public static class LiraBinaryExtrasReader
             if (!IsPlausibleStringAt(bytes, p, out _)) continue;
 
             int o = p;
-            var names = new List<string>(count);
-            bool ok = true;
-            for (int k = 0; k < count; k++)
+            var texts = new List<string>(count);
+            while (texts.Count < MaxRun && IsPlausibleStringAt(bytes, o, out int next))
             {
-                if (!IsPlausibleStringAt(bytes, o, out int next)) { ok = false; break; }
-                if (!TryReadPrefixedString(bytes, o, out string name, out next) || name.Length == 0) { ok = false; break; }
-                names.Add(name);
+                if (!TryReadPrefixedString(bytes, o, out string text, out next) || text.Length == 0) break;
+                texts.Add(text);
                 o = next;
             }
-            if (!ok) continue;
+            if (texts.Count < count || texts.Count > 2 * count) continue;
 
-            candidates.Add((p, names));
+            bool named = true;
+            for (int i = 0; i < count && named; i++) named = NameQuality(texts[i]) >= 2;
+            if (!named) continue;
+
+            candidates.Add((p, texts));
             p = o - 1;
         }
 
         if (candidates.Count == 0)
         {
-            notes.Add($"имена загружений не найдены (ожидалось строк: {count})");
-            return [];
-        }
-        if (candidates.Count > 1)
-        {
-            notes.Add($"имена загружений неоднозначны: найдено серий {candidates.Count} по {count} строк");
+            notes.Add($"имена загружений не найдены (ожидалось не меньше {count} строк)");
             return [];
         }
 
+        int longest = candidates.Max(c => c.Names.Count);
+        var top = candidates.Where(c => c.Names.Count == longest).ToList();
+        for (int i = 1; i < top.Count; i++)
+            if (!SameLeadingNames(top[0].Names, top[i].Names, count))
+            {
+                notes.Add($"имена загружений неоднозначны: подходящих серий {top.Count} по {longest} строк");
+                return [];
+            }
+
         var result = new List<LiraLoadCaseRecord>(count);
-        for (int i = 0; i < count; i++) result.Add(new LiraLoadCaseRecord(i + 1, candidates[0].Names[i]));
+        for (int i = 0; i < count && i < top[0].Names.Count; i++)
+            result.Add(new LiraLoadCaseRecord(i + 1, top[0].Names[i]));
         return result;
     }
 
-    /// <summary>Быстрая проверка «похоже на строку с префиксом длины» без выделения памяти.</summary>
+    /// <summary>
+    /// Качество строки как имени загружения: 0 — не имя, 1 — похоже, 2 — явно имя
+    /// (есть пробел или кириллица).
+    /// </summary>
+    static int NameQuality(string text)
+    {
+        if (text.Length < 2) return 0;
+
+        // имена файлов сортамента и профилей
+        if (text.Contains(".srt", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains(".steels", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains(".profiles", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        bool letter = false, spaced = false, cyrillic = false, underscore = false, dot = false;
+        foreach (char c in text)
+        {
+            if (char.IsLetter(c)) letter = true;
+            if (char.IsLetter(c) && c >= '\u0400') cyrillic = true;
+            if (c == ' ') spaced = true;
+            if (c == '_') underscore = true;
+            if (c == '.') dot = true;
+        }
+        if (!letter) return 0;
+
+        // «яяяяяя», «ЕяяgЕяяg…» — повторы вместо текста
+        int distinct = text.Distinct().Count();
+        if (distinct * 3 < Math.Min(text.Length, 12)) return 0;
+
+        if (underscore && dot && !spaced) return 0;
+
+        // слово, смешивающее латиницу и кириллицу («BИ3OP-CAПP»), — служебный текст не в той кодировке
+        foreach (var token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            bool latin = false, cyr = false;
+            foreach (char c in token)
+            {
+                if (c >= '\u0400') cyr = true;
+                else if (char.IsLetter(c)) latin = true;
+            }
+            if (latin && cyr) return 0;
+        }
+
+        return spaced || cyrillic ? 2 : 1;
+    }
+
+    static bool SameLeadingNames(List<string> a, List<string> b, int count)
+    {
+        if (a.Count < count || b.Count < count) return false;
+        for (int i = 0; i < count; i++) if (a[i] != b[i]) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Быстрая проверка «похоже на строку с префиксом длины» без выделения памяти.
+    /// Для имён загружений: без управляющих символов и без технической зоны cp1251 (0x80–0x9F).
+    /// </summary>
     static bool IsPlausibleStringAt(byte[] bytes, int offset, out int next)
     {
         next = offset;
@@ -636,16 +722,32 @@ public static class LiraBinaryExtrasReader
             p += 2;
             if (length >= 0xFFFE) return false;
         }
-        if (length == 0 || length > 200 || p + length > bytes.Length) return false;
+        if (length == 0 || length > 80 || p + length > bytes.Length) return false;
 
         for (int i = 0; i < length; i++)
         {
             byte c = bytes[p + i];
-            if (c < 0x20 || c == 0x7F) return false;
+            if (c < 0x20 || c == 0x7F || c is >= 0x80 and <= 0x9F) return false;
         }
 
         next = p + length;
         return true;
+    }
+
+    /// <summary>
+    /// Читает метку объекта элемента: либо пустой маркер <see cref="EmptyWideLabel"/> (4 байта),
+    /// либо строку «длина + текст cp1251».
+    /// </summary>
+    static bool TryReadElementLabel(byte[] bytes, int offset, out string value, out int next)
+    {
+        if (offset >= 0 && offset + EmptyWideLabel.Length <= bytes.Length &&
+            bytes.AsSpan(offset, EmptyWideLabel.Length).SequenceEqual(EmptyWideLabel))
+        {
+            value = string.Empty;
+            next  = offset + EmptyWideLabel.Length;
+            return true;
+        }
+        return TryReadPrefixedString(bytes, offset, out value, out next);
     }
 
     /// <summary>Читает строку «длина + текст cp1251». Пустая строка допустима.</summary>
