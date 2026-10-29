@@ -3,6 +3,21 @@ using System.Collections;
 namespace CScore.Import;
 
 /// <summary>
+/// Что читать из бинарного .lir дополнительно к геометрии.
+/// </summary>
+public enum LiraBinaryExtrasMode
+{
+    /// <summary>Только геометрия (узлы и элементы).</summary>
+    None,
+
+    /// <summary>Геометрия и назначение номеров жёсткостей КЭ.</summary>
+    Stiffness,
+
+    /// <summary>Геометрия, жёсткости, имена загружений и записи физических нагрузок.</summary>
+    StiffnessAndLoads
+}
+
+/// <summary>
 /// Парсер бинарного формата расчётной схемы ЛираСАПР (.lir), версия 2013 (13.x).
 /// </summary>
 /// <remarks>
@@ -45,13 +60,15 @@ public static class LiraFileParser
     /// <summary>
     /// Читает .lir файл и возвращает контейнер сырых данных схемы.
     /// </summary>
-    public static LiraSchemaData Parse(string filePath)
+    /// <param name="filePath">Путь к файлу <c>.lir</c>.</param>
+    /// <param name="extras">Что читать дополнительно к геометрии (по умолчанию — жёсткости, загружения и нагрузки).</param>
+    public static LiraSchemaData Parse(string filePath, LiraBinaryExtrasMode extras = LiraBinaryExtrasMode.StiffnessAndLoads)
     {
         var bytes = File.ReadAllBytes(filePath);
         var data  = new LiraSchemaData();
 
         // Основной путь — структурное чтение по заголовку; сканирование — запасной для неизвестных заголовков.
-        if (TryReadStructured(bytes, data)) return data;
+        if (TryReadStructured(bytes, data, extras)) return data;
 
         data = new LiraSchemaData();
         var nodeNumbers = ReadNodes(bytes, data);
@@ -97,9 +114,12 @@ public static class LiraFileParser
     /// слотах: слоты за пределами числа узлов содержат мусор. Тип КЭ ЛИРЫ по файлу не определяется
     /// (<c>FeType</c> здесь условный: 10, 42 или 44 по числу узлов). Объёмные КЭ (определения 4 и выше)
     /// пропускаются.
+    /// <para>Дополнительно (<paramref name="extras"/>) читаются жёсткости КЭ, имена загружений и записи
+    /// физических нагрузок — см. <see cref="LiraBinaryExtrasReader"/>. Сбой этих блоков не отменяет
+    /// импорт геометрии: причина попадает в <see cref="LiraSchemaData.BinaryNotes"/>.</para>
     /// Возвращает false, если заголовок не распознан или структура не сходится с файлом.
     /// </remarks>
-    static bool TryReadStructured(byte[] bytes, LiraSchemaData data)
+    static bool TryReadStructured(byte[] bytes, LiraSchemaData data, LiraBinaryExtrasMode extras)
     {
         if (bytes.Length < 1) return false;
         int headerLen = bytes[0];
@@ -136,6 +156,7 @@ public static class LiraFileParser
             nodes.Add(new LiraNodeRecord(Id: i + 1, X: x, Y: y, Z: z, DofMask: 0));
         }
 
+        var vertexCount = new int[elemCount];
         var elements = new List<LiraElementRecord>((int)elemCount);
         for (int i = 0; i < elemCount; i++)
         {
@@ -147,6 +168,7 @@ public static class LiraFileParser
             // число узлов — по индексу определения; объёмные и неизвестные определения импорт пропускает
             ushort definition = BitConverter.ToUInt16(bytes, off + 32);
             int count = definition < DefinitionNodeCount.Length ? DefinitionNodeCount[definition] : 0;
+            vertexCount[i] = count;
             if (count < 2) continue;   // одноузловые связи, объёмные КЭ и неизвестные определения
 
             var ids = new int[count];
@@ -163,6 +185,31 @@ public static class LiraFileParser
                 SectionCount: 1,
                 StiffnessId:  0,
                 NodeIds:      ids));
+        }
+
+        if (extras != LiraBinaryExtrasMode.None && elemCount > 0)
+        {
+            var extra = LiraBinaryExtrasReader.Read(
+                bytes,
+                nodesStart:    (int)nodesStart,
+                nodeCount:     (int)nodeCount,
+                elementsStart: (int)elemsStart,
+                elementCount:  (int)elemCount,
+                vertexCount:   vertexCount,
+                readStiffness: true,
+                readLoads:     extras == LiraBinaryExtrasMode.StiffnessAndLoads);
+
+            if (extra.StiffnessByElement.Length == elemCount)
+                for (int k = 0; k < elements.Count; k++)
+                {
+                    int record = elements[k].Id - 1;
+                    int stiffness = extra.StiffnessByElement[record];
+                    if (stiffness > 0) elements[k] = elements[k] with { StiffnessId = stiffness };
+                }
+
+            data.LoadCases.AddRange(extra.LoadCases);
+            data.BinaryLoads.AddRange(extra.Loads);
+            data.BinaryNotes.AddRange(extra.Notes);
         }
 
         data.Nodes.AddRange(nodes);

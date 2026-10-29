@@ -101,6 +101,23 @@ public class LiraSchemaData
     public Dictionary<int, int[]>             ElementReinforcementTypes { get; } = [];
 
     /// <summary>
+    /// Загружения, прочитанные из бинарного .lir (номер и имя). Пусто — блок не найден или не читался.
+    /// </summary>
+    public List<LiraLoadCaseRecord>          LoadCases          { get; } = [];
+
+    /// <summary>
+    /// Записи физических нагрузок МКЭ из бинарного .lir (узловые и элементные) в порядке файла:
+    /// параметры в порядке текстового экспорта, исходный payload — в <see cref="LiraBinaryLoad.NativeParameters"/>.
+    /// Пусто — блок нагрузок не найден или не читался.
+    /// </summary>
+    public List<LiraBinaryLoad>              BinaryLoads        { get; } = [];
+
+    /// <summary>
+    /// Диагностика чтения дополнительных блоков бинарного .lir: какие блоки прочитаны, какие нет и почему.
+    /// </summary>
+    public List<string>                      BinaryNotes        { get; } = [];
+
+    /// <summary>
     /// Углы согласования местных осей пластин из таблицы 18 «местные оси пластин»: номер КЭ → угол поворота
     /// оси X1 от направления «узел 1 → узел 2» вокруг Z1, град. Пусто — таблица не прочитана.
     /// </summary>

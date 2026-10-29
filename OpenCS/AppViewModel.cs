@@ -3658,7 +3658,9 @@ namespace OpenCS
 
          try
          {
-            var raw = CScore.Import.LiraFileParser.Parse(fileName);
+            // Жёсткости нужны для групп КЭ; записи нагрузок (~1 млн строк на крупной модели) при импорте
+            // сетки не используются и не читаются, чтобы не тратить время и память.
+            var raw = CScore.Import.LiraFileParser.Parse(fileName, CScore.Import.LiraBinaryExtrasMode.Stiffness);
 
             var schemaName = System.IO.Path.GetFileNameWithoutExtension(fileName);
             var schema = new CScore.Fem.FemSchema
