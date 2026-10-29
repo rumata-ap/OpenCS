@@ -299,6 +299,32 @@ namespace OpenCS.Utilites
          return r.Read() && !r.IsDBNull(0) ? (r.GetDouble(0), r.GetDouble(1)) : null;
       }
 
+      /// <summary>
+      /// Координаты узлов сетки по тегам узлов и узлов КЭ по тегам КЭ (отметка перекрытия по выделению в 3D) — отбор в SQL,
+      /// без чтения всей сетки.
+      /// </summary>
+      public List<PlanarVector3> GetFemPickPoints(int schemaId, IReadOnlyCollection<string> meshElemTags,
+         IReadOnlyCollection<string> meshNodeTags)
+      {
+         var result = new List<PlanarVector3>();
+         if (meshElemTags.Count == 0 && meshNodeTags.Count == 0) return result;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT n.x, n.y, n.z FROM fem_mesh_nodes n
+            WHERE n.schema_id=@sid AND (
+               n.node_tag IN (SELECT value FROM json_each(@nodes))
+               OR n.node_tag IN (SELECT CAST(j.value AS TEXT)
+                                 FROM fem_elements e, json_each(e.node_ids_json) j
+                                 WHERE e.schema_id=@sid AND e.elem_tag IN (SELECT value FROM json_each(@elems))))
+            """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@nodes", JsonSerializer.Serialize(meshNodeTags));
+         cmd.Parameters.AddWithValue("@elems", JsonSerializer.Serialize(meshElemTags));
+         using var r = cmd.ExecuteReader();
+         while (r.Read()) result.Add(new PlanarVector3(r.GetDouble(0), r.GetDouble(1), r.GetDouble(2)));
+         return result;
+      }
+
       /// <summary>Копии источников армирования родителя у фрагмента: вид, имя файла, данные.</summary>
       public List<(string Kind, string FileName, byte[] Data)> GetFragmentRebarSources(int schemaId)
       {
