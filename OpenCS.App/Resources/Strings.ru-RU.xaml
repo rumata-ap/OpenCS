@@ -1814,9 +1814,9 @@
    <system:String x:Key="LimitForceGov_Both">бетон + арматура</system:String>
    <system:String x:Key="LimitForceBatch_TabRows">Строки набора</system:String>
    <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, прошло: {1}, на пределе: {2}, не прошло: {3}; сошлось: {4}, не сошлось: {5}</system:String>
-   <system:String x:Key="LimitForceBatch_ColNLim">Nпред, кН</system:String>
-   <system:String x:Key="LimitForceBatch_ColMxLim">Mx пред, кН·м</system:String>
-   <system:String x:Key="LimitForceBatch_ColMyLim">My пред, кН·м</system:String>
+   <system:String x:Key="LimitForceBatch_ColNLim">N_lim, кН</system:String>
+   <system:String x:Key="LimitForceBatch_ColMxLim">Mx_lim, кН·м</system:String>
+   <system:String x:Key="LimitForceBatch_ColMyLim">My_lim, кН·м</system:String>
    <system:String x:Key="LimitForceBatch_ColActingTip">Действующее усилие строки набора — исходная точка, от которой ищется предел</system:String>
    <system:String x:Key="LimitForceBatch_ColLimitTip">Предельное усилие, до которого дошли от исходной точки (k·усилие для масштабируемых составляющих)</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
