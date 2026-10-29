@@ -2062,6 +2062,8 @@ public partial class FemSchemaView3D : UserControl
             AppendCheckRowTaskMenu(menu, target.IsNode ? [] : vm.MeshElementsOf(target.Tag));
             AppendFieldMenu(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), [], []);
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
+            if (target.IsNode) AppendStoreyFragmentItem(menu, ClickedNodeWithSelection(target.Tag), [], [], []);
+            else AppendStoreyFragmentItem(menu, [], ClickedWithSelection(target.Tag), [], []);
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
             e.Handled = true;
@@ -2088,6 +2090,7 @@ public partial class FemSchemaView3D : UserControl
         AppendCheckRowTaskMenu(prMenu, vm.MeshElementsOf(prHitTag));
         AppendFieldMenu(prMenu, ClickedWithSelection(prHitTag), [], []);
         AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
+        AppendStoreyFragmentItem(prMenu, [], ClickedWithSelection(prHitTag), [], []);
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
         e.Handled = true;
@@ -2293,6 +2296,30 @@ public partial class FemSchemaView3D : UserControl
         }
     }
 
+    const string StoreyFragmentItemMarker = "fem-storey-fragment-item";
+
+    /// <summary>«Фрагмент этажа по перекрытию…» в меню редактора: отметка перекрытия — по переданному выделению.
+    /// Пункт прошлого показа меню убирается.</summary>
+    void AppendStoreyFragmentItem(ContextMenu menu, IReadOnlyCollection<string> nodeTags, IReadOnlyCollection<string> memberTags,
+        IReadOnlyCollection<string> meshElemTags, IReadOnlyCollection<string> meshNodeTags)
+    {
+        foreach (var old in menu.Items.OfType<FrameworkElement>().Where(i => Equals(i.Tag, StoreyFragmentItemMarker)).ToList())
+            menu.Items.Remove(old);
+        if (Editor is not { } editor) return;
+        menu.Items.Add(new Separator { Tag = StoreyFragmentItemMarker });
+        var item = CommandIcons.Apply(
+            new MenuItem { Header = Loc.S("Fem3DStoreyFragmentCtx"), Tag = StoreyFragmentItemMarker }, "Fem3DStoreyFragmentCtx");
+        item.Click += (_, _) => editor.BuildStoreyFragmentFromSelection(nodeTags, memberTags, meshElemTags, meshNodeTags);
+        menu.Items.Add(item);
+    }
+
+    /// <summary>Щёлкнутый узел и выделенные вместе с ним.</summary>
+    IReadOnlyCollection<string> ClickedNodeWithSelection(string clickedTag)
+    {
+        var selected = Editor?.Selection.SelectedNodeTags;
+        return selected != null && selected.Contains(clickedTag) ? [.. selected] : [clickedTag];
+    }
+
     /// <summary>Щёлкнутый КонЭ и выделенные вместе с ним.</summary>
     IReadOnlyCollection<string> ClickedWithSelection(string clickedTag)
     {
@@ -2409,6 +2436,7 @@ public partial class FemSchemaView3D : UserControl
         AppendFieldMenu(menu, [], [.. selection.SelectedMeshElemTags], [.. selection.SelectedMeshNodeTags]);
         if (menu.Items.Count > 0 && menu.Items[^1] is MenuItem) menu.Items.Add(new Separator());
         AppendFragmentItems(menu, [.. selection.SelectedMeshElemTags], meshElements: true, separator: false);
+        AppendStoreyFragmentItem(menu, [], [], [.. selection.SelectedMeshElemTags], [.. selection.SelectedMeshNodeTags]);
         menu.Items.Add(new Separator());
         var clear = CommandIcons.Item("Fem3DClearSelection");
         clear.Click += (_, _) => selection.Clear();

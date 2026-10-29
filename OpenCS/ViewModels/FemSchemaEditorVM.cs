@@ -459,6 +459,13 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>«КонЭ из выделенных КЭ» — через приложение: элементы пишутся в БД мимо сеанса, страница перезагружается.</summary>
     public Func<IReadOnlyList<string>, bool> CreateMembersFromMeshElements { get; }
 
+    /// <summary>
+    /// «Фрагмент этажа по перекрытию…» (спека 2026-10-29): отметка перекрытия по выделению (узлы, КонЭ, КЭ и узлы сетки) →
+    /// диалог фрагмента с предвыбором. Несохранённые правки — отказ: построитель читает схему из БД.
+    /// </summary>
+    public Action<IReadOnlyCollection<string>, IReadOnlyCollection<string>, IReadOnlyCollection<string>, IReadOnlyCollection<string>>
+        BuildStoreyFragmentFromSelection { get; }
+
     /// <summary>После сохранения: дерево схемы перечитывает узлы и КонЭ (подписи, проверки, счётчики).</summary>
     readonly Action? _afterSave;
 
@@ -468,6 +475,17 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         _db = app.db;
         _logService = app.LogService;
         CreateMembersFromMeshElements = tags => app.CreateFemMembersFromMeshElements(schema, tags);
+        BuildStoreyFragmentFromSelection = (nodes, members, meshElems, meshNodes) =>
+        {
+            if (Session.IsDirty)
+            {
+                System.Windows.MessageBox.Show(Loc.S("StoreyFloorUnsaved"), Loc.S("StoreyFragmentTitle"),
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+            double? z = Services.StoreyFloorService.SelectionZ(_db, schema.Id, nodes, members, meshElems, meshNodes, out var error);
+            app.BuildStoreyFragment(schema, z, error);
+        };
         _afterSave = () => app.RefreshFemSchemaTreeCounts(schema);
         var gjResolver = new FemGjDefaultResolver(() => app.CalcSettings);
         _memberFactory = new FemMemberFactory(gjResolver);
