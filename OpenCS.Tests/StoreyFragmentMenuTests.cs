@@ -3,6 +3,7 @@ using System.Windows;
 using CScore.Fem;
 using CScore.Fem.Fragment;
 using Microsoft.Data.Sqlite;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views;
@@ -65,16 +66,19 @@ public sealed class StoreyFragmentMenuTests : IDisposable
         {
             try
             {
-                var dialog = new StoreyFragmentDialog("Каркас", (0, 9));
+                var context = new StoreyFloorContext([], 0, 9);
+                var vm = new StoreyFragmentDialogVM("Каркас", context, null, null, CultureInfo.CurrentCulture);
+                var dialog = new StoreyFragmentDialog(vm);
                 ShowOffscreen(dialog);
-                Assert.Equal(string.Format(Loc.S("StoreyFragmentMeshRange"), "0", "9"), dialog.rangeText.Text);
+                Assert.True(vm.Manual);
+                Assert.Equal(string.Format(Loc.S("StoreyFragmentMeshRange"), "0", "9"), vm.RangeText);
                 dialog.z1Box.Text = "1,5";
-                dialog.z2Box.Text = "4,5";
-                Assert.Equal(StoreyFragmentForm.DefaultName("Каркас", 1.5, 4.5, CultureInfo.CurrentCulture), dialog.nameBox.Text);
-                dialog.nameBox.Text = "Своё";
-                dialog.z2Box.Text = "5";
-                Assert.Equal("Своё", dialog.nameBox.Text);
-                Assert.Equal((1.5, 5.0, "Своё"), dialog.ReadRequest(out _) is { } r ? (r.Z1, r.Z2, r.Name) : default);
+                vm.Z2Text = "4,5";
+                Assert.Equal(StoreyFragmentForm.DefaultName("Каркас", 1.5, 4.5, CultureInfo.CurrentCulture), vm.Name);
+                vm.Name = "Своё";
+                vm.Z2Text = "5";
+                Assert.Equal("Своё", vm.Name);
+                Assert.Equal((1.5, 5.0, "Своё"), vm.TryRequest(out _) is { } r ? (r.Z1, r.Z2, r.Name) : default);
                 dialog.Close();
 
                 var rows = StoreyFragmentReportRows.From(

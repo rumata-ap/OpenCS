@@ -3424,14 +3424,17 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// «Фрагмент по отметкам…» (фрагмент этажа, спека 2026-10-23): отметки и имя в диалоге, сборка новой схемы из
-      /// полосы родителя, отчёт сборки. При отказе схема не создаётся; собранный фрагмент открывается в редакторе.
+      /// «Фрагмент этажа…» (спеки 2026-10-23, 2026-10-29): перекрытие из списка или отметки вручную, имя — в диалоге;
+      /// сборка новой схемы из полосы родителя, отчёт сборки. При отказе схема не создаётся; собранный фрагмент
+      /// открывается в редакторе. <paramref name="pickedZ"/>/<paramref name="pickErrorKey"/> — предвыбор из 3D.
       /// </summary>
-      async void BuildStoreyFragment(CScore.Fem.FemSchema? parent)
+      public async void BuildStoreyFragment(CScore.Fem.FemSchema? parent, double? pickedZ = null, string? pickErrorKey = null)
       {
          if (parent == null) return;
          var owner = Application.Current?.MainWindow;
-         var dlg = new Views.StoreyFragmentDialog(parent.Tag, db.GetFemMeshZRange(parent.Id)) { Owner = owner };
+         var context = StoreyFloorService.Read(db, parent.Id);
+         var vm = new ViewModels.StoreyFragmentDialogVM(parent.Tag, context, pickedZ, pickErrorKey, CultureInfo.CurrentCulture);
+         var dlg = new Views.StoreyFragmentDialog(vm) { Owner = owner };
          if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
 
          BeginBusy(Loc.S("StoreyFragmentBusy"));

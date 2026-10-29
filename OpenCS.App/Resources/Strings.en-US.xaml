@@ -4024,14 +4024,14 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemMeshStepsHint">A member's own step ("Mesh step…" in the context menu; for a plate also in its editor) overrides the common one. Empty: bars are split only at nodes, plates use the region's size.</system:String>
     <system:String x:Key="FemSchemaMeshSteps">Mesh steps…</system:String>
     <system:String x:Key="FemSchemaMeshStepsTitle">Schema mesh steps</system:String>
-    <system:String x:Key="StoreyFragmentMenu">Fragment by levels…</system:String>
+    <system:String x:Key="StoreyFragmentMenu">Storey fragment…</system:String>
     <system:String x:Key="StoreyFragmentTitle">Storey fragment</system:String>
     <system:String x:Key="StoreyFragmentZ1">Lower level z₁, m</system:String>
     <system:String x:Key="StoreyFragmentZ2">Upper level z₂, m</system:String>
     <system:String x:Key="StoreyFragmentName">New schema name</system:String>
     <system:String x:Key="StoreyFragmentMeshRange">Schema mesh spans heights from {0} to {1} m.</system:String>
     <system:String x:Key="StoreyFragmentNoMesh">The schema has no mesh: the fragment cannot be built.</system:String>
-    <system:String x:Key="StoreyFragmentHint">Levels are mid-heights of the storeys below and above the floor; a boundary must not run along a slab. A new schema of members with transferred loads is created; build its mesh with "Build schema mesh".</system:String>
+    <system:String x:Key="StoreyFragmentHint">Levels are mid-heights of the storeys below and above the floor; without a neighbouring storey — the schema edge. A new schema of members with transferred loads is created; build its mesh with "Build schema mesh".</system:String>
     <system:String x:Key="StoreyFragmentBuild">Build</system:String>
     <system:String x:Key="StoreyFragmentBusy">Building storey fragment…</system:String>
     <system:String x:Key="StoreyFragmentBuilt">Fragment "{0}" of schema "{1}" (z {2}…{3} m) built: members {4}, load cases {5}, remarks {6}. Next — "Build schema mesh".</system:String>
@@ -4050,6 +4050,21 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelInvalid">Levels z₁ and z₂ must be numbers in metres.</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>
+    <system:String x:Key="StoreyFloorLabel">Floor</system:String>
+    <system:String x:Key="StoreyFloorRow">{0} · {1} m² · members: {2}</system:String>
+    <system:String x:Key="StoreyFloorBelow">Storey below h = {0} m → z₁ = {1} m</system:String>
+    <system:String x:Key="StoreyFloorBelowEdge">No storey below — down to the schema bottom: z₁ = {0} m</system:String>
+    <system:String x:Key="StoreyFloorAbove">Storey above h = {0} m → z₂ = {1} m</system:String>
+    <system:String x:Key="StoreyFloorAboveEdge">No storey above — up to the schema top: z₂ = {0} m</system:String>
+    <system:String x:Key="StoreyFloorCrossed">A cut runs along the floor at {0} m of another part of the building — set the levels manually.</system:String>
+    <system:String x:Key="StoreyFloorManual">Set levels manually</system:String>
+    <system:String x:Key="StoreyFloorNone">The schema has no horizontal floor plates — set the levels manually.</system:String>
+    <system:String x:Key="StoreyFloorNotSelected">Select a floor.</system:String>
+    <system:String x:Key="StoreyFloorPickEmpty">The selection has no nodes or elements with coordinates.</system:String>
+    <system:String x:Key="StoreyFloorPickTilted">The selection is not horizontal: pick a floor slab, its elements or nodes at one level.</system:String>
+    <system:String x:Key="StoreyFloorPickNotFound">No floor found at {0} m — select it in the list.</system:String>
+    <system:String x:Key="StoreyFloorUnsaved">Save the schema: the fragment is built from the saved schema.</system:String>
+    <system:String x:Key="Fem3DStoreyFragmentCtx">Storey fragment at this floor…</system:String>
     <system:String x:Key="StoreyFragmentReportError">Error</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Warning</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Summary</system:String>

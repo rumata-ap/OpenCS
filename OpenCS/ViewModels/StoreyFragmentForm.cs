@@ -12,6 +12,15 @@ public static class StoreyFragmentForm
     public static string DefaultName(string parentTag, double z1, double z2, CultureInfo culture) =>
         $"{parentTag} · {z1.ToString("0.###", culture)}…{z2.ToString("0.###", culture)}";
 
+    /// <summary>Имя по умолчанию по перекрытию: «‹родитель› · +3,300».</summary>
+    public static string DefaultName(string parentTag, double floorZ, CultureInfo culture) =>
+        $"{parentTag} · {SignedLevel(floorZ, culture)}";
+
+    /// <summary>Отметка со знаком и тремя знаками: «+3,300», «−0,150», «±0,000».</summary>
+    public static string SignedLevel(double z, CultureInfo culture) =>
+        Math.Abs(z) < 0.0005 ? "±" + 0.0.ToString("0.000", culture)
+        : (z > 0 ? "+" : "−") + Math.Abs(z).ToString("0.000", culture);
+
     /// <summary>Запрос сборки из полей; ошибка — текст для пользователя, запрос null.</summary>
     public static StoreyFragmentRequest? TryRead(string z1Text, string z2Text, string name, out string? error)
     {
