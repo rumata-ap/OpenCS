@@ -106,4 +106,42 @@ public class FemPlanarMeshPlanTests
         Assert.True(Assert.Single(curves, c => c.Geometry.Points.All(p => Math.Abs(p.U) < 1e-9)).KeepVertices);
         Assert.False(Assert.Single(curves, c => c.Geometry.Points.All(p => Math.Abs(p.V - 2) < 1e-9)).KeepVertices);
     }
+
+    /// <summary>Свободный узел в 0,4 мм от кромки плиты и в 0,6 мм от линии стыка со стеной — на них (иначе Gmsh
+    /// дробит сетку до долей миллиметра); в 5 мм — как есть. Привязка меняет отпечаток.</summary>
+    [Fact]
+    public void FreeNodeNearEdgeOrJunction_SnappedWithinMillimetre()
+    {
+        var (slab, wall) = SlabAndWallThrough();
+        FemNode[] nodes =
+        [
+            new() { NodeTag = "1", X = 3, Y = 0.0004, Z = 3 },
+            new() { NodeTag = "2", X = 1, Y = 2.0006, Z = 3 },
+            new() { NodeTag = "3", X = 5, Y = 2.005, Z = 3 },
+        ];
+
+        var result = FemPlanarMeshPlan.Constraints(1, nodes, Members(), Empty, slab, laterRegions: [("С", wall)]);
+
+        PlanarPoint2D At(string tag) => Assert.Single(result.Constraints, c => c.Id == $"free-node:{tag}").Geometry.Points[0];
+        Assert.Equal((3.0, 0.0), (At("1").U, At("1").V));
+        Assert.Equal(2, At("2").V, 12);
+        Assert.Equal(2.005, At("3").V, 12);
+        var plain = FemPlanarMeshPlan.Constraints(1, [nodes[2]], Members(), Empty, slab, laterRegions: [("С", wall)]);
+        Assert.NotEqual(plain.SourceFingerprint, result.SourceFingerprint);
+    }
+
+    /// <summary>Конец линии стыка, вышедший за кромку плиты на доли микрона (импортные контуры), — на кромке:
+    /// проверка ограничений точная.</summary>
+    [Fact]
+    public void JunctionEndMicronsOutsideHull_SnappedOntoHull()
+    {
+        var (slab, _) = SlabAndWallThrough();
+        var wall = PlanarRegion.CreateFromContour(new Contour { X = [0, 6.00000002, 6.00000002, 0], Y = [0, 0, 6, 6] },
+            frame: new Frame3D(new PlanarVector3(0, 2, 0), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0)));
+        wall.Id = 2;
+
+        var result = FemPlanarMeshPlan.Constraints(1, [], Members(), Empty, slab, laterRegions: [("С", wall)]);
+
+        Assert.Empty(PlanarConstraintValidator.Validate(slab, result.Constraints));
+    }
 }

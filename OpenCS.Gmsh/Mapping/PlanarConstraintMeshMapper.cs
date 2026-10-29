@@ -33,14 +33,19 @@ public static class PlanarConstraintMeshMapper
             .ToDictionary(pair => pair.RawId, pair => pair.Index);
         var shellElements = document.Elements.Where(IsShell).Select((element, index) => (element, index)).ToArray();
         var mappings = new List<PlanarConstraintMeshMapping>();
+        var constraints = (constraintObjects ?? region.ConstraintObjects).OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
+        // GmshPlanarGeoBuilder сливает вершины в наибольшем допуске ограничений области — концы и точки ищутся в нём же:
+        // иначе конец линии, слитый с вершиной соседнего ограничения на долю микрона, «не найден».
+        var merge = Math.Max(constraints.Select(c => c.ToleranceM).Where(t => double.IsFinite(t) && t > 0).DefaultIfEmpty(1e-9).Max(), 1e-9);
 
-        foreach (var constraint in (constraintObjects ?? region.ConstraintObjects).OrderBy(item => item.Id, StringComparer.Ordinal))
+        foreach (var constraint in constraints)
         {
             var localDiagnostics = new List<FemValidationDiagnostic>();
+            var tolerance = Math.Max(constraint.ToleranceM, merge);
             var mapped = constraint.Geometry.Kind switch
             {
-                PlanarConstraintGeometryKind.Point => MapPoint(constraint, document, nodes, rawToDense, localDiagnostics),
-                PlanarConstraintGeometryKind.Curve => MapCurve(constraint, document, nodes, rawToDense, localDiagnostics),
+                PlanarConstraintGeometryKind.Point => MapPoint(constraint, tolerance, document, nodes, rawToDense, localDiagnostics),
+                PlanarConstraintGeometryKind.Curve => MapCurve(constraint, tolerance, document, nodes, rawToDense, localDiagnostics),
                 PlanarConstraintGeometryKind.Region => MapRegion(constraint, document, nodes, shellElements, elements, localDiagnostics),
                 _ => new PartialMapping()
             };
@@ -66,6 +71,7 @@ public static class PlanarConstraintMeshMapper
 
     static PartialMapping MapPoint(
         PlanarConstraintObject constraint,
+        double tolerance,
         GmshMsh41Document document,
         IReadOnlyList<PlanarMeshNode> nodes,
         IReadOnlyDictionary<long, int> rawToDense,
@@ -82,7 +88,7 @@ public static class PlanarConstraintMeshMapper
         // сущность один раз) — тогда узел ищется по координатам.
         if (candidates.Length == 0)
             candidates = Enumerable.Range(0, nodes.Count)
-                .Where(index => MatchesPoint(nodes[index], constraint.Geometry.Points[0], Math.Max(constraint.ToleranceM, 1e-9)))
+                .Where(index => MatchesPoint(nodes[index], constraint.Geometry.Points[0], tolerance))
                 .ToArray();
         if (candidates.Length == 0)
         {
@@ -94,7 +100,7 @@ public static class PlanarConstraintMeshMapper
             diagnostics.Add(new("planar_constraint_point_ambiguous", $"Для constraint '{constraint.Id}' найдено несколько mesh nodes."));
             return new();
         }
-        if (!MatchesPoint(nodes[candidates[0]], constraint.Geometry.Points[0], constraint.ToleranceM))
+        if (!MatchesPoint(nodes[candidates[0]], constraint.Geometry.Points[0], tolerance))
         {
             diagnostics.Add(new("planar_constraint_point_outside_tolerance", $"Mesh node constraint '{constraint.Id}' не совпадает с исходной точкой в заданном допуске."));
             return new();
@@ -104,6 +110,7 @@ public static class PlanarConstraintMeshMapper
 
     static PartialMapping MapCurve(
         PlanarConstraintObject constraint,
+        double tolerance,
         GmshMsh41Document document,
         IReadOnlyList<PlanarMeshNode> nodes,
         IReadOnlyDictionary<long, int> rawToDense,
@@ -112,7 +119,6 @@ public static class PlanarConstraintMeshMapper
         // Рёбра кривой — все линейные элементы сетки, лежащие на её ломаной: участок по кромке — это
         // линия контура, общий с другим constraint-ом — линия под его физической группой
         // (GmshPlanarGeoBuilder пишет линию в одну группу), поэтому отбор геометрический, не по имени.
-        var tolerance = Math.Max(constraint.ToleranceM, 1e-9);
         var polyline = constraint.Geometry.Points;
         var edges = document.Elements
             .Select((element, index) => (element, index))
@@ -122,8 +128,8 @@ public static class PlanarConstraintMeshMapper
             .Where(edge => OnPolyline(nodes[edge.A], nodes[edge.B], polyline, tolerance))
             .ToArray();
         var lineElements = edges.Select(edge => edge.Element).ToArray();
-        var start = FindExactNode(nodes, constraint.Geometry.Points[0], constraint.ToleranceM, edges.SelectMany(edge => new[] { edge.A, edge.B }));
-        var end = FindExactNode(nodes, constraint.Geometry.Points[^1], constraint.ToleranceM, edges.SelectMany(edge => new[] { edge.A, edge.B }));
+        var start = FindExactNode(nodes, constraint.Geometry.Points[0], tolerance, edges.SelectMany(edge => new[] { edge.A, edge.B }));
+        var end = FindExactNode(nodes, constraint.Geometry.Points[^1], tolerance, edges.SelectMany(edge => new[] { edge.A, edge.B }));
         if (start is null || end is null)
         {
             diagnostics.Add(new("planar_constraint_curve_endpoint_missing", $"Для constraint '{constraint.Id}' не найдены точные endpoints curve."));

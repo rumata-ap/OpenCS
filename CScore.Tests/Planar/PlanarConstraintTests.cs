@@ -112,4 +112,40 @@ public sealed class PlanarConstraintTests
 
         Assert.NotEqual(first, region.GeometryFingerprint);
     }
+
+    /// <summary>Линия на кромке отверстия (стена вдоль края проёма плиты) — не в отверстии; внутри — в отверстии.</summary>
+    [Fact]
+    public void Validate_CurveOnHoleEdge_NotInsideHole()
+    {
+        var region = PlanarRegion.CreateFromContour(
+            new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] },
+            [new Contour { X = [1, 3, 3, 1], Y = [1, 1, 3, 3] }]);
+        PlanarConstraintObject Curve(string id, double v, double u0 = 1, double u1 = 3) => PlanarConstraintObject.Curve(id,
+            [new PlanarPoint2D(u0, v), new PlanarPoint2D(u1, v)],
+            new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.ConformingPartition));
+
+        Assert.DoesNotContain(PlanarConstraintValidator.Validate(region, [Curve("edge", 3)]), d => d.Code == "planar_constraint_inside_hole");
+        Assert.DoesNotContain(PlanarConstraintValidator.Validate(region, [Curve("edge", 1)]), d => d.Code == "planar_constraint_inside_hole");
+        Assert.Contains(PlanarConstraintValidator.Validate(region, [Curve("inside", 2, 1.5, 2.5)]), d => d.Code == "planar_constraint_inside_hole");
+    }
+
+    /// <summary>Области, примыкающие по стороне (куски следа АЖТ, разрезанные отверстием), — не перекрытие; заход
+    /// одной в другую и вложение — перекрытие.</summary>
+    [Fact]
+    public void Validate_RegionsTouchingAlongEdge_NotOverlap()
+    {
+        var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 10, 10, 0], Y = [0, 0, 10, 10] });
+        PlanarConstraintObject Box(string id, double u0, double v0, double u1, double v1) => PlanarConstraintObject.Region(id,
+            [new PlanarPoint2D(u0, v0), new PlanarPoint2D(u1, v0), new PlanarPoint2D(u1, v1), new PlanarPoint2D(u0, v1)],
+            new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.ConformingPartition));
+        bool Overlap(params PlanarConstraintObject[] c) =>
+            PlanarConstraintValidator.Validate(region, c).Any(d => d.Code == "planar_constraint_overlap");
+
+        // Как след колонны 14 «Музея»: верхний кусок шире нижнего, общая сторона с Т-стыком.
+        Assert.False(Overlap(Box("a", 1, 2, 3, 3), Box("b", 1, 1.5, 2.5, 2)));
+        Assert.False(Overlap(Box("a", 1, 1, 2, 2), Box("b", 2, 2, 3, 3)));
+        Assert.True(Overlap(Box("a", 0, 0, 2, 1), Box("b", 1, 0, 3, 1)));
+        Assert.True(Overlap(Box("a", 0, 0, 2, 1), Box("b", 0, 0, 1, 1)));
+        Assert.True(Overlap(Box("a", 0, 0, 3, 3), Box("b", 1, 1, 2, 2)));
+    }
 }

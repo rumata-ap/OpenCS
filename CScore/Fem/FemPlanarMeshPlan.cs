@@ -134,6 +134,8 @@ public static class FemPlanarMeshPlan
         var used = new HashSet<int>();
         foreach (var member in members)
             foreach (var id in ReadIds(member.NodeIdsJson)) used.Add(id);
+        // Точки свободных узлов добавляются последними: их привязывают к уже собранным ограничениям и контуру.
+        var freeNodes = new List<(string Id, FemNode Node, double U, double V)>();
         foreach (var node in nodes.OrderBy(n => n.NodeTag, StringComparer.Ordinal))
         {
             if (!int.TryParse(node.NodeTag, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tag) || used.Contains(tag))
@@ -143,13 +145,7 @@ public static class FemPlanarMeshPlan
             if (Math.Abs(w) > options.PlaneToleranceM || !InsideRegion(u, v, region, options.GeometryToleranceM)) continue;
             var id = $"free-node:{node.NodeTag}";
             if (!ids.Add(id)) continue;
-            var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
-                new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
-            point.IsDerived = true;
-            point.ToleranceM = options.GeometryToleranceM;
-            point.SourceReferences = [new PlanarSourceReference(0, "", [], [], [topologyNodes[node.NodeTag].Id], [node.NodeTag])];
-            constraints.Add(point);
-            free++;
+            freeNodes.Add((id, node, u, v));
         }
 
         var seams = new List<PlanarConstraintObject>();
@@ -193,7 +189,72 @@ public static class FemPlanarMeshPlan
             }
         }
 
+        var snapped = new List<string>();
+        foreach (var (id, node, u0, v0) in freeNodes)
+        {
+            var (u, v) = SnapFreePoint((u0, v0), constraints, region);
+            if (u != u0 || v != v0)
+                snapped.Add(id + ":" + u.ToString("G17", CultureInfo.InvariantCulture) + "," + v.ToString("G17", CultureInfo.InvariantCulture));
+            var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
+                new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
+            point.IsDerived = true;
+            point.ToleranceM = options.GeometryToleranceM;
+            point.SourceReferences = [new PlanarSourceReference(0, "", [], [], [topologyNodes[node.NodeTag].Id], [node.NodeTag])];
+            constraints.Add(point);
+            free++;
+        }
+        if (snapped.Count > 0)
+            fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(fingerprint + "|free-snap:" + string.Join("|", snapped)))).ToLowerInvariant();
+
         return new FemPlanarRegionConstraints(constraints, fingerprint, diagnostics, derived, free, seams.Count, rigid);
+    }
+
+    /// <summary>
+    /// Точка свободного узла ближе <see cref="FemMeshDiscretizer.CollinearToleranceM"/> к другому ограничению области
+    /// (точке, линии, контуру следа) или к её контуру — на него: иначе Gmsh дробит сетку до долей миллиметра между ними
+    /// (узловые нагрузки SCAD у кромок и швов фрагмента «Музея» — до получаса на плиту). Узел схемы и узел сетки остаются
+    /// в пределах того же допуска — материализация сопоставляет их как прежде.
+    /// </summary>
+    static (double U, double V) SnapFreePoint((double U, double V) p, IReadOnlyList<PlanarConstraintObject> constraints, PlanarRegion region)
+    {
+        const double snap = FemMeshDiscretizer.CollinearToleranceM;
+        (double U, double V) best = p;
+        double bestD = snap * snap;
+        bool atPoint = false;
+        void Try((double U, double V) q, bool isPoint)
+        {
+            double d = (p.U - q.U) * (p.U - q.U) + (p.V - q.V) * (p.V - q.V);
+            // Точка (вершина) важнее отрезка рядом с ней: иначе остаётся крошечное ребро до неё.
+            if (isPoint ? d <= snap * snap && (!atPoint || d < bestD) : !atPoint && d < bestD)
+            {
+                (best, bestD) = (q, d);
+                atPoint |= isPoint;
+            }
+        }
+        void Segments(IReadOnlyList<(double U, double V)> points, bool closed)
+        {
+            foreach (var q in points) Try(q, true);
+            int n = closed ? points.Count : points.Count - 1;
+            for (int i = 0; i < n; i++)
+            {
+                var a = points[i];
+                var b = points[(i + 1) % points.Count];
+                double rx = b.U - a.U, ry = b.V - a.V, l2 = rx * rx + ry * ry;
+                if (l2 == 0) continue;
+                double t = Math.Clamp(((p.U - a.U) * rx + (p.V - a.V) * ry) / l2, 0, 1);
+                Try((a.U + t * rx, a.V + t * ry), false);
+            }
+        }
+        // Другие свободные узлы — не цель: два узла схемы в одном узле сетки потеряли бы нагрузку одного из них.
+        foreach (var c in constraints.Where(c => !c.Id.StartsWith("free-node:", StringComparison.Ordinal)))
+            Segments(c.Geometry.Points.Select(q => (q.U, q.V)).ToList(), c.Geometry.Kind == PlanarConstraintGeometryKind.Region);
+        foreach (var contour in region.Contours)
+        {
+            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
+            Segments(Enumerable.Range(0, x.Length).Select(i => (x[i], y[i])).ToList(), closed: true);
+        }
+        return best;
     }
 
     /// <summary>
@@ -222,22 +283,26 @@ public static class FemPlanarMeshPlan
         void AddPoint(double u, double v)
         {
             if (!InsideRegion(u, v, region, tol)) return;
+            (u, v) = SnapToContour((u, v), region, tol);
             var id = $"region-junction:{tag}:p{result.Count}";
             var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
                 new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
             point.IsDerived = true;
-            point.ToleranceM = tol;
+            point.ToleranceM = Math.Max(tol, SeamToleranceM);
             result.Add(point);
         }
         void AddSegment((double U, double V) a, (double U, double V) b)
         {
-            foreach (var (p, q) in Clip(a, b, region, tol))
+            foreach (var (p0, q0) in Clip(a, b, region, tol))
             {
+                var (p, q) = (SnapToContour(p0, region, tol), SnapToContour(q0, region, tol));
+                // Обрезок за кромкой длиной в доли микрона после привязки вырождается в точку.
+                if (Math.Abs(p.U - q.U) + Math.Abs(p.V - q.V) <= 1e-6) continue;
                 var id = $"region-junction:{tag}:c{result.Count}";
                 var curve = PlanarConstraintObject.Curve(id, [new PlanarPoint2D(p.U, p.V), new PlanarPoint2D(q.U, q.V)],
                     new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.ConformingPartition), id);
                 curve.IsDerived = true;
-                curve.ToleranceM = tol;
+                curve.ToleranceM = Math.Max(tol, SeamToleranceM);
                 result.Add(curve);
             }
         }
@@ -332,6 +397,44 @@ public static class FemPlanarMeshPlan
         }
         return result;
     }
+
+    /// <summary>
+    /// Точка ближе max(<paramref name="tol"/>, <see cref="SeamToleranceM"/>) к контуру области (внешнему или отверстию) — на контур: вершина,
+    /// иначе проекция на ребро. Импортные контуры соседних областей расходятся на доли микрона (у «Музея» конец шва
+    /// стены на 1,7·10⁻⁸ м за кромкой плиты при допуске вывода 10⁻⁸), а проверка ограничений области точная.
+    /// </summary>
+    static (double U, double V) SnapToContour((double U, double V) p, PlanarRegion region, double tol)
+    {
+        (double U, double V) best = p;
+        double snap = Math.Max(tol, SeamToleranceM), bestD = snap * snap;
+        foreach (var contour in region.Contours)
+        {
+            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
+            for (int i = 0; i < x.Length; i++)
+            {
+                double dx = p.U - x[i], dy = p.V - y[i];
+                if (dx * dx + dy * dy <= bestD) return (x[i], y[i]);
+            }
+            for (int i = 0; i < x.Length; i++)
+            {
+                int j = (i + 1) % x.Length;
+                double rx = x[j] - x[i], ry = y[j] - y[i], l2 = rx * rx + ry * ry;
+                if (l2 == 0) continue;
+                double t = Math.Clamp(((p.U - x[i]) * rx + (p.V - y[i]) * ry) / l2, 0, 1);
+                double qx = x[i] + t * rx, qy = y[i] + t * ry, d = (p.U - qx) * (p.U - qx) + (p.V - qy) * (p.V - qy);
+                if (d < bestD) (best, bestD) = ((qx, qy), d);
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Допуск линий и точек стыка, м: импортные контуры соседних областей расходятся на микроны, и концы швов двух стен
+    /// и кромка плиты в одном углу дают отрезки длиной в доли микрона — Gmsh на них виснет на десятки минут и выдаёт
+    /// вырожденные КЭ (фрагмент «Музея», плита +10,090: 0,76 мкм при шаге 0,5 м). С этим допуском построитель .geo
+    /// сливает такие вершины, а сопоставление узлов сетки с ограничением идёт в том же допуске.
+    /// </summary>
+    public const double SeamToleranceM = 1e-5;
 
     static int[] ReadIds(string json)
     {

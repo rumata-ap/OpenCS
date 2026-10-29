@@ -73,7 +73,8 @@ public static class PlanarConstraintValidator
 
         if (points.Any(point => !IsInsideOrOn(point, hull)))
             diagnostics.Add(new("planar_constraint_outside_host", $"Constraint '{constraint.Id}' выходит за пределы host-региона."));
-        if (points.Any(point => holes.Any(hole => IsInside(point, hole))))
+        // Точка на кромке отверстия — не в отверстии (стена вдоль края проёма плиты).
+        if (points.Any(point => holes.Any(hole => IsInside(point, hole) && !IsOnBoundary(point, hole))))
             diagnostics.Add(new("planar_constraint_inside_hole", $"Constraint '{constraint.Id}' попадает в отверстие host-региона."));
 
         if (IntersectsLoop(points, constraint.Geometry.Kind == PlanarConstraintGeometryKind.Region, hull))
@@ -176,13 +177,29 @@ public static class PlanarConstraintValidator
         if (first.Kind != PlanarConstraintGeometryKind.Region || second.Kind != PlanarConstraintGeometryKind.Region)
             return false;
 
-        var firstSegments = Segments(first.Points, first.Kind == PlanarConstraintGeometryKind.Region).ToArray();
-        var secondSegments = Segments(second.Points, second.Kind == PlanarConstraintGeometryKind.Region).ToArray();
-        if (firstSegments.Any(a => secondSegments.Any(b => SegmentsCross(a.A, a.B, b.A, b.B)))) return true;
-        if (first.Kind == PlanarConstraintGeometryKind.Region && IsInside(second.Points[0], first.Points)) return true;
-        if (second.Kind == PlanarConstraintGeometryKind.Region && IsInside(first.Points[0], second.Points)) return true;
-        return false;
+        // Касание по границе (общая сторона, вершина на стороне) — не перекрытие: куски следа АЖТ, разрезанные
+        // отверстием плиты, примыкают друг к другу, построитель .geo делит общие стороны. Перекрытие — собственное
+        // пересечение сторон или вершина, середина стороны либо центр одной области строго внутри другой.
+        var firstSegments = Segments(first.Points, closed: true).ToArray();
+        var secondSegments = Segments(second.Points, closed: true).ToArray();
+        if (firstSegments.Any(a => secondSegments.Any(b => SegmentsCrossProperly(a.A, a.B, b.A, b.B)))) return true;
+        return Probes(second.Points).Any(p => IsStrictlyInside(p, first.Points)) ||
+               Probes(first.Points).Any(p => IsStrictlyInside(p, second.Points));
     }
+
+    /// <summary>Вершины, середины сторон и центр вершин многоугольника.</summary>
+    static IEnumerable<PlanarPoint2D> Probes(IReadOnlyList<PlanarPoint2D> polygon)
+    {
+        foreach (var (a, b) in Segments(polygon, closed: true))
+        {
+            yield return a;
+            yield return new PlanarPoint2D((a.U + b.U) / 2, (a.V + b.V) / 2);
+        }
+        yield return new PlanarPoint2D(polygon.Average(p => p.U), polygon.Average(p => p.V));
+    }
+
+    static bool IsStrictlyInside(PlanarPoint2D point, IReadOnlyList<PlanarPoint2D> polygon) =>
+        !IsOnBoundary(point, polygon) && IsInside(point, polygon);
 
     static IEnumerable<(PlanarPoint2D A, PlanarPoint2D B)> Segments(IReadOnlyList<PlanarPoint2D> points, bool closed)
     {
