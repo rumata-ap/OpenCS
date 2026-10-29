@@ -4051,7 +4051,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Level z₁ must be below z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Enter a name for the new schema.</system:String>
     <system:String x:Key="StoreyFloorLabel">Floor</system:String>
-    <system:String x:Key="StoreyFloorRow">{0} · {1} m² · members: {2}</system:String>
+    <system:String x:Key="StoreyFloorRow">{0} · {1} m² · {2}</system:String>
+    <system:String x:Key="StoreyFloorMembers">members: {0}</system:String>
+    <system:String x:Key="StoreyFloorElements">elements: {0}</system:String>
+    <system:String x:Key="StoreyFloorSearchBusy">Searching schema floors…</system:String>
     <system:String x:Key="StoreyFloorBelow">Storey below h = {0} m → z₁ = {1} m</system:String>
     <system:String x:Key="StoreyFloorBelowEdge">No storey below — down to the schema bottom: z₁ = {0} m</system:String>
     <system:String x:Key="StoreyFloorAbove">Storey above h = {0} m → z₂ = {1} m</system:String>

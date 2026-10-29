@@ -4051,7 +4051,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentLevelsOrder">Отметка z₁ должна быть ниже z₂.</system:String>
     <system:String x:Key="StoreyFragmentNameEmpty">Задайте имя новой схемы.</system:String>
     <system:String x:Key="StoreyFloorLabel">Перекрытие</system:String>
-    <system:String x:Key="StoreyFloorRow">{0} · {1} м² · КонЭ: {2}</system:String>
+    <system:String x:Key="StoreyFloorRow">{0} · {1} м² · {2}</system:String>
+    <system:String x:Key="StoreyFloorMembers">КонЭ: {0}</system:String>
+    <system:String x:Key="StoreyFloorElements">КЭ: {0}</system:String>
+    <system:String x:Key="StoreyFloorSearchBusy">Поиск перекрытий схемы…</system:String>
     <system:String x:Key="StoreyFloorBelow">Этаж ниже h = {0} м → z₁ = {1} м</system:String>
     <system:String x:Key="StoreyFloorBelowEdge">Этажа ниже нет — до низа схемы: z₁ = {0} м</system:String>
     <system:String x:Key="StoreyFloorAbove">Этаж выше h = {0} м → z₂ = {1} м</system:String>

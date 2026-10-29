@@ -21,7 +21,7 @@ public sealed class StoreyFragmentDialogVMTests
     }
 
     static StoreyFloorLevel Level(double z) =>
-        new(z, 100, ["П"], [[new PlanarPoint2D(0, 0), new(10, 0), new(10, 10), new(0, 10)]]);
+        new(z, 100, ["П"], 0, Enumerable.Range(0, 400).Select(i => (long)i).ToHashSet());
 
     /// <summary>Фундаментная плита ±0, перекрытия +3,3 и +6,6; сваи до −12, парапет до +7,8.</summary>
     static StoreyFloorContext Context() => new([Level(0), Level(3.3), Level(6.6)], -12, 7.8);
@@ -36,7 +36,8 @@ public sealed class StoreyFragmentDialogVMTests
         Assert.Equal(("1,65", "4,95"), (vm.Z1Text, vm.Z2Text));
         Assert.Equal(string.Format(Loc.S("StoreyFloorBelow"), "3,3", "+1,650"), vm.BelowText);
         Assert.Equal("Музей · +3,300", vm.Name);
-        Assert.Equal(string.Format(Ru, Loc.S("StoreyFloorRow"), "+3,300", "100", 1), vm.Levels[1].Label);
+        Assert.Equal(string.Format(Ru, Loc.S("StoreyFloorRow"), "+3,300", "100", string.Format(Loc.S("StoreyFloorMembers"), 1)),
+            vm.Levels[1].Label);
 
         var r = vm.TryRequest(out var error);
         Assert.Null(error);

@@ -21,7 +21,27 @@ public sealed class StoreyFloorLevelsTests
     }
 
     static List<StoreyFloorLevel> Levels(params (FemMember Member, PlanarRegion Region)[] items) =>
-        StoreyFloorLevels.Find(items.Select(i => i.Member), items.Select(i => i.Region));
+        StoreyFloorLevels.Find(items.Select(i => i.Member), items.Select(i => i.Region), [], []);
+
+    /// <summary>Сетка плиты n×n КЭ-оболочек (Q4 «1 2 4 3») [x0, x1]×[y0, y1] на отметке z; КЭ без КонЭ, если
+    /// <paramref name="owner"/> null.</summary>
+    static void MeshSlab(List<FemMeshNode> nodes, List<FemElement> elements, double x0, double y0, double x1, double y1,
+        double z, int n, string? owner = null)
+    {
+        int first = nodes.Count + 1;
+        double hx = (x1 - x0) / n, hy = (y1 - y0) / n;
+        for (int j = 0; j <= n; j++)
+            for (int i = 0; i <= n; i++)
+                nodes.Add(new FemMeshNode { NodeTag = (first + j * (n + 1) + i).ToString(), X = x0 + i * hx, Y = y0 + j * hy, Z = z });
+        int T(int i, int j) => first + j * (n + 1) + i;
+        for (int j = 0; j < n; j++)
+            for (int i = 0; i < n; i++)
+                elements.Add(new FemElement
+                {
+                    ElemTag = $"e{elements.Count + 1}", ElemType = "shell", SourceMemberTag = owner,
+                    NodeIdsJson = $"[{T(i, j)},{T(i + 1, j)},{T(i, j + 1)},{T(i + 1, j + 1)}]",
+                });
+    }
 
     [Fact]
     public void ThreeStoreys_MidHeights()
@@ -83,6 +103,47 @@ public sealed class StoreyFloorLevelsTests
         var level = Assert.Single(levels);
         Assert.Equal(3.29, level.Z, 6);
         Assert.Equal(["П1б", "П1а"], level.MemberTags);
+    }
+
+    [Fact]
+    public void MeshWithoutMembers_Levels_SmallLandingNotNeighbour()
+    {
+        // Импорт без КонЭ: плиты 20×20 на 0, 5,4 и 10,8 сеткой; площадка лестницы 2×2 на 2,7 внутри плана; стена (не
+        // горизонтальна) не уровень.
+        var nodes = new List<FemMeshNode>();
+        var elements = new List<FemElement>();
+        MeshSlab(nodes, elements, 0, 0, 20, 20, 0, 10);
+        MeshSlab(nodes, elements, 8, 8, 10, 10, 2.7, 2);
+        MeshSlab(nodes, elements, 0, 0, 20, 20, 5.4, 10);
+        MeshSlab(nodes, elements, 0, 0, 20, 20, 10.8, 10);
+        int w = nodes.Count + 1;
+        nodes.Add(new FemMeshNode { NodeTag = w.ToString(), X = 0, Y = 0, Z = 0 });
+        nodes.Add(new FemMeshNode { NodeTag = (w + 1).ToString(), X = 5, Y = 0, Z = 0 });
+        nodes.Add(new FemMeshNode { NodeTag = (w + 2).ToString(), X = 0, Y = 0, Z = 5.4 });
+        nodes.Add(new FemMeshNode { NodeTag = (w + 3).ToString(), X = 5, Y = 0, Z = 5.4 });
+        elements.Add(new FemElement { ElemTag = "wall", ElemType = "shell", NodeIdsJson = $"[{w},{w + 1},{w + 2},{w + 3}]" });
+
+        var levels = StoreyFloorLevels.Find([], [], nodes, elements);
+        Assert.Equal([0, 2.7, 5.4, 10.8], levels.Select(l => Math.Round(l.Z, 6)));
+        Assert.Equal(400, levels[2].AreaM2, 6);
+        Assert.Equal(100, levels[2].ElementCount);
+        Assert.Empty(levels[2].MemberTags);
+
+        var band = StoreyFloorLevels.Band(levels, 2, 0, 10.8);
+        Assert.Equal((2.7, 8.1), (Math.Round(band.Z1, 6), Math.Round(band.Z2, 6)));   // площадка 4 м² не сосед
+        Assert.Equal(5.4, band.HeightBelow!.Value, 6);
+    }
+
+    [Fact]
+    public void MeshCoveredByMember_NotCountedTwice()
+    {
+        var nodes = new List<FemMeshNode>();
+        var elements = new List<FemElement>();
+        var plate = Plate("П1", 0, 0, 10, 10, 3);
+        MeshSlab(nodes, elements, 0, 0, 10, 10, 3, 5, owner: "П1");
+        var level = Assert.Single(StoreyFloorLevels.Find([plate.Member], [plate.Region], nodes, elements));
+        Assert.Equal(100, level.AreaM2, 6);
+        Assert.Equal((1, 0), (level.MemberTags.Count, level.ElementCount));
     }
 
     [Fact]

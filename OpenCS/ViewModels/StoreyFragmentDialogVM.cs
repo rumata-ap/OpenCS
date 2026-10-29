@@ -35,7 +35,7 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
         _culture = culture;
         Levels = context.Levels
             .Select((l, i) => new StoreyFloorRow(i, l,
-                string.Format(culture, Loc.S("StoreyFloorRow"), Signed(l.Z), l.AreaM2.ToString("0.#", culture), l.MemberTags.Count)))
+                string.Format(culture, Loc.S("StoreyFloorRow"), Signed(l.Z), l.AreaM2.ToString("0.#", culture), Counts(l))))
             .ToList();
         RangeText = string.Format(Loc.S("StoreyFragmentMeshRange"), F(context.ZMin), F(context.ZMax));
         if (pickErrorKey is not null) PickMessage = Loc.S(pickErrorKey);
@@ -157,6 +157,13 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
         Name = name;
         _settingName = false;
     }
+
+    /// <summary>«КонЭ: 8», «КЭ: 15695» или оба через запятую.</summary>
+    static string Counts(StoreyFloorLevel l) => string.Join(", ", new[]
+    {
+        l.MemberTags.Count > 0 ? string.Format(Loc.S("StoreyFloorMembers"), l.MemberTags.Count) : null,
+        l.ElementCount > 0 ? string.Format(Loc.S("StoreyFloorElements"), l.ElementCount) : null,
+    }.OfType<string>());
 
     string F(double v) => v.ToString("0.###", _culture);
     string Signed(double v) => StoreyFragmentForm.SignedLevel(v, _culture);

@@ -3432,7 +3432,20 @@ namespace OpenCS
       {
          if (parent == null) return;
          var owner = Application.Current?.MainWindow;
-         var context = StoreyFloorService.Read(db, parent.Id);
+         BeginBusy(Loc.S("StoreyFloorSearchBusy"));
+         StoreyFloorContext context;
+         try
+         {
+            context = await Task.Run(() => StoreyFloorService.Read(db, parent.Id));
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("StoreyFragmentTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         EndBusy();
          var vm = new ViewModels.StoreyFragmentDialogVM(parent.Tag, context, pickedZ, pickErrorKey, CultureInfo.CurrentCulture);
          var dlg = new Views.StoreyFragmentDialog(vm) { Owner = owner };
          if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;

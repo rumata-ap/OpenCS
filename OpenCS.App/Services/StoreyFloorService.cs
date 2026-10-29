@@ -14,12 +14,16 @@ public sealed record StoreyFloorContext(IReadOnlyList<StoreyFloorLevel> Levels, 
 /// </summary>
 public static class StoreyFloorService
 {
-    /// <summary>Перекрытия из КонЭ-пластин схемы; диапазон z — по сетке, иначе по узлам схемы, иначе по перекрытиям.</summary>
+    /// <summary>
+    /// Перекрытия из КонЭ-пластин и КЭ-оболочек сетки без КонЭ (импорт); диапазон z — по сетке, иначе по узлам схемы,
+    /// иначе по перекрытиям. Читает всю сетку — вызывать в фоне.
+    /// </summary>
     public static StoreyFloorContext Read(DatabaseService db, int schemaId)
     {
         ArgumentNullException.ThrowIfNull(db);
         var nodes = db.GetFemNodes(schemaId);
-        var levels = StoreyFloorLevels.Find(db.GetFemMembers(schemaId), db.GetPlanarRegions(schemaId));
+        var levels = StoreyFloorLevels.Find(db.GetFemMembers(schemaId), db.GetPlanarRegions(schemaId),
+            db.GetFemMeshNodes(schemaId), db.GetFemMeshElements(schemaId));
         var zs = levels.Select(l => l.Z).ToList();
         (double Min, double Max) range = db.GetFemMeshZRange(schemaId)
             ?? (nodes.Count > 0 ? (nodes.Min(n => n.Z), nodes.Max(n => n.Z))

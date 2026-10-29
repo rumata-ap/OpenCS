@@ -1,13 +1,16 @@
+using CScore.Fem.Loads;
 using CScore.Planar;
 
 namespace CScore.Fem.Fragment;
 
-/// <summary>Перекрытие схемы: горизонтальные КонЭ-пластины на одной отметке.</summary>
-/// <param name="Z">Отметка срединной плоскости (средняя по КонЭ, взвешенная площадью), м.</param>
-/// <param name="AreaM2">Площадь в плане по внешним контурам, м².</param>
-/// <param name="Outlines">Внешние контуры КонЭ в плане (XY общих осей, без замыкающей вершины).</param>
-public sealed record StoreyFloorLevel(double Z, double AreaM2, IReadOnlyList<string> MemberTags,
-    IReadOnlyList<IReadOnlyList<PlanarPoint2D>> Outlines);
+/// <summary>Перекрытие схемы: горизонтальные КонЭ-пластины и КЭ-оболочки сетки без КонЭ на одной отметке.</summary>
+/// <param name="Z">Отметка срединной плоскости (средняя, взвешенная площадью), м.</param>
+/// <param name="AreaM2">Площадь в плане, м² (КонЭ — по внешним контурам).</param>
+/// <param name="MemberTags">КонЭ-пластины уровня.</param>
+/// <param name="ElementCount">КЭ-оболочки сетки без КонЭ на уровне (импорт без КонЭ).</param>
+/// <param name="Cells">Занятые ячейки растра плана <see cref="StoreyFloorLevels.CellM"/> — для пересечения уровней.</param>
+public sealed record StoreyFloorLevel(double Z, double AreaM2, IReadOnlyList<string> MemberTags, int ElementCount,
+    IReadOnlySet<long> Cells);
 
 /// <summary>Полоса фрагмента по перекрытию <paramref name="LevelIndex"/>.</summary>
 /// <param name="HeightBelow">Высота этажа ниже; null — этажа ниже нет, z₁ ниже низа схемы.</param>
@@ -17,8 +20,8 @@ public sealed record StoreyFloorBand(int LevelIndex, double Z1, double Z2, doubl
     IReadOnlyList<double> CrossedLevelZ);
 
 /// <summary>
-/// Поиск перекрытий и автоотметок фрагмента этажа (спека 2026-10-29): уровни горизонтальных КонЭ-пластин, соседи выше и
-/// ниже по пересечению в плане, разрезы — середины этажей; соседа нет — до края схемы.
+/// Поиск перекрытий и автоотметок фрагмента этажа (спека 2026-10-29): уровни горизонтальных пластин (КонЭ и КЭ сетки без
+/// КонЭ), соседи выше и ниже по пересечению в плане, разрезы — середины этажей; соседа нет — до края схемы.
 /// </summary>
 public static class StoreyFloorLevels
 {
@@ -32,54 +35,92 @@ public static class StoreyFloorLevels
     public const double MinOverlapM2 = 0.5;
     /// <summary>Наименьшая доля площади меньшего перекрытия, при которой перекрытия — соседи.</summary>
     public const double MinOverlapShare = 0.01;
+    /// <summary>
+    /// Наименьшая доля площади самого большого перекрытия, при которой уровень может быть соседом: площадки лестниц,
+    /// приямки и мелкие надстройки в списке остаются, но высоту этажа не сбивают.
+    /// </summary>
+    public const double MinNeighbourAreaShare = 0.05;
+    /// <summary>Шаг растра плана для пересечения уровней, м.</summary>
+    public const double CellM = 0.5;
 
-    /// <summary>Уровни по возрастанию отметки из КонЭ-пластин с областями; наклонные пластины не перекрытия.</summary>
-    public static List<StoreyFloorLevel> Find(IEnumerable<FemMember> members, IEnumerable<PlanarRegion> regions)
+    sealed record Piece(double Z, double Area, string? MemberTag, HashSet<long> Cells);
+
+    /// <summary>
+    /// Уровни по возрастанию отметки: КонЭ-пластины с областями и КЭ-оболочки сетки, не покрытые КонЭ из
+    /// <paramref name="members"/>; наклонные пластины не перекрытия.
+    /// </summary>
+    public static List<StoreyFloorLevel> Find(IEnumerable<FemMember> members, IEnumerable<PlanarRegion> regions,
+        IEnumerable<FemMeshNode> meshNodes, IEnumerable<FemElement> meshElements)
     {
+        var memberList = members.ToList();
         var regionById = regions.Where(r => r.Id > 0).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
         double cosTilt = Math.Cos(MaxTiltDeg * Math.PI / 180);
-        var plates = new List<(string Tag, double Z, double Area, IReadOnlyList<PlanarPoint2D> Outline)>();
-        foreach (var m in members)
+        var pieces = new List<Piece>();
+        foreach (var m in memberList)
         {
             if (m.PlanarRegionId is not int id || !regionById.TryGetValue(id, out var region) || region.Hull is null) continue;
             if (Math.Abs(region.Frame.LocalZ.Z) < cosTilt) continue;
             var outline = GlobalOutline(region);
             if (outline.Count < 3) continue;
-            double area = Math.Abs(PlanarPolygonOps.SignedArea(outline.Select(p => new PlanarPoint2D(p.X, p.Y)).ToList()));
+            var plan = outline.Select(p => new PlanarPoint2D(p.X, p.Y)).ToList();
+            double area = Math.Abs(PlanarPolygonOps.SignedArea(plan));
             if (area <= 0) continue;
-            plates.Add((m.ElemTag, outline.Average(p => p.Z), area,
-                outline.Select(p => new PlanarPoint2D(p.X, p.Y)).ToList()));
+            pieces.Add(new(outline.Average(p => p.Z), area, m.ElemTag, PolygonCells(plan)));
+        }
+
+        var memberTags = memberList.Select(m => m.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var nodesByTag = meshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        foreach (var e in meshElements)
+        {
+            if (e.ElemType != "shell" || (e.SourceMemberTag is { } owner && memberTags.Contains(owner))) continue;
+            if (FemElementGeometry.Of(e, nodesByTag) is not { IsShell: true } g) continue;
+            var p = g.Contour.Select(i => g.Points[i]).ToList();
+            double nx = 0, ny = 0, nz = 0;
+            for (int i = 0; i < p.Count; i++)
+            {
+                var a = p[i];
+                var b = p[(i + 1) % p.Count];
+                nx += (a.Y - b.Y) * (a.Z + b.Z);
+                ny += (a.Z - b.Z) * (a.X + b.X);
+                nz += (a.X - b.X) * (a.Y + b.Y);
+            }
+            double len = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+            if (len <= 0 || Math.Abs(nz) / len < cosTilt) continue;
+            pieces.Add(new(p.Average(q => q.Z), len / 2, null, BoxCells(p)));
         }
 
         var levels = new List<StoreyFloorLevel>();
-        var group = new List<(string Tag, double Z, double Area, IReadOnlyList<PlanarPoint2D> Outline)>();
-        foreach (var p in plates.OrderBy(p => p.Z))
+        var group = new List<Piece>();
+        foreach (var piece in pieces.OrderBy(p => p.Z))
         {
-            if (group.Count > 0 && p.Z - group[^1].Z > LevelToleranceM)
+            if (group.Count > 0 && piece.Z - group[^1].Z > LevelToleranceM)
             {
                 levels.Add(ToLevel(group));
                 group.Clear();
             }
-            group.Add(p);
+            group.Add(piece);
         }
         if (group.Count > 0) levels.Add(ToLevel(group));
         return levels;
     }
 
     /// <summary>
-    /// Полоса по уровню <paramref name="index"/>: середины этажей до ближайших соседей, пересекающихся в плане; соседа
-    /// нет — край схемы с запасом <see cref="EdgeMarginM"/>.
+    /// Полоса по уровню <paramref name="index"/>: середины этажей до ближайших соседей — уровней не меньше
+    /// <see cref="MinNeighbourAreaShare"/> самого большого, пересекающихся в плане; соседа нет — край схемы с запасом
+    /// <see cref="EdgeMarginM"/>.
     /// </summary>
     public static StoreyFloorBand Band(IReadOnlyList<StoreyFloorLevel> levels, int index, double schemaZMin, double schemaZMax)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, levels.Count);
         var level = levels[index];
+        double minArea = MinNeighbourAreaShare * levels.Max(l => l.AreaM2);
+        bool Neighbour(StoreyFloorLevel other) => other.AreaM2 >= minArea && Overlap(level, other);
         StoreyFloorLevel? below = null, above = null;
         for (int i = index - 1; i >= 0 && below is null; i--)
-            if (Overlap(level, levels[i])) below = levels[i];
+            if (Neighbour(levels[i])) below = levels[i];
         for (int i = index + 1; i < levels.Count && above is null; i++)
-            if (Overlap(level, levels[i])) above = levels[i];
+            if (Neighbour(levels[i])) above = levels[i];
 
         double z1 = below is null ? Math.Min(schemaZMin, level.Z) - EdgeMarginM : (level.Z + below.Z) / 2;
         double z2 = above is null ? Math.Max(schemaZMax, level.Z) + EdgeMarginM : (level.Z + above.Z) / 2;
@@ -88,29 +129,15 @@ public static class StoreyFloorLevels
         return new(index, z1, z2, level.Z - below?.Z, above?.Z - level.Z, crossed);
     }
 
-    /// <summary>Пересекаются ли перекрытия в плане: площадь пересечения контуров больше
-    /// max(<see cref="MinOverlapM2"/>; <see cref="MinOverlapShare"/> меньшей площади). Отверстия не вычитаются.</summary>
+    /// <summary>Пересекаются ли перекрытия в плане: площадь общих ячеек растра больше
+    /// max(<see cref="MinOverlapM2"/>; <see cref="MinOverlapShare"/> меньшей площади).</summary>
     public static bool Overlap(StoreyFloorLevel a, StoreyFloorLevel b)
     {
         double threshold = Math.Max(MinOverlapM2, MinOverlapShare * Math.Min(a.AreaM2, b.AreaM2));
-        var trianglesB = b.Outlines.Select(o => (Box: Box(o), Triangles: PlanarPolygonOps.Triangulate(o))).ToList();
-        double sum = 0;
-        foreach (var oa in a.Outlines)
-        {
-            var boxA = Box(oa);
-            var trianglesA = PlanarPolygonOps.Triangulate(oa);
-            foreach (var (boxB, trisB) in trianglesB)
-            {
-                if (!Intersects(boxA, boxB)) continue;
-                foreach (var ta in trianglesA)
-                    foreach (var tb in trisB)
-                    {
-                        var clip = PlanarPolygonOps.ClipByConvex(ta, tb);
-                        if (clip.Count >= 3) sum += Math.Abs(PlanarPolygonOps.SignedArea(clip));
-                        if (sum > threshold) return true;
-                    }
-            }
-        }
+        var (small, large) = a.Cells.Count <= b.Cells.Count ? (a.Cells, b.Cells) : (b.Cells, a.Cells);
+        double cell = CellM * CellM, sum = 0;
+        foreach (var c in small)
+            if (large.Contains(c) && (sum += cell) > threshold) return true;
         return false;
     }
 
@@ -137,11 +164,43 @@ public static class StoreyFloorLevels
         return best;
     }
 
-    static StoreyFloorLevel ToLevel(List<(string Tag, double Z, double Area, IReadOnlyList<PlanarPoint2D> Outline)> group)
+    static StoreyFloorLevel ToLevel(List<Piece> group)
     {
         double area = group.Sum(p => p.Area);
-        return new(group.Sum(p => p.Z * p.Area) / area, area, group.Select(p => p.Tag).ToList(),
-            group.Select(p => p.Outline).ToList());
+        var cells = new HashSet<long>();
+        foreach (var p in group) cells.UnionWith(p.Cells);
+        return new(group.Sum(p => p.Z * p.Area) / area, area,
+            group.Select(p => p.MemberTag).OfType<string>().ToList(), group.Count(p => p.MemberTag is null), cells);
+    }
+
+    static long Key(long i, long j) => (i << 32) ^ (j & 0xFFFFFFFFL);
+
+    /// <summary>Ячейки, центры которых внутри многоугольника; малый многоугольник — ячейка его первой вершины.</summary>
+    static HashSet<long> PolygonCells(IReadOnlyList<PlanarPoint2D> plan)
+    {
+        var cells = new HashSet<long>();
+        long i0 = (long)Math.Floor(plan.Min(p => p.U) / CellM), i1 = (long)Math.Floor(plan.Max(p => p.U) / CellM);
+        long j0 = (long)Math.Floor(plan.Min(p => p.V) / CellM), j1 = (long)Math.Floor(plan.Max(p => p.V) / CellM);
+        for (long i = i0; i <= i1; i++)
+            for (long j = j0; j <= j1; j++)
+                if (PlanarPolygonOps.Contains(plan, new PlanarPoint2D((i + 0.5) * CellM, (j + 0.5) * CellM), 1e-9))
+                    cells.Add(Key(i, j));
+        if (cells.Count == 0)
+            cells.Add(Key((long)Math.Floor(plan[0].U / CellM), (long)Math.Floor(plan[0].V / CellM)));
+        return cells;
+    }
+
+    /// <summary>Ячейки габарита КЭ в плане (КЭ сетки мелкие — габарит достаточно точен).</summary>
+    static HashSet<long> BoxCells(IReadOnlyList<PlanarVector3> p)
+    {
+        const double eps = 1e-6;
+        var cells = new HashSet<long>();
+        long i0 = (long)Math.Floor((p.Min(q => q.X) + eps) / CellM), i1 = (long)Math.Floor((p.Max(q => q.X) - eps) / CellM);
+        long j0 = (long)Math.Floor((p.Min(q => q.Y) + eps) / CellM), j1 = (long)Math.Floor((p.Max(q => q.Y) - eps) / CellM);
+        for (long i = i0; i <= Math.Max(i0, i1); i++)
+            for (long j = j0; j <= Math.Max(j0, j1); j++)
+                cells.Add(Key(i, j));
+        return cells;
     }
 
     /// <summary>Вершины внешнего контура области в общих осях, без замыкающей.</summary>
@@ -154,10 +213,4 @@ public static class StoreyFloorLevels
             .Select(i => PlanarBoundaryFrameConverter.ToGlobalPoint(region.Frame, new PlanarVector3(hull.X[i], hull.Y[i], 0)))
             .ToList();
     }
-
-    static (double X0, double Y0, double X1, double Y1) Box(IReadOnlyList<PlanarPoint2D> p) =>
-        (p.Min(q => q.U), p.Min(q => q.V), p.Max(q => q.U), p.Max(q => q.V));
-
-    static bool Intersects((double X0, double Y0, double X1, double Y1) a, (double X0, double Y0, double X1, double Y1) b) =>
-        a.X0 < b.X1 && b.X0 < a.X1 && a.Y0 < b.Y1 && b.Y0 < a.Y1;
 }
