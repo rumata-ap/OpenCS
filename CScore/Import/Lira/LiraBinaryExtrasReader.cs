@@ -142,8 +142,11 @@ public static class LiraBinaryExtrasReader
         [4]  = 28,   // тип 17: [p0, p1, p2, −101.0 (признак), множитель]
         [7]  = 12,   // тип 8: [значение]
         [10] = 20,
+        [11] = 20,   // тип 15, направления 4–6: [q, u, v]
         [12] = 16,
         [14] = 24,
+        [15] = 20,   // тип 88: [p0, p1, p2]
+        [16] = 20,   // тип 88: [p0, p1, p2]
         [28] = 24
     };
 
@@ -605,6 +608,16 @@ public static class LiraBinaryExtrasReader
                 parameters = [native[0], 0, 0, 0];
                 return true;
             case 10 when loadType == 15 && native.Length == 3:
+                parameters = [native[0], native[1], native[2], 0];
+                return true;
+            case 11 when loadType == 15 && native.Length == 3:
+                // то же, что тег 10, но для направлений 4–6 (сверено с TXT: КЭ №6 «Фундаменты»)
+                parameters = [native[0], native[1], native[2], 0];
+                return true;
+            case 15 when native.Length == 3:
+                parameters = [native[0], native[1], native[2], 0];
+                return true;
+            case 16 when native.Length == 3:
                 parameters = [native[0], native[1], native[2], 0];
                 return true;
             case 12 when native.Length == 2:

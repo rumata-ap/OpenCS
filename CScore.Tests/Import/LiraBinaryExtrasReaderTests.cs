@@ -412,6 +412,32 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_ElementLoads_Tags11And88AreMapped()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(1, 11, 154, 5, 0, [-9.6161f, 0.130078f, 0.312468f]);   // тип 15, направление 4
+        builder.AddElementLoad(1, 15, 880, 1, 0, [0f, -6f, 1e-5f]);                   // тип 88, направление 0
+        builder.AddElementLoad(4, 16, 881, 1, 0, [17f, -6f, 0f]);                     // тип 88, направление 1
+        var data = Parse(builder.Build());
+
+        var plate = data.BinaryLoads.Where(l => l.TargetId == 2).ToList();
+        Assert.Equal([15, 88], plate.Select(l => l.LoadType).ToArray());
+        Assert.Equal(4, plate[0].DirectionCode);
+        Assert.Equal(-9.6161, plate[0].P0, 5);
+        Assert.Equal(0.130078, plate[0].P1, 6);
+        Assert.Equal(0.312468, plate[0].P2, 6);
+        Assert.Equal(0.0, plate[1].P0, 6);
+        Assert.Equal(-6.0, plate[1].P1, 6);
+        Assert.Equal(1e-5, plate[1].P2, 9);
+
+        var bar = Assert.Single(data.BinaryLoads.Where(l => l.TargetId == 5));
+        Assert.Equal(88, bar.LoadType);
+        Assert.Equal(1, bar.DirectionCode);
+        Assert.Equal(17.0, bar.P0, 6);
+        Assert.Equal(-6.0, bar.P1, 6);
+    }
+
+    [Fact]
     public void Extra_LoadCaseNames_AreReadInFileOrder()
     {
         var builder = GridSchema();
