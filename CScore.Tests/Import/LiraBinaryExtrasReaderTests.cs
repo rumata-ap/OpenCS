@@ -386,6 +386,32 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_ElementLoads_TagsFromTextExportAreMapped()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(1, 0,  153, 1, 84,  [0.272769f, 3.8f]);                    // тип 15 в точке: q, u
+        builder.AddElementLoad(1, 4,  172, 2, 1,   [-0.077f, 0.0f, -0.0655f, -101f, 1f]); // тип 17
+        builder.AddElementLoad(4, 7,  85,  3, 0,   [45.5f]);                             // тип 8
+        builder.AddElementLoad(4, 2,  61,  4, 0,   [0.075f, 0f, 1f]);                    // тип 6 через тег 2
+        var data = Parse(builder.Build());
+
+        var plate = data.BinaryLoads.Where(l => l.TargetId == 2).ToList();
+        Assert.Equal([15, 17], plate.Select(l => l.LoadType).ToArray());
+        Assert.Equal(0.272769, plate[0].P0, 5);
+        Assert.Equal(3.8, plate[0].P1, 5);
+        Assert.Equal(0.0, plate[0].P2, 6);      // v в записи не хранится
+        Assert.Equal(-0.077, plate[1].P0, 5);
+        Assert.Equal(-0.0655, plate[1].P2, 5);
+        Assert.Equal(0.0, plate[1].P3, 6);      // четвёртый параметр TXT в файле не хранится
+
+        var bar = data.BinaryLoads.Where(l => l.TargetId == 5).ToList();
+        Assert.Equal([8, 6], bar.Select(l => l.LoadType).ToArray());
+        Assert.Equal(45.5, bar[0].P0, 5);
+        Assert.Equal(0.075, bar[1].P0, 6);
+        Assert.Equal(0.0, bar[1].P1, 6);        // множитель не попадает в параметры
+    }
+
+    [Fact]
     public void Extra_LoadCaseNames_AreReadInFileOrder()
     {
         var builder = GridSchema();

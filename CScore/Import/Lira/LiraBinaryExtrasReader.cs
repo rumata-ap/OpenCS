@@ -120,10 +120,27 @@ public static class LiraBinaryExtrasReader
     /// </summary>
     static ReadOnlySpan<byte> EmptyWideLabel => [0xFF, 0xFE, 0xFF, 0x00];
 
+    /// <summary>
+    /// Поле флагов объекта удалённого КЭ: бит «живой записи» снят, остаётся <c>0x02000000</c>.
+    /// Объект при этом в файле есть, и нагрузки по нему читаются.
+    /// </summary>
+    const uint DeletedObjectFlags = 0x02000000;
+
+    /// <summary>Заголовок объекта элемента принадлежит элементу: живая запись или известный признак удалённой.</summary>
+    static bool IsElementObjectFlags(uint flags) => (flags & 1) != 0 || flags == DeletedObjectFlags;
+
     /// <summary>Размер записи нагрузки по её тегу (всего байт, включая 8 байт заголовка).</summary>
+    /// <remarks>
+    /// Теги 0, 4, 7 расшифрованы по текстовым эталонам ЛИРЫ (документы 6 и 7): значения параметров
+    /// совпали с экспортом. Теги 11, 15, 16 в живых схемах пока не разобраны — на них чтение
+    /// нагрузок по элементам останавливается, а не идёт наугад.
+    /// </remarks>
     static readonly Dictionary<int, int> LoadTagSize = new()
     {
+        [0]  = 16,   // тип 15: [q, u] (v = 0)
         [2]  = 20,
+        [4]  = 28,   // тип 17: [p0, p1, p2, −101.0 (признак), множитель]
+        [7]  = 12,   // тип 8: [значение]
         [10] = 20,
         [12] = 16,
         [14] = 24,
@@ -415,11 +432,12 @@ public static class LiraBinaryExtrasReader
         }
 
         List<LiraBinaryLoad>? accepted = null;
+        var unmapped = new Dictionary<(int Tag, int Type), int>();
         int end = 0;
         foreach (int start in starts)
         {
             var trial = new List<LiraBinaryLoad>(loads.Count + 1024);
-            if (TryWalkElementObjects(bytes, start, elementsStart, elementCount, vertexCount, trial, out end))
+            if (TryWalkElementObjects(bytes, start, elementsStart, elementCount, vertexCount, trial, unmapped, out end))
             {
                 accepted = trial;
                 break;
@@ -434,6 +452,9 @@ public static class LiraBinaryExtrasReader
 
         loads.AddRange(accepted);
         notes.Add($"элементные нагрузки прочитаны: объектов {elementCount}, записей {accepted.Count}");
+        if (unmapped.Count > 0)
+            notes.Add("параметры без сверки с текстовым экспортом (оставлены в порядке файла): " +
+                      string.Join(", ", unmapped.Select(u => $"тег {u.Key.Tag}/тип {u.Key.Type} — {u.Value}")));
         return true;
     }
 
@@ -445,7 +466,7 @@ public static class LiraBinaryExtrasReader
         for (int p = Math.Max(0, searchFrom); p <= limit; p++)
         {
             if (bytes[p + 2] != 0 || bytes[p + 3] != 0 || bytes[p + 4] != 0 || bytes[p + 5] != 0) continue;   // номер 0
-            if ((bytes[p + 6] & 1) == 0) continue;                                                            // флаг объекта
+            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(p + 6, 4)))) continue;   // флаг объекта
             if (ReadU16(bytes, p + 12) != vertexCount) continue;                                               // число вершин
             result.Add(p);
         }
@@ -454,7 +475,8 @@ public static class LiraBinaryExtrasReader
 
     /// <summary>Проходит все объекты элементов; при любом расхождении возвращает false.</summary>
     static bool TryWalkElementObjects(byte[] bytes, int start, int elementsStart, int elementCount,
-                                      int[] vertexCount, List<LiraBinaryLoad> loads, out int end)
+                                      int[] vertexCount, List<LiraBinaryLoad> loads,
+                                      Dictionary<(int Tag, int Type), int> unmapped, out int end)
     {
         end  = start;
         int o = start;
@@ -464,7 +486,7 @@ public static class LiraBinaryExtrasReader
             int nv = vertexCount[i];
             if (o + 18 > bytes.Length) return false;
             if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 2)) != (uint)i) return false;
-            if ((BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 6)) & 1) == 0) return false;
+            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 6)))) return false;
             if (ReadU16(bytes, o + 12) != nv) return false;
 
             if (!TryReadElementLabel(bytes, o + 18, out _, out int p)) return false;
@@ -488,12 +510,21 @@ public static class LiraBinaryExtrasReader
                 int nativeCount = (size - 8) / 4;
                 var native = new double[nativeCount];
                 for (int k = 0; k < nativeCount; k++) native[k] = ReadF32(bytes, p + 8 + 4 * k);
-                if (!TryMapLoad(tag, code, native, out int loadType, out int direction, out var parameters)) return false;
+
+                // Размер записи известен по тегу, поэтому чтение продолжается всегда; для пар
+                // «тег + тип», не сверенных с текстовым экспортом, параметры остаются в порядке файла.
+                if (!TryMapLoad(tag, code, native, out int loadType, out int direction, out var parameters))
+                {
+                    parameters = new double[Math.Min(4, native.Length)];
+                    Array.Copy(native, parameters, parameters.Length);
+                    unmapped[(tag, loadType)] = unmapped.GetValueOrDefault((tag, loadType)) + 1;
+                }
 
                 loads.Add(new LiraBinaryLoad(
                     LiraLoadTargetKind.Element, i + 1, loadCase,
                     loadType, direction, parameters.Length,
-                    parameters[0], parameters.Length > 1 ? parameters[1] : 0,
+                    parameters.Length > 0 ? parameters[0] : 0,
+                    parameters.Length > 1 ? parameters[1] : 0,
                     parameters.Length > 2 ? parameters[2] : 0,
                     parameters.Length > 3 ? parameters[3] : 0,
                     tag, code, group, native, p));
@@ -541,7 +572,7 @@ public static class LiraBinaryExtrasReader
             if (candidate >= from + slots.Length && candidate + 18 <= bytes.Length)
             {
                 if (bytes.AsSpan(candidate - slots.Length, slots.Length).SequenceEqual(slots) &&
-                    (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidate + 6)) & 1) != 0)
+                    IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidate + 6))))
                 {
                     start = candidate;
                     return true;
@@ -561,13 +592,25 @@ public static class LiraBinaryExtrasReader
 
         switch (tag)
         {
+            case 0 when loadType == 15 && native.Length == 2:
+                // точка на пластине, записана только q и u (v = 0) — сверено с TXT
+                parameters = [native[0], native[1], 0, 0];
+                return true;
+            case 4 when loadType == 17 && native.Length == 5:
+                // четыре параметра TXT: три первых хранятся, четвёртый в файле не хранится
+                // (в записи на его месте признак −101.0, последнее поле — множитель) — сверено с TXT
+                parameters = [native[0], native[1], native[2], 0];
+                return true;
+            case 7 when native.Length == 1:
+                parameters = [native[0], 0, 0, 0];
+                return true;
             case 10 when loadType == 15 && native.Length == 3:
                 parameters = [native[0], native[1], native[2], 0];
                 return true;
-            case 12 when loadType is 6 or 16 && native.Length == 2:
+            case 12 when native.Length == 2:
                 parameters = [native[0], 0, 0, 0];
                 return true;
-            case 2 when loadType == 16 && native.Length == 3:
+            case 2 when native.Length == 3:
                 parameters = [native[0], 0, 0, 0];
                 return true;
             case 14 when loadType == 7 && native.Length == 4:
