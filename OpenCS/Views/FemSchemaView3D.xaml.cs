@@ -1012,13 +1012,15 @@ public partial class FemSchemaView3D : UserControl
                 points.Add(new Point3D(s.B.X, s.B.Y, s.B.Z));
             }
             points.Freeze();
-            viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
+            // Смещение глубины — как у эпюр и трещин: связи АЖТ примыканий лежат в плоскости плиты, опоры и пружины —
+            // в узлах пластин, и без него их закрывает заливка КЭ.
+            viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness, DepthOffset = LineDepthOffset });
         }
         if (VM.ShowSupportGlyphs) Add(set.Supports, Colors.RoyalBlue, 1.5);
         if (VM.ShowSpringGlyphs) Add(set.Springs, SpringColor, 1.3);
         if (VM.ShowSpringGlyphs) Add(nodeSprings.Springs, SpringColor, 1.3);
         if (VM.ShowHingeGlyphs) Add(set.Hinges, Colors.Black, 1.5);
-        if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 0.8);
+        if (VM.ShowRigidBodyGlyphs) Add(set.RigidBodies, RigidBodyColor, 1.5);
         if (VM.ShowRigidBodyGlyphs && nodeSprings.RigidBodies.Count > 0)
         {
             // Тела на узлах схемы (АЖТ фрагмента «по точкам»): короткие связи внутри колонн и стен — толще и с точками
