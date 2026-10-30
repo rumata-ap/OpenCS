@@ -23,6 +23,7 @@ public static partial class StoreyFragmentBuilder
         var pieces = ClipAll([new Piece(polygon, [], 0)], Above(f, c.Z1), c.Tol, minArea);
         pieces = ClipAll(pieces, Below(f, c.Z2), c.Tol, minArea);
         if (pieces.Count == 0) return;
+        if (!ClipLateral(c, f, tag, ref pieces, minArea)) return;
         if (Math.Abs(f.LocalZ.Z) > 1e-4)
             c.Warn("fragment_wall_inclined", $"Стена {tag} не вертикальна — рассечена плоскостями z₁/z₂ как есть.", tag);
 
@@ -52,7 +53,80 @@ public static partial class StoreyFragmentBuilder
             part.RecalcFingerprint();
             c.Add(s.Member, CopyPart(s.Member, names[i], []), part);
             AddEdgeCuts(c, f, names[i], piece.Polygon);
+            AddLateralEdgeCuts(c, region, names[i], piece.Polygon);
         }
+    }
+
+    /// <summary>
+    /// Клип кусков следами боковых граней призмы на плоскости области. Область, параллельная грани: снаружи — не входит,
+    /// на грани (в пределах остальных граней) — отказ «измените d». false — область не входит или отказ.
+    /// </summary>
+    static bool ClipLateral(Ctx c, Frame3D f, string tag, ref List<Piece> pieces, double minArea)
+    {
+        var parallel = new List<CutPlane>();
+        foreach (var face in c.Lateral)
+        {
+            if (Trace(f, face) is not { } h)
+            {
+                parallel.Add(face);
+                continue;
+            }
+            pieces = ClipAll(pieces, h, c.Tol, minArea);
+            if (pieces.Count == 0) return false;
+        }
+        foreach (var face in parallel)
+        {
+            double e = face.Eval(f.Origin);
+            if (e > c.Tol) return false;
+            if (e < -c.Tol) continue;
+            c.Error("fragment_member_on_prism_face",
+                $"Пластина {tag} лежит в плоскости боковой грани фрагмента — измените отступ d.", tag);
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>След грани на плоскости области: полуплоскость внутренней стороны; null — область параллельна грани.</summary>
+    static PlanarHalfPlane? Trace(Frame3D f, CutPlane face)
+    {
+        double nu = face.Normal.Dot(f.LocalX), nv = face.Normal.Dot(f.LocalY);
+        if (Math.Sqrt(nu * nu + nv * nv) < 1e-9) return null;
+        // n·(O + u·X + v·Y) ≤ смещения ⇔ −(n·X)·u − (n·Y)·v ≥ n·O − смещение.
+        return new PlanarHalfPlane(-nu, -nv, face.Normal.Dot(f.Origin) - face.Offset);
+    }
+
+    /// <summary>
+    /// Боковые рассечения куска: его рёбра на грани призмы, за которой исходная область продолжается (своя кромка
+    /// элемента, совпавшая с гранью, — не разрез); Z — средняя отметка середин отрезков, нормаль — грани.
+    /// </summary>
+    static void AddLateralEdgeCuts(Ctx c, PlanarRegion source, string memberTag, PlanarPolygonWithHoles polygon)
+    {
+        var f = source.Frame;
+        foreach (var face in c.Lateral)
+        {
+            var segments = new List<(PlanarVector3 P, PlanarVector3 Q)>();
+            foreach (var contour in polygon.Holes.Prepend(polygon.Outer))
+                for (int i = 0; i < contour.Count; i++)
+                {
+                    PlanarVector3 p = Global(f, contour[i]), q = Global(f, contour[(i + 1) % contour.Count]);
+                    if (Math.Abs(face.Eval(p)) <= c.Tol && Math.Abs(face.Eval(q)) <= c.Tol
+                        && (q - p).Length > c.Tol && Continues(c, source, (p + q) * 0.5, face.Normal))
+                        segments.Add((p, q));
+                }
+            if (segments.Count > 0)
+                c.Draft.Cuts.Add(new(memberTag, FragmentCutKind.Edge, FragmentCutSide.Lateral,
+                    segments.Average(sg => (sg.P.Z + sg.Q.Z) / 2), null, segments, face.Normal));
+        }
+    }
+
+    /// <summary>Исходная область продолжается за грань: точка, сдвинутая от <paramref name="at"/> наружу в её плоскости, — в ней.</summary>
+    static bool Continues(Ctx c, PlanarRegion source, PlanarVector3 at, PlanarVector3 normal)
+    {
+        var z = source.Frame.LocalZ;
+        var step = normal - z * normal.Dot(z);
+        double len = step.Length;
+        if (len < 1e-9) return false;
+        return RegionContains(source, at + step * (Math.Max(10 * c.Tol, 0.01) / len), c.Tol);
     }
 
     // z(u, v) = O.z + u·X.z + v·Y.z

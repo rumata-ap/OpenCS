@@ -19,11 +19,29 @@ public static partial class StoreyFragmentBuilder
 
     sealed record Slab(string MemberTag, PlanarRegion Region, double Z);
 
+    /// <summary>Плоскость, ограничивающая фрагмент: внешняя нормаль, смещение (внутри — n·p ≤ смещения), сторона разреза.</summary>
+    sealed record CutPlane(PlanarVector3 Normal, double Offset, FragmentCutSide Side)
+    {
+        /// <summary>Отстояние со знаком: больше нуля — снаружи фрагмента.</summary>
+        public double Eval(PlanarVector3 p) => Normal.Dot(p) - Offset;
+    }
+
     sealed class Ctx(StoreyFragmentRequest request, StoreyFragmentDraft draft)
     {
         public double Z1 => request.Z1;
         public double Z2 => request.Z2;
         public double Tol => request.ToleranceM;
+        public FragmentPrism? Prism => request.Prism;
+        /// <summary>z₁, z₂ и боковые грани призмы (если она задана).</summary>
+        public IReadOnlyList<CutPlane> Planes { get; } =
+        [
+            new(new PlanarVector3(0, 0, -1), -request.Z1, FragmentCutSide.Bottom),
+            new(new PlanarVector3(0, 0, 1), request.Z2, FragmentCutSide.Top),
+            .. request.Prism?.Faces.Select(f => new CutPlane(f.Normal, f.Offset, FragmentCutSide.Lateral)) ?? [],
+        ];
+        public IEnumerable<CutPlane> Lateral => Planes.Where(p => p.Side == FragmentCutSide.Lateral);
+        /// <summary>Точка внутри фрагмента (полоса и призма) или на его границе в допуске.</summary>
+        public bool InBox(PlanarVector3 p) => Planes.All(pl => pl.Eval(p) <= Tol);
         public StoreyFragmentDraft Draft => draft;
         public FragmentNodeTable Nodes { get; } = new(draft.Nodes);
         public List<Slab> Slabs { get; } = [];
@@ -32,9 +50,9 @@ public static partial class StoreyFragmentBuilder
 
         public void Error(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, true, keys));
         public void Warn(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, false, keys));
+        /// <summary>Контур сечения по Id из снимка (правило (а): габарит колонны у грани призмы).</summary>
+        public Func<int, IReadOnlyList<(double Y, double Z)>?>? SectionOutline { get; set; }
         public bool OnCutPlane(double z) => Math.Abs(z - Z1) <= Tol || Math.Abs(z - Z2) <= Tol;
-        public bool InBand(double z) => z >= Z1 - Tol && z <= Z2 + Tol;
-        public FragmentCutSide SideOf(double z) => Math.Abs(z - Z1) <= Math.Abs(z - Z2) ? FragmentCutSide.Bottom : FragmentCutSide.Top;
         public void Add(FemMember source, FemMember part, PlanarRegion? region) => draft.Members.Add(new(part, region, source.ElemTag));
     }
 
@@ -44,7 +62,7 @@ public static partial class StoreyFragmentBuilder
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(request);
         var draft = new StoreyFragmentDraft();
-        var c = new Ctx(request, draft);
+        var c = new Ctx(request, draft) { SectionOutline = parent.SectionOutline };
         if (request.Z2 - request.Z1 <= request.ToleranceM)
         {
             c.Error("fragment_band_empty", $"Отметка z₂ = {request.Z2:0.###} м должна быть выше z₁ = {request.Z1:0.###} м.");
@@ -107,7 +125,7 @@ public static partial class StoreyFragmentBuilder
 
     static bool IsHorizontalShell(SourceMember s) => s.Region is not null && Math.Abs(s.Region.Frame.LocalZ.Z) > 1 - 1e-6;
 
-    /// <summary>Горизонтальная плита: на границе полосы — отказ, внутри — копия как есть.</summary>
+    /// <summary>Горизонтальная плита: на границе полосы — отказ, внутри (и внутри призмы) — копия как есть, иначе — обрезка призмой.</summary>
     static void AddSlab(Ctx c, SourceMember s)
     {
         var source = s.Region!;
@@ -120,6 +138,11 @@ public static partial class StoreyFragmentBuilder
             return;
         }
         if (z < c.Z1 || z > c.Z2) return;
+        if (!InsidePrism(c, source))
+        {
+            ClipSlab(c, s, z);
+            return;
+        }
         string tag = s.Member.ElemTag;
         var region = NewRegion(source, tag, Points(source.RequireHull()), source.Holes.Select(Points).ToList());
         region.RebarZones.AddRange(source.RebarZones.Select(zone => zone.Clone()));
@@ -133,7 +156,7 @@ public static partial class StoreyFragmentBuilder
     /// <summary>Закреплённые узлы родителя в полосе переходят во фрагмент.</summary>
     static void AddSupportNodes(Ctx c, StoreyFragmentParentSnapshot parent)
     {
-        foreach (var n in parent.Nodes.Where(n => n.DofMask != 0 && c.InBand(n.Z)))
+        foreach (var n in parent.Nodes.Where(n => n.DofMask != 0 && c.InBox(P(n))))
             c.Nodes.Get(P(n), n.DofMask);
     }
 

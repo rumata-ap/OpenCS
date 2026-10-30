@@ -9,17 +9,19 @@ public static partial class StoreyFragmentBuilder
     /// <summary>Имя набора КЭ полосы без КонЭ, собранного построителем (части — «КЭ без КонЭ · k»).</summary>
     public const string UncoveredTag = "КЭ без КонЭ";
 
-    /// <summary>КЭ сетки родителя, заходящие в полосу (пересекающие её или внутри).</summary>
+    /// <summary>
+    /// КЭ сетки родителя, заходящие во фрагмент: ни одна плоскость полосы и призмы не оставляет все узлы КЭ снаружи (или
+    /// на ней). У рёбер призмы отбор консервативен — лишние КЭ у углов дальше отсекает обрезка КонЭ.
+    /// </summary>
     static List<FemElement> BandElements(Ctx c, StoreyFragmentParentSnapshot parent)
     {
-        var z = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First().Z, StringComparer.Ordinal);
+        var node = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => P(g.First()), StringComparer.Ordinal);
         var result = new List<FemElement>();
         foreach (var e in parent.MeshElements)
         {
             var tags = FemMeshTopology.ReadNodeTags(e)?.ToList();
-            if (tags is null || tags.Count == 0 || tags.Any(t => !z.ContainsKey(t))) continue;
-            double zmin = tags.Min(t => z[t]), zmax = tags.Max(t => z[t]);
-            if (zmax > c.Z1 + c.Tol && zmin < c.Z2 - c.Tol) result.Add(e);
+            if (tags is null || tags.Count == 0 || tags.Any(t => !node.ContainsKey(t))) continue;
+            if (c.Planes.All(pl => tags.Min(t => pl.Eval(node[t])) < -c.Tol)) result.Add(e);
         }
         return result;
     }

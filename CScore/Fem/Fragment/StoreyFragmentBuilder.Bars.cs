@@ -5,8 +5,9 @@ namespace CScore.Fem.Fragment;
 public static partial class StoreyFragmentBuilder
 {
     /// <summary>
-    /// Стержень: участок в полосе, деление в точках пересечения с плитами фрагмента (внутри контура), рассечения на
-    /// концах, лежащих на z₁/z₂ (кроме опорных узлов).
+    /// Стержень: участок внутри фрагмента (полоса и призма), деление в точках пересечения с плитами фрагмента (внутри
+    /// контура), рассечения на концах, лежащих на z₁/z₂ или гранях призмы (кроме опорных узлов). Стержень в плоскости
+    /// границы — отказ; колонна с осью вне призмы не входит (предупреждение, если её сечение задевает призму).
     /// </summary>
     static void CutBar(Ctx c, SourceMember s)
     {
@@ -14,30 +15,30 @@ public static partial class StoreyFragmentBuilder
         PlanarVector3 a = s.A, d = s.B - s.A;
         double len = d.Length;
         if (len < c.Tol) return;
-        double eps = c.Tol / len, lo, hi;
+        double eps = c.Tol / len;
         bool horizontal = Math.Abs(d.Z) <= c.Tol;
-        if (horizontal)
+        var (lo, hi) = ClipRange(c, a, d, 0, 1);
+        if (hi - lo <= eps)
         {
-            if (c.OnCutPlane(a.Z))
-            {
+            WarnColumnOutside(c, s);
+            return;
+        }
+        if (c.Planes.FirstOrDefault(pl => Math.Abs(pl.Normal.Dot(d)) <= c.Tol && Math.Abs(pl.Eval(a)) <= c.Tol) is { } on)
+        {
+            if (on.Side == FragmentCutSide.Lateral)
+                c.Error("fragment_member_on_prism_face",
+                    $"Стержень {tag} лежит в плоскости боковой грани фрагмента — измените отступ d.", tag);
+            else
                 c.Error("fragment_member_on_cut_plane",
                     $"Стержень {tag} на отметке {a.Z:0.###} м лежит на границе полосы — сдвиньте z₁/z₂ к середине этажа.", tag);
-                return;
-            }
-            if (a.Z < c.Z1 || a.Z > c.Z2) return;
-            (lo, hi) = (0, 1);
+            return;
         }
-        else
-        {
-            double t1 = (c.Z1 - a.Z) / d.Z, t2 = (c.Z2 - a.Z) / d.Z;
-            lo = Math.Max(0, Math.Min(t1, t2));
-            hi = Math.Min(1, Math.Max(t1, t2));
-            if (hi - lo <= eps) return;
-            if (lo < eps) lo = 0;
-            if (hi > 1 - eps) hi = 1;
-            if (Math.Abs(d.Z) / len < ShallowCutSine && (lo > 0 || hi < 1))
-                c.Warn("fragment_bar_shallow_cut", $"Стержень {tag} почти лежит в плоскости рассечения — проверьте отметки z₁/z₂.", tag);
-        }
+        if (lo < eps) lo = 0;
+        if (hi > 1 - eps) hi = 1;
+        var u = d * (1 / len);
+        bool Shallow(double t) => c.Planes.Any(pl => Math.Abs(pl.Eval(At(a, d, t))) <= c.Tol && Math.Abs(pl.Normal.Dot(u)) < ShallowCutSine);
+        if ((lo > 0 && Shallow(lo)) || (hi < 1 && Shallow(hi)))
+            c.Warn("fragment_bar_shallow_cut", $"Стержень {tag} почти лежит в плоскости рассечения — проверьте отметки z₁/z₂ и отступ d.", tag);
 
         var stations = new List<double> { lo, hi };
         if (!horizontal)
@@ -61,8 +62,27 @@ public static partial class StoreyFragmentBuilder
             parts.Add(part);
             c.Add(s.Member, part, null);
         }
-        AddEndCut(c, parts[0], nodes[0]);
-        AddEndCut(c, parts[^1], nodes[^1]);
+        AddEndCut(c, parts[0], nodes[0], u * -1);
+        AddEndCut(c, parts[^1], nodes[^1], u);
+    }
+
+    /// <summary>
+    /// Правило (а) спеки призмы: колонна, не вошедшая во фрагмент (ось вне призмы), но заходящая в полосу и задевающая
+    /// призму габаритом сечения, — предупреждение «не входит».
+    /// </summary>
+    static void WarnColumnOutside(Ctx c, SourceMember s)
+    {
+        if (c.Prism is not { } prism || !FragmentPrismBuilder.IsColumn(s.A, s.B)) return;
+        if (Math.Max(s.A.Z, s.B.Z) <= c.Z1 + c.Tol || Math.Min(s.A.Z, s.B.Z) >= c.Z2 - c.Tol) return;
+        int? section = s.Member.CrossSectionId
+                       ?? (c.ParentBars.TryGetValue(s.Member.ElemTag, out var bars) ? bars.Select(b => b.SectionId).FirstOrDefault(id => id is not null) : null);
+        var footprint = FragmentPrismBuilder.Column(s.Member, s.A, s.B, section, c.SectionOutline, 0, c.Tol).Corners();
+        var overlap = PlanarPolygonOps.ClipByConvex(footprint, prism.Corners());
+        if (overlap.Count < 3 || Math.Abs(PlanarPolygonOps.SignedArea(overlap)) <= c.Tol * c.Tol) return;
+        string tag = s.Member.ElemTag;
+        c.Warn("fragment_column_outside_prism",
+            $"Колонна {tag}: ось вне призмы фрагмента, но сечение задевает её грань — колонна не входит во фрагмент. " +
+            "Измените отступ d, если она нужна.", tag);
     }
 
     /// <summary>Стержневые КЭ сетки родителя с КонЭ — по тегу КонЭ (импорт SCAD/ЛИРЫ: сечение есть у КЭ, у КонЭ нет).</summary>
@@ -118,10 +138,17 @@ public static partial class StoreyFragmentBuilder
 
     static double Offset(PlanarVector3 v, PlanarVector3 unit) => (v - unit * v.Dot(unit)).Length;
 
-    /// <summary>Рассечение конца стержня, лежащего на z₁/z₂, если узел не опорный.</summary>
-    static void AddEndCut(Ctx c, FemMember part, FemNode node)
+    /// <summary>
+    /// Рассечение конца стержня, лежащего на z₁/z₂ или грани призмы, если узел не опорный; у ребра фрагмента — плоскость,
+    /// за которую стержень выходит сильнее (<paramref name="outward"/> — направление от части к отброшенному). Нормаль
+    /// задаётся только у боковых (у низа и верха — по стороне).
+    /// </summary>
+    static void AddEndCut(Ctx c, FemMember part, FemNode node, PlanarVector3 outward)
     {
-        if (!c.OnCutPlane(node.Z) || node.DofMask != 0) return;
-        c.Draft.Cuts.Add(new(part.ElemTag, FragmentCutKind.End, c.SideOf(node.Z), node.Z, node.NodeTag, []));
+        if (node.DofMask != 0) return;
+        var p = P(node);
+        if (c.Planes.Where(pl => Math.Abs(pl.Eval(p)) <= c.Tol).MaxBy(pl => pl.Normal.Dot(outward)) is not { } plane) return;
+        c.Draft.Cuts.Add(new(part.ElemTag, FragmentCutKind.End, plane.Side, node.Z, node.NodeTag, [],
+            plane.Side == FragmentCutSide.Lateral ? plane.Normal : null));
     }
 }

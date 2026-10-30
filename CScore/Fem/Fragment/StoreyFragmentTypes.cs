@@ -2,8 +2,11 @@ using CScore.Planar;
 
 namespace CScore.Fem.Fragment;
 
-/// <summary>Запрос фрагмента этажа: полоса z₁…z₂ (середины этажей ниже и выше перекрытия), м; допуск, м.</summary>
-public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001);
+/// <summary>
+/// Запрос фрагмента этажа: полоса z₁…z₂ (середины этажей ниже и выше перекрытия), м; допуск, м; призма в плане вокруг
+/// стен и колонн (null — этажный фрагмент без боковых граней).
+/// </summary>
+public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null);
 
 /// <summary>Часть схемы-родителя, нужная построителю (сервис читает только полосу).</summary>
 public sealed class StoreyFragmentParentSnapshot
@@ -31,13 +34,16 @@ public sealed class StoreyFragmentParentSnapshot
     public IReadOnlyList<FemSpring> Springs { get; init; } = [];
     /// <summary>Закрепления узлов сетки полосы.</summary>
     public IReadOnlyList<FemMeshNodeSupport> MeshNodeSupports { get; init; } = [];
+    /// <summary>Контур сечения по Id в осях стержня (Y, Z), м, от ц. т. (<see cref="RigidJunctionSectionOutline.From"/>);
+    /// null — не задан: габарит колонн для призмы неизвестен.</summary>
+    public Func<int, IReadOnlyList<(double Y, double Z)>?>? SectionOutline { get; init; }
 }
 
 /// <summary>Вид сечения рассечения: конец стержня или кромка стены.</summary>
 public enum FragmentCutKind { End, Edge }
 
-/// <summary>Сторона полосы: z₁ (низ) или z₂ (верх).</summary>
-public enum FragmentCutSide { Bottom, Top }
+/// <summary>Сторона фрагмента: z₁ (низ), z₂ (верх) или боковая грань призмы.</summary>
+public enum FragmentCutSide { Bottom, Top, Lateral }
 
 /// <summary>
 /// Сечение рассечения фрагмента — место, где отброшена остальная схема; сюда подпроекты C/D кладут маски и ГУ.
@@ -45,9 +51,20 @@ public enum FragmentCutSide { Bottom, Top }
 /// <param name="MemberTag">КонЭ фрагмента.</param>
 /// <param name="NodeTag">Узел конца стержня (<see cref="FragmentCutKind.End"/>), иначе null.</param>
 /// <param name="Segments">Отрезки кромки стены в общих осях (<see cref="FragmentCutKind.Edge"/>), иначе пусто.</param>
+/// <param name="Z">Отметка разреза; у боковых — средняя отметка (подпись).</param>
+/// <param name="Normal">Единичная нормаль от фрагмента к отброшенной части; null — по стороне (только низ и верх).</param>
 public sealed record FragmentCut(
     string MemberTag, FragmentCutKind Kind, FragmentCutSide Side, double Z, string? NodeTag,
-    IReadOnlyList<(PlanarVector3 P, PlanarVector3 Q)> Segments);
+    IReadOnlyList<(PlanarVector3 P, PlanarVector3 Q)> Segments, PlanarVector3? Normal = null)
+{
+    /// <summary>Нормаль от фрагмента к отброшенной части: заданная либо (0, 0, −1) у низа и (0, 0, 1) у верха.</summary>
+    public PlanarVector3 Outward => Normal ?? Side switch
+    {
+        FragmentCutSide.Bottom => new PlanarVector3(0, 0, -1),
+        FragmentCutSide.Top => new PlanarVector3(0, 0, 1),
+        _ => throw new InvalidOperationException($"У бокового разреза {MemberTag} не задана нормаль."),
+    };
+}
 
 /// <summary>КонЭ фрагмента, его область (у пластин) и КонЭ родителя, из которого он получен.</summary>
 public sealed record StoreyFragmentMember(FemMember Member, PlanarRegion? Region, string ParentMemberTag);

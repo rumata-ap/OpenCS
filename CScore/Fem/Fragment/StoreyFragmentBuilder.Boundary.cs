@@ -16,7 +16,7 @@ public static partial class StoreyFragmentBuilder
         var nodes = parent.Nodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
         foreach (var s in parent.MeshNodeSupports)
-            if ((s.Mask & FemBoundaryDofs.All) != 0 && meshNodes.TryGetValue(s.NodeTag, out var n) && c.InBand(n.Z))
+            if ((s.Mask & FemBoundaryDofs.All) != 0 && meshNodes.TryGetValue(s.NodeTag, out var n) && c.InBox(P(n)))
                 c.Nodes.Get(new PlanarVector3(n.X, n.Y, n.Z), s.Mask & FemBoundaryDofs.All);
 
         var byNode = new Dictionary<string, FemSpring>(StringComparer.Ordinal);
@@ -26,7 +26,7 @@ public static partial class StoreyFragmentBuilder
             PlanarVector3? at = s.TargetKind == FemSpringTargetKinds.MeshNode
                 ? meshNodes.TryGetValue(s.NodeTag, out var m) ? new PlanarVector3(m.X, m.Y, m.Z) : null
                 : nodes.TryGetValue(s.NodeTag, out var sn) ? P(sn) : null;
-            if (at is not { } p || !c.InBand(p.Z)) continue;
+            if (at is not { } p || !c.InBox(p)) continue;
             var node = c.Nodes.Get(p);
             if (byNode.TryGetValue(node.NodeTag, out var sum))
             {

@@ -26,7 +26,7 @@ public static partial class StoreyFragmentBuilder
         {
             if (!meshNode.TryGetValue(body.MasterNodeTag, out var master)) continue;
             var m = new PlanarVector3(master.X, master.Y, master.Z);
-            if (!c.InBand(m.Z) || body.Origin == RigidJunctionTraceSet.Provenance) continue;
+            if (!c.InBox(m) || body.Origin == RigidJunctionTraceSet.Provenance) continue;
             string label = body.SourceElemTag ?? body.MasterNodeTag;
             if (!body.Origin.StartsWith("import:", StringComparison.Ordinal))
             {
@@ -65,7 +65,7 @@ public static partial class StoreyFragmentBuilder
             int lost = 0;
             foreach (var tag in body.SlaveNodeTags)
             {
-                if (meshNode.GetValueOrDefault(tag) is { } n && c.InBand(n.Z) && SnapToFragment(c, new(n.X, n.Y, n.Z)) is { } p)
+                if (meshNode.GetValueOrDefault(tag) is { } n && c.InBox(P(n)) && SnapToFragment(c, new(n.X, n.Y, n.Z)) is { } p)
                     slaves.Add(p);
                 else lost++;
             }

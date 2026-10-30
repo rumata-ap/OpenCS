@@ -38,12 +38,25 @@ public static partial class StoreyFragmentBuilder
         }).ToList();
     }
 
-    /// <summary>Часть s0…s1 луча a + u·s в полосе z₁…z₂ (пустая — Hi ≤ Lo).</summary>
-    static (double Lo, double Hi) BandRange(Ctx c, PlanarVector3 a, PlanarVector3 u, double s0, double s1)
+    /// <summary>
+    /// Часть s0…s1 луча a + u·s внутри фрагмента — полосы z₁…z₂ и призмы (Сайрус–Бек; пустая — Hi ≤ Lo). Луч вдоль
+    /// плоскости — целиком внутри или снаружи по допуску.
+    /// </summary>
+    static (double Lo, double Hi) ClipRange(Ctx c, PlanarVector3 a, PlanarVector3 u, double s0, double s1)
     {
-        if (Math.Abs(u.Z) < 1e-12) return c.InBand(a.Z) ? (s0, s1) : (0, 0);
-        double t1 = (c.Z1 - a.Z) / u.Z, t2 = (c.Z2 - a.Z) / u.Z;
-        return (Math.Max(s0, Math.Min(t1, t2)), Math.Min(s1, Math.Max(t1, t2)));
+        double lo = s0, hi = s1;
+        foreach (var pl in c.Planes)
+        {
+            double den = pl.Normal.Dot(u), num = -pl.Eval(a);
+            if (Math.Abs(den) < 1e-12)
+            {
+                if (num < -c.Tol) return (0, 0);
+                continue;
+            }
+            if (den > 0) hi = Math.Min(hi, num / den);
+            else lo = Math.Max(lo, num / den);
+        }
+        return (lo, hi);
     }
 
     static void AddMemberLoad(LoadCtx l, string partTag, FemMemberLoad load)
@@ -77,7 +90,7 @@ public static partial class StoreyFragmentBuilder
             if (load.DistributionType == "point")
             {
                 var at = a + u * load.StartOffsetM;
-                if (!l.C.InBand(at.Z)) continue;
+                if (!l.C.InBox(at)) continue;
                 l.AddParent(lc, LoadCategory.Bars, at, G(q0), G(new PlanarVector3(load.Mx, load.My, load.Mz)));
                 var part = mine.FirstOrDefault(p => (at - p.A).Dot(p.Axis) is var s && s >= -l.C.Tol && s <= p.Length + l.C.Tol);
                 if (part is null) { l.Lost.Add(m.ElemTag); continue; }
@@ -94,7 +107,7 @@ public static partial class StoreyFragmentBuilder
             double s0 = load.StartOffsetM, s1 = len - load.EndOffsetM;
             if (s1 - s0 <= 1e-9) continue;
             PlanarVector3 Q(double s) => q0 + (q1 - q0) * ((s - s0) / (s1 - s0));
-            var (lo, hi) = BandRange(l.C, a, u, s0, s1);
+            var (lo, hi) = ClipRange(l.C, a, u, s0, s1);
             if (hi - lo > 1e-9) l.AddParentLine(lc, LoadCategory.Bars, a + u * lo, a + u * hi, G(Q(lo)), G(Q(hi)));
             foreach (var p in mine)
             {
@@ -136,14 +149,14 @@ public static partial class StoreyFragmentBuilder
         if (point)
         {
             var at = p0 + axis * pa;
-            if (!l.C.InBand(at.Z)) return;
+            if (!l.C.InBox(at)) return;
             l.AddParent(lc, LoadCategory.Bars, at, dir * v[0], PlanarVector3.Zero);
         }
         else
         {
             var (a, qa, b, qb) = seg!.Value;
             double QE(double s) => qa + (qb - qa) * (s - a) / (b - a);
-            var (lo, hi) = BandRange(l.C, p0, axis, a, b);
+            var (lo, hi) = ClipRange(l.C, p0, axis, a, b);
             if (hi - lo <= 1e-9) return;
             l.AddParentLine(lc, LoadCategory.Bars, p0 + axis * lo, p0 + axis * hi, dir * QE(lo), dir * QE(hi));
         }

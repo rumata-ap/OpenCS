@@ -114,7 +114,7 @@ public static partial class StoreyFragmentBuilder
         public (List<PlanarVector3> Polygon, string? Part) ShellClip(FemElement e, FemElementGeometry g)
         {
             if (_shellClip.TryGetValue(e.ElemTag, out var cached)) return cached;
-            var polygon = ClipZ(ClipZ(g.Contour.Select(i => g.Points[i]).ToList(), C.Z1, above: true), C.Z2, above: false);
+            var polygon = ClipBox(C, g.Contour.Select(i => g.Points[i]).ToList());
             string? part = null;
             var (area, centroid) = polygon.Count >= 3 ? AreaCentroid(polygon) : (0, PlanarVector3.Zero);
             if (area > C.Tol * C.Tol)
@@ -138,7 +138,7 @@ public static partial class StoreyFragmentBuilder
             if (len > 1e-9)
             {
                 var axis = (g.Points[1] - g.Points[0]) * (1 / len);
-                var (lo, hi) = BandRange(C, g.Points[0], axis, 0, len);
+                var (lo, hi) = ClipRange(C, g.Points[0], axis, 0, len);
                 if (hi - lo > 1e-9)
                 {
                     var mid = g.Points[0] + axis * ((lo + hi) / 2);
@@ -196,19 +196,19 @@ public static partial class StoreyFragmentBuilder
     {
         foreach (var load in l.Parent.MeshNodeLoads)
         {
-            if (!l.MeshNodes.TryGetValue(load.MeshNodeTag, out var n) || !l.C.InBand(n.Z)) continue;
+            if (!l.MeshNodes.TryGetValue(load.MeshNodeTag, out var n) || !l.C.InBox(P(n))) continue;
             NodeLoad(l, load.LoadCaseId, new PlanarVector3(n.X, n.Y, n.Z),
                 new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
         }
         var byId = l.Parent.Nodes.Where(n => n.Id > 0).GroupBy(n => n.Id).ToDictionary(g => g.Key, g => g.First());
         foreach (var load in l.Parent.NodeLoads)
         {
-            if (!byId.TryGetValue(load.NodeId, out var n) || !l.C.InBand(n.Z)) continue;
+            if (!byId.TryGetValue(load.NodeId, out var n) || !l.C.InBox(P(n))) continue;
             NodeLoad(l, load.LoadCaseId, P(n), new PlanarVector3(load.Fx, load.Fy, load.Fz), new PlanarVector3(load.Mx, load.My, load.Mz));
         }
         foreach (var k in l.Parent.KinematicLoads)
         {
-            if (!byId.TryGetValue(k.NodeId, out var n) || !l.C.InBand(n.Z)) continue;
+            if (!byId.TryGetValue(k.NodeId, out var n) || !l.C.InBox(P(n))) continue;
             var node = l.C.Nodes.Get(P(n));
             l.C.Draft.KinematicLoads.Add(new FragmentKinematicLoad(node.NodeTag,
                 new FemKinematicLoad { LoadCaseId = k.LoadCaseId, Dof = k.Dof, Value = k.Value }));

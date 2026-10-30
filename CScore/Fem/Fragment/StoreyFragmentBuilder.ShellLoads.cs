@@ -17,19 +17,30 @@ public static partial class StoreyFragmentBuilder
         (0.101286507323456, 0.101286507323456, 0.797426985353087, 0.125939180544827),
     ];
 
-    /// <summary>Многоугольник в 3D, отсечённый горизонталью z: остаётся часть выше (<paramref name="above"/>) или ниже.</summary>
-    static List<PlanarVector3> ClipZ(List<PlanarVector3> polygon, double z, bool above)
+    /// <summary>Многоугольник в 3D, отсечённый плоскостью: остаётся часть внутри фрагмента (n·p ≤ смещения).</summary>
+    static List<PlanarVector3> ClipPlane(List<PlanarVector3> polygon, CutPlane plane)
     {
         var result = new List<PlanarVector3>();
         for (int i = 0; i < polygon.Count; i++)
         {
             var p = polygon[i];
             var q = polygon[(i + 1) % polygon.Count];
-            double dp = above ? p.Z - z : z - p.Z, dq = above ? q.Z - z : z - q.Z;
+            double dp = -plane.Eval(p), dq = -plane.Eval(q);
             if (dp >= 0) result.Add(p);
             if (dp >= 0 != dq >= 0) result.Add(p + (q - p) * (dp / (dp - dq)));
         }
         return result;
+    }
+
+    /// <summary>Многоугольник в 3D, отсечённый всеми плоскостями фрагмента (полоса и призма); пусто — снаружи.</summary>
+    static List<PlanarVector3> ClipBox(Ctx c, List<PlanarVector3> polygon)
+    {
+        foreach (var plane in c.Planes)
+        {
+            polygon = ClipPlane(polygon, plane);
+            if (polygon.Count < 3) return [];
+        }
+        return polygon;
     }
 
     /// <summary>Площадь и центр плоского выпуклого многоугольника в 3D (веер треугольников).</summary>
@@ -86,7 +97,7 @@ public static partial class StoreyFragmentBuilder
                     double len = (b - a).Length;
                     var u = (b - a) * (1 / len);
                     double Q(double s) => v[2] + (v[3] - v[2]) * s / len;
-                    var (lo, hi) = BandRange(l.C, a, u, 0, len);
+                    var (lo, hi) = ClipRange(l.C, a, u, 0, len);
                     if (hi - lo > 1e-9) l.AddParentLine(lc, LoadCategory.Edge, a + u * lo, a + u * hi, dir * Q(lo), dir * Q(hi));
                     Field(lc, FemElementLoadKinds.Edge, dir, e.ElemTag, d => [v[0], v[1], v[2] * d, v[3] * d]);
                     break;
@@ -95,7 +106,7 @@ public static partial class StoreyFragmentBuilder
                 {
                     var (ex, ey, _) = g.ShellFrame();
                     var at = g.Points[g.Contour[0]] + ex * v[1] + ey * v[2];
-                    if (!l.C.InBand(at.Z)) break;
+                    if (!l.C.InBox(at)) break;
                     l.AddParent(lc, LoadCategory.Point, at, dir * v[0], PlanarVector3.Zero);
                     l.AddNodeLoad(lc, LoadCategory.Point, at, dir * v[0], PlanarVector3.Zero);
                     break;
