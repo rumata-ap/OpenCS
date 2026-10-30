@@ -24,6 +24,28 @@ public static partial class StoreyFragmentBuilder
         return result;
     }
 
+    /// <summary>Медиана длины рёбер КЭ пластин родителя в полосе, округлённая до 1 см (не меньше 1 см); null — пластин нет.</summary>
+    static double? ParentMeshStep(Ctx c, StoreyFragmentParentSnapshot parent)
+    {
+        var node = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var edges = new List<double>();
+        foreach (var e in BandElements(c, parent).Where(e => e.ElemType == "shell"))
+        {
+            var tags = FemMeshTopology.ReadNodeTags(e)?.ToArray();
+            if (tags is not { Length: 3 or 4 } || tags.Any(t => !node.ContainsKey(t))) continue;
+            // Q4 хранится «1 2 4 3» — обход контура n1→n2→n4→n3.
+            var loop = tags.Length == 4 ? new[] { tags[0], tags[1], tags[3], tags[2] } : tags;
+            for (int i = 0; i < loop.Length; i++)
+            {
+                double length = (P(node[loop[(i + 1) % loop.Length]]) - P(node[loop[i]])).Length;
+                if (length > c.Tol) edges.Add(length);
+            }
+        }
+        if (edges.Count == 0) return null;
+        edges.Sort();
+        return Math.Max(0.01, Math.Round(edges[edges.Count / 2], 2));
+    }
+
     /// <summary>КЭ полосы, не покрытые КонЭ родителя, — в КонЭ через <see cref="MeshMemberBuilder"/> (спека, решение 1).</summary>
     static List<SourceMember> Uncovered(Ctx c, StoreyFragmentParentSnapshot parent)
     {

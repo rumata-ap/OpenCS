@@ -58,6 +58,7 @@ public static partial class StoreyFragmentBuilder
 
         var sources = Resolve(c, parent);
         c.ParentBars = ParentBars(parent);
+        draft.ParentMeshStepM = ParentMeshStep(c, parent);
         sources.AddRange(Uncovered(c, parent));
         foreach (var s in sources.Where(IsHorizontalShell)) AddSlab(c, s);
         if (draft.HasErrors) return draft;

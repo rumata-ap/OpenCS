@@ -57,6 +57,9 @@ public sealed class StoreyFragmentDraft
 {
     public List<FemNode> Nodes { get; } = [];
     public List<StoreyFragmentMember> Members { get; } = [];
+    /// <summary>Шаг сетки родителя в полосе, м: медиана длины рёбер его КЭ пластин (округлена до 1 см); null — пластин
+    /// нет. Фрагмент берёт его шагом стержней и пластин, если у родителя шаги не заданы (импортная схема).</summary>
+    public double? ParentMeshStepM { get; set; }
     public List<FragmentCut> Cuts { get; } = [];
     /// <summary>Копии загружений родителя (Id родителя).</summary>
     public List<FemLoadCase> LoadCases { get; } = [];

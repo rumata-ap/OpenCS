@@ -489,6 +489,9 @@ namespace OpenCS.Utilites
          ArgumentNullException.ThrowIfNull(draft);
          if (draft.HasErrors) throw new InvalidOperationException("Черновик фрагмента содержит отказы — схема не создаётся.");
          var (barStep, plateStep) = GetFemSchemaMeshSteps(parentId);
+         // Импортная схема шагов не задаёт — шаг сетки родителя в полосе (решение пользователя 30.10).
+         barStep ??= draft.ParentMeshStepM;
+         plateStep ??= draft.ParentMeshStepM;
          var (_, angle) = GetFemSchemaRigidJunctions(parentId);
          var schema = new FemSchema
          {

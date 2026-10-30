@@ -111,4 +111,19 @@ public sealed class StoreyFragmentMeshTests
         Assert.All(bars, b => Assert.Equal(5, b.Member.CrossSectionId));
         Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_bar_section_varies");
     }
+    /// <summary>Шаг сетки родителя — медиана рёбер его КЭ пластин в полосе (Q4 «1 2 4 3» — по контуру); без пластин — null.</summary>
+    [Fact]
+    public void ParentMeshStep_MedianShellEdge()
+    {
+        FemElement Q(string tag, string a, string b, string c, string d) =>
+            new() { ElemTag = tag, ElemType = "shell", NodeIdsJson = $"[{a},{b},{d},{c}]", SourceMemberTag = "S1" };
+        FemMeshNode[] nodes =
+            [M("201", 0, 0, 3), M("202", 0.5, 0, 3), M("203", 1, 0, 3), M("204", 0, 0.5, 3), M("205", 0.5, 0.5, 3), M("206", 1, 0.5, 3)];
+
+        var d = Build(1.5, 4.5, [], [Slab("S1", 1, 3)], nodes,
+            [Q("1", "201", "202", "205", "204"), Q("2", "202", "203", "206", "205")]);
+
+        Assert.Equal(0.5, d.ParentMeshStepM);
+        Assert.Null(Build(1.5, 4.5, [], [Slab("S1", 1, 3)]).ParentMeshStepM);
+    }
 }
