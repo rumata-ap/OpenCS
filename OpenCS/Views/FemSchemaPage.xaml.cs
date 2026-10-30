@@ -121,6 +121,9 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
             try
             {
                 await _fem3d.LoadMeshOverlayAsync();
+                // Сборка сетки перезаписывает АЖТ примыканий и тела по узлам схемы (и опоры линейных связей на новых
+                // узлах) — без перечитывания ГУ они не видны до повторного открытия схемы.
+                await _fem3d.ReloadBoundaryAsync();
                 app.ReloadFemMeshSnapshotTree(schema.Id);
                 view3D.ShowMeshOverlay();
             }

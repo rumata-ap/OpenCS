@@ -1245,7 +1245,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             }
 
             bool changed = service.DiffersFromStored(schema.Id, mesh);
-            service.Save(schema.Id, mesh);
+            // Без изменений (сетка и тела те же) запись не нужна — у фрагмента «Музея» это ~5 с из 15.
+            if (changed) service.Save(schema.Id, mesh);
             if (planar)
                 _logService.Info(string.Format(Loc.S("FemSchemaMeshDone"), mesh.Nodes.Count,
                     mesh.Elements.Count(e => e.ElemType == "beam"), mesh.Elements.Count(e => e.ElemType == "shell"),
