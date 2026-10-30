@@ -90,8 +90,9 @@ public sealed record LiraBinaryExtras(
 ///   объекта сверяется с геометрией, а следующий объект ищется по последовательному номеру;</description></item>
 ///   <item><description><b>Жёсткости</b>: массив <c>n×u16</c> номеров жёсткостей, который в контрольном
 ///   файле хранится двумя подряд идущими одинаковыми копиями — это и служит сигнатурой;</description></item>
-///   <item><description><b>Загружения</b>: серия строк <c>[u8 длина][текст cp1251]</c>; число строк равно
-///   максимальному номеру загружения из прочитанных нагрузок.</description></item>
+///   <item><description><b>Загружения</b>: серия строк — CP1251 с префиксом длины или «широких» UTF-16LE
+///   (<c>FF FE FF</c>, длина в символах); число строк равно максимальному номеру загружения
+///   из прочитанных нагрузок.</description></item>
 /// </list>
 /// </remarks>
 public static class LiraBinaryExtrasReader
@@ -111,6 +112,15 @@ public static class LiraBinaryExtrasReader
     /// <summary>Верхняя граница номера жёсткости при поиске массива назначений (номер хранится в u16).</summary>
     const int MaxStiffnessNumber = 255;
 
+    /// <summary>Верхняя граница длины неразобранного хвоста объекта элемента (между записями нагрузок
+    /// и списком узлов).</summary>
+    /// <remarks>
+    /// Хвост — свойства элемента (метка основания C1 и т. п.), он невелик. Ограничение отсекает ложные
+    /// начала массива объектов: структура, похожая на заголовок КЭ №1, встречается и в других блоках файла,
+    /// но тогда до объекта №2 остаётся десятки килобайт, а не хвост одного элемента.
+    /// </remarks>
+    const int MaxElementTail = 16384;
+
     /// <summary>Верхняя граница длины строки (метка элемента, имя загружения).</summary>
     const int MaxStringLength = 4096;
 
@@ -121,19 +131,25 @@ public static class LiraBinaryExtrasReader
     static ReadOnlySpan<byte> EmptyWideLabel => [0xFF, 0xFE, 0xFF, 0x00];
 
     /// <summary>
-    /// Поле флагов объекта удалённого КЭ: бит «живой записи» снят, остаётся <c>0x02000000</c>.
+    /// Поле флагов объекта удалённого КЭ: бит «живой записи» снят, установлен бит <c>0x02000000</c>.
     /// Объект при этом в файле есть, и нагрузки по нему читаются.
     /// </summary>
+    /// <remarks>
+    /// Остальные биты поля флагов независимы от признака удаления: в живых схемах встречаются
+    /// <c>0x00002001</c> (живой) и <c>0x02002000</c> (удалённый) — бит <c>0x2000</c> к удалению
+    /// отношения не имеет. Поэтому проверяются именно младший бит и бит удаления, а не всё значение.
+    /// </remarks>
     const uint DeletedObjectFlags = 0x02000000;
 
-    /// <summary>Заголовок объекта элемента принадлежит элементу: живая запись или известный признак удалённой.</summary>
-    static bool IsElementObjectFlags(uint flags) => (flags & 1) != 0 || flags == DeletedObjectFlags;
+    /// <summary>Заголовок объекта элемента принадлежит элементу: живая запись или признак удалённой.</summary>
+    static bool IsElementObjectFlags(uint flags) => (flags & 1) != 0 || (flags & DeletedObjectFlags) != 0;
 
     /// <summary>Размер записи нагрузки по её тегу (всего байт, включая 8 байт заголовка).</summary>
     /// <remarks>
-    /// Теги 0, 4, 7 расшифрованы по текстовым эталонам ЛИРЫ (документы 6 и 7): значения параметров
-    /// совпали с экспортом. Теги 11, 15, 16 в живых схемах пока не разобраны — на них чтение
-    /// нагрузок по элементам останавливается, а не идёт наугад.
+    /// Все теги таблицы расшифрованы по текстовым эталонам ЛИРЫ (документы 6 и 7). Размер записи
+    /// определяется только тегом: соответствие параметров порядку текстового экспорта — отдельная
+    /// таблица <see cref="TryMapLoad"/>. Незнакомый тег останавливает чтение нагрузок файла, а не
+    /// читается наугад.
     /// </remarks>
     static readonly Dictionary<int, int> LoadTagSize = new()
     {
@@ -435,14 +451,16 @@ public static class LiraBinaryExtrasReader
         }
 
         List<LiraBinaryLoad>? accepted = null;
-        var unmapped = new Dictionary<(int Tag, int Type), int>();
+        Dictionary<(int Tag, int Type), int>? unmapped = null;
         int end = 0;
         foreach (int start in starts)
         {
             var trial = new List<LiraBinaryLoad>(loads.Count + 1024);
-            if (TryWalkElementObjects(bytes, start, elementsStart, elementCount, vertexCount, trial, unmapped, out end))
+            var trialUnmapped = new Dictionary<(int Tag, int Type), int>();
+            if (TryWalkElementObjects(bytes, start, elementsStart, elementCount, vertexCount, trial, trialUnmapped, out end))
             {
                 accepted = trial;
+                unmapped = trialUnmapped;
                 break;
             }
         }
@@ -455,7 +473,7 @@ public static class LiraBinaryExtrasReader
 
         loads.AddRange(accepted);
         notes.Add($"элементные нагрузки прочитаны: объектов {elementCount}, записей {accepted.Count}");
-        if (unmapped.Count > 0)
+        if (unmapped is { Count: > 0 })
             notes.Add("параметры без сверки с текстовым экспортом (оставлены в порядке файла): " +
                       string.Join(", ", unmapped.Select(u => $"тег {u.Key.Tag}/тип {u.Key.Type} — {u.Value}")));
         return true;
@@ -546,7 +564,7 @@ public static class LiraBinaryExtrasReader
             else
             {
                 int tail = FindSequence(bytes, p, slots);
-                if (tail < 0) return false;
+                if (tail < 0 || tail - p > MaxElementTail) return false;
                 o = tail + slots.Length;
             }
         }
@@ -557,7 +575,8 @@ public static class LiraBinaryExtrasReader
 
     /// <summary>
     /// Ищет заголовок следующего объекта элемента по последовательному номеру; принимается только
-    /// позиция, перед которой лежит связность текущего элемента.
+    /// позиция, перед которой лежит связность текущего элемента, а между списком узлов и заголовком
+    /// нет постороннего блока (хвост объекта — свойства элемента, не больше <see cref="MaxElementTail"/>).
     /// </summary>
     static bool TryFindNextElementObject(byte[] bytes, int from, int number, ReadOnlySpan<byte> slots, out int start)
     {
@@ -572,7 +591,8 @@ public static class LiraBinaryExtrasReader
             int hit = bytes.AsSpan(search, limit - search).IndexOf(key);
             if (hit < 0) break;
             int candidate = search + hit - 2;
-            if (candidate >= from + slots.Length && candidate + 18 <= bytes.Length)
+            if (candidate >= from + slots.Length && candidate + 18 <= bytes.Length &&
+                candidate - slots.Length - from <= MaxElementTail)
             {
                 if (bytes.AsSpan(candidate - slots.Length, slots.Length).SequenceEqual(slots) &&
                     IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidate + 6))))
@@ -769,6 +789,24 @@ public static class LiraBinaryExtrasReader
         next = offset;
         if (offset < 0 || offset >= bytes.Length) return false;
 
+        // «Широкая» строка UTF-16LE: FF FE FF, длина в символах (u8), текст.
+        if (bytes[offset] == 0xFF && offset + 4 <= bytes.Length &&
+            bytes[offset + 1] == 0xFE && bytes[offset + 2] == 0xFF)
+        {
+            int chars = bytes[offset + 3];
+            int wide  = offset + 4;
+            if (chars == 0 || chars > 80 || wide + 2 * chars > bytes.Length) return false;
+
+            for (int i = 0; i < chars; i++)
+            {
+                int c = ReadU16(bytes, wide + 2 * i);
+                if (c < 0x20 || c == 0x7F) return false;
+            }
+
+            next = wide + 2 * chars;
+            return true;
+        }
+
         int length = bytes[offset];
         int p      = offset + 1;
         if (length == 255)
@@ -791,8 +829,8 @@ public static class LiraBinaryExtrasReader
     }
 
     /// <summary>
-    /// Читает метку объекта элемента: либо пустой маркер <see cref="EmptyWideLabel"/> (4 байта),
-    /// либо строку «длина + текст cp1251».
+    /// Читает метку объекта элемента: пустой маркер <see cref="EmptyWideLabel"/> (4 байта),
+    /// «широкую» строку UTF-16LE или строку «длина + текст cp1251».
     /// </summary>
     static bool TryReadElementLabel(byte[] bytes, int offset, out string value, out int next)
     {
@@ -806,12 +844,34 @@ public static class LiraBinaryExtrasReader
         return TryReadPrefixedString(bytes, offset, out value, out next);
     }
 
-    /// <summary>Читает строку «длина + текст cp1251». Пустая строка допустима.</summary>
+    /// <summary>
+    /// Читает строку с префиксом длины в одном из двух форматов ЛИРЫ: «широкую» —
+    /// <c>FF FE FF</c>, длина в символах (<c>u8</c>) и текст UTF-16LE, — или обычную
+    /// «длина (<c>u8</c>; <c>FF</c> — далее <c>u16</c>) + текст cp1251». Пустая строка допустима.
+    /// </summary>
+    /// <remarks>
+    /// Широкий формат встречается в схемах ЛИРА-САПР 2013 с расширенным заголовком
+    /// (<c>hostel.lir</c>: метки оснований C1 и имена загружений). Пустая метка — частный случай
+    /// широкой строки с нулевой длиной (<see cref="EmptyWideLabel"/>).
+    /// </remarks>
     static bool TryReadPrefixedString(byte[] bytes, int offset, out string value, out int next)
     {
         value = string.Empty;
         next  = offset;
         if (offset < 0 || offset >= bytes.Length) return false;
+
+        // «Широкая» строка UTF-16LE: FF FE FF, длина в символах — один байт, затем 2·длина байт текста.
+        if (bytes[offset] == 0xFF && offset + 4 <= bytes.Length &&
+            bytes[offset + 1] == 0xFE && bytes[offset + 2] == 0xFF)
+        {
+            int chars = bytes[offset + 3];
+            int wide  = offset + 4;
+            if (chars > MaxStringLength / 2 || wide + 2 * chars > bytes.Length) return false;
+
+            value = Encoding.Unicode.GetString(bytes, wide, 2 * chars);
+            next  = wide + 2 * chars;
+            return true;
+        }
 
         int length = bytes[offset];
         int p      = offset + 1;
@@ -820,7 +880,7 @@ public static class LiraBinaryExtrasReader
             if (p + 2 > bytes.Length) return false;
             length = ReadU16(bytes, p);
             p += 2;
-            if (length >= 0xFFFE) return false;   // длинные/Unicode строки этим чтением не поддержаны
+            if (length >= 0xFFFE) return false;   // строка длиной 0xFFFF (UTF-16) этим чтением не поддержана
         }
         if (length < 0 || length > MaxStringLength || p + length > bytes.Length) return false;
 

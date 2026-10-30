@@ -35,11 +35,14 @@ public class LiraBinaryExtrasReaderTests
         readonly List<(int Element, int Tag, int Code, int Case, int Group, float[] Payload)> _elementLoads = [];
         readonly List<int> _stiffness = [];
         readonly List<string> _loadCases = [];
-        readonly List<(int Element, string Label)> _labels = [];
+        readonly List<(int Element, string Label, bool Wide)> _labels = [];
         bool _writeStiffness = true;
         bool _writeNodeObjects = true;
         bool _breakConnectivity;
         bool _wideEmptyLabel;
+        bool _wideLoadCases;
+        bool _extraObjectFlagBits;
+        bool _falseStart;
 
         public int AddNode(double x, double y, double z)
         {
@@ -68,9 +71,23 @@ public class LiraBinaryExtrasReaderTests
         public void AddElementLoad(int element, int tag, int code, int loadCase, int group, float[] payload) =>
             _elementLoads.Add((element, tag, code, loadCase, group, payload));
 
-        public void SetLabel(int element, string label) => _labels.Add((element, label));
+        public void SetLabel(int element, string label) => _labels.Add((element, label, false));
+
+        /// <summary>Метка объекта элемента в «широком» варианте: <c>FF FE FF</c>, длина в символах, UTF-16LE.</summary>
+        public void SetWideLabel(int element, string label) => _labels.Add((element, label, true));
 
         public void AddLoadCase(string name) => _loadCases.Add(name);
+
+        /// <summary>Имена загружений в «широком» варианте строк (<c>FF FE FF</c> + UTF-16LE).</summary>
+        public void UseWideLoadCases() => _wideLoadCases = true;
+
+        /// <summary>Дополнительный бит <c>0x2000</c> в поле флагов объектов КЭ (живой — <c>0x00002001</c>,
+        /// удалённый — <c>0x02002000</c>), как в части схем ЛИРЫ.</summary>
+        public void UseExtraObjectFlagBits() => _extraObjectFlagBits = true;
+
+        /// <summary>Вставляет перед массивом объектов «ложный» заголовок КЭ №1 и 60 КБ посторонних данных:
+        /// правдоподобное начало, до настоящего объекта №2 от которого — десятки килобайт.</summary>
+        public void AddFalseStart() => _falseStart = true;
 
         public void WithoutStiffness() => _writeStiffness = false;
 
@@ -116,7 +133,7 @@ public class LiraBinaryExtrasReaderTests
             if (_loadCases.Count > 0)
             {
                 w.Write(new byte[8]);
-                foreach (var name in _loadCases) WriteString(w, name);
+                foreach (var name in _loadCases) WriteString(w, name, _wideLoadCases);
             }
 
             w.Write(new byte[16]);
@@ -151,21 +168,39 @@ public class LiraBinaryExtrasReaderTests
 
         void WriteElementObjects(BinaryWriter w)
         {
+            if (_falseStart && _elements.Count > 0)
+            {
+                w.Write((ushort)0);            // класс объекта
+                w.Write(0u);                   // номер «первого» КЭ
+                w.Write(1u);                   // живая запись
+                w.Write((ushort)10);
+                w.Write((ushort)_elements[0].Slots.Length);
+                w.Write(0u);
+                WriteString(w, string.Empty);
+                w.Write(1.0f);
+                w.Write((ushort)0);            // нагрузок нет
+                w.Write(new byte[60000]);      // посторонний блок до настоящего массива объектов
+            }
+
             for (int i = 0; i < _elements.Count; i++)
             {
-                var (slots, definition, _) = _elements[i];
+                var (slots, definition, flag) = _elements[i];
                 int type = definition switch { 0 => 10, 1 => 42, 2 => 44, _ => 56 };
-                string label = string.Empty;
-                foreach (var pair in _labels) if (pair.Element == i) label = pair.Label;
+                var pair = _labels.FirstOrDefault(l => l.Element == i);
+                string label = pair.Label ?? string.Empty;
                 var loads = _elementLoads.Where(l => l.Element == i).ToList();
+
+                uint objectFlags = flag == 0 ? 0x02000000u : 1u;   // удалённый объект несёт бит 0x02000000
+                if (_extraObjectFlagBits) objectFlags |= 0x2000u;
 
                 w.Write((ushort)0);            // класс объекта
                 w.Write((uint)i);              // последовательный номер с нуля
-                w.Write(1u);                   // флаги (младший бит — живая запись)
+                w.Write(objectFlags);          // флаги (младший бит — живая запись)
                 w.Write((ushort)type);         // тип КЭ
                 w.Write((ushort)slots.Length); // число вершин
                 w.Write(0u);                   // неинтерпретированное поле
-                if (_wideEmptyLabel && label.Length == 0) w.Write([0xFF, 0xFE, 0xFF, 0x00]);
+                if (pair.Wide) WriteString(w, label, true);
+                else if (_wideEmptyLabel && label.Length == 0) w.Write([0xFF, 0xFE, 0xFF, 0x00]);
                 else WriteString(w, label);
                 w.Write(1.0f);                 // общий множитель
                 w.Write((ushort)loads.Count);
@@ -192,8 +227,16 @@ public class LiraBinaryExtrasReaderTests
             foreach (var s in _stiffness) w.Write((ushort)s);   // вторая, побитовая копия массива
         }
 
-        static void WriteString(BinaryWriter w, string value)
+        static void WriteString(BinaryWriter w, string value, bool wide = false)
         {
+            if (wide)
+            {
+                var utf16 = Encoding.Unicode.GetBytes(value);
+                w.Write([0xFF, 0xFE, 0xFF, (byte)(utf16.Length / 2)]);
+                w.Write(utf16);
+                return;
+            }
+
             var bytes = Encoding.GetEncoding(1251).GetBytes(value);
             w.Write((byte)bytes.Length);
             w.Write(bytes);
@@ -371,6 +414,46 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_ElementLoads_WideUtf16LabelAreRead()
+    {
+        var builder = GridSchema();
+        builder.SetWideLabel(1, "C1\t9\t453.17");                 // метка основания в UTF-16LE
+        builder.AddElementLoad(1, 2, 163, 1, 0, [0.5f, 0f, 1f]);
+        var data = Parse(builder.Build());
+
+        var load = Assert.Single(data.BinaryLoads);
+        Assert.Equal(2, load.TargetId);
+        Assert.Equal(0.5, load.P0, 6);
+    }
+
+    [Fact]
+    public void Extra_ElementLoads_ObjectFlagExtraBitsAreAccepted()
+    {
+        var builder = GridSchema();
+        builder.UseExtraObjectFlagBits();                          // живые — 0x00002001, удалённые — 0x02002000
+        builder.AddDeletedElement([0, 1], 0);
+        builder.AddElementLoad(0,  2, 163, 1, 0, [1.5f, 0f, 1f]);  // объект удалённой записи
+        builder.AddElementLoad(8,  2, 163, 1, 0, [4.5f, 0f, 1f]);  // объект живой записи
+        var data = Parse(builder.Build());
+
+        Assert.Equal(2, data.BinaryLoads.Count);
+        Assert.Equal(4.5, data.BinaryLoads[^1].P0, 6);
+    }
+
+    [Fact]
+    public void Extra_ElementLoads_FarFalseStartIsRejected()
+    {
+        var builder = GridSchema();
+        builder.AddFalseStart();                                    // правдоподобный «объект №1» за 60 КБ до массива
+        builder.AddElementLoad(0, 2, 163, 1, 0, [0.75f, 0f, 1f]);
+        var data = Parse(builder.Build());
+
+        var load = Assert.Single(data.BinaryLoads);                 // нагрузка первого элемента не потеряна
+        Assert.Equal(1, load.TargetId);
+        Assert.Equal(0.75, load.P0, 6);
+    }
+
+    [Fact]
     public void Extra_ElementLoads_DeletedRecordsKeepNumbering()
     {
         var builder = GridSchema();
@@ -451,6 +534,20 @@ public class LiraBinaryExtrasReaderTests
         Assert.Equal(["Собственный вес", "Полезная нагрузка", "Кратковременная"],
             data.LoadCases.Select(c => c.Name).ToArray());
         Assert.Equal([1, 2, 3], data.LoadCases.Select(c => c.Id).ToArray());
+    }
+
+    [Fact]
+    public void Extra_LoadCaseNames_WideUtf16StringsAreRead()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(0, 12, 163, 1, 0, [1f, 1f]);
+        builder.AddElementLoad(1, 12, 163, 2, 0, [1f, 1f]);
+        builder.AddLoadCase("Собственный вес");
+        builder.AddLoadCase("Снег");
+        builder.UseWideLoadCases();                                  // так имена лежат в hostel.lir
+        var data = Parse(builder.Build());
+
+        Assert.Equal(["Собственный вес", "Снег"], data.LoadCases.Select(c => c.Name).ToArray());
     }
 
     // ------------------------------------------------------------------ Режимы
