@@ -224,4 +224,61 @@ public class FemPlanarMeshPlanTests
         Assert.Equal(6.0, curve.Geometry.Points.Max(p => p.U), 12);
         Assert.Equal(FemPlanarMeshPlan.MergeToleranceM, curve.ToleranceM);
     }
+
+    /// <summary>
+    /// Волны: два этажа (плиты на 3 и 6 м), под каждой — стены по осям y = 0 и y = 4 и угловая стена x = 6, стены
+    /// второго этажа стоят на стенах первого (общая кромка). Плиты разных этажей не касаются — одна волна; касающиеся
+    /// строятся в исходном порядке (мелкая сетка раньше).
+    /// </summary>
+    [Fact]
+    public void Waves_TouchingRegionsInOrder_FarRegionsTogether()
+    {
+        static Frame3D Horizontal(double z) =>
+            new(new PlanarVector3(0, 0, z), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1));
+        static Frame3D WallY(double y, double z) =>
+            new(new PlanarVector3(0, y, z), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0));
+        static Frame3D WallX(double x, double z) =>
+            new(new PlanarVector3(x, 0, z), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(1, 0, 0));
+        var specs = new List<(string Tag, Frame3D Frame, double W, double H, double Size)>
+        {
+            ("С1а", WallY(0, 0), 6, 3, 0.3), ("С1б", WallY(4, 0), 6, 3, 0.3), ("С1в", WallX(6, 0), 4, 3, 0.3),
+            ("С2а", WallY(0, 3), 6, 3, 0.3), ("С2б", WallY(4, 3), 6, 3, 0.3), ("С2в", WallX(6, 3), 4, 3, 0.3),
+            ("П1", Horizontal(3), 6, 4, 0.5), ("П2", Horizontal(6), 6, 4, 0.5),
+        };
+        var members = new List<FemMember>();
+        var regions = new List<PlanarRegion>();
+        for (int i = 0; i < specs.Count; i++)
+        {
+            var (tag, frame, w, h, size) = specs[i];
+            var region = PlanarRegion.CreateFromContour(new Contour { X = [0, w, w, 0], Y = [0, 0, h, h] }, frame: frame, tag: tag);
+            region.Id = i + 1;
+            region.MeshMaxElementSizeM = size;
+            regions.Add(region);
+            members.Add(new FemMember { Id = i + 1, ElemTag = tag, ElemType = "shell", PlanarRegionId = region.Id, NodeIdsJson = "[]" });
+        }
+        var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions);
+
+        var plan = FemPlanarMeshPlan.Waves(ordered);
+
+        int Wave(string tag) => plan.WaveOf[ordered.FindIndex(p => p.Member.ElemTag == tag)];
+        // Касание — и по кромке, и в одной точке (угол (6, 0, 3) общий у С1а, С1в, С2а, С2в): узел там у всех.
+        Assert.Equal(0, Wave("С1а"));
+        Assert.Equal(0, Wave("С1б"));
+        Assert.Equal(1, Wave("С1в"));
+        Assert.Equal(2, Wave("С2а"));
+        Assert.Equal(2, Wave("С2б"));
+        Assert.Equal(3, Wave("С2в"));
+        // Плиты касаются стен под ними и над ними — после всех, обе в одной волне.
+        Assert.Equal(4, Wave("П1"));
+        Assert.Equal(4, Wave("П2"));
+        Assert.Equal(5, plan.Waves.Count);
+        Assert.Equal(plan.Waves.SelectMany(w => w), plan.Sequence);
+        // Касающиеся области в одной волне не стоят; позже — касающиеся из следующих волн.
+        foreach (var wave in plan.Waves)
+            foreach (var i in wave)
+                Assert.DoesNotContain(plan.Neighbours[i], j => wave.Contains(j));
+        var p1 = ordered.FindIndex(p => p.Member.ElemTag == "П1");
+        Assert.DoesNotContain(plan.Neighbours[p1], j => ordered[j].Member.ElemTag == "П2");
+        Assert.Equal(["С2в", "П1", "П2"], plan.Later(ordered, ordered.FindIndex(p => p.Member.ElemTag == "С2а")).Select(l => l.Tag));
+    }
 }

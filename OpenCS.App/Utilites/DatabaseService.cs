@@ -8228,16 +8228,40 @@ namespace OpenCS.Utilites
        }
 
        /// <summary>Возвращает все сохранённые снимки сетки региона без смешения с fem_mesh_*.</summary>
-       public List<CScore.Planar.PlanarMeshSnapshot> GetPlanarMeshSnapshots(int regionId)
+       public List<CScore.Planar.PlanarMeshSnapshot> GetPlanarMeshSnapshots(int regionId) =>
+          ReadPlanarMeshSnapshots("planar_region_id=@key ORDER BY id", regionId);
+
+       /// <summary>Снимок сетки по его Id (null — нет такого).</summary>
+       public CScore.Planar.PlanarMeshSnapshot? GetPlanarMeshSnapshot(int snapshotId) =>
+          ReadPlanarMeshSnapshots("id=@key", snapshotId).SingleOrDefault();
+
+       /// <summary>Заголовок последнего снимка сетки региона без узлов, КЭ и сопоставлений — для проверки устаревания по
+       /// отпечатку (null — снимков нет). Снимки не удаляются при пересборке: читать их все ради последнего отпечатка
+       /// дорого (фрагмент «Музея» — 25 с на 88 областей).</summary>
+       public (int Id, string InputFingerprint, bool IsCalculable)? GetLatestPlanarMeshSnapshotHeader(int regionId)
+       {
+          using var command = _connection.CreateCommand();
+          command.CommandText = "SELECT id,input_fingerprint,is_calculable FROM planar_mesh_snapshots WHERE planar_region_id=@region ORDER BY id DESC LIMIT 1";
+          command.Parameters.AddWithValue("@region", regionId);
+          using var reader = command.ExecuteReader();
+          return reader.Read() ? (reader.GetInt32(0), reader.GetString(1), reader.GetInt32(2) != 0) : null;
+       }
+
+       /// <summary>Последний снимок сетки региона (null — снимков нет).</summary>
+       public CScore.Planar.PlanarMeshSnapshot? GetLatestPlanarMeshSnapshot(int regionId) =>
+          GetLatestPlanarMeshSnapshotHeader(regionId) is { } header ? GetPlanarMeshSnapshot(header.Id) : null;
+
+       List<CScore.Planar.PlanarMeshSnapshot> ReadPlanarMeshSnapshots(string where, int key)
        {
           var result = new List<CScore.Planar.PlanarMeshSnapshot>();
           using var header = _connection.CreateCommand();
-           header.CommandText = "SELECT id,input_fingerprint,is_calculable,settings_json,provenance_json,diagnostics_json,mesh_format_version,entity_provenance_json FROM planar_mesh_snapshots WHERE planar_region_id=@region ORDER BY id";
-          header.Parameters.AddWithValue("@region", regionId);
+           header.CommandText = "SELECT id,input_fingerprint,is_calculable,settings_json,provenance_json,diagnostics_json,mesh_format_version,entity_provenance_json,planar_region_id FROM planar_mesh_snapshots WHERE " + where;
+          header.Parameters.AddWithValue("@key", key);
           using var reader = header.ExecuteReader();
           while (reader.Read())
           {
              var id = reader.GetInt32(0);
+             var regionId = reader.GetInt32(8);
              var nodes = new List<CScore.Planar.PlanarMeshNode>();
              using (var command = _connection.CreateCommand())
              {

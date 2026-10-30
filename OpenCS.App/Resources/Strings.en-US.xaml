@@ -4016,6 +4016,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="FemSchemaMeshMpcUnsupported">Region connection "{0}" with independent meshes (MPC) is not supported in the schema mesh — junctions use shared nodes only</system:String>
     <system:String x:Key="FemSchemaMeshBuilding">Building schema mesh…</system:String>
     <system:String x:Key="FemSchemaMeshRegionBuilding">Region "{0}" mesh — Gmsh ({1} points, {2} curves, {3} free nodes)</system:String>
+    <system:String x:Key="FemSchemaMeshWaves">Schema mesh: {0} regions in {1} waves (regions of a wave do not touch — meshed in parallel)</system:String>
     <system:String x:Key="FemSchemaMeshRegionFailed">Region "{0}" mesh failed — see the log and the region dialog</system:String>
     <system:String x:Key="FemSchemaMeshRigidJunctions">Bar-to-slab rigid junctions: {0}</system:String>
     <system:String x:Key="FemSchemaMeshNodeRigidBodies">Rigid bodies by schema nodes: {0} of {1}</system:String>

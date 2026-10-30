@@ -30,8 +30,10 @@ public sealed class FemSchemaMeshBuildResult
 /// (сохранённый снимок переиспользуется, если совпал отпечаток входа), затем <see cref="FemPlanarMeshMaterializer"/>.
 /// При флажке схемы <see cref="FemSchema.AutoRigidJunctions"/> следы сечений стержней, примыкающих к плитам, вшиваются
 /// в сетки областей, а по ним строятся АЖТ (<see cref="FemRigidJunctionMaterializer"/>), записываемые в <see cref="Save"/>.
-/// Вход вывода ограничений областей — <see cref="FemPlanarMeshPlan"/>, общий с диалогом области. Работа с БД — в
-/// вызывающем (UI) потоке: после <c>await</c> продолжение возвращается в него; Gmsh — внешний процесс.
+/// Вход вывода ограничений областей — <see cref="FemPlanarMeshPlan"/>, общий с диалогом области. Области строятся
+/// волнами несоприкасающихся (<see cref="FemPlanarMeshPlan.Waves"/>): в волне вывод ограничений и Gmsh (внешние
+/// процессы, не больше числа ядер) — параллельно в пуле потоков. Работа с БД — в вызывающем (UI) потоке: после
+/// <c>await</c> продолжение возвращается в него.
 /// </summary>
 public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
 {
@@ -78,44 +80,83 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
             var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
             var prefixBuilder = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
-            for (int k = 0; k < ordered.Count; k++)
+            // Волны из несоприкасающихся областей: в волне вывод ограничений и Gmsh — параллельно, запись снимков — здесь
+            // (одно соединение SQLite), по порядку; префикс волны — все области прошлых волн, по порядку сборки.
+            var plan = await Task.Run(() => FemPlanarMeshPlan.Waves(ordered, plateStep), cancellationToken);
+            info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshWaves"), ordered.Count, plan.Waves.Count));
+            using var gate = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount));
+            foreach (var wave in plan.Waves)
             {
-                var (member, region) = ordered[k];
                 cancellationToken.ThrowIfCancellationRequested();
-                var prefix = prefixBuilder.Build();
-                var traces = junctionOptions != null ? FemRigidJunctions.Build(region, nodes, members, outlines, junctionOptions) : null;
-                if (traces != null && !checkOnly) diagnostics.AddRange(traces.Diagnostics);
-                var constraints = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, region,
-                    laterRegions: Later(ordered, k), junctions: traces);
-                var settings = new PlanarMeshSettings(FemPlanarMeshPlan.MeshSize(member, region, plateStep), gmsh.Algorithm, gmsh.ElementMode);
-                var fingerprint = PlanarMeshFingerprint.Compute(region, settings, provenance, constraints.SourceFingerprint);
-                var snapshot = db.GetPlanarMeshSnapshots(region.Id).LastOrDefault();
-                if (snapshot is not { IsCalculable: true } || snapshot.InputFingerprint != fingerprint)
+                var prefix = await Task.Run(() => new FemPlanarMeshPrefix(prefixBuilder.Build()), cancellationToken);
+                var traces = wave.Select(i => junctionOptions != null
+                    ? FemRigidJunctions.Build(ordered[i].Region, nodes, members, outlines, junctionOptions) : null).ToArray();
+                var constraints = new FemPlanarRegionConstraints[wave.Count];
+                await Task.Run(() => Parallel.For(0, wave.Count, new ParallelOptions { CancellationToken = cancellationToken }, k =>
+                    constraints[k] = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, ordered[wave[k]].Region,
+                        laterRegions: plan.Later(ordered, wave[k]), junctions: traces[k])), cancellationToken);
+
+                var settings = new PlanarMeshSettings[wave.Count];
+                var headers = new (int Id, string InputFingerprint, bool IsCalculable)?[wave.Count];
+                var stale = new List<int>();
+                for (int k = 0; k < wave.Count; k++)
                 {
-                    if (checkOnly)
-                        return new FemSchemaMeshBuildResult
-                        {
-                            Diagnostics = [new("planar_mesh_stale", $"Сетка области «{member.ElemTag}» устарела.", false, [member.ElemTag])],
-                            RegionCount = ordered.Count, IsCurrent = false,
-                        };
-                    info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRegionBuilding"), member.ElemTag,
-                        constraints.Derived.PointLocusCount, constraints.Derived.CurveLocusCount, constraints.FreeNodeCount));
-                    snapshot = await BuildRegionMeshAsync(region, settings, constraints, cancellationToken);
-                    db.SavePlanarMeshSnapshot(snapshot);
-                    rebuilt++;
-                    if (!snapshot.IsCalculable)
-                    {
-                        diagnostics.AddRange(snapshot.Diagnostics.Where(d => d.IsError).Take(10));
-                        diagnostics.Add(new("planar_mesh_failed",
-                            string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRegionFailed"), member.ElemTag), true, [member.ElemTag]));
-                        return new FemSchemaMeshBuildResult { Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt };
-                    }
+                    var (member, region) = ordered[wave[k]];
+                    settings[k] = new PlanarMeshSettings(FemPlanarMeshPlan.MeshSize(member, region, plateStep), gmsh.Algorithm, gmsh.ElementMode);
+                    var fingerprint = PlanarMeshFingerprint.Compute(region, settings[k], provenance, constraints[k].SourceFingerprint);
+                    headers[k] = db.GetLatestPlanarMeshSnapshotHeader(region.Id);
+                    if (headers[k] is not { IsCalculable: true } header || header.InputFingerprint != fingerprint) stale.Add(k);
                 }
-                // Толщина — из сечения пластины, иначе собственная толщина КонЭ (КонЭ из импортной сетки: «КЭ без КонЭ»
-                // фрагмента, группы КЭ SCAD/ЛИРЫ без сечения).
-                regionMeshes.Add(new FemPlanarRegionMesh(member, region, snapshot,
-                    member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : member.ThicknessM, traces));
-                prefixBuilder.Add(regionMeshes[^1]);
+                if (checkOnly && stale.Count > 0)
+                {
+                    var tag = ordered[wave[stale[0]]].Member.ElemTag;
+                    return new FemSchemaMeshBuildResult
+                    {
+                        Diagnostics = [new("planar_mesh_stale", $"Сетка области «{tag}» устарела.", false, [tag])],
+                        RegionCount = ordered.Count, IsCurrent = false,
+                    };
+                }
+
+                foreach (var k in stale)
+                    info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRegionBuilding"), ordered[wave[k]].Member.ElemTag,
+                        constraints[k].Derived.PointLocusCount, constraints[k].Derived.CurveLocusCount, constraints[k].FreeNodeCount));
+                var built = await Task.WhenAll(stale.Select(async k =>
+                {
+                    await gate.WaitAsync(cancellationToken);
+                    try { return await Task.Run(() => BuildRegionMeshAsync(ordered[wave[k]].Region, settings[k], constraints[k], cancellationToken), cancellationToken); }
+                    finally { gate.Release(); }
+                }));
+                var snapshots = new PlanarMeshSnapshot?[wave.Count];
+                for (int s = 0; s < stale.Count; s++)
+                {
+                    db.SavePlanarMeshSnapshot(built[s]);
+                    snapshots[stale[s]] = built[s];
+                    rebuilt++;
+                }
+                var failed = stale.Where(k => !snapshots[k]!.IsCalculable).ToList();
+                if (failed.Count > 0)
+                {
+                    foreach (var k in failed)
+                    {
+                        var tag = ordered[wave[k]].Member.ElemTag;
+                        diagnostics.AddRange(snapshots[k]!.Diagnostics.Where(d => d.IsError).Take(10));
+                        diagnostics.Add(new("planar_mesh_failed",
+                            string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshRegionFailed"), tag), true, [tag]));
+                    }
+                    return new FemSchemaMeshBuildResult { Diagnostics = diagnostics, RegionCount = ordered.Count, RebuiltRegionCount = rebuilt };
+                }
+
+                for (int k = 0; k < wave.Count; k++)
+                {
+                    var (member, region) = ordered[wave[k]];
+                    if (traces[k] != null && !checkOnly) diagnostics.AddRange(traces[k]!.Diagnostics);
+                    var snapshot = snapshots[k] ?? db.GetPlanarMeshSnapshot(headers[k]!.Value.Id)!;
+                    // Толщина — из сечения пластины, иначе собственная толщина КонЭ (КонЭ из импортной сетки: «КЭ без КонЭ»
+                    // фрагмента, группы КЭ SCAD/ЛИРЫ без сечения).
+                    regionMeshes.Add(new FemPlanarRegionMesh(member, region, snapshot,
+                        member.PlateSectionId is int id && thickness.TryGetValue(id, out var h) ? h : member.ThicknessM, traces[k]));
+                    prefixBuilder.Add(regionMeshes[^1]);
+                }
             }
         }
 
@@ -172,18 +213,21 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         var ordered = FemPlanarMeshPlan.OrderedRegions(members, regions, PlateStep(schemaId));
         var (derivationNodes, derivationElements) = FemPlanarMeshPlan.DerivationBeams(schemaId, nodes, members);
         var prefix = new FemPlanarMeshMaterializer.Prefix(schemaId, derivationNodes, derivationElements, nodes);
+        var plan = FemPlanarMeshPlan.Waves(ordered, PlateStep(schemaId));
         int index = ordered.FindIndex(p => p.Region.Id == target.Id);
-        foreach (var (member, region) in ordered)
+        // Префикс — области прошлых волн по порядку сборки (область вне порядка — заблокированная или новая — видит все).
+        foreach (var i in plan.Sequence)
         {
-            if (region.Id == target.Id) break;
-            if (db.GetPlanarMeshSnapshots(region.Id).LastOrDefault() is { IsCalculable: true } snapshot)
+            if (index >= 0 && plan.WaveOf[i] >= plan.WaveOf[index]) break;
+            var (member, region) = ordered[i];
+            if (db.GetLatestPlanarMeshSnapshot(region.Id) is { IsCalculable: true } snapshot)
                 prefix.Add(new FemPlanarRegionMesh(member, region, snapshot, null));
         }
         var prefixMesh = prefix.Build();
         var options = JunctionOptions(schemaId, db.HasImportedMesh(schemaId));
         var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, SectionOutlines(), options) : null;
         return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
-            laterRegions: index >= 0 ? Later(ordered, index) : null, junctions: traces);
+            laterRegions: index >= 0 ? plan.Later(ordered, index) : null, junctions: traces);
     }
 
     /// <summary>Параметры следов АЖТ схемы; null — флажок выключен или у схемы импортная сетка (свои АЖТ источника).</summary>
@@ -222,10 +266,6 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     /// <summary>Размер КЭ области в сборке схемы: локальный шаг КонЭ, общий шаг пластин, размер из области.</summary>
     public double PlateMeshSize(int schemaId, FemMember member, PlanarRegion region) =>
         FemPlanarMeshPlan.MeshSize(member, region, PlateStep(schemaId));
-
-    /// <summary>Области, которые строятся после k-й: их линии стыка с ней — по геометрии.</summary>
-    static List<(string Tag, PlanarRegion Region)> Later(List<(FemMember Member, PlanarRegion Region)> ordered, int k) =>
-        ordered.Skip(k + 1).Select(p => (p.Member.ElemTag, p.Region)).ToList();
 
     /// <summary>Записывает сетку схемы (импортные строки сохраняются) и заменяет автоматические АЖТ примыканий
     /// (<see cref="RigidJunctionTraceSet.Provenance"/>) и тела по узлам схемы (<see cref="FemNodeRigidBodies.Provenance"/>)

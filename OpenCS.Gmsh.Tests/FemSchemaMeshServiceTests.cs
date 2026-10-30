@@ -363,6 +363,106 @@ public sealed class FemSchemaMeshServiceTests
         }
     }
 
+    /// <summary>
+    /// Сборка волнами (Gmsh внутри волны параллельно): два этажа — стены по осям y = 0, y = 4 и угловая x = 6 на каждом,
+    /// плиты на 3 и 6 м. Стыки без висящих узлов; пересборка с нуля даёт ту же сетку (теги не зависят от того, какой
+    /// процесс Gmsh закончил первым); диалог области видит тот же вход, что сборка.
+    /// </summary>
+    [Fact]
+    public async Task TwoStoreys_WavesDeterministic()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"opencs-schema-waves-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "test.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "waves" };
+            db.SaveFemSchema(schema);
+            var section = new PlateSection { H = 0.2, Tag = "П200" };
+            db.SavePlateSection(section);
+            var nodes = new List<FemNode> { Node(schema, "1", 0, 0, 0) };
+            db.SaveFemSchemaEdit(schema.Id, nodes, [], [], [], []);
+
+            static Frame3D Horizontal(double z) =>
+                new(new PlanarVector3(0, 0, z), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1));
+            static Frame3D WallY(double y, double z) =>
+                new(new PlanarVector3(0, y, z), new PlanarVector3(1, 0, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(0, -1, 0));
+            static Frame3D WallX(double x, double z) =>
+                new(new PlanarVector3(x, 0, z), new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1), new PlanarVector3(1, 0, 0));
+            var specs = new List<(string Tag, Frame3D Frame, double W, double Hgt, double Size)>
+            {
+                ("С1а", WallY(0, 0), 6, 3, 0.4), ("С1б", WallY(4, 0), 6, 3, 0.45), ("С1в", WallX(6, 0), 4, 3, 0.4),
+                ("С2а", WallY(0, 3), 6, 3, 0.4), ("С2б", WallY(4, 3), 6, 3, 0.45), ("С2в", WallX(6, 3), 4, 3, 0.4),
+                ("П1", Horizontal(3), 6, 4, 0.5), ("П2", Horizontal(6), 6, 4, 0.5),
+            };
+            var regions = new List<PlanarRegion>();
+            foreach (var (tag, frame, w, hgt, size) in specs)
+            {
+                var region = PlanarRegion.CreateFromContour(new Contour { X = [0, w, w, 0], Y = [0, 0, hgt, hgt] }, frame: frame, tag: tag);
+                region.MeshMaxElementSizeM = size;
+                db.AddPlanarRegion(region, schema.Id);
+                regions.Add(region);
+                db.SaveFemMember(new FemMember
+                {
+                    SchemaId = schema.Id, ElemTag = tag, ElemType = "shell", NodeIdsJson = "[]", PlanarRegionId = region.Id,
+                    PlateSectionId = section.Id,
+                });
+            }
+            var gmsh = new GmshSettings
+            {
+                ExecutablePath = Gmsh, ArtifactsPath = Path.Combine(root, "gmsh"), KeepArtifacts = false,
+                ElementMode = PlanarMeshElementMode.Quads,
+            };
+            var service = new FemSchemaMeshService(db, gmsh);
+            Task<FemSchemaMeshBuildResult> Build() =>
+                service.BuildAsync(schema.Id, nodes, db.GetFemMembers(schema.Id), null, null, CancellationToken.None);
+
+            var first = await Build();
+            Assert.False(first.HasErrors, string.Join("\n", first.Diagnostics));
+            Assert.Equal(8, first.RegionCount);
+            Assert.Equal(8, first.RebuiltRegionCount);
+            Assert.True(first.Mesh!.SharedNodeCount > 0);
+            service.Save(schema.Id, first.Mesh);
+            var fingerprints = regions.Select(r => db.GetLatestPlanarMeshSnapshotHeader(r.Id)!.Value.InputFingerprint).ToList();
+
+            var reuse = await Build();
+            Assert.Equal(0, reuse.RebuiltRegionCount);
+            Assert.True(service.IsSameAsStored(schema.Id, reuse.Mesh!));
+            Assert.True((await service.CheckAsync(schema.Id, nodes, db.GetFemMembers(schema.Id), null, CancellationToken.None)).IsCurrent);
+
+            // Диалог плиты (последняя волна) и стены средней волны: тот же отпечаток, что у снимка сборки.
+            var version = await GmshProcessRunner.ReadVersionAsync(Gmsh, TimeSpan.FromSeconds(10), CancellationToken.None);
+            foreach (var i in new[] { 4, 6 })
+            {
+                var constraints = service.RegionConstraints(schema.Id, regions[i]);
+                var fingerprint = PlanarMeshFingerprint.Compute(regions[i],
+                    new PlanarMeshSettings(specs[i].Size, gmsh.Algorithm, gmsh.ElementMode),
+                    new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion), constraints.SourceFingerprint);
+                Assert.Equal(fingerprints[i], fingerprint);
+            }
+
+            // С нуля: те же отпечатки и та же сетка схемы.
+            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA foreign_keys=ON; DELETE FROM planar_mesh_snapshots;";
+                command.ExecuteNonQuery();
+            }
+            var again = await Build();
+            Assert.False(again.HasErrors, string.Join("\n", again.Diagnostics));
+            Assert.Equal(8, again.RebuiltRegionCount);
+            Assert.Equal(fingerprints, regions.Select(r => db.GetLatestPlanarMeshSnapshotHeader(r.Id)!.Value.InputFingerprint));
+            Assert.True(service.IsSameAsStored(schema.Id, again.Mesh!));
+        }
+        finally
+        {
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+            catch (IOException) { }
+        }
+    }
+
     static MaterialChars ConcreteChars(CalcType ct, double rb, double rbt) => new(ct)
     {
         Type = MatType.Concrete, E = 30_000_000.0, Fc = -rb, Ft = rbt,

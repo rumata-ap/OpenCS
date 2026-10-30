@@ -15,10 +15,123 @@ public sealed record FemPlanarRegionConstraints(
     int RigidJunctionCount = 0);
 
 /// <summary>
+/// Волны построения сеток областей: в волне нет касающихся друг друга областей — их сетки строятся параллельно.
+/// Из касающихся областей с разным размером КЭ раньше строится мелкая (её узлы встраивает крупная); при равном — та,
+/// что в меньшей волне. Индексы — в списке упорядоченных областей (<see cref="FemPlanarMeshPlan.OrderedRegions"/>).
+/// </summary>
+public sealed class FemPlanarMeshWaves
+{
+    /// <summary>Волны: индексы областей по возрастанию.</summary>
+    public IReadOnlyList<IReadOnlyList<int>> Waves { get; }
+    /// <summary>Номер волны области.</summary>
+    public IReadOnlyList<int> WaveOf { get; }
+    /// <summary>Касающиеся области (по возрастанию индекса).</summary>
+    public IReadOnlyList<IReadOnlyList<int>> Neighbours { get; }
+    /// <summary>Порядок сборки: по волнам, в волне — по исходному порядку. Префикс области волны w — области волн
+    /// 0…w−1 в этом порядке, итоговая материализация — в нём же (теги узлов префикса = теги итоговой сетки).</summary>
+    public IReadOnlyList<int> Sequence { get; }
+
+    internal FemPlanarMeshWaves(IReadOnlyList<int> waveOf, IReadOnlyList<IReadOnlyList<int>> neighbours)
+    {
+        WaveOf = waveOf;
+        Neighbours = neighbours;
+        Waves = Enumerable.Range(0, waveOf.Count == 0 ? 0 : waveOf.Max() + 1)
+            .Select(w => (IReadOnlyList<int>)Enumerable.Range(0, waveOf.Count).Where(i => waveOf[i] == w).ToList()).ToList();
+        Sequence = Waves.SelectMany(w => w).ToList();
+    }
+
+    /// <summary>Касающиеся области, которые строятся позже <paramref name="index"/>-й: их линии стыка с ней — по
+    /// геометрии. Некасающиеся стыков не дают — их можно не перечислять.</summary>
+    public List<(string Tag, PlanarRegion Region)> Later(IReadOnlyList<(FemMember Member, PlanarRegion Region)> ordered, int index) =>
+        Neighbours[index].Where(j => WaveOf[j] > WaveOf[index]).Select(j => (ordered[j].Member.ElemTag, ordered[j].Region)).ToList();
+}
+
+/// <summary>
+/// Сетка ранее построенных областей (префикс) с пространственным индексом КЭ по габаритам: отбор КЭ у плоскости и
+/// габарита области (<see cref="FemPlanarMeshPlan.Constraints(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, FemPlanarMeshPrefix, PlanarRegion, PlanarConstraintDerivationOptions?, IReadOnlyList{ValueTuple{string, PlanarRegion}}?, RigidJunctionTraceSet?)"/>)
+/// без перебора всей сетки — у многоэтажного здания сотни областей и до миллиона КЭ. Только чтение: один префикс на
+/// волну, вывод ограничений её областей — параллельно.
+/// </summary>
+public sealed class FemPlanarMeshPrefix
+{
+    const double CellM = 2.0;
+    public FemPlanarMaterializationResult Mesh { get; }
+    internal readonly Dictionary<string, int> NodeIndex = new(StringComparer.Ordinal);
+    internal readonly int[][] ElementIds;
+    readonly (double X0, double Y0, double Z0, double X1, double Y1, double Z1)[] _boxes;
+    /// <summary>КЭ без узлов или с узлами вне сетки — отбираются всегда (их разберёт вывод).</summary>
+    readonly List<int> _unbounded = [];
+    readonly Dictionary<(long, long, long), List<int>> _cells = [];
+
+    public FemPlanarMeshPrefix(FemPlanarMaterializationResult mesh)
+    {
+        Mesh = mesh;
+        for (int i = 0; i < mesh.Nodes.Count; i++) NodeIndex.TryAdd(mesh.Nodes[i].NodeTag, i);
+        ElementIds = new int[mesh.Elements.Count][];
+        _boxes = new (double, double, double, double, double, double)[mesh.Elements.Count];
+        for (int e = 0; e < mesh.Elements.Count; e++)
+        {
+            var ids = ElementIds[e] = FemPlanarMeshPlan.ReadIds(mesh.Elements[e].NodeIdsJson);
+            double x0 = double.PositiveInfinity, y0 = x0, z0 = x0, x1 = double.NegativeInfinity, y1 = x1, z1 = x1;
+            bool known = ids.Length > 0;
+            foreach (var id in ids)
+            {
+                if (!NodeIndex.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var n)) { known = false; break; }
+                var node = mesh.Nodes[n];
+                (x0, y0, z0) = (Math.Min(x0, node.X), Math.Min(y0, node.Y), Math.Min(z0, node.Z));
+                (x1, y1, z1) = (Math.Max(x1, node.X), Math.Max(y1, node.Y), Math.Max(z1, node.Z));
+            }
+            if (!known) { _unbounded.Add(e); continue; }
+            _boxes[e] = (x0, y0, z0, x1, y1, z1);
+            var (a, b) = (Cell(x0, y0, z0), Cell(x1, y1, z1));
+            for (long x = a.X; x <= b.X; x++)
+                for (long y = a.Y; y <= b.Y; y++)
+                    for (long z = a.Z; z <= b.Z; z++)
+                    {
+                        if (!_cells.TryGetValue((x, y, z), out var list)) _cells[(x, y, z)] = list = [];
+                        list.Add(e);
+                    }
+        }
+    }
+
+    static (long X, long Y, long Z) Cell(double x, double y, double z) =>
+        ((long)Math.Floor(x / CellM), (long)Math.Floor(y / CellM), (long)Math.Floor(z / CellM));
+
+    /// <summary>КЭ, габарит которых пересекает заданный, и КЭ без габарита — по возрастанию индекса.</summary>
+    internal List<int> Candidates(double x0, double y0, double z0, double x1, double y1, double z1)
+    {
+        var result = new HashSet<int>(_unbounded);
+        bool finite = new[] { x0, y0, z0, x1, y1, z1 }.All(double.IsFinite);
+        var (a, b) = finite ? (Cell(x0, y0, z0), Cell(x1, y1, z1)) : default;
+        // Габарит области больше всей сетки (или бесконечен) — перебор КЭ дешевле перебора ячеек.
+        if (!finite || (double)(b.X - a.X + 1) * (b.Y - a.Y + 1) * (b.Z - a.Z + 1) > _cells.Count)
+        {
+            for (int e = 0; e < _boxes.Length; e++) Test(e);
+        }
+        else
+            for (long x = a.X; x <= b.X; x++)
+                for (long y = a.Y; y <= b.Y; y++)
+                    for (long z = a.Z; z <= b.Z; z++)
+                        if (_cells.TryGetValue((x, y, z), out var list))
+                            foreach (var e in list) Test(e);
+        var sorted = result.ToList();
+        sorted.Sort();
+        return sorted;
+
+        void Test(int e)
+        {
+            var box = _boxes[e];
+            if (ElementIds[e].Length > 0 && box.X0 <= x1 && box.X1 >= x0 && box.Y0 <= y1 && box.Y1 >= y0 && box.Z0 <= z1 && box.Z1 >= z0)
+                result.Add(e);
+        }
+    }
+}
+
+/// <summary>
 /// Общий для команды «Построить сетку схемы» и диалога области порядок построения сеток областей и вход вывода
 /// их ограничений (CSfea 4г). Вход не зависит от дробления стержней по длине и от Id строк сетки в БД — отпечаток
-/// снимка стабилен между сборками. Область k видит узлы схемы, стержни, разбитые только узлами схемы, и пластины
-/// областей 1…k−1 (поздняя область встраивает узлы ранних — стыки совпадают).
+/// снимка стабилен между сборками. Область видит узлы схемы, стержни, разбитые только узлами схемы, и пластины
+/// областей прошлых волн (<see cref="Waves"/>; поздняя область встраивает узлы ранних — стыки совпадают).
 /// </summary>
 public static class FemPlanarMeshPlan
 {
@@ -43,6 +156,78 @@ public static class FemPlanarMeshPlan
             .ThenBy(p => p.Member.ElemTag, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>
+    /// Волны построения упорядоченных областей (<see cref="OrderedRegions"/>): касающиеся — стык по геометрии
+    /// (<see cref="JunctionConstraints"/>) хотя бы в одну сторону; кандидаты — пары с пересекающимися габаритами
+    /// (заметание по X, без перебора всех пар). Волна области (по порядку) — наименьшая, не занятая касающимися
+    /// областями и строго больше волн касающихся областей с более мелкой сеткой (их узлы она встроит). Между равными
+    /// по размеру КЭ порядок произволен — так стены, стоящие друг на друге, не выстраиваются в цепочку по этажам:
+    /// число волн задают локальные касания, а не этажность.
+    /// </summary>
+    public static FemPlanarMeshWaves Waves(IReadOnlyList<(FemMember Member, PlanarRegion Region)> ordered,
+        double? schemaPlateStepM = null)
+    {
+        int n = ordered.Count;
+        var boxes = ordered.Select(p => Box(p.Region, 2 * MergeToleranceM)).ToArray();
+        var byX = Enumerable.Range(0, n).OrderBy(i => boxes[i].X0).ToArray();
+        var candidates = new List<(int A, int B)>();
+        for (int a = 0; a < n; a++)
+        {
+            int i = byX[a];
+            for (int b = a + 1; b < n && boxes[byX[b]].X0 <= boxes[i].X1; b++)
+            {
+                int j = byX[b];
+                var (p, q) = (boxes[i], boxes[j]);
+                if (p.Y0 <= q.Y1 && p.Y1 >= q.Y0 && p.Z0 <= q.Z1 && p.Z1 >= q.Z0) candidates.Add((Math.Min(i, j), Math.Max(i, j)));
+            }
+        }
+        var options = DefaultOptions();
+        var touches = new bool[candidates.Count];
+        Parallel.For(0, candidates.Count, k =>
+        {
+            var (a, b) = candidates[k];
+            touches[k] = JunctionConstraints(ordered[a].Region, "", ordered[b].Region, options).Count > 0 ||
+                         JunctionConstraints(ordered[b].Region, "", ordered[a].Region, options).Count > 0;
+        });
+        var neighbours = Enumerable.Range(0, n).Select(_ => new List<int>()).ToArray();
+        for (int k = 0; k < candidates.Count; k++)
+            if (touches[k])
+            {
+                neighbours[candidates[k].A].Add(candidates[k].B);
+                neighbours[candidates[k].B].Add(candidates[k].A);
+            }
+        var size = ordered.Select(p => MeshSize(p.Member, p.Region, schemaPlateStepM)).ToArray();
+        var waveOf = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            neighbours[i].Sort();
+            var earlier = neighbours[i].Where(j => j < i).ToList();
+            int wave = earlier.Where(j => size[j] < size[i]).Select(j => waveOf[j] + 1).DefaultIfEmpty(0).Max();
+            var taken = earlier.Select(j => waveOf[j]).ToHashSet();
+            while (taken.Contains(wave)) wave++;
+            waveOf[i] = wave;
+        }
+        return new FemPlanarMeshWaves(waveOf, neighbours);
+    }
+
+    /// <summary>Габарит контуров области в глобальных осях, расширенный на <paramref name="margin"/>.</summary>
+    static (double X0, double Y0, double Z0, double X1, double Y1, double Z1) Box(PlanarRegion region, double margin)
+    {
+        double x0 = double.PositiveInfinity, y0 = x0, z0 = x0, x1 = double.NegativeInfinity, y1 = x1, z1 = x1;
+        foreach (var contour in region.Contours)
+            for (int i = 0; i < contour.X.Count; i++)
+            {
+                var g = region.Frame.Origin + region.Frame.LocalX * contour.X[i] + region.Frame.LocalY * contour.Y[i];
+                (x0, y0, z0) = (Math.Min(x0, g.X), Math.Min(y0, g.Y), Math.Min(z0, g.Z));
+                (x1, y1, z1) = (Math.Max(x1, g.X), Math.Max(y1, g.Y), Math.Max(z1, g.Z));
+            }
+        return (x0 - margin, y0 - margin, z0 - margin, x1 + margin, y1 + margin, z1 + margin);
+    }
+
+    /// <summary>Допуски вывода по умолчанию — как у швов (см. <see cref="Constraints(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, FemPlanarMeshPrefix, PlanarRegion, PlanarConstraintDerivationOptions?, IReadOnlyList{ValueTuple{string, PlanarRegion}}?, RigidJunctionTraceSet?)"/>).</summary>
+    static PlanarConstraintDerivationOptions DefaultOptions() =>
+        new() { PlaneToleranceM = SeamToleranceM, GeometryToleranceM = SeamToleranceM };
 
     /// <summary>Сетка стержней для вывода ограничений: КонЭ-стержни, разбитые только узлами схемы (без дробления
     /// по целевой длине — она задаётся в редакторе и не хранится).</summary>
@@ -71,20 +256,34 @@ public static class FemPlanarMeshPlan
         PlanarRegion region,
         PlanarConstraintDerivationOptions? options = null,
         IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
+        RigidJunctionTraceSet? junctions = null) =>
+        Constraints(schemaId, nodes, members, new FemPlanarMeshPrefix(prefixMesh), region, options, laterRegions, junctions);
+
+    /// <inheritdoc cref="Constraints(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, FemPlanarMaterializationResult, PlanarRegion, PlanarConstraintDerivationOptions?, IReadOnlyList{ValueTuple{string, PlanarRegion}}?, RigidJunctionTraceSet?)"/>
+    /// <remarks>Чистая функция (префикс только читается) — области одной волны выводятся параллельно.</remarks>
+    public static FemPlanarRegionConstraints Constraints(
+        int schemaId,
+        IReadOnlyList<FemNode> nodes,
+        IReadOnlyList<FemMember> members,
+        FemPlanarMeshPrefix prefix,
+        PlanarRegion region,
+        PlanarConstraintDerivationOptions? options = null,
+        IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
         RigidJunctionTraceSet? junctions = null)
     {
         // Допуски плоскости и геометрии — как у швов: узлы готовой сетки соседней области на стыке отходят от плоскости и кромки этой на
         // микроны (импортные контуры «Музея»: плита и стоящая на её кромке стена — до 6 мкм), и при 10⁻⁸ из 42 м стыка
         // выводилось 2,6 мм — сетки расходились (висящие узлы).
-        options ??= new PlanarConstraintDerivationOptions { PlaneToleranceM = SeamToleranceM, GeometryToleranceM = SeamToleranceM };
+        options ??= DefaultOptions();
         var diagnostics = new List<FemValidationDiagnostic>();
+        var prefixMesh = prefix.Mesh;
 
         // Id узлов, КонЭ и КЭ — синтетические, по порядку тегов: выведенные ограничения именуются по Id, а отпечаток не
         // должен зависеть от Id строк в БД (меняются при пересохранении схемы) и от того, сохранена ли сессия редактора.
         // КЭ префикса, которые могут дать ограничение области: касаются её плоскости и габарита (с допусками вывода).
         // Остальные ничего не выводят, но разбирались бы и входили в отпечаток — у фрагмента «Музея» 80 тыс. КЭ на
         // каждую из 88 областей, и правка далёкой области устаревала бы сетки всех.
-        var relevant = RelevantElements(prefixMesh, region, options, out var relevantNodeTags);
+        var relevant = RelevantElements(prefix, region, options, out var relevantNodes);
         int synthetic = 0;
         var topologyNodes = new Dictionary<string, FemNode>(StringComparer.Ordinal);
         foreach (var node in nodes.OrderBy(n => n.NodeTag, StringComparer.Ordinal))
@@ -92,7 +291,8 @@ public static class FemPlanarMeshPlan
             {
                 Id = ++synthetic, SchemaId = schemaId, NodeTag = node.NodeTag, X = node.X, Y = node.Y, Z = node.Z,
             });
-        foreach (var meshNode in prefixMesh.Nodes)
+        // Узлы отобранных КЭ — в порядке сетки префикса.
+        foreach (var meshNode in relevantNodes.Select(i => prefixMesh.Nodes[i]))
         {
             if (topologyNodes.TryGetValue(meshNode.NodeTag, out var source))
             {
@@ -102,7 +302,6 @@ public static class FemPlanarMeshPlan
                         $"Тег узла сетки '{meshNode.NodeTag}' совпадает с тегом узла схемы с другими координатами."));
                 continue;
             }
-            if (!relevantNodeTags.Contains(meshNode.NodeTag)) continue;
             topologyNodes.Add(meshNode.NodeTag, new FemNode
             {
                 Id = ++synthetic, SchemaId = schemaId, NodeTag = meshNode.NodeTag, X = meshNode.X, Y = meshNode.Y, Z = meshNode.Z,
@@ -492,41 +691,55 @@ public static class FemPlanarMeshPlan
 
     /// <summary>КЭ сетки, узлы которых лежат по обе стороны плоскости области или в ней (± допуск плоскости), а габарит
     /// в осях области пересекает габарит её внешнего контура (± допуск геометрии); КЭ с неизвестными узлами — тоже
-    /// (их разберёт вывод). <paramref name="nodeTags"/> — узлы отобранных КЭ.</summary>
-    static List<FemElement> RelevantElements(FemPlanarMaterializationResult mesh, PlanarRegion region,
-        PlanarConstraintDerivationOptions options, out HashSet<string> nodeTags)
+    /// (их разберёт вывод). Кандидаты — из индекса префикса по глобальному габариту слоя «габарит контура ± допуск
+    /// геометрии × ± допуск плоскости»: КЭ, касающийся области, его пересекает. <paramref name="nodes"/> — индексы
+    /// узлов отобранных КЭ в сетке префикса, по возрастанию.</summary>
+    static List<FemElement> RelevantElements(FemPlanarMeshPrefix prefix, PlanarRegion region,
+        PlanarConstraintDerivationOptions options, out List<int> nodes)
     {
-        nodeTags = new HashSet<string>(StringComparer.Ordinal);
-        var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
-        foreach (var node in mesh.Nodes) byTag.TryAdd(node.NodeTag, node);
+        var mesh = prefix.Mesh;
         double planeTol = options.PlaneToleranceM, tol = options.GeometryToleranceM;
         double u0 = double.NegativeInfinity, u1 = double.PositiveInfinity, v0 = double.NegativeInfinity, v1 = double.PositiveInfinity;
         if (region.Hull is { } hull && hull.X.Count > 0)
             (u0, u1, v0, v1) = (hull.X.Min() - tol, hull.X.Max() + tol, hull.Y.Min() - tol, hull.Y.Max() + tol);
         var frame = region.Frame;
+        double x0 = double.PositiveInfinity, y0 = x0, z0 = x0, x1 = double.NegativeInfinity, y1 = x1, z1 = x1;
+        foreach (var u in new[] { u0, u1 })
+            foreach (var v in new[] { v0, v1 })
+                foreach (var w in new[] { -planeTol, planeTol })
+                {
+                    var g = frame.Origin + frame.LocalX * u + frame.LocalY * v + frame.LocalZ * w;
+                    (x0, y0, z0) = (Math.Min(x0, g.X), Math.Min(y0, g.Y), Math.Min(z0, g.Z));
+                    (x1, y1, z1) = (Math.Max(x1, g.X), Math.Max(y1, g.Y), Math.Max(z1, g.Z));
+                }
+        var nodeSet = new HashSet<int>();
         var result = new List<FemElement>();
-        foreach (var element in mesh.Elements)
+        foreach (var e in prefix.Candidates(x0, y0, z0, x1, y1, z1))
         {
-            var ids = ReadIds(element.NodeIdsJson);
+            var ids = prefix.ElementIds[e];
             bool keep = ids.Length == 0;
             double wMin = double.PositiveInfinity, wMax = double.NegativeInfinity;
             double uMin = double.PositiveInfinity, uMax = double.NegativeInfinity, vMin = double.PositiveInfinity, vMax = double.NegativeInfinity;
             foreach (var id in ids)
             {
-                if (!byTag.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var node)) { keep = true; break; }
+                if (!prefix.NodeIndex.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var n)) { keep = true; break; }
+                var node = mesh.Nodes[n];
                 var d = new PlanarVector3(node.X, node.Y, node.Z) - frame.Origin;
                 double u = d.Dot(frame.LocalX), v = d.Dot(frame.LocalY), w = d.Dot(frame.LocalZ);
                 (wMin, wMax) = (Math.Min(wMin, w), Math.Max(wMax, w));
                 (uMin, uMax, vMin, vMax) = (Math.Min(uMin, u), Math.Max(uMax, u), Math.Min(vMin, v), Math.Max(vMax, v));
             }
             if (!keep && (wMin > planeTol || wMax < -planeTol || uMax < u0 || uMin > u1 || vMax < v0 || vMin > v1)) continue;
-            result.Add(element);
-            foreach (var id in ids) nodeTags.Add(id.ToString(CultureInfo.InvariantCulture));
+            result.Add(mesh.Elements[e]);
+            foreach (var id in ids)
+                if (prefix.NodeIndex.TryGetValue(id.ToString(CultureInfo.InvariantCulture), out var n)) nodeSet.Add(n);
         }
+        nodes = [.. nodeSet];
+        nodes.Sort();
         return result;
     }
 
-    static int[] ReadIds(string json)
+    internal static int[] ReadIds(string json)
     {
         try { return JsonSerializer.Deserialize<int[]>(json) ?? []; }
         catch (JsonException) { return []; }

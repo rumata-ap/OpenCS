@@ -986,7 +986,7 @@ public partial class PlanarRegionMemberVM : ViewModelBase
         bool sizeChanged = PersistMeshSize();
         if (ShowMesh && !sizeChanged) { ShowMesh = false; return; }
 
-        var snapshot = _app.db.GetPlanarMeshSnapshots(_existingRegion!.Id).LastOrDefault();
+        var snapshot = _app.db.GetLatestPlanarMeshSnapshot(_existingRegion!.Id);
         bool needsBuild = snapshot == null || !snapshot.IsCalculable;
         if (!needsBuild) needsBuild = await IsStaleAsync(snapshot!);
         if (needsBuild)
@@ -1004,7 +1004,7 @@ public partial class PlanarRegionMemberVM : ViewModelBase
     public void ShowSavedMesh()
     {
         if (!CanBuildMesh) return;
-        if (_app.db.GetPlanarMeshSnapshots(_existingRegion!.Id).LastOrDefault() is not { IsCalculable: true } snapshot) return;
+        if (_app.db.GetLatestPlanarMeshSnapshot(_existingRegion!.Id) is not { IsCalculable: true } snapshot) return;
         _meshSnapshot = snapshot;
         ShowMesh = true;
     }
