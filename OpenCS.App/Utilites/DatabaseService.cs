@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 96;
+      const int CurrentSchemaVersion = 97;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -116,6 +116,7 @@ namespace OpenCS.Utilites
          [93] = MigrateV94,
          [94] = MigrateV95,
          [95] = MigrateV96,
+         [96] = MigrateV97,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -8222,9 +8223,41 @@ namespace OpenCS.Utilites
                    constraintMapping.Parameters.AddWithValue("@relations", JsonSerializer.Serialize(item.StructuralRelations, _jsonSettings));
                   constraintMapping.ExecuteNonQuery();
                }
+               PrunePlanarMeshSnapshots(snapshot.RegionId);
                tx.Commit();
           }
           catch { tx.Rollback(); throw; }
+       }
+
+       /// <summary>
+       /// Удаляет прежние снимки сетки области (<paramref name="regionId"/>; null — всех областей): остаются последний,
+       /// последний расчётный (на него откатывается 3D-вид, если последний сбойный) и снимки сопряжений областей. Каждая
+       /// пересборка добавляет снимок, и без чистки БД росла на сотни МБ (решение пользователя 30.10). Дочерние строки —
+       /// явно: ON DELETE CASCADE при PRAGMA foreign_keys=OFF не выполняется. Файл не сжимается — это <see cref="Vacuum"/>.
+       /// </summary>
+       void PrunePlanarMeshSnapshots(int? regionId)
+       {
+          using var command = _connection.CreateCommand();
+          command.CommandText = """
+             CREATE TEMP TABLE IF NOT EXISTS stale_planar_snapshots (id INTEGER PRIMARY KEY);
+             DELETE FROM stale_planar_snapshots;
+             INSERT INTO stale_planar_snapshots (id)
+                SELECT s.id FROM planar_mesh_snapshots s
+                WHERE (@region IS NULL OR s.planar_region_id = @region)
+                  AND s.id <> (SELECT MAX(t.id) FROM planar_mesh_snapshots t WHERE t.planar_region_id = s.planar_region_id)
+                  AND s.id <> IFNULL((SELECT MAX(t.id) FROM planar_mesh_snapshots t
+                                      WHERE t.planar_region_id = s.planar_region_id AND t.is_calculable = 1), -1)
+                  AND s.id NOT IN (SELECT snapshot_a_id FROM planar_connection_mappings
+                                   UNION SELECT snapshot_b_id FROM planar_connection_mappings);
+             DELETE FROM planar_mesh_nodes WHERE snapshot_id IN (SELECT id FROM stale_planar_snapshots);
+             DELETE FROM planar_mesh_elements WHERE snapshot_id IN (SELECT id FROM stale_planar_snapshots);
+             DELETE FROM planar_mesh_boundary_mappings WHERE snapshot_id IN (SELECT id FROM stale_planar_snapshots);
+             DELETE FROM planar_mesh_constraint_mappings WHERE snapshot_id IN (SELECT id FROM stale_planar_snapshots);
+             DELETE FROM planar_mesh_snapshots WHERE id IN (SELECT id FROM stale_planar_snapshots);
+             DELETE FROM stale_planar_snapshots;
+          """;
+          command.Parameters.AddWithValue("@region", (object?)regionId ?? DBNull.Value);
+          command.ExecuteNonQuery();
        }
 
        /// <summary>Возвращает все сохранённые снимки сетки региона без смешения с fem_mesh_*.</summary>

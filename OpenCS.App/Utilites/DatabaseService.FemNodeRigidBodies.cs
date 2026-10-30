@@ -29,6 +29,9 @@ namespace OpenCS.Utilites
          MigExec(FemNodeRigidBodiesDdl);
       }
 
+      /// <summary>v97: накопленные прежние снимки сеток областей удаляются (дальше чистит каждая запись снимка).</summary>
+      void MigrateV97() => PrunePlanarMeshSnapshots(null);
+
       /// <summary>Жёсткие тела на узлах схемы: ведущий и ведомые — теги <see cref="FemNode"/>.</summary>
       public List<FemRigidBody> GetFemNodeRigidBodies(int schemaId) => QueryRigidBodies("fem_node_rigid_bodies", schemaId);
 

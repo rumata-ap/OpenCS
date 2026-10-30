@@ -52,6 +52,48 @@ public sealed class PlanarMeshPersistenceTests
         }
     }
 
+    /// <summary>Запись снимка чистит прежние: остаются последний и последний расчётный; узлы удалённых тоже удалены.</summary>
+    [Fact]
+    public void SavePlanarMeshSnapshot_PrunesOlderSnapshots()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"opencs-gmsh-prune-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+                var schema = new FemSchema { Tag = "test" };
+                db.SaveFemSchema(schema);
+                var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 1, 1, 0], Y = [0, 0, 1, 1] });
+                db.AddPlanarRegion(region, schema.Id);
+                var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+                var provenance = new PlanarMeshProvenance("4.15.2", "geo-v1");
+                PlanarMeshSnapshot Snapshot(string fingerprint, bool calculable) => new()
+                {
+                    RegionId = region.Id, InputFingerprint = fingerprint, IsCalculable = calculable, Settings = settings, Provenance = provenance,
+                    Nodes = [new(0, 0, 0, 0, 0, 0), new(1, 1, 0, 1, 0, 0), new(2, 0, 1, 0, 1, 0)],
+                    Elements = [new(0, PlanarMeshElementKind.Triangle3, [0, 1, 2])],
+                };
+
+                db.SavePlanarMeshSnapshot(Snapshot("a", true));
+                db.SavePlanarMeshSnapshot(Snapshot("b", true));
+                db.SavePlanarMeshSnapshot(Snapshot("c", false));
+
+                Assert.Equal(["b", "c"], db.GetPlanarMeshSnapshots(region.Id).Select(s => s.InputFingerprint));
+                Assert.Equal("c", db.GetLatestPlanarMeshSnapshotHeader(region.Id)!.Value.InputFingerprint);
+            }
+            using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM planar_mesh_nodes";
+            Assert.Equal(6L, (long)command.ExecuteScalar()!);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     [Fact]
     public void AddPlanarRegion_RoundTripsMeshMaxElementSizeM()
     {
