@@ -85,16 +85,19 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
             var plan = await Task.Run(() => FemPlanarMeshPlan.Waves(ordered, plateStep), cancellationToken);
             info?.Invoke(string.Format(CultureInfo.CurrentCulture, Loc.S("FemSchemaMeshWaves"), ordered.Count, plan.Waves.Count));
             using var gate = new SemaphoreSlim(Math.Max(1, Environment.ProcessorCount));
+            // Следы АЖТ не зависят от префикса — все заранее: ранняя область получает точки в вершинах следов поздних.
+            var allTraces = ordered.Select(p => junctionOptions != null
+                ? FemRigidJunctions.Build(p.Region, nodes, members, outlines, junctionOptions) : null).ToArray();
             foreach (var wave in plan.Waves)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var prefix = await Task.Run(() => new FemPlanarMeshPrefix(prefixBuilder.Build()), cancellationToken);
-                var traces = wave.Select(i => junctionOptions != null
-                    ? FemRigidJunctions.Build(ordered[i].Region, nodes, members, outlines, junctionOptions) : null).ToArray();
+                var traces = wave.Select(i => allTraces[i]).ToArray();
                 var constraints = new FemPlanarRegionConstraints[wave.Count];
                 await Task.Run(() => Parallel.For(0, wave.Count, new ParallelOptions { CancellationToken = cancellationToken }, k =>
                     constraints[k] = FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefix, ordered[wave[k]].Region,
-                        laterRegions: plan.Later(ordered, wave[k]), junctions: traces[k])), cancellationToken);
+                        laterRegions: plan.Later(ordered, wave[k]), junctions: traces[k],
+                        laterJunctions: LaterJunctions(plan, ordered, wave[k], allTraces))), cancellationToken);
 
                 var settings = new PlanarMeshSettings[wave.Count];
                 var headers = new (int Id, string InputFingerprint, bool IsCalculable)?[wave.Count];
@@ -225,10 +228,23 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         }
         var prefixMesh = prefix.Build();
         var options = JunctionOptions(schemaId, db.HasImportedMesh(schemaId));
-        var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, SectionOutlines(), options) : null;
+        var outlines = SectionOutlines();
+        var traces = options != null ? FemRigidJunctions.Build(target, nodes, members, outlines, options) : null;
+        // Следы — только касающихся поздних областей: другие в вывод не входят.
+        var allTraces = new RigidJunctionTraceSet?[ordered.Count];
+        if (index >= 0 && options != null)
+            foreach (var j in plan.Neighbours[index].Where(j => plan.WaveOf[j] > plan.WaveOf[index]))
+                allTraces[j] = FemRigidJunctions.Build(ordered[j].Region, nodes, members, outlines, options);
         return FemPlanarMeshPlan.Constraints(schemaId, nodes, members, prefixMesh, target,
-            laterRegions: index >= 0 ? plan.Later(ordered, index) : null, junctions: traces);
+            laterRegions: index >= 0 ? plan.Later(ordered, index) : null, junctions: traces,
+            laterJunctions: index >= 0 ? LaterJunctions(plan, ordered, index, allTraces) : null);
     }
+
+    /// <summary>Следы АЖТ касающихся областей, которые строятся позже <paramref name="index"/>-й, по тегу КонЭ.</summary>
+    static Dictionary<string, RigidJunctionTraceSet?> LaterJunctions(FemPlanarMeshWaves plan,
+        IReadOnlyList<(FemMember Member, PlanarRegion Region)> ordered, int index, RigidJunctionTraceSet?[] traces) =>
+        plan.Neighbours[index].Where(j => plan.WaveOf[j] > plan.WaveOf[index])
+            .ToDictionary(j => ordered[j].Member.ElemTag, j => traces[j], StringComparer.Ordinal);
 
     /// <summary>Параметры следов АЖТ схемы; null — флажок выключен или у схемы импортная сетка (свои АЖТ источника).</summary>
     RigidJunctionOptions? JunctionOptions(int schemaId, bool keepImported)

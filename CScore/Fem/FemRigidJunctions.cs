@@ -155,8 +155,15 @@ public static class FemRigidJunctions
 
             if (inA && inB && cosN < sinA)
             {
-                var outline = Outline(member, sectionOutline, diagnostics);
-                if (outline == null) continue;
+                // Стержень в плоскости плиты без сечения: связь — общими узлами; условная полоса 10 см вшивалась бы в
+                // сетку лентой мелких КЭ вдоль всего стержня (фрагмент «Музея» — 31 стержень, 433 лишних тела).
+                if ((member.CrossSectionId is { } sid ? sectionOutline(sid) : null) is not { Count: >= 3 } outline)
+                {
+                    Warn("rigid_junction_rib_section_missing",
+                        $"Стержень {member.ElemTag} в плоскости плиты без сечения с контуром — полоса АЖТ не строится, связь общими узлами.",
+                        member.ElemTag);
+                    continue;
+                }
                 if (member.RigidJunctionTraceJson != null)
                     Warn("rigid_junction_rib_trace_ignored",
                         $"Явный след стержня {member.ElemTag} в плоскости плиты не используется — полоса строится по сечению.", member.ElemTag);
@@ -212,7 +219,6 @@ public static class FemRigidJunctions
             if (points == null)
             {
                 var outline = Outline(member, sectionOutline, diagnostics);
-                if (outline == null) continue;
                 double denom = axis.Dot(normal);
                 points = outline.Select(yz =>
                 {
@@ -238,15 +244,19 @@ public static class FemRigidJunctions
         }
 
         var traces = new List<RigidJunctionTrace>();
-        foreach (var body in bodies)
+        // Следы не должны перекрываться (ограничения области): ригель, входящий в колонну в плоскости плиты, и рёбра,
+        // сходящиеся в узле, — позже построенный вычитает занятые. Колонны — первыми: их след — опора АЖТ.
+        var occupied = new List<IReadOnlyList<PlanarPoint2D>>();
+        foreach (var body in bodies.OrderBy(b => b.Case == RigidJunctionCase.Rib ? 1 : 0))
         {
             var hull = PlanarPolygonOps.ConvexHull(body.Points);
             var pieces = new List<IReadOnlyList<PlanarPoint2D>>();
             if (hull.Count >= 3 && PlanarPolygonOps.SignedArea(hull) >= minArea)
             {
                 List<IReadOnlyList<PlanarPoint2D>> convex = [hull];
-                foreach (var hole in holes)
+                foreach (var hole in holes.Concat(occupied).ToList())
                     convex = convex.SelectMany(piece => PlanarPolygonOps.SubtractFromConvex(piece, hole, minArea)).ToList();
+                occupied.AddRange(convex);
                 foreach (var piece in convex)
                 {
                     var clipped = PlanarPolygonOps.ClipByConvex(outer, piece);
@@ -282,14 +292,24 @@ public static class FemRigidJunctions
 
     static PlanarVector3 Position(FemNode node) => new(node.X, node.Y, node.Z);
 
-    static IReadOnlyList<(double Y, double Z)>? Outline(
+    /// <summary>Сторона условного квадрата следа стержня без сечения с контуром, м.</summary>
+    public const double AssumedOutlineSideM = 0.1;
+
+    /// <summary>
+    /// Контур сечения стержня, примыкающего к плите, в его осях; без сечения с контуром — условный квадрат 10×10 см
+    /// (решение пользователя 30.10: у импортных стержней сечения часто нет, а АЖТ примыкания нужен). Квадрат — только для
+    /// следа: стержню сечение не назначается, жёсткость в расчёте остаётся прежней (импортной).
+    /// </summary>
+    static IReadOnlyList<(double Y, double Z)> Outline(
         FemMember member, Func<int, IReadOnlyList<(double Y, double Z)>?> sectionOutline, List<FemValidationDiagnostic> diagnostics)
     {
         var outline = member.CrossSectionId is { } id ? sectionOutline(id) : null;
         if (outline is { Count: >= 3 }) return outline;
-        diagnostics.Add(new FemValidationDiagnostic("rigid_junction_section_missing",
-            $"У стержня {member.ElemTag} нет сечения с контуром — след АЖТ не строится.", IsError: false, SourceKeys: [member.ElemTag]));
-        return null;
+        diagnostics.Add(new FemValidationDiagnostic("rigid_junction_section_assumed",
+            $"У стержня {member.ElemTag} нет сечения с контуром — след АЖТ по условному квадрату 10×10 см.", IsError: false,
+            SourceKeys: [member.ElemTag]));
+        const double h = AssumedOutlineSideM / 2;
+        return [(-h, -h), (h, -h), (h, h), (-h, h)];
     }
 
     /// <summary>Точки явного следа в общих осях; null — следа нет или он некорректен (тогда — по сечению).</summary>

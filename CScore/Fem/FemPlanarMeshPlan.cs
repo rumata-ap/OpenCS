@@ -256,8 +256,9 @@ public static class FemPlanarMeshPlan
         PlanarRegion region,
         PlanarConstraintDerivationOptions? options = null,
         IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
-        RigidJunctionTraceSet? junctions = null) =>
-        Constraints(schemaId, nodes, members, new FemPlanarMeshPrefix(prefixMesh), region, options, laterRegions, junctions);
+        RigidJunctionTraceSet? junctions = null,
+        IReadOnlyDictionary<string, RigidJunctionTraceSet?>? laterJunctions = null) =>
+        Constraints(schemaId, nodes, members, new FemPlanarMeshPrefix(prefixMesh), region, options, laterRegions, junctions, laterJunctions);
 
     /// <inheritdoc cref="Constraints(int, IReadOnlyList{FemNode}, IReadOnlyList{FemMember}, FemPlanarMaterializationResult, PlanarRegion, PlanarConstraintDerivationOptions?, IReadOnlyList{ValueTuple{string, PlanarRegion}}?, RigidJunctionTraceSet?)"/>
     /// <remarks>Чистая функция (префикс только читается) — области одной волны выводятся параллельно.</remarks>
@@ -269,7 +270,8 @@ public static class FemPlanarMeshPlan
         PlanarRegion region,
         PlanarConstraintDerivationOptions? options = null,
         IReadOnlyList<(string Tag, PlanarRegion Region)>? laterRegions = null,
-        RigidJunctionTraceSet? junctions = null)
+        RigidJunctionTraceSet? junctions = null,
+        IReadOnlyDictionary<string, RigidJunctionTraceSet?>? laterJunctions = null)
     {
         // Допуски плоскости и геометрии — как у швов: узлы готовой сетки соседней области на стыке отходят от плоскости и кромки этой на
         // микроны (импортные контуры «Музея»: плита и стоящая на её кромке стена — до 6 мкм), и при 10⁻⁸ из 42 м стыка
@@ -361,7 +363,11 @@ public static class FemPlanarMeshPlan
 
         var seams = new List<PlanarConstraintObject>();
         foreach (var (tag, other) in laterRegions ?? [])
+        {
             seams.AddRange(JunctionConstraints(region, tag, other, options));
+            if (laterJunctions?.GetValueOrDefault(tag) is { } traces)
+                seams.AddRange(TracePoints(region, tag, other, traces, options));
+        }
         var fingerprint = derived.SourceFingerprint;
         if (seams.Count > 0)
         {
@@ -571,6 +577,37 @@ public static class FemPlanarMeshPlan
             var sorted = crossings.OrderBy(p => (p.U - origin.U) * du + (p.V - origin.V) * dv).ToList();
             for (int i = 0; i + 1 < sorted.Count; i += 2)
                 AddSegment(sorted[i], sorted[i + 1]);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Вершины следов АЖТ поздней области <paramref name="other"/>, лежащие на этой (в плоскости, внутри или на контуре), —
+    /// точки стыка: поздняя область вшивает след, и его вершины на общей кромке стали бы узлами только у неё (висящие
+    /// узлы). Фрагмент «Музея»: балка в плоскости плиты без сечения упирается в стену — для стены она «колонна» с условным
+    /// квадратом, его углы на кромке плиты, а плита полосы ребра не строит.
+    /// </summary>
+    static List<PlanarConstraintObject> TracePoints(PlanarRegion region, string tag, PlanarRegion other,
+        RigidJunctionTraceSet traces, PlanarConstraintDerivationOptions options)
+    {
+        double tol = Math.Max(options.GeometryToleranceM, MergeToleranceM);
+        var frame = region.Frame;
+        var result = new List<PlanarConstraintObject>();
+        var added = new List<(double U, double V)>();
+        foreach (var q in traces.Traces.SelectMany(t => t.Pieces).SelectMany(piece => piece))
+        {
+            var d = other.Frame.Origin + other.Frame.LocalX * q.U + other.Frame.LocalY * q.V - frame.Origin;
+            double u = d.Dot(frame.LocalX), v = d.Dot(frame.LocalY), w = d.Dot(frame.LocalZ);
+            if (Math.Abs(w) > options.PlaneToleranceM || !InsideRegion(u, v, region, tol)) continue;
+            (u, v) = SnapToContour((u, v), region, options.GeometryToleranceM);
+            if (added.Any(a => Math.Abs(a.U - u) <= tol && Math.Abs(a.V - v) <= tol)) continue;
+            added.Add((u, v));
+            var id = $"region-junction:{tag}:t{result.Count}";
+            var point = PlanarConstraintObject.Point(id, new PlanarPoint2D(u, v),
+                new PlanarStructuralFacet(PlanarStructuralKind.None), new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint), id);
+            point.IsDerived = true;
+            point.ToleranceM = tol;
+            result.Add(point);
         }
         return result;
     }

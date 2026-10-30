@@ -164,13 +164,28 @@ public sealed class FemRigidJunctionsTests
         Assert.Equal(0.16, Area(trace), 9);
     }
 
+    /// <summary>Без сечения — след по условному квадрату 10×10 см с предупреждением; сечение стержню не назначается.</summary>
     [Fact]
-    public void NoSection_WarnsAndSkips()
+    public void NoSection_AssumedSquareTrace()
     {
-        var set = Build(Slab(), [N("1", 0, 0, -3), N("2", 0, 0, 0)], [Bar("C1", "1", "2", null)]);
+        var bar = Bar("C1", "1", "2", null);
+        var set = Build(Slab(), [N("1", 0, 0, -3), N("2", 0, 0, 0)], [bar]);
+
+        var trace = Assert.Single(set.Traces);
+        Assert.Equal(0.01, Area(trace), 9);
+        Assert.Contains(set.Diagnostics, d => d.Code == "rigid_junction_section_assumed" && !d.IsError);
+        Assert.Null(bar.CrossSectionId);
+    }
+
+    /// <summary>Стержень в плоскости плиты без сечения — полосы нет (связь общими узлами), условный квадрат не берётся.</summary>
+    [Fact]
+    public void Rib_NoSection_NoStrip()
+    {
+        var set = Build(Slab(), [N("1", -2, 0, 0), N("2", 2, 0, 0)], [Bar("B1", "1", "2", null)]);
 
         Assert.Empty(set.Traces);
-        Assert.Contains(set.Diagnostics, d => d.Code == "rigid_junction_section_missing" && !d.IsError);
+        Assert.Contains(set.Diagnostics, d => d.Code == "rigid_junction_rib_section_missing" && !d.IsError);
+        Assert.DoesNotContain(set.Diagnostics, d => d.Code == "rigid_junction_section_assumed");
     }
 
     [Fact]
