@@ -27,6 +27,8 @@ public static partial class StoreyFragmentBuilder
         public StoreyFragmentDraft Draft => draft;
         public FragmentNodeTable Nodes { get; } = new(draft.Nodes);
         public List<Slab> Slabs { get; } = [];
+        /// <summary>Стержневые КЭ родителя по тегу КонЭ: концы и сечение — источник сечения частей фрагмента.</summary>
+        public Dictionary<string, List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>> ParentBars { get; set; } = [];
 
         public void Error(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, true, keys));
         public void Warn(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, false, keys));
@@ -55,6 +57,7 @@ public static partial class StoreyFragmentBuilder
         }
 
         var sources = Resolve(c, parent);
+        c.ParentBars = ParentBars(parent);
         sources.AddRange(Uncovered(c, parent));
         foreach (var s in sources.Where(IsHorizontalShell)) AddSlab(c, s);
         if (draft.HasErrors) return draft;
@@ -136,6 +139,8 @@ public static partial class StoreyFragmentBuilder
     // ---------------- помощники ----------------
 
     static PlanarVector3 P(FemNode n) => new(n.X, n.Y, n.Z);
+
+    static PlanarVector3 P(FemMeshNode n) => new(n.X, n.Y, n.Z);
 
     static PlanarVector3 At(PlanarVector3 a, PlanarVector3 d, double t) => new(a.X + d.X * t, a.Y + d.Y * t, a.Z + d.Z * t);
 

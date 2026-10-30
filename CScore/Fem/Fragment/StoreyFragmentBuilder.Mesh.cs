@@ -1,5 +1,6 @@
 using System.Globalization;
 using CScore.Import;
+using CScore.Planar;
 
 namespace CScore.Fem.Fragment;
 
@@ -44,11 +45,20 @@ public static partial class StoreyFragmentBuilder
         var build = MeshMemberBuilder.Build(new MeshMemberRequest(UncoveredTag, null, tags, "auto"), parent.MeshNodes, parent.MeshElements);
         foreach (var d in build.Diagnostics) c.Warn(d.Code, d.Message, [.. d.SourceKeys ?? []]);
         var ends = build.Nodes.ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
+        var elementByTag = uncovered.ToDictionary(e => e.ElemTag, StringComparer.Ordinal);
+        var meshNode = parent.MeshNodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         foreach (var part in build.Parts)
         {
             var m = part.Member;
             if (m.ElemType == "beam")
             {
+                // Сечение — у КЭ цепочки (импорт SCAD/ЛИРЫ): части фрагмента берут его по своему участку (CutBar).
+                var bars = new List<(PlanarVector3 A, PlanarVector3 B, int? SectionId)>();
+                foreach (var e in part.ElementTags.Select(t => elementByTag.GetValueOrDefault(t)).OfType<FemElement>())
+                    if (FemMeshTopology.ReadNodeTags(e)?.ToArray() is { Length: 2 } et &&
+                        meshNode.TryGetValue(et[0], out var ea) && meshNode.TryGetValue(et[1], out var eb))
+                        bars.Add((P(ea), P(eb), e.CrossSectionId));
+                c.ParentBars[m.ElemTag] = bars;
                 var ids = NodeTags(m);
                 result.Add(new(m, null, P(ends[ids[0].ToString(CultureInfo.InvariantCulture)]),
                     P(ends[ids[^1].ToString(CultureInfo.InvariantCulture)]), 0, 0));
