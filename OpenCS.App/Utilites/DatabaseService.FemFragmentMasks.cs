@@ -222,6 +222,18 @@ namespace OpenCS.Utilites
          schema.FragmentBcPreset = preset;
       }
 
+      /// <summary>Записывает пресет ГУ боковых граней призмы (null — «Усилия из родителя») и обновляет объект.</summary>
+      public void SetFragmentLateralBcPreset(FemSchema schema, string? preset)
+      {
+         ArgumentNullException.ThrowIfNull(schema);
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "UPDATE fem_schemas SET fragment_lateral_bc_preset=@p WHERE id=@id";
+         cmd.Parameters.AddWithValue("@p", (object?)preset ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
+         schema.FragmentLateralBcPreset = preset;
+      }
+
       void DeleteFragmentMasksCore(int schemaId)
       {
          using var cmd = _connection.CreateCommand();

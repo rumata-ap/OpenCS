@@ -73,6 +73,22 @@ namespace OpenCS.Utilites
          MigExec(FemFragmentDdl);
       }
 
+      /// <summary>
+      /// Миграция v98 (фрагмент вокруг стен и колонн): нормаль разреза от фрагмента к отброшенной части (у старых строк
+      /// null — по стороне), пресет ГУ боковых граней и призма схемы.
+      /// </summary>
+      void MigrateV98()
+      {
+         MigrateV96();
+         foreach (var c in new[] { "nx", "ny", "nz" })
+            if (!ColumnExists("fem_fragment_cuts", c))
+               MigExec($"ALTER TABLE fem_fragment_cuts ADD COLUMN {c} REAL");
+         if (!ColumnExists("fem_schemas", "fragment_lateral_bc_preset"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN fragment_lateral_bc_preset TEXT");
+         if (!ColumnExists("fem_schemas", "fragment_prism_json"))
+            MigExec("ALTER TABLE fem_schemas ADD COLUMN fragment_prism_json TEXT");
+      }
+
       /// <summary>Миграция v93: ТЗА и толщина КЭ опорной сетки фрагмента, программа-источник родителя (срез 4).</summary>
       void MigrateV93()
       {
@@ -135,8 +151,8 @@ namespace OpenCS.Utilites
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
-               INSERT INTO fem_fragment_cuts (schema_id, member_tag, kind, side, z, node_tag, segments_json)
-               VALUES (@sid, @tag, @kind, @side, @z, @node, @seg);
+               INSERT INTO fem_fragment_cuts (schema_id, member_tag, kind, side, z, node_tag, segments_json, nx, ny, nz)
+               VALUES (@sid, @tag, @kind, @side, @z, @node, @seg, @nx, @ny, @nz);
                SELECT last_insert_rowid();
                """;
             cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -146,11 +162,17 @@ namespace OpenCS.Utilites
             var z = cmd.Parameters.Add("@z", SqliteType.Real);
             var node = cmd.Parameters.Add("@node", SqliteType.Text);
             var seg = cmd.Parameters.Add("@seg", SqliteType.Text);
+            var nx = cmd.Parameters.Add("@nx", SqliteType.Real);
+            var ny = cmd.Parameters.Add("@ny", SqliteType.Real);
+            var nz = cmd.Parameters.Add("@nz", SqliteType.Real);
             foreach (var c in cuts)
             {
                tag.Value = c.MemberTag;
                kind.Value = c.Kind == FragmentCutKind.End ? "end" : "edge";
-               side.Value = c.Side == FragmentCutSide.Bottom ? "bottom" : "top";
+               side.Value = c.Side switch { FragmentCutSide.Bottom => "bottom", FragmentCutSide.Top => "top", _ => "lateral" };
+               nx.Value = (object?)c.Normal?.X ?? DBNull.Value;
+               ny.Value = (object?)c.Normal?.Y ?? DBNull.Value;
+               nz.Value = (object?)c.Normal?.Z ?? DBNull.Value;
                z.Value = c.Z;
                node.Value = (object?)c.NodeTag ?? DBNull.Value;
                seg.Value = JsonSerializer.Serialize(c.Segments.Select(s => new[] { s.P.X, s.P.Y, s.P.Z, s.Q.X, s.Q.Y, s.Q.Z }));
@@ -218,16 +240,18 @@ namespace OpenCS.Utilites
       {
          var result = new List<(int, FragmentCut)>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT member_tag, kind, side, z, node_tag, segments_json, id FROM fem_fragment_cuts WHERE schema_id=@sid ORDER BY id";
+         cmd.CommandText = "SELECT member_tag, kind, side, z, node_tag, segments_json, id, nx, ny, nz FROM fem_fragment_cuts WHERE schema_id=@sid ORDER BY id";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
          while (r.Read())
          {
             var segments = (JsonSerializer.Deserialize<double[][]>(r.GetString(5)) ?? [])
                .Select(a => (new PlanarVector3(a[0], a[1], a[2]), new PlanarVector3(a[3], a[4], a[5]))).ToList();
+            var side = r.GetString(2) switch { "bottom" => FragmentCutSide.Bottom, "lateral" => FragmentCutSide.Lateral, _ => FragmentCutSide.Top };
+            PlanarVector3? normal = r.IsDBNull(7) || r.IsDBNull(8) || r.IsDBNull(9)
+               ? null : new PlanarVector3(r.GetDouble(7), r.GetDouble(8), r.GetDouble(9));
             result.Add((r.GetInt32(6), new FragmentCut(r.GetString(0), r.GetString(1) == "end" ? FragmentCutKind.End : FragmentCutKind.Edge,
-               r.GetString(2) == "bottom" ? FragmentCutSide.Bottom : FragmentCutSide.Top, r.GetDouble(3),
-               r.IsDBNull(4) ? null : r.GetString(4), segments)));
+               side, r.GetDouble(3), r.IsDBNull(4) ? null : r.GetString(4), segments, normal)));
          }
          return result;
       }
@@ -500,6 +524,7 @@ namespace OpenCS.Utilites
             ParentSchemaId = parentId, FragmentZ1 = request.Z1, FragmentZ2 = request.Z2, ParentFingerprint = fingerprint,
             FragmentBuildReportJson = StoreyFragmentBuildReport.ToJson(draft.Diagnostics),
             ParentSourceType = GetFemSchemaSourceType(parentId),
+            FragmentPrismJson = request.Prism is { } prism ? FragmentPrismCodec.Encode(new FragmentPrismInfo(prism)) : null,
          };
 
          using var tx = _connection.BeginTransaction();
@@ -511,8 +536,8 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_schemas (tag, source_type, created, source_path, mesh_bar_step_m, mesh_plate_step_m,
                                            auto_rigid_junctions, rigid_junction_angle_deg,
                                            parent_schema_id, fragment_z1, fragment_z2, parent_fingerprint, fragment_build_report_json,
-                                           parent_source_type)
-                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst);
+                                           parent_source_type, fragment_prism_json)
+                  VALUES (@tag, @src, @created, NULL, @bar, @plate, @auto, @angle, @parent, @z1, @z2, @fp, @report, @pst, @prism);
                   SELECT last_insert_rowid();
                   """;
                cmd.Parameters.AddWithValue("@tag", schema.Tag);
@@ -726,10 +751,12 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
-      /// <summary>Параметры @parent, @z1, @z2, @fp, @report, @pst, @bcp — поля фрагмента строки <c>fem_schemas</c>.</summary>
+      /// <summary>Параметры @parent, @z1, @z2, @fp, @report, @pst, @bcp, @lbcp, @prism — поля фрагмента строки <c>fem_schemas</c>.</summary>
       static void AddFemSchemaFragmentParameters(SqliteCommand cmd, FemSchema schema)
       {
          cmd.Parameters.AddWithValue("@bcp", (object?)schema.FragmentBcPreset ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@lbcp", (object?)schema.FragmentLateralBcPreset ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@prism", (object?)schema.FragmentPrismJson ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@pst", (object?)schema.ParentSourceType ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@parent", (object?)schema.ParentSchemaId ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@z1", (object?)schema.FragmentZ1 ?? DBNull.Value);

@@ -217,6 +217,7 @@ public static class FemCsfeaInputBuilder
         {
             Cuts = withIds.Select((c, i) => (c.Id, inputs[i])).ToList(),
             Preset = FragmentCutBc.ParsePreset(schema.FragmentBcPreset),
+            LateralPreset = FragmentCutBc.ParseLateralPreset(schema.FragmentLateralBcPreset),
             Overrides = db.GetFragmentCutBc(schema.Id),
             Masks = db.GetFragmentMasks(schema.Id),
             MeshNodes = meshNodes,

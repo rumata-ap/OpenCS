@@ -75,7 +75,14 @@ public sealed class FragmentCutBcRow
     public int CutId { get; }
     public FragmentCut Cut { get; }
     public string MemberTag => Cut.MemberTag;
-    public string SideText => Loc.S(Cut.Side == FragmentCutSide.Bottom ? "FragmentCutSideBottom" : "FragmentCutSideTop");
+    public string SideText => Cut.Side switch
+    {
+        FragmentCutSide.Bottom => Loc.S("FragmentCutSideBottom"),
+        FragmentCutSide.Top => Loc.S("FragmentCutSideTop"),
+        _ => FragmentCutLabel.FaceCode(Cut.Outward, out bool axis) is var code && axis
+            ? string.Format(Loc.S("FragmentCutSideLateralFace"), code)
+            : string.Format(Loc.S("FragmentCutSideLateralAngle"), code),
+    };
     public string ZText => Cut.Z.ToString("0.###", CultureInfo.CurrentCulture);
     public string KindText => Loc.S(Cut.Kind == FragmentCutKind.End ? "FragmentCutKindEnd" : "FragmentCutKindEdge");
     public bool HasMask { get; }
@@ -114,6 +121,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
         IsVisible = schema.ParentSchemaId is not null;
         Presets = Enum.GetValues<FragmentBcPreset>().Select(p => new FragmentBcPresetOption(p, PresetLabel(p))).ToList();
         _selectedPreset = Presets.First(p => p.Preset == FragmentCutBc.ParsePreset(schema.FragmentBcPreset));
+        _selectedLateralPreset = Presets.First(p => p.Preset == FragmentCutBc.ParseLateralPreset(schema.FragmentLateralBcPreset));
         ResetCommand = new RelayCommand(_ => ResetOverrides(), _ => Rows.Any(r => r.Dofs.Any(d => d.IsOverride)));
         if (IsVisible) Reload();
     }
@@ -140,6 +148,27 @@ public sealed class FragmentCutBcVM : ViewModelBase
         }
     }
 
+    /// <summary>У фрагмента есть боковые разрезы (призма вокруг стен и колонн).</summary>
+    public bool HasLateral => _cuts.Any(c => c.Cut.Side == FragmentCutSide.Lateral);
+
+    FragmentBcPresetOption _selectedLateralPreset;
+    /// <summary>Пресет боковых граней (спека призмы 3.2; по умолчанию «Усилия из родителя»).</summary>
+    public FragmentBcPresetOption SelectedLateralPreset
+    {
+        get => _selectedLateralPreset;
+        set
+        {
+            if (value == null || value == _selectedLateralPreset) return;
+            _selectedLateralPreset = value;
+            OnPropertyChanged();
+            string? stored = value.Preset == FragmentBcPreset.Static ? null : value.Preset.ToString();
+            var target = _db.FemSchemas.FirstOrDefault(s => s.Id == _schema.Id) ?? _schema;
+            _db.SetFragmentLateralBcPreset(target, stored);
+            _schema.FragmentLateralBcPreset = stored;
+            BuildRows();
+        }
+    }
+
     string? _hint;
     /// <summary>Подсказка над таблицей: режимы требуют маски, а их нет; косые стены.</summary>
     public string? Hint { get => _hint; private set { _hint = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasHint)); } }
@@ -159,6 +188,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
     void BuildRows()
     {
         var preset = _selectedPreset.Preset;
+        var lateral = _selectedLateralPreset.Preset;
         var overrides = _db.GetFragmentCutBc(_schema.Id);
         _oblique = false;
         _loading = true;
@@ -166,7 +196,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
         for (int i = 0; i < _cuts.Count; i++)
         {
             var (id, cut) = _cuts[i];
-            var presetModes = FragmentCutBc.Resolve(preset, cut, null, _inputs[i].WallNormal, out bool o);
+            var presetModes = FragmentCutBc.Resolve(FragmentCutBc.PresetOf(cut, preset, lateral), cut, null, _inputs[i].ShellNormal, out bool o);
             _oblique |= o;
             var stored = overrides.GetValueOrDefault(id);
             var cells = Enumerable.Range(0, 6).Select(d => new FragmentCutDofCell(presetModes[d],

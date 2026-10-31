@@ -114,8 +114,9 @@ public static class StoreyFragmentMaskService
         var origin = BandOrigin(band, nodes);
         var fieldsByKey = steps.ToDictionary(s => s.Item1, s => s.Item2);
         var setup = FemCsfeaSetup.FromAnalysis(analysis, parentLoadCases);
-        var loads = BandActions(db, parentId, setup, fieldsByKey.Keys, map, z1, z2, origin, diag,
-            key => Reactions(fieldsByKey[key], nodes, z1, z2, origin));
+        var bounds = Bounds(fragment, z1, z2);
+        var loads = BandActions(db, parentId, setup, fieldsByKey.Keys, map, bounds, origin, diag,
+            key => Reactions(fieldsByKey[key], nodes, bounds, origin));
         if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
 
         diag.Add(new("fragment_mask_summary", string.Create(CultureInfo.CurrentCulture,
@@ -168,7 +169,8 @@ public static class StoreyFragmentMaskService
 
     /// <summary>
     /// Сечения на входе экстрактора: у конца стержня — точка узла схемы фрагмента <see cref="FragmentCut.NodeTag"/>, у
-    /// кромки — нормаль области КонЭ фрагмента (нет области — горизонталь ⟂ отрезку, стена вертикальна).
+    /// кромки — нормаль области КонЭ фрагмента (нет области — у горизонтального разреза горизонталь ⟂ отрезку, стена
+    /// вертикальна).
     /// </summary>
     internal static List<FragmentMaskCutInput> CutInputs(DatabaseService db, int fragmentId, IReadOnlyList<FragmentCut> cuts)
     {
@@ -183,7 +185,7 @@ public static class StoreyFragmentMaskService
                 return new FragmentMaskCutInput(c, c.NodeTag is { } t && nodes.TryGetValue(t, out var n) ? new PlanarVector3(n.X, n.Y, n.Z) : null, null);
             PlanarVector3? normal = members.TryGetValue(c.MemberTag, out var m) && m.PlanarRegionId is int rid
                 && regions.TryGetValue(rid, out var r) ? r.Frame.LocalZ : null;
-            if (normal == null && c.Segments.Count > 0)
+            if (normal == null && c.Side != FragmentCutSide.Lateral && c.Segments.Count > 0)
             {
                 var d = c.Segments[0].Q - c.Segments[0].P;
                 var h = d.Cross(new PlanarVector3(0, 0, 1));
@@ -199,7 +201,7 @@ public static class StoreyFragmentMaskService
     /// собрался (сверка пропущена, предупреждение).
     /// </summary>
     static Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? BandActions(DatabaseService db, int parentId,
-        FemCsfeaSetup setup, IEnumerable<FragmentMaskKey> keys, IReadOnlyDictionary<int, int> map, double z1, double z2,
+        FemCsfeaSetup setup, IEnumerable<FragmentMaskKey> keys, IReadOnlyDictionary<int, int> map, FragmentBounds bounds,
         PlanarVector3 origin, List<FemValidationDiagnostic> diag, Func<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? reactions)
     {
         var input = FemCsfeaInputBuilder.Build(db, parentId, setup with { Stages = [] }, sections: false);
@@ -216,7 +218,7 @@ public static class StoreyFragmentMaskService
             diag.Add(new("fragment_mask_balance_skipped", "Нагрузки родителя не собраны — равновесие масок не проверено.", false));
             return null;
         }
-        var perCase = FragmentBandLoads.Compute(input, adapted, z1, z2, Tol, origin);
+        var perCase = FragmentBandLoads.Compute(input, adapted, bounds, origin);
         var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
         var result = new Dictionary<FragmentMaskKey, (PlanarVector3, PlanarVector3)>();
         foreach (var key in keys)
@@ -240,16 +242,16 @@ public static class StoreyFragmentMaskService
         return result;
     }
 
-    /// <summary>Реакции опор полосы из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
+    /// <summary>Реакции опор внутри фрагмента из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
     static (PlanarVector3 F, PlanarVector3 M) Reactions(RcSecantStepFields fields, IReadOnlyDictionary<string, FemMeshNode> nodes,
-        double z1, double z2, PlanarVector3 origin)
+        FragmentBounds bounds, PlanarVector3 origin)
     {
         var f = PlanarVector3.Zero;
         var m = PlanarVector3.Zero;
         for (int i = 0; i < fields.ReactionNodeIds.Length; i++)
         {
             if (!nodes.TryGetValue(fields.ReactionNodeIds[i].ToString(CultureInfo.InvariantCulture), out var n)
-                || n.Z < z1 - Tol || n.Z > z2 + Tol) continue;
+                || !bounds.InBox(new PlanarVector3(n.X, n.Y, n.Z))) continue;
             var r = fields.Reactions.AsSpan(RcSecantStepFields.NodeComponents * i, 6);
             var rf = new PlanarVector3(r[0], r[1], r[2]);
             f += rf;
@@ -260,6 +262,10 @@ public static class StoreyFragmentMaskService
 
     /// <summary>Допуск по отметкам полосы, м.</summary>
     const double Tol = 1e-3;
+
+    /// <summary>Границы фрагмента: полоса z₁…z₂ и призма схемы (<see cref="FemSchema.FragmentPrismJson"/>), если она есть.</summary>
+    static FragmentBounds Bounds(FemSchema fragment, double z1, double z2) =>
+        new(z1, z2, FragmentPrismCodec.Decode(fragment.FragmentPrismJson)?.Prism, Tol);
 
     /// <summary>
     /// Сетка родителя у полосы: КЭ, касающиеся замкнутой полосы [z1, z2] (КЭ отброшенной стороны у узла на разрезе —
@@ -362,7 +368,7 @@ public static class StoreyFragmentMaskService
                 "равновесия покажет расхождение.", false));
             try
             {
-                var loads = BandActions(db, parentId, new FemCsfeaSetup(), parentResult.Keys, map, z1, z2, origin, diag, null);
+                var loads = BandActions(db, parentId, new FemCsfeaSetup(), parentResult.Keys, map, Bounds(fragment, z1, z2), origin, diag, null);
                 if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
