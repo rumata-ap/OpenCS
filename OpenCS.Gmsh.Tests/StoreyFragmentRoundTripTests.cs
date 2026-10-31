@@ -24,7 +24,7 @@ namespace OpenCS.Gmsh.Tests;
 /// Сетка родителя 1 м мала для кромок стены: разрез 1,5 м посреди ряда КЭ, равнодействующая маски низа стены расходится
 /// с прямой суммой по КЭ на 10 %, равновесие масок «Полезной» — 2,0 % (на пороге); при 0,5 м — без предупреждений.
 /// </summary>
-public sealed class StoreyFragmentRoundTripTests(ITestOutputHelper output)
+public sealed partial class StoreyFragmentRoundTripTests(ITestOutputHelper output)
 {
     const double Z1 = 1.5, Z2 = 4.5, Tol = 1e-6;
     const double ParentStep = 0.5;
@@ -238,10 +238,10 @@ public sealed class StoreyFragmentRoundTripTests(ITestOutputHelper output)
     /// из разности жёсткое смещение плиты (uz = a + b·x + c·y по МНК): у силовых ГУ фрагмент держат автозакрепления в нуле.
     /// </summary>
     List<(string Tag, double Scale, double MaxDiff)> CompareSlab(DatabaseService db, Parent parent, FemSchema fragment, CalcResult result, string label,
-        bool rigid = false)
+        bool rigid = false, Func<FemMeshNode, bool>? where = null)
     {
         var parentNodes = db.GetFemMeshNodes(parent.Schema.Id);
-        var points = parentNodes.Where(n => Math.Abs(n.Z - 3) < Tol && n.Y < 6 - Tol).ToList();
+        var points = parentNodes.Where(n => Math.Abs(n.Z - 3) < Tol && n.Y < 6 - Tol && (where?.Invoke(n) ?? true)).ToList();
         var fragmentNodes = db.GetFemMeshNodes(fragment.Id).ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
         var slab = db.GetFemMeshElements(fragment.Id)
             .Select(e => FemElementGeometry.Of(e, fragmentNodes))
