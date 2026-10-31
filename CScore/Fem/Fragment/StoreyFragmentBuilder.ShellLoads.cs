@@ -1,4 +1,4 @@
-using CScore.Fem.Loads;
+﻿using CScore.Fem.Loads;
 using CScore.Planar;
 
 namespace CScore.Fem.Fragment;
@@ -17,45 +17,11 @@ public static partial class StoreyFragmentBuilder
         (0.101286507323456, 0.101286507323456, 0.797426985353087, 0.125939180544827),
     ];
 
-    /// <summary>Многоугольник в 3D, отсечённый плоскостью: остаётся часть внутри фрагмента (n·p ≤ смещения).</summary>
-    static List<PlanarVector3> ClipPlane(List<PlanarVector3> polygon, CutPlane plane)
-    {
-        var result = new List<PlanarVector3>();
-        for (int i = 0; i < polygon.Count; i++)
-        {
-            var p = polygon[i];
-            var q = polygon[(i + 1) % polygon.Count];
-            double dp = -plane.Eval(p), dq = -plane.Eval(q);
-            if (dp >= 0) result.Add(p);
-            if (dp >= 0 != dq >= 0) result.Add(p + (q - p) * (dp / (dp - dq)));
-        }
-        return result;
-    }
-
     /// <summary>Многоугольник в 3D, отсечённый всеми плоскостями фрагмента (полоса и призма); пусто — снаружи.</summary>
-    static List<PlanarVector3> ClipBox(Ctx c, List<PlanarVector3> polygon)
-    {
-        foreach (var plane in c.Planes)
-        {
-            polygon = ClipPlane(polygon, plane);
-            if (polygon.Count < 3) return [];
-        }
-        return polygon;
-    }
+    static List<PlanarVector3> ClipBox(Ctx c, List<PlanarVector3> polygon) => c.Bounds.ClipPolygon(polygon);
 
     /// <summary>Площадь и центр плоского выпуклого многоугольника в 3D (веер треугольников).</summary>
-    static (double Area, PlanarVector3 Centroid) AreaCentroid(List<PlanarVector3> polygon)
-    {
-        double area = 0;
-        var moment = PlanarVector3.Zero;
-        for (int k = 1; k + 1 < polygon.Count; k++)
-        {
-            double a = 0.5 * (polygon[k] - polygon[0]).Cross(polygon[k + 1] - polygon[0]).Length;
-            area += a;
-            moment += (polygon[0] + polygon[k] + polygon[k + 1]) * (a / 3);
-        }
-        return (area, area > 0 ? moment * (1 / area) : polygon[0]);
-    }
+    static (double Area, PlanarVector3 Centroid) AreaCentroid(List<PlanarVector3> polygon) => FragmentBounds.AreaCentroid(polygon);
 
     /// <summary>
     /// Нагрузки КЭ пластин родителя (спека разд. 4): равномерные копятся по КЭ вектором в глобальных осях и поднимаются

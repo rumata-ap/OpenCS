@@ -110,20 +110,20 @@ public sealed class FragmentBarCutSamplerTests
             new("e2", "2", "3", V(0, 0, 1.5), V(0, 0, 3), 0),
         ];
 
-        var mid = FragmentBarCutSampler.Locate(V(0, 0, 1), discardedBelow: true, bars, 1e-3)!;
+        var mid = FragmentBarCutSampler.Locate(V(0, 0, 1), V(0, 0, -1), bars, 1e-3)!;
         Assert.Equal("e1", mid.ElemTag);
         Assert.Equal(2.0 / 3, mid.Xi, 12);
         Assert.False(mid.DiscardedTowardJ);
 
-        var atNodeTop = FragmentBarCutSampler.Locate(V(0, 0, 1.5), discardedBelow: false, bars, 1e-3)!;
+        var atNodeTop = FragmentBarCutSampler.Locate(V(0, 0, 1.5), V(0, 0, 1), bars, 1e-3)!;
         Assert.Equal("e2", atNodeTop.ElemTag);
         Assert.True(atNodeTop.DiscardedTowardJ);
 
-        var atNodeBottom = FragmentBarCutSampler.Locate(V(0, 0, 1.5), discardedBelow: true, bars, 1e-3)!;
+        var atNodeBottom = FragmentBarCutSampler.Locate(V(0, 0, 1.5), V(0, 0, -1), bars, 1e-3)!;
         Assert.Equal("e1", atNodeBottom.ElemTag);
         Assert.False(atNodeBottom.DiscardedTowardJ);
 
-        Assert.Null(FragmentBarCutSampler.Locate(V(1, 0, 1), true, bars, 1e-3));
+        Assert.Null(FragmentBarCutSampler.Locate(V(1, 0, 1), V(0, 0, -1), bars, 1e-3));
     }
 
     /// <summary>
@@ -144,8 +144,8 @@ public sealed class FragmentBarCutSamplerTests
         t.SetDisplacement(key, "2", new Dof6(0, 0, -3e-3, 0, 0, 0));
         FragmentBarElement[] bars = [new("e", "1", "2", pi, pj, 0)];
 
-        var low = FragmentBarCutSampler.Sample(FragmentBarCutSampler.Locate(V(0, 0, 1), true, bars, 1e-3)!, t, key, out _);
-        var high = FragmentBarCutSampler.Sample(FragmentBarCutSampler.Locate(V(0, 0, 2), false, bars, 1e-3)!, t, key, out _);
+        var low = FragmentBarCutSampler.Sample(FragmentBarCutSampler.Locate(V(0, 0, 1), V(0, 0, -1), bars, 1e-3)!, t, key, out _);
+        var high = FragmentBarCutSampler.Sample(FragmentBarCutSampler.Locate(V(0, 0, 2), V(0, 0, 1), bars, 1e-3)!, t, key, out _);
 
         Near(new Dof6(0, 0, 1000, 0, 0, 0), low.F!, 1e-9);
         Near(new Dof6(0, 0, -1000, 0, 0, 0), high.F!, 1e-9);

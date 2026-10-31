@@ -75,8 +75,9 @@ public static class FragmentMaskBalance
                 absF += f.Length;
                 var at = cut.EndPoint ?? cut.Cut.Segments[0].P;
                 radius = Math.Max(radius, (at - origin).Length);
+                bool lateral = cut.Cut.Side == FragmentCutSide.Lateral;
                 parts.Add(string.Create(System.Globalization.CultureInfo.CurrentCulture,
-                    $"{cut.Cut.MemberTag} {(cut.Cut.Side == FragmentCutSide.Bottom ? "низ" : "верх")}: Fz {f.Z / 1e3:0.##} кН"));
+                    $"{cut.Cut.MemberTag} {FragmentCutLabel.Side(cut.Cut)}: {(lateral ? "|F|" : "Fz")} {(lateral ? f.Length : f.Z) / 1e3:0.##} кН"));
             }
             var (lf, lm) = loads.TryGetValue(group.Key, out var l) ? l : (PlanarVector3.Zero, PlanarVector3.Zero);
             double scaleF = lf.Length > 0 ? lf.Length : absF;

@@ -179,4 +179,76 @@ public sealed class FragmentCutBoundaryTests
         Assert.Empty(r.Gauge);
         Assert.Empty(r.Supports);
     }
+
+    // ------------------------------------------------------------------ боковые грани призмы (спека призмы 3.2)
+
+    /// <summary>Конец балки C1 на боковой грани +X (узел «1»), стена W1 — на низе.</summary>
+    static FragmentCutBoundaryInput LateralInput(FragmentBcPreset preset, FragmentBcPreset lateral,
+        IReadOnlyList<KinematicDofRef>? other = null, Dictionary<int, byte[]>? overrides = null) => new()
+    {
+        Cuts =
+        [
+            (C1, new(CutC1 with { Side = FragmentCutSide.Lateral, Normal = V(1, 0, 0) }, V(0, 3, 1.5), null)),
+            (W1, new(CutW1, null, V(0, 1, 0))),
+        ],
+        Preset = preset, LateralPreset = lateral, Masks = Masks(L1), MeshNodes = Mesh,
+        Stages = [new("S1", [(1, 1.0)])], LoadCaseTags = new Dictionary<int, string> { [1] = "G" },
+        OtherConstraints = other ?? [], Overrides = overrides ?? [],
+    };
+
+    [Fact]
+    public void Lateral_OwnPreset()
+    {
+        var r = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Kinematic, FragmentBcPreset.Static));
+        Assert.False(r.HasErrors, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+        Assert.DoesNotContain(r.Prescribed, p => p.MeshNodeTag == "1");
+        Assert.Contains(r.Loads, l => l.MeshNodeTag == "1");
+        Assert.Contains(r.Prescribed, p => p.MeshNodeTag == "11");
+    }
+
+    [Fact]
+    public void Lateral_IsolationPinsUz_DefaultPresetStatic()
+    {
+        var cut = CutC1 with { Side = FragmentCutSide.Lateral, Normal = V(1, 0, 0) };
+        Assert.Equal(new[] { FragmentDofMode.Free, FragmentDofMode.Free, FragmentDofMode.Fixed, FragmentDofMode.Free,
+            FragmentDofMode.Free, FragmentDofMode.Free }, FragmentCutBc.PresetModes(FragmentBcPreset.Isolation, FragmentCutSide.Lateral));
+        Assert.Equal(FragmentBcPreset.Static, FragmentCutBc.ParseLateralPreset(null));
+        Assert.Equal(FragmentBcPreset.Kinematic, FragmentCutBc.ParseLateralPreset("Kinematic"));
+        Assert.Equal(FragmentBcPreset.Isolation, FragmentCutBc.PresetOf(cut, FragmentBcPreset.Kinematic, FragmentBcPreset.Isolation));
+        Assert.Equal(FragmentBcPreset.Kinematic, FragmentCutBc.PresetOf(CutC1, FragmentBcPreset.Kinematic, FragmentBcPreset.Isolation));
+    }
+
+    /// <summary>Кромка плиты на боковой грани в кинематике: сверлильный поворот — Rz (нормаль плиты Z).</summary>
+    [Fact]
+    public void Lateral_SlabEdge_DrillingRz()
+    {
+        var cut = new FragmentCut("S1", FragmentCutKind.Edge, FragmentCutSide.Lateral, 3, null, [(V(4.5, 0, 3), V(4.5, 3, 3))], V(1, 0, 0));
+        var modes = FragmentCutBc.Resolve(FragmentBcPreset.Kinematic, cut, null, V(0, 0, 1), out bool oblique);
+        Assert.False(oblique);
+        Assert.Equal(FragmentDofMode.Free, modes[5]);
+        Assert.All(modes.Take(5), m => Assert.Equal(FragmentDofMode.MaskDisplacement, m));
+    }
+
+    [Fact]
+    public void AllStatic_WithLateral_NoSupports_Refused()
+    {
+        var r = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static));
+        Assert.Contains(r.Diagnostics, d => d.IsError && d.Code == "fragment_bc_all_static");
+    }
+
+    [Fact]
+    public void AllStatic_WithSupports_OrOverride_OrStorey_NotRefused()
+    {
+        var supported = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static,
+            other: [new KinematicDofRef(V(3, 0, 3), 2)]));
+        Assert.DoesNotContain(supported.Diagnostics, d => d.Code == "fragment_bc_all_static");
+
+        var fixedUz = FragmentCutBc.Encode([null, null, FragmentDofMode.Fixed, null, null, null]);
+        var overridden = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static,
+            overrides: new() { [W1] = fixedUz }));
+        Assert.DoesNotContain(overridden.Diagnostics, d => d.Code == "fragment_bc_all_static");
+
+        var storey = FragmentCutBoundary.Resolve(Input(FragmentBcPreset.Static, Masks(L1, L2)));
+        Assert.DoesNotContain(storey.Diagnostics, d => d.Code == "fragment_bc_all_static");
+    }
 }

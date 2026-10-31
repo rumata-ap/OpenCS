@@ -63,7 +63,7 @@ public static partial class StoreyFragmentBuilder
     /// </summary>
     static bool ClipLateral(Ctx c, Frame3D f, string tag, ref List<Piece> pieces, double minArea)
     {
-        var parallel = new List<CutPlane>();
+        var parallel = new List<FragmentBoundPlane>();
         foreach (var face in c.Lateral)
         {
             if (Trace(f, face) is not { } h)
@@ -87,7 +87,7 @@ public static partial class StoreyFragmentBuilder
     }
 
     /// <summary>След грани на плоскости области: полуплоскость внутренней стороны; null — область параллельна грани.</summary>
-    static PlanarHalfPlane? Trace(Frame3D f, CutPlane face)
+    static PlanarHalfPlane? Trace(Frame3D f, FragmentBoundPlane face)
     {
         double nu = face.Normal.Dot(f.LocalX), nv = face.Normal.Dot(f.LocalY);
         if (Math.Sqrt(nu * nu + nv * nv) < 1e-9) return null;

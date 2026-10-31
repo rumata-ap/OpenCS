@@ -13,6 +13,8 @@ public sealed class FragmentCutBoundaryInput
     /// <summary>Разрезы: Id записи <c>fem_fragment_cuts</c> и вход с точкой конца или нормалью стены.</summary>
     public IReadOnlyList<(int CutId, FragmentMaskCutInput Cut)> Cuts { get; init; } = [];
     public FragmentBcPreset Preset { get; init; }
+    /// <summary>Пресет боковых граней призмы (<see cref="FemSchema.FragmentLateralBcPreset"/>).</summary>
+    public FragmentBcPreset LateralPreset { get; init; } = FragmentBcPreset.Static;
     /// <summary>Правки DOF разрезов поверх пресета (Id разреза → 6 байт).</summary>
     public IReadOnlyDictionary<int, byte[]> Overrides { get; init; } = new Dictionary<int, byte[]>();
     /// <summary>Действующий набор масок; null — не снимались.</summary>
@@ -85,7 +87,8 @@ public static class FragmentCutBoundary
         bool oblique = false;
         foreach (var (id, cut) in input.Cuts)
         {
-            var modes = FragmentCutBc.Resolve(input.Preset, cut.Cut, input.Overrides.GetValueOrDefault(id), cut.WallNormal, out bool o);
+            var modes = FragmentCutBc.Resolve(FragmentCutBc.PresetOf(cut.Cut, input.Preset, input.LateralPreset), cut.Cut,
+                input.Overrides.GetValueOrDefault(id), cut.ShellNormal, out bool o);
             oblique |= o;
             var nodes = FragmentCutMeshNodes.Find(cut, input.MeshNodes, input.ToleranceM);
             string where = Where(cut.Cut);
@@ -99,6 +102,15 @@ public static class FragmentCutBoundary
         if (oblique)
             r.Diagnostics.Add(new("fragment_cut_oblique_wall", "Стены не вдоль общих осей: поворот вокруг нормали стены не " +
                 "выделяется одним DOF и задаётся по пресету.", false));
+        // Фрагмент с призмой держится только силами масок и ничем не закреплён — отказ (спека призмы 3.2); при опорах и
+        // пружинах фрагмента (колонна на фундаментной плите) он устойчив и без кинематики разрезов.
+        if (cuts.Count > 0 && cuts.Any(c => c.Cut.Cut.Side == FragmentCutSide.Lateral) && input.OtherConstraints.Count == 0
+            && !cuts.Any(c => c.Modes.Any(m => m is FragmentDofMode.Fixed or FragmentDofMode.MaskDisplacement)))
+        {
+            r.Diagnostics.Add(new("fragment_bc_all_static", "Все разрезы фрагмента — силовые, а опор у него нет: задайте " +
+                "кинематику хотя бы на одном горизонтальном разрезе.", true));
+            return r;
+        }
         bool needsMask = cuts.Any(c => c.Modes.Any(FragmentCutBc.NeedsMask));
         if (needsMask && (input.Masks == null || input.Masks.Items.Count == 0))
         {
@@ -338,7 +350,7 @@ public static class FragmentCutBoundary
     };
 
     static string Where(FragmentCut c) => string.Create(CultureInfo.CurrentCulture,
-        $"«{c.MemberTag}» ({(c.Side == FragmentCutSide.Bottom ? "низ" : "верх")}, z = {c.Z:0.###})");
+        $"«{c.MemberTag}» ({FragmentCutLabel.Side(c)}, z = {c.Z:0.###})");
 
     sealed record CutState(int Id, FragmentMaskCutInput Cut, FragmentDofMode[] Modes, FragmentCutMeshNodes Nodes, string Where);
 }

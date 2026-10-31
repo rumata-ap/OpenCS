@@ -42,22 +42,8 @@ public static partial class StoreyFragmentBuilder
     /// Часть s0…s1 луча a + u·s внутри фрагмента — полосы z₁…z₂ и призмы (Сайрус–Бек; пустая — Hi ≤ Lo). Луч вдоль
     /// плоскости — целиком внутри или снаружи по допуску.
     /// </summary>
-    static (double Lo, double Hi) ClipRange(Ctx c, PlanarVector3 a, PlanarVector3 u, double s0, double s1)
-    {
-        double lo = s0, hi = s1;
-        foreach (var pl in c.Planes)
-        {
-            double den = pl.Normal.Dot(u), num = -pl.Eval(a);
-            if (Math.Abs(den) < 1e-12)
-            {
-                if (num < -c.Tol) return (0, 0);
-                continue;
-            }
-            if (den > 0) hi = Math.Min(hi, num / den);
-            else lo = Math.Max(lo, num / den);
-        }
-        return (lo, hi);
-    }
+    static (double Lo, double Hi) ClipRange(Ctx c, PlanarVector3 a, PlanarVector3 u, double s0, double s1) =>
+        c.Bounds.ClipRange(a, u, s0, s1);
 
     static void AddMemberLoad(LoadCtx l, string partTag, FemMemberLoad load)
     {

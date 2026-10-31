@@ -27,7 +27,13 @@ public static class FragmentCutBc
     public static FragmentBcPreset ParsePreset(string? value) =>
         Enum.TryParse<FragmentBcPreset>(value, ignoreCase: false, out var p) && Enum.IsDefined(p) ? p : FragmentBcPreset.Kinematic;
 
-    /// <summary>Режимы пресета для стороны разреза, общие оси <c>Ux Uy Uz Rx Ry Rz</c> (таблица 5.1).</summary>
+    /// <summary>Пресет боковых граней по значению БД (<see cref="FemSchema.FragmentLateralBcPreset"/>): null или неизвестное
+    /// имя — <see cref="FragmentBcPreset.Static"/> (спека призмы 3.2).</summary>
+    public static FragmentBcPreset ParseLateralPreset(string? value) =>
+        Enum.TryParse<FragmentBcPreset>(value, ignoreCase: false, out var p) && Enum.IsDefined(p) ? p : FragmentBcPreset.Static;
+
+    /// <summary>Режимы пресета для стороны разреза, общие оси <c>Ux Uy Uz Rx Ry Rz</c> (таблица 5.1; у боковой грани
+    /// «Изоляция» — шарнир по Uz).</summary>
     public static FragmentDofMode[] PresetModes(FragmentBcPreset preset, FragmentCutSide side)
     {
         const FragmentDofMode F = FragmentDofMode.Fixed, O = FragmentDofMode.Free,
@@ -37,25 +43,34 @@ public static class FragmentCutBc
             FragmentBcPreset.Kinematic => [D, D, D, D, D, D],
             FragmentBcPreset.KinematicTranslations => [D, D, D, O, O, O],
             FragmentBcPreset.Static => [S, S, S, S, S, S],
-            FragmentBcPreset.Isolation => side == FragmentCutSide.Bottom ? [F, F, F, O, O, O] : [F, F, O, O, O, O],
+            FragmentBcPreset.Isolation => side switch
+            {
+                FragmentCutSide.Bottom => [F, F, F, O, O, O],
+                FragmentCutSide.Lateral => [O, O, F, O, O, O],
+                _ => [F, F, O, O, O, O],
+            },
             _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, null),
         };
     }
 
+    /// <summary>Пресет разреза: у боковых — <paramref name="lateral"/>, у низа и верха — <paramref name="preset"/>.</summary>
+    public static FragmentBcPreset PresetOf(FragmentCut cut, FragmentBcPreset preset, FragmentBcPreset lateral) =>
+        cut.Side == FragmentCutSide.Lateral ? lateral : preset;
+
     /// <summary>
-    /// Действующие режимы разреза: пресет, у кромки стены в кинематических пресетах поворот вокруг нормали (сверлильный)
-    /// свободен, затем ручные правки <paramref name="overrides"/> (6 байт, <see cref="ByPreset"/> — по пресету; null —
-    /// правок нет). <paramref name="obliqueWall"/> — нормаль стены не вдоль общей оси: сверлильный поворот не выделяется
-    /// одним DOF и остаётся по пресету.
+    /// Действующие режимы разреза: пресет, у кромки пластины в кинематических пресетах поворот вокруг её нормали
+    /// (сверлильный; у кромки плиты — Rz) свободен, затем ручные правки <paramref name="overrides"/> (6 байт,
+    /// <see cref="ByPreset"/> — по пресету; null — правок нет). <paramref name="obliqueWall"/> — нормаль пластины не вдоль
+    /// общей оси: сверлильный поворот не выделяется одним DOF и остаётся по пресету.
     /// </summary>
     public static FragmentDofMode[] Resolve(FragmentBcPreset preset, FragmentCut cut, byte[]? overrides,
-        PlanarVector3? wallNormal, out bool obliqueWall)
+        PlanarVector3? shellNormal, out bool obliqueWall)
     {
         ArgumentNullException.ThrowIfNull(cut);
         var modes = PresetModes(preset, cut.Side);
         obliqueWall = false;
         if (cut.Kind == FragmentCutKind.Edge && preset is FragmentBcPreset.Kinematic or FragmentBcPreset.KinematicTranslations
-            && wallNormal is { } n && n.Length > 0)
+            && shellNormal is { } n && n.Length > 0)
         {
             var u = n.Normalize();
             int axis = DrillingAxis(u);

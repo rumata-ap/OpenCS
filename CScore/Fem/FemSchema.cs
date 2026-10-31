@@ -47,6 +47,10 @@ public class FemSchema
     public string? ParentSourceType        { get; set; }
     /// <summary>Пресет ГУ разрезов фрагмента (спека масок разд. 5.1); null — «Как в родителе» (Kinematic).</summary>
     public string? FragmentBcPreset        { get; set; }
+    /// <summary>Пресет ГУ боковых граней призмы (спека призмы 3.2); null — «Усилия из родителя» (Static).</summary>
+    public string? FragmentLateralBcPreset { get; set; }
+    /// <summary>Призма фрагмента вокруг стен и колонн (<see cref="Fragment.FragmentPrismCodec"/>); null — этажный фрагмент.</summary>
+    public string? FragmentPrismJson       { get; set; }
     /// <summary>Схема — фрагмент этажа другой схемы.</summary>
     public bool IsFragment => ParentSchemaId is not null;
 

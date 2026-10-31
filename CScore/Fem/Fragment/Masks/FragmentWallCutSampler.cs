@@ -52,19 +52,21 @@ public static class FragmentWallCutSampler
     const double ParallelTolerance = 1e-3;
 
     /// <summary>
-    /// Геометрия отрезка <paramref name="p"/>→<paramref name="q"/>: КЭ плоскости стены (нормаль параллельна
-    /// <paramref name="wallNormal"/>, отстояние ≤ <paramref name="tol"/>), точки на пересечениях с рёбрами КЭ, концы и
-    /// середины. <paramref name="discardedBelow"/> — отброшена часть ниже кромки (рассечение низа).
+    /// Геометрия отрезка <paramref name="p"/>→<paramref name="q"/>: КЭ плоскости пластины (нормаль параллельна
+    /// <paramref name="shellNormal"/>, отстояние ≤ <paramref name="tol"/>), точки на пересечениях с рёбрами КЭ, концы и
+    /// середины. <paramref name="outward"/> — нормаль разреза от фрагмента к отброшенной части; нормаль сечения — её
+    /// проекция на плоскость пластины (кромка стены на z, кромка плиты и вертикальная кромка стены на боковой грани).
     /// </summary>
-    public static FragmentWallCutGeometry Prepare(PlanarVector3 p, PlanarVector3 q, PlanarVector3 wallNormal,
-        bool discardedBelow, IEnumerable<(string Tag, FemElementGeometry G)> shells, double tol)
+    public static FragmentWallCutGeometry Prepare(PlanarVector3 p, PlanarVector3 q, PlanarVector3 shellNormal,
+        PlanarVector3 outward, IEnumerable<(string Tag, FemElementGeometry G)> shells, double tol)
     {
-        var nw = wallNormal.Normalize();
+        var nw = shellNormal.Normalize();
         var axis = (q - p).Normalize();
         double length = (q - p).Length;
-        var up = new PlanarVector3(0, 0, 1);
-        var inPlaneUp = (up - nw * up.Dot(nw)).Normalize();
-        var cutNormal = discardedBelow ? inPlaneUp * -1 : inPlaneUp;
+        var inPlane = outward - nw * outward.Dot(nw);
+        if (inPlane.Length < 1e-6)
+            throw new ArgumentException("Нормаль разреза перпендикулярна плоскости пластины — кромки в ней нет.", nameof(outward));
+        var cutNormal = inPlane.Normalize();
         var e2 = nw.Cross(axis).Normalize();
 
         var plane = new List<FragmentPlaneElement>();

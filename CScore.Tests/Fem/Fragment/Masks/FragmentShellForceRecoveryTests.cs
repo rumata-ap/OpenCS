@@ -38,7 +38,7 @@ public sealed class FragmentShellForceRecoveryTests
     public void Recover_LinearFieldExact_OffCentroid()
     {
         var (nodes, elements) = Wall(2, 2, 4, 4, flip: true);
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), true, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), V(0, 0, -1), Shells(nodes, elements), 1e-3);
         var forces = g.Plane.ToDictionary(e => e.Tag, e =>
         {
             double z = e.Centroid.Z;
@@ -64,7 +64,7 @@ public sealed class FragmentShellForceRecoveryTests
     public void Recover_DegeneratePatch_FallsBack()
     {
         var (nodes, elements) = Wall(2, 1, 4, 1);
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.3), V(2, 0, 0.3), V(0, 1, 0), true, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.3), V(2, 0, 0.3), V(0, 1, 0), V(0, 0, -1), Shells(nodes, elements), 1e-3);
         var t = FragmentShellForceRecovery.Recover(g, g.Points[3], _ => new Dof6(0, 0, 5, 0, 0, 0), out bool degenerate)!;
         Assert.True(degenerate);
         Assert.Equal(5, t.Z, 12);
@@ -75,7 +75,7 @@ public sealed class FragmentShellForceRecoveryTests
     public void Recover_NoForces_Null()
     {
         var (nodes, elements) = Wall(1, 1, 2, 2);
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.3), V(1, 0, 0.3), V(0, 1, 0), true, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.3), V(1, 0, 0.3), V(0, 1, 0), V(0, 0, -1), Shells(nodes, elements), 1e-3);
         Assert.Null(FragmentShellForceRecovery.Recover(g, g.Points[0], _ => null, out _));
     }
 }

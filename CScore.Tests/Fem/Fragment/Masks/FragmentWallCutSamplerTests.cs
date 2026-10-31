@@ -14,7 +14,7 @@ public sealed class FragmentWallCutSamplerTests
     {
         var (nodes, elements) = Wall(2, 2, 4, 4);
 
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), discardedBelow: true,
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), V(0, 0, -1),
             Shells(nodes, elements), 1e-3);
 
         Assert.Equal(new[] { 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 }, g.Points.Select(p => Math.Round(p.S, 9)));
@@ -33,7 +33,7 @@ public sealed class FragmentWallCutSamplerTests
         foreach (var (k, v) in n2) nodes[k] = v;
         elements.AddRange(e2);
 
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), true, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.8), V(2, 0, 0.8), V(0, 1, 0), V(0, 0, -1), Shells(nodes, elements), 1e-3);
 
         Assert.Equal(4, g.Plane.Count);
         Assert.All(g.Plane, e => Assert.True(int.Parse(e.Tag) < 100));
@@ -45,7 +45,7 @@ public sealed class FragmentWallCutSamplerTests
     {
         var (nodes, elements) = Wall(2, 2, 3, 3, flip: true);
         Dof6 Field(double x, double z) => new(1e-3 + 2e-4 * z, 3e-4 * x, -1e-3 + 5e-4 * z, 1e-5, 2e-5 * x, 0);
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.9), V(2, 0, 0.9), V(0, 1, 0), false, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.9), V(2, 0, 0.9), V(0, 1, 0), V(0, 0, 1), Shells(nodes, elements), 1e-3);
 
         foreach (var p in g.Points)
         {
@@ -61,7 +61,7 @@ public sealed class FragmentWallCutSamplerTests
     public void Displacement_MissingNode_Null()
     {
         var (nodes, elements) = Wall(1, 1, 1, 1);
-        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.5), V(1, 0, 0.5), V(0, 1, 0), true, Shells(nodes, elements), 1e-3);
+        var g = FragmentWallCutSampler.Prepare(V(0, 0, 0.5), V(1, 0, 0.5), V(0, 1, 0), V(0, 0, -1), Shells(nodes, elements), 1e-3);
         Assert.Null(FragmentWallCutSampler.Displacement(g.Points[1], tag => tag == "1" ? null : Dof6.Zero));
     }
 }

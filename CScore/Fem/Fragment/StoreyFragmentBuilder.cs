@@ -19,29 +19,19 @@ public static partial class StoreyFragmentBuilder
 
     sealed record Slab(string MemberTag, PlanarRegion Region, double Z);
 
-    /// <summary>Плоскость, ограничивающая фрагмент: внешняя нормаль, смещение (внутри — n·p ≤ смещения), сторона разреза.</summary>
-    sealed record CutPlane(PlanarVector3 Normal, double Offset, FragmentCutSide Side)
-    {
-        /// <summary>Отстояние со знаком: больше нуля — снаружи фрагмента.</summary>
-        public double Eval(PlanarVector3 p) => Normal.Dot(p) - Offset;
-    }
-
     sealed class Ctx(StoreyFragmentRequest request, StoreyFragmentDraft draft)
     {
         public double Z1 => request.Z1;
         public double Z2 => request.Z2;
         public double Tol => request.ToleranceM;
         public FragmentPrism? Prism => request.Prism;
+        /// <summary>Полоса и призма запроса.</summary>
+        public FragmentBounds Bounds { get; } = new(request.Z1, request.Z2, request.Prism, request.ToleranceM);
         /// <summary>z₁, z₂ и боковые грани призмы (если она задана).</summary>
-        public IReadOnlyList<CutPlane> Planes { get; } =
-        [
-            new(new PlanarVector3(0, 0, -1), -request.Z1, FragmentCutSide.Bottom),
-            new(new PlanarVector3(0, 0, 1), request.Z2, FragmentCutSide.Top),
-            .. request.Prism?.Faces.Select(f => new CutPlane(f.Normal, f.Offset, FragmentCutSide.Lateral)) ?? [],
-        ];
-        public IEnumerable<CutPlane> Lateral => Planes.Where(p => p.Side == FragmentCutSide.Lateral);
+        public IReadOnlyList<FragmentBoundPlane> Planes => Bounds.Planes;
+        public IEnumerable<FragmentBoundPlane> Lateral => Bounds.Lateral;
         /// <summary>Точка внутри фрагмента (полоса и призма) или на его границе в допуске.</summary>
-        public bool InBox(PlanarVector3 p) => Planes.All(pl => pl.Eval(p) <= Tol);
+        public bool InBox(PlanarVector3 p) => Bounds.InBox(p);
         public StoreyFragmentDraft Draft => draft;
         public FragmentNodeTable Nodes { get; } = new(draft.Nodes);
         public List<Slab> Slabs { get; } = [];

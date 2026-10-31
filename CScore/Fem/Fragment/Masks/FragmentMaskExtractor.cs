@@ -5,8 +5,9 @@ using CScore.Submodel;
 
 namespace CScore.Fem.Fragment.Masks;
 
-/// <summary>Сечение рассечения на входе экстрактора: точка конца стержня или нормаль стены (из КонЭ фрагмента).</summary>
-public sealed record FragmentMaskCutInput(FragmentCut Cut, PlanarVector3? EndPoint, PlanarVector3? WallNormal);
+/// <summary>Сечение рассечения на входе экстрактора: точка конца стержня или нормаль пластины кромки (стены или плиты; из
+/// КонЭ фрагмента).</summary>
+public sealed record FragmentMaskCutInput(FragmentCut Cut, PlanarVector3? EndPoint, PlanarVector3? ShellNormal);
 
 /// <summary>Вход снятия масок: сечения фрагмента, сетка родителя полосы, результат родителя.</summary>
 public sealed class FragmentMaskInput
@@ -60,12 +61,12 @@ public static class FragmentMaskExtractor
         for (int i = 0; i < input.Cuts.Count; i++)
         {
             var c = input.Cuts[i];
-            bool below = c.Cut.Side == FragmentCutSide.Bottom;
-            string where = $"{c.Cut.MemberTag} ({(below ? "низ" : "верх")}, z = {c.Cut.Z.ToString("0.###", CultureInfo.CurrentCulture)})";
+            var outward = c.Cut.Outward;
+            string where = $"{c.Cut.MemberTag} ({FragmentCutLabel.Side(c.Cut)}, z = {c.Cut.Z.ToString("0.###", CultureInfo.CurrentCulture)})";
             if (c.Cut.Kind == FragmentCutKind.End)
-                ExtractEnd(input, x, i, c, below, where, bars);
+                ExtractEnd(input, x, i, c, outward, where, bars);
             else
-                ExtractEdge(input, x, i, c, below, where, shells, checks);
+                ExtractEdge(input, x, i, c, outward, where, shells, checks);
         }
         CheckResultants(input, x, checks);
         return x;
@@ -95,11 +96,11 @@ public static class FragmentMaskExtractor
         }
     }
 
-    static void ExtractEnd(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, bool below,
+    static void ExtractEnd(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, PlanarVector3 outward,
         string where, List<FragmentBarElement> bars)
     {
         if (c.EndPoint is not { } point
-            || FragmentBarCutSampler.Locate(point, below, bars, input.ToleranceM) is not { } hit)
+            || FragmentBarCutSampler.Locate(point, outward, bars, input.ToleranceM) is not { } hit)
         {
             Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ стержня родителя в точке рассечения — маски нет.", c);
             return;
@@ -115,19 +116,25 @@ public static class FragmentMaskExtractor
         }
     }
 
-    static void ExtractEdge(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, bool below,
+    static void ExtractEdge(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, PlanarVector3 outward,
         string where, List<(string, FemElementGeometry)> shells, List<ResultantCheck> checks)
     {
-        if (c.WallNormal is not { } normal || c.Cut.Segments.Count == 0)
+        if (c.ShellNormal is not { } normal || c.Cut.Segments.Count == 0)
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет плоскости стены — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет плоскости пластины — маски нет.", c);
+            return;
+        }
+        var unit = normal.Normalize();
+        if ((outward - unit * outward.Dot(unit)).Length < 1e-6)
+        {
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нормаль разреза перпендикулярна плоскости пластины — маски нет.", c);
             return;
         }
         var geometries = c.Cut.Segments
-            .Select(seg => FragmentWallCutSampler.Prepare(seg.P, seg.Q, normal, below, shells, input.ToleranceM)).ToList();
+            .Select(seg => FragmentWallCutSampler.Prepare(seg.P, seg.Q, normal, outward, shells, input.ToleranceM)).ToList();
         if (geometries.All(g => g.Plane.Count == 0))
         {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ пластин родителя в плоскости стены — маски нет.", c);
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ пластин родителя в плоскости кромки — маски нет.", c);
             return;
         }
         foreach (var key in input.Result.Keys)
