@@ -142,7 +142,18 @@ public static class StoreyFloorLevels
     }
 
     /// <summary>
-    /// Отметка перекрытия по точкам выделения: разброс z не больше <see cref="LevelToleranceM"/> — средняя z; иначе
+    /// Задевает ли перекрытие многоугольник плана: есть общая ячейка растра <see cref="CellM"/> (перекрытие другого крыла на
+    /// той же отметке призму фрагмента не задевает).
+    /// </summary>
+    public static bool Covers(StoreyFloorLevel level, IReadOnlyList<PlanarPoint2D> polygon)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        ArgumentNullException.ThrowIfNull(polygon);
+        return polygon.Count >= 3 && PolygonCells(polygon).Any(level.Cells.Contains);
+    }
+
+    /// <summary>
+    /// Отметка перекрытия по точкам выделения:разброс z не больше <see cref="LevelToleranceM"/> — средняя z; иначе
     /// null и ключ строки ошибки (<c>StoreyFloorPickEmpty</c> / <c>StoreyFloorPickTilted</c>).
     /// </summary>
     public static double? PickZ(IReadOnlyCollection<PlanarVector3> points, out string? errorKey)
