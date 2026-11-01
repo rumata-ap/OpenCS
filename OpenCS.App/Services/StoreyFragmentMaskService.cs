@@ -161,8 +161,7 @@ public static class StoreyFragmentMaskService
     /// <summary>Отпечаток источника: постановка, Id и дата её результата, отпечаток полосы родителя (как у <see cref="StoreyFragmentService.CheckParent"/>).</summary>
     static string Fingerprint(DatabaseService db, FemSchema fragment, FemAnalysis analysis, CScore.CalcResult result)
     {
-        var snapshot = db.ReadStoreyFragmentSnapshot(fragment.ParentSchemaId!.Value,
-            new StoreyFragmentRequest(fragment.FragmentZ1!.Value, fragment.FragmentZ2!.Value, fragment.Tag));
+        var snapshot = db.ReadStoreyFragmentSnapshot(fragment.ParentSchemaId!.Value, StoreyFragmentService.ParentRequest(fragment)!);
         return string.Create(CultureInfo.InvariantCulture,
             $"{analysis.Id}|{result.Id}|{result.Created}|{StoreyFragmentFingerprint.Compute(snapshot)}");
     }
@@ -396,8 +395,7 @@ public static class StoreyFragmentMaskService
     /// <summary>Отпечаток снимка программы: SHA-256 вложения и отпечаток полосы родителя.</summary>
     static string ImportedFingerprint(DatabaseService db, FemSchema fragment, byte[] data)
     {
-        var snapshot = db.ReadStoreyFragmentSnapshot(fragment.ParentSchemaId!.Value,
-            new StoreyFragmentRequest(fragment.FragmentZ1!.Value, fragment.FragmentZ2!.Value, fragment.Tag));
+        var snapshot = db.ReadStoreyFragmentSnapshot(fragment.ParentSchemaId!.Value, StoreyFragmentService.ParentRequest(fragment)!);
         return $"{ImportedResultSnapshotCodec.Fingerprint(data)}|{StoreyFragmentFingerprint.Compute(snapshot)}";
     }
 }

@@ -135,6 +135,31 @@ public sealed class StoreyFragmentServiceTests : IDisposable
         Assert.Equal(FragmentParentStatus.Changed, StoreyFragmentService.CheckParent(db, fragment));
     }
 
+    /// <summary>
+    /// Фрагмент с призмой [2; 2,5]² в углу плиты S1: отпечаток снимается по той же призме (из схемы), правки родителя вне
+    /// габарита отбора (призма + 1 м) его не меняют, внутри — меняют.
+    /// </summary>
+    [Fact]
+    public void CheckParent_Prism_UsesSchemaPrism()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var request = Band with { Prism = CScore.Fem.Fragment.FragmentPrism.Create(2.25, 2.25, 1, 0, 0.25, 0.25) };
+        var fragment = StoreyFragmentService.Build(db, parent.Id, request).Schema!;
+        Assert.NotNull(fragment.FragmentPrismJson);
+        Assert.Equal(request, StoreyFragmentService.ParentRequest(fragment)! with { Name = request.Name });
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, fragment));
+
+        // Узел сетки 1007 (−1,5; −1,5) и колонна C1 (0, 0) — вне габарита отбора.
+        Exec($"UPDATE fem_mesh_node_loads SET fz=-999 WHERE schema_id={parent.Id} AND mesh_node_tag='1007'");
+        Exec($"UPDATE fem_member_loads SET qx_start=7 WHERE schema_id={parent.Id}");
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, fragment));
+
+        // Узел 1025 (3; 3) — у КЭ 16 внутри.
+        Exec($"UPDATE fem_mesh_nodes SET z=3.01 WHERE schema_id={parent.Id} AND node_tag='1025'");
+        Assert.Equal(FragmentParentStatus.Changed, StoreyFragmentService.CheckParent(db, fragment));
+    }
+
     [Fact]
     public void CheckParent_TracksBandChangesAndDeletion()
     {

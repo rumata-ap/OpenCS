@@ -70,12 +70,24 @@ public static class StoreyFragmentService
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(schema);
-        if (schema.ParentSchemaId is not int parentId || schema.FragmentZ1 is not double z1 || schema.FragmentZ2 is not double z2)
+        if (schema.ParentSchemaId is not int parentId || ParentRequest(schema) is not { } request)
             return FragmentParentStatus.NotFragment;
         if (db.GetFemSchemaSourceType(parentId) is null) return FragmentParentStatus.ParentDeleted;
-        var snapshot = db.ReadStoreyFragmentSnapshot(parentId, new StoreyFragmentRequest(z1, z2, schema.Tag));
+        var snapshot = db.ReadStoreyFragmentSnapshot(parentId, request);
         return StoreyFragmentFingerprint.Compute(snapshot) == schema.ParentFingerprint
             ? FragmentParentStatus.Unchanged
             : FragmentParentStatus.Changed;
+    }
+
+    /// <summary>
+    /// Запрос, которым снимается полоса родителя фрагмента при сверке отпечатков: z₁, z₂, тег и призма схемы
+    /// (<see cref="FemSchema.FragmentPrismJson"/>) — тот же отбор, что при сборке. Не фрагмент — null; битая призма —
+    /// <see cref="InvalidDataException"/>.
+    /// </summary>
+    public static StoreyFragmentRequest? ParentRequest(FemSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        if (schema.ParentSchemaId is null || schema.FragmentZ1 is not double z1 || schema.FragmentZ2 is not double z2) return null;
+        return new StoreyFragmentRequest(z1, z2, schema.Tag, Prism: FragmentPrismCodec.Decode(schema.FragmentPrismJson)?.Prism);
     }
 }

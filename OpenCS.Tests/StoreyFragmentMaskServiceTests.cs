@@ -44,7 +44,7 @@ public sealed partial class StoreyFragmentMaskServiceTests : IDisposable
 
     sealed record Parent(DatabaseService Db, FemSchema Schema, FemSchema Fragment, CrossSection Column);
 
-    Parent Create()
+    Parent Create(StoreyFragmentRequest? request = null)
     {
         var db = new DatabaseService(_path);
         var schema = new FemSchema { Tag = "Каркас" };
@@ -130,7 +130,7 @@ public sealed partial class StoreyFragmentMaskServiceTests : IDisposable
         db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
         db.LoadAll();
         var parent = db.FemSchemas.Single(s => s.Id == schema.Id);
-        var built = StoreyFragmentService.Build(db, parent.Id, Band);
+        var built = StoreyFragmentService.Build(db, parent.Id, request ?? Band);
         var fragment = Assert.IsType<FemSchema>(built.Schema);
         // Сечение колонн — только в памяти (как в соседних тестах): в cross_sections его нет, LoadAll его сбрасывает.
         db.CrossSections.Add(column);
