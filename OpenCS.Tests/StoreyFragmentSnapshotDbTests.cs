@@ -68,4 +68,65 @@ public sealed class StoreyFragmentSnapshotDbTests : IDisposable
         Assert.Equal(2, band.Cuts.Count);
         Assert.NotEmpty(band.MemberLoads);
     }
+
+    /// <summary>Призма [2; 2,5]² в углу плиты S1: габарит отбора с запасом 1 м — x, y ≥ 0,999.</summary>
+    static readonly StoreyFragmentRequest Corner = Band with { Prism = FragmentPrism.Create(2.25, 2.25, 1, 0, 0.25, 0.25) };
+
+    [Fact]
+    public void Prism_SnapshotOnlyNearPrism()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var s = db.ReadStoreyFragmentSnapshot(parent.Id, Corner);
+
+        // Колонна C1 в (0, 0) вне габарита — ни КонЭ, ни её КЭ; плита пересекает — остаётся.
+        Assert.Equal(["S1"], s.Members.Select(m => m.ElemTag));
+        // КЭ S1 с x, y в [0; 3] (касание габарита 1,5 — внутри): 4 КЭ из 16, колонны 502/503 нет.
+        Assert.Equal(["11", "12", "15", "16"], s.MeshElements.Select(e => e.ElemTag).Order(StringComparer.Ordinal));
+        Assert.All(s.MeshNodes, n => Assert.True(n.X >= 0 && n.Y >= 0));
+        Assert.Single(s.ElementLoads);
+        Assert.Empty(s.MeshNodeLoads);
+        Assert.Empty(s.MemberLoads);
+        // Без призмы — прежний отбор.
+        Assert.Equal(18, db.ReadStoreyFragmentSnapshot(parent.Id, Band).MeshElements.Count);
+    }
+
+    [Fact]
+    public void Prism_BuildsSameDraftAsFullParent()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var prism = StoreyFragmentBuilder.Build(db.ReadStoreyFragmentSnapshot(parent.Id, Corner), Corner);
+        var full = StoreyFragmentBuilder.Build(StoreyFragmentDbFixture.ReadFull(db, parent.Id), Corner);
+
+        Assert.False(prism.HasErrors, string.Join("; ", prism.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(full.Members.Select(m => m.Member.ElemTag), prism.Members.Select(m => m.Member.ElemTag));
+        Assert.Equal(full.Cuts.Select(c => (c.MemberTag, c.Side, c.Segments.Count)), prism.Cuts.Select(c => (c.MemberTag, c.Side, c.Segments.Count)));
+        Assert.Equal(full.Nodes.Count, prism.Nodes.Count);
+        Assert.Equal(full.ElementLoads.Count, prism.ElementLoads.Count);
+        Assert.Equal(full.FieldLoads.Count, prism.FieldLoads.Count);
+        Assert.Equal(full.NodeLoads.Count, prism.NodeLoads.Count);
+        Assert.Equal(full.RefElements.Select(e => e.Tag).Order(), prism.RefElements.Select(e => e.Tag).Order());
+        Assert.Equal(full.Diagnostics.Select(d => d.Code).Order(), prism.Diagnostics.Select(d => d.Code).Order());
+        Assert.Contains(prism.Cuts, c => c.Side == FragmentCutSide.Lateral);
+    }
+
+    [Fact]
+    public void Snapshot_SectionOutline_FromCrossSections()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var area = new CScore.MaterialArea { Tag = "Бетон" };
+        area.Contours.Add(new CScore.Contour([-.2, .2, .2, -.2, -.2], [-.3, -.3, .3, .3, -.3], "outer") { Type = CScore.ContourType.Hull });
+        db.CrossSections.Add(new CScore.CrossSection { Id = 77, Num = 1, Tag = "К1", Areas = [area] });
+
+        var s = db.ReadStoreyFragmentSnapshot(parent.Id, Band);
+        var outline = s.SectionOutline!(77);
+        Assert.NotNull(outline);
+        Assert.Equal(4, outline!.Count);
+        // Y стержня — y сечения (±0,3), Z — x сечения (±0,2).
+        Assert.Equal(0.3, outline.Max(p => p.Y), 9);
+        Assert.Equal(0.2, outline.Max(p => p.Z), 9);
+        Assert.Null(s.SectionOutline(999));
+    }
 }

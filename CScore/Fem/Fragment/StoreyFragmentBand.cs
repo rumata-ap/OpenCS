@@ -15,16 +15,20 @@ public static class StoreyFragmentBand
     public static List<FemMember> KeepMembers(
         IEnumerable<FemMember> members, IEnumerable<FemNode> nodes, IEnumerable<PlanarRegion> regions, StoreyFragmentRequest request)
     {
-        var z = nodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First().Z, StringComparer.Ordinal);
+        var nodeByTag = nodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var regionById = regions.Where(r => r.Id > 0).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
         double lo = request.Z1 - request.ToleranceM, hi = request.Z2 + request.ToleranceM;
+        var box = request.PlanBox;
         var result = new List<FemMember>();
         foreach (var m in members)
         {
-            var range = m.PlanarRegionId is int id && regionById.TryGetValue(id, out var region)
-                ? RegionRange(region)
-                : NodeRange(m, z);
-            if (range is { } r && r.Max >= lo && r.Min <= hi) result.Add(m);
+            var points = m.PlanarRegionId is int id && regionById.TryGetValue(id, out var region)
+                ? RegionPoints(region)
+                : NodeTags(m).Where(nodeByTag.ContainsKey).Select(t => nodeByTag[t]).Select(n => new PlanarVector3(n.X, n.Y, n.Z)).ToList();
+            if (points.Count == 0 || points.Max(p => p.Z) < lo || points.Min(p => p.Z) > hi) continue;
+            if (box is { } b && !b.Overlaps(points.Min(p => p.X), points.Max(p => p.X), points.Min(p => p.Y), points.Max(p => p.Y)))
+                continue;
+            result.Add(m);
         }
         return result;
     }
@@ -40,7 +44,9 @@ public static class StoreyFragmentBand
         var regionIds = members.Where(m => m.PlanarRegionId is not null).Select(m => m.PlanarRegionId!.Value).ToHashSet();
         var memberNodeTags = members.SelectMany(NodeTags).ToHashSet(StringComparer.Ordinal);
         double lo = request.Z1 - request.ToleranceM, hi = request.Z2 + request.ToleranceM;
-        var nodes = s.Nodes.Where(n => memberNodeTags.Contains(n.NodeTag) || (n.Z >= lo && n.Z <= hi)).ToList();
+        var box = request.PlanBox;
+        var nodes = s.Nodes.Where(n => memberNodeTags.Contains(n.NodeTag)
+            || (n.Z >= lo && n.Z <= hi && (box is not { } b || b.Overlaps(n.X, n.X, n.Y, n.Y)))).ToList();
         var nodeIds = nodes.Select(n => n.Id).ToHashSet();
         return new StoreyFragmentParentSnapshot
         {
@@ -63,20 +69,13 @@ public static class StoreyFragmentBand
         };
     }
 
-    static (double Min, double Max)? NodeRange(FemMember m, Dictionary<string, double> z)
-    {
-        var zs = NodeTags(m).Where(z.ContainsKey).Select(t => z[t]).ToList();
-        return zs.Count == 0 ? null : (zs.Min(), zs.Max());
-    }
-
-    static (double Min, double Max)? RegionRange(PlanarRegion region)
+    /// <summary>Вершины внешнего контура области в общих осях.</summary>
+    static List<PlanarVector3> RegionPoints(PlanarRegion region)
     {
         var hull = region.RequireHull();
-        if (hull.X.Count == 0) return null;
-        var zs = Enumerable.Range(0, hull.X.Count)
-            .Select(i => PlanarBoundaryFrameConverter.ToGlobalPoint(region.Frame, new PlanarVector3(hull.X[i], hull.Y[i], 0)).Z)
+        return Enumerable.Range(0, hull.X.Count)
+            .Select(i => PlanarBoundaryFrameConverter.ToGlobalPoint(region.Frame, new PlanarVector3(hull.X[i], hull.Y[i], 0)))
             .ToList();
-        return (zs.Min(), zs.Max());
     }
 
     static IEnumerable<string> NodeTags(FemMember m)

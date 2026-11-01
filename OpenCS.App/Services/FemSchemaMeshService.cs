@@ -254,17 +254,7 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
     }
 
     /// <summary>Контуры сечений стержней для следов АЖТ по Id сечения (с кэшем на одну сборку).</summary>
-    Func<int, IReadOnlyList<(double Y, double Z)>?> SectionOutlines()
-    {
-        var cache = new Dictionary<int, IReadOnlyList<(double Y, double Z)>?>();
-        return id =>
-        {
-            if (!cache.TryGetValue(id, out var outline))
-                cache[id] = outline = db.CrossSections.FirstOrDefault(s => s.Id == id) is { } section
-                    ? RigidJunctionSectionOutline.From(section) : null;
-            return outline;
-        };
-    }
+    Func<int, IReadOnlyList<(double Y, double Z)>?> SectionOutlines() => db.SectionOutlines();
 
     /// <summary>Узлы сетки, которые не становятся ведомыми АЖТ примыканий: закрепления (в том числе линейных связей),
     /// пружины, ручные и импортные тела.</summary>

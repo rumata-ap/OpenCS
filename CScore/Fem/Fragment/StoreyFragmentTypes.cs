@@ -6,7 +6,31 @@ namespace CScore.Fem.Fragment;
 /// Запрос фрагмента этажа: полоса z₁…z₂ (середины этажей ниже и выше перекрытия), м; допуск, м; призма в плане вокруг
 /// стен и колонн (null — этажный фрагмент без боковых граней).
 /// </summary>
-public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null);
+public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null)
+{
+    /// <summary>
+    /// Запас отбора снимка родителя в плане за габаритом призмы, м: читаются и элементы рядом с гранью — колонна с осью
+    /// снаружи, сечение которой задевает призму (предупреждение <c>fragment_column_outside_prism</c>).
+    /// </summary>
+    public const double SnapshotPlanMarginM = 1.0;
+
+    /// <summary>Габарит отбора снимка в глобальных X/Y: призма + допуск + <see cref="SnapshotPlanMarginM"/>; null — без призмы.</summary>
+    public FragmentPlanBox? PlanBox => Prism is { } p ? FragmentPlanBox.Of(p.Corners(), ToleranceM + SnapshotPlanMarginM) : null;
+}
+
+/// <summary>Прямоугольник в глобальных X/Y (отбор снимка родителя по призме).</summary>
+public readonly record struct FragmentPlanBox(double XMin, double XMax, double YMin, double YMax)
+{
+    /// <summary>Габарит точек, расширенный на <paramref name="margin"/>.</summary>
+    public static FragmentPlanBox Of(IEnumerable<PlanarPoint2D> points, double margin)
+    {
+        var list = points.ToList();
+        return new(list.Min(p => p.U) - margin, list.Max(p => p.U) + margin, list.Min(p => p.V) - margin, list.Max(p => p.V) + margin);
+    }
+
+    /// <summary>Пересекается ли с габаритом x0…x1 × y0…y1 (касание — да).</summary>
+    public bool Overlaps(double x0, double x1, double y0, double y1) => x1 >= XMin && x0 <= XMax && y1 >= YMin && y0 <= YMax;
+}
 
 /// <summary>Часть схемы-родителя, нужная построителю (сервис читает только полосу).</summary>
 public sealed class StoreyFragmentParentSnapshot

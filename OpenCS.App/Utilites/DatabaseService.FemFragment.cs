@@ -426,9 +426,12 @@ namespace OpenCS.Utilites
 
          try
          {
+            var box = request.PlanBox;
             using (var cmd = _connection.CreateCommand())
             {
-               cmd.CommandText = """
+               // С призмой — ещё габарит КЭ в плане против габарита призмы с запасом (точная обрезка — построитель).
+               string plan = box is null ? "" : " AND MAX(n.x) >= @xlo AND MIN(n.x) <= @xhi AND MAX(n.y) >= @ylo AND MIN(n.y) <= @yhi";
+               cmd.CommandText = $"""
                   DROP TABLE IF EXISTS temp.frag_elems;
                   DROP TABLE IF EXISTS temp.frag_nodes;
                   DROP TABLE IF EXISTS temp.frag_members;
@@ -440,7 +443,7 @@ namespace OpenCS.Utilites
                      FROM fem_elements e CROSS JOIN json_each(e.node_ids_json) j CROSS JOIN fem_mesh_nodes n
                      WHERE e.schema_id=@sid AND n.schema_id=@sid AND n.node_tag=CAST(j.value AS TEXT)
                      GROUP BY e.id
-                     HAVING MAX(n.z) > @lo AND MIN(n.z) < @hi;
+                     HAVING MAX(n.z) > @lo AND MIN(n.z) < @hi{plan};
                   CREATE INDEX temp.ix_frag_elems_tag ON frag_elems(tag);
                   INSERT OR IGNORE INTO temp.frag_nodes (tag)
                      SELECT CAST(j.value AS TEXT)
@@ -449,6 +452,13 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@sid", parentId);
                cmd.Parameters.AddWithValue("@lo", request.Z1 + request.ToleranceM);
                cmd.Parameters.AddWithValue("@hi", request.Z2 - request.ToleranceM);
+               if (box is { } b)
+               {
+                  cmd.Parameters.AddWithValue("@xlo", b.XMin);
+                  cmd.Parameters.AddWithValue("@xhi", b.XMax);
+                  cmd.Parameters.AddWithValue("@ylo", b.YMin);
+                  cmd.Parameters.AddWithValue("@yhi", b.YMax);
+               }
                cmd.ExecuteNonQuery();
             }
             using (var cmd = _connection.CreateCommand())
@@ -489,6 +499,7 @@ namespace OpenCS.Utilites
                   OR (target_kind='{FemSpringTargetKinds.MeshNode}' AND node_tag IN (SELECT tag FROM temp.frag_nodes))
                   """),
                MeshNodeSupports = QueryFemMeshNodeSupports(parentId, "node_tag IN (SELECT tag FROM temp.frag_nodes)"),
+               SectionOutline = SectionOutlines(),
             };
          }
          finally
@@ -501,6 +512,22 @@ namespace OpenCS.Utilites
                """;
             drop.ExecuteNonQuery();
          }
+      }
+
+      /// <summary>
+      /// Контуры сечений стержней по Id сечения (<see cref="RigidJunctionSectionOutline.From"/>, в осях стержня от ц. т.) с
+      /// кэшем на один вызов: следы АЖТ и габарит колонн призмы фрагмента. Сечения нет или нет бетонных контуров — null.
+      /// </summary>
+      public Func<int, IReadOnlyList<(double Y, double Z)>?> SectionOutlines()
+      {
+         var cache = new Dictionary<int, IReadOnlyList<(double Y, double Z)>?>();
+         return id =>
+         {
+            if (!cache.TryGetValue(id, out var outline))
+               cache[id] = outline = CrossSections.FirstOrDefault(s => s.Id == id) is { } section
+                  ? RigidJunctionSectionOutline.From(section) : null;
+            return outline;
+         };
       }
 
       /// <summary>
