@@ -4,9 +4,11 @@ namespace CScore.Fem.Fragment;
 
 /// <summary>
 /// Запрос фрагмента этажа: полоса z₁…z₂ (середины этажей ниже и выше перекрытия), м; допуск, м; призма в плане вокруг
-/// стен и колонн (null — этажный фрагмент без боковых граней).
+/// стен и колонн (null — этажный фрагмент без боковых граней); сведения о выборе призмы для записи в схему (d, теги,
+/// перекрытия; призма в них заменяется на <paramref name="Prism"/>).
 /// </summary>
-public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null)
+public sealed record StoreyFragmentRequest(double Z1, double Z2, string Name, double ToleranceM = 0.001, FragmentPrism? Prism = null,
+    FragmentPrismInfo? PrismInfo = null)
 {
     /// <summary>
     /// Запас отбора снимка родителя в плане за габаритом призмы, м: читаются и элементы рядом с гранью — колонна с осью

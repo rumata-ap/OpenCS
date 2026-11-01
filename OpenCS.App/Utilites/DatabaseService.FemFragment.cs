@@ -514,6 +514,41 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>КЭ-стержни сетки схемы, принадлежащие КонЭ <paramref name="memberTags"/> (сечение колонны по её КЭ).</summary>
+      public List<FemElement> GetFemMeshBeamsOfMembers(int schemaId, IReadOnlyCollection<string> memberTags)
+      {
+         ArgumentNullException.ThrowIfNull(memberTags);
+         if (memberTags.Count == 0) return [];
+         try
+         {
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = """
+                  DROP TABLE IF EXISTS temp.frag_sel;
+                  CREATE TEMP TABLE frag_sel (tag TEXT PRIMARY KEY);
+                  """;
+               cmd.ExecuteNonQuery();
+            }
+            using (var cmd = _connection.CreateCommand())
+            {
+               cmd.CommandText = "INSERT OR IGNORE INTO temp.frag_sel (tag) VALUES (@tag)";
+               var tag = cmd.Parameters.Add("@tag", SqliteType.Text);
+               foreach (var t in memberTags)
+               {
+                  tag.Value = t;
+                  cmd.ExecuteNonQuery();
+               }
+            }
+            return QueryFemMeshElements(schemaId, "elem_type='beam' AND source_member_tag IN (SELECT tag FROM temp.frag_sel)");
+         }
+         finally
+         {
+            using var drop = _connection.CreateCommand();
+            drop.CommandText = "DROP TABLE IF EXISTS temp.frag_sel;";
+            drop.ExecuteNonQuery();
+         }
+      }
+
       /// <summary>
       /// Контуры сечений стержней по Id сечения (<see cref="RigidJunctionSectionOutline.From"/>, в осях стержня от ц. т.) с
       /// кэшем на один вызов: следы АЖТ и габарит колонн призмы фрагмента. Сечения нет или нет бетонных контуров — null.
@@ -551,7 +586,9 @@ namespace OpenCS.Utilites
             ParentSchemaId = parentId, FragmentZ1 = request.Z1, FragmentZ2 = request.Z2, ParentFingerprint = fingerprint,
             FragmentBuildReportJson = StoreyFragmentBuildReport.ToJson(draft.Diagnostics),
             ParentSourceType = GetFemSchemaSourceType(parentId),
-            FragmentPrismJson = request.Prism is { } prism ? FragmentPrismCodec.Encode(new FragmentPrismInfo(prism)) : null,
+            FragmentPrismJson = request.Prism is { } prism
+               ? FragmentPrismCodec.Encode((request.PrismInfo ?? new FragmentPrismInfo(prism)) with { Prism = prism })
+               : null,
          };
 
          using var tx = _connection.BeginTransaction();
