@@ -45,6 +45,7 @@ public class LiraBinaryExtrasReaderTests
         bool _extraObjectFlagBits;
         bool _zeroDeletedObjectFlags;
         bool _extraNodeFlagBit;
+        bool _nodeTailLinks;
         bool _falseStart;
 
         public int AddNode(double x, double y, double z)
@@ -96,9 +97,13 @@ public class LiraBinaryExtrasReaderTests
         /// как в «ТЕСТ_РСУ_ОСОБЫЕ (2).lir».</summary>
         public void UseZeroDeletedObjectFlags() => _zeroDeletedObjectFlags = true;
 
-        /// <summary>Бит <c>0x4000</c> в поле флага объектов узлов с чётным индексом (<c>0x4001</c>),
-        /// как в «Ферма_Митасова.lir».</summary>
+        /// <summary>Лишние биты в поле флага объектов узлов: <c>0x4001</c> у чётных индексов
+        /// («Ферма_Митасова.lir»), <c>0x80000001</c> у индексов 1, 5, 9… («Модель_8·.lir»).</summary>
         public void UseExtraNodeFlagBit() => _extraNodeFlagBit = true;
+
+        /// <summary>У части узлов в хвосте объекта одна ссылка <c>u32</c> (объект на 4 байта длиннее),
+        /// как у 506 узлов «mirnaya.lir».</summary>
+        public void UseNodeTailLinks() => _nodeTailLinks = true;
 
         /// <summary>Вставляет перед массивом объектов «ложный» заголовок КЭ №1 и 60 КБ посторонних данных:
         /// правдоподобное начало, до настоящего объекта №2 от которого — десятки килобайт.</summary>
@@ -176,7 +181,7 @@ public class LiraBinaryExtrasReaderTests
             {
                 var loads = _nodalLoads.Where(l => l.Node == i).ToList();
                 w.Write((uint)i);
-                w.Write(_extraNodeFlagBit && i % 2 == 0 ? 0x4001u : 1u);
+                w.Write(!_extraNodeFlagBit ? 1u : i % 2 == 0 ? 0x4001u : i % 4 == 1 ? 0x80000001u : 1u);
                 w.Write(_nodes[i].X);
                 w.Write(_nodes[i].Y);
                 w.Write(_nodes[i].Z);
@@ -191,7 +196,11 @@ public class LiraBinaryExtrasReaderTests
                     w.Write(l.Value);
                     w.Write((ushort)0);
                 }
-                w.Write(new byte[8]);
+                // хвост: [u16 n][n×u32 ссылок][6 байт]
+                bool linked = _nodeTailLinks && i % 3 == 1;
+                w.Write((ushort)(linked ? 1 : 0));
+                if (linked) w.Write((uint)(i / 3));
+                w.Write(new byte[6]);
             }
         }
 
@@ -351,14 +360,29 @@ public class LiraBinaryExtrasReaderTests
     public void Extra_NodalLoads_ExtraFlagBitIsAccepted()
     {
         var builder = GridSchema();
-        builder.UseExtraNodeFlagBit();                 // узлы 1, 3, 5… с флагом 0x4001
+        builder.UseExtraNodeFlagBit();                 // узлы 1, 3, 5… — 0x4001; 2, 6 — 0x80000001
         builder.AddNodalLoad(2, 103, 1, 0.025f);
         builder.AddNodalLoad(3, 103, 1, 0.5f);
+        builder.AddNodalLoad(5, 103, 1, 0.75f);
         var data = Parse(builder.Build());
 
         var loads = data.BinaryLoads.Where(l => l.TargetKind == LiraLoadTargetKind.Node).ToList();
-        Assert.Equal([3, 4], loads.Select(l => l.TargetId).ToArray());
+        Assert.Equal([3, 4, 6], loads.Select(l => l.TargetId).ToArray());
         Assert.Equal(0.025, loads[0].P0, 6);
+    }
+
+    [Fact]
+    public void Extra_NodalLoads_TailLinksChangeObjectLength()
+    {
+        var builder = GridSchema();
+        builder.UseNodeTailLinks();                    // узлы 2, 5, 8 — объект на 4 байта длиннее
+        builder.AddNodalLoad(1, 103, 1, 1.5f);
+        builder.AddNodalLoad(8, 101, 2, -2.5f);
+        var data = Parse(builder.Build());
+
+        var loads = data.BinaryLoads.Where(l => l.TargetKind == LiraLoadTargetKind.Node).ToList();
+        Assert.Equal([2, 9], loads.Select(l => l.TargetId).ToArray());
+        Assert.Equal(-2.5, loads[1].P0, 6);
     }
 
     [Fact]

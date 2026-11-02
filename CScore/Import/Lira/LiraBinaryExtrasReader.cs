@@ -375,7 +375,7 @@ public static class LiraBinaryExtrasReader
                     SerializedTag: 0, SerializedCode: code, SourceGroupRaw: group,
                     NativeParameters: [value], BinaryOffset: p));
             }
-            o += 48 + 10L * count;
+            o += NodeObjectSize(bytes, o, count);
         }
 
         notes.Add($"узловые нагрузки прочитаны: массив объектов по смещению {start}, записей {loads.Count}");
@@ -384,9 +384,10 @@ public static class LiraBinaryExtrasReader
 
     /// <summary>
     /// Объект живого узла: младший бит флага. Кроме него в поле бывают независимые биты
-    /// (<c>0x4001</c> у части узлов «Ферма_Митасова.lir»); у удалённого узла флаг — 0.
+    /// (<c>0x4001</c> у части узлов «Ферма_Митасова.lir», <c>0x80000001</c> — «Модель_8·.lir»);
+    /// у удалённого узла флаг — 0. Достоверность массива держится на сверке координат всех узлов.
     /// </summary>
-    static bool IsLiveNodeFlag(uint flag) => (flag & 1) != 0 && flag <= 0xFFFF;
+    static bool IsLiveNodeFlag(uint flag) => (flag & 1) != 0;
 
     /// <summary>Ищет начало массива объектов узлов; принимает только единственную полностью сошедшуюся сигнатуру.</summary>
     static int FindNodeObjectArray(byte[] bytes, int nodesStart, int nodeCount, int searchFrom, List<string> notes)
@@ -439,9 +440,29 @@ public static class LiraBinaryExtrasReader
                         return false;
             }
 
-            o += 48 + 10L * count;
+            long size = NodeObjectSize(bytes, o, count);
+            if (size < 0) return false;
+            o += size;
         }
         return o <= bytes.Length;
+    }
+
+    /// <summary>Верхняя граница числа ссылок в хвосте объекта узла (защита от мусорного счётчика).</summary>
+    const int MaxNodeTailLinks = 64;
+
+    /// <summary>
+    /// Длина объекта узла: 40 байт заголовка, <c>10·count</c> байт нагрузок и хвост
+    /// <c>[u16 n][n×u32][6 байт]</c>. Обычно <c>n = 0</c> (хвост — 8 байт); у части узлов есть ссылка
+    /// (506 узлов «mirnaya.lir», значения 0…180 по 6 узлов — вероятно, номер группы объединения;
+    /// смысл не установлен). Возвращает −1, если хвост не помещается или счётчик неправдоподобен.
+    /// </summary>
+    static long NodeObjectSize(byte[] bytes, long o, int count)
+    {
+        long tail = o + 40 + 10L * count;
+        if (tail + 8 > bytes.Length) return -1;
+        int links = ReadU16(bytes, (int)tail);
+        if (links > MaxNodeTailLinks) return -1;
+        return 48 + 10L * count + 4L * links;
     }
 
     // ------------------------------------------------------------------ Элементные нагрузки
