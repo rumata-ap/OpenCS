@@ -33,7 +33,8 @@ public sealed record LiraLoadCaseRecord(int Id, string Name);
 /// <param name="P1">Параметр 2 в порядке TXT.</param>
 /// <param name="P2">Параметр 3 в порядке TXT (0, если параметра нет).</param>
 /// <param name="P3">Параметр 4 в порядке TXT (0, если параметра нет).</param>
-/// <param name="SerializedTag">Тег записи нагрузки в файле (0 — узловая; 2, 10, 12, 14, 28 — элементные).</param>
+/// <param name="SerializedTag">Тег записи нагрузки в файле (0 — узловая; 2, 10, 12, 14, 28 и др. — элементные;
+/// <see cref="LiraBinaryExtrasReader.Type4SerializedTag"/> — тип 4 из отдельного блока).</param>
 /// <param name="SerializedCode">Код записи как в файле (для элементных <c>тип·10 + направление</c>, для узловых 101–106).</param>
 /// <param name="SourceGroupRaw">Исходное поле группы записи (смысл не установлен; не является номером загружения).</param>
 /// <param name="NativeParameters">Payload в порядке файла, в виде <c>float32</c> без перестановки.</param>
@@ -142,7 +143,17 @@ public static class LiraBinaryExtrasReader
     const uint DeletedObjectFlags = 0x02000000;
 
     /// <summary>Заголовок объекта элемента принадлежит элементу: живая запись или признак удалённой.</summary>
-    static bool IsElementObjectFlags(uint flags) => (flags & 1) != 0 || (flags & DeletedObjectFlags) != 0;
+    /// <remarks>
+    /// У записи с флагом 0 в геометрическом блоке поле флагов объекта бывает и целиком нулевым
+    /// («ТЕСТ_РСУ_ОСОБЫЕ (2).lir»: первые 12 записей). Нули допускаются только для таких записей —
+    /// иначе любой участок нулей с подходящим числом вершин сошёл бы за заголовок.
+    /// </remarks>
+    static bool IsElementObjectFlags(uint flags, bool zeroFlagRecord) =>
+        (flags & 1) != 0 || (flags & DeletedObjectFlags) != 0 || (zeroFlagRecord && flags == 0);
+
+    /// <summary>Запись КЭ в геометрическом блоке имеет флаг 0.</summary>
+    static bool IsZeroFlagRecord(byte[] bytes, int elementsStart, int index) =>
+        BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(elementsStart + ElementRecordSize * index + 34, 4)) == 0;
 
     /// <summary>Размер записи нагрузки по её тегу (всего байт, включая 8 байт заголовка).</summary>
     /// <remarks>
@@ -163,6 +174,7 @@ public static class LiraBinaryExtrasReader
         [14] = 24,
         [15] = 20,   // тип 88: [p0, p1, p2]
         [16] = 20,   // тип 88: [p0, p1, p2]
+        [27] = 12,   // тип 9: [значение]
         [28] = 24
     };
 
@@ -215,6 +227,7 @@ public static class LiraBinaryExtrasReader
             if (TryReadElementLoads(bytes, elementsStart, elementCount, vertexCount, elementsEnd, elementLoads, notes))
             {
                 loads.AddRange(elementLoads);
+                loads.AddRange(ReadElementType4Loads(bytes, nodeCount, elementCount, elementsEnd, notes));
                 if (loads.Count > 0)
                 {
                     int count = loads.Max(l => l.LoadCaseId);
@@ -443,7 +456,7 @@ public static class LiraBinaryExtrasReader
             }
         }
 
-        var starts = FindFirstElementObjectCandidates(bytes, vertexCount[0], searchFrom);
+        var starts = FindFirstElementObjectCandidates(bytes, vertexCount[0], IsZeroFlagRecord(bytes, elementsStart, 0), searchFrom);
         if (starts.Count == 0)
         {
             notes.Add("элементные нагрузки не прочитаны: объекты элементов не найдены");
@@ -479,19 +492,104 @@ public static class LiraBinaryExtrasReader
         return true;
     }
 
+    /// <summary>Расстояние от конца блока элементов, в котором ищется заголовок блока нагрузок типа 4
+    /// (между ними лежат только имя модели и короткая служебная запись).</summary>
+    const int Type4HeaderWindow = 4096;
+
+    /// <summary>Размер записи нагрузки типа 4 в отдельном блоке.</summary>
+    const int Type4RecordSize = 12;
+
+    /// <summary>
+    /// Читает нагрузки типа 4, которых нет в объектах элементов: они лежат отдельным блоком вскоре
+    /// после имени модели.
+    /// </summary>
+    /// <remarks>
+    /// <para>Структура (сверено с TXT: <c>Kursk1107_.lir</c> — 20 записей, <c>Модель_8·.lir</c> — 24):
+    /// <c>[u32 число записей][u32 число узлов][u32 число КЭ][u16 ?]</c>, затем записи по 12 байт
+    /// <c>[u16 номер КЭ (1-based)][u16 загружение][f32 значение][u32 направление]</c>. Тройка
+    /// «число записей, узлов, КЭ» есть и в схемах без таких нагрузок (число записей 0), поэтому
+    /// заголовок ищется по числам узлов и КЭ из геометрии.</para>
+    /// <para>Не подтверждено: смысл поля <c>u16</c> перед записями (11 и 217 в двух схемах) и то, что
+    /// последнее поле записи — именно направление (во всех образцах 1, как и направление в TXT).
+    /// Номер КЭ хранится в <c>u16</c>; в схемах больше 65 535 КЭ такие нагрузки не встречались.</para>
+    /// </remarks>
+    static List<LiraBinaryLoad> ReadElementType4Loads(byte[] bytes, int nodeCount, int elementCount,
+                                                      int searchFrom, List<string> notes)
+    {
+        Span<byte> key = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(key, (uint)nodeCount);
+        BinaryPrimitives.WriteUInt32LittleEndian(key[4..], (uint)elementCount);
+
+        int limit = Math.Min(bytes.Length, searchFrom + Type4HeaderWindow);
+        int hit = searchFrom + 4 <= limit ? bytes.AsSpan(searchFrom + 4, limit - searchFrom - 4).IndexOf(key) : -1;
+        if (hit < 0) return [];
+
+        int header = searchFrom + 4 + hit - 4;
+        uint count = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(header));
+        if (count == 0) return [];
+
+        long first = header + 14L;
+        if (count > elementCount * 64L || first + count * Type4RecordSize > bytes.Length)
+        {
+            notes.Add($"нагрузки типа 4 не прочитаны: неправдоподобное число записей {count}");
+            return [];
+        }
+
+        var result = new List<LiraBinaryLoad>((int)count);
+        for (int k = 0; k < count; k++)
+        {
+            int p        = (int)(first + (long)k * Type4RecordSize);
+            int element  = ReadU16(bytes, p);
+            int loadCase = ReadU16(bytes, p + 2);
+            double value = ReadF32(bytes, p + 4);
+            uint direction = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(p + 8));
+            if (element < 1 || element > elementCount || loadCase < 1 || !double.IsFinite(value) || direction is < 1 or > 6)
+            {
+                notes.Add($"нагрузки типа 4 не прочитаны: запись {k + 1} из {count} не сходится (КЭ {element}, загружение {loadCase})");
+                return [];
+            }
+
+            result.Add(new LiraBinaryLoad(
+                LiraLoadTargetKind.Element, element, loadCase,
+                LoadType: 4, DirectionCode: (int)direction, ParameterCount: 1,
+                P0: value, P1: 0, P2: 0, P3: 0,
+                SerializedTag: Type4SerializedTag, SerializedCode: 40 + (int)direction, SourceGroupRaw: 0,
+                NativeParameters: [value], BinaryOffset: p));
+        }
+
+        notes.Add($"нагрузки типа 4 прочитаны: блок по смещению {header}, записей {count}");
+        return result;
+    }
+
+    /// <summary>Условный тег для нагрузок типа 4 из отдельного блока (в объектах элементов такого тега нет).</summary>
+    public const int Type4SerializedTag = -4;
+
     /// <summary>Ищет возможные начала массива объектов элементов по заголовку записи КЭ №1.</summary>
-    static List<int> FindFirstElementObjectCandidates(byte[] bytes, int vertexCount, int searchFrom)
+    static List<int> FindFirstElementObjectCandidates(byte[] bytes, int vertexCount, bool zeroFlagRecord, int searchFrom)
     {
         var result = new List<int>();
         int limit = bytes.Length - 18;
         for (int p = Math.Max(0, searchFrom); p <= limit; p++)
         {
             if (bytes[p + 2] != 0 || bytes[p + 3] != 0 || bytes[p + 4] != 0 || bytes[p + 5] != 0) continue;   // номер 0
-            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(p + 6, 4)))) continue;   // флаг объекта
+            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(p + 6, 4)), zeroFlagRecord)) continue;   // флаг объекта
+            if (zeroFlagRecord && !HasElementTypeAndFactor(bytes, p)) continue;                                // нули: нужны тип и множитель
             if (ReadU16(bytes, p + 12) != vertexCount) continue;                                               // число вершин
             result.Add(p);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Дополнительная проверка заголовка с нулевым полем флагов: ненулевой тип КЭ, читаемая метка
+    /// и ненулевой конечный общий множитель — так участок нулей не принимается за объект.
+    /// </summary>
+    static bool HasElementTypeAndFactor(byte[] bytes, int start)
+    {
+        if (ReadU16(bytes, start + 10) == 0) return false;
+        if (!TryReadElementLabel(bytes, start + 18, out _, out int p) || p + 4 > bytes.Length) return false;
+        double factor = ReadF32(bytes, p);
+        return double.IsFinite(factor) && factor != 0;
     }
 
     /// <summary>Проходит все объекты элементов; при любом расхождении возвращает false.</summary>
@@ -507,7 +605,8 @@ public static class LiraBinaryExtrasReader
             int nv = vertexCount[i];
             if (o + 18 > bytes.Length) return false;
             if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 2)) != (uint)i) return false;
-            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 6)))) return false;
+            if (!IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(o + 6)),
+                                      IsZeroFlagRecord(bytes, elementsStart, i))) return false;
             if (ReadU16(bytes, o + 12) != nv) return false;
 
             if (!TryReadElementLabel(bytes, o + 18, out _, out int p)) return false;
@@ -558,7 +657,8 @@ public static class LiraBinaryExtrasReader
             var slots   = bytes.AsSpan(slotsAt, 4 * nv);
             if (i + 1 < elementCount)
             {
-                if (!TryFindNextElementObject(bytes, p, i + 1, slots, out int nextStart)) return false;
+                if (!TryFindNextElementObject(bytes, p, i + 1, IsZeroFlagRecord(bytes, elementsStart, i + 1),
+                                              slots, out int nextStart)) return false;
                 o = nextStart;
             }
             else
@@ -578,7 +678,8 @@ public static class LiraBinaryExtrasReader
     /// позиция, перед которой лежит связность текущего элемента, а между списком узлов и заголовком
     /// нет постороннего блока (хвост объекта — свойства элемента, не больше <see cref="MaxElementTail"/>).
     /// </summary>
-    static bool TryFindNextElementObject(byte[] bytes, int from, int number, ReadOnlySpan<byte> slots, out int start)
+    static bool TryFindNextElementObject(byte[] bytes, int from, int number, bool zeroFlagRecord,
+                                         ReadOnlySpan<byte> slots, out int start)
     {
         start = -1;
         Span<byte> key = stackalloc byte[4];
@@ -595,7 +696,7 @@ public static class LiraBinaryExtrasReader
                 candidate - slots.Length - from <= MaxElementTail)
             {
                 if (bytes.AsSpan(candidate - slots.Length, slots.Length).SequenceEqual(slots) &&
-                    IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidate + 6))))
+                    IsElementObjectFlags(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(candidate + 6)), zeroFlagRecord))
                 {
                     start = candidate;
                     return true;
@@ -639,6 +740,10 @@ public static class LiraBinaryExtrasReader
                 return true;
             case 16 when native.Length == 3:
                 parameters = [native[0], native[1], native[2], 0];
+                return true;
+            case 27 when loadType == 9 && native.Length == 1:
+                // одно значение (сверено с TXT: КЭ 1247/1248 типа 208 «10_шпунт с грунт_массивом»)
+                parameters = [native[0], 0, 0, 0];
                 return true;
             case 12 when native.Length == 2:
                 parameters = [native[0], 0, 0, 0];

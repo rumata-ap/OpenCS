@@ -33,6 +33,7 @@ public class LiraBinaryExtrasReaderTests
         readonly List<(int[] Slots, ushort Definition, uint Flag)> _elements = [];
         readonly List<(int Node, int Code, int Case, float Value)> _nodalLoads = [];
         readonly List<(int Element, int Tag, int Code, int Case, int Group, float[] Payload)> _elementLoads = [];
+        readonly List<(int Element, int Case, float Value)> _type4Loads = [];
         readonly List<int> _stiffness = [];
         readonly List<string> _loadCases = [];
         readonly List<(int Element, string Label, bool Wide)> _labels = [];
@@ -42,6 +43,7 @@ public class LiraBinaryExtrasReaderTests
         bool _wideEmptyLabel;
         bool _wideLoadCases;
         bool _extraObjectFlagBits;
+        bool _zeroDeletedObjectFlags;
         bool _falseStart;
 
         public int AddNode(double x, double y, double z)
@@ -71,6 +73,10 @@ public class LiraBinaryExtrasReaderTests
         public void AddElementLoad(int element, int tag, int code, int loadCase, int group, float[] payload) =>
             _elementLoads.Add((element, tag, code, loadCase, group, payload));
 
+        /// <summary>Нагрузка типа 4 из отдельного блока (номер КЭ 1-based, направление 1).</summary>
+        public void AddType4Load(int element, int loadCase, float value) =>
+            _type4Loads.Add((element, loadCase, value));
+
         public void SetLabel(int element, string label) => _labels.Add((element, label, false));
 
         /// <summary>Метка объекта элемента в «широком» варианте: <c>FF FE FF</c>, длина в символах, UTF-16LE.</summary>
@@ -84,6 +90,10 @@ public class LiraBinaryExtrasReaderTests
         /// <summary>Дополнительный бит <c>0x2000</c> в поле флагов объектов КЭ (живой — <c>0x00002001</c>,
         /// удалённый — <c>0x02002000</c>), как в части схем ЛИРЫ.</summary>
         public void UseExtraObjectFlagBits() => _extraObjectFlagBits = true;
+
+        /// <summary>Поле флагов объекта удалённой записи КЭ — все нули (а не бит <c>0x02000000</c>),
+        /// как в «ТЕСТ_РСУ_ОСОБЫЕ (2).lir».</summary>
+        public void UseZeroDeletedObjectFlags() => _zeroDeletedObjectFlags = true;
 
         /// <summary>Вставляет перед массивом объектов «ложный» заголовок КЭ №1 и 60 КБ посторонних данных:
         /// правдоподобное начало, до настоящего объекта №2 от которого — десятки килобайт.</summary>
@@ -126,6 +136,20 @@ public class LiraBinaryExtrasReaderTests
 
             // Имя модели — строка с префиксом длины, как в файле ЛИРЫ.
             WriteString(w, "extras-test_2026-10-29");
+
+            // Блок нагрузок типа 4: [u32 число][u32 узлов][u32 КЭ][u16 ?], записи по 12 байт.
+            w.Write(new byte[16]);
+            w.Write((uint)_type4Loads.Count);
+            w.Write((uint)_nodes.Count);
+            w.Write((uint)_elements.Count);
+            w.Write((ushort)11);
+            foreach (var l in _type4Loads)
+            {
+                w.Write((ushort)l.Element);
+                w.Write((ushort)l.Case);
+                w.Write(l.Value);
+                w.Write(1u);
+            }
 
             if (_writeNodeObjects) WriteNodeObjects(w);
             WriteElementObjects(w);
@@ -192,6 +216,7 @@ public class LiraBinaryExtrasReaderTests
 
                 uint objectFlags = flag == 0 ? 0x02000000u : 1u;   // удалённый объект несёт бит 0x02000000
                 if (_extraObjectFlagBits) objectFlags |= 0x2000u;
+                if (_zeroDeletedObjectFlags && flag == 0) objectFlags = 0u;
 
                 w.Write((ushort)0);            // класс объекта
                 w.Write((uint)i);              // последовательный номер с нуля
@@ -469,6 +494,27 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_ElementLoads_DeletedFirstRecordWithZeroObjectFlags()
+    {
+        var builder = new LirBuilder();
+        for (int y = 0; y < 3; y++)
+            for (int x = 0; x < 3; x++)
+                builder.AddNode(x, y, 0);
+        builder.AddDeletedElement([0, 4], 0);          // запись №1: флаг 0, флаги объекта — нули
+        builder.AddDeletedElement([1, 5], 0);
+        builder.AddElement([0, 1, 4, 3], 2, 0);        // запись №3
+        builder.AddElement([1, 2, 5, 4], 2, 1);
+        builder.UseZeroDeletedObjectFlags();
+        builder.AddElementLoad(2, 12, 163, 1, 0, [0.4f, 1.0f]);
+        var data = Parse(builder.Build());
+
+        Assert.Equal(2, data.Elements.Count);
+        var load = Assert.Single(data.BinaryLoads);
+        Assert.Equal(3, load.TargetId);
+        Assert.Equal(0.4, load.P0, 6);
+    }
+
+    [Fact]
     public void Extra_ElementLoads_TagsFromTextExportAreMapped()
     {
         var builder = GridSchema();
@@ -492,6 +538,54 @@ public class LiraBinaryExtrasReaderTests
         Assert.Equal(45.5, bar[0].P0, 5);
         Assert.Equal(0.075, bar[1].P0, 6);
         Assert.Equal(0.0, bar[1].P1, 6);        // множитель не попадает в параметры
+    }
+
+    [Fact]
+    public void Extra_ElementLoads_Tag27IsType9WithOneValue()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(4, 27, 91, 4, 0, [5f]);                 // тип 9, направление 1
+        builder.AddElementLoad(5, 27, 91, 4, 0, [5f]);
+        var data = Parse(builder.Build());
+
+        Assert.Equal(2, data.BinaryLoads.Count);
+        var load = data.BinaryLoads[0];
+        Assert.Equal(5, load.TargetId);
+        Assert.Equal(9, load.LoadType);
+        Assert.Equal(1, load.DirectionCode);
+        Assert.Equal(4, load.LoadCaseId);
+        Assert.Equal(5.0, load.P0, 6);
+        Assert.Equal(6, data.BinaryLoads[1].TargetId);
+    }
+
+    [Fact]
+    public void Extra_Type4Loads_AreReadFromSeparateBlock()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(0, 12, 163, 1, 0, [2.5f, 1.0f]);
+        builder.AddType4Load(1, 2, 1.0f);
+        builder.AddType4Load(5, 2, 0.7f);
+        builder.AddType4Load(5, 3, 0.9f);
+        var data = Parse(builder.Build());
+
+        var type4 = data.BinaryLoads.Where(l => l.LoadType == 4).ToList();
+        Assert.Equal(3, type4.Count);
+        Assert.Equal([1, 5, 5], type4.Select(l => l.TargetId).ToArray());
+        Assert.Equal([2, 2, 3], type4.Select(l => l.LoadCaseId).ToArray());
+        Assert.All(type4, l => Assert.Equal(1, l.DirectionCode));
+        Assert.Equal(0.7, type4[1].P0, 6);
+        Assert.Single(data.BinaryLoads, l => l.LoadType == 16);
+    }
+
+    [Fact]
+    public void Extra_Type4Block_Empty_AddsNothing()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(0, 12, 163, 1, 0, [2.5f, 1.0f]);
+        var data = Parse(builder.Build());
+
+        Assert.Single(data.BinaryLoads);
+        Assert.DoesNotContain(data.BinaryNotes, n => n.Contains("типа 4"));
     }
 
     [Fact]
@@ -621,5 +715,77 @@ public class LiraBinaryExtrasReaderTests
         Assert.Equal(105.6, nodal.Single(l => l.LoadCaseId == 18 && l.DirectionCode == 3).P0, 4);
         Assert.Equal(-22.2, nodal.Single(l => l.LoadCaseId == 18 && l.DirectionCode == 2).P0, 4);
         Assert.Equal(720.0, nodal.Single(l => l.LoadCaseId == 17 && l.DirectionCode == 5).P0, 4);
+    }
+
+    /// <summary>
+    /// Каталог пар «.lir + .txt» (текстовый экспорт ЛИРЫ того же документа) для сверки нагрузок.
+    /// Задаётся переменной окружения <c>OPENCES_LIR_SAMPLES_DIR</c>; без неё тест пропускается.
+    /// </summary>
+    const string SamplesDirVariable = "OPENCES_LIR_SAMPLES_DIR";
+
+    /// <summary>
+    /// Сверка всех пар каталога: ключи (цель, номер, тип, направление, загружение) совпадают 1:1,
+    /// значения параметров — с точностью округления TXT.
+    /// </summary>
+    /// <remarks>
+    /// Известные расхождения, допускаемые тестом: четвёртый параметр типа 17 (в файле не хранится) и
+    /// тип 88 направления 5 — ЛИРА выводит его в TXT из части записей типа 88 направления 1
+    /// («диафрагма_пластины·»: 3 200 записей), правило не установлено.
+    /// </remarks>
+    [Fact]
+    public void Extra_SamplePairs_MatchTextExport()
+    {
+        string? dir = Environment.GetEnvironmentVariable(SamplesDirVariable);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+
+        var failures = new List<string>();
+        foreach (string lir in Directory.GetFiles(dir, "*.lir"))
+        {
+            string txt = Path.ChangeExtension(lir, ".txt");
+            if (!File.Exists(txt)) continue;
+
+            var text   = LiraTextReader.Read(txt);
+            var binary = LiraFileParser.Parse(lir, LiraBinaryExtrasMode.StiffnessAndLoads);
+            string name = Path.GetFileName(lir);
+
+            var expected = new Dictionary<(int, int, int, int, int), List<double[]>>();
+            foreach (var l in text.Loads)
+            {
+                if (l.Kind == 88 && l.Direction == 5) continue;
+                var key = (l.Kind == 0 ? 0 : 1, l.Target, l.Kind, l.Direction, l.LoadCase);
+                var values = text.LoadValues.TryGetValue(l.ValueRow, out var v) ? v : [];
+                (expected.TryGetValue(key, out var list) ? list : expected[key] = []).Add(values);
+            }
+
+            int matched = 0;
+            foreach (var l in binary.BinaryLoads)
+            {
+                var key = (l.TargetKind == LiraLoadTargetKind.Node ? 0 : 1, l.TargetId, l.LoadType, l.DirectionCode, l.LoadCaseId);
+                if (!expected.TryGetValue(key, out var list) || list.Count == 0)
+                {
+                    failures.Add($"{name}: лишняя запись {key}");
+                    continue;
+                }
+                var values = list[0];
+                list.RemoveAt(0);
+                double[] actual = [l.P0, l.P1, l.P2, l.P3];
+                int compare = l.LoadType == 0 ? 1 : l.LoadType == 17 ? 3 : 4;
+                for (int k = 0; k < compare; k++)
+                {
+                    double e = k < values.Length ? values[k] : 0;
+                    if (Math.Abs(e - actual[k]) > 1e-4 * Math.Max(1, Math.Abs(e)))
+                    {
+                        failures.Add($"{name}: {key} параметр {k + 1}: TXT {e}, .lir {actual[k]}");
+                        break;
+                    }
+                }
+                matched++;
+            }
+
+            int missing = expected.Values.Sum(v => v.Count);
+            if (missing > 0) failures.Add($"{name}: не прочитано {missing} записей TXT (сверено {matched})");
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures.Take(40)));
     }
 }
