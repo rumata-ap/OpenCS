@@ -48,6 +48,32 @@ public sealed class ElementFragmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void SplitVertical_ColumnKept_SlabAndMissingRejected()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var (vertical, rejected) = ElementFragmentService.SplitVertical(db.GetFemNodes(parent.Id), db.GetFemMembers(parent.Id),
+            db.GetPlanarRegions(parent.Id), ["S1", "C1", "X9", "C1"]);
+        Assert.Equal(["C1"], vertical);
+        Assert.Equal(["S1", "X9"], rejected);
+    }
+
+    [Fact]
+    public void PrismFromSelection_WithFloors_SameAsRead()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var floors = StoreyFloorService.Read(db, parent.Id);
+        var a = ElementFragmentService.PrismFromSelection(db, parent.Id, ["C1"], 1.5);
+        var b = ElementFragmentService.PrismFromSelection(db, parent.Id, ["C1"], 1.5, floors);
+        Assert.Same(floors.Levels, b.Levels);
+        Assert.Equal((a.Prism!.CenterX, a.Prism.CenterY, a.Prism.HalfLength, a.Prism.HalfWidth),
+            (b.Prism!.CenterX, b.Prism.CenterY, b.Prism.HalfLength, b.Prism.HalfWidth));
+        Assert.Equal(a.Height.Available, b.Height.Available);
+        Assert.Equal((a.Height.Default, a.Height.FullFrom, a.Height.FullTo), (b.Height.Default, b.Height.FullFrom, b.Height.FullTo));
+    }
+
+    [Fact]
     public void Column_SectionByMeshElements()
     {
         using var db = new DatabaseService(_path);

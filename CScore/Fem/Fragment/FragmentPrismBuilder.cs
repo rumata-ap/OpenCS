@@ -51,11 +51,13 @@ public static class FragmentPrismBuilder
                 continue;
             }
             FragmentPrism? prism = null;
-            if (m.ElemType == "beam" && Ends(m, nodeByTag) is { } e && IsColumn(e.A, e.B))
-                prism = Column(m, e.A, e.B, SectionId(parent, m), parent.SectionOutline, d, tol);
-            else if (m.ElemType == "shell" && m.PlanarRegionId is int id && regionById.TryGetValue(id, out var region)
-                     && Math.Abs(region.Frame.LocalZ.Z) <= WallNormalZ)
-                prism = Wall(region, m.ThicknessM ?? 0, d);
+            if (IsVertical(m, nodeByTag, regionById))
+            {
+                if (m.ElemType == "beam" && Ends(m, nodeByTag) is { } e)
+                    prism = Column(m, e.A, e.B, SectionId(parent, m), parent.SectionOutline, d, tol);
+                else if (m.PlanarRegionId is int id && regionById.TryGetValue(id, out var region))
+                    prism = Wall(region, m.ThicknessM ?? 0, d);
+            }
             if (prism is null)
             {
                 Error("fragment_prism_not_vertical",
@@ -68,6 +70,18 @@ public static class FragmentPrismBuilder
         if (diagnostics.Any(x => x.IsError)) return new(null, diagnostics);
         if (rectangles.Count == 1) return new(single, diagnostics);
         return new(Bounds(rectangles.SelectMany(r => r)), diagnostics);
+    }
+
+    /// <summary>
+    /// КонЭ — вертикальная колонна (стержень с |Δz|/L ≥ <see cref="ColumnSine"/>) или вертикальная стена (пластина области с
+    /// |LocalZ.Z| ≤ <see cref="WallNormalZ"/>): вокруг таких строится призма.
+    /// </summary>
+    public static bool IsVertical(FemMember member, IReadOnlyDictionary<string, FemNode> nodeByTag, IReadOnlyDictionary<int, PlanarRegion> regionById)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        if (member.ElemType == "beam") return Ends(member, nodeByTag) is { } e && IsColumn(e.A, e.B);
+        return member.ElemType == "shell" && member.PlanarRegionId is int id && regionById.TryGetValue(id, out var region)
+            && Math.Abs(region.Frame.LocalZ.Z) <= WallNormalZ;
     }
 
     /// <summary>Стержень — колонна: |Δz|/L ≥ <see cref="ColumnSine"/>.</summary>
@@ -135,7 +149,7 @@ public static class FragmentPrismBuilder
         return FragmentPrism.Create((x0 + x1) / 2, (y0 + y1) / 2, 1, 0, (x1 - x0) / 2, (y1 - y0) / 2);
     }
 
-    static (PlanarVector3 A, PlanarVector3 B)? Ends(FemMember m, Dictionary<string, FemNode> nodeByTag)
+    static (PlanarVector3 A, PlanarVector3 B)? Ends(FemMember m, IReadOnlyDictionary<string, FemNode> nodeByTag)
     {
         int[] ids;
         try { ids = JsonSerializer.Deserialize<int[]>(m.NodeIdsJson) ?? []; }

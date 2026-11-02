@@ -42,7 +42,15 @@ public static class ElementFragmentService
     /// Призма по выбранным КонЭ <paramref name="memberTags"/> схемы <paramref name="schemaId"/> с отступом <paramref name="d"/>
     /// и перекрытия для выбора высоты. Перекрытия читаются по всей сетке схемы — вызывать в фоне.
     /// </summary>
-    public static ElementFragmentSelection PrismFromSelection(DatabaseService db, int schemaId, IReadOnlyCollection<string> memberTags, double d)
+    public static ElementFragmentSelection PrismFromSelection(DatabaseService db, int schemaId, IReadOnlyCollection<string> memberTags, double d) =>
+        PrismFromSelection(db, schemaId, memberTags, d, null);
+
+    /// <summary>
+    /// То же с уже прочитанными перекрытиями схемы <paramref name="floors"/> (диалог пересчитывает призму при смене d без
+    /// повторного чтения сетки); null — прочитать.
+    /// </summary>
+    public static ElementFragmentSelection PrismFromSelection(DatabaseService db, int schemaId, IReadOnlyCollection<string> memberTags, double d,
+        StoreyFloorContext? floors)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(memberTags);
@@ -61,9 +69,26 @@ public static class ElementFragmentService
             return new(null, prism.Diagnostics, tags, d, [], empty, 0, 0, 0, 0);
 
         var (zMin, zMax) = ElementZRange(parent, tags);
-        var floors = StoreyFloorService.Read(db, schemaId);
+        floors ??= StoreyFloorService.Read(db, schemaId);
         var height = ElementFragmentLevels.Of(floors.Levels, prism.Prism, zMin, zMax);
         return new(prism.Prism, prism.Diagnostics, tags, d, floors.Levels, height, zMin, zMax, floors.ZMin, floors.ZMax);
+    }
+
+    /// <summary>
+    /// Делит КонЭ <paramref name="memberTags"/> на вертикальные колонны и стены (<see cref="FragmentPrismBuilder.IsVertical"/>) и
+    /// остальные (нет в схеме — тоже в остальных). Порядок выбора сохраняется.
+    /// </summary>
+    public static (IReadOnlyList<string> Vertical, IReadOnlyList<string> Rejected) SplitVertical(
+        IEnumerable<FemNode> nodes, IEnumerable<FemMember> members, IEnumerable<PlanarRegion> regions, IEnumerable<string> memberTags)
+    {
+        var nodeByTag = nodes.GroupBy(n => n.NodeTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var memberByTag = members.GroupBy(m => m.ElemTag).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var regionById = regions.Where(r => r.Id > 0).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.First());
+        var vertical = new List<string>();
+        var rejected = new List<string>();
+        foreach (var tag in memberTags.Distinct(StringComparer.Ordinal))
+            (memberByTag.TryGetValue(tag, out var m) && FragmentPrismBuilder.IsVertical(m, nodeByTag, regionById) ? vertical : rejected).Add(tag);
+        return (vertical, rejected);
     }
 
     /// <summary>Запрос сборки по перекрытиям <paramref name="i"/>…<paramref name="k"/> (индексы в <see cref="ElementFragmentSelection.Levels"/>).</summary>

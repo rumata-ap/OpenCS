@@ -42,6 +42,21 @@ public sealed class FragmentPrismBuilderTests
 {
     static readonly IReadOnlyList<(double Y, double Z)> Rect06x04 = [(-0.3, -0.2), (0.3, -0.2), (0.3, 0.2), (-0.3, 0.2)];
 
+    [Fact]
+    public void IsVertical_ColumnAndWallOnly()
+    {
+        var nodes = new[] { N("1", 0, 0, 0), N("2", 0, 0, 3), N("3", 6, 0, 3), N("4", 3, 0, 3) }
+            .ToDictionary(n => n.NodeTag, StringComparer.Ordinal);
+        var wall = Wall("W1", 2, 0, 2, 0, 6, 3);
+        var slab = Slab("S1", 5, 3);
+        var regions = new[] { wall.Region!, slab.Region! }.ToDictionary(r => r.Id);
+        Assert.True(FragmentPrismBuilder.IsVertical(Bar("C1", "1", "2"), nodes, regions));
+        Assert.False(FragmentPrismBuilder.IsVertical(Bar("B1", "2", "3"), nodes, regions));
+        Assert.False(FragmentPrismBuilder.IsVertical(Bar("D1", "1", "4"), nodes, regions));
+        Assert.True(FragmentPrismBuilder.IsVertical(wall.Member, nodes, regions));
+        Assert.False(FragmentPrismBuilder.IsVertical(slab.Member, nodes, regions));
+        Assert.False(FragmentPrismBuilder.IsVertical(Bar("X1", "1", "9"), nodes, regions));
+    }
     static StoreyFragmentParentSnapshot Parent(FemNode[] nodes, (FemMember Member, PlanarRegion? Region)[] members) => new()
     {
         Nodes = nodes,
