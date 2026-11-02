@@ -27,6 +27,7 @@ public sealed class StoreyFragmentBannerVM : ViewModelBase
             ?? $"#{schema.ParentSchemaId}";
         string F(double? v) => v?.ToString("0.###", CultureInfo.CurrentCulture) ?? "—";
         Title = string.Format(Loc.S("StoreyFragmentBannerTitle"), parentTag, F(schema.FragmentZ1), F(schema.FragmentZ2));
+        PrismText = PrismLine(schema.FragmentPrismJson, CultureInfo.CurrentCulture);
         ReportRows = StoreyFragmentReportRows.From(StoreyFragmentBuildReport.FromJson(schema.FragmentBuildReportJson));
         _isChecking = true;
         _statusText = Loc.S("StoreyFragmentParentChecking");
@@ -44,6 +45,38 @@ public sealed class StoreyFragmentBannerVM : ViewModelBase
     public bool IsVisible { get; }
     public string Title { get; } = "";
     public string SchemaTag => _schema.Tag;
+    /// <summary>Сведения о призме фрагмента вокруг колонн и стен; пусто — этажный фрагмент или битый JSON.</summary>
+    public string PrismText { get; } = "";
+    public bool HasPrism => PrismText.Length > 0;
+
+    /// <summary>
+    /// «Вокруг K1 +2 · призма 3,4 × 3,4 м · d = 1,5 м · перекрытия +3,300…+6,600» / «… · вся высота элементов»; без
+    /// перекрытий в сведениях (старые сведения) — без хвоста.
+    /// </summary>
+    public static string PrismLine(string? json, CultureInfo culture)
+    {
+        FragmentPrismInfo? info;
+        try { info = FragmentPrismCodec.Decode(json); }
+        catch (Exception ex) when (ex is System.IO.InvalidDataException or System.Text.Json.JsonException) { return ""; }
+        if (info is null) return "";
+        string F(double v) => v.ToString("0.###", culture);
+        string Z(double v) => StoreyFragmentForm.SignedLevel(v, culture);
+        var tags = info.MemberTags ?? [];
+        string who = tags.Count switch
+        {
+            0 => "—",
+            1 => tags[0],
+            _ => $"{tags[0]} +{tags.Count - 1}",
+        };
+        string height = info.FullHeight ? Loc.S("StoreyFragmentBannerPrismFull")
+            : info is { FloorFromZ: double a, FloorToZ: double b }
+                ? Math.Abs(a - b) < 1e-6 ? string.Format(Loc.S("StoreyFragmentBannerPrismFloor"), Z(a))
+                : string.Format(Loc.S("StoreyFragmentBannerPrismFloors"), Z(a), Z(b))
+            : "";
+        string line = string.Format(Loc.S("StoreyFragmentBannerPrism"), who, F(2 * info.Prism.HalfLength), F(2 * info.Prism.HalfWidth),
+            info.OffsetM is double d ? F(d) : "—", height);
+        return height.Length > 0 ? line : line.TrimEnd(' ', '·');
+    }
     public IReadOnlyList<StoreyFragmentReportRow> ReportRows { get; } = [];
     public bool HasReport => ReportRows.Count > 0;
     /// <summary>Отчёт снятия действующих масок.</summary>

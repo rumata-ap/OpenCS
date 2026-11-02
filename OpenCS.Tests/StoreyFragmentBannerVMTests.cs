@@ -32,6 +32,26 @@ public sealed class StoreyFragmentBannerVMTests : IDisposable
     }
 
     [Fact]
+    public void PrismLine_FloorsFullHeightAndStorey()
+    {
+        var c = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        c.NumberFormat.NumberDecimalSeparator = ",";
+        var prism = FragmentPrism.Create(0, 0, 1, 0, 1.7, 1.7);
+        string Line(FragmentPrismInfo i) => StoreyFragmentBannerVM.PrismLine(FragmentPrismCodec.Encode(i), c);
+
+        Assert.Equal(string.Format(Loc.S("StoreyFragmentBannerPrism"), "C1 +2", "3,4", "3,4", "1,5",
+                string.Format(Loc.S("StoreyFragmentBannerPrismFloors"), "+3,300", "+6,600")),
+            Line(new(prism, 1.5, ["C1", "C2", "W1"], 3.3, 6.6)));
+        Assert.Equal(string.Format(Loc.S("StoreyFragmentBannerPrism"), "C1", "3,4", "3,4", "1,5",
+                string.Format(Loc.S("StoreyFragmentBannerPrismFloor"), "+3,300")),
+            Line(new(prism, 1.5, ["C1"], 3.3, 3.3)));
+        Assert.Equal(string.Format(Loc.S("StoreyFragmentBannerPrism"), "C1", "3,4", "3,4", "1,5", Loc.S("StoreyFragmentBannerPrismFull")),
+            Line(new(prism, 1.5, ["C1"], FullHeight: true)));
+        Assert.Equal("", StoreyFragmentBannerVM.PrismLine(null, c));
+        Assert.Equal("", StoreyFragmentBannerVM.PrismLine("{битый", c));
+    }
+
+    [Fact]
     public async Task Fragment_Unchanged_Changed_Deleted()
     {
         using var db = new DatabaseService(_path);

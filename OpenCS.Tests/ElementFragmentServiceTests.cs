@@ -122,6 +122,6 @@ public sealed class ElementFragmentServiceTests : IDisposable
         Assert.Equal(1.5, info.OffsetM);
         Assert.Equal(["C1"], info.MemberTags!);
         Assert.Equal((3.0, 3.0, false), (info.FloorFromZ!.Value, info.FloorToZ!.Value, info.FullHeight));
-        Assert.Equal(StoreyFragmentService.CheckParent(db, result.Schema), FragmentParentStatus.Unchanged);
+        Assert.Equal(FragmentParentStatus.Unchanged, StoreyFragmentService.CheckParent(db, result.Schema));
     }
 }

@@ -28,6 +28,8 @@
                     <Run Text="{Binding StatusText, Mode=OneWay}"
                          Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
                 </TextBlock>
+                <TextBlock TextWrapping="Wrap" Text="{Binding PrismText}"
+                           Visibility="{Binding HasPrism, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 <TextBlock TextWrapping="Wrap" Text="{Binding MaskText}"
                            Foreground="{Binding IsMaskWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
             </StackPanel>
