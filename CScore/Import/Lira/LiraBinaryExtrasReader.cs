@@ -89,8 +89,8 @@ public sealed record LiraBinaryExtras(
 ///   <c>[u16 класс][u32 номер−1][u32 флаги][u16 тип КЭ][u16 число вершин][u32][CString][f32 множитель]
 ///   [u16 число нагрузок][записи нагрузок][хвост][n×u32 номера узлов]</c>; связность в конце
 ///   объекта сверяется с геометрией, а следующий объект ищется по последовательному номеру;</description></item>
-///   <item><description><b>Жёсткости</b>: массив <c>n×u16</c> номеров жёсткостей, который в контрольном
-///   файле хранится двумя подряд идущими одинаковыми копиями — это и служит сигнатурой;</description></item>
+///   <item><description><b>Жёсткости</b>: массив <c>n×u16</c> номеров жёсткостей, за ним второй массив
+///   (копия или все <c>0xFFFF</c>), <c>u32 3</c> и повтор имени модели — по этому якорю массив и ищется;</description></item>
 ///   <item><description><b>Загружения</b>: серия строк — CP1251 с префиксом длины или «широких» UTF-16LE
 ///   (<c>FF FE FF</c>, длина в символах); число строк равно максимальному номеру загружения
 ///   из прочитанных нагрузок.</description></item>
@@ -109,9 +109,6 @@ public static class LiraBinaryExtrasReader
 
     /// <summary>Верхняя граница числа нагрузок одного элемента (защита от мусорного счётчика).</summary>
     const int MaxElementLoads = 256;
-
-    /// <summary>Верхняя граница номера жёсткости при поиске массива назначений (номер хранится в u16).</summary>
-    const int MaxStiffnessNumber = 255;
 
     /// <summary>Верхняя граница длины неразобранного хвоста объекта элемента (между записями нагрузок
     /// и списком узлов).</summary>
@@ -212,7 +209,7 @@ public static class LiraBinaryExtrasReader
         int elementsEnd = elementsStart + elementCount * ElementRecordSize;
 
         int[] stiffness = readStiffness
-            ? LocateStiffness(bytes, elementsEnd, elementCount, notes)
+            ? LocateStiffness(bytes, elementsStart, elementCount, notes)
             : [];
 
         var loads     = new List<LiraBinaryLoad>();
@@ -243,95 +240,96 @@ public static class LiraBinaryExtrasReader
 
     // ------------------------------------------------------------------ Жёсткости
 
+    /// <summary>Значение массива жёсткостей «номер не назначен».</summary>
+    const int UnassignedStiffness = 0xFFFF;
+
+    /// <summary>Поле <c>u32</c> между вторым массивом жёсткостей и повтором имени модели.</summary>
+    const uint StiffnessTrailerMarker = 3;
+
     /// <summary>
-    /// Ищет массив номеров жёсткостей: <c>n</c> значений <c>u16</c>, за которыми идёт побитовая копия
-    /// того же массива. Возвращает номера по индексу записи элемента (0 — не найдено).
+    /// Ищет массив номеров жёсткостей. Возвращает номера по индексу записи элемента (0 — не назначен).
     /// </summary>
     /// <remarks>
-    /// Копия массива — единственная найденная в контрольном файле сигнатура. Если значения массива
-    /// периодичны, та же сигнатура видна и со сдвигом внутри периода, поэтому кандидаты, отстоящие
-    /// друг от друга меньше чем на длину массива, считаются одним кластером (берётся самый ранний).
-    /// Если кластеров несколько и их массивы различаются — номер жёсткости не назначается.
+    /// <para>Раскладка (сверено с TXT на 8 схемах ЛИРА 2013–2024, в том числе 119 929 записей КЭ):
+    /// <c>[A: n×u16][B: n×u16][u32 3][имя модели]</c>. В <c>A</c> — номер жёсткости − 1, а
+    /// <c>0xFFFF</c> — «не назначен»: у удалённых записей (обязательно) и у живых одноузловых КЭ 57,
+    /// которым ЛИРА в TXT заводит отдельную жёсткость на каждый КЭ. <c>B</c> — побитовая копия
+    /// <c>A</c> либо целиком <c>0xFFFF</c> (одна копия). Имя модели — та же строка, что лежит через
+    /// 2 байта после блока элементов.</para>
+    /// <para>Поиск идёт от якоря в конце: повтор имени модели, перед ним <c>u32 3</c>, от него назад
+    /// <c>4n</c> байт. Прежняя сигнатура «две одинаковые копии подряд» не находила одиночную копию,
+    /// отвергала <c>0xFFFF</c> и при совпадении значения перед массивом с последним сдвигала начало
+    /// на одно значение — каждый КЭ получал жёсткость соседа.</para>
     /// </remarks>
-    static int[] LocateStiffness(byte[] bytes, int searchFrom, int elementCount, List<string> notes)
+    static int[] LocateStiffness(byte[] bytes, int elementsStart, int elementCount, List<string> notes)
     {
         if (elementCount <= 0) return [];
+        int elementsEnd = elementsStart + elementCount * ElementRecordSize;
 
-        var raw = new List<int>();
-        for (int parity = 0; parity < 2 && raw.Count == 0; parity++)
+        int nameAt = elementsEnd + 2;
+        if (!TryReadPrefixedString(bytes, nameAt, out string modelName, out int nameEnd) || modelName.Length == 0)
         {
-            int positions = (bytes.Length - parity) / 2;   // позиций u16, начиная со смещения parity
-            int need      = 2 * elementCount;              // две копии подряд
-            int last      = positions - need;
-            int first     = Math.Max(0, (searchFrom - parity + 1) / 2);
-            for (int s = first; s <= last; s++)
-            {
-                int a = parity + 2 * s;
-                if (ReadU16(bytes, a) > MaxStiffnessNumber) continue;
-                if (LooksLikeDuplicatedArray(bytes, a, elementCount)) raw.Add(a);
-            }
+            notes.Add("массив номеров жёсткостей не найден: не прочитано имя модели после блока элементов");
+            return [];
+        }
+        var name = bytes.AsSpan(nameAt, nameEnd - nameAt);
+
+        long arrayBytes = 2L * elementCount;
+        int found = -1, hits = 0;
+        int search = nameEnd;
+        while (search < bytes.Length)
+        {
+            int hit = bytes.AsSpan(search).IndexOf(name);
+            if (hit < 0) break;
+            int at = search + hit;
+            search = at + 1;
+
+            long start = at - 4 - 2 * arrayBytes;
+            if (start < elementsEnd) continue;
+            if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(at - 4)) != StiffnessTrailerMarker) continue;
+            if (!IsStiffnessArrayPair(bytes, (int)start, elementsStart, elementCount)) continue;
+
+            found = (int)start;
+            hits++;
         }
 
-        if (raw.Count == 0)
+        if (hits != 1)
         {
-            notes.Add("массив номеров жёсткостей не найден (нет пары одинаковых массивов n×u16 после блока элементов)");
+            notes.Add(hits == 0
+                ? "массив номеров жёсткостей не найден (нет пары массивов n×u16 перед повтором имени модели)"
+                : $"массив номеров жёсткостей неоднозначен: подходящих мест {hits} — жёсткости не назначены");
             return [];
         }
 
-        raw.Sort();
-        var clusters = new List<int>();
-        foreach (int a in raw)
-            if (clusters.Count == 0 || a - clusters[^1] >= 2 * elementCount) clusters.Add(a);
-
-        if (clusters.Count > 1)
-        {
-            bool same = true;
-            for (int i = 1; i < clusters.Count && same; i++)
-                for (int k = 0; k < elementCount && same; k++)
-                    if (ReadU16(bytes, clusters[0] + 2 * k) != ReadU16(bytes, clusters[i] + 2 * k)) same = false;
-
-            if (!same)
-            {
-                notes.Add($"массив номеров жёсткостей неоднозначен: найдено кластеров {clusters.Count} с разными значениями — жёсткости не назначены");
-                return [];
-            }
-        }
-
-        int start = clusters[0];
         var result = new int[elementCount];
-        for (int i = 0; i < elementCount; i++) result[i] = ReadU16(bytes, start + 2 * i) + 1;
-        notes.Add($"жёсткости прочитаны: массив по смещению {start}, {elementCount} назначений");
+        int unassigned = 0;
+        for (int i = 0; i < elementCount; i++)
+        {
+            int value = ReadU16(bytes, found + 2 * i);
+            if (value == UnassignedStiffness) { if (!IsZeroFlagRecord(bytes, elementsStart, i)) unassigned++; continue; }
+            result[i] = value + 1;
+        }
+        notes.Add($"жёсткости прочитаны: массив по смещению {found}, {elementCount} записей" +
+                  (unassigned > 0 ? $", живых записей без номера {unassigned} (в образцах — одноузловые КЭ 57)" : ""));
         return result;
     }
 
     /// <summary>
-    /// Проверяет сигнатуру массива: небольшие значения, не менее трёх различных, и побитовая копия
-    /// того же массива сразу после него.
+    /// Проверяет пару массивов жёсткостей: <c>0xFFFF</c> у каждой удалённой записи, второй массив —
+    /// копия первого или целиком <c>0xFFFF</c>.
     /// </summary>
-    static bool LooksLikeDuplicatedArray(byte[] bytes, int start, int count)
+    static bool IsStiffnessArrayPair(byte[] bytes, int start, int elementsStart, int elementCount)
     {
-        // 8 контрольных значений по длине массива: отсекает участки нулей и произвольные данные
-        int step = Math.Max(1, count / 8);
-        Span<int> sample = stackalloc int[8];
-        int distinct = 0;
-        for (int k = 0; k < 8; k++)
-        {
-            int index = Math.Min(count - 1, k * step);
-            int value = ReadU16(bytes, start + 2 * index);
-            if (value > MaxStiffnessNumber) return false;
-            bool seen = false;
-            for (int j = 0; j < k; j++) if (sample[j] == value) { seen = true; break; }
-            sample[k] = value;
-            if (!seen) distinct++;
-        }
-        if (distinct < 2) return false;
+        int second = start + 2 * elementCount;
+        for (int i = 0; i < elementCount; i++)
+            if (IsZeroFlagRecord(bytes, elementsStart, i) && ReadU16(bytes, start + 2 * i) != UnassignedStiffness)
+                return false;
 
-        if (!bytes.AsSpan(start, 2 * count).SequenceEqual(bytes.AsSpan(start + 2 * count, 2 * count)))
-            return false;
+        if (bytes.AsSpan(start, 2 * elementCount).SequenceEqual(bytes.AsSpan(second, 2 * elementCount)))
+            return true;
 
-        for (int i = 0; i < count; i++)
-            if (ReadU16(bytes, start + 2 * i) > MaxStiffnessNumber) return false;
-
+        for (int i = 0; i < elementCount; i++)
+            if (ReadU16(bytes, second + 2 * i) != UnassignedStiffness) return false;
         return true;
     }
 

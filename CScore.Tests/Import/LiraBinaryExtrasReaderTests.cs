@@ -38,6 +38,8 @@ public class LiraBinaryExtrasReaderTests
         readonly List<string> _loadCases = [];
         readonly List<(int Element, string Label, bool Wide)> _labels = [];
         bool _writeStiffness = true;
+        bool _singleStiffnessCopy;
+        int _stiffnessPadding;
         bool _writeNodeObjects = true;
         bool _breakConnectivity;
         bool _wideEmptyLabel;
@@ -65,9 +67,18 @@ public class LiraBinaryExtrasReaderTests
         public int AddDeletedElement(int[] slots, ushort definition)
         {
             _elements.Add((slots, definition, 0));
-            _stiffness.Add(0);
+            _stiffness.Add(Unassigned);
             return _elements.Count - 1;
         }
+
+        /// <summary>Значение массива жёсткостей «не назначена» — у удалённых записей и у одноузловых КЭ 57.</summary>
+        public const int Unassigned = 0xFFFF;
+
+        /// <summary>Второй массив жёсткостей — все <c>0xFFFF</c> (одна копия), как в «Модель_8·.lir».</summary>
+        public void UseSingleStiffnessCopy() => _singleStiffnessCopy = true;
+
+        /// <summary>Значение <c>u16</c> прямо перед массивом жёсткостей (по умолчанию — нули).</summary>
+        public void UsePaddingBeforeStiffness(int value) => _stiffnessPadding = value;
 
         public void AddNodalLoad(int node, int code, int loadCase, float value) =>
             _nodalLoads.Add((node, code, loadCase, value));
@@ -144,8 +155,9 @@ public class LiraBinaryExtrasReaderTests
                 w.Write(record);
             }
 
-            // Имя модели — строка с префиксом длины, как в файле ЛИРЫ.
-            WriteString(w, "extras-test_2026-10-29");
+            // Два служебных байта и имя модели — строка с префиксом длины, как в файле ЛИРЫ.
+            w.Write((ushort)0x073D);
+            WriteString(w, ModelName);
 
             // Блок нагрузок типа 4: [u32 число][u32 узлов][u32 КЭ][u16 ?], записи по 12 байт.
             w.Write(new byte[16]);
@@ -259,11 +271,17 @@ public class LiraBinaryExtrasReaderTests
             }
         }
 
+        const string ModelName = "extras-test_2026-10-29";
+
         void WriteStiffness(BinaryWriter w)
         {
-            w.Write(new byte[8]);
+            w.Write(new byte[6]);
+            w.Write((ushort)_stiffnessPadding);
             foreach (var s in _stiffness) w.Write((ushort)s);
-            foreach (var s in _stiffness) w.Write((ushort)s);   // вторая, побитовая копия массива
+            foreach (var s in _stiffness)                       // второй массив: копия или все 0xFFFF
+                w.Write((ushort)(_singleStiffnessCopy ? Unassigned : s));
+            w.Write(3u);                                        // якорь: u32 3 и повтор имени модели
+            WriteString(w, ModelName);
         }
 
         static void WriteString(BinaryWriter w, string value, bool wide = false)
@@ -321,6 +339,48 @@ public class LiraBinaryExtrasReaderTests
 
         Assert.Equal([1, 2, 3, 1, 2, 3, 1, 2], data.Elements.Select(e => e.StiffnessId).ToArray());
         Assert.Contains(data.BinaryNotes, n => n.Contains("жёсткости прочитаны"));
+    }
+
+    [Fact]
+    public void Extra_Stiffness_SingleCopyIsRead()
+    {
+        var builder = GridSchema();
+        builder.UseSingleStiffnessCopy();
+        var data = Parse(builder.Build(), LiraBinaryExtrasMode.Stiffness);
+
+        Assert.Equal([1, 2, 3, 1, 2, 3, 1, 2], data.Elements.Select(e => e.StiffnessId).ToArray());
+    }
+
+    [Fact]
+    public void Extra_Stiffness_DeletedAndUnassignedRecordsAreSkipped()
+    {
+        var builder = GridSchema();
+        builder.AddDeletedElement([0, 1], 0);                       // запись №9: в массиве 0xFFFF
+        builder.AddElement([2, 5], 0, LirBuilder.Unassigned);       // №10: живая, номер не назначен (как у КЭ 57)
+        builder.AddElement([5, 8], 0, 4);                           // №11
+        var data = Parse(builder.Build(), LiraBinaryExtrasMode.Stiffness);
+
+        Assert.Equal([1, 2, 3, 1, 2, 3, 1, 2, 0, 5], data.Elements.Select(e => e.StiffnessId).ToArray());
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8, 10, 11], data.Elements.Select(e => e.Id).ToArray());
+    }
+
+    [Fact]
+    public void Extra_Stiffness_ValueBeforeArrayEqualToLastDoesNotShift()
+    {
+        // Последнее значение массива (2) совпадает с u16 перед массивом: прежняя сигнатура
+        // «две копии подряд» допускала сдвиг начала на одно значение.
+        var builder = new LirBuilder();
+        for (int y = 0; y < 3; y++)
+            for (int x = 0; x < 3; x++)
+                builder.AddNode(x, y, 0);
+        builder.AddElement([0, 1, 4, 3], 2, 0);
+        builder.AddElement([1, 2, 5, 4], 2, 0);
+        builder.AddElement([3, 4, 7, 6], 2, 1);
+        builder.AddElement([4, 5, 8, 7], 2, 2);
+        builder.UsePaddingBeforeStiffness(2);
+        var data = Parse(builder.Build(), LiraBinaryExtrasMode.Stiffness);
+
+        Assert.Equal([1, 1, 2, 3], data.Elements.Select(e => e.StiffnessId).ToArray());
     }
 
     [Fact]
@@ -863,6 +923,13 @@ public class LiraBinaryExtrasReaderTests
 
             int missing = expected.Values.Sum(v => v.Count);
             if (missing > 0) failures.Add($"{name}: не прочитано {missing} записей TXT (сверено {matched})");
+
+            // Номера жёсткостей импортированных КЭ — как в документе 1.
+            var textStiffness = text.Elements.ToDictionary(e => e.Number, e => e.Stiffness);
+            int wrong = binary.Elements.Count(e => !textStiffness.TryGetValue(e.Id, out int s) || s != e.StiffnessId);
+            if (wrong > 0)
+                failures.Add($"{name}: номер жёсткости не совпал у {wrong} из {binary.Elements.Count} КЭ " +
+                             $"({string.Join("; ", binary.BinaryNotes.Where(n => n.Contains("жёсткост")))})");
         }
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures.Take(40)));
