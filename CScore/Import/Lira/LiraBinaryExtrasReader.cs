@@ -785,7 +785,9 @@ public static class LiraBinaryExtrasReader
             case 2 when native.Length == 3:
                 parameters = [native[0], 0, 0, 0];
                 return true;
-            case 14 when loadType == 7 && native.Length == 4:
+            case 14 when (loadType is 7 or 17) && native.Length == 4:
+                // тип 17 — порядок файла совпадает с TXT, все четыре параметра хранятся
+                // (сверено: «Primary Crushing_rev14», 2 688 записей)
                 parameters = [native[0], native[1], native[2], native[3]];
                 return true;
             case 28 when loadType == 19 && native.Length == 4:

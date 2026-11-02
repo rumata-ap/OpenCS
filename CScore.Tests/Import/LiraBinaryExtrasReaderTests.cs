@@ -648,6 +648,26 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_ElementLoads_Tag14Type17KeepsAllFourParameters()
+    {
+        var builder = GridSchema();
+        builder.AddElementLoad(4, 14, 173, 2, 0, [0.779063f, 2.45f, 0.779063f, 2.555f]);   // тип 17, направление 3
+        var data = Parse(builder.Build());
+
+        var load = Assert.Single(data.BinaryLoads);
+        Assert.Equal(17, load.LoadType);
+        Assert.Equal(3, load.DirectionCode);
+        Assert.Equal([0.779063, 2.45, 0.779063, 2.555], [load.P0, load.P1, load.P2, load.P3], new ToleranceComparer(1e-6));
+        Assert.DoesNotContain(data.BinaryNotes, n => n.Contains("без сверки"));
+    }
+
+    sealed class ToleranceComparer(double tolerance) : IEqualityComparer<double>
+    {
+        public bool Equals(double x, double y) => Math.Abs(x - y) <= tolerance;
+        public int GetHashCode(double obj) => 0;
+    }
+
+    [Fact]
     public void Extra_ElementLoads_Tags11And88AreMapped()
     {
         var builder = GridSchema();
