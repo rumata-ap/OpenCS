@@ -39,6 +39,23 @@ public sealed class StoreyFragmentMenuTests : IDisposable
     }
 
     [Fact]
+    public async Task Run_ElementFragmentRequest_SchemaWithPrism()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        var selection = ElementFragmentService.PrismFromSelection(db, parent.Id, ["C1"], ElementFragmentService.DefaultOffsetM);
+        var request = ElementFragmentService.Request(selection, selection.Height.Default!.Value, selection.Height.Default!.Value, "Фрагмент · C1");
+
+        var result = await StoreyFragmentMenuFlow.RunAsync(db, parent, request);
+
+        var schema = Assert.IsType<FemSchema>(result.Schema);
+        Assert.False(result.IsError, string.Join("; ", result.Rows.Select(r => r.Message)));
+        Assert.Equal(parent.Id, schema.ParentSchemaId);
+        Assert.False(string.IsNullOrEmpty(schema.FragmentPrismJson));
+        Assert.Contains(db.GetFragmentCutsWithIds(schema.Id), c => c.Cut.Side == FragmentCutSide.Lateral);
+    }
+
+    [Fact]
     public async Task Run_Refusal_NoSchema_ErrorRows()
     {
         using var db = new DatabaseService(_path);

@@ -2076,6 +2076,7 @@ public partial class FemSchemaView3D : UserControl
             AppendFragmentItems(menu, target.IsNode ? [] : ClickedWithSelection(target.Tag), meshElements: false);
             if (target.IsNode) AppendStoreyFragmentItem(menu, ClickedNodeWithSelection(target.Tag), [], [], []);
             else AppendStoreyFragmentItem(menu, [], ClickedWithSelection(target.Tag), [], []);
+            if (!target.IsNode) AppendElementFragmentItem(menu, ClickedWithSelection(target.Tag));
             menu.PlacementTarget = viewport;
             menu.IsOpen = true;
             e.Handled = true;
@@ -2103,6 +2104,7 @@ public partial class FemSchemaView3D : UserControl
         AppendFieldMenu(prMenu, ClickedWithSelection(prHitTag), [], []);
         AppendFragmentItems(prMenu, ClickedWithSelection(prHitTag), meshElements: false);
         AppendStoreyFragmentItem(prMenu, [], ClickedWithSelection(prHitTag), [], []);
+        AppendElementFragmentItem(prMenu, ClickedWithSelection(prHitTag));
         prMenu.PlacementTarget = viewport;
         prMenu.IsOpen = true;
         e.Handled = true;
@@ -2322,6 +2324,20 @@ public partial class FemSchemaView3D : UserControl
         var item = CommandIcons.Apply(
             new MenuItem { Header = Loc.S("Fem3DStoreyFragmentCtx"), Tag = StoreyFragmentItemMarker }, "Fem3DStoreyFragmentCtx");
         item.Click += (_, _) => editor.BuildStoreyFragmentFromSelection(nodeTags, memberTags, meshElemTags, meshNodeTags);
+        menu.Items.Add(item);
+    }
+
+    /// <summary>
+    /// «Фрагмент вокруг элементов…» после пункта этажного фрагмента: активен, если среди щёлкнутого и выделенных КонЭ есть
+    /// вертикальная колонна или стена. Пункт прошлого показа меню убирается (метка — та же, что у этажного).
+    /// </summary>
+    void AppendElementFragmentItem(ContextMenu menu, IReadOnlyCollection<string> memberTags)
+    {
+        if (Editor is not { } editor) return;
+        var item = CommandIcons.Apply(
+            new MenuItem { Header = Loc.S("Fem3DElementFragmentCtx"), Tag = StoreyFragmentItemMarker }, "Fem3DElementFragmentCtx");
+        item.IsEnabled = editor.HasVerticalMembers(memberTags);
+        item.Click += (_, _) => editor.BuildElementFragmentFromSelection(memberTags);
         menu.Items.Add(item);
     }
 

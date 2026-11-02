@@ -466,6 +466,22 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public Action<IReadOnlyCollection<string>, IReadOnlyCollection<string>, IReadOnlyCollection<string>, IReadOnlyCollection<string>>
         BuildStoreyFragmentFromSelection { get; }
 
+    /// <summary>
+    /// «Фрагмент вокруг элементов…» (спека 2026-10-30, разд. 5): диалог фрагмента вокруг выбранных колонн и стен.
+    /// Несохранённые правки — отказ: призма строится по схеме из БД.
+    /// </summary>
+    public Action<IReadOnlyCollection<string>> BuildElementFragmentFromSelection { get; }
+
+    /// <summary>Есть ли среди КонЭ сеанса <paramref name="memberTags"/> вертикальная колонна или стена (пункт меню активен).</summary>
+    public bool HasVerticalMembers(IReadOnlyCollection<string> memberTags)
+    {
+        if (memberTags.Count == 0) return false;
+        var wanted = memberTags.ToHashSet(StringComparer.Ordinal);
+        var members = Session.Members.Where(m => wanted.Contains(m.ElemTag)).ToList();
+        var regions = members.Any(m => m.PlanarRegionId != null) ? _db.GetPlanarRegions(Session.Schema.Id) : [];
+        return ElementFragmentService.SplitVertical(Session.Nodes, members, regions, memberTags).Vertical.Count > 0;
+    }
+
     /// <summary>После сохранения: дерево схемы перечитывает узлы и КонЭ (подписи, проверки, счётчики).</summary>
     readonly Action? _afterSave;
 
@@ -485,6 +501,16 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             }
             double? z = Services.StoreyFloorService.SelectionZ(_db, schema.Id, nodes, members, meshElems, meshNodes, out var error);
             app.BuildStoreyFragment(schema, z, error);
+        };
+        BuildElementFragmentFromSelection = members =>
+        {
+            if (Session.IsDirty)
+            {
+                System.Windows.MessageBox.Show(Loc.S("StoreyFloorUnsaved"), Loc.S("ElementFragmentTitle"),
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+            app.BuildElementFragment(schema, members);
         };
         _afterSave = () => app.RefreshFemSchemaTreeCounts(schema);
         var gjResolver = new FemGjDefaultResolver(() => app.CalcSettings);

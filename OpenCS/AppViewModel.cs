@@ -3449,7 +3449,63 @@ namespace OpenCS
          var vm = new ViewModels.StoreyFragmentDialogVM(parent.Tag, context, pickedZ, pickErrorKey, CultureInfo.CurrentCulture);
          var dlg = new Views.StoreyFragmentDialog(vm) { Owner = owner };
          if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
+         await RunStoreyFragmentBuild(parent, request, owner);
+      }
 
+      /// <summary>
+      /// «Фрагмент вокруг элементов…» (спека 2026-10-30, разд. 5): из выбранных КонЭ остаются вертикальные колонны и стены
+      /// (остальные — в сообщении диалога); призма и перекрытия — в фоне, перекрытия читаются один раз; диалог d, перекрытий
+      /// и имени; далее сборка, отчёт и открытие — как у этажного фрагмента.
+      /// </summary>
+      public async void BuildElementFragment(CScore.Fem.FemSchema? parent, IReadOnlyCollection<string> memberTags)
+      {
+         if (parent == null || memberTags.Count == 0) return;
+         var owner = Application.Current?.MainWindow;
+         BeginBusy(Loc.S("ElementFragmentSearchBusy"));
+         IReadOnlyList<string> vertical, rejected;
+         StoreyFloorContext? floors;
+         ElementFragmentSelection? selection;
+         try
+         {
+            (vertical, rejected, floors, selection) = await Task.Run(() =>
+            {
+               var (v, r) = ElementFragmentService.SplitVertical(db.GetFemNodes(parent.Id), db.GetFemMembers(parent.Id),
+                  db.GetPlanarRegions(parent.Id), memberTags);
+               if (v.Count == 0) return (v, r, (StoreyFloorContext?)null, (ElementFragmentSelection?)null);
+               var f = StoreyFloorService.Read(db, parent.Id);
+               return (v, r, f, ElementFragmentService.PrismFromSelection(db, parent.Id, v, ElementFragmentService.DefaultOffsetM, f));
+            });
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            LogService.Error(ex.Message);
+            MessageBox.Show(ex.Message.Split('\n')[0], Loc.S("ElementFragmentTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         EndBusy();
+         if (selection is null || floors is null)
+         {
+            MessageBox.Show(Loc.S("ElementFragmentNoVertical") + Environment.NewLine + ViewModels.ElementFragmentDialogVM.TagList(rejected),
+               Loc.S("ElementFragmentTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+         var vm = new ViewModels.ElementFragmentDialogVM(parent.Tag, selection,
+            d => Task.Run(() => ElementFragmentService.PrismFromSelection(db, parent.Id, vertical, d, floors)), rejected,
+            CultureInfo.CurrentCulture);
+         var dlg = new Views.ElementFragmentDialog(vm) { Owner = owner };
+         if (dlg.ShowDialog() != true || dlg.Request is not { } request) return;
+         await RunStoreyFragmentBuild(parent, request, owner);
+      }
+
+      /// <summary>КонЭ — вертикальная колонна или стена (пункт «Фрагмент вокруг элементов…» в дереве).</summary>
+      public bool IsVerticalFemMember(CScore.Fem.FemSchema schema, CScore.Fem.FemMember member) =>
+         ElementFragmentService.SplitVertical(db.GetFemNodes(schema.Id), [member],
+            member.PlanarRegionId != null ? db.GetPlanarRegions(schema.Id) : [], [member.ElemTag]).Vertical.Count > 0;
+
+      /// <summary>Сборка фрагмента по запросу диалога: отчёт сборки; собранный фрагмент открывается в редакторе.</summary>
+      async Task RunStoreyFragmentBuild(CScore.Fem.FemSchema parent, CScore.Fem.Fragment.StoreyFragmentRequest request, Window? owner)
+      {
          BeginBusy(Loc.S("StoreyFragmentBusy"));
          ViewModels.StoreyFragmentFlowResult result;
          try

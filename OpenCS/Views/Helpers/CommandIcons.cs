@@ -149,6 +149,7 @@ public static class CommandIcons
         ["Fem3DFragmentMembersGroupItem"] = "CmdIcon_Group",
         ["Fem3DFragmentShowOnlyCtx"] = "CmdIcon_ShowOnly",
         ["Fem3DStoreyFragmentCtx"] = "CmdIcon_Split",
+        ["Fem3DElementFragmentCtx"] = "CmdIcon_Split",
         ["Fem3DFragmentHideCtx"] = "CmdIcon_Hide",
         ["Fem3DFragmentShowCtx"] = "CmdIcon_ShowAll",
 

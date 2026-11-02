@@ -43,6 +43,12 @@ internal static class FemMemberTreeMenus
             items.Add(Item("FemMemberCopyCtx", () => app.TransformFemFragmentInEditor(schema, [], [member.ElemTag], copy: true)));
         }
 
+        if (app.IsVerticalFemMember(schema, member))
+        {
+            items.Add(new Separator());
+            items.Add(Item("Fem3DElementFragmentCtx", () => app.BuildElementFragment(schema, [member.ElemTag])));
+        }
+
         items.Add(new Separator());
         items.Add(Item("FemMemberTreeGroupFromMember",
             () => CreateGroup(app, schema, [member], member.ElemTag)));
