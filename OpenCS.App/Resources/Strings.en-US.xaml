@@ -4075,6 +4075,37 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFloorPickNotFound">No floor found at {0} m — select it in the list.</system:String>
     <system:String x:Key="StoreyFloorUnsaved">Save the schema: the fragment is built from the saved schema.</system:String>
     <system:String x:Key="Fem3DStoreyFragmentCtx">Storey fragment at this floor…</system:String>
+    <system:String x:Key="Fem3DElementFragmentCtx">Fragment around elements…</system:String>
+    <system:String x:Key="ElementFragmentTitle">Fragment around columns and walls</system:String>
+    <system:String x:Key="ElementFragmentMembers">Columns and walls</system:String>
+    <system:String x:Key="ElementFragmentOffset">Offset d from the section face, m</system:String>
+    <system:String x:Key="ElementFragmentRecalc">Recalculate</system:String>
+    <system:String x:Key="ElementFragmentFrom">From floor</system:String>
+    <system:String x:Key="ElementFragmentTo">To floor</system:String>
+    <system:String x:Key="ElementFragmentFullHeight">Full height of the elements</system:String>
+    <system:String x:Key="ElementFragmentRejected">Not vertical columns or walls — ignored: {0}</system:String>
+    <system:String x:Key="ElementFragmentNoVertical">The selection has no vertical columns or walls: the fragment is built only around them.</system:String>
+    <system:String x:Key="ElementFragmentOffsetInvalid">Offset d must be a positive number, m.</system:String>
+    <system:String x:Key="ElementFragmentBusy">Recalculating the prism…</system:String>
+    <system:String x:Key="ElementFragmentSearchBusy">Prism and floors…</system:String>
+    <system:String x:Key="ElementFragmentRefused">No fragment can be built for this selection.</system:String>
+    <system:String x:Key="ElementFragmentPrism">Prism {0} × {1} m, axis at {2}° to X, centre ({3}; {4}), d = {5} m</system:String>
+    <system:String x:Key="ElementFragmentElementsZ">Elements: z {0}…{1}</system:String>
+    <system:String x:Key="ElementFragmentNoFloors">The elements have no floors: element bottom and top ± 1 m</system:String>
+    <system:String x:Key="ElementFragmentFloorOne">Floor {0}</system:String>
+    <system:String x:Key="ElementFragmentFloorRange">Floors {0}…{1}</system:String>
+    <system:String x:Key="ElementFragmentCuts">Cuts: z₁ = {0}, z₂ = {1}</system:String>
+    <system:String x:Key="ElementFragmentName">Fragment · {0}</system:String>
+    <system:String x:Key="ElementFragmentNameMore">Fragment · {0} +{1}</system:String>
+    <system:String x:Key="ElementFragmentNameEmpty">Fragment</system:String>
+    <system:String x:Key="ElementFragmentTagsMore">{0} and {1} more</system:String>
+    <system:String x:Key="ElementFragmentHint">Horizontal cuts are mid-storey below the lowest and above the highest floor (no neighbouring storey — schema edge); lateral cuts are the prism faces, boundary conditions default to mask forces. The fragment mesh is built by “Build schema mesh”.</system:String>
+    <system:String x:Key="FragmentCutBcLateralPreset">Lateral faces</system:String>
+    <system:String x:Key="Fem3DShowFragmentCutsTip">Bottom — orange, top — purple, lateral faces — teal</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrism">Around {0} · prism {1} × {2} m · d = {3} m · {4}</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFull">full height of the elements</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFloors">floors {0}…{1}</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFloor">floor {0}</system:String>
     <system:String x:Key="StoreyFragmentReportError">Error</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Warning</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Summary</system:String>

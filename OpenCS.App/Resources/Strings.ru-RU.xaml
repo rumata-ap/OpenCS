@@ -4075,6 +4075,37 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFloorPickNotFound">Перекрытие на отметке {0} м не найдено — выберите его в списке.</system:String>
     <system:String x:Key="StoreyFloorUnsaved">Сохраните схему: фрагмент собирается из сохранённой схемы.</system:String>
     <system:String x:Key="Fem3DStoreyFragmentCtx">Фрагмент этажа по перекрытию…</system:String>
+    <system:String x:Key="Fem3DElementFragmentCtx">Фрагмент вокруг элементов…</system:String>
+    <system:String x:Key="ElementFragmentTitle">Фрагмент вокруг колонн и стен</system:String>
+    <system:String x:Key="ElementFragmentMembers">Колонны и стены</system:String>
+    <system:String x:Key="ElementFragmentOffset">Отступ d от грани сечения, м</system:String>
+    <system:String x:Key="ElementFragmentRecalc">Пересчитать</system:String>
+    <system:String x:Key="ElementFragmentFrom">С перекрытия</system:String>
+    <system:String x:Key="ElementFragmentTo">По перекрытие</system:String>
+    <system:String x:Key="ElementFragmentFullHeight">Вся высота элементов</system:String>
+    <system:String x:Key="ElementFragmentRejected">Не вертикальные колонны и стены — не учитываются: {0}</system:String>
+    <system:String x:Key="ElementFragmentNoVertical">В выделении нет вертикальных колонн и стен: фрагмент строится только вокруг них.</system:String>
+    <system:String x:Key="ElementFragmentOffsetInvalid">Отступ d — положительное число, м.</system:String>
+    <system:String x:Key="ElementFragmentBusy">Идёт пересчёт призмы…</system:String>
+    <system:String x:Key="ElementFragmentSearchBusy">Призма и перекрытия…</system:String>
+    <system:String x:Key="ElementFragmentRefused">Фрагмент по этому выбору не строится.</system:String>
+    <system:String x:Key="ElementFragmentPrism">Призма {0} × {1} м, ось под {2}° к X, центр ({3}; {4}), d = {5} м</system:String>
+    <system:String x:Key="ElementFragmentElementsZ">Элементы: z {0}…{1}</system:String>
+    <system:String x:Key="ElementFragmentNoFloors">Перекрытий у элементов нет: низ и верх элементов ± 1 м</system:String>
+    <system:String x:Key="ElementFragmentFloorOne">Перекрытие {0}</system:String>
+    <system:String x:Key="ElementFragmentFloorRange">Перекрытия {0}…{1}</system:String>
+    <system:String x:Key="ElementFragmentCuts">Разрезы: z₁ = {0}, z₂ = {1}</system:String>
+    <system:String x:Key="ElementFragmentName">Фрагмент · {0}</system:String>
+    <system:String x:Key="ElementFragmentNameMore">Фрагмент · {0} +{1}</system:String>
+    <system:String x:Key="ElementFragmentNameEmpty">Фрагмент</system:String>
+    <system:String x:Key="ElementFragmentTagsMore">{0} и ещё {1}</system:String>
+    <system:String x:Key="ElementFragmentHint">Горизонтальные разрезы — середины этажей под нижним и над верхним перекрытием (без соседнего этажа — край схемы); боковые — грани призмы, ГУ по умолчанию — усилия из маски. Сетку фрагмента строит «Построить сетку схемы».</system:String>
+    <system:String x:Key="FragmentCutBcLateralPreset">Боковые грани</system:String>
+    <system:String x:Key="Fem3DShowFragmentCutsTip">Низ — оранжевый, верх — фиолетовый, боковые грани — бирюзовый</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrism">Вокруг {0} · призма {1} × {2} м · d = {3} м · {4}</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFull">вся высота элементов</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFloors">перекрытия {0}…{1}</system:String>
+    <system:String x:Key="StoreyFragmentBannerPrismFloor">перекрытие {0}</system:String>
     <system:String x:Key="StoreyFragmentReportError">Ошибка</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Предупреждение</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Итог</system:String>

@@ -159,7 +159,7 @@ public sealed class StoreyFragmentDialogVM : ViewModelBase
     }
 
     /// <summary>«КонЭ: 8», «КЭ: 15695» или оба через запятую.</summary>
-    static string Counts(StoreyFloorLevel l) => string.Join(", ", new[]
+    internal static string Counts(StoreyFloorLevel l) => string.Join(", ", new[]
     {
         l.MemberTags.Count > 0 ? string.Format(Loc.S("StoreyFloorMembers"), l.MemberTags.Count) : null,
         l.ElementCount > 0 ? string.Format(Loc.S("StoreyFloorElements"), l.ElementCount) : null,
