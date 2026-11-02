@@ -44,6 +44,7 @@ public class LiraBinaryExtrasReaderTests
         bool _wideLoadCases;
         bool _extraObjectFlagBits;
         bool _zeroDeletedObjectFlags;
+        bool _extraNodeFlagBit;
         bool _falseStart;
 
         public int AddNode(double x, double y, double z)
@@ -94,6 +95,10 @@ public class LiraBinaryExtrasReaderTests
         /// <summary>Поле флагов объекта удалённой записи КЭ — все нули (а не бит <c>0x02000000</c>),
         /// как в «ТЕСТ_РСУ_ОСОБЫЕ (2).lir».</summary>
         public void UseZeroDeletedObjectFlags() => _zeroDeletedObjectFlags = true;
+
+        /// <summary>Бит <c>0x4000</c> в поле флага объектов узлов с чётным индексом (<c>0x4001</c>),
+        /// как в «Ферма_Митасова.lir».</summary>
+        public void UseExtraNodeFlagBit() => _extraNodeFlagBit = true;
 
         /// <summary>Вставляет перед массивом объектов «ложный» заголовок КЭ №1 и 60 КБ посторонних данных:
         /// правдоподобное начало, до настоящего объекта №2 от которого — десятки килобайт.</summary>
@@ -171,7 +176,7 @@ public class LiraBinaryExtrasReaderTests
             {
                 var loads = _nodalLoads.Where(l => l.Node == i).ToList();
                 w.Write((uint)i);
-                w.Write(1u);
+                w.Write(_extraNodeFlagBit && i % 2 == 0 ? 0x4001u : 1u);
                 w.Write(_nodes[i].X);
                 w.Write(_nodes[i].Y);
                 w.Write(_nodes[i].Z);
@@ -343,6 +348,34 @@ public class LiraBinaryExtrasReaderTests
     }
 
     [Fact]
+    public void Extra_NodalLoads_ExtraFlagBitIsAccepted()
+    {
+        var builder = GridSchema();
+        builder.UseExtraNodeFlagBit();                 // узлы 1, 3, 5… с флагом 0x4001
+        builder.AddNodalLoad(2, 103, 1, 0.025f);
+        builder.AddNodalLoad(3, 103, 1, 0.5f);
+        var data = Parse(builder.Build());
+
+        var loads = data.BinaryLoads.Where(l => l.TargetKind == LiraLoadTargetKind.Node).ToList();
+        Assert.Equal([3, 4], loads.Select(l => l.TargetId).ToArray());
+        Assert.Equal(0.025, loads[0].P0, 6);
+    }
+
+    [Fact]
+    public void Extra_ElementLoads_OfDeletedRecordsAreNotPublished()
+    {
+        var builder = GridSchema();
+        builder.AddDeletedElement([0, 1], 0);          // запись №9: удалена, нагрузка в объекте осталась
+        builder.AddElement([1, 4, 5, 8], 2, 2);        // запись №10
+        builder.AddElementLoad(8, 12, 163, 1, 0, [1.5f, 1.0f]);
+        builder.AddElementLoad(9, 12, 163, 1, 0, [2.5f, 1.0f]);
+        var data = Parse(builder.Build());
+
+        var load = Assert.Single(data.BinaryLoads);     // в текстовом экспорте ЛИРЫ таких нагрузок нет
+        Assert.Equal(10, load.TargetId);
+    }
+
+    [Fact]
     public void Extra_NoNodeObjects_ReportsNote()
     {
         var builder = GridSchema();
@@ -457,11 +490,13 @@ public class LiraBinaryExtrasReaderTests
         var builder = GridSchema();
         builder.UseExtraObjectFlagBits();                          // живые — 0x00002001, удалённые — 0x02002000
         builder.AddDeletedElement([0, 1], 0);
-        builder.AddElementLoad(0,  2, 163, 1, 0, [1.5f, 0f, 1f]);  // объект удалённой записи
-        builder.AddElementLoad(8,  2, 163, 1, 0, [4.5f, 0f, 1f]);  // объект живой записи
+        builder.AddElement([1, 4, 5, 8], 2, 2);
+        builder.AddElementLoad(0,  2, 163, 1, 0, [1.5f, 0f, 1f]);  // объект живой записи
+        builder.AddElementLoad(8,  2, 163, 1, 0, [9.5f, 0f, 1f]);  // объект удалённой записи — не публикуется
+        builder.AddElementLoad(9,  2, 163, 1, 0, [4.5f, 0f, 1f]);  // объект живой записи после удалённой
         var data = Parse(builder.Build());
 
-        Assert.Equal(2, data.BinaryLoads.Count);
+        Assert.Equal([1, 10], data.BinaryLoads.Select(l => l.TargetId).ToArray());
         Assert.Equal(4.5, data.BinaryLoads[^1].P0, 6);
     }
 

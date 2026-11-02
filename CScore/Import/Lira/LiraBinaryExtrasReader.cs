@@ -133,7 +133,8 @@ public static class LiraBinaryExtrasReader
 
     /// <summary>
     /// Поле флагов объекта удалённого КЭ: бит «живой записи» снят, установлен бит <c>0x02000000</c>.
-    /// Объект при этом в файле есть, и нагрузки по нему читаются.
+    /// Объект при этом в файле есть и проходится при обходе, но его нагрузки не публикуются
+    /// (в текстовом экспорте ЛИРЫ их нет).
     /// </summary>
     /// <remarks>
     /// Остальные биты поля флагов независимы от признака удаления: в живых схемах встречаются
@@ -365,7 +366,7 @@ public static class LiraBinaryExtrasReader
                 double value = ReadF32(bytes, p + 4);
                 int group    = ReadU16(bytes, p + 8);
 
-                if (flag != 1) continue;
+                if (!IsLiveNodeFlag(flag)) continue;
                 int direction = code is >= 101 and <= 106 ? code - 100 : code;
                 loads.Add(new LiraBinaryLoad(
                     LiraLoadTargetKind.Node, i + 1, loadCase,
@@ -381,23 +382,28 @@ public static class LiraBinaryExtrasReader
         return true;
     }
 
+    /// <summary>
+    /// Объект живого узла: младший бит флага. Кроме него в поле бывают независимые биты
+    /// (<c>0x4001</c> у части узлов «Ферма_Митасова.lir»); у удалённого узла флаг — 0.
+    /// </summary>
+    static bool IsLiveNodeFlag(uint flag) => (flag & 1) != 0 && flag <= 0xFFFF;
+
     /// <summary>Ищет начало массива объектов узлов; принимает только единственную полностью сошедшуюся сигнатуру.</summary>
     static int FindNodeObjectArray(byte[] bytes, int nodesStart, int nodeCount, int searchFrom, List<string> notes)
     {
-        var pattern = new byte[32];
-        BinaryPrimitives.WriteUInt32LittleEndian(pattern, 0);
-        BinaryPrimitives.WriteUInt32LittleEndian(pattern.AsSpan(4), 1);
-        for (int k = 0; k < 3; k++)
-            BinaryPrimitives.WriteDoubleLittleEndian(pattern.AsSpan(8 + 8 * k), ReadF64(bytes, nodesStart + 8 * k));
+        // Координаты узла №1; номер 0 и флаг проверяются отдельно — во флаге бывают лишние биты.
+        var pattern = bytes.AsSpan(nodesStart, 24).ToArray();
 
-        int found = -1, hits = 0, search = Math.Max(0, searchFrom);
+        int found = -1, hits = 0, search = Math.Max(0, searchFrom) + 8;
         while (search < bytes.Length)
         {
             int hit = bytes.AsSpan(search).IndexOf(pattern);
             if (hit < 0) break;
-            int pos = search + hit;
-            if (ValidateNodeObjects(bytes, pos, nodesStart, nodeCount)) { found = pos; hits++; }
-            search = pos + 1;
+            int pos = search + hit - 8;
+            if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(pos)) == 0 &&
+                IsLiveNodeFlag(BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(pos + 4))) &&
+                ValidateNodeObjects(bytes, pos, nodesStart, nodeCount)) { found = pos; hits++; }
+            search = pos + 9;
         }
 
         if (hits == 1) return found;
@@ -418,13 +424,14 @@ public static class LiraBinaryExtrasReader
             if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan((int)o)) != (uint)i) return false;
 
             uint flag = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan((int)o + 4));
-            if (flag > 1) return false;
+            bool live = IsLiveNodeFlag(flag);
+            if (!live && flag != 0) return false;
 
             int count = ReadU16(bytes, (int)o + 38);
             if (count > MaxNodalLoads) return false;
-            if (flag == 0 && count != 0) return false;
+            if (!live && count != 0) return false;
 
-            if (flag == 1)
+            if (live)
             {
                 int geometry = nodesStart + NodeRecordSize * i;
                 for (int k = 0; k < 3; k++)
@@ -617,6 +624,11 @@ public static class LiraBinaryExtrasReader
             if (count > MaxElementLoads) return false;
             p += 6;
 
+            // У удалённой записи (флаг 0; в TXT — заглушка «тип 200») нагрузки в объекте остаются,
+            // но ЛИРА их не экспортирует: записи проходятся ради длины, а не публикуются
+            // («Ферма_Митасова.lir»: 62 такие записи).
+            bool deleted = IsZeroFlagRecord(bytes, elementsStart, i);
+
             for (int j = 0; j < count; j++)
             {
                 if (p + 8 > bytes.Length) return false;
@@ -626,6 +638,7 @@ public static class LiraBinaryExtrasReader
                 int group    = ReadU16(bytes, p + 6);
                 if (!LoadTagSize.TryGetValue(tag, out int size)) return false;
                 if (p + size > bytes.Length) return false;
+                if (deleted) { p += size; continue; }
 
                 int nativeCount = (size - 8) / 4;
                 var native = new double[nativeCount];
