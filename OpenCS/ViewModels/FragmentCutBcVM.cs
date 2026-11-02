@@ -14,7 +14,11 @@ namespace OpenCS.ViewModels;
 /// Разрез фрагмента в 3D-виде: точка конца стержня или отрезки кромки (пары точек), сторона, подсказка «КонЭ ·
 /// сторона · z» и действующие режимы DOF.
 /// </summary>
-public sealed record FragmentCutGlyph(IReadOnlyList<Point3D> Points, bool IsEdge, bool IsBottom, string Tip);
+public sealed record FragmentCutGlyph(IReadOnlyList<Point3D> Points, bool IsEdge, FragmentCutSide Side, string Tip)
+{
+    /// <summary>Разрез по нижней отметке z₁.</summary>
+    public bool IsBottom => Side == FragmentCutSide.Bottom;
+}
 
 /// <summary>Пункт выбора пресета ГУ разрезов.</summary>
 public sealed record FragmentBcPresetOption(FragmentBcPreset Preset, string Label);
@@ -182,6 +186,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
         var masks = _db.GetFragmentMasks(_schema.Id);
         _hasMasks = masks is { Items.Count: > 0 };
         _maskedCuts = masks?.Items.Select(i => i.CutId).ToHashSet() ?? [];
+        OnPropertyChanged(nameof(HasLateral));
         BuildRows();
     }
 
@@ -227,7 +232,7 @@ public sealed class FragmentCutBcVM : ViewModelBase
             string modes = string.Join(Environment.NewLine,
                 row.Dofs.Select((d, k) => $"{dofs[k]}: {ModeLabel(d.Effective)}{(d.IsOverride ? " *" : "")}"));
             string tip = $"{row.MemberTag} · {row.SideText} · z = {row.ZText} · {row.KindText}{Environment.NewLine}{modes}";
-            result.Add(new(points, row.Cut.Kind == FragmentCutKind.Edge, row.Cut.Side == FragmentCutSide.Bottom, tip));
+            result.Add(new(points, row.Cut.Kind == FragmentCutKind.Edge, row.Cut.Side, tip));
         }
         return result;
     }

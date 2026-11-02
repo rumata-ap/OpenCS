@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
+using CScore.Fem.Fragment;
 using HelixToolkit.Wpf;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -1038,15 +1039,20 @@ public partial class FemSchemaView3D : UserControl
         if (VM.ShowSpringGlyphs) Add(lines.Springs, SpringColor, 1.3);
     }
 
-    /// <summary>Разрезы фрагмента: низ и верх — разными цветами; концы стержней — точками, кромки — толстыми линиями.</summary>
+    /// <summary>Разрезы фрагмента: низ, верх и боковые грани — разными цветами; концы стержней — точками, кромки — толстыми линиями.</summary>
     void BuildFragmentCutGlyphs()
     {
         if (VM is not { ShowFragmentCutGlyphs: true, HasFragmentCuts: true } vm) return;
-        foreach (bool bottom in new[] { true, false })
+        foreach (var side in new[] { FragmentCutSide.Bottom, FragmentCutSide.Top, FragmentCutSide.Lateral })
         {
-            var color = bottom ? FragmentCutBottomColor : FragmentCutTopColor;
-            var ends = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => !g.IsEdge && g.IsBottom == bottom).SelectMany(g => g.Points));
-            var edges = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => g.IsEdge && g.IsBottom == bottom).SelectMany(g => g.Points));
+            var color = side switch
+            {
+                FragmentCutSide.Bottom => FragmentCutBottomColor,
+                FragmentCutSide.Top => FragmentCutTopColor,
+                _ => FragmentCutLateralColor,
+            };
+            var ends = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => !g.IsEdge && g.Side == side).SelectMany(g => g.Points));
+            var edges = new Point3DCollection(vm.FragmentCutGlyphs.Where(g => g.IsEdge && g.Side == side).SelectMany(g => g.Points));
             if (ends.Count > 0) viewport.Children.Add(new PointsVisual3D { Points = ends, Color = color, Size = 9 });
             if (edges.Count > 0) viewport.Children.Add(new LinesVisual3D { Points = edges, Color = color, Thickness = 4 });
         }
@@ -1054,6 +1060,7 @@ public partial class FemSchemaView3D : UserControl
 
     static readonly Color FragmentCutBottomColor = Color.FromRgb(0xE6, 0x7E, 0x22);
     static readonly Color FragmentCutTopColor = Color.FromRgb(0x8E, 0x24, 0xAA);
+    static readonly Color FragmentCutLateralColor = Color.FromRgb(0x16, 0xA0, 0x85);
 
     /// <summary>Расстояние от курсора до разреза на экране, при котором показывается подсказка, px.</summary>
     const double FragmentCutHoverPx = 8;

@@ -13,6 +13,12 @@
             <Button Content="{DynamicResource FragmentCutBcReset}" Command="{Binding ResetCommand}" Padding="8,0"
                     Margin="12,0,0,0"/>
         </StackPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6"
+                    Visibility="{Binding HasLateral, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBlock Text="{DynamicResource FragmentCutBcLateralPreset}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedLateralPreset}" DisplayMemberPath="Label"
+                      MinWidth="320"/>
+        </StackPanel>
         <TextBlock DockPanel.Dock="Top" Text="{Binding Hint}" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,0,0,6"
                    Visibility="{Binding HasHint, Converter={StaticResource BooleanToVisibilityConverter}}"/>
         <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FragmentCutBcLegend}" Foreground="Gray" TextWrapping="Wrap"
