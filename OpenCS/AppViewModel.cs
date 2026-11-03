@@ -3540,8 +3540,52 @@ namespace OpenCS
          var dlg = new Views.StoreyFragmentMasksDialog(fragment.Tag, sources,
             ViewModels.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
             ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment)) { Owner = owner };
-         if (dlg.ShowDialog() != true || dlg.Source is not { } source) return;
+         if (dlg.ShowDialog() != true) return;
+         if (dlg.AllLoadCases)
+         {
+            await TakeAllStoreyFragmentMasks(fragment, owner);
+            return;
+         }
+         if (dlg.Source is not { } source) return;
+         await ExtractStoreyFragmentMasks(fragment, source, owner);
+      }
 
+      /// <summary>
+      /// «Маски для всех загружений»: служебная линейная постановка родителя «Маски фрагмента» по всем общим загружениям →
+      /// расчёт (как у постановок схемы: занятость, статус, журнал) → снятие масок из неё. Пересчёт каждый раз — маски
+      /// не отстают от родителя; пользовательские постановки не меняются.
+      /// </summary>
+      async Task TakeAllStoreyFragmentMasks(CScore.Fem.FemSchema fragment, System.Windows.Window? owner)
+      {
+         var analysis = Services.StoreyFragmentMaskSupply.Prepare(db, fragment, out string? reason);
+         if (analysis == null)
+         {
+            MessageBox.Show(reason, Loc.S("StoreyFragmentMasksTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (FemSchemas.All(s => s.Id != fragment.ParentSchemaId))
+         {
+            MessageBox.Show(Loc.S("StoreyFragmentMasksParentNotOpen"), Loc.S("StoreyFragmentMasksTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (await Tasks.FemAnalysisExecutor.RunAndSaveAsync(this, analysis) == null)
+         {
+            MessageBox.Show(Loc.S("StoreyFragmentMasksAllNotRun"), Loc.S("StoreyFragmentMasksTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId) is { } parent)
+            System.Windows.Data.CollectionViewSource.GetDefaultView(parent.Analyses)?.Refresh();
+         var source = new ViewModels.FragmentMaskSourceItem(analysis.Id,
+            CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaLinear, analysis.Tag, analysis.Tag);
+         await ExtractStoreyFragmentMasks(fragment, source, owner);
+      }
+
+      /// <summary>Снятие масок фрагмента из источника: занятость, журнал, отчёт и обновление открытой страницы.</summary>
+      async Task ExtractStoreyFragmentMasks(CScore.Fem.FemSchema fragment, ViewModels.FragmentMaskSourceItem source,
+         System.Windows.Window? owner)
+      {
          BeginBusy(Loc.S("StoreyFragmentMasksBusy"));
          ViewModels.StoreyFragmentMaskFlowResult result;
          try

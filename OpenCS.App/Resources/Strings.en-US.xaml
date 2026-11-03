@@ -4109,6 +4109,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentReportError">Error</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Warning</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Summary</system:String>
+    <system:String x:Key="StoreyFragmentMasksAll">Masks for all load cases</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllHint">A service linear analysis of the parent over all common load cases (one run, tag “Маски фрагмента”); the masks are taken again. User analyses are not changed.</system:String>
+    <system:String x:Key="StoreyFragmentMasksNoCommonLoadCases">The parent and the fragment have no common load cases — the analysis for masks cannot be created.</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllNotRun">The service analysis “Маски фрагмента” was not run — masks are not taken (see the log).</system:String>
+    <system:String x:Key="StoreyFragmentMasksParentNotOpen">The parent schema is not open in the project — the analysis was not run.</system:String>
     <system:String x:Key="StoreyFragmentMasksNotFragment">The schema is not a storey fragment: masks are taken only in a fragment.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentDeleted">The parent schema is deleted — there is nothing to take masks from.</system:String>
     <system:String x:Key="StoreyFragmentMasksNoSources">The parent has neither a computed CSfea analysis (linear or secant) nor a program result snapshot: run the parent or take the results (parent schema menu “SCAD → Results for fragments…”).</system:String>

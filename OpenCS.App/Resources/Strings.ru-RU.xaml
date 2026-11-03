@@ -4109,6 +4109,11 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentReportError">Ошибка</system:String>
     <system:String x:Key="StoreyFragmentReportWarning">Предупреждение</system:String>
     <system:String x:Key="StoreyFragmentReportSummary">Итог</system:String>
+    <system:String x:Key="StoreyFragmentMasksAll">Маски для всех загружений</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllHint">Служебная линейная постановка «Маски фрагмента» родителя по всем общим загружениям (один расчёт); маски снимаются заново. Пользовательские постановки не меняются.</system:String>
+    <system:String x:Key="StoreyFragmentMasksNoCommonLoadCases">У родителя и фрагмента нет общих загружений — постановку для масок не создать.</system:String>
+    <system:String x:Key="StoreyFragmentMasksAllNotRun">Расчёт служебной постановки «Маски фрагмента» не выполнен — маски не сняты (см. журнал).</system:String>
+    <system:String x:Key="StoreyFragmentMasksParentNotOpen">Схема-родитель не открыта в проекте — расчёт постановки не запущен.</system:String>
     <system:String x:Key="StoreyFragmentMasksNotFragment">Схема — не фрагмент этажа: маски снимаются только во фрагменте.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentDeleted">Схема-родитель удалена — снять маски не из чего.</system:String>
     <system:String x:Key="StoreyFragmentMasksNoSources">У родителя нет посчитанного расчёта CSfea (линейного или секущего) и снимка результатов программы: посчитайте родителя или снимите результаты (меню схемы-родителя «SCAD → Результаты для фрагментов…»).</system:String>
