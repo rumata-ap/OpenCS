@@ -55,7 +55,7 @@ public static partial class StoreyFragmentBuilder
             }
 
             // По точкам: ведущий и ведомые — на стержне или в пластине фрагмента (с привязкой, см. SnapToFragment).
-            if (SnapToFragment(c, m) is not { } ms)
+            if (Attach(c, m) is not { } ms)
             {
                 masterOutside.Add(label);
                 continue;
@@ -65,7 +65,7 @@ public static partial class StoreyFragmentBuilder
             int lost = 0;
             foreach (var tag in body.SlaveNodeTags)
             {
-                if (meshNode.GetValueOrDefault(tag) is { } n && c.InBox(P(n)) && SnapToFragment(c, new(n.X, n.Y, n.Z)) is { } p)
+                if (meshNode.GetValueOrDefault(tag) is { } n && c.InBox(P(n)) && Attach(c, new(n.X, n.Y, n.Z)) is { } p)
                     slaves.Add(p);
                 else lost++;
             }
@@ -106,6 +106,13 @@ public static partial class StoreyFragmentBuilder
     /// нагрузка КЭ стержня относятся к оси стержня или плоскости пластины: импортные КонЭ расходятся с узлами сетки
     /// источника на миллиметры (у «Музея» ось колонны наклонена на 2,6 мм на 13,5 м).</summary>
     public const double SourceSnapM = 0.01;
+
+    /// <summary>
+    /// Точка АЖТ во фрагменте: на КЭ (с привязкой, <see cref="SnapToFragment"/>) или узел фрагмента, уже созданный
+    /// под закрепление или пружину (голова сваи без КЭ, спека 4а) — как есть; иначе null.
+    /// </summary>
+    static PlanarVector3? Attach(Ctx c, PlanarVector3 p) =>
+        SnapToFragment(c, p) ?? (c.Nodes.Find(p) is not null ? p : null);
 
     /// <summary>
     /// Точка на оси стержня фрагмента или в области его пластины (кромки включительно): ближе допуска — как есть,

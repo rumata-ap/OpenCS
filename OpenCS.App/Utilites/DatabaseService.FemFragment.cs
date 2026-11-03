@@ -431,6 +431,7 @@ namespace OpenCS.Utilites
             {
                // С призмой — ещё габарит КЭ в плане против габарита призмы с запасом (точная обрезка — построитель).
                string plan = box is null ? "" : " AND MAX(n.x) >= @xlo AND MIN(n.x) <= @xhi AND MAX(n.y) >= @ylo AND MIN(n.y) <= @yhi";
+               string boxNodes = box is null ? "" : " AND n.x BETWEEN @xlo AND @xhi AND n.y BETWEEN @ylo AND @yhi";
                cmd.CommandText = $"""
                   DROP TABLE IF EXISTS temp.frag_elems;
                   DROP TABLE IF EXISTS temp.frag_nodes;
@@ -448,10 +449,22 @@ namespace OpenCS.Utilites
                   INSERT OR IGNORE INTO temp.frag_nodes (tag)
                      SELECT CAST(j.value AS TEXT)
                      FROM fem_elements e JOIN temp.frag_elems f ON f.id=e.id, json_each(e.node_ids_json) j;
+                  -- Узлы без КЭ в полосе с закреплением, пружиной или ведущим импортного АЖТ (голова сваи): их ГУ и
+                  -- тела переносятся во фрагмент, хотя КЭ у узла нет (спека 4а).
+                  INSERT OR IGNORE INTO temp.frag_nodes (tag)
+                     SELECT n.node_tag FROM fem_mesh_nodes n
+                     WHERE n.schema_id=@sid AND n.z BETWEEN @zlo AND @zhi{boxNodes}
+                       AND (n.node_tag IN (SELECT s.node_tag FROM fem_mesh_node_supports s WHERE s.schema_id=@sid AND s.mask<>0)
+                         OR n.node_tag IN (SELECT p.node_tag FROM fem_springs p
+                              WHERE p.schema_id=@sid AND p.target_kind='{FemSpringTargetKinds.MeshNode}')
+                         OR n.node_tag IN (SELECT r.master_node_tag FROM fem_rigid_bodies r
+                              WHERE r.schema_id=@sid AND r.origin LIKE 'import:%'));
                   """;
                cmd.Parameters.AddWithValue("@sid", parentId);
                cmd.Parameters.AddWithValue("@lo", request.Z1 + request.ToleranceM);
                cmd.Parameters.AddWithValue("@hi", request.Z2 - request.ToleranceM);
+               cmd.Parameters.AddWithValue("@zlo", request.Z1 - request.ToleranceM);
+               cmd.Parameters.AddWithValue("@zhi", request.Z2 + request.ToleranceM);
                if (box is { } b)
                {
                   cmd.Parameters.AddWithValue("@xlo", b.XMin);

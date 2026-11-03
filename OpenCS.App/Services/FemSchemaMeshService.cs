@@ -164,6 +164,8 @@ public sealed class FemSchemaMeshService(DatabaseService db, GmshSettings gmsh)
         }
 
         var mesh = FemPlanarMeshMaterializer.Materialize(schemaId, beamNodes, beamElements, nodes, regionMeshes);
+        // Узлы схемы без КЭ с опорой или пружиной (голова сваи фрагмента) — свои узлы сетки, иначе ГУ не попадут в сетку.
+        FemIsolatedSupportNodes.Add(mesh.Nodes, nodes, db.GetFemSprings(schemaId), schemaId);
         diagnostics.AddRange(mesh.Diagnostics);
         diagnostics.AddRange(FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements));
         // Проверка: сетка совпала с сохранённой (теги те же) — тела строятся и сравниваются с записанными, иначе смена

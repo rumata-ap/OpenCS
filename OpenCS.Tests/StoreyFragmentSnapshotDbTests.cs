@@ -129,4 +129,41 @@ public sealed class StoreyFragmentSnapshotDbTests : IDisposable
         Assert.Equal(0.2, outline.Max(p => p.Z), 9);
         Assert.Null(s.SectionOutline(999));
     }
+
+    /// <summary>
+    /// Голова сваи: узел сетки в полосе без КЭ, с закреплением и пружиной родителя — попадает в снимок и во фрагмент
+    /// закреплением и пружиной узла фрагмента (спека 4а, дефект D1).
+    /// </summary>
+    [Fact]
+    public void Snapshot_IsolatedPileHead_SupportAndSpringReachFragment()
+    {
+        using var db = new DatabaseService(_path);
+        var parent = StoreyFragmentDbFixture.CreateParent(db);
+        // Узел вне всех КЭ, в полосе (z = 4,4), с закреплением 3 и пружиной kz — записи родителя (как импорт SCAD).
+        using (var raw = new SqliteConnection($"Data Source={_path}"))
+        {
+            raw.Open();
+            using var cmd = raw.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO fem_mesh_nodes (schema_id, node_tag, x, y, z, origin) VALUES (@sid, '9001', 5, 5, 4.4, 'generated');
+                INSERT INTO fem_mesh_node_supports (schema_id, node_tag, mask, origin) VALUES (@sid, '9001', 3, 'import:scad');
+                INSERT INTO fem_springs (schema_id, target_kind, node_tag, kz, origin) VALUES (@sid, 'mesh_node', '9001', 24525000, 'import:scad');
+                """;
+            cmd.Parameters.AddWithValue("@sid", parent.Id);
+            cmd.ExecuteNonQuery();
+        }
+
+        var s = db.ReadStoreyFragmentSnapshot(parent.Id, Band);
+        Assert.Contains(s.MeshNodes, n => n.NodeTag == "9001");
+        Assert.Contains(s.MeshNodeSupports, m => m.NodeTag == "9001" && m.Mask == 3);
+        Assert.Contains(s.Springs, p => p.NodeTag == "9001" && p.Kz == 24525000);
+
+        var draft = StoreyFragmentBuilder.Build(s, Band);
+        Assert.False(draft.HasErrors, string.Join("; ", draft.Diagnostics.Select(d => d.Message)));
+        var head = Assert.Single(draft.Nodes, n => n.X == 5 && n.Y == 5 && Math.Abs(n.Z - 4.4) < 1e-9);
+        Assert.Equal(3, head.DofMask);
+        var spring = Assert.Single(draft.Springs);
+        Assert.Equal(CScore.Fem.FemSpringTargetKinds.Node, spring.TargetKind);
+        Assert.Equal(head.NodeTag, spring.NodeTag);
+    }
 }

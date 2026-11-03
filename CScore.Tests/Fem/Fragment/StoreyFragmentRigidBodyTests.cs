@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CScore.Fem;
+using CScore.Fem.Fragment;
 using Xunit;
 using static CScore.Tests.Fem.Fragment.StoreyFragmentFixtures;
 
@@ -133,6 +134,33 @@ public sealed class StoreyFragmentRigidBodyTests
         var slave = at[Assert.Single(b.SlaveNodeTags)];
         Assert.Equal((0.5, 0.4, 2.0), (slave.X, Math.Round(slave.Y, 12), slave.Z));
         Assert.Equal(["2"], d.Diagnostics.Single(x => x.Code == "fragment_rigid_body_lost").SourceKeys);
+    }
+
+    /// <summary>Голова сваи: ведущий без КЭ, но с закреплением родителя — узел фрагмента; АЖТ переносится по точкам (спека 4а).</summary>
+    [Fact]
+    public void IsolatedMasterWithSupport_TransferredAsFragmentNode()
+    {
+        var (nodes, members) = Column();
+        var body = new FemRigidBody { MasterNodeTag = "700", Origin = "import:scad", SourceElemTag = "9" };
+        body.SetSlaveNodeTags(["501", "502", "503", "504"]);
+        var snapshot = new StoreyFragmentParentSnapshot
+        {
+            Nodes = nodes,
+            Members = members.Select(m => m.Item1).ToList(),
+            Regions = members.Where(m => m.Item2 is not null).Select(m => m.Item2!).ToList(),
+            MeshNodes = [.. Body, M("700", 3, 3, 2)],
+            MeshElements = [CoveredElement("S1")],
+            RigidBodies = [body],
+            MeshNodeSupports = [new FemMeshNodeSupport { NodeTag = "700", Mask = 3 }],
+        };
+        var d = StoreyFragmentBuilder.Build(snapshot, new StoreyFragmentRequest(1.5, 4.5, "Этаж 2"));
+
+        var b = Assert.Single(d.NodeRigidBodies);
+        var master = d.Nodes.Single(n => n.NodeTag == b.MasterNodeTag);
+        Assert.Equal((3.0, 3.0, 2.0), (master.X, master.Y, master.Z));
+        Assert.Equal(3, master.DofMask);
+        Assert.Equal(4, b.SlaveNodeTags.Count);
+        Assert.DoesNotContain(d.Diagnostics, x => x.Code == "fragment_rigid_body_lost");
     }
 
     [Fact]
