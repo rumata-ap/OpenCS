@@ -12,8 +12,11 @@
         <TextBlock x:Name="currentText" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <TextBlock Text="{DynamicResource StoreyFragmentMasksHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <TextBlock Text="{DynamicResource StoreyFragmentMasksAllHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"/>
-        <Button x:Name="allButton" Content="{DynamicResource StoreyFragmentMasksAll}" HorizontalAlignment="Left" Padding="8,0"
-                Click="All_Click" Margin="0,0,0,8"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="allButton" Content="{DynamicResource StoreyFragmentMasksAll}" Padding="8,0" Click="All_Click" Margin="0,0,6,0"/>
+            <Button x:Name="secantButton" Content="{DynamicResource StoreyFragmentMasksSecant}" Padding="8,0" Click="Secant_Click"/>
+        </StackPanel>
+        <TextBlock Text="{DynamicResource StoreyFragmentMasksSecantHint}" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="takeButton" Content="{DynamicResource StoreyFragmentMasksTake}" MinWidth="72" Padding="8,0"
                     IsDefault="True" Click="Take_Click" Margin="0,0,6,0"/>

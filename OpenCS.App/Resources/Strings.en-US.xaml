@@ -4114,6 +4114,12 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StoreyFragmentMasksNoCommonLoadCases">The parent and the fragment have no common load cases — the analysis for masks cannot be created.</system:String>
     <system:String x:Key="StoreyFragmentMasksAllNotRun">The service analysis “Маски фрагмента” was not run — masks are not taken (see the log).</system:String>
     <system:String x:Key="StoreyFragmentMasksParentNotOpen">The parent schema is not open in the project — the analysis was not run.</system:String>
+    <system:String x:Key="StoreyFragmentMasksSecant">Masks for the secant analysis</system:String>
+    <system:String x:Key="StoreyFragmentMasksSecantHint">A service secant analysis of the parent (tag “Маски фрагмента · секущий”) over the stages of the fragment's secant analyses (nonlinear, long run). The masks are one set: linear masks are replaced, and vice versa.</system:String>
+    <system:String x:Key="StoreyFragmentMasksNoFragmentSecant">The fragment has no secant analysis — the analysis for secant masks cannot be created.</system:String>
+    <system:String x:Key="StoreyFragmentMasksSecantBatch">The fragment's secant analysis is a batch: masks of a batch are not taken. Use a staged analysis.</system:String>
+    <system:String x:Key="StoreyFragmentMasksSecantNoParentCase">A stage of the fragment's secant analysis refers to a load case the parent does not have — the analysis cannot be created.</system:String>
+    <system:String x:Key="StoreyFragmentMasksSecantNotPrefix">The fragment's secant analyses have different stages, and one is not a continuation of another: their masks do not form one set.</system:String>
     <system:String x:Key="StoreyFragmentMasksNotFragment">The schema is not a storey fragment: masks are taken only in a fragment.</system:String>
     <system:String x:Key="StoreyFragmentMasksParentDeleted">The parent schema is deleted — there is nothing to take masks from.</system:String>
     <system:String x:Key="StoreyFragmentMasksNoSources">The parent has neither a computed CSfea analysis (linear or secant) nor a program result snapshot: run the parent or take the results (parent schema menu “SCAD → Results for fragments…”).</system:String>

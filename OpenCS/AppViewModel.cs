@@ -3541,9 +3541,9 @@ namespace OpenCS
             ViewModels.StoreyFragmentMaskFlow.DefaultSource(db, fragment, sources), reason,
             ViewModels.StoreyFragmentMaskFlow.CurrentText(db, fragment)) { Owner = owner };
          if (dlg.ShowDialog() != true) return;
-         if (dlg.AllLoadCases)
+         if (dlg.AllLoadCases || dlg.SecantAll)
          {
-            await TakeAllStoreyFragmentMasks(fragment, owner);
+            await TakeAllStoreyFragmentMasks(fragment, owner, dlg.SecantAll);
             return;
          }
          if (dlg.Source is not { } source) return;
@@ -3555,9 +3555,12 @@ namespace OpenCS
       /// расчёт (как у постановок схемы: занятость, статус, журнал) → снятие масок из неё. Пересчёт каждый раз — маски
       /// не отстают от родителя; пользовательские постановки не меняются.
       /// </summary>
-      async Task TakeAllStoreyFragmentMasks(CScore.Fem.FemSchema fragment, System.Windows.Window? owner)
+      async Task TakeAllStoreyFragmentMasks(CScore.Fem.FemSchema fragment, System.Windows.Window? owner, bool secant)
       {
-         var analysis = Services.StoreyFragmentMaskSupply.Prepare(db, fragment, out string? reason);
+         string? reason;
+         var analysis = secant
+            ? Services.StoreyFragmentMaskSupply.PrepareSecant(db, fragment, out reason)
+            : Services.StoreyFragmentMaskSupply.Prepare(db, fragment, out reason);
          if (analysis == null)
          {
             MessageBox.Show(reason, Loc.S("StoreyFragmentMasksTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -3578,7 +3581,8 @@ namespace OpenCS
          if (FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId) is { } parent)
             System.Windows.Data.CollectionViewSource.GetDefaultView(parent.Analyses)?.Refresh();
          var source = new ViewModels.FragmentMaskSourceItem(analysis.Id,
-            CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaLinear, analysis.Tag, analysis.Tag);
+            secant ? CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaSecant : CScore.Fem.Fragment.Masks.FragmentMaskSet.SourceCsfeaLinear,
+            analysis.Tag, analysis.Tag);
          await ExtractStoreyFragmentMasks(fragment, source, owner);
       }
 

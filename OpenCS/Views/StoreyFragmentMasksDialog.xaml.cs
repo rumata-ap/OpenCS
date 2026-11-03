@@ -12,6 +12,9 @@ public partial class StoreyFragmentMasksDialog : Window
     /// <summary>«Маски для всех загружений»: служебная постановка родителя (источник не выбирается).</summary>
     public bool AllLoadCases { get; private set; }
 
+    /// <summary>«Маски для секущего расчёта»: служебная секущая постановка родителя (источник не выбирается).</summary>
+    public bool SecantAll { get; private set; }
+
     /// <param name="current">Строка о действующих масках («не сняты» / «из … от …»).</param>
     public StoreyFragmentMasksDialog(string fragmentTag, IReadOnlyList<FragmentMaskSourceItem> sources,
         FragmentMaskSourceItem? selected, string? reason, string current)
@@ -40,6 +43,12 @@ public partial class StoreyFragmentMasksDialog : Window
     void All_Click(object sender, RoutedEventArgs e)
     {
         AllLoadCases = true;
+        DialogResult = true;
+    }
+
+    void Secant_Click(object sender, RoutedEventArgs e)
+    {
+        SecantAll = true;
         DialogResult = true;
     }
 }
