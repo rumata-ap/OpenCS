@@ -46,12 +46,19 @@ public static class FragmentMaskBalance
         return (sumF, sumM);
     }
 
-    /// <summary>Допуск равновесия масок с нагрузками полосы (спека 4.4).</summary>
-    public const double BalanceTolerance = 0.02;
+    /// <summary>
+    /// Допуск равновесия масок по силе (к нагрузкам полосы). 5 % — инженерная точность: при шаге сетки 0,46–0,5 м
+    /// кромки КЭ у граней призмы дают 4–7 % (диагностика на призме колонны; при 0,25 м — ниже 2 %).
+    /// </summary>
+    public const double BalanceForceTolerance = 0.05;
+
+    /// <summary>Допуск равновесия масок по моменту (к моменту нагрузок полосы). Как по силе — 5 %.</summary>
+    public const double BalanceMomentTolerance = 0.05;
 
     /// <summary>
     /// Равновесие по ключам: ΣF, ΣM масок всех сечений + нагрузки полосы (<paramref name="loads"/>, относительно
-    /// <paramref name="origin"/>) ≈ 0. Расхождение больше <see cref="BalanceTolerance"/> — предупреждение
+    /// <paramref name="origin"/>) ≈ 0. Расхождение по силе больше <see cref="BalanceForceTolerance"/> или по моменту
+    /// больше <see cref="BalanceMomentTolerance"/> — предупреждение
     /// <c>fragment_mask_balance</c> с разбивкой по сечениям. Подгонки нет.
     /// </summary>
     public static List<FemValidationDiagnostic> Check(IReadOnlyList<FragmentMaskCutInput> cuts,
@@ -84,7 +91,7 @@ public static class FragmentMaskBalance
             if (scaleF <= 1e-9) continue;
             double dF = (sumF + lf).Length / scaleF;
             double dM = (sumM + lm).Length / (lm.Length + scaleF * Math.Max(radius, 1e-9));
-            if (dF <= BalanceTolerance && dM <= BalanceTolerance) continue;
+            if (dF <= BalanceForceTolerance && dM <= BalanceMomentTolerance) continue;
             string key = group.Key.Kind == FragmentMaskKeyKind.LoadCase
                 ? $"загружение #{group.Key.LoadCaseId}" : $"сочетание {group.Key.StageExpressionJson}";
             result.Add(new FemValidationDiagnostic("fragment_mask_balance", string.Create(

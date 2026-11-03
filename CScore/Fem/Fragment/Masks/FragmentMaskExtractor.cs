@@ -36,7 +36,7 @@ public static class FragmentMaskExtractor
     /// Нижняя граница масштаба сверки равнодействующей — доля Σ|F| масок того же ключа по всем сечениям: на почти
     /// ненагруженном сечении (верх стены) относительное расхождение патча с прямой суммой велико, но ничтожно для
     /// равновесия фрагмента. При 0,5 порог — 1 % Σ|F|, половина допуска равновесия масок
-    /// (<see cref="FragmentMaskBalance.BalanceTolerance"/> от нагрузки полосы ≈ Σ|F| / 2).
+    /// (<see cref="FragmentMaskBalance.BalanceForceTolerance"/> от нагрузки полосы ≈ Σ|F| / 2).
     /// </summary>
     public const double CutResultantKeyShare = 0.5;
 
