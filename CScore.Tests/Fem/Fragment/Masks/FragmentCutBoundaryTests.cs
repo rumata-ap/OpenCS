@@ -184,13 +184,18 @@ public sealed class FragmentCutBoundaryTests
 
     /// <summary>Конец балки C1 на боковой грани +X (узел «1»), стена W1 — на низе.</summary>
     static FragmentCutBoundaryInput LateralInput(FragmentBcPreset preset, FragmentBcPreset lateral,
-        IReadOnlyList<KinematicDofRef>? other = null, Dictionary<int, byte[]>? overrides = null) => new()
+        IReadOnlyList<KinematicDofRef>? other = null, Dictionary<int, byte[]>? overrides = null, bool horizontal = true) => new()
     {
-        Cuts =
-        [
-            (C1, new(CutC1 with { Side = FragmentCutSide.Lateral, Normal = V(1, 0, 0) }, V(0, 3, 1.5), null)),
-            (W1, new(CutW1, null, V(0, 1, 0))),
-        ],
+        Cuts = horizontal
+            ?
+            [
+                (C1, new(CutC1 with { Side = FragmentCutSide.Lateral, Normal = V(1, 0, 0) }, V(0, 3, 1.5), null)),
+                (W1, new(CutW1, null, V(0, 1, 0))),
+            ]
+            :
+            [
+                (C1, new(CutC1 with { Side = FragmentCutSide.Lateral, Normal = V(1, 0, 0) }, V(0, 3, 1.5), null)),
+            ],
         Preset = preset, LateralPreset = lateral, Masks = Masks(L1), MeshNodes = Mesh,
         Stages = [new("S1", [(1, 1.0)])], LoadCaseTags = new Dictionary<int, string> { [1] = "G" },
         OtherConstraints = other ?? [], Overrides = overrides ?? [],
@@ -250,5 +255,19 @@ public sealed class FragmentCutBoundaryTests
 
         var storey = FragmentCutBoundary.Resolve(Input(FragmentBcPreset.Static, Masks(L1, L2)));
         Assert.DoesNotContain(storey.Diagnostics, d => d.Code == "fragment_bc_all_static");
+    }
+
+    /// <summary>Полоса без горизонтальных разрезов (только боковой): совет — боковые грани, а не недостижимый горизонтальный.</summary>
+    [Fact]
+    public void AllStatic_OnlyLateralCuts_AdviceNamesLateralFaces()
+    {
+        var r = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static, horizontal: false));
+
+        var d = Assert.Single(r.Diagnostics, x => x.Code == "fragment_bc_all_static");
+        Assert.Contains("боковых", d.Message);
+        Assert.DoesNotContain("горизонтальном", d.Message);
+        // С горизонтальным разрезом прежний совет.
+        var withHorizontal = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static));
+        Assert.Contains("горизонтальном", Assert.Single(withHorizontal.Diagnostics, x => x.Code == "fragment_bc_all_static").Message);
     }
 }

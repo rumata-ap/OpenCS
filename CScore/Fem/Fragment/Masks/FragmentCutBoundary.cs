@@ -107,8 +107,12 @@ public static class FragmentCutBoundary
         if (cuts.Count > 0 && cuts.Any(c => c.Cut.Cut.Side == FragmentCutSide.Lateral) && input.OtherConstraints.Count == 0
             && !cuts.Any(c => c.Modes.Any(m => m is FragmentDofMode.Fixed or FragmentDofMode.MaskDisplacement)))
         {
-            r.Diagnostics.Add(new("fragment_bc_all_static", "Все разрезы фрагмента — силовые, а опор у него нет: задайте " +
-                "кинематику хотя бы на одном горизонтальном разрезе.", true));
+            // Горизонтальных разрезов может не быть (полоса не доходит до плит): тогда совет — боковые грани.
+            bool horizontal = cuts.Any(c => c.Cut.Cut.Side != FragmentCutSide.Lateral);
+            r.Diagnostics.Add(new("fragment_bc_all_static", "Все разрезы фрагмента — силовые, а опор у него нет: " +
+                (horizontal
+                    ? "задайте кинематику хотя бы на одном горизонтальном разрезе."
+                    : "горизонтальных разрезов нет — задайте кинематику на боковых гранях (пресет «Изоляция» или маски)."), true));
             return r;
         }
         bool needsMask = cuts.Any(c => c.Modes.Any(FragmentCutBc.NeedsMask));
