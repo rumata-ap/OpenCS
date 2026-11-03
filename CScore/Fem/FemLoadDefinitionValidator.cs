@@ -26,6 +26,10 @@ public static class FemLoadDefinitionValidator
                 diagnostics.Add(new("load_definition_tag_duplicate",
                     $"Имя определения нагрузки '{definition.Tag}' повторяется в схеме."));
 
+            if (IsEmpty(definition.GetExpression()))
+                diagnostics.Add(new("load_definition_empty",
+                    $"Сочетание '{definition.Tag}' не содержит слагаемых с ненулевым коэффициентом: добавьте загружения или удалите сочетание."));
+
             foreach (var term in definition.GetExpression().Terms)
             {
                 if (!double.IsFinite(term.Coefficient))
@@ -39,5 +43,15 @@ public static class FemLoadDefinitionValidator
         }
 
         return diagnostics;
+    }
+
+    /// <summary>
+    /// Пустое сочетание: нет загружений и нет слагаемых с ненулевым коэффициентом (автослагаемое считается ненулевым —
+    /// его коэффициент вычисляется позже). «Все загружения» пустым не считается.
+    /// </summary>
+    public static bool IsEmpty(FemLoadExpression expression)
+    {
+        if (expression.Mode == FemLoadExpressionMode.All || expression.LoadCaseIds.Count > 0) return false;
+        return !expression.Terms.Any(t => t.IsAuto || (double.IsFinite(t.Coefficient) && t.Coefficient != 0));
     }
 }

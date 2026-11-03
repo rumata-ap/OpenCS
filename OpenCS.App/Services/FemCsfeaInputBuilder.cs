@@ -276,7 +276,14 @@ public static class FemCsfeaInputBuilder
         {
             double max = stage.MaxLoadFactor ?? 1.0, step = stage.LoadFactorStep ?? max;
             IReadOnlyList<(FemLoadCase LoadCase, double Factor)> terms;
-            try { terms = FemLoadExpressionResolver.Terms(FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases); }
+            var expression = FemLoadExpression.Parse(stage.LoadExpressionJson);
+            try { terms = FemLoadExpressionResolver.Terms(expression, loadCases); }
+            catch (NotSupportedException) when (FemLoadDefinitionValidator.IsEmpty(expression))
+            {
+                // Пустое сочетание без слагаемых — стадия без нагрузки (предупреждение, расчёт идёт дальше).
+                diag.Add(new("stage_expression_empty", $"Стадия «{stage.Tag}»: сочетание без слагаемых — расчёт без нагрузки этой стадии.", false));
+                terms = [];
+            }
             catch (Exception ex) when (ex is NotSupportedException or System.Text.Json.JsonException)
             {
                 diag.Add(new("stage_expression", $"Стадия «{stage.Tag}»: {ex.Message}", true));

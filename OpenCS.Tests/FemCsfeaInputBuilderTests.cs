@@ -159,7 +159,7 @@ public sealed class FemCsfeaInputBuilderTests : IDisposable
     }
 
     [Fact]
-    public void Stages_Sp20WithoutTerms_IsError()
+    public void Stages_Sp20WithoutTerms_IsWarningAndStageWithoutLoad()
     {
         var lc = new FemLoadCase { Id = 5, Tag = "П" };
         var diag = new List<FemValidationDiagnostic>();
@@ -172,7 +172,9 @@ public sealed class FemCsfeaInputBuilderTests : IDisposable
         ], [lc], diag);
 
         Assert.Empty(stages[0].Terms);
-        Assert.Contains(diag, d => d.Code == "stage_expression" && d.IsError);
+        // Пустое сочетание — предупреждение, стадия остаётся без нагрузки (индексы стадий не сдвигаются).
+        Assert.Contains(diag, d => d.Code == "stage_expression_empty" && !d.IsError);
+        Assert.DoesNotContain(diag, d => d.IsError);
         Assert.Equal(4, stages[1].Steps);
         Assert.Equal(5, stages[1].Terms[0].LoadCaseId);
         Assert.Equal(1.35, stages[1].Terms[0].Factor, 12);
