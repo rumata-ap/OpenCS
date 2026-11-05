@@ -110,8 +110,7 @@ public static class FemElementLoadNodalizer
             case FemElementLoadKinds.Point when g.IsShell:
             {
                 if (v.Count < 3) return "ожидалось [P, x, y]";
-                var (ex, ey, _) = g.ShellFrame();
-                var point = g.Points[g.Contour[0]] + ex * v[1] + ey * v[2];
+                var point = ShellPointAt(g, v[1], v[2]);
                 if (g.ShellShapeAt(point) is not { } n) return "точка вне КЭ";
                 for (int k = 0; k < n.Length; k++) Add(forces, g.NodeTags[k], dir * (v[0] * n[k] * factor), PlanarVector3.Zero);
                 return null;
@@ -172,6 +171,16 @@ public static class FemElementLoadNodalizer
         if (barRotationDeg is not { } rotation || g.Length < 1e-12) return null;
         var (_, by, bz) = BeamLocalAxisConvention.Frame(g.Points[0], g.Points[1], rotation);
         return axis == 1 ? by : bz;
+    }
+
+    /// <summary>
+    /// Точка сосредоточенной силы на пластине по местным координатам (<paramref name="x"/>, <paramref name="y"/>) от
+    /// первого узла контура в осях <see cref="FemElementGeometry.ShellFrame"/>.
+    /// </summary>
+    public static PlanarVector3 ShellPointAt(FemElementGeometry g, double x, double y)
+    {
+        var (ex, ey, _) = g.ShellFrame();
+        return g.Points[g.Contour[0]] + ex * x + ey * y;
     }
 
     /// <summary>
