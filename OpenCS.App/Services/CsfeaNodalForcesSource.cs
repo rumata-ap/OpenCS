@@ -1,5 +1,6 @@
 using System.Globalization;
 using CScore.Fem.Fragment.Masks;
+using CScore.Fem.Loads;
 using CScore.Submodel;
 using CSfea.CScoreBridge.Structural;
 using CSfea.Sparse;
@@ -205,6 +206,9 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         }
         return _elementLoads[(key, elemTag)] = result;
     }
+
+    /// <summary>Части нагрузок КЭ по виду — пока не собираются (поправка долей КЭ).</summary>
+    public IReadOnlyList<FemLoadPiece> ElementLoadPieces(FragmentMaskKey key, string elemTag) => [];
 
     public IReadOnlyDictionary<string, Dof6> NodeLoads(FragmentMaskKey key)
     {

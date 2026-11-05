@@ -87,6 +87,45 @@ public sealed class FragmentNodalCutTests
         Assert.Equal(6480, Sum(r, 0).Z, 6);
     }
 
+    /// <summary>
+    /// Разрез z = 0,9; КЭ 7 (x 0…0,5, z 0,5…1,0) отброшен, доля внутри 0,2. Сосредоточенная −1000 Н (z) по точке:
+    /// внутри (z = 0,95) — поправка +1000, маска 7000; снаружи (z = 0,6) — 0, маска 6000 (долей было бы 6200 в обоих).
+    /// </summary>
+    [Theory]
+    [InlineData(0.95, 7000)]
+    [InlineData(0.6, 6000)]
+    public void Wall_PointLoadInCrossingElement_ByPoint(double z, double expected)
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = Compression(nodes, elements, -2000, 3);
+        var g = FemElementGeometry.Of(elements.Single(e => e.ElemTag == "7"), nodes)!;
+        Assert.Equal(0.75, g.Centroid.Z, 12);
+        foreach (var tag in g.NodeTags) t.SetElementLoad(K1, "7", tag, new Dof6(0, 0, -250, 0, 0, 0));
+        t.AddElementLoadPiece(K1, "7", new FemPointPiece(V(0.25, 0, z), V(0, 0, -1000), V(0, 0, 0)));
+        var r = FragmentNodalCut.Compute([WallBottom(0.9, 3)], new FragmentBounds(0.9, 3, null, 1e-3), nodes, elements,
+            new HashSet<string>(), [K1], t);
+
+        Assert.True(r.Ok, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(expected, Sum(r, 0).Z, 6);
+    }
+
+    /// <summary>Нагрузка на верхнее ребро КЭ 7 (z = 1,0; −2000 Н/м на 0,5 м) — целиком внутри: поправка +1000, маска 7000.</summary>
+    [Fact]
+    public void Wall_EdgeLoadInCrossingElement_ByClip()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = Compression(nodes, elements, -2000, 3);
+        var g = FemElementGeometry.Of(elements.Single(e => e.ElemTag == "7"), nodes)!;
+        foreach (var tag in g.NodeTags.Where(n => nodes[n].Z > 0.9))
+            t.SetElementLoad(K1, "7", tag, new Dof6(0, 0, -500, 0, 0, 0));
+        t.AddElementLoadPiece(K1, "7", new FemLinePiece(V(0, 0, 1), V(0.5, 0, 1), V(0, 0, -2000), V(0, 0, -2000)));
+        var r = FragmentNodalCut.Compute([WallBottom(0.9, 3)], new FragmentBounds(0.9, 3, null, 1e-3), nodes, elements,
+            new HashSet<string>(), [K1], t);
+
+        Assert.True(r.Ok, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(7000, Sum(r, 0).Z, 6);
+    }
+
     static (Dictionary<string, FemMeshNode> Nodes, List<FemElement> Elements) Plate(int n, double h, double z)
     {
         var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);

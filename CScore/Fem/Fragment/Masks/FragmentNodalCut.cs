@@ -17,7 +17,8 @@ public sealed class FragmentNodalCutResult
 /// Силы кромок пластин по узловым силам КЭ родителя (спека 2026-11-05, разд. 3): тело — КЭ с центром внутри
 /// фрагмента, отброшенная часть — прочие (стержни разрезов «конец стержня» — ни то ни другое); сила отброшенной части в
 /// граничном узле <c>S_N = −Σ (f_int,e − f_нагр,e)|_N</c>; поправка на полоску между ступенькой и гранью
-/// <c>нагр(Ω_s) − нагр(Ω_f)</c> (КЭ — долей <see cref="FragmentElementShare"/>, узловые нагрузки и реакции — по
+/// <c>нагр(Ω_s) − нагр(Ω_f)</c> (КЭ, пересекающий грань, — частью по виду нагрузки <see cref="FragmentLoadInside"/>, без
+/// частей у источника — долей <see cref="FragmentElementShare"/>; узловые нагрузки и реакции — по
 /// принадлежности узла); слагаемое — в разрез плоскости наибольшего <c>Eval</c> центра КЭ (узла), ближайший к точке.
 /// Перед снятием — самопроверка равновесия узлов тела.
 /// </summary>
@@ -228,7 +229,8 @@ public static class FragmentNodalCut
                         Add(body.Center[e], at, f.Force * -1, f.Moment * -1);
             }
 
-            // Поправка на полоску: нагрузки КЭ — Ω_s (тело, в своих узлах) минус Ω_f (доля внутри границ).
+            // Поправка на полоску: нагрузки КЭ — Ω_s (тело, в своих узлах) минус Ω_f (часть внутри границ по виду нагрузки,
+            // без частей у источника — доля).
             foreach (var (tag, _) in body.Geometry)
             {
                 if (endCutBars.Contains(tag)) continue;
@@ -246,6 +248,12 @@ public static class FragmentNodalCut
                 {
                     foreach (var (n, l) in loads)
                         if (body.Positions.TryGetValue(n, out var at)) Add(c, at, l.Force * -1, l.Moment * -1);
+                    continue;
+                }
+                var pieces = source.ElementLoadPieces(key, tag);
+                if (pieces.Count > 0)
+                {
+                    foreach (var x in FragmentLoadInside.Terms(bounds, pieces)) Add(c, x.At, x.F * -1, x.M * -1);
                     continue;
                 }
                 var sf = PlanarVector3.Zero;

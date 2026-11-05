@@ -1,3 +1,4 @@
+using CScore.Fem.Loads;
 using CScore.Submodel;
 
 namespace CScore.Fem.Fragment.Masks;
@@ -18,6 +19,12 @@ public interface IFragmentParentNodalForces
 
     /// <summary>Согласованные узловые силы нагрузок КЭ (пластины или стержня) по тегам узлов; пусто — нагрузок нет.</summary>
     IReadOnlyDictionary<string, Dof6> ElementLoads(FragmentMaskKey key, string elemTag);
+
+    /// <summary>
+    /// Нагрузки КЭ частями по виду (<see cref="FemLoadPiece"/>) по слагаемым ключа с коэффициентами — для части Ω_f
+    /// КЭ, пересекающего грань, тем же правилом, что у построителя. Пусто — частей нет (поправка долей КЭ).
+    /// </summary>
+    IReadOnlyList<FemLoadPiece> ElementLoadPieces(FragmentMaskKey key, string elemTag);
 
     /// <summary>Узловые нагрузки (сетки и узлов схемы, кроме нагрузок КЭ) по тегам узлов.</summary>
     IReadOnlyDictionary<string, Dof6> NodeLoads(FragmentMaskKey key);
