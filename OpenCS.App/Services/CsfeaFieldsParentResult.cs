@@ -131,6 +131,17 @@ public sealed class CsfeaFieldsParentResult : IFragmentParentResult
         return true;
     }
 
+    /// <summary>Силы концов КЭ стержня в общих осях (сила узла на КЭ, момент относительно узла); false — нет данных или осей.</summary>
+    public bool TryBeamEndForcesGlobal(FragmentMaskKey key, string elemTag, out Dof6 i, out Dof6 j)
+    {
+        i = j = Dof6.Zero;
+        if (!_beamFrames.TryGetValue(elemTag, out var fr) || !TryBeamEndForces(key, elemTag, out var f)) return false;
+        Dof6 G(Dof6 l) => Dof6.FromParts(fr.X * l.X + fr.Y * l.Y + fr.Z * l.Z, fr.X * l.Rx + fr.Y * l.Ry + fr.Z * l.Rz);
+        i = G(f.I);
+        j = G(f.J);
+        return true;
+    }
+
     public bool TryShellForces(FragmentMaskKey key, string elemTag, out FragmentShellForces forces)
     {
         forces = null!;

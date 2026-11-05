@@ -252,6 +252,10 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Число КЭ, у которых сработал нижний предел жёсткости e_min.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public int StiffnessFloored { get; set; }
+
+    /// <summary>Нижний предел e_min, с которым построены сечения источника жёсткостей (null — источника нет).</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public double? StiffnessFloor { get; set; }
     /// <summary>Результат второго порядка: секущий с геометрической нелинейностью или линейный с P-Δ источника.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool SecondOrder { get; set; }
@@ -1040,32 +1044,27 @@ public static class FemCsfeaRunner
         var adapted = prepared.Adapted!;
         string tag = analysis.Tag;
         // Инженерная нелинейность: сечения КЭ — записанные матрицы конечного состояния секущего расчёта.
-        FemCsfeaStiffnessSourceData? source = null;
-        RecordedRcSectionFactory? sections = null;
-        if (csfea.StiffnessSource is { } stiffness)
+        // Общая с узловыми силами масок настройка (FemCsfeaLinearSetup); P-Δ источника — K_σ по перемещениям его записи
+        // (спека 2026-10-21, п. 4).
+        double floor = ctx.StiffnessFloor is > 0 and < 1 ? ctx.StiffnessFloor : OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
+        if (FemCsfeaLinearSetup.Resolve(ctx.Db, analysis.SchemaId, csfea, adapted.Model, floor, out var setupError) is not { } setup)
         {
-            source = FemCsfeaStiffnessSources.Load(ctx.Db, analysis.SchemaId, stiffness, out var sourceError);
-            string? error = sourceError ?? (source != null ? MeshMismatch(adapted.Model, source) : null);
-            if (error != null)
-            {
-                summary.Errors.Add(error);
-                return Result(analysis, created, "error", summary);
-            }
-            double floor = ctx.StiffnessFloor is > 0 and < 1 ? ctx.StiffnessFloor : OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
-            sections = new RecordedRcSectionFactory(source!.Fields, floor);
+            summary.Errors.Add(setupError!);
+            return Result(analysis, created, "error", summary);
         }
-        // P-Δ источника: K_σ по перемещениям его записи (спека 2026-10-21, п. 4).
-        bool pDelta = csfea.SourcePDelta && source is { GeomNonlinear: true };
+        var source = setup.Source;
+        var sections = setup.Sections;
+        bool pDelta = setup.PDelta;
         if (csfea.SourcePDelta && source is { GeomNonlinear: false })
             summary.Report.Add("Флажок P-Δ: источник жёсткостей считался без геометрической нелинейности — расчёт первого порядка.");
         if (pDelta && source!.LargeDisplacements)
             summary.Report.Add("P-Δ приближённо: источник считался с большими перемещениями, K_σ — по исходной геометрии.");
+        summary.StiffnessFloor = setup.StiffnessFloor;
         var options = new RcLinearOptions
         {
             MaxDegreeOfParallelism = ctx.MaxDegreeOfParallelism, ShellForceAngles = adapted.ShellForceAngles,
             RecordSectionStrains = csfea.RecordSectionStrains, Log = line => ctx.Log.Info($"[{tag}] {line}"),
-            Sections = sections, GeometricFields = pDelta ? source!.Fields : null,
-            ShellInPlanePDelta = source?.ShellInPlanePDelta ?? true,
+            Sections = setup.Sections, GeometricFields = setup.GeometricFields, ShellInPlanePDelta = setup.ShellInPlanePDelta,
         };
         var clock = Stopwatch.StartNew();
         RcLinearRun run;
@@ -1144,7 +1143,7 @@ public static class FemCsfeaRunner
     /// <summary>
     /// Сетка модели не совпадает с сеткой записи источника (узлы, оболочки, стержни) — текст ошибки; совпадает — null.
     /// </summary>
-    static string? MeshMismatch(RcStructuralModel model, FemCsfeaStiffnessSourceData source)
+    internal static string? MeshMismatch(RcStructuralModel model, FemCsfeaStiffnessSourceData source)
     {
         var f = source.Fields;
         bool Same(IEnumerable<int> a, int[] b) => a.ToHashSet().SetEquals(b);

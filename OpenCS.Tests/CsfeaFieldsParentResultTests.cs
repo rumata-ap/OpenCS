@@ -97,6 +97,11 @@ public sealed class CsfeaFieldsParentResultTests
         Assert.True(r.TryBeamEndForces(Key, "12", out var e12));
         Near(Local(fP * -1, new(0, -p * h / 2, 0)), e12.I, p, p * h, "КЭ 12, конец I");
         Near(Local(fP, PlanarVector3.Zero), e12.J, p, p * h, "КЭ 12, конец J");
+        // Те же силы в общих осях — без поворота КонЭ.
+        Assert.True(r.TryBeamEndForcesGlobal(Key, "11", out var g11i, out var g11j));
+        Near(Dof6.FromParts(fP * -1, new(0, -p * h, 0)), g11i, p, p * h, "КЭ 11, конец I, общие оси");
+        Near(Dof6.FromParts(fP, new(0, p * h / 2, 0)), g11j, p, p * h, "КЭ 11, конец J, общие оси");
+        Assert.False(r.TryBeamEndForcesGlobal(Key, "77", out _, out _));
 
         Assert.True(r.KnowsBeamLoads);
         Assert.Empty(r.BeamLoads(Key, "11"));
