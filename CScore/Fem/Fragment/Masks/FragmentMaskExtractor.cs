@@ -17,16 +17,31 @@ public sealed class FragmentMaskInput
     public IReadOnlyList<FemElement> ParentElements { get; init; } = [];
     public required IFragmentParentResult Result { get; init; }
     public double ToleranceM { get; init; } = 0.001;
+    /// <summary>Узловые силы КЭ родителя (спека 2026-11-05); null — силы кромок пластин МНК по центрам КЭ.</summary>
+    public IFragmentParentNodalForces? NodalForces { get; init; }
+    /// <summary>Границы фрагмента для ступеньки (нужны вместе с <see cref="NodalForces"/>).</summary>
+    public FragmentBounds? Bounds { get; init; }
+    /// <summary>КЭ для узловых сил: полоса и соседи её узлов; пусто — <see cref="ParentElements"/>.</summary>
+    public IReadOnlyList<FemElement> NodalElements { get; init; } = [];
 }
+
+/// <summary>Чем сняты силы кромок пластин.</summary>
+public enum FragmentEdgeForceMethod { LeastSquares, NodalForces }
 
 /// <summary>Итог снятия: маски по сечениям и ключам, диагностика (только предупреждения).</summary>
 public sealed class FragmentMaskExtraction
 {
     public List<FragmentCutMask> Masks { get; } = [];
     public List<FemValidationDiagnostic> Diagnostics { get; } = [];
+    /// <summary>Метод сил кромок пластин.</summary>
+    public FragmentEdgeForceMethod EdgeMethod { get; set; } = FragmentEdgeForceMethod.LeastSquares;
 }
 
-/// <summary>Снятие масок по всем сечениям и ключам источника (спека разд. 4.2–4.4).</summary>
+/// <summary>
+/// Снятие масок по всем сечениям и ключам источника (спека 2026-10-28, разд. 4.2–4.4). Силы кромок пластин — по
+/// узловым силам КЭ родителя (спека 2026-11-05: источник <see cref="FragmentMaskInput.NodalForces"/> и самопроверка
+/// прошла), иначе МНК по центрам КЭ; сверка равнодействующей кромки с прямой суммой — только на пути МНК.
+/// </summary>
 public static class FragmentMaskExtractor
 {
     /// <summary>Допуск сверки равнодействующей сечения (спека 4.4).</summary>
@@ -57,6 +72,17 @@ public static class FragmentMaskExtractor
             else if (g.IsShell) shells.Add((e.ElemTag, g));
         }
 
+        FragmentNodalCutResult? nodal = null;
+        if (input.NodalForces is { } source && input.Bounds is { } bounds)
+        {
+            var nodalElements = input.NodalElements.Count > 0 ? input.NodalElements : input.ParentElements;
+            var endBars = FragmentNodalCut.EndCutBars(input.Cuts, input.ParentNodes, nodalElements, input.ToleranceM);
+            nodal = FragmentNodalCut.Compute(input.Cuts, bounds, input.ParentNodes, nodalElements, endBars, input.Result.Keys, source);
+            x.Diagnostics.AddRange(nodal.Diagnostics);
+            if (!nodal.Ok) nodal = null;
+        }
+        x.EdgeMethod = nodal != null ? FragmentEdgeForceMethod.NodalForces : FragmentEdgeForceMethod.LeastSquares;
+
         var checks = new List<ResultantCheck>();
         for (int i = 0; i < input.Cuts.Count; i++)
         {
@@ -65,6 +91,8 @@ public static class FragmentMaskExtractor
             string where = $"{c.Cut.MemberTag} ({FragmentCutLabel.Side(c.Cut)}, z = {c.Cut.Z.ToString("0.###", CultureInfo.CurrentCulture)})";
             if (c.Cut.Kind == FragmentCutKind.End)
                 ExtractEnd(input, x, i, c, outward, where, bars);
+            else if (nodal != null)
+                ExtractEdgeNodal(input, x, i, c, outward, where, shells, nodal);
             else
                 ExtractEdge(input, x, i, c, outward, where, shells, checks);
         }
@@ -119,24 +147,7 @@ public static class FragmentMaskExtractor
     static void ExtractEdge(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c, PlanarVector3 outward,
         string where, List<(string, FemElementGeometry)> shells, List<ResultantCheck> checks)
     {
-        if (c.ShellNormal is not { } normal || c.Cut.Segments.Count == 0)
-        {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет плоскости пластины — маски нет.", c);
-            return;
-        }
-        var unit = normal.Normalize();
-        if ((outward - unit * outward.Dot(unit)).Length < 1e-6)
-        {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нормаль разреза перпендикулярна плоскости пластины — маски нет.", c);
-            return;
-        }
-        var geometries = c.Cut.Segments
-            .Select(seg => FragmentWallCutSampler.Prepare(seg.P, seg.Q, normal, outward, shells, input.ToleranceM)).ToList();
-        if (geometries.All(g => g.Plane.Count == 0))
-        {
-            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ пластин родителя в плоскости кромки — маски нет.", c);
-            return;
-        }
+        if (PrepareEdge(input, x, c, outward, where, shells) is not { } geometries) return;
         foreach (var key in input.Result.Keys)
         {
             var samples = new List<FragmentMaskSample>();
@@ -175,6 +186,69 @@ public static class FragmentMaskExtractor
                 $"Сечение {where}, {KeyText(key)}: в {degenerate} точках патч КЭ вырожден — усилия по ближайшим центрам.", c);
             if (!noF && FragmentMaskBalance.Resultant(c, samples, PlanarVector3.Zero) is { } res)
                 checks.Add(new(c, key, where, geometries.Sum(g => g.Length), res.F, res.M, direct.F, direct.M));
+        }
+    }
+
+    /// <summary>Геометрия отрезков кромки или null (предупреждение «маски нет»).</summary>
+    static List<FragmentWallCutGeometry>? PrepareEdge(FragmentMaskInput input, FragmentMaskExtraction x, FragmentMaskCutInput c,
+        PlanarVector3 outward, string where, List<(string, FemElementGeometry)> shells)
+    {
+        if (c.ShellNormal is not { } normal || c.Cut.Segments.Count == 0)
+        {
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет плоскости пластины — маски нет.", c);
+            return null;
+        }
+        var unit = normal.Normalize();
+        if ((outward - unit * outward.Dot(unit)).Length < 1e-6)
+        {
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нормаль разреза перпендикулярна плоскости пластины — маски нет.", c);
+            return null;
+        }
+        var geometries = c.Cut.Segments
+            .Select(seg => FragmentWallCutSampler.Prepare(seg.P, seg.Q, normal, outward, shells, input.ToleranceM)).ToList();
+        if (geometries.All(g => g.Plane.Count == 0))
+        {
+            Warn(x, "fragment_mask_cut_unmatched", $"Сечение {where}: нет КЭ пластин родителя в плоскости кромки — маски нет.", c);
+            return null;
+        }
+        return geometries;
+    }
+
+    /// <summary>
+    /// Кромка по узловым силам (спека 2026-11-05, разд. 4): слагаемые сечения → перенос на отрезки → плотность; сэмплы —
+    /// точки геометрии кромки и узлы плотности, перемещения — по функциям формы, как на пути МНК.
+    /// </summary>
+    static void ExtractEdgeNodal(FragmentMaskInput input, FragmentMaskExtraction x, int index, FragmentMaskCutInput c,
+        PlanarVector3 outward, string where, List<(string, FemElementGeometry)> shells, FragmentNodalCutResult nodal)
+    {
+        if (PrepareEdge(input, x, c, outward, where, shells) is not { } geometries) return;
+        foreach (var key in input.Result.Keys)
+        {
+            IReadOnlyList<FragmentNodalTerm> terms = nodal.Terms.TryGetValue(key, out var byCut) && byCut.TryGetValue(index, out var list)
+                ? list : [];
+            var projected = FragmentNodalDensity.Project(c.Cut.Segments, terms);
+            var samples = new List<FragmentMaskSample>();
+            bool noU = false;
+            double offset = 0;
+            for (int j = 0; j < geometries.Count; j++)
+            {
+                var g = geometries[j];
+                var density = FragmentNodalDensity.Density(g.Length, g.Axis, projected[j]);
+                var points = g.Points
+                    .Where(p => density.All(d => Math.Abs(d.T - p.S) > FragmentNodalDensity.MergeEps))
+                    .Concat(density.Select(d => FragmentWallCutSampler.PointAt(g, d.T)))
+                    .OrderBy(p => p.S).ToList();
+                foreach (var p in points)
+                {
+                    var u = FragmentWallCutSampler.Displacement(p,
+                        tag => input.Result.TryNodeDisplacement(key, tag, out var d) ? d : null);
+                    noU |= u == null;
+                    samples.Add(new FragmentMaskSample(offset + p.S, u, FragmentNodalDensity.At(density, p.S)));
+                }
+                offset += g.Length;
+            }
+            x.Masks.Add(new FragmentCutMask(index, key, samples));
+            if (noU) Warn(x, "fragment_mask_no_displacement", $"Сечение {where}, {KeyText(key)}: в части точек нет перемещений источника.", c);
         }
     }
 

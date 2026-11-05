@@ -127,6 +127,13 @@ public static class FragmentWallCutSampler
         };
     }
 
+    /// <summary>Точка сэмпла на отрезке <paramref name="g"/> в <paramref name="s"/> (м от начала): содержащие КЭ и функции формы.</summary>
+    public static FragmentWallPoint PointAt(FragmentWallCutGeometry g, double s)
+    {
+        ArgumentNullException.ThrowIfNull(g);
+        return Point(g.P + g.Axis * s, s, g.Plane);
+    }
+
     static FragmentWallPoint Point(PlanarVector3 x, double s, IReadOnlyList<FragmentPlaneElement> plane)
     {
         var containing = new List<(FragmentPlaneElement, double[])>();

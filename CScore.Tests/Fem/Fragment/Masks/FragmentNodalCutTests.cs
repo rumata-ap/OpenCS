@@ -215,4 +215,56 @@ public sealed class FragmentNodalCutTests
         Assert.True(with.Ok);
         Assert.Equal(6000, Sum(with, 0).Z, 6);
     }
+
+    /// <summary>Экстрактор с узловыми силами: путь «узловые силы», маска стены — 2000 Н/м во всех сэмплах, без сверки МНК.</summary>
+    [Fact]
+    public void Extractor_NodalPath_UniformDensity()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var result = new FragmentParentResultTable();
+        result.AddKey(K1);
+        foreach (var (tag, n) in nodes) result.SetDisplacement(K1, tag, new Dof6(0, 0, -1e-4 * n.Z, 0, 0, 0));
+        var cut = WallBottom(0.8, 3);
+
+        var x = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [cut], ParentNodes = nodes, ParentElements = elements, Result = result,
+            NodalForces = Compression(nodes, elements, -2000, 3), Bounds = new FragmentBounds(0.8, 3, null, 1e-3),
+        });
+
+        Assert.Equal(FragmentEdgeForceMethod.NodalForces, x.EdgeMethod);
+        var mask = Assert.Single(x.Masks);
+        Assert.All(mask.Samples, s => Assert.Equal(2000, s.F!.Z, 6));
+        Assert.All(mask.Samples, s => Assert.Equal(-8e-5, s.U!.Z, 12));
+        Assert.Equal(6000, FragmentMaskBalance.Resultant(cut, mask.Samples, V(0, 0, 0))!.Value.F.Z, 6);
+        Assert.DoesNotContain(x.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
+    }
+
+    /// <summary>Самопроверка не прошла — МНК по центрам КЭ (усилия есть) и предупреждение.</summary>
+    [Fact]
+    public void Extractor_SelfCheckFails_FallsBackToLeastSquares()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var result = new FragmentParentResultTable();
+        result.AddKey(K1);
+        foreach (var (tag, _) in nodes) result.SetDisplacement(K1, tag, Dof6.Zero);
+        foreach (var e in elements)
+        {
+            var (ax, ay, _) = FemElementGeometry.Of(e, nodes)!.ShellFrame();
+            result.SetShellForces(K1, e.ElemTag, new FragmentShellForces(ax, ay, [0, -2000, 0, 0, 0, 0, 0, 0]));
+        }
+        var nodal = Compression(nodes, elements, -2000, 3);
+        // КЭ ряда 4 (z 1,5…2,0) — в теле.
+        nodal.SetElementNodeForce(K1, elements[20].ElemTag, FemElementGeometry.Of(elements[20], nodes)!.NodeTags[0], new Dof6(0, 0, 1e4, 0, 0, 0));
+
+        var x = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [WallBottom(0.8, 3)], ParentNodes = nodes, ParentElements = elements, Result = result,
+            NodalForces = nodal, Bounds = new FragmentBounds(0.8, 3, null, 1e-3),
+        });
+
+        Assert.Equal(FragmentEdgeForceMethod.LeastSquares, x.EdgeMethod);
+        Assert.Contains(x.Diagnostics, d => d.Code == "fragment_mask_nodal_selfcheck");
+        Assert.Single(x.Masks);
+    }
 }
