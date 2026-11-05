@@ -5,18 +5,6 @@ namespace CScore.Fem.Fragment;
 
 public static partial class StoreyFragmentBuilder
 {
-    /// <summary>Квадратура Дунаванта степени 5 на треугольнике: барицентрические координаты и вес (доля площади).</summary>
-    static readonly (double L1, double L2, double L3, double W)[] Dunavant5 =
-    [
-        (1.0 / 3, 1.0 / 3, 1.0 / 3, 0.225),
-        (0.059715871789770, 0.470142064105115, 0.470142064105115, 0.132394152788506),
-        (0.470142064105115, 0.059715871789770, 0.470142064105115, 0.132394152788506),
-        (0.470142064105115, 0.470142064105115, 0.059715871789770, 0.132394152788506),
-        (0.797426985353087, 0.101286507323456, 0.101286507323456, 0.125939180544827),
-        (0.101286507323456, 0.797426985353087, 0.101286507323456, 0.125939180544827),
-        (0.101286507323456, 0.101286507323456, 0.797426985353087, 0.125939180544827),
-    ];
-
     /// <summary>Многоугольник в 3D, отсечённый всеми плоскостями фрагмента (полоса и призма); пусто — снаружи.</summary>
     static List<PlanarVector3> ClipBox(Ctx c, List<PlanarVector3> polygon) => c.Bounds.ClipPolygon(polygon);
 
@@ -27,7 +15,7 @@ public static partial class StoreyFragmentBuilder
     /// Нагрузки КЭ пластин родителя (спека разд. 4): равномерные копятся по КЭ вектором в глобальных осях и поднимаются
     /// на КонЭ при одном векторе на все КЭ части, иначе — поле; по узлам (неравные) и на ребро — поле; сосредоточенные —
     /// узловые нагрузки фрагмента в той же точке; собственный вес КЭ — на КонЭ при одном k на все КЭ части. Родитель —
-    /// точные интегралы по части КЭ в полосе.
+    /// часть нагрузки КЭ внутри границ по виду (<see cref="FragmentLoadInside"/>, общий помощник с масками).
     /// </summary>
     sealed class ShellLoads(LoadCtx l)
     {
@@ -42,36 +30,31 @@ public static partial class StoreyFragmentBuilder
             int lc = load.LoadCaseId;
             var v = load.Values;
             if (FemElementLoadNodalizer.Direction(load, g, null) is not { } dir) { l.Lost.Add(e.ElemTag); return; }
+            // Равнодействующая родителя — часть нагрузки внутри границ по виду (общий помощник с масками).
+            void Parent(string category) => l.AddParentPieces(lc, category, FemElementLoadPieces.Of(load, e, l.Mesh, 1));
             switch (load.LoadKind)
             {
                 case FemElementLoadKinds.Uniform when v.Count >= 1:
-                    Uniform(lc, e.ElemTag, polygon, dir * v[0]);
+                    Uniform(lc, e.ElemTag, dir * v[0]);
+                    Parent(LoadCategory.Uniform);
                     break;
                 case FemElementLoadKinds.Nodal when v.Count == g.Points.Count:
                     if (v.All(x => Math.Abs(x - v[0]) <= 1e-12 * Math.Max(1, Math.Abs(v[0]))))
                     {
-                        Uniform(lc, e.ElemTag, polygon, dir * v[0]);
+                        Uniform(lc, e.ElemTag, dir * v[0]);
+                        Parent(LoadCategory.Uniform);
                         break;
                     }
-                    Integrate(lc, LoadCategory.Nodal, polygon,
-                        p => g.ShellShapeAt(p) is { } n ? dir * n.Select((x, k) => x * v[k]).Sum() : PlanarVector3.Zero);
+                    Parent(LoadCategory.Nodal);
                     Field(lc, FemElementLoadKinds.Nodal, dir, e.ElemTag, d => v.Select(x => x * d).ToArray());
                     break;
-                case FemElementLoadKinds.Edge when v.Count >= 4 && FemElementLoadNodalizer.ShellEdge(g, v[0], v[1]) is var (i, j):
-                {
-                    PlanarVector3 a = g.Points[i], b = g.Points[j];
-                    double len = (b - a).Length;
-                    var u = (b - a) * (1 / len);
-                    double Q(double s) => v[2] + (v[3] - v[2]) * s / len;
-                    var (lo, hi) = ClipRange(l.C, a, u, 0, len);
-                    if (hi - lo > 1e-9) l.AddParentLine(lc, LoadCategory.Edge, a + u * lo, a + u * hi, dir * Q(lo), dir * Q(hi));
+                case FemElementLoadKinds.Edge when v.Count >= 4 && FemElementLoadNodalizer.ShellEdge(g, v[0], v[1]) is not null:
+                    Parent(LoadCategory.Edge);
                     Field(lc, FemElementLoadKinds.Edge, dir, e.ElemTag, d => [v[0], v[1], v[2] * d, v[3] * d]);
                     break;
-                }
                 case FemElementLoadKinds.Point when v.Count >= 3:
                 {
-                    var (ex, ey, _) = g.ShellFrame();
-                    var at = g.Points[g.Contour[0]] + ex * v[1] + ey * v[2];
+                    var at = FemElementLoadNodalizer.ShellPointAt(g, v[1], v[2]);
                     if (!l.C.InBox(at)) break;
                     l.AddParent(lc, LoadCategory.Point, at, dir * v[0], PlanarVector3.Zero);
                     l.AddNodeLoad(lc, LoadCategory.Point, at, dir * v[0], PlanarVector3.Zero);
@@ -91,26 +74,7 @@ public static partial class StoreyFragmentBuilder
             _selfWeight[key] = _selfWeight.GetValueOrDefault(key) + load.Values[0];
         }
 
-        void Uniform(int lc, string elem, List<PlanarVector3> polygon, PlanarVector3 q)
-        {
-            _uniform[(lc, elem)] = _uniform.GetValueOrDefault((lc, elem)) + q;
-            var (area, centroid) = AreaCentroid(polygon);
-            l.AddParent(lc, LoadCategory.Uniform, centroid, q * area, PlanarVector3.Zero);
-        }
-
-        void Integrate(int lc, string category, List<PlanarVector3> polygon, Func<PlanarVector3, PlanarVector3> density)
-        {
-            for (int k = 1; k + 1 < polygon.Count; k++)
-            {
-                var (a, b, c) = (polygon[0], polygon[k], polygon[k + 1]);
-                double area = 0.5 * (b - a).Cross(c - a).Length;
-                foreach (var (l1, l2, l3, w) in Dunavant5)
-                {
-                    var p = a * l1 + b * l2 + c * l3;
-                    l.AddParent(lc, category, p, density(p) * (w * area), PlanarVector3.Zero);
-                }
-            }
-        }
+        void Uniform(int lc, string elem, PlanarVector3 q) => _uniform[(lc, elem)] = _uniform.GetValueOrDefault((lc, elem)) + q;
 
         /// <summary>Записи поля по глобальным осям: компонента d вектора <paramref name="direction"/> масштабирует значения.</summary>
         void Field(int lc, string kind, PlanarVector3 direction, string refTag, Func<double, double[]> values)

@@ -77,7 +77,7 @@ public static partial class StoreyFragmentBuilder
             {
                 var at = a + u * load.StartOffsetM;
                 if (!l.C.InBox(at)) continue;
-                l.AddParent(lc, LoadCategory.Bars, at, G(q0), G(new PlanarVector3(load.Mx, load.My, load.Mz)));
+                l.AddParentPieces(lc, LoadCategory.Bars, [new FemPointPiece(at, G(q0), G(new PlanarVector3(load.Mx, load.My, load.Mz)))]);
                 var part = mine.FirstOrDefault(p => (at - p.A).Dot(p.Axis) is var s && s >= -l.C.Tol && s <= p.Length + l.C.Tol);
                 if (part is null) { l.Lost.Add(m.ElemTag); continue; }
                 AddMemberLoad(l, part.Tag, new FemMemberLoad
@@ -93,8 +93,7 @@ public static partial class StoreyFragmentBuilder
             double s0 = load.StartOffsetM, s1 = len - load.EndOffsetM;
             if (s1 - s0 <= 1e-9) continue;
             PlanarVector3 Q(double s) => q0 + (q1 - q0) * ((s - s0) / (s1 - s0));
-            var (lo, hi) = ClipRange(l.C, a, u, s0, s1);
-            if (hi - lo > 1e-9) l.AddParentLine(lc, LoadCategory.Bars, a + u * lo, a + u * hi, G(Q(lo)), G(Q(hi)));
+            l.AddParentPieces(lc, LoadCategory.Bars, [new FemLinePiece(a + u * s0, a + u * s1, G(q0), G(q1))]);
             foreach (var p in mine)
             {
                 double p0 = (p.A - a).Dot(u), p1 = (p.B - a).Dot(u);
@@ -136,16 +135,15 @@ public static partial class StoreyFragmentBuilder
         {
             var at = p0 + axis * pa;
             if (!l.C.InBox(at)) return;
-            l.AddParent(lc, LoadCategory.Bars, at, dir * v[0], PlanarVector3.Zero);
         }
         else
         {
-            var (a, qa, b, qb) = seg!.Value;
-            double QE(double s) => qa + (qb - qa) * (s - a) / (b - a);
+            var (a, _, b, _) = seg!.Value;
             var (lo, hi) = ClipRange(l.C, p0, axis, a, b);
             if (hi - lo <= 1e-9) return;
-            l.AddParentLine(lc, LoadCategory.Bars, p0 + axis * lo, p0 + axis * hi, dir * QE(lo), dir * QE(hi));
         }
+        // Равнодействующая родителя — часть нагрузки внутри границ по виду (общий помощник с масками).
+        l.AddParentPieces(lc, LoadCategory.Bars, FemElementLoadPieces.Of(load, e, l.Mesh, 1));
 
         var candidates = l.Bars.Where(p => p.ParentTag == e.SourceMemberTag).ToList();
         if (candidates.Count == 0) candidates = l.Bars;

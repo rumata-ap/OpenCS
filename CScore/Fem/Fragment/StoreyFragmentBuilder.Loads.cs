@@ -103,9 +103,12 @@ public static partial class StoreyFragmentBuilder
         public void AddParent(int lc, string category, PlanarVector3 at, PlanarVector3 f, PlanarVector3 m) =>
             Sum(lc, category).Add(at - Origin, f, m);
 
-        /// <summary>Линейная погонная нагрузка родителя на отрезке a → b.</summary>
-        public void AddParentLine(int lc, string category, PlanarVector3 a, PlanarVector3 b, PlanarVector3 qa, PlanarVector3 qb) =>
-            Sum(lc, category).AddLine(a - Origin, b - Origin, qa, qb);
+        /// <summary>Части нагрузки КЭ родителя по виду — их часть внутри границ фрагмента (<see cref="FragmentLoadInside"/>).</summary>
+        public void AddParentPieces(int lc, string category, IEnumerable<FemLoadPiece> pieces)
+        {
+            foreach (var t in FragmentLoadInside.Terms(C.Bounds, pieces)) AddParent(lc, category, t.At, t.F, t.M);
+        }
+
 
         /// <summary>
         /// Часть КЭ-пластины в полосе (клип по z₁, z₂; пусто — КЭ вне полосы) и КонЭ фрагмента, содержащий её центр
