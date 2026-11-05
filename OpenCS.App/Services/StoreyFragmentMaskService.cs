@@ -184,8 +184,17 @@ public static class StoreyFragmentMaskService
         var csfea = FemAnalysisParams.Parse(analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
         if (!linear)
         {
-            Unsupported("секущий расчёт пока снимается по центрам КЭ");
-            return null;
+            if (csfea.GeomNonlinear)
+            {
+                Unsupported("секущий расчёт с геометрической нелинейностью");
+                return null;
+            }
+            if (steps.Values.Any(f => !f.HasMatrices || !f.HasElementMatrices))
+            {
+                Unsupported("в записи шагов нет секущих матриц КЭ (пересчитайте родителя)");
+                return null;
+            }
+            return CsfeaNodalForcesSource.Secant(parent.Adapted.Model, fields, steps, parent.Loads, parentLoadCase);
         }
         double floor = summary.StiffnessFloor ?? OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
         if (FemCsfeaLinearSetup.Resolve(db, parentId, csfea, parent.Adapted.Model, floor, out var error) is not { } setup)

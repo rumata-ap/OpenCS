@@ -76,6 +76,29 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         return new(model, fields, steps, loads, parentLoadCase, _ => (sections, setup.GeometricFields, setup.ShellInPlanePDelta));
     }
 
+    /// <summary>Нижний предел для записанных секущих матриц: в секущем прогоне предела не было — практически без него.</summary>
+    const double SecantFloor = 1e-9;
+
+    /// <summary>
+    /// Секущий расчёт без геометрической нелинейности: сборка на ключ по записанным секущим матрицам его шага
+    /// (<see cref="RecordedRcSectionFactory"/>, нужны <see cref="RcSecantStepFields.HasElementMatrices"/>).
+    /// </summary>
+    /// <remarks>
+    /// Стержни без шарниров — тоже K_s,e·u_e − f_нагр,e по записанным матрицам: записанные силы концов — интегралы по
+    /// сечению при u и отличаются от K_s·u на допуск итераций, а равновесие узлов точно только для K_s·u (u — решение на
+    /// этих матрицах). У стержней с шарнирами нагрузки конденсируются в ядре — для них записанные силы концов.
+    /// </remarks>
+    public static CsfeaNodalForcesSource Secant(RcStructuralModel model, CsfeaFieldsParentResult fields,
+        IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps, IReadOnlyDictionary<int, FragmentParentCaseLoads> loads,
+        Func<int, int?> parentLoadCase) =>
+        new(model, fields, steps, loads, parentLoadCase, key => (new RecordedRcSectionFactory(steps[key], SecantFloor), null, true))
+        {
+            _beamsByMatrix = true,
+        };
+
+    /// <summary>Стержни без шарниров — по матрице КЭ сборки (секущий источник).</summary>
+    bool _beamsByMatrix;
+
     public IReadOnlyCollection<(string A, string? B)> NodeLinks => _links;
 
     public bool TryElementNodeForces(FragmentMaskKey key, string elemTag, out IReadOnlyDictionary<string, Dof6> forces)
@@ -84,6 +107,20 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         if (!_steps.ContainsKey(key)) return false;
         if (_beamNodes.TryGetValue(elemTag, out var ends))
         {
+            if (_beamsByMatrix && _beamIndex.TryGetValue(elemTag, out int bm)
+                && _model.Beams[bm] is { ReleaseI: 0, ReleaseJ: 0 })
+            {
+                var sst = StateOf(key);
+                int e0 = sst.Build.Mesh.Shells.Count + bm;
+                var kf = Multiply(sst, e0, sst.Build.Mesh.ElementK(e0));
+                var bl = ElementLoads(key, elemTag);
+                forces = new Dictionary<string, Dof6>(StringComparer.Ordinal)
+                {
+                    [ends.I] = bl.TryGetValue(ends.I, out var li) ? kf[0] - li : kf[0],
+                    [ends.J] = bl.TryGetValue(ends.J, out var lj) ? kf[1] - lj : kf[1],
+                };
+                return true;
+            }
             if (!_fields.TryBeamEndForcesGlobal(key, elemTag, out var i, out var j)) return false;
             var bst = StateOf(key);
             if (bst.UDet != null && _beamIndex.TryGetValue(elemTag, out int b))

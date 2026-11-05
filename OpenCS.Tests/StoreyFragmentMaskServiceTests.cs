@@ -280,7 +280,7 @@ public sealed partial class StoreyFragmentMaskServiceTests : IDisposable
         Assert.False(r.HasErrors, string.Join("\n", r.Diagnostics.Select(d => d.Message)));
         Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_mask_balance");
         // Поля шагов записаны линейным расчётом — без секущих матриц КЭ: узловые силы недоступны, МНК.
-        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_nodal_unsupported");
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_nodal_unsupported" && d.Message.Contains("нет секущих матриц"));
         var keys = db.GetFragmentMasks(p.Fragment.Id)!.Items.Select(i => i.Key).Distinct().ToList();
         var both = FragmentMaskKey.OfStageTerms([(fragmentLc[0].Id, 1.0), (fragmentLc[1].Id, 1.0)]);
         Assert.Equal([FragmentMaskKey.OfStageTerms([(fragmentLc[0].Id, 1.0)]), both], keys);

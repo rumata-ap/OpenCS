@@ -4,6 +4,7 @@ using CScore.Fem.Fragment.Masks;
 using CScore.Submodel;
 using CSfea.CScoreBridge.Structural;
 using OpenCS.Services;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 using Xunit;
 
@@ -149,5 +150,34 @@ public sealed partial class StoreyFragmentMaskServiceTests
             or "fragment_mask_nodal_unassigned" or "fragment_mask_cut_resultant" or "fragment_mask_balance");
         Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_summary" && d.Message.Contains("узловые силы КЭ"));
         Assert.True(r.BalanceResidual is <= 1e-5, $"невязка {r.BalanceResidual}; " + string.Join("\n", r.Diagnostics.Select(d => d.Message)));
+    }
+}
+
+public sealed partial class StoreyFragmentMaskServiceTests
+{
+    /// <summary>
+    /// Секущий расчёт без геом. нелинейности: K_e пластин и стержней — записанные секущие матрицы шага ключа, на которых
+    /// решено u, — узлы в равновесии точно (не до допуска итераций).
+    /// </summary>
+    [Fact]
+    public void NodalSource_Secant_NodesInEquilibrium()
+    {
+        var p = Create();
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var input = FemCsfeaInputBuilder.Build(db, p.Schema.Id, new FemCsfeaSetup { Stages = [Single("Пост.", lc[0].Id)] });
+        var adapted = FemRcModelAdapter.Adapt(input);
+        Assert.False(adapted.HasErrors, string.Join("; ", adapted.Report));
+        var run = RcSecantAnalysis.Run(adapted.Model, FemCsfeaSetup.SecantOptions(new FemCsfeaParams()));
+        var record = run.LastConvergedFields()!;
+        Assert.True(record.HasElementMatrices);
+        var key = FragmentMaskKey.OfStageTerms([(lc[0].Id, 1.0)]);
+        var steps = new Dictionary<FragmentMaskKey, RcSecantStepFields> { [key] = record };
+        var all = StoreyFragmentMaskService.AdaptAllCases(input);
+        var source = CsfeaNodalForcesSource.Secant(all.Model, Fields(db, p.Schema, steps), steps,
+            FragmentParentLoadParts.Compute(input, all), id => id);
+
+        double r = NodalResidual(source, key, all.Model);
+        Assert.True(r <= 1e-6, $"невязка {r}; {WorstText()}");
     }
 }
