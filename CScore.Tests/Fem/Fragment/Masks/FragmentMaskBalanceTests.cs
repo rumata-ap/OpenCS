@@ -40,4 +40,52 @@ public sealed class FragmentMaskBalanceTests
         Assert.False(d.IsError);
         Assert.Empty(ok);
     }
+
+    /// <summary>Центр сечений: четыре боковые кромки квадрата 2×2 вокруг (5, 7) на z = 3 → (5, 7, 3); без сечений — запасная точка.</summary>
+    [Fact]
+    public void Origin_IsCentreOfCuts()
+    {
+        PlanarVector3 P(double x, double y) => V(x, y, 3);
+        FragmentMaskCutInput Edge((PlanarVector3, PlanarVector3) s) =>
+            new(new FragmentCut("s", FragmentCutKind.Edge, FragmentCutSide.Lateral, 3, null, [s]), null, V(0, 0, 1));
+        FragmentMaskCutInput[] cuts =
+        [
+            Edge((P(6, 6), P(6, 8))), Edge((P(6, 8), P(4, 8))), Edge((P(4, 8), P(4, 6))), Edge((P(4, 6), P(6, 6))),
+        ];
+
+        var o = FragmentMaskBalance.Origin(cuts, V(100, 100, 100));
+
+        Assert.Equal(5, o.X, 12);
+        Assert.Equal(7, o.Y, 12);
+        Assert.Equal(3, o.Z, 12);
+        Assert.Equal(V(1, 2, 3), FragmentMaskBalance.Origin([], V(1, 2, 3)));
+    }
+
+    /// <summary>
+    /// Небаланс только по моменту (силы сходятся: +60/+40 кН против −100 кН, момент −40 кН·м): у центра сечений — 20 %,
+    /// предупреждение; у далёкой точки (30 м) знаменатель — сила × 30 м, и тот же небаланс тонет (&lt; 1 %).
+    /// </summary>
+    [Fact]
+    public void Check_MomentImbalance_VisibleOnlyAtCutsCentre()
+    {
+        FragmentMaskCutInput[] cuts = [Col("a", FragmentCutSide.Bottom, 0, 1.5), Col("b", FragmentCutSide.Bottom, 4, 1.5)];
+        List<FragmentCutMask> masks =
+        [
+            new(0, K, [new FragmentMaskSample(0, null, new Dof6(0, 0, 60e3, 0, 0, 0))]),
+            new(1, K, [new FragmentMaskSample(0, null, new Dof6(0, 0, 40e3, 0, 0, 0))]),
+        ];
+        Dictionary<FragmentMaskKey, (PlanarVector3, PlanarVector3)> Loads(PlanarVector3 o) => new()
+        {
+            [K] = (V(0, 0, -100e3), (V(2, 0, 3) - o).Cross(V(0, 0, -100e3))),
+        };
+        var centre = FragmentMaskBalance.Origin(cuts, PlanarVector3.Zero);
+        var far = V(30, 0, 0);
+
+        var near = FragmentMaskBalance.Check(cuts, masks, Loads(centre), centre);
+        var distant = FragmentMaskBalance.Check(cuts, masks, Loads(far), far);
+
+        var d = Assert.Single(near);
+        Assert.Contains("по моменту 20", d.Message.Replace(',', '.'));
+        Assert.Empty(distant);
+    }
 }

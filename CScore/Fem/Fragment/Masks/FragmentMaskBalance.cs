@@ -80,8 +80,7 @@ public static class FragmentMaskBalance
                 sumF += f;
                 sumM += mo;
                 absF += f.Length;
-                var at = cut.EndPoint ?? cut.Cut.Segments[0].P;
-                radius = Math.Max(radius, (at - origin).Length);
+                foreach (var at in Points(cut)) radius = Math.Max(radius, (at - origin).Length);
                 bool lateral = cut.Cut.Side == FragmentCutSide.Lateral;
                 parts.Add(string.Create(System.Globalization.CultureInfo.CurrentCulture,
                     $"{cut.Cut.MemberTag} {FragmentCutLabel.Side(cut.Cut)}: {(lateral ? "|F|" : "Fz")} {(lateral ? f.Length : f.Z) / 1e3:0.##} кН"));
@@ -100,5 +99,38 @@ public static class FragmentMaskBalance
                 false));
         }
         return result;
+    }
+
+    /// <summary>
+    /// Точка приведения моментов сверки — центр сечений фрагмента (среднее концов отрезков кромок и точек концов
+    /// стержней). У призмы колонны — ось колонны: момент сверяется с плечом размера фрагмента, а не полосы этажа (иначе
+    /// знаменатель — сила × расстояние до центра полосы, и расхождение по моменту повторяет расхождение по силе).
+    /// <paramref name="fallback"/> — если у сечений нет точек.
+    /// </summary>
+    public static PlanarVector3 Origin(IReadOnlyList<FragmentMaskCutInput> cuts, PlanarVector3 fallback)
+    {
+        var sum = PlanarVector3.Zero;
+        int count = 0;
+        foreach (var p in cuts.SelectMany(Points))
+        {
+            sum += p;
+            count++;
+        }
+        return count == 0 ? fallback : sum * (1.0 / count);
+    }
+
+    /// <summary>Точки сечения: конец стержня или концы отрезков кромки.</summary>
+    static IEnumerable<PlanarVector3> Points(FragmentMaskCutInput cut)
+    {
+        if (cut.EndPoint is { } e)
+        {
+            yield return e;
+            yield break;
+        }
+        foreach (var (p, q) in cut.Cut.Segments)
+        {
+            yield return p;
+            yield return q;
+        }
     }
 }

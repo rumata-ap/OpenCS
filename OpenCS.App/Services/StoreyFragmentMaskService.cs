@@ -111,7 +111,7 @@ public static class StoreyFragmentMaskService
             return Fail("fragment_mask_empty", "Ни по одному сечению маска не снята (см. предупреждения).");
 
         // Равновесие масок с нагрузками и реакциями полосы родителя.
-        var origin = BandOrigin(band, nodes);
+        var origin = FragmentMaskBalance.Origin(cutInputs, BandOrigin(band, nodes));
         var fieldsByKey = steps.ToDictionary(s => s.Item1, s => s.Item2);
         var setup = FemCsfeaSetup.FromAnalysis(analysis, parentLoadCases);
         var bounds = Bounds(fragment, z1, z2);
@@ -282,7 +282,7 @@ public static class StoreyFragmentMaskService
         }).ToList();
     }
 
-    /// <summary>Точка приведения моментов сверки — среднее узлов КЭ полосы.</summary>
+    /// <summary>Запасная точка приведения моментов сверки (у сечений нет точек) — среднее узлов КЭ полосы.</summary>
     static PlanarVector3 BandOrigin(IReadOnlyList<FemElement> band, IReadOnlyDictionary<string, FemMeshNode> nodes)
     {
         var points = band.SelectMany(e => CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)!.Points).ToList();
@@ -362,7 +362,7 @@ public static class StoreyFragmentMaskService
 
         if (hasForces)
         {
-            var origin = BandOrigin(band, nodes);
+            var origin = FragmentMaskBalance.Origin(cutInputs, BandOrigin(band, nodes));
             diag.Add(new("fragment_mask_no_reactions", $"В снимке {program} нет реакций опор: если опоры внутри полосы, сверка " +
                 "равновесия покажет расхождение.", false));
             try
