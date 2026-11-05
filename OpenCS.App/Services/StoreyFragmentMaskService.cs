@@ -241,6 +241,24 @@ public static class StoreyFragmentMaskService
         return result;
     }
 
+    /// <summary>
+    /// Адаптер входа родителя на все загружения без стадий — полная копия входа (сечения, вид расчёта, кинематика): по
+    /// этой модели строятся матрицы КЭ узловых сил масок.
+    /// </summary>
+    public static FemRcModelResult AdaptAllCases(FemRcModelInput i)
+    {
+        ArgumentNullException.ThrowIfNull(i);
+        return FemRcModelAdapter.Adapt(new FemRcModelInput
+        {
+            MeshNodes = i.MeshNodes, MeshElements = i.MeshElements, Nodes = i.Nodes, Members = i.Members, Groups = i.Groups,
+            Supports = i.Supports, Springs = i.Springs, RigidBodies = i.RigidBodies, LoadCases = i.LoadCases, NodeLoads = i.NodeLoads,
+            MemberLoads = i.MemberLoads, ElementLoads = i.ElementLoads, MeshNodeLoads = i.MeshNodeLoads, KinematicLoads = i.KinematicLoads,
+            MeshNodeKinematicLoads = i.MeshNodeKinematicLoads, Properties = i.Properties, PlateSection = i.PlateSection,
+            ShellModelSection = i.ShellModelSection, BeamSection = i.BeamSection, Calc = i.Calc, RegionAxisX = i.RegionAxisX,
+            BeamShear = i.BeamShear, Diagnostics = i.Diagnostics, Stages = [], AllLoadCases = true,
+        });
+    }
+
     /// <summary>Реакции опор внутри фрагмента из полей шага CSfea: сила и момент относительно <paramref name="origin"/>.</summary>
     static (PlanarVector3 F, PlanarVector3 M) Reactions(RcSecantStepFields fields, IReadOnlyDictionary<string, FemMeshNode> nodes,
         FragmentBounds bounds, PlanarVector3 origin)
