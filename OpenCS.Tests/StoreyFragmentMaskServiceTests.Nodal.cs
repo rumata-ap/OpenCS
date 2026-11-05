@@ -124,3 +124,30 @@ public sealed partial class StoreyFragmentMaskServiceTests
         }
     }
 }
+
+public sealed partial class StoreyFragmentMaskServiceTests
+{
+    /// <summary>
+    /// Призма вокруг C1: линейный CSfea → силы кромок плиты по узловым силам КЭ, равновесие масок с нагрузками
+    /// фрагмента до 1e-5; полуразмер 0,9 — грани поперёк КЭ (поправка на полоску).
+    /// </summary>
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(0.9)]
+    public void Extract_Linear_Prism_NodalForces_BalanceExact(double half)
+    {
+        var p = Create(Band with { Prism = CScore.Fem.Fragment.FragmentPrism.Create(-2.5, -2.5, 1, 0, half, half) });
+        using var db = p.Db;
+        var lc = db.GetFemLoadCases(p.Schema.Id);
+        var stages = new[] { Single("Пост.", lc[0].Id), Single("Ветер", lc[1].Id) };
+        var analysis = SaveResult(db, p.Schema, FemCsfeaRunner.LinearAnalysisKind, stages, stages);
+
+        var r = StoreyFragmentMaskService.Extract(db, p.Fragment, FragmentMaskSet.SourceCsfeaLinear, S(analysis.Id));
+
+        Assert.False(r.HasErrors, string.Join("\n", r.Diagnostics.Select(d => d.Message)));
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code is "fragment_mask_nodal_selfcheck" or "fragment_mask_nodal_unsupported"
+            or "fragment_mask_nodal_unassigned" or "fragment_mask_cut_resultant" or "fragment_mask_balance");
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_summary" && d.Message.Contains("узловые силы КЭ"));
+        Assert.True(r.BalanceResidual is <= 1e-5, $"невязка {r.BalanceResidual}; " + string.Join("\n", r.Diagnostics.Select(d => d.Message)));
+    }
+}

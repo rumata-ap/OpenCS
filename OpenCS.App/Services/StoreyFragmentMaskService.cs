@@ -26,12 +26,17 @@ public enum FragmentMaskStatus
 public sealed record FragmentMaskExtractResult(FragmentMaskSet? Set, IReadOnlyList<FemValidationDiagnostic> Diagnostics)
 {
     public bool HasErrors => Set == null;
+
+    /// <summary>Макс. по ключам относительная невязка равновесия масок по силе и моменту; null — сверка не проводилась.</summary>
+    public double? BalanceResidual { get; init; }
 }
 
 /// <summary>
 /// Маски фрагмента этажа из результата родителя (спека 2026-10-28, разд. 4, 6): постановка CSfea родителя → ключи
 /// (<see cref="FragmentMaskSourceKeys"/>) → поля шагов → <see cref="CsfeaFieldsParentResult"/> → снятие по разрезам
-/// (<see cref="FragmentMaskExtractor"/>) → равновесие с нагрузками полосы (<see cref="FragmentBandLoads"/>,
+/// (<see cref="FragmentMaskExtractor"/>; силы кромок пластин — по узловым силам КЭ родителя
+/// <see cref="CsfeaNodalForcesSource"/>, спека 2026-11-05, при отказе — МНК по центрам КЭ) → равновесие с нагрузками
+/// полосы (<see cref="FragmentBandLoads"/>,
 /// <see cref="FragmentMaskBalance"/>) → запись набора (БД v94) с отчётом и отпечатком источника. Источники ЛИРЫ/SCAD —
 /// снимок результатов программы во вложении родителя (<see cref="ExtractImported"/>, срез 7).
 /// Всё читается из БД здесь — вызывать в потоке соединения.
@@ -95,16 +100,26 @@ public static class StoreyFragmentMaskService
         if (cuts.Count == 0)
             return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
 
-        var band = Band(db, parentId, z1, z2, out var nodes);
+        var band = Band(db, parentId, z1, z2, out var nodes, out var allElements);
+        var nodalElements = WithNeighbours(band, allElements, nodes);
         var parentMembers = db.GetFemMembers(parentId);
         var regionAxes = FemCsfeaInputBuilder.RegionAxes(parentMembers, db.GetPlanarRegions(parentId));
-        var parentResult = new CsfeaFieldsParentResult(steps, nodes, band, parentMembers, regionAxes);
+        var parentResult = new CsfeaFieldsParentResult(steps, nodes, nodalElements, parentMembers, regionAxes);
+        var fieldsByKey = steps.ToDictionary(s => s.Item1, s => s.Item2);
+        var setup = FemCsfeaSetup.FromAnalysis(analysis, parentLoadCases);
+        var bounds = Bounds(fragment, z1, z2);
+        // Модель родителя с сечениями — одна на снятие: матрицы КЭ узловых сил и нагрузки полосы.
+        var parent = ParentModelOf(db, parentId, setup, sections: true);
+        var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
+        var nodal = NodalSource(db, parentId, analysis, summary, linear, parent, parentResult, fieldsByKey,
+            id => parentOf.TryGetValue(id, out int pid) ? pid : null, diag);
 
         var cutInputs = CutInputs(db, fragment.Id, cuts.Select(c => c.Cut).ToList());
         var extraction = FragmentMaskExtractor.Extract(new FragmentMaskInput
         {
             Cuts = cutInputs, ParentNodes = nodes, ParentElements = CsfeaFieldsParentResult.WithBeamRotation(band, parentMembers),
-            Result = parentResult, ToleranceM = Tol,
+            Result = parentResult, ToleranceM = Tol, NodalForces = nodal, Bounds = bounds,
+            NodalElements = CsfeaFieldsParentResult.WithBeamRotation(nodalElements, parentMembers),
         });
         diag.AddRange(extraction.Diagnostics);
         if (extraction.Masks.Count == 0)
@@ -112,16 +127,19 @@ public static class StoreyFragmentMaskService
 
         // Равновесие масок с нагрузками и реакциями полосы родителя.
         var origin = FragmentMaskBalance.Origin(cutInputs, BandOrigin(band, nodes));
-        var fieldsByKey = steps.ToDictionary(s => s.Item1, s => s.Item2);
-        var setup = FemCsfeaSetup.FromAnalysis(analysis, parentLoadCases);
-        var bounds = Bounds(fragment, z1, z2);
-        var loads = BandActions(db, parentId, setup, fieldsByKey.Keys, map, bounds, origin, diag,
-            key => Reactions(fieldsByKey[key], nodes, bounds, origin));
-        if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
+        var loads = BandActions(parent.Adapted.HasErrors ? ParentModelOf(db, parentId, setup, sections: false) : parent,
+            fieldsByKey.Keys, map, bounds, origin, diag, key => Reactions(fieldsByKey[key], nodes, bounds, origin));
+        double? residual = null;
+        if (loads != null)
+        {
+            diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
+            var res = FragmentMaskBalance.Residuals(cutInputs, extraction.Masks, loads, origin);
+            if (res.Count > 0) residual = res.Values.Max(v => Math.Max(v.Force, v.Moment));
+        }
 
         diag.Add(new("fragment_mask_summary", string.Create(CultureInfo.CurrentCulture,
             $"Маски из «{analysis.Tag}»: сечений {extraction.Masks.Select(m => m.CutIndex).Distinct().Count()} из {cuts.Count}, " +
-            $"загружений или сочетаний {steps.Count}, масок {extraction.Masks.Count}."), false));
+            $"загружений или сочетаний {steps.Count}, масок {extraction.Masks.Count}, {EdgeMethodText(extraction.EdgeMethod, null)}."), false));
         var set = new FragmentMaskSet
         {
             SourceKind = sourceKind, SourceRef = analysisId.ToString(CultureInfo.InvariantCulture), SourceLabel = analysis.Tag,
@@ -131,7 +149,60 @@ public static class StoreyFragmentMaskService
             Items = extraction.Masks.Select(m => new FragmentMaskItem(cuts[m.CutIndex].Id, m.Key, m.Samples)).ToList(),
         };
         db.ReplaceFragmentMasks(fragment.Id, set);
-        return new(set, diag);
+        return new(set, diag) { BalanceResidual = residual };
+    }
+
+    /// <summary>Строка сводки о методе сил кромок пластин.</summary>
+    static string EdgeMethodText(FragmentEdgeForceMethod method, string? reason) => method == FragmentEdgeForceMethod.NodalForces
+        ? "силы кромок пластин — узловые силы КЭ"
+        : $"силы кромок пластин — МНК по центрам КЭ ({reason ?? "см. предупреждения"})";
+
+    /// <summary>Вход и модель родителя на все загружения и нагрузки по КЭ.</summary>
+    sealed record ParentModel(FemRcModelInput Input, FemRcModelResult Adapted, Dictionary<int, FragmentParentCaseLoads> Loads);
+
+    static ParentModel ParentModelOf(DatabaseService db, int parentId, FemCsfeaSetup setup, bool sections)
+    {
+        var input = FemCsfeaInputBuilder.Build(db, parentId, setup with { Stages = [] }, sections);
+        var adapted = AdaptAllCases(input);
+        return new(input, adapted, FragmentParentLoadParts.Compute(input, adapted));
+    }
+
+    /// <summary>
+    /// Источник узловых сил кромок для постановки CSfea (спека 2026-11-05, разд. 5); null — путь МНК, причина —
+    /// предупреждение <c>fragment_mask_nodal_unsupported</c>.
+    /// </summary>
+    static CsfeaNodalForcesSource? NodalSource(DatabaseService db, int parentId, FemAnalysis analysis, FemCsfeaResultSummary summary,
+        bool linear, ParentModel parent, CsfeaFieldsParentResult fields, IReadOnlyDictionary<FragmentMaskKey, RcSecantStepFields> steps,
+        Func<int, int?> parentLoadCase, List<FemValidationDiagnostic> diag)
+    {
+        void Unsupported(string why) => diag.Add(new("fragment_mask_nodal_unsupported", $"Силы кромок пластин — МНК по центрам КЭ: {why}.", false));
+        if (parent.Adapted.HasErrors)
+        {
+            Unsupported("модель родителя с сечениями не собрана");
+            return null;
+        }
+        var csfea = FemAnalysisParams.Parse(analysis.ParamsJson).Csfea ?? new FemCsfeaParams();
+        if (!linear)
+        {
+            Unsupported("секущий расчёт пока снимается по центрам КЭ");
+            return null;
+        }
+        double floor = summary.StiffnessFloor ?? OpenCS.Utilites.CalcSettings.DefaultCsfeaStiffnessFloor;
+        if (FemCsfeaLinearSetup.Resolve(db, parentId, csfea, parent.Adapted.Model, floor, out var error) is not { } setup)
+        {
+            Unsupported(error!);
+            return null;
+        }
+        return CsfeaNodalForcesSource.Linear(parent.Adapted.Model, setup, fields, steps, parent.Loads, parentLoadCase);
+    }
+
+    /// <summary>КЭ полосы и КЭ, имеющие общий с ней узел: ступенька узловых сил видит все КЭ у узлов тела.</summary>
+    static List<FemElement> WithNeighbours(List<FemElement> band, IReadOnlyList<FemElement> all, IReadOnlyDictionary<string, FemMeshNode> nodes)
+    {
+        var tags = band.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var bandNodes = band.SelectMany(e => CScore.Fem.Loads.FemElementGeometry.Of(e, nodes)?.NodeTags ?? []).ToHashSet(StringComparer.Ordinal);
+        return band.Concat(all.Where(e => !tags.Contains(e.ElemTag)
+            && CScore.Fem.Loads.FemElementGeometry.Of(e, nodes) is { } g && g.NodeTags.Any(bandNodes.Contains))).ToList();
     }
 
     /// <summary>
@@ -199,25 +270,16 @@ public static class StoreyFragmentMaskService
     /// (<see cref="FragmentBandLoads"/>) по слагаемым ключа и реакции опор полосы из полей ключа. null — вход родителя не
     /// собрался (сверка пропущена, предупреждение).
     /// </summary>
-    static Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? BandActions(DatabaseService db, int parentId,
-        FemCsfeaSetup setup, IEnumerable<FragmentMaskKey> keys, IReadOnlyDictionary<int, int> map, FragmentBounds bounds,
+    static Dictionary<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? BandActions(ParentModel parent,
+        IEnumerable<FragmentMaskKey> keys, IReadOnlyDictionary<int, int> map, FragmentBounds bounds,
         PlanarVector3 origin, List<FemValidationDiagnostic> diag, Func<FragmentMaskKey, (PlanarVector3 F, PlanarVector3 M)>? reactions)
     {
-        var input = FemCsfeaInputBuilder.Build(db, parentId, setup with { Stages = [] }, sections: false);
-        var adapted = FemRcModelAdapter.Adapt(new FemRcModelInput
-        {
-            MeshNodes = input.MeshNodes, MeshElements = input.MeshElements, Nodes = input.Nodes, Members = input.Members,
-            Groups = input.Groups, Supports = input.Supports, Springs = input.Springs, RigidBodies = input.RigidBodies,
-            LoadCases = input.LoadCases, NodeLoads = input.NodeLoads, MemberLoads = input.MemberLoads,
-            ElementLoads = input.ElementLoads, MeshNodeLoads = input.MeshNodeLoads, Properties = input.Properties,
-            RegionAxisX = input.RegionAxisX, Stages = [], AllLoadCases = true,
-        });
-        if (adapted.Model.LoadCases.Count == 0)
+        if (parent.Adapted.Model.LoadCases.Count == 0)
         {
             diag.Add(new("fragment_mask_balance_skipped", "Нагрузки родителя не собраны — равновесие масок не проверено.", false));
             return null;
         }
-        var perCase = FragmentBandLoads.Compute(input, adapted, bounds, origin);
+        var perCase = FragmentBandLoads.Compute(parent.Input, parent.Loads, bounds, origin);
         var parentOf = map.ToDictionary(kv => kv.Value, kv => kv.Key);
         var result = new Dictionary<FragmentMaskKey, (PlanarVector3, PlanarVector3)>();
         foreach (var key in keys)
@@ -255,7 +317,7 @@ public static class StoreyFragmentMaskService
             MemberLoads = i.MemberLoads, ElementLoads = i.ElementLoads, MeshNodeLoads = i.MeshNodeLoads, KinematicLoads = i.KinematicLoads,
             MeshNodeKinematicLoads = i.MeshNodeKinematicLoads, Properties = i.Properties, PlateSection = i.PlateSection,
             ShellModelSection = i.ShellModelSection, BeamSection = i.BeamSection, Calc = i.Calc, RegionAxisX = i.RegionAxisX,
-            BeamShear = i.BeamShear, Diagnostics = i.Diagnostics, Stages = [], AllLoadCases = true,
+            BeamShear = i.BeamShear, Stages = [], AllLoadCases = true,
         });
     }
 
@@ -286,14 +348,16 @@ public static class StoreyFragmentMaskService
 
     /// <summary>
     /// Сетка родителя у полосы: КЭ, касающиеся замкнутой полосы [z1, z2] (КЭ отброшенной стороны у узла на разрезе —
-    /// тоже); <paramref name="nodes"/> — все узлы сетки родителя по тегу.
+    /// тоже); <paramref name="nodes"/> — все узлы сетки родителя по тегу, <paramref name="all"/> — все её КЭ.
     /// </summary>
-    static List<FemElement> Band(DatabaseService db, int parentId, double z1, double z2, out Dictionary<string, FemMeshNode> nodes)
+    static List<FemElement> Band(DatabaseService db, int parentId, double z1, double z2, out Dictionary<string, FemMeshNode> nodes,
+        out List<FemElement> all)
     {
         var byTag = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
         foreach (var n in db.GetFemMeshNodes(parentId)) byTag.TryAdd(n.NodeTag, n);
         nodes = byTag;
-        return db.GetFemMeshElements(parentId).Where(e =>
+        all = db.GetFemMeshElements(parentId).ToList();
+        return all.Where(e =>
         {
             var g = CScore.Fem.Loads.FemElementGeometry.Of(e, byTag);
             return g != null && g.Points.Max(p => p.Z) >= z1 - Tol && g.Points.Min(p => p.Z) <= z2 + Tol;
@@ -348,7 +412,7 @@ public static class StoreyFragmentMaskService
         if (cuts.Count == 0)
             return Fail("fragment_mask_no_cuts", "У фрагмента нет сечений рассечения.");
 
-        var band = Band(db, parentId, z1, z2, out var nodes);
+        var band = Band(db, parentId, z1, z2, out var nodes, out _);
         var parentResult = new ImportedParentResult(snapshot, byNum, nodes, band);
         if (parentResult.BarsWithoutAxes.Count > 0)
             diag.Add(new("fragment_mask_bar_axes", $"Стержней полосы без местных осей программы: {parentResult.BarsWithoutAxes.Count} " +
@@ -378,6 +442,7 @@ public static class StoreyFragmentMaskService
         if (extraction.Masks.Count == 0)
             return Fail("fragment_mask_empty", "Ни по одному сечению маска не снята (см. предупреждения).");
 
+        double? residual = null;
         if (hasForces)
         {
             var origin = FragmentMaskBalance.Origin(cutInputs, BandOrigin(band, nodes));
@@ -385,8 +450,14 @@ public static class StoreyFragmentMaskService
                 "равновесия покажет расхождение.", false));
             try
             {
-                var loads = BandActions(db, parentId, new FemCsfeaSetup(), parentResult.Keys, map, Bounds(fragment, z1, z2), origin, diag, null);
-                if (loads != null) diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
+                var loads = BandActions(ParentModelOf(db, parentId, new FemCsfeaSetup(), sections: false), parentResult.Keys, map,
+                    Bounds(fragment, z1, z2), origin, diag, null);
+                if (loads != null)
+                {
+                    diag.AddRange(FragmentMaskBalance.Check(cutInputs, extraction.Masks, loads, origin));
+                    var res = FragmentMaskBalance.Residuals(cutInputs, extraction.Masks, loads, origin);
+                    if (res.Count > 0) residual = res.Values.Max(v => Math.Max(v.Force, v.Moment));
+                }
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
             {
@@ -397,7 +468,8 @@ public static class StoreyFragmentMaskService
         string label = $"{program} — снимок {snapshot.TakenAt.Replace('T', ' ')}";
         diag.Add(new("fragment_mask_summary", string.Create(CultureInfo.CurrentCulture,
             $"Маски из «{label}»: сечений {extraction.Masks.Select(m => m.CutIndex).Distinct().Count()} из {cuts.Count}, " +
-            $"загружений {parentResult.Keys.Count}, масок {extraction.Masks.Count}."), false));
+            $"загружений {parentResult.Keys.Count}, масок {extraction.Masks.Count}, " +
+            $"{EdgeMethodText(extraction.EdgeMethod, "импорт — узловых сил программы нет")}."), false));
         var set = new FragmentMaskSet
         {
             SourceKind = sourceKind, SourceRef = fileKind, SourceLabel = label,
@@ -407,7 +479,7 @@ public static class StoreyFragmentMaskService
             Items = extraction.Masks.Select(m => new FragmentMaskItem(cuts[m.CutIndex].Id, m.Key, m.Samples)).ToList(),
         };
         db.ReplaceFragmentMasks(fragment.Id, set);
-        return new(set, diag);
+        return new(set, diag) { BalanceResidual = residual };
     }
 
     /// <summary>Отпечаток снимка программы: SHA-256 вложения и отпечаток полосы родителя.</summary>

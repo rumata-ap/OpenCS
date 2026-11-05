@@ -99,6 +99,7 @@ public sealed partial class StoreyFragmentMaskServiceTests
         Assert.DoesNotContain(r.Diagnostics, d => d.Code is "fragment_mask_balance" or "fragment_mask_balance_skipped"
             or "fragment_mask_shear_sign" or "fragment_mask_kinematic_only" or "fragment_mask_bar_axes"
             or "fragment_mask_shell_axes" or "fragment_mask_source");
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_summary" && d.Message.Contains("МНК по центрам КЭ"));
         var set = db.GetFragmentMasks(p.Fragment.Id)!;
         Assert.Equal(FragmentMaskSet.SourceScad, set.SourceKind);
         Assert.Equal(FemSchemaSourceFileKind.ScadMaskResults, set.SourceRef);
