@@ -41,6 +41,14 @@ public static class FragmentNodalCut
         public HashSet<string> BoundaryNodes { get; } = new(StringComparer.Ordinal);
         public double Extent { get; private set; }
 
+        /// <summary>
+        /// Узел принадлежит телу Ω_s: узел КЭ тела; узел без КЭ (опорный узел АЖТ, узел пружины) — по положению, как в
+        /// Ω_f, иначе его реакция и сила связи с телом выпали бы из равновесия.
+        /// </summary>
+        public bool Holds(string n, IReadOnlyDictionary<string, FemMeshNode> nodes, FragmentBounds bounds) =>
+            BodyNodes.Contains(n)
+            || !ElementsAt.ContainsKey(n) && nodes.TryGetValue(n, out var m) && bounds.InBox(new PlanarVector3(m.X, m.Y, m.Z));
+
         public IReadOnlyList<PlanarVector3> Outline(string tag)
         {
             var g = Geometry[tag];
@@ -175,7 +183,7 @@ public static class FragmentNodalCut
             linked.Add(a);
             if (b != null) linked.Add(b);
         }
-        WarnLinks(r, body, bounds, source.NodeLinks);
+        WarnLinks(r, body, nodes, bounds, source.NodeLinks);
 
         var cache = new Dictionary<(FragmentMaskKey, string), IReadOnlyDictionary<string, Dof6>?>();
         IReadOnlyDictionary<string, Dof6>? Forces(FragmentMaskKey key, string tag)
@@ -253,7 +261,7 @@ public static class FragmentNodalCut
                 {
                     if (!nodes.TryGetValue(n, out var mn)) continue;
                     var at = new PlanarVector3(mn.X, mn.Y, mn.Z);
-                    int k = (body.BodyNodes.Contains(n) ? 1 : 0) - (bounds.InBox(at) ? 1 : 0);
+                    int k = (body.Holds(n, nodes, bounds) ? 1 : 0) - (bounds.InBox(at) ? 1 : 0);
                     if (k != 0) Add(at, at, v.Force * k, v.Moment * k);
                 }
             }
@@ -303,15 +311,16 @@ public static class FragmentNodalCut
             : null;
     }
 
-    static void WarnLinks(FragmentNodalCutResult r, Body body, FragmentBounds bounds, IReadOnlyCollection<(string A, string? B)> links)
+    static void WarnLinks(FragmentNodalCutResult r, Body body, IReadOnlyDictionary<string, FemMeshNode> nodes, FragmentBounds bounds,
+        IReadOnlyCollection<(string A, string? B)> links)
     {
         var crossing = new List<string>();
         foreach (var (a, b) in links)
         {
-            bool inA = body.BodyNodes.Contains(a);
+            bool inA = body.Holds(a, nodes, bounds);
             bool cross = b == null
-                ? inA != (body.Positions.TryGetValue(a, out var p) && bounds.InBox(p))
-                : inA != body.BodyNodes.Contains(b);
+                ? inA != (nodes.TryGetValue(a, out var p) && bounds.InBox(new PlanarVector3(p.X, p.Y, p.Z)))
+                : inA != body.Holds(b, nodes, bounds);
             if (cross) crossing.Add(b == null ? a : $"{a}–{b}");
         }
         if (crossing.Count > 0)

@@ -216,6 +216,27 @@ public sealed class FragmentNodalCutTests
         Assert.Equal(6000, Sum(with, 0).Z, 6);
     }
 
+    /// <summary>
+    /// Опорный узел без КЭ внутри фрагмента (как опора АЖТ колонны на музее), связанный АЖТ с узлом тела 25 (x = 1,5,
+    /// z = 1,5): он часть тела по положению — реакция в поправку не идёт, связь не «через ступеньку».
+    /// </summary>
+    [Fact]
+    public void ElementlessSupportNodeInside_BelongsToBody()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        nodes["s"] = new FemMeshNode { NodeTag = "s", X = 1.5, Y = 0.3, Z = 1.5 };
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("25", "s"));
+        t.AddReaction(K1, "s", new Dof6(0, 0, 300, 0, 0, 0));
+
+        var r = FragmentNodalCut.Compute([WallBottom(0.8, 3)], new FragmentBounds(0.8, 3, null, 1e-3), nodes, elements,
+            new HashSet<string>(), [K1], t);
+
+        Assert.True(r.Ok);
+        Assert.Equal(6000, Sum(r, 0).Z, 6);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_mask_link_crosses_cut");
+    }
+
     /// <summary>Экстрактор с узловыми силами: путь «узловые силы», маска стены — 2000 Н/м во всех сэмплах, без сверки МНК.</summary>
     [Fact]
     public void Extractor_NodalPath_UniformDensity()
