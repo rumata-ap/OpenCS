@@ -178,7 +178,7 @@ public static class FragmentMaskExtractor
         }
     }
 
-    static string KeyText(FragmentMaskKey key) => key.Kind == FragmentMaskKeyKind.LoadCase
+    internal static string KeyText(FragmentMaskKey key) => key.Kind == FragmentMaskKeyKind.LoadCase
         ? $"загружение #{key.LoadCaseId}" : $"сочетание {key.StageExpressionJson}";
 
     static void Warn(FragmentMaskExtraction x, string code, string message, FragmentMaskCutInput c) =>
