@@ -16,8 +16,9 @@ namespace OpenCS.Services;
 /// <item>пластины — согласованные силы нагрузок своего КЭ (<see cref="FemLoadCaseNodalForces"/> с приёмником на КЭ);</item>
 /// <item>узловые нагрузки (сетки и узлов схемы) — по положению узла, плоскости разрезов входят;</item>
 /// <item>КЭ целиком во фрагменте — точно, вне его — нет, пересекающий плоскость разреза (полосы или грани призмы) —
-/// долей длины (стержень) или площади (пластина) внутри (<see cref="FragmentElementShare"/>, равномерная нагрузка) в
-/// центре своей части.</item>
+/// частью нагрузки внутри по виду (<see cref="FragmentLoadInside"/>: сосредоточенная — по точке, погонная — обрезком,
+/// по площади — интегралом по части КЭ), как переносит построитель; без частей — долей длины или площади
+/// (<see cref="FragmentElementShare"/>) в центре части.</item>
 /// </list>
 /// </summary>
 public static class FragmentBandLoads
@@ -55,12 +56,18 @@ public static class FragmentBandLoads
         foreach (var e in input.MeshElements) elements.TryAdd(e.ElemTag, e);
 
         // points — концы стержня (2) или контур пластины.
-        void Element(Sum s, IReadOnlyList<PlanarVector3> points, IEnumerable<(PlanarVector3 At, double[] V)> forces)
+        void Element(Sum s, IReadOnlyList<PlanarVector3> points, IEnumerable<(PlanarVector3 At, double[] V)> forces,
+            IReadOnlyList<FemLoadPiece>? pieces)
         {
             if (FragmentElementShare.Of(bounds, points) is not { } part) return;
             if (part.Whole)
             {
                 foreach (var (at, v) in forces) s.Add(at - origin, new(v[0], v[1], v[2]), new(v[3], v[4], v[5]));
+                return;
+            }
+            if (pieces is { Count: > 0 })
+            {
+                foreach (var t in FragmentLoadInside.Terms(bounds, pieces)) s.Add(t.At - origin, t.F, t.M);
                 return;
             }
             var f = PlanarVector3.Zero;
@@ -80,12 +87,12 @@ public static class FragmentBandLoads
             {
                 if (!elements.TryGetValue(tag, out var e) || FemElementGeometry.Of(e, meshNodes) is not { } g) continue;
                 Element(s, g.Contour.Select(i => g.Points[i]).ToList(),
-                    d.Where(kv => nodes.ContainsKey(kv.Key)).Select(kv => (nodes[kv.Key], kv.Value)));
+                    d.Where(kv => nodes.ContainsKey(kv.Key)).Select(kv => (nodes[kv.Key], kv.Value)), p.Pieces.GetValueOrDefault(tag));
             }
-            foreach (var b in p.Beams.Values)
+            foreach (var (tag, b) in p.Beams)
             {
                 if (!nodes.TryGetValue(b.NodeI, out var pi) || !nodes.TryGetValue(b.NodeJ, out var pj)) continue;
-                Element(s, [pi, pj], [(pi, b.I), (pj, b.J)]);
+                Element(s, [pi, pj], [(pi, b.I), (pj, b.J)], p.Pieces.GetValueOrDefault(tag));
             }
             result[id] = (s.F, s.M);
         }

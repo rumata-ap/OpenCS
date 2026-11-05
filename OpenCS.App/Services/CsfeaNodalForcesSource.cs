@@ -39,6 +39,7 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
     readonly Dictionary<string, (string I, string J)> _beamNodes = new(StringComparer.Ordinal);
     readonly List<(string, string?)> _links = [];
     readonly Dictionary<(FragmentMaskKey, string), IReadOnlyDictionary<string, Dof6>> _elementLoads = [];
+    readonly Dictionary<(FragmentMaskKey, string), IReadOnlyList<FemLoadPiece>> _pieces = [];
     readonly Dictionary<FragmentMaskKey, IReadOnlyDictionary<string, Dof6>> _nodeLoads = [], _reactions = [];
 
     CsfeaNodalForcesSource(RcStructuralModel model, CsfeaFieldsParentResult fields,
@@ -207,8 +208,16 @@ public sealed class CsfeaNodalForcesSource : IFragmentParentNodalForces
         return _elementLoads[(key, elemTag)] = result;
     }
 
-    /// <summary>Части нагрузок КЭ по виду — пока не собираются (поправка долей КЭ).</summary>
-    public IReadOnlyList<FemLoadPiece> ElementLoadPieces(FragmentMaskKey key, string elemTag) => [];
+    /// <summary>Части нагрузок КЭ по виду (<see cref="FragmentParentCaseLoads.Pieces"/>) по слагаемым ключа с коэффициентами.</summary>
+    public IReadOnlyList<FemLoadPiece> ElementLoadPieces(FragmentMaskKey key, string elemTag)
+    {
+        if (_pieces.TryGetValue((key, elemTag), out var cached)) return cached;
+        var result = new List<FemLoadPiece>();
+        foreach (var (lc, factor) in key.Terms())
+            if (_parentLoadCase(lc) is int p && _loads.TryGetValue(p, out var parts) && parts.Pieces.TryGetValue(elemTag, out var list))
+                result.AddRange(list.Select(x => x.Scale(factor)));
+        return _pieces[(key, elemTag)] = result;
+    }
 
     public IReadOnlyDictionary<string, Dof6> NodeLoads(FragmentMaskKey key)
     {
