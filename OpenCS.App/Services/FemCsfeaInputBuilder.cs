@@ -135,10 +135,12 @@ public static class FemCsfeaInputBuilder
         IReadOnlyList<FemLoadCase> cases = loadCases;
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
         IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
+        var rigidBodies = db.GetFemRigidBodies(schemaId);
         fragmentBc = null;
         if (schema is { IsFragment: true })
         {
-            fragmentBc = FragmentBoundary(db, schema, data.MeshNodes, nodes, supports, springs, kinematic, stages, loadCases);
+            fragmentBc = FragmentBoundary(db, schema, data.MeshNodes, data.Mesh, rigidBodies, nodes, supports, springs, kinematic,
+                stages, loadCases);
             diag.AddRange(fragmentBc.Diagnostics);
             if (!fragmentBc.HasErrors)
                 (supports, meshNodeLoads, meshKinematic, cases, stages) =
@@ -154,7 +156,7 @@ public static class FemCsfeaInputBuilder
             Groups = groups,
             Supports = supports,
             Springs = springs,
-            RigidBodies = db.GetFemRigidBodies(schemaId),
+            RigidBodies = rigidBodies,
             LoadCases = cases,
             NodeLoads = db.GetFemNodeLoads(schemaId),
             MemberLoads = db.GetFemMemberLoads(schemaId),
@@ -180,7 +182,7 @@ public static class FemCsfeaInputBuilder
     /// (опоры и пружины сетки, закрепления и кинематика узлов схемы) — для проверки жёстких смещений.
     /// </summary>
     static FragmentCutBoundaryResult FragmentBoundary(DatabaseService db, FemSchema schema, IReadOnlyList<FemMeshNode> meshNodes,
-        IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMeshNodeSupport> supports, IReadOnlyList<FemSpring> springs,
+        IReadOnlyList<FemElement> mesh, IReadOnlyList<FemRigidBody> rigidBodies, IReadOnlyList<FemNode> nodes, IReadOnlyList<FemMeshNodeSupport> supports, IReadOnlyList<FemSpring> springs,
         IReadOnlyList<FemKinematicLoad> kinematic, IReadOnlyList<FemRcStage> stages, IReadOnlyList<FemLoadCase> loadCases)
     {
         var withIds = db.GetFragmentCutsWithIds(schema.Id);
@@ -221,6 +223,8 @@ public static class FemCsfeaInputBuilder
             Overrides = db.GetFragmentCutBc(schema.Id),
             Masks = db.GetFragmentMasks(schema.Id),
             MeshNodes = meshNodes,
+            MeshElements = mesh,
+            RigidBodies = rigidBodies,
             OtherConstraints = other,
             Stages = stages.Select(s => new FragmentBcStage(s.Tag, s.Terms)).ToList(),
             LoadCaseTags = loadCases.GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First().Tag),

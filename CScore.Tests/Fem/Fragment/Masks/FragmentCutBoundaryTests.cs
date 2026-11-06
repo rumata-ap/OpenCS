@@ -270,4 +270,119 @@ public sealed class FragmentCutBoundaryTests
         var withHorizontal = FragmentCutBoundary.Resolve(LateralInput(FragmentBcPreset.Static, FragmentBcPreset.Static));
         Assert.Contains("горизонтальном", Assert.Single(withHorizontal.Diagnostics, x => x.Code == "fragment_bc_all_static").Message);
     }
+
+    // ------------------------------------------------------------------ свободные части сетки (спека 2026-11-06)
+
+    const int S1 = 104;
+
+    /// <summary>
+    /// Стена W1 (y = 0, x 2…6, z 1,5…2,5; узлы 10…14 и 20…24, 4 КЭ) с разрезом низа и отдельная полоса плиты z = 3
+    /// (узлы 30 (8; 0), 31 (8; 1), 32 (9; 0), 33 (9; 1), КЭ «s1») с боковым разрезом x = 8 на узлах 30, 31.
+    /// </summary>
+    static FragmentCutBoundaryInput FreePart(bool withElements = true, bool withWall = true,
+        IReadOnlyList<FemRigidBody>? bodies = null, IReadOnlyList<KinematicDofRef>? other = null)
+    {
+        var nodes = new List<FemMeshNode>();
+        for (int i = 0; i < 5; i++)
+        {
+            nodes.Add(new() { NodeTag = $"{10 + i}", X = 2 + i, Y = 0, Z = 1.5 });
+            nodes.Add(new() { NodeTag = $"{20 + i}", X = 2 + i, Y = 0, Z = 2.5 });
+        }
+        nodes.Add(new() { NodeTag = "30", X = 8, Y = 0, Z = 3 });
+        nodes.Add(new() { NodeTag = "31", X = 8, Y = 1, Z = 3 });
+        nodes.Add(new() { NodeTag = "32", X = 9, Y = 0, Z = 3 });
+        nodes.Add(new() { NodeTag = "33", X = 9, Y = 1, Z = 3 });
+        var elements = Enumerable.Range(0, 4).Select(i => new FemElement
+        {
+            ElemTag = $"w{i}", ElemType = "shell", SourceMemberTag = "W1",
+            NodeIdsJson = $"[{10 + i},{11 + i},{20 + i},{21 + i}]",
+        }).Append(new FemElement { ElemTag = "s1", ElemType = "shell", SourceMemberTag = "S", NodeIdsJson = "[30,32,31,33]" }).ToList();
+
+        var slab = new FragmentCut("S", FragmentCutKind.Edge, FragmentCutSide.Lateral, 3, null, [(V(8, 0, 3), V(8, 1, 3))], V(-1, 0, 0));
+        var slabSamples = new[] { 0.0, 0.5, 1.0 }.Select(s => new FragmentMaskSample(s,
+            new Dof6(1e-3, 0, -1e-3 * (1 + s), 0, 0, 0), new Dof6(0, 0, 1e3, 0, 0, 0))).ToList();
+        var cuts = new List<(int, FragmentMaskCutInput)> { (S1, new(slab, null, V(0, 0, 1))) };
+        var items = new List<FragmentMaskItem> { new(S1, L1, slabSamples) };
+        if (withWall)
+        {
+            cuts.Insert(0, (W1, new(CutW1, null, V(0, 1, 0))));
+            items.Add(new(W1, L1, Wall(1)));
+        }
+        return new FragmentCutBoundaryInput
+        {
+            Cuts = cuts, Preset = FragmentBcPreset.Kinematic, LateralPreset = FragmentBcPreset.Static,
+            Masks = new FragmentMaskSet { SourceKind = FragmentMaskSet.SourceCsfeaLinear, Items = items },
+            MeshNodes = nodes, MeshElements = withElements ? elements : [], RigidBodies = bodies ?? [],
+            OtherConstraints = other ?? [], Stages = [new("S1", [(1, 1.0)])],
+            LoadCaseTags = new Dictionary<int, string> { [1] = "G" },
+        };
+    }
+
+    static string Text(FragmentCutBoundaryResult r) => string.Join("; ", r.Diagnostics.Select(d => $"{d.Code}: {d.Message}"));
+
+    /// <summary>Полоса не связана со стеной и не закреплена — её разрез на перемещениях родителя, сверлильный Rz свободен.</summary>
+    [Fact]
+    public void FreeComponent_CutsSwitchedToKinematic()
+    {
+        var r = FragmentCutBoundary.Resolve(FreePart());
+
+        Assert.False(r.HasErrors, Text(r));
+        foreach (var tag in new[] { "30", "31" })
+        {
+            Assert.Equal(5, r.Prescribed.Count(p => p.MeshNodeTag == tag));
+            Assert.DoesNotContain(r.Prescribed, p => p.MeshNodeTag == tag && p.Dof == 5);
+            Assert.DoesNotContain(r.Loads, l => l.MeshNodeTag == tag);
+        }
+        Assert.Equal(1e-3, Prescribed(r, 1, "30", 0), 15);
+        Assert.Equal(-2e-3, Prescribed(r, 1, "31", 2), 15);
+        var d = Assert.Single(r.Diagnostics, x => x.Code == "fragment_component_free");
+        Assert.False(d.IsError);
+        Assert.Contains("S", d.SourceKeys!);
+    }
+
+    [Fact]
+    public void FreeComponent_WithoutMeshElements_Unchanged()
+    {
+        var r = FragmentCutBoundary.Resolve(FreePart(withElements: false));
+
+        Assert.False(r.HasErrors, Text(r));
+        Assert.Contains(r.Loads, l => l.MeshNodeTag == "30");
+        Assert.DoesNotContain(r.Prescribed, p => p.MeshNodeTag == "30");
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
+    }
+
+    /// <summary>Жёсткое тело 22 → 32 связывает полосу со стеной — одна закреплённая компонента, разрез силовой.</summary>
+    [Fact]
+    public void ComponentLinkedByRigidBody_NotFree()
+    {
+        var body = new FemRigidBody { MasterNodeTag = "22" };
+        body.SetSlaveNodeTags(["32"]);
+        var r = FragmentCutBoundary.Resolve(FreePart(bodies: [body]));
+
+        Assert.False(r.HasErrors, Text(r));
+        Assert.Contains(r.Loads, l => l.MeshNodeTag == "30");
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
+    }
+
+    /// <summary>Опора в узле полосы 32 (прочая связь по положению) — полоса закреплена, разрез силовой.</summary>
+    [Fact]
+    public void ComponentWithSupport_NotFree()
+    {
+        var other = Enumerable.Range(0, 3).Select(dof => new KinematicDofRef(V(9, 0, 3), dof)).ToList();
+        var r = FragmentCutBoundary.Resolve(FreePart(other: other));
+
+        Assert.False(r.HasErrors, Text(r));
+        Assert.Contains(r.Loads, l => l.MeshNodeTag == "30");
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
+    }
+
+    /// <summary>Закреплённых частей нет вовсе (только силовой боковой разрез) — режимы прежние, прежний отказ.</summary>
+    [Fact]
+    public void NoRestrainedComponent_Unchanged()
+    {
+        var r = FragmentCutBoundary.Resolve(FreePart(withWall: false));
+
+        Assert.DoesNotContain(r.Diagnostics, x => x.Code == "fragment_component_free");
+        Assert.Contains(r.Diagnostics, x => x.Code == "fragment_bc_all_static" && x.IsError);
+    }
 }

@@ -20,6 +20,13 @@ public sealed class FragmentCutBoundaryInput
     /// <summary>Действующий набор масок; null — не снимались.</summary>
     public FragmentMaskSet? Masks { get; init; }
     public IReadOnlyList<FemMeshNode> MeshNodes { get; init; } = [];
+    /// <summary>
+    /// КЭ сетки фрагмента — для поиска частей, не связанных с остальной и ничем не закреплённых (спека 2026-11-06); пусто —
+    /// поиск не выполняется.
+    /// </summary>
+    public IReadOnlyList<FemElement> MeshElements { get; init; } = [];
+    /// <summary>Жёсткие тела и объединения перемещений сетки — связи частей помимо общих узлов КЭ.</summary>
+    public IReadOnlyList<FemRigidBody> RigidBodies { get; init; } = [];
     /// <summary>Прочие кинематические связи фрагмента (опоры, пружины сетки) — для проверки жёстких смещений.</summary>
     public IReadOnlyList<KinematicDofRef> OtherConstraints { get; init; } = [];
     public IReadOnlyList<FragmentBcStage> Stages { get; init; } = [];
@@ -99,6 +106,7 @@ public static class FragmentCutBoundary
             }
             cuts.Add(new CutState(id, cut, modes, nodes, where));
         }
+        cuts = FreeComponents(input, cuts, r);
         if (oblique)
             r.Diagnostics.Add(new("fragment_cut_oblique_wall", "Стены не вдоль общих осей: поворот вокруг нормали стены не " +
                 "выделяется одним DOF и задаётся по пресету.", false));
@@ -346,6 +354,113 @@ public static class FragmentCutBoundary
             $"{label}: маска не уравновешена — реакции автозакреплений Σ|R| = {sum / 1e3:0.###} кН ({sum / scale:P1} от Σ|F| масок " +
             $"{scale / 1e3:0.###} кН), наибольшая — узел {worst!.MeshNodeTag}, {DofNames[worst.Dof]}."), false,
             [worst.MeshNodeTag]);
+    }
+
+    /// <summary>
+    /// Части сетки, не связанные с остальной (общие узлы КЭ, жёсткие тела) и ничем не закреплённые (прочие связи,
+    /// закреплённые или заданные DOF разрезов, упругое основание КЭ): при хоть одной закреплённой части разрезы свободных
+    /// переводятся на пресет «Как в родителе» с теми же правками — кусок повторяет родителя, механизма нет
+    /// (спека 2026-11-06). Нет закреплённых частей — режимы прежние.
+    /// </summary>
+    static List<CutState> FreeComponents(FragmentCutBoundaryInput input, List<CutState> cuts, FragmentCutBoundaryResult r)
+    {
+        if (input.MeshElements.Count == 0 || cuts.Count == 0) return cuts;
+        var root = new Dictionary<string, string>(StringComparer.Ordinal);
+        string Find(string x)
+        {
+            if (!root.TryGetValue(x, out var p)) return root[x] = x;
+            return p == x ? x : root[x] = Find(p);
+        }
+        void Union(string a, string b)
+        {
+            string ra = Find(a), rb = Find(b);
+            if (ra != rb) root[ra] = rb;
+        }
+        var elementsOf = new Dictionary<string, List<FemElement>>(StringComparer.Ordinal);
+        var restrained = new HashSet<string>(StringComparer.Ordinal);
+        var elementNodes = new List<(FemElement E, IReadOnlyList<string> Tags)>();
+        foreach (var e in input.MeshElements)
+        {
+            if (FemMeshTopology.ReadNodeTags(e) is not { Count: > 0 } tags) continue;
+            elementNodes.Add((e, tags));
+            for (int i = 1; i < tags.Count; i++) Union(tags[0], tags[i]);
+            Find(tags[0]);
+        }
+        foreach (var b in input.RigidBodies)
+            foreach (var s in b.SlaveNodeTags)
+                if (root.ContainsKey(b.MasterNodeTag) || root.ContainsKey(s)) Union(b.MasterNodeTag, s);
+        foreach (var (e, tags) in elementNodes)
+        {
+            string c = Find(tags[0]);
+            if (!elementsOf.TryGetValue(c, out var list)) elementsOf[c] = list = [];
+            list.Add(e);
+            if (e.FoundationC1 is > 0) restrained.Add(c);
+        }
+        if (elementsOf.Count < 2) return cuts;
+
+        // Узлы разрезов с закреплёнными или заданными DOF.
+        IEnumerable<string> CutNodes(CutState c) =>
+            c.Cut.Cut.Kind == FragmentCutKind.End ? c.Nodes.EndNode is { } n ? [n] : [] : c.Nodes.Tags;
+        foreach (var c in cuts)
+            if (c.Modes.Any(m => m is FragmentDofMode.Fixed or FragmentDofMode.MaskDisplacement))
+                foreach (var n in CutNodes(c))
+                    if (root.ContainsKey(n)) restrained.Add(Find(n));
+        // Прочие связи — по положению узла сетки в допуске.
+        if (input.OtherConstraints.Count > 0)
+        {
+            double h = Math.Max(input.ToleranceM, 1e-9);
+            (long, long, long) Cell(double x, double y, double z) =>
+                ((long)Math.Floor(x / h), (long)Math.Floor(y / h), (long)Math.Floor(z / h));
+            var grid = new Dictionary<(long, long, long), List<FemMeshNode>>();
+            foreach (var n in input.MeshNodes)
+            {
+                if (!root.ContainsKey(n.NodeTag)) continue;
+                var k = Cell(n.X, n.Y, n.Z);
+                if (!grid.TryGetValue(k, out var list)) grid[k] = list = [];
+                list.Add(n);
+            }
+            foreach (var p in input.OtherConstraints.Select(o => o.Point).Distinct())
+            {
+                var (cx, cy, cz) = Cell(p.X, p.Y, p.Z);
+                for (long i = cx - 1; i <= cx + 1; i++)
+                    for (long j = cy - 1; j <= cy + 1; j++)
+                        for (long k = cz - 1; k <= cz + 1; k++)
+                            if (grid.TryGetValue((i, j, k), out var list))
+                                foreach (var n in list)
+                                    if ((new PlanarVector3(n.X, n.Y, n.Z) - p).Length <= h) restrained.Add(Find(n.NodeTag));
+            }
+        }
+        if (restrained.Count == 0) return cuts;
+
+        var free = elementsOf.Keys.Where(c => !restrained.Contains(c)).ToHashSet(StringComparer.Ordinal);
+        if (free.Count == 0) return cuts;
+        var result = new List<CutState>(cuts.Count);
+        var switched = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var c in cuts)
+        {
+            var hit = CutNodes(c).Where(n => root.ContainsKey(n)).Select(Find).Where(free.Contains).ToList();
+            if (hit.Count == 0)
+            {
+                result.Add(c);
+                continue;
+            }
+            switched.UnionWith(hit);
+            var modes = FragmentCutBc.Resolve(FragmentBcPreset.Kinematic, c.Cut.Cut, input.Overrides.GetValueOrDefault(c.Id),
+                c.Cut.ShellNormal, out _);
+            result.Add(c with { Modes = modes });
+        }
+        foreach (var comp in switched)
+        {
+            var elements = elementsOf[comp];
+            var members = elements.Select(e => e.SourceMemberTag).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+            var keys = members.Count > 0 ? members : elements.Select(e => e.ElemTag).Take(10).ToList();
+            string names = members.Count == 0 ? ""
+                : " (КонЭ " + string.Join(", ", members.Take(5).Select(m => "«" + m + "»")) + (members.Count > 5 ? ", …" : "") + ")";
+            r.Diagnostics.Add(new("fragment_component_free",
+                $"Часть сетки фрагмента не связана с остальной и ничем не закреплена: {elements.Count} КЭ{names}" +
+                " — её разрезы переведены на перемещения из родителя (пресет «Как в родителе»).", false, keys));
+        }
+        return result;
     }
 
     static int Rank(FragmentDofMode m) => m switch
