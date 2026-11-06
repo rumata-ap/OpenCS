@@ -42,10 +42,12 @@ public sealed record RcLinearCase(string Name, double[] U, RcSecantStepFields Fi
 
 /// <summary>
 /// Итог линейного расчёта схемы: сетка (номера узлов и КЭ модели) и решения по загружениям модели;
-/// <paramref name="GeometricBeams"/>, <paramref name="GeometricShells"/> — КЭ с K_σ замороженного состояния (без него — 0).
+/// <paramref name="GeometricBeams"/>, <paramref name="GeometricShells"/> — КЭ с K_σ замороженного состояния (без него — 0);
+/// <paramref name="NotSpd"/> — матрица не положительно определена, решено запасным LU: DOF первого неположительного
+/// ведущего (<see cref="StructuralMesh.LastLinearNotSpd"/>), null — Холецкий.
 /// </summary>
 public sealed record RcLinearRun(RcStructuralMeshBuild Build, IReadOnlyList<RcLinearCase> Cases,
-    int GeometricBeams = 0, int GeometricShells = 0);
+    int GeometricBeams = 0, int GeometricShells = 0, string? NotSpd = null);
 
 /// <summary>
 /// Линейный расчёт <see cref="RcStructuralModel"/>: упругие сечения (<see cref="LinearRcSectionFactory"/>), каждая стадия
@@ -79,6 +81,9 @@ public static class RcLinearAnalysis
         // Заданные перемещения стадии — значения на закреплённых DOF (RcPrescribed загружений с коэффициентами).
         var prescribed = model.Stages.Select(st => build.PrescribedCombination(st.Loads)).ToList();
         var u = mesh.SolveLinear(loads, build.Bc, elementK, prescribed.Any(p => p != null) ? prescribed : null);
+        string? notSpd = loads.Count > 0 ? mesh.LastLinearNotSpd : null;
+        if (notSpd != null)
+            options.Log?.Invoke($"Линейный расчёт: матрица жёсткости не положительно определена ({notSpd}) — решено запасным LU.");
         double tSolve = clock.Elapsed.TotalSeconds - tBuild;
         ct.ThrowIfCancellationRequested();
 
@@ -110,7 +115,7 @@ public static class RcLinearAnalysis
         options.Log?.Invoke(string.Create(CultureInfo.InvariantCulture,
             $"Линейный расчёт: загружений {loads.Count}, неизвестных {mesh.NDof}{geo}; сетка и нагрузки {tBuild:0.##} с, " +
             $"сборка, факторизация и решения {tSolve:0.##} с, поля {tFields:0.##} с."));
-        return new RcLinearRun(build, cases, geoBeams, geoShells);
+        return new RcLinearRun(build, cases, geoBeams, geoShells, notSpd);
     }
 
     /// <summary>

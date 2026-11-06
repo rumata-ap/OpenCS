@@ -1152,6 +1152,9 @@ public sealed class StructuralMesh : IFeaMesh
                 string where = chol.FirstNonPositivePivot is int p and >= 0 && p < asm.Free.Length ? " — " + DescribeDof(asm.Free[p]) : "";
                 throw new InvalidOperationException($"Матрица K + K_σ не положительно определена — потеря устойчивости{where}.");
             }
+            // Не SPD — запасной LU раскладывается один раз на все правые части.
+            var lu = chol.LastFactorizationSpd ? null : FactorizeNotSpd(chol, kff, asm.Free);
+            LastLinearNotSpd = lu == null ? null : NotSpdDof(chol, asm.Free) ?? "—";
             // Полная K (с пружинами) — один раз и только при ненулевых заданных перемещениях: перенос K·ū в правую часть.
             CscMatrix? kFull = null;
             if (Enumerable.Range(0, loads.Count).Any(i => Values(i) != null))
@@ -1176,11 +1179,11 @@ public sealed class StructuralMesh : IFeaMesh
                 }
                 var fSys = SysVector(f);
                 var fi = Array.ConvertAll(asm.Free, d => fSys[d]);
-                var uFree = chol.LastFactorizationSpd ? chol.Solve(fi) : SolveNotSpd(chol, kff, fi, asm.Free);
+                var uFree = lu?.Solve(fi) ?? chol.Solve(fi);
                 return Full(DirichletReducer.Expand(NSys, asm.Free, uFree, fixedSys, ub ?? zeros));
             }
-            // Прямой и обратный ходы по готовому множителю независимы (только чтение L) — правые части параллельно.
-            if (chol.LastFactorizationSpd && loads.Count > 1)
+            // Прямой и обратный ходы по готовому множителю (L или L·U) независимы — только чтение, правые части параллельно.
+            if (loads.Count > 1)
                 Parallel.For(0, loads.Count, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
                     i => result[i] = Solve(i));
             else
@@ -1453,20 +1456,38 @@ public sealed class StructuralMesh : IFeaMesh
 
     // Не положительно определённая матрица: небольшая система — LU; большая (или вырожденная для LU) — исключение с
     // узлом и DOF первого неположительного ведущего элемента.
-    private double[] SolveNotSpd(SupernodalCholeskySolver chol, CscMatrix a, double[] b, int[] free)
+    private double[] SolveNotSpd(SupernodalCholeskySolver chol, CscMatrix a, double[] b, int[] free) =>
+        FactorizeNotSpd(chol, a, free).Solve(b);
+
+    /// <summary>
+    /// LU не положительно определённой матрицы по правилам <see cref="SolveNotSpd"/>: порядок больше
+    /// <see cref="LuFallbackSize"/> или вырожденная для LU — исключение с узлом и DOF первого неположительного ведущего.
+    /// </summary>
+    private SparseLuSolver FactorizeNotSpd(SupernodalCholeskySolver chol, CscMatrix a, int[] free)
     {
-        string where = chol.FirstNonPositivePivot is int i and >= 0 && i < free.Length ? " — " + DescribeDof(free[i]) : "";
-        if (a.Cols <= LuFallbackSize)
+        string where = NotSpdDof(chol, free) is { } d ? " — " + d : "";
+        if (a.Cols > LuFallbackSize)
+            throw new InvalidOperationException(
+                $"Матрица жёсткости не положительно определена (механизм или потеря устойчивости){where}.");
+        var lu = new SparseLuSolver();
+        try { lu.Factorize(a); }
+        catch (InvalidOperationException ex)
         {
-            try { return SparseLuSolver.SolveOnce(a, b); }
-            catch (InvalidOperationException ex)
-            {
-                throw new InvalidOperationException($"{ex.Message} Матрица жёсткости не положительно определена{where}.", ex);
-            }
+            throw new InvalidOperationException($"{ex.Message} Матрица жёсткости не положительно определена{where}.", ex);
         }
-        throw new InvalidOperationException(
-            $"Матрица жёсткости не положительно определена (механизм или потеря устойчивости){where}.");
+        return lu;
     }
+
+    /// <summary>Описание DOF первого неположительного ведущего элемента Холецкого; null — не определён.</summary>
+    private string? NotSpdDof(SupernodalCholeskySolver chol, int[] free) =>
+        chol.FirstNonPositivePivot is int i and >= 0 && i < free.Length ? DescribeDof(free[i]) : null;
+
+    /// <summary>
+    /// Последний многоправый <see cref="SolveLinear(IReadOnlyList{double[]}, BoundaryConditions, Func{int, double[,]}?, IReadOnlyList{double[]?}?)"/>:
+    /// null — матрица положительно определена (Холецкий); иначе решено запасным LU — описание DOF первого
+    /// неположительного ведущего («—», если не определён). Возможен механизм.
+    /// </summary>
+    public string? LastLinearNotSpd { get; private set; }
 
     /// <summary>Описание DOF пространства решения: узел сетки (индекс и координаты) и направление.</summary>
     public string DescribeDof(int sysDof)

@@ -1104,6 +1104,9 @@ public static class FemCsfeaRunner
         summary.ControlSchemaNodeTag = controlDof != null ? prepared.ControlNode!.Value.SchemaTag : "";
         summary.ControlDof = csfea.ControlDof;
         summary.Report.AddRange(run.Build.Report);
+        if (run.NotSpd != null)
+            summary.Report.Add($"Матрица жёсткости не положительно определена ({run.NotSpd}): перемещения найдены запасным LU — " +
+                "возможен механизм, проверьте закрепления и связи у этого места.");
         summary.Stages = adapted.Model.Stages.Select((s, i) =>
         {
             var total = i < adapted.StageTotals.Count ? adapted.StageTotals[i] : new FemRcStageTotal(s.Name, 0, 0, 0);
