@@ -212,18 +212,150 @@ public sealed class FragmentNodalCutTests
         Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_nodal_selfcheck" && !d.IsError);
     }
 
+    static FragmentNodalCutResult Run(FragmentNodalForcesTable t, Dictionary<string, FemMeshNode> nodes, List<FemElement> elements,
+        double z1 = 0.8) =>
+        FragmentNodalCut.Compute([WallBottom(z1, 3)], new FragmentBounds(z1, 3, null, 1e-3), nodes, elements,
+            new HashSet<string>(), [K1], t);
+
+    static string Text(FragmentNodalCutResult r) => string.Join("; ", r.Diagnostics.Select(d => $"{d.Code}: {d.Message}"));
+
+    /// <summary>Связь узла тела 15 (x = 0, z = 1,0) с узлом отброшенной части 8 (z = 0,5): L_15 = 0 — учтена, предупреждения нет.</summary>
     [Fact]
-    public void LinkAcrossStep_Warned_NodeSkippedBySelfCheck()
+    public void LinkAcrossStep_CountedByNodeEquilibrium()
     {
         var (nodes, elements) = Wall(3, 3, 6, 6);
         var t = Compression(nodes, elements, -2000, 3);
-        // Узел тела (x = 0, z = 1,0 — тег 15) и узел отброшенной части (x = 0, z = 0,5 — тег 8).
         t.Links.Add(("15", "8"));
-        var r = FragmentNodalCut.Compute([WallBottom(0.8, 3)], new FragmentBounds(0.8, 3, null, 1e-3), nodes, elements,
-            new HashSet<string>(), [K1], t);
+        var r = Run(t, nodes, elements);
 
-        Assert.True(r.Ok);
-        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_link_crosses_cut");
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(6000, Sum(r, 0).Z, 6);
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_link_forces" && !d.IsError);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_mask_link_crosses_cut");
+    }
+
+    /// <summary>
+    /// Ведущий без КЭ снаружи (1,5; 0,3; 0,5), ведомый — узел ступеньки 18 с узловой нагрузкой −500 по Z: связь держит
+    /// узел силой L_18 = +500 — член маски в точке узла, Σ = 6500 (уравновешивает верх −6000 и P_18).
+    /// </summary>
+    [Fact]
+    public void RigidLinkFromOutside_AddsNodeEquilibriumForce()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        nodes["m"] = new FemMeshNode { NodeTag = "m", X = 1.5, Y = 0.3, Z = 0.5 };
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("m", "18"));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+        var r = Run(t, nodes, elements);
+
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(6500, Sum(r, 0).Z, 6);
+        Assert.Contains(r.Terms[K1][0], x => (x.At - V(1.5, 0, 1)).Length < 1e-12 && Math.Abs(x.F.Z - 500) < 1e-9);
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_link_forces");
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_mask_link_crosses_cut");
+    }
+
+    /// <summary>АЖТ «m → 17, 18»: члены −P в обоих ведомых, с моментом у 17; Σ по Z = 6800, по X = −100.</summary>
+    [Fact]
+    public void RigidBodyTwoSlaves_ForceAndMomentPerSlave()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        nodes["m"] = new FemMeshNode { NodeTag = "m", X = 1.5, Y = 0.3, Z = 0.5 };
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("m", "17"));
+        t.Links.Add(("m", "18"));
+        t.AddNodeLoad(K1, "17", new Dof6(100, 0, -300, 0, 50, 0));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+        var r = Run(t, nodes, elements);
+
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(V(-100, 0, 6800), Round(Sum(r, 0)));
+        var at17 = Assert.Single(r.Terms[K1][0], x => (x.At - V(1, 0, 1)).Length < 1e-12 && x.M.Length > 0);
+        Assert.Equal(V(0, -50, 0), Round(at17.M));
+        Assert.Equal(V(-100, 0, 300), Round(at17.F));
+    }
+
+    /// <summary>Связь двух узлов тела — внутренняя: членов и диагностик связей нет.</summary>
+    [Fact]
+    public void LinkInsideBody_Ignored()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("25", "18"));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+        t.AddNodeLoad(K1, "25", new Dof6(0, 0, 500, 0, 0, 0));
+        var r = Run(t, nodes, elements);
+
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(6000, Sum(r, 0).Z, 6);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code.StartsWith("fragment_mask_link", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Пружина в узле ступеньки 18 при z₁ = 1,1 (узел в Ω_s, вне Ω_f): узловая нагрузка −500 (k = 1) и сила пружины +500
+    /// (k = 1) гасятся — Σ = 6000 (без учёта пружины было бы 5500). При z₁ = 0,8 (k = 0) — ничего.
+    /// </summary>
+    [Fact]
+    public void SpringAtStepNode_LikeReaction()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("18", null));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+
+        var r = Run(t, nodes, elements, z1: 1.1);
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(6000, Sum(r, 0).Z, 6);
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_link_forces");
+
+        var inside = Run(t, nodes, elements);
+        Assert.True(inside.Ok, Text(inside));
+        Assert.Equal(6000, Sum(inside, 0).Z, 6);
+        Assert.DoesNotContain(inside.Diagnostics, d => d.Code.StartsWith("fragment_mask_link", StringComparison.Ordinal));
+    }
+
+    /// <summary>АЖТ через ступеньку и пружина в той же группе — не разделить: не учтена, предупреждение.</summary>
+    [Fact]
+    public void MixedLinkGroup_Warned()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        nodes["m"] = new FemMeshNode { NodeTag = "m", X = 1.5, Y = 0.3, Z = 0.5 };
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("m", "18"));
+        t.Links.Add(("18", null));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+        var r = Run(t, nodes, elements);
+
+        Assert.True(r.Ok, Text(r));
+        Assert.Equal(6000, Sum(r, 0).Z, 6);
+        Assert.Contains(r.Diagnostics, d => d.Code == "fragment_mask_link_crosses_cut" && !d.IsError);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "fragment_mask_link_forces");
+    }
+
+    /// <summary>Экстрактор: член связи не теряется при переводе в плотность — равнодействующая маски 6500 Н.</summary>
+    [Fact]
+    public void Extractor_RigidLinkForce_InMaskResultant()
+    {
+        var (nodes, elements) = Wall(3, 3, 6, 6);
+        nodes["m"] = new FemMeshNode { NodeTag = "m", X = 1.5, Y = 0.3, Z = 0.5 };
+        var result = new FragmentParentResultTable();
+        result.AddKey(K1);
+        foreach (var (tag, n) in nodes) result.SetDisplacement(K1, tag, new Dof6(0, 0, -1e-4 * n.Z, 0, 0, 0));
+        var t = Compression(nodes, elements, -2000, 3);
+        t.Links.Add(("m", "18"));
+        t.AddNodeLoad(K1, "18", new Dof6(0, 0, -500, 0, 0, 0));
+        var cut = WallBottom(0.8, 3);
+
+        var x = FragmentMaskExtractor.Extract(new FragmentMaskInput
+        {
+            Cuts = [cut], ParentNodes = nodes, ParentElements = elements, Result = result,
+            NodalForces = t, Bounds = new FragmentBounds(0.8, 3, null, 1e-3),
+        });
+
+        Assert.Equal(FragmentEdgeForceMethod.NodalForces, x.EdgeMethod);
+        var mask = Assert.Single(x.Masks);
+        Assert.Equal(6500, FragmentMaskBalance.Resultant(cut, mask.Samples, V(0, 0, 0))!.Value.F.Z, 3);
+        Assert.DoesNotContain(x.Diagnostics, d => d.Code == "fragment_mask_cut_resultant");
     }
 
     /// <summary>

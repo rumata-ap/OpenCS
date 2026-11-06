@@ -19,8 +19,9 @@ public sealed class FragmentNodalCutResult
 /// граничном узле <c>S_N = −Σ (f_int,e − f_нагр,e)|_N</c>; поправка на полоску между ступенькой и гранью
 /// <c>нагр(Ω_s) − нагр(Ω_f)</c> (КЭ, пересекающий грань, — частью по виду нагрузки <see cref="FragmentLoadInside"/>, без
 /// частей у источника — долей <see cref="FragmentElementShare"/>; узловые нагрузки и реакции — по
-/// принадлежности узла); слагаемое — в разрез плоскости наибольшего <c>Eval</c> центра КЭ (узла), ближайший к точке.
-/// Перед снятием — самопроверка равновесия узлов тела.
+/// принадлежности узла); силы связей (АЖТ, пружины) через ступеньку — из равновесия узлов родителя
+/// <c>L_N = Σ_e f_e(N) − P_N − R_N</c> (спека 2026-11-06); слагаемое — в разрез плоскости наибольшего <c>Eval</c> центра
+/// КЭ (узла), ближайший к точке. Перед снятием — самопроверка равновесия узлов тела.
 /// </summary>
 public static class FragmentNodalCut
 {
@@ -184,8 +185,6 @@ public static class FragmentNodalCut
             linked.Add(a);
             if (b != null) linked.Add(b);
         }
-        WarnLinks(r, body, nodes, bounds, source.NodeLinks);
-
         var cache = new Dictionary<(FragmentMaskKey, string), IReadOnlyDictionary<string, Dof6>?>();
         IReadOnlyDictionary<string, Dof6>? Forces(FragmentMaskKey key, string tag)
         {
@@ -193,6 +192,12 @@ public static class FragmentNodalCut
                 cache[(key, tag)] = f = source.TryElementNodeForces(key, tag, out var v) ? v : null;
             return f;
         }
+
+        var links = Links(body, nodes, bounds, source.NodeLinks, keys, Forces);
+        if (links.Skipped.Count > 0)
+            r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_link_crosses_cut",
+                $"Связи узлов (АЖТ, пружины) через ступеньку разреза не учтены, групп связей {links.Skipped.Count} " +
+                $"({string.Join("; ", links.Skipped.Take(10))}{(links.Skipped.Count > 10 ? "; …" : "")}) — их силы в маски кромок не входят.", false));
 
         foreach (var key in keys)
             if (SelfCheck(body, bounds, key, source, linked, Forces) is { } fail)
@@ -203,6 +208,7 @@ public static class FragmentNodalCut
             }
 
         var index = new CutIndex(cuts, bounds);
+        double linkMax = 0;
         foreach (var key in keys)
         {
             var map = new Dictionary<int, List<FragmentNodalTerm>>();
@@ -276,11 +282,30 @@ public static class FragmentNodalCut
             Point(source.NodeLoads(key));
             Point(source.Reactions(key));
 
+            // Связи через ступеньку: L_N = Σ_e f_e(N) − P_N − R_N с множителем узла группы.
+            foreach (var g in links.Counted)
+            {
+                var sum = PlanarVector3.Zero;
+                foreach (var (n, k) in g.Factor)
+                {
+                    var l = LinkForce(body, n, key, source, Forces);
+                    var at = body.Positions.TryGetValue(n, out var pos) ? pos : new PlanarVector3(nodes[n].X, nodes[n].Y, nodes[n].Z);
+                    Add(at, at, l.Force * k, l.Moment * k);
+                    sum += l.Force * k;
+                }
+                linkMax = Math.Max(linkMax, sum.Length);
+            }
+
             if (lost.Length > 1e-9 * Math.Max(scale, 1))
                 r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_nodal_unassigned", string.Create(CultureInfo.CurrentCulture,
                     $"{FragmentMaskExtractor.KeyText(key)}: силы ступеньки без разреза кромки на своей грани — |ΣF| = {lost.Length / 1e3:0.###} кН не вошли в маски."), false));
             r.Terms[key] = map;
         }
+        if (links.Counted.Count > 0)
+            r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_link_forces", string.Create(CultureInfo.CurrentCulture,
+                $"Связи узлов через ступеньку разреза учтены узловыми силами из равновесия узлов родителя, групп связей {links.Counted.Count} " +
+                $"({string.Join("; ", links.Counted.Take(10).Select(g => g.Label))}{(links.Counted.Count > 10 ? "; …" : "")}), " +
+                $"наибольшая |ΣF| группы {linkMax / 1e3:0.###} кН."), false));
         r.Ok = true;
         return r;
     }
@@ -319,21 +344,98 @@ public static class FragmentNodalCut
             : null;
     }
 
-    static void WarnLinks(FragmentNodalCutResult r, Body body, IReadOnlyDictionary<string, FemMeshNode> nodes, FragmentBounds bounds,
-        IReadOnlyCollection<(string A, string? B)> links)
+    /// <summary>Учтённая группа связей: множитель члена L_N по узлу (1 — узел пары в Ω_s; χ_s − χ_f — пружина).</summary>
+    sealed record LinkGroup(string Label, IReadOnlyDictionary<string, int> Factor);
+
+    /// <summary>Компонента связей при разборе: подписи, узлы, узлы с пружиной, есть ли пары.</summary>
+    sealed class LinkSet
     {
-        var crossing = new List<string>();
+        public List<string> Labels { get; } = [];
+        public HashSet<string> Nodes { get; } = new(StringComparer.Ordinal);
+        public HashSet<string> Springs { get; } = new(StringComparer.Ordinal);
+        public bool Pairs { get; set; }
+    }
+
+    /// <summary>
+    /// Группы связей — компоненты связности пар (спека 2026-11-06, разд. 2.2): пары без пружин через ступеньку — узлы в Ω_s
+    /// с множителем 1; одиночная пружина — χ_s − χ_f; пары с пружинами через ступеньку или нет сил КЭ узла — неучтённые
+    /// с причиной.
+    /// </summary>
+    static (List<LinkGroup> Counted, List<string> Skipped) Links(Body body, IReadOnlyDictionary<string, FemMeshNode> nodes,
+        FragmentBounds bounds, IReadOnlyCollection<(string A, string? B)> links, IReadOnlyList<FragmentMaskKey> keys,
+        Func<FragmentMaskKey, string, IReadOnlyDictionary<string, Dof6>?> forces)
+    {
+        var root = new Dictionary<string, string>(StringComparer.Ordinal);
+        string Find(string x)
+        {
+            if (!root.TryGetValue(x, out var p)) return root[x] = x;
+            return p == x ? x : root[x] = Find(p);
+        }
         foreach (var (a, b) in links)
         {
-            bool inA = body.Holds(a, nodes, bounds);
-            bool cross = b == null
-                ? inA != (nodes.TryGetValue(a, out var p) && bounds.InBox(new PlanarVector3(p.X, p.Y, p.Z)))
-                : inA != body.Holds(b, nodes, bounds);
-            if (cross) crossing.Add(b == null ? a : $"{a}–{b}");
+            string ra = Find(a);
+            if (b != null && Find(b) is var rb && rb != ra) root[ra] = rb;
         }
-        if (crossing.Count > 0)
-            r.Diagnostics.Add(new FemValidationDiagnostic("fragment_mask_link_crosses_cut",
-                $"Связи узлов (АЖТ, пружины) через ступеньку разреза: {crossing.Count} ({string.Join(", ", crossing.Take(10))}" +
-                $"{(crossing.Count > 10 ? ", …" : "")}) — их силы в маски кромок не входят.", false));
+
+        var groups = new Dictionary<string, LinkSet>(StringComparer.Ordinal);
+        foreach (var (a, b) in links)
+        {
+            string r0 = Find(a);
+            if (!groups.TryGetValue(r0, out var g)) groups[r0] = g = new LinkSet();
+            g.Nodes.Add(a);
+            string label = b == null ? a : $"{a}–{b}";
+            if (b == null) g.Springs.Add(a);
+            else
+            {
+                g.Nodes.Add(b);
+                g.Pairs = true;
+            }
+            if (!g.Labels.Contains(label)) g.Labels.Add(label);
+        }
+
+        bool InBox(string n) => nodes.TryGetValue(n, out var m) && bounds.InBox(new PlanarVector3(m.X, m.Y, m.Z));
+        int K(string n) => (body.Holds(n, nodes, bounds) ? 1 : 0) - (InBox(n) ? 1 : 0);
+        bool HasForces(string n) => !body.ElementsAt.TryGetValue(n, out var es)
+            || keys.All(k => es.All(e => forces(k, e)?.GetValueOrDefault(n) != null));
+
+        var counted = new List<LinkGroup>();
+        var skipped = new List<string>();
+        foreach (var g in groups.Values)
+        {
+            string label = string.Join(", ", g.Labels);
+            var holds = g.Nodes.Where(n => body.Holds(n, nodes, bounds)).ToList();
+            bool crossing = holds.Count > 0 && holds.Count < g.Nodes.Count;
+            Dictionary<string, int>? factor = null;
+            string? reason = null;
+            if (!g.Pairs)
+            {
+                var f = g.Nodes.Where(n => K(n) != 0).ToDictionary(n => n, K, StringComparer.Ordinal);
+                if (f.Count > 0) factor = f;
+            }
+            else if (g.Springs.Count == 0)
+            {
+                if (crossing) factor = holds.ToDictionary(n => n, _ => 1, StringComparer.Ordinal);
+            }
+            else if (crossing || g.Springs.Any(n => K(n) != 0))
+                reason = "АЖТ и пружины в одной группе";
+            if (factor != null && !factor.Keys.All(HasForces))
+            {
+                factor = null;
+                reason = "нет сил КЭ";
+            }
+            if (factor != null) counted.Add(new LinkGroup(label, factor));
+            else if (reason != null) skipped.Add($"{label} — {reason}");
+        }
+        return (counted, skipped);
+    }
+
+    /// <summary>Действие всех связей узла на узел из его равновесия в родителе: L_N = Σ_e f_e(N) − P_N − R_N.</summary>
+    static Dof6 LinkForce(Body body, string n, FragmentMaskKey key, IFragmentParentNodalForces source,
+        Func<FragmentMaskKey, string, IReadOnlyDictionary<string, Dof6>?> forces)
+    {
+        var sum = Dof6.Zero;
+        if (body.ElementsAt.TryGetValue(n, out var es))
+            foreach (var e in es) sum += forces(key, e)![n];
+        return sum - (source.NodeLoads(key).GetValueOrDefault(n) ?? Dof6.Zero) - (source.Reactions(key).GetValueOrDefault(n) ?? Dof6.Zero);
     }
 }
