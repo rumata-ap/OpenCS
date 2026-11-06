@@ -15,12 +15,19 @@
             Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
         <Expander IsExpanded="False">
             <Expander.Header>
-                <TextBlock TextTrimming="CharacterEllipsis">
-                    <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
-                    <Run Text=" — "/>
-                    <Run Text="{Binding StatusText, Mode=OneWay}"
-                         Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
-                </TextBlock>
+                <DockPanel>
+                    <!-- Предупреждение о масках видно и в свёрнутом виде: значок, текст — в подсказке -->
+                    <TextBlock DockPanel.Dock="Left" Text="⚠" Margin="0,0,6,0" FontWeight="Bold"
+                               ToolTip="{Binding MaskText}"
+                               Foreground="{Binding IsMaskWarning, Converter={StaticResource DiagnosticColorConverter}}"
+                               Visibility="{Binding IsMaskWarning, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <TextBlock TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
+                        <Run Text=" — "/>
+                        <Run Text="{Binding StatusText, Mode=OneWay}"
+                             Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
+                    </TextBlock>
+                </DockPanel>
             </Expander.Header>
             <DockPanel Margin="20,2,0,2">
                 <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
