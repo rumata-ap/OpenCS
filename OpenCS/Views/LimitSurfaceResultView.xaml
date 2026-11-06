@@ -14,8 +14,18 @@
       <TextBlock x:Name="ErrorBlock" Grid.Row="0" Grid.RowSpan="3" Text="{Binding ErrorText}" TextWrapping="Wrap"
                  Foreground="DarkRed" Visibility="Collapsed"/>
 
-      <!-- Шапка: режим Кисп, оси, сводка -->
-      <WrapPanel x:Name="Header" Grid.Row="0" Margin="0,0,0,6">
+      <!-- Шапка в экспандере (свёрнута): в заголовке сводка и значок предупреждений; внутри режим Кисп, оси, плашки -->
+      <Expander x:Name="HeaderExpander" Grid.Row="0" Grid.RowSpan="2" IsExpanded="False" Margin="0,0,0,4">
+         <Expander.Header>
+            <DockPanel>
+               <TextBlock x:Name="WarnIcon" DockPanel.Dock="Left" Text="⚠" Margin="0,0,6,0" FontWeight="Bold"
+                          Foreground="DarkOrange" Visibility="Collapsed"
+                          ToolTip="{DynamicResource LimitSurfaceHeaderWarnTip}"/>
+               <TextBlock x:Name="SummaryText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+         </Expander.Header>
+         <StackPanel Margin="0,4,0,0">
+      <WrapPanel x:Name="Header" Margin="0,0,0,6">
          <TextBlock Text="{DynamicResource LimitSurfaceModeLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
          <RadioButton x:Name="ModeAll" Content="{DynamicResource LimitSurfaceModeAll}" GroupName="mode"
                       Margin="0,0,8,0" VerticalAlignment="Center" Checked="OnModeChecked"/>
@@ -28,11 +38,10 @@
                       Margin="0,0,8,0" VerticalAlignment="Center" Checked="OnAxesChecked"/>
          <RadioButton x:Name="AxesAbs" Content="{DynamicResource LimitSurfaceAxesAbsolute}" GroupName="axes"
                       Margin="0,0,16,0" VerticalAlignment="Center" Checked="OnAxesChecked"/>
-         <TextBlock x:Name="SummaryText" VerticalAlignment="Center"/>
       </WrapPanel>
 
       <!-- Предупреждения -->
-      <StackPanel x:Name="Warnings" Grid.Row="1">
+      <StackPanel x:Name="Warnings">
          <Border Background="#FFF4CE" Padding="6,3" Margin="0,0,0,4"
                  Visibility="{Binding EtaWarning, Converter={StaticResource BoolToVisibility}}">
             <TextBlock Text="{DynamicResource LimitSurfaceWarnEta}" TextWrapping="Wrap"/>
@@ -54,6 +63,8 @@
             <TextBlock x:Name="AmbiguousText" Text="{DynamicResource LimitSurfaceWarnAmbiguous}" TextWrapping="Wrap"/>
          </Border>
       </StackPanel>
+         </StackPanel>
+      </Expander>
 
       <TabControl x:Name="Tabs" Grid.Row="2">
          <TabItem Header="{DynamicResource LimitSurfaceTab3D}">

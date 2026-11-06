@@ -41,7 +41,7 @@ public partial class LimitSurfaceResultView : UserControl
         if (_vm.Scene is null)
         {
             ErrorBlock.Visibility = Visibility.Visible;
-            Header.Visibility = Warnings.Visibility = Tabs.Visibility = Visibility.Collapsed;
+            HeaderExpander.Visibility = Tabs.Visibility = Visibility.Collapsed;
             return;
         }
         (_vm.Mode switch { UtilizationMode.Moment => ModeMoment, UtilizationMode.Axial => ModeAxial, _ => ModeAll }).IsChecked = true;
@@ -81,8 +81,11 @@ public partial class LimitSurfaceResultView : UserControl
     {
         var scene = _vm.Scene!;
         var s = _vm.Summary;
-        SummaryText.Text = _vm.Points.Count == 0 ? "" :
+        SummaryText.Text = _vm.Points.Count == 0 ? Loc.S("LimitSurfaceHeaderExpander") :
             string.Format(Loc.S("LimitSurfaceSummaryFormat"), FormatRatio(s.MaxRatio), s.Outside, _vm.Points.Count, s.Ambiguous);
+        // Свёрнутая шапка: жёлтые плашки внутри не видны — значок в заголовке.
+        WarnIcon.Visibility = _vm.EtaWarning || _vm.HasAcrcNotConverged || _vm.NoTensileRebarWarning || _vm.HasAmbiguous
+            ? Visibility.Visible : Visibility.Collapsed;
         Redraw3D(scene);
         RedrawSlice();
         RefreshPointsGrid();

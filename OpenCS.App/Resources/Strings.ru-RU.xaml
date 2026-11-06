@@ -1733,6 +1733,8 @@
    <system:String x:Key="LimitSurfaceAccuracyHigh">высокая</system:String>
    <system:String x:Key="LimitSurfaceNeedForceSet">Выберите набор усилий или снимите флажок «Нанести точки набора усилий»</system:String>
    <system:String x:Key="LimitSurfaceFormatOutdated">Формат результата устарел — пересчитайте задачу</system:String>
+   <system:String x:Key="LimitSurfaceHeaderExpander">Режим Кисп, оси, предупреждения</system:String>
+   <system:String x:Key="LimitSurfaceHeaderWarnTip">Есть предупреждения — разверните шапку</system:String>
    <system:String x:Key="LimitSurfaceModeLabel">Кисп по лучу:</system:String>
    <system:String x:Key="LimitSurfaceModeAll">k·(N, Mx, My)</system:String>
    <system:String x:Key="LimitSurfaceModeMoment">N = const, k·M</system:String>

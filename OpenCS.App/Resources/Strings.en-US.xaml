@@ -1733,6 +1733,8 @@
    <system:String x:Key="LimitSurfaceAccuracyHigh">high</system:String>
    <system:String x:Key="LimitSurfaceNeedForceSet">Select a force set or clear “Plot force set points”</system:String>
    <system:String x:Key="LimitSurfaceFormatOutdated">Result format is outdated — recalculate the task</system:String>
+   <system:String x:Key="LimitSurfaceHeaderExpander">Utilization mode, axes, warnings</system:String>
+   <system:String x:Key="LimitSurfaceHeaderWarnTip">There are warnings — expand the header</system:String>
    <system:String x:Key="LimitSurfaceModeLabel">Utilization ray:</system:String>
    <system:String x:Key="LimitSurfaceModeAll">k·(N, Mx, My)</system:String>
    <system:String x:Key="LimitSurfaceModeMoment">N = const, k·M</system:String>
