@@ -181,14 +181,26 @@ public sealed class SecantPicardOptions
     /// </summary>
     public Action<SecantStepResult>? OnStepAccepted { get; init; }
 
+    /// <summary>
+    /// Начальное несовершенство (<see cref="ImperfectionField"/>): только в теории второго порядка — правая часть
+    /// F − g(N, u₀) на каждой итерации и g в истинных внутренних силах (невязка, реакции). При коротационной формулировке
+    /// — отказ (<see cref="NotSupportedException"/>), без <see cref="Geometric"/> — не учитывается. null или пустое — нет.
+    /// </summary>
+    public ImperfectionField? Imperfection { get; init; }
+
     /// <summary>Копия с другим <see cref="OnStepAccepted"/>.</summary>
-    public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => new()
+    public SecantPicardOptions With(Action<SecantStepResult>? onStepAccepted) => Copy(onStepAccepted, Imperfection);
+
+    /// <summary>Копия с другим <see cref="Imperfection"/>.</summary>
+    public SecantPicardOptions WithImperfection(ImperfectionField? imperfection) => Copy(OnStepAccepted, imperfection);
+
+    private SecantPicardOptions Copy(Action<SecantStepResult>? onStepAccepted, ImperfectionField? imperfection) => new()
     {
         MaxIterations = MaxIterations, IterationExtension = IterationExtension, NearToleranceFactor = NearToleranceFactor, Omega0 = Omega0, OmegaMin = OmegaMin, OmegaMax = OmegaMax,
         TolDisplacement = TolDisplacement, TolStiffness = TolStiffness, Geometric = Geometric, GeometricSecondOrder = GeometricSecondOrder, ShellInPlanePDelta = ShellInPlanePDelta,
         GeometricTolerance = GeometricTolerance, GeometricNewtonSteps = GeometricNewtonSteps, NonSpdLuMaxSize = NonSpdLuMaxSize, MaxBisections = MaxBisections, StiffnessFloor = StiffnessFloor,
         TrueResidualEachIteration = TrueResidualEachIteration, MaxDegreeOfParallelism = MaxDegreeOfParallelism, Log = Log,
-        OnStepAccepted = onStepAccepted,
+        OnStepAccepted = onStepAccepted, Imperfection = imperfection,
     };
 }
 
@@ -276,6 +288,7 @@ public sealed class SecantPicardSolver
     private readonly double[]?[] _shellAngle;   // угол поворота сечения (null — без поворота)
     private readonly SecantPicardOptions _o;
     private readonly double _momentArm;   // средний размер КЭ — плечо узловых моментов в невязке
+    private readonly ImperfectionField? _imperfection;   // несовершенство второго порядка (null — нет или не учитывается)
 
     public SecantPicardSolver(StructuralMesh mesh, BoundaryConditions bc,
         IReadOnlyList<ISecantShellState?> shells, IReadOnlyList<ISecantBeamState?> beams,
@@ -289,6 +302,14 @@ public sealed class SecantPicardSolver
         _shells = shells.ToArray();
         _beams = beams.ToArray();
         _o = options ?? new SecantPicardOptions();
+        if (_o.Imperfection is { IsEmpty: false } imp && _o.Geometric)
+        {
+            if (!_o.GeometricSecondOrder)
+                throw new NotSupportedException(
+                    "Несовершенства учитываются только в теории второго порядка (без «Больших перемещений»).");
+            imp.CheckFor(mesh);
+            _imperfection = imp;
+        }
         double sumL = 0.0;
         int nL = 0;
         for (int e = 0; e < mesh.Shells.Count; e++)
@@ -612,7 +633,18 @@ public sealed class SecantPicardSolver
                 var uFixed = _bc.UFixed;
                 return uFixed.Any(v => v != 0) ? _mesh.SolveLinear([f], _bc, null, [uFixed])[0] : _mesh.SolveLinear(f, _bc);
             }
-            if (SecondOrder) return _mesh.SolveSecondOrder(f, _bc, uFrom, _o.ShellInPlanePDelta);
+            if (SecondOrder)
+            {
+                // Несовершенство: правая часть F − g(N(uFrom), u₀) — по тем же N, что K_σ системы.
+                var rhs = f;
+                if (_imperfection != null)
+                {
+                    var g = _mesh.ImperfectionForce(_imperfection, uFrom, _o.ShellInPlanePDelta);
+                    rhs = new double[f.Length];
+                    for (int i = 0; i < f.Length; i++) rhs[i] = f[i] - g[i];
+                }
+                return _mesh.SolveSecondOrder(rhs, _bc, uFrom, _o.ShellInPlanePDelta);
+            }
             bool inexact = _o.GeometricNewtonSteps > 0;
             bool full = !inexact || _fullNewton;
             int luBefore = _mesh.LuFallbackSize;
@@ -924,7 +956,12 @@ public sealed class SecantPicardSolver
                 : ShellElementForces.ElementFInternalGlobal(_mesh.ShellCoords(e), sec, Gather(u, dofs), vonKarman: Cr);
             // Теория второго порядка: к усилиям закона — вклад начальных напряжений K_σ·u.
             if (SecondOrder)
+            {
                 parts[e] = Dense.AddV(parts[e], Dense.MatVec(_mesh.ShellKGeometric(e, u, _o.ShellInPlanePDelta), Gather(u, dofs)));
+                // Несовершенство: f_int + g = F (g — по N при u).
+                if (_imperfection != null && _mesh.ImperfectionForceElement(e, _imperfection, u, _o.ShellInPlanePDelta) is { } ge)
+                    parts[e] = Dense.AddV(parts[e], ge);
+            }
         });
         var fInt = new double[_mesh.NDof];
         var fAbs = new double[_mesh.NDof];
@@ -952,6 +989,9 @@ public sealed class SecantPicardSolver
                 : SecondOrder
                 ? Dense.MatVec(_mesh.ElementKSecondOrder(_shells.Length + e, u, _o.ShellInPlanePDelta), ue)
                 : Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue);
+            if (SecondOrder && _imperfection != null
+                && _mesh.ImperfectionForceElement(_shells.Length + e, _imperfection, u, _o.ShellInPlanePDelta) is { } gb)
+                fe = Dense.AddV(fe, gb);
             for (int i = 0; i < dofs.Length; i++)
             {
                 fInt[dofs[i]] += fe[i];

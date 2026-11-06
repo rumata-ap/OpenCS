@@ -151,6 +151,105 @@ public sealed class RcStructuralMeshBuild
         }
         return r;
     }
+
+    /// <summary>
+    /// Поле начальных перемещений несовершенств модели (<see cref="RcStructuralModel.Imperfections"/>) на этой сетке:
+    /// u₀ каждого элемента — поэлементно в узлах КЭ (глобальные оси), несколько элементов на КЭ складываются. null —
+    /// несовершенств нет.
+    /// </summary>
+    public ImperfectionField? Imperfection(RcStructuralModel model)
+    {
+        if (model.Imperfections.Count == 0) return null;
+        var field = new ImperfectionField(Mesh.Beams.Count, Mesh.Shells.Count);
+        var beamIndex = new Dictionary<int, int>();
+        for (int i = 0; i < BeamIds.Length; i++) beamIndex[BeamIds[i]] = i;
+        void AddBeam(int e, int end, double[] u, double[] rot)
+        {
+            var a = field.Beam[e] ??= new double[12];
+            for (int c = 0; c < 3; c++) { a[6 * end + c] += u[c]; a[6 * end + 3 + c] += rot[c]; }
+        }
+        foreach (var imp in model.Imperfections)
+            switch (imp)
+            {
+                case RcSway sw:
+                {
+                    var d = Unit(sw.Direction, "Крен: направление");
+                    for (int e = 0; e < Mesh.Beams.Count; e++)
+                    {
+                        if (sw.Beams != null && !sw.Beams.Contains(BeamIds[e])) continue;
+                        var b = Mesh.Beams[e];
+                        var t = Unit(Sub(Mesh.Nodes[b.J], Mesh.Nodes[b.I]), $"Стержень {BeamIds[e]}");
+                        var rot = Scale(Cross(t, d), sw.Phi * t[2]);
+                        AddBeam(e, 0, Scale(d, sw.Phi * (Mesh.Nodes[b.I][2] - sw.Z0)), rot);
+                        AddBeam(e, 1, Scale(d, sw.Phi * (Mesh.Nodes[b.J][2] - sw.Z0)), rot);
+                    }
+                    for (int e = 0; e < Mesh.Shells.Count; e++)
+                    {
+                        if (sw.Shells != null && !sw.Shells.Contains(ShellIds[e])) continue;
+                        var nodes = Mesh.Shells[e].Nodes;
+                        var a = field.Shell[e] ??= new double[3 * nodes.Length];
+                        for (int i = 0; i < nodes.Length; i++)
+                            for (int c = 0; c < 3; c++) a[3 * i + c] += sw.Phi * (Mesh.Nodes[nodes[i]][2] - sw.Z0) * d[c];
+                    }
+                    break;
+                }
+                case RcBow bow:
+                {
+                    if (bow.Beams.Count == 0) throw new ArgumentException("Погибь: пустая цепочка стержней.");
+                    var idx = bow.Beams.Select(id => beamIndex.TryGetValue(id, out int i) ? i
+                        : throw new ArgumentException($"Погибь: нет стержня {id}.")).ToArray();
+                    // Концы цепочки — узлы, входящие в один КЭ цепочки.
+                    var degree = new Dictionary<int, int>();
+                    foreach (int e in idx)
+                        foreach (int n in new[] { Mesh.Beams[e].I, Mesh.Beams[e].J })
+                            degree[n] = degree.GetValueOrDefault(n) + 1;
+                    var ends = degree.Where(kv => kv.Value == 1).Select(kv => kv.Key).ToArray();
+                    if (ends.Length != 2 || degree.Values.Any(v => v > 2))
+                        throw new ArgumentException($"Погибь: стержни {string.Join(", ", bow.Beams)} не образуют цепочку.");
+                    // Начало хорды — конец первого стержня (парабола симметрична — на u₀ выбор не влияет).
+                    var b0 = Mesh.Beams[idx[0]];
+                    int start = ends.Contains(b0.I) ? b0.I : ends.Contains(b0.J) ? b0.J : ends[0];
+                    int stop = ends[0] == start ? ends[1] : ends[0];
+                    var x0 = Mesh.Nodes[start];
+                    var chord = Sub(Mesh.Nodes[stop], x0);
+                    double len = Math.Sqrt(Dot(chord, chord));
+                    var t = Scale(chord, 1.0 / len);
+                    var dRaw = Unit(bow.Direction, "Погибь: направление");
+                    var d = Unit(Sub(dRaw, Scale(t, Dot(dRaw, t))), "Погибь: направление вдоль хорды");
+                    var txd = Cross(t, d);
+                    foreach (int e in idx)
+                    {
+                        var b = Mesh.Beams[e];
+                        int[] nodes = [b.I, b.J];
+                        for (int end = 0; end < 2; end++)
+                        {
+                            double s = Dot(Sub(Mesh.Nodes[nodes[end]], x0), t);
+                            double w = 4.0 * bow.E0 * s * (len - s) / (len * len);
+                            double dw = 4.0 * bow.E0 * (len - 2.0 * s) / (len * len);
+                            AddBeam(e, end, Scale(d, w), Scale(txd, dw));
+                        }
+                    }
+                    break;
+                }
+                default:
+                    throw new NotSupportedException($"Несовершенство «{imp.GetType().Name}» не поддержано.");
+            }
+        return field.IsEmpty ? null : field;
+    }
+
+    private static double[] Sub(double[] a, double[] b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    private static double Dot(double[] a, double[] b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    private static double[] Scale(double[] a, double k) => [a[0] * k, a[1] * k, a[2] * k];
+    private static double[] Cross(double[] a, double[] b) =>
+        [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+    private static double[] Unit(double[] v, string what)
+    {
+        if (v is not { Length: 3 }) throw new ArgumentException($"{what}: нужен вектор из 3 чисел.");
+        double n = Math.Sqrt(Dot(v, v));
+        if (!(n > 1e-12)) throw new ArgumentException($"{what}: нулевой вектор.");
+        return Scale(v, 1.0 / n);
+    }
 }
 
 /// <summary>

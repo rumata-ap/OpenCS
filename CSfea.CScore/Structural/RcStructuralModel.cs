@@ -114,6 +114,28 @@ public sealed record RcLoadCase(int Id, string Name)
 public sealed record RcStage(string Name, IReadOnlyList<(int LoadCase, double Factor)> Loads, int Steps = 1);
 
 /// <summary>
+/// Начальное несовершенство схемы для расчёта по теории второго порядка (EN 1993-1-1 п. 5.3): поле начальных
+/// перемещений u₀ без напряжений, учитываемое правой частью −K_σ(N)·u₀ (<see cref="ImperfectionField"/>).
+/// </summary>
+public abstract record RcImperfection;
+
+/// <summary>
+/// Крен: u₀ = φ·(z − z₀)·d в узлах КЭ охвата; d — единичный горизонтальный вектор <paramref name="Direction"/> (глобальные
+/// оси), повороты стержней — φ·(t·e_z)·(t × d). <paramref name="Beams"/>, <paramref name="Shells"/> — номера КЭ модели
+/// (null — все). z₀ на результат не влияет (поступательное смещение не даёт сил) — только для показа u₀.
+/// </summary>
+public sealed record RcSway(double Phi, double[] Direction, double Z0 = 0.0, IReadOnlySet<int>? Beams = null,
+    IReadOnlySet<int>? Shells = null) : RcImperfection;
+
+/// <summary>
+/// Погибь-парабола цепочки стержней (номера модели, соосная цепочка; концы — узлы, входящие в один КЭ цепочки):
+/// w₀(s) = 4e₀·s(L − s)/L², s — проекция узла на хорду, L — длина хорды; стрелка <paramref name="E0"/> (м, со знаком) вдоль
+/// <paramref name="Direction"/> (глобальный вектор, ортогонализуется к хорде — например, местная y или z первого стержня).
+/// Узлу КЭ — перемещение w₀·d и поворот w₀′·(t × d); кубика Эрмита воспроизводит параболу точно.
+/// </summary>
+public sealed record RcBow(IReadOnlyList<int> Beams, double E0, double[] Direction) : RcImperfection;
+
+/// <summary>
 /// Нейтральная модель ЖБ оболочечно-стержневой схемы для расчётов CSfea (СИ: Н, м, Па). Никакой логики
 /// источника (SCAD, ЛИРА, схема OpenCS) — источники переводятся в неё адаптерами.
 /// </summary>
@@ -127,4 +149,10 @@ public sealed class RcStructuralModel
     public List<RcSpring> Springs { get; } = new();
     public List<RcLoadCase> LoadCases { get; } = new();
     public List<RcStage> Stages { get; } = new();
+
+    /// <summary>
+    /// Начальные несовершенства (складываются): действуют в секущем расчёте по теории второго порядка
+    /// (<see cref="RcStructuralMeshBuild.Imperfection"/>), без геометрической нелинейности не учитываются.
+    /// </summary>
+    public List<RcImperfection> Imperfections { get; } = new();
 }

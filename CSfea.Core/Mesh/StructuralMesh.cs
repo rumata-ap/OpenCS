@@ -384,6 +384,64 @@ public sealed class StructuralMesh : IFeaMesh
         return Dense.MatMul(Dense.MatTMul(t, BeamReleases.Condense(kl, b.Releases)), t);
     }
 
+    /// <summary>
+    /// Вектор начального несовершенства g = Σ_e K_σ,e(N_e)·u₀,e (полные DOF, глобальные оси): правая часть второго
+    /// порядка — F − g. N — усилия КЭ при <paramref name="uState"/>, те же, по которым <see cref="ElementKSecondOrder"/>
+    /// собирает K_σ. КЭ — параллельно, сумма — по порядку (не зависит от числа потоков).
+    /// </summary>
+    public double[] ImperfectionForce(ImperfectionField field, double[] uState, bool shellInPlane = true)
+    {
+        var parts = new double[]?[ElementCount];
+        Parallel.For(0, ElementCount, new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism },
+            e => parts[e] = ImperfectionForceElement(e, field, uState, shellInPlane));
+        var g = new double[NDof];
+        for (int e = 0; e < parts.Length; e++)
+        {
+            if (parts[e] is not { } ge) continue;
+            var dofs = ElementDofs(e);
+            for (int k = 0; k < dofs.Length; k++) g[dofs[k]] += ge[k];
+        }
+        return g;
+    }
+
+    /// <summary>
+    /// Вклад КЭ единой нумерации <paramref name="e"/> в <see cref="ImperfectionForce"/> по его DOF
+    /// (<see cref="ElementDofs"/>); null — у КЭ нет u₀ или продольная сила стержня нулевая. Оболочка —
+    /// <see cref="ShellKGeometric"/>·u₀ (u₀ на поступательных DOF узлов, повороты — 0). Стержень — Tᵀ·K_σ,loc(N)·T·u₀; у
+    /// КЭ с шарнирами вектор приводится к сохранённым DOF как нагрузка (<see cref="BeamReleases.CondenseLoad"/>) по
+    /// матрице K + K_σ — той же, что конденсирует <see cref="ElementKSecondOrder"/>.
+    /// </summary>
+    public double[]? ImperfectionForceElement(int e, ImperfectionField field, double[] uState, bool shellInPlane = true)
+    {
+        if (e < Shells.Count)
+        {
+            if (field.Shell[e] is not { } s0) return null;
+            int n = Shells[e].Nodes.Length;
+            var u0 = new double[6 * n];
+            for (int i = 0; i < n; i++)
+                for (int c = 0; c < 3; c++) u0[6 * i + c] = s0[3 * i + c];
+            return Dense.MatVec(ShellKGeometric(e, uState, shellInPlane), u0);
+        }
+        int bi = e - Shells.Count;
+        if (field.Beam[bi] is not { } b0) return null;
+        var b = Beams[bi];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(bi), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = Dense.MatVec(t, Gather(uState, BeamDofs(b)));
+        double axial = Dense.MatVec(BeamReleases.Condense(kl, b.Releases), d)[6];
+        if (axial == 0.0) return null;
+        var kg = new double[12, 12];
+        AddBeamKGeometric(kg, axial, l);
+        var f = Dense.MatVec(kg, Dense.MatVec(t, b0));
+        if (b.Releases != 0)
+        {
+            var k = (double[,])kl.Clone();
+            Dense.AddScaledInPlace(k, kg, 1.0);
+            f = BeamReleases.CondenseLoad(k, b.Releases, f);
+        }
+        return Dense.MatTVec(t, f);
+    }
+
     // K_σ стержня (местные оси, функции Эрмита): N/(30·L)·[36, 3L, −36, 3L; …] в обеих плоскостях изгиба; у плоскости
     // xz знаки связей прогиб — поворот обратные (w′ = −θy), как в Beam3dKLocal.
     private static void AddBeamKGeometric(double[,] k, double axial, double l)

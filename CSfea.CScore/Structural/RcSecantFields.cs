@@ -146,14 +146,22 @@ public sealed class RcSecantFieldExtractor
     private readonly List<double[]> _stageLoadSums = new();   // ΣF конца стадии (накопленные)
     private readonly Dictionary<int, double> _thickness;      // номер оболочки → толщина сечения, м
     private readonly IRcInitialStiffness? _initial;           // начальные жёсткости КЭ без состояния (линейный на секущих)
+    private readonly ImperfectionField? _imperfection;        // несовершенство второго порядка (null — нет)
+    private readonly bool _shellInPlane;
 
     /// <param name="beams">Состояния стержней (null — все упругие).</param>
     /// <param name="recordStrains">Писать деформации сечений (<see cref="RcSecantStepFields.HasStrains"/>).</param>
+    /// <param name="imperfection">Несовершенство расчёта по теории второго порядка: к концевым силам стержня
+    /// добавляется его вклад g_e = K_σ(N)·u₀ (<see cref="StructuralMesh.ImperfectionForceElement"/>) — как во внутренних
+    /// силах решателя; моменты — относительно несовершенной оси (как при эквивалентных силах рис. 5.4 EN 1993-1-1).</param>
     public RcSecantFieldExtractor(RcStructuralModel model, RcStructuralMeshBuild build, ISecantShellState?[] shells,
         bool geometric, IReadOnlyDictionary<int, double>? shellForceAngles = null, bool shellInPlanePDelta = true,
-        ISecantBeamState?[]? beams = null, bool recordStrains = false, IRcInitialStiffness? initial = null)
+        ISecantBeamState?[]? beams = null, bool recordStrains = false, IRcInitialStiffness? initial = null,
+        ImperfectionField? imperfection = null)
     {
         _build = build;
+        _imperfection = geometric ? null : imperfection;
+        _shellInPlane = shellInPlanePDelta;
         _initial = initial;
         _shells = shells;
         _beams = beams ?? new ISecantBeamState?[build.Mesh.Beams.Count];
@@ -315,7 +323,10 @@ public sealed class RcSecantFieldExtractor
             else
             {
                 var (t, _) = BeamElements.Beam3dT(coords, b.RefVec);
-                local = Dense.MatVec(t, Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue));
+                var fg = Dense.MatVec(BeamElements.Beam3dKGlobal(coords, b.Section, b.RefVec, b.Releases), ue);
+                if (_imperfection != null && mesh.ImperfectionForceElement(mesh.Shells.Count + e, _imperfection, u, _shellInPlane) is { } ge)
+                    fg = Dense.AddV(fg, ge);
+                local = Dense.MatVec(t, fg);
                 rot = new double[3, 3];
                 for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) rot[i, j] = t[i, j];
             }

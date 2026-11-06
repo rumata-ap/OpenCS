@@ -190,10 +190,14 @@ public static class RcSecantAnalysis
             throw new NotSupportedException(
                 "Заданные перемещения в секущем расчёте по теории второго порядка пока не поддержаны — " +
                 "выберите геометрическую нелинейность по Ньютону или расчёт без неё.");
+        // Несовершенства модели — в решатель (учитываются только во втором порядке; CR — отказ решателя).
+        var solverOptions = options.Solver;
+        if (build.Imperfection(model) is { } imperfection) solverOptions = solverOptions.WithImperfection(imperfection);
+        bool secondOrder = solverOptions.Geometric && solverOptions.GeometricSecondOrder;
         var extractor = new RcSecantFieldExtractor(model, build, shells,
             options.Solver.Geometric && !options.Solver.GeometricSecondOrder, options.ShellForceAngles,
-            options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains);
-        var solverOptions = options.Solver;
+            options.Solver.ShellInPlanePDelta, beams, options.RecordSectionStrains,
+            imperfection: secondOrder ? solverOptions.Imperfection : null);
         if (options.OnStep is { } onStep)
         {
             var inner = solverOptions.OnStepAccepted;
