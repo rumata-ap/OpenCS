@@ -40,6 +40,8 @@ public static partial class StoreyFragmentBuilder
 
         public void Error(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, true, keys));
         public void Warn(string code, string message, params string[] keys) => draft.Diagnostics.Add(new(code, message, false, keys));
+        /// <summary>КЭ-пластины сетки родителя (снимок) — проверка «родитель продолжается за грань» у боковых разрезов.</summary>
+        public IReadOnlyList<ParentShell> ParentShells { get; set; } = [];
         /// <summary>Контур сечения по Id из снимка (правило (а): габарит колонны у грани призмы).</summary>
         public Func<int, IReadOnlyList<(double Y, double Z)>?>? SectionOutline { get; set; }
         public bool OnCutPlane(double z) => Math.Abs(z - Z1) <= Tol || Math.Abs(z - Z2) <= Tol;
@@ -52,7 +54,7 @@ public static partial class StoreyFragmentBuilder
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(request);
         var draft = new StoreyFragmentDraft();
-        var c = new Ctx(request, draft) { SectionOutline = parent.SectionOutline };
+        var c = new Ctx(request, draft) { SectionOutline = parent.SectionOutline, ParentShells = ParentShellsOf(parent) };
         if (request.Z2 - request.Z1 <= request.ToleranceM)
         {
             c.Error("fragment_band_empty", $"Отметка z₂ = {request.Z2:0.###} м должна быть выше z₁ = {request.Z1:0.###} м.");
@@ -141,6 +143,10 @@ public static partial class StoreyFragmentBuilder
         region.RecalcFingerprint();
         c.Add(s.Member, CopyPart(s.Member, tag, []), region);
         c.Slabs.Add(new(tag, region, z));
+        // Кромка на грани призмы, за которой родитель продолжается (область КЭ без КонЭ из КЭ полосы кончается на
+        // грани, если линия узлов сетки на ней), — разрез и у плиты целиком внутри.
+        if (c.Prism is not null)
+            AddLateralEdgeCuts(c, source, tag, new PlanarPolygonWithHoles(Points(source.RequireHull()), source.Holes.Select(Points).ToList()));
     }
 
     /// <summary>Закреплённые узлы родителя в полосе переходят во фрагмент.</summary>

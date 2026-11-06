@@ -1,5 +1,6 @@
 using CScore.Fem;
 using CScore.Fem.Fragment;
+using CScore.Fem.Loads;
 using CScore.Planar;
 using Xunit;
 using static CScore.Tests.Fem.Fragment.StoreyFragmentFixtures;
@@ -45,6 +46,62 @@ public sealed class StoreyFragmentPrismSlabTests
         var lateral = d.Cuts.Where(c => c.MemberTag == "S1").ToList();
         Assert.Equal(3, lateral.Count);
         Assert.DoesNotContain(lateral, c => c.Outward == new PlanarVector3(1, 0, 0));
+    }
+
+    /// <summary>Сетка плиты 6×6 на z = 3 без КонЭ (4×4 КЭ, линии узлов ±1,5) — собирается в «КЭ без КонЭ».</summary>
+    static (List<FemMeshNode> Nodes, List<FemElement> Elements) UncoveredSlabMesh()
+    {
+        var (nodes, elements) = StoreyFragmentLoadFixtures.SlabMesh("—", 3, 4);
+        foreach (var e in elements) e.SourceMemberTag = null;
+        return (nodes, elements);
+    }
+
+    static List<FragmentCut> UncoveredLateral(StoreyFragmentDraft d) => d.Cuts
+        .Where(c => c.MemberTag.StartsWith(StoreyFragmentBuilder.UncoveredTag, StringComparison.Ordinal) && c.Side == FragmentCutSide.Lateral)
+        .ToList();
+
+    [Fact]
+    public void UncoveredSlab_MeshLineOnFace_CutsAlongWholeFace()
+    {
+        // Грани ±1,5 — по линиям сетки: КЭ за гранью в полосу не входят, область «КЭ без КонЭ» кончается на грани, но
+        // сетка родителя за гранью продолжается — разрез по всей грани.
+        var (nodes, elements) = UncoveredSlabMesh();
+        var d = BuildPrism(Square(1.5), [], [], [.. nodes], [.. elements]);
+
+        Assert.False(d.HasErrors);
+        var lateral = UncoveredLateral(d);
+        Assert.Equal(9, Area(Assert.Single(d.Members).Region!), 6);
+        Assert.Equal(4, lateral.Count);
+        Assert.Equal(4, lateral.Select(c => c.Outward).Distinct().Count());
+        Assert.All(lateral, c => Assert.Equal(3, c.Segments.Sum(Length), 6));
+    }
+
+    [Fact]
+    public void UncoveredSlab_MeshEndsAtFace_NoCut()
+    {
+        // КЭ с x > 1,5 нет: кромка x = 1,5 — своя кромка плиты родителя, не разрез.
+        var (nodes, elements) = UncoveredSlabMesh();
+        var byTag = nodes.ToDictionary(n => n.NodeTag);
+        var kept = elements.Where(e => FemElementGeometry.Of(e, byTag)!.Centroid.X < 1.5).ToList();
+        var d = BuildPrism(Square(1.5), [], [], [.. nodes], [.. kept]);
+
+        Assert.False(d.HasErrors);
+        var lateral = UncoveredLateral(d);
+        Assert.Equal(3, lateral.Count);
+        Assert.DoesNotContain(lateral, c => c.Outward == new PlanarVector3(1, 0, 0));
+    }
+
+    [Fact]
+    public void UncoveredSlab_MeshLineJustInsideFace_Cut()
+    {
+        // Линия узлов x = 1,5 на 0,4 мм внутрь от грани (меньше допуска 1 мм): как в музее (разброс 61,398…61,410).
+        var (nodes, elements) = UncoveredSlabMesh();
+        foreach (var n in nodes.Where(n => Math.Abs(n.X - 1.5) < 1e-9)) n.X = 1.5 - 0.0004;
+        var d = BuildPrism(Square(1.5), [], [], [.. nodes], [.. elements]);
+
+        Assert.False(d.HasErrors);
+        var plusX = Assert.Single(UncoveredLateral(d), c => c.Outward == new PlanarVector3(1, 0, 0));
+        Assert.Equal(3, plusX.Segments.Sum(Length), 3);
     }
 
     [Fact]

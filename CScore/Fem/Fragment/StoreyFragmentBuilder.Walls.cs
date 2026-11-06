@@ -96,8 +96,9 @@ public static partial class StoreyFragmentBuilder
     }
 
     /// <summary>
-    /// Боковые рассечения куска: его рёбра на грани призмы, за которой исходная область продолжается (своя кромка
-    /// элемента, совпавшая с гранью, — не разрез); Z — средняя отметка середин отрезков, нормаль — грани.
+    /// Боковые рассечения куска: его рёбра на грани призмы, за которой продолжается исходная область или сетка родителя
+    /// той же плоскости (<see cref="Continues"/>; своя кромка, за которой у родителя ничего нет, — не разрез); Z — средняя
+    /// отметка середин отрезков, нормаль — грани.
     /// </summary>
     static void AddLateralEdgeCuts(Ctx c, PlanarRegion source, string memberTag, PlanarPolygonWithHoles polygon)
     {
@@ -119,14 +120,64 @@ public static partial class StoreyFragmentBuilder
         }
     }
 
-    /// <summary>Исходная область продолжается за грань: точка, сдвинутая от <paramref name="at"/> наружу в её плоскости, — в ней.</summary>
+    /// <summary>
+    /// Родитель продолжается за грань: точка, сдвинутая от <paramref name="at"/> наружу в плоскости области, — в исходной
+    /// области или в КЭ-пластине сетки родителя той же плоскости (спека 2026-11-06-fragment-lateral-cut-parent-mesh:
+    /// область «КЭ без КонЭ» из КЭ полосы кончается на грани, если линия узлов сетки на грани; соседний КонЭ той же
+    /// плоскости за гранью — тоже продолжение).
+    /// </summary>
     static bool Continues(Ctx c, PlanarRegion source, PlanarVector3 at, PlanarVector3 normal)
     {
         var z = source.Frame.LocalZ;
         var step = normal - z * normal.Dot(z);
         double len = step.Length;
         if (len < 1e-9) return false;
-        return RegionContains(source, at + step * (Math.Max(10 * c.Tol, 0.01) / len), c.Tol);
+        double reach = Math.Max(10 * c.Tol, 0.01);
+        var point = at + step * (reach / len);
+        return RegionContains(source, point, c.Tol) || InParentShell(c, point, z, reach);
+    }
+
+    /// <summary>КЭ-пластина сетки родителя: точки, контур в своей плоскости, нормаль, габарит.</summary>
+    sealed record ParentShell(PlanarVector3 Origin, PlanarVector3 Ex, PlanarVector3 Ey, PlanarVector3 Normal,
+        IReadOnlyList<PlanarPoint2D> Contour, PlanarVector3 Min, PlanarVector3 Max);
+
+    /// <summary>Нормаль КЭ параллельна нормали области, если |cos| не меньше этого (1°).</summary>
+    const double CoplanarCos = 0.99985;
+
+    /// <summary>КЭ-пластины снимка родителя (вырожденные и без узлов — пропущены).</summary>
+    static List<ParentShell> ParentShellsOf(StoreyFragmentParentSnapshot parent)
+    {
+        var nodes = new Dictionary<string, FemMeshNode>(StringComparer.Ordinal);
+        foreach (var n in parent.MeshNodes) nodes.TryAdd(n.NodeTag, n);
+        var result = new List<ParentShell>();
+        foreach (var e in parent.MeshElements)
+        {
+            if (e.ElemType != "shell" || Loads.FemElementGeometry.Of(e, nodes) is not { IsShell: true } g) continue;
+            var (ex, ey, ez) = g.ShellFrame();
+            if (ez.Length < 0.5) continue;
+            var o = g.Points[g.Contour[0]];
+            var contour = g.Contour.Select(i => g.Points[i] - o).Select(d => new PlanarPoint2D(d.Dot(ex), d.Dot(ey))).ToList();
+            result.Add(new(o, ex, ey, ez, contour,
+                new(g.Points.Min(p => p.X), g.Points.Min(p => p.Y), g.Points.Min(p => p.Z)),
+                new(g.Points.Max(p => p.X), g.Points.Max(p => p.Y), g.Points.Max(p => p.Z))));
+        }
+        return result;
+    }
+
+    /// <summary>Точка — в КЭ-пластине родителя, параллельной <paramref name="normal"/> и не дальше <paramref name="reach"/>
+    /// от точки по нормали; в контуре — с допуском построителя.</summary>
+    static bool InParentShell(Ctx c, PlanarVector3 point, PlanarVector3 normal, double reach)
+    {
+        foreach (var s in c.ParentShells)
+        {
+            if (point.X < s.Min.X - reach || point.X > s.Max.X + reach || point.Y < s.Min.Y - reach || point.Y > s.Max.Y + reach
+                || point.Z < s.Min.Z - reach || point.Z > s.Max.Z + reach) continue;
+            if (Math.Abs(s.Normal.Dot(normal)) < CoplanarCos) continue;
+            var d = point - s.Origin;
+            if (Math.Abs(d.Dot(s.Normal)) > reach) continue;
+            if (PlanarPolygonOps.Contains(s.Contour, new PlanarPoint2D(d.Dot(s.Ex), d.Dot(s.Ey)), c.Tol)) return true;
+        }
+        return false;
     }
 
     // z(u, v) = O.z + u·X.z + v·Y.z
