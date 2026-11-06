@@ -9,31 +9,36 @@
     </UserControl.Resources>
     <DockPanel>
     <!-- Шапка фрагмента этажа: родитель, отметки, состояние родителя, отчёт сборки (у обычной схемы скрыта) -->
-    <Border x:Name="fragmentBanner" DockPanel.Dock="Top" Padding="8,4" BorderThickness="0,0,0,1"
+    <!-- Свёрнута по умолчанию: в заголовке одна строка (фрагмент и состояние родителя), призма/маски/кнопки — внутри -->
+    <Border x:Name="fragmentBanner" DockPanel.Dock="Top" Padding="4,2" BorderThickness="0,0,0,1"
             BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
             Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-        <DockPanel>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
-                    Click="FragmentReport_Click"
-                    Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksReportButton}" Padding="8,0" Margin="0,0,6,0"
-                    Click="FragmentMaskReport_Click"
-                    Visibility="{Binding HasMaskReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-            <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksMenu}" Padding="8,0" Margin="0,0,6,0"
-                    Click="FragmentMasks_Click"/>
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock TextWrapping="Wrap">
+        <Expander IsExpanded="False">
+            <Expander.Header>
+                <TextBlock TextTrimming="CharacterEllipsis">
                     <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold"/>
                     <Run Text=" — "/>
                     <Run Text="{Binding StatusText, Mode=OneWay}"
                          Foreground="{Binding IsWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
                 </TextBlock>
-                <TextBlock TextWrapping="Wrap" Text="{Binding PrismText}"
-                           Visibility="{Binding HasPrism, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                <TextBlock TextWrapping="Wrap" Text="{Binding MaskText}"
-                           Foreground="{Binding IsMaskWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
-            </StackPanel>
-        </DockPanel>
+            </Expander.Header>
+            <DockPanel Margin="20,2,0,2">
+                <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentReportButton}" Padding="8,0"
+                        Click="FragmentReport_Click"
+                        Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksReportButton}" Padding="8,0" Margin="0,0,6,0"
+                        Click="FragmentMaskReport_Click"
+                        Visibility="{Binding HasMaskReport, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Button DockPanel.Dock="Right" Content="{DynamicResource StoreyFragmentMasksMenu}" Padding="8,0" Margin="0,0,6,0"
+                        Click="FragmentMasks_Click"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock TextWrapping="Wrap" Text="{Binding PrismText}"
+                               Visibility="{Binding HasPrism, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding MaskText}"
+                               Foreground="{Binding IsMaskWarning, Converter={StaticResource DiagnosticColorConverter}}"/>
+                </StackPanel>
+            </DockPanel>
+        </Expander>
     </Border>
     <TabControl x:Name="tabs">
         <!-- Вкладка 3D-схема -->
