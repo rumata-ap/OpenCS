@@ -212,12 +212,13 @@
 
                         <TextBlock Grid.Row="6" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionMu}"
                                    Visibility="{Binding IsE0Mu, Converter={StaticResource BoolToVis}}"/>
-                        <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal"
-                                    Visibility="{Binding IsE0Mu, Converter={StaticResource BoolToVis}}">
-                            <TextBox Width="90" Text="{Binding MuText, UpdateSourceTrigger=PropertyChanged}"
+                        <!-- Подсказка μ длинная: занимает остаток строки и переносится, а не обрезается -->
+                        <DockPanel Grid.Row="6" Grid.Column="1" LastChildFill="True"
+                                   Visibility="{Binding IsE0Mu, Converter={StaticResource BoolToVis}}">
+                            <TextBox DockPanel.Dock="Left" Width="90" VerticalAlignment="Top" Text="{Binding MuText, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="{DynamicResource FemImperfectionMuTip}"/>
                             <TextBlock Style="{StaticResource Hint}" Text="{DynamicResource FemImperfectionMuHint}"/>
-                        </StackPanel>
+                        </DockPanel>
                         <TextBlock Grid.Row="7" Style="{StaticResource Caption}" Text="{Binding SizeMmLabel}"
                                    Visibility="{Binding IsE0Sp63, Converter={StaticResource BoolToVis}}"/>
                         <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal"
