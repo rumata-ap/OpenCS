@@ -18,7 +18,7 @@ namespace OpenCS.Tests;
 /// --filter FullyQualifiedName~FemImperfectionDemoDbManualTests</c>; без переменной тест ничего не делает.
 /// Схемы: 1 — консоль с креном (TEST-IMP-01), 2 — шарнирный стержень с погибью (TEST-IMP-02), 3 — колонна с формой
 /// по (5.9) (TEST-IMP-03), 4 — рама (крен по (5.5) с m, погиби «авто» и критерий 5.3.2(6), формы, пакет «±»),
-/// 5 — ЖБ-колонна (e_a п. 8.1.7 СП 63 и eᵢ EN 1992), 6 — стена по ярусам с перекрытием. Сетки и расчёты не выполнены —
+/// стойки и ригель — гнутые профили ГОСТ 30245-2012 из сортамента; 5 — ЖБ-колонна (e_a п. 8.1.7 СП 63 и eᵢ EN 1992), 6 — стена по ярусам с перекрытием. Сетки и расчёты не выполнены —
 /// их выполняет проверяющий.
 /// </summary>
 public sealed class FemImperfectionDemoDbManualTests
@@ -51,8 +51,10 @@ public sealed class FemImperfectionDemoDbManualTests
 
             var tube200 = SteelSection(db, "Труба □200×8 (E = 210 ГПа)", ParametricSteelSectionDefinition.WeldedBox(0.2, 0.2, 0.008, 0.008), s355e210);
             var tube300 = SteelSection(db, "Труба □300×10", ParametricSteelSectionDefinition.WeldedBox(0.3, 0.3, 0.010, 0.010), s355);
-            var tube200s = SteelSection(db, "Труба □200×8", ParametricSteelSectionDefinition.WeldedBox(0.2, 0.2, 0.008, 0.008), s355);
-            var tube300s = SteelSection(db, "Ригель □300×10", ParametricSteelSectionDefinition.WeldedBox(0.3, 0.3, 0.010, 0.010), s355);
+            // Рама — гнутые замкнутые квадратные профили по ГОСТ 30245-2012 из сортамента (скругления углов, кривая по табл. 6.2).
+            var sortament = new ProfileDB(Path.Combine(catalog, "Sortamenty.db3"));
+            var tube200s = CatalogSection(db, sortament, "□200×8 ГОСТ 30245-2012", Gost30245Square, "200x8", s355);
+            var tube300s = CatalogSection(db, sortament, "□300×10 ГОСТ 30245-2012", Gost30245Square, "300x10", s355);
             var rc400 = RcSection(db, "К 400×400, 6Ø20", 0.4, 0.4, concrete, rebar);
             var slab = Plate(db, "П 200", 0.2, concrete, rebar);
             var wall = Plate(db, "С 200", 0.2, concrete, rebar);
@@ -233,7 +235,7 @@ public sealed class FemImperfectionDemoDbManualTests
         {
             MemberTags = ["К1", "К2"], Plane = FemBowParams.PlaneY, E0Mode = FemBowParams.E0Table, Curve = FemBowParams.CurveAuto,
             Sign = FemBowParams.SignAuto, Activity = FemBowParams.ActivityEn1993,
-        }.ToJson(), "К1 (1300 кН > 0,25·N_cr) — учтена по 5.3.2(6), К2 (200 кН) — нет");
+        }.ToJson(), "К1 (1300 кН > 0,25·N_cr = 1132 кН) — учтена по 5.3.2(6), К2 (200 кН) — нет");
         int buckling = b.Buckling("Устойчивость G", cg);
         b.Imperfection(modes, FemImperfectionKinds.Modes, "Форма 1 рамы", new FemModesParams
         {
@@ -452,6 +454,17 @@ public sealed class FemImperfectionDemoDbManualTests
         var result = new ParametricSteelSectionProjectService(db).GenerateAndSave(section, definition with { Tag = tag, MaterialId = steel.Id });
         Assert.Empty(result.Diagnostics);
         return section;
+    }
+
+    /// <summary>Подтип сортамента «Стальные гнутые замкнутые сварные квадратные профили по ГОСТ 30245-2012».</summary>
+    const int Gost30245Square = 83;
+
+    /// <summary>Параметрическое МК-сечение по строке сортамента — как выбор профиля в диалоге сечения.</summary>
+    static CrossSection CatalogSection(DatabaseService db, ProfileDB sortament, string tag, int subtype, string name, Material steel)
+    {
+        var item = sortament.GetSteelCatalogProfiles(subtype).Single(p => p.Name == name);
+        var entry = sortament.GetSteelCatalogEntry(subtype, item.Id) ?? throw new InvalidOperationException(name);
+        return SteelSection(db, tag, entry.ToDefinition(), steel);
     }
 
     static CrossSection RcSection(DatabaseService db, string tag, double b, double h, Material concrete, Material rebar)
