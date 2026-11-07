@@ -71,6 +71,8 @@ public static class FemSp20CombinationAdapter
 
         foreach (var loadCase in loadCases)
         {
+            // Несовершенство — не нагрузка: в сочетания СП 20 не входит, предупреждения нет.
+            if (FemSp20Types.IsImperfection(loadCase)) continue;
             if (!KnownTypes.Contains(loadCase.Sp20Type))
             {
                 warnings.Add($"Загружение {loadCase.Id}: неизвестный Sp20Type '{loadCase.Sp20Type}'.");

@@ -101,10 +101,13 @@ public static class FemLoadExpressionResolver
                     break;
                 }
                 foreach (var id in expr.LoadCaseIds) factor[id] = 1.0;
-                if (factor.Count == 0 && cases.Count > 0) factor[cases[0].Id] = 1.0;
+                if (factor.Count == 0 && cases.FirstOrDefault(c => !FemSp20Types.IsImperfection(c)) is { } first)
+                    factor[first.Id] = 1.0;
                 break;
             case FemLoadExpressionMode.All:
-                foreach (var c in cases) factor[c.Id] = 1.0;
+                // Несовершенства входят только явным слагаемым, не «всеми загружениями».
+                foreach (var c in cases)
+                    if (!FemSp20Types.IsImperfection(c)) factor[c.Id] = 1.0;
                 break;
             case FemLoadExpressionMode.Sum:
             case FemLoadExpressionMode.Sp20:

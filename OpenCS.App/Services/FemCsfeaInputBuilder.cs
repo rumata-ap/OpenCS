@@ -3,6 +3,7 @@ using CScore;
 using CScore.Fem;
 using CScore.Fem.Combinations;
 using CScore.Fem.Fragment.Masks;
+using CScore.Fem.Imperfections;
 using CScore.Fem.Loads;
 using CScore.Planar;
 using CScore.Submodel;
@@ -41,6 +42,18 @@ public sealed record FemCsfeaSetup
     public bool ReducedStiffness { get; init; }
 
     /// <summary>
+    /// Расчёт по теории второго порядка (секущий CSfea с геометрической нелинейностью без «Больших перемещений»):
+    /// только в нём учитываются загружения-несовершенства; иначе они пропускаются с предупреждением.
+    /// </summary>
+    public bool SecondOrder { get; init; }
+
+    /// <summary>Секущий расчёт с «Большими перемещениями» (CR): несовершенства в нём — ошибка постановки.</summary>
+    public bool LargeDisplacements { get; init; }
+
+    /// <summary>Стадии — независимые варианты пакета: несовершенства в них пока не поддержаны (ошибка).</summary>
+    public bool IndependentStages { get; init; }
+
+    /// <summary>
     /// Настройки по постановке: вид расчёта, стадии (<see cref="FemAnalysisParams.ResolveStages"/>), источник армирования
     /// пластин и сдвиг стержней — из <see cref="FemAnalysisParams.Csfea"/> (нет — по умолчанию). У пакета с
     /// <paramref name="loadCases"/> — и стадии длительных частей (<see cref="FemCsfeaBatchLongTerm.Stages"/>).
@@ -49,7 +62,8 @@ public sealed record FemCsfeaSetup
     {
         var p = FemAnalysisParams.Parse(analysis.ParamsJson);
         var c = p.Csfea ?? new FemCsfeaParams();
-        bool elastic = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind || !c.PhysicalNonlinearity;
+        bool linear = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind;
+        bool elastic = linear || !c.PhysicalNonlinearity;
         var stages = p.Batch is { } batch
             ? loadCases != null && batch.LongTermPairs.Count > 0 ? FemCsfeaBatchLongTerm.Stages(batch, loadCases) : batch.ToStages()
             : p.ResolveStages(analysis);
@@ -58,6 +72,9 @@ public sealed record FemCsfeaSetup
             Calc = p.CalcType ?? CalcType.N, Stages = stages,
             PlateRebarSource = c.PlateRebarSource, BeamShear = c.BeamShear,
             GrossBars = elastic, ReducedStiffness = elastic && c.ImportedStiffnessFactors,
+            SecondOrder = !linear && c.GeomNonlinear && !c.GeomLargeDisplacements,
+            LargeDisplacements = !linear && c.GeomNonlinear && c.GeomLargeDisplacements,
+            IndependentStages = p.Batch != null,
         };
     }
 
@@ -131,7 +148,9 @@ public static class FemCsfeaInputBuilder
 
         var nodes = db.GetFemNodes(schemaId);
         var kinematic = db.GetFemKinematicLoads(schemaId);
-        var stages = Stages(setup.Stages, loadCases, diag);
+        var stages = Stages(setup.Stages, loadCases, diag, out var imperfectionTerms);
+        var imperfections = Imperfections(imperfectionTerms, imperfectionTerms.Count == 0 ? [] : db.GetFemImperfections(schemaId),
+            loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag);
         IReadOnlyList<FemLoadCase> cases = loadCases;
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
         IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
@@ -147,6 +166,23 @@ public static class FemCsfeaInputBuilder
                     ApplyFragmentBoundary(fragmentBc, supports, meshNodeLoads, loadCases, stages);
         }
 
+        var nodeLoads = db.GetFemNodeLoads(schemaId);
+        var memberLoads = db.GetFemMemberLoads(schemaId);
+        var elementLoads = FragmentLoadService.ElementLoads(db, schemaId, data.MeshNodes, data.Mesh, groups, diag);
+        if (imperfectionTerms.Count > 0)
+        {
+            // Загружение-несовершенство не содержит нагрузок (в нагрузку стадий оно не входит — нагрузки потерялись бы молча).
+            var ids = imperfectionTerms.Select(t => t.LoadCaseId).ToHashSet();
+            FemCanonicalValidator.AddImperfectionLoads(loadCases, ids, nodeLoads.Select(l => l.LoadCaseId), "узловые нагрузки", diag);
+            FemCanonicalValidator.AddImperfectionLoads(loadCases, ids, memberLoads.Select(l => l.LoadCaseId), "нагрузки на стержни", diag);
+            FemCanonicalValidator.AddImperfectionLoads(loadCases, ids, kinematic.Select(l => l.LoadCaseId), "кинематические нагрузки", diag);
+            FemCanonicalValidator.AddImperfectionLoads(loadCases, ids,
+                elementLoads.Select(l => l.LoadCaseId).Concat(meshNodeLoads.Select(l => l.LoadCaseId)), "нагрузки на КЭ и узлы сетки", diag);
+            foreach (var lc in loadCases.Where(c => ids.Contains(c.Id) && c.SelfWeightFactor is { } k && k != 0))
+                diag.Add(new(FemCanonicalValidator.ImperfectionHasLoadsCode,
+                    $"Загружение-несовершенство «{lc.Tag}» не может содержать собственный вес.", true, [lc.Tag]));
+        }
+
         return new FemRcModelInput
         {
             MeshNodes = data.MeshNodes,
@@ -158,9 +194,9 @@ public static class FemCsfeaInputBuilder
             Springs = springs,
             RigidBodies = rigidBodies,
             LoadCases = cases,
-            NodeLoads = db.GetFemNodeLoads(schemaId),
-            MemberLoads = db.GetFemMemberLoads(schemaId),
-            ElementLoads = FragmentLoadService.ElementLoads(db, schemaId, data.MeshNodes, data.Mesh, groups, diag),
+            NodeLoads = nodeLoads,
+            MemberLoads = memberLoads,
+            ElementLoads = elementLoads,
             MeshNodeLoads = meshNodeLoads,
             KinematicLoads = kinematic,
             MeshNodeKinematicLoads = meshKinematic,
@@ -171,6 +207,7 @@ public static class FemCsfeaInputBuilder
             RegionAxisX = RegionAxes(data),
             BeamShear = setup.BeamShear,
             Stages = stages,
+            Imperfections = imperfections,
             Diagnostics = diag,
         };
     }
@@ -273,8 +310,20 @@ public static class FemCsfeaInputBuilder
     /// нагрузки; шагов — round(максимум / шаг), не меньше одного. Нерешаемое выражение — ошибка.
     /// </summary>
     public static List<FemRcStage> Stages(IReadOnlyList<FemAnalysisStage> stages, IReadOnlyList<FemLoadCase> loadCases,
-        List<FemValidationDiagnostic> diag)
+        List<FemValidationDiagnostic> diag) => Stages(stages, loadCases, diag, out _);
+
+    /// <summary>
+    /// То же; загружения-несовершенства (<see cref="FemSp20Types.Imperfection"/>) в нагрузку стадий не входят:
+    /// <paramref name="imperfections"/> — их объединение по стадиям с коэффициентом выражения (множитель u₀, без
+    /// максимума коэффициента нагрузки — член второго порядка растёт с N сам; действует с начала расчёта). Разные
+    /// коэффициенты одного загружения в разных стадиях — ошибка <c>imperfection_factor_mismatch</c>; нулевой — пропуск.
+    /// </summary>
+    public static List<FemRcStage> Stages(IReadOnlyList<FemAnalysisStage> stages, IReadOnlyList<FemLoadCase> loadCases,
+        List<FemValidationDiagnostic> diag, out List<(int LoadCaseId, double Factor)> imperfections)
     {
+        imperfections = [];
+        var seen = new Dictionary<int, double>();
+        var mismatch = new HashSet<int>();
         var result = new List<FemRcStage>(stages.Count);
         foreach (var stage in stages)
         {
@@ -294,9 +343,67 @@ public static class FemCsfeaInputBuilder
                 terms = [];
             }
             int steps = step > 0 && max > 0 ? Math.Max(1, (int)Math.Round(max / step)) : 1;
-            result.Add(new FemRcStage(stage.Tag, terms.Select(t => (t.LoadCase.Id, t.Factor * max)).ToList(), steps));
+            foreach (var (lc, factor) in terms.Where(t => FemSp20Types.IsImperfection(t.LoadCase) && t.Factor != 0))
+            {
+                if (!seen.TryGetValue(lc.Id, out double prev))
+                {
+                    seen[lc.Id] = factor;
+                    imperfections.Add((lc.Id, factor));
+                }
+                else if (Math.Abs(prev - factor) > 1e-12 * Math.Max(1, Math.Abs(prev)) && mismatch.Add(lc.Id))
+                    diag.Add(new("imperfection_factor_mismatch",
+                        $"Несовершенство «{lc.Tag}» входит в стадии с разными коэффициентами ({prev.ToString("0.###", CultureInfo.CurrentCulture)} " +
+                        $"и {factor.ToString("0.###", CultureInfo.CurrentCulture)}, стадия «{stage.Tag}»): оно действует с начала расчёта одним полем.",
+                        true, [lc.Tag]));
+            }
+            result.Add(new FemRcStage(stage.Tag, terms.Where(t => !FemSp20Types.IsImperfection(t.LoadCase))
+                .Select(t => (t.LoadCase.Id, t.Factor * max)).ToList(), steps));
         }
         return result;
+    }
+
+    /// <summary>
+    /// Несовершенства стадий (<paramref name="terms"/> — загружения с коэффициентами) → привязанные к сетке
+    /// (<see cref="FemImperfectionResolver"/>). Учитываются только во втором порядке; без геометрической нелинейности
+    /// и в линейном CSfea — предупреждение <c>imperfection_ignored_first_order</c>, с «Большими перемещениями» —
+    /// ошибка <c>imperfection_cr</c>, в пакете вариантов — ошибка <c>imperfection_batch</c>.
+    /// </summary>
+    public static List<FemResolvedImperfection> Imperfections(IReadOnlyList<(int LoadCaseId, double Factor)> terms,
+        IReadOnlyList<FemImperfection> items, IReadOnlyList<FemLoadCase> loadCases, FemCsfeaSetup setup,
+        IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
+        List<FemValidationDiagnostic> diag)
+    {
+        if (terms.Count == 0) return [];
+        var tags = terms.Select(t => loadCases.FirstOrDefault(c => c.Id == t.LoadCaseId)?.Tag ?? $"#{t.LoadCaseId}").ToList();
+        string list = string.Join(", ", tags.Select(t => $"«{t}»"));
+        if (setup.IndependentStages)
+        {
+            diag.Add(new("imperfection_batch", $"Несовершенства {list} в пакете вариантов пока не поддержаны — задайте их в стадиях постановки.", true, tags));
+            return [];
+        }
+        if (setup.LargeDisplacements)
+        {
+            diag.Add(new("imperfection_cr", $"Несовершенства {list} учитываются только в теории второго порядка (без «Больших перемещений»).", true, tags));
+            return [];
+        }
+        if (!setup.SecondOrder)
+        {
+            diag.Add(new("imperfection_ignored_first_order",
+                $"Несовершенства {list} не учитываются: расчёт без геометрической нелинейности (второго порядка).", false, tags));
+            return [];
+        }
+        var input = new List<(FemImperfection, double)>();
+        foreach (var (id, factor) in terms)
+        {
+            var own = items.Where(i => i.LoadCaseId == id).ToList();
+            if (own.Count == 0)
+                diag.Add(new("imperfection_empty",
+                    $"Несовершенство «{loadCases.FirstOrDefault(c => c.Id == id)?.Tag ?? $"#{id}"}» не содержит элементов (крена, погибей).", false));
+            input.AddRange(own.Select(i => (i, factor)));
+        }
+        var resolved = FemImperfectionResolver.Resolve(input, mesh, meshNodes, members);
+        diag.AddRange(resolved.Diagnostics);
+        return resolved.Items.ToList();
     }
 
     // ---------------------------------------------------------------- пластины

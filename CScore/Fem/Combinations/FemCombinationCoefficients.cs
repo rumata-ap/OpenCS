@@ -104,6 +104,8 @@ public static class FemCombinationCoefficients
     public static FemAutoCoefficient Auto(FemLoadCase loadCase, Sp20TermRole role, string? combinationType,
         Sp20LoadValueKind kind, Sp20GammaDefaults defaults)
     {
+        // Несовершенство: коэффициент — множитель u₀ (знак, доля), γf и ψ не применяются.
+        if (FemSp20Types.IsImperfection(loadCase)) return new FemAutoCoefficient(1, []);
         var type = LoadType(loadCase);
         role = NormalizeRole(type, role);
         string group = FemCombinationTypes.Normalize(combinationType);

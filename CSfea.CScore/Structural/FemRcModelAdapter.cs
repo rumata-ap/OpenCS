@@ -1,6 +1,7 @@
 using System.Globalization;
 using CScore;
 using CScore.Fem;
+using CScore.Fem.Imperfections;
 using CScore.Fem.Loads;
 using CScore.Planar;
 using CSfea.Core;
@@ -82,6 +83,12 @@ public sealed class FemRcModelInput
 
     /// <summary>Переводить в модель все загружения <see cref="LoadCases"/>, а не только входящие в стадии.</summary>
     public bool AllLoadCases { get; init; }
+
+    /// <summary>
+    /// Начальные несовершенства, привязанные к КЭ сетки (<see cref="FemImperfectionResolver"/>; коэффициенты загружений
+    /// стадий учтены) — в <see cref="RcStructuralModel.Imperfections"/>; действуют только в расчёте второго порядка.
+    /// </summary>
+    public IReadOnlyList<FemResolvedImperfection> Imperfections { get; init; } = [];
 
     /// <summary>Диагностики подготовки входа (допущения источника свойств, сечения, стадии) — в начало отчёта.</summary>
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
@@ -185,7 +192,61 @@ public static class FemRcModelAdapter
         Add(diag, "spring_without_elements", "Пружины узлов без КЭ не учитываются", orphanSprings, false);
 
         var totals = AddLoads(input, model, nodesByTag, memberByTag, used, diag);
+        AddImperfections(input, model, diag);
         return new FemRcModelResult(model, diag, totals) { ShellForceAngles = forceAngles };
+    }
+
+    // ---------------------------------------------------------------- несовершенства
+
+    /// <summary>
+    /// Несовершенства входа → модель: теги КЭ — номера стержней и оболочек модели; КЭ охвата, не вошедшие в модель
+    /// (без сечения и т. п.), — ошибка у погиби (цепочка неполна), у крена — пропуск с предупреждением.
+    /// </summary>
+    static void AddImperfections(FemRcModelInput input, RcStructuralModel model, List<FemValidationDiagnostic> diag)
+    {
+        if (input.Imperfections.Count == 0) return;
+        var beams = model.Beams.Select(b => b.Id).ToHashSet();
+        var shells = model.Shells.Select(s => s.Id).ToHashSet();
+        foreach (var imp in input.Imperfections)
+            switch (imp)
+            {
+                case FemResolvedSway sw:
+                {
+                    HashSet<int>? b = null, s = null;
+                    if (sw.ElemTags != null)
+                    {
+                        b = [];
+                        s = [];
+                        var outside = new List<string>();
+                        foreach (var tag in sw.ElemTags)
+                        {
+                            if (FemImperfectionResolver.ElementNumber(tag) is not int id) { outside.Add(tag); continue; }
+                            if (beams.Contains(id)) b.Add(id);
+                            else if (shells.Contains(id)) s.Add(id);
+                            else outside.Add(tag);
+                        }
+                        Add(diag, "imperfection_outside_model", $"Крен «{sw.Label}»: КЭ охвата вне расчётной модели не учтены", outside, false);
+                        if (b.Count + s.Count == 0) continue;
+                    }
+                    model.Imperfections.Add(new RcSway(sw.Phi, [sw.Direction.X, sw.Direction.Y, sw.Direction.Z], 0.0, b, s));
+                    break;
+                }
+                case FemResolvedBow bow:
+                {
+                    var ids = bow.ElemTags.Select(FemImperfectionResolver.ElementNumber).ToList();
+                    var outside = bow.ElemTags.Where((t, i) => ids[i] is not int id || !beams.Contains(id)).ToList();
+                    if (outside.Count > 0)
+                    {
+                        Add(diag, "imperfection_outside_model", $"Погибь «{bow.Label}»: КЭ цепочки вне расчётной модели", outside, true);
+                        continue;
+                    }
+                    model.Imperfections.Add(new RcBow(ids.Select(i => i!.Value).ToList(), bow.E0,
+                        [bow.Direction.X, bow.Direction.Y, bow.Direction.Z]));
+                    break;
+                }
+            }
+        int sways = model.Imperfections.OfType<RcSway>().Count(), bows = model.Imperfections.OfType<RcBow>().Count();
+        if (sways + bows > 0) Info(diag, "imperfections", $"Несовершенства: кренов {sways}, погибей {bows}.");
     }
 
     // ---------------------------------------------------------------- пластины
@@ -391,7 +452,22 @@ public static class FemRcModelAdapter
         foreach (int caseId in needed.Where(caseById.ContainsKey))
         {
             var lc = caseById[caseId];
-            var perBeam = new Dictionary<string, Dictionary<string, double[]>>(StringComparer.Ordinal);
+            if (FemSp20Types.IsImperfection(lc))
+            {
+                // Несовершенство — не нагрузка (элементы — в input.Imperfections); нагрузки в нём — ошибка схемы.
+                var ids = new HashSet<int> { caseId };
+                FemCanonicalValidator.AddImperfectionLoads(input.LoadCases, ids, input.NodeLoads.Select(l => l.LoadCaseId), "узловые нагрузки", diag);
+                FemCanonicalValidator.AddImperfectionLoads(input.LoadCases, ids, input.MemberLoads.Select(l => l.LoadCaseId), "нагрузки на стержни", diag);
+                FemCanonicalValidator.AddImperfectionLoads(input.LoadCases, ids, input.KinematicLoads.Select(l => l.LoadCaseId), "кинематические нагрузки", diag);
+                FemCanonicalValidator.AddImperfectionLoads(input.LoadCases, ids,
+                    input.ElementLoads.Select(l => l.LoadCaseId).Concat(input.MeshNodeLoads.Select(l => l.LoadCaseId)), "нагрузки на КЭ и узлы сетки", diag);
+                if (lc.SelfWeightFactor is { } swf && swf != 0)
+                    diag.Add(new(FemCanonicalValidator.ImperfectionHasLoadsCode,
+                        $"Загружение-несовершенство «{lc.Tag}» не может содержать собственный вес.", true, [lc.Tag]));
+                model.LoadCases.Add(new RcLoadCase(lc.Id, lc.Tag));
+                continue;
+            }
+            var perBeam =new Dictionary<string, Dictionary<string, double[]>>(StringComparer.Ordinal);
             Dictionary<string, double[]>? Sink(FemElement e)
             {
                 if (e.ElemType != "beam" || !beamTags.Contains(e.ElemTag)) return null;

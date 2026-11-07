@@ -185,6 +185,9 @@ public static class FemAnalysisExecutor
         string taskKind = analysis.Kind == "nonlinear" ? "fem_nonlinear" : "fem_linear";
 
         var parameters = FemAnalysisParams.Parse(analysis.ParamsJson);
+        if (ReferencedImperfections(analysis, parameters, loadCases) is { Count: > 0 } imperfections)
+            app.LogService.Warning(string.Format(Utilites.Loc.S("FemAnalysisImperfectionIgnored"), analysis.Tag,
+                string.Join(", ", imperfections)));
 
         FemResolvedLoads resolved = new([], [], []);
         List<FemNonlinearStageInput> nonlinearStages = [];
@@ -222,6 +225,27 @@ public static class FemAnalysisExecutor
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved, runRequest, ct);
+    }
+
+    /// <summary>
+    /// Теги загружений-несовершенств в выражении постановки и её стадиях: OpenSees их не учитывает (нагрузок в них нет,
+    /// вклад нулевой) — только предупреждение.
+    /// </summary>
+    public static List<string> ReferencedImperfections(FemAnalysis analysis, FemAnalysisParams parameters, IReadOnlyList<FemLoadCase> loadCases)
+    {
+        if (!loadCases.Any(FemSp20Types.IsImperfection)) return [];
+        var expressions = parameters.ResolveStages(analysis).Select(s => s.LoadExpressionJson).Append(analysis.LoadExpressionJson);
+        var tags = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var json in expressions)
+        {
+            try
+            {
+                foreach (var (lc, factor) in FemLoadExpressionResolver.Terms(FemLoadExpression.Parse(json), loadCases))
+                    if (factor != 0 && FemSp20Types.IsImperfection(lc)) tags.Add(lc.Tag);
+            }
+            catch (Exception ex) when (ex is NotSupportedException or JsonException) { }
+        }
+        return tags.ToList();
     }
 
     /// <summary>

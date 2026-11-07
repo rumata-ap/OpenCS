@@ -1,4 +1,4 @@
-﻿using CScore;
+using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using CScore.PlateRebar;
@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 98;
+      const int CurrentSchemaVersion = 99;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -118,6 +118,7 @@ namespace OpenCS.Utilites
          [95] = MigrateV96,
          [96] = MigrateV97,
          [97] = MigrateV98,
+         [98] = MigrateV99,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -817,6 +818,7 @@ namespace OpenCS.Utilites
          MigrateV86();
          MigrateV88();
          MigrateV98();
+         MigrateV99();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -4750,6 +4752,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_checks            WHERE schema_id=@id;
                DELETE FROM fem_analyses           WHERE schema_id=@id;
                DELETE FROM fem_load_definitions   WHERE schema_id=@id;
+               DELETE FROM fem_imperfections      WHERE schema_id=@id;
                DELETE FROM fem_node_loads         WHERE schema_id=@id;
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
                DELETE FROM fem_kinematic_loads    WHERE schema_id=@id;
@@ -4894,6 +4897,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_kinematic_loads WHERE load_case_id=@id;
                DELETE FROM fem_element_loads   WHERE load_case_id=@id;
                DELETE FROM fem_mesh_node_loads WHERE load_case_id=@id;
+               DELETE FROM fem_imperfections   WHERE load_case_id=@id;
                DELETE FROM fem_load_cases      WHERE id=@id;
                """;
             cmd.Parameters.AddWithValue("@id", loadCase.Id);
@@ -5881,6 +5885,7 @@ namespace OpenCS.Utilites
                }
             }
             RemapFragmentParentLoadCases(schemaId, newLoadCaseIdByOld);
+            RemapFemImperfectionsCore(schemaId, newLoadCaseIdByOld);
 
             using (var loadCmd = _connection.CreateCommand())
             {
@@ -6207,7 +6212,7 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Дублирует схему целиком: топология (узлы/стержни/группы), нагрузки (случаи +
-      /// узловые/распределённые/кинематические), определения нагрузок, сетка и её ГУ. НЕ копируются
+      /// узловые/распределённые/кинематические, элементы несовершенства), определения нагрузок, сетка и её ГУ. НЕ копируются
       /// постановки расчётов (fem_analyses) и чек-листы (fem_checks) — специфичны для конкретного
       /// прогона/проверки. Теговые ссылки (node_ids_json у стержней и сетки, source_node_tag/
       /// source_member_tag у сетки) копируются без изменений — они хранят числовой ТЕГ узла, а не
@@ -6238,6 +6243,7 @@ namespace OpenCS.Utilites
          var fields          = GetFemFields(sourceSchemaId);
          var paramOverrides  = GetFemParamOverrides(sourceSchemaId);
          var regions         = GetPlanarRegions(sourceSchemaId);
+         var imperfections   = GetFemImperfections(sourceSchemaId);
 
          using var tx = _connection.BeginTransaction();
          try
@@ -6533,6 +6539,7 @@ namespace OpenCS.Utilites
             InsertRigidBodiesCore("fem_node_rigid_bodies", newSchemaId, nodeRigidBodies, updateObjects: false);
             ReplaceFemLineSupportsCore(newSchemaId, lineSupports.Select(x => x.Clone()).ToList());
             CopyFemFieldsCore(fields, paramOverrides, newSchemaId, newGroupIdByOld);
+            CopyFemImperfectionsCore(imperfections, newSchemaId, newLoadCaseIdByOld);
 
             using (var definitionCmd = _connection.CreateCommand())
             {
@@ -7001,6 +7008,7 @@ namespace OpenCS.Utilites
                   DELETE FROM fem_checks           WHERE schema_id=@sid;
                   DELETE FROM fem_analyses         WHERE schema_id=@sid;
                   DELETE FROM fem_load_definitions WHERE schema_id=@sid;
+                  DELETE FROM fem_imperfections    WHERE schema_id=@sid;
                   DELETE FROM fem_node_loads       WHERE schema_id=@sid;
                   DELETE FROM fem_member_loads     WHERE schema_id=@sid;
                   DELETE FROM fem_kinematic_loads  WHERE schema_id=@sid;

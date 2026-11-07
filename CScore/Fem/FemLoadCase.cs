@@ -1,5 +1,25 @@
 namespace CScore.Fem;
 
+/// <summary>Нормативные типы загружений (<see cref="FemLoadCase.Sp20Type"/>).</summary>
+public static class FemSp20Types
+{
+    public const string Permanent = "permanent";
+    public const string LongTerm = "long_term";
+    public const string ShortTerm = "short_term";
+    public const string Accidental = "accidental";
+
+    /// <summary>
+    /// Загружение «Несовершенство» (EN 1993-1-1 п. 5.3): не содержит нагрузок, только элементы несовершенства
+    /// (<see cref="Imperfections.FemImperfection"/>); в сочетания СП 20 не входит, γf, ψ и доля длительности не используются.
+    /// Учитывается только в секущем расчёте CSfea по теории второго порядка.
+    /// </summary>
+    public const string Imperfection = "imperfection";
+
+    /// <summary>Загружение — несовершенство.</summary>
+    public static bool IsImperfection(FemLoadCase? loadCase) =>
+        loadCase != null && string.Equals(loadCase.Sp20Type, Imperfection, StringComparison.OrdinalIgnoreCase);
+}
+
 /// <summary>Загружение расчётной схемы (любого источника; у импорта — <see cref="Origin"/> и <see cref="SourceLoadNum"/>).</summary>
 public class FemLoadCase
 {

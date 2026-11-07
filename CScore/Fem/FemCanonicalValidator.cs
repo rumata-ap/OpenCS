@@ -14,7 +14,8 @@ public static class FemCanonicalValidator
 {
     static readonly HashSet<string> Sp20Types = new(StringComparer.OrdinalIgnoreCase)
     {
-        "permanent", "long_term", "short_term", "accidental"
+        FemSp20Types.Permanent, FemSp20Types.LongTerm, FemSp20Types.ShortTerm, FemSp20Types.Accidental,
+        FemSp20Types.Imperfection
     };
     static readonly HashSet<string> MemberLoadCoordinateSystems = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -54,7 +55,13 @@ public static class FemCanonicalValidator
             if (!Sp20Types.Contains(loadCase.Sp20Type))
                 errors.Add(new("sp20_type_invalid",
                     $"У загружения {loadCase.Id} недопустимый Sp20Type '{loadCase.Sp20Type}'."));
+            if (FemSp20Types.IsImperfection(loadCase) && loadCase.SelfWeightFactor is { } swf && swf != 0)
+                errors.Add(new(ImperfectionHasLoadsCode,
+                    $"Загружение-несовершенство «{loadCase.Tag}» не может содержать собственный вес."));
         }
+
+        var imperfectionIds = loadCases.Where(FemSp20Types.IsImperfection).Select(c => c.Id).ToHashSet();
+        AddImperfectionLoads(loadCases, imperfectionIds, loads.Select(l => l.LoadCaseId), "узловые нагрузки", errors);
 
         foreach (var duplicateTag in loadCases
                      .Where(loadCase => !string.IsNullOrWhiteSpace(loadCase.Tag))
@@ -222,7 +229,31 @@ public static class FemCanonicalValidator
                     $"Кинематическая нагрузка {load.Id} конфликтует с закреплением узла {load.NodeId}, DOF {load.Dof}."));
         }
 
+        var imperfectionIds = loadCases.Where(FemSp20Types.IsImperfection).Select(c => c.Id).ToHashSet();
+        AddImperfectionLoads(loadCases, imperfectionIds, memberLoads.Select(l => l.LoadCaseId), "нагрузки на стержни", errors);
+        AddImperfectionLoads(loadCases, imperfectionIds, kinematicLoads.Select(l => l.LoadCaseId), "кинематические нагрузки", errors);
+
         return errors;
+    }
+
+    /// <summary>Код ошибки «в загружении-несовершенстве есть нагрузки».</summary>
+    public const string ImperfectionHasLoadsCode = "imperfection_has_loads";
+
+    /// <summary>
+    /// Нагрузки в загружениях-несовершенствах (<see cref="FemSp20Types.Imperfection"/>) — ошибка: такое загружение
+    /// содержит только элементы несовершенства. <paramref name="loadCaseIds"/> — загружения нагрузок одного вида
+    /// (<paramref name="what"/> — их название во множественном числе); проверяет и нагрузки сеточного уровня.
+    /// </summary>
+    public static void AddImperfectionLoads(IReadOnlyList<FemLoadCase> loadCases, IReadOnlySet<int> imperfectionIds,
+        IEnumerable<int> loadCaseIds, string what, ICollection<FemValidationDiagnostic> errors)
+    {
+        if (imperfectionIds.Count == 0) return;
+        foreach (int id in loadCaseIds.Where(imperfectionIds.Contains).Distinct().Order())
+        {
+            string tag = loadCases.First(c => c.Id == id).Tag;
+            errors.Add(new(ImperfectionHasLoadsCode,
+                $"Загружение-несовершенство «{tag}» не может содержать нагрузки ({what}).", true, [tag]));
+        }
     }
 
     /// <summary>Проверяет также уникальность и существование порядка узлов сборки.</summary>
