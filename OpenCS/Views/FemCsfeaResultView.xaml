@@ -256,7 +256,6 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColLength}" Binding="{Binding Length}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColPlane}" Binding="{Binding Plane}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColCurve}" Binding="{Binding Curve}"/>
-                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0Source}" Binding="{Binding E0Source}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0}" Binding="{Binding E0Mm}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColNEd}" Binding="{Binding NEd}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColNcr}" Binding="{Binding Ncr}"/>
@@ -264,6 +263,8 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColActiveReason}" Binding="{Binding ActiveReason}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColSign}" Binding="{Binding Sign}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColSignSource}" Binding="{Binding SignSource}"/>
+                            <!-- Длинный ход выбора кривой и e₀ — последним: не вытесняет «Учтена», «Почему» и знак за край -->
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0Source}" Binding="{Binding E0Source}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
