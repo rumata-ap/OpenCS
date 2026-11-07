@@ -47,6 +47,10 @@ class FemSchemasGroupNode
     public void ReloadLoads(int schemaId)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadLoads();
 
+    /// <summary>Перечитывает элементы несовершенств схемы (после правки в диалоге; загружения — прежние).</summary>
+    public void ReloadImperfections(int schemaId)
+        => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadImperfections();
+
     /// <summary>Узловые и линейные связи схемы — по несохранённой сессии редактора.</summary>
     public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
         => Schemas.FirstOrDefault(schema => schema.Schema.Id == session.Schema.Id)?.ReloadSupports(session);
@@ -246,6 +250,9 @@ class FemSchemaTreeVM
         CombinationsSubNode.Reload(_db);
     }
 
+    /// <summary>Перечитывает элементы несовершенств загружений.</summary>
+    public void ReloadImperfections() => LoadCasesSubNode.ReloadImperfections(_db);
+
     /// <summary>Какие узлы групп показывать у схемы без групп: «Группы КЭ» — при импортированной сетке,
     /// «Группы КонЭ» — если есть КонЭ или схема не чистый импорт сетки (КонЭ можно построить).</summary>
     void RefreshGroupNodes()
@@ -355,7 +362,7 @@ class FemSchemaTreeVM
     public void ReloadSupports(CScore.Fem.Editing.FemSchemaEditSession session)
     {
         BoundarySubNode.ReloadSupports(_db, session.Nodes, session.Members, session.LineSupports, session.NodeSprings);
-        LoadCasesSubNode.Reset(session.LoadCases, _db.GetFemActiveLoadCaseTag(Schema.Id));
+        LoadCasesSubNode.Reset(session.LoadCases, _db.GetFemActiveLoadCaseTag(Schema.Id), _db.GetFemImperfections(Schema.Id));
         CombinationsSubNode.Reset(session.LoadDefinitions, session.LoadCases);
     }
 }

@@ -119,6 +119,9 @@
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
                                             <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadAccidental}"/>
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding Sp20Type}" Value="imperfection">
+                                            <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadImperfection}"/>
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding Sp20Type}" Value="">
                                             <Setter TargetName="Icon" Property="Source" Value="{x:Null}"/>
                                         </DataTrigger>

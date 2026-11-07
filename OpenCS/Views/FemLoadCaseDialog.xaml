@@ -33,13 +33,18 @@
             <ComboBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2"
                       ItemsSource="{x:Static vm:FemLoadsTabVM.Sp20Types}" SelectedValuePath="Key" DisplayMemberPath="Label"
                       SelectedValue="{Binding Kind}"/>
-            <TextBlock Grid.Row="2" Text="{DynamicResource FemLoadCaseDialogGroup}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Text="{DynamicResource FemLoadCaseDialogGroup}" VerticalAlignment="Center"
+                       Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
             <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2" Text="{Binding Group}"
-                     ToolTip="{DynamicResource FemLoadCaseDialogGroupTip}"/>
+                     ToolTip="{DynamicResource FemLoadCaseDialogGroupTip}"
+                     Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
 
-            <TextBlock Grid.Row="3" Text="{DynamicResource FemLoadCaseGammaUnfav}" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="3" Grid.Column="1" Margin="0,2" Text="{Binding GammaText}"/>
-            <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource Hint}" Text="{Binding GammaHint}"/>
+            <TextBlock Grid.Row="3" Text="{DynamicResource FemLoadCaseGammaUnfav}" VerticalAlignment="Center"
+                       Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
+            <TextBox Grid.Row="3" Grid.Column="1" Margin="0,2" Text="{Binding GammaText}"
+                     Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource Hint}" Text="{Binding GammaHint}"
+                       Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
 
             <TextBlock Grid.Row="4" Text="{DynamicResource FemLoadCaseGammaFav}" VerticalAlignment="Center"
                        ToolTip="{DynamicResource Sp20AttrReducedGammaTip}"
@@ -62,11 +67,15 @@
                      Visibility="{Binding IsShortTerm, Converter={StaticResource BoolToVis}}"/>
 
             <CheckBox x:Name="selfWeightCheck" Grid.Row="7" Content="{DynamicResource FemSelfWeightFactor}"
-                      VerticalAlignment="Center" Checked="SelfWeight_Changed" Unchecked="SelfWeight_Changed"/>
-            <TextBox x:Name="selfWeightBox" Grid.Row="7" Grid.Column="1" Margin="0,2"/>
+                      VerticalAlignment="Center" Checked="SelfWeight_Changed" Unchecked="SelfWeight_Changed"
+                      Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
+            <TextBox x:Name="selfWeightBox" Grid.Row="7" Grid.Column="1" Margin="0,2"
+                     Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
         </Grid>
         <TextBlock Text="{DynamicResource FemLoadCaseDialogDefaultsHint}" Foreground="Gray" FontSize="11"
-                   TextWrapping="Wrap" Margin="1,4,1,0"/>
+                   TextWrapping="Wrap" Margin="1,4,1,0" Visibility="{Binding IsLoad, Converter={StaticResource BoolToVis}}"/>
+        <TextBlock Text="{DynamicResource FemLoadCaseDialogImperfectionHint}" Foreground="Gray" FontSize="11"
+                   TextWrapping="Wrap" Margin="1,4,1,0" Visibility="{Binding IsImperfection, Converter={StaticResource BoolToVis}}"/>
         <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

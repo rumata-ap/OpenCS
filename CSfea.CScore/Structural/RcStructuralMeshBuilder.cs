@@ -157,12 +157,62 @@ public sealed class RcStructuralMeshBuild
     /// u₀ каждого элемента — поэлементно в узлах КЭ (глобальные оси), несколько элементов на КЭ складываются. null —
     /// несовершенств нет.
     /// </summary>
-    public ImperfectionField? Imperfection(RcStructuralModel model)
+    public ImperfectionField? Imperfection(RcStructuralModel model) =>
+        Imperfection(model, Mesh.Nodes, Mesh.Beams.Select(b => (b.I, b.J)).ToArray(),
+            Mesh.Shells.Select(s => s.Nodes).ToArray(), BeamIds, ShellIds);
+
+    /// <summary>
+    /// Поступательные u₀ несовершенств модели в узлах (номер узла модели → ux, uy, uz, м; глобальные оси) — для показа
+    /// формы несовершенства. Тот же расчёт, что у решателя (<see cref="Imperfection(RcStructuralModel)"/>), без сборки
+    /// сечений; u₀ поэлементное — в узле берётся наибольшее по модулю из КЭ, сходящихся в нём (погибь колонны не
+    /// «разбавляется» примыкающими ригелями). Пусто — несовершенств нет.
+    /// </summary>
+    public static Dictionary<int, double[]> ImperfectionNodeTranslations(RcStructuralModel model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var result = new Dictionary<int, double[]>();
+        if (model.Imperfections.Count == 0) return result;
+        var nodeIds = model.Nodes.Select(n => n.Id).ToArray();
+        var index = new Dictionary<int, int>();
+        for (int i = 0; i < nodeIds.Length; i++) index.TryAdd(nodeIds[i], i);
+        var coords = model.Nodes.Select(n => new[] { n.X, n.Y, n.Z }).ToArray();
+        var beams = model.Beams.Where(b => index.ContainsKey(b.NodeI) && index.ContainsKey(b.NodeJ)).ToList();
+        var shells = model.Shells.Where(s => s.NodeIds.All(index.ContainsKey)).ToList();
+        var beamEnds = beams.Select(b => (index[b.NodeI], index[b.NodeJ])).ToArray();
+        var shellNodes = shells.Select(s => s.NodeIds.Select(id => index[id]).ToArray()).ToArray();
+        if (Imperfection(model, coords, beamEnds, shellNodes, beams.Select(b => b.Id).ToArray(),
+                shells.Select(s => s.Id).ToArray()) is not { } field)
+            return result;
+        void Put(int node, double x, double y, double z)
+        {
+            int id = nodeIds[node];
+            if (result.TryGetValue(id, out var old) && old[0] * old[0] + old[1] * old[1] + old[2] * old[2] >= x * x + y * y + z * z) return;
+            result[id] = [x, y, z];
+        }
+        for (int e = 0; e < field.Beam.Length; e++)
+            if (field.Beam[e] is { } u)
+            {
+                Put(beamEnds[e].Item1, u[0], u[1], u[2]);
+                Put(beamEnds[e].Item2, u[6], u[7], u[8]);
+            }
+        for (int e = 0; e < field.Shell.Length; e++)
+            if (field.Shell[e] is { } u)
+                for (int i = 0; i < shellNodes[e].Length; i++) Put(shellNodes[e][i], u[3 * i], u[3 * i + 1], u[3 * i + 2]);
+        return result;
+    }
+
+    /// <summary>
+    /// u₀ несовершенств модели на сетке из координат узлов <paramref name="nodes"/>, концов стержней <paramref name="beams"/>
+    /// и узлов оболочек <paramref name="shells"/> (индексы узлов), номера КЭ модели — <paramref name="beamIds"/>,
+    /// <paramref name="shellIds"/>; общий расчёт для решателя и показа (<see cref="ImperfectionNodeTranslations"/>).
+    /// </summary>
+    internal static ImperfectionField? Imperfection(RcStructuralModel model, IReadOnlyList<double[]> nodes,
+        IReadOnlyList<(int I, int J)> beams, IReadOnlyList<int[]> shells, int[] beamIds, int[] shellIds)
     {
         if (model.Imperfections.Count == 0) return null;
-        var field = new ImperfectionField(Mesh.Beams.Count, Mesh.Shells.Count);
+        var field = new ImperfectionField(beams.Count, shells.Count);
         var beamIndex = new Dictionary<int, int>();
-        for (int i = 0; i < BeamIds.Length; i++) beamIndex[BeamIds[i]] = i;
+        for (int i = 0; i < beamIds.Length; i++) beamIndex[beamIds[i]] = i;
         void AddBeam(int e, int end, double[] u, double[] rot)
         {
             var a = field.Beam[e] ??= new double[12];
@@ -174,22 +224,22 @@ public sealed class RcStructuralMeshBuild
                 case RcSway sw:
                 {
                     var d = Unit(sw.Direction, "Крен: направление");
-                    for (int e = 0; e < Mesh.Beams.Count; e++)
+                    for (int e = 0; e < beams.Count; e++)
                     {
-                        if (sw.Beams != null && !sw.Beams.Contains(BeamIds[e])) continue;
-                        var b = Mesh.Beams[e];
-                        var t = Unit(Sub(Mesh.Nodes[b.J], Mesh.Nodes[b.I]), $"Стержень {BeamIds[e]}");
+                        if (sw.Beams != null && !sw.Beams.Contains(beamIds[e])) continue;
+                        var b = beams[e];
+                        var t = Unit(Sub(nodes[b.J], nodes[b.I]), $"Стержень {beamIds[e]}");
                         var rot = Scale(Cross(t, d), sw.Phi * t[2]);
-                        AddBeam(e, 0, Scale(d, sw.Phi * (Mesh.Nodes[b.I][2] - sw.Z0)), rot);
-                        AddBeam(e, 1, Scale(d, sw.Phi * (Mesh.Nodes[b.J][2] - sw.Z0)), rot);
+                        AddBeam(e, 0, Scale(d, sw.Phi * (nodes[b.I][2] - sw.Z0)), rot);
+                        AddBeam(e, 1, Scale(d, sw.Phi * (nodes[b.J][2] - sw.Z0)), rot);
                     }
-                    for (int e = 0; e < Mesh.Shells.Count; e++)
+                    for (int e = 0; e < shells.Count; e++)
                     {
-                        if (sw.Shells != null && !sw.Shells.Contains(ShellIds[e])) continue;
-                        var nodes = Mesh.Shells[e].Nodes;
-                        var a = field.Shell[e] ??= new double[3 * nodes.Length];
-                        for (int i = 0; i < nodes.Length; i++)
-                            for (int c = 0; c < 3; c++) a[3 * i + c] += sw.Phi * (Mesh.Nodes[nodes[i]][2] - sw.Z0) * d[c];
+                        if (sw.Shells != null && !sw.Shells.Contains(shellIds[e])) continue;
+                        var sn = shells[e];
+                        var a = field.Shell[e] ??= new double[3 * sn.Length];
+                        for (int i = 0; i < sn.Length; i++)
+                            for (int c = 0; c < 3; c++) a[3 * i + c] += sw.Phi * (nodes[sn[i]][2] - sw.Z0) * d[c];
                     }
                     break;
                 }
@@ -201,17 +251,17 @@ public sealed class RcStructuralMeshBuild
                     // Концы цепочки — узлы, входящие в один КЭ цепочки.
                     var degree = new Dictionary<int, int>();
                     foreach (int e in idx)
-                        foreach (int n in new[] { Mesh.Beams[e].I, Mesh.Beams[e].J })
+                        foreach (int n in new[] { beams[e].I, beams[e].J })
                             degree[n] = degree.GetValueOrDefault(n) + 1;
                     var ends = degree.Where(kv => kv.Value == 1).Select(kv => kv.Key).ToArray();
                     if (ends.Length != 2 || degree.Values.Any(v => v > 2))
                         throw new ArgumentException($"Погибь: стержни {string.Join(", ", bow.Beams)} не образуют цепочку.");
                     // Начало хорды — конец первого стержня (парабола симметрична — на u₀ выбор не влияет).
-                    var b0 = Mesh.Beams[idx[0]];
+                    var b0 = beams[idx[0]];
                     int start = ends.Contains(b0.I) ? b0.I : ends.Contains(b0.J) ? b0.J : ends[0];
                     int stop = ends[0] == start ? ends[1] : ends[0];
-                    var x0 = Mesh.Nodes[start];
-                    var chord = Sub(Mesh.Nodes[stop], x0);
+                    var x0 = nodes[start];
+                    var chord = Sub(nodes[stop], x0);
                     double len = Math.Sqrt(Dot(chord, chord));
                     var t = Scale(chord, 1.0 / len);
                     var dRaw = Unit(bow.Direction, "Погибь: направление");
@@ -219,11 +269,11 @@ public sealed class RcStructuralMeshBuild
                     var txd = Cross(t, d);
                     foreach (int e in idx)
                     {
-                        var b = Mesh.Beams[e];
-                        int[] nodes = [b.I, b.J];
+                        var b = beams[e];
+                        int[] ends2 = [b.I, b.J];
                         for (int end = 0; end < 2; end++)
                         {
-                            double s = Dot(Sub(Mesh.Nodes[nodes[end]], x0), t);
+                            double s = Dot(Sub(nodes[ends2[end]], x0), t);
                             double w = 4.0 * bow.E0 * s * (len - s) / (len * len);
                             double dw = 4.0 * bow.E0 * (len - 2.0 * s) / (len * len);
                             AddBeam(e, end, Scale(d, w), Scale(txd, dw));

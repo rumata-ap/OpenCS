@@ -283,6 +283,7 @@ namespace OpenCS
       {
          if (e.ClickCount != 2 || sender is not FrameworkElement element) return;
          if (element.DataContext is ViewModels.FemLoadCaseTreeItem loadCase) vm.EditFemLoadCase(loadCase);
+         else if (element.DataContext is ViewModels.FemImperfectionTreeItem imperfection) vm.EditFemImperfection(imperfection);
          else if (element.DataContext is ViewModels.FemCombinationTreeItem combination) vm.EditFemCombination(combination);
          else return;
          e.Handled = true;
@@ -329,9 +330,26 @@ namespace OpenCS
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseActivate",
                   () => vm.ActivateFemLoadCase(loadCaseItem.Schema, loadCaseItem.LoadCase.Tag)));
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseEdit", () => vm.EditFemLoadCase(loadCaseItem)));
+               if (loadCaseItem.IsImperfection)
+               {
+                  menu.Items.Add(new Separator());
+                  menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionAddSway",
+                     () => vm.CreateFemImperfection(loadCaseItem, CScore.Fem.Imperfections.FemImperfectionKinds.Sway)));
+                  menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionAddBow",
+                     () => vm.CreateFemImperfection(loadCaseItem, CScore.Fem.Imperfections.FemImperfectionKinds.Bow)));
+                  var modes = Views.FemMemberTreeMenus.Item("FemImperfectionAddModes", () => { });
+                  modes.IsEnabled = false;
+                  modes.ToolTip = Loc.S("FemImperfectionModesLater");
+                  ToolTipService.SetShowOnDisabled(modes, true);
+                  menu.Items.Add(modes);
+               }
                menu.Items.Add(new Separator());
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseCreate", () => vm.CreateFemLoadCase(loadCaseItem.Schema)));
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemLoadCaseDelete", () => vm.DeleteFemLoadCase(loadCaseItem)));
+               break;
+            case ViewModels.FemImperfectionTreeItem imperfectionItem:
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionEdit", () => vm.EditFemImperfection(imperfectionItem)));
+               menu.Items.Add(Views.FemMemberTreeMenus.Item("FemImperfectionDelete", () => vm.DeleteFemImperfection(imperfectionItem)));
                break;
             case ViewModels.FemCombinationsSubNode combinations:
                menu.Items.Add(Views.FemMemberTreeMenus.Item("FemCombinationCreate", () => vm.CreateFemCombination(combinations.Schema)));

@@ -1921,6 +1921,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         (_analysis != null ? Tasks.FemAnalysisParams.Parse(_analysis.ParamsJson).Csfea : null) ?? new Tasks.FemCsfeaParams();
 
     FemRcModelResult? _adapted;
+    FemRcModelInput? _adaptedInput;
     bool _adaptedBuilt;
 
     /// <summary>
@@ -1932,9 +1933,109 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (_adaptedBuilt) return _adapted;
         _adaptedBuilt = true;
         if (_analysis == null) return null;
-        try { _adapted = FemRcModelAdapter.Adapt(FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis))); }
+        try
+        {
+            _adaptedInput = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis));
+            _adapted = FemRcModelAdapter.Adapt(_adaptedInput);
+        }
         catch (InvalidOperationException) { _adapted = null; }
         return _adapted;
+    }
+
+    // ------------------------------------------------------------ несовершенства (EN 1993-1-1 5.3)
+
+    /// <summary>Отчёт несовершенств варианта (крен, погиби, решения предварительного расчёта); null — несовершенств нет.</summary>
+    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections => Summary.Imperfections;
+
+    public bool HasImperfections => Summary.Imperfections is { } r && r.Sways.Count + r.Bows.Count > 0;
+
+    /// <summary>Таблица крена (спека 5.5): h, α_h, m, α_m, φ, направление, источник, подсказки.</summary>
+    public IReadOnlyList<FemImperfectionSwayRow> ImperfectionSwayRows =>
+        Summary.Imperfections?.Sways.Select(FemImperfectionSwayRow.Of).ToList() ?? [];
+
+    /// <summary>Таблица погибей: элемент, L, плоскость, кривая и источник e₀, e₀, N_Ed, N_cr, активность, знак.</summary>
+    public IReadOnlyList<FemImperfectionBowRow> ImperfectionBowRows =>
+        Summary.Imperfections?.Bows.Select(FemImperfectionBowRow.Of).ToList() ?? [];
+
+    /// <summary>Итог: max|u₀|, предварительный расчёт, α_cr.</summary>
+    public string ImperfectionSummaryText
+    {
+        get
+        {
+            if (Summary.Imperfections is not { } r) return "";
+            var c = CultureInfo.CurrentCulture;
+            var lines = new List<string> { string.Format(c, Loc.S("FemImperfectionMaxU0"), r.MaxU0 * 1000) };
+            lines.Add(Loc.S(r.FirstOrder ? "FemImperfectionFirstOrderDone" : "FemImperfectionFirstOrderNone"));
+            if (!string.IsNullOrEmpty(r.AlphaCr)) lines.Add(r.AlphaCr);
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
+
+    bool _showImperfection;
+    /// <summary>
+    /// Вместо перемещений шага — u₀ несовершенств варианта (решённые знаки, неактивные погиби убраны — по отчёту, без
+    /// повторного предварительного расчёта).
+    /// </summary>
+    public bool ShowImperfection
+    {
+        get => _showImperfection;
+        set
+        {
+            if (value == _showImperfection) return;
+            if (value && EnsureImperfectionField() == null) { OnPropertyChanged(); return; }
+            _showImperfection = value;
+            OnPropertyChanged();
+            CaseChanged?.Invoke();
+        }
+    }
+
+    Dictionary<int, Vector3D>? _imperfectionField;
+    bool _imperfectionFieldBuilt;
+
+    string _imperfectionNote = "";
+    /// <summary>Почему u₀ не показать (схема изменилась после расчёта и т. п.); пусто — показывается.</summary>
+    public string ImperfectionNote { get => _imperfectionNote; private set { _imperfectionNote = value; OnPropertyChanged(); } }
+
+    /// <summary>u₀ узла сетки, м (глобальные оси); null — у узла несовершенства нет или поле не построено.</summary>
+    public Vector3D? ImperfectionDisplacement(int node) =>
+        _imperfectionField != null && _imperfectionField.TryGetValue(node, out var u) ? u : null;
+
+    /// <summary>Наибольшее |u₀| узлов, м.</summary>
+    public double MaxImperfectionDisplacement() => _imperfectionField?.Values.Select(v => v.Length).DefaultIfEmpty(0).Max() ?? 0;
+
+    /// <summary>
+    /// Поле u₀ по текущей схеме (вход постановки читается из БД — UI-поток): несовершенства первого этапа, решённые по
+    /// отчёту результата (<see cref="CScore.Fem.Imperfections.FemImperfectionReport.Apply"/>), на модели адаптера —
+    /// тем же расчётом, что у решателя (<see cref="RcStructuralMeshBuild.ImperfectionNodeTranslations"/>). null — не
+    /// построено (<see cref="ImperfectionNote"/> — почему).
+    /// </summary>
+    Dictionary<int, Vector3D>? EnsureImperfectionField()
+    {
+        if (_imperfectionFieldBuilt) return _imperfectionField;
+        _imperfectionFieldBuilt = true;
+        if (Summary.Imperfections is not { } report) { ImperfectionNote = Loc.S("FemImperfectionNoReport"); return null; }
+        if (AdaptedModel() is not { } adapted || _adaptedInput == null) { ImperfectionNote = Loc.S("FemImperfectionNoModel"); return null; }
+        if (report.Apply(_adaptedInput.Imperfections) is not { } decided) { ImperfectionNote = Loc.S("FemImperfectionChanged"); return null; }
+        var model = adapted.Model;
+        var saved = model.Imperfections.ToList();
+        try
+        {
+            FemRcModelAdapter.ReplaceImperfections(model, decided);
+            _imperfectionField = RcStructuralMeshBuild.ImperfectionNodeTranslations(model)
+                .ToDictionary(kv => kv.Key, kv => new Vector3D(kv.Value[0], kv.Value[1], kv.Value[2]));
+            ImperfectionNote = "";
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or InvalidOperationException)
+        {
+            ImperfectionNote = string.Format(CultureInfo.CurrentCulture, Loc.S("FemImperfectionFieldFailed"), ex.Message);
+            _imperfectionField = null;
+        }
+        finally
+        {
+            model.Imperfections.Clear();
+            model.Imperfections.AddRange(saved);
+        }
+        return _imperfectionField;
     }
 
     // ------------------------------------------------------------ жёсткости КЭ
@@ -2381,5 +2482,33 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         var frame = FemLocalAxis.LocalFrame(
             new FemLinearNode(0, pi.X, pi.Y, pi.Z, new bool[6]), new FemLinearNode(0, pj.X, pj.Y, pj.Z, new bool[6]), rotationDeg);
         return (new Vector3D(frame.Y.X, frame.Y.Y, frame.Y.Z), new Vector3D(frame.Z.X, frame.Z.Y, frame.Z.Z));
+    }
+}
+
+/// <summary>Строка таблицы крена окна результата (спека несовершенств 5.5).</summary>
+public sealed record FemImperfectionSwayRow(string Label, string Phi, string Angle, string H, string AlphaH, string M, string AlphaM,
+    string MHint, string HOverV, string Source)
+{
+    public static FemImperfectionSwayRow Of(CScore.Fem.Imperfections.FemSwayReportRow r)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string N(double? v, string f) => v is { } x ? x.ToString(f, c) : "—";
+        string phi = r.Phi == 0 ? "0" : string.Create(c, $"{(r.Phi < 0 ? "−" : "")}1/{1 / Math.Abs(r.Phi):0.#}");
+        return new(r.Label, phi, N(r.AngleDeg, "0.#"), N(r.H, "0.###"), N(r.AlphaH, "0.###"), r.M?.ToString(c) ?? "—", N(r.AlphaM, "0.###"),
+            r.MHint is { } m ? string.Create(c, $"{m} ({r.Columns})") : "—", N(r.HOverV, "0.###"), r.Source);
+    }
+}
+
+/// <summary>Строка таблицы погибей окна результата (спека несовершенств 5.5).</summary>
+public sealed record FemImperfectionBowRow(string Label, string Length, string Plane, string Curve, string E0Source, string E0Mm,
+    string NEd, string Ncr, string Active, string ActiveReason, string Sign, string SignSource)
+{
+    public static FemImperfectionBowRow Of(CScore.Fem.Imperfections.FemBowReportRow r)
+    {
+        var c = CultureInfo.CurrentCulture;
+        string Kn(double? v) => v is { } x ? (x / 1e3).ToString("0.##", c) : "—";
+        return new(r.Label, r.LengthM.ToString("0.###", c), r.Plane, r.Curve == "" ? "—" : r.Curve, r.E0Source,
+            (r.E0 * 1000).ToString("0.##", c), Kn(r.NEd), Kn(r.Ncr), Loc.S(r.Active ? "FemImperfectionActiveYes" : "FemImperfectionActiveNo"),
+            r.ActiveReason, r.Sign, r.SignSource);
     }
 }

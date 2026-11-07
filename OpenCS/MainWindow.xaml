@@ -1689,7 +1689,7 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <DataTemplate DataType="{x:Type vm:FemLoadCaseTreeItem}">
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemLoadCaseTreeItem}" ItemsSource="{Binding Imperfections}">
                      <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening"
                                  MouseLeftButtonDown="FemLoadTreeItem_MouseLeftButtonDown">
                         <StackPanel.ContextMenu>
@@ -1709,6 +1709,9 @@
                                     <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
                                        <Setter Property="Source" Value="{StaticResource FemIcon_LoadAccidental}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding Sp20Type}" Value="imperfection">
+                                       <Setter Property="Source" Value="{StaticResource FemIcon_LoadImperfection}"/>
+                                    </DataTrigger>
                                  </Style.Triggers>
                               </Style>
                            </Image.Style>
@@ -1727,6 +1730,19 @@
                         </TextBlock>
                         <TextBlock Text="{Binding ParametersText, StringFormat='  {0}'}" Foreground="Gray"/>
                         <TextBlock Text="{Binding OriginText, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Элемент несовершенства загружения «Несовершенство»: двойной щелчок — «Изменить…» -->
+                  <DataTemplate DataType="{x:Type vm:FemImperfectionTreeItem}">
+                     <StackPanel Orientation="Horizontal" Margin="1" ContextMenuOpening="FemMembersNode_ContextMenuOpening"
+                                 MouseLeftButtonDown="FemLoadTreeItem_MouseLeftButtonDown">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu/>
+                        </StackPanel.ContextMenu>
+                        <Image Style="{StaticResource FemTreeIcon}" Source="{StaticResource FemIcon_LoadImperfection}"/>
+                        <TextBlock Text="{Binding Label}"/>
+                        <TextBlock Text="{Binding SummaryText, StringFormat='  {0}'}" Foreground="Gray"/>
                      </StackPanel>
                   </DataTemplate>
 

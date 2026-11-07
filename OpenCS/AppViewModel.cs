@@ -608,6 +608,85 @@ namespace OpenCS
       public void DeleteFemLoadCase(ViewModels.FemLoadCaseTreeItem item) =>
          OpenFemSchemaPage(item.Schema)?.DeleteLoadCase(item.LoadCase.Tag);
 
+      // ── Элементы несовершенства (EN 1993-1-1 5.3) ────────────────────────────────────────────────────────────
+      // Пишутся сразу в БД (таблица fem_imperfections, по Id загружения), вне отмены редактора схемы: загружение должно
+      // быть сохранено. Пересохранение схемы переносит их на новые Id загружений (RemapFemImperfectionsCore).
+
+      /// <summary>«Добавить крен / погибь…» у загружения-несовершенства: диалог и запись в БД.</summary>
+      public void CreateFemImperfection(ViewModels.FemLoadCaseTreeItem item, string kind)
+      {
+         if (item.LoadCase.Id == 0)
+         {
+            LogService.Warning(string.Format(Loc.S("FemImperfectionCaseUnsaved"), item.LoadCase.Tag));
+            return;
+         }
+         bool sway = kind == CScore.Fem.Imperfections.FemImperfectionKinds.Sway;
+         string prefix = Loc.S(sway ? "FemImperfectionDefaultSway" : "FemImperfectionDefaultBow");
+         var taken = item.Imperfections.Select(i => i.Item.Tag).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+         string tag = prefix + " 1";
+         for (int n = 2; taken.Contains(tag); n++) tag = $"{prefix} {n}";
+         var imperfection = new CScore.Fem.Imperfections.FemImperfection
+         {
+            SchemaId = item.Schema.Id, LoadCaseId = item.LoadCase.Id, Kind = kind, Tag = tag,
+            ParamsJson = sway
+               ? new CScore.Fem.Imperfections.FemSwayParams { PhiMode = CScore.Fem.Imperfections.FemSwayParams.PhiEn1993 }.ToJson()
+               : new CScore.Fem.Imperfections.FemBowParams { E0Mode = CScore.Fem.Imperfections.FemBowParams.E0Table }.ToJson(),
+         };
+         EditFemImperfectionCore(item.Schema, imperfection);
+      }
+
+      /// <summary>«Изменить…» у элемента несовершенства в дереве.</summary>
+      public void EditFemImperfection(ViewModels.FemImperfectionTreeItem item) => EditFemImperfectionCore(item.Schema, item.Item.Clone());
+
+      /// <summary>«Удалить» у элемента несовершенства — с подтверждением.</summary>
+      public void DeleteFemImperfection(ViewModels.FemImperfectionTreeItem item)
+      {
+         if (MessageBox.Show(string.Format(Loc.S("FemImperfectionConfirmDelete"), item.Label), Loc.S("Confirmation"),
+               MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+         db.DeleteFemImperfection(item.Item);
+         femSchemasGroup?.ReloadImperfections(item.Schema.Id);
+         LogService.Info(string.Format(Loc.S("FemImperfectionDeleted"), item.Label, item.Owner.LoadCase.Tag));
+      }
+
+      void EditFemImperfectionCore(CScore.Fem.FemSchema schema, CScore.Fem.Imperfections.FemImperfection imperfection)
+      {
+         // Выделение 3D — только из уже открытого редактора этой схемы (диалог его не открывает).
+         var page = currentFemSchema == schema && CurrentPage is Views.FemSchemaPage p ? p : null;
+         double? SpanZ(CScore.Fem.Imperfections.FemSwayParams sway)
+         {
+            var elements = db.GetFemMeshElements(schema.Id);
+            return elements.Count == 0 ? null
+               : CScore.Fem.Imperfections.FemImperfectionResolver.SwaySpanZ(sway, elements, db.GetFemMeshNodes(schema.Id));
+         }
+         var vm = new ViewModels.FemImperfectionDialogVM(imperfection, SpanZ, FemImperfectionMHint(schema, imperfection),
+            page != null ? page.ImperfectionSelection : null);
+         var dialog = new Views.FemImperfectionDialog(vm) { Owner = Application.Current.MainWindow };
+         if (dialog.ShowDialog() != true || dialog.Result is not { } result) return;
+         bool isNew = result.Id == 0;
+         db.SaveFemImperfection(result);
+         femSchemasGroup?.ReloadImperfections(schema.Id);
+         LogService.Info(string.Format(Loc.S(isNew ? "FemImperfectionAdded" : "FemImperfectionSaved"), result.Label));
+      }
+
+      /// <summary>
+      /// Подсказка m по (5.5) для крена — из последнего расчёта CSfea схемы с отчётом несовершенств (строка крена с тем же
+      /// именем); null — расчёта нет или крен в нём не считался.
+      /// </summary>
+      int? FemImperfectionMHint(CScore.Fem.FemSchema schema, CScore.Fem.Imperfections.FemImperfection imperfection)
+      {
+         if (imperfection.Kind != CScore.Fem.Imperfections.FemImperfectionKinds.Sway) return null;
+         try
+         {
+            foreach (var analysis in db.GetFemAnalyses(schema.Id).Where(a => a.ResultId != null).OrderByDescending(a => a.ResultId))
+               if (db.GetCalcResultById(analysis.ResultId!.Value) is { } result
+                   && FemCsfeaResultSummary.Parse(result.DataJson)?.Imperfections?.Sways
+                      .FirstOrDefault(s => s.Label == imperfection.Label) is { MHint: { } m })
+                  return m;
+         }
+         catch (Exception ex) when (ex is JsonException or InvalidOperationException) { }
+         return null;
+      }
+
       public void CreateFemCombination(CScore.Fem.FemSchema schema) => OpenFemSchemaPage(schema)?.CreateLoadDefinition();
 
       public void EditFemCombination(ViewModels.FemCombinationTreeItem item) =>

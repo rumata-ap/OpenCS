@@ -246,6 +246,35 @@ public sealed class FemResultLayer : ViewModelBase
         }
     }
 
+    /// <summary>У варианта CSfea есть несовершенства EN 1993-1-1 5.3 — можно показать u₀.</summary>
+    public bool HasImperfection => Csfea?.HasImperfections == true;
+
+    /// <summary>
+    /// «Показать несовершенство»: деформированная схема — u₀ варианта масштабом (как форма потери устойчивости), масштаб
+    /// предлагается заново; выключение — снова перемещения шага.
+    /// </summary>
+    public bool ShowImperfection
+    {
+        get => Csfea?.ShowImperfection == true;
+        set
+        {
+            if (Csfea == null || value == Csfea.ShowImperfection) return;
+            Csfea.ShowImperfection = value;
+            if (Csfea.ShowImperfection != value) { OnPropertyChanged(); OnPropertyChanged(nameof(ImperfectionNote)); return; }
+            if (value) _showDeformed = true;
+            _deformScale = SuggestDeformScale();
+            _autoScale = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowDeformed));
+            OnPropertyChanged(nameof(DeformScale));
+            OnPropertyChanged(nameof(ImperfectionNote));
+            OnStepChanged();
+        }
+    }
+
+    /// <summary>Почему u₀ не показать; пусто — показывается или не запрашивалось.</summary>
+    public string ImperfectionNote => Csfea?.ImperfectionNote ?? "";
+
     /// <summary>Деформированную схему можно показать: есть перемещения и это не огибающая.</summary>
     public bool CanShowDeformed => HasDisplacements && !IsEnvelope;
 

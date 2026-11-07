@@ -228,6 +228,9 @@
                                                 <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
                                                     <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadAccidental}"/>
                                                 </DataTrigger>
+                                                <DataTrigger Binding="{Binding Sp20Type}" Value="imperfection">
+                                                    <Setter TargetName="Icon" Property="Source" Value="{DynamicResource FemIcon_LoadImperfection}"/>
+                                                </DataTrigger>
                                             </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>

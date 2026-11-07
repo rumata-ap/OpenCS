@@ -1,0 +1,261 @@
+<Window x:Class="OpenCS.Views.FemImperfectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
+        Title="{Binding Title}"
+        Width="760" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <!-- Элемент несовершенства (по образцу RFEM «Задать или изменить несовершенство»): FemImperfectionDialogVM. -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+        </Style>
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,2,8,2"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,6,0,0"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+    </Window.Resources>
+    <StackPanel Margin="12">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <!-- Имя и вид -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionTag}"/>
+                    <TextBox x:Name="tagBox" Grid.Column="1" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{DynamicResource FemImperfectionTagTip}"/>
+                    <TextBlock Grid.Row="1" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionKind}"/>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindSway}" IsChecked="{Binding IsSway}"
+                                     ToolTip="{DynamicResource FemImperfectionKindSwayTip}" Margin="0,0,14,0"/>
+                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindBow}" IsChecked="{Binding IsBow}"
+                                     ToolTip="{DynamicResource FemImperfectionKindBowTip}" Margin="0,0,14,0"/>
+                        <RadioButton GroupName="kind" Content="{DynamicResource FemImperfectionKindModes}" IsEnabled="False"
+                                     ToolTip="{DynamicResource FemImperfectionModesLater}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionNorm}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="{x:Static vm:FemImperfectionDialogVM.NormText}"
+                               ToolTip="{DynamicResource FemImperfectionNormTip}"/>
+                </Grid>
+
+                <!-- Относительно: охват крена или элементы погиби -->
+                <GroupBox Header="{DynamicResource FemImperfectionTargets}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2"
+                                    Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}">
+                            <RadioButton GroupName="scope" Content="{DynamicResource FemImperfectionScopeAll}" IsChecked="{Binding ScopeAll}"
+                                         Margin="0,0,14,0"/>
+                            <RadioButton GroupName="scope" Content="{DynamicResource FemImperfectionScopeList}" IsChecked="{Binding ScopeList}"/>
+                        </StackPanel>
+                        <Grid Visibility="{Binding IsListScope, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionMembers}"/>
+                            <TextBox Grid.Column="1" Text="{Binding MembersText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource FemImperfectionMembersTip}"/>
+                            <TextBlock Grid.Row="1" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionElements}"
+                                       Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ElementsText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource FemImperfectionElementsTip}"
+                                     Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionChains}"
+                                       Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ChainsText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource FemImperfectionChainsTip}"
+                                     Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}"/>
+                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <Button Content="{DynamicResource FemImperfectionTakeSelection}" Command="{Binding TakeSelectionCommand}"
+                                        ToolTip="{DynamicResource FemImperfectionTakeSelectionTip}" Padding="8,2"/>
+                                <TextBlock Style="{StaticResource Hint}" Text="{Binding SelectionNote}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Крен: направление и φ -->
+                <GroupBox Header="{DynamicResource FemImperfectionSwayGroup}"
+                          Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionAngle}"/>
+                        <TextBox Grid.Column="1" Text="{Binding AngleText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="{DynamicResource FemImperfectionAngleTip}"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="6,2,0,2">
+                            <Button Content="+X" Command="{Binding SetAngleCommand}" CommandParameter="0" Width="34" Margin="0,0,3,0"/>
+                            <Button Content="+Y" Command="{Binding SetAngleCommand}" CommandParameter="90" Width="34" Margin="0,0,3,0"/>
+                            <Button Content="−X" Command="{Binding SetAngleCommand}" CommandParameter="180" Width="34" Margin="0,0,3,0"/>
+                            <Button Content="−Y" Command="{Binding SetAngleCommand}" CommandParameter="270" Width="34"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,4,0,2">
+                            <RadioButton GroupName="phi" Content="{DynamicResource FemImperfectionPhiNorm}" IsChecked="{Binding PhiNorm}"
+                                         Margin="0,0,14,0"/>
+                            <RadioButton GroupName="phi" Content="{DynamicResource FemImperfectionPhiManual}" IsChecked="{Binding PhiManual}"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionH}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding HText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="{DynamicResource FemImperfectionHTip}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="2" Style="{StaticResource Hint}" Text="{DynamicResource FemImperfectionHHint}"/>
+                        <TextBlock Grid.Row="3" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionM}"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="{DynamicResource FemImperfectionMTip}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource Hint}" Text="{Binding MHintText}"/>
+                        <TextBlock Grid.Row="4" Style="{StaticResource Caption}" Text="1/φ"/>
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding PhiInvText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding PhiManual}" ToolTip="{DynamicResource FemImperfectionPhiInvTip}"/>
+                        <Button Grid.Row="4" Grid.Column="2" HorizontalAlignment="Left" Margin="6,2,0,2" Padding="8,1"
+                                Content="{DynamicResource FemImperfectionComputePhi}" Command="{Binding ComputePhiCommand}"
+                                ToolTip="{DynamicResource FemImperfectionComputePhiTip}"/>
+                        <TextBlock Grid.Row="5" Grid.ColumnSpan="3" Foreground="DimGray" TextWrapping="Wrap" FontSize="11" Margin="0,2"
+                                   Text="{Binding PhiDescription}"/>
+                    </Grid>
+                </GroupBox>
+
+                <!-- Погибь: плоскость, e₀, знак, активность -->
+                <GroupBox Header="{DynamicResource FemImperfectionBowGroup}"
+                          Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionPlane}"/>
+                        <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Planes}" SelectedValuePath="Key"
+                                  DisplayMemberPath="Label" SelectedValue="{Binding Plane}"/>
+                        <TextBlock Grid.Row="1" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionE0Mode}"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.E0Modes}" SelectedValuePath="Key"
+                                  DisplayMemberPath="Label" SelectedValue="{Binding E0Mode}"/>
+
+                        <TextBlock Grid.Row="2" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionCurve}"
+                                   Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}"/>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal"
+                                    Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}">
+                            <ComboBox Width="190" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Curves}" SelectedValuePath="Key"
+                                      DisplayMemberPath="Label" SelectedValue="{Binding Curve}" ToolTip="{DynamicResource FemImperfectionCurveTip}"/>
+                            <TextBlock Style="{StaticResource Hint}" Text="{Binding TableValueText}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,2"
+                                    Visibility="{Binding IsE0Table, Converter={StaticResource BoolToVis}}">
+                            <RadioButton GroupName="column" Content="{DynamicResource FemImperfectionElastic}" IsChecked="{Binding Elastic}"
+                                         Margin="0,0,14,0"/>
+                            <RadioButton GroupName="column" Content="{DynamicResource FemImperfectionPlastic}" IsChecked="{Binding Plastic}"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="4" Style="{StaticResource Caption}" Text="L/e₀"
+                                   Visibility="{Binding IsE0Relative, Converter={StaticResource BoolToVis}}"/>
+                        <TextBox Grid.Row="4" Grid.Column="1" Width="90" HorizontalAlignment="Left"
+                                 Text="{Binding LOverE0Text, UpdateSourceTrigger=PropertyChanged}"
+                                 Visibility="{Binding IsE0Relative, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="5" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionE0Mm}"
+                                   Visibility="{Binding IsE0Absolute, Converter={StaticResource BoolToVis}}"/>
+                        <TextBox Grid.Row="5" Grid.Column="1" Width="90" HorizontalAlignment="Left"
+                                 Text="{Binding E0MmText, UpdateSourceTrigger=PropertyChanged}"
+                                 Visibility="{Binding IsE0Absolute, Converter={StaticResource BoolToVis}}"/>
+
+                        <TextBlock Grid.Row="6" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionSign}"/>
+                        <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Signs}" SelectedValuePath="Key"
+                                  DisplayMemberPath="Label" SelectedValue="{Binding Sign}" ToolTip="{DynamicResource FemImperfectionSignTip}"/>
+                        <TextBlock Grid.Row="7" Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionActivity}"/>
+                        <ComboBox Grid.Row="7" Grid.Column="1" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Activities}" SelectedValuePath="Key"
+                                  DisplayMemberPath="Label" SelectedValue="{Binding Activity}" ToolTip="{DynamicResource FemImperfectionActivityTip}"/>
+                    </Grid>
+                </GroupBox>
+
+                <TextBlock Text="{DynamicResource FemImperfectionComment}" Margin="0,8,0,2"/>
+                <TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="40"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+            </StackPanel>
+
+            <!-- Схема стержня i–j: идеальная ось пунктиром; крен φ — наклон хорды, погибь e₀ — парабола (рис. 5.3–5.4) -->
+            <Border Grid.Column="1" Margin="12,0,0,0" BorderBrush="LightGray" BorderThickness="1" Padding="6" VerticalAlignment="Top">
+                <Canvas Width="190" Height="330">
+                    <Line X1="70" Y1="260" X2="70" Y2="30" Stroke="Gray" StrokeThickness="1" StrokeDashArray="4 3"/>
+                    <Line X1="40" Y1="268" X2="100" Y2="268" Stroke="Gray" StrokeThickness="1.5"/>
+                    <Path Stroke="Gray" StrokeThickness="1" Data="M44,276 L52,268 M56,276 L64,268 M68,276 L76,268 M80,276 L88,268 M92,276 L100,268"/>
+                    <Ellipse Canvas.Left="66" Canvas.Top="256" Width="8" Height="8" Fill="White" Stroke="Black"/>
+                    <TextBlock Canvas.Left="52" Canvas.Top="244" Text="i" FontStyle="Italic"/>
+
+                    <!-- Крен -->
+                    <Canvas Visibility="{Binding IsSway, Converter={StaticResource BoolToVis}}">
+                        <Line X1="70" Y1="260" X2="120" Y2="30" Stroke="#C03030" StrokeThickness="2.5"/>
+                        <Ellipse Canvas.Left="116" Canvas.Top="26" Width="8" Height="8" Fill="White" Stroke="Black"/>
+                        <TextBlock Canvas.Left="128" Canvas.Top="20" Text="j" FontStyle="Italic"/>
+                        <Path Stroke="#C03030" StrokeThickness="1" Data="M70,200 A60,60 0 0 1 83,201"/>
+                        <TextBlock Canvas.Left="84" Canvas.Top="176" Text="φ" FontSize="15" Foreground="#C03030"/>
+                        <Line X1="70" Y1="18" X2="120" Y2="18" Stroke="DimGray" StrokeThickness="1"/>
+                        <Path Stroke="DimGray" Fill="DimGray" Data="M120,18 L113,15 L113,21 Z"/>
+                        <TextBlock Canvas.Left="76" Canvas.Top="0" Text="φ·h" Foreground="DimGray"/>
+                        <TextBlock Canvas.Left="2" Canvas.Top="130" Text="h" FontStyle="Italic" Foreground="DimGray"/>
+                        <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
+                                   Text="{DynamicResource FemImperfectionSketchSway}"/>
+                    </Canvas>
+
+                    <!-- Погибь -->
+                    <Canvas Visibility="{Binding IsBow, Converter={StaticResource BoolToVis}}">
+                        <Path Stroke="#C03030" StrokeThickness="2.5" Data="M70,260 Q140,145 70,30"/>
+                        <Ellipse Canvas.Left="66" Canvas.Top="26" Width="8" Height="8" Fill="White" Stroke="Black"/>
+                        <TextBlock Canvas.Left="52" Canvas.Top="20" Text="j" FontStyle="Italic"/>
+                        <Line X1="70" Y1="145" X2="105" Y2="145" Stroke="DimGray" StrokeThickness="1"/>
+                        <Path Stroke="DimGray" Fill="DimGray" Data="M105,145 L98,142 L98,148 Z"/>
+                        <TextBlock Canvas.Left="112" Canvas.Top="136" Text="e₀" FontSize="15" Foreground="#C03030"/>
+                        <TextBlock Canvas.Left="20" Canvas.Top="138" Text="L" FontStyle="Italic" Foreground="DimGray"/>
+                        <TextBlock Canvas.Left="4" Canvas.Top="282" Width="186" TextWrapping="Wrap" FontSize="10" Foreground="Gray"
+                                   Text="{DynamicResource FemImperfectionSketchBow}"/>
+                    </Canvas>
+                </Canvas>
+            </Border>
+        </Grid>
+
+        <TextBlock x:Name="errorText" Foreground="Crimson" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="{DynamicResource OK}" IsDefault="True" Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

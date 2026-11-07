@@ -133,14 +133,18 @@ public sealed class CsfeaResultSteps : IFemResultSteps
     public int StepCount => Vm.Summary.Steps.Count;
     public int SelectedStepIndex { get => Vm.SelectedStepIndex; set => Vm.SelectedStepIndex = value; }
     /// <summary>Подпись шага и, если поля шага не записаны, — пояснение, чьи поля показаны.</summary>
-    public string StepLabel => Vm.HasFieldsNote ? $"{Vm.CurrentStepLabel} · {Vm.FieldsNote}" : Vm.CurrentStepLabel;
+    public string StepLabel => Vm.ShowImperfection ? $"{Vm.CurrentStepLabel} · {Utilites.Loc.S("FemImperfectionShownLabel")}"
+        : Vm.HasFieldsNote ? $"{Vm.CurrentStepLabel} · {Vm.FieldsNote}" : Vm.CurrentStepLabel;
     public event Action? StepChanged;
 
-    public bool HasDisplacements => Vm.Fields != null;
-    public Vector3D? Displacement(int node) => Vm.Fields != null ? Vm.Displacement(node) : null;
+    // Показ несовершенства: перемещения — u₀ варианта (узлы без несовершенства — на месте).
+    public bool HasDisplacements => Vm.ShowImperfection || Vm.Fields != null;
+    public Vector3D? Displacement(int node) => Vm.ShowImperfection ? Vm.ImperfectionDisplacement(node) ?? new Vector3D()
+        : Vm.Fields != null ? Vm.Displacement(node) : null;
 
     public double MaxDisplacement()
     {
+        if (Vm.ShowImperfection) return Vm.MaxImperfectionDisplacement();
         if (Vm.Fields is not { } f) return 0;
         double max = 0;
         var d = f.Displacements;

@@ -65,7 +65,7 @@ public sealed class FemLoadCaseRow(FemLoadsTabVM owner, FemLoadCase loadCase, in
     public string LongTermShare
     {
         get => IsShortTerm ? FemLoadsFormat.Optional(LoadCase.LongTermShare)
-            : LoadCase.Sp20Type == "accidental" ? "—" : FemLoadsFormat.Number(1);
+            : LoadCase.Sp20Type is "accidental" or FemSp20Types.Imperfection ? "—" : FemLoadsFormat.Number(1);
         set
         {
             if (!IsShortTerm) { Refresh(); return; }
@@ -332,6 +332,8 @@ public sealed class FemLoadsTabVM : ViewModelBase
         new("long_term", Loc.S("FemLoadCaseTypeLongTerm")),
         new("short_term", Loc.S("FemLoadCaseTypeShortTerm")),
         new("accidental", Loc.S("FemLoadCaseTypeAccidental")),
+        // Несовершенство EN 1993-1-1 5.3 — не нагрузка: в сочетания СП 20 не входит, γf, ψ и доля не используются.
+        new(FemSp20Types.Imperfection, Loc.S("FemLoadCaseTypeImperfection")),
     ];
     public static IReadOnlyList<FemLoadsChoice> CoordinateSystems { get; } =
         [new("local", Loc.S("FemMemberLoadLocal")), new("global", Loc.S("FemMemberLoadGlobal"))];

@@ -39,6 +39,9 @@
                 <DataTrigger Binding="{Binding Sp20Type}" Value="accidental">
                     <Setter Property="Source" Value="{StaticResource FemIcon_LoadAccidental}"/>
                 </DataTrigger>
+                <DataTrigger Binding="{Binding Sp20Type}" Value="imperfection">
+                    <Setter Property="Source" Value="{StaticResource FemIcon_LoadImperfection}"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Sp20Type}" Value="">
                     <Setter Property="Source" Value="{x:Null}"/>
                 </DataTrigger>

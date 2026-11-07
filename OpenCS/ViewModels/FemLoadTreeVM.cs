@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using CScore.Fem;
 using CScore.Fem.Combinations;
+using CScore.Fem.Imperfections;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -42,13 +43,45 @@ public sealed class FemLoadCaseTreeItem : INotifyPropertyChanged
         }
     }
 
-    internal FemLoadCaseTreeItem(FemSchema schema, FemLoadCase loadCase, int number)
+    /// <summary>Загружение-несовершенство (EN 1993-1-1 5.3): в дереве — его элементы (крен, погиби).</summary>
+    public bool IsImperfection => FemSp20Types.IsImperfection(LoadCase);
+
+    /// <summary>Элементы несовершенства загружения (только у <see cref="IsImperfection"/>).</summary>
+    public FemTreeItems<FemImperfectionTreeItem> Imperfections { get; } = [];
+
+    internal FemLoadCaseTreeItem(FemSchema schema, FemLoadCase loadCase, int number, IReadOnlyList<FemImperfection>? imperfections = null)
     {
         Schema = schema;
         LoadCase = loadCase;
         Number = number;
         OriginText = loadCase.Origin == FemLoadOrigin.Manual ? null : FemMeshNodeRow.DescribeOrigin(loadCase.Origin);
-        ParametersText = FemLoadTree.Parameters(loadCase);
+        if (IsImperfection)
+        {
+            // Id 0 — загружение ещё не сохранено: элементов у него нет.
+            List<FemImperfection> own = loadCase.Id == 0 ? [] : (imperfections ?? []).Where(i => i.LoadCaseId == loadCase.Id).ToList();
+            Imperfections.Reset(own.Select(i => new FemImperfectionTreeItem(this, i)));
+            ParametersText = FemImperfectionText.CaseSummary(own);
+        }
+        else ParametersText = FemLoadTree.Parameters(loadCase);
+    }
+}
+
+/// <summary>Элемент несовершенства в дереве: «Крен 1» и сводка серым («вся схема, φ по (5.5)»).</summary>
+public sealed class FemImperfectionTreeItem
+{
+    public FemLoadCaseTreeItem Owner { get; }
+    public FemSchema Schema => Owner.Schema;
+    public FemImperfection Item { get; }
+    public string Label => Item.Label;
+    /// <summary>Вид: sway | bow | modes (иконка).</summary>
+    public string Kind => Item.Kind;
+    public string SummaryText { get; }
+
+    internal FemImperfectionTreeItem(FemLoadCaseTreeItem owner, FemImperfection item)
+    {
+        Owner = owner;
+        Item = item;
+        SummaryText = FemImperfectionText.Summary(item);
     }
 }
 
@@ -64,13 +97,23 @@ public sealed class FemLoadCasesSubNode : FemSubNode, INotifyPropertyChanged
 
     internal FemLoadCasesSubNode(FemSchema schema) => Schema = schema;
 
-    /// <summary>Перечитывает загружения и активное загружение из БД.</summary>
-    internal void Reload(DatabaseService db) => Reset(db.GetFemLoadCases(Schema.Id), db.GetFemActiveLoadCaseTag(Schema.Id));
+    IReadOnlyList<FemLoadCase> _cases = [];
+    string? _activeTag;
 
-    /// <summary>Загружения по списку (из БД или несохранённой сессии редактора) и запомненному активному.</summary>
-    internal void Reset(IReadOnlyList<FemLoadCase> cases, string? activeTag)
+    /// <summary>Перечитывает загружения, активное загружение и элементы несовершенств из БД.</summary>
+    internal void Reload(DatabaseService db) =>
+        Reset(db.GetFemLoadCases(Schema.Id), db.GetFemActiveLoadCaseTag(Schema.Id), db.GetFemImperfections(Schema.Id));
+
+    /// <summary>Перечитывает только элементы несовершенств (загружения — прежние: из БД или сессии редактора).</summary>
+    internal void ReloadImperfections(DatabaseService db) => Reset(_cases, _activeTag, db.GetFemImperfections(Schema.Id));
+
+    /// <summary>Загружения по списку (из БД или несохранённой сессии редактора), запомненному активному и элементам
+    /// несовершенств (БД; по Id загружения).</summary>
+    internal void Reset(IReadOnlyList<FemLoadCase> cases, string? activeTag, IReadOnlyList<FemImperfection>? imperfections = null)
     {
-        Items.Reset(cases.Select((lc, i) => new FemLoadCaseTreeItem(Schema, lc, i + 1)));
+        _cases = cases.ToList();
+        _activeTag = activeTag;
+        Items.Reset(cases.Select((lc, i) => new FemLoadCaseTreeItem(Schema, lc, i + 1, imperfections)));
         SetActive(FemLoadTree.ActiveTag(cases, activeTag));
         PropertyChanged?.Invoke(this, new(nameof(Count)));
         PropertyChanged?.Invoke(this, new(nameof(IsVisible)));

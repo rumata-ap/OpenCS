@@ -48,7 +48,7 @@ public partial class FemLoadCaseDialog : Window
     {
         if (string.IsNullOrWhiteSpace(tagBox.Text)) { ShowError(Loc.S("FemLoadCaseTagTaken"), tagBox); return; }
         double? selfWeight = null;
-        if (selfWeightCheck.IsChecked == true)
+        if (selfWeightCheck.IsChecked == true && !_attributes.IsImperfection)
         {
             if (!Pars.ParseAny(selfWeightBox.Text.Trim(), out double k) || !double.IsFinite(k) || k == 0)
             {

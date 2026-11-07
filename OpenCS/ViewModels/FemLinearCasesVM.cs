@@ -83,9 +83,10 @@ public sealed class FemLinearCasesVM : ViewModelBase
             var row = new FemLinearCaseRow(this, $"{i + 1} {lc.Tag}", CaseExpression(lc.Id).ToJson())
             {
                 LoadCase = lc,
-                TypeLetter = TypeLetter(type),
-                GammaText = FemLoadsFormat.Number(FemCombinationCoefficients.GammaF(lc, defaults)),
-                ShareText = type == NormLoadType.ShortTerm && lc.LongTermShare is double share ? FemLoadsFormat.Number(share) : "—",
+                TypeLetter = TypeLetter(lc, type),
+                GammaText = FemSp20Types.IsImperfection(lc) ? "—" : FemLoadsFormat.Number(FemCombinationCoefficients.GammaF(lc, defaults)),
+                ShareText = type == NormLoadType.ShortTerm && !FemSp20Types.IsImperfection(lc) && lc.LongTermShare is double share
+                    ? FemLoadsFormat.Number(share) : "—",
                 IsNew = isNew,
             };
             row.IsChecked = !isNew;
@@ -174,6 +175,10 @@ public sealed class FemLinearCasesVM : ViewModelBase
         }
         catch (System.Text.Json.JsonException) { return null; }
     }
+
+    /// <summary>Бейдж вида загружения: буква СП 20 (G/L/Q/A) или знак несовершенства (EN 1993-1-1 5.3).</summary>
+    public static string TypeLetter(FemLoadCase loadCase, NormLoadType type) =>
+        FemSp20Types.IsImperfection(loadCase) ? Loc.S("FemLoadCaseImperfectionBadge") : TypeLetter(type);
 
     /// <summary>Буква вида нагрузки СП 20: G/L/Q/A.</summary>
     public static string TypeLetter(NormLoadType type) => type switch

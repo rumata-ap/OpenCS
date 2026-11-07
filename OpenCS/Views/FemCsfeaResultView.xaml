@@ -191,6 +191,56 @@
                 </DockPanel>
             </TabItem>
 
+            <!-- Несовершенства EN 1993-1-1 5.3 варианта (спека 5.5): крен, погиби, max|u₀|, α_cr -->
+            <TabItem Header="{DynamicResource FemCsfeaTabImperfections}" Visibility="{Binding HasImperfections, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding ImperfectionSummaryText}" TextWrapping="Wrap" Margin="6,4"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionShowHint}" TextWrapping="Wrap" Margin="6,0,6,4"
+                               Foreground="Gray"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionSwayTable}" FontWeight="SemiBold" Margin="6,2"/>
+                    <DataGrid DockPanel.Dock="Top" ItemsSource="{Binding ImperfectionSwayRows}" Style="{StaticResource FieldGrid}" MaxHeight="160">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColName}" Binding="{Binding Label}"/>
+                            <DataGridTextColumn Header="φ" Binding="{Binding Phi}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColAngle}" Binding="{Binding Angle}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColH}" Binding="{Binding H}"/>
+                            <DataGridTextColumn Header="α_h" Binding="{Binding AlphaH}"/>
+                            <DataGridTextColumn Header="m" Binding="{Binding M}"/>
+                            <DataGridTextColumn Header="α_m" Binding="{Binding AlphaM}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColMHint}" Binding="{Binding MHint}"/>
+                            <DataGridTextColumn Header="H_Ed/V_Ed" Binding="{Binding HOverV}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColSource}" Binding="{Binding Source}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"/>
+                    <DataGrid ItemsSource="{Binding ImperfectionBowRows}" Style="{StaticResource FieldGrid}">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding E0Mm}" Value="0">
+                                        <Setter Property="Foreground" Value="Gray"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColName}" Binding="{Binding Label}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColLength}" Binding="{Binding Length}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColPlane}" Binding="{Binding Plane}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColCurve}" Binding="{Binding Curve}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0Source}" Binding="{Binding E0Source}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColE0}" Binding="{Binding E0Mm}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColNEd}" Binding="{Binding NEd}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColNcr}" Binding="{Binding Ncr}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColActive}" Binding="{Binding Active}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColActiveReason}" Binding="{Binding ActiveReason}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColSign}" Binding="{Binding Sign}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemImperfectionColSignSource}" Binding="{Binding SignSource}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <!-- Графики -->
             <TabItem x:Name="chartsTab" Header="{DynamicResource FemCsfeaTabCharts}">
                 <Grid>

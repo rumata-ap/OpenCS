@@ -287,6 +287,10 @@ public partial class FemSchemaPage : UserControl, ISubmodelUiHost
         if (_editorVm.Session.LoadCases.FirstOrDefault(lc => lc.Tag == tag) is { } lc) _editorVm.SelectedLoadCase = lc;
     }
 
+    /// <summary>Выделение 3D для диалога несовершенства: КонЭ и КЭ сетки (по порядку выделения).</summary>
+    public (IReadOnlyCollection<string> Members, IReadOnlyCollection<string> Elements) ImperfectionSelection() =>
+        ([.. _editorVm.Selection.SelectedElemTags], [.. _editorVm.Selection.SelectedMeshElemTags]);
+
     /// <summary>«Создать загружение…» из дерева: параметры в диалоге, добавление — одной отменой.</summary>
     public void CreateLoadCase()
     {

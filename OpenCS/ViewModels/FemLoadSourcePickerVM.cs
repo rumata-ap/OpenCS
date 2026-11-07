@@ -188,9 +188,10 @@ public static class FemLoadSources
             list.Add(new FemLoadSource
             {
                 Kind = FemLoadSourceKind.LoadCase, LoadCase = lc, Number = i + 1, Tag = lc.Tag,
-                TypeBadge = FemLinearCasesVM.TypeLetter(type), Formula = code,
-                GammaText = FemLoadsFormat.Number(FemCombinationCoefficients.GammaF(lc, defaults)),
-                ShareText = type == NormLoadType.ShortTerm && lc.LongTermShare is double share ? FemLoadsFormat.Number(share) : "—",
+                TypeBadge = FemLinearCasesVM.TypeLetter(lc, type), Formula = code,
+                GammaText = FemSp20Types.IsImperfection(lc) ? "—" : FemLoadsFormat.Number(FemCombinationCoefficients.GammaF(lc, defaults)),
+                ShareText = type == NormLoadType.ShortTerm && !FemSp20Types.IsImperfection(lc) && lc.LongTermShare is double share
+                    ? FemLoadsFormat.Number(share) : "—",
                 Terms = [new FemLoadSourceTerm("1", code, lc.Tag)],
                 ExpressionJson = expression.ToJson(),
                 SearchText = $"{lc.Tag} {code}".ToLowerInvariant(),

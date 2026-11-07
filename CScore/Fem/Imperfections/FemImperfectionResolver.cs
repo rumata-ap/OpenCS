@@ -362,6 +362,28 @@ public static partial class FemImperfectionResolver
         return elements[tags[0]];
     }
 
+    /// <summary>
+    /// Размах z охвата крена <paramref name="p"/> по сетке (h по умолчанию для (5.5), как в <see cref="Resolve"/>): вся схема
+    /// — все стержни и пластины, перечень — КЭ КонЭ и КЭ из списка (отсутствующие пропускаются), м; 0 — узлов нет.
+    /// </summary>
+    public static double SwaySpanZ(FemSwayParams p, IReadOnlyList<FemElement> meshElements, IReadOnlyList<FemMeshNode> meshNodes)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        var elements = new Dictionary<string, FemElement>(StringComparer.Ordinal);
+        foreach (var e in meshElements) elements.TryAdd(e.ElemTag, e);
+        var nodes = new Dictionary<string, PlanarVector3>(StringComparer.Ordinal);
+        foreach (var n in meshNodes)
+            if (FemMeshTopology.CanonicalNodeTag(n.NodeTag) is { } tag) nodes.TryAdd(tag, new PlanarVector3(n.X, n.Y, n.Z));
+        List<string>? scope = null;
+        if (p.Scope == FemSwayParams.ScopeList)
+        {
+            var members = p.MemberTags.ToHashSet(StringComparer.Ordinal);
+            scope = meshElements.Where(e => e.SourceMemberTag != null && members.Contains(e.SourceMemberTag)).Select(e => e.ElemTag)
+                .Concat(p.ElementTags.Where(elements.ContainsKey)).Distinct(StringComparer.Ordinal).ToList();
+        }
+        return SpanZ(scope, meshElements, elements, nodes);
+    }
+
     /// <summary>Размах z узлов КЭ охвата (null — все стержни и пластины сетки), м; нет узлов — 0.</summary>
     static double SpanZ(IReadOnlyList<string>? scope, IReadOnlyList<FemElement> meshElements,
         IReadOnlyDictionary<string, FemElement> elements, IReadOnlyDictionary<string, PlanarVector3> nodes)

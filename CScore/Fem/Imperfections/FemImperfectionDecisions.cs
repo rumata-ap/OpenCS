@@ -112,6 +112,30 @@ public sealed class FemImperfectionReport
         }
     }
 
+    /// <summary>
+    /// Решённые несовершенства по отчёту (для показа u₀ результата без повторного предварительного расчёта): строки
+    /// отчёта идут в порядке элементов первого этапа (<see cref="FemImperfectionResolver.Resolve"/>, крены и погиби —
+    /// каждые по порядку); неактивные погиби убираются, стрелка со знаком — из отчёта. null — состав элементов
+    /// (число и подписи) не совпадает с отчётом (схема изменилась после расчёта).
+    /// </summary>
+    public IReadOnlyList<FemResolvedImperfection>? Apply(IReadOnlyList<FemResolvedImperfection> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var sways = items.OfType<FemResolvedSway>().ToList();
+        var bows = items.OfType<FemResolvedBow>().ToList();
+        if (sways.Count != Sways.Count || bows.Count != Bows.Count) return null;
+        if (sways.Where((s, i) => s.Label != Sways[i].Label).Any() || bows.Where((b, i) => b.Label != Bows[i].Label).Any()) return null;
+        var result = new List<FemResolvedImperfection>(items.Count);
+        int k = 0;
+        foreach (var item in items)
+        {
+            if (item is not FemResolvedBow bow) { result.Add(item); continue; }
+            var row = Bows[k++];
+            if (row.Active) result.Add(bow with { E0 = row.E0 });
+        }
+        return result;
+    }
+
     static string Ratio(double phi) => phi == 0 ? "0" : string.Create(CultureInfo.CurrentCulture, $"{(phi < 0 ? "−" : "")}1/{1 / Math.Abs(phi):0.#}");
 }
 

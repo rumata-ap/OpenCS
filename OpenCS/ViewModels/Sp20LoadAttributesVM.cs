@@ -38,7 +38,7 @@ public sealed class Sp20LoadAttributesVM : ViewModelBase
     static string Format(double? value) => value?.ToString("0.####", CultureInfo.CurrentCulture) ?? "";
 
     string _kind;
-    /// <summary>Вид нагрузки: permanent | long_term | short_term | accidental.</summary>
+    /// <summary>Вид нагрузки: permanent | long_term | short_term | accidental | imperfection.</summary>
     public string Kind
     {
         get => _kind;
@@ -47,13 +47,18 @@ public sealed class Sp20LoadAttributesVM : ViewModelBase
             if (value == null || value == _kind) return;
             _kind = value;
             OnPropertyChanged();
-            foreach (var name in new[] { nameof(IsPermanent), nameof(IsShortTerm), nameof(GammaHint), nameof(ReducedGammaHint) })
+            foreach (var name in new[] { nameof(IsPermanent), nameof(IsShortTerm), nameof(IsImperfection), nameof(IsLoad),
+                         nameof(GammaHint), nameof(ReducedGammaHint) })
                 OnPropertyChanged(name);
         }
     }
 
     public bool IsPermanent => _kind == "permanent";
     public bool IsShortTerm => _kind == "short_term";
+    /// <summary>Загружение-несовершенство (EN 1993-1-1 5.3): не нагрузка — группа, γf, доля и собственный вес не задаются.</summary>
+    public bool IsImperfection => _kind == FemSp20Types.Imperfection;
+    /// <summary>Нагрузка СП 20 (не несовершенство) — поля группы и γf видны.</summary>
+    public bool IsLoad => !IsImperfection;
 
     string _group;
     public string Group { get => _group; set { _group = value ?? ""; OnPropertyChanged(); } }
@@ -92,11 +97,23 @@ public sealed class Sp20LoadAttributesVM : ViewModelBase
     public string ShareText { get => _shareText; set { _shareText = value ?? ""; OnPropertyChanged(); } }
 
     /// <summary>
-    /// Переносит атрибуты в значения загружения (имя, собственный вес, ψ — не трогаются); текст ошибки или null.
+    /// Переносит атрибуты в значения загружения (имя, собственный вес, ψ — не трогаются; у несовершенства собственный вес,
+    /// группа, γf и доля сбрасываются); текст ошибки или null.
     /// γf п. 7.3 у непостоянных и доля у непостоянных-некратковременных сохраняются как были (в расчёт не идут).
     /// </summary>
     public string? ApplyTo(FemLoadCase values)
     {
+        if (IsImperfection)
+        {
+            // Несовершенство в сочетания не входит: группа, γf и доля не нужны; собственного веса у него нет.
+            values.Sp20Type = _kind;
+            values.Sp20Group = null;
+            values.GammaFUnfav = null;
+            values.GammaFFav = null;
+            values.LongTermShare = null;
+            values.SelfWeightFactor = null;
+            return null;
+        }
         if (!TryOptional(GammaText, false, out var gamma) || gamma == 0) return Loc.S("FemLoadCaseDialogBadNumber");
         if (!TryOptional(ReducedGammaText, false, out var reduced)) return Loc.S("FemLoadCaseDialogBadNumber");
         if (!TryOptional(ShareText, true, out var share)) return Loc.S("Sp20AttrBadShare");

@@ -384,6 +384,20 @@
                         </Viewbox>
                     </ToggleButton>
                 </StackPanel>
+                <!-- Несовершенство EN 1993-1-1 5.3 варианта CSfea: деформированная схема — u₀ масштабом -->
+                <StackPanel Orientation="Horizontal" Visibility="{Binding HasImperfection, Converter={StaticResource BoolToVisibility}}">
+                    <ToggleButton Style="{StaticResource IconToggleButton25}" IsChecked="{Binding ShowImperfection}" Margin="4,0,0,0">
+                        <ToggleButton.ToolTip>
+                            <TextBlock>
+                                <Run Text="{DynamicResource Fem3DShowImperfection}" FontWeight="SemiBold"/><LineBreak/>
+                                <Run Text="{DynamicResource Fem3DShowImperfectionTip}"/>
+                            </TextBlock>
+                        </ToggleButton.ToolTip>
+                        <Image Width="20" Height="20" Source="{StaticResource FemIcon_LoadImperfection}"/>
+                    </ToggleButton>
+                    <TextBlock Text="{Binding ImperfectionNote}" VerticalAlignment="Center" Margin="4,0" Foreground="#B05A00"
+                               MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip="{Binding ImperfectionNote}"/>
+                </StackPanel>
                 <!-- Ширина раскрытия трещин CSfea — доля длительной части усилий шага -->
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsCrackFieldShown, Converter={StaticResource BoolToVisibility}}">
                     <!-- Вариант пакета с длительной частью — доля не нужна: подпись источника (пара NL, п. 8.2.7) -->
