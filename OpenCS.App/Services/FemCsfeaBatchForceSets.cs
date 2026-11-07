@@ -91,6 +91,8 @@ public static class FemCsfeaBatchForceSets
             var beams = groupTypes.ToDictionary(t => t, _ => new List<LoadItem>());
             int read = 0;
             double maxLambda = 0;
+            // Несовершенства вошедших вариантов — признак набора (различные — через «; »).
+            var imperfections = new List<string>();
             foreach (var b in variants.Where(IsIncluded))
             {
                 ct.ThrowIfCancellationRequested();
@@ -124,6 +126,8 @@ public static class FemCsfeaBatchForceSets
                         FemCsfeaForceSetBuilder.AppendBeamRows(beams[longType], longFields, scope?.Elements, b.Tag);
                     }
                 }
+                if (!string.IsNullOrEmpty(b.ImperfectionTags) && !imperfections.Contains(b.ImperfectionTags))
+                    imperfections.Add(b.ImperfectionTags);
                 read++;
                 maxLambda = Math.Max(maxLambda, b.LoadFactor);
             }
@@ -159,6 +163,7 @@ public static class FemCsfeaBatchForceSets
                     {
                         Num = num++, Tag = Tag(baseTag, n, t), Kind = kind, SourceType = "fea", SourceSchemaId = schema.Id,
                         SecondOrder = summary.SecondOrder,
+                        Imperfections = imperfections.Count == 0 ? null : string.Join("; ", imperfections),
                         Description = key == FemCsfeaBatchGroup.LoadCases ? description + $" Тип расчёта {t} задан пользователем."
                             : t == longType ? description + $" Длительные части {t} вариантов (пары, диаграммы вариантов), метки строк — от вариантов."
                             : description,

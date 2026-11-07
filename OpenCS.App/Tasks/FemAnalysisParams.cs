@@ -179,6 +179,7 @@ public sealed class FemAnalysisParams
         foreach (var batch in new[] { batchA, batchB })
         {
             batch.Items = [];
+            batch.Imperfections = [];
             batch.LongTermPairs = [];
             batch.LongTermDeflection = true;
         }
@@ -383,6 +384,13 @@ public sealed class FemCsfeaBatchItem
     public string Type { get; set; } = "";
 }
 
+/// <summary>Загружение-несовершенство пакета (<see cref="FemCsfeaBatch.Imperfections"/>); «±» — варианты с +1 и −1.</summary>
+public sealed class FemCsfeaBatchImperfection
+{
+    public int LoadCaseId { get; set; }
+    public bool BothSigns { get; set; }
+}
+
 /// <summary>
 /// Пакетный секущий расчёт CSfea (спека 2026-10-17): по каждому элементу — расчёт одной стадией «0 → предел λ» с общим
 /// шагом; подготовка модели — одна на пакет.
@@ -411,8 +419,59 @@ public sealed class FemCsfeaBatch
     [JsonIgnore]
     public bool HasLongTermDeflection => LongTermDeflection && HasLongTermPairs(CScore.Fem.Combinations.FemCombinationTypes.N);
 
-    /// <summary>Стадии для адаптера: по стадии на элемент с общими шагом и пределом λ.</summary>
-    public IReadOnlyList<FemAnalysisStage> ToStages() => Items.Select(i => new FemAnalysisStage
+    /// <summary>
+    /// Загружения-несовершенства пакета (спека несовершенств 5.3): каждый элемент считается с каждым из них (с флажком
+    /// «±» — дважды, с коэффициентами +1 и −1); пусто — варианты = элементы.
+    /// </summary>
+    public List<FemCsfeaBatchImperfection> Imperfections { get; set; } = [];
+
+    /// <summary>
+    /// Варианты пакета: элементы × несовершенства × знаки (<see cref="Imperfections"/>), тег «{элемент} · {несовершенство}±»,
+    /// выражение — слагаемые элемента и несовершенство с коэффициентом ±1 (как постоянное — в длительной части целиком).
+    /// Элемент, в выражении которого уже есть несовершенство, не перемножается. Без <paramref name="loadCases"/> или без
+    /// несовершенств — сами элементы. Варианты различаются выражением — по нему досчёт находит посчитанные.
+    /// </summary>
+    public List<FemCsfeaBatchItem> Variants(IReadOnlyList<CScore.Fem.FemLoadCase>? loadCases)
+    {
+        if (Imperfections.Count == 0 || loadCases == null) return Items.ToList();
+        var byId = loadCases.ToDictionary(c => c.Id);
+        var imperfections = Imperfections
+            .Where(i => byId.TryGetValue(i.LoadCaseId, out var lc) && CScore.Fem.FemSp20Types.IsImperfection(lc))
+            .GroupBy(i => i.LoadCaseId).Select(g => g.First()).ToList();
+        if (imperfections.Count == 0) return Items.ToList();
+        var result = new List<FemCsfeaBatchItem>(Items.Count * imperfections.Count * 2);
+        foreach (var item in Items)
+        {
+            var expression = CScore.Fem.FemLoadExpression.Parse(item.LoadExpressionJson);
+            var terms = CScore.Fem.Combinations.FemLongTermPair.TotalTerms(expression, loadCases).ToList();
+            if (terms.Any(t => t.Coefficient != 0 && byId.TryGetValue(t.LoadCaseId, out var lc) && CScore.Fem.FemSp20Types.IsImperfection(lc)))
+            {
+                result.Add(item);
+                continue;
+            }
+            foreach (var imp in imperfections)
+                foreach (double sign in imp.BothSigns ? new[] { 1.0, -1.0 } : [1.0])
+                {
+                    string suffix = imp.BothSigns ? sign > 0 ? "+" : "−" : "";
+                    result.Add(new FemCsfeaBatchItem
+                    {
+                        Tag = $"{item.Tag} · {byId[imp.LoadCaseId].Tag}{suffix}", Kind = item.Kind, Type = item.Type,
+                        LoadExpressionJson = new CScore.Fem.FemLoadExpression
+                        {
+                            Mode = expression.Mode == CScore.Fem.FemLoadExpressionMode.Sp20
+                                ? CScore.Fem.FemLoadExpressionMode.Sp20 : CScore.Fem.FemLoadExpressionMode.Sum,
+                            Terms = [.. terms, new CScore.Fem.FemLoadTerm { LoadCaseId = imp.LoadCaseId, Coefficient = sign }],
+                            CombinationType = expression.CombinationType,
+                        }.ToJson(),
+                    });
+                }
+        }
+        return result;
+    }
+
+    /// <summary>Стадии для адаптера: по стадии на вариант (<see cref="Variants"/>) с общими шагом и пределом λ.</summary>
+    public IReadOnlyList<FemAnalysisStage> ToStages(IReadOnlyList<CScore.Fem.FemLoadCase>? loadCases = null) =>
+        Variants(loadCases).Select(i => new FemAnalysisStage
     {
         Tag = i.Tag, LoadExpressionJson = i.LoadExpressionJson, LoadFactorStep = LoadFactorStep, MaxLoadFactor = MaxLoadFactor,
     }).ToList();

@@ -29,6 +29,18 @@ public partial class FemAnalysisDialog : Window
     readonly System.Collections.ObjectModel.ObservableCollection<ViewModels.FemLoadSource> _batch = [];
     /// <summary>Узлы, оболочки и стержни сетки схемы для оценки объёма пакета; null — ещё не прочитаны или нет БД.</summary>
     (int Nodes, int Shells, int Beams)? _meshCounts;
+    /// <summary>Загружения-несовершенства схемы для пакета (спека несовершенств 5.3): отметка и «±».</summary>
+    readonly List<BatchImperfectionRow> _batchImperfections;
+
+    /// <summary>Строка списка несовершенств пакета.</summary>
+    public sealed class BatchImperfectionRow : ViewModelBase
+    {
+        public int LoadCaseId { get; init; }
+        public string Tag { get; init; } = "";
+        bool _isIncluded, _bothSigns = true;
+        public bool IsIncluded { get => _isIncluded; set { _isIncluded = value; OnPropertyChanged(); } }
+        public bool BothSigns { get => _bothSigns; set { _bothSigns = value; OnPropertyChanged(); } }
+    }
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
@@ -117,6 +129,10 @@ public partial class FemAnalysisDialog : Window
         LoadSourceBox.DataContext = _single;
         StagesGrid.ItemsSource = _stages;
         BatchGrid.ItemsSource = _batch;
+        _batchImperfections = schema.LoadCases.Where(FemSp20Types.IsImperfection)
+            .Select(lc => new BatchImperfectionRow { LoadCaseId = lc.Id, Tag = lc.Tag }).ToList();
+        BatchImperfectionsList.ItemsSource = _batchImperfections;
+        BatchImperfectionsPanel.Visibility = _batchImperfections.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         BatchStepBox.Text = 0.1.ToString(CultureInfo.CurrentCulture);
         BatchMaxBox.Text = 1.0.ToString(CultureInfo.CurrentCulture);
         StagesPathControlColumn.ItemsSource = BuildPathControlModeOptions();
@@ -192,6 +208,9 @@ public partial class FemAnalysisDialog : Window
             if (isCsfeaExisting && existing.Kind == FemCsfeaRunner.AnalysisKind && pars.Batch is { } batch)
             {
                 foreach (var item in batch.Items) _batch.Add(ResolveSource(item.LoadExpressionJson));
+                foreach (var imp in batch.Imperfections)
+                    if (_batchImperfections.FirstOrDefault(r => r.LoadCaseId == imp.LoadCaseId) is { } row)
+                        (row.IsIncluded, row.BothSigns) = (true, imp.BothSigns);
                 BatchStepBox.Text = batch.LoadFactorStep.ToString(CultureInfo.CurrentCulture);
                 BatchMaxBox.Text = batch.MaxLoadFactor.ToString(CultureInfo.CurrentCulture);
                 BatchStopAtLimitCb.IsChecked = batch.StopAtLimit;
@@ -823,6 +842,8 @@ public partial class FemAnalysisDialog : Window
         BatchLongDeflectionCb.IsEnabled = hasN && BatchLongNCb.IsChecked == true;
         BatchLongCCb.IsEnabled = FemCsfeaBatchLongTerm.HasCombinations(draft.Items, FemCombinationTypes.C);
         var longTerm = FemCsfeaBatchLongTerm.Estimate(draft, _schema.LoadCases);
+        // Варианты = элементы × несовершенства × знаки.
+        int variants = draft.Variants(_schema.LoadCases).Count;
         bool anyLong = draft.LongTermPairs.Count > 0
             && longTerm is not { Pairs: 0, SameAsTotal: 0, Zero: 0, Invalid: 0 };
 
@@ -830,8 +851,10 @@ public partial class FemAnalysisDialog : Window
         if (BatchRecordFieldsRadio.IsChecked == true && MeshCounts() is { } m)
             size = string.Format(Loc.S("FemCsfeaBatchEstimateFields"),
                 FemCsfeaBatchEstimate.Format(FemCsfeaBatchEstimate.FieldBytes(m.Nodes, m.Shells, m.Beams,
-                    strains: CsfeaRecordStrainsCb.IsChecked == true, matrices: true) * (_batch.Count + longTerm.Runs)));
-        string text = string.Format(Loc.S("FemCsfeaBatchEstimate"), _batch.Count, size);
+                    strains: CsfeaRecordStrainsCb.IsChecked == true, matrices: true) * (variants + longTerm.Runs)));
+        string text = string.Format(Loc.S("FemCsfeaBatchEstimate"), variants, size);
+        if (variants != draft.Items.Count)
+            text += " " + string.Format(Loc.S("FemCsfeaBatchEstimateImperfections"), draft.Items.Count);
         if (anyLong)
             text += string.Format(Loc.S("FemCsfeaBatchEstimateLong"), longTerm.Pairs, longTerm.SameAsTotal, longTerm.Zero,
                 longTerm.Invalid > 0 ? string.Format(Loc.S("FemCsfeaBatchEstimateLongInvalid"), longTerm.Invalid) : "",
@@ -861,8 +884,12 @@ public partial class FemAnalysisDialog : Window
             Recording = BatchRecordEnvelopesRadio.IsChecked == true ? FemCsfeaBatchRecording.Envelopes : FemCsfeaBatchRecording.Fields,
             LongTermPairs = pairs,
             LongTermDeflection = BatchLongDeflectionCb.IsChecked == true,
+            Imperfections = _batchImperfections.Where(r => r.IsIncluded)
+                .Select(r => new FemCsfeaBatchImperfection { LoadCaseId = r.LoadCaseId, BothSigns = r.BothSigns }).ToList(),
         };
     }
+
+    void BatchImperfection_Click(object sender, RoutedEventArgs e) => UpdateBatchSummary();
 
     /// <summary>Размер сетки схемы из БД (окружение «Проверить вход»); нет БД или сетки — null.</summary>
     (int Nodes, int Shells, int Beams)? MeshCounts()

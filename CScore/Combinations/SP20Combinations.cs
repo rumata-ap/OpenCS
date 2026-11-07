@@ -185,6 +185,18 @@ namespace CScore.Combinations
          return sets.Count > 0 && n == sets.Count;
       }
 
+      /// <summary>
+      /// Несовершенства комбинированного набора (<see cref="ForceSet.Imperfections"/>): общие, если у всех исходных
+      /// наборов они одинаковы (в том числе «нет»), иначе null; <paramref name="mixed"/> — различаются (у части наборов
+      /// нет или другие) — признак не переносится.
+      /// </summary>
+      public static string? ImperfectionsOf(IReadOnlyCollection<ForceSet> sets, out bool mixed)
+      {
+         var distinct = sets.Select(s => string.IsNullOrEmpty(s.Imperfections) ? "" : s.Imperfections).Distinct(StringComparer.Ordinal).ToList();
+         mixed = distinct.Count > 1;
+         return distinct.Count == 1 && distinct[0].Length > 0 ? distinct[0] : null;
+      }
+
       public static ForceSet EnvelopeToForceSet(
          Envelope env, string kind, string tag, string labelPrefix, IList<string>? rowLabels = null)
       {

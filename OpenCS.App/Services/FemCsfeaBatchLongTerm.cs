@@ -21,13 +21,14 @@ public sealed record FemCsfeaBatchPairPlan(int Item, FemLongTermPairResult Pair,
 /// <summary>Длительные части вариантов пакета CSfea: N → NL, C → CL по <see cref="FemLongTermPair.Derive"/>.</summary>
 public static class FemCsfeaBatchLongTerm
 {
-    /// <summary>Длительные части вариантов по порядку; стадии Derived нумеруются после стадий вариантов.</summary>
+    /// <summary>Длительные части вариантов (<see cref="FemCsfeaBatch.Variants"/>) по порядку; стадии Derived нумеруются после стадий вариантов.</summary>
     public static IReadOnlyList<FemCsfeaBatchPairPlan> Plans(FemCsfeaBatch batch, IReadOnlyList<FemLoadCase> loadCases)
     {
         var plans = new List<FemCsfeaBatchPairPlan>();
-        int stage = batch.Items.Count;
-        for (int i = 0; i < batch.Items.Count; i++)
-            if (Plan(batch.Items[i], loadCases, batch) is { } pair)
+        var variants = batch.Variants(loadCases);
+        int stage = variants.Count;
+        for (int i = 0; i < variants.Count; i++)
+            if (Plan(variants[i], loadCases, batch) is { } pair)
                 plans.Add(new FemCsfeaBatchPairPlan(i, pair, pair.Kind == FemLongTermPairKind.Derived ? stage++ : null));
         return plans;
     }
@@ -35,11 +36,12 @@ public static class FemCsfeaBatchLongTerm
     /// <summary>Стадии адаптера: варианты (<see cref="FemCsfeaBatch.ToStages"/>), затем длительные части Derived.</summary>
     public static IReadOnlyList<FemAnalysisStage> Stages(FemCsfeaBatch batch, IReadOnlyList<FemLoadCase> loadCases)
     {
-        var stages = batch.ToStages().ToList();
+        var variants = batch.Variants(loadCases);
+        var stages = batch.ToStages(loadCases).ToList();
         foreach (var plan in Plans(batch, loadCases).Where(p => p.Stage != null))
             stages.Add(new FemAnalysisStage
             {
-                Tag = PairTag(batch.Items[plan.Item].Tag, plan.Pair.Long!.CombinationType),
+                Tag = PairTag(variants[plan.Item].Tag, plan.Pair.Long!.CombinationType),
                 LoadExpressionJson = plan.Pair.Long.ToJson(),
                 LoadFactorStep = batch.LoadFactorStep, MaxLoadFactor = batch.MaxLoadFactor,
             });
@@ -65,7 +67,7 @@ public static class FemCsfeaBatchLongTerm
     public static FemCsfeaBatchLongTermEstimate Estimate(FemCsfeaBatch batch, IReadOnlyList<FemLoadCase> loadCases)
     {
         int pairs = 0, same = 0, zero = 0, invalid = 0, deflections = 0;
-        foreach (var item in batch.Items)
+        foreach (var item in batch.Variants(loadCases))
         {
             var pair = Plan(item, loadCases, batch);
             switch (pair?.Kind)

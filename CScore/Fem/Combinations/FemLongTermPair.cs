@@ -68,7 +68,8 @@ public static class FemLongTermPair
                 notes.Add($"{lc.Tag}: доля длительной части не задана — в {longType} не входит (0)");
             double k = t.Coefficient * s;
             if (t.Coefficient != 0 && s != 1) same = false;
-            if (k != 0) anyNonZero = true;
+            // Несовершенство (s = 1, как постоянное) — не нагрузка: одно оно длительную часть ненулевой не делает.
+            if (k != 0 && !FemSp20Types.IsImperfection(lc)) anyNonZero = true;
             terms.Add(new FemLoadTerm { LoadCaseId = t.LoadCaseId, Coefficient = k, Role = t.Role, Mode = t.Mode });
         }
 
@@ -83,10 +84,10 @@ public static class FemLongTermPair
     }
 
     /// <summary>Слагаемые полной формулы с коэффициентами, как их читает решатель (<see cref="FemLoadExpressionResolver"/>).</summary>
-    static IEnumerable<FemLoadTerm> TotalTerms(FemLoadExpression e, IReadOnlyList<FemLoadCase> cases)
+    public static IEnumerable<FemLoadTerm> TotalTerms(FemLoadExpression e, IReadOnlyList<FemLoadCase> cases)
     {
         if (e.Mode == FemLoadExpressionMode.All)
-            return cases.Select(c => new FemLoadTerm { LoadCaseId = c.Id, Coefficient = 1 });
+            return cases.Where(c => !FemSp20Types.IsImperfection(c)).Select(c => new FemLoadTerm { LoadCaseId = c.Id, Coefficient = 1 });
         if (e.Terms.Count > 0 && (e.Mode != FemLoadExpressionMode.Single || e.LoadCaseIds.Count == 0))
             return e.Terms;
         if (e.LoadCaseIds.Count > 0)

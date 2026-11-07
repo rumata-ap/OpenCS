@@ -160,6 +160,8 @@ namespace OpenCS.ViewModels
             sb.AppendLine($"Выбрано наборов: {sets.Count}");
             SP20Combinations.SecondOrderOf(sets, out bool mixedOrder);
             if (mixedOrder) sb.AppendLine(Loc.S("Sp20SecondOrderMixed"));
+            SP20Combinations.ImperfectionsOf(sets, out bool mixedImperfections);
+            if (mixedImperfections) sb.AppendLine(Loc.S("Sp20ImperfectionsMixed"));
             sb.AppendLine($"Строк в каждом:  {SP20Combinations.RowCount(sets[0])}");
             if (warnings.Count > 0)
             {
@@ -236,12 +238,14 @@ namespace OpenCS.ViewModels
 
          string kind = sets[0].Kind;
          bool secondOrder = SP20Combinations.SecondOrderOf(sets, out _);
+         string? imperfections = SP20Combinations.ImperfectionsOf(sets, out _);
 
          if (MakeEnvelope)
          {
             var fs = SP20Combinations.EnvelopeToForceSet(
                env, kind, $"{baseName} ({suffix})", labelPrefix, rowLabels);
             fs.SecondOrder = secondOrder;
+            fs.Imperfections = imperfections;
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }
@@ -251,6 +255,7 @@ namespace OpenCS.ViewModels
             var fs = SP20Combinations.CasesToForceSet(
                cases, kind, $"{baseName} ({suffix} — список)", rowLabels);
             fs.SecondOrder = secondOrder;
+            fs.Imperfections = imperfections;
             SaveAndAdd(fs);
             created.Add(fs.Tag);
          }

@@ -269,7 +269,7 @@ public static class FemCsfeaStiffnessSources
         }
         else if (c.LongKind == null)
         {
-            var all = batch.ToStages();
+            var all = batch.ToStages(loadCases);
             if (c.BatchIndex is not int i || i >= all.Count) return null;
             stages = [all[i]];
             last = 0;

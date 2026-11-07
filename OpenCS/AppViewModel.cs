@@ -6402,7 +6402,7 @@ namespace OpenCS
          bool resume = false;
          if (Tasks.FemAnalysisExecutor.BatchRemaining(this, analysis) is var (remaining, longParts) && remaining + longParts > 0)
          {
-            int total = Tasks.FemAnalysisParams.Parse(analysis.ParamsJson).Batch!.Items.Count;
+            int total = Tasks.FemAnalysisParams.Parse(analysis.ParamsJson).Batch!.Variants(db.GetFemLoadCases(analysis.SchemaId)).Count;
             string longText = longParts > 0 ? string.Format(Loc.S("FemCsfeaBatchResumeLong"), longParts) : "";
             var answer = MessageBox.Show(string.Format(Loc.S("FemCsfeaBatchResumeText"), analysis.Tag, remaining, total, longText),
                Loc.S("FemAnalysisRun"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
@@ -6447,7 +6447,10 @@ namespace OpenCS
          var pars = Tasks.FemAnalysisParams.Parse(source.ParamsJson);
          if (pars.Batch is not { } batch) return;
          var stopped = result.BatchStoppedItems.Select(b => b.ExpressionJson).ToHashSet(StringComparer.Ordinal);
-         batch.Items = batch.Items.Where(i => stopped.Contains(i.LoadExpressionJson)).ToList();
+         // Элементы, у которых не дошёл хотя бы один вариант (с несовершенствами — любой знак); несовершенства пакета те же.
+         var loadCases = db.GetFemLoadCases(schema.Id);
+         batch.Items = batch.Items.Where(i => new Tasks.FemCsfeaBatch { Items = [i], Imperfections = batch.Imperfections }
+            .Variants(loadCases).Any(v => stopped.Contains(v.LoadExpressionJson))).ToList();
          if (batch.Items.Count == 0) return;
          var template = new CScore.Fem.FemAnalysis
          {

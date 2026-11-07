@@ -123,6 +123,17 @@ public sealed class FemCsfeaBatchSummary
     public string? Reason { get; set; }
     public int? RecordN { get; set; }
 
+    /// <summary>
+    /// Несовершенства варианта (спека несовершенств 5.3, 5.5): загружения с коэффициентами
+    /// (<see cref="FemCsfeaInputBuilder.ImperfectionMarker"/>) — признак <see cref="CScore.ForceSet.Imperfections"/> наборов;
+    /// null — без несовершенств. У длительной части — те же, что у варианта.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ImperfectionTags { get; set; }
+    /// <summary>Отчёт несовершенств варианта (решения его предварительного расчёта); null — без несовершенств.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections { get; set; }
+
     /// <summary>Запись длительной части (<see cref="FemCsfeaResultSummary.BatchLong"/>): Index варианта; у варианта — null.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? PairOf { get; set; }
@@ -215,6 +226,13 @@ public sealed class FemCsfeaResultSummary
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections { get; set; }
+
+    /// <summary>
+    /// Учтённые несовершенства (загружения с коэффициентами, <see cref="FemCsfeaInputBuilder.ImperfectionMarker"/>) —
+    /// признак <see cref="CScore.ForceSet.Imperfections"/> наборов; null — нет. У пакета — у вариантов.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ImperfectionTags { get; set; }
 
     /// <summary>Варианты пакетного расчёта; null — не пакет.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -588,6 +606,8 @@ public static class FemCsfeaRunner
             var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism);
             (adapted, imperfections) = await Task.Run(() => DecideImperfections(input, adapted, options, ct), ct);
         }
+        else if (input.StageImperfections.Any(s => s.Count > 0) && !adapted.HasErrors)
+            CheckStageImperfections(input, adapted, diag);
         return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc, Imperfections = imperfections };
     }
 
@@ -620,6 +640,53 @@ public static class FemCsfeaRunner
         return (adapted with { Diagnostics = diag }, decision.Report);
     }
 
+    /// <summary>
+    /// Пакет: каждый различный набор несовершенств вариантов переводится в модель адаптера на пробу (КЭ вне модели —
+    /// ошибка до расчёта, а не на варианте), затем модель снова без несовершенств; сведения — «вариантов с
+    /// несовершенствами N». Решения (знак «авто», активность) — на вариант перед его расчётом (<see cref="DecideStage"/>).
+    /// </summary>
+    static void CheckStageImperfections(FemRcModelInput input, FemRcModelResult adapted, List<FemValidationDiagnostic> diag)
+    {
+        var messages = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var list in input.StageImperfections.Where(s => s.Count > 0).Distinct())
+            foreach (var d in FemRcModelAdapter.ReplaceImperfections(adapted.Model, list))
+                if (d.Code != "imperfections" && messages.Add(d.Message)) diag.Add(d);
+        adapted.Model.Imperfections.Clear();
+        diag.Add(new("imperfections", $"Пакет: вариантов с несовершенствами {input.StageImperfections.Count(s => s.Count > 0)} — " +
+            "знак «авто» и активность погибей решаются предварительным расчётом каждого варианта.", false));
+    }
+
+    /// <summary>
+    /// Решения несовершенств варианта пакета (спека 5.4): предварительный упругий расчёт первого порядка нагрузки стадии
+    /// <paramref name="stage"/> (модель — без несовершенств, стадия — только эта), <see cref="CScore.Fem.Imperfections.FemImperfectionResolver.Decide"/>.
+    /// Стадии модели и несовершенства на выходе — пусты/как были (вызывающий подставляет свои). Без несовершенств — ([], null).
+    /// </summary>
+    public static (IReadOnlyList<CScore.Fem.Imperfections.FemResolvedImperfection> Items, CScore.Fem.Imperfections.FemImperfectionReport? Report,
+        IReadOnlyList<FemValidationDiagnostic> Diagnostics) DecideStage(FemRcModelInput input, RcStructuralModel model,
+        IReadOnlyList<RcStage> stages, int stage, RcSecantOptions options, CancellationToken ct = default)
+    {
+        if (stage >= input.StageImperfections.Count || input.StageImperfections[stage].Count == 0) return ([], null, []);
+        var keep = model.Stages.ToList();
+        model.Stages.Clear();
+        model.Stages.Add(stages[stage]);
+        model.Imperfections.Clear();
+        RcFirstOrderState? state = null;
+        string? error = null;
+        try { state = RcFirstOrderState.Run(model, options, ct); }
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException)
+        {
+            error = "предварительный расчёт не выполнен: " + ex.Message;
+        }
+        finally
+        {
+            model.Stages.Clear();
+            model.Stages.AddRange(keep);
+        }
+        var decision = CScore.Fem.Imperfections.FemImperfectionResolver.Decide(input.StageImperfections[stage], state,
+            input.MeshElements, input.MeshNodes, error);
+        return (decision.Items, decision.Report, decision.Diagnostics);
+    }
+
     /// <summary>Подготовка и расчёт; <paramref name="progress"/> — отчёты решателя (создавать в UI-потоке).</summary>
     public static async Task<CalcResult> RunAsync(FemCsfeaRunContext ctx, FemSchema schema, FemAnalysis analysis,
         IProgress<SecantProgress>? progress, CancellationToken ct)
@@ -630,6 +697,10 @@ public static class FemCsfeaRunner
             return await RunBatchAsync(ctx, schema, analysis, null, null, null, ct);
         var prepared = await PrepareAsync(ctx, schema, analysis, buildMesh: true, ct);
         var summary = new FemCsfeaResultSummary { Report = prepared.Report.ToList(), Imperfections = prepared.Imperfections };
+        if (prepared.Imperfections != null)
+            summary.ImperfectionTags = FemCsfeaInputBuilder.ImperfectionMarker(
+                FemAnalysisParams.Parse(analysis.ParamsJson).ResolveStages(analysis).Select(s => s.LoadExpressionJson),
+                ctx.Db.GetFemLoadCases(schema.Id));
         if (prepared.HasErrors)
         {
             summary.Errors = prepared.Diagnostics.Concat(prepared.Adapted?.Diagnostics ?? [])
@@ -760,9 +831,12 @@ public static class FemCsfeaRunner
         summary.ControlNodeTag = previous?.ControlNodeTag ?? "";
         summary.ControlSchemaNodeTag = previous?.ControlSchemaNodeTag ?? "";
         summary.ControlDof = csfea.ControlDof;
-        for (int i = 0; i < batch.Items.Count; i++)
+        var loadCases = ctx.Db.GetFemLoadCases(schema.Id);
+        var variants = batch.Variants(loadCases);
+        var stageImperfections = prepared.Input!.StageImperfections;
+        for (int i = 0; i < variants.Count; i++)
         {
-            var item = batch.Items[i];
+            var item = variants[i];
             var total = i < adapted.StageTotals.Count ? adapted.StageTotals[i] : new FemRcStageTotal(item.Tag, 0, 0, 0);
             var entry = kept.Remove(item.LoadExpressionJson, out var old) ? old : new FemCsfeaBatchSummary
             {
@@ -772,6 +846,9 @@ public static class FemCsfeaRunner
             entry.Tag = item.Tag;
             entry.Kind = item.Kind;
             entry.Type = item.Type;
+            entry.ImperfectionTags = i < stageImperfections.Count && stageImperfections[i].Count > 0
+                ? FemCsfeaInputBuilder.ImperfectionMarker([item.LoadExpressionJson], loadCases) : null;
+            if (entry.ImperfectionTags == null) entry.Imperfections = null;
             (entry.Fx, entry.Fy, entry.Fz) = (total.Fx, total.Fy, total.Fz);
             summary.Batch.Add(entry);
         }
@@ -783,7 +860,7 @@ public static class FemCsfeaRunner
             foreach (var b in prevLong.Where(b => b.Done && b.RecordN != null))
                 if (previous.Batch?.FirstOrDefault(v => v.Index == b.PairOf) is { } v)
                     keptLong.TryAdd(LongKey(v.ExpressionJson, b), b);
-        var plans = FemCsfeaBatchLongTerm.Plans(batch, ctx.Db.GetFemLoadCases(schema.Id));
+        var plans = FemCsfeaBatchLongTerm.Plans(batch, loadCases);
         if (batch.LongTermPairs.Count > 0) summary.BatchLong = [];
         var notes = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in plans)
@@ -804,6 +881,7 @@ public static class FemCsfeaRunner
             pair.PairOf = variant.Index;
             pair.Stage = plan.Stage;
             pair.Tag = variant.Tag;
+            pair.ImperfectionTags = variant.ImperfectionTags;
             var total = plan.Stage is int st && st < adapted.StageTotals.Count ? adapted.StageTotals[st]
                 : plan.Pair.Kind == FemLongTermPairKind.SameAsTotal ? new FemRcStageTotal("", variant.Fx, variant.Fy, variant.Fz)
                 : new FemRcStageTotal("", 0, 0, 0);
@@ -818,7 +896,7 @@ public static class FemCsfeaRunner
             summary.BatchLong.Add(pair);
 
             // Та же NL-нагрузка на диаграммах NL (вторая модель, п. 6.1.25): стадия пары, у совпадающей с полной — варианта.
-            if (!FemCsfeaBatchLongTerm.NeedsDeflection(batch.Items[plan.Item], plan.Pair, batch)) continue;
+            if (!FemCsfeaBatchLongTerm.NeedsDeflection(variants[plan.Item], plan.Pair, batch)) continue;
             var deflection = new FemCsfeaBatchSummary
             {
                 Kind = FemCsfeaBatchLongKind.Deflection, Tag = variant.Tag, Type = pair.Type, ExpressionJson = pair.ExpressionJson,
@@ -829,6 +907,7 @@ public static class FemCsfeaRunner
             deflection.PairOf = variant.Index;
             deflection.Stage = plan.Stage ?? variant.Index;
             deflection.Tag = variant.Tag;
+            deflection.ImperfectionTags = variant.ImperfectionTags;
             (deflection.Fx, deflection.Fy, deflection.Fz) = (pair.Fx, pair.Fy, pair.Fz);
             summary.BatchLong.Add(deflection);
         }
@@ -897,13 +976,15 @@ public static class FemCsfeaRunner
         }
 
         // Расчёт одной стадии с нуля: стадия адаптера, поля конечного состояния (упакованные — при хранении «поля»).
+        // Несовершенства — решённые для варианта (длительная часть и прогон на диаграммах NL — те же, что у варианта).
         async Task<(RcSecantRun Run, RcSecantStepFields? Fields, byte[]? Packed, double Seconds)> Solve(int stage, int number,
-            string progressTag, bool nl = false)
+            string progressTag, IReadOnlyList<CScore.Fem.Imperfections.FemResolvedImperfection> imperfections, bool nl = false)
         {
             var m = nl ? modelNL! : model;
             var opt = nl ? optionsNL! : options;
             m.Stages.Clear();
             m.Stages.Add((nl ? stagesNL! : stages)[stage]);
+            FemRcModelAdapter.ReplaceImperfections(m, imperfections);
             var inner = progress == null ? null
                 : new Progress<SecantProgress>(p => progress.Report(new FemCsfeaBatchProgress(number, todo.Count, progressTag, p)));
             var clock = Stopwatch.StartNew();
@@ -977,9 +1058,20 @@ public static class FemCsfeaRunner
                 var entry = todo[k];
                 int number = k + 1;
                 RcSecantStepFields? variantFields = null, pairFields = null;
+                // Несовершенства варианта: решения по его предварительному расчёту (досчёт длительной части посчитанного
+                // варианта — те же решения заново: расчёт детерминирован).
+                IReadOnlyList<CScore.Fem.Imperfections.FemResolvedImperfection> imperfections = [];
+                if (entry.Index < stageImperfections.Count && stageImperfections[entry.Index].Count > 0)
+                {
+                    var decided = await Task.Run(() => DecideStage(prepared.Input!, model, stages, entry.Index, options, ct), ct);
+                    imperfections = decided.Items;
+                    if (!entry.Done) entry.Imperfections = decided.Report;
+                    foreach (var d in decided.Diagnostics)
+                        if (notes.Add(d.Message)) summary.Report.Add($"{entry.Label}: {d.Message}");
+                }
                 if (!entry.Done)
                 {
-                    var (run, fields, packed, seconds) = await Solve(entry.Index, number, entry.Tag);
+                    var (run, fields, packed, seconds) = await Solve(entry.Index, number, entry.Tag, imperfections);
                     Fill(entry, run, fields, packed, seconds);
                     variantFields = fields;
                     ctx.Log.Info(string.Create(CultureInfo.CurrentCulture,
@@ -993,7 +1085,7 @@ public static class FemCsfeaRunner
                     {
                         ct.ThrowIfCancellationRequested();
                         var (run, fields, packed, seconds) = await Solve(pairStage, number,
-                            FemCsfeaBatchLongTerm.PairTag(entry.Tag, pair.Type));
+                            FemCsfeaBatchLongTerm.PairTag(entry.Tag, pair.Type), imperfections);
                         Fill(pair, run, fields, packed, seconds);
                         if (pair.Completed) pairFields = fields;
                         ctx.Log.Info(pair.Completed
@@ -1013,7 +1105,7 @@ public static class FemCsfeaRunner
                 {
                     ct.ThrowIfCancellationRequested();
                     var (run, fields, packed, seconds) = await Solve(deflectionStage, number,
-                        FemCsfeaBatchLongTerm.PairTag(entry.Tag, deflection.Type) + " (диаграммы NL)", nl: true);
+                        FemCsfeaBatchLongTerm.PairTag(entry.Tag, deflection.Type) + " (диаграммы NL)", imperfections, nl: true);
                     Fill(deflection, run, fields, packed, seconds);
                     ctx.Log.Info(deflection.Completed
                         ? string.Create(CultureInfo.CurrentCulture,
@@ -1039,10 +1131,12 @@ public static class FemCsfeaRunner
         {
             model.Stages.Clear();
             model.Stages.AddRange(stages);
+            model.Imperfections.Clear();
             if (modelNL != null)
             {
                 modelNL.Stages.Clear();
                 modelNL.Stages.AddRange(stagesNL!);
+                modelNL.Imperfections.Clear();
             }
         }
 

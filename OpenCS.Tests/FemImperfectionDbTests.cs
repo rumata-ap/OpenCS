@@ -194,9 +194,30 @@ public sealed class FemImperfectionDbTests : IDisposable
 
         var cr = FemCsfeaInputBuilder.Build(db, f.Schema.Id, new FemCsfeaSetup { Stages = stages, LargeDisplacements = true }, sections: false);
         Assert.Contains(cr.Diagnostics, d => d.Code == "imperfection_cr" && d.IsError);
+        // Пакет (срез 4): несовершенства — по стадиям-вариантам, модель их не получает; одинаковые наборы — один список.
+        var batchStages = new[]
+        {
+            Stage("C · Imp+", 1.0, (f.Load.Id, 1.0), (f.Imp.Id, 1.0)), Stage("C · Imp−", 1.0, (f.Load.Id, 1.0), (f.Imp.Id, -1.0)),
+            Stage("C2 · Imp+", 1.0, (f.Load.Id, 2.0), (f.Imp.Id, 1.0)), Stage("C", 1.0, (f.Load.Id, 1.0)),
+        };
         var batch = FemCsfeaInputBuilder.Build(db, f.Schema.Id,
-            new FemCsfeaSetup { Stages = stages, SecondOrder = true, IndependentStages = true }, sections: false);
-        Assert.Contains(batch.Diagnostics, d => d.Code == "imperfection_batch" && d.IsError);
+            new FemCsfeaSetup { Stages = batchStages, SecondOrder = true, IndependentStages = true }, sections: false);
+        Assert.DoesNotContain(batch.Diagnostics, d => d.IsError);
+        Assert.Empty(batch.Imperfections);
+        Assert.Equal(4, batch.StageImperfections.Count);
+        Assert.Equal(1 / 200.0, Assert.IsType<FemResolvedSway>(Assert.Single(batch.StageImperfections[0])).Phi, 15);
+        Assert.Equal(-1 / 200.0, Assert.IsType<FemResolvedSway>(Assert.Single(batch.StageImperfections[1])).Phi, 15);
+        Assert.Same(batch.StageImperfections[0], batch.StageImperfections[2]);
+        Assert.Empty(batch.StageImperfections[3]);
+        Assert.Equal([(f.Load.Id, 1.0)], batch.Stages[1].Terms);
+        Assert.Equal("Imp", FemCsfeaInputBuilder.ImperfectionMarker([batchStages[0].LoadExpressionJson], db.GetFemLoadCases(f.Schema.Id)));
+        Assert.Equal("−Imp", FemCsfeaInputBuilder.ImperfectionMarker([batchStages[1].LoadExpressionJson], db.GetFemLoadCases(f.Schema.Id)));
+        Assert.Null(FemCsfeaInputBuilder.ImperfectionMarker([batchStages[3].LoadExpressionJson], db.GetFemLoadCases(f.Schema.Id)));
+        // Пакет без второго порядка — одно предупреждение на все варианты, списки пусты.
+        var batchFirst = FemCsfeaInputBuilder.Build(db, f.Schema.Id,
+            new FemCsfeaSetup { Stages = batchStages, IndependentStages = true }, sections: false);
+        Assert.Single(batchFirst.Diagnostics, d => d.Code == "imperfection_ignored_first_order");
+        Assert.All(batchFirst.StageImperfections, Assert.Empty);
 
         // Нагрузка в загружении-несовершенстве — ошибка (в нагрузку стадий оно не входит).
         db.SaveFemLoadCasesAndMeshLoads(f.Schema.Id, db.GetFemLoadCases(f.Schema.Id), [],

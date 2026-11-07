@@ -90,6 +90,13 @@ public sealed class FemRcModelInput
     /// </summary>
     public IReadOnlyList<FemResolvedImperfection> Imperfections { get; init; } = [];
 
+    /// <summary>
+    /// Пакет вариантов: несовершенства по стадиям (стадия — независимый вариант; одинаковые наборы — один экземпляр
+    /// списка). Адаптер их в модель не переводит (<see cref="Imperfections"/> пуст) — раннер пакета подставляет набор
+    /// варианта перед его расчётом (<see cref="FemRcModelAdapter.ReplaceImperfections"/>). Пусто — не пакет.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<FemResolvedImperfection>> StageImperfections { get; init; } = [];
+
     /// <summary>Диагностики подготовки входа (допущения источника свойств, сечения, стадии) — в начало отчёта.</summary>
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
 }

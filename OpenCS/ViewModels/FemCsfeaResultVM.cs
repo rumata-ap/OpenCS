@@ -552,6 +552,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         else if (IsBatch && _shownCombination == null) FieldsNote = Loc.S("FemCsfeaBatchNothingToShow");
         IndexFields();
         LongModeOptions = _shownCombination?.Batch is { } shown ? BuildLongModeOptions(shown) : [];
+        if (IsBatch) BatchImperfectionsChanged();
         OnPropertyChanged(nameof(LongModeOptions));
         OnPropertyChanged(nameof(HasLongModes));
         OnPropertyChanged(nameof(SelectedLongModeOption));
@@ -1935,7 +1936,7 @@ public sealed class FemCsfeaResultVM : ViewModelBase
         if (_analysis == null) return null;
         try
         {
-            _adaptedInput = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis));
+            _adaptedInput = FemCsfeaInputBuilder.Build(_db, Schema.Id, FemCsfeaSetup.FromAnalysis(_analysis, _db.GetFemLoadCases(Schema.Id)));
             _adapted = FemRcModelAdapter.Adapt(_adaptedInput);
         }
         catch (InvalidOperationException) { _adapted = null; }
@@ -1944,25 +1945,40 @@ public sealed class FemCsfeaResultVM : ViewModelBase
 
     // ------------------------------------------------------------ несовершенства (EN 1993-1-1 5.3)
 
-    /// <summary>Отчёт несовершенств варианта (крен, погиби, решения предварительного расчёта); null — несовершенств нет.</summary>
-    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections => Summary.Imperfections;
+    /// <summary>
+    /// Отчёт несовершенств варианта (крен, погиби, решения предварительного расчёта): у пакета — показанного варианта
+    /// (<see cref="FemCsfeaBatchSummary.Imperfections"/>); null — несовершенств нет.
+    /// </summary>
+    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections =>
+        IsBatch ? _shownCombination?.Batch?.Imperfections : Summary.Imperfections;
 
-    public bool HasImperfections => Summary.Imperfections is { } r && r.Sways.Count + r.Bows.Count > 0;
+    public bool HasImperfections => Imperfections is { } r && r.Sways.Count + r.Bows.Count > 0;
+
+    /// <summary>Пакет: показан другой вариант — отчёт и поле u₀ несовершенств заново (поле — по запросу показа).</summary>
+    void BatchImperfectionsChanged()
+    {
+        _imperfectionFieldBuilt = false;
+        _imperfectionField = null;
+        if (_showImperfection && EnsureImperfectionField() == null) _showImperfection = false;
+        foreach (var name in new[] { nameof(Imperfections), nameof(HasImperfections), nameof(ImperfectionSwayRows),
+                     nameof(ImperfectionBowRows), nameof(ImperfectionSummaryText), nameof(ShowImperfection) })
+            OnPropertyChanged(name);
+    }
 
     /// <summary>Таблица крена (спека 5.5): h, α_h, m, α_m, φ, направление, источник, подсказки.</summary>
     public IReadOnlyList<FemImperfectionSwayRow> ImperfectionSwayRows =>
-        Summary.Imperfections?.Sways.Select(FemImperfectionSwayRow.Of).ToList() ?? [];
+        Imperfections?.Sways.Select(FemImperfectionSwayRow.Of).ToList() ?? [];
 
     /// <summary>Таблица погибей: элемент, L, плоскость, кривая и источник e₀, e₀, N_Ed, N_cr, активность, знак.</summary>
     public IReadOnlyList<FemImperfectionBowRow> ImperfectionBowRows =>
-        Summary.Imperfections?.Bows.Select(FemImperfectionBowRow.Of).ToList() ?? [];
+        Imperfections?.Bows.Select(FemImperfectionBowRow.Of).ToList() ?? [];
 
     /// <summary>Итог: max|u₀|, предварительный расчёт, α_cr.</summary>
     public string ImperfectionSummaryText
     {
         get
         {
-            if (Summary.Imperfections is not { } r) return "";
+            if (Imperfections is not { } r) return "";
             var c = CultureInfo.CurrentCulture;
             var lines = new List<string> { string.Format(c, Loc.S("FemImperfectionMaxU0"), r.MaxU0 * 1000) };
             lines.Add(Loc.S(r.FirstOrder ? "FemImperfectionFirstOrderDone" : "FemImperfectionFirstOrderNone"));
@@ -2013,9 +2029,13 @@ public sealed class FemCsfeaResultVM : ViewModelBase
     {
         if (_imperfectionFieldBuilt) return _imperfectionField;
         _imperfectionFieldBuilt = true;
-        if (Summary.Imperfections is not { } report) { ImperfectionNote = Loc.S("FemImperfectionNoReport"); return null; }
+        if (Imperfections is not { } report) { ImperfectionNote = Loc.S("FemImperfectionNoReport"); return null; }
         if (AdaptedModel() is not { } adapted || _adaptedInput == null) { ImperfectionNote = Loc.S("FemImperfectionNoModel"); return null; }
-        if (report.Apply(_adaptedInput.Imperfections) is not { } decided) { ImperfectionNote = Loc.S("FemImperfectionChanged"); return null; }
+        // Пакет: несовершенства первого этапа — стадии показанного варианта (индекс варианта = стадия адаптера).
+        var items = !IsBatch ? _adaptedInput.Imperfections
+            : _shownCombination?.Batch is { } shown && shown.Index < _adaptedInput.StageImperfections.Count
+                ? _adaptedInput.StageImperfections[shown.Index] : [];
+        if (report.Apply(items) is not { } decided) { ImperfectionNote = Loc.S("FemImperfectionChanged"); return null; }
         var model = adapted.Model;
         var saved = model.Imperfections.ToList();
         try
@@ -2151,14 +2171,15 @@ public sealed class FemCsfeaResultVM : ViewModelBase
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{variant.Name} — {_result.TaskTag}",
                 string.Create(CultureInfo.CurrentCulture,
                     $"Вариант «{variant.Name}» пакетного расчёта CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: конечное состояние, λ = {b.LoadFactor:0.###}") +
-                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing, scope, Summary.SecondOrder);
+                (b.Completed ? "." : " — не дошёл до предела λ."), Fields!, existing, scope, Summary.SecondOrder, b.ImperfectionTags);
         if (_shownCombination is { } comb)
             return FemCsfeaForceSetBuilder.BuildNamed(Schema, $"{comb.Name} — {_result.TaskTag}",
                 $"Комбинация «{comb.Name}» = {comb.Formula} по линейному расчёту CSfea «{_result.TaskTag}» схемы «{Schema.Tag}»: " +
                 "суперпозиция результатов загружений, без перерасчёта.", Fields!, existing, scope, Summary.SecondOrder);
         var step = SelectedStep!;
         string stage = step.Stage < Summary.Stages.Count ? Summary.Stages[step.Stage].Tag : "";
-        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing, scope, Summary.SecondOrder);
+        return FemCsfeaForceSetBuilder.Build(Schema, _result.TaskTag, step, stage, Fields!, existing, scope, Summary.SecondOrder,
+            Summary.ImperfectionTags);
     }
 
     // ------------------------------------------------------------ поля пластин

@@ -255,7 +255,9 @@ public static partial class FemImperfectionResolver
                         sign = Math.Sign(delta);
                         row.SignSource = string.Create(c, $"«авто»: прогиб середины первого порядка δ = {delta * 1000:0.###} мм");
                     }
-                    if (bow.SignAuto) e0 = Math.Abs(e0) * sign;
+                    // «Авто» — относительно прогиба первого порядка; знак коэффициента загружения сохраняется (вариант
+                    // пакета «−» — против прогиба).
+                    if (bow.SignAuto) e0 *= sign;
                     row.Sign = e0 < 0 ? "−" : "+";
                     row.Active = active;
                     row.E0 = active ? e0 : 0;

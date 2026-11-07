@@ -293,22 +293,24 @@ public static class FemAnalysisExecutor
         if (Services.FemCsfeaResultSummary.Parse(result.DataJson) is not { Batch: { } done } summary) return (0, 0);
         var ready = done.Where(b => b.Done && b.RecordN != null).ToDictionary(b => b.ExpressionJson, StringComparer.Ordinal);
         if (ready.Count == 0) return (0, 0);
-        int variants = batch.Items.Count(i => !ready.ContainsKey(i.LoadExpressionJson));
+        var loadCases = app.Db.GetFemLoadCases(analysis.SchemaId);
+        var all = batch.Variants(loadCases);
+        int variants = all.Count(i => !ready.ContainsKey(i.LoadExpressionJson));
         int longParts = 0;
         if (batch.LongTermPairs.Count > 0)
         {
             var doneLong = (summary.BatchLong ?? []).Where(b => b.Done && b.RecordN != null)
                 .Select(b => done.FirstOrDefault(v => v.Index == b.PairOf) is { } v ? Services.FemCsfeaRunner.LongKey(v.ExpressionJson, b) : null)
                 .ToHashSet(StringComparer.Ordinal);
-            foreach (var plan in Services.FemCsfeaBatchLongTerm.Plans(batch, app.Db.GetFemLoadCases(analysis.SchemaId)))
+            foreach (var plan in Services.FemCsfeaBatchLongTerm.Plans(batch, loadCases))
             {
-                string expr = batch.Items[plan.Item].LoadExpressionJson;
+                string expr = all[plan.Item].LoadExpressionJson;
                 if (!ready.TryGetValue(expr, out var v) || !v.Completed) continue;
                 string pairExpr = plan.Pair.Long?.ToJson() ?? "{}";
                 if (plan.Stage != null
                     && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Part, pairExpr)))
                     longParts++;
-                if (Services.FemCsfeaBatchLongTerm.NeedsDeflection(batch.Items[plan.Item], plan.Pair, batch)
+                if (Services.FemCsfeaBatchLongTerm.NeedsDeflection(all[plan.Item], plan.Pair, batch)
                     && !doneLong.Contains(Services.FemCsfeaRunner.LongKey(expr, Services.FemCsfeaBatchLongKind.Deflection, pairExpr)))
                     longParts++;
             }

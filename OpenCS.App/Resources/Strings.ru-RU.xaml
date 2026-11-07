@@ -3559,6 +3559,12 @@
     <system:String x:Key="FemCsfeaSourcePDeltaNoGeom">Источник считался без геометрической нелинейности — P-Δ недоступен</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaCr">P-Δ приближённо: источник с большими перемещениями, K_σ — по исходной геометрии</system:String>
     <system:String x:Key="Sp20SecondOrderMixed">Наборы второго порядка смешаны с наборами первого: у комбинаций признака нет, η в проверках по КЭ будет применён.</system:String>
+    <system:String x:Key="Sp20ImperfectionsMixed">Наборы с разными несовершенствами (или с ними и без них): у комбинаций признака несовершенств нет.</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionsLabel">Несовершенства (EN 1993-1-1 п. 5.3)</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionsTip">Каждый элемент пакета считается с каждым отмеченным загружением-несовершенством (в сочетании оно — как постоянное: коэффициент 1, в длительной части — целиком). Элемент, в выражении которого несовершенство уже есть, не перемножается. Учитываются только во втором порядке (геометрическая нелинейность без «Больших перемещений»).</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionBothSigns">± (оба знака)</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionBothSignsTip">Два варианта на элемент: с коэффициентом несовершенства +1 и −1 (тег «… · несовершенство+» и «…−»). У погиби со знаком «авто» «−» — против прогиба первого порядка.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateImperfections">(элементов {0} × несовершенства)</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotCompleted">Источник не дошёл до предела λ — жёсткости недогруженного состояния.</system:String>
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Вид расчёта источника {0} не совпадает с видом постановки {1}: жёсткости — по диагоналям {0}, ширина раскрытия и наборы усилий — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">Источник пересчитан после выбора — при сохранении будет взят его текущий результат.</system:String>

@@ -323,6 +323,25 @@
                         </StackPanel>
                     </StackPanel>
                     <StackPanel x:Name="BatchOptionsPanel">
+                        <!-- Несовершенства пакета (EN 1993-1-1 5.3): каждый элемент × каждое отмеченное, «±» — оба знака. -->
+                        <StackPanel x:Name="BatchImperfectionsPanel" Margin="0,0,0,6" Visibility="Collapsed">
+                            <TextBlock Text="{DynamicResource FemCsfeaBatchImperfectionsLabel}" FontWeight="SemiBold" Margin="0,0,0,2"
+                                       ToolTip="{DynamicResource FemCsfeaBatchImperfectionsTip}"/>
+                            <ItemsControl x:Name="BatchImperfectionsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,1,0,1">
+                                            <CheckBox IsChecked="{Binding IsIncluded}" Click="BatchImperfection_Click" VerticalAlignment="Center" MinWidth="220">
+                                                <TextBlock Text="{Binding Tag}" TextTrimming="CharacterEllipsis"/>
+                                            </CheckBox>
+                                            <CheckBox IsChecked="{Binding BothSigns}" IsEnabled="{Binding IsIncluded}" Click="BatchImperfection_Click"
+                                                      Content="{DynamicResource FemCsfeaBatchImperfectionBothSigns}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                      ToolTip="{DynamicResource FemCsfeaBatchImperfectionBothSignsTip}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <TextBlock Text="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBox x:Name="BatchStepBox" Width="60" Height="22" VerticalContentAlignment="Center"/>

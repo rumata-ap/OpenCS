@@ -119,6 +119,11 @@ public sealed record FemCheckRowCall
 public static partial class FemCheckRunner
 {
     const string PlateCheckCode = "rc_plate_check";
+    const string SteelCheckCode = "steel_check";
+
+    /// <summary>Примечание строки стали из набора с несовершенствами (<see cref="ForceSet.Imperfections"/>, спека несовершенств 5.5).</summary>
+    public const string ImperfectionNoteText =
+        "усилия второго порядка с несовершенствами EN 1993-1-1 5.3; проверка устойчивости по СП 16 с φ выполнена дополнительно, в запас";
 
     /// <summary>
     /// Как проверка по КЭ считает строку <paramref name="key"/>: тот же разбор сечений, параметров КЭ, η и пар
@@ -305,6 +310,17 @@ public static partial class FemCheckRunner
             lock (secondOrderTags) secondOrderTags.Add(forceSetTag);
             return row with { WorstDescription = $"{row.WorstDescription}; η = 1 — усилия второго порядка" };
         }
+        // Сталь: строки наборов с несовершенствами EN 1993-1-1 5.3 (спека несовершенств 5.5) — проверка по СП 16 с φ, как
+        // прежде (в запас), с примечанием.
+        int imperfectionRows = 0;
+        var imperfectionTags = new HashSet<string>(StringComparer.Ordinal);
+        FemCheckRow ImperfectionNote(FemCheckRow row, ForceSet set)
+        {
+            Interlocked.Increment(ref imperfectionRows);
+            lock (imperfectionTags) imperfectionTags.Add(set.Tag);
+            return row with { WorstDescription = $"{row.WorstDescription}; {ImperfectionNoteText}" };
+        }
+        bool steel = check.NormCode == SteelCheckCode;
         bool countNl = autoNl && explicitNl == null;
         bool anyFailed = false, anyUnchecked = false;
         var collected = rowSink == null ? new List<FemCheckRow>() : null;
@@ -524,6 +540,7 @@ public static partial class FemCheckRunner
                             ? CheckBarRow(barExecutor, RowTask(job), bar, job.Bar!, job.ForceSet.Tag, job.CalcType)
                             : NotCheckedRow(job, "Нет расчётного сечения" + (g.Bar?.Reason is { Length: > 0 } why ? ": " + why : ""));
                         if (eta != null && job.ForceSet.SecondOrder && !row.NotChecked) row = SecondOrderNote(row, job.ForceSet.Tag);
+                        if (steel && !string.IsNullOrEmpty(job.ForceSet.Imperfections) && !row.NotChecked) row = ImperfectionNote(row, job.ForceSet);
                     }
 
                     results[job.Index] = row with
@@ -763,6 +780,12 @@ public static partial class FemCheckRunner
             var tags = secondOrderTags.Order(StringComparer.Ordinal).ToList();
             warnings.Add($"η не применялся к {secondOrderRows} строкам: наборы второго порядка ({string.Join(", ", tags.Take(5))}"
                 + (tags.Count > 5 ? ", …" : "") + ") — P-Δ уже учтён в усилиях.");
+        }
+        if (imperfectionRows > 0)
+        {
+            var tags = imperfectionTags.Order(StringComparer.Ordinal).ToList();
+            warnings.Add($"{imperfectionRows} строк из наборов с несовершенствами ({string.Join(", ", tags.Take(5))}"
+                + (tags.Count > 5 ? ", …" : "") + $"): {ImperfectionNoteText}.");
         }
         if (rowsWithoutLong > 0)
             warnings.Add($"ψ «авто» (п. 8.1.15): у {rowsWithoutLong} строк нет парной длительной строки в наборе «(CL)»/«(NL)» " +

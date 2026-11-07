@@ -3559,6 +3559,12 @@
     <system:String x:Key="FemCsfeaSourcePDeltaNoGeom">The source was analysed without geometric nonlinearity — P-Δ is unavailable</system:String>
     <system:String x:Key="FemCsfeaSourcePDeltaCr">P-Δ is approximate: large-displacement source, K_σ on the initial geometry</system:String>
     <system:String x:Key="Sp20SecondOrderMixed">Second-order sets are mixed with first-order ones: the combinations are not marked, η will be applied in per-element checks.</system:String>
+    <system:String x:Key="Sp20ImperfectionsMixed">Sets with different imperfections (or with and without them): the combinations are not marked with imperfections.</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionsLabel">Imperfections (EN 1993-1-1 5.3)</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionsTip">Each batch item is run with each checked imperfection load case (in a combination it acts as permanent: factor 1, fully in the long-term part). An item whose expression already contains an imperfection is not multiplied. Imperfections apply only in second-order analysis (geometric nonlinearity without "Large displacements").</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionBothSigns">± (both signs)</system:String>
+    <system:String x:Key="FemCsfeaBatchImperfectionBothSignsTip">Two variants per item: imperfection factor +1 and −1 (tags "… · imperfection+" and "…−"). For a bow with the "auto" sign, "−" is against the first-order deflection.</system:String>
+    <system:String x:Key="FemCsfeaBatchEstimateImperfections">({0} items × imperfections)</system:String>
     <system:String x:Key="FemCsfeaStiffnessNotCompleted">The source did not reach the λ limit — stiffnesses of an underloaded state.</system:String>
     <system:String x:Key="FemCsfeaStiffnessCalcMismatch">Source calculation type {0} differs from the analysis type {1}: stiffnesses use the {0} diagrams, crack width and force sets — {1}.</system:String>
     <system:String x:Key="FemCsfeaStiffnessChanged">The source was recomputed after selection — its current result will be taken on save.</system:String>

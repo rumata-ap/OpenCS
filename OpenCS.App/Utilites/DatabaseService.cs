@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 99;
+      const int CurrentSchemaVersion = 100;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -119,6 +119,7 @@ namespace OpenCS.Utilites
          [96] = MigrateV97,
          [97] = MigrateV98,
          [98] = MigrateV99,
+         [99] = MigrateV100,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -292,7 +293,8 @@ namespace OpenCS.Utilites
                 source_element_tag TEXT,
                 source_member_id   INTEGER,
                 source_element_id  INTEGER,
-                second_order       INTEGER NOT NULL DEFAULT 0
+                second_order       INTEGER NOT NULL DEFAULT 0,
+                imperfections      TEXT
             );
             CREATE TABLE IF NOT EXISTS force_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -819,6 +821,7 @@ namespace OpenCS.Utilites
          MigrateV88();
          MigrateV98();
          MigrateV99();
+         MigrateV100();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -1865,6 +1868,13 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_kind TEXT");
          if (!ColumnExists("fem_members", "rigid_junction_trace_json"))
             MigExec("ALTER TABLE fem_members ADD COLUMN rigid_junction_trace_json TEXT");
+      }
+
+      /// <summary>Миграция v100: imperfections в force_sets — несовершенства EN 1993-1-1 5.3 усилий второго порядка (теги загружений).</summary>
+      void MigrateV100()
+      {
+         if (!ColumnExists("force_sets", "imperfections"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN imperfections TEXT");
       }
 
       /// <summary>Миграция v89: second_order в force_sets — усилия второго порядка (η в проверках по КЭ не применяется).</summary>
@@ -3096,7 +3106,7 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order, imperfections FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -3112,7 +3122,8 @@ namespace OpenCS.Utilites
                   SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7),
                   SourceMemberId   = r.IsDBNull(8) ? null : r.GetInt32(8),
                   SourceElementId  = r.IsDBNull(9) ? null : r.GetInt32(9),
-                  SecondOrder      = !r.IsDBNull(10) && r.GetInt32(10) != 0
+                  SecondOrder      = !r.IsDBNull(10) && r.GetInt32(10) != 0,
+                  Imperfections    = r.IsDBNull(11) ? null : r.GetString(11)
                };
                sets[fs.Id] = fs;
             }
@@ -3158,8 +3169,8 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order)
-               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid, @seid, @so);
+               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id, second_order, imperfections)
+               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid, @seid, @so, @imp);
                SELECT last_insert_rowid();
             """;
          }
@@ -3168,7 +3179,7 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind,
                source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag, source_member_id=@smid,
-               source_element_id=@seid, second_order=@so WHERE id=@id
+               source_element_id=@seid, second_order=@so, imperfections=@imp WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
@@ -3182,6 +3193,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@smid",  (object?)fs.SourceMemberId   ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@seid",  (object?)fs.SourceElementId  ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@so",    fs.SecondOrder ? 1 : 0);
+         cmd.Parameters.AddWithValue("@imp",   string.IsNullOrEmpty(fs.Imperfections) ? DBNull.Value : (object)fs.Imperfections);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 

@@ -17,7 +17,7 @@ public sealed class FemSteelCheckParallelTests
     const int Elements = 60;
 
     /// <summary>Гнутый швеллер 200×80×6 с привязкой параметрического профиля: без неё профиль не распознаётся.</summary>
-    static CrossSection BentChannel()
+    internal static CrossSection BentChannel()
     {
         var definition = ParametricSteelSectionDefinition.BentChannel(0.20, 0.08, 0.006, 0.009) with { MaterialId = 1 };
         var generated = ParametricSteelSectionGenerator.Generate(definition);
@@ -34,21 +34,21 @@ public sealed class FemSteelCheckParallelTests
         return section;
     }
 
-    static readonly FemCheck Check = new()
+    internal static readonly FemCheck Check = new()
     {
         NormCode = "steel_check", Tag = "Сталь",
         ParamsJson = new SteelDesignParams { LefX = 3.0, LefY = 1.5 }.ToJson(),
     };
 
-    static readonly FemMemberGroup Group = new() { Tag = "Стойки" };
+    internal static readonly FemMemberGroup Group = new() { Tag = "Стойки" };
 
-    static FemCheckScope Scope(int sectionId) => new([],
+    internal static FemCheckScope Scope(int sectionId) => new([],
         [.. Enumerable.Range(1, Elements).Select(n => new FemCheckScopeElement(n,
             new FemElement { ElemTag = n.ToString(), ElemType = "beam", CrossSectionId = sectionId }, null))],
         RefersToMeshElements: true);
 
     /// <summary>По две строки на КЭ (концы), сжатие с изгибом, у части КЭ — с превышением.</summary>
-    static ForceSet Set()
+    internal static ForceSet Set()
     {
         var fs = new ForceSet { Id = 1, Tag = "РСУ (C)", Kind = "bar" };
         for (int n = 1; n <= Elements; n++)

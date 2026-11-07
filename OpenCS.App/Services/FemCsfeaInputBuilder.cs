@@ -65,7 +65,7 @@ public sealed record FemCsfeaSetup
         bool linear = analysis.Kind == FemCsfeaRunner.LinearAnalysisKind;
         bool elastic = linear || !c.PhysicalNonlinearity;
         var stages = p.Batch is { } batch
-            ? loadCases != null && batch.LongTermPairs.Count > 0 ? FemCsfeaBatchLongTerm.Stages(batch, loadCases) : batch.ToStages()
+            ? loadCases != null && batch.LongTermPairs.Count > 0 ? FemCsfeaBatchLongTerm.Stages(batch, loadCases) : batch.ToStages(loadCases)
             : p.ResolveStages(analysis);
         return new FemCsfeaSetup
         {
@@ -148,10 +148,16 @@ public static class FemCsfeaInputBuilder
 
         var nodes = db.GetFemNodes(schemaId);
         var kinematic = db.GetFemKinematicLoads(schemaId);
-        var stages = Stages(setup.Stages, loadCases, diag, out var imperfectionTerms);
-        var imperfections = Imperfections(imperfectionTerms, imperfectionTerms.Count == 0 ? [] : db.GetFemImperfections(schemaId),
-            loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag,
-            new FemImperfectionContext { BeamCross = beams.Count == 0 ? null : tag => beams.GetValueOrDefault(tag)?.Section });
+        var stages = Stages(setup.Stages, loadCases, diag, out var imperfectionTerms, out var stageTerms, setup.IndependentStages);
+        var imperfectionItems = imperfectionTerms.Count == 0 ? [] : db.GetFemImperfections(schemaId);
+        var imperfectionContext = new FemImperfectionContext { BeamCross = beams.Count == 0 ? null : tag => beams.GetValueOrDefault(tag)?.Section };
+        // Пакет: стадии — независимые варианты, у каждого свои несовершенства (подставляются раннером на вариант).
+        var imperfections = setup.IndependentStages ? []
+            : Imperfections(imperfectionTerms, imperfectionItems, loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag,
+                imperfectionContext);
+        var stageImperfections = !setup.IndependentStages ? []
+            : StageImperfections(stageTerms, imperfectionTerms, imperfectionItems, loadCases, setup, data.Mesh, data.MeshNodes,
+                data.Members, diag, imperfectionContext);
         IReadOnlyList<FemLoadCase> cases = loadCases;
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
         IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
@@ -209,6 +215,7 @@ public static class FemCsfeaInputBuilder
             BeamShear = setup.BeamShear,
             Stages = stages,
             Imperfections = imperfections,
+            StageImperfections = stageImperfections,
             Diagnostics = diag,
         };
     }
@@ -320,9 +327,20 @@ public static class FemCsfeaInputBuilder
     /// коэффициенты одного загружения в разных стадиях — ошибка <c>imperfection_factor_mismatch</c>; нулевой — пропуск.
     /// </summary>
     public static List<FemRcStage> Stages(IReadOnlyList<FemAnalysisStage> stages, IReadOnlyList<FemLoadCase> loadCases,
-        List<FemValidationDiagnostic> diag, out List<(int LoadCaseId, double Factor)> imperfections)
+        List<FemValidationDiagnostic> diag, out List<(int LoadCaseId, double Factor)> imperfections) =>
+        Stages(stages, loadCases, diag, out imperfections, out _, independent: false);
+
+    /// <summary>
+    /// То же; <paramref name="stageImperfections"/> — несовершенства каждой стадии отдельно. <paramref name="independent"/>
+    /// (стадии — варианты пакета): коэффициенты в разных стадиях не сверяются, <paramref name="imperfections"/> — различные
+    /// загружения (коэффициент первой стадии) для проверок схемы.
+    /// </summary>
+    public static List<FemRcStage> Stages(IReadOnlyList<FemAnalysisStage> stages, IReadOnlyList<FemLoadCase> loadCases,
+        List<FemValidationDiagnostic> diag, out List<(int LoadCaseId, double Factor)> imperfections,
+        out List<List<(int LoadCaseId, double Factor)>> stageImperfections, bool independent)
     {
         imperfections = [];
+        stageImperfections = [];
         var seen = new Dictionary<int, double>();
         var mismatch = new HashSet<int>();
         var result = new List<FemRcStage>(stages.Count);
@@ -344,14 +362,17 @@ public static class FemCsfeaInputBuilder
                 terms = [];
             }
             int steps = step > 0 && max > 0 ? Math.Max(1, (int)Math.Round(max / step)) : 1;
+            var own = new List<(int, double)>();
+            stageImperfections.Add(own);
             foreach (var (lc, factor) in terms.Where(t => FemSp20Types.IsImperfection(t.LoadCase) && t.Factor != 0))
             {
+                own.Add((lc.Id, factor));
                 if (!seen.TryGetValue(lc.Id, out double prev))
                 {
                     seen[lc.Id] = factor;
                     imperfections.Add((lc.Id, factor));
                 }
-                else if (Math.Abs(prev - factor) > 1e-12 * Math.Max(1, Math.Abs(prev)) && mismatch.Add(lc.Id))
+                else if (!independent && Math.Abs(prev - factor) > 1e-12 * Math.Max(1, Math.Abs(prev)) && mismatch.Add(lc.Id))
                     diag.Add(new("imperfection_factor_mismatch",
                         $"Несовершенство «{lc.Tag}» входит в стадии с разными коэффициентами ({prev.ToString("0.###", CultureInfo.CurrentCulture)} " +
                         $"и {factor.ToString("0.###", CultureInfo.CurrentCulture)}, стадия «{stage.Tag}»): оно действует с начала расчёта одним полем.",
@@ -367,32 +388,95 @@ public static class FemCsfeaInputBuilder
     /// Несовершенства стадий (<paramref name="terms"/> — загружения с коэффициентами) → привязанные к сетке
     /// (<see cref="FemImperfectionResolver"/>). Учитываются только во втором порядке; без геометрической нелинейности
     /// и в линейном CSfea — предупреждение <c>imperfection_ignored_first_order</c>, с «Большими перемещениями» —
-    /// ошибка <c>imperfection_cr</c>, в пакете вариантов — ошибка <c>imperfection_batch</c>.
+    /// ошибка <c>imperfection_cr</c>.
     /// </summary>
     public static List<FemResolvedImperfection> Imperfections(IReadOnlyList<(int LoadCaseId, double Factor)> terms,
         IReadOnlyList<FemImperfection> items, IReadOnlyList<FemLoadCase> loadCases, FemCsfeaSetup setup,
         IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
         List<FemValidationDiagnostic> diag, FemImperfectionContext? context = null)
     {
-        if (terms.Count == 0) return [];
-        var tags = terms.Select(t => loadCases.FirstOrDefault(c => c.Id == t.LoadCaseId)?.Tag ?? $"#{t.LoadCaseId}").ToList();
-        string list = string.Join(", ", tags.Select(t => $"«{t}»"));
-        if (setup.IndependentStages)
+        if (terms.Count == 0 || !Applies(terms, loadCases, setup, diag)) return [];
+        return Resolve(terms, items, loadCases, mesh, meshNodes, members, diag, context);
+    }
+
+    /// <summary>
+    /// Пакет вариантов (спека несовершенств 5.3): несовершенства каждой стадии-варианта (<paramref name="stageTerms"/>)
+    /// отдельно; одинаковые наборы (загружения и коэффициенты) привязываются один раз и делят экземпляр списка,
+    /// диагностики не повторяются. Условия учёта — как у <see cref="Imperfections"/>, по всем загружениям сразу.
+    /// </summary>
+    public static List<IReadOnlyList<FemResolvedImperfection>> StageImperfections(
+        IReadOnlyList<IReadOnlyList<(int LoadCaseId, double Factor)>> stageTerms, IReadOnlyList<(int LoadCaseId, double Factor)> union,
+        IReadOnlyList<FemImperfection> items, IReadOnlyList<FemLoadCase> loadCases, FemCsfeaSetup setup,
+        IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
+        List<FemValidationDiagnostic> diag, FemImperfectionContext? context = null)
+    {
+        IReadOnlyList<FemResolvedImperfection> none = [];
+        if (union.Count == 0 || !Applies(union, loadCases, setup, diag)) return stageTerms.Select(_ => none).ToList();
+        var cache = new Dictionary<string, IReadOnlyList<FemResolvedImperfection>>(StringComparer.Ordinal);
+        var messages = new HashSet<string>(diag.Select(d => d.Message), StringComparer.Ordinal);
+        var result = new List<IReadOnlyList<FemResolvedImperfection>>(stageTerms.Count);
+        foreach (var terms in stageTerms)
         {
-            diag.Add(new("imperfection_batch", $"Несовершенства {list} в пакете вариантов пока не поддержаны — задайте их в стадиях постановки.", true, tags));
-            return [];
+            if (terms.Count == 0) { result.Add(none); continue; }
+            string key = string.Join(";", terms.Select(t => string.Create(CultureInfo.InvariantCulture, $"{t.LoadCaseId}:{t.Factor:R}")));
+            if (!cache.TryGetValue(key, out var resolved))
+            {
+                var own = new List<FemValidationDiagnostic>();
+                cache[key] = resolved = Resolve(terms, items, loadCases, mesh, meshNodes, members, own, context);
+                diag.AddRange(own.Where(d => messages.Add(d.Message)));
+            }
+            result.Add(resolved);
         }
+        return result;
+    }
+
+    /// <summary>
+    /// Признак несовершенств набора усилий (<see cref="CScore.ForceSet.Imperfections"/>): загружения-несовершенства
+    /// выражений <paramref name="expressionsJson"/> с коэффициентом первого вхождения — «Крен X», «−Крен X», «0,5·Погибь»,
+    /// через « + »; null — несовершенств нет.
+    /// </summary>
+    public static string? ImperfectionMarker(IEnumerable<string> expressionsJson, IReadOnlyList<FemLoadCase> loadCases)
+    {
+        var seen = new Dictionary<int, (string Tag, double Factor)>();
+        foreach (var json in expressionsJson)
+        {
+            IReadOnlyList<(FemLoadCase LoadCase, double Factor)> terms;
+            try { terms = FemLoadExpressionResolver.Terms(FemLoadExpression.Parse(json), loadCases); }
+            catch (Exception ex) when (ex is NotSupportedException or System.Text.Json.JsonException) { continue; }
+            foreach (var (lc, f) in terms.Where(t => FemSp20Types.IsImperfection(t.LoadCase) && t.Factor != 0))
+                seen.TryAdd(lc.Id, (lc.Tag, f));
+        }
+        if (seen.Count == 0) return null;
+        return string.Join(" + ", seen.Values.Select(v => v.Factor == 1 ? v.Tag : v.Factor == -1 ? "−" + v.Tag
+            : string.Create(CultureInfo.CurrentCulture, $"{v.Factor:0.###}·{v.Tag}")));
+    }
+
+    /// <summary>Несовершенства учитываются (второй порядок без CR); иначе — ошибка или предупреждение в <paramref name="diag"/>.</summary>
+    static bool Applies(IReadOnlyList<(int LoadCaseId, double Factor)> terms, IReadOnlyList<FemLoadCase> loadCases,
+        FemCsfeaSetup setup, List<FemValidationDiagnostic> diag)
+    {
+        var tags = terms.Select(t => t.LoadCaseId).Distinct()
+            .Select(id => loadCases.FirstOrDefault(c => c.Id == id)?.Tag ?? $"#{id}").ToList();
+        string list = string.Join(", ", tags.Select(t => $"«{t}»"));
         if (setup.LargeDisplacements)
         {
             diag.Add(new("imperfection_cr", $"Несовершенства {list} учитываются только в теории второго порядка (без «Больших перемещений»).", true, tags));
-            return [];
+            return false;
         }
         if (!setup.SecondOrder)
         {
             diag.Add(new("imperfection_ignored_first_order",
                 $"Несовершенства {list} не учитываются: расчёт без геометрической нелинейности (второго порядка).", false, tags));
-            return [];
+            return false;
         }
+        return true;
+    }
+
+    static List<FemResolvedImperfection> Resolve(IReadOnlyList<(int LoadCaseId, double Factor)> terms,
+        IReadOnlyList<FemImperfection> items, IReadOnlyList<FemLoadCase> loadCases,
+        IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
+        List<FemValidationDiagnostic> diag, FemImperfectionContext? context)
+    {
         var input = new List<(FemImperfection, double)>();
         foreach (var (id, factor) in terms)
         {

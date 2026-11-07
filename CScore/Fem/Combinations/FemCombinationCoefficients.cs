@@ -51,17 +51,21 @@ public sealed record FemAutoCoefficient(double Value, IReadOnlyList<(char Op, do
 /// </summary>
 public static class FemCombinationCoefficients
 {
-    /// <summary>Вид нагрузки СП 20 загружения.</summary>
+    /// <summary>
+    /// Вид нагрузки СП 20 загружения. Несовершенство (<see cref="FemSp20Types.Imperfection"/>) — как постоянное: в любом
+    /// сочетании и в его длительной части оно действует целиком (γf = 1, ψ = 1, доля 1).
+    /// </summary>
     public static NormLoadType LoadType(FemLoadCase loadCase) => loadCase.Sp20Type.ToLowerInvariant() switch
     {
-        "permanent" => NormLoadType.Permanent,
+        "permanent" or FemSp20Types.Imperfection => NormLoadType.Permanent,
         "long_term" => NormLoadType.LongTerm,
         "accidental" => NormLoadType.Accidental,
         _ => NormLoadType.ShortTerm
     };
 
     /// <summary>γf загружения; не задан — по умолчанию из настроек.</summary>
-    public static double GammaF(FemLoadCase loadCase, Sp20GammaDefaults defaults) => loadCase.GammaFUnfav ?? LoadType(loadCase) switch
+    public static double GammaF(FemLoadCase loadCase, Sp20GammaDefaults defaults) =>
+        FemSp20Types.IsImperfection(loadCase) ? 1.0 : loadCase.GammaFUnfav ?? LoadType(loadCase) switch
     {
         NormLoadType.Permanent => defaults.PermanentUnfav,
         NormLoadType.LongTerm => defaults.LongTermUnfav,
