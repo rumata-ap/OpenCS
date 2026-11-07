@@ -32,6 +32,9 @@ public class FemImperfectionAdapterTests
 
         TestHarness.Section("Несовершенство: КЭ вне модели, нагрузки в загружении-несовершенстве");
         RunGuards();
+
+        TestHarness.Section("Несовершенство: предварительный расчёт — знак «авто» и п. 5.3.2(6)");
+        RunDecide();
     }
 
     private sealed class Props : IFemElementStiffnessSource
@@ -100,8 +103,13 @@ public class FemImperfectionAdapterTests
         {
             Kind = FemImperfectionKinds.Bow, ParamsJson = new FemBowParams { MemberTags = ["C"], LOverE0 = 300 }.ToJson(),
         }, 1.0)], elements, nodes, members);
-        TestHarness.Check("знак «авто» и критерий п. 5.3.2(6) — предупреждения, не ошибки",
-            !auto.HasErrors && auto.Diagnostics.Count(d => !d.IsError) == 2 && ((FemResolvedBow)auto.Items[0]).E0 > 0);
+        var autoBow = (FemResolvedBow)auto.Items[0];
+        TestHarness.Check("знак «авто» и п. 5.3.2(6) — отложены до предварительного расчёта",
+            !auto.HasErrors && auto.Diagnostics.Count == 0 && autoBow.SignAuto && autoBow.ActivityEn1993 && autoBow.E0 > 0);
+        var undecided = FemImperfectionResolver.Decide(auto.Items, null, elements, nodes, "нет расчёта");
+        TestHarness.Check("без предварительного расчёта — «+» и «всегда» с предупреждениями",
+            undecided.Diagnostics.Count(d => !d.IsError && d.Code is "imperfection_sign_auto" or "imperfection_activity") == 2
+            && ((FemResolvedBow)undecided.Items.Single()).E0 > 0);
     }
 
     private static FemRcModelInput Input(List<FemMeshNode> nodes, List<FemElement> elements, int baseMask, int topMask,
@@ -222,6 +230,115 @@ public class FemImperfectionAdapterTests
         {
             Kind = FemImperfectionKinds.Sway, ParamsJson = new FemSwayParams { PhiMode = FemSwayParams.PhiEn1993 }.ToJson(),
         }, 1.0)], e2, n2, []);
-        TestHarness.Check("φ по (5.5) пока — ошибка", norm.Diagnostics.Any(d => d.Code == "imperfection_phi_norm" && d.IsError));
+        var normSway = (FemResolvedSway)norm.Items.Single();
+        // h — размах z охвата (вся колонна, 6 м): α_h = 2/√6 = 0,8165, m = 1 → φ = 0,8165/200.
+        TestHarness.CheckRel("φ по (5.5), h = размах z", normSway.Phi, 2 / Math.Sqrt(L) / 200, 1e-12);
+        TestHarness.Check("ход вычисления φ", normSway.Norm is { M: 1 } && normSway.HeightSource.Contains("размах"));
+    }
+
+    /// <summary>
+    /// Второй этап (спека 5.4): предварительный расчёт <see cref="RcFirstOrderState"/> модели адаптера → решения
+    /// <see cref="FemImperfectionResolver.Decide"/> → <see cref="FemRcModelAdapter.ReplaceImperfections"/>. Колонна с
+    /// заделкой внизу и шарнирно-подвижным верхом: знак «авто» — по боковой силе в середине; активность — на границе
+    /// 0,25·N_cr,шарн (N_cr = π²EI/L²); шарнир по Mz у нижнего КЭ и шарнирный верх — оба конца шарнирные, погибь в
+    /// плоскости y не активна, в плоскости z (шарнир по Mz её не касается) — активна.
+    /// </summary>
+    private static void RunDecide()
+    {
+        const int fixedBase = 0x3F, pinnedTop = 0b100011;
+        double ncr = Math.PI * Math.PI * E * I / (L * L);
+        int mid = N / 2 + 1;
+
+        FemImperfectionDecision Decide(double p, double lateral, int baseRelease = 0, string plane = "y")
+        {
+            var (nodes, elements) = Column();
+            if (baseRelease != 0) elements[0].ReleaseI = baseRelease;
+            var bow = new FemImperfection
+            {
+                Id = 3, LoadCaseId = 9, Kind = FemImperfectionKinds.Bow, Tag = "Авто",
+                ParamsJson = new FemBowParams { MemberTags = ["C"], Plane = plane, LOverE0 = 250 }.ToJson(),
+            };
+            var resolved = FemImperfectionResolver.Resolve([(bow, 1.0)], elements, nodes, [new FemMember { ElemTag = "C" }]);
+            var loads = new List<FemMeshNodeLoad> { Load(1, N + 1, 0, -p) };
+            if (lateral != 0) loads.Add(Load(1, mid, lateral, 0));
+            var input = Input(nodes, elements, fixedBase, pinnedTop, loads, [Vertical, Imperfection], new FemRcStage("S", [(1, 1.0)]),
+                resolved.Items);
+            var adapted = FemRcModelAdapter.Adapt(input);
+            TestHarness.Check("адаптер без ошибок", !adapted.HasErrors, string.Join("; ", adapted.Report));
+            var state = RcFirstOrderState.Run(adapted.Model, Options());
+            var decision = FemImperfectionResolver.Decide(input.Imperfections, state, elements, nodes);
+            var diag = FemRcModelAdapter.ReplaceImperfections(adapted.Model, decision.Items);
+            TestHarness.Check("модель — решённые погиби", adapted.Model.Imperfections.Count == decision.Items.Count && !diag.Any(d => d.IsError));
+            return decision;
+        }
+
+        var minus = Decide(0.3 * ncr, -1e3);
+        var row = minus.Report.Bows.Single();
+        TestHarness.Check("активна при 0,3·N_cr (конец с моментом — заделка)", row.Active, row.ActiveReason);
+        TestHarness.CheckRel("N_Ed = P", row.NEd ?? 0, 0.3 * ncr, 1e-9);
+        TestHarness.CheckRel("N_cr = π²EI/L²", row.Ncr ?? 0, ncr, 1e-9);
+        TestHarness.Check("знак «авто» — по прогибу к −X", ((FemResolvedBow)minus.Items.Single()).E0 < 0 && row.Sign == "−", row.SignSource);
+        TestHarness.CheckRel("|e₀| = L/250", Math.Abs(row.E0), L / 250, 1e-12);
+
+        var plus = Decide(0.3 * ncr, 1e3);
+        TestHarness.Check("знак «авто» — по прогибу к +X", ((FemResolvedBow)plus.Items.Single()).E0 > 0);
+        var none = Decide(0.3 * ncr, 0);
+        TestHarness.Check("прогиба нет — «+»", ((FemResolvedBow)none.Items.Single()).E0 > 0 && none.Report.Bows[0].SignSource.Contains("нет"));
+
+        var low = Decide(0.24 * ncr, -1e3);
+        TestHarness.Check("0,24·N_cr — не активна, из модели убрана", low.Items.Count == 0 && !low.Report.Bows[0].Active
+            && low.Diagnostics.Any(d => d.Code == "imperfection_bow_inactive"));
+        TestHarness.Check("0,26·N_cr — активна", Decide(0.26 * ncr, -1e3).Items.Count == 1);
+
+        // Шарнир по Mz (бит 5) у низа: плоскость y (прогиб вдоль местной y — изгиб вокруг z) — оба конца шарнирные.
+        var hinged = Decide(0.5 * ncr, -1e3, baseRelease: 1 << 5);
+        TestHarness.Check("шарнир Mz внизу, верх шарнирный — погибь y не активна",
+            hinged.Items.Count == 0 && hinged.Report.Bows[0].ActiveReason.Contains("шарнир"), hinged.Report.Bows[0].ActiveReason);
+        var hingedZ = Decide(0.5 * ncr, 0, baseRelease: 1 << 5, plane: "z");
+        TestHarness.Check("тот же шарнир Mz — погибь z активна", hingedZ.Items.Count == 1, hingedZ.Report.Bows[0].ActiveReason);
+        TestHarness.Check("строки отчёта", minus.Report.Lines().Any(l => l.Contains("Погибь «Авто")) && minus.Report.Lines().Any(l => l.Contains("α_cr")));
+
+        // Крен (5.5) двух консольных стоек «C» (x = 0) и «D» (x = 5): подсказка m — стойки с N > 50 % средней; H/V реакций.
+        FemImperfectionDecision Sway(double pc, double pd, double h)
+        {
+            var nodes = new List<FemMeshNode>();
+            var elements = new List<FemElement>();
+            foreach (var (member, x, b) in new[] { ("C", 0.0, 0), ("D", 5.0, 10) })
+            {
+                for (int i = 0; i <= N; i++) nodes.Add(new FemMeshNode { NodeTag = (b + i + 1).ToString(), X = x, Z = L * i / N });
+                for (int i = 1; i <= N; i++)
+                    elements.Add(new FemElement
+                    {
+                        ElemTag = (b + i).ToString(), ElemType = "beam", NodeIdsJson = JsonSerializer.Serialize(new[] { b + i, b + i + 1 }),
+                        SourceMemberTag = member,
+                    });
+            }
+            var members = new List<FemMember> { new() { ElemTag = "C" }, new() { ElemTag = "D" } };
+            var sway = new FemImperfection
+            {
+                Id = 4, LoadCaseId = 9, Kind = FemImperfectionKinds.Sway, Tag = "Крен EN",
+                ParamsJson = new FemSwayParams { PhiMode = FemSwayParams.PhiEn1993, M = 2 }.ToJson(),
+            };
+            var resolved = FemImperfectionResolver.Resolve([(sway, 1.0)], elements, nodes, members);
+            var input = new FemRcModelInput
+            {
+                MeshNodes = nodes, MeshElements = elements, Properties = new Props(), Members = members,
+                Supports = [new FemMeshNodeSupport { NodeTag = "1", Mask = 0x3F }, new FemMeshNodeSupport { NodeTag = "11", Mask = 0x3F }],
+                LoadCases = [Vertical, Imperfection], Stages = [new FemRcStage("S", [(1, 1.0)])], Imperfections = resolved.Items,
+                MeshNodeLoads = [Load(1, N + 1, h, -pc), Load(1, N + 11, 0, -pd)],
+            };
+            var adapted = FemRcModelAdapter.Adapt(input);
+            var state = RcFirstOrderState.Run(adapted.Model, Options());
+            return FemImperfectionResolver.Decide(input.Imperfections, state, elements, nodes);
+        }
+        var s1 = Sway(1e5, 0.4e5, 0);
+        var r1 = s1.Report.Sways.Single();
+        TestHarness.Check("m = 2: обе стойки > 50 % средней", r1.MHint == 2 && r1.Columns == 2, $"{r1.MHint}/{r1.Columns}");
+        TestHarness.CheckRel("φ по (5.5): h = 6, m = 2", r1.Phi, 2 / Math.Sqrt(L) * Math.Sqrt(0.75) / 200, 1e-12);
+        var s2 = Sway(1e5, 0.3e5, 2e4);
+        var r2 = s2.Report.Sways.Single();
+        TestHarness.Check("m = 1: вторая стойка 0,3P < 0,325P", r2.MHint == 1, $"{r2.MHint}");
+        TestHarness.CheckRel("H_Ed/V_Ed = 2e4 / 1,3e5", r2.HOverV ?? 0, 2e4 / 1.3e5, 1e-9);
+        TestHarness.Check("строка крена — ход вычисления и подсказка", s2.Report.Lines().First().Contains("α_h") && s2.Report.Lines().First().Contains("подсказка m = 1"));
     }
 }

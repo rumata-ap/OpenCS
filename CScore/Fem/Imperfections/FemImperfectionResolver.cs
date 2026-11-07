@@ -1,4 +1,5 @@
 using System.Globalization;
+using CScore.En1993;
 using CScore.Fem.Loads;
 using CScore.Planar;
 
@@ -10,13 +11,36 @@ public abstract record FemResolvedImperfection(string Label);
 /// <summary>Крен: наклон <paramref name="Phi"/> (со знаком коэффициента) вдоль единичного горизонтального
 /// <paramref name="Direction"/>; <paramref name="ElemTags"/> — КЭ охвата (стержни и пластины), null — вся схема.</summary>
 public sealed record FemResolvedSway(string Label, double Phi, PlanarVector3 Direction, IReadOnlyList<string>? ElemTags)
-    : FemResolvedImperfection(Label);
+    : FemResolvedImperfection(Label)
+{
+    /// <summary>Ход вычисления φ по (5.5); null — 1/φ задан вручную.</summary>
+    public En1993SwayPhi? Norm { get; init; }
+    /// <summary>Источник h для (5.5): «вручную» или «размах z охвата».</summary>
+    public string HeightSource { get; init; } = "";
+    /// <summary>Размах z охвата, м (для max|u₀| отчёта).</summary>
+    public double SpanZ { get; init; }
+}
 
 /// <summary>Погибь-парабола цепочки стержневых КЭ <paramref name="ElemTags"/>: стрелка <paramref name="E0"/>, м (со знаком и
 /// коэффициентом), вдоль единичного <paramref name="Direction"/> (местная y или z первого КЭ, глобальные оси), длина
 /// хорды <paramref name="LengthM"/>.</summary>
 public sealed record FemResolvedBow(string Label, IReadOnlyList<string> ElemTags, double E0, PlanarVector3 Direction, double LengthM)
-    : FemResolvedImperfection(Label);
+    : FemResolvedImperfection(Label)
+{
+    /// <summary>Погибь вдоль местной y (иначе z).</summary>
+    public bool AlongLocalY { get; init; } = true;
+    /// <summary>Знак «авто» — по прогибу первого порядка (<see cref="FemImperfectionResolver.Decide"/>); до решения E0 — «+».</summary>
+    public bool SignAuto { get; init; }
+    /// <summary>Активность по п. 5.3.2(6) — по предварительному расчёту.</summary>
+    public bool ActivityEn1993 { get; init; }
+    /// <summary>Источник e₀ для отчёта (табл. 5.1 с кривой, L/e₀ или мм вручную).</summary>
+    public string E0Source { get; init; } = "";
+    /// <summary>Кривая потери устойчивости (табл. 5.1), null — e₀ не по таблице.</summary>
+    public En1993Curve? Curve { get; init; }
+    /// <summary>Концы цепочки — теги узлов сетки (начало хорды, конец хорды).</summary>
+    public string StartNode { get; init; } = "";
+    public string StopNode { get; init; } = "";
+}
 
 /// <summary>Итог привязки: несовершенства и диагностики (ошибки — расчёт невозможен).</summary>
 public sealed record FemImperfectionResolution(IReadOnlyList<FemResolvedImperfection> Items, IReadOnlyList<FemValidationDiagnostic> Diagnostics)
@@ -24,16 +48,25 @@ public sealed record FemImperfectionResolution(IReadOnlyList<FemResolvedImperfec
     public bool HasErrors => Diagnostics.Any(d => d.IsError);
 }
 
+/// <summary>Данные схемы для нормативных значений: сечение CScore стержневого КЭ по тегу (кривая табл. 6.2).</summary>
+public sealed record FemImperfectionContext
+{
+    /// <summary>Подготовленное сечение CScore стержневого КЭ (с материалами); null — нет.</summary>
+    public Func<string, CrossSection?>? BeamCross { get; init; }
+}
+
 /// <summary>
 /// Привязка элементов несовершенства (<see cref="FemImperfection"/>) к сетке схемы: охват крена и цепочки погибей —
 /// теги КЭ, направление погиби — местная ось первого КЭ (<see cref="BeamLocalAxisConvention"/> с поворотом КЭ или КонЭ),
-/// e₀ и φ — по заданию «вручную» (L/e₀, мм, 1/φ) с коэффициентом загружения. Нормативные значения (табл. 5.1, (5.5)),
-/// знак «авто» и критерий активности по п. 5.3.2(6) требуют предварительного расчёта и здесь не вычисляются.
+/// φ — по (5.5) EN 1993-1-1 или 1/φ вручную, e₀ — по табл. 5.1 (кривая — вручную или по табл. 6.2 по сечению КЭ), L/e₀
+/// или мм вручную; коэффициент загружения — множитель. Знак «авто» и критерий п. 5.3.2(6) требуют предварительного
+/// упругого расчёта — решаются вторым этапом (<see cref="Decide"/>).
 /// </summary>
-public static class FemImperfectionResolver
+public static partial class FemImperfectionResolver
 {
     public static FemImperfectionResolution Resolve(IReadOnlyList<(FemImperfection Item, double Factor)> imperfections,
-        IReadOnlyList<FemElement> meshElements, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members)
+        IReadOnlyList<FemElement> meshElements, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
+        FemImperfectionContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(imperfections);
         ArgumentNullException.ThrowIfNull(meshElements);
@@ -62,14 +95,25 @@ public static class FemImperfectionResolver
                 case FemImperfectionKinds.Sway:
                 {
                     var p = FemSwayParams.Parse(imp.ParamsJson);
-                    if (p.PhiMode == FemSwayParams.PhiEn1993)
+                    bool norm = p.PhiMode == FemSwayParams.PhiEn1993;
+                    if (!norm && p.PhiMode != FemSwayParams.PhiManual)
                     {
-                        Error("imperfection_phi_norm", $"Крен «{label}»: φ по EN 1993-1-1 (5.5) пока не вычисляется — задайте 1/φ вручную.");
+                        Error("imperfection_phi_invalid", $"Крен «{label}»: неизвестный способ задания φ «{p.PhiMode}».");
                         continue;
                     }
-                    if (p.PhiInv is not { } inv || !double.IsFinite(inv) || inv <= 0)
+                    if (!norm && (p.PhiInv is not { } inv0 || !double.IsFinite(inv0) || inv0 <= 0))
                     {
                         Error("imperfection_phi_invalid", $"Крен «{label}»: 1/φ должно быть положительным числом.");
+                        continue;
+                    }
+                    if (norm && p.M < 1)
+                    {
+                        Error("imperfection_phi_invalid", $"Крен «{label}»: число колонн m по (5.5) — целое не меньше 1.");
+                        continue;
+                    }
+                    if (norm && p.HeightM is { } hm && !(double.IsFinite(hm) && hm > 0))
+                    {
+                        Error("imperfection_phi_invalid", $"Крен «{label}»: высота h по (5.5) должна быть положительной.");
                         continue;
                     }
                     if (!double.IsFinite(p.AngleDeg))
@@ -97,8 +141,28 @@ public static class FemImperfectionResolver
                             continue;
                         }
                     }
+                    double span = SpanZ(scope, meshElements, elements, nodes);
+                    En1993SwayPhi? phiNorm = null;
+                    string heightSource = "";
+                    double phi;
+                    if (norm)
+                    {
+                        double h = p.HeightM ?? span;
+                        if (!(h > 1e-9))
+                        {
+                            Error("imperfection_phi_height", $"Крен «{label}»: высота h по (5.5) не определяется (размах z охвата нулевой) — задайте h вручную.");
+                            continue;
+                        }
+                        phiNorm = En1993Imperfections.Phi(h, p.M);
+                        heightSource = p.HeightM != null ? "h вручную" : "h — размах z охвата";
+                        phi = phiNorm.Phi;
+                    }
+                    else phi = 1 / p.PhiInv!.Value;
                     double a = p.AngleDeg * Math.PI / 180;
-                    items.Add(new FemResolvedSway(label, factor / inv, new PlanarVector3(Math.Cos(a), Math.Sin(a), 0), scope));
+                    items.Add(new FemResolvedSway(label, factor * phi, new PlanarVector3(Math.Cos(a), Math.Sin(a), 0), scope)
+                    {
+                        Norm = phiNorm, HeightSource = heightSource, SpanZ = span,
+                    });
                     break;
                 }
                 case FemImperfectionKinds.Bow:
@@ -109,9 +173,24 @@ public static class FemImperfectionResolver
                         Error("imperfection_plane_invalid", $"Погибь «{label}»: плоскость должна быть y или z.");
                         continue;
                     }
-                    if (p.E0Mode == FemBowParams.E0Table)
+                    En1993Curve? manualCurve = null;
+                    if (p.E0Mode == FemBowParams.E0Table && p.Curve != FemBowParams.CurveAuto)
                     {
-                        Error("imperfection_e0_norm", $"Погибь «{label}»: e₀ по табл. 5.1 EN 1993-1-1 пока не вычисляется — задайте L/e₀ или e₀ в мм.");
+                        manualCurve = En1993Imperfections.ParseCurve(p.Curve);
+                        if (manualCurve == null)
+                        {
+                            Error("imperfection_curve_invalid", $"Погибь «{label}»: неизвестная кривая потери устойчивости «{p.Curve}» (a0, a, b, c, d или «авто»).");
+                            continue;
+                        }
+                    }
+                    if (p.Sign is not (FemBowParams.SignAuto or FemBowParams.SignPlus or FemBowParams.SignMinus))
+                    {
+                        Error("imperfection_sign_invalid", $"Погибь «{label}»: неизвестный знак «{p.Sign}».");
+                        continue;
+                    }
+                    if (p.Activity is not (FemBowParams.ActivityAlways or FemBowParams.ActivityEn1993))
+                    {
+                        Error("imperfection_activity_invalid", $"Погибь «{label}»: неизвестный критерий активности «{p.Activity}».");
                         continue;
                     }
                     if (p.E0Mode == FemBowParams.E0Relative && (p.LOverE0 is not { } r || !double.IsFinite(r) || r <= 0))
@@ -124,18 +203,13 @@ public static class FemImperfectionResolver
                         Error("imperfection_e0_invalid", $"Погибь «{label}»: e₀ (мм) должно быть числом.");
                         continue;
                     }
-                    if (p.E0Mode is not (FemBowParams.E0Relative or FemBowParams.E0Absolute))
+                    if (p.E0Mode is not (FemBowParams.E0Table or FemBowParams.E0Relative or FemBowParams.E0Absolute))
                     {
                         Error("imperfection_e0_invalid", $"Погибь «{label}»: неизвестный способ задания e₀ «{p.E0Mode}».");
                         continue;
                     }
-                    if (p.Sign == FemBowParams.SignAuto)
-                        diag.Add(new("imperfection_sign_auto",
-                            $"Погибь «{label}»: знак «авто» по прогибу первого порядка пока не определяется — принят «+» местной оси.", false));
-                    if (p.Activity == FemBowParams.ActivityEn1993)
-                        diag.Add(new("imperfection_activity",
-                            $"Погибь «{label}»: критерий п. 5.3.2(6) пока не проверяется — погибь учитывается всегда.", false));
                     double sign = p.Sign == FemBowParams.SignMinus ? -1 : 1;
+                    bool alongY = p.Plane == FemBowParams.PlaneY;
 
                     var chains = new List<(string What, List<string> Tags)>();
                     foreach (var tag in p.MemberTags)
@@ -177,8 +251,45 @@ public static class FemImperfectionResolver
                             Error("imperfection_chain_invalid", $"Погибь «{label}», {what}: {ex.Message}");
                             continue;
                         }
-                        double e0 = p.E0Mode == FemBowParams.E0Relative ? len / p.LOverE0!.Value : p.E0Mm!.Value / 1000.0;
-                        items.Add(new FemResolvedBow($"{label}, {what}", tags, factor * sign * e0, dir, len));
+                        double e0;
+                        string source;
+                        En1993Curve? curve = null;
+                        var c = CultureInfo.CurrentCulture;
+                        if (p.E0Mode == FemBowParams.E0Table)
+                        {
+                            string curveWhy;
+                            if (manualCurve is { } mc) { curve = mc; curveWhy = "кривая задана вручную"; }
+                            else
+                            {
+                                var choice = AutoCurve(tags, elements, alongY, context, out curveWhy);
+                                if (choice == null)
+                                {
+                                    Error("imperfection_curve_undefined",
+                                        $"Погибь «{label}», {what}: кривая потери устойчивости по табл. 6.2 не определена ({curveWhy}) — задайте кривую вручную.");
+                                    continue;
+                                }
+                                curve = choice;
+                            }
+                            double lOverE0 = En1993Imperfections.LOverE0(curve.Value, p.Plastic);
+                            e0 = len / lOverE0;
+                            source = string.Create(c, $"табл. 5.1 ({(p.Plastic ? "пластический" : "упругий")} расчёт), кривая {En1993Imperfections.Name(curve.Value)}: e₀ = L/{lOverE0:0} — {curveWhy}");
+                        }
+                        else if (p.E0Mode == FemBowParams.E0Relative)
+                        {
+                            e0 = len / p.LOverE0!.Value;
+                            source = string.Create(c, $"L/e₀ = {p.LOverE0!.Value:0.###} вручную");
+                        }
+                        else
+                        {
+                            e0 = p.E0Mm!.Value / 1000.0;
+                            source = string.Create(c, $"e₀ = {p.E0Mm!.Value:0.###} мм вручную");
+                        }
+                        items.Add(new FemResolvedBow($"{label}, {what}", tags, factor * sign * e0, dir, len)
+                        {
+                            AlongLocalY = alongY, SignAuto = p.Sign == FemBowParams.SignAuto,
+                            ActivityEn1993 = p.Activity == FemBowParams.ActivityEn1993, E0Source = source, Curve = curve,
+                            StartNode = start, StopNode = stop,
+                        });
                     }
                     break;
                 }
@@ -249,6 +360,48 @@ public static class FemImperfectionResolver
         start = chainEnds[0];
         stop = chainEnds[1];
         return elements[tags[0]];
+    }
+
+    /// <summary>Размах z узлов КЭ охвата (null — все стержни и пластины сетки), м; нет узлов — 0.</summary>
+    static double SpanZ(IReadOnlyList<string>? scope, IReadOnlyList<FemElement> meshElements,
+        IReadOnlyDictionary<string, FemElement> elements, IReadOnlyDictionary<string, PlanarVector3> nodes)
+    {
+        double lo = double.PositiveInfinity, hi = double.NegativeInfinity;
+        var list = scope == null
+            ? meshElements.Where(e => e.ElemType is "beam" or "shell")
+            : scope.Select(t => elements.GetValueOrDefault(t)).OfType<FemElement>();
+        foreach (var e in list)
+            foreach (var t in FemMeshTopology.ReadNodeTags(e) ?? [])
+                if (FemMeshTopology.CanonicalNodeTag(t) is { } tag && nodes.TryGetValue(tag, out var p))
+                {
+                    lo = Math.Min(lo, p.Z);
+                    hi = Math.Max(hi, p.Z);
+                }
+        return hi > lo ? hi - lo : 0;
+    }
+
+    /// <summary>
+    /// Кривая по табл. 6.2 по сечениям CScore КЭ цепочки (<see cref="FemImperfectionContext.BeamCross"/>): оси EN —
+    /// по прогибу вдоль местной y/z (у КЭ своей схемы ось Y сечения — по местной y, у импортного — ось X,
+    /// <c>RcBeamSection.CrossYAlongLocalY</c>); разные кривые по цепочке — наихудшая (наибольшее e₀/L). null — не определена.
+    /// </summary>
+    static En1993Curve? AutoCurve(IReadOnlyList<string> tags, IReadOnlyDictionary<string, FemElement> elements, bool alongLocalY,
+        FemImperfectionContext? context, out string why)
+    {
+        if (context?.BeamCross == null) { why = "нет сечений стержней"; return null; }
+        var found = new List<En1993CurveChoice>();
+        foreach (var tag in tags)
+        {
+            var e = elements[tag];
+            if (context.BeamCross(tag) is not { } cs) { why = $"у КЭ {tag} нет сечения CScore"; return null; }
+            bool yAlongY = e.Origin != FemMember.MeshSourceImported;
+            var choice = En1993Imperfections.Curve(cs, aboutContourX: alongLocalY == yAlongY);
+            if (choice.Curve == null) { why = $"КЭ {tag}: {choice.Reason}"; return null; }
+            found.Add(choice);
+        }
+        var worst = found.MaxBy(f => (int)f.Curve!.Value)!;
+        why = worst.Reason + (found.Select(f => f.Curve).Distinct().Count() > 1 ? " (наихудшая по КЭ цепочки)" : "");
+        return worst.Curve;
     }
 
     /// <summary>Номер КЭ по тегу (теги сетки — целые числа).</summary>

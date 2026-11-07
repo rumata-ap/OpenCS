@@ -150,7 +150,8 @@ public static class FemCsfeaInputBuilder
         var kinematic = db.GetFemKinematicLoads(schemaId);
         var stages = Stages(setup.Stages, loadCases, diag, out var imperfectionTerms);
         var imperfections = Imperfections(imperfectionTerms, imperfectionTerms.Count == 0 ? [] : db.GetFemImperfections(schemaId),
-            loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag);
+            loadCases, setup, data.Mesh, data.MeshNodes, data.Members, diag,
+            new FemImperfectionContext { BeamCross = beams.Count == 0 ? null : tag => beams.GetValueOrDefault(tag)?.Section });
         IReadOnlyList<FemLoadCase> cases = loadCases;
         IReadOnlyList<FemMeshNodeLoad> meshNodeLoads = db.GetFemMeshNodeLoads(schemaId);
         IReadOnlyList<FemMeshNodeKinematicLoad> meshKinematic = [];
@@ -371,7 +372,7 @@ public static class FemCsfeaInputBuilder
     public static List<FemResolvedImperfection> Imperfections(IReadOnlyList<(int LoadCaseId, double Factor)> terms,
         IReadOnlyList<FemImperfection> items, IReadOnlyList<FemLoadCase> loadCases, FemCsfeaSetup setup,
         IReadOnlyList<FemElement> mesh, IReadOnlyList<FemMeshNode> meshNodes, IReadOnlyList<FemMember> members,
-        List<FemValidationDiagnostic> diag)
+        List<FemValidationDiagnostic> diag, FemImperfectionContext? context = null)
     {
         if (terms.Count == 0) return [];
         var tags = terms.Select(t => loadCases.FirstOrDefault(c => c.Id == t.LoadCaseId)?.Tag ?? $"#{t.LoadCaseId}").ToList();
@@ -401,7 +402,7 @@ public static class FemCsfeaInputBuilder
                     $"Несовершенство «{loadCases.FirstOrDefault(c => c.Id == id)?.Tag ?? $"#{id}"}» не содержит элементов (крена, погибей).", false));
             input.AddRange(own.Select(i => (i, factor)));
         }
-        var resolved = FemImperfectionResolver.Resolve(input, mesh, meshNodes, members);
+        var resolved = FemImperfectionResolver.Resolve(input, mesh, meshNodes, members, context);
         diag.AddRange(resolved.Diagnostics);
         return resolved.Items.ToList();
     }

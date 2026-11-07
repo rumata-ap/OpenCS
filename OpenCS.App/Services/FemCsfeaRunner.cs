@@ -209,6 +209,13 @@ public sealed class FemCsfeaResultSummary
     /// <summary>Ошибки, из-за которых расчёт не запускался (формат ошибок прочих FEM-результатов).</summary>
     public List<string> Errors { get; set; } = [];
 
+    /// <summary>
+    /// Несовершенства EN 1993-1-1 варианта (спека несовершенств 5.5): крен, погиби, решения предварительного расчёта, α_cr;
+    /// строки — также в <see cref="Report"/>. null — несовершенств нет.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections { get; set; }
+
     /// <summary>Варианты пакетного расчёта; null — не пакет.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<FemCsfeaBatchSummary>? Batch { get; set; }
@@ -490,6 +497,9 @@ public sealed record FemCsfeaPrepared(FemRcModelInput? Input, FemRcModelResult? 
     /// <summary>ГУ разрезов схемы-фрагмента (автозакрепления — для сверки реакций); null — схема не фрагмент.</summary>
     public FragmentCutBoundaryResult? FragmentBoundary { get; init; }
 
+    /// <summary>Отчёт несовершенств (решения предварительного расчёта, <see cref="FemCsfeaRunner.DecideImperfections"/>); null — нет.</summary>
+    public CScore.Fem.Imperfections.FemImperfectionReport? Imperfections { get; init; }
+
     /// <summary>Сводка подготовленной модели для отчёта «Проверить вход»: размеры, стадии с ΣF, контрольный узел.</summary>
     public IEnumerable<string> Describe()
     {
@@ -572,7 +582,42 @@ public static class FemCsfeaRunner
         if (diag.Any(d => d.IsError)) return new(input, null, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
 
         var adapted = await Task.Run(() => FemRcModelAdapter.Adapt(input), ct);
-        return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc };
+        CScore.Fem.Imperfections.FemImperfectionReport? imperfections = null;
+        if (input.Imperfections.Count > 0 && !adapted.HasErrors)
+        {
+            var options = FemCsfeaSetup.SecantOptions(csfea, ctx.MaxDegreeOfParallelism);
+            (adapted, imperfections) = await Task.Run(() => DecideImperfections(input, adapted, options, ct), ct);
+        }
+        return new(input, adapted, diag) { ControlNode = control, FragmentBoundary = fragmentBc, Imperfections = imperfections };
+    }
+
+    /// <summary>
+    /// Второй этап несовершенств (спека 5.4): предварительный упругий расчёт первого порядка модели адаптера
+    /// (<see cref="RcFirstOrderState"/>: те же сечения в начальном состоянии, без несовершенств, нагрузка конца последней
+    /// стадии), по нему — знак «авто» и активность погибей, подсказка m и H_Ed/V_Ed крена
+    /// (<see cref="CScore.Fem.Imperfections.FemImperfectionResolver.Decide"/>); несовершенства модели заменяются решёнными,
+    /// строки отчёта — сведениями адаптера. Отказ предварительного расчёта — знак «+» и погиби всегда, с предупреждениями.
+    /// </summary>
+    public static (FemRcModelResult Adapted, CScore.Fem.Imperfections.FemImperfectionReport Report) DecideImperfections(
+        FemRcModelInput input, FemRcModelResult adapted, RcSecantOptions options, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(adapted);
+        RcFirstOrderState? state = null;
+        string? error = null;
+        try { state = RcFirstOrderState.Run(adapted.Model, options, ct); }
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException)
+        {
+            error = "предварительный расчёт не выполнен: " + ex.Message;
+        }
+        var decision = CScore.Fem.Imperfections.FemImperfectionResolver.Decide(input.Imperfections, state, input.MeshElements,
+            input.MeshNodes, error);
+        var replaced = FemRcModelAdapter.ReplaceImperfections(adapted.Model, decision.Items);
+        var diag = adapted.Diagnostics.Where(d => d.Code is not ("imperfections" or "imperfection_outside_model"))
+            .Concat(replaced).Concat(decision.Diagnostics)
+            .Concat(decision.Report.Lines().Select(l => new FemValidationDiagnostic("imperfection_report", l, false)))
+            .ToList();
+        return (adapted with { Diagnostics = diag }, decision.Report);
     }
 
     /// <summary>Подготовка и расчёт; <paramref name="progress"/> — отчёты решателя (создавать в UI-потоке).</summary>
@@ -584,7 +629,7 @@ public static class FemCsfeaRunner
         if (FemAnalysisParams.Parse(analysis.ParamsJson).Batch != null)
             return await RunBatchAsync(ctx, schema, analysis, null, null, null, ct);
         var prepared = await PrepareAsync(ctx, schema, analysis, buildMesh: true, ct);
-        var summary = new FemCsfeaResultSummary { Report = prepared.Report.ToList() };
+        var summary = new FemCsfeaResultSummary { Report = prepared.Report.ToList(), Imperfections = prepared.Imperfections };
         if (prepared.HasErrors)
         {
             summary.Errors = prepared.Diagnostics.Concat(prepared.Adapted?.Diagnostics ?? [])

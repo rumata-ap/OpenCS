@@ -192,7 +192,7 @@ public static class FemRcModelAdapter
         Add(diag, "spring_without_elements", "Пружины узлов без КЭ не учитываются", orphanSprings, false);
 
         var totals = AddLoads(input, model, nodesByTag, memberByTag, used, diag);
-        AddImperfections(input, model, diag);
+        AddImperfections(input.Imperfections, model, diag);
         return new FemRcModelResult(model, diag, totals) { ShellForceAngles = forceAngles };
     }
 
@@ -202,12 +202,12 @@ public static class FemRcModelAdapter
     /// Несовершенства входа → модель: теги КЭ — номера стержней и оболочек модели; КЭ охвата, не вошедшие в модель
     /// (без сечения и т. п.), — ошибка у погиби (цепочка неполна), у крена — пропуск с предупреждением.
     /// </summary>
-    static void AddImperfections(FemRcModelInput input, RcStructuralModel model, List<FemValidationDiagnostic> diag)
+    static void AddImperfections(IReadOnlyList<FemResolvedImperfection> items, RcStructuralModel model, List<FemValidationDiagnostic> diag)
     {
-        if (input.Imperfections.Count == 0) return;
+        if (items.Count == 0) return;
         var beams = model.Beams.Select(b => b.Id).ToHashSet();
         var shells = model.Shells.Select(s => s.Id).ToHashSet();
-        foreach (var imp in input.Imperfections)
+        foreach (var imp in items)
             switch (imp)
             {
                 case FemResolvedSway sw:
@@ -247,6 +247,20 @@ public static class FemRcModelAdapter
             }
         int sways = model.Imperfections.OfType<RcSway>().Count(), bows = model.Imperfections.OfType<RcBow>().Count();
         if (sways + bows > 0) Info(diag, "imperfections", $"Несовершенства: кренов {sways}, погибей {bows}.");
+    }
+
+    /// <summary>
+    /// Заменяет несовершенства модели адаптера решёнными по предварительному расчёту
+    /// (<see cref="FemImperfectionResolver.Decide"/>); диагностики — как у <see cref="Adapt"/>.
+    /// </summary>
+    public static List<FemValidationDiagnostic> ReplaceImperfections(RcStructuralModel model, IReadOnlyList<FemResolvedImperfection> items)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(items);
+        model.Imperfections.Clear();
+        var diag = new List<FemValidationDiagnostic>();
+        AddImperfections(items, model, diag);
+        return diag;
     }
 
     // ---------------------------------------------------------------- пластины
