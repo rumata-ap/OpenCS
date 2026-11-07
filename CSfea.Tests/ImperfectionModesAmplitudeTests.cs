@@ -172,6 +172,13 @@ public class ImperfectionModesAmplitudeTests
         var f = run.LastConvergedFields();
         double mMax = Enumerable.Range(0, n).SelectMany(e => new[] { 4, 5, 10, 11 }
             .Select(c => Math.Abs(f.BeamForces[e * RcSecantStepFields.BeamForceComponents + c]))).Max();
+        // Справочно для сайта: полусинус — собственная форма, точный ответ y = e₀/(1 − N/N_cr), M = N·y.
+        double yMid = mode.AmplitudeM + Math.Abs(f.Displacements[RcSecantStepFields.NodeComponents * Array.IndexOf(f.NodeIds, n / 2)]);
+        double yExact = e0.E0 / (1 - p / Ncr);
+        TestHarness.Section(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"tube 300x10: A={Poly.A * 1e4:0.00} cm2, I={Poly.Ix * 1e8:0.0} cm4, NRk={NRk / 1e3:0.0} kN, MRk={MRk / 1e3:0.000} kN*m, " +
+            $"Ncr={Ncr / 1e3:0.0} kN, N=chi*NRk={p / 1e3:0.0} kN, y: OpenCS={yMid * 1e3:0.000} exact={yExact * 1e3:0.000} mm, " +
+            $"M: OpenCS={mMax / 1e3:0.000} exact={p * yExact / 1e3:0.000} kN*m, ratio={p / NRk + mMax / MRk:0.0000}"));
         TestHarness.CheckRel("N/N_Rk + M/M_el,Rk = 1 при N = χ·N_Rk", p / NRk + mMax / MRk, 1.0, 0.02);
     }
 
