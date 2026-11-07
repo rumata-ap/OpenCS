@@ -223,6 +223,7 @@
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColMode}" Binding="{Binding Mode}"/>
                             <DataGridTextColumn Header="λ" Binding="{Binding Lambda}"/>
                             <DataGridTextColumn Header="{DynamicResource FemImperfectionColAmplitude}" Binding="{Binding AmplitudeMm}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemCsfeaDetailColSource}" Binding="{Binding Source}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource FemImperfectionWallBowTable}" FontWeight="SemiBold" Margin="6,6,6,2"

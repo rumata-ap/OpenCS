@@ -64,6 +64,12 @@ public sealed class FemBucklingCaseSummary
     public bool Unstable { get; set; }
     public int Units { get; set; }
     public int FirstRecord { get; set; }
+
+    /// <summary>
+    /// Продольные силы стержневых КЭ сетки, по которым собрана K_σ задачи (номер КЭ → N, Н, растяжение — плюс) — N_Ed
+    /// для α_ult,k амплитуды формы EN 1993-1-1 (5.9)–(5.11); null — результат до подсреза 5б.
+    /// </summary>
+    public Dictionary<int, double>? Axial { get; set; }
 }
 
 /// <summary>
@@ -124,7 +130,13 @@ public sealed record FemBucklingMode(IReadOnlyDictionary<int, (double X, double 
     /// <summary>Повороты узлов (номер узла сетки → θx, θy, θz); null — записи v1 (без поворотов, float).</summary>
     public IReadOnlyDictionary<int, (double X, double Y, double Z)>? Rotations { get; init; }
 
-    /// <summary>Форма годится для несовершенства (записана v2: повороты узлов, double).</summary>
+    /// <summary>
+    /// Изгибающие моменты формы по стержням (номер КЭ → (My, Mz) местных осей в узле I, точках дробления и узле J, Н·м
+    /// тем же множителем); null — запись v1/v2 (без моментов, амплитуда по (5.9) недоступна).
+    /// </summary>
+    public IReadOnlyDictionary<int, (double My, double Mz)[]>? Moments { get; init; }
+
+    /// <summary>Форма годится для несовершенства (записана v2 и позже: повороты узлов, double).</summary>
     public bool IsFull => Rotations != null;
 
     /// <summary>Нейтральная форма для несовершенства (узел → 6 DOF, стержень → точки); null — запись v1.</summary>
@@ -138,26 +150,33 @@ public sealed record FemBucklingMode(IReadOnlyDictionary<int, (double X, double 
             nodes[id] = [u.X, u.Y, u.Z, r.X, r.Y, r.Z];
         }
         return new CScore.Fem.Imperfections.FemModeShape(nodes,
-            BarPoints.ToDictionary(p => p.Key, p => p.Value.Select(u => new[] { u.X, u.Y, u.Z }).ToArray()));
+            BarPoints.ToDictionary(p => p.Key, p => p.Value.Select(u => new[] { u.X, u.Y, u.Z }).ToArray()))
+        {
+            Moments = Moments?.ToDictionary(p => p.Key, p => p.Value.Select(m => new[] { m.My, m.Mz }).ToArray()),
+        };
     }
 }
 
 /// <summary>
-/// Двоичная запись формы (<see cref="FemBucklingMode"/>), little-endian. v2 (пишется): маркер <see cref="V2Marker"/>,
-/// узлы — номер и 6 double (перемещения, повороты), стержни — номер, число точек и по 3 double. v1 (старые результаты,
-/// читается для 3D-вида): без маркера, узлы — 3 float, точки — 3 float.
+/// Двоичная запись формы (<see cref="FemBucklingMode"/>), little-endian. v3 (пишется): маркер <see cref="V3Marker"/>,
+/// далее как v2 и блок моментов — число стержней, у каждого номер, число значений и по 2 double (My, Mz). v2: маркер
+/// <see cref="V2Marker"/>, узлы — номер и 6 double (перемещения, повороты), стержни — номер, число точек и по 3 double.
+/// v1 (старые результаты, читается для 3D-вида): без маркера, узлы — 3 float, точки — 3 float.
 /// </summary>
 public static class FemBucklingModeCodec
 {
     /// <summary>Маркер записи v2 вместо числа узлов (у v1 число узлов неотрицательно).</summary>
     public const int V2Marker = -2;
+    /// <summary>Маркер записи v3 (v2 + моменты формы, подсрез 5б).</summary>
+    public const int V3Marker = -3;
 
+    /// <summary>Запись v3; без <see cref="FemBucklingMode.Moments"/> — v2.</summary>
     public static byte[] Encode(FemBucklingMode mode)
     {
         using var ms = new MemoryStream();
         using (var w = new BinaryWriter(ms))
         {
-            w.Write(V2Marker);
+            w.Write(mode.Moments != null ? V3Marker : V2Marker);
             w.Write(mode.Nodes.Count);
             foreach (var (id, u) in mode.Nodes)
             {
@@ -171,6 +190,20 @@ public static class FemBucklingModeCodec
                 w.Write(id);
                 w.Write(points.Length);
                 foreach (var u in points) Write(w, u);
+            }
+            if (mode.Moments != null)
+            {
+                w.Write(mode.Moments.Count);
+                foreach (var (id, values) in mode.Moments)
+                {
+                    w.Write(id);
+                    w.Write(values.Length);
+                    foreach (var (my, mz) in values)
+                    {
+                        w.Write(my);
+                        w.Write(mz);
+                    }
+                }
             }
         }
         return ms.ToArray();
@@ -203,7 +236,7 @@ public static class FemBucklingModeCodec
     {
         using var r = new BinaryReader(new MemoryStream(data));
         int head = r.ReadInt32();
-        bool v2 = head == V2Marker;
+        bool v3 = head == V3Marker, v2 = v3 || head == V2Marker;
         Func<BinaryReader, (double, double, double)> read = v2 ? Read : ReadSingle;
         int n = v2 ? r.ReadInt32() : head;
         var nodes = new Dictionary<int, (double, double, double)>(n);
@@ -223,7 +256,20 @@ public static class FemBucklingModeCodec
             for (int k = 0; k < points.Length; k++) points[k] = read(r);
             bars[id] = points;
         }
-        return new FemBucklingMode(nodes, bars) { Rotations = rotations };
+        Dictionary<int, (double, double)[]>? moments = null;
+        if (v3)
+        {
+            int c = r.ReadInt32();
+            moments = new Dictionary<int, (double, double)[]>(c);
+            for (int i = 0; i < c; i++)
+            {
+                int id = r.ReadInt32();
+                var values = new (double, double)[r.ReadInt32()];
+                for (int k = 0; k < values.Length; k++) values[k] = (r.ReadDouble(), r.ReadDouble());
+                moments[id] = values;
+            }
+        }
+        return new FemBucklingMode(nodes, bars) { Rotations = rotations, Moments = moments };
     }
 
     static void Write(BinaryWriter w, (double X, double Y, double Z) u)
@@ -391,9 +437,10 @@ public static class FemBucklingRunner
                 {
                     Tag = c.Tag, Envelope = c.Envelope, Lambda = c.Result.Lambda, Converged = c.Result.Converged, Unstable = c.Unstable,
                     Units = c.Units.Count, FirstRecord = recs.Count + 1,
+                    Axial = c.Result.BarAxial().ToDictionary(p => p.Key, p => p.Value),
                 });
-                foreach (var mode in c.Result.Modes)
-                    recs.Add((recs.Count + 1, FemBucklingModeCodec.Encode(Mode(input, c.Result, mode))));
+                for (int k = 0; k < c.Result.Modes.Length; k++)
+                    recs.Add((recs.Count + 1, FemBucklingModeCodec.Encode(Mode(input, c.Result, c.Result.Modes[k], c.Result.Lambda[k]))));
             }
             return (s, recs);
         }, ct);
@@ -413,13 +460,16 @@ public static class FemBucklingRunner
     /// Форма на сетке схемы: узлы модели адаптера (номера — номера узлов сетки) и промежуточные узлы дробления
     /// стержней; нормирование на наибольшее поступательное перемещение.
     /// </summary>
-    public static FemBucklingMode Mode(FemSteelBucklingInput input, RcBucklingResult result, double[] mode)
+    /// <param name="lambda">λ формы — для моментов продольно-поперечного изгиба (<see cref="RcBucklingResult.ModeMoments"/>).</param>
+    public static FemBucklingMode Mode(FemSteelBucklingInput input, RcBucklingResult result, double[] mode, double lambda)
     {
-        var shape = result.ModeShape(mode, input.Adapted!.Model.Nodes.Select(n => n.Id));
+        var ids = input.Adapted!.Model.Nodes.Select(n => n.Id).ToList();
+        var shape = result.ModeShape(mode, ids);
         return new FemBucklingMode(shape.Nodes.ToDictionary(p => p.Key, p => (p.Value[0], p.Value[1], p.Value[2])),
             shape.BarPoints.ToDictionary(p => p.Key, p => p.Value.Select(u => (u[0], u[1], u[2])).ToArray()))
         {
             Rotations = shape.Nodes.ToDictionary(p => p.Key, p => (p.Value[3], p.Value[4], p.Value[5])),
+            Moments = result.ModeMoments(mode, lambda, ids).ToDictionary(p => p.Key, p => p.Value.Select(m => (m[0], m[1])).ToArray()),
         };
     }
 

@@ -41,7 +41,7 @@ public sealed class FemBucklingModesTests
         var input = Column("G");
         var r = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 2));
         var c = r.Cases[0].Result;
-        var mode = FemBucklingRunner.Mode(input, c, c.Modes[0]);
+        var mode = FemBucklingRunner.Mode(input, c, c.Modes[0], c.Lambda[0]);
         Assert.True(mode.IsFull);
         // Шарнирные концы полуволны: повороты ±, по модулю π/L·(max|u| = 1) с точностью дробления 4.
         Assert.Equal(Math.PI / L, Math.Abs(mode.Rotations![1].Y), 0.02 * Math.PI / L);
@@ -116,6 +116,114 @@ public sealed class FemBucklingModesTests
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { File.Delete(path); } catch (IOException) { }
         }
+    }
+
+    /// <summary>Подсрез 5б: запись v3 — моменты формы (EI·η″) по стержням; без моментов пишется v2.</summary>
+    [Fact]
+    public void Codec_V3_KeepsModeMoments_V2WithoutMoments()
+    {
+        var input = Column("G");
+        var r = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 2));
+        var c = r.Cases[0].Result;
+        var mode = FemBucklingRunner.Mode(input, c, c.Modes[0], c.Lambda[0]);
+        var moments = mode.Moments![101];
+        Assert.Equal(mode.BarPoints[101].Length + 2, moments.Length);
+        // Шарнирная стойка, изгиб по слабой оси: |M| середины = E·Iz·π²/L² (форма = 1 в середине).
+        double mid = Math.Max(Math.Abs(moments[2].My), Math.Abs(moments[2].Mz));
+        Assert.Equal(E * Iz * Math.PI * Math.PI / (L * L), mid, 0.01 * E * Iz * Math.PI * Math.PI / (L * L));
+        Assert.True(Math.Max(Math.Abs(moments[0].My), Math.Abs(moments[0].Mz)) < 1e-6 * mid);   // шарнир
+
+        var v3 = FemBucklingModeCodec.Decode(FemBucklingModeCodec.Encode(mode));
+        Assert.Equal(moments[2], v3.Moments![101][2]);
+        Assert.Equal(moments[2].Mz, v3.ToShape()!.Moments![101][2][1]);
+        Assert.Equal(mode.Rotations![1].Y, v3.Rotations![1].Y);
+
+        var v2 = FemBucklingModeCodec.Decode(FemBucklingModeCodec.Encode(mode with { Moments = null }));
+        Assert.True(v2.IsFull);
+        Assert.Null(v2.Moments);
+        Assert.Null(v2.ToShape()!.Moments);
+    }
+
+    /// <summary>Подсрез 5б: сводка задачи несёт N стержней — поиск передаёт их резолверу (N_Ed для α_ult,k).</summary>
+    [Fact]
+    public async Task Lookup_CarriesCaseAxialAndMoments()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "opencs_modes59_" + Guid.NewGuid().ToString("N") + ".db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Схема" };
+            db.SaveFemSchema(schema);
+            var pars = new OpenCS.Tasks.FemAnalysisParams { Buckling = new OpenCS.Tasks.FemBucklingParams { Modes = 2 } };
+            var analysis = new FemAnalysis { SchemaId = schema.Id, Tag = "Длины", Kind = FemBucklingRunner.AnalysisKind, ParamsJson = pars.ToJson() };
+            db.SaveFemAnalysis(analysis);
+            var result = await FemBucklingRunner.SolveAsync(db, analysis, Column("G"), "2026-11-07 12:00:00", CancellationToken.None);
+            analysis.ResultId = result.Id;
+            db.SaveFemAnalysis(analysis);
+            var p = new FemModesParams
+            {
+                AnalysisId = analysis.Id, Modes = [new() { Mode = 1, Amplitude = FemModeAmplitude.AmplitudeEn1993 }],
+            };
+            var found = FemBucklingModes.Lookup(db, schema.Id, "G", p);
+            Assert.Null(found.ErrorCode);
+            Assert.Equal(-P, found.Axial![101], 1e-6 * P);
+            Assert.NotNull(found.Shapes[1].Moments);
+            Assert.Equal(-P, FemBucklingSummary.Parse(db.GetCalcResultById(result.Id)!.DataJson)!.Cases[0].Axial![101], 1e-6 * P);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try { File.Delete(path); } catch (IOException) { }
+        }
+    }
+
+    /// <summary>Подсрез 5б: вид «Формы» — амплитуда по (5.9), знак, γ_M1, кривая, критический КЭ, предпросмотр.</summary>
+    [Fact]
+    public void Dialog_Modes_Formula59()
+    {
+        var p = new FemModesParams
+        {
+            AnalysisId = 7, CaseIndex = 0, GammaM1 = 1.1, Curve = "c", CriticalElement = "12",
+            Modes = [new() { Mode = 1, Amplitude = FemModeAmplitude.AmplitudeEn1993, Minus = true }, new() { Mode = 2, AmplitudeMm = 4 }],
+        };
+        var item = new FemImperfection { Id = 5, Kind = FemImperfectionKinds.Modes, Tag = "Ф", ParamsJson = p.ToJson() };
+        FemModesParams? previewed = null;
+        var vm = new FemImperfectionDialogVM(item, bucklingSources: [Source], modesPreview: q => { previewed = q; return "строка"; });
+        Assert.True(vm.ModeRows[0].ByFormula);
+        Assert.True(vm.ModeRows[0].Minus);
+        Assert.False(vm.ModeRows[0].IsManual);
+        Assert.False(vm.ModeRows[1].ByFormula);
+        Assert.Equal("c", vm.ModeCurve);
+        Assert.Equal("12", vm.CriticalText);
+        Assert.Equal(1.1.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture), vm.GammaM1Text);
+
+        var q = FemModesParams.Parse(vm.TryBuild(out var error)!.ParamsJson);
+        Assert.Null(error);
+        Assert.True(q.Modes[0].IsEn1993);
+        Assert.True(q.Modes[0].Minus);
+        Assert.Equal(4.0, q.Modes[1].AmplitudeMm);
+        Assert.Equal((1.1, "c", "12"), (q.GammaM1, q.Curve, q.CriticalElement));
+
+        vm.PreviewModesCommand.Execute(null);
+        Assert.Equal("строка", vm.ModesPreviewText);
+        Assert.NotNull(previewed);
+
+        vm.GammaM1Text = "0";
+        Assert.Null(vm.TryBuild(out error));
+        Assert.NotNull(error);
+        vm.GammaM1Text = "1";
+        vm.ModeCurve = FemBowParams.CurveAuto;
+        vm.CriticalText = " ";
+        var auto = FemModesParams.Parse(vm.TryBuild(out _)!.ParamsJson);
+        Assert.Equal<(double?, string?, string?)>((null, null, null), (auto.GammaM1, auto.Curve, auto.CriticalElement));   // 1,0 и «авто» — по умолчанию
+
+        // Только «мм»: параметры (5.9) не пишутся.
+        vm.ModeRows[0].ByFormula = false;
+        vm.ModeRows[0].AmplitudeText = "7";
+        vm.ModeCurve = "d";
+        var manual = FemModesParams.Parse(vm.TryBuild(out _)!.ParamsJson);
+        Assert.All(manual.Modes, m => Assert.False(m.IsEn1993));
+        Assert.Null(manual.Curve);
     }
 
     static readonly FemBucklingSourceChoice Source = new(7, "Длины", "",

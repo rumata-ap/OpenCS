@@ -62,7 +62,7 @@ public sealed class FemBucklingRunnerTests
         var input = Column();
         var r = FemSteelBuckling.Run(input, new RcBucklingOptions(Modes: 4));
         var c = r.Cases[0].Result;
-        var mode = FemBucklingRunner.Mode(input, c, c.Modes[0]);
+        var mode = FemBucklingRunner.Mode(input, c, c.Modes[0], c.Lambda[0]);
 
         Assert.Equal([1, 2], mode.Nodes.Keys.Order());
         Assert.Equal(0, mode.Nodes[1].X, 9);                               // шарниры — без поперечных смещений

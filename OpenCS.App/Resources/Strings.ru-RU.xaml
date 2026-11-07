@@ -6143,6 +6143,23 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemImperfectionModesAdd">Добавить форму</system:String>
    <system:String x:Key="FemImperfectionModesRemove">Убрать форму</system:String>
    <system:String x:Key="FemImperfectionModesHint">Форма нормирована на наибольшее поступательное перемещение = 1; амплитуда, мм, со знаком — её множитель; сумма форм не перенормируется. В одном варианте расчёта формы не сочетаются с креном и погибями.</system:String>
+   <system:String x:Key="FemImperfectionColModeFormula">по (5.9)</system:String>
+   <system:String x:Key="FemImperfectionColModeFormulaTip">Амплитуда по EN 1993-1-1 п. 5.3.2(11), ф. (5.9)–(5.11): η_init = e₀·N_cr/(EI·η″) — вместо мм вручную</system:String>
+   <system:String x:Key="FemImperfectionColModeMinus">−</system:String>
+   <system:String x:Key="FemImperfectionColModeMinusTip">Знак «−» амплитуды по (5.9) (у амплитуды в мм знак задаётся числом)</system:String>
+   <system:String x:Key="FemImperfectionModes59">Амплитуда по (5.9):</system:String>
+   <system:String x:Key="FemImperfectionModesGammaM1">γ_M1</system:String>
+   <system:String x:Key="FemImperfectionModesGammaM1Tip">Частный коэффициент γ_M1 в (5.10); рекомендуемое значение 1,0 (EN 1993-1-1 п. 6.1(1))</system:String>
+   <system:String x:Key="FemImperfectionModesCurve">Кривая</system:String>
+   <system:String x:Key="FemImperfectionModesCurveTip">Кривая потери устойчивости для α (табл. 6.1) и χ (6.49); «авто» — по табл. 6.2 по сечению критического КЭ</system:String>
+   <system:String x:Key="FemImperfectionModesCritical">Крит. КЭ</system:String>
+   <system:String x:Key="FemImperfectionModesCriticalTip">Номер критического стержневого КЭ; пусто — сечение с наименьшим α_ult,k (при равенстве — с наибольшим моментом формы)</system:String>
+   <system:String x:Key="FemImperfectionModesPreview">Амплитуды</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewTip">Вычислить амплитуды форм по текущей сетке, сечениям и формам постановки (без предварительного расчёта)</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewRow">Форма {0}: {1:0.##} мм — {2}</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewManual">вручную</system:String>
+   <system:String x:Key="FemImperfectionModesBadGamma">γ_M1 — положительное число.</system:String>
+   <system:String x:Key="FemImperfectionModesHint59">По (5.9): α_ult,k = min N_Rk/N_Ed по сжатым стальным стержням задачи формы (моменты не учитываются), λ̄ = √(α_ult,k/α_cr), χ по (6.49), e₀ по (5.10) с M_Rk = M_el,Rk, EI·η″ — момент формы в критическом сечении. Нужна постановка устойчивости, посчитанная этой версией программы.</system:String>
    <system:String x:Key="FemImperfectionModesNotComputed">Постановка не посчитана — выполните расчёт устойчивости.</system:String>
    <system:String x:Key="FemImperfectionModesStale">Формы устарели (геометрия схемы изменилась или расчёт до поддержки несовершенств) — пересчитайте постановку.</system:String>
    <system:String x:Key="FemImperfectionModesNoSources">В схеме нет постановок «Расчётные длины — CSfea».</system:String>

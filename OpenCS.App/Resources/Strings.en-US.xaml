@@ -6143,6 +6143,23 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
    <system:String x:Key="FemImperfectionModesAdd">Add mode</system:String>
    <system:String x:Key="FemImperfectionModesRemove">Remove mode</system:String>
    <system:String x:Key="FemImperfectionModesHint">Each mode is normalized to a largest translation of 1; the signed amplitude in mm is its multiplier; the sum is not renormalized. Mode shapes are not combined with sway and bows in one run.</system:String>
+   <system:String x:Key="FemImperfectionColModeFormula">by (5.9)</system:String>
+   <system:String x:Key="FemImperfectionColModeFormulaTip">Amplitude per EN 1993-1-1 5.3.2(11), Eq. (5.9)–(5.11): η_init = e₀·N_cr/(EI·η″) — instead of a manual value in mm</system:String>
+   <system:String x:Key="FemImperfectionColModeMinus">−</system:String>
+   <system:String x:Key="FemImperfectionColModeMinusTip">Negative sign of the (5.9) amplitude (for an amplitude in mm the sign is part of the number)</system:String>
+   <system:String x:Key="FemImperfectionModes59">Amplitude by (5.9):</system:String>
+   <system:String x:Key="FemImperfectionModesGammaM1">γ_M1</system:String>
+   <system:String x:Key="FemImperfectionModesGammaM1Tip">Partial factor γ_M1 in (5.10); recommended value 1.0 (EN 1993-1-1 6.1(1))</system:String>
+   <system:String x:Key="FemImperfectionModesCurve">Curve</system:String>
+   <system:String x:Key="FemImperfectionModesCurveTip">Buckling curve for α (Table 6.1) and χ (6.49); "auto" — by Table 6.2 from the critical element section</system:String>
+   <system:String x:Key="FemImperfectionModesCritical">Crit. element</system:String>
+   <system:String x:Key="FemImperfectionModesCriticalTip">Critical beam element number; empty — section with the least α_ult,k (on a tie — with the largest mode moment)</system:String>
+   <system:String x:Key="FemImperfectionModesPreview">Amplitudes</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewTip">Compute mode amplitudes from the current mesh, sections and buckling modes (no preliminary analysis)</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewRow">Mode {0}: {1:0.##} mm — {2}</system:String>
+   <system:String x:Key="FemImperfectionModesPreviewManual">manual</system:String>
+   <system:String x:Key="FemImperfectionModesBadGamma">γ_M1 must be a positive number.</system:String>
+   <system:String x:Key="FemImperfectionModesHint59">By (5.9): α_ult,k = min N_Rk/N_Ed over compressed steel bars of the mode case (moments neglected), λ̄ = √(α_ult,k/α_cr), χ by (6.49), e₀ by (5.10) with M_Rk = M_el,Rk, EI·η″ — mode moment at the critical section. Requires a buckling analysis computed by this program version.</system:String>
    <system:String x:Key="FemImperfectionModesNotComputed">The analysis has not been run — run the buckling analysis.</system:String>
    <system:String x:Key="FemImperfectionModesStale">Modes are out of date (model geometry changed, or the run predates imperfection support) — rerun the analysis.</system:String>
    <system:String x:Key="FemImperfectionModesNoSources">The model has no “Buckling lengths — CSfea” analyses.</system:String>

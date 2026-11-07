@@ -12,6 +12,20 @@ public sealed record FemModeAmplitude
     public int Mode { get; init; } = 1;
     /// <summary>Амплитуда, мм, со знаком: множитель формы, нормированной на наибольшее поступательное перемещение = 1.</summary>
     public double AmplitudeMm { get; init; }
+
+    /// <summary>Источник амплитуды: <see cref="AmplitudeManual"/> (мм, <see cref="AmplitudeMm"/>) или <see cref="AmplitudeEn1993"/>.</summary>
+    public string Amplitude { get; init; } = AmplitudeManual;
+
+    /// <summary>Знак «−» амплитуды по (5.9) (у «мм» знак — в <see cref="AmplitudeMm"/>).</summary>
+    public bool Minus { get; init; }
+
+    /// <summary>Амплитуда вручную, мм.</summary>
+    public const string AmplitudeManual = "mm";
+    /// <summary>Амплитуда по EN 1993-1-1 п. 5.3.2(11), ф. (5.9)–(5.11).</summary>
+    public const string AmplitudeEn1993 = "en1993_5_9";
+
+    /// <summary>Амплитуда по (5.9).</summary>
+    public bool IsEn1993 => Amplitude == AmplitudeEn1993;
 }
 
 /// <summary>
@@ -27,6 +41,15 @@ public sealed record FemModesParams
     public int CaseIndex { get; init; }
     public List<FemModeAmplitude> Modes { get; init; } = [];
 
+    /// <summary>γ_M1 для (5.10) (национальный параметр); null — рекомендуемое 1,0.</summary>
+    public double? GammaM1 { get; init; }
+
+    /// <summary>Кривая табл. 6.1 для (5.10): «a0»…«d»; null — по табл. 6.2 по сечению критического КЭ.</summary>
+    public string? Curve { get; init; }
+
+    /// <summary>Тег критического стержневого КЭ сетки для (5.9); null — по наименьшему α_ult,k.</summary>
+    public string? CriticalElement { get; init; }
+
     public string ToJson() => JsonSerializer.Serialize(this, FemImperfectionJson.Options);
     public static FemModesParams Parse(string? json) => FemImperfectionJson.Parse<FemModesParams>(json);
 }
@@ -36,7 +59,14 @@ public sealed record FemModesParams
 /// и повороты, глобальные оси), номер стержневого КЭ → поступательные перемещения промежуточных точек дробления
 /// (по 3 числа, от I к J, равномерно по длине); нормирована на наибольшее поступательное перемещение = 1.
 /// </summary>
-public sealed record FemModeShape(IReadOnlyDictionary<int, double[]> Nodes, IReadOnlyDictionary<int, double[][]> BarPoints);
+public sealed record FemModeShape(IReadOnlyDictionary<int, double[]> Nodes, IReadOnlyDictionary<int, double[][]> BarPoints)
+{
+    /// <summary>
+    /// Изгибающие моменты формы EI·η″ (EN 1993-1-1 (5.9)): номер стержневого КЭ → (My, Mz) местных осей КЭ в узле I,
+    /// точках дробления и узле J, Н·м на 1 м формы; null — запись без моментов (до подсреза 5б).
+    /// </summary>
+    public IReadOnlyDictionary<int, double[][]>? Moments { get; init; }
+}
 
 /// <summary>
 /// Итог поиска форм для несовершенства (<see cref="FemImperfectionContext.Modes"/>): постановка и задача, λ форм задачи
@@ -53,12 +83,21 @@ public sealed record FemModesLookup
     public IReadOnlyList<double> Lambda { get; init; } = [];
     /// <summary>Номер формы (с 1) → форма; только запрошенные и найденные.</summary>
     public IReadOnlyDictionary<int, FemModeShape> Shapes { get; init; } = new Dictionary<int, FemModeShape>();
+    /// <summary>
+    /// Продольные силы стержневых КЭ задачи (номер КЭ → N, Н, растяжение — плюс), по которым получены λ — N_Ed для
+    /// α_ult,k (5.11); null — не записаны (результат до подсреза 5б).
+    /// </summary>
+    public IReadOnlyDictionary<int, double>? Axial { get; init; }
 
     public static FemModesLookup Fail(string code, string message) => new() { ErrorCode = code, Error = message };
 }
 
 /// <summary>Форма в составе решённого несовершенства: номер, λ, амплитуда, м (со знаком и коэффициентом загружения).</summary>
-public sealed record FemResolvedMode(int Mode, double Lambda, double AmplitudeM);
+public sealed record FemResolvedMode(int Mode, double Lambda, double AmplitudeM)
+{
+    /// <summary>Ход амплитуды по (5.9)–(5.11) для отчёта; пусто — вручную.</summary>
+    public string Source { get; init; } = "";
+}
 
 /// <summary>
 /// Несовершенство по формам (<see cref="FemModesParams"/>), привязанное к сетке: u₀ = Σ aᵢ·φᵢ уже просуммировано —

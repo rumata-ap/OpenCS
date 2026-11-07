@@ -75,7 +75,9 @@ public static class FemImperfectionText
             {
                 var p = FemModesParams.Parse(item.ParamsJson);
                 return string.Format(c, Loc.S("FemImperfectionModesShort"), p.CaseIndex + 1,
-                    string.Join(", ", p.Modes.Select(m => string.Format(c, "{0}: {1:0.##}", m.Mode, m.AmplitudeMm))));
+                    string.Join(", ", p.Modes.Select(m => m.IsEn1993
+                        ? string.Format(c, "{0}: {1}(5.9)", m.Mode, m.Minus ? "−" : "")
+                        : string.Format(c, "{0}: {1:0.##}", m.Mode, m.AmplitudeMm))));
             }
             default:
                 return item.Kind;
@@ -101,15 +103,18 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     /// <param name="selection">Выделение 3D редактора схемы: КонЭ и КЭ сетки; null — редактор не открыт.</param>
     /// <param name="bucklingSources">Постановки устойчивости схемы для вида «Формы» (состояние форм, задачи, λ).</param>
     /// <param name="wallPreview">Предпросмотр ярусов погиби стен по параметрам (строки «стена, ярус: h, e₀» или ошибки); null — нет сетки.</param>
+    /// <param name="modesPreview">Предпросмотр амплитуд форм (в т. ч. по (5.9) с ходом) по параметрам; null — нет.</param>
     public FemImperfectionDialogVM(FemImperfection item, Func<FemSwayParams, double?>? spanZ = null, int? mHint = null,
         Func<(IReadOnlyCollection<string> Members, IReadOnlyCollection<string> Elements)>? selection = null,
-        IReadOnlyList<FemBucklingSourceChoice>? bucklingSources = null, Func<FemWallBowParams, string>? wallPreview = null)
+        IReadOnlyList<FemBucklingSourceChoice>? bucklingSources = null, Func<FemWallBowParams, string>? wallPreview = null,
+        Func<FemModesParams, string>? modesPreview = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         _source = item;
         _spanZ = spanZ;
         _selection = selection;
         _wallPreview = wallPreview;
+        _modesPreview = modesPreview;
         MHint = mHint;
         BucklingSources = bucklingSources ?? [];
         _kind = item.Kind is FemImperfectionKinds.Bow or FemImperfectionKinds.Modes or FemImperfectionKinds.WallBow
@@ -148,7 +153,14 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
             var p = FemModesParams.Parse(item.ParamsJson);
             _bucklingSource = BucklingSources.FirstOrDefault(s => s.AnalysisId == p.AnalysisId) ?? BucklingSources.FirstOrDefault();
             _bucklingCase = _bucklingSource?.Cases.FirstOrDefault(k => k.Index == p.CaseIndex) ?? _bucklingSource?.Cases.FirstOrDefault();
-            foreach (var m in p.Modes) ModeRows.Add(new FemModeAmplitudeRow(m.Mode.ToString(c), m.AmplitudeMm.ToString("0.##", c)));
+            foreach (var m in p.Modes)
+                ModeRows.Add(new FemModeAmplitudeRow(m.Mode.ToString(c), m.IsEn1993 ? "" : m.AmplitudeMm.ToString("0.##", c))
+                {
+                    ByFormula = m.IsEn1993, Minus = m.Minus,
+                });
+            _gammaM1Text = (p.GammaM1 ?? En1993Imperfections.GammaM1Recommended).ToString("0.###", c);
+            _modeCurve = p.Curve != null && Curves.Any(k => k.Key == p.Curve) ? p.Curve : FemBowParams.CurveAuto;
+            _criticalText = p.CriticalElement ?? "";
         }
         else
         {
@@ -174,6 +186,7 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         AddModeCommand = new RelayCommand(_ => AddMode());
         RemoveModeCommand = new RelayCommand(r => { if (r is FemModeAmplitudeRow row) ModeRows.Remove(row); });
         PreviewTiersCommand = new RelayCommand(_ => PreviewTiers(), _ => _wallPreview != null);
+        PreviewModesCommand = new RelayCommand(_ => PreviewModes(), _ => _modesPreview != null);
         if (_kind == FemImperfectionKinds.Modes && ModeRows.Count == 0) AddMode();
         if (_kind == FemImperfectionKinds.WallBow && _norm == NormEn1993) _norm = NormEn1992;
         if (!E0ModeChoices.Any(k => k.Key == _e0Mode)) _e0Mode = E0ModeChoices[0].Key;
@@ -680,23 +693,71 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
         var modes = new List<FemModeAmplitude>();
         foreach (var r in ModeRows)
         {
-            if (string.IsNullOrWhiteSpace(r.ModeText) && string.IsNullOrWhiteSpace(r.AmplitudeText)) continue;
+            if (string.IsNullOrWhiteSpace(r.ModeText) && string.IsNullOrWhiteSpace(r.AmplitudeText) && !r.ByFormula) continue;
             if (!int.TryParse(r.ModeText.Trim(), NumberStyles.Integer, c, out int mode) || mode < 1
                 || (_bucklingCase.Lambda.Count > 0 && mode > _bucklingCase.Lambda.Count))
             {
                 error = string.Format(c, Loc.S("FemImperfectionModesBadMode"), r.ModeText, _bucklingCase.Lambda.Count);
                 return null;
             }
-            if (!Pars.ParseAny(r.AmplitudeText.Trim(), out double a) || !double.IsFinite(a) || a == 0)
+            double a = 0;
+            if (!r.ByFormula && (!Pars.ParseAny(r.AmplitudeText.Trim(), out a) || !double.IsFinite(a) || a == 0))
             {
                 error = string.Format(c, Loc.S("FemImperfectionModesBadAmplitude"), mode);
                 return null;
             }
             if (modes.Any(m => m.Mode == mode)) { error = string.Format(c, Loc.S("FemImperfectionModesDuplicate"), mode); return null; }
-            modes.Add(new FemModeAmplitude { Mode = mode, AmplitudeMm = a });
+            modes.Add(r.ByFormula
+                ? new FemModeAmplitude { Mode = mode, Amplitude = FemModeAmplitude.AmplitudeEn1993, Minus = r.Minus }
+                : new FemModeAmplitude { Mode = mode, AmplitudeMm = a });
         }
         if (modes.Count == 0) { error = Loc.S("FemImperfectionModesEmpty"); return null; }
-        return new FemModesParams { AnalysisId = _bucklingSource.AnalysisId, CaseIndex = _bucklingCase.Index, Modes = modes };
+        double? gamma = null;
+        string? critical = null;
+        if (modes.Any(m => m.IsEn1993))
+        {
+            if (!Pars.ParseAny(_gammaM1Text.Trim(), out double g) || !(g > 0) || !double.IsFinite(g))
+            {
+                error = Loc.S("FemImperfectionModesBadGamma");
+                return null;
+            }
+            gamma = Math.Abs(g - En1993Imperfections.GammaM1Recommended) < 1e-12 ? null : g;
+            critical = string.IsNullOrWhiteSpace(_criticalText) ? null : _criticalText.Trim();
+        }
+        return new FemModesParams
+        {
+            AnalysisId = _bucklingSource.AnalysisId, CaseIndex = _bucklingCase.Index, Modes = modes, GammaM1 = gamma,
+            Curve = modes.Any(m => m.IsEn1993) && _modeCurve != FemBowParams.CurveAuto ? _modeCurve : null,
+            CriticalElement = critical,
+        };
+    }
+
+    // ------------------------------------------------------------ амплитуда по (5.9)
+
+    string _gammaM1Text = En1993Imperfections.GammaM1Recommended.ToString("0.###", CultureInfo.CurrentCulture);
+    /// <summary>γ_M1 для (5.10), текстом (по умолчанию 1 — рекомендуемое).</summary>
+    public string GammaM1Text { get => _gammaM1Text; set { _gammaM1Text = value ?? ""; OnPropertyChanged(); } }
+
+    string _modeCurve = FemBowParams.CurveAuto;
+    /// <summary>Кривая для (5.10): «auto» — по табл. 6.2 по сечению критического КЭ, иначе a0…d.</summary>
+    public string ModeCurve { get => _modeCurve; set { if (value != null) { _modeCurve = value; OnPropertyChanged(); } } }
+
+    string _criticalText = "";
+    /// <summary>Критический КЭ (номер); пусто — по наименьшему α_ult,k.</summary>
+    public string CriticalText { get => _criticalText; set { _criticalText = value ?? ""; OnPropertyChanged(); } }
+
+    readonly Func<FemModesParams, string>? _modesPreview;
+
+    /// <summary>«Амплитуды»: предпросмотр амплитуд форм резолвером (с ходом (5.9)).</summary>
+    public ICommand PreviewModesCommand { get; }
+
+    string _modesPreviewText = "";
+    public string ModesPreviewText { get => _modesPreviewText; private set { _modesPreviewText = value; OnPropertyChanged(); } }
+
+    void PreviewModes()
+    {
+        if (_modesPreview == null) return;
+        ModesPreviewText = BuildModes(out string? error) is { } p ? _modesPreview(p) : error ?? "";
     }
 
     // ------------------------------------------------------------ результат
@@ -868,10 +929,26 @@ public sealed class FemImperfectionDialogVM : ViewModelBase
     }
 }
 
-/// <summary>Строка таблицы форм диалога: номер формы и амплитуда, мм (текстом — проверка при OK).</summary>
+/// <summary>
+/// Строка таблицы форм диалога: номер формы и амплитуда, мм (текстом — проверка при OK), или амплитуда по EN 1993-1-1
+/// (5.9) (<see cref="ByFormula"/>, знак — <see cref="Minus"/>).
+/// </summary>
 public sealed class FemModeAmplitudeRow(string mode, string amplitude) : ViewModelBase
 {
     string _mode = mode, _amplitude = amplitude;
+    bool _byFormula, _minus;
     public string ModeText { get => _mode; set { _mode = value ?? ""; OnPropertyChanged(); } }
     public string AmplitudeText { get => _amplitude; set { _amplitude = value ?? ""; OnPropertyChanged(); } }
+
+    /// <summary>Амплитуда по (5.9)–(5.11) (поле «мм» не используется).</summary>
+    public bool ByFormula
+    {
+        get => _byFormula;
+        set { if (_byFormula == value) return; _byFormula = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsManual)); }
+    }
+
+    public bool IsManual => !_byFormula;
+
+    /// <summary>Знак «−» амплитуды по (5.9).</summary>
+    public bool Minus { get => _minus; set { _minus = value; OnPropertyChanged(); } }
 }

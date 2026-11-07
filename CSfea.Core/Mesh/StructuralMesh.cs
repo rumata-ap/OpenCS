@@ -554,6 +554,33 @@ public sealed class StructuralMesh : IFeaMesh
     }
 
     /// <summary>
+    /// Усилия концов стержня <paramref name="beam"/> в местных осях (12 чисел: N, Qy, Qz, Mx, My, Mz конца I, затем J) при
+    /// перемещениях <paramref name="u"/> (полные DOF): (K + <paramref name="factor"/>·K_σ(<paramref name="axial"/>))·d, без
+    /// пролётных нагрузок; у шарниров освобождённые DOF восстановлены (<see cref="BeamReleases.Recover"/>), их усилия — 0.
+    /// Для формы потери устойчивости (factor = λ, axial — сила, по которой собрана K_σ) — усилия продольно-поперечного
+    /// изгиба: момент конца = EI·w″ с погрешностью O((kh)⁴) против (kh)²/12 у одного K·d. Внутренний момент: у конца I —
+    /// минус усилие, у J — усилие.
+    /// </summary>
+    public double[] BeamLocalEndForces(int beam, double[] u, double axial = 0, double factor = 0)
+    {
+        var b = Beams[beam];
+        var (t, l) = BeamElements.Beam3dT(BeamCoords(beam), b.RefVec);
+        var kl = BeamElements.Beam3dKLocal(b.Section, l);
+        var d = BeamReleases.Recover(kl, b.Releases, Dense.MatVec(t, Gather(u, BeamDofs(b))));
+        var f = Dense.MatVec(kl, d);
+        if (factor != 0 && axial != 0)
+        {
+            var kg = new double[12, 12];
+            AddBeamKGeometric(kg, axial, l);
+            var g = Dense.MatVec(kg, d);
+            for (int i = 0; i < 12; i++) f[i] += factor * g[i];
+        }
+        int mask = b.Releases;
+        for (int i = 0; i < 12; i++) if ((mask & (1 << i)) != 0) f[i] = 0;
+        return f;
+    }
+
+    /// <summary>
     /// Энергии стержня <paramref name="beam"/> в форме <paramref name="mode"/> (полные DOF) по плоскостям изгиба местных
     /// осей: U = ½·dᵀ·K·d — изгиба, W = ½·dᵀ·(−K_σ)·d — работа продольной силы <paramref name="axial"/> (растяжение —
     /// плюс, у сжатого W ≥ 0). d — местные перемещения концов, у шарниров освобождённые DOF восстановлены по сохранённым

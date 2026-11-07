@@ -105,6 +105,8 @@ public sealed class FemModeReportRow
     public double Lambda { get; set; }
     /// <summary>Амплитуда, м, со знаком и коэффициентом загружения.</summary>
     public double Amplitude { get; set; }
+    /// <summary>Ход амплитуды по EN 1993-1-1 (5.9)–(5.11); пусто — задана вручную.</summary>
+    public string Source { get; set; } = "";
 }
 
 /// <summary>Отчёт несовершенств варианта расчёта (<c>FemCsfeaResultSummary.Imperfections</c>).</summary>
@@ -147,7 +149,8 @@ public sealed class FemImperfectionReport
         }
         foreach (var m in Modes)
             yield return string.Create(c,
-                $"Формы «{m.Label}»: постановка «{m.Analysis}», задача «{m.Case}», форма {m.Mode} (λ = {m.Lambda:0.###}), амплитуда {m.Amplitude * 1000:0.##} мм.");
+                $"Формы «{m.Label}»: постановка «{m.Analysis}», задача «{m.Case}», форма {m.Mode} (λ = {m.Lambda:0.###}), амплитуда {m.Amplitude * 1000:0.##} мм")
+                + (m.Source.Length > 0 ? $" — по EN 1993-1-1 п. 5.3.2(11): {m.Source}." : " (вручную).");
         foreach (var w in WallBows)
             yield return string.Create(c,
                 $"Погибь стены «{w.Label}», {w.Tier}: h_яр = {w.ZTop - w.ZBottom:0.###} м, t = {w.Thickness * 1000:0.#} мм, {w.E0Source}; "
@@ -358,7 +361,7 @@ public static partial class FemImperfectionResolver
                         report.Modes.Add(new FemModeReportRow
                         {
                             Label = modes.Label, Analysis = modes.AnalysisTag, Case = modes.CaseTag, Mode = m.Mode, Lambda = m.Lambda,
-                            Amplitude = m.AmplitudeM,
+                            Amplitude = m.AmplitudeM, Source = m.Source,
                         });
                     report.MaxU0 = Math.Max(report.MaxU0, modes.MaxU0);
                     if (modes.AlphaCr is { } a) report.AlphaCr = AlphaCrLine(a, modes.AnalysisTag, modes.CaseTag);

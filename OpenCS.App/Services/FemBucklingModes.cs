@@ -17,7 +17,7 @@ public sealed record FemBucklingSourceChoice(int AnalysisId, string Tag, string 
 
 /// <summary>
 /// Формы потери устойчивости постановок <see cref="FemBucklingRunner.AnalysisKind"/> для несовершенств (спека 6):
-/// сводка результата, записи форм (<see cref="FemBucklingModeCodec"/>, только v2), сверка отпечатка геометрии
+/// сводка результата, записи форм (<see cref="FemBucklingModeCodec"/>, v2 и v3 — с моментами для (5.9)), сверка отпечатка геометрии
 /// (<see cref="FemGeometryFingerprint"/>) с текущей схемой; α_cr для отчёта несовершенств.
 /// </summary>
 public static class FemBucklingModes
@@ -51,7 +51,7 @@ public static class FemBucklingModes
         }
         return new FemModesLookup
         {
-            AnalysisTag = analysis.Tag, CaseTag = CaseLabel(c), Lambda = c.Lambda, Shapes = shapes,
+            AnalysisTag = analysis.Tag, CaseTag = CaseLabel(c), Lambda = c.Lambda, Shapes = shapes, Axial = c.Axial,
         };
     }
 

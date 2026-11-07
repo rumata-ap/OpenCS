@@ -258,6 +258,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Style="{StaticResource Caption}" Text="{DynamicResource FemImperfectionModesAnalysis}"/>
                         <ComboBox Grid.Column="1" ItemsSource="{Binding BucklingSources}" SelectedItem="{Binding BucklingSource}"
@@ -277,8 +278,30 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{DynamicResource FemImperfectionColMode}" Width="90"
                                                         Binding="{Binding ModeText, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <DataGridTextColumn Header="{DynamicResource FemImperfectionColAmplitude}" Width="140"
-                                                        Binding="{Binding AmplitudeText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <DataGridTemplateColumn Header="{DynamicResource FemImperfectionColAmplitude}" Width="110">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding AmplitudeText, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0"
+                                                         IsEnabled="{Binding IsManual}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="{DynamicResource FemImperfectionColModeFormula}" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding ByFormula, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                          ToolTip="{DynamicResource FemImperfectionColModeFormulaTip}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="{DynamicResource FemImperfectionColModeMinus}" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Minus, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                          IsEnabled="{Binding ByFormula}" ToolTip="{DynamicResource FemImperfectionColModeMinusTip}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Width="Auto">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -293,8 +316,30 @@
                             <Button HorizontalAlignment="Left" Padding="8,1" Content="{DynamicResource FemImperfectionModesAdd}"
                                     Command="{Binding AddModeCommand}"/>
                         </StackPanel>
-                        <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"
+                        <TextBlock Grid.Row="5" Style="{StaticResource Caption}" VerticalAlignment="Top"
+                                   Text="{DynamicResource FemImperfectionModes59}"/>
+                        <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource FemImperfectionModesGammaM1}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox Width="50" Text="{Binding GammaM1Text, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="{DynamicResource FemImperfectionModesGammaM1Tip}"/>
+                                <TextBlock Text="{DynamicResource FemImperfectionModesCurve}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                <ComboBox Width="170" ItemsSource="{x:Static vm:FemImperfectionDialogVM.Curves}" SelectedValuePath="Key"
+                                          DisplayMemberPath="Label" SelectedValue="{Binding ModeCurve}"
+                                          ToolTip="{DynamicResource FemImperfectionModesCurveTip}"/>
+                                <TextBlock Text="{DynamicResource FemImperfectionModesCritical}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                <TextBox Width="70" Text="{Binding CriticalText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="{DynamicResource FemImperfectionModesCriticalTip}"/>
+                            </StackPanel>
+                            <Button HorizontalAlignment="Left" Padding="8,1" Margin="0,4,0,0" Content="{DynamicResource FemImperfectionModesPreview}"
+                                    Command="{Binding PreviewModesCommand}" ToolTip="{DynamicResource FemImperfectionModesPreviewTip}"/>
+                            <TextBox Text="{Binding ModesPreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
+                                     MaxHeight="140" VerticalScrollBarVisibility="Auto" Margin="0,2"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="6" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"
                                    Text="{DynamicResource FemImperfectionModesHint}"/>
+                        <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Foreground="Gray" TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"
+                                   Text="{DynamicResource FemImperfectionModesHint59}"/>
                     </Grid>
                 </GroupBox>
 

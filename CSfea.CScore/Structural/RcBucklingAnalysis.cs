@@ -74,6 +74,55 @@ public sealed class RcBucklingResult
     /// </summary>
     public RcBucklingModeShape ModeShape(double[] mode, IEnumerable<int> nodeIds)
     {
+        var (nodes, bars) = RawShape(mode, nodeIds);
+        double max = Scale(nodes, bars);
+        if (max > 0)
+        {
+            foreach (var u in nodes.Values) for (int k = 0; k < 6; k++) u[k] /= max;
+            foreach (var p in bars.Values) foreach (var u in p) for (int k = 0; k < 3; k++) u[k] /= max;
+        }
+        return new RcBucklingModeShape(nodes, bars);
+    }
+
+    /// <summary>
+    /// Изгибающие моменты формы <paramref name="mode"/> (EI·η″ для EN 1993-1-1 (5.9)) по стержням исходной модели:
+    /// номер стержня → (My, Mz) в местных осях в узле I, промежуточных точках дробления и узле J (n + 2 значения, как
+    /// <see cref="RcBucklingModeShape.BarPoints"/> + концы); моменты подэлементов продольно-поперечного изгиба
+    /// (K_e + λ·K_σ)·d при λ формы <paramref name="lambda"/> и силах <see cref="Axial(int)"/> — EI·w″ концов с погрешностью
+    /// O((kh)⁴) (одно K_e·d завышает на (kh)²/12: 1,3 % при 8 КЭ на полуволну, 5 % при 4); в стыках — среднее соседних.
+    /// Нормирование — тот же множитель, что у <see cref="ModeShape"/> с теми же <paramref name="nodeIds"/> (Н·м на 1 м
+    /// наибольшего поступательного перемещения формы).
+    /// </summary>
+    public IReadOnlyDictionary<int, double[][]> ModeMoments(double[] mode, double lambda, IEnumerable<int> nodeIds)
+    {
+        var (nodes, bars) = RawShape(mode, nodeIds);
+        double max = Scale(nodes, bars);
+        double inv = max > 0 ? 1 / max : 1;
+        var result = new Dictionary<int, double[][]>();
+        foreach (var (beam, subs) in SubBeams)
+        {
+            var m = new double[subs.Length + 1][];
+            for (int k = 0; k < subs.Length; k++)
+            {
+                var f = Build.Mesh.BeamLocalEndForces(subs[k], mode, Axial(subs[k]), lambda);
+                double[] atI = [-f[4] * inv, -f[5] * inv], atJ = [f[10] * inv, f[11] * inv];
+                m[k] = m[k] == null ? atI : [0.5 * (m[k][0] + atI[0]), 0.5 * (m[k][1] + atI[1])];
+                m[k + 1] = atJ;
+            }
+            result[beam] = m;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Продольные силы стержней исходной модели, по которым собрана K_σ (<see cref="Axial(int)"/>): номер стержня →
+    /// наибольшее сжатие по его подэлементам (Н, растяжение — плюс; растянутый во всех — наименьшее растяжение).
+    /// </summary>
+    public IReadOnlyDictionary<int, double> BarAxial() =>
+        SubBeams.ToDictionary(p => p.Key, p => p.Value.Select(Axial).DefaultIfEmpty(0).Min());
+
+    (Dictionary<int, double[]> Nodes, Dictionary<int, double[][]> Bars) RawShape(double[] mode, IEnumerable<int> nodeIds)
+    {
         ArgumentNullException.ThrowIfNull(mode);
         ArgumentNullException.ThrowIfNull(nodeIds);
         var nodes = new Dictionary<int, double[]>();
@@ -83,14 +132,14 @@ public sealed class RcBucklingResult
         foreach (var (beam, subs) in SubBeams)
             if (subs.Length >= 2)
                 bars[beam] = subs.Take(subs.Length - 1).Select(s => mode[(6 * Build.Mesh.Beams[s].J)..(6 * Build.Mesh.Beams[s].J + 3)]).ToArray();
+        return (nodes, bars);
+    }
+
+    // Наибольший модуль поступательного перемещения узла или точки дробления — множитель нормирования формы.
+    static double Scale(Dictionary<int, double[]> nodes, Dictionary<int, double[][]> bars)
+    {
         static double Norm(double[] u) => Math.Sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
-        double max = nodes.Values.Concat(bars.Values.SelectMany(p => p)).Select(Norm).DefaultIfEmpty(0).Max();
-        if (max > 0)
-        {
-            foreach (var u in nodes.Values) for (int k = 0; k < 6; k++) u[k] /= max;
-            foreach (var p in bars.Values) foreach (var u in p) for (int k = 0; k < 3; k++) u[k] /= max;
-        }
-        return new RcBucklingModeShape(nodes, bars);
+        return nodes.Values.Concat(bars.Values.SelectMany(p => p)).Select(Norm).DefaultIfEmpty(0).Max();
     }
 }
 

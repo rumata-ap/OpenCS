@@ -382,7 +382,8 @@ public static partial class FemImperfectionResolver
                     break;
                 }
                 case FemImperfectionKinds.Modes:
-                    if (ResolveModes(label, FemModesParams.Parse(imp.ParamsJson), factor, context, Error) is { } modes) items.Add(modes);
+                    if (ResolveModes(label, FemModesParams.Parse(imp.ParamsJson), factor, context, elements, Error, d => diag.Add(d)) is { } modes)
+                        items.Add(modes);
                     break;
                 case FemImperfectionKinds.WallBow:
                     braced ??= new FemBracedLength(meshElements, meshNodes);
@@ -590,7 +591,7 @@ public static partial class FemImperfectionResolver
     /// с коэффициентом загружения; null — ошибка (в <paramref name="error"/>).
     /// </summary>
     static FemResolvedModes? ResolveModes(string label, FemModesParams p, double factor, FemImperfectionContext? context,
-        Action<string, string> error)
+        IReadOnlyDictionary<string, FemElement> elements, Action<string, string> error, Action<FemValidationDiagnostic> warn)
     {
         if (p.AnalysisId <= 0)
         {
@@ -602,11 +603,13 @@ public static partial class FemImperfectionResolver
             error("imperfection_modes_empty", $"Формы «{label}»: не заданы формы и амплитуды.");
             return null;
         }
-        if (p.Modes.Any(m => m.Mode < 1 || !double.IsFinite(m.AmplitudeMm)))
+        if (p.Modes.Any(m => m.Mode < 1 || !double.IsFinite(m.AmplitudeMm)
+                || m.Amplitude is not (FemModeAmplitude.AmplitudeManual or FemModeAmplitude.AmplitudeEn1993)))
         {
-            error("imperfection_modes_invalid", $"Формы «{label}»: номер формы — целое не меньше 1, амплитуда — число (мм).");
+            error("imperfection_modes_invalid", $"Формы «{label}»: номер формы — целое не меньше 1, амплитуда — число (мм) или по (5.9).");
             return null;
         }
+        if (p.Modes.Any(m => m.IsEn1993) && !ValidModes59(label, p, error)) return null;
         if (p.Modes.Select(m => m.Mode).Distinct().Count() != p.Modes.Count)
         {
             error("imperfection_modes_invalid", $"Формы «{label}»: форма указана дважды.");
@@ -635,9 +638,16 @@ public static partial class FemImperfectionResolver
         var rows = new List<FemResolvedMode>();
         foreach (var m in p.Modes)
         {
-            double a = factor * m.AmplitudeMm / 1000.0;
             var shape = found.Shapes[m.Mode];
-            rows.Add(new FemResolvedMode(m.Mode, found.Lambda[m.Mode - 1], a));
+            double a = factor * m.AmplitudeMm / 1000.0;
+            string source = "";
+            if (m.IsEn1993)
+            {
+                if (Amplitude59(label, p, m, found, shape, elements, context, error, warn) is not { } a59) return null;
+                a = factor * (m.Minus ? -1 : 1) * a59.Amplitude;
+                source = a59.Source;
+            }
+            rows.Add(new FemResolvedMode(m.Mode, found.Lambda[m.Mode - 1], a) { Source = source });
             foreach (var (id, u) in shape.Nodes)
             {
                 var acc = nodes.TryGetValue(id, out var x) ? x : nodes[id] = new double[6];

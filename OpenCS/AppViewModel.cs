@@ -688,8 +688,14 @@ namespace OpenCS
                   t.Height, t.Thickness * 1000, t.E0 * 1000, t.E0Source)));
             return string.Join(Environment.NewLine, lines);
          }
+         // Формы: амплитуды по текущей сетке, сечениям и формам постановки (в т. ч. по (5.9) с ходом).
+         string ModesPreview(CScore.Fem.Imperfections.FemModesParams p)
+         {
+            try { return string.Join(Environment.NewLine, FemCsfeaInputBuilder.ModesPreview(db, schema.Id, p, imperfection.Tag)); }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException) { return ex.Message; }
+         }
          var vm = new ViewModels.FemImperfectionDialogVM(imperfection, SpanZ, FemImperfectionMHint(schema, imperfection),
-            page != null ? page.ImperfectionSelection : null, sources, WallPreview);
+            page != null ? page.ImperfectionSelection : null, sources, WallPreview, ModesPreview);
          var dialog = new Views.FemImperfectionDialog(vm) { Owner = Application.Current.MainWindow };
          if (dialog.ShowDialog() != true || dialog.Result is not { } result) return;
          bool isNew = result.Id == 0;

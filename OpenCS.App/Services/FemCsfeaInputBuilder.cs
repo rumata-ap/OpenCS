@@ -242,6 +242,36 @@ public static class FemCsfeaInputBuilder
         return FemGeometryFingerprint.Compute(data.MeshNodes, data.Mesh, supports, springs, db.GetFemRigidBodies(schemaId));
     }
 
+    /// <summary>
+    /// Предпросмотр элемента «Формы» для диалога (подсрез 5б): резолвер по текущей сетке, сечениям стержней и формам
+    /// постановки — диагностики, затем строки «форма k: a мм — ход (5.9)» (у «мм» — без хода); без предварительного
+    /// расчёта, коэффициент загружения 1.
+    /// </summary>
+    public static IReadOnlyList<string> ModesPreview(DatabaseService db, int schemaId, FemModesParams p, string tag = "")
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(p);
+        var data = FemCheckSchemaData.Load(db, schemaId);
+        if (data.Mesh.Count == 0) return [Loc.S("FemImperfectionWallPreviewNoMesh")];
+        var materials = new Dictionary<int, Material>();
+        foreach (var m in db.Materials) materials.TryAdd(m.Id, m);
+        var beams = BeamSections(db, data, materials, []);
+        string geometry = GeometryFingerprint(db, schemaId);
+        var context = new FemImperfectionContext
+        {
+            BeamCross = beams.Count == 0 ? null : t => beams.GetValueOrDefault(t)?.Section,
+            Modes = q => FemBucklingModes.Lookup(db, schemaId, geometry, q),
+        };
+        var probe = new FemImperfection { Kind = FemImperfectionKinds.Modes, Tag = tag, ParamsJson = p.ToJson() };
+        var r = FemImperfectionResolver.Resolve([(probe, 1.0)], data.Mesh, data.MeshNodes, data.Members, context);
+        var c = CultureInfo.CurrentCulture;
+        var lines = r.Diagnostics.Select(d => d.Message).ToList();
+        if (r.Items.OfType<FemResolvedModes>().FirstOrDefault() is { } modes)
+            lines.AddRange(modes.Modes.Select(m => string.Format(c, Loc.S("FemImperfectionModesPreviewRow"), m.Mode, m.AmplitudeM * 1000,
+                m.Source.Length > 0 ? m.Source : Loc.S("FemImperfectionModesPreviewManual"))));
+        return lines;
+    }
+
     // ---------------------------------------------------------------- ГУ разрезов фрагмента
 
     /// <summary>

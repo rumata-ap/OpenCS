@@ -2550,12 +2550,14 @@ public sealed record FemImperfectionWallBowRow(string Label, string Tier, string
     }
 }
 
-public sealed record FemImperfectionModeRow(string Label, string Analysis, string Case, int Mode, string Lambda, string AmplitudeMm)
+public sealed record FemImperfectionModeRow(string Label, string Analysis, string Case, int Mode, string Lambda, string AmplitudeMm,
+    string Source)
 {
     public static FemImperfectionModeRow Of(CScore.Fem.Imperfections.FemModeReportRow r)
     {
         var c = CultureInfo.CurrentCulture;
-        return new(r.Label, r.Analysis, r.Case, r.Mode, r.Lambda.ToString("0.###", c), (r.Amplitude * 1000).ToString("0.##", c));
+        return new(r.Label, r.Analysis, r.Case, r.Mode, r.Lambda.ToString("0.###", c), (r.Amplitude * 1000).ToString("0.##", c),
+            r.Source.Length > 0 ? r.Source : Loc.S("FemImperfectionModesPreviewManual"));
     }
 }
 

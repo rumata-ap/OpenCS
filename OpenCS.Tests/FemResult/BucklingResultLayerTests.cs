@@ -37,7 +37,7 @@ public sealed class BucklingResultLayerTests
             Units = FemSteelBuckling.Summarize(input, r),
             Cases = [new FemBucklingCaseSummary { Tag = c.Tag, Lambda = c.Result.Lambda, Converged = true, Units = 1, FirstRecord = 1 }],
         };
-        var records = c.Result.Modes.Select((mode, k) => (k + 1, FemBucklingModeCodec.Encode(FemBucklingRunner.Mode(input, c.Result, mode))))
+        var records = c.Result.Modes.Select((mode, k) => (k + 1, FemBucklingModeCodec.Encode(FemBucklingRunner.Mode(input, c.Result, mode, c.Result.Lambda[k]))))
             .ToDictionary(x => x.Item1, x => x.Item2);
         return (summary, records);
     }
